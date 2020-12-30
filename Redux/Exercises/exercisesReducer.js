@@ -4,8 +4,6 @@ const initialState = {
 
 const exerciseReducer = (state = initialState, action) => {
   switch (action.type) {
-    case 'GET_EXERCISES':
-      return state.exercises;
     default:
       return state;
   }
