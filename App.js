@@ -16,7 +16,7 @@ const App: () => React$Node = () => {
       <NavigationContainer>
         <Stack.Navigator>
           <Stack.Screen name="Exercises" component={Exercise} />
-          <Stack.Screen name="ExerciseItem" component={ExerciseItem} />
+          <Stack.Screen name="Exercise" component={ExerciseItem} />
         </Stack.Navigator>
       </NavigationContainer>
     </Provider>

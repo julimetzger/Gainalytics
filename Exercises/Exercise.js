@@ -9,7 +9,7 @@ const Exercise = ({navigation, exercises}) => {
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" style={styles.scrollView}>
       {exerciseList.map((exercise) => (
-        <Pressable onPress={() => navigation.navigate('ExerciseItem', {name: exercise.name})} style={styles.exerciseItem}>
+        <Pressable onPress={() => navigation.navigate('Exercise', {name: exercise.name})} style={styles.exerciseItem}>
           <Text style={styles.exerciseText}> {exercise.name}</Text>
         </Pressable>
       ))}
