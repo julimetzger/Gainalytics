@@ -2,9 +2,10 @@ import React from 'react';
 import {ScrollView, StyleSheet, Text} from 'react-native';
 import Pressable from 'react-native/Libraries/Components/Pressable/Pressable';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
+import connect from 'react-redux/lib/connect/connect';
 
-const Exercise = ({navigation}) => {
-  const exerciseList = [{name: 'Bankdrücken'}, {name: 'Squat'}, {name: 'Deadlift'}];
+const Exercise = ({navigation, exercises}) => {
+  const exerciseList = exercises.exercises;
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" style={styles.scrollView}>
       {exerciseList.map((exercise) => (
@@ -44,4 +45,9 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Exercise;
+const mapStateToProps = (state) => {
+  const {exercises} = state;
+  return {exercises};
+};
+
+export default connect(mapStateToProps)(Exercise);
