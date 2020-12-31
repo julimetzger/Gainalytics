@@ -7,9 +7,9 @@ import connect from 'react-redux/lib/connect/connect';
 const Exercise = ({navigation, exercises}) => {
   const exerciseList = exercises.exercises;
   return (
-    <ScrollView contentInsetAdjustmentBehavior="automatic" style={styles.scrollView}>
+    <ScrollView contentInsetAdjustmentBehavior="automatic">
       {exerciseList.map((exercise) => (
-        <Pressable onPress={() => navigation.navigate('Exercise', {name: exercise.name})} style={styles.exerciseItem}>
+        <Pressable key={exercise.name} onPress={() => navigation.navigate('Exercise', {name: exercise.name})} style={styles.exerciseItem}>
           <Text style={styles.exerciseText}> {exercise.name}</Text>
         </Pressable>
       ))}
@@ -18,30 +18,16 @@ const Exercise = ({navigation, exercises}) => {
 };
 
 const styles = StyleSheet.create({
-  scrollView: {
-    backgroundColor: Colors.dark,
-  },
   exerciseItem: {
     height: 40,
     borderBottomColor: 'black',
     borderBottomWidth: 1,
-  },
-  text: {
-    alignContent: 'center',
-    fontSize: 40,
-    textAlign: 'center',
-    color: Colors.primary,
   },
   exerciseText: {
     fontSize: 20,
     textAlign: 'left',
     textAlignVertical: 'center',
     color: Colors.primary,
-  },
-  header: {
-    backgroundColor: Colors.light,
-    borderBottomColor: 'black',
-    borderBottomWidth: 0,
   },
 });
 
