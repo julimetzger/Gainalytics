@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {Button, ScrollView, Text, TextInput, View, StyleSheet} from 'react-native';
 import NumericInput from 'react-native-numeric-input';
-import {addSetToTraining} from '../Redux/Exercises/exercisesActions';
+import {addSetToTraining} from '../reduxStates/Exercises/exercisesActions';
 import {bindActionCreators} from 'redux';
 import connect from 'react-redux/lib/connect/connect';
 
