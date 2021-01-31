@@ -12,16 +12,18 @@ const {store, persistor} = confiugureStore();
 
 const App: () => React$Node = () => {
   return (
-    <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
-        <NavigationContainer>
-          <Stack.Navigator>
-            <Stack.Screen name="Exercises" component={Exercise} />
-            <Stack.Screen name="Exercise" component={ExerciseItem} options={({route}) => ({title: route.params.name})} />
-          </Stack.Navigator>
-        </NavigationContainer>
-      </PersistGate>
-    </Provider>
+    <>
+      <Provider store={store}>
+        <PersistGate loading={null} persistor={persistor}>
+          <NavigationContainer>
+            <Stack.Navigator>
+              <Stack.Screen name="Exercises" component={Exercise} />
+              <Stack.Screen name="Exercise" component={ExerciseItem} options={({route}) => ({title: route.params.name})} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </PersistGate>
+      </Provider>
+    </>
   );
 };
 

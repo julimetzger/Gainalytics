@@ -1,21 +1,22 @@
 import {applyMiddleware, createStore} from 'redux';
 import {persistStore, persistReducer} from 'redux-persist';
-import reducer from './reduxStates/reducer';
+import rootReducer from './reduxStates/rootReducer';
 import AsyncStorage from '@react-native-community/async-storage';
 import {createLogger} from 'redux-logger';
-import autoMergeLevel2 from 'redux-persist/lib/stateReconciler/autoMergeLevel2';
+import hardSet from 'redux-persist/lib/stateReconciler/hardSet';
+import {composeWithDevTools} from 'redux-devtools-extension';
 
 const persistConfig = {
   key: 'root',
   storage: AsyncStorage,
-  blacklist: [],
-  stateReconciler: autoMergeLevel2,
+  whitelist: ['exercises'],
+  stateReconciler: hardSet,
 };
 
-const persistedReducer = persistReducer(persistConfig, reducer);
+const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export default () => {
-  let store = createStore(persistedReducer, applyMiddleware(createLogger()));
+  let store = createStore(persistedReducer, composeWithDevTools(applyMiddleware(createLogger())));
   let persistor = persistStore(store);
   return {store, persistor};
 };
