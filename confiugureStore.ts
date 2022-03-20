@@ -13,6 +13,7 @@ const persistConfig = {
   stateReconciler: hardSet,
 };
 
+// @ts-ignore
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export default () => {
