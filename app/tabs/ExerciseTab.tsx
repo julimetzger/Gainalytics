@@ -1,17 +1,19 @@
 import React from 'react';
-import {Pressable, ScrollView, StyleSheet, Text} from 'react-native';
-import {Colors} from 'react-native/Libraries/NewAppScreen';
+import {Pressable, ScrollView, StyleSheet} from 'react-native';
 import {ExerciseState, GlobalState} from '../redux/rootReducer';
 import {connect} from 'react-redux';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../routing/rootRouter';
+import {Divider, useTheme, Text} from 'react-native-paper';
 
 const ExerciseTab = ({navigation, exercises}: Props & ExerciseState) => {
+  const theme = useTheme();
   return (
-    <ScrollView contentInsetAdjustmentBehavior="automatic">
+    <ScrollView contentInsetAdjustmentBehavior="automatic" style={{backgroundColor: theme.colors.background}}>
       {exercises.map((exercise) => (
-        <Pressable key={exercise.name} onPress={() => navigation.navigate({name: 'AddExerciseTab', params: {exercise: exercise}})} style={styles.exerciseItem}>
+        <Pressable key={exercise.name} onPress={() => navigation.navigate({name: 'AddExerciseTab', params: {exercise: exercise}})}>
           <Text style={styles.exerciseText}> {exercise.name}</Text>
+          <Divider />
         </Pressable>
       ))}
     </ScrollView>
@@ -19,16 +21,10 @@ const ExerciseTab = ({navigation, exercises}: Props & ExerciseState) => {
 };
 
 const styles = StyleSheet.create({
-  exerciseItem: {
-    height: 40,
-    borderBottomColor: Colors.primary,
-    borderBottomWidth: 1,
-  },
   exerciseText: {
     fontSize: 20,
     textAlign: 'left',
     textAlignVertical: 'center',
-    color: Colors.primary,
   },
 });
 

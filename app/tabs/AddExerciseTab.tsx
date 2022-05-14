@@ -6,16 +6,17 @@ import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../routing/rootRouter';
 import {connect} from 'react-redux';
 import {GlobalState} from '../redux/rootReducer';
-import {TextInput, Text, Button} from 'react-native-paper';
+import {TextInput, Text, Button, useTheme} from 'react-native-paper';
 const AddExerciseTab = (props: Props & OwnProps) => {
   const [setCount, setSetCount] = useState(1);
   const [weight, setWeight] = useState<number>(0);
   const [rir, setRPE] = useState<number>(0);
   const [reps, setReps] = useState<number>(0);
   const [sets, setTrainings] = useState<WorkoutSet[]>([]);
+  const theme = useTheme();
   const today = new Date();
   return (
-    <ScrollView>
+    <ScrollView style={{backgroundColor: theme.colors.background}}>
       <View style={{alignSelf: 'center'}}>
         <Text style={{alignSelf: 'center'}}> Set {setCount}</Text>
         <TextInput mode="flat" label="Weight" value={weight.toString()} style={styles.textInput} onChangeText={(value) => setWeight(Number.parseFloat(value))} keyboardType="numeric" />
@@ -51,7 +52,7 @@ const AddExerciseTab = (props: Props & OwnProps) => {
 
 const styles = StyleSheet.create({
   textInput: {
-    height: 40,
+    height: 50,
     width: 80,
     alignSelf: 'center',
   },
