@@ -3,11 +3,10 @@ import {PersistGate} from 'redux-persist/integration/react';
 import {Provider} from 'react-redux';
 import confiugureStore from './confiugureStore';
 import RootRouter from './app/routing/rootRouter';
-import {NavigationContainer, DarkTheme as NavigationDarkTheme, DefaultTheme as NavigationDefaultTheme} from '@react-navigation/native';
-import {DarkTheme as PaperDarkTheme, DefaultTheme as PaperDefaultTheme, Provider as PaperProvider} from 'react-native-paper';
+import {NavigationContainer, DarkTheme as NavigationDarkTheme} from '@react-navigation/native';
+import {DarkTheme as PaperDarkTheme, Provider as PaperProvider} from 'react-native-paper';
 import merge from 'deepmerge';
 
-const CombinedDefaultTheme = merge(PaperDefaultTheme, NavigationDefaultTheme);
 const CombinedDarkTheme = merge(PaperDarkTheme, NavigationDarkTheme);
 
 const {store, persistor} = confiugureStore();
@@ -16,7 +15,7 @@ export const PaperThemes = {
   ...CombinedDarkTheme,
   colors: {
     ...CombinedDarkTheme.colors,
-    dark: false,
+    dark: true,
   },
 };
 

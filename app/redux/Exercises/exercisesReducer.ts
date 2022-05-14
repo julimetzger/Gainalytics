@@ -19,6 +19,14 @@ const exerciseReducer = (state: ExerciseState = initialState, action: AnyAction)
         exercises: excercises,
       };
     }
+    case 'ADD_EXERCISE': {
+      const excercises: Exercise[] = [...state.exercises];
+      excercises.push({name: action.nameOfExercise, workouts: []} as Exercise);
+      return {
+        ...state,
+        exercises: excercises,
+      };
+    }
     default:
       return state;
   }
