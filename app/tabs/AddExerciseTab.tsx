@@ -8,11 +8,19 @@ import {connect} from 'react-redux';
 import {GlobalState} from '../redux/rootReducer';
 import {TextInput, Text, Button, useTheme} from 'react-native-paper';
 
+function convertToNumber(value: string) {
+  return Number.parseFloat(value);
+}
+
+function ensureFormat(value: string): string {
+  return value.replace(',', '.');
+}
+
 const AddExerciseTab = (props: Props & OwnProps) => {
   const [setCount, setSetCount] = useState(1);
-  const [weight, setWeight] = useState<number>(0);
-  const [rir, setRPE] = useState<number>(0);
-  const [reps, setReps] = useState<number>(0);
+  const [weight, setWeight] = useState<string>('');
+  const [rir, setRPE] = useState<string>('');
+  const [reps, setReps] = useState<string>('');
   const [sets, setTrainings] = useState<WorkoutSet[]>([]);
   const theme = useTheme();
   const today = new Date();
@@ -20,14 +28,14 @@ const AddExerciseTab = (props: Props & OwnProps) => {
     <ScrollView style={{backgroundColor: theme.colors.background}}>
       <View style={{alignSelf: 'center'}}>
         <Text style={{alignSelf: 'center'}}> Set {setCount}</Text>
-        <TextInput mode="flat" label="Weight" value={weight.toString()} style={styles.textInput} onChangeText={(value) => setWeight(Number.parseFloat(value))} keyboardType="numeric" />
-        <TextInput mode="flat" label="RIR" value={rir.toString()} style={styles.textInput} onChangeText={(value) => setRPE(Number.parseFloat(value))} keyboardType="numeric" />
-        <TextInput mode="flat" label="Reps" value={reps.toString()} style={styles.textInput} onChangeText={(value) => setReps(Number.parseFloat(value))} keyboardType="numeric" />
+        <TextInput mode="flat" label="Weight" value={weight.toString()} style={styles.textInput} onChangeText={(value) => setWeight(ensureFormat(value))} keyboardType="numeric" />
+        <TextInput mode="flat" label="RIR" value={rir.toString()} style={styles.textInput} onChangeText={(value) => setRPE(ensureFormat(value))} keyboardType="numeric" />
+        <TextInput mode="flat" label="Reps" value={reps.toString()} style={styles.textInput} onChangeText={(value) => setReps(ensureFormat(value))} keyboardType="numeric" />
       </View>
       <Button
         style={styles.textInput}
         onPress={() => {
-          sets.push({date: today, weight, reps, rir} as WorkoutSet);
+          sets.push({date: today, weight: convertToNumber(weight), reps: convertToNumber(reps), rir: convertToNumber(rir)} as WorkoutSet);
           setTrainings(sets);
           setSetCount(setCount + 1);
         }}>
