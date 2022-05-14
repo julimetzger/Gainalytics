@@ -1,7 +1,7 @@
 import React from 'react';
 import {Pressable, ScrollView, StyleSheet, Text} from 'react-native';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
-import {ExerciseState, GlobalState} from '../reduxStates/rootReducer';
+import {ExerciseState, GlobalState} from '../redux/rootReducer';
 import {connect} from 'react-redux';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../routing/rootRouter';

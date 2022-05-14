@@ -3,8 +3,8 @@ import {NavigationContainer} from '@react-navigation/native';
 import {PersistGate} from 'redux-persist/integration/react';
 import {Provider} from 'react-redux';
 import confiugureStore from './confiugureStore';
-import RootRouter from './routing/rootRouter';
 import {DefaultTheme as PaperTheme, Provider as PaperProvider} from 'react-native-paper';
+import RootRouter from './app/routing/rootRouter';
 
 const {store, persistor} = confiugureStore();
 
@@ -24,11 +24,11 @@ const App: () => React.ReactElement = () => {
     <>
       <Provider store={store}>
         <PersistGate loading={null} persistor={persistor}>
-          <NavigationContainer>
-            <PaperProvider theme={PaperThemes}>
+          <PaperProvider theme={PaperThemes}>
+            <NavigationContainer>
               <RootRouter />
-            </PaperProvider>
-          </NavigationContainer>
+            </NavigationContainer>
+          </PaperProvider>
         </PersistGate>
       </Provider>
     </>

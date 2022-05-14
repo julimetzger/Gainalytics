@@ -1,11 +1,11 @@
 import React, {useState} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
-import {addSetToTraining} from '../reduxStates/Exercises/exercisesActions';
+import {addSetToTraining} from '../redux/Exercises/exercisesActions';
 import {bindActionCreators, Dispatch} from 'redux';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../routing/rootRouter';
 import {connect} from 'react-redux';
-import {GlobalState} from '../reduxStates/rootReducer';
+import {GlobalState} from '../redux/rootReducer';
 import {TextInput, Text, Button} from 'react-native-paper';
 const AddExerciseTab = (props: Props & OwnProps) => {
   const [setCount, setSetCount] = useState(1);

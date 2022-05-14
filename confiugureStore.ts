@@ -1,6 +1,6 @@
 import {applyMiddleware, createStore} from 'redux';
 import {persistStore, persistReducer} from 'redux-persist';
-import rootReducer from './reduxStates/rootReducer';
+import rootReducer from './app/redux/rootReducer';
 import AsyncStorage from '@react-native-community/async-storage';
 import {createLogger} from 'redux-logger';
 import hardSet from 'redux-persist/lib/stateReconciler/hardSet';

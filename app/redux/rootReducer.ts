@@ -1,5 +1,5 @@
-import exerciseReducer from './Exercises/exercisesReducer';
 import {combineReducers} from 'redux';
+import exerciseReducer from './Exercises/exercisesReducer';
 
 export interface ExerciseState {
   exercises: Exercise[];
