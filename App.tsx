@@ -16,7 +16,7 @@ export const PaperThemes = {
   ...CombinedDarkTheme,
   colors: {
     ...CombinedDarkTheme.colors,
-    dark: true,
+    dark: false,
   },
 };
 
@@ -26,7 +26,7 @@ const App: () => React.ReactElement = () => {
       <Provider store={store}>
         <PersistGate loading={null} persistor={persistor}>
           <PaperProvider theme={PaperThemes}>
-            <NavigationContainer>
+            <NavigationContainer theme={PaperThemes}>
               <RootRouter />
             </NavigationContainer>
           </PaperProvider>
