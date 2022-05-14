@@ -21,7 +21,7 @@ const ExerciseTab = ({navigation, exercises}: Props & ExerciseState) => {
 const styles = StyleSheet.create({
   exerciseItem: {
     height: 40,
-    borderBottomColor: 'black',
+    borderBottomColor: Colors.primary,
     borderBottomWidth: 1,
   },
   exerciseText: {
