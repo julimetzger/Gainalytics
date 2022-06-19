@@ -2,10 +2,10 @@ import React from 'react';
 import {PersistGate} from 'redux-persist/integration/react';
 import {Provider} from 'react-redux';
 import confiugureStore from './confiugureStore';
-import RootRouter from './app/routing/rootRouter';
 import {NavigationContainer, DarkTheme as NavigationDarkTheme} from '@react-navigation/native';
 import {DarkTheme as PaperDarkTheme, Provider as PaperProvider} from 'react-native-paper';
 import merge from 'deepmerge';
+import {BottomTabs} from './app/routing/bottomNavigator';
 
 const CombinedDarkTheme = merge(PaperDarkTheme, NavigationDarkTheme);
 
@@ -26,7 +26,7 @@ const App: () => React.ReactElement = () => {
         <PersistGate loading={null} persistor={persistor}>
           <PaperProvider theme={PaperThemes}>
             <NavigationContainer theme={PaperThemes}>
-              <RootRouter />
+              <BottomTabs />
             </NavigationContainer>
           </PaperProvider>
         </PersistGate>

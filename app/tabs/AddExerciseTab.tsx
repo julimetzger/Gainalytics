@@ -8,14 +8,6 @@ import {connect} from 'react-redux';
 import {GlobalState} from '../redux/rootReducer';
 import {TextInput, Text, Button, useTheme} from 'react-native-paper';
 
-function convertToNumber(value: string) {
-  return Number.parseFloat(value);
-}
-
-function ensureFormat(value: string): string {
-  return value.replace(',', '.');
-}
-
 const AddExerciseTab = (props: Props & OwnProps) => {
   const [setCount, setSetCount] = useState(1);
   const [weight, setWeight] = useState<string>('');
@@ -58,6 +50,14 @@ const AddExerciseTab = (props: Props & OwnProps) => {
     </ScrollView>
   );
 };
+
+function convertToNumber(value: string) {
+  return Number.parseFloat(value);
+}
+
+function ensureFormat(value: string): string {
+  return value.replace(',', '.');
+}
 
 const styles = StyleSheet.create({
   textInput: {
