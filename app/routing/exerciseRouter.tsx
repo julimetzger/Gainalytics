@@ -8,7 +8,7 @@ export type RootStackParamList = {
   AddExerciseTab: {exercise: Exercise};
 };
 
-const RootRouter = () => {
+const ExerciseRouter = () => {
   const Stack = createStackNavigator<RootStackParamList>();
   return (
     <Stack.Navigator initialRouteName="Exercises">
@@ -18,4 +18,4 @@ const RootRouter = () => {
   );
 };
 
-export default RootRouter;
+export default ExerciseRouter;

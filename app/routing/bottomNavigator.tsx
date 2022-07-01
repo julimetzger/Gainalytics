@@ -1,6 +1,7 @@
 import React from 'react';
 import {createMaterialBottomTabNavigator} from '@react-navigation/material-bottom-tabs';
-import RootRouter from './rootRouter';
+import ExerciseRouter from './exerciseRouter';
+import History from '../components/History';
 
 const Tab = createMaterialBottomTabNavigator();
 
@@ -9,21 +10,21 @@ export const BottomTabs = () => {
     <Tab.Navigator initialRouteName="Feed" shifting={true} sceneAnimationEnabled={false}>
       <Tab.Screen
         name="Exercises"
-        component={RootRouter}
+        component={ExerciseRouter}
         options={{
           tabBarIcon: 'weight-lifter',
         }}
       />
       <Tab.Screen
         name="History"
-        component={RootRouter}
+        component={History}
         options={{
           tabBarIcon: 'history',
         }}
       />
       <Tab.Screen
         name="Routines"
-        component={RootRouter}
+        component={ExerciseRouter}
         options={{
           tabBarIcon: 'message-text-outline',
         }}

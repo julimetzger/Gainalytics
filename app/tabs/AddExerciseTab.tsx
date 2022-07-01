@@ -3,7 +3,7 @@ import {ScrollView, StyleSheet, View} from 'react-native';
 import {addSetToTraining} from '../redux/Exercises/addSetToTraining';
 import {bindActionCreators, Dispatch} from 'redux';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {RootStackParamList} from '../routing/rootRouter';
+import {RootStackParamList} from '../routing/exerciseRouter';
 import {connect} from 'react-redux';
 import {GlobalState} from '../redux/rootReducer';
 import {TextInput, Text, Button, useTheme} from 'react-native-paper';
