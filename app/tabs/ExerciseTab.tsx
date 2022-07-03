@@ -1,15 +1,15 @@
 import React, {useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
-import {ExerciseState, GlobalState} from '../redux/rootReducer';
-import {connect} from 'react-redux';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../routing/exerciseRouter';
 import {Divider, useTheme, Text, TextInput} from 'react-native-paper';
 import AddExercise from '../components/AddExercise';
+import {useAlleExercises} from '../redux/Exercises/useAllExercises';
 
-const ExerciseTab = ({navigation, exercises}: Props & ExerciseState) => {
+const ExerciseTab = ({navigation}: Props) => {
   const theme = useTheme();
   const [filter, setFilter] = useState('');
+  const exercises = useAlleExercises();
 
   return (
     <View style={{backgroundColor: theme.colors.background}}>
@@ -18,7 +18,14 @@ const ExerciseTab = ({navigation, exercises}: Props & ExerciseState) => {
         {exercises
           .filter((exercise) => exercise.name.toLowerCase().includes(filter.toLowerCase()))
           .map((exercise) => (
-            <Pressable key={exercise.name} onPress={() => navigation.navigate({name: 'AddExerciseTab', params: {exercise: exercise}})}>
+            <Pressable
+              key={exercise.name}
+              onPress={() =>
+                navigation.navigate({
+                  name: 'AddExerciseTab',
+                  params: {exercise: exercise},
+                })
+              }>
               <Text style={styles.exerciseText}> {exercise.name}</Text>
               <Divider />
             </Pressable>
@@ -39,9 +46,4 @@ const styles = StyleSheet.create({
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Exercises'>;
 
-const mapStateToProps = (state: GlobalState) => {
-  const {exercises} = state;
-  return exercises;
-};
-
-export default connect(mapStateToProps)(ExerciseTab);
+export default ExerciseTab;

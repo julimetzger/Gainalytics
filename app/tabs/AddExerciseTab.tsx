@@ -1,12 +1,9 @@
 import React, {useState} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
-import {addSetToTraining} from '../redux/Exercises/addSetToTraining';
-import {bindActionCreators, Dispatch} from 'redux';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../routing/exerciseRouter';
-import {connect} from 'react-redux';
-import {GlobalState} from '../redux/rootReducer';
-import {TextInput, Text, Button, useTheme} from 'react-native-paper';
+import {Button, Text, TextInput, useTheme} from 'react-native-paper';
+import {useDispatchAddSetToTraining} from '../redux/Exercises/dispatchAddSetToTraining';
 
 const AddExerciseTab = (props: Props & OwnProps) => {
   const [setCount, setSetCount] = useState(1);
@@ -14,6 +11,7 @@ const AddExerciseTab = (props: Props & OwnProps) => {
   const [rir, setRPE] = useState<string>('');
   const [reps, setReps] = useState<string>('');
   const [sets, setTrainings] = useState<WorkoutSet[]>([]);
+  let dispatchAddSetToTraining = useDispatchAddSetToTraining();
   const theme = useTheme();
   const today = new Date();
   return (
@@ -42,7 +40,7 @@ const AddExerciseTab = (props: Props & OwnProps) => {
       </View>
       <Button
         onPress={() => {
-          props.addSetToTraining({sets: sets, notes: ''}, props.route.params.exercise);
+          dispatchAddSetToTraining({sets: sets, notes: ''}, props.route.params.exercise);
           props.navigation.navigate({name: 'Exercises', params: undefined});
         }}>
         Add Workout
@@ -69,21 +67,4 @@ const styles = StyleSheet.create({
 
 export type Props = NativeStackScreenProps<RootStackParamList, 'AddExerciseTab'>;
 
-const mapDispatchToProps = (dispatch: Dispatch) =>
-  bindActionCreators(
-    {
-      addSetToTraining,
-    },
-    dispatch,
-  );
-
-const mapStateToProps = (state: GlobalState) => {
-  const {exercises} = state;
-  return {exercises};
-};
-
-interface OwnProps {
-  addSetToTraining: typeof addSetToTraining;
-}
-
-export default connect(mapStateToProps, mapDispatchToProps)(AddExerciseTab);
+export default AddExerciseTab;

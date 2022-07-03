@@ -1,13 +1,12 @@
 import {Badge, Button, Dialog, Portal, TextInput} from 'react-native-paper';
 import {View} from 'react-native';
 import React, {useState} from 'react';
-import {bindActionCreators, Dispatch} from 'redux';
-import {addExercise} from '../redux/Exercises/addExercise';
-import {connect} from 'react-redux';
+import {useDispatchAddExercise} from '../redux/Exercises/dispatchAddExercise';
 
-const AddExercise = (props: OwnProps) => {
+const AddExercise = () => {
   const [visible, setVisible] = React.useState(false);
   const [newExercise, setNewExercise] = useState('');
+  let dispatchAddExercise = useDispatchAddExercise();
 
   const showDialog = () => setVisible(true);
 
@@ -15,7 +14,7 @@ const AddExercise = (props: OwnProps) => {
 
   const confirmDialog = () => {
     setVisible(false);
-    props.addExercise(newExercise);
+    dispatchAddExercise(newExercise);
   };
 
   return (
@@ -43,16 +42,4 @@ const AddExercise = (props: OwnProps) => {
   );
 };
 
-const mapDispatchToProps = (dispatch: Dispatch) =>
-  bindActionCreators(
-    {
-      addExercise,
-    },
-    dispatch,
-  );
-
-interface OwnProps {
-  addExercise: typeof addExercise;
-}
-
-export default connect(null, mapDispatchToProps)(AddExercise);
+export default AddExercise;
