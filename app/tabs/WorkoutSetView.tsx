@@ -1,13 +1,16 @@
 import {View} from "react-native";
 import {Text} from "react-native-paper";
+import { DataTable } from 'react-native-paper';
 import React from "react";
 
 const WorkoutSetView = ({sets} :WorkoutSetViewProps ) => {
     return <View>
         {sets.map((training) => (
-            <Text>
-                {training.reps}@{training.weight} rir {training.rir}
-            </Text>
+            <DataTable.Row>
+                <DataTable.Cell>{training.reps+" reps"}</DataTable.Cell>
+                <DataTable.Cell>{training.weight+ " kg"}</DataTable.Cell>
+                <DataTable.Cell>{training.rir+ " RIR"}</DataTable.Cell>
+            </DataTable.Row>
         ))}
     </View>;
 }

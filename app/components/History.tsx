@@ -1,7 +1,7 @@
 import React from 'react';
 import {ScrollView, View} from 'react-native';
 import {useAllLastWorkouts} from '../redux/Workout/useAllLastWorkouts';
-import {Text, useTheme} from 'react-native-paper';
+import {DataTable, Text, useTheme} from 'react-native-paper';
 import {useExerciseById} from "../redux/Exercises/useExerciseById";
 import WorkoutSetView from "../tabs/WorkoutSetView";
 
@@ -15,7 +15,7 @@ const History = () => {
                     {Array.from(exerciseToDate.entries(), ([key, workout]) => {
                         return (
                             <View>
-                                <Text>{key + " " + getDateStringFromDate(workout.end)}</Text>
+                                <Text style={{fontSize: 20}}>{key + " " + getDateStringFromDate(workout.end)}</Text>
                                 <WorkoutSetView sets={workout.sets}/>
                             </View>
                         );
