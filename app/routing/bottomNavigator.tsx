@@ -2,6 +2,7 @@ import React from 'react';
 import {createMaterialBottomTabNavigator} from '@react-navigation/material-bottom-tabs';
 import ExerciseRouter from './exerciseRouter';
 import History from '../components/History';
+import HistoryRouter from "./HistoryRouter";
 
 const Tab = createMaterialBottomTabNavigator();
 
@@ -17,7 +18,7 @@ export const BottomTabs = () => {
       />
       <Tab.Screen
         name="History"
-        component={History}
+        component={HistoryRouter}
         options={{
           tabBarIcon: 'history',
         }}

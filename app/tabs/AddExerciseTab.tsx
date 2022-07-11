@@ -3,9 +3,10 @@ import {ScrollView, StyleSheet, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../routing/exerciseRouter';
 import {Button, Text, TextInput, useTheme} from 'react-native-paper';
-import {useDispatchAddSetToTraining} from '../redux/Exercises/dispatchAddSetToTraining';
+import {useDispatchAddSetToTraining} from '../redux/Workout/dispatchAddSetToTraining';
+import WorkoutSetView from "./WorkoutSetView";
 
-const AddExerciseTab = (props: Props & OwnProps) => {
+const AddExerciseTab = (props: Props) => {
   const [setCount, setSetCount] = useState(1);
   const [weight, setWeight] = useState<string>('');
   const [rir, setRPE] = useState<string>('');
@@ -16,35 +17,37 @@ const AddExerciseTab = (props: Props & OwnProps) => {
   const today = new Date();
   return (
     <ScrollView style={{backgroundColor: theme.colors.background}}>
-      <View style={{alignSelf: 'center'}}>
-        <Text style={{alignSelf: 'center'}}> Set {setCount}</Text>
-        <TextInput mode="flat" label="Weight" value={weight.toString()} style={styles.textInput} onChangeText={(value) => setWeight(ensureFormat(value))} keyboardType="numeric" />
-        <TextInput mode="flat" label="RIR" value={rir.toString()} style={styles.textInput} onChangeText={(value) => setRPE(ensureFormat(value))} keyboardType="numeric" />
-        <TextInput mode="flat" label="Reps" value={reps.toString()} style={styles.textInput} onChangeText={(value) => setReps(ensureFormat(value))} keyboardType="numeric" />
-      </View>
-      <Button
-        style={styles.textInput}
-        onPress={() => {
-          sets.push({date: today, weight: convertToNumber(weight), reps: convertToNumber(reps), rir: convertToNumber(rir)} as WorkoutSet);
-          setTrainings(sets);
-          setSetCount(setCount + 1);
-        }}>
-        Add
-      </Button>
-      <View>
-        {sets.map((training) => (
-          <Text>
-            {training.reps}@{training.weight} rir {training.rir}
-          </Text>
-        ))}
-      </View>
-      <Button
-        onPress={() => {
-          dispatchAddSetToTraining({sets: sets, notes: ''}, props.route.params.exercise);
-          props.navigation.navigate({name: 'Exercises', params: undefined});
-        }}>
-        Add Workout
-      </Button>
+        <View style={{alignSelf: 'center'}}>
+            <Text style={{alignSelf: 'center'}}> Set {setCount}</Text>
+            <TextInput mode="flat" label="Weight" value={weight.toString()} style={styles.textInput}
+                       onChangeText={(value) => setWeight(ensureFormat(value))} keyboardType="numeric"/>
+            <TextInput mode="flat" label="RIR" value={rir.toString()} style={styles.textInput}
+                       onChangeText={(value) => setRPE(ensureFormat(value))} keyboardType="numeric"/>
+            <TextInput mode="flat" label="Reps" value={reps.toString()} style={styles.textInput}
+                       onChangeText={(value) => setReps(ensureFormat(value))} keyboardType="numeric"/>
+        </View>
+        <Button
+            style={styles.textInput}
+            onPress={() => {
+                sets.push({
+                    date: today,
+                    weight: convertToNumber(weight),
+                    reps: convertToNumber(reps),
+                    rir: convertToNumber(rir)
+                } as WorkoutSet);
+                setTrainings(sets);
+                setSetCount(setCount + 1);
+            }}>
+            Add
+        </Button>
+        <WorkoutSetView sets={sets} />
+        <Button
+            onPress={() => {
+                dispatchAddSetToTraining({sets: sets, notes: '', exerciseId: props.route.params.exercise.id});
+                props.navigation.navigate({name: 'Exercises', params: undefined});
+            }}>
+            Add Workout
+        </Button>
     </ScrollView>
   );
 };

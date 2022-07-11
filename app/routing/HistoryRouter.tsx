@@ -1,0 +1,18 @@
+import {createStackNavigator} from "@react-navigation/stack";
+import React from "react";
+import History from "../components/History";
+
+export type RootStackParamList = {
+    History: undefined;
+};
+
+const HistoryRouter = () => {
+    const Stack = createStackNavigator<RootStackParamList>();
+    return (
+        <Stack.Navigator initialRouteName="History">
+            <Stack.Screen name="History" component={History}/>
+        </Stack.Navigator>
+    );
+};
+
+export default HistoryRouter;

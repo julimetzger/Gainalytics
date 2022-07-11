@@ -9,7 +9,7 @@ import {createLogger} from "redux-logger";
 const persistConfig = {
   key: 'root',
   storage: AsyncStorage,
-  whitelist: ['exercises'],
+  whitelist: ['exercises','workouts'],
   stateReconciler: hardSet,
 };
 

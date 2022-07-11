@@ -1,7 +1,8 @@
 type Workout = {
+  id?: number
   sets: WorkoutSet[];
   notes: String;
-  exercise: Exercise;
+  exerciseId: number;
   start?: Date;
   end?: Date;
 };

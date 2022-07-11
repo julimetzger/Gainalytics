@@ -1,14 +1,14 @@
 import {combineReducers} from 'redux';
 import exerciseReducer from './Exercises/exercisesReducer';
-
-export interface ExerciseState {
-  exercises: Exercise[];
-}
+import {NormalizedState} from './normalizedState';
+import workoutReducer from "./Workout/workoutReducer";
 
 export interface GlobalState {
-  exercises: ExerciseState;
+    exercises: NormalizedState<Exercise>;
+    workouts: NormalizedState<Workout>
 }
 
 export default combineReducers<GlobalState>({
-  exercises: exerciseReducer,
+    exercises: exerciseReducer,
+    workouts: workoutReducer
 });

@@ -1,4 +1,4 @@
 type Exercise = {
+  id?: number;
   name: string;
-  workouts: Workout[];
 };

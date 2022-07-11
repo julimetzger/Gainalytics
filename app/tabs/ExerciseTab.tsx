@@ -7,41 +7,41 @@ import AddExercise from '../components/AddExercise';
 import {useAlleExercises} from '../redux/Exercises/useAllExercises';
 
 const ExerciseTab = ({navigation}: Props) => {
-  const theme = useTheme();
-  const [filter, setFilter] = useState('');
-  const exercises = useAlleExercises();
+    const theme = useTheme();
+    const [filter, setFilter] = useState('');
+    const exercises = useAlleExercises();
 
-  return (
-    <View style={{backgroundColor: theme.colors.background}}>
-      <TextInput label={'Filter'} onChangeText={(text) => setFilter(text)} />
-      <ScrollView contentInsetAdjustmentBehavior="automatic">
-        {exercises
-          .filter((exercise) => exercise.name.toLowerCase().includes(filter.toLowerCase()))
-          .map((exercise) => (
-            <Pressable
-              key={exercise.name}
-              onPress={() =>
-                navigation.navigate({
-                  name: 'AddExerciseTab',
-                  params: {exercise: exercise},
-                })
-              }>
-              <Text style={styles.exerciseText}> {exercise.name}</Text>
-              <Divider />
-            </Pressable>
-          ))}
-        <AddExercise />
-      </ScrollView>
-    </View>
-  );
+    return (
+        <View style={{backgroundColor: theme.colors.background}}>
+            <TextInput label={'Filter'} onChangeText={(text) => setFilter(text)}/>
+            <ScrollView contentInsetAdjustmentBehavior="automatic">
+                {exercises
+                    .filter((exercise: Exercise) => exercise.name.toLowerCase().includes(filter.toLowerCase()))
+                    .map((exercise: Exercise) => (
+                        <Pressable
+                            key={exercise.name}
+                            onPress={() =>
+                                navigation.navigate({
+                                    name: 'AddExerciseTab',
+                                    params: {exercise: exercise},
+                                })
+                            }>
+                            <Text style={styles.exerciseText}> {exercise.name}</Text>
+                            <Divider/>
+                        </Pressable>
+                    ))}
+                <AddExercise/>
+            </ScrollView>
+        </View>
+    );
 };
 
 const styles = StyleSheet.create({
-  exerciseText: {
-    fontSize: 20,
-    textAlign: 'left',
-    textAlignVertical: 'center',
-  },
+    exerciseText: {
+        fontSize: 20,
+        textAlign: 'left',
+        textAlignVertical: 'center',
+    },
 });
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Exercises'>;

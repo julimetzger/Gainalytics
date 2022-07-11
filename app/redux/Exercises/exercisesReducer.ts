@@ -1,35 +1,32 @@
 import {AnyAction} from '@reduxjs/toolkit';
-import {ExerciseState} from '../rootReducer';
+import {NormalizedState} from '../normalizedState';
 
 const initialState = {
-  exercises: [
-    {name: 'Bankdrücken', workouts: []},
-    {name: 'Squat', workouts: []},
-    {name: 'Deadlift', workouts: []},
-  ] as Exercise[],
-};
+    byId: {
+        1: {id: 1, name: 'Bankdrücken'},
+        2: {id: 2, name: 'Squat'},
+        3: {id: 3, name: 'Deadlift'},
+    },
+    allIds: [1, 2, 3]
+} as NormalizedState<Exercise>
 
-const exerciseReducer = (state: ExerciseState = initialState, action: AnyAction) => {
-  switch (action.type) {
-    case 'ADD_SET_TO_TRAINING': {
-      const excercises: Exercise[] = [...state.exercises];
-      excercises.find((it) => it === action.exercise)?.workouts.push(action.workout);
-      return {
-        ...state,
-        exercises: excercises,
-      };
+const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, action: AnyAction) => {
+        switch (action.type) {
+            case 'ADD_EXERCISE': {
+                const newId = Math.max(...exercises.allIds) + 1;
+                exercises.allIds.push(newId);
+                exercises.byId[newId] = {id: newId, name: action.nameOfExercise} as Exercise;
+                return {
+                    byId: {
+                        ...exercises.byId,
+                    },
+                    allIds: exercises.allIds,
+                };
+            }
+            default:
+                return exercises;
+        }
     }
-    case 'ADD_EXERCISE': {
-      const excercises: Exercise[] = [...state.exercises];
-      excercises.push({name: action.nameOfExercise, workouts: []} as Exercise);
-      return {
-        ...state,
-        exercises: excercises,
-      };
-    }
-    default:
-      return state;
-  }
-};
+;
 
 export default exerciseReducer;

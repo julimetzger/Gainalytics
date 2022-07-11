@@ -4,10 +4,9 @@ import {Action} from 'redux';
 export const useDispatchAddSetToTraining = () => {
   const dispatch = useDispatch();
 
-  return (workout: Workout, exercise: Exercise) =>
+  return (workout: Workout) =>
     dispatch({
-      type: 'ADD_SET_TO_TRAINING',
-      workout,
-      exercise,
+      type: 'ADD_WORKOUT',
+      workout
     } as Action);
 };
