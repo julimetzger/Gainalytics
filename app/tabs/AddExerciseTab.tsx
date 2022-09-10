@@ -8,9 +8,9 @@ import WorkoutSetView from "./WorkoutSetView";
 
 const AddExerciseTab = (props: Props) => {
   const [setCount, setSetCount] = useState(1);
-  const [weight, setWeight] = useState<string>('');
-  const [rir, setRPE] = useState<string>('');
-  const [reps, setReps] = useState<string>('');
+  const [weight, setWeight] = useState('');
+  const [rir, setRPE] = useState('');
+  const [reps, setReps] = useState('');
   const [sets, setTrainings] = useState<WorkoutSet[]>([]);
   let dispatchAddSetToTraining = useDispatchAddSetToTraining();
   const theme = useTheme();

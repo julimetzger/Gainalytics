@@ -18,8 +18,8 @@ const exerciseReducer = (exercise: NormalizedState<Workout> = initialState, acti
             // TODO use valid end and start dates
             exercise.byId[newId] = {...action.workout, id: newId, start: Date.now(), end: Date.now()};
             return {
-                byId: exercise.byId,
-                allIds: exercise.allIds
+                byId: {...exercise.byId},
+                allIds: [...exercise.allIds]
             } as NormalizedState<Workout>;
         }
         default:

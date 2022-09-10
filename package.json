@@ -31,6 +31,7 @@
     "react-native-gesture-handler": "^1.10.3",
     "react-native-paper": "^4.12.1",
     "react-native-paper-dates": "^0.8.7",
+    "react-native-paper-dropdown": "^1.0.7",
     "react-native-safe-area-context": "^4.3.1",
     "react-native-screens": "^3.15.0",
     "react-redux": "^7.2.6",
@@ -38,6 +39,7 @@
     "redux-devtools-extension": "^2.13.9",
     "redux-persist": "^6.0.0",
     "redux-thunk": "^2.4.1",
+    "sharingan-rn-modal-dropdown": "^1.4.0",
     "typescript": "^4.6.2"
   },
   "devDependencies": {

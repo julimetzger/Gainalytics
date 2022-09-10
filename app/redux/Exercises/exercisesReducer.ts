@@ -20,7 +20,7 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
                     byId: {
                         ...exercises.byId,
                     },
-                    allIds: exercises.allIds,
+                    allIds: [...exercises.allIds],
                 };
             }
             default:
