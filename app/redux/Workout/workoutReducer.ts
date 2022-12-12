@@ -16,7 +16,7 @@ const exerciseReducer = (exercise: NormalizedState<Workout> = initialState, acti
                 newId = 1;
             exercise.allIds.push(newId);
             // TODO use valid end and start dates
-            exercise.byId[newId] = {...action.workout, id: newId, start: Date.now(), end: Date.now()};
+            exercise.byId[newId] = {...action.workout, id: newId};
             return {
                 byId: {...exercise.byId},
                 allIds: [...exercise.allIds]

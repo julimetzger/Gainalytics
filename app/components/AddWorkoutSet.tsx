@@ -5,10 +5,10 @@ import React, {useState} from "react";
 
 interface AddWorkoutProps {
     onAdd: (arg: WorkoutSet) => void,
-    today: Date
+    date: Date
 }
 
-const AddWorkoutSet = ({onAdd, today}: AddWorkoutProps) => {
+const AddWorkoutSet = ({onAdd, date}: AddWorkoutProps) => {
     const [setCount, setSetCount] = useState(1);
     const [weight, setWeight] = useState('');
     const [rir, setRPE] = useState('');
@@ -28,7 +28,7 @@ const AddWorkoutSet = ({onAdd, today}: AddWorkoutProps) => {
                 style={styles.textInput}
                 onPress={() => {
                     onAdd({
-                        date: today,
+                        date: date,
                         weight: convertToNumber(weight),
                         reps: convertToNumber(reps),
                         rir: convertToNumber(rir)
