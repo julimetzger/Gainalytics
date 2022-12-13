@@ -5,13 +5,12 @@ import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 import WorkoutSetView from "../tabs/WorkoutSetView";
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
 import DateRangePicker from "../tabs/DateRangePicker";
-import {firstDayOfWeek, getDateStringFromDate} from "../utils/DateHelper";
+import {firstDayOfWeek, getDateStringFromDate, getEndOfDay} from "../utils/DateHelper";
 import ExercisePicker from "../tabs/ExercisePicker";
 import useDispatchUpdateWorkoutSet from "../redux/Workout/useDispatchUpdateWorkoutSet";
 
 function updateSetInWorkout(workout: Workout, workoutSet: WorkoutSet) {
-    let workoutSets = workout.sets.map(workoutSetFromDb => workoutSet.id === workoutSetFromDb.id ? workoutSet : workoutSetFromDb);
-    workout.sets = workoutSets;
+    workout.sets = workout.sets.map(workoutSetFromDb => workoutSet.id === workoutSetFromDb.id ? workoutSet : workoutSetFromDb);
 }
 
 function deleteSetInWorkout(workout: Workout, workoutSet: WorkoutSet) {
@@ -20,7 +19,7 @@ function deleteSetInWorkout(workout: Workout, workoutSet: WorkoutSet) {
 
 const History = () => {
     let now = new Date(Date.now());
-    const [range, setRange] = useState({startDate: firstDayOfWeek(now, 1), endDate: now})
+    const [range, setRange] = useState({startDate: firstDayOfWeek(now, 1), endDate: getEndOfDay(now)})
     const [exercise, setExercise] = useState<Exercise[]>([]);
     let exerciseIDs = exercise.map(it => it.id);
     let lastWorkouts = useWorkoutsIn(range).reverse().filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true) as Workout[];

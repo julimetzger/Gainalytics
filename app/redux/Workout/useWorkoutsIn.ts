@@ -1,14 +1,23 @@
 import {useSelector} from 'react-redux';
 import {GlobalState} from '../rootReducer';
 import {Range} from "../../tabs/DateRangePicker";
+import {createSelector} from "@reduxjs/toolkit";
+import {NormalizedState} from "../normalizedState";
 
-function findWorkoutsIn(state: GlobalState, range: Range) {
-    let allWorkouts: Workout[] = state.workouts.allIds.map((value: number) => state.workouts.byId[value]);
+
+const selectAllIds = ((state: GlobalState) => state.workouts)
+
+const passRange = (state: GlobalState, range: Range) => range;
+
+function findWorkoutsIn(allIds: NormalizedState<Workout>, range: Range) {
+    let allWorkouts: Workout[] = allIds.allIds.map((value: number) => allIds.byId[value]);
     return allWorkouts.filter((workout: Workout) =>
         (workout.start !== undefined && workout.end !== undefined && new Date(workout.start).getTime() > new Date(range.startDate).getTime() && new Date(workout.end).getTime() < new Date(range.endDate).getTime())
     )
 }
 
-export const useWorkoutsIn = (range: Range) =>
-    useSelector((state: GlobalState) => findWorkoutsIn(state, range),
-        (left, right) => left.length === right.length);
+const selector =
+    createSelector(selectAllIds, passRange, (allIds: NormalizedState<Workout>, range: Range) => findWorkoutsIn(allIds, range));
+
+
+export const useWorkoutsIn = (range: Range) => useSelector((state:GlobalState)=> selector(state, range),(left, right) => left.length === right.length)
