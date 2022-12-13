@@ -25,7 +25,7 @@ const DatePicker = ({date, setDate}: DatePickerProps) => {
     return (
         <>
             <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined">
-                {date.toDateString()}
+                {new Date(date).toDateString()}
             </Button>
             <DatePickerModal
                 locale="en"

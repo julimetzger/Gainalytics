@@ -22,6 +22,13 @@ const exerciseReducer = (exercise: NormalizedState<Workout> = initialState, acti
                 allIds: [...exercise.allIds]
             } as NormalizedState<Workout>;
         }
+        case 'UPDATE_WORKOUT': {
+            exercise.byId[action.workout.id] = {...action.workout}
+            return {
+                ...exercise,
+                byId: {...exercise.byId},
+            } as NormalizedState<Workout>;
+        }
         default:
             return exercise;
     }

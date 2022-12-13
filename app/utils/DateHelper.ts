@@ -15,7 +15,11 @@ export const firstDayOfWeek = (dateObject: Date, firstDayOfWeekIndex: number) =>
 export const getDateStringFromDate = (date?: Date | number) => {
     if (typeof date === 'number') {
         return new Date(date).toDateString();
-    } else {
+    }
+    if (typeof date === 'string') {
+        return new Date(date).toDateString();
+    }
+    else {
         return date?.toDateString();
     }
 }

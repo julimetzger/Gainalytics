@@ -1,22 +1,22 @@
 import {StyleSheet, View} from "react-native";
-import {Button, Text, TextInput} from "react-native-paper";
+import {Button, TextInput} from "react-native-paper";
 import React, {useState} from "react";
 
 
 interface AddWorkoutProps {
-    onAdd: (arg: WorkoutSet) => void,
-    date: Date
+    onSubmit: (arg: WorkoutSet) => void,
+    workoutSet?: WorkoutSet
 }
 
-const AddWorkoutSet = ({onAdd, date}: AddWorkoutProps) => {
-    const [setCount, setSetCount] = useState(1);
-    const [weight, setWeight] = useState('');
-    const [rir, setRPE] = useState('');
-    const [reps, setReps] = useState('');
+const AddWorkoutSet = ({onSubmit,  workoutSet}: AddWorkoutProps) => {
+    const [weight, setWeight] = useState(workoutSet?.weight.toString() ?? '');
+    const [rir, setRPE] = useState(workoutSet?.rir.toString() ?? '');
+    const [reps, setReps] = useState(workoutSet?.reps.toString() ?? '');
+    const [idForUpdates,setIdForUpdates]= useState(1);
     return (
         <View>
             <View style={{alignSelf: 'center'}}>
-                <Text style={{alignSelf: 'center'}}> Set {setCount}</Text>
+
                 <TextInput mode="flat" label="Weight" value={weight.toString()} style={styles.textInput}
                            onChangeText={(value) => setWeight(ensureFormat(value))} keyboardType="numeric"/>
                 <TextInput mode="flat" label="RIR" value={rir.toString()} style={styles.textInput}
@@ -27,15 +27,16 @@ const AddWorkoutSet = ({onAdd, date}: AddWorkoutProps) => {
             <Button
                 style={styles.textInput}
                 onPress={() => {
-                    onAdd({
-                        date: date,
+                    onSubmit({
+                        id: workoutSet?.id ?? idForUpdates,
+                        date: new Date(Date.now()),
                         weight: convertToNumber(weight),
                         reps: convertToNumber(reps),
                         rir: convertToNumber(rir)
                     } as WorkoutSet);
-                    setSetCount(setCount + 1);
+                    setIdForUpdates(idForUpdates+1)
                 }}>
-                Add
+                {workoutSet!== undefined? "Update" : "Add"}
             </Button>
         </View>
     )
