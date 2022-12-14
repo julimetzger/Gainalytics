@@ -1,4 +1,4 @@
-import {Button, Dialog, Portal} from 'react-native-paper';
+import {Button, Dialog, Portal, useTheme} from 'react-native-paper';
 import React from 'react';
 import AddWorkoutSet from "./AddWorkoutSet";
 
@@ -11,6 +11,7 @@ interface EdiotWorkoutSetDialogProps {
 }
 
 const EditWorkoutSetDialog = ({workoutSet, visible, setVisible, onDelete, onSubmit}: EdiotWorkoutSetDialogProps) => {
+    let theme = useTheme();
     const hideDialog = () => setVisible(false);
 
     const confirmDialog = () => {
@@ -19,7 +20,7 @@ const EditWorkoutSetDialog = ({workoutSet, visible, setVisible, onDelete, onSubm
 
     return (
         <Portal>
-            <Dialog visible={visible} onDismiss={hideDialog}>
+            <Dialog visible={visible} onDismiss={hideDialog} theme={theme} style={{backgroundColor: theme.colors.backdrop}}>
                 <Dialog.Title>Edit Workout Set</Dialog.Title>
                 <Dialog.Content>
                     <AddWorkoutSet onSubmit={(updatedWorkout) => {
