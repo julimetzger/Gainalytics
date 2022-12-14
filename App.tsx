@@ -15,6 +15,7 @@ export const PaperThemes = {
   ...CombinedDarkTheme,
   colors: {
     ...CombinedDarkTheme.colors,
+    primary: '#BB86FC',
     dark: true,
   },
 };

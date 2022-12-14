@@ -1,14 +1,25 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {ScrollView, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
 import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 import WorkoutSetView from "../tabs/WorkoutSetView";
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
 import DateRangePicker from "../tabs/DateRangePicker";
-import {firstDayOfWeek, getDateStringFromDate, getEndOfDay} from "../utils/DateHelper";
+import {firstDayOfWeek, getDateStringFromDate, getEndOfDay, subtractMonths} from "../utils/DateHelper";
 import ExercisePicker from "../tabs/ExercisePicker";
 import useDispatchUpdateWorkoutSet from "../redux/Workout/useDispatchUpdateWorkoutSet";
-const History = () => {
+import {NativeStackScreenProps} from "@react-navigation/native-stack";
+import {RootStackParamList} from "../routing/exerciseRouter";
+
+const History = ({route}: Props) => {
+    useEffect(() => {
+            if (route?.params?.exercise !== undefined) {
+                setExercise([route.params.exercise]);
+                setRange({startDate: subtractMonths(1), endDate: getEndOfDay()})
+            }
+        }, [route]
+    )
+
     let now = new Date(Date.now());
     const [range, setRange] = useState({startDate: firstDayOfWeek(now, 1), endDate: getEndOfDay(now)})
     const [exercise, setExercise] = useState<Exercise[]>([]);
@@ -42,6 +53,8 @@ const History = () => {
         </ScrollView>
     );
 };
+
+
 function updateSetInWorkout(workout: Workout, workoutSet: WorkoutSet) {
     workout.sets = workout.sets.map(workoutSetFromDb => workoutSet.index === workoutSetFromDb.index ? workoutSet : workoutSetFromDb);
 }
@@ -50,5 +63,6 @@ function deleteSetInWorkout(workout: Workout, workoutSet: WorkoutSet) {
     workout.sets = workout.sets.filter(value => value.index != workoutSet.index)
 }
 
+export type Props = NativeStackScreenProps<RootStackParamList, 'AddWorkoutTab'>;
 
 export default History;

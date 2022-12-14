@@ -11,7 +11,7 @@ export const firstDayOfWeek = (dateObject: Date, firstDayOfWeekIndex: number) =>
 
     return firstDayOfWeek
 }
-export const getEndOfDay = (d: Date) => {
+export const getEndOfDay = (d: Date = new Date()) => {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
 }
 
@@ -25,3 +25,10 @@ export const getDateStringFromDate = (date?: Date | number) => {
         return date?.toDateString();
     }
 }
+
+export function subtractMonths(numOfMonths: number, date = new Date()) {
+    date.setMonth(date.getMonth() - numOfMonths);
+
+    return date;
+}
+

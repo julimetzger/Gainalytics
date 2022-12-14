@@ -1,9 +1,11 @@
 import {useAlleExercises} from "../redux/Exercises/useAllExercises";
 import React from 'react';
 import {MultiselectDropdown} from "sharingan-rn-modal-dropdown";
+import {useTheme} from "react-native-paper";
 
 const ExercisePicker = ({exercise, setExercise}: ExercisePickerProps) => {
     let exercises = useAlleExercises()
+    let theme = useTheme();
     let choosenExercises = exercise.map((exercise: Exercise) => exercise.id ? exercise.id : 0);
     let dropdownExerciseStructure = exercises.map((exercise: Exercise) => {
         return {
@@ -14,7 +16,7 @@ const ExercisePicker = ({exercise, setExercise}: ExercisePickerProps) => {
 
     return (<>
         <MultiselectDropdown label="Choose Exercises" enableSearch value={choosenExercises} onChange={setExerciseDumb}
-                             data={dropdownExerciseStructure}/>
+                             data={dropdownExerciseStructure} paperTheme={theme} primaryColor={theme.colors.primary}/>
     </>);
 
     function setExerciseDumb(value: number[]) {

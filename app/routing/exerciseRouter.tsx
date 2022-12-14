@@ -14,7 +14,7 @@ const ExerciseRouter = () => {
         <Stack.Navigator initialRouteName="Exercises">
             <Stack.Screen name="Exercises" component={ExerciseTab}/>
             <Stack.Screen name="AddWorkoutTab" component={AddWorkoutTab}
-                          options={({route}) => ({title: route.params.exercise.name})}/>
+                          options={({route}) => ({title: route.params.exercise.name})}></Stack.Screen>
         </Stack.Navigator>
     );
 };

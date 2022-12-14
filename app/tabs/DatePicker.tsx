@@ -1,13 +1,15 @@
 import * as React from 'react';
 import {Button} from 'react-native-paper';
 import {DatePickerModal} from 'react-native-paper-dates';
+import {StyleProp, View, ViewStyle} from "react-native";
 
 interface DatePickerProps {
     date: Date,
-    setDate: (arg: Date) => void
+    setDate: (arg: Date) => void,
+    style?: StyleProp<ViewStyle>
 }
 
-const DatePicker = ({date, setDate}: DatePickerProps) => {
+const DatePicker = ({date, setDate,style}: DatePickerProps) => {
     const [open, setOpen] = React.useState(false);
 
     const onDismissSingle = React.useCallback(() => {
@@ -23,7 +25,7 @@ const DatePicker = ({date, setDate}: DatePickerProps) => {
     );
 
     return (
-        <>
+        <View style={style}>
             <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined">
                 {new Date(date).toDateString()}
             </Button>
@@ -35,7 +37,7 @@ const DatePicker = ({date, setDate}: DatePickerProps) => {
                 date={date}
                 onConfirm={onConfirmSingle}
             />
-        </>
+        </View>
     );
 }
 export default DatePicker;
