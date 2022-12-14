@@ -14,7 +14,7 @@ const ExerciseTab = ({navigation}: Props) => {
     return (
         <View style={{backgroundColor: theme.colors.background}}>
             <TextInput label={'Filter'} onChangeText={(text) => setFilter(text)}/>
-            <ScrollView contentInsetAdjustmentBehavior="automatic" >
+            <ScrollView contentInsetAdjustmentBehavior="automatic">
                 {exercises
                     .filter((exercise: Exercise) => exercise.name.toLowerCase().includes(filter.toLowerCase()))
                     .map((exercise: Exercise) => (
@@ -22,8 +22,8 @@ const ExerciseTab = ({navigation}: Props) => {
                             key={exercise.name}
                             onPress={() =>
                                 navigation.navigate({
-                                    name: 'AddExerciseTab',
-                                    params: {exercise: exercise},
+                                    name: 'AddWorkoutTab',
+                                    params: {exercise},
                                 })
                             }>
                             <Text style={styles.exerciseText}> {exercise.name}</Text>

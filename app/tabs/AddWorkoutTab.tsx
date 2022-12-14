@@ -8,13 +8,13 @@ import WorkoutSetView from "./WorkoutSetView";
 import AddWorkoutSet from "../components/AddWorkoutSet";
 import DatePicker from "./DatePicker";
 
-const AddExerciseTab = (props: Props) => {
+const AddWorkoutTab = (props: Props) => {
     const [sets, setSets] = useState<WorkoutSet[]>([]);
     const [date, setDate] = useState(new Date(Date.now()));
     let dispatchAddSetToTraining = useDispatchAddSetToTraining();
     const theme = useTheme();
     return (
-        <ScrollView style={{backgroundColor: theme.colors.background}}>
+        <ScrollView style={{backgroundColor: theme.colors.background}} keyboardShouldPersistTaps='handled'>
             <DatePicker date={date} setDate={setDate}/>
             <Text style={{alignSelf: 'center'}}> Set {sets.length + 1}</Text>
             <AddWorkoutSet onSubmit={
@@ -40,6 +40,6 @@ const AddExerciseTab = (props: Props) => {
 };
 
 
-export type Props = NativeStackScreenProps<RootStackParamList, 'AddExerciseTab'>;
+export type Props = NativeStackScreenProps<RootStackParamList, 'AddWorkoutTab'>;
 
-export default AddExerciseTab;
+export default AddWorkoutTab;

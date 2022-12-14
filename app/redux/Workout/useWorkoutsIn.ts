@@ -19,5 +19,4 @@ function findWorkoutsIn(allIds: NormalizedState<Workout>, range: Range) {
 const selector =
     createSelector(selectAllIds, passRange, (allIds: NormalizedState<Workout>, range: Range) => findWorkoutsIn(allIds, range));
 
-
 export const useWorkoutsIn = (range: Range) => useSelector((state:GlobalState)=> selector(state, range),(left, right) => left.length === right.length)
