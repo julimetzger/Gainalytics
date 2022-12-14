@@ -28,7 +28,7 @@ const AddWorkoutSet = ({onSubmit,  workoutSet}: AddWorkoutProps) => {
                 style={styles.textInput}
                 onPress={() => {
                     onSubmit({
-                        id: workoutSet?.id ?? idForUpdates,
+                        index: workoutSet?.index ?? idForUpdates,
                         date: new Date(Date.now()),
                         weight: convertToNumber(weight),
                         reps: convertToNumber(reps),

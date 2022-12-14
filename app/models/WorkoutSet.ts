@@ -1,5 +1,5 @@
 type WorkoutSet = {
-  id?: number;
+  index?: number;
   rir: number;
   reps: number;
   weight: number;
