@@ -14,7 +14,7 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
     const onConfirm = useCallback(
         ({startDate, endDate}) => {
             setOpen(false);
-            setRange({startDate, endDate});
+            setRange(new Range(startDate, endDate));
         },
         [setOpen, setRange]
     );
@@ -39,9 +39,18 @@ interface DateRangePickerProps {
     setRange: (range: Range) => void;
 }
 
-export interface Range {
+export class Range {
+    constructor(startDate: Date, endDate: Date) {
+        this.startDate = startDate;
+        this.endDate = endDate;
+    }
+
     startDate: Date
     endDate: Date
+
+    public minusDays(days: number): void {
+        this.startDate.setDate(this.startDate.getDay() - days);
+    }
 }
 
 export default DateRangePicker;

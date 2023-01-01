@@ -1,0 +1,5 @@
+import {NormalizedState} from "./normalizedState";
+
+export interface NormalizedWorkoutSatete<T> extends NormalizedState<T>{
+    byExerciseId: { [exerciseId: number]: number[] }
+}

@@ -4,7 +4,7 @@ import {Divider, Text, useTheme} from 'react-native-paper';
 import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 import WorkoutSetView from "../tabs/WorkoutSetView";
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
-import DateRangePicker from "../tabs/DateRangePicker";
+import DateRangePicker, {Range} from "../tabs/DateRangePicker";
 import {firstDayOfWeek, getDateStringFromDate, getEndOfDay, subtractMonths} from "../utils/DateHelper";
 import ExercisePicker from "../tabs/ExercisePicker";
 import useDispatchUpdateWorkoutSet from "../redux/Workout/useDispatchUpdateWorkoutSet";
@@ -16,13 +16,13 @@ const History = ({route}: Props) => {
     useEffect(() => {
             if (route?.params?.exercise !== undefined) {
                 setExercise([route.params.exercise]);
-                setRange({startDate: subtractMonths(1), endDate: getEndOfDay()})
+                setRange(new Range(subtractMonths(1), getEndOfDay()))
             }
         }, [route]
     )
 
     let now = new Date(Date.now());
-    const [range, setRange] = useState({startDate: firstDayOfWeek(now, 1), endDate: getEndOfDay(now)})
+    const [range, setRange] = useState(new Range(firstDayOfWeek(now, 1), getEndOfDay(now)))
     const [exercise, setExercise] = useState<Exercise[]>([]);
     let exerciseIDs = exercise.map(it => it.id);
     let lastWorkouts = useWorkoutsIn(range).reverse().filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true) as Workout[];
@@ -55,7 +55,7 @@ const History = ({route}: Props) => {
             <Divider/>
             <View>
                 <Text>Volume: {lastWorkouts.reduce<number>((previousValue: number, currentValue) => previousValue + currentValue.sets.reduce<number>((previousValue1, currentValue1) => previousValue1 + currentValue1.reps * currentValue1.weight, 0), 0)}</Text>
-                <Text>1RM: {repetitionMax(...lastWorkouts.flatMap(value => value.sets))} </Text>
+                <Text>1RM: {lastWorkouts.length > 0 ? repetitionMax(...lastWorkouts.flatMap(value => value.sets)).toFixed(2) : 0} </Text>
             </View>
         </ScrollView>
     );

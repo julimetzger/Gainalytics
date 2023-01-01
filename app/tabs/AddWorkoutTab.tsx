@@ -7,10 +7,14 @@ import {useDispatchAddSetToTraining} from '../redux/Workout/dispatchAddSetToTrai
 import WorkoutSetView from "./WorkoutSetView";
 import AddWorkoutSet from "../components/AddWorkoutSet";
 import DatePicker from "./DatePicker";
+import {useAllLastWorkouts} from "../redux/Workout/useAllLastWorkouts";
+import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";
 
 const AddWorkoutTab = ({navigation, route}: Props) => {
     const [sets, setSets] = useState<WorkoutSet[]>([]);
     const [date, setDate] = useState(new Date(Date.now()));
+    let workouts = useAllLastWorkouts(route.params.exercise, 1);
+    let oneRepMax = oneRepMaxForWorkouts(...workouts);
     let theme = useTheme();
     let dispatchAddSetToTraining = useDispatchAddSetToTraining();
     return (
@@ -25,7 +29,7 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
             </Button>
             <Text style={{alignSelf: 'center'}}> Set {sets.length + 1}</Text>
             <AddWorkoutSet onSubmit={
-                (workoutSet) => setSets([...sets, workoutSet])}/>
+                (workoutSet) => setSets([...sets, workoutSet])} oneRepMax={oneRepMax}/>
             <WorkoutSetView sets={sets}
                             onDelete={(workoutSet) => setSets([...sets.filter(value => value.index!! !== workoutSet.index!!)])}
                             onSubmit={(workoutSet) => setSets([...sets.map(value => value.index!! === workoutSet.index!! ? workoutSet : value)])}/>

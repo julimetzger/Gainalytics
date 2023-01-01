@@ -1,10 +1,14 @@
 import {useSelector} from 'react-redux';
 import {GlobalState} from '../rootReducer';
 
-export const useAllLastWorkouts = () =>
-    useSelector((state: GlobalState) => {
-        if (state.workouts.allIds.length > 0)
-            return [state.workouts.byId[Math.max(...state.workouts.allIds)]] as Workout[];
-        else
+export const useAllLastWorkouts = (exercise: Exercise, numberOfWorkouts: number) => {
+    return useSelector((state: GlobalState) => {
+        if (state.workouts.byExerciseId !== undefined && state.workouts.byExerciseId[exercise.id] !== undefined && state.workouts.byExerciseId[exercise.id].length >= numberOfWorkouts) {
+            let lastWorkoutIds: number[] = state.workouts.byExerciseId[exercise.id].slice(-numberOfWorkouts);
+            return lastWorkoutIds.map(
+                workoutId => state.workouts.byId[workoutId]
+            ) as Workout[]
+        } else
             return [] as Workout[];
     });
+};

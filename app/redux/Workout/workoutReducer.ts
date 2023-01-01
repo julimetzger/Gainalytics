@@ -1,36 +1,43 @@
 import {AnyAction} from '@reduxjs/toolkit';
 import {NormalizedState} from '../normalizedState';
+import {NormalizedWorkoutSatete} from "../normalizedWorkoutState";
 
 const initialState = {
     byId: {},
-    allIds: []
+    allIds: [],
+    byExerciseId: {}
 };
 
-const exerciseReducer = (exercise: NormalizedState<Workout> = initialState, action: AnyAction) => {
+const exerciseReducer = (workoutState: NormalizedWorkoutSatete<Workout> = initialState, action: AnyAction) => {
     switch (action.type) {
         case 'ADD_WORKOUT': {
             let newId;
-            if (exercise.allIds.length > 0)
-                newId = Math.max(...exercise.allIds) + 1;
+            if (workoutState.allIds.length > 0)
+                newId = Math.max(...workoutState.allIds) + 1;
             else
                 newId = 1;
-            exercise.allIds.push(newId);
+            workoutState.allIds.push(newId);
             // TODO use valid end and start dates
-            exercise.byId[newId] = {...action.workout, id: newId};
+            workoutState.byId[newId] = {...action.workout, id: newId};
+            if (workoutState.byExerciseId[action.workout.exerciseId] === undefined)
+                workoutState.byExerciseId[action.workout.exerciseId] = [newId];
+            else
+                workoutState.byExerciseId[action.workout.exerciseId].push(newId)
             return {
-                byId: {...exercise.byId},
-                allIds: [...exercise.allIds]
+                byId: {...workoutState.byId},
+                allIds: [...workoutState.allIds],
+                byExerciseId: {...workoutState.byExerciseId}
             } as NormalizedState<Workout>;
         }
         case 'UPDATE_WORKOUT': {
-            exercise.byId[action.workout.id] = {...action.workout}
+            workoutState.byId[action.workout.id] = {...action.workout}
             return {
-                ...exercise,
-                byId: {...exercise.byId},
+                ...workoutState,
+                byId: {...workoutState.byId},
             } as NormalizedState<Workout>;
         }
         default:
-            return exercise;
+            return workoutState;
     }
 };
 

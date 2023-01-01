@@ -27,6 +27,7 @@ export const getDateStringFromDate = (date?: Date | number) => {
 }
 
 export function subtractMonths(numOfMonths: number, date = new Date()) {
+    //TODO change! this does not work for january or when month < numOfMonths
     date.setMonth(date.getMonth() - numOfMonths);
 
     return date;
