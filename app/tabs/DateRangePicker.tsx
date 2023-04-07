@@ -18,9 +18,12 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
         },
         [setOpen, setRange]
     );
-    return (<><Button onPress={() => setOpen(true)} uppercase={false} mode="outlined">
-        {getDateStringFromDate(range.startDate) + " to " + getDateStringFromDate(range.endDate)}
-    </Button>
+    return (<>
+        <Button onPress={() => setRange(range.minusRange())} icon={"minus"}>-</Button>
+        <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined">
+            {getDateStringFromDate(range.startDate) + " to " + getDateStringFromDate(range.endDate)}
+        </Button>
+        <Button onPress={() => setRange(range.plusOneRange())} icon={"plus"}>+</Button>
         <DatePickerModal
             locale="en"
             mode="range"
@@ -48,8 +51,16 @@ export class Range {
     startDate: Date
     endDate: Date
 
-    public minusDays(days: number): void {
-        this.startDate.setDate(this.startDate.getDay() - days);
+    public plusOneRange(): Range {
+        return new Range(new Date(this.startDate.getDay() + this.getRange()),new Date( this.endDate.getDay() + this.getRange()));
+    }
+
+    private getRange(): number {
+        return this.endDate.getDate() - this.startDate.getDate()
+    }
+
+    public minusRange(): Range {
+        return new Range(new Date(this.startDate.getDay() - this.getRange()),new Date( this.endDate.getDay() - this.getRange()));
     }
 }
 

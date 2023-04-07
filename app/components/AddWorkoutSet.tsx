@@ -1,7 +1,7 @@
 import {StyleSheet, View} from "react-native";
 import {Button, TextInput, ToggleButton} from "react-native-paper";
 import React, {useState} from "react";
-import {repetionWeight, repetionWeightByOneRm} from "../utils/RepetitionMaxHelper";
+import { repetionWeightByOneRm} from "../utils/RepetitionMaxHelper";
 
 
 interface AddWorkoutProps {
