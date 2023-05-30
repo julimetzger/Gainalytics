@@ -2,6 +2,7 @@ import {DatePickerModal} from "react-native-paper-dates";
 import React, {useCallback, useState} from 'react';
 import {Button} from "react-native-paper";
 import {getDateStringFromDate} from "../utils/DateHelper";
+import {View} from "react-native";
 
 const DateRangePicker = ({range, setRange}: DateRangePickerProps
 ) => {
@@ -19,11 +20,16 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
         [setOpen, setRange]
     );
     return (<>
-        <Button onPress={() => setRange(range.minusRange())} icon={"minus"}>-</Button>
-        <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined">
-            {getDateStringFromDate(range.startDate) + " to " + getDateStringFromDate(range.endDate)}
-        </Button>
-        <Button onPress={() => setRange(range.plusOneRange())} icon={"plus"}>+</Button>
+        <View style={{
+            flexDirection: "row",
+            justifyContent: "space-between"
+        }}>
+            <Button compact={true} onPress={() => setRange(range.minusRange())} icon={"chevron-left"}/>
+            <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined">
+                {getDateStringFromDate(range.startDate) + " to " + getDateStringFromDate(range.endDate)}
+            </Button>
+            <Button compact={true} onPress={() => setRange(range.plusOneRange())} icon={"chevron-right"}></Button>
+        </View>
         <DatePickerModal
             locale="en"
             mode="range"
@@ -52,7 +58,11 @@ export class Range {
     endDate: Date
 
     public plusOneRange(): Range {
-        return new Range(new Date(this.startDate.getDay() + this.getRange()),new Date( this.endDate.getDay() + this.getRange()));
+        let startDateNew = new Date(this.startDate);
+        startDateNew.setDate(startDateNew.getDate()+this.getRange());
+        let endDateNew = new Date(this.endDate);
+        endDateNew.setDate(endDateNew.getDate()+this.getRange());
+        return new Range(startDateNew, new Date(endDateNew));
     }
 
     private getRange(): number {
@@ -60,7 +70,11 @@ export class Range {
     }
 
     public minusRange(): Range {
-        return new Range(new Date(this.startDate.getDay() - this.getRange()),new Date( this.endDate.getDay() - this.getRange()));
+        let startDateNew = new Date(this.startDate);
+        startDateNew.setDate(startDateNew.getDate()-this.getRange());
+        let endDateNew = new Date(this.endDate);
+        endDateNew.setDate(endDateNew.getDate()-this.getRange());
+        return new Range(startDateNew, new Date(endDateNew));
     }
 }
 
