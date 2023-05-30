@@ -58,23 +58,19 @@ export class Range {
     endDate: Date
 
     public plusOneRange(): Range {
-        let startDateNew = new Date(this.startDate);
-        startDateNew.setDate(startDateNew.getDate()+this.getRange());
-        let endDateNew = new Date(this.endDate);
-        endDateNew.setDate(endDateNew.getDate()+this.getRange());
-        return new Range(startDateNew, new Date(endDateNew));
+        let startDateNew = this.startDate.getTime() + this.getRange();
+        let endDateNew = this.endDate.getTime() + this.getRange();
+        return new Range(new Date(startDateNew), new Date(endDateNew));
     }
 
     private getRange(): number {
-        return this.endDate.getDate() - this.startDate.getDate()
+        return this.endDate.getTime() - this.startDate.getTime()
     }
 
     public minusRange(): Range {
-        let startDateNew = new Date(this.startDate);
-        startDateNew.setDate(startDateNew.getDate()-this.getRange());
-        let endDateNew = new Date(this.endDate);
-        endDateNew.setDate(endDateNew.getDate()-this.getRange());
-        return new Range(startDateNew, new Date(endDateNew));
+        let startDateNew = this.startDate.getTime() - this.getRange();
+        let endDateNew = this.endDate.getTime() - this.getRange();
+        return new Range(new Date(startDateNew), new Date(endDateNew));
     }
 }
 
