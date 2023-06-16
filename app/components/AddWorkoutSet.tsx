@@ -14,7 +14,7 @@ interface AddWorkoutProps {
 
 const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
     const [weight, setWeight] = useState(workoutSet?.weight.toString() ?? '');
-    const [rir, setRPE] = useState(workoutSet?.rir.toString() ?? '');
+    const [rir, setRPE] = useState(workoutSet?.rir.toString() ?? '0');
     const [reps, setReps] = useState(workoutSet?.reps.toString() ?? '');
     const [weightSet, setWeightSet] = useState(false);
     const [idForUpdates, setIdForUpdates] = useState(1);
