@@ -1,8 +1,8 @@
 import React from 'react';
 import {createMaterialBottomTabNavigator} from '@react-navigation/material-bottom-tabs';
 import ExerciseRouter from './exerciseRouter';
-import History from '../components/History';
 import HistoryRouter from "./HistoryRouter";
+import AnalyseRouter from "./AnalyseRouter";
 
 const Tab = createMaterialBottomTabNavigator();
 
@@ -24,8 +24,8 @@ export const BottomTabs = () => {
         }}
       />
       <Tab.Screen
-        name="Routines"
-        component={ExerciseRouter}
+        name="Analyse"
+        component={AnalyseRouter}
         options={{
           tabBarIcon: 'message-text-outline',
         }}

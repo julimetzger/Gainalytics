@@ -19,18 +19,19 @@ const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
                 </DataTable.Row>
             )
         })}
-        <EditWorkoutSetDialog workoutSet={training}
+        { onDelete && onSubmit &&
+            <EditWorkoutSetDialog workoutSet={training}
                               visible={visible}
                               setVisible={setVisible}
                               onDelete={onDelete}
-                              onSubmit={onSubmit}/>
+                              onSubmit={onSubmit}/>}
     </View>;
 }
 
 interface WorkoutSetViewProps {
     sets: WorkoutSet[],
-    onDelete: (workoutSet: WorkoutSet) => void,
-    onSubmit: (workoutSet: WorkoutSet) => void
+    onDelete?: (workoutSet: WorkoutSet) => void,
+    onSubmit?: (workoutSet: WorkoutSet) => void
 }
 
 export default WorkoutSetView;
