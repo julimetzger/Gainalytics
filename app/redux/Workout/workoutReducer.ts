@@ -11,6 +11,7 @@ const initialState = {
 const exerciseReducer = (workoutState: NormalizedWorkoutSatete<Workout> = initialState, action: AnyAction) => {
     switch (action.type) {
         case 'ADD_WORKOUT': {
+            // TODO id should be time ordered
             let newId;
             if (workoutState.allIds.length > 0)
                 newId = Math.max(...workoutState.allIds) + 1;
