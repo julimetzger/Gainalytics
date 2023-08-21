@@ -1,5 +1,5 @@
-import React, {useEffect, useState} from 'react';
-import {View, StyleSheet, ScrollView, processColor} from 'react-native';
+import React, {useState} from 'react';
+import {processColor, ScrollView, StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
 import DateRangePicker, {Range} from "../tabs/DateRangePicker";
@@ -11,6 +11,7 @@ import {repetitionMax} from "../utils/RepetitionMaxHelper";
 import WorkoutSetView from "./WorkoutSetView";
 import {useWorkoutById} from "../redux/Workout/useWorkoutById";
 import {RootStackParamList} from "../routing/AnalyseRouter";
+import {sumBy} from "lodash";
 
 
 const AnalyseGraphics = ({route}: Props) => {
@@ -69,7 +70,16 @@ const AnalyseGraphics = ({route}: Props) => {
                             circleRadius: 4,
                             mode: 'HORIZONTAL_BEZIER',
                         }, values: map
-                    }]
+                    }, {
+                        config: {
+                            color: processColor(theme.colors.accent),
+                            drawCircles: false,
+                            lineWidth: 1,
+                            dashedLine: {lineLength: 15, spaceLength: 10},
+                            mode: 'LINEAR',
+                        }, values: generateTrend(map)
+                    }
+                    ]
                 }}
                 legend={{enabled: false}}
                 xAxis={{
@@ -86,8 +96,8 @@ const AnalyseGraphics = ({route}: Props) => {
                 onSelect={(value) => handleDataPoíntSelcet(value)}/>}
 
             <ScrollView style={styles.exercise}>
-                {selectedWorkout && <>
-                    <Text style={{fontSize: 20}}>{getDateStringFromDate(selectedWorkout.end).toString()}</Text>
+                {selectedWorkout && exercise.length > 0 && <>< Text
+                    style={{fontSize: 20}}>{getDateStringFromDate(selectedWorkout.end).toString()}</Text>
                     <WorkoutSetView sets={selectedWorkout?.sets ?? []}></WorkoutSetView>
                 </>}
             </ScrollView>
@@ -112,6 +122,17 @@ let styles = StyleSheet.create({
     }
 
 })
+
+function generateTrend(map: LineValue[]): LineValue[] {
+    let n = map.length;
+    let a = (n * sumBy(map, value => value.x!! * value.y) - sumBy(map, value => value.x!!) * sumBy(map, value => value.y)) / (n * sumBy(map, value => value.x!! * value.x!!) - sumBy(map, value => value.x!!) ** 2)
+    let b = (sumBy(map, value => value.y) - a * sumBy(map, value => value.x!!)) / n;
+    let firstPointy = a * map[0].x!! + b
+    let firstPoint = {x: map[0].x!!, y: firstPointy}
+    let secondPointy = a * map[n - 1].x!! + b
+    let secondPoint = {x: map[n - 1].x!!, y: secondPointy}
+    return [firstPoint, secondPoint];
+}
 
 export type Props = NativeStackScreenProps<RootStackParamList, 'Analyse'>;
 
