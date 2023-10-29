@@ -23,7 +23,7 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
             <Button color={theme.colors.accent} style={style.historyLink}
                     onPress={() => navigation.navigate('History', {
                         screen: 'History',
-                        params: {exercise: route.params.exercise}
+                        params: {exercise: route.params.exercise, lowerRangeBound: workouts[0]?.start}
                     })}>
                 History
             </Button>

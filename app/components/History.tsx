@@ -9,14 +9,14 @@ import {firstDayOfWeek, getDateStringFromDate, getEndOfDay, subtractMonths} from
 import ExercisePicker from "../tabs/ExercisePicker";
 import useDispatchUpdateWorkoutSet from "../redux/Workout/useDispatchUpdateWorkoutSet";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
-import {RootStackParamList} from "../routing/exerciseRouter";
 import {repetitionMax} from "../utils/RepetitionMaxHelper";
+import {RootStackParamList} from "../routing/HistoryRouter";
 
 const History = ({route}: Props) => {
     useEffect(() => {
             if (route?.params?.exercise !== undefined) {
                 setExercise([route.params.exercise]);
-                setRange(new Range(subtractMonths(1), getEndOfDay()))
+                setRange(new Range(route?.params?.lowerRangeBound ? subtractMonths(1, new Date(route.params.lowerRangeBound)) : subtractMonths(1), getEndOfDay()))
             }
         }, [route]
     )
@@ -70,6 +70,6 @@ function deleteSetInWorkout(workout: Workout, workoutSet: WorkoutSet) {
     workout.sets = workout.sets.filter(value => value.index != workoutSet.index)
 }
 
-export type Props = NativeStackScreenProps<RootStackParamList, 'AddWorkoutTab'>;
+export type Props = NativeStackScreenProps<RootStackParamList, 'History'>;
 
 export default History;
