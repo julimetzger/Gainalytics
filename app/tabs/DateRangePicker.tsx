@@ -64,7 +64,7 @@ export class Range {
     }
 
     private getRange(): number {
-        return this.endDate.getTime() - this.startDate.getTime()
+        return this.endDate.getTime() - this.startDate.getTime() + 1000
     }
 
     public minusRange(): Range {
