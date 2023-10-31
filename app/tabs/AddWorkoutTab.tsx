@@ -34,6 +34,7 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
                             onDelete={(workoutSet) => setSets([...sets.filter(value => value.index!! !== workoutSet.index!!)])}
                             onSubmit={(workoutSet) => setSets([...sets.map(value => value.index!! === workoutSet.index!! ? workoutSet : value)])}/>
             <Button
+                disabled={sets.length === 0}
                 onPress={() => {
                     dispatchAddSetToTraining({
                         sets: sets,
