@@ -1,7 +1,7 @@
 import {StyleSheet, View} from "react-native";
-import {Button, TextInput, ToggleButton} from "react-native-paper";
+import {Button, Switch, TextInput, useTheme} from "react-native-paper";
 import React, {useState} from "react";
-import { repetionWeightByOneRm} from "../utils/RepetitionMaxHelper";
+import {repetionWeightByOneRm} from "../utils/RepetitionMaxHelper";
 
 
 interface AddWorkoutProps {
@@ -13,10 +13,12 @@ interface AddWorkoutProps {
 
 
 const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
+    let theme = useTheme();
     const [weight, setWeight] = useState(workoutSet?.weight.toString() ?? '');
     const [rir, setRPE] = useState(workoutSet?.rir.toString() ?? '0');
     const [reps, setReps] = useState(workoutSet?.reps.toString() ?? '');
     const [weightSet, setWeightSet] = useState(false);
+    const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
     const [idForUpdates, setIdForUpdates] = useState(1);
 
     const setWeightOnChange = (value: string) => {
@@ -30,6 +32,9 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
     }
 
     function setWeightByOtherFields(reps: number, rir: number) {
+        if (isNaN(reps) || isNaN(rir)) {
+            return;
+        }
         if (oneRepMax !== null && !weightSet) {
             let weight = repetionWeightByOneRm(reps, rir, oneRepMax!!).toFixed();
             setWeight(weight.toString())
@@ -42,24 +47,34 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
         setReps(ensureFormat(value))
     }
 
+    function setWeightSuggestions() {
+        if (!weightSet) {
+            setHighlightWeightSuggestion(true);
+        }
+    }
+
     return (
         <View>
             <View style={{alignSelf: 'center'}}>
                 <TextInput mode="flat" label="Reps" value={reps.toString()} style={styles.textInput}
-                           onChangeText={setRepsOnChange} keyboardType="numeric"/>
+                           onChangeText={setRepsOnChange} keyboardType="numeric"
+                           onFocus={() => setWeightSuggestions()}
+                           onBlur={() => setHighlightWeightSuggestion(false)}/>
                 <TextInput mode="flat" label="RIR" value={rir.toString()} style={styles.textInput}
                            onChangeText={setRIROnChange} keyboardType="numeric"/>
                 <TextInput mode="flat" label="Weight" value={weight.toString()} style={styles.textInput}
-                           onChangeText={setWeightOnChange} keyboardType="numeric"/>
+                           onChangeText={setWeightOnChange} keyboardType="numeric"
+                           underlineColor={highlightWeightSuggestion && !weightSet ? theme.colors.accent : theme.colors.disabled}/>
             </View>
-            <ToggleButton style={styles.update}
-                          status={weightSet ? "unchecked" : "checked"}
-                          onPress={() => {
-                              setWeightSet(prevState => !prevState);
-                              setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
-                          }} icon={"weight"}/>
+            <Switch style={styles.update}
+                    value={!weightSet}
+                    onValueChange={() => {
+                        setWeightSet(prevState => !prevState);
+                        setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
+                    }}/>
             <Button
                 style={styles.textInput}
+                disabled={weight === '' || reps === '' || rir === ''}
                 onPress={() => {
                     onSubmit({
                         index: workoutSet?.index ?? idForUpdates,
