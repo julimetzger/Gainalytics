@@ -20,7 +20,7 @@ const AddExercise = () => {
 
     return (
         <View style={style.addExerxise}>
-            <IconButton icon="plus-circle" onPress={() => showDialog()} theme={theme} color={theme.colors.accent}
+            <IconButton icon="plus-circle" onPress={() => showDialog()} theme={theme} color={theme.colors.tertiary}
                         size={40}></IconButton>
             <Portal>
                 <Dialog visible={visible} onDismiss={hideDialog} theme={theme}

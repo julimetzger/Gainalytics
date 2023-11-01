@@ -1,6 +1,6 @@
 import {DatePickerModal} from "react-native-paper-dates";
 import React, {useCallback, useState} from 'react';
-import {Button} from "react-native-paper";
+import {Button, IconButton} from "react-native-paper";
 import {getDateStringFromDate} from "../utils/DateHelper";
 import {View} from "react-native";
 
@@ -24,11 +24,11 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
             flexDirection: "row",
             justifyContent: "space-between"
         }}>
-            <Button compact={true} onPress={() => setRange(range.minusRange())} icon={"chevron-left"}/>
+            <IconButton onPress={() => setRange(range.minusRange())} icon={"chevron-left"}/>
             <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined">
                 {getDateStringFromDate(range.startDate) + " to " + getDateStringFromDate(range.endDate)}
             </Button>
-            <Button compact={true} onPress={() => setRange(range.plusOneRange())} icon={"chevron-right"}></Button>
+            <IconButton onPress={() => setRange(range.plusOneRange())} icon={"chevron-right"}></IconButton>
         </View>
         <DatePickerModal
             locale="en"

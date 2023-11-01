@@ -1,8 +1,8 @@
 import React from 'react';
-import {createMaterialBottomTabNavigator} from '@react-navigation/material-bottom-tabs';
 import ExerciseRouter from './exerciseRouter';
 import HistoryRouter from "./HistoryRouter";
 import AnalyseRouter from "./AnalyseRouter";
+import {createMaterialBottomTabNavigator} from "react-native-paper/react-navigation";
 
 const Tab = createMaterialBottomTabNavigator();
 
