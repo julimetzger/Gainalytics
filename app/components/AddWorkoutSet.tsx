@@ -1,5 +1,5 @@
 import {StyleSheet, View} from "react-native";
-import {Button, Switch, TextInput, Tooltip, useTheme} from "react-native-paper";
+import {Button, Switch, Text, TextInput, ToggleButton, Tooltip, useTheme} from "react-native-paper";
 import React, {useState} from "react";
 import {repetionWeightByOneRm} from "../utils/RepetitionMaxHelper";
 
@@ -78,10 +78,11 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
             </View>
             <View style={styles.update}>
                 <Tooltip
-                    title={"Suggests the weight based on your desired reps and RIR, calculated using the 1RM from your last workout."}>
-                    <Switch
-                        value={!weightSet}
-                        onValueChange={() => {
+                    title={"Suggests the weight based on your 1RM"}>
+                    <ToggleButton
+                        icon={() => <View><Text style={{color: theme.colors.tertiary}}>1RM</Text></View>}
+                        status={!weightSet ? "checked" : "unchecked"}
+                        onPress={() => {
                             setWeightSet(prevState => !prevState);
                             setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
                         }}/>
@@ -119,8 +120,8 @@ const styles = StyleSheet.create({
     },
     update: {
         position: "absolute",
-        top: 15,
-        right: 20
+        top: 6,
+        right: 25
     }
 });
 
