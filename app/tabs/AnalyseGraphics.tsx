@@ -56,7 +56,7 @@ const AnalyseGraphics = ({route}: Props) => {
                     enabled: true,
                     markerColor: processColor(theme.colors.backdrop),
                     textSize: 10,
-                    textColor: processColor(theme.colors.accent)
+                    textColor: processColor(theme.colors.secondary)
                 }}
                 data={{
                     dataSets: [{
@@ -66,13 +66,13 @@ const AnalyseGraphics = ({route}: Props) => {
                             highlightEnabled: true,
                             lineWidth: 2,
                             drawCircleHole: false,
-                            highlightColor: processColor(theme.colors.accent),
+                            highlightColor: processColor(theme.colors.secondary),
                             circleRadius: 4,
                             mode: 'HORIZONTAL_BEZIER',
                         }, values: map
                     }, {
                         config: {
-                            color: processColor(theme.colors.accent),
+                            color: processColor(theme.colors.secondary),
                             drawCircles: false,
                             lineWidth: 1,
                             dashedLine: {lineLength: 15, spaceLength: 10},
@@ -86,11 +86,11 @@ const AnalyseGraphics = ({route}: Props) => {
                     valueFormatter: 'date',
                     valueFormatterPattern: 'dd MMM',
                     position: 'BOTTOM_INSIDE',
-                    textColor: processColor(theme.colors.text)
+                    textColor: processColor(theme.colors.onBackground)
                 }}
                 yAxis={{
-                    left: {textColor: processColor(theme.colors.text)},
-                    right: {textColor: processColor(theme.colors.text)}
+                    left: {textColor: processColor(theme.colors.onBackground)},
+                    right: {textColor: processColor(theme.colors.onBackground)}
                 }}
                 chartDescription={{text: ''}}
                 onSelect={(value) => handleDataPoíntSelcet(value)}/>}

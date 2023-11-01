@@ -1,5 +1,5 @@
 import {StyleSheet, View} from "react-native";
-import {Button, Switch, TextInput, useTheme} from "react-native-paper";
+import {Button, Switch, TextInput, Tooltip, useTheme} from "react-native-paper";
 import React, {useState} from "react";
 import {repetionWeightByOneRm} from "../utils/RepetitionMaxHelper";
 
@@ -20,13 +20,18 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
     const [weightSet, setWeightSet] = useState(false);
     const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
     const [idForUpdates, setIdForUpdates] = useState(1);
+    const [weightEmpty, setWeightEmpty] = useState(false);
+    const [rirEmpty, setRirEmpty] = useState(false);
+    const [repsEmpty, setRepsEmpty] = useState(false);
 
     const setWeightOnChange = (value: string) => {
+        setWeightEmpty(false);
         setWeightSet(true);
         setWeight(ensureFormat(value))
     }
 
     const setRIROnChange = (value: string) => {
+        setRirEmpty(false);
         reps !== '' ? setWeightByOtherFields(convertToNumber(reps), convertToNumber(value)) : 0;
         setRPE(ensureFormat(value))
     }
@@ -36,12 +41,14 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
             return;
         }
         if (oneRepMax !== null && !weightSet) {
+            setWeightEmpty(false);
             let weight = repetionWeightByOneRm(reps, rir, oneRepMax!!).toFixed();
             setWeight(weight.toString())
         }
     }
 
     const setRepsOnChange = (value: string) => {
+        setRepsEmpty(false);
         rir === '' ? setWeightByOtherFields(convertToNumber(value), 0) : 0;
         rir !== '' ? setWeightByOtherFields(convertToNumber(value), convertToNumber(rir)) : 0;
         setReps(ensureFormat(value))
@@ -55,27 +62,40 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
 
     return (
         <View>
-            <View style={{alignSelf: 'center'}}>
+            <View style={{alignSelf: 'center', flexDirection: "row"}}>
                 <TextInput mode="flat" label="Reps" value={reps.toString()} style={styles.textInput}
                            onChangeText={setRepsOnChange} keyboardType="numeric"
                            onFocus={() => setWeightSuggestions()}
-                           onBlur={() => setHighlightWeightSuggestion(false)}/>
+                           onBlur={() => setHighlightWeightSuggestion(false)}
+                           error={repsEmpty}/>
                 <TextInput mode="flat" label="RIR" value={rir.toString()} style={styles.textInput}
-                           onChangeText={setRIROnChange} keyboardType="numeric"/>
+                           onChangeText={setRIROnChange} keyboardType="numeric"
+                           error={rirEmpty}/>
                 <TextInput mode="flat" label="Weight" value={weight.toString()} style={styles.textInput}
                            onChangeText={setWeightOnChange} keyboardType="numeric"
-                           underlineColor={highlightWeightSuggestion && !weightSet ? theme.colors.accent : theme.colors.disabled}/>
+                           underlineColor={highlightWeightSuggestion && !weightSet ? theme.colors.tertiary : theme.colors.onSecondaryContainer}
+                           error={weightEmpty}/>
             </View>
-            <Switch style={styles.update}
-                    value={!weightSet}
-                    onValueChange={() => {
-                        setWeightSet(prevState => !prevState);
-                        setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
-                    }}/>
+            <View style={styles.update}>
+                <Tooltip
+                    title={"Suggests the weight based on your desired reps and RIR, calculated using the 1RM from your last workout."}>
+                    <Switch
+                        value={!weightSet}
+                        onValueChange={() => {
+                            setWeightSet(prevState => !prevState);
+                            setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
+                        }}/>
+                </Tooltip>
+            </View>
             <Button
                 style={styles.textInput}
-                disabled={weight === '' || reps === '' || rir === ''}
                 onPress={() => {
+                    if (weight === '' || reps === '' || rir === '') {
+                        weight === '' && setWeightEmpty(true);
+                        reps === '' && setRepsEmpty(true);
+                        rir === '' && setRirEmpty(true);
+                        return;
+                    }
                     onSubmit({
                         index: workoutSet?.index ?? idForUpdates,
                         date: new Date(Date.now()),
@@ -99,8 +119,8 @@ const styles = StyleSheet.create({
     },
     update: {
         position: "absolute",
-        top: 110,
-        right: 85
+        top: 15,
+        right: 20
     }
 });
 

@@ -20,7 +20,7 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
     return (
         <ScrollView style={{backgroundColor: theme.colors.background}} keyboardShouldPersistTaps='handled'>
             <DatePicker date={date} setDate={setDate}/>
-            <Button color={theme.colors.accent} style={style.historyLink}
+            <Button textColor={theme.colors.tertiary} style={style.historyLink}
                     onPress={() => navigation.navigate('History', {
                         screen: 'History',
                         params: {exercise: route.params.exercise, lowerRangeBound: workouts[0]?.start}
