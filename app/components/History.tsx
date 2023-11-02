@@ -11,6 +11,7 @@ import useDispatchUpdateWorkoutSet from "../redux/Workout/useDispatchUpdateWorko
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {repetitionMax} from "../utils/RepetitionMaxHelper";
 import {RootStackParamList} from "../routing/HistoryRouter";
+import useDeleteWorkout from "../redux/Workout/useDeleteWorkout";
 
 const History = ({route}: Props) => {
     useEffect(() => {
@@ -29,6 +30,7 @@ const History = ({route}: Props) => {
     let lastExercises = lastWorkouts.map((workout: Workout) => workout.exerciseId);
     let exercises = new Map(useExerciseByIds(lastExercises).map((exercise: Exercise) => [exercise.id, exercise]));
     let dispatchUpdateWorkoutSet = useDispatchUpdateWorkoutSet();
+    let useDeleteWorkoutdispatch = useDeleteWorkout();
     const theme = useTheme();
     // @ts-ignore
     return (
@@ -43,7 +45,11 @@ const History = ({route}: Props) => {
                                 style={{fontSize: 20}}>{exercises.get(workout.exerciseId)?.name + " " + getDateStringFromDate(workout.end)}</Text>
                             <WorkoutSetView sets={workout.sets} onDelete={(workoutSet) => {
                                 deleteSetInWorkout(workout, workoutSet);
-                                dispatchUpdateWorkoutSet(workout);
+                                if (workout.sets.length === 0) {
+                                    useDeleteWorkoutdispatch(workout);
+                                } else {
+                                    dispatchUpdateWorkoutSet(workout);
+                                }
                             }} onSubmit={(workoutSet) => {
                                 updateSetInWorkout(workout, workoutSet);
                                 dispatchUpdateWorkoutSet(workout);

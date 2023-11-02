@@ -30,6 +30,23 @@ const exerciseReducer = (workoutState: NormalizedWorkoutSatete<Workout> = initia
                 byExerciseId: {...workoutState.byExerciseId}
             } as NormalizedState<Workout>;
         }
+        case 'ADD_SET_TO_WORKOUT': {
+            return workoutState;
+        }
+        case 'FINALIZE_WORKOUT': {
+            return workoutState;
+        }
+        case 'DELETE_WORKOUT': {
+            delete workoutState.byId[action.workout.id];
+            workoutState.allIds = workoutState.allIds.filter(value => value !== action.workout.id);
+            workoutState.byExerciseId[action.workout.exerciseId] = workoutState.byExerciseId[action.workout.exerciseId].filter(value => value !== action.workout.id);
+            return {
+                ...workoutState,
+                byId: {...workoutState.byId},
+                allIds: [...workoutState.allIds],
+                byExerciseId: {...workoutState.byExerciseId}
+            } as NormalizedState<Workout>;
+        }
         case 'UPDATE_WORKOUT': {
             workoutState.byId[action.workout.id] = {...action.workout}
             return {
