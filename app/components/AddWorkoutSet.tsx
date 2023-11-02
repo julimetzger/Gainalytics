@@ -7,7 +7,6 @@ import {repetionWeightByOneRm} from "../utils/RepetitionMaxHelper";
 interface AddWorkoutProps {
     onSubmit: (arg: WorkoutSet) => void,
     workoutSet?: WorkoutSet,
-
     oneRepMax?: number,
 }
 
@@ -61,67 +60,70 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
     }
 
     return (
-        <View>
+        <View style={{justifyContent: 'space-between',margin:5}}>
             <View style={{alignSelf: 'center', flexDirection: "row"}}>
-                <TextInput mode="flat" label="Reps" value={reps.toString()} style={styles.textInput}
+                <TextInput mode="outlined" label="Reps" value={reps.toString()} style={styles.textInput}
                            onChangeText={setRepsOnChange} keyboardType="numeric"
                            onFocus={() => setWeightSuggestions()}
                            onBlur={() => setHighlightWeightSuggestion(false)}
                            error={repsEmpty}/>
-                <TextInput mode="flat" label="RIR" value={rir.toString()} style={styles.textInput}
+                <TextInput mode="outlined" label="RIR" value={rir.toString()} style={styles.textInput}
                            onChangeText={setRIROnChange} keyboardType="numeric"
+                           onFocus={() => setWeightSuggestions()}
+                           onBlur={() => setHighlightWeightSuggestion(false)}
                            error={rirEmpty}/>
-                <TextInput mode="flat" label="Weight" value={weight.toString()} style={styles.textInput}
+                <TextInput mode="outlined" label="Weight" value={weight.toString()} style={styles.textInput}
                            onChangeText={setWeightOnChange} keyboardType="numeric"
-                           underlineColor={highlightWeightSuggestion && !weightSet ? theme.colors.tertiary : theme.colors.onSecondaryContainer}
+                           textColor={highlightWeightSuggestion && !weightSet ? theme.colors.secondary : undefined}
+                           outlineColor={highlightWeightSuggestion && !weightSet ? theme.colors.secondary : undefined}
                            error={weightEmpty}/>
-            </View>
-            <View style={styles.update}>
                 <Tooltip
                     title={"Suggests the weight based on your 1RM"}>
                     <ToggleButton
-                        icon={() => <View><Text style={{color: theme.colors.tertiary}}>1RM</Text></View>}
+                        icon={() => <View><Text style={{color: theme.colors.onSecondaryContainer}}>1RM</Text></View>}
+                        iconColor={theme.colors.secondaryContainer}
                         status={!weightSet ? "checked" : "unchecked"}
                         onPress={() => {
                             setWeightSet(prevState => !prevState);
                             setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
                         }}/>
                 </Tooltip>
+                <Button
+                    mode={'contained'}
+                    style={{ marginStart: 5}}
+                    buttonColor={theme.colors.primaryContainer}
+                    textColor={theme.colors.onPrimaryContainer}
+                    onPress={() => {
+                        if (weight === '' || reps === '' || rir === '') {
+                            weight === '' && setWeightEmpty(true);
+                            reps === '' && setRepsEmpty(true);
+                            rir === '' && setRirEmpty(true);
+                            return;
+                        }
+                        onSubmit({
+                            index: workoutSet?.index ?? idForUpdates,
+                            date: new Date(Date.now()),
+                            weight: convertToNumber(weight),
+                            reps: convertToNumber(reps),
+                            rir: convertToNumber(rir) == NaN ? 0 : convertToNumber(rir)
+                        } as WorkoutSet);
+                        setIdForUpdates(idForUpdates + 1)
+                    }}>
+                    {workoutSet !== undefined ? "Update" : "Add"}
+                </Button>
             </View>
-            <Button
-                style={styles.textInput}
-                onPress={() => {
-                    if (weight === '' || reps === '' || rir === '') {
-                        weight === '' && setWeightEmpty(true);
-                        reps === '' && setRepsEmpty(true);
-                        rir === '' && setRirEmpty(true);
-                        return;
-                    }
-                    onSubmit({
-                        index: workoutSet?.index ?? idForUpdates,
-                        date: new Date(Date.now()),
-                        weight: convertToNumber(weight),
-                        reps: convertToNumber(reps),
-                        rir: convertToNumber(rir) == NaN ? 0 : convertToNumber(rir)
-                    } as WorkoutSet);
-                    setIdForUpdates(idForUpdates + 1)
-                }}>
-                {workoutSet !== undefined ? "Update" : "Add"}
-            </Button>
         </View>
     )
 }
 
 const styles = StyleSheet.create({
     textInput: {
-        height: 50,
-        width: 80,
-        alignSelf: 'center',
-    },
-    update: {
-        position: "absolute",
-        top: 6,
-        right: 25
+        height: 35,
+        marginEnd: 5,
+        width:
+            75,
+        alignSelf:
+            'center',
     }
 });
 

@@ -25,7 +25,7 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
             justifyContent: "space-between"
         }}>
             <IconButton onPress={() => setRange(range.minusRange())} icon={"chevron-left"}/>
-            <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined">
+            <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined" style={{display:'flex', alignSelf:'center'}}>
                 {getDateStringFromDate(range.startDate) + " to " + getDateStringFromDate(range.endDate)}
             </Button>
             <IconButton onPress={() => setRange(range.plusOneRange())} icon={"chevron-right"}></IconButton>

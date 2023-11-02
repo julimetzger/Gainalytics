@@ -9,7 +9,7 @@ interface DatePickerProps {
     style?: StyleProp<ViewStyle>
 }
 
-const DatePicker = ({date, setDate,style}: DatePickerProps) => {
+const DatePicker = ({date, setDate, style}: DatePickerProps) => {
     const [open, setOpen] = React.useState(false);
 
     const onDismissSingle = React.useCallback(() => {
@@ -26,7 +26,8 @@ const DatePicker = ({date, setDate,style}: DatePickerProps) => {
 
     return (
         <View style={style}>
-            <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined">
+            <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined"
+                    style={{ display: 'flex', alignSelf: 'center'}}>
                 {new Date(date).toDateString()}
             </Button>
             <DatePickerModal
