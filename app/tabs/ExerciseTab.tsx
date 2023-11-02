@@ -27,7 +27,7 @@ const ExerciseTab = ({navigation}: Props) => {
                                     })
                                 }>
                                 <Text style={styles.exerciseText}> {exercise.name}</Text>
-                                <Divider/>
+                                <Divider />
                             </Pressable>
                         ))}
                 </ScrollView>
@@ -41,6 +41,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
         textAlign: 'left',
         textAlignVertical: 'center',
+        margin: 4,
     },
 });
 

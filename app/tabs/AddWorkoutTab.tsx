@@ -20,20 +20,25 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
     return (
         <ScrollView style={{backgroundColor: theme.colors.background}} keyboardShouldPersistTaps='handled'>
             <DatePicker date={date} setDate={setDate}/>
-            <Button textColor={theme.colors.tertiary} style={style.historyLink}
+            <Button buttonColor={theme.colors.tertiaryContainer} textColor={theme.colors.onTertiaryContainer}
+                    style={style.historyLink} mode={"contained"}
                     onPress={() => navigation.navigate('History', {
                         screen: 'History',
                         params: {exercise: route.params.exercise, lowerRangeBound: workouts[0]?.start}
                     })}>
                 History
             </Button>
-            <Text style={{alignSelf: 'center'}}> Set {sets.length + 1}</Text>
+            <Text style={{alignSelf: 'center', marginTop: 20}}> Set {sets.length + 1}</Text>
             <AddWorkoutSet onSubmit={
                 (workoutSet) => setSets([...sets, workoutSet])} oneRepMax={oneRepMax}/>
             <WorkoutSetView sets={sets}
                             onDelete={(workoutSet) => setSets([...sets.filter(value => value.index!! !== workoutSet.index!!)])}
                             onSubmit={(workoutSet) => setSets([...sets.map(value => value.index!! === workoutSet.index!! ? workoutSet : value)])}/>
             <Button
+                style={{marginTop: 20, display: 'flex', alignSelf: 'center'}}
+                buttonColor={theme.colors.primaryContainer}
+                textColor={theme.colors.onPrimaryContainer}
+                mode={'contained'}
                 disabled={sets.length === 0}
                 onPress={() => {
                     dispatchAddSetToTraining({
@@ -56,7 +61,7 @@ let style = StyleSheet.create({
     historyLink: {
         position: "absolute",
         top: 0,
-        right: 0,
+        right: 10,
     }
 });
 

@@ -20,11 +20,10 @@ const AddExercise = () => {
 
     return (
         <View style={style.addExerxise}>
-            <IconButton icon="plus-circle" onPress={() => showDialog()} theme={theme} color={theme.colors.tertiary}
+            <IconButton icon="plus-circle" onPress={() => showDialog()} theme={theme} iconColor={theme.colors.tertiaryContainer}
                         size={40}></IconButton>
             <Portal>
-                <Dialog visible={visible} onDismiss={hideDialog} theme={theme}
-                        style={{backgroundColor: theme.colors.backdrop}}>
+                <Dialog visible={visible} onDismiss={hideDialog} theme={theme}>
                     <Dialog.Title>Add new Exercise</Dialog.Title>
                     <Dialog.Content>
                         <TextInput label={'Name of the Exercise'} onChangeText={(text) => setNewExercise(text)}/>

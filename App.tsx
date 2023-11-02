@@ -3,7 +3,7 @@ import {PersistGate} from 'redux-persist/integration/react';
 import {Provider} from 'react-redux';
 import confiugureStore from './confiugureStore';
 import {NavigationContainer, DarkTheme as NavigationDarkTheme} from '@react-navigation/native';
-import {MD3DarkTheme as PaperDarkTheme, Provider as PaperProvider} from 'react-native-paper';
+import {MD3DarkTheme, MD3DarkTheme as PaperDarkTheme, Provider as PaperProvider} from 'react-native-paper';
 import merge from 'deepmerge';
 import {BottomTabs} from './app/routing/bottomNavigator';
 
@@ -16,6 +16,7 @@ export const PaperThemes = {
     colors: {
         ...CombinedDarkTheme.colors,
         primary: PaperDarkTheme.colors.primary,
+        background: PaperDarkTheme.colors.background,
         dark: true,
     },
 };
@@ -25,7 +26,7 @@ const App: () => React.ReactElement = () => {
         <>
             <Provider store={store}>
                 <PersistGate loading={null} persistor={persistor}>
-                    <PaperProvider theme={PaperThemes}>
+                    <PaperProvider theme={MD3DarkTheme}>
                         <NavigationContainer theme={PaperThemes}>
                             <BottomTabs/>
                         </NavigationContainer>

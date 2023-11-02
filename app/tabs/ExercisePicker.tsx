@@ -17,7 +17,7 @@ const ExercisePicker = ({exercise, setExercise, style}: ExercisePickerProps) => 
 
     return (<View style={style}>
         <MultiselectDropdown label="Choose Exercises" enableSearch value={choosenExercises} onChange={setExerciseDumb}
-                             data={dropdownExerciseStructure} paperTheme={theme} primaryColor={theme.colors.primary}/>
+                             data={dropdownExerciseStructure} paperTheme={theme} primaryColor={theme.colors.primaryContainer}/>
     </View>);
 
     function setExerciseDumb(value: number[]) {

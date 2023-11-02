@@ -30,6 +30,7 @@ const AnalyseGraphics = ({route}: Props) => {
     let selectedWorkout = useWorkoutById(selectedWorkoutId);
     // @ts-ignore
     let map = lastWorkouts
+        .filter((workout: Workout) => workout.sets.length > 0)
         .flatMap(value => [{
             id: value.id,
             x: value.start ? new Date(value.start).getTime() : undefined,
@@ -72,7 +73,7 @@ const AnalyseGraphics = ({route}: Props) => {
                         }, values: map
                     }, {
                         config: {
-                            color: processColor(theme.colors.secondary),
+                            color: processColor(theme.colors.tertiary),
                             drawCircles: false,
                             lineWidth: 1,
                             dashedLine: {lineLength: 15, spaceLength: 10},
