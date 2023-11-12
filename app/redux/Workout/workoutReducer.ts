@@ -16,13 +16,14 @@ const exerciseReducer = (workoutState: NormalizedWorkoutSatete<Workout> = initia
                 newId = Math.max(...workoutState.allIds) + 1;
             else
                 newId = 1;
+            //TODO list should be time ordered (implement test for this)
             workoutState.allIds.push(newId);
             // TODO use valid end and start dates
             workoutState.byId[newId] = {...action.workout, id: newId};
             if (workoutState.byExerciseId[action.workout.exerciseId] === undefined)
                 workoutState.byExerciseId[action.workout.exerciseId] = [newId];
             else
-                //TODO list should be time ordered
+                //TODO list should be time ordered (impelment test for this)
                 workoutState.byExerciseId[action.workout.exerciseId].push(newId)
             return {
                 byId: {...workoutState.byId},
