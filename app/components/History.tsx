@@ -1,11 +1,11 @@
 import React, {useEffect, useState} from 'react';
 import {ScrollView, View} from 'react-native';
-import {Divider, Text, useTheme} from 'react-native-paper';
+import {Button, Divider, IconButton, Text, useTheme} from 'react-native-paper';
 import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 import WorkoutSetView from "../tabs/WorkoutSetView";
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
 import DateRangePicker, {Range} from "../tabs/DateRangePicker";
-import {firstDayOfWeek, getDateStringFromDate, getEndOfDay, subtractMonths} from "../utils/DateHelper";
+import {dateComparator, firstDayOfWeek, getDateStringFromDate, getEndOfDay, subtractMonths} from "../utils/DateHelper";
 import ExercisePicker from "../tabs/ExercisePicker";
 import useDispatchUpdateWorkoutSet from "../redux/Workout/useDispatchUpdateWorkoutSet";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
@@ -26,7 +26,9 @@ const History = ({route}: Props) => {
     const [range, setRange] = useState(new Range(firstDayOfWeek(now, 1), getEndOfDay(now)))
     const [exercise, setExercise] = useState<Exercise[]>([]);
     let exerciseIDs = exercise.map(it => it.id);
-    let lastWorkouts = useWorkoutsIn(range).reverse().filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true) as Workout[];
+    let lastWorkouts = useWorkoutsIn(range)
+        .filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true)
+        .sort((a, b) => -dateComparator(a.end!!, b.end!!)) as Workout[];
     let lastExercises = lastWorkouts.map((workout: Workout) => workout.exerciseId);
     let exercises = new Map(useExerciseByIds(lastExercises).map((exercise: Exercise) => [exercise.id, exercise]));
     let dispatchUpdateWorkoutSet = useDispatchUpdateWorkoutSet();
@@ -41,8 +43,12 @@ const History = ({route}: Props) => {
                 lastWorkouts.map((workout) => {
                     return (
                         <View>
-                            <Text
-                                style={{fontSize: 20}}>{exercises.get(workout.exerciseId)?.name + " " + getDateStringFromDate(workout.end)}</Text>
+                            <View style={{display: 'flex', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start'}}>
+                                <Text
+                                    style={{fontSize: 20}}>{exercises.get(workout.exerciseId)?.name + " " + getDateStringFromDate(workout.end)}</Text>
+                                <IconButton style={{margin: 0, alignSelf: 'flex-start', height: 30}} icon={"delete"}
+                                            onPress={() => useDeleteWorkoutdispatch(workout)}/>
+                            </View>
                             <WorkoutSetView sets={workout.sets} onDelete={(workoutSet) => {
                                 deleteSetInWorkout(workout, workoutSet);
                                 if (workout.sets.length === 0) {

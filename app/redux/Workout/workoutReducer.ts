@@ -11,7 +11,6 @@ const initialState = {
 const exerciseReducer = (workoutState: NormalizedWorkoutSatete<Workout> = initialState, action: AnyAction) => {
     switch (action.type) {
         case 'ADD_WORKOUT': {
-            // TODO id should be time ordered
             let newId;
             if (workoutState.allIds.length > 0)
                 newId = Math.max(...workoutState.allIds) + 1;
@@ -23,6 +22,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutSatete<Workout> = initia
             if (workoutState.byExerciseId[action.workout.exerciseId] === undefined)
                 workoutState.byExerciseId[action.workout.exerciseId] = [newId];
             else
+                //TODO list should be time ordered
                 workoutState.byExerciseId[action.workout.exerciseId].push(newId)
             return {
                 byId: {...workoutState.byId},

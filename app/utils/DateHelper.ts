@@ -26,6 +26,19 @@ export const getDateStringFromDate = (date?: Date | number) => {
     }
 }
 
+export function dateComparator(a: Date, b: Date): number {
+    const dateA = new Date(a).getTime();
+    const dateB = new Date(b).getTime();
+
+    if (dateA < dateB) {
+        return -1;
+    } else if (dateA > dateB) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 export function subtractMonths(numOfMonths: number, date = new Date()) {
     //TODO change! this does not work for january or when month < numOfMonths
     date.setMonth(date.getMonth() - numOfMonths);

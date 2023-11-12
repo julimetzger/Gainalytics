@@ -1,4 +1,4 @@
-import {View} from "react-native";
+import {StyleSheet, View} from "react-native";
 import {DataTable} from 'react-native-paper';
 import React, {useState} from "react";
 import EditWorkoutSetDialog from "../components/EditWorkoutSetDialog";
@@ -9,22 +9,22 @@ const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
     return <View>
         {sets.map((training) => {
             return (
-                <DataTable.Row onPress={() => {
-                    setTraining(training);
-                    setVisible(true);
-                }}>
-                    <DataTable.Cell>{training.reps + " reps"}</DataTable.Cell>
-                    <DataTable.Cell>{training.weight + " kg"}</DataTable.Cell>
-                    <DataTable.Cell>{training.rir + " RIR"}</DataTable.Cell>
-                </DataTable.Row>
+                    <DataTable.Row  onPress={() => {
+                        setTraining(training);
+                        setVisible(true);
+                    }}>
+                        <DataTable.Cell>{training.reps + " reps"}</DataTable.Cell>
+                        <DataTable.Cell>{training.weight + " kg"}</DataTable.Cell>
+                        <DataTable.Cell>{training.rir + " RIR"}</DataTable.Cell>
+                    </DataTable.Row>
             )
         })}
-        { onDelete && onSubmit &&
+        {onDelete && onSubmit &&
             <EditWorkoutSetDialog workoutSet={training}
-                              visible={visible}
-                              setVisible={setVisible}
-                              onDelete={onDelete}
-                              onSubmit={onSubmit}/>}
+                                  visible={visible}
+                                  setVisible={setVisible}
+                                  onDelete={onDelete}
+                                  onSubmit={onSubmit}/>}
     </View>;
 }
 
