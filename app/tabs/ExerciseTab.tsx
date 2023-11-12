@@ -9,28 +9,28 @@ import {useAlleExercises} from '../redux/Exercises/useAllExercises';
 const ExerciseTab = ({navigation}: Props) => {
     const theme = useTheme();
     const [filter, setFilter] = useState('');
-    const exercises = useAlleExercises();
+    const exercises = useAlleExercises().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
 
     return (
-        <View style={{backgroundColor: theme.colors.background, flex: 1}}>
-                <TextInput label={'Filter'} onChangeText={(text) => setFilter(text)}/>
-                <ScrollView contentInsetAdjustmentBehavior="automatic">
-                    {exercises
-                        .filter((exercise: Exercise) => exercise.name.toLowerCase().includes(filter.toLowerCase()))
-                        .map((exercise: Exercise) => (
-                            <Pressable
-                                key={exercise.name}
-                                onPress={() =>
-                                    navigation.navigate({
-                                        name: 'AddWorkoutTab',
-                                        params: {exercise},
-                                    })
-                                }>
-                                <Text style={styles.exerciseText}> {exercise.name}</Text>
-                                <Divider />
-                            </Pressable>
-                        ))}
-                </ScrollView>
+        <View style={{backgroundColor: theme.colors.background, flex: 1}}>7
+            <TextInput label={'Filter'} onChangeText={(text) => setFilter(text)}/>
+            <ScrollView contentInsetAdjustmentBehavior="automatic">
+                {exercises
+                    .filter((exercise: Exercise) => exercise.name.toLowerCase().includes(filter.toLowerCase()))
+                    .map((exercise: Exercise) => (
+                        <Pressable
+                            key={exercise.name}
+                            onPress={() =>
+                                navigation.navigate({
+                                    name: 'AddWorkoutTab',
+                                    params: {exercise},
+                                })
+                            }>
+                            <Text style={styles.exerciseText}> {exercise.name}</Text>
+                            <Divider/>
+                        </Pressable>
+                    ))}
+            </ScrollView>
             <AddExercise/>
         </View>
     );
