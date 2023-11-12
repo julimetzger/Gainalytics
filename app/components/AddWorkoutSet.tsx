@@ -60,23 +60,27 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
     }
 
     return (
-        <View style={{justifyContent: 'space-between',margin:5}}>
+        <View style={{justifyContent: 'space-between', margin: 5}}>
             <View style={{alignSelf: 'center', flexDirection: "row"}}>
                 <TextInput mode="outlined" label="Reps" value={reps.toString()} style={styles.textInput}
                            onChangeText={setRepsOnChange} keyboardType="numeric"
                            onFocus={() => setWeightSuggestions()}
                            onBlur={() => setHighlightWeightSuggestion(false)}
-                           error={repsEmpty}/>
+                           error={repsEmpty}
+                           selectTextOnFocus={true}
+                          />
                 <TextInput mode="outlined" label="RIR" value={rir.toString()} style={styles.textInput}
                            onChangeText={setRIROnChange} keyboardType="numeric"
                            onFocus={() => setWeightSuggestions()}
                            onBlur={() => setHighlightWeightSuggestion(false)}
-                           error={rirEmpty}/>
+                           error={rirEmpty}
+                           selectTextOnFocus={true}/>
                 <TextInput mode="outlined" label="Weight" value={weight.toString()} style={styles.textInput}
                            onChangeText={setWeightOnChange} keyboardType="numeric"
                            textColor={highlightWeightSuggestion && !weightSet ? theme.colors.secondary : undefined}
                            outlineColor={highlightWeightSuggestion && !weightSet ? theme.colors.secondary : undefined}
-                           error={weightEmpty}/>
+                           error={weightEmpty}
+                           selectTextOnFocus={true}/>
                 <Tooltip
                     title={"Suggests the weight based on your 1RM"}>
                     <ToggleButton
@@ -90,7 +94,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
                 </Tooltip>
                 <Button
                     mode={'contained'}
-                    style={{ marginStart: 5}}
+                    style={{marginStart: 5}}
                     buttonColor={theme.colors.primaryContainer}
                     textColor={theme.colors.onPrimaryContainer}
                     onPress={() => {

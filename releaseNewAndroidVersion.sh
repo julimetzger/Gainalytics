@@ -14,6 +14,17 @@ export ENTRY_FILE=index.tsx
 cd android
 rm -rf app/src/main/res/drawable*
 ./gradlew assembleRelease && ./gradlew bundleRelease
+git add -f app/build/outputs/apk/release/app-release.apk
+git add -f app/build/outputs/bundle/release/app-release.aab
+git add app/build.gradle
+git commit -m "release android version $newVersion with bundle and apk"
+git tag $newVersion
+git push origin $newVersion
+git rm --cached app/build/outputs/apk/release/app-release.apk
+git rm --cached app/build/outputs/bundle/release/app-release.aab
+git commit --amend -m "release android version $newVersion"
+git push origin master
+
 
 cd ..
 
