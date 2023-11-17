@@ -15,7 +15,7 @@ import {sumBy} from "lodash";
 
 
 const AnalyseGraphics = ({route}: Props) => {
-    function handleDataPoíntSelcet(value: ChartSelectEvent) {
+    function handleDataPointSelect(value: ChartSelectEvent) {
         value.nativeEvent?.data?.id ? setSelectedWorkoutId(value.nativeEvent?.data.id) : null;
     }
 
@@ -94,7 +94,7 @@ const AnalyseGraphics = ({route}: Props) => {
                     right: {textColor: processColor(theme.colors.onBackground)}
                 }}
                 chartDescription={{text: ''}}
-                onSelect={(value) => handleDataPoíntSelcet(value)}/>}
+                onSelect={(value) => handleDataPointSelect(value)}/>}
 
             <ScrollView style={styles.exercise}>
                 {selectedWorkout && exercise.length > 0 && <>< Text
