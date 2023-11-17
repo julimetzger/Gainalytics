@@ -1,6 +1,6 @@
 import {AnyAction} from '@reduxjs/toolkit';
 import {NormalizedState} from '../normalizedState';
-import {NormalizedWorkoutSatete} from "../normalizedWorkoutState";
+import {NormalizedWorkoutState} from "../normalizedWorkoutState";
 
 const initialState = {
     byId: {},
@@ -8,7 +8,7 @@ const initialState = {
     byExerciseId: {}
 };
 
-const exerciseReducer = (workoutState: NormalizedWorkoutSatete<Workout> = initialState, action: AnyAction) => {
+const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initialState, action: AnyAction) => {
     switch (action.type) {
         case 'ADD_WORKOUT': {
             let newId;
@@ -23,7 +23,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutSatete<Workout> = initia
             if (workoutState.byExerciseId[action.workout.exerciseId] === undefined)
                 workoutState.byExerciseId[action.workout.exerciseId] = [newId];
             else
-                //TODO list should be time ordered (impelment test for this)
+                //TODO list should be time ordered (implement test for this)
                 workoutState.byExerciseId[action.workout.exerciseId].push(newId)
             return {
                 byId: {...workoutState.byId},

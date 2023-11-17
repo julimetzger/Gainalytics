@@ -19,7 +19,7 @@ const AddExercise = () => {
     };
 
     return (
-        <View style={style.addExerxise}>
+        <View style={style.addExercise}>
             <IconButton icon="plus-circle" onPress={() => showDialog()} theme={theme} iconColor={theme.colors.tertiaryContainer}
                         size={40}></IconButton>
             <Portal>
@@ -43,7 +43,7 @@ const AddExercise = () => {
 };
 
 let style = StyleSheet.create({
-    addExerxise: {
+    addExercise: {
         position: 'absolute',
         bottom: 5,
         right: 5
