@@ -9,6 +9,7 @@ const initialState = {
 };
 
 const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initialState, action: AnyAction) => {
+    const byExerciseIdArray = workoutState.byExerciseId[action.workout.exerciseId];
     switch (action.type) {
         case 'ADD_WORKOUT': {
             let newId;
@@ -16,15 +17,23 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                 newId = Math.max(...workoutState.allIds) + 1;
             else
                 newId = 1;
-            //TODO list should be time ordered (implement test for this)
-            workoutState.allIds.push(newId);
+            let idOfLaterWorkoutOrUndefined = workoutState.allIds.find(value => workoutState.byId[value].end!! > action.workout.end);
+            if (idOfLaterWorkoutOrUndefined) {
+                workoutState.allIds.splice(workoutState.allIds.indexOf(idOfLaterWorkoutOrUndefined), 0, newId);
+            } else {
+                workoutState.allIds.push(newId);
+            }
             // TODO use valid end and start dates
             workoutState.byId[newId] = {...action.workout, id: newId};
-            if (workoutState.byExerciseId[action.workout.exerciseId] === undefined)
+            if (byExerciseIdArray === undefined)
                 workoutState.byExerciseId[action.workout.exerciseId] = [newId];
-            else
-                //TODO list should be time ordered (implement test for this)
-                workoutState.byExerciseId[action.workout.exerciseId].push(newId)
+            else {
+                if (idOfLaterWorkoutOrUndefined) {
+                    byExerciseIdArray.splice(byExerciseIdArray.indexOf(idOfLaterWorkoutOrUndefined), 0, newId);
+                } else {
+                    byExerciseIdArray.push(newId);
+                }
+            }
             return {
                 byId: {...workoutState.byId},
                 allIds: [...workoutState.allIds],
@@ -40,7 +49,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
         case 'DELETE_WORKOUT': {
             delete workoutState.byId[action.workout.id];
             workoutState.allIds = workoutState.allIds.filter(value => value !== action.workout.id);
-            workoutState.byExerciseId[action.workout.exerciseId] = workoutState.byExerciseId[action.workout.exerciseId].filter(value => value !== action.workout.id);
+            workoutState.byExerciseId[action.workout.exerciseId] = byExerciseIdArray.filter(value => value !== action.workout.id);
             return {
                 ...workoutState,
                 byId: {...workoutState.byId},
