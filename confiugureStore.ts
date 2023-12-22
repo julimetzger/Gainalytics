@@ -19,7 +19,7 @@ const migrations = {
     }
 }
 
-const saveUserLoginSubsetFilter = createFilter("workouts", ["notFinishedWorkouts"]);
+const saveUserLoginSubsetFilter = createFilter("workouts", ["byId", "byExerciseId", "allIds"]);
 
 const persistConfig = {
     key: 'root',

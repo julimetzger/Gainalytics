@@ -54,24 +54,28 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
             if (action.set.index !== undefined) {
                 let indexOf = workoutState.byId[action.workoutId].sets.map((value) => value.index).indexOf(action.set.index);
                 workoutState.byId[action.workoutId].sets[indexOf] = action.set;
-                return {
+                let newState = {
                     ...workoutState,
                     byId: {...workoutState.byId},
                 };
+                newState.byId[action.workoutId].sets[indexOf] = {...action.set};
+                return newState;
             }
             let sets = workoutState.byId[action.workoutId].sets;
             let LastIndex = sets.map(value => value.index).sort().pop();
             let newIndex = LastIndex ? LastIndex + 1 : 1;
-            workoutState.byId[action.workoutId].sets.push({...action.set, index: newIndex});
-            return {
+            let arrayIndex = workoutState.byId[action.workoutId].sets.push({...action.set, index: newIndex}) - 1;
+            let newState = {
                 ...workoutState,
                 byId: {...workoutState.byId},
             };
+            newState.byId[action.workoutId].sets[arrayIndex] = {...workoutState.byId[action.workoutId].sets[arrayIndex]};
+            return newState;
         }
         case 'FINALIZE_WORKOUT': {
             workoutState.byId[action.workoutId].end = action.end;
             if (workoutState.notFinishedWorkouts !== undefined)
-                delete workoutState.notFinishedWorkouts[action.workout.exerciseId];
+                delete workoutState.notFinishedWorkouts[action.workoutId];
             return {
                 ...workoutState,
                 byId: {...workoutState.byId},
