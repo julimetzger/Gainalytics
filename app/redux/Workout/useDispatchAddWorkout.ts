@@ -5,7 +5,7 @@ import {Action} from 'redux';
 /**
  * add fully build workout to redux store
  */
-export const useDispatchAddSetToTraining = () => {
+export const useDispatchAddWorkout = () => {
   const dispatch = useDispatch();
 
   return (workout: Workout) =>

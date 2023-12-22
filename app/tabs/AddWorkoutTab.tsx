@@ -3,7 +3,7 @@ import {ScrollView, StyleSheet} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../routing/exerciseRouter';
 import {Button, Text, useTheme} from 'react-native-paper';
-import {useDispatchAddSetToTraining} from '../redux/Workout/dispatchAddSetToTraining';
+import {useDispatchAddWorkout} from '../redux/Workout/useDispatchAddWorkout';
 import WorkoutSetView from "./WorkoutSetView";
 import AddWorkoutSet from "../components/AddWorkoutSet";
 import DatePicker from "./DatePicker";
@@ -16,7 +16,7 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
     let workouts = useAllLastWorkouts(route.params.exercise, 1);
     let oneRepMax = oneRepMaxForWorkouts(...workouts);
     let theme = useTheme();
-    let dispatchAddSetToTraining = useDispatchAddSetToTraining();
+    let addWorkout = useDispatchAddWorkout();
     return (
         <ScrollView style={{backgroundColor: theme.colors.background}} keyboardShouldPersistTaps='handled'>
             <DatePicker date={date} setDate={setDate}/>
@@ -32,6 +32,7 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
             <AddWorkoutSet onSubmit={
                 (workoutSet) => setSets([...sets, workoutSet])} oneRepMax={oneRepMax}/>
             <WorkoutSetView sets={sets}
+
                             onDelete={(workoutSet) => setSets([...sets.filter(value => value.index!! !== workoutSet.index!!)])}
                             onSubmit={(workoutSet) => setSets([...sets.map(value => value.index!! === workoutSet.index!! ? workoutSet : value)])}/>
             <Button
@@ -41,7 +42,7 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
                 mode={'contained'}
                 disabled={sets.length === 0}
                 onPress={() => {
-                    dispatchAddSetToTraining({
+                    addWorkout({
                         sets: sets,
                         notes: '',
                         exerciseId: route.params.exercise.id!!,

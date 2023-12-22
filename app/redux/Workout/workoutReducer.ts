@@ -8,48 +8,80 @@ const initialState = {
     byExerciseId: {}
 };
 
+function addNewWorkoutToState(workoutState: NormalizedWorkoutState<Workout>, workout: Workout) {
+    let newId;
+    const byExerciseIdArray = workoutState.byExerciseId[workout.exerciseId];
+    if (workoutState.allIds.length > 0)
+        newId = Math.max(...workoutState.allIds) + 1;
+    else
+        newId = 1;
+    let idOfLaterWorkoutOrUndefined = workoutState.allIds.find(value => workoutState.byId[value].end!! > workout.end!!);
+    if (idOfLaterWorkoutOrUndefined) {
+        workoutState.allIds.splice(workoutState.allIds.indexOf(idOfLaterWorkoutOrUndefined), 0, newId);
+    } else {
+        workoutState.allIds.push(newId);
+    }
+    // TODO use valid end and start dates
+    workoutState.byId[newId] = {...workout, id: newId};
+    if (byExerciseIdArray === undefined)
+        workoutState.byExerciseId[workout.exerciseId] = [newId];
+    else {
+        if (idOfLaterWorkoutOrUndefined) {
+            byExerciseIdArray.splice(byExerciseIdArray.indexOf(idOfLaterWorkoutOrUndefined), 0, newId);
+        } else {
+            byExerciseIdArray.push(newId);
+        }
+    }
+    return newId;
+}
+
 const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initialState, action: AnyAction) => {
-    const byExerciseIdArray = workoutState.byExerciseId[action.workout.exerciseId];
     switch (action.type) {
         case 'ADD_WORKOUT': {
-            let newId;
-            if (workoutState.allIds.length > 0)
-                newId = Math.max(...workoutState.allIds) + 1;
-            else
-                newId = 1;
-            let idOfLaterWorkoutOrUndefined = workoutState.allIds.find(value => workoutState.byId[value].end!! > action.workout.end);
-            if (idOfLaterWorkoutOrUndefined) {
-                workoutState.allIds.splice(workoutState.allIds.indexOf(idOfLaterWorkoutOrUndefined), 0, newId);
-            } else {
-                workoutState.allIds.push(newId);
-            }
-            // TODO use valid end and start dates
-            workoutState.byId[newId] = {...action.workout, id: newId};
-            if (byExerciseIdArray === undefined)
-                workoutState.byExerciseId[action.workout.exerciseId] = [newId];
-            else {
-                if (idOfLaterWorkoutOrUndefined) {
-                    byExerciseIdArray.splice(byExerciseIdArray.indexOf(idOfLaterWorkoutOrUndefined), 0, newId);
-                } else {
-                    byExerciseIdArray.push(newId);
-                }
-            }
+            let newId = addNewWorkoutToState(workoutState, action.workout);
+            if (workoutState.notFinishedWorkouts === undefined)
+                workoutState.notFinishedWorkouts = {};
+            workoutState.notFinishedWorkouts[action.workout.exerciseId] = newId;
             return {
                 byId: {...workoutState.byId},
                 allIds: [...workoutState.allIds],
-                byExerciseId: {...workoutState.byExerciseId}
+                byExerciseId: {...workoutState.byExerciseId},
+                notFinishedWorkouts: {...workoutState.notFinishedWorkouts}
             } as NormalizedState<Workout>;
         }
-        case 'ADD_SET_TO_WORKOUT': {
-            return workoutState;
+
+        case 'ADD_OR_UPDATE_SET_IN_WORKOUT': {
+            if (action.set.index !== undefined) {
+                let indexOf = workoutState.byId[action.workoutId].sets.map((value) => value.index).indexOf(action.set.index);
+                workoutState.byId[action.workoutId].sets[indexOf] = action.set;
+                return {
+                    ...workoutState,
+                    byId: {...workoutState.byId},
+                };
+            }
+            let sets = workoutState.byId[action.workoutId].sets;
+            let LastIndex = sets.map(value => value.index).sort().pop();
+            let newIndex = LastIndex ? LastIndex + 1 : 1;
+            workoutState.byId[action.workoutId].sets.push({...action.set, index: newIndex});
+            return {
+                ...workoutState,
+                byId: {...workoutState.byId},
+            };
         }
         case 'FINALIZE_WORKOUT': {
-            return workoutState;
+            workoutState.byId[action.workoutId].end = action.end;
+            if (workoutState.notFinishedWorkouts !== undefined)
+                delete workoutState.notFinishedWorkouts[action.workout.exerciseId];
+            return {
+                ...workoutState,
+                byId: {...workoutState.byId},
+                notFinishedWorkouts: {...workoutState.notFinishedWorkouts}
+            };
         }
         case 'DELETE_WORKOUT': {
             delete workoutState.byId[action.workout.id];
             workoutState.allIds = workoutState.allIds.filter(value => value !== action.workout.id);
-            workoutState.byExerciseId[action.workout.exerciseId] = byExerciseIdArray.filter(value => value !== action.workout.id);
+            workoutState.byExerciseId[action.workout.exerciseId] = workoutState.byExerciseId[action.workout.exerciseId].filter(value => value !== action.workout.id);
             return {
                 ...workoutState,
                 byId: {...workoutState.byId},
