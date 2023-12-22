@@ -1,7 +1,7 @@
 import {useDispatch} from "react-redux";
 import {Action} from "redux";
 
-export const dispatchAddOrUpdateSetInWorkout = () => {
+export const dispatchFinalizeWorkout = () => {
     const dispatch = useDispatch();
 
     return (end: Date, workoutId: number) =>

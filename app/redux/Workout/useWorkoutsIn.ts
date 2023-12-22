@@ -12,7 +12,7 @@ const passRange = (state: GlobalState, range: Range) => range;
 function findWorkoutsIn(allIds: NormalizedState<Workout>, range: Range) {
     let allWorkouts: Workout[] = allIds.allIds.map((value: number) => allIds.byId[value]);
     return allWorkouts.filter((workout: Workout) =>
-        (workout.start !== undefined && workout.end !== undefined && new Date(workout.start).getTime() > new Date(range.startDate).getTime() && new Date(workout.end).getTime() < new Date(range.endDate).getTime())
+        (workout.start !== undefined && new Date(workout.start).getTime() > new Date(range.startDate).getTime())
     )
 }
 

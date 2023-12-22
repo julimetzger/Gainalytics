@@ -9,14 +9,20 @@ import AddWorkoutSet from "../components/AddWorkoutSet";
 import DatePicker from "./DatePicker";
 import {useAllLastWorkouts} from "../redux/Workout/useAllLastWorkouts";
 import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";
+import {useUnfinishedWorkout} from "../redux/Workout/useUnfinishedWorkout";
+import {dispatchAddOrUpdateSetInWorkout} from "../redux/Workout/dispatchAddOrUpdateSetInWorkout";
+import {dispatchFinalizeWorkout} from "../redux/Workout/dispatchFinalizeWorkout";
 
 const AddWorkoutTab = ({navigation, route}: Props) => {
-    const [sets, setSets] = useState<WorkoutSet[]>([]);
+    let unfinishedWorkout = useUnfinishedWorkout(route.params.exercise.id!!);
+    const [sets, setSets] = useState<WorkoutSet[]>(unfinishedWorkout ? unfinishedWorkout.sets : []);
     const [date, setDate] = useState(new Date(Date.now()));
     let workouts = useAllLastWorkouts(route.params.exercise, 1);
     let oneRepMax = oneRepMaxForWorkouts(...workouts);
     let theme = useTheme();
     let addWorkout = useDispatchAddWorkout();
+    let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout();
+    let finalizeWorkout = dispatchFinalizeWorkout();
     return (
         <ScrollView style={{backgroundColor: theme.colors.background}} keyboardShouldPersistTaps='handled'>
             <DatePicker date={date} setDate={setDate}/>
@@ -30,7 +36,19 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
             </Button>
             <Text style={{alignSelf: 'center', marginTop: 20}}> Set {sets.length + 1}</Text>
             <AddWorkoutSet onSubmit={
-                (workoutSet) => setSets([...sets, workoutSet])} oneRepMax={oneRepMax}/>
+                (workoutSet) => {
+                    if (unfinishedWorkout === undefined) {
+                        addWorkout({
+                            sets: [workoutSet],
+                            notes: '',
+                            exerciseId: route.params.exercise.id!!,
+                            start: date,
+                        })
+                    } else {
+                        addOrUpdateSetInWorkout(workoutSet, unfinishedWorkout.id!!);
+                    }
+                    setSets([...sets, workoutSet])
+                }} oneRepMax={oneRepMax}/>
             <WorkoutSetView sets={sets}
 
                             onDelete={(workoutSet) => setSets([...sets.filter(value => value.index!! !== workoutSet.index!!)])}
@@ -42,13 +60,7 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
                 mode={'contained'}
                 disabled={sets.length === 0}
                 onPress={() => {
-                    addWorkout({
-                        sets: sets,
-                        notes: '',
-                        exerciseId: route.params.exercise.id!!,
-                        start: date,
-                        end: date
-                    });
+                    finalizeWorkout(new Date(Date.now()), unfinishedWorkout?.id!!);
                     navigation.navigate({name: 'Exercises', params: undefined});
                 }}>
                 Add Workout

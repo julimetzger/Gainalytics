@@ -18,7 +18,6 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
     const [reps, setReps] = useState(workoutSet?.reps.toString() ?? '');
     const [weightSet, setWeightSet] = useState(false);
     const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
-    const [idForUpdates, setIdForUpdates] = useState(1);
     const [weightEmpty, setWeightEmpty] = useState(false);
     const [rirEmpty, setRirEmpty] = useState(false);
     const [repsEmpty, setRepsEmpty] = useState(false);
@@ -105,13 +104,12 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax}: AddWorkoutProps) => {
                             return;
                         }
                         onSubmit({
-                            index: workoutSet?.index ?? idForUpdates,
+                            index: workoutSet?.index,
                             date: new Date(Date.now()),
                             weight: convertToNumber(weight),
                             reps: convertToNumber(reps),
                             rir: convertToNumber(rir) == NaN ? 0 : convertToNumber(rir)
                         } as WorkoutSet);
-                        setIdForUpdates(idForUpdates + 1)
                     }}>
                     {workoutSet !== undefined ? "Update" : "Add"}
                 </Button>
