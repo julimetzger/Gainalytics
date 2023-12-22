@@ -1,5 +1,5 @@
 export const repetitionMax = (...workoutSet: WorkoutSet[]) => {
-    let number = Math.max(...workoutSet.map(value => value.weight * (1 + (value.reps + value.rir) / 30.0)));
+    let number = Math.max(...workoutSet.map(value => value.weight * repsCofficient(value.reps + value.rir)));
     return number !== -Infinity ? number : null;
 }
 
@@ -8,7 +8,10 @@ export const oneRepMaxForWorkouts = (...workout: Workout[]) => {
 }
 
 function repsCofficient(reps: number) {
-    return 1 + (reps) / 30;
+    if (reps === 1)
+        return 1;
+    else
+        return 1 + (reps) / 30;
 }
 
 /*
