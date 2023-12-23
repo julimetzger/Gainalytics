@@ -5,7 +5,7 @@ import {useDispatchAddExercise} from '../redux/Exercises/dispatchAddExercise';
 
 const AddExercise = () => {
     const [visible, setVisible] = React.useState(false);
-    const [newExercise, setNewExercise] = useState('');
+    const [newExercise, setNewExercise] =  useState('');
     let dispatchAddExercise = useDispatchAddExercise();
     let theme = useTheme();
 

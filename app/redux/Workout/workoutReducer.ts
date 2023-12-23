@@ -72,10 +72,21 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
             newState.byId[action.workoutId].sets[arrayIndex] = {...workoutState.byId[action.workoutId].sets[arrayIndex]};
             return newState;
         }
+        case 'DELETE_SET_FROM_WORKOUT': {
+            let indexOf = workoutState.byId[action.workoutId].sets.map((value) => value.index).indexOf(action.set.index);
+            workoutState.byId[action.workoutId].sets.splice(indexOf, 1);
+            return {
+                ...workoutState,
+                byId: {...workoutState.byId},
+            };
+        }
         case 'FINALIZE_WORKOUT': {
             workoutState.byId[action.workoutId].end = action.end;
             if (workoutState.notFinishedWorkouts !== undefined)
-                delete workoutState.notFinishedWorkouts[action.workoutId];
+                for (let key in workoutState.notFinishedWorkouts) {
+                    if (workoutState.notFinishedWorkouts[key] === action.workoutId)
+                        delete workoutState.notFinishedWorkouts[key];
+                }
             return {
                 ...workoutState,
                 byId: {...workoutState.byId},
