@@ -1,10 +1,9 @@
-import React, {useEffect, useState} from 'react';
-import {ScrollView, StyleSheet} from 'react-native';
+import React, {useState} from 'react';
+import {ScrollView, StyleSheet, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../routing/exerciseRouter';
 import {Button, Text, useTheme} from 'react-native-paper';
 import {useDispatchAddWorkout} from '../redux/Workout/useDispatchAddWorkout';
-import WorkoutSetView from "./WorkoutSetView";
 import AddWorkoutSet from "../components/AddWorkoutSet";
 import DatePicker from "./DatePicker";
 import {useAllLastWorkouts} from "../redux/Workout/useAllLastWorkouts";
@@ -25,8 +24,29 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
         let finalizeWorkout = dispatchFinalizeWorkout();
         let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
 
+        function submitWorkoutSet(workoutSet: WorkoutSet) {
+            if (unfinishedWorkout === undefined) {
+                addWorkout({
+                    //TODO index should be set by reducer
+                    sets: [{...workoutSet, index: 1}],
+                    notes: '',
+                    exerciseId: route.params.exercise.id!!,
+                    start: date,
+                })
+            } else {
+                addOrUpdateSetInWorkout(workoutSet, unfinishedWorkout.id!!);
+            }
+        }
+
         return (
             <ScrollView style={{backgroundColor: theme.colors.background}} keyboardShouldPersistTaps='handled'>
+                <Button buttonColor={theme.colors.tertiaryContainer} textColor={theme.colors.onTertiaryContainer}
+                        style={style.historyLink} mode={"contained"}
+                        onPress={() => {
+
+                        }}>
+                    Suggest
+                </Button>
                 <DatePicker date={date} setDate={setDate}/>
                 <Button buttonColor={theme.colors.tertiaryContainer} textColor={theme.colors.onTertiaryContainer}
                         style={style.historyLink} mode={"contained"}
@@ -40,26 +60,16 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
                     alignSelf: 'center',
                     marginTop: 20
                 }}> Set {unfinishedWorkout?.sets ? unfinishedWorkout.sets.length + 1 : 1}</Text>
-                <AddWorkoutSet onSubmit={
-                    (workoutSet) => {
-                        if (unfinishedWorkout === undefined) {
-                            addWorkout({
-                                sets: [{...workoutSet, index: 1}],
-                                notes: '',
-                                exerciseId: route.params.exercise.id!!,
-                                start: date,
-                            })
-                        } else {
-                            addOrUpdateSetInWorkout(workoutSet, unfinishedWorkout.id!!);
-                        }
-                    }} oneRepMax={oneRepMax}/>
-                {unfinishedWorkout && <WorkoutSetView sets={unfinishedWorkout.sets}
-                                                      onDelete={(workoutSet) => {
-                                                          deleteSetFromWorkout(workoutSet, unfinishedWorkout.id);
-                                                      }}
-                                                      onSubmit={(workoutSet) => {
-                                                          addOrUpdateSetInWorkout(workoutSet, unfinishedWorkout.id);
-                                                      }}/>}
+                <View style={{justifyContent: 'flex-start'}}>
+                    <AddWorkoutSet onSubmit={submitWorkoutSet}
+                                   oneRepMax={oneRepMax}/>
+                    {unfinishedWorkout && unfinishedWorkout.sets.map((workoutSet) => {
+                        return <AddWorkoutSet workoutSet={workoutSet}
+                                              onSubmit={submitWorkoutSet}
+                                              oneRepMax={oneRepMax}
+                                              onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout.id!!)}/>
+                    })}
+                </View>
                 <Button
                     style={{marginTop: 20, display: 'flex', alignSelf: 'center'}}
                     buttonColor={theme.colors.primaryContainer}

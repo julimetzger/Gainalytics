@@ -20,13 +20,16 @@ const EditWorkoutSetDialog = ({workoutSet, visible, setVisible, onDelete, onSubm
 
     return (
         <Portal>
-            <Dialog visible={visible} onDismiss={hideDialog} theme={theme} style={{backgroundColor: theme.colors.backdrop}}>
+            <Dialog visible={visible} onDismiss={hideDialog} theme={theme}
+                    style={{backgroundColor: theme.colors.backdrop}}>
                 <Dialog.Title>Edit Workout Set</Dialog.Title>
                 <Dialog.Content>
                     <AddWorkoutSet onSubmit={(updatedWorkout) => {
                         onSubmit(updatedWorkout!!);
                         confirmDialog();
-                    }} workoutSet={workoutSet}/>
+                    }}
+                                   workoutSet={workoutSet}
+                                   hasToSaveManually={true}/>
                 </Dialog.Content>
                 <Dialog.Actions>
                     <Button onPress={() => {

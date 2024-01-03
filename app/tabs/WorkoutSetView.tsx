@@ -2,36 +2,53 @@ import {StyleSheet, View} from "react-native";
 import {DataTable} from 'react-native-paper';
 import React, {useState} from "react";
 import EditWorkoutSetDialog from "../components/EditWorkoutSetDialog";
+import {set} from "lodash";
+import AddWorkoutSet from "../components/AddWorkoutSet";
 
 const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
-    const [visible, setVisible] = useState(false);
-    const [training, setTraining] = useState<WorkoutSet>();
+    const [setToUpdate, setSetToUpdate] = useState<WorkoutSet>();
+    let indexOfSelectedWorkout = setToUpdate ? sets.indexOf(setToUpdate) : undefined;
+    let workoutsBefore: WorkoutSet[] = [];
+    let workoutsAfter: WorkoutSet[];
+    if (indexOfSelectedWorkout!== undefined && indexOfSelectedWorkout !== -1) {
+        workoutsBefore = sets.slice(0, indexOfSelectedWorkout);
+        workoutsAfter = sets.slice(indexOfSelectedWorkout + 1);
+    } else {
+        workoutsAfter = sets;
+    }
+
+    function showSets(training: WorkoutSet) {
+        return (
+            <DataTable.Row id={training.index!!.toString()} onPress={() => {
+                setSetToUpdate(training);
+            }}>
+                <DataTable.Cell>{training.reps + " reps"}</DataTable.Cell>
+                <DataTable.Cell>{training.rir + " RIR"}</DataTable.Cell>
+                <DataTable.Cell>{training.weight + " kg"}</DataTable.Cell>
+            </DataTable.Row>
+        )
+    }
+
     return <View>
-        {sets.map((training) => {
-            return (
-                    <DataTable.Row  onPress={() => {
-                        setTraining(training);
-                        setVisible(true);
-                    }}>
-                        <DataTable.Cell>{training.reps + " reps"}</DataTable.Cell>
-                        <DataTable.Cell>{training.weight + " kg"}</DataTable.Cell>
-                        <DataTable.Cell>{training.rir + " RIR"}</DataTable.Cell>
-                    </DataTable.Row>
-            )
-        })}
-        {onDelete && onSubmit &&
-            <EditWorkoutSetDialog workoutSet={training}
-                                  visible={visible}
-                                  setVisible={setVisible}
-                                  onDelete={onDelete}
-                                  onSubmit={onSubmit}/>}
+        {workoutsBefore.map(showSets)}
+        {setToUpdate && <AddWorkoutSet onSubmit={(arg) => {
+            onSubmit(arg);
+            setSetToUpdate(undefined);
+        }}
+                                       onDelete={(workout) => {
+                                           onDelete(workout);
+                                           setSetToUpdate(undefined);
+                                       }}
+                                       workoutSet={setToUpdate}
+                                       hasToSaveManually={true}/>}
+        {workoutsAfter.map(showSets)}
     </View>;
 }
 
 interface WorkoutSetViewProps {
     sets: WorkoutSet[],
-    onDelete?: (workoutSet: WorkoutSet) => void,
-    onSubmit?: (workoutSet: WorkoutSet) => void
+    onDelete: (workoutSet: WorkoutSet) => void,
+    onSubmit: (workoutSet: WorkoutSet) => void
 }
 
 export default WorkoutSetView;
