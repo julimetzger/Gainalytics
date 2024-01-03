@@ -19,7 +19,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
     const [rir, setRPE] = useState(workoutSet?.rir?.toString() ?? '0');
     const [reps, setReps] = useState(workoutSet?.reps?.toString() ?? '');
     const [editing, setEditing] = useState(hasToSaveManually);
-    const [weightSet, setWeightSet] = useState(false);
+    const [weightSet, setWeightSet] = useState(oneRepMax!== undefined);
     const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
     const [weightEmpty, setWeightEmpty] = useState(false);
     const [rirEmpty, setRirEmpty] = useState(false);
@@ -41,7 +41,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
         if (isNaN(reps) || isNaN(rir)) {
             return;
         }
-        if (oneRepMax !== null && !weightSet) {
+        if (oneRepMax !== undefined && !weightSet) {
             setWeightEmpty(false);
             let weight = repetionWeightByOneRm(reps, rir, oneRepMax!!).toFixed();
             setWeight(weight.toString())
@@ -80,6 +80,18 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
             rir === '' && setRirEmpty(true);
             return;
         }
+        if (weight === NaN.toString() || reps === NaN.toString() || rir === NaN.toString()) {
+            weight === NaN.toString() && setWeightEmpty(true);
+            reps === NaN.toString() && setRepsEmpty(true);
+            rir === NaN.toString() && setRirEmpty(true);
+            return;
+        }
+        if (weight === undefined || reps === undefined || rir === undefined) {
+            weight === undefined && setWeightEmpty(true);
+            reps === undefined && setRepsEmpty(true);
+            rir === undefined && setRirEmpty(true);
+            return;
+        }
         onSubmit({
             index: workoutSet?.index,
             date: new Date(Date.now()),
@@ -87,12 +99,12 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
             reps: convertToNumber(reps),
             rir: convertToNumber(rir) == NaN ? 0 : convertToNumber(rir)
         } as WorkoutSet);
+        setEditing(false);
     }
 
     function submitOnChangeIfAllowed() {
         if (persisted() && !hasToSaveManually) {
             submit();
-            setEditing(false);
         }
     }
 
@@ -136,7 +148,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                            }}
                            error={weightEmpty}
                            selectTextOnFocus={true}/>
-                <Tooltip
+                {oneRepMax && <Tooltip
                     title={"Suggests the weight based on your 1RM"}>
                     <ToggleButton
                         icon={() => <View><Text
@@ -147,7 +159,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                             setWeightSet(prevState => !prevState);
                             setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
                         }}/>
-                </Tooltip>
+                </Tooltip>}
                 {persisted() && !editing &&
                     <IconButton icon={"check"} iconColor={determineCheckmarkColor()}/>}
                 {persisted() && editing &&
