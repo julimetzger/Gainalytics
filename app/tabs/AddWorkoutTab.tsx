@@ -66,7 +66,6 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
                     {unfinishedWorkout && unfinishedWorkout.sets.map((workoutSet) => {
                         return <AddWorkoutSet workoutSet={workoutSet}
                                               onSubmit={submitWorkoutSet}
-                                              oneRepMax={oneRepMax}
                                               onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout.id!!)}/>
                     })}
                 </View>
