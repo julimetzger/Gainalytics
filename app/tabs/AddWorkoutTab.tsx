@@ -12,6 +12,7 @@ import {useUnfinishedWorkout} from "../redux/Workout/useUnfinishedWorkout";
 import {dispatchAddOrUpdateSetInWorkout} from "../redux/Workout/dispatchAddOrUpdateSetInWorkout";
 import {dispatchFinalizeWorkout} from "../redux/Workout/dispatchFinalizeWorkout";
 import {dispatchDeleteSetFromWorkout} from "../redux/Workout/dispatchDeleteSetFromWorkout";
+import {dispatchSuggest} from "../redux/Workout/dispatchSuggest";
 
 const AddWorkoutTab = ({navigation, route}: Props) => {
         let unfinishedWorkout = useUnfinishedWorkout(route.params.exercise.id!!);
@@ -23,27 +24,42 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
         let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout();
         let finalizeWorkout = dispatchFinalizeWorkout();
         let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
+        let suggestedWorkout = dispatchSuggest();
 
         function submitWorkoutSet(workoutSet: WorkoutSet) {
             if (unfinishedWorkout === undefined) {
                 addWorkout({
                     //TODO index should be set by reducer
-                    sets: [{...workoutSet, index: 1}],
+                    sets: [{...workoutSet, index: workoutSet.index ?? 1}],
                     notes: '',
                     exerciseId: route.params.exercise.id!!,
                     start: date,
                 })
-            } else {
-                addOrUpdateSetInWorkout(workoutSet, unfinishedWorkout.id!!);
+                return;
             }
+            if (unfinishedWorkout.id === undefined) {
+                addWorkout({
+                    //TODO index should be set by reducer
+                    sets: [{
+                        ...workoutSet,
+                        index: workoutSet.index ?? unfinishedWorkout!!.sets.map(it => it.index!!).reduce((a, b) => Math.max(a, b)) + 1
+                    }],
+                    notes: '',
+                    exerciseId: route.params.exercise.id!!,
+                    start: date,
+                })
+                return;
+            }
+            addOrUpdateSetInWorkout(workoutSet, unfinishedWorkout.id!!);
         }
 
         return (
             <ScrollView style={{backgroundColor: theme.colors.background}} keyboardShouldPersistTaps='handled'>
                 <Button buttonColor={theme.colors.tertiaryContainer} textColor={theme.colors.onTertiaryContainer}
-                        style={style.historyLink} mode={"contained"}
+                        disabled={unfinishedWorkout !== undefined || workouts.length === 0}
+                        style={style.suggest} mode={"contained"}
                         onPress={() => {
-
+                            suggestedWorkout(route.params.exercise.id!!);
                         }}>
                     Suggest
                 </Button>
@@ -66,7 +82,7 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
                     {unfinishedWorkout && unfinishedWorkout.sets.map((workoutSet) => {
                         return <AddWorkoutSet workoutSet={workoutSet}
                                               onSubmit={submitWorkoutSet}
-                                              onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout.id!!)}/>
+                                              onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!.id, unfinishedWorkout!!.exerciseId)}/>
                     })}
                 </View>
                 <Button
@@ -74,7 +90,7 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
                     buttonColor={theme.colors.primaryContainer}
                     textColor={theme.colors.onPrimaryContainer}
                     mode={'contained'}
-                    disabled={unfinishedWorkout === undefined}
+                    disabled={unfinishedWorkout === undefined || unfinishedWorkout.id === undefined}
                     onPress={() => {
                         finalizeWorkout(new Date(Date.now()), unfinishedWorkout?.id!!);
                         navigation.navigate({name: 'Exercises', params: undefined});
@@ -92,6 +108,11 @@ let style = StyleSheet.create({
         position: "absolute",
         top: 0,
         right: 10,
+    },
+    suggest: {
+        position: "absolute",
+        top: 0,
+        right: 290,
     }
 });
 

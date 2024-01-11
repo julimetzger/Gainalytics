@@ -1,9 +1,24 @@
 import {useSelector} from "react-redux";
 import {GlobalState} from "../rootReducer";
 
-export const  useUnfinishedWorkout = (exerciseId: number) => useSelector((state: GlobalState) => {
-    if (state.workouts.notFinishedWorkouts !== undefined && state.workouts.notFinishedWorkouts[exerciseId] !== undefined)
-        return state.workouts.byId[state.workouts.notFinishedWorkouts[exerciseId]];
-    else
-        return undefined;
-});
+export const useUnfinishedWorkout = (exerciseId: number) => useSelector((state: GlobalState) => {
+        if (state.workouts.notFinishedWorkouts !== undefined && state.workouts.notFinishedWorkouts[exerciseId] !== undefined && state.workouts.suggestedWorkouts !== undefined && state.workouts.suggestedWorkouts[exerciseId] !== undefined) {
+            let unfinshedWorkoutSets = state.workouts.byId[state.workouts.notFinishedWorkouts[exerciseId]].sets;
+            let suggestedWorkoutSets = state.workouts.suggestedWorkouts[exerciseId].sets;
+            const joinedSets = [
+                ...unfinshedWorkoutSets,
+                ...suggestedWorkoutSets
+            ]
+            joinedSets.sort((a, b) => a.index!! - b.index!!);
+            return {
+                ...state.workouts.byId[state.workouts.notFinishedWorkouts[exerciseId
+                    ]],
+                sets: joinedSets
+            } as Workout;
+        }
+        if (state.workouts.notFinishedWorkouts !== undefined && state.workouts.notFinishedWorkouts[exerciseId] !== undefined)
+            return state.workouts.byId[state.workouts.notFinishedWorkouts[exerciseId]];
+        if (state.workouts.suggestedWorkouts !== undefined && state.workouts.suggestedWorkouts[exerciseId] !== undefined)
+            return state.workouts.suggestedWorkouts[exerciseId];
+    })
+;

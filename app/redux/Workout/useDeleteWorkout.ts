@@ -7,7 +7,7 @@ const useDeleteWorkout = () => {
     return (workout: Workout) =>
         dispatch({
             type: 'DELETE_WORKOUT',
-            workout,
+            workout
         } as Action);
 };
 export default useDeleteWorkout;
