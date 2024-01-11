@@ -34,6 +34,54 @@ const EMPTY_STATE = {
     allIds: [],
     byExerciseId: {}
 };
+const STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION = () => {
+    return {
+        ...
+            STATE_WITH_TWO_WORKOUTS(),
+        byId:
+            {
+                ...
+                    STATE_WITH_TWO_WORKOUTS().byId,
+                1:
+                    {
+                        ...
+                            STATE_WITH_TWO_WORKOUTS().byId[1],
+                        sets:
+                            [{reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1}, {
+                                reps: 2,
+                                rir: 2,
+                                weight: 2,
+                                date: TEST_DATE,
+                                index: 2
+                            }]
+                    }
+            }
+        ,
+        suggestedWorkouts:
+            {
+                11:
+                    {
+                        exerciseId: 11,
+                        id:
+                        undefined,
+                        notes:
+                            "",
+                        sets:
+                            [{reps: 1, rir: 1, weight: 1, date: undefined, index: 1}, {
+                                reps: 2,
+                                rir: 2,
+                                weight: 2,
+                                date: undefined,
+                                index: 2
+                            }],
+                        start:
+                        undefined,
+                        end:
+                        undefined,
+                    }
+            }
+    };
+}
 describe('workoutReducer', () => {
     describe('ADD_WORKOUT', () => {
         it('should add workout', () => {
@@ -55,7 +103,8 @@ describe('workoutReducer', () => {
                         end: TEST_DATE,
                     }
                 },
-                notFinishedWorkouts: {11: 1}
+                notFinishedWorkouts: {11: 1},
+                suggestedWorkouts: {}
             })
         })
 
@@ -103,10 +152,92 @@ describe('workoutReducer', () => {
                         end: new Date(TEST_DATE.getTime() - 100),
                     }
                 },
-                notFinishedWorkouts: {11: 3}
+                notFinishedWorkouts: {11: 3},
+                suggestedWorkouts: {}
+            })
+        })
+        it('should add workout with active suggestion', () => {
+            expect(exerciseReducer(STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION(), {
+                type: 'ADD_WORKOUT',
+                workout: {
+                    exerciseId: 11,
+                    notes: '',
+                    sets: [{reps: 1, rir: 1, weight: 3, date: TEST_DATE, index: 1}],
+                    start: new Date(TEST_DATE.getTime() + 100)
+                }
+            })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(), byId: {
+                    ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().byId,
+                    3: {
+                        id: 3,
+                        exerciseId: 11,
+                        notes: '',
+                        start: new Date(TEST_DATE.getTime() + 100),
+                        sets: [{reps: 1, rir: 1, weight: 3, date: TEST_DATE, index: 1}]
+                    }
+                },
+                allIds: [2, 1, 3],
+                byExerciseId:
+                    {
+                        11: [1, 3],
+                        22: [2],
+                    }
+                ,
+                notFinishedWorkouts: {11: 3},
+                suggestedWorkouts: {
+                    11: {
+                        exerciseId: 11,
+                        id: undefined,
+                        notes: "",
+                        sets: [{reps: 2, rir: 2, weight: 2, date: undefined, index: 2}],
+                        start: undefined,
+                        end: undefined
+                    }
+                }
+            })
+        })
+        it('should add workout with active suggestion', () => {
+            expect(exerciseReducer(STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION(), {
+                type: 'ADD_WORKOUT',
+                workout: {
+                    exerciseId: 11,
+                    notes: '',
+                    sets: [{reps: 1, rir: 1, weight: 3, date: TEST_DATE, index: 1}],
+                    start: new Date(TEST_DATE.getTime() + 100)
+                }
+            })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(), byId: {
+                    ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().byId,
+                    3: {
+                        id: 3,
+                        exerciseId: 11,
+                        notes: '',
+                        start: new Date(TEST_DATE.getTime() + 100),
+                        sets: [{reps: 1, rir: 1, weight: 3, date: TEST_DATE, index: 1}]
+                    }
+                },
+                allIds: [2, 1, 3],
+                byExerciseId:
+                    {
+                        11: [1, 3],
+                        22: [2],
+                    }
+                ,
+                notFinishedWorkouts: {11: 3},
+                suggestedWorkouts: {
+                    11: {
+                        exerciseId: 11,
+                        id: undefined,
+                        notes: "",
+                        sets: [{reps: 2, rir: 2, weight: 2, date: undefined, index: 2}],
+                        start: undefined,
+                        end: undefined
+                    }
+                }
             })
         })
     })
+
     describe('ADD_SET_TO_WORKOUT', () => {
         it('should add workout with first index', () => {
             expect(exerciseReducer(STATE_WITH_TWO_WORKOUTS(), {
@@ -202,7 +333,155 @@ describe('workoutReducer', () => {
                     }
                 })
         })
-    });
+
+        it('should add set to workout with active suggestion', () => {
+            expect(exerciseReducer(({
+                    ...STATE_WITH_TWO_WORKOUTS(), byId: {
+                        ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().byId,
+                        3: {
+                            id: 3,
+                            exerciseId: 11,
+                            notes: '',
+                            start: new Date(TEST_DATE.getTime()),
+                            sets: [{reps: 1, rir: 1, weight: 3, date: TEST_DATE, index: 1}]
+                        }
+                    },
+                    allIds: [2, 1, 3],
+                    byExerciseId:
+                        {
+                            11: [1, 3],
+                            22: [2],
+                        }
+                    ,
+                    notFinishedWorkouts: {11: 3},
+                    suggestedWorkouts: {
+                        11: {
+                            exerciseId: 11,
+                            id: undefined,
+                            notes: "",
+                            sets: [{reps: 2, rir: 2, weight: 2, date: undefined, index: 2}],
+                            start: undefined,
+                            end: undefined
+                        }
+                    }
+                })
+                , {
+                    type: 'ADD_OR_UPDATE_SET_IN_WORKOUT',
+                    set: {
+                        index: 2,
+                        reps: 2,
+                        rir: 2,
+                        weight: 3,
+                        date: TEST_DATE,
+                    } as WorkoutSet,
+                    workoutId: 3
+                })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(), byId: {
+                    ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().byId,
+                    3: {
+                        id: 3,
+                        exerciseId: 11,
+                        notes: '',
+                        start: new Date(TEST_DATE.getTime()),
+                        sets: [{reps: 1, rir: 1, weight: 3, date: TEST_DATE, index: 1}, {
+                            reps: 2,
+                            rir: 2,
+                            weight: 3,
+                            date: TEST_DATE,
+                            index: 2
+                        }]
+                    }
+                },
+                allIds: [2, 1, 3],
+                byExerciseId:
+                    {
+                        11: [1, 3],
+                        22: [2],
+                    }
+                ,
+                notFinishedWorkouts: {11: 3},
+                suggestedWorkouts: {}
+            })
+        })
+        it('should add set to workout with active suggestion but not in suggestion', () => {
+            expect(exerciseReducer(({
+                    ...STATE_WITH_TWO_WORKOUTS(), byId: {
+                        ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().byId,
+                        3: {
+                            id: 3,
+                            exerciseId: 11,
+                            notes: '',
+                            start: new Date(TEST_DATE.getTime()),
+                            sets: [{reps: 1, rir: 1, weight: 3, date: TEST_DATE, index: 1}]
+                        }
+                    },
+                    allIds: [2, 1, 3],
+                    byExerciseId:
+                        {
+                            11: [1, 3],
+                            22: [2],
+                        }
+                    ,
+                    notFinishedWorkouts: {11: 3},
+                    suggestedWorkouts: {
+                        11: {
+                            exerciseId: 11,
+                            id: undefined,
+                            notes: "",
+                            sets: [{reps: 2, rir: 2, weight: 2, date: undefined, index: 2}],
+                            start: undefined,
+                            end: undefined
+                        }
+                    }
+                })
+                , {
+                    type: 'ADD_OR_UPDATE_SET_IN_WORKOUT',
+                    set: {
+                        index: 3,
+                        reps: 3,
+                        rir: 3,
+                        weight: 3,
+                        date: TEST_DATE,
+                    } as WorkoutSet,
+                    workoutId: 3
+                })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(), byId: {
+                    ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().byId,
+                    3: {
+                        id: 3,
+                        exerciseId: 11,
+                        notes: '',
+                        start: new Date(TEST_DATE.getTime()),
+                        sets: [{reps: 1, rir: 1, weight: 3, date: TEST_DATE, index: 1}, {
+                            reps: 3,
+                            rir: 3,
+                            weight: 3,
+                            date: TEST_DATE,
+                            index: 3
+                        }]
+                    }
+                },
+                allIds: [2, 1, 3],
+                byExerciseId:
+                    {
+                        11: [1, 3],
+                        22: [2],
+                    }
+                ,
+                notFinishedWorkouts: {11: 3},
+                suggestedWorkouts: {
+                    11: {
+                        exerciseId: 11,
+                        id: undefined,
+                        notes: "",
+                        sets: [{reps: 2, rir: 2, weight: 2, date: undefined, index: 2}],
+                        start: undefined,
+                        end: undefined
+                    }
+                }
+            })
+        })
+    })
 
     describe('FINALIZE_WORKOUT', () => {
         it('should finalize workout', () => {
@@ -219,7 +498,8 @@ describe('workoutReducer', () => {
                         end: TEST_DATE
                     }
                 },
-                notFinishedWorkouts: {22: 2}
+                notFinishedWorkouts: {22: 2},
+                suggestedWorkouts: {}
             })
         })
     })
@@ -259,6 +539,119 @@ describe('workoutReducer', () => {
                         }
                     }
                 })
+        })
+        it('should delete set from suggestions if unfinshed workout already persisted', () => {
+            expect(exerciseReducer({
+                ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION(), byId: {
+                    ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().byId,
+                    3: {
+                        ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().byId[1],
+                        sets: [
+                            {reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1}
+                        ]
+                    }
+
+                },
+                suggestedWorkouts: {
+                    11: {
+                        exerciseId: 11,
+                        id: undefined,
+                        notes: "",
+                        sets: [
+                            {reps: 2, rir: 2, weight: 2, date: undefined, index: 2}
+                        ],
+                        start: undefined,
+                        end: undefined
+                    }
+                }
+            }, {
+                type: 'DELETE_SET_FROM_WORKOUT',
+                set: {
+                    index: 2,
+                    reps: 2,
+                    rir: 2,
+                    weight: 2,
+                    date: TEST_DATE,
+                } as WorkoutSet,
+                workoutId: 3,
+                exerciseId: 11
+            })).toEqual(
+                {
+                    ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION(), byId: {
+                        ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().byId,
+                        3: {
+                            ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().byId[1],
+                            sets: [
+                                {reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1}
+                            ]
+                        }
+
+                    },
+                    suggestedWorkouts: {},
+                })
+        })
+
+        it('should delete set from suggestions if unfinshed workout not persisted', () => {
+            expect(exerciseReducer({
+                ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION()
+            }, {
+                type: 'DELETE_SET_FROM_WORKOUT',
+                set: {
+                    index: 2,
+                    reps: 2,
+                    rir: 2,
+                    weight: 2,
+                    date: TEST_DATE,
+                } as WorkoutSet,
+                workoutId: undefined,
+                exerciseId: 11
+            })).toEqual(
+                {
+                    ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION(),
+                    suggestedWorkouts: {
+                        11: {
+                            exerciseId: 11,
+                            id: undefined,
+                            notes: "",
+                            sets: [
+                                {reps: 1, rir: 1, weight: 1, date: undefined, index: 1}
+                            ],
+                            start: undefined,
+                            end: undefined
+                        }
+                    }
+                })
+        })
+    })
+
+    describe('SUGGEST_WORKOUT', () => {
+        it('should suggest workout', () => {
+            expect(exerciseReducer({
+                        ...STATE_WITH_TWO_WORKOUTS(),
+                        byId:
+                            {
+                                ...
+                                    STATE_WITH_TWO_WORKOUTS().byId,
+                                1:
+                                    {
+                                        ...
+                                            STATE_WITH_TWO_WORKOUTS().byId[1],
+                                        sets:
+                                            [{reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1}, {
+                                                reps: 2,
+                                                rir: 2,
+                                                weight: 2,
+                                                date: TEST_DATE,
+                                                index: 2
+                                            }]
+                                    }
+                            }
+                    }
+                    , {
+                        type: 'SUGGEST_WORKOUT',
+                        exerciseId: 11
+                    })
+            ).toEqual(STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION())
         })
     })
 })

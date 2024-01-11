@@ -19,7 +19,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
     const [rir, setRPE] = useState(workoutSet?.rir?.toString() ?? '0');
     const [reps, setReps] = useState(workoutSet?.reps?.toString() ?? '');
     const [editing, setEditing] = useState(hasToSaveManually);
-    const [weightSet, setWeightSet] = useState(oneRepMax!== undefined);
+    const [weightSet, setWeightSet] = useState(oneRepMax !== undefined);
     const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
     const [weightEmpty, setWeightEmpty] = useState(false);
     const [rirEmpty, setRirEmpty] = useState(false);
@@ -167,17 +167,22 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                         submit();
                         Keyboard.dismiss();
                     }}/>}
-                {!persisted() &&
-                    <Button
+                {!persisted() && workoutSet !== undefined &&
+                    <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
+                        submit();
+                        Keyboard.dismiss();
+                    }}/>}
+                {!persisted() && workoutSet === undefined &&
+                    < Button
                         mode={'contained'}
                         style={{marginStart: 5}}
                         buttonColor={theme.colors.primaryContainer}
                         textColor={theme.colors.onPrimaryContainer}
                         onPress={submit}>
-                        {workoutSet !== undefined ? "Update" : "Add"}
+                        {"Add"}
                     </Button>}
-                {persisted() && onDelete !== undefined &&
-                    <IconButton icon={"delete"} iconColor={theme.colors.secondary}
+                {(persisted() || (!persisted() && workoutSet !== undefined)) && onDelete !== undefined &&
+                    <IconButton icon={"close-circle"} iconColor={theme.colors.tertiaryContainer}
                                 onPress={() => onDelete(workoutSet!!)}/>}
             </View>
         </View>
