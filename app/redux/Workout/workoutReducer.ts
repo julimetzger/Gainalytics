@@ -5,7 +5,7 @@ import {NormalizedWorkoutState} from "../normalizedWorkoutState";
 const initialState = {
     byId: {},
     allIds: [],
-    byExerciseId: {}
+    byExerciseId: {},
 };
 
 function determineNewId(workoutState: NormalizedWorkoutState<Workout>) {
@@ -65,7 +65,7 @@ function handleDeleteSuggestedSetWithoutPersistedSet(workoutState: NormalizedWor
     return {...workoutState, suggestedWorkouts: {...workoutState.suggestedWorkouts}};
 }
 
-function handleDeleteSuggestedSetWhenNotFoundInPersistedSet(workoutState: NormalizedWorkoutState<Workout>, exerciseId: number, set : WorkoutSet) {
+function handleDeleteSuggestedSetWhenNotFoundInPersistedSet(workoutState: NormalizedWorkoutState<Workout>, exerciseId: number, set: WorkoutSet) {
     workoutState.suggestedWorkouts[exerciseId].sets.splice(workoutState.suggestedWorkouts[exerciseId].sets.map((value) => value.index).indexOf(set.index), 1);
     if (workoutState.suggestedWorkouts[exerciseId].sets.length === 0)
         delete workoutState.suggestedWorkouts[exerciseId];
@@ -123,7 +123,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
             }
             case 'DELETE_SET_FROM_WORKOUT': {
                 if (action.workoutId === undefined && action.exerciseId !== undefined) {
-                    return handleDeleteSuggestedSetWithoutPersistedSet(workoutState, action.exerciseId,action.set);
+                    return handleDeleteSuggestedSetWithoutPersistedSet(workoutState, action.exerciseId, action.set);
                 }
                 let indexOf = workoutState.byId[action.workoutId].sets.map((value) => value.index).indexOf(action.set.index);
                 if (indexOf === -1 && workoutState.suggestedWorkouts !== undefined && workoutState.suggestedWorkouts[action.exerciseId] !== undefined) {
@@ -201,6 +201,23 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                     ...workoutState,
                     suggestedWorkouts: {...workoutState.suggestedWorkouts}
                 };
+            }
+            case 'DELETE_EXERCISE': {
+                let allWorkoutsForExercise = workoutState.byExerciseId[action.exerciseId];
+                workoutState.allIds = workoutState.allIds.filter(value => !allWorkoutsForExercise.includes(value));
+                delete workoutState.byExerciseId[action.exerciseId];
+                if (allWorkoutsForExercise !== undefined) {
+                    for (let id of allWorkoutsForExercise) {
+                        delete workoutState.byId[id];
+                    }
+                }
+                if (workoutState.suggestedWorkouts !== undefined && workoutState.suggestedWorkouts[action.exerciseId] !== undefined)
+                    delete workoutState.suggestedWorkouts[action.exerciseId];
+                if (workoutState.notFinishedWorkouts !== undefined && workoutState.notFinishedWorkouts[action.exerciseId] !== undefined)
+                    delete workoutState.notFinishedWorkouts[action.exerciseId];
+                return {
+                    ...workoutState,
+                } as NormalizedState<Workout>;
             }
             default:
                 return workoutState;

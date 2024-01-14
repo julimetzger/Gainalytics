@@ -23,6 +23,27 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
                     allIds: [...exercises.allIds],
                 };
             }
+            case 'DELETE_EXERCISE': {
+                const index = exercises.allIds.indexOf(action.exerciseId);
+                exercises.allIds.splice(index, 1);
+                delete exercises.byId[action.exerciseId];
+                return {
+                    byId: {
+                        ...exercises.byId,
+                    },
+                    allIds: [...exercises.allIds],
+                };
+            }
+            case 'EDIT_EXERCISE': {
+                const index = exercises.allIds.indexOf(action.exerciseId);
+                exercises.byId[action.exerciseId].name = action.nameOfExercise;
+                return {
+                    byId: {
+                        ...exercises.byId,
+                    },
+                    allIds: [...exercises.allIds],
+                };
+            }
             default:
                 return exercises;
         }
