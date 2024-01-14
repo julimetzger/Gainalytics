@@ -654,4 +654,49 @@ describe('workoutReducer', () => {
             ).toEqual(STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION())
         })
     })
+    describe('DELETE_EXERCISE', () => {
+        it('should delete all workouts connected to exercise', () => {
+            expect(exerciseReducer({
+                ...STATE_WITH_TWO_WORKOUTS(),
+                notFinishedWorkouts: {
+                    11: 1,
+                    22: 2
+                },
+                suggestedWorkouts: {
+                    11: {
+                        exerciseId: 11,
+                        id: undefined,
+                        notes: "",
+                        sets: [{reps: 2, rir: 2, weight: 2, date: undefined, index: 2}],
+                        start: undefined,
+                        end: undefined
+                    }
+                }
+            }, {
+                type: 'DELETE_EXERCISE',
+                exerciseId: 11
+            })).toEqual(
+                {
+                    ...STATE_WITH_TWO_WORKOUTS(),
+                    byId: {
+                        2: {
+                            exerciseId: 22,
+                            id: 2,
+                            notes: "",
+                            sets: [],
+                            start: new Date(TEST_DATE.getTime() - 200),
+                            end: new Date(TEST_DATE.getTime() - 200),
+                        }
+                    },
+                    allIds: [2],
+                    byExerciseId: {
+                        22: [2]
+                    },
+                    notFinishedWorkouts: {
+                        22: 2
+                    },
+                    suggestedWorkouts: {}
+                })
+        })
+    })
 })
