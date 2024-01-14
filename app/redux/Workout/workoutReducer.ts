@@ -204,13 +204,13 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
             }
             case 'DELETE_EXERCISE': {
                 let allWorkoutsForExercise = workoutState.byExerciseId[action.exerciseId];
-                workoutState.allIds = workoutState.allIds.filter(value => !allWorkoutsForExercise.includes(value));
-                delete workoutState.byExerciseId[action.exerciseId];
                 if (allWorkoutsForExercise !== undefined) {
+                    workoutState.allIds = workoutState.allIds.filter(value => !allWorkoutsForExercise.includes(value));
                     for (let id of allWorkoutsForExercise) {
                         delete workoutState.byId[id];
                     }
                 }
+                delete workoutState.byExerciseId[action.exerciseId];
                 if (workoutState.suggestedWorkouts !== undefined && workoutState.suggestedWorkouts[action.exerciseId] !== undefined)
                     delete workoutState.suggestedWorkouts[action.exerciseId];
                 if (workoutState.notFinishedWorkouts !== undefined && workoutState.notFinishedWorkouts[action.exerciseId] !== undefined)
