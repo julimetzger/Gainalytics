@@ -1,18 +1,18 @@
 import React, {useState} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {RootStackParamList} from '../routing/exerciseRouter';
+import {RootStackParamList} from '../../routing/exerciseRouter';
 import {Button, Text, useTheme} from 'react-native-paper';
-import {useDispatchAddWorkout} from '../redux/Workout/useDispatchAddWorkout';
-import AddWorkoutSet from "../components/AddWorkoutSet";
-import DatePicker from "./DatePicker";
-import {useAllLastWorkouts} from "../redux/Workout/useAllLastWorkouts";
-import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";
-import {useUnfinishedWorkout} from "../redux/Workout/useUnfinishedWorkout";
-import {dispatchAddOrUpdateSetInWorkout} from "../redux/Workout/dispatchAddOrUpdateSetInWorkout";
-import {dispatchFinalizeWorkout} from "../redux/Workout/dispatchFinalizeWorkout";
-import {dispatchDeleteSetFromWorkout} from "../redux/Workout/dispatchDeleteSetFromWorkout";
-import {dispatchSuggest} from "../redux/Workout/dispatchSuggest";
+import {useDispatchAddWorkout} from '../../redux/Workout/useDispatchAddWorkout';
+import AddWorkoutSet from "../../components/AddWorkoutSet";
+import DatePicker from "../../components/DatePicker";
+import {useAllLastWorkouts} from "../../redux/Workout/useAllLastWorkouts";
+import {oneRepMaxForWorkouts} from "../../utils/RepetitionMaxHelper";
+import {useUnfinishedWorkout} from "../../redux/Workout/useUnfinishedWorkout";
+import {dispatchAddOrUpdateSetInWorkout} from "../../redux/Workout/dispatchAddOrUpdateSetInWorkout";
+import {dispatchFinalizeWorkout} from "../../redux/Workout/dispatchFinalizeWorkout";
+import {dispatchDeleteSetFromWorkout} from "../../redux/Workout/dispatchDeleteSetFromWorkout";
+import {dispatchSuggest} from "../../redux/Workout/dispatchSuggest";
 
 const AddWorkoutTab = ({navigation, route}: Props) => {
         let unfinishedWorkout = useUnfinishedWorkout(route.params.exercise.id!!);

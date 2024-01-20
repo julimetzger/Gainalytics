@@ -1,10 +1,10 @@
 import React, {useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {RootStackParamList} from '../routing/exerciseRouter';
+import {RootStackParamList} from '../../routing/exerciseRouter';
 import {Divider, Text, TextInput, useTheme} from 'react-native-paper';
-import AddExercise from '../components/AddExercise';
-import {useAlleExercises} from '../redux/Exercises/useAllExercises';
+import AddExercise from '../../components/AddExercise';
+import {useAlleExercises} from '../../redux/Exercises/useAllExercises';
 
 const ExerciseTab = ({navigation}: Props) => {
     const theme = useTheme();

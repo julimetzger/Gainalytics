@@ -1,9 +1,9 @@
 import {StyleSheet, View} from "react-native";
 import {DataTable} from 'react-native-paper';
 import React, {useState} from "react";
-import EditWorkoutSetDialog from "../components/EditWorkoutSetDialog";
+import EditWorkoutSetDialog from "./EditWorkoutSetDialog";
 import {set} from "lodash";
-import AddWorkoutSet from "../components/AddWorkoutSet";
+import AddWorkoutSet from "./AddWorkoutSet";
 
 const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
     const [setToUpdate, setSetToUpdate] = useState<WorkoutSet>();
