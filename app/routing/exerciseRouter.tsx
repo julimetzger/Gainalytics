@@ -1,7 +1,7 @@
 import {createStackNavigator} from '@react-navigation/stack';
 import React from 'react';
-import ExerciseTab from '../tabs/ExerciseTab';
-import AddWorkoutTab from '../tabs/AddWorkoutTab';
+import ExerciseTab from '../tabs/exercises/ExerciseTab';
+import AddWorkoutTab from '../tabs/exercises/AddWorkoutTab';
 
 export type RootStackParamList = {
     Exercises: undefined;

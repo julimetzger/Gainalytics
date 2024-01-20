@@ -1,6 +1,6 @@
 import {createStackNavigator} from "@react-navigation/stack";
 import React from "react";
-import History from "../components/History";
+import History from "../tabs/History";
 
 export type RootStackParamList = {
     History: { exercise: Exercise, lowerRangeBound: Date | undefined };
