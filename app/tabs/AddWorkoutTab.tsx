@@ -107,12 +107,12 @@ let style = StyleSheet.create({
     historyLink: {
         position: "absolute",
         top: 0,
-        right: 10,
+        right: 5,
     },
     suggest: {
         position: "absolute",
         top: 0,
-        right: 290,
+        left: 5,
     }
 });
 
