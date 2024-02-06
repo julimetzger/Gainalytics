@@ -1,22 +1,16 @@
 import {AnyAction} from '@reduxjs/toolkit';
 import {NormalizedState} from '../normalizedState';
-import {NormalizedWorkoutState} from "../normalizedWorkoutState";
+import {determineNewWorkoutId, NormalizedWorkoutState} from "../normalizedWorkoutState";
 
 const initialState = {
     byId: {},
     allIds: [],
     byExerciseId: {},
+    plannedWorkouts: []
 };
 
-function determineNewId(workoutState: NormalizedWorkoutState<Workout>) {
-    if (workoutState.allIds.length > 0)
-        return Math.max(...workoutState.allIds) + 1;
-    else
-        return 1;
-}
-
 function addNewWorkoutToState(workoutState: NormalizedWorkoutState<Workout>, workout: Workout) {
-    let newId = determineNewId(workoutState);
+    let newId = determineNewWorkoutId(workoutState);
     const byExerciseIdArray = workoutState.byExerciseId[workout.exerciseId];
     let idOfLaterWorkoutOrUndefined = workoutState.allIds.find(value => workoutState.byId[value].end!! > workout.end!!);
     if (idOfLaterWorkoutOrUndefined) {
@@ -38,6 +32,13 @@ function addNewWorkoutToState(workoutState: NormalizedWorkoutState<Workout>, wor
     return newId;
 }
 
+function addNewPlannedWorkout(workoutState: NormalizedWorkoutState<Workout>, workout: Workout, newId: number) {
+    workoutState.byId[newId] = {...workout, id: newId};
+    if (workoutState.plannedWorkouts === undefined)
+        workoutState.plannedWorkouts = [];
+    workoutState.plannedWorkouts.push(newId);
+}
+
 function migrateSuggestedToNotFinishedWorkout(workoutState: NormalizedWorkoutState<Workout>, exerciseId: number) {
     if (workoutState.suggestedWorkouts !== undefined && workoutState.suggestedWorkouts[exerciseId] !== undefined) {
         let unfinshedWorkoutSets = workoutState.byId[workoutState.notFinishedWorkouts[exerciseId]].sets;
@@ -50,30 +51,37 @@ function migrateSuggestedToNotFinishedWorkout(workoutState: NormalizedWorkoutSta
     }
 }
 
-function deleteWorkout(workoutState: NormalizedWorkoutState<Workout>, workoutId: number, exerciseId: number) {
-    delete workoutState.byId[workoutId];
-    workoutState.allIds = workoutState.allIds.filter(value => value !== workoutId);
-    workoutState.byExerciseId[exerciseId] = workoutState.byExerciseId[exerciseId].filter(value => value !== workoutId);
-    if (workoutState.notFinishedWorkouts !== undefined && workoutState.notFinishedWorkouts[exerciseId] !== undefined && workoutState.notFinishedWorkouts[exerciseId] === workoutId)
-        delete workoutState.notFinishedWorkouts[exerciseId];
-}
 
-function handleDeleteSuggestedSetWithoutPersistedSet(workoutState: NormalizedWorkoutState<Workout>, exerciseId: number, workoutSet: WorkoutSet) {
-    workoutState.suggestedWorkouts[exerciseId].sets.splice(workoutState.suggestedWorkouts[exerciseId].sets.map((value) => value.index).indexOf(workoutSet.index), 1);
-    if (workoutState.suggestedWorkouts[exerciseId].sets.length === 0)
-        delete workoutState.suggestedWorkouts[exerciseId];
-    return {...workoutState, suggestedWorkouts: {...workoutState.suggestedWorkouts}};
+//TODO test this method !!!!!!!
+function deleteWorkout(workoutState: NormalizedWorkoutState<Workout>, workoutId: number, exerciseId: number) {
+    let {[workoutId]: removed, ...rest} = workoutState.byId;
+    let notFinished = {...workoutState.notFinishedWorkouts};
+    if (workoutState.notFinishedWorkouts !== undefined && workoutState.notFinishedWorkouts[exerciseId] !== undefined && workoutState.notFinishedWorkouts[exerciseId] === workoutId) {
+        let {[exerciseId]: removedUnfinisehd, ...restUnfinished} = workoutState.notFinishedWorkouts;
+        notFinished = {...restUnfinished};
+    }
+    return {
+        ...workoutState,
+        byId: {...rest},
+        allIds: workoutState.allIds.filter(value => value !== workoutId),
+        byExerciseId: {...workoutState.byExerciseId, [exerciseId]: workoutState.byExerciseId[exerciseId]?.filter(value => value !== workoutId)},
+        notFinishedWorkouts: notFinished
+    } as NormalizedState<Workout>;
 }
 
 function handleDeleteSuggestedSetWhenNotFoundInPersistedSet(workoutState: NormalizedWorkoutState<Workout>, exerciseId: number, set: WorkoutSet) {
-    workoutState.suggestedWorkouts[exerciseId].sets.splice(workoutState.suggestedWorkouts[exerciseId].sets.map((value) => value.index).indexOf(set.index), 1);
-    if (workoutState.suggestedWorkouts[exerciseId].sets.length === 0)
-        delete workoutState.suggestedWorkouts[exerciseId];
-    return {...workoutState, suggestedWorkouts: {...workoutState.suggestedWorkouts}};
+    let sets = [...workoutState.suggestedWorkouts[exerciseId].sets];
+    sets.splice(workoutState.suggestedWorkouts[exerciseId].sets.map((value) => value.index).indexOf(set.index), 1);
+    let suggested = {...workoutState.suggestedWorkouts, [exerciseId]: {...workoutState.suggestedWorkouts[exerciseId], sets: sets}};
+    if (sets.length === 0) {
+        delete suggested[exerciseId];
+    }
+    return {...workoutState, suggestedWorkouts: suggested};
 }
 
 const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initialState, action: AnyAction) => {
         switch (action.type) {
+
             case 'ADD_WORKOUT': {
                 let newId = addNewWorkoutToState(workoutState, action.workout);
                 if (workoutState.notFinishedWorkouts === undefined)
@@ -81,6 +89,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                 workoutState.notFinishedWorkouts[action.workout.exerciseId] = newId;
                 migrateSuggestedToNotFinishedWorkout(workoutState, action.workout.exerciseId);
                 return {
+                    ...workoutState,
                     byId: {...workoutState.byId},
                     allIds: [...workoutState.allIds],
                     byExerciseId: {...workoutState.byExerciseId},
@@ -92,49 +101,60 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
             case 'ADD_OR_UPDATE_SET_IN_WORKOUT': {
                 if (action.set.index !== undefined) {
                     let indexOf = workoutState.byId[action.workoutId].sets.map((value) => value.index).indexOf(action.set.index);
+                    let newSets = workoutState.byId[action.workoutId].sets;
                     if (indexOf === -1) {
-                        workoutState.byId[action.workoutId].sets.push(action.set);
+                        newSets.push(action.set);
                         migrateSuggestedToNotFinishedWorkout(workoutState, workoutState.byId[action.workoutId].exerciseId);
-                        workoutState.byId[action.workoutId].sets = workoutState.byId[action.workoutId].sets.sort((a, b) => a.index!! - b.index!!);
+                        newSets = workoutState.byId[action.workoutId].sets.sort((a, b) => a.index!! - b.index!!);
                         return {
                             ...workoutState,
                             byId: {...workoutState.byId},
                             suggestedWorkouts: {...workoutState.suggestedWorkouts}
                         };
                     }
-                    workoutState.byId[action.workoutId].sets[indexOf] = action.set;
-                    let newState = {
+                    console.log("normal update")
+                    newSets[indexOf] = action.set;
+                    return {
                         ...workoutState,
-                        byId: {...workoutState.byId},
+                        byId: {
+                            ...workoutState.byId,
+                            [action.workoutId]: {
+                                ...workoutState.byId[action.workoutId], sets: newSets
+                            }
+                        },
                     };
-                    newState.byId[action.workoutId].sets[indexOf] = {...action.set};
-                    return newState;
                 }
-                let sets = workoutState.byId[action.workoutId].sets;
+                let sets = [...workoutState.byId[action.workoutId].sets];
                 let LastIndex = sets.map(value => value.index).sort().pop();
                 let newIndex = LastIndex ? LastIndex + 1 : 1;
                 let arrayIndex = workoutState.byId[action.workoutId].sets.push({...action.set, index: newIndex}) - 1;
-                let newState = {
+                sets[arrayIndex] = {...workoutState.byId[action.workoutId].sets[arrayIndex]};
+                return {
                     ...workoutState,
-                    byId: {...workoutState.byId},
+                    byId: {
+                        ...workoutState.byId,
+                        [action.workoutId]: {...workoutState.byId[action.workoutId], sets: sets}
+                    },
                 };
-                newState.byId[action.workoutId].sets[arrayIndex] = {...workoutState.byId[action.workoutId].sets[arrayIndex]};
-                return newState;
             }
             case 'DELETE_SET_FROM_WORKOUT': {
                 if (action.workoutId === undefined && action.exerciseId !== undefined) {
-                    return handleDeleteSuggestedSetWithoutPersistedSet(workoutState, action.exerciseId, action.set);
+                    return handleDeleteSuggestedSetWhenNotFoundInPersistedSet(workoutState, action.exerciseId, action.set);
                 }
                 let indexOf = workoutState.byId[action.workoutId].sets.map((value) => value.index).indexOf(action.set.index);
                 if (indexOf === -1 && workoutState.suggestedWorkouts !== undefined && workoutState.suggestedWorkouts[action.exerciseId] !== undefined) {
                     return handleDeleteSuggestedSetWhenNotFoundInPersistedSet(workoutState, action.exerciseId, action.set);
                 }
-                workoutState.byId[action.workoutId].sets.splice(indexOf, 1);
-                if (workoutState.byId[action.workoutId].sets.length === 0)
-                    deleteWorkout(workoutState, action.workoutId, workoutState.byId[action.workoutId].exerciseId);
+                let sets = [...workoutState.byId[action.workoutId].sets];
+                sets.splice(indexOf, 1);
+                if (sets.length === 0)
+                    return deleteWorkout(workoutState, action.workoutId, workoutState.byId[action.workoutId].exerciseId);
                 return {
                     ...workoutState,
-                    byId: {...workoutState.byId},
+                    byId: {
+                        ...workoutState.byId,
+                        [action.workoutId]: {...workoutState.byId[action.workoutId], sets: sets}
+                    },
                     allIds: [...workoutState.allIds],
                     byExerciseId: {...workoutState.byExerciseId}
                 };
@@ -156,19 +176,12 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                 };
             }
             case
-            'DELETE_WORKOUT'
-            : {
-                deleteWorkout(workoutState, action.workout.id, action.workout.exerciseId);
-                return {
-                    ...workoutState,
-                    byId: {...workoutState.byId},
-                    allIds: [...workoutState.allIds],
-                    byExerciseId: {...workoutState.byExerciseId}
-                } as NormalizedState<Workout>;
+            'DELETE_WORKOUT': {
+                return deleteWorkout(workoutState, action.workout.id, action.workout.exerciseId);
+
             }
             case
-            'UPDATE_WORKOUT'
-            : {
+            'UPDATE_WORKOUT': {
                 workoutState.byId[action.workout.id] = {...action.workout}
                 return {
                     ...workoutState,
@@ -176,8 +189,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                 } as NormalizedState<Workout>;
             }
             case
-            'SUGGEST_WORKOUT'
-            : {
+            'SUGGEST_WORKOUT': {
                 const keys = workoutState.byExerciseId[action.exerciseId][workoutState.byExerciseId[action.exerciseId].length - 1];
                 console.log(keys);
                 let lastWorkout = {
@@ -218,6 +230,16 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                 return {
                     ...workoutState,
                 } as NormalizedState<Workout>;
+            }
+            case 'ADD_PLANED_TRAINING_WORKOUT': {
+                if (action.workout.id === undefined) {
+                    addNewPlannedWorkout(workoutState, action.workout, action.nextWorkoutId);
+                }
+                return {
+                    ...workoutState,
+                    byId: {...workoutState.byId},
+                    plannedWorkouts: [...workoutState.plannedWorkouts]
+                }
             }
             default:
                 return workoutState;
