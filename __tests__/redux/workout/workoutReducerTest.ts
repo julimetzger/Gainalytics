@@ -27,6 +27,7 @@ const STATE_WITH_TWO_WORKOUTS = () => {
                 end: new Date(TEST_DATE.getTime() - 200),
             },
         },
+        plannedWorkouts: [],
     }
 };
 const EMPTY_STATE = {
@@ -36,8 +37,7 @@ const EMPTY_STATE = {
 };
 const STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION = () => {
     return {
-        ...
-            STATE_WITH_TWO_WORKOUTS(),
+        ...STATE_WITH_TWO_WORKOUTS(),
         byId:
             {
                 ...
@@ -79,7 +79,7 @@ const STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION = () => {
                         end:
                         undefined,
                     }
-            }
+            },
     };
 }
 describe('workoutReducer', () => {
@@ -153,7 +153,8 @@ describe('workoutReducer', () => {
                     }
                 },
                 notFinishedWorkouts: {11: 3},
-                suggestedWorkouts: {}
+                suggestedWorkouts: {},
+                plannedWorkouts: []
             })
         })
         it('should add workout with active suggestion', () => {
@@ -206,7 +207,8 @@ describe('workoutReducer', () => {
                     start: new Date(TEST_DATE.getTime() + 100)
                 }
             })).toEqual({
-                ...STATE_WITH_TWO_WORKOUTS(), byId: {
+                ...STATE_WITH_TWO_WORKOUTS(),
+                byId: {
                     ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().byId,
                     3: {
                         id: 3,

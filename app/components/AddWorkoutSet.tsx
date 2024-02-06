@@ -1,6 +1,6 @@
 import {Keyboard, StyleSheet, View} from "react-native";
 import {Button, IconButton, Text, TextInput, ToggleButton, Tooltip, useTheme} from "react-native-paper";
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import {repetionWeightByOneRm} from "../utils/RepetitionMaxHelper";
 
 
@@ -24,6 +24,14 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
     const [weightEmpty, setWeightEmpty] = useState(false);
     const [rirEmpty, setRirEmpty] = useState(false);
     const [repsEmpty, setRepsEmpty] = useState(false);
+
+    useEffect(() => {
+        if (workoutSet !== undefined) {
+            setWeight(workoutSet.weight?.toString() ?? '');
+            setRPE(workoutSet.rir?.toString() ?? '0');
+            setReps(workoutSet.reps?.toString() ?? '');
+        }
+    }, [workoutSet]);
 
     const setWeightOnChange = (value: string) => {
         setWeightEmpty(false);
