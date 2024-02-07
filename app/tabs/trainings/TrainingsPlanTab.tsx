@@ -12,7 +12,7 @@ import {usePlannedWorkoutInTraining} from "../../redux/Training/usePlannedWorkou
 import {dispatchAddOrUpdateSetInWorkout} from "../../redux/Workout/dispatchAddOrUpdateSetInWorkout";
 import {dispatchDeleteSetFromWorkout} from "../../redux/Workout/dispatchDeleteSetFromWorkout";
 
-const TrainingsPlanTab = ({navigation, route}: Props) => {
+const TrainingsPlanTab = ({route}: Props) => {
     const trainingsPlan = useAllTrainingsPlans(route.params.trainingsPlan.id!!);
     const [exercise, setExercise] = useState<Exercise[]>([]);
     const [micro, setMicro] = useState(1);
