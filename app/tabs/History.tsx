@@ -31,6 +31,7 @@ const History = ({route}: Props) => {
         .sort((a, b) => -dateComparator(a.start!!, b.start!!)) as Workout[];
     let lastExercises = lastWorkouts.map((workout: Workout) => workout.exerciseId);
     let exercises = new Map(useExerciseByIds(lastExercises).map((exercise: Exercise) => [exercise.id, exercise]));
+    // TODO use dispatchAddOrUpdateSetInWorkout
     let dispatchUpdateWorkoutSet = useDispatchUpdateWorkoutSet();
     let useDeleteWorkoutdispatch = useDeleteWorkout();
     const theme = useTheme();

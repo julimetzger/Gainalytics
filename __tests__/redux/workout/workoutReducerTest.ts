@@ -28,6 +28,7 @@ const STATE_WITH_TWO_WORKOUTS = () => {
             },
         },
         plannedWorkouts: [],
+        notFinishedWorkouts: {},
     }
 };
 const EMPTY_STATE = {
@@ -624,6 +625,78 @@ describe('workoutReducer', () => {
                     }
                 })
         })
+        it('should delete workout if last set from workout', () => {
+            expect(exerciseReducer({
+                ...STATE_WITH_TWO_WORKOUTS(), byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    1: {
+                        ...STATE_WITH_TWO_WORKOUTS().byId[1],
+                        sets: [
+                            {reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 5}
+                        ]
+                    }
+                }
+            }, {
+                type: 'DELETE_SET_FROM_WORKOUT',
+                set: {
+                    index: 5,
+                    reps: 1,
+                    rir: 1,
+                    weight: 1,
+                    date: TEST_DATE,
+                } as WorkoutSet,
+                workoutId: 1
+            })).toEqual(
+                {
+                    ...STATE_WITH_TWO_WORKOUTS(),
+                    byId: {
+                        2: STATE_WITH_TWO_WORKOUTS().byId[2]
+                    },
+                    allIds: [2],
+                    byExerciseId: {
+                        11: [],
+                        22: [2]
+                    },
+                })
+        })
+
+        it('should delete workout if last set from workout when not finished', () => {
+            expect(exerciseReducer({
+                ...STATE_WITH_TWO_WORKOUTS(), byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    1: {
+                        ...STATE_WITH_TWO_WORKOUTS().byId[1],
+                        sets: [
+                            {reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 5}
+                        ]
+                    },
+                },
+                notFinishedWorkouts: {
+                    11: 1
+                }
+            }, {
+                type: 'DELETE_SET_FROM_WORKOUT',
+                set: {
+                    index: 5,
+                    reps: 1,
+                    rir: 1,
+                    weight: 1,
+                    date: TEST_DATE,
+                } as WorkoutSet,
+                workoutId: 1
+            })).toEqual(
+                {
+                    ...STATE_WITH_TWO_WORKOUTS(),
+                    byId: {
+                        2: STATE_WITH_TWO_WORKOUTS().byId[2]
+                    },
+                    allIds: [2],
+                    byExerciseId: {
+                        11: [],
+                        22: [2]
+                    },
+                })
+        })
     })
 
     describe('SUGGEST_WORKOUT', () => {
@@ -700,5 +773,92 @@ describe('workoutReducer', () => {
                     suggestedWorkouts: {}
                 })
         })
+    })
+    describe('ADD_PLANED_TRAINING_WORKOUT', () => {
+        it('should add planned workout', () => {
+            expect(exerciseReducer({
+                ...STATE_WITH_TWO_WORKOUTS(),
+                plannedWorkouts: []
+            }, {
+                type: 'ADD_PLANED_TRAINING_WORKOUT',
+                nextWorkoutId: 3,
+                trainingsPlanId: 1,
+                workout: {
+                    exerciseId: 11,
+                    notes: '',
+                    sets: [],
+                    start: TEST_DATE,
+                    end: TEST_DATE
+                },
+                microNumber: 1,
+                trainingInMicroNumber: 1
+            })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(),
+                byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    3: {
+                        exerciseId: 11,
+                        id: 3,
+                        notes: "",
+                        sets: [],
+                        start: TEST_DATE,
+                        end: TEST_DATE,
+                    }
+                },
+                plannedWorkouts: [3]
+            })
+        })
+    })
+    describe('DELETE_WORKOUT', () => {
+        it('should delete workout', () => {
+            expect(exerciseReducer(STATE_WITH_TWO_WORKOUTS(), {
+                type: 'DELETE_WORKOUT',
+                workout: STATE_WITH_TWO_WORKOUTS().byId[1]
+            })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(),
+                byId: {
+                    2: STATE_WITH_TWO_WORKOUTS().byId[2]
+                },
+                allIds: [2],
+                byExerciseId: {
+                    11: [],
+                    22: [2]
+                }
+            })
+        })
+    })
+    describe('UPDATE_WORKOUT', () => {
+        it('should update Workout', () => {
+            expect(exerciseReducer(STATE_WITH_TWO_WORKOUTS(), {
+                type: 'UPDATE_WORKOUT',
+                workout: {
+                    exerciseId: 11,
+                    id: 1,
+                    notes: "new notes",
+                    sets: [
+                        {reps: 1, rir: 1, weight: 2222, date: TEST_DATE, index: 1},
+                        {reps: 2, rir: 2, weight: 2, date: TEST_DATE, index: 2}
+                    ],
+                    start: TEST_DATE,
+                    end: TEST_DATE
+                }
+            })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(),
+                byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    1: {
+                        exerciseId: 11,
+                        id: 1,
+                        notes: "new notes",
+                        sets: [
+                            {reps: 1, rir: 1, weight: 2222, date: TEST_DATE, index: 1},
+                            {reps: 2, rir: 2, weight: 2, date: TEST_DATE, index: 2}
+                        ],
+                        start: TEST_DATE,
+                        end: TEST_DATE,
+                    }
+                }
+            })
+        });
     })
 })
