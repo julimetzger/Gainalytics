@@ -56,7 +56,7 @@ const AnalyseGraphics = ({route}: Props) => {
                 marker={{
                     enabled: true,
                     markerColor: processColor(theme.colors.backdrop),
-                    textSize: 10,
+                    textSize: 15,
                     textColor: processColor(theme.colors.secondary)
                 }}
                 data={{
