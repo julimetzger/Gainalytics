@@ -16,9 +16,9 @@ export const dispatchAddPlanedTrainigWorkout = () => {
             trainingInMicroNumber,
             exerciseId,
             workout,
-            trainingsId,
             nextTrainingsId,
-            nextWorkoutId
+            nextWorkoutId,
+            trainingsId
 
         } as Action);
 };

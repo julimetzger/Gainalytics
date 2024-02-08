@@ -3,7 +3,7 @@ type Training = {
     doneWorkoutIds: { [exerxiseId: number]: number };
     plannedWorkouts: { [exerxiseId: number]: number };
     exercises: number[];
-    notes: String;
+    notes?: String;
     start?: Date;
     end?: Date;
     finished: boolean;
