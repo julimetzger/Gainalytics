@@ -70,6 +70,7 @@ const AnalyseGraphics = ({route}: Props) => {
                             highlightColor: processColor(theme.colors.secondary),
                             circleRadius: 4,
                             mode: 'HORIZONTAL_BEZIER',
+                            drawValues: false,
                         }, values: map
                     }, {
                         config: {
@@ -78,6 +79,7 @@ const AnalyseGraphics = ({route}: Props) => {
                             lineWidth: 1,
                             dashedLine: {lineLength: 15, spaceLength: 10},
                             mode: 'LINEAR',
+                            drawValues: false,
                         }, values: generateTrend(map)
                     }
                     ]
