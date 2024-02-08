@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useState} from "react";
 import {ScrollView, View} from "react-native";
 import {Button, Text} from "react-native-paper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
@@ -11,20 +11,25 @@ import {useTrainingInTrainingsPlan} from "../../redux/Training/useTrainingInTrai
 import {usePlannedWorkoutInTraining} from "../../redux/Training/usePlannedWorkoutInTraining";
 import {dispatchAddOrUpdateSetInWorkout} from "../../redux/Workout/dispatchAddOrUpdateSetInWorkout";
 import {dispatchDeleteSetFromWorkout} from "../../redux/Workout/dispatchDeleteSetFromWorkout";
+import {
+    dispatchModifyExercisesInTraining
+} from "../../redux/Training/dispatchModifyExercisesInTraining";
+import {useExerciseByIds} from "../../redux/Exercises/useExerciseByIds";
 
 const TrainingsPlanTab = ({route}: Props) => {
     const trainingsPlan = useAllTrainingsPlans(route.params.trainingsPlan.id!!);
-    const [exercise, setExercise] = useState<Exercise[]>([]);
     const [micro, setMicro] = useState(1);
     const [trainingInMicro, setTrainingInMicro] = useState(1);
     const [planingMode, setPlaningMode] = useState(true);
     const [choosenExercise, setChoosenExercise] = useState<number>();
-    const trainingInTrainingsPlan = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);
+    const training = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);
     const addPlanedTraingWorkoutSet = dispatchAddPlanedTrainigWorkout();
     let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout();
     let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
-    const plannedWorkout = usePlannedWorkoutInTraining(trainingInTrainingsPlan?.id, choosenExercise);
-    console.log(plannedWorkout);
+    let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
+    const plannedWorkout = usePlannedWorkoutInTraining(training?.id, choosenExercise);
+    let exercises = useExerciseByIds(training?.exercises ?? []);
+
     function submitPlannedWorkoutSet(workoutSet: WorkoutSet) {
         if (plannedWorkout === undefined || plannedWorkout.id === undefined) {
             addPlanedTraingWorkoutSet(trainingsPlan.id!!, micro, trainingInMicro, choosenExercise!!, {
@@ -32,21 +37,24 @@ const TrainingsPlanTab = ({route}: Props) => {
                 notes: '',
                 exerciseId: choosenExercise!!,
                 start: new Date(Date.now())
-            }, trainingInTrainingsPlan?.id);
+            }, training?.id);
             return;
         }
         addOrUpdateSetInWorkout(workoutSet, plannedWorkout.id!!);
     }
 
 
+    function setExerciseWithSideEffects(exercsies: Exercise[]) {
+        modifyExercisesInTraining(exercsies, trainingsPlan.id!!, micro, trainingInMicro, training.id);
+    }
+
     return (
         <ScrollView>
             <Button onPress={() => setPlaningMode(!planingMode)}>
                 Start Training
             </Button>
-            <ExercisePicker exercise={exercise} setExercise={setExercise}
+            <ExercisePicker exercise={exercises} setExercise={setExerciseWithSideEffects}
                             chooseExerciseId={setChoosenExercise} choosenExerciseId={choosenExercise}/>
-            <Text>{choosenExercise}</Text>
             {planingMode && choosenExercise ?
                 <View>
                     <AddWorkoutSet

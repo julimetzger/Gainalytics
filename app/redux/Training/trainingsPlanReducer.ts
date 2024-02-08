@@ -49,12 +49,13 @@ const trainingsPlanReducer = (state: NormalizedState<TrainingsPlan> = initialSta
                 allIds: state.allIds.filter(id => id !== action.trainingsPlanId)
             }
         case 'ADD_PLANED_TRAINING_WORKOUT':
+        case 'MODIFY_EXERCISES_IN_TRAINING':
             if (action.trainingsId === undefined) {
                 state.byId[action.trainingsPlanId] = {
                     ...trainingsPlan,
                     trainings: {
                         ...trainingsPlan.trainings,
-                        [trainingInMicroIndex(action.microNumber, action.trainingInMicroNumber)]: action.nextWorkoutId
+                        [trainingInMicroIndex(action.microNumber, action.trainingInMicroNumber)]: action.nextTrainingsId
                     }
                 };
             }

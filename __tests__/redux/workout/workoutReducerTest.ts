@@ -844,6 +844,7 @@ describe('workoutReducer', () => {
                 }
             })).toEqual({
                 ...STATE_WITH_TWO_WORKOUTS(),
+
                 byId: {
                     ...STATE_WITH_TWO_WORKOUTS().byId,
                     1: {
