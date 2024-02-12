@@ -1,7 +1,7 @@
 import {createStackNavigator} from "@react-navigation/stack";
 import React from "react";
 import TraingHomeTab from "../tabs/trainings/TraingHome";
-import TrainingsTab from "../tabs/trainings/TrainingsTab";
+import TrainingsPlanTab from "../tabs/trainings/TrainingsPlanTab";
 
 export type RootStackParamList = {
     TrainingHome: undefined;
@@ -13,7 +13,7 @@ const TrainingRouter = () => {
     return (
         <Stack.Navigator initialRouteName="TrainingHome">
             <Stack.Screen name="TrainingHome" component={TraingHomeTab}/>
-            <Stack.Screen name="Training" component={TrainingsTab}
+            <Stack.Screen name="Training" component={TrainingsPlanTab}
                           options={({route}) => ({title: route.params.trainingsPlan.name})}></Stack.Screen>
         </Stack.Navigator>
     );

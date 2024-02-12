@@ -64,7 +64,10 @@ function deleteWorkout(workoutState: NormalizedWorkoutState<Workout>, workoutId:
         ...workoutState,
         byId: {...rest},
         allIds: workoutState.allIds.filter(value => value !== workoutId),
-        byExerciseId: {...workoutState.byExerciseId, [exerciseId]: workoutState.byExerciseId[exerciseId]?.filter(value => value !== workoutId)},
+        byExerciseId: {
+            ...workoutState.byExerciseId,
+            [exerciseId]: workoutState.byExerciseId[exerciseId]?.filter(value => value !== workoutId)
+        },
         notFinishedWorkouts: notFinished
     } as NormalizedState<Workout>;
 }
@@ -72,7 +75,10 @@ function deleteWorkout(workoutState: NormalizedWorkoutState<Workout>, workoutId:
 function handleDeleteSuggestedSetWhenNotFoundInPersistedSet(workoutState: NormalizedWorkoutState<Workout>, exerciseId: number, set: WorkoutSet) {
     let sets = [...workoutState.suggestedWorkouts[exerciseId].sets];
     sets.splice(workoutState.suggestedWorkouts[exerciseId].sets.map((value) => value.index).indexOf(set.index), 1);
-    let suggested = {...workoutState.suggestedWorkouts, [exerciseId]: {...workoutState.suggestedWorkouts[exerciseId], sets: sets}};
+    let suggested = {
+        ...workoutState.suggestedWorkouts,
+        [exerciseId]: {...workoutState.suggestedWorkouts[exerciseId], sets: sets}
+    };
     if (sets.length === 0) {
         delete suggested[exerciseId];
     }
@@ -240,6 +246,31 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                     byId: {...workoutState.byId},
                     plannedWorkouts: [...workoutState.plannedWorkouts]
                 }
+            }
+            case 'START_TRAINING': {
+                let suggested = {...workoutState.suggestedWorkouts};
+                if (suggested === undefined)
+                    suggested = {};
+                action.workoutIds.forEach((value: number) => {
+
+                    let plannedWorkout = {
+                        ...workoutState.byId[value],
+                    } as Workout;
+                    plannedWorkout.id = undefined;
+                    plannedWorkout.start = undefined;
+                    plannedWorkout.end = undefined;
+                    plannedWorkout.sets = plannedWorkout.sets.map(value => {
+                        return {
+                            ...value,
+                            date: undefined
+                        }
+                    });
+                    suggested = {
+                        ...suggested,
+                        [plannedWorkout.exerciseId]: plannedWorkout
+                    };
+                });
+                return {...workoutState, suggestedWorkouts: suggested};
             }
             default:
                 return workoutState;

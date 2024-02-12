@@ -1,5 +1,6 @@
 import {NormalizedState} from "../normalizedState";
 import {AnyAction} from "@reduxjs/toolkit";
+import {TrainingsState} from "../../models/TrainingsState";
 
 
 const initialState = {
@@ -20,6 +21,7 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
                 doneWorkoutIds: {},
                 plannedWorkouts: {},
                 exercises: [action.exerciseId],
+                state: TrainingsState.PLANNED
             }
             allIds.push(trainingsId);
         }
@@ -43,7 +45,6 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
             const __ret = createTrainingIfNotPresent(trainingsId, training, allIds);
             trainingsId = __ret.trainingsId;
             training = __ret.training;
-            console.log(state);
             addWorkout(training);
             return {
                 ...state,
@@ -71,6 +72,46 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
                 },
                 allIds: [...allIds]
             }
+        case 'ADD_WORKOUT':
+            return {
+                ...state,
+                byId: {
+                    ...state.byId,
+                    [action.trainingsId]: {
+                        ...state.byId[action.trainingsId],
+                        doneWorkoutIds: {
+                            ...state.byId[action.trainingsId].doneWorkoutIds,
+                            [action.workout.exerciseId]: action.nextWorkoutId
+                        }
+                    }
+                }
+            }
+        case 'FINISH_TRAINING':
+            return {
+                ...state,
+                byId: {
+                    ...state.byId,
+                    [action.trainingsId]: {
+                        ...state.byId[action.trainingsId],
+                        state: TrainingsState.FINISHED,
+                        end: action.date
+                    }
+                }
+            }
+        case 'START_TRAINING':
+            return {
+                ...state,
+                byId: {
+                    ...state.byId,
+                    [action.trainingsId]: {
+                        ...state.byId[action.trainingsId],
+                        state: TrainingsState.STARTED,
+                        start: action.date,
+                    }
+                }
+            }
+        case 'DELETE_SET_FROM_WORKOUT':
+            return state;
         default:
             return state;
     }
