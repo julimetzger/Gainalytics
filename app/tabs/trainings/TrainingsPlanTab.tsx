@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import {ScrollView, View} from "react-native";
 import {Button, IconButton, Text} from "react-native-paper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
@@ -26,6 +26,12 @@ const TrainingsPlanTab = ({route}: Props) => {
     const [choosenExercise, setChoosenExercise] = useState(exercises?.length > 1 ? exercises[0] : undefined)
     let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
     let finishTraining = dispatchFinishTraining();
+
+    useEffect(() => {
+        if (training?.state === TrainingsState.STARTED) {
+            startTraining();
+        }
+    }, [micro, trainingInMicro]);
 
     function setExerciseWithSideEffects(exercsies: Exercise[]) {
         modifyExercisesInTraining(exercsies, trainingsPlan.id!!, micro, trainingInMicro, training?.id);
@@ -69,7 +75,7 @@ const TrainingsPlanTab = ({route}: Props) => {
                                                trainingsPlanId={trainingsPlan.id!!}
                                                trainingInMicro={trainingInMicro}
                                                micro={micro}
-                                               choosenExercise={choosenExercise.id!!}
+                                               choosenExercise={choosenExercise!!}
                         />
                     }
                     {training?.state === TrainingsState.STARTED && choosenExercise &&

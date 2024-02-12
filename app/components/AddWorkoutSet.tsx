@@ -19,7 +19,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
     const [rir, setRPE] = useState(workoutSet?.rir?.toString() ?? '0');
     const [reps, setReps] = useState(workoutSet?.reps?.toString() ?? '');
     const [editing, setEditing] = useState(hasToSaveManually);
-    const [weightSet, setWeightSet] = useState(oneRepMax !== undefined);
+    const [weightSet, setWeightSet] = useState(false);
     const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
     const [weightEmpty, setWeightEmpty] = useState(false);
     const [rirEmpty, setRirEmpty] = useState(false);

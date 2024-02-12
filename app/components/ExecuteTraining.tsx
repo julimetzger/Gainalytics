@@ -4,12 +4,14 @@ import AddWorkout from "./AddWorkout";
 import {useWorkoutById} from "../redux/Workout/useWorkoutById";
 
 const ExecuteTraining = ({training, choosenExercise, onSubmit}: Props) => {
-    // TODO show finished workouts
-
-
+    let doneWorkoutId = training.doneWorkoutIds[choosenExercise.id!!];
+    let doneWorkout = useWorkoutById(doneWorkoutId);
+    console.log(doneWorkout);
     return (
         <View>
-            <AddWorkout exercise={choosenExercise} onSubmit={onSubmit} suggest={false}
+            <AddWorkout workout={doneWorkout?.end ? doneWorkout : undefined} exercise={choosenExercise}
+                        onSubmit={onSubmit}
+                        suggest={false}
                         trainingsId={training.id!!}/>
         </View>
     );
