@@ -249,8 +249,6 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
             }
             case 'START_TRAINING': {
                 let suggested = {...workoutState.suggestedWorkouts};
-                if (suggested === undefined)
-                    suggested = {};
                 action.workoutIds.forEach((value: number) => {
 
                     let plannedWorkout = {
@@ -270,7 +268,8 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                         [plannedWorkout.exerciseId]: plannedWorkout
                     };
                 });
-                return {...workoutState, suggestedWorkouts: suggested};
+                console.log("suggested",suggested);
+                return {...workoutState, suggestedWorkouts: {...suggested}};
             }
             default:
                 return workoutState;

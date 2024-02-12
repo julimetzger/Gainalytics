@@ -73,6 +73,8 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
                 allIds: [...allIds]
             }
         case 'ADD_WORKOUT':
+            if (action.trainingsId === undefined)
+                return state;
             return {
                 ...state,
                 byId: {
@@ -99,6 +101,8 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
                 }
             }
         case 'START_TRAINING':
+            if (state.byId[action.trainingsId].state === TrainingsState.STARTED)
+                return state;
             return {
                 ...state,
                 byId: {

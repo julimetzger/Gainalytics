@@ -862,4 +862,53 @@ describe('workoutReducer', () => {
             })
         });
     })
+    describe('START_TRAINING', () => {
+        it('should start training', () => {
+            expect(exerciseReducer(
+                {
+                    ...STATE_WITH_TWO_WORKOUTS(), allIds: [], byExerciseId: {}, byId: {
+                        ...STATE_WITH_TWO_WORKOUTS().byId,
+                        1: {
+                            ...STATE_WITH_TWO_WORKOUTS().byId[1],
+                            sets: [
+                                {reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1},
+                                {reps: 2, rir: 2, weight: 2, date: TEST_DATE, index: 2}
+                            ]
+                        }
+                    }
+                }, {
+                    type: 'START_TRAINING',
+                    workoutIds: [1],
+                    trainingsId: 1,
+                    date: TEST_DATE
+                })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(), allIds: [], byExerciseId: {}, byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    1: {
+                        ...STATE_WITH_TWO_WORKOUTS().byId[1],
+                        sets: [
+                            {reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1},
+                            {reps: 2, rir: 2, weight: 2, date: TEST_DATE, index: 2}
+                        ]
+                    }
+                },
+                suggestedWorkouts: {
+                    11: {
+                        exerciseId: 11,
+                        id: undefined,
+                        notes: "",
+                        sets: [{reps: 1, rir: 1, weight: 1, date: undefined, index: 1}, {
+                            reps: 2,
+                            rir: 2,
+                            weight: 2,
+                            date: undefined,
+                            index: 2
+                        }],
+                        start: undefined,
+                        end: undefined
+                    }
+                },
+            })
+        })
+    })
 })
