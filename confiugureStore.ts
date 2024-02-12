@@ -4,8 +4,8 @@ import rootReducer from './app/redux/rootReducer';
 import hardSet from 'redux-persist/lib/stateReconciler/hardSet';
 import {composeWithDevTools} from 'redux-devtools-extension';
 import {createLogger} from "redux-logger";
-import { Storage } from 'redux-persist'
-import { MMKV } from "react-native-mmkv"
+import {Storage} from 'redux-persist'
+import {MMKV} from "react-native-mmkv"
 import createFilter from 'redux-persist-transform-filter';
 
 const migrations = {
@@ -17,9 +17,24 @@ const migrations = {
                 byExerciseId: {},
             }
         }
+    },
+    1: state => {
+        return {
+            ...state,
+            trainingsPlan: {
+                ...state.trainingsPlan,
+                byId: {},
+                allIds: []
+            },
+            trainings: {
+                ...state.trainings,
+                byId: {},
+                allIds: []
+            }
+        }
     }
-}
 
+}
 
 
 const storage = new MMKV()
@@ -43,7 +58,7 @@ const saveUserLoginSubsetFilter = createFilter("workouts", ["byId", "byExerciseI
 
 const persistConfig = {
     key: 'root',
-    version: 0,
+    version: 1,
     storage: reduxStorage,
     whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings'],
     stateReconciler: hardSet,
