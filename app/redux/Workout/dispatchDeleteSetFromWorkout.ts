@@ -4,11 +4,12 @@ import {Action} from "redux";
 export const dispatchDeleteSetFromWorkout = () => {
     const dispatch = useDispatch();
 
-    return (set: WorkoutSet, workoutId?: number, exerciseId?: number) =>
+    return (set: WorkoutSet, workoutId?: number, exerciseId?: number, trainingsId?: number) =>
         dispatch({
             type: 'DELETE_SET_FROM_WORKOUT',
             set,
             workoutId,
-            exerciseId
+            exerciseId,
+            trainingsId
         } as Action);
 };

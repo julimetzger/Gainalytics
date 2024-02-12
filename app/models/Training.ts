@@ -6,6 +6,5 @@ type Training = {
     notes?: String;
     start?: Date;
     end?: Date;
-    finished: boolean;
-    started: boolean;
+    state: TrainingsState,
 }

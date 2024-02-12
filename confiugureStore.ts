@@ -39,7 +39,7 @@ export const reduxStorage: Storage = {
     },
 }
 
-const saveUserLoginSubsetFilter = createFilter("workouts", ["byId", "byExerciseId", "allIds"]);
+const saveUserLoginSubsetFilter = createFilter("workouts", ["byId", "byExerciseId", "allIds", "plannedWorkouts"]);
 
 const persistConfig = {
     key: 'root',
