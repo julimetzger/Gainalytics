@@ -32,8 +32,16 @@ const migrations = {
                 allIds: []
             }
         }
+    },
+    2: state => {
+        return {
+            ...state,
+            workouts: {
+                ...state.workouts,
+                plannedWorkouts: []
+            }
+        }
     }
-
 }
 
 
@@ -58,7 +66,7 @@ const saveUserLoginSubsetFilter = createFilter("workouts", ["byId", "byExerciseI
 
 const persistConfig = {
     key: 'root',
-    version: 1,
+    version: 2,
     storage: reduxStorage,
     whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings'],
     stateReconciler: hardSet,

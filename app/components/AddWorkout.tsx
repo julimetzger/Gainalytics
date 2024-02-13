@@ -23,9 +23,7 @@ interface Props {
 
 const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, workout}: Props) => {
         let unfinishedWorkout = useUnfinishedWorkout(exercise.id!!);
-        console.log(unfinishedWorkout);
         unfinishedWorkout = workout ?? unfinishedWorkout;
-        console.log(unfinishedWorkout);
         const [date, setDate] = useState(new Date(Date.now()));
         let workouts = useAllLastWorkouts(exercise, 1);
         let oneRepMax = oneRepMaxForWorkouts(...workouts);
