@@ -19,7 +19,7 @@ const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
 
     function showSets(training: WorkoutSet) {
         return (
-            <DataTable.Row id={training.index!!.toString()} onPress={() => {
+            <DataTable.Row key={training.index} id={training.index!!.toString()} onPress={() => {
                 setSetToUpdate(training);
             }}>
                 <DataTable.Cell>{training.reps + " reps"}</DataTable.Cell>

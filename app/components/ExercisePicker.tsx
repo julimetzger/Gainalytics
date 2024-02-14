@@ -1,10 +1,16 @@
 import {useAlleExercises} from "../redux/Exercises/useAllExercises";
-import React from 'react';
+import React, {useState} from 'react';
 import {MultiselectDropdown} from "sharingan-rn-modal-dropdown";
-import {IconButton, useTheme} from "react-native-paper";
+import {Button, IconButton, useTheme} from "react-native-paper";
 import {StyleProp, View, ViewStyle} from "react-native";
 
-const ExercisePicker = ({exercise, setExercise, style, chooseExercise, choosenExercise}: ExercisePickerProps) => {
+const ExercisePicker = ({
+                            exercise,
+                            setExercise,
+                            style,
+                            disabled = true
+                        }: ExercisePickerProps) => {
+    const [show, setShow] = useState(disabled)
     let exercises = useAlleExercises()
     let theme = useTheme();
     let selectedExercises = exercise.map((exercise: Exercise) => exercise.id ? exercise.id : 0);
@@ -12,27 +18,29 @@ const ExercisePicker = ({exercise, setExercise, style, chooseExercise, choosenEx
         return {
             label: exercise.name,
             value: exercise.id,
-            avatarComponent: chooseExercise && selectedExercises.includes(exercise.id!!) ?
-                <IconButton iconColor={theme.colors.onPrimaryContainer}
-                            icon={choosenExercise?.id === exercise.id ? 'circle' : 'circle-outline'}
-                            onPress={() => {
-                                chooseExercise(exercise)
-                            }}/> : <View></View>
         }
     });
 
     return (<View style={style}>
-        <MultiselectDropdown label="Choose Exercises" enableSearch value={selectedExercises} onChange={setExerciseDumb}
-                             data={dropdownExerciseStructure} paperTheme={theme}
-                             primaryColor={theme.colors.primaryContainer} enableAvatar={chooseExercise ? true : false}
-                             multiline={true}/>
+        {show && <MultiselectDropdown label="Choose Exercises"
+                                      enableSearch value={selectedExercises}
+                                      searchInputTheme={theme}
+                                      onChange={setExerciseDumb}
+                                      data={dropdownExerciseStructure} paperTheme={theme} disableSort={false}
+                                      selectedItemViewStyle={{display: 'none'}}
+                                      primaryColor={theme.colors.primaryContainer}
+                                      textInputPlaceholderColor={theme.colors.onPrimaryContainer}
+                                      multiline={true}/>}
+        <IconButton style={{position: 'absolute', top: 0, right: 0}} icon={!show ? 'chevron-up' : 'chevron-down'}
+                    onPress={() => setShow(!show)}></IconButton>
     </View>);
 
     function setExerciseDumb(value: number[]) {
-        let find = exercises.filter((exerciseFilter: Exercise) => value.includes(exerciseFilter.id ? exerciseFilter.id : 0));
-        if (find !== undefined) {
-            setExercise(find);
-        }
+        console.log("beforeSet", value);
+        let find = value.map((value: number) => exercises.find((exercise: Exercise) => exercise.id === value))
+            .filter((value: Exercise | undefined) => value !== undefined) as Exercise[]
+        console.log("set", find);
+        setExercise(find);
     }
 }
 
@@ -40,8 +48,7 @@ interface ExercisePickerProps {
     exercise: Exercise[],
     setExercise: (arg: Exercise[]) => void,
     style?: StyleProp<ViewStyle>
-    chooseExercise?: (exercise: Exercise) => void
-    choosenExercise?: Exercise
+    disabled?: boolean
 }
 
 export default ExercisePicker;

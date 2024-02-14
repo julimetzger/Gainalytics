@@ -87,9 +87,11 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                     <AddWorkoutSet onSubmit={submitWorkoutSet}
                                    oneRepMax={oneRepMax}/>
                     {unfinishedWorkout && unfinishedWorkout.sets.map((workoutSet) => {
-                        return <AddWorkoutSet workoutSet={workoutSet}
-                                              onSubmit={submitWorkoutSet}
-                                              onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!.id, unfinishedWorkout!!.exerciseId, trainingsId)}/>
+                        return <AddWorkoutSet
+                            key={workoutSet.index}
+                            workoutSet={workoutSet}
+                            onSubmit={submitWorkoutSet}
+                            onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!.id, unfinishedWorkout!!.exerciseId, trainingsId)}/>
                     })}
                 </View>
                 {!workout && <Button

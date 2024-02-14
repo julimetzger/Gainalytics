@@ -44,13 +44,18 @@ const History = ({route}: Props) => {
                 lastWorkouts.map((workout) => {
                     return (
                         <View>
-                            <View style={{display: 'flex', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start'}}>
+                            <View style={{
+                                display: 'flex',
+                                flexDirection: 'row',
+                                alignItems: 'flex-start',
+                                justifyContent: 'flex-start'
+                            }}>
                                 <Text
                                     style={{fontSize: 20}}>{exercises.get(workout.exerciseId)?.name + " " + getDateStringFromDate(workout.start)}</Text>
                                 <IconButton style={{margin: 0, alignSelf: 'flex-start', height: 30}} icon={"delete"}
                                             onPress={() => useDeleteWorkoutdispatch(workout)}/>
                             </View>
-                            <WorkoutSetView sets={workout.sets} onDelete={(workoutSet) => {
+                            <WorkoutSetView key={workout.id} sets={workout.sets} onDelete={(workoutSet) => {
                                 deleteSetInWorkout(workout, workoutSet);
                                 if (workout.sets.length === 0) {
                                     useDeleteWorkoutdispatch(workout);
