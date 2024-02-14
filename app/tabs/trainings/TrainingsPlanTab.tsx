@@ -14,6 +14,7 @@ import {dispatchModifyExercisesInTraining} from "../../redux/Training/dispatchMo
 import {dispatchFinishTraining} from "../../redux/Training/dispatchFinishTraining";
 import TrainingHistory from "../../components/TrainingHistory";
 import {TrainingsState} from "../../models/TrainingsState";
+import DraggableList from "../../components/DraggableList";
 
 const TrainingsPlanTab = ({route}: Props) => {
     const trainingsPlan = useAllTrainingsPlans(route.params.trainingsPlan.id!!);
@@ -68,8 +69,9 @@ const TrainingsPlanTab = ({route}: Props) => {
                         {training?.state === TrainingsState.FINISHED && overview && "Show Sets"}
                         {training?.state === TrainingsState.FINISHED && !overview && "Show Overview"}
                     </Button>
-                    <ExercisePicker exercise={exercises} setExercise={setExerciseWithSideEffects}
-                                    chooseExercise={setChoosenExercise} choosenExercise={choosenExercise}/>
+                    <ExercisePicker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
+                    {exercises.length > 0 && <DraggableList exercises={exercises} choosenExercise={choosenExercise}
+                                                            chooseExercise={setChoosenExercise}/>}
                     {choosenExercise && training?.state === TrainingsState.PLANNED &&
                         <PlanWorkoutInTraining training={training}
                                                trainingsPlanId={trainingsPlan.id!!}
