@@ -10,11 +10,9 @@ export const hasMigratedFromAsyncStorage = storage.getBoolean(
 
 // TODO: Remove `hasMigratedFromAsyncStorage` after a while (when everyone has migrated)
 export async function migrateFromAsyncStorage(): Promise<void> {
-    console.log('Migrating from AsyncStorage -> MMKV...');
     const start = global.performance.now();
 
     const keys = await AsyncStorage.getAllKeys();
-    console.log(keys);
     storage.clearAll();
 
     for (const key of keys) {
@@ -28,15 +26,10 @@ export async function migrateFromAsyncStorage(): Promise<void> {
                 }
             }
         } catch (error) {
-            console.error(
-                `Failed to migrate key "${key}" from AsyncStorage to MMKV!`,
-                error,
-            );
             throw error;
         }
     }
     storage.set('hasMigratedFromAsyncStorageAgain', true);
 
     const end = global.performance.now();
-    console.log(`Migrated from AsyncStorage -> MMKV in ${end - start}ms!`);
 }

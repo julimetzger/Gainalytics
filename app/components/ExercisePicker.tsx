@@ -1,7 +1,7 @@
 import {useAlleExercises} from "../redux/Exercises/useAllExercises";
 import React, {useState} from 'react';
 import {MultiselectDropdown} from "sharingan-rn-modal-dropdown";
-import {Button, IconButton, useTheme} from "react-native-paper";
+import {IconButton, useTheme} from "react-native-paper";
 import {StyleProp, View, ViewStyle} from "react-native";
 
 const ExercisePicker = ({
@@ -21,25 +21,25 @@ const ExercisePicker = ({
         }
     });
 
-    return (<View style={style}>
-        {show && <MultiselectDropdown label="Choose Exercises"
-                                      enableSearch value={selectedExercises}
-                                      searchInputTheme={theme}
-                                      onChange={setExerciseDumb}
-                                      data={dropdownExerciseStructure} paperTheme={theme} disableSort={false}
-                                      selectedItemViewStyle={{display: 'none'}}
-                                      primaryColor={theme.colors.primaryContainer}
-                                      textInputPlaceholderColor={theme.colors.onPrimaryContainer}
-                                      multiline={true}/>}
-        <IconButton style={{position: 'absolute', top: 0, right: 0}} icon={!show ? 'chevron-up' : 'chevron-down'}
-                    onPress={() => setShow(!show)}></IconButton>
-    </View>);
+    return (
+        <View style={style}>
+            {show && <MultiselectDropdown label="Choose Exercises"
+                                          enableSearch value={selectedExercises}
+                                          onChange={setExerciseDumb}
+                                          searchInputTheme={{colors: {primary: theme.colors.primaryContainer}}}
+                                          data={dropdownExerciseStructure} paperTheme={theme} disableSort={false}
+                                          selectedItemViewStyle={{display: 'none'}}
+                                          primaryColor={theme.colors.primaryContainer}
+            />}
+            <IconButton
+                style={show ? {position: 'absolute', top: 0, right: 0} : {position: 'absolute', bottom: 0, right: 0}}
+                icon={!show ? 'chevron-up' : 'chevron-down'}
+                onPress={() => setShow(!show)}></IconButton>
+        </View>);
 
     function setExerciseDumb(value: number[]) {
-        console.log("beforeSet", value);
         let find = value.map((value: number) => exercises.find((exercise: Exercise) => exercise.id === value))
             .filter((value: Exercise | undefined) => value !== undefined) as Exercise[]
-        console.log("set", find);
         setExercise(find);
     }
 }

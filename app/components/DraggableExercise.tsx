@@ -16,9 +16,10 @@ interface Props {
     exercises: Exercise[];
     choosenExercise?: Exercise;
     chooseExercise: (exercise: Exercise) => void;
+    setExercises: (exercises: Exercise[]) => void;
 }
 
-const DraggableList = ({exercises, choosenExercise, chooseExercise}: Props) => {
+const DraggableExercise = ({exercises, setExercises, choosenExercise, chooseExercise}: Props) => {
     let theme = useTheme();
     let exerciseData = exercises.map(
         (exercise) => {
@@ -28,11 +29,6 @@ const DraggableList = ({exercises, choosenExercise, chooseExercise}: Props) => {
             } as Item
         }
     );
-    const [data, setData] = useState(exerciseData);
-
-    useEffect(() => {
-        setData(exerciseData);
-    }, [exercises]);
 
 
     const screenWidth = Dimensions.get('window').width;
@@ -41,21 +37,25 @@ const DraggableList = ({exercises, choosenExercise, chooseExercise}: Props) => {
         return (percentage / 100) > 0.125 ? (percentage / 100) : 0.125 * screenWidth;
     }
 
+    const spreedMax = (numberOfExercises: number) => {
+        return numberOfExercises <= 4 ? RPW(1 / numberOfExercises * 100) : RPW(25);
+    }
+
     const RPW = (percentage: number) => {
         return (percentage / 100) * screenWidth;
     }
     const styles = StyleSheet.create({
         rowItem: {
-            height: 50,
+            height: 60,
             alignItems: "center",
             justifyContent: "center",
         },
         text: {
-            margin:3,
+            margin: 3,
             minWidth: spreedEvenly(exercises.length),
-            maxWidth: RPW(25),
+            maxWidth: spreedMax(exercises.length),
             color: theme.colors.onSecondaryContainer,
-            fontSize: theme.fonts.bodyLarge.fontSize,
+            fontSize: theme.fonts.bodyMedium.fontSize,
             fontWeight: "bold",
             textAlign: "center",
         },
@@ -88,11 +88,11 @@ const DraggableList = ({exercises, choosenExercise, chooseExercise}: Props) => {
 
     return (
         <View>
-            {data.length > 1 &&
+            {exerciseData.length > 0 &&
                 <DraggableFlatList
                     horizontal
-                    data={data}
-                    onDragEnd={({data}) => setData(data)}
+                    data={exerciseData}
+                    onDragEnd={(items) => setExercises(items.data.map((item) => exercises.find((exercise) => exercise.id === item.key)).filter(exercise => exercise !== undefined) as Exercise[])}
                     keyExtractor={(item) => item.key.toString()}
                     renderItem={renderItem}
                 />
@@ -102,6 +102,6 @@ const DraggableList = ({exercises, choosenExercise, chooseExercise}: Props) => {
         ;
 }
 
-export default DraggableList;
+export default DraggableExercise;
 
 

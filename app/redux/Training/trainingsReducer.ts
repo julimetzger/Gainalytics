@@ -114,7 +114,18 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
                     }
                 }
             }
-        case 'DELETE_SET_FROM_WORKOUT':
+        case 'DELETE_WORKOUT':
+            if (action.workout.trainingsId) {
+                training = {...state.byId[action.workout.trainingsId]};
+                delete training.doneWorkoutIds[action.workout.exerciseId];
+                return {
+                    ...state,
+                    byId: {
+                        ...state.byId,
+                        [action.workout.trainingsId]: training
+                    }
+                }
+            }
             return state;
         default:
             return state;

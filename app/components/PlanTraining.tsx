@@ -38,7 +38,7 @@ const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, choose
             {plannedWorkout?.sets.map((workoutSet) => {
                 return <AddWorkoutSet workoutSet={workoutSet}
                                       onSubmit={(workoutSet) => submitPlannedWorkoutSet(workoutSet)}
-                                      onDelete={() => deleteSetFromWorkout(workoutSet, plannedWorkout?.id, choosenExercise.id)}/>
+                                      onDelete={() => deleteSetFromWorkout(workoutSet, plannedWorkout)}/>
             })
             }
         </View>

@@ -19,6 +19,7 @@ export const PaperThemes = {
         ...CombinedDarkTheme.colors,
         primary: PaperDarkTheme.colors.primary,
         background: PaperDarkTheme.colors.background,
+        text: PaperDarkTheme.colors.onSecondaryContainer,
         dark: true,
     },
 };
@@ -49,13 +50,12 @@ const App: () => React.ReactElement = () => {
             </View>
         );
     }
-    console.log(hasMigrated);
 
     return (
         <>
             <Provider store={store}>
                 <PersistGate loading={null} persistor={persistor}>
-                    <PaperProvider theme={MD3DarkTheme}>
+                    <PaperProvider theme={PaperThemes}>
                         <NavigationContainer theme={PaperThemes}>
                             <BottomTabs/>
                         </NavigationContainer>

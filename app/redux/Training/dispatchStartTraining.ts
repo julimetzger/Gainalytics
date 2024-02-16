@@ -18,7 +18,6 @@ export const dispatchStartTraining = (trainingsId?: number) => {
                 }
             )
         }
-        console.log("plannedWorkouts", plannedWorkouts)
         dispatch({
             type: 'START_TRAINING',
             trainingsId,

@@ -14,7 +14,7 @@ import {dispatchModifyExercisesInTraining} from "../../redux/Training/dispatchMo
 import {dispatchFinishTraining} from "../../redux/Training/dispatchFinishTraining";
 import TrainingHistory from "../../components/TrainingHistory";
 import {TrainingsState} from "../../models/TrainingsState";
-import DraggableList from "../../components/DraggableList";
+import DraggableExercise from "../../components/DraggableExercise";
 
 const TrainingsPlanTab = ({route}: Props) => {
     const trainingsPlan = useAllTrainingsPlans(route.params.trainingsPlan.id!!);
@@ -41,6 +41,9 @@ const TrainingsPlanTab = ({route}: Props) => {
     function changePlanningmode() {
         if (training?.state === TrainingsState.PLANNED) {
             startTraining();
+        }
+        if (training?.state === TrainingsState.STARTED) {
+            finishTraining(training.id!!);
         }
         if (training?.state === TrainingsState.FINISHED) {
             if (choosenExercise === undefined)
@@ -69,9 +72,14 @@ const TrainingsPlanTab = ({route}: Props) => {
                         {training?.state === TrainingsState.FINISHED && overview && "Show Sets"}
                         {training?.state === TrainingsState.FINISHED && !overview && "Show Overview"}
                     </Button>
-                    <ExercisePicker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
-                    {exercises.length > 0 && <DraggableList exercises={exercises} choosenExercise={choosenExercise}
-                                                            chooseExercise={setChoosenExercise}/>}
+                    {training?.state !== TrainingsState.FINISHED &&
+                        <View>
+                            <ExercisePicker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
+                            <DraggableExercise exercises={exercises}
+                                               setExercises={setExerciseWithSideEffects}
+                                               choosenExercise={choosenExercise}
+                                               chooseExercise={setChoosenExercise}/>
+                        </View>}
                     {choosenExercise && training?.state === TrainingsState.PLANNED &&
                         <PlanWorkoutInTraining training={training}
                                                trainingsPlanId={trainingsPlan.id!!}
@@ -93,7 +101,7 @@ const TrainingsPlanTab = ({route}: Props) => {
                             auf dich! </Text>
                         </View>}
                     {training?.state === TrainingsState.FINISHED && !overview &&
-                        <TrainingHistory training={training} choosenExercise={choosenExercise!!}/>}
+                        <TrainingHistory training={training}/>}
                 </View>
             </ScrollView>
             <View style={{display: 'flex', justifyContent: 'center'}}>

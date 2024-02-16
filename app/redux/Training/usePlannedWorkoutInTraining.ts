@@ -2,7 +2,6 @@ import {useSelector} from "react-redux";
 import {GlobalState} from "../rootReducer";
 
 export const usePlannedWorkoutInTraining = (trainingId?: number, exerciseId?: number) => useSelector((state: GlobalState) => {
-    console.log("called")
     if (trainingId && exerciseId) {
             let plannedWorkout = state.trainings.byId[trainingId].plannedWorkouts[exerciseId];
             if (plannedWorkout === undefined) {

@@ -117,8 +117,8 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
     }
 
     return (
-        <View style={{justifyContent: 'space-between', margin: 5}}>
-            <View style={{alignSelf: 'center', flexDirection: "row"}}>
+        <View style={{ margin: 5}}>
+            <View style={{ flexDirection: "row"}}>
                 <TextInput mode="outlined" label="Reps" value={reps.toString()} style={styles.textInput}
                            onChangeText={setRepsOnChange} keyboardType="numeric"
                            onFocus={() => {

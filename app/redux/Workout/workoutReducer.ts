@@ -118,7 +118,6 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                             suggestedWorkouts: {...workoutState.suggestedWorkouts}
                         };
                     }
-                    console.log("normal update")
                     newSets[indexOf] = action.set;
                     return {
                         ...workoutState,
@@ -197,14 +196,12 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
             case
             'SUGGEST_WORKOUT': {
                 const keys = workoutState.byExerciseId[action.exerciseId][workoutState.byExerciseId[action.exerciseId].length - 1];
-                console.log(keys);
                 let lastWorkout = {
                     ...workoutState.byId[keys],
                     sets: [...workoutState.byId[keys].sets]
                 } as Workout;
                 if (workoutState.suggestedWorkouts === undefined)
                     workoutState.suggestedWorkouts = {};
-                console.log(lastWorkout);
                 lastWorkout.id = undefined;
                 lastWorkout.start = undefined;
                 lastWorkout.end = undefined;
@@ -268,7 +265,6 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                         [plannedWorkout.exerciseId]: plannedWorkout
                     };
                 });
-                console.log("suggested",suggested);
                 return {...workoutState, suggestedWorkouts: {...suggested}};
             }
             default:

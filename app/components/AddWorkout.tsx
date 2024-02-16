@@ -41,6 +41,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                     sets: [{...workoutSet, index: workoutSet.index ?? 1}],
                     notes: '',
                     exerciseId: exercise.id!!!,
+                    trainingsId,
                     start: date,
                 }, trainingsId)
                 return;
@@ -54,6 +55,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                     }],
                     notes: '',
                     exerciseId: exercise.id!!,
+                    trainingsId,
                     start: date,
                 }, trainingsId)
                 return;
@@ -83,7 +85,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                     alignSelf: 'center',
                     marginTop: 20
                 }}> Set {unfinishedWorkout?.sets ? unfinishedWorkout.sets.length + 1 : 1}</Text>
-                <View style={{justifyContent: 'flex-start'}}>
+                <View style={{display: 'flex', justifyContent: 'flex-start'}}>
                     <AddWorkoutSet onSubmit={submitWorkoutSet}
                                    oneRepMax={oneRepMax}/>
                     {unfinishedWorkout && unfinishedWorkout.sets.map((workoutSet) => {
@@ -91,7 +93,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                             key={workoutSet.index}
                             workoutSet={workoutSet}
                             onSubmit={submitWorkoutSet}
-                            onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!.id, unfinishedWorkout!!.exerciseId, trainingsId)}/>
+                            onDelete={() => deleteSetFromWorkout(workoutSet, workout)}/>
                     })}
                 </View>
                 {!workout && <Button
