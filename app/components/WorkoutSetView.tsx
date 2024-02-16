@@ -1,6 +1,6 @@
 import {StyleSheet, View} from "react-native";
 import {DataTable} from 'react-native-paper';
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import EditWorkoutSetDialog from "./EditWorkoutSetDialog";
 import {set} from "lodash";
 import AddWorkoutSet from "./AddWorkoutSet";
@@ -10,12 +10,14 @@ const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
     let indexOfSelectedWorkout = setToUpdate ? sets.indexOf(setToUpdate) : undefined;
     let workoutsBefore: WorkoutSet[] = [];
     let workoutsAfter: WorkoutSet[];
-    if (indexOfSelectedWorkout!== undefined && indexOfSelectedWorkout !== -1) {
+    if (indexOfSelectedWorkout !== undefined && indexOfSelectedWorkout !== -1) {
         workoutsBefore = sets.slice(0, indexOfSelectedWorkout);
         workoutsAfter = sets.slice(indexOfSelectedWorkout + 1);
     } else {
         workoutsAfter = sets;
     }
+    useEffect(() => {
+    }, [sets]);
 
     function showSets(training: WorkoutSet) {
         return (

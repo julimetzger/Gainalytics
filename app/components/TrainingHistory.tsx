@@ -1,21 +1,19 @@
 import React from "react";
-import {useWorkoutById} from "../redux/Workout/useWorkoutById";
-import WorkoutSetView from "./WorkoutSetView";
+import WorkoutView from "./WorkoutView";
+import {View} from "react-native";
 
 interface Props {
     training: Training;
-    choosenExercise: Exercise;
 }
 
-const TrainingHistory = ({training, choosenExercise}: Props) => {
-    let doneWorkoutId = training.doneWorkoutIds[choosenExercise.id!!];
-    let doneWorkout = useWorkoutById(doneWorkoutId);
-
+const TrainingHistory = ({training}: Props) => {
     return (
-        <WorkoutSetView sets={doneWorkout.sets} onDelete={() => {
-        }}
-                        onSubmit={() => {
-                        }}/>)
-
+        <View>
+            {
+                training.doneWorkoutIds &&
+                <WorkoutView workoutIds={Object.values(training.doneWorkoutIds)}/>
+            }
+        </View>
+    )
 }
 export default TrainingHistory;
