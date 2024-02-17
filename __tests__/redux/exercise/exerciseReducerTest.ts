@@ -126,4 +126,29 @@ describe('exerciseReducer', () => {
         expect(exerciseReducer(initialState, action)).toEqual(expectedState);
 
     })
+    describe('default', () => {
+        it('should return the initial state', () => {
+            const initialState = {
+                byId: {
+                    1: {
+                        id: 1,
+                        name: 'Bankdrücken',
+                    },
+                    2: {
+                        id: 2,
+                        name: 'Squat',
+                    },
+                    3: {
+                        id: 3,
+                        name: 'Deadlift',
+                    },
+                },
+                allIds: [1, 2, 3],
+            };
+            const action = {
+                type: 'DEFAULT',
+            };
+            expect(exerciseReducer(initialState, action)).toEqual(initialState);
+        });
+    })
 });
