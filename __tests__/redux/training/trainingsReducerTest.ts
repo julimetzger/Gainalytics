@@ -287,4 +287,11 @@ describe('trainingsReducer', () => {
                 })
         })
     })
+    describe('default', () => {
+        it('it should return state', () => {
+            expect(trainingsReducer(STATE_WITH_ONE_TRAINING(), {
+                type: 'default'
+            })).toEqual(STATE_WITH_ONE_TRAINING())
+        })
+    })
 })

@@ -1,4 +1,5 @@
 import exerciseReducer from "../../../app/redux/Workout/workoutReducer";
+import trainingsPlanReducer from "../../../app/redux/Training/trainingsPlanReducer";
 
 const TEST_DATE = new Date(2020, 1, 1, 1, 1, 2);
 const STATE_WITH_TWO_WORKOUTS = () => {
@@ -918,6 +919,11 @@ describe('workoutReducer', () => {
                     }
                 },
             })
+        })
+    })
+    describe('default',()=>{
+        it('should return state',()=>{
+            expect(exerciseReducer(STATE_WITH_TWO_WORKOUTS(),{type:'default'})).toEqual(STATE_WITH_TWO_WORKOUTS())
         })
     })
 })
