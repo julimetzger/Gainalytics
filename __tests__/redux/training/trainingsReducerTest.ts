@@ -1,5 +1,22 @@
 import trainingsReducer from "../../../app/redux/Training/trainingsReducer";
 
+function STATE_WITH_ONE_TRAINING() {
+    return {
+        byId: {
+            3: {
+                id: 3,
+                exercises: [2],
+                plannedWorkouts: {},
+                doneWorkoutIds: {},
+                state: 'P'
+            }
+
+        },
+        allIds: [3]
+
+    };
+}
+
 describe('trainingsReducer', () => {
     describe('ADD_PLANED_TRAINING_WORKOUT', () => {
         it('it should add and create training if not present', () => {
@@ -23,8 +40,7 @@ describe('trainingsReducer', () => {
                         id: 3,
                         exercises: [2],
                         doneWorkoutIds: {},
-                        started: false,
-                        finished: false,
+                        state: 'P',
                         plannedWorkouts: {
                             2: 4
                         }
@@ -35,21 +51,7 @@ describe('trainingsReducer', () => {
         })
 
         it('it should add workout to existing training', () => {
-            expect(trainingsReducer({
-                byId: {
-                    3: {
-                        id: 3,
-                        exercises: [2],
-                        plannedWorkouts: {},
-                        doneWorkoutIds: {},
-                        started: false,
-                        finished: false,
-                    }
-
-                },
-                allIds: [3]
-
-            }, {
+            expect(trainingsReducer(STATE_WITH_ONE_TRAINING(), {
                 type: 'ADD_PLANED_TRAINING_WORKOUT',
                 trainingsPlanId: 1,
                 microNumber: 1,
@@ -62,60 +64,37 @@ describe('trainingsReducer', () => {
                 nextWorkoutId: 4,
                 trainingsId: 3
             })).toEqual({
+                ...STATE_WITH_ONE_TRAINING(),
                 byId: {
                     3: {
-                        id: 3,
-                        exercises: [2],
-                        doneWorkoutIds: {},
-                        started: false,
-                        finished: false,
+                        ...STATE_WITH_ONE_TRAINING().byId[3],
                         plannedWorkouts: {
                             2: 4
                         }
                     },
                 },
-                allIds: [3]
             })
         })
 
     })
     describe('MODIFY_EXERCISES_IN_TRAINING', () => {
         it('it should modify exercises in training', () => {
-            expect(trainingsReducer({
-                byId: {
-                    3: {
-                        id: 3,
-                        exercises: [2],
-                        plannedWorkouts: {},
-                        doneWorkoutIds: {},
-                        started: false,
-                        finished: false,
-                    }
-
-                },
-                allIds: [3]
-
-            }, {
+            expect(trainingsReducer(STATE_WITH_ONE_TRAINING(), {
                 type: 'MODIFY_EXERCISES_IN_TRAINING',
-                exercises: [2, 3],
+                exercises: [{id: 2}, {id: 3}],
                 trainingsPlanId: 1,
                 microNumber: 1,
                 trainingInMicroNumber: 1,
                 nextTrainingsId: 5,
                 trainingsId: 3
             })).toEqual({
+                ...STATE_WITH_ONE_TRAINING(),
                 byId: {
                     3: {
-                        id: 3,
+                        ...STATE_WITH_ONE_TRAINING().byId[3],
                         exercises: [2, 3],
-                        plannedWorkouts: {},
-                        doneWorkoutIds: {},
-                        started: false,
-                        finished: false,
-                    }
-
+                    },
                 },
-                allIds: [3]
             })
         })
         it('it should modify exercises and create Training if not present', () => {
@@ -124,7 +103,7 @@ describe('trainingsReducer', () => {
                 allIds: []
             }, {
                 type: 'MODIFY_EXERCISES_IN_TRAINING',
-                exercises: [2],
+                exercises: [{id: 2}, {id: 3}],
                 trainingsPlanId: 1,
                 microNumber: 1,
                 trainingInMicroNumber: 1,
@@ -133,16 +112,179 @@ describe('trainingsReducer', () => {
                 byId: {
                     5: {
                         id: 5,
-                        exercises: [2],
+                        exercises: [2, 3],
                         plannedWorkouts: {},
                         doneWorkoutIds: {},
-                        started: false,
-                        finished: false,
+                        state: 'P'
                     }
 
                 },
                 allIds: [5]
             })
+        })
+    })
+    describe('ADD_WORKOUT', () => {
+        it('it should add workout to existing training', () => {
+            expect(trainingsReducer(STATE_WITH_ONE_TRAINING(), {
+                type: 'ADD_WORKOUT',
+                workout: {
+                    name: 'workout',
+                    exerciseId: 2
+                },
+                nextWorkoutId: 4,
+                trainingsId: 3
+            })).toEqual({
+                byId: {
+                    3: {
+                        id: 3,
+                        exercises: [2],
+                        doneWorkoutIds: {
+                            2: 4
+                        },
+                        plannedWorkouts: {},
+                        state: 'P'
+                    }
+
+                },
+                allIds: [3]
+            })
+        })
+        it('it should not add workout to existing training if trainingsId is undefined', () => {
+            expect(trainingsReducer(STATE_WITH_ONE_TRAINING(), {
+                type: 'ADD_WORKOUT',
+                workout: {
+                    name: 'workout',
+                    exerciseId: 2
+                },
+                nextWorkoutId: 4
+            })).toEqual(STATE_WITH_ONE_TRAINING())
+        })
+    })
+    describe('DELETE_WORKOUT', () => {
+        it('it should skip if not connected to training', () => {
+            expect(trainingsReducer(STATE_WITH_ONE_TRAINING(), {
+                type: 'DELETE_WORKOUT',
+                workout: {
+                    id: 1,
+                    exerciseId: 2
+                }
+            })).toEqual(STATE_WITH_ONE_TRAINING())
+        })
+        it('it should delete workout from training', () => {
+            expect(trainingsReducer({
+                byId: {
+                    3: {
+                        id: 3,
+                        exercises: [2],
+                        plannedWorkouts: {},
+                        doneWorkoutIds: {2: 1},
+                        state: 'P'
+                    }
+
+                },
+                allIds: [3]
+
+            }, {
+                type: 'DELETE_WORKOUT',
+                workout: {
+                    id: 1,
+                    exerciseId: 2,
+                    trainingsId: 3
+                }
+            })).toEqual({
+                byId: {
+                    3: {
+                        id: 3,
+                        exercises: [2],
+                        plannedWorkouts: {},
+                        doneWorkoutIds: {},
+                        state: 'P'
+                    }
+
+                },
+                allIds: [3]
+            })
+        })
+    })
+    describe('FINISH_TRAINING', () => {
+        it('it should finish training', () => {
+            let date = new Date();
+            expect(trainingsReducer(STATE_WITH_ONE_TRAINING(), {
+                type: 'FINISH_TRAINING',
+                trainingsId: 3,
+                date: date
+            })).toEqual({
+                byId: {
+                    3: {
+                        id: 3,
+                        exercises: [2],
+                        plannedWorkouts: {},
+                        doneWorkoutIds: {},
+                        state: 'F',
+                        end: date
+                    }
+
+                },
+                allIds: [3]
+            })
+        })
+    })
+    describe('START_TRAINING', () => {
+        it('it should start training', () => {
+            let date = new Date();
+            expect(trainingsReducer(STATE_WITH_ONE_TRAINING(), {
+                type: 'START_TRAINING',
+                trainingsId: 3,
+                date: date
+            })).toEqual({
+                byId: {
+                    3: {
+                        id: 3,
+                        exercises: [2],
+                        plannedWorkouts: {},
+                        doneWorkoutIds: {},
+                        state: 'S',
+                        start: date
+                    }
+
+                },
+                allIds: [3]
+            })
+        })
+        it('it should ignore if training is in started state', () => {
+            let date = new Date();
+            expect(trainingsReducer({
+                byId: {
+                    3: {
+                        id: 3,
+                        exercises: [2],
+                        plannedWorkouts: {},
+                        doneWorkoutIds: {},
+                        state: 'S',
+                    }
+
+                },
+                allIds: [3]
+
+            }, {
+                type: 'START_TRAINING',
+                trainingsId: 3,
+                date: date
+            })).toEqual(
+                {
+                    byId: {
+                        3: {
+                            id: 3,
+                            exercises: [2],
+                            plannedWorkouts: {},
+                            doneWorkoutIds: {},
+                            state: 'S',
+                        }
+
+                    },
+                    allIds: [3]
+
+                })
         })
     })
 })
