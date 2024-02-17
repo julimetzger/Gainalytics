@@ -93,7 +93,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                             key={workoutSet.index}
                             workoutSet={workoutSet}
                             onSubmit={submitWorkoutSet}
-                            onDelete={() => deleteSetFromWorkout(workoutSet, workout)}/>
+                            onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!)}/>
                     })}
                 </View>
                 {!workout && <Button
