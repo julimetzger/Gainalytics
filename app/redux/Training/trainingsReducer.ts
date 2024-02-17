@@ -16,8 +16,6 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
             training = {
                 ...action.trainingsPlan,
                 id: trainingsId,
-                started: false,
-                finished: false,
                 doneWorkoutIds: {},
                 plannedWorkouts: {},
                 exercises: [action.exerciseId],
@@ -55,15 +53,11 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
                 allIds: [...allIds]
             }
         case 'MODIFY_EXERCISES_IN_TRAINING':
+            // TODO should workouts be deleted if exercise is removed?
             const ret = createTrainingIfNotPresent(trainingsId, training, allIds);
             trainingsId = ret.trainingsId;
             training = ret.training;
-            training.exercises = action.exercises.map((exercise: { id: Exercise; }) => exercise.id);
-            for (let key in training.plannedWorkouts) {
-                if (!training.exercises.includes(Number(key))) {
-                    delete training.plannedWorkouts[key];
-                }
-            }
+            training.exercises = action.exercises.map((exercise: Exercise) => exercise.id);
             return {
                 ...state,
                 byId: {
