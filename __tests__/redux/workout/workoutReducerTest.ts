@@ -826,6 +826,15 @@ describe('workoutReducer', () => {
                 }
             })
         })
+        it('should delete workout with active suggestion', () => {
+            expect(exerciseReducer(STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION(), {
+                type: 'DELETE_WORKOUT',
+                workout: STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().suggestedWorkouts[11]
+            })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION(),
+                suggestedWorkouts: {}
+            })
+        })
     })
     describe('UPDATE_WORKOUT', () => {
         it('should update Workout', () => {

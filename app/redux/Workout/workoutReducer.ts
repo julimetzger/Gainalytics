@@ -52,8 +52,15 @@ function migrateSuggestedToNotFinishedWorkout(workoutState: NormalizedWorkoutSta
 }
 
 
-//TODO test this method !!!!!!!
-function deleteWorkout(workoutState: NormalizedWorkoutState<Workout>, workoutId: number, exerciseId: number) {
+function deleteWorkout(workoutState: NormalizedWorkoutState<Workout>, exerciseId: number, workoutId?: number) {
+    if (workoutId === undefined) {
+        let suggested = {...workoutState.suggestedWorkouts};
+        delete suggested[exerciseId];
+        return {
+            ...workoutState,
+            suggestedWorkouts: suggested
+        } as NormalizedState<Workout>;
+    }
     let {[workoutId]: removed, ...rest} = workoutState.byId;
     let notFinished = {...workoutState.notFinishedWorkouts};
     if (workoutState.notFinishedWorkouts !== undefined && workoutState.notFinishedWorkouts[exerciseId] !== undefined && workoutState.notFinishedWorkouts[exerciseId] === workoutId) {
@@ -153,7 +160,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                 let sets = [...workoutState.byId[action.workoutId].sets];
                 sets.splice(indexOf, 1);
                 if (sets.length === 0)
-                    return deleteWorkout(workoutState, action.workoutId, workoutState.byId[action.workoutId].exerciseId);
+                    return deleteWorkout(workoutState, workoutState.byId[action.workoutId].exerciseId, action.workoutId);
                 return {
                     ...workoutState,
                     byId: {
@@ -182,8 +189,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
             }
             case
             'DELETE_WORKOUT': {
-                return deleteWorkout(workoutState, action.workout.id, action.workout.exerciseId);
-
+                return deleteWorkout(workoutState, action.workout.exerciseId, action.workout.id);
             }
             case
             'UPDATE_WORKOUT': {
