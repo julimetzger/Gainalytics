@@ -1,7 +1,7 @@
 import {View} from "react-native";
 import AddWorkoutSet from "./AddWorkoutSet";
 import React from "react";
-import {dispatchAddPlanedTrainigWorkout} from "../redux/Training/dispatchAddPlanedTrainigWorkout";
+import {dispatchAddPlanedTrainingWorkout} from "../redux/Training/dispatchAddPlanedTrainingWorkout";
 import {dispatchAddOrUpdateSetInWorkout} from "../redux/Workout/dispatchAddOrUpdateSetInWorkout";
 import {dispatchDeleteSetFromWorkout} from "../redux/Workout/dispatchDeleteSetFromWorkout";
 import {usePlannedWorkoutInTraining} from "../redux/Training/usePlannedWorkoutInTraining";
@@ -9,20 +9,20 @@ import {useAllLastWorkouts} from "../redux/Workout/useAllLastWorkouts";
 import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";
 
 
-const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, choosenExercise}: Props) => {
-    const addPlanedTraingWorkoutSet = dispatchAddPlanedTrainigWorkout();
+const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosenExercise}: Props) => {
+    const addPlanedTrainingWorkoutSet = dispatchAddPlanedTrainingWorkout();
     let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout();
     let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
-    const plannedWorkout = usePlannedWorkoutInTraining(training?.id, choosenExercise.id);
-    let workouts = useAllLastWorkouts(choosenExercise, 1);
+    const plannedWorkout = usePlannedWorkoutInTraining(training?.id, chosenExercise.id);
+    let workouts = useAllLastWorkouts(chosenExercise, 1);
     let oneRepMax = oneRepMaxForWorkouts(...workouts);
 
     function submitPlannedWorkoutSet(workoutSet: WorkoutSet) {
         if (plannedWorkout === undefined || plannedWorkout.id === undefined) {
-            addPlanedTraingWorkoutSet(trainingsPlanId, micro, trainingInMicro, choosenExercise.id!!, {
+            addPlanedTrainingWorkoutSet(trainingsPlanId, micro, trainingInMicro, chosenExercise.id!!, {
                 sets: [{...workoutSet, index: workoutSet.index ?? 1}],
                 notes: '',
-                exerciseId: choosenExercise.id!!,
+                exerciseId: chosenExercise.id!!,
                 start: new Date(Date.now())
             }, training?.id);
             return;
@@ -51,6 +51,6 @@ interface Props {
     trainingsPlanId: number,
     micro: number,
     trainingInMicro: number,
-    choosenExercise: Exercise
+    chosenExercise: Exercise
 }
 

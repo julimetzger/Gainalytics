@@ -41,9 +41,9 @@ function addNewPlannedWorkout(workoutState: NormalizedWorkoutState<Workout>, wor
 
 function migrateSuggestedToNotFinishedWorkout(workoutState: NormalizedWorkoutState<Workout>, exerciseId: number) {
     if (workoutState.suggestedWorkouts !== undefined && workoutState.suggestedWorkouts[exerciseId] !== undefined) {
-        let unfinshedWorkoutSets = workoutState.byId[workoutState.notFinishedWorkouts[exerciseId]].sets;
+        let unfinishedWorkoutSets = workoutState.byId[workoutState.notFinishedWorkouts[exerciseId]].sets;
         let suggestedWorkoutSets = workoutState.suggestedWorkouts[exerciseId].sets;
-        let persistedIndexes = unfinshedWorkoutSets.map(value => value.index);
+        let persistedIndexes = unfinishedWorkoutSets.map(value => value.index);
         suggestedWorkoutSets = suggestedWorkoutSets.filter(value => !persistedIndexes.includes(value.index));
         workoutState.suggestedWorkouts[exerciseId].sets = suggestedWorkoutSets;
         if (suggestedWorkoutSets.length === 0)

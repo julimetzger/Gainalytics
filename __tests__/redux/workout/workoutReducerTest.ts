@@ -544,7 +544,7 @@ describe('workoutReducer', () => {
                     }
                 })
         })
-        it('should delete set from suggestions if unfinshed workout already persisted', () => {
+        it('should delete set from suggestions if unfinished workout already persisted', () => {
             expect(exerciseReducer({
                 ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION(), byId: {
                     ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION().byId,
@@ -595,7 +595,7 @@ describe('workoutReducer', () => {
                 })
         })
 
-        it('should delete set from suggestions if unfinshed workout not persisted', () => {
+        it('should delete set from suggestions if unfinished workout not persisted', () => {
             expect(exerciseReducer({
                 ...STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION()
             }, {

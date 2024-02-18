@@ -1,7 +1,7 @@
 import {Keyboard, StyleSheet, View} from "react-native";
 import {Button, IconButton, Text, TextInput, ToggleButton, Tooltip, useTheme} from "react-native-paper";
 import React, {useEffect, useState} from "react";
-import {repetionWeightByOneRm} from "../utils/RepetitionMaxHelper";
+import {repetitionWeightByOneRm} from "../utils/RepetitionMaxHelper";
 
 
 interface AddWorkoutProps {
@@ -51,7 +51,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
         }
         if (oneRepMax !== undefined && !weightSet) {
             setWeightEmpty(false);
-            let weight = repetionWeightByOneRm(reps, rir, oneRepMax!!).toFixed();
+            let weight = repetitionWeightByOneRm(reps, rir, oneRepMax!!).toFixed();
             setWeight(weight.toString())
         }
     }

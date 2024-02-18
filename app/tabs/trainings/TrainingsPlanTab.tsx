@@ -24,7 +24,7 @@ const TrainingsPlanTab = ({route}: Props) => {
     const startTraining = dispatchStartTraining(training?.id);
     const [overview, setOverview] = useState(true)
     let exercises = useExerciseByIds(training?.exercises ?? []);
-    const [choosenExercise, setChoosenExercise] = useState(exercises?.length > 1 ? exercises[0] : undefined)
+    const [chosenExercise, setchosenExercise] = useState(exercises?.length > 1 ? exercises[0] : undefined)
     let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
     let finishTraining = dispatchFinishTraining();
 
@@ -34,8 +34,8 @@ const TrainingsPlanTab = ({route}: Props) => {
         }
     }, [micro, trainingInMicro]);
 
-    function setExerciseWithSideEffects(exercsies: Exercise[]) {
-        modifyExercisesInTraining(exercsies, trainingsPlan.id!!, micro, trainingInMicro, training?.id);
+    function setExerciseWithSideEffects(exercises: Exercise[]) {
+        modifyExercisesInTraining(exercises, trainingsPlan.id!!, micro, trainingInMicro, training?.id);
     }
 
     function changePlanningmode() {
@@ -46,20 +46,20 @@ const TrainingsPlanTab = ({route}: Props) => {
             finishTraining(training.id!!);
         }
         if (training?.state === TrainingsState.FINISHED) {
-            if (choosenExercise === undefined)
-                setChoosenExercise(exercises[0])
+            if (chosenExercise === undefined)
+                setchosenExercise(exercises[0])
             setOverview(!overview);
         }
     }
 
     function goToNextExercise() {
-        const number = exercises.indexOf(choosenExercise!!) + 1;
+        const number = exercises.indexOf(chosenExercise!!) + 1;
         if (number >= exercises.length) {
             finishTraining(training.id!!);
             return;
         }
 
-        setChoosenExercise(exercises[number])
+        setchosenExercise(exercises[number])
     }
 
     return (
@@ -77,21 +77,21 @@ const TrainingsPlanTab = ({route}: Props) => {
                             <ExercisePicker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
                             <DraggableExercise exercises={exercises}
                                                setExercises={setExerciseWithSideEffects}
-                                               choosenExercise={choosenExercise}
-                                               chooseExercise={setChoosenExercise}/>
+                                               chosenExercise={chosenExercise}
+                                               chooseExercise={setchosenExercise}/>
                         </View>}
-                    {choosenExercise && training?.state === TrainingsState.PLANNED &&
+                    {chosenExercise && training?.state === TrainingsState.PLANNED &&
                         <PlanWorkoutInTraining training={training}
                                                trainingsPlanId={trainingsPlan.id!!}
                                                trainingInMicro={trainingInMicro}
                                                micro={micro}
-                                               choosenExercise={choosenExercise!!}
+                                               chosenExercise={chosenExercise!!}
                         />
                     }
-                    {training?.state === TrainingsState.STARTED && choosenExercise &&
+                    {training?.state === TrainingsState.STARTED && chosenExercise &&
                         <ExecuteWorkoutInTraining
                             training={training}
-                            choosenExercise={choosenExercise!!}
+                            chosenExercise={chosenExercise!!}
                             onSubmit={() => goToNextExercise()}
                         />}
                     {training?.state === TrainingsState.FINISHED && overview &&
@@ -105,7 +105,7 @@ const TrainingsPlanTab = ({route}: Props) => {
                 </View>
             </ScrollView>
             <View style={{display: 'flex', justifyContent: 'center'}}>
-                <Text>{"Micro " + micro + "training " + trainingInMicro} </Text>
+                <Text>{"Micro " + micro + " " + "Training " + trainingInMicro} </Text>
                 <View style={{flexDirection: 'row'}}>
                     <IconButton icon={"chevron-left"} onPress={() => setMicro(micro - 1)}/>
                     <IconButton icon={"chevron-right"} onPress={() => setMicro(micro + 1)}/>

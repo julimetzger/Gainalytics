@@ -13,7 +13,7 @@ interface AddExerciseProperties {
 
 const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
     const [visible, setVisible] = React.useState(false);
-    const [traingName, setTraingName] = useState('');
+    const [TrainingName, setTrainingName] = useState('');
     const [deleteOverlay, setDeleteOverlay] = useState(false);
     let addTrainingsPlan = dispatchAddTrainingsPlan();
     let trainingsPlan = trainingsId ? useAllTrainingsPlans(trainingsId) : undefined;
@@ -27,8 +27,8 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
     }
     const confirmDialog = () => {
         setVisible(false);
-        trainingsId ? editTrainingsPlan(trainingsId, traingName) :
-            addTrainingsPlan({name: traingName} as TrainingsPlan);
+        trainingsId ? editTrainingsPlan(trainingsId, TrainingName) :
+            addTrainingsPlan({name: TrainingName} as TrainingsPlan);
     };
 
     return (
@@ -47,7 +47,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
                             <Text>This action will delete the training and all workouts saved for the training. Are you
                                 sure you want to delete this training?</Text>
                             : <TextInput defaultValue={trainingsPlan?.name} label={'Name of the Training Plan'}
-                                         onChangeText={(text) => setTraingName(text)}/>}
+                                         onChangeText={(text) => setTrainingName(text)}/>}
                     </Dialog.Content>
                     <View style={{alignItems: 'center', display: 'flex', justifyContent: 'center'}}>
                         <Dialog.Actions>

@@ -6,7 +6,7 @@ import {RootStackParamList} from "../../routing/TrainingRouter";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import AddTrainingsPlan from "./AddTrainingsPlan";
 
-const TraingHome = ({navigation}: Props) => {
+const TrainingHome = ({navigation}: Props) => {
     const theme = useTheme();
     const [filter, setFilter] = useState('');
     const trainingsPlans = useAllTrainingsPlans().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
@@ -62,4 +62,4 @@ const styles = StyleSheet.create({
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainingHome'>;
 
 
-export default TraingHome;
+export default TrainingHome;
