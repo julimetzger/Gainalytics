@@ -14,12 +14,12 @@ type Item = {
 
 interface Props {
     exercises: Exercise[];
-    choosenExercise?: Exercise;
+    chosenExercise?: Exercise;
     chooseExercise: (exercise: Exercise) => void;
     setExercises: (exercises: Exercise[]) => void;
 }
 
-const DraggableExercise = ({exercises, setExercises, choosenExercise, chooseExercise}: Props) => {
+const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExercise}: Props) => {
     let theme = useTheme();
     let exerciseData = exercises.map(
         (exercise) => {
@@ -61,7 +61,7 @@ const DraggableExercise = ({exercises, setExercises, choosenExercise, chooseExer
         },
     });
 
-    const onPresss = (item: Item) => {
+    const onPress = (item: Item) => {
         chooseExercise(exercises.find((exercise) => exercise.id === item.key)!!);
     }
 
@@ -71,16 +71,16 @@ const DraggableExercise = ({exercises, setExercises, choosenExercise, chooseExer
                 <TouchableOpacity
                     onLongPress={drag}
                     disabled={isActive}
-                    onPress={() => onPresss(item)}
+                    onPress={() => onPress(item)}
                     style={[
                         styles.rowItem,
                         {
-                            backgroundColor: isActive ? theme.colors.tertiaryContainer : item.key === choosenExercise?.id ? theme.colors.primaryContainer : theme.colors.secondaryContainer,
+                            backgroundColor: isActive ? theme.colors.tertiaryContainer : item.key === chosenExercise?.id ? theme.colors.primaryContainer : theme.colors.secondaryContainer,
                         },
                     ]}
                 >
                     <Text
-                        style={[styles.text, {color: isActive ? theme.colors.onTertiaryContainer : item.key === choosenExercise?.id ? theme.colors.onPrimaryContainer : theme.colors.onSecondaryContainer}]}>{item.label}</Text>
+                        style={[styles.text, {color: isActive ? theme.colors.onTertiaryContainer : item.key === chosenExercise?.id ? theme.colors.onPrimaryContainer : theme.colors.onSecondaryContainer}]}>{item.label}</Text>
                 </TouchableOpacity>
             </ScaleDecorator>
         );

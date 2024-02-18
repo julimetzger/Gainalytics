@@ -1,7 +1,7 @@
 type Training = {
     id?: number;
-    doneWorkoutIds: { [exerxiseId: number]: number };
-    plannedWorkouts: { [exerxiseId: number]: number };
+    doneWorkoutIds: { [exerciseId: number]: number };
+    plannedWorkouts: { [exerciseId: number]: number };
     exercises: number[];
     notes?: String;
     start?: Date;

@@ -3,7 +3,7 @@ import {Action} from 'redux';
 import {useNextTrainingsId} from "./useNextTrainingsId";
 import {useNextWorkoutId} from "../Workout/useNextWorkoutId";
 
-export const dispatchAddPlanedTrainigWorkout = () => {
+export const dispatchAddPlanedTrainingWorkout = () => {
     const dispatch = useDispatch();
     let nextTrainingsId = useNextTrainingsId();
     let nextWorkoutId = useNextWorkoutId();
