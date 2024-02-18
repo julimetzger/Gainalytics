@@ -130,8 +130,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                                submitOnChangeIfAllowed();
                            }}
                            error={repsEmpty}
-                           selectTextOnFocus={true}
-                />
+                           selectTextOnFocus={true}/>
                 <TextInput mode="outlined" label="RIR" value={rir.toString()} style={styles.textInput}
                            onChangeText={setRIROnChange} keyboardType="numeric"
                            onFocus={() => {
@@ -201,10 +200,8 @@ const styles = StyleSheet.create({
     textInput: {
         height: 35,
         marginEnd: 5,
-        width:
-            75,
-        alignSelf:
-            'center',
+        width: 75,
+        alignSelf: 'center',
     }
 });
 
