@@ -39,7 +39,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                             size={40}></IconButton>}
             <Portal>
                 <Dialog visible={visible} onDismiss={hideDialog} theme={theme}>
-                    {!deleteOverlay && exerciseId && < Dialog.Title> {"Edit " + exercise!!.name}</Dialog.Title>}
+                    {!deleteOverlay && exerciseId && <Dialog.Title>{"Edit " + exercise!!.name}</Dialog.Title>}
                     {!deleteOverlay && !exerciseId && <Dialog.Title>Add new Exercise</Dialog.Title>}
                     {deleteOverlay && <Dialog.Title>{"Delete " + exercise!!.name}</Dialog.Title>}
                     <Dialog.Content>
