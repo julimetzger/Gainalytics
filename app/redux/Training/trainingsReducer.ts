@@ -18,7 +18,7 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
                 id: trainingsId,
                 doneWorkoutIds: {},
                 plannedWorkouts: {},
-                exercises: [action.exerciseId],
+                exercises: action.exerciseId ? [action.exerciseId] : [],
                 state: TrainingsState.PLANNED
             }
             allIds.push(trainingsId);
@@ -26,8 +26,8 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
         return {trainingsId, training};
     }
 
-    function addWorkout(training: Training) {
-        if (action.workout.id === undefined) {
+    function addPlannedWorkout(training: Training) {
+        if (action.workout?.id === undefined) {
             training.plannedWorkouts = {
                 ...training.plannedWorkouts,
                 [action.exerciseId]: action.nextWorkoutId
@@ -43,7 +43,7 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
             const __ret = createTrainingIfNotPresent(trainingsId, training, allIds);
             trainingsId = __ret.trainingsId;
             training = __ret.training;
-            addWorkout(training);
+            addPlannedWorkout(training);
             return {
                 ...state,
                 byId: {
@@ -112,15 +112,40 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
             if (action.workout.trainingsId) {
                 training = {...state.byId[action.workout.trainingsId]};
                 delete training.doneWorkoutIds[action.workout.exerciseId];
+                delete training.plannedWorkouts[action.workout.exerciseId];
                 return {
                     ...state,
                     byId: {
                         ...state.byId,
-                        [action.workout.trainingsId]: training
+                        [action.workout.trainingsId]: {
+                            ...training,
+                            doneWorkoutIds: {...training.doneWorkoutIds},
+                            plannedWorkouts: {...training.plannedWorkouts}
+                        }
                     }
                 }
             }
             return state;
+        case 'SUGGEST_TRAINING':
+            const __rets = createTrainingIfNotPresent(trainingsId, training, allIds);
+            trainingsId = __rets.trainingsId;
+            training = __rets.training;
+            let workoutIdMap = action.workoutIdWorkoutMap as Map<number, Workout>;
+            workoutIdMap.forEach((workout: Workout, workoutId: number) => {
+                training.plannedWorkouts = {
+                    ...training.plannedWorkouts,
+                    [workout.exerciseId]: workoutId
+                }
+            });
+            training.exercises = action.lastTrainingInMicro.exercises
+            return {
+                ...state,
+                byId: {
+                    ...state.byId,
+                    [trainingsId]: training
+                },
+                allIds: [...allIds]
+            }
         default:
             return state;
     }

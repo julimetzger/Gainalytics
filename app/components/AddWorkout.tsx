@@ -11,6 +11,7 @@ import {ScrollView, StyleSheet, View} from "react-native";
 import DatePicker from "./DatePicker";
 import AddWorkoutSet from "./AddWorkoutSet";
 import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";
+import {useNextTrainingsId} from "../redux/Training/useNextTrainingsId";
 
 interface Props {
     exercise: Exercise
@@ -33,15 +34,17 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
         let finalizeWorkout = dispatchFinalizeWorkout();
         let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
         let suggestedWorkout = dispatchSuggest();
+        let nextTrainingsId = useNextTrainingsId();
 
         function submitWorkoutSet(workoutSet: WorkoutSet) {
             if (unfinishedWorkout === undefined) {
                 addWorkout({
                     //TODO index should be set by reducer
+                    // TODO nextTrainingsID should be handled by dispatch
                     sets: [{...workoutSet, index: workoutSet.index ?? 1}],
                     notes: '',
                     exerciseId: exercise.id!!!,
-                    trainingsId,
+                    trainingsId: trainingsId ?? nextTrainingsId,
                     start: date,
                 }, trainingsId)
                 return;
@@ -55,7 +58,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                     }],
                     notes: '',
                     exerciseId: exercise.id!!,
-                    trainingsId,
+                    trainingsId: trainingsId ?? nextTrainingsId,
                     start: date,
                 }, trainingsId)
                 return;

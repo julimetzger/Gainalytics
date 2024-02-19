@@ -294,4 +294,30 @@ describe('trainingsReducer', () => {
             })).toEqual(STATE_WITH_ONE_TRAINING())
         })
     })
+    describe('SUGGEST_TRAINING', () => {
+        it('it should suggest training', () => {
+            let date = new Date();
+            expect(trainingsReducer(STATE_WITH_ONE_TRAINING(), {
+                type: 'SUGGEST_TRAINING',
+                trainingsId: 3,
+                lastTrainingInMicro: {
+                    exercises: [2]
+                },
+                workoutIdWorkoutMap: new Map([[2, {exerciseId: 2}]])
+            })).toEqual({
+                byId: {
+                    3: {
+                        id: 3,
+                        exercises: [2],
+                        plannedWorkouts: {
+                            2: 2
+                        },
+                        doneWorkoutIds: {},
+                        state: 'P'
+                    }
+                },
+                allIds: [3]
+            })
+        })
+    })
 })

@@ -921,9 +921,69 @@ describe('workoutReducer', () => {
             })
         })
     })
-    describe('default',()=>{
-        it('should return state',()=>{
-            expect(exerciseReducer(STATE_WITH_TWO_WORKOUTS(),{type:'default'})).toEqual(STATE_WITH_TWO_WORKOUTS())
+    describe('SUGGEST_TRAINING', () => {
+        it('should suggest training', () => {
+            expect(exerciseReducer({
+                ...STATE_WITH_TWO_WORKOUTS(),
+                byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    1: {
+                        exerciseId: 11,
+                        id: 1,
+                        notes: "",
+                        sets: [{reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1},
+                            {reps: 2, rir: 2, weight: 2, date: TEST_DATE, index: 2}],
+                        start: TEST_DATE,
+                        end: TEST_DATE,
+                    },
+                },
+            }, {
+                type: 'SUGGEST_TRAINING',
+                trainingsId: 3,
+                lastTrainingInMicro: {
+                    exercises: [2]
+                },
+                workoutIdWorkoutMap: new Map([[3, {id: 1}], [4, {id: 2}]])
+            })).toEqual(
+                {
+                    ...STATE_WITH_TWO_WORKOUTS(),
+                    byId: {
+                        ...STATE_WITH_TWO_WORKOUTS().byId,
+                        1: {
+                            exerciseId: 11,
+                            id: 1,
+                            notes: "",
+                            sets: [{reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1},
+                                {reps: 2, rir: 2, weight: 2, date: TEST_DATE, index: 2}],
+                            start: TEST_DATE,
+                            end: TEST_DATE,
+                        },
+                        3: {
+                            exerciseId: 11,
+                            id: 3,
+                            notes: "",
+                            sets: [{reps: 1, rir: 1, weight: 1, date: undefined, index: 1},
+                                {reps: 2, rir: 2, weight: 2, date: undefined, index: 2}],
+                            start: undefined,
+                            end: undefined,
+                        },
+                        4: {
+                            exerciseId: 22,
+                            id: 4,
+                            notes: "",
+                            sets: [],
+                            start: undefined,
+                            end: undefined,
+                        },
+                    },
+                    plannedWorkouts:
+                        [3, 4]
+                })
+        })
+    })
+    describe('default', () => {
+        it('should return state', () => {
+            expect(exerciseReducer(STATE_WITH_TWO_WORKOUTS(), {type: 'default'})).toEqual(STATE_WITH_TWO_WORKOUTS())
         })
     })
 })
