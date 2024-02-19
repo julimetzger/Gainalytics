@@ -15,6 +15,8 @@ import {dispatchFinishTraining} from "../../redux/Training/dispatchFinishTrainin
 import TrainingHistory from "../../components/TrainingHistory";
 import {TrainingsState} from "../../models/TrainingsState";
 import DraggableExercise from "../../components/DraggableExercise";
+import {dispatchSuggestBasedOnTrained} from "../../redux/Training/dispatchSuggestBasedOnTrained";
+import {dispatchSuggestBasedOnPlanned} from "../../redux/Training/dispatchSuggestBasedOnPlanned";
 
 const TrainingsPlanTab = ({route}: Props) => {
     const trainingsPlan = useAllTrainingsPlans(route.params.trainingsPlan.id!!);
@@ -27,6 +29,8 @@ const TrainingsPlanTab = ({route}: Props) => {
     const [chosenExercise, setchosenExercise] = useState(exercises?.length > 1 ? exercises[0] : undefined)
     let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
     let finishTraining = dispatchFinishTraining();
+    let suggestBasedOnTrained = dispatchSuggestBasedOnTrained(trainingsPlan.id!!, trainingInMicro);
+    let suggestBasedOnPlanned = dispatchSuggestBasedOnPlanned(trainingsPlan.id!!, trainingInMicro);
 
     useEffect(() => {
         if (training?.state === TrainingsState.STARTED) {
@@ -58,7 +62,6 @@ const TrainingsPlanTab = ({route}: Props) => {
             finishTraining(training.id!!);
             return;
         }
-
         setchosenExercise(exercises[number])
     }
 
@@ -80,6 +83,17 @@ const TrainingsPlanTab = ({route}: Props) => {
                                                chosenExercise={chosenExercise}
                                                chooseExercise={setchosenExercise}/>
                         </View>}
+                    {training === undefined && <View>
+                        <Button
+                            disabled={suggestBasedOnTrained === undefined}
+                            onPress={() => suggestBasedOnTrained!!(trainingsPlan.id!!, micro, trainingInMicro)}>Suggest
+                            based on last
+                            Training</Button>
+                        <Button
+                            disabled={suggestBasedOnPlanned === undefined}
+                            onPress={() => suggestBasedOnPlanned!!(trainingsPlan.id!!, micro, trainingInMicro)}>Suggest
+                            based on last planned Training</Button>
+                    </View>}
                     {chosenExercise && training?.state === TrainingsState.PLANNED &&
                         <PlanWorkoutInTraining training={training}
                                                trainingsPlanId={trainingsPlan.id!!}

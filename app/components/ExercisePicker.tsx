@@ -33,7 +33,7 @@ const ExercisePicker = ({
             />}
             <IconButton
                 style={show ? {position: 'absolute', top: 0, right: 0} : {position: 'absolute', bottom: 0, right: 0}}
-                icon={!show ? 'chevron-up' : 'chevron-down'}
+                icon={!show ? 'chevron-down' : 'chevron-up'}
                 onPress={() => setShow(!show)}></IconButton>
         </View>);
 

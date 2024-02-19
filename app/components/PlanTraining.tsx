@@ -7,6 +7,7 @@ import {dispatchDeleteSetFromWorkout} from "../redux/Workout/dispatchDeleteSetFr
 import {usePlannedWorkoutInTraining} from "../redux/Training/usePlannedWorkoutInTraining";
 import {useAllLastWorkouts} from "../redux/Workout/useAllLastWorkouts";
 import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";
+import {useNextTrainingsId} from "../redux/Training/useNextTrainingsId";
 
 
 const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosenExercise}: Props) => {
@@ -16,6 +17,7 @@ const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosen
     const plannedWorkout = usePlannedWorkoutInTraining(training?.id, chosenExercise.id);
     let workouts = useAllLastWorkouts(chosenExercise, 1);
     let oneRepMax = oneRepMaxForWorkouts(...workouts);
+    let number = useNextTrainingsId();
 
     function submitPlannedWorkoutSet(workoutSet: WorkoutSet) {
         if (plannedWorkout === undefined || plannedWorkout.id === undefined) {
@@ -23,7 +25,8 @@ const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosen
                 sets: [{...workoutSet, index: workoutSet.index ?? 1}],
                 notes: '',
                 exerciseId: chosenExercise.id!!,
-                start: new Date(Date.now())
+                start: new Date(Date.now()),
+                trainingsId: training?.id ?? number,
             }, training?.id);
             return;
         }
@@ -40,6 +43,7 @@ const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosen
                                       onSubmit={(workoutSet) => submitPlannedWorkoutSet(workoutSet)}
                                       onDelete={() => deleteSetFromWorkout(workoutSet, plannedWorkout)}/>
             })
+
             }
         </View>
     )

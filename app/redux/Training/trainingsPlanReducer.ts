@@ -12,6 +12,12 @@ export function trainingInMicroIndex(micro: number, trainingInMicro: number) {
     return micro + "," + trainingInMicro;
 }
 
+export function getTrainingsInMicro(trainings: { [microComaTraingInMicro: string]: number }, trainingsNumber: number) {
+    return Object.entries(trainings).filter(([key, value]) => key.endsWith("," + trainingsNumber))
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([key, value]) => value);
+}
+
 function determineNewId(trainingsPlanState: NormalizedState<TrainingsPlan>) {
     if (trainingsPlanState.allIds.length > 0)
         return Math.max(...trainingsPlanState.allIds) + 1;
@@ -49,6 +55,7 @@ const trainingsPlanReducer = (state: NormalizedState<TrainingsPlan> = initialSta
                 allIds: state.allIds.filter(id => id !== action.trainingsPlanId)
             }
         case 'ADD_PLANED_TRAINING_WORKOUT':
+        case 'SUGGEST_TRAINING':
         case 'MODIFY_EXERCISES_IN_TRAINING':
             if (action.trainingsId === undefined) {
                 state.byId[action.trainingsPlanId] = {

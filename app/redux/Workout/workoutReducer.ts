@@ -19,6 +19,7 @@ function addNewWorkoutToState(workoutState: NormalizedWorkoutState<Workout>, wor
         workoutState.allIds.push(newId);
     }
     // TODO use valid end and start dates
+    // TODO fix this (modifies initial state)
     workoutState.byId[newId] = {...workout, id: newId};
     if (byExerciseIdArray === undefined)
         workoutState.byExerciseId[workout.exerciseId] = [newId];
@@ -33,6 +34,7 @@ function addNewWorkoutToState(workoutState: NormalizedWorkoutState<Workout>, wor
 }
 
 function addNewPlannedWorkout(workoutState: NormalizedWorkoutState<Workout>, workout: Workout, newId: number) {
+    // TODO fix this (modifies initial state)
     workoutState.byId[newId] = {...workout, id: newId};
     if (workoutState.plannedWorkouts === undefined)
         workoutState.plannedWorkouts = [];
@@ -47,6 +49,7 @@ function migrateSuggestedToNotFinishedWorkout(workoutState: NormalizedWorkoutSta
         suggestedWorkoutSets = suggestedWorkoutSets.filter(value => !persistedIndexes.includes(value.index));
         workoutState.suggestedWorkouts[exerciseId].sets = suggestedWorkoutSets;
         if (suggestedWorkoutSets.length === 0)
+            // TODO fix this (modifies initial state)
             delete workoutState.suggestedWorkouts[exerciseId];
     }
 }
@@ -273,6 +276,28 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                 });
                 return {...workoutState, suggestedWorkouts: {...suggested}};
             }
+            case 'SUGGEST_TRAINING':
+                let workoutStateCopy = {
+                    ...workoutState,
+                    byId: {...workoutState.byId},
+                    suggestedWorkouts: {...workoutState.suggestedWorkouts}
+                };
+                action.workoutIdWorkoutMap.forEach((value: Workout, key: number) => {
+                    let workoutCopy = {...workoutState.byId[value.id!!]};
+                    workoutCopy.end = undefined;
+                    workoutCopy.start = undefined;
+                    workoutCopy.notes = "";
+                    workoutCopy.sets = workoutCopy.sets.map(value => {
+                            return {...value, date: undefined}
+                        }
+                    );
+                    addNewPlannedWorkout(workoutStateCopy, workoutCopy, key);
+                })
+                return {
+                    ...workoutState,
+                    byId: {...workoutStateCopy.byId},
+                    plannedWorkouts: [...workoutStateCopy.plannedWorkouts]
+                }
             default:
                 return workoutState;
         }

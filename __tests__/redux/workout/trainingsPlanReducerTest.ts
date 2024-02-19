@@ -151,6 +151,29 @@ describe('trainingsPlanReducer', () => {
             })
         });
     })
+    describe('SUGGEST_TRAINING', () => {
+        it('should add planned training workout (trainingsId is not set for this action)', () => {
+            expect(trainingsPlanReducer(ONE_TRAININGS_PLAN(), {
+                    type: 'MODIFY_EXERCISES_IN_TRAINING',
+                    trainingsPlanId: 1,
+                    microNumber: 1,
+                    trainingInMicroNumber: 1,
+                    nextTrainingsId: 2
+                })
+            ).toEqual({
+                byId: {
+                    1: {
+                        id: 1,
+                        name: 'plan',
+                        trainings: {
+                            '1,1': 2
+                        }
+                    }
+                },
+                allIds: [1]
+            })
+        });
+    })
     describe('Default', () => {
         it('should not modify for unknown action type', () => {
             expect(trainingsPlanReducer(ONE_TRAININGS_PLAN(), {
