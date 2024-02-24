@@ -31,7 +31,7 @@ const ExercisePicker = ({
                                           selectedItemViewStyle={{display: 'none'}}
                                           primaryColor={theme.colors.primaryContainer}
             />}
-            <IconButton
+            <IconButton mode='outlined'
                 style={show ? {position: 'absolute', top: 0, right: 0} : {position: 'absolute', bottom: 0, right: 0}}
                 icon={!show ? 'chevron-down' : 'chevron-up'}
                 onPress={() => setShow(!show)}></IconButton>

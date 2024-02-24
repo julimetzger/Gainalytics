@@ -69,7 +69,7 @@ const TrainingsPlanTab = ({route}: Props) => {
         <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
             <ScrollView>
                 <View>
-                    <Button onPress={changePlanningmode}>
+                    <Button mode='outlined' onPress={changePlanningmode}>
                         {training?.state === TrainingsState.PLANNED && "Start Training"}
                         {training?.state === TrainingsState.STARTED && "Finish Training"}
                         {training?.state === TrainingsState.FINISHED && overview && "Show Sets"}
