@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
         textAlign: 'left',
         textAlignVertical: 'center',
-        margin: 4,
+        margin: 5,
     },
     addExercise: {
         position: 'absolute',

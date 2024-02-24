@@ -67,7 +67,7 @@ function deleteWorkout(workoutState: NormalizedWorkoutState<Workout>, exerciseId
     let {[workoutId]: removed, ...rest} = workoutState.byId;
     let notFinished = {...workoutState.notFinishedWorkouts};
     if (workoutState.notFinishedWorkouts !== undefined && workoutState.notFinishedWorkouts[exerciseId] !== undefined && workoutState.notFinishedWorkouts[exerciseId] === workoutId) {
-        let {[exerciseId]: removedUnfinisehd, ...restUnfinished} = workoutState.notFinishedWorkouts;
+        let {[exerciseId]: removedUnfinished, ...restUnfinished} = workoutState.notFinishedWorkouts;
         notFinished = {...restUnfinished};
     }
     return {
