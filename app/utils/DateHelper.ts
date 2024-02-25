@@ -11,6 +11,22 @@ export const firstDayOfWeek = (dateObject: Date, firstDayOfWeekIndex: number) =>
 
     return firstDayOfWeek
 }
+
+export const lastDayOfWeek = (dateObject: Date, lastDayOfWeekIndex: number) => {
+
+    const dayOfWeek = dateObject.getDay(),
+        firstDayOfWeek = new Date(dateObject),
+        diff = dayOfWeek >= lastDayOfWeekIndex ?
+            dayOfWeek - lastDayOfWeekIndex :
+            6 - dayOfWeek
+
+    firstDayOfWeek.setDate(dateObject.getDate() - diff)
+    firstDayOfWeek.setHours(23, 59, 59, 0)
+
+    return firstDayOfWeek
+}
+
+
 export const getEndOfDay = (d: Date = new Date()) => {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
 }
