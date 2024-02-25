@@ -12,7 +12,6 @@ interface AddWorkoutProps {
     hasToSaveManually?: boolean
 }
 
-// TODO do not show 1RM logic id oneRepMax is not set
 const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManually = false}: AddWorkoutProps) => {
     let theme = useTheme();
     const [weight, setWeight] = useState(workoutSet?.weight?.toString() ?? '');
