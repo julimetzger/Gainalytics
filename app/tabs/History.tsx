@@ -28,7 +28,6 @@ const History = ({route}: Props) => {
         .filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true)
         .sort((a, b) => -dateComparator(a.start!!, b.start!!)) as Workout[];
 
-    console.log("Range",range);
     const theme = useTheme();
     // @ts-ignore
     return (

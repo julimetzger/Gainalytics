@@ -8,6 +8,7 @@ import merge from 'deepmerge';
 import {BottomTabs} from './app/routing/bottomNavigator';
 import {hasMigratedFromAsyncStorage, migrateFromAsyncStorage} from "./storage";
 import {ActivityIndicator, InteractionManager, View} from "react-native";
+import {EventProvider} from "react-native-outside-press";
 
 const CombinedDarkTheme = merge(PaperDarkTheme, NavigationDarkTheme);
 
@@ -56,9 +57,11 @@ const App: () => React.ReactElement = () => {
             <Provider store={store}>
                 <PersistGate loading={null} persistor={persistor}>
                     <PaperProvider theme={PaperThemes}>
-                        <NavigationContainer theme={PaperThemes}>
-                            <BottomTabs/>
-                        </NavigationContainer>
+                        <EventProvider>
+                            <NavigationContainer theme={PaperThemes}>
+                                <BottomTabs/>
+                            </NavigationContainer>
+                        </EventProvider>
                     </PaperProvider>
                 </PersistGate>
             </Provider>

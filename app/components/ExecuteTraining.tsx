@@ -2,16 +2,18 @@ import React from "react";
 import {View} from "react-native";
 import AddWorkout from "./AddWorkout";
 import {useWorkoutById} from "../redux/Workout/useWorkoutById";
+import {useNextTrainingsId} from "../redux/Training/useNextTrainingsId";
 
 const ExecuteTraining = ({training, chosenExercise, onSubmit}: Props) => {
     let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];
     let doneWorkout = useWorkoutById(doneWorkoutId);
+    let nextTrainingsId = useNextTrainingsId();
     return (
         <View>
             <AddWorkout workout={doneWorkout?.end ? doneWorkout : undefined} exercise={chosenExercise}
                         onSubmit={onSubmit}
                         suggest={false}
-                        trainingsId={training.id!!}/>
+                        trainingsId={training.id ?? nextTrainingsId}/>
         </View>
     );
 }

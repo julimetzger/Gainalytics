@@ -59,7 +59,6 @@ const TrainingsPlanTab = ({route}: Props) => {
     function goToNextExercise() {
         const number = exercises.indexOf(chosenExercise!!) + 1;
         if (number >= exercises.length) {
-            finishTraining(training.id!!);
             return;
         }
         setchosenExercise(exercises[number])

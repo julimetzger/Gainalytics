@@ -1,7 +1,8 @@
 import {View} from "react-native";
-import {DataTable, useTheme} from 'react-native-paper';
+import {DataTable} from 'react-native-paper';
 import React, {useEffect, useState} from "react";
 import AddWorkoutSet from "./AddWorkoutSet";
+import OutsidePressHandler from "react-native-outside-press";
 
 const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
     const [setToUpdate, setSetToUpdate] = useState<WorkoutSet>();
@@ -19,7 +20,8 @@ const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
 
     function showSets(training: WorkoutSet) {
         return (
-            <DataTable.Row style={{padding: 0, margin: 0, minHeight: 35}} key={training.index} id={training.index!!.toString()} onPress={() => {
+            <DataTable.Row style={{padding: 0, margin: 0, minHeight: 35}} key={training.index}
+                           id={training.index!!.toString()} onPress={() => {
                 setSetToUpdate(training);
             }}>
                 <DataTable.Cell>{training.reps + " reps"}</DataTable.Cell>
@@ -29,20 +31,25 @@ const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
         )
     }
 
-    return <View>
-        {workoutsBefore.map(showSets)}
-        {setToUpdate && <AddWorkoutSet onSubmit={(arg) => {
-            onSubmit(arg);
-            setSetToUpdate(undefined);
-        }}
-                                       onDelete={(workout) => {
-                                           onDelete(workout);
-                                           setSetToUpdate(undefined);
-                                       }}
-                                       workoutSet={setToUpdate}
-                                       hasToSaveManually={true}/>}
-        {workoutsAfter.map(showSets)}
-    </View>;
+    return (
+        <View>
+            {workoutsBefore.map(showSets)}
+            {setToUpdate &&
+                <AddWorkoutSet
+                    onSubmit={(arg) => {
+                        onSubmit(arg);
+                        setSetToUpdate(undefined);
+                    }}
+                    onDelete={(workout) => {
+                        onDelete(workout);
+                        setSetToUpdate(undefined);
+                    }}
+                    workoutSet={setToUpdate}
+                    hasToSaveManually={true}/>
+            }
+            {workoutsAfter.map(showSets)}
+        </View>
+    );
 }
 
 interface WorkoutSetViewProps {
