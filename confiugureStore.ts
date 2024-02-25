@@ -1,12 +1,12 @@
-import {applyMiddleware, createStore} from 'redux';
 import {persistStore, persistReducer, createMigrate} from 'redux-persist';
 import rootReducer from './app/redux/rootReducer';
 import hardSet from 'redux-persist/lib/stateReconciler/hardSet';
-import {composeWithDevTools} from 'redux-devtools-extension';
-import {createLogger} from "redux-logger";
 import {Storage} from 'redux-persist'
 import {MMKV} from "react-native-mmkv"
 import createFilter from 'redux-persist-transform-filter';
+import {configureStore} from "@reduxjs/toolkit";
+import thunk from "redux-thunk";
+import logger from "redux-logger";
 
 const migrations = {
     0: state => {
@@ -78,7 +78,11 @@ const persistConfig = {
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export default () => {
-    let store = createStore(persistedReducer, composeWithDevTools(applyMiddleware(createLogger())));
+    const store = configureStore({
+        reducer: persistedReducer,
+        devTools: process?.env?.NODE_ENV === 'development',
+        middleware: process?.env?.NODE_ENV === 'development' ? [logger] : []
+    });
     let persistor = persistStore(store);
     return {store, persistor};
 };
