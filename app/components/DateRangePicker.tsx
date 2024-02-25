@@ -25,7 +25,8 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
             justifyContent: "space-between"
         }}>
             <IconButton onPress={() => setRange(range.minusRange())} icon={"chevron-left"}/>
-            <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined" style={{display:'flex', alignSelf:'center'}}>
+            <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined"
+                    style={{display: 'flex', alignSelf: 'center'}}>
                 {getDateStringFromDate(range.startDate) + " to " + getDateStringFromDate(range.endDate)}
             </Button>
             <IconButton onPress={() => setRange(range.plusOneRange())} icon={"chevron-right"}></IconButton>
@@ -71,6 +72,10 @@ export class Range {
         let startDateNew = this.startDate.getTime() - this.getRange();
         let endDateNew = this.endDate.getTime() - this.getRange();
         return new Range(new Date(startDateNew), new Date(endDateNew));
+    }
+
+    dateIsInRange(date: Date) {
+        return new Date(date).getTime() > this.startDate.getTime() && new Date(date).getTime() < this.endDate.getTime();
     }
 }
 

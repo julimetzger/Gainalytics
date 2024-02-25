@@ -1,7 +1,10 @@
 # OSX
 #
 .DS_Store
-
+coverage
+__tests__/coverage
+.expo
+.jest/cache
 # Xcode
 #
 build/

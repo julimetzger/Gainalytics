@@ -1,8 +1,6 @@
-import {StyleSheet, View} from "react-native";
-import {DataTable} from 'react-native-paper';
+import {View} from "react-native";
+import {DataTable, useTheme} from 'react-native-paper';
 import React, {useEffect, useState} from "react";
-import EditWorkoutSetDialog from "./EditWorkoutSetDialog";
-import {set} from "lodash";
 import AddWorkoutSet from "./AddWorkoutSet";
 
 const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
@@ -21,7 +19,7 @@ const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
 
     function showSets(training: WorkoutSet) {
         return (
-            <DataTable.Row key={training.index} id={training.index!!.toString()} onPress={() => {
+            <DataTable.Row style={{padding: 0, margin: 0, minHeight: 35}} key={training.index} id={training.index!!.toString()} onPress={() => {
                 setSetToUpdate(training);
             }}>
                 <DataTable.Cell>{training.reps + " reps"}</DataTable.Cell>
@@ -52,5 +50,6 @@ interface WorkoutSetViewProps {
     onDelete: (workoutSet: WorkoutSet) => void,
     onSubmit: (workoutSet: WorkoutSet) => void
 }
+
 
 export default WorkoutSetView;

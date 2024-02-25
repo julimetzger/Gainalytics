@@ -1,10 +1,9 @@
 import React, {useEffect, useState} from 'react';
 import {ScrollView, View} from 'react-native';
 import {Divider, Text, useTheme} from 'react-native-paper';
-import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
 import DateRangePicker, {Range} from "../components/DateRangePicker";
-import {dateComparator, firstDayOfWeek, getEndOfDay, subtractMonths} from "../utils/DateHelper";
+import {dateComparator, firstDayOfWeek, getEndOfDay, lastDayOfWeek, subtractMonths} from "../utils/DateHelper";
 import ExercisePicker from "../components/ExercisePicker";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {repetitionMax} from "../utils/RepetitionMaxHelper";
@@ -22,13 +21,14 @@ const History = ({route}: Props) => {
     )
 
     let now = new Date(Date.now());
-    const [range, setRange] = useState(new Range(firstDayOfWeek(now, 1), getEndOfDay(now)))
+    const [range, setRange] = useState(new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now,0)))
     const [exercise, setExercise] = useState<Exercise[]>([]);
     let exerciseIDs = exercise.map(it => it.id);
     let lastWorkouts = useWorkoutsIn(range)
         .filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true)
         .sort((a, b) => -dateComparator(a.start!!, b.start!!)) as Workout[];
 
+    console.log("Range",range);
     const theme = useTheme();
     // @ts-ignore
     return (
