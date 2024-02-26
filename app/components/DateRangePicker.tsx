@@ -19,6 +19,8 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
         },
         [setOpen, setRange]
     );
+
+    // TODO wenn kein Ende ausgewählt ist, dann ist das Ende das aktuelle Datum
     return (<>
         <View style={{
             flexDirection: "row", justifyContent: "center"}}>

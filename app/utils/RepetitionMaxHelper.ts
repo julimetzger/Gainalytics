@@ -1,3 +1,6 @@
+import {Metric} from "../components/Picker";
+import {sumBy} from "lodash";
+
 export const repetitionMax = (...workoutSet: WorkoutSet[]) => {
     let number = Math.max(...workoutSet.map(value => value.weight * repsCoefficient(value.reps + value.rir)));
     return number !== -Infinity ? number : undefined;
@@ -22,5 +25,23 @@ export const repetitionWeight = (reps: number, rir: number, ...workoutSet: Worko
 
 export const repetitionWeightByOneRm = (reps: number, rir: number, oneRm: number) => {
     return oneRm / repsCoefficient(reps + rir)
+}
+
+export function calculateMetricValue(sets: WorkoutSet[], metric: Metric) {
+    const oneRm = repetitionMax(...sets)?.valueOf();
+    switch (metric) {
+        case Metric.ONE_RM:
+            return oneRm;
+        case Metric.VOLUME:
+            return sumBy(sets, value => value.weight * value.reps);
+        case Metric.MAX_INTENSITY:
+            return oneRm ? Math.max(...sets.map(value => value.weight / oneRm)) * 100 : 100;
+        case Metric.AVERAGE_INTENSITY:
+            return oneRm ? sumBy(sets, value => value.weight) / sets.length / oneRm * 100 : 100;
+        case Metric.SETS:
+            return sets.length;
+        case Metric.REPS:
+            return sumBy(sets, value => value.reps);
+    }
 }
 
