@@ -19,6 +19,7 @@ const WorkoutViewTile = ({workout, exercise}: WorkoutVieTileProps) => {
     let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout();
     let useDeleteWorkoutdispatch = useDeleteWorkout();
     const [showDelete, setShowDelete] = useState(false);
+    //TODO workout set reihenfolge
     useEffect(() => {
     }, [workout, exercise]);
 
