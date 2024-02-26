@@ -8,6 +8,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit}: Props) => {
     let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];
     let doneWorkout = useWorkoutById(doneWorkoutId);
     let nextTrainingsId = useNextTrainingsId();
+    //TODO exercise während Training hinzugefügt und Sätze hinzugefügt (kein AddWorkout). Dann app zugemacht. Dann wieder geöffnet. Dann ist  Training nicht mehr da.
     return (
         <View>
             <AddWorkout workout={doneWorkout?.end ? doneWorkout : undefined} exercise={chosenExercise}

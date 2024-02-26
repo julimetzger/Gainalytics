@@ -29,7 +29,6 @@ const History = ({route}: Props) => {
         .sort((a, b) => -dateComparator(a.start!!, b.start!!)) as Workout[];
 
     const theme = useTheme();
-    // @ts-ignore
     return (
         <ScrollView style={{backgroundColor: theme.colors.background}}>
             <DateRangePicker range={range} setRange={setRange}/>

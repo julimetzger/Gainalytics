@@ -20,7 +20,7 @@ export const lastDayOfWeek = (dateObject: Date, lastDayOfWeekIndex: number) => {
             dayOfWeek - lastDayOfWeekIndex :
             6 - dayOfWeek
 
-    firstDayOfWeek.setDate(dateObject.getDate() - diff)
+    firstDayOfWeek.setDate(dateObject.getDate() - diff + 7)
     firstDayOfWeek.setHours(23, 59, 59, 0)
 
     return firstDayOfWeek

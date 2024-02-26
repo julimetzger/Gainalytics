@@ -1,11 +1,9 @@
-import {persistStore, persistReducer, createMigrate} from 'redux-persist';
+import {createMigrate, persistReducer, persistStore, Storage} from 'redux-persist';
 import rootReducer from './app/redux/rootReducer';
 import hardSet from 'redux-persist/lib/stateReconciler/hardSet';
-import {Storage} from 'redux-persist'
 import {MMKV} from "react-native-mmkv"
 import createFilter from 'redux-persist-transform-filter';
 import {configureStore} from "@reduxjs/toolkit";
-import thunk from "redux-thunk";
 import logger from "redux-logger";
 
 const migrations = {
