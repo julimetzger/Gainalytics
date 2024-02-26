@@ -1,7 +1,7 @@
 import React from 'react';
 import {PersistGate} from 'redux-persist/integration/react';
 import {Provider} from 'react-redux';
-import confiugureStore from './confiugureStore';
+import configureStore from './configureStore';
 import {NavigationContainer, DarkTheme as NavigationDarkTheme} from '@react-navigation/native';
 import {MD3DarkTheme as PaperDarkTheme, Provider as PaperProvider} from 'react-native-paper';
 import merge from 'deepmerge';
@@ -10,7 +10,7 @@ import {EventProvider} from "react-native-outside-press";
 
 const CombinedDarkTheme = merge(PaperDarkTheme, NavigationDarkTheme);
 
-const {store, persistor} = confiugureStore();
+const {store, persistor} = configureStore();
 
 export const PaperThemes = {
     ...CombinedDarkTheme,
