@@ -1,10 +1,11 @@
 import {View} from "react-native";
-import {DataTable} from 'react-native-paper';
+import {DataTable, Icon} from 'react-native-paper';
 import React, {useEffect, useState} from "react";
 import AddWorkoutSet from "./AddWorkoutSet";
-import OutsidePressHandler from "react-native-outside-press";
+import {Metric} from "./Picker";
+import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
 
-const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
+const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMode}: WorkoutSetViewProps) => {
     const [setToUpdate, setSetToUpdate] = useState<WorkoutSet>();
     let indexOfSelectedWorkout = setToUpdate ? sets.indexOf(setToUpdate) : undefined;
     let workoutsBefore: WorkoutSet[] = [];
@@ -17,16 +18,23 @@ const WorkoutSetView = ({sets, onDelete, onSubmit}: WorkoutSetViewProps) => {
     }
     useEffect(() => {
     }, [sets]);
+    let highlightValue = highLightMode ? calculateMetricValue(sets, highLightMode) : undefined;
 
     function showSets(training: WorkoutSet) {
         return (
             <DataTable.Row style={{padding: 0, margin: 0, minHeight: 35}} key={training.index}
                            id={training.index!!.toString()} onPress={() => {
-                setSetToUpdate(training);
+                if (editable) {
+                    setSetToUpdate(training);
+                }
             }}>
                 <DataTable.Cell>{training.reps + " reps"}</DataTable.Cell>
                 <DataTable.Cell>{training.rir + " RIR"}</DataTable.Cell>
                 <DataTable.Cell>{training.weight + " kg"}</DataTable.Cell>
+                {highLightMode && (highLightMode === Metric.MAX_INTENSITY || highLightMode === Metric.ONE_RM) && highlightValue === calculateMetricValue([training], highLightMode) &&
+                    <DataTable.Cell><Icon size={10} source={"trophy"}/>
+                    </DataTable.Cell>
+                }
             </DataTable.Row>
         )
     }
@@ -56,6 +64,8 @@ interface WorkoutSetViewProps {
     sets: WorkoutSet[],
     onDelete: (workoutSet: WorkoutSet) => void,
     onSubmit: (workoutSet: WorkoutSet) => void
+    editable?: boolean
+    highLightMode?: Metric
 }
 
 

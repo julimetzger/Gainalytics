@@ -1,17 +1,17 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {processColor, ScrollView, StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
 import DateRangePicker, {Range} from "../components/DateRangePicker";
 import {firstDayOfWeek, getDateStringFromDate, getEndOfDay} from "../utils/DateHelper";
-import ExercisePicker from "../components/ExercisePicker";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
-import {repetitionMax} from "../utils/RepetitionMaxHelper";
+import {calculateMetricValue, repetitionMax} from "../utils/RepetitionMaxHelper";
 import WorkoutSetView from "../components/WorkoutSetView";
 import {useWorkoutById} from "../redux/Workout/useWorkoutById";
 import {RootStackParamList} from "../routing/AnalyseRouter";
 import {sumBy} from "lodash";
+import Picker, {AccumaulationMode, Metric} from "../components/Picker";
 
 
 const AnalyseGraphics = ({route}: Props) => {
@@ -23,19 +23,30 @@ const AnalyseGraphics = ({route}: Props) => {
     let now = new Date(Date.now());
     const [range, setRange] = useState(new Range(firstDayOfWeek(now, 1), getEndOfDay(now)))
     const [selectedWorkoutId, setSelectedWorkoutId] = useState<number>();
+    const [metric, setMetric] = useState(Metric.ONE_RM);
+    const [accumulationMode, setAccumulationMode] = useState(AccumaulationMode.SINGLE_DAY)
     const [exercise, setExercise] = useState<Exercise[]>([]);
     let exerciseIDs = exercise.map(it => it.id);
     let lastWorkouts = useWorkoutsIn(range).reverse().filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true) as Workout[];
     const theme = useTheme();
     let selectedWorkout = useWorkoutById(selectedWorkoutId);
-    // @ts-ignore
+
+
+    useEffect(() => {
+        if (exercise === undefined || exercise.length === 0 || metric === undefined || accumulationMode === undefined) {
+            setSelectedWorkoutId(undefined);
+        }
+
+    }, [exercise, metric, accumulationMode]);
+
+// @ts-ignore
     let map = lastWorkouts
         .filter((workout: Workout) => workout.sets.length > 0)
         .flatMap(value => [{
             id: value.id,
             x: value.start ? new Date(value.start).getTime() : undefined,
-            y: repetitionMax(...value.sets)?.valueOf(),
-            marker: repetitionMax(...value.sets)?.valueOf().toFixed(2)
+            y: calculateMetricValue(value.sets, metric),
+            marker: calculateMetricValue(value.sets, metric)?.toFixed(2)
         } as LineValue])
         .sort(((a, b) => a.x!! - b.x!!));
     return (
@@ -46,9 +57,11 @@ const AnalyseGraphics = ({route}: Props) => {
         }}>
             <ScrollView style={styles.picker}>
                 <DateRangePicker range={range} setRange={setRange}/>
-                <ExercisePicker exercise={exercise} setExercise={setExercise} style={styles.exercisePicker}/>
+                <Picker exercise={exercise} setExercise={setExercise} style={styles.exercisePicker}
+                        metric={metric} setMetric={setMetric}
+                        accumaltionMode={accumulationMode} setAccumaltionMode={setAccumulationMode}/>
             </ScrollView>
-            {exercise.length > 0 && <LineChart
+            {exercise.length > 0 && metric && accumulationMode && <LineChart
                 style={{
                     backgroundColor: theme.colors.background,
                     ...styles.chart
@@ -101,7 +114,8 @@ const AnalyseGraphics = ({route}: Props) => {
             <ScrollView style={styles.exercise}>
                 {selectedWorkout && exercise.length > 0 && <>< Text
                     style={{fontSize: 20}}>{getDateStringFromDate(selectedWorkout.end).toString()}</Text>
-                    <WorkoutSetView sets={selectedWorkout?.sets ?? []}></WorkoutSetView>
+                    <WorkoutSetView sets={selectedWorkout?.sets ?? []} editable={false}
+                                    highLightMode={metric}></WorkoutSetView>
                 </>}
             </ScrollView>
         </View>
