@@ -21,15 +21,11 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
     );
     return (<>
         <View style={{
-            flexDirection: "row",
-            justifyContent: "space-between"
-        }}>
-            <IconButton onPress={() => setRange(range.minusRange())} icon={"chevron-left"}/>
+            flexDirection: "row", justifyContent: "center"}}>
             <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined"
                     style={{display: 'flex', alignSelf: 'center'}}>
                 {getDateStringFromDate(range.startDate) + " to " + getDateStringFromDate(range.endDate)}
             </Button>
-            <IconButton onPress={() => setRange(range.plusOneRange())} icon={"chevron-right"}></IconButton>
         </View>
         <DatePickerModal
             locale="en"
