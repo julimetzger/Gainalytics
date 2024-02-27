@@ -3,7 +3,7 @@ import {ScrollView, View} from "react-native";
 import {Button, IconButton, Text} from "react-native-paper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/TrainingRouter";
-import {useAllTrainingsPlans} from "../../redux/Training/useTrainingsPlan";
+import {useTrainingsPlan} from "../../redux/Training/useTrainingsPlan";
 import {useTrainingInTrainingsPlan} from "../../redux/Training/useTrainingInTrainingsPlan";
 import PlanWorkoutInTraining from "../../components/PlanTraining";
 import ExecuteWorkoutInTraining from "../../components/ExecuteTraining";
@@ -19,7 +19,7 @@ import {dispatchSuggestBasedOnTrained} from "../../redux/Training/dispatchSugges
 import {dispatchSuggestBasedOnPlanned} from "../../redux/Training/dispatchSuggestBasedOnPlanned";
 
 const TrainingsPlanTab = ({route}: Props) => {
-    const trainingsPlan = useAllTrainingsPlans(route.params.trainingsPlan.id!!);
+    const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
     const [micro, setMicro] = useState(1);
     const [trainingInMicro, setTrainingInMicro] = useState(1);
     const training = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);

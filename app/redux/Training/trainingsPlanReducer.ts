@@ -12,6 +12,14 @@ export function trainingInMicroIndex(micro: number, trainingInMicro: number) {
     return micro + "," + trainingInMicro;
 }
 
+export function getTrainingFromTrainingInMicroIndex(traiiningInMicroIndex: string) {
+    return parseInt(traiiningInMicroIndex.split(",")[1]);
+}
+
+export function getMicorFromTrainingInMicroIndex(traiiningInMicroIndex: string) {
+    return parseInt(traiiningInMicroIndex.split(",")[0]);
+}
+
 export function getTrainingsInMicro(trainings: { [microComaTrainingInMicro: string]: number }, trainingsNumber: number) {
     return Object.entries(trainings).filter(([key, value]) => key.endsWith("," + trainingsNumber))
         .sort((a, b) => a[0].localeCompare(b[0]))
