@@ -1,12 +1,20 @@
 import {DatePickerModal} from "react-native-paper-dates";
-import React, {useCallback, useState} from 'react';
-import {Button, IconButton} from "react-native-paper";
+import React, {useCallback, useRef, useState} from 'react';
+import {Button, Icon} from "react-native-paper";
 import {getDateStringFromDate} from "../utils/DateHelper";
-import {View} from "react-native";
+import {View, Animated} from "react-native";
+import {RectButton, Swipeable} from "react-native-gesture-handler";
 
 const DateRangePicker = ({range, setRange}: DateRangePickerProps
 ) => {
     const [open, setOpen] = useState(false);
+
+    let swipeableRef = useRef(null);
+    let close = () => {
+        setTimeout(() => {
+           swipeableRef.current.close();
+        }, 500);
+    };
 
     const onDismiss = useCallback(() => {
         setOpen(false);
@@ -19,15 +27,32 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
         },
         [setOpen, setRange]
     );
-
-    // TODO wenn kein Ende ausgewählt ist, dann ist das Ende das aktuelle Datum
     return (<>
         <View style={{
-            flexDirection: "row", justifyContent: "center"}}>
-            <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined"
-                    style={{display: 'flex', alignSelf: 'center'}}>
-                {getDateStringFromDate(range.startDate) + " to " + getDateStringFromDate(range.endDate)}
-            </Button>
+            flexDirection: "row", justifyContent: "center"
+        }}>
+            <Swipeable ref={swipeableRef} onSwipeableOpen={(direction) => {
+                if (direction === "left")
+                    setRange(range.plusOneRange());
+                if (direction === "right")
+                    setRange(range.minusRange());
+                close();
+            }}
+                       dragOffsetFromLeftEdge={2}
+                       dragOffsetFromRightEdge={2}
+                       renderLeftActions={() => {
+                           return (<Icon size={50} source={"chevron-left"}/>)
+                       }}
+                       renderRightActions={() => {
+                           return (<Icon size={50} source={"chevron-right"}/>)
+                       }}
+                       overshootRight={false}
+                       overshootLeft={false}>
+                <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined"
+                        style={{display: 'flex', alignSelf: 'center'}}>
+                    {getDateStringFromDate(range.startDate) + " to " + getDateStringFromDate(range.endDate)}
+                </Button>
+            </Swipeable>
         </View>
         <DatePickerModal
             locale="en"
@@ -50,7 +75,11 @@ interface DateRangePickerProps {
 export class Range {
     constructor(startDate: Date, endDate: Date) {
         this.startDate = startDate;
-        this.endDate = endDate;
+        if (endDate === undefined) {
+            this.endDate = new Date(Date.now());
+        } else {
+            this.endDate = endDate;
+        }
     }
 
     startDate: Date
