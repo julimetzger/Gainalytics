@@ -1,7 +1,8 @@
 export const firstDayOfWeek = (dateObject: Date, firstDayOfWeekIndex: number) => {
 
+    dateObject = new Date(dateObject);
     const dayOfWeek = dateObject.getDay(),
-        firstDayOfWeek = new Date(dateObject),
+        firstDayOfWeek = dateObject,
         diff = dayOfWeek >= firstDayOfWeekIndex ?
             dayOfWeek - firstDayOfWeekIndex :
             6 - dayOfWeek
@@ -13,9 +14,9 @@ export const firstDayOfWeek = (dateObject: Date, firstDayOfWeekIndex: number) =>
 }
 
 export const lastDayOfWeek = (dateObject: Date, lastDayOfWeekIndex: number) => {
-
+    dateObject = new Date(dateObject);
     const dayOfWeek = dateObject.getDay(),
-        firstDayOfWeek = new Date(dateObject),
+        firstDayOfWeek = dateObject,
         diff = dayOfWeek >= lastDayOfWeekIndex ?
             dayOfWeek - lastDayOfWeekIndex :
             6 - dayOfWeek
@@ -60,5 +61,11 @@ export function subtractMonths(numOfMonths: number, date = new Date()) {
     date.setMonth(date.getMonth() - numOfMonths);
 
     return date;
+}
+
+export function sameDate(a: Date, b: Date) {
+    a = new Date(a);
+    b = new Date(b);
+    return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
 }
 

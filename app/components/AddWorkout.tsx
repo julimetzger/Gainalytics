@@ -11,6 +11,7 @@ import {ScrollView, StyleSheet, View} from "react-native";
 import DatePicker from "./DatePicker";
 import AddWorkoutSet from "./AddWorkoutSet";
 import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";
+import {sameDate} from "../utils/DateHelper";
 
 interface Props {
     exercise: Exercise
@@ -104,7 +105,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                     mode={'contained'}
                     disabled={unfinishedWorkout === undefined || unfinishedWorkout.id === undefined}
                     onPress={() => {
-                        finalizeWorkout(new Date(Date.now()), unfinishedWorkout?.id!!);
+                        finalizeWorkout(sameDate(date, new Date(Date.now())) ? new Date(Date.now()) : date, unfinishedWorkout?.id!!);
                         onSubmit();
                     }}>
                     Add Workout
