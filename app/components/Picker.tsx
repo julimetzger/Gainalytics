@@ -3,6 +3,8 @@ import React, {useState} from 'react';
 import {MultiselectDropdown} from "sharingan-rn-modal-dropdown";
 import {IconButton, useTheme} from "react-native-paper";
 import {StyleProp, View, ViewStyle} from "react-native";
+import {useTrainingsPlan} from "../redux/Training/useTrainingsPlan";
+import {useAllTrainingsPlans} from "../redux/Training/useAllTrainingsPlans";
 
 const Picker = ({
                     exercise,
@@ -10,12 +12,13 @@ const Picker = ({
                     style,
                     metric,
                     setMetric,
-                    setAccumaltionMode,
-                    accumaltionMode,
+                    setAccumulation,
+                    accumulation,
                     disabled = true
                 }: ExercisePickerProps) => {
     const [show, setShow] = useState(disabled)
     let allExercises = useAlleExercises()
+    let trainingsPlan = useAllTrainingsPlans();
     let theme = useTheme();
     let selectedExercises = exercise.map((exercise: Exercise) => exercise.id ? exercise.id : 0).map((value: number) => value.toString());
     let dropdownExerciseStructure = allExercises.map((exercise: Exercise) => {
@@ -24,19 +27,27 @@ const Picker = ({
             value: exercise.id!!.toString(),
         }
     });
-    metric ? selectedExercises.push(metric) : 0;
-    accumaltionMode ? selectedExercises.push(accumaltionMode) : 0;
+    let trainingAccumalations = trainingsPlan.map((trainingsPlan: TrainingsPlan) => Accumulation.fromTrainingsPlan(trainingsPlan));
+    let nonTrainingAccumalations = Accumulation.forAllNonTrainingModes();
+    let allAccumalations = [...trainingAccumalations, ...nonTrainingAccumalations];
+    let selectedValues = [...selectedExercises]
+    if (metric !== undefined) {
+        selectedValues.push(metric)
+    }
+    if (accumulation !== undefined) {
+        selectedValues.push(accumulation.getName())
+    }
     Object.values(Metric).map((value: string) => {
         dropdownExerciseStructure.push({label: value, value: value})
     })
-    Object.values(AccumaulationMode).map((value: string) => {
-        dropdownExerciseStructure.push({label: value, value: value})
+    allAccumalations.map((value: Accumulation) => {
+        dropdownExerciseStructure.push({label: value.getName(), value: value.getName()})
     })
 
     return (
         <View style={style}>
-            {show && <MultiselectDropdown label="Choose Exercises"
-                                          enableSearch value={selectedExercises}
+            {show && <MultiselectDropdown label="Choose Exercises, Metric and Accumalation Mode"
+                                          enableSearch value={selectedValues}
                                           onChange={setExerciseDumb}
                                           searchInputTheme={{colors: {primary: theme.colors.primaryContainer}}}
                                           data={dropdownExerciseStructure} paperTheme={theme} disableSort={false}
@@ -44,9 +55,9 @@ const Picker = ({
                                           primaryColor={theme.colors.primaryContainer}
             />}
             <IconButton mode='outlined'
-                style={show ? {position: 'absolute', right: 0} : {position: 'absolute', bottom: -5, right: 0}}
-                icon={!show ? 'chevron-down' : 'chevron-up'}
-                onPress={() => setShow(!show)}></IconButton>
+                        style={show ? {position: 'absolute', right: 0} : {position: 'absolute', bottom: -5, right: 0}}
+                        icon={!show ? 'chevron-down' : 'chevron-up'}
+                        onPress={() => setShow(!show)}></IconButton>
         </View>);
 
     function setExerciseDumb(value: string[]) {
@@ -54,9 +65,9 @@ const Picker = ({
         if (newMetric.length > 1) {
             newMetric = newMetric.filter((value: string) => value !== metric)
         }
-        let newAccumalationMode = value.filter((value: string) => Object.values(AccumaulationMode).includes(value as AccumaulationMode));
-        if (newAccumalationMode.length > 1) {
-            newAccumalationMode = newAccumalationMode.filter((value: string) => value !== accumaltionMode)
+        let accumalationNames = value.filter((value: string) => allAccumalations.map((value: Accumulation) => value.getName()).includes(value));
+        if (accumalationNames.length > 1) {
+            accumalationNames = accumalationNames.filter((value: string) => value !== accumulation?.getName())
         }
         let allIds = allExercises.map((value: Exercise) => value.id?.toString());
         let exercises = value.filter((value: string) => allIds.includes(value));
@@ -64,7 +75,7 @@ const Picker = ({
             .filter((value: Exercise | undefined) => value !== undefined) as Exercise[]
         setExercise(find);
         setMetric ? setMetric(newMetric[0] as Metric) : 0;
-        setAccumaltionMode ? setAccumaltionMode(newAccumalationMode[0] as AccumaulationMode) : 0;
+        setAccumulation ? setAccumulation(allAccumalations.find((accumulation) => accumulation?.getName() === accumalationNames[0])) : undefined;
     }
 }
 
@@ -80,8 +91,36 @@ export enum Metric {
 export enum AccumaulationMode {
     SINGLE_DAY = 'Day',
     WEEK = 'Week',
+    // DEFINED_MICRO_LENGTH = 'Micro Length',
     // MONTH = 'Month',
-    //TRAINING_MICROCYCLE = 'Training Microcycle',
+    TRAINING_MICROCYCLE = 'Training Microcycle',
+}
+
+export class Accumulation {
+    accumulationMode: AccumaulationMode;
+    trainingsPlan?: TrainingsPlan
+
+    constructor(accumalationMode: AccumaulationMode, trainingsId?: TrainingsPlan) {
+        this.accumulationMode = accumalationMode;
+        this.trainingsPlan = trainingsId;
+    }
+
+    static fromTrainingsPlan(trainingsPlan: TrainingsPlan) {
+        return new Accumulation(AccumaulationMode.TRAINING_MICROCYCLE, trainingsPlan);
+    }
+
+    static forAllNonTrainingModes() {
+        return Object.values(AccumaulationMode).map((value: string) => new Accumulation(value as AccumaulationMode))
+            .filter((value: Accumulation) => value.accumulationMode !== AccumaulationMode.TRAINING_MICROCYCLE);
+    }
+
+    getAccumulationMode() {
+        return this.accumulationMode;
+    }
+
+    getName() {
+        return this.trainingsPlan?.name ?? this.accumulationMode;
+    }
 }
 
 interface ExercisePickerProps {
@@ -91,8 +130,8 @@ interface ExercisePickerProps {
     disabled?: boolean
     metric?: Metric,
     setMetric?: (arg: Metric) => void,
-    accumaltionMode?: AccumaulationMode,
-    setAccumaltionMode?: (arg: AccumaulationMode) => void
+    accumulation?: Accumulation,
+    setAccumulation?: (arg: Accumulation | undefined) => void
 }
 
 export default Picker;

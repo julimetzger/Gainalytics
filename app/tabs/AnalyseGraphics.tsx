@@ -9,9 +9,13 @@ import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrappe
 import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
 import {RootStackParamList} from "../routing/AnalyseRouter";
 import {sumBy} from "lodash";
-import Picker, {AccumaulationMode, Metric} from "../components/Picker";
+import Picker, {AccumaulationMode, Accumulation, Metric} from "../components/Picker";
 import {useWorkoutsByIds} from "../redux/Workout/useWorkoutsByIds";
 import WorkoutView from "../components/WorkoutView";
+import {
+    getMicorFromTrainingInMicroIndex,
+    getTrainingFromTrainingInMicroIndex, trainingInMicroIndex
+} from "../redux/Training/trainingsPlanReducer";
 
 
 const AnalyseGraphics = ({route}: Props) => {
@@ -25,7 +29,7 @@ const AnalyseGraphics = ({route}: Props) => {
     const [range, setRange] = useState(new Range(firstDayOfWeek(now, 1), getEndOfDay(now)))
     const [selectedWorkoutIds, setSelectedWorkoutIds] = useState<number[]>([]);
     const [metric, setMetric] = useState(Metric.ONE_RM);
-    const [accumulationMode, setAccumulationMode] = useState(AccumaulationMode.SINGLE_DAY)
+    const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumaulationMode.SINGLE_DAY))
     const [exercise, setExercise] = useState<Exercise[]>([]);
     let exerciseIDs = exercise.map(it => it.id);
     let lastWorkouts = useWorkoutsIn(range).reverse().filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true) as Workout[];
@@ -34,16 +38,16 @@ const AnalyseGraphics = ({route}: Props) => {
 
 
     useEffect(() => {
-        if (exercise === undefined || exercise.length === 0 || metric === undefined || accumulationMode === undefined) {
+        if (exercise === undefined || exercise.length === 0 || metric === undefined || accumulation === undefined) {
             setSelectedWorkoutIds([]);
         }
 
-    }, [exercise, metric, accumulationMode]);
+    }, [exercise, metric, accumulation]);
 
 // @ts-ignore
     let map = Array.from(lastWorkouts
         .filter((workout: Workout) => workout.sets.length > 0)
-        .reduce(handleAccumalationModeBatching(accumulationMode), new Map<string, Workout[]>()))
+        .reduce(handleAccumalationModeBatching(lastWorkouts, accumulation), new Map<string, Workout[]>()))
         .flatMap(([value, workouts]) => [{
             id: workouts.reduce((acc: string, workout: Workout) => acc + "," + workout.id!!, ""),
             x: new Date(value).getTime(),
@@ -61,9 +65,9 @@ const AnalyseGraphics = ({route}: Props) => {
                 <DateRangePicker range={range} setRange={setRange}/>
                 <Picker exercise={exercise} setExercise={setExercise} style={styles.exercisePicker}
                         metric={metric} setMetric={setMetric}
-                        accumaltionMode={accumulationMode} setAccumaltionMode={setAccumulationMode}/>
+                        accumulation={accumulation} setAccumulation={setAccumulation}/>
             </ScrollView>
-            {exercise.length > 0 && metric && accumulationMode && <LineChart
+            {exercise.length > 0 && metric && accumulation && <LineChart
                 style={{
                     backgroundColor: theme.colors.background,
                     ...styles.chart
@@ -157,9 +161,9 @@ export type Props = NativeStackScreenProps<RootStackParamList, 'Analyse'>;
 
 export default AnalyseGraphics;
 
-const handleAccumalationModeBatching = (accumulationMode: AccumaulationMode) => {
+const handleAccumalationModeBatching = (allWorkouts: Workout[], accumulationMode?: Accumulation) => {
     return (acc: Map<string, Workout[]>, workout: Workout): Map<string, Workout[]> => {
-        switch (accumulationMode) {
+        switch (accumulationMode?.getAccumulationMode()) {
             case AccumaulationMode.SINGLE_DAY: {
                 acc.set(new Date(workout.start!!).toISOString(), [workout]);
                 return acc;
@@ -170,6 +174,36 @@ const handleAccumalationModeBatching = (accumulationMode: AccumaulationMode) => 
                     acc.get(start.toISOString())!!.push(workout);
                 } else {
                     acc.set(start.toISOString(), [workout]);
+                }
+                return acc;
+            }
+            case AccumaulationMode.TRAINING_MICROCYCLE: {
+                let trainingsPlan = accumulationMode?.trainingsPlan;
+                if (trainingsPlan) {
+                    let trainings = trainingsPlan.trainings;
+                    if (workout.trainingsId && Object.values(trainings).includes(workout.trainingsId)) {
+                        Object.entries(trainings).forEach(([key, value]) => {
+                            if (workout.trainingsId === value) {
+                                let micro = getMicorFromTrainingInMicroIndex(key);
+                                let trainingFromTrainingInMicroIndex = getTrainingFromTrainingInMicroIndex(key);
+                                let firstTraining = trainingInMicroIndex(micro, trainingFromTrainingInMicroIndex)
+                                for (let i = 1; i < trainingFromTrainingInMicroIndex; i++) {
+                                    firstTraining = trainings[trainingInMicroIndex(micro, i)] ? trainingInMicroIndex(micro, i) : firstTraining;
+                                }
+                                let firstWorkoutDate = allWorkouts.filter((workout: Workout) => workout.trainingsId === trainings[firstTraining])
+                                    .map((workout: Workout) => workout.start)
+                                    .sort()[0] as Date;
+                                if (firstWorkoutDate) {
+                                    let start = new Date(firstWorkoutDate);
+                                    if (acc.get(start.toISOString())) {
+                                        acc.get(start.toISOString())!!.push(workout);
+                                    } else {
+                                        acc.set(start.toISOString(), [workout]);
+                                    }
+                                }
+                            }
+                        })
+                    }
                 }
                 return acc;
             }

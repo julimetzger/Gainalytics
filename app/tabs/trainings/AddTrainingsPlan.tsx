@@ -4,7 +4,7 @@ import React, {useState} from 'react';
 import {dispatchAddTrainingsPlan} from "../../redux/Training/dispatchAddTrainingsPlan";
 import {dispatchEditTrainingsPlan} from "../../redux/Training/dispatchEditTrainingsPlan";
 import {dispatchDeleteTrainingsPlan} from "../../redux/Training/dispatchDeleteTrainingsPlan";
-import {useAllTrainingsPlans} from "../../redux/Training/useTrainingsPlan";
+import {useTrainingsPlan} from "../../redux/Training/useTrainingsPlan";
 
 interface AddExerciseProperties {
     style?: any,
@@ -16,7 +16,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
     const [TrainingName, setTrainingName] = useState('');
     const [deleteOverlay, setDeleteOverlay] = useState(false);
     let addTrainingsPlan = dispatchAddTrainingsPlan();
-    let trainingsPlan = trainingsId ? useAllTrainingsPlans(trainingsId) : undefined;
+    let trainingsPlan = trainingsId ? useTrainingsPlan(trainingsId) : undefined;
     let editTrainingsPlan = dispatchEditTrainingsPlan();
     let deleteTrainingsPlan = dispatchDeleteTrainingsPlan();
     let theme = useTheme();
