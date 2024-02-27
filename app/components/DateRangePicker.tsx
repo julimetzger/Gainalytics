@@ -2,8 +2,8 @@ import {DatePickerModal} from "react-native-paper-dates";
 import React, {useCallback, useRef, useState} from 'react';
 import {Button, Icon} from "react-native-paper";
 import {getDateStringFromDate} from "../utils/DateHelper";
-import {View, Animated} from "react-native";
-import {RectButton, Swipeable} from "react-native-gesture-handler";
+import {View} from "react-native";
+import {Swipeable} from "react-native-gesture-handler";
 
 const DateRangePicker = ({range, setRange}: DateRangePickerProps
 ) => {
@@ -12,8 +12,8 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
     let swipeableRef = useRef(null);
     let close = () => {
         setTimeout(() => {
-           swipeableRef.current.close();
-        }, 500);
+            swipeableRef?.current?.close();
+        }, 250);
     };
 
     const onDismiss = useCallback(() => {
@@ -33,9 +33,9 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
         }}>
             <Swipeable ref={swipeableRef} onSwipeableOpen={(direction) => {
                 if (direction === "left")
-                    setRange(range.plusOneRange());
-                if (direction === "right")
                     setRange(range.minusRange());
+                if (direction === "right")
+                    setRange(range.plusOneRange());
                 close();
             }}
                        dragOffsetFromLeftEdge={2}

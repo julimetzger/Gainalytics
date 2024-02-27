@@ -6,13 +6,16 @@ import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 import {useWorkoutsByIds} from "../redux/Workout/useWorkoutsByIds";
 import {Range} from "./DateRangePicker";
 import WorkoutViewTile from "./WorkoutViewTile";
+import {Metric} from "./Picker";
+import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
 
 interface WorkoutViewProps {
-    workoutIds: number[]
+    workoutIds: number[],
+    highlightMode?: Metric,
 }
 
 const HOURS_IN_MILLIS = 60 * 60 * 1000;
-const WorkoutView = ({workoutIds}: WorkoutViewProps) => {
+const WorkoutView = ({workoutIds, highlightMode}: WorkoutViewProps) => {
     let theme = useTheme();
     let workouts = useWorkoutsByIds(workoutIds)
     let exercises = useExerciseByIds([...new Set(workouts)].map((workout: Workout) => workout.exerciseId));
@@ -28,7 +31,8 @@ const WorkoutView = ({workoutIds}: WorkoutViewProps) => {
             dateWorkoutMap.set(sameWorkoutDate, [...dateWorkoutMap.get(sameWorkoutDate) ?? [], workout]);
         }
     )
-
+    //TODO stimmt sort order hier?????
+    dateWorkoutMap = new Map(Array.from(dateWorkoutMap.entries()).sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()))
     const styles = StyleSheet.create({
         exerciseText: {
             fontSize: theme.fonts.titleLarge.fontSize,
@@ -36,6 +40,11 @@ const WorkoutView = ({workoutIds}: WorkoutViewProps) => {
         },
     });
 
+    let highlighWorkoutIds: number[] = [];
+    if (highlightMode !== undefined) {
+        let highlightValue = highlightMode ? calculateMetricValue(workouts.flatMap((workout: Workout) => workout.sets), highlightMode) : undefined;
+        highlighWorkoutIds = workouts.filter(workout => calculateMetricValue(workout.sets, highlightMode) === highlightValue).map(workout => workout.id!!);
+    }
     return <>
         {
             Array.from(dateWorkoutMap.entries()).map(([date, workouts]) => {
@@ -46,6 +55,7 @@ const WorkoutView = ({workoutIds}: WorkoutViewProps) => {
 
                         {workouts.map((workout) => {
                             return <WorkoutViewTile workout={workout}
+                                                    highlightMode={highlighWorkoutIds.includes(workout.id!!) ? highlightMode : undefined}
                                                     exercise={exercises.find((ex) => ex.id === workout.exerciseId)!!}/>;
                         })
                         }

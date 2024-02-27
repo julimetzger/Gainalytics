@@ -44,13 +44,9 @@ const Picker = ({
                                           primaryColor={theme.colors.primaryContainer}
             />}
             <IconButton mode='outlined'
-                        style={show ? {position: 'absolute', top: 0, right: 0} : {
-                            position: 'absolute',
-                            bottom: 0,
-                            right: 0
-                        }}
-                        icon={!show ? 'chevron-down' : 'chevron-up'}
-                        onPress={() => setShow(!show)}></IconButton>
+                style={show ? {position: 'absolute', right: 0} : {position: 'absolute', bottom: -5, right: 0}}
+                icon={!show ? 'chevron-down' : 'chevron-up'}
+                onPress={() => setShow(!show)}></IconButton>
         </View>);
 
     function setExerciseDumb(value: string[]) {
@@ -83,7 +79,7 @@ export enum Metric {
 
 export enum AccumaulationMode {
     SINGLE_DAY = 'Day',
-    //WEEK = 'Week',
+    WEEK = 'Week',
     // MONTH = 'Month',
     //TRAINING_MICROCYCLE = 'Training Microcycle',
 }

@@ -1,52 +1,54 @@
 import React, {useEffect, useState} from 'react';
 import {processColor, ScrollView, StyleSheet, View} from 'react-native';
-import {Text, useTheme} from 'react-native-paper';
+import {useTheme} from 'react-native-paper';
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
 import DateRangePicker, {Range} from "../components/DateRangePicker";
-import {firstDayOfWeek, getDateStringFromDate, getEndOfDay} from "../utils/DateHelper";
+import {firstDayOfWeek, getEndOfDay} from "../utils/DateHelper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
-import {calculateMetricValue, repetitionMax} from "../utils/RepetitionMaxHelper";
-import WorkoutSetView from "../components/WorkoutSetView";
-import {useWorkoutById} from "../redux/Workout/useWorkoutById";
+import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
 import {RootStackParamList} from "../routing/AnalyseRouter";
 import {sumBy} from "lodash";
 import Picker, {AccumaulationMode, Metric} from "../components/Picker";
+import {useWorkoutsByIds} from "../redux/Workout/useWorkoutsByIds";
+import WorkoutView from "../components/WorkoutView";
 
 
 const AnalyseGraphics = ({route}: Props) => {
     function handleDataPointSelect(value: ChartSelectEvent) {
-        value.nativeEvent?.data?.id ? setSelectedWorkoutId(value.nativeEvent?.data.id) : null;
+        let ids = value.nativeEvent?.data?.id?.split(",").filter((value: string) => value !== "")?.map((value: string) => parseInt(value))
+        setSelectedWorkoutIds(ids ?? []);
     }
 
 
     let now = new Date(Date.now());
     const [range, setRange] = useState(new Range(firstDayOfWeek(now, 1), getEndOfDay(now)))
-    const [selectedWorkoutId, setSelectedWorkoutId] = useState<number>();
+    const [selectedWorkoutIds, setSelectedWorkoutIds] = useState<number[]>([]);
     const [metric, setMetric] = useState(Metric.ONE_RM);
     const [accumulationMode, setAccumulationMode] = useState(AccumaulationMode.SINGLE_DAY)
     const [exercise, setExercise] = useState<Exercise[]>([]);
     let exerciseIDs = exercise.map(it => it.id);
     let lastWorkouts = useWorkoutsIn(range).reverse().filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true) as Workout[];
     const theme = useTheme();
-    let selectedWorkout = useWorkoutById(selectedWorkoutId);
+    let selectedWorkout = useWorkoutsByIds(selectedWorkoutIds);
 
 
     useEffect(() => {
         if (exercise === undefined || exercise.length === 0 || metric === undefined || accumulationMode === undefined) {
-            setSelectedWorkoutId(undefined);
+            setSelectedWorkoutIds([]);
         }
 
     }, [exercise, metric, accumulationMode]);
 
 // @ts-ignore
-    let map = lastWorkouts
+    let map = Array.from(lastWorkouts
         .filter((workout: Workout) => workout.sets.length > 0)
-        .flatMap(value => [{
-            id: value.id,
-            x: value.start ? new Date(value.start).getTime() : undefined,
-            y: calculateMetricValue(value.sets, metric),
-            marker: calculateMetricValue(value.sets, metric)?.toFixed(2)
+        .reduce(handleAccumalationModeBatching(accumulationMode), new Map<string, Workout[]>()))
+        .flatMap(([value, workouts]) => [{
+            id: workouts.reduce((acc: string, workout: Workout) => acc + "," + workout.id!!, ""),
+            x: new Date(value).getTime(),
+            y: calculateMetricValue(workouts.flatMap(workout => workout.sets), metric),
+            marker: calculateMetricValue(workouts.flatMap(workout => workout.sets), metric)?.toFixed(2)
         } as LineValue])
         .sort(((a, b) => a.x!! - b.x!!));
     return (
@@ -112,11 +114,8 @@ const AnalyseGraphics = ({route}: Props) => {
                 onSelect={(value) => handleDataPointSelect(value)}/>}
 
             <ScrollView style={styles.exercise}>
-                {selectedWorkout && exercise.length > 0 && <>< Text
-                    style={{fontSize: 20}}>{getDateStringFromDate(selectedWorkout.end).toString()}</Text>
-                    <WorkoutSetView sets={selectedWorkout?.sets ?? []} editable={false}
-                                    highLightMode={metric}></WorkoutSetView>
-                </>}
+                {selectedWorkout && exercise.length > 0 &&
+                    <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric}></WorkoutView>}
             </ScrollView>
         </View>
     )
@@ -157,3 +156,25 @@ function generateTrend(map: LineValue[]): LineValue[] {
 export type Props = NativeStackScreenProps<RootStackParamList, 'Analyse'>;
 
 export default AnalyseGraphics;
+
+const handleAccumalationModeBatching = (accumulationMode: AccumaulationMode) => {
+    return (acc: Map<string, Workout[]>, workout: Workout): Map<string, Workout[]> => {
+        switch (accumulationMode) {
+            case AccumaulationMode.SINGLE_DAY: {
+                acc.set(new Date(workout.start!!).toISOString(), [workout]);
+                return acc;
+            }
+            case AccumaulationMode.WEEK: {
+                let start = new Date(firstDayOfWeek(workout.start!!, 1));
+                if (acc.get(start.toISOString())) {
+                    acc.get(start.toISOString())!!.push(workout);
+                } else {
+                    acc.set(start.toISOString(), [workout]);
+                }
+                return acc;
+            }
+        }
+        return acc;
+    }
+}
+

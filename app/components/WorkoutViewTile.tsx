@@ -7,13 +7,15 @@ import {dispatchDeleteSetFromWorkout} from "../redux/Workout/dispatchDeleteSetFr
 import {dispatchAddOrUpdateSetInWorkout} from "../redux/Workout/dispatchAddOrUpdateSetInWorkout";
 import useDeleteWorkout from "../redux/Workout/useDeleteWorkout";
 import OutsidePressHandler from "react-native-outside-press";
+import {Metric} from "./Picker";
 
 interface WorkoutVieTileProps {
     workout: Workout,
-    exercise: Exercise
+    exercise: Exercise,
+    highlightMode?: Metric,
 }
 
-const WorkoutViewTile = ({workout, exercise}: WorkoutVieTileProps) => {
+const WorkoutViewTile = ({workout, exercise, highlightMode}: WorkoutVieTileProps) => {
     let theme = useTheme();
     let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
     let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout();
@@ -50,7 +52,7 @@ const WorkoutViewTile = ({workout, exercise}: WorkoutVieTileProps) => {
                     deleteSetFromWorkout(workoutSet, workout);
                 }} onSubmit={(workoutSet) => {
                     addOrUpdateSetInWorkout(workoutSet, workout.id!!);
-                }}/>
+                }} highLightMode={highlightMode}/>
             </Card>
         </OutsidePressHandler>
     )
