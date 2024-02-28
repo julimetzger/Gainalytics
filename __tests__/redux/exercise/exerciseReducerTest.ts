@@ -22,6 +22,7 @@ describe('exerciseReducer', () => {
         const action = {
             type: 'ADD_EXERCISE',
             nameOfExercise: 'Overhead Press',
+            muscles: [{muscle: 'Bizeps', percent: 50}],
         };
         const expectedState = {
             byId: {
@@ -40,6 +41,7 @@ describe('exerciseReducer', () => {
                 4: {
                     id: 4,
                     name: 'Overhead Press',
+                    muscles: [{muscle: 'Bizeps', percent: 50}]
                 },
             },
             allIds: [1, 2, 3, 4],
@@ -105,6 +107,7 @@ describe('exerciseReducer', () => {
             type: 'EDIT_EXERCISE',
             exerciseId: 2,
             nameOfExercise: 'Front Squat',
+            muscles: [{muscle: 'Bizeps', percent: 50}],
         };
         const expectedState = {
             byId: {
@@ -115,6 +118,7 @@ describe('exerciseReducer', () => {
                 2: {
                     id: 2,
                     name: 'Front Squat',
+                    muscles: [{muscle: 'Bizeps', percent: 50}]
                 },
                 3: {
                     id: 3,

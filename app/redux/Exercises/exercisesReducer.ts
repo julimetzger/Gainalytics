@@ -14,13 +14,12 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
         switch (action.type) {
             case 'ADD_EXERCISE': {
                 const newId = Math.max(...exercises.allIds) + 1;
-                exercises.allIds.push(newId);
-                exercises.byId[newId] = {id: newId, name: action.nameOfExercise} as Exercise;
                 return {
                     byId: {
                         ...exercises.byId,
+                        [newId]: {id: newId, name: action.nameOfExercise, muscles: action.muscles} as Exercise
                     },
-                    allIds: [...exercises.allIds],
+                    allIds: [...exercises.allIds, newId],
                 };
             }
             case 'DELETE_EXERCISE': {
@@ -35,11 +34,14 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
                 };
             }
             case 'EDIT_EXERCISE': {
-                const index = exercises.allIds.indexOf(action.exerciseId);
-                exercises.byId[action.exerciseId].name = action.nameOfExercise;
                 return {
                     byId: {
                         ...exercises.byId,
+                        [action.exerciseId]: {
+                            ...exercises.byId[action.exerciseId],
+                            name: action.nameOfExercise,
+                            muscles: action.muscles,
+                        },
                     },
                     allIds: [...exercises.allIds],
                 };

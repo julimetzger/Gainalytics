@@ -5,6 +5,7 @@ import {useDispatchAddExercise} from '../redux/Exercises/dispatchAddExercise';
 import {dispatchEditExercise} from "../redux/Exercises/dispatchEditExercise";
 import {useExercise} from "../redux/Exercises/useExercise";
 import {dispatchDeleteExercise} from "../redux/Exercises/dispatchDeleteExercise";
+import MusclePicker, {MusclePercentPair} from "./MusclePicker";
 
 interface AddExerciseProperties {
     style?: any,
@@ -12,58 +13,87 @@ interface AddExerciseProperties {
 }
 
 const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
-    const [visible, setVisible] = React.useState(false);
-    const [newExercise, setNewExercise] = useState('');
-    const [deleteOverlay, setDeleteOverlay] = useState(false);
-    let dispatchAddExercise = useDispatchAddExercise();
-    let exercise = exerciseId ? useExercise(exerciseId) : undefined;
-    let editExercise = dispatchEditExercise();
-    let deleteExercise = dispatchDeleteExercise();
-    let theme = useTheme();
-    const showDialog = () => setVisible(true);
-    const hideDialog = () => {
-        setVisible(false)
-        setDeleteOverlay(false);
-    }
-    const confirmDialog = () => {
-        setVisible(false);
-        exerciseId ? editExercise(exerciseId, newExercise) :
-            dispatchAddExercise(newExercise);
-    };
+        const [visible, setVisible] = React.useState(false);
+        const [deleteOverlay, setDeleteOverlay] = useState(false);
+        let dispatchAddExercise = useDispatchAddExercise();
+        let exercise = exerciseId ? useExercise(exerciseId) : undefined;
+        const [newExerciseName, setNewExerciseName] = useState(exercise?.name ?? '');
+        const [muslces, setMuslces] = useState<MusclePercentPair[]>(exercise?.muscles ?? []);
+        const [error, setError] = useState<string>()
+        let editExercise = dispatchEditExercise();
+        let deleteExercise = dispatchDeleteExercise();
+        let theme = useTheme();
+        const showDialog = () => {
+            setError(undefined);
+            setVisible(true)
+        };
+        const hideDialog = () => {
+            setVisible(false)
+            setDeleteOverlay(false)
+        }
+        const confirmDialog = () => {
+            let undefinedMuscles = muslces.find((muscle) => muscle.percent === undefined || muscle.muscle === undefined);
+            if (undefinedMuscles) {
+                setError("Please fill in all the muscles and percentages or remove the muscle.");
+                return;
+            }
+            if (newExerciseName === '') {
+                setError("Please fill in the name of the exercise");
+                return;
+            }
+            setVisible(false);
+            exerciseId ? editExercise(exerciseId, newExerciseName, muslces) :
+                dispatchAddExercise(newExerciseName, muslces);
+        };
 
-    return (
-        <View style={style}>
-            {exerciseId ? <IconButton icon={'dots-vertical'} onPress={() => showDialog()} theme={theme}/> :
-                <IconButton icon="plus-circle" onPress={() => showDialog()} theme={theme}
-                            iconColor={theme.colors.tertiaryContainer}
-                            size={40}></IconButton>}
-            <Portal>
-                <Dialog visible={visible} onDismiss={hideDialog} theme={theme}>
-                    {!deleteOverlay && exerciseId && <Dialog.Title>{"Edit " + exercise!!.name}</Dialog.Title>}
-                    {!deleteOverlay && !exerciseId && <Dialog.Title>Add new Exercise</Dialog.Title>}
-                    {deleteOverlay && <Dialog.Title>{"Delete " + exercise!!.name}</Dialog.Title>}
-                    <Dialog.Content>
-                        {deleteOverlay ?
-                            <Text>This action will delete the exercise and all workouts saved for the exercise. Are you sure you want to delete this exercise?</Text>
-                            : <TextInput defaultValue={exercise?.name} label={'Name of the Exercise'}
-                                         onChangeText={(text) => setNewExercise(text)}/>}
-                    </Dialog.Content>
-                    <View style={{alignItems: 'center', display: 'flex', justifyContent: 'center'}}>
-                        <Dialog.Actions>
-                            <Button onPress={hideDialog}>Cancel</Button>
-                        </Dialog.Actions>
-                        {!deleteOverlay && <Dialog.Actions>
-                            <Button onPress={confirmDialog}>Done</Button>
-                        </Dialog.Actions>}
-                        {exerciseId && <Dialog.Actions>
-                            <Button onPress={() => {
-                                deleteOverlay ? deleteExercise(exerciseId) : setDeleteOverlay(true);
-                            }}>Delete</Button></Dialog.Actions>}
-                    </View>
-                </Dialog>
-            </Portal>
-        </View>
-    );
-};
+        return (
+            <View style={style}>
+                {exerciseId ? <IconButton icon={'dots-vertical'} onPress={() => showDialog()} theme={theme}/> :
+                    <IconButton icon="plus-circle" onPress={() => showDialog()} theme={theme}
+                                iconColor={theme.colors.tertiaryContainer}
+                                size={40}></IconButton>}
+                <Portal>
+                    <Dialog visible={visible} onDismiss={hideDialog} theme={theme}>
+                        {!deleteOverlay && exerciseId && <Dialog.Title>{"Edit " + exercise!!.name}</Dialog.Title>}
+                        {!deleteOverlay && !exerciseId && <Dialog.Title>Add new Exercise</Dialog.Title>}
+                        {deleteOverlay && <Dialog.Title>{"Delete " + exercise!!.name}</Dialog.Title>}
+                        <Dialog.Content>
+                            {deleteOverlay ?
+                                <Text>This action will delete the exercise and all workouts saved for the exercise. Are you
+                                    sure you want to delete this exercise?</Text>
+                                : <View>
+                                    <TextInput defaultValue={exercise?.name}
+                                               label={'Name of the Exercise'}
+                                               onChangeText={(text) => setNewExerciseName(text)}/>
+                                    <Button
+                                        onPress={() => setMuslces([...muslces, {muscle: undefined, percent: undefined}])}>Add
+                                        muscle</Button>
+                                    {muslces.map((muscleFromMap: MusclePercentPair) => {
+                                        return <MusclePicker muscleValue={muscleFromMap}
+                                                             setMuscles={(muscle) => setMuslces([...muslces.filter((value) => value != muscleFromMap), muscle])}
+                                                             onDelete={(value) => setMuslces([...muslces.filter(m => m !== value)])}/>
+                                    })}
+                                </View>}
+                        </Dialog.Content>
+                        <Text style={{color: theme.colors.error}}>{error}</Text>
+                        <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'space-between'}}>
+                            <Dialog.Actions>
+                                <Button onPress={hideDialog}>Cancel</Button>
+                            </Dialog.Actions>
+                            {!deleteOverlay && <Dialog.Actions>
+                                <Button onPress={confirmDialog}>Done</Button>
+                            </Dialog.Actions>}
+                            {exerciseId && <Dialog.Actions>
+                                <Button textColor={theme.colors.tertiary} onPress={() => {
+                                    deleteOverlay ? deleteExercise(exerciseId) : setDeleteOverlay(true);
+                                }}>Delete</Button></Dialog.Actions>}
+                        </View>
+                    </Dialog>
+                </Portal>
+            </View>
+        )
+            ;
+    }
+;
 
 export default AddExercise;

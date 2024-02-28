@@ -56,7 +56,8 @@ const AnalyseGraphics = ({route}: Props) => {
                 <DateRangePicker range={range} setRange={setRange}/>
                 <Picker exercise={exercise} setExercise={setExercise} style={styles.exercisePicker}
                         metric={metric} setMetric={setMetric}
-                        accumulation={accumulation} setAccumulation={setAccumulation}/>
+                        accumulation={accumulation} setAccumulation={setAccumulation}
+                        muscles={true}/>
             </ScrollView>
             {exercise.length > 0 && metric && accumulation && <LineChart
                 style={{
