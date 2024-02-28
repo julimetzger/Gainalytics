@@ -26,15 +26,15 @@ const WorkoutViewTile = ({workout, exercise, highlightMode, editable}: WorkoutVi
     useEffect(() => {
     }, [workout, exercise]);
 
-    function setShowEditWhenEditable() {
+    function setShowEditWhenEditable(boool: boolean) {
         if (editable) {
-            setShowEdit(!showEdit);
+            setShowEdit(boool);
         }
     }
 
     return (
-        <OutsidePressHandler onOutsidePress={() => setShowEditWhenEditable()} key={1}>
-            <Card mode={"outlined"} style={{marginBottom: 5}} onLongPress={() => setShowEditWhenEditable()}>
+        <OutsidePressHandler onOutsidePress={() => setShowEditWhenEditable(false)} key={workout.id}>
+            <Card mode={"outlined"} style={{marginBottom: 5}} onLongPress={() => setShowEditWhenEditable(true)}>
                 <View style={{
                     display: 'flex',
                     flexDirection: 'row',

@@ -3,7 +3,6 @@ import React, {useEffect, useState} from 'react';
 import {MultiselectDropdown} from "sharingan-rn-modal-dropdown";
 import {IconButton, useTheme} from "react-native-paper";
 import {StyleProp, View, ViewStyle} from "react-native";
-import {useTrainingsPlan} from "../redux/Training/useTrainingsPlan";
 import {useAllTrainingsPlans} from "../redux/Training/useAllTrainingsPlans";
 
 const Picker = ({
@@ -27,9 +26,15 @@ const Picker = ({
             value: exercise.id!!.toString(),
         }
     });
-    let trainingAccumulations = trainingsPlan.map((trainingsPlan: TrainingsPlan) => Accumulation.fromTrainingsPlan(trainingsPlan));
-    let nonTrainingAccumulations = Accumulation.forAllNonTrainingModes();
-    let allAccumulations = [...trainingAccumulations, ...nonTrainingAccumulations];
+    let allAccumalations: Accumulation[] = [];
+    if (setAccumulation) {
+        let trainingAccumalations = trainingsPlan.map((trainingsPlan: TrainingsPlan) => Accumulation.fromTrainingsPlan(trainingsPlan));
+        let nonTrainingAccumalations = Accumulation.forAllNonTrainingModes();
+        allAccumalations = [...trainingAccumalations, ...nonTrainingAccumalations];
+        allAccumalations.map((value: Accumulation) => {
+            dropdownExerciseStructure.push({label: value.getName(), value: value.getId()})
+        })
+    }
     let selectedValues = [...selectedExercises]
     if (metric !== undefined) {
         selectedValues.push(metric)
@@ -37,12 +42,12 @@ const Picker = ({
     if (accumulation !== undefined) {
         selectedValues.push(accumulation.getId())
     }
-    Object.values(Metric).map((value: string) => {
-        dropdownExerciseStructure.push({label: value, value: value})
-    })
-    allAccumulations.map((value: Accumulation) => {
-        dropdownExerciseStructure.push({label: value.getName(), value: value.getId()})
-    })
+    if (setMetric) {
+        Object.values(Metric).map((value: string) => {
+            dropdownExerciseStructure.push({label: value, value: value})
+        })
+    }
+
 
     useEffect(() => {
         if (accumulation?.accumulationMode === AccumulationMode.TRAINING_MICROCYCLE && setAccumulation) {
@@ -51,7 +56,7 @@ const Picker = ({
     }, [trainingsPlan.find((trainingsPlan: TrainingsPlan) => trainingsPlan.id === accumulation?.trainingsPlan?.id)]);
 
     return (
-        <View style={style}>
+        <View style={style} >
             {show && <MultiselectDropdown label="Choose Exercises, Metric and Accumulation Mode"
                                           enableSearch
                                           value={selectedValues}

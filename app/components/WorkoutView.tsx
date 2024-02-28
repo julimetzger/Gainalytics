@@ -16,7 +16,7 @@ interface WorkoutViewProps {
 }
 
 const HOURS_IN_MILLIS = 60 * 60 * 1000;
-const WorkoutView = ({workoutIds, highlightMode, editable}: WorkoutViewProps) => {
+const WorkoutView = ({workoutIds, highlightMode, editable = true}: WorkoutViewProps) => {
     let theme = useTheme();
     let workouts = useWorkoutsByIds(workoutIds)
     let exercises = useExerciseByIds([...new Set(workouts)].map((workout: Workout) => workout.exerciseId));

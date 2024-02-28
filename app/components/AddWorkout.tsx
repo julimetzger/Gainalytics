@@ -34,8 +34,6 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
         let finalizeWorkout = dispatchFinalizeWorkout();
         let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
         let suggestedWorkout = dispatchSuggest();
-
-        console.log("unfinishedWorkout", unfinishedWorkout)
         function submitWorkoutSet(workoutSet: WorkoutSet) {
             if (unfinishedWorkout === undefined) {
                 addWorkout({

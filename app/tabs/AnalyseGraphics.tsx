@@ -27,16 +27,10 @@ const AnalyseGraphics = ({route}: Props) => {
     const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumulationMode.SINGLE_DAY))
     const [exercise, setExercise] = useState<Exercise[]>([]);
     let exerciseIDs = exercise.map(it => it.id);
-    //TODO rerender not working for new added workouts
-    //TODO delete crasht hier
-    console.log("rerender");
     let allWorkouts = useWorkoutsIn(range);
-    console.log("allWorkouts", allWorkouts)
     let workoutsForExercise = allWorkouts.reverse().filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true) as Workout[];
-    console.log("workoutsForExercise", workoutsForExercise);
     const theme = useTheme();
     let selectedWorkout = useWorkoutsByIds(selectedWorkoutIds);
-    console.log("selectedWorkout", selectedWorkout);
     useEffect(() => {
         setSelectedWorkoutIds([]);
     }, [exercise, metric, accumulation]);
@@ -52,14 +46,13 @@ const AnalyseGraphics = ({route}: Props) => {
             marker: calculateMetricValue(workouts.flatMap(workout => workout.sets), metric)?.toFixed(2)
         } as LineValue])
         .sort(((a, b) => a.x!! - b.x!!));
-    console.log("map", map);
     return (
         <View style={{
             backgroundColor: theme.colors.background,
             display: 'flex',
             justifyContent: 'flex-start',
         }}>
-            <ScrollView style={styles.picker}>
+            <ScrollView style={styles.picker} keyboardShouldPersistTaps={'always'}>
                 <DateRangePicker range={range} setRange={setRange}/>
                 <Picker exercise={exercise} setExercise={setExercise} style={styles.exercisePicker}
                         metric={metric} setMetric={setMetric}
@@ -184,7 +177,6 @@ const handleAccumulationModeBatching = (allWorkouts: Workout[], accumulationMode
                                             acc.set(start.toISOString(), [workout]);
                                         }
                                     }
-                                    console.log("acc", acc);
                                 }
                             }
                         )
