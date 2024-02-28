@@ -125,18 +125,8 @@ const AnalyseGraphics = ({route}: Props) => {
 
 const styles = StyleSheet.create({
     chart: {
-        height: '50%',
-        //width: '100%'
+        height: 400
     },
-    picker: {
-        height: '20%',
-    },
-    exercise: {
-        height: '30%',
-    },
-    exercisePicker: {
-        marginBottom: 20,
-    }
 
 })
 
