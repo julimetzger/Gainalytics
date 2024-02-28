@@ -4,6 +4,7 @@ import {MultiselectDropdown} from "sharingan-rn-modal-dropdown";
 import {IconButton, useTheme} from "react-native-paper";
 import {StyleProp, View, ViewStyle} from "react-native";
 import {useAllTrainingsPlans} from "../redux/Training/useAllTrainingsPlans";
+import {Muscles} from "../models/Muscles";
 
 const Picker = ({
                     exercise,
@@ -13,19 +14,26 @@ const Picker = ({
                     setMetric,
                     setAccumulation,
                     accumulation,
-                    disabled = true
+                    disabled = true,
+                    muscles = false
                 }: ExercisePickerProps) => {
     const [show, setShow] = useState(disabled)
     let allExercises = useAlleExercises()
     let trainingsPlan = useAllTrainingsPlans();
     let theme = useTheme();
+    const [muscle, setMuscle] = useState<Muscles[]>([]);
     let selectedExercises = exercise.map((exercise: Exercise) => exercise.id ? exercise.id : 0).map((value: number) => value.toString());
+    let exercisesByMuscles = allExercises.filter((value: Exercise) => value.muscles?.some(s => {
+        return muscle.includes(s.muscle)
+    }));
     let dropdownExerciseStructure = allExercises.map((exercise: Exercise) => {
         return {
             label: exercise.name,
             value: exercise.id!!.toString(),
         }
     });
+    //TODO is this good? sollen wirklich die exercises nicht angezeigt werden? Beim adden der exercises passiert dann gar nichts mehr
+    selectedExercises = selectedExercises.filter((value: string) => !exercisesByMuscles.map(value => value.id?.toString()).includes(value));
     let allAccumalations: Accumulation[] = [];
     if (setAccumulation) {
         let trainingAccumalations = trainingsPlan.map((trainingsPlan: TrainingsPlan) => Accumulation.fromTrainingsPlan(trainingsPlan));
@@ -35,7 +43,7 @@ const Picker = ({
             dropdownExerciseStructure.push({label: value.getName(), value: value.getId()})
         })
     }
-    let selectedValues = [...selectedExercises]
+    let selectedValues = [...selectedExercises, ...muscle]
     if (metric !== undefined) {
         selectedValues.push(metric)
     }
@@ -47,8 +55,11 @@ const Picker = ({
             dropdownExerciseStructure.push({label: value, value: value})
         })
     }
-
-
+    if (muscles) {
+        Object.values(Muscles).map((value: string) => {
+            dropdownExerciseStructure.push({label: value, value: value})
+        })
+    }
     useEffect(() => {
         if (accumulation?.accumulationMode === AccumulationMode.TRAINING_MICROCYCLE && setAccumulation) {
             setAccumulation(Accumulation.fromTrainingsPlan(trainingsPlan.find((trainingsPlan: TrainingsPlan) => trainingsPlan.id === accumulation?.trainingsPlan?.id)!!));
@@ -56,7 +67,7 @@ const Picker = ({
     }, [trainingsPlan.find((trainingsPlan: TrainingsPlan) => trainingsPlan.id === accumulation?.trainingsPlan?.id)]);
 
     return (
-        <View style={style} >
+        <View style={style}>
             {show && <MultiselectDropdown label="Choose Exercises, Metric and Accumulation Mode"
                                           enableSearch
                                           value={selectedValues}
@@ -79,7 +90,7 @@ const Picker = ({
         if (newMetric.length > 1) {
             newMetric = newMetric.filter((value: string) => value !== metric)
         }
-        let accumulationNames = value.filter((value: string) => allAccumulations.map((value: Accumulation) => value.getId()).includes(value));
+        let accumulationNames = value.filter((value: string) => allAccumalations.map((value: Accumulation) => value.getId()).includes(value));
         if (accumulationNames.length > 1) {
             accumulationNames = accumulationNames.filter((value: string) => value !== accumulation?.getId())
         }
@@ -87,9 +98,12 @@ const Picker = ({
         let exercises = value.filter((value: string) => allIds.includes(value));
         let find = exercises.map((value: string) => allExercises.find((exercise: Exercise) => exercise.id === parseInt(value)))
             .filter((value: Exercise | undefined) => value !== undefined) as Exercise[]
-        setExercise(find);
+        let muslces = value.filter((value: string) => Object.values(Muscles).includes(value as Muscles)).map((value: string) => value as Muscles);
+        let allExercisesByMuscle = allExercises.filter((ex: Exercise) => ex.muscles?.some(s => muslces.includes(s.muscle)))
+        setMuscle(muslces);
+        setExercise([...find, ...allExercisesByMuscle]);
         setMetric ? setMetric(newMetric[0] as Metric) : 0;
-        setAccumulation ? setAccumulation(allAccumulations.find((accumulation) => accumulation?.getId() === accumulationNames[0])) : undefined;
+        setAccumulation ? setAccumulation(allAccumalations.find((accumulation) => accumulation?.getId() === accumulationNames[0])) : undefined;
     }
 }
 
@@ -149,7 +163,8 @@ interface ExercisePickerProps {
     metric?: Metric,
     setMetric?: (arg: Metric) => void,
     accumulation?: Accumulation,
-    setAccumulation?: (arg: Accumulation | undefined) => void
+    setAccumulation?: (arg: Accumulation | undefined) => void,
+    muscles?: boolean
 }
 
 export default Picker;

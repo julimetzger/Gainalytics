@@ -30,7 +30,7 @@ const History = ({route}: Props) => {
     return (
         <ScrollView style={{backgroundColor: theme.colors.background}} keyboardShouldPersistTaps={"handled"}>
             <DateRangePicker range={range} setRange={setRange}/>
-            <Picker exercise={exercise} setExercise={setExercise}/>
+            <Picker exercise={exercise} setExercise={setExercise} muscles={true}/>
             <WorkoutView
                 workoutIds={lastWorkouts.map(workout => workout.id).filter(workoutId => workoutId !== undefined) as number[]}/>
             <Divider/>

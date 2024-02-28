@@ -49,7 +49,10 @@ const WorkoutViewTile = ({workout, exercise, highlightMode, editable}: WorkoutVi
                     {showEdit &&
                         <IconButton style={{margin: 0, alignSelf: 'flex-start', height: 30}}
                                     icon={"delete"}
-                                    onPress={() => useDeleteWorkoutdispatch(workout)}/>}
+                                    onPress={() => {
+                                        useDeleteWorkoutdispatch(workout)
+                                        setShowEdit(false)
+                                    }}/>}
                 </View>
                 {
                     showEdit &&
