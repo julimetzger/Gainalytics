@@ -28,6 +28,7 @@ const History = ({route}: Props) => {
         .filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true)
         .sort((a, b) => -dateComparator(a.start!!, b.start!!)) as Workout[];
 
+    console.log("lastWorkouts", lastWorkouts)
     const theme = useTheme();
     return (
         <ScrollView style={{backgroundColor: theme.colors.background}}>
