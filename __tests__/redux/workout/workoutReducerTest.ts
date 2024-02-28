@@ -1,5 +1,4 @@
 import exerciseReducer from "../../../app/redux/Workout/workoutReducer";
-import trainingsPlanReducer from "../../../app/redux/Training/trainingsPlanReducer";
 
 const TEST_DATE = new Date(2020, 1, 1, 1, 1, 2);
 const STATE_WITH_TWO_WORKOUTS = () => {
@@ -873,7 +872,136 @@ describe('workoutReducer', () => {
         });
     })
     describe('START_TRAINING', () => {
-        it('should start training', () => {
+        it('should finish not finalized workouts', () => {
+            expect(exerciseReducer(
+                {
+                    ...STATE_WITH_TWO_WORKOUTS(), allIds: [], byExerciseId: {}, byId: {
+                        ...STATE_WITH_TWO_WORKOUTS().byId,
+                        1: {
+                            ...STATE_WITH_TWO_WORKOUTS().byId[1],
+                            sets: [
+                                {reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1},
+                                {reps: 2, rir: 2, weight: 2, date: TEST_DATE, index: 2}
+                            ]
+                        },
+                        3: {
+                            start: TEST_DATE,
+                            end: new Date(TEST_DATE.getTime() - 200),
+                            sets: [{reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1}],
+                            exerciseId: 11,
+                            notes: "",
+                            id: 3,
+                        }
+                    }
+                }, {
+                    type: 'START_TRAINING',
+                    workoutIds: [1],
+                    finishedWorkoutIds: [3],
+                    trainingsId: 1,
+                    date: TEST_DATE
+                })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(), allIds: [], byExerciseId: {}, byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    1: {
+                        ...STATE_WITH_TWO_WORKOUTS().byId[1],
+                        sets: [
+                            {reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1},
+                            {reps: 2, rir: 2, weight: 2, date: TEST_DATE, index: 2}
+                        ]
+                    },
+                    3: {
+                        start: TEST_DATE,
+                        end: new Date(TEST_DATE.getTime() - 200),
+                        sets: [{reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1}],
+                        exerciseId: 11,
+                        notes: "",
+                        id: 3,
+                    }
+                },
+                suggestedWorkouts: {
+                    11: {
+                        exerciseId: 11,
+                        id: undefined,
+                        notes: "",
+                        sets: [{reps: 1, rir: 1, weight: 1, date: undefined, index: 1}, {
+                            reps: 2,
+                            rir: 2,
+                            weight: 2,
+                            date: undefined,
+                            index: 2
+                        }],
+                        start: undefined,
+                        end: undefined
+                    }
+                },
+            })
+        })
+
+        it('should not touch already finalized workouts', () => {
+            expect(exerciseReducer(
+                {
+                    ...STATE_WITH_TWO_WORKOUTS(), allIds: [], byExerciseId: {}, byId: {
+                        ...STATE_WITH_TWO_WORKOUTS().byId,
+                        1: {
+                            ...STATE_WITH_TWO_WORKOUTS().byId[1],
+                            sets: [
+                                {reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1},
+                                {reps: 2, rir: 2, weight: 2, date: TEST_DATE, index: 2}
+                            ]
+                        },
+                        3: {
+                            start: TEST_DATE,
+                            end: TEST_DATE,
+                            sets: [{reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1}],
+                            exerciseId: 11,
+                            notes: "",
+                            id: 3,
+                        }
+                    }
+                }, {
+                    type: 'START_TRAINING',
+                    workoutIds: [1],
+                    finishedWorkoutIds: [3],
+                    trainingsId: 1,
+                    date: TEST_DATE
+                })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(), allIds: [], byExerciseId: {}, byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    1: {
+                        ...STATE_WITH_TWO_WORKOUTS().byId[1],
+                        sets: [
+                            {reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1},
+                            {reps: 2, rir: 2, weight: 2, date: TEST_DATE, index: 2}
+                        ]
+                    },
+                    3: {
+                        start: TEST_DATE,
+                        end: TEST_DATE,
+                        sets: [{reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1}],
+                        exerciseId: 11,
+                        notes: "",
+                        id: 3,
+                    }
+                },
+                suggestedWorkouts: {
+                    11: {
+                        exerciseId: 11,
+                        id: undefined,
+                        notes: "",
+                        sets: [{reps: 1, rir: 1, weight: 1, date: undefined, index: 1}, {
+                            reps: 2,
+                            rir: 2,
+                            weight: 2,
+                            date: undefined,
+                            index: 2
+                        }],
+                        start: undefined,
+                        end: undefined
+                    }
+                },
+            })
+        })
+        it('should finish with not finalized workouts', () => {
             expect(exerciseReducer(
                 {
                     ...STATE_WITH_TWO_WORKOUTS(), allIds: [], byExerciseId: {}, byId: {
@@ -889,6 +1017,7 @@ describe('workoutReducer', () => {
                 }, {
                     type: 'START_TRAINING',
                     workoutIds: [1],
+                    finishedWorkoutIds: [],
                     trainingsId: 1,
                     date: TEST_DATE
                 })).toEqual({
@@ -919,7 +1048,10 @@ describe('workoutReducer', () => {
                     }
                 },
             })
+
         })
+
+
     })
     describe('SUGGEST_TRAINING', () => {
         it('should suggest training', () => {

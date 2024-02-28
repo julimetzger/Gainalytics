@@ -35,6 +35,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
         let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
         let suggestedWorkout = dispatchSuggest();
 
+        console.log("unfinishedWorkout", unfinishedWorkout)
         function submitWorkoutSet(workoutSet: WorkoutSet) {
             if (unfinishedWorkout === undefined) {
                 addWorkout({
@@ -98,7 +99,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                             onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!)}/>
                     })}
                 </View>
-                {!workout && <Button
+                {(!workout || workout.end === undefined) && <Button
                     style={{marginTop: 20, display: 'flex', alignSelf: 'center'}}
                     buttonColor={theme.colors.primaryContainer}
                     textColor={theme.colors.onPrimaryContainer}
