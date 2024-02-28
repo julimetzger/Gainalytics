@@ -52,9 +52,9 @@ const AnalyseGraphics = ({route}: Props) => {
             display: 'flex',
             justifyContent: 'flex-start',
         }}>
-            <ScrollView style={styles.picker} keyboardShouldPersistTaps={'always'}>
+            <ScrollView keyboardShouldPersistTaps={'always'}>
                 <DateRangePicker range={range} setRange={setRange}/>
-                <Picker exercise={exercise} setExercise={setExercise} style={styles.exercisePicker}
+                <Picker exercise={exercise} setExercise={setExercise}
                         metric={metric} setMetric={setMetric}
                         accumulation={accumulation} setAccumulation={setAccumulation}
                         muscles={true}/>
@@ -109,7 +109,7 @@ const AnalyseGraphics = ({route}: Props) => {
                 chartDescription={{text: ''}}
                 onSelect={(value) => handleDataPointSelect(value)}/>}
 
-            <ScrollView style={styles.exercise}>
+            <ScrollView>
                 {selectedWorkout && exercise.length > 0 &&
                     <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric} editable={false}></WorkoutView>}
             </ScrollView>
