@@ -20,11 +20,22 @@ export function getMicorFromTrainingInMicroIndex(traiiningInMicroIndex: string) 
     return parseInt(traiiningInMicroIndex.split(",")[0]);
 }
 
-export function getTrainingsInMicro(trainings: { [microComaTrainingInMicro: string]: number }, trainingsNumber: number) {
+export function getMicrosForTraining(trainings: {
+    [microComaTrainingInMicro: string]: number
+}, trainingsNumber: number) {
     return Object.entries(trainings).filter(([key, value]) => key.endsWith("," + trainingsNumber))
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([key, value]) => value);
 }
+
+export function getAllTrainingsForMicro(trainings: {
+    [microComaTrainingInMicro: string]: number
+}, micorNumber: number) {
+    return Object.entries(trainings).filter(([key, value]) => key.startsWith(micorNumber.toString()))
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([key, value]) => value);
+}
+
 
 function determineNewId(trainingsPlanState: NormalizedState<TrainingsPlan>) {
     if (trainingsPlanState.allIds.length > 0)

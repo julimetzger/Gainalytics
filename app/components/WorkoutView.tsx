@@ -12,10 +12,11 @@ import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
 interface WorkoutViewProps {
     workoutIds: number[],
     highlightMode?: Metric,
+    editable?: boolean
 }
 
 const HOURS_IN_MILLIS = 60 * 60 * 1000;
-const WorkoutView = ({workoutIds, highlightMode}: WorkoutViewProps) => {
+const WorkoutView = ({workoutIds, highlightMode, editable}: WorkoutViewProps) => {
     let theme = useTheme();
     let workouts = useWorkoutsByIds(workoutIds)
     let exercises = useExerciseByIds([...new Set(workouts)].map((workout: Workout) => workout.exerciseId));
@@ -31,8 +32,6 @@ const WorkoutView = ({workoutIds, highlightMode}: WorkoutViewProps) => {
             dateWorkoutMap.set(sameWorkoutDate, [...dateWorkoutMap.get(sameWorkoutDate) ?? [], workout]);
         }
     )
-    //TODO stimmt sort order hier?????
-    dateWorkoutMap = new Map(Array.from(dateWorkoutMap.entries()).sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()))
     const styles = StyleSheet.create({
         exerciseText: {
             fontSize: theme.fonts.titleLarge.fontSize,

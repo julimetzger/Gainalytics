@@ -13,21 +13,22 @@ interface WorkoutVieTileProps {
     workout: Workout,
     exercise: Exercise,
     highlightMode?: Metric,
+    editable?: boolean
 }
 
-const WorkoutViewTile = ({workout, exercise, highlightMode}: WorkoutVieTileProps) => {
+const WorkoutViewTile = ({workout, exercise, highlightMode, editable}: WorkoutVieTileProps) => {
     let theme = useTheme();
     let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
     let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout();
     let useDeleteWorkoutdispatch = useDeleteWorkout();
-    const [showDelete, setShowDelete] = useState(false);
+    const [showEdit, setShowEdit] = useState(false);
     //TODO workout set reihenfolge
     useEffect(() => {
     }, [workout, exercise]);
 
     return (
-        <OutsidePressHandler onOutsidePress={() => setShowDelete(false)} key={1}>
-            <Card mode={"outlined"} style={{marginBottom: 5}} onLongPress={() => setShowDelete(!showDelete)}>
+        <OutsidePressHandler onOutsidePress={() => setShowEdit(false)} key={1}>
+            <Card mode={"outlined"} style={{marginBottom: 5}} onLongPress={() => setShowEdit(!showEdit)}>
                 <View style={{
                     display: 'flex',
                     flexDirection: 'row',
@@ -39,20 +40,20 @@ const WorkoutViewTile = ({workout, exercise, highlightMode}: WorkoutVieTileProps
                             fontSize: theme.fonts.titleMedium.fontSize,
                             marginLeft: 5
                         }}>{exercise.name}</Text>
-                    {showDelete &&
+                    {showEdit &&
                         <IconButton style={{margin: 0, alignSelf: 'flex-start', height: 30}}
                                     icon={"delete"}
                                     onPress={() => useDeleteWorkoutdispatch(workout)}/>}
                 </View>
                 {
-                    showDelete &&
+                    showEdit &&
                     <AddWorkoutSet onSubmit={(wokoutSet) => addOrUpdateSetInWorkout(wokoutSet, workout.id!!)}/>
                 }
                 <WorkoutSetView key={workout.id} sets={workout.sets} onDelete={(workoutSet) => {
                     deleteSetFromWorkout(workoutSet, workout);
                 }} onSubmit={(workoutSet) => {
                     addOrUpdateSetInWorkout(workoutSet, workout.id!!);
-                }} highLightMode={highlightMode}/>
+                }} highLightMode={highlightMode} editable={editable}/>
             </Card>
         </OutsidePressHandler>
     )
