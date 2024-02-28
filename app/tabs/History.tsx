@@ -3,12 +3,12 @@ import {ScrollView, View} from 'react-native';
 import {Divider, Text, useTheme} from 'react-native-paper';
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
 import DateRangePicker, {Range} from "../components/DateRangePicker";
-import {dateComparator, firstDayOfWeek, getEndOfDay, lastDayOfWeek, subtractMonths} from "../utils/DateHelper";
-import ExercisePicker from "../components/ExercisePicker";
+import {firstDayOfWeek, getEndOfDay, lastDayOfWeek, subtractMonths} from "../utils/DateHelper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {repetitionMax} from "../utils/RepetitionMaxHelper";
 import {RootStackParamList} from "../routing/HistoryRouter";
 import WorkoutView from "../components/WorkoutView";
+import Picker from "../components/Picker";
 
 
 const History = ({route}: Props) => {
@@ -19,7 +19,6 @@ const History = ({route}: Props) => {
             }
         }, [route]
     )
-
     let now = new Date(Date.now());
     const [range, setRange] = useState(new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now,0)))
     const [exercise, setExercise] = useState<Exercise[]>([]);
@@ -27,12 +26,11 @@ const History = ({route}: Props) => {
     let lastWorkouts = useWorkoutsIn(range)
         .filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true)
 
-    console.log("lastWorkouts", lastWorkouts)
     const theme = useTheme();
     return (
-        <ScrollView style={{backgroundColor: theme.colors.background}}>
+        <ScrollView style={{backgroundColor: theme.colors.background}} keyboardShouldPersistTaps={"handled"}>
             <DateRangePicker range={range} setRange={setRange}/>
-            <ExercisePicker exercise={exercise} setExercise={setExercise}/>
+            <Picker exercise={exercise} setExercise={setExercise}/>
             <WorkoutView
                 workoutIds={lastWorkouts.map(workout => workout.id).filter(workoutId => workoutId !== undefined) as number[]}/>
             <Divider/>

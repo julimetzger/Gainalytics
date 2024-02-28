@@ -8,7 +8,6 @@ import {useTrainingInTrainingsPlan} from "../../redux/Training/useTrainingInTrai
 import PlanWorkoutInTraining from "../../components/PlanTraining";
 import ExecuteWorkoutInTraining from "../../components/ExecuteTraining";
 import {dispatchStartTraining} from "../../redux/Training/dispatchStartTraining";
-import ExercisePicker from "../../components/ExercisePicker";
 import {useExerciseByIds} from "../../redux/Exercises/useExerciseByIds";
 import {dispatchModifyExercisesInTraining} from "../../redux/Training/dispatchModifyExercisesInTraining";
 import {dispatchFinishTraining} from "../../redux/Training/dispatchFinishTraining";
@@ -17,6 +16,7 @@ import {TrainingsState} from "../../models/TrainingsState";
 import DraggableExercise from "../../components/DraggableExercise";
 import {dispatchSuggestBasedOnTrained} from "../../redux/Training/dispatchSuggestBasedOnTrained";
 import {dispatchSuggestBasedOnPlanned} from "../../redux/Training/dispatchSuggestBasedOnPlanned";
+import Picker from "../../components/Picker";
 
 const TrainingsPlanTab = ({route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
@@ -76,7 +76,7 @@ const TrainingsPlanTab = ({route}: Props) => {
                     </Button>
                     {training?.state !== TrainingsState.FINISHED &&
                         <View>
-                            <ExercisePicker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
+                            <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
                             <DraggableExercise exercises={exercises}
                                                setExercises={setExerciseWithSideEffects}
                                                chosenExercise={chosenExercise}
