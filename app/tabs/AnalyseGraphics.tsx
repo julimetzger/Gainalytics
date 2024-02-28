@@ -9,10 +9,10 @@ import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrappe
 import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
 import {RootStackParamList} from "../routing/AnalyseRouter";
 import {sumBy} from "lodash";
-import Picker, {AccumaulationMode, Accumulation, Metric} from "../components/Picker";
+import Picker, {AccumulationMode, Accumulation, Metric} from "../components/Picker";
 import {useWorkoutsByIds} from "../redux/Workout/useWorkoutsByIds";
 import WorkoutView from "../components/WorkoutView";
-import {getAllTrainingsForMicro, getMicorFromTrainingInMicroIndex} from "../redux/Training/trainingsPlanReducer";
+import {getAllTrainingsForMicro, getMicroFromTrainingInMicroIndex} from "../redux/Training/trainingsPlanReducer";
 
 const AnalyseGraphics = ({route}: Props) => {
     function handleDataPointSelect(value: ChartSelectEvent) {
@@ -24,7 +24,7 @@ const AnalyseGraphics = ({route}: Props) => {
     const [range, setRange] = useState(new Range(firstDayOfWeek(now, 1), getEndOfDay(now)))
     const [selectedWorkoutIds, setSelectedWorkoutIds] = useState<number[]>([]);
     const [metric, setMetric] = useState(Metric.ONE_RM);
-    const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumaulationMode.SINGLE_DAY))
+    const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumulationMode.SINGLE_DAY))
     const [exercise, setExercise] = useState<Exercise[]>([]);
     let exerciseIDs = exercise.map(it => it.id);
     //TODO rerender not working for new added workouts
@@ -44,7 +44,7 @@ const AnalyseGraphics = ({route}: Props) => {
 // @ts-ignore
     let map = Array.from(workoutsForExercise
         .filter((workout: Workout) => workout.sets.length > 0)
-        .reduce(handleAccumalationModeBatching(workoutsForExercise, accumulation), new Map<string, Workout[]>()))
+        .reduce(handleAccumulationModeBatching(workoutsForExercise, accumulation), new Map<string, Workout[]>()))
         .flatMap(([value, workouts]) => [{
             id: workouts.reduce((acc: string, workout: Workout) => acc + "," + workout.id!!, ""),
             x: new Date(value).getTime(),
@@ -123,16 +123,16 @@ const AnalyseGraphics = ({route}: Props) => {
     )
 };
 
-let styles = StyleSheet.create({
+const styles = StyleSheet.create({
     chart: {
         height: '50%',
-        width: '100%'
+        //width: '100%'
     },
     picker: {
-        height: '25%',
+        height: '20%',
     },
     exercise: {
-        height: '25%',
+        height: '30%',
     },
     exercisePicker: {
         marginBottom: 20,
@@ -158,14 +158,14 @@ export type Props = NativeStackScreenProps<RootStackParamList, 'Analyse'>;
 
 export default AnalyseGraphics;
 
-const handleAccumalationModeBatching = (allWorkouts: Workout[], accumulationMode?: Accumulation) => {
+const handleAccumulationModeBatching = (allWorkouts: Workout[], accumulationMode?: Accumulation) => {
     return (acc: Map<string, Workout[]>, workout: Workout): Map<string, Workout[]> => {
         switch (accumulationMode?.getAccumulationMode()) {
-            case AccumaulationMode.SINGLE_DAY: {
+            case AccumulationMode.SINGLE_DAY: {
                 acc.set(new Date(workout.start!!).toISOString(), [workout]);
                 return acc;
             }
-            case AccumaulationMode.WEEK: {
+            case AccumulationMode.WEEK: {
                 let start = new Date(firstDayOfWeek(workout.start!!, 1));
                 if (acc.get(start.toISOString())) {
                     acc.get(start.toISOString())!!.push(workout);
@@ -174,14 +174,14 @@ const handleAccumalationModeBatching = (allWorkouts: Workout[], accumulationMode
                 }
                 return acc;
             }
-            case AccumaulationMode.TRAINING_MICROCYCLE: {
+            case AccumulationMode.TRAINING_MICROCYCLE: {
                 let trainingsPlan = accumulationMode?.trainingsPlan;
                 if (trainingsPlan) {
                     let trainings = trainingsPlan.trainings;
                     if (workout.trainingsId && Object.values(trainings).includes(workout.trainingsId)) {
                         Object.entries(trainings).forEach(([key, value]) => {
                                 if (workout.trainingsId === value) {
-                                    let micro = getMicorFromTrainingInMicroIndex(key);
+                                    let micro = getMicroFromTrainingInMicroIndex(key);
                                     let allTrainingsForMicro = getAllTrainingsForMicro(trainings, micro);
                                     let dates = allWorkouts.filter((workout: Workout) => allTrainingsForMicro.includes(workout.trainingsId!!))
                                         .map((workout: Workout) => workout.start!!)
