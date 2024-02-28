@@ -1,7 +1,7 @@
 import React, {useEffect} from "react";
 import {StyleSheet} from "react-native";
 import {Card, Text, useTheme} from "react-native-paper";
-import {getDateStringFromDate} from "../utils/DateHelper";
+import {dateComparator, getDateStringFromDate} from "../utils/DateHelper";
 import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 import {useWorkoutsByIds} from "../redux/Workout/useWorkoutsByIds";
 import {Range} from "./DateRangePicker";
@@ -32,6 +32,7 @@ const WorkoutView = ({workoutIds, highlightMode, editable}: WorkoutViewProps) =>
             dateWorkoutMap.set(sameWorkoutDate, [...dateWorkoutMap.get(sameWorkoutDate) ?? [], workout]);
         }
     )
+    dateWorkoutMap = new Map([...dateWorkoutMap.entries()].sort((a, b) => -dateComparator(a[0], b[0])));
     const styles = StyleSheet.create({
         exerciseText: {
             fontSize: theme.fonts.titleLarge.fontSize,
@@ -52,10 +53,11 @@ const WorkoutView = ({workoutIds, highlightMode, editable}: WorkoutViewProps) =>
                         <Text style={styles.exerciseText}>
                             {getDateStringFromDate(new Date(date))}</Text>
 
-                        {workouts.map((workout) => {
+                        {workouts.sort((a, b) => new Date(a.start!!).getTime() - new Date(b.start!!).getTime()).reverse().map((workout) => {
                             return <WorkoutViewTile workout={workout}
                                                     highlightMode={highlighWorkoutIds.includes(workout.id!!) ? highlightMode : undefined}
-                                                    exercise={exercises.find((ex) => ex.id === workout.exerciseId)!!}/>;
+                                                    exercise={exercises.find((ex) => ex.id === workout.exerciseId)!!}
+                                                    editable={editable}/>;
                         })
                         }
                     </Card>)

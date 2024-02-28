@@ -26,7 +26,6 @@ const History = ({route}: Props) => {
     let exerciseIDs = exercise.map(it => it.id);
     let lastWorkouts = useWorkoutsIn(range)
         .filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true)
-        .sort((a, b) => -dateComparator(a.start!!, b.start!!)) as Workout[];
 
     console.log("lastWorkouts", lastWorkouts)
     const theme = useTheme();

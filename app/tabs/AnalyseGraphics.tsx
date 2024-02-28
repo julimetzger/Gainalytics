@@ -117,7 +117,7 @@ const AnalyseGraphics = ({route}: Props) => {
 
             <ScrollView style={styles.exercise}>
                 {selectedWorkout && exercise.length > 0 &&
-                    <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric}></WorkoutView>}
+                    <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric} editable={false}></WorkoutView>}
             </ScrollView>
         </View>
     )
