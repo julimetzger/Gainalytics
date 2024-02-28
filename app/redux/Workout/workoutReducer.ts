@@ -255,8 +255,19 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
             }
             case 'START_TRAINING': {
                 let suggested = {...workoutState.suggestedWorkouts};
-                action.workoutIds.forEach((value: number) => {
+                let workouts = {...workoutState.byId};
+                action.finishedWorkoutIds.forEach((value: number) => {
+                    let finishedWorkout = {
+                        ...workoutState.byId[value],
+                    } as Workout;
+                    finishedWorkout.end = finishedWorkout.end ?? action.date;
+                    workouts = {
+                        ...workouts,
+                        [finishedWorkout.id!!]: finishedWorkout
+                    };
+                })
 
+                action.workoutIds.forEach((value: number) => {
                     let plannedWorkout = {
                         ...workoutState.byId[value],
                     } as Workout;
@@ -274,7 +285,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                         [plannedWorkout.exerciseId]: plannedWorkout
                     };
                 });
-                return {...workoutState, suggestedWorkouts: {...suggested}};
+                return {...workoutState, suggestedWorkouts: {...suggested}, byId: {...workouts}};
             }
             case 'SUGGEST_TRAINING':
                 let workoutStateCopy = {
