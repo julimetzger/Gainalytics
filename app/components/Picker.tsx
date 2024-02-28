@@ -27,9 +27,9 @@ const Picker = ({
             value: exercise.id!!.toString(),
         }
     });
-    let trainingAccumalations = trainingsPlan.map((trainingsPlan: TrainingsPlan) => Accumulation.fromTrainingsPlan(trainingsPlan));
-    let nonTrainingAccumalations = Accumulation.forAllNonTrainingModes();
-    let allAccumalations = [...trainingAccumalations, ...nonTrainingAccumalations];
+    let trainingAccumulations = trainingsPlan.map((trainingsPlan: TrainingsPlan) => Accumulation.fromTrainingsPlan(trainingsPlan));
+    let nonTrainingAccumulations = Accumulation.forAllNonTrainingModes();
+    let allAccumulations = [...trainingAccumulations, ...nonTrainingAccumulations];
     let selectedValues = [...selectedExercises]
     if (metric !== undefined) {
         selectedValues.push(metric)
@@ -40,23 +40,26 @@ const Picker = ({
     Object.values(Metric).map((value: string) => {
         dropdownExerciseStructure.push({label: value, value: value})
     })
-    allAccumalations.map((value: Accumulation) => {
+    allAccumulations.map((value: Accumulation) => {
         dropdownExerciseStructure.push({label: value.getName(), value: value.getId()})
     })
 
     useEffect(() => {
-        if (accumulation?.accumulationMode === AccumaulationMode.TRAINING_MICROCYCLE && setAccumulation) {
+        if (accumulation?.accumulationMode === AccumulationMode.TRAINING_MICROCYCLE && setAccumulation) {
             setAccumulation(Accumulation.fromTrainingsPlan(trainingsPlan.find((trainingsPlan: TrainingsPlan) => trainingsPlan.id === accumulation?.trainingsPlan?.id)!!));
         }
     }, [trainingsPlan.find((trainingsPlan: TrainingsPlan) => trainingsPlan.id === accumulation?.trainingsPlan?.id)]);
 
     return (
         <View style={style}>
-            {show && <MultiselectDropdown label="Choose Exercises, Metric and Accumalation Mode"
-                                          enableSearch value={selectedValues}
+            {show && <MultiselectDropdown label="Choose Exercises, Metric and Accumulation Mode"
+                                          enableSearch
+                                          value={selectedValues}
                                           onChange={setExerciseDumb}
                                           searchInputTheme={{colors: {primary: theme.colors.primaryContainer}}}
-                                          data={dropdownExerciseStructure} paperTheme={theme} disableSort={false}
+                                          data={dropdownExerciseStructure}
+                                          paperTheme={theme}
+                                          disableSort={false}
                                           selectedItemViewStyle={{display: 'none'}}
                                           primaryColor={theme.colors.primaryContainer}
             />}
@@ -71,9 +74,9 @@ const Picker = ({
         if (newMetric.length > 1) {
             newMetric = newMetric.filter((value: string) => value !== metric)
         }
-        let accumalationNames = value.filter((value: string) => allAccumalations.map((value: Accumulation) => value.getId()).includes(value));
-        if (accumalationNames.length > 1) {
-            accumalationNames = accumalationNames.filter((value: string) => value !== accumulation?.getId())
+        let accumulationNames = value.filter((value: string) => allAccumulations.map((value: Accumulation) => value.getId()).includes(value));
+        if (accumulationNames.length > 1) {
+            accumulationNames = accumulationNames.filter((value: string) => value !== accumulation?.getId())
         }
         let allIds = allExercises.map((value: Exercise) => value.id?.toString());
         let exercises = value.filter((value: string) => allIds.includes(value));
@@ -81,7 +84,7 @@ const Picker = ({
             .filter((value: Exercise | undefined) => value !== undefined) as Exercise[]
         setExercise(find);
         setMetric ? setMetric(newMetric[0] as Metric) : 0;
-        setAccumulation ? setAccumulation(allAccumalations.find((accumulation) => accumulation?.getId() === accumalationNames[0])) : undefined;
+        setAccumulation ? setAccumulation(allAccumulations.find((accumulation) => accumulation?.getId() === accumulationNames[0])) : undefined;
     }
 }
 
@@ -94,7 +97,7 @@ export enum Metric {
     REPS = 'Reps',
 }
 
-export enum AccumaulationMode {
+export enum AccumulationMode {
     SINGLE_DAY = 'Day',
     WEEK = 'Week',
     // DEFINED_MICRO_LENGTH = 'Micro Length',
@@ -103,21 +106,21 @@ export enum AccumaulationMode {
 }
 
 export class Accumulation {
-    accumulationMode: AccumaulationMode;
+    accumulationMode: AccumulationMode;
     trainingsPlan?: TrainingsPlan
 
-    constructor(accumalationMode: AccumaulationMode, trainingsId?: TrainingsPlan) {
-        this.accumulationMode = accumalationMode;
+    constructor(accumulationMode: AccumulationMode, trainingsId?: TrainingsPlan) {
+        this.accumulationMode = accumulationMode;
         this.trainingsPlan = trainingsId;
     }
 
     static fromTrainingsPlan(trainingsPlan: TrainingsPlan) {
-        return new Accumulation(AccumaulationMode.TRAINING_MICROCYCLE, trainingsPlan);
+        return new Accumulation(AccumulationMode.TRAINING_MICROCYCLE, trainingsPlan);
     }
 
     static forAllNonTrainingModes() {
-        return Object.values(AccumaulationMode).map((value: string) => new Accumulation(value as AccumaulationMode))
-            .filter((value: Accumulation) => value.accumulationMode !== AccumaulationMode.TRAINING_MICROCYCLE);
+        return Object.values(AccumulationMode).map((value: string) => new Accumulation(value as AccumulationMode))
+            .filter((value: Accumulation) => value.accumulationMode !== AccumulationMode.TRAINING_MICROCYCLE);
     }
 
     getAccumulationMode() {
