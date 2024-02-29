@@ -3,13 +3,15 @@ import React, {useEffect, useState} from "react";
 import {Card, Text, useTheme} from "react-native-paper";
 
 interface TimerProps {
-    start: Date
+    start: Date,
+    label?: string,
+    reset?: boolean
 }
 
-const Timer = ({start}: TimerProps) => {
+const Timer = ({start, label, reset = false}: TimerProps) => {
+    const [sarted, setSarted] = useState(start)
     const [date, setDate] = useState(new Date(Date.now()))
     let theme = useTheme();
-    console.log("rerender");
     const stylesheet = StyleSheet.create({
 
         textstyle: {
@@ -24,20 +26,31 @@ const Timer = ({start}: TimerProps) => {
         setDate(new Date(Date.now()))
     };
     useEffect(() => {
-        setInterval(update, 1000);
+        let interval = setInterval(update, 1000);
+        return () => clearInterval(interval);
     }, []);
+
     useEffect(() => {
+        setSarted(start);
+        setDate(start);
     }, [start]);
     return (
         <View>
-            <Card key={Math.random()}>
-                <Text style={stylesheet.textstyle}>
-                    {new Date(new Date(date).getTime() - new Date(start).getTime()).toISOString().substr(11, 8)}
-                </Text>
+            <Card key={Math.random()} onPress={() => {
+                if (reset) {
+                    setSarted(new Date(Date.now()));
+                    setDate(new Date(Date.now()));
+                }
+            }}>
+                <Card.Content>
+                    {label && <Text style={{fontSize: theme.fonts.labelSmall.fontSize}}>{label}</Text>}
+                    <Text style={stylesheet.textstyle}>
+                        {new Date(new Date(date).getTime() - new Date(sarted).getTime()).toISOString().substr(11, 8)}
+                    </Text>
+                </Card.Content>
             </Card>
         </View>
     );
 }
-
 
 export default Timer;

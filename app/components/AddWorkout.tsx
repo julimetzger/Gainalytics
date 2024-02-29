@@ -19,10 +19,11 @@ interface Props {
     historyCallback?: (start?: Date) => void,
     suggest?: boolean,
     trainingsId?: number,
-    workout?: Workout
+    workout?: Workout,
+    onSubmitSet?: (workoutSet: WorkoutSet) => void
 }
 
-const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, workout}: Props) => {
+const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, workout, onSubmitSet}: Props) => {
         let unfinishedWorkout = useUnfinishedWorkout(exercise.id!!);
         unfinishedWorkout = workout ?? unfinishedWorkout;
         const [date, setDate] = useState(new Date(Date.now()));
@@ -34,7 +35,9 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
         let finalizeWorkout = dispatchFinalizeWorkout();
         let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
         let suggestedWorkout = dispatchSuggest();
+
         function submitWorkoutSet(workoutSet: WorkoutSet) {
+            onSubmitSet ? onSubmitSet(workoutSet) : 0;
             if (unfinishedWorkout === undefined) {
                 addWorkout({
                     //TODO index should be set by reducer
