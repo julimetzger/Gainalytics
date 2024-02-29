@@ -9,6 +9,7 @@ interface TimerProps {
 const Timer = ({start}: TimerProps) => {
     const [date, setDate] = useState(new Date(Date.now()))
     let theme = useTheme();
+    console.log("rerender");
     const stylesheet = StyleSheet.create({
 
         textstyle: {
@@ -24,7 +25,7 @@ const Timer = ({start}: TimerProps) => {
     };
     useEffect(() => {
         setInterval(update, 1000);
-    });
+    }, []);
     useEffect(() => {
     }, [start]);
     return (
