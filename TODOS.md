@@ -1,4 +1,4 @@
-# TODOs for the project
+ö# TODOs for the project
 
 ## Trainings:
 - planned directly to done ?? 
@@ -11,6 +11,9 @@
 - Export funktion für Trainings/Micro
 - unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
 - Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
+- swipen um zwischen trainings zu wechseln
+- anzeige des trainings im router oben
+- name für trainings
 
 ## Analyse
 - neue Seite für Darstellung volumen für bodyparts, übungen etc
