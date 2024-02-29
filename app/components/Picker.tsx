@@ -1,7 +1,7 @@
 import {useAlleExercises} from "../redux/Exercises/useAllExercises";
 import React, {useEffect, useState} from 'react';
-import {MultiselectDropdown} from "sharingan-rn-modal-dropdown";
-import {IconButton, useTheme} from "react-native-paper";
+import {IDropdownData, MultiselectDropdown} from "sharingan-rn-modal-dropdown";
+import {Icon, IconButton, Text, useTheme} from "react-native-paper";
 import {StyleProp, View, ViewStyle} from "react-native";
 import {useAllTrainingsPlans} from "../redux/Training/useAllTrainingsPlans";
 import {Muscles} from "../models/Muscles";
@@ -26,10 +26,11 @@ const Picker = ({
     let exercisesByMuscles = allExercises.filter((value: Exercise) => value.muscles?.some(s => {
         return muscle.includes(s.muscle)
     }));
-    let dropdownExerciseStructure = allExercises.map((exercise: Exercise) => {
+    let dropdownExerciseStructure:IDropdownData[] = allExercises.map((exercise: Exercise) => {
         return {
             label: exercise.name,
             value: exercise.id!!.toString(),
+            avatarComponent: <Icon source="weight-lifter" size={20}></Icon>
         }
     });
     //TODO is this good? sollen wirklich die exercises nicht angezeigt werden? Beim adden der exercises passiert dann gar nichts mehr
@@ -39,8 +40,8 @@ const Picker = ({
         let trainingAccumalations = trainingsPlan.map((trainingsPlan: TrainingsPlan) => Accumulation.fromTrainingsPlan(trainingsPlan));
         let nonTrainingAccumalations = Accumulation.forAllNonTrainingModes();
         allAccumalations = [...trainingAccumalations, ...nonTrainingAccumalations];
-        allAccumalations.map((value: Accumulation) => {
-            dropdownExerciseStructure.push({label: value.getName(), value: value.getId()})
+        allAccumalations.map((value: Accumulation, ) => {
+            dropdownExerciseStructure.push({label: value.getName(), value: value.getId(), avatarComponent: <Icon source="book-open-variant" size={20}></Icon>})
         })
     }
     let selectedValues = [...selectedExercises, ...muscle]
@@ -52,12 +53,12 @@ const Picker = ({
     }
     if (setMetric) {
         Object.values(Metric).map((value: string) => {
-            dropdownExerciseStructure.push({label: value, value: value})
+            dropdownExerciseStructure.push({label: value, value: value, avatarComponent: <Icon source="trending-up" size={20}></Icon>})
         })
     }
     if (muscles) {
         Object.values(Muscles).map((value: string) => {
-            dropdownExerciseStructure.push({label: value, value: value})
+            dropdownExerciseStructure.push({label: value, value: value, avatarComponent: <Icon source="arm-flex" size={20}></Icon>})
         })
     }
     useEffect(() => {
@@ -78,6 +79,7 @@ const Picker = ({
                                           disableSort={false}
                                           selectedItemViewStyle={{display: 'none'}}
                                           primaryColor={theme.colors.primaryContainer}
+                                          enableAvatar
             />}
             <IconButton mode='outlined'
                         style={show ? {position: 'absolute', right: 0} : {position: 'absolute', bottom: -5, right: 0}}
