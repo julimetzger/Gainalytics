@@ -4,7 +4,7 @@ import AddWorkout from "./AddWorkout";
 import {useWorkoutById} from "../redux/Workout/useWorkoutById";
 import {useNextTrainingsId} from "../redux/Training/useNextTrainingsId";
 
-const ExecuteTraining = ({training, chosenExercise, onSubmit}: Props) => {
+const ExecuteTraining = ({training, chosenExercise, onSubmit,onSubmitSet}: Props) => {
     let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];
     let doneWorkout = useWorkoutById(doneWorkoutId);
     let nextTrainingsId = useNextTrainingsId();
@@ -14,7 +14,8 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit}: Props) => {
             <AddWorkout workout={doneWorkout?.end ? doneWorkout : undefined} exercise={chosenExercise}
                         onSubmit={onSubmit}
                         suggest={false}
-                        trainingsId={training.id ?? nextTrainingsId}/>
+                        trainingsId={training.id ?? nextTrainingsId}
+                        onSubmitSet={onSubmitSet}/>
         </View>
     );
 }
@@ -22,7 +23,8 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit}: Props) => {
 interface Props {
     training: Training,
     chosenExercise: Exercise,
-    onSubmit: () => void
+    onSubmit: () => void,
+    onSubmitSet?: (workoutSet: WorkoutSet) => void
 
 }
 

@@ -3,7 +3,7 @@
 ## Trainings:
 - planned directly to done ?? 
 - addWorkout mit neuer Übung befüllen als default Wert fürs eintragen
-- zeit anzeigen seit start des Trainings
+- ~~zeit anzeigen seit start des Trainings~~ aber noch nicht schön 
 - Vergleich mit vorherigem Training/geplanten Workout nach Abschluss des Trainings
 - Anzeige des planned Trainings während des Trainings
 - Volumen/Set Unterstützung während des planens
@@ -32,5 +32,6 @@
 - rir/rpe
 - 1RM Buttone default mäßig an/aus
 - Export/Import alles
+- show timer on/off
 
 ## Video Analyse Funktion

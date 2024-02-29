@@ -67,6 +67,7 @@ const TrainingsPlanTab = ({route}: Props) => {
         setTimeInWorkout(new Date(Date.now()));
         setchosenExercise(exercises[number])
     }
+
     console.log("rerender");
 
     return (
@@ -74,14 +75,16 @@ const TrainingsPlanTab = ({route}: Props) => {
             <ScrollView>
                 <View>
                     <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly'}}>
-                        {training?.state === TrainingsState.STARTED && <Timer start={training.start!!}/>}
+                        {training?.state === TrainingsState.STARTED &&
+                            <Timer start={training.start!!} label={'Start Training'}/>}
                         <Button mode='outlined' onPress={changePlanningmode}>
                             {training?.state === TrainingsState.PLANNED && "Start Training"}
                             {training?.state === TrainingsState.STARTED && "Finish Training"}
                             {training?.state === TrainingsState.FINISHED && overview && "Show Sets"}
                             {training?.state === TrainingsState.FINISHED && !overview && "Show Overview"}
                         </Button>
-                        {training?.state === TrainingsState.STARTED && <Timer start={timeInWorkout}/>}
+                        {training?.state === TrainingsState.STARTED &&
+                            <Timer start={timeInWorkout} reset={true} label={"Last Set"}/>}
                     </View>
                     {training?.state !== TrainingsState.FINISHED &&
                         <View>
@@ -114,6 +117,7 @@ const TrainingsPlanTab = ({route}: Props) => {
                             training={training}
                             chosenExercise={chosenExercise!!}
                             onSubmit={() => goToNextExercise()}
+                            onSubmitSet={() => setTimeInWorkout(new Date(Date.now()))}
                         />}
                     {training?.state === TrainingsState.FINISHED && overview &&
                         <View><Text>Training completed, Markus approves. Heim gehen und gains abholen. Der
