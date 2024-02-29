@@ -17,11 +17,13 @@ import DraggableExercise from "../../components/DraggableExercise";
 import {dispatchSuggestBasedOnTrained} from "../../redux/Training/dispatchSuggestBasedOnTrained";
 import {dispatchSuggestBasedOnPlanned} from "../../redux/Training/dispatchSuggestBasedOnPlanned";
 import Picker from "../../components/Picker";
+import Timer from "../../components/Timer";
 
 const TrainingsPlanTab = ({route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
     const [micro, setMicro] = useState(1);
     const [trainingInMicro, setTrainingInMicro] = useState(1);
+    const [timeInWorkout, setTimeInWorkout] = useState(new Date(Date.now()));
     const training = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);
     const startTraining = dispatchStartTraining(training?.id);
     const [overview, setOverview] = useState(true)
@@ -54,6 +56,7 @@ const TrainingsPlanTab = ({route}: Props) => {
                 setchosenExercise(exercises[0])
             setOverview(!overview);
         }
+        setTimeInWorkout(new Date(Date.now()));
     }
 
     function goToNextExercise() {
@@ -61,19 +64,25 @@ const TrainingsPlanTab = ({route}: Props) => {
         if (number >= exercises.length) {
             return;
         }
+        setTimeInWorkout(new Date(Date.now()));
         setchosenExercise(exercises[number])
     }
+    console.log("rerender");
 
     return (
         <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
             <ScrollView>
                 <View>
-                    <Button mode='outlined' onPress={changePlanningmode}>
-                        {training?.state === TrainingsState.PLANNED && "Start Training"}
-                        {training?.state === TrainingsState.STARTED && "Finish Training"}
-                        {training?.state === TrainingsState.FINISHED && overview && "Show Sets"}
-                        {training?.state === TrainingsState.FINISHED && !overview && "Show Overview"}
-                    </Button>
+                    <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly'}}>
+                        {training?.state === TrainingsState.STARTED && <Timer start={training.start!!}/>}
+                        <Button mode='outlined' onPress={changePlanningmode}>
+                            {training?.state === TrainingsState.PLANNED && "Start Training"}
+                            {training?.state === TrainingsState.STARTED && "Finish Training"}
+                            {training?.state === TrainingsState.FINISHED && overview && "Show Sets"}
+                            {training?.state === TrainingsState.FINISHED && !overview && "Show Overview"}
+                        </Button>
+                        {training?.state === TrainingsState.STARTED && <Timer start={timeInWorkout}/>}
+                    </View>
                     {training?.state !== TrainingsState.FINISHED &&
                         <View>
                             <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
