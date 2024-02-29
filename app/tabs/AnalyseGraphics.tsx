@@ -50,6 +50,7 @@ const AnalyseGraphics = ({route}: Props) => {
         <View style={{
             backgroundColor: theme.colors.background,
             display: 'flex',
+            flex: 1,
             justifyContent: 'flex-start',
         }}>
             <ScrollView keyboardShouldPersistTaps={'always'}>
@@ -119,7 +120,7 @@ const AnalyseGraphics = ({route}: Props) => {
 
 const styles = StyleSheet.create({
     chart: {
-        height: 400
+        height: 350
     },
 
 })
