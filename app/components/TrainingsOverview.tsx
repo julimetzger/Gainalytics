@@ -7,15 +7,12 @@ import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
 import {Metric} from "./Picker";
 import {Muscles} from "../models/Muscles";
 import {MusclePercentPair} from "./MusclePicker";
+import {useWorkoutsByIds} from "../redux/Workout/useWorkoutsByIds";
+import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 
 interface TrainingsOverviewProps {
     training: Training,
     previousTraining: Training
-}
-
-interface WorkoutMap {
-    currentWorkout: Workout,
-    lastWorkout?: Workout
 }
 
 interface WorkoutSetMap {
@@ -34,7 +31,7 @@ function MetricView(comparison: Comparison) {
         {comparison?.difference !== undefined &&
             <Text
                 style={{color: greater ? '#558b2f' : '#b22222'}}>
-                {(greater ? "+" : "-") + comparison.difference!!.toFixed(2)}
+                {(greater ? "+" : "") + comparison.difference!!.toFixed(2)}
             </Text>
         }
         <Text>{comparison?.value?.toFixed(2)}</Text>
@@ -42,30 +39,36 @@ function MetricView(comparison: Comparison) {
 }
 
 const TrainingsOverview = ({training, previousTraining}: TrainingsOverviewProps) => {
-    let exerciseWorkoutMap = new Map<Exercise, WorkoutMap>();
-    let usedMuscles = new Map<Muscles, WorkoutSetMap>
+    let trainingsWorkouts = useWorkoutsByIds(Object.values(training.doneWorkoutIds));
+    let trainingExcercises = useExerciseByIds(trainingsWorkouts.map((workout: Workout) => workout.exerciseId));
+    let previousWorkouts = useWorkoutsByIds(previousTraining ? Object.values(previousTraining.doneWorkoutIds) : []);
 
-    Object.entries(training.doneWorkoutIds).forEach(([exerciseId, wokoutId]) => {
-        let workout = useWorkoutById(wokoutId);
-        const exerciseIdInt = parseInt(exerciseId);
-        let exercise = useExercise(exerciseIdInt);
-        let lastWorkout = useWorkoutById(previousTraining?.doneWorkoutIds[exerciseIdInt]);
+    let exerciseWorkoutMap = new Map<Exercise, WorkoutSetMap>();
+    let usedMuscles = new Map<Muscles, WorkoutSetMap>;
+    trainingsWorkouts.forEach(workout => {
+        let exercise = trainingExcercises.find((exercise: Exercise) => exercise.id === workout.exerciseId);
+        let lastWorkout = previousWorkouts.filter((previousWorkout: Workout) => previousWorkout.exerciseId === workout.exerciseId);
         if (workout && exercise) {
-            exerciseWorkoutMap.set(exercise, {
-                currentWorkout: workout,
-                lastWorkout: lastWorkout
-            });
+            if (exerciseWorkoutMap.get(exercise)) {
+                exerciseWorkoutMap.get(exercise)?.currentWorkoutSets.push(...workout.sets);
+                lastWorkout ? exerciseWorkoutMap.get(exercise)?.lastWorkoutSets?.push(...lastWorkout?.map((workout: Workout) => workout.sets).flat()) : 0;
+            } else {
+                exerciseWorkoutMap.set(exercise, {
+                    currentWorkoutSets: workout.sets,
+                    lastWorkoutSets: lastWorkout?.map((workout: Workout) => workout.sets).flat() ?? []
+                });
+            }
         }
         exercise?.muscles?.forEach((muscle: MusclePercentPair) => {
             if (muscle.muscle) {
                 //TODO lastWorkoutSets handling genauer
                 if (usedMuscles.has(muscle.muscle)) {
                     usedMuscles.get(muscle.muscle)?.currentWorkoutSets?.push(...workout.sets);
-                    lastWorkout ? usedMuscles.get(muscle.muscle)?.lastWorkoutSets?.push(...lastWorkout?.sets) : 0;
+                    lastWorkout ? usedMuscles.get(muscle.muscle)?.lastWorkoutSets?.push(...lastWorkout?.map((workout: Workout) => workout.sets).flat()) : 0;
                 } else {
                     usedMuscles.set(muscle.muscle, {
                         currentWorkoutSets: workout?.sets ? [...workout.sets] : [],
-                        lastWorkoutSets: lastWorkout?.sets ? [...lastWorkout.sets] : []
+                        lastWorkoutSets: lastWorkout?.map((workout: Workout) => workout.sets).flat() ?? []
                     });
                 }
             }
@@ -77,8 +80,8 @@ const TrainingsOverview = ({training, previousTraining}: TrainingsOverviewProps)
     Array.from(exerciseWorkoutMap).forEach(([exercise, workout]) => {
             let metricComparison = new Map<Metric, Comparison>();
             Object.values(Metric).forEach((metric) => {
-                let current = calculateMetricValue(workout.currentWorkout.sets, metric)!!;
-                let last = calculateMetricValue(workout.lastWorkout?.sets ?? [], metric);
+                let current = calculateMetricValue(workout.currentWorkoutSets, metric)!!;
+                let last = calculateMetricValue(workout.lastWorkoutSets ?? [], metric);
                 let difference = last ? current - last : undefined;
                 metricComparison.set(metric, {value: current, difference: difference});
             })
@@ -122,7 +125,6 @@ const TrainingsOverview = ({training, previousTraining}: TrainingsOverviewProps)
                                 <DataTable.Title numeric>Reps</DataTable.Title>
                                 <DataTable.Title numeric>Max Intensity</DataTable.Title>
                             </DataTable.Header>
-
                             {Array.from(exerciseMetricMap).map(([exercise, workout]) => {
                                 return <DataTable.Row key={exercise.id}>
                                     <DataTable.Cell>{exercise.name}</DataTable.Cell>
