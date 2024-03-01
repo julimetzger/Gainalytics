@@ -30,6 +30,7 @@ export const repetitionWeightByOneRm = (reps: number, rir: number, oneRm: number
 export function calculateMetricValue(sets: WorkoutSet[], metric: Metric) {
     const oneRm = repetitionMax(...sets)?.valueOf();
     switch (metric) {
+        //TOOO percentage für volume, sets und reps berücksichtigen
         case Metric.ONE_RM:
             return oneRm;
         case Metric.VOLUME:

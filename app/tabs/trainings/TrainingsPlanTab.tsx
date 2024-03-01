@@ -19,7 +19,6 @@ import {dispatchSuggestBasedOnPlanned} from "../../redux/Training/dispatchSugges
 import Picker from "../../components/Picker";
 import Timer from "../../components/Timer";
 import TrainingsOverview from "../../components/TrainingsOverview";
-import {useLastTrainingInMicro} from "../../redux/Training/useLastTrainingInMicro";
 
 const TrainingsPlanTab = ({route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
@@ -27,7 +26,7 @@ const TrainingsPlanTab = ({route}: Props) => {
     const [trainingInMicro, setTrainingInMicro] = useState(1);
     const [timeInWorkout, setTimeInWorkout] = useState(new Date(Date.now()));
     const training = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);
-    const lastTraining = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro-1);
+    const lastTraining = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro - 1, trainingInMicro);
     const startTraining = dispatchStartTraining(training?.id);
     const [overview, setOverview] = useState(true)
     let exercises = useExerciseByIds(training?.exercises ?? []);
