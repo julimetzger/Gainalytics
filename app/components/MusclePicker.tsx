@@ -20,7 +20,6 @@ const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) =>
     useEffect(() => {
 
     }, [muscleValue]);
-    console.log(muscleValue)
 
     return (
         <View style={{display: 'flex', flexDirection: 'row'}}>
