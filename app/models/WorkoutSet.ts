@@ -5,5 +5,3 @@ interface WorkoutSet  {
     weight: number;
     date?: Date;
 };
-
-
