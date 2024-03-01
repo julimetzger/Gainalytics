@@ -1,37 +1,23 @@
 import {Muscles} from "../models/Muscles";
 import {MusclePercentPair} from "./MusclePicker";
 import {Metric} from "./Picker";
-import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
+import {calculateMetricComparisons, calculateMetricValue} from "../utils/RepetitionMaxHelper";
 import {Card, DataTable, Text} from "react-native-paper";
 import React from "react";
-import {View} from "react-native";
 import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
+import MetricView from "./MetricComparison";
 
 
-interface WorkoutSetMap {
+export interface WorkoutSetMap {
     currentWorkoutSets: WorkoutSet[],
     lastWorkoutSets?: WorkoutSet[]
 }
 
-interface Comparison {
+export interface Comparison {
     value: number,
     difference?: number
 }
 
-function MetricView(comparison: Comparison) {
-    const greater = comparison.difference!! >= 0;
-    return <View style={{display: 'flex', alignItems: 'flex-end'}}>
-        {comparison?.difference !== undefined &&
-            <Text
-                style={{color: greater ? '#558b2f' : '#b22222'}}>
-                {(greater ? "+" : "") + comparison.difference!!.toFixed(2)}
-            </Text>
-        }
-
-
-        <Text>{comparison?.value?.toFixed(2)}</Text>
-    </View>;
-}
 
 interface WorkoutSetOverviewProps {
     trainingsWorkouts: Workout[],
@@ -90,19 +76,13 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
     let muscleMetricMap = new Map<Muscles, Map<Metric, Comparison>>();
 
     Array.from(usedMuscles).forEach(([muscle, workout]) => {
-            let metricComparison = new Map<Metric, Comparison>();
-            Object.values(Metric).forEach((metric) => {
-                let current = calculateMetricValue(workout.currentWorkoutSets, metric)!!;
-                let last = calculateMetricValue(workout.lastWorkoutSets ?? [], metric);
-                let difference = last ? current - last : undefined;
-                metricComparison.set(metric, {value: current, difference: difference});
-            })
+            let metricComparison = calculateMetricComparisons(workout);
             muscleMetricMap.set(muscle, metricComparison);
         }
     )
 
     return <>
-        <Card>
+        <Card style={{margin: 5}}>
             <Card.Title title={<Text>Exercise Overview</Text>}></Card.Title>
             <Card.Content>
                 <DataTable>
@@ -116,18 +96,20 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
                         return <DataTable.Row key={exercise.id}>
                             <DataTable.Cell>{exercise.name}</DataTable.Cell>
                             <DataTable.Cell numeric>
-                                {MetricView(workout.get(Metric.ONE_RM)!!)}
+                                <MetricView comparison={workout.get(Metric.ONE_RM)!!}/>
                             </DataTable.Cell>
-                            <DataTable.Cell
-                                numeric>{MetricView(workout.get(Metric.REPS)!!)}</DataTable.Cell>
-                            <DataTable.Cell
-                                numeric>{MetricView(workout.get(Metric.MAX_INTENSITY)!!)}</DataTable.Cell>
+                            <DataTable.Cell numeric>
+                                <MetricView comparison={workout.get(Metric.REPS)!!}/>
+                            </DataTable.Cell>
+                            <DataTable.Cell numeric>
+                                <MetricView comparison={workout.get(Metric.MAX_INTENSITY)!!}/>
+                            </DataTable.Cell>
                         </DataTable.Row>
                     })}
                 </DataTable>
             </Card.Content>
         </Card>
-        <Card>
+        <Card style={{margin: 5}}>
             <Card.Title title={<Text>Muscle Overview</Text>}></Card.Title>
             <Card.Content>
                 <DataTable>
@@ -140,12 +122,15 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
                     {Array.from(muscleMetricMap).map(([muscle, workout]) => {
                         return <DataTable.Row key={muscle.toString()}>
                             <DataTable.Cell>{muscle}</DataTable.Cell>
-                            <DataTable.Cell
-                                numeric>{MetricView(workout.get(Metric.VOLUME)!!)}</DataTable.Cell>
-                            <DataTable.Cell
-                                numeric>{MetricView(workout.get(Metric.SETS)!!)}</DataTable.Cell>
-                            <DataTable.Cell
-                                numeric>{MetricView(workout.get(Metric.REPS)!!)}</DataTable.Cell>
+                            <DataTable.Cell numeric>
+                                <MetricView comparison={workout.get(Metric.VOLUME)!!}/>
+                            </DataTable.Cell>
+                            <DataTable.Cell numeric>
+                                <MetricView comparison={workout.get(Metric.SETS)!!}/>
+                            </DataTable.Cell>
+                            <DataTable.Cell numeric>
+                                <MetricView comparison={workout.get(Metric.REPS)!!}/>
+                            </DataTable.Cell>
                         </DataTable.Row>
                     })}
                 </DataTable>
