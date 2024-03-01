@@ -31,7 +31,7 @@ const DatePicker = ({date, setDate, style}: DatePickerProps) => {
                 {new Date(date).toDateString()}
             </Button>
             <DatePickerModal
-                locale="en"
+                locale="en-GB"
                 mode="single"
                 visible={open}
                 onDismiss={onDismissSingle}
