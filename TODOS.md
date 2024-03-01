@@ -4,7 +4,7 @@
 - planned directly to done ?? 
 - addWorkout mit neuer Übung befüllen als default Wert fürs eintragen
 - ~~zeit anzeigen seit start des Trainings~~ aber noch nicht schön 
-- Vergleich mit vorherigem Training/geplanten Workout nach Abschluss des Trainings
+- ~~Vergleich mit vorherigem Training~~/geplanten Workout nach Abschluss des Trainings
 - Anzeige des planned Trainings während des Trainings
 - Volumen/Set Unterstützung während des planens
 - Zusammenfassung als letzte Seite nach allen Trainings (Volumen, Sets, Muskelgruppen etc.)
@@ -14,6 +14,7 @@
 - swipen um zwischen trainings zu wechseln
 - anzeige des trainings im router oben
 - name für trainings
+- Exportieren/Importieren von kompletten Trainings vlt. auch von Micros
 
 ## Analyse
 - neue Seite für Darstellung volumen für bodyparts, übungen etc
@@ -36,5 +37,6 @@
 - 1RM Buttone default mäßig an/aus
 - Export/Import alles
 - show timer on/off
+- Metriken die im TrainingsOverview angezeigt werden sollen für Muscles/Exercises
 
 ## Video Analyse Funktion
