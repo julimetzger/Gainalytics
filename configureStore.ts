@@ -66,7 +66,7 @@ const persistConfig = {
     key: 'root',
     version: 2,
     storage: reduxStorage,
-    whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings'],
+    whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'settings'],
     stateReconciler: hardSet,
     transforms: [saveUserLoginSubsetFilter],
     migrate: createMigrate(migrations, {debug: true}),
