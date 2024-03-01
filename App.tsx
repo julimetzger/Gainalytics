@@ -2,12 +2,19 @@ import React from 'react';
 import {PersistGate} from 'redux-persist/integration/react';
 import {Provider} from 'react-redux';
 import configureStore from './configureStore';
-import {NavigationContainer, DarkTheme as NavigationDarkTheme} from '@react-navigation/native';
-import {MD3DarkTheme as PaperDarkTheme, Provider as PaperProvider} from 'react-native-paper';
+import {DarkTheme as NavigationDarkTheme, NavigationContainer} from '@react-navigation/native';
+import {
+    DefaultTheme,
+    MD3DarkTheme as PaperDarkTheme,
+    MD3LightTheme,
+    Provider as PaperProvider
+} from 'react-native-paper';
 import merge from 'deepmerge';
 import {BottomTabs} from './app/routing/bottomNavigator';
 import {EventProvider} from "react-native-outside-press";
-import { registerTranslation } from 'react-native-paper-dates';
+import {registerTranslation} from 'react-native-paper-dates';
+import {useSettings} from "./app/redux/settings/useSettings";
+import {useAllTrainingsPlans} from "./app/redux/Training/useAllTrainingsPlans";
 
 registerTranslation('en-GB', {
     save: 'Save',
@@ -24,13 +31,14 @@ registerTranslation('en-GB', {
     typeInDate: 'Type in date',
     pickDateFromCalendar: 'Pick date from calendar',
     close: 'Close',
-  })
+})
 
-const CombinedDarkTheme = merge(PaperDarkTheme, NavigationDarkTheme);
 
 const {store, persistor} = configureStore();
 
-export const PaperThemes = {
+
+export const CombinedDarkTheme = merge(PaperDarkTheme, NavigationDarkTheme);
+export const DarkTheme = {
     ...CombinedDarkTheme,
     colors: {
         ...CombinedDarkTheme.colors,
@@ -42,19 +50,41 @@ export const PaperThemes = {
 };
 
 
+export const LightTheme = merge(MD3LightTheme, DefaultTheme);
+export const LightThemeCombined = {
+    ...LightTheme,
+    colors: {
+        ...LightTheme.colors,
+        primary: MD3LightTheme.colors.primary,
+        background: MD3LightTheme.colors.background,
+        text: MD3LightTheme.colors.onSecondaryContainer,
+    },
+};
+
+const AppWithPersist = () => {
+    let appSettings = useSettings();
+    let paperThemen;
+    if (appSettings?.mode === 'light') {
+        paperThemen = LightThemeCombined;
+    } else {
+        paperThemen = DarkTheme;
+    }
+    return <PersistGate loading={null} persistor={persistor}>
+        <PaperProvider theme={paperThemen}>
+            <EventProvider>
+                <NavigationContainer theme={paperThemen}>
+                    <BottomTabs/>
+                </NavigationContainer>
+            </EventProvider>
+        </PaperProvider>
+    </PersistGate>;
+}
+
 const App: () => React.ReactElement = () => {
     return (
         <>
             <Provider store={store}>
-                <PersistGate loading={null} persistor={persistor}>
-                    <PaperProvider theme={PaperThemes}>
-                        <EventProvider>
-                            <NavigationContainer theme={PaperThemes}>
-                                <BottomTabs/>
-                            </NavigationContainer>
-                        </EventProvider>
-                    </PaperProvider>
-                </PersistGate>
+                <AppWithPersist/>
             </Provider>
         </>
     );
