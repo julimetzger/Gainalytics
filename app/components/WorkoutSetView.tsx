@@ -20,18 +20,19 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
     }, [sets]);
     let highlightValue = highLightMode ? calculateMetricValue(sets, highLightMode) : undefined;
 
-    function showSets(training: WorkoutSet) {
+    console.log("sets", sets)
+    function showSets(set: WorkoutSet) {
         return (
-            <DataTable.Row style={{padding: 0, margin: 0, minHeight: 35}} key={training.index}
-                           id={training.index!!.toString()} onPress={() => {
+            <DataTable.Row style={{padding: 0, margin: 0, minHeight: 35}} key={set.index}
+                           onPress={() => {
                 if (editable) {
-                    setSetToUpdate(training);
+                    setSetToUpdate(set);
                 }
             }}>
-                <DataTable.Cell>{training.reps + " reps"}</DataTable.Cell>
-                <DataTable.Cell>{training.rir + " RIR"}</DataTable.Cell>
-                <DataTable.Cell>{training.weight + " kg"}</DataTable.Cell>
-                {highLightMode && (highLightMode === Metric.MAX_INTENSITY || highLightMode === Metric.ONE_RM) && highlightValue === calculateMetricValue([training], highLightMode) &&
+                <DataTable.Cell>{set.reps + " reps"}</DataTable.Cell>
+                <DataTable.Cell>{set.rir + " RIR"}</DataTable.Cell>
+                <DataTable.Cell>{set.weight + " kg"}</DataTable.Cell>
+                {highLightMode && (highLightMode === Metric.MAX_INTENSITY || highLightMode === Metric.ONE_RM) && highlightValue === calculateMetricValue([set], highLightMode) &&
                     <DataTable.Cell><Icon size={10} source={"trophy"}/>
                     </DataTable.Cell>
                 }

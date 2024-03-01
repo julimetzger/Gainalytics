@@ -18,6 +18,8 @@ import {dispatchSuggestBasedOnTrained} from "../../redux/Training/dispatchSugges
 import {dispatchSuggestBasedOnPlanned} from "../../redux/Training/dispatchSuggestBasedOnPlanned";
 import Picker from "../../components/Picker";
 import Timer from "../../components/Timer";
+import TrainingsOverview from "../../components/TrainingsOverview";
+import {useLastTrainingInMicro} from "../../redux/Training/useLastTrainingInMicro";
 
 const TrainingsPlanTab = ({route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
@@ -25,6 +27,7 @@ const TrainingsPlanTab = ({route}: Props) => {
     const [trainingInMicro, setTrainingInMicro] = useState(1);
     const [timeInWorkout, setTimeInWorkout] = useState(new Date(Date.now()));
     const training = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);
+    const lastTraining = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro-1);
     const startTraining = dispatchStartTraining(training?.id);
     const [overview, setOverview] = useState(true)
     let exercises = useExerciseByIds(training?.exercises ?? []);
@@ -78,6 +81,7 @@ const TrainingsPlanTab = ({route}: Props) => {
                         {training?.state === TrainingsState.STARTED &&
                             <Timer start={training.start!!} label={'Start Training'}/>}
                         <Button mode='outlined' onPress={changePlanningmode}>
+                            {training?.state === undefined && "Plan Training"}
                             {training?.state === TrainingsState.PLANNED && "Start Training"}
                             {training?.state === TrainingsState.STARTED && "Finish Training"}
                             {training?.state === TrainingsState.FINISHED && overview && "Show Sets"}
@@ -120,11 +124,7 @@ const TrainingsPlanTab = ({route}: Props) => {
                             onSubmitSet={() => setTimeInWorkout(new Date(Date.now()))}
                         />}
                     {training?.state === TrainingsState.FINISHED && overview &&
-                        <View><Text>Training completed, Markus approves. Heim gehen und gains abholen. Der
-                            Thunfischshake
-                            wartet
-                            auf dich! </Text>
-                        </View>}
+                        <TrainingsOverview training={training} previousTraining={lastTraining}/>}
                     {training?.state === TrainingsState.FINISHED && !overview &&
                         <TrainingHistory training={training}/>}
                 </View>
