@@ -55,7 +55,7 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
             </Swipeable>
         </View>
         <DatePickerModal
-            locale="en"
+            locale="en-GB"
             mode="range"
             visible={open}
             onDismiss={onDismiss}
