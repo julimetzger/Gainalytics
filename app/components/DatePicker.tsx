@@ -28,7 +28,12 @@ const DatePicker = ({date, setDate, style}: DatePickerProps) => {
         <View style={style}>
             <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined"
                     style={{ display: 'flex', alignSelf: 'center'}}>
-                {new Date(date).toDateString()}
+                {new Date(date).toLocaleDateString('en-GB', {
+            weekday: 'short',
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit'
+        })}
             </Button>
             <DatePickerModal
                 locale="en-GB"

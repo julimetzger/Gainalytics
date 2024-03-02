@@ -27,19 +27,33 @@ export const lastDayOfWeek = (dateObject: Date, lastDayOfWeekIndex: number) => {
     return firstDayOfWeek
 }
 
-
 export const getEndOfDay = (d: Date = new Date()) => {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
 }
 
 export const getDateStringFromDate = (date?: Date | number) => {
     if (typeof date === 'number') {
-        return new Date(date).toDateString();
+        return new Date(date).toLocaleDateString('en-GB', {
+            weekday: 'short', // Sat
+            day: '2-digit',   // 02
+            month: '2-digit', // 03
+            year: '2-digit'   // 24
+        });
     }
     if (typeof date === 'string') {
-        return new Date(date).toDateString();
+        return new Date(date).toLocaleDateString('en-GB',{
+            weekday: 'short',
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit'
+        });
     } else {
-        return date?.toDateString();
+        return date?.toLocaleDateString('en-GB',{
+            weekday: 'short',
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit'
+        });
     }
 }
 
@@ -68,4 +82,3 @@ export function sameDate(a: Date, b: Date) {
     b = new Date(b);
     return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
 }
-
