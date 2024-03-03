@@ -1,4 +1,4 @@
-ö# TODOs for the project
+# TODOs for the project
 
 ## Trainings:
 - planned directly to done ?? 
