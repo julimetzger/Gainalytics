@@ -19,8 +19,6 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
     useEffect(() => {
     }, [sets]);
     let highlightValue = highLightMode ? calculateMetricValue(sets, highLightMode) : undefined;
-
-    console.log("sets", sets)
     function showSets(set: WorkoutSet) {
         return (
             <DataTable.Row style={{padding: 0, margin: 0, minHeight: 35}} key={set.index}

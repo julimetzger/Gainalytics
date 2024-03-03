@@ -70,8 +70,6 @@ const TrainingsPlanTab = ({route}: Props) => {
         setchosenExercise(exercises[number])
     }
 
-    console.log("rerender");
-
     return (
         <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
             <ScrollView>
