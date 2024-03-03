@@ -4,10 +4,14 @@ import HistoryRouter from "./HistoryRouter";
 import AnalyseRouter from "./AnalyseRouter";
 import {createMaterialBottomTabNavigator} from "react-native-paper/react-navigation";
 import TrainingRouter from "./TrainingRouter";
+import { useTrainings } from '../redux/Training/useTrainings';
+import { TrainingsState } from '../models/TrainingsState';
 
 const Tab = createMaterialBottomTabNavigator();
 
-export const BottomTabs = () => {
+export const BottomTabs = () => {const allTrainings = useTrainings();
+    console.log("allTrainings", allTrainings)
+let isTrainingStarted=allTrainings.some(A=>A.state===TrainingsState.STARTED)
     return (
         <Tab.Navigator initialRouteName="Feed" shifting={true} sceneAnimationEnabled={false}>
             <Tab.Screen
@@ -36,6 +40,7 @@ export const BottomTabs = () => {
                 component={TrainingRouter}
                 options={{
                     tabBarIcon: 'book-open-variant',
+                    tabBarBadge: isTrainingStarted,
                 }}
             />
         </Tab.Navigator>

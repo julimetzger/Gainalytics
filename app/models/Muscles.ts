@@ -1,11 +1,11 @@
 export enum Muscles {
-    BICEPS = "Biceps",
-    TRICEPS = "Triceps",
-    QUADS = "Quads",
-    HAMSTRINGS = "Hamstrings",
-    GLUTES = "Glutes",
     BACK = "Back",
-    SHOULDERS = "Shoulders",
+    BICEPS = "Biceps",
     CHEST = "Chest",
     CORE = "Core",
-}
+    GLUTES = "Glutes",
+    HAMSTRINGS = "Hamstrings",
+    TRICEPS = "Triceps",
+    QUADS = "Quads",
+    SHOULDERS = "Shoulders",
+    }
