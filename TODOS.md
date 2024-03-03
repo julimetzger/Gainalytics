@@ -40,3 +40,7 @@
 - Metriken die im TrainingsOverview angezeigt werden sollen für Muscles/Exercises
 
 ## Video Analyse Funktion
+
+## Try out
+- https://www.npmjs.com/package/react-native-calendars/v/1.1286.0 kalender der auch Markierungen anzeigen kann. Period scheint auch zu funktionieren
+- Toast für records

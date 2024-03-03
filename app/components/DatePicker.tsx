@@ -2,6 +2,7 @@ import * as React from 'react';
 import {Button} from 'react-native-paper';
 import {DatePickerModal} from 'react-native-paper-dates';
 import {StyleProp, View, ViewStyle} from "react-native";
+import {getDateStringFromDate} from "../utils/DateHelper";
 
 interface DatePickerProps {
     date: Date,
@@ -27,13 +28,8 @@ const DatePicker = ({date, setDate, style}: DatePickerProps) => {
     return (
         <View style={style}>
             <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined"
-                    style={{ display: 'flex', alignSelf: 'center'}}>
-                {new Date(date).toLocaleDateString('en-GB', {
-            weekday: 'short',
-            day: '2-digit',
-            month: '2-digit',
-            year: '2-digit'
-        })}
+                    style={{display: 'flex', alignSelf: 'center'}}>
+                {getDateStringFromDate(date)}
             </Button>
             <DatePickerModal
                 locale="en-GB"

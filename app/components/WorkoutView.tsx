@@ -53,7 +53,7 @@ const WorkoutView = ({workoutIds, highlightMode, editable = true}: WorkoutViewPr
                         <Text style={styles.exerciseText}>
                             {getDateStringFromDate(new Date(date))}</Text>
 
-                        {workouts.sort((a, b) => new Date(a.start!!).getTime() - new Date(b.start!!).getTime()).reverse().map((workout) => {
+                        {workouts.sort((a, b) => new Date(a.start!!).getTime() - new Date(b.start!!).getTime()).map((workout) => {
                             return <WorkoutViewTile workout={workout}
                                                     highlightMode={highlighWorkoutIds.includes(workout.id!!) ? highlightMode : undefined}
                                                     exercise={exercises.find((ex) => ex.id === workout.exerciseId)!!}
