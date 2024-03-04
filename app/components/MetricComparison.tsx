@@ -8,12 +8,17 @@ interface MetricComparisonProps {
 }
 
 const MetricView = ({comparison}: MetricComparisonProps) => {
-    const greater = comparison.difference!! >= 0;
+    const greater = comparison.difference!! > 0;
     return <View style={{display: 'flex', alignItems: 'flex-end'}}>
         {comparison?.difference !== undefined &&
             <Text
-                style={{color: greater ? '#558b2f' : '#b22222'}}>
-                {(greater ? "+" : "") + comparison.difference!!.toFixed(2)}
+                style={{color: comparison.difference!! === 0
+                    ? '#FF9800' // orange => 0
+                    : greater
+                    ? '#4CAF50' // green => greater
+                    : '#f44336' // red => less
+              }}>
+              {(greater ? '+' : '') + comparison.difference!!.toFixed(2)}
             </Text>
         }
 

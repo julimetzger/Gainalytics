@@ -5,7 +5,7 @@ export enum Muscles {
     CORE = "Core",
     GLUTES = "Glutes",
     HAMSTRINGS = "Hamstrings",
-    TRICEPS = "Triceps",
     QUADS = "Quads",
     SHOULDERS = "Shoulders",
+    TRICEPS = "Triceps",
     }
