@@ -14,7 +14,7 @@ import {useWorkoutsByIds} from "../redux/Workout/useWorkoutsByIds";
 import WorkoutView from "../components/WorkoutView";
 import {getAllTrainingsForMicro, getMicroFromTrainingInMicroIndex} from "../redux/Training/trainingsPlanReducer";
 
-const AnalyseGraphics = ({route}: Props) => {
+const AnalyseGraphics = ({}: Props) => {
     function handleDataPointSelect(value: ChartSelectEvent) {
         let ids = value.nativeEvent?.data?.id?.split(",").filter((value: string) => value !== "")?.map((value: string) => parseInt(value))
         setSelectedWorkoutIds(ids ?? []);
