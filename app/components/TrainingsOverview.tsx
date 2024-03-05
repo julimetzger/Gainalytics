@@ -35,10 +35,7 @@ const TrainingsOverview = ({training, previousTraining}: TrainingsOverviewProps)
     });
     return (
         <ScrollView>
-            <View><Text>Training completed, Markus approves. Heim gehen und gains abholen. Der
-                Thunfischshake
-                wartet
-                auf dich! </Text>
+            <View>
                 <View style={{display: 'flex', flexDirection: 'row', flex: 1}}>
                     <Card style={{margin: 5, flex: 1}}>
                         <Card.Title title={<Text>Duration</Text>}></Card.Title>

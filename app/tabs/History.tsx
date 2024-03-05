@@ -31,12 +31,13 @@ const History = ({route}: Props) => {
         <ScrollView style={{backgroundColor: theme.colors.background}} keyboardShouldPersistTaps={"handled"}>
             <DateRangePicker range={range} setRange={setRange}/>
             <Picker exercise={exercise} setExercise={setExercise} muscles={true}/>
-            <WorkoutView
-                workoutIds={lastWorkouts.map(workout => workout.id).filter(workoutId => workoutId !== undefined) as number[]}/>
+            <View style={{ margin: 5}}>
+                <WorkoutView workoutIds={lastWorkouts.map(workout => workout.id).filter(workoutId => workoutId !== undefined) as number[]}/>
+            </View>
             <Divider/>
             <View>
-                <Text>Volume: {lastWorkouts.reduce<number>((previousValue: number, currentValue) => previousValue + currentValue.sets.reduce<number>((previousValue1, currentValue1) => previousValue1 + currentValue1.reps * currentValue1.weight, 0), 0)}</Text>
-                <Text>1RM: {lastWorkouts.length > 0 ? repetitionMax(...lastWorkouts.flatMap(value => value.sets)).toFixed(2) : 0} </Text>
+                <Text> Volume: {lastWorkouts.reduce<number>((previousValue: number, currentValue) => previousValue + currentValue.sets.reduce<number>((previousValue1, currentValue1) => previousValue1 + currentValue1.reps * currentValue1.weight, 0), 0)} kg</Text>
+                <Text> 1RM: {lastWorkouts.length > 0 ? repetitionMax(...lastWorkouts.flatMap(value => value.sets)).toFixed(2) : 0} kg</Text>
             </View>
         </ScrollView>
     );
