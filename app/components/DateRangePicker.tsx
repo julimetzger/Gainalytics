@@ -74,11 +74,11 @@ interface DateRangePickerProps {
 
 export class Range {
     constructor(startDate: Date, endDate: Date) {
-        this.startDate = startDate;
+        this.startDate = new Date(startDate);
         if (endDate === undefined) {
             this.endDate = new Date(Date.now());
         } else {
-            this.endDate = endDate;
+            this.endDate = new Date(endDate);
         }
     }
 
