@@ -44,3 +44,6 @@
 ## Try out
 - https://www.npmjs.com/package/react-native-calendars/v/1.1286.0 kalender der auch Markierungen anzeigen kann. Period scheint auch zu funktionieren
 - Toast für records
+
+## Bugs
+- "Encountered two children with the same key" im Trainings Modus: bei aktivem Training "Add Workout" geklickt und bei jeder Übing sind die Deadlift Sets mit Haken dazugekommen, Sets können auch nicht gelöscht werden -> Error Meldung "Uncought Error, Cannot read property 'sets' of undefined, Zeile 159 workoutReducer
