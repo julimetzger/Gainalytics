@@ -49,7 +49,7 @@ const WorkoutView = ({workoutIds, highlightMode, editable = true}: WorkoutViewPr
         {
             Array.from(dateWorkoutMap.entries()).map(([date, workouts]) => {
                 return (
-                    <Card mode={'contained'} style={{marginBottom: 10}}>
+                    <Card mode={'contained'} style={{marginBottom: 10, marginHorizontal: 5}}>
                         <Text style={styles.exerciseText}>
                             {getDateStringFromDate(new Date(date))}</Text>
 

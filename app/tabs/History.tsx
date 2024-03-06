@@ -10,7 +10,6 @@ import {RootStackParamList} from "../routing/HistoryRouter";
 import WorkoutView from "../components/WorkoutView";
 import Picker from "../components/Picker";
 
-
 const History = ({route}: Props) => {
     useEffect(() => {
             if (route?.params?.exercise !== undefined) {
@@ -31,7 +30,7 @@ const History = ({route}: Props) => {
         <ScrollView style={{backgroundColor: theme.colors.background}} keyboardShouldPersistTaps={"handled"}>
             <DateRangePicker range={range} setRange={setRange}/>
             <Picker exercise={exercise} setExercise={setExercise} muscles={true}/>
-            <View style={{ margin: 5}}>
+            <View>
                 <WorkoutView workoutIds={lastWorkouts.map(workout => workout.id).filter(workoutId => workoutId !== undefined) as number[]}/>
             </View>
             <Divider/>

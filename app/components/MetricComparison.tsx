@@ -14,9 +14,9 @@ const MetricView = ({comparison}: MetricComparisonProps) => {
         {comparison?.difference !== undefined &&
             <Text
                 style={{color: comparison.difference!! === 0
-                    ? theme.colors.secondary
+                    ? theme.colors.onSurface
                     : greater
-                    ? '#4CAF50' // green
+                    ? '#558b2f' // green
                     : theme.colors.error
               }}>
               {(greater ? '+' : '') + comparison.difference!!.toFixed(2)}
