@@ -3,7 +3,7 @@ import {NormalizedState} from '../normalizedState';
 
 const initialState = {
     byId: {
-        1: {id: 1, name: 'Bankdrücken'},
+        1: {id: 1, name: 'Benchpress'},
         2: {id: 2, name: 'Squat'},
         3: {id: 3, name: 'Deadlift'},
     },

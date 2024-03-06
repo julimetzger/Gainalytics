@@ -7,7 +7,6 @@ import React from "react";
 import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 import MetricView from "./MetricComparison";
 
-
 export interface WorkoutSetMap {
     currentWorkoutSets: WorkoutSet[],
     lastWorkoutSets?: WorkoutSet[]
@@ -18,7 +17,6 @@ export interface Comparison {
     difference?: number
 }
 
-
 interface WorkoutSetOverviewProps {
     trainingsWorkouts: Workout[],
     previousWorkouts?: Workout[]
@@ -28,7 +26,7 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
     let trainingExcercises = useExerciseByIds(trainingsWorkouts.map((workout: Workout) => workout.exerciseId));
 
     let exerciseWorkoutMap = new Map<Exercise, WorkoutSetMap>();
-    let usedMuscles = new Map<Muscles, WorkoutSetMap>;
+    let usedMuscles = new Map<Muscles, WorkoutSetMap>();
     trainingsWorkouts.forEach(workout => {
         let exercise = trainingExcercises.find((exercise: Exercise) => exercise.id === workout.exerciseId);
         let lastWorkout = previousWorkouts.filter((previousWorkout: Workout) => previousWorkout.exerciseId === workout.exerciseId);
