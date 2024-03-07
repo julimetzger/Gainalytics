@@ -198,9 +198,8 @@ const History = ({route}: Props) => {
                                 value => {
                                     if (value === fullPosition.Upper.position) {
                                         return <View key={1} style={{
-                                            width: '100%',
+                                            width: dimensions.width,
                                             top: 0,
-                                            backgroundColor: "red",
                                         }}
                                         >
                                             <DateRangePicker range={fullPosition.Upper.range}
@@ -213,7 +212,6 @@ const History = ({route}: Props) => {
                                         return <View key={2} style={{
                                             width: dimensions.width,
                                             top: 0,
-                                            backgroundColor: "green",
                                         }}>
                                             <DateRangePicker range={fullPosition.Middle.range}
                                                              setRange={setRange}/>
@@ -226,7 +224,6 @@ const History = ({route}: Props) => {
                                             <View key={3} style={{
                                                 width: dimensions.width,
                                                 top: 0,
-                                                backgroundColor: "blue",
                                             }}>
                                                 <DateRangePicker range={fullPosition.Lower.range}
                                                                  setRange={setRange}/>
