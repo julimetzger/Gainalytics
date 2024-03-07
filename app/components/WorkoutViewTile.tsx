@@ -33,36 +33,38 @@ const WorkoutViewTile = ({workout, exercise, highlightMode, editable}: WorkoutVi
     }
 
     return (
-        <Card mode={"outlined"} style={{marginBottom: 5}} onLongPress={() => setShowEditWhenEditable(true)}>
-            <View style={{
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                justifyContent: 'flex-start'
-            }}>
-                <Text
-                    style={{
-                        fontSize: theme.fonts.titleMedium.fontSize,
-                        marginLeft: 5
-                    }}>{exercise.name}</Text>
-                {showEdit &&
-                    <IconButton style={{margin: 0, alignSelf: 'flex-start', height: 30}}
-                                icon={"delete"}
-                                onPress={() => {
-                                    useDeleteWorkoutdispatch(workout)
-                                    setShowEdit(false)
-                                }}/>}
-            </View>
-            {
-                showEdit &&
-                <AddWorkoutSet onSubmit={(wokoutSet) => addOrUpdateSetInWorkout(wokoutSet, workout.id!!)}/>
-            }
-            <WorkoutSetView key={workout.id} sets={workout.sets} onDelete={(workoutSet) => {
-                deleteSetFromWorkout(workoutSet, workout);
-            }} onSubmit={(workoutSet) => {
-                addOrUpdateSetInWorkout(workoutSet, workout.id!!);
-            }} highLightMode={highlightMode} editable={editable}/>
-        </Card>
+        <OutsidePressHandler onOutsidePress={() => setShowEditWhenEditable(false)} key={workout.id}>
+            <Card mode={"outlined"} style={{marginBottom: 5}} onLongPress={() => setShowEditWhenEditable(true)}>
+                <View style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    justifyContent: 'flex-start'
+                }}>
+                    <Text
+                        style={{
+                            fontSize: theme.fonts.titleMedium.fontSize,
+                            marginLeft: 5
+                        }}>{exercise.name}</Text>
+                    {showEdit &&
+                        <IconButton style={{margin: 0, alignSelf: 'flex-start', height: 30}}
+                                    icon={"delete"}
+                                    onPress={() => {
+                                        useDeleteWorkoutdispatch(workout)
+                                        setShowEdit(false)
+                                    }}/>}
+                </View>
+                {
+                    showEdit &&
+                    <AddWorkoutSet onSubmit={(wokoutSet) => addOrUpdateSetInWorkout(wokoutSet, workout.id!!)}/>
+                }
+                <WorkoutSetView key={workout.id} sets={workout.sets} onDelete={(workoutSet) => {
+                    deleteSetFromWorkout(workoutSet, workout);
+                }} onSubmit={(workoutSet) => {
+                    addOrUpdateSetInWorkout(workoutSet, workout.id!!);
+                }} highLightMode={highlightMode} editable={editable}/>
+            </Card>
+        </OutsidePressHandler>
     )
 }
 export default WorkoutViewTile;
