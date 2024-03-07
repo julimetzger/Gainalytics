@@ -17,11 +17,9 @@ function getScrollView(range: Range, exercise: Exercise[]) {
     let lastWorkouts = useWorkoutsIn(range)
         .filter((workout: Workout) => exercise.length > 0 ? exercise.map(it => it.id).includes(workout.exerciseId) : true)
     return <>
-        <View style={{margin: 5}}>
-            <WorkoutView
-                workoutIds={lastWorkouts.map(workout => workout.id).filter(workoutId => workoutId !== undefined) as number[]}/>
-            <Divider/>
-        </View>
+        <WorkoutView
+            workoutIds={lastWorkouts.map(workout => workout.id).filter(workoutId => workoutId !== undefined) as number[]}/>
+        <Divider/>
         <View>
             <Text>Volume: {lastWorkouts.reduce<number>((previousValue: number, currentValue) => previousValue + currentValue.sets.reduce<number>((previousValue1, currentValue1) => previousValue1 + currentValue1.reps * currentValue1.weight, 0), 0)}</Text>
             <Text>1RM: {lastWorkouts.length > 0 ? repetitionMax(...lastWorkouts.flatMap(value => value.sets)).toFixed(2) : 0} </Text>
@@ -69,7 +67,6 @@ const History = ({route}: Props) => {
 
         const xPosition = useSharedValue(-dimensions.width);
         const yPosition = useSharedValue(0);
-        console.log("fullPosition", fullPosition)
 
         function uiinusOne() {
             let newRange = fullPosition.range.minusRange()

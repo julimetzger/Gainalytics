@@ -10,7 +10,6 @@ import { TrainingsState } from '../models/TrainingsState';
 const Tab = createMaterialBottomTabNavigator();
 
 export const BottomTabs = () => {const allTrainings = useTrainings();
-    console.log("allTrainings", allTrainings)
 let isTrainingStarted=allTrainings.some(A=>A.state===TrainingsState.STARTED)
     return (
         <Tab.Navigator initialRouteName="Feed" shifting={true} sceneAnimationEnabled={false}>
