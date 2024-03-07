@@ -75,12 +75,28 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
                     style={[
                         styles.rowItem,
                         {
-                            backgroundColor: isActive ? theme.colors.tertiaryContainer : item.key === chosenExercise?.id ? theme.colors.primaryContainer : theme.colors.secondaryContainer,
-                        },
+                            backgroundColor: isActive
+                                ? theme.colors.secondaryContainer
+                                : item.key === chosenExercise?.id
+                                ? theme.colors.tertiaryContainer
+                                : theme.colors.primaryContainer
+                        }
                     ]}
                 >
                     <Text
-                        style={[styles.text, {color: isActive ? theme.colors.onTertiaryContainer : item.key === chosenExercise?.id ? theme.colors.onPrimaryContainer : theme.colors.onSecondaryContainer}]}>{item.label}</Text>
+                        style={[
+                            styles.text,
+                            {
+                                color: isActive 
+                                    ? theme.colors.onTertiaryContainer 
+                                    : item.key === chosenExercise?.id 
+                                    ? theme.colors.onPrimaryContainer 
+                                    : theme.colors.onSecondaryContainer
+                                }
+                        ]}
+                    >
+                        {item.label}
+                    </Text>
                 </TouchableOpacity>
             </ScaleDecorator>
         );
