@@ -138,7 +138,29 @@ const History = ({route}: Props) => {
 
         const refa = useRef();
 
+        const initialTouchLocation = useSharedValue<{ x: number, y: number } | null>(null);
+
+
         const panGesture = Gesture.Pan()
+            .manualActivation(true)
+            .onBegin((evt) => {
+                initialTouchLocation.value = {x: evt.x, y: evt.y};
+            })
+            .onTouchesMove((evt, state) => {
+                // Sanity checks
+                if (!initialTouchLocation.value || !evt.changedTouches.length) {
+                    state.fail();
+                    return;
+                }
+
+                const xDiff = Math.abs(evt.changedTouches[0].x - initialTouchLocation.value.x);
+                const yDiff = Math.abs(evt.changedTouches[0].y - initialTouchLocation.value.y);
+                const isHorizontalPanning = xDiff > yDiff && xDiff > 30;
+
+                if (isHorizontalPanning) {
+                    state.activate();
+                }
+            })
             .onUpdate((e) => {
                 xPosition.value = -dimensions.width + e.translationX;
             })
