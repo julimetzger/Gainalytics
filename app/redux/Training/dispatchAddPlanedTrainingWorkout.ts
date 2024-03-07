@@ -1,4 +1,4 @@
-import {useDispatch, useSelector} from 'react-redux';
+import {useDispatch} from 'react-redux';
 import {Action} from 'redux';
 import {useNextTrainingsId} from "./useNextTrainingsId";
 import {useNextWorkoutId} from "../Workout/useNextWorkoutId";

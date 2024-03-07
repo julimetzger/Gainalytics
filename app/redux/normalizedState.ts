@@ -1,4 +1,3 @@
-import {yAxis} from "react-native-charts-wrapper";
 
 export interface NormalizedState<T> {
     byId: { [id: number]: T };
