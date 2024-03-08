@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {StyleSheet, useWindowDimensions, View} from 'react-native';
+import {useWindowDimensions, View} from 'react-native';
 import {Divider, Text} from 'react-native-paper';
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
 import DateRangePicker, {Range} from "../components/DateRangePicker";
@@ -37,7 +37,8 @@ interface FullPosition {
     Lower: PositionRange,
     Middle: PositionRange,
     activeView: ViewPosition,
-    range: Range
+    range: Range,
+    traveledIndex: number
 }
 
 enum ViewPosition {
@@ -60,12 +61,14 @@ const History = ({route}: Props) => {
             Middle: {position: 0, range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0))},
             Lower: {position: 1, range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0)).plusOneRange()},
             activeView: ViewPosition.MIDDLE,
-            range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0))
+            range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0)),
+            traveledIndex: 0
         } as FullPosition)
         const [exercise, setExercise] = useState<Exercise[]>([]);
         let dimensions = useWindowDimensions();
 
-        const xPosition = useSharedValue(-dimensions.width);
+        let initialOffset = -dimensions.width;
+        const xPosition = useSharedValue(0);
         const yPosition = useSharedValue(0);
 
         function uiinusOne() {
@@ -76,7 +79,8 @@ const History = ({route}: Props) => {
                     Upper: {position: 0, range: newRange},
                     Middle: {position: 1, range: newRange.plusOneRange()},
                     Lower: {position: -1, range: newRange.minusRange()},
-                    range: newRange
+                    range: newRange,
+                    traveledIndex: fullPosition.traveledIndex + 1
                 })
             }
             if (fullPosition.activeView === ViewPosition.LOWER) {
@@ -85,7 +89,7 @@ const History = ({route}: Props) => {
                     Upper: {position: -1, range: newRange.minusRange()},
                     Middle: {position: 0, range: newRange},
                     Lower: {position: 1, range: newRange.plusOneRange()},
-                    range: newRange
+                    range: newRange, traveledIndex: fullPosition.traveledIndex + 1
                 })
             }
             if (fullPosition.activeView === ViewPosition.UPPER) {
@@ -94,10 +98,9 @@ const History = ({route}: Props) => {
                     Upper: {position: 1, range: newRange.plusOneRange()},
                     Middle: {position: -1, range: newRange.minusRange()},
                     Lower: {position: 0, range: newRange},
-                    range: newRange
+                    range: newRange, traveledIndex: fullPosition.traveledIndex + 1
                 })
             }
-            xPosition.value = -dimensions.width;
         }
 
 
@@ -109,7 +112,8 @@ const History = ({route}: Props) => {
                     Upper: {position: 1, range: newRange.plusOneRange()},
                     Middle: {position: -1, range: newRange.minusRange()},
                     Lower: {position: 0, range: newRange},
-                    range: newRange
+                    range: newRange,
+                    traveledIndex: fullPosition.traveledIndex - 1
                 })
             }
             if (fullPosition.activeView === ViewPosition.LOWER) {
@@ -118,7 +122,8 @@ const History = ({route}: Props) => {
                     Upper: {position: 0, range: newRange},
                     Middle: {position: 1, range: newRange.plusOneRange()},
                     Lower: {position: -1, range: newRange.minusRange()},
-                    range: newRange
+                    range: newRange,
+                    traveledIndex: fullPosition.traveledIndex - 1
                 })
             }
             if (fullPosition.activeView === ViewPosition.UPPER) {
@@ -127,11 +132,13 @@ const History = ({route}: Props) => {
                     Upper: {position: -1, range: newRange.minusRange()},
                     Middle: {position: 0, range: newRange},
                     Lower: {position: 1, range: newRange.plusOneRange()},
-                    range: newRange
+                    range: newRange,
+                    traveledIndex: fullPosition.traveledIndex - 1
                 })
             }
-            xPosition.value = -dimensions.width;
         }
+
+        const zeroPositon = fullPosition.traveledIndex * dimensions.width;
 
         const refa = useRef();
 
@@ -159,19 +166,21 @@ const History = ({route}: Props) => {
                 }
             })
             .onUpdate((e) => {
-                xPosition.value = -dimensions.width + e.translationX;
+                xPosition.value = zeroPositon + e.translationX;
             })
             .onEnd((e) => {
-                    if (xPosition.value > dimensions.width / SNAP_POINT + -dimensions.width) {
-                        xPosition.value = withTiming(0, {duration: 100});
+
+                    if (xPosition.value > dimensions.width / SNAP_POINT + zeroPositon) {
                         runOnJS(uiinusOne)();
+                        xPosition.value = withTiming(zeroPositon + dimensions.width, {duration: 100});
                     }
-                    if (xPosition.value < -dimensions.width / SNAP_POINT + -dimensions.width) {
-                        xPosition.value = withTiming(-2 * dimensions.width, {duration: 100});
+                    if (xPosition.value < -dimensions.width / SNAP_POINT + zeroPositon) {
                         runOnJS(uiplusOne)();
+                        xPosition.value = withTiming(zeroPositon - dimensions.width, {duration: 100});
+                        console.log("minus position", xPosition.value)
                     }
-                    if (xPosition.value < dimensions.width / SNAP_POINT - dimensions.width && +xPosition.value > -dimensions.width / SNAP_POINT - dimensions.width) {
-                        xPosition.value = -dimensions.width;
+                    if (xPosition.value < dimensions.width / SNAP_POINT + zeroPositon && +xPosition.value > -dimensions.width / SNAP_POINT + zeroPositon) {
+                        xPosition.value = zeroPositon;
                     }
                     yPosition.value = yPosition.value + e.translationY;
                 }
@@ -197,6 +206,9 @@ const History = ({route}: Props) => {
             }
             return range
         }
+        console.log("position", xPosition.value)
+        console.log("left", zeroPositon + initialOffset)
+        console.log("zeroPoint", zeroPositon);
 
         function setRange(range: Range) {
             setFullPosition({
@@ -204,7 +216,8 @@ const History = ({route}: Props) => {
                 Upper: {...fullPosition.Upper, range: determineRange(fullPosition.Upper.position, range)},
                 Middle: {...fullPosition.Middle, range: determineRange(fullPosition.Middle.position, range)},
                 Lower: {...fullPosition.Lower, range: determineRange(fullPosition.Lower.position, range)},
-                range: range
+                range: range,
+                traveledIndex: fullPosition.traveledIndex
             })
         }
 
@@ -212,7 +225,10 @@ const History = ({route}: Props) => {
             <GestureHandlerRootView>
                 <ScrollView simultaneousHandlers={refa}>
                     <GestureDetector gesture={panGesture}>
-                        <Animated.View style={[animatedStyle, {flexDirection: 'row',}]}>
+                        <Animated.View style={[animatedStyle, {
+                            flexDirection: 'row',
+                            left: -zeroPositon + initialOffset
+                        }]}>
                             {[-1, 0, 1].map(
                                 value => {
                                     if (value === fullPosition.Upper.position) {
