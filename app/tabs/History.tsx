@@ -165,10 +165,12 @@ const History = ({route}: Props) => {
                     if (xPosition.value > dimensions.width / SNAP_POINT + zeroPositon || e.velocityX > 200) {
                         runOnJS(uiminusOne)();
                         xPosition.value = withTiming(zeroPositon + dimensions.width, userConfig);
+                        return;
                     }
                     if (xPosition.value < -dimensions.width / SNAP_POINT + zeroPositon || e.velocityX < -200) {
                         runOnJS(uiplusOne)();
                         xPosition.value = withTiming(zeroPositon - dimensions.width, userConfig);
+                        return;
                     }
                     if (xPosition.value < dimensions.width / SNAP_POINT + zeroPositon && +xPosition.value > -dimensions.width / SNAP_POINT + zeroPositon) {
                         xPosition.value = withTiming(zeroPositon, {
@@ -176,6 +178,7 @@ const History = ({route}: Props) => {
                             easing: Easing.back(2),
                             reduceMotion: ReduceMotion.System
                         });
+                        return;
                     }
                 }
             ).withRef(refa)
