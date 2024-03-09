@@ -1,30 +1,20 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {useWindowDimensions, View} from 'react-native';
-import {Divider, Text} from 'react-native-paper';
-import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
-import DateRangePicker, {Range} from "../components/DateRangePicker";
+import {useWindowDimensions, View} from 'react-native'
+import Animated, {
+    Easing,
+    ReduceMotion,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming
+} from 'react-native-reanimated';
+import {Range} from "../components/DateRangePicker";
 import {firstDayOfWeek, getEndOfDay, lastDayOfWeek, subtractMonths} from "../utils/DateHelper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
-import Animated, {runOnJS, useAnimatedStyle, useSharedValue, withTiming} from 'react-native-reanimated';
 import {Gesture, GestureDetector, GestureHandlerRootView, ScrollView} from 'react-native-gesture-handler';
 import {RootStackParamList} from "../routing/AnalyseRouter";
-import Picker from "../components/Picker";
-import WorkoutView from "../components/WorkoutView";
-import {repetitionMax} from "../utils/RepetitionMaxHelper";
+import HistoryNode from "../components/HistoryNode";
 
-function getScrollView(range: Range, exercise: Exercise[]) {
-    let lastWorkouts = useWorkoutsIn(range)
-        .filter((workout: Workout) => exercise.length > 0 ? exercise.map(it => it.id).includes(workout.exerciseId) : true)
-    return <>
-        <WorkoutView
-            workoutIds={lastWorkouts.map(workout => workout.id).filter(workoutId => workoutId !== undefined) as number[]}/>
-        <Divider/>
-        <View>
-            <Text>Volume: {lastWorkouts.reduce<number>((previousValue: number, currentValue) => previousValue + currentValue.sets.reduce<number>((previousValue1, currentValue1) => previousValue1 + currentValue1.reps * currentValue1.weight, 0), 0)} kg</Text>
-            <Text>1RM: {lastWorkouts.length > 0 ? repetitionMax(...lastWorkouts.flatMap(value => value.sets)).toFixed(2) : 0} kg</Text>
-        </View>
-    </>;
-}
 
 interface PositionRange {
     position: number,
@@ -46,6 +36,11 @@ enum ViewPosition {
     LOWER
 }
 
+const userConfig = {
+    duration: 500,
+    easing: Easing.inOut(Easing.quad),
+    reduceMotion: ReduceMotion.System
+};
 const History = ({route}: Props) => {
         useEffect(() => {
                 if (route?.params?.exercise !== undefined) {
@@ -55,6 +50,7 @@ const History = ({route}: Props) => {
             }, [route]
         )
         let now = new Date(Date.now());
+        const [exercise, setExercise] = useState<Exercise[]>([]);
         const [fullPosition, setFullPosition] = useState({
             Upper: {position: -1, range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0)).minusRange()},
             Middle: {position: 0, range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0))},
@@ -63,12 +59,10 @@ const History = ({route}: Props) => {
             range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0)),
             traveledIndex: 0
         } as FullPosition)
-        const [exercise, setExercise] = useState<Exercise[]>([]);
         let dimensions = useWindowDimensions();
 
         let initialOffset = -dimensions.width;
         const xPosition = useSharedValue(0);
-        const yPosition = useSharedValue(0);
 
         function uiminusOne() {
             let newRange = fullPosition.range.minusRange()
@@ -88,7 +82,8 @@ const History = ({route}: Props) => {
                     Upper: {position: -1, range: newRange.minusRange()},
                     Middle: {position: 0, range: newRange},
                     Lower: {position: 1, range: newRange.plusOneRange()},
-                    range: newRange, traveledIndex: fullPosition.traveledIndex + 1
+                    range: newRange,
+                    traveledIndex: fullPosition.traveledIndex + 1
                 })
             }
             if (fullPosition.activeView === ViewPosition.UPPER) {
@@ -97,7 +92,8 @@ const History = ({route}: Props) => {
                     Upper: {position: 1, range: newRange.plusOneRange()},
                     Middle: {position: -1, range: newRange.minusRange()},
                     Lower: {position: 0, range: newRange},
-                    range: newRange, traveledIndex: fullPosition.traveledIndex + 1
+                    range: newRange,
+                    traveledIndex: fullPosition.traveledIndex + 1
                 })
             }
         }
@@ -168,16 +164,19 @@ const History = ({route}: Props) => {
             .onEnd((e) => {
                     if (xPosition.value > dimensions.width / SNAP_POINT + zeroPositon || e.velocityX > 200) {
                         runOnJS(uiminusOne)();
-                        xPosition.value = withTiming(zeroPositon + dimensions.width, {duration: 100});
+                        xPosition.value = withTiming(zeroPositon + dimensions.width, userConfig);
                     }
                     if (xPosition.value < -dimensions.width / SNAP_POINT + zeroPositon || e.velocityX < -200) {
                         runOnJS(uiplusOne)();
-                        xPosition.value = withTiming(zeroPositon - dimensions.width, {duration: 100});
+                        xPosition.value = withTiming(zeroPositon - dimensions.width, userConfig);
                     }
                     if (xPosition.value < dimensions.width / SNAP_POINT + zeroPositon && +xPosition.value > -dimensions.width / SNAP_POINT + zeroPositon) {
-                        xPosition.value = zeroPositon;
+                        xPosition.value = withTiming(zeroPositon, {
+                            duration: 300,
+                            easing: Easing.back(2),
+                            reduceMotion: ReduceMotion.System
+                        });
                     }
-                    yPosition.value = yPosition.value + e.translationY;
                 }
             ).withRef(refa)
         ;
@@ -228,10 +227,8 @@ const History = ({route}: Props) => {
                                             top: 0,
                                         }}
                                         >
-                                            <DateRangePicker range={fullPosition.Upper.range}
-                                                             setRange={setRange}/>
-                                            <Picker exercise={exercise} setExercise={setExercise} muscles={true}/>
-                                            {getScrollView(fullPosition.Upper.range, exercise)}
+                                            <HistoryNode key={"Upper"} range={fullPosition.Upper.range} setRange={setRange}
+                                                         exercise={exercise} setExercise={setExercise}/>
                                         </View>
                                     }
                                     if (value === fullPosition.Middle.position) {
@@ -239,10 +236,8 @@ const History = ({route}: Props) => {
                                             width: dimensions.width,
                                             top: 0,
                                         }}>
-                                            <DateRangePicker range={fullPosition.Middle.range}
-                                                             setRange={setRange}/>
-                                            <Picker exercise={exercise} setExercise={setExercise} muscles={true}/>
-                                            {getScrollView(fullPosition.Middle.range, exercise)}
+                                            <HistoryNode key={"Middle"} range={fullPosition.Middle.range} setRange={setRange}
+                                                         exercise={exercise} setExercise={setExercise}/>
                                         </View>
                                     }
                                     if (value === fullPosition.Lower.position) {
@@ -251,14 +246,14 @@ const History = ({route}: Props) => {
                                                 width: dimensions.width,
                                                 top: 0,
                                             }}>
-                                                <DateRangePicker range={fullPosition.Lower.range}
-                                                                 setRange={setRange}/>
-                                                <Picker exercise={exercise} setExercise={setExercise} muscles={true}/>
-                                                {getScrollView(fullPosition.Lower.range, exercise)}
+                                                <HistoryNode key={"Lower"} range={fullPosition.Lower.range}
+                                                             setRange={setRange} exercise={exercise}
+                                                             setExercise={setExercise}/>
                                             </View>
                                         )
                                     }
-                                })
+                                }
+                            )
                             }
                         </Animated.View>
                     </GestureDetector>

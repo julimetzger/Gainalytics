@@ -47,13 +47,12 @@ export function calculateMetricValue(sets: WorkoutSet[], metric: Metric) {
     }
 }
 
-export function calculateMetricComparisons(workout: WorkoutSetMap): Map<Metric, Comparison>{
+export function calculateMetricComparisons(workout: WorkoutSetMap): Map<Metric, Comparison> {
     let metricComparison = new Map<Metric, Comparison>();
     Object.values(Metric).forEach((metric) => {
         let current = calculateMetricValue(workout.currentWorkoutSets, metric)!!;
         let last = (workout.lastWorkoutSets?.length ?? 0) > 0 ?
             calculateMetricValue(workout.lastWorkoutSets ?? [], metric) : undefined;
-        console.log(current, last)
         let difference = last ? current - last : undefined;
         metricComparison.set(metric, {value: current, difference: difference});
     })
