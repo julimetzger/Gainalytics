@@ -45,8 +45,8 @@ const WorkoutView = ({workoutIds, highlightMode, editable = true}: WorkoutViewPr
         highlighWorkoutIds = workouts.filter(workout => calculateMetricValue(workout.sets, highlightMode) === highlightValue).map(workout => workout.id!!);
     }
 
-    return (<View>
-        <FlashList scrollEnabled={false} data={Array.from(dateWorkoutMap.entries())} estimatedItemSize={150}
+    return (<View style={{minHeight: 20}}>
+        <FlashList scrollEnabled={false} data={Array.from(dateWorkoutMap.entries())} estimatedItemSize={500}
                    renderItem={({item: [date, workouts]}) => {
                        return (
                            <Card mode={'contained'} style={{marginBottom: 10, marginHorizontal: 5}}>

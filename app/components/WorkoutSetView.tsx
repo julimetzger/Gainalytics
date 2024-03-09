@@ -23,7 +23,8 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
 
     function showSets(set: WorkoutSet) {
         return (
-            <DataTable.Row style={{padding: 0, margin: 0, minHeight: 35}} key={set.index}
+            <DataTable.Row style={{padding: 0, margin: 0, minHeight: 35}}
+                           key={set.index!! + set.reps + set.rir + set.weight + (set.date ? new Date(set.date).getTime().toString() : "")}
                            onPress={() => {
                                if (editable) {
                                    setSetToUpdate(set);
@@ -32,7 +33,8 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
                 <DataTable.Cell style={{flex: 6}}>{set.reps + " reps"}</DataTable.Cell>
                 <DataTable.Cell style={{flex: 6}}>{set.rir + " RIR"}</DataTable.Cell>
                 <DataTable.Cell style={{flex: 6}}>{set.weight + " kg"}</DataTable.Cell>
-                <DataTable.Cell style={{flex: 1}}>{highLightMode && (highLightMode === Metric.MAX_INTENSITY || highLightMode === Metric.ONE_RM) && highlightValue === calculateMetricValue([set], highLightMode) ?
+                <DataTable.Cell
+                    style={{flex: 1}}>{highLightMode && (highLightMode === Metric.MAX_INTENSITY || highLightMode === Metric.ONE_RM) && highlightValue === calculateMetricValue([set], highLightMode) ?
                     <Icon size={15} source={"trophy"}/>
                     : null}
                 </DataTable.Cell>
@@ -45,17 +47,17 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
             {workoutsBefore.map(showSets)}
             {setToUpdate &&
                 <AddWorkoutSet
-                        onSubmit={(arg) => {
-                            onSubmit(arg);
-                            setSetToUpdate(undefined);
-                        }}
-                        onDelete={(workout) => {
-                            onDelete(workout);
-                            setSetToUpdate(undefined);
-                        }}
-                        workoutSet={setToUpdate}
-                        hasToSaveManually={true}/>
-                }
+                    onSubmit={(arg) => {
+                        onSubmit(arg);
+                        setSetToUpdate(undefined);
+                    }}
+                    onDelete={(workout) => {
+                        onDelete(workout);
+                        setSetToUpdate(undefined);
+                    }}
+                    workoutSet={setToUpdate}
+                    hasToSaveManually={true}/>
+            }
             {workoutsAfter.map(showSets)}
         </View>
     );
