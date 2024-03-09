@@ -20,7 +20,7 @@ const TrainingsOverview = ({training, previousTraining}: TrainingsOverviewProps)
     const previousTrainingTime = previousTraining ? new Date(new Date(previousTraining.end!!).getTime() - new Date(previousTraining.start!!).getTime()) : undefined;
     let formattedDifference;
     if (previousTrainingTime) {
-        let difference = (previousTrainingTime.getTime() - trainingDate.getTime());
+        let difference = (trainingDate.getTime() - previousTrainingTime.getTime());
         let isNegative = difference < 0;
         let absoluteDifference = Math.abs(difference);
         formattedDifference = (isNegative ? '-' : '+') + new Date(absoluteDifference).toISOString().substring(11, 19);

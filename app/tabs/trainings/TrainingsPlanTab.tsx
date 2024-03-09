@@ -14,11 +14,10 @@ import {dispatchFinishTraining} from "../../redux/Training/dispatchFinishTrainin
 import TrainingHistory from "../../components/TrainingHistory";
 import {TrainingsState} from "../../models/TrainingsState";
 import DraggableExercise from "../../components/DraggableExercise";
-import {dispatchSuggestBasedOnTrained} from "../../redux/Training/dispatchSuggestBasedOnTrained";
-import {dispatchSuggestBasedOnPlanned} from "../../redux/Training/dispatchSuggestBasedOnPlanned";
 import Picker from "../../components/Picker";
 import Timer from "../../components/Timer";
 import TrainingsOverview from "../../components/TrainingsOverview";
+import TrainngsBase from "../../components/TrainingsBase";
 
 const TrainingsPlanTab = ({route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
@@ -33,8 +32,7 @@ const TrainingsPlanTab = ({route}: Props) => {
     const [chosenExercise, setchosenExercise] = useState(exercises?.length > 1 ? exercises[0] : undefined)
     let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
     let finishTraining = dispatchFinishTraining();
-    let suggestBasedOnTrained = dispatchSuggestBasedOnTrained(trainingsPlan.id!!, trainingInMicro);
-    let suggestBasedOnPlanned = dispatchSuggestBasedOnPlanned(trainingsPlan.id!!, trainingInMicro);
+
 
     useEffect(() => {
         if (training?.state === TrainingsState.STARTED) {
@@ -87,7 +85,8 @@ const TrainingsPlanTab = ({route}: Props) => {
                         {training?.state === TrainingsState.STARTED &&
                             <Timer start={timeInWorkout} reset={true} label={"Last Set"}/>}
                     </View>
-                    {training?.state !== TrainingsState.FINISHED &&
+
+                    {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED) &&
                         <View>
                             <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
                             <DraggableExercise exercises={exercises}
@@ -95,16 +94,9 @@ const TrainingsPlanTab = ({route}: Props) => {
                                                chosenExercise={chosenExercise}
                                                chooseExercise={setchosenExercise}/>
                         </View>}
-                    {training === undefined && <View>
-                        <Button
-                            disabled={suggestBasedOnTrained === undefined}
-                            onPress={() => suggestBasedOnTrained!!(trainingsPlan.id!!, micro, trainingInMicro)}>Suggest
-                            based on last Training</Button>
-                        <Button
-                            disabled={suggestBasedOnPlanned === undefined}
-                            onPress={() => suggestBasedOnPlanned!!(trainingsPlan.id!!, micro, trainingInMicro)}>Suggest
-                            based on last planned Training</Button>
-                    </View>}
+                    {training === undefined &&
+                        <TrainngsBase trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro}/>}
+
                     {chosenExercise && training?.state === TrainingsState.PLANNED &&
                         <PlanWorkoutInTraining training={training}
                                                trainingsPlanId={trainingsPlan.id!!}
@@ -120,8 +112,10 @@ const TrainingsPlanTab = ({route}: Props) => {
                             onSubmit={() => goToNextExercise()}
                             onSubmitSet={() => setTimeInWorkout(new Date(Date.now()))}
                         />}
+
                     {training?.state === TrainingsState.FINISHED && overview &&
                         <TrainingsOverview training={training} previousTraining={lastTraining}/>}
+
                     {training?.state === TrainingsState.FINISHED && !overview &&
                         <TrainingHistory training={training}/>}
                 </View>
