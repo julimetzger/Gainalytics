@@ -47,20 +47,19 @@ const AnalyseGraphics = ({}: Props) => {
         } as LineValue])
         .sort(((a, b) => a.x!! - b.x!!));
     return (
-        <View style={{
+        <ScrollView style={{
             backgroundColor: theme.colors.background,
             display: 'flex',
-            flex: 1,
-            justifyContent: 'flex-start',
+            flex: 1, 
         }}>
-            <ScrollView keyboardShouldPersistTaps={'always'}>
                 <DateRangePicker range={range} setRange={setRange}/>
                 <Picker exercise={exercise} setExercise={setExercise}
                         metric={metric} setMetric={setMetric}
                         accumulation={accumulation} setAccumulation={setAccumulation}
                         muscles={true}/>
-            </ScrollView>
-            {exercise.length > 0 && metric && accumulation && <LineChart
+
+            {exercise.length > 0 && metric && accumulation &&
+            <LineChart
                 style={{
                     backgroundColor: theme.colors.background,
                     ...styles.chart
@@ -108,13 +107,11 @@ const AnalyseGraphics = ({}: Props) => {
                     right: {textColor: processColor(theme.colors.onBackground)}
                 }}
                 chartDescription={{text: ''}}
-                onSelect={(value) => handleDataPointSelect(value)}/>}
-
-            <ScrollView>
+                onSelect={(value) => handleDataPointSelect(value)}
+            />}
                 {selectedWorkout && exercise.length > 0 &&
                     <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric} editable={false}></WorkoutView>}
-            </ScrollView>
-        </View>
+        </ScrollView>
     )
 };
 
@@ -122,7 +119,6 @@ const styles = StyleSheet.create({
     chart: {
         height: 350
     },
-
 })
 
 function generateTrend(map: LineValue[]): LineValue[] {

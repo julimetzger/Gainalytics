@@ -84,7 +84,8 @@ const Picker = ({
             <IconButton mode='outlined'
                         style={show ? {position: 'absolute', right: 0} : {position: 'absolute', bottom: -5, right: 0}}
                         icon={!show ? 'chevron-down' : 'chevron-up'}
-                        onPress={() => setShow(!show)}></IconButton>
+                        onPress={() => setShow(!show)}>
+            </IconButton>
         </View>);
 
     function setExerciseDumb(value: string[]) {
