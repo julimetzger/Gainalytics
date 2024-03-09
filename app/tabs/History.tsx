@@ -70,7 +70,7 @@ const History = ({route}: Props) => {
         const xPosition = useSharedValue(0);
         const yPosition = useSharedValue(0);
 
-        function uiinusOne() {
+        function uiminusOne() {
             let newRange = fullPosition.range.minusRange()
             if (fullPosition.activeView === ViewPosition.MIDDLE) {
                 setFullPosition({
@@ -168,7 +168,7 @@ const History = ({route}: Props) => {
             .onEnd((e) => {
 
                     if (xPosition.value > dimensions.width / SNAP_POINT + zeroPositon) {
-                        runOnJS(uiinusOne)();
+                        runOnJS(uiminusOne)();
                         xPosition.value = withTiming(zeroPositon + dimensions.width, {duration: 100});
                     }
                     if (xPosition.value < -dimensions.width / SNAP_POINT + zeroPositon) {
