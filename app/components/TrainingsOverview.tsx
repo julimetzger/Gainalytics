@@ -31,6 +31,8 @@ const TrainingsOverview = ({training, previousTraining}: TrainingsOverviewProps)
         currentWorkoutSets: workoutSets,
         lastWorkoutSets: prviousWorkoutSets
     });
+    console.log(previousWorkouts)
+    console.log(metricToComparison)
     return (
         <ScrollView>
             <View>
