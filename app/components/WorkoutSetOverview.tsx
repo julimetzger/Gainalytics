@@ -59,14 +59,9 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
 
     let exerciseMetricMap = new Map<Exercise, Map<Metric, Comparison>>();
 
+
     Array.from(exerciseWorkoutMap).forEach(([exercise, workout]) => {
-            let metricComparison = new Map<Metric, Comparison>();
-            Object.values(Metric).forEach((metric) => {
-                let current = calculateMetricValue(workout.currentWorkoutSets, metric)!!;
-                let last = calculateMetricValue(workout.lastWorkoutSets ?? [], metric);
-                let difference = last ? current - last : undefined;
-                metricComparison.set(metric, {value: current, difference: difference});
-            })
+            let metricComparison = calculateMetricComparisons(workout);
             exerciseMetricMap.set(exercise, metricComparison);
         }
     )
