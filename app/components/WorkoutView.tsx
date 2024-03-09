@@ -46,23 +46,23 @@ const WorkoutView = ({workoutIds, highlightMode, editable = true}: WorkoutViewPr
     }
 
     return (<View>
-        <FlashList scrollEnabled={false} data={Array.from(dateWorkoutMap.entries())} estimatedItemSize={3}
-                  renderItem={({item: [date, workouts]}) => {
-                      return (
-                          <Card mode={'contained'} style={{marginBottom: 10, marginHorizontal: 5}}>
-                              <Text style={styles.exerciseText}>
-                                  {getDateStringFromDate(new Date(date))}</Text>
+        <FlashList scrollEnabled={false} data={Array.from(dateWorkoutMap.entries())} estimatedItemSize={150}
+                   renderItem={({item: [date, workouts]}) => {
+                       return (
+                           <Card mode={'contained'} style={{marginBottom: 10, marginHorizontal: 5}}>
+                               <Text style={styles.exerciseText}>
+                                   {getDateStringFromDate(new Date(date))}</Text>
 
-                              {workouts.sort((a, b) =>
-                                  new Date(a.start!!).getTime() - new Date(b.start!!).getTime()).map((workout) => {
-                                  return <WorkoutViewTile workout={workout}
-                                                          highlightMode={highlighWorkoutIds.includes(workout.id!!) ? highlightMode : undefined}
-                                                          exercise={exercises.find((ex) => ex.id === workout.exerciseId)!!}
-                                                          editable={editable}/>;
-                              })}
-                          </Card>
-                      )
-                  }}
+                               {workouts.sort((a, b) =>
+                                   new Date(a.start!!).getTime() - new Date(b.start!!).getTime()).map((workout) => {
+                                   return <WorkoutViewTile workout={workout}
+                                                           highlightMode={highlighWorkoutIds.includes(workout.id!!) ? highlightMode : undefined}
+                                                           exercise={exercises.find((ex) => ex.id === workout.exerciseId)!!}
+                                                           editable={editable}/>;
+                               })}
+                           </Card>
+                       )
+                   }}
         />
     </View>)
 

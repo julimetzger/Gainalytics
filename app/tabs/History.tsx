@@ -166,9 +166,8 @@ const History = ({route}: Props) => {
                 xPosition.value = zeroPositon + e.translationX;
             })
             .onEnd((e) => {
-
-                if (xPosition.value > dimensions.width / SNAP_POINT + zeroPositon || e.velocityX > 200) {
-                    runOnJS(uiminusOne)();
+                    if (xPosition.value > dimensions.width / SNAP_POINT + zeroPositon || e.velocityX > 200) {
+                        runOnJS(uiminusOne)();
                         xPosition.value = withTiming(zeroPositon + dimensions.width, {duration: 100});
                     }
                     if (xPosition.value < -dimensions.width / SNAP_POINT + zeroPositon || e.velocityX < -200) {
