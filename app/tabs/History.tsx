@@ -167,14 +167,13 @@ const History = ({route}: Props) => {
             })
             .onEnd((e) => {
 
-                    if (xPosition.value > dimensions.width / SNAP_POINT + zeroPositon) {
-                        runOnJS(uiminusOne)();
+                if (xPosition.value > dimensions.width / SNAP_POINT + zeroPositon || e.velocityX > 200) {
+                    runOnJS(uiminusOne)();
                         xPosition.value = withTiming(zeroPositon + dimensions.width, {duration: 100});
                     }
-                    if (xPosition.value < -dimensions.width / SNAP_POINT + zeroPositon) {
+                    if (xPosition.value < -dimensions.width / SNAP_POINT + zeroPositon || e.velocityX < -200) {
                         runOnJS(uiplusOne)();
                         xPosition.value = withTiming(zeroPositon - dimensions.width, {duration: 100});
-                        console.log("minus position", xPosition.value)
                     }
                     if (xPosition.value < dimensions.width / SNAP_POINT + zeroPositon && +xPosition.value > -dimensions.width / SNAP_POINT + zeroPositon) {
                         xPosition.value = zeroPositon;
@@ -202,9 +201,6 @@ const History = ({route}: Props) => {
             }
             return range
         }
-        console.log("position", xPosition.value)
-        console.log("left", zeroPositon + initialOffset)
-        console.log("zeroPoint", zeroPositon);
 
         function setRange(range: Range) {
             setFullPosition({
