@@ -12,7 +12,6 @@ import Picker from "../components/Picker";
 import WorkoutView from "../components/WorkoutView";
 import {repetitionMax} from "../utils/RepetitionMaxHelper";
 
-
 function getScrollView(range: Range, exercise: Exercise[]) {
     let lastWorkouts = useWorkoutsIn(range)
         .filter((workout: Workout) => exercise.length > 0 ? exercise.map(it => it.id).includes(workout.exerciseId) : true)
@@ -21,8 +20,8 @@ function getScrollView(range: Range, exercise: Exercise[]) {
             workoutIds={lastWorkouts.map(workout => workout.id).filter(workoutId => workoutId !== undefined) as number[]}/>
         <Divider/>
         <View>
-            <Text>Volume: {lastWorkouts.reduce<number>((previousValue: number, currentValue) => previousValue + currentValue.sets.reduce<number>((previousValue1, currentValue1) => previousValue1 + currentValue1.reps * currentValue1.weight, 0), 0)}</Text>
-            <Text>1RM: {lastWorkouts.length > 0 ? repetitionMax(...lastWorkouts.flatMap(value => value.sets)).toFixed(2) : 0} </Text>
+            <Text>Volume: {lastWorkouts.reduce<number>((previousValue: number, currentValue) => previousValue + currentValue.sets.reduce<number>((previousValue1, currentValue1) => previousValue1 + currentValue1.reps * currentValue1.weight, 0), 0)} kg</Text>
+            <Text>1RM: {lastWorkouts.length > 0 ? repetitionMax(...lastWorkouts.flatMap(value => value.sets)).toFixed(2) : 0} kg</Text>
         </View>
     </>;
 }
@@ -103,7 +102,6 @@ const History = ({route}: Props) => {
             }
         }
 
-
         function uiplusOne() {
             let newRange = fullPosition.range.plusOneRange()
             if (fullPosition.activeView === ViewPosition.MIDDLE) {
@@ -143,7 +141,6 @@ const History = ({route}: Props) => {
         const refa = useRef();
 
         const initialTouchLocation = useSharedValue<{ x: number, y: number } | null>(null);
-
 
         const panGesture = Gesture.Pan()
             .manualActivation(true)
@@ -186,7 +183,6 @@ const History = ({route}: Props) => {
                 }
             ).withRef(refa)
         ;
-
 
         const animatedStyle = useAnimatedStyle(() => ({
             transform: [
@@ -281,7 +277,3 @@ const SNAP_POINT = 3;
 export type Props = NativeStackScreenProps<RootStackParamList, 'History'>;
 
 export default History;
-
-
-
-
