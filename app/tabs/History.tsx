@@ -215,53 +215,55 @@ const History = ({route}: Props) => {
         }
 
         return (
-            <GestureHandlerRootView>
-                <ScrollView simultaneousHandlers={refa}>
-                    <GestureDetector gesture={panGesture}>
-                        <Animated.View style={[animatedStyle, {
-                            flexDirection: 'row',
-                            left: -zeroPositon + initialOffset
-                        }]}>
-                            {[-1, 0, 1].map(
-                                value => {
-                                    if (value === fullPosition.Upper.position) {
-                                        return <View key={1} style={{
-                                            width: dimensions.width,
-                                            top: 0,
-                                        }}
-                                        >
-                                            <HistoryNode key={"Upper"} range={fullPosition.Upper.range} setRange={setRange}
-                                                         exercise={exercise} setExercise={setExercise}/>
-                                        </View>
-                                    }
-                                    if (value === fullPosition.Middle.position) {
-                                        return <View key={2} style={{
-                                            width: dimensions.width,
-                                            top: 0,
-                                        }}>
-                                            <HistoryNode key={"Middle"} range={fullPosition.Middle.range} setRange={setRange}
-                                                         exercise={exercise} setExercise={setExercise}/>
-                                        </View>
-                                    }
-                                    if (value === fullPosition.Lower.position) {
-                                        return (
-                                            <View key={3} style={{
+                <GestureHandlerRootView>
+                    <ScrollView simultaneousHandlers={refa}>
+                        <GestureDetector gesture={panGesture}>
+                            <Animated.View style={[animatedStyle, {
+                                flexDirection: 'row',
+                                left: -zeroPositon + initialOffset
+                            }]}>
+                                {[-1, 0, 1].map(
+                                    value => {
+                                        if (value === fullPosition.Upper.position) {
+                                            return <View key={1} style={{
+                                                width: dimensions.width,
+                                                top: 0,
+                                            }}
+                                            >
+                                                <HistoryNode key={"Upper"} range={fullPosition.Upper.range}
+                                                             setRange={setRange}
+                                                             exercise={exercise} setExercise={setExercise}/>
+                                            </View>
+                                        }
+                                        if (value === fullPosition.Middle.position) {
+                                            return <View key={2} style={{
                                                 width: dimensions.width,
                                                 top: 0,
                                             }}>
-                                                <HistoryNode key={"Lower"} range={fullPosition.Lower.range}
-                                                             setRange={setRange} exercise={exercise}
-                                                             setExercise={setExercise}/>
+                                                <HistoryNode key={"Middle"} range={fullPosition.Middle.range}
+                                                             setRange={setRange}
+                                                             exercise={exercise} setExercise={setExercise}/>
                                             </View>
-                                        )
+                                        }
+                                        if (value === fullPosition.Lower.position) {
+                                            return (
+                                                <View key={3} style={{
+                                                    width: dimensions.width,
+                                                    top: 0,
+                                                }}>
+                                                    <HistoryNode key={"Lower"} range={fullPosition.Lower.range}
+                                                                 setRange={setRange} exercise={exercise}
+                                                                 setExercise={setExercise}/>
+                                                </View>
+                                            )
+                                        }
                                     }
+                                )
                                 }
-                            )
-                            }
-                        </Animated.View>
-                    </GestureDetector>
-                </ScrollView>
-            </GestureHandlerRootView>
+                            </Animated.View>
+                        </GestureDetector>
+                    </ScrollView>
+                </GestureHandlerRootView>
         )
     }
 ;

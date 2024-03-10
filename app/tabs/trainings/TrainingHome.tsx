@@ -19,7 +19,7 @@ const TrainingHome = ({navigation}: Props) => {
                     .filter((exercise: TrainingsPlan) => exercise.name.toLowerCase().includes(filter.toLowerCase()))
                     .map((trainingsPlan: TrainingsPlan) => (
                         <Pressable
-                            key={trainingsPlan.name}
+                            key={trainingsPlan.id}
                             onPress={() =>
                                 navigation.navigate({
                                     name: 'Training',

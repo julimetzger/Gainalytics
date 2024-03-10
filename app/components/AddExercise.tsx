@@ -70,6 +70,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                                         muscle</Button>
                                     {muslces.map((muscleFromMap: MusclePercentPair) => {
                                         return <MusclePicker muscleValue={muscleFromMap}
+                                                             key={muscleFromMap.muscle}
                                                              setMuscles={(muscle) => setMuslces([...muslces.filter((value) => value != muscleFromMap), muscle])}
                                                              onDelete={(value) => setMuslces([...muslces.filter(m => m !== value)])}/>
                                     })}

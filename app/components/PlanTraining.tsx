@@ -40,6 +40,7 @@ const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosen
                 onSubmit={(workoutSet) => submitPlannedWorkoutSet(workoutSet)} oneRepMax={oneRepMax}/>
             {plannedWorkout?.sets.map((workoutSet) => {
                 return <AddWorkoutSet workoutSet={workoutSet}
+                                      key={workoutSet.index ?? "" + workoutSet.reps + workoutSet.weight + workoutSet.date?.getTime()}
                                       onSubmit={(workoutSet) => submitPlannedWorkoutSet(workoutSet)}
                                       onDelete={() => deleteSetFromWorkout(workoutSet, plannedWorkout)}/>
             })
