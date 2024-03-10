@@ -7,7 +7,7 @@
 - ~~Vergleich mit vorherigem Training~~/geplanten Workout nach Abschluss des Trainings
 - Anzeige des planned Trainings während des Trainings
 - Volumen/Set Unterstützung während des planens
-- Zusammenfassung als letzte Seite nach allen Trainings (Volumen, Sets, Muskelgruppen etc.)
+- ~~Zusammenfassung als letzte Seite nach allen Trainings (Volumen, Sets, Muskelgruppen etc.)~~
 - Export/Import Funktion für Trainings/Micro
 - unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
 - Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
@@ -22,6 +22,7 @@
 - Spacing
 
 ## History
+- ~~swipe history~~
 - Seite mit Datepicker
 - Trainings in Datepicker anzeigen
 
