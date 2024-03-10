@@ -1,14 +1,12 @@
-import React, {useEffect} from "react";
-import {FlatList, StyleSheet, View} from "react-native";
+import React, {memo} from "react";
+import {StyleSheet, View} from "react-native";
 import {Card, Text, useTheme} from "react-native-paper";
-import {dateComparator, getDateStringFromDate} from "../utils/DateHelper";
-import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
-import {useWorkoutsByIds} from "../redux/Workout/useWorkoutsByIds";
-import {Range} from "./DateRangePicker";
+import {getDateStringFromDate} from "../utils/DateHelper";
 import WorkoutViewTile from "./WorkoutViewTile";
 import {Metric} from "./Picker";
-import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
 import {FlashList} from "@shopify/flash-list";
+import {useDateWorkoutMapByIds} from "../redux/Workout/useDateWorkoutMapByIds";
+import {useHighlightWorkout} from "../redux/Workout/useHighlightWorkout";
 
 interface WorkoutViewProps {
     workoutIds: number[],
@@ -16,22 +14,13 @@ interface WorkoutViewProps {
     editable?: boolean
 }
 
-const HOURS_IN_MILLIS = 60 * 60 * 1000;
+const style1 = {marginBottom: 10, marginHorizontal: 5};
+
+const style = {minHeight: 20};
 const WorkoutView = ({workoutIds, highlightMode, editable = true}: WorkoutViewProps) => {
     let theme = useTheme();
-    let workouts = useWorkoutsByIds(workoutIds)
-    let exercises = useExerciseByIds([...new Set(workouts)].map((workout: Workout) => workout.exerciseId));
-    let dateWorkoutMap = new Map<Date, Workout[]>();
-
-    workouts.forEach(
-        (workout) => {
-            let sameWorkoutDate: Date = Array.from(dateWorkoutMap.keys()).find((date) =>
-                    new Range(new Date(new Date(date).getTime() - HOURS_IN_MILLIS * 5), new Date(new Date(date).getTime() + HOURS_IN_MILLIS * 5)).dateIsInRange(workout.start!!))
-                ?? workout.start!!;
-            dateWorkoutMap.set(sameWorkoutDate, [...dateWorkoutMap.get(sameWorkoutDate) ?? [], workout]);
-        }
-    )
-    dateWorkoutMap = new Map([...dateWorkoutMap.entries()].sort((a, b) => -dateComparator(a[0], b[0])));
+    let dateWorkoutMap = useDateWorkoutMapByIds(workoutIds);
+    let highlightWorkout = useHighlightWorkout(workoutIds, highlightMode);
     const styles = StyleSheet.create({
         exerciseText: {
             fontSize: theme.fonts.titleLarge.fontSize,
@@ -39,25 +28,18 @@ const WorkoutView = ({workoutIds, highlightMode, editable = true}: WorkoutViewPr
         },
     });
 
-    let highlighWorkoutIds: number[] = [];
-    if (highlightMode !== undefined) {
-        let highlightValue = highlightMode ? calculateMetricValue(workouts.flatMap((workout: Workout) => workout.sets), highlightMode) : undefined;
-        highlighWorkoutIds = workouts.filter(workout => calculateMetricValue(workout.sets, highlightMode) === highlightValue).map(workout => workout.id!!);
-    }
-
-    return (<View style={{minHeight: 20}}>
+    return (<View style={style}>
         <FlashList scrollEnabled={false} data={Array.from(dateWorkoutMap.entries())} estimatedItemSize={500}
                    renderItem={({item: [date, workouts]}) => {
                        return (
-                           <Card mode={'contained'} style={{marginBottom: 10, marginHorizontal: 5}}>
+                           <Card mode={'contained'} style={style1}
+                                 key={new Date(date).getTime()}>
                                <Text style={styles.exerciseText}>
                                    {getDateStringFromDate(new Date(date))}</Text>
-
-                               {workouts.sort((a, b) =>
-                                   new Date(a.start!!).getTime() - new Date(b.start!!).getTime()).map((workout) => {
-                                   return <WorkoutViewTile workout={workout}
-                                                           highlightMode={highlighWorkoutIds.includes(workout.id!!) ? highlightMode : undefined}
-                                                           exercise={exercises.find((ex) => ex.id === workout.exerciseId)!!}
+                               {workouts.map((workout) => {
+                                   return <WorkoutViewTile workoutId={workout}
+                                                           key={workout}
+                                                           highlightMode={highlightWorkout.includes(workout!!) ? highlightMode : undefined}
                                                            editable={editable}/>;
                                })}
                            </Card>
@@ -69,4 +51,10 @@ const WorkoutView = ({workoutIds, highlightMode, editable = true}: WorkoutViewPr
 }
 
 
-export default WorkoutView;
+// @ts-ignore
+export default memo(WorkoutView, ((prevProps, nextProps) => {
+    if (nextProps.highlightMode)
+        return true;
+    return prevProps.workoutIds.every(id => nextProps.workoutIds.includes(id)) &&
+        nextProps.workoutIds.every(id => prevProps.workoutIds.includes(id));
+}));

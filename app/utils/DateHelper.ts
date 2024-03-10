@@ -82,3 +82,5 @@ export function sameDate(a: Date, b: Date) {
     b = new Date(b);
     return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
 }
+
+export const HOURS_IN_MILLIS = 60 * 60 * 1000;

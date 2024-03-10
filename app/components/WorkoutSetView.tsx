@@ -7,6 +7,7 @@ import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
 import OutsidePressHandler from "react-native-outside-press";
 
 const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMode}: WorkoutSetViewProps) => {
+    let date = new Date();
     const [setToUpdate, setSetToUpdate] = useState<WorkoutSet>();
     let indexOfSelectedWorkout = setToUpdate ? sets.indexOf(setToUpdate) : undefined;
     let workoutsBefore: WorkoutSet[] = [];
@@ -20,7 +21,6 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
     useEffect(() => {
     }, [sets]);
     let highlightValue = highLightMode ? calculateMetricValue(sets, highLightMode) : undefined;
-
     function showSets(set: WorkoutSet) {
         return (
             <DataTable.Row style={{padding: 0, margin: 0, minHeight: 35}}

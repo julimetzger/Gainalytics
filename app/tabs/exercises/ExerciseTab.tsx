@@ -19,7 +19,7 @@ const ExerciseTab = ({navigation}: Props) => {
                     .filter((exercise: Exercise) => exercise.name.toLowerCase().includes(filter.toLowerCase()))
                     .map((exercise: Exercise) => (
                         <Pressable
-                            key={exercise.name}
+                            key={exercise.id}
                             onPress={() =>
                                 navigation.navigate({
                                     name: 'AddWorkoutTab',
