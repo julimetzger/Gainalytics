@@ -121,12 +121,11 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
             case 'ADD_OR_UPDATE_SET_IN_WORKOUT': {
                 if (action.set.index !== undefined) {
                     let indexOf = workoutState.byId[action.workoutId].sets.map((value) => value.index).indexOf(action.set.index);
-                    let newSets = workoutState.byId[action.workoutId].sets;
+                    let newSets = [...workoutState.byId[action.workoutId].sets];
                     if (indexOf === -1) {
                         newSets.push(action.set);
-                        let suggested = migrateSuggestedToNotFinishedWorkout(workoutState, workoutState.byId[action.workoutId].exerciseId);
                         newSets = newSets.sort((a, b) => a.index!! - b.index!!);
-                        return {
+                        let newWorkoutState = {
                             ...workoutState,
                             byId: {
                                 ...workoutState.byId,
@@ -134,6 +133,10 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                                     ...workoutState.byId[action.workoutId], sets: newSets
                                 }
                             },
+                        } as NormalizedWorkoutState<Workout>
+                        let suggested = migrateSuggestedToNotFinishedWorkout(newWorkoutState, workoutState.byId[action.workoutId].exerciseId);
+                        return {
+                            ...newWorkoutState,
                             suggestedWorkouts: {...suggested}
                         };
                     }
