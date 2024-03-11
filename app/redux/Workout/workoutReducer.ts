@@ -41,17 +41,21 @@ function addNewPlannedWorkout(workoutState: NormalizedWorkoutState<Workout>, wor
     workoutState.plannedWorkouts.push(newId);
 }
 
-function migrateSuggestedToNotFinishedWorkout(workoutState: NormalizedWorkoutState<Workout>, exerciseId: number) {
+function migrateSuggestedToNotFinishedWorkout(workoutState: NormalizedWorkoutState<Workout>, exerciseId: number): {
+    [exerciseId: number]: Workout
+} {
+    let suggested = {...workoutState.suggestedWorkouts};
     if (workoutState.suggestedWorkouts !== undefined && workoutState.suggestedWorkouts[exerciseId] !== undefined) {
         let unfinishedWorkoutSets = workoutState.byId[workoutState.notFinishedWorkouts[exerciseId]].sets;
         let suggestedWorkoutSets = workoutState.suggestedWorkouts[exerciseId].sets;
         let persistedIndexes = unfinishedWorkoutSets.map(value => value.index);
         suggestedWorkoutSets = suggestedWorkoutSets.filter(value => !persistedIndexes.includes(value.index));
-        workoutState.suggestedWorkouts[exerciseId].sets = suggestedWorkoutSets;
+        suggested[exerciseId].sets = suggestedWorkoutSets;
         if (suggestedWorkoutSets.length === 0)
-            // TODO fix this (modifies initial state)
-            delete workoutState.suggestedWorkouts[exerciseId];
+            delete suggested[exerciseId];
+        return suggested;
     }
+    return suggested;
 }
 
 
@@ -103,14 +107,14 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                 if (workoutState.notFinishedWorkouts === undefined)
                     workoutState.notFinishedWorkouts = {};
                 workoutState.notFinishedWorkouts[action.workout.exerciseId] = newId;
-                migrateSuggestedToNotFinishedWorkout(workoutState, action.workout.exerciseId);
+                let suggested = migrateSuggestedToNotFinishedWorkout(workoutState, action.workout.exerciseId);
                 return {
                     ...workoutState,
                     byId: {...workoutState.byId},
                     allIds: [...workoutState.allIds],
                     byExerciseId: {...workoutState.byExerciseId},
                     notFinishedWorkouts: {...workoutState.notFinishedWorkouts},
-                    suggestedWorkouts: {...workoutState.suggestedWorkouts}
+                    suggestedWorkouts: {...suggested}
                 } as NormalizedState<Workout>;
             }
 
@@ -120,12 +124,17 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                     let newSets = workoutState.byId[action.workoutId].sets;
                     if (indexOf === -1) {
                         newSets.push(action.set);
-                        migrateSuggestedToNotFinishedWorkout(workoutState, workoutState.byId[action.workoutId].exerciseId);
-                        newSets = workoutState.byId[action.workoutId].sets.sort((a, b) => a.index!! - b.index!!);
+                        let suggested = migrateSuggestedToNotFinishedWorkout(workoutState, workoutState.byId[action.workoutId].exerciseId);
+                        newSets = newSets.sort((a, b) => a.index!! - b.index!!);
                         return {
                             ...workoutState,
-                            byId: {...workoutState.byId},
-                            suggestedWorkouts: {...workoutState.suggestedWorkouts}
+                            byId: {
+                                ...workoutState.byId,
+                                [action.workoutId]: {
+                                    ...workoutState.byId[action.workoutId], sets: newSets
+                                }
+                            },
+                            suggestedWorkouts: {...suggested}
                         };
                     }
                     newSets[indexOf] = action.set;
