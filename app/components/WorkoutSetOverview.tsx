@@ -1,7 +1,9 @@
-import {Muscles} from "../models/Muscles";
-import {MusclePercentPair} from "./MusclePicker";
 import {Metric} from "./Picker";
-import {calculateMetricComparisons, WorkoutSetMap} from "../utils/RepetitionMaxHelper";
+import {
+    calculateMetricComparisons,
+    calculateMetricComparisonsForMuscle,
+    WorkoutSetMap
+} from "../utils/RepetitionMaxHelper";
 import {Card, DataTable, Text} from "react-native-paper";
 import React from "react";
 import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
@@ -21,7 +23,6 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
     let trainingExcercises = useExerciseByIds(trainingsWorkouts.map((workout: Workout) => workout.exerciseId));
 
     let exerciseWorkoutMap = new Map<Exercise, WorkoutSetMap>();
-    let usedMuscles = new Map<Muscles, WorkoutSetMap>();
     trainingsWorkouts.forEach(workout => {
         let exercise = trainingExcercises.find((exercise: Exercise) => exercise.id === workout.exerciseId);
         let lastWorkout = previousWorkouts.filter((previousWorkout: Workout) => previousWorkout.exerciseId === workout.exerciseId);
@@ -36,20 +37,6 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
                 });
             }
         }
-        exercise?.muscles?.forEach((muscle: MusclePercentPair) => {
-            if (muscle.muscle) {
-                //TODO lastWorkoutSets handling genauer
-                if (usedMuscles.has(muscle.muscle)) {
-                    usedMuscles.get(muscle.muscle)?.currentWorkoutSets?.push(...workout.sets);
-                    lastWorkout ? usedMuscles.get(muscle.muscle)?.lastWorkoutSets?.push(...lastWorkout?.map((workout: Workout) => workout.sets).flat()) : 0;
-                } else {
-                    usedMuscles.set(muscle.muscle, {
-                        currentWorkoutSets: workout?.sets ? [...workout.sets] : [],
-                        lastWorkoutSets: lastWorkout?.map((workout: Workout) => workout.sets).flat() ?? []
-                    });
-                }
-            }
-        })
     })
 
     let exerciseMetricMap = new Map<Exercise, Map<Metric, Comparison>>();
@@ -60,13 +47,9 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
         }
     )
 
-    let muscleMetricMap = new Map<Muscles, Map<Metric, Comparison>>();
+    let muscleMetricMap = calculateMetricComparisonsForMuscle(exerciseWorkoutMap);
 
-    Array.from(usedMuscles).forEach(([muscle, workout]) => {
-            let metricComparison = calculateMetricComparisons(workout);
-            muscleMetricMap.set(muscle, metricComparison);
-        }
-    )
+    console.log(muscleMetricMap);
 
     return <>
         <Card style={{margin: 5}}>

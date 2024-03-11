@@ -49,29 +49,31 @@ export function calculateMetricValue(sets: WorkoutSet[], metric: Metric) {
     }
 }
 
-export function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise, WorkoutSet[]>, metric: Metric, muscle: Muscles) {
-    let sets = Object.values(exerxiseWorkoutMap) as WorkoutSet[];
+function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise, WorkoutSet[]>, metric: Metric, muscle: Muscles) {
+    let sets = Array.from(exerxiseWorkoutMap.values()).flat();
     const oneRm = repetitionMax(...sets)?.valueOf();
     switch (metric) {
-        //TOOO percentage für volume, sets und reps berücksichtigen
         case Metric.ONE_RM:
             return oneRm;
         case Metric.VOLUME:
-            return sum(Array.from(exerxiseWorkoutMap).map(([exercise, workoutSets]) =>
-                sumBy(workoutSets, value => value.weight * value.reps * (exercise.muscles?.find(m => m.muscles === muscle).percent ?? 0))))
+            let collection = Array.from(exerxiseWorkoutMap.entries()).map(([exercise, workoutSets]) =>
+                sumBy(workoutSets, value => {
+                    return value.weight * value.reps * (exercise.muscles?.find(m => m.muscle === muscle)?.percent ?? 0)/100
+                }));
+            return sum(collection)
         case Metric.MAX_INTENSITY:
             return oneRm ? Math.max(...sets.map(value => value.weight / oneRm)) * 100 : 100;
         case Metric.AVERAGE_INTENSITY:
             return oneRm ? sumBy(sets, value => value.weight) / sets.length / oneRm * 100 : 100;
         case Metric.SETS:
-            return sum(Array.from(exerxiseWorkoutMap)
+            return sum(Array.from(exerxiseWorkoutMap.entries())
                 .map(([exercise, workoutSets]) =>
                     sumBy(workoutSets, value =>
-                        (exercise.muscles?.find(m => m.muscles === muscle).percent ?? 0))));
+                        (exercise.muscles?.find(m => m.muscle === muscle)?.percent ?? 0))));
         case Metric.REPS:
-            return sum(Array.from(exerxiseWorkoutMap)
+            return sum(Array.from(exerxiseWorkoutMap.entries())
                 .map(([exercise, workoutSets]) =>
-                    sumBy(workoutSets, value => (exercise.muscles?.find(m => m.muscles === muscle).percent * value.reps ?? 0))));
+                    sumBy(workoutSets, value => ((exercise.muscles?.find(m => m.muscle === muscle)?.percent) ?? 0)/100 * value.reps)));
     }
 }
 
@@ -87,24 +89,29 @@ export function calculateMetricComparisons(workout: WorkoutSetMap): Map<Metric, 
     return metricComparison;
 }
 
-export function calculateMetricComparisonsForMuscle(workout: Map<Exercise, WorkoutSetMap>, muscle: Muscles): Map<Metric, Comparison> {
+export function calculateMetricComparisonsForMuscle(workout: Map<Exercise, WorkoutSetMap>): Map<Muscles, Map<Metric, Comparison>> {
     let exerciseWorkoutMap: ExerciseWorkoutSetMap = {
         currentWorkoutSets: new Map<Exercise, WorkoutSet[]>(),
         lastWorkoutSets: new Map<Exercise, WorkoutSet[]>()
     };
-    Array.from(workout).forEach(([exercise, workoutSetMap]) => {
+    Array.from(workout.entries()).forEach(([exercise, workoutSetMap]) => {
         exerciseWorkoutMap.currentWorkoutSets.set(exercise, workoutSetMap.currentWorkoutSets);
         exerciseWorkoutMap?.lastWorkoutSets?.set(exercise, workoutSetMap.lastWorkoutSets ?? []);
     })
-    let metricComparison = new Map<Metric, Comparison>();
-    Object.values(Metric).forEach((metric) => {
-        let current = calculateMetricValueForMuscles(exerciseWorkoutMap.currentWorkoutSets, metric, muscle)!!;
-        let last = (exerciseWorkoutMap.lastWorkoutSets?.size ?? 0) > 0 ?
-            calculateMetricValueForMuscles(exerciseWorkoutMap.lastWorkoutSets ?? new Map(), metric, muscle) : undefined;
-        let difference = last ? current - last : undefined;
-        metricComparison.set(metric, {value: current, difference: difference});
+    let muscles = [...new Set(Array.from(workout.keys()).map((exercise: Exercise) => exercise.muscles).filter(muscle => muscle !== undefined).flat().map(muscle => muscle.muscle))] as Muscles[];
+    let muscleMetricComparison = new Map<Muscles, Map<Metric, Comparison>>();
+    muscles.map(muscle => {
+        let metricComparison = new Map<Metric, Comparison>();
+        Object.values(Metric).forEach((metric) => {
+            let current = calculateMetricValueForMuscles(exerciseWorkoutMap.currentWorkoutSets, metric, muscle)!!;
+            let last = (exerciseWorkoutMap.lastWorkoutSets?.size ?? 0) > 0 ?
+                calculateMetricValueForMuscles(exerciseWorkoutMap.lastWorkoutSets ?? new Map(), metric, muscle) : undefined;
+            let difference = last ? current - last : undefined;
+            metricComparison.set(metric, {value: current, difference: difference});
+        })
+        muscleMetricComparison.set(muscle, metricComparison);
     })
-    return metricComparison;
+    return muscleMetricComparison;
 }
 
 export interface WorkoutSetMap {
