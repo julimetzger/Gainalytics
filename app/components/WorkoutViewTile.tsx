@@ -70,5 +70,5 @@ const WorkoutViewTile = ({workoutId, highlightMode, editable}: WorkoutVieTilePro
     )
 }
 export default memo(WorkoutViewTile, ((prevProps, nextProps) => {
-    return prevProps.workoutId === nextProps.workoutId;
+    return prevProps.workoutId === nextProps.workoutId && prevProps.highlightMode === nextProps.highlightMode && prevProps.editable === nextProps.editable
 }))

@@ -30,6 +30,7 @@ const WorkoutView = ({workoutIds, highlightMode, editable = true}: WorkoutViewPr
 
     return (<View style={style}>
         <FlashList scrollEnabled={false} data={Array.from(dateWorkoutMap.entries())} estimatedItemSize={500}
+                   keyboardShouldPersistTaps={'always'}
                    renderItem={({item: [date, workouts]}) => {
                        return (
                            <Card mode={'contained'} style={style1}
@@ -54,7 +55,7 @@ const WorkoutView = ({workoutIds, highlightMode, editable = true}: WorkoutViewPr
 // @ts-ignore
 export default memo(WorkoutView, ((prevProps, nextProps) => {
     if (nextProps.highlightMode)
-        return true;
+        return false;
     return prevProps.workoutIds.every(id => nextProps.workoutIds.includes(id)) &&
         nextProps.workoutIds.every(id => prevProps.workoutIds.includes(id));
 }));
