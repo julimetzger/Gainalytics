@@ -28,6 +28,7 @@ const HistoryNode = ({range, setRange, exercise, setExercise}: HisotryNodeProps)
             <Text>Volume: {lastWorkouts.reduce<number>((previousValue: number, currentValue) => previousValue + currentValue.sets.reduce<number>((previousValue1, currentValue1) => previousValue1 + currentValue1.reps * currentValue1.weight, 0), 0)} kg</Text>
             <Text>1RM: {lastWorkouts.length > 0 ? repetitionMax(...lastWorkouts.flatMap(value => value.sets)).toFixed(2) : 0} kg</Text>
         </View>
+        <View style={{flex: 1}}></View>
     </>;
 }
 

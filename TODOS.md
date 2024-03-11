@@ -41,7 +41,7 @@
 - Metriken die im TrainingsOverview angezeigt werden sollen für Muscles/Exercises
 
 ## General
-- ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen
+- ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen - funktioniert nur im ExerciseTab
 
 ## Video Analyse Funktion
 
@@ -59,3 +59,4 @@
 ## Bugs
 - "Encountered two children with the same key" im Trainings Modus: bei aktivem Training "Add Workout" geklickt und bei jeder Übung sind die Deadlift Sets mit Haken dazugekommen, Sets können auch nicht gelöscht werden -> Error Meldung "Uncought Error, Cannot read property 'sets' of undefined, Zeile 159 workoutReducer
 - Trainingsübersicht crasht wenn ein planned training vor der überschicht ist
+- Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges

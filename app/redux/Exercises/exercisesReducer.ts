@@ -59,9 +59,10 @@ const initialState = {
         13: {id: 13, name: 'Lateral Raise', muscles:[
             {muscle: Muscles.SHOULDERS, percent: 100}
         ]},
-        14: {id: 14, name: 'Shrugs', muscles:[
-            {muscle: Muscles.SHOULDERS, percent: 100},
-            {muscle: Muscles.BACK, percent: 20}
+        14: {id: 14, name: 'Leg Press', muscles:[
+            {muscle: Muscles.GLUTES, percent: 100},
+            {muscle: Muscles.QUADS, percent: 100},
+            {muscle: Muscles.HAMSTRINGS, percent: 20}
         ]},
         15: {id: 15, name: 'Leg Curls', muscles:[
             {muscle: Muscles.HAMSTRINGS, percent: 100}
