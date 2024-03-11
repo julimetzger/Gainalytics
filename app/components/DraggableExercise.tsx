@@ -78,8 +78,8 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
                             backgroundColor: isActive
                                 ? theme.colors.secondaryContainer
                                 : item.key === chosenExercise?.id
-                                ? theme.colors.tertiaryContainer
-                                : theme.colors.primaryContainer
+                                    ? theme.colors.tertiaryContainer
+                                    : theme.colors.primaryContainer
                         }
                     ]}
                 >
@@ -87,12 +87,12 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
                         style={[
                             styles.text,
                             {
-                                color: isActive 
-                                    ? theme.colors.onTertiaryContainer 
-                                    : item.key === chosenExercise?.id 
-                                    ? theme.colors.onPrimaryContainer 
-                                    : theme.colors.onSecondaryContainer
-                                }
+                                color: isActive
+                                    ? theme.colors.onTertiaryContainer
+                                    : item.key === chosenExercise?.id
+                                        ? theme.colors.onPrimaryContainer
+                                        : theme.colors.onSecondaryContainer
+                            }
                         ]}
                     >
                         {item.label}
@@ -105,12 +105,12 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
     return (
         <View>
             {exerciseData.length > 0 &&
-                <DraggableFlatList
-                    horizontal
-                    data={exerciseData}
-                    onDragEnd={(items) => setExercises(items.data.map((item) => exercises.find((exercise) => exercise.id === item.key)).filter(exercise => exercise !== undefined) as Exercise[])}
-                    keyExtractor={(item) => item.key.toString()}
-                    renderItem={renderItem}
+                <DraggableFlatList keyboardShouldPersistTaps={"handled"}
+                                   horizontal
+                                   data={exerciseData}
+                                   onDragEnd={(items) => setExercises(items.data.map((item) => exercises.find((exercise) => exercise.id === item.key)).filter(exercise => exercise !== undefined) as Exercise[])}
+                                   keyExtractor={(item) => item.key.toString()}
+                                   renderItem={renderItem}
                 />
             }
         </View>

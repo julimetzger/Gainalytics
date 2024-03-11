@@ -1,16 +1,12 @@
 import {Muscles} from "../models/Muscles";
 import {MusclePercentPair} from "./MusclePicker";
 import {Metric} from "./Picker";
-import {calculateMetricComparisons, calculateMetricValue} from "../utils/RepetitionMaxHelper";
+import {calculateMetricComparisons, WorkoutSetMap} from "../utils/RepetitionMaxHelper";
 import {Card, DataTable, Text} from "react-native-paper";
 import React from "react";
 import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 import MetricView from "./MetricComparison";
 
-export interface WorkoutSetMap {
-    currentWorkoutSets: WorkoutSet[],
-    lastWorkoutSets?: WorkoutSet[]
-}
 
 export interface Comparison {
     value: number,

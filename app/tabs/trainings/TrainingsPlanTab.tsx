@@ -70,7 +70,7 @@ const TrainingsPlanTab = ({route}: Props) => {
 
     return (
         <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
-            <ScrollView>
+            <ScrollView keyboardShouldPersistTaps={"always"}>
                 <View>
                     <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly'}}>
                         {training?.state === TrainingsState.STARTED &&

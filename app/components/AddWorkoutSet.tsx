@@ -1,4 +1,4 @@
-import {Keyboard, StyleSheet, View} from "react-native";
+import {StyleSheet, View} from "react-native";
 import {Button, IconButton, Text, TextInput, ToggleButton, Tooltip, useTheme} from "react-native-paper";
 import React, {useEffect, useState} from "react";
 import {repetitionWeightByOneRm} from "../utils/RepetitionMaxHelper";
@@ -116,8 +116,8 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
     }
 
     return (
-        <View style={{ margin: 5}}>
-            <View style={{ flexDirection: "row"}}>
+        <View style={{margin: 5}}>
+            <View style={{flexDirection: "row"}}>
                 <TextInput mode="outlined" label="Reps" value={reps.toString()} style={styles.textInput}
                            onChangeText={setRepsOnChange} keyboardType="numeric"
                            onFocus={() => {
@@ -171,12 +171,10 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                 {persisted() && editing &&
                     <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
                         submit();
-                        Keyboard.dismiss();
                     }}/>}
                 {!persisted() && workoutSet !== undefined &&
                     <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
                         submit();
-                        Keyboard.dismiss();
                     }}/>}
                 {!persisted() && workoutSet === undefined &&
                     < Button
