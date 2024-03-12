@@ -15,6 +15,7 @@
 - anzeige des trainings im router oben
 - name für trainings
 - percentage für volume, sets und reps berücksichtigen
+- in der übersicht die muscle metriken klickbar machen und dann die übungen anzeigen. in der anzeige sieht man alle übungen mit wert der zugehörigen metrik (z.b reps) und zu wieviel prozent sie zur metrik beitragen und der wert multipliziert mit den prozenten..
 
 ## Analyse
 - neue Seite für Darstellung volumen für bodyparts, übungen etc
@@ -57,6 +58,7 @@
     This is to prevent the need to press 2 times before save or close button in modal works (1 press for closing keyboard, 1 press for confirm/close) React Native Issue: #10138
 
 ## Bugs
+- picker auswahl ist nicht mehr swipebar in history (whs muss man da auch die gesture ref mitgeben damit er swipes mitbekommt)
 - "Encountered two children with the same key" im Trainings Modus: bei aktivem Training "Add Workout" geklickt und bei jeder Übung sind die Deadlift Sets mit Haken dazugekommen, Sets können auch nicht gelöscht werden -> Error Meldung "Uncought Error, Cannot read property 'sets' of undefined, Zeile 159 workoutReducer
 - Trainingsübersicht crasht wenn ein planned training vor der überschicht ist
 - Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges
