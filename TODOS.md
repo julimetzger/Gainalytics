@@ -26,6 +26,7 @@
 - ~~swipe history~~
 - Seite mit Datepicker
 - Trainings in Datepicker anzeigen
+- während scrollen horizonztales swipen kmplett unterbinden
 
 ## Exercises
 - Übersichtsseite mit 1RM - 12Rm
