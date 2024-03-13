@@ -17,7 +17,7 @@ import DraggableExercise from "../../components/DraggableExercise";
 import Picker from "../../components/Picker";
 import Timer from "../../components/Timer";
 import TrainingsOverview from "../../components/TrainingsOverview";
-import TrainngsBase from "../../components/TrainingsBase";
+import TrainingsBase from "../../components/TrainingsBase";
 
 const TrainingsPlanTab = ({route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
@@ -95,7 +95,7 @@ const TrainingsPlanTab = ({route}: Props) => {
                                                chooseExercise={setchosenExercise}/>
                         </View>}
                     {training === undefined &&
-                        <TrainngsBase trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro}/>}
+                        <TrainingsBase trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro}/>}
 
                     {chosenExercise && training?.state === TrainingsState.PLANNED &&
                         <PlanWorkoutInTraining training={training}

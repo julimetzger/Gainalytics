@@ -14,7 +14,6 @@ import {BottomTabs} from './app/routing/bottomNavigator';
 import {EventProvider} from "react-native-outside-press";
 import {registerTranslation} from 'react-native-paper-dates';
 import {useSettings} from "./app/redux/settings/useSettings";
-import {useAllTrainingsPlans} from "./app/redux/Training/useAllTrainingsPlans";
 
 registerTranslation('en-GB', {
     save: 'Save',
@@ -33,9 +32,7 @@ registerTranslation('en-GB', {
     close: 'Close',
 })
 
-
 const {store, persistor} = configureStore();
-
 
 export const CombinedDarkTheme = merge(PaperDarkTheme, NavigationDarkTheme);
 export const DarkTheme = {
@@ -48,7 +45,6 @@ export const DarkTheme = {
         dark: true,
     },
 };
-
 
 export const LightTheme = merge(MD3LightTheme, DefaultTheme);
 export const LightThemeCombined = {
