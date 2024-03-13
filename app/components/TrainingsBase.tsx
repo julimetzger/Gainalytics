@@ -11,7 +11,7 @@ interface TrainingsBaseProps {
     micro: number
 }
 
-const TrainngsBase = ({trainingsPlan, trainingInMicro, micro}: TrainingsBaseProps) => {
+const TrainingsBase = ({trainingsPlan, trainingInMicro, micro}: TrainingsBaseProps) => {
     let suggestBasedOnTrained = dispatchSuggestBasedOnTrained(trainingsPlan.id!!, trainingInMicro);
     let suggestBasedOnPlanned = dispatchSuggestBasedOnPlanned(trainingsPlan.id!!, trainingInMicro);
 
@@ -28,4 +28,4 @@ const TrainngsBase = ({trainingsPlan, trainingInMicro, micro}: TrainingsBaseProp
     </View>
 }
 
-export default TrainngsBase;
+export default TrainingsBase;

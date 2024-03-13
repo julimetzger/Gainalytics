@@ -7,7 +7,6 @@ import React from "react";
 import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 import MetricView from "./MetricComparison";
 
-
 export interface Comparison {
     value: number,
     difference?: number
@@ -54,7 +53,6 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
     })
 
     let exerciseMetricMap = new Map<Exercise, Map<Metric, Comparison>>();
-
 
     Array.from(exerciseWorkoutMap).forEach(([exercise, workout]) => {
             let metricComparison = calculateMetricComparisons(workout);

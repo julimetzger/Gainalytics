@@ -195,7 +195,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
 
 const styles = StyleSheet.create({
     textInput: {
-        height: 35,
+        height: 33,
         marginEnd: 5,
         width: 75,
         alignSelf: 'center',
