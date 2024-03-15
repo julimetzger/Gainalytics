@@ -76,10 +76,10 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
                         styles.rowItem,
                         {
                             backgroundColor: isActive
-                                ? theme.colors.secondaryContainer
+                                ? theme.colors.primaryContainer
                                 : item.key === chosenExercise?.id
                                     ? theme.colors.tertiaryContainer
-                                    : theme.colors.primaryContainer
+                                    : theme.colors.secondaryContainer
                         }
                     ]}
                 >
@@ -88,7 +88,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
                             styles.text,
                             {
                                 color: isActive
-                                    ? theme.colors.onTertiaryContainer
+                                    ? theme.colors.onPrimaryContainer
                                     : item.key === chosenExercise?.id
                                         ? theme.colors.onPrimaryContainer
                                         : theme.colors.onSecondaryContainer

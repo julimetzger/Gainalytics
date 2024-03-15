@@ -86,7 +86,7 @@ const TrainingsPlanTab = ({route}: Props) => {
                             <Timer start={timeInWorkout} reset={true} label={"Last Set"}/>}
                     </View>
 
-                    {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED) &&
+                    {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) &&
                         <View>
                             <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
                             <DraggableExercise exercises={exercises}

@@ -1,7 +1,7 @@
 import {useAlleExercises} from "../redux/Exercises/useAllExercises";
 import React, {useEffect, useState} from 'react';
 import {IDropdownData, MultiselectDropdown} from "sharingan-rn-modal-dropdown";
-import {Icon, IconButton, Text, useTheme} from "react-native-paper";
+import {Icon, IconButton, useTheme} from "react-native-paper";
 import {StyleProp, View, ViewStyle} from "react-native";
 import {useAllTrainingsPlans} from "../redux/Training/useAllTrainingsPlans";
 import {Muscles} from "../models/Muscles";
