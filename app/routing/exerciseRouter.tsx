@@ -13,13 +13,37 @@ export type RootStackParamList = {
 const ExerciseRouter = () => {
     let dispatchtoggleMode1 = dispatchtoggleMode();
     const Stack = createStackNavigator<RootStackParamList>();
+    
     return (
         <Stack.Navigator initialRouteName="Exercises">
-            <Stack.Screen name="Exercises" component={ExerciseTab}/>
-            <Stack.Screen name="AddWorkoutTab" component={AddWorkoutTab}
-                          options={({route}) => ({title: route.params.exercise.name, headerRight: ()=>
-                          <IconButton onPress={dispatchtoggleMode1}icon="cog" size={20}/>})}
-            ></Stack.Screen>
+            <Stack.Screen
+                name="Exercises"
+                component={ExerciseTab}
+                options={({ route }) => ({
+                    title: route.params?? "Exercises",
+                    headerRight: () => (
+                        <IconButton
+                            onPress={dispatchtoggleMode1}
+                            icon="cog"
+                            size={20}
+                        />
+                    )
+                })}
+            />
+            <Stack.Screen
+                name="AddWorkoutTab"
+                component={AddWorkoutTab}
+                options={({ route }) => ({
+                    title: route.params.exercise.name,
+                    headerRight: () => (
+                        <IconButton
+                            onPress={dispatchtoggleMode1}
+                            icon="cog"
+                            size={20}
+                        />
+                    )
+                })}
+            />
         </Stack.Navigator>
     );
 };

@@ -77,7 +77,7 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
                         <DataTable.Title>Exercise</DataTable.Title>
                         <DataTable.Title numeric>1RM</DataTable.Title>
                         <DataTable.Title numeric>Reps</DataTable.Title>
-                        <DataTable.Title numeric>Max Intensity</DataTable.Title>
+                        <DataTable.Title numeric numberOfLines={2}>Max Intensity</DataTable.Title>
                     </DataTable.Header>
                     {Array.from(exerciseMetricMap).map(([exercise, workout]) => {
                         return <DataTable.Row key={exercise.id}>

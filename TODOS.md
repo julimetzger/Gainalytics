@@ -21,7 +21,7 @@
 ## Analyse
 - neue Seite für Darstellung volumen für bodyparts, übungen etc
 - 2-7 Training accumalator
-- Spacing
+- ~~Spacing~~
 
 ## History
 - ~~swipe history~~
@@ -36,7 +36,7 @@
 - Rekorde speichern
 
 ## Settings
-- Darkmode/Lightmode
+- ~~Darkmode/Lightmode~~
 - rir/rpe
 - 1RM Buttone default mäßig an/aus
 - Export/Import alles
@@ -61,6 +61,5 @@
 
 ## Bugs
 - picker auswahl ist nicht mehr swipebar in history (whs muss man da auch die gesture ref mitgeben damit er swipes mitbekommt)
-- "Encountered two children with the same key" im Trainings Modus: bei aktivem Training "Add Workout" geklickt und bei jeder Übung sind die Deadlift Sets mit Haken dazugekommen, Sets können auch nicht gelöscht werden -> Error Meldung "Uncought Error, Cannot read property 'sets' of undefined, Zeile 159 workoutReducer
 - Trainingsübersicht crasht wenn ein planned training vor der überschicht ist
 - Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges

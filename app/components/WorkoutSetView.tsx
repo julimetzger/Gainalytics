@@ -32,8 +32,7 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
                 <DataTable.Cell style={{flex: 6}}>{set.reps + " reps"}</DataTable.Cell>
                 <DataTable.Cell style={{flex: 6}}>{set.rir + " RIR"}</DataTable.Cell>
                 <DataTable.Cell style={{flex: 6}}>{set.weight + " kg"}</DataTable.Cell>
-                <DataTable.Cell
-                    style={{flex: 1}}>{highLightMode && (highLightMode === Metric.MAX_INTENSITY || highLightMode === Metric.ONE_RM) && highlightValue === calculateMetricValue([set], highLightMode) ?
+                <DataTable.Cell style={{flex: 1}}>{highLightMode && (highLightMode === Metric.MAX_INTENSITY || highLightMode === Metric.ONE_RM) && highlightValue === calculateMetricValue([set], highLightMode) ?
                     <Icon size={15} source={"trophy"}/>
                     : null}
                 </DataTable.Cell>
