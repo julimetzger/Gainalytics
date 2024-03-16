@@ -61,6 +61,6 @@
     This is to prevent the need to press 2 times before save or close button in modal works (1 press for closing keyboard, 1 press for confirm/close) React Native Issue: #10138
 
 ## Bugs
-- picker auswahl ist nicht mehr swipebar in history (whs muss man da auch die gesture ref mitgeben damit er swipes mitbekommt)
-- Trainingsübersicht crasht wenn ein planned training vor der überschicht ist
-- Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges
+- ~~picker auswahl ist nicht mehr swipebar in history (whs muss man da auch die gesture ref mitgeben damit er swipes mitbekommt)~~
+- ~~Trainingsübersicht crasht wenn ein planned training vor der überschicht ist~~
+- ~~Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges~~
