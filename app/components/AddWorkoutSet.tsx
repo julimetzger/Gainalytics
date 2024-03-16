@@ -1,8 +1,7 @@
-import {StyleSheet, View} from "react-native";
+import {Keyboard, StyleSheet, View} from "react-native";
 import {Button, IconButton, Text, TextInput, ToggleButton, Tooltip, useTheme} from "react-native-paper";
 import React, {useEffect, useState} from "react";
 import {repetitionWeightByOneRm} from "../utils/RepetitionMaxHelper";
-
 
 interface AddWorkoutProps {
     onSubmit: (arg: WorkoutSet) => void,
@@ -171,10 +170,12 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                 {persisted() && editing &&
                     <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
                         submit();
+                        Keyboard.dismiss();
                     }}/>}
                 {!persisted() && workoutSet !== undefined &&
                     <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
                         submit();
+                        Keyboard.dismiss();
                     }}/>}
                 {!persisted() && workoutSet === undefined &&
                     < Button
@@ -182,7 +183,10 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                         style={{marginStart: 5}}
                         buttonColor={theme.colors.primaryContainer}
                         textColor={theme.colors.onPrimaryContainer}
-                        onPress={submit}>
+                        onPress={() => {
+                            submit();
+                            Keyboard.dismiss();
+                        }}>
                         {"Add"}
                     </Button>}
                 {(persisted() || (!persisted() && workoutSet !== undefined)) && onDelete !== undefined &&
