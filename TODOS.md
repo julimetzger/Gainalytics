@@ -14,13 +14,14 @@
 - swipen um zwischen trainings zu wechseln
 - anzeige des trainings im router oben
 - name für trainings
-- percentage für volume, sets und reps berücksichtigen
+- ~~percentage für volume, sets und reps berücksichtigen~~
 - in der übersicht die muscle metriken klickbar machen und dann die übungen anzeigen. in der anzeige sieht man alle übungen mit wert der zugehörigen metrik (z.b reps) und zu wieviel prozent sie zur metrik beitragen und der wert multipliziert mit den prozenten.
 - Anzeige der muskelgruppen und exercises in voller länge in der Übersicht 
 
 ## Analyse
 - neue Seite für Darstellung volumen für bodyparts, übungen etc
 - 2-7 Training accumalator
+- percentage für volume, sets und reps berücksichtigen
 - ~~Spacing~~
 
 ## History
