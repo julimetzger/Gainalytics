@@ -70,7 +70,7 @@ const TrainingsPlanTab = ({route}: Props) => {
 
     return (
         <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
-            <ScrollView keyboardShouldPersistTaps={"always"}>
+            <ScrollView keyboardShouldPersistTaps={"handled"}>
                 <View>
                     <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
                     <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center'}}>
