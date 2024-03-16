@@ -105,7 +105,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
     return (
         <View>
             {exerciseData.length > 0 &&
-                <DraggableFlatList keyboardShouldPersistTaps={"handled"}
+                <DraggableFlatList keyboardShouldPersistTaps={'always'}
                                    horizontal
                                    data={exerciseData}
                                    onDragEnd={(items) => setExercises(items.data.map((item) => exercises.find((exercise) => exercise.id === item.key)).filter(exercise => exercise !== undefined) as Exercise[])}

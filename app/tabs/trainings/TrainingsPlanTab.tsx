@@ -72,7 +72,8 @@ const TrainingsPlanTab = ({route}: Props) => {
         <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
             <ScrollView keyboardShouldPersistTaps={"always"}>
                 <View>
-                    <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly'}}>
+                    <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
+                    <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center'}}>
                         {training?.state === TrainingsState.STARTED &&
                             <Timer start={training.start!!} label={'Start Training'}/>}
                         <Button mode='outlined' onPress={changePlanningmode}>
@@ -85,10 +86,8 @@ const TrainingsPlanTab = ({route}: Props) => {
                         {training?.state === TrainingsState.STARTED &&
                             <Timer start={timeInWorkout} reset={true} label={"Last Set"}/>}
                     </View>
-
                     {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) &&
                         <View>
-                            <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
                             <DraggableExercise exercises={exercises}
                                                setExercises={setExerciseWithSideEffects}
                                                chosenExercise={chosenExercise}

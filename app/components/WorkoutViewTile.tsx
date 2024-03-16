@@ -49,7 +49,7 @@ const WorkoutViewTile = ({workoutId, highlightMode, editable}: WorkoutVieTilePro
                             marginLeft: 5
                         }}>{userExercise.name}</Text>
                     {showEdit &&
-                        <IconButton style={{margin: 0, alignSelf: 'flex-start', height: 30}}
+                        <IconButton style={{margin: 0, alignSelf: 'flex-start', height: 25}}
                                     icon={"delete"}
                                     onPress={() => {
                                         useDeleteWorkoutdispatch(workout)

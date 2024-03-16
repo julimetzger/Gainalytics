@@ -1,43 +1,45 @@
 import {Pressable, ScrollView, StyleSheet, View} from "react-native"
 import React, {useState} from "react";
-import {Divider, Text, TextInput, useTheme} from "react-native-paper";
+import {Card, ProgressBar, Text, TextInput} from "react-native-paper";
 import {useAllTrainingsPlans} from "../../redux/Training/useAllTrainingsPlans";
 import {RootStackParamList} from "../../routing/TrainingRouter";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import AddTrainingsPlan from "./AddTrainingsPlan";
 
 const TrainingHome = ({navigation}: Props) => {
-    const theme = useTheme();
     const [filter, setFilter] = useState('');
     const trainingsPlans = useAllTrainingsPlans().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
 
     return (
-        <View style={{backgroundColor: theme.colors.background, flex: 1}}>
+        <View style={{ flex: 1}}>
             <TextInput label={'Filter'} onChangeText={(text) => setFilter(text)}/>
             <ScrollView contentInsetAdjustmentBehavior="automatic">
                 {trainingsPlans
                     .filter((exercise: TrainingsPlan) => exercise.name.toLowerCase().includes(filter.toLowerCase()))
                     .map((trainingsPlan: TrainingsPlan) => (
-                        <Pressable
-                            key={trainingsPlan.id}
-                            onPress={() =>
-                                navigation.navigate({
-                                    name: 'Training',
-                                    params: {trainingsPlan: trainingsPlan},
-                                })
-                            }>
-                            <View style={{
-                                flexDirection: 'row',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                            }}>
-                                <Text style={styles.exerciseText}> {trainingsPlan.name}</Text>
-                                <AddTrainingsPlan trainingsId={trainingsPlan.id}/>
-                            </View>
-                            <Divider/>
-                        </Pressable>
-                    ))}
+                        <Card style={{margin: 5}}>
+                            <ProgressBar style={{margin: 5}} visible={true} progress = {0.5}></ProgressBar>
+                            <Pressable
+                                key={trainingsPlan.id}
+                                onPress={() =>
+                                    navigation.navigate({
+                                        name: 'Training',
+                                        params: {trainingsPlan: trainingsPlan},
+                                    })
+                                }>
+                                <View style={{
+                                    flexDirection: 'row',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <Text style={styles.exerciseText}> {trainingsPlan.name}</Text>
+                                    <AddTrainingsPlan trainingsId={trainingsPlan.id}/>
+                                </View>
+                            </Pressable>
+                        </Card>
+                    ))
+                }
             </ScrollView>
             <AddTrainingsPlan style={styles.addExercise}/>
         </View>

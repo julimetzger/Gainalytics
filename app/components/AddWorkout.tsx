@@ -68,7 +68,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
         }
 
         return (
-            <ScrollView style={{backgroundColor: theme.colors.background}} keyboardShouldPersistTaps='handled'>
+            <View style={{backgroundColor: theme.colors.background}}>
                 {suggest &&
                     <Button buttonColor={theme.colors.tertiaryContainer} textColor={theme.colors.onTertiaryContainer}
                             disabled={unfinishedWorkout !== undefined || workouts.length === 0}
@@ -112,7 +112,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                     }}>
                     Add Workout
                 </Button>}
-            </ScrollView>
+            </View>
         )
             ;
     }

@@ -23,6 +23,7 @@
 - 2-7 Training accumalator
 - percentage für volume, sets und reps berücksichtigen
 - ~~Spacing~~
+- Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären
 
 ## History
 - ~~swipe history~~
