@@ -49,8 +49,6 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
 
     let muscleMetricMap = calculateMetricComparisonsForMuscle(exerciseWorkoutMap);
 
-    console.log(muscleMetricMap);
-
     return <>
         <Card style={{margin: 5}}>
             <Card.Title title={<Text>Exercise Overview</Text>}></Card.Title>

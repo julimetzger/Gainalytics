@@ -33,7 +33,6 @@ export const repetitionWeightByOneRm = (reps: number, rir: number, oneRm: number
 export function calculateMetricValue(sets: WorkoutSet[], metric: Metric) {
     const oneRm = repetitionMax(...sets)?.valueOf();
     switch (metric) {
-        //TOOO percentage für volume, sets und reps berücksichtigen
         case Metric.ONE_RM:
             return oneRm;
         case Metric.VOLUME:
@@ -58,7 +57,7 @@ function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise, Workou
         case Metric.VOLUME:
             let collection = Array.from(exerxiseWorkoutMap.entries()).map(([exercise, workoutSets]) =>
                 sumBy(workoutSets, value => {
-                    return value.weight * value.reps * (exercise.muscles?.find(m => m.muscle === muscle)?.percent ?? 0)/100
+                    return value.weight * value.reps * (exercise.muscles?.find(m => m.muscle === muscle)?.percent ?? 0) / 100
                 }));
             return sum(collection)
         case Metric.MAX_INTENSITY:
@@ -69,11 +68,11 @@ function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise, Workou
             return sum(Array.from(exerxiseWorkoutMap.entries())
                 .map(([exercise, workoutSets]) =>
                     sumBy(workoutSets, value =>
-                        (exercise.muscles?.find(m => m.muscle === muscle)?.percent ?? 0))));
+                        (exercise.muscles?.find(m => m.muscle === muscle)?.percent ?? 0)) / 100));
         case Metric.REPS:
             return sum(Array.from(exerxiseWorkoutMap.entries())
                 .map(([exercise, workoutSets]) =>
-                    sumBy(workoutSets, value => ((exercise.muscles?.find(m => m.muscle === muscle)?.percent) ?? 0)/100 * value.reps)));
+                    sumBy(workoutSets, value => ((exercise.muscles?.find(m => m.muscle === muscle)?.percent) ?? 0) / 100 * value.reps)));
     }
 }
 

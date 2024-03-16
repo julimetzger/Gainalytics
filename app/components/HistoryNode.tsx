@@ -11,16 +11,14 @@ interface HisotryNodeProps {
     range: Range,
     setRange: (range: Range) => void,
     exercise: Exercise[],
-    setExercise: (exercise: Exercise[]) => void
 }
 
-const HistoryNode = ({range, setRange, exercise, setExercise}: HisotryNodeProps) => {
+const HistoryNode = ({range, setRange, exercise}: HisotryNodeProps) => {
     let lastWorkouts = useWorkoutsIn(range)
         .filter((workout: Workout) => exercise.length > 0 ? exercise.map(it => it.id).includes(workout.exerciseId) : true)
     return <>
         <DateRangePicker range={range}
                          setRange={setRange}/>
-        <Picker exercise={exercise} setExercise={setExercise} muscles={true}/>
         <WorkoutView
             workoutIds={lastWorkouts.map(workout => workout.id).filter(workoutId => workoutId !== undefined) as number[]}/>
         <Divider/>

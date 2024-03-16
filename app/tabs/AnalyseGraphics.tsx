@@ -50,67 +50,67 @@ const AnalyseGraphics = ({}: Props) => {
         <ScrollView style={{
             backgroundColor: theme.colors.background,
             display: 'flex',
-            flex: 1, 
+            flex: 1,
         }}>
-                <DateRangePicker range={range} setRange={setRange}/>
-                <Picker exercise={exercise} setExercise={setExercise}
-                        metric={metric} setMetric={setMetric}
-                        accumulation={accumulation} setAccumulation={setAccumulation}
-                        muscles={true}/>
+            <Picker exercise={exercise} setExercise={setExercise}
+                    metric={metric} setMetric={setMetric}
+                    accumulation={accumulation} setAccumulation={setAccumulation}
+                    muscles={true}/>
+            <DateRangePicker range={range} setRange={setRange}/>
 
             {exercise.length > 0 && metric && accumulation &&
-            <LineChart
-                style={{
-                    backgroundColor: theme.colors.background,
-                    ...styles.chart
-                }}
-                marker={{
-                    enabled: true,
-                    markerColor: processColor(theme.colors.backdrop),
-                    textSize: 15,
-                    textColor: processColor(theme.colors.secondary)
-                }}
-                data={{
-                    dataSets: [{
-                        config: {
-                            color: processColor(theme.colors.primary),
-                            circleColor: processColor(theme.colors.primary),
-                            highlightEnabled: true,
-                            lineWidth: 2,
-                            drawCircleHole: false,
-                            highlightColor: processColor(theme.colors.secondary),
-                            circleRadius: 4,
-                            mode: 'HORIZONTAL_BEZIER',
-                            drawValues: false,
-                        }, values: map
-                    }, {
-                        config: {
-                            color: processColor(theme.colors.tertiary),
-                            drawCircles: false,
-                            lineWidth: 1,
-                            dashedLine: {lineLength: 15, spaceLength: 10},
-                            mode: 'LINEAR',
-                            drawValues: false,
-                        }, values: generateTrend(map)
-                    }
-                    ]
-                }}
-                legend={{enabled: false}}
-                xAxis={{
-                    valueFormatter: 'date',
-                    valueFormatterPattern: 'dd MMM',
-                    position: 'BOTTOM_INSIDE',
-                    textColor: processColor(theme.colors.onBackground)
-                }}
-                yAxis={{
-                    left: {textColor: processColor(theme.colors.onBackground)},
-                    right: {textColor: processColor(theme.colors.onBackground)}
-                }}
-                chartDescription={{text: ''}}
-                onSelect={(value) => handleDataPointSelect(value)}
-            />}
-                {selectedWorkout && exercise.length > 0 &&
-                    <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric} editable={false}></WorkoutView>}
+                <LineChart
+                    style={{
+                        backgroundColor: theme.colors.background,
+                        ...styles.chart
+                    }}
+                    marker={{
+                        enabled: true,
+                        markerColor: processColor(theme.colors.backdrop),
+                        textSize: 15,
+                        textColor: processColor(theme.colors.secondary)
+                    }}
+                    data={{
+                        dataSets: [{
+                            config: {
+                                color: processColor(theme.colors.primary),
+                                circleColor: processColor(theme.colors.primary),
+                                highlightEnabled: true,
+                                lineWidth: 2,
+                                drawCircleHole: false,
+                                highlightColor: processColor(theme.colors.secondary),
+                                circleRadius: 4,
+                                mode: 'HORIZONTAL_BEZIER',
+                                drawValues: false,
+                            }, values: map
+                        }, {
+                            config: {
+                                color: processColor(theme.colors.tertiary),
+                                drawCircles: false,
+                                lineWidth: 1,
+                                dashedLine: {lineLength: 15, spaceLength: 10},
+                                mode: 'LINEAR',
+                                drawValues: false,
+                            }, values: generateTrend(map)
+                        }
+                        ]
+                    }}
+                    legend={{enabled: false}}
+                    xAxis={{
+                        valueFormatter: 'date',
+                        valueFormatterPattern: 'dd MMM',
+                        position: 'BOTTOM_INSIDE',
+                        textColor: processColor(theme.colors.onBackground)
+                    }}
+                    yAxis={{
+                        left: {textColor: processColor(theme.colors.onBackground)},
+                        right: {textColor: processColor(theme.colors.onBackground)}
+                    }}
+                    chartDescription={{text: ''}}
+                    onSelect={(value) => handleDataPointSelect(value)}
+                />}
+            {selectedWorkout && exercise.length > 0 &&
+                <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric} editable={false}></WorkoutView>}
         </ScrollView>
     )
 };
