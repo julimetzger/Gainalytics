@@ -17,8 +17,8 @@ interface TrainingsBaseProps {
 const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
     let trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
     let previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro - 1);
-    let totalTimeTraining = new Date(sum(trainings.map(training => new Date(training.end!!).getTime() - new Date(training.start!!).getTime())));
-    let totalTimePreviousTraining = previousTrainings?.length > 0 ? new Date(sum(previousTrainings.map(training => new Date(training.end!!).getTime() - new Date(training.start!!).getTime()))) : undefined;
+    let totalTimeTraining = new Date(sum(trainings.map(training => training.end && training.start ? new Date(training.end!!).getTime() - new Date(training.start!!).getTime() : 0)));
+    let totalTimePreviousTraining = previousTrainings?.length > 0 ? new Date(sum(previousTrainings.map(training => training.end && training.start ? new Date(training.end!!).getTime() - new Date(training.start!!).getTime() : 0))) : undefined;
 
     let formattedDifference;
     if (totalTimePreviousTraining) {
