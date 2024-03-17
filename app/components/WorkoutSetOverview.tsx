@@ -70,7 +70,9 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
                     </DataTable.Header>
                     {Array.from(exerciseMetricMap).map(([exercise, workout]) => {
                         return <DataTable.Row key={exercise.id}>
-                            <DataTable.Cell>{exercise.name}</DataTable.Cell>
+                            <DataTable.Cell>
+                                <Text>{exercise.name}</Text>
+                            </DataTable.Cell>
                             <DataTable.Cell numeric>
                                 <MetricView comparison={workout.get(Metric.ONE_RM)!!}/>
                             </DataTable.Cell>

@@ -7,7 +7,7 @@ import {dispatchAddOrUpdateSetInWorkout} from "../redux/Workout/dispatchAddOrUpd
 import {dispatchFinalizeWorkout} from "../redux/Workout/dispatchFinalizeWorkout";
 import {dispatchDeleteSetFromWorkout} from "../redux/Workout/dispatchDeleteSetFromWorkout";
 import {dispatchSuggest} from "../redux/Workout/dispatchSuggest";
-import {ScrollView, StyleSheet, View} from "react-native";
+import {StyleSheet, View} from "react-native";
 import DatePicker from "./DatePicker";
 import AddWorkoutSet from "./AddWorkoutSet";
 import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";

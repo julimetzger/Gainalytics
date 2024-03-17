@@ -92,6 +92,7 @@ const Picker = ({
                                           selectedItemViewStyle={{display: 'none'}}
                                           primaryColor={theme.colors.primaryContainer}
                                           enableAvatar
+                                          multiline={true}
             />}
             <IconButton mode='outlined'
                         style={{position: 'absolute', right: 0, top: -5, zIndex: 2}}

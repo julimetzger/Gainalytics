@@ -13,7 +13,7 @@ export const BottomTabs = () => {
     const allTrainings = useTrainings();
     let isTrainingStarted = allTrainings.some(A => A.state === TrainingsState.STARTED)
     return (
-        <Tab.Navigator initialRouteName="Feed" shifting={true} sceneAnimationEnabled={false}>
+        <Tab.Navigator initialRouteName="Feed" shifting={false}>
             <Tab.Screen
                 name="Exercises"
                 component={ExerciseRouter}
