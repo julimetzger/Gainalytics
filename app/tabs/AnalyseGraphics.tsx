@@ -1,18 +1,20 @@
 import React, {useEffect, useState} from 'react';
-import {processColor, ScrollView, StyleSheet, View} from 'react-native';
+import {processColor, ScrollView, StyleSheet} from 'react-native';
 import {useTheme} from 'react-native-paper';
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
 import DateRangePicker, {Range} from "../components/DateRangePicker";
 import {firstDayOfWeek, getEndOfDay} from "../utils/DateHelper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
-import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
+import {calculateMetricValue, calculateMetricValueForMuscles, WorkoutSetMap} from "../utils/RepetitionMaxHelper";
 import {RootStackParamList} from "../routing/AnalyseRouter";
-import {sumBy} from "lodash";
+import {sum, sumBy} from "lodash";
 import Picker, {AccumulationMode, Accumulation, Metric} from "../components/Picker";
 import {useWorkoutsByIds} from "../redux/Workout/useWorkoutsByIds";
 import WorkoutView from "../components/WorkoutView";
 import {getAllTrainingsForMicro, getMicroFromTrainingInMicroIndex} from "../redux/Training/trainingsPlanReducer";
+import {Muscles} from "../models/Muscles";
+import {useExercisesForMuscles} from "../redux/Exercises/useExercisesForMuscles";
 
 const AnalyseGraphics = ({}: Props) => {
     function handleDataPointSelect(value: ChartSelectEvent) {
@@ -26,25 +28,56 @@ const AnalyseGraphics = ({}: Props) => {
     const [metric, setMetric] = useState(Metric.ONE_RM);
     const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumulationMode.SINGLE_DAY))
     const [exercise, setExercise] = useState<Exercise[]>([]);
+    const [muscle, setMuscle] = useState<Muscles[]>([]);
+    let exercisesForMuscles = useExercisesForMuscles(muscle);
     let exerciseIDs = exercise.map(it => it.id);
+    let exercisesForMusclesIds = exercisesForMuscles.map(it => it.id);
     let allWorkouts = useWorkoutsIn(range);
-    let workoutsForExercise = allWorkouts.reverse().filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true) as Workout[];
+    let workoutsForExercise = allWorkouts.reverse().filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : false) as Workout[];
+    let workoutsForMuscles = allWorkouts.reverse().filter((workout: Workout) => exercisesForMusclesIds.length > 0 ? exercisesForMusclesIds.includes(workout.exerciseId) : false) as Workout[];
     const theme = useTheme();
     let selectedWorkout = useWorkoutsByIds(selectedWorkoutIds);
     useEffect(() => {
         setSelectedWorkoutIds([]);
-    }, [exercise, metric, accumulation]);
+    }, [exercise, metric, accumulation, muscle]);
+    let combinedWorkouts = [...workoutsForExercise, ...workoutsForMuscles];
+    let uniqueWorkouts = Array.from(new Set(combinedWorkouts.map(workout => workout.id)))
+        .map(id => combinedWorkouts.find(workout => workout.id === id)!!);
+    let combinedExercises = [...exercise, ...exercisesForMuscles];
+    let uniqueExercises = Array.from(new Set(combinedExercises.map(ex => ex.id)))
+        .map(id => combinedExercises.find(ex => ex.id === id)!!);
 
 // @ts-ignore
-    let map = Array.from(workoutsForExercise
+    let map = Array.from(uniqueWorkouts
         .filter((workout: Workout) => workout.sets.length > 0)
-        .reduce(handleAccumulationModeBatching(workoutsForExercise, accumulation), new Map<string, Workout[]>()))
-        .flatMap(([value, workouts]) => [{
-            id: workouts.reduce((acc: string, workout: Workout) => acc + "," + workout.id!!, ""),
-            x: new Date(value).getTime(),
-            y: calculateMetricValue(workouts.flatMap(workout => workout.sets), metric),
-            marker: calculateMetricValue(workouts.flatMap(workout => workout.sets), metric)?.toFixed(2)
-        } as LineValue])
+        .reduce(handleAccumulationModeBatching(uniqueWorkouts, accumulation), new Map<string, Workout[]>()))
+        .map(([value, workouts]) => {
+            let exerciseWorkoutMap = new Map<Exercise, Workout[]>();
+            workouts.forEach(workout => {
+                let exercise = uniqueExercises.find((exercise: Exercise) => exercise.id === workout.exerciseId);
+                if (workout && exercise) {
+                    if (exerciseWorkoutMap.get(exercise)) {
+                        exerciseWorkoutMap.get(exercise)?.push(workout);
+                    } else {
+                        exerciseWorkoutMap.set(exercise, [workout]);
+                    }
+                }
+            })
+            return [value, exerciseWorkoutMap] as [string, Map<Exercise, Workout[]>]
+        })
+        .flatMap(([value, workouts]) => {
+            const allWorkouts = Array.from(workouts.values()).flat() as Workout[];
+            let exerciseSetMap = new Map(Array.from(workouts.entries()).map(([exercise, workout]) => [exercise, workout.flatMap(w => w.sets)]));
+            let workoutSetForExercises = exercise.flatMap((exercise: Exercise) => workouts.get(exercise)!!).flatMap(workout => workout.sets);
+            let muscleSum = sum(muscle.map(mus => calculateMetricValueForMuscles(exerciseSetMap, metric, mus)));
+            let exerciseSum = calculateMetricValue(workoutSetForExercises, metric) ?? 0;
+            return [{
+                id: allWorkouts.reduce((acc: string, workout: Workout) => acc + "," + workout.id!!, ""),
+                x: new Date(value).getTime(),
+                y: exerciseSum + muscleSum,
+                marker: (exerciseSum + muscleSum).toFixed(2)
+            } as LineValue]
+        })
         .sort(((a, b) => a.x!! - b.x!!));
     return (
         <ScrollView style={{
@@ -55,10 +88,10 @@ const AnalyseGraphics = ({}: Props) => {
             <Picker exercise={exercise} setExercise={setExercise}
                     metric={metric} setMetric={setMetric}
                     accumulation={accumulation} setAccumulation={setAccumulation}
-                    muscles={true}/>
+                    muscle={muscle} setMuscle={setMuscle}/>
             <DateRangePicker range={range} setRange={setRange}/>
 
-            {exercise.length > 0 && metric && accumulation &&
+            {(exercise.length > 0 || muscle.length > 0) && metric && accumulation &&
                 <LineChart
                     style={{
                         backgroundColor: theme.colors.background,
@@ -109,7 +142,7 @@ const AnalyseGraphics = ({}: Props) => {
                     chartDescription={{text: ''}}
                     onSelect={(value) => handleDataPointSelect(value)}
                 />}
-            {selectedWorkout && exercise.length > 0 &&
+            {selectedWorkout && (exercise.length > 0 || muscle.length > 0) &&
                 <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric} editable={false}></WorkoutView>}
         </ScrollView>
     )

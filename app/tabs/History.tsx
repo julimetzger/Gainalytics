@@ -15,6 +15,7 @@ import {Gesture, GestureDetector, GestureHandlerRootView, ScrollView} from 'reac
 import {RootStackParamList} from "../routing/AnalyseRouter";
 import HistoryNode from "../components/HistoryNode";
 import Picker from "../components/Picker";
+import {Muscles} from "../models/Muscles";
 
 
 interface PositionRange {
@@ -52,6 +53,7 @@ const History = ({route}: Props) => {
         )
         let now = new Date(Date.now());
         const [exercise, setExercise] = useState<Exercise[]>([]);
+        const [muscle, setMuscle] = useState<Muscles[]>([]);
         const [fullPosition, setFullPosition] = useState({
             Upper: {position: -1, range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0)).minusRange()},
             Middle: {position: 0, range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0))},
@@ -218,7 +220,7 @@ const History = ({route}: Props) => {
         return (
             <GestureHandlerRootView>
                 <ScrollView simultaneousHandlers={refa} keyboardShouldPersistTaps={'always'}>
-                    <Picker exercise={exercise} setExercise={setExercise} muscles={true}/>
+                    <Picker exercise={exercise} setExercise={setExercise} muscle={muscle} setMuscle={setMuscle}/>
                     <GestureDetector gesture={panGesture}>
                         <Animated.View style={[animatedStyle, {
                             flexDirection: 'row',
@@ -234,7 +236,8 @@ const History = ({route}: Props) => {
                                         >
                                             <HistoryNode key={"Upper"} range={fullPosition.Upper.range}
                                                          setRange={setRange}
-                                                         exercise={exercise}/>
+                                                         exercise={exercise}
+                                                         muscle={muscle}/>
                                         </View>
                                     }
                                     if (value === fullPosition.Middle.position) {
@@ -244,7 +247,8 @@ const History = ({route}: Props) => {
                                         }}>
                                             <HistoryNode key={"Middle"} range={fullPosition.Middle.range}
                                                          setRange={setRange}
-                                                         exercise={exercise}/>
+                                                         exercise={exercise}
+                                                         muscle={muscle}/>
                                         </View>
                                     }
                                     if (value === fullPosition.Lower.position) {
@@ -254,7 +258,7 @@ const History = ({route}: Props) => {
                                                 top: 0,
                                             }}>
                                                 <HistoryNode key={"Lower"} range={fullPosition.Lower.range}
-                                                             setRange={setRange} exercise={exercise}
+                                                             setRange={setRange} exercise={exercise} muscle={muscle}
                                                 />
                                             </View>
                                         )
