@@ -1,13 +1,15 @@
 import {Metric} from "./Picker";
 import {
     calculateMetricComparisons,
-    calculateMetricComparisonsForMuscle,
+    calculateMetricComparisonsForMuscle, calculateMetricValue,
     WorkoutSetMap
 } from "../utils/RepetitionMaxHelper";
-import {Card, DataTable, Text} from "react-native-paper";
-import React from "react";
+import {Card, DataTable, Dialog, Portal, Text} from "react-native-paper";
+import React, {useState} from "react";
 import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 import MetricView from "./MetricComparison";
+import {Muscles} from "../models/Muscles";
+import {MusclePercentPair} from "./MusclePicker";
 
 export interface Comparison {
     value: number,
@@ -19,8 +21,14 @@ interface WorkoutSetOverviewProps {
     previousWorkouts?: Workout[]
 }
 
+interface MuscleDetails {
+    muscle: Muscles,
+    metric: Metric
+}
+
 const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutSetOverviewProps) => {
     let trainingExcercises = useExerciseByIds(trainingsWorkouts.map((workout: Workout) => workout.exerciseId));
+    const [seledtedMuscle, setSelectedMuscle] = useState<MuscleDetails | undefined>(undefined)
 
     let exerciseWorkoutMap = new Map<Exercise, WorkoutSetMap>();
     trainingsWorkouts.forEach(workout => {
@@ -90,13 +98,22 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
                     {Array.from(muscleMetricMap).map(([muscle, workout]) => {
                         return <DataTable.Row key={muscle.toString()}>
                             <DataTable.Cell>{muscle}</DataTable.Cell>
-                            <DataTable.Cell numeric>
+                            <DataTable.Cell numeric onLongPress={() => setSelectedMuscle({
+                                muscle: muscle,
+                                metric: Metric.VOLUME
+                            })}>
                                 <MetricView comparison={workout.get(Metric.VOLUME)!!}/>
                             </DataTable.Cell>
-                            <DataTable.Cell numeric>
+                            <DataTable.Cell numeric onLongPress={() => setSelectedMuscle({
+                                muscle: muscle,
+                                metric: Metric.SETS
+                            })}>
                                 <MetricView comparison={workout.get(Metric.SETS)!!}/>
                             </DataTable.Cell>
-                            <DataTable.Cell numeric>
+                            <DataTable.Cell numeric onLongPress={() => setSelectedMuscle({
+                                muscle: muscle,
+                                metric: Metric.REPS
+                            })}>
                                 <MetricView comparison={workout.get(Metric.REPS)!!}/>
                             </DataTable.Cell>
                         </DataTable.Row>
@@ -104,7 +121,39 @@ const WorkoutSetOverview = ({trainingsWorkouts, previousWorkouts = []}: WorkoutS
                 </DataTable>
             </Card.Content>
         </Card>
-    </>;
+        <Portal>
+            <Dialog visible={seledtedMuscle !== undefined} onDismiss={() => setSelectedMuscle(undefined)}>
+                <Dialog.Title>{seledtedMuscle?.muscle + " " + seledtedMuscle?.metric + " Contribution"}</Dialog.Title>
+                <DataTable.Header>
+                    <DataTable.Title>Exercise</DataTable.Title>
+                    <DataTable.Title numeric>Value</DataTable.Title>
+                    <DataTable.Title numeric>Factor</DataTable.Title>
+                    <DataTable.Title numeric>Contribution</DataTable.Title>
+                </DataTable.Header>
+                <Dialog.Content>
+                    {Array.from(exerciseWorkoutMap).map(([exercise, workout]) => {
+
+                        let matchedExercise = exercise.muscles?.find((muscle) => muscle.muscle === seledtedMuscle?.muscle) as MusclePercentPair | undefined;
+                        if (matchedExercise) {
+                            let unmodifiedMetricValue = calculateMetricValue(workout.currentWorkoutSets, seledtedMuscle!!.metric);
+                            let percent = [Metric.SETS, Metric.VOLUME, Metric.REPS].includes(seledtedMuscle?.metric!!) ? matchedExercise.percent : 100;
+                            return (
+                                <DataTable.Row>
+                                    <DataTable.Title>{exercise.name}</DataTable.Title>
+                                    <DataTable.Title
+                                        numeric>{unmodifiedMetricValue}</DataTable.Title>
+                                    <DataTable.Title
+                                        numeric>{percent}</DataTable.Title>
+                                    <DataTable.Title
+                                        numeric>{unmodifiedMetricValue!! * percent!! / 100}</DataTable.Title>
+                                </DataTable.Row>)
+                        }
+                    })}
+                </Dialog.Content>
+            </Dialog>
+        </Portal>
+    </>
+        ;
 }
 
 export default WorkoutSetOverview;
