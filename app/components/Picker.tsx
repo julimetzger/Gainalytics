@@ -9,24 +9,24 @@ import {Muscles} from "../models/Muscles";
 const Picker = ({
                     exercise,
                     setExercise,
+                    muscle,
+                    setMuscle,
                     style,
                     metric,
                     setMetric,
                     setAccumulation,
                     accumulation,
-                    disabled = true,
-                    muscles = false
+                    visible = true,
                 }: ExercisePickerProps) => {
-    const [show, setShow] = useState(disabled)
+    const [show, setShow] = useState(visible)
     let allExercises = useAlleExercises()
     let trainingsPlan = useAllTrainingsPlans();
     let theme = useTheme();
-    const [muscle, setMuscle] = useState<Muscles[]>([]);
     let selectedExercises = exercise.map((exercise: Exercise) => exercise.id ? exercise.id : 0).map((value: number) => value.toString());
-    let exercisesByMuscles = allExercises.filter((value: Exercise) => value.muscles?.some(s => {
+    let exercisesByMuscles = muscle ? allExercises.filter((value: Exercise) => value.muscles?.some(s => {
         return muscle.includes(s.muscle)
-    }));
-    let dropdownExerciseStructure:IDropdownData[] = allExercises.map((exercise: Exercise) => {
+    })) : undefined;
+    let dropdownExerciseStructure: IDropdownData[] = allExercises.map((exercise: Exercise) => {
         return {
             label: exercise.name,
             value: exercise.id!!.toString(),
@@ -34,17 +34,21 @@ const Picker = ({
         }
     });
     //TODO is this good? sollen wirklich die exercises nicht angezeigt werden? Beim adden der exercises passiert dann gar nichts mehr
-    selectedExercises = selectedExercises.filter((value: string) => !exercisesByMuscles.map(value => value.id?.toString()).includes(value));
+    // selectedExercises = selectedExercises.filter((value: string) => !exercisesByMuscles.map(value => value.id?.toString()).includes(value));
     let allAccumalations: Accumulation[] = [];
     if (setAccumulation) {
         let trainingAccumalations = trainingsPlan.map((trainingsPlan: TrainingsPlan) => Accumulation.fromTrainingsPlan(trainingsPlan));
         let nonTrainingAccumalations = Accumulation.forAllNonTrainingModes();
         allAccumalations = [...trainingAccumalations, ...nonTrainingAccumalations];
-        allAccumalations.map((value: Accumulation, ) => {
-            dropdownExerciseStructure.push({label: value.getName(), value: value.getId(), avatarComponent: <Icon source="book-open-variant" size={20}></Icon>})
+        allAccumalations.map((value: Accumulation,) => {
+            dropdownExerciseStructure.push({
+                label: value.getName(),
+                value: value.getId(),
+                avatarComponent: <Icon source="book-open-variant" size={20}></Icon>
+            })
         })
     }
-    let selectedValues = [...selectedExercises, ...muscle]
+    let selectedValues = [...selectedExercises, ...(muscle?? [])]
     if (metric !== undefined) {
         selectedValues.push(metric)
     }
@@ -53,12 +57,20 @@ const Picker = ({
     }
     if (setMetric) {
         Object.values(Metric).map((value: string) => {
-            dropdownExerciseStructure.push({label: value, value: value, avatarComponent: <Icon source="trending-up" size={20}></Icon>})
+            dropdownExerciseStructure.push({
+                label: value,
+                value: value,
+                avatarComponent: <Icon source="trending-up" size={20}></Icon>
+            })
         })
     }
-    if (muscles) {
+    if (muscle) {
         Object.values(Muscles).map((value: string) => {
-            dropdownExerciseStructure.push({label: value, value: value, avatarComponent: <Icon source="arm-flex" size={20}></Icon>})
+            dropdownExerciseStructure.push({
+                label: value,
+                value: value,
+                avatarComponent: <Icon source="arm-flex" size={20}></Icon>
+            })
         })
     }
     useEffect(() => {
@@ -82,7 +94,7 @@ const Picker = ({
                                           enableAvatar
             />}
             <IconButton mode='outlined'
-                        style={ {position: 'absolute', right: 0, top: -5, zIndex: 2} }
+                        style={{position: 'absolute', right: 0, top: -5, zIndex: 2}}
                         icon={!show ? 'chevron-down' : 'chevron-up'}
                         onPress={() => setShow(!show)}>
             </IconButton>
@@ -102,9 +114,9 @@ const Picker = ({
         let find = exercises.map((value: string) => allExercises.find((exercise: Exercise) => exercise.id === parseInt(value)))
             .filter((value: Exercise | undefined) => value !== undefined) as Exercise[]
         let muslces = value.filter((value: string) => Object.values(Muscles).includes(value as Muscles)).map((value: string) => value as Muscles);
-        let allExercisesByMuscle = allExercises.filter((ex: Exercise) => ex.muscles?.some(s => muslces.includes(s.muscle)))
-        setMuscle(muslces);
-        setExercise([...find, ...allExercisesByMuscle]);
+        // let allExercisesByMuscle = allExercises.filter((ex: Exercise) => ex.muscles?.some(s => muslces.includes(s.muscle)))
+        setMuscle ? setMuscle(muslces) : 0;
+        setExercise([...find]);
         setMetric ? setMetric(newMetric[0] as Metric) : 0;
         setAccumulation ? setAccumulation(allAccumalations.find((accumulation) => accumulation?.getId() === accumulationNames[0])) : undefined;
     }
@@ -166,13 +178,14 @@ export class Accumulation {
 interface ExercisePickerProps {
     exercise: Exercise[],
     setExercise: (arg: Exercise[]) => void,
+    muscle?: Muscles[],
+    setMuscle?: (arg: Muscles[]) => void,
     style?: StyleProp<ViewStyle>
-    disabled?: boolean
+    visible?: boolean
     metric?: Metric,
     setMetric?: (arg: Metric) => void,
     accumulation?: Accumulation,
     setAccumulation?: (arg: Accumulation | undefined) => void,
-    muscles?: boolean
 }
 
 export default Picker;

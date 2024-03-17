@@ -1,7 +1,6 @@
 # TODOs for the project
 
 ## Trainings:
-- planned directly to done ?? 
 - addWorkout mit neuer Übung befüllen als default Wert fürs eintragen
 - ~~zeit anzeigen seit start des Trainings~~ aber noch nicht schön 
 - ~~Vergleich mit vorherigem Training~~/geplanten Workout nach Abschluss des Trainings
@@ -21,7 +20,7 @@
 ## Analyse
 - neue Seite für Darstellung volumen für bodyparts, übungen etc
 - 2-7 Training accumalator
-- percentage für volume, sets und reps berücksichtigen
+- ~~percentage für volume, sets und reps berücksichtigen~~
 - ~~Spacing~~
 - Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären
 

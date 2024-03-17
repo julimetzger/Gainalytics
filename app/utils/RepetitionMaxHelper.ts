@@ -48,7 +48,7 @@ export function calculateMetricValue(sets: WorkoutSet[], metric: Metric) {
     }
 }
 
-function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise, WorkoutSet[]>, metric: Metric, muscle: Muscles) {
+export function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise, WorkoutSet[]>, metric: Metric, muscle: Muscles) {
     let sets = Array.from(exerxiseWorkoutMap.values()).flat();
     const oneRm = repetitionMax(...sets)?.valueOf();
     switch (metric) {

@@ -5,17 +5,21 @@ import {Divider, Text} from "react-native-paper";
 import {View} from "react-native";
 import {repetitionMax} from "../utils/RepetitionMaxHelper";
 import React, {memo} from "react";
-import Picker from "./Picker";
+import {Muscles} from "../models/Muscles";
+import {useExercisesForMuscles} from "../redux/Exercises/useExercisesForMuscles";
 
 interface HisotryNodeProps {
     range: Range,
     setRange: (range: Range) => void,
     exercise: Exercise[],
+    muscle: Muscles[]
 }
 
-const HistoryNode = ({range, setRange, exercise}: HisotryNodeProps) => {
+const HistoryNode = ({range, setRange, exercise, muscle}: HisotryNodeProps) => {
+    let exercisesByMuscle = useExercisesForMuscles(muscle);
+    let exercises = [...exercise, ...exercisesByMuscle];
     let lastWorkouts = useWorkoutsIn(range)
-        .filter((workout: Workout) => exercise.length > 0 ? exercise.map(it => it.id).includes(workout.exerciseId) : true)
+        .filter((workout: Workout) => exercises.length > 0 ? exercises.map(it => it.id).includes(workout.exerciseId) : true)
     return <>
         <DateRangePicker range={range}
                          setRange={setRange}/>
@@ -33,5 +37,6 @@ const HistoryNode = ({range, setRange, exercise}: HisotryNodeProps) => {
 export default memo(HistoryNode, ((prevProps, nextProps) => {
     const b = prevProps.range.endDate.getTime() === nextProps.range.endDate.getTime() && nextProps.range.startDate.getTime() === prevProps.range.startDate.getTime();
     const b1 = prevProps.exercise.length === nextProps.exercise.length;
-    return b && b1;
+    const b2 = prevProps.muscle.length === nextProps.muscle.length;
+    return b && b1 && b2;
 }))
