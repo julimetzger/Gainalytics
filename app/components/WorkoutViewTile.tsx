@@ -2,7 +2,7 @@ import {Card, IconButton, Text, useTheme} from "react-native-paper";
 import {View} from "react-native";
 import AddWorkoutSet from "./AddWorkoutSet";
 import WorkoutSetView from "./WorkoutSetView";
-import React, {memo, useEffect, useState} from "react";
+import React, {memo, useState} from "react";
 import {dispatchDeleteSetFromWorkout} from "../redux/Workout/dispatchDeleteSetFromWorkout";
 import {dispatchAddOrUpdateSetInWorkout} from "../redux/Workout/dispatchAddOrUpdateSetInWorkout";
 import useDeleteWorkout from "../redux/Workout/useDeleteWorkout";
