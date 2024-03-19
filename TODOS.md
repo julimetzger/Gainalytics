@@ -15,7 +15,7 @@
 - name für trainings
 - ~~percentage für volume, sets und reps berücksichtigen~~
 - ~~in der übersicht die muscle metriken klickbar machen und dann die übungen anzeigen. in der anzeige sieht man alle übungen mit wert der zugehörigen metrik (z.b reps) und zu wieviel prozent sie zur metrik beitragen und der wert multipliziert mit den prozenten.~~
-- Anzeige der muskelgruppen und exercises in voller länge in der Übersicht 
+- ~~Anzeige der muskelgruppen und exercises in voller länge in der Übersicht~~
 - ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~
 - Rekorde speichern und Snackbar als Onscreen Toast
 
@@ -54,13 +54,6 @@
 ## Try out
 - https://www.npmjs.com/package/react-native-calendars/v/1.1286.0 kalender der auch Markierungen anzeigen kann. Period scheint auch zu funktionieren
 - Toast für records
-- Tips & Tricks paper-dates
-    Use 0.14+ version of React-Native-Web (Modal and better number input)
-    Try to avoid putting the Picker Modals inside of a scrollView If that is not possible use the following props on the surrounding ScrollViews/Flatlists
-        keyboardDismissMode = 'on-drag'
-        keyboardShouldPersistTaps = 'handled'
-        contentInsetAdjustmentBehavior = 'always'
-    This is to prevent the need to press 2 times before save or close button in modal works (1 press for closing keyboard, 1 press for confirm/close) React Native Issue: #10138
 
 ## Bugs
 - ~~picker auswahl ist nicht mehr swipebar in history (whs muss man da auch die gesture ref mitgeben damit er swipes mitbekommt)~~
