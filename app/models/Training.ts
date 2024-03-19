@@ -1,4 +1,6 @@
-type Training = {
+import {TrainingsState} from "./TrainingsState";
+
+export type Training = {
     id?: number;
     doneWorkoutIds: { [exerciseId: number]: number };
     plannedWorkouts: { [exerciseId: number]: number };

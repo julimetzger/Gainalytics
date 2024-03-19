@@ -6,6 +6,7 @@ import WorkoutSetOverview from "./WorkoutSetOverview";
 import {calculateMetricComparisons} from "../utils/RepetitionMaxHelper";
 import MetricView from "./MetricComparison";
 import {Metric} from "./Picker";
+import {Training} from "../models/Training";
 
 interface TrainingsOverviewProps {
     training: Training,

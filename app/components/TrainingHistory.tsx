@@ -1,6 +1,7 @@
 import React from "react";
 import WorkoutView from "./WorkoutView";
 import {View} from "react-native";
+import {Training} from "../models/Training";
 
 interface Props {
     training: Training;

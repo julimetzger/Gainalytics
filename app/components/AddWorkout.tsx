@@ -12,6 +12,7 @@ import DatePicker from "./DatePicker";
 import AddWorkoutSet from "./AddWorkoutSet";
 import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";
 import {sameDate} from "../utils/DateHelper";
+import {Exercise} from "../models/Exercise";
 
 interface Props {
     exercise: Exercise

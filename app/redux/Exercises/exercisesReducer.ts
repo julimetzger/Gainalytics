@@ -1,6 +1,7 @@
 import {AnyAction} from '@reduxjs/toolkit';
 import {NormalizedState} from '../normalizedState';
 import { Muscles } from '../../models/Muscles';
+import {Exercise} from "../../models/Exercise";
 
 const initialState = {
     byId: {

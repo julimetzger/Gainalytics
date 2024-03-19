@@ -1,7 +1,8 @@
 import {Metric} from "../components/Picker";
 import {sum, sumBy} from "lodash";
-import {Comparison, WorkoutSetMap} from "../components/WorkoutSetOverview";
+import {Comparison} from "../components/WorkoutSetOverview";
 import {Muscles} from "../models/Muscles";
+import {Exercise} from "../models/Exercise";
 
 export const repetitionMax = (...workoutSet: WorkoutSet[]) => {
     let number = Math.max(...workoutSet.map(value => value.weight * repsCoefficient(value.reps + value.rir)));
@@ -97,7 +98,7 @@ export function calculateMetricComparisonsForMuscle(workout: Map<Exercise, Worko
         exerciseWorkoutMap.currentWorkoutSets.set(exercise, workoutSetMap.currentWorkoutSets);
         exerciseWorkoutMap?.lastWorkoutSets?.set(exercise, workoutSetMap.lastWorkoutSets ?? []);
     })
-    let muscles = [...new Set(Array.from(workout.keys()).map((exercise: Exercise) => exercise.muscles).filter(muscle => muscle !== undefined).flat().map(muscle => muscle.muscle))] as Muscles[];
+    let muscles = [...new Set(Array.from(workout.keys()).map((exercise: Exercise) => exercise.muscles).filter(muscle => muscle !== undefined).flat().map(muscle => muscle!!.muscle))] as Muscles[];
     let muscleMetricComparison = new Map<Muscles, Map<Metric, Comparison>>();
     muscles.map(muscle => {
         let metricComparison = new Map<Metric, Comparison>();

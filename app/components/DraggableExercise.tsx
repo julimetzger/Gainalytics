@@ -6,6 +6,7 @@ import DraggableFlatList, {
 } from "react-native-draggable-flatlist";
 import {Dimensions} from 'react-native';
 import {useTheme} from "react-native-paper";
+import {Exercise} from "../models/Exercise";
 
 type Item = {
     key: number;

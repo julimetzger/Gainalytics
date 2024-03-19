@@ -1,6 +1,7 @@
 import {useDispatch} from 'react-redux';
 import {Action} from 'redux';
-import {MusclePercentPair} from "../../components/MusclePicker";
+
+import {MusclePercentPair} from "../../models/Exercise";
 
 export const useDispatchAddExercise = () => {
     const dispatch = useDispatch();

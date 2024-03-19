@@ -3,16 +3,12 @@ import DropDown from "react-native-paper-dropdown";
 import {Button, TextInput} from "react-native-paper";
 import React, {useEffect, useState} from "react";
 import {Muscles} from "../models/Muscles";
+import {MusclePercentPair} from "../models/Exercise";
 
 interface MusclePickerProps {
     muscleValue: MusclePercentPair,
     setMuscles: (muscles: MusclePercentPair) => void,
     onDelete: (muscle: MusclePercentPair) => void
-}
-
-export interface MusclePercentPair {
-    muscle?: Muscles,
-    percent?: number
 }
 
 const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) => {

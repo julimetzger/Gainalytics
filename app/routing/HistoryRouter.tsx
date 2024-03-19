@@ -3,6 +3,7 @@ import React from "react";
 import History from "../tabs/History";
 import {dispatchtoggleMode} from "../redux/settings/dispatchtoggleMode";
 import { IconButton } from "react-native-paper";
+import {Exercise} from "../models/Exercise";
 
 export type RootStackParamList = {
     History: { exercise: Exercise, lowerRangeBound: Date | undefined };
@@ -26,7 +27,7 @@ const HistoryRouter = () => {
                             onPress={dispatchtoggleMode1}
                         />
                     ),
-                })}            
+                })}
             />
         </Stack.Navigator>
     );

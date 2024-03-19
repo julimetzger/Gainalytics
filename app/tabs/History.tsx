@@ -12,10 +12,11 @@ import {Range} from "../components/DateRangePicker";
 import {firstDayOfWeek, getEndOfDay, lastDayOfWeek, subtractMonths} from "../utils/DateHelper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {Gesture, GestureDetector, GestureHandlerRootView, ScrollView} from 'react-native-gesture-handler';
-import {RootStackParamList} from "../routing/AnalyseRouter";
 import HistoryNode from "../components/HistoryNode";
 import Picker from "../components/Picker";
 import {Muscles} from "../models/Muscles";
+import {Exercise} from "../models/Exercise";
+import {RootStackParamList} from "../routing/HistoryRouter";
 
 
 interface PositionRange {

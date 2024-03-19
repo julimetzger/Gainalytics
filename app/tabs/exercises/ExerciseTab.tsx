@@ -5,6 +5,7 @@ import {RootStackParamList} from '../../routing/exerciseRouter';
 import {Divider, Text, TextInput, useTheme} from 'react-native-paper';
 import AddExercise from '../../components/AddExercise';
 import {useAlleExercises} from '../../redux/Exercises/useAllExercises';
+import {Exercise} from "../../models/Exercise";
 
 const ExerciseTab = ({navigation}: Props) => {
     const theme = useTheme();

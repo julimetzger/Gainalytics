@@ -8,6 +8,8 @@ import {usePlannedWorkoutInTraining} from "../redux/Training/usePlannedWorkoutIn
 import {useAllLastWorkouts} from "../redux/Workout/useAllLastWorkouts";
 import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";
 import {useNextTrainingsId} from "../redux/Training/useNextTrainingsId";
+import {Training} from "../models/Training";
+import {Exercise} from "../models/Exercise";
 
 
 const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosenExercise}: Props) => {

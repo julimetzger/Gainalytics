@@ -3,6 +3,8 @@ import {View} from "react-native";
 import AddWorkout from "./AddWorkout";
 import {useWorkoutById} from "../redux/Workout/useWorkoutById";
 import {useNextTrainingsId} from "../redux/Training/useNextTrainingsId";
+import {Training} from "../models/Training";
+import {Exercise} from "../models/Exercise";
 
 const ExecuteTraining = ({training, chosenExercise, onSubmit,onSubmitSet}: Props) => {
     let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];
