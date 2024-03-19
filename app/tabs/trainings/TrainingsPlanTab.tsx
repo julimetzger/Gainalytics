@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
-import {ScrollView, View} from "react-native";
-import {Button, IconButton, Text} from "react-native-paper";
+import {SafeAreaView, ScrollView, View} from "react-native";
+import {Button, IconButton, SegmentedButtons, Text} from "react-native-paper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/TrainingRouter";
 import {useTrainingsPlan} from "../../redux/Training/useTrainingsPlan";
@@ -33,6 +33,24 @@ const TrainingsPlanTab = ({route}: Props) => {
     let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
     let finishTraining = dispatchFinishTraining();
 
+    const handleValueChange = (newValue: any) => {
+        switch (newValue) {
+          case 'micro - 1':
+            setMicro(micro - 1);
+            break;
+          case 'micro + 1':
+            setMicro(micro + 1);
+            break;
+          case 'training + 1':
+            setTrainingInMicro(trainingInMicro + 1);
+            break;
+          case 'training - 1':
+            setTrainingInMicro(trainingInMicro - 1);
+            break;
+          default:
+            break;
+        }
+    };
 
     useEffect(() => {
         if (training?.state === TrainingsState.STARTED) {
@@ -119,15 +137,26 @@ const TrainingsPlanTab = ({route}: Props) => {
                         <TrainingHistory training={training}/>}
                 </View>
             </ScrollView>
-            <View style={{display: 'flex', justifyContent: 'center'}}>
-                <Text>{"Micro " + micro + " " + "Training " + trainingInMicro} </Text>
-                <View style={{flexDirection: 'row'}}>
-                    <IconButton icon={"chevron-left"} onPress={() => setMicro(micro - 1)}/>
+            <View style={{justifyContent: 'flex-start', flexDirection: 'row', alignItems: 'center'}}>
+                <Text>{"Micro " + micro + "  " + "Training " + trainingInMicro}</Text>
+                    <IconButton icon={"chevron-left"} onPress={() => setMicro(micro - 1)} disabled={micro === 1}/>
                     <IconButton icon={"chevron-right"} onPress={() => setMicro(micro + 1)}/>
                     <IconButton icon={"chevron-down"} onPress={() => setTrainingInMicro(trainingInMicro + 1)}/>
-                    <IconButton icon={"chevron-up"} onPress={() => setTrainingInMicro(trainingInMicro - 1)}/>
-                </View>
+                    <IconButton icon={"chevron-up"} onPress={() => setTrainingInMicro(trainingInMicro - 1)} disabled={trainingInMicro === 1}/>
             </View>
+            <SafeAreaView>
+                <SegmentedButtons
+                    style={{paddingHorizontal: 5}}
+                    value={''}
+                    onValueChange={handleValueChange}
+                    buttons={[
+                        {icon: "chevron-left", value: 'micro - 1', label: 'Micro', disabled: micro === 1},
+                        {icon: "chevron-right", value: 'micro + 1', label: 'Micro'},
+                        {icon: "chevron-down", value: 'training + 1', label: 'Training'},
+                        {icon: "chevron-up", value: 'training - 1', label: 'Training', disabled: trainingInMicro === 1},
+                    ]}
+                />
+            </SafeAreaView>
         </View>
     )
         ;
