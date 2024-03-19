@@ -5,6 +5,7 @@ import {Icon, IconButton, useTheme} from "react-native-paper";
 import {StyleProp, View, ViewStyle} from "react-native";
 import {useAllTrainingsPlans} from "../redux/Training/useAllTrainingsPlans";
 import {Muscles} from "../models/Muscles";
+import {Exercise} from "../models/Exercise";
 
 const Picker = ({
                     exercise,
@@ -23,9 +24,6 @@ const Picker = ({
     let trainingsPlan = useAllTrainingsPlans();
     let theme = useTheme();
     let selectedExercises = exercise.map((exercise: Exercise) => exercise.id ? exercise.id : 0).map((value: number) => value.toString());
-    let exercisesByMuscles = muscle ? allExercises.filter((value: Exercise) => value.muscles?.some(s => {
-        return muscle.includes(s.muscle)
-    })) : undefined;
     let dropdownExerciseStructure: IDropdownData[] = allExercises.map((exercise: Exercise) => {
         return {
             label: exercise.name,

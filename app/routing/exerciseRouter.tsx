@@ -4,6 +4,7 @@ import ExerciseTab from '../tabs/exercises/ExerciseTab';
 import AddWorkoutTab from '../tabs/exercises/AddWorkoutTab';
 import {IconButton} from "react-native-paper";
 import {dispatchtoggleMode} from "../redux/settings/dispatchtoggleMode";
+import {Exercise} from "../models/Exercise";
 
 export type RootStackParamList = {
     Exercises: undefined;
@@ -13,7 +14,7 @@ export type RootStackParamList = {
 const ExerciseRouter = () => {
     let dispatchtoggleMode1 = dispatchtoggleMode();
     const Stack = createStackNavigator<RootStackParamList>();
-    
+
     return (
         <Stack.Navigator initialRouteName="Exercises">
             <Stack.Screen

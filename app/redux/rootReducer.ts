@@ -6,6 +6,8 @@ import {NormalizedWorkoutState} from "./normalizedWorkoutState";
 import trainingsPlanReducer from "./Training/trainingsPlanReducer";
 import trainingsReducer from "./Training/trainingsReducer";
 import settingsReducer, {AppSettings} from "./settings/settingsReducer";
+import {Exercise} from "../models/Exercise";
+import {Training} from "../models/Training";
 
 
 export interface GlobalState {

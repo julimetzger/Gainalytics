@@ -18,6 +18,7 @@ import Picker from "../../components/Picker";
 import Timer from "../../components/Timer";
 import TrainingsOverview from "../../components/TrainingsOverview";
 import TrainingsBase from "../../components/TrainingsBase";
+import {Exercise} from "../../models/Exercise";
 
 const TrainingsPlanTab = ({route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);

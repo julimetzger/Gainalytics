@@ -7,6 +7,7 @@ import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import AddTrainingsPlan from "./AddTrainingsPlan";
 import {TrainingsState} from "../../models/TrainingsState";
 import {useTrainings} from "../../redux/Training/useTrainings";
+import {Exercise} from "../../models/Exercise";
 
 const TrainingHome = ({navigation}: Props) => {
     const [filter, setFilter] = useState('');

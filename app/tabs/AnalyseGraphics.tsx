@@ -6,7 +6,7 @@ import DateRangePicker, {Range} from "../components/DateRangePicker";
 import {firstDayOfWeek, getEndOfDay} from "../utils/DateHelper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
-import {calculateMetricValue, calculateMetricValueForMuscles, WorkoutSetMap} from "../utils/RepetitionMaxHelper";
+import {calculateMetricValue, calculateMetricValueForMuscles} from "../utils/RepetitionMaxHelper";
 import {RootStackParamList} from "../routing/AnalyseRouter";
 import {sum, sumBy} from "lodash";
 import Picker, {AccumulationMode, Accumulation, Metric} from "../components/Picker";
@@ -15,6 +15,7 @@ import WorkoutView from "../components/WorkoutView";
 import {getAllTrainingsForMicro, getMicroFromTrainingInMicroIndex} from "../redux/Training/trainingsPlanReducer";
 import {Muscles} from "../models/Muscles";
 import {useExercisesForMuscles} from "../redux/Exercises/useExercisesForMuscles";
+import {Exercise} from "../models/Exercise";
 
 const AnalyseGraphics = ({}: Props) => {
     function handleDataPointSelect(value: ChartSelectEvent) {
