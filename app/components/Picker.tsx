@@ -6,6 +6,7 @@ import {StyleProp, View, ViewStyle} from "react-native";
 import {useAllTrainingsPlans} from "../redux/Training/useAllTrainingsPlans";
 import {Muscles} from "../models/Muscles";
 import {Exercise} from "../models/Exercise";
+import {TrainingsPlan} from "../models/TrainingsPlan";
 
 const Picker = ({
                     exercise,

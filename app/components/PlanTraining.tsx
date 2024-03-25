@@ -10,11 +10,12 @@ import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";
 import {useNextTrainingsId} from "../redux/Training/useNextTrainingsId";
 import {Training} from "../models/Training";
 import {Exercise} from "../models/Exercise";
+import {WorkoutSet} from "../models/WorkoutSet";
 
 
 const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosenExercise}: Props) => {
     const addPlanedTrainingWorkoutSet = dispatchAddPlanedTrainingWorkout();
-    let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout();
+    let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(chosenExercise, true);
     let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
     const plannedWorkout = usePlannedWorkoutInTraining(training?.id, chosenExercise.id);
     let workouts = useAllLastWorkouts(chosenExercise, 1);
@@ -32,7 +33,7 @@ const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosen
             }, training?.id);
             return;
         }
-        addOrUpdateSetInWorkout(workoutSet, plannedWorkout.id!!);
+        addOrUpdateSetInWorkout(workoutSet, plannedWorkout);
     }
 
 

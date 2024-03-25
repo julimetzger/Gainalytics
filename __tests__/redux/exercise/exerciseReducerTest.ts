@@ -155,4 +155,153 @@ describe('exerciseReducer', () => {
             expect(exerciseReducer(initialState, action)).toEqual(initialState);
         });
     })
+    describe('record handling', () => {
+        it('should add a record', () => {
+            const initialState = {
+                byId: {
+                    1: {
+                        id: 1,
+                        name: 'Bankdrücken',
+                    },
+                    2: {
+                        id: 2,
+                        name: 'Squat',
+                    },
+                    3: {
+                        id: 3,
+                        name: 'Deadlift',
+                    },
+                },
+                allIds: [1, 2, 3],
+            };
+            const action = {
+                type: 'ADD_RECORD',
+                exerciseId: 2,
+                record: '1RM',
+                value: 100,
+                workoutId: 1,
+            };
+            const expectedState = {
+                byId: {
+                    1: {
+                        id: 1,
+                        name: 'Bankdrücken',
+                    },
+                    2: {
+                        id: 2,
+                        name: 'Squat',
+                        records: {
+                            '1RM': [{value: 100, workoutId: 1}]
+                        }
+                    },
+                    3: {
+                        id: 3,
+                        name: 'Deadlift',
+                    },
+                },
+                allIds: [1, 2, 3],
+            };
+            expect(exerciseReducer(initialState, action)).toEqual(expectedState);
+        })
+        it('should update a record', () => {
+            const initialState = {
+                byId: {
+                    1: {
+                        id: 1,
+                        name: 'Bankdrücken',
+                    },
+                    2: {
+                        id: 2,
+                        name: 'Squat',
+                        records: {
+                            '1RM': [{value: 100, workoutId: 1}]
+                        }
+                    },
+                    3: {
+                        id: 3,
+                        name: 'Deadlift',
+                    },
+                },
+                allIds: [1, 2, 3],
+            };
+            const action = {
+                type: 'UPDATE_RECORD',
+                exerciseId: 2,
+                record: '1RM',
+                value: 120,
+                workoutId: 1,
+            };
+            const expectedState = {
+                byId: {
+                    1: {
+                        id: 1,
+                        name: 'Bankdrücken',
+                    },
+                    2: {
+                        id: 2,
+                        name: 'Squat',
+                        records: {
+                            '1RM': [{value: 120, workoutId: 1}]
+                        }
+                    },
+                    3: {
+                        id: 3,
+                        name: 'Deadlift',
+                    },
+                },
+                allIds: [1, 2, 3],
+            };
+            expect(exerciseReducer(initialState, action)).toEqual(expectedState);
+
+        });
+        it('should delete a record', () => {
+            const initialState = {
+                byId: {
+                    1: {
+                        id: 1,
+                        name: 'Bankdrücken',
+                    },
+                    2: {
+                        id: 2,
+                        name: 'Squat',
+                        records: {
+                            '1RM': [{value: 100, workoutId: 1}]
+                        }
+                    },
+                    3: {
+                        id: 3,
+                        name: 'Deadlift',
+                    },
+                },
+                allIds: [1, 2, 3],
+            };
+            const action = {
+                type: 'DELETE_RECORD',
+                exerciseId: 2,
+                record: '1RM',
+                workoutId: 1,
+            };
+            const expectedState = {
+                byId: {
+                    1: {
+                        id: 1,
+                        name: 'Bankdrücken',
+                    },
+                    2: {
+                        id: 2,
+                        name: 'Squat',
+                        records: {
+                            '1RM': []
+                        }
+                    },
+                    3: {
+                        id: 3,
+                        name: 'Deadlift',
+                    },
+                },
+                allIds: [1, 2, 3],
+            };
+            expect(exerciseReducer(initialState, action)).toEqual(expectedState);
+        })
+    })
 });

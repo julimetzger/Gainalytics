@@ -8,6 +8,7 @@ import React, {memo} from "react";
 import {Muscles} from "../models/Muscles";
 import {useExercisesForMuscles} from "../redux/Exercises/useExercisesForMuscles";
 import {Exercise} from "../models/Exercise";
+import {Workout} from "../models/Workout";
 
 interface HisotryNodeProps {
     range: Range,

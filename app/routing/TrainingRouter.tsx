@@ -4,6 +4,7 @@ import TrainingHomeTab from "../tabs/trainings/TrainingHome";
 import TrainingsPlanTab from "../tabs/trainings/TrainingsPlanTab";
 import { IconButton } from "react-native-paper";
 import { dispatchtoggleMode } from "../redux/settings/dispatchtoggleMode";
+import {TrainingsPlan} from "../models/TrainingsPlan";
 
 export type RootStackParamList = {
     TrainingHome: undefined;

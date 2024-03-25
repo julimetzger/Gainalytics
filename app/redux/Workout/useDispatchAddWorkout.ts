@@ -1,6 +1,7 @@
 import {useDispatch} from 'react-redux';
 import {Action} from 'redux';
 import {useNextWorkoutId} from "./useNextWorkoutId";
+import {Workout} from "../../models/Workout";
 
 
 /**

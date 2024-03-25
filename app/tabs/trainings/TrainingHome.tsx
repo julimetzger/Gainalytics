@@ -8,6 +8,7 @@ import AddTrainingsPlan from "./AddTrainingsPlan";
 import {TrainingsState} from "../../models/TrainingsState";
 import {useTrainings} from "../../redux/Training/useTrainings";
 import {Exercise} from "../../models/Exercise";
+import {TrainingsPlan} from "../../models/TrainingsPlan";
 
 const TrainingHome = ({navigation}: Props) => {
     const [filter, setFilter] = useState('');

@@ -3,10 +3,12 @@ import {sum, sumBy} from "lodash";
 import {Comparison} from "../components/WorkoutSetOverview";
 import {Muscles} from "../models/Muscles";
 import {Exercise} from "../models/Exercise";
+import {WorkoutSet} from "../models/WorkoutSet";
+import {Workout} from "../models/Workout";
 
 export const repetitionMax = (...workoutSet: WorkoutSet[]) => {
     let number = Math.max(...workoutSet.map(value => value.weight * repsCoefficient(value.reps + value.rir)));
-    return number !== -Infinity ? number : undefined;
+    return number !== -Infinity ? number : 0;
 }
 
 export const oneRepMaxForWorkouts = (...workout: Workout[]) => {

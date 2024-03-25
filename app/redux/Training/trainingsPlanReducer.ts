@@ -1,5 +1,6 @@
 import {NormalizedState} from "../normalizedState";
 import {AnyAction} from "@reduxjs/toolkit";
+import {TrainingsPlan} from "../../models/TrainingsPlan";
 
 
 const initialState = {

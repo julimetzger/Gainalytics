@@ -1,5 +1,6 @@
 import {useDispatch} from 'react-redux';
 import {Action} from 'redux';
+import {TrainingsPlan} from "../../models/TrainingsPlan";
 
 export const dispatchAddTrainingsPlan = () => {
     const dispatch = useDispatch();

@@ -5,6 +5,7 @@ import {dispatchAddTrainingsPlan} from "../../redux/Training/dispatchAddTraining
 import {dispatchEditTrainingsPlan} from "../../redux/Training/dispatchEditTrainingsPlan";
 import {dispatchDeleteTrainingsPlan} from "../../redux/Training/dispatchDeleteTrainingsPlan";
 import {useTrainingsPlan} from "../../redux/Training/useTrainingsPlan";
+import {TrainingsPlan} from "../../models/TrainingsPlan";
 
 interface AddExerciseProperties {
     style?: any,

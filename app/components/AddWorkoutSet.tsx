@@ -2,6 +2,7 @@ import {Keyboard, StyleSheet, View} from "react-native";
 import {Button, IconButton, Text, TextInput, ToggleButton, Tooltip, useTheme} from "react-native-paper";
 import React, {useEffect, useState} from "react";
 import {repetitionWeightByOneRm} from "../utils/RepetitionMaxHelper";
+import {WorkoutSet} from "../models/WorkoutSet";
 
 interface AddWorkoutProps {
     onSubmit: (arg: WorkoutSet) => void,

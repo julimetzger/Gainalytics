@@ -8,6 +8,8 @@ import MetricView from "./MetricComparison";
 import {Metric} from "./Picker";
 import {calculateMetricComparisons} from "../utils/RepetitionMaxHelper";
 import {sum} from "lodash";
+import {TrainingsPlan} from "../models/TrainingsPlan";
+import {Workout} from "../models/Workout";
 
 interface TrainingsBaseProps {
     trainingsPlan: TrainingsPlan,

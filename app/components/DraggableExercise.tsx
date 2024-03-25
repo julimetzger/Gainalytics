@@ -1,10 +1,6 @@
-import React, {useEffect, useState} from "react";
-import {Text, View, StyleSheet, TouchableOpacity} from "react-native";
-import DraggableFlatList, {
-    RenderItemParams,
-    ScaleDecorator,
-} from "react-native-draggable-flatlist";
-import {Dimensions} from 'react-native';
+import React from "react";
+import {Dimensions, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import DraggableFlatList, {RenderItemParams, ScaleDecorator,} from "react-native-draggable-flatlist";
 import {useTheme} from "react-native-paper";
 import {Exercise} from "../models/Exercise";
 
