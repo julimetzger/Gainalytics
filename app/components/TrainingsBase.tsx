@@ -4,6 +4,7 @@ import React from "react";
 import {dispatchSuggestBasedOnTrained} from "../redux/Training/dispatchSuggestBasedOnTrained";
 import {dispatchSuggestBasedOnPlanned} from "../redux/Training/dispatchSuggestBasedOnPlanned";
 import MicroOverview from "./MicroOverview";
+import {TrainingsPlan} from "../models/TrainingsPlan";
 
 interface TrainingsBaseProps {
     trainingsPlan: TrainingsPlan,

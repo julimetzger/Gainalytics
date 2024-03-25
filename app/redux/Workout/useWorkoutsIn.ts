@@ -3,6 +3,7 @@ import {GlobalState} from '../rootReducer';
 import {Range} from "../../components/DateRangePicker";
 import {createSelector} from "@reduxjs/toolkit";
 import {NormalizedState} from "../normalizedState";
+import {Workout} from "../../models/Workout";
 
 
 const selectAllIds = ((state: GlobalState) => state.workouts)

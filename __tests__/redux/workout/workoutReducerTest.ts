@@ -1,4 +1,6 @@
 import exerciseReducer from "../../../app/redux/Workout/workoutReducer";
+import {WorkoutSet} from "../../../app/models/WorkoutSet";
+import {Record} from "../../../app/models/Exercise";
 
 const TEST_DATE = new Date(2020, 1, 1, 1, 1, 2);
 const STATE_WITH_TWO_WORKOUTS = () => {
@@ -1111,6 +1113,108 @@ describe('workoutReducer', () => {
                     plannedWorkouts:
                         [3, 4]
                 })
+        })
+    })
+    describe('handel records', () => {
+        it('should add record', () => {
+            expect(exerciseReducer(STATE_WITH_TWO_WORKOUTS(), {
+                type: 'ADD_RECORD',
+                record: Record.ONE_RM,
+                exerciseId: 11,
+                value: 100,
+                workoutId: 1
+
+            })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(),
+                byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    1: {
+                        exerciseId: 11,
+                        id: 1,
+                        notes: "",
+                        sets: [],
+                        start: TEST_DATE,
+                        end: TEST_DATE,
+                        records: {[Record.ONE_RM]: 100},
+                    }
+                }
+            })
+        })
+        it('should update record', () => {
+            expect(exerciseReducer({
+                ...STATE_WITH_TWO_WORKOUTS(),
+                byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    1: {
+                        exerciseId: 11,
+                        id: 1,
+                        notes: "",
+                        sets: [],
+                        start: TEST_DATE,
+                        end: TEST_DATE,
+                        records: {[Record.ONE_RM]: 100},
+                    }
+                }
+            }, {
+                type: 'UPDATE_RECORD',
+                record: Record.ONE_RM,
+                exerciseId: 11,
+                value: 120,
+                workoutId: 1
+
+            })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(),
+                byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    1: {
+                        exerciseId: 11,
+                        id: 1,
+                        notes: "",
+                        sets: [],
+                        start: TEST_DATE,
+                        end: TEST_DATE,
+                        records: {[Record.ONE_RM]: 120},
+                    }
+                }
+            })
+        })
+
+        it('should delete record', () => {
+            expect(exerciseReducer({
+                ...STATE_WITH_TWO_WORKOUTS(),
+                byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    1: {
+                        exerciseId: 11,
+                        id: 1,
+                        notes: "",
+                        sets: [],
+                        start: TEST_DATE,
+                        end: TEST_DATE,
+                        records: {[Record.ONE_RM]: 100},
+                    }
+                }
+            }, {
+                type: 'DELETE_RECORD',
+                record: Record.ONE_RM,
+                exerciseId: 11,
+                workoutId: 1
+
+            })).toEqual({
+                ...STATE_WITH_TWO_WORKOUTS(),
+                byId: {
+                    ...STATE_WITH_TWO_WORKOUTS().byId,
+                    1: {
+                        exerciseId: 11,
+                        id: 1,
+                        notes: "",
+                        sets: [],
+                        start: TEST_DATE,
+                        end: TEST_DATE,
+                        records: {},
+                    }
+                }
+            })
         })
     })
     describe('default', () => {

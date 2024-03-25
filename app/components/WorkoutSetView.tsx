@@ -4,9 +4,9 @@ import React, {useEffect, useState} from "react";
 import AddWorkoutSet from "./AddWorkoutSet";
 import {Metric} from "./Picker";
 import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
+import {WorkoutSet} from "../models/WorkoutSet";
 
 const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMode}: WorkoutSetViewProps) => {
-    let date = new Date();
     const [setToUpdate, setSetToUpdate] = useState<WorkoutSet>();
     let indexOfSelectedWorkout = setToUpdate ? sets.indexOf(setToUpdate) : undefined;
     let workoutsBefore: WorkoutSet[] = [];

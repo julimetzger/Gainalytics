@@ -11,6 +11,7 @@ import MetricView from "./MetricComparison";
 import { Muscles } from "../models/Muscles";
 
 import {Exercise, MusclePercentPair} from "../models/Exercise";
+import {Workout} from "../models/Workout";
 
 export interface Comparison {
     value: number,

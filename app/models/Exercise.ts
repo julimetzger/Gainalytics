@@ -5,13 +5,14 @@ export type Exercise = {
     id?: number;
     name: string;
     muscles?: MusclePercentPair[]
-    records?: ExerciseRecord[]
+    records?: {
+        [recordAsString: string]: ExerciseRecord[]
+    }
 }
 
 interface ExerciseRecord {
-    date: Date;
-    sets: WorkoutSet[];
-    record: Record
+    value: number;
+    workoutId: number;
 }
 
 export interface MusclePercentPair {

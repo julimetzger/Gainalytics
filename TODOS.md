@@ -18,6 +18,7 @@
 - ~~Anzeige der muskelgruppen und exercises in voller länge in der Übersicht~~
 - ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~
 - Rekorde speichern und Snackbar als Onscreen Toast
+- mesos einführen mit Kopieren des alten mesos
 
 ## Analyse
 - neue Seite für Darstellung volumen für bodyparts, übungen etc
@@ -59,3 +60,4 @@
 - ~~picker auswahl ist nicht mehr swipebar in history (whs muss man da auch die gesture ref mitgeben damit er swipes mitbekommt)~~
 - ~~Trainingsübersicht crasht wenn ein planned training vor der überschicht ist~~
 - ~~Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges~~
+- Crash wenn 2 exercises ausgewählt in der analyse

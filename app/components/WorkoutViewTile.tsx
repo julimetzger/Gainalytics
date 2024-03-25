@@ -18,12 +18,11 @@ interface WorkoutVieTileProps {
 }
 
 const WorkoutViewTile = ({workoutId, highlightMode, editable}: WorkoutVieTileProps) => {
-    let date = new Date();
     let theme = useTheme();
     let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
     let workout = useWorkoutById(workoutId);
     let userExercise = useExercise(workout.exerciseId);
-    let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout();
+    let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(userExercise);
     let useDeleteWorkoutdispatch = useDeleteWorkout();
     const [showEdit, setShowEdit] = useState(false);
 

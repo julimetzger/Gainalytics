@@ -13,6 +13,8 @@ import AddWorkoutSet from "./AddWorkoutSet";
 import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";
 import {sameDate} from "../utils/DateHelper";
 import {Exercise} from "../models/Exercise";
+import {WorkoutSet} from "../models/WorkoutSet";
+import {Workout} from "../models/Workout";
 
 interface Props {
     exercise: Exercise
@@ -32,7 +34,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
         let oneRepMax = oneRepMaxForWorkouts(...workouts);
         let theme = useTheme();
         let addWorkout = useDispatchAddWorkout();
-        let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout();
+        let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(exercise);
         let finalizeWorkout = dispatchFinalizeWorkout();
         let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
         let suggestedWorkout = dispatchSuggest();
@@ -65,7 +67,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                 }, trainingsId)
                 return;
             }
-            addOrUpdateSetInWorkout(workoutSet, unfinishedWorkout.id!!);
+            addOrUpdateSetInWorkout(workoutSet, unfinishedWorkout);
         }
 
         return (

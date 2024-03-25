@@ -1,5 +1,6 @@
 import {useSelector} from "react-redux";
 import {GlobalState} from "../rootReducer";
+import {Workout} from "../../models/Workout";
 
 export const useUnfinishedWorkout = (exerciseId: number) => useSelector((state: GlobalState) => {
         if (state.workouts.notFinishedWorkouts !== undefined && state.workouts.notFinishedWorkouts[exerciseId] !== undefined && state.workouts.suggestedWorkouts !== undefined && state.workouts.suggestedWorkouts[exerciseId] !== undefined) {

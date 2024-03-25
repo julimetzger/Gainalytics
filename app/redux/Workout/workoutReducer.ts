@@ -1,6 +1,8 @@
 import {AnyAction} from '@reduxjs/toolkit';
 import {NormalizedState} from '../normalizedState';
 import {determineNewWorkoutId, NormalizedWorkoutState} from "../normalizedWorkoutState";
+import {Workout} from "../../models/Workout";
+import {WorkoutSet} from "../../models/WorkoutSet";
 
 const initialState = {
     byId: {},
@@ -321,6 +323,40 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                     byId: {...workoutStateCopy.byId},
                     plannedWorkouts: [...workoutStateCopy.plannedWorkouts]
                 }
+            case 'ADD_RECORD':
+            case 'UPDATE_RECORD': {
+                let recordWorkout = {...workoutState.byId[action.workoutId]}
+                if (recordWorkout.records === undefined)
+                    recordWorkout.records = {[action.record as string]: action.value};
+                recordWorkout.records[action.record] = action.value;
+                console.log(recordWorkout.records)
+                return {
+                    ...workoutState,
+                    byId: {
+                        ...workoutState.byId,
+                        [action.workoutId]: {
+                            ...recordWorkout,
+                            records: {...recordWorkout.records}
+                        }
+                    }
+                }
+            }
+            case 'DELETE_RECORD': {
+                let recordWorkout = {...workoutState.byId[action.workoutId]}
+                if (recordWorkout.records === undefined)
+                    return workoutState;
+                delete recordWorkout.records[action.record];
+                return {
+                    ...workoutState,
+                    byId: {
+                        ...workoutState.byId,
+                        [action.workoutId]: {
+                            ...recordWorkout,
+                            records: {...recordWorkout.records}
+                        }
+                    }
+                }
+            }
             default:
                 return workoutState;
         }

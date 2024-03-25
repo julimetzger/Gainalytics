@@ -1,5 +1,6 @@
 import {useDispatch} from "react-redux";
 import {Action} from "redux";
+import {Workout} from "../../models/Workout";
 
 const useDeleteWorkout = () => {
     const dispatch = useDispatch();

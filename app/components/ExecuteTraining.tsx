@@ -5,6 +5,7 @@ import {useWorkoutById} from "../redux/Workout/useWorkoutById";
 import {useNextTrainingsId} from "../redux/Training/useNextTrainingsId";
 import {Training} from "../models/Training";
 import {Exercise} from "../models/Exercise";
+import {WorkoutSet} from "../models/WorkoutSet";
 
 const ExecuteTraining = ({training, chosenExercise, onSubmit,onSubmitSet}: Props) => {
     let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];

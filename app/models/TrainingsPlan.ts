@@ -1,4 +1,4 @@
-type TrainingsPlan = {
+export type TrainingsPlan = {
     id?: number;
     name: string;
     description?: string;

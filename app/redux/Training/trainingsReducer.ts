@@ -3,6 +3,7 @@ import {AnyAction} from "@reduxjs/toolkit";
 import {TrainingsState} from "../../models/TrainingsState";
 import {Training} from "../../models/Training";
 import {Exercise} from "../../models/Exercise";
+import {Workout} from "../../models/Workout";
 
 
 const initialState = {
