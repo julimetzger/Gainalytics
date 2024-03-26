@@ -217,6 +217,7 @@ const History = ({route}: Props) => {
                 traveledIndex: fullPosition.traveledIndex
             })
         }
+    console.log(JSON.stringify(exercise, null, 2));
 
         return (
             <GestureHandlerRootView>

@@ -18,17 +18,7 @@ export const dispatchAddOrUpdateSetInWorkout = (exercise: Exercise, planningMode
         } as Action)
         if (!planningMode) {
             let oneRm = calculateMetricValue([set], Metric.ONE_RM);
-            //new Record check
-            if (oneRm > Math.max(...exercise.records?.[Record.ONE_RM]?.map(record => record.value) ?? [0])) {
-                dispatch({
-                    type: 'ADD_RECORD',
-                    record: Record.ONE_RM,
-                    value: oneRm,
-                    workoutId: workout.id,
-                    exerciseId: exercise.id
-                } as Action)
-                return;
-            }
+
             //Handle Record update
             if (workout?.records?.[Record.ONE_RM] !== undefined) {
                 // increase record
@@ -52,7 +42,6 @@ export const dispatchAddOrUpdateSetInWorkout = (exercise: Exercise, planningMode
                     dispatch({
                         type: 'DELETE_RECORD',
                         record: Record.ONE_RM,
-                        value: oneRm,
                         workoutId: workout.id,
                         exerciseId: exercise.id
                     } as Action)
@@ -62,11 +51,26 @@ export const dispatchAddOrUpdateSetInWorkout = (exercise: Exercise, planningMode
                 dispatch({
                     type: 'UPDATE_RECORD',
                     record: Record.ONE_RM,
+                    value: newOneRm,
                     workoutId: workout.id,
                     exerciseId: exercise.id
                 } as Action);
+                return;
+            }
+            console.log(oneRm, workout?.records?.[Record.ONE_RM] ?? Infinity)
+            console.log("records", exercise?.records?.[Record.ONE_RM]);
+            console.log("old record", Math.max(...exercise.records?.[Record.ONE_RM]?.map(record => record.value ?? 0) ?? [0]));
+            //new Record check
+            if (oneRm > Math.max(...exercise.records?.[Record.ONE_RM]?.map(record => record.value ?? 0) ?? [0])) {
+                dispatch({
+                    type: 'ADD_RECORD',
+                    record: Record.ONE_RM,
+                    value: oneRm,
+                    workoutId: workout.id,
+                    exerciseId: exercise.id
+                } as Action)
+                return;
             }
         }
     }
 }
-

@@ -154,7 +154,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                            }}
                            error={weightEmpty}
                            selectTextOnFocus={true}/>
-                {oneRepMax && <Tooltip
+                {oneRepMax ? <Tooltip
                     title={"Suggests the weight based on your 1RM"}>
                     <ToggleButton
                         icon={() => <View><Text
@@ -165,7 +165,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                             setWeightSet(prevState => !prevState);
                             setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
                         }}/>
-                </Tooltip>}
+                </Tooltip> : null}
                 {persisted() && !editing &&
                     <IconButton icon={"check"} iconColor={determineCheckmarkColor()}/>}
                 {persisted() && editing &&

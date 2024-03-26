@@ -3,7 +3,7 @@ import {processColor, ScrollView, StyleSheet} from 'react-native';
 import {useTheme} from 'react-native-paper';
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
 import DateRangePicker, {Range} from "../components/DateRangePicker";
-import {firstDayOfWeek, getEndOfDay} from "../utils/DateHelper";
+import {firstDayOfWeek, getEndOfDay, lastDayOfWeek, subtractMonths} from "../utils/DateHelper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
 import {calculateMetricValue, calculateMetricValueForMuscles} from "../utils/RepetitionMaxHelper";
@@ -25,7 +25,7 @@ const AnalyseGraphics = ({}: Props) => {
     }
 
     let now = new Date(Date.now());
-    const [range, setRange] = useState(new Range(firstDayOfWeek(now, 1), getEndOfDay(now)))
+    const [range, setRange] = useState(new Range(subtractMonths(3, firstDayOfWeek(now, 1)), lastDayOfWeek(now, 0)))
     const [selectedWorkoutIds, setSelectedWorkoutIds] = useState<number[]>([]);
     const [metric, setMetric] = useState(Metric.ONE_RM);
     const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumulationMode.SINGLE_DAY))
