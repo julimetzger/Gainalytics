@@ -2,7 +2,7 @@ import React from 'react';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
 import AddWorkout from "../../components/AddWorkout";
-import {ScrollView} from "react-native";
+import {ScrollView, View} from "react-native";
 import {Button} from "react-native-paper";
 
 const AddWorkoutTab = ({navigation, route}: Props) => {
@@ -10,12 +10,20 @@ const AddWorkoutTab = ({navigation, route}: Props) => {
 
     return (
         <ScrollView keyboardShouldPersistTaps={"handled"}>
-            <Button onPress={() =>
-                navigation.navigate({
-                    name: 'RecordTab',
-                    params: {exercise},
-                })}
-            >Records</Button>
+            <View style={{display: 'flex', flexDirection: 'row', justifyContent:'space-evenly'}}>
+                <Button onPress={() =>
+                    navigation.navigate({
+                        name: 'ExerciseStatisticsTab',
+                        params: {exercise},
+                    })}
+                >Stats</Button>
+                <Button onPress={() =>
+                    navigation.navigate({
+                        name: 'ExericseHistory',
+                        params: {exercise},
+                    })}
+                >History</Button>
+            </View>
             <AddWorkout exercise={route.params.exercise}
                         onSubmit={() => navigation.navigate({name: 'Exercises', params: undefined})}
                         historyCallback={(start) => navigation.navigate('History', {

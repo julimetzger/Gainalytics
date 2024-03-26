@@ -5,12 +5,14 @@ import AddWorkoutTab from '../tabs/exercises/AddWorkoutTab';
 import {IconButton} from "react-native-paper";
 import {dispatchtoggleMode} from "../redux/settings/dispatchtoggleMode";
 import {Exercise} from "../models/Exercise";
-import RecordTab from "../tabs/exercises/RecordTab";
+import ExerciseStatisticsTabs from "../tabs/exercises/ExerciseStatisticsTabs";
+import ExerciseHistory from "../tabs/exercises/ExerciseHistory";
 
 export type RootStackParamList = {
     Exercises: undefined;
     AddWorkoutTab: { exercise: Exercise };
-    RecordTab: { exercise: Exercise };
+    ExerciseStatisticsTab: { exercise: Exercise };
+    ExericseHistory: { exercise: Exercise };
 };
 
 const ExerciseRouter = () => {
@@ -48,8 +50,22 @@ const ExerciseRouter = () => {
                 })}
             />
             <Stack.Screen
-                name="RecordTab"
-                component={RecordTab}
+                name="ExerciseStatisticsTab"
+                component={ExerciseStatisticsTabs}
+                options={({ route }) => ({
+                    title: route.params.exercise.name,
+                    headerRight: () => (
+                        <IconButton
+                            onPress={dispatchtoggleMode1}
+                            icon="cog"
+                            size={20}
+                        />
+                    )
+                })}
+            />
+            <Stack.Screen
+                name="ExericseHistory"
+                component={ExerciseHistory}
                 options={({ route }) => ({
                     title: route.params.exercise.name,
                     headerRight: () => (
