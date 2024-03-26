@@ -6,14 +6,17 @@ import {createMaterialBottomTabNavigator} from "react-native-paper/react-navigat
 import TrainingRouter from "./TrainingRouter";
 import {useTrainings} from '../redux/Training/useTrainings';
 import {TrainingsState} from '../models/TrainingsState';
+import useExerciseRecord from "../redux/Effects/useExerciseRecord";
 
 const Tab = createMaterialBottomTabNavigator();
 
 export const BottomTabs = () => {
     const allTrainings = useTrainings();
+    //TODO flo baut nen toast rein - wenn record dann liefert das userExerciseRecord ExerciseRecordEffect zurück. Sobald irgendwas neues gespeichert wird verschwindet der Eintrag wieder und useExerciseRecord liefert null zurück
+    //let useExerciseRecord1 = useExerciseRecord();
     let isTrainingStarted = allTrainings.some(A => A.state === TrainingsState.STARTED)
     return (
-        <Tab.Navigator initialRouteName="Feed" shifting={false} barStyle={{height: 70 }}>
+        <Tab.Navigator initialRouteName="Feed" shifting={false} barStyle={{height: 70}}>
             <Tab.Screen
                 name="Exercises"
                 component={ExerciseRouter}

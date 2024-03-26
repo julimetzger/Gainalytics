@@ -10,6 +10,7 @@ import {Exercise} from "../models/Exercise";
 import {Training} from "../models/Training";
 import {Workout} from "../models/Workout";
 import {TrainingsPlan} from "../models/TrainingsPlan";
+import effectsReducer, {Effects} from "./Effects/effectsReducer";
 
 
 export interface GlobalState {
@@ -17,7 +18,8 @@ export interface GlobalState {
     workouts: NormalizedWorkoutState<Workout>,
     trainingsPlan: NormalizedState<TrainingsPlan>,
     trainings: NormalizedState<Training>,
-    settings: AppSettings
+    settings: AppSettings,
+    effects: Effects
 
 }
 
@@ -26,5 +28,6 @@ export default combineReducers<GlobalState>({
     workouts: workoutReducer,
     trainingsPlan: trainingsPlanReducer,
     trainings: trainingsReducer,
-    settings: settingsReducer
+    settings: settingsReducer,
+    effects: effectsReducer
 });

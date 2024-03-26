@@ -329,7 +329,6 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                 if (recordWorkout.records === undefined)
                     recordWorkout.records = {[action.record as string]: action.value};
                 recordWorkout.records[action.record] = action.value;
-                console.log(recordWorkout.records)
                 return {
                     ...workoutState,
                     byId: {

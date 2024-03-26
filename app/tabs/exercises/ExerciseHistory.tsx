@@ -8,7 +8,6 @@ import {ScrollView} from "react-native";
 const ExerciseHistory = ({route}: Props) => {
     const [numberOfWorkouts, setNumberOfWorkouts] = useState(10)
     let workouts = useAllLastWorkouts(route.params.exercise, numberOfWorkouts);
-    console.log(workouts)
     return (
         <ScrollView>
             <WorkoutView
