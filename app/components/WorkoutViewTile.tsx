@@ -57,13 +57,15 @@ const WorkoutViewTile = ({workoutId, highlightMode, editable}: WorkoutVieTilePro
                 </View>
                 {
                     showEdit &&
-                    <AddWorkoutSet onSubmit={(wokoutSet) => addOrUpdateSetInWorkout(wokoutSet, workout.id!!)}/>
+                    <AddWorkoutSet onSubmit={(wokoutSet) => addOrUpdateSetInWorkout(wokoutSet, workout)}/>
                 }
                 <WorkoutSetView key={workout.id} sets={workout.sets} onDelete={(workoutSet) => {
                     deleteSetFromWorkout(workoutSet, workout);
                 }} onSubmit={(workoutSet) => {
-                    addOrUpdateSetInWorkout(workoutSet, workout.id!!);
-                }} highLightMode={highlightMode} editable={editable}/>
+                    addOrUpdateSetInWorkout(workoutSet, workout);
+                }}
+                                highLightMode={highlightMode || (workout?.records && Object.keys(workout.records).pop() as keyof typeof Metric)}
+                                editable={editable}/>
             </Card>
         </OutsidePressHandler>
     )
