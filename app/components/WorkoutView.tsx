@@ -12,12 +12,13 @@ interface WorkoutViewProps {
     workoutIds: number[],
     highlightMode?: Metric,
     editable?: boolean
+    onEndReached?: () => void
 }
 
 const style1 = {marginBottom: 10, marginHorizontal: 5};
 
 const style = {minHeight: 20};
-const WorkoutView = ({workoutIds, highlightMode, editable = true}: WorkoutViewProps) => {
+const WorkoutView = ({workoutIds, highlightMode, editable = true, onEndReached}: WorkoutViewProps) => {
     let theme = useTheme();
     let dateWorkoutMap = useDateWorkoutMapByIds(workoutIds);
     let highlightWorkout = useHighlightWorkout(workoutIds, highlightMode);
@@ -29,7 +30,7 @@ const WorkoutView = ({workoutIds, highlightMode, editable = true}: WorkoutViewPr
     });
 
     return (<View style={style}>
-        <FlashList scrollEnabled={false} data={Array.from(dateWorkoutMap.entries())} estimatedItemSize={500}
+        <FlashList onEndReached={onEndReached} scrollEnabled={false} data={Array.from(dateWorkoutMap.entries())} estimatedItemSize={250}
                    keyboardShouldPersistTaps={'always'}
                    renderItem={({item: [date, workouts]}) => {
                        return (

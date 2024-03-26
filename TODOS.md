@@ -34,10 +34,10 @@
 - während scrollen horizontales swipen komplett unterbinden
 
 ## Exercises
-- Übersichtsseite mit 1RM - 12Rm
+- ~~Übersichtsseite mit 1RM - 12Rm~~
 - Muskelgruppen hinzufügen schöner und robuster
 - Hinzufügen Seite schöner
-- Rekorde speichern
+- ~~Rekorde speichern~~ nur 1RM nicht sicher was sonst noch Sinn macht
 
 ## Settings
 - ~~Darkmode/Lightmode~~
