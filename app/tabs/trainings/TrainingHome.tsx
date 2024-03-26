@@ -18,10 +18,6 @@ const TrainingHome = ({navigation}: Props) => {
     let planToStarteTrainin = new Map(trainingsPlans.map(train => {
         let idOfTraining = Object.values(train.trainings).find(tr => startedTrainings.map(startetd => startetd.id).includes(tr))
         let training = startedTrainings.find(A => A.id === idOfTraining);
-        if (training !== undefined) {
-            console.log(Object.values(training.doneWorkoutIds).length)
-            console.log(Object.values(training.plannedWorkouts).length)
-        }
         let number = training ? Object.values(training.doneWorkoutIds).length / Object.values(training.plannedWorkouts).length : undefined;
         return idOfTraining ? [train.id, number] : undefined
     }).filter(A => A !== undefined) as Array<[number, number]>);
