@@ -93,8 +93,7 @@ const Picker = ({
                                           enableAvatar
                                           multiline={true}
             />}
-            <IconButton mode='outlined'
-                        style={{position: 'absolute', right: 0, top: -5, zIndex: 2}}
+            <IconButton style={{position: 'absolute', right: 0, zIndex: 2}}
                         icon={!show ? 'chevron-down' : 'chevron-up'}
                         onPress={() => setShow(!show)}>
             </IconButton>

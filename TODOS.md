@@ -61,3 +61,4 @@
 - ~~Trainingsübersicht crasht wenn ein planned training vor der überschicht ist~~
 - ~~Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges~~
 - Crash wenn 2 exercises ausgewählt in der analyse
+- History Swipe zu sensibel beim schnellen Scrollen, disable Swipe beim Scrollen?
