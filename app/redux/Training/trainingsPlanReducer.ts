@@ -87,6 +87,21 @@ const trainingsPlanReducer = (state: NormalizedState<TrainingsPlan> = initialSta
                 };
             }
             return {...state, byId: {...state.byId}};
+        case 'CHANGE_TRAININGS_NAME': {
+            return {
+                ...state,
+                byId: {
+                    ...state.byId,
+                    [action.trainingsPlanId]: {
+                        ...trainingsPlan,
+                        trainingNames: {
+                            ...trainingsPlan.trainingNames,
+                            [action.trainingsNumber]: action.trainingsName
+                        }
+                    }
+                }
+            }
+        }
         default:
             return state;
     }

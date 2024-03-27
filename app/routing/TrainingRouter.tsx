@@ -6,7 +6,7 @@ import { IconButton } from "react-native-paper";
 import { dispatchtoggleMode } from "../redux/settings/dispatchtoggleMode";
 import {TrainingsPlan} from "../models/TrainingsPlan";
 
-export type RootStackParamList = {
+export type  RootStackParamList = {
     TrainingHome: undefined;
     Training: { trainingsPlan: TrainingsPlan };
 };
