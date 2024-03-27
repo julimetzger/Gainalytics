@@ -1,4 +1,4 @@
-import {ScrollView, View} from "react-native";
+import {ScrollView} from "react-native";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/exerciseRouter";
 import React from "react";
@@ -7,9 +7,9 @@ import {Card, Text} from "react-native-paper";
 import {useWorkoutsByIds} from "../../redux/Workout/useWorkoutsByIds";
 import {Workout} from "../../models/Workout";
 import {Record} from "../../models/Exercise";
-import {repetitionMax, repetitionWeightByOneRm} from "../../utils/RepetitionMaxHelper";
+import {repetitionWeightByOneRm} from "../../utils/RepetitionMaxHelper";
 
-const ExerciseStatisticsTabs = ({navigation, route}: Props) => {
+const ExerciseStatisticsTabs = ({route}: Props) => {
     let exercise = useExercise(route.params.exercise.id!!);
     let currentOneRm = exercise?.records?.[Record.ONE_RM]?.[exercise.records[Record.ONE_RM].length - 1]?.value;
     let workoutIds = exercise?.records ? Object.values(exercise?.records).flatMap((record) => record.map((record) => record.workoutId)) : [];
