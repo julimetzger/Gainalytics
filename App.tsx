@@ -41,6 +41,8 @@ export const DarkTheme = {
         ...CombinedDarkTheme.colors,
         primary: PaperDarkTheme.colors.primary,
         background: PaperDarkTheme.colors.background,
+        card: PaperDarkTheme.colors.background,
+        border: PaperDarkTheme.colors.surface,
         text: PaperDarkTheme.colors.onSecondaryContainer,
         dark: true,
     },
@@ -53,6 +55,8 @@ export const LightThemeCombined = {
         ...LightTheme.colors,
         primary: MD3LightTheme.colors.primary,
         background: MD3LightTheme.colors.background,
+        card: MD3LightTheme.colors.background,
+        border: PaperDarkTheme.colors.surface,
         text: MD3LightTheme.colors.onSecondaryContainer,
     },
 };

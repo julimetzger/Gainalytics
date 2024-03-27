@@ -174,6 +174,29 @@ describe('trainingsPlanReducer', () => {
             })
         });
     })
+    describe('CHANGE_TRAININGS_NAME', () => {
+        it('should change trainings name', () => {
+            expect(trainingsPlanReducer(ONE_TRAININGS_PLAN(), {
+                    type: 'CHANGE_TRAININGS_NAME',
+                    trainingsPlanId: 1,
+                    trainingsName: 'new name',
+                    trainingsNumber: 1
+                })
+            ).toEqual({
+                byId: {
+                    1: {
+                        id: 1,
+                        name: 'plan',
+                        trainings: {},
+                        trainingNames: {
+                            1: 'new name'
+                        }
+                    }
+                },
+                allIds: [1]
+            })
+        });
+    })
     describe('Default', () => {
         it('should not modify for unknown action type', () => {
             expect(trainingsPlanReducer(ONE_TRAININGS_PLAN(), {
