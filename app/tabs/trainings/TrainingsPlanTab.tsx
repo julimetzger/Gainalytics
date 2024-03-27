@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import {SafeAreaView, ScrollView, View} from "react-native";
-import {Button, IconButton, SegmentedButtons, Text} from "react-native-paper";
-import {NativeStackScreenProps} from "@react-navigation/native-stack";
+import {Button, IconButton, SegmentedButtons, Text, TextInput, useTheme} from "react-native-paper";
+import {NativeStackHeaderProps, NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/TrainingRouter";
 import {useTrainingsPlan} from "../../redux/Training/useTrainingsPlan";
 import {useTrainingInTrainingsPlan} from "../../redux/Training/useTrainingInTrainingsPlan";
@@ -19,8 +19,58 @@ import Timer from "../../components/Timer";
 import TrainingsOverview from "../../components/TrainingsOverview";
 import TrainingsBase from "../../components/TrainingsBase";
 import {Exercise} from "../../models/Exercise";
+import dispatchChangeTrainingsName from "../../redux/Training/dispatchChangeTrainingsName";
 
-const TrainingsPlanTab = ({route}: Props) => {
+interface headerProps {
+    trainingsPlanName: string;
+    trainingName?: string;
+    micro: number;
+    training: number;
+    props: NativeStackHeaderProps;
+    changeName: (name: string) => void;
+}
+
+const header = ({trainingsPlanName, trainingName, micro, training, props, changeName}: headerProps) => {
+    let theme = useTheme();
+    const [editTrainingName, setEditTrainingName] = useState(false)
+    const [trainingsName, setTrainingsName] = useState(trainingName ?? 'Training' + training)
+
+    useEffect(() => {
+        if (trainingName === undefined) {
+            setTrainingsName('Training ' + training)
+        } else {
+            setTrainingsName(trainingName)
+        }
+
+    }, [trainingName]);
+    return (
+        //TODO 56 dp does only work for android chatgpt says it should be 44 for ios
+        <View style={{height: 56, display: 'flex', flexDirection: 'row', backgroundColor: theme.colors.background}}>
+            <IconButton size={24} icon={'arrow-left'} onPress={() => props.navigation.goBack()}></IconButton>
+            <View style={{display: 'flex', flexDirection: 'column'}}>
+                <Text
+                    style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold'}}>{trainingsPlanName}</Text>
+                <View style={{display: 'flex', flexDirection: 'row'}}>
+                    <Text style={{
+                        fontSize: 20,
+                    }}>Micro {micro}</Text>{!editTrainingName && <Text style={{
+                    fontSize: 20,
+
+                }} onPress={() => setEditTrainingName(true)}> {trainingsName}</Text>}
+                    {editTrainingName && <TextInput value={trainingsName} onChangeText={(text) => {
+                        setTrainingsName(text)
+                    }} onEndEditing={() => {
+                        changeName(trainingsName)
+                        setEditTrainingName(false)
+                    }}/>}
+                </View>
+            </View>
+        </View>
+    );
+
+}
+
+const TrainingsPlanTab = ({navigation, route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
     const [micro, setMicro] = useState(1);
     const [trainingInMicro, setTrainingInMicro] = useState(1);
@@ -33,31 +83,48 @@ const TrainingsPlanTab = ({route}: Props) => {
     const [chosenExercise, setchosenExercise] = useState(exercises?.length > 1 ? exercises[0] : undefined)
     let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
     let finishTraining = dispatchFinishTraining();
-
+    let chChangeTrainingsName = dispatchChangeTrainingsName();
+    console.log(trainingsPlan);
+    console.log(trainingsPlan.trainingNames?.[trainingInMicro])
+    navigation.setOptions({
+        header: (props) =>
+            header({
+                trainingsPlanName: trainingsPlan.name,
+                trainingName: trainingsPlan.trainingNames?.[trainingInMicro],
+                micro,
+                training: trainingInMicro,
+                props,
+                changeName: (name) => chChangeTrainingsName(trainingsPlan.id!!, name, trainingInMicro)
+            })
+    });
     const handleValueChange = (newValue: any) => {
         switch (newValue) {
-          case 'micro - 1':
-            setMicro(micro - 1);
-            break;
-          case 'micro + 1':
-            setMicro(micro + 1);
-            break;
-          case 'training + 1':
-            setTrainingInMicro(trainingInMicro + 1);
-            break;
-          case 'training - 1':
-            setTrainingInMicro(trainingInMicro - 1);
-            break;
-          default:
-            break;
+            case 'micro - 1':
+                setMicro(micro - 1);
+                break;
+            case 'micro + 1':
+                setMicro(micro + 1);
+                break;
+            case 'training + 1':
+                setTrainingInMicro(trainingInMicro + 1);
+                break;
+            case 'training - 1':
+                setTrainingInMicro(trainingInMicro - 1);
+                break;
+            default:
+                break;
         }
     };
 
     useEffect(() => {
-        if (training?.state === TrainingsState.STARTED) {
-            startTraining();
+            if (training?.state === TrainingsState.STARTED) {
+                startTraining();
+            }
         }
-    }, [micro, trainingInMicro]);
+        ,
+        [micro, trainingInMicro]
+    )
+    ;
 
     function setExerciseWithSideEffects(exercises: Exercise[]) {
         modifyExercisesInTraining(exercises, trainingsPlan.id!!, micro, trainingInMicro, training?.id);
@@ -138,13 +205,6 @@ const TrainingsPlanTab = ({route}: Props) => {
                         <TrainingHistory training={training}/>}
                 </View>
             </ScrollView>
-            <View style={{justifyContent: 'flex-start', flexDirection: 'row', alignItems: 'center'}}>
-                <Text>{"Micro " + micro + "  " + "Training " + trainingInMicro}</Text>
-                    <IconButton icon={"chevron-left"} onPress={() => setMicro(micro - 1)} disabled={micro === 1}/>
-                    <IconButton icon={"chevron-right"} onPress={() => setMicro(micro + 1)}/>
-                    <IconButton icon={"chevron-down"} onPress={() => setTrainingInMicro(trainingInMicro + 1)}/>
-                    <IconButton icon={"chevron-up"} onPress={() => setTrainingInMicro(trainingInMicro - 1)} disabled={trainingInMicro === 1}/>
-            </View>
             <SafeAreaView>
                 <SegmentedButtons
                     style={{paddingHorizontal: 5}}
@@ -153,8 +213,17 @@ const TrainingsPlanTab = ({route}: Props) => {
                     buttons={[
                         {icon: "chevron-left", value: 'micro - 1', label: 'Micro', disabled: micro === 1},
                         {icon: "chevron-right", value: 'micro + 1', label: 'Micro'},
-                        {icon: "chevron-down", value: 'training + 1', label: 'Training'},
-                        {icon: "chevron-up", value: 'training - 1', label: 'Training', disabled: trainingInMicro === 1},
+                        {
+                            icon: "chevron-down",
+                            value: 'training + 1',
+                            label: trainingsPlan.trainingNames?.[trainingInMicro + 1] ?? 'Overview'
+                        },
+                        {
+                            icon: "chevron-up",
+                            value: 'training - 1',
+                            label: trainingsPlan.trainingNames?.[trainingInMicro - 1] ?? 'Training',
+                            disabled: trainingInMicro === 1
+                        },
                     ]}
                 />
             </SafeAreaView>
