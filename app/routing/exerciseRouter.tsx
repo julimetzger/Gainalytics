@@ -24,8 +24,8 @@ const ExerciseRouter = () => {
             <Stack.Screen
                 name="Exercises"
                 component={ExerciseTab}
-                options={({ route }) => ({
-                    title: route.params?? "Exercises",
+                options={({route}) => ({
+                    title: route.params ?? "Exercises",
                     headerRight: () => (
                         <IconButton
                             onPress={dispatchtoggleMode1}
@@ -38,7 +38,7 @@ const ExerciseRouter = () => {
             <Stack.Screen
                 name="AddWorkoutTab"
                 component={AddWorkoutTab}
-                options={({ route }) => ({
+                options={({route}) => ({
                     title: route.params.exercise.name,
                     headerRight: () => (
                         <IconButton
@@ -52,7 +52,7 @@ const ExerciseRouter = () => {
             <Stack.Screen
                 name="ExerciseStatisticsTab"
                 component={ExerciseStatisticsTabs}
-                options={({ route }) => ({
+                options={({route}) => ({
                     title: route.params.exercise.name,
                     headerRight: () => (
                         <IconButton
@@ -66,7 +66,7 @@ const ExerciseRouter = () => {
             <Stack.Screen
                 name="ExericseHistory"
                 component={ExerciseHistory}
-                options={({ route }) => ({
+                options={({route}) => ({
                     title: route.params.exercise.name,
                     headerRight: () => (
                         <IconButton
