@@ -213,17 +213,8 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                     buttons={[
                         {icon: "chevron-left", value: 'micro - 1', label: 'Micro', disabled: micro === 1},
                         {icon: "chevron-right", value: 'micro + 1', label: 'Micro'},
-                        {
-                            icon: "chevron-down",
-                            value: 'training + 1',
-                            label: trainingsPlan.trainingNames?.[trainingInMicro + 1] ?? 'Overview'
-                        },
-                        {
-                            icon: "chevron-up",
-                            value: 'training - 1',
-                            label: trainingsPlan.trainingNames?.[trainingInMicro - 1] ?? 'Training',
-                            disabled: trainingInMicro === 1
-                        },
+                        {icon: "chevron-up", value: 'training - 1', label: trainingsPlan.trainingNames?.[trainingInMicro - 1] ?? 'Training', disabled: trainingInMicro === 1},
+                        {icon: "chevron-down", value: 'training + 1', label: trainingsPlan.trainingNames?.[trainingInMicro + 1] ?? 'Overview'},
                     ]}
                 />
             </SafeAreaView>
