@@ -1,6 +1,6 @@
 import {View} from "react-native";
 import DropDown from "react-native-paper-dropdown";
-import {Button, TextInput} from "react-native-paper";
+import {IconButton, TextInput, useTheme} from "react-native-paper";
 import React, {useEffect, useState} from "react";
 import {Muscles} from "../models/Muscles";
 import {MusclePercentPair} from "../models/Exercise";
@@ -13,6 +13,7 @@ interface MusclePickerProps {
 
 const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) => {
     const [dropdownVisible, setDropdownVisible] = useState(false)
+    let theme = useTheme();
     useEffect(() => {
 
     }, [muscleValue]);
@@ -27,17 +28,17 @@ const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) =>
                 list={Object.values(Muscles).map((value: string) => {
                     return {label: value, value: value}
                 })}/>
-            <TextInput keyboardType="numeric" inputMode={"numeric"} label={'Percentage of Involvement'}
+            <TextInput keyboardType="numeric" inputMode={"numeric"} label={'% Involvement'}
                        defaultValue={"100"}
                        value={muscleValue?.percent?.toString()}
                        onChangeText={(value) => setMuscles({
                            muscle: muscleValue?.muscle,
                            percent: parseInt(value)
                        })}/>
-            <Button
-                onPress={() => {
-                    onDelete(muscleValue)
-                }}>Remove</Button>
-        </View>)
+            <IconButton icon={"close-circle"} iconColor={theme.colors.tertiaryContainer}
+                                onPress={() => {
+                                    onDelete(muscleValue)}}/>
+        </View>
+    )
 }
 export default MusclePicker;
