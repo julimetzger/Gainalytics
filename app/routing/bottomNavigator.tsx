@@ -7,14 +7,27 @@ import TrainingRouter from "./TrainingRouter";
 import {useTrainings} from '../redux/Training/useTrainings';
 import {TrainingsState} from '../models/TrainingsState';
 import useExerciseRecord from "../redux/Effects/useExerciseRecord";
+import Toast from "react-native-toast-message";
+import {useExercise} from "../redux/Exercises/useExercise";
+import Snackbar from "react-native-snackbar";
 
 const Tab = createMaterialBottomTabNavigator();
 
 export const BottomTabs = () => {
     const allTrainings = useTrainings();
     //TODO flo baut nen toast rein - wenn record dann liefert das userExerciseRecord ExerciseRecordEffect zurück. Sobald irgendwas neues gespeichert wird verschwindet der Eintrag wieder und useExerciseRecord liefert null zurück
-    //let useExerciseRecord1 = useExerciseRecord();
+    let useExerciseRecord1 = useExerciseRecord();
+    let exercise = useExercise(useExerciseRecord1?.exerciseId);
     let isTrainingStarted = allTrainings.some(A => A.state === TrainingsState.STARTED)
+    if (useExerciseRecord1) {
+        Toast.show({
+            type: 'info',
+            text1: 'New Record!',
+            text2: `You have a new ${useExerciseRecord1.record} record in ${exercise?.name} with ${useExerciseRecord1.value}`,
+            position: 'top',
+            visibilityTime: 5000
+        })
+    }
     return (
         <Tab.Navigator initialRouteName="Feed" shifting={false} barStyle={{height: 70}}>
             <Tab.Screen

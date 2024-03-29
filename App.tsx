@@ -14,6 +14,7 @@ import {BottomTabs} from './app/routing/bottomNavigator';
 import {EventProvider} from "react-native-outside-press";
 import {registerTranslation} from 'react-native-paper-dates';
 import {useSettings} from "./app/redux/settings/useSettings";
+import Toast from "react-native-toast-message";
 
 registerTranslation('en-GB', {
     save: 'Save',
@@ -77,6 +78,7 @@ const AppWithPersist = () => {
                 </NavigationContainer>
             </EventProvider>
         </PaperProvider>
+        <Toast/>
     </PersistGate>;
 }
 
