@@ -8,7 +8,7 @@ import {WorkoutSet} from "../../models/WorkoutSet";
 import {Workout} from "../../models/Workout";
 import {Dispatch} from "react";
 
-export function dispatchRecord(planningMode: boolean, set: WorkoutSet, workout: Workout, dispatch: Dispatch<any>, exercise: Exercise) {
+export function dispatchRecord(planningMode: boolean, set: WorkoutSet, workout: Workout, dispatch: Dispatch<any>, exercise: Exercise, workoutId: number) {
     if (!planningMode) {
         let oneRm = calculateMetricValue([set], Metric.ONE_RM);
 
@@ -20,7 +20,7 @@ export function dispatchRecord(planningMode: boolean, set: WorkoutSet, workout: 
                     type: 'UPDATE_RECORD',
                     record: Record.ONE_RM,
                     value: oneRm,
-                    workoutId: workout.id,
+                    workoutId: workoutId,
                     exerciseId: exercise.id
                 } as Action)
                 return;
@@ -35,7 +35,7 @@ export function dispatchRecord(planningMode: boolean, set: WorkoutSet, workout: 
                 dispatch({
                     type: 'DELETE_RECORD',
                     record: Record.ONE_RM,
-                    workoutId: workout.id,
+                    workoutId: workoutId,
                     exerciseId: exercise.id
                 } as Action)
                 return;
@@ -46,12 +46,11 @@ export function dispatchRecord(planningMode: boolean, set: WorkoutSet, workout: 
                     type: 'UPDATE_RECORD',
                     record: Record.ONE_RM,
                     value: newOneRm,
-                    workoutId: workout.id,
+                    workoutId: workoutId,
                     exerciseId: exercise.id
                 } as Action);
                 return;
             }
-
         }
         //new Record check
         if (oneRm > Math.max(...exercise.records?.[Record.ONE_RM]?.map(record => record.value ?? 0) ?? [0])) {
@@ -59,7 +58,7 @@ export function dispatchRecord(planningMode: boolean, set: WorkoutSet, workout: 
                 type: 'ADD_RECORD',
                 record: Record.ONE_RM,
                 value: oneRm,
-                workoutId: workout.id,
+                workoutId: workoutId,
                 exerciseId: exercise.id
             } as Action)
             return;
@@ -76,6 +75,6 @@ export const dispatchAddOrUpdateSetInWorkout = (exercise: Exercise, planningMode
             set,
             workoutId: workout.id
         } as Action)
-        dispatchRecord(planningMode, set, workout, dispatch, exercise);
+        dispatchRecord(planningMode, set, workout, dispatch, exercise, workout.id!!);
     }
 }

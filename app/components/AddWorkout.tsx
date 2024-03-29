@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import {useAllLastWorkouts} from "../redux/Workout/useAllLastWorkouts";
 import {useUnfinishedWorkout} from "../redux/Workout/useUnfinishedWorkout";
 import {Button, Text, useTheme} from "react-native-paper";

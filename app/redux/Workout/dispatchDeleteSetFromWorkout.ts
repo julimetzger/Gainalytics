@@ -2,6 +2,9 @@ import {useDispatch} from "react-redux";
 import {Action} from "redux";
 import {WorkoutSet} from "../../models/WorkoutSet";
 import {Workout} from "../../models/Workout";
+import {Record} from "../../models/Exercise";
+import {calculateMetricValue} from "../../utils/RepetitionMaxHelper";
+import {Metric} from "../../components/Picker";
 
 export const dispatchDeleteSetFromWorkout = () => {
     const dispatch = useDispatch();
@@ -22,5 +25,18 @@ export const dispatchDeleteSetFromWorkout = () => {
             workoutId: workout.id,
             trainingsId: workout.trainingsId
         } as Action);
+        if (workout?.records?.[Record.ONE_RM] === calculateMetricValue([set], Metric.ONE_RM)) {
+            let workoutSets = workout.sets.filter(s => s.index !== set.index);
+            let oneRm = calculateMetricValue(workoutSets, Metric.ONE_RM);
+            //TODO handle record updates if there is still a record in the remaining sets
+            if (workout.records[Record.ONE_RM] !== oneRm)
+                dispatch({
+                        type: 'DELETE_RECORD',
+                        record: Record.ONE_RM,
+                        workoutId: workout.id,
+                        exerciseId: workout.exerciseId
+                    } as Action
+                )
+        }
     }
 };

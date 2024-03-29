@@ -10,7 +10,7 @@ export type Exercise = {
     }
 }
 
-interface ExerciseRecord {
+export interface ExerciseRecord {
     value: number;
     workoutId: number;
 }

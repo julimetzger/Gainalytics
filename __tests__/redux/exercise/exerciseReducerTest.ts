@@ -1,4 +1,5 @@
 import exerciseReducer from "../../../app/redux/exercises/exercisesReducer";
+import {Workout} from "../../../app/models/Workout";
 
 describe('exerciseReducer', () => {
     it('should add an exercise', () => {
@@ -280,6 +281,59 @@ describe('exerciseReducer', () => {
                 exerciseId: 2,
                 record: '1RM',
                 workoutId: 1,
+            };
+            const expectedState = {
+                byId: {
+                    1: {
+                        id: 1,
+                        name: 'Bankdrücken',
+                    },
+                    2: {
+                        id: 2,
+                        name: 'Squat',
+                        records: {
+                            '1RM': []
+                        }
+                    },
+                    3: {
+                        id: 3,
+                        name: 'Deadlift',
+                    },
+                },
+                allIds: [1, 2, 3],
+            };
+            expect(exerciseReducer(initialState, action)).toEqual(expectedState);
+        })
+        it('should delete record if workout is deleted', () => {
+            const initialState = {
+                byId: {
+                    1: {
+                        id: 1,
+                        name: 'Bankdrücken',
+                    },
+                    2: {
+                        id: 2,
+                        name: 'Squat',
+                        records: {
+                            '1RM': [{value: 100, workoutId: 1}]
+                        }
+                    },
+                    3: {
+                        id: 3,
+                        name: 'Deadlift',
+                    },
+                },
+                allIds: [1, 2, 3],
+            };
+            const action = {
+                type: 'DELETE_WORKOUT',
+                workout: {
+                    id: 1,
+                    sets: [],
+                    date: new Date(),
+                    exerciseId: 2,
+                    notes: '',
+                } as Workout
             };
             const expectedState = {
                 byId: {

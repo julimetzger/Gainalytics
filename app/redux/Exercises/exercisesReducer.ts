@@ -1,7 +1,7 @@
 import {AnyAction} from '@reduxjs/toolkit';
 import {NormalizedState} from '../normalizedState';
 import {Muscles} from '../../models/Muscles';
-import {Exercise} from "../../models/Exercise";
+import {Exercise, ExerciseRecord} from "../../models/Exercise";
 
 const initialState = {
     byId: {
@@ -212,6 +212,24 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
                             records: {...recordExercise.records},
                         },
                     },
+                };
+            }
+            case 'DELETE_WORKOUT': {
+                let workout = action.workout;
+                let exerciseForWorkout = {...exercises.byId[workout.exerciseId]};
+                exerciseForWorkout.records = (exerciseForWorkout.records ? Object.entries(exerciseForWorkout.records)
+                    .map(([key, value]) =>
+                        [key, value.filter(record => record.workoutId !== workout.id)])
+                    .reduce((obj, [key, value]) => ({
+                        ...obj,
+                        [key as string]: value as ExerciseRecord[]
+                    }), {}) : undefined);
+                return {
+                    ...exercises,
+                    byId: {
+                        ...exercises.byId,
+                        [workout.exerciseId]: exerciseForWorkout
+                    }
                 };
             }
             default:
