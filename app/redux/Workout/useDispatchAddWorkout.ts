@@ -20,6 +20,6 @@ export const useDispatchAddWorkout = (exercise: Exercise) => {
             nextWorkoutId,
             trainingsId
         } as Action);
-        dispatchRecord(false, workout.sets[0], workout, dispatch, exercise)
+        dispatchRecord(false, workout.sets[0], workout, dispatch, exercise, nextWorkoutId)
     }
 };

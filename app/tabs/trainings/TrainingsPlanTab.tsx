@@ -68,6 +68,7 @@ const header = ({trainingsPlanName, trainingName, micro, training, props, change
         </View>
     );
 
+
 }
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
@@ -80,12 +81,11 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     const startTraining = dispatchStartTraining(training?.id);
     const [overview, setOverview] = useState(true)
     let exercises = useExerciseByIds(training?.exercises ?? []);
-    const [chosenExercise, setchosenExercise] = useState(exercises?.length > 1 ? exercises[0] : undefined)
+    const [chosenExercises, setchosenExercise] = useState(exercises?.length > 1 ? exercises[0].id : undefined)
+    let chosenExercise = exercises.find(exercise => exercise.id === chosenExercises)
     let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
     let finishTraining = dispatchFinishTraining();
     let chChangeTrainingsName = dispatchChangeTrainingsName();
-    console.log(trainingsPlan);
-    console.log(trainingsPlan.trainingNames?.[trainingInMicro])
     navigation.setOptions({
         header: (props) =>
             header({
@@ -123,8 +123,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         }
         ,
         [micro, trainingInMicro]
-    )
-    ;
+    );
 
     function setExerciseWithSideEffects(exercises: Exercise[]) {
         modifyExercisesInTraining(exercises, trainingsPlan.id!!, micro, trainingInMicro, training?.id);
@@ -139,7 +138,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         }
         if (training?.state === TrainingsState.FINISHED) {
             if (chosenExercise === undefined)
-                setchosenExercise(exercises[0])
+                setchosenExercise(exercises[0].id)
             setOverview(!overview);
         }
         setTimeInWorkout(new Date(Date.now()));
@@ -151,7 +150,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             return;
         }
         setTimeInWorkout(new Date(Date.now()));
-        setchosenExercise(exercises[number])
+        setchosenExercise(exercises[number].id)
     }
 
     return (
@@ -177,7 +176,9 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                             <DraggableExercise exercises={exercises}
                                                setExercises={setExerciseWithSideEffects}
                                                chosenExercise={chosenExercise}
-                                               chooseExercise={setchosenExercise}/>
+                                               chooseExercise={(exercise) => {
+                                                   setchosenExercise(exercise.id)
+                                               }}/>
                         </View>}
                     {training === undefined &&
                         <TrainingsBase trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro}/>}
@@ -213,8 +214,17 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                     buttons={[
                         {icon: "chevron-left", value: 'micro - 1', label: 'Micro', disabled: micro === 1},
                         {icon: "chevron-right", value: 'micro + 1', label: 'Micro'},
-                        {icon: "chevron-up", value: 'training - 1', label: trainingsPlan.trainingNames?.[trainingInMicro - 1] ?? 'Training', disabled: trainingInMicro === 1},
-                        {icon: "chevron-down", value: 'training + 1', label: trainingsPlan.trainingNames?.[trainingInMicro + 1] ?? 'Overview'},
+                        {
+                            icon: "chevron-up",
+                            value: 'training - 1',
+                            label: trainingsPlan.trainingNames?.[trainingInMicro - 1] ?? 'Training',
+                            disabled: trainingInMicro === 1
+                        },
+                        {
+                            icon: "chevron-down",
+                            value: 'training + 1',
+                            label: trainingsPlan.trainingNames?.[trainingInMicro + 1] ?? 'Overview'
+                        },
                     ]}
                 />
             </SafeAreaView>
