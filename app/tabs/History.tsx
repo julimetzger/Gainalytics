@@ -156,11 +156,12 @@ const History = ({route}: Props) => {
 
                 const xDiff = Math.abs(evt.changedTouches[0].x - initialTouchLocation.value.x);
                 const yDiff = Math.abs(evt.changedTouches[0].y - initialTouchLocation.value.y);
-                const isHorizontalPanning = xDiff > yDiff && xDiff > 30;
+                const isHorizontalPanning = xDiff > yDiff;
 
                 if (isHorizontalPanning) {
                     state.activate();
-                }
+                } else
+                    state.fail();
             })
             .onUpdate((e) => {
                 xPosition.value = zeroPositon + e.translationX;
@@ -217,6 +218,7 @@ const History = ({route}: Props) => {
                 traveledIndex: fullPosition.traveledIndex
             })
         }
+
         return (
             <GestureHandlerRootView>
                 <ScrollView simultaneousHandlers={refa} keyboardShouldPersistTaps={'always'}>
