@@ -21,7 +21,7 @@
 - ~~Anzeige der muskelgruppen und exercises in voller länge in der Übersicht~~
 - ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~ vergleich exercises mit done
   workouts anstatt planned workouts
-- Rekorde speichern und Snackbar als Onscreen Toast
+- ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - mesos einführen mit Kopieren des alten mesos
 
 ## Analyse
