@@ -70,7 +70,9 @@ const AnalyseGraphics = ({}: Props) => {
         .flatMap(([value, workouts]) => {
             const allWorkouts = Array.from(workouts.values()).flat() as Workout[];
             let exerciseSetMap = new Map(Array.from(workouts.entries()).map(([exercise, workout]) => [exercise, workout.flatMap(w => w.sets)]));
-            let workoutSetForExercises = exercise.flatMap((exercise: Exercise) => workouts.get(exercise)!!).flatMap(workout => workout.sets);
+            let workoutSetForExercises = exercise.flatMap((ex: Exercise) => {
+                return workouts.get(ex)?.flatMap(workout => workout.sets) ?? [];
+            })
             let muscleSum = sum(muscle.map(mus => calculateMetricValueForMuscles(exerciseSetMap, metric, mus)));
             let exerciseSum = calculateMetricValue(workoutSetForExercises, metric) ?? 0;
             return [{
@@ -178,7 +180,12 @@ const handleAccumulationModeBatching = (allWorkouts: Workout[], accumulationMode
     return (acc: Map<string, Workout[]>, workout: Workout): Map<string, Workout[]> => {
         switch (accumulationMode?.getAccumulationMode()) {
             case AccumulationMode.SINGLE_DAY: {
-                acc.set(new Date(workout.start!!).toISOString(), [workout]);
+                let dateDayStart = new Date(new Date(workout.start!!).setHours(0, 0, 0, 0));
+                if (acc.get(dateDayStart.toISOString())) {
+                    acc.get(dateDayStart.toISOString())!!.push(workout);
+                } else {
+                    acc.set(dateDayStart.toISOString(), [workout]);
+                }
                 return acc;
             }
             case AccumulationMode.WEEK: {

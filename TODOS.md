@@ -15,8 +15,8 @@
 - ~~anzeige des trainings im router oben~~ schöner machen
 - ~~name für trainings~~ schöner machen
 - ~~percentage für volume, sets und reps berücksichtigen~~
-- ~~in der übersicht die muscle metriken klickbar machen und dann die übungen anzeigen. in der anzeige sieht man alle
-  übungen mit wert der zugehörigen metrik (z.b reps) und zu wieviel prozent sie zur metrik beitragen und der wert
+- ~~in der übersicht die muscle metriken klickbar machen und dann die übungen anzeigen. in der anzeige sieht man alle~~ 
+- ~~übungen mit wert der zugehörigen metrik (z.b reps) und zu wieviel prozent sie zur metrik beitragen und der wert
   multipliziert mit den prozenten.~~
 - ~~Anzeige der muskelgruppen und exercises in voller länge in der Übersicht~~
 - ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~ vergleich exercises mit done
@@ -67,5 +67,5 @@
   mitbekommt)~~
 - ~~Trainingsübersicht crasht wenn ein planned training vor der überschicht ist~~
 - ~~Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges~~
-- Crash wenn 2 exercises ausgewählt in der analyse
+- ~~Crash wenn 2 exercises ausgewählt in der analyse~~
 - History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren
