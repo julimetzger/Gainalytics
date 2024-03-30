@@ -68,3 +68,4 @@
 - ~~Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges~~
 - ~~Crash wenn 2 exercises ausgewählt in der analyse~~
 - History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren
+- highlighed values in analys sind gleich dargestellt wie records, das ist verwirrend

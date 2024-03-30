@@ -17,6 +17,7 @@ import {Muscles} from "../models/Muscles";
 import {useExercisesForMuscles} from "../redux/Exercises/useExercisesForMuscles";
 import {Exercise} from "../models/Exercise";
 import {Workout} from "../models/Workout";
+import {el} from "react-native-paper-dates";
 
 const AnalyseGraphics = ({}: Props) => {
     function handleDataPointSelect(value: ChartSelectEvent) {
@@ -75,11 +76,16 @@ const AnalyseGraphics = ({}: Props) => {
             })
             let muscleSum = sum(muscle.map(mus => calculateMetricValueForMuscles(exerciseSetMap, metric, mus)));
             let exerciseSum = calculateMetricValue(workoutSetForExercises, metric) ?? 0;
+            let metricValue
+            if (metric === Metric.ONE_RM || metric === Metric.MAX_INTENSITY || metric === Metric.AVERAGE_INTENSITY) {
+                metricValue = Math.max(exerciseSum, muscleSum)
+            } else
+                metricValue = exerciseSum + muscleSum
             return [{
                 id: allWorkouts.reduce((acc: string, workout: Workout) => acc + "," + workout.id!!, ""),
                 x: new Date(value).getTime(),
                 y: exerciseSum + muscleSum,
-                marker: (exerciseSum + muscleSum).toFixed(2)
+                marker: metricValue.toFixed(2)
             } as LineValue]
         })
         .sort(((a, b) => a.x!! - b.x!!));
