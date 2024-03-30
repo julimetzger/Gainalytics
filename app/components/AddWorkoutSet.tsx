@@ -104,7 +104,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
             date: new Date(Date.now()),
             weight: convertToNumber(weight),
             reps: convertToNumber(reps),
-            rir: convertToNumber(rir) == NaN ? 0 : convertToNumber(rir)
+            rir: Number.isNaN(convertToNumber(rir)) ? 0 : convertToNumber(rir)
         } as WorkoutSet);
         setEditing(false);
     }
@@ -179,7 +179,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                         Keyboard.dismiss();
                     }}/>}
                 {!persisted() && workoutSet === undefined &&
-                    < Button
+                    <Button
                         mode={'contained'}
                         style={{marginStart: 5}}
                         buttonColor={theme.colors.primaryContainer}
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     textInput: {
         height: 33,
         marginEnd: 5,
-        width: 75,
+        width: 70,
         alignSelf: 'center',
     }
 });
