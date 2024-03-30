@@ -9,7 +9,6 @@ import React, { useState } from "react";
 import { useExerciseByIds } from "../redux/Exercises/useExerciseByIds";
 import MetricView from "./MetricComparison";
 import { Muscles } from "../models/Muscles";
-
 import {Exercise, MusclePercentPair} from "../models/Exercise";
 import {Workout} from "../models/Workout";
 

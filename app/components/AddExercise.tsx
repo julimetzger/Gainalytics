@@ -66,9 +66,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                                     <TextInput defaultValue={exercise?.name}
                                                label={'Name of the Exercise'}
                                                onChangeText={(text) => setNewExerciseName(text)}/>
-                                    <Button
-                                        onPress={() => setMuslces([...muslces, {muscle: undefined, percent: undefined}])}>Add
-                                        muscle</Button>
+                                    <Button onPress={() => setMuslces([...muslces, {muscle: undefined, percent: undefined}])}>Add muscle</Button>
                                     {muslces.map((muscleFromMap: MusclePercentPair) => {
                                         return <MusclePicker muscleValue={muscleFromMap}
                                                              key={muscleFromMap.muscle}

@@ -50,7 +50,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
                             : <TextInput defaultValue={trainingsPlan?.name} label={'Name of the Training Plan'}
                                          onChangeText={(text) => setTrainingName(text)}/>}
                     </Dialog.Content>
-                    <View style={{alignItems: 'center', display: 'flex', justifyContent: 'center'}}>
+                    <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'space-between'}}>
                         <Dialog.Actions>
                             <Button onPress={hideDialog}>Cancel</Button>
                         </Dialog.Actions>
@@ -58,7 +58,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
                             <Button onPress={confirmDialog}>Done</Button>
                         </Dialog.Actions>}
                         {trainingsId && <Dialog.Actions>
-                            <Button onPress={() => {
+                            <Button textColor={theme.colors.tertiary} onPress={() => {
                                 deleteOverlay ? deleteTrainingsPlan(trainingsId) : setDeleteOverlay(true);
                             }}>Delete</Button></Dialog.Actions>}
                     </View>

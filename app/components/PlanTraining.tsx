@@ -12,7 +12,6 @@ import {Training} from "../models/Training";
 import {Exercise} from "../models/Exercise";
 import {WorkoutSet} from "../models/WorkoutSet";
 
-
 const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosenExercise}: Props) => {
     const addPlanedTrainingWorkoutSet = dispatchAddPlanedTrainingWorkout();
     let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(chosenExercise, true);
@@ -35,7 +34,6 @@ const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosen
         }
         addOrUpdateSetInWorkout(workoutSet, plannedWorkout);
     }
-
 
     return (
         <View>
@@ -61,4 +59,3 @@ interface Props {
     trainingInMicro: number,
     chosenExercise: Exercise
 }
-
