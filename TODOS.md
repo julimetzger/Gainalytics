@@ -67,5 +67,6 @@
 - ~~Trainingsübersicht crasht wenn ein planned training vor der überschicht ist~~
 - ~~Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges~~
 - ~~Crash wenn 2 exercises ausgewählt in der analyse~~
+- ~~navigate up down in trainingsoverview ads sets form other workouts~~
 - History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren
 - highlighed values in analys sind gleich dargestellt wie records, das ist verwirrend

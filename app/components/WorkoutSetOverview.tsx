@@ -38,10 +38,12 @@ const WorkoutSetOverview = ({ trainingsWorkouts, previousWorkouts = [] }: Workou
         if (workout && exercise) {
             if (exerciseWorkoutMap.get(exercise)) {
                 exerciseWorkoutMap.get(exercise)?.currentWorkoutSets.push(...workout.sets);
-                lastWorkout ? exerciseWorkoutMap.get(exercise)?.lastWorkoutSets?.push(...lastWorkout?.map((workout: Workout) => workout.sets).flat()) : 0;
+                lastWorkout ? exerciseWorkoutMap.get(exercise)
+                    ?.lastWorkoutSets
+                    ?.push(...lastWorkout?.map((workout: Workout) => workout.sets).flat()) : 0;
             } else {
                 exerciseWorkoutMap.set(exercise, {
-                    currentWorkoutSets: workout.sets,
+                    currentWorkoutSets: [...workout.sets],
                     lastWorkoutSets: lastWorkout?.map((workout: Workout) => workout.sets).flat() ?? []
                 });
             }
