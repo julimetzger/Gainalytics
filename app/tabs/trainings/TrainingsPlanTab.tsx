@@ -90,7 +90,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         header: (props) =>
             header({
                 trainingsPlanName: trainingsPlan.name,
-                trainingName: trainingsPlan.trainingNames?.[trainingInMicro],
+                trainingName: trainingsPlan.trainingNames?.[trainingInMicro] ?? "Training " + trainingInMicro,
                 micro,
                 training: trainingInMicro,
                 props,
@@ -223,7 +223,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                         {
                             icon: "chevron-down",
                             value: 'training + 1',
-                            label: trainingsPlan.trainingNames?.[trainingInMicro + 1] ?? 'Overview'
+                            label: trainingsPlan.trainingNames?.[trainingInMicro + 1] ?? 'Training'
                         },
                     ]}
                 />
