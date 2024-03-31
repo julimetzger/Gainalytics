@@ -1,14 +1,15 @@
-import { Metric } from "./Picker";
+import {Metric} from "./Picker";
 import {
     calculateMetricComparisons,
-    calculateMetricComparisonsForMuscle, calculateMetricValue,
+    calculateMetricComparisonsForMuscle,
+    calculateMetricValue,
     WorkoutSetMap
 } from "../utils/RepetitionMaxHelper";
-import { Card, DataTable, Dialog, Portal, Text } from "react-native-paper";
-import React, { useState } from "react";
-import { useExerciseByIds } from "../redux/Exercises/useExerciseByIds";
+import {Card, DataTable, Dialog, Portal, Text} from "react-native-paper";
+import React, {useState} from "react";
+import {useExerciseByIds} from "../redux/Exercises/useExerciseByIds";
 import MetricView from "./MetricComparison";
-import { Muscles } from "../models/Muscles";
+import {Muscles} from "../models/Muscles";
 import {Exercise, MusclePercentPair} from "../models/Exercise";
 import {Workout} from "../models/Workout";
 
@@ -19,7 +20,8 @@ export interface Comparison {
 
 interface WorkoutSetOverviewProps {
     trainingsWorkouts: Workout[],
-    previousWorkouts?: Workout[]
+    previousWorkouts?: Workout[],
+    showExercises?: boolean
 }
 
 interface MuscleDetails {
@@ -27,7 +29,11 @@ interface MuscleDetails {
     metric: Metric
 }
 
-const WorkoutSetOverview = ({ trainingsWorkouts, previousWorkouts = [] }: WorkoutSetOverviewProps) => {
+const WorkoutSetOverview = ({
+                                trainingsWorkouts,
+                                previousWorkouts = [],
+                                showExercises = true
+                            }: WorkoutSetOverviewProps) => {
     let trainingExcercises = useExerciseByIds(trainingsWorkouts.map((workout: Workout) => workout.exerciseId));
     const [seledtedMuscle, setSelectedMuscle] = useState<MuscleDetails | undefined>(undefined)
 
@@ -53,15 +59,15 @@ const WorkoutSetOverview = ({ trainingsWorkouts, previousWorkouts = [] }: Workou
     let exerciseMetricMap = new Map<Exercise, Map<Metric, Comparison>>();
 
     Array.from(exerciseWorkoutMap).forEach(([exercise, workout]) => {
-        let metricComparison = calculateMetricComparisons(workout);
-        exerciseMetricMap.set(exercise, metricComparison);
-    }
+            let metricComparison = calculateMetricComparisons(workout);
+            exerciseMetricMap.set(exercise, metricComparison);
+        }
     )
 
     let muscleMetricMap = calculateMetricComparisonsForMuscle(exerciseWorkoutMap);
 
     return <>
-        <Card style={{ margin: 5 }}>
+        {showExercises && <Card style={{margin: 5}}>
             <Card.Title title={<Text>Exercise Overview</Text>}></Card.Title>
             <Card.Content>
                 <DataTable>
@@ -77,20 +83,20 @@ const WorkoutSetOverview = ({ trainingsWorkouts, previousWorkouts = [] }: Workou
                                 <Text>{exercise.name}</Text>
                             </DataTable.Cell>
                             <DataTable.Cell style={{flex: 1}} numeric>
-                                <MetricView comparison={workout.get(Metric.ONE_RM)!!} />
+                                <MetricView comparison={workout.get(Metric.ONE_RM)!!}/>
                             </DataTable.Cell>
                             <DataTable.Cell style={{flex: 1}} numeric>
-                                <MetricView comparison={workout.get(Metric.REPS)!!} />
+                                <MetricView comparison={workout.get(Metric.REPS)!!}/>
                             </DataTable.Cell>
                             <DataTable.Cell style={{flex: 1}} numeric>
-                                <MetricView comparison={workout.get(Metric.MAX_INTENSITY)!!} />
+                                <MetricView comparison={workout.get(Metric.MAX_INTENSITY)!!}/>
                             </DataTable.Cell>
                         </DataTable.Row>
                     })}
                 </DataTable>
             </Card.Content>
-        </Card>
-        <Card style={{ margin: 5 }}>
+        </Card>}
+        <Card style={{margin: 5}}>
             <Card.Title title={<Text>Muscle Overview</Text>}></Card.Title>
             <Card.Content>
                 <DataTable>
@@ -107,19 +113,19 @@ const WorkoutSetOverview = ({ trainingsWorkouts, previousWorkouts = [] }: Workou
                                 muscle: muscle,
                                 metric: Metric.VOLUME
                             })}>
-                                <MetricView comparison={workout.get(Metric.VOLUME)!!} />
+                                <MetricView comparison={workout.get(Metric.VOLUME)!!}/>
                             </DataTable.Cell>
                             <DataTable.Cell style={{flex: 1}} numeric onPress={() => setSelectedMuscle({
                                 muscle: muscle,
                                 metric: Metric.SETS
                             })}>
-                                <MetricView comparison={workout.get(Metric.SETS)!!} />
+                                <MetricView comparison={workout.get(Metric.SETS)!!}/>
                             </DataTable.Cell>
                             <DataTable.Cell style={{flex: 1}} numeric onPress={() => setSelectedMuscle({
                                 muscle: muscle,
                                 metric: Metric.REPS
                             })}>
-                                <MetricView comparison={workout.get(Metric.REPS)!!} />
+                                <MetricView comparison={workout.get(Metric.REPS)!!}/>
                             </DataTable.Cell>
                         </DataTable.Row>
                     })}
@@ -147,7 +153,8 @@ const WorkoutSetOverview = ({ trainingsWorkouts, previousWorkouts = [] }: Workou
                                         <DataTable.Cell><Text>{exercise.name}</Text></DataTable.Cell>
                                         <DataTable.Cell numeric>{unmodifiedMetricValue}</DataTable.Cell>
                                         <DataTable.Cell numeric>{percent}</DataTable.Cell>
-                                        <DataTable.Cell numeric>{unmodifiedMetricValue!! * percent!! / 100}</DataTable.Cell>
+                                        <DataTable.Cell
+                                            numeric>{unmodifiedMetricValue!! * percent!! / 100}</DataTable.Cell>
                                     </DataTable.Row>
                                 )
                             }

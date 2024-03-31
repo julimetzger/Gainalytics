@@ -6,7 +6,7 @@
 - ~~zeit anzeigen seit start des Trainings~~ aber noch nicht schön
 - ~~Vergleich mit vorherigem Training~~/geplanten Workout nach Abschluss des Trainings
 - Anzeige des planned Trainings während des Trainings
-- Volumen/Set Unterstützung während des planens
+- ~~Volumen/Set Unterstützung während des planens~~
 - ~~Zusammenfassung als letzte Seite nach allen Trainings (Volumen, Sets, Muskelgruppen etc.)~~
 - Export/Import Funktion für Trainings/Micro
 - unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
@@ -67,6 +67,6 @@
 - ~~Trainingsübersicht crasht wenn ein planned training vor der überschicht ist~~
 - ~~Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges~~
 - ~~Crash wenn 2 exercises ausgewählt in der analyse~~
-- ~~navigate up down in trainingsoverview ads sets form other workouts~~
+- ~~navigate up down in trainingsoverview ads sets form other workouts~~~
 - History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren
 - highlighed values in analys sind gleich dargestellt wie records, das ist verwirrend
