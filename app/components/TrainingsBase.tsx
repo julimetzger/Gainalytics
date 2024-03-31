@@ -17,15 +17,14 @@ const TrainingsBase = ({trainingsPlan, trainingInMicro, micro}: TrainingsBasePro
     let suggestBasedOnPlanned = dispatchSuggestBasedOnPlanned(trainingsPlan.id!!, trainingInMicro);
 
     return <View>
-        {suggestBasedOnPlanned && suggestBasedOnTrained && <View><Button
+        <View><Button disabled={suggestBasedOnTrained === undefined}
             onPress={() => suggestBasedOnTrained!!(trainingsPlan.id!!, micro, trainingInMicro)}>Suggest
             based on last Training</Button>
             <Button
+                disabled={suggestBasedOnPlanned === undefined}
                 onPress={() => suggestBasedOnPlanned!!(trainingsPlan.id!!, micro, trainingInMicro)}>Suggest
                 based on last planned Training</Button>
-        </View>}
-        {!suggestBasedOnPlanned && !suggestBasedOnTrained && <MicroOverview trainingsPlan={trainingsPlan}
-                                                                            micro={micro}/>}
+        </View>
     </View>
 }
 

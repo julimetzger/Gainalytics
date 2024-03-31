@@ -1,25 +1,27 @@
-import React, {useEffect, useState} from "react";
-import {SafeAreaView, ScrollView, View} from "react-native";
-import {Button, IconButton, SegmentedButtons, Text, TextInput, useTheme} from "react-native-paper";
-import {NativeStackHeaderProps, NativeStackScreenProps} from "@react-navigation/native-stack";
-import {RootStackParamList} from "../../routing/TrainingRouter";
-import {useTrainingsPlan} from "../../redux/Training/useTrainingsPlan";
-import {useTrainingInTrainingsPlan} from "../../redux/Training/useTrainingInTrainingsPlan";
-import PlanWorkoutInTraining from "../../components/PlanTraining";
-import ExecuteWorkoutInTraining from "../../components/ExecuteTraining";
-import {dispatchStartTraining} from "../../redux/Training/dispatchStartTraining";
-import {useExerciseByIds} from "../../redux/Exercises/useExerciseByIds";
-import {dispatchModifyExercisesInTraining} from "../../redux/Training/dispatchModifyExercisesInTraining";
-import {dispatchFinishTraining} from "../../redux/Training/dispatchFinishTraining";
-import TrainingHistory from "../../components/TrainingHistory";
-import {TrainingsState} from "../../models/TrainingsState";
-import DraggableExercise from "../../components/DraggableExercise";
-import Picker from "../../components/Picker";
-import Timer from "../../components/Timer";
-import TrainingsOverview from "../../components/TrainingsOverview";
-import TrainingsBase from "../../components/TrainingsBase";
-import {Exercise} from "../../models/Exercise";
-import dispatchChangeTrainingsName from "../../redux/Training/dispatchChangeTrainingsName";
+import React, {useEffect, useState} from 'react';
+import {SafeAreaView, ScrollView, View} from 'react-native';
+import {Button, IconButton, SegmentedButtons, Text, TextInput, useTheme} from 'react-native-paper';
+import {NativeStackHeaderProps, NativeStackScreenProps} from '@react-navigation/native-stack';
+import {RootStackParamList} from '../../routing/TrainingRouter';
+import {useTrainingsPlan} from '../../redux/Training/useTrainingsPlan';
+import {useTrainingInTrainingsPlan} from '../../redux/Training/useTrainingInTrainingsPlan';
+import PlanWorkoutInTraining from '../../components/PlanTraining';
+import ExecuteWorkoutInTraining from '../../components/ExecuteTraining';
+import {dispatchStartTraining} from '../../redux/Training/dispatchStartTraining';
+import {useExerciseByIds} from '../../redux/Exercises/useExerciseByIds';
+import {dispatchModifyExercisesInTraining} from '../../redux/Training/dispatchModifyExercisesInTraining';
+import {dispatchFinishTraining} from '../../redux/Training/dispatchFinishTraining';
+import TrainingHistory from '../../components/TrainingHistory';
+import {TrainingsState} from '../../models/TrainingsState';
+import DraggableExercise from '../../components/DraggableExercise';
+import Picker from '../../components/Picker';
+import Timer from '../../components/Timer';
+import TrainingsOverview from '../../components/TrainingsOverview';
+import TrainingsBase from '../../components/TrainingsBase';
+import {Exercise} from '../../models/Exercise';
+import dispatchChangeTrainingsName from '../../redux/Training/dispatchChangeTrainingsName';
+import MicroOverview from "../../components/MicroOverview";
+import PlanningOverview from "../../components/PlanningOverview";
 
 interface headerProps {
     trainingsPlanName: string;
@@ -28,20 +30,34 @@ interface headerProps {
     training: number;
     props: NativeStackHeaderProps;
     changeName: (name: string) => void;
+    onShowDone: () => void;
+    showDone: boolean;
+    onShowPlanned: () => void;
+    showPlanned: boolean;
 }
 
-const header = ({trainingsPlanName, trainingName, micro, training, props, changeName}: headerProps) => {
+const header = ({
+                    trainingsPlanName,
+                    trainingName,
+                    micro,
+                    training,
+                    props,
+                    changeName,
+                    showPlanned,
+                    onShowPlanned,
+                    showDone,
+                    onShowDone
+                }: headerProps) => {
     let theme = useTheme();
-    const [editTrainingName, setEditTrainingName] = useState(false)
-    const [trainingsName, setTrainingsName] = useState(trainingName ?? 'Training' + training)
+    const [editTrainingName, setEditTrainingName] = useState(false);
+    const [trainingsName, setTrainingsName] = useState(trainingName ?? 'Training' + training);
 
     useEffect(() => {
         if (trainingName === undefined) {
-            setTrainingsName('Training ' + training)
+            setTrainingsName('Training ' + training);
         } else {
-            setTrainingsName(trainingName)
+            setTrainingsName(trainingName);
         }
-
     }, [trainingName]);
     return (
         //TODO 56 dp does only work for android chatgpt says it should be 44 for ios
@@ -51,25 +67,51 @@ const header = ({trainingsPlanName, trainingName, micro, training, props, change
                 <Text
                     style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold'}}>{trainingsPlanName}</Text>
                 <View style={{display: 'flex', flexDirection: 'row'}}>
-                    <Text style={{
-                        fontSize: 20,
-                    }}>Micro {micro}</Text>{!editTrainingName && <Text style={{
-                    fontSize: 20,
-
-                }} onPress={() => setEditTrainingName(true)}> {trainingsName}</Text>}
-                    {editTrainingName && <TextInput value={trainingsName} onChangeText={(text) => {
-                        setTrainingsName(text)
-                    }} onEndEditing={() => {
-                        changeName(trainingsName)
-                        setEditTrainingName(false)
-                    }}/>}
+                    <Text
+                        style={{
+                            fontSize: 20,
+                        }}>
+                        Micro {micro}
+                    </Text>
+                    {!editTrainingName && (
+                        <Text
+                            style={{
+                                fontSize: 20,
+                            }}
+                            onPress={() => setEditTrainingName(true)}>
+                            {' '}
+                            {trainingsName}
+                        </Text>
+                    )}
+                    {editTrainingName && (
+                        <TextInput
+                            value={trainingsName}
+                            onChangeText={(text) => {
+                                setTrainingsName(text);
+                            }}
+                            onEndEditing={() => {
+                                changeName(trainingsName);
+                                setEditTrainingName(false);
+                            }}
+                        />
+                    )}
                 </View>
             </View>
+            <View style={{display: 'flex', flexDirection: 'column'}}>
+                <Text>Micro overview</Text>
+                <View style={{display: 'flex', flexDirection:'row'}}>
+                    <Button mode={showPlanned ? 'contained' : 'outlined'} onPress={onShowPlanned}>
+                        Plan
+                    </Button>
+                    <Button mode={showDone ? 'contained' : 'outlined'} onPress={onShowDone}>
+                        Done
+                    </Button>
+                </View>
+            </View>
+
         </View>
     );
-
-
-}
+};
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
@@ -79,10 +121,12 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     const training = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);
     const lastTraining = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro - 1, trainingInMicro);
     const startTraining = dispatchStartTraining(training?.id);
-    const [overview, setOverview] = useState(true)
+    const [overview, setOverview] = useState(true);
     let exercises = useExerciseByIds(training?.exercises ?? []);
-    const [chosenExercises, setchosenExercise] = useState(exercises?.length > 1 ? exercises[0].id : undefined)
-    let chosenExercise = exercises.find(exercise => exercise.id === chosenExercises)
+    let [showPlanned, setShowPlanned] = useState(false);
+    let [showDone, setShowDone] = useState(false);
+    const [chosenExercises, setchosenExercise] = useState(exercises?.length > 1 ? exercises[0].id : undefined);
+    let chosenExercise = exercises.find((exercise) => exercise.id === chosenExercises);
     let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
     let finishTraining = dispatchFinishTraining();
     let chChangeTrainingsName = dispatchChangeTrainingsName();
@@ -90,12 +134,16 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         header: (props) =>
             header({
                 trainingsPlanName: trainingsPlan.name,
-                trainingName: trainingsPlan.trainingNames?.[trainingInMicro] ?? "Training " + trainingInMicro,
+                trainingName: trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro,
                 micro,
                 training: trainingInMicro,
                 props,
-                changeName: (name) => chChangeTrainingsName(trainingsPlan.id!!, name, trainingInMicro)
-            })
+                changeName: (name) => chChangeTrainingsName(trainingsPlan.id!!, name, trainingInMicro),
+                onShowDone: () => setShowDone(!showDone),
+                onShowPlanned: () => setShowPlanned(!showPlanned),
+                showPlanned,
+                showDone,
+            }),
     });
     const handleValueChange = (newValue: any) => {
         switch (newValue) {
@@ -117,13 +165,10 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     };
 
     useEffect(() => {
-            if (training?.state === TrainingsState.STARTED) {
-                startTraining();
-            }
+        if (training?.state === TrainingsState.STARTED) {
+            startTraining();
         }
-        ,
-        [micro, trainingInMicro]
-    );
+    }, [micro, trainingInMicro]);
 
     function setExerciseWithSideEffects(exercises: Exercise[]) {
         modifyExercisesInTraining(exercises, trainingsPlan.id!!, micro, trainingInMicro, training?.id);
@@ -137,8 +182,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             finishTraining(training.id!!);
         }
         if (training?.state === TrainingsState.FINISHED) {
-            if (chosenExercise === undefined)
-                setchosenExercise(exercises[0].id)
+            if (chosenExercise === undefined) setchosenExercise(exercises[0].id);
             setOverview(!overview);
         }
         setTimeInWorkout(new Date(Date.now()));
@@ -150,55 +194,58 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             return;
         }
         setTimeInWorkout(new Date(Date.now()));
-        setchosenExercise(exercises[number].id)
+        setchosenExercise(exercises[number].id);
     }
 
     return (
         <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
-            <ScrollView keyboardShouldPersistTaps={"handled"}>
+            <ScrollView keyboardShouldPersistTaps={'handled'}>
                 <View>
+                    {showDone && <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/>}
                     <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
                     <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center'}}>
                         {training?.state === TrainingsState.STARTED &&
                             <Timer start={training.start!!} label={'Start Training'}/>}
-                        <Button mode='outlined' onPress={changePlanningmode}>
-                            {training?.state === undefined && "Plan Training"}
-                            {training?.state === TrainingsState.PLANNED && "Start Training"}
-                            {training?.state === TrainingsState.STARTED && "Finish Training"}
-                            {training?.state === TrainingsState.FINISHED && overview && "Show Sets"}
-                            {training?.state === TrainingsState.FINISHED && !overview && "Show Overview"}
+                        <Button mode="outlined" onPress={changePlanningmode}>
+                            {training?.state === undefined && 'Plan Training'}
+                            {training?.state === TrainingsState.PLANNED && 'Start Training'}
+                            {training?.state === TrainingsState.STARTED && 'Finish Training'}
+                            {training?.state === TrainingsState.FINISHED && overview && 'Show Sets'}
+                            {training?.state === TrainingsState.FINISHED && !overview && 'Show Overview'}
                         </Button>
                         {training?.state === TrainingsState.STARTED &&
-                            <Timer start={timeInWorkout} reset={true} label={"Last Set"}/>}
+                            <Timer start={timeInWorkout} reset={true} label={'Last Set'}/>}
                     </View>
-                    {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) &&
+                    {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
                         <View>
-                            <DraggableExercise exercises={exercises}
-                                               setExercises={setExerciseWithSideEffects}
-                                               chosenExercise={chosenExercise}
-                                               chooseExercise={(exercise) => {
-                                                   setchosenExercise(exercise.id)
-                                               }}/>
-                        </View>}
-                    {training === undefined &&
-                        <TrainingsBase trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro}/>}
+                            <DraggableExercise
+                                exercises={exercises}
+                                setExercises={setExerciseWithSideEffects}
+                                chosenExercise={chosenExercise}
+                                chooseExercise={(exercise) => {
+                                    setchosenExercise(exercise.id);
+                                }}
+                            />
+                        </View>
+                    )}
+                    {training === undefined && <TrainingsBase trainingsPlan={trainingsPlan}
+                                                              micro={micro}
+                                                              trainingInMicro={trainingInMicro}/>}
 
-                    {chosenExercise && training?.state === TrainingsState.PLANNED &&
+                    {chosenExercise && training?.state === TrainingsState.PLANNED && (
                         <PlanWorkoutInTraining training={training}
                                                trainingsPlanId={trainingsPlan.id!!}
                                                trainingInMicro={trainingInMicro}
                                                micro={micro}
-                                               chosenExercise={chosenExercise!!}
-                        />
-                    }
-                    {training?.state === TrainingsState.STARTED && chosenExercise &&
-                        <ExecuteWorkoutInTraining
-                            training={training}
-                            chosenExercise={chosenExercise!!}
-                            onSubmit={() => goToNextExercise()}
-                            onSubmitSet={() => setTimeInWorkout(new Date(Date.now()))}
-                        />}
-
+                                               chosenExercise={chosenExercise!!}/>
+                    )}
+                    {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro}/>}
+                    {training?.state === TrainingsState.STARTED && chosenExercise && (
+                        <ExecuteWorkoutInTraining training={training}
+                                                  chosenExercise={chosenExercise!!}
+                                                  onSubmit={() => goToNextExercise()}
+                                                  onSubmitSet={() => setTimeInWorkout(new Date(Date.now()))}/>
+                    )}
                     {training?.state === TrainingsState.FINISHED && overview &&
                         <TrainingsOverview training={training} previousTraining={lastTraining}/>}
 
@@ -212,26 +259,30 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                     value={''}
                     onValueChange={handleValueChange}
                     buttons={[
-                        {icon: "chevron-left", value: 'micro - 1', label: 'Micro', disabled: micro === 1},
-                        {icon: "chevron-right", value: 'micro + 1', label: 'Micro'},
                         {
-                            icon: "chevron-up",
+                            icon: 'chevron-left',
+                            value: 'micro - 1',
+                            label: 'Micro ' + (micro - 1),
+                            disabled: micro === 1
+                        },
+                        {icon: 'chevron-right', value: 'micro + 1', label: 'Micro ' + (micro + 1)},
+                        {
+                            icon: 'chevron-up',
                             value: 'training - 1',
-                            label: trainingsPlan.trainingNames?.[trainingInMicro - 1] ?? 'Training',
-                            disabled: trainingInMicro === 1
+                            label: trainingsPlan.trainingNames?.[trainingInMicro - 1] ?? 'Training ' + (trainingInMicro - 1),
+                            disabled: trainingInMicro === 1,
                         },
                         {
-                            icon: "chevron-down",
+                            icon: 'chevron-down',
                             value: 'training + 1',
-                            label: trainingsPlan.trainingNames?.[trainingInMicro + 1] ?? 'Training'
+                            label: trainingsPlan.trainingNames?.[trainingInMicro + 1] ?? 'Training ' + (trainingInMicro + 1),
                         },
                     ]}
                 />
             </SafeAreaView>
         </View>
-    )
-        ;
-}
+    );
+};
 
 export type Props = NativeStackScreenProps<RootStackParamList, 'Training'>;
 
