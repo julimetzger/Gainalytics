@@ -66,17 +66,18 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                                     <TextInput defaultValue={exercise?.name}
                                                label={'Name of the Exercise'}
                                                onChangeText={(text) => setNewExerciseName(text)}/>
-                                    <Button onPress={() => setMuslces([...muslces, {muscle: undefined, percent: undefined}])}>Add muscle</Button>
                                     {muslces.map((muscleFromMap: MusclePercentPair) => {
                                         return <MusclePicker muscleValue={muscleFromMap}
                                                              key={muscleFromMap.muscle}
                                                              setMuscles={(muscle) => setMuslces([...muslces.filter((value) => value != muscleFromMap), muscle])}
                                                              onDelete={(value) => setMuslces([...muslces.filter(m => m !== value)])}/>
                                     })}
+                                    <Button onPress={() => setMuslces([...muslces, {muscle: undefined, percent: undefined}])}
+                                            style={{alignSelf: 'center'}}>Add muscle</Button>
                                 </View>}
                         </Dialog.Content>
                         <Text style={{color: theme.colors.error}}>{error}</Text>
-                        <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'space-between'}}>
+                        <View style={{flexDirection: 'row'}}>
                             <Dialog.Actions>
                                 <Button onPress={hideDialog}>Cancel</Button>
                             </Dialog.Actions>
@@ -86,7 +87,8 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                             {exerciseId && <Dialog.Actions>
                                 <Button textColor={theme.colors.tertiary} onPress={() => {
                                     deleteOverlay ? deleteExercise(exerciseId) : setDeleteOverlay(true);
-                                }}>Delete</Button></Dialog.Actions>}
+                                }}>Delete</Button>
+                            </Dialog.Actions>}
                         </View>
                     </Dialog>
                 </Portal>

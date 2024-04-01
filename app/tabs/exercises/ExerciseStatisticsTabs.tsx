@@ -16,7 +16,7 @@ const ExerciseStatisticsTabs = ({route}: Props) => {
     let workouts = useWorkoutsByIds(workoutIds);
     let map = exercise?.records ? new Map(Object.entries(exercise.records).map(([key, value]) => {
         return [key as string, value.map((record) =>
-            workouts.find(work => work.id == record.workoutId)
+            workouts.find(work => work.id === record.workoutId)
         ) as Workout[]]
     })) : undefined;
     return (
@@ -35,7 +35,7 @@ const ExerciseStatisticsTabs = ({route}: Props) => {
                     {currentOneRm && [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20].map((reps) => {
                         return <Text
                             key={reps}> {reps} reps
-                            @ {repetitionWeightByOneRm(reps, 0, currentOneRm!!).toFixed(2)}kg </Text>
+                            @ {repetitionWeightByOneRm(reps, 0, currentOneRm!!).toFixed(2)} kg</Text>
                     })}
                 </Card.Content>
             </Card>

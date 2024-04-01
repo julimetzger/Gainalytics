@@ -1,7 +1,7 @@
 # TODOs for the project
 
 ## Trainings
-- Edit Trainings angleichen mit Edit Exercises, Buttons parallel, Delete rot
+- ~~Edit Trainings angleichen mit Edit Exercises, Buttons parallel, Delete rot~~
 - addWorkout mit neuer Übung befüllen als default Wert fürs eintragen
 - ~~zeit anzeigen seit start des Trainings~~ aber noch nicht schön
 - ~~Vergleich mit vorherigem Training~~/geplanten Workout nach Abschluss des Trainings
