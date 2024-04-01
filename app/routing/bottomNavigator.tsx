@@ -9,7 +9,6 @@ import {TrainingsState} from '../models/TrainingsState';
 import useExerciseRecord from "../redux/Effects/useExerciseRecord";
 import Toast from "react-native-toast-message";
 import {useExercise} from "../redux/Exercises/useExercise";
-import Snackbar from "react-native-snackbar";
 
 const Tab = createMaterialBottomTabNavigator();
 

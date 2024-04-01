@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useState} from "react";
 import {useAllLastWorkouts} from "../redux/Workout/useAllLastWorkouts";
 import {useUnfinishedWorkout} from "../redux/Workout/useUnfinishedWorkout";
 import {Button, Text, useTheme} from "react-native-paper";
@@ -75,7 +75,8 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                 {suggest &&
                     <Button buttonColor={theme.colors.tertiaryContainer} textColor={theme.colors.onTertiaryContainer}
                             disabled={unfinishedWorkout !== undefined || workouts.length === 0}
-                            style={style.suggest} mode={"contained"}
+                            style={style.suggest}
+                            mode={"contained"}
                             onPress={() => {
                                 suggestedWorkout(exercise.id!!);
                             }}>
@@ -84,7 +85,8 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                 <DatePicker date={date} setDate={setDate}/>
                 {historyCallback &&
                     <Button buttonColor={theme.colors.tertiaryContainer} textColor={theme.colors.onTertiaryContainer}
-                            style={style.historyLink} mode={"contained"}
+                            style={style.historyLink}
+                            mode={"contained"}
                             onPress={() => historyCallback(workouts[0]?.start)}>
                         History
                     </Button>}
@@ -116,10 +118,8 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                     Add Workout
                 </Button>}
             </View>
-        )
-            ;
-    }
-;
+        );
+    };
 
 let style = StyleSheet.create({
     historyLink: {
@@ -133,6 +133,5 @@ let style = StyleSheet.create({
         left: 5,
     }
 });
-
 
 export default AddWorkout;

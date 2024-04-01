@@ -22,6 +22,7 @@ const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) =>
         <View style={{display: 'flex', flexDirection: 'row'}}>
             <DropDown
                 label={'Muscle'}
+                mode="outlined"
                 visible={dropdownVisible} onDismiss={() => setDropdownVisible(false)}
                 showDropDown={() => setDropdownVisible(true)} value={muscleValue?.muscle}
                 setValue={(muscleUpdate) => setMuscles({muscle: muscleUpdate, percent: muscleValue?.percent ?? 100})}
@@ -29,7 +30,9 @@ const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) =>
                     return {label: value, value: value}
                 })}/>
             <TextInput keyboardType="numeric" inputMode={"numeric"} label={'% Involvement'}
+                       mode="outlined"
                        defaultValue={"100"}
+                       selectTextOnFocus={true}
                        value={muscleValue?.percent?.toString()}
                        onChangeText={(value) => setMuscles({
                            muscle: muscleValue?.muscle,
