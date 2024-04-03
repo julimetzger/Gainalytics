@@ -265,7 +265,11 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                             label: 'Micro ' + (micro - 1),
                             disabled: micro === 1
                         },
-                        {icon: 'chevron-right', value: 'micro + 1', label: 'Micro ' + (micro + 1)},
+                        {   
+                            icon: 'chevron-right',
+                            value: 'micro + 1',
+                            label: 'Micro ' + (micro + 1)
+                        },
                         {
                             icon: 'chevron-up',
                             value: 'training - 1',
