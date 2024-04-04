@@ -8,13 +8,14 @@
 - Export/Import Funktion für Trainings/Micro
 - unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
 - Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
-- swipen um zwischen trainings zu wechseln
+- (Swipen um zwischen Trainings zu wechseln)
 - **Drawer Navigator Seite für Funktionen und um Buttons auszulagern für schlankeren Style**
 - ~~anzeige des trainings im router oben~~ schöner machen
 - ~~name für trainings~~ schöner machen
 - ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~ vergleich exercises mit done workouts anstatt planned workouts
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
-- mesos einführen mit Kopieren des alten mesos
+- Mesos einführen mit Kopieren des alten Mesos
+- Max Intensity ist manchmal -0.00 und manchmal +0.00
 
 ## Analyse
 - neue Seite für Darstellung volumen für bodyparts, übungen etc
