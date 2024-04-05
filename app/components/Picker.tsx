@@ -112,9 +112,9 @@ const Picker = ({
         let exercises = value.filter((value: string) => allIds.includes(value));
         let find = exercises.map((value: string) => allExercises.find((exercise: Exercise) => exercise.id === parseInt(value)))
             .filter((value: Exercise | undefined) => value !== undefined) as Exercise[]
-        let muslces = value.filter((value: string) => Object.values(Muscles).includes(value as Muscles)).map((value: string) => value as Muscles);
-        // let allExercisesByMuscle = allExercises.filter((ex: Exercise) => ex.muscles?.some(s => muslces.includes(s.muscle)))
-        setMuscle ? setMuscle(muslces) : 0;
+        let muscles = value.filter((value: string) => Object.values(Muscles).includes(value as Muscles)).map((value: string) => value as Muscles);
+        // let allExercisesByMuscle = allExercises.filter((ex: Exercise) => ex.muscles?.some(s => muscles.includes(s.muscle)))
+        setMuscle ? setMuscle(muscles) : 0;
         setExercise([...find]);
         setMetric ? setMetric(newMetric[0] as Metric) : 0;
         setAccumulation ? setAccumulation(allAccumalations.find((accumulation) => accumulation?.getId() === accumulationNames[0])) : undefined;

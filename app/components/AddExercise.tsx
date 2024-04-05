@@ -19,7 +19,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
         let dispatchAddExercise = useDispatchAddExercise();
         let exercise = exerciseId ? useExercise(exerciseId) : undefined;
         const [newExerciseName, setNewExerciseName] = useState(exercise?.name ?? '');
-        const [muslces, setMuslces] = useState<MusclePercentPair[]>(exercise?.muscles ?? []);
+        const [muscles, setMuscles] = useState<MusclePercentPair[]>(exercise?.muscles ?? []);
         const [error, setError] = useState<string>()
         let editExercise = dispatchEditExercise();
         let deleteExercise = dispatchDeleteExercise();
@@ -33,7 +33,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
             setDeleteOverlay(false)
         }
         const confirmDialog = () => {
-            let undefinedMuscles = muslces.find((muscle) => muscle.percent === undefined || muscle.muscle === undefined);
+            let undefinedMuscles = muscles.find((muscle) => muscle.percent === undefined || muscle.muscle === undefined);
             if (undefinedMuscles) {
                 setError("Please fill in all the muscles and percentages or remove the muscle.");
                 return;
@@ -43,8 +43,8 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                 return;
             }
             setVisible(false);
-            exerciseId ? editExercise(exerciseId, newExerciseName, muslces) :
-                dispatchAddExercise(newExerciseName, muslces);
+            exerciseId ? editExercise(exerciseId, newExerciseName, muscles) :
+                dispatchAddExercise(newExerciseName, muscles);
         };
 
         return (
@@ -66,13 +66,13 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                                     <TextInput defaultValue={exercise?.name}
                                                label={'Name of the Exercise'}
                                                onChangeText={(text) => setNewExerciseName(text)}/>
-                                    {muslces.map((muscleFromMap: MusclePercentPair) => {
+                                    {muscles.map((muscleFromMap: MusclePercentPair) => {
                                         return <MusclePicker muscleValue={muscleFromMap}
                                                              key={muscleFromMap.muscle}
-                                                             setMuscles={(muscle) => setMuslces([...muslces.filter((value) => value != muscleFromMap), muscle])}
-                                                             onDelete={(value) => setMuslces([...muslces.filter(m => m !== value)])}/>
+                                                             setMuscles={(muscle) => setMuscles([...muscles.filter((value) => value != muscleFromMap), muscle])}
+                                                             onDelete={(value) => setMuscles([...muscles.filter(m => m !== value)])}/>
                                     })}
-                                    <Button onPress={() => setMuslces([...muslces, {muscle: undefined, percent: undefined}])}
+                                    <Button onPress={() => setMuscles([...muscles, {muscle: undefined, percent: undefined}])}
                                             style={{alignSelf: 'center'}}>Add muscle</Button>
                                 </View>}
                         </Dialog.Content>
@@ -93,9 +93,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                     </Dialog>
                 </Portal>
             </View>
-        )
-            ;
-    }
-;
+        );
+    };
 
 export default AddExercise;
