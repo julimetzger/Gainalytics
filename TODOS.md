@@ -4,23 +4,23 @@
 - addWorkout mit neuer Übung befüllen als default Wert fürs eintragen
 - ~~zeit anzeigen seit start des Trainings~~ aber noch nicht schön
 - ~~Vergleich mit vorherigem Training~~/geplanten Workout nach Abschluss des Trainings
-- Anzeige des planned Trainings während des Trainings
+- **Anzeige des planned Trainings während des Trainings**
 - Export/Import Funktion für Trainings/Micro
 - unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
 - Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
-- (Swipen um zwischen Trainings zu wechseln)
-- **Drawer Navigator Seite für Funktionen und um Buttons auszulagern für schlankeren Style**
+- ~~Drawer Navigator Seite für Funktionen und um Buttons auszulagern für schlankeren Style~~
 - ~~anzeige des trainings im router oben~~ schöner machen
 - ~~name für trainings~~ schöner machen
 - ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~ vergleich exercises mit done workouts anstatt planned workouts
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - Mesos einführen mit Kopieren des alten Mesos
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
+- Zum letzten Training springen
 
 ## Analyse
 - neue Seite für Darstellung volumen für bodyparts, übungen etc
 - 2-7 Training accumalator
-- Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären
+- **Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären, hier auch mit Drawer arbeiten??**
 
 ## History
 - Seite mit Datepicker
@@ -46,7 +46,7 @@
 
 ## Try out
 - https://www.npmjs.com/package/react-native-calendars/v/1.1286.0 kalender der auch Markierungen anzeigen kann. Period scheint auch zu funktionieren
-- ~~Toast für records~~ Farben sind noch nicht passend
+- **~~Toast für records~~ Farben sind noch nicht passend**
 
 ## Bugs
 - ~~picker auswahl ist nicht mehr swipebar in history (whs muss man da auch die gesture ref mitgeben damit er swipes mitbekommt)~~

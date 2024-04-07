@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
-import {Pressable, ScrollView, View} from 'react-native';
-import {Button, IconButton, SegmentedButtons, Text, TextInput, useTheme} from 'react-native-paper';
+import {ScrollView, View} from 'react-native';
+import {Button, Divider, IconButton, SegmentedButtons, Text, TextInput, TouchableRipple, useTheme} from 'react-native-paper';
 import {NativeStackHeaderProps, NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/TrainingRouter';
 import {Drawer} from 'react-native-drawer-layout';
@@ -153,12 +153,6 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             case 'micro + 1':
                 setMicro(micro + 1);
                 break;
-            case 'training + 1':
-                setTrainingInMicro(trainingInMicro + 1);
-                break;
-            case 'training - 1':
-                setTrainingInMicro(trainingInMicro - 1);
-                break;
             default:
                 break;
         }
@@ -206,27 +200,29 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             drawerType={"slide"}
             renderDrawerContent={() => {
                 return <View style={{display: 'flex', flexDirection: 'column'}}>
-                    <View style={{display: 'flex', flexDirection: 'row'}}><Text
-                        style={{fontSize: theme.fonts.headlineSmall.fontSize}}>Trainings</Text><IconButton
-                        icon="plus-circle" onPress={() => {
-                        chChangeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames).length + 1), Object.keys(trainingsPlan.trainingNames).length + 1)
-                    }} theme={theme}
-                        iconColor={theme.colors.tertiaryContainer}
-                        size={40}></IconButton></View>
-                    {Object.entries(trainingsPlan.trainingNames).map(
+                    <Divider />
+                        <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, margin: 5}}>Trainings</Text>
+                    {Object.entries(trainingsPlan.trainingNames ?? []).map(
                         ([micro, name], index) => {
-                            return <Pressable style={{height: 50}} key={index} onPress={() => {
+                            return <TouchableRipple style={{height: 40}} key={index} onPress={() => {
                                 setTrainingInMicro(parseInt(micro))
                                 setOpen(false)
-                            }}><Text style={{fontSize: theme.fonts.bodyLarge.fontSize}}>{name}</Text></Pressable>;
+                            }}><Text style={{fontSize: theme.fonts.bodyLarge.fontSize, margin: 5}}>{name}</Text></TouchableRipple>;
                         }
                     )}
-                    <Text style={{fontSize: theme.fonts.headlineSmall.fontSize}}>Micro overview</Text>
+                    <IconButton icon="plus-circle" onPress={() => {
+                            chChangeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1)
+                        }}  theme={theme}
+                            iconColor={theme.colors.tertiaryContainer}
+                            size={40}>
+                        </IconButton>
+                    <Divider />
+                    <Text style={{ fontSize: theme.fonts.headlineSmall.fontSize, margin: 5 }}>Micro Overview</Text>
                     <Button mode={showPlanned ? 'contained' : 'outlined'} onPress={() => setShowPlanned(!showPlanned)}>
-                        show planned
+                        Show Planned
                     </Button>
                     <Button mode={showDone ? 'contained' : 'outlined'} onPress={() => setShowDone(!showDone)}>
-                        show done
+                        Show Done
                     </Button>
                     <SegmentedButtons
                         style={{paddingHorizontal: 5}}
@@ -253,8 +249,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
 
                 <Button
                     onPress={() => setOpen((prevOpen) => !prevOpen)}
-                >open</Button>
-
+                >Open</Button>
                 <ScrollView keyboardShouldPersistTaps={'handled'}>
                     <View>
                         {showDone && <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/>}

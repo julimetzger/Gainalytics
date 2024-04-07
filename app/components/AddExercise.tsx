@@ -73,7 +73,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                                                              onDelete={(value) => setMuscles([...muscles.filter(m => m !== value)])}/>
                                     })}
                                     <Button onPress={() => setMuscles([...muscles, {muscle: undefined, percent: undefined}])}
-                                            style={{alignSelf: 'center'}}>Add muscle</Button>
+                                            style={{alignSelf: 'center'}}>Add Muscle</Button>
                                 </View>}
                         </Dialog.Content>
                         <Text style={{color: theme.colors.error}}>{error}</Text>
