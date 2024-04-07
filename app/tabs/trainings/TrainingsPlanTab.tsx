@@ -1,8 +1,9 @@
 import React, {useEffect, useState} from 'react';
-import {SafeAreaView, ScrollView, View} from 'react-native';
+import {Pressable, ScrollView, View} from 'react-native';
 import {Button, IconButton, SegmentedButtons, Text, TextInput, useTheme} from 'react-native-paper';
 import {NativeStackHeaderProps, NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/TrainingRouter';
+import {Drawer} from 'react-native-drawer-layout';
 import {useTrainingsPlan} from '../../redux/Training/useTrainingsPlan';
 import {useTrainingInTrainingsPlan} from '../../redux/Training/useTrainingInTrainingsPlan';
 import PlanWorkoutInTraining from '../../components/PlanTraining';
@@ -30,10 +31,7 @@ interface headerProps {
     training: number;
     props: NativeStackHeaderProps;
     changeName: (name: string) => void;
-    onShowDone: () => void;
-    showDone: boolean;
-    onShowPlanned: () => void;
-    showPlanned: boolean;
+    mode: string;
 }
 
 const header = ({
@@ -43,10 +41,7 @@ const header = ({
                     training,
                     props,
                     changeName,
-                    showPlanned,
-                    onShowPlanned,
-                    showDone,
-                    onShowDone
+                    mode
                 }: headerProps) => {
     let theme = useTheme();
     const [editTrainingName, setEditTrainingName] = useState(false);
@@ -63,58 +58,65 @@ const header = ({
         //TODO 56 dp does only work for android chatgpt says it should be 44 for ios
         <View style={{height: 56, display: 'flex', flexDirection: 'row', backgroundColor: theme.colors.background}}>
             <IconButton size={24} icon={'arrow-left'} onPress={() => props.navigation.goBack()}></IconButton>
-            <View style={{display: 'flex', flexDirection: 'column'}}>
-                <Text
-                    style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold'}}>{trainingsPlanName}</Text>
-                <View style={{display: 'flex', flexDirection: 'row'}}>
+            <View style={{flex: 1, justifyContent: 'space-between', alignItems: 'flex-end', flexDirection: 'row'}}>
+                <View style={{flexDirection: 'column'}}>
+                    <Text
+                        style={{
+                            fontSize: theme.fonts.titleMedium.fontSize,
+                            fontWeight: 'bold'
+                        }}>{trainingsPlanName}</Text>
+                    <View style={{display: 'flex', flexDirection: 'row'}}>
+                        <Text
+                            style={{
+                                fontSize: 20,
+                            }}>
+                            Micro {micro}
+                        </Text>
+                        {!editTrainingName && (
+                            <Text
+                                style={{
+                                    fontSize: 20,
+                                }}
+                                onPress={() => setEditTrainingName(true)}>
+                                {' '}
+                                {trainingsName}
+                            </Text>
+                        )}
+                        {editTrainingName && (
+                            <TextInput
+                                value={trainingsName}
+                                onChangeText={(text) => {
+                                    setTrainingsName(text);
+                                }}
+                                onEndEditing={() => {
+                                    changeName(trainingsName);
+                                    setEditTrainingName(false);
+                                }}
+                            />
+                        )}
+                    </View>
+                </View>
+                <View style={{flexDirection: 'column',width: 80, marginEnd: 30}}>
+                    <Text
+                        style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold'}}>Mode</Text>
                     <Text
                         style={{
                             fontSize: 20,
                         }}>
-                        Micro {micro}
+                        {mode === undefined && 'Planning'}
+                        {mode === TrainingsState.PLANNED && 'Planned'}
+                        {mode === TrainingsState.STARTED && 'Training'}
+                        {mode === TrainingsState.FINISHED && 'Done'}
                     </Text>
-                    {!editTrainingName && (
-                        <Text
-                            style={{
-                                fontSize: 20,
-                            }}
-                            onPress={() => setEditTrainingName(true)}>
-                            {' '}
-                            {trainingsName}
-                        </Text>
-                    )}
-                    {editTrainingName && (
-                        <TextInput
-                            value={trainingsName}
-                            onChangeText={(text) => {
-                                setTrainingsName(text);
-                            }}
-                            onEndEditing={() => {
-                                changeName(trainingsName);
-                                setEditTrainingName(false);
-                            }}
-                        />
-                    )}
                 </View>
             </View>
-            <View style={{display: 'flex', flexDirection: 'column'}}>
-                <Text>Micro overview</Text>
-                <View style={{display: 'flex', flexDirection:'row'}}>
-                    <Button mode={showPlanned ? 'contained' : 'outlined'} onPress={onShowPlanned}>
-                        Plan
-                    </Button>
-                    <Button mode={showDone ? 'contained' : 'outlined'} onPress={onShowDone}>
-                        Done
-                    </Button>
-                </View>
-            </View>
-
         </View>
     );
 };
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
+    const [open, setOpen] = useState(false);
     const [micro, setMicro] = useState(1);
     const [trainingInMicro, setTrainingInMicro] = useState(1);
     const [timeInWorkout, setTimeInWorkout] = useState(new Date(Date.now()));
@@ -130,6 +132,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
     let finishTraining = dispatchFinishTraining();
     let chChangeTrainingsName = dispatchChangeTrainingsName();
+    let theme = useTheme();
     navigation.setOptions({
         header: (props) =>
             header({
@@ -139,10 +142,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                 training: trainingInMicro,
                 props,
                 changeName: (name) => chChangeTrainingsName(trainingsPlan.id!!, name, trainingInMicro),
-                onShowDone: () => setShowDone(!showDone),
-                onShowPlanned: () => setShowPlanned(!showPlanned),
-                showPlanned,
-                showDone,
+                mode: training?.state
             }),
     });
     const handleValueChange = (newValue: any) => {
@@ -198,93 +198,118 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     }
 
     return (
-        <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
-            <ScrollView keyboardShouldPersistTaps={'handled'}>
-                <View>
-                    {showDone && <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/>}
-                    <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
-                    <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center'}}>
-                        {training?.state === TrainingsState.STARTED &&
-                            <Timer start={training.start!!} label={'Start Training'}/>}
-                        <Button mode="outlined" onPress={changePlanningmode}>
-                            {training?.state === undefined && 'Plan Training'}
-                            {training?.state === TrainingsState.PLANNED && 'Start Training'}
-                            {training?.state === TrainingsState.STARTED && 'Finish Training'}
-                            {training?.state === TrainingsState.FINISHED && overview && 'Show Sets'}
-                            {training?.state === TrainingsState.FINISHED && !overview && 'Show Overview'}
-                        </Button>
-                        {training?.state === TrainingsState.STARTED &&
-                            <Timer start={timeInWorkout} reset={true} label={'Last Set'}/>}
-                    </View>
-                    {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
-                        <View>
-                            <DraggableExercise
-                                exercises={exercises}
-                                setExercises={setExerciseWithSideEffects}
-                                chosenExercise={chosenExercise}
-                                chooseExercise={(exercise) => {
-                                    setchosenExercise(exercise.id);
-                                }}
-                            />
+        <Drawer
+            drawerStyle={{backgroundColor: theme.colors.background}}
+            open={open}
+            onOpen={() => setOpen(true)}
+            onClose={() => setOpen(false)}
+            drawerType={"slide"}
+            renderDrawerContent={() => {
+                return <View style={{display: 'flex', flexDirection: 'column'}}>
+                    <View style={{display: 'flex', flexDirection: 'row'}}><Text
+                        style={{fontSize: theme.fonts.headlineSmall.fontSize}}>Trainings</Text><IconButton
+                        icon="plus-circle" onPress={() => {
+                        chChangeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames).length + 1), Object.keys(trainingsPlan.trainingNames).length + 1)
+                    }} theme={theme}
+                        iconColor={theme.colors.tertiaryContainer}
+                        size={40}></IconButton></View>
+                    {Object.entries(trainingsPlan.trainingNames).map(
+                        ([micro, name], index) => {
+                            return <Pressable style={{height: 50}} key={index} onPress={() => {
+                                setTrainingInMicro(parseInt(micro))
+                                setOpen(false)
+                            }}><Text style={{fontSize: theme.fonts.bodyLarge.fontSize}}>{name}</Text></Pressable>;
+                        }
+                    )}
+                    <Text style={{fontSize: theme.fonts.headlineSmall.fontSize}}>Micro overview</Text>
+                    <Button mode={showPlanned ? 'contained' : 'outlined'} onPress={() => setShowPlanned(!showPlanned)}>
+                        show planned
+                    </Button>
+                    <Button mode={showDone ? 'contained' : 'outlined'} onPress={() => setShowDone(!showDone)}>
+                        show done
+                    </Button>
+                    <SegmentedButtons
+                        style={{paddingHorizontal: 5}}
+                        value={''}
+                        onValueChange={handleValueChange}
+                        buttons={[
+                            {
+                                icon: 'chevron-left',
+                                value: 'micro - 1',
+                                label: 'Micro ' + (micro - 1),
+                                disabled: micro === 1
+                            },
+                            {
+                                icon: 'chevron-right',
+                                value: 'micro + 1',
+                                label: 'Micro ' + (micro + 1)
+                            },
+                        ]}
+                    />
+                </View>;
+            }}
+        >
+            <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
+
+                <Button
+                    onPress={() => setOpen((prevOpen) => !prevOpen)}
+                >open</Button>
+
+                <ScrollView keyboardShouldPersistTaps={'handled'}>
+                    <View>
+                        {showDone && <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/>}
+                        <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
+                        <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center'}}>
+                            {training?.state === TrainingsState.STARTED &&
+                                <Timer start={training.start!!} label={'Start Training'}/>}
+                            {training?.state && <Button mode="outlined" onPress={changePlanningmode}>
+                                {training?.state === TrainingsState.PLANNED && 'Start Training'}
+                                {training?.state === TrainingsState.STARTED && 'Finish Training'}
+                                {training?.state === TrainingsState.FINISHED && overview && 'Show Sets'}
+                                {training?.state === TrainingsState.FINISHED && !overview && 'Show Overview'}
+                            </Button>}
+                            {training?.state === TrainingsState.STARTED &&
+                                <Timer start={timeInWorkout} reset={true} label={'Last Set'}/>}
                         </View>
-                    )}
-                    {training === undefined && <TrainingsBase trainingsPlan={trainingsPlan}
-                                                              micro={micro}
-                                                              trainingInMicro={trainingInMicro}/>}
+                        {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
+                            <View>
+                                <DraggableExercise
+                                    exercises={exercises}
+                                    setExercises={setExerciseWithSideEffects}
+                                    chosenExercise={chosenExercise}
+                                    chooseExercise={(exercise) => {
+                                        setchosenExercise(exercise.id);
+                                    }}
+                                />
+                            </View>
+                        )}
+                        {training === undefined && <TrainingsBase trainingsPlan={trainingsPlan}
+                                                                  micro={micro}
+                                                                  trainingInMicro={trainingInMicro}/>}
 
-                    {chosenExercise && training?.state === TrainingsState.PLANNED && (
-                        <PlanWorkoutInTraining training={training}
-                                               trainingsPlanId={trainingsPlan.id!!}
-                                               trainingInMicro={trainingInMicro}
-                                               micro={micro}
-                                               chosenExercise={chosenExercise!!}/>
-                    )}
-                    {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro}/>}
-                    {training?.state === TrainingsState.STARTED && chosenExercise && (
-                        <ExecuteWorkoutInTraining training={training}
-                                                  chosenExercise={chosenExercise!!}
-                                                  onSubmit={() => goToNextExercise()}
-                                                  onSubmitSet={() => setTimeInWorkout(new Date(Date.now()))}/>
-                    )}
-                    {training?.state === TrainingsState.FINISHED && overview &&
-                        <TrainingsOverview training={training} previousTraining={lastTraining}/>}
+                        {chosenExercise && training?.state === TrainingsState.PLANNED && (
+                            <PlanWorkoutInTraining training={training}
+                                                   trainingsPlanId={trainingsPlan.id!!}
+                                                   trainingInMicro={trainingInMicro}
+                                                   micro={micro}
+                                                   chosenExercise={chosenExercise!!}/>
+                        )}
+                        {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro}/>}
+                        {training?.state === TrainingsState.STARTED && chosenExercise && (
+                            <ExecuteWorkoutInTraining training={training}
+                                                      chosenExercise={chosenExercise!!}
+                                                      onSubmit={() => goToNextExercise()}
+                                                      onSubmitSet={() => setTimeInWorkout(new Date(Date.now()))}/>
+                        )}
+                        {training?.state === TrainingsState.FINISHED && overview &&
+                            <TrainingsOverview training={training} previousTraining={lastTraining}/>}
 
-                    {training?.state === TrainingsState.FINISHED && !overview &&
-                        <TrainingHistory training={training}/>}
-                </View>
-            </ScrollView>
-            <SafeAreaView>
-                <SegmentedButtons
-                    style={{paddingHorizontal: 5}}
-                    value={''}
-                    onValueChange={handleValueChange}
-                    buttons={[
-                        {
-                            icon: 'chevron-left',
-                            value: 'micro - 1',
-                            label: 'Micro ' + (micro - 1),
-                            disabled: micro === 1
-                        },
-                        {   
-                            icon: 'chevron-right',
-                            value: 'micro + 1',
-                            label: 'Micro ' + (micro + 1)
-                        },
-                        {
-                            icon: 'chevron-up',
-                            value: 'training - 1',
-                            label: trainingsPlan.trainingNames?.[trainingInMicro - 1] ?? 'Training ' + (trainingInMicro - 1),
-                            disabled: trainingInMicro === 1,
-                        },
-                        {
-                            icon: 'chevron-down',
-                            value: 'training + 1',
-                            label: trainingsPlan.trainingNames?.[trainingInMicro + 1] ?? 'Training ' + (trainingInMicro + 1),
-                        },
-                    ]}
-                />
-            </SafeAreaView>
-        </View>
+                        {training?.state === TrainingsState.FINISHED && !overview &&
+                            <TrainingHistory training={training}/>}
+                    </View>
+                </ScrollView>
+            </View>
+        </Drawer>
     );
 };
 
