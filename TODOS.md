@@ -34,9 +34,9 @@
 
 ## Settings
 - rir/rpe
-- 1RM Buttone default mäßig an/aus
+- 1RM Button default mäßig an/aus
 - **Export/Import alles**
-- show timer on/off
+- Show timer on/off
 - Metriken die im TrainingsOverview angezeigt werden sollen für Muscles/Exercises
 
 ## General
@@ -47,6 +47,7 @@
 ## Try out
 - https://www.npmjs.com/package/react-native-calendars/v/1.1286.0 kalender der auch Markierungen anzeigen kann. Period scheint auch zu funktionieren
 - **~~Toast für records~~ Farben sind noch nicht passend**
+- onPress auf Toast navigiert zu Exercise Stats
 
 ## Bugs
 - ~~picker auswahl ist nicht mehr swipebar in history (whs muss man da auch die gesture ref mitgeben damit er swipes mitbekommt)~~
@@ -55,4 +56,4 @@
 - ~~Crash wenn 2 exercises ausgewählt in der analyse~~
 - ~~navigate up down in trainingsoverview ads sets form other workouts~~
 - History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren
-- highlighed values in analys sind gleich dargestellt wie records, das ist verwirrend
+- Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend

@@ -24,7 +24,8 @@ export const BottomTabs = () => {
             text1: 'New Record!',
             text2: `You have a new ${useExerciseRecord1.record} record in ${exercise?.name} with ${useExerciseRecord1.value}`,
             position: 'top',
-            visibilityTime: 5000
+            visibilityTime: 5000,
+            onPress: () => [] //TODO go to Exercise Stats
         })
     }
     return (

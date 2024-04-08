@@ -197,7 +197,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             open={open}
             onOpen={() => setOpen(true)}
             onClose={() => setOpen(false)}
-            drawerType={"slide"}
+            drawerType={"front"}
             renderDrawerContent={() => {
                 return <View style={{display: 'flex', flexDirection: 'column'}}>
                     <Divider />
@@ -206,7 +206,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                         ([micro, name], index) => {
                             return <TouchableRipple style={{height: 40}} key={index} onPress={() => {
                                 setTrainingInMicro(parseInt(micro))
-                                setOpen(false)
+                                setOpen(true)
                             }}><Text style={{fontSize: theme.fonts.bodyLarge.fontSize, margin: 5}}>{name}</Text></TouchableRipple>;
                         }
                     )}
@@ -246,10 +246,10 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             }}
         >
             <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
-
-                <Button
-                    onPress={() => setOpen((prevOpen) => !prevOpen)}
-                >Open</Button>
+                <IconButton
+                    icon="menu"
+                    onPress={() => setOpen((prevOpen) => !prevOpen)}>
+                </IconButton>
                 <ScrollView keyboardShouldPersistTaps={'handled'}>
                     <View>
                         {showDone && <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/>}

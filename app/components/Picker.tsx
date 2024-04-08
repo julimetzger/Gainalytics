@@ -80,7 +80,7 @@ const Picker = ({
 
     return (
         <View style={style}>
-            {show && <MultiselectDropdown label="Choose Exercises, Metric and Accumulation Mode"
+            {show && <MultiselectDropdown label="Select Exercises, Metrics, Accumulation Mode"
                                           enableSearch
                                           value={selectedValues}
                                           onChange={setExerciseDumb}
@@ -92,6 +92,7 @@ const Picker = ({
                                           primaryColor={theme.colors.primaryContainer}
                                           enableAvatar
                                           multiline={true}
+                                          hideChip={false}
             />}
             <IconButton style={{position: 'absolute', right: 0, zIndex: 2}}
                         icon={!show ? 'chevron-down' : 'chevron-up'}
