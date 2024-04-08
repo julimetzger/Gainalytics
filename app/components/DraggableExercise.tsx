@@ -111,10 +111,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
                 />
             }
         </View>
-    )
-        ;
+    );
 }
 
 export default DraggableExercise;
-
-

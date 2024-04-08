@@ -12,6 +12,7 @@ import MetricView from "./MetricComparison";
 import {Muscles} from "../models/Muscles";
 import {Exercise, MusclePercentPair} from "../models/Exercise";
 import {Workout} from "../models/Workout";
+import {StyleSheet} from "react-native";
 
 export interface Comparison {
     value: number,
@@ -72,23 +73,23 @@ const WorkoutSetOverview = ({
             <Card.Content>
                 <DataTable>
                     <DataTable.Header>
-                        <DataTable.Title style={{flex: 2}}>Exercise</DataTable.Title>
-                        <DataTable.Title style={{flex: 1}} numeric>1RM</DataTable.Title>
-                        <DataTable.Title style={{flex: 1}} numeric>Reps</DataTable.Title>
-                        <DataTable.Title style={{flex: 1}} numeric numberOfLines={2}>Max Intensity</DataTable.Title>
+                        <DataTable.Title style={styles.flexL}>Exercise</DataTable.Title>
+                        <DataTable.Title style={styles.flexM} numeric>1RM</DataTable.Title>
+                        <DataTable.Title style={styles.flexS} numeric>Reps</DataTable.Title>
+                        <DataTable.Title style={styles.flexS} numeric numberOfLines={2}>Max Intensity</DataTable.Title>
                     </DataTable.Header>
                     {Array.from(exerciseMetricMap).map(([exercise, workout]) => {
                         return <DataTable.Row key={exercise.id}>
-                            <DataTable.Cell style={{flex: 2}}>
+                            <DataTable.Cell style={styles.flexL}>
                                 <Text>{exercise.name}</Text>
                             </DataTable.Cell>
-                            <DataTable.Cell style={{flex: 1}} numeric>
+                            <DataTable.Cell style={styles.flexM} numeric>
                                 <MetricView comparison={workout.get(Metric.ONE_RM)!!}/>
                             </DataTable.Cell>
-                            <DataTable.Cell style={{flex: 1}} numeric>
+                            <DataTable.Cell style={styles.flexS} numeric>
                                 <MetricView comparison={workout.get(Metric.REPS)!!}/>
                             </DataTable.Cell>
-                            <DataTable.Cell style={{flex: 1}} numeric>
+                            <DataTable.Cell style={styles.flexS} numeric>
                                 <MetricView comparison={workout.get(Metric.MAX_INTENSITY)!!}/>
                             </DataTable.Cell>
                         </DataTable.Row>
@@ -101,27 +102,27 @@ const WorkoutSetOverview = ({
             <Card.Content>
                 <DataTable>
                     <DataTable.Header>
-                        <DataTable.Title style={{flex: 2}}>Exercise</DataTable.Title>
-                        <DataTable.Title style={{flex: 1}} numeric>Volume</DataTable.Title>
-                        <DataTable.Title style={{flex: 1}} numeric>Sets</DataTable.Title>
-                        <DataTable.Title style={{flex: 1}} numeric>Reps</DataTable.Title>
+                        <DataTable.Title style={styles.flexL}>Exercise</DataTable.Title>
+                        <DataTable.Title style={styles.flexM} numeric>Volume</DataTable.Title>
+                        <DataTable.Title style={styles.flexS} numeric>Sets</DataTable.Title>
+                        <DataTable.Title style={styles.flexS} numeric>Reps</DataTable.Title>
                     </DataTable.Header>
                     {Array.from(muscleMetricMap).map(([muscle, workout]) => {
                         return <DataTable.Row key={muscle.toString()}>
-                            <DataTable.Cell style={{flex: 2}}>{muscle}</DataTable.Cell>
-                            <DataTable.Cell style={{flex: 1}} numeric onPress={() => setSelectedMuscle({
+                            <DataTable.Cell style={styles.flexL}>{muscle}</DataTable.Cell>
+                            <DataTable.Cell style={styles.flexM} numeric onPress={() => setSelectedMuscle({
                                 muscle: muscle,
                                 metric: Metric.VOLUME
                             })}>
                                 <MetricView comparison={workout.get(Metric.VOLUME)!!}/>
                             </DataTable.Cell>
-                            <DataTable.Cell style={{flex: 1}} numeric onPress={() => setSelectedMuscle({
+                            <DataTable.Cell style={styles.flexS} numeric onPress={() => setSelectedMuscle({
                                 muscle: muscle,
                                 metric: Metric.SETS
                             })}>
                                 <MetricView comparison={workout.get(Metric.SETS)!!}/>
                             </DataTable.Cell>
-                            <DataTable.Cell style={{flex: 1}} numeric onPress={() => setSelectedMuscle({
+                            <DataTable.Cell style={styles.flexS} numeric onPress={() => setSelectedMuscle({
                                 muscle: muscle,
                                 metric: Metric.REPS
                             })}>
@@ -138,10 +139,10 @@ const WorkoutSetOverview = ({
                 <Dialog.Content>
                     <DataTable>
                         <DataTable.Header>
-                            <DataTable.Title>Exercise</DataTable.Title>
-                            <DataTable.Title numeric>Value</DataTable.Title>
-                            <DataTable.Title numeric>Factor</DataTable.Title>
-                            <DataTable.Title numeric>Contribution</DataTable.Title>
+                            <DataTable.Title style={styles.flexL}>Exercise</DataTable.Title>
+                            <DataTable.Title style={styles.flexM} numeric>Value</DataTable.Title>
+                            <DataTable.Title style={styles.flexS} numeric>Factor</DataTable.Title>
+                            <DataTable.Title style={styles.flexS} numeric numberOfLines={2}>Contribution</DataTable.Title>
                         </DataTable.Header>
                         {Array.from(exerciseWorkoutMap).map(([exercise, workout]) => {
                             let matchedExercise = exercise.muscles?.find((muscle) => muscle.muscle === seledtedMuscle?.muscle) as MusclePercentPair | undefined;
@@ -150,11 +151,10 @@ const WorkoutSetOverview = ({
                                 let percent = [Metric.SETS, Metric.VOLUME, Metric.REPS].includes(seledtedMuscle?.metric!!) ? matchedExercise.percent : 100;
                                 return (
                                     <DataTable.Row>
-                                        <DataTable.Cell><Text>{exercise.name}</Text></DataTable.Cell>
-                                        <DataTable.Cell numeric>{unmodifiedMetricValue}</DataTable.Cell>
-                                        <DataTable.Cell numeric>{percent}</DataTable.Cell>
-                                        <DataTable.Cell
-                                            numeric>{unmodifiedMetricValue!! * percent!! / 100}</DataTable.Cell>
+                                        <DataTable.Cell style={styles.flexL}><Text>{exercise.name}</Text></DataTable.Cell>
+                                        <DataTable.Cell style={styles.flexM} numeric>{unmodifiedMetricValue}</DataTable.Cell>
+                                        <DataTable.Cell style={styles.flexS} numeric>{percent}</DataTable.Cell>
+                                        <DataTable.Cell style={styles.flexS} numeric>{unmodifiedMetricValue!! * percent!! / 100}</DataTable.Cell>
                                     </DataTable.Row>
                                 )
                             }
@@ -166,4 +166,15 @@ const WorkoutSetOverview = ({
     </>
 }
 
+let styles = StyleSheet.create({
+    flexL: {
+        flex: 10,
+    },
+    flexM: {
+        flex: 7,
+    },
+    flexS: {
+        flex: 6,
+    },
+});
 export default WorkoutSetOverview;
