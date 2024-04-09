@@ -31,6 +31,8 @@ registerTranslation('en-GB', {
     typeInDate: 'Type in date',
     pickDateFromCalendar: 'Pick date from calendar',
     close: 'Close',
+    hour: 'Hour',
+    minute: 'Minute'
 })
 
 const {store, persistor} = configureStore();

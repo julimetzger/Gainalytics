@@ -17,10 +17,10 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
     return (
         <View>
             <AddWorkout workout={doneWorkout?.end ? doneWorkout : undefined} exercise={chosenExercise}
-                        onSubmit={onSubmit}
-                        suggest={false}
-                        trainingsId={training.id ?? nextTrainingsId}
-                        onSubmitSet={onSubmitSet}/>
+            onSubmit={onSubmit}
+            suggest={false}
+            trainingsId={training.id ?? nextTrainingsId}
+            onSubmitSet={onSubmitSet} date={new Date(Date.now())}/>
         </View>
     );
 }

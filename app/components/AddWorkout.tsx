@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React from "react";
 import {useAllLastWorkouts} from "../redux/Workout/useAllLastWorkouts";
 import {useUnfinishedWorkout} from "../redux/Workout/useUnfinishedWorkout";
 import {Button, Text, useTheme} from "react-native-paper";
@@ -8,7 +8,6 @@ import {dispatchFinalizeWorkout} from "../redux/Workout/dispatchFinalizeWorkout"
 import {dispatchDeleteSetFromWorkout} from "../redux/Workout/dispatchDeleteSetFromWorkout";
 import {dispatchSuggest} from "../redux/Workout/dispatchSuggest";
 import {StyleSheet, View} from "react-native";
-import DatePicker from "./DatePicker";
 import AddWorkoutSet from "./AddWorkoutSet";
 import {oneRepMaxForWorkouts} from "../utils/RepetitionMaxHelper";
 import {sameDate} from "../utils/DateHelper";
@@ -19,17 +18,16 @@ import {Workout} from "../models/Workout";
 interface Props {
     exercise: Exercise
     onSubmit: () => void,
-    historyCallback?: (start?: Date) => void,
     suggest?: boolean,
     trainingsId?: number,
     workout?: Workout,
-    onSubmitSet?: (workoutSet: WorkoutSet) => void
+    onSubmitSet?: (workoutSet: WorkoutSet) => void,
+    date: Date
 }
 
-const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, workout, onSubmitSet}: Props) => {
+const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date}: Props) => {
         let unfinishedWorkout = useUnfinishedWorkout(exercise.id!!);
         unfinishedWorkout = workout ?? unfinishedWorkout;
-        const [date, setDate] = useState(new Date(Date.now()));
         let workouts = useAllLastWorkouts(exercise, 1);
         let oneRepMax = oneRepMaxForWorkouts(...workouts);
         let theme = useTheme();
@@ -44,7 +42,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
             if (unfinishedWorkout === undefined) {
                 addWorkout({
                     //TODO index should be set by reducer
-                    // TODO nextTrainingsID should be handled by dispatch
+                    //TODO nextTrainingsID should be handled by dispatch
                     sets: [{...workoutSet, index: workoutSet.index ?? 1}],
                     notes: '',
                     exerciseId: exercise.id!!!,
@@ -71,25 +69,7 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
         }
 
         return (
-            <View style={{backgroundColor: theme.colors.background}}>
-                {suggest &&
-                    <Button buttonColor={theme.colors.tertiaryContainer} textColor={theme.colors.onTertiaryContainer}
-                            disabled={unfinishedWorkout !== undefined || workouts.length === 0}
-                            style={style.suggest}
-                            mode={"contained"}
-                            onPress={() => {
-                                suggestedWorkout(exercise.id!!);
-                            }}>
-                        Suggest
-                    </Button>}
-                <DatePicker date={date} setDate={setDate}/>
-                {historyCallback &&
-                    <Button buttonColor={theme.colors.tertiaryContainer} textColor={theme.colors.onTertiaryContainer}
-                            style={style.historyLink}
-                            mode={"contained"}
-                            onPress={() => historyCallback(workouts[0]?.start)}>
-                        History
-                    </Button>}
+            <View>
                 <Text style={{
                     alignSelf: 'center',
                     marginTop: 20
@@ -116,22 +96,24 @@ const AddWorkout = ({exercise, historyCallback, onSubmit, suggest, trainingsId, 
                         onSubmit();
                     }}>
                     Add Workout
-                </Button>}
+                    </Button>}
+                {suggest &&
+                    <Button disabled={unfinishedWorkout !== undefined || workouts.length === 0}
+                            style={style.suggestWorkout}
+                            onPress={() => {
+                                suggestedWorkout(exercise.id!!);
+                            }}>
+                        Suggest Workout
+                    </Button>}
             </View>
         );
     };
 
 let style = StyleSheet.create({
-    historyLink: {
-        position: "absolute",
-        top: 0,
-        right: 5,
+    suggestWorkout: {
+        position: "relative",
+        alignSelf: "center",
     },
-    suggest: {
-        position: "absolute",
-        top: 0,
-        left: 5,
-    }
 });
 
 export default AddWorkout;

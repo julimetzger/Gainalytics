@@ -31,6 +31,7 @@
 ## Exercises
 - Muskelgruppen hinzufügen schöner und robuster
 - ~~Rekorde speichern~~ nur 1RM nicht sicher was sonst noch Sinn macht
+- Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden
 
 ## Settings
 - rir/rpe

@@ -22,7 +22,7 @@ const effectsReducer = (effect: Effects = {}, action: AnyAction) => {
                     exerciseId: action.exerciseId,
                     workoutId: action.workoutId,
                     date: new Date(),
-                    value: action.value,
+                    value: action.value.toFixed(2),
                     record: action.record
                 }
             }
