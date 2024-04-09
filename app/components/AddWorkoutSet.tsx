@@ -50,7 +50,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
         }
         if (oneRepMax !== undefined && !weightSet) {
             setWeightEmpty(false);
-            let weight = repetitionWeightByOneRm(reps, rir, oneRepMax!!).toFixed();
+            let weight = repetitionWeightByOneRm(reps, rir, oneRepMax!!).toFixed(2);
             setWeight(weight.toString())
         }
     }
@@ -157,14 +157,14 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                 {oneRepMax ? <Tooltip
                     title={"Suggests the weight based on your 1RM"}>
                     <ToggleButton
-                        icon={() => <View><Text
-                            style={{color: theme.colors.onSecondaryContainer}}>1RM</Text></View>}
+                        icon={() => <Text style={{color: theme.colors.onSecondaryContainer}}>1RM</Text>}
                         iconColor={theme.colors.secondaryContainer}
                         status={!weightSet ? "checked" : "unchecked"}
                         onPress={() => {
                             setWeightSet(prevState => !prevState);
                             setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
-                        }}/>
+                        }}
+                    />
                 </Tooltip> : null}
                 {persisted() && !editing &&
                     <IconButton icon={"check"} iconColor={determineCheckmarkColor()}/>}

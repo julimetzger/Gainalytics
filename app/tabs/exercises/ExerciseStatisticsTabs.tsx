@@ -26,7 +26,7 @@ const ExerciseStatisticsTabs = ({route}: Props) => {
                 <Card.Content>
                     {map ? map.get(Record.ONE_RM)?.map(workout => (
                         <Text
-                            key={workout?.id}>{workout?.start ? new Date(workout.start).toDateString() : null} {workout?.records?.[Record.ONE_RM]} kg</Text>
+                            key={workout?.id}>{workout?.start ? new Date(workout.start).toDateString() : null} {workout?.records?.[Record.ONE_RM].toFixed(2)} kg</Text>
                     )) : <></>}</Card.Content>
             </Card>
             <Card>
@@ -40,10 +40,8 @@ const ExerciseStatisticsTabs = ({route}: Props) => {
                 </Card.Content>
             </Card>
         </ScrollView>
-    )
-        ;
+    );
 };
-
 
 export type Props = NativeStackScreenProps<RootStackParamList, 'ExerciseStatisticsTab'>;
 

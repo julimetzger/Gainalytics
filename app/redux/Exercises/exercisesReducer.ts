@@ -170,7 +170,7 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
                 let recordExercise = {...exercises.byId[action.exerciseId]};
                 if (recordExercise.records === undefined)
                     recordExercise.records = {[action.record]: []};
-                recordExercise.records[action.record].push({value: action.value, workoutId: action.workoutId});
+                recordExercise.records[action.record].push({value: action.value.toFixed(2), workoutId: action.workoutId});
                 return {
                     ...exercises,
                     byId: {
@@ -186,7 +186,7 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
                 let recordExercise = {...exercises.byId[action.exerciseId]};
                 if (recordExercise.records === undefined)
                     recordExercise.records = {[action.record]: []};
-                recordExercise.records[action.record].find(record => record.workoutId === action.workoutId)!.value = action.value;
+                recordExercise.records[action.record].find(record => record.workoutId === action.workoutId)!.value = action.value.toFixed(2);
                 return {
                     ...exercises,
                     byId: {
