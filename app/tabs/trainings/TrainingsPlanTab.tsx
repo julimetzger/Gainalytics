@@ -105,7 +105,7 @@ const header = ({
                         }}>
                         {mode === undefined && 'Planning'}
                         {mode === TrainingsState.PLANNED && 'Planned'}
-                        {mode === TrainingsState.STARTED && 'Training'}
+                        {mode === TrainingsState.STARTED && 'Active'}
                         {mode === TrainingsState.FINISHED && 'Done'}
                     </Text>
                 </View>
@@ -201,21 +201,24 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             renderDrawerContent={() => {
                 return <View style={{display: 'flex', flexDirection: 'column'}}>
                     <Divider />
-                        <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, margin: 5}}>Trainings</Text>
-                    {Object.entries(trainingsPlan.trainingNames ?? []).map(
+                        <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center'}}>
+                            <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Trainings</Text>
+                            <IconButton
+                                icon="plus-circle" onPress={() => {
+                                chChangeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1)}}
+                                theme={theme}
+                                iconColor={theme.colors.tertiaryContainer}
+                                size={40}>
+                            </IconButton>
+                        </View>
+                        {Object.entries(trainingsPlan.trainingNames ?? []).map(
                         ([micro, name], index) => {
                             return <TouchableRipple style={{height: 40}} key={index} onPress={() => {
                                 setTrainingInMicro(parseInt(micro))
-                                setOpen(true)
-                            }}><Text style={{fontSize: theme.fonts.bodyLarge.fontSize, margin: 5}}>{name}</Text></TouchableRipple>;
-                        }
-                    )}
-                    <IconButton icon="plus-circle" onPress={() => {
-                            chChangeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1)
-                        }}  theme={theme}
-                            iconColor={theme.colors.tertiaryContainer}
-                            size={40}>
-                        </IconButton>
+                                setOpen(false)
+                            }}><Text style={{fontSize: theme.fonts.bodyLarge.fontSize, margin: 5}}>{name}</Text>
+                            </TouchableRipple>
+                        })}
                     <Divider />
                     <Text style={{ fontSize: theme.fonts.headlineSmall.fontSize, margin: 5 }}>Micro Overview</Text>
                     <Button mode={showPlanned ? 'contained' : 'outlined'} onPress={() => setShowPlanned(!showPlanned)}>

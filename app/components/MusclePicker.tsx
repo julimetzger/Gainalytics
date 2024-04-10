@@ -23,13 +23,15 @@ const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) =>
             <DropDown
                 label={'Muscle'}
                 mode="outlined"
-                min-width= {300}
-                visible={dropdownVisible} onDismiss={() => setDropdownVisible(false)}
-                showDropDown={() => setDropdownVisible(true)} value={muscleValue?.muscle}
+                visible={dropdownVisible}
+                onDismiss={() => setDropdownVisible(false)}
+                showDropDown={() => setDropdownVisible(true)}
+                value={muscleValue?.muscle}
                 setValue={(muscleUpdate) => setMuscles({muscle: muscleUpdate, percent: muscleValue?.percent ?? 100})}
                 list={Object.values(Muscles).map((value: string) => {
                     return {label: value, value: value}
-            })}/>
+                })}
+            />
             <TextInput 
                 keyboardType="numeric"
                 inputMode={"numeric"}
@@ -41,12 +43,17 @@ const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) =>
                 right={<TextInput.Icon icon="percent" size={20}/>}
                 value={muscleValue?.percent?.toString()}
                 onChangeText={(value) => setMuscles({
-                muscle: muscleValue?.muscle,
-                percent: parseInt(value)
-            })}/>
-            <IconButton icon={"close-circle"} iconColor={theme.colors.tertiary}
-                                onPress={() => {
-                                    onDelete(muscleValue)}}/>
+                    muscle: muscleValue?.muscle,
+                    percent: parseInt(value)
+                })}
+            />
+            <IconButton 
+                icon={"close-circle"}
+                iconColor={theme.colors.tertiaryContainer}
+                onPress={() => {
+                    onDelete(muscleValue)
+                }}
+            />
         </View>
     )
 }
