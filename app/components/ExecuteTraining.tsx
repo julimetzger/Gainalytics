@@ -1,4 +1,4 @@
-import React, {useEffect} from "react";
+import React, {useEffect, useState} from "react";
 import {View} from "react-native";
 import AddWorkout from "./AddWorkout";
 import {useWorkoutById} from "../redux/Workout/useWorkoutById";
@@ -11,16 +11,18 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
     let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];
     let doneWorkout = useWorkoutById(doneWorkoutId);
     let nextTrainingsId = useNextTrainingsId();
+    const [date, setDate] = useState(new Date(Date.now()))
     //TODO exercise während Training hinzugefügt und Sätze hinzugefügt (kein AddWorkout). Dann app zugemacht. Dann wieder geöffnet. Dann ist  Training nicht mehr da.
     useEffect(() => {
     }, [chosenExercise]);
     return (
         <View>
             <AddWorkout workout={doneWorkout?.end ? doneWorkout : undefined} exercise={chosenExercise}
-            onSubmit={onSubmit}
-            suggest={false}
-            trainingsId={training.id ?? nextTrainingsId}
-            onSubmitSet={onSubmitSet} date={new Date(Date.now())}/>
+                        onSubmit={onSubmit}
+                        suggest={false}
+                        trainingsId={training.id ?? nextTrainingsId}
+                        onSubmitSet={onSubmitSet}
+                        date={date}/>
         </View>
     );
 }
