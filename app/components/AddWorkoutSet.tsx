@@ -50,7 +50,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
         }
         if (oneRepMax !== undefined && !weightSet) {
             setWeightEmpty(false);
-            let weight = repetitionWeightByOneRm(reps, rir, oneRepMax!!).toFixed(2);
+            let weight = repetitionWeightByOneRm(reps, rir, oneRepMax!!).toFixed(0);
             setWeight(weight.toString())
         }
     }

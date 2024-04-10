@@ -15,7 +15,7 @@ const TrainingHome = ({navigation}: Props) => {
     const trainingsPlans = useAllTrainingsPlans().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
     const allTrainings = useTrainings();
     let startedTrainings = allTrainings.filter(A => A.state === TrainingsState.STARTED)
-    let planToStarteTrainin = new Map(trainingsPlans.map(train => {
+    let planToStarteTraining = new Map(trainingsPlans.map(train => {
         let idOfTraining = Object.values(train.trainings).find(tr => startedTrainings.map(startetd => startetd.id).includes(tr))
         let training = startedTrainings.find(A => A.id === idOfTraining);
         let numberOfExercises = training? Object.values(training.exercises).length : 1;
@@ -33,8 +33,9 @@ const TrainingHome = ({navigation}: Props) => {
                     .map((trainingsPlan: TrainingsPlan) => (
                         <Card style={{margin: 5}}>
                             <ProgressBar style={{margin: 5}}
-                                         visible={planToStarteTrainin.get(trainingsPlan.id!!) !== undefined}
-                                         progress={planToStarteTrainin.get(trainingsPlan.id!!)}></ProgressBar>
+                                         visible={planToStarteTraining.get(trainingsPlan.id!!) !== undefined}
+                                         progress={planToStarteTraining.get(trainingsPlan.id!!)}>
+                            </ProgressBar>
                             <Pressable
                                 key={trainingsPlan.id}
                                 onPress={() =>
