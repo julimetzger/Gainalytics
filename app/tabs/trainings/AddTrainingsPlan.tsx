@@ -40,9 +40,9 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
                             size={40}></IconButton>}
             <Portal>
                 <Dialog visible={visible} onDismiss={hideDialog} theme={theme}>
-                    {!deleteOverlay && trainingsId && < Dialog.Title> {"Edit " + trainingsPlan!!.name}</Dialog.Title>}
+                    {!deleteOverlay && trainingsId && < Dialog.Title> {"Edit " + trainingsPlan?.name}</Dialog.Title>}
                     {!deleteOverlay && !trainingsId && <Dialog.Title>Add new Training Plan</Dialog.Title>}
-                    {deleteOverlay && <Dialog.Title>{"Delete " + trainingsPlan!!.name}</Dialog.Title>}
+                    {deleteOverlay && <Dialog.Title>{"Delete " + trainingsPlan?.name}</Dialog.Title>}
                     <Dialog.Content>
                         {deleteOverlay ?
                             <Text>This action will delete the training and all workouts saved for the training. Are you

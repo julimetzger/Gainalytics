@@ -1,6 +1,15 @@
 import React, {useEffect, useState} from 'react';
 import {ScrollView, View} from 'react-native';
-import {Button, Divider, IconButton, SegmentedButtons, Text, TextInput, TouchableRipple, useTheme} from 'react-native-paper';
+import {
+    Button,
+    Divider,
+    IconButton,
+    SegmentedButtons,
+    Text,
+    TextInput,
+    TouchableRipple,
+    useTheme
+} from 'react-native-paper';
 import {NativeStackHeaderProps, NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/TrainingRouter';
 import {Drawer} from 'react-native-drawer-layout';
@@ -96,7 +105,7 @@ const header = ({
                         )}
                     </View>
                 </View>
-                <View style={{flexDirection: 'column',width: 80, marginEnd: 30}}>
+                <View style={{flexDirection: 'column', width: 80, marginEnd: 30}}>
                     <Text
                         style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold'}}>Mode</Text>
                     <Text
@@ -117,8 +126,8 @@ const header = ({
 const TrainingsPlanTab = ({navigation, route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
     const [open, setOpen] = useState(false);
-    const [micro, setMicro] = useState(1);
-    const [trainingInMicro, setTrainingInMicro] = useState(1);
+    const [micro, setMicro] = useState(route.params.micro ?? 1);
+    const [trainingInMicro, setTrainingInMicro] = useState(route.params.training ?? 1);
     const [timeInWorkout, setTimeInWorkout] = useState(new Date(Date.now()));
     const training = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);
     const lastTraining = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro - 1, trainingInMicro);
@@ -173,7 +182,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             startTraining();
         }
         if (training?.state === TrainingsState.STARTED) {
-            finishTraining(training.id!!);
+            finishTraining(training.id!!, trainingsPlan.id!!);
         }
         if (training?.state === TrainingsState.FINISHED) {
             if (chosenExercise === undefined) setchosenExercise(exercises[0].id);
@@ -200,18 +209,19 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             drawerType={"front"}
             renderDrawerContent={() => {
                 return <View style={{display: 'flex', flexDirection: 'column'}}>
-                    <Divider />
-                        <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center'}}>
-                            <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Trainings</Text>
-                            <IconButton
-                                icon="plus-circle" onPress={() => {
-                                chChangeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1)}}
-                                theme={theme}
-                                iconColor={theme.colors.tertiaryContainer}
-                                size={40}>
-                            </IconButton>
-                        </View>
-                        {Object.entries(trainingsPlan.trainingNames ?? []).map(
+                    <Divider/>
+                    <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center'}}>
+                        <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Trainings</Text>
+                        <IconButton
+                            icon="plus-circle" onPress={() => {
+                            chChangeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1)
+                        }}
+                            theme={theme}
+                            iconColor={theme.colors.tertiaryContainer}
+                            size={40}>
+                        </IconButton>
+                    </View>
+                    {Object.entries(trainingsPlan.trainingNames ?? []).map(
                         ([micro, name], index) => {
                             return <TouchableRipple style={{height: 40}} key={index} onPress={() => {
                                 setTrainingInMicro(parseInt(micro))
@@ -219,8 +229,8 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                             }}><Text style={{fontSize: theme.fonts.bodyLarge.fontSize, margin: 5}}>{name}</Text>
                             </TouchableRipple>
                         })}
-                    <Divider />
-                    <Text style={{ fontSize: theme.fonts.headlineSmall.fontSize, margin: 5 }}>Micro Overview</Text>
+                    <Divider/>
+                    <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, margin: 5}}>Micro Overview</Text>
                     <Button mode={showPlanned ? 'contained' : 'outlined'} onPress={() => setShowPlanned(!showPlanned)}>
                         Show Planned
                     </Button>

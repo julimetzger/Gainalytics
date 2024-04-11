@@ -102,6 +102,17 @@ const trainingsPlanReducer = (state: NormalizedState<TrainingsPlan> = initialSta
                 }
             }
         }
+        case 'FINISH_TRAINING':
+            return {
+                ...state,
+                byId: {
+                    ...state.byId,
+                    [action.trainingsPlanId]: {
+                        ...trainingsPlan,
+                        lastTraining: action.trainingsId
+                    }
+                }
+            }
         default:
             return state;
     }
