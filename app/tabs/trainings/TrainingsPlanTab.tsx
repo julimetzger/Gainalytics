@@ -138,6 +138,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     let [showDone, setShowDone] = useState(false);
     const [chosenExercises, setchosenExercise] = useState(exercises?.length > 1 ? exercises[0].id : undefined);
     let chosenExercise = exercises.find((exercise) => exercise.id === chosenExercises);
+    let doneExerciseIds = training?.doneWorkoutIds ? Object.keys(training.doneWorkoutIds).map(key => parseInt(key)) : [];
     let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
     let finishTraining = dispatchFinishTraining();
     let chChangeTrainingsName = dispatchChangeTrainingsName();
@@ -288,6 +289,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                                     chooseExercise={(exercise) => {
                                         setchosenExercise(exercise.id);
                                     }}
+                                    doneExerciseIds={doneExerciseIds}
                                 />
                             </View>
                         )}
