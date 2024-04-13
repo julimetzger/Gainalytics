@@ -14,9 +14,10 @@ interface Props {
     chosenExercise?: Exercise;
     chooseExercise: (exercise: Exercise) => void;
     setExercises: (exercises: Exercise[]) => void;
+    doneExerciseIds: number[];
 }
 
-const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExercise}: Props) => {
+const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExercise, doneExerciseIds}: Props) => {
     let theme = useTheme();
     let exerciseData = exercises.map(
         (exercise) => {
@@ -76,7 +77,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
                                 ? theme.colors.primaryContainer
                                 : item.key === chosenExercise?.id
                                     ? theme.colors.tertiaryContainer
-                                    : theme.colors.secondaryContainer
+                                    : doneExerciseIds.includes(item.key) ? "#558b2f" : theme.colors.secondaryContainer
                         }
                     ]}
                 >

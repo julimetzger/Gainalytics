@@ -38,7 +38,6 @@ const TrainingHome = ({navigation}: Props) => {
 
     let planToStarteTraining = new Map(trainingsPlans.map(train => {
                     let firstStartedTraining = handleStartedTraining(train);
-                    console.log(train)
                     let lastDone = lastDonee(train);
                     return [train.id, {
                         firstStartedTraining: firstStartedTraining, lastDoneTraining: lastDone
@@ -47,8 +46,6 @@ const TrainingHome = ({navigation}: Props) => {
             ).filter(A => A !== undefined) as Array<[number, TrainingMapping]>
         )
     ;
-
-    console.log(planToStarteTraining)
 
     return (
         <View style={{flex: 1}}>

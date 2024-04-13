@@ -4,7 +4,7 @@
 - addWorkout mit neuer Übung befüllen als default Wert fürs eintragen
 - ~~zeit anzeigen seit start des Trainings~~ aber noch nicht schön
 - ~~Vergleich mit vorherigem Training~~/geplanten Workout nach Abschluss des Trainings
-- **Anzeige des planned Trainings während des Trainings**
+- ~~Anzeige des planned Trainings während des Trainings~~ vlt. auch vergleich mit done 
 - Export/Import Funktion für Trainings/Micro
 - unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
 - Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
@@ -15,7 +15,7 @@
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - Mesos einführen mit Kopieren des alten Mesos
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
-- Zum letzten Training springen
+- ~~Zum letzten Training springen~~
 
 ## Analyse
 - neue Seite für Darstellung volumen für bodyparts, übungen etc

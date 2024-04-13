@@ -46,11 +46,11 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
             {setToUpdate &&
                 <AddWorkoutSet
                     onSubmit={(arg) => {
-                        onSubmit(arg);
+                        onSubmit!!(arg);
                         setSetToUpdate(undefined);
                     }}
                     onDelete={(workout) => {
-                        onDelete(workout);
+                        onDelete!!(workout);
                         setSetToUpdate(undefined);
                     }}
                     workoutSet={setToUpdate}
@@ -63,8 +63,8 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
 
 interface WorkoutSetViewProps {
     sets: WorkoutSet[],
-    onDelete: (workoutSet: WorkoutSet) => void,
-    onSubmit: (workoutSet: WorkoutSet) => void
+    onDelete?: (workoutSet: WorkoutSet) => void,
+    onSubmit?: (workoutSet: WorkoutSet) => void
     editable?: boolean
     highLightMode?: Metric
 }
