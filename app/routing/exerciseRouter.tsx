@@ -7,18 +7,20 @@ import {dispatchtoggleMode} from "../redux/settings/dispatchtoggleMode";
 import {Exercise} from "../models/Exercise";
 import ExerciseStatisticsTabs from "../tabs/exercises/ExerciseStatisticsTabs";
 import ExerciseHistory from "../tabs/exercises/ExerciseHistory";
+import SettingsTab from "../tabs/settings/SettingsTab";
+import {useNavigation} from '@react-navigation/native';
 
 export type RootStackParamList = {
     Exercises: undefined;
     AddWorkoutTab: { exercise: Exercise };
     ExerciseStatisticsTab: { exercise: Exercise };
     ExericseHistory: { exercise: Exercise };
+    Settings: undefined;
 };
 
 const ExerciseRouter = () => {
-    let dispatchtoggleMode1 = dispatchtoggleMode();
     const Stack = createStackNavigator<RootStackParamList>();
-
+    let navigation = useNavigation();
     return (
         <Stack.Navigator initialRouteName="Exercises">
             <Stack.Screen
@@ -28,7 +30,7 @@ const ExerciseRouter = () => {
                     title: route.params ?? "Exercises",
                     headerRight: () => (
                         <IconButton
-                            onPress={dispatchtoggleMode1}
+                            onPress={() => navigation.navigate({name: 'Settings', params: undefined})}
                             icon="cog"
                             size={20}
                         />
@@ -42,7 +44,7 @@ const ExerciseRouter = () => {
                     title: route.params.exercise.name,
                     headerRight: () => (
                         <IconButton
-                            onPress={dispatchtoggleMode1}
+                            onPress={() => navigation.navigate({name: 'Settings', params: undefined})}
                             icon="cog"
                             size={20}
                         />
@@ -56,7 +58,7 @@ const ExerciseRouter = () => {
                     title: route.params.exercise.name,
                     headerRight: () => (
                         <IconButton
-                            onPress={dispatchtoggleMode1}
+                            onPress={() => navigation.navigate({name: 'Settings', params: undefined})}
                             icon="cog"
                             size={20}
                         />
@@ -70,11 +72,18 @@ const ExerciseRouter = () => {
                     title: route.params.exercise.name,
                     headerRight: () => (
                         <IconButton
-                            onPress={dispatchtoggleMode1}
+                            onPress={() => navigation.navigate({name: 'Settings', params: undefined})}
                             icon="cog"
                             size={20}
                         />
                     )
+                })}
+            />
+            <Stack.Screen
+                name="Settings"
+                component={SettingsTab}
+                options={({route}) => ({
+                    title: "Settings"
                 })}
             />
         </Stack.Navigator>
