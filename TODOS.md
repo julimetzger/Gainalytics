@@ -8,7 +8,6 @@
 - Export/Import Funktion für Trainings/Micro
 - unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
 - Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
-- ~~Drawer Navigator Seite für Funktionen und um Buttons auszulagern für schlankeren Style~~
 - ~~anzeige des trainings im router oben~~ schöner machen
 - ~~name für trainings~~ schöner machen
 - ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~ vergleich exercises mit done workouts anstatt planned workouts

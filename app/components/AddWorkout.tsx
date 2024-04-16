@@ -122,6 +122,7 @@ let style = StyleSheet.create({
     suggestWorkout: {
         position: "relative",
         alignSelf: "center",
+        margin: 5
     },
 });
 
