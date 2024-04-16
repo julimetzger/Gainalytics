@@ -113,7 +113,7 @@ const header = ({
                             fontSize: 20,
                         }}>
                         {mode === undefined && 'Planning'}
-                        {mode === TrainingsState.PLANNED && 'Planned'}
+                        {mode === TrainingsState.PLANNED && 'Planning'}
                         {mode === TrainingsState.STARTED && 'Active'}
                         {mode === TrainingsState.FINISHED && 'Done'}
                     </Text>
