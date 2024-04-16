@@ -11,6 +11,8 @@ import {Training} from "../models/Training";
 import {Workout} from "../models/Workout";
 import {TrainingsPlan} from "../models/TrainingsPlan";
 import effectsReducer, {Effects} from "./Effects/effectsReducer";
+import reduceReducers from "reduce-reducers";
+import fullStateReducer from "./fullstateactions/fullStateReducer";
 
 
 export interface GlobalState {
@@ -23,11 +25,11 @@ export interface GlobalState {
 
 }
 
-export default combineReducers<GlobalState>({
+export default reduceReducers(combineReducers<GlobalState>({
     exercises: exerciseReducer,
     workouts: workoutReducer,
     trainingsPlan: trainingsPlanReducer,
     trainings: trainingsReducer,
     settings: settingsReducer,
     effects: effectsReducer
-});
+}), fullStateReducer);
