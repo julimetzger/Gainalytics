@@ -32,6 +32,7 @@ import {Exercise} from '../../models/Exercise';
 import dispatchChangeTrainingsName from '../../redux/Training/dispatchChangeTrainingsName';
 import MicroOverview from "../../components/MicroOverview";
 import PlanningOverview from "../../components/PlanningOverview";
+import Toast from "react-native-toast-message";
 
 interface headerProps {
     trainingsPlanName: string;
@@ -181,9 +182,23 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     function changePlanningmode() {
         if (training?.state === TrainingsState.PLANNED) {
             startTraining();
+            Toast.show({
+                type: 'info',
+                text1: 'Training started!',
+                text2: `You started the training ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+                position: 'top',
+                visibilityTime: 5000,
+            })
         }
         if (training?.state === TrainingsState.STARTED) {
             finishTraining(training.id!!, trainingsPlan.id!!);
+            Toast.show({
+                type: 'info',
+                text1: 'Training finished!',
+                text2: `Congratulations you finished the training ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+                position: 'top',
+                visibilityTime: 5000,
+            })
         }
         if (training?.state === TrainingsState.FINISHED) {
             if (chosenExercise === undefined) setchosenExercise(exercises[0].id);
