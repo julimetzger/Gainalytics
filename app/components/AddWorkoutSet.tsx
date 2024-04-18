@@ -76,7 +76,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
         if (persisted() && !editing) {
             return "#558b2f";
         } else {
-            return theme.colors.primaryContainer;
+            return theme.colors.secondaryContainer;
         }
     }
 

@@ -17,9 +17,9 @@
 - ~~Zum letzten Training springen~~
 
 ## Analyse
-- neue Seite für Darstellung volumen für bodyparts, übungen etc
+- **neue Seite für Darstellung volumen für bodyparts, übungen etc**
 - 2-7 Training accumalator
-- **Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären, hier auch mit Drawer arbeiten??**
+- Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären, hier auch mit Drawer arbeiten??
 
 ## History
 - Seite mit Datepicker
@@ -34,8 +34,7 @@
 
 ## Settings
 - rir/rpe
-- 1RM Button default mäßig an/aus
-- **Export/Import alles**
+- **1RM Button default mäßig an/aus**
 - Show timer on/off
 - Metriken die im TrainingsOverview angezeigt werden sollen für Muscles/Exercises
 

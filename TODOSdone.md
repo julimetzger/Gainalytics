@@ -24,6 +24,7 @@
 
 ## Settings
 - ~~Darkmode/Lightmode~~
+- ~~Export/Import alles~~
 
 
 ## General
