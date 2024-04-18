@@ -74,9 +74,9 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
                         styles.rowItem,
                         {
                             backgroundColor: isActive
-                                ? theme.colors.primaryContainer
+                                ? theme.colors.tertiaryContainer
                                 : item.key === chosenExercise?.id
-                                    ? theme.colors.tertiaryContainer
+                                    ? theme.colors.primaryContainer
                                     : doneExerciseIds.includes(item.key) ? "#558b2f" : theme.colors.secondaryContainer
                         }
                     ]}
