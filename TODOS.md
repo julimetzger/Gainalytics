@@ -44,7 +44,7 @@
 ## Video Analyse Funktion
 
 ## Try out
-- https://www.npmjs.com/package/react-native-calendars/v/1.1286.0 kalender der auch Markierungen anzeigen kann. Period scheint auch zu funktionieren
+- https://www.npmjs.com/package/react-native-calendars/v/1.1304.1 kalender der auch Markierungen anzeigen kann. Period scheint auch zu funktionieren
 - **~~Toast für records~~ Farben sind noch nicht passend**
 - onPress auf Toast navigiert zu Exercise Stats
 

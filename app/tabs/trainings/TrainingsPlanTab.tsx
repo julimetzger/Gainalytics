@@ -106,7 +106,7 @@ const header = ({
                         )}
                     </View>
                 </View>
-                <View style={{flexDirection: 'column', width: 80, marginEnd: 30}}>
+                <View style={{flexDirection: 'column', width: 80, marginEnd: 10}}>
                     <Text
                         style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold'}}>Mode</Text>
                     <Text
