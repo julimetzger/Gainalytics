@@ -72,30 +72,28 @@ const SettingsTab = ({}: Props) => {
             </View>
             <Button onPress={() => {
                 dumbFullStateToFile()
-            }}>export All Data</Button>
+            }}>Export all data</Button>
             <Button onPress={() => {
                 setImportDialog(true)
-            }
-
-            }>Import all Data</Button>
+            }}>Import all data</Button>
             <Portal>
                 <Dialog visible={importDialog} onDismiss={() => setImportDialog(false)}>
-                    <Dialog.Title>Import Full Data from other App?</Dialog.Title>
-                    <Dialog.Content><Text>This will override all data of your current app with data from the choosen
-                        file.
-                        Continue?</Text></Dialog.Content>
+                    <Dialog.Title>Import full data from backup file?</Dialog.Title>
+                    <Dialog.Content>
+                        <Text>This action will replace all existing data in your current application with the data from the selected file. Continue?</Text>
+                    </Dialog.Content>
                     <Dialog.Actions>
                         <Button onPress={() => {
                             doce();
                             setImportDialog(false)
-                        }
-                        }>Import</Button>
-                        <Button onPress={() => setImportDialog(false)}>Cancel</Button>
+                        }}>Import</Button>
+                        <Button onPress={() =>
+                            setImportDialog(false)
+                        }>Cancel</Button>
                     </Dialog.Actions>
                 </Dialog>
             </Portal>
         </View>
-
     );
 }
 
