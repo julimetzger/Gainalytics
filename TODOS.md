@@ -14,11 +14,13 @@
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - Mesos einführen mit Kopieren des alten Mesos
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
+- overview klarer kenntlich machen im header (anstatt mode overview anzeigen). Rest ausblenden wenn overview ausgewählt
 - ~~Zum letzten Training springen~~
+- im Planungsmodus keine Häckhen bei den einzelnen sets anzeigen
 - Trainings löschbar machen und editierbar
 
 ## Analyse
-- **neue Seite für Darstellung volumen für bodyparts, übungen etc**
+- **neue Seite für Darstellung volumen für bodyparts, übungen etc** 
 - 2-7 Training accumalator
 - Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären, hier auch mit Drawer arbeiten??
 
@@ -29,8 +31,11 @@
 - Nach datePicker Change sollte 0 der Standardscreen sein
 
 ## Exercises
+- drawer navigation
+- graphiken für alle metriken. Auswahl accumulation day, week, month - on click on graphic only shows value keine anzeige der zugehörigen workouts
 - Muskelgruppen hinzufügen schöner und robuster
-- ~~Rekorde speichern~~ nur 1RM nicht sicher was sonst noch Sinn macht
+- ~~Rekorde speichern~~ nur 1RM nicht 
+- sicher was sonst noch Sinn macht
 - **Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden**
 
 ## Settings
@@ -40,6 +45,9 @@
 - Metriken die im TrainingsOverview angezeigt werden sollen für Muscles/Exercises
 
 ## General
+- performance optimierung - check rerenders and add memoization
+- history und analyse in drawer und einem einzelnen bottom navigation tab
+- settings in bottom navigation tab
 - ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen - funktioniert nur im ExerciseTab
 - react-native-calendars einbauen und testen
 
