@@ -15,6 +15,7 @@
 - Mesos einführen mit Kopieren des alten Mesos
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
 - ~~Zum letzten Training springen~~
+- Trainings löschbar machen und editierbar
 
 ## Analyse
 - **neue Seite für Darstellung volumen für bodyparts, übungen etc**
@@ -30,7 +31,7 @@
 ## Exercises
 - Muskelgruppen hinzufügen schöner und robuster
 - ~~Rekorde speichern~~ nur 1RM nicht sicher was sonst noch Sinn macht
-- Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden
+- **Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden**
 
 ## Settings
 - rir/rpe
@@ -40,6 +41,7 @@
 
 ## General
 - ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen - funktioniert nur im ExerciseTab
+- react-native-calendars einbauen und testen
 
 ## Video Analyse Funktion
 
