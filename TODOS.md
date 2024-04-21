@@ -27,7 +27,7 @@
 ## History
 - Seite mit Datepicker
 - Trainings in Datepicker anzeigen
-- **während scrollen horizontales swipen komplett unterbinden**
+- ~~**während scrollen horizontales swipen komplett unterbinden**~~ scrollen geht noch beim swipen
 - Nach datePicker Change sollte 0 der Standardscreen sein
 
 ## Exercises
@@ -64,5 +64,5 @@
 - ~~Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges~~
 - ~~Crash wenn 2 exercises ausgewählt in der analyse~~
 - ~~navigate up down in trainingsoverview ads sets form other workouts~~
-- History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren
+- ~~History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren~~
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend
