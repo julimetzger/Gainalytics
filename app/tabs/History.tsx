@@ -11,7 +11,7 @@ import Animated, {
 import {Range} from "../components/DateRangePicker";
 import {firstDayOfWeek, getEndOfDay, lastDayOfWeek, subtractMonths} from "../utils/DateHelper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
-import {Gesture, GestureDetector, GestureHandlerRootView, ScrollView} from 'react-native-gesture-handler';
+import {Gesture, GestureDetector, GestureHandlerRootView, ScrollView, State} from 'react-native-gesture-handler';
 import HistoryNode from "../components/HistoryNode";
 import Picker from "../components/Picker";
 import {Muscles} from "../models/Muscles";
@@ -160,19 +160,22 @@ const History = ({route}: Props) => {
 
                 if (isHorizontalPanning) {
                     state.activate();
-                } else
-                    state.fail();
+                } else {
+                    if (evt.state !== State.ACTIVE) {
+                        state.fail();
+                    }
+                }
             })
             .onUpdate((e) => {
                 xPosition.value = zeroPositon + e.translationX;
             })
             .onEnd((e) => {
-                    if (xPosition.value > dimensions.width / SNAP_POINT + zeroPositon || e.velocityX > 200) {
+                    if (xPosition.value > dimensions.width / SNAP_POINT + zeroPositon || e.velocityX > 400) {
                         runOnJS(uiminusOne)();
                         xPosition.value = withTiming(zeroPositon + dimensions.width, userConfig);
                         return;
                     }
-                    if (xPosition.value < -dimensions.width / SNAP_POINT + zeroPositon || e.velocityX < -200) {
+                    if (xPosition.value < -dimensions.width / SNAP_POINT + zeroPositon || e.velocityX < -400) {
                         runOnJS(uiplusOne)();
                         xPosition.value = withTiming(zeroPositon - dimensions.width, userConfig);
                         return;
