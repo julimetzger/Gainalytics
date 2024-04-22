@@ -23,6 +23,7 @@ const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) =>
             <DropDown
                 label={'Muscle'}
                 mode="outlined"
+                inputProps={{width: 100}}
                 visible={dropdownVisible}
                 onDismiss={() => setDropdownVisible(false)}
                 showDropDown={() => setDropdownVisible(true)}

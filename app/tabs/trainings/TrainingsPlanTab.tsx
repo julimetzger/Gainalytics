@@ -7,6 +7,7 @@ import {
     SegmentedButtons,
     Text,
     TextInput,
+    Tooltip,
     TouchableRipple,
     useTheme
 } from 'react-native-paper';
@@ -94,6 +95,7 @@ const header = ({
                         )}
                         {editTrainingName && (
                             <TextInput
+                                maxLength={20}
                                 value={trainingsName}
                                 onChangeText={(text) => {
                                     setTrainingsName(text);
@@ -231,28 +233,43 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                         <IconButton
                             icon="plus-circle" onPress={() => {
                             chChangeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1)
-                        }}
+                            }}
                             theme={theme}
                             iconColor={theme.colors.tertiaryContainer}
                             size={40}>
                         </IconButton>
                     </View>
-                    {Object.entries(trainingsPlan.trainingNames ?? []).map(
-                        ([micro, name], index) => {
-                            return <TouchableRipple style={{height: 40}} key={index} onPress={() => {
-                                setTrainingInMicro(parseInt(micro))
-                                setOpen(false)
-                            }}><Text style={{fontSize: theme.fonts.bodyLarge.fontSize, margin: 5}}>{name}</Text>
-                            </TouchableRipple>
-                        })}
+                    {Object.entries(trainingsPlan.trainingNames ?? []).map(([micro, name], index) => {
+                            return (
+                                <TouchableRipple
+                                    style={{height: 40}}
+                                    key={index}
+                                    onPress={() => {
+                                        setTrainingInMicro(parseInt(micro))
+                                        setOpen(false);
+                                    }}
+                                    //onLongPress={() => {
+                                    //    setTrainingsName(name);
+                                    //    setEditTrainingName(true);
+                                    //    setOpen(false);
+                                    //}}
+                                >
+                                    <Text style={{fontSize: theme.fonts.bodyLarge.fontSize, margin: 5}}>{name}</Text>
+                                </TouchableRipple>
+                            );
+                    })}
                     <Divider/>
                     <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, margin: 5}}>Micro Overview</Text>
-                    <Button mode={showPlanned ? 'contained' : 'outlined'} onPress={() => setShowPlanned(!showPlanned)}>
-                        Show Planned
-                    </Button>
-                    <Button mode={showDone ? 'contained' : 'outlined'} onPress={() => setShowDone(!showDone)}>
-                        Show Done
-                    </Button>
+                    <Tooltip title='Displays the planned workout statistics for this Micro'>
+                        <Button mode={showPlanned ? 'contained' : 'outlined'} onPress={() => setShowPlanned(!showPlanned)}>
+                            Show Planned
+                        </Button>
+                    </Tooltip>
+                    <Tooltip title='Displays workout statistics already recorded for this Micro'>
+                        <Button mode={showDone ? 'contained' : 'outlined'} onPress={() => setShowDone(!showDone)}>
+                            Show Done
+                        </Button>
+                    </Tooltip>
                     <SegmentedButtons
                         style={{paddingHorizontal: 5}}
                         value={''}
@@ -275,14 +292,14 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             }}
         >
             <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
-                <IconButton
-                    icon="menu"
-                    onPress={() => setOpen((prevOpen) => !prevOpen)}>
-                </IconButton>
                 <ScrollView keyboardShouldPersistTaps={'handled'}>
                     <View>
                         {showDone && <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/>}
                         <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
+                        <IconButton
+                            icon="menu"
+                            onPress={() => setOpen((prevOpen) => !prevOpen)}>
+                        </IconButton>
                         <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center'}}>
                             {training?.state === TrainingsState.STARTED &&
                                 <Timer start={training.start!!} label={'Start Training'}/>}
