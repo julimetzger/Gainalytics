@@ -72,7 +72,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                                                              setMuscles={(muscle) => setMuscles([...muscles.filter((value) => value != muscleFromMap), muscle])}
                                                              onDelete={(value) => setMuscles([...muscles.filter(m => m !== value)])}/>
                                     })}
-                                    <Button onPress={() => setMuscles([...muscles, {muscle: undefined, percent: undefined}])}>Add Muscle</Button>
+                                    <Button onPress={() => setMuscles([...muscles, {muscle: undefined, percent: undefined}])}>Add Muscle Group</Button>
                                 </View>}
                         </Dialog.Content>
                         <Text style={{color: theme.colors.error}}>{error}</Text>
