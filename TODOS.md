@@ -14,16 +14,16 @@
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - Mesos einführen mit Kopieren des alten Mesos
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
-- overview klarer kenntlich machen im header (anstatt mode overview anzeigen). Rest ausblenden wenn overview ausgewählt
+- Overview klarer kenntlich machen im Header (anstatt Mode Overview anzeigen). Rest ausblenden wenn Overview ausgewählt
 - ~~Zum letzten Training springen~~
-- im Planungsmodus keine Häckhen bei den einzelnen sets anzeigen
+- im Planungsmodus keine Häkchen bei den einzelnen Sets anzeigen
 - Trainings löschbar machen und editierbar 
 - Trainingsname ändern onLongPress im Drawer 
 
 ## Analyse
 - **neue Seite für Darstellung volumen für bodyparts, übungen etc** 
 - 2-7 Training accumalator
-- (Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären, hier auch mit Drawer arbeiten??)
+- *Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären, hier auch mit Drawer arbeiten?*
 
 ## History
 - Seite mit Datepicker
@@ -34,19 +34,19 @@
 ## Exercises
 - drawer navigation
 - Grafiken für alle Metriken. Auswahl accumulation day, week, month - on click on graphic only shows value keine Anzeige der zugehörigen workouts
-- Muskelgruppen hinzufügen schöner und robuster
+- ~~Muskelgruppen hinzufügen schöner und robuster~~
 - ~~Rekorde speichern~~ nur 1RM nicht sicher was sonst noch Sinn macht
 - Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden
 
 ## Settings
 - rir/rpe
-- **1RM Button default mäßig an/aus**
+- 1RM Button default mäßig an/aus
 - Show timer on/off
 - Metriken die im TrainingsOverview angezeigt werden sollen für Muscles/Exercises
 
 ## General
-- performance optimierung - check rerenders and add memoization
-- history und analyse in drawer und einem einzelnen bottom navigation tab
+- Performance Optimierung - check rerenders and add memoization
+- **History und Analyse in Drawer und einem einzelnen Bottom Navigation Tab**
 - settings in bottom navigation tab
 - ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen - funktioniert nur im ExerciseTab
 - react-native-calendars einbauen und testen

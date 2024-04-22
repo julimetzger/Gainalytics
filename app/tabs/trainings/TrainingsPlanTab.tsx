@@ -95,6 +95,7 @@ const header = ({
                         )}
                         {editTrainingName && (
                             <TextInput
+                                mode='outlined'
                                 maxLength={20}
                                 value={trainingsName}
                                 onChangeText={(text) => {
@@ -254,7 +255,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                                     //    setOpen(false);
                                     //}}
                                 >
-                                    <Text style={{fontSize: theme.fonts.bodyLarge.fontSize, margin: 5}}>{name}</Text>
+                                    <Text style={{fontSize: 20, margin: 5}}>{name}</Text>
                                 </TouchableRipple>
                             );
                     })}
