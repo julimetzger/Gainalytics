@@ -17,12 +17,13 @@
 - overview klarer kenntlich machen im header (anstatt mode overview anzeigen). Rest ausblenden wenn overview ausgewählt
 - ~~Zum letzten Training springen~~
 - im Planungsmodus keine Häckhen bei den einzelnen sets anzeigen
-- Trainings löschbar machen und editierbar
+- Trainings löschbar machen und editierbar 
+- Trainingsname ändern onLongPress im Drawer 
 
 ## Analyse
 - **neue Seite für Darstellung volumen für bodyparts, übungen etc** 
 - 2-7 Training accumalator
-- Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären, hier auch mit Drawer arbeiten??
+- (Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären, hier auch mit Drawer arbeiten??)
 
 ## History
 - Seite mit Datepicker
@@ -32,11 +33,10 @@
 
 ## Exercises
 - drawer navigation
-- graphiken für alle metriken. Auswahl accumulation day, week, month - on click on graphic only shows value keine anzeige der zugehörigen workouts
+- Grafiken für alle Metriken. Auswahl accumulation day, week, month - on click on graphic only shows value keine Anzeige der zugehörigen workouts
 - Muskelgruppen hinzufügen schöner und robuster
-- ~~Rekorde speichern~~ nur 1RM nicht 
-- sicher was sonst noch Sinn macht
-- **Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden**
+- ~~Rekorde speichern~~ nur 1RM nicht sicher was sonst noch Sinn macht
+- Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden
 
 ## Settings
 - rir/rpe
@@ -56,7 +56,7 @@
 ## Try out
 - https://www.npmjs.com/package/react-native-calendars/v/1.1304.1 kalender der auch Markierungen anzeigen kann. Period scheint auch zu funktionieren
 - **~~Toast für records~~ Farben sind noch nicht passend**
-- onPress auf Toast navigiert zu Exercise Stats
+- onPress auf Toast navigiert zu Exercise Stats //TODO go to Exercise Stats
 
 ## Bugs
 - ~~picker auswahl ist nicht mehr swipebar in history (whs muss man da auch die gesture ref mitgeben damit er swipes mitbekommt)~~
@@ -65,4 +65,4 @@
 - ~~Crash wenn 2 exercises ausgewählt in der analyse~~
 - ~~navigate up down in trainingsoverview ads sets form other workouts~~
 - ~~History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren~~
-- Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend
+- Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?

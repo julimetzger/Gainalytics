@@ -3,7 +3,6 @@ import React from 'react';
 import ExerciseTab from '../tabs/exercises/ExerciseTab';
 import AddWorkoutTab from '../tabs/exercises/AddWorkoutTab';
 import {IconButton} from "react-native-paper";
-import {dispatchtoggleMode} from "../redux/settings/dispatchtoggleMode";
 import {Exercise} from "../models/Exercise";
 import ExerciseStatisticsTabs from "../tabs/exercises/ExerciseStatisticsTabs";
 import ExerciseHistory from "../tabs/exercises/ExerciseHistory";
