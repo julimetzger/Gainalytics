@@ -5,7 +5,7 @@ import AddWorkoutTab from '../tabs/exercises/AddWorkoutTab';
 import {IconButton} from "react-native-paper";
 import {Exercise} from "../models/Exercise";
 import ExerciseStatisticsTabs from "../tabs/exercises/ExerciseStatisticsTabs";
-import ExerciseHistory from "../tabs/exercises/ExerciseHistory";
+import ExerciseHistoryTab from "../tabs/exercises/ExerciseHistoryTab";
 import SettingsTab from "../tabs/settings/SettingsTab";
 import {useNavigation} from '@react-navigation/native';
 
@@ -66,7 +66,7 @@ const ExerciseRouter = () => {
             />
             <Stack.Screen
                 name="ExericseHistory"
-                component={ExerciseHistory}
+                component={ExerciseHistoryTab}
                 options={({route}) => ({
                     title: route.params.exercise.name,
                     headerRight: () => (

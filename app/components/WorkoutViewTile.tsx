@@ -32,42 +32,50 @@ const WorkoutViewTile = ({workoutId, highlightMode, editable}: WorkoutVieTilePro
         }
     }
 
+    function getCard() {
+        return <Card mode={"outlined"} style={{marginBottom: 5}} onLongPress={() => setShowEditWhenEditable(true)}
+                     key={workout.id}>
+            <View style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                justifyContent: 'flex-start'
+            }}>
+                <Text
+                    style={{
+                        fontSize: theme.fonts.titleMedium.fontSize,
+                        marginLeft: 5
+                    }}>{userExercise.name}</Text>
+                {showEdit &&
+                    <IconButton style={{margin: 0, alignSelf: 'flex-start', height: 25}}
+                                icon={"delete"}
+                                onPress={() => {
+                                    useDeleteWorkoutdispatch(workout)
+                                    setShowEdit(false)
+                                }}/>}
+            </View>
+            {
+                showEdit &&
+                <AddWorkoutSet onSubmit={(wokoutSet) => addOrUpdateSetInWorkout(wokoutSet, workout)}/>
+            }
+            <WorkoutSetView key={workout.id} sets={workout.sets} onDelete={(workoutSet) => {
+                deleteSetFromWorkout(workoutSet, workout);
+            }} onSubmit={(workoutSet) => {
+                addOrUpdateSetInWorkout(workoutSet, workout);
+            }}
+                            highLightMode={highlightMode || (workout?.records && Object.keys(workout.records).pop() as keyof typeof Metric)}
+                            editable={editable}/>
+        </Card>;
+    }
+
     return (
-        <OutsidePressHandler onOutsidePress={() => setShowEditWhenEditable(false)} key={workout.id}>
-            <Card mode={"outlined"} style={{marginBottom: 5}} onLongPress={() => setShowEditWhenEditable(true)}
-                  key={workout.id}>
-                <View style={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    alignItems: 'flex-start',
-                    justifyContent: 'flex-start'
-                }}>
-                    <Text
-                        style={{
-                            fontSize: theme.fonts.titleMedium.fontSize,
-                            marginLeft: 5
-                        }}>{userExercise.name}</Text>
-                    {showEdit &&
-                        <IconButton style={{margin: 0, alignSelf: 'flex-start', height: 25}}
-                                    icon={"delete"}
-                                    onPress={() => {
-                                        useDeleteWorkoutdispatch(workout)
-                                        setShowEdit(false)
-                                    }}/>}
-                </View>
-                {
-                    showEdit &&
-                    <AddWorkoutSet onSubmit={(wokoutSet) => addOrUpdateSetInWorkout(wokoutSet, workout)}/>
-                }
-                <WorkoutSetView key={workout.id} sets={workout.sets} onDelete={(workoutSet) => {
-                    deleteSetFromWorkout(workoutSet, workout);
-                }} onSubmit={(workoutSet) => {
-                    addOrUpdateSetInWorkout(workoutSet, workout);
-                }}
-                                highLightMode={highlightMode || (workout?.records && Object.keys(workout.records).pop() as keyof typeof Metric)}
-                                editable={editable}/>
-            </Card>
-        </OutsidePressHandler>
+        <View>
+            {editable ?
+                <OutsidePressHandler onOutsidePress={() => setShowEditWhenEditable(false)} key={workout.id}>
+                    {getCard()}
+                </OutsidePressHandler>
+                : getCard()}
+        </View>
     )
 }
 export default memo(WorkoutViewTile, ((prevProps, nextProps) => {
