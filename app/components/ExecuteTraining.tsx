@@ -1,21 +1,24 @@
 import React, {useEffect, useState} from "react";
-import {View} from "react-native";
+import {Dimensions, View} from "react-native";
 import AddWorkout from "./AddWorkout";
 import {useWorkoutById} from "../redux/Workout/useWorkoutById";
 import {useNextTrainingsId} from "../redux/Training/useNextTrainingsId";
 import {Training} from "../models/Training";
 import {Exercise} from "../models/Exercise";
 import {WorkoutSet} from "../models/WorkoutSet";
-import {Dialog, IconButton, Portal} from "react-native-paper";
+import {Button, Dialog, IconButton, Portal} from "react-native-paper";
 import WorkoutSetView from "./WorkoutSetView";
+import ExerciseHistory from "./ExerciseHistory";
 
 const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Props) => {
     let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];
     let doneWorkout = useWorkoutById(doneWorkoutId);
     let nextTrainingsId = useNextTrainingsId();
     let plannedWorkout = useWorkoutById(training.plannedWorkouts[chosenExercise.id!!]);
-    let [open, setOpen] = useState(false);
+    let [openPlanned, setOpenPlanned] = useState(false);
+    let [openHistory, setOpenHistory] = useState(false);
 
+    const screenHeight = Dimensions.get('window').height;
     const [date, setDate] = useState(new Date(Date.now()))
     useEffect(() => {
     }, [chosenExercise]);
@@ -27,12 +30,17 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
                         trainingsId={training.id ?? nextTrainingsId}
                         onSubmitSet={onSubmitSet}
                         date={date}
-                        info={<IconButton
-                            icon={'information-outline'} onPress={() => {
-                            setOpen(true)
-                        }}></IconButton>}/>
+                        info={<View style={{display: 'flex', flexDirection: 'row'}}>
+                            <Button mode={'outlined'}
+                                    onPress={() => {
+                                        setOpenHistory(true)
+                                    }}>H</Button>
+                            <Button
+                                mode={'outlined'} onPress={() => {
+                                setOpenPlanned(true)
+                            }}>P</Button></View>}/>
             <Portal>
-                <Dialog visible={open} onDismiss={() => setOpen(false)}>
+                <Dialog visible={openPlanned} onDismiss={() => setOpenPlanned(false)}>
                     <Dialog.Title>Planned workout for {chosenExercise.name}</Dialog.Title>
                     <Dialog.Content>
                         <View>
@@ -40,7 +48,21 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
                         </View>
                     </Dialog.Content>
                     <Dialog.Actions>
-                        <IconButton icon={'close'} onPress={() => setOpen(false)}></IconButton>
+                        <IconButton icon={'close'} onPress={() => setOpenPlanned(false)}></IconButton>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
+            <Portal>
+                <Dialog style={{maxHeight: screenHeight * 0.95}} visible={openHistory}
+                        onDismiss={() => setOpenHistory(false)}>
+                    <Dialog.Title>History for {chosenExercise.name}</Dialog.Title>
+                    <Dialog.Content>
+                        <View style={{maxHeight: screenHeight * 0.75}}>
+                            <ExerciseHistory exercise={chosenExercise} editable={false}/>
+                        </View>
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <IconButton icon={'close'} onPress={() => setOpenHistory(false)}></IconButton>
                     </Dialog.Actions>
                 </Dialog>
             </Portal>
