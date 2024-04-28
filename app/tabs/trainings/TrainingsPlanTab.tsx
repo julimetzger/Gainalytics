@@ -1,17 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {ScrollView, View} from 'react-native';
-import {
-    Button,
-    Divider,
-    IconButton,
-    SegmentedButtons,
-    Text,
-    TextInput,
-    Tooltip,
-    TouchableRipple,
-    useTheme
-} from 'react-native-paper';
-import {NativeStackHeaderProps, NativeStackScreenProps} from '@react-navigation/native-stack';
+import {Button, IconButton, useTheme} from 'react-native-paper';
+import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/TrainingRouter';
 import {Drawer} from 'react-native-drawer-layout';
 import {useTrainingsPlan} from '../../redux/Training/useTrainingsPlan';
@@ -34,98 +24,9 @@ import dispatchChangeTrainingsName from '../../redux/Training/dispatchChangeTrai
 import MicroOverview from "../../components/MicroOverview";
 import PlanningOverview from "../../components/PlanningOverview";
 import Toast from "react-native-toast-message";
+import TrainingsPlanHeader from "../../components/TrainingsPlanHeader";
+import TrainingsPlanDrawer from "../../components/TrainingsPlanDrawer";
 
-interface headerProps {
-    trainingsPlanName: string;
-    trainingName?: string;
-    micro: number;
-    training: number;
-    props: NativeStackHeaderProps;
-    changeName: (name: string) => void;
-    mode: string;
-}
-
-const header = ({
-                    trainingsPlanName,
-                    trainingName,
-                    micro,
-                    training,
-                    props,
-                    changeName,
-                    mode
-                }: headerProps) => {
-    let theme = useTheme();
-    const [editTrainingName, setEditTrainingName] = useState(false);
-    const [trainingsName, setTrainingsName] = useState(trainingName ?? 'Training' + training);
-
-    useEffect(() => {
-        if (trainingName === undefined) {
-            setTrainingsName('Training ' + training);
-        } else {
-            setTrainingsName(trainingName);
-        }
-    }, [trainingName]);
-    return (
-        //TODO 56 dp does only work for android chatgpt says it should be 44 for ios
-        <View style={{height: 56, display: 'flex', flexDirection: 'row', backgroundColor: theme.colors.background}}>
-            <IconButton size={24} icon={'arrow-left'} onPress={() => props.navigation.goBack()}></IconButton>
-            <View style={{flex: 1, justifyContent: 'space-between', alignItems: 'flex-end', flexDirection: 'row'}}>
-                <View style={{flexDirection: 'column'}}>
-                    <Text
-                        style={{
-                            fontSize: theme.fonts.titleMedium.fontSize,
-                            fontWeight: 'bold'
-                        }}>{trainingsPlanName}</Text>
-                    <View style={{display: 'flex', flexDirection: 'row'}}>
-                        <Text
-                            style={{
-                                fontSize: 20,
-                            }}>
-                            Micro {micro}
-                        </Text>
-                        {!editTrainingName && (
-                            <Text
-                                style={{
-                                    fontSize: 20,
-                                }}
-                                onPress={() => setEditTrainingName(true)}>
-                                {' '}
-                                {trainingsName}
-                            </Text>
-                        )}
-                        {editTrainingName && (
-                            <TextInput
-                                mode='outlined'
-                                maxLength={20}
-                                value={trainingsName}
-                                onChangeText={(text) => {
-                                    setTrainingsName(text);
-                                }}
-                                onEndEditing={() => {
-                                    changeName(trainingsName);
-                                    setEditTrainingName(false);
-                                }}
-                            />
-                        )}
-                    </View>
-                </View>
-                <View style={{flexDirection: 'column', width: 80, marginEnd: 10}}>
-                    <Text
-                        style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold'}}>Mode</Text>
-                    <Text
-                        style={{
-                            fontSize: 20,
-                        }}>
-                        {mode === undefined && 'Planning'}
-                        {mode === TrainingsState.PLANNED && 'Planning'}
-                        {mode === TrainingsState.STARTED && 'Active'}
-                        {mode === TrainingsState.FINISHED && 'Done'}
-                    </Text>
-                </View>
-            </View>
-        </View>
-    );
-};
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
@@ -149,15 +50,11 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     let theme = useTheme();
     navigation.setOptions({
         header: (props) =>
-            header({
-                trainingsPlanName: trainingsPlan.name,
-                trainingName: trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro,
-                micro,
-                training: trainingInMicro,
-                props,
-                changeName: (name) => chChangeTrainingsName(trainingsPlan.id!!, name, trainingInMicro),
-                mode: training?.state
-            }),
+            <TrainingsPlanHeader trainingsPlanName={trainingsPlan.name}
+                                 trainingName={trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
+                                 micro={micro} training={trainingInMicro} props={props}
+                                 changeName={(name) => chChangeTrainingsName(trainingsPlan.id!!, name, trainingInMicro)}
+                                 mode={training?.state}/>
     });
     const handleValueChange = (newValue: any) => {
         switch (newValue) {
@@ -226,71 +123,20 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             onOpen={() => setOpen(true)}
             onClose={() => setOpen(false)}
             drawerType={"front"}
-            renderDrawerContent={() => {
-                return <View style={{display: 'flex', flexDirection: 'column'}}>
-                    <Divider/>
-                    <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center'}}>
-                        <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Trainings</Text>
-                        <IconButton
-                            icon="plus-circle" onPress={() => {
-                            chChangeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1)
-                            }}
-                            theme={theme}
-                            iconColor={theme.colors.tertiaryContainer}
-                            size={40}>
-                        </IconButton>
-                    </View>
-                    {Object.entries(trainingsPlan.trainingNames ?? []).map(([micro, name], index) => {
-                            return (
-                                <TouchableRipple
-                                    style={{height: 40}}
-                                    key={index}
-                                    onPress={() => {
-                                        setTrainingInMicro(parseInt(micro))
-                                        setOpen(false);
-                                    }}
-                                    //onLongPress={() => {
-                                    //    setTrainingsName(name);
-                                    //    setEditTrainingName(true);
-                                    //    setOpen(false);
-                                    //}}
-                                >
-                                    <Text style={{fontSize: 20, margin: 5}}>{name}</Text>
-                                </TouchableRipple>
-                            );
-                    })}
-                    <Divider/>
-                    <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, margin: 5}}>Micro Overview</Text>
-                    <Tooltip title='Displays the planned workout statistics for this Micro'>
-                        <Button mode={showPlanned ? 'contained' : 'outlined'} onPress={() => setShowPlanned(!showPlanned)}>
-                            Show Planned
-                        </Button>
-                    </Tooltip>
-                    <Tooltip title='Displays workout statistics already recorded for this Micro'>
-                        <Button mode={showDone ? 'contained' : 'outlined'} onPress={() => setShowDone(!showDone)}>
-                            Show Done
-                        </Button>
-                    </Tooltip>
-                    <SegmentedButtons
-                        style={{paddingHorizontal: 5}}
-                        value={''}
-                        onValueChange={handleValueChange}
-                        buttons={[
-                            {
-                                icon: 'chevron-left',
-                                value: 'micro - 1',
-                                label: 'Micro ' + (micro - 1),
-                                disabled: micro === 1
-                            },
-                            {
-                                icon: 'chevron-right',
-                                value: 'micro + 1',
-                                label: 'Micro ' + (micro + 1)
-                            },
-                        ]}
-                    />
-                </View>;
-            }}
+            renderDrawerContent={() =>
+                <TrainingsPlanDrawer trainingsPlan={trainingsPlan}
+                                     micro={micro}
+                                     chChangeTrainingsName={chChangeTrainingsName}
+                                     theme={theme}
+                                     handleValueChange={handleValueChange}
+                                     setShowPlanned={setShowPlanned}
+                                     showPlanned={showPlanned}
+                                     setTrainingInMicro={setTrainingInMicro}
+                                     setOpen={setOpen}
+                                     setShowDone={setShowDone}
+                                     showDone={showDone}
+                />
+            }
         >
             <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
                 <ScrollView keyboardShouldPersistTaps={'handled'}>
