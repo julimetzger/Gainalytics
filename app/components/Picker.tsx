@@ -19,6 +19,7 @@ const Picker = ({
                     setAccumulation,
                     accumulation,
                     visible = true,
+                    hideChip = false
                 }: ExercisePickerProps) => {
     const [show, setShow] = useState(visible)
     let allExercises = useAlleExercises()
@@ -47,7 +48,7 @@ const Picker = ({
             })
         })
     }
-    let selectedValues = [...selectedExercises, ...(muscle?? [])]
+    let selectedValues = [...selectedExercises, ...(muscle ?? [])]
     if (metric !== undefined) {
         selectedValues.push(metric)
     }
@@ -92,7 +93,7 @@ const Picker = ({
                                           primaryColor={theme.colors.primaryContainer}
                                           enableAvatar
                                           multiline={true}
-                                          hideChip={false}
+                                          hideChip={hideChip}
             />}
             <IconButton style={{position: 'absolute', right: 0, zIndex: 2}}
                         icon={!show ? 'chevron-down' : 'chevron-up'}
@@ -186,6 +187,7 @@ interface ExercisePickerProps {
     setMetric?: (arg: Metric) => void,
     accumulation?: Accumulation,
     setAccumulation?: (arg: Accumulation | undefined) => void,
+    hideChip?: boolean
 }
 
 export default Picker;

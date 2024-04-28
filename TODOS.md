@@ -14,11 +14,11 @@
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - Mesos einführen mit Kopieren des alten Mesos
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
-- Overview klarer kenntlich machen im Header (anstatt Mode Overview anzeigen). Rest ausblenden wenn Overview ausgewählt
+- ~~Overview klarer kenntlich machen im Header (anstatt Mode Overview anzeigen). Rest ausblenden wenn Overview ausgewählt~~
 - ~~Zum letzten Training springen~~
 - im Planungsmodus keine Häkchen bei den einzelnen Sets anzeigen
 - Trainings löschbar machen und editierbar 
-- Trainingsname ändern onLongPress im Drawer 
+- ~~Trainingsname ändern onLongPress im Drawer~~ 
 
 ## Analyse
 - **neue Seite für Darstellung volumen für bodyparts, übungen etc** 

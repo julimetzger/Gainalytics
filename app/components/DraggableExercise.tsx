@@ -1,8 +1,9 @@
 import React from "react";
 import {Dimensions, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import DraggableFlatList, {RenderItemParams, ScaleDecorator,} from "react-native-draggable-flatlist";
-import {useTheme} from "react-native-paper";
+import {IconButton, useTheme} from "react-native-paper";
 import {Exercise} from "../models/Exercise";
+import SwipeView from 'react-native-vertical-swipe-view';
 
 type Item = {
     key: number;
@@ -47,6 +48,8 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
             height: 60,
             alignItems: "center",
             justifyContent: "center",
+            minWidth: spreedEvenly(exercises.length),
+            maxWidth: spreedMax(exercises.length),
         },
         text: {
             margin: 3,
@@ -65,6 +68,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
 
     const renderItem = ({item, drag, isActive}: RenderItemParams<Item>) => {
         return (
+
             <ScaleDecorator>
                 <TouchableOpacity
                     onLongPress={drag}
@@ -81,6 +85,30 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
                         }
                     ]}
                 >
+                    <SwipeView
+                        position="top"
+                        style={{marginTop: -20}}
+                        maxHeight={30}
+                        headerStyle={{
+                            backgroundColor: 'transparent', height: 15,
+                        }}
+                        renderHeader={() => <View style={{flex: 1}}/>}
+                    >
+                        <View style={{
+                            flex: 1
+                        }}>
+                            <IconButton
+                                style={{
+                                    marginTop: 15
+                                }}
+                                icon={"close-circle"}
+                                iconColor={theme.colors.tertiaryContainer}
+                                onPress={() => {
+                                    setExercises(exercises.filter((exercise) => exercise.id !== item.key));
+                                }}
+                            />
+                        </View>
+                    </SwipeView>
                     <Text
                         style={[
                             styles.text,
@@ -97,7 +125,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
                     </Text>
                 </TouchableOpacity>
             </ScaleDecorator>
-        );
+        )
     };
 
     return (

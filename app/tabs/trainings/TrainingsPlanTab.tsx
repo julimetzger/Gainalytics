@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {ScrollView, View} from 'react-native';
+import {ScrollView, Text, View} from 'react-native';
 import {Button, IconButton, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/TrainingRouter';
@@ -145,7 +145,8 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                             onPress={() => setOpen((prevOpen) => !prevOpen)}>
                         </IconButton>
                         {showDone ? <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/> :
-                            (<View><Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
+                            (<View><Picker exercise={exercises} setExercise={setExerciseWithSideEffects}
+                                           hideChip={true}/>
 
                                 <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center'}}>
                                     {training?.state === TrainingsState.STARTED &&
