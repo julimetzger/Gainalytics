@@ -41,15 +41,12 @@ const TrainingsPlanDrawer = ({
                                  setOpen,
                                  showPlanned,
                                  setShowPlanned,
-                                 showDone,
                                  setShowDone,
                                  handleValueChange,
                                  micro
                              }: TrainingsPlanDrawerProps) => {
     const [edit, setEdit] = useState<number | undefined>(undefined)
     const [trainingsName, setTrainingsName] = useState('');
-    console.log('edit', edit)
-    console.log('trainingsName', trainingsName)
 
     return (<View style={{display: 'flex', flexDirection: 'column'}}>
         <Divider/>
@@ -67,11 +64,12 @@ const TrainingsPlanDrawer = ({
         {Object.entries(trainingsPlan.trainingNames ?? []).map(([micro, name], index) => {
             return (
                 <TouchableRipple
-                    style={{height: 40}}
+                    style={{minHeight: 40}}
                     key={index}
                     onPress={() => {
                         setTrainingInMicro(parseInt(micro))
                         setOpen(false);
+                        setShowDone(false);
                     }}
                     onLongPress={() => {
                         setEdit(index)
@@ -79,7 +77,7 @@ const TrainingsPlanDrawer = ({
                     }}
                 >
                     <View>
-                        {(!edit || edit !== index) && (
+                        {(edit === undefined || edit !== index) && (
                             <Text
                                 style={{
                                     fontSize: 20,
@@ -102,24 +100,34 @@ const TrainingsPlanDrawer = ({
                                 }}
                             />
                         ) : null}</View>
+
                 </TouchableRipple>
             );
         })}
-        <Divider/>
-        <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, margin: 5}}>Micro Overview</Text>
+        <TouchableRipple>
+            <Tooltip title='Displays workout statistics for this micro'>
+                <Text
+                    style={{
+                        fontSize: 20,
+                    }}
+                    onPress={() => {
+                        setOpen(false);
+                        setShowDone(true);
+                    }}
+                >
+                    Overview
+                </Text>
+            </Tooltip>
+        </TouchableRipple>
+        <Divider style={{marginBottom: 20}}/>
         <Tooltip title='Displays the planned workout statistics for this Micro'>
             <Button mode={showPlanned ? 'contained' : 'outlined'}
                     onPress={() => setShowPlanned(!showPlanned)}>
                 Show Planned
             </Button>
         </Tooltip>
-        <Tooltip title='Displays workout statistics already recorded for this Micro'>
-            <Button mode={showDone ? 'contained' : 'outlined'} onPress={() => setShowDone(!showDone)}>
-                Show Done
-            </Button>
-        </Tooltip>
         <SegmentedButtons
-            style={{paddingHorizontal: 5}}
+            style={{paddingHorizontal: 5, marginTop:5}}
             value={''}
             onValueChange={handleValueChange}
             buttons={[

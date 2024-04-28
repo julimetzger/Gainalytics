@@ -1,39 +1,25 @@
 import {NativeStackHeaderProps} from "@react-navigation/native-stack";
-import {IconButton, Text, TextInput, useTheme} from "react-native-paper";
-import React, {useEffect, useState} from "react";
+import {IconButton, Text, useTheme} from "react-native-paper";
+import React from "react";
 import {View} from "react-native";
 import {TrainingsState} from "../models/TrainingsState";
 
 interface headerProps {
     trainingsPlanName: string;
-    trainingName?: string;
+    trainingName: string;
     micro: number;
-    training: number;
     props: NativeStackHeaderProps;
-    changeName: (name: string) => void;
     mode: string;
 }
 
 const TrainingsPlanHeader = ({
-                    trainingsPlanName,
-                    trainingName,
-                    micro,
-                    training,
-                    props,
-                    changeName,
-                    mode
-                }: headerProps) => {
+                                 trainingsPlanName,
+                                 trainingName,
+                                 micro,
+                                 props,
+                                 mode
+                             }: headerProps) => {
     let theme = useTheme();
-    const [editTrainingName, setEditTrainingName] = useState(false);
-    const [trainingsName, setTrainingsName] = useState(trainingName ?? 'Training' + training);
-
-    useEffect(() => {
-        if (trainingName === undefined) {
-            setTrainingsName('Training ' + training);
-        } else {
-            setTrainingsName(trainingName);
-        }
-    }, [trainingName]);
     return (
         //TODO 56 dp does only work for android chatgpt says it should be 44 for ios
         <View style={{height: 56, display: 'flex', flexDirection: 'row', backgroundColor: theme.colors.background}}>
@@ -52,45 +38,28 @@ const TrainingsPlanHeader = ({
                             }}>
                             Micro {micro}
                         </Text>
-                        {!editTrainingName && (
-                            <Text
-                                style={{
-                                    fontSize: 20,
-                                }}
-                                onPress={() => setEditTrainingName(true)}>
-                                {' '}
-                                {trainingsName}
-                            </Text>
-                        )}
-                        {editTrainingName && (
-                            <TextInput
-                                mode='outlined'
-                                maxLength={20}
-                                value={trainingsName}
-                                onChangeText={(text) => {
-                                    setTrainingsName(text);
-                                }}
-                                onEndEditing={() => {
-                                    changeName(trainingsName);
-                                    setEditTrainingName(false);
-                                }}
-                            />
-                        )}
+                        <Text
+                            style={{
+                                fontSize: 20,
+                            }}>
+                            {" " + trainingName}
+                        </Text>
                     </View>
                 </View>
-                <View style={{flexDirection: 'column', width: 80, marginEnd: 10}}>
-                    <Text
-                        style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold'}}>Mode</Text>
-                    <Text
-                        style={{
-                            fontSize: 20,
-                        }}>
-                        {mode === undefined && 'Planning'}
-                        {mode === TrainingsState.PLANNED && 'Planning'}
-                        {mode === TrainingsState.STARTED && 'Active'}
-                        {mode === TrainingsState.FINISHED && 'Done'}
-                    </Text>
-                </View>
+                {mode !== 'Overview' &&
+                    <View style={{flexDirection: 'column', width: 80, marginEnd: 10}}>
+                        <Text
+                            style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold'}}>Mode</Text>
+                        <Text
+                            style={{
+                                fontSize: 20,
+                            }}>
+                            {mode === undefined && 'Planning'}
+                            {mode === TrainingsState.PLANNED && 'Planning'}
+                            {mode === TrainingsState.STARTED && 'Active'}
+                            {mode === TrainingsState.FINISHED && 'Done'}
+                        </Text>
+                    </View>}
             </View>
         </View>
     );

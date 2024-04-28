@@ -51,10 +51,9 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     navigation.setOptions({
         header: (props) =>
             <TrainingsPlanHeader trainingsPlanName={trainingsPlan.name}
-                                 trainingName={trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
-                                 micro={micro} training={trainingInMicro} props={props}
-                                 changeName={(name) => chChangeTrainingsName(trainingsPlan.id!!, name, trainingInMicro)}
-                                 mode={training?.state}/>
+                                 trainingName={showDone ? 'Overview' : trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
+                                 micro={micro} props={props}
+                                 mode={showDone ? 'Overview' : training?.state}/>
     });
     const handleValueChange = (newValue: any) => {
         switch (newValue) {
@@ -141,60 +140,61 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
                 <ScrollView keyboardShouldPersistTaps={'handled'}>
                     <View>
-                        {showDone && <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/>}
-                        <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
                         <IconButton
                             icon="menu"
                             onPress={() => setOpen((prevOpen) => !prevOpen)}>
                         </IconButton>
-                        <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center'}}>
-                            {training?.state === TrainingsState.STARTED &&
-                                <Timer start={training.start!!} label={'Start Training'}/>}
-                            {training?.state && <Button mode="outlined" onPress={changePlanningmode}>
-                                {training?.state === TrainingsState.PLANNED && 'Start Training'}
-                                {training?.state === TrainingsState.STARTED && 'Finish Training'}
-                                {training?.state === TrainingsState.FINISHED && overview && 'Show Sets'}
-                                {training?.state === TrainingsState.FINISHED && !overview && 'Show Overview'}
-                            </Button>}
-                            {training?.state === TrainingsState.STARTED &&
-                                <Timer start={timeInWorkout} reset={true} label={'Last Set'}/>}
-                        </View>
-                        {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
-                            <View>
-                                <DraggableExercise
-                                    exercises={exercises}
-                                    setExercises={setExerciseWithSideEffects}
-                                    chosenExercise={chosenExercise}
-                                    chooseExercise={(exercise) => {
-                                        setchosenExercise(exercise.id);
-                                    }}
-                                    doneExerciseIds={doneExerciseIds}
-                                />
-                            </View>
-                        )}
-                        {training === undefined && <TrainingsBase trainingsPlan={trainingsPlan}
-                                                                  micro={micro}
-                                                                  trainingInMicro={trainingInMicro}/>}
+                        {showDone ? <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/> :
+                            (<View><Picker exercise={exercises} setExercise={setExerciseWithSideEffects}/>
 
-                        {chosenExercise && training?.state === TrainingsState.PLANNED && (
-                            <PlanWorkoutInTraining training={training}
-                                                   trainingsPlanId={trainingsPlan.id!!}
-                                                   trainingInMicro={trainingInMicro}
-                                                   micro={micro}
-                                                   chosenExercise={chosenExercise!!}/>
-                        )}
-                        {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro}/>}
-                        {training?.state === TrainingsState.STARTED && chosenExercise && (
-                            <ExecuteWorkoutInTraining training={training}
-                                                      chosenExercise={chosenExercise!!}
-                                                      onSubmit={() => goToNextExercise()}
-                                                      onSubmitSet={() => setTimeInWorkout(new Date(Date.now()))}/>
-                        )}
-                        {training?.state === TrainingsState.FINISHED && overview &&
-                            <TrainingsOverview training={training} previousTraining={lastTraining}/>}
+                                <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center'}}>
+                                    {training?.state === TrainingsState.STARTED &&
+                                        <Timer start={training.start!!} label={'Start Training'}/>}
+                                    {training?.state && <Button mode="outlined" onPress={changePlanningmode}>
+                                        {training?.state === TrainingsState.PLANNED && 'Start Training'}
+                                        {training?.state === TrainingsState.STARTED && 'Finish Training'}
+                                        {training?.state === TrainingsState.FINISHED && overview && 'Show Sets'}
+                                        {training?.state === TrainingsState.FINISHED && !overview && 'Show Overview'}
+                                    </Button>}
+                                    {training?.state === TrainingsState.STARTED &&
+                                        <Timer start={timeInWorkout} reset={true} label={'Last Set'}/>}
+                                </View>
+                                {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
+                                    <View>
+                                        <DraggableExercise
+                                            exercises={exercises}
+                                            setExercises={setExerciseWithSideEffects}
+                                            chosenExercise={chosenExercise}
+                                            chooseExercise={(exercise) => {
+                                                setchosenExercise(exercise.id);
+                                            }}
+                                            doneExerciseIds={doneExerciseIds}
+                                        />
+                                    </View>
+                                )}
+                                {training === undefined && <TrainingsBase trainingsPlan={trainingsPlan}
+                                                                          micro={micro}
+                                                                          trainingInMicro={trainingInMicro}/>}
 
-                        {training?.state === TrainingsState.FINISHED && !overview &&
-                            <TrainingHistory training={training}/>}
+                                {chosenExercise && training?.state === TrainingsState.PLANNED && (
+                                    <PlanWorkoutInTraining training={training}
+                                                           trainingsPlanId={trainingsPlan.id!!}
+                                                           trainingInMicro={trainingInMicro}
+                                                           micro={micro}
+                                                           chosenExercise={chosenExercise!!}/>
+                                )}
+                                {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro}/>}
+                                {training?.state === TrainingsState.STARTED && chosenExercise && (
+                                    <ExecuteWorkoutInTraining training={training}
+                                                              chosenExercise={chosenExercise!!}
+                                                              onSubmit={() => goToNextExercise()}
+                                                              onSubmitSet={() => setTimeInWorkout(new Date(Date.now()))}/>
+                                )}
+                                {training?.state === TrainingsState.FINISHED && overview &&
+                                    <TrainingsOverview training={training} previousTraining={lastTraining}/>}
+
+                                {training?.state === TrainingsState.FINISHED && !overview &&
+                                    <TrainingHistory training={training}/>}</View>)}
                     </View>
                 </ScrollView>
             </View>
