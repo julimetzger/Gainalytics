@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useState} from "react";
 import {Dimensions, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import DraggableFlatList, {RenderItemParams, ScaleDecorator,} from "react-native-draggable-flatlist";
 import {IconButton, useTheme} from "react-native-paper";
@@ -47,9 +47,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
         rowItem: {
             height: 60,
             alignItems: "center",
-            justifyContent: "center",
-            minWidth: spreedEvenly(exercises.length),
-            maxWidth: spreedMax(exercises.length),
+            justifyContent: "center"
         },
         text: {
             margin: 3,
@@ -57,6 +55,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
             maxWidth: spreedMax(exercises.length),
             color: theme.colors.onSecondaryContainer,
             fontSize: theme.fonts.bodyMedium.fontSize,
+            marginTop: -5,
             fontWeight: "bold",
             textAlign: "center",
         },
@@ -67,6 +66,8 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
     }
 
     const renderItem = ({item, drag, isActive}: RenderItemParams<Item>) => {
+        const [interactive, setInteractive] = useState(false)
+        console.log("interactive", interactive)
         return (
 
             <ScaleDecorator>
@@ -90,26 +91,24 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
                         style={{marginTop: -20}}
                         maxHeight={30}
                         headerStyle={{
-                            backgroundColor: 'transparent', height: 15,
+                            backgroundColor: 'transparent', height: 25, minWidth: spreedEvenly(exercises.length),
+                            maxWidth: spreedMax(exercises.length),
                         }}
                         renderHeader={() => <View style={{flex: 1}}/>}
+                        onRequestShow={() => setInteractive(true)}
+                        onRequestClose={() => setInteractive(false)}
                     >
-                        <View style={{
-                            flex: 1
-                        }}>
-                            <IconButton
-                                style={{
-                                    marginTop: 15
-                                }}
-                                icon={"close-circle"}
-                                iconColor={theme.colors.tertiaryContainer}
-                                onPress={() => {
-                                    setExercises(exercises.filter((exercise) => exercise.id !== item.key));
-                                }}
-                            />
-                        </View>
+                        {interactive && <IconButton
+                            style={{marginTop: 5}}
+                            icon={"close-circle"}
+                            iconColor={theme.colors.tertiaryContainer}
+                            onPress={() => {
+                                setExercises(exercises.filter((exercise) => exercise.id !== item.key));
+                            }}
+                        />}
                     </SwipeView>
                     <Text
+                        numberOfLines={3}
                         style={[
                             styles.text,
                             {
