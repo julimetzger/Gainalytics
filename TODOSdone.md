@@ -21,6 +21,8 @@
 
 ## Exercises
 - ~~Übersichtsseite mit 1RM - 12Rm~~
+- ~~Muskelgruppen hinzufügen schöner und robuster~~
+
 
 ## Settings
 - ~~Darkmode/Lightmode~~

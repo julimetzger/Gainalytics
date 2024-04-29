@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {ScrollView, Text, View} from 'react-native';
+import {ScrollView, View} from 'react-native';
 import {Button, IconButton, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/TrainingRouter';
@@ -140,14 +140,13 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
                 <ScrollView keyboardShouldPersistTaps={'handled'}>
                     <View>
-                        <IconButton
-                            icon="menu"
-                            onPress={() => setOpen((prevOpen) => !prevOpen)}>
-                        </IconButton>
                         {showDone ? <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/> :
                             (<View><Picker exercise={exercises} setExercise={setExerciseWithSideEffects}
                                            hideChip={true}/>
-
+                                <IconButton
+                                    icon="menu"
+                                    onPress={() => setOpen((prevOpen) => !prevOpen)}>
+                                </IconButton>
                                 <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center'}}>
                                     {training?.state === TrainingsState.STARTED &&
                                         <Timer start={training.start!!} label={'Start Training'}/>}
