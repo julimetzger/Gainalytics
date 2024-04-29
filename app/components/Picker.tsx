@@ -89,7 +89,7 @@ const Picker = ({
                                           data={dropdownExerciseStructure}
                                           paperTheme={theme}
                                           disableSort={false}
-                                          selectedItemViewStyle={{display: 'none'}}
+                                          selectedItemViewStyle={{backgroundColor: theme.colors.primary}}
                                           primaryColor={theme.colors.primaryContainer}
                                           enableAvatar
                                           multiline={true}
