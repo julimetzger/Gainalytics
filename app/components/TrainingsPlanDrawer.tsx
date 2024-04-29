@@ -81,6 +81,7 @@ const TrainingsPlanDrawer = ({
                             <Text
                                 style={{
                                     fontSize: 20,
+                                    margin: 5,
                                 }}>
                                 {name}
                             </Text>
@@ -109,6 +110,7 @@ const TrainingsPlanDrawer = ({
                 <Text
                     style={{
                         fontSize: 20,
+                        margin: 5,
                     }}
                     onPress={() => {
                         setOpen(false);

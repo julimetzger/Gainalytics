@@ -39,7 +39,7 @@ const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) =>
                 label={'Involvement'}
                 mode="outlined"
                 defaultValue={"100"}
-                style={{width: 100}}
+                style={{width: 90}}
                 selectTextOnFocus={true}
                 right={<TextInput.Icon icon="percent" size={20}/>}
                 value={muscleValue?.percent?.toString()}

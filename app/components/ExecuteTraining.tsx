@@ -6,7 +6,7 @@ import {useNextTrainingsId} from "../redux/Training/useNextTrainingsId";
 import {Training} from "../models/Training";
 import {Exercise} from "../models/Exercise";
 import {WorkoutSet} from "../models/WorkoutSet";
-import {Button, Dialog, IconButton, Portal} from "react-native-paper";
+import {Dialog, IconButton, Portal} from "react-native-paper";
 import WorkoutSetView from "./WorkoutSetView";
 import ExerciseHistory from "./ExerciseHistory";
 
@@ -31,14 +31,17 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
                         onSubmitSet={onSubmitSet}
                         date={date}
                         info={<View style={{display: 'flex', flexDirection: 'row'}}>
-                            <Button mode={'outlined'}
-                                    onPress={() => {
-                                        setOpenHistory(true)
-                                    }}>H</Button>
-                            <Button
-                                mode={'outlined'} onPress={() => {
-                                setOpenPlanned(true)
-                            }}>P</Button></View>}/>
+                            <IconButton
+                                icon="history"
+                                onPress={() => {
+                                    setOpenHistory(true)
+                                }}></IconButton>
+                            <IconButton
+                                icon="book-open-variant"
+                                onPress={() => {
+                                    setOpenPlanned(true)
+                                }}></IconButton>
+                        </View>}/>
             <Portal>
                 <Dialog visible={openPlanned} onDismiss={() => setOpenPlanned(false)}>
                     <Dialog.Title>Planned workout for {chosenExercise.name}</Dialog.Title>
