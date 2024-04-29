@@ -35,11 +35,12 @@ const WorkoutSetOverview = ({
                                 previousWorkouts = [],
                                 showExercises = true
                             }: WorkoutSetOverviewProps) => {
-    let trainingExcercises = useExerciseByIds(trainingsWorkouts.map((workout: Workout) => workout.exerciseId));
+    let trainingExcercises = useExerciseByIds([...trainingsWorkouts].map((workout: Workout) => workout.exerciseId));
+    let previousExercises = useExerciseByIds([...previousWorkouts].map((workout: Workout) => workout.exerciseId));
     const [seledtedMuscle, setSelectedMuscle] = useState<MuscleDetails | undefined>(undefined)
 
     let exerciseWorkoutMap = new Map<Exercise, WorkoutSetMap>();
-    trainingsWorkouts.forEach(workout => {
+    [...trainingsWorkouts].forEach(workout => {
         let exercise = trainingExcercises.find((exercise: Exercise) => exercise.id === workout.exerciseId);
         let lastWorkout = previousWorkouts.filter((previousWorkout: Workout) => previousWorkout.exerciseId === workout.exerciseId);
         if (workout && exercise) {
@@ -63,9 +64,22 @@ const WorkoutSetOverview = ({
             let metricComparison = calculateMetricComparisons(workout);
             exerciseMetricMap.set(exercise, metricComparison);
         }
-    )
-
-    let muscleMetricMap = calculateMetricComparisonsForMuscle(exerciseWorkoutMap);
+    );
+    let exerciseWorkoutMapWithPreviousWorkouts = new Map(exerciseWorkoutMap);
+    [...previousWorkouts].forEach(workout => {
+        let exercise = previousExercises.find((exercise: Exercise) => exercise.id === workout.exerciseId);
+        if (workout && exercise) {
+            if (exerciseWorkoutMapWithPreviousWorkouts.get(exercise)) {
+                exerciseWorkoutMapWithPreviousWorkouts.get(exercise)?.lastWorkoutSets?.push(...workout.sets);
+            } else {
+                exerciseWorkoutMapWithPreviousWorkouts.set(exercise, {
+                    currentWorkoutSets: [],
+                    lastWorkoutSets: [...workout.sets]
+                });
+            }
+        }
+    })
+    let muscleMetricMap = calculateMetricComparisonsForMuscle(exerciseWorkoutMapWithPreviousWorkouts);
 
     return <>
         {showExercises && <Card style={{margin: 5}}>
@@ -142,7 +156,8 @@ const WorkoutSetOverview = ({
                             <DataTable.Title style={styles.flexL}>Exercise</DataTable.Title>
                             <DataTable.Title style={styles.flexM} numeric>Value</DataTable.Title>
                             <DataTable.Title style={styles.flexS} numeric>Factor</DataTable.Title>
-                            <DataTable.Title style={styles.flexS} numeric numberOfLines={2}>Contribution</DataTable.Title>
+                            <DataTable.Title style={styles.flexS} numeric
+                                             numberOfLines={2}>Contribution</DataTable.Title>
                         </DataTable.Header>
                         {Array.from(exerciseWorkoutMap).map(([exercise, workout]) => {
                             let matchedExercise = exercise.muscles?.find((muscle) => muscle.muscle === seledtedMuscle?.muscle) as MusclePercentPair | undefined;
@@ -151,10 +166,13 @@ const WorkoutSetOverview = ({
                                 let percent = [Metric.SETS, Metric.VOLUME, Metric.REPS].includes(seledtedMuscle?.metric!!) ? matchedExercise.percent : 100;
                                 return (
                                     <DataTable.Row>
-                                        <DataTable.Cell style={styles.flexL}><Text>{exercise.name}</Text></DataTable.Cell>
-                                        <DataTable.Cell style={styles.flexM} numeric>{unmodifiedMetricValue}</DataTable.Cell>
+                                        <DataTable.Cell
+                                            style={styles.flexL}><Text>{exercise.name}</Text></DataTable.Cell>
+                                        <DataTable.Cell style={styles.flexM}
+                                                        numeric>{unmodifiedMetricValue}</DataTable.Cell>
                                         <DataTable.Cell style={styles.flexS} numeric>{percent}</DataTable.Cell>
-                                        <DataTable.Cell style={styles.flexS} numeric>{unmodifiedMetricValue!! * percent!! / 100}</DataTable.Cell>
+                                        <DataTable.Cell style={styles.flexS}
+                                                        numeric>{unmodifiedMetricValue!! * percent!! / 100}</DataTable.Cell>
                                     </DataTable.Row>
                                 )
                             }
