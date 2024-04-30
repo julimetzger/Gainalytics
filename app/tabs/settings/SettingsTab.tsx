@@ -11,7 +11,7 @@ import {GlobalState} from "../../redux/rootReducer";
 import {dispatchFullImport} from "../../redux/fullstateactions/dispatchFullImport";
 import Toast from "react-native-toast-message";
 
-const SettingsTab = ({}: Props) => {
+const SettingsTab = ({navigation}: Props) => {
     let settings = useSettings();
     let dispatchtoggleMode1 = dispatchtoggleMode();
     let store = useStore();

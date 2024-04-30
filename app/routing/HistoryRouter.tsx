@@ -1,32 +1,31 @@
-import {createStackNavigator} from "@react-navigation/stack";
 import React from "react";
 import History from "../tabs/History";
-import {dispatchtoggleMode} from "../redux/settings/dispatchtoggleMode";
-import { IconButton } from "react-native-paper";
 import {Exercise} from "../models/Exercise";
+import {createDrawerNavigator} from '@react-navigation/drawer';
+import AnalyseGraphics from "../tabs/AnalyseGraphics";
 
 export type RootStackParamList = {
     History: { exercise: Exercise, lowerRangeBound: Date | undefined };
+    Analyse: { exercise: { name: string } };
 };
 
 const HistoryRouter = () => {
-    let dispatchtoggleMode1 = dispatchtoggleMode();
-    const Stack = createStackNavigator<RootStackParamList>();
+    const Stack = createDrawerNavigator<RootStackParamList>();
 
     return (
         <Stack.Navigator initialRouteName="History">
             <Stack.Screen
                 name="History"
                 component={History}
-                options={({ route }) => ({
+                options={({route}) => ({
                     title: route.params?.exercise?.name ?? "History",
-                    headerRight: () => (
-                        <IconButton
-                            icon="cog"
-                            size={20}
-                            onPress={dispatchtoggleMode1}
-                        />
-                    ),
+                })}
+            />
+            <Stack.Screen
+                name="Analyse"
+                component={AnalyseGraphics}
+                options={({route}) => ({
+                    title: route.params?.exercise?.name ?? "Analyse",
                 })}
             />
         </Stack.Navigator>
