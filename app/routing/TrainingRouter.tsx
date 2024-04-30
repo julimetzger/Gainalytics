@@ -12,7 +12,6 @@ export type  RootStackParamList = {
 };
 
 const TrainingRouter = () => {
-    let dispatchtoggleMode1 = dispatchtoggleMode();
     const Stack = createStackNavigator<RootStackParamList>();
 
     return (
@@ -22,13 +21,6 @@ const TrainingRouter = () => {
                 component={TrainingHomeTab}
                 options={({route}) => ({
                     title: route.params ?? "Training Home",
-                    headerRight: () => (
-                        <IconButton
-                            onPress={dispatchtoggleMode1}
-                            icon="cog"
-                            size={20}
-                        />
-                    )
                 })}
             />
             <Stack.Screen
@@ -36,13 +28,6 @@ const TrainingRouter = () => {
                 component={TrainingsPlanTab}
                 options={({route}) => ({
                     title: route.params.trainingsPlan.name,
-                    headerRight: () => (
-                        <IconButton
-                            onPress={dispatchtoggleMode1}
-                            icon="cog"
-                            size={20}
-                        />
-                    )
                 })}
             />
         </Stack.Navigator>

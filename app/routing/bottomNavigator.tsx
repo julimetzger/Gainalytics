@@ -37,25 +37,25 @@ export const BottomTabs = () => {
                 }}
             />
             <Tab.Screen
-                name="History"
-                component={HistoryRouter}
-                options={{
-                    tabBarIcon: 'history',
-                }}
-            />
-            <Tab.Screen
-                name="Analyse"
-                component={AnalyseRouter}
-                options={{
-                    tabBarIcon: 'trending-up',
-                }}
-            />
-            <Tab.Screen
                 name="Training"
                 component={TrainingRouter}
                 options={{
                     tabBarIcon: 'book-open-variant',
                     tabBarBadge: isTrainingStarted,
+                }}
+            />
+            <Tab.Screen
+                name="Analyse"
+                component={HistoryRouter}
+                options={{
+                    tabBarIcon: 'trending-up',
+                }}
+            />
+            <Tab.Screen
+                name="Settings"
+                component={AnalyseRouter}
+                options={{
+                    tabBarIcon: 'cog',
                 }}
             />
         </Tab.Navigator>

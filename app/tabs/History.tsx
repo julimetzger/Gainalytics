@@ -156,7 +156,7 @@ const History = ({route}: Props) => {
 
                 const xDiff = Math.abs(evt.changedTouches[0].x - initialTouchLocation.value.x);
                 const yDiff = Math.abs(evt.changedTouches[0].y - initialTouchLocation.value.y);
-                const isHorizontalPanning = xDiff > yDiff && xDiff > 1.5;
+                const isHorizontalPanning = xDiff > yDiff && xDiff > 1;
 
                 if (isHorizontalPanning) {
                     state.activate();

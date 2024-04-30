@@ -3,7 +3,7 @@ import {processColor, ScrollView, StyleSheet} from 'react-native';
 import {useTheme} from 'react-native-paper';
 import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
 import DateRangePicker, {Range} from "../components/DateRangePicker";
-import {firstDayOfWeek, getEndOfDay, lastDayOfWeek, subtractMonths} from "../utils/DateHelper";
+import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from "../utils/DateHelper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
 import {calculateMetricValue, calculateMetricValueForMuscles} from "../utils/RepetitionMaxHelper";
@@ -17,7 +17,6 @@ import {Muscles} from "../models/Muscles";
 import {useExercisesForMuscles} from "../redux/Exercises/useExercisesForMuscles";
 import {Exercise} from "../models/Exercise";
 import {Workout} from "../models/Workout";
-import {el} from "react-native-paper-dates";
 
 const AnalyseGraphics = ({}: Props) => {
     function handleDataPointSelect(value: ChartSelectEvent) {

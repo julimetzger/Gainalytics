@@ -19,7 +19,6 @@ export type RootStackParamList = {
 
 const ExerciseRouter = () => {
     const Stack = createStackNavigator<RootStackParamList>();
-    let navigation = useNavigation();
     return (
         <Stack.Navigator initialRouteName="Exercises">
             <Stack.Screen
@@ -27,13 +26,6 @@ const ExerciseRouter = () => {
                 component={ExerciseTab}
                 options={({route}) => ({
                     title: route.params ?? "Exercises",
-                    headerRight: () => (
-                        <IconButton
-                            onPress={() => navigation.navigate({name: 'Settings', params: undefined})}
-                            icon="cog"
-                            size={20}
-                        />
-                    )
                 })}
             />
             <Stack.Screen
@@ -41,13 +33,6 @@ const ExerciseRouter = () => {
                 component={AddWorkoutTab}
                 options={({route}) => ({
                     title: route.params.exercise.name,
-                    headerRight: () => (
-                        <IconButton
-                            onPress={() => navigation.navigate({name: 'Settings', params: undefined})}
-                            icon="cog"
-                            size={20}
-                        />
-                    )
                 })}
             />
             <Stack.Screen
@@ -55,13 +40,7 @@ const ExerciseRouter = () => {
                 component={ExerciseStatisticsTabs}
                 options={({route}) => ({
                     title: route.params.exercise.name,
-                    headerRight: () => (
-                        <IconButton
-                            onPress={() => navigation.navigate({name: 'Settings', params: undefined})}
-                            icon="cog"
-                            size={20}
-                        />
-                    )
+
                 })}
             />
             <Stack.Screen
@@ -69,20 +48,6 @@ const ExerciseRouter = () => {
                 component={ExerciseHistoryTab}
                 options={({route}) => ({
                     title: route.params.exercise.name,
-                    headerRight: () => (
-                        <IconButton
-                            onPress={() => navigation.navigate({name: 'Settings', params: undefined})}
-                            icon="cog"
-                            size={20}
-                        />
-                    )
-                })}
-            />
-            <Stack.Screen
-                name="Settings"
-                component={SettingsTab}
-                options={({route}) => ({
-                    title: "Settings"
                 })}
             />
         </Stack.Navigator>
