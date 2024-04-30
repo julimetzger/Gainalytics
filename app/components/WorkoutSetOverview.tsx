@@ -69,9 +69,7 @@ const WorkoutSetOverview = ({
     [...previousWorkouts].forEach(workout => {
         let exercise = previousExercises.find((exercise: Exercise) => exercise.id === workout.exerciseId);
         if (workout && exercise) {
-            if (exerciseWorkoutMapWithPreviousWorkouts.get(exercise)) {
-                exerciseWorkoutMapWithPreviousWorkouts.get(exercise)?.lastWorkoutSets?.push(...workout.sets);
-            } else {
+            if (!exerciseWorkoutMapWithPreviousWorkouts.get(exercise)) {
                 exerciseWorkoutMapWithPreviousWorkouts.set(exercise, {
                     currentWorkoutSets: [],
                     lastWorkoutSets: [...workout.sets]

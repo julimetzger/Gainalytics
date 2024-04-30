@@ -46,8 +46,8 @@
 
 ## General
 - Performance Optimierung - check rerenders and add memoization
-- **History und Analyse in Drawer und einem einzelnen Bottom Navigation Tab**
-- settings in bottom navigation tab
+- ~~**History und Analyse in Drawer und einem einzelnen Bottom Navigation Tab**~~
+- ~~settings in bottom navigation tab~~
 - ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen - funktioniert nur im ExerciseTab
 - react-native-calendars einbauen und testen
 
