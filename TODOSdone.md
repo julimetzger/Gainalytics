@@ -10,7 +10,9 @@
 - ~~übungen mit wert der zugehörigen metrik (z.b reps) und zu wieviel prozent sie zur metrik beitragen und der wert multipliziert mit den prozenten.~~
 - ~~Anzeige der muskelgruppen und exercises in voller länge in der Übersicht~~
 - ~~Drawer Navigator Seite für Funktionen und um Buttons auszulagern für schlankeren Style~~
-
+- ~~Trainingsname ändern onLongPress im Drawer~~ 
+- ~~Overview klarer kenntlich machen im Header (anstatt Mode Overview anzeigen). Rest ausblenden wenn Overview ausgewählt~~
+- ~~Zum letzten Training springen~~
 
 ## Analyse
 - ~~percentage für volume, sets und reps berücksichtigen~~
@@ -23,14 +25,12 @@
 - ~~Übersichtsseite mit 1RM - 12Rm~~
 - ~~Muskelgruppen hinzufügen schöner und robuster~~
 
-
 ## Settings
 - ~~Darkmode/Lightmode~~
 - ~~Export/Import alles~~
 
-
 ## General
-
+- ~~settings in bottom navigation tab~~
 
 ## Video Analyse Funktion
 
