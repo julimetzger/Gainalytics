@@ -13,19 +13,19 @@ const HistoryRouter = () => {
     const Stack = createDrawerNavigator<RootStackParamList>();
 
     return (
-        <Stack.Navigator initialRouteName="History">
-            <Stack.Screen
-                name="History"
-                component={History}
-                options={({route}) => ({
-                    title: route.params?.exercise?.name ?? "History",
-                })}
-            />
+        <Stack.Navigator initialRouteName="Analyse">
             <Stack.Screen
                 name="Analyse"
                 component={AnalyseGraphics}
                 options={({route}) => ({
                     title: route.params?.exercise?.name ?? "Analyse",
+                })}
+            />
+            <Stack.Screen
+                name="History"
+                component={History}
+                options={({route}) => ({
+                    title: route.params?.exercise?.name ?? "History",
                 })}
             />
         </Stack.Navigator>

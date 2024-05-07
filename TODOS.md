@@ -14,11 +14,8 @@
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - Mesos einführen mit Kopieren des alten Mesos
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
-- ~~Overview klarer kenntlich machen im Header (anstatt Mode Overview anzeigen). Rest ausblenden wenn Overview ausgewählt~~
-- ~~Zum letzten Training springen~~
 - im Planungsmodus keine Häkchen bei den einzelnen Sets anzeigen
 - Trainings löschbar machen ~~und editierbar~~
-- ~~Trainingsname ändern onLongPress im Drawer~~ 
 
 ## Analyse
 - **neue Seite für Darstellung volumen für bodyparts, übungen etc** 
@@ -28,7 +25,7 @@
 ## History
 - Seite mit Datepicker
 - Trainings in Datepicker anzeigen
-- ~~**während scrollen horizontales swipen komplett unterbinden**~~ scrollen geht noch beim swipen
+- **während scrollen horizontales swipen komplett unterbinden** scrollen geht noch beim swipen
 - Nach datePicker Change sollte 0 der Standardscreen sein
 
 ## Exercises
@@ -38,16 +35,17 @@
 - Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden
 
 ## Settings
+- Show/hide Toasts, einzelne Toasts aktivierbar machen
 - rir/rpe
 - 1RM Button default mäßig an/aus
 - Show timer on/off
 - Metriken die im TrainingsOverview angezeigt werden sollen für Muscles/Exercises
 - Hide/show "kg"
+- Default DatePicker range
 
 ## General
 - Performance Optimierung - check rerenders and add memoization
 - ~~**History und Analyse in Drawer und einem einzelnen Bottom Navigation Tab**~~
-- ~~settings in bottom navigation tab~~
 - ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen - funktioniert nur im ExerciseTab
 - react-native-calendars einbauen und testen
 
@@ -66,3 +64,4 @@
 - ~~navigate up down in trainingsoverview ads sets form other workouts~~
 - ~~History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren~~
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
+- Gerundete Werte erzeugen jedes Mal einen gleichhohen Rekordeintrag (14 x 83kg = 121.73kg)
