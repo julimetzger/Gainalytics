@@ -106,7 +106,7 @@ const TrainingsPlanDrawer = ({
             );
         })}
         <TouchableRipple>
-            <Tooltip title='Displays workout statistics for this micro'>
+            <Tooltip title='Displays workout statistics for this Micro'>
                 <Text
                     style={{
                         fontSize: 20,
@@ -125,7 +125,7 @@ const TrainingsPlanDrawer = ({
         <Tooltip title='Displays the planned workout statistics for this Micro'>
             <Button mode={showPlanned ? 'contained' : 'outlined'}
                     onPress={() => setShowPlanned(!showPlanned)}>
-                Show Planned
+                Enable Planning Mode
             </Button>
         </Tooltip>
         <SegmentedButtons

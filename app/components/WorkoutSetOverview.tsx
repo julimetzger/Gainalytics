@@ -154,8 +154,7 @@ const WorkoutSetOverview = ({
                             <DataTable.Title style={styles.flexL}>Exercise</DataTable.Title>
                             <DataTable.Title style={styles.flexM} numeric>Value</DataTable.Title>
                             <DataTable.Title style={styles.flexS} numeric>Factor</DataTable.Title>
-                            <DataTable.Title style={styles.flexS} numeric
-                                             numberOfLines={2}>Contribution</DataTable.Title>
+                            <DataTable.Title style={styles.flexS} numeric>Result</DataTable.Title>
                         </DataTable.Header>
                         {Array.from(exerciseWorkoutMap).map(([exercise, workout]) => {
                             let matchedExercise = exercise.muscles?.find((muscle) => muscle.muscle === seledtedMuscle?.muscle) as MusclePercentPair | undefined;
@@ -164,13 +163,10 @@ const WorkoutSetOverview = ({
                                 let percent = [Metric.SETS, Metric.VOLUME, Metric.REPS].includes(seledtedMuscle?.metric!!) ? matchedExercise.percent : 100;
                                 return (
                                     <DataTable.Row>
-                                        <DataTable.Cell
-                                            style={styles.flexL}><Text>{exercise.name}</Text></DataTable.Cell>
-                                        <DataTable.Cell style={styles.flexM}
-                                                        numeric>{unmodifiedMetricValue}</DataTable.Cell>
+                                        <DataTable.Cell style={styles.flexL}><Text>{exercise.name}</Text></DataTable.Cell>
+                                        <DataTable.Cell style={styles.flexM} numeric>{unmodifiedMetricValue}</DataTable.Cell>
                                         <DataTable.Cell style={styles.flexS} numeric>{percent}</DataTable.Cell>
-                                        <DataTable.Cell style={styles.flexS}
-                                                        numeric>{unmodifiedMetricValue!! * percent!! / 100}</DataTable.Cell>
+                                        <DataTable.Cell style={styles.flexS} numeric>{unmodifiedMetricValue!! * percent!! / 100}</DataTable.Cell>
                                     </DataTable.Row>
                                 )
                             }
