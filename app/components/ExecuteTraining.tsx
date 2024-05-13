@@ -58,7 +58,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
             <Portal>
                 <Dialog style={{maxHeight: screenHeight * 0.95}} visible={openHistory}
                         onDismiss={() => setOpenHistory(false)}>
-                    <Dialog.Title>History for {chosenExercise.name}</Dialog.Title>
+                    <Dialog.Title numberOfLines={1}>History for {chosenExercise.name}</Dialog.Title>
                     <Dialog.Content>
                         <View style={{maxHeight: screenHeight * 0.75}}>
                             <ExerciseHistory exercise={chosenExercise} editable={false}/>

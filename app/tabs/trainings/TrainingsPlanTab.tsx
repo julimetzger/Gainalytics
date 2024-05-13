@@ -84,7 +84,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             Toast.show({
                 type: 'info',
                 text1: 'Training started!',
-                text2: `You started the training ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+                text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
                 position: 'top',
                 visibilityTime: 5000,
             })
@@ -94,7 +94,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             Toast.show({
                 type: 'info',
                 text1: 'Training finished!',
-                text2: `Congratulations you finished the training ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+                text2: `Congratulations you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
                 position: 'top',
                 visibilityTime: 5000,
             })

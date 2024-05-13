@@ -41,8 +41,8 @@ const SettingsTab = ({navigation}: Props) => {
         }, (err: any) => {
             Toast.show({
                 type: 'error',
-                text1: 'Import not successful!',
-                text2: `Data could not imported from ${documentPickerRespons.name}`,
+                text1: 'Import failed successfully!',
+                text2: `Data could not be imported from ${documentPickerRespons.name}`,
                 position: 'top',
                 visibilityTime: 5000,
             })

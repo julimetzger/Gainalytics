@@ -16,16 +16,17 @@
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
 - im Planungsmodus keine Häkchen bei den einzelnen Sets anzeigen
 - Trainings löschbar machen ~~und editierbar~~
+- Picker im TrainingsPlan zeigt falsches Label von Analyse, sollte nur "Select Exercises for your Training" sein
 
 ## Analyse
-- **neue Seite für Darstellung volumen für bodyparts, übungen etc** 
+- neue Seite für Darstellung volumen für bodyparts, übungen etc
 - 2-7 Training accumalator
 - *Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären, hier auch mit Drawer arbeiten?*
 
 ## History
 - Seite mit Datepicker
 - Trainings in Datepicker anzeigen
-- **während scrollen horizontales swipen komplett unterbinden** scrollen geht noch beim swipen
+- während scrollen horizontales swipen komplett unterbinden scrollen geht noch beim swipen
 - Nach datePicker Change sollte 0 der Standardscreen sein
 
 ## Exercises
@@ -45,7 +46,6 @@
 
 ## General
 - Performance Optimierung - check rerenders and add memoization
-- ~~**History und Analyse in Drawer und einem einzelnen Bottom Navigation Tab**~~
 - ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen - funktioniert nur im ExerciseTab
 - react-native-calendars einbauen und testen
 
@@ -53,15 +53,9 @@
 
 ## Try out
 - https://www.npmjs.com/package/react-native-calendars/v/1.1304.1 kalender der auch Markierungen anzeigen kann. Period scheint auch zu funktionieren
-- **~~Toast für records~~ Farben sind noch nicht passend**
+- ~~Toast für records~~ Farben sind noch nicht passend
 - onPress auf Toast navigiert zu Exercise Stats //TODO go to Exercise Stats
 
 ## Bugs
-- ~~picker auswahl ist nicht mehr swipebar in history (whs muss man da auch die gesture ref mitgeben damit er swipes mitbekommt)~~
-- ~~Trainingsübersicht crasht wenn ein planned training vor der überschicht ist~~
-- ~~Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges~~
-- ~~Crash wenn 2 exercises ausgewählt in der analyse~~
-- ~~navigate up down in trainingsoverview ads sets form other workouts~~
-- ~~History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren~~
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
 - Gerundete Werte erzeugen jedes Mal einen gleichhohen Rekordeintrag (14 x 83kg = 121.73kg)

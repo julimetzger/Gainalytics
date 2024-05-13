@@ -31,6 +31,7 @@
 
 ## General
 - ~~settings in bottom navigation tab~~
+- ~~History und Analyse in Drawer und einem einzelnen Bottom Navigation Tab~~
 
 ## Video Analyse Funktion
 
@@ -43,3 +44,4 @@
 - ~~Picker wählt in der History bei Auswahl von Muskeln die jeweiligen Exercises aus für upper and lower ranges~~
 - ~~Crash wenn 2 exercises ausgewählt in der analyse~~
 - ~~navigate up down in trainingsoverview ads sets form other workouts~~
+- ~~History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren~~
