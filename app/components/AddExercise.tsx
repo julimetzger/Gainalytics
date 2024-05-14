@@ -77,9 +77,6 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                         </Dialog.Content>
                         <Text style={{color: theme.colors.error}}>{error}</Text>
                         <View style={{flexDirection: 'row'}}>
-                            <Dialog.Actions>
-                                <Button onPress={hideDialog}>Cancel</Button>
-                            </Dialog.Actions>
                             {!deleteOverlay && <Dialog.Actions>
                                 <Button onPress={confirmDialog}>Done</Button>
                             </Dialog.Actions>}

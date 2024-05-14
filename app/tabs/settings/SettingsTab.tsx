@@ -82,15 +82,19 @@ const SettingsTab = ({navigation}: Props) => {
                     <Dialog.Content>
                         <Text>This action will replace all existing data in your current application with the data from the selected file. Continue?</Text>
                     </Dialog.Content>
-                    <Dialog.Actions>
-                        <Button onPress={() => {
-                            doce();
-                            setImportDialog(false)
-                        }}>Import</Button>
-                        <Button onPress={() =>
-                            setImportDialog(false)
-                        }>Cancel</Button>
-                    </Dialog.Actions>
+                    <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'space-between'}}>
+                        <Dialog.Actions>
+                            <Button onPress={() => {
+                                doce();
+                                setImportDialog(false)
+                            }}>Import</Button>
+                        </Dialog.Actions>
+                        <Dialog.Actions>
+                            <Button onPress={() =>
+                                setImportDialog(false)
+                            }>Cancel</Button>
+                        </Dialog.Actions>
+                    </View>
                 </Dialog>
             </Portal>
         </View>
