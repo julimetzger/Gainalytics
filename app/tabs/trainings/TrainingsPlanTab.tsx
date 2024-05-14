@@ -94,7 +94,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             Toast.show({
                 type: 'info',
                 text1: 'Training finished!',
-                text2: `Congratulations you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+                text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
                 position: 'top',
                 visibilityTime: 5000,
             })
@@ -141,7 +141,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                 <ScrollView keyboardShouldPersistTaps={'handled'}>
                     <View>
                         {showDone ? <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/> :
-                            (<View><Picker exercise={exercises} setExercise={setExerciseWithSideEffects}
+                            (<View><Picker exercise={exercises} setExercise={setExerciseWithSideEffects} dropdownLabel='Select Exercises for your Training'
                                            hideChip={true}/>
                                 <IconButton
                                     icon="menu"
@@ -175,7 +175,6 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                                 {training === undefined && <TrainingsBase trainingsPlan={trainingsPlan}
                                                                           micro={micro}
                                                                           trainingInMicro={trainingInMicro}/>}
-
                                 {chosenExercise && training?.state === TrainingsState.PLANNED && (
                                     <PlanWorkoutInTraining training={training}
                                                            trainingsPlanId={trainingsPlan.id!!}
@@ -192,9 +191,11 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                                 )}
                                 {training?.state === TrainingsState.FINISHED && overview &&
                                     <TrainingsOverview training={training} previousTraining={lastTraining}/>}
-
                                 {training?.state === TrainingsState.FINISHED && !overview &&
-                                    <TrainingHistory training={training}/>}</View>)}
+                                    <TrainingHistory training={training}/>}
+                            </View>
+                            )
+                        }
                     </View>
                 </ScrollView>
             </View>

@@ -59,3 +59,4 @@
 ## Bugs
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
 - Gerundete Werte erzeugen jedes Mal einen gleichhohen Rekordeintrag (14 x 83kg = 121.73kg)
+- chChangeTrainingsName

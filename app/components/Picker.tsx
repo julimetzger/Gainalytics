@@ -19,7 +19,8 @@ const Picker = ({
                     setAccumulation,
                     accumulation,
                     visible = true,
-                    hideChip = false
+                    hideChip = false,
+                    dropdownLabel = "Select Exercises, Metrics, Accumulation Mode"
                 }: ExercisePickerProps) => {
     const [show, setShow] = useState(visible)
     let allExercises = useAlleExercises()
@@ -81,7 +82,7 @@ const Picker = ({
 
     return (
         <View style={style}>
-            {show && <MultiselectDropdown label="Select Exercises, Metrics, Accumulation Mode"
+            {show && <MultiselectDropdown label={dropdownLabel}
                                           enableSearch
                                           value={selectedValues}
                                           onChange={setExerciseDumb}
@@ -188,6 +189,7 @@ interface ExercisePickerProps {
     accumulation?: Accumulation,
     setAccumulation?: (arg: Accumulation | undefined) => void,
     hideChip?: boolean
+    dropdownLabel?: string
 }
 
 export default Picker;
