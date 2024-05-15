@@ -10,8 +10,9 @@ import {Dispatch} from "react";
 
 export function dispatchRecord(planningMode: boolean, set: WorkoutSet, workout: Workout, dispatch: Dispatch<any>, exercise: Exercise, workoutId: number) {
     if (!planningMode) {
-        let oneRm = calculateMetricValue([set], Metric.ONE_RM);
+        let oneRm = parseFloat(calculateMetricValue([set], Metric.ONE_RM).toFixed(2));
 
+        console.log(workout?.records?.[Record.ONE_RM])
         //Handle Record update
         if (workout?.records?.[Record.ONE_RM] !== undefined) {
             // increase record
@@ -51,17 +52,18 @@ export function dispatchRecord(planningMode: boolean, set: WorkoutSet, workout: 
                 } as Action);
                 return;
             }
-        }
-        //new Record check
-        if (oneRm > Math.max(...exercise.records?.[Record.ONE_RM]?.map(record => record.value ?? 0) ?? [0])) {
-            dispatch({
-                type: 'ADD_RECORD',
-                record: Record.ONE_RM,
-                value: oneRm,
-                workoutId: workoutId,
-                exerciseId: exercise.id
-            } as Action)
-            return;
+        } else {
+            //new Record check
+            if ((Math.max(...exercise.records?.[Record.ONE_RM]?.map(record => record.value ?? 0) ?? [0]) - oneRm) < -0.01) {
+                dispatch({
+                    type: 'ADD_RECORD',
+                    record: Record.ONE_RM,
+                    value: oneRm,
+                    workoutId: workoutId,
+                    exerciseId: exercise.id
+                } as Action)
+                return;
+            }
         }
     }
 }
