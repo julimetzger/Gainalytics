@@ -2,8 +2,8 @@
 
 ## Trainings
 
-- addWorkout mit neuer Übung befüllen als default Wert fürs eintragen
-- 1RM default mäßig an nach eintragen einer Übung
+- ~~addWorkout mit neuer Übung befüllen als default Wert fürs eintragen~~ reset
+- ~~1RM default mäßig an nach eintragen einer Übung~~ reset
 - ~~zeit anzeigen seit start des Trainings~~ aber noch nicht schön
 - ~~Vergleich mit vorherigem Training~~/geplanten Workout nach Abschluss des Trainings
 - ~~Anzeige des planned Trainings während des Trainings~~ vlt. auch vergleich mit done
