@@ -15,6 +15,7 @@ import {EventProvider} from "react-native-outside-press";
 import {registerTranslation} from 'react-native-paper-dates';
 import {useSettings} from "./app/redux/settings/useSettings";
 import Toast from "react-native-toast-message";
+import { StatusBar } from 'react-native';
 
 registerTranslation('en-GB', {
     save: 'Save',
@@ -75,6 +76,7 @@ const AppWithPersist = () => {
     return <PersistGate loading={null} persistor={persistor}>
         <PaperProvider theme={paperThemen}>
             <EventProvider>
+            <StatusBar backgroundColor="#000000" barStyle="light-content" />
                 <NavigationContainer theme={paperThemen}>
                     <BottomTabs/>
                 </NavigationContainer>
