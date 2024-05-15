@@ -76,7 +76,7 @@ const AppWithPersist = () => {
     return <PersistGate loading={null} persistor={persistor}>
         <PaperProvider theme={paperThemen}>
             <EventProvider>
-            <StatusBar backgroundColor="#000000" barStyle="light-content" />
+            <StatusBar backgroundColor={paperThemen.colors.background} barStyle={appSettings?.mode === 'light' ? "dark-content" : "light-content"}/>
                 <NavigationContainer theme={paperThemen}>
                     <BottomTabs/>
                 </NavigationContainer>
