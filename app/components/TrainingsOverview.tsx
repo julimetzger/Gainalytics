@@ -19,7 +19,7 @@ const TrainingsOverview = ({training, previousTraining}: TrainingsOverviewProps)
     let previousWorkouts = useWorkoutsByIds(previousTraining ? Object.values(previousTraining.doneWorkoutIds) : []);
 
     const trainingDate = new Date(new Date(training.end!!).getTime() - new Date(training.start!!).getTime());
-    const previousTrainingTime = previousTraining ? new Date(new Date(previousTraining.end!!).getTime() - new Date(previousTraining.start!!).getTime()) : undefined;
+    const previousTrainingTime = previousTraining?.end ? new Date(new Date(previousTraining.end!!).getTime() - new Date(previousTraining.start!!).getTime()) : undefined;
     let formattedDifference;
     if (previousTrainingTime) {
         let difference = (trainingDate.getTime() - previousTrainingTime.getTime());
