@@ -71,4 +71,4 @@
 
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
 - ~~**Gerundete Werte erzeugen jedes Mal einen gleichhohen Rekordeintrag (14 x 83kg = 121.73kg)**~~
-- **Wenn Training nur planned ist vor einem done Training dann crasht die App**
+- ~~**Wenn Training nur planned ist vor einem done Training dann crasht die App**~~
