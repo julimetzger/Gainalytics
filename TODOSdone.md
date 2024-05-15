@@ -13,6 +13,7 @@
 - ~~Trainingsname ändern onLongPress im Drawer~~ 
 - ~~Overview klarer kenntlich machen im Header (anstatt Mode Overview anzeigen). Rest ausblenden wenn Overview ausgewählt~~
 - ~~Zum letzten Training springen~~
+- ~~Picker im TrainingsPlan zeigt falsches Label von Analyse, sollte nur "Select Exercises for your Training" sein~~
 
 ## Analyse
 - ~~percentage für volume, sets und reps berücksichtigen~~

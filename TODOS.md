@@ -14,13 +14,12 @@
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - Mesos einführen mit Kopieren des alten Mesos
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
-- im Planungsmodus keine Häkchen bei den einzelnen Sets anzeigen
+- Im Planungsmodus keine Häkchen bei den einzelnen Sets anzeigen
 - Trainings löschbar machen ~~und editierbar~~
-- Picker im TrainingsPlan zeigt falsches Label von Analyse, sollte nur "Select Exercises for your Training" sein
 
 ## Analyse
-- neue Seite für Darstellung volumen für bodyparts, übungen etc
-- 2-7 Training accumalator
+- Neue Seite für Darstellung Volumen für Bodyparts, Übungen etc
+- 2-7 Training Accumalator
 - *Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären, hier auch mit Drawer arbeiten?*
 
 ## History
@@ -37,7 +36,7 @@
 
 ## Settings
 - Show/hide Toasts, einzelne Toasts aktivierbar machen
-- rir/rpe
+- RIR/RPE
 - 1RM Button default mäßig an/aus
 - Show timer on/off
 - Metriken die im TrainingsOverview angezeigt werden sollen für Muscles/Exercises
@@ -59,4 +58,3 @@
 ## Bugs
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
 - Gerundete Werte erzeugen jedes Mal einen gleichhohen Rekordeintrag (14 x 83kg = 121.73kg)
-- chChangeTrainingsName

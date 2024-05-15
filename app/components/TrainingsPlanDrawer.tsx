@@ -21,7 +21,7 @@ interface TrainingsPlanDrawerProps {
         colors: MD3Colors;
         fonts: MD3Typescale
     };
-    chChangeTrainingsName: (trainingsPlanId: number, trainingsName: string, trainingsNumber: number) => Action<any>;
+    changeTrainingsName: (trainingsPlanId: number, trainingsName: string, trainingsNumber: number) => Action<any>;
     trainingsPlan: TrainingsPlan;
     setTrainingInMicro: (value: (((prevState: number) => number) | number)) => void;
     setOpen: (value: (((prevState: boolean) => boolean) | boolean)) => void;
@@ -35,7 +35,7 @@ interface TrainingsPlanDrawerProps {
 
 const TrainingsPlanDrawer = ({
                                  theme,
-                                 chChangeTrainingsName,
+                                 changeTrainingsName,
                                  trainingsPlan,
                                  setTrainingInMicro,
                                  setOpen,
@@ -54,7 +54,7 @@ const TrainingsPlanDrawer = ({
             <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Trainings</Text>
             <IconButton
                 icon="plus-circle" onPress={() => {
-                chChangeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1)
+                changeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1)
             }}
                 theme={theme}
                 iconColor={theme.colors.tertiaryContainer}
@@ -95,7 +95,7 @@ const TrainingsPlanDrawer = ({
                                     setTrainingsName(text);
                                 }}
                                 onEndEditing={() => {
-                                    chChangeTrainingsName(trainingsPlan.id!!, trainingsName, index + 1)
+                                    changeTrainingsName(trainingsPlan.id!!, trainingsName, index + 1)
                                     setEdit(undefined);
                                     setTrainingsName('');
                                 }}

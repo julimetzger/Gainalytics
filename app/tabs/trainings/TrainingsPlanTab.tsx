@@ -46,7 +46,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     let doneExerciseIds = training?.doneWorkoutIds ? Object.keys(training.doneWorkoutIds).map(key => parseInt(key)) : [];
     let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
     let finishTraining = dispatchFinishTraining();
-    let chChangeTrainingsName = dispatchChangeTrainingsName();
+    let changeTrainingsName = dispatchChangeTrainingsName();
     let theme = useTheme();
     navigation.setOptions({
         header: (props) =>
@@ -125,7 +125,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             renderDrawerContent={() =>
                 <TrainingsPlanDrawer trainingsPlan={trainingsPlan}
                                      micro={micro}
-                                     chChangeTrainingsName={chChangeTrainingsName}
+                                     changeTrainingsName={changeTrainingsName}
                                      theme={theme}
                                      handleValueChange={handleValueChange}
                                      setShowPlanned={setShowPlanned}
