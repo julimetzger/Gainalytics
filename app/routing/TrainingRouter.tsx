@@ -5,6 +5,7 @@ import TrainingsPlanTab from "../tabs/trainings/TrainingsPlanTab";
 import {IconButton} from "react-native-paper";
 import {dispatchtoggleMode} from "../redux/settings/dispatchtoggleMode";
 import {TrainingsPlan} from "../models/TrainingsPlan";
+import {createNativeStackNavigator} from "@react-navigation/native-stack";
 
 export type  RootStackParamList = {
     TrainingHome: undefined;
@@ -12,7 +13,7 @@ export type  RootStackParamList = {
 };
 
 const TrainingRouter = () => {
-    const Stack = createStackNavigator<RootStackParamList>();
+    const Stack = createNativeStackNavigator<RootStackParamList>();
 
     return (
         <Stack.Navigator initialRouteName="TrainingHome">

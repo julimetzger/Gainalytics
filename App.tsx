@@ -15,8 +15,7 @@ import {EventProvider} from "react-native-outside-press";
 import {registerTranslation} from 'react-native-paper-dates';
 import {useSettings} from "./app/redux/settings/useSettings";
 import Toast from "react-native-toast-message";
-import { StatusBar } from 'react-native';
-import SystemNavigationBar from "react-native-system-navigation-bar";
+import {StatusBar} from 'react-native';
 
 registerTranslation('en-GB', {
     save: 'Save',
@@ -74,11 +73,11 @@ const AppWithPersist = () => {
     } else {
         paperThemen = DarkTheme;
     }
-    SystemNavigationBar.setNavigationColor(paperThemen.colors.elevation.level0);
     return <PersistGate loading={null} persistor={persistor}>
         <PaperProvider theme={paperThemen}>
             <EventProvider>
-            <StatusBar backgroundColor={paperThemen.colors.background} barStyle={appSettings?.mode === 'light' ? "dark-content" : "light-content"}/>
+                <StatusBar backgroundColor={paperThemen.colors.background}
+                           barStyle={appSettings?.mode === 'light' ? "dark-content" : "light-content"}/>
                 <NavigationContainer theme={paperThemen}>
                     <BottomTabs/>
                 </NavigationContainer>
