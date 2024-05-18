@@ -1,5 +1,4 @@
-import {NativeStackHeaderProps} from "@react-navigation/native-stack";
-import {IconButton, Text, useTheme} from "react-native-paper";
+import {Text, useTheme} from "react-native-paper";
 import React from "react";
 import {View} from "react-native";
 import {TrainingsState} from "../models/TrainingsState";
@@ -8,22 +7,28 @@ interface headerProps {
     trainingsPlanName: string;
     trainingName: string;
     micro: number;
-    props: NativeStackHeaderProps;
     mode: string;
+    drawerMenu: React.ReactNode;
 }
 
 const TrainingsPlanHeader = ({
                                  trainingsPlanName,
                                  trainingName,
                                  micro,
-                                 props,
-                                 mode
+                                 mode,
+                                 drawerMenu
                              }: headerProps) => {
     let theme = useTheme();
     return (
         //TODO 56 dp does only work for android chatgpt says it should be 44 for ios
-        <View style={{height: 56, display: 'flex', flexDirection: 'row', backgroundColor: theme.colors.background}}>
-            <IconButton size={24} icon={'arrow-left'} onPress={() => props.navigation.goBack()}></IconButton>
+        <View style={{
+            marginTop: 24,
+            height: 56,
+            display: 'flex',
+            flexDirection: 'row',
+            backgroundColor: theme.colors.background
+        }}>
+            {drawerMenu}
             <View style={{flex: 1, justifyContent: 'space-between', alignItems: 'flex-end', flexDirection: 'row'}}>
                 <View style={{flexDirection: 'column'}}>
                     <Text

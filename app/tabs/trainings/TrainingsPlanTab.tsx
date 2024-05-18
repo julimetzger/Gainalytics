@@ -53,8 +53,12 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         header: (props) =>
             <TrainingsPlanHeader trainingsPlanName={trainingsPlan.name}
                                  trainingName={showDone ? 'Overview' : trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
-                                 micro={micro} props={props}
-                                 mode={showDone ? 'Overview' : training?.state}/>
+                                 micro={micro}
+                                 mode={showDone ? 'Overview' : training?.state}
+                                 drawerMenu={<IconButton
+                                     icon="menu"
+                                     onPress={() => setOpen((prevOpen) => !prevOpen)}>
+                                 </IconButton>}/>
     });
     const handleValueChange = (newValue: any) => {
         switch (newValue) {
@@ -146,10 +150,6 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                             (<View><Picker exercise={exercises} setExercise={setExerciseWithSideEffects}
                                            dropdownLabel='Select Exercises for your Training'
                                            hideChip={true}/>
-                                    <IconButton
-                                        icon="menu"
-                                        onPress={() => setOpen((prevOpen) => !prevOpen)}>
-                                    </IconButton>
                                     <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center'}}>
                                         {training?.state === TrainingsState.STARTED &&
                                             <Timer start={training.start!!} label={'Start Training'}/>}
