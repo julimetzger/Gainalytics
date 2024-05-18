@@ -242,7 +242,7 @@ describe('exerciseReducer', () => {
                         id: 2,
                         name: 'Squat',
                         records: {
-                            '1RM': [{value: 120, workoutId: 1}]
+                            '1RM': [{value: 120.00, workoutId: 1}]
                         }
                     },
                     3: {
@@ -266,7 +266,7 @@ describe('exerciseReducer', () => {
                         id: 2,
                         name: 'Squat',
                         records: {
-                            '1RM': [{value: 100, workoutId: 1}]
+                            '1RM': [{value: 100.00, workoutId: 1}]
                         }
                     },
                     3: {
