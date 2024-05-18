@@ -67,7 +67,6 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
 
     const renderItem = ({item, drag, isActive}: RenderItemParams<Item>) => {
         const [interactive, setInteractive] = useState(false)
-        console.log("interactive", interactive)
         return (
 
             <ScaleDecorator>

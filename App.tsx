@@ -16,6 +16,7 @@ import {registerTranslation} from 'react-native-paper-dates';
 import {useSettings} from "./app/redux/settings/useSettings";
 import Toast from "react-native-toast-message";
 import {StatusBar} from 'react-native';
+import {SafeAreaProvider} from "react-native-safe-area-context";
 
 registerTranslation('en-GB', {
     save: 'Save',
@@ -75,13 +76,15 @@ const AppWithPersist = () => {
     }
     return <PersistGate loading={null} persistor={persistor}>
         <PaperProvider theme={paperThemen}>
-            <EventProvider>
-                <StatusBar backgroundColor={paperThemen.colors.background}
-                           barStyle={appSettings?.mode === 'light' ? "dark-content" : "light-content"}/>
-                <NavigationContainer theme={paperThemen}>
-                    <BottomTabs/>
-                </NavigationContainer>
-            </EventProvider>
+            <SafeAreaProvider>
+                <EventProvider>
+                    <StatusBar backgroundColor={paperThemen.colors.background}
+                               barStyle={appSettings?.mode === 'light' ? "dark-content" : "light-content"}/>
+                    <NavigationContainer theme={paperThemen}>
+                        <BottomTabs/>
+                    </NavigationContainer>
+                </EventProvider>
+            </SafeAreaProvider>
         </PaperProvider>
         <Toast/>
     </PersistGate>;

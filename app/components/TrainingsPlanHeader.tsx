@@ -1,7 +1,8 @@
 import {Text, useTheme} from "react-native-paper";
 import React from "react";
-import {View} from "react-native";
+import {Platform, View} from "react-native";
 import {TrainingsState} from "../models/TrainingsState";
+import {useSafeAreaInsets} from "react-native-safe-area-context";
 
 interface headerProps {
     trainingsPlanName: string;
@@ -19,11 +20,14 @@ const TrainingsPlanHeader = ({
                                  drawerMenu
                              }: headerProps) => {
     let theme = useTheme();
+    const safe = useSafeAreaInsets();
     return (
         //TODO 56 dp does only work for android chatgpt says it should be 44 for ios
         <View style={{
-            marginTop: 24,
-            height: 56,
+            marginTop: safe.top,
+            marginRight: safe.right,
+            marginLeft: safe.left,
+            height: Platform.OS === 'android' ? 56 : 44,
             display: 'flex',
             flexDirection: 'row',
             backgroundColor: theme.colors.background
