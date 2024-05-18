@@ -4,13 +4,14 @@ import AnalyseGraphics from "../tabs/AnalyseGraphics";
 import {IconButton} from "react-native-paper";
 import {dispatchtoggleMode} from "../redux/settings/dispatchtoggleMode";
 import SettingsTab from "../tabs/settings/SettingsTab";
+import {createNativeStackNavigator} from "@react-navigation/native-stack";
 
 export type RootStackParamList = {
     Settings: undefined;
 };
 
 const AnalyseRouter = () => {
-    const Stack = createStackNavigator<RootStackParamList>();
+    const Stack = createNativeStackNavigator<RootStackParamList>();
 
     return (
         <Stack.Navigator initialRouteName="Settings">
