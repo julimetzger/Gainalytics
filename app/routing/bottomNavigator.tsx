@@ -28,7 +28,7 @@ export const BottomTabs = () => {
         })
     }
     return (
-        <Tab.Navigator initialRouteName="Feed" shifting={false} barStyle={{height: 70}}>
+        <Tab.Navigator initialRouteName="Feed" shifting={false} barStyle={{height: 90}}>
             <Tab.Screen
                 name="Exercises"
                 component={ExerciseRouter}
