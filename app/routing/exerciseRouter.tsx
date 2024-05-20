@@ -1,13 +1,10 @@
-import {createStackNavigator} from '@react-navigation/stack';
 import React from 'react';
 import ExerciseTab from '../tabs/exercises/ExerciseTab';
 import AddWorkoutTab from '../tabs/exercises/AddWorkoutTab';
-import {IconButton, useTheme} from "react-native-paper";
+import {useTheme} from "react-native-paper";
 import {Exercise} from "../models/Exercise";
 import ExerciseStatisticsTabs from "../tabs/exercises/ExerciseStatisticsTabs";
 import ExerciseHistoryTab from "../tabs/exercises/ExerciseHistoryTab";
-import SettingsTab from "../tabs/settings/SettingsTab";
-import {useNavigation} from '@react-navigation/native';
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 
 export type RootStackParamList = {

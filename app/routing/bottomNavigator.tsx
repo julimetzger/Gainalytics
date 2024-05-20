@@ -9,7 +9,6 @@ import {TrainingsState} from '../models/TrainingsState';
 import useExerciseRecord from "../redux/Effects/useExerciseRecord";
 import Toast from "react-native-toast-message";
 import {useExercise} from "../redux/Exercises/useExercise";
-import {createNativeStackNavigator} from "@react-navigation/native-stack";
 
 const Tab = createMaterialBottomTabNavigator();
 
@@ -29,7 +28,7 @@ export const BottomTabs = () => {
         })
     }
     return (
-        <Tab.Navigator initialRouteName="Feed" shifting={false}>
+        <Tab.Navigator initialRouteName="Feed" shifting={false} barStyle={{height: 90}}>
             <Tab.Screen
                 name="Exercises"
                 component={ExerciseRouter}

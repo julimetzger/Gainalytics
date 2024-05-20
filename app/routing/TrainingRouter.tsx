@@ -1,9 +1,6 @@
-import {createStackNavigator} from "@react-navigation/stack";
 import React from "react";
 import TrainingHomeTab from "../tabs/trainings/TrainingHome";
 import TrainingsPlanTab from "../tabs/trainings/TrainingsPlanTab";
-import {IconButton} from "react-native-paper";
-import {dispatchtoggleMode} from "../redux/settings/dispatchtoggleMode";
 import {TrainingsPlan} from "../models/TrainingsPlan";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 
