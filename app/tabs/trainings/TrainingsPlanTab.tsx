@@ -150,7 +150,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                             (<View><Picker exercise={exercises} setExercise={setExerciseWithSideEffects}
                                            dropdownLabel='Select Exercises for your Training'
                                            hideChip={true}/>
-                                    <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center'}}>
+                                    <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', margin: 5}}>
                                         {training?.state === TrainingsState.STARTED &&
                                             <Timer start={training.start!!} label={'Start Training'}/>}
                                         {training?.state && <Button mode="outlined" onPress={changePlanningmode}>
