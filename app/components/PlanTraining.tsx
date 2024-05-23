@@ -38,12 +38,13 @@ const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosen
     return (
         <View>
             <AddWorkoutSet
-                onSubmit={(workoutSet) => submitPlannedWorkoutSet(workoutSet)} oneRepMax={oneRepMax}/>
+                onSubmit={(workoutSet) => submitPlannedWorkoutSet(workoutSet)} oneRepMax={oneRepMax} isPlanningMode={true}/>
             {plannedWorkout?.sets.map((workoutSet) => {
                 return <AddWorkoutSet workoutSet={workoutSet}
                                       key={workoutSet.index ?? "" + workoutSet.reps + workoutSet.weight + workoutSet.date?.getTime()}
                                       onSubmit={(workoutSet) => submitPlannedWorkoutSet(workoutSet)}
-                                      onDelete={() => deleteSetFromWorkout(workoutSet, plannedWorkout)}/>
+                                      onDelete={() => deleteSetFromWorkout(workoutSet, plannedWorkout)}
+                                      isPlanningMode={true}/>
             })
 
             }
