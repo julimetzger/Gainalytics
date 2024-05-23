@@ -14,6 +14,9 @@
 - ~~Overview klarer kenntlich machen im Header (anstatt Mode Overview anzeigen). Rest ausblenden wenn Overview ausgewählt~~
 - ~~Zum letzten Training springen~~
 - ~~Picker im TrainingsPlan zeigt falsches Label von Analyse, sollte nur "Select Exercises for your Training" sein~~
+- ~~addWorkout mit neuer Übung befüllen als default Wert fürs eintragen~~
+- ~~1RM default mäßig an nach eintragen einer Übung~~
+- ~~Im Planungsmodus keine Häkchen bei den einzelnen Sets anzeigen~~
 
 ## Analyse
 - ~~percentage für volume, sets und reps berücksichtigen~~
@@ -46,3 +49,5 @@
 - ~~Crash wenn 2 exercises ausgewählt in der analyse~~
 - ~~navigate up down in trainingsoverview ads sets form other workouts~~
 - ~~History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren~~
+- ~~Gerundete Werte erzeugen jedes Mal einen gleichhohen Rekordeintrag (14 x 83kg = 121.73kg)~~
+- ~~Wenn Training nur planned ist vor einem done Training dann crasht die App~~

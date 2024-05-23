@@ -9,10 +9,11 @@ interface AddWorkoutProps {
     workoutSet?: WorkoutSet,
     oneRepMax?: number,
     onDelete?: (arg: WorkoutSet) => void,
-    hasToSaveManually?: boolean
+    hasToSaveManually?: boolean,
+    isPlanningMode?: boolean
 }
 
-const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManually = false}: AddWorkoutProps) => {
+const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManually = false, isPlanningMode = false}: AddWorkoutProps) => {
     let theme = useTheme();
     const [weight, setWeight] = useState(workoutSet?.weight?.toString() ?? '');
     const [rir, setRPE] = useState(workoutSet?.rir?.toString() ?? '0');
@@ -166,18 +167,22 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                         }}
                     />
                 </Tooltip> : null}
-                {persisted() && !editing &&
-                    <IconButton icon={"check"} iconColor={determineCheckmarkColor()}/>}
-                {persisted() && editing &&
-                    <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
-                        submit();
-                        Keyboard.dismiss();
-                    }}/>}
-                {!persisted() && workoutSet !== undefined &&
-                    <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
-                        submit();
-                        Keyboard.dismiss();
-                    }}/>}
+                {!isPlanningMode && (
+                    <>
+                        {persisted() && !editing &&
+                            <IconButton icon={"check"} iconColor={determineCheckmarkColor()}/>}
+                        {persisted() && editing &&
+                            <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
+                                submit();
+                                Keyboard.dismiss();
+                            }}/>}
+                        {!persisted() && workoutSet !== undefined &&
+                            <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
+                                submit();
+                                Keyboard.dismiss();
+                            }}/>}
+                    </>
+                )}
                 {!persisted() && workoutSet === undefined &&
                     <Button
                         mode={'contained'}
