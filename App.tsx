@@ -17,7 +17,6 @@ import {useSettings} from "./app/redux/settings/useSettings";
 import Toast from "react-native-toast-message";
 import {StatusBar} from 'react-native';
 import {SafeAreaProvider} from "react-native-safe-area-context";
-import changeNavigationBarColor from 'react-native-navigation-bar-color';
 
 registerTranslation('en-GB', {
     save: 'Save',
@@ -100,7 +99,5 @@ const App: () => React.ReactElement = () => {
         </>
     );
 };
-
-changeNavigationBarColor('transparent', true);
 
 export default App;
