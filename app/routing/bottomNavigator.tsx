@@ -1,7 +1,7 @@
 import React from 'react';
 import ExerciseRouter from './exerciseRouter';
-import HistoryRouter from "./HistoryRouter";
 import AnalyseRouter from "./AnalyseRouter";
+import SettingsRouter from "./SettingsRouter";
 import {createMaterialBottomTabNavigator} from "react-native-paper/react-navigation";
 import TrainingRouter from "./TrainingRouter";
 import {useTrainings} from '../redux/Training/useTrainings';
@@ -46,14 +46,14 @@ export const BottomTabs = () => {
             />
             <Tab.Screen
                 name="Analyse"
-                component={HistoryRouter}
+                component={AnalyseRouter}
                 options={{
                     tabBarIcon: 'trending-up',
                 }}
             />
             <Tab.Screen
                 name="Settings"
-                component={AnalyseRouter}
+                component={SettingsRouter}
                 options={{
                     tabBarIcon: 'cog',
                 }}
