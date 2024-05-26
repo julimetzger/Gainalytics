@@ -1,6 +1,5 @@
-import {Workout} from "../../models/Workout";
 import {Accumulation, AccumulationMode} from "../../components/Picker";
-import {firstDayOfWeek} from "../../utils/DateHelper";
+import {firstDayOfWeek, getFirstDayOfMonth} from "../../utils/DateHelper";
 import {getAllTrainingsForMicro, getMicroFromTrainingInMicroIndex} from "../../redux/Training/trainingsPlanReducer";
 
 export const handleAccumulationModeBatching = (allWorkouts: Acuumalatable[], accumulationMode?: Accumulation) => {
@@ -17,6 +16,15 @@ export const handleAccumulationModeBatching = (allWorkouts: Acuumalatable[], acc
             }
             case AccumulationMode.WEEK: {
                 let start = new Date(firstDayOfWeek(workout.start!!, 1));
+                if (acc.get(start.toISOString())) {
+                    acc.get(start.toISOString())!!.push(workout);
+                } else {
+                    acc.set(start.toISOString(), [workout]);
+                }
+                return acc;
+            }
+            case AccumulationMode.MONTH: {
+                let start = new Date(getFirstDayOfMonth(workout.start!!));
                 if (acc.get(start.toISOString())) {
                     acc.get(start.toISOString())!!.push(workout);
                 } else {
