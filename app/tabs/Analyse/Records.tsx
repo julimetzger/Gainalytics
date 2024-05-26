@@ -23,7 +23,7 @@ const RecordsTab = () => {
     const [exercise, setExercise] = useState<Exercise[]>([]);
     const [muscle, setMuscle] = useState<Muscles[]>([]);
     const [range, setRange] = useState(new Range(subtractMonths(3, firstDayOfWeek(now, 1)), lastDayOfWeek(now, 0)))
-    const [selectedRecords, setSelectedRecords] = useState([] as Workout[]);
+    const [selectedRecords, setSelectedRecords] = useState<Map<Exercise, Workout[]>>(new Map());
     let exercisesForMuscles = useExercisesForMuscles(muscle);
     let exerciseIDs = exercise.map(it => it.id);
     let exercisesForMusclesIds = exercisesForMuscles.map(it => it.id);
@@ -50,11 +50,26 @@ const RecordsTab = () => {
     }).reverse();
 
     function handleDataPointSelect(value: ChartSelectEvent) {
-        console.log(value.nativeEvent?.x);
-        console.log(new Date(value.nativeEvent?.x!! * (1000 * 60 * 60 * 24)).toISOString())
-        setSelectedRecords(dateWorkoutMapForRecords.find(([date, _]) => new Date(value.nativeEvent?.x!! * (1000 * 60 * 60 * 24)).toISOString() === date)!.map(
-            ([_, workouts]) => workouts
-        ).flat() as Workout[]);
+        console.log("element", value.nativeEvent?.x);
+        console.log("date", new Date(value.nativeEvent?.x!! * (1000 * 60 * 60 * 24)).toISOString())
+        console.log("map", dateWorkoutMapForRecords)
+        if (value.nativeEvent?.x) {
+            let find = dateWorkoutMapForRecords.find(([date, _]) => new Date(value.nativeEvent?.x!! * (1000 * 60 * 60 * 24)).toISOString() === date);
+            let map = new Map<Exercise, Workout[]>;
+            find![1].forEach(
+                (workout) => {
+                    let exercise = exercises.find((exercise) => exercise.id === workout.exerciseId);
+                    if (exercise) {
+                        if (map.get(exercise)) {
+                            map.get(exercise)!!.push(workout);
+                        } else {
+                            map.set(exercise, [workout]);
+                        }
+                    }
+                }
+            );
+            setSelectedRecords(map)
+        }
     }
 
     console.log(selectedRecords);
@@ -105,19 +120,21 @@ const RecordsTab = () => {
                       chartDescription={{text: ''}}
                       onSelect={(value) => handleDataPointSelect(value)}
             />
-            {selectedRecords ? selectedRecords?.map(workout => {
-                let name = exercises.find(
-                    (exercise) => exercise.id === workout.exerciseId)?.name;
-                return (
-                    <Card style={{marginBottom: 5}}>
-                        <Card.Title title={name}/>
-                        <Card.Content>
-                            <Text
-                                key={workout?.id}>{workout?.start ? new Date(workout.start).toDateString() : null} {workout?.records?.[Record.ONE_RM]?.toFixed(2)} kg</Text>
-                        </Card.Content>
-                    </Card>
-                )
-            }) : <></>}
+            {selectedRecords ? Array.from(selectedRecords).map(([exercise, workouts]) => {
+                    return (
+                        <Card style={{marginBottom: 5}}>
+                            <Card.Title title={exercise.name}/>
+                            <Card.Content>
+                                {workouts.map(workout => (
+                                    <Text
+                                        key={workout?.id}>{workout?.start ? new Date(workout.start).toDateString() : null} {workout?.records?.[Record.ONE_RM]?.toFixed(2)} kg</Text>
+                                ))}
+                            </Card.Content>
+                        </Card>
+                    )
+                }) :
+                <></>
+            }
         </ScrollView>
     )
 }
