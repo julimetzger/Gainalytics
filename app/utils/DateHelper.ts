@@ -27,6 +27,11 @@ export const lastDayOfWeek = (dateObject: Date, lastDayOfWeekIndex: number) => {
     return firstDayOfWeek
 }
 
+export const getFirstDayOfMonth = (date: Date) => {
+    date = new Date(date);
+    return new Date(date.getUTCFullYear(), date.getUTCMonth(), 1)
+}
+
 export const getEndOfDay = (d: Date = new Date()) => {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
 }
@@ -41,14 +46,14 @@ export const getDateStringFromDate = (date?: Date | number) => {
         });
     }
     if (typeof date === 'string') {
-        return new Date(date).toLocaleDateString('en-GB',{
+        return new Date(date).toLocaleDateString('en-GB', {
             weekday: 'short',
             day: '2-digit',
             month: '2-digit',
             year: '2-digit'
         });
     } else {
-        return date?.toLocaleDateString('en-GB',{
+        return date?.toLocaleDateString('en-GB', {
             weekday: 'short',
             day: '2-digit',
             month: '2-digit',

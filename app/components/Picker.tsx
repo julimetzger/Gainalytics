@@ -142,7 +142,7 @@ export enum AccumulationMode {
     //FIVE_WORKOUTS = 'Five Workouts',
     //SIX_WORKOUTS = 'Six Workouts',
     // DEFINED_MICRO_LENGTH = 'Micro Length',
-    // MONTH = 'Month',
+    MONTH = 'Month',
     TRAINING_MICROCYCLE = 'Training Microcycle',
 }
 
