@@ -38,8 +38,6 @@ const RecordsTab = () => {
         .filter((workout: Workout) => workout.sets.length > 0)
         .reduce(handleAccumulationModeBatching(uniqueWorkouts, accumulation), new Map<string, Workout[]>()))
         .map((value) => value as [string, Workout[]])
-    console.log(dateWorkoutMapForRecords);
-
 
     let barValues = dateWorkoutMapForRecords.map(([value, workouts]) => {
         return {
@@ -50,9 +48,6 @@ const RecordsTab = () => {
     }).reverse();
 
     function handleDataPointSelect(value: ChartSelectEvent) {
-        console.log("element", value.nativeEvent?.x);
-        console.log("date", new Date(value.nativeEvent?.x!! * (1000 * 60 * 60 * 24)).toISOString())
-        console.log("map", dateWorkoutMapForRecords)
         if (value.nativeEvent?.x) {
             let find = dateWorkoutMapForRecords.find(([date, _]) => new Date(value.nativeEvent?.x!! * (1000 * 60 * 60 * 24)).toISOString() === date);
             let map = new Map<Exercise, Workout[]>;
@@ -72,7 +67,6 @@ const RecordsTab = () => {
         }
     }
 
-    console.log(selectedRecords);
     return (
         <ScrollView style={{
             backgroundColor: theme.colors.background,
