@@ -1,19 +1,61 @@
 import React from "react";
-import SettingsTab from "../tabs/settings/SettingsTab";
-import {createNativeStackNavigator} from "@react-navigation/native-stack";
+import History from "../tabs/Analyse/History";
+import {Exercise} from "../models/Exercise";
+import {createDrawerNavigator} from '@react-navigation/drawer';
+import AnalyseGraphics from "../tabs/Analyse/AnalyseGraphics";
+import RecordsTab from "../tabs/Analyse/Records";
+import MetricsTab from "../tabs/Analyse/Metrics";
+import GraphsTab from "../tabs/Analyse/GraphsTab";
 
 export type RootStackParamList = {
-    Settings: undefined;
+    History: { exercise: Exercise, lowerRangeBound: Date | undefined };
+    Analyse: { exercise: { name: string } };
+    Records: undefined;
+    Metrics: undefined;
+    Graphs: undefined;
 };
 
 const AnalyseRouter = () => {
-    const Stack = createNativeStackNavigator<RootStackParamList>();
+    const Stack = createDrawerNavigator<RootStackParamList>();
 
     return (
-        <Stack.Navigator initialRouteName="Settings">
+        <Stack.Navigator initialRouteName="Analyse">
             <Stack.Screen
-                name="Settings"
-                component={SettingsTab}
+                name="Analyse"
+                component={AnalyseGraphics}
+                options={({route}) => ({
+                    title: route.params?.exercise?.name ?? "Analyse",
+                })}
+            />
+            <Stack.Screen
+                name="History"
+                component={History}
+                options={({route}) => ({
+                    title: route.params?.exercise?.name ?? "History",
+                })}
+            />
+            <Stack.Screen
+                name="Records"
+                component={RecordsTab}
+                options={() => ({
+                    title: "Records",
+                })}
+
+            />
+            <Stack.Screen
+                name="Metrics"
+                component={MetricsTab}
+                options={() => ({
+                    title: "Metrics Overview",
+                })}
+            />
+
+            <Stack.Screen
+                name="Graphs"
+                component={GraphsTab}
+                options={() => ({
+                    title: "Exercise Graphs"
+                })}
             />
         </Stack.Navigator>
     );

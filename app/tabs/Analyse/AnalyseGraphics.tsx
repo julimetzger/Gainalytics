@@ -1,22 +1,22 @@
 import React, {useEffect, useState} from 'react';
 import {processColor, ScrollView, StyleSheet} from 'react-native';
 import {useTheme} from 'react-native-paper';
-import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
-import DateRangePicker, {Range} from "../components/DateRangePicker";
-import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from "../utils/DateHelper";
+import {useWorkoutsIn} from "../../redux/Workout/useWorkoutsIn";
+import DateRangePicker, {Range} from "../../components/DateRangePicker";
+import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from "../../utils/DateHelper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
-import {calculateMetricValue, calculateMetricValueForMuscles} from "../utils/RepetitionMaxHelper";
-import {RootStackParamList} from "../routing/AnalyseRouter";
+import {calculateMetricValue, calculateMetricValueForMuscles} from "../../utils/RepetitionMaxHelper";
+import {RootStackParamList} from "../../routing/SettingsRouter";
 import {sum, sumBy} from "lodash";
-import Picker, {AccumulationMode, Accumulation, Metric} from "../components/Picker";
-import {useWorkoutsByIds} from "../redux/Workout/useWorkoutsByIds";
-import WorkoutView from "../components/WorkoutView";
-import {getAllTrainingsForMicro, getMicroFromTrainingInMicroIndex} from "../redux/Training/trainingsPlanReducer";
-import {Muscles} from "../models/Muscles";
-import {useExercisesForMuscles} from "../redux/Exercises/useExercisesForMuscles";
-import {Exercise} from "../models/Exercise";
-import {Workout} from "../models/Workout";
+import Picker, {Accumulation, AccumulationMode, Metric} from "../../components/Picker";
+import {useWorkoutsByIds} from "../../redux/Workout/useWorkoutsByIds";
+import WorkoutView from "../../components/WorkoutView";
+import {Muscles} from "../../models/Muscles";
+import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscles";
+import {Exercise} from "../../models/Exercise";
+import {Workout} from "../../models/Workout";
+import {handleAccumulationModeBatching} from "./HandleAccumulationModeBatching";
 
 const AnalyseGraphics = ({}: Props) => {
     function handleDataPointSelect(value: ChartSelectEvent) {
@@ -53,6 +53,7 @@ const AnalyseGraphics = ({}: Props) => {
     let map = Array.from(uniqueWorkouts
         .filter((workout: Workout) => workout.sets.length > 0)
         .reduce(handleAccumulationModeBatching(uniqueWorkouts, accumulation), new Map<string, Workout[]>()))
+        .map((value)=> value as [string, Workout[]])
         .map(([value, workouts]) => {
             let exerciseWorkoutMap = new Map<Exercise, Workout[]>();
             workouts.forEach(workout => {
@@ -180,57 +181,4 @@ function generateTrend(map: LineValue[]): LineValue[] {
 export type Props = NativeStackScreenProps<RootStackParamList, 'Analyse'>;
 
 export default AnalyseGraphics;
-
-const handleAccumulationModeBatching = (allWorkouts: Workout[], accumulationMode?: Accumulation) => {
-    return (acc: Map<string, Workout[]>, workout: Workout): Map<string, Workout[]> => {
-        switch (accumulationMode?.getAccumulationMode()) {
-            case AccumulationMode.SINGLE_DAY: {
-                let dateDayStart = new Date(new Date(workout.start!!).setHours(0, 0, 0, 0));
-                if (acc.get(dateDayStart.toISOString())) {
-                    acc.get(dateDayStart.toISOString())!!.push(workout);
-                } else {
-                    acc.set(dateDayStart.toISOString(), [workout]);
-                }
-                return acc;
-            }
-            case AccumulationMode.WEEK: {
-                let start = new Date(firstDayOfWeek(workout.start!!, 1));
-                if (acc.get(start.toISOString())) {
-                    acc.get(start.toISOString())!!.push(workout);
-                } else {
-                    acc.set(start.toISOString(), [workout]);
-                }
-                return acc;
-            }
-            case AccumulationMode.TRAINING_MICROCYCLE: {
-                let trainingsPlan = accumulationMode?.trainingsPlan;
-                if (trainingsPlan) {
-                    let trainings = trainingsPlan.trainings;
-                    if (workout.trainingsId && Object.values(trainings).includes(workout.trainingsId)) {
-                        Object.entries(trainings).forEach(([key, value]) => {
-                                if (workout.trainingsId === value) {
-                                    let micro = getMicroFromTrainingInMicroIndex(key);
-                                    let allTrainingsForMicro = getAllTrainingsForMicro(trainings, micro);
-                                    let dates = allWorkouts.filter((workout: Workout) => allTrainingsForMicro.includes(workout.trainingsId!!))
-                                        .map((workout: Workout) => workout.start!!)
-                                        .sort()
-                                    if (dates.length > 0) {
-                                        let start = new Date(dates[0]);
-                                        if (acc.get(start.toISOString())) {
-                                            acc.get(start.toISOString())!!.push(workout);
-                                        } else {
-                                            acc.set(start.toISOString(), [workout]);
-                                        }
-                                    }
-                                }
-                            }
-                        )
-                    }
-                }
-                return acc;
-            }
-        }
-        return acc;
-    }
-}
 
