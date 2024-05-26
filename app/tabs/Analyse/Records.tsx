@@ -1,10 +1,10 @@
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/AnalyseRouter";
 import React, {useState} from "react";
-import {BarChart, BarData, BarValue} from "react-native-charts-wrapper";
+import {BarChart, BarData, BarValue, ChartSelectEvent} from "react-native-charts-wrapper";
 import Picker, {Accumulation, AccumulationMode} from "../../components/Picker";
-import {processColor, ScrollView, StyleSheet, View} from "react-native";
-import {Exercise} from "../../models/Exercise";
+import {processColor, ScrollView, StyleSheet} from "react-native";
+import {Exercise, Record} from "../../models/Exercise";
 import {Muscles} from "../../models/Muscles";
 import DateRangePicker, {Range} from "../../components/DateRangePicker";
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from "../../utils/DateHelper";
@@ -12,15 +12,18 @@ import {useWorkoutsIn} from "../../redux/Workout/useWorkoutsIn";
 import {Workout} from "../../models/Workout";
 import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscles";
 import {handleAccumulationModeBatching} from "./HandleAccumulationModeBatching";
-import {useTheme} from "react-native-paper";
+import {Card, Text, useTheme} from "react-native-paper";
+import {useAlleExercises} from "../../redux/Exercises/useAllExercises";
 
 const RecordsTab = () => {
     let now = new Date(Date.now());
     const theme = useTheme();
-    const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumulationMode.SINGLE_DAY))
+    let exercises = useAlleExercises();
+    const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumulationMode.WEEK))
     const [exercise, setExercise] = useState<Exercise[]>([]);
     const [muscle, setMuscle] = useState<Muscles[]>([]);
     const [range, setRange] = useState(new Range(subtractMonths(3, firstDayOfWeek(now, 1)), lastDayOfWeek(now, 0)))
+    const [selectedRecords, setSelectedRecords] = useState([] as Workout[]);
     let exercisesForMuscles = useExercisesForMuscles(muscle);
     let exerciseIDs = exercise.map(it => it.id);
     let exercisesForMusclesIds = exercisesForMuscles.map(it => it.id);
@@ -39,11 +42,22 @@ const RecordsTab = () => {
 
 
     let barValues = dateWorkoutMapForRecords.map(([value, workouts]) => {
-        return {x: new Date(value).getTime(), y: workouts.length} as BarValue
-    });
+        return {
+            x: new Date(value).getTime() / (1000 * 60 * 60 * 24),
+            y: workouts.length,
+            marker: new Date(value).getTime().toString()
+        } as BarValue
+    }).reverse();
 
-    console.log(barValues);
+    function handleDataPointSelect(value: ChartSelectEvent) {
+        console.log(value.nativeEvent?.x);
+        console.log(new Date(value.nativeEvent?.x!! * (1000 * 60 * 60 * 24)).toISOString())
+        setSelectedRecords(dateWorkoutMapForRecords.find(([date, _]) => new Date(value.nativeEvent?.x!! * (1000 * 60 * 60 * 24)).toISOString() === date)!.map(
+            ([_, workouts]) => workouts
+        ).flat() as Workout[]);
+    }
 
+    console.log(selectedRecords);
     return (
         <ScrollView style={{
             backgroundColor: theme.colors.background,
@@ -54,31 +68,56 @@ const RecordsTab = () => {
                     accumulation={accumulation} setAccumulation={setAccumulation}
                     muscle={muscle} setMuscle={setMuscle}/>
             <DateRangePicker range={range} setRange={setRange}/>
-            <BarChart data={{
+            <BarChart drawGridBackground={false} data={{
                 dataSets: [{
+                    label: 'Workouts',
                     config: {
-                        color: processColor(theme.colors.primary),
+                        visible: true,
                         highlightEnabled: true,
-                        highlightColor: processColor(theme.colors.secondary),
+                        color: processColor(theme.colors.primary),
+                        barShadowColor: processColor(theme.colors.primary),
+                        valueTextColor: processColor(theme.colors.primary),
+                        highlightColor: processColor(theme.colors.primary),
                     },
                     values: barValues
-                }]
+                }],
+                config: {
+                    barWidth: 1,
+                }
             } as BarData}
+                      drawValueAboveBar={true}
+                      borderColor={processColor(theme.colors.primary)}
                       style={{
-                          backgroundColor: theme.colors.background,
                           ...styles.chart
                       }}
                       xAxis={{
+                          timeUnit: 'DAYS',
                           valueFormatter: 'date',
                           valueFormatterPattern: 'dd MMM',
-                          position: 'BOTTOM_INSIDE',
+                          position: 'BOTTOM',
                           textColor: processColor(theme.colors.onBackground)
                       }}
                       yAxis={{
                           left: {textColor: processColor(theme.colors.onBackground)},
                           right: {textColor: processColor(theme.colors.onBackground)}
                       }}
+                      legend={{enabled: false}}
+                      chartDescription={{text: ''}}
+                      onSelect={(value) => handleDataPointSelect(value)}
             />
+            {selectedRecords ? selectedRecords?.map(workout => {
+                let name = exercises.find(
+                    (exercise) => exercise.id === workout.exerciseId)?.name;
+                return (
+                    <Card style={{marginBottom: 5}}>
+                        <Card.Title title={name}/>
+                        <Card.Content>
+                            <Text
+                                key={workout?.id}>{workout?.start ? new Date(workout.start).toDateString() : null} {workout?.records?.[Record.ONE_RM]?.toFixed(2)} kg</Text>
+                        </Card.Content>
+                    </Card>
+                )
+            }) : <></>}
         </ScrollView>
     )
 }

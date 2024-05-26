@@ -89,6 +89,8 @@ const AnalyseGraphics = ({}: Props) => {
             } as LineValue]
         })
         .sort(((a, b) => a.x!! - b.x!!));
+
+    console.log(map)
     return (
         <ScrollView style={{
             backgroundColor: theme.colors.background,
