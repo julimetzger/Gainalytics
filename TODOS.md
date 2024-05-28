@@ -20,7 +20,6 @@
 
 - **Neue Seite für Darstellung Volumen für Bodyparts, Übungen etc**
 - 2-7 Training Accumalator
-- *Segmented Buttons (Multiselect) zum Togglen von Exercises, Muscles und Metrics mit Namen um Funktion zu erklären, hier auch mit Drawer arbeiten?*
 
 ## History
 
