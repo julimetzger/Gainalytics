@@ -40,7 +40,6 @@ const ExerciseRouter = () => {
                 component={ExerciseStatisticsTabs}
                 options={({route}) => ({
                     title: route.params.exercise.name,
-
                 })}
             />
             <Stack.Screen

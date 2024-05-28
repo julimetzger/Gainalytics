@@ -2,7 +2,7 @@ import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/exerciseRouter";
 import React, {useState} from "react";
 import {Alert, View} from "react-native";
-import {Button, Dialog, Portal, Switch, Text} from "react-native-paper";
+import {Button, Dialog, Divider, Portal, Switch, Text} from "react-native-paper";
 import {dispatchtoggleMode} from "../../redux/settings/dispatchtoggleMode";
 import {useSettings} from "../../redux/settings/useSettings";
 import {useStore} from "react-redux";
@@ -25,6 +25,10 @@ const SettingsTab = ({navigation}: Props) => {
         var path = FileSaver.DownloadDirectoryPath + '/' + number + '.gains';
         FileSaver.writeFile(path, JSON.stringify(state));
         Alert.alert('exported to ' + FileSaver.DownloadDirectoryPath + '/' + number + '.gains');
+    }
+
+    const showAlert = () => {
+        Alert.alert('Nope. This app is not using retarded measuring systems.')
     }
 
     function importDump(documentPickerRespons: DocumentPickerResponse) {
@@ -70,6 +74,11 @@ const SettingsTab = ({navigation}: Props) => {
                 <Switch onValueChange={() => dispatchtoggleMode1()} value={settings.mode === "dark"}/>
                 <Text style={{alignSelf: 'center'}}>Show 1RM button</Text>
             </View>
+            <View style={{display: 'flex', flexDirection: 'row'}}>
+                <Switch onValueChange={showAlert} value={false}/>
+                <Text style={{alignSelf: 'center'}}>Use imperial units</Text>
+            </View>
+            <View style={{margin: 5}}><Divider /></View>
             <Button onPress={() => {
                 dumbFullStateToFile()
             }}>Export all data</Button>
