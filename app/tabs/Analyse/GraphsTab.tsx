@@ -139,7 +139,7 @@ const GraphsTab = () => {
                                 xAxis={{
                                     valueFormatter: 'date',
                                     valueFormatterPattern: 'dd MMM',
-                                    position: 'BOTTOM_INSIDE',
+                                    position: 'BOTTOM',
                                     textColor: processColor(theme.colors.onBackground)
                                 }}
                                 yAxis={{
