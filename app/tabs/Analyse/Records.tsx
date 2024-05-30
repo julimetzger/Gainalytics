@@ -37,11 +37,11 @@ const RecordsTab = () => {
     let dateWorkoutMapForRecords = Array.from(uniqueWorkouts
         .filter((workout: Workout) => workout.sets.length > 0)
         .reduce(handleAccumulationModeBatching(uniqueWorkouts, accumulation), new Map<string, Workout[]>()))
-        .map((value) => value as [string, Workout[]])
+        .map(([value, workout]) => [new Date(value).getTime() / (1000 * 60 * 60 * 24), workout] as [number, Workout[]])
 
     let barValues = dateWorkoutMapForRecords.map(([value, workouts]) => {
         return {
-            x: new Date(value).getTime() / (1000 * 60 * 60 * 24),
+            x: value,
             y: workouts.length,
             marker: new Date(value).getTime().toString()
         } as BarValue
@@ -49,7 +49,7 @@ const RecordsTab = () => {
 
     function handleDataPointSelect(value: ChartSelectEvent) {
         if (value.nativeEvent?.x) {
-            let find = dateWorkoutMapForRecords.find(([date, _]) => new Date(value.nativeEvent.x * (1000 * 60 * 60 * 24)).toISOString() === date);
+            let find = dateWorkoutMapForRecords.find(([date, _]) => value.nativeEvent?.x!! === date);
             let map = new Map<Exercise, Workout[]>;
             find?.[1].forEach(
                 (workout) => {
