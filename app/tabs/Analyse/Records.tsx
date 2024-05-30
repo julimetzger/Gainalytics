@@ -48,8 +48,9 @@ const RecordsTab = () => {
     }).reverse();
 
     function handleDataPointSelect(value: ChartSelectEvent) {
-        if (value.nativeEvent?.x) {
-            let find = dateWorkoutMapForRecords.find(([date, _]) => value.nativeEvent?.x!! === date);
+        let xValue = value.nativeEvent?.data?.x ?? value.nativeEvent?.x;
+        if (xValue) {
+            let find = dateWorkoutMapForRecords.find(([date, _]) => xValue === date);
             let map = new Map<Exercise, Workout[]>;
             find?.[1].forEach(
                 (workout) => {
