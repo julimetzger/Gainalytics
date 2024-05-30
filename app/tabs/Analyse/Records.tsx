@@ -49,14 +49,14 @@ const RecordsTab = () => {
 
     function handleDataPointSelect(value: ChartSelectEvent) {
         if (value.nativeEvent?.x) {
-            let find = dateWorkoutMapForRecords.find(([date, _]) => new Date(value.nativeEvent?.x!! * (1000 * 60 * 60 * 24)).toISOString() === date);
+            let find = dateWorkoutMapForRecords.find(([date, _]) => new Date(value.nativeEvent.x * (1000 * 60 * 60 * 24)).toISOString() === date);
             let map = new Map<Exercise, Workout[]>;
-            find![1].forEach(
+            find?.[1].forEach(
                 (workout) => {
                     let exercise = exercises.find((exercise) => exercise.id === workout.exerciseId);
                     if (exercise) {
                         if (map.get(exercise)) {
-                            map.get(exercise)!!.push(workout);
+                            map.get(exercise)?.push(workout);
                         } else {
                             map.set(exercise, [workout]);
                         }
@@ -116,7 +116,7 @@ const RecordsTab = () => {
             />
             {selectedRecords ? Array.from(selectedRecords).map(([exercise, workouts]) => {
                     return (
-                        <Card style={{marginBottom: 5}}>
+                        <Card style={{marginBottom: 5}} key={exercise.id}>
                             <Card.Title title={exercise.name}/>
                             <Card.Content>
                                 {workouts.map(workout => (
