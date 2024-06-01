@@ -26,6 +26,7 @@
 - ~~swipe history~~
 
 ## Exercises
+- ~~**Grafiken für alle Metriken. Auswahl accumulation day, week, month - on click on graphic only shows value keine Anzeige der zugehörigen workouts**~~
 - ~~Übersichtsseite mit 1RM - 12Rm~~
 - ~~Muskelgruppen hinzufügen schöner und robuster~~
 
