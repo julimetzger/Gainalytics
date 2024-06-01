@@ -31,7 +31,6 @@
 ## Exercises
 
 - drawer navigation
-- **Grafiken für alle Metriken. Auswahl accumulation day, week, month - on click on graphic only shows value keine Anzeige der zugehörigen workouts**
 - ~~Rekorde speichern~~ nur 1RM nicht sicher was sonst noch Sinn macht
 - Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden
 
@@ -63,4 +62,5 @@
 ## Bugs
 
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
+- suggest based on planned workout not working
 
