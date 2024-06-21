@@ -21,19 +21,21 @@ export function getMicroFromTrainingInMicroIndex(trainingInMicroIndex: string) {
     return parseInt(trainingInMicroIndex.split(",")[0]);
 }
 
-export function getMicrosForTraining(trainings: {
+export function getAllTrainingsForTraining(trainings: {
     [microComaTrainingInMicro: string]: number
 }, trainingsNumber: number) {
-    return Object.entries(trainings).filter(([key, value]) => key.endsWith("," + trainingsNumber))
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([key, value]) => value);
+    let numbers = Object.entries(trainings).filter(([key, value]) => key.endsWith("," + trainingsNumber))
+        .map(([key, value]) => [parseInt(key.split(",")[0]), value] as [number, number])
+        .sort((a, b) => a[0] - b[0])
+    return numbers.map(([key, value]) => value);
 }
 
 export function getAllTrainingsForMicro(trainings: {
     [microComaTrainingInMicro: string]: number
 }, microNumber: number) {
     return Object.entries(trainings).filter(([key, value]) => key.startsWith(microNumber.toString()))
-        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([key, value]) => [parseInt(key.split(",")[0]), value] as [number, number])
+        .sort((a, b) => a[0] - b[0])
         .map(([key, value]) => value);
 }
 

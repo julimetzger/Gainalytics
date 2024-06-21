@@ -10,11 +10,13 @@
 - Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
 - ~~anzeige des trainings im router oben~~ schöner machen
 - ~~name für trainings~~ schöner machen
-- ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~ vergleich exercises mit done workouts anstatt planned workouts
+- ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~ vergleich exercises mit done
+  workouts anstatt planned workouts
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - Mesos einführen mit Kopieren des alten Mesos
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
 - Trainings löschbar machen ~~und editierbar~~
+- push benachritigung für pausenzeit
 
 ## Analyse
 
@@ -54,7 +56,8 @@
 
 ## Try out
 
-- https://www.npmjs.com/package/react-native-calendars/v/1.1304.1 kalender der auch Markierungen anzeigen kann. Period scheint auch zu funktionieren
+- https://www.npmjs.com/package/react-native-calendars/v/1.1304.1 kalender der auch Markierungen anzeigen kann. Period
+  scheint auch zu funktionieren
 - ~~Toast für records~~ Farben sind noch nicht passend
 - onPress auf Toast navigiert zu Exercise Stats //TODO go to Exercise Stats
 - Tabs für Analyse https://www.npmjs.com/package/react-native-paper-tabs
@@ -62,5 +65,5 @@
 ## Bugs
 
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
-- suggest based on planned workout not working
+- ~~suggest based on planned workout not working~~
 
