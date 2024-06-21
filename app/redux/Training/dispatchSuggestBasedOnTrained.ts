@@ -6,7 +6,7 @@ import {useNextWorkoutId} from "../Workout/useNextWorkoutId";
 import {useWorkoutsByIds} from "../Workout/useWorkoutsByIds";
 import {Workout} from "../../models/Workout";
 
-export const dispatchSuggestBasedOnTrained = (trainingsPlanId: number, trainingsNumber: number)  => {
+export const dispatchSuggestBasedOnTrained = (trainingsPlanId: number, trainingsNumber: number) => {
     const dispatch = useDispatch();
     let nextTrainingsId = useNextTrainingsId();
     let nextWorkoutId = useNextWorkoutId();
