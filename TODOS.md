@@ -15,7 +15,7 @@
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - Mesos einführen mit Kopieren des alten Mesos
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
-- Trainings löschbar machen ~~und editierbar~~
+- ~~Trainings löschbar machen und editierbar~~
 - push benachritigung für pausenzeit
 
 ## Analyse
