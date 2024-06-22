@@ -26,6 +26,7 @@ import PlanningOverview from "../../components/PlanningOverview";
 import Toast from "react-native-toast-message";
 import TrainingsPlanHeader from "../../components/TrainingsPlanHeader";
 import TrainingsPlanDrawer from "../../components/TrainingsPlanDrawer";
+import {color} from "react-native-elements/dist/helpers";
 
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
@@ -57,6 +58,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                                  mode={showDone ? 'Overview' : training?.state}
                                  drawerMenu={<IconButton
                                      icon="menu"
+                                     iconColor={theme.colors.onSecondaryContainer}
                                      onPress={() => setOpen((prevOpen) => !prevOpen)}>
                                  </IconButton>}/>
     });
@@ -150,7 +152,12 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                             (<View><Picker exercise={exercises} setExercise={setExerciseWithSideEffects}
                                            dropdownLabel='Select Exercises for your Training'
                                            hideChip={true}/>
-                                    <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', margin: 5}}>
+                                    <View style={{
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        justifyContent: 'space-evenly',
+                                        margin: 5
+                                    }}>
                                         {training?.state === TrainingsState.STARTED &&
                                             <Timer start={training.start!!} label={'Start Training'}/>}
                                         {training?.state && <Button mode="outlined" onPress={changePlanningmode}>

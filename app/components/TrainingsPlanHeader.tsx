@@ -38,18 +38,21 @@ const TrainingsPlanHeader = ({
                     <Text
                         style={{
                             fontSize: theme.fonts.titleMedium.fontSize,
-                            fontWeight: 'bold'
+                            fontWeight: 'bold',
+                            color: theme.colors.onSecondaryContainer
                         }}>{trainingsPlanName}</Text>
                     <View style={{display: 'flex', flexDirection: 'row'}}>
                         <Text
                             style={{
                                 fontSize: 20,
+                                color: theme.colors.onSecondaryContainer
                             }}>
                             Micro {micro}
                         </Text>
                         <Text
                             style={{
                                 fontSize: 20,
+                                color: theme.colors.onSecondaryContainer
                             }}>
                             {" " + trainingName}
                         </Text>
@@ -58,10 +61,11 @@ const TrainingsPlanHeader = ({
                 {mode !== 'Overview' &&
                     <View style={{flexDirection: 'column', width: 80, marginEnd: 10}}>
                         <Text
-                            style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold'}}>Mode</Text>
+                            style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold',  color: theme.colors.onSecondaryContainer}}>Mode</Text>
                         <Text
                             style={{
                                 fontSize: 20,
+                                color: theme.colors.onSecondaryContainer
                             }}>
                             {mode === undefined && 'Planning'}
                             {mode === TrainingsState.PLANNED && 'Planning'}

@@ -8,7 +8,6 @@ export type RootStackParamList = {
 
 const SettingsRouter = () => {
     const Stack = createNativeStackNavigator<RootStackParamList>();
-
     return (
         <Stack.Navigator initialRouteName="Settings">
             <Stack.Screen
