@@ -45,7 +45,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
                     {deleteOverlay && <Dialog.Title>{"Delete " + trainingsPlan?.name}</Dialog.Title>}
                     <Dialog.Content>
                         {deleteOverlay ?
-                            <Text>This action will delete the training and all workouts saved for the training. Are you
+                            <Text>This action will delete the training. The workouts done in this training will not be deleted and are still available in the history. Are you
                                 sure you want to delete this training?</Text>
                             : <TextInput defaultValue={trainingsPlan?.name}
                                          label={'Name of the Training Plan'}
