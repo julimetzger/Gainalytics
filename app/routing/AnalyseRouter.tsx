@@ -6,6 +6,7 @@ import AnalyseGraphics from "../tabs/Analyse/AnalyseGraphics";
 import RecordsTab from "../tabs/Analyse/Records";
 import MetricsTab from "../tabs/Analyse/Metrics";
 import GraphsTab from "../tabs/Analyse/GraphsTab";
+import {useTheme} from "react-native-paper";
 
 export type RootStackParamList = {
     History: { exercise: Exercise, lowerRangeBound: Date | undefined };
@@ -17,9 +18,11 @@ export type RootStackParamList = {
 
 const AnalyseRouter = () => {
     const Stack = createDrawerNavigator<RootStackParamList>();
+    let theme = useTheme();
 
     return (
-        <Stack.Navigator initialRouteName="Analyse">
+        <Stack.Navigator initialRouteName="Analyse"
+                         screenOptions={{headerTintColor: theme.colors.onSecondaryContainer}}>
             <Stack.Screen
                 name="Analyse"
                 component={AnalyseGraphics}
