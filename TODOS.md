@@ -21,9 +21,11 @@
 
 ## Analyse
 
-- **Neue Seite für Darstellung Volumen für Bodyparts, Übungen etc**
+- ~~**Neue Seite für Darstellung Volumen für Bodyparts, Übungen etc**~~
 - 2-7 Training Accumalator
+- Seite mit TrainingsLänge mit balkendiagramm
 - Seite mit Datepicker
+- Auswahlmöglichkeit der Metriken in MetricsOverview
 - Trainings in Datepicker anzeigen
 - während scrollen horizontales swipen komplett unterbinden scrollen geht noch beim swipen
 - Nach datePicker Change sollte 0 der Standardscreen sein
@@ -39,7 +41,7 @@
 - RIR/RPE
 - 1RM Button default mäßig an/aus
 - Show timer on/off
-- Metriken die im TrainingsOverview angezeigt werden sollen für Muscles/Exercises
+- Metriken die im TrainingsOverview/Overview angezeigt werden sollen für Muscles/Exercises
 - Hide/show "kg"
 - Default DatePicker range
 
