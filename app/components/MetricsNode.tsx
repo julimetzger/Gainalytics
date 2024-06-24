@@ -21,8 +21,9 @@ const MetricsNode = ({range, setRange, muscle, exercise}: MetricNodeProps) => {
 
     function getUniquewRokoutsIn(range: Range) {
         let allWorkouts = useWorkoutsIn(range);
-        let workoutsForExercise = allWorkouts.reverse().filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : true) as Workout[];
-        let workoutsForMuscles = allWorkouts.reverse().filter((workout: Workout) => exercisesForMusclesIds.length > 0 ? exercisesForMusclesIds.includes(workout.exerciseId) : true) as Workout[];
+        if (muscle.length === 0 && exercise.length === 0) return allWorkouts;
+        let workoutsForExercise = allWorkouts.reverse().filter((workout: Workout) => exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : false) as Workout[];
+        let workoutsForMuscles = allWorkouts.reverse().filter((workout: Workout) => exercisesForMusclesIds.length > 0 ? exercisesForMusclesIds.includes(workout.exerciseId) : false) as Workout[];
         let combinedWorkouts = [...workoutsForExercise, ...workoutsForMuscles];
         return Array.from(new Set(combinedWorkouts.map(workout => workout.id)))
             .map(id => combinedWorkouts.find(workout => workout.id === id)!!);
