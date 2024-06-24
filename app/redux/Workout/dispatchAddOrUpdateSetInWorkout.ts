@@ -12,7 +12,6 @@ export function dispatchRecord(planningMode: boolean, set: WorkoutSet, workout: 
     if (!planningMode) {
         let oneRm = parseFloat(calculateMetricValue([set], Metric.ONE_RM).toFixed(2));
 
-        console.log(workout?.records?.[Record.ONE_RM])
         //Handle Record update
         if (workout?.records?.[Record.ONE_RM] !== undefined) {
             // increase record
