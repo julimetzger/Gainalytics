@@ -6,8 +6,8 @@ import {Range} from "../../components/DateRangePicker";
 import {Exercise} from "../../models/Exercise";
 import {Muscles} from "../../models/Muscles";
 import RangeSwiper from "../../components/RangeSwiper";
-import HistoryNode from "../../components/HistoryNode";
 import {firstDayOfWeek, lastDayOfWeek} from "../../utils/DateHelper";
+import MetricsNode from "../../components/MetricsNode";
 
 const MetricsTab = () => {
     const [exercise, setExercise] = useState<Exercise[]>([]);
@@ -18,7 +18,7 @@ const MetricsTab = () => {
         <RangeSwiper
             notSwipeableContent={<Picker exercise={exercise} setExercise={setExercise} muscle={muscle}
                                          setMuscle={setMuscle}/>}
-            nodeFunction={(range: Range, setRange: (range: Range) => void) => <HistoryNode
+            nodeFunction={(range: Range, setRange: (range: Range) => void) => <MetricsNode
                 range={range}
                 setRange={setRange}
                 exercise={exercise}

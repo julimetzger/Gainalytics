@@ -1,12 +1,9 @@
 import {Card, DataTable, Text} from "react-native-paper";
 import MetricView from "./MetricComparison";
 import {Metric} from "./Picker";
-import React, {useState} from "react";
-import {StyleSheet} from "react-native";
 import {Exercise} from "../models/Exercise";
 import {Comparison} from "./WorkoutSetOverview";
-import DropDown from "react-native-paper-dropdown";
-import Metrics from "../tabs/Analyse/Metrics";
+import {StyleSheet} from "react-native";
 
 
 const ExerciseMetricOverview = ({exerciseMetricMap}: { exerciseMetricMap: Map<Exercise, Map<Metric, Comparison>> }) => {
