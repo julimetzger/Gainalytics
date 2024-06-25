@@ -8,7 +8,6 @@
 - **Export/Import Funktion für Trainings/Micro**
 - unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
 - Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
-- ~~anzeige des trainings im router oben schöner machen~~
 - ~~name für trainings~~ schöner machen
 - ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~ vergleich exercises mit done
   workouts anstatt planned workouts
@@ -18,10 +17,10 @@
 - Trainings löschbar machen ~~und editierbar~~
 - push benachrichtigung für pausenzeit
 - Records in overview anzeigen 
+- ~~swipe between micros~~
 
 ## Analyse
 
-- ~~**Neue Seite für Darstellung Volumen für Bodyparts, Übungen etc**~~
 - 2-7 Training Accumalator
 - Seite mit TrainingsLänge mit balkendiagramm
 - Seite mit Datepicker
@@ -32,7 +31,6 @@
 
 ## Exercises
 
-- ~~Rekorde speichern~~ nur 1RM nicht sicher was sonst noch Sinn macht
 - Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden
 
 ## Settings
