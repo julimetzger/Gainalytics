@@ -102,7 +102,6 @@ const TrainingsPlanNode = ({
 
     return (<View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
         <ScrollView keyboardShouldPersistTaps={'handled'}>
-            <Text>{"current micro: " + micro}</Text>
             <View>
                 {showDone ? <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/> :
                     (<View><Picker exercise={exercises} setExercise={setExerciseWithSideEffects}
