@@ -13,7 +13,6 @@ import {Muscles} from "../models/Muscles";
 import {Exercise, MusclePercentPair} from "../models/Exercise";
 import {Workout} from "../models/Workout";
 import {StyleSheet} from "react-native";
-import DropDown from "react-native-paper-dropdown";
 import ExerciseMetricOverview from "./ExerciseMetricOverview";
 
 export interface Comparison {
@@ -42,24 +41,12 @@ const WorkoutSetOverview = ({
     const [seledtedMuscle, setSelectedMuscle] = useState<MuscleDetails | undefined>(undefined)
 
     let exerciseWorkoutMap = new Map<Exercise, WorkoutSetMap>();
-    [...trainingsWorkouts].forEach(workout => {
-        let exercise = trainingExcercises.find((exercise: Exercise) => exercise.id === workout.exerciseId);
-        let lastWorkout = previousWorkouts.filter((previousWorkout: Workout) => previousWorkout.exerciseId === workout.exerciseId);
-        if (workout && exercise) {
-            if (exerciseWorkoutMap.get(exercise)) {
-                exerciseWorkoutMap.get(exercise)?.currentWorkoutSets.push(...workout.sets);
-                lastWorkout ? exerciseWorkoutMap.get(exercise)
-                    ?.lastWorkoutSets
-                    ?.push(...lastWorkout?.map((workout: Workout) => workout.sets).flat()) : 0;
-            } else {
-                exerciseWorkoutMap.set(exercise, {
-                    currentWorkoutSets: [...workout.sets],
-                    lastWorkoutSets: lastWorkout?.map((workout: Workout) => workout.sets).flat() ?? []
-                });
-            }
-        }
-    })
-
+    [...trainingExcercises, ...previousExercises].forEach(exercise => {
+        exerciseWorkoutMap.set(exercise, {
+            currentWorkoutSets: trainingsWorkouts.filter((workout: Workout) => workout.exerciseId === exercise.id).flatMap((workout: Workout) => workout.sets),
+            lastWorkoutSets: previousWorkouts.filter((workout: Workout) => workout.exerciseId === exercise.id).flatMap((workout: Workout) => workout.sets)
+        });
+    });
     let exerciseMetricMap = new Map<Exercise, Map<Metric, Comparison>>();
 
     Array.from(exerciseWorkoutMap).forEach(([exercise, workout]) => {
@@ -67,19 +54,7 @@ const WorkoutSetOverview = ({
             exerciseMetricMap.set(exercise, metricComparison);
         }
     );
-    let exerciseWorkoutMapWithPreviousWorkouts = new Map(exerciseWorkoutMap);
-    [...previousWorkouts].forEach(workout => {
-        let exercise = previousExercises.find((exercise: Exercise) => exercise.id === workout.exerciseId);
-        if (workout && exercise) {
-            if (!exerciseWorkoutMapWithPreviousWorkouts.get(exercise)) {
-                exerciseWorkoutMapWithPreviousWorkouts.set(exercise, {
-                    currentWorkoutSets: [],
-                    lastWorkoutSets: [...workout.sets]
-                });
-            }
-        }
-    })
-    let muscleMetricMap = calculateMetricComparisonsForMuscle(exerciseWorkoutMapWithPreviousWorkouts);
+    let muscleMetricMap = calculateMetricComparisonsForMuscle(exerciseWorkoutMap);
 
     return <>
         {showExercises && <ExerciseMetricOverview exerciseMetricMap={exerciseMetricMap}/>}
