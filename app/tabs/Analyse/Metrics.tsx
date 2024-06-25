@@ -5,21 +5,38 @@ import Picker from "../../components/Picker";
 import {Range} from "../../components/DateRangePicker";
 import {Exercise} from "../../models/Exercise";
 import {Muscles} from "../../models/Muscles";
-import MetricsNode from "../../components/MetricsNode";
 import RangeSwiper from "../../components/RangeSwiper";
+import HistoryNode from "../../components/HistoryNode";
+import {firstDayOfWeek, lastDayOfWeek} from "../../utils/DateHelper";
 
 const MetricsTab = () => {
     const [exercise, setExercise] = useState<Exercise[]>([]);
     const [muscle, setMuscle] = useState<Muscles[]>([]);
+    const now = new Date();
 
     return (
         <RangeSwiper
             notSwipeableContent={<Picker exercise={exercise} setExercise={setExercise} muscle={muscle}
                                          setMuscle={setMuscle}/>}
-            nodeFunction={(range: Range, setRange: (range: Range) => void) => <MetricsNode
-                range={range} setRange={setRange} muscle={muscle}
-                exercise={exercise}/>}/>
-    )
+            nodeFunction={(range: Range, setRange: (range: Range) => void) => <HistoryNode
+                range={range}
+                setRange={setRange}
+                exercise={exercise}
+                muscle={muscle}/>}
+            determineValueByIndex={(index: number, range: Range) => {
+                if (index === 0) {
+                    return range
+                }
+                if (index === 1) {
+                    return range.plusOneRange()
+                }
+                if (index === -1) {
+                    return range.minusRange()
+                }
+                return range
+            }}
+            startValue={new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0))}
+        />)
 }
 
 export default MetricsTab;

@@ -5,11 +5,13 @@ import Picker from "../../components/Picker";
 import {Muscles} from "../../models/Muscles";
 import {Exercise} from "../../models/Exercise";
 import RangeSwiper from "../../components/RangeSwiper";
+import {firstDayOfWeek, lastDayOfWeek} from "../../utils/DateHelper";
 
 
 const History = () => {
     const [exercise, setExercise] = useState<Exercise[]>([]);
     const [muscle, setMuscle] = useState<Muscles[]>([]);
+    const now = new Date();
 
     return (
         <RangeSwiper
@@ -19,7 +21,21 @@ const History = () => {
                 range={range}
                 setRange={setRange}
                 exercise={exercise}
-                muscle={muscle}/>}/>)
+                muscle={muscle}/>}
+            determineValueByIndex={(index: number, range: Range) => {
+                if (index === 0) {
+                    return range
+                }
+                if (index === 1) {
+                    return range.plusOneRange()
+                }
+                if (index === -1) {
+                    return range.minusRange()
+                }
+                return range
+            }}
+            startValue={new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0))}
+        />)
         ;
 }
 

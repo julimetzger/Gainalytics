@@ -9,21 +9,19 @@ import Animated, {
     withTiming
 } from 'react-native-reanimated';
 import {Gesture, GestureDetector, GestureHandlerRootView, ScrollView, State} from 'react-native-gesture-handler';
-import {Range} from "./DateRangePicker";
-import {firstDayOfWeek, lastDayOfWeek} from "../utils/DateHelper";
 
 
-interface PositionRange {
+interface PositionRange<T> {
     position: number,
-    range: Range
+    range: T
 }
 
-interface FullPosition {
-    Upper: PositionRange,
-    Lower: PositionRange,
-    Middle: PositionRange,
+interface FullPosition<T> {
+    Upper: PositionRange<T>,
+    Lower: PositionRange<T>,
+    Middle: PositionRange<T>,
     activeView: ViewPosition,
-    range: Range,
+    range: T,
     traveledIndex: number
 }
 
@@ -39,33 +37,42 @@ const userConfig = {
     reduceMotion: ReduceMotion.System
 };
 
-interface RangeSwiperProps {
-    nodeFunction: (range: Range, setRange: (range: Range) => void) => React.ReactNode,
-    notSwipeableContent?: React.ReactNode
+interface RangeSwiperProps<T> {
+    nodeFunction: (range: T, setRange: (range: T) => void) => React.ReactNode,
+    notSwipeableContent?: React.ReactNode,
+    determineValueByIndex: (index: number, range: T) => T,
+    startValue: T,
+    onUpdateCurrentIndex?: (index: number) => void
 }
 
-const RangeSwiper = ({nodeFunction, notSwipeableContent}: RangeSwiperProps) => {
-        let now = new Date(Date.now());
+const RangeSwiper = <T extends any>({
+                                        nodeFunction,
+                                        notSwipeableContent,
+                                        determineValueByIndex,
+                                        startValue,
+                                        onUpdateCurrentIndex
+                                    }: RangeSwiperProps<T>) => {
         const [fullPosition, setFullPosition] = useState({
-            Upper: {position: -1, range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0)).minusRange()},
-            Middle: {position: 0, range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0))},
-            Lower: {position: 1, range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0)).plusOneRange()},
+            Upper: {position: -1, range: determineValueByIndex(-1, startValue)},
+            Middle: {position: 0, range: determineValueByIndex(0, startValue)},
+            Lower: {position: 1, range: determineValueByIndex(1, startValue)},
             activeView: ViewPosition.MIDDLE,
-            range: new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0)),
+            range: startValue,
             traveledIndex: 0
-        } as FullPosition)
+        } as FullPosition<T>)
         let dimensions = useWindowDimensions();
         let initialOffset = -dimensions.width;
         const xPosition = useSharedValue(0);
 
         function uiminusOne() {
-            let newRange = fullPosition.range.minusRange()
+            let newRange = determineValueByIndex(-1, fullPosition.range);
+            onUpdateCurrentIndex && onUpdateCurrentIndex(-1);
             if (fullPosition.activeView === ViewPosition.MIDDLE) {
                 setFullPosition({
                     activeView: ViewPosition.UPPER,
                     Upper: {position: 0, range: newRange},
-                    Middle: {position: 1, range: newRange.plusOneRange()},
-                    Lower: {position: -1, range: newRange.minusRange()},
+                    Middle: {position: 1, range: determineValueByIndex(1, newRange)},
+                    Lower: {position: -1, range: determineValueByIndex(-1, newRange)},
                     range: newRange,
                     traveledIndex: fullPosition.traveledIndex + 1
                 })
@@ -73,9 +80,9 @@ const RangeSwiper = ({nodeFunction, notSwipeableContent}: RangeSwiperProps) => {
             if (fullPosition.activeView === ViewPosition.LOWER) {
                 setFullPosition({
                     activeView: ViewPosition.MIDDLE,
-                    Upper: {position: -1, range: newRange.minusRange()},
+                    Upper: {position: -1, range: determineValueByIndex(-1, newRange)},
                     Middle: {position: 0, range: newRange},
-                    Lower: {position: 1, range: newRange.plusOneRange()},
+                    Lower: {position: 1, range: determineValueByIndex(1, newRange)},
                     range: newRange,
                     traveledIndex: fullPosition.traveledIndex + 1
                 })
@@ -83,8 +90,8 @@ const RangeSwiper = ({nodeFunction, notSwipeableContent}: RangeSwiperProps) => {
             if (fullPosition.activeView === ViewPosition.UPPER) {
                 setFullPosition({
                     activeView: ViewPosition.LOWER,
-                    Upper: {position: 1, range: newRange.plusOneRange()},
-                    Middle: {position: -1, range: newRange.minusRange()},
+                    Upper: {position: 1, range: determineValueByIndex(1, newRange)},
+                    Middle: {position: -1, range: determineValueByIndex(-1, newRange)},
                     Lower: {position: 0, range: newRange},
                     range: newRange,
                     traveledIndex: fullPosition.traveledIndex + 1
@@ -93,12 +100,13 @@ const RangeSwiper = ({nodeFunction, notSwipeableContent}: RangeSwiperProps) => {
         }
 
         function uiplusOne() {
-            let newRange = fullPosition.range.plusOneRange()
+            let newRange = determineValueByIndex(1, fullPosition.range)
+            onUpdateCurrentIndex && onUpdateCurrentIndex(1);
             if (fullPosition.activeView === ViewPosition.MIDDLE) {
                 setFullPosition({
                     activeView: ViewPosition.LOWER,
-                    Upper: {position: 1, range: newRange.plusOneRange()},
-                    Middle: {position: -1, range: newRange.minusRange()},
+                    Upper: {position: 1, range: determineValueByIndex(1, newRange)},
+                    Middle: {position: -1, range: determineValueByIndex(-1, newRange)},
                     Lower: {position: 0, range: newRange},
                     range: newRange,
                     traveledIndex: fullPosition.traveledIndex - 1
@@ -108,8 +116,8 @@ const RangeSwiper = ({nodeFunction, notSwipeableContent}: RangeSwiperProps) => {
                 setFullPosition({
                     activeView: ViewPosition.UPPER,
                     Upper: {position: 0, range: newRange},
-                    Middle: {position: 1, range: newRange.plusOneRange()},
-                    Lower: {position: -1, range: newRange.minusRange()},
+                    Middle: {position: 1, range: determineValueByIndex(1, newRange)},
+                    Lower: {position: -1, range: determineValueByIndex(-1, newRange)},
                     range: newRange,
                     traveledIndex: fullPosition.traveledIndex - 1
                 })
@@ -117,9 +125,9 @@ const RangeSwiper = ({nodeFunction, notSwipeableContent}: RangeSwiperProps) => {
             if (fullPosition.activeView === ViewPosition.UPPER) {
                 setFullPosition({
                     activeView: ViewPosition.MIDDLE,
-                    Upper: {position: -1, range: newRange.minusRange()},
+                    Upper: {position: -1, range: determineValueByIndex(-1, newRange)},
                     Middle: {position: 0, range: newRange},
-                    Lower: {position: 1, range: newRange.plusOneRange()},
+                    Lower: {position: 1, range: determineValueByIndex(1, newRange)},
                     range: newRange,
                     traveledIndex: fullPosition.traveledIndex - 1
                 })
@@ -188,26 +196,13 @@ const RangeSwiper = ({nodeFunction, notSwipeableContent}: RangeSwiperProps) => {
             ]
         }));
 
-        const determineRange = (index: number, range: Range) => {
-            if (index === 0) {
-                return range
-            }
-            if (index === 1) {
-                return range.plusOneRange()
-            }
-            if (index === -1) {
-                return range.minusRange()
-            }
-            return range
-        }
-
-        function setRange(range: Range) {
+        function setRange(t: T) {
             setFullPosition({
                 activeView: fullPosition.activeView,
-                Upper: {...fullPosition.Upper, range: determineRange(fullPosition.Upper.position, range)},
-                Middle: {...fullPosition.Middle, range: determineRange(fullPosition.Middle.position, range)},
-                Lower: {...fullPosition.Lower, range: determineRange(fullPosition.Lower.position, range)},
-                range: range,
+                Upper: {...fullPosition.Upper, range: determineValueByIndex(fullPosition.Upper.position, t)},
+                Middle: {...fullPosition.Middle, range: determineValueByIndex(fullPosition.Middle.position, t)},
+                Lower: {...fullPosition.Lower, range: determineValueByIndex(fullPosition.Lower.position, t)},
+                range: t,
                 traveledIndex: fullPosition.traveledIndex
             })
         }

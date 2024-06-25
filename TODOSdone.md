@@ -17,9 +17,11 @@
 - ~~addWorkout mit neuer Übung befüllen als default Wert fürs eintragen~~
 - ~~1RM default mäßig an nach eintragen einer Übung~~
 - ~~Im Planungsmodus keine Häkchen bei den einzelnen Sets anzeigen~~
+- ~~anzeige des trainings im router oben schöner machen~~
 
 ## Analyse
 - ~~percentage für volume, sets und reps berücksichtigen~~
+- ~~**Neue Seite für Darstellung Volumen für Bodyparts, Übungen etc**~~
 - ~~Spacing~~
 
 ## History
@@ -29,6 +31,7 @@
 - ~~**Grafiken für alle Metriken. Auswahl accumulation day, week, month - on click on graphic only shows value keine Anzeige der zugehörigen workouts**~~
 - ~~Übersichtsseite mit 1RM - 12Rm~~
 - ~~Muskelgruppen hinzufügen schöner und robuster~~
+- ~~Rekorde speichern~~
 
 ## Settings
 - ~~Darkmode/Lightmode~~
