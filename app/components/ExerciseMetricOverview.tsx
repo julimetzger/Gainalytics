@@ -1,6 +1,7 @@
 import {Card, DataTable, Text} from "react-native-paper";
 import MetricView from "./MetricComparison";
 import {Metric} from "./Picker";
+import React from "react";
 import {Exercise} from "../models/Exercise";
 import {Comparison} from "./WorkoutSetOverview";
 import {StyleSheet} from "react-native";
