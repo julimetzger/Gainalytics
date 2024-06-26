@@ -10,6 +10,7 @@ import TrainingsPlanHeader from "../../components/TrainingsPlanHeader";
 import TrainingsPlanDrawer from "../../components/TrainingsPlanDrawer";
 import TrainingsPlanNode from "../../components/TrainingsPlanNode";
 import RangeSwiper from "../../components/RangeSwiper";
+import {tr} from "react-native-paper-dates";
 
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
@@ -22,6 +23,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     const [overview, setOverview] = useState(true);
     let [showPlanned, setShowPlanned] = useState(false);
     let [showDone, setShowDone] = useState(false);
+    const [swipeEnabled, setSwipeEnabled] = useState(true)
 
     let changeTrainingsName = dispatchChangeTrainingsName();
     let theme = useTheme();
@@ -52,6 +54,14 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         setRerender(Math.random());
     };
 
+    function getEnableSwipe() {
+        return () => setSwipeEnabled(true);
+    }
+
+    function getDisableSwipe() {
+        return () => setSwipeEnabled(false);
+    }
+
     return (
         <Drawer
             drawerStyle={{backgroundColor: theme.colors.background}}
@@ -75,13 +85,17 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             }
         >
             <RangeSwiper key={rerender}
+                         enabled={swipeEnabled}
                          nodeFunction={(value, setRange) => <TrainingsPlanNode trainingsPlan={trainingsPlan}
                                                                                micro={value}
                                                                                showPlanned={showPlanned}
                                                                                overview={overview}
                                                                                setOverview={setOverview}
                                                                                showDone={showDone}
-                                                                               trainingInMicro={trainingInMicro}/>}
+                                                                               trainingInMicro={trainingInMicro}
+                                                                               enableSwipe={getEnableSwipe()}
+                                                                               disableSwipe={getDisableSwipe()}
+                         />}
                          determineValueByIndex={(index, micro) => micro + index} startValue={micro}
                          onUpdateCurrentIndex={(index) => setMicro(micro + index)}/>
         </Drawer>
