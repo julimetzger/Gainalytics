@@ -3,7 +3,7 @@ import {useWindowDimensions, View} from 'react-native'
 import Animated, {
     Easing,
     ReduceMotion,
-    runOnJS,
+    runOnJS, useAnimatedScrollHandler,
     useAnimatedStyle,
     useSharedValue,
     withTiming
@@ -63,6 +63,16 @@ const RangeSwiper = <T extends any>({
         let dimensions = useWindowDimensions();
         let initialOffset = -dimensions.width;
         const xPosition = useSharedValue(0);
+        const [isPanEnabled, setIsPanEnabled] = useState(true);
+
+        const updatePanState = (offset: number) => {
+            'worklet';
+            if (offset > 0) {
+                runOnJS(setIsPanEnabled)(false);
+            } else if (offset === 0) {
+                runOnJS(setIsPanEnabled)(true);
+            }
+        };
 
         function uiminusOne() {
             let newRange = determineValueByIndex(-1, fullPosition.range);
@@ -154,7 +164,7 @@ const RangeSwiper = <T extends any>({
 
                 const xDiff = Math.abs(evt.changedTouches[0].x - initialTouchLocation.value.x);
                 const yDiff = Math.abs(evt.changedTouches[0].y - initialTouchLocation.value.y);
-                const isHorizontalPanning = xDiff > yDiff && xDiff > 1 && yDiff < 0.15;
+                const isHorizontalPanning = xDiff > yDiff && xDiff > 1 && yDiff < 1;
 
                 if (isHorizontalPanning) {
                     state.activate();
@@ -187,7 +197,7 @@ const RangeSwiper = <T extends any>({
                         return;
                     }
                 }
-            ).withRef(refa)
+            ).withRef(refa).enabled(isPanEnabled)
         ;
 
         const animatedStyle = useAnimatedStyle(() => ({
@@ -207,9 +217,22 @@ const RangeSwiper = <T extends any>({
             })
         }
 
+        const onScroll = useAnimatedScrollHandler({
+            onBeginDrag({contentOffset}) {
+                updatePanState(contentOffset.y);
+            },
+            onEndDrag({contentOffset}) {
+                updatePanState(contentOffset.y);
+            },
+            onMomentumEnd({contentOffset}) {
+                updatePanState(contentOffset.y);
+            },
+        });
+
         return (
             <GestureHandlerRootView>
-                <ScrollView simultaneousHandlers={refa} keyboardShouldPersistTaps={'always'}>
+                <Animated.ScrollView keyboardShouldPersistTaps={'always'} onScroll={onScroll}
+                                     onScrollEndDrag={() => setIsPanEnabled(true)}>
                     {notSwipeableContent}
                     <GestureDetector gesture={panGesture}>
                         <Animated.View style={[animatedStyle, {
@@ -250,7 +273,7 @@ const RangeSwiper = <T extends any>({
                             }
                         </Animated.View>
                     </GestureDetector>
-                </ScrollView>
+                </Animated.ScrollView>
             </GestureHandlerRootView>
         )
     }
