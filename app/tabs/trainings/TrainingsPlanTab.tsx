@@ -62,6 +62,8 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         return () => setSwipeEnabled(false);
     }
 
+    console.log("swipeEnabled", swipeEnabled)
+
     return (
         <Drawer
             drawerStyle={{backgroundColor: theme.colors.background}}

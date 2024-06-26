@@ -129,9 +129,10 @@ const TrainingsPlanNode = ({
                                     <Timer start={timeInWorkout} reset={true} label={'Last Set'}/>}
                             </View>
                             {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
-                                <View onPointerEnter={disableSwipe}
-                                      onPointerLeave={enableSwipe}>
+                                <View>
                                     <DraggableExercise
+                                        onTouchStart={disableSwipe}
+                                        onTouchEnd={enableSwipe}
                                         exercises={exercises}
                                         setExercises={setExerciseWithSideEffects}
                                         chosenExercise={chosenExercise}
