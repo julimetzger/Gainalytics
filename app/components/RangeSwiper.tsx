@@ -1,4 +1,4 @@
-import React, {useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {useWindowDimensions, View} from 'react-native'
 import Animated, {
     Easing,
@@ -42,7 +42,8 @@ interface RangeSwiperProps<T> {
     notSwipeableContent?: React.ReactNode,
     determineValueByIndex: (index: number, range: T) => T,
     startValue: T,
-    onUpdateCurrentIndex?: (index: number) => void
+    onUpdateCurrentIndex?: (index: number) => void,
+    enabled?: boolean
 }
 
 const RangeSwiper = <T extends any>({
@@ -50,7 +51,8 @@ const RangeSwiper = <T extends any>({
                                         notSwipeableContent,
                                         determineValueByIndex,
                                         startValue,
-                                        onUpdateCurrentIndex
+                                        onUpdateCurrentIndex,
+                                        enabled = true
                                     }: RangeSwiperProps<T>) => {
         const [fullPosition, setFullPosition] = useState({
             Upper: {position: -1, range: determineValueByIndex(-1, startValue)},
@@ -63,7 +65,13 @@ const RangeSwiper = <T extends any>({
         let dimensions = useWindowDimensions();
         let initialOffset = -dimensions.width;
         const xPosition = useSharedValue(0);
-        const [isPanEnabled, setIsPanEnabled] = useState(true);
+        const [isPanEnabled, setIsPanEnabled] = useState(enabled);
+        useEffect(() => {
+            if (enabled)
+                setIsPanEnabled(true)
+            if (!enabled)
+                setIsPanEnabled(false)
+        }, [enabled]);
 
         const updatePanState = (offset: number) => {
             'worklet';

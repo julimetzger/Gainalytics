@@ -29,6 +29,8 @@ interface TrainingsPlanNodeProps {
     showPlanned: boolean,
     overview: boolean
     setOverview: (overview: boolean) => void,
+    enableSwipe: () => void
+    disableSwipe: () => void
 }
 
 const TrainingsPlanNode = ({
@@ -38,7 +40,9 @@ const TrainingsPlanNode = ({
                                showPlanned,
                                showDone,
                                overview,
-                               setOverview
+                               setOverview,
+                               enableSwipe,
+                               disableSwipe,
                            }: TrainingsPlanNodeProps) => {
     const training = useTrainingInTrainingsPlan(trainingsPlan.id!!, micro, trainingInMicro);
     const lastTraining = useTrainingInTrainingsPlan(trainingsPlan.id!!, micro - 1, trainingInMicro);
@@ -125,7 +129,8 @@ const TrainingsPlanNode = ({
                                     <Timer start={timeInWorkout} reset={true} label={'Last Set'}/>}
                             </View>
                             {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
-                                <View>
+                                <View onPointerEnter={disableSwipe}
+                                      onPointerLeave={enableSwipe}>
                                     <DraggableExercise
                                         exercises={exercises}
                                         setExercises={setExerciseWithSideEffects}
