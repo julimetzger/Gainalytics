@@ -16,9 +16,19 @@ interface Props {
     chooseExercise: (exercise: Exercise) => void;
     setExercises: (exercises: Exercise[]) => void;
     doneExerciseIds: number[];
+    onTouchStart: () => void;
+    onTouchEnd: () => void;
 }
 
-const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExercise, doneExerciseIds}: Props) => {
+const DraggableExercise = ({
+                               exercises,
+                               setExercises,
+                               chosenExercise,
+                               chooseExercise,
+                               doneExerciseIds,
+                               onTouchStart,
+                               onTouchEnd
+                           }: Props) => {
     let theme = useTheme();
     let exerciseData = exercises.map(
         (exercise) => {
@@ -131,6 +141,9 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
             {exerciseData.length > 0 &&
                 <DraggableFlatList keyboardShouldPersistTaps={'always'}
                                    horizontal
+                                   onTouchStart={onTouchStart}
+                                   onTouchEnd={onTouchEnd}
+                                   onScrollEndDrag={onTouchEnd}
                                    data={exerciseData}
                                    onDragEnd={(items) => setExercises(items.data.map((item) => exercises.find((exercise) => exercise.id === item.key)).filter(exercise => exercise !== undefined) as Exercise[])}
                                    keyExtractor={(item) => item.key.toString()}
