@@ -62,8 +62,6 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         return () => setSwipeEnabled(false);
     }
 
-    console.log("swipeEnabled", swipeEnabled)
-
     return (
         <Drawer
             drawerStyle={{backgroundColor: theme.colors.background}}
@@ -99,7 +97,10 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                                                                                disableSwipe={getDisableSwipe()}
                          />}
                          determineValueByIndex={(index, micro) => micro + index} startValue={micro}
-                         onUpdateCurrentIndex={(index) => setMicro(micro + index)}/>
+                         onUpdateCurrentIndex={(index) => {
+                             setMicro(micro + index)
+                             setSwipeEnabled(true)
+                         }}/>
         </Drawer>
     );
 };

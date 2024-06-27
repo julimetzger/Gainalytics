@@ -81,7 +81,6 @@ const RangeSwiper = <T extends any>({
                 runOnJS(setIsPanEnabled)(true);
             }
         };
-        console.log("isPanEnabled", isPanEnabled)
 
         function uiminusOne() {
             let newRange = determineValueByIndex(-1, fullPosition.range);
