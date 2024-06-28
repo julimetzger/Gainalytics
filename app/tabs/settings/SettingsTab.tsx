@@ -10,14 +10,21 @@ import DocumentPicker, {DocumentPickerResponse} from 'react-native-document-pick
 import {GlobalState} from "../../redux/rootReducer";
 import {dispatchFullImport} from "../../redux/fullstateactions/dispatchFullImport";
 import Toast from "react-native-toast-message";
+import {TimerPickerModal} from "react-native-timer-picker";
+import {dispatchSetPauseTimer} from "../../redux/settings/dispatchSetPauseTimer";
+import TimeRangePicker from "../../components/TimeRangePicker";
+import {dispatchSetFinishTrainingTimer} from "../../redux/settings/dispatchSetFinishTrainingTimer";
 
 const SettingsTab = ({navigation}: Props) => {
     let settings = useSettings();
     let dispatchtoggleMode1 = dispatchtoggleMode();
     let store = useStore();
     const FileSaver = require('react-native-fs');
+
     const [importDialog, setImportDialog] = useState(false)
     let fullImport = dispatchFullImport();
+    let setPauseTimer = dispatchSetPauseTimer();
+    let setFinishTrainingTimer = dispatchSetFinishTrainingTimer();
 
     function dumbFullStateToFile() {
         const state = store.getState();
@@ -78,18 +85,26 @@ const SettingsTab = ({navigation}: Props) => {
                 <Switch onValueChange={showAlert} value={false}/>
                 <Text style={{alignSelf: 'center'}}>Use imperial units</Text>
             </View>
-            <View style={{margin: 5}}><Divider /></View>
+            <View style={{margin: 5}}><Divider/></View>
             <Button onPress={() => {
                 dumbFullStateToFile()
             }}>Export all data</Button>
             <Button onPress={() => {
                 setImportDialog(true)
             }}>Import all data</Button>
+            <TimeRangePicker setPauseTimer={setPauseTimer}
+                             title={'Pause Timer: '}
+                             timeRange={settings.localNotification?.pauseTimerInSeconds}/>
+            <TimeRangePicker setPauseTimer={setFinishTrainingTimer}
+                             title={'Finish Training Timer: '}
+                             timeRange={settings.localNotification?.finishTrainingTimerInSeconds}/>
             <Portal>
                 <Dialog visible={importDialog} onDismiss={() => setImportDialog(false)}>
                     <Dialog.Title>Import full data from backup file?</Dialog.Title>
                     <Dialog.Content>
-                        <Text>This action will replace all existing data in your current application with the data from the selected file. Continue?</Text>
+                        <Text>This action will replace all existing data in your current application with the data from
+                            the
+                            selected file. Continue?</Text>
                     </Dialog.Content>
                     <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'space-between'}}>
                         <Dialog.Actions>
@@ -107,7 +122,8 @@ const SettingsTab = ({navigation}: Props) => {
                 </Dialog>
             </Portal>
         </View>
-    );
+    )
+        ;
 }
 
 export type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;

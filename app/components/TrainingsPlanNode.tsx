@@ -20,7 +20,8 @@ import {dispatchModifyExercisesInTraining} from "../redux/Training/dispatchModif
 import {dispatchFinishTraining} from "../redux/Training/dispatchFinishTraining";
 import Toast from "react-native-toast-message";
 import {useTrainingInTrainingsPlan} from "../redux/Training/useTrainingInTrainingsPlan";
-import {GestureDetector} from "react-native-gesture-handler";
+import {PauseDoneNotification} from "./PauseDoneNotification";
+import {FinishTrainingNotification} from "./FinishTrainingNotification";
 
 interface TrainingsPlanNodeProps {
     trainingsPlan: TrainingsPlan,
@@ -56,6 +57,8 @@ const TrainingsPlanNode = ({
     let doneExerciseIds = training?.doneWorkoutIds ? Object.keys(training.doneWorkoutIds).map(key => parseInt(key)) : [];
     let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
     let finishTraining = dispatchFinishTraining();
+    let [pauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
+    let [finishTrainingNotification, resetFinishTraining] = FinishTrainingNotification();
 
     useEffect(() => {
         if (training?.state === TrainingsState.STARTED) {
@@ -103,6 +106,8 @@ const TrainingsPlanNode = ({
         setRefresHeky(Math.random());
         setTimeInWorkout(new Date(Date.now()));
         setchosenExercise(exercises[number].id);
+        resetPauseNotification();
+        resetFinishTraining();
     }
 
     return (<View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
@@ -127,21 +132,24 @@ const TrainingsPlanNode = ({
                                     {training?.state === TrainingsState.FINISHED && !overview && 'Show Overview'}
                                 </Button>}
                                 {training?.state === TrainingsState.STARTED &&
-                                    <Timer start={timeInWorkout} reset={true} label={'Last Set'}/>}
+                                    <Timer start={timeInWorkout} reset={true} label={'Last Set'}
+                                           exercise={chosenExercise}
+                                           children={[(elapasedTimeInSeconds) => pauseDoneNotification(elapasedTimeInSeconds), (elapasedTimeInSeconds) => finishTrainingNotification(elapasedTimeInSeconds)]}
+                                           onReset={[() => resetPauseNotification(), () => resetFinishTraining()]}/>}
                             </View>
                             {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
                                 <View pointerEvents={"box-none"}>
-                                        <DraggableExercise
-                                            onTouchStart={disableSwipe}
-                                            onTouchEnd={enableSwipe}
-                                            exercises={exercises}
-                                            setExercises={setExerciseWithSideEffects}
-                                            chosenExercise={chosenExercise}
-                                            chooseExercise={(exercise) => {
-                                                setchosenExercise(exercise.id);
-                                            }}
-                                            doneExerciseIds={doneExerciseIds}
-                                        />
+                                    <DraggableExercise
+                                        onTouchStart={disableSwipe}
+                                        onTouchEnd={enableSwipe}
+                                        exercises={exercises}
+                                        setExercises={setExerciseWithSideEffects}
+                                        chosenExercise={chosenExercise}
+                                        chooseExercise={(exercise) => {
+                                            setchosenExercise(exercise.id);
+                                        }}
+                                        doneExerciseIds={doneExerciseIds}
+                                    />
                                 </View>
                             )}
                             {training === undefined && <TrainingsBase trainingsPlan={trainingsPlan}

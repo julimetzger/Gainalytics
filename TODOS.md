@@ -15,7 +15,7 @@
 - Mesos einführen mit Kopieren des alten Mesos
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
 - Trainings löschbar machen ~~und editierbar~~
-- push benachrichtigung für pausenzeit
+- ~~push benachrichtigung für pausenzeit~~ funktioniert das bild ??
 - Records in overview anzeigen 
 - ~~swipe between micros~~
 
