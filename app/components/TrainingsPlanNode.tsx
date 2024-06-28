@@ -4,7 +4,7 @@ import MicroOverview from "./MicroOverview";
 import Picker from "./Picker";
 import {TrainingsState} from "../models/TrainingsState";
 import Timer from "./Timer";
-import {Button, Text} from "react-native-paper";
+import {Button} from "react-native-paper";
 import DraggableExercise from "./DraggableExercise";
 import TrainingsBase from "./TrainingsBase";
 import PlanWorkoutInTraining from "./PlanTraining";
@@ -20,6 +20,7 @@ import {dispatchModifyExercisesInTraining} from "../redux/Training/dispatchModif
 import {dispatchFinishTraining} from "../redux/Training/dispatchFinishTraining";
 import Toast from "react-native-toast-message";
 import {useTrainingInTrainingsPlan} from "../redux/Training/useTrainingInTrainingsPlan";
+import {GestureDetector} from "react-native-gesture-handler";
 
 interface TrainingsPlanNodeProps {
     trainingsPlan: TrainingsPlan,
@@ -129,18 +130,18 @@ const TrainingsPlanNode = ({
                                     <Timer start={timeInWorkout} reset={true} label={'Last Set'}/>}
                             </View>
                             {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
-                                <View>
-                                    <DraggableExercise
-                                        onTouchStart={disableSwipe}
-                                        onTouchEnd={enableSwipe}
-                                        exercises={exercises}
-                                        setExercises={setExerciseWithSideEffects}
-                                        chosenExercise={chosenExercise}
-                                        chooseExercise={(exercise) => {
-                                            setchosenExercise(exercise.id);
-                                        }}
-                                        doneExerciseIds={doneExerciseIds}
-                                    />
+                                <View pointerEvents={"box-none"}>
+                                        <DraggableExercise
+                                            onTouchStart={disableSwipe}
+                                            onTouchEnd={enableSwipe}
+                                            exercises={exercises}
+                                            setExercises={setExerciseWithSideEffects}
+                                            chosenExercise={chosenExercise}
+                                            chooseExercise={(exercise) => {
+                                                setchosenExercise(exercise.id);
+                                            }}
+                                            doneExerciseIds={doneExerciseIds}
+                                        />
                                 </View>
                             )}
                             {training === undefined && <TrainingsBase trainingsPlan={trainingsPlan}

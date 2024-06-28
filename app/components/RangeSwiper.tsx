@@ -169,10 +169,12 @@ const RangeSwiper = <T extends any>({
                     state.fail();
                     return;
                 }
-
                 const xDiff = Math.abs(evt.changedTouches[0].x - initialTouchLocation.value.x);
                 const yDiff = Math.abs(evt.changedTouches[0].y - initialTouchLocation.value.y);
-                const isHorizontalPanning = xDiff > yDiff && xDiff > 1 && yDiff < 1;
+                const isHorizontalPanning = xDiff > yDiff && xDiff > 1.5 && yDiff < 1;
+
+                if (!isPanEnabled)
+                    state.fail();
 
                 if (isHorizontalPanning) {
                     state.activate();
@@ -186,12 +188,12 @@ const RangeSwiper = <T extends any>({
                 xPosition.value = zeroPositon + e.translationX;
             })
             .onEnd((e) => {
-                    if (xPosition.value > dimensions.width / SNAP_POINT + zeroPositon || e.velocityX > 400) {
+                    if (xPosition.value > dimensions.width / SNAP_POINT + zeroPositon || e.velocityX > 600) {
                         runOnJS(uiminusOne)();
                         xPosition.value = withTiming(zeroPositon + dimensions.width, userConfig);
                         return;
                     }
-                    if (xPosition.value < -dimensions.width / SNAP_POINT + zeroPositon || e.velocityX < -400) {
+                    if (xPosition.value < -dimensions.width / SNAP_POINT + zeroPositon || e.velocityX < -600) {
                         runOnJS(uiplusOne)();
                         xPosition.value = withTiming(zeroPositon - dimensions.width, userConfig);
                         return;
@@ -205,7 +207,8 @@ const RangeSwiper = <T extends any>({
                         return;
                     }
                 }
-            ).withRef(refa).enabled(isPanEnabled)
+            ).withRef(refa)
+            .enabled(isPanEnabled)
         ;
 
         const animatedStyle = useAnimatedStyle(() => ({
