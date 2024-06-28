@@ -25,7 +25,7 @@ export const FinishTrainingNotification = () => {
             await notifee.displayNotification({
                 id: 'training_done',
                 title: 'Training in progress!',
-                body: 'There is still time to finish your training!',
+                body: 'If you are not doing an extended pause, go finish your training!',
                 android: {
                     channelId,
                     smallIcon: '@mipmap/ic_launcher', // optional, defaults to 'ic_launcher'.
