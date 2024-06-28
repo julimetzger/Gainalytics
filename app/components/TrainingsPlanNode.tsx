@@ -22,6 +22,7 @@ import Toast from "react-native-toast-message";
 import {useTrainingInTrainingsPlan} from "../redux/Training/useTrainingInTrainingsPlan";
 import {PauseDoneNotification} from "./PauseDoneNotification";
 import {FinishTrainingNotification} from "./FinishTrainingNotification";
+import {useSettings} from "../redux/settings/useSettings";
 
 interface TrainingsPlanNodeProps {
     trainingsPlan: TrainingsPlan,
@@ -59,6 +60,7 @@ const TrainingsPlanNode = ({
     let finishTraining = dispatchFinishTraining();
     let [pauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
     let [finishTrainingNotification, resetFinishTraining] = FinishTrainingNotification();
+    let appSettings = useSettings();
 
     useEffect(() => {
         if (training?.state === TrainingsState.STARTED) {
@@ -123,7 +125,7 @@ const TrainingsPlanNode = ({
                                 justifyContent: 'space-evenly',
                                 margin: 5
                             }}>
-                                {training?.state === TrainingsState.STARTED &&
+                                {!appSettings.toggles?.disableTimer && training?.state === TrainingsState.STARTED &&
                                     <Timer start={training.start!!} label={'Start Training'}/>}
                                 {training?.state && <Button mode="outlined" onPress={changePlanningmode}>
                                     {training?.state === TrainingsState.PLANNED && 'Start Training'}
@@ -131,7 +133,7 @@ const TrainingsPlanNode = ({
                                     {training?.state === TrainingsState.FINISHED && overview && 'Show Sets'}
                                     {training?.state === TrainingsState.FINISHED && !overview && 'Show Overview'}
                                 </Button>}
-                                {training?.state === TrainingsState.STARTED &&
+                                {!appSettings.toggles?.disableTimer && training?.state === TrainingsState.STARTED &&
                                     <Timer start={timeInWorkout} reset={true} label={'Last Set'}
                                            exercise={chosenExercise}
                                            children={[(elapasedTimeInSeconds) => pauseDoneNotification(elapasedTimeInSeconds), (elapasedTimeInSeconds) => finishTrainingNotification(elapasedTimeInSeconds)]}

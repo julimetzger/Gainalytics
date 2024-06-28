@@ -36,6 +36,8 @@
 ## Settings
 - ~~Darkmode/Lightmode~~
 - ~~Export/Import alles~~
+- ~~1RM Button default mäßig an/aus~~
+- ~~Show timer on/off~~
 
 ## General
 - ~~settings in bottom navigation tab~~

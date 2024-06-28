@@ -3,6 +3,7 @@ import {Button, IconButton, Text, TextInput, ToggleButton, Tooltip, useTheme} fr
 import React, {useEffect, useState} from "react";
 import {repetitionWeightByOneRm} from "../utils/RepetitionMaxHelper";
 import {WorkoutSet} from "../models/WorkoutSet";
+import {useSettings} from "../redux/settings/useSettings";
 
 interface AddWorkoutProps {
     onSubmit: (arg: WorkoutSet) => void,
@@ -13,17 +14,28 @@ interface AddWorkoutProps {
     isPlanningMode?: boolean
 }
 
-const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManually = false, isPlanningMode = false}: AddWorkoutProps) => {
+const AddWorkoutSet = ({
+                           onSubmit,
+                           workoutSet,
+                           oneRepMax,
+                           onDelete,
+                           hasToSaveManually = false,
+                           isPlanningMode = false
+                       }: AddWorkoutProps) => {
     let theme = useTheme();
     const [weight, setWeight] = useState(workoutSet?.weight?.toString() ?? '');
     const [rir, setRPE] = useState(workoutSet?.rir?.toString() ?? '0');
     const [reps, setReps] = useState(workoutSet?.reps?.toString() ?? '');
     const [editing, setEditing] = useState(hasToSaveManually);
-    const [weightSet, setWeightSet] = useState(false);
+    let appSettings = useSettings();
+    const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(appSettings.toggles?.disable1RMButton);
     const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
     const [weightEmpty, setWeightEmpty] = useState(false);
     const [rirEmpty, setRirEmpty] = useState(false);
     const [repsEmpty, setRepsEmpty] = useState(false);
+
+    console.log(appSettings.toggles)
+    console.log(disable1RMWeightCalculation)
 
     useEffect(() => {
         if (workoutSet !== undefined) {
@@ -35,7 +47,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
 
     const setWeightOnChange = (value: string) => {
         setWeightEmpty(false);
-        setWeightSet(true);
+        setDisable1RMWeightCalculation(true);
         setWeight(ensureFormat(value))
     }
 
@@ -49,7 +61,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
         if (isNaN(reps) || isNaN(rir)) {
             return;
         }
-        if (oneRepMax !== undefined && !weightSet) {
+        if (oneRepMax !== undefined && !disable1RMWeightCalculation) {
             setWeightEmpty(false);
             let weight = repetitionWeightByOneRm(reps, rir, oneRepMax!!).toFixed(0);
             setWeight(weight.toString())
@@ -64,7 +76,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
     }
 
     function setWeightSuggestions() {
-        if (!weightSet) {
+        if (!disable1RMWeightCalculation) {
             setHighlightWeightSuggestion(true);
         }
     }
@@ -145,8 +157,8 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                            selectTextOnFocus={true}/>
                 <TextInput mode="outlined" label="Weight" value={weight.toString()} style={styles.textInput}
                            onChangeText={setWeightOnChange} keyboardType="numeric"
-                           textColor={highlightWeightSuggestion && !weightSet ? theme.colors.secondary : undefined}
-                           outlineColor={highlightWeightSuggestion && !weightSet ? theme.colors.secondary : undefined}
+                           textColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.secondary : undefined}
+                           outlineColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.secondary : undefined}
                            onFocus={() => {
                                setEditing(true)
                            }}
@@ -160,9 +172,9 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                     <ToggleButton
                         icon={() => <Text style={{color: theme.colors.onSecondaryContainer}}>1RM</Text>}
                         iconColor={theme.colors.secondaryContainer}
-                        status={!weightSet ? "checked" : "unchecked"}
+                        status={!disable1RMWeightCalculation ? "checked" : "unchecked"}
                         onPress={() => {
-                            setWeightSet(prevState => !prevState);
+                            setDisable1RMWeightCalculation(prevState => !prevState);
                             setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
                         }}
                     />
