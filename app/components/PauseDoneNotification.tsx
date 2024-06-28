@@ -13,12 +13,14 @@ export const PauseDoneNotification = () => {
             setNotified(true);
             showNotificatoin();
         }
+
         async function showNotificatoin() {
             // Request permissions (required for iOS)
             await notifee.requestPermission()
             const channelId = await notifee.createChannel({
                 id: 'gainalytics_pause_done',
                 name: 'gainalytics pause done',
+                importance: AndroidImportance.HIGH
             });
 
             await notifee.displayNotification({
