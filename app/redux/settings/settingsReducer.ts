@@ -6,6 +6,11 @@ export interface AppSettings {
         pauseTimerInSeconds?: number
         finishTrainingTimerInSeconds?: number
     }
+    toggles?: {
+        useRpe?: boolean
+        disable1RMButton?: boolean,
+        disableTimer?: boolean,
+    }
 }
 
 const initialState = {
@@ -28,12 +33,31 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
                 }
             } as AppSettings;
         }
-        case 'SET_FINISH_TRAINING_TIMER': {
+        case 'TOGGLE_USE_RPE': {
             return {
                 ...settings,
-                localNotification: {
-                    ...settings.localNotification,
-                    finishTrainingTimerInSeconds: action.seconds
+                toggles: {
+                    ...settings.toggles,
+                    useRpe: !settings.toggles?.useRpe
+                }
+
+            } as AppSettings;
+        }
+        case 'TOGGLE_ENABLE_1RM_BUTTON': {
+            return {
+                ...settings,
+                toggles: {
+                    ...settings.toggles,
+                    disable1RMButton: !settings.toggles?.disable1RMButton
+                }
+            } as AppSettings;
+        }
+        case 'TOGGLE_DISABLE_TIMER': {
+            return {
+                ...settings,
+                toggles: {
+                    ...settings.toggles,
+                    disableTimer: !settings.toggles?.disableTimer
                 }
             } as AppSettings;
         }

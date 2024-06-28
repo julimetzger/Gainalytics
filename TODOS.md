@@ -37,8 +37,6 @@
 
 - Show/hide Toasts, einzelne Toasts aktivierbar machen
 - RIR/RPE
-- 1RM Button default mäßig an/aus
-- Show timer on/off
 - Metriken die im TrainingsOverview/Overview angezeigt werden sollen für Muscles/Exercises
 - Hide/show "kg"
 - Default DatePicker range

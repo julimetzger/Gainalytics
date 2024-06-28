@@ -10,14 +10,17 @@ import DocumentPicker, {DocumentPickerResponse} from 'react-native-document-pick
 import {GlobalState} from "../../redux/rootReducer";
 import {dispatchFullImport} from "../../redux/fullstateactions/dispatchFullImport";
 import Toast from "react-native-toast-message";
-import {TimerPickerModal} from "react-native-timer-picker";
 import {dispatchSetPauseTimer} from "../../redux/settings/dispatchSetPauseTimer";
 import TimeRangePicker from "../../components/TimeRangePicker";
 import {dispatchSetFinishTrainingTimer} from "../../redux/settings/dispatchSetFinishTrainingTimer";
+import {dispatchToggleDisable1RMpreselect} from "../../redux/settings/dispatchToggleDisable1RMpreselect";
+import {dispatchToggleShowTimer} from "../../redux/settings/dispatchToggleShowTimer";
 
 const SettingsTab = ({navigation}: Props) => {
     let settings = useSettings();
     let dispatchtoggleMode1 = dispatchtoggleMode();
+    let toggleDisable1RMpreselect = dispatchToggleDisable1RMpreselect();
+    let toggleShowTimer = dispatchToggleShowTimer();
     let store = useStore();
     const FileSaver = require('react-native-fs');
 
@@ -74,12 +77,12 @@ const SettingsTab = ({navigation}: Props) => {
                 <Text style={{alignSelf: 'center'}}>Dark Mode enabled</Text>
             </View>
             <View style={{display: 'flex', flexDirection: 'row'}}>
-                <Switch onValueChange={() => dispatchtoggleMode1()} value={settings.mode === "dark"}/>
-                <Text style={{alignSelf: 'center'}}>RIR/RPE</Text>
+                <Switch onValueChange={() => toggleDisable1RMpreselect()} value={!settings.toggles?.disable1RMButton}/>
+                <Text style={{alignSelf: 'center'}}>preselect 1RM button</Text>
             </View>
             <View style={{display: 'flex', flexDirection: 'row'}}>
-                <Switch onValueChange={() => dispatchtoggleMode1()} value={settings.mode === "dark"}/>
-                <Text style={{alignSelf: 'center'}}>Show 1RM button</Text>
+                <Switch onValueChange={() => toggleShowTimer()} value={!settings.toggles?.disableTimer}/>
+                <Text style={{alignSelf: 'center'}}>show Trainings timer</Text>
             </View>
             <View style={{display: 'flex', flexDirection: 'row'}}>
                 <Switch onValueChange={showAlert} value={false}/>
