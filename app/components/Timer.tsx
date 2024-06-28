@@ -1,14 +1,18 @@
 import {StyleSheet, View} from "react-native";
 import React, {useEffect, useState} from "react";
 import {Card, Text, useTheme} from "react-native-paper";
+import {Exercise} from "../models/Exercise";
 
 interface TimerProps {
     start: Date,
     label?: string,
-    reset?: boolean
+    reset?: boolean,
+    exercise?: Exercise,
+    children?: ((elapasedTimeInSeconds: number) => void)[],
+    onReset?: (() => void)[],
 }
 
-const Timer = ({start, label, reset = false}: TimerProps) => {
+const Timer = ({start, label, reset = false, children, onReset}: TimerProps) => {
     const [sarted, setSarted] = useState(start)
     const [date, setDate] = useState(new Date(Date.now()))
     let theme = useTheme();
@@ -32,13 +36,15 @@ const Timer = ({start, label, reset = false}: TimerProps) => {
         setSarted(start);
         setDate(start);
     }, [start]);
-    
+
+    children && children.forEach((func) => func(new Date(new Date(date).getTime() - new Date(sarted).getTime()).getTime() / 1000));
     return (
         <View>
             <Card key={Math.random()} onPress={() => {
                 if (reset) {
                     setSarted(new Date(Date.now()));
                     setDate(new Date(Date.now()));
+                    onReset && onReset.forEach((func) => func());
                 }
             }}>
                 <Card.Content>
