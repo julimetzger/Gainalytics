@@ -33,6 +33,15 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
                 }
             } as AppSettings;
         }
+        case 'SET_FINISH_TRAINING_TIMER': {
+            return {
+                ...settings,
+                localNotification: {
+                    ...settings.localNotification,
+                    finishTrainingTimerInSeconds: action.seconds
+                }
+            } as AppSettings;
+        }
         case 'TOGGLE_USE_RPE': {
             return {
                 ...settings,
