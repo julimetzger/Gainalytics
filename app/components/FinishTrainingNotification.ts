@@ -19,7 +19,7 @@ export const FinishTrainingNotification = () => {
             await notifee.requestPermission()
             const channelId = await notifee.createChannel({
                 id: 'gainalytics_training_done',
-                name: 'gainalytics training done'
+                name: 'Gainalytics training done'
             });
 
             await notifee.displayNotification({

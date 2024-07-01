@@ -20,7 +20,7 @@ const TimeRangePicker = ({title, setPauseTimer, timeRange}: TimeRangePickerProps
         return `${hours}h ${minutes}m ${seconds}s`
     }
     return (
-        <View style={{flexDirection: 'row', justifyContent: 'flex-start'}}>
+        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start'}}>
             <Text>{title}</Text>
             <Text>{getTimeString(timeRange)}</Text>
             <IconButton icon={"pencil"} onPress={() => {

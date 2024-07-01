@@ -1,7 +1,7 @@
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/exerciseRouter";
 import React, {useState} from "react";
-import {Alert, View} from "react-native";
+import {Alert, ScrollView, View} from "react-native";
 import {Button, Dialog, Divider, Portal, Switch, Text} from "react-native-paper";
 import {dispatchtoggleMode} from "../../redux/settings/dispatchtoggleMode";
 import {useSettings} from "../../redux/settings/useSettings";
@@ -71,43 +71,48 @@ const SettingsTab = ({navigation}: Props) => {
     };
 
     return (
-        <View>
+        <ScrollView>
             <View style={{display: 'flex', flexDirection: 'row'}}>
                 <Switch onValueChange={() => dispatchtoggleMode1()} value={settings.mode === "dark"}/>
-                <Text style={{alignSelf: 'center'}}>Dark Mode enabled</Text>
+                <Text style={{alignSelf: 'center'}}>Enable Dark Mode</Text>
             </View>
             <View style={{display: 'flex', flexDirection: 'row'}}>
                 <Switch onValueChange={() => toggleDisable1RMpreselect()} value={!settings.toggles?.disable1RMButton}/>
-                <Text style={{alignSelf: 'center'}}>preselect 1RM button</Text>
-            </View>
-            <View style={{display: 'flex', flexDirection: 'row'}}>
-                <Switch onValueChange={() => toggleShowTimer()} value={!settings.toggles?.disableTimer}/>
-                <Text style={{alignSelf: 'center'}}>show Trainings timer</Text>
+                <Text style={{alignSelf: 'center'}}>Preselect 1RM Button</Text>
             </View>
             <View style={{display: 'flex', flexDirection: 'row'}}>
                 <Switch onValueChange={showAlert} value={false}/>
-                <Text style={{alignSelf: 'center'}}>Use imperial units</Text>
+                <Text style={{alignSelf: 'center'}}>Use Imperial Units</Text>
+            </View>
+            <View style={{display: 'flex', flexDirection: 'row'}}>
+                <Switch onValueChange={() => toggleShowTimer()} value={!settings.toggles?.disableTimer}/>
+                <Text style={{alignSelf: 'center'}}>Show Trainings Timer</Text>
             </View>
             <View style={{margin: 5}}><Divider/></View>
-            <Button onPress={() => {
-                dumbFullStateToFile()
-            }}>Export all data</Button>
-            <Button onPress={() => {
-                setImportDialog(true)
-            }}>Import all data</Button>
-            <TimeRangePicker setPauseTimer={setPauseTimer}
-                             title={'Pause Timer: '}
-                             timeRange={settings.localNotification?.pauseTimerInSeconds}/>
-            <TimeRangePicker setPauseTimer={setFinishTrainingTimer}
-                             title={'Finish Training Timer: '}
-                             timeRange={settings.localNotification?.finishTrainingTimerInSeconds}/>
+            <View style={{marginLeft: 18}}>
+                <TimeRangePicker setPauseTimer={setPauseTimer}
+                                title={'Pause Timer: '}
+                                timeRange={settings.localNotification?.pauseTimerInSeconds}/>
+                <TimeRangePicker setPauseTimer={setFinishTrainingTimer}
+                                title={'Finish Training Timer: '}
+                                timeRange={settings.localNotification?.finishTrainingTimerInSeconds}/>
+            </View>
+            <View style={{margin: 5}}><Divider/></View>
+            <View style={{margin: 5, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-evenly'}}>
+                <Button onPress={() => {
+                    setImportDialog(true)
+                }}>Import all data</Button>
+                <Button onPress={() => {
+                    dumbFullStateToFile()
+                }}>Export all data</Button>
+                
+            </View>
+            
             <Portal>
                 <Dialog visible={importDialog} onDismiss={() => setImportDialog(false)}>
                     <Dialog.Title>Import full data from backup file?</Dialog.Title>
                     <Dialog.Content>
-                        <Text>This action will replace all existing data in your current application with the data from
-                            the
-                            selected file. Continue?</Text>
+                        <Text>This action will replace all existing data in your current application with the data from the selected file. Continue?</Text>
                     </Dialog.Content>
                     <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'space-between'}}>
                         <Dialog.Actions>
@@ -124,7 +129,7 @@ const SettingsTab = ({navigation}: Props) => {
                     </View>
                 </Dialog>
             </Portal>
-        </View>
+        </ScrollView>
     )
         ;
 }
