@@ -19,7 +19,7 @@ export const PauseDoneNotification = () => {
             await notifee.requestPermission()
             const channelId = await notifee.createChannel({
                 id: 'gainalytics_pause_done',
-                name: 'gainalytics pause done',
+                name: 'Gainalytics pause done',
                 importance: AndroidImportance.HIGH
             });
 
