@@ -1,5 +1,5 @@
-import React, {useState} from "react";
-import {Dimensions, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import React, {useEffect, useRef, useState} from "react";
+import {Dimensions, LayoutRectangle, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import DraggableFlatList, {RenderItemParams, ScaleDecorator,} from "react-native-draggable-flatlist";
 import {IconButton, useTheme} from "react-native-paper";
 import {Exercise} from "../models/Exercise";
@@ -16,8 +16,7 @@ interface Props {
     chooseExercise: (exercise: Exercise) => void;
     setExercises: (exercises: Exercise[]) => void;
     doneExerciseIds: number[];
-    onTouchStart: () => void;
-    onTouchEnd: () => void;
+    setAbsolutePosition: (layout: LayoutRectangle) => void;
 }
 
 const DraggableExercise = ({
@@ -26,8 +25,7 @@ const DraggableExercise = ({
                                chosenExercise,
                                chooseExercise,
                                doneExerciseIds,
-                               onTouchStart,
-                               onTouchEnd
+                               setAbsolutePosition
                            }: Props) => {
     let theme = useTheme();
     let exerciseData = exercises.map(
@@ -40,6 +38,7 @@ const DraggableExercise = ({
     );
 
 
+    const textRef = useRef<View>(null);
     const screenWidth = Dimensions.get('window').width;
 
     const spreedEvenly = (percentage: number) => {
@@ -135,15 +134,14 @@ const DraggableExercise = ({
             </ScaleDecorator>
         )
     };
-
     return (
-        <View>
-            {exerciseData.length > 0 &&
+        <View ref={textRef} onLayout={() => textRef.current?.measureInWindow((x, y, width, height) => {
+            setAbsolutePosition({x, y, width, height});
+        })}>
+            {
+                exerciseData.length > 0 &&
                 <DraggableFlatList keyboardShouldPersistTaps={'always'}
                                    horizontal
-                                   onTouchStart={onTouchStart}
-                                   onTouchEnd={onTouchEnd}
-                                   onScrollEndDrag={onTouchEnd}
                                    data={exerciseData}
                                    onDragEnd={(items) => setExercises(items.data.map((item) => exercises.find((exercise) => exercise.id === item.key)).filter(exercise => exercise !== undefined) as Exercise[])}
                                    keyExtractor={(item) => item.key.toString()}

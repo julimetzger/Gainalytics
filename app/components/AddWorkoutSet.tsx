@@ -34,9 +34,6 @@ const AddWorkoutSet = ({
     const [rirEmpty, setRirEmpty] = useState(false);
     const [repsEmpty, setRepsEmpty] = useState(false);
 
-    console.log(appSettings.toggles)
-    console.log(disable1RMWeightCalculation)
-
     useEffect(() => {
         if (workoutSet !== undefined) {
             setWeight(workoutSet.weight?.toString() ?? '');
