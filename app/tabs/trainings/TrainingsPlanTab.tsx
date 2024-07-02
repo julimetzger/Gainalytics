@@ -11,6 +11,7 @@ import TrainingsPlanDrawer from "../../components/TrainingsPlanDrawer";
 import TrainingsPlanNode from "../../components/TrainingsPlanNode";
 import RangeSwiper from "../../components/RangeSwiper";
 import {tr} from "react-native-paper-dates";
+import {LayoutRectangle} from "react-native";
 
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
@@ -23,7 +24,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     const [overview, setOverview] = useState(true);
     let [showPlanned, setShowPlanned] = useState(false);
     let [showDone, setShowDone] = useState(false);
-    const [swipeEnabled, setSwipeEnabled] = useState(true)
+    const [ignoreSwipeLocations, setIgnoreSwipeLocations] = useState<LayoutRectangle[]>([])
 
     let changeTrainingsName = dispatchChangeTrainingsName();
     let theme = useTheme();
@@ -54,14 +55,6 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         setRerender(Math.random());
     };
 
-    function getEnableSwipe() {
-        return () => setSwipeEnabled(true);
-    }
-
-    function getDisableSwipe() {
-        return () => setSwipeEnabled(false);
-    }
-
     return (
         <Drawer
             drawerStyle={{backgroundColor: theme.colors.background}}
@@ -85,7 +78,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             }
         >
             <RangeSwiper key={rerender}
-                         enabled={swipeEnabled}
+                         ignoreSwipe={ignoreSwipeLocations}
                          nodeFunction={(value, setRange) => <TrainingsPlanNode trainingsPlan={trainingsPlan}
                                                                                micro={value}
                                                                                showPlanned={showPlanned}
@@ -93,13 +86,13 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                                                                                setOverview={setOverview}
                                                                                showDone={showDone}
                                                                                trainingInMicro={trainingInMicro}
-                                                                               enableSwipe={getEnableSwipe()}
-                                                                               disableSwipe={getDisableSwipe()}
+                                                                               setIgnoreSwipe={
+                                                                                   (locations) => setIgnoreSwipeLocations(locations)
+                                                                               }
                          />}
                          determineValueByIndex={(index, micro) => micro + index} startValue={micro}
                          onUpdateCurrentIndex={(index) => {
                              setMicro(micro + index)
-                             setSwipeEnabled(true)
                          }}/>
         </Drawer>
     );

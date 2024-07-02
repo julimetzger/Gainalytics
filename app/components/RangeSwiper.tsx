@@ -1,14 +1,15 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {useWindowDimensions, View} from 'react-native'
+import {LayoutRectangle, useWindowDimensions, View} from 'react-native'
 import Animated, {
     Easing,
     ReduceMotion,
-    runOnJS, useAnimatedScrollHandler,
+    runOnJS,
+    useAnimatedScrollHandler,
     useAnimatedStyle,
     useSharedValue,
     withTiming
 } from 'react-native-reanimated';
-import {Gesture, GestureDetector, GestureHandlerRootView, ScrollView, State} from 'react-native-gesture-handler';
+import {Gesture, GestureDetector, GestureHandlerRootView, State} from 'react-native-gesture-handler';
 
 
 interface PositionRange<T> {
@@ -43,7 +44,8 @@ interface RangeSwiperProps<T> {
     determineValueByIndex: (index: number, range: T) => T,
     startValue: T,
     onUpdateCurrentIndex?: (index: number) => void,
-    enabled?: boolean
+    enabled?: boolean,
+    ignoreSwipe?: LayoutRectangle[],
 }
 
 const RangeSwiper = <T extends any>({
@@ -52,6 +54,7 @@ const RangeSwiper = <T extends any>({
                                         determineValueByIndex,
                                         startValue,
                                         onUpdateCurrentIndex,
+                                        ignoreSwipe,
                                         enabled = true
                                     }: RangeSwiperProps<T>) => {
         const [fullPosition, setFullPosition] = useState({
@@ -162,12 +165,17 @@ const RangeSwiper = <T extends any>({
             .manualActivation(true)
             .onBegin((evt) => {
                 initialTouchLocation.value = {x: evt.x, y: evt.y};
+                console.log("initial touch ", initialTouchLocation.value)
             })
             .onTouchesMove((evt, state) => {
                 // Sanity checks
                 if (!initialTouchLocation.value || !evt.changedTouches.length) {
                     state.fail();
                     return;
+                }
+                if (ignoreSwipe?.length !== 0 && ignoreSwipe?.some(rect => initialTouchLocation.value.y > rect.y && initialTouchLocation.value.y < rect.y + rect.height)
+                ) {
+                    state.fail();
                 }
                 const xDiff = Math.abs(evt.changedTouches[0].x - initialTouchLocation.value.x);
                 const yDiff = Math.abs(evt.changedTouches[0].y - initialTouchLocation.value.y);
