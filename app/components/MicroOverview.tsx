@@ -40,7 +40,6 @@ const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
         lastWorkoutSets: previousWorkouts.flatMap((workout: Workout) => workout.sets)
     })
 
-
     return <ScrollView>
         <View style={{display: 'flex', flexDirection: 'row', flex: 1}}>
             <Card style={{margin: 5, flex: 1}}>

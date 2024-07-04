@@ -11,7 +11,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import {Gesture, GestureDetector, GestureHandlerRootView, State} from 'react-native-gesture-handler';
 
-
 interface PositionRange<T> {
     position: number,
     range: T

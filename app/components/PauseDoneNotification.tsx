@@ -2,11 +2,9 @@ import notifee, {AndroidImportance} from "@notifee/react-native";
 import {useSettings} from "../redux/settings/useSettings";
 import {useState} from "react";
 
-
 export const PauseDoneNotification = () => {
     const [notified, setNotified] = useState(false)
     let pauseTimerInSeconds = useSettings().localNotification?.pauseTimerInSeconds;
-
 
     return [(elapsedTimeInSeconds: number) => {
         if (!notified && pauseTimerInSeconds !== undefined ? elapsedTimeInSeconds > pauseTimerInSeconds : false) {
