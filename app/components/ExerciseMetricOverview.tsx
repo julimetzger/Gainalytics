@@ -6,7 +6,6 @@ import {Exercise} from "../models/Exercise";
 import {Comparison} from "./WorkoutSetOverview";
 import {StyleSheet} from "react-native";
 
-
 const ExerciseMetricOverview = ({exerciseMetricMap}: { exerciseMetricMap: Map<Exercise, Map<Metric, Comparison>> }) => {
     return (
 
@@ -45,16 +44,13 @@ const ExerciseMetricOverview = ({exerciseMetricMap}: { exerciseMetricMap: Map<Ex
 let styles = StyleSheet.create({
     flexL: {
         flex: 10,
-    }
-    ,
+    },
     flexM: {
         flex: 7,
-    }
-    ,
+    },
     flexS: {
         flex: 6,
-    }
-    ,
+    },
 });
 
 export default ExerciseMetricOverview;

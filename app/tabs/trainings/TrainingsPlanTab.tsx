@@ -10,9 +10,7 @@ import TrainingsPlanHeader from "../../components/TrainingsPlanHeader";
 import TrainingsPlanDrawer from "../../components/TrainingsPlanDrawer";
 import TrainingsPlanNode from "../../components/TrainingsPlanNode";
 import RangeSwiper from "../../components/RangeSwiper";
-import {tr} from "react-native-paper-dates";
 import {LayoutRectangle} from "react-native";
-
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
     const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);

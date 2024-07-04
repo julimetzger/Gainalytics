@@ -7,7 +7,6 @@ import {Exercise} from "../../models/Exercise";
 import RangeSwiper from "../../components/RangeSwiper";
 import {firstDayOfWeek, lastDayOfWeek} from "../../utils/DateHelper";
 
-
 const History = () => {
     const [exercise, setExercise] = useState<Exercise[]>([]);
     const [muscle, setMuscle] = useState<Muscles[]>([]);

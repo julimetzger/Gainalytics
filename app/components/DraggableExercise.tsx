@@ -37,7 +37,6 @@ const DraggableExercise = ({
         }
     );
 
-
     const textRef = useRef<View>(null);
     const screenWidth = Dimensions.get('window').width;
 
@@ -59,12 +58,12 @@ const DraggableExercise = ({
             justifyContent: "center"
         },
         text: {
-            margin: 3,
+            margin: 4,
             minWidth: spreedEvenly(exercises.length),
             maxWidth: spreedMax(exercises.length),
             color: theme.colors.onSecondaryContainer,
             fontSize: theme.fonts.bodyMedium.fontSize,
-            marginTop: -5,
+            marginTop: -4,
             fontWeight: "bold",
             textAlign: "center",
         },
@@ -107,7 +106,7 @@ const DraggableExercise = ({
                         onRequestClose={() => setInteractive(false)}
                     >
                         {interactive && <IconButton
-                            style={{marginTop: 5}}
+                            style={{marginTop: 10}}
                             icon={"close-circle"}
                             iconColor={theme.colors.tertiaryContainer}
                             onPress={() => {
