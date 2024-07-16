@@ -85,7 +85,9 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                                                                                showDone={showDone}
                                                                                trainingInMicro={trainingInMicro}
                                                                                setIgnoreSwipe={
-                                                                                   (locations) => setIgnoreSwipeLocations(locations)
+                                                                                   (locations) => {
+                                                                                       setIgnoreSwipeLocations(locations)
+                                                                                   }
                                                                                }
                          />}
                          determineValueByIndex={(index, micro) => micro + index} startValue={micro}
