@@ -164,7 +164,6 @@ const RangeSwiper = <T extends any>({
             .manualActivation(true)
             .onBegin((evt) => {
                 initialTouchLocation.value = {x: evt.x, y: evt.y};
-                console.log("initial touch ", initialTouchLocation.value)
             })
             .onTouchesMove((evt, state) => {
                 // Sanity checks
@@ -172,7 +171,7 @@ const RangeSwiper = <T extends any>({
                     state.fail();
                     return;
                 }
-                if (ignoreSwipe?.length !== 0 && ignoreSwipe?.some(rect => initialTouchLocation.value.y > rect.y && initialTouchLocation.value.y < rect.y + rect.height)
+                if (ignoreSwipe?.length !== 0 && ignoreSwipe?.some(rect => initialTouchLocation.value.y > rect.y - 15 && initialTouchLocation.value.y < rect.y + rect.height + 15)
                 ) {
                     state.fail();
                 }

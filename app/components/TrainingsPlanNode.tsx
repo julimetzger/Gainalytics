@@ -121,16 +121,19 @@ const TrainingsPlanNode = ({
                                     display: 'flex',
                                     flexDirection: 'row',
                                     justifyContent: 'space-evenly',
+                                    height: 65,
                                     margin: 5
                                 }}>
                                     {!appSettings.toggles?.disableTimer && training?.state === TrainingsState.STARTED &&
                                         <Timer start={training.start!!} label={'Start Training'}/>}
-                                    {training?.state && <Button mode="outlined" onPress={changePlanningmode}>
-                                        {training?.state === TrainingsState.PLANNED && 'Start Training'}
-                                        {training?.state === TrainingsState.STARTED && 'Finish Training'}
-                                        {training?.state === TrainingsState.FINISHED && overview && 'Show Sets'}
-                                        {training?.state === TrainingsState.FINISHED && !overview && 'Show Overview'}
-                                    </Button>}
+                                    {training?.state &&
+                                        <Button mode="outlined" style={{height: 40, alignSelf: 'center'}}
+                                                onPress={changePlanningmode}>
+                                            {training?.state === TrainingsState.PLANNED && 'Start Training'}
+                                            {training?.state === TrainingsState.STARTED && 'Finish Training'}
+                                            {training?.state === TrainingsState.FINISHED && overview && 'Show Sets'}
+                                            {training?.state === TrainingsState.FINISHED && !overview && 'Show Overview'}
+                                        </Button>}
                                     {!appSettings.toggles?.disableTimer && training?.state === TrainingsState.STARTED &&
                                         <Timer start={timeInWorkout} reset={true} label={'Last Set'}
                                                exercise={chosenExercise}

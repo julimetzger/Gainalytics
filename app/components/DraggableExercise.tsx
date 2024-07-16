@@ -4,6 +4,7 @@ import DraggableFlatList, {RenderItemParams, ScaleDecorator,} from "react-native
 import {IconButton, useTheme} from "react-native-paper";
 import {Exercise} from "../models/Exercise";
 import SwipeView from 'react-native-vertical-swipe-view';
+import {useSafeAreaInsets} from "react-native-safe-area-context";
 
 type Item = {
     key: number;
@@ -36,6 +37,7 @@ const DraggableExercise = ({
             } as Item
         }
     );
+    let edgeInsets = useSafeAreaInsets();
 
     const textRef = useRef<View>(null);
     const screenWidth = Dimensions.get('window').width;
@@ -135,7 +137,7 @@ const DraggableExercise = ({
     };
     return (
         <View ref={textRef} onLayout={() => textRef.current?.measureInWindow((x, y, width, height) => {
-            setAbsolutePosition({x, y, width, height});
+            setAbsolutePosition({x, y: y - edgeInsets.top, width, height});
         })}>
             {
                 exerciseData.length > 0 &&
