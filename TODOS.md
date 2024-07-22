@@ -17,7 +17,8 @@
 - Trainings löschbar machen ~~und editierbar~~
 - ~~push benachrichtigung für pausenzeit~~ funktioniert das bild ??
 - Records in overview anzeigen 
-- ~~swipe between micros~~
+- ~~swipe between micros~~ besser
+- Trainings oben anpinnbar machen im Edit (toggle schon im AddTrainingsPlan, redux fehlt)
 
 ## Analyse
 
