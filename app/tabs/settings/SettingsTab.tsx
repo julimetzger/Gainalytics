@@ -86,7 +86,7 @@ const SettingsTab = ({navigation}: Props) => {
             </View>
             <View style={{display: 'flex', flexDirection: 'row'}}>
                 <Switch onValueChange={() => toggleShowTimer()} value={!settings.toggles?.disableTimer}/>
-                <Text style={{alignSelf: 'center'}}>Show Trainings Timer</Text>
+                <Text style={{alignSelf: 'center'}}>Show Training Timer</Text>
             </View>
             <View style={{margin: 5}}><Divider/></View>
             <View style={{marginLeft: 18}}>

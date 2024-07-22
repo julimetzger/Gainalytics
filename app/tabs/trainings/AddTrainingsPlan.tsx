@@ -1,4 +1,4 @@
-import {Button, Dialog, IconButton, Portal, Text, TextInput, useTheme} from 'react-native-paper';
+import {Button, Dialog, IconButton, Portal, Switch, Text, TextInput, useTheme} from 'react-native-paper';
 import {View} from 'react-native';
 import React, {useState} from 'react';
 import {dispatchAddTrainingsPlan} from "../../redux/Training/dispatchAddTrainingsPlan";
@@ -52,6 +52,10 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
                                          maxLength={30}
                                          onChangeText={(text) => setTrainingName(text)}/>}
                     </Dialog.Content>
+                    <View style={{display: 'flex', flexDirection: 'row', marginLeft: 20, marginBottom: 10}}>
+                        <Switch />
+                        <Text style={{alignSelf: 'center'}}>Pin Training to the top</Text>
+                    </View>
                     <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'space-between'}}>
                         <Dialog.Actions>
                             <Button onPress={hideDialog}>Cancel</Button>
