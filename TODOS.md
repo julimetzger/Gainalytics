@@ -19,6 +19,7 @@
 - Records in overview anzeigen 
 - ~~swipe between micros~~ besser
 - Trainings oben anpinnbar machen im Edit (toggle schon im AddTrainingsPlan, redux fehlt)
+- Oder Trainings sortierbar machen durch trag and drop
 
 ## Analyse
 

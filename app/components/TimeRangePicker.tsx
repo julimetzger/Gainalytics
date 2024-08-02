@@ -1,4 +1,4 @@
-import {IconButton, Text, useTheme} from "react-native-paper";
+import {Button, IconButton, Text, useTheme} from "react-native-paper";
 import {TimerPickerModal} from "react-native-timer-picker";
 import React, {useState} from "react";
 import {View} from "react-native";
@@ -21,11 +21,10 @@ const TimeRangePicker = ({title, setPauseTimer, timeRange}: TimeRangePickerProps
     }
     return (
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start'}}>
-            <Text>{title}</Text>
-            <Text>{getTimeString(timeRange)}</Text>
-            <IconButton icon={"pencil"} onPress={() => {
-                setShowPicker(true)
-            }}/>
+            <Button mode="outlined" onPress={() => {
+                setShowPicker(true)}}>
+                {title}{getTimeString(timeRange)}
+            </Button>
             <TimerPickerModal
                 visible={showPicker}
                 setIsVisible={setShowPicker}

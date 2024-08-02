@@ -89,7 +89,7 @@ const SettingsTab = ({navigation}: Props) => {
                 <Text style={{alignSelf: 'center'}}>Show Training Timer</Text>
             </View>
             <View style={{margin: 5}}><Divider/></View>
-            <View style={{marginLeft: 18}}>
+            <View>
                 <TimeRangePicker setPauseTimer={setPauseTimer}
                                 title={'Pause Timer: '}
                                 timeRange={settings.localNotification?.pauseTimerInSeconds}/>
@@ -105,7 +105,6 @@ const SettingsTab = ({navigation}: Props) => {
                 <Button onPress={() => {
                     dumbFullStateToFile()
                 }}>Export all data</Button>
-                
             </View>
             
             <Portal>
