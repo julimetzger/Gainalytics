@@ -1,5 +1,5 @@
 import {Button, Dialog, IconButton, Portal, Switch, Text, TextInput, useTheme} from 'react-native-paper';
-import {View} from 'react-native';
+import {Alert, View} from 'react-native';
 import React, {useState} from 'react';
 import {dispatchAddTrainingsPlan} from "../../redux/Training/dispatchAddTrainingsPlan";
 import {dispatchEditTrainingsPlan} from "../../redux/Training/dispatchEditTrainingsPlan";
@@ -31,6 +31,9 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
         trainingsId ? editTrainingsPlan(trainingsId, TrainingName) :
             addTrainingsPlan({name: TrainingName} as TrainingsPlan);
     };
+    const showAlert = () => {
+        Alert.alert('Coming soon...')
+    }
 
     return (
         <View style={style}>
@@ -53,7 +56,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
                                          onChangeText={(text) => setTrainingName(text)}/>}
                     </Dialog.Content>
                     <View style={{display: 'flex', flexDirection: 'row', marginLeft: 20, marginBottom: 10}}>
-                        <Switch />
+                        <Switch onValueChange={showAlert} value={false}/>
                         <Text style={{alignSelf: 'center'}}>Pin Training to the top</Text>
                     </View>
                     <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'space-between'}}>

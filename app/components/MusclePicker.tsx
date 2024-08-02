@@ -48,7 +48,8 @@ const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) =>
                     percent: parseInt(value)
                 })}
             />
-            <IconButton 
+            <IconButton
+                size={28}
                 icon={"close-circle"}
                 iconColor={theme.colors.tertiaryContainer}
                 onPress={() => {
