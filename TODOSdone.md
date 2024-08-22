@@ -21,14 +21,14 @@
 
 ## Analyse
 - ~~percentage für volume, sets und reps berücksichtigen~~
-- ~~**Neue Seite für Darstellung Volumen für Bodyparts, Übungen etc**~~
+- ~~Neue Seite für Darstellung Volumen für Bodyparts, Übungen etc~~
 - ~~Spacing~~
 
 ## History
 - ~~swipe history~~
 
 ## Exercises
-- ~~**Grafiken für alle Metriken. Auswahl accumulation day, week, month - on click on graphic only shows value keine Anzeige der zugehörigen workouts**~~
+- ~~Grafiken für alle Metriken. Auswahl accumulation day, week, month - on click on graphic only shows value keine Anzeige der zugehörigen workouts~~
 - ~~Übersichtsseite mit 1RM - 12Rm~~
 - ~~Muskelgruppen hinzufügen schöner und robuster~~
 - ~~Rekorde speichern~~
@@ -57,3 +57,4 @@
 - ~~History Swipe zu sensibel, evtl. Swipe beim Scrollen deaktivieren~~
 - ~~Gerundete Werte erzeugen jedes Mal einen gleichhohen Rekordeintrag (14 x 83kg = 121.73kg)~~
 - ~~Wenn Training nur planned ist vor einem done Training dann crasht die App~~
+- ~~suggest based on planned workout not working~~

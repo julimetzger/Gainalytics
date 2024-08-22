@@ -72,21 +72,21 @@ const SettingsTab = ({navigation}: Props) => {
 
     return (
         <ScrollView>
-            <View style={{display: 'flex', flexDirection: 'row'}}>
-                <Switch onValueChange={() => dispatchtoggleMode1()} value={settings.mode === "dark"}/>
+            <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', marginVertical: 5, marginHorizontal: 15}}>
                 <Text style={{alignSelf: 'center'}}>Enable Dark Mode</Text>
+                <Switch onValueChange={() => dispatchtoggleMode1()} value={settings.mode === "dark"}/>
             </View>
-            <View style={{display: 'flex', flexDirection: 'row'}}>
-                <Switch onValueChange={() => toggleDisable1RMpreselect()} value={!settings.toggles?.disable1RMButton}/>
+            <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', marginVertical: 5, marginHorizontal: 15}}>
                 <Text style={{alignSelf: 'center'}}>Preselect 1RM Button</Text>
+                <Switch onValueChange={() => toggleDisable1RMpreselect()} value={!settings.toggles?.disable1RMButton}/>
             </View>
-            <View style={{display: 'flex', flexDirection: 'row'}}>
-                <Switch onValueChange={showAlert} value={false}/>
+            <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', marginVertical: 5, marginHorizontal: 15}}>
                 <Text style={{alignSelf: 'center'}}>Use Imperial Units</Text>
+                <Switch onValueChange={showAlert} value={false}/>
             </View>
-            <View style={{display: 'flex', flexDirection: 'row'}}>
-                <Switch onValueChange={() => toggleShowTimer()} value={!settings.toggles?.disableTimer}/>
+            <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', marginVertical: 5, marginHorizontal: 15}}>
                 <Text style={{alignSelf: 'center'}}>Show Training Timer</Text>
+                <Switch onValueChange={() => toggleShowTimer()} value={!settings.toggles?.disableTimer}/>
             </View>
             <View style={{margin: 5}}><Divider/></View>
             <View>
@@ -98,15 +98,14 @@ const SettingsTab = ({navigation}: Props) => {
                                 timeRange={settings.localNotification?.finishTrainingTimerInSeconds}/>
             </View>
             <View style={{margin: 5}}><Divider/></View>
-            <View style={{margin: 5, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-evenly'}}>
-                <Button onPress={() => {
+            <View style={{margin: 5}}><Button mode="elevated" onPress={() => {
                     setImportDialog(true)
-                }}>Import all data</Button>
-                <Button onPress={() => {
+                }}>Import all data</Button></View>
+            <View style={{margin: 5}}>
+                <Button mode="elevated" onPress={() => {
                     dumbFullStateToFile()
                 }}>Export all data</Button>
             </View>
-            
             <Portal>
                 <Dialog visible={importDialog} onDismiss={() => setImportDialog(false)}>
                     <Dialog.Title>Import full data from backup file?</Dialog.Title>
@@ -129,8 +128,7 @@ const SettingsTab = ({navigation}: Props) => {
                 </Dialog>
             </Portal>
         </ScrollView>
-    )
-        ;
+    );
 }
 
 export type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;

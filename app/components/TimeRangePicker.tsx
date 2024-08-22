@@ -1,4 +1,4 @@
-import {Button, IconButton, Text, useTheme} from "react-native-paper";
+import {Button, IconButton, Text, Tooltip, useTheme} from "react-native-paper";
 import {TimerPickerModal} from "react-native-timer-picker";
 import React, {useState} from "react";
 import {View} from "react-native";
@@ -20,7 +20,7 @@ const TimeRangePicker = ({title, setPauseTimer, timeRange}: TimeRangePickerProps
         return `${hours}h ${minutes}m ${seconds}s`
     }
     return (
-        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start'}}>
+        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginEnd: 5}}>
             <Button mode="outlined" onPress={() => {
                 setShowPicker(true)}}>
                 {title}{getTimeString(timeRange)}
@@ -45,13 +45,15 @@ const TimeRangePicker = ({title, setPauseTimer, timeRange}: TimeRangePickerProps
                 onCancel={() => setShowPicker(false)}
                 closeOnOverlayPress
             />
-            <IconButton
-                icon={"close-circle"}
-                iconColor={theme.colors.tertiaryContainer}
-                onPress={() => {
-                    setPauseTimer(undefined)
-                }}
-            />
+            <Tooltip title='Resets Timer'>
+                <IconButton
+                    icon={"close-circle"}
+                    iconColor={theme.colors.tertiaryContainer}
+                    onPress={() => {
+                        setPauseTimer(undefined)
+                    }}
+                />
+            </Tooltip>
         </View>
     );
 }
