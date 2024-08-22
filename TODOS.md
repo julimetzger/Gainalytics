@@ -62,5 +62,3 @@
 ## Bugs
 
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
-- ~~suggest based on planned workout not working~~
-

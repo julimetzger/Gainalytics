@@ -27,7 +27,7 @@ export const PauseDoneNotification = () => {
                 body: 'It is time to crush your next set!',
                 android: {
                     channelId,
-                    smallIcon: '@mipmap/ic_launcher', // optional, defaults to 'ic_launcher'.
+                    smallIcon: '@drawable/icon_notification', // optional, defaults to 'ic_launcher'.
                     // pressAction is needed if you want the notification to open the app when pressed
                     pressAction: {
                         id: 'default',

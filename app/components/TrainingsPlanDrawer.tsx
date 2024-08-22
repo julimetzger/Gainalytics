@@ -78,11 +78,7 @@ const TrainingsPlanDrawer = ({
                 >
                     <View>
                         {(edit === undefined || edit !== index) && (
-                            <Text
-                                style={{
-                                    fontSize: 20,
-                                    margin: 5,
-                                }}>
+                            <Text style={{fontSize: 20, margin: 5}}>
                                 {name}
                             </Text>
                         )}
@@ -100,8 +96,8 @@ const TrainingsPlanDrawer = ({
                                     setTrainingsName('');
                                 }}
                             />
-                        ) : null}</View>
-
+                        ) : null}
+                    </View>
                 </TouchableRipple>
             );
         })}
@@ -121,7 +117,7 @@ const TrainingsPlanDrawer = ({
                 </Text>
             </Tooltip>
         </TouchableRipple>
-        <Divider style={{marginBottom: 20}}/>
+        <Divider style={{margin: 10}}/>
         <Tooltip title='Displays the planned workout statistics for this Micro'>
             <Button mode={showPlanned ? 'contained' : 'outlined'}
                     onPress={() => setShowPlanned(!showPlanned)}>
