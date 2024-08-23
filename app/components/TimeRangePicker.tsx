@@ -1,4 +1,4 @@
-import {Button, IconButton, Text, Tooltip, useTheme} from "react-native-paper";
+import {Button, IconButton, Tooltip, useTheme} from "react-native-paper";
 import {TimerPickerModal} from "react-native-timer-picker";
 import React, {useState} from "react";
 import {View} from "react-native";
