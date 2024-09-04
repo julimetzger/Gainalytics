@@ -61,4 +61,5 @@
 
 ## Bugs
 
+- Push Timer funktioniert nur manchmal, bei manuellem Reset des Timers und nicht bei Haken
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
