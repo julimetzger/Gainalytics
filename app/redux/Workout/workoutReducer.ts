@@ -288,12 +288,12 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                     plannedWorkout.id = undefined;
                     plannedWorkout.start = undefined;
                     plannedWorkout.end = undefined;
-                    plannedWorkout.sets = plannedWorkout.sets.map(value => {
+                    plannedWorkout.sets = plannedWorkout?.sets?.map(value => {
                         return {
                             ...value,
                             date: undefined
                         }
-                    });
+                    }) ?? [];
                     suggested = {
                         ...suggested,
                         [plannedWorkout.exerciseId]: plannedWorkout

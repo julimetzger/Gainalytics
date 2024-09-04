@@ -92,7 +92,7 @@ const TrainingsPlanNode = ({
             })
         }
         if (training?.state === TrainingsState.FINISHED) {
-            if (chosenExercise === undefined) setchosenExercise(exercises[0].id);
+            if (chosenExercise === undefined && exercises?.length>0) setchosenExercise(exercises[0].id);
             setOverview(!overview);
         }
         setTimeInWorkout(new Date(Date.now()));
