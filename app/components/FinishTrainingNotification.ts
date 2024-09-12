@@ -17,7 +17,8 @@ export const FinishTrainingNotification = () => {
             await notifee.requestPermission()
             const channelId = await notifee.createChannel({
                 id: 'gainalytics_training_done',
-                name: 'Gainalytics training done'
+                name: 'Gainalytics training done',
+                importance: AndroidImportance.HIGH
             });
 
             await notifee.displayNotification({
@@ -26,7 +27,7 @@ export const FinishTrainingNotification = () => {
                 body: 'If you are not doing an extended pause, go finish your training!',
                 android: {
                     channelId,
-                    smallIcon: '@drawable/icon_notification', // optional, defaults to 'ic_launcher'.
+                    smallIcon: '@mipmap/icon_notification', // optional, defaults to 'ic_launcher'.
                     // pressAction is needed if you want the notification to open the app when pressed
                     pressAction: {
                         id: 'default',
