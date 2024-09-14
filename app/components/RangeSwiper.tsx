@@ -177,7 +177,7 @@ const RangeSwiper = <T extends any>({
                 }
                 const xDiff = Math.abs(evt.changedTouches[0].x - initialTouchLocation.value.x);
                 const yDiff = Math.abs(evt.changedTouches[0].y - initialTouchLocation.value.y);
-                const isHorizontalPanning = xDiff > yDiff && xDiff > 1 && yDiff < 1;
+                const isHorizontalPanning = xDiff > yDiff;
 
                 if (!isPanEnabled)
                     state.fail();
