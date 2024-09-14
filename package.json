@@ -58,7 +58,7 @@
     "redux-persist": "^6.0.0",
     "redux-persist-transform-filter": "^0.0.22",
     "redux-thunk": "^2.4.1",
-    "sharingan-rn-modal-dropdown": "^1.4.0"
+    "sharingan-rn-modal-dropdown": "github:julianMMetzger/sharingan-rn-modal-dropdown"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
