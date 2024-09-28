@@ -68,19 +68,19 @@ export const LightThemeCombined = {
 
 const AppWithPersist = () => {
     let appSettings = useSettings();
-    let paperThemen;
+    let paperThemes;
     if (appSettings?.mode === 'light') {
-        paperThemen = LightThemeCombined;
+        paperThemes = LightThemeCombined;
     } else {
-        paperThemen = DarkTheme;
+        paperThemes = DarkTheme;
     }
     return <PersistGate loading={null} persistor={persistor}>
-        <PaperProvider theme={paperThemen}>
+        <PaperProvider theme={paperThemes}>
             <SafeAreaProvider>
                 <EventProvider>
-                    <StatusBar backgroundColor={paperThemen.colors.background}
+                    <StatusBar backgroundColor={paperThemes.colors.background}
                                barStyle={appSettings?.mode === 'light' ? "dark-content" : "light-content"}/>
-                    <NavigationContainer theme={paperThemen}>
+                    <NavigationContainer theme={paperThemes}>
                         <BottomTabs/>
                     </NavigationContainer>
                 </EventProvider>
