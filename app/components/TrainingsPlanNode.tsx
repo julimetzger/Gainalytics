@@ -127,7 +127,7 @@ const TrainingsPlanNode = ({
                                     {!appSettings.toggles?.disableTimer && training?.state === TrainingsState.STARTED &&
                                         <Timer start={training.start!!} label={'Start Training'}/>}
                                     {training?.state &&
-                                        <Button mode="outlined" style={{height: 40, alignSelf: 'center'}}
+                                        <Button mode="outlined" style={{alignSelf: 'center'}}
                                                 onPress={changePlanningmode}>
                                             {training?.state === TrainingsState.PLANNED && 'Start Training'}
                                             {training?.state === TrainingsState.STARTED && 'Finish Training'}

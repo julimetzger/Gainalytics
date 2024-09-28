@@ -58,6 +58,7 @@
 - ~~Toast für records~~ Farben sind noch nicht passend
 - onPress auf Toast navigiert zu Exercise Stats //TODO go to Exercise Stats
 - Tabs für Analyse https://www.npmjs.com/package/react-native-paper-tabs
+- Farbpalette erweitern mit https://github.com/pchmn/expo-material3-theme https://callstack.github.io/react-native-paper/docs/guides/theming/
 
 ## Bugs
 
