@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Dimensions, LayoutRectangle, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {Alert, Dimensions, LayoutRectangle, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import DraggableFlatList, {RenderItemParams, ScaleDecorator} from 'react-native-draggable-flatlist';
 import {IconButton, useTheme} from 'react-native-paper';
 import {Exercise} from '../models/Exercise';
@@ -149,19 +149,11 @@ const DraggableExercise = ({
             })
         }
 
-        useEffect(() => {
-            setPosition();
-        }, [])
-
-        setTimeout(() => {
-            setPosition();
-        }, 1000);
-
         return (
             <View
                 ref={textRef}
                 collapsable={false}
-                onLayout={setPosition}
+                onLayout={() => setPosition()}
             >
                 {exerciseData.length > 0 && (
                     <DraggableFlatList
