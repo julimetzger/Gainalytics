@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {LayoutRectangle, useWindowDimensions, View} from 'react-native'
+import {Alert, LayoutRectangle, useWindowDimensions, View} from 'react-native'
 import Animated, {
     Easing,
     ReduceMotion,
@@ -153,6 +153,9 @@ const RangeSwiper = <T extends any>({
                 })
             }
         }
+
+        useEffect(() => {
+        }, [ignoreSwipe]);
 
         const zeroPositon = fullPosition.traveledIndex * dimensions.width;
 
