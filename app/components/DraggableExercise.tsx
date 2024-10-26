@@ -153,6 +153,10 @@ const DraggableExercise = ({
             setPosition();
         }, [])
 
+        setTimeout(() => {
+            setPosition();
+        }, 1000);
+
         return (
             <View
                 ref={textRef}
