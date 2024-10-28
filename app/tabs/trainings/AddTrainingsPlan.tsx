@@ -59,7 +59,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
                         <Switch onValueChange={showAlert} value={false}/>
                         <Text style={{alignSelf: 'center'}}>Pin Training to the top</Text>
                     </View>
-                    <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'space-between'}}>
+                    <View style={{flexDirection: 'row'}}>
                         <Dialog.Actions>
                             <Button onPress={hideDialog}>Cancel</Button>
                         </Dialog.Actions>

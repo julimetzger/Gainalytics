@@ -41,7 +41,7 @@ const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) =>
                 defaultValue={"100"}
                 style={{width: 90}}
                 selectTextOnFocus={true}
-                right={<TextInput.Icon icon="percent" size={20}/>}
+                right={<TextInput.Icon icon="percent" size={18}/>}
                 value={muscleValue?.percent?.toString()}
                 onChangeText={(value) => setMuscles({
                     muscle: muscleValue?.muscle,
