@@ -2,20 +2,16 @@
 
 ## Trainings
 
-- ~~zeit anzeigen seit start des Trainings~~ aber noch nicht schön
 - ~~Vergleich mit vorherigem Training~~/geplanten Workout nach Abschluss des Trainings
 - ~~Anzeige des planned Trainings während des Trainings~~ vlt. auch vergleich mit done
 - **Export/Import Funktion für Trainings/Micro**
 - unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
 - Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
-- ~~name für trainings~~ schöner machen
-- ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~ vergleich exercises mit done
-  workouts anstatt planned workouts
+- ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~ vergleich exercises mit done workouts anstatt planned workouts
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - Mesos einführen mit Kopieren des alten Mesos
 - Max Intensity ist manchmal -0.00 und manchmal +0.00
 - Trainings löschbar machen ~~und editierbar~~
-- ~~push benachrichtigung für pausenzeit~~ funktioniert das bild ??
 - Records in overview anzeigen 
 - ~~swipe between micros~~ besser
 - Trainings oben anpinnbar machen im Edit (toggle schon im AddTrainingsPlan, redux fehlt)
@@ -63,4 +59,6 @@
 ## Bugs
 
 - Push Timer funktioniert nur manchmal, bei manuellem Reset des Timers und nicht bei Haken
+- Push Timer funktioniert nur bei App im Vordergrund. https://www.npmjs.com/package/react-native-background-timer
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
+- Buttons reagieren im Trainingsmode manchmal beim Drücken nicht (verhindert durch minamales Swipen?)

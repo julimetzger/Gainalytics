@@ -18,6 +18,9 @@
 - ~~1RM default mäßig an nach eintragen einer Übung~~
 - ~~Im Planungsmodus keine Häkchen bei den einzelnen Sets anzeigen~~
 - ~~anzeige des trainings im router oben schöner machen~~
+- ~~zeit anzeigen seit start des Trainings~~
+- ~~name für trainings~~
+- ~~push benachrichtigung für pausenzeit~~
 
 ## Analyse
 - ~~percentage für volume, sets und reps berücksichtigen~~
