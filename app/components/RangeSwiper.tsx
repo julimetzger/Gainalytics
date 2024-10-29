@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Alert, LayoutRectangle, useWindowDimensions, View} from 'react-native'
+import {LayoutRectangle, useWindowDimensions, View} from 'react-native'
 import Animated, {
     Easing,
     ReduceMotion,
@@ -163,6 +163,8 @@ const RangeSwiper = <T extends any>({
 
         const initialTouchLocation = useSharedValue<{ x: number, y: number } | null>(null);
 
+        const SWIPE_THRESHOLD = 5;
+        
         const panGesture = Gesture.Pan()
             .manualActivation(true)
             .onBegin((evt) => {
@@ -180,7 +182,7 @@ const RangeSwiper = <T extends any>({
                 }
                 const xDiff = Math.abs(evt.changedTouches[0].x - initialTouchLocation.value.x);
                 const yDiff = Math.abs(evt.changedTouches[0].y - initialTouchLocation.value.y);
-                const isHorizontalPanning = xDiff > yDiff;
+                const isHorizontalPanning = xDiff > yDiff && xDiff > SWIPE_THRESHOLD;
 
                 if (!isPanEnabled)
                     state.fail();
