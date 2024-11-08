@@ -10,12 +10,10 @@
 - ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~ vergleich exercises mit done workouts anstatt planned workouts
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - Mesos einführen mit Kopieren des alten Mesos
-- Max Intensity ist manchmal -0.00 und manchmal +0.00
 - Trainings löschbar machen ~~und editierbar~~
-- Records in overview anzeigen 
+- Records in Overview anzeigen 
 - ~~swipe between micros~~ besser
 - Trainings oben anpinnbar machen im Edit (toggle schon im AddTrainingsPlan, redux fehlt)
-- Oder Trainings sortierbar machen durch trag and drop
 - SWIPE_THRESHOLD added
 
 ## Analyse
