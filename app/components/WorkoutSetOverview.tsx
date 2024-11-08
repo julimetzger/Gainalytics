@@ -68,7 +68,9 @@ const WorkoutSetOverview = ({
                         <DataTable.Title style={styles.flexS} numeric>Sets</DataTable.Title>
                         <DataTable.Title style={styles.flexS} numeric>Reps</DataTable.Title>
                     </DataTable.Header>
-                    {Array.from(muscleMetricMap).map(([muscle, workout]) => {
+                    {Array.from(muscleMetricMap).sort(([muscleA], [muscleB]) => {
+                            return muscleA.localeCompare(muscleB);
+                    }).map(([muscle, workout]) => {
                         return <DataTable.Row key={muscle.toString()}>
                             <DataTable.Cell style={styles.flexL}>{muscle}</DataTable.Cell>
                             <DataTable.Cell style={styles.flexM} numeric onPress={() => setSelectedMuscle({
