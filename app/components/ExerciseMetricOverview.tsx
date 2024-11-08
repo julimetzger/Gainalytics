@@ -19,7 +19,9 @@ const ExerciseMetricOverview = ({exerciseMetricMap}: { exerciseMetricMap: Map<Ex
                         <DataTable.Title style={styles.flexS} numeric>Reps</DataTable.Title>
                         <DataTable.Title style={styles.flexS} numeric numberOfLines={2}>Max Intensity</DataTable.Title>
                     </DataTable.Header>
-                    {Array.from(exerciseMetricMap).map(([exercise, workout]) => {
+                    {Array.from(exerciseMetricMap).sort(([exerciseA], [exerciseB]) => {
+                        return exerciseA.name.localeCompare(exerciseB.name);
+                    }).map(([exercise, workout]) => {
                         return <DataTable.Row key={exercise.id}>
                             <DataTable.Cell style={styles.flexL}>
                                 <Text>{exercise.name}</Text>

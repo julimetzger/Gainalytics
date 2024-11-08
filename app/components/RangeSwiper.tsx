@@ -163,7 +163,7 @@ const RangeSwiper = <T extends any>({
 
         const initialTouchLocation = useSharedValue<{ x: number, y: number } | null>(null);
 
-        const SWIPE_THRESHOLD = 5;
+        const SWIPE_THRESHOLD = 1;
         
         const panGesture = Gesture.Pan()
             .manualActivation(true)
