@@ -1,15 +1,15 @@
-import {ScrollView} from "react-native";
-import {NativeStackScreenProps} from "@react-navigation/native-stack";
-import {RootStackParamList} from "../../routing/exerciseRouter";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { RootStackParamList } from "../../routing/exerciseRouter";
 import React from "react";
-import {useExercise} from "../../redux/Exercises/useExercise";
-import {Card, Text} from "react-native-paper";
-import {useWorkoutsByIds} from "../../redux/Workout/useWorkoutsByIds";
-import {Workout} from "../../models/Workout";
-import {Record} from "../../models/Exercise";
-import {repetitionWeightByOneRm} from "../../utils/RepetitionMaxHelper";
+import { useExercise } from "../../redux/Exercises/useExercise";
+import { Card, Text, Divider } from "react-native-paper";
+import { useWorkoutsByIds } from "../../redux/Workout/useWorkoutsByIds";
+import { Workout } from "../../models/Workout";
+import { Record } from "../../models/Exercise";
+import { repetitionWeightByOneRm } from "../../utils/RepetitionMaxHelper";
 
-const ExerciseStatisticsTabs = ({route}: Props) => {
+const ExerciseStatisticsTabs = ({ route }: Props) => {
     let exercise = useExercise(route.params.exercise.id!!);
     let currentOneRm = exercise?.records?.[Record.ONE_RM]?.[exercise.records[Record.ONE_RM].length - 1]?.value;
     let workoutIds = exercise?.records ? Object.values(exercise?.records).flatMap((record) => record.map((record) => record.workoutId)) : [];
@@ -17,31 +17,65 @@ const ExerciseStatisticsTabs = ({route}: Props) => {
     let map = exercise?.records ? new Map(Object.entries(exercise.records).map(([key, value]) => {
         return [key as string, value.map((record) =>
             workouts.find(work => work.id === record.workoutId)
-        ) as Workout[]]
+        ) as Workout[]];
     })) : undefined;
+
     return (
-        <ScrollView keyboardShouldPersistTaps={"handled"}>
-            <Card style={{marginBottom: 10}}>
-                <Card.Title title={"Reps estimates basen on current 1RM"}/>
+        <ScrollView style={styles.container} keyboardShouldPersistTaps={"handled"}>
+            <Card style={styles.card}>
+                <Card.Title title="Rep Estimates Based on Current 1RM" titleStyle={styles.cardTitle} />
                 <Card.Content>
-                    {currentOneRm && [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20].map((reps) => {
-                        return <Text
-                            key={reps}> {reps} reps
-                            @ {repetitionWeightByOneRm(reps, 0, currentOneRm!!)?.toFixed(2)} kg</Text>
-                    })}
+                    {currentOneRm ? (
+                        [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20].map((reps) => (
+                            <Text key={reps} style={styles.text}>
+                                {reps} reps @ {repetitionWeightByOneRm(reps, 0, currentOneRm!!).toFixed(2)} kg
+                            </Text>
+                        ))
+                    ) : (
+                        <Text style={styles.text}>No current 1RM data available.</Text>
+                    )}
                 </Card.Content>
             </Card>
-            <Card>
-                <Card.Title title={"One RM records"}/>
+
+            <Card style={styles.card}>
+                <Card.Title title="One RM Records" titleStyle={styles.cardTitle} />
                 <Card.Content>
-                    {map ? map.get(Record.ONE_RM)?.map(workout => (
-                        <Text
-                            key={workout?.id}>{workout?.start ? new Date(workout.start).toDateString() : null} {workout?.records?.[Record.ONE_RM]?.toFixed(2)} kg</Text>
-                    )) : <></>}</Card.Content>
+                    {map && map.get(Record.ONE_RM) ? (
+                        map.get(Record.ONE_RM).map((workout) => (
+                            workout && (
+                                <View key={workout.id}>
+                                    <Text style={styles.text}>
+                                        {workout.start ? new Date(workout.start).toDateString() : "Unknown Date"} - {workout.records?.[Record.ONE_RM]?.toFixed(2)} kg
+                                    </Text>
+                                    <Divider />
+                                </View>
+                            )
+                        ))
+                    ) : (
+                        <Text style={styles.text}>No records found.</Text>
+                    )}
+                </Card.Content>
             </Card>
         </ScrollView>
     );
 };
+
+const styles = StyleSheet.create({
+    container: {
+        padding: 10,
+    },
+    card: {
+        marginBottom: 15,
+    },
+    cardTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    text: {
+        fontSize: 16,
+        marginVertical: 5,
+    },
+});
 
 export type Props = NativeStackScreenProps<RootStackParamList, 'ExerciseStatisticsTab'>;
 
