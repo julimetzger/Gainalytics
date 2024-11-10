@@ -38,6 +38,7 @@ const DatePicker = ({date, setDate, style}: DatePickerProps) => {
                 onDismiss={onDismissSingle}
                 date={date}
                 onConfirm={onConfirmSingle}
+                startWeekOnMonday={true}
             />
         </View>
     );

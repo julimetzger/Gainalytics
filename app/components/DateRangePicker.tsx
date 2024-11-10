@@ -62,6 +62,7 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
             startDate={range.startDate}
             endDate={range.endDate}
             onConfirm={onConfirm}
+            startWeekOnMonday={true}
         />
     </>)
         ;
