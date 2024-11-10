@@ -154,8 +154,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 5,
         right: 5
-    },
-    editExercise: {}
+    }
 });
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainingHome'>;

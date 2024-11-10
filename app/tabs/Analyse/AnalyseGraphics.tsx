@@ -182,4 +182,3 @@ function generateTrend(map: LineValue[]): LineValue[] {
 export type Props = NativeStackScreenProps<RootStackParamList, 'Analyse'>;
 
 export default AnalyseGraphics;
-

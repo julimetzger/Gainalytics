@@ -20,9 +20,9 @@ import {SafeAreaProvider} from "react-native-safe-area-context";
 
 registerTranslation('en-GB', {
     save: 'Save',
-    selectSingle: 'Select date',
-    selectMultiple: 'Select dates',
-    selectRange: 'Select period',
+    selectSingle: 'Select Date',
+    selectMultiple: 'Select Dates',
+    selectRange: 'Select Period',
     notAccordingToDateFormat: (inputFormat) => `Date format must be ${inputFormat}`,
     mustBeHigherThan: (date) => `Must be later then ${date}`,
     mustBeLowerThan: (date) => `Must be earlier then ${date}`,
@@ -30,8 +30,8 @@ registerTranslation('en-GB', {
     dateIsDisabled: 'Day is not allowed',
     previous: 'Previous',
     next: 'Next',
-    typeInDate: 'Type in date',
-    pickDateFromCalendar: 'Pick date from calendar',
+    typeInDate: 'Type in Date',
+    pickDateFromCalendar: 'Pick Date from Calendar',
     close: 'Close',
     hour: 'Hour',
     minute: 'Minute'
