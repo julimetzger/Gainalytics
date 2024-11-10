@@ -6,7 +6,7 @@ import {Exercise, ExerciseRecord} from "../../models/Exercise";
 const initialState = {
     byId: {
         1: {
-            id: 1, name: 'Benchpress', muscles: [
+            id: 1, name: 'Bench Press', muscles: [
                 {muscle: Muscles.CHEST, percent: 100},
                 {muscle: Muscles.TRICEPS, percent: 70},
                 {muscle: Muscles.SHOULDERS, percent: 10}
@@ -31,7 +31,7 @@ const initialState = {
             ]
         },
         4: {
-            id: 4, name: 'Overheadpress', muscles: [
+            id: 4, name: 'Overhead Press', muscles: [
                 {muscle: Muscles.SHOULDERS, percent: 100},
                 {muscle: Muscles.TRICEPS, percent: 50}
             ]
@@ -54,18 +54,18 @@ const initialState = {
             ]
         },
         8: {
-            id: 8, name: 'Pull-Ups', muscles: [
+            id: 8, name: 'Pull-Up', muscles: [
                 {muscle: Muscles.BACK, percent: 100},
                 {muscle: Muscles.BICEPS, percent: 80}
             ]
         },
         9: {
-            id: 9, name: 'Biceps-Curls', muscles: [
+            id: 9, name: 'Biceps Curls', muscles: [
                 {muscle: Muscles.BICEPS, percent: 100}
             ]
         },
         10: {
-            id: 10, name: 'Cable-Curls', muscles: [
+            id: 10, name: 'Cable Curls', muscles: [
                 {muscle: Muscles.BICEPS, percent: 100}
             ]
         },
@@ -124,6 +124,18 @@ const initialState = {
             id: 20, name: 'Hip Thrusts', muscles: [
                 {muscle: Muscles.GLUTES, percent: 100},
                 {muscle: Muscles.HAMSTRINGS, percent: 50}
+            ]
+        },
+        21: {
+            id: 21, name: 'Row', muscles: [
+                {muscle: Muscles.BACK, percent: 100},
+                {muscle: Muscles.BICEPS, percent: 50}
+            ]
+        },
+        22: {
+            id: 22, name: 'Lat Pulldown', muscles: [
+                {muscle: Muscles.BACK, percent: 100},
+                {muscle: Muscles.BICEPS, percent: 80}
             ]
         },
     },
