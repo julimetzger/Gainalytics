@@ -1,5 +1,4 @@
 import settingsReducer, {AppSettings} from "../../../app/redux/settings/settingsReducer";
-import {tr} from "react-native-paper-dates";
 
 describe('settingsReducer', () => {
     it('should toggle mode', () => {
