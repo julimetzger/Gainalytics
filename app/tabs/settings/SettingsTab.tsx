@@ -100,11 +100,11 @@ const SettingsTab = ({navigation}: Props) => {
             <View style={{margin: 5}}><Divider/></View>
             <View style={{margin: 5}}><Button mode="elevated" onPress={() => {
                     setImportDialog(true)
-                }}>Import all data</Button></View>
+                }}>Import all Data</Button></View>
             <View style={{margin: 5}}>
                 <Button mode="elevated" onPress={() => {
                     dumbFullStateToFile()
-                }}>Export all data</Button>
+                }}>Export all Data</Button>
             </View>
             <Portal>
                 <Dialog visible={importDialog} onDismiss={() => setImportDialog(false)}>
