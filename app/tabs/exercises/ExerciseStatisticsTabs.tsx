@@ -23,7 +23,8 @@ const ExerciseStatisticsTabs = ({ route }: Props) => {
     return (
         <ScrollView style={styles.container} keyboardShouldPersistTaps={"handled"}>
             <Card style={styles.card}>
-                <Card.Title title="Rep Estimates Based on Current 1RM" titleStyle={styles.cardTitle} />
+                <Card.Title title="Rep Estimates Based on Current 1RM" titleStyle={styles.cardTitle} 
+                            titleNumberOfLines={2}/>
                 <Card.Content>
                     {currentOneRm ? (
                         [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20].map((reps) => (
@@ -41,16 +42,29 @@ const ExerciseStatisticsTabs = ({ route }: Props) => {
                 <Card.Title title="One RM Records" titleStyle={styles.cardTitle} />
                 <Card.Content>
                     {map && map.get(Record.ONE_RM) ? (
-                        map.get(Record.ONE_RM).map((workout) => (
-                            workout && (
+                        map.get(Record.ONE_RM)
+                            .filter((workout, index, self) => {
+                                const weight = workout.records?.[Record.ONE_RM];
+                                const date = workout.start ? new Date(workout.start).toDateString() : null;
+                                return self.findIndex((w) => {
+                                    const otherWeight = w.records?.[Record.ONE_RM];
+                                    const otherDate = w.start ? new Date(w.start).toDateString() : null;
+                                    return weight === otherWeight && date === otherDate;
+                                }) === index;
+                            })
+                            .sort((a, b) => {
+                                const oneRmA = a.records?.[Record.ONE_RM] ?? 0;
+                                const oneRmB = b.records?.[Record.ONE_RM] ?? 0;
+                                return oneRmB - oneRmA;
+                            })
+                            .map((workout) => (
                                 <View key={workout.id}>
                                     <Text style={styles.text}>
                                         {workout.start ? new Date(workout.start).toDateString() : "Unknown Date"} - {workout.records?.[Record.ONE_RM]?.toFixed(2)} kg
                                     </Text>
                                     <Divider />
                                 </View>
-                            )
-                        ))
+                            ))
                     ) : (
                         <Text style={styles.text}>No records found.</Text>
                     )}
