@@ -55,10 +55,7 @@ const TrainingHome = ({navigation}: Props) => {
                     .filter((exercise: TrainingsPlan) => exercise.name.toLowerCase().includes(filter.toLowerCase()))
                     .map((trainingsPlan: TrainingsPlan) => (
                         <Card style={{margin: 5}}>
-                            <ProgressBar style={{margin: 5}}
-                                         visible={planToStarteTraining.get(trainingsPlan.id!!)?.firstStartedTraining !== undefined}
-                                         progress={planToStarteTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.percentOfDone}>
-                            </ProgressBar>
+                            
                             <Pressable
                                 key={trainingsPlan.id}
                                 onPress={() =>
@@ -76,6 +73,10 @@ const TrainingHome = ({navigation}: Props) => {
                                     <Text style={styles.exerciseText}> {trainingsPlan.name}</Text>
                                     <AddTrainingsPlan trainingsId={trainingsPlan.id}/>
                                 </View>
+                                <ProgressBar
+                                         visible={planToStarteTraining.get(trainingsPlan.id!!)?.firstStartedTraining !== undefined}
+                                         progress={planToStarteTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.percentOfDone}>
+                                </ProgressBar>
                                 {planToStarteTraining.get(trainingsPlan.id!!)?.nextTraining &&
                                     <Button onPress={() =>
                                         navigation.navigate({

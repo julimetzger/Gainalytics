@@ -31,19 +31,18 @@ const AnalyseRouter = () => {
                 })}
             />
             <Stack.Screen
+                name="Graphs"
+                component={GraphsTab}
+                options={() => ({
+                    title: "Exercise Graphs"
+                })}
+            />
+            <Stack.Screen
                 name="History"
                 component={History}
                 options={({route}) => ({
                     title: route.params?.exercise?.name ?? "History",
                 })}
-            />
-            <Stack.Screen
-                name="Records"
-                component={RecordsTab}
-                options={() => ({
-                    title: "Records",
-                })}
-
             />
             <Stack.Screen
                 name="Metrics"
@@ -52,12 +51,11 @@ const AnalyseRouter = () => {
                     title: "Metrics Overview",
                 })}
             />
-
             <Stack.Screen
-                name="Graphs"
-                component={GraphsTab}
+                name="Records"
+                component={RecordsTab}
                 options={() => ({
-                    title: "Exercise Graphs"
+                    title: "Records",
                 })}
             />
         </Stack.Navigator>

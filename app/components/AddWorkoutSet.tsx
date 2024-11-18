@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     textInput: {
         height: 35,
         marginEnd: 5,
-        width: 80,
+        width: 70,
         alignSelf: 'center',
     }
 });
