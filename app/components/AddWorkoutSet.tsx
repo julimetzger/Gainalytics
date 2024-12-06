@@ -167,7 +167,7 @@ const AddWorkoutSet = ({
                 {oneRepMax ? 
                     <Tooltip 
                         enterTouchDelay={300}
-                        title={"Suggests weight based on your 1 rep max"}>
+                        title='Suggests weight based on your 1 rep max'>
                     <ToggleButton
                         icon={() => <Text style={{color: theme.colors.onSecondaryContainer}}>1RM</Text>}
                         iconColor={theme.colors.secondaryContainer}
