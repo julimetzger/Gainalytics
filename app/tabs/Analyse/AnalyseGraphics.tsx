@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {processColor, ScrollView, StyleSheet} from 'react-native';
-import {useTheme} from 'react-native-paper';
+import {Icon, Text, useTheme} from 'react-native-paper';
 import {useWorkoutsIn} from "../../redux/Workout/useWorkoutsIn";
 import DateRangePicker, {Range} from "../../components/DateRangePicker";
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from "../../utils/DateHelper";
@@ -17,6 +17,7 @@ import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscl
 import {Exercise} from "../../models/Exercise";
 import {Workout} from "../../models/Workout";
 import {handleAccumulationModeBatching} from "./HandleAccumulationModeBatching";
+import { View } from 'react-native-reanimated/lib/typescript/Animated';
 
 const AnalyseGraphics = ({}: Props) => {
     function handleDataPointSelect(value: ChartSelectEvent) {
@@ -155,6 +156,7 @@ const AnalyseGraphics = ({}: Props) => {
                 />}
             {selectedWorkout && (exercise.length > 0 || muscle.length > 0) &&
                 <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric} editable={false}></WorkoutView>}
+                <Text>Select Exercises, Metrics and Accumulation Mode above</Text>
         </ScrollView>
     )
 };
