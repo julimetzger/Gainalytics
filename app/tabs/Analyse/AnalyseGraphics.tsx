@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {processColor, ScrollView, StyleSheet} from 'react-native';
-import {Icon, Text, useTheme} from 'react-native-paper';
+import {useTheme, HelperText} from 'react-native-paper';
 import {useWorkoutsIn} from "../../redux/Workout/useWorkoutsIn";
 import DateRangePicker, {Range} from "../../components/DateRangePicker";
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from "../../utils/DateHelper";
@@ -17,7 +17,6 @@ import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscl
 import {Exercise} from "../../models/Exercise";
 import {Workout} from "../../models/Workout";
 import {handleAccumulationModeBatching} from "./HandleAccumulationModeBatching";
-import { View } from 'react-native-reanimated/lib/typescript/Animated';
 
 const AnalyseGraphics = ({}: Props) => {
     function handleDataPointSelect(value: ChartSelectEvent) {
@@ -32,6 +31,8 @@ const AnalyseGraphics = ({}: Props) => {
     const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumulationMode.SINGLE_DAY))
     const [exercise, setExercise] = useState<Exercise[]>([]);
     const [muscle, setMuscle] = useState<Muscles[]>([]);
+    const [error, setError] = useState(false);
+
     let exercisesForMuscles = useExercisesForMuscles(muscle);
     let exerciseIDs = exercise.map(it => it.id);
     let exercisesForMusclesIds = exercisesForMuscles.map(it => it.id);
@@ -40,9 +41,20 @@ const AnalyseGraphics = ({}: Props) => {
     let workoutsForMuscles = allWorkouts.reverse().filter((workout: Workout) => exercisesForMusclesIds.length > 0 ? exercisesForMusclesIds.includes(workout.exerciseId) : false) as Workout[];
     const theme = useTheme();
     let selectedWorkout = useWorkoutsByIds(selectedWorkoutIds);
+
     useEffect(() => {
         setSelectedWorkoutIds([]);
+        validateSelections(); // Überprüfen, ob alle erforderlichen Felder ausgewählt sind
     }, [exercise, metric, accumulation, muscle]);
+
+    const validateSelections = () => {
+        if ((exercise.length === 0 && muscle.length === 0) || !metric || !accumulation) {
+            setError(true);
+        } else {
+            setError(false); // Kein Fehler
+        }
+    };
+
     let combinedWorkouts = [...workoutsForExercise, ...workoutsForMuscles];
     let uniqueWorkouts = Array.from(new Set(combinedWorkouts.map(workout => workout.id)))
         .map(id => combinedWorkouts.find(workout => workout.id === id)!!);
@@ -156,7 +168,10 @@ const AnalyseGraphics = ({}: Props) => {
                 />}
             {selectedWorkout && (exercise.length > 0 || muscle.length > 0) &&
                 <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric} editable={false}></WorkoutView>}
-                <Text>Select Exercises, Metrics and Accumulation Mode above</Text>
+                
+            <HelperText type="error" visible={error}>
+                Select Metrics, Accumulation Mode and Exercise or Muscle to show Analyse Graph.
+            </HelperText>
         </ScrollView>
     )
 };
