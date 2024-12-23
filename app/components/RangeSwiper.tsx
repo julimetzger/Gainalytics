@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {LayoutRectangle, StyleSheet, Text, useWindowDimensions, View} from 'react-native'
+import {LayoutRectangle, useWindowDimensions, View} from 'react-native'
 import Animated, {
     Easing,
     ReduceMotion,
@@ -164,7 +164,7 @@ const RangeSwiper = <T extends any>({
         const initialTouchLocation = useSharedValue<{ x: number, y: number } | null>(null);
 
         const SWIPE_THRESHOLD = 1;
-
+        
         const panGesture = Gesture.Pan()
             .manualActivation(true)
             .onBegin((evt) => {
@@ -250,20 +250,6 @@ const RangeSwiper = <T extends any>({
                 updatePanState(contentOffset.y);
             },
         });
-        let newVar = ignoreSwipe ? StyleSheet.create({
-            overlay: {
-                position: 'absolute',
-                top: ignoreSwipe?.length > 0 ? ignoreSwipe[0].y : 0,
-                left: (fullPosition.traveledIndex +1) + dimensions.width,
-                height: ignoreSwipe?.length > 0 ? ignoreSwipe[0].height : 0,
-                borderColor: 'red',
-                width: dimensions.width,
-                borderWidth: 3,
-                opacity: 0.2,
-                backgroundColor: 'red',
-                zIndex: 100,
-            },
-        }) : undefined;
 
         return (
             <GestureHandlerRootView>
@@ -271,13 +257,10 @@ const RangeSwiper = <T extends any>({
                                      onScrollEndDrag={() => setIsPanEnabled(true)}>
                     {notSwipeableContent}
                     <GestureDetector gesture={panGesture}>
-
                         <Animated.View style={[animatedStyle, {
                             flexDirection: 'row',
                             left: -zeroPositon + initialOffset
                         }]}>
-                            {newVar && < View style={newVar.overlay}>
-                            </View>}
                             {[-1, 0, 1].map(
                                 value => {
                                     if (value === fullPosition.Upper.position) {
@@ -310,13 +293,6 @@ const RangeSwiper = <T extends any>({
                                 }
                             )
                             }
-                            {ignoreSwipe === undefined && <Text style={{
-                                position: 'absolute',
-                                bottom: 50,
-                                left: (fullPosition.traveledIndex +1) + dimensions.width,
-                                backgroundColor: 'red',
-                                zIndex: 100,
-                            }}>no ignore swipe</Text>}
                         </Animated.View>
                     </GestureDetector>
                 </Animated.ScrollView>
