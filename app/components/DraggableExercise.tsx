@@ -142,6 +142,7 @@ const DraggableExercise = ({
         function setPosition() {
             textRef.current?.measureInWindow((x, y, width, height) => {
                 let layout = {x, y: y - edgeInsets.top, width, height};
+                layout.height = 60;
                 if (positionInternal === undefined || positionInternal.y !== layout.y) {
                     setPositionInternal(layout);
                     setAbsolutePosition(layout);
