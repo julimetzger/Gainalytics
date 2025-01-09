@@ -40,7 +40,7 @@
 
 ## General
 
-- Change build.gradle name, namespace and applicationId "PowerliftingWorkoutPlanner" to Gainalytics
+- Change build.gradle name, namespace and applicationId "PowerliftingWorkoutPlanner" to Gainalytics and refactor Code
 - Performance Optimierung - check rerenders and add memoization
 - ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen - funktioniert nur im ExerciseTab
 - react-native-calendars einbauen und testen
@@ -58,6 +58,7 @@
 
 ## Bugs
 
+- Enable Dark Mode Switch setze alle Switche auf on
 - Push Timer funktioniert nur manchmal, bei manuellem Reset des Timers und nicht bei Haken
 - Push Timer funktioniert nur bei App im Vordergrund. https://www.npmjs.com/package/react-native-background-timer
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
