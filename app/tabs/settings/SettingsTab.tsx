@@ -38,7 +38,7 @@ const SettingsTab = ({navigation}: Props) => {
     }
 
     const showAlert = () => {
-        Alert.alert('Nope. This app is not using retarded measuring systems.')
+        Alert.alert('Nope. This app is not using stupid measuring systems.')
     }
 
     function importDump(documentPickerRespons: DocumentPickerResponse) {
