@@ -40,6 +40,7 @@
 
 ## General
 
+- Change build.gradle name, namespace and applicationId "PowerliftingWorkoutPlanner" to Gainalytics
 - Performance Optimierung - check rerenders and add memoization
 - ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen - funktioniert nur im ExerciseTab
 - react-native-calendars einbauen und testen
