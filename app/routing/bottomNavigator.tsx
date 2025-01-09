@@ -30,18 +30,18 @@ export const BottomTabs = () => {
     return (
         <Tab.Navigator initialRouteName="Feed" shifting={false} >
             <Tab.Screen
-                name="Exercises"
-                component={ExerciseRouter}
-                options={{
-                    tabBarIcon: 'weight-lifter',
-                }}
-            />
-            <Tab.Screen
                 name="Training"
                 component={TrainingRouter}
                 options={{
                     tabBarIcon: 'book-open-variant',
                     tabBarBadge: isTrainingStarted,
+                }}
+            />
+            <Tab.Screen
+                name="Exercises"
+                component={ExerciseRouter}
+                options={{
+                    tabBarIcon: 'weight-lifter',
                 }}
             />
             <Tab.Screen
