@@ -31,7 +31,7 @@ const AnalyseGraphics = ({}: Props) => {
     const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumulationMode.SINGLE_DAY))
     const [exercise, setExercise] = useState<Exercise[]>([]);
     const [muscle, setMuscle] = useState<Muscles[]>([]);
-    const [error, setError] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     let exercisesForMuscles = useExercisesForMuscles(muscle);
     let exerciseIDs = exercise.map(it => it.id);
@@ -44,15 +44,21 @@ const AnalyseGraphics = ({}: Props) => {
 
     useEffect(() => {
         setSelectedWorkoutIds([]);
-        validateSelections(); // Überprüfen, ob alle erforderlichen Felder ausgewählt sind
+        validateSelections();
     }, [exercise, metric, accumulation, muscle]);
 
     const validateSelections = () => {
-        if ((exercise.length === 0 && muscle.length === 0) || !metric || !accumulation) {
-            setError(true);
-        } else {
-            setError(false); // Kein Fehler
+        let errors: string[] = [];
+        if (exercise.length === 0 && muscle.length === 0) {
+            errors.push("Exercise or Muscle");
         }
+        if (!metric) {
+            errors.push("Metric");
+        }
+        if (!accumulation) {
+            errors.push("Accumulation Mode");
+        }
+        setErrorMessage(errors.length > 0 ? `Please select: ${errors.join(", ")}.` : null);
     };
 
     let combinedWorkouts = [...workoutsForExercise, ...workoutsForMuscles];
@@ -169,8 +175,8 @@ const AnalyseGraphics = ({}: Props) => {
             {selectedWorkout && (exercise.length > 0 || muscle.length > 0) &&
                 <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric} editable={false}></WorkoutView>}
                 
-            <HelperText type="error" visible={error}>
-                Select Metrics, Accumulation Mode and Exercise or Muscle to show Analyse Graph.
+            <HelperText type="error" visible={!!errorMessage}>
+                {errorMessage}
             </HelperText>
         </ScrollView>
     )
