@@ -15,6 +15,8 @@
 - ~~swipe between micros~~ besser
 - Trainings oben anpinnbar machen im Edit (toggle schon im AddTrainingsPlan, redux fehlt)
 - SWIPE_THRESHOLD added
+- higlight selected exercise in traing mode
+- go to record by clicking on popup
 
 ## Analyse
 
