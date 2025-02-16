@@ -1,8 +1,18 @@
 import * as React from 'react';
-import {Button} from 'react-native-paper';
-import {DatePickerModal} from 'react-native-paper-dates';
+import {Button, Dialog, Portal, useTheme} from 'react-native-paper';
+import {DatePickerInput} from 'react-native-paper-dates';
 import {StyleProp, View, ViewStyle} from "react-native";
-import {getDateStringFromDate} from "../utils/DateHelper";
+import {
+    getDateStringFromDate,
+    getEndOfMonth,
+    getFirstDayOfMonth,
+    getYYYYMMDDFormat,
+    subtractMonths
+} from "../utils/DateHelper";
+import {useWorkoutsIn} from "../redux/Workout/useWorkoutsIn";
+import {Range} from "./DateRangePicker";
+import {useState} from "react";
+import {CalendarList} from "react-native-calendars/src";
 
 interface DatePickerProps {
     date: Date,
@@ -12,34 +22,75 @@ interface DatePickerProps {
 
 const DatePicker = ({date, setDate, style}: DatePickerProps) => {
     const [open, setOpen] = React.useState(false);
+    let useTheme1 = useTheme();
+    const [range, setRange] = useState(new Range(subtractMonths(4, getFirstDayOfMonth(date)), getEndOfMonth(date)))
+    let workoutsDone = useWorkoutsIn(range);
 
     const onDismissSingle = React.useCallback(() => {
         setOpen(false);
     }, [setOpen]);
+    let dates = workoutsDone.map((workout) => getYYYYMMDDFormat(workout.start!!));
+    let utcDate = getYYYYMMDDFormat(date);
+    const set = new Set(dates.filter((date) => date !== utcDate));
 
-    const onConfirmSingle = React.useCallback(
-        (params) => {
-            setOpen(false);
-            setDate(params.date);
-        },
-        [setOpen, setDate]
-    );
-
+    let fromEntries = Object.fromEntries(Array.from(set).map((date) => {
+        return [date, {marked: true}]
+    }));
     return (
         <View style={style}>
             <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined"
                     style={{display: 'flex', alignSelf: 'center'}}>
                 {getDateStringFromDate(date)}
             </Button>
-            <DatePickerModal
-                locale="en-GB"
-                mode="single"
-                visible={open}
-                onDismiss={onDismissSingle}
-                date={date}
-                onConfirm={onConfirmSingle}
-                startWeekOnMonday={true}
-            />
+            <Portal>
+                <Dialog visible={open} onDismiss={onDismissSingle}>
+                    <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'flex-start'}}>
+                        <View style={{flex: 1.5}}>
+                            <DatePickerInput
+                                locale="en"
+                                withModal={false}
+                                value={date}
+                                onChange={(d) => d ? setDate(d) : null}
+                                inputMode="start"
+                            />
+                        </View>
+                        <View style={{flex: 1}}>
+                            <Button onPress={() => setOpen(false)}>Save</Button>
+                        </View>
+                    </View>
+                    <CalendarList
+                        theme={{
+                            backgroundColor: useTheme1.colors.background,
+                            calendarBackground: useTheme1.colors.background,
+                            textSectionTitleColor: useTheme1.colors.onBackground,
+                            selectedDayBackgroundColor: useTheme1.colors.primary,
+                            selectedDayTextColor: useTheme1.colors.onPrimary,
+                            todayTextColor: useTheme1.colors.primary,
+                            dayTextColor: useTheme1.colors.onBackground,
+                            textDisabledColor: useTheme1.colors.onBackground,
+                            dotColor: useTheme1.colors.primary,
+                            selectedDotColor: useTheme1.colors.onPrimary,
+                            arrowColor: useTheme1.colors.primary,
+                            monthTextColor: useTheme1.colors.primary,
+
+                        }}
+                        onDayPress={(dateData) => {
+                            setDate(new Date(dateData.timestamp))
+                        }}
+                        markedDates={{
+                            [utcDate]: {selected: true, selectedColor: useTheme1.colors.primary},
+                            ...fromEntries
+                        }}
+                        enableSwipeMonths={true}
+                        onVisibleMonthsChange={months => setRange(
+                            new Range(
+                                subtractMonths(2, getFirstDayOfMonth(new Date(months[0].timestamp))),
+                                subtractMonths(-2, getEndOfMonth(new Date(months[0].timestamp)))
+                            )
+                        )}
+                    />
+                </Dialog>
+            </Portal>
         </View>
     );
 }
