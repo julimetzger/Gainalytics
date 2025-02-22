@@ -11,8 +11,8 @@ import {
 import {MD3Colors, MD3Typescale} from "react-native-paper/lib/typescript/types";
 import {Action} from "redux";
 import {TrainingsPlan} from "../models/TrainingsPlan";
-import {View} from "react-native";
-import React, {useState} from "react";
+import {View, Keyboard} from "react-native";
+import React, {useState, useRef} from "react";
 
 interface TrainingsPlanDrawerProps {
     theme: ThemeBase & {
@@ -45,8 +45,9 @@ const TrainingsPlanDrawer = ({
                                  handleValueChange,
                                  micro
                              }: TrainingsPlanDrawerProps) => {
-    const [edit, setEdit] = useState<number | undefined>(undefined)
+    const [edit, setEdit] = useState<number | undefined>(undefined);
     const [trainingsName, setTrainingsName] = useState('');
+    const inputRef = useRef(null);
 
     return (<View style={{display: 'flex', flexDirection: 'column'}}>
         <Divider/>
@@ -63,42 +64,65 @@ const TrainingsPlanDrawer = ({
         </View>
         {Object.entries(trainingsPlan.trainingNames ?? []).map(([micro, name], index) => {
             return (
-                <TouchableRipple
-                    style={{minHeight: 40}}
-                    key={index}
-                    onPress={() => {
-                        setTrainingInMicro(parseInt(micro))
-                        setOpen(false);
-                        setShowDone(false);
-                    }}
-                    onLongPress={() => {
-                        setEdit(index)
-                        setTrainingsName(name)
-                    }}
-                >
-                    <View>
-                        {(edit === undefined || edit !== index) && (
-                            <Text style={{fontSize: 20, margin: 5}}>
-                                {name}
-                            </Text>
-                        )}
-                        {(edit !== undefined && edit === index) ? (
-                            <TextInput
-                                mode='outlined'
-                                maxLength={20}
-                                value={trainingsName}
-                                onChangeText={(text) => {
-                                    setTrainingsName(text);
-                                }}
-                                onEndEditing={() => {
-                                    changeTrainingsName(trainingsPlan.id!!, trainingsName, index + 1)
-                                    setEdit(undefined);
-                                    setTrainingsName('');
-                                }}
-                            />
-                        ) : null}
-                    </View>
-                </TouchableRipple>
+                <View key={index} style={{display: 'flex', flexDirection: 'row', alignItems: 'center', minHeight: 40}}> 
+                    <TouchableRipple
+                        style={{flex: 1}}
+                        onPress={() => {
+                            setTrainingInMicro(parseInt(micro))
+                            setOpen(false);
+                            setShowDone(false);
+                        }}
+                    >
+                        <View>
+                            {(edit === undefined || edit !== index) && (
+                                <Text style={{fontSize: 20, margin: 5}}>
+                                    {name}
+                                </Text>
+                            )}
+                            {(edit !== undefined && edit === index) ? (
+                                <TextInput
+                                    ref={inputRef}
+                                    mode='outlined'
+                                    maxLength={20}
+                                    value={trainingsName}
+                                    onChangeText={(text) => {
+                                        setTrainingsName(text);
+                                    }}
+                                    onEndEditing={() => {
+                                        changeTrainingsName(trainingsPlan.id!!, trainingsName, index + 1);
+                                        setEdit(undefined);
+                                        setTrainingsName('');
+                                        inputRef.current?.blur();
+                                        Keyboard.dismiss();
+                                    }}
+                                    right={
+                                        <TextInput.Icon 
+                                            icon="check" 
+                                            onPress={() => {
+                                                changeTrainingsName(trainingsPlan.id!!, trainingsName, index + 1);
+                                                setEdit(undefined);
+                                                setTrainingsName('');
+                                                inputRef.current?.blur();
+                                                Keyboard.dismiss();
+                                            }} 
+                                        />
+                                    }
+                                />
+                            ) : null}
+                        </View>
+                    </TouchableRipple>
+                    {edit !== index && (
+                        <IconButton
+                            icon="pencil"
+                            onPress={() => {
+                                setEdit(index);
+                                setTrainingsName(name);
+                            }}
+                            size={20}
+                            style={{marginRight: 5}}
+                        />
+                    )}
+                </View>
             );
         })}
         <TouchableRipple>
