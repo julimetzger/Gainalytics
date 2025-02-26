@@ -64,4 +64,3 @@
 - Push Timer funktioniert nur manchmal, bei manuellem Reset des Timers und nicht bei Haken
 - Push Timer funktioniert nur bei App im Vordergrund. https://www.npmjs.com/package/react-native-background-timer
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
-- Buttons reagieren im Trainingsmode manchmal beim Drücken nicht (verhindert durch minamales Swipen?)
