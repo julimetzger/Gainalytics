@@ -6,7 +6,7 @@ import {useNextTrainingsId} from "../redux/Training/useNextTrainingsId";
 import {Training} from "../models/Training";
 import {Exercise} from "../models/Exercise";
 import {WorkoutSet} from "../models/WorkoutSet";
-import {Dialog, IconButton, Portal, Tooltip} from "react-native-paper";
+import {Dialog, IconButton, Portal, Text, Tooltip} from "react-native-paper";
 import WorkoutSetView from "./WorkoutSetView";
 import ExerciseHistory from "./ExerciseHistory";
 
@@ -55,10 +55,14 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
                             </View>}/>
             <Portal>
                 <Dialog visible={openPlanned} onDismiss={() => setOpenPlanned(false)}>
-                    <Dialog.Title>Planned workout for {chosenExercise.name}</Dialog.Title>
+                    <Dialog.Title>Planned Workout for {chosenExercise.name}</Dialog.Title>
                     <Dialog.Content>
                         <View>
-                            <WorkoutSetView sets={plannedWorkout?.sets ?? []} editable={false}/>
+                            {(plannedWorkout?.sets ?? []).length > 0 ? (
+                                <WorkoutSetView sets={plannedWorkout?.sets ?? []} editable={false} />
+                            ) : (
+                                <Text style={{ textAlign: "center", padding: 20 }}>No workout planned for {chosenExercise.name}</Text>
+                            )}
                         </View>
                     </Dialog.Content>
                     <Dialog.Actions>
