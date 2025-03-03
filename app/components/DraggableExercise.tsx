@@ -88,10 +88,10 @@ const DraggableExercise = ({
                                 backgroundColor: isActive
                                     ? theme.colors.tertiaryContainer
                                     : item.key === chosenExercise?.id
-                                        ? theme.colors.primaryContainer
+                                        ? '#558b2f'
                                         : doneExerciseIds.includes(item.key)
-                                            ? '#558b2f'
-                                            : theme.colors.secondaryContainer,
+                                            ? theme.colors.primaryContainer
+                                            : theme.colors.secondaryContainer
                             },
                         ]}>
                         <SwipeView
@@ -126,9 +126,9 @@ const DraggableExercise = ({
                                     color: isActive
                                         ? theme.colors.onPrimaryContainer
                                         : item.key === chosenExercise?.id
-                                            ? theme.colors.onPrimaryContainer
+                                            ? 'white'
                                             : doneExerciseIds.includes(item.key)
-                                                ? 'white'
+                                                ? theme.colors.onPrimaryContainer
                                                 : theme.colors.onSecondaryContainer,
                                 },
                             ]}>

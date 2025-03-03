@@ -17,6 +17,8 @@
 - SWIPE_THRESHOLD added
 - higlight selected exercise in traing mode
 - go to record by clicking on popup
+- TrainingsTimer onLongPress ruft Pause Timer auf
+- Add go to next Training Button
 
 ## Analyse
 
