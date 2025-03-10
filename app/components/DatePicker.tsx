@@ -1,7 +1,7 @@
 import * as React from 'react';
-import {Button, Dialog, Portal, useTheme} from 'react-native-paper';
+import {Button, Modal, Portal, useTheme} from 'react-native-paper';
 import {DatePickerInput} from 'react-native-paper-dates';
-import {StyleProp, View, ViewStyle} from "react-native";
+import {StyleProp, View, ViewStyle, StyleSheet} from "react-native";
 import {
     getDateStringFromDate,
     getEndOfMonth,
@@ -43,55 +43,70 @@ const DatePicker = ({date, setDate, style}: DatePickerProps) => {
                 {getDateStringFromDate(date)}
             </Button>
             <Portal>
-                <Dialog visible={open} onDismiss={onDismissSingle}>
-                    <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'flex-start'}}>
-                        <View style={{flex: 1.5}}>
-                            <DatePickerInput
-                                locale="en"
-                                withModal={false}
-                                value={date}
-                                onChange={(d) => d ? setDate(d) : null}
-                                inputMode="start"
-                            />
+                <Modal visible={open} onDismiss={onDismissSingle} contentContainerStyle={styles.modal}>
+                    <View style={styles.modalContent}>
+                        <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'flex-start'}}>
+                            <View style={{flex: 2}}>
+                                <DatePickerInput
+                                    locale="en"
+                                    withModal={false}
+                                    value={date}
+                                    onChange={(d) => d ? setDate(d) : null}
+                                    inputMode="start"
+                                />
+                            </View>
+                            <View style={{flex: 1}}>
+                                <Button mode='elevated' onPress={() => setOpen(false)}>Save</Button>
+                            </View>
                         </View>
-                        <View style={{flex: 1}}>
-                            <Button onPress={() => setOpen(false)}>Save</Button>
-                        </View>
+                        <CalendarList
+                            theme={{
+                                backgroundColor: useTheme1.colors.background,
+                                calendarBackground: useTheme1.colors.background,
+                                textSectionTitleColor: useTheme1.colors.onBackground,
+                                selectedDayBackgroundColor: useTheme1.colors.primary,
+                                selectedDayTextColor: useTheme1.colors.onPrimary,
+                                todayTextColor: useTheme1.colors.primary,
+                                dayTextColor: useTheme1.colors.onBackground,
+                                textDisabledColor: useTheme1.colors.onBackground,
+                                dotColor: useTheme1.colors.primary,
+                                selectedDotColor: useTheme1.colors.onPrimary,
+                                arrowColor: useTheme1.colors.primary,
+                                monthTextColor: useTheme1.colors.primary,
+                            }}
+                            onDayPress={(dateData) => {
+                                setDate(new Date(dateData.timestamp))
+                            }}
+                            markedDates={{
+                                [utcDate]: {selected: true, selectedColor: useTheme1.colors.primary},
+                                ...fromEntries
+                            }}
+                            enableSwipeMonths={true}
+                            onVisibleMonthsChange={months => setRange(
+                                new Range(
+                                    subtractMonths(2, getFirstDayOfMonth(new Date(months[0].timestamp))),
+                                    subtractMonths(-2, getEndOfMonth(new Date(months[0].timestamp)))
+                                )
+                            )}
+                        />
                     </View>
-                    <CalendarList
-                        theme={{
-                            backgroundColor: useTheme1.colors.background,
-                            calendarBackground: useTheme1.colors.background,
-                            textSectionTitleColor: useTheme1.colors.onBackground,
-                            selectedDayBackgroundColor: useTheme1.colors.primary,
-                            selectedDayTextColor: useTheme1.colors.onPrimary,
-                            todayTextColor: useTheme1.colors.primary,
-                            dayTextColor: useTheme1.colors.onBackground,
-                            textDisabledColor: useTheme1.colors.onBackground,
-                            dotColor: useTheme1.colors.primary,
-                            selectedDotColor: useTheme1.colors.onPrimary,
-                            arrowColor: useTheme1.colors.primary,
-                            monthTextColor: useTheme1.colors.primary,
-
-                        }}
-                        onDayPress={(dateData) => {
-                            setDate(new Date(dateData.timestamp))
-                        }}
-                        markedDates={{
-                            [utcDate]: {selected: true, selectedColor: useTheme1.colors.primary},
-                            ...fromEntries
-                        }}
-                        enableSwipeMonths={true}
-                        onVisibleMonthsChange={months => setRange(
-                            new Range(
-                                subtractMonths(2, getFirstDayOfMonth(new Date(months[0].timestamp))),
-                                subtractMonths(-2, getEndOfMonth(new Date(months[0].timestamp)))
-                            )
-                        )}
-                    />
-                </Dialog>
+                </Modal>
             </Portal>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    modal: {
+        flex: 1,
+        justifyContent: 'flex-start',
+        alignItems: 'center',
+        marginTop: 64,
+    },
+    modalContent: {
+        width: '100%',
+        height: '100%',
+    },
+});
+
 export default DatePicker;
