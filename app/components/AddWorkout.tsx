@@ -94,25 +94,25 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
                         onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!)}/>
                 })}
             </View>
-            {(!workout || workout.end === undefined) && <Button
-                style={{marginTop: 20, display: 'flex', alignSelf: 'center'}}
-                buttonColor={theme.colors.primaryContainer}
-                textColor={theme.colors.onPrimaryContainer}
-                mode={'contained'}
-                disabled={unfinishedWorkout === undefined || unfinishedWorkout.id === undefined}
-                onPress={() => {
-                    finalizeWorkout(sameDate(date, new Date(Date.now())) ? new Date(Date.now()) : date, unfinishedWorkout?.id!!);
-                    onSubmit();
-                }}>
-                Add Workout
-            </Button>}
+            {(!workout || workout.end === undefined) && 
+                <Button style={{marginTop: 20, display: 'flex', alignSelf: 'center'}}
+                        buttonColor={theme.colors.primaryContainer}
+                        textColor={theme.colors.onPrimaryContainer}
+                        mode={'contained'}
+                        disabled={unfinishedWorkout === undefined || unfinishedWorkout.id === undefined}
+                        onPress={() => {
+                            finalizeWorkout(sameDate(date, new Date(Date.now())) ? new Date(Date.now()) : date, unfinishedWorkout?.id!!);
+                            onSubmit();
+                        }}>
+                        Add Workout
+                </Button>}
             {suggest &&
                 <Button disabled={unfinishedWorkout !== undefined || workouts.length === 0}
                         style={style.suggestWorkout}
                         onPress={() => {
                             suggestedWorkout(exercise.id!!);
                         }}>
-                    Suggest Workout
+                        Suggest Workout
                 </Button>}
         </View>
     );

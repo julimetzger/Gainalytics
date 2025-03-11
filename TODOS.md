@@ -33,6 +33,7 @@
 ## Exercises
 
 - Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden
+- AddWorkoutSet "Add" Button mit Satzzähler (Add Set 1, Add Set 2)
 
 ## Settings
 
