@@ -3,8 +3,9 @@ import TrainingHomeTab from "../tabs/trainings/TrainingHome";
 import TrainingsPlanTab from "../tabs/trainings/TrainingsPlanTab";
 import {TrainingsPlan} from "../models/TrainingsPlan";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
+import {IconButton} from "react-native-paper";
 
-export type  RootStackParamList = {
+export type RootStackParamList = {
     TrainingHome: undefined;
     Training: { trainingsPlan: TrainingsPlan, micro?: number, training?: number }
 };
@@ -17,8 +18,12 @@ const TrainingRouter = () => {
             <Stack.Screen
                 name="TrainingHome"
                 component={TrainingHomeTab}
-                options={({route}) => ({
-                    title: route.params ?? "Training Home",
+                options={({navigation}) => ({
+                    title: "Training Home",
+                    headerRight: () => (
+                        <IconButton icon="magnify" onPress={() => navigation.setParams({ toggleFilter: true })}>
+                        </IconButton>
+                    ),
                 })}
             />
             <Stack.Screen

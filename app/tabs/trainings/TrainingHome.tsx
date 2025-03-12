@@ -1,6 +1,6 @@
 import {Pressable, ScrollView, StyleSheet, View} from "react-native";
-import React, {useState} from "react";
-import {Button, Card, ProgressBar, Text, TextInput} from "react-native-paper";
+import React, {useEffect, useState} from "react";
+import {Button, Card, IconButton, ProgressBar, Text, TextInput} from "react-native-paper";
 import {useAllTrainingsPlans} from "../../redux/Training/useAllTrainingsPlans";
 import {RootStackParamList} from "../../routing/TrainingRouter";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
@@ -30,8 +30,9 @@ interface TrainingMapping {
     }
 }
 
-const TrainingHome = ({navigation}: Props) => {
-    const [filter, setFilter] = useState('');
+const TrainingHome = ({navigation, route}: Props) => {
+    const [filter, setFilter] = useState(route.params?.filter || '');
+    const [showFilter, setShowFilter] = useState(false);
     const trainingsPlans = useAllTrainingsPlans().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
     const allTrainings = useTrainings();
     let startedTrainings = allTrainings.filter(A => A.state === TrainingsState.STARTED)
@@ -47,9 +48,20 @@ const TrainingHome = ({navigation}: Props) => {
         )
     ;
 
+    useEffect(() => {
+        navigation.setOptions({
+            headerRight: () => (
+                <IconButton icon="magnify" onPress={() => setShowFilter(!showFilter)}>
+                </IconButton>
+            ),
+        });
+    }, [navigation, showFilter]);
+
     return (
         <View style={{flex: 1}}>
-            <TextInput label={'Filter'} onChangeText={(text) => setFilter(text)}/>
+            {showFilter && (
+                <TextInput label={'Filter'} value={filter} onChangeText={(text) => setFilter(text)}/>
+            )}
             <ScrollView contentInsetAdjustmentBehavior="automatic">
                 {trainingsPlans
                     .filter((exercise: TrainingsPlan) => exercise.name.toLowerCase().includes(filter.toLowerCase()))

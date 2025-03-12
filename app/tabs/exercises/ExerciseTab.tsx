@@ -1,20 +1,32 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
-import {Divider, Text, TextInput, useTheme} from 'react-native-paper';
+import {Divider, Text, TextInput, useTheme, IconButton} from 'react-native-paper';
 import AddExercise from '../../components/AddExercise';
 import {useAlleExercises} from '../../redux/Exercises/useAllExercises';
 import {Exercise} from "../../models/Exercise";
 
-const ExerciseTab = ({navigation}: Props) => {
+const ExerciseTab = ({navigation, route}: Props) => {
     const theme = useTheme();
-    const [filter, setFilter] = useState('');
+    const [filter, setFilter] = useState(route.params?.filter || '');
+    const [showFilter, setShowFilter] = useState(false);
     const exercises = useAlleExercises().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
+
+    useEffect(() => {
+        navigation.setOptions({
+            headerRight: () => (
+                <IconButton icon="magnify" onPress={() => setShowFilter(!showFilter)}>
+                </IconButton>
+            ),
+        });
+    }, [navigation, showFilter]);
 
     return (
         <View style={{backgroundColor: theme.colors.background, flex: 1}}>
-            <TextInput label={'Filter'} onChangeText={(text) => setFilter(text)}/>
+            {showFilter && (
+                <TextInput label={'Filter'} value={filter} onChangeText={(text) => setFilter(text)}/>
+            )}
             <ScrollView contentInsetAdjustmentBehavior="automatic">
                 {exercises
                     .filter((exercise: Exercise) => exercise.name.toLowerCase().includes(filter.toLowerCase()))
