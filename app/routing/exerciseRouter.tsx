@@ -1,7 +1,7 @@
 import React from 'react';
 import ExerciseTab from '../tabs/exercises/ExerciseTab';
 import AddWorkoutTab from '../tabs/exercises/AddWorkoutTab';
-import {useTheme} from "react-native-paper";
+import {useTheme, IconButton} from "react-native-paper";
 import {Exercise} from "../models/Exercise";
 import ExerciseStatisticsTabs from "../tabs/exercises/ExerciseStatisticsTabs";
 import ExerciseHistoryTab from "../tabs/exercises/ExerciseHistoryTab";
@@ -24,8 +24,12 @@ const ExerciseRouter = () => {
             <Stack.Screen
                 name="Exercises"
                 component={ExerciseTab}
-                options={({route}) => ({
-                    title: route.params ?? "Exercises",
+                options={({navigation}) => ({
+                    title: "Exercises",
+                    headerRight: () => (
+                        <IconButton icon="magnify" onPress={() => navigation.setParams({ toggleFilter: true })}>
+                        </IconButton>
+                    ),
                 })}
             />
             <Stack.Screen
