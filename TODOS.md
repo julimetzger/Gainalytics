@@ -7,33 +7,29 @@
 - **Export/Import Funktion für Trainings/Micro**
 - unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
 - Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
-- ~~Progressbar für Fortschritt nicht beendeter Übungen in der TrainingsPlanUebersicht~~ vergleich exercises mit done workouts anstatt planned workouts
+- Progressbar vergleich exercises mit done workouts anstatt planned workouts?
 - ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
 - Mesos einführen mit Kopieren des alten Mesos
-- Trainings löschbar machen ~~und editierbar~~
+- Trainings löschbar machen
 - Records in Overview anzeigen 
-- ~~swipe between micros~~ besser
-- Trainings oben anpinnbar machen im Edit (toggle schon im AddTrainingsPlan, redux fehlt)
+- Trainings oben anpinnbar machen im Edit (toggle schon im AddTrainingsPlan, redux fehlt)?
 - SWIPE_THRESHOLD added
-- higlight selected exercise in traing mode
-- go to record by clicking on popup
+- higlight selected exercise in traing mode - Flo
+- Go to record by clicking on popup
 - TrainingsTimer onLongPress ruft Pause Timer auf
-- Add go to next Training Button
+- Add "Next Training" Button
 
 ## Analyse
 
-- 2-7 Training Accumalator
-- Seite mit TrainingsLänge mit balkendiagramm
+- Seite mit TrainingsLänge mit Balkendiagramm
 - Seite mit Datepicker
 - Auswahlmöglichkeit der Metriken in MetricsOverview
 - Trainings in Datepicker anzeigen
-- während scrollen horizontales swipen komplett unterbinden scrollen geht noch beim swipen
-- Nach datePicker Change sollte 0 der Standardscreen sein
 
 ## Exercises
 
 - Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden
-- AddWorkoutSet "Add" Button mit Satzzähler (Add Set 1, Add Set 2)
+- AddWorkoutSet "Add" Button mit Satzzähler (Add Set 1, Add Set 2)?
 
 ## Settings
 
@@ -54,16 +50,14 @@
 
 ## Try out
 
-- https://www.npmjs.com/package/react-native-calendars/v/1.1304.1 kalender der auch Markierungen anzeigen kann. Period
-  scheint auch zu funktionieren
-- ~~Toast für records~~ Farben sind noch nicht passend
+- Toast für records Farben sind noch nicht passend
 - onPress auf Toast navigiert zu Exercise Stats //TODO go to Exercise Stats
 - Tabs für Analyse https://www.npmjs.com/package/react-native-paper-tabs
 - Farbpalette erweitern mit https://github.com/pchmn/expo-material3-theme https://callstack.github.io/react-native-paper/docs/guides/theming/
 
 ## Bugs
 
-- Enable Dark Mode Switch setze alle Switche auf on
+- Enable Dark Mode Switch setze alle Switche auf "on"
 - Push Timer funktioniert nur manchmal, bei manuellem Reset des Timers und nicht bei Haken
 - Push Timer funktioniert nur bei App im Vordergrund. https://www.npmjs.com/package/react-native-background-timer
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
