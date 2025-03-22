@@ -1,13 +1,16 @@
-import {DatePickerModal} from "react-native-paper-dates";
-import React, {useCallback, useRef, useState} from 'react';
-import {Button, Icon} from "react-native-paper";
+import {DatePickerInput} from "react-native-paper-dates";
+import React, {useRef, useState} from 'react';
+import {Button, Icon, Modal, Portal} from "react-native-paper";
 import {getDateStringFromDate} from "../utils/DateHelper";
-import {View} from "react-native";
+import {StyleSheet, View} from "react-native";
 import {Swipeable} from "react-native-gesture-handler";
+import {DatePickerModal} from "./DatePickerModal";
+import {NullableRange} from "./NullableRange";
 
 const DateRangePicker = ({range, setRange}: DateRangePickerProps
 ) => {
     const [open, setOpen] = useState(false);
+    const [uncompleteRange, setUncompleteRange] = useState<NullableRange>(new NullableRange(range.startDate, range.endDate))
 
     let swipeableRef = useRef(null);
     let close = () => {
@@ -16,17 +19,13 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
         }, 250);
     };
 
-    const onDismiss = useCallback(() => {
+    function onSubmit() {
         setOpen(false);
-    }, [setOpen]);
+        if (uncompleteRange.startDate && uncompleteRange.endDate) {
+            setRange(new Range(uncompleteRange.startDate, uncompleteRange.endDate));
+        }
+    }
 
-    const onConfirm = useCallback(
-        ({startDate, endDate}) => {
-            setOpen(false);
-            setRange(new Range(startDate, endDate));
-        },
-        [setOpen, setRange]
-    );
     return (<>
         <View style={{
             flexDirection: "row", justifyContent: "center"
@@ -54,16 +53,38 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps
                 </Button>
             </Swipeable>
         </View>
-        <DatePickerModal
-            locale="en-GB"
-            mode="range"
-            visible={open}
-            onDismiss={onDismiss}
-            startDate={range.startDate}
-            endDate={range.endDate}
-            onConfirm={onConfirm}
-            startWeekOnMonday={true}
-        />
+        <Portal>
+            <Modal visible={open} onDismiss={() => setOpen(false)} contentContainerStyle={styles.modal}>
+                <View style={styles.modalContent}>
+                    <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'flex-start'}}>
+                        <View style={{flex: 1}}>
+                            <DatePickerInput
+                                locale="en"
+                                withModal={false}
+                                value={range.startDate}
+                                onChange={d => d ? setUncompleteRange({...uncompleteRange, startDate: d}) : null}
+                                inputMode="start"
+                            />
+                        </View>
+                        <View style={{flex: 1}}>
+                            <DatePickerInput
+                                locale="en"
+                                withModal={false}
+                                value={range.endDate}
+                                onChange={d => d ? setUncompleteRange({...uncompleteRange, endDate: d}) : null}
+                                inputMode="end"
+                            />
+                        </View>
+                        <View style={{flex: 1}}>
+                            <Button mode='elevated' onPress={onSubmit}>Save</Button>
+                        </View>
+                    </View>
+                    <DatePickerModal
+                        date={uncompleteRange}
+                        onChange={setUncompleteRange}/>
+                </View>
+            </Modal>
+        </Portal>
     </>)
         ;
 }
@@ -108,3 +129,21 @@ export class Range {
 }
 
 export default DateRangePicker;
+const styles = StyleSheet.create({
+    modal: {
+        flex: 1,
+        justifyContent:
+            'flex-start',
+        alignItems:
+            'center',
+        marginTop:
+            64,
+    }
+    ,
+    modalContent: {
+        width: '100%',
+        height:
+            '100%',
+    }
+    ,
+});

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {Button, Modal, Portal, useTheme} from 'react-native-paper';
+import {Button, Modal, Portal} from 'react-native-paper';
 import {DatePickerInput} from 'react-native-paper-dates';
 import {StyleProp, View, ViewStyle, StyleSheet} from "react-native";
 import {
