@@ -1,5 +1,5 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {Alert, Dimensions, LayoutRectangle, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import React, {useRef, useState} from 'react';
+import {Dimensions, LayoutRectangle, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import DraggableFlatList, {RenderItemParams, ScaleDecorator} from 'react-native-draggable-flatlist';
 import {IconButton, useTheme} from 'react-native-paper';
 import {Exercise} from '../models/Exercise';
@@ -41,11 +41,11 @@ const DraggableExercise = ({
 
         const screenWidth = Dimensions.get('window').width;
 
-        const spreedEvenly = (percentage: number) => {
+        const spreadEvenly = (percentage: number) => {
             return percentage / 100 > 0.125 ? percentage / 100 : 0.125 * screenWidth;
         };
 
-        const spreedMax = (numberOfExercises: number) => {
+        const spreadMax = (numberOfExercises: number) => {
             return numberOfExercises <= 4 ? RPW((1 / numberOfExercises) * 100) : RPW(25);
         };
 
@@ -60,8 +60,8 @@ const DraggableExercise = ({
             },
             text: {
                 margin: 4,
-                minWidth: spreedEvenly(exercises.length),
-                maxWidth: spreedMax(exercises.length),
+                minWidth: spreadEvenly(exercises.length),
+                maxWidth: spreadMax(exercises.length),
                 color: theme.colors.onSecondaryContainer,
                 fontSize: theme.fonts.bodyMedium.fontSize,
                 marginTop: -4,
@@ -87,11 +87,11 @@ const DraggableExercise = ({
                             {
                                 backgroundColor: isActive
                                     ? theme.colors.tertiaryContainer
-                                    : item.key === chosenExercise?.id
-                                        ? '#558b2f'
                                         : doneExerciseIds.includes(item.key)
                                             ? theme.colors.primaryContainer
-                                            : theme.colors.secondaryContainer
+                                            : theme.colors.secondaryContainer,
+                                borderColor: item.key === chosenExercise?.id ? theme.colors.onPrimaryContainer : 'transparent',
+                                borderWidth: item.key === chosenExercise?.id ? 2 : 0,
                             },
                         ]}>
                         <SwipeView
@@ -101,8 +101,8 @@ const DraggableExercise = ({
                             headerStyle={{
                                 backgroundColor: 'transparent',
                                 height: 25,
-                                minWidth: spreedEvenly(exercises.length),
-                                maxWidth: spreedMax(exercises.length),
+                                minWidth: spreadEvenly(exercises.length),
+                                maxWidth: spreadMax(exercises.length),
                             }}
                             renderHeader={() => <View style={{flex: 1}}/>}
                             onRequestShow={() => setInteractive(true)}
@@ -126,7 +126,7 @@ const DraggableExercise = ({
                                     color: isActive
                                         ? theme.colors.onPrimaryContainer
                                         : item.key === chosenExercise?.id
-                                            ? 'white'
+                                            ? theme.colors.onPrimaryContainer
                                             : doneExerciseIds.includes(item.key)
                                                 ? theme.colors.onPrimaryContainer
                                                 : theme.colors.onSecondaryContainer,
