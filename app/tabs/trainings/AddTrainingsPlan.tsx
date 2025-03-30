@@ -55,10 +55,6 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
                                          maxLength={30}
                                          onChangeText={(text) => setTrainingName(text)}/>}
                     </Dialog.Content>
-                    <View style={{display: 'flex', flexDirection: 'row', marginLeft: 20, marginBottom: 10}}>
-                        <Switch onValueChange={showAlert} value={false}/>
-                        <Text style={{alignSelf: 'center'}}>Pin Training to the top</Text>
-                    </View>
                     <View style={{flexDirection: 'row'}}>
                         <Dialog.Actions>
                             <Button onPress={hideDialog}>Cancel</Button>

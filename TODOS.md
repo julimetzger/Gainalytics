@@ -14,7 +14,6 @@
 - Records in Overview anzeigen 
 - Trainings oben anpinnbar machen im Edit (toggle schon im AddTrainingsPlan, redux fehlt)?
 - SWIPE_THRESHOLD added
-- Highlight selected exercise in training mode - Flo
 - TrainingsTimer onLongPress ruft Pause Timer auf
 - Add "Next Training" Button
 
@@ -28,8 +27,6 @@
 ## Exercises
 
 - Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden, History Pokal Symbol nur beim 1RM Rekord?!
-- Go to Exercise records by clicking on popup
-- AddWorkoutSet "Add" Button mit Satzzähler (Add Set 1, Add Set 2)?
 
 ## Settings
 
@@ -44,7 +41,6 @@
 - Change build.gradle name, namespace and applicationId "PowerliftingWorkoutPlanner" to Gainalytics and refactor Code
 - Performance Optimierung - check rerenders and add memoization
 - ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen - funktioniert nur im ExerciseTab
-- react-native-calendars einbauen und testen
 
 ## Video Analyse Funktion
 
