@@ -13,6 +13,10 @@ const SettingsRouter = () => {
             <Stack.Screen
                 name="Settings"
                 component={SettingsTab}
+                options={{
+                    title: "Settings",
+                    headerTitleAlign: "center",
+                }}
             />
         </Stack.Navigator>
     );

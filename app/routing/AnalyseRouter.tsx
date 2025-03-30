@@ -28,13 +28,15 @@ const AnalyseRouter = () => {
                 component={AnalyseGraphics}
                 options={({route}) => ({
                     title: route.params?.exercise?.name ?? "Analyse",
+                    headerTitleAlign: "center",
                 })}
             />
             <Stack.Screen
                 name="Graphs"
                 component={GraphsTab}
                 options={() => ({
-                    title: "Exercise Graphs"
+                    title: "Exercise Graphs",
+                    headerTitleAlign: "center",
                 })}
             />
             <Stack.Screen
@@ -42,6 +44,7 @@ const AnalyseRouter = () => {
                 component={History}
                 options={({route}) => ({
                     title: route.params?.exercise?.name ?? "History",
+                    headerTitleAlign: "center",
                 })}
             />
             <Stack.Screen
@@ -49,6 +52,7 @@ const AnalyseRouter = () => {
                 component={MetricsTab}
                 options={() => ({
                     title: "Metrics Overview",
+                    headerTitleAlign: "center",
                 })}
             />
             <Stack.Screen
@@ -56,6 +60,7 @@ const AnalyseRouter = () => {
                 component={RecordsTab}
                 options={() => ({
                     title: "Records",
+                    headerTitleAlign: "center",
                 })}
             />
         </Stack.Navigator>
