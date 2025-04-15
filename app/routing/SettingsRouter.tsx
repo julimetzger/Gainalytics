@@ -14,8 +14,7 @@ const SettingsRouter = () => {
                 name="Settings"
                 component={SettingsTab}
                 options={{
-                    title: "Settings",
-                    headerTitleAlign: "center",
+                    title: "Settings"
                 }}
             />
         </Stack.Navigator>

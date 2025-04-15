@@ -20,7 +20,6 @@ const TrainingRouter = () => {
                 component={TrainingHomeTab}
                 options={({navigation}) => ({
                     title: "Training Home",
-                    headerTitleAlign: "center",
                     headerRight: () => (
                         <IconButton icon="magnify" onPress={() => navigation.setParams({ toggleFilter: true })}>
                         </IconButton>
@@ -32,7 +31,6 @@ const TrainingRouter = () => {
                 component={TrainingsPlanTab}
                 options={({route}) => ({
                     title: route.params.trainingsPlan.name,
-                    headerTitleAlign: "center",
                 })}
             />
         </Stack.Navigator>

@@ -27,40 +27,35 @@ const AnalyseRouter = () => {
                 name="Analyse"
                 component={AnalyseGraphics}
                 options={({route}) => ({
-                    title: route.params?.exercise?.name ?? "Analyse",
-                    headerTitleAlign: "center",
+                    title: route.params?.exercise?.name ?? "Analyse"
                 })}
             />
             <Stack.Screen
                 name="Graphs"
                 component={GraphsTab}
                 options={() => ({
-                    title: "Exercise Graphs",
-                    headerTitleAlign: "center",
+                    title: "Exercise Graphs"
                 })}
             />
             <Stack.Screen
                 name="History"
                 component={History}
                 options={({route}) => ({
-                    title: route.params?.exercise?.name ?? "History",
-                    headerTitleAlign: "center",
+                    title: route.params?.exercise?.name ?? "History"
                 })}
             />
             <Stack.Screen
                 name="Metrics"
                 component={MetricsTab}
                 options={() => ({
-                    title: "Metrics Overview",
-                    headerTitleAlign: "center",
+                    title: "Metrics Overview"
                 })}
             />
             <Stack.Screen
                 name="Records"
                 component={RecordsTab}
                 options={() => ({
-                    title: "Records",
-                    headerTitleAlign: "center",
+                    title: "Records"
                 })}
             />
         </Stack.Navigator>

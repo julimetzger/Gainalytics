@@ -35,6 +35,10 @@
 - Metriken die im TrainingsOverview/Overview angezeigt werden sollen für Muscles/Exercises
 - Hide/show "kg"
 - Default DatePicker range
+- Backup-Automatisierung mit Zeitplan hinzufügen
+- Tutorial/Onboarding-System implementieren
+- Feedback-System einbauen
+- Weitere Statistiken hinzufügen (z.B. durchschnittliche Trainingsdauer, Lieblingsübungen)
 
 ## General
 

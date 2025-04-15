@@ -1,5 +1,5 @@
-import {Button, Dialog, IconButton, Portal, Switch, Text, TextInput, useTheme} from 'react-native-paper';
-import {Alert, View} from 'react-native';
+import {Button, Dialog, IconButton, Portal, Text, TextInput, useTheme} from 'react-native-paper';
+import {View} from 'react-native';
 import React, {useState} from 'react';
 import {dispatchAddTrainingsPlan} from "../../redux/Training/dispatchAddTrainingsPlan";
 import {dispatchEditTrainingsPlan} from "../../redux/Training/dispatchEditTrainingsPlan";
@@ -31,9 +31,6 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
         trainingsId ? editTrainingsPlan(trainingsId, TrainingName) :
             addTrainingsPlan({name: TrainingName} as TrainingsPlan);
     };
-    const showAlert = () => {
-        Alert.alert('Coming soon...')
-    }
 
     return (
         <View style={style}>
