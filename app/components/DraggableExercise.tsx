@@ -91,7 +91,7 @@ const DraggableExercise = ({
                                             ? theme.colors.primaryContainer
                                             : theme.colors.secondaryContainer,
                                 borderColor: item.key === chosenExercise?.id ? theme.colors.onPrimaryContainer : 'transparent',
-                                borderWidth: item.key === chosenExercise?.id ? 2 : 0,
+                                borderWidth: item.key === chosenExercise?.id ? 2 : 2,
                             },
                         ]}>
                         <SwipeView
