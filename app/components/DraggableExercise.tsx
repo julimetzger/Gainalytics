@@ -109,7 +109,7 @@ const DraggableExercise = ({
                             onRequestClose={() => setInteractive(false)}>
                             {interactive && (
                                 <IconButton
-                                    style={{marginTop: 10}}
+                                    style={{marginTop: 15}}
                                     icon={'close-circle'}
                                     iconColor={theme.colors.tertiaryContainer}
                                     onPress={() => {
@@ -124,7 +124,7 @@ const DraggableExercise = ({
                                 styles.text,
                                 {
                                     color: isActive
-                                        ? theme.colors.onPrimaryContainer
+                                        ? theme.colors.onTertiaryContainer
                                         : item.key === chosenExercise?.id
                                             ? theme.colors.onPrimaryContainer
                                             : doneExerciseIds.includes(item.key)

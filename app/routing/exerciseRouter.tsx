@@ -26,7 +26,6 @@ const ExerciseRouter = () => {
                 component={ExerciseTab}
                 options={({navigation}) => ({
                     title: "Exercises",
-                    headerTitleAlign: "center",
                     headerRight: () => (
                         <IconButton icon="magnify" onPress={() => navigation.setParams({ toggleFilter: true })}>
                         </IconButton>
@@ -38,7 +37,6 @@ const ExerciseRouter = () => {
                 component={AddWorkoutTab}
                 options={({route}) => ({
                     title: route.params.exercise.name,
-                    headerTitleAlign: "center",
                 })}
             />
             <Stack.Screen
@@ -46,7 +44,6 @@ const ExerciseRouter = () => {
                 component={ExerciseStatisticsTabs}
                 options={({route}) => ({
                     title: route.params.exercise.name,
-                    headerTitleAlign: "center",
                 })}
             />
             <Stack.Screen
@@ -54,7 +51,6 @@ const ExerciseRouter = () => {
                 component={ExerciseHistoryTab}
                 options={({route}) => ({
                     title: route.params.exercise.name,
-                    headerTitleAlign: "center",
                 })}
             />
         </Stack.Navigator>
