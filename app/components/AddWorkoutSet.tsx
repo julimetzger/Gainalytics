@@ -127,8 +127,8 @@ const AddWorkoutSet = ({
 
     return (
         <View style={{margin: 5}}>
-            <View style={{flexDirection: "row"}}>
-                <TextInput mode="outlined" label="Reps" value={reps.toString()} style={styles.textInput}
+            <View style={{flexDirection: "row", justifyContent: "space-between", alignItems: "center"}}>
+                <TextInput mode="outlined" label="Reps" value={reps.toString()} style={[styles.textInput, {flex: 1}]}
                            onChangeText={setRepsOnChange} keyboardType="numeric"
                            onFocus={() => {
                                setEditing(true)
@@ -140,7 +140,7 @@ const AddWorkoutSet = ({
                            }}
                            error={repsEmpty}
                            selectTextOnFocus={true}/>
-                <TextInput mode="outlined" label="RIR" value={rir.toString()} style={styles.textInput}
+                <TextInput mode="outlined" label="RIR" value={rir.toString()} style={[styles.textInput, {flex: 1}]}
                            onChangeText={setRIROnChange} keyboardType="numeric"
                            onFocus={() => {
                                setEditing(true)
@@ -152,7 +152,7 @@ const AddWorkoutSet = ({
                            }}
                            error={rirEmpty}
                            selectTextOnFocus={true}/>
-                <TextInput mode="outlined" label="Weight" value={weight.toString()} style={styles.textInput}
+                <TextInput mode="outlined" label="Weight" value={weight.toString()} style={[styles.textInput, {flex: 1}]}
                            onChangeText={setWeightOnChange} keyboardType="numeric"
                            textColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.secondary : undefined}
                            outlineColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.secondary : undefined}
@@ -218,7 +218,6 @@ const styles = StyleSheet.create({
     textInput: {
         height: 35,
         marginEnd: 5,
-        width: 70,
         alignSelf: 'center',
     }
 });
