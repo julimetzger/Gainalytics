@@ -11,10 +11,11 @@ import {Muscles} from "../../models/Muscles";
 import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscles";
 import {useWorkoutsIn} from "../../redux/Workout/useWorkoutsIn";
 import {Workout} from "../../models/Workout";
-import {Card, useTheme} from "react-native-paper";
+import {Card, useTheme, HelperText} from "react-native-paper";
 import {handleAccumulationModeBatching} from "./HandleAccumulationModeBatching";
-import {sum, sumBy} from "lodash";
+import {sum} from "lodash";
 import {calculateMetricValue, calculateMetricValueForMuscles} from "../../utils/RepetitionMaxHelper";
+import {generateTrend} from "../../utils/generateTrend";
 
 const GraphsTab = () => {
     let now = new Date(Date.now());
@@ -22,6 +23,23 @@ const GraphsTab = () => {
     const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumulationMode.SINGLE_DAY))
     const [exercise, setExercise] = useState<Exercise[]>([]);
     const [muscle, setMuscle] = useState<Muscles[]>([]);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        validateSelections();
+    }, [exercise, accumulation, muscle]);
+
+    const validateSelections = () => {
+        let errors: string[] = [];
+        if (exercise.length === 0 && muscle.length === 0) {
+            errors.push("Exercise or Muscle");
+        }
+        if (!accumulation) {
+            errors.push("Accumulation Mode");
+        }
+        setErrorMessage(errors.length > 0 ? `Please select: ${errors.join(", ")}.` : null);
+    };
+
     let exercisesForMuscles = useExercisesForMuscles(muscle);
     let exerciseIDs = exercise.map(it => it.id);
     let exercisesForMusclesIds = exercisesForMuscles.map(it => it.id);
@@ -94,6 +112,12 @@ const GraphsTab = () => {
             />
             <DateRangePicker range={range} setRange={setRange}/>
 
+            {errorMessage && (
+                <HelperText type="error" visible={!!errorMessage}>
+                    {errorMessage}
+                </HelperText>
+            )}
+
             {(exercise.length > 0 || muscle.length > 0) && accumulation && map.map((value) =>
                 <View>
                     <Card style={{marginBottom: 10}}>
@@ -155,20 +179,6 @@ const GraphsTab = () => {
         </ScrollView>
     )
 };
-
-function generateTrend(map: LineValue[]): LineValue[] {
-    if (map.length > 2) {
-        let n = map.length;
-        let a = (n * sumBy(map, value => value.x!! * value.y) - sumBy(map, value => value.x!!) * sumBy(map, value => value.y)) / (n * sumBy(map, value => value.x!! * value.x!!) - sumBy(map, value => value.x!!) ** 2)
-        let b = (sumBy(map, value => value.y) - a * sumBy(map, value => value.x!!)) / n;
-        let firstPointy = a * map[0].x!! + b
-        let firstPoint = {x: map[0].x!!, y: firstPointy}
-        let secondPointy = a * map[n - 1].x!! + b
-        let secondPoint = {x: map[n - 1].x!!, y: secondPointy}
-        return [firstPoint, secondPoint];
-    }
-    return [];
-}
 
 const styles = StyleSheet.create({
     chart: {
