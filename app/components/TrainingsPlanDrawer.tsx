@@ -12,7 +12,7 @@ import {MD3Colors, MD3Typescale} from "react-native-paper/lib/typescript/types";
 import {Action} from "redux";
 import {TrainingsPlan} from "../models/TrainingsPlan";
 import {View, Keyboard} from "react-native";
-import React, {useState, useRef} from "react";
+import React, {useState, useRef, useEffect} from "react";
 
 interface TrainingsPlanDrawerProps {
     theme: ThemeBase & {
@@ -49,18 +49,16 @@ const TrainingsPlanDrawer = ({
     const [trainingsName, setTrainingsName] = useState('');
     const inputRef = useRef(null);
 
+    useEffect(() => {
+        if (!trainingsPlan.trainingNames || Object.keys(trainingsPlan.trainingNames).length === 0) {
+            changeTrainingsName(trainingsPlan.id!!, 'Training 1', 1);
+        }
+    }, [trainingsPlan, changeTrainingsName]);
+
     return (<View style={{display: 'flex', flexDirection: 'column'}}>
         <Divider/>
-        <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center'}}>
-            <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Trainings</Text>
-            <IconButton
-                icon="plus-circle" onPress={() => {
-                changeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1)
-            }}
-                theme={theme}
-                iconColor={theme.colors.tertiaryContainer}
-                size={40}>
-            </IconButton>
+        <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
+            <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Trainings:</Text>
         </View>
         {Object.entries(trainingsPlan.trainingNames ?? []).map(([micro, name], index) => {
             return (
@@ -95,6 +93,7 @@ const TrainingsPlanDrawer = ({
                                         inputRef.current?.blur();
                                         Keyboard.dismiss();
                                     }}
+                                    selectTextOnFocus={true}
                                     right={
                                         <TextInput.Icon 
                                             icon="check" 
@@ -117,6 +116,7 @@ const TrainingsPlanDrawer = ({
                             onPress={() => {
                                 setEdit(index);
                                 setTrainingsName(name);
+                                setTimeout(() => inputRef.current?.focus(), 0);
                             }}
                             size={20}
                             style={{marginRight: 5}}
@@ -125,18 +125,23 @@ const TrainingsPlanDrawer = ({
                 </View>
             );
         })}
+        <View style={{alignItems: 'center'}}>
+            <IconButton
+                icon="plus-circle" onPress={() => {
+                changeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1)
+                }}
+                theme={theme}
+                iconColor={theme.colors.tertiaryContainer}
+                size={40}>
+            </IconButton>
+        </View>
         <TouchableRipple>
             <Tooltip title='Displays workout statistics for this Micro'>
-                <Text
-                    style={{
-                        fontSize: 20,
-                        margin: 5,
-                    }}
-                    onPress={() => {
+                <Text style={{fontSize: 20, margin: 5}}
+                        onPress={() => {
                         setOpen(false);
                         setShowDone(true);
-                    }}
-                >
+                        }}>
                     Overview
                 </Text>
             </Tooltip>
@@ -149,7 +154,7 @@ const TrainingsPlanDrawer = ({
             </Button>
         </Tooltip>
         <SegmentedButtons
-            style={{paddingHorizontal: 5, marginTop:5}}
+            style={{marginTop: 5}}
             value={''}
             onValueChange={handleValueChange}
             buttons={[
