@@ -8,7 +8,7 @@ import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
 import {calculateMetricValue, calculateMetricValueForMuscles} from "../../utils/RepetitionMaxHelper";
 import {RootStackParamList} from "../../routing/SettingsRouter";
-import {sum, sumBy} from "lodash";
+import {sum} from "lodash";
 import Picker, {Accumulation, AccumulationMode, Metric} from "../../components/Picker";
 import {useWorkoutsByIds} from "../../redux/Workout/useWorkoutsByIds";
 import WorkoutView from "../../components/WorkoutView";
@@ -17,6 +17,7 @@ import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscl
 import {Exercise} from "../../models/Exercise";
 import {Workout} from "../../models/Workout";
 import {handleAccumulationModeBatching} from "./HandleAccumulationModeBatching";
+import {generateTrend} from "../../utils/generateTrend";
 
 const AnalyseGraphics = ({}: Props) => {
     function handleDataPointSelect(value: ChartSelectEvent) {
@@ -174,7 +175,6 @@ const AnalyseGraphics = ({}: Props) => {
                 />}
             {selectedWorkout && (exercise.length > 0 || muscle.length > 0) &&
                 <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric} editable={false}></WorkoutView>}
-                
             <HelperText type="error" visible={!!errorMessage}>
                 {errorMessage}
             </HelperText>
@@ -187,20 +187,6 @@ const styles = StyleSheet.create({
         height: 350
     },
 })
-
-function generateTrend(map: LineValue[]): LineValue[] {
-    if (map.length > 2) {
-        let n = map.length;
-        let a = (n * sumBy(map, value => value.x!! * value.y) - sumBy(map, value => value.x!!) * sumBy(map, value => value.y)) / (n * sumBy(map, value => value.x!! * value.x!!) - sumBy(map, value => value.x!!) ** 2)
-        let b = (sumBy(map, value => value.y) - a * sumBy(map, value => value.x!!)) / n;
-        let firstPointy = a * map[0].x!! + b
-        let firstPoint = {x: map[0].x!!, y: firstPointy}
-        let secondPointy = a * map[n - 1].x!! + b
-        let secondPoint = {x: map[n - 1].x!!, y: secondPointy}
-        return [firstPoint, secondPoint];
-    }
-    return [];
-}
 
 export type Props = NativeStackScreenProps<RootStackParamList, 'Analyse'>;
 
