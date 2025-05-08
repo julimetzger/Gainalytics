@@ -276,7 +276,7 @@ const RangeSwiper = <T extends any>({
                             flexDirection: 'row',
                             left: -zeroPositon + initialOffset
                         }]}>
-                            {newVar && < View style={newVar.overlay}>
+                            {newVar && < View style={newVar.overlay} pointerEvents={"none"}>
                             </View>}
                             {[-1, 0, 1].map(
                                 value => {
