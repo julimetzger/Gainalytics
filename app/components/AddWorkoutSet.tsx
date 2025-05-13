@@ -84,7 +84,7 @@ const AddWorkoutSet = ({
 
     function determineCheckmarkColor() {
         if (persisted() && !editing) {
-            return "#558b2f";
+            return "#558b2f"; // green
         } else {
             return theme.colors.secondaryContainer;
         }
@@ -126,89 +126,114 @@ const AddWorkoutSet = ({
     }
 
     return (
-        <View style={{margin: 5}}>
-            <View style={{flexDirection: "row", justifyContent: "space-between", alignItems: "center"}}>
-                <TextInput mode="outlined" label="Reps" value={reps.toString()} style={[styles.textInput, {flex: 1}]}
-                           onChangeText={setRepsOnChange} keyboardType="numeric"
-                           onFocus={() => {
-                               setEditing(true)
-                               setWeightSuggestions()
-                           }}
-                           onBlur={() => {
-                               setHighlightWeightSuggestion(false)
-                               submitOnChangeIfAllowed();
-                           }}
-                           error={repsEmpty}
-                           selectTextOnFocus={true}/>
-                <TextInput mode="outlined" label="RIR" value={rir.toString()} style={[styles.textInput, {flex: 1}]}
-                           onChangeText={setRIROnChange} keyboardType="numeric"
-                           onFocus={() => {
-                               setEditing(true)
-                               setWeightSuggestions()
-                           }}
-                           onBlur={() => {
-                               setHighlightWeightSuggestion(false)
-                               submitOnChangeIfAllowed();
-                           }}
-                           error={rirEmpty}
-                           selectTextOnFocus={true}/>
-                <TextInput mode="outlined" label="Weight" value={weight.toString()} style={[styles.textInput, {flex: 1}]}
-                           onChangeText={setWeightOnChange} keyboardType="numeric"
-                           textColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.secondary : undefined}
-                           outlineColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.secondary : undefined}
-                           onFocus={() => {
-                               setEditing(true)
-                           }}
-                           onBlur={() => {
-                               submitOnChangeIfAllowed()
-                           }}
-                           error={weightEmpty}
-                           selectTextOnFocus={true}/>
-                {oneRepMax ? 
-                    <Tooltip 
-                        enterTouchDelay={300}
-                        title='Suggests weight based on your 1 rep max'>
-                    <ToggleButton
-                        icon={() => <Text style={{color: theme.colors.onSecondaryContainer}}>1RM</Text>}
-                        iconColor={theme.colors.secondaryContainer}
-                        status={!disable1RMWeightCalculation ? "checked" : "unchecked"}
-                        onPress={() => {
-                            setDisable1RMWeightCalculation(prevState => !prevState);
-                            setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
-                        }}
-                    />
-                </Tooltip> : null}
-                {!isPlanningMode && (
-                    <>
-                        {persisted() && !editing &&
-                            <IconButton icon={"check"} iconColor={determineCheckmarkColor()}/>}
-                        {persisted() && editing &&
-                            <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
+        <View style={{flexDirection: "row", alignItems: "center", marginHorizontal: 5}}>
+            <View style={{flex: 66, flexDirection: "row"}}>
+                <TextInput
+                    mode="outlined"
+                    label="Reps"
+                    value={reps.toString()}
+                    style={[styles.textInput, {flex: 1, marginRight: 4}]}
+                    onChangeText={setRepsOnChange}
+                    keyboardType="numeric"
+                    onFocus={() => {
+                        setEditing(true)
+                        setWeightSuggestions()
+                    }}
+                    onBlur={() => {
+                        setHighlightWeightSuggestion(false)
+                        submitOnChangeIfAllowed();
+                    }}
+                    error={repsEmpty}
+                    selectTextOnFocus={true}
+                />
+                <TextInput
+                    mode="outlined"
+                    label="RIR"
+                    value={rir.toString()}
+                    style={[styles.textInput, {flex: 1, marginRight: 4}]}
+                    onChangeText={setRIROnChange}
+                    keyboardType="numeric"
+                    onFocus={() => {
+                        setEditing(true)
+                        setWeightSuggestions()
+                    }}
+                    onBlur={() => {
+                        setHighlightWeightSuggestion(false)
+                        submitOnChangeIfAllowed();
+                    }}
+                    error={rirEmpty}
+                    selectTextOnFocus={true}
+                />
+                <TextInput
+                    mode="outlined"
+                    label="Weight"
+                    value={weight.toString()}
+                    style={[styles.textInput, {flex: 1}]}
+                    onChangeText={setWeightOnChange}
+                    keyboardType="numeric"
+                    textColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.secondary : undefined}
+                    outlineColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.secondary : undefined}
+                    onFocus={() => {
+                        setEditing(true)
+                    }}
+                    onBlur={() => {
+                        submitOnChangeIfAllowed()
+                    }}
+                    error={weightEmpty}
+                    selectTextOnFocus={true}
+                />
+            </View>
+            <View style={{flex: 34, flexDirection: "row", alignItems: "center", justifyContent: "flex-start", marginLeft: 4}}>
+                {oneRepMax ?
+                    <View style={{marginRight: 4}}>
+                        <Tooltip
+                            enterTouchDelay={300}
+                            title='Suggests weight based on your 1 rep max'>
+                            <ToggleButton
+                                icon={() => <Text style={{color: theme.colors.onSecondaryContainer}}>1RM</Text>}
+                                iconColor={theme.colors.secondaryContainer}
+                                status={!disable1RMWeightCalculation ? "checked" : "unchecked"}
+                                onPress={() => {
+                                    setDisable1RMWeightCalculation(prevState => !prevState);
+                                    setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
+                                }}
+                            />
+                        </Tooltip>
+                    </View>
+                    : null}
+                <View style={{flexDirection: "row", alignItems: "center"}}>
+                    {!isPlanningMode && (
+                        <>
+                            {persisted() && !editing &&
+                                <IconButton icon={"check"} iconColor={determineCheckmarkColor()}/>}
+                            {persisted() && editing &&
+                                <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
+                                    submit();
+                                    Keyboard.dismiss();
+                                }}/>}
+                            {!persisted() && workoutSet !== undefined &&
+                                <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
+                                    submit();
+                                    Keyboard.dismiss();
+                                }}/>}
+                        </>
+                    )}
+                    {!persisted() && workoutSet === undefined &&
+                        <Button
+                            mode={'contained'}
+                            style={{marginStart: 5}}
+                            buttonColor={theme.colors.primaryContainer}
+                            textColor={theme.colors.onPrimaryContainer}
+                            onPress={() => {
                                 submit();
                                 Keyboard.dismiss();
-                            }}/>}
-                        {!persisted() && workoutSet !== undefined &&
-                            <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
-                                submit();
-                                Keyboard.dismiss();
-                            }}/>}
-                    </>
-                )}
-                {!persisted() && workoutSet === undefined &&
-                    <Button
-                        mode={'contained'}
-                        style={{marginStart: 5}}
-                        buttonColor={theme.colors.primaryContainer}
-                        textColor={theme.colors.onPrimaryContainer}
-                        onPress={() => {
-                            submit();
-                            Keyboard.dismiss();
-                        }}>
-                        {"Add"}
-                    </Button>}
-                {(persisted() || (!persisted() && workoutSet !== undefined)) && onDelete !== undefined &&
-                    <IconButton icon={"close-circle"} iconColor={theme.colors.tertiaryContainer}
-                                onPress={() => onDelete(workoutSet!!)}/>}
+                            }}>
+                            {"Add"}
+                        </Button>}
+                    {(persisted() || (!persisted() && workoutSet !== undefined)) && onDelete !== undefined &&
+                        <IconButton icon={"close-circle"} iconColor={theme.colors.tertiaryContainer}
+                                    onPress={() => onDelete(workoutSet!!)}/>}
+                </View>
             </View>
         </View>
     )
