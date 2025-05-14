@@ -12,7 +12,6 @@
 - Mesos einführen mit Kopieren des alten Mesos
 - Trainings löschbar machen
 - Records in Overview anzeigen 
-- Trainings oben anpinnbar machen im Edit (toggle schon im AddTrainingsPlan, redux fehlt)?
 - SWIPE_THRESHOLD added
 - TrainingsTimer onLongPress ruft Pause Timer auf
 - Add "Next Training" Button
