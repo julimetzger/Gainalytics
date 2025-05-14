@@ -1,7 +1,7 @@
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/exerciseRouter";
 import React, {useState} from "react";
-import {Alert, ScrollView, View} from "react-native";
+import {Alert, ScrollView, View, StyleSheet} from "react-native";
 import {Button, Dialog, Divider, Portal, Switch, Text} from "react-native-paper";
 import {dispatchtoggleMode} from "../../redux/settings/dispatchtoggleMode";
 import {useSettings} from "../../redux/settings/useSettings";
@@ -72,24 +72,24 @@ const SettingsTab = ({navigation}: Props) => {
 
     return (
         <ScrollView>
-            <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', marginVertical: 5, marginHorizontal: 15}}>
+            <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Enable Dark Mode</Text>
                 <Switch onValueChange={() => dispatchtoggleMode1()} value={settings.mode === "dark"}/>
             </View>
-            <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', marginVertical: 5, marginHorizontal: 15}}>
+            <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Preselect 1RM Button</Text>
                 <Switch onValueChange={() => toggleDisable1RMpreselect()} value={!settings.toggles?.disable1RMButton}/>
             </View>
-            <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', marginVertical: 5, marginHorizontal: 15}}>
+            <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Use Imperial Units</Text>
                 <Switch onValueChange={showAlert} value={false}/>
             </View>
-            <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', marginVertical: 5, marginHorizontal: 15}}>
+            <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Show Training Timer</Text>
                 <Switch onValueChange={() => toggleShowTimer()} value={!settings.toggles?.disableTimer}/>
             </View>
-            <View style={{margin: 5}}><Divider/></View>
-            <View>
+            <View style={styles.divider}><Divider/></View>
+            <View style={styles.button}>
                 <TimeRangePicker setPauseTimer={setPauseTimer}
                                 title={'Pause Timer: '}
                                 timeRange={settings.localNotification?.pauseTimerInSeconds}/>
@@ -97,11 +97,11 @@ const SettingsTab = ({navigation}: Props) => {
                                 title={'Finish Training Timer: '}
                                 timeRange={settings.localNotification?.finishTrainingTimerInSeconds}/>
             </View>
-            <View style={{margin: 5}}><Divider/></View>
-            <View style={{margin: 5}}><Button mode="elevated" onPress={() => {
+            <View style={styles.divider}><Divider/></View>
+            <View style={styles.button}><Button mode="elevated" onPress={() => {
                     setImportDialog(true)
                 }}>Import all Data</Button></View>
-            <View style={{margin: 5}}>
+            <View style={styles.button}>
                 <Button mode="elevated" onPress={() => {
                     dumbFullStateToFile()
                 }}>Export all Data</Button>
@@ -130,6 +130,22 @@ const SettingsTab = ({navigation}: Props) => {
         </ScrollView>
     );
 }
+
+const styles = StyleSheet.create({
+    row: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginVertical: 5,
+        marginHorizontal: 15,
+    },
+    divider: {
+        margin: 5,
+    },
+    button: {
+        margin: 5,
+    }
+});
 
 export type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 export default SettingsTab;
