@@ -9,24 +9,38 @@ import {TrainingsState} from '../models/TrainingsState';
 import useExerciseRecord from "../redux/Effects/useExerciseRecord";
 import Toast from "react-native-toast-message";
 import {useExercise} from "../redux/Exercises/useExercise";
+import { useNavigation } from '@react-navigation/native';
 
 const Tab = createMaterialBottomTabNavigator();
 
 export const BottomTabs = () => {
+    const navigation = useNavigation();
     const allTrainings = useTrainings();
     let useExerciseRecord1 = useExerciseRecord();
     let exercise = useExercise(useExerciseRecord1?.exerciseId);
-    let isTrainingStarted = allTrainings.some(A => A.state === TrainingsState.STARTED)
-    if (useExerciseRecord1) {
-        Toast.show({
-            type: 'success',
-            text1: 'New Record!',
-            text2: `You have a new ${useExerciseRecord1.record} record in ${exercise?.name} with ${useExerciseRecord1.value}`,
-            position: 'top',
-            visibilityTime: 5000,
-            onPress: () => [] //TODO go to Exercise Stats
-        })
-    }
+    let isTrainingStarted = allTrainings.some(A => A.state === TrainingsState.STARTED);
+
+    React.useEffect(() => {
+        if (useExerciseRecord1 && exercise) {
+            Toast.show({
+                type: 'success',
+                text1: 'New Record!',
+                text2: `You have a new ${useExerciseRecord1.record} record in ${exercise?.name} with ${useExerciseRecord1.value}`,
+                position: 'top',
+                visibilityTime: 5000,
+                onPress: () => {
+                    navigation.navigate({
+                        name: 'Exercises',
+                        params: {
+                            screen: 'ExerciseStatisticsTab',
+                            params: { exercise: exercise }
+                        }
+                    } as never);
+                }
+            });
+        }
+    }, [useExerciseRecord1, exercise, navigation]);
+
     return (
         <Tab.Navigator initialRouteName="Feed" shifting={false} >
             <Tab.Screen
