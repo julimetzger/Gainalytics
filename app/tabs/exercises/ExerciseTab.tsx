@@ -6,12 +6,14 @@ import {Divider, Text, TextInput, useTheme, IconButton} from 'react-native-paper
 import AddExercise from '../../components/AddExercise';
 import {useAlleExercises} from '../../redux/Exercises/useAllExercises';
 import {Exercise} from "../../models/Exercise";
+import {useSettings} from '../../redux/settings/useSettings';
 
 const ExerciseTab = ({navigation, route}: Props) => {
     const theme = useTheme();
     const [filter, setFilter] = useState(route.params?.filter || '');
     const [showFilter, setShowFilter] = useState(false);
     const exercises = useAlleExercises().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
+    const settings = useSettings();
 
     useEffect(() => {
         navigation.setOptions({
@@ -52,7 +54,13 @@ const ExerciseTab = ({navigation, route}: Props) => {
                         </Pressable>
                     ))}
             </ScrollView>
-            <AddExercise style={styles.addExercise}/>
+            <AddExercise
+                style={{
+                    position: 'absolute',
+                    bottom: 5,
+                    [settings.toggles?.showPlusButtonLeft ? 'left' : 'right']: 5
+                }}
+            />
         </View>
     );
 };

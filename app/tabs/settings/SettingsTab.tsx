@@ -3,7 +3,7 @@ import {RootStackParamList} from "../../routing/exerciseRouter";
 import React, {useState} from "react";
 import {Alert, ScrollView, View, StyleSheet} from "react-native";
 import {Button, Dialog, Divider, Portal, Switch, Text} from "react-native-paper";
-import {dispatchtoggleMode} from "../../redux/settings/dispatchtoggleMode";
+import {dispatchToggleMode} from "../../redux/settings/dispatchToggleMode";
 import {useSettings} from "../../redux/settings/useSettings";
 import {useStore} from "react-redux";
 import DocumentPicker, {DocumentPickerResponse} from 'react-native-document-picker';
@@ -15,12 +15,14 @@ import TimeRangePicker from "../../components/TimeRangePicker";
 import {dispatchSetFinishTrainingTimer} from "../../redux/settings/dispatchSetFinishTrainingTimer";
 import {dispatchToggleDisable1RMpreselect} from "../../redux/settings/dispatchToggleDisable1RMpreselect";
 import {dispatchToggleShowTimer} from "../../redux/settings/dispatchToggleShowTimer";
+import {dispatchToggleShowPlusButtonLeft} from "../../redux/settings/dispatchToggleShowPlusButtonLeft";
 
 const SettingsTab = ({navigation}: Props) => {
     let settings = useSettings();
-    let dispatchtoggleMode1 = dispatchtoggleMode();
+    let dispatchToggleMode1 = dispatchToggleMode();
     let toggleDisable1RMpreselect = dispatchToggleDisable1RMpreselect();
     let toggleShowTimer = dispatchToggleShowTimer();
+    let toggleShowPlusButtonLeft = dispatchToggleShowPlusButtonLeft();
     let store = useStore();
     const FileSaver = require('react-native-fs');
 
@@ -74,7 +76,7 @@ const SettingsTab = ({navigation}: Props) => {
         <ScrollView>
             <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Enable Dark Mode</Text>
-                <Switch onValueChange={() => dispatchtoggleMode1()} value={settings.mode === "dark"}/>
+                <Switch onValueChange={() => dispatchToggleMode1()} value={settings.mode === "dark"}/>
             </View>
             <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Preselect 1RM Button</Text>
@@ -83,6 +85,10 @@ const SettingsTab = ({navigation}: Props) => {
             <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Use Imperial Units</Text>
                 <Switch onValueChange={showAlert} value={false}/>
+            </View>
+            <View style={styles.row}>
+                <Text style={{alignSelf: 'center'}}>Show Plus-Button on the left</Text>
+                <Switch onValueChange={() => toggleShowPlusButtonLeft()} value={!!settings.toggles?.showPlusButtonLeft}/>
             </View>
             <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Show Training Timer</Text>

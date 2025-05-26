@@ -13,6 +13,7 @@ import {
     getMicroFromTrainingInMicroIndex,
     getTrainingFromTrainingInMicroIndex
 } from "../../redux/Training/trainingsPlanReducer";
+import {useSettings} from "../../redux/settings/useSettings";
 
 interface TrainingMapping {
     firstStartedTraining?: {
@@ -35,6 +36,7 @@ const TrainingHome = ({navigation, route}: Props) => {
     const [showFilter, setShowFilter] = useState(false);
     const trainingsPlans = useAllTrainingsPlans().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
     const allTrainings = useTrainings();
+    const settings = useSettings();
     let startedTrainings = allTrainings.filter(A => A.state === TrainingsState.STARTED)
 
     let planToStarteTraining = new Map(trainingsPlans.map(train => {
@@ -127,7 +129,13 @@ const TrainingHome = ({navigation, route}: Props) => {
                     ))
                 }
             </ScrollView>
-            <AddTrainingsPlan style={styles.addExercise}/>
+            <AddTrainingsPlan
+                style={{
+                    position: 'absolute',
+                    bottom: 5,
+                    [settings.toggles?.showPlusButtonLeft ? 'left' : 'right']: 5
+                }}
+            />
         </View>
     );
 

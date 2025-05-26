@@ -1,7 +1,7 @@
 import {useDispatch} from "react-redux";
 import {Action} from "redux";
 
-export const dispatchtoggleMode = () => {
+export const dispatchToggleMode = () => {
     const dispatch = useDispatch();
 
     return () =>
