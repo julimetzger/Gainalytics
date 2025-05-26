@@ -125,7 +125,7 @@ const TrainingsPlanDrawer = ({
                 </View>
             );
         })}
-        <View style={{alignItems: 'center'}}>
+        <View>
             <IconButton
                 icon="plus-circle" onPress={() => {
                 changeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1)

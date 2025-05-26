@@ -19,7 +19,7 @@ const TrainingRouter = () => {
                 name="TrainingHome"
                 component={TrainingHomeTab}
                 options={({navigation}) => ({
-                    title: "Training Home",
+                    title: "Training",
                     headerRight: () => (
                         <IconButton icon="magnify" onPress={() => navigation.setParams({ toggleFilter: true })}>
                         </IconButton>

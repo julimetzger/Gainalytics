@@ -10,6 +10,7 @@ export interface AppSettings {
         useRpe?: boolean
         disable1RMButton?: boolean,
         disableTimer?: boolean,
+        showPlusButtonLeft?: boolean
     }
 }
 
@@ -67,6 +68,15 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
                 toggles: {
                     ...settings.toggles,
                     disableTimer: !settings.toggles?.disableTimer
+                }
+            } as AppSettings;
+        }
+        case 'SHOW_PLUS_BUTTON_LEFT': {
+            return {
+                ...settings,
+                toggles: {
+                    ...settings.toggles,
+                    showPlusButtonLeft: !settings.toggles?.showPlusButtonLeft
                 }
             } as AppSettings;
         }
