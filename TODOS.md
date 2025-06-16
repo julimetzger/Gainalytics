@@ -2,42 +2,25 @@
 
 ## Trainings
 
-- ~~Vergleich mit vorherigem Training~~/geplanten Workout nach Abschluss des Trainings
-- ~~Anzeige des planned Trainings während des Trainings~~ vlt. auch vergleich mit done
 - **Export/Import Funktion für Trainings/Micro**
-- unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
-- Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
-- Progressbar vergleich exercises mit done workouts anstatt planned workouts?
-- ~~Rekorde speichern und Snackbar als Onscreen Toast~~ schöner machen
-- Mesos einführen mit Kopieren des alten Mesos
-- Trainings löschbar machen
 - Records in Overview anzeigen 
-- SWIPE_THRESHOLD added
-- TrainingsTimer onLongPress ruft Pause Timer auf
-- Add "Next Training" Button
+- progression einbauen bei hinzufügen aus letztem planned or done training ( linear)
+- Auf Trainingsübersicht Seite Metriken einblenden (sets, volume, RIR average, max RIR, Sets pro Muskelgruppe als Grafik?)
+- Overview mit Grafik für RIR Sets im Vergleich zum vorherigen Macro
+- Labels für Sets/Workouts hinzufügen 
 
 ## Analyse
 
 - Seite mit TrainingsLänge mit Balkendiagramm
-- Seite mit Datepicker
-- Auswahlmöglichkeit der Metriken in MetricsOverview
-- Trainings in Datepicker anzeigen
+- RIR Verlauf/ RIR distribution 
+- RIRmax/RIRaverage als metrik aufnehmen 
+- Pausenzeit generell und pro muskel/exercise (nur zwischen set im Workout berücksichtigen?? also dl satz 1 pause dl satz 2 pause dl satz 3 fertig -> 2 Pausenzeiten getrackt)
 
 ## Exercises
 
-- Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden, History Pokal Symbol nur beim 1RM Rekord?!
 
 ## Settings
 
-- Show/hide Toasts, einzelne Toasts aktivierbar machen
-- RIR/RPE
-- Metriken die im TrainingsOverview/Overview angezeigt werden sollen für Muscles/Exercises
-- Hide/show "kg"
-- Default DatePicker range
-- Backup-Automatisierung mit Zeitplan hinzufügen
-- Tutorial/Onboarding-System implementieren
-- Feedback-System einbauen
-- Weitere Statistiken hinzufügen (z.B. durchschnittliche Trainingsdauer, Lieblingsübungen)
 
 ## General
 
@@ -60,3 +43,44 @@
 - Push Timer funktioniert nur manchmal, bei manuellem Reset des Timers und nicht bei Haken
 - Push Timer funktioniert nur bei App im Vordergrund. https://www.npmjs.com/package/react-native-background-timer
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
+
+
+## Low Prio Themen
+
+## Trainings
+
+- Mesos einführen mit Kopieren des alten Mesos
+- Trainings löschbar machen
+- unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
+- Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
+- Progressbar vergleich exercises mit done workouts anstatt planned workouts?
+- Records in Overview anzeigen
+- TrainingsTimer onLongPress ruft Pause Timer auf
+- Add "Next Training" Button
+
+## Analyse
+
+- Seite mit Datepicker
+- Auswahlmöglichkeit der Metriken in MetricsOverview
+
+## Exercises
+
+- Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden, History Pokal Symbol nur beim 1RM Rekord?!
+
+## Settings
+
+- Show/hide Toasts, einzelne Toasts aktivierbar machen
+- RIR/RPE
+- Metriken die im TrainingsOverview/Overview angezeigt werden sollen für Muscles/Exercises
+- Hide/show "kg"
+- Default DatePicker range
+- Backup-Automatisierung mit Zeitplan hinzufügen
+- Tutorial/Onboarding-System implementieren
+- Feedback-System einbauen
+- Weitere Statistiken hinzufügen (z.B. durchschnittliche Trainingsdauer, Lieblingsübungen)
+
+## General
+
+- Change build.gradle name, namespace and applicationId "PowerliftingWorkoutPlanner" to Gainalytics and refactor Code
+- Performance Optimierung - check rerenders and add memoization
+- ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen - funktioniert nur im ExerciseTab
