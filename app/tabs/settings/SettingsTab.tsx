@@ -3,7 +3,6 @@ import {RootStackParamList} from "../../routing/exerciseRouter";
 import React, {useState} from "react";
 import {Alert, ScrollView, View, StyleSheet} from "react-native";
 import {Button, Dialog, Divider, Portal, Switch, Text} from "react-native-paper";
-import {dispatchToggleMode} from "../../redux/settings/dispatchToggleMode";
 import {useSettings} from "../../redux/settings/useSettings";
 import {useStore} from "react-redux";
 import DocumentPicker, {DocumentPickerResponse} from 'react-native-document-picker';
@@ -16,6 +15,7 @@ import {dispatchSetFinishTrainingTimer} from "../../redux/settings/dispatchSetFi
 import {dispatchToggleDisable1RMpreselect} from "../../redux/settings/dispatchToggleDisable1RMpreselect";
 import {dispatchToggleShowTimer} from "../../redux/settings/dispatchToggleShowTimer";
 import {dispatchToggleShowPlusButtonLeft} from "../../redux/settings/dispatchToggleShowPlusButtonLeft";
+import {dispatchToggleMode} from "../../redux/settings/dispatchToggleMode";
 
 const SettingsTab = ({navigation}: Props) => {
     let settings = useSettings();
