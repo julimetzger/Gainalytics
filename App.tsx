@@ -97,10 +97,9 @@ const AppWithPersist = () => {
                                barStyle={appSettings?.mode === 'light' ? "dark-content" : "light-content"}/>
                     <NavigationContainer 
                         theme={paperThemes}
-                        onStateChange={(state) => {
-                            // Navigation-State-Tracking für Analytics
-                            console.log('Navigation state changed:', state);
-                        }}
+                                           onStateChange={(state) => {
+                       // Navigation-State-Tracking für Analytics
+                   }}
                     >
                         <BottomTabs/>
                     </NavigationContainer>

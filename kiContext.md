@@ -5,7 +5,8 @@
 - Name: Gainalytics
 - Plattform: React Native Mobile App
 - Hauptfunktionen: Trainingsplanung und Analse für fortgeschrittene Gym-Gänger
-- Slogen für Entwicklung: Du möchtest gainalytics zur ultimativen Power-User-Trainingsanalyse-Plattform machen — privacy-first, offen, flexibel.
+- Slogen: Log your gains with gainalytics. The powerful App for Power-User — privacy-and-local-first, open, flexible.
+- App-Sprache ist Englisch (Alle Buttons, Texte, usw.)
 
 ## Technologie-Stack
 
