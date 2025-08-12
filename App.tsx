@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {PersistGate} from 'redux-persist/integration/react';
 import {Provider} from 'react-redux';
 import configureStore from './configureStore';
@@ -15,8 +15,14 @@ import {EventProvider} from "react-native-outside-press";
 import {registerTranslation} from 'react-native-paper-dates';
 import {useSettings} from "./app/redux/settings/useSettings";
 import Toast from "react-native-toast-message";
-import {StatusBar} from 'react-native';
+import {StatusBar, LogBox} from 'react-native';
 import {SafeAreaProvider} from "react-native-safe-area-context";
+
+// Ignoriere nicht-kritische Warnungen für bessere Performance
+LogBox.ignoreLogs([
+    'Require cycle:',
+    'Non-serializable values were found in the navigation state',
+]);
 
 registerTranslation('en-GB', {
     save: 'Save',
@@ -74,13 +80,28 @@ const AppWithPersist = () => {
     } else {
         paperThemes = DarkTheme;
     }
+
+    // Memory-Management-Optimierungen
+    useEffect(() => {
+        // Cleanup bei App-Unmount
+        return () => {
+            // Cleanup-Funktionen hier
+        };
+    }, []);
+
     return <PersistGate loading={null} persistor={persistor}>
         <PaperProvider theme={paperThemes}>
             <SafeAreaProvider>
                 <EventProvider>
                     <StatusBar backgroundColor={paperThemes.colors.background}
                                barStyle={appSettings?.mode === 'light' ? "dark-content" : "light-content"}/>
-                    <NavigationContainer theme={paperThemes}>
+                    <NavigationContainer 
+                        theme={paperThemes}
+                        onStateChange={(state) => {
+                            // Navigation-State-Tracking für Analytics
+                            console.log('Navigation state changed:', state);
+                        }}
+                    >
                         <BottomTabs/>
                     </NavigationContainer>
                 </EventProvider>

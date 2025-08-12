@@ -37,6 +37,7 @@
 
 ## Bugs
 
+- no ignore swipe in Analyse Tabs entfernen
 - Enable Dark Mode Switch setze alle Switche auf "on"
 - Push Timer funktioniert nur manchmal, bei manuellem Reset des Timers und nicht bei Haken
 - Push Timer funktioniert nur bei App im Vordergrund. https://www.npmjs.com/package/react-native-background-timer
