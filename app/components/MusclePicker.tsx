@@ -1,7 +1,7 @@
 import {View} from "react-native";
 import DropDown from "react-native-paper-dropdown";
 import {IconButton, TextInput, useTheme} from "react-native-paper";
-import React, {useEffect, useState, useCallback, useMemo} from "react";
+import React, {useEffect, useState} from "react";
 import {Muscles} from "../models/Muscles";
 import {MusclePercentPair} from "../models/Exercise";
 
@@ -11,45 +11,11 @@ interface MusclePickerProps {
     onDelete: (muscle: MusclePercentPair) => void
 }
 
-const MusclePicker = React.memo(({setMuscles, muscleValue, onDelete}: MusclePickerProps) => {
+const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) => {
     const [dropdownVisible, setDropdownVisible] = useState(false)
     let theme = useTheme();
-
-    const muscleList = useMemo(() => 
-        Object.values(Muscles).map((value: string) => ({
-            label: value, 
-            value: value
-        })), []
-    );
-
-    const handleMuscleChange = useCallback((muscleUpdate: string) => {
-        setMuscles({
-            muscle: muscleUpdate as Muscles, 
-            percent: muscleValue?.percent ?? 100
-        });
-    }, [setMuscles, muscleValue?.percent]);
-
-    const handlePercentChange = useCallback((value: string) => {
-        setMuscles({
-            muscle: muscleValue?.muscle,
-            percent: parseInt(value) || 0
-        });
-    }, [setMuscles, muscleValue?.muscle]);
-
-    const handleDelete = useCallback(() => {
-        onDelete(muscleValue);
-    }, [onDelete, muscleValue]);
-
-    const handleDropdownDismiss = useCallback(() => {
-        setDropdownVisible(false);
-    }, []);
-
-    const handleDropdownShow = useCallback(() => {
-        setDropdownVisible(true);
-    }, []);
-
     useEffect(() => {
-        // Cleanup effect
+
     }, [muscleValue]);
 
     return (
@@ -59,11 +25,13 @@ const MusclePicker = React.memo(({setMuscles, muscleValue, onDelete}: MusclePick
                 mode="outlined"
                 inputProps={{width: 100}}
                 visible={dropdownVisible}
-                onDismiss={handleDropdownDismiss}
-                showDropDown={handleDropdownShow}
+                onDismiss={() => setDropdownVisible(false)}
+                showDropDown={() => setDropdownVisible(true)}
                 value={muscleValue?.muscle}
-                setValue={handleMuscleChange}
-                list={muscleList}
+                setValue={(muscleUpdate) => setMuscles({muscle: muscleUpdate, percent: muscleValue?.percent ?? 100})}
+                list={Object.values(Muscles).map((value: string) => {
+                    return {label: value, value: value}
+                })}
             />
             <TextInput 
                 keyboardType="numeric"
@@ -75,18 +43,20 @@ const MusclePicker = React.memo(({setMuscles, muscleValue, onDelete}: MusclePick
                 selectTextOnFocus={true}
                 right={<TextInput.Icon icon="percent" size={18}/>}
                 value={muscleValue?.percent?.toString()}
-                onChangeText={handlePercentChange}
+                onChangeText={(value) => setMuscles({
+                    muscle: muscleValue?.muscle,
+                    percent: parseInt(value)
+                })}
             />
             <IconButton
                 size={28}
                 icon={"close-circle"}
                 iconColor={theme.colors.tertiaryContainer}
-                onPress={handleDelete}
+                onPress={() => {
+                    onDelete(muscleValue)
+                }}
             />
         </View>
     )
-});
-
-MusclePicker.displayName = 'MusclePicker';
-
+}
 export default MusclePicker;

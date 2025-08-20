@@ -1,28 +1,15 @@
-import React, {lazy, Suspense} from 'react';
-import {ActivityIndicator, View} from 'react-native';
-import {useTheme} from 'react-native-paper';
+import React from 'react';
+import ExerciseRouter from './exerciseRouter';
+import AnalyseRouter from "./AnalyseRouter";
+import SettingsRouter from "./SettingsRouter";
 import {createMaterialBottomTabNavigator} from "react-native-paper/react-navigation";
+import TrainingRouter from "./TrainingRouter";
 import {useTrainings} from '../redux/Training/useTrainings';
 import {TrainingsState} from '../models/TrainingsState';
 import useExerciseRecord from "../redux/Effects/useExerciseRecord";
 import Toast from "react-native-toast-message";
 import {useExercise} from "../redux/Exercises/useExercise";
 import { useNavigation } from '@react-navigation/native';
-
-// Lazy load components
-const ExerciseRouter = lazy(() => import('./exerciseRouter'));
-const AnalyseRouter = lazy(() => import("./AnalyseRouter"));
-const SettingsRouter = lazy(() => import("./SettingsRouter"));
-const TrainingRouter = lazy(() => import("./TrainingRouter"));
-
-const LoadingComponent = () => {
-    const theme = useTheme();
-    return (
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background}}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-        </View>
-    );
-};
 
 const Tab = createMaterialBottomTabNavigator();
 
@@ -55,59 +42,36 @@ export const BottomTabs = () => {
     }, [useExerciseRecord1, exercise, navigation]);
 
     return (
-        <Tab.Navigator 
-            initialRouteName="Feed" 
-            shifting={true}
-        >
+        <Tab.Navigator initialRouteName="Feed" shifting={false} >
             <Tab.Screen
                 name="Training"
+                component={TrainingRouter}
                 options={{
                     tabBarIcon: 'book-open-variant',
                     tabBarBadge: isTrainingStarted,
                 }}
-            >
-                {() => (
-                    <Suspense fallback={<LoadingComponent />}>
-                        <TrainingRouter />
-                    </Suspense>
-                )}
-            </Tab.Screen>
+            />
             <Tab.Screen
                 name="Exercises"
+                component={ExerciseRouter}
                 options={{
                     tabBarIcon: 'weight-lifter',
                 }}
-            >
-                {() => (
-                    <Suspense fallback={<LoadingComponent />}>
-                        <ExerciseRouter />
-                    </Suspense>
-                )}
-            </Tab.Screen>
+            />
             <Tab.Screen
                 name="Analyse"
+                component={AnalyseRouter}
                 options={{
                     tabBarIcon: 'trending-up',
                 }}
-            >
-                {() => (
-                    <Suspense fallback={<LoadingComponent />}>
-                        <AnalyseRouter />
-                    </Suspense>
-                )}
-            </Tab.Screen>
+            />
             <Tab.Screen
                 name="Settings"
+                component={SettingsRouter}
                 options={{
                     tabBarIcon: 'cog',
                 }}
-            >
-                {() => (
-                    <Suspense fallback={<LoadingComponent />}>
-                        <SettingsRouter />
-                    </Suspense>
-                )}
-            </Tab.Screen>
+            />
         </Tab.Navigator>
     );
 };

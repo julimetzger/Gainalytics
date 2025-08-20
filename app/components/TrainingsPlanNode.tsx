@@ -110,8 +110,7 @@ const TrainingsPlanNode = ({
         resetFinishTraining();
     }
 
-    return (
-        <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
+    return (<View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
             <ScrollView keyboardShouldPersistTaps={'handled'}>
                 <View>
                     {showDone ? <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/> :
@@ -139,8 +138,7 @@ const TrainingsPlanNode = ({
                                         <Timer start={timeInWorkout} reset={true} label={'Last Set'}
                                                exercise={chosenExercise}
                                                children={[(elapasedTimeInSeconds) => pauseDoneNotification(elapasedTimeInSeconds), (elapasedTimeInSeconds) => finishTrainingNotification(elapasedTimeInSeconds)]}
-                                               onReset={[() => resetPauseNotification(), () => resetFinishTraining()]}/>
-                                    }
+                                               onReset={[() => resetPauseNotification(), () => resetFinishTraining()]}/>}
                                 </View>
                                 {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
                                     <View pointerEvents={"box-none"}>
