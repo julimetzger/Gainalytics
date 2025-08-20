@@ -59,6 +59,7 @@ const TrainingsPlanNode = ({
     let [pauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
     let [finishTrainingNotification, resetFinishTraining] = FinishTrainingNotification();
     let appSettings = useSettings();
+    const [showPicker, setShowPicker] = useState(false);
 
     useEffect(() => {
         if (training?.state === TrainingsState.STARTED) {
@@ -114,9 +115,7 @@ const TrainingsPlanNode = ({
             <ScrollView keyboardShouldPersistTaps={'handled'}>
                 <View>
                     {showDone ? <MicroOverview trainingsPlan={trainingsPlan} micro={micro}/> :
-                        (<View><Picker exercise={exercises} setExercise={setExerciseWithSideEffects}
-                                       dropdownLabel='Select Exercises for your Training'
-                                       hideChip={true}/>
+                        (<View>
                                 <View style={{
                                     display: 'flex',
                                     flexDirection: 'row',
@@ -151,7 +150,14 @@ const TrainingsPlanNode = ({
                                             }}
                                             doneExerciseIds={doneExerciseIds}
                                             setAbsolutePosition={layout => setIgnoreSwipe([layout])}
+                                            onTogglePicker={() => setShowPicker(!showPicker)}
                                         />
+                                        <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}
+                                               dropdownLabel='Select Exercises for your Training'
+                                               hideChip={true}
+                                               visible={showPicker}
+                                               onToggle={() => setShowPicker(!showPicker)}
+                                               hideIconButton={true}/>
                                     </View>
                                 )}
                                 {training === undefined && <TrainingsBase trainingsPlan={trainingsPlan}
