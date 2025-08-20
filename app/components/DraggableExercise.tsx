@@ -18,6 +18,7 @@ interface Props {
     setExercises: (exercises: Exercise[]) => void;
     doneExerciseIds: number[];
     setAbsolutePosition: (layout: LayoutRectangle) => void;
+    onTogglePicker?: () => void;
 }
 
 const DraggableExercise = ({
@@ -26,7 +27,8 @@ const DraggableExercise = ({
                                chosenExercise,
                                chooseExercise,
                                doneExerciseIds,
-                               setAbsolutePosition
+                               setAbsolutePosition,
+                               onTogglePicker
                            }: Props) => {
         let theme = useTheme();
         let exerciseData = exercises.map((exercise) => {
@@ -35,6 +37,13 @@ const DraggableExercise = ({
                 label: exercise.name,
             } as Item;
         });
+        
+        // Add a special item for the "Add Exercise" box
+        const addExerciseItem = {
+            key: -1, // Special key for add exercise box
+            label: '+',
+        } as Item;
+        
         let edgeInsets = useSafeAreaInsets();
         const textRef = useRef<View>(null);
         const [positionInternal, setPositionInternal] = useState<LayoutRectangle>()
@@ -68,14 +77,48 @@ const DraggableExercise = ({
                 fontWeight: 'bold',
                 textAlign: 'center',
             },
+            addExerciseBox: {
+                height: 60,
+                width: 60,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: theme.colors.secondaryContainer,
+                borderWidth: 2,
+                borderStyle: 'dashed',
+                borderColor: theme.colors.onSecondaryContainer,
+            },
+            addExerciseText: {
+                color: theme.colors.onSecondaryContainer,
+                fontSize: 24,
+                fontWeight: 'bold',
+            },
         });
 
         const onPress = (item: Item) => {
-            chooseExercise(exercises.find((exercise) => exercise.id === item.key)!!);
+            if (item.key === -1) {
+                // This is the add exercise box
+                onTogglePicker?.();
+            } else {
+                chooseExercise(exercises.find((exercise) => exercise.id === item.key)!!);
+            }
         };
 
         const renderItem = ({item, drag, isActive}: RenderItemParams<Item>) => {
             const [interactive, setInteractive] = useState(false);
+            
+            // Special rendering for the add exercise box
+            if (item.key === -1) {
+                return (
+                    <TouchableOpacity
+                        onPress={() => onPress(item)}
+                        style={styles.addExerciseBox}>
+                        <Text style={styles.addExerciseText}>
+                            {item.label}
+                        </Text>
+                    </TouchableOpacity>
+                );
+            }
+            
             return (
                 <ScaleDecorator>
                     <TouchableOpacity
@@ -150,18 +193,25 @@ const DraggableExercise = ({
             })
         }
 
+        // Combine exercise data with the add exercise box
+        const allData = [...exerciseData, addExerciseItem];
+
         return (
             <View
                 ref={textRef}
                 collapsable={false}
                 onLayout={() => setPosition()}
             >
-                {exerciseData.length > 0 && (
+                {allData.length > 0 && (
                     <DraggableFlatList
                         keyboardShouldPersistTaps={'always'}
                         horizontal
-                        data={exerciseData}
-                        onDragEnd={(items) => setExercises(items.data.map((item) => exercises.find((exercise) => exercise.id === item.key)).filter((exercise) => exercise !== undefined) as Exercise[])}
+                        data={allData}
+                        onDragEnd={(items) => {
+                            // Filter out the add exercise box and update exercises
+                            const exerciseItems = items.data.filter(item => item.key !== -1);
+                            setExercises(exerciseItems.map((item) => exercises.find((exercise) => exercise.id === item.key)).filter((exercise) => exercise !== undefined) as Exercise[]);
+                        }}
                         keyExtractor={(item) => item.key.toString()}
                         renderItem={renderItem}
                     />

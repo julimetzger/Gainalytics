@@ -20,12 +20,20 @@ const Picker = ({
                     accumulation,
                     visible = true,
                     hideChip = false,
-                    dropdownLabel = "Select Exercises, Metrics, Accumulation Mode"
+                    dropdownLabel = "Select Exercises, Metrics, Accumulation Mode",
+                    onToggle,
+                    hideIconButton = false
                 }: ExercisePickerProps) => {
     const [show, setShow] = useState(visible)
     let allExercises = useAlleExercises()
     let trainingsPlan = useAllTrainingsPlans();
     let theme = useTheme();
+    
+    // Sync internal show state with external visible prop
+    useEffect(() => {
+        setShow(visible);
+    }, [visible]);
+    
     let selectedExercises = exercise.map((exercise: Exercise) => exercise.id ? exercise.id : 0).map((value: number) => value.toString());
     let dropdownExerciseStructure: IDropdownData[] = allExercises.map((exercise: Exercise) => {
         return {
@@ -96,10 +104,16 @@ const Picker = ({
                                           multiline={true}
                                           hideChip={hideChip}
             />}
-            <IconButton style={{position: 'absolute', right: 0, zIndex: 2}}
+            {!hideIconButton && <IconButton style={{position: 'absolute', right: 0, zIndex: 2}}
                         icon={!show ? 'chevron-down' : 'chevron-up'}
-                        onPress={() => setShow(!show)}>
-            </IconButton>
+                        onPress={() => {
+                            if (onToggle) {
+                                onToggle();
+                            } else {
+                                setShow(!show);
+                            }
+                        }}>
+            </IconButton>}
         </View>);
 
     function setExerciseDumb(value: string[]) {
@@ -190,6 +204,8 @@ interface ExercisePickerProps {
     setAccumulation?: (arg: Accumulation | undefined) => void,
     hideChip?: boolean
     dropdownLabel?: string
+    onToggle?: () => void
+    hideIconButton?: boolean
 }
 
 export default Picker;
