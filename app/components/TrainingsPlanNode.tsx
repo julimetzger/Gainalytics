@@ -67,16 +67,6 @@ const TrainingsPlanNode = ({
         }
     }, [micro, trainingInMicro]);
 
-    // Update DraggableExercise position when training state changes
-    useEffect(() => {
-        // Use setTimeout to ensure the layout has been updated after state change
-        const timer = setTimeout(() => {
-            // Trigger a re-render of DraggableExercise to update its position
-            setRefresHeky(Math.random());
-        }, 100);
-        return () => clearTimeout(timer);
-    }, [training?.state]);
-
     function setExerciseWithSideEffects(exercises: Exercise[]) {
         modifyExercisesInTraining(exercises, trainingsPlan.id!!, micro, trainingInMicro, training?.id);
     }
