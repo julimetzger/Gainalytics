@@ -42,7 +42,7 @@ export const BottomTabs = () => {
     }, [useExerciseRecord1, exercise, navigation]);
 
     return (
-        <Tab.Navigator initialRouteName="Feed" shifting={false} >
+        <Tab.Navigator initialRouteName="Feed" shifting={true} >
             <Tab.Screen
                 name="Training"
                 component={TrainingRouter}

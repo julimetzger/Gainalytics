@@ -7,6 +7,7 @@ import AddExercise from '../../components/AddExercise';
 import {useAlleExercises} from '../../redux/Exercises/useAllExercises';
 import {Exercise} from "../../models/Exercise";
 import {useSettings} from '../../redux/settings/useSettings';
+import { TextInput as RNTextInput } from 'react-native';
 
 const ExerciseTab = ({navigation, route}: Props) => {
     const theme = useTheme();
@@ -15,11 +16,27 @@ const ExerciseTab = ({navigation, route}: Props) => {
     const exercises = useAlleExercises().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
     const settings = useSettings();
 
+    // Ref für das TextInput
+    const filterInputRef = React.useRef<RNTextInput>(null);
+
     useEffect(() => {
         navigation.setOptions({
             headerRight: () => (
-                <IconButton icon="magnify" onPress={() => setShowFilter(!showFilter)}>
-                </IconButton>
+                <IconButton
+                    icon="magnify"
+                    onPress={() => {
+                        if (showFilter) {
+                            setShowFilter(false);
+                            setFilter('');
+                            filterInputRef.current?.blur();
+                        } else {
+                            setShowFilter(true);
+                            setTimeout(() => {
+                                filterInputRef.current?.focus();
+                            }, 100);
+                        }
+                    }}
+                />
             ),
         });
     }, [navigation, showFilter]);
@@ -27,7 +44,12 @@ const ExerciseTab = ({navigation, route}: Props) => {
     return (
         <View style={{backgroundColor: theme.colors.background, flex: 1}}>
             {showFilter && (
-                <TextInput label={'Filter'} value={filter} onChangeText={(text) => setFilter(text)}/>
+                <TextInput
+                    label={'Filter'}
+                    value={filter}
+                    onChangeText={(text) => setFilter(text)}
+                    ref={filterInputRef}
+                />
             )}
             <ScrollView contentInsetAdjustmentBehavior="automatic">
                 {exercises

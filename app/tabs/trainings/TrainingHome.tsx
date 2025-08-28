@@ -14,6 +14,7 @@ import {
     getTrainingFromTrainingInMicroIndex
 } from "../../redux/Training/trainingsPlanReducer";
 import {useSettings} from "../../redux/settings/useSettings";
+import { TextInput as RNTextInput } from 'react-native';
 
 interface TrainingMapping {
     firstStartedTraining?: {
@@ -50,11 +51,26 @@ const TrainingHome = ({navigation, route}: Props) => {
         )
     ;
 
+    const filterInputRef = React.useRef<RNTextInput>(null);
+
     useEffect(() => {
         navigation.setOptions({
             headerRight: () => (
-                <IconButton icon="magnify" onPress={() => setShowFilter(!showFilter)}>
-                </IconButton>
+                <IconButton
+                    icon="magnify"
+                    onPress={() => {
+                        if (showFilter) {
+                            setShowFilter(false);
+                            setFilter('');
+                            filterInputRef.current?.blur();
+                        } else {
+                            setShowFilter(true);
+                            setTimeout(() => {
+                                filterInputRef.current?.focus();
+                            }, 100);
+                        }
+                    }}
+                />
             ),
         });
     }, [navigation, showFilter]);
@@ -62,7 +78,12 @@ const TrainingHome = ({navigation, route}: Props) => {
     return (
         <View style={{flex: 1}}>
             {showFilter && (
-                <TextInput label={'Filter'} value={filter} onChangeText={(text) => setFilter(text)}/>
+                <TextInput
+                    label={'Filter'}
+                    value={filter}
+                    onChangeText={(text) => setFilter(text)}
+                    ref={filterInputRef}
+                />
             )}
             <ScrollView contentInsetAdjustmentBehavior="automatic">
                 {trainingsPlans
