@@ -176,17 +176,9 @@ const RangeSwiper = <T extends any>({
                     state.fail();
                     return;
                 }
-                // Check if touch is within any of the ignore swipe areas
-                if (ignoreSwipe && ignoreSwipe.length > 0 && initialTouchLocation.value && ignoreSwipe.some(rect => {
-                    const touchY = initialTouchLocation.value!.y;
-                    const touchX = evt.changedTouches[0].x;
-                    return touchY >= rect.y - 15 && 
-                           touchY <= rect.y + rect.height + 15 &&
-                           touchX >= rect.x - 15 && 
-                           touchX <= rect.x + rect.width + 15;
-                })) {
+                if (ignoreSwipe?.length !== 0 && ignoreSwipe?.some(rect => initialTouchLocation.value.y > rect.y - 15 && initialTouchLocation.value.y < rect.y + rect.height + 15)
+                ) {
                     state.fail();
-                    return;
                 }
                 const xDiff = Math.abs(evt.changedTouches[0].x - initialTouchLocation.value.x);
                 const yDiff = Math.abs(evt.changedTouches[0].y - initialTouchLocation.value.y);
@@ -258,14 +250,14 @@ const RangeSwiper = <T extends any>({
                 updatePanState(contentOffset.y);
             },
         });
-        let newVar = ignoreSwipe && ignoreSwipe.length > 0 ? StyleSheet.create({
+        let newVar = ignoreSwipe ? StyleSheet.create({
             overlay: {
                 position: 'absolute',
-                top: ignoreSwipe[0].y,
-                left: (fullPosition.traveledIndex + 1) * dimensions.width + ignoreSwipe[0].x,
-                height: ignoreSwipe[0].height,
+                top: ignoreSwipe?.length > 0 ? ignoreSwipe[0].y : 0,
+                left: (fullPosition.traveledIndex +1) + dimensions.width,
+                height: ignoreSwipe?.length > 0 ? ignoreSwipe[0].height : 0,
                 borderColor: 'red',
-                width: ignoreSwipe[0].width,
+                width: dimensions.width,
                 borderWidth: 3,
                 opacity: 0.2,
                 backgroundColor: 'red',

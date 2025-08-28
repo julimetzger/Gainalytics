@@ -1,4 +1,4 @@
-import React, {useRef, useState, useEffect} from 'react';
+import React, {useRef, useState} from 'react';
 import {Dimensions, LayoutRectangle, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import DraggableFlatList, {RenderItemParams, ScaleDecorator} from 'react-native-draggable-flatlist';
 import {IconButton, useTheme} from 'react-native-paper';
@@ -183,51 +183,15 @@ const DraggableExercise = ({
         };
 
         function setPosition() {
-            if (textRef.current) {
-                textRef.current.measureInWindow((x, y, width, height) => {
-                    let layout = {x, y: y - edgeInsets.top, width, height};
-                    layout.height = 60;
-                    // Always update position if it has changed significantly (more than 5px difference)
-                    if (positionInternal === undefined || 
-                        Math.abs(positionInternal.y - layout.y) > 5 ||
-                        Math.abs(positionInternal.x - layout.x) > 5) {
-                        setPositionInternal(layout);
-                        setAbsolutePosition(layout);
-                    }
-                });
-            }
+            textRef.current?.measureInWindow((x, y, width, height) => {
+                let layout = {x, y: y - edgeInsets.top, width, height};
+                layout.height = 60;
+                if (positionInternal === undefined || positionInternal.y !== layout.y) {
+                    setPositionInternal(layout);
+                    setAbsolutePosition(layout);
+                }
+            })
         }
-
-        // Update position when exercises change
-        useEffect(() => {
-            // Use setTimeout to ensure the component has been rendered
-            const timer = setTimeout(() => {
-                setPosition();
-            }, 100);
-            return () => clearTimeout(timer);
-        }, [exercises, chosenExercise, doneExerciseIds]);
-
-        // Update position when component mounts or when edgeInsets change
-        useEffect(() => {
-            setPosition();
-        }, [edgeInsets.top]);
-
-        // Update position more frequently to catch layout changes
-        useEffect(() => {
-            const timer = setTimeout(() => {
-                setPosition();
-            }, 50);
-            return () => clearTimeout(timer);
-        }, []);
-
-        // Continuous position monitoring
-        useEffect(() => {
-            const interval = setInterval(() => {
-                setPosition();
-            }, 500); // Check position every 500ms
-            
-            return () => clearInterval(interval);
-        }, []);
 
         // Combine exercise data with the add exercise box
         const allData = [...exerciseData, addExerciseItem];
@@ -247,8 +211,6 @@ const DraggableExercise = ({
                             // Filter out the add exercise box and update exercises
                             const exerciseItems = items.data.filter(item => item.key !== -1);
                             setExercises(exerciseItems.map((item) => exercises.find((exercise) => exercise.id === item.key)).filter((exercise) => exercise !== undefined) as Exercise[]);
-                            // Update position after drag ends
-                            setTimeout(() => setPosition(), 50);
                         }}
                         keyExtractor={(item) => item.key.toString()}
                         renderItem={renderItem}
