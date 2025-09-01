@@ -19,6 +19,7 @@ interface Props {
     doneExerciseIds: number[];
     setAbsolutePosition: (layout: LayoutRectangle) => void;
     onTogglePicker?: () => void;
+    pickerVisible?: boolean;
 }
 
 const DraggableExercise = ({
@@ -28,7 +29,8 @@ const DraggableExercise = ({
                                chooseExercise,
                                doneExerciseIds,
                                setAbsolutePosition,
-                               onTogglePicker
+                               onTogglePicker,
+                               pickerVisible,
                            }: Props) => {
         let theme = useTheme();
         let exerciseData = exercises.map((exercise) => {
@@ -113,7 +115,7 @@ const DraggableExercise = ({
                         onPress={() => onPress(item)}
                         style={styles.addExerciseBox}>
                         <Text style={styles.addExerciseText}>
-                            {item.label}
+                            {pickerVisible ? '∧' : '+'}
                         </Text>
                     </TouchableOpacity>
                 );
