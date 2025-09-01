@@ -34,19 +34,20 @@ interface TrainingsPlanDrawerProps {
 }
 
 const TrainingsPlanDrawer = ({
-                                 theme,
-                                 changeTrainingsName,
-                                 trainingsPlan,
-                                 setTrainingInMicro,
-                                 setOpen,
-                                 showPlanned,
-                                 setShowPlanned,
-                                 setShowDone,
-                                 handleValueChange,
-                                 micro
-                             }: TrainingsPlanDrawerProps) => {
+    theme,
+    changeTrainingsName,
+    trainingsPlan,
+    setTrainingInMicro,
+    setOpen,
+    showPlanned,
+    setShowPlanned,
+    setShowDone,
+    handleValueChange,
+    micro
+}: TrainingsPlanDrawerProps) => {
     const [edit, setEdit] = useState<number | undefined>(undefined);
     const [trainingsName, setTrainingsName] = useState('');
+    const [longPressIndex, setLongPressIndex] = useState<number | undefined>(undefined);
     const inputRef = useRef(null);
 
     useEffect(() => {
@@ -70,6 +71,7 @@ const TrainingsPlanDrawer = ({
                             setOpen(false);
                             setShowDone(false);
                         }}
+                        onLongPress={() => setLongPressIndex(index)}
                     >
                         <View>
                             {(edit === undefined || edit !== index) && (
@@ -111,16 +113,28 @@ const TrainingsPlanDrawer = ({
                         </View>
                     </TouchableRipple>
                     {edit !== index && (
-                        <IconButton
-                            icon="pencil"
-                            onPress={() => {
-                                setEdit(index);
-                                setTrainingsName(name);
-                                setTimeout(() => inputRef.current?.focus(), 0);
-                            }}
-                            size={20}
-                            style={{marginRight: 5}}
-                        />
+                        longPressIndex === index ? (
+                            <IconButton
+                                icon="delete"
+                                onPress={() => {
+                                    // Add delete logic here
+                                    setLongPressIndex(undefined);
+                                }}
+                                size={20}
+                                style={{marginRight: 5}}
+                            />
+                        ) : (
+                            <IconButton
+                                icon="pencil"
+                                onPress={() => {
+                                    setEdit(index);
+                                    setTrainingsName(name);
+                                    setTimeout(() => inputRef.current?.focus(), 0);
+                                }}
+                                size={20}
+                                style={{marginRight: 5}}
+                            />
+                        )
                     )}
                 </View>
             );
@@ -135,6 +149,7 @@ const TrainingsPlanDrawer = ({
                 size={40}>
             </IconButton>
         </View>
+        <Divider/>
         <TouchableRipple>
             <Tooltip title='Displays workout statistics for this Micro'>
                 <Text style={{fontSize: 20, margin: 5}}
@@ -146,7 +161,7 @@ const TrainingsPlanDrawer = ({
                 </Text>
             </Tooltip>
         </TouchableRipple>
-        <Divider style={{margin: 10}}/>
+        <Divider style={{marginVertical: 5}}/>
         <Tooltip title='Displays the planned workout statistics for this Micro'>
             <Button mode={showPlanned ? 'contained' : 'outlined'}
                     onPress={() => setShowPlanned(!showPlanned)}>

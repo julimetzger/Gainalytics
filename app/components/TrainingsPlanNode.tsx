@@ -151,6 +151,7 @@ const TrainingsPlanNode = ({
                                             doneExerciseIds={doneExerciseIds}
                                             setAbsolutePosition={layout => setIgnoreSwipe([layout])}
                                             onTogglePicker={() => setShowPicker(!showPicker)}
+                                            pickerVisible={showPicker}
                                         />
                                         <Picker exercise={exercises} setExercise={setExerciseWithSideEffects}
                                                dropdownLabel='Select Exercises for your Training'
