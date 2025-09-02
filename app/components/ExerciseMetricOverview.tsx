@@ -8,7 +8,6 @@ import {StyleSheet} from "react-native";
 
 const ExerciseMetricOverview = ({exerciseMetricMap}: { exerciseMetricMap: Map<Exercise, Map<Metric, Comparison>> }) => {
     return (
-
         <Card style={{margin: 5}}>
             <Card.Title title={<Text>Exercise Overview</Text>}></Card.Title>
             <Card.Content>
