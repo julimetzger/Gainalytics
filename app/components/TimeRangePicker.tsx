@@ -47,8 +47,8 @@ const TimeRangePicker = ({title, setPauseTimer, timeRange}: TimeRangePickerProps
             />
             <Tooltip title='Resets Timer'>
                 <IconButton
-                    icon={"close-circle"}
-                    iconColor={theme.colors.tertiaryContainer}
+                    icon={"delete"}
+                    iconColor={theme.colors.secondary}
                     onPress={() => {
                         setPauseTimer(undefined)
                     }}

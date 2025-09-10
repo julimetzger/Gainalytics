@@ -86,7 +86,7 @@ const AddWorkoutSet = ({
         if (persisted() && !editing) {
             return "#558b2f"; // green
         } else {
-            return theme.colors.secondaryContainer;
+            return theme.colors.secondary;
         }
     }
 
@@ -171,8 +171,8 @@ const AddWorkoutSet = ({
                     style={[styles.textInput, {flex: 1}]}
                     onChangeText={setWeightOnChange}
                     keyboardType="numeric"
-                    textColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.secondary : undefined}
-                    outlineColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.secondary : undefined}
+                    textColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.primary : undefined}
+                    outlineColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.primary : undefined}
                     onFocus={() => {
                         setEditing(true)
                     }}
@@ -190,8 +190,7 @@ const AddWorkoutSet = ({
                             enterTouchDelay={300}
                             title='Suggests weight based on your last 1 rep max'>
                             <ToggleButton
-                                icon={() => <Text style={{color: theme.colors.onSecondaryContainer}}>1RM</Text>}
-                                iconColor={theme.colors.secondaryContainer}
+                                icon={() => <Text>1RM</Text>}
                                 status={!disable1RMWeightCalculation ? "checked" : "unchecked"}
                                 onPress={() => {
                                     setDisable1RMWeightCalculation(prevState => !prevState);
@@ -231,7 +230,7 @@ const AddWorkoutSet = ({
                             {"Add"}
                         </Button>}
                     {(persisted() || (!persisted() && workoutSet !== undefined)) && onDelete !== undefined &&
-                        <IconButton icon={"close-circle"} iconColor={theme.colors.tertiaryContainer}
+                        <IconButton icon={"delete"}
                                     onPress={() => onDelete(workoutSet!!)}/>}
                 </View>
             </View>

@@ -32,6 +32,9 @@ const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) =>
                 list={Object.values(Muscles).map((value: string) => {
                     return {label: value, value: value}
                 })}
+                activeColor={theme.colors.primary}
+                dropDownItemSelectedStyle={{backgroundColor: theme.colors.primaryContainer}}
+                dropDownItemSelectedTextStyle={{color: theme.colors.onPrimaryContainer, fontWeight: 'bold'}}
             />
             <TextInput 
                 keyboardType="numeric"
@@ -50,8 +53,8 @@ const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) =>
             />
             <IconButton
                 size={28}
-                icon={"close-circle"}
-                iconColor={theme.colors.tertiaryContainer}
+                icon={"delete"}
+                iconColor={theme.colors.secondary}
                 onPress={() => {
                     onDelete(muscleValue)
                 }}
