@@ -76,19 +76,17 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                                 </View>}
                         </Dialog.Content>
                         <Text style={{color: theme.colors.error}}>{error}</Text>
-                        <View style={{flexDirection: 'row'}}>
-                            <Dialog.Actions>
-                                <Button onPress={hideDialog}>Cancel</Button>
-                            </Dialog.Actions>
-                            {!deleteOverlay && <Dialog.Actions>
+                        <Dialog.Actions style={{justifyContent: 'space-between'}}>
+                            <Button onPress={hideDialog}>Cancel</Button>
+                            {!deleteOverlay && (
                                 <Button onPress={confirmDialog}>Done</Button>
-                            </Dialog.Actions>}
-                            {exerciseId && <Dialog.Actions>
+                            )}
+                            {exerciseId && (
                                 <Button textColor={theme.colors.tertiary} onPress={() => {
                                     deleteOverlay ? deleteExercise(exerciseId) : setDeleteOverlay(true);
                                 }}>Delete</Button>
-                            </Dialog.Actions>}
-                        </View>
+                            )}
+                        </Dialog.Actions>
                     </Dialog>
                 </Portal>
             </View>
