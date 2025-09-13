@@ -221,8 +221,8 @@ const AddWorkoutSet = ({
                         <Button
                             mode={'contained'}
                             style={{marginStart: 5}}
-                            buttonColor={theme.colors.primaryContainer}
-                            textColor={theme.colors.onPrimaryContainer}
+                            buttonColor={theme.colors.primary}
+                            textColor={theme.colors.onPrimary}
                             onPress={() => {
                                 submit();
                                 Keyboard.dismiss();

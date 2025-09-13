@@ -32,9 +32,9 @@ const TimeRangePicker = ({title, setPauseTimer, timeRange}: TimeRangePickerProps
                     theme: theme.dark ? 'dark' : 'light',
                     confirmButton:
                         {
-                            color: theme.colors.onPrimaryContainer,
-                            backgroundColor: theme.colors.primaryContainer,
-                            borderColor: theme.colors.primaryContainer,
+                            color: theme.colors.onPrimary,
+                            backgroundColor: theme.colors.primary,
+                            borderColor: theme.colors.primary,
                         },
                 }}
                 onConfirm={(pickedDuration) => {
