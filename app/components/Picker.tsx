@@ -94,11 +94,11 @@ const Picker = ({
                                           enableSearch
                                           value={selectedValues}
                                           onChange={setExerciseDumb}
-                                          searchInputTheme={{colors: {primary: theme.colors.primaryContainer}}}
+                                          searchInputTheme={{colors: {primary: theme.colors.primary}}}
                                           data={dropdownExerciseStructure}
                                           paperTheme={theme}
                                           disableSort={false}
-                                          selectedItemViewStyle={{backgroundColor: theme.colors.primary}}
+                                          selectedItemViewStyle={{backgroundColor: theme.colors.primaryContainer, color: theme.colors.onPrimaryContainer}}
                                           primaryColor={theme.colors.primaryContainer}
                                           enableAvatar
                                           multiline={true}

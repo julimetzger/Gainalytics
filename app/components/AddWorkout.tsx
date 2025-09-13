@@ -96,8 +96,8 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
             </View>
             {(!workout || workout.end === undefined) && 
                 <Button style={{marginTop: 20, display: 'flex', alignSelf: 'center'}}
-                        buttonColor={theme.colors.primaryContainer}
-                        textColor={theme.colors.onPrimaryContainer}
+                        buttonColor={theme.colors.primary}
+                        textColor={theme.colors.onPrimary}
                         mode={'contained'}
                         disabled={unfinishedWorkout === undefined || unfinishedWorkout.id === undefined}
                         onPress={() => {
