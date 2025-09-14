@@ -155,8 +155,8 @@ const DraggableExercise = ({
                             {interactive && (
                                 <IconButton
                                     style={{marginTop: 15}}
-                                    icon={'close-circle'}
-                                    iconColor={theme.colors.tertiaryContainer}
+                                    icon={'delete'}
+                                    iconColor={theme.colors.onSecondaryContainer}
                                     onPress={() => {
                                         setExercises(exercises.filter((exercise) => exercise.id !== item.key));
                                     }}
