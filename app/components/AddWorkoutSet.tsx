@@ -86,7 +86,7 @@ const AddWorkoutSet = ({
         if (persisted() && !editing) {
             return "#558b2f"; // green
         } else {
-            return theme.colors.secondary;
+            return theme.colors.primary;
         }
     }
 
