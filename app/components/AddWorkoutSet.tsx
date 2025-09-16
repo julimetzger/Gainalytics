@@ -171,8 +171,8 @@ const AddWorkoutSet = ({
                     style={[styles.textInput, {flex: 1}]}
                     onChangeText={setWeightOnChange}
                     keyboardType="numeric"
-                    textColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.primary : undefined}
-                    outlineColor={highlightWeightSuggestion && !disable1RMWeightCalculation ? theme.colors.primary : undefined}
+                    textColor={highlightWeightSuggestion && !disable1RMWeightCalculation && workoutSet === undefined ? theme.colors.primary : undefined}
+                    outlineColor={highlightWeightSuggestion && !disable1RMWeightCalculation && workoutSet === undefined ? theme.colors.primary : undefined}
                     onFocus={() => {
                         setEditing(true)
                     }}
@@ -183,9 +183,9 @@ const AddWorkoutSet = ({
                     selectTextOnFocus={true}
                 />
             </View>
-            <View style={{flex: 34, flexDirection: "row", alignItems: "center", justifyContent: "flex-start", marginLeft: 4}}>
+            <View style={{flex: 34, flexDirection: "row", alignItems: "center", justifyContent: "flex-start"}}>
                 {oneRepMax ?
-                    <View style={{marginRight: 4}}>
+                    <View style={{marginHorizontal: 2}}>
                         <Tooltip
                             enterTouchDelay={300}
                             title='Suggests weight based on your last 1 rep max'>
