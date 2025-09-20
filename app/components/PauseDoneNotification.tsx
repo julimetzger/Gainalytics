@@ -1,41 +1,44 @@
-import notifee, {AndroidImportance} from "@notifee/react-native";
-import {useSettings} from "../redux/settings/useSettings";
-import {useState} from "react";
+import notifee, {AlarmType, AndroidImportance, TimestampTrigger, TriggerType} from '@notifee/react-native';
+import {useSettings} from '../redux/settings/useSettings';
 
 export const PauseDoneNotification = () => {
-    const [notified, setNotified] = useState(false)
-    let pauseTimerInSeconds = useSettings().localNotification?.pauseTimerInSeconds;
-
-    return [(elapsedTimeInSeconds: number) => {
-        if (!notified && pauseTimerInSeconds !== undefined ? elapsedTimeInSeconds > pauseTimerInSeconds : false) {
-            setNotified(true);
-            showNotificatoin();
-        }
-
-        async function showNotificatoin() {
-            // Request permissions (required for iOS)
-            await notifee.requestPermission()
-            const channelId = await notifee.createChannel({
-                id: 'gainalytics_pause_done',
-                name: 'Gainalytics pause done',
-                importance: AndroidImportance.HIGH
-            });
-
-            await notifee.displayNotification({
-                id: 'pause_done',
-                title: 'Pause expired!',
-                body: 'It is time to crush your next set!',
-                android: {
-                    channelId,
-                    smallIcon: '@mipmap/icon_notification',
-                    pressAction: {
-                        id: 'default',
-                    },
-                },
-            });
-        }
-
-    }, () => {
-        setNotified(false)
-    }] as [(elapsedTimeInSeconds: number) => void, () => void]
-}
+  let notificationId: string;
+  let channelId: string;
+  let pauseTimerInSeconds = useSettings().localNotification?.pauseTimerInSeconds;
+  // Request permissions (required for iOS)
+  notifee.requestPermission().then(() =>
+    notifee.createChannel({
+      id: 'gainalytics_pause_done',
+      name: 'Gainalytics pause done',
+      importance: AndroidImportance.HIGH,
+    }).then((id) => channelId = id));
+  return [() => {
+    console.log('called notification');
+    notificationId && notifee.cancelNotification(notificationId);
+    if (pauseTimerInSeconds) {
+      const trigger: TimestampTrigger = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: Date.now() + pauseTimerInSeconds * 1000,
+        alarmManager: {type: AlarmType.SET_EXACT_AND_ALLOW_WHILE_IDLE},
+      };
+      console.log('timestamp', trigger);
+      notifee.createTriggerNotification({
+        id: 'pause_done',
+        title: 'Pause expired!',
+        body: 'It is time to crush your next set!',
+        android: {
+          channelId,
+          smallIcon: '@mipmap/icon_notification',
+          pressAction: {
+            id: 'default',
+          },
+        },
+      }, trigger).then((id) => {
+        if (id) notificationId = id;
+      });
+    }
+  },
+    () => {
+      notificationId && notifee.cancelNotification(notificationId);
+    }];
+};
