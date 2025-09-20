@@ -1001,6 +1001,7 @@ const AppWithPersist = () => {
     } else {
         paperThemes = DarkTheme;
     }
+
     return <PersistGate loading={null} persistor={persistor}>
         <PaperProvider theme={paperThemes}>
             <SafeAreaProvider>
