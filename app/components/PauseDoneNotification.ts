@@ -22,7 +22,7 @@ export const PauseDoneNotification = () => {
             const trigger: TimestampTrigger = {
                 type: TriggerType.TIMESTAMP,
                 timestamp: Date.now() + pauseTimerInSeconds * 1000,
-                alarmManager: {type: AlarmType.SET_EXACT_AND_ALLOW_WHILE_IDLE},
+                alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
             };
             (channelId ? Promise.resolve(channelId) : createChannel()).then((id) =>
                 notifee.createTriggerNotification({
