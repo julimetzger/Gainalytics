@@ -57,7 +57,7 @@ const TrainingsPlanNode = ({
   let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
   let finishTraining = dispatchFinishTraining();
   let [schedulePauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
-  let [finishTrainingNotification, resetFinishTraining] = FinishTrainingNotification();
+  let [scheduleFinisTraining, resetFinishTraining] = FinishTrainingNotification();
   let appSettings = useSettings();
   const [showPicker, setShowPicker] = useState(false);
 
@@ -85,6 +85,7 @@ const TrainingsPlanNode = ({
     if (training?.state === TrainingsState.STARTED) {
       finishTraining(training.id!!, trainingsPlan.id!!);
       resetPauseNotification();
+      resetFinishTraining();
       Toast.show({
         type: 'info',
         text1: 'Training finished!',
@@ -108,13 +109,14 @@ const TrainingsPlanNode = ({
     setRefresHeky(Math.random());
     setTimeInWorkout(new Date(Date.now()));
     setchosenExercise(exercises[number].id);
-    schedulePauseDoneNotification();
-    resetFinishTraining();
+    scheduleFinisTraining();
+    resetPauseNotification();
   }
 
   const onSubmitSet = () => {
     setTimeInWorkout(new Date(Date.now()));
     schedulePauseDoneNotification();
+    scheduleFinisTraining();
   };
   return (<View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
       <ScrollView keyboardShouldPersistTaps={'handled'}>
@@ -141,8 +143,7 @@ const TrainingsPlanNode = ({
                   {!appSettings.toggles?.disableTimer && training?.state === TrainingsState.STARTED &&
                     <Timer start={timeInWorkout} reset={true} label={'Last Set'}
                            exercise={chosenExercise}
-                           children={[(elapasedTimeInSeconds) => finishTrainingNotification(elapasedTimeInSeconds)]}
-                           onReset={[() => schedulePauseDoneNotification(), () => resetFinishTraining()]} />}
+                           onReset={[() => schedulePauseDoneNotification()]} />}
                 </View>
                 {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
                   <View pointerEvents={'box-none'}>
