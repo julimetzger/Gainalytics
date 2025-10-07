@@ -2,7 +2,7 @@ import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/exerciseRouter";
 import React, {useState} from "react";
 import {Alert, ScrollView, View, StyleSheet} from "react-native";
-import {Button, Dialog, Divider, Portal, Switch, Text} from "react-native-paper";
+import {Button, Dialog, Divider, Portal, RadioButton, Switch, Text} from "react-native-paper";
 import {useSettings} from "../../redux/settings/useSettings";
 import {useStore} from "react-redux";
 import DocumentPicker, {DocumentPickerResponse} from 'react-native-document-picker';
@@ -16,6 +16,7 @@ import {dispatchToggleDisable1RMpreselect} from "../../redux/settings/dispatchTo
 import {dispatchToggleShowTimer} from "../../redux/settings/dispatchToggleShowTimer";
 import {dispatchToggleShowPlusButtonLeft} from "../../redux/settings/dispatchToggleShowPlusButtonLeft";
 import {dispatchToggleMode} from "../../redux/settings/dispatchToggleMode";
+import {dispatchSetPalette} from "../../redux/settings/dispatchSetPalette";
 
 const SettingsTab = ({navigation}: Props) => {
     let settings = useSettings();
@@ -23,6 +24,7 @@ const SettingsTab = ({navigation}: Props) => {
     let toggleDisable1RMpreselect = dispatchToggleDisable1RMpreselect();
     let toggleShowTimer = dispatchToggleShowTimer();
     let toggleShowPlusButtonLeft = dispatchToggleShowPlusButtonLeft();
+    let setPalette = dispatchSetPalette();
     let store = useStore();
     const FileSaver = require('react-native-fs');
 
@@ -76,11 +78,30 @@ const SettingsTab = ({navigation}: Props) => {
         <ScrollView>
             <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Enable Dark Mode</Text>
-                <Switch onValueChange={() => dispatchToggleMode1()} value={settings.mode === "dark"}/>
+                <Switch onValueChange={(_) => { dispatchToggleMode1(); }} value={settings.mode === "dark"}/>
+            </View>
+            <View style={{marginHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+                <Text style={{marginRight: 10}}>Theme</Text>
+                <RadioButton.Group onValueChange={(value) => setPalette(value as any)} value={settings.palette ?? 'blue'}>
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', marginRight: 12}}>
+                            <RadioButton value="blue" />
+                            <Text>Blue</Text>
+                        </View>
+                        <View style={{flexDirection: 'row', alignItems: 'center', marginRight: 12}}>
+                            <RadioButton value="green" />
+                            <Text>Green</Text>
+                        </View>
+                        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                            <RadioButton value="purple" />
+                            <Text>Purple</Text>
+                        </View>
+                    </View>
+                </RadioButton.Group>
             </View>
             <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Preselect 1RM Button</Text>
-                <Switch onValueChange={() => toggleDisable1RMpreselect()} value={!settings.toggles?.disable1RMButton}/>
+                <Switch onValueChange={(_) => { toggleDisable1RMpreselect(); }} value={!settings.toggles?.disable1RMButton}/>
             </View>
             <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Use Imperial Units</Text>
@@ -88,11 +109,11 @@ const SettingsTab = ({navigation}: Props) => {
             </View>
             <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Show Plus-Button on the left</Text>
-                <Switch onValueChange={() => toggleShowPlusButtonLeft()} value={!!settings.toggles?.showPlusButtonLeft}/>
+                <Switch onValueChange={(_) => { toggleShowPlusButtonLeft(); }} value={!!settings.toggles?.showPlusButtonLeft}/>
             </View>
             <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Show Training Timer</Text>
-                <Switch onValueChange={() => toggleShowTimer()} value={!settings.toggles?.disableTimer}/>
+                <Switch onValueChange={(_) => { toggleShowTimer(); }} value={!settings.toggles?.disableTimer}/>
             </View>
             <View style={styles.divider}><Divider/></View>
             <View style={styles.button}>

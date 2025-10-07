@@ -2,6 +2,7 @@ import {AnyAction} from "@reduxjs/toolkit";
 
 export interface AppSettings {
     mode: 'light' | 'dark',
+    palette?: 'blue' | 'green' | 'purple',
     localNotification?: {
         pauseTimerInSeconds?: number
         finishTrainingTimerInSeconds?: number
@@ -15,14 +16,22 @@ export interface AppSettings {
 }
 
 const initialState = {
-    mode: 'dark'
+    mode: 'dark',
+    palette: 'blue'
 } as AppSettings;
 
 const settingsReducer = (settings: AppSettings = initialState, action: AnyAction) => {
     switch (action.type) {
         case 'TOGGLE_MODE': {
             return {
+                ...settings,
                 mode: settings?.mode === 'dark' ? 'light' : 'dark'
+            } as AppSettings;
+        }
+        case 'SET_PALETTE': {
+            return {
+                ...settings,
+                palette: action.palette
             } as AppSettings;
         }
         case 'SET_PAUSE_TIMER': {
