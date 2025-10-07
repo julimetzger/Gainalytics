@@ -963,44 +963,52 @@ var blueTheme = {
         }
     }
 }
-var x = PaperDarkTheme;
-x = {...x, colors: {...x.colors, ...blueTheme.schemes["dark"]}}
-export const CombinedDarkTheme = x// merge(x, NavigationDarkTheme);
-export const DarkTheme = {
-    ...CombinedDarkTheme,
-    colors: {
-        ...CombinedDarkTheme.colors,
-        primary: x.colors.primary,
-        background: x.colors.background,
-        card: x.colors.background,
-        border: x.colors.surface,
-        text: x.colors.onSecondaryContainer,
-        dark: true,
-    },
-};
+function getPaletteConfig(palette?: 'blue'|'green'|'purple') {
+    if (palette === 'green') return greenTheme;
+    if (palette === 'purple') return purpleTheme;
+    return blueTheme;
+}
 
-let x1 = MD3LightTheme;
-x1 = {...x1, colors: {...x1.colors, ...blueTheme.schemes["light"]}}
-export const LightThemeCombined = {
-    ...x1,
-    colors: {
-        ...x1.colors,
-        primary: x1.colors.primary,
-        background: x1.colors.background,
-        card: x1.colors.background,
-        border: x.colors.surface,
-        text: x1.colors.onSecondaryContainer,
-    },
-};
+function buildThemes(palette?: 'blue'|'green'|'purple') {
+    const cfg = getPaletteConfig(palette);
+    let darkBase = PaperDarkTheme;
+    darkBase = { ...darkBase, colors: { ...darkBase.colors, ...cfg.schemes["dark"] } };
+    const CombinedDarkTheme = darkBase;
+    const DarkTheme = {
+        ...CombinedDarkTheme,
+        colors: {
+            ...CombinedDarkTheme.colors,
+            primary: darkBase.colors.primary,
+            background: darkBase.colors.background,
+            card: darkBase.colors.background,
+            border: darkBase.colors.surface,
+            text: darkBase.colors.onSecondaryContainer,
+            notification: darkBase.colors.primary,
+            dark: true,
+        },
+    };
+
+    let lightBase = MD3LightTheme;
+    lightBase = { ...lightBase, colors: { ...lightBase.colors, ...cfg.schemes["light"] } };
+    const LightThemeCombined = {
+        ...lightBase,
+        colors: {
+            ...lightBase.colors,
+            primary: lightBase.colors.primary,
+            background: lightBase.colors.background,
+            card: lightBase.colors.background,
+            border: darkBase.colors.surface,
+            text: lightBase.colors.onSecondaryContainer,
+            notification: lightBase.colors.primary,
+        },
+    };
+    return { DarkTheme, LightThemeCombined };
+}
 
 const AppWithPersist = () => {
     let appSettings = useSettings();
-    let paperThemes;
-    if (appSettings?.mode === 'light') {
-        paperThemes = LightThemeCombined;
-    } else {
-        paperThemes = DarkTheme;
-    }
+    const { DarkTheme, LightThemeCombined } = buildThemes(appSettings?.palette);
+    let paperThemes = appSettings?.mode === 'light' ? LightThemeCombined : DarkTheme;
 
     return <PersistGate loading={null} persistor={persistor}>
         <PaperProvider theme={paperThemes}>
