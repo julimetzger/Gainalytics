@@ -1,55 +1,69 @@
-import notifee, {AlarmType, AndroidImportance, TimestampTrigger, TriggerType} from "@notifee/react-native";
-import {useSettings} from "../redux/settings/useSettings";
-import {useState} from "react";
+import { useEffect, useRef, useCallback } from 'react';
+import notifee, {
+    AlarmType,
+    AndroidImportance,
+    TimestampTrigger,
+    TriggerType,
+} from '@notifee/react-native';
+import { useSettings } from '../redux/settings/useSettings';
 
 function createChannel() {
     return notifee.createChannel({
         id: 'gainalytics_training_done',
         name: 'Gainalytics training done',
-        importance: AndroidImportance.HIGH
+        importance: AndroidImportance.HIGH,
     });
 }
 
 export const FinishTrainingNotification = () => {
-    let notificationId: string;
-    let channelId: string;
-    let pauseTimerInSeconds = useSettings().localNotification?.finishTrainingTimerInSeconds;
-    // Request permissions (required for iOS)
-    notifee.requestPermission().then(() =>
-        createChannel().then((id) => channelId = id));
-    return [() => {
-        notificationId && notifee.cancelNotification(notificationId);
-        if (pauseTimerInSeconds) {
-            const batteryOptimizationEnabled = notifee.isBatteryOptimizationEnabled();
-            let promise = batteryOptimizationEnabled.then((batttery) => {
-                return {
-                    type: TriggerType.TIMESTAMP,
-                    timestamp: Date.now() + pauseTimerInSeconds!! * 1000,
-                    ...(!batttery && {alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE}}),
-                } satisfies TimestampTrigger
-            });
-            promise.then((trigger) =>
-                (channelId ? Promise.resolve(channelId) : createChannel()).then((id) =>
-                    notifee.createTriggerNotification({
-                        id: 'training_done',
-                        title: 'Training in progress!',
-                        body: 'If you are not doing an extended pause, go finish your training!',
-                        android: {
-                            channelId: id,
-                            smallIcon: '@mipmap/icon_notification', // optional, defaults to 'ic_launcher'.
-                            // pressAction is needed if you want the notification to open the app when pressed
-                            pressAction: {
-                                id: 'default',
-                            },
-                        },
-                    }, trigger)))
-                .then((id) => {
-                    if (id) notificationId = id;
-                });
-        }
-    },
-        () => {
-            notificationId && notifee.cancelNotification(notificationId);
-        }];
-};
+    const pauseTimerInSeconds =
+        useSettings().localNotification?.finishTrainingTimerInSeconds ?? 0;
 
+    const channelIdRef = useRef<string>();
+    const notificationIdRef = useRef<string>('training_done'); // stable id
+
+    useEffect(() => {
+        (async () => {
+            await notifee.requestPermission();     // Android 13+ / iOS
+            channelIdRef.current = await createChannel();
+        })();
+    }, []);
+
+    const schedule = useCallback(async () => {
+        if (pauseTimerInSeconds <= 0) return;
+
+        const channelId = channelIdRef.current ?? (await createChannel());
+        channelIdRef.current = channelId;
+
+        const batteryOptimizationEnabled = await notifee.isBatteryOptimizationEnabled();
+
+        const trigger: TimestampTrigger = {
+            type: TriggerType.TIMESTAMP,
+            timestamp: Date.now() + pauseTimerInSeconds! * 1000, // non-null assertion once
+            // Use AlarmManager only if battery optimization is OFF; else let WorkManager handle it
+            ...(!batteryOptimizationEnabled && {
+                alarmManager: { type: AlarmType.SET_AND_ALLOW_WHILE_IDLE },
+            }),
+        };
+
+        await notifee.createTriggerNotification(
+            {
+                id: notificationIdRef.current,
+                title: 'Training in progress!',
+                body: 'If you are not doing an extended pause, go finish your training!',
+                android: {
+                    channelId,
+                    smallIcon: 'ic_notification', // drawable/vector in res/drawable
+                    pressAction: { id: 'default' },
+                },
+            },
+            trigger
+        );
+    }, [pauseTimerInSeconds]);
+
+    const cancel = useCallback(async () => {
+        await notifee.cancelNotification(notificationIdRef.current);
+    }, []);
+
+    return [schedule, cancel] as const;
+};
