@@ -99,6 +99,7 @@ const SettingsTab = ({navigation}: Props) => {
                     </View>
                 </RadioButton.Group>
             </View>
+            <View style={styles.divider}><Divider/></View>
             <View style={styles.row}>
                 <Text style={{alignSelf: 'center'}}>Preselect 1RM Button</Text>
                 <Switch onValueChange={(_) => { toggleDisable1RMpreselect(); }} value={!settings.toggles?.disable1RMButton}/>
@@ -125,13 +126,13 @@ const SettingsTab = ({navigation}: Props) => {
                                 timeRange={settings.localNotification?.finishTrainingTimerInSeconds}/>
             </View>
             <View style={styles.divider}><Divider/></View>
-            <View style={styles.button}><Button mode="elevated" onPress={() => {
+            <View style={{flexDirection: 'row'}}>
+                <Button mode="elevated" style={{flex: 1, margin: 5}} onPress={() => {
                     setImportDialog(true)
-                }}>Import all Data</Button></View>
-            <View style={styles.button}>
-                <Button mode="elevated" onPress={() => {
+                }}>Import Data</Button>
+                <Button mode="elevated" style={{flex: 1, margin: 5}} onPress={() => {
                     dumbFullStateToFile()
-                }}>Export all Data</Button>
+                }}>Export Data</Button>
             </View>
             <Portal>
                 <Dialog visible={importDialog} onDismiss={() => setImportDialog(false)}>
@@ -140,16 +141,14 @@ const SettingsTab = ({navigation}: Props) => {
                         <Text>This action will replace all existing data in your current application with the data from the selected file. Continue?</Text>
                     </Dialog.Content>
                     <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'space-between'}}>
-                        <Dialog.Actions>
-                            <Button onPress={() => {
+                        <Dialog.Actions style={{justifyContent: 'space-between'}}>
+                        <Button onPress={() =>
+                                setImportDialog(false)
+                            }>Cancel</Button>
+                        <Button onPress={() => {
                                 doce();
                                 setImportDialog(false)
                             }}>Import</Button>
-                        </Dialog.Actions>
-                        <Dialog.Actions>
-                            <Button onPress={() =>
-                                setImportDialog(false)
-                            }>Cancel</Button>
                         </Dialog.Actions>
                     </View>
                 </Dialog>
