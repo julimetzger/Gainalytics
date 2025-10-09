@@ -54,13 +54,13 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
                     </Dialog.Content>
                     <Dialog.Actions style={{justifyContent: 'space-between'}}>
                         <Button onPress={hideDialog}>Cancel</Button>
-                        {!deleteOverlay && (
-                            <Button onPress={confirmDialog}>Done</Button>
-                        )}
                         {trainingsId && (
                             <Button textColor={theme.colors.tertiary} onPress={() => {
                                 deleteOverlay ? deleteTrainingsPlan(trainingsId) : setDeleteOverlay(true);
                             }}>Delete</Button>
+                        )}
+                        {!deleteOverlay && (
+                            <Button onPress={confirmDialog}>Done</Button>
                         )}
                     </Dialog.Actions>
                 </Dialog>
