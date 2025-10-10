@@ -14,7 +14,8 @@ import {
     getTrainingFromTrainingInMicroIndex
 } from "../../redux/Training/trainingsPlanReducer";
 import {useSettings} from "../../redux/settings/useSettings";
-import { TextInput as RNTextInput } from 'react-native';
+import {TextInput as RNTextInput} from 'react-native';
+import TrainingOverviewCard from "../../components/training/analyse/TrainingOverviewCard";
 
 interface TrainingMapping {
     firstStartedTraining?: {
@@ -110,6 +111,8 @@ const TrainingHome = ({navigation, route}: Props) => {
                                     visible={planToStarteTraining.get(trainingsPlan.id!!)?.firstStartedTraining !== undefined}
                                     progress={planToStarteTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.percentOfDone}>
                                 </ProgressBar>
+                                <TrainingOverviewCard trainingsPlan={trainingsPlan}
+                                                      currentMicro={lastDonee(trainingsPlan)?.micro}/>
                                 <View style={styles.buttonContainer}>
                                     {planToStarteTraining.get(trainingsPlan.id!!)?.nextTraining &&
                                         <Button style={styles.button} onPress={() =>
@@ -175,7 +178,7 @@ const TrainingHome = ({navigation, route}: Props) => {
         } : undefined;
     }
 
-    function lastDonee(train: TrainingsPlan) {
+    function lastDonee(train: TrainingsPlan): { micro: number; training: number } | undefined {
         let microTrainingIndex = train.lastTraining ? Object.entries(train.trainings).find(([key, value]) => value === train.lastTraining)?.[0] : undefined;
         let lastDone = microTrainingIndex ? {
             micro: getMicroFromTrainingInMicroIndex(microTrainingIndex!!),

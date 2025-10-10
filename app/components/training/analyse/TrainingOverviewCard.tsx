@@ -1,0 +1,227 @@
+import * as React from 'react';
+import {StyleSheet, View} from "react-native";
+import {Card, Text, useTheme} from "react-native-paper";
+import {TrainingsPlan} from '../../../models/TrainingsPlan';
+import {useWorkoutsByIds} from "../../../redux/Workout/useWorkoutsByIds";
+import {calculateMetricValue} from "../../../utils/RepetitionMaxHelper";
+import {useAllTrainingsInMicro} from "../../../redux/Training/useAllTrainingsInMicro";
+import {sum} from "lodash";
+import {Workout} from "../../../models/Workout";
+import {Metric} from "../../Picker";
+
+interface TrainingOverviewCardProps {
+    trainingsPlan: TrainingsPlan;
+    currentMicro?: number;
+}
+
+const TrainingOverviewCard = ({
+                                  trainingsPlan,
+                                  currentMicro,
+                              }: TrainingOverviewCardProps) => {
+    if (!currentMicro) {
+        return null;
+    }
+
+    const theme = useTheme();
+    const trainings = useAllTrainingsInMicro(trainingsPlan.id!!, currentMicro);
+    const previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, currentMicro - 1);
+
+    // Find the latest training with an end date
+    const lastCompletedTraining = trainings
+        .filter(training => training.end)
+        .sort((a, b) => new Date(b.end!).getTime() - new Date(a.end!).getTime())[0];
+
+    // Calculate completed trainings vs total planned trainings
+    const completedTrainings = trainings.filter(training => training.end).length;
+    const totalPlannedTrainings = Object.values(trainingsPlan.trainingNames).length;
+
+    // Calculate total training time in minutes
+    const totalTimeMillis = sum(trainings
+        .map(training => training.end && training.start ?
+            new Date(training.end).getTime() - new Date(training.start).getTime() : 0));
+    const totalTimeMinutes = Math.round(totalTimeMillis / (1000 * 60));
+
+    const totalTimePreviousMillis = previousTrainings?.length > 0 ?
+        sum(previousTrainings.map(training => training.end && training.start ?
+            new Date(training.end).getTime() - new Date(training.start).getTime() : 0)) : 0;
+    const totalTimePreviousMinutes = Math.round(totalTimePreviousMillis / (1000 * 60));
+
+    // Get workouts and calculate metrics using existing helper functions
+    const trainingsWorkouts = useWorkoutsByIds(trainings.flatMap(training => Object.values(training.doneWorkoutIds)));
+    const previousWorkouts = useWorkoutsByIds(previousTrainings.length > 0 ?
+        previousTrainings.flatMap(training => Object.values(training.doneWorkoutIds)) : []);
+
+    const currentSets = trainingsWorkouts.flatMap((workout: Workout) => workout.sets);
+    const previousSets = previousWorkouts.flatMap((workout: Workout) => workout.sets);
+
+    // Use existing metric calculation methods
+    const totalSets = calculateMetricValue(currentSets, Metric.SETS);
+    const totalVolume = Math.round(calculateMetricValue(currentSets, Metric.VOLUME));
+    const totalReps = calculateMetricValue(currentSets, Metric.REPS);
+
+    const previousTotalSets = previousSets.length > 0 ? calculateMetricValue(previousSets, Metric.SETS) : 0;
+    const previousTotalVolume = previousSets.length > 0 ? Math.round(calculateMetricValue(previousSets, Metric.VOLUME)) : 0;
+
+    const formatTime = (minutes: number): string => {
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        if (hours > 0) {
+            return `${hours}h ${mins}m`;
+        }
+        return `${mins}m`;
+    };
+
+    const formatDate = (date: Date): string => {
+        const now = new Date();
+        const diffTime = Math.abs(now.getTime() - date.getTime());
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) {
+            return 'Today';
+        } else if (diffDays === 1) {
+            return 'Yesterday';
+        } else if (diffDays < 7) {
+            return `${diffDays} days ago`;
+        } else {
+            return date.toLocaleDateString();
+        }
+    };
+
+    const ComparisonIndicator = ({current, previous, unit = ''}: {
+        current: number;
+        previous: number;
+        unit?: string
+    }) => {
+        if (previous === 0) return null;
+        const diff = current - previous;
+        const isPositive = diff > 0;
+        return (
+            <Text style={[styles.comparisonText, {
+                color: isPositive ? theme.colors.primary : theme.colors.error
+            }]}>
+                {isPositive ? '+' : ''}{diff}{unit}
+            </Text>
+        );
+    };
+
+    return (
+        <Card style={styles.card}>
+            <Card.Content style={styles.cardContent}>
+                <Text style={[styles.cardTitle, {color: theme.colors.primary}]}>
+                    Meso {currentMicro}
+                </Text>
+
+                <View style={styles.statsRow}>
+                    <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{totalSets}</Text>
+                        <Text style={styles.statLabel}>Sets</Text>
+                        {previousTotalSets > 0 && (
+                            <ComparisonIndicator
+                                current={totalSets}
+                                previous={previousTotalSets}
+                            />
+                        )}
+                    </View>
+
+                    <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{formatTime(totalTimeMinutes)}</Text>
+                        <Text style={styles.statLabel}>Time</Text>
+                        {totalTimePreviousMinutes > 0 && (
+                            <ComparisonIndicator
+                                current={totalTimeMinutes}
+                                previous={totalTimePreviousMinutes}
+                                unit="m"
+                            />
+                        )}
+                    </View>
+
+                    <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{totalVolume}kg</Text>
+                        <Text style={styles.statLabel}>Volume</Text>
+                        {previousTotalVolume > 0 && (
+                            <ComparisonIndicator
+                                current={totalVolume}
+                                previous={previousTotalVolume}
+                                unit="kg"
+                            />
+                        )}
+                    </View>
+
+                    <View style={styles.statItem}>
+                        <Text style={styles.statValue}>
+                            {completedTrainings}/{totalPlannedTrainings}
+                        </Text>
+                        <Text style={styles.statLabel}>Done</Text>
+                    </View>
+                </View>
+
+                <View style={styles.progressContainer}>
+                    <Text style={styles.progressText}>
+                        {trainings.length} trainings • {totalReps} reps
+                    </Text>
+                    {lastCompletedTraining && (
+                        <Text style={styles.lastTrainingText}>
+                            Last: {formatDate(new Date(lastCompletedTraining.end!))}
+                        </Text>
+                    )}
+                </View>
+            </Card.Content>
+        </Card>
+    );
+};
+
+const styles = StyleSheet.create({
+    card: {
+        marginVertical: 4,
+        marginHorizontal: 6,
+        elevation: 1,
+    },
+    cardContent: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+    },
+    cardTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    statsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    statItem: {
+        alignItems: 'center',
+        flex: 1,
+    },
+    statValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 2,
+    },
+    statLabel: {
+        fontSize: 11,
+        color: '#666',
+        marginBottom: 2,
+    },
+    comparisonText: {
+        fontSize: 10,
+        fontWeight: '500',
+    },
+    progressContainer: {
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    progressText: {
+        fontSize: 11,
+        color: '#666',
+    },
+    lastTrainingText: {
+        fontSize: 11,
+        color: '#666',
+        marginTop: 2,
+    },
+});
+
+export default TrainingOverviewCard;
