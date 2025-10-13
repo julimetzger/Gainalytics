@@ -66,9 +66,9 @@ const TrainingOverviewCard = ({
         const hours = Math.floor(minutes / 60);
         const mins = minutes % 60;
         if (hours > 0) {
-            return `${hours}h ${mins}m`;
+            return `${hours} h ${mins} min`;
         }
-        return `${mins}m`;
+        return `${mins} min`;
     };
 
     const formatDate = (date: Date): string => {
@@ -108,7 +108,7 @@ const TrainingOverviewCard = ({
         <Card style={styles.card}>
             <Card.Content style={styles.cardContent}>
                 <Text style={[styles.cardTitle, {color: theme.colors.primary}]}>
-                    Meso {currentMicro}
+                    Micro {currentMicro}
                 </Text>
 
                 <View style={styles.statsRow}>
@@ -130,19 +130,19 @@ const TrainingOverviewCard = ({
                             <ComparisonIndicator
                                 current={totalTimeMinutes}
                                 previous={totalTimePreviousMinutes}
-                                unit="m"
+                                unit=" min"
                             />
                         )}
                     </View>
 
                     <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{totalVolume}kg</Text>
+                        <Text style={styles.statValue}>{totalVolume} kg</Text>
                         <Text style={styles.statLabel}>Volume</Text>
                         {previousTotalVolume > 0 && (
                             <ComparisonIndicator
                                 current={totalVolume}
                                 previous={previousTotalVolume}
-                                unit="kg"
+                                unit=" kg"
                             />
                         )}
                     </View>
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     },
     cardContent: {
         paddingVertical: 12,
-        paddingHorizontal: 16,
+        paddingHorizontal: 8,
     },
     cardTitle: {
         fontSize: 14,
