@@ -1,83 +1,145 @@
+import React, {memo, useState} from "react";
+import {StyleSheet, View} from "react-native";
 import {Card, IconButton, Text, useTheme} from "react-native-paper";
-import {View} from "react-native";
+import OutsidePressHandler from "react-native-outside-press";
 import AddWorkoutSet from "./AddWorkoutSet";
 import WorkoutSetView from "./WorkoutSetView";
-import React, {memo, useState} from "react";
+import {Metric} from "./Picker";
 import {dispatchDeleteSetFromWorkout} from "../redux/Workout/dispatchDeleteSetFromWorkout";
 import {dispatchAddOrUpdateSetInWorkout} from "../redux/Workout/dispatchAddOrUpdateSetInWorkout";
 import useDeleteWorkout from "../redux/Workout/useDeleteWorkout";
-import OutsidePressHandler from "react-native-outside-press";
-import {Metric} from "./Picker";
 import {useWorkoutById} from "../redux/Workout/useWorkoutById";
 import {useExercise} from "../redux/Exercises/useExercise";
 
-interface WorkoutVieTileProps {
-    workoutId: number,
-    highlightMode?: Metric,
-    editable?: boolean
+interface WorkoutViewTileProps {
+    workoutId: number;
+    highlightMode?: Metric;
+    editable?: boolean;
 }
 
-const WorkoutViewTile = ({workoutId, highlightMode, editable}: WorkoutVieTileProps) => {
-    let theme = useTheme();
-    let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
-    let workout = useWorkoutById(workoutId);
-    let userExercise = useExercise(workout.exerciseId);
-    let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(userExercise);
-    let useDeleteWorkoutdispatch = useDeleteWorkout();
+const WorkoutViewTile = ({workoutId, highlightMode, editable}: WorkoutViewTileProps) => {
+    const theme = useTheme();
     const [showEdit, setShowEdit] = useState(false);
+    
+    const workout = useWorkoutById(workoutId);
+    const userExercise = useExercise(workout.exerciseId);
+    const deleteWorkout = useDeleteWorkout();
+    const deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
+    const addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(userExercise);
 
-    function setShowEditWhenEditable(boool: boolean) {
+    const setShowEditWhenEditable = (shouldShow: boolean) => {
         if (editable) {
-            setShowEdit(boool);
+            setShowEdit(shouldShow);
         }
-    }
+    };
 
-    function getCard() {
-        return <Card mode={"outlined"} style={{marginBottom: 5}} onLongPress={() => setShowEditWhenEditable(true)}
-                     key={workout.id}>
-            <View style={{
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                justifyContent: 'flex-start'
-            }}>
-                <Text
-                    style={{
-                        fontSize: theme.fonts.titleMedium.fontSize,
-                        marginLeft: 5
-                    }}>{userExercise.name}</Text>
-                {showEdit &&
-                    <IconButton style={{margin: 0, alignSelf: 'flex-start', height: 25}}
-                                icon={"delete"}
-                                onPress={() => {
-                                    useDeleteWorkoutdispatch(workout)
-                                    setShowEdit(false)
-                                }}/>}
-            </View>
-            {
-                showEdit &&
-                <AddWorkoutSet onSubmit={(wokoutSet) => addOrUpdateSetInWorkout(wokoutSet, workout)}/>
-            }
-            <WorkoutSetView key={workout.id} sets={workout.sets} onDelete={(workoutSet) => {
-                deleteSetFromWorkout(workoutSet, workout);
-            }} onSubmit={(workoutSet) => {
-                addOrUpdateSetInWorkout(workoutSet, workout);
-            }}
-                            highLightMode={highlightMode || (workout?.records && Object.keys(workout.records).pop() as keyof typeof Metric)}
-                            editable={editable}/>
-        </Card>;
-    }
+    const effectiveHighlightMode = highlightMode || 
+        (workout?.records && Object.keys(workout.records).pop() as keyof typeof Metric);
 
     return (
         <View>
-            {editable ?
-                <OutsidePressHandler onOutsidePress={() => setShowEditWhenEditable(false)} key={workout.id}>
-                    {getCard()}
+            {editable ? (
+                <OutsidePressHandler 
+                    onOutsidePress={() => setShowEditWhenEditable(false)} 
+                    key={workout.id}
+                >
+                    <Card 
+                        mode="outlined" 
+                        style={styles.card} 
+                        onLongPress={() => setShowEditWhenEditable(true)}
+                        key={workout.id}
+                    >
+                        <View style={styles.headerRow}>
+                            <Text style={[styles.title, {fontSize: theme.fonts.titleMedium.fontSize}]}>
+                                {userExercise.name}
+                            </Text>
+                            {showEdit && (
+                                <IconButton 
+                                    style={styles.deleteIcon}
+                                    icon="delete"
+                                    onPress={() => {
+                                        deleteWorkout(workout);
+                                        setShowEdit(false);
+                                    }}
+                                />
+                            )}
+                        </View>
+                        
+                        {showEdit && (
+                            <AddWorkoutSet onSubmit={(workoutSet) => addOrUpdateSetInWorkout(workoutSet, workout)} />
+                        )}
+                        
+                        <WorkoutSetView 
+                            key={workout.id} 
+                            sets={workout.sets} 
+                            onDelete={(workoutSet) => deleteSetFromWorkout(workoutSet, workout)}
+                            onSubmit={(workoutSet) => addOrUpdateSetInWorkout(workoutSet, workout)}
+                            highLightMode={effectiveHighlightMode}
+                            editable={editable}
+                        />
+                    </Card>
                 </OutsidePressHandler>
-                : getCard()}
+            ) : (
+                <Card 
+                    mode="outlined" 
+                    style={styles.card} 
+                    onLongPress={() => setShowEditWhenEditable(true)}
+                    key={workout.id}
+                >
+                    <View style={styles.headerRow}>
+                        <Text style={[styles.title, {fontSize: theme.fonts.titleMedium.fontSize}]}>
+                            {userExercise.name}
+                        </Text>
+                        {showEdit && (
+                            <IconButton 
+                                style={styles.deleteIcon}
+                                icon="delete"
+                                onPress={() => {
+                                    deleteWorkout(workout);
+                                    setShowEdit(false);
+                                }}
+                            />
+                        )}
+                    </View>
+                    
+                    {showEdit && (
+                        <AddWorkoutSet onSubmit={(workoutSet) => addOrUpdateSetInWorkout(workoutSet, workout)} />
+                    )}
+                    
+                    <WorkoutSetView 
+                        key={workout.id} 
+                        sets={workout.sets} 
+                        onDelete={(workoutSet) => deleteSetFromWorkout(workoutSet, workout)}
+                        onSubmit={(workoutSet) => addOrUpdateSetInWorkout(workoutSet, workout)}
+                        highLightMode={effectiveHighlightMode}
+                        editable={editable}
+                    />
+                </Card>
+            )}
         </View>
-    )
-}
+    );
+};
+
+const styles = StyleSheet.create({
+    card: {
+        marginBottom: 5,
+    },
+    headerRow: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        justifyContent: 'flex-start'
+    },
+    title: {
+        marginLeft: 5,
+    },
+    deleteIcon: {
+        margin: 0,
+        alignSelf: 'flex-start',
+        height: 25
+    }
+});
+
 export default memo(WorkoutViewTile, ((prevProps, nextProps) => {
     return prevProps.workoutId === nextProps.workoutId && prevProps.highlightMode === nextProps.highlightMode && prevProps.editable === nextProps.editable
 }))
