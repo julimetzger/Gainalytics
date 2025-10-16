@@ -1,13 +1,13 @@
 import * as React from 'react';
 import {StyleSheet, View} from "react-native";
-import {Card, Text, useTheme} from "react-native-paper";
-import {TrainingsPlan} from '../../../models/TrainingsPlan';
-import {useWorkoutsByIds} from "../../../redux/Workout/useWorkoutsByIds";
-import {calculateMetricValue} from "../../../utils/RepetitionMaxHelper";
-import {useAllTrainingsInMicro} from "../../../redux/Training/useAllTrainingsInMicro";
+import {Text, useTheme} from "react-native-paper";
+import {TrainingsPlan} from '../models/TrainingsPlan';
+import {useWorkoutsByIds} from "../redux/Workout/useWorkoutsByIds";
+import {calculateMetricValue} from "../utils/RepetitionMaxHelper";
+import {useAllTrainingsInMicro} from "../redux/Training/useAllTrainingsInMicro";
 import {sum} from "lodash";
-import {Workout} from "../../../models/Workout";
-import {Metric} from "../../Picker";
+import {Workout} from "../models/Workout";
+import {Metric} from "./Picker";
 
 interface TrainingOverviewCardProps {
     trainingsPlan: TrainingsPlan;
@@ -72,19 +72,10 @@ const TrainingOverviewCard = ({
     };
 
     const formatDate = (date: Date): string => {
-        const now = new Date();
-        const diffTime = Math.abs(now.getTime() - date.getTime());
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 0) {
-            return 'Today';
-        } else if (diffDays === 1) {
-            return 'Yesterday';
-        } else if (diffDays < 7) {
-            return `${diffDays} days ago`;
-        } else {
-            return date.toLocaleDateString();
-        }
+        const dd = String(date.getDate()).padStart(2, '0');
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const yyyy = String(date.getFullYear());
+        return `${dd}/${mm}/${yyyy}`;
     };
 
     const ComparisonIndicator = ({current, previous, unit = ''}: {
@@ -105,9 +96,9 @@ const TrainingOverviewCard = ({
     };
 
     return (
-        <Card style={styles.card}>
-            <Card.Content style={styles.cardContent}>
-                <Text style={[styles.cardTitle, {color: theme.colors.primary}]}>
+        <View>
+            <View>
+                <Text style={[styles.Title, {color: theme.colors.primary}]}>
                     Micro {currentMicro}
                 </Text>
 
@@ -165,22 +156,13 @@ const TrainingOverviewCard = ({
                         </Text>
                     )}
                 </View>
-            </Card.Content>
-        </Card>
+            </View>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    card: {
-        marginVertical: 4,
-        marginHorizontal: 6,
-        elevation: 1,
-    },
-    cardContent: {
-        paddingVertical: 12,
-        paddingHorizontal: 8,
-    },
-    cardTitle: {
+    Title: {
         fontSize: 14,
         fontWeight: 'bold',
         textAlign: 'center',

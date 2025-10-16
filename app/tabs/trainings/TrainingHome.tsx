@@ -15,7 +15,7 @@ import {
 } from "../../redux/Training/trainingsPlanReducer";
 import {useSettings} from "../../redux/settings/useSettings";
 import {TextInput as RNTextInput} from 'react-native';
-import TrainingOverviewCard from "../../components/training/analyse/TrainingOverviewCard";
+import TrainingOverviewCard from "../../components/TrainingOverviewCard";
 
 interface TrainingMapping {
     firstStartedTraining?: {
@@ -41,7 +41,7 @@ const TrainingHome = ({navigation, route}: Props) => {
     const settings = useSettings();
     let startedTrainings = allTrainings.filter(A => A.state === TrainingsState.STARTED)
 
-    let planToStarteTraining = new Map(trainingsPlans.map(train => {
+    let planToStartTraining = new Map(trainingsPlans.map(train => {
                     let firstStartedTraining = handleStartedTraining(train);
                     let lastDone = lastDonee(train);
                     return [train.id, {
@@ -108,42 +108,42 @@ const TrainingHome = ({navigation, route}: Props) => {
                                     <AddTrainingsPlan trainingsId={trainingsPlan.id}/>
                                 </View>
                                 <ProgressBar
-                                    visible={planToStarteTraining.get(trainingsPlan.id!!)?.firstStartedTraining !== undefined}
-                                    progress={planToStarteTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.percentOfDone}>
+                                    visible={planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining !== undefined}
+                                    progress={planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.percentOfDone}>
                                 </ProgressBar>
                                 <TrainingOverviewCard trainingsPlan={trainingsPlan}
                                                       currentMicro={lastDonee(trainingsPlan)?.micro}/>
                                 <View style={styles.buttonContainer}>
-                                    {planToStarteTraining.get(trainingsPlan.id!!)?.nextTraining &&
+                                    {planToStartTraining.get(trainingsPlan.id!!)?.nextTraining &&
                                         <Button style={styles.button} onPress={() =>
                                             navigation.navigate({
                                                 name: 'Training',
                                                 params: {
                                                     trainingsPlan: trainingsPlan,
-                                                    micro: planToStarteTraining.get(trainingsPlan.id!!)?.nextTraining?.micro,
-                                                    training: planToStarteTraining.get(trainingsPlan.id!!)?.nextTraining?.training
+                                                    micro: planToStartTraining.get(trainingsPlan.id!!)?.nextTraining?.micro,
+                                                    training: planToStartTraining.get(trainingsPlan.id!!)?.nextTraining?.training
                                                 },
                                             })
                                         }>Next Training</Button>}
-                                    {planToStarteTraining.get(trainingsPlan.id!!)?.firstStartedTraining &&
+                                    {planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining &&
                                         <Button style={styles.button} onPress={() =>
                                             navigation.navigate({
                                                 name: 'Training',
                                                 params: {
                                                     trainingsPlan: trainingsPlan,
-                                                    micro: planToStarteTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.micro,
-                                                    training: planToStarteTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.training
+                                                    micro: planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.micro,
+                                                    training: planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.training
                                                 },
                                             })
                                         }>Active Training</Button>}
-                                    {planToStarteTraining.get(trainingsPlan.id!!)?.lastDoneTraining &&
+                                    {planToStartTraining.get(trainingsPlan.id!!)?.lastDoneTraining &&
                                         <Button style={styles.button} onPress={() =>
                                             navigation.navigate({
                                                 name: 'Training',
                                                 params: {
                                                     trainingsPlan: trainingsPlan,
-                                                    micro: planToStarteTraining.get(trainingsPlan.id!!)?.lastDoneTraining?.micro,
-                                                    training: planToStarteTraining.get(trainingsPlan.id!!)?.lastDoneTraining?.training
+                                                    micro: planToStartTraining.get(trainingsPlan.id!!)?.lastDoneTraining?.micro,
+                                                    training: planToStartTraining.get(trainingsPlan.id!!)?.lastDoneTraining?.training
                                                 },
                                             })
                                         }>Last Training</Button>}

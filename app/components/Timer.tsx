@@ -50,7 +50,7 @@ const Timer = ({start, label, reset = false, children, onReset}: TimerProps) => 
                 <Card.Content>
                     {label && <Text style={{fontSize: theme.fonts.labelSmall.fontSize}}>{label}</Text>}
                     <Text style={stylesheet.textstyle}>
-                        {new Date(new Date(date).getTime() - new Date(sarted).getTime()).toISOString().substr(11, 8)}
+                        {new Date(new Date(date).getTime() - new Date(sarted).getTime()).toISOString().substring(11, 19)}
                     </Text>
                 </Card.Content>
             </Card>
