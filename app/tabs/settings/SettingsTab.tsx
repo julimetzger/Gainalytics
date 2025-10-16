@@ -84,17 +84,17 @@ const SettingsTab = ({navigation}: Props) => {
                 <Text style={{marginRight: 10}}>Theme</Text>
                 <RadioButton.Group onValueChange={(value) => setPalette(value as any)} value={settings.palette ?? 'blue'}>
                     <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', marginRight: 12}}>
-                            <RadioButton value="blue" />
+                        <View style={{flexDirection: 'row', alignItems: 'center', marginRight: 10}}>
                             <Text>Blue</Text>
+                            <RadioButton value="blue" />
                         </View>
-                        <View style={{flexDirection: 'row', alignItems: 'center', marginRight: 12}}>
-                            <RadioButton value="green" />
+                        <View style={{flexDirection: 'row', alignItems: 'center', marginRight: 10}}>
                             <Text>Green</Text>
+                            <RadioButton value="green" />
                         </View>
                         <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                            <RadioButton value="purple" />
                             <Text>Purple</Text>
+                            <RadioButton value="purple" />
                         </View>
                     </View>
                 </RadioButton.Group>
