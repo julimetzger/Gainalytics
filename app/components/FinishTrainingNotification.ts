@@ -53,7 +53,7 @@ export const FinishTrainingNotification = () => {
                 body: 'If you are not doing an extended pause, go finish your training!',
                 android: {
                     channelId,
-                    smallIcon: 'ic_notification', // drawable/vector in res/drawable
+                    smallIcon: '@mipmap/icon_notification',
                     pressAction: { id: 'default' },
                 },
             },
