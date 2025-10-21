@@ -49,7 +49,7 @@ const WorkoutViewTile = ({workoutId, highlightMode, editable}: WorkoutViewTilePr
                         onLongPress={() => setShowEditWhenEditable(true)}
                         key={workout.id}
                     >
-                        <View style={styles.headerRow}>
+                        <View style={styles.exercise}>
                             <Text style={[styles.title, {fontSize: theme.fonts.titleMedium.fontSize}]}>
                                 {userExercise.name}
                             </Text>
@@ -86,7 +86,7 @@ const WorkoutViewTile = ({workoutId, highlightMode, editable}: WorkoutViewTilePr
                     onLongPress={() => setShowEditWhenEditable(true)}
                     key={workout.id}
                 >
-                    <View style={styles.headerRow}>
+                    <View  style={styles.exercise}>
                         <Text style={[styles.title, {fontSize: theme.fonts.titleMedium.fontSize}]}>
                             {userExercise.name}
                         </Text>
@@ -122,20 +122,17 @@ const WorkoutViewTile = ({workoutId, highlightMode, editable}: WorkoutViewTilePr
 
 const styles = StyleSheet.create({
     card: {
-        marginBottom: 5,
+        marginBottom: 0,
     },
-    headerRow: {
-        display: 'flex',
+    exercise: {
+        flex: 1,
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'flex-start'
     },
     title: {
-        marginLeft: 5,
+        marginLeft: 10,
     },
     deleteIcon: {
         margin: 0,
-        alignSelf: 'flex-start',
         height: 25
     }
 });

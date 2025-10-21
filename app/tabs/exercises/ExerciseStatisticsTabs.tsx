@@ -62,7 +62,6 @@ const ExerciseStatisticsTabs = ({ route }: Props) => {
                                     <Text style={styles.text}>
                                         {workout.start ? new Date(workout.start).toDateString() : "Unknown Date"} - {workout.records?.[Record.ONE_RM]?.toFixed(2)} kg
                                     </Text>
-                                    <Divider />
                                 </View>
                             ))
                     ) : (
