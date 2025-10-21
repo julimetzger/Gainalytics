@@ -71,19 +71,12 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
 
     return (
         <View>
-            <View style={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: info ? 'space-between' : 'center',
-                marginTop: info ? 0 : 20
-            }}>
+            <View style={[styles.header, info ? styles.headerWithInfo : null]}>
                 {info && <View></View>}
-                <Text style={{
-                    alignSelf: 'center',
-                }}> Set {unfinishedWorkout?.sets ? unfinishedWorkout.sets.length + 1 : 1}</Text>
+                <Text style={styles.setText}> Set {unfinishedWorkout?.sets ? unfinishedWorkout.sets.length + 1 : 1}</Text>
                 {info && info}
             </View>
-            <View style={{display: 'flex', justifyContent: 'flex-start'}}>
+            <View style={styles.contentContainer}>
                 <AddWorkoutSet onSubmit={submitWorkoutSet}
                                oneRepMax={oneRepMax}/>
                 {unfinishedWorkout && unfinishedWorkout.sets.map((workoutSet) => {
@@ -95,7 +88,7 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
                 })}
             </View>
             {(!workout || workout.end === undefined) && 
-                <Button style={{marginTop: 20, display: 'flex', alignSelf: 'center'}}
+                <Button style={styles.addWorkoutButton}
                         buttonColor={theme.colors.primary}
                         textColor={theme.colors.onPrimary}
                         mode={'contained'}
@@ -108,7 +101,7 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
                 </Button>}
             {suggest &&
                 <Button disabled={unfinishedWorkout !== undefined || workouts.length === 0}
-                        style={style.suggestWorkout}
+                        style={styles.suggestWorkout}
                         onPress={() => {
                             suggestedWorkout(exercise.id!!);
                         }}>
@@ -118,11 +111,41 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
     );
 };
 
-let style = StyleSheet.create({
+const styles = StyleSheet.create({
+    // Header-Area
+    header: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginTop: 20,
+    },
+    
+    headerWithInfo: {
+        justifyContent: 'space-between',
+        marginTop: 0,
+    },
+    
+    setText: {
+        alignSelf: 'center',
+    },
+    
+    // Content-Area
+    contentContainer: {
+        display: 'flex',
+        justifyContent: 'flex-start',
+    },
+    
+    // Button-Area
+    addWorkoutButton: {
+        marginTop: 20,
+        display: 'flex',
+        alignSelf: 'center',
+    },
+    
     suggestWorkout: {
         position: "relative",
         alignSelf: "center",
-        margin: 5
+        margin: 5,
     },
 });
 

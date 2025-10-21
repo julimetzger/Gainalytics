@@ -126,13 +126,13 @@ const AddWorkoutSet = ({
     }
 
     return (
-        <View style={{flexDirection: "row", alignItems: "center", marginHorizontal: 5}}>
-            <View style={{flex: 66, flexDirection: "row"}}>
+        <View style={styles.container}>
+            <View style={styles.inputContainer}>
                 <TextInput
                     mode="outlined"
                     label="Reps"
                     value={reps.toString()}
-                    style={[styles.textInput, {flex: 1, marginRight: 4}]}
+                    style={[styles.textInput, styles.inputField]}
                     onChangeText={setRepsOnChange}
                     keyboardType="numeric"
                     onFocus={() => {
@@ -150,7 +150,7 @@ const AddWorkoutSet = ({
                     mode="outlined"
                     label="RIR"
                     value={rir.toString()}
-                    style={[styles.textInput, {flex: 1, marginRight: 4}]}
+                    style={[styles.textInput, styles.inputField]}
                     onChangeText={setRIROnChange}
                     keyboardType="numeric"
                     onFocus={() => {
@@ -168,7 +168,7 @@ const AddWorkoutSet = ({
                     mode="outlined"
                     label="Weight"
                     value={weight.toString()}
-                    style={[styles.textInput, {flex: 1}]}
+                    style={[styles.textInput, styles.inputField]}
                     onChangeText={setWeightOnChange}
                     keyboardType="numeric"
                     textColor={highlightWeightSuggestion && !disable1RMWeightCalculation && workoutSet === undefined ? theme.colors.primary : undefined}
@@ -183,9 +183,9 @@ const AddWorkoutSet = ({
                     selectTextOnFocus={true}
                 />
             </View>
-            <View style={{flex: 34, flexDirection: "row", alignItems: "center", justifyContent: "flex-start"}}>
+            <View style={styles.buttonContainer}>
                 {oneRepMax ?
-                    <View style={{marginHorizontal: 2}}>
+                    <View style={styles.toggleContainer}>
                         <Tooltip
                             enterTouchDelay={300}
                             title='Suggests weight based on your last 1 rep max'>
@@ -200,7 +200,7 @@ const AddWorkoutSet = ({
                         </Tooltip>
                     </View>
                     : null}
-                <View style={{flexDirection: "row", alignItems: "center"}}>
+                <View style={styles.actionButtons}>
                     {!isPlanningMode && (
                         <>
                             {persisted() && !editing &&
@@ -220,7 +220,6 @@ const AddWorkoutSet = ({
                     {!persisted() && workoutSet === undefined &&
                         <Button
                             mode={'contained'}
-                            style={{marginStart: 5}}
                             buttonColor={theme.colors.primary}
                             textColor={theme.colors.onPrimary}
                             onPress={() => {
@@ -239,11 +238,45 @@ const AddWorkoutSet = ({
 }
 
 const styles = StyleSheet.create({
+    // Container-Layout
+    container: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginHorizontal: 2,
+    },
+    
+    // Input-Area
+    inputContainer: {
+        flex: 66,
+        flexDirection: "row",
+    },
+    
     textInput: {
         height: 35,
-        marginEnd: 5,
         alignSelf: 'center',
-    }
+    },
+    
+    inputField: {
+        flex: 1,
+        marginHorizontal: 2,
+    },
+    
+    // Button-Area
+    buttonContainer: {
+        flex: 34,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "flex-start",
+    },
+    
+    toggleContainer: {
+        marginHorizontal: 5,
+    },
+    
+    actionButtons: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
 });
 
 function convertToNumber(value: string) {
