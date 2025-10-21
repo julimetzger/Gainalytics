@@ -21,7 +21,7 @@ const WorkoutView = ({workoutIds, highlightMode, editable = true, onEndReached}:
     const highlightWorkout = useHighlightWorkout(workoutIds, highlightMode);
 
     const renderWorkoutItem = ({item: [date, workouts]}: {item: [string, number[]]}) => (
-        <Card mode="contained" style={styles.dateCard} key={new Date(date).getTime()}>
+        <Card mode="elevated" style={styles.dateCard} key={new Date(date).getTime()}>
             <Text style={[styles.dateText, {fontSize: theme.fonts.titleLarge.fontSize}]}>
                 {getDateStringFromDate(new Date(date))}
             </Text>
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 5,
     },
     dateText: {
-        marginLeft: 5,
+        marginLeft: 10,
     },
 });
 
