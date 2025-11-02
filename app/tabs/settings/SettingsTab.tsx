@@ -40,6 +40,7 @@ const SettingsTab = ({navigation}: Props) => {
 
     // Check exact alarm permission on component mount
     useEffect(() => {
+        console.log("called settings callback")
         const checkExactAlarmPermission = async () => {
             if (Platform.OS === 'android' && Platform.Version >= 31) {
                 try {
@@ -59,7 +60,7 @@ const SettingsTab = ({navigation}: Props) => {
         };
 
         checkExactAlarmPermission();
-    }, [setExactAlarmPermission]);
+    }, []);
 
     const handleExactAlarmSettings = async () => {
         try {

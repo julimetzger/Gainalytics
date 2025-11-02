@@ -1,13 +1,12 @@
-
-import { useEffect, useRef, useCallback } from 'react';
-import { Platform } from 'react-native';
+import {useEffect, useRef, useCallback} from 'react';
+import {Platform} from 'react-native';
 import notifee, {
     AlarmType,
     AndroidImportance,
     TimestampTrigger,
     TriggerType,
 } from '@notifee/react-native';
-import { useSettings } from '../redux/settings/useSettings';
+import {useSettings} from '../redux/settings/useSettings';
 import {canScheduleExactAlarms} from "../utils/NotificationUtils";
 
 function createChannel() {
@@ -19,9 +18,10 @@ function createChannel() {
 }
 
 export const PauseDoneNotification = () => {
+    let appSettings = useSettings();
     const pauseTimerInSeconds =
-        useSettings().localNotification?.pauseTimerInSeconds ?? 0;
-
+        appSettings.localNotification?.pauseTimerInSeconds ?? 0;
+    const useExact = appSettings.localNotification?.exactAlarmPermission ?? false;
     const channelIdRef = useRef<string>();
     const notificationIdRef = useRef<string>('pause_done'); // stable id
 
@@ -38,21 +38,10 @@ export const PauseDoneNotification = () => {
         const channelId = channelIdRef.current ?? (await createChannel());
         channelIdRef.current = channelId;
 
-        // ---- Always prefer AlarmManager exact trigger ----
-        let useExact = false;
-        if (Platform.OS === 'android') {
-            if (Platform.Version >= 31) {
-                useExact = await canScheduleExactAlarms();
-                // Removed automatic openExactAlarmSettings - user should manage this in Settings
-            } else {
-                useExact = true; // < Android 12
-            }
-        }
-
         const trigger: TimestampTrigger = {
             type: TriggerType.TIMESTAMP,
             timestamp: Date.now() + pauseTimerInSeconds * 1000 + 250, // kleine Pufferzeit
-            ...(useExact && { alarmManager: { type: AlarmType.SET_AND_ALLOW_WHILE_IDLE } }),
+            ...(useExact && {alarmManager: {type: AlarmType.SET_EXACT_AND_ALLOW_WHILE_IDLE}}),
         };
 
         await notifee.createTriggerNotification(
@@ -63,7 +52,7 @@ export const PauseDoneNotification = () => {
                 android: {
                     channelId,
                     smallIcon: '@mipmap/icon_notification',
-                    pressAction: { id: 'default' },
+                    pressAction: {id: 'default'},
                 },
             },
             trigger

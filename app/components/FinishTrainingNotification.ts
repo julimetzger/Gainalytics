@@ -18,8 +18,10 @@ function createChannel() {
 }
 
 export const FinishTrainingNotification = () => {
+    let appSettings = useSettings();
     const pauseTimerInSeconds =
-        useSettings().localNotification?.finishTrainingTimerInSeconds ?? 0;
+        appSettings.localNotification?.pauseTimerInSeconds ?? 0;
+    const useExact = appSettings.localNotification?.exactAlarmPermission ?? false;
 
     const channelIdRef = useRef<string>();
     const notificationIdRef = useRef<string>('training_done'); // stable id
@@ -38,25 +40,13 @@ export const FinishTrainingNotification = () => {
         const channelId = channelIdRef.current ?? (await createChannel());
         channelIdRef.current = channelId;
 
-        // Prefer exact alarm if we can
-        let useExact = false;
-        if (Platform.OS === 'android') {
-            if (Platform.Version >= 31) {
-                useExact = await canScheduleExactAlarms();
-                // Removed automatic openExactAlarmSettings - user should manage this in Settings
-            } else {
-                useExact = true; // < Android 12: exact alarms allowed without special permission
-            }
-        }
-
         const trigger: TimestampTrigger = {
             type: TriggerType.TIMESTAMP,
             // small buffer helps avoid "now/past" rounding issues
             timestamp: Date.now() + pauseTimerInSeconds * 1000 + 250,
-            ...(useExact && {alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE}}),
+            ...(useExact && {alarmManager: {type: AlarmType.SET_EXACT_AND_ALLOW_WHILE_IDLE}}),
         };
 
-        console.log("exact ", useExact)
         await notifee.createTriggerNotification(
             {
                 id: notificationIdRef.current,
