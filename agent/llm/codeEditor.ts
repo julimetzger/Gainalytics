@@ -1,15 +1,18 @@
 import OpenAI from "openai";
 import fs from "fs";
 import {CONFIG} from "../config";
+import path from "path";
+import {Plan} from "./plant";
 
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
-export async function applyEdits(plan) {
+export async function applyEdits(plan: Plan) {
     const fileContexts = plan.steps.map(step => {
-        if (fs.existsSync(step.file)) {
-            const code = fs.readFileSync(step.file, "utf8");
+        let appFile = path.join(CONFIG.appPath, step.file);
+        if (fs.existsSync(appFile)) {
+            const code = fs.readFileSync(appFile, "utf8");
             return `### File: ${step.file}\n${code}`;
         } else {
             return `### File: ${step.file}\n<new file>`;

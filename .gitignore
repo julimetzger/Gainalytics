@@ -4,6 +4,7 @@
 coverage
 __tests__/coverage
 .expo
+*/.env
 .jest/cache
 # Xcode
 #

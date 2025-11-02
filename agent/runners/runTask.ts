@@ -4,6 +4,8 @@ import path from "path";
 import { execa } from "execa";
 import {planSteps} from "../llm/taskPlanner";
 import {applyEdits} from "../llm/codeEditor";
+import {Task} from "../backlog/backlogTask";
+import {CONFIG} from "../config";
 
 // --- helpers ---------------------------------------------------------------
 
@@ -12,16 +14,6 @@ async function ensureBranch(branch) {
         await execa("git", ["checkout", "-b", branch], { stdio: "inherit" });
     } catch {
         await execa("git", ["checkout", branch], { stdio: "inherit" });
-    }
-}
-
-async function gitApplyUnifiedDiff(diffText) {
-    const tmp = path.join(process.cwd(), ".agent_patch.diff");
-    fs.writeFileSync(tmp, diffText, "utf8");
-    try {
-        await execa("git", ["apply", "-p0", tmp], { stdio: "inherit" });
-    } finally {
-        fs.unlinkSync(tmp);
     }
 }
 
@@ -41,34 +33,90 @@ async function gitCommit(message) {
     }
 }
 
-// --- main -----------------------------------------------------------------
+async function applyPatch(patch) {
+    if (!patch?.diff || typeof patch.diff !== "string") {
+        throw new Error("Invalid patch provided");
+    }
 
-export async function runTask(task) {
+    // Parse das Diff um zu verstehen was gemacht werden soll
+    const lines = patch.diff.split('\n');
+    let targetFile = null;
+    let isNewFile = false;
+    let content = [];
+
+    for (const line of lines) {
+        if (line.startsWith('diff --git ')) {
+            const match = line.match(/diff --git a\/(.*?) b\/(.*)/);
+            if (match) {
+                targetFile = match[2]; // b/ path ist der Ziel-Pfad
+            }
+        } else if (line.includes('new file mode')) {
+            isNewFile = true;
+        } else if (line.startsWith('+') && !line.startsWith('+++')) {
+            // Füge Zeile hinzu (ohne das '+' am Anfang)
+            content.push(line.substring(1));
+        }
+    }
+
+    if (!targetFile) {
+        throw new Error("Could not determine target file from diff");
+    }
+
+    const fullPath = path.join(CONFIG.appPath, targetFile);
+
+    if (isNewFile) {
+        // Erstelle Verzeichnis falls es nicht existiert
+        const dir = path.dirname(fullPath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        // Schreibe neue Datei
+        fs.writeFileSync(fullPath, content.join('\n'), 'utf8');
+        console.log(`Created new file: ${targetFile}`);
+    } else {
+        // TODO: Handle file modifications (für jetzt nur neue Dateien)
+        console.warn(`File modification not implemented yet: ${targetFile}`);
+    }
+}
+
+export async function runTask(task: Task) {
     const branch = `agent/${task.id}`;
     await ensureBranch(branch);
 
-    // 1) Plan erstellen (taskPlanner.ts)
+    console.log(`Processing task ${task.id}: ${task.title}`);
+
+    // 1) Plan erstellen
+    console.log("Creating plan...");
     const plan = await planSteps(task);
+    console.log("Plan created:", JSON.stringify(plan, null, 2));
 
-    // 2) Edits/Diffs erzeugen (codeEditor.ts)
-    // applyEdits liefert: { changedFiles, summaryCommitMessage(): string, patches: [{ diff: string }] }
+    // 2) Edits/Diffs erzeugen
+    console.log("Generating edits...");
     const { changedFiles, summaryCommitMessage, patches } = await applyEdits(plan);
+    console.log(`Generated ${patches?.length || 0} patches for ${changedFiles?.length || 0} files`);
 
-    // 3) Patches anwenden (alle unified diffs)
-    for (const p of patches) {
-        if (!p?.diff || typeof p.diff !== "string") {
-            throw new Error("applyEdits() returned an invalid patch entry.");
+    // 3) Patches anwenden - NEUE METHODE
+    if (patches && patches.length > 0) {
+        for (let i = 0; i < patches.length; i++) {
+            const p = patches[i];
+            console.log(`Applying patch ${i + 1}/${patches.length}...`);
+
+            try {
+                await applyPatch(p);
+                console.log(`Patch ${i + 1} applied successfully`);
+            } catch (error) {
+                console.error(`Failed to apply patch ${i + 1}:`, error.message);
+                throw error;
+            }
         }
-        await gitApplyUnifiedDiff(p.diff);
     }
 
-    // 4) Checks
-    await npmChecks();
+    // 4) Commit
+    const commitMsg = summaryCommitMessage ? summaryCommitMessage() : `feat(${task.id}): ${task.title}`;
+    console.log("Committing changes with message:", commitMsg);
+    await gitCommit(commitMsg);
 
-    // 5) Commit
-    await gitCommit(summaryCommitMessage ? summaryCommitMessage() : `feat(${task.id}): ${task.title}`);
-
-    // 6) Report
     return {
         branch,
         taskId: task.id,
@@ -77,3 +125,4 @@ export async function runTask(task) {
         plan
     };
 }
+
