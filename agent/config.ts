@@ -9,7 +9,7 @@ export const CONFIG = {
     appPath: path.resolve(process.cwd(), "../app"),
     backlogPath: "backlog/tasks.yaml",
     llm: {
-        model: "gpt-5-nano"
+        model: "gpt-5"
     },
     commands: {
         typecheck: "npm run typecheck",
