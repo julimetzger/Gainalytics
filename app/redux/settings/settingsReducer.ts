@@ -6,6 +6,7 @@ export interface AppSettings {
     localNotification?: {
         pauseTimerInSeconds?: number
         finishTrainingTimerInSeconds?: number
+        exactAlarmPermission?: boolean
     }
     toggles?: {
         useRpe?: boolean
