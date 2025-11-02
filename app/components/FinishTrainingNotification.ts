@@ -1,11 +1,13 @@
-import { useEffect, useRef, useCallback } from 'react';
+import {useEffect, useRef, useCallback} from 'react';
+import {Platform} from 'react-native';
 import notifee, {
     AlarmType,
     AndroidImportance,
     TimestampTrigger,
     TriggerType,
 } from '@notifee/react-native';
-import { useSettings } from '../redux/settings/useSettings';
+import {useSettings} from '../redux/settings/useSettings';
+import {canScheduleExactAlarms, openExactAlarmSettings} from "../utils/NotificationUtils";
 
 function createChannel() {
     return notifee.createChannel({
@@ -24,7 +26,8 @@ export const FinishTrainingNotification = () => {
 
     useEffect(() => {
         (async () => {
-            await notifee.requestPermission();     // Android 13+ / iOS
+            // Android 13+ runtime notif permission + iOS prompt
+            await notifee.requestPermission();
             channelIdRef.current = await createChannel();
         })();
     }, []);
@@ -35,17 +38,33 @@ export const FinishTrainingNotification = () => {
         const channelId = channelIdRef.current ?? (await createChannel());
         channelIdRef.current = channelId;
 
-        const batteryOptimizationEnabled = await notifee.isBatteryOptimizationEnabled();
+        // Prefer exact alarm if we can
+        let useExact = false;
+        if (Platform.OS === 'android') {
+            if (Platform.Version >= 31) {
+                useExact = await canScheduleExactAlarms();
+                if (!useExact) {
+                    // Optional UX: take user to Settings to allow exact alarms
+                    await openExactAlarmSettings();
+                    // Re-check (optional)
+                    try {
+                        useExact = await canScheduleExactAlarms();
+                    } catch {
+                    }
+                }
+            } else {
+                useExact = true; // < Android 12: exact alarms allowed without special permission
+            }
+        }
 
         const trigger: TimestampTrigger = {
             type: TriggerType.TIMESTAMP,
-            timestamp: Date.now() + pauseTimerInSeconds! * 1000, // non-null assertion once
-            // Use AlarmManager only if battery optimization is OFF; else let WorkManager handle it
-            ...(!batteryOptimizationEnabled && {
-                alarmManager: { type: AlarmType.SET_AND_ALLOW_WHILE_IDLE },
-            }),
+            // small buffer helps avoid "now/past" rounding issues
+            timestamp: Date.now() + pauseTimerInSeconds * 1000 + 250,
+            ...(useExact && {alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE}}),
         };
 
+        console.log("exact ", useExact)
         await notifee.createTriggerNotification(
             {
                 id: notificationIdRef.current,
@@ -54,7 +73,7 @@ export const FinishTrainingNotification = () => {
                 android: {
                     channelId,
                     smallIcon: '@mipmap/icon_notification',
-                    pressAction: { id: 'default' },
+                    pressAction: {id: 'default'},
                 },
             },
             trigger
