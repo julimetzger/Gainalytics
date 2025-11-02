@@ -7,7 +7,7 @@ import notifee, {
     TriggerType,
 } from '@notifee/react-native';
 import {useSettings} from '../redux/settings/useSettings';
-import {canScheduleExactAlarms, openExactAlarmSettings} from "../utils/NotificationUtils";
+import {canScheduleExactAlarms} from "../utils/NotificationUtils";
 
 function createChannel() {
     return notifee.createChannel({
@@ -43,15 +43,7 @@ export const FinishTrainingNotification = () => {
         if (Platform.OS === 'android') {
             if (Platform.Version >= 31) {
                 useExact = await canScheduleExactAlarms();
-                if (!useExact) {
-                    // Optional UX: take user to Settings to allow exact alarms
-                    await openExactAlarmSettings();
-                    // Re-check (optional)
-                    try {
-                        useExact = await canScheduleExactAlarms();
-                    } catch {
-                    }
-                }
+                // Removed automatic openExactAlarmSettings - user should manage this in Settings
             } else {
                 useExact = true; // < Android 12: exact alarms allowed without special permission
             }

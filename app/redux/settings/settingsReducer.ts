@@ -89,6 +89,16 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
                 }
             } as AppSettings;
         }
+        case 'SET_EXACT_ALARM_PERMISSION':
+            return {
+                ...settings,
+                localNotification: {
+                    ...settings.localNotification,
+                    exactAlarmPermission: action.hasPermission
+                }
+
+            };
+
         default:
             return settings;
     }

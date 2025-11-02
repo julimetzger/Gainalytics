@@ -1,7 +1,7 @@
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/exerciseRouter";
-import React, {useState} from "react";
-import {Alert, ScrollView, View, StyleSheet} from "react-native";
+import React, {useState, useEffect} from "react";
+import {Alert, ScrollView, View, StyleSheet, Platform} from "react-native";
 import {Button, Dialog, Divider, Portal, RadioButton, Switch, Text} from "react-native-paper";
 import {useSettings} from "../../redux/settings/useSettings";
 import {useStore} from "react-redux";
@@ -17,6 +17,8 @@ import {dispatchToggleShowTimer} from "../../redux/settings/dispatchToggleShowTi
 import {dispatchToggleShowPlusButtonLeft} from "../../redux/settings/dispatchToggleShowPlusButtonLeft";
 import {dispatchToggleMode} from "../../redux/settings/dispatchToggleMode";
 import {dispatchSetPalette} from "../../redux/settings/dispatchSetPalette";
+import {canScheduleExactAlarms, openExactAlarmSettings} from "../../utils/NotificationUtils";
+import {dispatchSetExactAlarmPermission} from "../../redux/settings/dispatchSetExactAlarmPersmission";
 
 const SettingsTab = ({navigation}: Props) => {
     let settings = useSettings();
@@ -25,13 +27,74 @@ const SettingsTab = ({navigation}: Props) => {
     let toggleShowTimer = dispatchToggleShowTimer();
     let toggleShowPlusButtonLeft = dispatchToggleShowPlusButtonLeft();
     let setPalette = dispatchSetPalette();
+    let setExactAlarmPermission = dispatchSetExactAlarmPermission();
     let store = useStore();
     const FileSaver = require('react-native-fs');
 
-    const [importDialog, setImportDialog] = useState(false)
+    const [importDialog, setImportDialog] = useState(false);
+    const [exactAlarmStatus, setExactAlarmStatus] = useState<boolean | null>(null);
+
     let fullImport = dispatchFullImport();
     let setPauseTimer = dispatchSetPauseTimer();
     let setFinishTrainingTimer = dispatchSetFinishTrainingTimer();
+
+    // Check exact alarm permission on component mount
+    useEffect(() => {
+        const checkExactAlarmPermission = async () => {
+            if (Platform.OS === 'android' && Platform.Version >= 31) {
+                try {
+                    const hasPermission = await canScheduleExactAlarms();
+                    setExactAlarmStatus(hasPermission);
+                    setExactAlarmPermission(hasPermission);
+                } catch (error) {
+                    console.error('Error checking exact alarm permission:', error);
+                    setExactAlarmStatus(false);
+                    setExactAlarmPermission(false);
+                }
+            } else {
+                // For Android < 12 or other platforms
+                setExactAlarmStatus(true);
+                setExactAlarmPermission(true);
+            }
+        };
+
+        checkExactAlarmPermission();
+    }, [setExactAlarmPermission]);
+
+    const handleExactAlarmSettings = async () => {
+        try {
+            await openExactAlarmSettings();
+            // Re-check permission after returning from settings
+            setTimeout(async () => {
+                try {
+                    const hasPermission = await canScheduleExactAlarms();
+                    setExactAlarmStatus(hasPermission);
+                    setExactAlarmPermission(hasPermission);
+
+                    if (hasPermission) {
+                        Toast.show({
+                            type: 'success',
+                            text1: 'Exact Alarm Permission Granted',
+                            text2: 'Notifications will now be more reliable',
+                            position: 'top',
+                            visibilityTime: 3000,
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error re-checking exact alarm permission:', error);
+                }
+            }, 1000);
+        } catch (error) {
+            console.error('Error opening exact alarm settings:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Settings Error',
+                text2: 'Could not open alarm settings',
+                position: 'top',
+                visibilityTime: 3000,
+            });
+        }
+    };
 
     function dumbFullStateToFile() {
         const state = store.getState();
@@ -117,13 +180,36 @@ const SettingsTab = ({navigation}: Props) => {
                 <Switch onValueChange={(_) => { toggleShowTimer(); }} value={!settings.toggles?.disableTimer}/>
             </View>
             <View style={styles.divider}><Divider/></View>
+
+            {/* Exact Alarm Permission Section */}
+            {Platform.OS === 'android' && Platform.Version >= 31 && (
+                <>
+                    <View style={styles.row}>
+                        <View style={{flex: 1, marginRight: 10}}>
+                            <Text style={{fontSize: 16, marginBottom: 4}}>Exact Alarm Permission</Text>
+                            <Text style={{fontSize: 12, color: 'gray'}}>
+                                {exactAlarmStatus ? 'Enabled - Notifications will be precise' : 'Disabled - Notifications may be delayed'}
+                            </Text>
+                        </View>
+                        <Button
+                            mode="outlined"
+                            onPress={handleExactAlarmSettings}
+                            disabled={exactAlarmStatus === null}
+                        >
+                            {exactAlarmStatus ? 'Enabled' : 'Enable'}
+                        </Button>
+                    </View>
+                    <View style={styles.divider}><Divider/></View>
+                </>
+            )}
+
             <View style={styles.button}>
                 <TimeRangePicker setPauseTimer={setPauseTimer}
-                                title={'Pause Timer: '}
-                                timeRange={settings.localNotification?.pauseTimerInSeconds}/>
+                                 title={'Pause Timer: '}
+                                 timeRange={settings.localNotification?.pauseTimerInSeconds}/>
                 <TimeRangePicker setPauseTimer={setFinishTrainingTimer}
-                                title={'Finish Training Timer: '}
-                                timeRange={settings.localNotification?.finishTrainingTimerInSeconds}/>
+                                 title={'Finish Training Timer: '}
+                                 timeRange={settings.localNotification?.finishTrainingTimerInSeconds}/>
             </View>
             <View style={styles.divider}><Divider/></View>
             <View style={{flexDirection: 'row'}}>
@@ -142,10 +228,10 @@ const SettingsTab = ({navigation}: Props) => {
                     </Dialog.Content>
                     <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'space-between'}}>
                         <Dialog.Actions style={{justifyContent: 'space-between'}}>
-                        <Button onPress={() =>
+                            <Button onPress={() =>
                                 setImportDialog(false)
                             }>Cancel</Button>
-                        <Button onPress={() => {
+                            <Button onPress={() => {
                                 doce();
                                 setImportDialog(false)
                             }}>Import</Button>
@@ -162,6 +248,7 @@ const styles = StyleSheet.create({
         display: 'flex',
         flexDirection: 'row',
         justifyContent: 'space-between',
+        alignItems: 'center',
         marginVertical: 5,
         marginHorizontal: 15,
     },

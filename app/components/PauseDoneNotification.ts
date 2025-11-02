@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useCallback } from 'react';
 import { Platform } from 'react-native';
 import notifee, {
@@ -7,7 +8,7 @@ import notifee, {
     TriggerType,
 } from '@notifee/react-native';
 import { useSettings } from '../redux/settings/useSettings';
-import {canScheduleExactAlarms, openExactAlarmSettings} from "../utils/NotificationUtils";
+import {canScheduleExactAlarms} from "../utils/NotificationUtils";
 
 function createChannel() {
     return notifee.createChannel({
@@ -42,13 +43,7 @@ export const PauseDoneNotification = () => {
         if (Platform.OS === 'android') {
             if (Platform.Version >= 31) {
                 useExact = await canScheduleExactAlarms();
-                if (!useExact) {
-                    // Optionale UX: User zu den Einstellungen führen
-                    await openExactAlarmSettings();
-                    try {
-                        useExact = await canScheduleExactAlarms();
-                    } catch {}
-                }
+                // Removed automatic openExactAlarmSettings - user should manage this in Settings
             } else {
                 useExact = true; // < Android 12
             }
