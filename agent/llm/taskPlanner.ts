@@ -3,12 +3,13 @@ import {CONFIG} from "../config.js";
 import fs from "fs";
 import path from "path";
 import {Task} from "../backlog/backlogTask";
+import {Plan} from "./plant";
 
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
-export async function planSteps(task: Task) {
+export async function planSteps(task: Task): Plan {
     // Sammle Dateiinhalte für jede Komponente
     const componentFiles = task.components.map(component => {
         try {
@@ -40,10 +41,36 @@ ${componentFiles.map(file => `
 ${file.content}
 `).join('\n')}
 
+REQUIRED JSON OUTPUT FORMAT:
+{
+  "planId": "string - unique identifier for this plan",
+  "taskId": "string - the task ID being processed", 
+  "title": "string - brief title of what will be implemented",
+  "description": "string - what this plan will accomplish",
+  "steps": [
+    {
+      "stepId": "string - unique step identifier like 'step-1', 'step-2'", 
+      "action": "string - one of: 'create', 'modify', 'delete'",
+      "file": "string - relative path from project root like 'components/MyComponent.tsx'",
+      "description": "string - what this step does",
+      "dependencies": ["string array - stepIds this step depends on, empty if none"]
+    }
+  ],
+  "estimatedFiles": "number - estimated number of files to be changed",
+  "complexity": "string - one of: 'low', 'medium', 'high'"
+}
+
 Rules:
-- Use Gainalytics conventions as in the system description
-- Each step must describe a concrete edit or file to add/change.
-- Keep plan concise (<10 steps).
+- Use Gainalytics conventions (React Native 0.72.6, TypeScript, React Native Paper)
+- Each step MUST have a concrete file path and action
+- Keep plan concise (<10 steps)
+- Only reference files that actually need to be changed
+- Use proper TypeScript interfaces and functional components
+- Include test files when creating new components
+- File paths must be relative from project root (no leading slash)
+- stepId format: "step-1", "step-2", etc.
+
+RESPOND ONLY WITH VALID JSON, NO ADDITIONAL TEXT.
 `;
 
     const backlogFile = path.join(CONFIG.repoRoot, "kiContext.md");
@@ -67,6 +94,22 @@ Rules:
     }
 
     const plan = JSON.parse(messageContent);
+
+    // Validiere das Planformat
+    if (!plan.planId || !plan.steps || !Array.isArray(plan.steps)) {
+        throw new Error("Invalid plan format received from LLM");
+    }
+
+    // Validiere jeden Step
+    for (const step of plan.steps) {
+        if (!step.stepId || !step.action || !step.file || !step.description) {
+            throw new Error(`Invalid step format: ${JSON.stringify(step)}`);
+        }
+        if (!['create', 'modify', 'delete'].includes(step.action)) {
+            throw new Error(`Invalid action '${step.action}' in step ${step.stepId}`);
+        }
+    }
+
     return plan;
 }
 
