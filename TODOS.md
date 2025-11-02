@@ -36,8 +36,6 @@
 
 ## Bugs
 
-- Push Timer funktioniert nur manchmal, bei manuellem Reset des Timers und nicht bei Haken
-- Push Timer funktioniert nur ungenau
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
 
 ## Low Prio Themen
