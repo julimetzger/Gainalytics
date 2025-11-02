@@ -19,8 +19,8 @@ function createChannel() {
 
 export const FinishTrainingNotification = () => {
     let appSettings = useSettings();
-    const pauseTimerInSeconds =
-        appSettings.localNotification?.pauseTimerInSeconds ?? 0;
+    const finishTrainingTimerInSeconds =
+        appSettings.localNotification?.finishTrainingTimerInSeconds ?? 0;
     const useExact = appSettings.localNotification?.exactAlarmPermission ?? false;
 
     const channelIdRef = useRef<string>();
@@ -35,7 +35,7 @@ export const FinishTrainingNotification = () => {
     }, []);
 
     const schedule = useCallback(async () => {
-        if (pauseTimerInSeconds <= 0) return;
+        if (finishTrainingTimerInSeconds <= 0) return;
 
         const channelId = channelIdRef.current ?? (await createChannel());
         channelIdRef.current = channelId;
@@ -43,7 +43,7 @@ export const FinishTrainingNotification = () => {
         const trigger: TimestampTrigger = {
             type: TriggerType.TIMESTAMP,
             // small buffer helps avoid "now/past" rounding issues
-            timestamp: Date.now() + pauseTimerInSeconds * 1000 + 250,
+            timestamp: Date.now() + finishTrainingTimerInSeconds * 1000 + 250,
             ...(useExact && {alarmManager: {type: AlarmType.SET_EXACT_AND_ALLOW_WHILE_IDLE}}),
         };
 
@@ -60,7 +60,7 @@ export const FinishTrainingNotification = () => {
             },
             trigger
         );
-    }, [pauseTimerInSeconds]);
+    }, [finishTrainingTimerInSeconds]);
 
     const cancel = useCallback(async () => {
         await notifee.cancelNotification(notificationIdRef.current);
