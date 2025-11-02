@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { Platform } from 'react-native';
 import notifee, {
     AlarmType,
     AndroidImportance,
@@ -6,6 +7,7 @@ import notifee, {
     TriggerType,
 } from '@notifee/react-native';
 import { useSettings } from '../redux/settings/useSettings';
+import {canScheduleExactAlarms, openExactAlarmSettings} from "../utils/NotificationUtils";
 
 function createChannel() {
     return notifee.createChannel({
@@ -22,7 +24,6 @@ export const PauseDoneNotification = () => {
     const channelIdRef = useRef<string>();
     const notificationIdRef = useRef<string>('pause_done'); // stable id
 
-    // Run once, await setup to avoid races
     useEffect(() => {
         (async () => {
             await notifee.requestPermission(); // Android 13+ POST_NOTIFICATIONS / iOS
@@ -36,22 +37,34 @@ export const PauseDoneNotification = () => {
         const channelId = channelIdRef.current ?? (await createChannel());
         channelIdRef.current = channelId;
 
-        const batteryOptimizationEnabled = await notifee.isBatteryOptimizationEnabled();
+        // ---- Always prefer AlarmManager exact trigger ----
+        let useExact = false;
+        if (Platform.OS === 'android') {
+            if (Platform.Version >= 31) {
+                useExact = await canScheduleExactAlarms();
+                if (!useExact) {
+                    // Optionale UX: User zu den Einstellungen führen
+                    await openExactAlarmSettings();
+                    try {
+                        useExact = await canScheduleExactAlarms();
+                    } catch {}
+                }
+            } else {
+                useExact = true; // < Android 12
+            }
+        }
 
         const trigger: TimestampTrigger = {
             type: TriggerType.TIMESTAMP,
-            timestamp: Date.now() + pauseTimerInSeconds! * 1000, // <- single !
-            // Use AlarmManager only when not battery-optimized; otherwise let WorkManager handle it
-            ...(!batteryOptimizationEnabled && {
-                alarmManager: { type: AlarmType.SET_AND_ALLOW_WHILE_IDLE },
-            }),
+            timestamp: Date.now() + pauseTimerInSeconds * 1000 + 250, // kleine Pufferzeit
+            ...(useExact && { alarmManager: { type: AlarmType.SET_AND_ALLOW_WHILE_IDLE } }),
         };
 
         await notifee.createTriggerNotification(
             {
                 id: notificationIdRef.current,
-                title: 'Pause expired!',
-                body: 'It is time to crush your next set!',
+                title: 'Pause beendet!',
+                body: 'Zeit, das nächste Set zu starten!',
                 android: {
                     channelId,
                     smallIcon: '@mipmap/icon_notification',
