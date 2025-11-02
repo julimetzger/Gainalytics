@@ -12,17 +12,17 @@ const client = new OpenAI({
 export async function planSteps(task: Task): Plan {
     // Sammle Dateiinhalte für jede Komponente
     const componentFiles = task.components.map(component => {
+        const filePath = path.join(CONFIG.appPath, component);
         try {
-            const filePath = path.join(CONFIG.appPath, component);
             const content = fs.readFileSync(filePath, "utf8");
             return {
-                filePath: component,
+                filePath,
                 content: content
             };
         } catch (error) {
             console.warn(`Could not read file: ${component}`, error);
             return {
-                filePath: component,
+                filePath,
                 content: "// File not found or could not be read"
             };
         }
@@ -77,10 +77,10 @@ RESPOND ONLY WITH VALID JSON, NO ADDITIONAL TEXT.
     const body: OpenAI.Chat.ChatCompletionCreateParams = {
         model: CONFIG.llm.model,
         messages: [
-            { role: "system" as const, content: fs.readFileSync(backlogFile, "utf8") },
-            { role: "user" as const, content: userPrompt }
+            {role: "system" as const, content: fs.readFileSync(backlogFile, "utf8")},
+            {role: "user" as const, content: userPrompt}
         ],
-        response_format: { type: "json_object" }
+        response_format: {type: "json_object"}
     };
 
     console.log("body is", JSON.stringify(body, null, 2));
