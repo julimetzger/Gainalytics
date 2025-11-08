@@ -3,11 +3,11 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../routing/exerciseRouter";
 import React from "react";
 import { useExercise } from "../../redux/Exercises/useExercise";
-import { Card, Text, Divider } from "react-native-paper";
+import { Card, Text } from "react-native-paper";
 import { useWorkoutsByIds } from "../../redux/Workout/useWorkoutsByIds";
 import { Workout } from "../../models/Workout";
 import { Record } from "../../models/Exercise";
-import { repetitionWeightByOneRm } from "../../utils/RepetitionMaxHelper";
+import { repetitionWeightByOneRm } from "../../utils/AnalyseUtils";
 
 const ExerciseStatisticsTabs = ({ route }: Props) => {
     let exercise = useExercise(route.params.exercise.id!!);
@@ -23,7 +23,7 @@ const ExerciseStatisticsTabs = ({ route }: Props) => {
     return (
         <ScrollView style={styles.container} keyboardShouldPersistTaps={"handled"}>
             <Card style={styles.card}>
-                <Card.Title title="Rep Estimates Based on Current 1RM" titleStyle={styles.cardTitle} 
+                <Card.Title title="Rep Estimates Based on Current 1RM" titleStyle={styles.cardTitle}
                             titleNumberOfLines={2}/>
                 <Card.Content>
                     {currentOneRm ? (

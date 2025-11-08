@@ -1,6 +1,6 @@
 import {useSelector} from "react-redux";
 import {GlobalState} from "../rootReducer";
-import {Range} from "../../components/DateRangePicker";
+import {Range} from "../../components/picker/date/DateRangePicker";
 import {dateComparator, HOURS_IN_MILLIS} from "../../utils/DateHelper";
 import {compareArrays} from "../../utils/ArrayUtils";
 

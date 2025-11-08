@@ -3,18 +3,18 @@ import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/AnalyseRouter";
 import {processColor, ScrollView, StyleSheet, View} from "react-native";
 import {LineChart, LineValue} from "react-native-charts-wrapper";
-import DateRangePicker, {Range} from "../../components/DateRangePicker";
+import DateRangePicker, {Range} from "../../components/picker/date/DateRangePicker";
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from "../../utils/DateHelper";
-import Picker, {Accumulation, AccumulationMode, Metric} from "../../components/Picker";
+import TrainingElementPicker, {Accumulation, AccumulationMode, Metric} from "../../components/picker/elements/TrainingElementPicker";
 import {Exercise} from "../../models/Exercise";
 import {Muscles} from "../../models/Muscles";
 import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscles";
 import {useWorkoutsIn} from "../../redux/Workout/useWorkoutsIn";
 import {Workout} from "../../models/Workout";
 import {Card, useTheme, HelperText} from "react-native-paper";
-import {handleAccumulationModeBatching} from "./HandleAccumulationModeBatching";
+import {handleAccumulationModeBatching} from "../../utils/HandleAccumulationModeBatching";
 import {sum} from "lodash";
-import {calculateMetricValue, calculateMetricValueForMuscles} from "../../utils/RepetitionMaxHelper";
+import {calculateMetricValue, calculateMetricValueForMuscles} from "../../utils/AnalyseUtils";
 import {generateTrend} from "../../utils/generateTrend";
 
 const GraphsTab = () => {
@@ -105,10 +105,10 @@ const GraphsTab = () => {
             display: 'flex',
             flex: 1,
         }}>
-            <Picker exercise={exercise} setExercise={setExercise}
-                    accumulation={accumulation} setAccumulation={setAccumulation}
-                    muscle={muscle} setMuscle={setMuscle}
-            dropdownLabel={"Select Exercise and Accumulation Mode"}
+            <TrainingElementPicker exercise={exercise} setExercise={setExercise}
+                                   accumulation={accumulation} setAccumulation={setAccumulation}
+                                   muscle={muscle} setMuscle={setMuscle}
+                                   dropdownLabel={"Select Exercise and Accumulation Mode"}
             />
             <DateRangePicker range={range} setRange={setRange}/>
 

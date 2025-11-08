@@ -1,6 +1,6 @@
 import {useSelector} from 'react-redux';
 import {GlobalState} from '../rootReducer';
-import {Range} from "../../components/DateRangePicker";
+import {Range} from "../../components/picker/date/DateRangePicker";
 import {createSelector} from "@reduxjs/toolkit";
 import {NormalizedState} from "../normalizedState";
 import {Workout} from "../../models/Workout";

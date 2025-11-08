@@ -1,5 +1,5 @@
 import {WorkoutSet} from "./WorkoutSet";
-import {Acuumalatable} from "../tabs/Analyse/HandleAccumulationModeBatching";
+import {Acuumalatable} from "../utils/HandleAccumulationModeBatching";
 
 export interface Workout extends Acuumalatable{
     id?: number

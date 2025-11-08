@@ -3,8 +3,8 @@ import {Action} from "redux";
 import {WorkoutSet} from "../../models/WorkoutSet";
 import {Workout} from "../../models/Workout";
 import {Record} from "../../models/Exercise";
-import {calculateMetricValue} from "../../utils/RepetitionMaxHelper";
-import {Metric} from "../../components/Picker";
+import {calculateMetricValue} from "../../utils/AnalyseUtils";
+import {Metric} from "../../components/picker/elements/TrainingElementPicker";
 
 export const dispatchDeleteSetFromWorkout = () => {
     const dispatch = useDispatch();

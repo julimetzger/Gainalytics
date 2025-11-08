@@ -4,7 +4,7 @@ import {Button, Card, IconButton, ProgressBar, Text, TextInput} from "react-nati
 import {useAllTrainingsPlans} from "../../redux/Training/useAllTrainingsPlans";
 import {RootStackParamList} from "../../routing/TrainingRouter";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
-import AddTrainingsPlan from "./AddTrainingsPlan";
+import AddTrainingsPlan from "../../components/Training/add/AddTrainingsPlan";
 import {TrainingsState} from "../../models/TrainingsState";
 import {useTrainings} from "../../redux/Training/useTrainings";
 import {Exercise} from "../../models/Exercise";
@@ -15,7 +15,7 @@ import {
 } from "../../redux/Training/trainingsPlanReducer";
 import {useSettings} from "../../redux/settings/useSettings";
 import {TextInput as RNTextInput} from 'react-native';
-import TrainingOverviewCard from "../../components/TrainingOverviewCard";
+import TrainingOverviewCard from "../../components/Training/analyse/TrainingOverviewCard";
 
 interface TrainingMapping {
     firstStartedTraining?: {
