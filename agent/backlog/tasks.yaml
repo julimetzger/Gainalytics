@@ -1,10 +1,10 @@
 - id: TRN-104
-  title: "Exercise Category filter on TrainingHome"
+  title: 'Exercise Category filter on TrainingHome'
   priority: 1
   status: ready
   estimate: 2h
-  owners: ["agent"]
-  components: ["TrainingHome", "ExerciseCategory"]
+  owners: ['agent']
+  components: ['TrainingHome', 'ExerciseCategory']
   description: |
     Add a category filter chip row on TrainingHome to filter templates.
   acceptanceCriteria:
@@ -19,12 +19,12 @@
   testPlan:
     - Jest unit + RN Testing Library snapshot for chip row.
 - id: TRN-105
-  title: "Records in Trainings Overview anzeigen"
+  title: 'Records in Trainings Overview anzeigen'
   priority: 1
   status: ready
   estimate: 2h
-  owners: ["agent"]
-  components: ["components/TrainingOverviewCard.tsx"]
+  owners: ['agent']
+  components: ['components/TrainingOverviewCard.tsx']
   description: |
     Der user möchte sehen wieviele records er in dem letzten Micro gemacht hat
   acceptanceCriteria:
