@@ -7,7 +7,7 @@ import {
 } from "../../../utils/DateHelper";
 import * as React from "react";
 import {useState} from "react";
-import {useWorkoutsIn} from "../../../redux/Workout/useWorkoutsIn";
+import {useWorkoutsIn} from "../../../redux/Workout/use/useWorkoutsIn";
 import {useTheme} from "react-native-paper";
 import {Range} from "./DateRangePicker";
 import {DateData} from "react-native-calendars";

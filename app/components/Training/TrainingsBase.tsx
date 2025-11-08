@@ -1,8 +1,8 @@
 import {View} from "react-native";
 import {Button} from "react-native-paper";
 import React from "react";
-import {dispatchSuggestBasedOnTrained} from "../../redux/Training/dispatchSuggestBasedOnTrained";
-import {dispatchSuggestBasedOnPlanned} from "../../redux/Training/dispatchSuggestBasedOnPlanned";
+import {dispatchSuggestBasedOnTrained} from "../../redux/Training/dispatch/plan/dispatchSuggestBasedOnTrained";
+import {dispatchSuggestBasedOnPlanned} from "../../redux/Training/dispatch/plan/dispatchSuggestBasedOnPlanned";
 import {TrainingsPlan} from "../../models/TrainingsPlan";
 
 interface TrainingsBaseProps {

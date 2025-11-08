@@ -1,7 +1,7 @@
 import React, {useState} from "react";
 import WorkoutView from "../../Workout/show/WorkoutDoneList";
 import {ScrollView} from "react-native";
-import {useAllLastWorkouts} from "../../../redux/Workout/useAllLastWorkouts";
+import {useAllLastWorkouts} from "../../../redux/Workout/use/useAllLastWorkouts";
 import {Exercise} from "../../../models/Exercise";
 
 interface ExercisehistoryProps {

@@ -8,12 +8,12 @@ import {Exercise, Record} from "../../models/Exercise";
 import {Muscles} from "../../models/Muscles";
 import DateRangePicker, {Range} from "../../components/picker/date/DateRangePicker";
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from "../../utils/DateHelper";
-import {useWorkoutsIn} from "../../redux/Workout/useWorkoutsIn";
+import {useWorkoutsIn} from "../../redux/Workout/use/useWorkoutsIn";
 import {Workout} from "../../models/Workout";
-import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscles";
+import {useExercisesForMuscles} from "../../redux/Exercises/use/useExercisesForMuscles";
 import {handleAccumulationModeBatching} from "../../utils/HandleAccumulationModeBatching";
 import {Card, Text, useTheme} from "react-native-paper";
-import {useAlleExercises} from "../../redux/Exercises/useAllExercises";
+import {useAlleExercises} from "../../redux/Exercises/use/useAllExercises";
 
 const RecordsTab = () => {
     let now = new Date(Date.now());

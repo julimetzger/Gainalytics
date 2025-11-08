@@ -1,9 +1,9 @@
-import {useAlleExercises} from "../../../redux/Exercises/useAllExercises";
+import {useAlleExercises} from "../../../redux/Exercises/use/useAllExercises";
 import React, {useEffect, useState} from 'react';
 import {IDropdownData, MultiselectDropdown} from "sharingan-rn-modal-dropdown";
 import {Icon, IconButton, useTheme} from "react-native-paper";
 import {StyleProp, View, ViewStyle} from "react-native";
-import {useAllTrainingsPlans} from "../../../redux/Training/useAllTrainingsPlans";
+import {useAllTrainingsPlans} from "../../../redux/Training/use/useAllTrainingsPlans";
 import {Muscles} from "../../../models/Muscles";
 import {Exercise} from "../../../models/Exercise";
 import {TrainingsPlan} from "../../../models/TrainingsPlan";

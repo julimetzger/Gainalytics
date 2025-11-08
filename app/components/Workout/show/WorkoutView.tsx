@@ -5,11 +5,11 @@ import OutsidePressHandler from "react-native-outside-press";
 import AddWorkoutSet from "../add/AddWorkoutSet";
 import WorkoutSetView from "./WorkoutSetView";
 import {Metric} from "../../picker/elements/TrainingElementPicker";
-import {dispatchDeleteSetFromWorkout} from "../../../redux/Workout/dispatchDeleteSetFromWorkout";
-import {dispatchAddOrUpdateSetInWorkout} from "../../../redux/Workout/dispatchAddOrUpdateSetInWorkout";
-import useDeleteWorkout from "../../../redux/Workout/useDeleteWorkout";
-import {useWorkoutById} from "../../../redux/Workout/useWorkoutById";
-import {useExercise} from "../../../redux/Exercises/useExercise";
+import {dispatchDeleteSetFromWorkout} from "../../../redux/Workout/dispatch/dispatchDeleteSetFromWorkout";
+import {dispatchAddOrUpdateSetInWorkout} from "../../../redux/Workout/dispatch/dispatchAddOrUpdateSetInWorkout";
+import dispatchDeleteWorkout from "../../../redux/Workout/dispatch/dispatchDeleteWorkout";
+import {useWorkoutById} from "../../../redux/Workout/use/useWorkoutById";
+import {useExercise} from "../../../redux/Exercises/use/useExercise";
 
 interface WorkoutViewTileProps {
     workoutId: number;
@@ -23,7 +23,7 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
 
     const workout = useWorkoutById(workoutId);
     const userExercise = useExercise(workout.exerciseId);
-    const deleteWorkout = useDeleteWorkout();
+    const deleteWorkout = dispatchDeleteWorkout();
     const deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
     const addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(userExercise);
 

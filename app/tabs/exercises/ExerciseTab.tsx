@@ -4,9 +4,9 @@ import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
 import {Divider, Text, TextInput, useTheme, IconButton} from 'react-native-paper';
 import AddExercise from '../../components/exercise/add/AddExercise';
-import {useAlleExercises} from '../../redux/Exercises/useAllExercises';
+import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 import {Exercise} from "../../models/Exercise";
-import {useSettings} from '../../redux/settings/useSettings';
+import {useSettings} from '../../redux/settings/use/useSettings';
 import { TextInput as RNTextInput } from 'react-native';
 
 const ExerciseTab = ({navigation, route}: Props) => {

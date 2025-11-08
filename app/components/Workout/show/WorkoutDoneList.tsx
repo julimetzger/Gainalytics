@@ -5,8 +5,8 @@ import {FlashList} from "@shopify/flash-list";
 import WorkoutViewTile from "./WorkoutView";
 import {Metric} from "../../picker/elements/TrainingElementPicker";
 import {getDateStringFromDate} from "../../../utils/DateHelper";
-import {useDateWorkoutMapByIds} from "../../../redux/Workout/useDateWorkoutMapByIds";
-import {useHighlightWorkout} from "../../../redux/Workout/useHighlightWorkout";
+import {useDateWorkoutMapByIds} from "../../../redux/Workout/use/useDateWorkoutMapByIds";
+import {useHighlightWorkout} from "../../../redux/Workout/use/useHighlightWorkout";
 
 interface WorkoutViewProps {
     workoutIds: number[];

@@ -4,11 +4,11 @@ import AnalyseRouter from "./AnalyseRouter";
 import SettingsRouter from "./SettingsRouter";
 import {createMaterialBottomTabNavigator} from "react-native-paper/react-navigation";
 import TrainingRouter from "./TrainingRouter";
-import {useTrainings} from '../redux/Training/useTrainings';
+import {useTrainings} from '../redux/Training/use/useTrainings';
 import {TrainingsState} from '../models/TrainingsState';
 import useExerciseRecord from "../redux/Effects/useExerciseRecord";
 import Toast from "react-native-toast-message";
-import {useExercise} from "../redux/Exercises/useExercise";
+import {useExercise} from "../redux/Exercises/use/useExercise";
 import { useNavigation } from '@react-navigation/native';
 
 const Tab = createMaterialBottomTabNavigator();

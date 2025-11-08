@@ -13,16 +13,16 @@ import ExecuteWorkoutInTraining from './execute/ExecuteTraining';
 import TrainingsOverview from './analyse/TrainingsOverview';
 import TrainingHistory from './analyse/TrainingHistory';
 import React, {useEffect, useState} from 'react';
-import {dispatchStartTraining} from '../../redux/Training/dispatchStartTraining';
-import {useExerciseByIds} from '../../redux/Exercises/useExerciseByIds';
+import {dispatchStartTraining} from '../../redux/Training/dispatch/plan/dispatchStartTraining';
+import {useExerciseByIds} from '../../redux/Exercises/use/useExerciseByIds';
 import {TrainingsPlan} from '../../models/TrainingsPlan';
-import {dispatchModifyExercisesInTraining} from '../../redux/Training/dispatchModifyExercisesInTraining';
-import {dispatchFinishTraining} from '../../redux/Training/dispatchFinishTraining';
+import {dispatchModifyExercisesInTraining} from '../../redux/Training/dispatch/general/dispatchModifyExercisesInTraining';
+import {dispatchFinishTraining} from '../../redux/Training/dispatch/execute/dispatchFinishTraining';
 import Toast from 'react-native-toast-message';
-import {useTrainingInTrainingsPlan} from '../../redux/Training/useTrainingInTrainingsPlan';
+import {useTrainingInTrainingsPlan} from '../../redux/Training/use/useTrainingInTrainingsPlan';
 import {PauseDoneNotification} from './execute/PauseDoneNotification';
 import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
-import {useSettings} from '../../redux/settings/useSettings';
+import {useSettings} from '../../redux/settings/use/useSettings';
 
 interface TrainingsPlanNodeProps {
     trainingsPlan: TrainingsPlan,

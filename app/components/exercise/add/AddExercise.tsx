@@ -1,10 +1,10 @@
 import {Button, Dialog, IconButton, Portal, Text, TextInput, useTheme} from 'react-native-paper';
 import {View} from 'react-native';
 import React, {useState} from 'react';
-import {useDispatchAddExercise} from '../../../redux/Exercises/dispatchAddExercise';
-import {dispatchEditExercise} from "../../../redux/Exercises/dispatchEditExercise";
-import {useExercise} from "../../../redux/Exercises/useExercise";
-import {dispatchDeleteExercise} from "../../../redux/Exercises/dispatchDeleteExercise";
+import {useDispatchAddExercise} from '../../../redux/Exercises/dispatch/dispatchAddExercise';
+import {dispatchEditExercise} from "../../../redux/Exercises/dispatch/dispatchEditExercise";
+import {useExercise} from "../../../redux/Exercises/use/useExercise";
+import {dispatchDeleteExercise} from "../../../redux/Exercises/dispatch/dispatchDeleteExercise";
 import MusclePicker from "./MusclePicker";
 import {MusclePercentPair} from "../../../models/Exercise";
 

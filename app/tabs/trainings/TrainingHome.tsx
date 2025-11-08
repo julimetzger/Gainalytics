@@ -1,19 +1,19 @@
 import {Pressable, ScrollView, StyleSheet, View} from "react-native";
 import React, {useEffect, useState} from "react";
 import {Button, Card, IconButton, ProgressBar, Text, TextInput} from "react-native-paper";
-import {useAllTrainingsPlans} from "../../redux/Training/useAllTrainingsPlans";
+import {useAllTrainingsPlans} from "../../redux/Training/use/useAllTrainingsPlans";
 import {RootStackParamList} from "../../routing/TrainingRouter";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import AddTrainingsPlan from "../../components/Training/add/AddTrainingsPlan";
 import {TrainingsState} from "../../models/TrainingsState";
-import {useTrainings} from "../../redux/Training/useTrainings";
+import {useTrainings} from "../../redux/Training/use/useTrainings";
 import {Exercise} from "../../models/Exercise";
 import {TrainingsPlan} from "../../models/TrainingsPlan";
 import {
     getMicroFromTrainingInMicroIndex,
     getTrainingFromTrainingInMicroIndex
 } from "../../redux/Training/trainingsPlanReducer";
-import {useSettings} from "../../redux/settings/useSettings";
+import {useSettings} from "../../redux/settings/use/useSettings";
 import {TextInput as RNTextInput} from 'react-native';
 import TrainingOverviewCard from "../../components/Training/analyse/TrainingOverviewCard";
 

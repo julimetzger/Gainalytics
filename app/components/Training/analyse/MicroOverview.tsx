@@ -1,8 +1,8 @@
 import React from "react";
 import {ScrollView, View} from "react-native";
-import {useAllTrainingsInMicro} from "../../../redux/Training/useAllTrainingsInMicro";
+import {useAllTrainingsInMicro} from "../../../redux/Training/use/useAllTrainingsInMicro";
 import MetricsOverviewForWorkouts from "../../analyse/MetricsOverviewForWorkouts";
-import {useWorkoutsByIds} from "../../../redux/Workout/useWorkoutsByIds";
+import {useWorkoutsByIds} from "../../../redux/Workout/use/useWorkoutsByIds";
 import {Card, Text} from "react-native-paper";
 import MetricView from "../../analyse/MetricComparison";
 import {Metric} from "../../picker/elements/TrainingElementPicker";
