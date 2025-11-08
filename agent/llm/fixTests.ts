@@ -12,7 +12,7 @@ export async function repairWithJestFeedback(plan: any, changedFiles: string[]) 
   console.log(`Test results written to: ${outPath} (exitCode=${exitCode})`);
   const summary = loadJestSummary(CONFIG.repoRoot);
   console.log('test summary is', summary);
-  if (summary.numFailedTests === 0) return null; // nothing to fix
+  if (summary.numFailedTests === 0 && summary.numFailedTestsTestSuites === 0) return null; // nothing to fix
 
   // 2) Build compact payload
   const payload = buildJestFeedback(summary, CONFIG.repoRoot, 5);

@@ -3,8 +3,8 @@
   priority: 1
   status: ready
   estimate: 2h
-  owners: ['agent']
-  components: ['TrainingHome', 'ExerciseCategory']
+  owners: [ 'agent' ]
+  components: [ 'TrainingHome', 'ExerciseCategory' ]
   description: |
     Add a category filter chip row on TrainingHome to filter templates.
   acceptanceCriteria:
@@ -15,7 +15,7 @@
   constraints:
     - React Native 0.72.6, Redux, RNPaper, StyleSheet only.
     - <200 LOC per file.
-  dependencies: []
+  dependencies: [ ]
   testPlan:
     - Jest unit + RN Testing Library snapshot for chip row.
 - id: TRN-105
@@ -23,8 +23,8 @@
   priority: 1
   status: ready
   estimate: 2h
-  owners: ['agent']
-  components: ['components/Training/analyse/TrainingOverviewCard.tsx']
+  owners: [ 'agent' ]
+  components: [ 'components/Training/analyse/TrainingOverviewCard.tsx','models/TrainingsPlan.ts','models/Training.ts', 'models/TrainingsState.ts','models/Workout.ts', 'models/WorkoutSet.ts', 'models/Exercise.ts', 'models/Muscles.ts' ]
   description: |
     Der user möchte sehen wieviele records er in dem letzten Micro gemacht hat
   acceptanceCriteria:
@@ -32,6 +32,6 @@
   constraints:
     - React Native 0.72.6, Redux, RNPaper, StyleSheet only.
     - <200 LOC per file.
-  dependencies: []
+  dependencies: [ ]
   testPlan:
     - Jest unit + RN Testing Library snapshot for chip row.

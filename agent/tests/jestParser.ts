@@ -12,6 +12,7 @@ export type JestFailure = {
 export type JestSummary = {
   numTotalTests: number;
   numFailedTests: number;
+  numFailedTestsTestSuites: number;
   numPassedTests: number;
   numPendingTests: number;
   failures: JestFailure[];
@@ -20,12 +21,20 @@ export type JestSummary = {
 export function loadJestSummary(repoRoot: string, jsonFile = '.agent/jest.json'): JestSummary {
   const p = path.join(repoRoot, jsonFile);
   if (!fs.existsSync(p)) {
-    return {numTotalTests: 0, numFailedTests: 0, numPassedTests: 0, numPendingTests: 0, failures: []};
+    return {
+      numTotalTests: 0,
+      numFailedTests: 0,
+      numFailedTestsTestSuites: 0,
+      numPassedTests: 0,
+      numPendingTests: 0,
+      failures: [],
+    };
   }
   const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
 
   const numTotalTests = raw.numTotalTests ?? 0;
   const numFailedTests = raw.numFailedTests ?? 0;
+  const numFailedTestsTestSuites = raw.numFailedTestSuites ?? 0;
   const numPassedTests = raw.numPassedTests ?? 0;
   const numPendingTests = raw.numPendingTests ?? 0;
 
@@ -57,7 +66,7 @@ export function loadJestSummary(repoRoot: string, jsonFile = '.agent/jest.json')
     });
   }
 
-  return {numTotalTests, numFailedTests, numPassedTests, numPendingTests, failures};
+  return {numTotalTests, numFailedTests, numFailedTestsTestSuites, numPassedTests, numPendingTests, failures};
 }
 
 function condenseMessage(s: string, max = 1200): string {
