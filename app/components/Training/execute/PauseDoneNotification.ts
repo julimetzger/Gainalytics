@@ -6,7 +6,7 @@ import notifee, {
     TimestampTrigger,
     TriggerType,
 } from '@notifee/react-native';
-import {useSettings} from '../../../redux/settings/useSettings';
+import {useSettings} from '../../../redux/settings/use/useSettings';
 import {canScheduleExactAlarms} from "../../../utils/NotificationUtils";
 
 function createChannel() {

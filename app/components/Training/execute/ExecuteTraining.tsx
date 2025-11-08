@@ -1,8 +1,8 @@
 import React, {useEffect, useState} from "react";
 import {Dimensions, View} from "react-native";
 import AddWorkout from "../../Workout/add/AddWorkout";
-import {useWorkoutById} from "../../../redux/Workout/useWorkoutById";
-import {useNextTrainingsId} from "../../../redux/Training/useNextTrainingsId";
+import {useWorkoutById} from "../../../redux/Workout/use/useWorkoutById";
+import {useNextTrainingsId} from "../../../redux/Training/use/useNextTrainingsId";
 import {Training} from "../../../models/Training";
 import {Exercise} from "../../../models/Exercise";
 import {WorkoutSet} from "../../../models/WorkoutSet";

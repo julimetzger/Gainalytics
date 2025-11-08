@@ -209,14 +209,6 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
                 return deleteWorkout(workoutState, action.workout.exerciseId, action.workout.id);
             }
             case
-            'UPDATE_WORKOUT': {
-                workoutState.byId[action.workout.id] = {...action.workout}
-                return {
-                    ...workoutState,
-                    byId: {...workoutState.byId},
-                } as NormalizedState<Workout>;
-            }
-            case
             'SUGGEST_WORKOUT': {
                 const keys = workoutState.byExerciseId[action.exerciseId][workoutState.byExerciseId[action.exerciseId].length - 1];
                 let lastWorkout = {

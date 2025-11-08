@@ -1,12 +1,12 @@
 import DateRangePicker, {Range} from "../picker/date/DateRangePicker";
-import {useWorkoutsIn} from "../../redux/Workout/useWorkoutsIn";
+import {useWorkoutsIn} from "../../redux/Workout/use/useWorkoutsIn";
 import WorkoutView from "../Workout/show/WorkoutDoneList";
 import {Divider, Text} from "react-native-paper";
 import {View} from "react-native";
 import {repetitionMax} from "../../utils/AnalyseUtils";
 import React, {memo} from "react";
 import {Muscles} from "../../models/Muscles";
-import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscles";
+import {useExercisesForMuscles} from "../../redux/Exercises/use/useExercisesForMuscles";
 import {Exercise} from "../../models/Exercise";
 import {Workout} from "../../models/Workout";
 

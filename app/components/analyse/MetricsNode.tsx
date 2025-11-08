@@ -1,6 +1,6 @@
-import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscles";
+import {useExercisesForMuscles} from "../../redux/Exercises/use/useExercisesForMuscles";
 import DateRangePicker, {Range} from "../picker/date/DateRangePicker";
-import {useWorkoutsIn} from "../../redux/Workout/useWorkoutsIn";
+import {useWorkoutsIn} from "../../redux/Workout/use/useWorkoutsIn";
 import {Workout} from "../../models/Workout";
 import MetricsOverviewForWorkouts from "./MetricsOverviewForWorkouts";
 import {Muscles} from "../../models/Muscles";

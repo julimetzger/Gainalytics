@@ -3,7 +3,7 @@ import {Button, IconButton, Text, TextInput, ToggleButton, Tooltip, useTheme} fr
 import React, {useEffect, useState} from "react";
 import {repetitionWeightByOneRm} from "../../../utils/AnalyseUtils";
 import {WorkoutSet} from "../../../models/WorkoutSet";
-import {useSettings} from "../../../redux/settings/useSettings";
+import {useSettings} from "../../../redux/settings/use/useSettings";
 
 interface AddWorkoutProps {
     onSubmit: (arg: WorkoutSet) => void,

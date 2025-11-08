@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {processColor, ScrollView, StyleSheet} from 'react-native';
 import {useTheme, HelperText} from 'react-native-paper';
-import {useWorkoutsIn} from "../../redux/Workout/useWorkoutsIn";
+import {useWorkoutsIn} from "../../redux/Workout/use/useWorkoutsIn";
 import DateRangePicker, {Range} from "../../components/picker/date/DateRangePicker";
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from "../../utils/DateHelper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
@@ -10,10 +10,10 @@ import {calculateMetricValue, calculateMetricValueForMuscles} from "../../utils/
 import {RootStackParamList} from "../../routing/SettingsRouter";
 import {sum} from "lodash";
 import TrainingElementPicker, {Accumulation, AccumulationMode, Metric} from "../../components/picker/elements/TrainingElementPicker";
-import {useWorkoutsByIds} from "../../redux/Workout/useWorkoutsByIds";
+import {useWorkoutsByIds} from "../../redux/Workout/use/useWorkoutsByIds";
 import WorkoutView from "../../components/Workout/show/WorkoutDoneList";
 import {Muscles} from "../../models/Muscles";
-import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscles";
+import {useExercisesForMuscles} from "../../redux/Exercises/use/useExercisesForMuscles";
 import {Exercise} from "../../models/Exercise";
 import {Workout} from "../../models/Workout";
 import {handleAccumulationModeBatching} from "../../utils/HandleAccumulationModeBatching";

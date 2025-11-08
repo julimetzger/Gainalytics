@@ -7,7 +7,7 @@ import {MD3DarkTheme as PaperDarkTheme, MD3LightTheme, Provider as PaperProvider
 import {BottomTabs} from './app/routing/bottomNavigator';
 import {EventProvider} from "react-native-outside-press";
 import {registerTranslation} from 'react-native-paper-dates';
-import {useSettings} from "./app/redux/settings/useSettings";
+import {useSettings} from "./app/redux/settings/use/useSettings";
 import Toast from "react-native-toast-message";
 import {StatusBar} from 'react-native';
 import {SafeAreaProvider} from "react-native-safe-area-context";
@@ -1016,7 +1016,7 @@ const AppWithPersist = () => {
                 <EventProvider>
                     <StatusBar backgroundColor={paperThemes.colors.background}
                                barStyle={appSettings?.mode === 'light' ? "dark-content" : "light-content"}/>
-                    <NavigationContainer 
+                    <NavigationContainer
                         theme={paperThemes}
                                            onStateChange={(state) => {
                        // Navigation-State-Tracking für Analytics

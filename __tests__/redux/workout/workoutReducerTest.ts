@@ -838,41 +838,6 @@ describe('workoutReducer', () => {
             })
         })
     })
-    describe('UPDATE_WORKOUT', () => {
-        it('should update Workout', () => {
-            expect(exerciseReducer(STATE_WITH_TWO_WORKOUTS(), {
-                type: 'UPDATE_WORKOUT',
-                workout: {
-                    exerciseId: 11,
-                    id: 1,
-                    notes: "new notes",
-                    sets: [
-                        {reps: 1, rir: 1, weight: 2222, date: TEST_DATE, index: 1},
-                        {reps: 2, rir: 2, weight: 2, date: TEST_DATE, index: 2}
-                    ],
-                    start: TEST_DATE,
-                    end: TEST_DATE
-                }
-            })).toEqual({
-                ...STATE_WITH_TWO_WORKOUTS(),
-
-                byId: {
-                    ...STATE_WITH_TWO_WORKOUTS().byId,
-                    1: {
-                        exerciseId: 11,
-                        id: 1,
-                        notes: "new notes",
-                        sets: [
-                            {reps: 1, rir: 1, weight: 2222, date: TEST_DATE, index: 1},
-                            {reps: 2, rir: 2, weight: 2, date: TEST_DATE, index: 2}
-                        ],
-                        start: TEST_DATE,
-                        end: TEST_DATE,
-                    }
-                }
-            })
-        });
-    })
     describe('START_TRAINING', () => {
         it('should finish not finalized workouts', () => {
             expect(exerciseReducer(

@@ -1,7 +1,7 @@
 import {ScrollView, View} from "react-native";
 import {Card, Text} from "react-native-paper";
 import React from "react";
-import {useWorkoutsByIds} from "../../../redux/Workout/useWorkoutsByIds";
+import {useWorkoutsByIds} from "../../../redux/Workout/use/useWorkoutsByIds";
 import MetricsOverviewForWorkouts from "../../analyse/MetricsOverviewForWorkouts";
 import {calculateMetricComparisons} from "../../../utils/AnalyseUtils";
 import MetricView from "../../analyse/MetricComparison";

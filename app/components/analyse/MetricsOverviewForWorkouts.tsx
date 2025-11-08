@@ -7,7 +7,7 @@ import {
 } from "../../utils/AnalyseUtils";
 import {Card, DataTable, Dialog, Portal, Text} from "react-native-paper";
 import React, {useState} from "react";
-import {useExerciseByIds} from "../../redux/Exercises/useExerciseByIds";
+import {useExerciseByIds} from "../../redux/Exercises/use/useExerciseByIds";
 import MetricView from "./MetricComparison";
 import {Muscles} from "../../models/Muscles";
 import {Exercise, MusclePercentPair} from "../../models/Exercise";

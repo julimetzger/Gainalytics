@@ -1,12 +1,12 @@
 import React from "react";
-import {useAllLastWorkouts} from "../../../redux/Workout/useAllLastWorkouts";
-import {useUnfinishedWorkout} from "../../../redux/Workout/useUnfinishedWorkout";
+import {useAllLastWorkouts} from "../../../redux/Workout/use/useAllLastWorkouts";
+import {useUnfinishedWorkout} from "../../../redux/Workout/use/useUnfinishedWorkout";
 import {Button, Text, useTheme} from "react-native-paper";
-import {useDispatchAddWorkout} from "../../../redux/Workout/useDispatchAddWorkout";
-import {dispatchAddOrUpdateSetInWorkout} from "../../../redux/Workout/dispatchAddOrUpdateSetInWorkout";
-import {dispatchFinalizeWorkout} from "../../../redux/Workout/dispatchFinalizeWorkout";
-import {dispatchDeleteSetFromWorkout} from "../../../redux/Workout/dispatchDeleteSetFromWorkout";
-import {dispatchSuggest} from "../../../redux/Workout/dispatchSuggest";
+import {dispatchAddWorkout} from "../../../redux/Workout/dispatch/dispatchAddWorkout";
+import {dispatchAddOrUpdateSetInWorkout} from "../../../redux/Workout/dispatch/dispatchAddOrUpdateSetInWorkout";
+import {dispatchFinalizeWorkout} from "../../../redux/Workout/dispatch/dispatchFinalizeWorkout";
+import {dispatchDeleteSetFromWorkout} from "../../../redux/Workout/dispatch/dispatchDeleteSetFromWorkout";
+import {dispatchSuggest} from "../../../redux/Workout/dispatch/dispatchSuggest";
 import {StyleSheet, View} from "react-native";
 import AddWorkoutSet from "./AddWorkoutSet";
 import {oneRepMaxForWorkouts} from "../../../utils/AnalyseUtils";
@@ -32,7 +32,7 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
     let workouts = useAllLastWorkouts(exercise, 1);
     let oneRepMax = oneRepMaxForWorkouts(...workouts);
     let theme = useTheme();
-    let addWorkout = useDispatchAddWorkout(exercise);
+    let addWorkout = dispatchAddWorkout(exercise);
     let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(exercise);
     let finalizeWorkout = dispatchFinalizeWorkout();
     let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();

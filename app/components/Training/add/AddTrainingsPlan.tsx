@@ -1,10 +1,10 @@
 import {Button, Dialog, IconButton, Portal, Text, TextInput, useTheme} from 'react-native-paper';
 import {View} from 'react-native';
 import React, {useState} from 'react';
-import {dispatchAddTrainingsPlan} from "../../../redux/Training/dispatchAddTrainingsPlan";
-import {dispatchEditTrainingsPlan} from "../../../redux/Training/dispatchEditTrainingsPlan";
-import {dispatchDeleteTrainingsPlan} from "../../../redux/Training/dispatchDeleteTrainingsPlan";
-import {useTrainingsPlan} from "../../../redux/Training/useTrainingsPlan";
+import {dispatchAddTrainingsPlan} from "../../../redux/Training/dispatch/general/dispatchAddTrainingsPlan";
+import {dispatchEditTrainingsPlan} from "../../../redux/Training/dispatch/general/dispatchEditTrainingsPlan";
+import {dispatchDeleteTrainingsPlan} from "../../../redux/Training/dispatch/general/dispatchDeleteTrainingsPlan";
+import {useTrainingsPlan} from "../../../redux/Training/use/useTrainingsPlan";
 import {TrainingsPlan} from "../../../models/TrainingsPlan";
 
 interface AddExerciseProperties {
