@@ -17,7 +17,7 @@ module.exports = {
   },
   transformIgnorePatterns: ['node_modules/(?!(react-native|@react-native|react-native-.*|@react-navigation|@shopify/flash-list|sharingan-rn-modal-dropdown)/)'],
 
-  testMatch: ['**/__tests__/**/*.@(spec|test).@(ts|tsx|js|jsx)'],
+  testMatch: ['**/*.@(spec|test).@(ts|tsx|js|jsx)'],
   testPathIgnorePatterns: ['/node_modules/', '/__tests__/coverage/'],
 
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],

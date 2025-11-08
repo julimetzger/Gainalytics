@@ -21,10 +21,7 @@ export async function planSteps(task: Task): Promise<Plan> {
       };
     } catch (error) {
       console.warn(`Could not read file: ${component}`, error);
-      return {
-        filePath,
-        content: '// File not found or could not be read',
-      };
+      throw Error("File not found");
     }
   });
 
