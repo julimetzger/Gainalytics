@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
-import AddWorkout from "../../components/AddWorkout";
+import AddWorkout from "../../components/Workout/add/AddWorkout";
 import {ScrollView, View} from "react-native";
 import {Button} from "react-native-paper";
-import DatePicker from '../../components/DatePicker';
+import DatePicker from '../../components/picker/date/DatePicker';
 
 const AddWorkoutTab = ({navigation, route}: Props) => {
     let exercise = route.params.exercise;

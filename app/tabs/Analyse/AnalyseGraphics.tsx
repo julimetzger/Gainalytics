@@ -2,21 +2,21 @@ import React, {useEffect, useState} from 'react';
 import {processColor, ScrollView, StyleSheet} from 'react-native';
 import {useTheme, HelperText} from 'react-native-paper';
 import {useWorkoutsIn} from "../../redux/Workout/useWorkoutsIn";
-import DateRangePicker, {Range} from "../../components/DateRangePicker";
+import DateRangePicker, {Range} from "../../components/picker/date/DateRangePicker";
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from "../../utils/DateHelper";
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
-import {calculateMetricValue, calculateMetricValueForMuscles} from "../../utils/RepetitionMaxHelper";
+import {calculateMetricValue, calculateMetricValueForMuscles} from "../../utils/AnalyseUtils";
 import {RootStackParamList} from "../../routing/SettingsRouter";
 import {sum} from "lodash";
-import Picker, {Accumulation, AccumulationMode, Metric} from "../../components/Picker";
+import TrainingElementPicker, {Accumulation, AccumulationMode, Metric} from "../../components/picker/elements/TrainingElementPicker";
 import {useWorkoutsByIds} from "../../redux/Workout/useWorkoutsByIds";
-import WorkoutView from "../../components/WorkoutView";
+import WorkoutView from "../../components/Workout/show/WorkoutDoneList";
 import {Muscles} from "../../models/Muscles";
 import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscles";
 import {Exercise} from "../../models/Exercise";
 import {Workout} from "../../models/Workout";
-import {handleAccumulationModeBatching} from "./HandleAccumulationModeBatching";
+import {handleAccumulationModeBatching} from "../../utils/HandleAccumulationModeBatching";
 import {generateTrend} from "../../utils/generateTrend";
 
 const AnalyseGraphics = ({}: Props) => {
@@ -116,10 +116,10 @@ const AnalyseGraphics = ({}: Props) => {
             display: 'flex',
             flex: 1,
         }}>
-            <Picker exercise={exercise} setExercise={setExercise}
-                    metric={metric} setMetric={setMetric}
-                    accumulation={accumulation} setAccumulation={setAccumulation}
-                    muscle={muscle} setMuscle={setMuscle}/>
+            <TrainingElementPicker exercise={exercise} setExercise={setExercise}
+                                   metric={metric} setMetric={setMetric}
+                                   accumulation={accumulation} setAccumulation={setAccumulation}
+                                   muscle={muscle} setMuscle={setMuscle}/>
             <DateRangePicker range={range} setRange={setRange}/>
 
             {(exercise.length > 0 || muscle.length > 0) && metric && accumulation &&

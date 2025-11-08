@@ -1,13 +1,13 @@
 import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/AnalyseRouter";
 import React, {useState} from "react";
-import Picker from "../../components/Picker";
-import {Range} from "../../components/DateRangePicker";
+import TrainingElementPicker from "../../components/picker/elements/TrainingElementPicker";
+import {Range} from "../../components/picker/date/DateRangePicker";
 import {Exercise} from "../../models/Exercise";
 import {Muscles} from "../../models/Muscles";
 import RangeSwiper from "../../components/RangeSwiper";
 import {firstDayOfWeek, lastDayOfWeek} from "../../utils/DateHelper";
-import MetricsNode from "../../components/MetricsNode";
+import MetricsNode from "../../components/analyse/MetricsNode";
 
 const MetricsTab = () => {
     const [exercise, setExercise] = useState<Exercise[]>([]);
@@ -16,8 +16,8 @@ const MetricsTab = () => {
 
     return (
         <RangeSwiper
-            notSwipeableContent={<Picker exercise={exercise} setExercise={setExercise} muscle={muscle}
-                                         setMuscle={setMuscle}/>}
+            notSwipeableContent={<TrainingElementPicker exercise={exercise} setExercise={setExercise} muscle={muscle}
+                                                        setMuscle={setMuscle}/>}
             nodeFunction={(range: Range, setRange: (range: Range) => void) => <MetricsNode
                 range={range}
                 setRange={setRange}

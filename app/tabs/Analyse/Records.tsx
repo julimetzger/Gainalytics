@@ -2,16 +2,16 @@ import {NativeStackScreenProps} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../../routing/AnalyseRouter";
 import React, {useState} from "react";
 import {BarChart, BarData, BarValue, ChartSelectEvent} from "react-native-charts-wrapper";
-import Picker, {Accumulation, AccumulationMode} from "../../components/Picker";
+import TrainingElementPicker, {Accumulation, AccumulationMode} from "../../components/picker/elements/TrainingElementPicker";
 import {processColor, ScrollView, StyleSheet} from "react-native";
 import {Exercise, Record} from "../../models/Exercise";
 import {Muscles} from "../../models/Muscles";
-import DateRangePicker, {Range} from "../../components/DateRangePicker";
+import DateRangePicker, {Range} from "../../components/picker/date/DateRangePicker";
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from "../../utils/DateHelper";
 import {useWorkoutsIn} from "../../redux/Workout/useWorkoutsIn";
 import {Workout} from "../../models/Workout";
 import {useExercisesForMuscles} from "../../redux/Exercises/useExercisesForMuscles";
-import {handleAccumulationModeBatching} from "./HandleAccumulationModeBatching";
+import {handleAccumulationModeBatching} from "../../utils/HandleAccumulationModeBatching";
 import {Card, Text, useTheme} from "react-native-paper";
 import {useAlleExercises} from "../../redux/Exercises/useAllExercises";
 
@@ -74,9 +74,9 @@ const RecordsTab = () => {
             display: 'flex',
             flex: 1,
         }}>
-            <Picker exercise={exercise} setExercise={setExercise}
-                    accumulation={accumulation} setAccumulation={setAccumulation}
-                    muscle={muscle} setMuscle={setMuscle}/>
+            <TrainingElementPicker exercise={exercise} setExercise={setExercise}
+                                   accumulation={accumulation} setAccumulation={setAccumulation}
+                                   muscle={muscle} setMuscle={setMuscle}/>
             <DateRangePicker range={range} setRange={setRange}/>
             <BarChart drawGridBackground={false} data={{
                 dataSets: [{

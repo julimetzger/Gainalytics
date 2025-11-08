@@ -1,7 +1,7 @@
-import {calculateMetricValue} from "../../utils/RepetitionMaxHelper";
+import {calculateMetricValue} from "../../utils/AnalyseUtils";
 import {useSelector} from "react-redux";
 import {GlobalState} from "../rootReducer";
-import {Metric} from "../../components/Picker";
+import {Metric} from "../../components/picker/elements/TrainingElementPicker";
 import {compareArrays} from "../../utils/ArrayUtils";
 import {Workout} from "../../models/Workout";
 

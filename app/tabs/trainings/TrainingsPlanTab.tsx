@@ -6,9 +6,9 @@ import {Drawer} from 'react-native-drawer-layout';
 import {useTrainingsPlan} from '../../redux/Training/useTrainingsPlan';
 import {useTrainingInTrainingsPlan} from '../../redux/Training/useTrainingInTrainingsPlan';
 import dispatchChangeTrainingsName from '../../redux/Training/dispatchChangeTrainingsName';
-import TrainingsPlanHeader from "../../components/TrainingsPlanHeader";
-import TrainingsPlanDrawer from "../../components/TrainingsPlanDrawer";
-import TrainingsPlanNode from "../../components/TrainingsPlanNode";
+import TrainingsPlanHeader from "../../components/Training/TrainingsPlanHeader";
+import TrainingsPlanDrawer from "../../components/Training/TrainingsPlanDrawer";
+import TrainingsPlanNode from "../../components/Training/TrainingsPlanNode";
 import RangeSwiper from "../../components/RangeSwiper";
 import {LayoutRectangle} from "react-native";
 

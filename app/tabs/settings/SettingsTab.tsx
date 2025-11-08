@@ -10,7 +10,7 @@ import {GlobalState} from "../../redux/rootReducer";
 import {dispatchFullImport} from "../../redux/fullstateactions/dispatchFullImport";
 import Toast from "react-native-toast-message";
 import {dispatchSetPauseTimer} from "../../redux/settings/dispatchSetPauseTimer";
-import TimeRangePicker from "../../components/TimeRangePicker";
+import TimeRangePicker from "../../components/picker/date/TimeRangePicker";
 import {dispatchSetFinishTrainingTimer} from "../../redux/settings/dispatchSetFinishTrainingTimer";
 import {dispatchToggleDisable1RMpreselect} from "../../redux/settings/dispatchToggleDisable1RMpreselect";
 import {dispatchToggleShowTimer} from "../../redux/settings/dispatchToggleShowTimer";
