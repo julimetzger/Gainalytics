@@ -1,4 +1,5 @@
 import trainingsPlanReducer from "../../../app/redux/Training/trainingsPlanReducer";
+import {TrainingsPlan} from "../../../app/models/TrainingsPlan";
 
 function ONE_TRAININGS_PLAN() {
     return {
@@ -6,8 +7,9 @@ function ONE_TRAININGS_PLAN() {
             1: {
                 id: 1,
                 name: 'plan',
-                trainings: {}
-            }
+                trainings: {},
+                trainingNames: {["1"]: "Push"}
+            } satisfies TrainingsPlan
         },
         allIds: [1]
     };
@@ -23,7 +25,8 @@ describe('trainingsPlanReducer', () => {
                 }, {
                     type: 'ADD_TRAININGS_PLAN',
                     trainingsPlan: {
-                        name: 'plan'
+                        name: 'plan',
+                        trainingNames: {["1"]: "Push"}
                     }
                 })
             ).toEqual(ONE_TRAININGS_PLAN())
@@ -32,7 +35,8 @@ describe('trainingsPlanReducer', () => {
             expect(trainingsPlanReducer(ONE_TRAININGS_PLAN(), {
                     type: 'ADD_TRAININGS_PLAN',
                     trainingsPlan: {
-                        name: 'plan'
+                        name: 'plan',
+                        trainingNames: {["1"]: "Push"}
                     }
                 })
             ).toEqual({
@@ -40,12 +44,14 @@ describe('trainingsPlanReducer', () => {
                     1: {
                         id: 1,
                         name: 'plan',
-                        trainings: {}
+                        trainings: {},
+                        trainingNames: {["1"]: "Push"}
                     },
                     2: {
                         id: 2,
                         name: 'plan',
-                        trainings: {}
+                        trainings: {},
+                        trainingNames: {["1"]: "Push"}
                     }
                 },
                 allIds: [1, 2]
@@ -64,7 +70,8 @@ describe('trainingsPlanReducer', () => {
                     1: {
                         id: 1,
                         name: 'new name',
-                        trainings: {}
+                        trainings: {},
+                        trainingNames: {["1"]: "Push"}
                     }
                 },
                 allIds: [1]
@@ -110,7 +117,8 @@ describe('trainingsPlanReducer', () => {
                         name: 'plan',
                         trainings: {
                             '1,1': 2
-                        }
+                        },
+                        trainingNames: {["1"]: "Push"}
                     }
                 },
                 allIds: [1]
@@ -144,7 +152,8 @@ describe('trainingsPlanReducer', () => {
                         name: 'plan',
                         trainings: {
                             '1,1': 2
-                        }
+                        },
+                        trainingNames: {["1"]: "Push"}
                     }
                 },
                 allIds: [1]
@@ -167,7 +176,8 @@ describe('trainingsPlanReducer', () => {
                         name: 'plan',
                         trainings: {
                             '1,1': 2
-                        }
+                        },
+                        trainingNames: {["1"]: "Push"}
                     }
                 },
                 allIds: [1]
