@@ -9,7 +9,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export async function planSteps(task: Task): Plan {
+export async function planSteps(task: Task): Promise<Plan> {
   // Sammle Dateiinhalte für jede Komponente
   const componentFiles = task.components.map((component) => {
     const filePath = path.join(CONFIG.appPath, component);

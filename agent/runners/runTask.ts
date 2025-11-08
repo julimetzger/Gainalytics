@@ -7,6 +7,7 @@ import {applyEdits} from '../llm/codeEditor';
 import {Task} from '../backlog/backlogTask';
 import {CONFIG} from '../config';
 import * as os from 'node:os';
+import {repairWithJestFeedback} from "../llm/fixTests";
 
 // --- helpers ---------------------------------------------------------------
 
@@ -172,9 +173,12 @@ export async function runTask(task: Task) {
       console.log('Wrote full file:', f.path);
     }
   }
-
-  // await npmChecks();
-
+  // after applying initial patch + running checks:
+  const fixDiff = await repairWithJestFeedback(plan, changedFiles);
+  if (fixDiff) {
+    await applyPatch({ diff: fixDiff });   // your robust git-apply
+    // re-run tests if desired
+  }
   const commitMsg = summaryCommitMessage ? summaryCommitMessage() : `feat(${task.id}): ${task.title}`;
   await gitCommit(commitMsg);
 
