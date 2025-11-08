@@ -7,7 +7,7 @@
   "scripts": {
     "agent": "tsx index.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "jest --runInBand",
+    "test": "tests --runInBand",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
