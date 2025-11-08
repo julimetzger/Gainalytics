@@ -1,29 +1,39 @@
-import {execa} from 'execa';
-import fs from 'fs';
-import path from 'path';
+// /agent/actions/jestRunner.ts
+import { execa } from "execa";
+import fs from "fs";
+import path from "path";
 
 export interface JestRunOptions {
-  repoRoot: string; // project root (.. from /agent)
-  outFile?: string; // where to write JSON (relative to repoRoot)
+  repoRoot: string;
+  outFile?: string;               // default: .agent/jest.json (relativ zu repoRoot)
   passWithNoTests?: boolean;
-  testPathPattern?: string; // optional filter
+  testPathPattern?: string;
 }
 
 export async function runJestJson(opts: JestRunOptions) {
-  const outFile = opts.outFile ?? '.agent/jest.json';
+  const outFile = opts.outFile ?? ".agent/jest.json";
   const outPath = path.join(opts.repoRoot, outFile);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
 
-  // ensure output dir
-  fs.mkdirSync(path.dirname(outPath), {recursive: true});
+  const args = [
+    "--json",
+    `--outputFile=${outPath}`,
+    "--testLocationInResults",
+  ];
+  if (opts.passWithNoTests) args.push("--passWithNoTests");
+  if (opts.testPathPattern) args.push("--testPathPattern", opts.testPathPattern);
 
-  const args = ['--json', `--outputFile=${outPath}`, '--testLocationInResults'];
-  if (opts.passWithNoTests) args.push('--passWithNoTests');
-  if (opts.testPathPattern) args.push('--testPathPattern', opts.testPathPattern);
-
-  await execa('npx', ['jest', ...args], {
+  // WICHTIG: reject:false → execa wirft nicht bei Exitcode 1
+  const { exitCode } = await execa("npx", ["jest", ...args], {
     cwd: opts.repoRoot,
-    stdio: 'inherit',
+    stdio: "inherit",
+    reject: false,
   });
 
-  return outPath;
+  // Jest schreibt die JSON auch bei Exitcode 1. Wenn die Datei fehlt → harter Fehler.
+  if (!fs.existsSync(outPath)) {
+    throw new Error(`Jest JSON was not written to ${outPath}`);
+  }
+
+  return { outPath, exitCode }; // exitCode 0 = grün, 1 = Tests fehlgeschlagen (normal)
 }
