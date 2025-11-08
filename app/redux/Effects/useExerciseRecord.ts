@@ -1,5 +1,5 @@
-import {useSelector} from "react-redux";
-import {GlobalState} from "../rootReducer";
+import {useSelector} from 'react-redux';
+import {GlobalState} from '../rootReducer';
 
-const useExerciseRecord = () => useSelector((state: GlobalState) => state.effects?.exerciseRecord)
+const useExerciseRecord = () => useSelector((state: GlobalState) => state.effects?.exerciseRecord);
 export default useExerciseRecord;

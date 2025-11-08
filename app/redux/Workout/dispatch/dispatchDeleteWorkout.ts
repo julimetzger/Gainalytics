@@ -1,14 +1,14 @@
-import {useDispatch} from "react-redux";
-import {Action} from "redux";
-import {Workout} from "../../../models/Workout";
+import {useDispatch} from 'react-redux';
+import {Action} from 'redux';
+import {Workout} from '../../../models/Workout';
 
 const dispatchDeleteWorkout = () => {
-    const dispatch = useDispatch();
+  const dispatch = useDispatch();
 
-    return (workout: Workout) =>
-        dispatch({
-            type: 'DELETE_WORKOUT',
-            workout
-        } as Action);
+  return (workout: Workout) =>
+    dispatch({
+      type: 'DELETE_WORKOUT',
+      workout,
+    } as Action);
 };
 export default dispatchDeleteWorkout;

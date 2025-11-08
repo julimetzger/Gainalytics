@@ -1,3 +1,3 @@
-module.exports = require("babel-jest").createTransformer({
-    rootMode: "upward",
-})
+module.exports = require('babel-jest').createTransformer({
+  rootMode: 'upward',
+});

@@ -3,7 +3,5 @@
   "compilerOptions": {
     "types": ["jest", "@testing-library/jest-native"]
   },
-  "include": [
-    "**/*"
-  ]
+  "include": ["**/*"]
 }

@@ -18,14 +18,16 @@
 ## Hauptkomponenten
 
 1. Training
-    - TrainingHome: Übersicht aller Trainingspläne
-    - Training: Einzelnes Training
-    - TrainingsPlan: Template für Trainingseinheiten
+
+   - TrainingHome: Übersicht aller Trainingspläne
+   - Training: Einzelnes Training
+   - TrainingsPlan: Template für Trainingseinheiten
 
 2. Workout
-    - Workout: Einzelne Trainingseinheit
-    - WorkoutSet: Ein Satz innerhalb eines Workouts
-    - Exercise: Eine Übung
+
+   - Workout: Einzelne Trainingseinheit
+   - WorkoutSet: Ein Satz innerhalb eines Workouts
+   - Exercise: Eine Übung
 
 3. Exercise
    - muscles: kann prozentual beteiligt sein
@@ -127,24 +129,28 @@ Detaillierte Definitionen und Typen sind in den entsprechenden Modelldateien zu 
 - Farben immer aus dem theme für react native paper benuten
 
 1. **Komponenten**:
+
    - Funktionale Komponenten mit TypeScript
    - Props-Interface über Komponente definieren
    - Styles am Ende der Datei
    - Meaningful Component Splitting (< 200 Zeilen)
 
 2. **State Management**:
+
    - Redux für globalen State
    - useState für lokalen State
    - useMemo für berechnete Werte
    - useCallback für Funktionen
 
 3. **Styling**:
+
    - StyleSheet.create für Styles
    - theme.colors für Farben
    - Responsive Design mit Dimensions API
    - Spacing über theme.spacing
 
 4. **Naming**:
+
    - PascalCase für Komponenten
    - camelCase für Funktionen/Variablen
    - UPPERCASE für Konstanten
@@ -159,6 +165,7 @@ Detaillierte Definitionen und Typen sind in den entsprechenden Modelldateien zu 
 ## Performance Guidelines
 
 1. **Rendering**:
+
    - memo() für häufig verwendete Komponenten
    - useCallback für Event Handler
    - Virtualisierte Listen (FlashList)

@@ -1,7 +1,3 @@
 export class NullableRange {
-    constructor(
-        public startDate?: Date,
-        public endDate?: Date
-    ) {
-    }
+  constructor(public startDate?: Date, public endDate?: Date) {}
 }
