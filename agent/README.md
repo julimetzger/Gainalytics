@@ -8,7 +8,9 @@ Am besten dazu eine .env Datei im root vom agent anlegen mit
 ```{.env}
 OPENAI_API_KEY=key
 ```
+
 Bei mir muss noch die env variable gesetzt werden weil npm komisch installiert ist in windows
+
 ```bash
 Set-Alias npm  "C:\tools\nodejs\npm.cmd"
 ```

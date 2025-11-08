@@ -1,11 +1,11 @@
-import {useDispatch} from "react-redux";
-import {Action} from "redux";
+import {useDispatch} from 'react-redux';
+import {Action} from 'redux';
 
 export const dispatchToggleShowPlusButtonLeft = () => {
-    const dispatch = useDispatch();
+  const dispatch = useDispatch();
 
-    return () =>
-        dispatch({
-            type: 'SHOW_PLUS_BUTTON_LEFT',
-        } as Action);
+  return () =>
+    dispatch({
+      type: 'SHOW_PLUS_BUTTON_LEFT',
+    } as Action);
 };

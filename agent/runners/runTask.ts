@@ -7,7 +7,7 @@ import {applyEdits} from '../llm/codeEditor';
 import {Task} from '../backlog/backlogTask';
 import {CONFIG} from '../config';
 import * as os from 'node:os';
-import {repairWithJestFeedback} from "../llm/fixTests";
+import {repairWithJestFeedback} from '../llm/fixTests';
 
 // --- helpers ---------------------------------------------------------------
 
@@ -24,7 +24,7 @@ async function npmChecks() {
   //await execa("npm", ["run", "typecheck"], opts);
   await execa('npm', ['run', 'test'], opts);
   // await execa('npm', ['run', 'lint'], opts);
-  await execa('npm', ['run', 'format'], opts);
+  //  await execa('npm', ['run', 'format'], opts);
 }
 
 async function gitCommit(message) {
@@ -176,7 +176,7 @@ export async function runTask(task: Task) {
   // after applying initial patch + running checks:
   const fixDiff = await repairWithJestFeedback(plan, changedFiles);
   if (fixDiff) {
-    await applyPatch({ diff: fixDiff });   // your robust git-apply
+    await applyPatch({diff: fixDiff}); // your robust git-apply
     // re-run tests if desired
   }
   const commitMsg = summaryCommitMessage ? summaryCommitMessage() : `feat(${task.id}): ${task.title}`;

@@ -1,17 +1,14 @@
-import {NormalizedState} from "./normalizedState";
-import {Workout} from "../models/Workout";
+import {NormalizedState} from './normalizedState';
+import {Workout} from '../models/Workout';
 
 export interface NormalizedWorkoutState<T> extends NormalizedState<T> {
-    byExerciseId: { [exerciseId: number]: number[] }
-    notFinishedWorkouts?: { [exerciseId: number]: number }
-    suggestedWorkouts?: { [exerciseId: number]: Workout }
-    plannedWorkouts: number[]
+  byExerciseId: {[exerciseId: number]: number[]};
+  notFinishedWorkouts?: {[exerciseId: number]: number};
+  suggestedWorkouts?: {[exerciseId: number]: Workout};
+  plannedWorkouts: number[];
 }
 
 export function determineNewWorkoutId<T extends any>(normalizedState: NormalizedWorkoutState<T>) {
-    if (normalizedState.allIds.length > 0 || normalizedState.plannedWorkouts?.length > 0)
-        return Math.max(...normalizedState.allIds, ...normalizedState.plannedWorkouts) + 1;
-    else
-        return 1;
+  if (normalizedState.allIds.length > 0 || normalizedState.plannedWorkouts?.length > 0) return Math.max(...normalizedState.allIds, ...normalizedState.plannedWorkouts) + 1;
+  else return 1;
 }
-

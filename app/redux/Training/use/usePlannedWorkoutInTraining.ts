@@ -1,15 +1,15 @@
-import {useSelector} from "react-redux";
-import {GlobalState} from "../../rootReducer";
+import {useSelector} from 'react-redux';
+import {GlobalState} from '../../rootReducer';
 
-export const usePlannedWorkoutInTraining = (trainingId?: number, exerciseId?: number) => useSelector((state: GlobalState) => {
+export const usePlannedWorkoutInTraining = (trainingId?: number, exerciseId?: number) =>
+  useSelector((state: GlobalState) => {
     if (trainingId && exerciseId) {
-            let plannedWorkout = state.trainings.byId[trainingId].plannedWorkouts[exerciseId];
-            if (plannedWorkout === undefined) {
-                return undefined
-            }
-            return state.workouts.byId[plannedWorkout]
-        } else {
-            return undefined
-        }
+      let plannedWorkout = state.trainings.byId[trainingId].plannedWorkouts[exerciseId];
+      if (plannedWorkout === undefined) {
+        return undefined;
+      }
+      return state.workouts.byId[plannedWorkout];
+    } else {
+      return undefined;
     }
-)
+  });

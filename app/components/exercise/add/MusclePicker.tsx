@@ -1,65 +1,65 @@
-import {View} from "react-native";
-import DropDown from "react-native-paper-dropdown";
-import {IconButton, TextInput, useTheme} from "react-native-paper";
-import React, {useEffect, useState} from "react";
-import {Muscles} from "../../../models/Muscles";
-import {MusclePercentPair} from "../../../models/Exercise";
+import {View} from 'react-native';
+import DropDown from 'react-native-paper-dropdown';
+import {IconButton, TextInput, useTheme} from 'react-native-paper';
+import React, {useEffect, useState} from 'react';
+import {Muscles} from '../../../models/Muscles';
+import {MusclePercentPair} from '../../../models/Exercise';
 
 interface MusclePickerProps {
-    muscleValue: MusclePercentPair,
-    setMuscles: (muscles: MusclePercentPair) => void,
-    onDelete: (muscle: MusclePercentPair) => void
+  muscleValue: MusclePercentPair;
+  setMuscles: (muscles: MusclePercentPair) => void;
+  onDelete: (muscle: MusclePercentPair) => void;
 }
 
 const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) => {
-    const [dropdownVisible, setDropdownVisible] = useState(false)
-    let theme = useTheme();
-    useEffect(() => {
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+  let theme = useTheme();
+  useEffect(() => {}, [muscleValue]);
 
-    }, [muscleValue]);
-
-    return (
-        <View style={{display: 'flex', flexDirection: 'row'}}>
-            <DropDown
-                label={'Muscle'}
-                mode="outlined"
-                inputProps={{width: 100}}
-                visible={dropdownVisible}
-                onDismiss={() => setDropdownVisible(false)}
-                showDropDown={() => setDropdownVisible(true)}
-                value={muscleValue?.muscle}
-                setValue={(muscleUpdate) => setMuscles({muscle: muscleUpdate, percent: muscleValue?.percent ?? 100})}
-                list={Object.values(Muscles).map((value: string) => {
-                    return {label: value, value: value}
-                })}
-                activeColor={theme.colors.primary}
-                dropDownItemSelectedStyle={{backgroundColor: theme.colors.primaryContainer}}
-                dropDownItemSelectedTextStyle={{color: theme.colors.onPrimaryContainer, fontWeight: 'bold'}}
-            />
-            <TextInput
-                keyboardType="numeric"
-                inputMode={"numeric"}
-                label={'Involvement'}
-                mode="outlined"
-                defaultValue={"100"}
-                style={{width: 90}}
-                selectTextOnFocus={true}
-                right={<TextInput.Icon icon="percent" size={18}/>}
-                value={muscleValue?.percent?.toString()}
-                onChangeText={(value) => setMuscles({
-                    muscle: muscleValue?.muscle,
-                    percent: parseInt(value)
-                })}
-            />
-            <IconButton
-                size={28}
-                icon={"delete"}
-                iconColor={theme.colors.secondary}
-                onPress={() => {
-                    onDelete(muscleValue)
-                }}
-            />
-        </View>
-    )
-}
+  return (
+    <View style={{display: 'flex', flexDirection: 'row'}}>
+      <DropDown
+        label={'Muscle'}
+        mode="outlined"
+        inputProps={{width: 100}}
+        visible={dropdownVisible}
+        onDismiss={() => setDropdownVisible(false)}
+        showDropDown={() => setDropdownVisible(true)}
+        value={muscleValue?.muscle}
+        setValue={(muscleUpdate) => setMuscles({muscle: muscleUpdate, percent: muscleValue?.percent ?? 100})}
+        list={Object.values(Muscles).map((value: string) => {
+          return {label: value, value: value};
+        })}
+        activeColor={theme.colors.primary}
+        dropDownItemSelectedStyle={{backgroundColor: theme.colors.primaryContainer}}
+        dropDownItemSelectedTextStyle={{color: theme.colors.onPrimaryContainer, fontWeight: 'bold'}}
+      />
+      <TextInput
+        keyboardType="numeric"
+        inputMode={'numeric'}
+        label={'Involvement'}
+        mode="outlined"
+        defaultValue={'100'}
+        style={{width: 90}}
+        selectTextOnFocus={true}
+        right={<TextInput.Icon icon="percent" size={18} />}
+        value={muscleValue?.percent?.toString()}
+        onChangeText={(value) =>
+          setMuscles({
+            muscle: muscleValue?.muscle,
+            percent: parseInt(value),
+          })
+        }
+      />
+      <IconButton
+        size={28}
+        icon={'delete'}
+        iconColor={theme.colors.secondary}
+        onPress={() => {
+          onDelete(muscleValue);
+        }}
+      />
+    </View>
+  );
+};
 export default MusclePicker;

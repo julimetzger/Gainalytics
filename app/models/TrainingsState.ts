@@ -1,5 +1,5 @@
 export enum TrainingsState {
-    PLANNED = 'P',
-    STARTED = 'S',
-    FINISHED = 'F'
+  PLANNED = 'P',
+  STARTED = 'S',
+  FINISHED = 'F',
 }

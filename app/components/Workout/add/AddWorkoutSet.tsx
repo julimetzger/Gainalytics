@@ -1,290 +1,290 @@
-import {Keyboard, StyleSheet, View} from "react-native";
-import {Button, IconButton, Text, TextInput, ToggleButton, Tooltip, useTheme} from "react-native-paper";
-import React, {useEffect, useState} from "react";
-import {repetitionWeightByOneRm} from "../../../utils/AnalyseUtils";
-import {WorkoutSet} from "../../../models/WorkoutSet";
-import {useSettings} from "../../../redux/settings/use/useSettings";
+import {Keyboard, StyleSheet, View} from 'react-native';
+import {Button, IconButton, Text, TextInput, ToggleButton, Tooltip, useTheme} from 'react-native-paper';
+import React, {useEffect, useState} from 'react';
+import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
+import {WorkoutSet} from '../../../models/WorkoutSet';
+import {useSettings} from '../../../redux/settings/use/useSettings';
 
 interface AddWorkoutProps {
-    onSubmit: (arg: WorkoutSet) => void,
-    workoutSet?: WorkoutSet,
-    oneRepMax?: number,
-    onDelete?: (arg: WorkoutSet) => void,
-    hasToSaveManually?: boolean,
-    isPlanningMode?: boolean
+  onSubmit: (arg: WorkoutSet) => void;
+  workoutSet?: WorkoutSet;
+  oneRepMax?: number;
+  onDelete?: (arg: WorkoutSet) => void;
+  hasToSaveManually?: boolean;
+  isPlanningMode?: boolean;
 }
 
-const AddWorkoutSet = ({
-                           onSubmit,
-                           workoutSet,
-                           oneRepMax,
-                           onDelete,
-                           hasToSaveManually = false,
-                           isPlanningMode = false
-                       }: AddWorkoutProps) => {
-    let theme = useTheme();
-    const [weight, setWeight] = useState(workoutSet?.weight?.toString() ?? '');
-    const [rir, setRPE] = useState(workoutSet?.rir?.toString() ?? '0');
-    const [reps, setReps] = useState(workoutSet?.reps?.toString() ?? '');
-    const [editing, setEditing] = useState(hasToSaveManually);
-    let appSettings = useSettings();
-    const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(appSettings.toggles?.disable1RMButton);
-    const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
-    const [weightEmpty, setWeightEmpty] = useState(false);
-    const [rirEmpty, setRirEmpty] = useState(false);
-    const [repsEmpty, setRepsEmpty] = useState(false);
+const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManually = false, isPlanningMode = false}: AddWorkoutProps) => {
+  let theme = useTheme();
+  const [weight, setWeight] = useState(workoutSet?.weight?.toString() ?? '');
+  const [rir, setRPE] = useState(workoutSet?.rir?.toString() ?? '0');
+  const [reps, setReps] = useState(workoutSet?.reps?.toString() ?? '');
+  const [editing, setEditing] = useState(hasToSaveManually);
+  let appSettings = useSettings();
+  const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(appSettings.toggles?.disable1RMButton);
+  const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
+  const [weightEmpty, setWeightEmpty] = useState(false);
+  const [rirEmpty, setRirEmpty] = useState(false);
+  const [repsEmpty, setRepsEmpty] = useState(false);
 
-    useEffect(() => {
-        if (workoutSet !== undefined) {
-            setWeight(workoutSet.weight?.toString() ?? '');
-            setRPE(workoutSet.rir?.toString() ?? '0');
-            setReps(workoutSet.reps?.toString() ?? '');
-        }
-    }, [workoutSet]);
-
-    const setWeightOnChange = (value: string) => {
-        setWeightEmpty(false);
-        setDisable1RMWeightCalculation(true);
-        setWeight(ensureFormat(value))
+  useEffect(() => {
+    if (workoutSet !== undefined) {
+      setWeight(workoutSet.weight?.toString() ?? '');
+      setRPE(workoutSet.rir?.toString() ?? '0');
+      setReps(workoutSet.reps?.toString() ?? '');
     }
+  }, [workoutSet]);
 
-    const setRIROnChange = (value: string) => {
-        setRirEmpty(false);
-        reps !== '' ? setWeightByOtherFields(convertToNumber(reps), convertToNumber(value)) : 0;
-        setRPE(ensureFormat(value))
+  const setWeightOnChange = (value: string) => {
+    setWeightEmpty(false);
+    setDisable1RMWeightCalculation(true);
+    setWeight(ensureFormat(value));
+  };
+
+  const setRIROnChange = (value: string) => {
+    setRirEmpty(false);
+    reps !== '' ? setWeightByOtherFields(convertToNumber(reps), convertToNumber(value)) : 0;
+    setRPE(ensureFormat(value));
+  };
+
+  function setWeightByOtherFields(reps: number, rir: number) {
+    if (isNaN(reps) || isNaN(rir)) {
+      return;
     }
-
-    function setWeightByOtherFields(reps: number, rir: number) {
-        if (isNaN(reps) || isNaN(rir)) {
-            return;
-        }
-        if (oneRepMax !== undefined && !disable1RMWeightCalculation) {
-            setWeightEmpty(false);
-            let weight = repetitionWeightByOneRm(reps, rir, oneRepMax!!).toFixed(0);
-            setWeight(weight.toString())
-        }
+    if (oneRepMax !== undefined && !disable1RMWeightCalculation) {
+      setWeightEmpty(false);
+      let weight = repetitionWeightByOneRm(reps, rir, oneRepMax!!).toFixed(0);
+      setWeight(weight.toString());
     }
+  }
 
-    const setRepsOnChange = (value: string) => {
-        setRepsEmpty(false);
-        rir === '' ? setWeightByOtherFields(convertToNumber(value), 0) : 0;
-        rir !== '' ? setWeightByOtherFields(convertToNumber(value), convertToNumber(rir)) : 0;
-        setReps(ensureFormat(value))
+  const setRepsOnChange = (value: string) => {
+    setRepsEmpty(false);
+    rir === '' ? setWeightByOtherFields(convertToNumber(value), 0) : 0;
+    rir !== '' ? setWeightByOtherFields(convertToNumber(value), convertToNumber(rir)) : 0;
+    setReps(ensureFormat(value));
+  };
+
+  function setWeightSuggestions() {
+    if (!disable1RMWeightCalculation) {
+      setHighlightWeightSuggestion(true);
     }
+  }
 
-    function setWeightSuggestions() {
-        if (!disable1RMWeightCalculation) {
-            setHighlightWeightSuggestion(true);
-        }
+  function persisted() {
+    return workoutSet?.date !== undefined;
+  }
+
+  function determineCheckmarkColor() {
+    if (persisted() && !editing) {
+      return '#558b2f'; // green
+    } else {
+      return theme.colors.primary;
     }
+  }
 
-    function persisted() {
-        return workoutSet?.date !== undefined;
+  function submit() {
+    if (weight === '' || reps === '' || rir === '') {
+      weight === '' && setWeightEmpty(true);
+      reps === '' && setRepsEmpty(true);
+      rir === '' && setRirEmpty(true);
+      return;
     }
-
-    function determineCheckmarkColor() {
-        if (persisted() && !editing) {
-            return "#558b2f"; // green
-        } else {
-            return theme.colors.primary;
-        }
+    if (weight === NaN.toString() || reps === NaN.toString() || rir === NaN.toString()) {
+      weight === NaN.toString() && setWeightEmpty(true);
+      reps === NaN.toString() && setRepsEmpty(true);
+      rir === NaN.toString() && setRirEmpty(true);
+      return;
     }
-
-    function submit() {
-        if (weight === '' || reps === '' || rir === '') {
-            weight === '' && setWeightEmpty(true);
-            reps === '' && setRepsEmpty(true);
-            rir === '' && setRirEmpty(true);
-            return;
-        }
-        if (weight === NaN.toString() || reps === NaN.toString() || rir === NaN.toString()) {
-            weight === NaN.toString() && setWeightEmpty(true);
-            reps === NaN.toString() && setRepsEmpty(true);
-            rir === NaN.toString() && setRirEmpty(true);
-            return;
-        }
-        if (weight === undefined || reps === undefined || rir === undefined) {
-            weight === undefined && setWeightEmpty(true);
-            reps === undefined && setRepsEmpty(true);
-            rir === undefined && setRirEmpty(true);
-            return;
-        }
-        onSubmit({
-            index: workoutSet?.index,
-            date: new Date(Date.now()),
-            weight: convertToNumber(weight),
-            reps: convertToNumber(reps),
-            rir: Number.isNaN(convertToNumber(rir)) ? 0 : convertToNumber(rir)
-        } as WorkoutSet);
-        setEditing(false);
+    if (weight === undefined || reps === undefined || rir === undefined) {
+      weight === undefined && setWeightEmpty(true);
+      reps === undefined && setRepsEmpty(true);
+      rir === undefined && setRirEmpty(true);
+      return;
     }
+    onSubmit({
+      index: workoutSet?.index,
+      date: new Date(Date.now()),
+      weight: convertToNumber(weight),
+      reps: convertToNumber(reps),
+      rir: Number.isNaN(convertToNumber(rir)) ? 0 : convertToNumber(rir),
+    } as WorkoutSet);
+    setEditing(false);
+  }
 
-    function submitOnChangeIfAllowed() {
-        if (persisted() && !hasToSaveManually) {
-            submit();
-        }
+  function submitOnChangeIfAllowed() {
+    if (persisted() && !hasToSaveManually) {
+      submit();
     }
+  }
 
-    return (
-        <View style={styles.container}>
-            <View style={styles.inputContainer}>
-                <TextInput
-                    mode="outlined"
-                    label="Reps"
-                    value={reps.toString()}
-                    style={[styles.textInput, styles.inputField]}
-                    onChangeText={setRepsOnChange}
-                    keyboardType="numeric"
-                    onFocus={() => {
-                        setEditing(true)
-                        setWeightSuggestions()
-                    }}
-                    onBlur={() => {
-                        setHighlightWeightSuggestion(false)
-                        submitOnChangeIfAllowed();
-                    }}
-                    error={repsEmpty}
-                    selectTextOnFocus={true}
+  return (
+    <View style={styles.container}>
+      <View style={styles.inputContainer}>
+        <TextInput
+          mode="outlined"
+          label="Reps"
+          value={reps.toString()}
+          style={[styles.textInput, styles.inputField]}
+          onChangeText={setRepsOnChange}
+          keyboardType="numeric"
+          onFocus={() => {
+            setEditing(true);
+            setWeightSuggestions();
+          }}
+          onBlur={() => {
+            setHighlightWeightSuggestion(false);
+            submitOnChangeIfAllowed();
+          }}
+          error={repsEmpty}
+          selectTextOnFocus={true}
+        />
+        <TextInput
+          mode="outlined"
+          label="RIR"
+          value={rir.toString()}
+          style={[styles.textInput, styles.inputField]}
+          onChangeText={setRIROnChange}
+          keyboardType="numeric"
+          onFocus={() => {
+            setEditing(true);
+            setWeightSuggestions();
+          }}
+          onBlur={() => {
+            setHighlightWeightSuggestion(false);
+            submitOnChangeIfAllowed();
+          }}
+          error={rirEmpty}
+          selectTextOnFocus={true}
+        />
+        <TextInput
+          mode="outlined"
+          label="Weight"
+          value={weight.toString()}
+          style={[styles.textInput, styles.inputField]}
+          onChangeText={setWeightOnChange}
+          keyboardType="numeric"
+          textColor={highlightWeightSuggestion && !disable1RMWeightCalculation && workoutSet === undefined ? theme.colors.primary : undefined}
+          outlineColor={highlightWeightSuggestion && !disable1RMWeightCalculation && workoutSet === undefined ? theme.colors.primary : undefined}
+          onFocus={() => {
+            setEditing(true);
+          }}
+          onBlur={() => {
+            submitOnChangeIfAllowed();
+          }}
+          error={weightEmpty}
+          selectTextOnFocus={true}
+        />
+      </View>
+      <View style={styles.buttonContainer}>
+        {oneRepMax ? (
+          <View style={styles.toggleContainer}>
+            <Tooltip enterTouchDelay={300} title="Suggests weight based on your last 1 rep max">
+              <ToggleButton
+                icon={() => <Text>1RM</Text>}
+                status={!disable1RMWeightCalculation ? 'checked' : 'unchecked'}
+                onPress={() => {
+                  setDisable1RMWeightCalculation((prevState) => !prevState);
+                  setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
+                }}
+              />
+            </Tooltip>
+          </View>
+        ) : null}
+        <View style={styles.actionButtons}>
+          {!isPlanningMode && (
+            <>
+              {persisted() && !editing && <IconButton icon={'check'} iconColor={determineCheckmarkColor()} />}
+              {persisted() && editing && (
+                <IconButton
+                  icon={'check-circle'}
+                  iconColor={determineCheckmarkColor()}
+                  onPress={() => {
+                    submit();
+                    Keyboard.dismiss();
+                  }}
                 />
-                <TextInput
-                    mode="outlined"
-                    label="RIR"
-                    value={rir.toString()}
-                    style={[styles.textInput, styles.inputField]}
-                    onChangeText={setRIROnChange}
-                    keyboardType="numeric"
-                    onFocus={() => {
-                        setEditing(true)
-                        setWeightSuggestions()
-                    }}
-                    onBlur={() => {
-                        setHighlightWeightSuggestion(false)
-                        submitOnChangeIfAllowed();
-                    }}
-                    error={rirEmpty}
-                    selectTextOnFocus={true}
+              )}
+              {!persisted() && workoutSet !== undefined && (
+                <IconButton
+                  icon={'check-circle'}
+                  iconColor={determineCheckmarkColor()}
+                  onPress={() => {
+                    submit();
+                    Keyboard.dismiss();
+                  }}
                 />
-                <TextInput
-                    mode="outlined"
-                    label="Weight"
-                    value={weight.toString()}
-                    style={[styles.textInput, styles.inputField]}
-                    onChangeText={setWeightOnChange}
-                    keyboardType="numeric"
-                    textColor={highlightWeightSuggestion && !disable1RMWeightCalculation && workoutSet === undefined ? theme.colors.primary : undefined}
-                    outlineColor={highlightWeightSuggestion && !disable1RMWeightCalculation && workoutSet === undefined ? theme.colors.primary : undefined}
-                    onFocus={() => {
-                        setEditing(true)
-                    }}
-                    onBlur={() => {
-                        submitOnChangeIfAllowed()
-                    }}
-                    error={weightEmpty}
-                    selectTextOnFocus={true}
-                />
-            </View>
-            <View style={styles.buttonContainer}>
-                {oneRepMax ?
-                    <View style={styles.toggleContainer}>
-                        <Tooltip
-                            enterTouchDelay={300}
-                            title='Suggests weight based on your last 1 rep max'>
-                            <ToggleButton
-                                icon={() => <Text>1RM</Text>}
-                                status={!disable1RMWeightCalculation ? "checked" : "unchecked"}
-                                onPress={() => {
-                                    setDisable1RMWeightCalculation(prevState => !prevState);
-                                    setWeightByOtherFields(convertToNumber(reps), convertToNumber(rir));
-                                }}
-                            />
-                        </Tooltip>
-                    </View>
-                    : null}
-                <View style={styles.actionButtons}>
-                    {!isPlanningMode && (
-                        <>
-                            {persisted() && !editing &&
-                                <IconButton icon={"check"} iconColor={determineCheckmarkColor()}/>}
-                            {persisted() && editing &&
-                                <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
-                                    submit();
-                                    Keyboard.dismiss();
-                                }}/>}
-                            {!persisted() && workoutSet !== undefined &&
-                                <IconButton icon={"check-circle"} iconColor={determineCheckmarkColor()} onPress={() => {
-                                    submit();
-                                    Keyboard.dismiss();
-                                }}/>}
-                        </>
-                    )}
-                    {!persisted() && workoutSet === undefined &&
-                        <Button
-                            mode={'contained'}
-                            buttonColor={theme.colors.primary}
-                            textColor={theme.colors.onPrimary}
-                            onPress={() => {
-                                submit();
-                                Keyboard.dismiss();
-                            }}>
-                            {"Add"}
-                        </Button>}
-                    {(persisted() || (!persisted() && workoutSet !== undefined)) && onDelete !== undefined &&
-                        <IconButton icon={"delete"}
-                                    onPress={() => onDelete(workoutSet!!)}/>}
-                </View>
-            </View>
+              )}
+            </>
+          )}
+          {!persisted() && workoutSet === undefined && (
+            <Button
+              mode={'contained'}
+              buttonColor={theme.colors.primary}
+              textColor={theme.colors.onPrimary}
+              onPress={() => {
+                submit();
+                Keyboard.dismiss();
+              }}
+            >
+              {'Add'}
+            </Button>
+          )}
+          {(persisted() || (!persisted() && workoutSet !== undefined)) && onDelete !== undefined && <IconButton icon={'delete'} onPress={() => onDelete(workoutSet!!)} />}
         </View>
-    )
-}
+      </View>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
-    // Container-Layout
-    container: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginHorizontal: 2,
-    },
+  // Container-Layout
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 2,
+  },
 
-    // Input-Area
-    inputContainer: {
-        flex: 66,
-        flexDirection: "row",
-    },
+  // Input-Area
+  inputContainer: {
+    flex: 66,
+    flexDirection: 'row',
+  },
 
-    textInput: {
-        height: 35,
-        alignSelf: 'center',
-    },
+  textInput: {
+    height: 35,
+    alignSelf: 'center',
+  },
 
-    inputField: {
-        flex: 1,
-        marginHorizontal: 2,
-    },
+  inputField: {
+    flex: 1,
+    marginHorizontal: 2,
+  },
 
-    // Button-Area
-    buttonContainer: {
-        flex: 34,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "flex-start",
-    },
+  // Button-Area
+  buttonContainer: {
+    flex: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
 
-    toggleContainer: {
-        marginHorizontal: 5,
-    },
+  toggleContainer: {
+    marginHorizontal: 5,
+  },
 
-    actionButtons: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 });
 
 function convertToNumber(value: string) {
-    return Number.parseFloat(value);
+  return Number.parseFloat(value);
 }
 
 function ensureFormat(value: string): string {
-    return value.replace(',', '.');
+  return value.replace(',', '.');
 }
 
 export default AddWorkoutSet;
