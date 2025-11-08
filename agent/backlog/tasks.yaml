@@ -24,7 +24,7 @@
   status: ready
   estimate: 2h
   owners: ['agent']
-  components: ['components/TrainingOverviewCard.tsx']
+  components: ['components/Training/analyse/TrainingOverviewCard.tsx']
   description: |
     Der user möchte sehen wieviele records er in dem letzten Micro gemacht hat
   acceptanceCriteria:

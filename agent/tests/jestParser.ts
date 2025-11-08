@@ -30,32 +30,31 @@ export function loadJestSummary(repoRoot: string, jsonFile = '.agent/jest.json')
   const numPendingTests = raw.numPendingTests ?? 0;
 
   const failures: JestFailure[] = [];
-  for (const tr of raw.testResults ?? []) {
-    const testFile = tr.name as string;
-    for (const a of tr.assertionResults ?? []) {
-      if (a.status !== 'failed') continue;
+  for (const testResult of raw.testResults ?? []) {
+    const testFile = testResult.name;
+    if (testResult.status !== 'failed') continue;
+    console.log('failed test found');
 
-      // Extract a message (Jest puts rich info in failureMessages)
-      const msg = (a.failureMessages?.[0] ?? tr.message ?? '').toString();
+    // Extract a message (Jest puts rich info in failureMessages)
+    const msg = (testResult.failureMessages?.[0] ?? testResult.message ?? '').toString();
 
-      // Try to find a line/column inside message (best-effort)
-      let line: number | undefined;
-      let column: number | undefined;
-      // Typical frame: "at Object.<anonymous> (<repo>/path/to/file.tsx:42:7)"
-      const m = msg.match(/:(\d+):(\d+)\)?\s*$/m);
-      if (m) {
-        line = Number(m[1]);
-        column = Number(m[2]);
-      }
-
-      failures.push({
-        file: testFile,
-        testName: a.fullName || a.title || '(unknown test)',
-        message: condenseMessage(msg, 1200),
-        line,
-        column,
-      });
+    // Try to find a line/column inside message (best-effort)
+    let line: number | undefined;
+    let column: number | undefined;
+    // Typical frame: "at Object.<anonymous> (<repo>/path/to/file.tsx:42:7)"
+    const m = msg.match(/:(\d+):(\d+)\)?\s*$/m);
+    if (m) {
+      line = Number(m[1]);
+      column = Number(m[2]);
     }
+
+    failures.push({
+      file: testFile,
+      testName: testResult.fullName || testResult.title || '(unknown test)',
+      message: condenseMessage(msg, 1200),
+      line,
+      column,
+    });
   }
 
   return {numTotalTests, numFailedTests, numPassedTests, numPendingTests, failures};

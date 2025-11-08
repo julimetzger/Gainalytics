@@ -8,9 +8,10 @@ const client = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
 
 export async function repairWithJestFeedback(plan: any, changedFiles: string[]) {
   // 1) Run tests and load results
-  const { outPath, exitCode } = await runJestJson({ repoRoot: CONFIG.repoRoot, passWithNoTests: true });
+  const {outPath, exitCode} = await runJestJson({repoRoot: CONFIG.repoRoot, passWithNoTests: true});
   console.log(`Test results written to: ${outPath} (exitCode=${exitCode})`);
   const summary = loadJestSummary(CONFIG.repoRoot);
+  console.log('test summary is', summary);
   if (summary.numFailedTests === 0) return null; // nothing to fix
 
   // 2) Build compact payload

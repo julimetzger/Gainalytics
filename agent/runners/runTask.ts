@@ -135,14 +135,14 @@ export async function applyPatch(patch: {diff: string}) {
 
 // ... oben imports unverändert
 export async function runTask(task: Task) {
-  const branch = `agent/${task.id}`;
-  await ensureBranch(branch);
   npmChecks();
   console.log(`Processing task ${task.id}: ${task.title}`);
 
   const plan = await planSteps(task);
   console.log('Plan created:', JSON.stringify(plan, null, 2));
 
+  const branch = `agent/${task.id}`;
+  await ensureBranch(branch);
   // Wichtig: full-file Fallback aktivieren
   const result = await applyEdits(plan, {alsoReturnFullFiles: true});
   const {changedFiles, summaryCommitMessage, patches, files} = result;
