@@ -48,7 +48,7 @@ function migrateSuggestedToNotFinishedWorkout(workoutState: NormalizedWorkoutSta
 } {
     let suggested = {...workoutState.suggestedWorkouts};
     if (workoutState.suggestedWorkouts !== undefined && workoutState.suggestedWorkouts[exerciseId] !== undefined) {
-        let unfinishedWorkoutSets = workoutState.byId[workoutState.notFinishedWorkouts[exerciseId]].sets;
+        let unfinishedWorkoutSets = workoutState.byId[workoutState.notFinishedWorkouts![exerciseId]].sets;
         let suggestedWorkoutSets = workoutState.suggestedWorkouts[exerciseId].sets;
         let persistedIndexes = unfinishedWorkoutSets.map(value => value.index);
         suggestedWorkoutSets = suggestedWorkoutSets.filter(value => !persistedIndexes.includes(value.index));
@@ -89,11 +89,11 @@ function deleteWorkout(workoutState: NormalizedWorkoutState<Workout>, exerciseId
 }
 
 function handleDeleteSuggestedSetWhenNotFoundInPersistedSet(workoutState: NormalizedWorkoutState<Workout>, exerciseId: number, set: WorkoutSet) {
-    let sets = [...workoutState.suggestedWorkouts[exerciseId].sets];
-    sets.splice(workoutState.suggestedWorkouts[exerciseId].sets.map((value) => value.index).indexOf(set.index), 1);
+    let sets = [...workoutState.suggestedWorkouts![exerciseId].sets];
+    sets.splice(workoutState.suggestedWorkouts![exerciseId].sets.map((value) => value.index).indexOf(set.index), 1);
     let suggested = {
         ...workoutState.suggestedWorkouts,
-        [exerciseId]: {...workoutState.suggestedWorkouts[exerciseId], sets: sets}
+        [exerciseId]: {...workoutState.suggestedWorkouts![exerciseId], sets: sets}
     };
     if (sets.length === 0) {
         delete suggested[exerciseId];

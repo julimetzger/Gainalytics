@@ -3,7 +3,7 @@ import {CONFIG} from "../config.js";
 import fs from "fs";
 import path from "path";
 import {Task} from "../backlog/backlogTask";
-import {Plan} from "./plant";
+import {Plan} from "./planModel";
 
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY

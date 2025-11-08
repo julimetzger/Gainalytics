@@ -1,5 +1,7 @@
 import exerciseReducer from "../../../app/redux/exercises/exercisesReducer";
 import {Workout} from "../../../app/models/Workout";
+import {NormalizedState} from "../../../app/redux/normalizedState";
+import {Exercise} from "../../../app/models/Exercise";
 
 describe('exerciseReducer', () => {
     it('should add an exercise', () => {
@@ -215,7 +217,7 @@ describe('exerciseReducer', () => {
                         id: 2,
                         name: 'Squat',
                         records: {
-                            '1RM': [{value: (100).toFixed(2), workoutId: 1}]
+                            '1RM': [{value: 100, workoutId: 1}]
                         }
                     },
                     3: {
@@ -224,7 +226,7 @@ describe('exerciseReducer', () => {
                     },
                 },
                 allIds: [1, 2, 3],
-            };
+            } satisfies NormalizedState<Exercise>;
             const action = {
                 type: 'UPDATE_RECORD',
                 exerciseId: 2,

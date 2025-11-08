@@ -1,4 +1,7 @@
 import trainingsReducer from "../../../app/redux/Training/trainingsReducer";
+import {NormalizedState} from "../../../app/redux/normalizedState";
+import {Training} from "../../../app/models/Training";
+import {TrainingsState} from "../../../app/models/TrainingsState";
 
 function STATE_WITH_ONE_TRAINING() {
     return {
@@ -8,13 +11,13 @@ function STATE_WITH_ONE_TRAINING() {
                 exercises: [2],
                 plannedWorkouts: {},
                 doneWorkoutIds: {},
-                state: 'P'
+                state: TrainingsState.PLANNED
             }
 
         },
         allIds: [3]
 
-    };
+    } satisfies NormalizedState<Training>;
 }
 
 describe('trainingsReducer', () => {
@@ -178,7 +181,7 @@ describe('trainingsReducer', () => {
                         exercises: [2],
                         plannedWorkouts: {},
                         doneWorkoutIds: {2: 1},
-                        state: 'P'
+                        state: TrainingsState.PLANNED
                     }
 
                 },
@@ -260,7 +263,7 @@ describe('trainingsReducer', () => {
                         exercises: [2],
                         plannedWorkouts: {},
                         doneWorkoutIds: {},
-                        state: 'S',
+                        state: TrainingsState.STARTED,
                     }
 
                 },
@@ -296,7 +299,6 @@ describe('trainingsReducer', () => {
     })
     describe('SUGGEST_TRAINING', () => {
         it('it should suggest training', () => {
-            let date = new Date();
             expect(trainingsReducer(STATE_WITH_ONE_TRAINING(), {
                 type: 'SUGGEST_TRAINING',
                 trainingsId: 3,

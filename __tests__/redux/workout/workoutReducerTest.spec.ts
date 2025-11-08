@@ -1,6 +1,9 @@
 import exerciseReducer from "../../../app/redux/Workout/workoutReducer";
 import {WorkoutSet} from "../../../app/models/WorkoutSet";
 import {Record} from "../../../app/models/Exercise";
+import {NormalizedState} from "../../../app/redux/normalizedState";
+import {Workout} from "../../../app/models/Workout";
+import {NormalizedWorkoutState} from "../../../app/redux/normalizedWorkoutState";
 
 const TEST_DATE = new Date(2020, 1, 1, 1, 1, 2);
 const STATE_WITH_TWO_WORKOUTS = () => {
@@ -36,8 +39,10 @@ const STATE_WITH_TWO_WORKOUTS = () => {
 const EMPTY_STATE = {
     byId: {},
     allIds: [],
-    byExerciseId: {}
-};
+    byExerciseId: {},
+    plannedWorkouts: []
+
+} satisfies NormalizedWorkoutState<Workout>;
 const STATE_WITH_TWO_WORKOUTS_AND_ACTIVE_SUGGESTION = () => {
     return {
         ...STATE_WITH_TWO_WORKOUTS(),
@@ -107,8 +112,10 @@ describe('workoutReducer', () => {
                     }
                 },
                 notFinishedWorkouts: {11: 1},
-                suggestedWorkouts: {}
-            })
+                suggestedWorkouts: {},
+                plannedWorkouts: []
+
+            } satisfies NormalizedWorkoutState<Workout>)
         })
 
         it('should add workout in timer ordered', () => {
