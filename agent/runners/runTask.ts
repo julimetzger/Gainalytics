@@ -70,66 +70,22 @@ async function tryGitApply(args: string[], cwd: string) {
   }
 }
 
-export async function applyPatch(patch: {diff: string}) {
-  if (!patch?.diff || typeof patch.diff !== 'string') {
-    throw new Error('Invalid patch provided');
+async function writeFiles(
+  files:
+    | Array<{
+        path: string;
+        content: string;
+      }>
+    | undefined,
+) {
+  if (!files || files.length === 0) {
+    throw new Error('Patch failed and no full-file fallback provided by codeEditor.');
   }
-
-  let diffText = patch.diff.replace(/\r\n/g, '\n');
-  if (!diffText.endsWith('\n')) diffText += '\n';
-
-  if (!diffText.includes('diff --git')) {
-    throw new Error("Patch is not a valid unified diff (missing 'diff --git').");
-  }
-
-  // Ziel-Ordner vorbereiten (für neue Dateien/Pfade)
-  ensureDirsFromDiff(diffText);
-
-  const tmpFile = path.join(os.tmpdir(), `.gainalytics_patch_${Date.now()}.diff`);
-  fs.writeFileSync(tmpFile, diffText, 'utf8');
-  const cwd = CONFIG.repoRoot;
-
-  // Reihenfolge der Versuche:
-  // 1) --check -p0 → apply -p0 (tolerant)
-  // 2) --check -p1 → apply -p1 (tolerant)
-  // 3) --3way (benutzt Index/Blob, wenn Kontext nicht passt)
-  const tolerantArgs = ['--reject', '--ignore-whitespace', '--whitespace=nowarn'];
-
-  const trySeq: {check: string[]; apply: string[]; label: string}[] = [
-    {check: ['--check', '-p0', tmpFile], apply: [...tolerantArgs, '-p0', tmpFile], label: 'p0'},
-    {check: ['--check', '-p1', tmpFile], apply: [...tolerantArgs, '-p1', tmpFile], label: 'p1'},
-  ];
-
-  try {
-    for (const step of trySeq) {
-      const okCheck = await tryGitApply(step.check, cwd);
-      if (okCheck) {
-        const okApply = await tryGitApply(step.apply, cwd);
-        if (okApply) {
-          console.log(`Patch applied successfully with ${step.label}`);
-          fs.unlinkSync(tmpFile);
-          return;
-        }
-      }
-    }
-
-    // Letzter Versuch: 3-way (nur apply; --check kennt kein --3way)
-    const ok3way = await tryGitApply(['--3way', '-p0', tmpFile], cwd);
-    if (ok3way) {
-      console.log('Patch applied successfully with --3way');
-      fs.unlinkSync(tmpFile);
-      return;
-    }
-
-    // Wenn alles fehlschlägt: etwas Kontext dumpen
-    console.error('All git apply strategies failed. Showing patch head for debugging:');
-    dumpPatchContext(tmpFile, 15); // häufige Fehlermarke (kannst du anpassen)
-
-    throw new Error('git apply failed with all strategies (p0, p1, 3way).');
-  } finally {
-    try {
-      fs.unlinkSync(tmpFile);
-    } catch {}
+  for (const f of files) {
+    const abs = path.join(CONFIG.repoRoot, f.path);
+    fs.mkdirSync(path.dirname(abs), {recursive: true});
+    fs.writeFileSync(abs, f.content, 'utf8');
+    console.log('Wrote full file:', f.path);
   }
 }
 
@@ -145,38 +101,15 @@ export async function runTask(task: Task) {
   await ensureBranch(branch);
   // Wichtig: full-file Fallback aktivieren
   const result = await applyEdits(plan, {alsoReturnFullFiles: true});
-  const {changedFiles, summaryCommitMessage, patches, files} = result;
+  const {changedFiles, summaryCommitMessage, files} = result;
 
   // 1) Erst versuchen, den Unified Diff anzuwenden
-  let applied = false;
-  if (patches && patches.length > 0) {
-    try {
-      for (let i = 0; i < patches.length; i++) {
-        console.log(`Applying patch ${i + 1}/${patches.length}...`);
-        await applyPatch(patches[i]); // deine robuste Version mit --check/--3way
-      }
-      applied = true;
-    } catch (e) {
-      console.warn('Unified diff failed, falling back to full-file writes…', String(e));
-    }
-  }
-
-  // 2) Fallback: komplette Dateien schreiben (überschreiben)
-  if (!applied) {
-    if (!files || files.length === 0) {
-      throw new Error('Patch failed and no full-file fallback provided by codeEditor.');
-    }
-    for (const f of files) {
-      const abs = path.join(CONFIG.repoRoot, f.path);
-      fs.mkdirSync(path.dirname(abs), {recursive: true});
-      fs.writeFileSync(abs, f.content, 'utf8');
-      console.log('Wrote full file:', f.path);
-    }
-  }
+  await writeFiles(files);
   // after applying initial patch + running checks:
   const fixDiff = await repairWithJestFeedback(plan, changedFiles);
   if (fixDiff) {
-    await applyPatch({diff: fixDiff}); // your robust git-apply
+    console.log('applying test fix: ', fixDiff);
+    await writeFiles(fixDiff); // your robust git-apply
     // re-run tests if desired
   }
   const commitMsg = summaryCommitMessage ? summaryCommitMessage() : `feat(${task.id}): ${task.title}`;
