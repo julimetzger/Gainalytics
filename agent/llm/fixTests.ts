@@ -3,6 +3,7 @@ import {CONFIG} from '../config';
 import {runJestJson} from '../tests/jestRunner';
 import {buildJestFeedback} from '../tests/jestFeedback';
 import {loadJestSummary} from '../tests/jestParser';
+import {FullFileNotes, parseFromResponse} from './codeEditor';
 
 const client = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
 
@@ -30,25 +31,18 @@ ${changedFiles.map((f) => `- ${f}`).join('\n')}
 Failing tests (condensed):
 ${JSON.stringify(payload, null, 2)}
 
-Rules:
-- Do not modify unrelated files.
-- Prefer typing fixes and correct imports over workarounds.
-- If snapshot change is expected, include updated snapshots in the diff.
-- Output ONE multi-file unified diff. No extra text.
+${FullFileNotes}
 `.trim();
 
+  console.log('test feedback is: ', user);
   const r = await client.chat.completions.create({
     model: CONFIG.llm.model,
-    temperature: 0.2,
     messages: [
       {role: 'system', content: system},
       {role: 'user', content: user},
     ],
   });
+  console.log('test feedback response is: ', r);
 
-  const diff = r.choices[0]?.message?.content ?? '';
-  if (!diff.includes('diff --git')) {
-    throw new Error('LLM did not return a unified diff.');
-  }
-  return diff;
+  return parseFromResponse(r);
 }
