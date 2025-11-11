@@ -214,7 +214,7 @@ const SettingsTab = ({navigation}: Props) => {
         <>
           <View style={styles.row}>
             <View style={{flex: 1, marginRight: 10}}>
-              <Text style={{fontSize: 16, marginBottom: 4}}>Exact Alarm Permission</Text>
+              <Text style={{marginBottom: 4}}>Exact Alarm Permission</Text>
               <Text style={{fontSize: 12, color: 'gray'}}>{exactAlarmStatus ? 'Enabled - Notifications will be precise' : 'Disabled - Notifications may be delayed'}</Text>
             </View>
             <Button mode="outlined" onPress={handleExactAlarmSettings} disabled={exactAlarmStatus === null}>

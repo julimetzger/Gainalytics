@@ -15,7 +15,8 @@ export interface Effects {
 
 const effectsReducer = (effect: Effects = {}, action: AnyAction) => {
   switch (action.type) {
-    case 'ADD_RECORD': {
+    case 'ADD_RECORD':
+    case 'UPDATE_RECORD': {
       return {
         ...effect,
         exerciseRecord: {

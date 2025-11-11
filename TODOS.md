@@ -5,7 +5,6 @@
 - **Export/Import Funktion für Trainings/Micro**
 - Records in Overview anzeigen
 - progression einbauen bei hinzufügen aus letztem planned or done training ( linear)
-- Auf Trainingsübersicht Seite Metriken einblenden (sets, volume, RIR average, max RIR, Sets pro Muskelgruppe als Grafik?)
 - Overview mit Grafik für RIR Sets im Vergleich zum vorherigen Macro
 - Labels für Sets/Workouts hinzufügen
 
@@ -32,7 +31,6 @@
 - Toast für records Farben sind noch nicht passend
 - onPress auf Toast navigiert zu Exercise Stats //TODO go to Exercise Stats
 - Tabs für Analyse https://www.npmjs.com/package/react-native-paper-tabs
-- Farbpalette erweitern mit https://github.com/pchmn/expo-material3-theme https://callstack.github.io/react-native-paper/docs/guides/theming/
 
 ## Bugs
 
@@ -58,7 +56,7 @@
 
 ## Exercises
 
-- Nur ein Rekord pro Tag/Workout speichern in Stats, aber es soll immer ein Toast angezeigt werden, History Pokal Symbol nur beim 1RM Rekord?!
+- History Pokal Symbol nur beim 1RM Rekord?!
 
 ## Settings
 
