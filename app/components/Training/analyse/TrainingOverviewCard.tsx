@@ -8,6 +8,17 @@ import {useAllTrainingsInMicro} from '../../../redux/Training/use/useAllTraining
 import {sum} from 'lodash';
 import {Workout} from '../../../models/Workout';
 import {Metric} from '../../picker/elements/TrainingElementPicker';
+import {Record} from '../../../models/Exercise';
+
+export const countRecordExercisesInMicro = (workouts: Workout[]) => {
+  const recordExerciseIds = new Set<number>();
+  workouts.forEach((workout) => {
+    if (workout.records?.[Record.ONE_RM] !== undefined) {
+      recordExerciseIds.add(workout.exerciseId);
+    }
+  });
+  return recordExerciseIds.size;
+};
 
 interface TrainingOverviewCardProps {
   trainingsPlan: TrainingsPlan;
@@ -44,6 +55,8 @@ const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCar
 
   const currentSets = trainingsWorkouts.flatMap((workout: Workout) => workout.sets);
   const previousSets = previousWorkouts.flatMap((workout: Workout) => workout.sets);
+
+  const recordExercises = countRecordExercisesInMicro(trainingsWorkouts);
 
   // Use existing metric calculation methods
   const totalSets = calculateMetricValue(currentSets, Metric.SETS);
@@ -123,7 +136,7 @@ const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCar
 
         <View style={styles.progressContainer}>
           <Text style={styles.progressText}>
-            {trainings.length} trainings • {totalReps} reps
+            {trainings.length} trainings • {totalReps} reps • {recordExercises} records
           </Text>
           {lastCompletedTraining && <Text style={styles.lastTrainingText}>Last: {formatDate(new Date(lastCompletedTraining.end!))}</Text>}
         </View>

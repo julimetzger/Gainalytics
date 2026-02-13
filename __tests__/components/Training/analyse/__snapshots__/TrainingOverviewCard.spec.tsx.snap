@@ -1,0 +1,327 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`TrainingOverviewCard renders record count in overview row 1`] = `
+<View>
+  <View>
+    <Text
+      style={
+        [
+          {
+            "textAlign": "left",
+          },
+          {
+            "color": "rgba(28, 27, 31, 1)",
+            "fontFamily": "System",
+            "fontWeight": "400",
+            "letterSpacing": 0,
+          },
+          {
+            "writingDirection": "ltr",
+          },
+          [
+            {
+              "fontSize": 14,
+              "fontWeight": "bold",
+              "marginBottom": 8,
+              "textAlign": "center",
+            },
+            {
+              "color": "rgba(103, 80, 164, 1)",
+            },
+          ],
+        ]
+      }
+    >
+      Micro 
+      1
+    </Text>
+    <View
+      style={
+        {
+          "flexDirection": "row",
+          "justifyContent": "space-between",
+          "marginBottom": 8,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flex": 1,
+          }
+        }
+      >
+        <Text
+          style={
+            [
+              {
+                "textAlign": "left",
+              },
+              {
+                "color": "rgba(28, 27, 31, 1)",
+                "fontFamily": "System",
+                "fontWeight": "400",
+                "letterSpacing": 0,
+              },
+              {
+                "writingDirection": "ltr",
+              },
+              {
+                "fontSize": 16,
+                "fontWeight": "bold",
+                "marginBottom": 2,
+              },
+            ]
+          }
+        >
+          0
+        </Text>
+        <Text
+          style={
+            [
+              {
+                "textAlign": "left",
+              },
+              {
+                "color": "rgba(28, 27, 31, 1)",
+                "fontFamily": "System",
+                "fontWeight": "400",
+                "letterSpacing": 0,
+              },
+              {
+                "writingDirection": "ltr",
+              },
+              {
+                "color": "#666",
+                "fontSize": 11,
+                "marginBottom": 2,
+              },
+            ]
+          }
+        >
+          Sets
+        </Text>
+      </View>
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flex": 1,
+          }
+        }
+      >
+        <Text
+          style={
+            [
+              {
+                "textAlign": "left",
+              },
+              {
+                "color": "rgba(28, 27, 31, 1)",
+                "fontFamily": "System",
+                "fontWeight": "400",
+                "letterSpacing": 0,
+              },
+              {
+                "writingDirection": "ltr",
+              },
+              {
+                "fontSize": 16,
+                "fontWeight": "bold",
+                "marginBottom": 2,
+              },
+            ]
+          }
+        >
+          0 min
+        </Text>
+        <Text
+          style={
+            [
+              {
+                "textAlign": "left",
+              },
+              {
+                "color": "rgba(28, 27, 31, 1)",
+                "fontFamily": "System",
+                "fontWeight": "400",
+                "letterSpacing": 0,
+              },
+              {
+                "writingDirection": "ltr",
+              },
+              {
+                "color": "#666",
+                "fontSize": 11,
+                "marginBottom": 2,
+              },
+            ]
+          }
+        >
+          Time
+        </Text>
+      </View>
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flex": 1,
+          }
+        }
+      >
+        <Text
+          style={
+            [
+              {
+                "textAlign": "left",
+              },
+              {
+                "color": "rgba(28, 27, 31, 1)",
+                "fontFamily": "System",
+                "fontWeight": "400",
+                "letterSpacing": 0,
+              },
+              {
+                "writingDirection": "ltr",
+              },
+              {
+                "fontSize": 16,
+                "fontWeight": "bold",
+                "marginBottom": 2,
+              },
+            ]
+          }
+        >
+          0
+           kg
+        </Text>
+        <Text
+          style={
+            [
+              {
+                "textAlign": "left",
+              },
+              {
+                "color": "rgba(28, 27, 31, 1)",
+                "fontFamily": "System",
+                "fontWeight": "400",
+                "letterSpacing": 0,
+              },
+              {
+                "writingDirection": "ltr",
+              },
+              {
+                "color": "#666",
+                "fontSize": 11,
+                "marginBottom": 2,
+              },
+            ]
+          }
+        >
+          Volume
+        </Text>
+      </View>
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flex": 1,
+          }
+        }
+      >
+        <Text
+          style={
+            [
+              {
+                "textAlign": "left",
+              },
+              {
+                "color": "rgba(28, 27, 31, 1)",
+                "fontFamily": "System",
+                "fontWeight": "400",
+                "letterSpacing": 0,
+              },
+              {
+                "writingDirection": "ltr",
+              },
+              {
+                "fontSize": 16,
+                "fontWeight": "bold",
+                "marginBottom": 2,
+              },
+            ]
+          }
+        >
+          0
+          /
+          2
+        </Text>
+        <Text
+          style={
+            [
+              {
+                "textAlign": "left",
+              },
+              {
+                "color": "rgba(28, 27, 31, 1)",
+                "fontFamily": "System",
+                "fontWeight": "400",
+                "letterSpacing": 0,
+              },
+              {
+                "writingDirection": "ltr",
+              },
+              {
+                "color": "#666",
+                "fontSize": 11,
+                "marginBottom": 2,
+              },
+            ]
+          }
+        >
+          Done
+        </Text>
+      </View>
+    </View>
+    <View
+      style={
+        {
+          "alignItems": "center",
+          "marginTop": 4,
+        }
+      }
+    >
+      <Text
+        style={
+          [
+            {
+              "textAlign": "left",
+            },
+            {
+              "color": "rgba(28, 27, 31, 1)",
+              "fontFamily": "System",
+              "fontWeight": "400",
+              "letterSpacing": 0,
+            },
+            {
+              "writingDirection": "ltr",
+            },
+            {
+              "color": "#666",
+              "fontSize": 11,
+            },
+          ]
+        }
+      >
+        1
+         trainings • 
+        0
+         reps • 
+        2
+         records
+      </Text>
+    </View>
+  </View>
+</View>
+`;

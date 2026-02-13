@@ -1,0 +1,21 @@
+node_modules/
+android/build/
+ios/build/
+.git/
+.gradle/
+dist/
+build/
+coverage/
+.expo/
+.expo-shared/
+*.log
+agent/
+
+# große assets
+assets/videos/
+assets/images/
+
+# irrelevant directories
+docs/
+scripts/
+tmp/
