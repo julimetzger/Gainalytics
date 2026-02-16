@@ -1,4 +1,4 @@
-import exerciseReducer from '../../../app/redux/exercises/exercisesReducer';
+import exerciseReducer from '../../../app/redux/Exercises/exercisesReducer';
 import {Workout} from '../../../app/models/Workout';
 import {NormalizedState} from '../../../app/redux/normalizedState';
 import {Exercise} from '../../../app/models/Exercise';
