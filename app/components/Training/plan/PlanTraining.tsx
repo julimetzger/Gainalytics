@@ -8,9 +8,9 @@ import {usePlannedWorkoutInTraining} from '../../../redux/Training/use/usePlanne
 import {useAllLastWorkouts} from '../../../redux/Workout/use/useAllLastWorkouts';
 import {oneRepMaxForWorkouts} from '../../../utils/AnalyseUtils';
 import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId';
-import {Training} from '../../../models/Training';
-import {Exercise} from '../../../models/Exercise';
-import {WorkoutSet} from '../../../models/WorkoutSet';
+import {Training} from '../../../models/entities/Training';
+import {Exercise} from '../../../models/entities/Exercise';
+import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 
 const PlanTraining = ({training, trainingsPlanId, micro, trainingInMicro, chosenExercise}: Props) => {
   const addPlanedTrainingWorkoutSet = dispatchAddPlanedTrainingWorkout();

@@ -1,7 +1,7 @@
 import {useDispatch} from 'react-redux';
 import {Action} from 'redux';
 import {useNextTrainingsId} from '../../use/useNextTrainingsId';
-import {Exercise} from '../../../../models/Exercise';
+import {Exercise} from '../../../../models/entities/Exercise';
 
 export const dispatchModifyExercisesInTraining = () => {
   const dispatch = useDispatch();

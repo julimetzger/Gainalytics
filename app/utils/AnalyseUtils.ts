@@ -1,10 +1,10 @@
-import {Metric} from '../components/picker/elements/TrainingElementPicker';
 import {sum, sumBy} from 'lodash';
 import {Comparison} from '../components/analyse/MetricsOverviewForWorkouts';
 import {Muscles} from '../models/Muscles';
-import {Exercise} from '../models/Exercise';
-import {WorkoutSet} from '../models/WorkoutSet';
-import {Workout} from '../models/Workout';
+import {Exercise} from '../models/entities/Exercise';
+import {WorkoutSet} from '../models/entities/WorkoutSet';
+import {Workout} from '../models/entities/Workout';
+import {Metric} from '../models/Metric';
 
 export const repetitionMax = (...workoutSet: WorkoutSet[]) => {
   let number = Math.max(...workoutSet.map((value) => value.weight * repsCoefficient(value.reps + value.rir)));

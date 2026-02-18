@@ -2,7 +2,7 @@ import React, {useRef, useState} from 'react';
 import {Dimensions, LayoutRectangle, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import DraggableFlatList, {RenderItemParams, ScaleDecorator} from 'react-native-draggable-flatlist';
 import {IconButton, useTheme} from 'react-native-paper';
-import {Exercise} from '../../models/Exercise';
+import {Exercise} from '../../models/entities/Exercise';
 import SwipeView from 'react-native-vertical-swipe-view';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 

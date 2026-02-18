@@ -2,7 +2,7 @@ import React from 'react';
 import ExerciseTab from '../tabs/exercises/ExerciseTab';
 import AddWorkoutTab from '../tabs/exercises/AddWorkoutTab';
 import {useTheme, IconButton} from 'react-native-paper';
-import {Exercise} from '../models/Exercise';
+import {Exercise} from '../models/entities/Exercise';
 import ExerciseStatisticsTabs from '../tabs/exercises/ExerciseStatisticsTabs';
 import ExerciseHistoryTab from '../tabs/exercises/ExerciseHistoryTab';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';

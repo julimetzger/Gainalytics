@@ -8,3 +8,4 @@ export interface WorkoutSet {
   date?: Date;
   record?: Record[];
 }
+

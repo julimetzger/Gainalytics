@@ -1,12 +1,12 @@
 import {useDispatch} from 'react-redux';
 import {Action} from 'redux';
 
-import {Exercise, Record} from '../../../models/Exercise';
+import {Exercise, Record} from '../../../models/entities/Exercise';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
-import {Metric} from '../../../components/picker/elements/TrainingElementPicker';
-import {WorkoutSet} from '../../../models/WorkoutSet';
-import {Workout} from '../../../models/Workout';
+import {WorkoutSet} from '../../../models/entities/WorkoutSet';
+import {Workout} from '../../../models/entities/Workout';
 import {Dispatch} from 'react';
+import {Metric} from "../../../models/Metric";
 
 export function dispatchRecord(planningMode: boolean, set: WorkoutSet, workout: Workout, dispatch: Dispatch<any>, exercise: Exercise, workoutId: number) {
   if (!planningMode) {

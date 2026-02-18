@@ -5,17 +5,19 @@ import {processColor, ScrollView, StyleSheet, View} from 'react-native';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
-import TrainingElementPicker, {Accumulation, AccumulationMode, Metric} from '../../components/picker/elements/TrainingElementPicker';
-import {Exercise} from '../../models/Exercise';
+import TrainingElementPicker, {Accumulation} from '../../components/picker/elements/TrainingElementPicker';
+import {Exercise} from '../../models/entities/Exercise';
 import {Muscles} from '../../models/Muscles';
 import {useExercisesForMuscles} from '../../redux/Exercises/use/useExercisesForMuscles';
 import {useWorkoutsIn} from '../../redux/Workout/use/useWorkoutsIn';
-import {Workout} from '../../models/Workout';
+import {Workout} from '../../models/entities/Workout';
 import {Card, useTheme, HelperText} from 'react-native-paper';
 import {handleAccumulationModeBatching} from '../../utils/HandleAccumulationModeBatching';
 import {sum} from 'lodash';
 import {calculateMetricValue, calculateMetricValueForMuscles} from '../../utils/AnalyseUtils';
 import {generateTrend} from '../../utils/generateTrend';
+import {Metric} from "../../models/Metric";
+import {AccumulationMode} from '../../models/AccumulationMode';
 
 const GraphsTab = () => {
   let now = new Date(Date.now());

@@ -3,7 +3,7 @@ import {Range} from '../../components/picker/date/DateRangePicker';
 import HistoryNode from '../../components/analyse/HistoryNode';
 import TrainingElementPicker from '../../components/picker/elements/TrainingElementPicker';
 import {Muscles} from '../../models/Muscles';
-import {Exercise} from '../../models/Exercise';
+import {Exercise} from '../../models/entities/Exercise';
 import RangeSwiper from '../../components/RangeSwiper';
 import {firstDayOfWeek, lastDayOfWeek} from '../../utils/DateHelper';
 

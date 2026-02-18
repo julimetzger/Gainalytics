@@ -2,7 +2,7 @@ import React from 'react';
 import {View} from 'react-native';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
-import {TrainingsPlan} from '../../../models/TrainingsPlan';
+import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {useAllTrainingsInMicro} from '../../../redux/Training/use/useAllTrainingsInMicro';
 
 interface PlanningOverviewProps {

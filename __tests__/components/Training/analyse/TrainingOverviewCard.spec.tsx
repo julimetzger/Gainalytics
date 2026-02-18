@@ -1,7 +1,7 @@
 import React from 'react';
 import {render} from '@testing-library/react-native';
 import TrainingOverviewCard, {countRecordExercisesInMicro} from '../../../../app/components/Training/analyse/TrainingOverviewCard';
-import {Workout} from '../../../../app/models/Workout';
+import {Workout} from '../../../../app/models/entities/Workout';
 
 jest.mock('../../../../app/redux/Training/use/useAllTrainingsInMicro', () => ({
   useAllTrainingsInMicro: jest.fn(),

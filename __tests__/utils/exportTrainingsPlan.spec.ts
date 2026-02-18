@@ -5,7 +5,7 @@ jest.mock('react-native-fs', () => ({
 
 
 import {buildTrainingsPlanExportPayload} from '../../app/utils/exportTrainingsPlan';
-import {TrainingsPlan} from '../../app/models/TrainingsPlan';
+import {TrainingsPlan} from '../../app/models/entities/TrainingsPlan';
 import {TrainingsState} from '../../app/models/TrainingsState';
 import {GlobalState} from '../../app/redux/rootReducer';
 

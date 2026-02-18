@@ -1,7 +1,7 @@
 import {useDispatch} from 'react-redux';
 import {Action} from 'redux';
 
-import {MusclePercentPair} from '../../../models/Exercise';
+import {MusclePercentPair} from '../../../models/entities/Exercise';
 
 export const useDispatchAddExercise = () => {
   const dispatch = useDispatch();

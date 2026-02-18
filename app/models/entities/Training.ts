@@ -1,4 +1,4 @@
-import {TrainingsState} from './TrainingsState';
+import {TrainingsState} from '../TrainingsState';
 
 export type Training = {
   id?: number;

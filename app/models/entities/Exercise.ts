@@ -1,4 +1,4 @@
-import {Muscles} from './Muscles';
+import {Muscles} from '../Muscles';
 
 export type Exercise = {
   id?: number;

@@ -4,7 +4,7 @@ import {useNextTrainingsId} from '../../use/useNextTrainingsId';
 import {useLastTrainingInMicro} from '../../use/useLastTrainingInMicro';
 import {useNextWorkoutId} from '../../../Workout/use/useNextWorkoutId';
 import {useWorkoutsByIds} from '../../../Workout/use/useWorkoutsByIds';
-import {Workout} from '../../../../models/Workout';
+import {Workout} from '../../../../models/entities/Workout';
 
 export const dispatchSuggestBasedOnPlanned = (trainingsPlanId: number, trainingsNumber: number) => {
   const dispatch = useDispatch();

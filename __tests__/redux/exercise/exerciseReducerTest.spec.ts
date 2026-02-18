@@ -1,7 +1,7 @@
 import exerciseReducer from '../../../app/redux/Exercises/exercisesReducer';
-import {Workout} from '../../../app/models/Workout';
+import {Workout} from '../../../app/models/entities/Workout';
 import {NormalizedState} from '../../../app/redux/normalizedState';
-import {Exercise} from '../../../app/models/Exercise';
+import {Exercise} from '../../../app/models/entities/Exercise';
 
 describe('exerciseReducer', () => {
   it('should add an exercise', () => {

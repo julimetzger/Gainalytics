@@ -3,10 +3,10 @@ import {StyleSheet, View} from 'react-native';
 import {Card, Text, useTheme} from 'react-native-paper';
 import {FlashList} from '@shopify/flash-list';
 import WorkoutViewTile from './WorkoutView';
-import {Metric} from '../../picker/elements/TrainingElementPicker';
 import {getDateStringFromDate} from '../../../utils/DateHelper';
 import {useDateWorkoutMapByIds} from '../../../redux/Workout/use/useDateWorkoutMapByIds';
 import {useHighlightWorkout} from '../../../redux/Workout/use/useHighlightWorkout';
+import {Metric} from "../../../models/Metric";
 
 interface WorkoutViewProps {
   workoutIds: number[];

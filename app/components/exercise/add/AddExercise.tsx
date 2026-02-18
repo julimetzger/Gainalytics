@@ -6,7 +6,7 @@ import {dispatchEditExercise} from '../../../redux/Exercises/dispatch/dispatchEd
 import {useExercise} from '../../../redux/Exercises/use/useExercise';
 import {dispatchDeleteExercise} from '../../../redux/Exercises/dispatch/dispatchDeleteExercise';
 import MusclePicker from './MusclePicker';
-import {MusclePercentPair} from '../../../models/Exercise';
+import {MusclePercentPair} from '../../../models/entities/Exercise';
 
 interface AddExerciseProperties {
   style?: any;

@@ -1,9 +1,9 @@
 import {useDispatch} from 'react-redux';
 import {Action} from 'redux';
 import {useNextWorkoutId} from '../use/useNextWorkoutId';
-import {Workout} from '../../../models/Workout';
+import {Workout} from '../../../models/entities/Workout';
 import {dispatchRecord} from './dispatchAddOrUpdateSetInWorkout';
-import {Exercise} from '../../../models/Exercise';
+import {Exercise} from '../../../models/entities/Exercise';
 
 /**
  * add fully build workout to redux store

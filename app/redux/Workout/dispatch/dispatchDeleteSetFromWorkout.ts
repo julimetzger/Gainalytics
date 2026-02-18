@@ -1,10 +1,11 @@
 import {useDispatch} from 'react-redux';
 import {Action} from 'redux';
-import {WorkoutSet} from '../../../models/WorkoutSet';
-import {Workout} from '../../../models/Workout';
-import {Record} from '../../../models/Exercise';
+import {WorkoutSet} from '../../../models/entities/WorkoutSet';
+import {Workout} from '../../../models/entities/Workout';
+import {Record} from '../../../models/entities/Exercise';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
-import {Metric} from '../../../components/picker/elements/TrainingElementPicker';
+
+import {Metric} from "../../../models/Metric";
 
 export const dispatchDeleteSetFromWorkout = () => {
   const dispatch = useDispatch();

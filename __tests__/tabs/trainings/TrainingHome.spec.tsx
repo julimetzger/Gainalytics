@@ -1,7 +1,7 @@
 import React from 'react';
 import {fireEvent, render, waitFor} from '@testing-library/react-native';
 import TrainingHome from '../../../app/tabs/trainings/TrainingHome';
-import {TrainingsPlan} from '../../../app/models/TrainingsPlan';
+import {TrainingsPlan} from '../../../app/models/entities/TrainingsPlan';
 import {TrainingsState} from '../../../app/models/TrainingsState';
 import {exportTrainingsPlanToFile} from '../../../app/utils/exportTrainingsPlan';
 import {Alert} from 'react-native';

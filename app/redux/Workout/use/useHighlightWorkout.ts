@@ -1,9 +1,9 @@
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
 import {useSelector} from 'react-redux';
 import {GlobalState} from '../../rootReducer';
-import {Metric} from '../../../components/picker/elements/TrainingElementPicker';
 import {compareArrays} from '../../../utils/ArrayUtils';
-import {Workout} from '../../../models/Workout';
+import {Workout} from '../../../models/entities/Workout';
+import {Metric} from "../../../models/Metric";
 
 export const useHighlightWorkout = (workoutIds: number[], highlightMode?: Metric) =>
   useSelector(

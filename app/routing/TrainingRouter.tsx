@@ -1,7 +1,7 @@
 import React from 'react';
 import TrainingHomeTab from '../tabs/trainings/TrainingHome';
 import TrainingsPlanTab from '../tabs/trainings/TrainingsPlanTab';
-import {TrainingsPlan} from '../models/TrainingsPlan';
+import {TrainingsPlan} from '../models/entities/TrainingsPlan';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {IconButton} from 'react-native-paper';
 

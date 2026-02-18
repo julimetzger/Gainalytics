@@ -1,14 +1,14 @@
-import {Metric} from '../picker/elements/TrainingElementPicker';
 import {calculateMetricComparisons, calculateMetricComparisonsForMuscle, calculateMetricValue, WorkoutSetMap} from '../../utils/AnalyseUtils';
 import {Card, DataTable, Dialog, Portal, Text} from 'react-native-paper';
 import React, {useState} from 'react';
 import {useExerciseByIds} from '../../redux/Exercises/use/useExerciseByIds';
 import MetricView from './MetricComparison';
 import {Muscles} from '../../models/Muscles';
-import {Exercise, MusclePercentPair} from '../../models/Exercise';
-import {Workout} from '../../models/Workout';
+import {Exercise, MusclePercentPair} from '../../models/entities/Exercise';
+import {Workout} from '../../models/entities/Workout';
 import {StyleSheet} from 'react-native';
 import ExerciseMetricOverview from '../exercise/show/ExerciseMetricOverview';
+import {Metric} from "../../models/Metric";
 
 export interface Comparison {
   value: number;

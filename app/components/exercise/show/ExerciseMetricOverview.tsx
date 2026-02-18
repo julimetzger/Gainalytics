@@ -1,10 +1,10 @@
 import {Card, DataTable, Text} from 'react-native-paper';
 import MetricView from '../../analyse/MetricComparison';
-import {Metric} from '../../picker/elements/TrainingElementPicker';
 import React from 'react';
-import {Exercise} from '../../../models/Exercise';
+import {Exercise} from '../../../models/entities/Exercise';
 import {Comparison} from '../../analyse/MetricsOverviewForWorkouts';
 import {StyleSheet} from 'react-native';
+import {Metric} from "../../../models/Metric";
 
 const ExerciseMetricOverview = ({exerciseMetricMap}: {exerciseMetricMap: Map<Exercise, Map<Metric, Comparison>>}) => {
   return (

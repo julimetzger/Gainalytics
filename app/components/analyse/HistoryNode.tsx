@@ -7,8 +7,8 @@ import {repetitionMax} from '../../utils/AnalyseUtils';
 import React, {memo} from 'react';
 import {Muscles} from '../../models/Muscles';
 import {useExercisesForMuscles} from '../../redux/Exercises/use/useExercisesForMuscles';
-import {Exercise} from '../../models/Exercise';
-import {Workout} from '../../models/Workout';
+import {Exercise} from '../../models/entities/Exercise';
+import {Workout} from '../../models/entities/Workout';
 
 interface HisotryNodeProps {
   range: Range;

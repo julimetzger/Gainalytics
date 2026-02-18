@@ -1,7 +1,7 @@
 import {Button, Divider, IconButton, SegmentedButtons, Text, TextInput, ThemeBase, Tooltip, TouchableRipple} from 'react-native-paper';
 import {MD3Colors, MD3Typescale} from 'react-native-paper/lib/typescript/types';
 import {Action} from 'redux';
-import {TrainingsPlan} from '../../models/TrainingsPlan';
+import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {View, Keyboard} from 'react-native';
 import React, {useState, useRef, useEffect} from 'react';
 

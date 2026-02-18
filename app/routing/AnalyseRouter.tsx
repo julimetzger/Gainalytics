@@ -1,6 +1,6 @@
 import React from 'react';
 import History from '../tabs/Analyse/History';
-import {Exercise} from '../models/Exercise';
+import {Exercise} from '../models/entities/Exercise';
 import {createDrawerNavigator} from '@react-navigation/drawer';
 import AnalyseGraphics from '../tabs/Analyse/AnalyseGraphics';
 import RecordsTab from '../tabs/Analyse/Records';

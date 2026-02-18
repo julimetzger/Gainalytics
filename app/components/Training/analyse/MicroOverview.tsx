@@ -5,11 +5,11 @@ import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {Card, Text} from 'react-native-paper';
 import MetricView from '../../analyse/MetricComparison';
-import {Metric} from '../../picker/elements/TrainingElementPicker';
 import {calculateMetricComparisons} from '../../../utils/AnalyseUtils';
 import {sum} from 'lodash';
-import {TrainingsPlan} from '../../../models/TrainingsPlan';
-import {Workout} from '../../../models/Workout';
+import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
+import {Workout} from '../../../models/entities/Workout';
+import {Metric} from "../../../models/Metric";
 
 interface TrainingsBaseProps {
   trainingsPlan: TrainingsPlan;

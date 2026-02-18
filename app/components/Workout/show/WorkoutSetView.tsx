@@ -2,9 +2,9 @@ import {View} from 'react-native';
 import {DataTable, Icon, useTheme} from 'react-native-paper';
 import React, {useEffect, useState} from 'react';
 import AddWorkoutSet from '../add/AddWorkoutSet';
-import {Metric} from '../../picker/elements/TrainingElementPicker';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
-import {WorkoutSet} from '../../../models/WorkoutSet';
+import {WorkoutSet} from '../../../models/entities/WorkoutSet';
+import {Metric} from "../../../models/Metric";
 
 const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMode}: WorkoutSetViewProps) => {
   const theme = useTheme();

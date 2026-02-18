@@ -4,12 +4,12 @@ import {Card, IconButton, Text, useTheme} from 'react-native-paper';
 import OutsidePressHandler from 'react-native-outside-press';
 import AddWorkoutSet from '../add/AddWorkoutSet';
 import WorkoutSetView from './WorkoutSetView';
-import {Metric} from '../../picker/elements/TrainingElementPicker';
 import {dispatchDeleteSetFromWorkout} from '../../../redux/Workout/dispatch/dispatchDeleteSetFromWorkout';
 import {dispatchAddOrUpdateSetInWorkout} from '../../../redux/Workout/dispatch/dispatchAddOrUpdateSetInWorkout';
 import dispatchDeleteWorkout from '../../../redux/Workout/dispatch/dispatchDeleteWorkout';
 import {useWorkoutById} from '../../../redux/Workout/use/useWorkoutById';
 import {useExercise} from '../../../redux/Exercises/use/useExercise';
+import {Metric} from "../../../models/Metric";
 
 interface WorkoutViewTileProps {
   workoutId: number;

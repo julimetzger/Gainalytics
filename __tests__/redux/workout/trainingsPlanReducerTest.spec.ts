@@ -1,5 +1,5 @@
 import trainingsPlanReducer from '../../../app/redux/Training/trainingsPlanReducer';
-import {TrainingsPlan} from '../../../app/models/TrainingsPlan';
+import {TrainingsPlan} from '../../../app/models/entities/TrainingsPlan';
 
 function ONE_TRAININGS_PLAN() {
   return {

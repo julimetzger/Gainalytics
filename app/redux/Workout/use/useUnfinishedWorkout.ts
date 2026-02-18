@@ -1,6 +1,6 @@
 import {useSelector} from 'react-redux';
 import {GlobalState} from '../../rootReducer';
-import {Workout} from '../../../models/Workout';
+import {Workout} from '../../../models/entities/Workout';
 
 export const useUnfinishedWorkout = (exerciseId: number) =>
   useSelector((state: GlobalState) => {

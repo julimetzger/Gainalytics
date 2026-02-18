@@ -5,9 +5,9 @@ import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
 import {calculateMetricComparisons} from '../../../utils/AnalyseUtils';
 import MetricView from '../../analyse/MetricComparison';
-import {Metric} from '../../picker/elements/TrainingElementPicker';
-import {Training} from '../../../models/Training';
-import {Workout} from '../../../models/Workout';
+import {Training} from '../../../models/entities/Training';
+import {Workout} from '../../../models/entities/Workout';
+import {Metric} from "../../../models/Metric";
 
 interface TrainingsOverviewProps {
   training: Training;

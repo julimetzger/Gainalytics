@@ -1,5 +1,5 @@
 import {NormalizedState} from './normalizedState';
-import {Workout} from '../models/Workout';
+import {Workout} from '../models/entities/Workout';
 
 export interface NormalizedWorkoutState<T> extends NormalizedState<T> {
   byExerciseId: {[exerciseId: number]: number[]};

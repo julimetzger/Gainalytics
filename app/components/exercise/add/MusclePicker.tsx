@@ -3,7 +3,7 @@ import DropDown from 'react-native-paper-dropdown';
 import {IconButton, TextInput, useTheme} from 'react-native-paper';
 import React, {useEffect, useState} from 'react';
 import {Muscles} from '../../../models/Muscles';
-import {MusclePercentPair} from '../../../models/Exercise';
+import {MusclePercentPair} from '../../../models/entities/Exercise';
 
 interface MusclePickerProps {
   muscleValue: MusclePercentPair;

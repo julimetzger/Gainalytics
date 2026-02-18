@@ -1,6 +1,7 @@
-import {Accumulation, AccumulationMode} from '../components/picker/elements/TrainingElementPicker';
+import {Accumulation} from '../components/picker/elements/TrainingElementPicker';
 import {firstDayOfWeek, getFirstDayOfMonth} from './DateHelper';
 import {getAllTrainingsForMicro, getMicroFromTrainingInMicroIndex} from '../redux/Training/trainingsPlanReducer';
+import {AccumulationMode} from "../models/AccumulationMode";
 
 export const handleAccumulationModeBatching = (allWorkouts: Acuumalatable[], accumulationMode?: Accumulation) => {
   return (acc: Map<string, Acuumalatable[]>, workout: Acuumalatable): Map<string, Acuumalatable[]> => {

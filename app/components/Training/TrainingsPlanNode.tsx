@@ -1,4 +1,4 @@
-import {Exercise} from '../../models/Exercise';
+import {Exercise} from '../../models/entities/Exercise';
 import {LayoutRectangle, ScrollView, View} from 'react-native';
 import MicroOverview from './analyse/MicroOverview';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
@@ -15,7 +15,7 @@ import TrainingHistory from './analyse/TrainingHistory';
 import React, {useEffect, useState} from 'react';
 import {dispatchStartTraining} from '../../redux/Training/dispatch/plan/dispatchStartTraining';
 import {useExerciseByIds} from '../../redux/Exercises/use/useExerciseByIds';
-import {TrainingsPlan} from '../../models/TrainingsPlan';
+import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {dispatchModifyExercisesInTraining} from '../../redux/Training/dispatch/general/dispatchModifyExercisesInTraining';
 import {dispatchFinishTraining} from '../../redux/Training/dispatch/execute/dispatchFinishTraining';
 import Toast from 'react-native-toast-message';

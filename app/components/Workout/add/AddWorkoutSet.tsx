@@ -2,7 +2,7 @@ import {Keyboard, StyleSheet, View} from 'react-native';
 import {Button, IconButton, Text, TextInput, ToggleButton, Tooltip, useTheme} from 'react-native-paper';
 import React, {useEffect, useState} from 'react';
 import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
-import {WorkoutSet} from '../../../models/WorkoutSet';
+import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {useSettings} from '../../../redux/settings/use/useSettings';
 
 interface AddWorkoutProps {

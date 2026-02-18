@@ -1,14 +1,14 @@
 import * as React from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
-import {TrainingsPlan} from '../../../models/TrainingsPlan';
+import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
 import {useAllTrainingsInMicro} from '../../../redux/Training/use/useAllTrainingsInMicro';
 import {sum} from 'lodash';
-import {Workout} from '../../../models/Workout';
-import {Metric} from '../../picker/elements/TrainingElementPicker';
-import {Record} from '../../../models/Exercise';
+import {Workout} from '../../../models/entities/Workout';
+import {Record} from '../../../models/entities/Exercise';
+import {Metric} from '../../../models/Metric';
 
 export const countRecordExercisesInMicro = (workouts: Workout[]) => {
   const recordExerciseIds = new Set<number>();

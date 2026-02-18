@@ -11,9 +11,9 @@ import {StyleSheet, View} from 'react-native';
 import AddWorkoutSet from './AddWorkoutSet';
 import {oneRepMaxForWorkouts} from '../../../utils/AnalyseUtils';
 import {sameDate} from '../../../utils/DateHelper';
-import {Exercise} from '../../../models/Exercise';
-import {WorkoutSet} from '../../../models/WorkoutSet';
-import {Workout} from '../../../models/Workout';
+import {Exercise} from '../../../models/entities/Exercise';
+import {WorkoutSet} from '../../../models/entities/WorkoutSet';
+import {Workout} from '../../../models/entities/Workout';
 
 interface Props {
   exercise: Exercise;

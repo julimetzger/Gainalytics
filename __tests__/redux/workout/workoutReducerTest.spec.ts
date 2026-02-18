@@ -1,8 +1,8 @@
 import exerciseReducer from '../../../app/redux/Workout/workoutReducer';
-import {WorkoutSet} from '../../../app/models/WorkoutSet';
-import {Record} from '../../../app/models/Exercise';
+import {WorkoutSet} from '../../../app/models/entities/WorkoutSet';
+import {Record} from '../../../app/models/entities/Exercise';
 import {NormalizedState} from '../../../app/redux/normalizedState';
-import {Workout} from '../../../app/models/Workout';
+import {Workout} from '../../../app/models/entities/Workout';
 import {NormalizedWorkoutState} from '../../../app/redux/normalizedWorkoutState';
 
 const TEST_DATE = new Date(2020, 1, 1, 1, 1, 2);

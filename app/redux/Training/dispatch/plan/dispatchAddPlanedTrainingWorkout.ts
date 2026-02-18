@@ -2,7 +2,7 @@ import {useDispatch} from 'react-redux';
 import {Action} from 'redux';
 import {useNextTrainingsId} from '../../use/useNextTrainingsId';
 import {useNextWorkoutId} from '../../../Workout/use/useNextWorkoutId';
-import {Workout} from '../../../../models/Workout';
+import {Workout} from '../../../../models/entities/Workout';
 
 export const dispatchAddPlanedTrainingWorkout = () => {
   const dispatch = useDispatch();

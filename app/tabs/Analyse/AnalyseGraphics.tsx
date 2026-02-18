@@ -9,15 +9,17 @@ import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrappe
 import {calculateMetricValue, calculateMetricValueForMuscles} from '../../utils/AnalyseUtils';
 import {RootStackParamList} from '../../routing/SettingsRouter';
 import {sum} from 'lodash';
-import TrainingElementPicker, {Accumulation, AccumulationMode, Metric} from '../../components/picker/elements/TrainingElementPicker';
+import TrainingElementPicker, {Accumulation} from '../../components/picker/elements/TrainingElementPicker';
 import {useWorkoutsByIds} from '../../redux/Workout/use/useWorkoutsByIds';
 import WorkoutView from '../../components/Workout/show/WorkoutDoneList';
 import {Muscles} from '../../models/Muscles';
 import {useExercisesForMuscles} from '../../redux/Exercises/use/useExercisesForMuscles';
-import {Exercise} from '../../models/Exercise';
-import {Workout} from '../../models/Workout';
+import {Exercise} from '../../models/entities/Exercise';
+import {Workout} from '../../models/entities/Workout';
 import {handleAccumulationModeBatching} from '../../utils/HandleAccumulationModeBatching';
 import {generateTrend} from '../../utils/generateTrend';
+import {Metric} from "../../models/Metric";
+import {AccumulationMode} from '../../models/AccumulationMode';
 
 const AnalyseGraphics = ({}: Props) => {
   function handleDataPointSelect(value: ChartSelectEvent) {

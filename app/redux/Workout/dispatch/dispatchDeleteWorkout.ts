@@ -1,6 +1,6 @@
 import {useDispatch} from 'react-redux';
 import {Action} from 'redux';
-import {Workout} from '../../../models/Workout';
+import {Workout} from '../../../models/entities/Workout';
 
 const dispatchDeleteWorkout = () => {
   const dispatch = useDispatch();

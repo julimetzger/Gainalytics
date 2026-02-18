@@ -1,8 +1,8 @@
-import {TrainingsPlan} from '../models/TrainingsPlan';
+import {TrainingsPlan} from '../models/entities/TrainingsPlan';
 import {GlobalState} from '../redux/rootReducer';
-import {Training} from '../models/Training';
-import {Exercise} from '../models/Exercise';
-import {Workout} from '../models/Workout';
+import {Training} from '../models/entities/Training';
+import {Exercise} from '../models/entities/Exercise';
+import {Workout} from '../models/entities/Workout';
 import RNFS from 'react-native-fs';
 import {TrainingsState} from '../models/TrainingsState';
 

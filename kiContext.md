@@ -1,178 +1,211 @@
-# Gainalytics - Entwicklungskontext
+# Gainalytics – Agent Context
 
-## Projekt-Übersicht
+This file defines the binding technical context and coding rules for AI coding agents working on Gainalytics.
 
-- Name: Gainalytics
-- Plattform: React Native Mobile App
-- Hauptfunktionen: Trainingsplanung und Analse für fortgeschrittene Gym-Gänger
-- Slogen: Log your gains with gainalytics. The powerful App for Power-User — privacy-and-local-first, open, flexible.
-- App-Sprache ist Englisch (Alle Buttons, Texte, usw.)
-
-## Technologie-Stack
-
-- Frontend: React Native 0.72.6
-- State Management: Redux
-- UI-Framework: React Native Paper
-- Styling: StyleSheet
-
-## Hauptkomponenten
-
-1. Training
-
-   - TrainingHome: Übersicht aller Trainingspläne
-   - Training: Einzelnes Training
-   - TrainingsPlan: Template für Trainingseinheiten
-
-2. Workout
-
-   - Workout: Einzelne Trainingseinheit
-   - WorkoutSet: Ein Satz innerhalb eines Workouts
-   - Exercise: Eine Übung
-
-3. Exercise
-   - muscles: kann prozentual beteiligt sein
-
-## Datenmodelle
-
-Die Datenmodelle sind unter `/app/models` definiert und umfassen:
-
-- Training: Trainingseinheit mit Übungen
-- Exercise: Einzelne Übung mit Muskelgruppen
-- WorkoutSet: Einzelner Satz mit Gewicht, Wiederholungen etc.
-- MuscleInvolvement: Prozentuale Muskelbeteiligung
-- SetType: Verschiedene Arten von Sätzen (Straight, Drop, etc.)
-- ExerciseCategory: Kategorisierung der Übungen
-
-Detaillierte Definitionen und Typen sind in den entsprechenden Modelldateien zu finden.
-
-## Vorgeschlagenes Feature-Set für Power User
-
-### Datenerfassung & Logging
-
-- Hochflexibles Logging:
-- Beliebige Übungen + Custom Exercises
-- RIR/RPE, Tempo, Pausenzeit, Effort-Flags (z.B. Failure)
-- Tagging von Sessions (z.B. Upper, Lower, Push, Pull, Mobility)
-- Set-Typen: Straight, Drop, Myo, Cluster, etc.
-- Datenexport / -import:
-- CSV, JSON, XML-Export
-- API- oder Dateiimport für bestehende Logs
-- Offline-first, lokale Speicherung:
-- Daten bleiben beim Nutzer
-- Optional eigene Cloud-Sync (z.B. Nextcloud/WebDAV)
+Agents MUST follow these conventions when creating or modifying code.
 
 ---
 
-### Analyse & Auswertung
+# Project Overview
 
-- Volumen- und Intensitätsreports:
-- Volumen pro Muskelgruppe / Übung / Woche / Zyklus
-- Durchschnitts-RIR / RPE über Zeit
-- Load-Management-Kennzahlen (z.B. ACWR)
-- Visualisierungen:
-- Line / Bar / Scatter Plots
-- Heatmaps (z.B. Belastung Muskelgruppen)
-- Vergleich:
-- Zeiträume / Zyklen direkt vergleichen
-- Übungshistorien analysieren
+- Project name: Gainalytics
+- Platform: React Native Mobile App
+- Language: TypeScript
+- App language: English only (UI, buttons, labels, messages)
+- Target users: Advanced gym athletes / power users
+- Architecture goal: Offline-first, privacy-first, extensible
 
 ---
 
-### Planung & Periodisierung
+# Tech Stack
 
-- Planungsmodul:
-- Makro- / Meso- / Mikrozyklen visualisieren
-- Wochenschemata + Progressionspläne erstellen
-- Import / Export von Plänen:
-- XML / JSON-basierte Pläne teilen
-- Web-Editor für Planerstellung
+Core:
 
----
+- React Native 0.72.6
+- TypeScript
+- Redux (global state)
+- React Navigation
+- React Native Paper (UI framework)
+- StyleSheet API (styling) / React Native Paper Theme
 
-### KI-gestützte Features
+Storage & Performance:
+- react-native-mmkv (high performance storage)
+- @shopify/flash-list (for all long lists)
 
-- Trendanalysen:
-- RPE-Drift → Deload-Empfehlung
-- 1RM-Anstieg → Progressionsanpassung
-- Plateauerkennung
-- Coach-Chat:
-- Chatgestützte Trainingsreflexion / Planung
-- z.B. „Wie steigere ich Pull-Volumen ohne Push-Reduktion?“
+Testing:
 
----
+- Jest
+- React Native Testing Library
 
-### Videoanalyse (optional / Phase 2)
+Performance:
 
-- Pose-Estimation + Feedback:
-- Bar Path Analyse (z.B. Deadlift, Squat)
-- ROM-Check
-- Bewegungstempo-Analyse
-- Privacy-First:
-- Analyse lokal (optional Plugin)
+- FlashList for large lists
+
+Agents MUST NOT introduce new frameworks without explicit instruction.
 
 ---
 
-### Philosophie / Struktur
+# Project Structure
 
-- Open Source: MIT / GPL / Apache Lizenz
-- Privacy-first:
-- Local-forst: Keine zentrale Cloud-Pflicht
-- Volle Datenhoheit
-- Extensible: Plugin-System für eigene Module
+Key directories:
 
-## Konventionen
+/app  
+/components → reusable UI components  
+/tabs → navigation screens and main features (Analyse, exercises, settings, trainings)
+/models → data models, enums and types (entities in /entities subdirectory)
+/redux → Redux store, slices, selectors  
+/routing → navigation configuration  
+/utils → helpers for calculations, date handling, and data export
 
-- Alle Komponenten sind funktionale Komponenten mit TypeScript
-- Styling erfolgt über StyleSheet
-- Redux für globales State Management
-- React Navigation für Routing
-- Farben immer aus dem theme für react native paper benuten
+Agents MUST place new files in the correct directory.
 
-1. **Komponenten**:
+---
 
-   - Funktionale Komponenten mit TypeScript
-   - Props-Interface über Komponente definieren
-   - Styles am Ende der Datei
-   - Meaningful Component Splitting (< 200 Zeilen)
+# Core Domain Model
 
-2. **State Management**:
+Defined in:
 
-   - Redux für globalen State
-   - useState für lokalen State
-   - useMemo für berechnete Werte
-   - useCallback für Funktionen
+/app/models/entities (e.g., Exercise, Training, Workout, WorkoutSet)
 
-3. **Styling**:
+Key entities:
 
-   - StyleSheet.create für Styles
-   - theme.colors für Farben
-   - Responsive Design mit Dimensions API
-   - Spacing über theme.spacing
+- Training
+- TrainingsPlan
+- TrainingsState
+- Exercise
+- Workout
+- WorkoutSet
 
-4. **Naming**:
+Agents MUST reuse existing models and MUST NOT duplicate model definitions.
 
-   - PascalCase für Komponenten
-   - camelCase für Funktionen/Variablen
-   - UPPERCASE für Konstanten
-   - kebab-case für Dateinamen
+---
 
-5. **Testing**:
-   - Jest für Unit Tests
-   - React Native Testing Library
-   - Snapshots für UI-Komponenten
-   - Integration Tests für Redux
+# Component Rules (MANDATORY)
 
-## Performance Guidelines
+Components MUST:
 
-1. **Rendering**:
+- be functional components
+- use TypeScript
+- define Props interface above component
+- place styles at end of file
+- stay below 200 lines if possible
+- extract subcomponents if component grows too large
 
-   - memo() für häufig verwendete Komponenten
-   - useCallback für Event Handler
-   - Virtualisierte Listen (FlashList)
-   - Lazy Loading für Routen
+---
 
-2. **State**:
-   - Normalisierte Redux Store Struktur
-   - Selektive Re-Renders
-   - Optimistische Updates
-   - Debouncing/Throttling
+# State Management Rules
+
+Global state:
+
+- MUST use Redux with Normalized State pattern (`byId`, `allIds`)
+- MUST use selectors for reading state
+- MUST NOT access store directly
+- Redux structure uses `reduce-reducers` for cross-cutting actions (see `rootReducer.ts`)
+- Action types are often defined as strings directly in the reducer switch-case
+
+Local state:
+
+- useState for local UI state
+- useMemo for derived values
+- useCallback for event handlers
+
+IMPORTANT: Reducers MUST be pure. Do not mutate the state object directly (prefer spread operator).
+
+Agents MUST avoid unnecessary re-renders.
+
+---
+
+# Styling Rules (STRICT)
+
+Agents MUST:
+
+- use StyleSheet.create
+- use theme.colors for colors
+- MUST use React Native Paper components (Button, Card, Text, etc.) for consistent UI
+- NOT hardcode colors
+- NOT use inline style objects except for trivial layout
+
+---
+
+# Navigation Rules
+
+- Navigation uses React Navigation
+- Screens belong in /app/tabs
+- Reusable UI belongs in /app/components
+- Business logic MUST NOT live in navigation files
+
+---
+
+# Performance Rules
+
+Agents MUST apply these when relevant:
+
+- use memo() for pure components
+- useCallback for event handlers
+- useMemo for expensive computations
+- use FlashList instead of FlatList for large lists
+- avoid unnecessary state updates
+
+---
+
+# Naming Conventions
+
+Components:
+PascalCase
+
+Variables / functions:
+camelCase
+
+Constants:
+UPPER_CASE
+
+Files:
+kebab-case.ts (for logic, reducers, utils)
+PascalCase.tsx for components
+
+---
+
+# Testing Rules
+
+Agents SHOULD create tests when adding logic.
+
+Use:
+
+- Jest
+- React Native Testing Library
+
+Test:
+
+- business logic
+- reducers
+- complex components
+
+---
+
+# Architecture Principles
+
+Agents MUST follow:
+
+- functional programming principles where possible
+- separation of UI and business logic
+- reusable components
+- single responsibility per component
+
+Agents MUST NOT:
+
+- introduce global mutable state outside Redux
+- duplicate logic unnecessarily
+- hardcode data that belongs in models or store
+
+---
+
+# Definition of Done
+
+Code is complete when:
+
+- TypeScript has no errors
+- follows all rules in this file
+- no obvious performance issues
+- no duplicate logic introduced
+- component structure follows conventions
+- tests are green and code is covered

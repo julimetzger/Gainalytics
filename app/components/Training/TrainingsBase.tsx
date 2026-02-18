@@ -3,7 +3,7 @@ import {Button} from 'react-native-paper';
 import React from 'react';
 import {dispatchSuggestBasedOnTrained} from '../../redux/Training/dispatch/plan/dispatchSuggestBasedOnTrained';
 import {dispatchSuggestBasedOnPlanned} from '../../redux/Training/dispatch/plan/dispatchSuggestBasedOnPlanned';
-import {TrainingsPlan} from '../../models/TrainingsPlan';
+import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 
 interface TrainingsBaseProps {
   trainingsPlan: TrainingsPlan;

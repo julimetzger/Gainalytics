@@ -3,7 +3,7 @@ import {RootStackParamList} from '../../routing/AnalyseRouter';
 import React, {useState} from 'react';
 import TrainingElementPicker from '../../components/picker/elements/TrainingElementPicker';
 import {Range} from '../../components/picker/date/DateRangePicker';
-import {Exercise} from '../../models/Exercise';
+import {Exercise} from '../../models/entities/Exercise';
 import {Muscles} from '../../models/Muscles';
 import RangeSwiper from '../../components/RangeSwiper';
 import {firstDayOfWeek, lastDayOfWeek} from '../../utils/DateHelper';

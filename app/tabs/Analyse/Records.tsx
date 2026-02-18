@@ -2,18 +2,19 @@ import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
 import React, {useState} from 'react';
 import {BarChart, BarData, BarValue, ChartSelectEvent} from 'react-native-charts-wrapper';
-import TrainingElementPicker, {Accumulation, AccumulationMode} from '../../components/picker/elements/TrainingElementPicker';
+import TrainingElementPicker, {Accumulation} from '../../components/picker/elements/TrainingElementPicker';
 import {processColor, ScrollView, StyleSheet} from 'react-native';
-import {Exercise, Record} from '../../models/Exercise';
+import {Exercise, Record} from '../../models/entities/Exercise';
 import {Muscles} from '../../models/Muscles';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
 import {useWorkoutsIn} from '../../redux/Workout/use/useWorkoutsIn';
-import {Workout} from '../../models/Workout';
+import {Workout} from '../../models/entities/Workout';
 import {useExercisesForMuscles} from '../../redux/Exercises/use/useExercisesForMuscles';
 import {handleAccumulationModeBatching} from '../../utils/HandleAccumulationModeBatching';
 import {Card, Text, useTheme} from 'react-native-paper';
 import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
+import {AccumulationMode} from "../../models/AccumulationMode";
 
 const RecordsTab = () => {
   let now = new Date(Date.now());

@@ -1,10 +1,10 @@
 import {useExercisesForMuscles} from '../../redux/Exercises/use/useExercisesForMuscles';
 import DateRangePicker, {Range} from '../picker/date/DateRangePicker';
 import {useWorkoutsIn} from '../../redux/Workout/use/useWorkoutsIn';
-import {Workout} from '../../models/Workout';
+import {Workout} from '../../models/entities/Workout';
 import MetricsOverviewForWorkouts from './MetricsOverviewForWorkouts';
 import {Muscles} from '../../models/Muscles';
-import {Exercise} from '../../models/Exercise';
+import {Exercise} from '../../models/entities/Exercise';
 import React from 'react';
 
 interface MetricNodeProps {

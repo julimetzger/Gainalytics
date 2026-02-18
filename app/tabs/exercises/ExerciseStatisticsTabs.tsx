@@ -5,8 +5,8 @@ import React from 'react';
 import {useExercise} from '../../redux/Exercises/use/useExercise';
 import {Card, Text} from 'react-native-paper';
 import {useWorkoutsByIds} from '../../redux/Workout/use/useWorkoutsByIds';
-import {Workout} from '../../models/Workout';
-import {Record} from '../../models/Exercise';
+import {Workout} from '../../models/entities/Workout';
+import {Record} from '../../models/entities/Exercise';
 import {repetitionWeightByOneRm} from '../../utils/AnalyseUtils';
 
 const ExerciseStatisticsTabs = ({route}: Props) => {

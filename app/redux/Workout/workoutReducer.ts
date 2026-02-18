@@ -1,8 +1,8 @@
 import {AnyAction} from '@reduxjs/toolkit';
 import {NormalizedState} from '../normalizedState';
 import {determineNewWorkoutId, NormalizedWorkoutState} from '../normalizedWorkoutState';
-import {Workout} from '../../models/Workout';
-import {WorkoutSet} from '../../models/WorkoutSet';
+import {Workout} from '../../models/entities/Workout';
+import {WorkoutSet} from '../../models/entities/WorkoutSet';
 
 const initialState = {
   byId: {},

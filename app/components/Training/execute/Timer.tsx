@@ -1,7 +1,7 @@
 import {StyleSheet, View} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {Card, Text, useTheme} from 'react-native-paper';
-import {Exercise} from '../../../models/Exercise';
+import {Exercise} from '../../../models/entities/Exercise';
 
 interface TimerProps {
   start: Date;

@@ -5,8 +5,10 @@ import {Icon, IconButton, useTheme} from 'react-native-paper';
 import {StyleProp, View, ViewStyle} from 'react-native';
 import {useAllTrainingsPlans} from '../../../redux/Training/use/useAllTrainingsPlans';
 import {Muscles} from '../../../models/Muscles';
-import {Exercise} from '../../../models/Exercise';
-import {TrainingsPlan} from '../../../models/TrainingsPlan';
+import {Exercise} from '../../../models/entities/Exercise';
+import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
+import {Metric} from '../../../models/Metric';
+import {AccumulationMode} from '../../../models/AccumulationMode';
 
 const TrainingElementPicker = ({
   exercise,
@@ -143,28 +145,6 @@ const TrainingElementPicker = ({
     setAccumulation ? setAccumulation(allAccumalations.find((accumulation) => accumulation?.getId() === accumulationNames[0])) : undefined;
   }
 };
-
-export enum Metric {
-  VOLUME = 'Volume',
-  ONE_RM = '1RM',
-  SETS = 'Sets',
-  REPS = 'Reps',
-  MAX_INTENSITY = 'Max Intensity',
-  AVERAGE_INTENSITY = 'Average Intensity',
-}
-
-export enum AccumulationMode {
-  SINGLE_DAY = 'Day',
-  WEEK = 'Week',
-  //TWO_WORKOUTS = 'Two Workouts',
-  //THREE_WORKOUTS = 'Three Workouts',
-  //FOUR_WORKOUTS = 'Four Workouts',
-  //FIVE_WORKOUTS = 'Five Workouts',
-  //SIX_WORKOUTS = 'Six Workouts',
-  // DEFINED_MICRO_LENGTH = 'Micro Length',
-  MONTH = 'Month',
-  TRAINING_MICROCYCLE = 'Training Microcycle',
-}
 
 export class Accumulation {
   accumulationMode: AccumulationMode;

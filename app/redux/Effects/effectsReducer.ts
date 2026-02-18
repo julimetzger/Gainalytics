@@ -1,5 +1,5 @@
 import {AnyAction} from '@reduxjs/toolkit';
-import {Record} from '../../models/Exercise';
+import {Record} from '../../models/entities/Exercise';
 
 export interface ExerciseRecordEffect {
   exerciseId: number;

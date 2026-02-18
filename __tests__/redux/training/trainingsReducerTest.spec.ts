@@ -1,6 +1,6 @@
 import trainingsReducer from '../../../app/redux/Training/trainingsReducer';
 import {NormalizedState} from '../../../app/redux/normalizedState';
-import {Training} from '../../../app/models/Training';
+import {Training} from '../../../app/models/entities/Training';
 import {TrainingsState} from '../../../app/models/TrainingsState';
 
 function STATE_WITH_ONE_TRAINING() {
