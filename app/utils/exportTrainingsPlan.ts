@@ -18,7 +18,7 @@ export const buildTrainingsPlanExportPayload = (trainingsPlan: TrainingsPlan, st
   const trainingSet = new Set<number>(trainingIds);
   const trainings = Array.from(trainingSet)
     .map((trainingId) => state.trainings.byId[trainingId])
-    .filter((training): training is Training => training !== undefined && training.state === TrainingsState.PLANNED)
+    .filter((training): training is Training => training !== undefined && Object.keys(training.plannedWorkouts ?? {}).length > 0)
     .map((training) => {
       const plannedExerciseIds = Object.keys(training.plannedWorkouts ?? {}).map((id) => Number(id));
       return {

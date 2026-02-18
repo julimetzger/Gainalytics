@@ -27,14 +27,22 @@ const buildState = (): GlobalState =>
           doneWorkoutIds: {12: 998},
           exercises: [12],
         },
+        3: {
+          id: 1,
+          state: TrainingsState.PLANNED,
+          plannedWorkouts: {},
+          doneWorkoutIds: {13: 1000},
+          exercises: [13],
+        },
       },
-      allIds: [1, 2],
+      allIds: [1, 2, 3],
     },
     exercises: {
       byId: {
         10: {id: 10, name: 'Bench', description: '', muscles: []},
         11: {id: 11, name: 'Squat', description: '', muscles: []},
         12: {id: 12, name: 'Deadlift', description: '', muscles: []},
+        13: {id: 13, name: 'Deadlift', description: '', muscles: []},
       },
       allIds: [10, 11, 12],
     },
@@ -55,6 +63,7 @@ describe('buildTrainingsPlanExportPayload', () => {
       name: 'Strength',
       trainings: {
         '1:1': 1,
+        '1:2': 2,
       },
       trainingNames: {},
     };
@@ -62,11 +71,11 @@ describe('buildTrainingsPlanExportPayload', () => {
     const payload = buildTrainingsPlanExportPayload(plan, buildState());
 
     expect(payload.trainingsPlan).toEqual(plan);
-    expect(payload.trainings).toHaveLength(1);
+    expect(payload.trainings).toHaveLength(2);
     expect(payload.trainings[0].id).toBe(1);
     expect(payload.trainings[0].exercises).toEqual([10, 11]);
     expect(payload.trainings[0].doneWorkoutIds).toEqual({});
-    expect(payload.exercises.map((exercise) => exercise.id).sort()).toEqual([10, 11]);
-    expect(payload.workouts.map((workout) => workout.id).sort()).toEqual([100, 101]);
+    expect(payload.exercises.map((exercise) => exercise.id).sort()).toEqual([10, 11, 12]);
+    expect(payload.workouts.map((workout) => workout.id).sort()).toEqual([100, 101,102]);
   });
 });
