@@ -63,7 +63,7 @@ def enableProguardInReleaseBuilds = false
  * this variant is about 6MiB larger per architecture than default.
  */
 def jscFlavor = 'org.webkit:android-jsc-intl:+'
-
+def androidReleasePassword = System.getenv("ANDROID_RELEASE_PASSWORD")
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -87,9 +87,9 @@ android {
         }
         release {
             storeFile file('your_key_name.keystore')
-            storePassword 'Nx+Dpu4D'
+            storePassword androidReleasePassword
             keyAlias 'your_key_alias'
-            keyPassword 'Nx+Dpu4D'
+            keyPassword androidReleasePassword
         }
     }
     buildTypes {
