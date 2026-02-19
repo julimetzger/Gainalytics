@@ -10,6 +10,8 @@ import {Dialog, IconButton, Portal, Text, Tooltip} from 'react-native-paper';
 import WorkoutSetView from '../../Workout/show/WorkoutSetView';
 import ExerciseHistory from '../../exercise/show/ExerciseHistory';
 
+import DatePicker from '../../picker/date/DatePicker';
+
 const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Props) => {
   let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];
   let doneWorkout = useWorkoutById(doneWorkoutId);
@@ -20,9 +22,18 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
 
   const screenHeight = Dimensions.get('window').height;
   const [date, setDate] = useState(new Date(Date.now()));
-  useEffect(() => {}, [chosenExercise]);
+
+  useEffect(() => {
+    if (doneWorkout?.start) {
+      setDate(new Date(doneWorkout.start));
+    }
+  }, [doneWorkout?.id, chosenExercise]);
+
   return (
     <View>
+      <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
+        <DatePicker date={date} setDate={setDate} />
+      </View>
       <AddWorkout
         workout={doneWorkout?.end ? doneWorkout : undefined}
         exercise={chosenExercise}
