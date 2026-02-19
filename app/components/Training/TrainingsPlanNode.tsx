@@ -62,6 +62,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     modifyExercisesInTraining(exercises, trainingsPlan.id!!, micro, trainingInMicro, training?.id);
   }
 
+  const [isEditing, setIsEditing] = useState(false);
+
   function changePlanningmode() {
     if (training?.state === TrainingsState.PLANNED) {
       startTraining();
@@ -87,7 +89,12 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     }
     if (training?.state === TrainingsState.FINISHED) {
       if (chosenExercise === undefined && exercises?.length > 0) setchosenExercise(exercises[0].id);
-      setOverview(!overview);
+      if (isEditing) {
+        setIsEditing(false);
+        setOverview(true);
+      } else {
+        setOverview(!overview);
+      }
     }
     setTimeInWorkout(new Date(Date.now()));
   }
@@ -95,6 +102,10 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   function goToNextExercise() {
     const number = exercises.indexOf(chosenExercise!!) + 1;
     if (number >= exercises.length) {
+      if (isEditing) {
+        setIsEditing(false);
+        setOverview(true);
+      }
       return;
     }
     setRefresHeky(Math.random());
@@ -128,18 +139,33 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
               >
                 {!appSettings.toggles?.disableTimer && training?.state === TrainingsState.STARTED && <Timer start={training.start!!} label={'Start Training'} />}
                 {training?.state && (
-                  <Button mode="outlined" style={{alignSelf: 'center'}} onPress={changePlanningmode}>
-                    {training?.state === TrainingsState.PLANNED && 'Start Training'}
-                    {training?.state === TrainingsState.STARTED && 'Finish Training'}
-                    {training?.state === TrainingsState.FINISHED && overview && 'Show Sets'}
-                    {training?.state === TrainingsState.FINISHED && !overview && 'Show Overview'}
-                  </Button>
+                  <View style={{flexDirection: 'row', gap: 5}}>
+                    <Button mode="outlined" style={{alignSelf: 'center'}} onPress={changePlanningmode}>
+                      {training?.state === TrainingsState.PLANNED && 'Start Training'}
+                      {training?.state === TrainingsState.STARTED && 'Finish Training'}
+                      {training?.state === TrainingsState.FINISHED && (isEditing || !overview) && 'Back to Overview'}
+                      {training?.state === TrainingsState.FINISHED && !isEditing && overview && 'Show Sets'}
+                    </Button>
+                    {training?.state === TrainingsState.FINISHED && (overview || !isEditing) && (
+                      <Button
+                        mode="contained"
+                        style={{alignSelf: 'center'}}
+                        onPress={() => {
+                          if (chosenExercise === undefined && exercises?.length > 0) setchosenExercise(exercises[0].id);
+                          setIsEditing(true);
+                          setOverview(false);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                  </View>
                 )}
                 {!appSettings.toggles?.disableTimer && training?.state === TrainingsState.STARTED && (
                   <Timer start={timeInWorkout} reset={true} label={'Last Set'} exercise={chosenExercise} onReset={[() => schedulePauseDoneNotification()]} />
                 )}
               </View>
-              {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
+              {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || (training?.state === TrainingsState.FINISHED && isEditing) || training === undefined) && (
                 <View pointerEvents={'box-none'}>
                   <DraggableExercise
                     exercises={exercises}
@@ -169,7 +195,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                 <PlanWorkoutInTraining training={training} trainingsPlanId={trainingsPlan.id!!} trainingInMicro={trainingInMicro} micro={micro} chosenExercise={chosenExercise!!} />
               )}
               {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro} />}
-              {training?.state === TrainingsState.STARTED && chosenExercise && (
+              {(training?.state === TrainingsState.STARTED || (training?.state === TrainingsState.FINISHED && isEditing)) && chosenExercise && (
                 <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise!!} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} />
               )}
               {training?.state === TrainingsState.FINISHED && overview && <TrainingsOverview training={training} previousTraining={lastTraining} />}
