@@ -38,7 +38,11 @@ export const buildTrainingsPlanExportPayload = (trainingsPlan: TrainingsPlan, st
 
   const workouts = Array.from(workoutIds)
     .map((workoutId) => state.workouts.byId[workoutId])
-    .filter((workout): workout is Workout => workout !== undefined);
+    .filter((workout): workout is Workout => workout !== undefined)
+    .map((workout) => ({
+      ...workout,
+      records: undefined,
+    }));
 
   const exerciseIds = new Set<number>();
   trainings.forEach((training) => {
