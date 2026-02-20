@@ -42,7 +42,7 @@ const buildState = (): GlobalState =>
     },
     exercises: {
       byId: {
-        10: {id: 10, name: 'Bench', muscles: []},
+        10: {id: 10, name: 'Bench', muscles: [], records: {'1RM': [{value: 12, workoutId: 100}]}},
         11: {id: 11, name: 'Squat', muscles: []},
         12: {id: 12, name: 'Deadlift', muscles: []},
         13: {id: 13, name: 'Deadlift', muscles: []},
