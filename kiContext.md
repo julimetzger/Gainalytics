@@ -178,7 +178,8 @@ Test:
 
 - business logic
 - reducers
-- complex components
+- do not use as for TypeInterference. Use satisfies.
+- components
 
 ---
 

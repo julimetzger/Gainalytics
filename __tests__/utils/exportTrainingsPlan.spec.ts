@@ -3,7 +3,6 @@ jest.mock('react-native-fs', () => ({
   writeFile: jest.fn(),
 }));
 
-
 import {buildTrainingsPlanExportPayload} from '../../app/utils/exportTrainingsPlan';
 import {TrainingsPlan} from '../../app/models/entities/TrainingsPlan';
 import {TrainingsState} from '../../app/models/TrainingsState';
@@ -11,6 +10,7 @@ import {GlobalState} from '../../app/redux/rootReducer';
 
 const buildState = (): GlobalState =>
   ({
+    trainingsPlan: {},
     trainings: {
       byId: {
         1: {
@@ -39,10 +39,10 @@ const buildState = (): GlobalState =>
     },
     exercises: {
       byId: {
-        10: {id: 10, name: 'Bench', description: '', muscles: []},
-        11: {id: 11, name: 'Squat', description: '', muscles: []},
-        12: {id: 12, name: 'Deadlift', description: '', muscles: []},
-        13: {id: 13, name: 'Deadlift', description: '', muscles: []},
+        10: {id: 10, name: 'Bench', muscles: []},
+        11: {id: 11, name: 'Squat', muscles: []},
+        12: {id: 12, name: 'Deadlift', muscles: []},
+        13: {id: 13, name: 'Deadlift', muscles: []},
       },
       allIds: [10, 11, 12],
     },
@@ -54,7 +54,9 @@ const buildState = (): GlobalState =>
       },
       allIds: [100, 101, 102],
     },
-  } as unknown as GlobalState);
+    effects: undefined,
+    settings: undefined,
+  } satisfies GlobalState);
 
 describe('buildTrainingsPlanExportPayload', () => {
   it('exports only planned exercises and clears done workouts', () => {
@@ -76,6 +78,6 @@ describe('buildTrainingsPlanExportPayload', () => {
     expect(payload.trainings[0].exercises).toEqual([10, 11]);
     expect(payload.trainings[0].doneWorkoutIds).toEqual({});
     expect(payload.exercises.map((exercise) => exercise.id).sort()).toEqual([10, 11, 12]);
-    expect(payload.workouts.map((workout) => workout.id).sort()).toEqual([100, 101,102]);
+    expect(payload.workouts.map((workout) => workout.id).sort()).toEqual([100, 101, 102]);
   });
 });

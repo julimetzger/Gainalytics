@@ -33,9 +33,9 @@ describe('TrainingOverviewCard', () => {
 
   it('counts record exercises in micro', () => {
     const workouts = [
-      {exerciseId: 1, records: {'1RM': 100}} as Workout,
-      {exerciseId: 1, records: {'1RM': 110}} as Workout,
-      {exerciseId: 2, records: {'1RM': 120}} as Workout,
+      {exerciseId: 1, records: {'1RM': 100}, sets: []} satisfies Workout,
+      {exerciseId: 1, records: {'1RM': 110}, sets: []} satisfies Workout,
+      {exerciseId: 2, records: {'1RM': 120}, sets: []} satisfies Workout,
       {exerciseId: 3} as Workout,
     ];
 

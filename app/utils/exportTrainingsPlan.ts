@@ -25,6 +25,9 @@ export const buildTrainingsPlanExportPayload = (trainingsPlan: TrainingsPlan, st
         ...training,
         exercises: plannedExerciseIds,
         doneWorkoutIds: {},
+        state: TrainingsState.PLANNED,
+        start: undefined,
+        end: undefined,
       };
     });
 
@@ -46,6 +49,7 @@ export const buildTrainingsPlanExportPayload = (trainingsPlan: TrainingsPlan, st
     .map((exerciseId) => state.exercises.byId[exerciseId])
     .filter((exercise): exercise is Exercise => exercise !== undefined);
 
+  trainingsPlan.lastTraining = undefined;
   return {
     trainingsPlan,
     trainings,

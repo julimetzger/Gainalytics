@@ -21,7 +21,7 @@ const initialState = {
   palette: 'blue',
 } as AppSettings;
 
-const settingsReducer = (settings: AppSettings = initialState, action: AnyAction) => {
+const settingsReducer = (settings: AppSettings = initialState, action: AnyAction) : AppSettings => {
   switch (action.type) {
     case 'TOGGLE_MODE': {
       return {

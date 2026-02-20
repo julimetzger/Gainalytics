@@ -333,7 +333,7 @@ describe('exerciseReducer', () => {
           date: new Date(),
           exerciseId: 2,
           notes: '',
-        } as Workout,
+        } ,
       };
       const expectedState = {
         byId: {
