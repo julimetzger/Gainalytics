@@ -6,6 +6,9 @@ import {dispatchEditTrainingsPlan} from '../../../redux/Training/dispatch/genera
 import {dispatchDeleteTrainingsPlan} from '../../../redux/Training/dispatch/general/dispatchDeleteTrainingsPlan';
 import {useTrainingsPlan} from '../../../redux/Training/use/useTrainingsPlan';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
+import DocumentPicker from 'react-native-document-picker';
+import RNFS from 'react-native-fs';
+import {useDispatchImportTrainingsPlan} from '../../../redux/fullstateactions/dispatchImportTrainingsPlan';
 
 interface AddExerciseProperties {
   style?: any;
@@ -21,11 +24,32 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
   let editTrainingsPlan = dispatchEditTrainingsPlan();
   let deleteTrainingsPlan = dispatchDeleteTrainingsPlan();
   let theme = useTheme();
+  let importTrainingsPlan = useDispatchImportTrainingsPlan();
+
   const showDialog = () => setVisible(true);
   const hideDialog = () => {
     setVisible(false);
     setDeleteOverlay(false);
   };
+
+  const handleImport = async () => {
+    try {
+      const res = await DocumentPicker.pick({
+        type: [DocumentPicker.types.allFiles],
+      });
+      const fileContent = await RNFS.readFile(res[0].uri, 'utf8');
+      const payload = JSON.parse(fileContent);
+      importTrainingsPlan(payload);
+      hideDialog();
+    } catch (err) {
+      if (DocumentPicker.isCancel(err)) {
+        // User cancelled the picker
+      } else {
+        console.error(err);
+      }
+    }
+  };
+
   const confirmDialog = () => {
     setVisible(false);
     trainingsId ? editTrainingsPlan(trainingsId, TrainingName) : addTrainingsPlan({name: TrainingName} as TrainingsPlan);
@@ -52,6 +76,13 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
               <TextInput defaultValue={trainingsPlan?.name} label={'Name of the Training Plan'} maxLength={30} onChangeText={(text) => setTrainingName(text)} />
             )}
           </Dialog.Content>
+          {!deleteOverlay && !trainingsId && (
+            <Dialog.Actions style={{justifyContent: 'flex-start'}}>
+              <Button icon="import" onPress={handleImport}>
+                Import Plan
+              </Button>
+            </Dialog.Actions>
+          )}
           <Dialog.Actions style={{justifyContent: 'space-between'}}>
             <Button onPress={hideDialog}>Cancel</Button>
             {trainingsId && (
