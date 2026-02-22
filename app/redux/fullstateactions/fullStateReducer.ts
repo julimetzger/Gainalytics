@@ -22,13 +22,13 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
       payload.exercises.forEach((importedEx) => {
         const existingEx = Object.values(newExercises).find((ex) => ex.name.toLowerCase() === importedEx.name.toLowerCase());
         if (existingEx) {
-          exerciseIdMap[importedEx.id] = existingEx.id;
+          exerciseIdMap[importedEx.id!!] = existingEx.id!!;
         } else {
           maxExerciseId++;
           const newEx: Exercise = {...importedEx, id: maxExerciseId};
           newExercises[maxExerciseId] = newEx;
           newExerciseIds.push(maxExerciseId);
-          exerciseIdMap[importedEx.id] = maxExerciseId;
+          exerciseIdMap[importedEx.id!!] = maxExerciseId;
         }
       });
 
@@ -47,7 +47,7 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
         };
         newWorkouts[maxWorkoutId] = newWorkout;
         newWorkoutIds.push(maxWorkoutId);
-        workoutIdMap[importedWorkout.id] = maxWorkoutId;
+        workoutIdMap[importedWorkout.id!!] = maxWorkoutId;
       });
 
       // 3. Map Trainings (new IDs)
@@ -72,7 +72,7 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
         };
         newTrainings[maxTrainingId] = newTraining;
         newTrainingIds.push(maxTrainingId);
-        trainingIdMap[importedTraining.id] = maxTrainingId;
+        trainingIdMap[importedTraining.id!!] = maxTrainingId;
       });
 
       // 4. Map TrainingsPlan (new ID)

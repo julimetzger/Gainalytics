@@ -7,13 +7,17 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
   const initialState: GlobalState = {
     exercises: {
       byId: {
-        1: {id: 1, name: 'Squat', records: []} as any,
+        1: {id: 1, name: 'Squat'},
       },
       allIds: [1],
     },
     workouts: {
       byId: {
-        1: {id: 1, name: 'Heavy Squat', exerciseId: 1} as any,
+        1: {id: 1, exerciseId: 1, sets: []},
+      },
+      plannedWorkouts: [],
+      byExerciseId: {
+        1: [1],
       },
       allIds: [1],
     },
@@ -21,18 +25,17 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
       byId: {
         1: {
           id: 1,
-          name: 'Leg Day',
           exercises: [1],
           plannedWorkouts: {1: 1},
           doneWorkoutIds: {},
           state: TrainingsState.PLANNED,
-        } as any,
+        },
       },
       allIds: [1],
     },
     trainingsPlan: {
       byId: {
-        1: {id: 1, name: 'Powerlifting', trainings: {0: 1}} as any,
+        1: {id: 1, name: 'Powerlifting', trainings: {0: 1}, trainingNames: {}},
       },
       allIds: [1],
     },
@@ -42,27 +45,25 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
 
   const importPayload: TrainingsPlanExportPayload = {
     exercises: [
-      {id: 10, name: 'Squat', records: []} as any, // Existing by name
-      {id: 11, name: 'Bench Press', records: []} as any, // New
+      {id: 10, name: 'Squat', records: {}}, // Existing by name
+      {id: 11, name: 'Bench Press', records: {}}, // New
     ],
-    workouts: [
-      {id: 20, name: 'Heavy Bench', exerciseId: 11} as any,
-    ],
+    workouts: [{id: 20, exerciseId: 11, sets: []}],
     trainings: [
       {
         id: 30,
-        name: 'Upper Body',
         exercises: [11],
         plannedWorkouts: {11: 20},
         doneWorkoutIds: {},
         state: TrainingsState.PLANNED,
-      } as any,
+      },
     ],
     trainingsPlan: {
       id: 40,
       name: 'New Plan',
+      trainingNames: {},
       trainings: {0: 30},
-    } as any,
+    },
   };
 
   it('should import a trainings plan and map IDs correctly', () => {
@@ -83,13 +84,11 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
     // 2. Check Workouts
     // New workout should have ID 2
     expect(newState.workouts.allIds).toContain(2);
-    expect(newState.workouts.byId[2].name).toBe('Heavy Bench');
     expect(newState.workouts.byId[2].exerciseId).toBe(2); // Mapped to new Bench Press ID
 
     // 3. Check Trainings
     // New training should have ID 2
     expect(newState.trainings.allIds).toContain(2);
-    expect(newState.trainings.byId[2].name).toBe('Upper Body');
     expect(newState.trainings.byId[2].exercises).toEqual([2]);
     expect(newState.trainings.byId[2].plannedWorkouts).toEqual({2: 2});
 
