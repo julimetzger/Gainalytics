@@ -1,6 +1,7 @@
 import {Button, Dialog, IconButton, Portal, Text, TextInput, useTheme} from 'react-native-paper';
-import {View} from 'react-native';
+import {Alert, View} from 'react-native';
 import React, {useState} from 'react';
+import {useStore} from 'react-redux';
 import {dispatchAddTrainingsPlan} from '../../../redux/Training/dispatch/general/dispatchAddTrainingsPlan';
 import {dispatchEditTrainingsPlan} from '../../../redux/Training/dispatch/general/dispatchEditTrainingsPlan';
 import {dispatchDeleteTrainingsPlan} from '../../../redux/Training/dispatch/general/dispatchDeleteTrainingsPlan';
@@ -9,6 +10,9 @@ import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
 import {useDispatchImportTrainingsPlan} from '../../../redux/fullstateactions/dispatchImportTrainingsPlan';
+import {exportTrainingsPlanToFile} from '../../../utils/exportTrainingsPlan';
+import Toast from 'react-native-toast-message';
+import {GlobalState} from '../../../redux/rootReducer';
 
 interface AddExerciseProperties {
   style?: any;
@@ -25,6 +29,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
   let deleteTrainingsPlan = dispatchDeleteTrainingsPlan();
   let theme = useTheme();
   let importTrainingsPlan = useDispatchImportTrainingsPlan();
+  const store = useStore<GlobalState>();
 
   const showDialog = () => setVisible(true);
   const hideDialog = () => {
@@ -55,12 +60,40 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
     trainingsId ? editTrainingsPlan(trainingsId, TrainingName) : addTrainingsPlan({name: TrainingName} as TrainingsPlan);
   };
 
+  const handleExport = () => {
+    if (!trainingsPlan) {
+      return;
+    }
+
+    exportTrainingsPlanToFile(trainingsPlan, store.getState())
+      .then((path) => {
+        Toast.show({
+          type: 'success',
+          text1: 'Training plan exported',
+          text2: path,
+          position: 'top',
+          visibilityTime: 4000,
+        });
+      })
+      .catch((error) => {
+        console.error('Failed to export training plan', error);
+        Alert.alert('Export failed', 'Could not export the training plan.');
+      });
+  };
+
   return (
     <View style={style}>
       {trainingsId ? (
-        <IconButton icon={'dots-vertical'} onPress={() => showDialog()} theme={theme} />
+        <IconButton icon={'dots-vertical'} onPress={() => showDialog()} theme={theme} testID={`edit-trainings-plan-${trainingsId}`} />
       ) : (
-        <IconButton icon="plus-circle" onPress={() => showDialog()} theme={theme} iconColor={theme.colors.tertiaryContainer} size={40}></IconButton>
+        <IconButton
+          icon="plus-circle"
+          onPress={() => showDialog()}
+          theme={theme}
+          iconColor={theme.colors.tertiaryContainer}
+          size={40}
+          testID="add-trainings-plan"
+        ></IconButton>
       )}
       <Portal>
         <Dialog visible={visible} onDismiss={hideDialog} theme={theme}>
@@ -81,6 +114,11 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
               <Button icon="import" onPress={handleImport}>
                 Import Plan
               </Button>
+            </Dialog.Actions>
+          )}
+          {!deleteOverlay && trainingsId && (
+            <Dialog.Actions style={{justifyContent: 'flex-start'}}>
+              <Button onPress={handleExport}>Export</Button>
             </Dialog.Actions>
           )}
           <Dialog.Actions style={{justifyContent: 'space-between'}}>
