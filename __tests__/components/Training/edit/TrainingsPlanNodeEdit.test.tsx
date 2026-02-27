@@ -3,6 +3,8 @@ import {render, fireEvent, screen, waitFor} from '@testing-library/react-native'
 import TrainingsPlanNode from '../../../../app/components/Training/TrainingsPlanNode';
 import {Provider} from 'react-redux';
 
+const mockDeleteTraining = jest.fn();
+
 // Create a simple mock store manually
 const mockStore = {
   getState: () => ({}),
@@ -19,7 +21,8 @@ jest.mock('../../../../app/redux/Training/use/useTrainingInTrainingsPlan', () =>
               id: 1,
               state: 'F', // TrainingsState.FINISHED
               exercises: [101],
-              doneWorkoutIds: { '101': [1] },
+              doneWorkoutIds: { '101': 1 },
+              plannedWorkouts: { '101': 2 },
           };
       }
       return {
@@ -27,6 +30,7 @@ jest.mock('../../../../app/redux/Training/use/useTrainingInTrainingsPlan', () =>
           state: 'S', // TrainingsState.STARTED
           exercises: [101],
           doneWorkoutIds: {},
+          plannedWorkouts: {},
       };
   },
 }));
@@ -53,17 +57,26 @@ jest.mock('../../../../app/redux/Training/dispatch/general/dispatchModifyExercis
 jest.mock('../../../../app/redux/Training/dispatch/execute/dispatchFinishTraining', () => ({
     dispatchFinishTraining: () => jest.fn(),
 }));
+jest.mock('../../../../app/redux/Training/dispatch/general/dispatchDeleteTraining', () => ({
+    dispatchDeleteTraining: () => mockDeleteTraining,
+}));
 
 // Robust Paper Button mock
 jest.mock('react-native-paper', () => {
     const React = require('react');
     const { Text, TouchableOpacity } = require('react-native');
+    const DialogBase = ({ visible, children }: any) => (visible ? <>{children}</> : null);
+    DialogBase.Title = ({ children }: any) => <Text>{children}</Text>;
+    DialogBase.Content = ({ children }: any) => <>{children}</>;
+    DialogBase.Actions = ({ children }: any) => <>{children}</>;
     return {
         Button: ({ children, onPress }: any) => (
             <TouchableOpacity onPress={onPress}>
                 <Text>{children}</Text>
             </TouchableOpacity>
         ),
+        Dialog: DialogBase,
+        Portal: ({ children }: any) => <>{children}</>,
         Text: ({ children }: any) => <Text>{children}</Text>,
         useTheme: () => ({ colors: { primary: '#000' } }),
     };
@@ -144,5 +157,41 @@ describe('TrainingsPlanNode - Edit Finished Training', () => {
     // In current implementation, "Edit" button might still be rendered if the 
     // ternary condition for the main button container isn't fully swapping.
     // Let's check for the presence of the back button as a sign of success.
+  });
+
+  it('deletes training from edit mode after confirmation', async () => {
+    const setOverview = jest.fn();
+    render(
+      <Provider store={mockStore as any}>
+        <TrainingsPlanNode 
+            trainingsPlan={mockPlan} 
+            micro={1} 
+            trainingInMicro={0}
+            showDone={false}
+            showPlanned={false}
+            overview={true}
+            setOverview={setOverview}
+            setIgnoreSwipe={jest.fn()}
+        />
+      </Provider>
+    );
+
+    fireEvent.press(screen.getByText('Edit'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete Training')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('Delete Training'));
+    fireEvent.press(screen.getByText('Delete'));
+
+    expect(mockDeleteTraining).toHaveBeenCalledWith({
+      trainingsPlanId: 1,
+      trainingsId: 1,
+      micro: 1,
+      trainingInMicro: 0,
+      workoutIds: [2, 1],
+    });
+    expect(setOverview).toHaveBeenCalledWith(true);
   });
 });

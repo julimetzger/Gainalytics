@@ -887,6 +887,35 @@ describe('workoutReducer', () => {
       });
     });
   });
+  describe('DELETE_TRAINING', () => {
+    it('should delete all connected workouts', () => {
+      expect(
+        exerciseReducer(
+          {
+            ...STATE_WITH_TWO_WORKOUTS(),
+            plannedWorkouts: [1, 2],
+            notFinishedWorkouts: {11: 1, 22: 2},
+          },
+          {
+            type: 'DELETE_TRAINING',
+            workoutIds: [1],
+          },
+        ),
+      ).toEqual({
+        ...STATE_WITH_TWO_WORKOUTS(),
+        byId: {
+          2: STATE_WITH_TWO_WORKOUTS().byId[2],
+        },
+        allIds: [2],
+        byExerciseId: {
+          11: [],
+          22: [2],
+        },
+        plannedWorkouts: [2],
+        notFinishedWorkouts: {22: 2},
+      });
+    });
+  });
   describe('START_TRAINING', () => {
     it('should finish not finalized workouts', () => {
       expect(

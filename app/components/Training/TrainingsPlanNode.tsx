@@ -4,7 +4,7 @@ import MicroOverview from './analyse/MicroOverview';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
 import {TrainingsState} from '../../models/TrainingsState';
 import Timer from './execute/Timer';
-import {Button} from 'react-native-paper';
+import {Button, Dialog, Portal, Text} from 'react-native-paper';
 import DraggableExercise from './DraggableExercise';
 import TrainingsBase from './TrainingsBase';
 import PlanWorkoutInTraining from './plan/PlanTraining';
@@ -23,6 +23,7 @@ import {useTrainingInTrainingsPlan} from '../../redux/Training/use/useTrainingIn
 import {PauseDoneNotification} from './execute/PauseDoneNotification';
 import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
 import {useSettings} from '../../redux/settings/use/useSettings';
+import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
 
 interface TrainingsPlanNodeProps {
   trainingsPlan: TrainingsPlan;
@@ -51,6 +52,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   let [scheduleFinisTraining, resetFinishTraining] = FinishTrainingNotification();
   let appSettings = useSettings();
   const [showPicker, setShowPicker] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const deleteTraining = dispatchDeleteTraining();
 
   useEffect(() => {
     if (training?.state === TrainingsState.STARTED) {
@@ -120,6 +123,25 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     schedulePauseDoneNotification();
     scheduleFinisTraining();
   };
+
+  function onDeleteTraining() {
+    if (!training?.id || !trainingsPlan.id) return;
+    const workoutIds = [
+      ...Object.values(training.plannedWorkouts ?? {}),
+      ...Object.values(training.doneWorkoutIds ?? {}),
+    ].filter((value, index, array) => array.indexOf(value) === index);
+    deleteTraining({
+      trainingsPlanId: trainingsPlan.id,
+      trainingsId: training.id,
+      micro,
+      trainingInMicro,
+      workoutIds,
+    });
+    setShowDeleteDialog(false);
+    setIsEditing(false);
+    setOverview(true);
+  }
+
   return (
     <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
       <ScrollView keyboardShouldPersistTaps={'handled'}>
@@ -157,6 +179,11 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                         }}
                       >
                         Edit
+                      </Button>
+                    )}
+                    {training?.state === TrainingsState.FINISHED && isEditing && (
+                      <Button mode="contained" onPress={() => setShowDeleteDialog(true)}>
+                        Delete Training
                       </Button>
                     )}
                   </View>
@@ -204,6 +231,18 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
           )}
         </View>
       </ScrollView>
+      <Portal>
+        <Dialog visible={showDeleteDialog} onDismiss={() => setShowDeleteDialog(false)}>
+          <Dialog.Title>Delete Training</Dialog.Title>
+          <Dialog.Content>
+            <Text>This will delete this training and all connected planned and done workouts. This action cannot be undone.</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowDeleteDialog(false)}>Cancel</Button>
+            <Button onPress={onDeleteTraining}>Delete</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 };

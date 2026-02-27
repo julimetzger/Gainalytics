@@ -357,5 +357,53 @@ describe('exerciseReducer', () => {
       };
       expect(exerciseReducer(initialState, action)).toEqual(expectedState);
     });
+    it('should delete records for all workouts in deleted training', () => {
+      const initialState = {
+        byId: {
+          1: {
+            id: 1,
+            name: 'Bench',
+            records: {
+              '1RM': [{value: 100, workoutId: 1}],
+            },
+          },
+          2: {
+            id: 2,
+            name: 'Squat',
+            records: {
+              '1RM': [
+                {value: 150, workoutId: 2},
+                {value: 160, workoutId: 3},
+              ],
+            },
+          },
+        },
+        allIds: [1, 2],
+      };
+      const action = {
+        type: 'DELETE_TRAINING',
+        workoutIds: [1, 2],
+      };
+      const expectedState = {
+        byId: {
+          1: {
+            id: 1,
+            name: 'Bench',
+            records: {
+              '1RM': [],
+            },
+          },
+          2: {
+            id: 2,
+            name: 'Squat',
+            records: {
+              '1RM': [{value: 160, workoutId: 3}],
+            },
+          },
+        },
+        allIds: [1, 2],
+      };
+      expect(exerciseReducer(initialState, action)).toEqual(expectedState);
+    });
   });
 });

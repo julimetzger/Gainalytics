@@ -145,6 +145,16 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
         },
         allIds: [...allIds],
       };
+    case 'DELETE_TRAINING': {
+      if (action.trainingsId === undefined || state.byId[action.trainingsId] === undefined) return state;
+      const byId = {...state.byId};
+      delete byId[action.trainingsId];
+      return {
+        ...state,
+        byId,
+        allIds: state.allIds.filter((id) => id !== action.trainingsId),
+      };
+    }
     default:
       return state;
   }

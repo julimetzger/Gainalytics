@@ -15,6 +15,20 @@ function ONE_TRAININGS_PLAN() {
   };
 }
 
+function ONE_TRAININGS_PLAN_WITH_TRAINING() {
+  return {
+    byId: {
+      1: {
+        id: 1,
+        name: 'plan',
+        trainings: {'2,1': 4},
+        trainingNames: {['1']: 'Push'},
+      } satisfies TrainingsPlan,
+    },
+    allIds: [1],
+  };
+}
+
 describe('trainingsPlanReducer', () => {
   describe('ADD_TRAININGS_PLAN', () => {
     it('it should add first trainings plan', () => {
@@ -93,6 +107,28 @@ describe('trainingsPlanReducer', () => {
       ).toEqual({
         byId: {},
         allIds: [],
+      });
+    });
+  });
+  describe('DELETE_TRAINING', () => {
+    it('should delete training slot mapping', () => {
+      expect(
+        trainingsPlanReducer(ONE_TRAININGS_PLAN_WITH_TRAINING(), {
+          type: 'DELETE_TRAINING',
+          trainingsPlanId: 1,
+          micro: 2,
+          trainingInMicro: 1,
+        }),
+      ).toEqual({
+        byId: {
+          1: {
+            id: 1,
+            name: 'plan',
+            trainings: {},
+            trainingNames: {['1']: 'Push'},
+          },
+        },
+        allIds: [1],
       });
     });
   });

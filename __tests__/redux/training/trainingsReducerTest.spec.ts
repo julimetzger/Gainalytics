@@ -345,4 +345,17 @@ describe('trainingsReducer', () => {
       });
     });
   });
+  describe('DELETE_TRAINING', () => {
+    it('it should delete training by id', () => {
+      expect(
+        trainingsReducer(STATE_WITH_ONE_TRAINING(), {
+          type: 'DELETE_TRAINING',
+          trainingsId: 3,
+        }),
+      ).toEqual({
+        byId: {},
+        allIds: [],
+      });
+    });
+  });
 });
