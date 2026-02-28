@@ -14,6 +14,8 @@ export interface TrainingsPlanExportPayload {
 }
 
 export const buildTrainingsPlanExportPayload = (trainingsPlan: TrainingsPlan, state: GlobalState): TrainingsPlanExportPayload => {
+  const exportTrainingsPlan = {...trainingsPlan};
+  delete exportTrainingsPlan.lastTraining;
   const trainingIds = Object.values(trainingsPlan.trainings ?? {});
   const trainingSet = new Set<number>(trainingIds);
   const trainings = Array.from(trainingSet)
@@ -57,9 +59,8 @@ export const buildTrainingsPlanExportPayload = (trainingsPlan: TrainingsPlan, st
       records: undefined,
     }));
 
-  trainingsPlan.lastTraining = undefined;
   return {
-    trainingsPlan,
+    trainingsPlan: exportTrainingsPlan,
     trainings,
     exercises,
     workouts,

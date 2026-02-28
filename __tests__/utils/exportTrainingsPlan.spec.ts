@@ -81,8 +81,13 @@ describe('buildTrainingsPlanExportPayload', () => {
 
     const expectedPayload = {
       trainingsPlan: {
-        ...plan,
-        lastTraining: undefined,
+        id: 99,
+        name: 'Strength',
+        trainings: {
+          '1:1': 1,
+          '1:2': 2,
+        },
+        trainingNames: {},
       },
       trainings: [
         {
@@ -117,5 +122,41 @@ describe('buildTrainingsPlanExportPayload', () => {
     };
 
     expect(payload).toEqual(expectedPayload);
+  });
+
+  it('does not mutate the provided trainings plan object while removing lastTraining in export payload', () => {
+    const plan: TrainingsPlan = {
+      id: 100,
+      name: 'Meet Prep',
+      trainings: {
+        '1:1': 1,
+      },
+      trainingNames: {},
+      lastTraining: 1,
+    };
+
+    const initialPlanSnapshot = {
+      id: 100,
+      name: 'Meet Prep',
+      trainings: {
+        '1:1': 1,
+      },
+      trainingNames: {},
+      lastTraining: 1,
+    } satisfies TrainingsPlan;
+
+    const payload = buildTrainingsPlanExportPayload(plan, buildState());
+
+    const expectedExportPlan = {
+      id: 100,
+      name: 'Meet Prep',
+      trainings: {
+        '1:1': 1,
+      },
+      trainingNames: {},
+    } satisfies TrainingsPlan;
+
+    expect(plan).toEqual(initialPlanSnapshot);
+    expect(payload.trainingsPlan).toStrictEqual(expectedExportPlan);
   });
 });
