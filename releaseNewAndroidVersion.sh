@@ -24,7 +24,6 @@ mkdir -p android/app/build/outputs/apk/release/
 mkdir -p app/build/outputs/bundle/release/
 export ENTRY_FILE=index.tsx
 cd android
-asdf
 rm -rf app/src/main/res/drawable*
 ./gradlew assembleRelease && ./gradlew bundleRelease
 git add -f app/build/outputs/apk/release/app-release.apk
