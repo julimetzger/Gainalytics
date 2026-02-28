@@ -5,6 +5,7 @@ import {Exercise} from '../../models/entities/Exercise';
 import {Workout} from '../../models/entities/Workout';
 import {Training} from '../../models/entities/Training';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
+import {determineNewWorkoutId} from '../normalizedWorkoutState';
 
 const fullStateReducer = (state: GlobalState, action: AnyAction) => {
   switch (action.type) {
@@ -36,18 +37,23 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
       const workoutIdMap: Record<number, number> = {};
       const newWorkouts = {...state.workouts.byId};
       const newWorkoutIds = [...state.workouts.allIds];
-      let maxWorkoutId = Math.max(0, ...newWorkoutIds);
+      let nextWorkoutId = determineNewWorkoutId({
+        ...state.workouts,
+        byId: newWorkouts,
+        allIds: newWorkoutIds,
+      });
 
       payload.workouts.forEach((importedWorkout) => {
-        maxWorkoutId++;
+        const newWorkoutId = nextWorkoutId;
+        nextWorkoutId++;
         const newWorkout: Workout = {
           ...importedWorkout,
-          id: maxWorkoutId,
+          id: newWorkoutId,
           exerciseId: exerciseIdMap[importedWorkout.exerciseId],
         };
-        newWorkouts[maxWorkoutId] = newWorkout;
-        newWorkoutIds.push(maxWorkoutId);
-        workoutIdMap[importedWorkout.id!!] = maxWorkoutId;
+        newWorkouts[newWorkoutId] = newWorkout;
+        newWorkoutIds.push(newWorkoutId);
+        workoutIdMap[importedWorkout.id!!] = newWorkoutId;
       });
 
       // 3. Map Trainings (new IDs)
