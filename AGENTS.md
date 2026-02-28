@@ -93,6 +93,27 @@ Components MUST:
 
 ---
 
+# Testing Rules
+
+Agents SHOULD create tests when adding logic.
+
+Use:
+
+- Jest
+- React Native Testing Library
+
+Test:
+
+- business logic
+- reducers
+- components
+
+Rules:
+- assert the whole object, not single properties of the expected object.
+- do not use `as` for TypeInterference. Use satisfies.
+
+---
+
 # State Management Rules
 
 Global state:
@@ -162,23 +183,6 @@ UPPER_CASE
 Files:
 kebab-case.ts (for logic, reducers, utils)
 PascalCase.tsx for components
-
----
-
-# Testing Rules
-
-Agents SHOULD create tests when adding logic.
-
-Use:
-
-- Jest
-- React Native Testing Library
-
-Test:
-
-- business logic
-- reducers
-- complex components
 
 ---
 

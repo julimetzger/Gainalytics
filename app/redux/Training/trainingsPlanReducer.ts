@@ -118,6 +118,21 @@ const trainingsPlanReducer = (state: NormalizedState<TrainingsPlan> = initialSta
           },
         },
       };
+    case 'DELETE_TRAINING': {
+      if (!trainingsPlan) return state;
+      const trainings = {...trainingsPlan.trainings};
+      delete trainings[trainingInMicroIndex(action.micro, action.trainingInMicro)];
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.trainingsPlanId]: {
+            ...trainingsPlan,
+            trainings,
+          },
+        },
+      };
+    }
     default:
       return state;
   }

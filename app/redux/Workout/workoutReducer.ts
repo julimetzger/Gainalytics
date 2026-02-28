@@ -100,6 +100,38 @@ function handleDeleteSuggestedSetWhenNotFoundInPersistedSet(workoutState: Normal
   return {...workoutState, suggestedWorkouts: suggested};
 }
 
+function deleteTrainingWorkouts(workoutState: NormalizedWorkoutState<Workout>, workoutIds: number[]) {
+  if (workoutIds.length === 0) return workoutState;
+  const workoutIdSet = new Set(workoutIds);
+  const byId = {...workoutState.byId};
+  const byExerciseId = {...workoutState.byExerciseId};
+  const notFinishedWorkouts = {...workoutState.notFinishedWorkouts};
+
+  workoutIds.forEach((workoutId) => {
+    const workout = byId[workoutId];
+    if (!workout) return;
+    delete byId[workoutId];
+
+    const exerciseWorkouts = byExerciseId[workout.exerciseId] ?? [];
+    byExerciseId[workout.exerciseId] = exerciseWorkouts.filter((id) => id !== workoutId);
+  });
+
+  Object.entries(notFinishedWorkouts ?? {}).forEach(([exerciseId, workoutId]) => {
+    if (workoutIdSet.has(workoutId)) {
+      delete notFinishedWorkouts[parseInt(exerciseId)];
+    }
+  });
+
+  return {
+    ...workoutState,
+    byId,
+    allIds: workoutState.allIds.filter((id) => !workoutIdSet.has(id)),
+    byExerciseId,
+    plannedWorkouts: (workoutState.plannedWorkouts ?? []).filter((id) => !workoutIdSet.has(id)),
+    notFinishedWorkouts,
+  };
+}
+
 const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initialState, action: AnyAction) => {
   switch (action.type) {
     case 'ADD_WORKOUT': {
@@ -341,6 +373,8 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
         },
       };
     }
+    case 'DELETE_TRAINING':
+      return deleteTrainingWorkouts(workoutState, action.workoutIds ?? []);
     default:
       return workoutState;
   }

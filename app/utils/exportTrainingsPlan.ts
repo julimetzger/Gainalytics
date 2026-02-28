@@ -14,6 +14,8 @@ export interface TrainingsPlanExportPayload {
 }
 
 export const buildTrainingsPlanExportPayload = (trainingsPlan: TrainingsPlan, state: GlobalState): TrainingsPlanExportPayload => {
+  const exportTrainingsPlan = {...trainingsPlan};
+  delete exportTrainingsPlan.lastTraining;
   const trainingIds = Object.values(trainingsPlan.trainings ?? {});
   const trainingSet = new Set<number>(trainingIds);
   const trainings = Array.from(trainingSet)
@@ -25,6 +27,9 @@ export const buildTrainingsPlanExportPayload = (trainingsPlan: TrainingsPlan, st
         ...training,
         exercises: plannedExerciseIds,
         doneWorkoutIds: {},
+        state: TrainingsState.PLANNED,
+        start: undefined,
+        end: undefined,
       };
     });
 
@@ -35,7 +40,11 @@ export const buildTrainingsPlanExportPayload = (trainingsPlan: TrainingsPlan, st
 
   const workouts = Array.from(workoutIds)
     .map((workoutId) => state.workouts.byId[workoutId])
-    .filter((workout): workout is Workout => workout !== undefined);
+    .filter((workout): workout is Workout => workout !== undefined)
+    .map((workout) => ({
+      ...workout,
+      records: undefined,
+    }));
 
   const exerciseIds = new Set<number>();
   trainings.forEach((training) => {
@@ -44,10 +53,14 @@ export const buildTrainingsPlanExportPayload = (trainingsPlan: TrainingsPlan, st
 
   const exercises = Array.from(exerciseIds)
     .map((exerciseId) => state.exercises.byId[exerciseId])
-    .filter((exercise): exercise is Exercise => exercise !== undefined);
+    .filter((exercise): exercise is Exercise => exercise !== undefined)
+    .map((exercise) => ({
+      ...exercise,
+      records: undefined,
+    }));
 
   return {
-    trainingsPlan,
+    trainingsPlan: exportTrainingsPlan,
     trainings,
     exercises,
     workouts,

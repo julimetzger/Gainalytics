@@ -4,7 +4,7 @@ describe('settingsReducer', () => {
   it('should toggle mode', () => {
     const initialState = {
       mode: 'dark',
-    } as AppSettings;
+    } satisfies AppSettings;
     const action = {
       type: 'TOGGLE_MODE',
     };
@@ -19,7 +19,8 @@ describe('settingsReducer', () => {
       localNotification: {
         pauseTimerInSeconds: undefined,
       },
-    } as AppSettings;
+      mode: 'dark',
+    } satisfies AppSettings;
     const action = {
       type: 'SET_PAUSE_TIMER',
       seconds: 10,
@@ -28,6 +29,7 @@ describe('settingsReducer', () => {
       localNotification: {
         pauseTimerInSeconds: 10,
       },
+      mode: 'dark',
     };
     expect(settingsReducer(initialState, action)).toEqual(expectedState);
   });
@@ -37,7 +39,8 @@ describe('settingsReducer', () => {
       localNotification: {
         pauseTimerInSeconds: 10,
       },
-    } as AppSettings;
+      mode: 'light',
+    } satisfies AppSettings;
     const action = {
       type: 'SET_PAUSE_TIMER',
       seconds: undefined,
@@ -46,6 +49,7 @@ describe('settingsReducer', () => {
       localNotification: {
         pauseTimerInSeconds: undefined,
       },
+      mode: 'light',
     };
     expect(settingsReducer(initialState, action)).toEqual(expectedState);
   });
@@ -55,7 +59,8 @@ describe('settingsReducer', () => {
       localNotification: {
         finishTrainingTimerInSeconds: undefined,
       },
-    } as AppSettings;
+      mode: 'light',
+    } satisfies AppSettings;
     const action = {
       type: 'SET_FINISH_TRAINING_TIMER',
       seconds: 10,
@@ -64,6 +69,7 @@ describe('settingsReducer', () => {
       localNotification: {
         finishTrainingTimerInSeconds: 10,
       },
+      mode: 'light',
     };
     expect(settingsReducer(initialState, action)).toEqual(expectedState);
   });
@@ -73,7 +79,8 @@ describe('settingsReducer', () => {
       localNotification: {
         finishTrainingTimerInSeconds: 10,
       },
-    } as AppSettings;
+      mode: 'light',
+    } satisfies AppSettings;
     const action = {
       type: 'SET_FINISH_TRAINING_TIMER',
       seconds: undefined,
@@ -82,6 +89,7 @@ describe('settingsReducer', () => {
       localNotification: {
         finishTrainingTimerInSeconds: undefined,
       },
+      mode: 'light',
     };
     expect(settingsReducer(initialState, action)).toEqual(expectedState);
   });
@@ -95,7 +103,8 @@ describe('settingsReducer', () => {
       toggles: {
         disable1RMButton: inital,
       },
-    } as AppSettings;
+      mode: 'light',
+    } satisfies AppSettings;
     const action = {
       type: 'TOGGLE_ENABLE_1RM_BUTTON',
     };
@@ -103,6 +112,7 @@ describe('settingsReducer', () => {
       toggles: {
         disable1RMButton: expected,
       },
+      mode: 'light',
     };
     expect(settingsReducer(initialState, action)).toEqual(expectedState);
   });
@@ -116,7 +126,8 @@ describe('settingsReducer', () => {
       toggles: {
         disableTimer: inital,
       },
-    } as AppSettings;
+      mode: 'light',
+    } satisfies AppSettings;
     const action = {
       type: 'TOGGLE_DISABLE_TIMER',
     };
@@ -124,6 +135,7 @@ describe('settingsReducer', () => {
       toggles: {
         disableTimer: expected,
       },
+      mode: 'light',
     };
     expect(settingsReducer(initialState, action)).toEqual(expectedState);
   });

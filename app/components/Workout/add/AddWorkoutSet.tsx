@@ -12,9 +12,10 @@ interface AddWorkoutProps {
   onDelete?: (arg: WorkoutSet) => void;
   hasToSaveManually?: boolean;
   isPlanningMode?: boolean;
+  date?: Date;
 }
 
-const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManually = false, isPlanningMode = false}: AddWorkoutProps) => {
+const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManually = false, isPlanningMode = false, date}: AddWorkoutProps) => {
   let theme = useTheme();
   const [weight, setWeight] = useState(workoutSet?.weight?.toString() ?? '');
   const [rir, setRPE] = useState(workoutSet?.rir?.toString() ?? '0');
@@ -104,7 +105,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
     }
     onSubmit({
       index: workoutSet?.index,
-      date: new Date(Date.now()),
+      date: date ?? new Date(Date.now()),
       weight: convertToNumber(weight),
       reps: convertToNumber(reps),
       rir: Number.isNaN(convertToNumber(rir)) ? 0 : convertToNumber(rir),

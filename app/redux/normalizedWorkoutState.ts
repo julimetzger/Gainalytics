@@ -9,6 +9,13 @@ export interface NormalizedWorkoutState<T> extends NormalizedState<T> {
 }
 
 export function determineNewWorkoutId<T extends any>(normalizedState: NormalizedWorkoutState<T>) {
-  if (normalizedState.allIds.length > 0 || normalizedState.plannedWorkouts?.length > 0) return Math.max(...normalizedState.allIds, ...normalizedState.plannedWorkouts) + 1;
-  else return 1;
+  const workoutIds = [
+    ...normalizedState.allIds,
+    ...(normalizedState.plannedWorkouts ?? []),
+    ...Object.keys(normalizedState.byId)
+      .map((id) => Number(id))
+      .filter((id) => !Number.isNaN(id)),
+  ];
+  if (workoutIds.length > 0) return Math.max(...workoutIds) + 1;
+  return 1;
 }

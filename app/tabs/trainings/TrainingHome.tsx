@@ -1,4 +1,4 @@
-import {Alert, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {Button, Card, IconButton, ProgressBar, Text, TextInput} from 'react-native-paper';
 import {useAllTrainingsPlans} from '../../redux/Training/use/useAllTrainingsPlans';
@@ -13,10 +13,6 @@ import {getMicroFromTrainingInMicroIndex, getTrainingFromTrainingInMicroIndex} f
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {TextInput as RNTextInput} from 'react-native';
 import TrainingOverviewCard from '../../components/Training/analyse/TrainingOverviewCard';
-import {useStore} from 'react-redux';
-import {exportTrainingsPlanToFile} from '../../utils/exportTrainingsPlan';
-import Toast from 'react-native-toast-message';
-import {GlobalState} from '../../redux/rootReducer';
 
 interface TrainingMapping {
   firstStartedTraining?: {
@@ -58,7 +54,6 @@ const TrainingHome = ({navigation, route}: Props) => {
       .filter((A) => A !== undefined) as Array<[number, TrainingMapping]>,
   );
   const filterInputRef = React.useRef<RNTextInput>(null);
-  const store = useStore<GlobalState>();
 
   useEffect(() => {
     navigation.setOptions({
@@ -115,27 +110,6 @@ const TrainingHome = ({navigation, route}: Props) => {
                 ></ProgressBar>
                 <TrainingOverviewCard trainingsPlan={trainingsPlan} currentMicro={lastDonee(trainingsPlan)?.micro} />
                 <View style={styles.buttonContainer}>
-                  <Button
-                    style={styles.button}
-                    onPress={() => {
-                      exportTrainingsPlanToFile(trainingsPlan, store.getState())
-                        .then((path) => {
-                          Toast.show({
-                            type: 'success',
-                            text1: 'Training plan exported',
-                            text2: path,
-                            position: 'top',
-                            visibilityTime: 4000,
-                          });
-                        })
-                        .catch((error) => {
-                          console.error('Failed to export training plan', error);
-                          Alert.alert('Export failed', 'Could not export the training plan.');
-                        });
-                    }}
-                  >
-                    Export
-                  </Button>
                   {planToStartTraining.get(trainingsPlan.id!!)?.nextTraining && (
                     <Button
                       style={styles.button}

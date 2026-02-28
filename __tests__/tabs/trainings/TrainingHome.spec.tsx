@@ -7,15 +7,16 @@ import {exportTrainingsPlanToFile} from '../../../app/utils/exportTrainingsPlan'
 import {Alert} from 'react-native';
 import Toast from 'react-native-toast-message';
 
+const mockState = {
+  trainingsPlan: {byId: {} as Record<number, TrainingsPlan>},
+};
+
 jest.mock('react-redux', () => ({
   useStore: () => ({
-    getState: () => ({}),
+    getState: () => mockState,
   }),
   useDispatch: () => jest.fn(),
-  useSelector: (selector: (state: any) => any) =>
-    selector({
-      trainingsPlan: {byId: {}},
-    }),
+  useSelector: (selector: (state: any) => any) => selector(mockState),
 }));
 
 jest.mock('../../../app/redux/Training/use/useAllTrainingsPlans', () => ({
@@ -41,7 +42,7 @@ jest.mock('react-native-toast-message', () => ({
 jest.mock('react-native-paper', () => {
   const React = require('react');
   const {Text, TouchableOpacity, View} = require('react-native');
-  const Dialog = ({children}: any) => <View>{children}</View>;
+  const Dialog = ({children, visible}: any) => (visible ? <View>{children}</View> : null);
   Dialog.Title = ({children}: any) => <Text>{children}</Text>;
   Dialog.Content = ({children}: any) => <View>{children}</View>;
   Dialog.Actions = ({children}: any) => <View>{children}</View>;
@@ -54,8 +55,8 @@ jest.mock('react-native-paper', () => {
     Card: ({children}: any) => <View>{children}</View>,
     Dialog,
     Portal: ({children}: any) => <View>{children}</View>,
-    IconButton: ({onPress}: any) => (
-      <TouchableOpacity onPress={onPress}>
+    IconButton: ({onPress, testID}: any) => (
+      <TouchableOpacity onPress={onPress} testID={testID}>
         <Text>IconButton</Text>
       </TouchableOpacity>
     ),
@@ -92,18 +93,20 @@ describe('TrainingHome', () => {
     ]);
     mockedUseSettings.mockReturnValue({toggles: {showPlusButtonLeft: false}});
     mockedExportTrainingsPlanToFile.mockResolvedValue('/downloads/plan.json');
+    mockState.trainingsPlan.byId = {[plan.id]: plan};
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it('exports a trainings plan from the export button', async () => {
+  it('exports a trainings plan from the export dialog', async () => {
     const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
     const route = {params: {}};
 
-    const {getByText} = render(<TrainingHome navigation={navigation as any} route={route as any} />);
+    const {getByText, getByTestId} = render(<TrainingHome navigation={navigation as any} route={route as any} />);
 
+    fireEvent.press(getByTestId(`edit-trainings-plan-${plan.id}`));
     fireEvent.press(getByText('Export'));
 
     await waitFor(() => {
@@ -126,8 +129,9 @@ describe('TrainingHome', () => {
     const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
     const route = {params: {}};
 
-    const {getByText} = render(<TrainingHome navigation={navigation as any} route={route as any} />);
+    const {getByText, getByTestId} = render(<TrainingHome navigation={navigation as any} route={route as any} />);
 
+    fireEvent.press(getByTestId(`edit-trainings-plan-${plan.id}`));
     fireEvent.press(getByText('Export'));
 
     await waitFor(() => {

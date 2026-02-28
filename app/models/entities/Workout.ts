@@ -4,7 +4,7 @@ import {Acuumalatable} from '../../utils/HandleAccumulationModeBatching';
 export interface Workout extends Acuumalatable {
   id?: number;
   sets: WorkoutSet[];
-  notes: String;
+  notes?: String;
   exerciseId: number;
   start?: Date;
   end?: Date;

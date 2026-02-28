@@ -3,7 +3,6 @@ jest.mock('react-native-fs', () => ({
   writeFile: jest.fn(),
 }));
 
-
 import {buildTrainingsPlanExportPayload} from '../../app/utils/exportTrainingsPlan';
 import {TrainingsPlan} from '../../app/models/entities/TrainingsPlan';
 import {TrainingsState} from '../../app/models/TrainingsState';
@@ -11,6 +10,10 @@ import {GlobalState} from '../../app/redux/rootReducer';
 
 const buildState = (): GlobalState =>
   ({
+    trainingsPlan: {
+      byId: {},
+      allIds: [],
+    },
     trainings: {
       byId: {
         1: {
@@ -28,7 +31,7 @@ const buildState = (): GlobalState =>
           exercises: [12],
         },
         3: {
-          id: 1,
+          id: 3,
           state: TrainingsState.PLANNED,
           plannedWorkouts: {},
           doneWorkoutIds: {13: 1000},
@@ -39,22 +42,28 @@ const buildState = (): GlobalState =>
     },
     exercises: {
       byId: {
-        10: {id: 10, name: 'Bench', description: '', muscles: []},
-        11: {id: 11, name: 'Squat', description: '', muscles: []},
-        12: {id: 12, name: 'Deadlift', description: '', muscles: []},
-        13: {id: 13, name: 'Deadlift', description: '', muscles: []},
+        10: {id: 10, name: 'Bench', muscles: [], records: {'1RM': [{value: 12, workoutId: 100}]}},
+        11: {id: 11, name: 'Squat', muscles: []},
+        12: {id: 12, name: 'Deadlift', muscles: []},
+        13: {id: 13, name: 'Deadlift', muscles: []},
       },
-      allIds: [10, 11, 12],
+      allIds: [10, 11, 12, 13],
     },
     workouts: {
       byId: {
-        100: {id: 100, name: 'Bench 5x5', sets: []},
-        101: {id: 101, name: 'Squat 5x5', sets: []},
-        102: {id: 102, name: 'Deadlift 5x5', sets: []},
+        100: {id: 100, sets: [], exerciseId: 10},
+        101: {id: 101, sets: [], exerciseId: 11},
+        102: {id: 102, sets: [], exerciseId: 12},
       },
       allIds: [100, 101, 102],
+      byExerciseId: {},
+      plannedWorkouts: [],
     },
-  } as unknown as GlobalState);
+    effects: {},
+    settings: {
+      mode: 'dark',
+    },
+  } satisfies GlobalState);
 
 describe('buildTrainingsPlanExportPayload', () => {
   it('exports only planned exercises and clears done workouts', () => {
@@ -70,12 +79,84 @@ describe('buildTrainingsPlanExportPayload', () => {
 
     const payload = buildTrainingsPlanExportPayload(plan, buildState());
 
-    expect(payload.trainingsPlan).toEqual(plan);
-    expect(payload.trainings).toHaveLength(2);
-    expect(payload.trainings[0].id).toBe(1);
-    expect(payload.trainings[0].exercises).toEqual([10, 11]);
-    expect(payload.trainings[0].doneWorkoutIds).toEqual({});
-    expect(payload.exercises.map((exercise) => exercise.id).sort()).toEqual([10, 11, 12]);
-    expect(payload.workouts.map((workout) => workout.id).sort()).toEqual([100, 101,102]);
+    const expectedPayload = {
+      trainingsPlan: {
+        id: 99,
+        name: 'Strength',
+        trainings: {
+          '1:1': 1,
+          '1:2': 2,
+        },
+        trainingNames: {},
+      },
+      trainings: [
+        {
+          id: 1,
+          state: TrainingsState.PLANNED,
+          plannedWorkouts: {10: 100, 11: 101},
+          doneWorkoutIds: {},
+          exercises: [10, 11],
+          start: undefined,
+          end: undefined,
+        },
+        {
+          id: 2,
+          state: TrainingsState.PLANNED,
+          plannedWorkouts: {12: 102},
+          doneWorkoutIds: {},
+          exercises: [12],
+          start: undefined,
+          end: undefined,
+        },
+      ],
+      exercises: [
+        {id: 10, name: 'Bench', muscles: []},
+        {id: 11, name: 'Squat', muscles: []},
+        {id: 12, name: 'Deadlift', muscles: []},
+      ],
+      workouts: [
+        {id: 100, exerciseId: 10, sets: []},
+        {id: 101, exerciseId: 11, sets: []},
+        {id: 102, exerciseId: 12, sets: []},
+      ],
+    };
+
+    expect(payload).toEqual(expectedPayload);
+  });
+
+  it('does not mutate the provided trainings plan object while removing lastTraining in export payload', () => {
+    const plan: TrainingsPlan = {
+      id: 100,
+      name: 'Meet Prep',
+      trainings: {
+        '1:1': 1,
+      },
+      trainingNames: {},
+      lastTraining: 1,
+    };
+
+    const initialPlanSnapshot = {
+      id: 100,
+      name: 'Meet Prep',
+      trainings: {
+        '1:1': 1,
+      },
+      trainingNames: {},
+      lastTraining: 1,
+    } satisfies TrainingsPlan;
+
+    const payload = buildTrainingsPlanExportPayload(plan, buildState());
+
+    const expectedExportPlan = {
+      id: 100,
+      name: 'Meet Prep',
+      trainings: {
+        '1:1': 1,
+      },
+      trainingNames: {},
+    } satisfies TrainingsPlan;
+
+    expect(plan).toEqual(initialPlanSnapshot);
+    expect(payload.trainingsPlan).toStrictEqual(expectedExportPlan);
   });
 });

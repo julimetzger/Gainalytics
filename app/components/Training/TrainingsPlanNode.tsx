@@ -4,7 +4,7 @@ import MicroOverview from './analyse/MicroOverview';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
 import {TrainingsState} from '../../models/TrainingsState';
 import Timer from './execute/Timer';
-import {Button} from 'react-native-paper';
+import {Button, Dialog, Portal, Text} from 'react-native-paper';
 import DraggableExercise from './DraggableExercise';
 import TrainingsBase from './TrainingsBase';
 import PlanWorkoutInTraining from './plan/PlanTraining';
@@ -23,6 +23,7 @@ import {useTrainingInTrainingsPlan} from '../../redux/Training/use/useTrainingIn
 import {PauseDoneNotification} from './execute/PauseDoneNotification';
 import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
 import {useSettings} from '../../redux/settings/use/useSettings';
+import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
 
 interface TrainingsPlanNodeProps {
   trainingsPlan: TrainingsPlan;
@@ -51,6 +52,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   let [scheduleFinisTraining, resetFinishTraining] = FinishTrainingNotification();
   let appSettings = useSettings();
   const [showPicker, setShowPicker] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const deleteTraining = dispatchDeleteTraining();
 
   useEffect(() => {
     if (training?.state === TrainingsState.STARTED) {
@@ -61,6 +64,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   function setExerciseWithSideEffects(exercises: Exercise[]) {
     modifyExercisesInTraining(exercises, trainingsPlan.id!!, micro, trainingInMicro, training?.id);
   }
+
+  const [isEditing, setIsEditing] = useState(false);
 
   function changePlanningmode() {
     if (training?.state === TrainingsState.PLANNED) {
@@ -87,7 +92,12 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     }
     if (training?.state === TrainingsState.FINISHED) {
       if (chosenExercise === undefined && exercises?.length > 0) setchosenExercise(exercises[0].id);
-      setOverview(!overview);
+      if (isEditing) {
+        setIsEditing(false);
+        setOverview(true);
+      } else {
+        setOverview(!overview);
+      }
     }
     setTimeInWorkout(new Date(Date.now()));
   }
@@ -95,6 +105,10 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   function goToNextExercise() {
     const number = exercises.indexOf(chosenExercise!!) + 1;
     if (number >= exercises.length) {
+      if (isEditing) {
+        setIsEditing(false);
+        setOverview(true);
+      }
       return;
     }
     setRefresHeky(Math.random());
@@ -109,6 +123,25 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     schedulePauseDoneNotification();
     scheduleFinisTraining();
   };
+
+  function onDeleteTraining() {
+    if (!training?.id || !trainingsPlan.id) return;
+    const workoutIds = [
+      ...Object.values(training.plannedWorkouts ?? {}),
+      ...Object.values(training.doneWorkoutIds ?? {}),
+    ].filter((value, index, array) => array.indexOf(value) === index);
+    deleteTraining({
+      trainingsPlanId: trainingsPlan.id,
+      trainingsId: training.id,
+      micro,
+      trainingInMicro,
+      workoutIds,
+    });
+    setShowDeleteDialog(false);
+    setIsEditing(false);
+    setOverview(true);
+  }
+
   return (
     <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
       <ScrollView keyboardShouldPersistTaps={'handled'}>
@@ -128,18 +161,38 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
               >
                 {!appSettings.toggles?.disableTimer && training?.state === TrainingsState.STARTED && <Timer start={training.start!!} label={'Start Training'} />}
                 {training?.state && (
-                  <Button mode="outlined" style={{alignSelf: 'center'}} onPress={changePlanningmode}>
-                    {training?.state === TrainingsState.PLANNED && 'Start Training'}
-                    {training?.state === TrainingsState.STARTED && 'Finish Training'}
-                    {training?.state === TrainingsState.FINISHED && overview && 'Show Sets'}
-                    {training?.state === TrainingsState.FINISHED && !overview && 'Show Overview'}
-                  </Button>
+                  <View style={{flexDirection: 'row', gap: 5}}>
+                    <Button mode="outlined" style={{alignSelf: 'center'}} onPress={changePlanningmode}>
+                      {training?.state === TrainingsState.PLANNED && 'Start Training'}
+                      {training?.state === TrainingsState.STARTED && 'Finish Training'}
+                      {training?.state === TrainingsState.FINISHED && (isEditing || !overview) && 'Back to Overview'}
+                      {training?.state === TrainingsState.FINISHED && !isEditing && overview && 'Show Sets'}
+                    </Button>
+                    {training?.state === TrainingsState.FINISHED && (overview || !isEditing) && (
+                      <Button
+                        mode="contained"
+                        style={{alignSelf: 'center'}}
+                        onPress={() => {
+                          if (chosenExercise === undefined && exercises?.length > 0) setchosenExercise(exercises[0].id);
+                          setIsEditing(true);
+                          setOverview(false);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                    {training?.state === TrainingsState.FINISHED && isEditing && (
+                      <Button mode="contained" onPress={() => setShowDeleteDialog(true)}>
+                        Delete Training
+                      </Button>
+                    )}
+                  </View>
                 )}
                 {!appSettings.toggles?.disableTimer && training?.state === TrainingsState.STARTED && (
                   <Timer start={timeInWorkout} reset={true} label={'Last Set'} exercise={chosenExercise} onReset={[() => schedulePauseDoneNotification()]} />
                 )}
               </View>
-              {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || training === undefined) && (
+              {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || (training?.state === TrainingsState.FINISHED && isEditing) || training === undefined) && (
                 <View pointerEvents={'box-none'}>
                   <DraggableExercise
                     exercises={exercises}
@@ -169,7 +222,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                 <PlanWorkoutInTraining training={training} trainingsPlanId={trainingsPlan.id!!} trainingInMicro={trainingInMicro} micro={micro} chosenExercise={chosenExercise!!} />
               )}
               {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro} />}
-              {training?.state === TrainingsState.STARTED && chosenExercise && (
+              {(training?.state === TrainingsState.STARTED || (training?.state === TrainingsState.FINISHED && isEditing)) && chosenExercise && (
                 <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise!!} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} />
               )}
               {training?.state === TrainingsState.FINISHED && overview && <TrainingsOverview training={training} previousTraining={lastTraining} />}
@@ -178,6 +231,18 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
           )}
         </View>
       </ScrollView>
+      <Portal>
+        <Dialog visible={showDeleteDialog} onDismiss={() => setShowDeleteDialog(false)}>
+          <Dialog.Title>Delete Training</Dialog.Title>
+          <Dialog.Content>
+            <Text>This will delete this training and all connected planned and done workouts. This action cannot be undone.</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowDeleteDialog(false)}>Cancel</Button>
+            <Button onPress={onDeleteTraining}>Delete</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 };

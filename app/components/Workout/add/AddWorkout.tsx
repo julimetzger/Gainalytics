@@ -85,10 +85,10 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
         {info && info}
       </View>
       <View style={styles.contentContainer}>
-        <AddWorkoutSet onSubmit={submitWorkoutSet} oneRepMax={oneRepMax} />
+        <AddWorkoutSet onSubmit={submitWorkoutSet} oneRepMax={oneRepMax} date={date} />
         {unfinishedWorkout &&
           unfinishedWorkout.sets.map((workoutSet) => {
-            return <AddWorkoutSet key={workoutSet.index} workoutSet={workoutSet} onSubmit={submitWorkoutSet} onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!)} />;
+            return <AddWorkoutSet key={workoutSet.index} workoutSet={workoutSet} onSubmit={submitWorkoutSet} onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!)} date={date} />;
           })}
       </View>
       {(!workout || workout.end === undefined) && (

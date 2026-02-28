@@ -273,6 +273,39 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
         },
       };
     }
+    case 'DELETE_TRAINING': {
+      const workoutIds = new Set<number>(action.workoutIds ?? []);
+      if (workoutIds.size === 0) return exercises;
+      const byId = Object.entries(exercises.byId).reduce(
+        (mappedExercises, [exerciseId, exercise]) => {
+          if (exercise.records === undefined) {
+            return {
+              ...mappedExercises,
+              [exerciseId]: exercise,
+            };
+          }
+          const records = Object.entries(exercise.records).reduce(
+            (mappedRecords, [recordName, values]) => ({
+              ...mappedRecords,
+              [recordName]: values.filter((value) => !workoutIds.has(value.workoutId)),
+            }),
+            {},
+          );
+          return {
+            ...mappedExercises,
+            [exerciseId]: {
+              ...exercise,
+              records,
+            },
+          };
+        },
+        {},
+      );
+      return {
+        ...exercises,
+        byId,
+      };
+    }
     default:
       return exercises;
   }
