@@ -3,11 +3,14 @@ import {GlobalState} from '../../rootReducer';
 import {Range} from '../../../components/picker/date/DateRangePicker';
 import {dateComparator, HOURS_IN_MILLIS} from '../../../utils/DateHelper';
 import {compareArrays} from '../../../utils/ArrayUtils';
+import {Workout} from '../../../models/entities/Workout';
 
 export const useDateWorkoutMapByIds = (ids: number[]) =>
   useSelector(
     (state: GlobalState) => {
-      let workouts = ids.map((id) => state.workouts.byId[id]);
+      let workouts = ids
+        .map((id) => state.workouts.byId[id])
+        .filter((workout): workout is Workout => workout !== undefined && workout.id !== undefined && workout.start !== undefined);
       let dateWorkoutMap = new Map<Date, number[]>();
       workouts.forEach((workout) => {
         let sameWorkoutDate: Date =
