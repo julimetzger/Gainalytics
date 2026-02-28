@@ -8,7 +8,7 @@ import {Metric} from "../../../models/Metric";
 export const useHighlightWorkout = (workoutIds: number[], highlightMode?: Metric) =>
   useSelector(
     (state: GlobalState) => {
-      let workouts = workoutIds.map((id) => state.workouts.byId[id]);
+      let workouts = workoutIds.map((id) => state.workouts.byId[id]).filter((workout): workout is Workout => workout !== undefined);
       let highlighWorkoutIds: number[] = [];
       if (highlightMode !== undefined) {
         let highlightValue = highlightMode

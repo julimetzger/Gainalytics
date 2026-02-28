@@ -220,3 +220,94 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
     expect(newState).toEqual(expectedState);
   });
 });
+
+describe('fullStateReducer - FULL_IMPORT', () => {
+  it('should remove dangling workout references from imported trainings', () => {
+    const importedState = {
+      exercises: {
+        byId: {
+          20: {id: 20, name: 'Bench Press'},
+        },
+        allIds: [20],
+      },
+      workouts: {
+        byId: {
+          1: {id: 1, exerciseId: 20, sets: []},
+        },
+        plannedWorkouts: [],
+        byExerciseId: {
+          20: [1],
+        },
+        allIds: [1],
+      },
+      trainings: {
+        byId: {
+          1: {
+            id: 1,
+            exercises: [20, 99],
+            plannedWorkouts: {20: 1, 99: 999},
+            doneWorkoutIds: {20: 1, 10: 999},
+            state: TrainingsState.FINISHED,
+          },
+        },
+        allIds: [1],
+      },
+      trainingsPlan: {
+        byId: {
+          1: {id: 1, name: 'Imported Plan', trainings: {'1,1': 1}, trainingNames: {1: 'Day 1'}},
+        },
+        allIds: [1],
+      },
+      settings: {mode: 'dark'},
+      effects: {},
+    } satisfies GlobalState;
+
+    const action = {
+      type: 'FULL_IMPORT',
+      state: importedState,
+    };
+
+    const newState = fullStateReducer(importedState, action);
+
+    const expectedState = {
+      exercises: {
+        byId: {
+          20: {id: 20, name: 'Bench Press'},
+        },
+        allIds: [20],
+      },
+      workouts: {
+        byId: {
+          1: {id: 1, exerciseId: 20, sets: []},
+        },
+        plannedWorkouts: [],
+        byExerciseId: {
+          20: [1],
+        },
+        allIds: [1],
+      },
+      trainings: {
+        byId: {
+          1: {
+            id: 1,
+            exercises: [20],
+            plannedWorkouts: {20: 1},
+            doneWorkoutIds: {20: 1},
+            state: TrainingsState.FINISHED,
+          },
+        },
+        allIds: [1],
+      },
+      trainingsPlan: {
+        byId: {
+          1: {id: 1, name: 'Imported Plan', trainings: {'1,1': 1}, trainingNames: {1: 'Day 1'}},
+        },
+        allIds: [1],
+      },
+      settings: {mode: 'dark'},
+      effects: {},
+    } satisfies GlobalState;
+
+    expect(newState).toEqual(expectedState);
+  });
+});
