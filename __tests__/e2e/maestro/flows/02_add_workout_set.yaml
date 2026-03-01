@@ -1,7 +1,8 @@
 appId: com.powerliftingworkoutplanner
 ---
 - launchApp
-- tapOn: "Exercises"
+- tapOn:
+    id: "tab-exercises"
 - tapOn: "Bankdrücken"
 - tapOn:
     id: "add-workout-set-reps-input"

@@ -1,7 +1,8 @@
 appId: com.powerliftingworkoutplanner
 ---
 - launchApp
-- tapOn: "Settings"
+- tapOn:
+    id: "tab-settings"
 - tapOn:
     id: "settings-import-data-button"
 - tapOn:

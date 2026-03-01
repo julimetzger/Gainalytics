@@ -1,7 +1,8 @@
 appId: com.powerliftingworkoutplanner
 ---
 - launchApp
-- tapOn: "Training"
+- tapOn:
+    id: "tab-training"
 - assertVisible:
     id: "training-home-screen"
 - assertVisible:

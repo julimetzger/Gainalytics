@@ -49,6 +49,8 @@ export const BottomTabs = () => {
         options={{
           tabBarIcon: 'book-open-variant',
           tabBarBadge: isTrainingStarted,
+          tabBarAccessibilityLabel: 'tab-training',
+          tabBarTestID: 'tab-training',
         }}
       />
       <Tab.Screen
@@ -56,6 +58,8 @@ export const BottomTabs = () => {
         component={ExerciseRouter}
         options={{
           tabBarIcon: 'weight-lifter',
+          tabBarAccessibilityLabel: 'tab-exercises',
+          tabBarTestID: 'tab-exercises',
         }}
       />
       <Tab.Screen
@@ -63,6 +67,8 @@ export const BottomTabs = () => {
         component={AnalyseRouter}
         options={{
           tabBarIcon: 'trending-up',
+          tabBarAccessibilityLabel: 'tab-analyse',
+          tabBarTestID: 'tab-analyse',
         }}
       />
       <Tab.Screen
@@ -70,6 +76,8 @@ export const BottomTabs = () => {
         component={SettingsRouter}
         options={{
           tabBarIcon: 'cog',
+          tabBarAccessibilityLabel: 'tab-settings',
+          tabBarTestID: 'tab-settings',
         }}
       />
     </Tab.Navigator>

@@ -40,6 +40,8 @@ npm-debug.log
 yarn-error.log
 __tests__/reports/*.xml
 __tests__/reports/*.json
+__tests__/reports/maestro-debug/
+__tests__/reports/.maestro-home/
 !__tests__/reports/.gitkeep
 
 # BUCK

@@ -9,6 +9,10 @@ SUITE_PATH="${REPO_ROOT}/__tests__/e2e/maestro/flows/suite.yaml"
 REPORT_PATH="${REPO_ROOT}/__tests__/reports/maestro.xml"
 FIXTURE_PATH="${REPO_ROOT}/__tests__/testdata/1772318214222.gains"
 APP_ID="com.powerliftingworkoutplanner"
+MAESTRO_HOST="${E2E_MAESTRO_HOST:-}"
+ADB_HOST="${E2E_ADB_HOST:-}"
+ADB_PORT="${E2E_ADB_PORT:-5037}"
+MAESTRO_RUN_HOME="${E2E_MAESTRO_HOME:-${REPO_ROOT}/__tests__/reports/.maestro-home}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -32,6 +36,18 @@ while [[ $# -gt 0 ]]; do
       APP_ID="$2"
       shift 2
       ;;
+    --host)
+      MAESTRO_HOST="$2"
+      shift 2
+      ;;
+    --adb-host)
+      ADB_HOST="$2"
+      shift 2
+      ;;
+    --adb-port)
+      ADB_PORT="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown argument: $1" >&2
       exit 1
@@ -45,17 +61,76 @@ REPORT_DIR="$(cd "$(dirname "${REPORT_PATH}")" && pwd)"
 REPORT_PATH="${REPORT_DIR}/$(basename "${REPORT_PATH}")"
 
 mkdir -p "$(dirname "${REPORT_PATH}")"
+mkdir -p "${MAESTRO_RUN_HOME}/.cache"
 
-POWERSHELL_SCRIPT_WIN="$(wslpath -w "${REPO_ROOT}/__tests__/e2e/scripts/run-maestro-windows.ps1")"
-REPO_ROOT_WIN="$(wslpath -w "${REPO_ROOT}")"
-SUITE_PATH_WIN="$(wslpath -w "${SUITE_PATH}")"
-REPORT_PATH_WIN="$(wslpath -w "${REPORT_PATH}")"
-FIXTURE_PATH_WIN="$(wslpath -w "${FIXTURE_PATH}")"
+if [[ -z "${ADB_HOST}" && -n "${MAESTRO_HOST}" ]]; then
+  ADB_HOST="${MAESTRO_HOST}"
+fi
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${POWERSHELL_SCRIPT_WIN}" \
-  -RepoRoot "${REPO_ROOT_WIN}" \
-  -SuitePath "${SUITE_PATH_WIN}" \
-  -ReportPath "${REPORT_PATH_WIN}" \
-  -FixturePath "${FIXTURE_PATH_WIN}" \
-  -Mode "${MODE}" \
-  -AppId "${APP_ID}"
+ADB_ARGS=()
+if [[ -n "${ADB_HOST}" ]]; then
+  ADB_ARGS=(-H "${ADB_HOST}" -P "${ADB_PORT}")
+  export ADB_SERVER_SOCKET="tcp:${ADB_HOST}:${ADB_PORT}"
+fi
+
+MAESTRO_ARGS=()
+if [[ -n "${MAESTRO_HOST}" ]]; then
+  MAESTRO_ARGS=(--host "${MAESTRO_HOST}")
+fi
+
+adb_cmd() {
+  adb "${ADB_ARGS[@]}" "$@"
+}
+
+run_maestro_test() {
+  local debug_dir
+  debug_dir="$(dirname "${REPORT_PATH}")/maestro-debug"
+  mkdir -p "${debug_dir}"
+  HOME="${MAESTRO_RUN_HOME}" \
+    XDG_CACHE_HOME="${MAESTRO_RUN_HOME}/.cache" \
+    MAESTRO_CLI_NO_ANALYTICS=1 \
+    maestro "${MAESTRO_ARGS[@]}" test "${SUITE_PATH}" --format junit --output "${REPORT_PATH}" --debug-output "${debug_dir}"
+}
+
+if [[ "${MODE}" == "build" ]]; then
+  if ! command -v adb >/dev/null 2>&1; then
+    echo "adb is required in WSL PATH for build mode." >&2
+    exit 127
+  fi
+  cd "${REPO_ROOT}/android"
+  if [[ -x "./gradlew" ]]; then
+    ./gradlew installDebug
+  else
+    bash ./gradlew installDebug
+  fi
+  exit 0
+fi
+
+if [[ "${MODE}" == "bootstrap" || "${MODE}" == "full" || "${MODE}" == "smoke" ]]; then
+  if ! command -v adb >/dev/null 2>&1; then
+    echo "adb is required in WSL PATH." >&2
+    exit 127
+  fi
+  if ! command -v maestro >/dev/null 2>&1; then
+    echo "maestro is required in WSL PATH." >&2
+    exit 127
+  fi
+  adb_cmd push "${FIXTURE_PATH}" "/sdcard/Download/baseline.gains"
+  adb_cmd shell am force-stop "${APP_ID}" >/dev/null 2>&1 || true
+fi
+
+if [[ "${MODE}" == "bootstrap" ]]; then
+  exit 0
+fi
+
+if run_maestro_test; then
+  exit 0
+fi
+
+sleep 2
+if [[ -z "${ADB_HOST}" ]]; then
+  adb kill-server || true
+  adb start-server
+fi
+adb_cmd wait-for-device || true
+run_maestro_test
