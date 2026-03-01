@@ -249,6 +249,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
       lastWorkout.id = undefined;
       lastWorkout.start = undefined;
       lastWorkout.end = undefined;
+      lastWorkout.trainingsId = undefined;
       lastWorkout.sets = lastWorkout.sets.map((value) => {
         return {
           ...value,
@@ -307,6 +308,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
         plannedWorkout.id = undefined;
         plannedWorkout.start = undefined;
         plannedWorkout.end = undefined;
+        plannedWorkout.trainingsId = undefined;
         plannedWorkout.sets =
           plannedWorkout?.sets?.map((value) => {
             return {
@@ -332,6 +334,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
         workoutCopy.end = undefined;
         workoutCopy.start = undefined;
         workoutCopy.notes = '';
+        workoutCopy.trainingsId = action.trainingsId ?? action.nextTrainingsId;
         workoutCopy.sets = workoutCopy.sets.map((value) => {
           return {...value, date: undefined};
         });
