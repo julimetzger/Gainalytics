@@ -1,3 +1,21 @@
+stages:
+  - test
+  - deploy
+
+maestro_e2e_android:
+  stage: test
+  tags:
+    - windows
+  when: manual
+  allow_failure: true
+  script:
+    - powershell -NoProfile -ExecutionPolicy Bypass -File __tests__/e2e/scripts/run-maestro-windows.ps1 -RepoRoot "$CI_PROJECT_DIR" -Mode build
+    - powershell -NoProfile -ExecutionPolicy Bypass -File __tests__/e2e/scripts/run-maestro-windows.ps1 -RepoRoot "$CI_PROJECT_DIR" -Mode full -SuitePath "$CI_PROJECT_DIR\\__tests__\\e2e\\maestro\\flows\\suite.yaml" -ReportPath "$CI_PROJECT_DIR\\__tests__\\reports\\maestro.xml" -FixturePath "$CI_PROJECT_DIR\\__tests__\\testdata\\1772318214222.gains"
+  artifacts:
+    when: always
+    paths:
+      - __tests__/reports/maestro.xml
+
 pages:
   stage: deploy
   script:

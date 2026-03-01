@@ -1,0 +1,7 @@
+appId: com.powerliftingworkoutplanner
+---
+- launchApp
+- assertVisible: "Training"
+- tapOn: "Settings"
+- assertVisible:
+    id: "settings-import-data-button"

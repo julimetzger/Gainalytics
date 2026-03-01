@@ -1,0 +1,10 @@
+appId: com.powerliftingworkoutplanner
+---
+- launchApp
+- tapOn: "Settings"
+- tapOn:
+    id: "settings-import-data-button"
+- tapOn:
+    id: "settings-import-confirm-button"
+- tapOn: "baseline.gains"
+- assertVisible: "Import successful!"

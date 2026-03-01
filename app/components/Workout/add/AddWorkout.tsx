@@ -97,6 +97,7 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
           buttonColor={theme.colors.primary}
           textColor={theme.colors.onPrimary}
           mode={'contained'}
+          testID="add-workout-finalize-button"
           disabled={unfinishedWorkout === undefined || unfinishedWorkout.id === undefined}
           onPress={() => {
             finalizeWorkout(sameDate(date, new Date(Date.now())) ? new Date(Date.now()) : date, unfinishedWorkout?.id!!);

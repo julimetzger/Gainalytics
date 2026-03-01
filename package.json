@@ -9,6 +9,10 @@
     "start": "react-native start",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest",
+    "e2e:android:build": "bash ./__tests__/e2e/scripts/run-maestro-from-wsl.sh --mode build",
+    "e2e:android:bootstrap": "bash ./__tests__/e2e/scripts/run-maestro-from-wsl.sh --mode bootstrap",
+    "e2e:android": "bash ./__tests__/e2e/scripts/run-maestro-from-wsl.sh --mode full --suite ./__tests__/e2e/maestro/flows/suite.yaml --report ./__tests__/reports/maestro.xml",
+    "e2e:android:smoke": "bash ./__tests__/e2e/scripts/run-maestro-from-wsl.sh --mode smoke --suite ./__tests__/e2e/maestro/flows/smoke.yaml --report ./__tests__/reports/maestro-smoke.xml",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

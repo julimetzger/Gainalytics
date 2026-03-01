@@ -78,7 +78,7 @@ const TrainingHome = ({navigation, route}: Props) => {
   }, [navigation, showFilter]);
 
   return (
-    <View style={{flex: 1}}>
+    <View style={{flex: 1}} testID="training-home-screen">
       {showFilter && <TextInput label={'Filter'} value={filter} onChangeText={(text) => setFilter(text)} ref={filterInputRef} />}
       <ScrollView contentInsetAdjustmentBehavior="automatic">
         {trainingsPlans
