@@ -2,15 +2,21 @@
 
 ## Trainings
 
-- **Export/Import Funktion für Trainings/Micro**
-- Records in Overview anzeigen
-- progression einbauen bei hinzufügen aus letztem planned or done training ( linear)
+- [ready] Records in Training Overview - micro vergleich anzeigen
+  - Im TrainingsNode für status Done und Overview
+  - es gibt eine Kachel die anzeigt wieviele Records in diesem Micro waren im Vergleich zum vorherigen
+- [ready] progression einbauen bei hinzufügen aus letztem planned or done training ( linear) 
+  - rir erhöhen generell -> suggested weight geht hoch über 1RM estimate aus letztem planned/done training. Man kann hier sagen rir -+ Zahl. Wenn rir schon auf 0 dann passiert nichts für die Exercise.
+  - % weight increasement
 - Overview mit Grafik für RIR Sets im Vergleich zum vorherigen Macro
 - Labels für Sets/Workouts hinzufügen
 
 ## Analyse
 
-- Seite mit TrainingsLänge mit Balkendiagramm
+- [ready] Seite mit TrainingsLänge mit Balkendiagramm im Analysetab
+  - es gibt eine neue Seite im Analsetab mit Namen Trainingslänge
+  - Im Tab wird die Trainingslänge als Balkendiagramm angezeigt
+  - Filter ist über Accumulation Mode möglich (Day, Week, Month)
 - RIR Verlauf/ RIR distribution
 - RIRmax/RIRaverage als metrik aufnehmen
 - Pausenzeit generell und pro muskel/exercise (nur zwischen set im Workout berücksichtigen?? also dl satz 1 pause dl satz 2 pause dl satz 3 fertig -> 2 Pausenzeiten getrackt)
@@ -35,13 +41,13 @@
 ## Bugs
 
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
+- DatePicker funktioniert nicht 
 
 ## Low Prio Themen
 
 ## Trainings
 
 - Mesos einführen mit Kopieren des alten Mesos
-- Trainings löschbar machen
 - unfinished Workout und doneWorkout handling nicht robust (1 Set hinzufügen dann reload verliert alle planned Sätze)
 - Vorschlag anhand abgeschlossenem Training aus Datepicker wenn nichts geplant
 - Progressbar vergleich exercises mit done workouts anstatt planned workouts?
