@@ -101,12 +101,14 @@ Use:
 
 - Jest
 - React Native Testing Library
+- maestro e2e tests
 
 Test:
 
 - business logic
 - reducers
 - components
+- happy path e2e test for each feature
 
 Rules:
 - assert the whole object, not single properties of the expected object.
