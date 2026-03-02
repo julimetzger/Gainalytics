@@ -238,6 +238,7 @@ const SettingsTab = ({navigation}: Props) => {
         <Button
           mode="elevated"
           style={{flex: 1, margin: 5}}
+          testID="settings-import-data-button"
           onPress={() => {
             setImportDialog(true);
           }}
@@ -264,6 +265,7 @@ const SettingsTab = ({navigation}: Props) => {
             <Dialog.Actions style={{justifyContent: 'space-between'}}>
               <Button onPress={() => setImportDialog(false)}>Cancel</Button>
               <Button
+                testID="settings-import-confirm-button"
                 onPress={() => {
                   doce();
                   setImportDialog(false);

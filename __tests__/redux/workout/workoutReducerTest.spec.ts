@@ -1133,6 +1133,52 @@ describe('workoutReducer', () => {
         },
       });
     });
+
+    it('should clear stale trainingsId when moving planned workout to suggestion', () => {
+      expect(
+        exerciseReducer(
+          {
+            ...STATE_WITH_TWO_WORKOUTS(),
+            byId: {
+              ...STATE_WITH_TWO_WORKOUTS().byId,
+              1: {
+                ...STATE_WITH_TWO_WORKOUTS().byId[1],
+                trainingsId: 44,
+                sets: [{reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1}],
+              },
+            },
+          },
+          {
+            type: 'START_TRAINING',
+            workoutIds: [1],
+            finishedWorkoutIds: [],
+            trainingsId: 99,
+            date: TEST_DATE,
+          },
+        ),
+      ).toEqual({
+        ...STATE_WITH_TWO_WORKOUTS(),
+        byId: {
+          ...STATE_WITH_TWO_WORKOUTS().byId,
+          1: {
+            ...STATE_WITH_TWO_WORKOUTS().byId[1],
+            trainingsId: 44,
+            sets: [{reps: 1, rir: 1, weight: 1, date: TEST_DATE, index: 1}],
+          },
+        },
+        suggestedWorkouts: {
+          11: {
+            exerciseId: 11,
+            id: undefined,
+            notes: '',
+            trainingsId: undefined,
+            sets: [{reps: 1, rir: 1, weight: 1, date: undefined, index: 1}],
+            start: undefined,
+            end: undefined,
+          },
+        },
+      });
+    });
   });
   describe('SUGGEST_TRAINING', () => {
     it('should suggest training', () => {
@@ -1158,6 +1204,7 @@ describe('workoutReducer', () => {
           {
             type: 'SUGGEST_TRAINING',
             trainingsId: 3,
+            nextTrainingsId: 3,
             lastTrainingInMicro: {
               exercises: [2],
             },
@@ -1186,6 +1233,7 @@ describe('workoutReducer', () => {
             exerciseId: 11,
             id: 3,
             notes: '',
+            trainingsId: 3,
             sets: [
               {reps: 1, rir: 1, weight: 1, date: undefined, index: 1},
               {reps: 2, rir: 2, weight: 2, date: undefined, index: 2},
@@ -1197,6 +1245,71 @@ describe('workoutReducer', () => {
             exerciseId: 22,
             id: 4,
             notes: '',
+            trainingsId: 3,
+            sets: [],
+            start: undefined,
+            end: undefined,
+          },
+        },
+        plannedWorkouts: [3, 4],
+      });
+    });
+
+    it('should set copied planned workouts to nextTrainingsId when trainingsId is undefined', () => {
+      expect(
+        exerciseReducer(
+          {
+            ...STATE_WITH_TWO_WORKOUTS(),
+            byId: {
+              ...STATE_WITH_TWO_WORKOUTS().byId,
+              1: {
+                ...STATE_WITH_TWO_WORKOUTS().byId[1],
+                trainingsId: 44,
+              },
+              2: {
+                ...STATE_WITH_TWO_WORKOUTS().byId[2],
+                trainingsId: 44,
+              },
+            },
+          },
+          {
+            type: 'SUGGEST_TRAINING',
+            nextTrainingsId: 100,
+            lastTrainingInMicro: {
+              exercises: [2],
+            },
+            workoutIdWorkoutMap: new Map([
+              [3, {id: 1}],
+              [4, {id: 2}],
+            ]),
+          },
+        ),
+      ).toEqual({
+        ...STATE_WITH_TWO_WORKOUTS(),
+        byId: {
+          ...STATE_WITH_TWO_WORKOUTS().byId,
+          1: {
+            ...STATE_WITH_TWO_WORKOUTS().byId[1],
+            trainingsId: 44,
+          },
+          2: {
+            ...STATE_WITH_TWO_WORKOUTS().byId[2],
+            trainingsId: 44,
+          },
+          3: {
+            exerciseId: 11,
+            id: 3,
+            notes: '',
+            trainingsId: 100,
+            sets: [],
+            start: undefined,
+            end: undefined,
+          },
+          4: {
+            exerciseId: 22,
+            id: 4,
+            notes: '',
+            trainingsId: 100,
             sets: [],
             start: undefined,
             end: undefined,

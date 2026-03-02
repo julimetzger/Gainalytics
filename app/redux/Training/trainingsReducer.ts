@@ -108,23 +108,37 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
         },
       };
     case 'DELETE_WORKOUT':
-      if (action.workout.trainingsId !== undefined) {
-        training = {...state.byId[action.workout.trainingsId]};
-        delete training.doneWorkoutIds[action.workout.exerciseId];
-        delete training.plannedWorkouts[action.workout.exerciseId];
-        return {
-          ...state,
-          byId: {
-            ...state.byId,
-            [action.workout.trainingsId]: {
-              ...training,
-              doneWorkoutIds: {...training.doneWorkoutIds},
-              plannedWorkouts: {...training.plannedWorkouts},
-            },
-          },
-        };
+      if (action.workout?.id === undefined) {
+        return state;
       }
-      return state;
+      let hasChanges = false;
+      const byId = Object.fromEntries(
+        Object.entries(state.byId).map(([id, existingTraining]) => {
+          const cleanedDoneWorkoutIds = Object.fromEntries(Object.entries(existingTraining.doneWorkoutIds ?? {}).filter(([, workoutId]) => workoutId !== action.workout.id));
+          const cleanedPlannedWorkouts = Object.fromEntries(Object.entries(existingTraining.plannedWorkouts ?? {}).filter(([, workoutId]) => workoutId !== action.workout.id));
+          if (
+            Object.keys(cleanedDoneWorkoutIds).length !== Object.keys(existingTraining.doneWorkoutIds ?? {}).length ||
+            Object.keys(cleanedPlannedWorkouts).length !== Object.keys(existingTraining.plannedWorkouts ?? {}).length
+          ) {
+            hasChanges = true;
+          }
+          return [
+            id,
+            {
+              ...existingTraining,
+              doneWorkoutIds: cleanedDoneWorkoutIds,
+              plannedWorkouts: cleanedPlannedWorkouts,
+            },
+          ];
+        }),
+      ) as {[trainingsId: number]: Training};
+      if (!hasChanges) {
+        return state;
+      }
+      return {
+        ...state,
+        byId,
+      };
     case 'SUGGEST_TRAINING':
       const __rets = createTrainingIfNotPresent(trainingsId, training, allIds);
       trainingsId = __rets.trainingsId;

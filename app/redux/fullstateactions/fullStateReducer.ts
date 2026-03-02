@@ -7,10 +7,43 @@ import {Training} from '../../models/entities/Training';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {determineNewWorkoutId} from '../normalizedWorkoutState';
 
+const sanitizeTrainingWorkoutReferences = (fullImportedState: GlobalState): GlobalState => {
+  const validWorkoutIds = new Set(Object.keys(fullImportedState.workouts.byId).map((workoutId) => Number(workoutId)));
+  const validExerciseIds = new Set(Object.keys(fullImportedState.exercises.byId).map((exerciseId) => Number(exerciseId)));
+
+  const sanitizedTrainingsById = Object.fromEntries(
+    Object.entries(fullImportedState.trainings.byId).map(([trainingId, training]) => {
+      const sanitizeWorkoutMap = (map: {[exerciseId: number]: number} = {}) =>
+        Object.fromEntries(
+          Object.entries(map).filter(([exerciseId, workoutId]) => {
+            return validExerciseIds.has(Number(exerciseId)) && validWorkoutIds.has(Number(workoutId));
+          }),
+        );
+
+      const sanitizedTraining: Training = {
+        ...training,
+        exercises: (training.exercises ?? []).filter((exerciseId) => validExerciseIds.has(Number(exerciseId))),
+        plannedWorkouts: sanitizeWorkoutMap(training.plannedWorkouts),
+        doneWorkoutIds: sanitizeWorkoutMap(training.doneWorkoutIds),
+      };
+
+      return [trainingId, sanitizedTraining];
+    }),
+  ) as {[trainingId: number]: Training};
+
+  return {
+    ...fullImportedState,
+    trainings: {
+      ...fullImportedState.trainings,
+      byId: sanitizedTrainingsById,
+    },
+  };
+};
+
 const fullStateReducer = (state: GlobalState, action: AnyAction) => {
   switch (action.type) {
     case 'FULL_IMPORT':
-      return action.state;
+      return sanitizeTrainingWorkoutReferences(action.state);
     case 'IMPORT_TRAININGS_PLAN': {
       const payload = action.payload as TrainingsPlanExportPayload;
 

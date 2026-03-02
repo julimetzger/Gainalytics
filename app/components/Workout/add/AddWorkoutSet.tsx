@@ -126,6 +126,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
           mode="outlined"
           label="Reps"
           value={reps.toString()}
+          testID="add-workout-set-reps-input"
           style={[styles.textInput, styles.inputField]}
           onChangeText={setRepsOnChange}
           keyboardType="numeric"
@@ -144,6 +145,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
           mode="outlined"
           label="RIR"
           value={rir.toString()}
+          testID="add-workout-set-rir-input"
           style={[styles.textInput, styles.inputField]}
           onChangeText={setRIROnChange}
           keyboardType="numeric"
@@ -162,6 +164,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
           mode="outlined"
           label="Weight"
           value={weight.toString()}
+          testID="add-workout-set-weight-input"
           style={[styles.textInput, styles.inputField]}
           onChangeText={setWeightOnChange}
           keyboardType="numeric"
@@ -223,6 +226,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
               mode={'contained'}
               buttonColor={theme.colors.primary}
               textColor={theme.colors.onPrimary}
+              testID="add-workout-set-submit-button"
               onPress={() => {
                 submit();
                 Keyboard.dismiss();

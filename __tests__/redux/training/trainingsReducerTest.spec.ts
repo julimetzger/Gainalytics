@@ -225,6 +225,44 @@ describe('trainingsReducer', () => {
         allIds: [3],
       });
     });
+
+    it('it should delete workout mapping by workout id even if trainingsId is wrong', () => {
+      expect(
+        trainingsReducer(
+          {
+            byId: {
+              3: {
+                id: 3,
+                exercises: [2, 4],
+                plannedWorkouts: {4: 99},
+                doneWorkoutIds: {2: 1},
+                state: TrainingsState.PLANNED,
+              },
+            },
+            allIds: [3],
+          },
+          {
+            type: 'DELETE_WORKOUT',
+            workout: {
+              id: 1,
+              exerciseId: 2,
+              trainingsId: 999,
+            },
+          },
+        ),
+      ).toEqual({
+        byId: {
+          3: {
+            id: 3,
+            exercises: [2, 4],
+            plannedWorkouts: {4: 99},
+            doneWorkoutIds: {},
+            state: TrainingsState.PLANNED,
+          },
+        },
+        allIds: [3],
+      });
+    });
   });
   describe('FINISH_TRAINING', () => {
     it('it should finish training', () => {

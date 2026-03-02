@@ -7,7 +7,7 @@ import {IconButton} from 'react-native-paper';
 
 export type RootStackParamList = {
   TrainingHome: undefined;
-  Training: {trainingsPlan: TrainingsPlan; micro?: number; training?: number};
+  TrainingPlan: {trainingsPlan: TrainingsPlan; micro?: number; training?: number};
 };
 
 const TrainingRouter = () => {
@@ -24,7 +24,7 @@ const TrainingRouter = () => {
         })}
       />
       <Stack.Screen
-        name="Training"
+        name="TrainingPlan"
         component={TrainingsPlanTab}
         options={({route}) => ({
           title: route.params.trainingsPlan.name,

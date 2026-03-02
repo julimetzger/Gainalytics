@@ -22,7 +22,7 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
   const [showEdit, setShowEdit] = useState(false);
 
   const workout = useWorkoutById(workoutId);
-  const userExercise = useExercise(workout.exerciseId);
+  const userExercise = useExercise(workout?.exerciseId);
   const deleteWorkout = dispatchDeleteWorkout();
   const deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
   const addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(userExercise);

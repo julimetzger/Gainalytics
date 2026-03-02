@@ -102,6 +102,6 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   );
 };
 
-export type Props = NativeStackScreenProps<RootStackParamList, 'Training'>;
+export type Props = NativeStackScreenProps<RootStackParamList, 'TrainingPlan'>;
 
 export default TrainingsPlanTab;
