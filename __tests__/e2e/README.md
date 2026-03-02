@@ -34,6 +34,7 @@ Run commands:
 - `npm run e2e:android:bootstrap`
 - `npm run e2e:android`
 - `npm run e2e:android:smoke`
+- `maestro --host 172.18.240.1 test flow.yaml`
 
 Default fixture source:
 
@@ -42,3 +43,7 @@ Default fixture source:
 The fixture is pushed to emulator as:
 
 - `/sdcard/Download/baseline.gains`
+
+Notes:
+- `run-maestro-from-wsl.sh` auto-detects the WSL host IP from `/etc/resolv.conf` when `E2E_MAESTRO_HOST` is not set.
+- `run-maestro-from-wsl.sh` configures `adb reverse tcp:8081 tcp:8081` (or `E2E_METRO_PORT`) before running flows.

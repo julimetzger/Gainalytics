@@ -13,6 +13,7 @@ MAESTRO_HOST="${E2E_MAESTRO_HOST:-}"
 ADB_HOST="${E2E_ADB_HOST:-}"
 ADB_PORT="${E2E_ADB_PORT:-5037}"
 MAESTRO_RUN_HOME="${E2E_MAESTRO_HOME:-${REPO_ROOT}/__tests__/reports/.maestro-home}"
+METRO_PORT="${E2E_METRO_PORT:-8081}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -55,6 +56,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -z "${MAESTRO_HOST}" ]] && [[ -f "/etc/resolv.conf" ]]; then
+  MAESTRO_HOST="$(awk '/^nameserver / { print $2; exit }' /etc/resolv.conf)"
+fi
+
 SUITE_PATH="$(realpath "${SUITE_PATH}")"
 FIXTURE_PATH="$(realpath "${FIXTURE_PATH}")"
 REPORT_DIR="$(cd "$(dirname "${REPORT_PATH}")" && pwd)"
@@ -71,6 +76,8 @@ ADB_ARGS=()
 if [[ -n "${ADB_HOST}" ]]; then
   ADB_ARGS=(-H "${ADB_HOST}" -P "${ADB_PORT}")
   export ADB_SERVER_SOCKET="tcp:${ADB_HOST}:${ADB_PORT}"
+else
+  unset ADB_SERVER_SOCKET || true
 fi
 
 MAESTRO_ARGS=()
@@ -116,6 +123,7 @@ if [[ "${MODE}" == "bootstrap" || "${MODE}" == "full" || "${MODE}" == "smoke" ]]
     exit 127
   fi
   adb_cmd push "${FIXTURE_PATH}" "/sdcard/Download/baseline.gains"
+  adb_cmd reverse "tcp:${METRO_PORT}" "tcp:${METRO_PORT}" >/dev/null 2>&1 || true
   adb_cmd shell am force-stop "${APP_ID}" >/dev/null 2>&1 || true
 fi
 

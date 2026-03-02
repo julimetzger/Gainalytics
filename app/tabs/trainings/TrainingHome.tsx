@@ -88,7 +88,7 @@ const TrainingHome = ({navigation, route}: Props) => {
               <Pressable
                 onPress={() =>
                   navigation.navigate({
-                    name: 'Training',
+                    name: 'TrainingPlan',
                     params: {trainingsPlan: trainingsPlan},
                   })
                 }
@@ -115,7 +115,7 @@ const TrainingHome = ({navigation, route}: Props) => {
                       style={styles.button}
                       onPress={() =>
                         navigation.navigate({
-                          name: 'Training',
+                          name: 'TrainingPlan',
                           params: {
                             trainingsPlan: trainingsPlan,
                             micro: planToStartTraining.get(trainingsPlan.id!!)?.nextTraining?.micro,
@@ -132,7 +132,7 @@ const TrainingHome = ({navigation, route}: Props) => {
                       style={styles.button}
                       onPress={() =>
                         navigation.navigate({
-                          name: 'Training',
+                          name: 'TrainingPlan',
                           params: {
                             trainingsPlan: trainingsPlan,
                             micro: planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.micro,
@@ -149,7 +149,7 @@ const TrainingHome = ({navigation, route}: Props) => {
                       style={styles.button}
                       onPress={() =>
                         navigation.navigate({
-                          name: 'Training',
+                          name: 'TrainingPlan',
                           params: {
                             trainingsPlan: trainingsPlan,
                             micro: planToStartTraining.get(trainingsPlan.id!!)?.lastDoneTraining?.micro,

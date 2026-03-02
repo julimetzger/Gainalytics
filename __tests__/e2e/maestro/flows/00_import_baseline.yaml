@@ -1,8 +1,12 @@
 appId: com.powerliftingworkoutplanner
 ---
 - launchApp
-- tapOn:
-    id: "tab-settings"
+- assertVisible: "Training"
+- tapOn: "tab-settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-import-data-button"
+    direction: DOWN
 - tapOn:
     id: "settings-import-data-button"
 - tapOn:

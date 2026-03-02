@@ -1,9 +1,9 @@
 appId: com.powerliftingworkoutplanner
 ---
 - launchApp
+- tapOn: "tab-exercises"
 - tapOn:
-    id: "tab-exercises"
-- tapOn: "Bankdrücken"
+    text: ".*Bankdrücken.*"
 - tapOn:
     id: "add-workout-set-reps-input"
 - eraseText
@@ -21,4 +21,5 @@ appId: com.powerliftingworkoutplanner
     id: "add-workout-set-submit-button"
 - tapOn:
     id: "add-workout-finalize-button"
-- assertVisible: "Set 2"
+- assertVisible:
+    text: ".*Set 2.*"
