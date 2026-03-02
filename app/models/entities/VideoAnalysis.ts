@@ -2,6 +2,7 @@ export enum VideoAnalysisStatus {
   QUEUED = 'queued',
   PROCESSING = 'processing',
   DONE = 'done',
+  NEEDS_MANUAL_SEED = 'needs_manual_seed',
   FAILED = 'failed',
 }
 
@@ -16,12 +17,15 @@ export interface VideoAnalysis {
   id?: number;
   exerciseId?: number;
   workoutId?: number;
+  setIndex?: number;
   sourceUri: string;
   localVideoPath?: string;
   createdAt: Date;
   status: VideoAnalysisStatus;
   videoMeta: VideoMeta;
   resultPath?: string;
+  manualSeedFramePath?: string;
+  analysisMeta?: AnalysisMeta;
   error?: string;
 }
 
@@ -36,25 +40,34 @@ export interface ConfidencePoint {
   score: number;
 }
 
-export interface BarTrackingMetrics {
-  horizontalDriftPx: number;
-  pathEfficiency: number;
-  maxAscentVelocity: number;
-  stickingRegion: {
-    startMs: number;
-    endMs: number;
-  };
+export interface RepSegment {
+  repIndex: number;
+  startMs: number;
+  bottomMs: number;
+  endMs: number;
+}
+
+export interface RepMetric {
+  repIndex: number;
+  averageConcentricSpeedPxPerS: number;
+  lowestConcentricSpeedPxPerS: number;
+  repTimeMs: number;
+}
+
+export interface AnalysisMeta {
+  sourceFps: number;
+  analyzedFps: number;
+  frameCount: number;
+  averageConfidence: number;
 }
 
 export interface BarTrackingResult {
-  schemaVersion: 1;
   analysisId: number;
-  trackingConfig: {
-    mode: 'manual-anchor';
-    frameRate: number;
-  };
+  units: 'px/s';
   barPathSeries: BarPathPoint[];
   confidenceSeries: ConfidencePoint[];
-  metrics: BarTrackingMetrics;
+  repSegments: RepSegment[];
+  repMetrics: RepMetric[];
+  analysisMeta: AnalysisMeta;
   qualityFlags: string[];
 }

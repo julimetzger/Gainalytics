@@ -10,10 +10,7 @@ appId: com.powerliftingworkoutplanner
     visible: "Analyse"
     timeout: 30000
 - tapOn:
-    point: "78,220"
-- swipe:
-    start: 1%, 8%
-    end: 70%, 8%
+    id: "analyse-drawer-toggle"
 - scrollUntilVisible:
     element:
       text: "Video Analyses"
@@ -39,4 +36,4 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: "Status: done"
 - tapOn: "Open"
 - assertVisible: "Bar Tracking Result"
-- assertVisible: "Schema Version: 1"
+- assertVisible: "Units: px/s"

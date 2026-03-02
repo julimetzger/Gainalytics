@@ -61,16 +61,24 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           {!result && <Text testID="video-analysis-detail-no-result">No analysis result available yet.</Text>}
           {result && (
             <>
-              <Text testID="video-analysis-detail-schema-version">Schema Version: {result.schemaVersion}</Text>
               <Text testID="video-analysis-detail-bar-points">Bar Path Points: {result.barPathSeries.length}</Text>
               <Text testID="video-analysis-detail-confidence-points">Confidence Points: {result.confidenceSeries.length}</Text>
-              <Text>Horizontal Drift: {result.metrics.horizontalDriftPx.toFixed(2)} px</Text>
-              <Text>Path Efficiency: {result.metrics.pathEfficiency.toFixed(2)}</Text>
-              <Text>Max Ascent Velocity: {result.metrics.maxAscentVelocity.toFixed(2)}</Text>
-              <Text>
-                Sticking Region: {result.metrics.stickingRegion.startMs}ms - {result.metrics.stickingRegion.endMs}ms
-              </Text>
+              <Text>Units: {result.units}</Text>
+              <Text>Rep Segments: {result.repSegments.length}</Text>
+              <Text>Rep Metrics: {result.repMetrics.length}</Text>
+              <Text>Source FPS: {result.analysisMeta.sourceFps}</Text>
+              <Text>Analyzed FPS: {result.analysisMeta.analyzedFps}</Text>
+              <Text>Average Confidence: {result.analysisMeta.averageConfidence.toFixed(2)}</Text>
               <Text>Quality Flags: {result.qualityFlags.join(', ') || 'None'}</Text>
+
+              {result.repMetrics.map((repMetric) => (
+                <View key={repMetric.repIndex} style={styles.repMetric}>
+                  <Text>Rep {repMetric.repIndex}</Text>
+                  <Text>Average Speed: {repMetric.averageConcentricSpeedPxPerS.toFixed(2)} px/s</Text>
+                  <Text>Lowest Speed: {repMetric.lowestConcentricSpeedPxPerS.toFixed(2)} px/s</Text>
+                  <Text>Rep Time: {repMetric.repTimeMs} ms</Text>
+                </View>
+              ))}
             </>
           )}
         </Card.Content>
@@ -94,6 +102,9 @@ const styles = StyleSheet.create({
   divider: {
     marginHorizontal: 10,
     marginVertical: 5,
+  },
+  repMetric: {
+    marginTop: 10,
   },
 });
 

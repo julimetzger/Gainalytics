@@ -69,22 +69,17 @@ export const deleteVideoAnalysisArtifacts = async (paths: {resultPath?: string; 
 
 export const buildStubBarTrackingResult = (analysisId: number): BarTrackingResult => {
   return {
-    schemaVersion: 1,
     analysisId,
-    trackingConfig: {
-      mode: 'manual-anchor',
-      frameRate: 30,
-    },
+    units: 'px/s',
     barPathSeries: [],
     confidenceSeries: [],
-    metrics: {
-      horizontalDriftPx: 0,
-      pathEfficiency: 0,
-      maxAscentVelocity: 0,
-      stickingRegion: {
-        startMs: 0,
-        endMs: 0,
-      },
+    repSegments: [],
+    repMetrics: [],
+    analysisMeta: {
+      sourceFps: 30,
+      analyzedFps: 30,
+      frameCount: 0,
+      averageConfidence: 0,
     },
     qualityFlags: ['ANALYSIS_NOT_IMPLEMENTED_YET'],
   };

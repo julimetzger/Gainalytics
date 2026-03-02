@@ -6,7 +6,7 @@ import AnalyseGraphics from '../tabs/Analyse/AnalyseGraphics';
 import RecordsTab from '../tabs/Analyse/Records';
 import MetricsTab from '../tabs/Analyse/Metrics';
 import GraphsTab from '../tabs/Analyse/GraphsTab';
-import {useTheme} from 'react-native-paper';
+import {IconButton, useTheme} from 'react-native-paper';
 import VideoAnalysisTab from '../tabs/Analyse/VideoAnalysisTab';
 import VideoAnalysisDetailTab from '../tabs/Analyse/VideoAnalysisDetailTab';
 
@@ -25,7 +25,13 @@ const AnalyseRouter = () => {
   let theme = useTheme();
 
   return (
-    <Stack.Navigator initialRouteName="Analyse" screenOptions={{headerTintColor: theme.colors.onSecondaryContainer}}>
+    <Stack.Navigator
+      initialRouteName="Analyse"
+      screenOptions={({navigation}) => ({
+        headerTintColor: theme.colors.onSecondaryContainer,
+        headerLeft: () => <IconButton icon="menu" testID="analyse-drawer-toggle" onPress={() => navigation.toggleDrawer()} />,
+      })}
+    >
       <Stack.Screen
         name="Analyse"
         component={AnalyseGraphics}
