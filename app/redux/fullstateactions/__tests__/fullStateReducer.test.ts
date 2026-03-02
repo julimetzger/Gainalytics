@@ -63,6 +63,10 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
         },
         allIds: [1],
       },
+      videoAnalyses: {
+        byId: {},
+        allIds: [],
+      },
       settings: {mode: 'dark'},
       effects: {},
     } satisfies GlobalState;
@@ -119,6 +123,10 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
         },
         allIds: [1, 2],
       },
+      videoAnalyses: {
+        byId: {},
+        allIds: [],
+      },
       settings: {mode: 'dark'},
       effects: {},
     } satisfies GlobalState;
@@ -145,6 +153,10 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
         allIds: [],
       },
       trainingsPlan: {
+        byId: {},
+        allIds: [],
+      },
+      videoAnalyses: {
         byId: {},
         allIds: [],
       },
@@ -212,6 +224,10 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
           1: {id: 1, name: 'Imported Plan', trainings: {0: 1}, trainingNames: {}},
         },
         allIds: [1],
+      },
+      videoAnalyses: {
+        byId: {},
+        allIds: [],
       },
       settings: {mode: 'dark'},
       effects: {},
