@@ -4,3 +4,7 @@ appId: com.powerliftingworkoutplanner
 - runFlow: 01_training_smoke.yaml
 - runFlow: 02_add_workout_set.yaml
 - runFlow: 03_video_analysis_import.yaml
+- runFlow: 04_video_analysis_bar_path_done.yaml
+- runFlow: 05_video_analysis_rep_segments_visible.yaml
+- runFlow: 06_video_analysis_metrics_visible.yaml
+- runFlow: 07_video_analysis_overlay_visible.yaml

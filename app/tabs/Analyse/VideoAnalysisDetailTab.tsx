@@ -1,13 +1,45 @@
-import React, {useEffect, useState} from 'react';
-import {ScrollView, StyleSheet, View} from 'react-native';
-import {Card, Divider, MD3Theme, Text, useTheme} from 'react-native-paper';
+import React, {useEffect, useMemo, useState} from 'react';
+import {Image, LayoutChangeEvent, ScrollView, StyleSheet, View} from 'react-native';
+import RNFS from 'react-native-fs';
+import {Button, Card, Divider, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
+import {BarPathPoint, BarTrackingResult} from '../../models/entities/VideoAnalysis';
 import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
-import {BarTrackingResult} from '../../models/entities/VideoAnalysis';
-import {readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
+import {getVideoAnalysisPreviewPath, readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
+
+interface OverlayPoint {
+  key: string;
+  x: number;
+  y: number;
+}
+
+const OVERLAY_PADDING = 10;
+
+const mapPointsToOverlay = (barPathSeries: BarPathPoint[], width: number, height: number): OverlayPoint[] => {
+  if (barPathSeries.length === 0 || width <= OVERLAY_PADDING * 2 || height <= OVERLAY_PADDING * 2) {
+    return [];
+  }
+
+  const xValues = barPathSeries.map((point) => point.x);
+  const yValues = barPathSeries.map((point) => point.y);
+  const minX = Math.min(...xValues);
+  const maxX = Math.max(...xValues);
+  const minY = Math.min(...yValues);
+  const maxY = Math.max(...yValues);
+  const xSpan = Math.max(1, maxX - minX);
+  const ySpan = Math.max(1, maxY - minY);
+  const xRange = width - OVERLAY_PADDING * 2;
+  const yRange = height - OVERLAY_PADDING * 2;
+
+  return barPathSeries.map((point, index) => ({
+    key: `${point.tMs}-${index}`,
+    x: OVERLAY_PADDING + ((point.x - minX) / xSpan) * xRange,
+    y: OVERLAY_PADDING + ((point.y - minY) / ySpan) * yRange,
+  }));
+};
 
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
@@ -17,6 +49,12 @@ const createThemedStyles = (theme: MD3Theme) =>
     errorText: {
       color: theme.colors.error,
     },
+    previewBackground: {
+      backgroundColor: theme.colors.surfaceVariant,
+    },
+    overlayPoint: {
+      backgroundColor: theme.colors.primary,
+    },
   });
 
 const VideoAnalysisDetailTab = ({route}: Props) => {
@@ -24,10 +62,46 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const themedStyles = createThemedStyles(theme);
   const analysis = useVideoAnalysis(route.params.analysisId);
   const [result, setResult] = useState<BarTrackingResult | undefined>();
+  const [previewUri, setPreviewUri] = useState<string | undefined>();
+  const [overlayWidth, setOverlayWidth] = useState(0);
+  const [overlayHeight, setOverlayHeight] = useState(0);
+  const [showOverlay, setShowOverlay] = useState(true);
 
   useEffect(() => {
     readBarTrackingResultFromFile(analysis?.resultPath).then((loadedResult) => setResult(loadedResult));
   }, [analysis?.resultPath]);
+
+  useEffect(() => {
+    let active = true;
+    const loadPreview = async () => {
+      if (analysis?.id === undefined) {
+        setPreviewUri(undefined);
+        return;
+      }
+
+      const previewPath = getVideoAnalysisPreviewPath(analysis.id);
+      const exists = await RNFS.exists(previewPath);
+      if (active) {
+        setPreviewUri(exists ? `file://${previewPath}` : undefined);
+      }
+    };
+
+    loadPreview();
+    return () => {
+      active = false;
+    };
+  }, [analysis?.id, analysis?.resultPath]);
+
+  const overlayPoints = useMemo(
+    () => mapPointsToOverlay(result?.barPathSeries ?? [], overlayWidth, overlayHeight),
+    [result?.barPathSeries, overlayWidth, overlayHeight],
+  );
+
+  const onOverlayLayout = (event: LayoutChangeEvent) => {
+    const {width, height} = event.nativeEvent.layout;
+    setOverlayWidth(width);
+    setOverlayHeight(height);
+  };
 
   if (!analysis) {
     return (
@@ -83,6 +157,45 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           )}
         </Card.Content>
       </Card>
+
+      <Divider style={styles.divider} />
+
+      <Card style={styles.card}>
+        <Card.Title title="Video Overlay Preview" />
+        <Card.Content>
+          {!previewUri && <Text>No preview frame available yet.</Text>}
+          {previewUri && (
+            <>
+              <View
+                testID="video-analysis-overlay-preview"
+                style={[styles.previewContainer, themedStyles.previewBackground]}
+                onLayout={onOverlayLayout}
+              >
+                <Image source={{uri: previewUri}} style={styles.previewImage} resizeMode="cover" />
+                {showOverlay && (
+                  <View pointerEvents="none" style={styles.overlayLayer}>
+                    {overlayPoints.map((point, index) => (
+                      <View
+                        key={point.key}
+                        testID={index === 0 ? 'video-analysis-overlay-first-point' : undefined}
+                        style={[styles.overlayPoint, themedStyles.overlayPoint, {left: point.x - 2, top: point.y - 2}]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
+              <Button
+                testID="video-analysis-overlay-toggle"
+                mode="outlined"
+                onPress={() => setShowOverlay((isVisible) => !isVisible)}
+                style={styles.overlayToggle}
+              >
+                {showOverlay ? 'Hide Overlay' : 'Show Overlay'}
+              </Button>
+            </>
+          )}
+        </Card.Content>
+      </Card>
     </ScrollView>
   );
 };
@@ -104,6 +217,27 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   repMetric: {
+    marginTop: 10,
+  },
+  previewContainer: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  previewImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  overlayLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  overlayPoint: {
+    position: 'absolute',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  overlayToggle: {
     marginTop: 10,
   },
 });

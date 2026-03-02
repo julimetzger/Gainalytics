@@ -1,6 +1,7 @@
 import {PermissionsAndroid, Platform} from 'react-native';
 import {VideoAnalysis, VideoAnalysisStatus} from '../models/entities/VideoAnalysis';
-import {buildStubBarTrackingResult, copyImportedVideoToLocalStorage, writeBarTrackingResultToFile} from './videoAnalysisStorage';
+import {copyImportedVideoToLocalStorage} from './videoAnalysisStorage';
+import {analyzeSquatVideo} from './videoAnalysisNative';
 
 export const EMULATOR_SQUAT_VIDEO_PATH = '/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4';
 
@@ -35,7 +36,7 @@ export const importVideoAnalysisFromSource = async ({
   try {
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING);
     const localVideoPath = await copyImportedVideoToLocalStorage(sourceUri, analysisId);
-    const resultPath = await writeBarTrackingResultToFile(buildStubBarTrackingResult(analysisId));
+    const resultPath = await analyzeSquatVideo(localVideoPath, analysisId);
     attachVideoAnalysisResult(analysisId, resultPath, localVideoPath);
   } catch (error) {
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.FAILED, 'Import or preprocessing failed');

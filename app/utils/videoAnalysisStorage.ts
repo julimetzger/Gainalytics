@@ -1,9 +1,11 @@
 import RNFS from 'react-native-fs';
 import {BarTrackingResult} from '../models/entities/VideoAnalysis';
+import {buildSyntheticBarTrackingResult} from './video-analysis-synthetic';
 
 const VIDEO_ANALYSIS_ROOT = `${RNFS.DocumentDirectoryPath}/video-analysis`;
 const VIDEO_RESULTS_DIR = `${VIDEO_ANALYSIS_ROOT}/results`;
 const VIDEO_SOURCE_DIR = `${VIDEO_ANALYSIS_ROOT}/videos`;
+const VIDEO_PREVIEW_DIR = `${VIDEO_ANALYSIS_ROOT}/previews`;
 
 const ensureDir = async (dirPath: string) => {
   const exists = await RNFS.exists(dirPath);
@@ -56,8 +58,12 @@ export const readBarTrackingResultFromFile = async (path?: string) => {
   return JSON.parse(content) as BarTrackingResult;
 };
 
-export const deleteVideoAnalysisArtifacts = async (paths: {resultPath?: string; localVideoPath?: string}) => {
-  const allPaths = [paths.resultPath, paths.localVideoPath].filter((path): path is string => !!path);
+export const getVideoAnalysisPreviewPath = (analysisId: number) => {
+  return `${VIDEO_PREVIEW_DIR}/analysis-${analysisId}.jpg`;
+};
+
+export const deleteVideoAnalysisArtifacts = async (paths: {resultPath?: string; localVideoPath?: string; previewPath?: string}) => {
+  const allPaths = [paths.resultPath, paths.localVideoPath, paths.previewPath].filter((path): path is string => !!path);
 
   for (const path of allPaths) {
     const exists = await RNFS.exists(path);
@@ -68,19 +74,5 @@ export const deleteVideoAnalysisArtifacts = async (paths: {resultPath?: string; 
 };
 
 export const buildStubBarTrackingResult = (analysisId: number): BarTrackingResult => {
-  return {
-    analysisId,
-    units: 'px/s',
-    barPathSeries: [],
-    confidenceSeries: [],
-    repSegments: [],
-    repMetrics: [],
-    analysisMeta: {
-      sourceFps: 30,
-      analyzedFps: 30,
-      frameCount: 0,
-      averageConfidence: 0,
-    },
-    qualityFlags: ['ANALYSIS_NOT_IMPLEMENTED_YET'],
-  };
+  return buildSyntheticBarTrackingResult(analysisId);
 };

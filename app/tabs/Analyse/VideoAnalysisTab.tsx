@@ -10,7 +10,7 @@ import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {dispatchDeleteVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchDeleteVideoAnalysis';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
-import {deleteVideoAnalysisArtifacts} from '../../utils/videoAnalysisStorage';
+import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoReadPermission} from '../../utils/video-analysis-import';
 
 const createThemedStyles = (theme: MD3Theme) =>
@@ -119,7 +119,7 @@ const VideoAnalysisTab = () => {
     if (analysisId === undefined) {
       return;
     }
-    await deleteVideoAnalysisArtifacts({resultPath, localVideoPath});
+    await deleteVideoAnalysisArtifacts({resultPath, localVideoPath, previewPath: getVideoAnalysisPreviewPath(analysisId)});
     removeVideoAnalysis(analysisId);
   };
 
