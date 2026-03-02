@@ -1,0 +1,42 @@
+appId: com.powerliftingworkoutplanner
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 30000
+- tapOn:
+    point: "78,220"
+- swipe:
+    start: 1%, 8%
+    end: 70%, 8%
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- assertVisible: "Import Video"
+- tapOn: "Import Emulator Squat Video"
+- runFlow:
+    when:
+      visible:
+        text: "(?i)^allow$"
+    commands:
+      - tapOn:
+          text: "(?i)^allow$"
+- runFlow:
+    when:
+      visible: "Allow only while using the app"
+    commands:
+      - tapOn: "Allow only while using the app"
+- extendedWaitUntil:
+    visible: "Analysis #1"
+    timeout: 30000
+- assertVisible: "Status: done"
+- tapOn: "Open"
+- assertVisible: "Bar Tracking Result"
+- assertVisible: "Schema Version: 1"
