@@ -6,7 +6,6 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.uimanager.ViewManager;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class VideoAnalysisPackage implements ReactPackage {
@@ -20,6 +19,8 @@ public class VideoAnalysisPackage implements ReactPackage {
 
     @Override
     public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
-        return Collections.emptyList();
+        List<ViewManager> managers = new ArrayList<>();
+        managers.add(new VideoAnalysisPlayerViewManager());
+        return managers;
     }
 }
