@@ -16,13 +16,44 @@ interface OverlayPoint {
   y: number;
 }
 
-const OVERLAY_PADDING = 10;
+interface PreviewDimensions {
+  width: number;
+  height: number;
+}
 
-const mapPointsToOverlay = (barPathSeries: BarPathPoint[], width: number, height: number): OverlayPoint[] => {
-  if (barPathSeries.length === 0 || width <= OVERLAY_PADDING * 2 || height <= OVERLAY_PADDING * 2) {
+const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
+const DEFAULT_PREVIEW_DIMENSIONS: PreviewDimensions = {width: 1600, height: 900};
+
+const mapPointsToOverlay = (
+  barPathSeries: BarPathPoint[],
+  overlayWidth: number,
+  overlayHeight: number,
+  previewDimensions: PreviewDimensions,
+  trackingFrameWidthPx?: number,
+  trackingFrameHeightPx?: number,
+): OverlayPoint[] => {
+  if (barPathSeries.length === 0 || overlayWidth <= 0 || overlayHeight <= 0 || previewDimensions.width <= 0 || previewDimensions.height <= 0) {
     return [];
   }
 
+  const imageScale = Math.min(overlayWidth / previewDimensions.width, overlayHeight / previewDimensions.height);
+  const renderedWidth = previewDimensions.width * imageScale;
+  const renderedHeight = previewDimensions.height * imageScale;
+  const offsetX = (overlayWidth - renderedWidth) / 2;
+  const offsetY = (overlayHeight - renderedHeight) / 2;
+
+  if (trackingFrameWidthPx && trackingFrameHeightPx && trackingFrameWidthPx > 0 && trackingFrameHeightPx > 0) {
+    const xScale = (previewDimensions.width / trackingFrameWidthPx) * imageScale;
+    const yScale = (previewDimensions.height / trackingFrameHeightPx) * imageScale;
+
+    return barPathSeries.map((point, index) => ({
+      key: `${point.tMs}-${index}`,
+      x: offsetX + point.x * xScale,
+      y: offsetY + point.y * yScale,
+    }));
+  }
+
+  // Compatibility fallback for older stored analyses that do not include tracking frame dimensions.
   const xValues = barPathSeries.map((point) => point.x);
   const yValues = barPathSeries.map((point) => point.y);
   const minX = Math.min(...xValues);
@@ -31,13 +62,11 @@ const mapPointsToOverlay = (barPathSeries: BarPathPoint[], width: number, height
   const maxY = Math.max(...yValues);
   const xSpan = Math.max(1, maxX - minX);
   const ySpan = Math.max(1, maxY - minY);
-  const xRange = width - OVERLAY_PADDING * 2;
-  const yRange = height - OVERLAY_PADDING * 2;
 
   return barPathSeries.map((point, index) => ({
     key: `${point.tMs}-${index}`,
-    x: OVERLAY_PADDING + ((point.x - minX) / xSpan) * xRange,
-    y: OVERLAY_PADDING + ((point.y - minY) / ySpan) * yRange,
+    x: offsetX + ((point.x - minX) / xSpan) * renderedWidth,
+    y: offsetY + ((point.y - minY) / ySpan) * renderedHeight,
   }));
 };
 
@@ -63,6 +92,8 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const analysis = useVideoAnalysis(route.params.analysisId);
   const [result, setResult] = useState<BarTrackingResult | undefined>();
   const [previewUri, setPreviewUri] = useState<string | undefined>();
+  const [previewAspectRatio, setPreviewAspectRatio] = useState(DEFAULT_PREVIEW_ASPECT_RATIO);
+  const [previewDimensions, setPreviewDimensions] = useState<PreviewDimensions>(DEFAULT_PREVIEW_DIMENSIONS);
   const [overlayWidth, setOverlayWidth] = useState(0);
   const [overlayHeight, setOverlayHeight] = useState(0);
   const [showOverlay, setShowOverlay] = useState(true);
@@ -76,13 +107,38 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
     const loadPreview = async () => {
       if (analysis?.id === undefined) {
         setPreviewUri(undefined);
+        setPreviewAspectRatio(DEFAULT_PREVIEW_ASPECT_RATIO);
+        setPreviewDimensions(DEFAULT_PREVIEW_DIMENSIONS);
         return;
       }
 
       const previewPath = getVideoAnalysisPreviewPath(analysis.id);
       const exists = await RNFS.exists(previewPath);
       if (active) {
-        setPreviewUri(exists ? `file://${previewPath}` : undefined);
+        if (!exists) {
+          setPreviewUri(undefined);
+          setPreviewAspectRatio(DEFAULT_PREVIEW_ASPECT_RATIO);
+          setPreviewDimensions(DEFAULT_PREVIEW_DIMENSIONS);
+          return;
+        }
+
+        const uri = `file://${previewPath}`;
+        setPreviewUri(uri);
+        Image.getSize(
+          uri,
+          (width, height) => {
+            if (active && width > 0 && height > 0) {
+              setPreviewAspectRatio(width / height);
+              setPreviewDimensions({width, height});
+            }
+          },
+          () => {
+            if (active) {
+              setPreviewAspectRatio(DEFAULT_PREVIEW_ASPECT_RATIO);
+              setPreviewDimensions(DEFAULT_PREVIEW_DIMENSIONS);
+            }
+          },
+        );
       }
     };
 
@@ -93,8 +149,16 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   }, [analysis?.id, analysis?.resultPath]);
 
   const overlayPoints = useMemo(
-    () => mapPointsToOverlay(result?.barPathSeries ?? [], overlayWidth, overlayHeight),
-    [result?.barPathSeries, overlayWidth, overlayHeight],
+    () =>
+      mapPointsToOverlay(
+        result?.barPathSeries ?? [],
+        overlayWidth,
+        overlayHeight,
+        previewDimensions,
+        result?.analysisMeta.trackingFrameWidthPx,
+        result?.analysisMeta.trackingFrameHeightPx,
+      ),
+    [previewDimensions, result?.analysisMeta.trackingFrameHeightPx, result?.analysisMeta.trackingFrameWidthPx, result?.barPathSeries, overlayHeight, overlayWidth],
   );
 
   const onOverlayLayout = (event: LayoutChangeEvent) => {
@@ -171,10 +235,10 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
             <>
               <View
                 testID="video-analysis-overlay-preview"
-                style={[styles.previewContainer, themedStyles.previewBackground]}
+                style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: previewAspectRatio}]}
                 onLayout={onOverlayLayout}
               >
-                <Image source={{uri: previewUri}} style={styles.previewImage} resizeMode="cover" />
+                <Image source={{uri: previewUri}} style={styles.previewImage} resizeMode="contain" />
                 {showOverlay && (
                   <View pointerEvents="none" style={styles.overlayLayer}>
                     {overlayPoints.map((point, index) => (
@@ -224,7 +288,7 @@ const styles = StyleSheet.create({
   },
   previewContainer: {
     width: '100%',
-    aspectRatio: 16 / 9,
+    minHeight: 260,
     borderRadius: 8,
     overflow: 'hidden',
   },

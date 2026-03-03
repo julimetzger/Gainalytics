@@ -59,6 +59,8 @@ export interface AnalysisMeta {
   analyzedFps: number;
   frameCount: number;
   averageConfidence: number;
+  trackingFrameWidthPx?: number;
+  trackingFrameHeightPx?: number;
 }
 
 export interface BarTrackingResult {

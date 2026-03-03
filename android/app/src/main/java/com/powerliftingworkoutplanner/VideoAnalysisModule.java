@@ -71,6 +71,8 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             analysisMeta.put("analyzedFps", ANALYZED_FPS);
             analysisMeta.put("frameCount", trackingSeries.frameCount);
             analysisMeta.put("averageConfidence", roundTo3(trackingSeries.averageConfidence));
+            analysisMeta.put("trackingFrameWidthPx", trackingSeries.frameWidthPx);
+            analysisMeta.put("trackingFrameHeightPx", trackingSeries.frameHeightPx);
             result.put("analysisMeta", analysisMeta);
 
             JSONArray qualityFlags = new JSONArray();
@@ -190,6 +192,8 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             int[] previousGray = null;
             int previousWidth = -1;
             int previousHeight = -1;
+            int trackingWidth = -1;
+            int trackingHeight = -1;
             double smoothedX = Double.NaN;
             double smoothedY = Double.NaN;
 
@@ -207,6 +211,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 if (frameData == null) {
                     continue;
                 }
+
+                trackingWidth = frameData.width;
+                trackingHeight = frameData.height;
 
                 double trackedX;
                 double trackedY;
@@ -280,7 +287,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             }
 
             if (samples.size() < 6) {
-                return buildFallbackTrackingSeries(durationMs, "NO_STABLE_MOTION_SIGNAL");
+                return buildFallbackTrackingSeries(durationMs, "NO_STABLE_MOTION_SIGNAL", trackingWidth, trackingHeight);
             }
 
             JSONArray barPathSeries = new JSONArray();
@@ -306,6 +313,8 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             series.confidenceSeries = confidenceSeries;
             series.frameCount = samples.size();
             series.averageConfidence = confidenceSum / samples.size();
+            series.frameWidthPx = trackingWidth;
+            series.frameHeightPx = trackingHeight;
             series.usedFallback = false;
             series.fallbackReason = "";
             return series;
@@ -318,7 +327,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         }
     }
 
-    private TrackingSeries buildFallbackTrackingSeries(long durationMs, String reason) throws Exception {
+    private TrackingSeries buildFallbackTrackingSeries(long durationMs, String reason, int trackingWidth, int trackingHeight) throws Exception {
         int sampleCount = Math.max(30, Math.min(400, (int) Math.round((durationMs / 1000.0) * ANALYZED_FPS)));
         int repCount = estimateRepCount(durationMs);
 
@@ -327,6 +336,8 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         series.confidenceSeries = buildFallbackConfidenceSeries(sampleCount, ANALYZED_FPS);
         series.frameCount = sampleCount;
         series.averageConfidence = calculateAverageConfidence(series.confidenceSeries);
+        series.frameWidthPx = trackingWidth > 0 ? trackingWidth : MAX_ANALYSIS_DIMENSION;
+        series.frameHeightPx = trackingHeight > 0 ? trackingHeight : (int) Math.round(MAX_ANALYSIS_DIMENSION * (9.0 / 16.0));
         series.usedFallback = true;
         series.fallbackReason = reason;
         return series;
@@ -790,6 +801,8 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         JSONArray confidenceSeries;
         int frameCount;
         double averageConfidence;
+        int frameWidthPx;
+        int frameHeightPx;
         boolean usedFallback;
         String fallbackReason;
     }
