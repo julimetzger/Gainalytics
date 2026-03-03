@@ -201,7 +201,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 int timeMs = sampleCount <= 1
                     ? 0
                     : (int) Math.round((sampleIndex * durationMs) / (double) (sampleCount - 1));
-                Bitmap frame = retriever.getFrameAtTime(timeMs * 1000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                Bitmap frame = retriever.getFrameAtTime(timeMs * 1000L, MediaMetadataRetriever.OPTION_CLOSEST);
                 if (frame == null) {
                     continue;
                 }
