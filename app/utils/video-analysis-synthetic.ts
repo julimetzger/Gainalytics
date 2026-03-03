@@ -7,7 +7,7 @@ interface BuildSyntheticBarTrackingResultOptions {
 }
 
 const roundValue = (value: number) => Math.round(value * 1000) / 1000;
-const TARGET_REP_DURATION_MS = 2500;
+const TARGET_REP_DURATION_MS = 3750;
 
 const estimateRepCount = (frameCount: number, fps: number) => {
   const durationMs = (frameCount * 1000) / Math.max(1, fps);
@@ -123,7 +123,10 @@ export const buildSyntheticBarTrackingResult = (
   const fps = options.fps ?? 30;
   const frameCount = options.frameCount ?? 180;
   const repCount = estimateRepCount(frameCount, fps);
-  const qualityFlags = options.qualityFlags ?? ['ANALYSIS_JS_FALLBACK_SYNTHETIC_BAR_PATH'];
+  const qualityFlags = options.qualityFlags ?? [
+    'ANALYSIS_JS_FALLBACK_SYNTHETIC_BAR_PATH',
+    `REP_ESTIMATION_DURATION_BASED:${TARGET_REP_DURATION_MS}ms`,
+  ];
 
   const barPathSeries = Array.from({length: frameCount}, (_, frameIndex) => {
     const progress = frameCount > 1 ? frameIndex / (frameCount - 1) : 0;

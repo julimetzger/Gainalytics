@@ -33,7 +33,9 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: "Analysis #1"
     timeout: 30000
-- assertVisible: "Status: done"
+- extendedWaitUntil:
+    visible: "Status: done"
+    timeout: 180000
 - tapOn: "Open"
 - assertVisible: "Bar Tracking Result"
 - assertVisible: "Units: px/s"

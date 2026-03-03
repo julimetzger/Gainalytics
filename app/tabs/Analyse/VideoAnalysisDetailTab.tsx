@@ -163,6 +163,9 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       <Card style={styles.card}>
         <Card.Title title="Video Overlay Preview" />
         <Card.Content>
+          <Text style={styles.overlayHint}>
+            Static preview only: one extracted video frame with projected bar-path points. Playback-synced overlay is not implemented yet.
+          </Text>
           {!previewUri && <Text>No preview frame available yet.</Text>}
           {previewUri && (
             <>
@@ -239,6 +242,9 @@ const styles = StyleSheet.create({
   },
   overlayToggle: {
     marginTop: 10,
+  },
+  overlayHint: {
+    marginBottom: 10,
   },
 });
 
