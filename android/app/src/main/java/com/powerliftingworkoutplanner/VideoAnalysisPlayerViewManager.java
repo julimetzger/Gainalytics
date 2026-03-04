@@ -2,6 +2,7 @@ package com.powerliftingworkoutplanner;
 
 import androidx.annotation.NonNull;
 
+import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.uimanager.SimpleViewManager;
 import com.facebook.react.uimanager.ThemedReactContext;
@@ -33,6 +34,21 @@ public class VideoAnalysisPlayerViewManager extends SimpleViewManager<VideoAnaly
     @ReactProp(name = "paused", defaultBoolean = true)
     public void setPaused(VideoAnalysisPlayerView view, boolean paused) {
         view.setPaused(paused);
+    }
+
+    @ReactProp(name = "barPathSeries")
+    public void setBarPathSeries(VideoAnalysisPlayerView view, ReadableArray barPathSeries) {
+        view.setBarPathSeries(barPathSeries);
+    }
+
+    @ReactProp(name = "trackingFrameWidthPx", defaultInt = 0)
+    public void setTrackingFrameWidthPx(VideoAnalysisPlayerView view, int trackingFrameWidthPx) {
+        view.setTrackingFrameWidthPx(trackingFrameWidthPx);
+    }
+
+    @ReactProp(name = "trackingFrameHeightPx", defaultInt = 0)
+    public void setTrackingFrameHeightPx(VideoAnalysisPlayerView view, int trackingFrameHeightPx) {
+        view.setTrackingFrameHeightPx(trackingFrameHeightPx);
     }
 
     @Override

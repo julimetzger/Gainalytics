@@ -16,9 +16,18 @@ export interface VideoPlayerErrorEvent {
   message: string;
 }
 
+export interface VideoBarPathPoint {
+  tMs: number;
+  x: number;
+  y: number;
+}
+
 interface VideoAnalysisPlayerViewProps extends ViewProps {
   source: string;
   paused: boolean;
+  barPathSeries?: VideoBarPathPoint[];
+  trackingFrameWidthPx?: number;
+  trackingFrameHeightPx?: number;
   onLoad?: (event: NativeSyntheticEvent<VideoPlayerLoadEvent>) => void;
   onProgress?: (event: NativeSyntheticEvent<VideoPlayerProgressEvent>) => void;
   onEnd?: () => void;

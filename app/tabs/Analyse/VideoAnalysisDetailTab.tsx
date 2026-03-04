@@ -38,53 +38,6 @@ const clamp = (value: number, min: number, max: number) => {
   return Math.max(min, Math.min(max, value));
 };
 
-const findNearestBarPointByTime = (barPathSeries: BarPathPoint[], targetMs: number): BarPathPoint | undefined => {
-  if (barPathSeries.length === 0) {
-    return undefined;
-  }
-  if (barPathSeries.length === 1) {
-    return barPathSeries[0];
-  }
-
-  if (targetMs <= barPathSeries[0].tMs) {
-    return barPathSeries[0];
-  }
-  const lastPoint = barPathSeries[barPathSeries.length - 1];
-  if (targetMs >= lastPoint.tMs) {
-    return lastPoint;
-  }
-
-  let low = 0;
-  let high = barPathSeries.length - 1;
-  while (low <= high) {
-    const middle = Math.floor((low + high) / 2);
-    const point = barPathSeries[middle];
-    if (!point) {
-      break;
-    }
-    if (point.tMs === targetMs) {
-      return point;
-    }
-    if (point.tMs < targetMs) {
-      low = middle + 1;
-    } else {
-      high = middle - 1;
-    }
-  }
-
-  const rightIndex = clamp(low, 0, barPathSeries.length - 1);
-  const leftIndex = clamp(rightIndex - 1, 0, barPathSeries.length - 1);
-  const leftPoint = barPathSeries[leftIndex];
-  const rightPoint = barPathSeries[rightIndex];
-  if (!leftPoint || !rightPoint) {
-    return leftPoint ?? rightPoint;
-  }
-
-  const leftDelta = Math.abs(targetMs - leftPoint.tMs);
-  const rightDelta = Math.abs(rightPoint.tMs - targetMs);
-  return leftDelta <= rightDelta ? leftPoint : rightPoint;
-};
-
 const mapPointsToOverlay = (
   barPathSeries: BarPathPoint[],
   overlayWidth: number,
@@ -145,9 +98,6 @@ const createThemedStyles = (theme: MD3Theme) =>
     overlayPoint: {
       backgroundColor: theme.colors.primary,
     },
-    liveOverlayPoint: {
-      backgroundColor: theme.colors.error,
-    },
   });
 
 const VideoAnalysisDetailTab = ({route}: Props) => {
@@ -164,10 +114,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const [playbackPaused, setPlaybackPaused] = useState(true);
   const [playbackTimeMs, setPlaybackTimeMs] = useState(0);
   const [playbackDurationMs, setPlaybackDurationMs] = useState(0);
-  const [playbackDimensions, setPlaybackDimensions] = useState<PreviewDimensions>(DEFAULT_PREVIEW_DIMENSIONS);
   const [playbackAspectRatio, setPlaybackAspectRatio] = useState(DEFAULT_PREVIEW_ASPECT_RATIO);
-  const [playbackOverlayWidth, setPlaybackOverlayWidth] = useState(0);
-  const [playbackOverlayHeight, setPlaybackOverlayHeight] = useState(0);
   const playbackDurationRef = useRef(0);
   const latestProgressTimeRef = useRef(0);
 
@@ -281,30 +228,6 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
     return clamp(playbackTimeMs, points[0].tMs, points[points.length - 1].tMs);
   }, [playbackTimeMs, result?.barPathSeries]);
 
-  const currentBarPoint = useMemo(() => {
-    const points = result?.barPathSeries;
-    if (!points || points.length === 0) {
-      return undefined;
-    }
-    return findNearestBarPointByTime(points, syncedAnalysisTimeMs);
-  }, [result?.barPathSeries, syncedAnalysisTimeMs]);
-
-  const currentBarOverlayPoint = useMemo(() => {
-    if (!currentBarPoint || !result) {
-      return undefined;
-    }
-
-    const mapped = mapPointsToOverlay(
-      [currentBarPoint],
-      playbackOverlayWidth,
-      playbackOverlayHeight,
-      playbackDimensions,
-      result.analysisMeta.trackingFrameWidthPx,
-      result.analysisMeta.trackingFrameHeightPx,
-    );
-    return mapped[0];
-  }, [currentBarPoint, playbackDimensions, playbackOverlayHeight, playbackOverlayWidth, result]);
-
   const currentRep = useMemo(() => {
     const segments = result?.repSegments ?? [];
     return segments.find((segment) => syncedAnalysisTimeMs >= segment.startMs && syncedAnalysisTimeMs <= segment.endMs);
@@ -314,7 +237,6 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
     setPlaybackPaused(true);
     setPlaybackTimeMs(0);
     setPlaybackDurationMs(0);
-    setPlaybackDimensions(DEFAULT_PREVIEW_DIMENSIONS);
     setPlaybackAspectRatio(DEFAULT_PREVIEW_ASPECT_RATIO);
     playbackDurationRef.current = 0;
     latestProgressTimeRef.current = 0;
@@ -326,21 +248,17 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
     setOverlayHeight(height);
   };
 
-  const onPlaybackOverlayLayout = (event: LayoutChangeEvent) => {
-    const {width, height} = event.nativeEvent.layout;
-    setPlaybackOverlayWidth(width);
-    setPlaybackOverlayHeight(height);
-  };
-
   const onPlayerLoad = (event: {nativeEvent?: VideoPlayerLoadEvent}) => {
     if (!event.nativeEvent) {
       return;
     }
     const {durationMs, videoWidth, videoHeight} = event.nativeEvent;
-    playbackDurationRef.current = Math.max(playbackDurationRef.current, durationMs);
-    setPlaybackDurationMs(playbackDurationRef.current);
+    const nextDuration = Math.max(playbackDurationRef.current, durationMs);
+    if (nextDuration !== playbackDurationRef.current) {
+      playbackDurationRef.current = nextDuration;
+      setPlaybackDurationMs(nextDuration);
+    }
     if (videoWidth > 0 && videoHeight > 0) {
-      setPlaybackDimensions({width: videoWidth, height: videoHeight});
       setPlaybackAspectRatio(videoWidth / videoHeight);
     }
   };
@@ -359,11 +277,13 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
 
     if (nativeEvent.durationMs > 0) {
       const nextDuration = Math.max(playbackDurationRef.current, nativeEvent.durationMs);
-      playbackDurationRef.current = nextDuration;
-      setPlaybackDurationMs(nextDuration);
+      if (nextDuration !== playbackDurationRef.current) {
+        playbackDurationRef.current = nextDuration;
+        setPlaybackDurationMs(nextDuration);
+      }
     }
     setPlaybackTimeMs((previousMs) => {
-      if (Math.abs(currentTimeMs - previousMs) >= 30) {
+      if (Math.abs(currentTimeMs - previousMs) >= 90) {
         return currentTimeMs;
       }
       return previousMs;
@@ -444,25 +364,19 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
               <View
                 testID="video-analysis-playback-overlay"
                 style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio}]}
-                onLayout={onPlaybackOverlayLayout}
               >
                 <VideoAnalysisPlayerView
                   testID="video-analysis-playback-player"
                   style={styles.previewImage}
                   source={analysis.localVideoPath}
                   paused={playbackPaused}
+                  barPathSeries={result.barPathSeries}
+                  trackingFrameWidthPx={result.analysisMeta.trackingFrameWidthPx}
+                  trackingFrameHeightPx={result.analysisMeta.trackingFrameHeightPx}
                   onLoad={onPlayerLoad}
                   onProgress={onPlayerProgress}
                   onEnd={onPlayerEnd}
                 />
-                <View pointerEvents="none" style={styles.overlayLayer}>
-                  {currentBarOverlayPoint && (
-                    <View
-                      testID="video-analysis-playback-current-point"
-                      style={[styles.liveOverlayPoint, themedStyles.liveOverlayPoint, {left: currentBarOverlayPoint.x - 4, top: currentBarOverlayPoint.y - 4}]}
-                    />
-                  )}
-                </View>
               </View>
 
               <View style={styles.playbackControls}>
@@ -564,12 +478,6 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-  },
-  liveOverlayPoint: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
   },
   overlayToggle: {
     marginTop: 10,

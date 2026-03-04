@@ -43,8 +43,6 @@ appId: com.powerliftingworkoutplanner
     direction: DOWN
 - assertVisible:
     id: "video-analysis-playback-overlay"
-- assertVisible:
-    id: "video-analysis-playback-current-point"
 - scrollUntilVisible:
     element:
       id: "video-analysis-playback-toggle"
