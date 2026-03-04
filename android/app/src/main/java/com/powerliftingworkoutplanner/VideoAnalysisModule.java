@@ -25,10 +25,28 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final int MIN_REP_COUNT = 1;
     private static final int MAX_REP_COUNT = 12;
     private static final int MAX_ANALYSIS_DIMENSION = 320;
-    private static final int MOTION_THRESHOLD = 18;
-    private static final int MIN_MOTION_PIXELS = 80;
+    private static final int MAX_TRACKING_SAMPLES = 180;
+    private static final int PLATE_CENTER_STEP_PX = 4;
+    private static final int PLATE_RADIUS_STEP_PX = 2;
+    private static final int PLATE_SAMPLE_POINTS = 12;
+    private static final double PLATE_MIN_RADIUS_RATIO = 0.018;
+    private static final double PLATE_MAX_RADIUS_RATIO = 0.075;
+    private static final double PLATE_MIN_SCORE = 0.16;
+    private static final double MAX_TRACKING_SPEED_PX_PER_S = 220.0;
     private static final double MANUAL_SEED_REQUIRED_CONFIDENCE = 0.2;
     private static final double TRACKING_EMA_ALPHA = 0.45;
+    private static final int TRACKING_LOCK_HITS = 2;
+    private static final int TRACKING_UNLOCK_MISSES = 6;
+    private static final double[] PLATE_SAMPLE_COS = new double[PLATE_SAMPLE_POINTS];
+    private static final double[] PLATE_SAMPLE_SIN = new double[PLATE_SAMPLE_POINTS];
+
+    static {
+        for (int index = 0; index < PLATE_SAMPLE_POINTS; index++) {
+            double angle = (2.0 * Math.PI * index) / PLATE_SAMPLE_POINTS;
+            PLATE_SAMPLE_COS[index] = Math.cos(angle);
+            PLATE_SAMPLE_SIN[index] = Math.sin(angle);
+        }
+    }
 
     public VideoAnalysisModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -85,7 +103,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             result.put("analysisMeta", analysisMeta);
 
             JSONArray qualityFlags = new JSONArray();
-            qualityFlags.put("ANALYSIS_NATIVE_MOTION_TRACKING_V1");
+            qualityFlags.put("ANALYSIS_NATIVE_PLATE_TRACKING_V2");
             qualityFlags.put("SOURCE_VIDEO:" + localVideoPath);
             qualityFlags.put(previewFramePath == null ? "PREVIEW_FRAME_MISSING" : "PREVIEW_FRAME_READY");
             qualityFlags.put("ESTIMATED_REPS_AUTOCORR:" + estimatedRepCount);
@@ -209,19 +227,24 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         try {
             retriever.setDataSource(localVideoPath);
 
-            int sampleCount = Math.max(24, Math.min(300, (int) Math.round((durationMs / 1000.0) * ANALYZED_FPS)));
+            int sampleCount = Math.max(24, Math.min(MAX_TRACKING_SAMPLES, (int) Math.round((durationMs / 1000.0) * ANALYZED_FPS)));
             if (sampleCount < 2) {
                 sampleCount = 2;
             }
 
             List<TrackingSample> samples = new ArrayList<>();
-            int[] previousGray = null;
-            int previousWidth = -1;
-            int previousHeight = -1;
             int trackingWidth = -1;
             int trackingHeight = -1;
-            double smoothedX = Double.NaN;
-            double smoothedY = Double.NaN;
+            int[] previousGray = null;
+            double filteredX = Double.NaN;
+            double filteredY = Double.NaN;
+            double velocityX = 0.0;
+            double velocityY = 0.0;
+            double trackedRadius = Double.NaN;
+            boolean hasTrackingLock = manualSeedPoint != null;
+            int consecutiveHits = 0;
+            int consecutiveMisses = 0;
+            int previousTimeMs = -1;
 
             for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
                 int timeMs = sampleCount <= 1
@@ -240,94 +263,127 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
 
                 trackingWidth = frameData.width;
                 trackingHeight = frameData.height;
+                int[] motion = buildMotionMagnitude(frameData.gray, previousGray);
+                previousGray = frameData.gray;
 
-                double trackedX;
-                double trackedY;
-                double confidence;
+                double dtSeconds = 1.0 / ANALYZED_FPS;
+                if (previousTimeMs >= 0 && timeMs > previousTimeMs) {
+                    dtSeconds = Math.max(0.001, (timeMs - previousTimeMs) / 1000.0);
+                }
 
-                if (previousGray == null || previousWidth != frameData.width || previousHeight != frameData.height) {
+                double predictedX = filteredX;
+                double predictedY = filteredY;
+                if (Double.isNaN(predictedX) || Double.isNaN(predictedY)) {
                     if (manualSeedPoint != null) {
-                        trackedX = manualSeedPoint.normalizedX * frameData.width;
-                        trackedY = manualSeedPoint.normalizedY * frameData.height;
+                        predictedX = manualSeedPoint.normalizedX * frameData.width;
+                        predictedY = manualSeedPoint.normalizedY * frameData.height;
                     } else {
-                        trackedX = frameData.width / 2.0;
-                        trackedY = frameData.height * 0.45;
+                        predictedX = frameData.width * 0.5;
+                        predictedY = frameData.height * 0.45;
                     }
-                    confidence = 0.05;
                 } else {
-                    double roiCenterX = !Double.isNaN(smoothedX) ? smoothedX : frameData.width * 0.5;
-                    double roiCenterY = !Double.isNaN(smoothedY) ? smoothedY : frameData.height * 0.45;
-                    if (manualSeedPoint != null && Double.isNaN(smoothedX)) {
-                        roiCenterX = manualSeedPoint.normalizedX * frameData.width;
-                        roiCenterY = manualSeedPoint.normalizedY * frameData.height;
+                    predictedX += velocityX * dtSeconds;
+                    predictedY += velocityY * dtSeconds;
+                }
+
+                int[] edge = buildEdgeMagnitude(frameData.gray, frameData.width, frameData.height);
+                boolean useWideSearch = !hasTrackingLock || consecutiveMisses > 1 || (manualSeedPoint != null && samples.isEmpty());
+                PlateDetection detection = detectPlateCenter(frameData, edge, motion, predictedX, predictedY, trackedRadius, useWideSearch);
+                boolean detectionAccepted = detection.found;
+                if (detectionAccepted && !Double.isNaN(filteredX) && !Double.isNaN(filteredY)) {
+                    double jumpDistance = Math.hypot(detection.x - predictedX, detection.y - predictedY);
+                    double speedMagnitude = Math.hypot(velocityX, velocityY);
+                    double minDimension = Math.max(1.0, Math.min(frameData.width, frameData.height));
+                    double maxJump = clamp((speedMagnitude * dtSeconds * 1.8) + (minDimension * 0.045), 8.0, minDimension * (useWideSearch ? 0.42 : 0.18));
+                    if (!useWideSearch && jumpDistance > maxJump) {
+                        detectionAccepted = false;
                     }
 
-                    int roiHalfWidth = (int) Math.round(frameData.width * (manualSeedPoint == null ? 0.4 : 0.22));
-                    int roiHalfHeight = (int) Math.round(frameData.height * (manualSeedPoint == null ? 0.33 : 0.2));
-                    int roiMinX = (int) clamp(Math.round(roiCenterX) - roiHalfWidth, 0, frameData.width - 1);
-                    int roiMaxX = (int) clamp(Math.round(roiCenterX) + roiHalfWidth, roiMinX + 1, frameData.width);
-                    int roiMinY = (int) clamp(Math.round(roiCenterY) - roiHalfHeight, 0, frameData.height - 1);
-                    int roiMaxY = (int) clamp(Math.round(roiCenterY) + roiHalfHeight, roiMinY + 1, frameData.height);
-
-                    double weightedXSum = 0.0;
-                    double weightedYSum = 0.0;
-                    double weightSum = 0.0;
-                    int motionPixels = 0;
-                    int roiArea = Math.max(1, (roiMaxX - roiMinX) * (roiMaxY - roiMinY));
-
-                    for (int y = roiMinY; y < roiMaxY; y++) {
-                        int rowOffset = y * frameData.width;
-                        for (int x = roiMinX; x < roiMaxX; x++) {
-                            int pixelIndex = rowOffset + x;
-                            int diff = Math.abs(frameData.gray[pixelIndex] - previousGray[pixelIndex]);
-                            if (diff < MOTION_THRESHOLD) {
-                                continue;
-                            }
-
-                            motionPixels++;
-                            weightedXSum += x * diff;
-                            weightedYSum += y * diff;
-                            weightSum += diff;
+                    if (detectionAccepted && !Double.isNaN(trackedRadius)) {
+                        double radiusDelta = Math.abs(detection.radius - trackedRadius);
+                        double radiusTolerance = Math.max(2.5, trackedRadius * (useWideSearch ? 0.65 : 0.35));
+                        if (!useWideSearch && radiusDelta > radiusTolerance) {
+                            detectionAccepted = false;
                         }
                     }
+                }
 
-                    if (motionPixels >= MIN_MOTION_PIXELS && weightSum > 0.0) {
-                        trackedX = weightedXSum / weightSum;
-                        trackedY = weightedYSum / weightSum;
-                        confidence = clamp(motionPixels / (roiArea * 0.08), 0.1, 1.0);
-                    } else if (!Double.isNaN(smoothedX) && !Double.isNaN(smoothedY)) {
-                        trackedX = smoothedX;
-                        trackedY = smoothedY;
-                        confidence = 0.1;
-                    } else {
-                        trackedX = frameData.width / 2.0;
-                        trackedY = frameData.height * 0.45;
-                        confidence = 0.05;
+                double measuredX;
+                double measuredY;
+                double confidence;
+
+                if (detectionAccepted) {
+                    measuredX = detection.x;
+                    measuredY = detection.y;
+                    confidence = detection.confidence;
+                    consecutiveHits += 1;
+                    consecutiveMisses = 0;
+                    if (!hasTrackingLock && consecutiveHits >= TRACKING_LOCK_HITS) {
+                        hasTrackingLock = true;
                     }
+                    if (Double.isNaN(trackedRadius)) {
+                        trackedRadius = detection.radius;
+                    } else {
+                        trackedRadius = trackedRadius + (detection.radius - trackedRadius) * 0.35;
+                    }
+                } else if (!Double.isNaN(filteredX) && !Double.isNaN(filteredY)) {
+                    measuredX = predictedX;
+                    measuredY = predictedY;
+                    consecutiveMisses += 1;
+                    consecutiveHits = 0;
+                    confidence = clamp(0.065 - (consecutiveMisses * 0.008), 0.03, 0.08);
+                } else {
+                    measuredX = frameData.width * 0.5;
+                    measuredY = frameData.height * 0.45;
+                    consecutiveMisses += 1;
+                    consecutiveHits = 0;
+                    confidence = 0.03;
                 }
 
-                if (Double.isNaN(smoothedX) || Double.isNaN(smoothedY)) {
-                    smoothedX = trackedX;
-                    smoothedY = trackedY;
-                } else {
-                    smoothedX = smoothedX + TRACKING_EMA_ALPHA * (trackedX - smoothedX);
-                    smoothedY = smoothedY + TRACKING_EMA_ALPHA * (trackedY - smoothedY);
+                if (consecutiveMisses >= TRACKING_UNLOCK_MISSES) {
+                    hasTrackingLock = false;
+                    trackedRadius = Double.NaN;
+                    velocityX *= 0.4;
+                    velocityY *= 0.4;
                 }
+
+                if (Double.isNaN(filteredX) || Double.isNaN(filteredY)) {
+                    filteredX = measuredX;
+                    filteredY = measuredY;
+                } else {
+                    double alpha = clamp((TRACKING_EMA_ALPHA * 0.55) + (confidence * 0.55), 0.2, 0.88);
+                    filteredX = filteredX + alpha * (measuredX - filteredX);
+                    filteredY = filteredY + alpha * (measuredY - filteredY);
+                }
+
+                filteredX = clamp(filteredX, 0.0, Math.max(1, frameData.width - 1));
+                filteredY = clamp(filteredY, 0.0, Math.max(1, frameData.height - 1));
+
+                double nextVelocityX = velocityX * 0.85;
+                double nextVelocityY = velocityY * 0.85;
+                if (dtSeconds > 0.0) {
+                    double instantVx = (filteredX - predictedX) / dtSeconds;
+                    double instantVy = (filteredY - predictedY) / dtSeconds;
+                    double blend = detectionAccepted ? 0.52 : 0.22;
+                    nextVelocityX = (velocityX * (1.0 - blend)) + (instantVx * blend);
+                    nextVelocityY = (velocityY * (1.0 - blend)) + (instantVy * blend);
+                    nextVelocityX = clamp(nextVelocityX, -MAX_TRACKING_SPEED_PX_PER_S, MAX_TRACKING_SPEED_PX_PER_S);
+                    nextVelocityY = clamp(nextVelocityY, -MAX_TRACKING_SPEED_PX_PER_S, MAX_TRACKING_SPEED_PX_PER_S);
+                }
+                velocityX = nextVelocityX;
+                velocityY = nextVelocityY;
 
                 TrackingSample sample = new TrackingSample();
                 sample.tMs = timeMs;
-                sample.x = smoothedX;
-                sample.y = smoothedY;
+                sample.x = filteredX;
+                sample.y = filteredY;
                 sample.confidence = confidence;
                 samples.add(sample);
-
-                previousGray = frameData.gray;
-                previousWidth = frameData.width;
-                previousHeight = frameData.height;
+                previousTimeMs = timeMs;
             }
 
             if (samples.size() < 6) {
-                return buildFallbackTrackingSeries(durationMs, "NO_STABLE_MOTION_SIGNAL", trackingWidth, trackingHeight);
+                return buildFallbackTrackingSeries(durationMs, "NO_STABLE_PLATE_SIGNAL", trackingWidth, trackingHeight);
             }
 
             JSONArray barPathSeries = new JSONArray();
@@ -429,6 +485,199 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 workingBitmap.recycle();
             }
         }
+    }
+
+    private int[] buildEdgeMagnitude(int[] gray, int width, int height) {
+        int[] edge = new int[gray.length];
+        if (width < 3 || height < 3) {
+            return edge;
+        }
+
+        for (int y = 1; y < height - 1; y++) {
+            int rowOffset = y * width;
+            for (int x = 1; x < width - 1; x++) {
+                int pixelIndex = rowOffset + x;
+                int gradientX = gray[pixelIndex + 1] - gray[pixelIndex - 1];
+                int gradientY = gray[pixelIndex + width] - gray[pixelIndex - width];
+                int magnitude = Math.abs(gradientX) + Math.abs(gradientY);
+                edge[pixelIndex] = Math.min(255, magnitude);
+            }
+        }
+        return edge;
+    }
+
+    private int[] buildMotionMagnitude(int[] gray, int[] previousGray) {
+        int[] motion = new int[gray.length];
+        if (previousGray == null || previousGray.length != gray.length) {
+            return motion;
+        }
+
+        for (int index = 0; index < gray.length; index++) {
+            motion[index] = Math.abs(gray[index] - previousGray[index]);
+        }
+        return motion;
+    }
+
+    private PlateDetection detectPlateCenter(
+        FrameData frameData,
+        int[] edge,
+        int[] motion,
+        double predictedX,
+        double predictedY,
+        double predictedRadius,
+        boolean useWideSearch
+    ) {
+        int width = frameData.width;
+        int height = frameData.height;
+        int minDimension = Math.min(width, height);
+
+        int minRadius = Math.max(5, (int) Math.round(minDimension * PLATE_MIN_RADIUS_RATIO));
+        int maxRadius = Math.max(minRadius + 2, (int) Math.round(minDimension * PLATE_MAX_RADIUS_RATIO));
+        if (!Double.isNaN(predictedRadius)) {
+            int centerRadius = clampInt((int) Math.round(predictedRadius), minRadius, maxRadius);
+            int radiusPadding = Math.max(3, (int) Math.round(centerRadius * (useWideSearch ? 0.55 : 0.35)));
+            minRadius = Math.max(minRadius, centerRadius - radiusPadding);
+            maxRadius = Math.min(maxRadius, centerRadius + radiusPadding);
+            if (maxRadius <= minRadius) {
+                maxRadius = Math.min((int) Math.round(minDimension * PLATE_MAX_RADIUS_RATIO), minRadius + 2);
+            }
+        }
+        int expandedRadius = maxRadius + 3;
+
+        double safePredictedX = clamp(predictedX, 0.0, Math.max(1, width - 1));
+        double safePredictedY = clamp(predictedY, 0.0, Math.max(1, height - 1));
+        int roiHalfWidth = (int) Math.round(width * (useWideSearch ? 0.32 : 0.22));
+        int roiHalfHeight = (int) Math.round(height * (useWideSearch ? 0.24 : 0.18));
+        int centerStep = useWideSearch ? Math.max(6, PLATE_CENTER_STEP_PX * 2) : PLATE_CENTER_STEP_PX;
+        int radiusStep = useWideSearch ? Math.max(3, PLATE_RADIUS_STEP_PX + 1) : PLATE_RADIUS_STEP_PX;
+
+        int roiMinX = clampInt((int) Math.round(safePredictedX) - roiHalfWidth, expandedRadius, width - expandedRadius - 1);
+        int roiMaxX = clampInt((int) Math.round(safePredictedX) + roiHalfWidth, roiMinX + 1, width - expandedRadius - 1);
+        int roiMinY = clampInt((int) Math.round(safePredictedY) - roiHalfHeight, expandedRadius, height - expandedRadius - 1);
+        int roiMaxY = clampInt((int) Math.round(safePredictedY) + roiHalfHeight, roiMinY + 1, height - expandedRadius - 1);
+
+        if (roiMaxX <= roiMinX || roiMaxY <= roiMinY) {
+            PlateDetection emptyDetection = new PlateDetection();
+            emptyDetection.found = false;
+            return emptyDetection;
+        }
+
+        double bestScore = -Double.MAX_VALUE;
+        double bestX = safePredictedX;
+        double bestY = safePredictedY;
+        int bestRadius = minRadius;
+
+        double roiDistanceNorm = Math.max(1.0, Math.max(roiHalfWidth, roiHalfHeight));
+        for (int centerY = roiMinY; centerY <= roiMaxY; centerY += centerStep) {
+            for (int centerX = roiMinX; centerX <= roiMaxX; centerX += centerStep) {
+                for (int radius = minRadius; radius <= maxRadius; radius += radiusStep) {
+                    int expanded = radius + 3;
+                    if (centerX - expanded < 1 || centerX + expanded >= width - 1 || centerY - expanded < 1 || centerY + expanded >= height - 1) {
+                        continue;
+                    }
+
+                    CircleStats ringEdgeStats = sampleCircleStats(edge, width, height, centerX, centerY, radius);
+                    double ringEdge = ringEdgeStats.mean;
+                    if (ringEdge < 10.0) {
+                        continue;
+                    }
+                    double innerEdge = sampleCircleAverage(edge, width, height, centerX, centerY, Math.max(2, radius - 2));
+                    double outerEdge = sampleCircleAverage(edge, width, height, centerX, centerY, radius + 2);
+                    double innerLum = sampleCircleAverage(frameData.gray, width, height, centerX, centerY, Math.max(2, radius - 2));
+                    double outerLum = sampleCircleAverage(frameData.gray, width, height, centerX, centerY, radius + 2);
+                    double motionRing = sampleCircleAverage(motion, width, height, centerX, centerY, radius);
+                    double contrast = Math.abs(innerLum - outerLum);
+                    double edgePeak = ringEdge - ((innerEdge + outerEdge) * 0.5);
+                    if (edgePeak < 4.0) {
+                        continue;
+                    }
+                    double ringUniformity = clamp(1.0 - (ringEdgeStats.stdDev / (ringEdge + 24.0)), 0.0, 1.0);
+                    double distance = Math.hypot(centerX - safePredictedX, centerY - safePredictedY);
+                    double distancePenalty = clamp(distance / roiDistanceNorm, 0.0, 1.0) * 0.22;
+                    double radiusPenalty = 0.0;
+                    if (!Double.isNaN(predictedRadius)) {
+                        double radiusDeltaRatio = Math.abs(radius - predictedRadius) / Math.max(1.0, predictedRadius);
+                        radiusPenalty = clamp(radiusDeltaRatio, 0.0, 1.0) * (useWideSearch ? 0.08 : 0.18);
+                    }
+
+                    double score = (ringEdge / 255.0) * 0.50
+                        + clamp(edgePeak / 255.0, -1.0, 1.0) * 0.24
+                        + (contrast / 255.0) * 0.28
+                        + ringUniformity * 0.14
+                        + (motionRing / 255.0) * 0.16
+                        - distancePenalty
+                        - radiusPenalty;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestX = centerX;
+                        bestY = centerY;
+                        bestRadius = radius;
+                    }
+                }
+            }
+        }
+
+        PlateDetection detection = new PlateDetection();
+        detection.x = bestX;
+        detection.y = bestY;
+        detection.radius = bestRadius;
+        detection.score = bestScore;
+        detection.found = bestScore >= PLATE_MIN_SCORE;
+        detection.confidence = detection.found
+            ? clamp(0.08 + ((bestScore - PLATE_MIN_SCORE) / 0.52), 0.08, 1.0)
+            : clamp(bestScore, 0.02, 0.08);
+        return detection;
+    }
+
+    private CircleStats sampleCircleStats(int[] source, int width, int height, int centerX, int centerY, int radius) {
+        int safeRadius = Math.max(1, radius);
+        double sum = 0.0;
+        double squaredSum = 0.0;
+        int count = 0;
+
+        for (int sampleIndex = 0; sampleIndex < PLATE_SAMPLE_POINTS; sampleIndex++) {
+            int sampleX = (int) Math.round(centerX + PLATE_SAMPLE_COS[sampleIndex] * safeRadius);
+            int sampleY = (int) Math.round(centerY + PLATE_SAMPLE_SIN[sampleIndex] * safeRadius);
+            if (sampleX < 0 || sampleX >= width || sampleY < 0 || sampleY >= height) {
+                continue;
+            }
+
+            double value = source[(sampleY * width) + sampleX];
+            sum += value;
+            squaredSum += value * value;
+            count++;
+        }
+
+        CircleStats stats = new CircleStats();
+        if (count == 0) {
+            stats.mean = 0.0;
+            stats.stdDev = 0.0;
+            return stats;
+        }
+
+        stats.mean = sum / count;
+        double variance = Math.max(0.0, (squaredSum / count) - (stats.mean * stats.mean));
+        stats.stdDev = Math.sqrt(variance);
+        return stats;
+    }
+
+    private double sampleCircleAverage(int[] source, int width, int height, int centerX, int centerY, int radius) {
+        int safeRadius = Math.max(1, radius);
+        double sum = 0.0;
+        int count = 0;
+
+        for (int sampleIndex = 0; sampleIndex < PLATE_SAMPLE_POINTS; sampleIndex++) {
+            int sampleX = (int) Math.round(centerX + PLATE_SAMPLE_COS[sampleIndex] * safeRadius);
+            int sampleY = (int) Math.round(centerY + PLATE_SAMPLE_SIN[sampleIndex] * safeRadius);
+            if (sampleX < 0 || sampleX >= width || sampleY < 0 || sampleY >= height) {
+                continue;
+            }
+
+            sum += source[(sampleY * width) + sampleX];
+            count++;
+        }
+
+        return count == 0 ? 0.0 : sum / count;
     }
 
     private JSONArray buildRepSegmentsFromSeries(
@@ -819,6 +1068,10 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         return Math.round(value * 1000.0) / 1000.0;
     }
 
+    private int clampInt(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
     }
@@ -839,6 +1092,20 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static class ManualSeedPoint {
         double normalizedX;
         double normalizedY;
+    }
+
+    private static class PlateDetection {
+        boolean found;
+        double x;
+        double y;
+        int radius;
+        double score;
+        double confidence;
+    }
+
+    private static class CircleStats {
+        double mean;
+        double stdDev;
     }
 
     private static class TrackingSeries {
