@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Image, LayoutChangeEvent, ScrollView, StyleSheet, View} from 'react-native';
 import RNFS from 'react-native-fs';
 import {Button, Card, Divider, MD3Theme, Text, useTheme} from 'react-native-paper';
@@ -7,7 +7,7 @@ import {RootStackParamList} from '../../routing/AnalyseRouter';
 import {BarPathPoint, BarTrackingResult, VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
 import {getVideoAnalysisPreviewPath, readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
-import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from '../../components/video/VideoAnalysisPlayerView';
+import VideoAnalysisPlaybackOverlayCard from '../../components/video/VideoAnalysisPlaybackOverlayCard';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
 
@@ -24,19 +24,6 @@ interface PreviewDimensions {
 
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
 const DEFAULT_PREVIEW_DIMENSIONS: PreviewDimensions = {width: 1600, height: 900};
-
-const formatDuration = (timeMs: number) => {
-  const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
-  const minutes = Math.floor(totalSeconds / 60)
-    .toString()
-    .padStart(2, '0');
-  const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-  return `${minutes}:${seconds}`;
-};
-
-const clamp = (value: number, min: number, max: number) => {
-  return Math.max(min, Math.min(max, value));
-};
 
 const mapPointsToOverlay = (
   barPathSeries: BarPathPoint[],
@@ -111,12 +98,6 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const [overlayWidth, setOverlayWidth] = useState(0);
   const [overlayHeight, setOverlayHeight] = useState(0);
   const [showOverlay, setShowOverlay] = useState(true);
-  const [playbackPaused, setPlaybackPaused] = useState(true);
-  const [playbackTimeMs, setPlaybackTimeMs] = useState(0);
-  const [playbackDurationMs, setPlaybackDurationMs] = useState(0);
-  const [playbackAspectRatio, setPlaybackAspectRatio] = useState(DEFAULT_PREVIEW_ASPECT_RATIO);
-  const playbackDurationRef = useRef(0);
-  const latestProgressTimeRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -200,100 +181,10 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
     [previewDimensions, result?.analysisMeta.trackingFrameHeightPx, result?.analysisMeta.trackingFrameWidthPx, result?.barPathSeries, overlayHeight, overlayWidth],
   );
 
-  const analysisDurationMs = useMemo(() => {
-    const points = result?.barPathSeries;
-    if (!points || points.length === 0) {
-      return 0;
-    }
-    const firstTime = points[0].tMs;
-    const lastTime = points[points.length - 1].tMs;
-    return Math.max(0, lastTime - firstTime);
-  }, [result?.barPathSeries]);
-
-  const correctedPlaybackDurationMs = useMemo(() => {
-    if (playbackDurationMs > 0) {
-      return playbackDurationMs;
-    }
-    if (analysisDurationMs > 0) {
-      return analysisDurationMs;
-    }
-    return 0;
-  }, [analysisDurationMs, playbackDurationMs]);
-
-  const syncedAnalysisTimeMs = useMemo(() => {
-    const points = result?.barPathSeries;
-    if (!points || points.length === 0) {
-      return playbackTimeMs;
-    }
-    return clamp(playbackTimeMs, points[0].tMs, points[points.length - 1].tMs);
-  }, [playbackTimeMs, result?.barPathSeries]);
-
-  const currentRep = useMemo(() => {
-    const segments = result?.repSegments ?? [];
-    return segments.find((segment) => syncedAnalysisTimeMs >= segment.startMs && syncedAnalysisTimeMs <= segment.endMs);
-  }, [result?.repSegments, syncedAnalysisTimeMs]);
-
-  useEffect(() => {
-    setPlaybackPaused(true);
-    setPlaybackTimeMs(0);
-    setPlaybackDurationMs(0);
-    setPlaybackAspectRatio(DEFAULT_PREVIEW_ASPECT_RATIO);
-    playbackDurationRef.current = 0;
-    latestProgressTimeRef.current = 0;
-  }, [analysis?.id, analysis?.localVideoPath]);
-
   const onOverlayLayout = (event: LayoutChangeEvent) => {
     const {width, height} = event.nativeEvent.layout;
     setOverlayWidth(width);
     setOverlayHeight(height);
-  };
-
-  const onPlayerLoad = (event: {nativeEvent?: VideoPlayerLoadEvent}) => {
-    if (!event.nativeEvent) {
-      return;
-    }
-    const {durationMs, videoWidth, videoHeight} = event.nativeEvent;
-    const nextDuration = Math.max(playbackDurationRef.current, durationMs);
-    if (nextDuration !== playbackDurationRef.current) {
-      playbackDurationRef.current = nextDuration;
-      setPlaybackDurationMs(nextDuration);
-    }
-    if (videoWidth > 0 && videoHeight > 0) {
-      setPlaybackAspectRatio(videoWidth / videoHeight);
-    }
-  };
-
-  const onPlayerProgress = (event: {nativeEvent?: VideoPlayerProgressEvent}) => {
-    const nativeEvent = event.nativeEvent;
-    if (!nativeEvent) {
-      return;
-    }
-
-    const currentTimeMs = nativeEvent.currentTimeMs;
-    if (currentTimeMs < latestProgressTimeRef.current) {
-      return;
-    }
-    latestProgressTimeRef.current = currentTimeMs;
-
-    if (nativeEvent.durationMs > 0) {
-      const nextDuration = Math.max(playbackDurationRef.current, nativeEvent.durationMs);
-      if (nextDuration !== playbackDurationRef.current) {
-        playbackDurationRef.current = nextDuration;
-        setPlaybackDurationMs(nextDuration);
-      }
-    }
-    setPlaybackTimeMs((previousMs) => {
-      if (Math.abs(currentTimeMs - previousMs) >= 90) {
-        return currentTimeMs;
-      }
-      return previousMs;
-    });
-  };
-
-  const onPlayerEnd = () => {
-    setPlaybackPaused(true);
-    const finalTimeMs = Math.max(playbackDurationRef.current, latestProgressTimeRef.current);
-    setPlaybackTimeMs(finalTimeMs);
   };
 
   if (!analysis) {
@@ -359,40 +250,11 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           {!analysis.localVideoPath && <Text>No local video path available yet.</Text>}
           {analysis.localVideoPath && !result && <Text>No analysis result available yet.</Text>}
           {analysis.localVideoPath && result && (
-            <>
-              <Text style={styles.overlayHint}>Live playback with current detected bar position.</Text>
-              <View
-                testID="video-analysis-playback-overlay"
-                style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio}]}
-              >
-                <VideoAnalysisPlayerView
-                  testID="video-analysis-playback-player"
-                  style={styles.previewImage}
-                  source={analysis.localVideoPath}
-                  paused={playbackPaused}
-                  barPathSeries={result.barPathSeries}
-                  trackingFrameWidthPx={result.analysisMeta.trackingFrameWidthPx}
-                  trackingFrameHeightPx={result.analysisMeta.trackingFrameHeightPx}
-                  onLoad={onPlayerLoad}
-                  onProgress={onPlayerProgress}
-                  onEnd={onPlayerEnd}
-                />
-              </View>
-
-              <View style={styles.playbackControls}>
-                <Button
-                  testID="video-analysis-playback-toggle"
-                  mode="outlined"
-                  onPress={() => setPlaybackPaused((paused) => !paused)}
-                >
-                  {playbackPaused ? 'Play' : 'Pause'}
-                </Button>
-                <Text testID="video-analysis-playback-time">
-                  Playback: {formatDuration(playbackTimeMs)} / {formatDuration(correctedPlaybackDurationMs)}
-                </Text>
-                <Text>{currentRep ? `Current Rep: ${currentRep.repIndex}` : 'Current Rep: -'}</Text>
-              </View>
-            </>
+            <VideoAnalysisPlaybackOverlayCard
+              key={`${analysis.id}-${analysis.localVideoPath}`}
+              localVideoPath={analysis.localVideoPath}
+              result={result}
+            />
           )}
         </Card.Content>
       </Card>
@@ -484,9 +346,6 @@ const styles = StyleSheet.create({
   },
   overlayHint: {
     marginBottom: 10,
-  },
-  playbackControls: {
-    marginTop: 10,
   },
 });
 

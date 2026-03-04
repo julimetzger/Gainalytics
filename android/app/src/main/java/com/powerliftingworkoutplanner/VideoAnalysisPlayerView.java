@@ -33,6 +33,7 @@ import java.util.List;
 
 public class VideoAnalysisPlayerView extends FrameLayout {
     private static final int PROGRESS_INTERVAL_MS = 100;
+    private static final int PROGRESS_EVENT_INTERVAL_MS = 250;
 
     private final ExoPlayer player;
     private final PlayerView playerView;
@@ -53,6 +54,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
     private float fallbackMinY = 0f;
     private float fallbackMaxY = 0f;
     private boolean hasFallbackBounds = false;
+    private int lastProgressEventTimeMs = -1;
 
     private final Runnable progressRunnable = new Runnable() {
         @Override
@@ -63,7 +65,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
 
             int currentTimeMs = getSafeCurrentPositionMs();
             updateOverlayPointForTimeMs(currentTimeMs);
-            emitProgress(currentTimeMs);
+            maybeEmitProgress(currentTimeMs, false);
 
             if (!paused) {
                 progressHandler.postDelayed(this, PROGRESS_INTERVAL_MS);
@@ -83,7 +85,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
                     player.pause();
                     int currentTimeMs = getSafeCurrentPositionMs();
                     updateOverlayPointForTimeMs(currentTimeMs);
-                    emitProgress(currentTimeMs);
+                    maybeEmitProgress(currentTimeMs, true);
                 } else {
                     player.play();
                     updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
@@ -97,6 +99,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
                 stopProgressLoop();
                 int endTimeMs = Math.max(getSafeDurationMs(), getSafeCurrentPositionMs());
                 updateOverlayPointForTimeMs(endTimeMs);
+                maybeEmitProgress(endTimeMs, true);
                 emitEnd();
             }
         }
@@ -166,6 +169,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         durationMs = 0;
         videoWidth = 0;
         videoHeight = 0;
+        resetProgressEventState();
         stopProgressLoop();
         overlayView.clearPoint();
 
@@ -196,7 +200,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
             if (prepared) {
                 int currentTimeMs = getSafeCurrentPositionMs();
                 updateOverlayPointForTimeMs(currentTimeMs);
-                emitProgress(currentTimeMs);
+                maybeEmitProgress(currentTimeMs, true);
             }
             return;
         }
@@ -253,6 +257,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         playerView.setPlayer(null);
         player.release();
         overlayView.clearPoint();
+        resetProgressEventState();
     }
 
     private void startProgressLoop() {
@@ -438,6 +443,21 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         payload.putInt("currentTimeMs", Math.max(0, currentTimeMs));
         payload.putInt("durationMs", Math.max(0, durationMs));
         dispatchEvent("onProgress", payload);
+    }
+
+    private void maybeEmitProgress(int currentTimeMs, boolean forceEmit) {
+        if (!forceEmit && lastProgressEventTimeMs >= 0) {
+            int elapsedSinceLastEvent = Math.abs(currentTimeMs - lastProgressEventTimeMs);
+            if (elapsedSinceLastEvent < PROGRESS_EVENT_INTERVAL_MS) {
+                return;
+            }
+        }
+        lastProgressEventTimeMs = Math.max(0, currentTimeMs);
+        emitProgress(currentTimeMs);
+    }
+
+    private void resetProgressEventState() {
+        lastProgressEventTimeMs = -1;
     }
 
     private void emitEnd() {
