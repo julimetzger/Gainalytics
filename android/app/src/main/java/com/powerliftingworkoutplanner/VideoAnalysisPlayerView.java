@@ -3,17 +3,22 @@ package com.powerliftingworkoutplanner;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.ViewGroup;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import android.widget.VideoView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
+import androidx.media3.common.VideoSize;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.ui.PlayerView;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReadableArray;
@@ -22,14 +27,15 @@ import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
 
-import java.util.ArrayList;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 public class VideoAnalysisPlayerView extends FrameLayout {
     private static final int PROGRESS_INTERVAL_MS = 100;
 
-    private final VideoView videoView;
+    private final ExoPlayer player;
+    private final PlayerView playerView;
     private final OverlayDotView overlayView;
     private final Handler progressHandler = new Handler(Looper.getMainLooper());
     private final List<TrackingPoint> barPathSeries = new ArrayList<>();
@@ -55,76 +61,96 @@ public class VideoAnalysisPlayerView extends FrameLayout {
                 return;
             }
 
-            int currentTimeMs = videoView.getCurrentPosition();
+            int currentTimeMs = getSafeCurrentPositionMs();
             updateOverlayPointForTimeMs(currentTimeMs);
             emitProgress(currentTimeMs);
-            // Keep polling while playback is not paused. VideoView.isPlaying() can
-            // briefly return false during transient buffering and would otherwise
-            // stop progress updates permanently.
+
             if (!paused) {
                 progressHandler.postDelayed(this, PROGRESS_INTERVAL_MS);
             }
         }
     };
 
+    private final Player.Listener playerListener = new Player.Listener() {
+        @Override
+        public void onPlaybackStateChanged(int playbackState) {
+            if (playbackState == Player.STATE_READY) {
+                prepared = true;
+                durationMs = getSafeDurationMs();
+                emitLoad();
+
+                if (paused) {
+                    player.pause();
+                    int currentTimeMs = getSafeCurrentPositionMs();
+                    updateOverlayPointForTimeMs(currentTimeMs);
+                    emitProgress(currentTimeMs);
+                } else {
+                    player.play();
+                    updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
+                    startProgressLoop();
+                }
+                return;
+            }
+
+            if (playbackState == Player.STATE_ENDED) {
+                paused = true;
+                stopProgressLoop();
+                int endTimeMs = Math.max(getSafeDurationMs(), getSafeCurrentPositionMs());
+                updateOverlayPointForTimeMs(endTimeMs);
+                emitEnd();
+            }
+        }
+
+        @Override
+        public void onVideoSizeChanged(VideoSize size) {
+            videoWidth = Math.max(0, size.width);
+            videoHeight = Math.max(0, size.height);
+            if (prepared) {
+                emitLoad();
+                updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
+            }
+        }
+
+        @Override
+        public void onPlayerError(PlaybackException error) {
+            emitError(error.getMessage() == null ? "Player error" : error.getMessage());
+            stopProgressLoop();
+            paused = true;
+            prepared = false;
+            overlayView.clearPoint();
+        }
+    };
+
     public VideoAnalysisPlayerView(@NonNull ReactContext context) {
         super(context);
-        videoView = new VideoView(context);
+
+        player = new ExoPlayer.Builder(context).build();
+        player.addListener(playerListener);
+
+        playerView = new PlayerView(context);
+        playerView.setUseController(false);
+        playerView.setPlayer(player);
+
         LayoutParams layoutParams = new LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         );
-        videoView.setLayoutParams(layoutParams);
-        addView(videoView);
+        playerView.setLayoutParams(layoutParams);
+        addView(playerView);
+
         overlayView = new OverlayDotView(context);
-        overlayView.setLayoutParams(layoutParams);
-        overlayView.setClickable(false);
-        overlayView.setFocusable(false);
-        addView(overlayView);
-        configureListeners();
-    }
+        LayoutParams overlayParams = new LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        );
 
-    private void configureListeners() {
-        videoView.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-            @Override
-            public void onPrepared(MediaPlayer mediaPlayer) {
-                prepared = true;
-                durationMs = videoView.getDuration();
-                videoWidth = mediaPlayer.getVideoWidth();
-                videoHeight = mediaPlayer.getVideoHeight();
-                emitLoad();
-                if (!paused) {
-                    videoView.start();
-                    updateOverlayPointForTimeMs(videoView.getCurrentPosition());
-                    startProgressLoop();
-                } else {
-                    videoView.pause();
-                    updateOverlayPointForTimeMs(0);
-                    emitProgress(0);
-                }
-            }
-        });
-
-        videoView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-            @Override
-            public void onCompletion(MediaPlayer mediaPlayer) {
-                paused = true;
-                stopProgressLoop();
-                updateOverlayPointForTimeMs(Math.max(durationMs, videoView.getCurrentPosition()));
-                emitEnd();
-            }
-        });
-
-        videoView.setOnErrorListener(new MediaPlayer.OnErrorListener() {
-            @Override
-            public boolean onError(MediaPlayer mediaPlayer, int what, int extra) {
-                emitError("MediaPlayer error " + what + ":" + extra);
-                stopProgressLoop();
-                paused = true;
-                overlayView.clearPoint();
-                return true;
-            }
-        });
+        FrameLayout overlayContainer = playerView.getOverlayFrameLayout();
+        if (overlayContainer != null) {
+            overlayContainer.addView(overlayView, overlayParams);
+        } else {
+            overlayView.setLayoutParams(overlayParams);
+            addView(overlayView);
+        }
     }
 
     public void setSourcePath(String path) {
@@ -137,6 +163,9 @@ public class VideoAnalysisPlayerView extends FrameLayout {
 
         sourcePath = path;
         prepared = false;
+        durationMs = 0;
+        videoWidth = 0;
+        videoHeight = 0;
         stopProgressLoop();
         overlayView.clearPoint();
 
@@ -147,29 +176,34 @@ public class VideoAnalysisPlayerView extends FrameLayout {
             return;
         }
 
-        videoView.setVideoURI(Uri.fromFile(file));
-        videoView.requestFocus();
-        videoView.start();
+        MediaItem mediaItem = MediaItem.fromUri(Uri.fromFile(file));
+        player.setMediaItem(mediaItem);
+        player.prepare();
+
         if (paused) {
-            videoView.pause();
+            player.pause();
+        } else {
+            player.play();
         }
     }
 
     public void setPaused(boolean shouldPause) {
         paused = shouldPause;
-        if (!prepared) {
+
+        if (paused) {
+            player.pause();
+            stopProgressLoop();
+            if (prepared) {
+                int currentTimeMs = getSafeCurrentPositionMs();
+                updateOverlayPointForTimeMs(currentTimeMs);
+                emitProgress(currentTimeMs);
+            }
             return;
         }
 
-        if (paused) {
-            videoView.pause();
-            stopProgressLoop();
-            int currentTimeMs = videoView.getCurrentPosition();
-            updateOverlayPointForTimeMs(currentTimeMs);
-            emitProgress(currentTimeMs);
-        } else {
-            videoView.start();
-            updateOverlayPointForTimeMs(videoView.getCurrentPosition());
+        player.play();
+        if (prepared) {
+            updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
             startProgressLoop();
         }
     }
@@ -193,7 +227,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
 
         recalculateFallbackBounds();
         if (prepared) {
-            updateOverlayPointForTimeMs(videoView.getCurrentPosition());
+            updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
         } else {
             overlayView.clearPoint();
         }
@@ -202,20 +236,22 @@ public class VideoAnalysisPlayerView extends FrameLayout {
     public void setTrackingFrameWidthPx(int widthPx) {
         trackingFrameWidthPx = Math.max(0, widthPx);
         if (prepared) {
-            updateOverlayPointForTimeMs(videoView.getCurrentPosition());
+            updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
         }
     }
 
     public void setTrackingFrameHeightPx(int heightPx) {
         trackingFrameHeightPx = Math.max(0, heightPx);
         if (prepared) {
-            updateOverlayPointForTimeMs(videoView.getCurrentPosition());
+            updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
         }
     }
 
     public void onDropView() {
         stopProgressLoop();
-        videoView.stopPlayback();
+        player.removeListener(playerListener);
+        playerView.setPlayer(null);
+        player.release();
         overlayView.clearPoint();
     }
 
@@ -351,11 +387,34 @@ public class VideoAnalysisPlayerView extends FrameLayout {
             minY = Math.min(minY, point.y);
             maxY = Math.max(maxY, point.y);
         }
+
         fallbackMinX = minX;
         fallbackMaxX = maxX;
         fallbackMinY = minY;
         fallbackMaxY = maxY;
         hasFallbackBounds = true;
+    }
+
+    private int getSafeCurrentPositionMs() {
+        long positionMs = player.getCurrentPosition();
+        if (positionMs <= 0) {
+            return 0;
+        }
+        if (positionMs >= Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) positionMs;
+    }
+
+    private int getSafeDurationMs() {
+        long durationValue = player.getDuration();
+        if (durationValue == C.TIME_UNSET || durationValue <= 0) {
+            return 0;
+        }
+        if (durationValue >= Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) durationValue;
     }
 
     private int clampInt(int value, int min, int max) {
