@@ -1,6 +1,11 @@
 #!/bin/bash
 
 androidBundlePassword=$1
+tagExtensions=$2
+
+if [ -z "$tagExtensions" ]; then
+   tagExtensions"=-$2"
+fi
 
 if [ -z "$androidBundlePassword" ]; then
     echo "Usage: ./releaseNewAndroidVersion.sh <androidReleaseStorePassword>"
@@ -17,7 +22,7 @@ react-native bundle --platform android --dev false --entry-file index.tsx --bund
 previousVersion=$(grep -oE 'versionName "([0-9]+\.[0-9]+)"' android/app/build.gradle | sed -E 's/versionName "([0-9]+\.[0-9]+)"/\1/')
 newVersion=$(echo $previousVersion | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
 echo "update minor version from $previousVersion to $newVersion"
-sed -i'' -e "s/versionName \"$previousVersion\"/versionName \"$newVersion\"/g" android/app/build.gradle
+sed -i'' -e "s/versionName \"$previousVersion\"/versionName \"$newVersion$tagExtensions\"/g" android/app/build.gradle
 
 echo 'releasing'
 mkdir -p android/app/build/outputs/apk/release/
