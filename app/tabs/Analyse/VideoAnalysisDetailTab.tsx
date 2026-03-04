@@ -38,7 +38,7 @@ const clamp = (value: number, min: number, max: number) => {
   return Math.max(min, Math.min(max, value));
 };
 
-const interpolateBarPoint = (barPathSeries: BarPathPoint[], targetMs: number): BarPathPoint | undefined => {
+const findNearestBarPointByTime = (barPathSeries: BarPathPoint[], targetMs: number): BarPathPoint | undefined => {
   if (barPathSeries.length === 0) {
     return undefined;
   }
@@ -54,94 +54,35 @@ const interpolateBarPoint = (barPathSeries: BarPathPoint[], targetMs: number): B
     return lastPoint;
   }
 
-  for (let index = 1; index < barPathSeries.length; index++) {
-    const nextPoint = barPathSeries[index];
-    if (nextPoint.tMs < targetMs) {
-      continue;
+  let low = 0;
+  let high = barPathSeries.length - 1;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const point = barPathSeries[middle];
+    if (!point) {
+      break;
     }
-    const previousPoint = barPathSeries[index - 1];
-    const deltaMs = nextPoint.tMs - previousPoint.tMs;
-    if (deltaMs <= 0) {
-      return nextPoint;
+    if (point.tMs === targetMs) {
+      return point;
     }
-
-    const ratio = clamp((targetMs - previousPoint.tMs) / deltaMs, 0, 1);
-    return {
-      tMs: Math.round(targetMs),
-      x: previousPoint.x + (nextPoint.x - previousPoint.x) * ratio,
-      y: previousPoint.y + (nextPoint.y - previousPoint.y) * ratio,
-    };
-  }
-
-  return lastPoint;
-};
-
-const interpolateBarPointByIndex = (barPathSeries: BarPathPoint[], indexValue: number): BarPathPoint | undefined => {
-  if (barPathSeries.length === 0) {
-    return undefined;
-  }
-  if (barPathSeries.length === 1) {
-    return barPathSeries[0];
-  }
-
-  const clampedIndex = clamp(indexValue, 0, barPathSeries.length - 1);
-  const lowerIndex = Math.floor(clampedIndex);
-  const upperIndex = Math.ceil(clampedIndex);
-  const lowerPoint = barPathSeries[lowerIndex];
-  const upperPoint = barPathSeries[upperIndex];
-  if (!lowerPoint || !upperPoint || lowerIndex === upperIndex) {
-    return lowerPoint ?? upperPoint;
-  }
-
-  const ratio = clampedIndex - lowerIndex;
-  return {
-    tMs: Math.round(lowerPoint.tMs + ((upperPoint.tMs - lowerPoint.tMs) * ratio)),
-    x: lowerPoint.x + ((upperPoint.x - lowerPoint.x) * ratio),
-    y: lowerPoint.y + ((upperPoint.y - lowerPoint.y) * ratio),
-  };
-};
-
-const estimateCycleDurationMs = (barPathSeries: BarPathPoint[]): number | undefined => {
-  if (barPathSeries.length < 24) {
-    return undefined;
-  }
-
-  const ySeries = barPathSeries.map((point) => point.y);
-  const meanY = ySeries.reduce((sum, y) => sum + y, 0) / ySeries.length;
-  const centered = ySeries.map((y) => y - meanY);
-
-  const n = centered.length;
-  const minLag = Math.max(4, Math.floor(n * 0.015));
-  const maxLag = Math.min(Math.floor(n / 2), Math.floor(n * 0.2));
-  if (maxLag <= minLag) {
-    return undefined;
-  }
-
-  let bestLag = -1;
-  let bestCorrelation = Number.NEGATIVE_INFINITY;
-  for (let lag = minLag; lag <= maxLag; lag++) {
-    let correlation = 0;
-    for (let index = 0; index < n - lag; index++) {
-      correlation += centered[index] * centered[index + lag];
-    }
-    if (correlation > bestCorrelation) {
-      bestCorrelation = correlation;
-      bestLag = lag;
+    if (point.tMs < targetMs) {
+      low = middle + 1;
+    } else {
+      high = middle - 1;
     }
   }
 
-  if (bestLag <= 0) {
-    return undefined;
+  const rightIndex = clamp(low, 0, barPathSeries.length - 1);
+  const leftIndex = clamp(rightIndex - 1, 0, barPathSeries.length - 1);
+  const leftPoint = barPathSeries[leftIndex];
+  const rightPoint = barPathSeries[rightIndex];
+  if (!leftPoint || !rightPoint) {
+    return leftPoint ?? rightPoint;
   }
 
-  const totalDurationMs = Math.max(1, barPathSeries[n - 1].tMs - barPathSeries[0].tMs);
-  const avgFrameDurationMs = totalDurationMs / Math.max(1, n - 1);
-  const estimatedCycleMs = bestLag * avgFrameDurationMs;
-  if (!Number.isFinite(estimatedCycleMs) || estimatedCycleMs < 250 || estimatedCycleMs > 5000) {
-    return undefined;
-  }
-
-  return estimatedCycleMs;
+  const leftDelta = Math.abs(targetMs - leftPoint.tMs);
+  const rightDelta = Math.abs(rightPoint.tMs - targetMs);
+  return leftDelta <= rightDelta ? leftPoint : rightPoint;
 };
 
 const mapPointsToOverlay = (
@@ -223,14 +164,12 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const [playbackPaused, setPlaybackPaused] = useState(true);
   const [playbackTimeMs, setPlaybackTimeMs] = useState(0);
   const [playbackDurationMs, setPlaybackDurationMs] = useState(0);
-  const [nativePlaybackTimeMs, setNativePlaybackTimeMs] = useState(0);
-  const [nativePlaybackDurationMs, setNativePlaybackDurationMs] = useState(0);
   const [playbackDimensions, setPlaybackDimensions] = useState<PreviewDimensions>(DEFAULT_PREVIEW_DIMENSIONS);
   const [playbackAspectRatio, setPlaybackAspectRatio] = useState(DEFAULT_PREVIEW_ASPECT_RATIO);
   const [playbackOverlayWidth, setPlaybackOverlayWidth] = useState(0);
   const [playbackOverlayHeight, setPlaybackOverlayHeight] = useState(0);
-  const playbackProgressRef = useRef(0);
-  const playbackClockAnchorRef = useRef<{wallMs: number; timeMs: number} | null>(null);
+  const playbackDurationRef = useRef(0);
+  const latestProgressTimeRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -335,53 +274,20 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   }, [analysisDurationMs, playbackDurationMs]);
 
   const syncedAnalysisTimeMs = useMemo(() => {
-    if (analysisDurationMs > 0 && playbackDurationMs > 0) {
-      const progress = clamp(playbackTimeMs / playbackDurationMs, 0, 1);
-      return progress * analysisDurationMs;
-    }
-    if (analysisDurationMs <= 0) {
+    const points = result?.barPathSeries;
+    if (!points || points.length === 0) {
       return playbackTimeMs;
     }
-    return clamp(playbackTimeMs, 0, analysisDurationMs);
-  }, [analysisDurationMs, playbackDurationMs, playbackTimeMs]);
-
-  const playbackProgress = useMemo(() => {
-    if (playbackDurationMs > 0) {
-      return clamp(playbackTimeMs / playbackDurationMs, 0, 1);
-    }
-    if (analysisDurationMs > 0) {
-      return clamp(playbackTimeMs / analysisDurationMs, 0, 1);
-    }
-    return 0;
-  }, [analysisDurationMs, playbackDurationMs, playbackTimeMs]);
-
-  const syncDebug = useMemo(() => {
-    const playbackProgressPercent = playbackDurationMs > 0 ? (playbackTimeMs / playbackDurationMs) * 100 : 0;
-    const analysisProgressPercent = analysisDurationMs > 0 ? (syncedAnalysisTimeMs / analysisDurationMs) * 100 : 0;
-    return {
-      nativePlaybackTimeMs,
-      nativePlaybackDurationMs,
-      overlayPlaybackTimeMs: playbackTimeMs,
-      overlayPlaybackDurationMs: playbackDurationMs,
-      analysisTimeMs: syncedAnalysisTimeMs,
-      analysisDurationMs,
-      playbackProgressPercent: clamp(playbackProgressPercent, 0, 100),
-      analysisProgressPercent: clamp(analysisProgressPercent, 0, 100),
-      timeDeltaMs: playbackTimeMs - nativePlaybackTimeMs,
-    };
-  }, [analysisDurationMs, nativePlaybackDurationMs, nativePlaybackTimeMs, playbackDurationMs, playbackTimeMs, syncedAnalysisTimeMs]);
+    return clamp(playbackTimeMs, points[0].tMs, points[points.length - 1].tMs);
+  }, [playbackTimeMs, result?.barPathSeries]);
 
   const currentBarPoint = useMemo(() => {
     const points = result?.barPathSeries;
     if (!points || points.length === 0) {
       return undefined;
     }
-    if (playbackDurationMs > 0) {
-      const indexValue = playbackProgress * (points.length - 1);
-      return interpolateBarPointByIndex(points, indexValue);
-    }
-    return interpolateBarPoint(points, syncedAnalysisTimeMs);
-  }, [playbackDurationMs, playbackProgress, result?.barPathSeries, syncedAnalysisTimeMs]);
+    return findNearestBarPointByTime(points, syncedAnalysisTimeMs);
+  }, [result?.barPathSeries, syncedAnalysisTimeMs]);
 
   const currentBarOverlayPoint = useMemo(() => {
     if (!currentBarPoint || !result) {
@@ -408,40 +314,11 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
     setPlaybackPaused(true);
     setPlaybackTimeMs(0);
     setPlaybackDurationMs(0);
-    setNativePlaybackTimeMs(0);
-    setNativePlaybackDurationMs(0);
     setPlaybackDimensions(DEFAULT_PREVIEW_DIMENSIONS);
     setPlaybackAspectRatio(DEFAULT_PREVIEW_ASPECT_RATIO);
-    playbackProgressRef.current = 0;
-    playbackClockAnchorRef.current = null;
+    playbackDurationRef.current = 0;
+    latestProgressTimeRef.current = 0;
   }, [analysis?.id, analysis?.localVideoPath]);
-
-  useEffect(() => {
-    if (playbackPaused) {
-      return;
-    }
-
-    const tick = () => {
-      const anchor = playbackClockAnchorRef.current;
-      if (!anchor) {
-        return;
-      }
-
-      const extrapolatedMs = anchor.timeMs + (Date.now() - anchor.wallMs);
-      const cappedMs = playbackDurationMs > 0 ? Math.min(playbackDurationMs, extrapolatedMs) : extrapolatedMs;
-      setPlaybackTimeMs((previousMs) => {
-        const nextMs = cappedMs;
-        if (Math.abs(nextMs - previousMs) < 16) {
-          return previousMs;
-        }
-        return nextMs;
-      });
-    };
-
-    tick();
-    const intervalId = setInterval(tick, 33);
-    return () => clearInterval(intervalId);
-  }, [playbackDurationMs, playbackPaused]);
 
   const onOverlayLayout = (event: LayoutChangeEvent) => {
     const {width, height} = event.nativeEvent.layout;
@@ -460,8 +337,8 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       return;
     }
     const {durationMs, videoWidth, videoHeight} = event.nativeEvent;
-    setNativePlaybackDurationMs(durationMs);
-    setPlaybackDurationMs((previousDurationMs) => Math.max(previousDurationMs, durationMs));
+    playbackDurationRef.current = Math.max(playbackDurationRef.current, durationMs);
+    setPlaybackDurationMs(playbackDurationRef.current);
     if (videoWidth > 0 && videoHeight > 0) {
       setPlaybackDimensions({width: videoWidth, height: videoHeight});
       setPlaybackAspectRatio(videoWidth / videoHeight);
@@ -475,30 +352,28 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
     }
 
     const currentTimeMs = nativeEvent.currentTimeMs;
-    setNativePlaybackTimeMs(currentTimeMs);
+    if (currentTimeMs < latestProgressTimeRef.current) {
+      return;
+    }
+    latestProgressTimeRef.current = currentTimeMs;
+
     if (nativeEvent.durationMs > 0) {
-      setNativePlaybackDurationMs(nativeEvent.durationMs);
-      setPlaybackDurationMs((previousDurationMs) => Math.max(previousDurationMs, nativeEvent.durationMs));
+      const nextDuration = Math.max(playbackDurationRef.current, nativeEvent.durationMs);
+      playbackDurationRef.current = nextDuration;
+      setPlaybackDurationMs(nextDuration);
     }
-
-    playbackProgressRef.current = currentTimeMs;
-
-    // While actively playing, native currentPosition is unreliable on some devices.
-    // Use wall-clock progression for overlay timing and only trust native time when paused.
-    if (playbackPaused) {
-      playbackClockAnchorRef.current = null;
-      setPlaybackTimeMs(currentTimeMs);
-    }
+    setPlaybackTimeMs((previousMs) => {
+      if (Math.abs(currentTimeMs - previousMs) >= 30) {
+        return currentTimeMs;
+      }
+      return previousMs;
+    });
   };
 
   const onPlayerEnd = () => {
     setPlaybackPaused(true);
-    playbackClockAnchorRef.current = null;
-    if (playbackDurationMs > 0) {
-      setPlaybackTimeMs(playbackDurationMs);
-      return;
-    }
-    setPlaybackTimeMs(playbackProgressRef.current);
+    const finalTimeMs = Math.max(playbackDurationRef.current, latestProgressTimeRef.current);
+    setPlaybackTimeMs(finalTimeMs);
   };
 
   if (!analysis) {
@@ -594,22 +469,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
                 <Button
                   testID="video-analysis-playback-toggle"
                   mode="outlined"
-                  onPress={() =>
-                    setPlaybackPaused((paused) => {
-                      if (paused) {
-                        const startMs = Math.max(playbackTimeMs, playbackProgressRef.current);
-                        playbackClockAnchorRef.current = {
-                          wallMs: Date.now(),
-                          timeMs: startMs,
-                        };
-                        setPlaybackTimeMs(startMs);
-                      } else {
-                        playbackClockAnchorRef.current = null;
-                        setPlaybackTimeMs(playbackProgressRef.current);
-                      }
-                      return !paused;
-                    })
-                  }
+                  onPress={() => setPlaybackPaused((paused) => !paused)}
                 >
                   {playbackPaused ? 'Play' : 'Pause'}
                 </Button>
@@ -617,13 +477,6 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
                   Playback: {formatDuration(playbackTimeMs)} / {formatDuration(correctedPlaybackDurationMs)}
                 </Text>
                 <Text>{currentRep ? `Current Rep: ${currentRep.repIndex}` : 'Current Rep: -'}</Text>
-                <View testID="video-analysis-playback-debug" style={styles.playbackDebug}>
-                  <Text>Debug Native: {formatDuration(syncDebug.nativePlaybackTimeMs)} / {formatDuration(syncDebug.nativePlaybackDurationMs)}</Text>
-                  <Text>Debug Overlay: {formatDuration(syncDebug.overlayPlaybackTimeMs)} / {formatDuration(syncDebug.overlayPlaybackDurationMs)}</Text>
-                  <Text>Debug Analysis: {formatDuration(syncDebug.analysisTimeMs)} / {formatDuration(syncDebug.analysisDurationMs)}</Text>
-                  <Text>Debug Delta: {Math.round(syncDebug.timeDeltaMs)} ms</Text>
-                  <Text>Debug Progress: V {syncDebug.playbackProgressPercent.toFixed(1)}% | A {syncDebug.analysisProgressPercent.toFixed(1)}%</Text>
-                </View>
               </View>
             </>
           )}
@@ -726,9 +579,6 @@ const styles = StyleSheet.create({
   },
   playbackControls: {
     marginTop: 10,
-  },
-  playbackDebug: {
-    marginTop: 8,
   },
 });
 
