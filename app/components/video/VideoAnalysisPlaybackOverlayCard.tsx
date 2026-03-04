@@ -47,8 +47,23 @@ const findRepIndexForTimeMs = (segments: RepSegment[], timeMs: number): number |
   if (segments.length === 0) {
     return undefined;
   }
-  const activeSegment = segments.find((segment) => timeMs >= segment.startMs && timeMs <= segment.endMs);
-  return activeSegment?.repIndex;
+
+  let low = 0;
+  let high = segments.length - 1;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const segment = segments[middle];
+    if (timeMs < segment.startMs) {
+      high = middle - 1;
+      continue;
+    }
+    if (timeMs > segment.endMs) {
+      low = middle + 1;
+      continue;
+    }
+    return segment.repIndex;
+  }
+  return undefined;
 };
 
 const createThemedStyles = (theme: MD3Theme) =>
@@ -69,7 +84,10 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
 
   const playbackDurationRef = useRef(0);
   const latestProgressTimeRef = useRef(0);
+  const playbackTimeRef = useRef(0);
   const currentRepIndexRef = useRef<number | undefined>(undefined);
+  const playbackClockBaseTimeRef = useRef(0);
+  const playbackClockAnchorMsRef = useRef(0);
 
   const repSegments = result.repSegments;
   const timeRange = useMemo(() => getTimeRange(result.barPathSeries), [result.barPathSeries]);
@@ -115,6 +133,9 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       if (videoWidth > 0 && videoHeight > 0) {
         setPlaybackAspectRatio(videoWidth / videoHeight);
       }
+      if (playbackClockAnchorMsRef.current <= 0) {
+        playbackClockAnchorMsRef.current = Date.now();
+      }
     },
     [],
   );
@@ -131,6 +152,8 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
         return;
       }
       latestProgressTimeRef.current = currentTimeMs;
+      playbackClockBaseTimeRef.current = currentTimeMs;
+      playbackClockAnchorMsRef.current = Date.now();
 
       if (nativeEvent.durationMs > 0) {
         const nextDuration = Math.max(playbackDurationRef.current, nativeEvent.durationMs);
@@ -140,24 +163,54 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
         }
       }
 
-      setPlaybackTimeMs((previousMs) => {
-        if (previousMs === currentTimeMs) {
-          return previousMs;
-        }
-        return currentTimeMs;
-      });
-
-      updateCurrentRepForPlaybackTime(currentTimeMs);
+      if (playbackPaused) {
+        setPlaybackTimeMs((previousMs) => {
+          if (previousMs === currentTimeMs) {
+            return previousMs;
+          }
+          return currentTimeMs;
+        });
+        updateCurrentRepForPlaybackTime(currentTimeMs);
+      }
     },
-    [updateCurrentRepForPlaybackTime],
+    [playbackPaused, updateCurrentRepForPlaybackTime],
   );
 
   const onPlayerEnd = useCallback(() => {
     setPlaybackPaused(true);
     const finalTimeMs = Math.max(playbackDurationRef.current, latestProgressTimeRef.current);
+    playbackClockBaseTimeRef.current = finalTimeMs;
+    playbackClockAnchorMsRef.current = Date.now();
     setPlaybackTimeMs(finalTimeMs);
     updateCurrentRepForPlaybackTime(finalTimeMs);
   }, [updateCurrentRepForPlaybackTime]);
+
+  useEffect(() => {
+    playbackTimeRef.current = playbackTimeMs;
+  }, [playbackTimeMs]);
+
+  useEffect(() => {
+    if (playbackPaused) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const nowMs = Date.now();
+      const elapsedMs = Math.max(0, nowMs - playbackClockAnchorMsRef.current);
+      const estimatedTimeMs = playbackClockBaseTimeRef.current + elapsedMs;
+      const nextTimeMs = correctedPlaybackDurationMs > 0 ? Math.min(correctedPlaybackDurationMs, estimatedTimeMs) : estimatedTimeMs;
+
+      if (Math.abs(nextTimeMs - playbackTimeRef.current) < 80) {
+        return;
+      }
+
+      const roundedTimeMs = Math.round(nextTimeMs);
+      setPlaybackTimeMs(roundedTimeMs);
+      updateCurrentRepForPlaybackTime(roundedTimeMs);
+    }, 120);
+
+    return () => clearInterval(interval);
+  }, [correctedPlaybackDurationMs, playbackPaused, updateCurrentRepForPlaybackTime]);
 
   useEffect(() => {
     setPlaybackPaused(true);
@@ -167,7 +220,10 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     setCurrentRepIndex(undefined);
     playbackDurationRef.current = 0;
     latestProgressTimeRef.current = 0;
+    playbackTimeRef.current = 0;
     currentRepIndexRef.current = undefined;
+    playbackClockBaseTimeRef.current = 0;
+    playbackClockAnchorMsRef.current = Date.now();
   }, [localVideoPath, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx, result.barPathSeries, result.repSegments]);
 
   return (
@@ -192,7 +248,20 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       </View>
 
       <View style={styles.playbackControls}>
-        <Button testID="video-analysis-playback-toggle" mode="outlined" onPress={() => setPlaybackPaused((paused) => !paused)}>
+        <Button
+          testID="video-analysis-playback-toggle"
+          mode="outlined"
+          onPress={() =>
+            setPlaybackPaused((paused) => {
+              const nextPaused = !paused;
+              if (!nextPaused) {
+                playbackClockBaseTimeRef.current = Math.max(playbackTimeRef.current, latestProgressTimeRef.current);
+                playbackClockAnchorMsRef.current = Date.now();
+              }
+              return nextPaused;
+            })
+          }
+        >
           {playbackPaused ? 'Play' : 'Pause'}
         </Button>
         <Text testID="video-analysis-playback-time">

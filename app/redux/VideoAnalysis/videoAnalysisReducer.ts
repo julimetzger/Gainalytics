@@ -56,6 +56,7 @@ const videoAnalysisReducer = (state: NormalizedState<VideoAnalysis> = initialSta
             resultPath: action.resultPath,
             localVideoPath: action.localVideoPath ?? current.localVideoPath,
             status: VideoAnalysisStatus.DONE,
+            manualSeedFramePath: undefined,
             error: undefined,
           },
         },
@@ -75,6 +76,24 @@ const videoAnalysisReducer = (state: NormalizedState<VideoAnalysis> = initialSta
             ...current,
             workoutId: action.workoutId,
             exerciseId: action.exerciseId,
+            setIndex: action.setIndex,
+          },
+        },
+      };
+    }
+    case 'SET_VIDEO_ANALYSIS_MANUAL_SEED_FRAME_PATH': {
+      const current = state.byId[action.analysisId];
+      if (!current) {
+        return state;
+      }
+
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.analysisId]: {
+            ...current,
+            manualSeedFramePath: action.manualSeedFramePath,
           },
         },
       };

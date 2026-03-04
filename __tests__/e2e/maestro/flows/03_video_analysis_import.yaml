@@ -31,7 +31,7 @@ appId: com.powerliftingworkoutplanner
     commands:
       - tapOn: "Allow only while using the app"
 - extendedWaitUntil:
-    visible: "Analysis #1"
+    visible: "Analysis #[0-9]+"
     timeout: 30000
 - extendedWaitUntil:
     visible: "Status: done"

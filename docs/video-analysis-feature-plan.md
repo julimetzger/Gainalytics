@@ -1,141 +1,125 @@
-# Videoanalyse Squat Side (Android-first) mit E2E-Test pro User-Step inkl. Video-Overlay
+# Videoanalyse Squat Side (Android-first) - Aktualisierter Plan (Stand 2026-03-04)
 
 ## Kurzfassung
-Das Feature wird ohne Versionierung ausgeliefert und liefert v1 fuer Squat (Seitperspektive) echte Bar-Path-Analyse mit `average speed`, `lowest speed`, `rep time`.
-Zusaetzlich ist verbindlich: Bar Path im Video als Overlay sichtbar.
-E2E-Abdeckung erfolgt pro User-Flow-Step.
+Ziel bleibt eine robuste, genaue und performante Squat-Bar-Analyse mit Video-Overlay.
+Der aktuelle Umsetzungsgrad liegt weiterhin bei ca. 60-65%.
+Die Hauptluecke bleibt die Tracking-Qualitaet: aktuell noch Motion-Centroid statt echter Plate-Detection.
 
-## Was ist schon gemacht
-1. VideoAnalysis Datenmodell, Redux-Slice, Persistenz und Navigation sind integriert.
-2. Import-UI (Galerie + Emulator-Video), Status-Handling und Detailscreen existieren.
-3. Ergebnisdateien werden lokal gespeichert/gelesen.
-4. Android-Berechtigungen fuer Videozugriff sind gesetzt.
-5. Maestro-Flow ist in der Suite eingebunden.
-6. Analyse ist aktuell Stub-basiert (keine echte CV-Auswertung).
+## Umsetzungsgrad gegen den 10-Step-Plan
 
-## Was noch fehlt
-1. Echte CV-Pipeline (Detect/Track) statt Stub.
-2. Rep-Segmentierung.
-3. Metrikberechnung.
-4. Video-Overlay (Punkt + Path) im Detailscreen.
-5. Manual-Seed-Fallback.
-6. Workout/Set-Linking im UI.
-7. Vollstaendige Step-by-Step-E2E-Haertung.
+| Step | Status |
+|---|---|
+| Step 1 Result-Format/Statusmodell | weitgehend umgesetzt |
+| Step 2 Native Bridge | weitgehend umgesetzt |
+| Step 3 Bar-Path-Extraktion | teilweise umgesetzt |
+| Step 4 Rep-Segmentierung | teilweise bis gut umgesetzt |
+| Step 5 Metriken | umgesetzt |
+| Step 6 Video-Overlay | teilweise umgesetzt |
+| Step 7 Manual-Seed-Fallback | weitgehend umgesetzt |
+| Step 8 Fehlerfaelle | teilweise umgesetzt |
+| Step 9 Workout/Set-Linking | weitgehend umgesetzt |
+| Step 10 Delete/Persistenz | teilweise umgesetzt |
 
-## Festgelegte Entscheidungen
-1. Scope: Squat, Seitperspektive, Plate sichtbar.
-2. Plattform: Android-first.
-3. Videoquelle v1: Attach/Import zuerst.
-4. Tracking: Auto + Manual-Fallback.
-5. CV-Stack: Android Native mit MediaPipe/OpenCV.
-6. Metriken v1: Concentric-Speed + Rep-Time.
-7. Einheit v1: `px/s`; spaeter `m/s`.
-8. Keine Versionierung.
-9. Alt-Daten werden nicht migriert; manuell geloescht.
+## Was in diesem Branch zusaetzlich umgesetzt wurde
+1. Manual-Seed End-to-End:
+   1. Native API auf optionales `manualSeed` erweitert.
+   2. Native `needs_manual_seed` Fehlerpfad eingefuehrt (`ERR_VIDEO_ANALYSIS_NEEDS_MANUAL_SEED`).
+   3. Preview-Pfad wird bei Manual-Seed-Fehler uebergeben.
+   4. Detail-Screen hat Manual-Seed-UI (Tap auf Preview + Re-Run).
+2. Linking:
+   1. `LINK_VIDEO_ANALYSIS_TO_WORKOUT` verarbeitet jetzt `setIndex` end-to-end.
+   2. Link-UI im Detail-Screen hinzugefuegt.
+3. Performance/Rerender:
+   1. Native Progress Event Intervall vergroessert.
+   2. Playback-Zeit im JS zusaetzlich ueber lokale Clock fortgeschrieben.
+   3. Rep-Index wird nur bei Wechsel aktualisiert.
+4. Status/Typen:
+   1. `analysisMeta.manualSeedUsed` ergaenzt.
+   2. Redux-Action fuer `manualSeedFramePath` hinzugefuegt.
 
-## Implementierungsplan
+## Verbindlicher Scope v2 (unveraendert)
+1. Tracking-Ansatz: Plate-Tracker V2 (OpenCV-basiert, Android nativ).
+2. Overlay: nativer Punkt bleibt, aus dem zeitlich naechstgelegenen `barPathSeries`-Punkt.
+3. Performance: JS-Bridge entlasten, UI-Zeit und Rep-Anzeige nur bei echten Aenderungen updaten.
+4. Zielgenauigkeit: Median <= 10 px, P95 <= 20 px, Rep-Grenzen <= 120 ms.
+5. Plattform: Android-first, Squat Side View.
+6. API-Minimum: Anhebung auf minSdk 24 ist akzeptiert, falls notwendig.
 
-### Step 1: Finales Result-Format und Statusmodell
-1. `BarTrackingResult` final definieren: `barPathSeries`, `repSegments`, `repMetrics`, `units`, `analysisMeta`, `qualityFlags`.
-2. `VideoAnalysisStatus` um `needs_manual_seed` erweitern.
-3. Reducer/Selector/Detail-Parsing auf neues Format umstellen.
-4. E2E: `step-01-open-screen` (Einstieg + Empty State).
+## Implementierung (entscheidungsvollstaendig)
 
-### Step 2: Native Analyse-Bridge
-1. `VideoAnalysisModule` + `VideoAnalysisPackage` erstellen.
-2. In `MainApplication` registrieren.
-3. Native API: `analyzeSquatVideo(localVideoPath, analysisId, manualSeed?)`.
-4. E2E: `step-02-import-starts-processing`.
+### Phase 1: Tracking-Kern auf Plate-Tracker V2
+Status: offen (nur Vorarbeit/Seed-Anker vorhanden)
 
-### Step 3: Bar-Path-Extraktion
-1. Pose-ROI.
-2. Plate-Detection.
-3. Tracking + Re-Detect + Confidence/Outlier-Rejection.
-4. Nicht-leere `barPathSeries` schreiben.
-5. E2E: `step-03-analysis-done`.
+1. In `VideoAnalysisModule` Motion-Centroid durch Plate-Detection + temporales Tracking ersetzen.
+2. Detection-Pipeline: Vorverarbeitung, ROI, Kreis-/Ring-Kandidatensuche, Confidence-Score.
+3. Tracking-Pipeline: Praediktion, Gating, Re-Detect bei Confidence-Abfall.
+4. Outlier-Rejection: physikalisch unrealistische Spruenge verwerfen.
+5. Fallback-Regel: bei dauerhaft schwacher Confidence Status `needs_manual_seed` statt synthetischer Pfade.
 
-### Step 4: Rep-Segmentierung
-1. Vertikalsignal glaetten.
-2. Bottom/Top/Rep-Grenzen bestimmen.
-3. `repSegments` erzeugen.
-4. E2E: `step-04-rep-segments-visible`.
+### Phase 2: Manual-Seed-Fallback
+Status: weitgehend umgesetzt
 
-### Step 5: Metriken
-1. `averageConcentricSpeedPxPerS`.
-2. `lowestConcentricSpeedPxPerS`.
-3. `repTimeMs`.
-4. E2E: `step-05-metrics-visible`.
+1. Native API erweitert: `analyzeSquatVideo(localVideoPath, analysisId, manualSeed?)`.
+2. Detail-Screen: Seed-UI auf Preview-Frame (Tap auf Plate-Center).
+3. Re-Run derselben Analysis mit Seed.
+4. Ergebniskennzeichnung in `analysisMeta` und `qualityFlags`.
 
-### Step 6: Video-Overlay
-1. In `VideoAnalysisDetailTab` Video-Player + Overlay-Layer hinzufuegen.
-2. Overlay zeigt:
-   1. aktuellen Bar-Punkt (frame-/time-synchron),
-   2. bisherige Trajektorie als Linie,
-   3. optional Rep-Farbkodierung.
-3. UI-Steuerung:
-   1. `Show Overlay` Toggle,
-   2. Fallback-Hinweis bei fehlenden Punkten.
-4. Koordinatentransformation: gespeicherte Punkte -> Video-Viewport (Letterbox/Crop korrekt behandeln).
-5. E2E:
-   1. `step-06-overlay-toggle-visible`,
-   2. `step-07-overlay-updates-during-playback`.
+### Phase 3: Rep-Segmentierung und Metriken stabilisieren
+Status: offen
 
-### Step 7: Manual-Seed-Fallback
-1. Status `needs_manual_seed` im Detailscreen behandeln.
-2. Seed-UI (Tap Plate-Center) und Re-Run.
-3. E2E: `step-08-manual-seed-retry`.
+1. Segmentierung auf gefiltertem, confidence-gewichteten Y-Signal.
+2. Top/Bottom-Erkennung mit Hysterese und Mindestdauer.
+3. Bei inkonsistenter Segmentierung klarer Qualitaetsflag statt stiller Fallback-Segmente.
+4. Metriken nur aus validierten Rep-Segmenten berechnen.
 
-### Step 8: Fehlerfaelle
-1. Permission denied.
-2. Missing video.
-3. Analyze failed + Retry.
-4. E2E:
-   1. `step-09-permission-denied`,
-   2. `step-10-missing-video`,
-   3. `step-11-analysis-failed-retry`.
+### Phase 4: Bridge-Last und Re-Renders minimieren
+Status: teilweise umgesetzt
 
-### Step 9: Workout/Set-Linking
-1. `LINK_VIDEO_ANALYSIS_TO_WORKOUT` um `setIndex` erweitern.
-2. Link-UI im Detailscreen.
-3. E2E: `step-12-link-to-workout-set`.
+1. Overlay-Position vollstaendig nativ aus Player-Zeit berechnen.
+2. `onProgress` nur fuer Textanzeige mit grober Frequenz und Aenderungsfilter.
+3. Rep-Index nur bei Wechsel aktualisieren.
+4. JS-State-Updates bei identischem Wert unterdruecken.
 
-### Step 10: Delete + Persistenz
-1. Delete entfernt Redux + Artefakte.
-2. Persistenz ueber App-Restart.
-3. E2E:
-   1. `step-13-delete-analysis`,
-   2. `step-14-persistence-after-restart`.
+### Phase 5: Workout/Set-Linking vollstaendig machen
+Status: weitgehend umgesetzt
+
+1. `LINK_VIDEO_ANALYSIS_TO_WORKOUT` inkl. `setIndex` in Action, Reducer, Dispatch.
+2. Link-UI im Detailscreen: Workout + Set auswaehlbar/speicherbar.
+3. Link-Daten in Redux und Persistenz verifizieren.
+
+### Phase 6: E2E-Haertung abschliessen
+Status: offen
+
+1. Fehlende Maestro-Flows ergaenzen: 08 bis 14.
+2. Suite aktualisieren, sodass alle Step-Flows verpflichtend laufen.
+3. Retry-Szenario bei Analyze-Fehler explizit testen.
+4. Persistenz nach App-Restart und Delete-Artefakte testen.
 
 ## Oeffentliche API-/Typaenderungen
-1. `VideoAnalysisStatus`: `needs_manual_seed`.
-2. `VideoAnalysis`: `setIndex?`, `manualSeedFramePath?`, `analysisMeta?`.
-3. `BarTrackingResult` final mit `repSegments`, `repMetrics`, `units`, `analysisMeta`, `qualityFlags`.
-4. Native Bridge: `analyzeSquatVideo(...)`.
-5. Action `LINK_VIDEO_ANALYSIS_TO_WORKOUT` erweitert um `setIndex`.
+1. `VideoAnalysisModule.analyzeSquatVideo` hat optionales `manualSeed`.
+2. `VideoAnalysis` nutzt aktiv `setIndex` und `manualSeedFramePath`.
+3. `analysisMeta` enthaelt aktuell `manualSeedUsed`; weitere Tracker-Qualitaetsfelder sind noch offen (`trackerVersion`, `lostFrameRatio`, `medianConfidence`).
+4. `LINK_VIDEO_ANALYSIS_TO_WORKOUT` verarbeitet `setIndex` end-to-end.
 
-## Teststrategie
-1. Unit-Tests:
-   1. Reducer-Transitions inkl. `needs_manual_seed`.
-   2. Rep-Segmentierung und Metriken mit deterministischen Inputs.
-   3. Overlay-Koordinatentransformation (Video-Viewport-Mapping).
-2. Native Android Tests:
-   1. Detector/Tracker auf Golden-Videos.
-3. Maestro E2E:
-   1. 14 Flows, je User-Step ein Flow, inkl. Overlay-spezifischer Flows.
-4. `suite.yaml` enthaelt alle Step-Flows verpflichtend.
+## Testfaelle und Szenarien
+1. Unit: Reducer fuer `setIndex`, `needs_manual_seed`, Fehler-/Retry-Transitions.
+2. Unit: Segmentierung/Metriken mit deterministischen Signalen.
+3. Unit: Overlay-Mapping und nearest-point-Auswahl ueber Zeit.
+4. Native: Golden-Videos mit manueller Referenzspur fuer Pixel-Fehler.
+5. E2E: kompletter 14-Step-Flow inklusive Manual-Seed, Linking, Delete, Persistenz.
+6. Geraetetest: mindestens ein physisches Android-Geraet fuer Bridge-/UI-Latenz.
 
 ## Definition of Done
-1. Bar Path wird aus Emulator-Squatvideo zuverlaessig extrahiert.
-2. Mindestens eine Rep segmentiert.
-3. `average speed`, `lowest speed`, `rep time` sichtbar.
-4. Bar Path ist im Video als Overlay sichtbar und waehrend Playback synchron.
-5. Manual-Seed-Fallback funktioniert.
-6. Linking zu Workout/Set funktioniert.
-7. Delete und Persistenz funktionieren.
-8. Vollstaendige Step-E2E-Suite und Jest-Suite sind gruen.
+1. Plate-Tracking liefert auf Referenzvideos Zielgenauigkeit (Median/P95).
+2. Overlay laeuft synchron und ohne Nachlauf auf physischem Geraet.
+3. Rep-Erkennung ist stabil und zeitlich im Zielbereich.
+4. Manual-Seed funktioniert inklusive Re-Analyse.
+5. Workout/Set-Linking inklusive `setIndex` funktioniert.
+6. Delete entfernt Redux + Dateien; Persistenz ueber Restart ist korrekt.
+7. Jest + Maestro-Suite (alle 14 Steps) sind gruen.
 
 ## Annahmen und Defaults
-1. Android-first.
-2. v1-Speed in `px/s`.
-3. Keine Backward-Kompatibilitaet fuer alte Analyse-Ergebnisse.
-4. Alt-Daten werden manuell geloescht.
+1. v1-Einheit bleibt `px/s`.
+2. Keine automatische Migration alter Analyseergebnisse.
+3. Bei schlechter Qualitaet wird transparent `needs_manual_seed` gesetzt.
+4. Android-first bleibt bestehen; iOS ist nicht Teil dieses Schritts.

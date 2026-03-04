@@ -4,6 +4,9 @@ import {copyImportedVideoToLocalStorage} from './videoAnalysisStorage';
 import {analyzeSquatVideo} from './videoAnalysisNative';
 
 export const EMULATOR_SQUAT_VIDEO_PATH = '/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4';
+const MANUAL_SEED_REQUIRED_PREFIX = 'MANUAL_SEED_REQUIRED::';
+
+export type VideoAnalysisImportOutcome = 'done' | 'needs_manual_seed';
 
 interface ImportVideoAnalysisParams {
   analysisId: number;
@@ -11,7 +14,16 @@ interface ImportVideoAnalysisParams {
   addVideoAnalysis: (videoAnalysis: VideoAnalysis) => void;
   setVideoAnalysisStatus: (analysisId: number, status: VideoAnalysisStatus, error?: string) => void;
   attachVideoAnalysisResult: (analysisId: number, resultPath: string, localVideoPath?: string) => void;
+  setManualSeedFramePath: (analysisId: number, manualSeedFramePath?: string) => void;
 }
+
+const extractManualSeedFramePath = (message?: string) => {
+  if (!message || !message.startsWith(MANUAL_SEED_REQUIRED_PREFIX)) {
+    return undefined;
+  }
+  const path = message.substring(MANUAL_SEED_REQUIRED_PREFIX.length).trim();
+  return path.length > 0 ? path : undefined;
+};
 
 export const importVideoAnalysisFromSource = async ({
   analysisId,
@@ -19,7 +31,8 @@ export const importVideoAnalysisFromSource = async ({
   addVideoAnalysis,
   setVideoAnalysisStatus,
   attachVideoAnalysisResult,
-}: ImportVideoAnalysisParams) => {
+  setManualSeedFramePath,
+}: ImportVideoAnalysisParams): Promise<VideoAnalysisImportOutcome> => {
   addVideoAnalysis({
     id: analysisId,
     sourceUri,
@@ -38,7 +51,15 @@ export const importVideoAnalysisFromSource = async ({
     const localVideoPath = await copyImportedVideoToLocalStorage(sourceUri, analysisId);
     const resultPath = await analyzeSquatVideo(localVideoPath, analysisId);
     attachVideoAnalysisResult(analysisId, resultPath, localVideoPath);
+    return 'done';
   } catch (error) {
+    const nativeError = error as {code?: string; message?: string};
+    if (nativeError?.code === 'ERR_VIDEO_ANALYSIS_NEEDS_MANUAL_SEED') {
+      const manualSeedFramePath = extractManualSeedFramePath(nativeError.message);
+      setManualSeedFramePath(analysisId, manualSeedFramePath);
+      setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.NEEDS_MANUAL_SEED, 'Manual seed required');
+      return 'needs_manual_seed';
+    }
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.FAILED, 'Import or preprocessing failed');
     throw error;
   }

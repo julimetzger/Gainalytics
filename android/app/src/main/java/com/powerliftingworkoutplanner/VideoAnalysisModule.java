@@ -7,6 +7,7 @@ import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
+import com.facebook.react.bridge.ReadableMap;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -26,6 +27,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final int MAX_ANALYSIS_DIMENSION = 320;
     private static final int MOTION_THRESHOLD = 18;
     private static final int MIN_MOTION_PIXELS = 80;
+    private static final double MANUAL_SEED_REQUIRED_CONFIDENCE = 0.2;
     private static final double TRACKING_EMA_ALPHA = 0.45;
 
     public VideoAnalysisModule(ReactApplicationContext reactContext) {
@@ -38,7 +40,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void analyzeSquatVideo(String localVideoPath, int analysisId, Promise promise) {
+    public void analyzeSquatVideo(String localVideoPath, int analysisId, ReadableMap manualSeed, Promise promise) {
         try {
             File documentDir = getReactApplicationContext().getFilesDir();
             File rootDir = new File(documentDir, "video-analysis");
@@ -52,7 +54,13 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             String previewFramePath = writePreviewFrame(localVideoPath, analysisId, rootDir);
             long durationMs = extractDurationMs(localVideoPath);
             double sourceFps = extractSourceFps(localVideoPath);
-            TrackingSeries trackingSeries = extractMotionTrackedSeries(localVideoPath, durationMs);
+            ManualSeedPoint manualSeedPoint = buildManualSeedPoint(manualSeed);
+            TrackingSeries trackingSeries = extractMotionTrackedSeries(localVideoPath, durationMs, manualSeedPoint);
+            if (manualSeedPoint == null && (trackingSeries.usedFallback || trackingSeries.averageConfidence < MANUAL_SEED_REQUIRED_CONFIDENCE)) {
+                String manualSeedMessage = "MANUAL_SEED_REQUIRED::" + (previewFramePath == null ? "" : previewFramePath);
+                promise.reject("ERR_VIDEO_ANALYSIS_NEEDS_MANUAL_SEED", manualSeedMessage);
+                return;
+            }
             int estimatedRepCount = estimateRepCountFromSeries(trackingSeries.barPathSeries, durationMs, ANALYZED_FPS);
             JSONArray repSegments =
                 buildRepSegmentsFromSeries(trackingSeries.barPathSeries, ANALYZED_FPS, durationMs, estimatedRepCount);
@@ -73,6 +81,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             analysisMeta.put("averageConfidence", roundTo3(trackingSeries.averageConfidence));
             analysisMeta.put("trackingFrameWidthPx", trackingSeries.frameWidthPx);
             analysisMeta.put("trackingFrameHeightPx", trackingSeries.frameHeightPx);
+            analysisMeta.put("manualSeedUsed", manualSeedPoint != null);
             result.put("analysisMeta", analysisMeta);
 
             JSONArray qualityFlags = new JSONArray();
@@ -81,6 +90,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             qualityFlags.put(previewFramePath == null ? "PREVIEW_FRAME_MISSING" : "PREVIEW_FRAME_READY");
             qualityFlags.put("ESTIMATED_REPS_AUTOCORR:" + estimatedRepCount);
             qualityFlags.put("REP_ESTIMATION_DURATION_BASED:" + TARGET_REP_DURATION_MS + "ms");
+            if (manualSeedPoint != null) {
+                qualityFlags.put("MANUAL_SEED_USED");
+            }
             if (trackingSeries.usedFallback) {
                 qualityFlags.put("TRACKING_FALLBACK:" + trackingSeries.fallbackReason);
             }
@@ -178,7 +190,21 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         }
     }
 
-    private TrackingSeries extractMotionTrackedSeries(String localVideoPath, long durationMs) throws Exception {
+    private ManualSeedPoint buildManualSeedPoint(ReadableMap manualSeed) {
+        if (manualSeed == null) {
+            return null;
+        }
+        if (!manualSeed.hasKey("normalizedX") || !manualSeed.hasKey("normalizedY")) {
+            return null;
+        }
+
+        ManualSeedPoint point = new ManualSeedPoint();
+        point.normalizedX = clamp(manualSeed.getDouble("normalizedX"), 0.0, 1.0);
+        point.normalizedY = clamp(manualSeed.getDouble("normalizedY"), 0.0, 1.0);
+        return point;
+    }
+
+    private TrackingSeries extractMotionTrackedSeries(String localVideoPath, long durationMs, ManualSeedPoint manualSeedPoint) throws Exception {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {
             retriever.setDataSource(localVideoPath);
@@ -220,14 +246,28 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 double confidence;
 
                 if (previousGray == null || previousWidth != frameData.width || previousHeight != frameData.height) {
-                    trackedX = frameData.width / 2.0;
-                    trackedY = frameData.height * 0.45;
+                    if (manualSeedPoint != null) {
+                        trackedX = manualSeedPoint.normalizedX * frameData.width;
+                        trackedY = manualSeedPoint.normalizedY * frameData.height;
+                    } else {
+                        trackedX = frameData.width / 2.0;
+                        trackedY = frameData.height * 0.45;
+                    }
                     confidence = 0.05;
                 } else {
-                    int roiMinX = (int) Math.round(frameData.width * 0.1);
-                    int roiMaxX = (int) Math.round(frameData.width * 0.9);
-                    int roiMinY = (int) Math.round(frameData.height * 0.1);
-                    int roiMaxY = (int) Math.round(frameData.height * 0.75);
+                    double roiCenterX = !Double.isNaN(smoothedX) ? smoothedX : frameData.width * 0.5;
+                    double roiCenterY = !Double.isNaN(smoothedY) ? smoothedY : frameData.height * 0.45;
+                    if (manualSeedPoint != null && Double.isNaN(smoothedX)) {
+                        roiCenterX = manualSeedPoint.normalizedX * frameData.width;
+                        roiCenterY = manualSeedPoint.normalizedY * frameData.height;
+                    }
+
+                    int roiHalfWidth = (int) Math.round(frameData.width * (manualSeedPoint == null ? 0.4 : 0.22));
+                    int roiHalfHeight = (int) Math.round(frameData.height * (manualSeedPoint == null ? 0.33 : 0.2));
+                    int roiMinX = (int) clamp(Math.round(roiCenterX) - roiHalfWidth, 0, frameData.width - 1);
+                    int roiMaxX = (int) clamp(Math.round(roiCenterX) + roiHalfWidth, roiMinX + 1, frameData.width);
+                    int roiMinY = (int) clamp(Math.round(roiCenterY) - roiHalfHeight, 0, frameData.height - 1);
+                    int roiMaxY = (int) clamp(Math.round(roiCenterY) + roiHalfHeight, roiMinY + 1, frameData.height);
 
                     double weightedXSum = 0.0;
                     double weightedYSum = 0.0;
@@ -794,6 +834,11 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double x;
         double y;
         double confidence;
+    }
+
+    private static class ManualSeedPoint {
+        double normalizedX;
+        double normalizedY;
     }
 
     private static class TrackingSeries {

@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Image, LayoutChangeEvent, ScrollView, StyleSheet, View} from 'react-native';
 import RNFS from 'react-native-fs';
 import {Button, Card, Divider, MD3Theme, Text, useTheme} from 'react-native-paper';
@@ -8,6 +8,13 @@ import {BarPathPoint, BarTrackingResult, VideoAnalysisStatus} from '../../models
 import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
 import {getVideoAnalysisPreviewPath, readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
 import VideoAnalysisPlaybackOverlayCard from '../../components/video/VideoAnalysisPlaybackOverlayCard';
+import VideoAnalysisManualSeedCard from '../../components/video/VideoAnalysisManualSeedCard';
+import VideoAnalysisWorkoutLinkCard from '../../components/video/VideoAnalysisWorkoutLinkCard';
+import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
+import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
+import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
+import {dispatchLinkVideoAnalysisToWorkout} from '../../redux/VideoAnalysis/dispatch/dispatchLinkVideoAnalysisToWorkout';
+import {ManualSeedPayload, analyzeSquatVideo} from '../../utils/videoAnalysisNative';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
 
@@ -91,6 +98,10 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const analysis = useVideoAnalysis(route.params.analysisId);
+  const setVideoAnalysisStatus = dispatchSetVideoAnalysisStatus();
+  const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
+  const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
+  const linkVideoAnalysisToWorkout = dispatchLinkVideoAnalysisToWorkout();
   const [result, setResult] = useState<BarTrackingResult | undefined>();
   const [previewUri, setPreviewUri] = useState<string | undefined>();
   const [previewAspectRatio, setPreviewAspectRatio] = useState(DEFAULT_PREVIEW_ASPECT_RATIO);
@@ -98,6 +109,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const [overlayWidth, setOverlayWidth] = useState(0);
   const [overlayHeight, setOverlayHeight] = useState(0);
   const [showOverlay, setShowOverlay] = useState(true);
+  const [manualSeedRunning, setManualSeedRunning] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -132,7 +144,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         return;
       }
 
-      const previewPath = getVideoAnalysisPreviewPath(analysis.id);
+      const previewPath = analysis.manualSeedFramePath ?? getVideoAnalysisPreviewPath(analysis.id);
       const exists = await RNFS.exists(previewPath);
       if (active) {
         if (!exists) {
@@ -166,7 +178,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
     return () => {
       active = false;
     };
-  }, [analysis?.id, analysis?.resultPath]);
+  }, [analysis?.id, analysis?.manualSeedFramePath, analysis?.resultPath]);
 
   const overlayPoints = useMemo(
     () =>
@@ -186,6 +198,37 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
     setOverlayWidth(width);
     setOverlayHeight(height);
   };
+
+  const runManualSeedAnalysis = useCallback(
+    async (manualSeed: ManualSeedPayload) => {
+      if (!analysis?.id || !analysis.localVideoPath) {
+        return;
+      }
+
+      try {
+        setManualSeedRunning(true);
+        setVideoAnalysisStatus(analysis.id, VideoAnalysisStatus.PROCESSING);
+        const resultPath = await analyzeSquatVideo(analysis.localVideoPath, analysis.id, manualSeed);
+        attachVideoAnalysisResult(analysis.id, resultPath, analysis.localVideoPath);
+        setManualSeedFramePath(analysis.id, undefined);
+      } catch (error) {
+        setVideoAnalysisStatus(analysis.id, VideoAnalysisStatus.FAILED, 'Manual seed analysis failed');
+      } finally {
+        setManualSeedRunning(false);
+      }
+    },
+    [analysis?.id, analysis?.localVideoPath, attachVideoAnalysisResult, setManualSeedFramePath, setVideoAnalysisStatus],
+  );
+
+  const onLinkAnalysisToWorkout = useCallback(
+    (workoutId: number, exerciseId?: number, setIndex?: number) => {
+      if (!analysis?.id) {
+        return;
+      }
+      linkVideoAnalysisToWorkout(analysis.id, workoutId, exerciseId, setIndex);
+    },
+    [analysis?.id, linkVideoAnalysisToWorkout],
+  );
 
   if (!analysis) {
     return (
@@ -227,6 +270,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
               <Text>Source FPS: {result.analysisMeta.sourceFps}</Text>
               <Text>Analyzed FPS: {result.analysisMeta.analyzedFps}</Text>
               <Text>Average Confidence: {result.analysisMeta.averageConfidence.toFixed(2)}</Text>
+              <Text>Manual Seed Used: {result.analysisMeta.manualSeedUsed ? 'Yes' : 'No'}</Text>
               <Text>Quality Flags: {result.qualityFlags.join(', ') || 'None'}</Text>
 
               {result.repMetrics.map((repMetric) => (
@@ -258,6 +302,17 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           )}
         </Card.Content>
       </Card>
+
+      <VideoAnalysisWorkoutLinkCard linkedWorkoutId={analysis.workoutId} linkedSetIndex={analysis.setIndex} onLink={onLinkAnalysisToWorkout} />
+
+      {analysis.status === VideoAnalysisStatus.NEEDS_MANUAL_SEED && (
+        <VideoAnalysisManualSeedCard
+          previewUri={previewUri}
+          previewDimensions={previewDimensions}
+          busy={manualSeedRunning}
+          onRunManualSeedAnalysis={runManualSeedAnalysis}
+        />
+      )}
 
       <Divider style={styles.divider} />
 

@@ -101,4 +101,58 @@ describe('videoAnalysisReducer', () => {
       allIds: [],
     });
   });
+
+  it('should support workout linking with set index and manual seed frame path updates', () => {
+    const baseState = videoAnalysisReducer(undefined, {
+      type: 'ADD_VIDEO_ANALYSIS',
+      videoAnalysis: {
+        id: 5,
+        sourceUri: 'content://video.mp4',
+        createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        status: VideoAnalysisStatus.QUEUED,
+        videoMeta: {
+          durationMs: 0,
+          fps: 0,
+          width: 0,
+          height: 0,
+        },
+      },
+    });
+
+    const manualSeedState = videoAnalysisReducer(baseState, {
+      type: 'SET_VIDEO_ANALYSIS_MANUAL_SEED_FRAME_PATH',
+      analysisId: 5,
+      manualSeedFramePath: '/tmp/manual-seed.jpg',
+    });
+
+    const linkedState = videoAnalysisReducer(manualSeedState, {
+      type: 'LINK_VIDEO_ANALYSIS_TO_WORKOUT',
+      analysisId: 5,
+      workoutId: 42,
+      exerciseId: 11,
+      setIndex: 3,
+    });
+
+    expect(linkedState).toEqual({
+      byId: {
+        5: {
+          id: 5,
+          sourceUri: 'content://video.mp4',
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+          status: VideoAnalysisStatus.QUEUED,
+          videoMeta: {
+            durationMs: 0,
+            fps: 0,
+            width: 0,
+            height: 0,
+          },
+          manualSeedFramePath: '/tmp/manual-seed.jpg',
+          workoutId: 42,
+          exerciseId: 11,
+          setIndex: 3,
+        },
+      },
+      allIds: [5],
+    });
+  });
 });

@@ -61,6 +61,7 @@ export interface AnalysisMeta {
   averageConfidence: number;
   trackingFrameWidthPx?: number;
   trackingFrameHeightPx?: number;
+  manualSeedUsed?: boolean;
 }
 
 export interface BarTrackingResult {

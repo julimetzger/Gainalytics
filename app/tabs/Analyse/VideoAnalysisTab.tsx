@@ -9,6 +9,7 @@ import {dispatchAddVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispa
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {dispatchDeleteVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchDeleteVideoAnalysis';
+import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoReadPermission} from '../../utils/video-analysis-import';
@@ -30,6 +31,7 @@ const VideoAnalysisTab = () => {
   const setVideoAnalysisStatus = dispatchSetVideoAnalysisStatus();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
   const removeVideoAnalysis = dispatchDeleteVideoAnalysis();
+  const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const [importing, setImporting] = useState(false);
@@ -37,20 +39,30 @@ const VideoAnalysisTab = () => {
 
   const importFromSource = async (sourceUri: string) => {
     try {
-      await importVideoAnalysisFromSource({
+      const outcome = await importVideoAnalysisFromSource({
         analysisId: nextAnalysisId,
         sourceUri,
         addVideoAnalysis,
         setVideoAnalysisStatus,
         attachVideoAnalysisResult,
+        setManualSeedFramePath,
       });
 
-      Toast.show({
-        type: 'success',
-        text1: 'Video imported',
-        text2: 'Stub result generated. Native bar tracking will replace this next.',
-        position: 'top',
-      });
+      if (outcome === 'needs_manual_seed') {
+        Toast.show({
+          type: 'info',
+          text1: 'Manual seed required',
+          text2: 'Open the analysis detail and tap the plate center to continue.',
+          position: 'top',
+        });
+      } else {
+        Toast.show({
+          type: 'success',
+          text1: 'Video imported',
+          text2: 'Analysis completed.',
+          position: 'top',
+        });
+      }
     } catch (error) {
       Toast.show({
         type: 'error',
