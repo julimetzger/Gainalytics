@@ -54,6 +54,13 @@ export interface RepMetric {
   repTimeMs: number;
 }
 
+export interface DetectedCircle {
+  x: number;
+  y: number;
+  radius: number;
+  score?: number;
+}
+
 export interface AnalysisMeta {
   sourceFps: number;
   analyzedFps: number;
@@ -62,6 +69,7 @@ export interface AnalysisMeta {
   trackingFrameWidthPx?: number;
   trackingFrameHeightPx?: number;
   manualSeedUsed?: boolean;
+  detectedCirclesAtStart?: DetectedCircle[];
 }
 
 export interface BarTrackingResult {

@@ -30,16 +30,19 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final int TARGET_REP_DURATION_MS = 3750;
     private static final int MIN_REP_COUNT = 1;
     private static final int MAX_REP_COUNT = 12;
-    private static final int MAX_ANALYSIS_DIMENSION = 320;
+    private static final int MAX_ANALYSIS_DIMENSION = 560;
     private static final int MAX_TRACKING_SAMPLES = 180;
+    private static final int MAX_DEBUG_CIRCLES = 18;
     private static final int PLATE_SAMPLE_POINTS = 12;
-    private static final double PLATE_MIN_RADIUS_RATIO = 0.03;
-    private static final double PLATE_MAX_RADIUS_RATIO = 0.19;
+    private static final double PLATE_MIN_RADIUS_RATIO = 0.035;
+    private static final double PLATE_MAX_RADIUS_RATIO = 0.24;
     private static final double PLATE_MIN_SCORE = 0.2;
     private static final double HOUGH_DP = 1.2;
-    private static final double HOUGH_PARAM_1 = 130.0;
-    private static final double HOUGH_PARAM_2_WIDE = 17.0;
-    private static final double HOUGH_PARAM_2_LOCKED = 20.0;
+    private static final double HOUGH_PARAM_1 = 145.0;
+    private static final double HOUGH_PARAM_2_WIDE = 28.0;
+    private static final double HOUGH_PARAM_2_LOCKED = 32.0;
+    private static final double HOUGH_GLOBAL_PARAM_1 = 145.0;
+    private static final double HOUGH_GLOBAL_PARAM_2 = 30.0;
     private static final double MAX_TRACKING_SPEED_PX_PER_S = 220.0;
     private static final double MANUAL_SEED_REQUIRED_CONFIDENCE = 0.2;
     private static final double TRACKING_EMA_ALPHA = 0.45;
@@ -125,12 +128,13 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             JSONObject analysisMeta = new JSONObject();
             analysisMeta.put("sourceFps", roundTo3(sourceFps));
             analysisMeta.put("analyzedFps", ANALYZED_FPS);
-            analysisMeta.put("trackerVersion", "opencv-hough-v1");
+            analysisMeta.put("trackerVersion", "opencv-hough-v2");
             analysisMeta.put("frameCount", trackingSeries.frameCount);
             analysisMeta.put("averageConfidence", roundTo3(trackingSeries.averageConfidence));
             analysisMeta.put("trackingFrameWidthPx", trackingSeries.frameWidthPx);
             analysisMeta.put("trackingFrameHeightPx", trackingSeries.frameHeightPx);
             analysisMeta.put("manualSeedUsed", manualSeedPoint != null);
+            analysisMeta.put("detectedCirclesAtStart", trackingSeries.detectedCirclesAtStart);
             result.put("analysisMeta", analysisMeta);
 
             JSONArray qualityFlags = new JSONArray();
@@ -280,6 +284,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             int consecutiveMisses = 0;
             int consecutiveStaticLockFrames = 0;
             int previousTimeMs = -1;
+            JSONArray detectedCirclesAtStart = new JSONArray();
 
             for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
                 int timeMs = sampleCount <= 1
@@ -328,7 +333,22 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                     int[] edge = buildEdgeMagnitude(frameData.gray, frameData.width, frameData.height);
                     boolean useWideSearch = !hasTrackingLock || consecutiveMisses > 1 || (manualSeedPoint != null && samples.isEmpty());
                     PlateDetection detection =
-                        detectPlateCenterWithHough(frameData, edge, motion, predictedX, predictedY, trackedRadius, useWideSearch);
+                        detectPlateCenterWithHough(
+                            frameData,
+                            edge,
+                            motion,
+                            predictedX,
+                            predictedY,
+                            trackedRadius,
+                            useWideSearch,
+                            false
+                        );
+                    if (sampleIndex == 0 && detectedCirclesAtStart.length() == 0) {
+                        double hintX = detection.found ? detection.x : predictedX;
+                        double hintY = detection.found ? detection.y : predictedY;
+                        double hintRadius = detection.found ? detection.radius : trackedRadius;
+                        detectedCirclesAtStart = detectInitialFrameCircles(frameData, edge, hintX, hintY, hintRadius);
+                    }
                     boolean detectionAccepted = detection.found;
                     if (detectionAccepted && !Double.isNaN(filteredX) && !Double.isNaN(filteredY)) {
                         double jumpDistance = Math.hypot(detection.x - predictedX, detection.y - predictedY);
@@ -491,6 +511,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             series.averageConfidence = confidenceSum / samples.size();
             series.frameWidthPx = trackingWidth;
             series.frameHeightPx = trackingHeight;
+            series.detectedCirclesAtStart = detectedCirclesAtStart;
             series.usedFallback = false;
             series.fallbackReason = "";
             return series;
@@ -514,6 +535,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         series.averageConfidence = calculateAverageConfidence(series.confidenceSeries);
         series.frameWidthPx = trackingWidth > 0 ? trackingWidth : MAX_ANALYSIS_DIMENSION;
         series.frameHeightPx = trackingHeight > 0 ? trackingHeight : (int) Math.round(MAX_ANALYSIS_DIMENSION * (9.0 / 16.0));
+        series.detectedCirclesAtStart = new JSONArray();
         series.usedFallback = true;
         series.fallbackReason = reason;
         return series;
@@ -618,7 +640,8 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double predictedX,
         double predictedY,
         double predictedRadius,
-        boolean useWideSearch
+        boolean useWideSearch,
+        boolean captureCandidateCircles
     ) {
         int width = frameData.width;
         int height = frameData.height;
@@ -670,20 +693,24 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         }
 
         Mat roiGray = null;
+        Mat roiFiltered = null;
         Mat circles = null;
         double bestScore = -Double.MAX_VALUE;
         double bestX = safePredictedX;
         double bestY = safePredictedY;
         int bestRadius = minRadius;
         double bestMotionRing = 0.0;
+        List<CircleCandidate> candidateCircles = captureCandidateCircles ? new ArrayList<>() : null;
 
         try {
             roiGray = frameData.grayMat.submat(roiRect);
+            roiFiltered = new Mat();
+            Imgproc.medianBlur(roiGray, roiFiltered, 5);
             circles = new Mat();
 
-            double minDist = Math.max(8.0, minRadius * 1.6);
+            double minDist = Math.max(10.0, minRadius * 1.8);
             Imgproc.HoughCircles(
-                roiGray,
+                roiFiltered,
                 circles,
                 Imgproc.HOUGH_GRADIENT,
                 HOUGH_DP,
@@ -708,6 +735,15 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 int centerX = clampInt((int) Math.round(candidate[0] + roiRect.x), 0, width - 1);
                 int centerY = clampInt((int) Math.round(candidate[1] + roiRect.y), 0, height - 1);
                 int radius = clampInt((int) Math.round(candidate[2]), minRadius, maxRadius);
+                CircleCandidate circleCandidate = null;
+                if (captureCandidateCircles && candidateCircles != null && candidateCircles.size() < MAX_DEBUG_CIRCLES) {
+                    circleCandidate = new CircleCandidate();
+                    circleCandidate.x = centerX;
+                    circleCandidate.y = centerY;
+                    circleCandidate.radius = radius;
+                    circleCandidate.score = Double.NaN;
+                    candidateCircles.add(circleCandidate);
+                }
                 int expanded = radius + 3;
                 if (centerX - expanded < 1 || centerX + expanded >= width - 1 || centerY - expanded < 1 || centerY + expanded >= height - 1) {
                     continue;
@@ -755,6 +791,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                     - (centerEdge / 255.0) * 0.14
                     - distancePenalty
                     - radiusPenalty;
+                if (circleCandidate != null) {
+                    circleCandidate.score = score;
+                }
                 if (score > bestScore) {
                     bestScore = score;
                     bestX = centerX;
@@ -770,6 +809,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             if (roiGray != null) {
                 roiGray.release();
             }
+            if (roiFiltered != null) {
+                roiFiltered.release();
+            }
         }
 
         PlateDetection detection = new PlateDetection();
@@ -782,7 +824,175 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         detection.confidence = detection.found
             ? clamp(0.08 + ((bestScore - PLATE_MIN_SCORE) / 0.52), 0.08, 1.0)
             : clamp(bestScore, 0.02, 0.08);
+        detection.candidateCircles = candidateCircles;
         return detection;
+    }
+
+    private JSONArray detectInitialFrameCircles(FrameData frameData, int[] edge, double hintX, double hintY, double hintRadius) throws Exception {
+        JSONArray circlesArray = new JSONArray();
+        if (frameData.grayMat == null || frameData.grayMat.empty() || edge == null || edge.length == 0) {
+            return circlesArray;
+        }
+
+        int minDimension = Math.min(frameData.width, frameData.height);
+        int minRadius = Math.max(8, (int) Math.round(minDimension * PLATE_MIN_RADIUS_RATIO));
+        int maxRadius = Math.max(minRadius + 2, (int) Math.round(minDimension * PLATE_MAX_RADIUS_RATIO));
+        boolean hasHint = !Double.isNaN(hintX) && !Double.isNaN(hintY) && !Double.isNaN(hintRadius) && hintRadius >= minRadius;
+        int hintRadiusPx = hasHint ? clampInt((int) Math.round(hintRadius), minRadius, maxRadius) : -1;
+        if (hasHint) {
+            int hintedMinRadius = clampInt((int) Math.round(hintRadiusPx * 0.66), minRadius, maxRadius);
+            int hintedMaxRadius = clampInt((int) Math.round(hintRadiusPx * 1.42), minRadius, maxRadius);
+            if (hintedMaxRadius <= hintedMinRadius) {
+                hintedMaxRadius = Math.min(maxRadius, hintedMinRadius + 2);
+            }
+            minRadius = hintedMinRadius;
+            maxRadius = hintedMaxRadius;
+        }
+        int globalMinX = clampInt((int) Math.round(frameData.width * TRACKING_MIN_CENTER_X_RATIO), minRadius, frameData.width - minRadius - 1);
+        int globalMaxX = clampInt((int) Math.round(frameData.width * TRACKING_MAX_CENTER_X_RATIO), globalMinX + 1, frameData.width - minRadius - 1);
+        int globalMaxY = clampInt((int) Math.round(frameData.height * TRACKING_MAX_CENTER_Y_RATIO), minRadius + 1, frameData.height - minRadius - 1);
+        int hintCenterX = hasHint ? clampInt((int) Math.round(hintX), 0, frameData.width - 1) : -1;
+        int hintCenterY = hasHint ? clampInt((int) Math.round(hintY), 0, frameData.height - 1) : -1;
+        int hintXBand = hasHint ? Math.max(20, (int) Math.round(hintRadiusPx * 3.4)) : 0;
+        int hintYBand = hasHint ? Math.max(16, (int) Math.round(hintRadiusPx * 2.6)) : 0;
+        double minDist = hasHint
+            ? Math.max(12.0, hintRadiusPx * 1.7)
+            : Math.max(14.0, minDimension / 8.0);
+
+        Mat blurred = new Mat();
+        Mat circles = new Mat();
+        try {
+            frameData.grayMat.copyTo(blurred);
+            Imgproc.medianBlur(blurred, blurred, 5);
+            Imgproc.HoughCircles(
+                blurred,
+                circles,
+                Imgproc.HOUGH_GRADIENT,
+                HOUGH_DP,
+                minDist,
+                HOUGH_GLOBAL_PARAM_1,
+                HOUGH_GLOBAL_PARAM_2,
+                minRadius,
+                maxRadius
+            );
+            if (circles.empty() || circles.cols() <= 0) {
+                return circlesArray;
+            }
+
+            List<CircleCandidate> rankedCandidates = new ArrayList<>();
+            int circleCount = circles.cols();
+            for (int index = 0; index < circleCount; index++) {
+                double[] candidate = circles.get(0, index);
+                if (candidate == null || candidate.length < 3) {
+                    continue;
+                }
+
+                int centerX = clampInt((int) Math.round(candidate[0]), 0, frameData.width - 1);
+                int centerY = clampInt((int) Math.round(candidate[1]), 0, frameData.height - 1);
+                int radius = clampInt((int) Math.round(candidate[2]), minRadius, maxRadius);
+                if (centerX < globalMinX || centerX > globalMaxX || centerY < minRadius || centerY > globalMaxY) {
+                    continue;
+                }
+                if (hasHint && (Math.abs(centerX - hintCenterX) > hintXBand || Math.abs(centerY - hintCenterY) > hintYBand)) {
+                    continue;
+                }
+                int expanded = radius + 3;
+                if (
+                    centerX - expanded < 1 ||
+                    centerX + expanded >= frameData.width - 1 ||
+                    centerY - expanded < 1 ||
+                    centerY + expanded >= frameData.height - 1
+                ) {
+                    continue;
+                }
+
+                CircleStats ringEdgeStats = sampleCircleStats(edge, frameData.width, frameData.height, centerX, centerY, radius);
+                double ringEdge = ringEdgeStats.mean;
+                if (ringEdge < 12.0) {
+                    continue;
+                }
+                double innerEdge = sampleCircleAverage(edge, frameData.width, frameData.height, centerX, centerY, Math.max(2, radius - 2));
+                double outerEdge = sampleCircleAverage(edge, frameData.width, frameData.height, centerX, centerY, radius + 2);
+                double centerEdge = sampleCircleAverage(edge, frameData.width, frameData.height, centerX, centerY, Math.max(2, radius / 3));
+                double edgePeak = ringEdge - ((innerEdge + outerEdge) * 0.5);
+                if (edgePeak < 4.0) {
+                    continue;
+                }
+
+                double ringUniformity = clamp(1.0 - (ringEdgeStats.stdDev / (ringEdge + 24.0)), 0.0, 1.0);
+                double score = (ringEdge / 255.0) * 0.55
+                    + clamp(edgePeak / 255.0, 0.0, 1.0) * 0.30
+                    + ringUniformity * 0.20
+                    - (centerEdge / 255.0) * 0.20;
+                if (score < 0.15) {
+                    continue;
+                }
+
+                CircleCandidate circleCandidate = new CircleCandidate();
+                circleCandidate.x = centerX;
+                circleCandidate.y = centerY;
+                circleCandidate.radius = radius;
+                circleCandidate.score = score;
+                rankedCandidates.add(circleCandidate);
+            }
+
+            rankedCandidates.sort((left, right) -> Double.compare(right.score, left.score));
+            List<CircleCandidate> filteredCandidates = new ArrayList<>();
+            for (CircleCandidate candidate : rankedCandidates) {
+                boolean overlaps = false;
+                for (CircleCandidate kept : filteredCandidates) {
+                    double minDistance = Math.max(6.0, Math.min(candidate.radius, kept.radius) * 0.9);
+                    if (Math.hypot(candidate.x - kept.x, candidate.y - kept.y) < minDistance) {
+                        overlaps = true;
+                        break;
+                    }
+                }
+                if (overlaps) {
+                    continue;
+                }
+                filteredCandidates.add(candidate);
+                if (filteredCandidates.size() >= MAX_DEBUG_CIRCLES) {
+                    break;
+                }
+            }
+
+            double referenceRadius = Double.NaN;
+            if (hasHint) {
+                referenceRadius = hintRadiusPx;
+            } else if (!filteredCandidates.isEmpty()) {
+                double strongestScore = filteredCandidates.get(0).score;
+                for (CircleCandidate candidate : filteredCandidates) {
+                    if (candidate.score < (strongestScore * 0.85)) {
+                        break;
+                    }
+                    referenceRadius = Double.isNaN(referenceRadius)
+                        ? candidate.radius
+                        : Math.max(referenceRadius, candidate.radius);
+                }
+                if (Double.isNaN(referenceRadius)) {
+                    referenceRadius = filteredCandidates.get(0).radius;
+                }
+            }
+            for (CircleCandidate circle : filteredCandidates) {
+                if (!Double.isNaN(referenceRadius)) {
+                    double minAllowedRadius = referenceRadius * 0.66;
+                    double maxAllowedRadius = referenceRadius * 1.38;
+                    if (circle.radius < minAllowedRadius || circle.radius > maxAllowedRadius) {
+                        continue;
+                    }
+                }
+                JSONObject circleObject = new JSONObject();
+                circleObject.put("x", roundTo3(circle.x));
+                circleObject.put("y", roundTo3(circle.y));
+                circleObject.put("radius", roundTo3(circle.radius));
+                circleObject.put("score", roundTo3(circle.score));
+                circlesArray.put(circleObject);
+            }
+            return circlesArray;
+        } finally {
+            blurred.release();
+            circles.release();
+        }
     }
 
     private CircleStats sampleCircleStats(int[] source, int width, int height, int centerX, int centerY, int radius) {
@@ -1266,11 +1476,19 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double score;
         double motionScore;
         double confidence;
+        List<CircleCandidate> candidateCircles;
     }
 
     private static class CircleStats {
         double mean;
         double stdDev;
+    }
+
+    private static class CircleCandidate {
+        double x;
+        double y;
+        double radius;
+        double score;
     }
 
     private static class TrackingSeries {
@@ -1280,6 +1498,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double averageConfidence;
         int frameWidthPx;
         int frameHeightPx;
+        JSONArray detectedCirclesAtStart;
         boolean usedFallback;
         String fallbackReason;
     }

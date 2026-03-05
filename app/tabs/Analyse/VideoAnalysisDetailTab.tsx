@@ -4,7 +4,7 @@ import RNFS from 'react-native-fs';
 import {Button, Card, Divider, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
-import {BarPathPoint, BarTrackingResult, VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
+import {BarPathPoint, BarTrackingResult, DetectedCircle, VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
 import {getVideoAnalysisPreviewPath, readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
 import VideoAnalysisPlaybackOverlayCard from '../../components/video/VideoAnalysisPlaybackOverlayCard';
@@ -22,6 +22,13 @@ interface OverlayPoint {
   key: string;
   x: number;
   y: number;
+}
+
+interface OverlayCircle {
+  key: string;
+  x: number;
+  y: number;
+  radius: number;
 }
 
 interface PreviewDimensions {
@@ -78,6 +85,45 @@ const mapPointsToOverlay = (
   }));
 };
 
+const mapCirclesToOverlay = (
+  circles: DetectedCircle[],
+  overlayWidth: number,
+  overlayHeight: number,
+  previewDimensions: PreviewDimensions,
+  trackingFrameWidthPx?: number,
+  trackingFrameHeightPx?: number,
+): OverlayCircle[] => {
+  if (
+    circles.length === 0 ||
+    overlayWidth <= 0 ||
+    overlayHeight <= 0 ||
+    previewDimensions.width <= 0 ||
+    previewDimensions.height <= 0 ||
+    !trackingFrameWidthPx ||
+    !trackingFrameHeightPx ||
+    trackingFrameWidthPx <= 0 ||
+    trackingFrameHeightPx <= 0
+  ) {
+    return [];
+  }
+
+  const imageScale = Math.min(overlayWidth / previewDimensions.width, overlayHeight / previewDimensions.height);
+  const renderedWidth = previewDimensions.width * imageScale;
+  const renderedHeight = previewDimensions.height * imageScale;
+  const offsetX = (overlayWidth - renderedWidth) / 2;
+  const offsetY = (overlayHeight - renderedHeight) / 2;
+  const xScale = (previewDimensions.width / trackingFrameWidthPx) * imageScale;
+  const yScale = (previewDimensions.height / trackingFrameHeightPx) * imageScale;
+  const radiusScale = (xScale + yScale) / 2;
+
+  return circles.map((circle, index) => ({
+    key: `circle-${index}`,
+    x: offsetX + circle.x * xScale,
+    y: offsetY + circle.y * yScale,
+    radius: Math.max(1, circle.radius * radiusScale),
+  }));
+};
+
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
     background: {
@@ -91,6 +137,9 @@ const createThemedStyles = (theme: MD3Theme) =>
     },
     overlayPoint: {
       backgroundColor: theme.colors.primary,
+    },
+    overlayCircle: {
+      borderColor: theme.colors.tertiary,
     },
   });
 
@@ -192,6 +241,25 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       ),
     [previewDimensions, result?.analysisMeta.trackingFrameHeightPx, result?.analysisMeta.trackingFrameWidthPx, result?.barPathSeries, overlayHeight, overlayWidth],
   );
+  const overlayCircles = useMemo(
+    () =>
+      mapCirclesToOverlay(
+        result?.analysisMeta.detectedCirclesAtStart ?? [],
+        overlayWidth,
+        overlayHeight,
+        previewDimensions,
+        result?.analysisMeta.trackingFrameWidthPx,
+        result?.analysisMeta.trackingFrameHeightPx,
+      ),
+    [
+      overlayHeight,
+      overlayWidth,
+      previewDimensions,
+      result?.analysisMeta.detectedCirclesAtStart,
+      result?.analysisMeta.trackingFrameHeightPx,
+      result?.analysisMeta.trackingFrameWidthPx,
+    ],
+  );
 
   const onOverlayLayout = (event: LayoutChangeEvent) => {
     const {width, height} = event.nativeEvent.layout;
@@ -271,6 +339,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
               <Text>Analyzed FPS: {result.analysisMeta.analyzedFps}</Text>
               <Text>Average Confidence: {result.analysisMeta.averageConfidence.toFixed(2)}</Text>
               <Text>Manual Seed Used: {result.analysisMeta.manualSeedUsed ? 'Yes' : 'No'}</Text>
+              <Text>Detected Circles @ t=0: {result.analysisMeta.detectedCirclesAtStart?.length ?? 0}</Text>
               <Text>Quality Flags: {result.qualityFlags.join(', ') || 'None'}</Text>
 
               {result.repMetrics.map((repMetric) => (
@@ -333,6 +402,22 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
                 <Image source={{uri: previewUri}} style={styles.previewImage} resizeMode="contain" />
                 {showOverlay && (
                   <View pointerEvents="none" style={styles.overlayLayer}>
+                    {overlayCircles.map((circle, index) => (
+                      <View
+                        key={circle.key}
+                        testID={index === 0 ? 'video-analysis-overlay-first-circle' : undefined}
+                        style={[
+                          styles.overlayCircle,
+                          themedStyles.overlayCircle,
+                          {
+                            left: circle.x - circle.radius,
+                            top: circle.y - circle.radius,
+                            width: circle.radius * 2,
+                            height: circle.radius * 2,
+                          },
+                        ]}
+                      />
+                    ))}
                     {overlayPoints.map((point, index) => (
                       <View
                         key={point.key}
@@ -395,6 +480,11 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
+  },
+  overlayCircle: {
+    position: 'absolute',
+    borderWidth: 1.5,
+    borderRadius: 999,
   },
   overlayToggle: {
     marginTop: 10,
