@@ -9,6 +9,12 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.Mat;
+import org.opencv.core.Rect;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -26,19 +32,27 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final int MAX_REP_COUNT = 12;
     private static final int MAX_ANALYSIS_DIMENSION = 320;
     private static final int MAX_TRACKING_SAMPLES = 180;
-    private static final int PLATE_CENTER_STEP_PX = 4;
-    private static final int PLATE_RADIUS_STEP_PX = 2;
     private static final int PLATE_SAMPLE_POINTS = 12;
-    private static final double PLATE_MIN_RADIUS_RATIO = 0.018;
-    private static final double PLATE_MAX_RADIUS_RATIO = 0.075;
-    private static final double PLATE_MIN_SCORE = 0.16;
+    private static final double PLATE_MIN_RADIUS_RATIO = 0.03;
+    private static final double PLATE_MAX_RADIUS_RATIO = 0.19;
+    private static final double PLATE_MIN_SCORE = 0.2;
+    private static final double HOUGH_DP = 1.2;
+    private static final double HOUGH_PARAM_1 = 130.0;
+    private static final double HOUGH_PARAM_2_WIDE = 17.0;
+    private static final double HOUGH_PARAM_2_LOCKED = 20.0;
     private static final double MAX_TRACKING_SPEED_PX_PER_S = 220.0;
     private static final double MANUAL_SEED_REQUIRED_CONFIDENCE = 0.2;
     private static final double TRACKING_EMA_ALPHA = 0.45;
     private static final int TRACKING_LOCK_HITS = 2;
     private static final int TRACKING_UNLOCK_MISSES = 6;
+    private static final int TRACKING_STATIC_UNLOCK_FRAMES = 6;
+    private static final double TRACKING_MIN_CENTER_X_RATIO = 0.08;
+    private static final double TRACKING_MAX_CENTER_X_RATIO = 0.78;
+    private static final double TRACKING_MAX_CENTER_Y_RATIO = 0.56;
     private static final double[] PLATE_SAMPLE_COS = new double[PLATE_SAMPLE_POINTS];
     private static final double[] PLATE_SAMPLE_SIN = new double[PLATE_SAMPLE_POINTS];
+    private static final Object OPEN_CV_LOCK = new Object();
+    private static volatile boolean openCvReady = false;
 
     static {
         for (int index = 0; index < PLATE_SAMPLE_POINTS; index++) {
@@ -57,9 +71,25 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         return "VideoAnalysis";
     }
 
+    private void ensureOpenCvReady() {
+        if (openCvReady) {
+            return;
+        }
+        synchronized (OPEN_CV_LOCK) {
+            if (openCvReady) {
+                return;
+            }
+            if (!OpenCVLoader.initDebug()) {
+                throw new IllegalStateException("OpenCV initialization failed");
+            }
+            openCvReady = true;
+        }
+    }
+
     @ReactMethod
     public void analyzeSquatVideo(String localVideoPath, int analysisId, ReadableMap manualSeed, Promise promise) {
         try {
+            ensureOpenCvReady();
             File documentDir = getReactApplicationContext().getFilesDir();
             File rootDir = new File(documentDir, "video-analysis");
             File resultsDir = new File(rootDir, "results");
@@ -95,6 +125,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             JSONObject analysisMeta = new JSONObject();
             analysisMeta.put("sourceFps", roundTo3(sourceFps));
             analysisMeta.put("analyzedFps", ANALYZED_FPS);
+            analysisMeta.put("trackerVersion", "opencv-hough-v1");
             analysisMeta.put("frameCount", trackingSeries.frameCount);
             analysisMeta.put("averageConfidence", roundTo3(trackingSeries.averageConfidence));
             analysisMeta.put("trackingFrameWidthPx", trackingSeries.frameWidthPx);
@@ -104,6 +135,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
 
             JSONArray qualityFlags = new JSONArray();
             qualityFlags.put("ANALYSIS_NATIVE_PLATE_TRACKING_V2");
+            qualityFlags.put("ANALYSIS_NATIVE_OPENCV_HOUGH_CIRCLES");
             qualityFlags.put("SOURCE_VIDEO:" + localVideoPath);
             qualityFlags.put(previewFramePath == null ? "PREVIEW_FRAME_MISSING" : "PREVIEW_FRAME_READY");
             qualityFlags.put("ESTIMATED_REPS_AUTOCORR:" + estimatedRepCount);
@@ -238,12 +270,15 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             int[] previousGray = null;
             double filteredX = Double.NaN;
             double filteredY = Double.NaN;
+            double previousFilteredY = Double.NaN;
+            double anchorX = Double.NaN;
             double velocityX = 0.0;
             double velocityY = 0.0;
             double trackedRadius = Double.NaN;
             boolean hasTrackingLock = manualSeedPoint != null;
             int consecutiveHits = 0;
             int consecutiveMisses = 0;
+            int consecutiveStaticLockFrames = 0;
             int previousTimeMs = -1;
 
             for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
@@ -260,126 +295,171 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 if (frameData == null) {
                     continue;
                 }
+                try {
+                    trackingWidth = frameData.width;
+                    trackingHeight = frameData.height;
+                    int[] motion = buildMotionMagnitude(frameData.gray, previousGray);
+                    previousGray = frameData.gray;
 
-                trackingWidth = frameData.width;
-                trackingHeight = frameData.height;
-                int[] motion = buildMotionMagnitude(frameData.gray, previousGray);
-                previousGray = frameData.gray;
+                    double dtSeconds = 1.0 / ANALYZED_FPS;
+                    if (previousTimeMs >= 0 && timeMs > previousTimeMs) {
+                        dtSeconds = Math.max(0.001, (timeMs - previousTimeMs) / 1000.0);
+                    }
 
-                double dtSeconds = 1.0 / ANALYZED_FPS;
-                if (previousTimeMs >= 0 && timeMs > previousTimeMs) {
-                    dtSeconds = Math.max(0.001, (timeMs - previousTimeMs) / 1000.0);
-                }
-
-                double predictedX = filteredX;
-                double predictedY = filteredY;
-                if (Double.isNaN(predictedX) || Double.isNaN(predictedY)) {
-                    if (manualSeedPoint != null) {
-                        predictedX = manualSeedPoint.normalizedX * frameData.width;
-                        predictedY = manualSeedPoint.normalizedY * frameData.height;
+                    double predictedX = filteredX;
+                    double predictedY = filteredY;
+                    if (Double.isNaN(predictedX) || Double.isNaN(predictedY)) {
+                        if (manualSeedPoint != null) {
+                            predictedX = manualSeedPoint.normalizedX * frameData.width;
+                            predictedY = manualSeedPoint.normalizedY * frameData.height;
+                        } else {
+                            predictedX = frameData.width * 0.5;
+                            predictedY = frameData.height * 0.45;
+                        }
                     } else {
-                        predictedX = frameData.width * 0.5;
-                        predictedY = frameData.height * 0.45;
+                        predictedX += velocityX * dtSeconds;
+                        predictedY += velocityY * dtSeconds;
                     }
-                } else {
-                    predictedX += velocityX * dtSeconds;
-                    predictedY += velocityY * dtSeconds;
-                }
-
-                int[] edge = buildEdgeMagnitude(frameData.gray, frameData.width, frameData.height);
-                boolean useWideSearch = !hasTrackingLock || consecutiveMisses > 1 || (manualSeedPoint != null && samples.isEmpty());
-                PlateDetection detection = detectPlateCenter(frameData, edge, motion, predictedX, predictedY, trackedRadius, useWideSearch);
-                boolean detectionAccepted = detection.found;
-                if (detectionAccepted && !Double.isNaN(filteredX) && !Double.isNaN(filteredY)) {
-                    double jumpDistance = Math.hypot(detection.x - predictedX, detection.y - predictedY);
-                    double speedMagnitude = Math.hypot(velocityX, velocityY);
-                    double minDimension = Math.max(1.0, Math.min(frameData.width, frameData.height));
-                    double maxJump = clamp((speedMagnitude * dtSeconds * 1.8) + (minDimension * 0.045), 8.0, minDimension * (useWideSearch ? 0.42 : 0.18));
-                    if (!useWideSearch && jumpDistance > maxJump) {
-                        detectionAccepted = false;
+                    if (!Double.isNaN(anchorX) && hasTrackingLock) {
+                        double xBand = frameData.width * 0.2;
+                        predictedX = clamp(predictedX, anchorX - xBand, anchorX + xBand);
                     }
 
-                    if (detectionAccepted && !Double.isNaN(trackedRadius)) {
-                        double radiusDelta = Math.abs(detection.radius - trackedRadius);
-                        double radiusTolerance = Math.max(2.5, trackedRadius * (useWideSearch ? 0.65 : 0.35));
-                        if (!useWideSearch && radiusDelta > radiusTolerance) {
+                    int[] edge = buildEdgeMagnitude(frameData.gray, frameData.width, frameData.height);
+                    boolean useWideSearch = !hasTrackingLock || consecutiveMisses > 1 || (manualSeedPoint != null && samples.isEmpty());
+                    PlateDetection detection =
+                        detectPlateCenterWithHough(frameData, edge, motion, predictedX, predictedY, trackedRadius, useWideSearch);
+                    boolean detectionAccepted = detection.found;
+                    if (detectionAccepted && !Double.isNaN(filteredX) && !Double.isNaN(filteredY)) {
+                        double jumpDistance = Math.hypot(detection.x - predictedX, detection.y - predictedY);
+                        double speedMagnitude = Math.hypot(velocityX, velocityY);
+                        double minDimension = Math.max(1.0, Math.min(frameData.width, frameData.height));
+                        double maxJump = clamp(
+                            (speedMagnitude * dtSeconds * 1.8) + (minDimension * 0.045),
+                            8.0,
+                            minDimension * (useWideSearch ? 0.42 : 0.18)
+                        );
+                        if (!useWideSearch && jumpDistance > maxJump) {
                             detectionAccepted = false;
                         }
-                    }
-                }
 
-                double measuredX;
-                double measuredY;
-                double confidence;
-
-                if (detectionAccepted) {
-                    measuredX = detection.x;
-                    measuredY = detection.y;
-                    confidence = detection.confidence;
-                    consecutiveHits += 1;
-                    consecutiveMisses = 0;
-                    if (!hasTrackingLock && consecutiveHits >= TRACKING_LOCK_HITS) {
-                        hasTrackingLock = true;
+                        if (detectionAccepted && !Double.isNaN(trackedRadius)) {
+                            double radiusDelta = Math.abs(detection.radius - trackedRadius);
+                            double radiusTolerance = Math.max(2.5, trackedRadius * (useWideSearch ? 0.65 : 0.35));
+                            if (!useWideSearch && radiusDelta > radiusTolerance) {
+                                detectionAccepted = false;
+                            }
+                        }
                     }
-                    if (Double.isNaN(trackedRadius)) {
-                        trackedRadius = detection.radius;
+
+                    double measuredX;
+                    double measuredY;
+                    double confidence;
+
+                    if (detectionAccepted) {
+                        measuredX = detection.x;
+                        measuredY = detection.y;
+                        confidence = detection.confidence;
+                        consecutiveHits += 1;
+                        consecutiveMisses = 0;
+                        if (!hasTrackingLock && consecutiveHits >= TRACKING_LOCK_HITS) {
+                            hasTrackingLock = true;
+                        }
+                        if (Double.isNaN(anchorX)) {
+                            anchorX = detection.x;
+                        } else {
+                            anchorX = anchorX + (detection.x - anchorX) * 0.08;
+                        }
+                        if (Double.isNaN(trackedRadius)) {
+                            trackedRadius = detection.radius;
+                        } else {
+                            trackedRadius = trackedRadius + (detection.radius - trackedRadius) * 0.35;
+                        }
+                    } else if (!Double.isNaN(filteredX) && !Double.isNaN(filteredY)) {
+                        measuredX = predictedX;
+                        measuredY = predictedY;
+                        consecutiveMisses += 1;
+                        consecutiveHits = 0;
+                        confidence = clamp(0.065 - (consecutiveMisses * 0.008), 0.03, 0.08);
                     } else {
-                        trackedRadius = trackedRadius + (detection.radius - trackedRadius) * 0.35;
+                        measuredX = frameData.width * 0.5;
+                        measuredY = frameData.height * 0.45;
+                        consecutiveMisses += 1;
+                        consecutiveHits = 0;
+                        confidence = 0.03;
                     }
-                } else if (!Double.isNaN(filteredX) && !Double.isNaN(filteredY)) {
-                    measuredX = predictedX;
-                    measuredY = predictedY;
-                    consecutiveMisses += 1;
-                    consecutiveHits = 0;
-                    confidence = clamp(0.065 - (consecutiveMisses * 0.008), 0.03, 0.08);
-                } else {
-                    measuredX = frameData.width * 0.5;
-                    measuredY = frameData.height * 0.45;
-                    consecutiveMisses += 1;
-                    consecutiveHits = 0;
-                    confidence = 0.03;
+
+                    if (consecutiveMisses >= TRACKING_UNLOCK_MISSES) {
+                        hasTrackingLock = false;
+                        trackedRadius = Double.NaN;
+                        velocityX *= 0.4;
+                        velocityY *= 0.4;
+                        if (!Double.isNaN(anchorX)) {
+                            anchorX = anchorX + (predictedX - anchorX) * 0.12;
+                        }
+                        consecutiveStaticLockFrames = 0;
+                    }
+
+                    if (Double.isNaN(filteredX) || Double.isNaN(filteredY)) {
+                        filteredX = measuredX;
+                        filteredY = measuredY;
+                    } else {
+                        double alpha = clamp((TRACKING_EMA_ALPHA * 0.55) + (confidence * 0.55), 0.2, 0.88);
+                        filteredX = filteredX + alpha * (measuredX - filteredX);
+                        filteredY = filteredY + alpha * (measuredY - filteredY);
+                    }
+
+                    filteredX = clamp(filteredX, 0.0, Math.max(1, frameData.width - 1));
+                    filteredY = clamp(filteredY, 0.0, Math.max(1, frameData.height - 1));
+
+                    if (hasTrackingLock && detectionAccepted) {
+                        double deltaY = Double.isNaN(previousFilteredY) ? 0.0 : Math.abs(filteredY - previousFilteredY);
+                        if (detection.motionScore < 0.045 && deltaY < 0.75) {
+                            consecutiveStaticLockFrames++;
+                        } else {
+                            consecutiveStaticLockFrames = Math.max(0, consecutiveStaticLockFrames - 1);
+                        }
+                        if (consecutiveStaticLockFrames >= TRACKING_STATIC_UNLOCK_FRAMES) {
+                            hasTrackingLock = false;
+                            trackedRadius = Double.NaN;
+                            consecutiveHits = 0;
+                            consecutiveMisses = Math.max(consecutiveMisses, 2);
+                            velocityX *= 0.35;
+                            velocityY *= 0.35;
+                            if (!Double.isNaN(anchorX)) {
+                                anchorX = anchorX + (predictedX - anchorX) * 0.15;
+                            }
+                            consecutiveStaticLockFrames = 0;
+                        }
+                    } else {
+                        consecutiveStaticLockFrames = Math.max(0, consecutiveStaticLockFrames - 1);
+                    }
+
+                    double nextVelocityX = velocityX * 0.85;
+                    double nextVelocityY = velocityY * 0.85;
+                    if (dtSeconds > 0.0) {
+                        double instantVx = (filteredX - predictedX) / dtSeconds;
+                        double instantVy = (filteredY - predictedY) / dtSeconds;
+                        double blend = detectionAccepted ? 0.52 : 0.22;
+                        nextVelocityX = (velocityX * (1.0 - blend)) + (instantVx * blend);
+                        nextVelocityY = (velocityY * (1.0 - blend)) + (instantVy * blend);
+                        nextVelocityX = clamp(nextVelocityX, -MAX_TRACKING_SPEED_PX_PER_S, MAX_TRACKING_SPEED_PX_PER_S);
+                        nextVelocityY = clamp(nextVelocityY, -MAX_TRACKING_SPEED_PX_PER_S, MAX_TRACKING_SPEED_PX_PER_S);
+                    }
+                    velocityX = nextVelocityX;
+                    velocityY = nextVelocityY;
+
+                    TrackingSample sample = new TrackingSample();
+                    sample.tMs = timeMs;
+                    sample.x = filteredX;
+                    sample.y = filteredY;
+                    sample.confidence = confidence;
+                    samples.add(sample);
+                    previousFilteredY = filteredY;
+                    previousTimeMs = timeMs;
+                } finally {
+                    frameData.release();
                 }
-
-                if (consecutiveMisses >= TRACKING_UNLOCK_MISSES) {
-                    hasTrackingLock = false;
-                    trackedRadius = Double.NaN;
-                    velocityX *= 0.4;
-                    velocityY *= 0.4;
-                }
-
-                if (Double.isNaN(filteredX) || Double.isNaN(filteredY)) {
-                    filteredX = measuredX;
-                    filteredY = measuredY;
-                } else {
-                    double alpha = clamp((TRACKING_EMA_ALPHA * 0.55) + (confidence * 0.55), 0.2, 0.88);
-                    filteredX = filteredX + alpha * (measuredX - filteredX);
-                    filteredY = filteredY + alpha * (measuredY - filteredY);
-                }
-
-                filteredX = clamp(filteredX, 0.0, Math.max(1, frameData.width - 1));
-                filteredY = clamp(filteredY, 0.0, Math.max(1, frameData.height - 1));
-
-                double nextVelocityX = velocityX * 0.85;
-                double nextVelocityY = velocityY * 0.85;
-                if (dtSeconds > 0.0) {
-                    double instantVx = (filteredX - predictedX) / dtSeconds;
-                    double instantVy = (filteredY - predictedY) / dtSeconds;
-                    double blend = detectionAccepted ? 0.52 : 0.22;
-                    nextVelocityX = (velocityX * (1.0 - blend)) + (instantVx * blend);
-                    nextVelocityY = (velocityY * (1.0 - blend)) + (instantVy * blend);
-                    nextVelocityX = clamp(nextVelocityX, -MAX_TRACKING_SPEED_PX_PER_S, MAX_TRACKING_SPEED_PX_PER_S);
-                    nextVelocityY = clamp(nextVelocityY, -MAX_TRACKING_SPEED_PX_PER_S, MAX_TRACKING_SPEED_PX_PER_S);
-                }
-                velocityX = nextVelocityX;
-                velocityY = nextVelocityY;
-
-                TrackingSample sample = new TrackingSample();
-                sample.tMs = timeMs;
-                sample.x = filteredX;
-                sample.y = filteredY;
-                sample.confidence = confidence;
-                samples.add(sample);
-                previousTimeMs = timeMs;
             }
 
             if (samples.size() < 6) {
@@ -462,25 +542,38 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             needsRecycle = true;
         }
 
+        Mat rgba = null;
+        Mat grayMat = null;
         try {
-            int[] argb = new int[scaledWidth * scaledHeight];
-            workingBitmap.getPixels(argb, 0, scaledWidth, 0, 0, scaledWidth, scaledHeight);
+            rgba = new Mat();
+            Utils.bitmapToMat(workingBitmap, rgba);
+            grayMat = new Mat();
+            Imgproc.cvtColor(rgba, grayMat, Imgproc.COLOR_RGBA2GRAY);
+            Imgproc.GaussianBlur(grayMat, grayMat, new Size(5.0, 5.0), 1.2);
 
-            int[] gray = new int[argb.length];
-            for (int index = 0; index < argb.length; index++) {
-                int color = argb[index];
-                int red = (color >> 16) & 0xFF;
-                int green = (color >> 8) & 0xFF;
-                int blue = color & 0xFF;
-                gray[index] = (299 * red + 587 * green + 114 * blue) / 1000;
+            byte[] grayBytes = new byte[scaledWidth * scaledHeight];
+            grayMat.get(0, 0, grayBytes);
+            int[] gray = new int[grayBytes.length];
+            for (int index = 0; index < grayBytes.length; index++) {
+                gray[index] = grayBytes[index] & 0xFF;
             }
 
             FrameData frameData = new FrameData();
             frameData.width = scaledWidth;
             frameData.height = scaledHeight;
             frameData.gray = gray;
+            frameData.grayMat = grayMat;
+            grayMat = null;
             return frameData;
+        } catch (Exception ignored) {
+            return null;
         } finally {
+            if (rgba != null) {
+                rgba.release();
+            }
+            if (grayMat != null) {
+                grayMat.release();
+            }
             if (needsRecycle) {
                 workingBitmap.recycle();
             }
@@ -518,7 +611,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         return motion;
     }
 
-    private PlateDetection detectPlateCenter(
+    private PlateDetection detectPlateCenterWithHough(
         FrameData frameData,
         int[] edge,
         int[] motion,
@@ -530,8 +623,13 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         int width = frameData.width;
         int height = frameData.height;
         int minDimension = Math.min(width, height);
+        PlateDetection emptyDetection = new PlateDetection();
+        emptyDetection.found = false;
+        if (frameData.grayMat == null || frameData.grayMat.empty()) {
+            return emptyDetection;
+        }
 
-        int minRadius = Math.max(5, (int) Math.round(minDimension * PLATE_MIN_RADIUS_RATIO));
+        int minRadius = Math.max(8, (int) Math.round(minDimension * PLATE_MIN_RADIUS_RATIO));
         int maxRadius = Math.max(minRadius + 2, (int) Math.round(minDimension * PLATE_MAX_RADIUS_RATIO));
         if (!Double.isNaN(predictedRadius)) {
             int centerRadius = clampInt((int) Math.round(predictedRadius), minRadius, maxRadius);
@@ -548,72 +646,129 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double safePredictedY = clamp(predictedY, 0.0, Math.max(1, height - 1));
         int roiHalfWidth = (int) Math.round(width * (useWideSearch ? 0.32 : 0.22));
         int roiHalfHeight = (int) Math.round(height * (useWideSearch ? 0.24 : 0.18));
-        int centerStep = useWideSearch ? Math.max(6, PLATE_CENTER_STEP_PX * 2) : PLATE_CENTER_STEP_PX;
-        int radiusStep = useWideSearch ? Math.max(3, PLATE_RADIUS_STEP_PX + 1) : PLATE_RADIUS_STEP_PX;
 
         int roiMinX = clampInt((int) Math.round(safePredictedX) - roiHalfWidth, expandedRadius, width - expandedRadius - 1);
         int roiMaxX = clampInt((int) Math.round(safePredictedX) + roiHalfWidth, roiMinX + 1, width - expandedRadius - 1);
         int roiMinY = clampInt((int) Math.round(safePredictedY) - roiHalfHeight, expandedRadius, height - expandedRadius - 1);
         int roiMaxY = clampInt((int) Math.round(safePredictedY) + roiHalfHeight, roiMinY + 1, height - expandedRadius - 1);
 
+        int globalMinX = clampInt((int) Math.round(width * TRACKING_MIN_CENTER_X_RATIO), expandedRadius, width - expandedRadius - 1);
+        int globalMaxX = clampInt((int) Math.round(width * TRACKING_MAX_CENTER_X_RATIO), globalMinX + 1, width - expandedRadius - 1);
+        int globalMaxY = clampInt((int) Math.round(height * TRACKING_MAX_CENTER_Y_RATIO), expandedRadius + 1, height - expandedRadius - 1);
+        roiMinX = clampInt(roiMinX, globalMinX, globalMaxX - 1);
+        roiMaxX = clampInt(roiMaxX, roiMinX + 1, globalMaxX);
+        roiMinY = clampInt(roiMinY, expandedRadius, globalMaxY - 1);
+        roiMaxY = clampInt(roiMaxY, roiMinY + 1, globalMaxY);
+
         if (roiMaxX <= roiMinX || roiMaxY <= roiMinY) {
-            PlateDetection emptyDetection = new PlateDetection();
-            emptyDetection.found = false;
             return emptyDetection;
         }
 
+        Rect roiRect = new Rect(roiMinX, roiMinY, roiMaxX - roiMinX + 1, roiMaxY - roiMinY + 1);
+        if (roiRect.width <= 2 || roiRect.height <= 2) {
+            return emptyDetection;
+        }
+
+        Mat roiGray = null;
+        Mat circles = null;
         double bestScore = -Double.MAX_VALUE;
         double bestX = safePredictedX;
         double bestY = safePredictedY;
         int bestRadius = minRadius;
+        double bestMotionRing = 0.0;
 
-        double roiDistanceNorm = Math.max(1.0, Math.max(roiHalfWidth, roiHalfHeight));
-        for (int centerY = roiMinY; centerY <= roiMaxY; centerY += centerStep) {
-            for (int centerX = roiMinX; centerX <= roiMaxX; centerX += centerStep) {
-                for (int radius = minRadius; radius <= maxRadius; radius += radiusStep) {
-                    int expanded = radius + 3;
-                    if (centerX - expanded < 1 || centerX + expanded >= width - 1 || centerY - expanded < 1 || centerY + expanded >= height - 1) {
-                        continue;
-                    }
+        try {
+            roiGray = frameData.grayMat.submat(roiRect);
+            circles = new Mat();
 
-                    CircleStats ringEdgeStats = sampleCircleStats(edge, width, height, centerX, centerY, radius);
-                    double ringEdge = ringEdgeStats.mean;
-                    if (ringEdge < 10.0) {
-                        continue;
-                    }
-                    double innerEdge = sampleCircleAverage(edge, width, height, centerX, centerY, Math.max(2, radius - 2));
-                    double outerEdge = sampleCircleAverage(edge, width, height, centerX, centerY, radius + 2);
-                    double innerLum = sampleCircleAverage(frameData.gray, width, height, centerX, centerY, Math.max(2, radius - 2));
-                    double outerLum = sampleCircleAverage(frameData.gray, width, height, centerX, centerY, radius + 2);
-                    double motionRing = sampleCircleAverage(motion, width, height, centerX, centerY, radius);
-                    double contrast = Math.abs(innerLum - outerLum);
-                    double edgePeak = ringEdge - ((innerEdge + outerEdge) * 0.5);
-                    if (edgePeak < 4.0) {
-                        continue;
-                    }
-                    double ringUniformity = clamp(1.0 - (ringEdgeStats.stdDev / (ringEdge + 24.0)), 0.0, 1.0);
-                    double distance = Math.hypot(centerX - safePredictedX, centerY - safePredictedY);
-                    double distancePenalty = clamp(distance / roiDistanceNorm, 0.0, 1.0) * 0.22;
-                    double radiusPenalty = 0.0;
-                    if (!Double.isNaN(predictedRadius)) {
-                        double radiusDeltaRatio = Math.abs(radius - predictedRadius) / Math.max(1.0, predictedRadius);
-                        radiusPenalty = clamp(radiusDeltaRatio, 0.0, 1.0) * (useWideSearch ? 0.08 : 0.18);
-                    }
+            double minDist = Math.max(8.0, minRadius * 1.6);
+            Imgproc.HoughCircles(
+                roiGray,
+                circles,
+                Imgproc.HOUGH_GRADIENT,
+                HOUGH_DP,
+                minDist,
+                HOUGH_PARAM_1,
+                useWideSearch ? HOUGH_PARAM_2_WIDE : HOUGH_PARAM_2_LOCKED,
+                minRadius,
+                maxRadius
+            );
+            if (circles.empty() || circles.cols() <= 0) {
+                return emptyDetection;
+            }
 
-                    double score = (ringEdge / 255.0) * 0.50
-                        + clamp(edgePeak / 255.0, -1.0, 1.0) * 0.24
-                        + (contrast / 255.0) * 0.28
-                        + ringUniformity * 0.14
-                        + (motionRing / 255.0) * 0.16
-                        - distancePenalty
-                        - radiusPenalty;
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestX = centerX;
-                        bestY = centerY;
-                        bestRadius = radius;
-                    }
+            double roiDistanceNorm = Math.max(1.0, Math.max(roiHalfWidth, roiHalfHeight));
+            int candidateCount = circles.cols();
+            for (int candidateIndex = 0; candidateIndex < candidateCount; candidateIndex++) {
+                double[] candidate = circles.get(0, candidateIndex);
+                if (candidate == null || candidate.length < 3) {
+                    continue;
                 }
+
+                int centerX = clampInt((int) Math.round(candidate[0] + roiRect.x), 0, width - 1);
+                int centerY = clampInt((int) Math.round(candidate[1] + roiRect.y), 0, height - 1);
+                int radius = clampInt((int) Math.round(candidate[2]), minRadius, maxRadius);
+                int expanded = radius + 3;
+                if (centerX - expanded < 1 || centerX + expanded >= width - 1 || centerY - expanded < 1 || centerY + expanded >= height - 1) {
+                    continue;
+                }
+
+                CircleStats ringEdgeStats = sampleCircleStats(edge, width, height, centerX, centerY, radius);
+                double ringEdge = ringEdgeStats.mean;
+                if (ringEdge < 10.0) {
+                    continue;
+                }
+
+                double innerEdge = sampleCircleAverage(edge, width, height, centerX, centerY, Math.max(2, radius - 2));
+                double outerEdge = sampleCircleAverage(edge, width, height, centerX, centerY, radius + 2);
+                double centerEdge = sampleCircleAverage(edge, width, height, centerX, centerY, Math.max(2, radius / 3));
+                double innerLum = sampleCircleAverage(frameData.gray, width, height, centerX, centerY, Math.max(2, radius - 2));
+                double outerLum = sampleCircleAverage(frameData.gray, width, height, centerX, centerY, radius + 2);
+                double motionRing = sampleCircleAverage(motion, width, height, centerX, centerY, radius);
+                double contrast = Math.abs(innerLum - outerLum);
+                double edgePeak = ringEdge - ((innerEdge + outerEdge) * 0.5);
+                if (edgePeak < 3.5) {
+                    continue;
+                }
+
+                double ringUniformity = clamp(1.0 - (ringEdgeStats.stdDev / (ringEdge + 24.0)), 0.0, 1.0);
+                double distance = Math.hypot(centerX - safePredictedX, centerY - safePredictedY);
+                double distancePenalty = clamp(distance / roiDistanceNorm, 0.0, 1.0) * 0.22;
+                double radiusPenalty = 0.0;
+                if (!Double.isNaN(predictedRadius)) {
+                    double radiusDeltaRatio = Math.abs(radius - predictedRadius) / Math.max(1.0, predictedRadius);
+                    radiusPenalty = clamp(radiusDeltaRatio, 0.0, 1.0) * (useWideSearch ? 0.08 : 0.18);
+                }
+                double sizeBonus = 0.0;
+                if (maxRadius > minRadius) {
+                    sizeBonus = ((radius - minRadius) / (double) (maxRadius - minRadius)) * 0.2;
+                }
+                double candidateRankBonus = clamp(1.0 - (candidateIndex / 8.0), 0.0, 1.0) * 0.08;
+
+                double score = (ringEdge / 255.0) * 0.46
+                    + clamp(edgePeak / 255.0, -1.0, 1.0) * 0.24
+                    + (contrast / 255.0) * 0.26
+                    + ringUniformity * 0.14
+                    + (motionRing / 255.0) * 0.20
+                    + sizeBonus
+                    + candidateRankBonus
+                    - (centerEdge / 255.0) * 0.14
+                    - distancePenalty
+                    - radiusPenalty;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestX = centerX;
+                    bestY = centerY;
+                    bestRadius = radius;
+                    bestMotionRing = motionRing;
+                }
+            }
+        } finally {
+            if (circles != null) {
+                circles.release();
+            }
+            if (roiGray != null) {
+                roiGray.release();
             }
         }
 
@@ -622,6 +777,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         detection.y = bestY;
         detection.radius = bestRadius;
         detection.score = bestScore;
+        detection.motionScore = clamp(bestMotionRing / 255.0, 0.0, 1.0);
         detection.found = bestScore >= PLATE_MIN_SCORE;
         detection.confidence = detection.found
             ? clamp(0.08 + ((bestScore - PLATE_MIN_SCORE) / 0.52), 0.08, 1.0)
@@ -1080,6 +1236,14 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         int width;
         int height;
         int[] gray;
+        Mat grayMat;
+
+        void release() {
+            if (grayMat != null) {
+                grayMat.release();
+                grayMat = null;
+            }
+        }
     }
 
     private static class TrackingSample {
@@ -1100,6 +1264,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double y;
         int radius;
         double score;
+        double motionScore;
         double confidence;
     }
 

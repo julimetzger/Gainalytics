@@ -94,6 +94,7 @@ const videoAnalysisReducer = (state: NormalizedState<VideoAnalysis> = initialSta
           [action.analysisId]: {
             ...current,
             manualSeedFramePath: action.manualSeedFramePath,
+            localVideoPath: action.localVideoPath ?? current.localVideoPath,
           },
         },
       };

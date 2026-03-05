@@ -123,6 +123,7 @@ describe('videoAnalysisReducer', () => {
       type: 'SET_VIDEO_ANALYSIS_MANUAL_SEED_FRAME_PATH',
       analysisId: 5,
       manualSeedFramePath: '/tmp/manual-seed.jpg',
+      localVideoPath: '/tmp/video.mp4',
     });
 
     const linkedState = videoAnalysisReducer(manualSeedState, {
@@ -147,6 +148,7 @@ describe('videoAnalysisReducer', () => {
             height: 0,
           },
           manualSeedFramePath: '/tmp/manual-seed.jpg',
+          localVideoPath: '/tmp/video.mp4',
           workoutId: 42,
           exerciseId: 11,
           setIndex: 3,

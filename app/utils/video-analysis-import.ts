@@ -14,7 +14,7 @@ interface ImportVideoAnalysisParams {
   addVideoAnalysis: (videoAnalysis: VideoAnalysis) => void;
   setVideoAnalysisStatus: (analysisId: number, status: VideoAnalysisStatus, error?: string) => void;
   attachVideoAnalysisResult: (analysisId: number, resultPath: string, localVideoPath?: string) => void;
-  setManualSeedFramePath: (analysisId: number, manualSeedFramePath?: string) => void;
+  setManualSeedFramePath: (analysisId: number, manualSeedFramePath?: string, localVideoPath?: string) => void;
 }
 
 const extractManualSeedFramePath = (message?: string) => {
@@ -33,6 +33,8 @@ export const importVideoAnalysisFromSource = async ({
   attachVideoAnalysisResult,
   setManualSeedFramePath,
 }: ImportVideoAnalysisParams): Promise<VideoAnalysisImportOutcome> => {
+  let localVideoPath: string | undefined;
+
   addVideoAnalysis({
     id: analysisId,
     sourceUri,
@@ -48,7 +50,7 @@ export const importVideoAnalysisFromSource = async ({
 
   try {
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING);
-    const localVideoPath = await copyImportedVideoToLocalStorage(sourceUri, analysisId);
+    localVideoPath = await copyImportedVideoToLocalStorage(sourceUri, analysisId);
     const resultPath = await analyzeSquatVideo(localVideoPath, analysisId);
     attachVideoAnalysisResult(analysisId, resultPath, localVideoPath);
     return 'done';
@@ -56,7 +58,7 @@ export const importVideoAnalysisFromSource = async ({
     const nativeError = error as {code?: string; message?: string};
     if (nativeError?.code === 'ERR_VIDEO_ANALYSIS_NEEDS_MANUAL_SEED') {
       const manualSeedFramePath = extractManualSeedFramePath(nativeError.message);
-      setManualSeedFramePath(analysisId, manualSeedFramePath);
+      setManualSeedFramePath(analysisId, manualSeedFramePath, localVideoPath);
       setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.NEEDS_MANUAL_SEED, 'Manual seed required');
       return 'needs_manual_seed';
     }
