@@ -32,17 +32,17 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final int MAX_REP_COUNT = 12;
     private static final int MAX_ANALYSIS_DIMENSION = 560;
     private static final int MAX_TRACKING_SAMPLES = 180;
-    private static final int MAX_DEBUG_CIRCLES = 18;
+    private static final int MAX_DEBUG_CIRCLES = 10;
     private static final int PLATE_SAMPLE_POINTS = 12;
     private static final double PLATE_MIN_RADIUS_RATIO = 0.035;
     private static final double PLATE_MAX_RADIUS_RATIO = 0.24;
-    private static final double PLATE_MIN_SCORE = 0.2;
+    private static final double PLATE_MIN_SCORE = 0.18;
     private static final double HOUGH_DP = 1.2;
-    private static final double HOUGH_PARAM_1 = 145.0;
-    private static final double HOUGH_PARAM_2_WIDE = 28.0;
-    private static final double HOUGH_PARAM_2_LOCKED = 32.0;
-    private static final double HOUGH_GLOBAL_PARAM_1 = 145.0;
-    private static final double HOUGH_GLOBAL_PARAM_2 = 30.0;
+    private static final double HOUGH_PARAM_1 = 120.0;
+    private static final double HOUGH_PARAM_2_WIDE = 18.0;
+    private static final double HOUGH_PARAM_2_LOCKED = 22.0;
+    private static final double HOUGH_GLOBAL_PARAM_1 = 120.0;
+    private static final double HOUGH_GLOBAL_PARAM_2 = 20.0;
     private static final double MAX_TRACKING_SPEED_PX_PER_S = 220.0;
     private static final double MANUAL_SEED_REQUIRED_CONFIDENCE = 0.2;
     private static final double TRACKING_EMA_ALPHA = 0.45;
@@ -602,6 +602,94 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         }
     }
 
+    FrameHoughDebugResult detectPlateFromBitmapForTest(Bitmap frame, double hintX, double hintY, double hintRadius) throws Exception {
+        ensureOpenCvReady();
+        FrameHoughDebugResult result = new FrameHoughDebugResult();
+        if (frame == null) {
+            return result;
+        }
+
+        FrameData frameData = toFrameData(frame);
+        if (frameData == null) {
+            return result;
+        }
+
+        try {
+            result.frameWidth = frameData.width;
+            result.frameHeight = frameData.height;
+
+            boolean hasHint =
+                !Double.isNaN(hintX) &&
+                !Double.isNaN(hintY) &&
+                !Double.isNaN(hintRadius) &&
+                hintRadius > 0.0;
+            double safeHintX = hasHint
+                ? clamp(hintX, 0.0, Math.max(1, frameData.width - 1))
+                : frameData.width * 0.5;
+            double safeHintY = hasHint
+                ? clamp(hintY, 0.0, Math.max(1, frameData.height - 1))
+                : frameData.height * 0.45;
+            double safeHintRadius = hasHint
+                ? clamp(hintRadius, 1.0, Math.min(frameData.width, frameData.height))
+                : Double.NaN;
+            double initialHintX = hasHint ? safeHintX : Double.NaN;
+            double initialHintY = hasHint ? safeHintY : Double.NaN;
+            double initialHintRadius = hasHint ? safeHintRadius : Double.NaN;
+
+            int[] edge = buildEdgeMagnitude(frameData.gray, frameData.width, frameData.height);
+            JSONArray initialCircles = detectInitialFrameCircles(frameData, edge, initialHintX, initialHintY, initialHintRadius);
+            PlateDetection detection =
+                detectPlateCenterWithHough(
+                    frameData,
+                    edge,
+                    new int[frameData.gray.length],
+                    safeHintX,
+                    safeHintY,
+                    safeHintRadius,
+                    true,
+                    true
+                );
+
+            result.found = detection.found;
+            result.x = detection.x;
+            result.y = detection.y;
+            result.radius = detection.radius;
+            result.score = detection.score;
+            for (int index = 0; index < initialCircles.length(); index++) {
+                JSONObject circleObject = initialCircles.optJSONObject(index);
+                if (circleObject == null) {
+                    continue;
+                }
+                FrameHoughDebugCircle circle = new FrameHoughDebugCircle();
+                circle.x = circleObject.optDouble("x", 0.0);
+                circle.y = circleObject.optDouble("y", 0.0);
+                circle.radius = circleObject.optDouble("radius", 0.0);
+                circle.score = circleObject.optDouble("score", 0.0);
+                result.initialCircles.add(circle);
+            }
+            if (detection.candidateCircles != null) {
+                for (CircleCandidate candidate : detection.candidateCircles) {
+                    if (candidate == null) {
+                        continue;
+                    }
+                    FrameHoughDebugCircle circle = new FrameHoughDebugCircle();
+                    circle.x = candidate.x;
+                    circle.y = candidate.y;
+                    circle.radius = candidate.radius;
+                    circle.score = candidate.score;
+                    result.houghCandidates.add(circle);
+                    if (!Double.isNaN(circle.score)) {
+                        result.rankedHoughCandidates.add(circle);
+                    }
+                }
+                result.rankedHoughCandidates.sort((left, right) -> Double.compare(right.score, left.score));
+            }
+            return result;
+        } finally {
+            frameData.release();
+        }
+    }
+
     private int[] buildEdgeMagnitude(int[] gray, int width, int height) {
         int[] edge = new int[gray.length];
         if (width < 3 || height < 3) {
@@ -656,7 +744,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         int maxRadius = Math.max(minRadius + 2, (int) Math.round(minDimension * PLATE_MAX_RADIUS_RATIO));
         if (!Double.isNaN(predictedRadius)) {
             int centerRadius = clampInt((int) Math.round(predictedRadius), minRadius, maxRadius);
-            int radiusPadding = Math.max(3, (int) Math.round(centerRadius * (useWideSearch ? 0.55 : 0.35)));
+            int radiusPadding = Math.max(3, (int) Math.round(centerRadius * (useWideSearch ? 0.40 : 0.25)));
             minRadius = Math.max(minRadius, centerRadius - radiusPadding);
             maxRadius = Math.min(maxRadius, centerRadius + radiusPadding);
             if (maxRadius <= minRadius) {
@@ -751,7 +839,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
 
                 CircleStats ringEdgeStats = sampleCircleStats(edge, width, height, centerX, centerY, radius);
                 double ringEdge = ringEdgeStats.mean;
-                if (ringEdge < 10.0) {
+                if (ringEdge < 6.0) {
                     continue;
                 }
 
@@ -763,32 +851,38 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 double motionRing = sampleCircleAverage(motion, width, height, centerX, centerY, radius);
                 double contrast = Math.abs(innerLum - outerLum);
                 double edgePeak = ringEdge - ((innerEdge + outerEdge) * 0.5);
-                if (edgePeak < 3.5) {
+                if (edgePeak < 1.8) {
                     continue;
                 }
 
                 double ringUniformity = clamp(1.0 - (ringEdgeStats.stdDev / (ringEdge + 24.0)), 0.0, 1.0);
+                if (ringUniformity < 0.05) {
+                    continue;
+                }
                 double distance = Math.hypot(centerX - safePredictedX, centerY - safePredictedY);
-                double distancePenalty = clamp(distance / roiDistanceNorm, 0.0, 1.0) * 0.22;
+                double distancePenalty = clamp(distance / roiDistanceNorm, 0.0, 1.0) * 0.50;
                 double radiusPenalty = 0.0;
+                double radiusSupport = 0.0;
                 if (!Double.isNaN(predictedRadius)) {
                     double radiusDeltaRatio = Math.abs(radius - predictedRadius) / Math.max(1.0, predictedRadius);
-                    radiusPenalty = clamp(radiusDeltaRatio, 0.0, 1.0) * (useWideSearch ? 0.08 : 0.18);
+                    radiusPenalty = clamp(radiusDeltaRatio, 0.0, 1.0) * (useWideSearch ? 0.32 : 0.46);
+                    radiusSupport = (1.0 - clamp(radiusDeltaRatio, 0.0, 1.0)) * (useWideSearch ? 0.22 : 0.28);
                 }
                 double sizeBonus = 0.0;
                 if (maxRadius > minRadius) {
-                    sizeBonus = ((radius - minRadius) / (double) (maxRadius - minRadius)) * 0.2;
+                    sizeBonus = ((radius - minRadius) / (double) (maxRadius - minRadius)) * 0.22;
                 }
-                double candidateRankBonus = clamp(1.0 - (candidateIndex / 8.0), 0.0, 1.0) * 0.08;
+                double candidateRankBonus = clamp(1.0 - (candidateIndex / 8.0), 0.0, 1.0) * 0.06;
 
                 double score = (ringEdge / 255.0) * 0.46
                     + clamp(edgePeak / 255.0, -1.0, 1.0) * 0.24
                     + (contrast / 255.0) * 0.26
                     + ringUniformity * 0.14
-                    + (motionRing / 255.0) * 0.20
+                    + (motionRing / 255.0) * 0.12
                     + sizeBonus
                     + candidateRankBonus
-                    - (centerEdge / 255.0) * 0.14
+                    + radiusSupport
+                    - (centerEdge / 255.0) * 0.18
                     - distancePenalty
                     - radiusPenalty;
                 if (circleCandidate != null) {
@@ -908,23 +1002,26 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
 
                 CircleStats ringEdgeStats = sampleCircleStats(edge, frameData.width, frameData.height, centerX, centerY, radius);
                 double ringEdge = ringEdgeStats.mean;
-                if (ringEdge < 12.0) {
+                if (ringEdge < 8.0) {
                     continue;
                 }
                 double innerEdge = sampleCircleAverage(edge, frameData.width, frameData.height, centerX, centerY, Math.max(2, radius - 2));
                 double outerEdge = sampleCircleAverage(edge, frameData.width, frameData.height, centerX, centerY, radius + 2);
                 double centerEdge = sampleCircleAverage(edge, frameData.width, frameData.height, centerX, centerY, Math.max(2, radius / 3));
                 double edgePeak = ringEdge - ((innerEdge + outerEdge) * 0.5);
-                if (edgePeak < 4.0) {
+                if (edgePeak < 2.2) {
                     continue;
                 }
 
                 double ringUniformity = clamp(1.0 - (ringEdgeStats.stdDev / (ringEdge + 24.0)), 0.0, 1.0);
+                if (ringUniformity < 0.05) {
+                    continue;
+                }
                 double score = (ringEdge / 255.0) * 0.55
                     + clamp(edgePeak / 255.0, 0.0, 1.0) * 0.30
                     + ringUniformity * 0.20
                     - (centerEdge / 255.0) * 0.20;
-                if (score < 0.15) {
+                if (score < 0.02) {
                     continue;
                 }
 
@@ -1489,6 +1586,26 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double y;
         double radius;
         double score;
+    }
+
+    static class FrameHoughDebugCircle {
+        double x;
+        double y;
+        double radius;
+        double score;
+    }
+
+    static class FrameHoughDebugResult {
+        int frameWidth;
+        int frameHeight;
+        boolean found;
+        double x;
+        double y;
+        double radius;
+        double score;
+        List<FrameHoughDebugCircle> initialCircles = new ArrayList<>();
+        List<FrameHoughDebugCircle> houghCandidates = new ArrayList<>();
+        List<FrameHoughDebugCircle> rankedHoughCandidates = new ArrayList<>();
     }
 
     private static class TrackingSeries {
