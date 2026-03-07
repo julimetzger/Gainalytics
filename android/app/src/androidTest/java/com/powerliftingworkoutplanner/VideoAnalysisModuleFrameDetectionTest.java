@@ -66,24 +66,10 @@ public class VideoAnalysisModuleFrameDetectionTest {
                 useHint ? expectation.hintY : Double.NaN,
                 useHint ? expectation.hintRadius : Double.NaN
             );
-        List<VideoAnalysisModule.FrameHoughDebugCircle> sourceCandidates =
-            !result.rankedHoughCandidates.isEmpty() ? result.rankedHoughCandidates : result.initialCircles;
+        List<VideoAnalysisModule.FrameHoughDebugCircle> sourceCandidates = result.rankedHoughCandidates;
         saveDebugOverlay(frame, expectation, result, sourceCandidates, useHint ? "hinted" : "hintless");
-        String fallbackDebug = "";
-        if (useHint && sourceCandidates.isEmpty()) {
-            VideoAnalysisModule.FrameHoughDebugResult fallbackResult =
-                module.detectPlateFromBitmapForTest(frame, Double.NaN, Double.NaN, Double.NaN);
-            List<VideoAnalysisModule.FrameHoughDebugCircle> fallbackCandidates =
-                !fallbackResult.rankedHoughCandidates.isEmpty() ? fallbackResult.rankedHoughCandidates : fallbackResult.initialCircles;
-            saveDebugOverlay(frame, expectation, fallbackResult, fallbackCandidates, "hintless-fallback");
-            fallbackDebug =
-                ", fallback(hintless ranked=" + fallbackResult.rankedHoughCandidates.size() +
-                    ", initial=" + fallbackResult.initialCircles.size() +
-                    ", raw=" + fallbackResult.houghCandidates.size() +
-                    ", top=" + describeTopCandidates(fallbackCandidates, expectation) + ")";
-        }
         assertTrue(
-            "Expected at least one scored Hough candidate (ranked=" + result.rankedHoughCandidates.size() + ", initial=" + result.initialCircles.size() + ", raw=" + result.houghCandidates.size() + fallbackDebug + ")",
+            "Expected at least one scored Hough candidate (ranked=" + result.rankedHoughCandidates.size() + ", initial=" + result.initialCircles.size() + ", raw=" + result.houghCandidates.size() + ")",
             !sourceCandidates.isEmpty()
         );
 
@@ -138,9 +124,11 @@ public class VideoAnalysisModuleFrameDetectionTest {
         Bitmap overlay = sourceFrame.copy(Bitmap.Config.ARGB_8888, true);
         Canvas canvas = new Canvas(overlay);
         Paint textPaint = buildPaint(Color.WHITE, Paint.Style.FILL, 32.0f, 0.0f);
+        Paint candidateTextPaint = buildPaint(Color.WHITE, Paint.Style.FILL, 18.0f, 0.0f);
         Paint textBackgroundPaint = buildPaint(Color.argb(180, 0, 0, 0), Paint.Style.FILL, 0.0f, 0.0f);
         Paint expectedPaint = buildPaint(Color.YELLOW, Paint.Style.STROKE, 0.0f, 6.0f);
         Paint rawPaint = buildPaint(Color.argb(170, 64, 196, 255), Paint.Style.STROKE, 0.0f, 3.0f);
+        Paint rejectedPaint = buildPaint(Color.argb(220, 255, 170, 70), Paint.Style.STROKE, 0.0f, 5.0f);
         Paint topPaint = buildPaint(Color.argb(220, 88, 240, 120), Paint.Style.STROKE, 0.0f, 7.0f);
         Paint detectionPaint = buildPaint(Color.argb(220, 255, 106, 106), Paint.Style.STROKE, 0.0f, 7.0f);
         Paint centerPaint = buildPaint(Color.WHITE, Paint.Style.FILL, 0.0f, 0.0f);
@@ -148,6 +136,17 @@ public class VideoAnalysisModuleFrameDetectionTest {
         drawCircle(canvas, expectation.expectedX, expectation.expectedY, expectation.expectedRadius, expectedPaint, centerPaint);
         for (VideoAnalysisModule.FrameHoughDebugCircle circle : result.houghCandidates) {
             drawCircle(canvas, circle.x, circle.y, circle.radius, rawPaint, null);
+            drawLabel(
+                canvas,
+                buildRawCandidateLabel(circle),
+                (float) circle.x + 10.0f,
+                (float) circle.y + 10.0f,
+                candidateTextPaint,
+                textBackgroundPaint
+            );
+        }
+        for (VideoAnalysisModule.FrameHoughDebugCircle circle : result.rejectedHoughCandidates) {
+            drawCircle(canvas, circle.x, circle.y, circle.radius, rejectedPaint, null);
         }
         int topCount = Math.min(MAX_TOP_CANDIDATES, topCandidates.size());
         for (int index = 0; index < topCount; index++) {
@@ -155,6 +154,7 @@ public class VideoAnalysisModuleFrameDetectionTest {
             drawCircle(canvas, circle.x, circle.y, circle.radius, topPaint, centerPaint);
             String label =
                 "#" + (index + 1) +
+                    " raw#" + circle.candidateIndex +
                     " conf=" + round(circle.score) +
                     " x=" + round(circle.x) +
                     " y=" + round(circle.y) +
@@ -177,6 +177,7 @@ public class VideoAnalysisModuleFrameDetectionTest {
             canvas,
             modeLabel +
                 " raw=" + result.houghCandidates.size() +
+                " rejected=" + result.rejectedHoughCandidates.size() +
                 " ranked=" + result.rankedHoughCandidates.size() +
                 " initial=" + result.initialCircles.size(),
             20.0f,
@@ -215,6 +216,28 @@ public class VideoAnalysisModuleFrameDetectionTest {
             overlay.recycle();
         }
         Log.i(LOG_TAG, "Saved hough overlay: " + outputFile.getAbsolutePath());
+    }
+
+    private String buildRawCandidateLabel(VideoAnalysisModule.FrameHoughDebugCircle circle) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("raw#").append(circle.candidateIndex);
+        builder.append(" r=").append(round(circle.radius));
+        if (!Double.isNaN(circle.score)) {
+            builder.append(" s=").append(round(circle.score));
+        }
+        if (!Double.isNaN(circle.ringEdge)) {
+            builder.append(" e=").append(round(circle.ringEdge));
+        }
+        if (!Double.isNaN(circle.edgePeak)) {
+            builder.append(" p=").append(round(circle.edgePeak));
+        }
+        if (!Double.isNaN(circle.ringUniformity)) {
+            builder.append(" u=").append(round(circle.ringUniformity));
+        }
+        if (circle.rejectionReason != null && !circle.rejectionReason.isEmpty()) {
+            builder.append(" ").append(circle.rejectionReason);
+        }
+        return builder.toString();
     }
 
     private Paint buildPaint(int color, Paint.Style style, float textSize, float strokeWidth) {

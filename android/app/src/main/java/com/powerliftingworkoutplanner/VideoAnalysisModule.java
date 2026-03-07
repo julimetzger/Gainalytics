@@ -39,10 +39,10 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final double PLATE_MIN_SCORE = 0.18;
     private static final double HOUGH_DP = 1.2;
     private static final double HOUGH_PARAM_1 = 145.0;
-    private static final double HOUGH_PARAM_2_WIDE = 45.0;
-    private static final double HOUGH_PARAM_2_LOCKED = 45.0;
+    private static final double HOUGH_PARAM_2_WIDE = 30.0;
+    private static final double HOUGH_PARAM_2_LOCKED = 30.0;
     private static final double HOUGH_GLOBAL_PARAM_1 = 145.0;
-    private static final double HOUGH_GLOBAL_PARAM_2 = 45.0;
+    private static final double HOUGH_GLOBAL_PARAM_2 = 30.0;
     private static final double MAX_TRACKING_SPEED_PX_PER_S = 220.0;
     private static final double MANUAL_SEED_REQUIRED_CONFIDENCE = 0.2;
     private static final double TRACKING_EMA_ALPHA = 0.45;
@@ -332,6 +332,11 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
 
                     int[] edge = buildEdgeMagnitude(frameData.gray, frameData.width, frameData.height);
                     boolean useWideSearch = !hasTrackingLock || consecutiveMisses > 1 || (manualSeedPoint != null && samples.isEmpty());
+                    boolean usePredictedRoi =
+                        manualSeedPoint != null ||
+                        !Double.isNaN(filteredX) ||
+                        !Double.isNaN(filteredY) ||
+                        !Double.isNaN(trackedRadius);
                     PlateDetection detection =
                         detectPlateCenterWithHough(
                             frameData,
@@ -340,6 +345,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                             predictedX,
                             predictedY,
                             trackedRadius,
+                            usePredictedRoi,
                             useWideSearch,
                             false
                         );
@@ -640,6 +646,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                     safeHintX,
                     safeHintY,
                     safeHintRadius,
+                    hasHint,
                     true,
                     true
                 );
@@ -662,17 +669,16 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 result.initialCircles.add(circle);
             }
             if (detection.candidateCircles != null) {
-                for (CircleCandidate candidate : detection.candidateCircles) {
+                for (CircleDebugCandidate candidate : detection.candidateCircles) {
                     if (candidate == null) {
                         continue;
                     }
-                    FrameHoughDebugCircle circle = new FrameHoughDebugCircle();
-                    circle.x = candidate.x;
-                    circle.y = candidate.y;
-                    circle.radius = candidate.radius;
-                    circle.score = candidate.score;
+                    FrameHoughDebugCircle circle = toFrameHoughDebugCircle(candidate);
                     result.houghCandidates.add(circle);
-                    if (!Double.isNaN(circle.score)) {
+                    if (circle.rejectionReason != null && !circle.rejectionReason.isEmpty()) {
+                        result.rejectedHoughCandidates.add(circle);
+                    }
+                    if (circle.ranked) {
                         result.rankedHoughCandidates.add(circle);
                     }
                 }
@@ -682,6 +688,21 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         } finally {
             frameData.release();
         }
+    }
+
+    private FrameHoughDebugCircle toFrameHoughDebugCircle(CircleDebugCandidate candidate) {
+        FrameHoughDebugCircle circle = new FrameHoughDebugCircle();
+        circle.candidateIndex = candidate.candidateIndex;
+        circle.x = candidate.x;
+        circle.y = candidate.y;
+        circle.radius = candidate.radius;
+        circle.score = candidate.score;
+        circle.ringEdge = candidate.ringEdge;
+        circle.edgePeak = candidate.edgePeak;
+        circle.ringUniformity = candidate.ringUniformity;
+        circle.rejectionReason = candidate.rejectionReason;
+        circle.ranked = candidate.ranked;
+        return circle;
     }
 
     private int[] buildEdgeMagnitude(int[] gray, int width, int height) {
@@ -722,6 +743,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double predictedX,
         double predictedY,
         double predictedRadius,
+        boolean usePredictedRoi,
         boolean useWideSearch,
         boolean captureCandidateCircles
     ) {
@@ -752,18 +774,29 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         int roiHalfWidth = (int) Math.round(width * (useWideSearch ? 0.32 : 0.22));
         int roiHalfHeight = (int) Math.round(height * (useWideSearch ? 0.24 : 0.18));
 
-        int roiMinX = clampInt((int) Math.round(safePredictedX) - roiHalfWidth, expandedRadius, width - expandedRadius - 1);
-        int roiMaxX = clampInt((int) Math.round(safePredictedX) + roiHalfWidth, roiMinX + 1, width - expandedRadius - 1);
-        int roiMinY = clampInt((int) Math.round(safePredictedY) - roiHalfHeight, expandedRadius, height - expandedRadius - 1);
-        int roiMaxY = clampInt((int) Math.round(safePredictedY) + roiHalfHeight, roiMinY + 1, height - expandedRadius - 1);
-
         int globalMinX = clampInt((int) Math.round(width * TRACKING_MIN_CENTER_X_RATIO), expandedRadius, width - expandedRadius - 1);
         int globalMaxX = clampInt((int) Math.round(width * TRACKING_MAX_CENTER_X_RATIO), globalMinX + 1, width - expandedRadius - 1);
         int globalMaxY = clampInt((int) Math.round(height * TRACKING_MAX_CENTER_Y_RATIO), expandedRadius + 1, height - expandedRadius - 1);
-        roiMinX = clampInt(roiMinX, globalMinX, globalMaxX - 1);
-        roiMaxX = clampInt(roiMaxX, roiMinX + 1, globalMaxX);
-        roiMinY = clampInt(roiMinY, expandedRadius, globalMaxY - 1);
-        roiMaxY = clampInt(roiMaxY, roiMinY + 1, globalMaxY);
+
+        int roiMinX;
+        int roiMaxX;
+        int roiMinY;
+        int roiMaxY;
+        if (usePredictedRoi) {
+            roiMinX = clampInt((int) Math.round(safePredictedX) - roiHalfWidth, expandedRadius, width - expandedRadius - 1);
+            roiMaxX = clampInt((int) Math.round(safePredictedX) + roiHalfWidth, roiMinX + 1, width - expandedRadius - 1);
+            roiMinY = clampInt((int) Math.round(safePredictedY) - roiHalfHeight, expandedRadius, height - expandedRadius - 1);
+            roiMaxY = clampInt((int) Math.round(safePredictedY) + roiHalfHeight, roiMinY + 1, height - expandedRadius - 1);
+            roiMinX = clampInt(roiMinX, globalMinX, globalMaxX - 1);
+            roiMaxX = clampInt(roiMaxX, roiMinX + 1, globalMaxX);
+            roiMinY = clampInt(roiMinY, expandedRadius, globalMaxY - 1);
+            roiMaxY = clampInt(roiMaxY, roiMinY + 1, globalMaxY);
+        } else {
+            roiMinX = globalMinX;
+            roiMaxX = globalMaxX;
+            roiMinY = expandedRadius;
+            roiMaxY = globalMaxY;
+        }
 
         if (roiMaxX <= roiMinX || roiMaxY <= roiMinY) {
             return emptyDetection;
@@ -782,7 +815,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double bestY = safePredictedY;
         int bestRadius = minRadius;
         double bestMotionRing = 0.0;
-        List<CircleCandidate> candidateCircles = captureCandidateCircles ? new ArrayList<>() : null;
+        List<CircleDebugCandidate> candidateCircles = captureCandidateCircles ? new ArrayList<>() : null;
 
         try {
             roiGray = frameData.grayMat.submat(roiRect);
@@ -806,7 +839,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 return emptyDetection;
             }
 
-            double roiDistanceNorm = Math.max(1.0, Math.max(roiHalfWidth, roiHalfHeight));
+            double roiDistanceNorm = usePredictedRoi
+                ? Math.max(1.0, Math.max(roiHalfWidth, roiHalfHeight))
+                : Math.max(1.0, Math.max((roiRect.width * 0.5), (roiRect.height * 0.5)));
             int candidateCount = circles.cols();
             for (int candidateIndex = 0; candidateIndex < candidateCount; candidateIndex++) {
                 double[] candidate = circles.get(0, candidateIndex);
@@ -817,9 +852,10 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 int centerX = clampInt((int) Math.round(candidate[0] + roiRect.x), 0, width - 1);
                 int centerY = clampInt((int) Math.round(candidate[1] + roiRect.y), 0, height - 1);
                 int radius = clampInt((int) Math.round(candidate[2]), minRadius, maxRadius);
-                CircleCandidate circleCandidate = null;
-                if (captureCandidateCircles && candidateCircles != null && candidateCircles.size() < MAX_DEBUG_CIRCLES) {
-                    circleCandidate = new CircleCandidate();
+                CircleDebugCandidate circleCandidate = null;
+                if (captureCandidateCircles && candidateCircles != null) {
+                    circleCandidate = new CircleDebugCandidate();
+                    circleCandidate.candidateIndex = candidateIndex;
                     circleCandidate.x = centerX;
                     circleCandidate.y = centerY;
                     circleCandidate.radius = radius;
@@ -828,12 +864,21 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 }
                 int expanded = radius + 3;
                 if (centerX - expanded < 1 || centerX + expanded >= width - 1 || centerY - expanded < 1 || centerY + expanded >= height - 1) {
+                    if (circleCandidate != null) {
+                        circleCandidate.rejectionReason = "border";
+                    }
                     continue;
                 }
 
                 CircleStats ringEdgeStats = sampleCircleStats(edge, width, height, centerX, centerY, radius);
                 double ringEdge = ringEdgeStats.mean;
+                if (circleCandidate != null) {
+                    circleCandidate.ringEdge = ringEdge;
+                }
                 if (ringEdge < 6.0) {
+                    if (circleCandidate != null) {
+                        circleCandidate.rejectionReason = "edge<6.0";
+                    }
                     continue;
                 }
 
@@ -845,16 +890,30 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 double motionRing = sampleCircleAverage(motion, width, height, centerX, centerY, radius);
                 double contrast = Math.abs(innerLum - outerLum);
                 double edgePeak = ringEdge - ((innerEdge + outerEdge) * 0.5);
+                if (circleCandidate != null) {
+                    circleCandidate.edgePeak = edgePeak;
+                }
                 if (edgePeak < 1.8) {
+                    if (circleCandidate != null) {
+                        circleCandidate.rejectionReason = "peak<1.8";
+                    }
                     continue;
                 }
 
                 double ringUniformity = clamp(1.0 - (ringEdgeStats.stdDev / (ringEdge + 24.0)), 0.0, 1.0);
+                if (circleCandidate != null) {
+                    circleCandidate.ringUniformity = ringUniformity;
+                }
                 if (ringUniformity < 0.05) {
+                    if (circleCandidate != null) {
+                        circleCandidate.rejectionReason = "uniform<0.05";
+                    }
                     continue;
                 }
                 double distance = Math.hypot(centerX - safePredictedX, centerY - safePredictedY);
-                double distancePenalty = clamp(distance / roiDistanceNorm, 0.0, 1.0) * 0.50;
+                double distancePenalty = usePredictedRoi
+                    ? clamp(distance / roiDistanceNorm, 0.0, 1.0) * 0.50
+                    : 0.0;
                 double radiusPenalty = 0.0;
                 double radiusSupport = 0.0;
                 if (!Double.isNaN(predictedRadius)) {
@@ -881,6 +940,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                     - radiusPenalty;
                 if (circleCandidate != null) {
                     circleCandidate.score = score;
+                    circleCandidate.ranked = true;
                 }
                 if (score > bestScore) {
                     bestScore = score;
@@ -1567,7 +1627,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double score;
         double motionScore;
         double confidence;
-        List<CircleCandidate> candidateCircles;
+        List<CircleDebugCandidate> candidateCircles;
     }
 
     private static class CircleStats {
@@ -1582,11 +1642,26 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double score;
     }
 
+    private static class CircleDebugCandidate extends CircleCandidate {
+        int candidateIndex;
+        double ringEdge = Double.NaN;
+        double edgePeak = Double.NaN;
+        double ringUniformity = Double.NaN;
+        String rejectionReason = null;
+        boolean ranked = false;
+    }
+
     static class FrameHoughDebugCircle {
+        int candidateIndex;
         double x;
         double y;
         double radius;
         double score;
+        double ringEdge;
+        double edgePeak;
+        double ringUniformity;
+        String rejectionReason;
+        boolean ranked;
     }
 
     static class FrameHoughDebugResult {
@@ -1599,6 +1674,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double score;
         List<FrameHoughDebugCircle> initialCircles = new ArrayList<>();
         List<FrameHoughDebugCircle> houghCandidates = new ArrayList<>();
+        List<FrameHoughDebugCircle> rejectedHoughCandidates = new ArrayList<>();
         List<FrameHoughDebugCircle> rankedHoughCandidates = new ArrayList<>();
     }
 
