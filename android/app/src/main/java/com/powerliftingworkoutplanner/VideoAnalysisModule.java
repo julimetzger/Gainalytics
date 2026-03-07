@@ -35,7 +35,6 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final int MIN_REP_COUNT = 1;
     private static final int MAX_REP_COUNT = 12;
     private static final int MAX_ANALYSIS_DIMENSION = 560;
-    private static final int MAX_TRACKING_SAMPLES = 180;
     private static final int MAX_DEBUG_CIRCLES = 10;
     private static final int PLATE_SAMPLE_POINTS = 12;
     private static final String TRACKER_VERSION = "opencv-hough-csrt-v1";
@@ -350,7 +349,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         try {
             retriever.setDataSource(localVideoPath);
 
-            int sampleCount = Math.max(24, Math.min(MAX_TRACKING_SAMPLES, (int) Math.round((durationMs / 1000.0) * ANALYZED_FPS)));
+            int sampleCount = (int) Math.round((durationMs / 1000.0) * ANALYZED_FPS);
             if (sampleCount < 2) {
                 sampleCount = 2;
             }
