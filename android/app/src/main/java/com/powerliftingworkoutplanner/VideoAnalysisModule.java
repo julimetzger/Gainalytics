@@ -34,15 +34,15 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final int MAX_TRACKING_SAMPLES = 180;
     private static final int MAX_DEBUG_CIRCLES = 10;
     private static final int PLATE_SAMPLE_POINTS = 12;
-    private static final double PLATE_MIN_RADIUS_RATIO = 0.035;
-    private static final double PLATE_MAX_RADIUS_RATIO = 0.24;
+    private static final double PLATE_MIN_RADIUS_RATIO = 0.1;
+    private static final double PLATE_MAX_RADIUS_RATIO = 0.2;
     private static final double PLATE_MIN_SCORE = 0.18;
     private static final double HOUGH_DP = 1.2;
-    private static final double HOUGH_PARAM_1 = 120.0;
-    private static final double HOUGH_PARAM_2_WIDE = 18.0;
-    private static final double HOUGH_PARAM_2_LOCKED = 22.0;
-    private static final double HOUGH_GLOBAL_PARAM_1 = 120.0;
-    private static final double HOUGH_GLOBAL_PARAM_2 = 20.0;
+    private static final double HOUGH_PARAM_1 = 145.0;
+    private static final double HOUGH_PARAM_2_WIDE = 45.0;
+    private static final double HOUGH_PARAM_2_LOCKED = 45.0;
+    private static final double HOUGH_GLOBAL_PARAM_1 = 145.0;
+    private static final double HOUGH_GLOBAL_PARAM_2 = 45.0;
     private static final double MAX_TRACKING_SPEED_PX_PER_S = 220.0;
     private static final double MANUAL_SEED_REQUIRED_CONFIDENCE = 0.2;
     private static final double TRACKING_EMA_ALPHA = 0.45;
@@ -550,12 +550,6 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
 
         int scaledWidth = sourceWidth;
         int scaledHeight = sourceHeight;
-        int maxDimension = Math.max(sourceWidth, sourceHeight);
-        if (maxDimension > MAX_ANALYSIS_DIMENSION) {
-            double scale = MAX_ANALYSIS_DIMENSION / (double) maxDimension;
-            scaledWidth = Math.max(2, (int) Math.round(sourceWidth * scale));
-            scaledHeight = Math.max(2, (int) Math.round(sourceHeight * scale));
-        }
 
         Bitmap workingBitmap = frame;
         boolean needsRecycle = false;
