@@ -1,11 +1,21 @@
 import {NativeModules} from 'react-native';
 import {buildStubBarTrackingResult, writeBarTrackingResultToFile} from './videoAnalysisStorage';
+import {SeedCandidate} from '../models/entities/VideoAnalysis';
 
 const {VideoAnalysis} = NativeModules;
 
 export interface ManualSeedPayload {
   normalizedX: number;
   normalizedY: number;
+  normalizedRadius?: number;
+}
+
+export interface SeedPreflightResult {
+  previewFramePath: string;
+  frameWidthPx: number;
+  frameHeightPx: number;
+  candidates: SeedCandidate[];
+  trackerVersion: string;
 }
 
 const isArgumentMismatchError = (error: unknown) => {
@@ -37,4 +47,12 @@ export const analyzeSquatVideo = async (localVideoPath: string, analysisId: numb
 
   // Fallback keeps JS flow working if native module is unavailable (e.g., old build).
   return writeBarTrackingResultToFile(buildStubBarTrackingResult(analysisId));
+};
+
+export const prepareSquatVideoSeed = async (localVideoPath: string, analysisId: number): Promise<SeedPreflightResult> => {
+  const nativePrepare = VideoAnalysis?.prepareSquatVideoSeed as undefined | ((...args: unknown[]) => Promise<SeedPreflightResult>);
+  if (!nativePrepare) {
+    throw new Error('Native prepareSquatVideoSeed is unavailable');
+  }
+  return nativePrepare(localVideoPath, analysisId);
 };

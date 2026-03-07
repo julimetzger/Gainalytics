@@ -1,5 +1,5 @@
 import videoAnalysisReducer from '../videoAnalysisReducer';
-import {VideoAnalysisStatus} from '../../../models/entities/VideoAnalysis';
+import {SeedCandidate, VideoAnalysisStatus} from '../../../models/entities/VideoAnalysis';
 
 describe('videoAnalysisReducer', () => {
   it('should add, update and remove a video analysis entry', () => {
@@ -69,6 +69,9 @@ describe('videoAnalysisReducer', () => {
             width: 0,
             height: 0,
           },
+          seedCandidates: undefined,
+          seedFrameWidthPx: undefined,
+          seedFrameHeightPx: undefined,
           error: undefined,
         },
       },
@@ -90,6 +93,10 @@ describe('videoAnalysisReducer', () => {
             height: 0,
           },
           resultPath: '/tmp/results/analysis-1.json',
+          manualSeedFramePath: undefined,
+          seedCandidates: undefined,
+          seedFrameWidthPx: undefined,
+          seedFrameHeightPx: undefined,
           error: undefined,
         },
       },
@@ -149,12 +156,107 @@ describe('videoAnalysisReducer', () => {
           },
           manualSeedFramePath: '/tmp/manual-seed.jpg',
           localVideoPath: '/tmp/video.mp4',
+          seedCandidates: undefined,
+          seedFrameWidthPx: undefined,
+          seedFrameHeightPx: undefined,
           workoutId: 42,
           exerciseId: 11,
           setIndex: 3,
         },
       },
       allIds: [5],
+    });
+  });
+
+  it('should persist seed preflight data and clear it when a result attaches', () => {
+    const seedCandidates = [
+      {
+        id: 'candidate-1',
+        x: 280,
+        y: 320,
+        radius: 180,
+        score: 0.42,
+      },
+    ] satisfies SeedCandidate[];
+
+    const baseState = videoAnalysisReducer(undefined, {
+      type: 'ADD_VIDEO_ANALYSIS',
+      videoAnalysis: {
+        id: 7,
+        sourceUri: 'content://video.mp4',
+        createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        status: VideoAnalysisStatus.PROCESSING,
+        videoMeta: {
+          durationMs: 0,
+          fps: 0,
+          width: 0,
+          height: 0,
+        },
+      },
+    });
+
+    const preflightState = videoAnalysisReducer(baseState, {
+      type: 'SET_VIDEO_ANALYSIS_SEED_PREFLIGHT',
+      analysisId: 7,
+      manualSeedFramePath: '/tmp/preflight.jpg',
+      localVideoPath: '/tmp/video.mp4',
+      seedCandidates,
+      seedFrameWidthPx: 1080,
+      seedFrameHeightPx: 1920,
+    });
+
+    const attachedState = videoAnalysisReducer(preflightState, {
+      type: 'ATTACH_VIDEO_ANALYSIS_RESULT',
+      analysisId: 7,
+      resultPath: '/tmp/results/analysis-7.json',
+    });
+
+    expect(preflightState).toEqual({
+      byId: {
+        7: {
+          id: 7,
+          sourceUri: 'content://video.mp4',
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+          status: VideoAnalysisStatus.PROCESSING,
+          videoMeta: {
+            durationMs: 0,
+            fps: 0,
+            width: 0,
+            height: 0,
+          },
+          manualSeedFramePath: '/tmp/preflight.jpg',
+          localVideoPath: '/tmp/video.mp4',
+          seedCandidates,
+          seedFrameWidthPx: 1080,
+          seedFrameHeightPx: 1920,
+        },
+      },
+      allIds: [7],
+    });
+
+    expect(attachedState).toEqual({
+      byId: {
+        7: {
+          id: 7,
+          sourceUri: 'content://video.mp4',
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+          status: VideoAnalysisStatus.DONE,
+          videoMeta: {
+            durationMs: 0,
+            fps: 0,
+            width: 0,
+            height: 0,
+          },
+          resultPath: '/tmp/results/analysis-7.json',
+          localVideoPath: '/tmp/video.mp4',
+          manualSeedFramePath: undefined,
+          seedCandidates: undefined,
+          seedFrameWidthPx: undefined,
+          seedFrameHeightPx: undefined,
+          error: undefined,
+        },
+      },
+      allIds: [7],
     });
   });
 });

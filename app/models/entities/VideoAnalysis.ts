@@ -1,6 +1,7 @@
 export enum VideoAnalysisStatus {
   QUEUED = 'queued',
   PROCESSING = 'processing',
+  AWAITING_SEED_CONFIRMATION = 'awaiting_seed_confirmation',
   DONE = 'done',
   NEEDS_MANUAL_SEED = 'needs_manual_seed',
   FAILED = 'failed',
@@ -25,8 +26,19 @@ export interface VideoAnalysis {
   videoMeta: VideoMeta;
   resultPath?: string;
   manualSeedFramePath?: string;
+  seedCandidates?: SeedCandidate[];
+  seedFrameWidthPx?: number;
+  seedFrameHeightPx?: number;
   analysisMeta?: AnalysisMeta;
   error?: string;
+}
+
+export interface SeedCandidate {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  score: number;
 }
 
 export interface BarPathPoint {
@@ -66,6 +78,7 @@ export interface AnalysisMeta {
   analyzedFps: number;
   frameCount: number;
   averageConfidence: number;
+  trackerVersion?: string;
   trackingFrameWidthPx?: number;
   trackingFrameHeightPx?: number;
   manualSeedUsed?: boolean;

@@ -379,6 +379,24 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           previewUri={previewUri}
           previewDimensions={previewDimensions}
           busy={manualSeedRunning}
+          title="Manual Seed Required"
+          subtitle="Tap the plate center and rerun analysis"
+          actionLabel="Run Manual Seed Analysis"
+          onRunManualSeedAnalysis={runManualSeedAnalysis}
+        />
+      )}
+
+      {analysis.status === VideoAnalysisStatus.AWAITING_SEED_CONFIRMATION && (
+        <VideoAnalysisManualSeedCard
+          previewUri={previewUri}
+          previewDimensions={previewDimensions}
+          busy={manualSeedRunning}
+          title="Confirm Plate Seed"
+          subtitle="Choose a suggested plate or tap freely before the full analysis starts"
+          actionLabel="Start Analysis"
+          suggestedCircles={analysis.seedCandidates}
+          seedFrameWidthPx={analysis.seedFrameWidthPx}
+          seedFrameHeightPx={analysis.seedFrameHeightPx}
           onRunManualSeedAnalysis={runManualSeedAnalysis}
         />
       )}

@@ -3,11 +3,14 @@ package com.powerliftingworkoutplanner;
 import android.graphics.Bitmap;
 import android.media.MediaMetadataRetriever;
 
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.WritableArray;
+import com.facebook.react.bridge.WritableMap;
 
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
@@ -15,6 +18,7 @@ import org.opencv.core.Mat;
 import org.opencv.core.Rect;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.tracking.TrackerCSRT;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -34,6 +38,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final int MAX_TRACKING_SAMPLES = 180;
     private static final int MAX_DEBUG_CIRCLES = 10;
     private static final int PLATE_SAMPLE_POINTS = 12;
+    private static final String TRACKER_VERSION = "opencv-hough-csrt-v1";
     private static final double PLATE_MIN_RADIUS_RATIO = 0.1;
     private static final double PLATE_MAX_RADIUS_RATIO = 0.2;
     private static final double PLATE_MIN_SCORE = 0.18;
@@ -128,7 +133,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             JSONObject analysisMeta = new JSONObject();
             analysisMeta.put("sourceFps", roundTo3(sourceFps));
             analysisMeta.put("analyzedFps", ANALYZED_FPS);
-            analysisMeta.put("trackerVersion", "opencv-hough-v2");
+            analysisMeta.put("trackerVersion", TRACKER_VERSION);
             analysisMeta.put("frameCount", trackingSeries.frameCount);
             analysisMeta.put("averageConfidence", roundTo3(trackingSeries.averageConfidence));
             analysisMeta.put("trackingFrameWidthPx", trackingSeries.frameWidthPx);
@@ -147,6 +152,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             if (manualSeedPoint != null) {
                 qualityFlags.put("MANUAL_SEED_USED");
             }
+            qualityFlags.put("ANALYSIS_NATIVE_OPENCV_CSRT");
             if (trackingSeries.usedFallback) {
                 qualityFlags.put("TRACKING_FALLBACK:" + trackingSeries.fallbackReason);
             }
@@ -160,6 +166,84 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         } catch (Exception error) {
             promise.reject("ERR_VIDEO_ANALYSIS", error);
         }
+    }
+
+    @ReactMethod
+    public void prepareSquatVideoSeed(String localVideoPath, int analysisId, Promise promise) {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        Bitmap frame = null;
+        FrameData frameData = null;
+        try {
+            ensureOpenCvReady();
+            File documentDir = getReactApplicationContext().getFilesDir();
+            File rootDir = new File(documentDir, "video-analysis");
+            if (!rootDir.exists() && !rootDir.mkdirs()) {
+                promise.reject("ERR_VIDEO_ANALYSIS_DIR", "Could not create video analysis directory");
+                return;
+            }
+
+            String previewFramePath = writePreviewFrame(localVideoPath, analysisId, rootDir);
+            retriever.setDataSource(localVideoPath);
+            frame = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            if (frame == null) {
+                promise.reject("ERR_VIDEO_ANALYSIS_PREVIEW", "Could not extract preview frame");
+                return;
+            }
+
+            frameData = toFrameData(frame);
+            if (frameData == null) {
+                promise.reject("ERR_VIDEO_ANALYSIS_PREVIEW", "Could not prepare frame data");
+                return;
+            }
+
+            int[] edge = buildEdgeMagnitude(frameData.gray, frameData.width, frameData.height);
+            JSONArray initialCircles = detectInitialFrameCircles(frameData, edge, Double.NaN, Double.NaN, Double.NaN);
+
+            WritableMap result = Arguments.createMap();
+            result.putString("previewFramePath", previewFramePath == null ? "" : previewFramePath);
+            result.putInt("frameWidthPx", frameData.width);
+            result.putInt("frameHeightPx", frameData.height);
+            result.putString("trackerVersion", "opencv-hough-preflight-v1");
+            result.putArray("candidates", toSeedCandidatesArray(initialCircles));
+            promise.resolve(result);
+        } catch (Exception error) {
+            promise.reject("ERR_VIDEO_ANALYSIS_PREVIEW", error);
+        } finally {
+            if (frameData != null) {
+                frameData.release();
+            }
+            if (frame != null) {
+                frame.recycle();
+            }
+            try {
+                retriever.release();
+            } catch (Exception ignored) {
+                // No-op.
+            }
+        }
+    }
+
+    private WritableArray toSeedCandidatesArray(JSONArray circlesArray) {
+        WritableArray candidates = Arguments.createArray();
+        if (circlesArray == null) {
+            return candidates;
+        }
+
+        for (int index = 0; index < circlesArray.length(); index++) {
+            JSONObject circleObject = circlesArray.optJSONObject(index);
+            if (circleObject == null) {
+                continue;
+            }
+
+            WritableMap candidate = Arguments.createMap();
+            candidate.putString("id", "candidate-" + (index + 1));
+            candidate.putDouble("x", circleObject.optDouble("x", 0.0));
+            candidate.putDouble("y", circleObject.optDouble("y", 0.0));
+            candidate.putDouble("radius", circleObject.optDouble("radius", 0.0));
+            candidate.putDouble("score", circleObject.optDouble("score", 0.0));
+            candidates.pushMap(candidate);
+        }
+        return candidates;
     }
 
     private String writePreviewFrame(String localVideoPath, int analysisId, File rootDir) {
@@ -255,6 +339,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         ManualSeedPoint point = new ManualSeedPoint();
         point.normalizedX = clamp(manualSeed.getDouble("normalizedX"), 0.0, 1.0);
         point.normalizedY = clamp(manualSeed.getDouble("normalizedY"), 0.0, 1.0);
+        if (manualSeed.hasKey("normalizedRadius")) {
+            point.normalizedRadius = clamp(manualSeed.getDouble("normalizedRadius"), 0.01, 1.0);
+        }
         return point;
     }
 
@@ -272,6 +359,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             int trackingWidth = -1;
             int trackingHeight = -1;
             int[] previousGray = null;
+            TrackerSession trackerSession = null;
             double filteredX = Double.NaN;
             double filteredY = Double.NaN;
             double previousFilteredY = Double.NaN;
@@ -303,6 +391,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 try {
                     trackingWidth = frameData.width;
                     trackingHeight = frameData.height;
+                    if (Double.isNaN(trackedRadius) && manualSeedPoint != null && !Double.isNaN(manualSeedPoint.normalizedRadius)) {
+                        trackedRadius = manualSeedPoint.normalizedRadius * Math.min(frameData.width, frameData.height);
+                    }
                     int[] motion = buildMotionMagnitude(frameData.gray, previousGray);
                     previousGray = frameData.gray;
 
@@ -337,45 +428,94 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                         !Double.isNaN(filteredX) ||
                         !Double.isNaN(filteredY) ||
                         !Double.isNaN(trackedRadius);
-                    PlateDetection detection =
-                        detectPlateCenterWithHough(
-                            frameData,
-                            edge,
-                            motion,
+                    PlateDetection detection = new PlateDetection();
+                    detection.found = false;
+                    if (sampleIndex > 0 && trackerSession != null && trackerSession.active) {
+                        PlateDetection trackerDetection = detectPlateCenterWithTracker(frameData, motion, trackerSession);
+                        if (trackerDetection.found && isDetectionWithinTrackingGate(
+                            trackerDetection,
+                            filteredX,
+                            filteredY,
                             predictedX,
                             predictedY,
                             trackedRadius,
-                            usePredictedRoi,
-                            useWideSearch,
-                            false
-                        );
+                            velocityX,
+                            velocityY,
+                            dtSeconds,
+                            frameData,
+                            useWideSearch
+                        )) {
+                            detection = trackerDetection;
+                        } else if (!trackerDetection.found || trackerSession.active) {
+                            trackerSession = null;
+                        }
+                    }
+                    if (!detection.found) {
+                        PlateDetection houghDetection =
+                            detectPlateCenterWithHough(
+                                frameData,
+                                edge,
+                                motion,
+                                predictedX,
+                                predictedY,
+                                trackedRadius,
+                                usePredictedRoi,
+                                useWideSearch,
+                                false
+                            );
+                        if (
+                            !houghDetection.found &&
+                            usePredictedRoi
+                        ) {
+                            houghDetection =
+                                detectPlateCenterWithHough(
+                                    frameData,
+                                    edge,
+                                    motion,
+                                    predictedX,
+                                    predictedY,
+                                    trackedRadius,
+                                    false,
+                                    true,
+                                    false
+                                );
+                        }
+                        detection = houghDetection;
+                        if (
+                            !detection.found &&
+                            sampleIndex == 0 &&
+                            manualSeedPoint != null
+                        ) {
+                            double seedRadius = !Double.isNaN(trackedRadius)
+                                ? trackedRadius
+                                : Math.max(8.0, Math.min(frameData.width, frameData.height) * 0.15);
+                            detection = buildSeedDetection(frameData, motion, predictedX, predictedY, seedRadius);
+                        }
+                        if (detection.found) {
+                            trackerSession = initializeTrackerSession(frameData, detection.x, detection.y, detection.radius);
+                        }
+                    }
                     if (sampleIndex == 0 && detectedCirclesAtStart.length() == 0) {
                         double hintX = detection.found ? detection.x : predictedX;
                         double hintY = detection.found ? detection.y : predictedY;
                         double hintRadius = detection.found ? detection.radius : trackedRadius;
                         detectedCirclesAtStart = detectInitialFrameCircles(frameData, edge, hintX, hintY, hintRadius);
                     }
-                    boolean detectionAccepted = detection.found;
-                    if (detectionAccepted && !Double.isNaN(filteredX) && !Double.isNaN(filteredY)) {
-                        double jumpDistance = Math.hypot(detection.x - predictedX, detection.y - predictedY);
-                        double speedMagnitude = Math.hypot(velocityX, velocityY);
-                        double minDimension = Math.max(1.0, Math.min(frameData.width, frameData.height));
-                        double maxJump = clamp(
-                            (speedMagnitude * dtSeconds * 1.8) + (minDimension * 0.045),
-                            8.0,
-                            minDimension * (useWideSearch ? 0.42 : 0.18)
-                        );
-                        if (!useWideSearch && jumpDistance > maxJump) {
-                            detectionAccepted = false;
-                        }
-
-                        if (detectionAccepted && !Double.isNaN(trackedRadius)) {
-                            double radiusDelta = Math.abs(detection.radius - trackedRadius);
-                            double radiusTolerance = Math.max(2.5, trackedRadius * (useWideSearch ? 0.65 : 0.35));
-                            if (!useWideSearch && radiusDelta > radiusTolerance) {
-                                detectionAccepted = false;
-                            }
-                        }
+                    boolean detectionAccepted = detection.found && isDetectionWithinTrackingGate(
+                        detection,
+                        filteredX,
+                        filteredY,
+                        predictedX,
+                        predictedY,
+                        trackedRadius,
+                        velocityX,
+                        velocityY,
+                        dtSeconds,
+                        frameData,
+                        useWideSearch
+                    );
+                    if (!detectionAccepted && trackerSession != null && trackerSession.active) {
+                        trackerSession = null;
                     }
 
                     double measuredX;
@@ -565,10 +705,13 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         }
 
         Mat rgba = null;
+        Mat trackingMat = null;
         Mat grayMat = null;
         try {
             rgba = new Mat();
             Utils.bitmapToMat(workingBitmap, rgba);
+            trackingMat = new Mat();
+            Imgproc.cvtColor(rgba, trackingMat, Imgproc.COLOR_RGBA2RGB);
             grayMat = new Mat();
             Imgproc.cvtColor(rgba, grayMat, Imgproc.COLOR_RGBA2GRAY);
             Imgproc.GaussianBlur(grayMat, grayMat, new Size(5.0, 5.0), 1.2);
@@ -584,7 +727,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             frameData.width = scaledWidth;
             frameData.height = scaledHeight;
             frameData.gray = gray;
+            frameData.trackingMat = trackingMat;
             frameData.grayMat = grayMat;
+            trackingMat = null;
             grayMat = null;
             return frameData;
         } catch (Exception ignored) {
@@ -592,6 +737,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         } finally {
             if (rgba != null) {
                 rgba.release();
+            }
+            if (trackingMat != null) {
+                trackingMat.release();
             }
             if (grayMat != null) {
                 grayMat.release();
@@ -974,6 +1122,158 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             : clamp(bestScore, 0.02, 0.08);
         detection.candidateCircles = candidateCircles;
         return detection;
+    }
+
+    private PlateDetection detectPlateCenterWithTracker(FrameData frameData, int[] motion, TrackerSession trackerSession) {
+        PlateDetection emptyDetection = new PlateDetection();
+        emptyDetection.found = false;
+        if (
+            trackerSession == null ||
+            !trackerSession.active ||
+            trackerSession.tracker == null ||
+            frameData.trackingMat == null ||
+            frameData.trackingMat.empty() ||
+            trackerSession.boundingBox == null
+        ) {
+            return emptyDetection;
+        }
+
+        Rect nextBoundingBox = new Rect(
+            trackerSession.boundingBox.x,
+            trackerSession.boundingBox.y,
+            trackerSession.boundingBox.width,
+            trackerSession.boundingBox.height
+        );
+        boolean updated = trackerSession.tracker.update(frameData.trackingMat, nextBoundingBox);
+        if (!updated || nextBoundingBox.width <= 1 || nextBoundingBox.height <= 1) {
+            trackerSession.active = false;
+            return emptyDetection;
+        }
+
+        double aspectRatio = Math.max(nextBoundingBox.width, nextBoundingBox.height) / (double) Math.max(1, Math.min(nextBoundingBox.width, nextBoundingBox.height));
+        if (
+            nextBoundingBox.x < 0 ||
+            nextBoundingBox.y < 0 ||
+            nextBoundingBox.x + nextBoundingBox.width >= frameData.width ||
+            nextBoundingBox.y + nextBoundingBox.height >= frameData.height ||
+            aspectRatio > 1.75
+        ) {
+            trackerSession.active = false;
+            return emptyDetection;
+        }
+
+        trackerSession.boundingBox = nextBoundingBox;
+        PlateDetection detection = new PlateDetection();
+        detection.found = true;
+        detection.x = nextBoundingBox.x + (nextBoundingBox.width / 2.0);
+        detection.y = nextBoundingBox.y + (nextBoundingBox.height / 2.0);
+        detection.radius = clampInt(
+            (int) Math.round((nextBoundingBox.width + nextBoundingBox.height) / 4.0),
+            Math.max(8, (int) Math.round(Math.min(frameData.width, frameData.height) * PLATE_MIN_RADIUS_RATIO)),
+            Math.max(10, (int) Math.round(Math.min(frameData.width, frameData.height) * PLATE_MAX_RADIUS_RATIO))
+        );
+        detection.motionScore = clamp(
+            sampleCircleAverage(motion, frameData.width, frameData.height, (int) Math.round(detection.x), (int) Math.round(detection.y), detection.radius) / 255.0,
+            0.0,
+            1.0
+        );
+        detection.score = Math.max(PLATE_MIN_SCORE, 0.42 + (detection.motionScore * 0.18));
+        detection.confidence = clamp(0.46 + (detection.motionScore * 0.18), 0.28, 0.82);
+        return detection;
+    }
+
+    private boolean isDetectionWithinTrackingGate(
+        PlateDetection detection,
+        double filteredX,
+        double filteredY,
+        double predictedX,
+        double predictedY,
+        double trackedRadius,
+        double velocityX,
+        double velocityY,
+        double dtSeconds,
+        FrameData frameData,
+        boolean useWideSearch
+    ) {
+        if (detection == null || !detection.found) {
+            return false;
+        }
+        if (Double.isNaN(filteredX) || Double.isNaN(filteredY)) {
+            return true;
+        }
+
+        double jumpDistance = Math.hypot(detection.x - predictedX, detection.y - predictedY);
+        double speedMagnitude = Math.hypot(velocityX, velocityY);
+        double minDimension = Math.max(1.0, Math.min(frameData.width, frameData.height));
+        double maxJump = clamp(
+            (speedMagnitude * dtSeconds * 1.8) + (minDimension * 0.045),
+            8.0,
+            minDimension * (useWideSearch ? 0.42 : 0.18)
+        );
+        if (!useWideSearch && jumpDistance > maxJump) {
+            return false;
+        }
+
+        if (!Double.isNaN(trackedRadius)) {
+            double radiusDelta = Math.abs(detection.radius - trackedRadius);
+            double radiusTolerance = Math.max(2.5, trackedRadius * (useWideSearch ? 0.65 : 0.35));
+            if (!useWideSearch && radiusDelta > radiusTolerance) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private PlateDetection buildSeedDetection(FrameData frameData, int[] motion, double centerX, double centerY, double radius) {
+        PlateDetection detection = new PlateDetection();
+        detection.found = true;
+        detection.x = clamp(centerX, 0.0, Math.max(1, frameData.width - 1));
+        detection.y = clamp(centerY, 0.0, Math.max(1, frameData.height - 1));
+        detection.radius = clampInt(
+            (int) Math.round(radius),
+            Math.max(8, (int) Math.round(Math.min(frameData.width, frameData.height) * PLATE_MIN_RADIUS_RATIO)),
+            Math.max(10, (int) Math.round(Math.min(frameData.width, frameData.height) * PLATE_MAX_RADIUS_RATIO))
+        );
+        detection.motionScore = clamp(
+            sampleCircleAverage(motion, frameData.width, frameData.height, (int) Math.round(detection.x), (int) Math.round(detection.y), detection.radius) / 255.0,
+            0.0,
+            1.0
+        );
+        detection.score = PLATE_MIN_SCORE;
+        detection.confidence = 0.22;
+        return detection;
+    }
+
+    private TrackerSession initializeTrackerSession(FrameData frameData, double centerX, double centerY, double radius) {
+        if (frameData.trackingMat == null || frameData.trackingMat.empty()) {
+            return null;
+        }
+        Rect boundingBox = buildTrackerBoundingBox(frameData.width, frameData.height, centerX, centerY, radius);
+        if (boundingBox.width <= 1 || boundingBox.height <= 1) {
+            return null;
+        }
+
+        try {
+            TrackerCSRT tracker = TrackerCSRT.create();
+            tracker.init(frameData.trackingMat, boundingBox);
+            TrackerSession session = new TrackerSession();
+            session.tracker = tracker;
+            session.boundingBox = boundingBox;
+            session.active = true;
+            return session;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private Rect buildTrackerBoundingBox(int width, int height, double centerX, double centerY, double radius) {
+        int safeRadius = Math.max(6, (int) Math.round(radius));
+        int left = clampInt((int) Math.round(centerX) - safeRadius, 0, Math.max(0, width - 2));
+        int top = clampInt((int) Math.round(centerY) - safeRadius, 0, Math.max(0, height - 2));
+        int right = clampInt((int) Math.round(centerX) + safeRadius, left + 2, Math.max(left + 2, width - 1));
+        int bottom = clampInt((int) Math.round(centerY) + safeRadius, top + 2, Math.max(top + 2, height - 1));
+        return new Rect(left, top, Math.max(2, right - left), Math.max(2, bottom - top));
     }
 
     private JSONArray detectInitialFrameCircles(FrameData frameData, int[] edge, double hintX, double hintY, double hintRadius) throws Exception {
@@ -1597,9 +1897,14 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         int width;
         int height;
         int[] gray;
+        Mat trackingMat;
         Mat grayMat;
 
         void release() {
+            if (trackingMat != null) {
+                trackingMat.release();
+                trackingMat = null;
+            }
             if (grayMat != null) {
                 grayMat.release();
                 grayMat = null;
@@ -1617,6 +1922,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static class ManualSeedPoint {
         double normalizedX;
         double normalizedY;
+        double normalizedRadius = Double.NaN;
     }
 
     private static class PlateDetection {
@@ -1628,6 +1934,12 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double motionScore;
         double confidence;
         List<CircleDebugCandidate> candidateCircles;
+    }
+
+    private static class TrackerSession {
+        TrackerCSRT tracker;
+        Rect boundingBox;
+        boolean active;
     }
 
     private static class CircleStats {

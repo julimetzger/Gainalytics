@@ -1,20 +1,27 @@
 import {PermissionsAndroid, Platform} from 'react-native';
 import {VideoAnalysis, VideoAnalysisStatus} from '../models/entities/VideoAnalysis';
 import {copyImportedVideoToLocalStorage} from './videoAnalysisStorage';
-import {analyzeSquatVideo} from './videoAnalysisNative';
+import {prepareSquatVideoSeed} from './videoAnalysisNative';
 
 export const EMULATOR_SQUAT_VIDEO_PATH = '/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4';
 const MANUAL_SEED_REQUIRED_PREFIX = 'MANUAL_SEED_REQUIRED::';
 
-export type VideoAnalysisImportOutcome = 'done' | 'needs_manual_seed';
+export type VideoAnalysisImportOutcome = 'awaiting_seed_confirmation' | 'needs_manual_seed';
 
 interface ImportVideoAnalysisParams {
   analysisId: number;
   sourceUri: string;
   addVideoAnalysis: (videoAnalysis: VideoAnalysis) => void;
   setVideoAnalysisStatus: (analysisId: number, status: VideoAnalysisStatus, error?: string) => void;
-  attachVideoAnalysisResult: (analysisId: number, resultPath: string, localVideoPath?: string) => void;
   setManualSeedFramePath: (analysisId: number, manualSeedFramePath?: string, localVideoPath?: string) => void;
+  setSeedPreflight: (
+    analysisId: number,
+    manualSeedFramePath?: string,
+    seedCandidates?: VideoAnalysis['seedCandidates'],
+    seedFrameWidthPx?: number,
+    seedFrameHeightPx?: number,
+    localVideoPath?: string,
+  ) => void;
 }
 
 const extractManualSeedFramePath = (message?: string) => {
@@ -30,8 +37,8 @@ export const importVideoAnalysisFromSource = async ({
   sourceUri,
   addVideoAnalysis,
   setVideoAnalysisStatus,
-  attachVideoAnalysisResult,
   setManualSeedFramePath,
+  setSeedPreflight,
 }: ImportVideoAnalysisParams): Promise<VideoAnalysisImportOutcome> => {
   let localVideoPath: string | undefined;
 
@@ -51,9 +58,17 @@ export const importVideoAnalysisFromSource = async ({
   try {
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING);
     localVideoPath = await copyImportedVideoToLocalStorage(sourceUri, analysisId);
-    const resultPath = await analyzeSquatVideo(localVideoPath, analysisId);
-    attachVideoAnalysisResult(analysisId, resultPath, localVideoPath);
-    return 'done';
+    const preflight = await prepareSquatVideoSeed(localVideoPath, analysisId);
+    setSeedPreflight(
+      analysisId,
+      preflight.previewFramePath,
+      preflight.candidates,
+      preflight.frameWidthPx,
+      preflight.frameHeightPx,
+      localVideoPath,
+    );
+    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.AWAITING_SEED_CONFIRMATION);
+    return 'awaiting_seed_confirmation';
   } catch (error) {
     const nativeError = error as {code?: string; message?: string};
     if (nativeError?.code === 'ERR_VIDEO_ANALYSIS_NEEDS_MANUAL_SEED') {

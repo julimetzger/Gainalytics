@@ -7,9 +7,9 @@ import Toast from 'react-native-toast-message';
 import {useNavigation} from '@react-navigation/native';
 import {dispatchAddVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchAddVideoAnalysis';
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
-import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {dispatchDeleteVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchDeleteVideoAnalysis';
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
+import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisSeedPreflight';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoReadPermission} from '../../utils/video-analysis-import';
@@ -29,9 +29,9 @@ const VideoAnalysisTab = () => {
   const analyses = useAllVideoAnalyses();
   const addVideoAnalysis = dispatchAddVideoAnalysis();
   const setVideoAnalysisStatus = dispatchSetVideoAnalysisStatus();
-  const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
   const removeVideoAnalysis = dispatchDeleteVideoAnalysis();
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
+  const setSeedPreflight = dispatchSetVideoAnalysisSeedPreflight();
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const [importing, setImporting] = useState(false);
@@ -44,8 +44,8 @@ const VideoAnalysisTab = () => {
         sourceUri,
         addVideoAnalysis,
         setVideoAnalysisStatus,
-        attachVideoAnalysisResult,
         setManualSeedFramePath,
+        setSeedPreflight,
       });
 
       if (outcome === 'needs_manual_seed') {
@@ -57,9 +57,9 @@ const VideoAnalysisTab = () => {
         });
       } else {
         Toast.show({
-          type: 'success',
-          text1: 'Video imported',
-          text2: 'Analysis completed.',
+          type: 'info',
+          text1: 'Seed confirmation required',
+          text2: 'Open the analysis detail, confirm a plate seed, then start analysis.',
           position: 'top',
         });
       }

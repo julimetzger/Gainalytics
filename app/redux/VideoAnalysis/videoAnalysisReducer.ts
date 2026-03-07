@@ -57,6 +57,9 @@ const videoAnalysisReducer = (state: NormalizedState<VideoAnalysis> = initialSta
             localVideoPath: action.localVideoPath ?? current.localVideoPath,
             status: VideoAnalysisStatus.DONE,
             manualSeedFramePath: undefined,
+            seedCandidates: undefined,
+            seedFrameWidthPx: undefined,
+            seedFrameHeightPx: undefined,
             error: undefined,
           },
         },
@@ -95,6 +98,30 @@ const videoAnalysisReducer = (state: NormalizedState<VideoAnalysis> = initialSta
             ...current,
             manualSeedFramePath: action.manualSeedFramePath,
             localVideoPath: action.localVideoPath ?? current.localVideoPath,
+            seedCandidates: undefined,
+            seedFrameWidthPx: undefined,
+            seedFrameHeightPx: undefined,
+          },
+        },
+      };
+    }
+    case 'SET_VIDEO_ANALYSIS_SEED_PREFLIGHT': {
+      const current = state.byId[action.analysisId];
+      if (!current) {
+        return state;
+      }
+
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.analysisId]: {
+            ...current,
+            manualSeedFramePath: action.manualSeedFramePath,
+            localVideoPath: action.localVideoPath ?? current.localVideoPath,
+            seedCandidates: action.seedCandidates,
+            seedFrameWidthPx: action.seedFrameWidthPx,
+            seedFrameHeightPx: action.seedFrameHeightPx,
           },
         },
       };
