@@ -36,6 +36,11 @@ public class VideoAnalysisPlayerViewManager extends SimpleViewManager<VideoAnaly
         view.setPaused(paused);
     }
 
+    @ReactProp(name = "seekPositionMs", defaultInt = -1)
+    public void setSeekPositionMs(VideoAnalysisPlayerView view, int seekPositionMs) {
+        view.setSeekPositionMs(seekPositionMs);
+    }
+
     @ReactProp(name = "barPathSeries")
     public void setBarPathSeries(VideoAnalysisPlayerView view, ReadableArray barPathSeries) {
         view.setBarPathSeries(barPathSeries);

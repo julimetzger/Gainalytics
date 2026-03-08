@@ -33,7 +33,7 @@ import java.util.List;
 
 public class VideoAnalysisPlayerView extends FrameLayout {
     private static final int PROGRESS_INTERVAL_MS = 100;
-    private static final int PROGRESS_EVENT_INTERVAL_MS = 500;
+    private static final int PROGRESS_EVENT_INTERVAL_MS = 1000;
 
     private final ExoPlayer player;
     private final PlayerView playerView;
@@ -49,6 +49,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
     private int videoHeight = 0;
     private int trackingFrameWidthPx = 0;
     private int trackingFrameHeightPx = 0;
+    private int lastRequestedSeekMs = -1;
     private float fallbackMinX = 0f;
     private float fallbackMaxX = 0f;
     private float fallbackMinY = 0f;
@@ -209,6 +210,23 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         if (prepared) {
             updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
             startProgressLoop();
+        }
+    }
+
+    public void setSeekPositionMs(int seekPositionMs) {
+        if (seekPositionMs < 0) {
+            return;
+        }
+
+        int clampedSeekMs = durationMs > 0 ? Math.min(seekPositionMs, durationMs) : seekPositionMs;
+        if (Math.abs(clampedSeekMs - lastRequestedSeekMs) < 16) {
+            return;
+        }
+        lastRequestedSeekMs = clampedSeekMs;
+        player.seekTo(clampedSeekMs);
+        if (prepared) {
+            updateOverlayPointForTimeMs(clampedSeekMs);
+            maybeEmitProgress(clampedSeekMs, true);
         }
     }
 

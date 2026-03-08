@@ -25,6 +25,7 @@ export interface VideoBarPathPoint {
 interface VideoAnalysisPlayerViewProps extends ViewProps {
   source: string;
   paused: boolean;
+  seekPositionMs?: number;
   barPathSeries?: VideoBarPathPoint[];
   trackingFrameWidthPx?: number;
   trackingFrameHeightPx?: number;
