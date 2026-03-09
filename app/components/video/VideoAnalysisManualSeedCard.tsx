@@ -1,5 +1,5 @@
 import React, {memo, useMemo, useState} from 'react';
-import {GestureResponderEvent, Image, LayoutChangeEvent, Pressable, StyleSheet, View} from 'react-native';
+import {Image, LayoutChangeEvent, Pressable, StyleSheet, View} from 'react-native';
 import {Button, Card, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {SeedCandidate} from '../../models/entities/VideoAnalysis';
 import {ManualSeedPayload} from '../../utils/videoAnalysisNative';
@@ -16,9 +16,7 @@ interface Props {
   title?: string;
   subtitle?: string;
   actionLabel?: string;
-  suggestedCircles?: SeedCandidate[];
-  seedFrameWidthPx?: number;
-  seedFrameHeightPx?: number;
+  suggestedBoxes?: SeedCandidate[];
   onRunManualSeedAnalysis: (manualSeed: ManualSeedPayload) => Promise<void> | void;
 }
 
@@ -27,42 +25,39 @@ interface PreviewLayout {
   height: number;
 }
 
-const MARKER_SIZE = 14;
+interface MappedBox extends SeedCandidate {
+  left: number;
+  top: number;
+  widthPx: number;
+  heightPx: number;
+}
 
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
     previewBackground: {
       backgroundColor: theme.colors.surfaceVariant,
     },
-    marker: {
-      backgroundColor: theme.colors.error,
-      borderColor: theme.colors.onError,
-    },
-    suggestionCircle: {
+    suggestionBox: {
       borderColor: theme.colors.tertiary,
     },
-    suggestionCircleSelected: {
+    suggestionBoxSelected: {
       borderColor: theme.colors.primary,
     },
   });
-
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 const VideoAnalysisManualSeedCard = ({
   previewUri,
   previewDimensions,
   busy = false,
-  title = 'Seed Confirmation',
-  subtitle = 'Select a suggested plate or tap freely before starting analysis',
+  title = 'Seed Selection',
+  subtitle = 'Choose the detected plate before starting analysis',
   actionLabel = 'Start Analysis',
-  suggestedCircles = [],
-  seedFrameWidthPx,
-  seedFrameHeightPx,
+  suggestedBoxes = [],
   onRunManualSeedAnalysis,
 }: Props) => {
   const theme = useTheme();
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
-  const [selectedSeed, setSelectedSeed] = useState<ManualSeedPayload | undefined>(undefined);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | undefined>(undefined);
   const [previewLayout, setPreviewLayout] = useState<PreviewLayout>({width: 0, height: 0});
 
   const imageMapping = useMemo(() => {
@@ -83,138 +78,101 @@ const VideoAnalysisManualSeedCard = ({
     };
   }, [previewDimensions.height, previewDimensions.width, previewLayout.height, previewLayout.width]);
 
+  const mappedBoxes = useMemo(() => {
+    if (!imageMapping) {
+      return [];
+    }
+
+    return suggestedBoxes.map((box) => {
+      const widthPx = imageMapping.renderedWidth * box.normalizedWidth;
+      const heightPx = imageMapping.renderedHeight * box.normalizedHeight;
+      return {
+        ...box,
+        left: imageMapping.offsetX + box.normalizedX * imageMapping.renderedWidth - widthPx / 2,
+        top: imageMapping.offsetY + box.normalizedY * imageMapping.renderedHeight - heightPx / 2,
+        widthPx,
+        heightPx,
+      } as MappedBox;
+    });
+  }, [imageMapping, suggestedBoxes]);
+
+  const selectedCandidate = useMemo(() => {
+    return suggestedBoxes.find((candidate) => candidate.id === selectedCandidateId);
+  }, [selectedCandidateId, suggestedBoxes]);
+
   const onPreviewLayout = (event: LayoutChangeEvent) => {
     const {width, height} = event.nativeEvent.layout;
     setPreviewLayout({width, height});
   };
 
-  const onPreviewPress = (event: GestureResponderEvent) => {
-    if (!imageMapping) {
-      return;
-    }
-
-    const {locationX, locationY} = event.nativeEvent;
-    const normalizedX = clamp((locationX - imageMapping.offsetX) / imageMapping.renderedWidth, 0, 1);
-    const normalizedY = clamp((locationY - imageMapping.offsetY) / imageMapping.renderedHeight, 0, 1);
-    setSelectedSeed({
-      normalizedX,
-      normalizedY,
-    });
-  };
-
-  const onSelectSuggestion = (circle: SeedCandidate) => {
-    const baseWidth = seedFrameWidthPx && seedFrameWidthPx > 0 ? seedFrameWidthPx : previewDimensions.width;
-    const baseHeight = seedFrameHeightPx && seedFrameHeightPx > 0 ? seedFrameHeightPx : previewDimensions.height;
-    const baseRadius = Math.max(1, Math.min(baseWidth, baseHeight));
-    setSelectedSeed({
-      normalizedX: clamp(circle.x / baseWidth, 0, 1),
-      normalizedY: clamp(circle.y / baseHeight, 0, 1),
-      normalizedRadius: clamp(circle.radius / baseRadius, 0.01, 1),
-    });
-  };
-
-  const markerPosition = useMemo(() => {
-    if (!selectedSeed || !imageMapping) {
-      return undefined;
-    }
-    return {
-      left: imageMapping.offsetX + selectedSeed.normalizedX * imageMapping.renderedWidth,
-      top: imageMapping.offsetY + selectedSeed.normalizedY * imageMapping.renderedHeight,
-    };
-  }, [imageMapping, selectedSeed]);
-
-  const suggestionCircles = useMemo(() => {
-    if (
-      !imageMapping ||
-      !seedFrameWidthPx ||
-      !seedFrameHeightPx ||
-      seedFrameWidthPx <= 0 ||
-      seedFrameHeightPx <= 0
-    ) {
-      return [];
-    }
-
-    const xScale = imageMapping.renderedWidth / seedFrameWidthPx;
-    const yScale = imageMapping.renderedHeight / seedFrameHeightPx;
-    const radiusScale = (xScale + yScale) / 2;
-
-    return suggestedCircles.map((circle) => ({
-      ...circle,
-      left: imageMapping.offsetX + circle.x * xScale - circle.radius * radiusScale,
-      top: imageMapping.offsetY + circle.y * yScale - circle.radius * radiusScale,
-      size: Math.max(2, circle.radius * radiusScale * 2),
-      selected:
-        !!selectedSeed &&
-        Math.abs(selectedSeed.normalizedX - clamp(circle.x / seedFrameWidthPx, 0, 1)) < 0.001 &&
-        Math.abs(selectedSeed.normalizedY - clamp(circle.y / seedFrameHeightPx, 0, 1)) < 0.001,
-    }));
-  }, [imageMapping, seedFrameHeightPx, seedFrameWidthPx, selectedSeed, suggestedCircles]);
-
   return (
     <Card style={styles.card}>
       <Card.Title title={title} subtitle={subtitle} />
       <Card.Content>
-        {!previewUri && <Text>No preview frame available for manual seed.</Text>}
+        {!previewUri && <Text>No preview frame available.</Text>}
         {previewUri && (
           <>
-            <Pressable
+            <View
               testID="video-analysis-manual-seed-preview"
-              onPress={onPreviewPress}
               style={[styles.previewContainer, themedStyles.previewBackground]}
               onLayout={onPreviewLayout}
             >
               <Image source={{uri: previewUri}} resizeMode="contain" style={styles.previewImage} />
-              {suggestionCircles.map((circle) => (
-                <View
-                  key={circle.id}
+              {mappedBoxes.map((box) => (
+                <Pressable
+                  key={box.id}
+                  onPress={() => setSelectedCandidateId(box.id)}
                   style={[
-                    styles.suggestionCircle,
-                    themedStyles.suggestionCircle,
-                    circle.selected && themedStyles.suggestionCircleSelected,
+                    styles.suggestionBox,
+                    themedStyles.suggestionBox,
+                    selectedCandidateId === box.id && themedStyles.suggestionBoxSelected,
                     {
-                      left: circle.left,
-                      top: circle.top,
-                      width: circle.size,
-                      height: circle.size,
+                      left: box.left,
+                      top: box.top,
+                      width: box.widthPx,
+                      height: box.heightPx,
                     },
                   ]}
                 />
               ))}
-              {markerPosition && (
-                <View
-                  testID="video-analysis-manual-seed-marker"
-                  style={[
-                    styles.marker,
-                    themedStyles.marker,
-                    {
-                      left: markerPosition.left - MARKER_SIZE / 2,
-                      top: markerPosition.top - MARKER_SIZE / 2,
-                    },
-                  ]}
-                />
-              )}
-            </Pressable>
-            {suggestedCircles.length > 0 && (
+            </View>
+
+            {suggestedBoxes.length > 0 && (
               <View style={styles.suggestionList}>
-                {suggestedCircles.map((circle, index) => (
-                  <Button key={circle.id} mode="outlined" onPress={() => onSelectSuggestion(circle)} style={styles.suggestionButton}>
-                    {`Use #${index + 1} (${circle.score.toFixed(2)})`}
+                {suggestedBoxes.map((candidate, index) => (
+                  <Button
+                    key={candidate.id}
+                    testID={`video-analysis-seed-candidate-${index + 1}`}
+                    mode={selectedCandidateId === candidate.id ? 'contained' : 'outlined'}
+                    onPress={() => setSelectedCandidateId(candidate.id)}
+                    style={styles.suggestionButton}
+                  >
+                    {`Use #${index + 1} (${candidate.score.toFixed(2)})`}
                   </Button>
                 ))}
               </View>
             )}
+
             <Text style={styles.helperText}>
-              {selectedSeed
-                ? `Seed: x=${selectedSeed.normalizedX.toFixed(3)}, y=${selectedSeed.normalizedY.toFixed(3)}${
-                    selectedSeed.normalizedRadius ? `, r=${selectedSeed.normalizedRadius.toFixed(3)}` : ''
-                  }`
-                : 'No seed selected yet.'}
+              {selectedCandidate
+                ? `Selected: x=${selectedCandidate.normalizedX.toFixed(3)}, y=${selectedCandidate.normalizedY.toFixed(3)}`
+                : 'No candidate selected yet.'}
             </Text>
+
             <Button
               testID="video-analysis-manual-seed-run"
               mode="contained"
-              onPress={() => selectedSeed && onRunManualSeedAnalysis(selectedSeed)}
-              disabled={!selectedSeed || busy}
+              onPress={() =>
+                selectedCandidate &&
+                onRunManualSeedAnalysis({
+                  candidateId: selectedCandidate.id,
+                  normalizedX: selectedCandidate.normalizedX,
+                  normalizedY: selectedCandidate.normalizedY,
+                  normalizedWidth: selectedCandidate.normalizedWidth,
+                  normalizedHeight: selectedCandidate.normalizedHeight,
+                })
+              }
+              disabled={!selectedCandidate || busy}
               loading={busy}
             >
               {actionLabel}
@@ -239,17 +197,9 @@ const styles = StyleSheet.create({
   previewImage: {
     ...StyleSheet.absoluteFillObject,
   },
-  marker: {
-    width: MARKER_SIZE,
-    height: MARKER_SIZE,
-    position: 'absolute',
-    borderRadius: MARKER_SIZE / 2,
-    borderWidth: 2,
-  },
-  suggestionCircle: {
+  suggestionBox: {
     position: 'absolute',
     borderWidth: 2,
-    borderRadius: 999,
   },
   suggestionList: {
     marginTop: 10,

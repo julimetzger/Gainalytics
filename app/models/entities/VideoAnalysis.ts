@@ -1,9 +1,8 @@
 export enum VideoAnalysisStatus {
   QUEUED = 'queued',
   PROCESSING = 'processing',
-  AWAITING_SEED_CONFIRMATION = 'awaiting_seed_confirmation',
+  AWAITING_SEED_SELECTION = 'awaiting_seed_selection',
   DONE = 'done',
-  NEEDS_MANUAL_SEED = 'needs_manual_seed',
   FAILED = 'failed',
 }
 
@@ -35,9 +34,10 @@ export interface VideoAnalysis {
 
 export interface SeedCandidate {
   id: string;
-  x: number;
-  y: number;
-  radius: number;
+  normalizedX: number;
+  normalizedY: number;
+  normalizedWidth: number;
+  normalizedHeight: number;
   score: number;
 }
 
@@ -66,10 +66,12 @@ export interface RepMetric {
   repTimeMs: number;
 }
 
-export interface DetectedCircle {
+export interface DetectedBox {
+  id?: string;
   x: number;
   y: number;
-  radius: number;
+  width: number;
+  height: number;
   score?: number;
 }
 
@@ -82,7 +84,8 @@ export interface AnalysisMeta {
   trackingFrameWidthPx?: number;
   trackingFrameHeightPx?: number;
   manualSeedUsed?: boolean;
-  detectedCirclesAtStart?: DetectedCircle[];
+  detectedBoxesAtStart?: DetectedBox[];
+  initialSeedBox?: DetectedBox;
 }
 
 export interface BarTrackingResult {

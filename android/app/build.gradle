@@ -106,6 +106,10 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+
+    aaptOptions {
+        noCompress "tflite"
+    }
 }
 
 dependencies {
@@ -113,7 +117,8 @@ dependencies {
     implementation("com.facebook.react:react-android")
     implementation("androidx.media3:media3-exoplayer:1.2.1")
     implementation("androidx.media3:media3-ui:1.2.1")
-    implementation("com.quickbirdstudios:opencv-contrib:4.5.3.0")
+    implementation("org.tensorflow:tensorflow-lite:2.14.0")
+    implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.14.0")
     debugImplementation("com.facebook.flipper:flipper:${FLIPPER_VERSION}")
 
     debugImplementation("com.facebook.flipper:flipper-network-plugin:${FLIPPER_VERSION}") {

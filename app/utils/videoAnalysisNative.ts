@@ -5,9 +5,11 @@ import {SeedCandidate} from '../models/entities/VideoAnalysis';
 const {VideoAnalysis} = NativeModules;
 
 export interface ManualSeedPayload {
+  candidateId?: string;
   normalizedX: number;
   normalizedY: number;
-  normalizedRadius?: number;
+  normalizedWidth: number;
+  normalizedHeight: number;
 }
 
 export interface SeedPreflightResult {

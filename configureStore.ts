@@ -49,6 +49,15 @@ const migrations = {
       },
     };
   },
+  4: (state) => {
+    return {
+      ...state,
+      videoAnalyses: {
+        byId: {},
+        allIds: [],
+      },
+    };
+  },
 };
 
 const storage = new MMKV();
@@ -72,7 +81,7 @@ const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseI
 
 const persistConfig = {
   key: 'root',
-  version: 3,
+  version: 4,
   storage: reduxStorage,
   whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'settings'],
   stateReconciler: hardSet,

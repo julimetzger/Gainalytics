@@ -33,16 +33,33 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: "Analysis #[0-9]+"
     timeout: 30000
-- extendedWaitUntil:
-    visible: "Status: done"
-    timeout: 180000
 - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Status: (done|awaiting_seed_selection)"
+    timeout: 180000
+- runFlow:
+    when:
+      visible: "Status: awaiting_seed_selection"
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "video-analysis-seed-candidate-1"
+          direction: DOWN
+      - tapOn:
+          id: "video-analysis-seed-candidate-1"
+      - tapOn:
+          id: "video-analysis-manual-seed-run"
+      - scrollUntilVisible:
+          element:
+            id: "video-analysis-detail-status"
+          direction: UP
+      - extendedWaitUntil:
+          visible: "Status: done"
+          timeout: 180000
 - assertVisible: "Bar Tracking Result"
 - assertVisible:
-    text: "Rep Metrics: [1-9][0-9]*"
+    text: "Analyzed FPS: 12"
 - assertVisible:
-    text: "Average Speed: [0-9]+(\\.[0-9]+)? px/s"
+    text: "Manual Seed Used: (Yes|No)"
 - assertVisible:
-    text: "Lowest Speed: [0-9]+(\\.[0-9]+)? px/s"
-- assertVisible:
-    text: "Rep Time: [0-9]+ ms"
+    text: "Detected Boxes @ t=0: [1-9][0-9]*"

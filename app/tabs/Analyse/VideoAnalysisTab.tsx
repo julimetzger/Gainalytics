@@ -10,6 +10,7 @@ import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch
 import {dispatchDeleteVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchDeleteVideoAnalysis';
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisSeedPreflight';
+import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoReadPermission} from '../../utils/video-analysis-import';
@@ -32,6 +33,7 @@ const VideoAnalysisTab = () => {
   const removeVideoAnalysis = dispatchDeleteVideoAnalysis();
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const setSeedPreflight = dispatchSetVideoAnalysisSeedPreflight();
+  const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const [importing, setImporting] = useState(false);
@@ -46,20 +48,28 @@ const VideoAnalysisTab = () => {
         setVideoAnalysisStatus,
         setManualSeedFramePath,
         setSeedPreflight,
+        attachVideoAnalysisResult,
       });
 
-      if (outcome === 'needs_manual_seed') {
+      if (outcome === 'awaiting_seed_selection') {
         Toast.show({
           type: 'info',
-          text1: 'Manual seed required',
-          text2: 'Open the analysis detail and tap the plate center to continue.',
+          text1: 'Seed selection required',
+          text2: 'Open the analysis detail and choose the correct detected plate.',
+          position: 'top',
+        });
+      } else if (outcome === 'done') {
+        Toast.show({
+          type: 'info',
+          text1: 'Analysis completed',
+          text2: 'The video was analyzed automatically and is ready in the list.',
           position: 'top',
         });
       } else {
         Toast.show({
-          type: 'info',
-          text1: 'Seed confirmation required',
-          text2: 'Open the analysis detail, confirm a plate seed, then start analysis.',
+          type: 'error',
+          text1: 'No plate candidate found',
+          text2: 'No outer plate was detected at t=0. Try another clip.',
           position: 'top',
         });
       }

@@ -4,16 +4,14 @@ import RNFS from 'react-native-fs';
 import {Button, Card, Divider, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
-import {BarPathPoint, BarTrackingResult, DetectedCircle, VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
+import {BarPathPoint, BarTrackingResult, DetectedBox, VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
 import {getVideoAnalysisPreviewPath, readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
 import VideoAnalysisPlaybackOverlayCard from '../../components/video/VideoAnalysisPlaybackOverlayCard';
 import VideoAnalysisManualSeedCard from '../../components/video/VideoAnalysisManualSeedCard';
-import VideoAnalysisWorkoutLinkCard from '../../components/video/VideoAnalysisWorkoutLinkCard';
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
-import {dispatchLinkVideoAnalysisToWorkout} from '../../redux/VideoAnalysis/dispatch/dispatchLinkVideoAnalysisToWorkout';
 import {ManualSeedPayload, analyzeSquatVideo} from '../../utils/videoAnalysisNative';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
@@ -24,11 +22,11 @@ interface OverlayPoint {
   y: number;
 }
 
-interface OverlayCircle {
-  key: string;
-  x: number;
-  y: number;
-  radius: number;
+interface OverlayBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 interface PreviewDimensions {
@@ -68,7 +66,6 @@ const mapPointsToOverlay = (
     }));
   }
 
-  // Compatibility fallback for older stored analyses that do not include tracking frame dimensions.
   const xValues = barPathSeries.map((point) => point.x);
   const yValues = barPathSeries.map((point) => point.y);
   const minX = Math.min(...xValues);
@@ -85,26 +82,16 @@ const mapPointsToOverlay = (
   }));
 };
 
-const mapCirclesToOverlay = (
-  circles: DetectedCircle[],
+const mapInitialSeedBoxToOverlay = (
+  initialSeedBox: DetectedBox | undefined,
   overlayWidth: number,
   overlayHeight: number,
   previewDimensions: PreviewDimensions,
   trackingFrameWidthPx?: number,
   trackingFrameHeightPx?: number,
-): OverlayCircle[] => {
-  if (
-    circles.length === 0 ||
-    overlayWidth <= 0 ||
-    overlayHeight <= 0 ||
-    previewDimensions.width <= 0 ||
-    previewDimensions.height <= 0 ||
-    !trackingFrameWidthPx ||
-    !trackingFrameHeightPx ||
-    trackingFrameWidthPx <= 0 ||
-    trackingFrameHeightPx <= 0
-  ) {
-    return [];
+): OverlayBox | undefined => {
+  if (!initialSeedBox || overlayWidth <= 0 || overlayHeight <= 0 || previewDimensions.width <= 0 || previewDimensions.height <= 0) {
+    return undefined;
   }
 
   const imageScale = Math.min(overlayWidth / previewDimensions.width, overlayHeight / previewDimensions.height);
@@ -112,16 +99,47 @@ const mapCirclesToOverlay = (
   const renderedHeight = previewDimensions.height * imageScale;
   const offsetX = (overlayWidth - renderedWidth) / 2;
   const offsetY = (overlayHeight - renderedHeight) / 2;
-  const xScale = (previewDimensions.width / trackingFrameWidthPx) * imageScale;
-  const yScale = (previewDimensions.height / trackingFrameHeightPx) * imageScale;
-  const radiusScale = (xScale + yScale) / 2;
 
-  return circles.map((circle, index) => ({
-    key: `circle-${index}`,
-    x: offsetX + circle.x * xScale,
-    y: offsetY + circle.y * yScale,
-    radius: Math.max(1, circle.radius * radiusScale),
-  }));
+  const isNormalized =
+    initialSeedBox.x >= 0 &&
+    initialSeedBox.y >= 0 &&
+    initialSeedBox.width > 0 &&
+    initialSeedBox.height > 0 &&
+    initialSeedBox.x <= 1.0 &&
+    initialSeedBox.y <= 1.0 &&
+    initialSeedBox.width <= 1.0 &&
+    initialSeedBox.height <= 1.0;
+
+  const normalizedX = isNormalized
+    ? initialSeedBox.x
+    : trackingFrameWidthPx && trackingFrameWidthPx > 0
+      ? initialSeedBox.x / trackingFrameWidthPx
+      : 0.5;
+  const normalizedY = isNormalized
+    ? initialSeedBox.y
+    : trackingFrameHeightPx && trackingFrameHeightPx > 0
+      ? initialSeedBox.y / trackingFrameHeightPx
+      : 0.5;
+  const normalizedWidth = isNormalized
+    ? initialSeedBox.width
+    : trackingFrameWidthPx && trackingFrameWidthPx > 0
+      ? initialSeedBox.width / trackingFrameWidthPx
+      : 0.1;
+  const normalizedHeight = isNormalized
+    ? initialSeedBox.height
+    : trackingFrameHeightPx && trackingFrameHeightPx > 0
+      ? initialSeedBox.height / trackingFrameHeightPx
+      : 0.1;
+
+  const width = Math.max(2, normalizedWidth * renderedWidth);
+  const height = Math.max(2, normalizedHeight * renderedHeight);
+
+  return {
+    left: offsetX + normalizedX * renderedWidth - width / 2,
+    top: offsetY + normalizedY * renderedHeight - height / 2,
+    width,
+    height,
+  };
 };
 
 const createThemedStyles = (theme: MD3Theme) =>
@@ -138,7 +156,7 @@ const createThemedStyles = (theme: MD3Theme) =>
     overlayPoint: {
       backgroundColor: theme.colors.primary,
     },
-    overlayCircle: {
+    initialSeedBox: {
       borderColor: theme.colors.tertiary,
     },
   });
@@ -150,7 +168,6 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const setVideoAnalysisStatus = dispatchSetVideoAnalysisStatus();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
-  const linkVideoAnalysisToWorkout = dispatchLinkVideoAnalysisToWorkout();
   const [result, setResult] = useState<BarTrackingResult | undefined>();
   const [previewUri, setPreviewUri] = useState<string | undefined>();
   const [previewAspectRatio, setPreviewAspectRatio] = useState(DEFAULT_PREVIEW_ASPECT_RATIO);
@@ -241,10 +258,11 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       ),
     [previewDimensions, result?.analysisMeta.trackingFrameHeightPx, result?.analysisMeta.trackingFrameWidthPx, result?.barPathSeries, overlayHeight, overlayWidth],
   );
-  const overlayCircles = useMemo(
+
+  const initialSeedBox = useMemo(
     () =>
-      mapCirclesToOverlay(
-        result?.analysisMeta.detectedCirclesAtStart ?? [],
+      mapInitialSeedBoxToOverlay(
+        result?.analysisMeta.initialSeedBox,
         overlayWidth,
         overlayHeight,
         previewDimensions,
@@ -255,7 +273,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       overlayHeight,
       overlayWidth,
       previewDimensions,
-      result?.analysisMeta.detectedCirclesAtStart,
+      result?.analysisMeta.initialSeedBox,
       result?.analysisMeta.trackingFrameHeightPx,
       result?.analysisMeta.trackingFrameWidthPx,
     ],
@@ -280,22 +298,12 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         attachVideoAnalysisResult(analysis.id, resultPath, analysis.localVideoPath);
         setManualSeedFramePath(analysis.id, undefined);
       } catch (error) {
-        setVideoAnalysisStatus(analysis.id, VideoAnalysisStatus.FAILED, 'Manual seed analysis failed');
+        setVideoAnalysisStatus(analysis.id, VideoAnalysisStatus.FAILED, 'Seeded analysis failed');
       } finally {
         setManualSeedRunning(false);
       }
     },
     [analysis?.id, analysis?.localVideoPath, attachVideoAnalysisResult, setManualSeedFramePath, setVideoAnalysisStatus],
-  );
-
-  const onLinkAnalysisToWorkout = useCallback(
-    (workoutId: number, exerciseId?: number, setIndex?: number) => {
-      if (!analysis?.id) {
-        return;
-      }
-      linkVideoAnalysisToWorkout(analysis.id, workoutId, exerciseId, setIndex);
-    },
-    [analysis?.id, linkVideoAnalysisToWorkout],
   );
 
   if (!analysis) {
@@ -333,23 +341,12 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
               <Text testID="video-analysis-detail-bar-points">Bar Path Points: {result.barPathSeries.length}</Text>
               <Text testID="video-analysis-detail-confidence-points">Confidence Points: {result.confidenceSeries.length}</Text>
               <Text>Units: {result.units}</Text>
-              <Text>Rep Segments: {result.repSegments.length}</Text>
-              <Text>Rep Metrics: {result.repMetrics.length}</Text>
               <Text>Source FPS: {result.analysisMeta.sourceFps}</Text>
               <Text>Analyzed FPS: {result.analysisMeta.analyzedFps}</Text>
               <Text>Average Confidence: {result.analysisMeta.averageConfidence.toFixed(2)}</Text>
               <Text>Manual Seed Used: {result.analysisMeta.manualSeedUsed ? 'Yes' : 'No'}</Text>
-              <Text>Detected Circles @ t=0: {result.analysisMeta.detectedCirclesAtStart?.length ?? 0}</Text>
+              <Text>Detected Boxes @ t=0: {result.analysisMeta.detectedBoxesAtStart?.length ?? 0}</Text>
               <Text>Quality Flags: {result.qualityFlags.join(', ') || 'None'}</Text>
-
-              {result.repMetrics.map((repMetric) => (
-                <View key={repMetric.repIndex} style={styles.repMetric}>
-                  <Text>Rep {repMetric.repIndex}</Text>
-                  <Text>Average Speed: {repMetric.averageConcentricSpeedPxPerS.toFixed(2)} px/s</Text>
-                  <Text>Lowest Speed: {repMetric.lowestConcentricSpeedPxPerS.toFixed(2)} px/s</Text>
-                  <Text>Rep Time: {repMetric.repTimeMs} ms</Text>
-                </View>
-              ))}
             </>
           )}
         </Card.Content>
@@ -372,31 +369,15 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         </Card.Content>
       </Card>
 
-      <VideoAnalysisWorkoutLinkCard linkedWorkoutId={analysis.workoutId} linkedSetIndex={analysis.setIndex} onLink={onLinkAnalysisToWorkout} />
-
-      {analysis.status === VideoAnalysisStatus.NEEDS_MANUAL_SEED && (
+      {analysis.status === VideoAnalysisStatus.AWAITING_SEED_SELECTION && (
         <VideoAnalysisManualSeedCard
           previewUri={previewUri}
           previewDimensions={previewDimensions}
           busy={manualSeedRunning}
-          title="Manual Seed Required"
-          subtitle="Tap the plate center and rerun analysis"
-          actionLabel="Run Manual Seed Analysis"
-          onRunManualSeedAnalysis={runManualSeedAnalysis}
-        />
-      )}
-
-      {analysis.status === VideoAnalysisStatus.AWAITING_SEED_CONFIRMATION && (
-        <VideoAnalysisManualSeedCard
-          previewUri={previewUri}
-          previewDimensions={previewDimensions}
-          busy={manualSeedRunning}
-          title="Confirm Plate Seed"
-          subtitle="Choose a suggested plate or tap freely before the full analysis starts"
+          title="Select Initial Plate"
+          subtitle="Choose the correct detected outer plate to start analysis"
           actionLabel="Start Analysis"
-          suggestedCircles={analysis.seedCandidates}
-          seedFrameWidthPx={analysis.seedFrameWidthPx}
-          seedFrameHeightPx={analysis.seedFrameHeightPx}
+          suggestedBoxes={analysis.seedCandidates}
           onRunManualSeedAnalysis={runManualSeedAnalysis}
         />
       )}
@@ -404,11 +385,9 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       <Divider style={styles.divider} />
 
       <Card style={styles.card}>
-        <Card.Title title="Static Overlay Preview" />
+        <Card.Title title="Static Overlay Preview (t=0)" />
         <Card.Content>
-          <Text style={styles.overlayHint}>
-            One extracted frame with projected full bar-path points.
-          </Text>
+          <Text style={styles.overlayHint}>First frame with full bar-path points and highlighted initial plate box.</Text>
           {!previewUri && <Text>No preview frame available yet.</Text>}
           {previewUri && (
             <>
@@ -420,22 +399,21 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
                 <Image source={{uri: previewUri}} style={styles.previewImage} resizeMode="contain" />
                 {showOverlay && (
                   <View pointerEvents="none" style={styles.overlayLayer}>
-                    {overlayCircles.map((circle, index) => (
+                    {initialSeedBox && (
                       <View
-                        key={circle.key}
-                        testID={index === 0 ? 'video-analysis-overlay-first-circle' : undefined}
+                        testID="video-analysis-overlay-initial-box"
                         style={[
-                          styles.overlayCircle,
-                          themedStyles.overlayCircle,
+                          styles.initialSeedBox,
+                          themedStyles.initialSeedBox,
                           {
-                            left: circle.x - circle.radius,
-                            top: circle.y - circle.radius,
-                            width: circle.radius * 2,
-                            height: circle.radius * 2,
+                            left: initialSeedBox.left,
+                            top: initialSeedBox.top,
+                            width: initialSeedBox.width,
+                            height: initialSeedBox.height,
                           },
                         ]}
                       />
-                    ))}
+                    )}
                     {overlayPoints.map((point, index) => (
                       <View
                         key={point.key}
@@ -478,9 +456,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     marginVertical: 5,
   },
-  repMetric: {
-    marginTop: 10,
-  },
   previewContainer: {
     width: '100%',
     minHeight: 260,
@@ -499,10 +474,9 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
-  overlayCircle: {
+  initialSeedBox: {
     position: 'absolute',
-    borderWidth: 1.5,
-    borderRadius: 999,
+    borderWidth: 2,
   },
   overlayToggle: {
     marginTop: 10,

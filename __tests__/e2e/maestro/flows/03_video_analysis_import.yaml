@@ -33,9 +33,28 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: "Analysis #[0-9]+"
     timeout: 30000
-- extendedWaitUntil:
-    visible: "Status: done"
-    timeout: 180000
 - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Status: (done|awaiting_seed_selection)"
+    timeout: 180000
+- runFlow:
+    when:
+      visible: "Status: awaiting_seed_selection"
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "video-analysis-seed-candidate-1"
+          direction: DOWN
+      - tapOn:
+          id: "video-analysis-seed-candidate-1"
+      - tapOn:
+          id: "video-analysis-manual-seed-run"
+      - scrollUntilVisible:
+          element:
+            id: "video-analysis-detail-status"
+          direction: UP
+      - extendedWaitUntil:
+          visible: "Status: done"
+          timeout: 180000
 - assertVisible: "Bar Tracking Result"
 - assertVisible: "Units: px/s"

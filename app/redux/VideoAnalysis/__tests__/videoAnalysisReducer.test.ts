@@ -172,9 +172,10 @@ describe('videoAnalysisReducer', () => {
     const seedCandidates = [
       {
         id: 'candidate-1',
-        x: 280,
-        y: 320,
-        radius: 180,
+        normalizedX: 0.35,
+        normalizedY: 0.41,
+        normalizedWidth: 0.12,
+        normalizedHeight: 0.08,
         score: 0.42,
       },
     ] satisfies SeedCandidate[];
