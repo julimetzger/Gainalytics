@@ -1,6 +1,7 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {LayoutChangeEvent, StyleSheet, View} from 'react-native';
+import {LayoutChangeEvent, StyleSheet, View, processColor} from 'react-native';
 import {Button, MD3Theme, Text, useTheme} from 'react-native-paper';
+import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment} from '../../models/entities/VideoAnalysis';
 import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
 
@@ -29,6 +30,10 @@ interface TimePlotPoint {
 
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
 const TIME_PLOT_HEIGHT = 112;
+const SPEED_PLOT_HEIGHT = 180;
+const BAR_PATH_SMOOTHING_WINDOW = 5;
+const SPEED_SMOOTHING_WINDOW = 5;
+const PLAYBACK_UI_UPDATE_INTERVAL_MS = 120;
 
 const formatDuration = (timeMs: number) => {
   const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
@@ -41,6 +46,64 @@ const formatDuration = (timeMs: number) => {
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.max(min, Math.min(max, value));
+};
+
+const smoothNumberSeries = (values: number[], windowSize: number): number[] => {
+  if (values.length === 0 || windowSize <= 1) {
+    return values;
+  }
+
+  const halfWindow = Math.floor(windowSize / 2);
+  return values.map((_, index) => {
+    const start = Math.max(0, index - halfWindow);
+    const end = Math.min(values.length - 1, index + halfWindow);
+    let sum = 0;
+    let count = 0;
+    for (let cursor = start; cursor <= end; cursor += 1) {
+      sum += values[cursor];
+      count += 1;
+    }
+    return count > 0 ? sum / count : 0;
+  });
+};
+
+const smoothBarPathSeries = (barPathSeries: BarPathPoint[]): BarPathPoint[] => {
+  if (barPathSeries.length < 3) {
+    return barPathSeries;
+  }
+
+  const smoothedX = smoothNumberSeries(
+    barPathSeries.map((point) => point.x),
+    BAR_PATH_SMOOTHING_WINDOW,
+  );
+  const smoothedY = smoothNumberSeries(
+    barPathSeries.map((point) => point.y),
+    BAR_PATH_SMOOTHING_WINDOW,
+  );
+
+  return barPathSeries.map((point, index) => ({
+    ...point,
+    x: smoothedX[index],
+    y: smoothedY[index],
+  }));
+};
+
+const calculateBarVerticalVelocitySeries = (barPathSeries: BarPathPoint[]): number[] => {
+  if (barPathSeries.length === 0) {
+    return [];
+  }
+
+  const rawVerticalVelocities = barPathSeries.map((_, index) => {
+    const previous = barPathSeries[Math.max(0, index - 1)];
+    const next = barPathSeries[Math.min(barPathSeries.length - 1, index + 1)];
+    const deltaTimeMs = Math.max(1, next.tMs - previous.tMs);
+    const deltaTimeSeconds = deltaTimeMs / 1000;
+    // Screen-space y increases downward; expose physics-friendly sign:
+    // downward movement => negative v_y, upward movement => positive v_y.
+    return (previous.y - next.y) / deltaTimeSeconds;
+  });
+
+  return smoothNumberSeries(rawVerticalVelocities, SPEED_SMOOTHING_WINDOW);
 };
 
 const getTimeRange = (barPathSeries: BarPathPoint[]): TimeRange => {
@@ -150,24 +213,56 @@ const mapBarPathToTimePlot = (barPathSeries: BarPathPoint[], plotWidth: number, 
   });
 };
 
-const findNearestBarPathPoint = (barPathSeries: BarPathPoint[], timeMs: number): BarPathPoint | undefined => {
+const mapVerticalVelocitySeriesToLineValues = (barPathSeries: BarPathPoint[], verticalVelocitySeries: number[]): LineValue[] => {
+  if (barPathSeries.length === 0 || verticalVelocitySeries.length === 0) {
+    return [];
+  }
+
+  const length = Math.min(barPathSeries.length, verticalVelocitySeries.length);
+  return barPathSeries.slice(0, length).map((point, index) => ({
+    x: point.tMs,
+    y: verticalVelocitySeries[index],
+  }));
+};
+
+const buildHorizontalReferenceLine = (barPathSeries: BarPathPoint[], yValue: number): LineValue[] => {
+  if (barPathSeries.length === 0) {
+    return [];
+  }
+
+  const startX = barPathSeries[0].tMs;
+  const endX = barPathSeries[barPathSeries.length - 1].tMs;
+  const safeEndX = endX > startX ? endX : startX + 1;
+  return [
+    {x: startX, y: yValue},
+    {x: safeEndX, y: yValue},
+  ];
+};
+
+const buildVerticalProgressLine = (timeMs: number, minY: number, maxY: number): LineValue[] => {
+  return [
+    {x: timeMs, y: minY},
+    {x: timeMs, y: maxY},
+  ];
+};
+
+const findNearestBarPathPointIndex = (barPathSeries: BarPathPoint[], timeMs: number): number | undefined => {
   if (barPathSeries.length === 0) {
     return undefined;
   }
 
-  let nearestPoint = barPathSeries[0];
-  let nearestDistance = Math.abs(timeMs - nearestPoint.tMs);
+  let nearestIndex = 0;
+  let nearestDistance = Math.abs(timeMs - barPathSeries[0].tMs);
 
   for (let index = 1; index < barPathSeries.length; index += 1) {
-    const point = barPathSeries[index];
-    const distance = Math.abs(timeMs - point.tMs);
+    const distance = Math.abs(timeMs - barPathSeries[index].tMs);
     if (distance < nearestDistance) {
-      nearestPoint = point;
+      nearestIndex = index;
       nearestDistance = distance;
     }
   }
 
-  return nearestPoint;
+  return nearestIndex;
 };
 
 const createThemedStyles = (theme: MD3Theme) =>
@@ -199,11 +294,25 @@ const createThemedStyles = (theme: MD3Theme) =>
     timePlotMarkerLine: {
       backgroundColor: theme.colors.primary,
     },
+    speedPlotBackground: {
+      backgroundColor: theme.colors.surfaceVariant,
+    },
   });
 
 const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const theme = useTheme();
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
+  const speedChartColors = useMemo(
+    () => ({
+      line: processColor(theme.colors.secondary),
+      zeroLine: processColor(theme.colors.outline),
+      progressLine: processColor(theme.colors.primary),
+      text: processColor(theme.colors.onSurfaceVariant),
+      grid: processColor(theme.colors.outlineVariant),
+      axis: processColor(theme.colors.outline),
+    }),
+    [theme],
+  );
   const [playbackPaused, setPlaybackPaused] = useState(true);
   const [playbackTimeMs, setPlaybackTimeMs] = useState(0);
   const [playbackDurationMs, setPlaybackDurationMs] = useState(0);
@@ -220,13 +329,15 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const playbackDurationRef = useRef(0);
   const latestProgressTimeRef = useRef(0);
   const playbackTimeRef = useRef(0);
-  const lastRenderedPlaybackSecondRef = useRef(-1);
+  const lastRenderedPlaybackBucketRef = useRef(-1);
   const currentRepIndexRef = useRef<number | undefined>(undefined);
   const pendingSeekTargetMsRef = useRef<number | undefined>(undefined);
   const pendingSeekDeadlineMsRef = useRef(0);
 
   const repSegments = result.repSegments;
-  const timeRange = useMemo(() => getTimeRange(result.barPathSeries), [result.barPathSeries]);
+  const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
+  const smoothedBarVerticalVelocitySeries = useMemo(() => calculateBarVerticalVelocitySeries(smoothedBarPathSeries), [smoothedBarPathSeries]);
+  const timeRange = useMemo(() => getTimeRange(smoothedBarPathSeries), [smoothedBarPathSeries]);
   const correctedPlaybackDurationMs = useMemo(() => {
     if (playbackDurationMs > 0) {
       return playbackDurationMs;
@@ -236,7 +347,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const historyOverlayPoints = useMemo(
     () =>
       mapBarPathToOverlay(
-        result.barPathSeries,
+        smoothedBarPathSeries,
         overlayWidth,
         overlayHeight,
         playbackVideoWidth,
@@ -244,14 +355,54 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
         result.analysisMeta.trackingFrameWidthPx,
         result.analysisMeta.trackingFrameHeightPx,
       ),
-    [overlayHeight, overlayWidth, playbackVideoHeight, playbackVideoWidth, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx, result.barPathSeries],
+    [
+      overlayHeight,
+      overlayWidth,
+      playbackVideoHeight,
+      playbackVideoWidth,
+      result.analysisMeta.trackingFrameHeightPx,
+      result.analysisMeta.trackingFrameWidthPx,
+      smoothedBarPathSeries,
+    ],
   );
   const scrubberProgress = correctedPlaybackDurationMs > 0 ? clamp(playbackTimeMs / correctedPlaybackDurationMs, 0, 1) : 0;
   const timePlotPoints = useMemo(
-    () => mapBarPathToTimePlot(result.barPathSeries, timePlotWidth, TIME_PLOT_HEIGHT, result.analysisMeta.trackingFrameHeightPx),
-    [result.analysisMeta.trackingFrameHeightPx, result.barPathSeries, timePlotWidth],
+    () => mapBarPathToTimePlot(smoothedBarPathSeries, timePlotWidth, TIME_PLOT_HEIGHT, result.analysisMeta.trackingFrameHeightPx),
+    [result.analysisMeta.trackingFrameHeightPx, smoothedBarPathSeries, timePlotWidth],
   );
-  const currentBarPathPoint = useMemo(() => findNearestBarPathPoint(result.barPathSeries, playbackTimeMs), [playbackTimeMs, result.barPathSeries]);
+  const verticalVelocityLineValues = useMemo(() => mapVerticalVelocitySeriesToLineValues(smoothedBarPathSeries, smoothedBarVerticalVelocitySeries), [
+    smoothedBarPathSeries,
+    smoothedBarVerticalVelocitySeries,
+  ]);
+  const currentBarPathPointIndex = useMemo(
+    () => findNearestBarPathPointIndex(smoothedBarPathSeries, playbackTimeMs),
+    [playbackTimeMs, smoothedBarPathSeries],
+  );
+  const currentBarPathPoint = useMemo(
+    () => (currentBarPathPointIndex !== undefined ? smoothedBarPathSeries[currentBarPathPointIndex] : undefined),
+    [currentBarPathPointIndex, smoothedBarPathSeries],
+  );
+  const currentBarVerticalVelocityPxPerSecond = useMemo(() => {
+    if (currentBarPathPointIndex === undefined || currentBarPathPointIndex >= smoothedBarVerticalVelocitySeries.length) {
+      return undefined;
+    }
+    return smoothedBarVerticalVelocitySeries[currentBarPathPointIndex];
+  }, [currentBarPathPointIndex, smoothedBarVerticalVelocitySeries]);
+  const verticalVelocityAxisLimit = useMemo(() => {
+    if (smoothedBarVerticalVelocitySeries.length === 0) {
+      return 100;
+    }
+    const maxAbsoluteVelocity = Math.max(...smoothedBarVerticalVelocitySeries.map((value) => Math.abs(value)));
+    return Math.max(50, Math.ceil(maxAbsoluteVelocity * 1.15));
+  }, [smoothedBarVerticalVelocitySeries]);
+  const zeroVelocityLineValues = useMemo(() => buildHorizontalReferenceLine(smoothedBarPathSeries, 0), [smoothedBarPathSeries]);
+  const progressVelocityLineValues = useMemo(() => {
+    if (smoothedBarPathSeries.length === 0) {
+      return [];
+    }
+    const clampedTimeMs = clamp(playbackTimeMs, timeRange.minTimeMs, timeRange.maxTimeMs);
+    return buildVerticalProgressLine(clampedTimeMs, -verticalVelocityAxisLimit, verticalVelocityAxisLimit);
+  }, [playbackTimeMs, smoothedBarPathSeries.length, timeRange.maxTimeMs, timeRange.minTimeMs, verticalVelocityAxisLimit]);
   const currentTimePlotMarker = useMemo(() => {
     if (timePlotWidth <= 0 || !currentBarPathPoint) {
       return undefined;
@@ -261,14 +412,14 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     const maxY =
       result.analysisMeta.trackingFrameHeightPx && result.analysisMeta.trackingFrameHeightPx > 0
         ? result.analysisMeta.trackingFrameHeightPx
-        : Math.max(1, ...result.barPathSeries.map((point) => point.y));
+        : Math.max(1, ...smoothedBarPathSeries.map((point) => point.y));
     const markerY = clamp(currentBarPathPoint.y / Math.max(1, maxY), 0, 1) * TIME_PLOT_HEIGHT;
 
     return {
       x: timeX,
       y: markerY,
     };
-  }, [correctedPlaybackDurationMs, currentBarPathPoint, playbackTimeMs, result.analysisMeta.trackingFrameHeightPx, result.barPathSeries, timePlotWidth]);
+  }, [correctedPlaybackDurationMs, currentBarPathPoint, playbackTimeMs, result.analysisMeta.trackingFrameHeightPx, smoothedBarPathSeries, timePlotWidth]);
 
   const updateCurrentRepForPlaybackTime = useCallback(
     (nextPlaybackTimeMs: number) => {
@@ -294,12 +445,12 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     const clampedTimeMs = Math.max(0, Math.round(nextTimeMs));
     playbackTimeRef.current = clampedTimeMs;
 
-    const nextSecondBucket = Math.floor(clampedTimeMs / 1000);
-    if (!force && nextSecondBucket === lastRenderedPlaybackSecondRef.current) {
+    const nextUiBucket = Math.floor(clampedTimeMs / PLAYBACK_UI_UPDATE_INTERVAL_MS);
+    if (!force && nextUiBucket === lastRenderedPlaybackBucketRef.current) {
       return false;
     }
 
-    lastRenderedPlaybackSecondRef.current = nextSecondBucket;
+    lastRenderedPlaybackBucketRef.current = nextUiBucket;
     setPlaybackTimeMs((previousMs) => {
       if (previousMs === clampedTimeMs) {
         return previousMs;
@@ -437,7 +588,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     playbackDurationRef.current = 0;
     latestProgressTimeRef.current = 0;
     playbackTimeRef.current = 0;
-    lastRenderedPlaybackSecondRef.current = -1;
+    lastRenderedPlaybackBucketRef.current = -1;
     currentRepIndexRef.current = undefined;
     pendingSeekTargetMsRef.current = undefined;
     pendingSeekDeadlineMsRef.current = 0;
@@ -453,7 +604,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           source={localVideoPath}
           paused={playbackPaused}
           seekPositionMs={seekPositionMs}
-          barPathSeries={result.barPathSeries}
+          barPathSeries={smoothedBarPathSeries}
           trackingFrameWidthPx={result.analysisMeta.trackingFrameWidthPx}
           trackingFrameHeightPx={result.analysisMeta.trackingFrameHeightPx}
           onLoad={onPlayerLoad}
@@ -479,10 +630,12 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
 
       <View style={styles.timePlotSection}>
         <View style={styles.timePlotHeader}>
-          <Text variant="labelMedium">Bar Y Position Over Time</Text>
-          <Text variant="bodySmall">
-            t={formatDuration(playbackTimeMs)} | y={currentBarPathPoint ? Math.round(currentBarPathPoint.y) : '-'}
-          </Text>
+          <View style={styles.timePlotHeaderTopRow}>
+            <Text variant="labelMedium">Bar Y Position Over Time</Text>
+            <Text variant="bodySmall">
+              t={formatDuration(playbackTimeMs)} | y={currentBarPathPoint ? Math.round(currentBarPathPoint.y) : '-'}
+            </Text>
+          </View>
         </View>
         <View testID="video-analysis-playback-time-plot" style={[styles.timePlotContainer, themedStyles.timePlotBackground]} onLayout={onTimePlotLayout}>
           {timePlotPoints.map((point) => (
@@ -517,6 +670,85 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
         </View>
         <View style={styles.timePlotAxisRow}>
           <Text variant="bodySmall">0:00</Text>
+          <Text variant="bodySmall">{formatDuration(correctedPlaybackDurationMs)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.speedPlotSection}>
+        <View style={styles.timePlotHeaderTopRow}>
+          <Text variant="labelMedium">Bar v_y Over Time</Text>
+          <Text testID="video-analysis-playback-speed" variant="bodySmall" style={styles.timePlotSpeedText}>
+            v_y={currentBarVerticalVelocityPxPerSecond !== undefined ? Math.round(currentBarVerticalVelocityPxPerSecond) : '-'} px/s
+          </Text>
+        </View>
+        <LineChart
+          testID="video-analysis-playback-speed-plot"
+          style={[styles.speedPlotContainer, themedStyles.speedPlotBackground]}
+          data={{
+            dataSets: [
+              {
+                values: verticalVelocityLineValues,
+                config: {
+                  color: speedChartColors.line,
+                  drawCircles: false,
+                  drawValues: false,
+                  lineWidth: 2,
+                  mode: 'HORIZONTAL_BEZIER',
+                  highlightEnabled: false,
+                },
+              },
+              {
+                values: zeroVelocityLineValues,
+                config: {
+                  color: speedChartColors.zeroLine,
+                  drawCircles: false,
+                  drawValues: false,
+                  lineWidth: 1,
+                  mode: 'LINEAR',
+                  highlightEnabled: false,
+                },
+              },
+              {
+                values: progressVelocityLineValues,
+                config: {
+                  color: speedChartColors.progressLine,
+                  drawCircles: false,
+                  drawValues: false,
+                  lineWidth: 1.5,
+                  mode: 'LINEAR',
+                  highlightEnabled: false,
+                },
+              },
+            ],
+          }}
+          legend={{enabled: false}}
+          chartDescription={{text: ''}}
+          marker={{enabled: false}}
+          xAxis={{
+            enabled: false,
+            drawGridLines: false,
+            drawAxisLine: false,
+          }}
+          yAxis={{
+            left: {
+              axisMinimum: -verticalVelocityAxisLimit,
+              axisMaximum: verticalVelocityAxisLimit,
+              textColor: speedChartColors.text,
+              gridColor: speedChartColors.grid,
+              axisLineColor: speedChartColors.axis,
+            },
+            right: {
+              enabled: false,
+            },
+          }}
+        />
+        <View style={styles.timePlotAxisRow}>
+          <Text variant="bodySmall">down (-)</Text>
+          <Text variant="bodySmall">{currentBarVerticalVelocityPxPerSecond !== undefined ? `${Math.round(currentBarVerticalVelocityPxPerSecond)} px/s` : '-'}</Text>
+          <Text variant="bodySmall">up (+)</Text>
+        </View>
+        <View style={styles.timePlotAxisRow}>
+          <Text variant="bodySmall">t=0:00</Text>
           <Text variant="bodySmall">{formatDuration(correctedPlaybackDurationMs)}</Text>
         </View>
       </View>
@@ -576,9 +808,15 @@ const styles = StyleSheet.create({
   },
   timePlotHeader: {
     marginBottom: 8,
+    gap: 4,
+  },
+  timePlotHeaderTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  timePlotSpeedText: {
+    marginTop: 2,
   },
   timePlotContainer: {
     position: 'relative',
@@ -610,6 +848,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  speedPlotSection: {
+    marginTop: 12,
+  },
+  speedPlotContainer: {
+    position: 'relative',
+    height: SPEED_PLOT_HEIGHT,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginTop: 8,
   },
   scrubberTrack: {
     position: 'relative',

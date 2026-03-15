@@ -33,7 +33,7 @@ import java.util.List;
 
 public class VideoAnalysisPlayerView extends FrameLayout {
     private static final int PROGRESS_INTERVAL_MS = 100;
-    private static final int PROGRESS_EVENT_INTERVAL_MS = 1000;
+    private static final int PROGRESS_EVENT_INTERVAL_MS = 120;
 
     private final ExoPlayer player;
     private final PlayerView playerView;
