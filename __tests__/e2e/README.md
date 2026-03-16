@@ -44,6 +44,10 @@ The fixture is pushed to emulator as:
 
 - `/sdcard/Download/baseline.gains`
 
+Video analysis flow prerequisite:
+
+- Place a video at `/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4` in the emulator.
+
 Notes:
 - `run-maestro-from-wsl.sh` auto-detects the WSL host IP from `/etc/resolv.conf` when `E2E_MAESTRO_HOST` is not set.
 - `run-maestro-from-wsl.sh` configures `adb reverse tcp:8081 tcp:8081` (or `E2E_METRO_PORT`) before running flows.

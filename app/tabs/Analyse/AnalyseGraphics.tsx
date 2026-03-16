@@ -7,7 +7,7 @@ import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHel
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
 import {calculateMetricValue, calculateMetricValueForMuscles} from '../../utils/AnalyseUtils';
-import {RootStackParamList} from '../../routing/SettingsRouter';
+import {RootStackParamList} from '../../routing/AnalyseRouter';
 import {sum} from 'lodash';
 import TrainingElementPicker, {Accumulation} from '../../components/picker/elements/TrainingElementPicker';
 import {useWorkoutsByIds} from '../../redux/Workout/use/useWorkoutsByIds';

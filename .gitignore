@@ -41,8 +41,16 @@ yarn-error.log
 __tests__/reports/*.xml
 __tests__/reports/*.json
 __tests__/reports/maestro-debug/
+__tests__/reports/maestro-debug-overlay-visible/
 __tests__/reports/.maestro-home/
 !__tests__/reports/.gitkeep
+
+# Local video-analysis debug captures
+playback-after-fix.png
+playback-overlay.png
+static-after-fix.png
+static-overlay-focus.png
+static-overlay.png
 
 # BUCK
 buck-out/

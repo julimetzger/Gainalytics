@@ -42,8 +42,13 @@ const sanitizeTrainingWorkoutReferences = (fullImportedState: GlobalState): Glob
 
 const fullStateReducer = (state: GlobalState, action: AnyAction) => {
   switch (action.type) {
-    case 'FULL_IMPORT':
-      return sanitizeTrainingWorkoutReferences(action.state);
+    case 'FULL_IMPORT': {
+      const importedState: GlobalState = {
+        ...action.state,
+        videoAnalyses: action.state.videoAnalyses ?? state.videoAnalyses,
+      };
+      return sanitizeTrainingWorkoutReferences(importedState);
+    }
     case 'IMPORT_TRAININGS_PLAN': {
       const payload = action.payload as TrainingsPlanExportPayload;
 

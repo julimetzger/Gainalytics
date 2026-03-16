@@ -10,15 +10,18 @@ import {Exercise} from '../models/entities/Exercise';
 import {Training} from '../models/entities/Training';
 import {Workout} from '../models/entities/Workout';
 import {TrainingsPlan} from '../models/entities/TrainingsPlan';
+import {VideoAnalysis} from '../models/entities/VideoAnalysis';
 import effectsReducer, {Effects} from './Effects/effectsReducer';
 import reduceReducers from 'reduce-reducers';
 import fullStateReducer from './fullstateactions/fullStateReducer';
+import videoAnalysisReducer from './VideoAnalysis/videoAnalysisReducer';
 
 export interface GlobalState {
   exercises: NormalizedState<Exercise>;
   workouts: NormalizedWorkoutState<Workout>;
   trainingsPlan: NormalizedState<TrainingsPlan>;
   trainings: NormalizedState<Training>;
+  videoAnalyses: NormalizedState<VideoAnalysis>;
   settings: AppSettings;
   effects: Effects;
 }
@@ -29,6 +32,7 @@ export default reduceReducers(
     workouts: workoutReducer,
     trainingsPlan: trainingsPlanReducer,
     trainings: trainingsReducer,
+    videoAnalyses: videoAnalysisReducer,
     settings: settingsReducer,
     effects: effectsReducer,
   }),

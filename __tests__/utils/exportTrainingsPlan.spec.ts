@@ -59,6 +59,10 @@ const buildState = (): GlobalState =>
       byExerciseId: {},
       plannedWorkouts: [],
     },
+    videoAnalyses: {
+      byId: {},
+      allIds: [],
+    },
     effects: {},
     settings: {
       mode: 'dark',
