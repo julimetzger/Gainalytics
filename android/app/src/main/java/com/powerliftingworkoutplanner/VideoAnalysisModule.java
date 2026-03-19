@@ -2,6 +2,11 @@ package com.powerliftingworkoutplanner;
 
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.media.MediaMetadataRetriever;
 
 import com.facebook.react.bridge.Arguments;
@@ -37,13 +42,12 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final int DEFAULT_DURATION_MS = 6000;
     private static final int MODEL_INPUT_SIZE = 320;
     private static final int MAX_CANDIDATES = 20;
-    private static final int MAX_CONSECUTIVE_MISSES = 8;
     private static final int MIN_FEATURE_VECTOR_LENGTH = 5;
     private static final int MAX_FEATURE_VECTOR_LENGTH = 64;
 
-    private static final float DETECTION_CONFIDENCE_THRESHOLD = 0.02f;
+    private static final float DETECTION_CONFIDENCE_THRESHOLD = 0.2f;
     private static final float NMS_IOU_THRESHOLD = 0.45f;
-    private static final float ASSOCIATION_MAX_DISTANCE = 0.35f;
+    private static final float PLAUSIBILITY_MAX_JUMP_NORMALIZED = 0.16f;
     private static final double XYXY_INTERPRETATION_MARGIN = 0.25;
 
     private static final String TRACKER_VERSION = "tflite-yolo26-outer-plate-v1";
@@ -55,6 +59,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final String ERR_VIDEO_ANALYSIS_NEEDS_MANUAL_SEED = "ERR_VIDEO_ANALYSIS_NEEDS_MANUAL_SEED";
     private static final String ERR_VIDEO_ANALYSIS_NO_CANDIDATE = "ERR_VIDEO_ANALYSIS_NO_CANDIDATE";
     private static final String MANUAL_SEED_REQUIRED_PREFIX = "MANUAL_SEED_REQUIRED::";
+    private static final Paint LETTERBOX_PAINT = new Paint(Paint.FILTER_BITMAP_FLAG);
 
     private final Object interpreterLock = new Object();
     private Interpreter interpreter;
@@ -185,13 +190,14 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             qualityFlags.put("MODEL_ASSET:" + MODEL_ASSET_PATH);
             qualityFlags.put("CONF_THRESHOLD:" + DETECTION_CONFIDENCE_THRESHOLD);
             qualityFlags.put("NMS_IOU:" + NMS_IOU_THRESHOLD);
+            qualityFlags.put("PLAUSIBILITY_MAX_JUMP:" + PLAUSIBILITY_MAX_JUMP_NORMALIZED);
             qualityFlags.put("ANALYZED_FPS:" + ANALYZED_FPS);
             qualityFlags.put(previewFramePath == null ? "PREVIEW_FRAME_MISSING" : "PREVIEW_FRAME_READY");
             if (manualSelection != null) {
                 qualityFlags.put("MANUAL_SEED_USED");
             }
-            if (trackingSeries.usedHoldFallback) {
-                qualityFlags.put("TRACKING_HOLD_FALLBACK_USED");
+            if (trackingSeries.skippedImplausibleFrames > 0) {
+                qualityFlags.put("PLAUSIBILITY_SKIPPED_FRAMES:" + trackingSeries.skippedImplausibleFrames);
             }
             result.put("qualityFlags", qualityFlags);
 
@@ -392,9 +398,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             double accumulatedConfidence = 0.0;
             int confidenceCount = 0;
 
-            DetectionCandidate previousCandidate = seed.toDetectionCandidate("seed");
-            DetectionSample lastSample = null;
-            int consecutiveMisses = 0;
+            DetectionSample lastAcceptedSample = new DetectionSample();
+            lastAcceptedSample.normalizedX = seed.normalizedX;
+            lastAcceptedSample.normalizedY = seed.normalizedY;
 
             for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
                 int timeMs = sampleCount <= 1
@@ -413,31 +419,23 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                     }
 
                     List<DetectionCandidate> candidates = detectCandidates(frame);
-                    DetectionCandidate selected = selectTrackedCandidate(candidates, previousCandidate);
-                    double score;
-                    double centerX;
-                    double centerY;
-
-                    if (selected != null) {
-                        consecutiveMisses = 0;
-                        previousCandidate = selected;
-                        score = selected.score;
-                        centerX = selected.normalizedX;
-                        centerY = selected.normalizedY;
-                    } else {
-                        consecutiveMisses += 1;
-                        if (lastSample == null || consecutiveMisses > MAX_CONSECUTIVE_MISSES) {
-                            throw new IllegalStateException("Tracking lost for too many consecutive frames");
-                        }
-                        series.usedHoldFallback = true;
-                        score = 0.05;
-                        centerX = lastSample.normalizedX;
-                        centerY = lastSample.normalizedY;
+                    DetectionCandidate selected = selectHighestConfidenceCandidate(candidates);
+                    if (selected == null) {
+                        continue;
                     }
 
-                    lastSample = new DetectionSample();
-                    lastSample.normalizedX = centerX;
-                    lastSample.normalizedY = centerY;
+                    if (!isPlausibleJump(lastAcceptedSample, selected)) {
+                        series.skippedImplausibleFrames += 1;
+                        continue;
+                    }
+
+                    double score = selected.score;
+                    double centerX = selected.normalizedX;
+                    double centerY = selected.normalizedY;
+
+                    lastAcceptedSample = new DetectionSample();
+                    lastAcceptedSample.normalizedX = centerX;
+                    lastAcceptedSample.normalizedY = centerY;
 
                     JSONObject barPoint = new JSONObject();
                     barPoint.put("tMs", timeMs);
@@ -469,32 +467,22 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         }
     }
 
-    private DetectionCandidate selectTrackedCandidate(List<DetectionCandidate> candidates, DetectionCandidate previousCandidate) {
+    private DetectionCandidate selectHighestConfidenceCandidate(List<DetectionCandidate> candidates) {
         if (candidates.isEmpty()) {
             return null;
         }
-        if (previousCandidate == null) {
-            return candidates.get(0);
+        return candidates.get(0);
+    }
+
+    private boolean isPlausibleJump(DetectionSample previousSample, DetectionCandidate candidate) {
+        if (previousSample == null || candidate == null) {
+            return true;
         }
 
-        DetectionCandidate bestCandidate = null;
-        double bestCost = Double.MAX_VALUE;
-        for (DetectionCandidate candidate : candidates) {
-            double dx = candidate.normalizedX - previousCandidate.normalizedX;
-            double dy = candidate.normalizedY - previousCandidate.normalizedY;
-            double distance = Math.hypot(dx, dy);
-            if (distance > ASSOCIATION_MAX_DISTANCE) {
-                continue;
-            }
-
-            double cost = distance - (candidate.score * 0.15);
-            if (cost < bestCost) {
-                bestCost = cost;
-                bestCandidate = candidate;
-            }
-        }
-
-        return bestCandidate;
+        double deltaX = candidate.normalizedX - previousSample.normalizedX;
+        double deltaY = candidate.normalizedY - previousSample.normalizedY;
+        double jumpDistance = Math.hypot(deltaX, deltaY);
+        return jumpDistance <= PLAUSIBILITY_MAX_JUMP_NORMALIZED;
     }
 
     private List<DetectionCandidate> detectCandidates(Bitmap frame) throws Exception {
@@ -503,7 +491,8 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         }
 
         Interpreter activeInterpreter = getOrCreateInterpreter();
-        Bitmap scaled = Bitmap.createScaledBitmap(frame, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE, true);
+        LetterboxedInput letterboxedInput = createLetterboxedInput(frame);
+        Bitmap scaled = letterboxedInput.bitmap;
         try {
             ByteBuffer inputBuffer = bitmapToModelInput(scaled);
             Tensor outputTensor = activeInterpreter.getOutputTensor(0);
@@ -519,10 +508,89 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             float[][][] rawOutput = new float[shape[0]][shape[1]][shape[2]];
             activeInterpreter.run(inputBuffer, rawOutput);
             List<DetectionCandidate> decoded = decodeCandidates(rawOutput);
-            return applyNms(decoded);
+            List<DetectionCandidate> nmsCandidates = applyNms(decoded);
+            return mapCandidatesFromLetterbox(nmsCandidates, letterboxedInput.params);
         } finally {
             scaled.recycle();
         }
+    }
+
+    private LetterboxedInput createLetterboxedInput(Bitmap frame) {
+        int sourceWidth = frame.getWidth();
+        int sourceHeight = frame.getHeight();
+        double scale = Math.min(
+            MODEL_INPUT_SIZE / (double) sourceWidth,
+            MODEL_INPUT_SIZE / (double) sourceHeight
+        );
+
+        int scaledWidth = Math.max(1, (int) Math.round(sourceWidth * scale));
+        int scaledHeight = Math.max(1, (int) Math.round(sourceHeight * scale));
+        double padX = (MODEL_INPUT_SIZE - scaledWidth) / 2.0;
+        double padY = (MODEL_INPUT_SIZE - scaledHeight) / 2.0;
+
+        Bitmap output = Bitmap.createBitmap(MODEL_INPUT_SIZE, MODEL_INPUT_SIZE, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(output);
+        canvas.drawColor(Color.BLACK);
+
+        Rect sourceRect = new Rect(0, 0, sourceWidth, sourceHeight);
+        RectF destinationRect = new RectF(
+            (float) padX,
+            (float) padY,
+            (float) (padX + scaledWidth),
+            (float) (padY + scaledHeight)
+        );
+        canvas.drawBitmap(frame, sourceRect, destinationRect, LETTERBOX_PAINT);
+
+        LetterboxParams params = new LetterboxParams();
+        params.sourceWidth = sourceWidth;
+        params.sourceHeight = sourceHeight;
+        params.scale = scale;
+        params.padX = padX;
+        params.padY = padY;
+
+        LetterboxedInput input = new LetterboxedInput();
+        input.bitmap = output;
+        input.params = params;
+        return input;
+    }
+
+    private List<DetectionCandidate> mapCandidatesFromLetterbox(List<DetectionCandidate> candidates, LetterboxParams params) {
+        if (candidates.isEmpty()) {
+            return candidates;
+        }
+
+        List<DetectionCandidate> mapped = new ArrayList<>();
+        for (DetectionCandidate candidate : candidates) {
+            double inputCenterX = candidate.normalizedX * MODEL_INPUT_SIZE;
+            double inputCenterY = candidate.normalizedY * MODEL_INPUT_SIZE;
+            double inputWidth = candidate.normalizedWidth * MODEL_INPUT_SIZE;
+            double inputHeight = candidate.normalizedHeight * MODEL_INPUT_SIZE;
+
+            double sourceCenterX = (inputCenterX - params.padX) / params.scale;
+            double sourceCenterY = (inputCenterY - params.padY) / params.scale;
+            double sourceWidth = inputWidth / params.scale;
+            double sourceHeight = inputHeight / params.scale;
+
+            if (
+                sourceCenterX < 0.0 ||
+                sourceCenterY < 0.0 ||
+                sourceCenterX > params.sourceWidth ||
+                sourceCenterY > params.sourceHeight
+            ) {
+                continue;
+            }
+
+            DetectionCandidate converted = new DetectionCandidate();
+            converted.id = candidate.id;
+            converted.normalizedX = clamp(sourceCenterX / params.sourceWidth, 0.0, 1.0);
+            converted.normalizedY = clamp(sourceCenterY / params.sourceHeight, 0.0, 1.0);
+            converted.normalizedWidth = clamp(sourceWidth / params.sourceWidth, 0.01, 1.0);
+            converted.normalizedHeight = clamp(sourceHeight / params.sourceHeight, 0.01, 1.0);
+            converted.score = candidate.score;
+            mapped.add(converted);
+        }
+
+        return mapped;
     }
 
     private ByteBuffer bitmapToModelInput(Bitmap bitmap) {
@@ -811,17 +879,6 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double normalizedWidth;
         double normalizedHeight;
 
-        DetectionCandidate toDetectionCandidate(String fallbackId) {
-            DetectionCandidate candidate = new DetectionCandidate();
-            candidate.id = candidateId == null ? fallbackId : candidateId;
-            candidate.normalizedX = normalizedX;
-            candidate.normalizedY = normalizedY;
-            candidate.normalizedWidth = normalizedWidth;
-            candidate.normalizedHeight = normalizedHeight;
-            candidate.score = 1.0;
-            return candidate;
-        }
-
         JSONObject toJsonBox() throws Exception {
             JSONObject object = new JSONObject();
             object.put("x", normalizedX);
@@ -852,6 +909,19 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         }
     }
 
+    private static class LetterboxParams {
+        int sourceWidth;
+        int sourceHeight;
+        double scale;
+        double padX;
+        double padY;
+    }
+
+    private static class LetterboxedInput {
+        Bitmap bitmap;
+        LetterboxParams params;
+    }
+
     private static class TrackingSeries {
         JSONArray barPathSeries;
         JSONArray confidenceSeries;
@@ -859,6 +929,6 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         int frameWidthPx;
         int frameHeightPx;
         double averageConfidence;
-        boolean usedHoldFallback;
+        int skippedImplausibleFrames;
     }
 }
