@@ -36,6 +36,7 @@
 ## Current Implementation Status (March 20, 2026)
 - Detection/tracking is now simplified to pure YOLO candidate selection plus a plausibility jump filter.
 - Tracking confidence threshold is `0.2`.
+- Analysis now runs at fixed `12 FPS` unless the source video itself has a lower frame rate.
 - Legacy smoothing, ROI prediction, CSRT, Hough, EMA, velocity, and relock logic are removed from the active path.
 - Model input buffers, pixel arrays, output tensors, and letterbox bitmaps are reused across detections.
 - Native analysis writes `performanceMetrics` into the result JSON and logs stage metrics to `logcat`.
@@ -91,6 +92,42 @@
   - average frame extraction time dropped from `3021.861 ms` to `183.614 ms`
   - native analysis time dropped from `76444 ms` to `17467 ms`
   - the decoder rewrite removed the dominant retriever bottleneck
+
+## Fixed 12 FPS Verification (March 20, 2026)
+- Verification run: same Maestro flow after removing the sample-budget logic and restoring fixed `12 FPS`
+- Maestro result: passed in `2m 40s`
+- Wall clock: `193.52s`
+- JS import metrics:
+  - `copyMs: 826`
+  - `preflightMs: 3633`
+  - `nativeAnalysisMs: 51254`
+  - `totalImportMs: 69863`
+- Native decoder metrics:
+  - `analyzedFps: 12`
+  - `plannedSampleCount: 96`
+  - `trackingMs: 48307`
+  - `totalAnalysisMs: 50901`
+  - `decodedFrameCount: 95`
+  - `acceptedFrameCount: 61`
+  - `implausibleFrameCount: 34`
+  - `queuedInputSampleCount: 240`
+  - `dequeuedOutputFrameCount: 240`
+  - `processedOutputFrameCount: 95`
+  - `skippedDecodedFrameCount: 145`
+  - `decoderSetupMs: 735`
+  - `frameExtractionMs: 22891.052`
+  - `decoderQueueInputMs: 5831.365`
+  - `decoderDequeueOutputMs: 1811.108`
+  - `frameConversionMs: 22891.052`
+  - `inferenceMs: 13687.331`
+  - `totalDetectionMs: 15302.388`
+  - `avgFrameExtractionMs: 240.958`
+  - `avgInferenceMs: 142.576`
+  - `avgFrameConversionMs: 240.958`
+- Tradeoff conclusion:
+  - fixed `12 FPS` materially improves bar-path density and keeps the decoder path viable
+  - compared to the `3 FPS` decoder run, native analysis time increased from `17467 ms` to `51254 ms`
+  - the decoder path still keeps the run well below the old retriever-based implementation
 
 ## Next Execution Phase
 1. Replace repeated `MediaMetadataRetriever.getFrameAtTime(...)` calls in the tracking loop with sequential decoding via `MediaExtractor + MediaCodec`.

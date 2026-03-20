@@ -47,9 +47,7 @@ import java.util.List;
 public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final int DEFAULT_DURATION_MS = 6000;
     private static final double DEFAULT_SOURCE_FPS = 30.0;
-    private static final double MAX_ANALYZED_FPS = 3.0;
-    private static final double MIN_ANALYZED_FPS = 2.0;
-    private static final int MAX_ANALYSIS_SAMPLES = 180;
+    private static final double FIXED_ANALYZED_FPS = 12.0;
     private static final int MODEL_INPUT_SIZE = 320;
     private static final int MAX_CANDIDATES = 20;
     private static final int MIN_FEATURE_VECTOR_LENGTH = 5;
@@ -260,7 +258,6 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             qualityFlags.put("NMS_IOU:" + NMS_IOU_THRESHOLD);
             qualityFlags.put("PLAUSIBILITY_MAX_JUMP:" + PLAUSIBILITY_MAX_JUMP_NORMALIZED);
             qualityFlags.put("ANALYZED_FPS:" + roundTo3(analyzedFps));
-            qualityFlags.put("MAX_ANALYSIS_SAMPLES:" + MAX_ANALYSIS_SAMPLES);
             qualityFlags.put(previewFramePath == null ? "PREVIEW_FRAME_MISSING" : "PREVIEW_FRAME_READY");
             if (manualSelection != null) {
                 qualityFlags.put("MANUAL_SEED_USED");
@@ -431,11 +428,10 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     }
 
     private double resolveAnalyzedFps(long durationMs, double sourceFps) {
-        double durationSeconds = Math.max(durationMs / 1000.0, 1.0);
-        double sourceFpsCap = sourceFps > 0.0 ? Math.min(sourceFps, MAX_ANALYZED_FPS) : MAX_ANALYZED_FPS;
-        double minAnalyzedFps = Math.min(MIN_ANALYZED_FPS, sourceFpsCap);
-        double fpsBySampleBudget = MAX_ANALYSIS_SAMPLES / durationSeconds;
-        return clamp(fpsBySampleBudget, minAnalyzedFps, sourceFpsCap);
+        if (sourceFps > 0.0) {
+            return Math.min(sourceFps, FIXED_ANALYZED_FPS);
+        }
+        return FIXED_ANALYZED_FPS;
     }
 
     private long[] buildSampleTimesUs(long durationMs, double analyzedFps) {
