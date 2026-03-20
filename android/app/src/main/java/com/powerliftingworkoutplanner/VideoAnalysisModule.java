@@ -57,7 +57,6 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final float DETECTION_CONFIDENCE_THRESHOLD = 0.2f;
     private static final float NMS_IOU_THRESHOLD = 0.45f;
     private static final float PLAUSIBILITY_MAX_JUMP_NORMALIZED = 0.30f;
-    private static final double XYXY_INTERPRETATION_MARGIN = 0.25;
     private static final int MAX_PLAUSIBILITY_REJECTIONS_DEBUG = 120;
 
     private static final String TRACKER_VERSION = "tflite-yolo26-outer-plate-v1";
@@ -258,6 +257,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             qualityFlags.put("MODEL_ASSET:" + MODEL_ASSET_PATH);
             qualityFlags.put("CONF_THRESHOLD:" + DETECTION_CONFIDENCE_THRESHOLD);
             qualityFlags.put("NMS_IOU:" + NMS_IOU_THRESHOLD);
+            qualityFlags.put("BOX_FORMAT:xyxy");
             qualityFlags.put("PLAUSIBILITY_MAX_JUMP:" + PLAUSIBILITY_MAX_JUMP_NORMALIZED);
             qualityFlags.put("ANALYZED_FPS:" + roundTo3(analyzedFps));
             qualityFlags.put(previewFramePath == null ? "PREVIEW_FRAME_MISSING" : "PREVIEW_FRAME_READY");
@@ -914,6 +914,8 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double deltaX = candidate.normalizedX - previousSample.normalizedX;
         double deltaY = candidate.normalizedY - previousSample.normalizedY;
         double jumpDistance = Math.hypot(deltaX, deltaY);
+        double axisJumpX = Math.abs(deltaX);
+        double axisJumpY = Math.abs(deltaY);
 
         JSONObject rejection = new JSONObject();
         rejection.put("sampleIndex", sampleIndex);
@@ -924,8 +926,11 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         rejection.put("candidateY", roundTo3(candidate.normalizedY));
         rejection.put("deltaX", roundTo3(deltaX));
         rejection.put("deltaY", roundTo3(deltaY));
+        rejection.put("axisJumpX", roundTo3(axisJumpX));
+        rejection.put("axisJumpY", roundTo3(axisJumpY));
         rejection.put("jumpDistance", roundTo3(jumpDistance));
         rejection.put("threshold", roundTo3(PLAUSIBILITY_MAX_JUMP_NORMALIZED));
+        rejection.put("reason", "jump_distance");
         rejection.put("score", roundTo3(candidate.score));
         series.plausibilityRejections.put(rejection);
     }
@@ -1132,14 +1137,14 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 continue;
             }
 
-            DetectionCandidate converted = new DetectionCandidate();
-            converted.id = candidate.id;
-            converted.normalizedX = clamp(sourceCenterX / params.sourceWidth, 0.0, 1.0);
-            converted.normalizedY = clamp(sourceCenterY / params.sourceHeight, 0.0, 1.0);
-            converted.normalizedWidth = clamp(sourceWidth / params.sourceWidth, 0.01, 1.0);
-            converted.normalizedHeight = clamp(sourceHeight / params.sourceHeight, 0.01, 1.0);
-            converted.score = candidate.score;
-            mapped.add(converted);
+        DetectionCandidate converted = new DetectionCandidate();
+        converted.id = candidate.id;
+        converted.normalizedX = clamp(sourceCenterX / params.sourceWidth, 0.0, 1.0);
+        converted.normalizedY = clamp(sourceCenterY / params.sourceHeight, 0.0, 1.0);
+        converted.normalizedWidth = clamp(sourceWidth / params.sourceWidth, 0.01, 1.0);
+        converted.normalizedHeight = clamp(sourceHeight / params.sourceHeight, 0.01, 1.0);
+        converted.score = candidate.score;
+        mapped.add(converted);
         }
 
         return mapped;
@@ -1223,21 +1228,14 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             fourth /= MODEL_INPUT_SIZE;
         }
 
-        double[] xywhGeometry = toXywhGeometry(first, second, third, fourth, false);
-        double[] xyxyGeometry = toXywhGeometry(first, second, third, fourth, true);
-        double xywhPenalty = geometryPenalty(xywhGeometry[0], xywhGeometry[1], xywhGeometry[2], xywhGeometry[3]);
-        double xyxyPenalty = geometryPenalty(xyxyGeometry[0], xyxyGeometry[1], xyxyGeometry[2], xyxyGeometry[3]);
-
-        double cx = xywhGeometry[0];
-        double cy = xywhGeometry[1];
-        double width = xywhGeometry[2];
-        double height = xywhGeometry[3];
-        if (xyxyPenalty + XYXY_INTERPRETATION_MARGIN < xywhPenalty) {
-            cx = xyxyGeometry[0];
-            cy = xyxyGeometry[1];
-            width = xyxyGeometry[2];
-            height = xyxyGeometry[3];
-        }
+        double left = Math.min(first, third);
+        double right = Math.max(first, third);
+        double top = Math.min(second, fourth);
+        double bottom = Math.max(second, fourth);
+        double cx = (left + right) / 2.0;
+        double cy = (top + bottom) / 2.0;
+        double width = right - left;
+        double height = bottom - top;
 
         double confidence;
         if (values.length == 5) {
@@ -1267,54 +1265,6 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         candidate.normalizedHeight = height;
         candidate.score = confidence;
         return candidate;
-    }
-
-    private double[] toXywhGeometry(double first, double second, double third, double fourth, boolean interpretAsXyxy) {
-        if (!interpretAsXyxy) {
-            return new double[] {first, second, third, fourth};
-        }
-
-        double left = Math.min(first, third);
-        double right = Math.max(first, third);
-        double top = Math.min(second, fourth);
-        double bottom = Math.max(second, fourth);
-
-        double cx = (left + right) / 2.0;
-        double cy = (top + bottom) / 2.0;
-        double width = right - left;
-        double height = bottom - top;
-        return new double[] {cx, cy, width, height};
-    }
-
-    private double geometryPenalty(double cx, double cy, double width, double height) {
-        if (width <= 0.0 || height <= 0.0) {
-            return 1000.0;
-        }
-
-        double penalty = 0.0;
-        if (cx < 0.0 || cx > 1.0) {
-            penalty += 2.0 + Math.abs(cx - 0.5);
-        }
-        if (cy < 0.0 || cy > 1.0) {
-            penalty += 2.0 + Math.abs(cy - 0.5);
-        }
-
-        if (width < 0.01) {
-            penalty += 2.0;
-        }
-        if (height < 0.01) {
-            penalty += 2.0;
-        }
-        if (width > 0.6) {
-            penalty += 1.5 + (width - 0.6) * 8.0;
-        }
-        if (height > 0.6) {
-            penalty += 1.5 + (height - 0.6) * 8.0;
-        }
-
-        double aspectRatio = width / Math.max(height, 1e-6);
-        penalty += Math.abs(Math.log(aspectRatio)) * 0.35;
-        return penalty;
     }
 
     private double normalizeScore(double value) {
@@ -1410,7 +1360,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         }
     }
 
-    private double roundTo3(double value) {
+    private static double roundTo3(double value) {
         return Math.round(value * 1000.0) / 1000.0;
     }
 

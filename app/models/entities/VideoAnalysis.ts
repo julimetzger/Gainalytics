@@ -99,8 +99,11 @@ export interface PlausibilityRejection {
   candidateY: number;
   deltaX: number;
   deltaY: number;
+  axisJumpX?: number;
+  axisJumpY?: number;
   jumpDistance: number;
   threshold: number;
+  reason?: string;
   score: number;
 }
 

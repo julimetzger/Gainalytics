@@ -155,8 +155,8 @@ const mapBarPathToOverlay = (
     return [];
   }
 
-  const sourceWidth = videoWidth > 0 ? videoWidth : trackingFrameWidthPx ?? overlayWidth;
-  const sourceHeight = videoHeight > 0 ? videoHeight : trackingFrameHeightPx ?? overlayHeight;
+  const sourceWidth = trackingFrameWidthPx && trackingFrameWidthPx > 0 ? trackingFrameWidthPx : videoWidth > 0 ? videoWidth : overlayWidth;
+  const sourceHeight = trackingFrameHeightPx && trackingFrameHeightPx > 0 ? trackingFrameHeightPx : videoHeight > 0 ? videoHeight : overlayHeight;
   if (sourceWidth <= 0 || sourceHeight <= 0) {
     return [];
   }
@@ -316,7 +316,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const [playbackPaused, setPlaybackPaused] = useState(true);
   const [playbackTimeMs, setPlaybackTimeMs] = useState(0);
   const [playbackDurationMs, setPlaybackDurationMs] = useState(0);
-  const [playbackAspectRatio, setPlaybackAspectRatio] = useState(DEFAULT_PREVIEW_ASPECT_RATIO);
   const [playbackVideoWidth, setPlaybackVideoWidth] = useState(0);
   const [playbackVideoHeight, setPlaybackVideoHeight] = useState(0);
   const [currentRepIndex, setCurrentRepIndex] = useState<number | undefined>();
@@ -344,6 +343,17 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     }
     return timeRange.durationMs;
   }, [playbackDurationMs, timeRange.durationMs]);
+  const playbackAspectRatio = useMemo(() => {
+    const trackingWidth = result.analysisMeta.trackingFrameWidthPx;
+    const trackingHeight = result.analysisMeta.trackingFrameHeightPx;
+    if (trackingWidth && trackingHeight && trackingWidth > 0 && trackingHeight > 0) {
+      return trackingWidth / trackingHeight;
+    }
+    if (playbackVideoWidth > 0 && playbackVideoHeight > 0) {
+      return playbackVideoWidth / playbackVideoHeight;
+    }
+    return DEFAULT_PREVIEW_ASPECT_RATIO;
+  }, [playbackVideoHeight, playbackVideoWidth, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx]);
   const historyOverlayPoints = useMemo(
     () =>
       mapBarPathToOverlay(
@@ -473,7 +483,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     if (videoWidth > 0 && videoHeight > 0) {
       setPlaybackVideoWidth(videoWidth);
       setPlaybackVideoHeight(videoHeight);
-      setPlaybackAspectRatio(videoWidth / videoHeight);
     }
   }, []);
 
@@ -580,7 +589,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     setPlaybackPaused(true);
     setPlaybackTimeMs(0);
     setPlaybackDurationMs(0);
-    setPlaybackAspectRatio(DEFAULT_PREVIEW_ASPECT_RATIO);
     setPlaybackVideoWidth(0);
     setPlaybackVideoHeight(0);
     setCurrentRepIndex(undefined);
