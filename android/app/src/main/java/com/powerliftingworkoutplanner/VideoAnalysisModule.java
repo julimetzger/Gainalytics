@@ -7,7 +7,14 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.media.Image;
+import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
+import android.os.SystemClock;
+import android.util.Log;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
@@ -38,17 +45,20 @@ import java.util.Collections;
 import java.util.List;
 
 public class VideoAnalysisModule extends ReactContextBaseJavaModule {
-    private static final int ANALYZED_FPS = 12;
     private static final int DEFAULT_DURATION_MS = 6000;
+    private static final double DEFAULT_SOURCE_FPS = 30.0;
+    private static final double FIXED_ANALYZED_FPS = 12.0;
     private static final int MODEL_INPUT_SIZE = 320;
     private static final int MAX_CANDIDATES = 20;
     private static final int MIN_FEATURE_VECTOR_LENGTH = 5;
     private static final int MAX_FEATURE_VECTOR_LENGTH = 64;
+    private static final long DECODER_TIMEOUT_US = 10_000L;
 
     private static final float DETECTION_CONFIDENCE_THRESHOLD = 0.2f;
     private static final float NMS_IOU_THRESHOLD = 0.45f;
-    private static final float PLAUSIBILITY_MAX_JUMP_NORMALIZED = 0.16f;
+    private static final float PLAUSIBILITY_MAX_JUMP_NORMALIZED = 0.30f;
     private static final double XYXY_INTERPRETATION_MARGIN = 0.25;
+    private static final int MAX_PLAUSIBILITY_REJECTIONS_DEBUG = 120;
 
     private static final String TRACKER_VERSION = "tflite-yolo26-outer-plate-v1";
     private static final String MODEL_ASSET_PATH = "models/outer_plate_yolo26n_float32.tflite";
@@ -59,6 +69,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final String ERR_VIDEO_ANALYSIS_NEEDS_MANUAL_SEED = "ERR_VIDEO_ANALYSIS_NEEDS_MANUAL_SEED";
     private static final String ERR_VIDEO_ANALYSIS_NO_CANDIDATE = "ERR_VIDEO_ANALYSIS_NO_CANDIDATE";
     private static final String MANUAL_SEED_REQUIRED_PREFIX = "MANUAL_SEED_REQUIRED::";
+    private static final String LOG_TAG = "VideoAnalysis";
     private static final Paint LETTERBOX_PAINT = new Paint(Paint.FILTER_BITMAP_FLAG);
 
     private final Object interpreterLock = new Object();
@@ -87,19 +98,31 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void prepareSquatVideoSeed(String localVideoPath, int analysisId, Promise promise) {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        AnalysisPerformanceMetrics performanceMetrics = new AnalysisPerformanceMetrics();
+        long preflightStartedAtMs = SystemClock.elapsedRealtime();
         Bitmap frame = null;
+        DetectionContext detectionContext = null;
         try {
             File rootDir = ensureVideoAnalysisRootDir();
+
+            long previewStartedAtMs = SystemClock.elapsedRealtime();
             String previewFramePath = writePreviewFrame(localVideoPath, analysisId, rootDir);
+            performanceMetrics.previewFrameWriteMs = SystemClock.elapsedRealtime() - previewStartedAtMs;
 
             retriever.setDataSource(localVideoPath);
+            long initialFrameReadStartedAtMs = SystemClock.elapsedRealtime();
             frame = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            performanceMetrics.initialFrameReadMs = SystemClock.elapsedRealtime() - initialFrameReadStartedAtMs;
             if (frame == null) {
                 promise.reject(ERR_VIDEO_ANALYSIS_PREVIEW, "Could not extract preview frame");
                 return;
             }
 
-            List<DetectionCandidate> candidates = detectCandidates(frame);
+            detectionContext = createDetectionContext();
+            long initialDetectionStartedAtMs = SystemClock.elapsedRealtime();
+            List<DetectionCandidate> candidates = detectCandidates(frame, detectionContext, performanceMetrics);
+            performanceMetrics.initialDetectionMs = SystemClock.elapsedRealtime() - initialDetectionStartedAtMs;
+            performanceMetrics.totalPreflightMs = SystemClock.elapsedRealtime() - preflightStartedAtMs;
             WritableMap result = Arguments.createMap();
             result.putString("previewFramePath", previewFramePath == null ? "" : previewFramePath);
             result.putInt("frameWidthPx", frame.getWidth());
@@ -110,6 +133,11 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         } catch (Exception error) {
             promise.reject(ERR_VIDEO_ANALYSIS_PREVIEW, error);
         } finally {
+            performanceMetrics.totalPreflightMs = SystemClock.elapsedRealtime() - preflightStartedAtMs;
+            logPerformanceMetrics("prepareSquatVideoSeed", analysisId, performanceMetrics);
+            if (detectionContext != null) {
+                detectionContext.release();
+            }
             if (frame != null) {
                 frame.recycle();
             }
@@ -124,7 +152,10 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void analyzeSquatVideo(String localVideoPath, int analysisId, ReadableMap manualSeed, Promise promise) {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        AnalysisPerformanceMetrics performanceMetrics = new AnalysisPerformanceMetrics();
+        long analysisStartedAtMs = SystemClock.elapsedRealtime();
         Bitmap firstFrame = null;
+        DetectionContext detectionContext = null;
         try {
             File rootDir = ensureVideoAnalysisRootDir();
             File resultsDir = new File(rootDir, "results");
@@ -133,15 +164,22 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 return;
             }
 
+            long previewStartedAtMs = SystemClock.elapsedRealtime();
             String previewFramePath = writePreviewFrame(localVideoPath, analysisId, rootDir);
+            performanceMetrics.previewFrameWriteMs = SystemClock.elapsedRealtime() - previewStartedAtMs;
             retriever.setDataSource(localVideoPath);
+            long initialFrameReadStartedAtMs = SystemClock.elapsedRealtime();
             firstFrame = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            performanceMetrics.initialFrameReadMs = SystemClock.elapsedRealtime() - initialFrameReadStartedAtMs;
             if (firstFrame == null) {
                 promise.reject(ERR_VIDEO_ANALYSIS, "Could not read first frame");
                 return;
             }
 
-            List<DetectionCandidate> initialCandidates = detectCandidates(firstFrame);
+            detectionContext = createDetectionContext();
+            long initialDetectionStartedAtMs = SystemClock.elapsedRealtime();
+            List<DetectionCandidate> initialCandidates = detectCandidates(firstFrame, detectionContext, performanceMetrics);
+            performanceMetrics.initialDetectionMs = SystemClock.elapsedRealtime() - initialDetectionStartedAtMs;
             SeedSelection manualSelection = parseManualSeed(manualSeed);
             SeedSelection activeSeed = resolveSeedSelection(initialCandidates, manualSelection);
 
@@ -155,9 +193,36 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 return;
             }
 
+            long durationMetadataStartedAtMs = SystemClock.elapsedRealtime();
             long durationMs = extractDurationMs(localVideoPath);
+            performanceMetrics.durationMetadataMs = SystemClock.elapsedRealtime() - durationMetadataStartedAtMs;
+
+            long sourceFpsMetadataStartedAtMs = SystemClock.elapsedRealtime();
             double sourceFps = extractSourceFps(localVideoPath);
-            TrackingSeries trackingSeries = extractTrackedSeries(localVideoPath, durationMs, activeSeed);
+            performanceMetrics.sourceFpsMetadataMs = SystemClock.elapsedRealtime() - sourceFpsMetadataStartedAtMs;
+
+            double analyzedFps = resolveAnalyzedFps(durationMs, sourceFps);
+            performanceMetrics.analyzedFps = analyzedFps;
+            Log.i(
+                LOG_TAG,
+                "analyzeSquatVideo start analysisId="
+                    + analysisId
+                    + " durationMs="
+                    + durationMs
+                    + " sourceFps="
+                    + roundTo3(sourceFps)
+                    + " analyzedFps="
+                    + roundTo3(analyzedFps)
+            );
+            TrackingSeries trackingSeries = extractTrackedSeries(
+                analysisId,
+                localVideoPath,
+                durationMs,
+                activeSeed,
+                analyzedFps,
+                detectionContext,
+                performanceMetrics
+            );
 
             if (trackingSeries.barPathSeries.length() < 2) {
                 promise.reject(ERR_VIDEO_ANALYSIS, "Not enough tracked points for a valid result");
@@ -174,7 +239,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
 
             JSONObject analysisMeta = new JSONObject();
             analysisMeta.put("sourceFps", roundTo3(sourceFps));
-            analysisMeta.put("analyzedFps", ANALYZED_FPS);
+            analysisMeta.put("analyzedFps", roundTo3(analyzedFps));
             analysisMeta.put("trackerVersion", TRACKER_VERSION);
             analysisMeta.put("frameCount", trackingSeries.frameCount);
             analysisMeta.put("averageConfidence", roundTo3(trackingSeries.averageConfidence));
@@ -183,6 +248,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             analysisMeta.put("manualSeedUsed", manualSelection != null);
             analysisMeta.put("initialSeedBox", activeSeed.toJsonBox());
             analysisMeta.put("detectedBoxesAtStart", toCandidatesJson(initialCandidates));
+            analysisMeta.put("plausibilityRejections", trackingSeries.plausibilityRejections);
+            performanceMetrics.totalAnalysisMs = SystemClock.elapsedRealtime() - analysisStartedAtMs;
+            analysisMeta.put("performanceMetrics", performanceMetrics.toJson());
             result.put("analysisMeta", analysisMeta);
 
             JSONArray qualityFlags = new JSONArray();
@@ -191,7 +259,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             qualityFlags.put("CONF_THRESHOLD:" + DETECTION_CONFIDENCE_THRESHOLD);
             qualityFlags.put("NMS_IOU:" + NMS_IOU_THRESHOLD);
             qualityFlags.put("PLAUSIBILITY_MAX_JUMP:" + PLAUSIBILITY_MAX_JUMP_NORMALIZED);
-            qualityFlags.put("ANALYZED_FPS:" + ANALYZED_FPS);
+            qualityFlags.put("ANALYZED_FPS:" + roundTo3(analyzedFps));
             qualityFlags.put(previewFramePath == null ? "PREVIEW_FRAME_MISSING" : "PREVIEW_FRAME_READY");
             if (manualSelection != null) {
                 qualityFlags.put("MANUAL_SEED_USED");
@@ -209,6 +277,11 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         } catch (Exception error) {
             promise.reject(ERR_VIDEO_ANALYSIS, error);
         } finally {
+            performanceMetrics.totalAnalysisMs = SystemClock.elapsedRealtime() - analysisStartedAtMs;
+            logPerformanceMetrics("analyzeSquatVideo", analysisId, performanceMetrics);
+            if (detectionContext != null) {
+                detectionContext.release();
+            }
             if (firstFrame != null) {
                 firstFrame.recycle();
             }
@@ -322,11 +395,11 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             retriever.setDataSource(localVideoPath);
             String captureFps = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE);
             if (captureFps == null || captureFps.isEmpty()) {
-                return ANALYZED_FPS;
+                return DEFAULT_SOURCE_FPS;
             }
             return Double.parseDouble(captureFps);
         } catch (Exception ignored) {
-            return ANALYZED_FPS;
+            return DEFAULT_SOURCE_FPS;
         } finally {
             try {
                 retriever.release();
@@ -334,6 +407,49 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 // No-op.
             }
         }
+    }
+
+    private int extractVideoRotationDegrees(String localVideoPath) {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        try {
+            retriever.setDataSource(localVideoPath);
+            String rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
+            if (rotation == null || rotation.isEmpty()) {
+                return 0;
+            }
+            return normalizeRotationDegrees(Integer.parseInt(rotation));
+        } catch (Exception ignored) {
+            return 0;
+        } finally {
+            try {
+                retriever.release();
+            } catch (Exception ignored) {
+                // No-op.
+            }
+        }
+    }
+
+    private double resolveAnalyzedFps(long durationMs, double sourceFps) {
+        if (sourceFps > 0.0) {
+            return Math.min(sourceFps, FIXED_ANALYZED_FPS);
+        }
+        return FIXED_ANALYZED_FPS;
+    }
+
+    private long[] buildSampleTimesUs(long durationMs, double analyzedFps) {
+        int sampleCount = (int) Math.round((durationMs / 1000.0) * analyzedFps);
+        if (sampleCount < 2) {
+            sampleCount = 2;
+        }
+
+        long[] sampleTimesUs = new long[sampleCount];
+        for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
+            long timeMs = sampleCount <= 1
+                ? 0L
+                : Math.round((sampleIndex * durationMs) / (double) (sampleCount - 1));
+            sampleTimesUs[sampleIndex] = timeMs * 1000L;
+        }
+        return sampleTimesUs;
     }
 
     private SeedSelection parseManualSeed(ReadableMap manualSeed) {
@@ -378,19 +494,61 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         return selection;
     }
 
-    private TrackingSeries extractTrackedSeries(String localVideoPath, long durationMs, SeedSelection seed) throws Exception {
+    private TrackingSeries extractTrackedSeries(
+        int analysisId,
+        String localVideoPath,
+        long durationMs,
+        SeedSelection seed,
+        double analyzedFps,
+        DetectionContext detectionContext,
+        AnalysisPerformanceMetrics performanceMetrics
+    ) throws Exception {
+        try {
+            return extractTrackedSeriesWithDecoder(
+                analysisId,
+                localVideoPath,
+                durationMs,
+                seed,
+                analyzedFps,
+                detectionContext,
+                performanceMetrics
+            );
+        } catch (Exception decoderError) {
+            Log.w(LOG_TAG, "Decoder tracking failed, falling back to MediaMetadataRetriever", decoderError);
+            return extractTrackedSeriesWithRetriever(
+                analysisId,
+                localVideoPath,
+                durationMs,
+                seed,
+                analyzedFps,
+                detectionContext,
+                performanceMetrics
+            );
+        }
+    }
+
+    private TrackingSeries extractTrackedSeriesWithRetriever(
+        int analysisId,
+        String localVideoPath,
+        long durationMs,
+        SeedSelection seed,
+        double analyzedFps,
+        DetectionContext detectionContext,
+        AnalysisPerformanceMetrics performanceMetrics
+    ) throws Exception {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {
             retriever.setDataSource(localVideoPath);
 
-            int sampleCount = (int) Math.round((durationMs / 1000.0) * ANALYZED_FPS);
-            if (sampleCount < 2) {
-                sampleCount = 2;
-            }
+            long trackingStartedAtMs = SystemClock.elapsedRealtime();
+            long[] sampleTimesUs = buildSampleTimesUs(durationMs, analyzedFps);
+            int sampleCount = sampleTimesUs.length;
+            performanceMetrics.plannedSampleCount = sampleCount;
 
             TrackingSeries series = new TrackingSeries();
             series.barPathSeries = new JSONArray();
             series.confidenceSeries = new JSONArray();
+            series.plausibilityRejections = new JSONArray();
             series.frameCount = 0;
             series.frameWidthPx = 0;
             series.frameHeightPx = 0;
@@ -403,29 +561,35 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             lastAcceptedSample.normalizedY = seed.normalizedY;
 
             for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
-                int timeMs = sampleCount <= 1
-                    ? 0
-                    : (int) Math.round((sampleIndex * durationMs) / (double) (sampleCount - 1));
+                int timeMs = (int) Math.round(sampleTimesUs[sampleIndex] / 1000.0);
 
+                performanceMetrics.sampleAttemptCount += 1;
+                long frameExtractionStartedAtNs = SystemClock.elapsedRealtimeNanos();
                 Bitmap frame = retriever.getFrameAtTime(timeMs * 1000L, MediaMetadataRetriever.OPTION_CLOSEST);
+                performanceMetrics.frameExtractionMs += elapsedMs(frameExtractionStartedAtNs);
                 if (frame == null) {
+                    performanceMetrics.nullFrameCount += 1;
                     continue;
                 }
 
                 try {
+                    performanceMetrics.decodedFrameCount += 1;
                     if (series.frameWidthPx == 0 || series.frameHeightPx == 0) {
                         series.frameWidthPx = frame.getWidth();
                         series.frameHeightPx = frame.getHeight();
                     }
 
-                    List<DetectionCandidate> candidates = detectCandidates(frame);
+                    List<DetectionCandidate> candidates = detectCandidates(frame, detectionContext, performanceMetrics);
                     DetectionCandidate selected = selectHighestConfidenceCandidate(candidates);
                     if (selected == null) {
+                        performanceMetrics.noCandidateFrameCount += 1;
                         continue;
                     }
 
                     if (!isPlausibleJump(lastAcceptedSample, selected)) {
                         series.skippedImplausibleFrames += 1;
+                        performanceMetrics.implausibleFrameCount += 1;
+                        recordPlausibilityRejection(series, sampleIndex, timeMs, lastAcceptedSample, selected);
                         continue;
                     }
 
@@ -451,12 +615,17 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                     accumulatedConfidence += score;
                     confidenceCount += 1;
                     series.frameCount += 1;
+                    performanceMetrics.acceptedFrameCount += 1;
+                    if ((sampleIndex + 1) % 10 == 0 || sampleIndex == sampleCount - 1) {
+                        logTrackingProgress(analysisId, sampleIndex + 1, sampleCount, performanceMetrics);
+                    }
                 } finally {
                     frame.recycle();
                 }
             }
 
             series.averageConfidence = confidenceCount == 0 ? 0.0 : accumulatedConfidence / confidenceCount;
+            performanceMetrics.trackingMs = SystemClock.elapsedRealtime() - trackingStartedAtMs;
             return series;
         } finally {
             try {
@@ -465,6 +634,249 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 // No-op.
             }
         }
+    }
+
+    private TrackingSeries extractTrackedSeriesWithDecoder(
+        int analysisId,
+        String localVideoPath,
+        long durationMs,
+        SeedSelection seed,
+        double analyzedFps,
+        DetectionContext detectionContext,
+        AnalysisPerformanceMetrics performanceMetrics
+    ) throws Exception {
+        MediaExtractor extractor = new MediaExtractor();
+        MediaCodec decoder = null;
+        try {
+            long[] sampleTimesUs = buildSampleTimesUs(durationMs, analyzedFps);
+            performanceMetrics.plannedSampleCount = sampleTimesUs.length;
+
+            long decoderSetupStartedAtMs = SystemClock.elapsedRealtime();
+            extractor.setDataSource(localVideoPath);
+            int videoTrackIndex = findVideoTrackIndex(extractor);
+            if (videoTrackIndex < 0) {
+                throw new IllegalStateException("Could not find video track for sequential decode");
+            }
+
+            extractor.selectTrack(videoTrackIndex);
+            MediaFormat format = extractor.getTrackFormat(videoTrackIndex);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            if (mime == null || !mime.startsWith("video/")) {
+                throw new IllegalStateException("Unsupported video mime type: " + mime);
+            }
+
+            int rotationDegrees = resolveRotationDegrees(localVideoPath, format);
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
+            decoder = MediaCodec.createDecoderByType(mime);
+            decoder.configure(format, null, null, 0);
+            decoder.start();
+            performanceMetrics.decoderSetupMs = SystemClock.elapsedRealtime() - decoderSetupStartedAtMs;
+
+            TrackingSeries series = new TrackingSeries();
+            series.barPathSeries = new JSONArray();
+            series.confidenceSeries = new JSONArray();
+            series.plausibilityRejections = new JSONArray();
+            series.frameCount = 0;
+            series.frameWidthPx = 0;
+            series.frameHeightPx = 0;
+
+            double accumulatedConfidence = 0.0;
+            int confidenceCount = 0;
+            long trackingStartedAtMs = SystemClock.elapsedRealtime();
+
+            DetectionSample lastAcceptedSample = new DetectionSample();
+            lastAcceptedSample.normalizedX = seed.normalizedX;
+            lastAcceptedSample.normalizedY = seed.normalizedY;
+
+            MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+            boolean inputEnded = false;
+            boolean outputEnded = false;
+            int nextSampleIndex = 0;
+
+            while (!outputEnded && nextSampleIndex < sampleTimesUs.length) {
+                if (!inputEnded) {
+                    long queueStartedAtNs = SystemClock.elapsedRealtimeNanos();
+                    inputEnded = queueDecoderInputSample(extractor, decoder, performanceMetrics);
+                    performanceMetrics.decoderQueueInputMs += elapsedMs(queueStartedAtNs);
+                }
+
+                long dequeueStartedAtNs = SystemClock.elapsedRealtimeNanos();
+                int outputIndex = decoder.dequeueOutputBuffer(bufferInfo, DECODER_TIMEOUT_US);
+                performanceMetrics.decoderDequeueOutputMs += elapsedMs(dequeueStartedAtNs);
+
+                if (outputIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                    continue;
+                }
+                if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    continue;
+                }
+                if (outputIndex < 0) {
+                    continue;
+                }
+
+                boolean isEndOfStream = (bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
+                if (bufferInfo.size <= 0) {
+                    decoder.releaseOutputBuffer(outputIndex, false);
+                    outputEnded = isEndOfStream;
+                    continue;
+                }
+
+                performanceMetrics.dequeuedOutputFrameCount += 1;
+                long presentationTimeUs = bufferInfo.presentationTimeUs;
+                if (nextSampleIndex >= sampleTimesUs.length || presentationTimeUs < sampleTimesUs[nextSampleIndex]) {
+                    performanceMetrics.skippedDecodedFrameCount += 1;
+                    decoder.releaseOutputBuffer(outputIndex, false);
+                    outputEnded = isEndOfStream;
+                    continue;
+                }
+
+                Image image = decoder.getOutputImage(outputIndex);
+                if (image == null) {
+                    performanceMetrics.nullFrameCount += 1;
+                    decoder.releaseOutputBuffer(outputIndex, false);
+                    outputEnded = isEndOfStream;
+                    continue;
+                }
+
+                try {
+                    performanceMetrics.sampleAttemptCount += 1;
+                    performanceMetrics.processedOutputFrameCount += 1;
+
+                    long conversionStartedAtNs = SystemClock.elapsedRealtimeNanos();
+                    Bitmap frame = imageToBitmap(image, rotationDegrees, detectionContext);
+                    double conversionMs = elapsedMs(conversionStartedAtNs);
+                    performanceMetrics.frameExtractionMs += conversionMs;
+                    performanceMetrics.frameConversionMs += conversionMs;
+                    performanceMetrics.decodedFrameCount += 1;
+
+                    if (series.frameWidthPx == 0 || series.frameHeightPx == 0) {
+                        series.frameWidthPx = frame.getWidth();
+                        series.frameHeightPx = frame.getHeight();
+                    }
+
+                    List<DetectionCandidate> candidates = detectCandidates(frame, detectionContext, performanceMetrics);
+                    DetectionCandidate selected = selectHighestConfidenceCandidate(candidates);
+                    int timeMs = (int) Math.round(sampleTimesUs[nextSampleIndex] / 1000.0);
+
+                    if (selected == null) {
+                        performanceMetrics.noCandidateFrameCount += 1;
+                    } else if (!isPlausibleJump(lastAcceptedSample, selected)) {
+                        series.skippedImplausibleFrames += 1;
+                        performanceMetrics.implausibleFrameCount += 1;
+                        recordPlausibilityRejection(
+                            series,
+                            nextSampleIndex,
+                            timeMs,
+                            lastAcceptedSample,
+                            selected
+                        );
+                    } else {
+                        double score = selected.score;
+                        double centerX = selected.normalizedX;
+                        double centerY = selected.normalizedY;
+
+                        lastAcceptedSample = new DetectionSample();
+                        lastAcceptedSample.normalizedX = centerX;
+                        lastAcceptedSample.normalizedY = centerY;
+
+                        JSONObject barPoint = new JSONObject();
+                        barPoint.put("tMs", timeMs);
+                        barPoint.put("x", roundTo3(centerX * series.frameWidthPx));
+                        barPoint.put("y", roundTo3(centerY * series.frameHeightPx));
+                        series.barPathSeries.put(barPoint);
+
+                        JSONObject confidencePoint = new JSONObject();
+                        confidencePoint.put("tMs", timeMs);
+                        confidencePoint.put("score", roundTo3(score));
+                        series.confidenceSeries.put(confidencePoint);
+
+                        accumulatedConfidence += score;
+                        confidenceCount += 1;
+                        series.frameCount += 1;
+                        performanceMetrics.acceptedFrameCount += 1;
+                    }
+
+                    if ((nextSampleIndex + 1) % 10 == 0 || nextSampleIndex == sampleTimesUs.length - 1) {
+                        logTrackingProgress(analysisId, nextSampleIndex + 1, sampleTimesUs.length, performanceMetrics);
+                    }
+                    nextSampleIndex += 1;
+                } finally {
+                    image.close();
+                    decoder.releaseOutputBuffer(outputIndex, false);
+                    outputEnded = isEndOfStream;
+                }
+            }
+
+            series.averageConfidence = confidenceCount == 0 ? 0.0 : accumulatedConfidence / confidenceCount;
+            performanceMetrics.trackingMs = SystemClock.elapsedRealtime() - trackingStartedAtMs;
+            return series;
+        } finally {
+            if (decoder != null) {
+                try {
+                    decoder.stop();
+                } catch (Exception ignored) {
+                    // No-op.
+                }
+                try {
+                    decoder.release();
+                } catch (Exception ignored) {
+                    // No-op.
+                }
+            }
+            try {
+                extractor.release();
+            } catch (Exception ignored) {
+                // No-op.
+            }
+        }
+    }
+
+    private int findVideoTrackIndex(MediaExtractor extractor) {
+        for (int trackIndex = 0; trackIndex < extractor.getTrackCount(); trackIndex++) {
+            MediaFormat format = extractor.getTrackFormat(trackIndex);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            if (mime != null && mime.startsWith("video/")) {
+                return trackIndex;
+            }
+        }
+        return -1;
+    }
+
+    private boolean queueDecoderInputSample(
+        MediaExtractor extractor,
+        MediaCodec decoder,
+        AnalysisPerformanceMetrics performanceMetrics
+    ) {
+        int inputIndex = decoder.dequeueInputBuffer(DECODER_TIMEOUT_US);
+        if (inputIndex < 0) {
+            return false;
+        }
+
+        ByteBuffer inputBuffer = decoder.getInputBuffer(inputIndex);
+        if (inputBuffer == null) {
+            decoder.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+            return true;
+        }
+
+        inputBuffer.clear();
+        int sampleSize = extractor.readSampleData(inputBuffer, 0);
+        if (sampleSize < 0) {
+            decoder.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+            return true;
+        }
+
+        long sampleTimeUs = extractor.getSampleTime();
+        decoder.queueInputBuffer(inputIndex, 0, sampleSize, sampleTimeUs, 0);
+        performanceMetrics.queuedInputSampleCount += 1;
+        extractor.advance();
+        return false;
+    }
+
+    private int resolveRotationDegrees(String localVideoPath, MediaFormat format) {
+        if (format.containsKey(MediaFormat.KEY_ROTATION)) {
+            return normalizeRotationDegrees(format.getInteger(MediaFormat.KEY_ROTATION));
+        }
+        return extractVideoRotationDegrees(localVideoPath);
     }
 
     private DetectionCandidate selectHighestConfidenceCandidate(List<DetectionCandidate> candidates) {
@@ -485,37 +897,180 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         return jumpDistance <= PLAUSIBILITY_MAX_JUMP_NORMALIZED;
     }
 
-    private List<DetectionCandidate> detectCandidates(Bitmap frame) throws Exception {
+    private void recordPlausibilityRejection(
+        TrackingSeries series,
+        int sampleIndex,
+        int timeMs,
+        DetectionSample previousSample,
+        DetectionCandidate candidate
+    ) throws Exception {
+        if (series == null || previousSample == null || candidate == null) {
+            return;
+        }
+        if (series.plausibilityRejections.length() >= MAX_PLAUSIBILITY_REJECTIONS_DEBUG) {
+            return;
+        }
+
+        double deltaX = candidate.normalizedX - previousSample.normalizedX;
+        double deltaY = candidate.normalizedY - previousSample.normalizedY;
+        double jumpDistance = Math.hypot(deltaX, deltaY);
+
+        JSONObject rejection = new JSONObject();
+        rejection.put("sampleIndex", sampleIndex);
+        rejection.put("tMs", timeMs);
+        rejection.put("previousX", roundTo3(previousSample.normalizedX));
+        rejection.put("previousY", roundTo3(previousSample.normalizedY));
+        rejection.put("candidateX", roundTo3(candidate.normalizedX));
+        rejection.put("candidateY", roundTo3(candidate.normalizedY));
+        rejection.put("deltaX", roundTo3(deltaX));
+        rejection.put("deltaY", roundTo3(deltaY));
+        rejection.put("jumpDistance", roundTo3(jumpDistance));
+        rejection.put("threshold", roundTo3(PLAUSIBILITY_MAX_JUMP_NORMALIZED));
+        rejection.put("score", roundTo3(candidate.score));
+        series.plausibilityRejections.put(rejection);
+    }
+
+    private DetectionContext createDetectionContext() throws IOException {
+        Interpreter activeInterpreter = getOrCreateInterpreter();
+        Tensor outputTensor = activeInterpreter.getOutputTensor(0);
+        if (outputTensor.dataType() != DataType.FLOAT32) {
+            throw new IllegalStateException("Unsupported output dtype: " + outputTensor.dataType());
+        }
+
+        int[] shape = outputTensor.shape();
+        if (shape.length != 3 || shape[0] != 1) {
+            throw new IllegalStateException("Unsupported output shape rank for YOLO model");
+        }
+
+        DetectionContext detectionContext = new DetectionContext();
+        detectionContext.interpreter = activeInterpreter;
+        detectionContext.outputShape = shape.clone();
+        detectionContext.letterboxBitmap = Bitmap.createBitmap(MODEL_INPUT_SIZE, MODEL_INPUT_SIZE, Bitmap.Config.ARGB_8888);
+        detectionContext.letterboxCanvas = new Canvas(detectionContext.letterboxBitmap);
+        detectionContext.inputBuffer = ByteBuffer.allocateDirect(4 * MODEL_INPUT_SIZE * MODEL_INPUT_SIZE * 3);
+        detectionContext.inputBuffer.order(ByteOrder.nativeOrder());
+        detectionContext.pixels = new int[MODEL_INPUT_SIZE * MODEL_INPUT_SIZE];
+        detectionContext.rawOutput = new float[shape[0]][shape[1]][shape[2]];
+        detectionContext.sourceRect = new Rect();
+        detectionContext.destinationRect = new RectF();
+        detectionContext.letterboxParams = new LetterboxParams();
+        return detectionContext;
+    }
+
+    private List<DetectionCandidate> detectCandidates(Bitmap frame, DetectionContext detectionContext, AnalysisPerformanceMetrics performanceMetrics)
+        throws Exception {
         if (frame == null || frame.getWidth() <= 0 || frame.getHeight() <= 0) {
             return Collections.emptyList();
         }
 
-        Interpreter activeInterpreter = getOrCreateInterpreter();
-        LetterboxedInput letterboxedInput = createLetterboxedInput(frame);
-        Bitmap scaled = letterboxedInput.bitmap;
-        try {
-            ByteBuffer inputBuffer = bitmapToModelInput(scaled);
-            Tensor outputTensor = activeInterpreter.getOutputTensor(0);
-            if (outputTensor.dataType() != DataType.FLOAT32) {
-                throw new IllegalStateException("Unsupported output dtype: " + outputTensor.dataType());
-            }
-
-            int[] shape = outputTensor.shape();
-            if (shape.length != 3 || shape[0] != 1) {
-                throw new IllegalStateException("Unsupported output shape rank for YOLO model");
-            }
-
-            float[][][] rawOutput = new float[shape[0]][shape[1]][shape[2]];
-            activeInterpreter.run(inputBuffer, rawOutput);
-            List<DetectionCandidate> decoded = decodeCandidates(rawOutput);
-            List<DetectionCandidate> nmsCandidates = applyNms(decoded);
-            return mapCandidatesFromLetterbox(nmsCandidates, letterboxedInput.params);
-        } finally {
-            scaled.recycle();
+        if (detectionContext == null) {
+            throw new IllegalArgumentException("DetectionContext is required");
         }
+
+        long detectStartedAtNs = SystemClock.elapsedRealtimeNanos();
+        long letterboxStartedAtNs = SystemClock.elapsedRealtimeNanos();
+        createLetterboxedInput(frame, detectionContext);
+        performanceMetrics.letterboxMs += elapsedMs(letterboxStartedAtNs);
+
+        long inputTensorStartedAtNs = SystemClock.elapsedRealtimeNanos();
+        ByteBuffer inputBuffer = bitmapToModelInput(detectionContext.letterboxBitmap, detectionContext);
+        performanceMetrics.inputTensorMs += elapsedMs(inputTensorStartedAtNs);
+
+        long inferenceStartedAtNs = SystemClock.elapsedRealtimeNanos();
+        detectionContext.interpreter.run(inputBuffer, detectionContext.rawOutput);
+        performanceMetrics.inferenceMs += elapsedMs(inferenceStartedAtNs);
+
+        long candidateDecodeStartedAtNs = SystemClock.elapsedRealtimeNanos();
+        List<DetectionCandidate> decoded = decodeCandidates(detectionContext.rawOutput);
+        List<DetectionCandidate> nmsCandidates = applyNms(decoded);
+        List<DetectionCandidate> mappedCandidates = mapCandidatesFromLetterbox(nmsCandidates, detectionContext.letterboxParams);
+        performanceMetrics.candidateDecodeMs += elapsedMs(candidateDecodeStartedAtNs);
+        performanceMetrics.detectionCallCount += 1;
+        performanceMetrics.totalDetectionMs += elapsedMs(detectStartedAtNs);
+        return mappedCandidates;
     }
 
-    private LetterboxedInput createLetterboxedInput(Bitmap frame) {
+    private Bitmap imageToBitmap(Image image, int rotationDegrees, DetectionContext detectionContext) {
+        int sourceWidth = image.getWidth();
+        int sourceHeight = image.getHeight();
+        int normalizedRotation = normalizeRotationDegrees(rotationDegrees);
+        boolean swapDimensions = normalizedRotation == 90 || normalizedRotation == 270;
+        int outputWidth = swapDimensions ? sourceHeight : sourceWidth;
+        int outputHeight = swapDimensions ? sourceWidth : sourceHeight;
+        ensureFrameBitmapCapacity(detectionContext, outputWidth, outputHeight);
+
+        Image.Plane[] planes = image.getPlanes();
+        ByteBuffer yBuffer = planes[0].getBuffer();
+        ByteBuffer uBuffer = planes[1].getBuffer();
+        ByteBuffer vBuffer = planes[2].getBuffer();
+        int yRowStride = planes[0].getRowStride();
+        int yPixelStride = planes[0].getPixelStride();
+        int uRowStride = planes[1].getRowStride();
+        int uPixelStride = planes[1].getPixelStride();
+        int vRowStride = planes[2].getRowStride();
+        int vPixelStride = planes[2].getPixelStride();
+
+        int[] pixels = detectionContext.framePixels;
+        int pixelIndex = 0;
+        for (int outputY = 0; outputY < outputHeight; outputY++) {
+            for (int outputX = 0; outputX < outputWidth; outputX++) {
+                int sourceX = outputX;
+                int sourceY = outputY;
+                switch (normalizedRotation) {
+                    case 90:
+                        sourceX = outputY;
+                        sourceY = sourceHeight - 1 - outputX;
+                        break;
+                    case 180:
+                        sourceX = sourceWidth - 1 - outputX;
+                        sourceY = sourceHeight - 1 - outputY;
+                        break;
+                    case 270:
+                        sourceX = sourceWidth - 1 - outputY;
+                        sourceY = outputX;
+                        break;
+                    default:
+                        break;
+                }
+
+                int yIndex = (sourceY * yRowStride) + (sourceX * yPixelStride);
+                int uvX = sourceX / 2;
+                int uvY = sourceY / 2;
+                int uIndex = (uvY * uRowStride) + (uvX * uPixelStride);
+                int vIndex = (uvY * vRowStride) + (uvX * vPixelStride);
+
+                int y = yBuffer.get(yIndex) & 0xFF;
+                int u = uBuffer.get(uIndex) & 0xFF;
+                int v = vBuffer.get(vIndex) & 0xFF;
+                pixels[pixelIndex] = yuvToArgb(y, u, v);
+                pixelIndex += 1;
+            }
+        }
+
+        detectionContext.frameBitmap.setPixels(pixels, 0, outputWidth, 0, 0, outputWidth, outputHeight);
+        return detectionContext.frameBitmap;
+    }
+
+    private void ensureFrameBitmapCapacity(DetectionContext detectionContext, int width, int height) {
+        if (
+            detectionContext.frameBitmap != null &&
+            detectionContext.frameBitmapWidth == width &&
+            detectionContext.frameBitmapHeight == height
+        ) {
+            return;
+        }
+
+        if (detectionContext.frameBitmap != null && !detectionContext.frameBitmap.isRecycled()) {
+            detectionContext.frameBitmap.recycle();
+        }
+
+        detectionContext.frameBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        detectionContext.frameBitmapWidth = width;
+        detectionContext.frameBitmapHeight = height;
+        detectionContext.framePixels = new int[width * height];
+    }
+
+    private void createLetterboxedInput(Bitmap frame, DetectionContext detectionContext) {
         int sourceWidth = frame.getWidth();
         int sourceHeight = frame.getHeight();
         double scale = Math.min(
@@ -528,30 +1083,27 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double padX = (MODEL_INPUT_SIZE - scaledWidth) / 2.0;
         double padY = (MODEL_INPUT_SIZE - scaledHeight) / 2.0;
 
-        Bitmap output = Bitmap.createBitmap(MODEL_INPUT_SIZE, MODEL_INPUT_SIZE, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(output);
-        canvas.drawColor(Color.BLACK);
+        detectionContext.letterboxCanvas.drawColor(Color.BLACK);
 
-        Rect sourceRect = new Rect(0, 0, sourceWidth, sourceHeight);
-        RectF destinationRect = new RectF(
+        detectionContext.sourceRect.set(0, 0, sourceWidth, sourceHeight);
+        detectionContext.destinationRect.set(
             (float) padX,
             (float) padY,
             (float) (padX + scaledWidth),
             (float) (padY + scaledHeight)
         );
-        canvas.drawBitmap(frame, sourceRect, destinationRect, LETTERBOX_PAINT);
+        detectionContext.letterboxCanvas.drawBitmap(
+            frame,
+            detectionContext.sourceRect,
+            detectionContext.destinationRect,
+            LETTERBOX_PAINT
+        );
 
-        LetterboxParams params = new LetterboxParams();
-        params.sourceWidth = sourceWidth;
-        params.sourceHeight = sourceHeight;
-        params.scale = scale;
-        params.padX = padX;
-        params.padY = padY;
-
-        LetterboxedInput input = new LetterboxedInput();
-        input.bitmap = output;
-        input.params = params;
-        return input;
+        detectionContext.letterboxParams.sourceWidth = sourceWidth;
+        detectionContext.letterboxParams.sourceHeight = sourceHeight;
+        detectionContext.letterboxParams.scale = scale;
+        detectionContext.letterboxParams.padX = padX;
+        detectionContext.letterboxParams.padY = padY;
     }
 
     private List<DetectionCandidate> mapCandidatesFromLetterbox(List<DetectionCandidate> candidates, LetterboxParams params) {
@@ -593,13 +1145,12 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         return mapped;
     }
 
-    private ByteBuffer bitmapToModelInput(Bitmap bitmap) {
-        ByteBuffer buffer = ByteBuffer.allocateDirect(4 * MODEL_INPUT_SIZE * MODEL_INPUT_SIZE * 3);
-        buffer.order(ByteOrder.nativeOrder());
-        int[] pixels = new int[MODEL_INPUT_SIZE * MODEL_INPUT_SIZE];
-        bitmap.getPixels(pixels, 0, MODEL_INPUT_SIZE, 0, 0, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE);
+    private ByteBuffer bitmapToModelInput(Bitmap bitmap, DetectionContext detectionContext) {
+        ByteBuffer buffer = detectionContext.inputBuffer;
+        buffer.rewind();
+        bitmap.getPixels(detectionContext.pixels, 0, MODEL_INPUT_SIZE, 0, 0, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE);
 
-        for (int pixel : pixels) {
+        for (int pixel : detectionContext.pixels) {
             float red = ((pixel >> 16) & 0xFF) / 255.0f;
             float green = ((pixel >> 8) & 0xFF) / 255.0f;
             float blue = (pixel & 0xFF) / 255.0f;
@@ -863,8 +1414,93 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         return Math.round(value * 1000.0) / 1000.0;
     }
 
+    private double elapsedMs(long startedAtNs) {
+        return (SystemClock.elapsedRealtimeNanos() - startedAtNs) / 1_000_000.0;
+    }
+
+    private int clampInt(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private int normalizeRotationDegrees(int rotationDegrees) {
+        int normalized = rotationDegrees % 360;
+        if (normalized < 0) {
+            normalized += 360;
+        }
+        if (normalized == 90 || normalized == 180 || normalized == 270) {
+            return normalized;
+        }
+        return 0;
+    }
+
+    private int yuvToArgb(int y, int u, int v) {
+        int adjustedY = Math.max(0, y - 16);
+        int adjustedU = u - 128;
+        int adjustedV = v - 128;
+
+        int red = clampInt((298 * adjustedY + 409 * adjustedV + 128) >> 8, 0, 255);
+        int green = clampInt((298 * adjustedY - 100 * adjustedU - 208 * adjustedV + 128) >> 8, 0, 255);
+        int blue = clampInt((298 * adjustedY + 516 * adjustedU + 128) >> 8, 0, 255);
+        return 0xFF000000 | (red << 16) | (green << 8) | blue;
+    }
+
+    private void logPerformanceMetrics(String stage, int analysisId, AnalysisPerformanceMetrics performanceMetrics) {
+        try {
+            Log.i(LOG_TAG, stage + " analysisId=" + analysisId + " metrics=" + performanceMetrics.toJson().toString());
+        } catch (Exception ignored) {
+            Log.i(LOG_TAG, stage + " analysisId=" + analysisId + " metrics_unavailable");
+        }
+    }
+
+    private void logTrackingProgress(
+        int analysisId,
+        int processedSamples,
+        int plannedSamples,
+        AnalysisPerformanceMetrics performanceMetrics
+    ) {
+        Log.i(
+            LOG_TAG,
+            "tracking-progress analysisId="
+                + analysisId
+                + " processedSamples="
+                + processedSamples
+                + "/"
+                + plannedSamples
+                + " decodedFrames="
+                + performanceMetrics.decodedFrameCount
+                + " dequeuedFrames="
+                + performanceMetrics.dequeuedOutputFrameCount
+                + " acceptedFrames="
+                + performanceMetrics.acceptedFrameCount
+                + " avgFrameExtractionMs="
+                + roundTo3(
+                    performanceMetrics.decodedFrameCount == 0
+                        ? 0.0
+                        : performanceMetrics.frameExtractionMs / performanceMetrics.decodedFrameCount
+                )
+                + " avgDetectionMs="
+                + roundTo3(
+                    performanceMetrics.detectionCallCount == 0
+                        ? 0.0
+                        : performanceMetrics.totalDetectionMs / performanceMetrics.detectionCallCount
+                )
+                + " avgInferenceMs="
+                + roundTo3(
+                    performanceMetrics.detectionCallCount == 0
+                        ? 0.0
+                        : performanceMetrics.inferenceMs / performanceMetrics.detectionCallCount
+                )
+                + " avgFrameConversionMs="
+                + roundTo3(
+                    performanceMetrics.processedOutputFrameCount == 0
+                        ? 0.0
+                        : performanceMetrics.frameConversionMs / performanceMetrics.processedOutputFrameCount
+                )
+        );
     }
 
     private static class DetectionSample {
@@ -917,14 +1553,122 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double padY;
     }
 
-    private static class LetterboxedInput {
-        Bitmap bitmap;
-        LetterboxParams params;
+    private static class DetectionContext {
+        Interpreter interpreter;
+        int[] outputShape;
+        Bitmap letterboxBitmap;
+        Canvas letterboxCanvas;
+        ByteBuffer inputBuffer;
+        int[] pixels;
+        Bitmap frameBitmap;
+        int[] framePixels;
+        int frameBitmapWidth;
+        int frameBitmapHeight;
+        float[][][] rawOutput;
+        Rect sourceRect;
+        RectF destinationRect;
+        LetterboxParams letterboxParams;
+
+        void release() {
+            if (letterboxBitmap != null && !letterboxBitmap.isRecycled()) {
+                letterboxBitmap.recycle();
+            }
+            if (frameBitmap != null && !frameBitmap.isRecycled()) {
+                frameBitmap.recycle();
+            }
+        }
+    }
+
+    private class AnalysisPerformanceMetrics {
+        long previewFrameWriteMs;
+        long initialFrameReadMs;
+        long initialDetectionMs;
+        long durationMetadataMs;
+        long sourceFpsMetadataMs;
+        long totalPreflightMs;
+        long trackingMs;
+        long totalAnalysisMs;
+        double analyzedFps;
+        int plannedSampleCount;
+        int sampleAttemptCount;
+        int decodedFrameCount;
+        int nullFrameCount;
+        int noCandidateFrameCount;
+        int implausibleFrameCount;
+        int acceptedFrameCount;
+        int detectionCallCount;
+        int queuedInputSampleCount;
+        int dequeuedOutputFrameCount;
+        int processedOutputFrameCount;
+        int skippedDecodedFrameCount;
+        long decoderSetupMs;
+        double frameExtractionMs;
+        double decoderQueueInputMs;
+        double decoderDequeueOutputMs;
+        double frameConversionMs;
+        double letterboxMs;
+        double inputTensorMs;
+        double inferenceMs;
+        double candidateDecodeMs;
+        double totalDetectionMs;
+
+        JSONObject toJson() throws Exception {
+            JSONObject object = new JSONObject();
+            object.put("previewFrameWriteMs", previewFrameWriteMs);
+            object.put("initialFrameReadMs", initialFrameReadMs);
+            object.put("initialDetectionMs", initialDetectionMs);
+            object.put("durationMetadataMs", durationMetadataMs);
+            object.put("sourceFpsMetadataMs", sourceFpsMetadataMs);
+            object.put("totalPreflightMs", totalPreflightMs);
+            object.put("trackingMs", trackingMs);
+            object.put("totalAnalysisMs", totalAnalysisMs);
+            object.put("analyzedFps", roundTo3(analyzedFps));
+            object.put("plannedSampleCount", plannedSampleCount);
+            object.put("sampleAttemptCount", sampleAttemptCount);
+            object.put("decodedFrameCount", decodedFrameCount);
+            object.put("nullFrameCount", nullFrameCount);
+            object.put("noCandidateFrameCount", noCandidateFrameCount);
+            object.put("implausibleFrameCount", implausibleFrameCount);
+            object.put("acceptedFrameCount", acceptedFrameCount);
+            object.put("detectionCallCount", detectionCallCount);
+            object.put("queuedInputSampleCount", queuedInputSampleCount);
+            object.put("dequeuedOutputFrameCount", dequeuedOutputFrameCount);
+            object.put("processedOutputFrameCount", processedOutputFrameCount);
+            object.put("skippedDecodedFrameCount", skippedDecodedFrameCount);
+            object.put("decoderSetupMs", decoderSetupMs);
+            object.put("frameExtractionMs", roundTo3(frameExtractionMs));
+            object.put("decoderQueueInputMs", roundTo3(decoderQueueInputMs));
+            object.put("decoderDequeueOutputMs", roundTo3(decoderDequeueOutputMs));
+            object.put("frameConversionMs", roundTo3(frameConversionMs));
+            object.put("letterboxMs", roundTo3(letterboxMs));
+            object.put("inputTensorMs", roundTo3(inputTensorMs));
+            object.put("inferenceMs", roundTo3(inferenceMs));
+            object.put("candidateDecodeMs", roundTo3(candidateDecodeMs));
+            object.put("totalDetectionMs", roundTo3(totalDetectionMs));
+            object.put(
+                "avgFrameExtractionMs",
+                roundTo3(decodedFrameCount == 0 ? 0.0 : frameExtractionMs / decodedFrameCount)
+            );
+            object.put(
+                "avgDetectionMs",
+                roundTo3(detectionCallCount == 0 ? 0.0 : totalDetectionMs / detectionCallCount)
+            );
+            object.put(
+                "avgInferenceMs",
+                roundTo3(detectionCallCount == 0 ? 0.0 : inferenceMs / detectionCallCount)
+            );
+            object.put(
+                "avgFrameConversionMs",
+                roundTo3(processedOutputFrameCount == 0 ? 0.0 : frameConversionMs / processedOutputFrameCount)
+            );
+            return object;
+        }
     }
 
     private static class TrackingSeries {
         JSONArray barPathSeries;
         JSONArray confidenceSeries;
+        JSONArray plausibilityRejections;
         int frameCount;
         int frameWidthPx;
         int frameHeightPx;
