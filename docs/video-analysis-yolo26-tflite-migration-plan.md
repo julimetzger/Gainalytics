@@ -10,7 +10,7 @@
 2. Native preflight detects `outer_plate` candidates at `t=0`.
 3. If one candidate exists, analysis auto-starts.
 4. If multiple candidates exist, user selects a candidate in detail view.
-5. Video is analyzed at an adaptive FPS budget and written to `analysis-<id>.json`.
+5. Video is analyzed at fixed `12 FPS` unless the source video itself has a lower frame rate, and is written to `analysis-<id>.json`.
 6. Entry transitions to `done` and is visible in the Analyse tab.
 7. Playback overlay shows full bar path; static t=0 overlay shows all path points and initial seed rectangle.
 
@@ -128,6 +128,56 @@
   - fixed `12 FPS` materially improves bar-path density and keeps the decoder path viable
   - compared to the `3 FPS` decoder run, native analysis time increased from `17467 ms` to `51254 ms`
   - the decoder path still keeps the run well below the old retriever-based implementation
+
+## Plausibility Threshold Verification (March 20, 2026)
+- Change under test:
+  - previous threshold: `0.16`
+  - new threshold: `0.30`
+  - rejection diagnostics are now persisted under `analysisMeta.plausibilityRejections`
+- Reason for the experiment:
+  - at fixed `12 FPS`, the `0.16` threshold rejected `34` out of `95` decoded frames
+  - this was considered too aggressive for the high-velocity portion of the lift
+- Previous fixed-`12 FPS` run with threshold `0.16`:
+  - `implausibleFrameCount: 34`
+  - `acceptedFrameCount: 61`
+  - `decodedFrameCount: 95`
+  - `nativeAnalysisMs: 51254`
+- Verification run with threshold `0.30`:
+  - Maestro result: passed in `2m 48s`
+  - Wall clock: `205.83s`
+  - JS import metrics:
+    - `copyMs: 913`
+    - `preflightMs: 2487`
+    - `nativeAnalysisMs: 56373`
+    - `totalImportMs: 73606`
+  - Native decoder metrics:
+    - `analyzedFps: 12`
+    - `plannedSampleCount: 96`
+    - `trackingMs: 51692`
+    - `totalAnalysisMs: 54510`
+    - `decodedFrameCount: 95`
+    - `acceptedFrameCount: 95`
+    - `implausibleFrameCount: 0`
+    - `queuedInputSampleCount: 240`
+    - `dequeuedOutputFrameCount: 240`
+    - `processedOutputFrameCount: 95`
+    - `skippedDecodedFrameCount: 145`
+    - `avgFrameExtractionMs: 256.846`
+    - `avgInferenceMs: 154.274`
+  - Result diagnostics:
+    - `plausibilityRejections: []`
+- Conclusion:
+  - for this benchmark video, the `0.16` threshold was too strict
+  - `0.30` behaves like a coarse teleport filter rather than an active motion constraint
+  - the new diagnostics make future rejections inspectable per frame using:
+    - `sampleIndex`
+    - `tMs`
+    - `previousX`, `previousY`
+    - `candidateX`, `candidateY`
+    - `deltaX`, `deltaY`
+    - `jumpDistance`
+    - `threshold`
+    - `score`
 
 ## Next Execution Phase
 1. Replace repeated `MediaMetadataRetriever.getFrameAtTime(...)` calls in the tracking loop with sequential decoding via `MediaExtractor + MediaCodec`.

@@ -86,7 +86,22 @@ export interface AnalysisMeta {
   manualSeedUsed?: boolean;
   detectedBoxesAtStart?: DetectedBox[];
   initialSeedBox?: DetectedBox;
+  plausibilityRejections?: PlausibilityRejection[];
   performanceMetrics?: AnalysisPerformanceMetrics;
+}
+
+export interface PlausibilityRejection {
+  sampleIndex: number;
+  tMs: number;
+  previousX: number;
+  previousY: number;
+  candidateX: number;
+  candidateY: number;
+  deltaX: number;
+  deltaY: number;
+  jumpDistance: number;
+  threshold: number;
+  score: number;
 }
 
 export interface AnalysisPerformanceMetrics {

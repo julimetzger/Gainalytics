@@ -56,8 +56,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
 
     private static final float DETECTION_CONFIDENCE_THRESHOLD = 0.2f;
     private static final float NMS_IOU_THRESHOLD = 0.45f;
-    private static final float PLAUSIBILITY_MAX_JUMP_NORMALIZED = 0.16f;
+    private static final float PLAUSIBILITY_MAX_JUMP_NORMALIZED = 0.30f;
     private static final double XYXY_INTERPRETATION_MARGIN = 0.25;
+    private static final int MAX_PLAUSIBILITY_REJECTIONS_DEBUG = 120;
 
     private static final String TRACKER_VERSION = "tflite-yolo26-outer-plate-v1";
     private static final String MODEL_ASSET_PATH = "models/outer_plate_yolo26n_float32.tflite";
@@ -247,6 +248,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             analysisMeta.put("manualSeedUsed", manualSelection != null);
             analysisMeta.put("initialSeedBox", activeSeed.toJsonBox());
             analysisMeta.put("detectedBoxesAtStart", toCandidatesJson(initialCandidates));
+            analysisMeta.put("plausibilityRejections", trackingSeries.plausibilityRejections);
             performanceMetrics.totalAnalysisMs = SystemClock.elapsedRealtime() - analysisStartedAtMs;
             analysisMeta.put("performanceMetrics", performanceMetrics.toJson());
             result.put("analysisMeta", analysisMeta);
@@ -546,6 +548,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             TrackingSeries series = new TrackingSeries();
             series.barPathSeries = new JSONArray();
             series.confidenceSeries = new JSONArray();
+            series.plausibilityRejections = new JSONArray();
             series.frameCount = 0;
             series.frameWidthPx = 0;
             series.frameHeightPx = 0;
@@ -586,6 +589,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                     if (!isPlausibleJump(lastAcceptedSample, selected)) {
                         series.skippedImplausibleFrames += 1;
                         performanceMetrics.implausibleFrameCount += 1;
+                        recordPlausibilityRejection(series, sampleIndex, timeMs, lastAcceptedSample, selected);
                         continue;
                     }
 
@@ -671,6 +675,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             TrackingSeries series = new TrackingSeries();
             series.barPathSeries = new JSONArray();
             series.confidenceSeries = new JSONArray();
+            series.plausibilityRejections = new JSONArray();
             series.frameCount = 0;
             series.frameWidthPx = 0;
             series.frameHeightPx = 0;
@@ -758,6 +763,13 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                     } else if (!isPlausibleJump(lastAcceptedSample, selected)) {
                         series.skippedImplausibleFrames += 1;
                         performanceMetrics.implausibleFrameCount += 1;
+                        recordPlausibilityRejection(
+                            series,
+                            nextSampleIndex,
+                            timeMs,
+                            lastAcceptedSample,
+                            selected
+                        );
                     } else {
                         double score = selected.score;
                         double centerX = selected.normalizedX;
@@ -883,6 +895,39 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double deltaY = candidate.normalizedY - previousSample.normalizedY;
         double jumpDistance = Math.hypot(deltaX, deltaY);
         return jumpDistance <= PLAUSIBILITY_MAX_JUMP_NORMALIZED;
+    }
+
+    private void recordPlausibilityRejection(
+        TrackingSeries series,
+        int sampleIndex,
+        int timeMs,
+        DetectionSample previousSample,
+        DetectionCandidate candidate
+    ) throws Exception {
+        if (series == null || previousSample == null || candidate == null) {
+            return;
+        }
+        if (series.plausibilityRejections.length() >= MAX_PLAUSIBILITY_REJECTIONS_DEBUG) {
+            return;
+        }
+
+        double deltaX = candidate.normalizedX - previousSample.normalizedX;
+        double deltaY = candidate.normalizedY - previousSample.normalizedY;
+        double jumpDistance = Math.hypot(deltaX, deltaY);
+
+        JSONObject rejection = new JSONObject();
+        rejection.put("sampleIndex", sampleIndex);
+        rejection.put("tMs", timeMs);
+        rejection.put("previousX", roundTo3(previousSample.normalizedX));
+        rejection.put("previousY", roundTo3(previousSample.normalizedY));
+        rejection.put("candidateX", roundTo3(candidate.normalizedX));
+        rejection.put("candidateY", roundTo3(candidate.normalizedY));
+        rejection.put("deltaX", roundTo3(deltaX));
+        rejection.put("deltaY", roundTo3(deltaY));
+        rejection.put("jumpDistance", roundTo3(jumpDistance));
+        rejection.put("threshold", roundTo3(PLAUSIBILITY_MAX_JUMP_NORMALIZED));
+        rejection.put("score", roundTo3(candidate.score));
+        series.plausibilityRejections.put(rejection);
     }
 
     private DetectionContext createDetectionContext() throws IOException {
@@ -1623,6 +1668,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static class TrackingSeries {
         JSONArray barPathSeries;
         JSONArray confidenceSeries;
+        JSONArray plausibilityRejections;
         int frameCount;
         int frameWidthPx;
         int frameHeightPx;
