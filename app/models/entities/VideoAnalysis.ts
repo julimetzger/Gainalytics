@@ -86,6 +86,45 @@ export interface AnalysisMeta {
   manualSeedUsed?: boolean;
   detectedBoxesAtStart?: DetectedBox[];
   initialSeedBox?: DetectedBox;
+  performanceMetrics?: AnalysisPerformanceMetrics;
+}
+
+export interface AnalysisPerformanceMetrics {
+  previewFrameWriteMs: number;
+  initialFrameReadMs: number;
+  initialDetectionMs: number;
+  durationMetadataMs: number;
+  sourceFpsMetadataMs: number;
+  totalPreflightMs?: number;
+  trackingMs: number;
+  totalAnalysisMs: number;
+  analyzedFps: number;
+  plannedSampleCount: number;
+  sampleAttemptCount: number;
+  decodedFrameCount: number;
+  nullFrameCount: number;
+  noCandidateFrameCount: number;
+  implausibleFrameCount: number;
+  acceptedFrameCount: number;
+  detectionCallCount: number;
+  queuedInputSampleCount: number;
+  dequeuedOutputFrameCount: number;
+  processedOutputFrameCount: number;
+  skippedDecodedFrameCount: number;
+  decoderSetupMs: number;
+  frameExtractionMs: number;
+  decoderQueueInputMs: number;
+  decoderDequeueOutputMs: number;
+  frameConversionMs: number;
+  letterboxMs: number;
+  inputTensorMs: number;
+  inferenceMs: number;
+  candidateDecodeMs: number;
+  totalDetectionMs: number;
+  avgFrameExtractionMs: number;
+  avgDetectionMs: number;
+  avgInferenceMs: number;
+  avgFrameConversionMs: number;
 }
 
 export interface BarTrackingResult {

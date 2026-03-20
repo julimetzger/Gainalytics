@@ -43,7 +43,12 @@ export const importVideoAnalysisFromSource = async ({
   setSeedPreflight,
   attachVideoAnalysisResult,
 }: ImportVideoAnalysisParams): Promise<VideoAnalysisImportOutcome> => {
+  const importStartedAtMs = Date.now();
   let localVideoPath: string | undefined;
+  let copyMs = 0;
+  let preflightMs = 0;
+  let nativeAnalysisMs = 0;
+  let outcome: VideoAnalysisImportOutcome | 'failed' = 'failed';
 
   addVideoAnalysis({
     id: analysisId,
@@ -60,9 +65,14 @@ export const importVideoAnalysisFromSource = async ({
 
   try {
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING);
-    localVideoPath = await copyImportedVideoToLocalStorage(sourceUri, analysisId);
 
+    const copyStartedAtMs = Date.now();
+    localVideoPath = await copyImportedVideoToLocalStorage(sourceUri, analysisId);
+    copyMs = Date.now() - copyStartedAtMs;
+
+    const preflightStartedAtMs = Date.now();
     const preflight = await prepareSquatVideoSeed(localVideoPath, analysisId);
+    preflightMs = Date.now() - preflightStartedAtMs;
     setSeedPreflight(
       analysisId,
       preflight.previewFramePath,
@@ -76,20 +86,39 @@ export const importVideoAnalysisFromSource = async ({
     if (candidates.length === 0) {
       setManualSeedFramePath(analysisId, preflight.previewFramePath, localVideoPath);
       setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.FAILED, 'No outer plate candidate found at t=0');
+      outcome = 'failed_no_candidate';
       return 'failed_no_candidate';
     }
 
     if (candidates.length > 1) {
       setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.AWAITING_SEED_SELECTION);
+      outcome = 'awaiting_seed_selection';
       return 'awaiting_seed_selection';
     }
 
+    const nativeAnalysisStartedAtMs = Date.now();
     const resultPath = await analyzeSquatVideo(localVideoPath, analysisId, toManualSeedPayload(candidates[0]));
+    nativeAnalysisMs = Date.now() - nativeAnalysisStartedAtMs;
     attachVideoAnalysisResult(analysisId, resultPath, localVideoPath);
+    outcome = 'done';
     return 'done';
   } catch (error) {
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.FAILED, 'Import or preprocessing failed');
     throw error;
+  } finally {
+    console.info(
+      '[VideoAnalysisImportMetrics]',
+      JSON.stringify({
+        analysisId,
+        sourceUri,
+        localVideoPath,
+        outcome,
+        copyMs,
+        preflightMs,
+        nativeAnalysisMs,
+        totalImportMs: Date.now() - importStartedAtMs,
+      }),
+    );
   }
 };
 
