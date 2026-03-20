@@ -10,7 +10,7 @@
 2. Native preflight detects `outer_plate` candidates at `t=0`.
 3. If one candidate exists, analysis auto-starts.
 4. If multiple candidates exist, user selects a candidate in detail view.
-5. Video is analyzed at fixed `12 FPS` unless the source video itself has a lower frame rate, and is written to `analysis-<id>.json`.
+5. Video is analyzed at fixed `30 FPS` unless the source video itself has a lower frame rate, and is written to `analysis-<id>.json`.
 6. Entry transitions to `done` and is visible in the Analyse tab.
 7. Playback overlay shows full bar path; static t=0 overlay shows all path points and initial seed rectangle.
 
@@ -36,7 +36,7 @@
 ## Current Implementation Status (March 20, 2026)
 - Detection/tracking is now simplified to pure YOLO candidate selection plus a plausibility jump filter.
 - Tracking confidence threshold is `0.2`.
-- Analysis now runs at fixed `12 FPS` unless the source video itself has a lower frame rate.
+- Analysis now runs at fixed `30 FPS` unless the source video itself has a lower frame rate.
 - Legacy smoothing, ROI prediction, CSRT, Hough, EMA, velocity, and relock logic are removed from the active path.
 - Model input buffers, pixel arrays, output tensors, and letterbox bitmaps are reused across detections.
 - Native analysis writes `performanceMetrics` into the result JSON and logs stage metrics to `logcat`.
@@ -179,19 +179,32 @@
     - `threshold`
     - `score`
 
-## Next Execution Phase
-1. Replace repeated `MediaMetadataRetriever.getFrameAtTime(...)` calls in the tracking loop with sequential decoding via `MediaExtractor + MediaCodec`.
-2. Keep `t=0` preflight on `MediaMetadataRetriever` for now to minimize risk and isolate the tracking-path rewrite.
-3. Preserve current adaptive FPS and metrics logging so the before/after performance delta remains measurable.
-4. Record decoder-specific metrics next:
-   - decoder setup time
-   - queued input sample count
-   - dequeued output frame count
-   - processed output frame count
-   - skipped decoded frame count
-   - conversion time from decoder output to model input
-5. Re-run the Maestro benchmark on the emulator after the decoder rewrite and compare:
-   - total flow time
-   - native analysis time
-   - frame extraction / decode time
-   - model inference time
+## Fixed 30 FPS Verification (March 20, 2026)
+- Verification run: same Maestro flow after raising the fixed analysis rate from `12 FPS` to `30 FPS`
+- Maestro result: passed in `1m 23s`
+- Test video: emulator squat import path, duration `8.001s`, source FPS `30.0`
+- Native decoder metrics:
+  - `analyzedFps: 30`
+  - `plannedSampleCount: 240`
+  - `trackingMs: 45143`
+  - `totalAnalysisMs: 45737`
+  - `decodedFrameCount: 238`
+  - `acceptedFrameCount: 238`
+  - `implausibleFrameCount: 0`
+  - `queuedInputSampleCount: 240`
+  - `dequeuedOutputFrameCount: 240`
+  - `processedOutputFrameCount: 238`
+  - `skippedDecodedFrameCount: 2`
+  - `frameExtractionMs: 26413.819`
+  - `inferenceMs: 16183.353`
+  - `avgFrameExtractionMs: 110.982`
+  - `avgInferenceMs: 67.713`
+- Verification conclusion:
+  - the 30 FPS path is active end-to-end and produces a much denser bar path (`238` points)
+  - no plausibility rejections occurred on the benchmark video
+  - native analysis time stays below one minute on the emulator for the short benchmark clip
+  - the detail screen still shows a separate `Failed prop type` warning unrelated to tracking
+
+## Remaining Work
+1. Decide whether `t=0` preflight inference should be reused during the full analysis path to avoid duplicate work on the first frame.
+2. Investigate and fix the separate `Failed prop type` warning shown in the analysis detail screen.
