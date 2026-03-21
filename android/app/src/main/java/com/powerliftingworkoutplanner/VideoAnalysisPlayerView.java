@@ -358,8 +358,8 @@ public class VideoAnalysisPlayerView extends FrameLayout {
             return null;
         }
 
-        float sourceWidth = videoWidth > 0 ? videoWidth : (trackingFrameWidthPx > 0 ? trackingFrameWidthPx : viewWidth);
-        float sourceHeight = videoHeight > 0 ? videoHeight : (trackingFrameHeightPx > 0 ? trackingFrameHeightPx : viewHeight);
+        float sourceWidth = trackingFrameWidthPx > 0 ? trackingFrameWidthPx : (videoWidth > 0 ? videoWidth : viewWidth);
+        float sourceHeight = trackingFrameHeightPx > 0 ? trackingFrameHeightPx : (videoHeight > 0 ? videoHeight : viewHeight);
         if (sourceWidth <= 0f || sourceHeight <= 0f) {
             return null;
         }
