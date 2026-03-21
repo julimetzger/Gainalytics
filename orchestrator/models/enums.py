@@ -1,0 +1,33 @@
+from __future__ import annotations
+
+from enum import Enum
+
+
+class TaskStatus(str, Enum):
+    RECEIVED = "RECEIVED"
+    VALIDATED = "VALIDATED"
+    ASSIGNED = "ASSIGNED"
+    RUNNING_CODEX = "RUNNING_CODEX"
+    WAITING_HUMAN = "WAITING_HUMAN"
+    RUNNING_CHECKS = "RUNNING_CHECKS"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED_CODE = "FAILED_CODE"
+    FAILED_ENV = "FAILED_ENV"
+    FAILED_VALIDATION = "FAILED_VALIDATION"
+    CANCELLED = "CANCELLED"
+
+
+class FailureKind(str, Enum):
+    CODE = "CODE"
+    ENV = "ENV"
+
+
+class QuestionReason(str, Enum):
+    AMBIGUOUS_REQUIREMENT = "AMBIGUOUS_REQUIREMENT"
+    EXTERNAL_RESOURCE_ACCESS = "EXTERNAL_RESOURCE_ACCESS"
+
+
+class QuestionStatus(str, Enum):
+    OPEN = "OPEN"
+    ANSWERED = "ANSWERED"
+    EXPIRED = "EXPIRED"

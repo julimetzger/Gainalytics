@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gainalytics-local-orchestrator"
+version = "0.1.0"
+description = "Local-first orchestration MVP for Codex CLI agents"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "langgraph>=0.2.0",
+  "pydantic>=2.7.0",
+  "PyYAML>=6.0.0",
+]
+
+[project.scripts]
+gorchestrator = "orchestrator.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+include = ["orchestrator*"]
