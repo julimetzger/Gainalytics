@@ -125,7 +125,7 @@ def main() -> None:
         except ModuleNotFoundError as exc:
             raise SystemExit(
                 "Missing dependency for run-task. Install orchestrator requirements "
-                "from orchestrator/pyproject.toml (langgraph is required)."
+                "from orchestrator/langgraph-state-managed/pyproject.toml (langgraph is required)."
             ) from exc
 
         result = run_task_file(Path(args.task), runtime_paths=runtime_paths)
@@ -138,7 +138,7 @@ def main() -> None:
         except ModuleNotFoundError as exc:
             raise SystemExit(
                 "Missing dependency for scheduler. Install orchestrator requirements "
-                "from orchestrator/pyproject.toml (langgraph is required)."
+                "from orchestrator/langgraph-state-managed/pyproject.toml (langgraph is required)."
             ) from exc
 
         if args.loop:
