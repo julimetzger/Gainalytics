@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Orchestrator"
+  short_description: "Coordinate feature jobs across worktrees"
+  default_prompt: "Use $orchestrator to dispatch ready tickets to free emulators and manage review feedback."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Worker"
+  short_description: "Implement one ticket in one worktree"
+  default_prompt: "Use $feature to implement one ready ticket in its assigned worktree and emulator."
