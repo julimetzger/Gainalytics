@@ -1,0 +1,41 @@
+id: TRN-001
+status: ready
+area: trainings
+priority: medium
+title: Show record comparison for the current micro in the training overview
+source:
+  - TODOS.md:5
+description: >
+  Extend the existing training overview card so the current micro shows a dedicated
+  record metric and a comparison against the previous micro. The goal is to make the
+  record trend visible without relying on the compact footer text.
+components:
+  - app/components/Training/analyse/TrainingOverviewCard.tsx
+  - __tests__/components/Training/analyse/TrainingOverviewCard.spec.tsx
+acceptanceCriteria:
+  - >
+    The training overview for a micro shows a dedicated "Records" stat item based on
+    the number of unique exercises in the current micro that have a 1RM record.
+  - >
+    If the previous micro has record data, the card shows a signed delta against the
+    previous micro using the same positive or negative comparison styling pattern used
+    for other overview comparisons.
+  - >
+    If the previous micro has no completed workouts or no record data, the current
+    record count still renders and no comparison delta is shown.
+  - >
+    The overview card continues to render the existing metrics without layout overflow
+    on a typical phone width and without removing the current micro summary context.
+  - >
+    Automated tests cover record counting, previous-micro comparison rendering, and
+    the fallback case with no previous record data.
+evidenceRequired:
+  - One screenshot of the updated training overview card with the record metric visible.
+  - Updated component tests for TrainingOverviewCard.
+  - One targeted UI smoke or e2e proof that reaches the training overview and shows the record metric.
+constraints:
+  - Reuse the existing record counting helper or refactor it into a shared tested helper instead of duplicating the logic.
+  - Keep the comparison based on completed workout data inside the same trainings plan and micro sequence.
+nonGoals:
+  - Reworking toast styling for record notifications.
+  - Changing exercise statistics or record history screens.

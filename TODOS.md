@@ -2,10 +2,10 @@
 
 ## Trainings
 
-- [ready] Records in Training Overview - micro vergleich anzeigen
+- [ready] [TRN-001](tickets/TRN-001-training-overview-record-comparison.yaml) Records in Training Overview - micro vergleich anzeigen
   - Im TrainingsNode für status Done und Overview
   - es gibt eine Kachel die anzeigt wieviele Records in diesem Micro waren im Vergleich zum vorherigen
-- [ready] progression einbauen bei hinzufügen aus letztem planned or done training ( linear) 
+- [ready] [TRN-002](tickets/TRN-002-linear-progression-from-last-training.yaml) progression einbauen bei hinzufügen aus letztem planned or done training ( linear) 
   - rir erhöhen generell -> suggested weight geht hoch über 1RM estimate aus letztem planned/done training. Man kann hier sagen rir -+ Zahl. Wenn rir schon auf 0 dann passiert nichts für die Exercise.
   - % weight increasement
 - Overview mit Grafik für RIR Sets im Vergleich zum vorherigen Macro
@@ -13,8 +13,8 @@
 
 ## Analyse
 
-- [ready] Seite mit TrainingsLänge mit Balkendiagramm im Analysetab
-  - es gibt eine neue Seite im Analsetab mit Namen Trainingslänge
+- [ready] [ANA-001](tickets/ANA-001-training-length-analysis-page.yaml) Seite mit TrainingsLänge mit Balkendiagramm im Analysetab
+  - es gibt eine neue Seite im Analysetab mit Namen Trainingslänge
   - Im Tab wird die Trainingslänge als Balkendiagramm angezeigt
   - Filter ist über Accumulation Mode möglich (Day, Week, Month)
 - RIR Verlauf/ RIR distribution
