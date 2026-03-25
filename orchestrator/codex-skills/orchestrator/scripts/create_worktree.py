@@ -6,6 +6,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from metro_host import ensure_worktree_node_modules
+
 
 def detect_repo_root() -> Path:
     completed = subprocess.run(
@@ -49,6 +51,8 @@ def main() -> None:
             subprocess.run(["git", "worktree", "add", str(worktree_path), branch], check=True)
         else:
             subprocess.run(["git", "worktree", "add", "-b", branch, str(worktree_path), "HEAD"], check=True)
+
+    ensure_worktree_node_modules(worktree_path, repo_root)
 
     print(
         json.dumps(

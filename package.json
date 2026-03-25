@@ -37,6 +37,7 @@
     "dotenv": "^17.2.3",
     "file-saver": "^2.0.5",
     "react": "18.2.0",
+    "react-dom": "18.2.0",
     "react-lodash": "^0.1.2",
     "react-native": "0.72.6",
     "react-native-calendars": "^1.1304.1",
