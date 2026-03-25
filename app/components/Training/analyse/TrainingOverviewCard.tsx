@@ -9,6 +9,7 @@ import {sum} from 'lodash';
 import {Workout} from '../../../models/entities/Workout';
 import {Record} from '../../../models/entities/Exercise';
 import {Metric} from '../../../models/Metric';
+import TrainingOverviewStatItem from './TrainingOverviewStatItem';
 
 export const countRecordExercisesInMicro = (workouts: Workout[]) => {
   const recordExerciseIds = new Set<number>();
@@ -20,19 +21,40 @@ export const countRecordExercisesInMicro = (workouts: Workout[]) => {
   return recordExerciseIds.size;
 };
 
+const formatTime = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  if (hours > 0) {
+    return `${hours} h ${mins} min`;
+  }
+
+  return `${mins} min`;
+};
+
+const formatDate = (date: Date): string => {
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = String(date.getFullYear());
+
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 interface TrainingOverviewCardProps {
   trainingsPlan: TrainingsPlan;
   currentMicro?: number;
 }
 
-const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCardProps) => {
-  if (!currentMicro) {
-    return null;
-  }
+interface TrainingOverviewCardContentProps {
+  trainingsPlan: TrainingsPlan;
+  currentMicro: number;
+}
 
+const TrainingOverviewCardContent = ({trainingsPlan, currentMicro}: TrainingOverviewCardContentProps) => {
   const theme = useTheme();
   const trainings = useAllTrainingsInMicro(trainingsPlan.id!!, currentMicro);
   const previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, currentMicro - 1);
+  const previousCompletedTrainings = previousTrainings.filter((training) => training.end);
 
   // Find the latest training with an end date
   const lastCompletedTraining = trainings.filter((training) => training.end).sort((a, b) => new Date(b.end!).getTime() - new Date(a.end!).getTime())[0];
@@ -52,11 +74,13 @@ const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCar
   // Get workouts and calculate metrics using existing helper functions
   const trainingsWorkouts = useWorkoutsByIds(trainings.flatMap((training) => Object.values(training.doneWorkoutIds)));
   const previousWorkouts = useWorkoutsByIds(previousTrainings.length > 0 ? previousTrainings.flatMap((training) => Object.values(training.doneWorkoutIds)) : []);
+  const previousCompletedWorkouts = useWorkoutsByIds(previousCompletedTrainings.length > 0 ? previousCompletedTrainings.flatMap((training) => Object.values(training.doneWorkoutIds)) : []);
 
   const currentSets = trainingsWorkouts.flatMap((workout: Workout) => workout.sets);
   const previousSets = previousWorkouts.flatMap((workout: Workout) => workout.sets);
 
-  const recordExercises = countRecordExercisesInMicro(trainingsWorkouts);
+  const currentRecordExercises = countRecordExercisesInMicro(trainingsWorkouts);
+  const previousRecordExercises = countRecordExercisesInMicro(previousCompletedWorkouts);
 
   // Use existing metric calculation methods
   const totalSets = calculateMetricValue(currentSets, Metric.SETS);
@@ -66,83 +90,70 @@ const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCar
   const previousTotalSets = previousSets.length > 0 ? calculateMetricValue(previousSets, Metric.SETS) : 0;
   const previousTotalVolume = previousSets.length > 0 ? Math.round(calculateMetricValue(previousSets, Metric.VOLUME)) : 0;
 
-  const formatTime = (minutes: number): string => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours > 0) {
-      return `${hours} h ${mins} min`;
-    }
-    return `${mins} min`;
-  };
-
-  const formatDate = (date: Date): string => {
-    const dd = String(date.getDate()).padStart(2, '0');
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const yyyy = String(date.getFullYear());
-    return `${dd}/${mm}/${yyyy}`;
-  };
-
-  const ComparisonIndicator = ({current, previous, unit = ''}: {current: number; previous: number; unit?: string}) => {
-    if (previous === 0) return null;
-    const diff = current - previous;
-    const isPositive = diff > 0;
-    return (
-      <Text
-        style={[
-          styles.comparisonText,
-          {
-            color: isPositive ? theme.colors.primary : theme.colors.error,
-          },
-        ]}
-      >
-        {isPositive ? '+' : ''}
-        {diff}
-        {unit}
-      </Text>
-    );
-  };
-
   return (
-    <View>
+    <View testID={`training-overview-card-${trainingsPlan.id ?? 'unknown'}-${currentMicro}`}>
       <View>
         <Text style={[styles.Title, {color: theme.colors.primary}]}>Micro {currentMicro}</Text>
 
         <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{totalSets}</Text>
-            <Text style={styles.statLabel}>Sets</Text>
-            {previousTotalSets > 0 && <ComparisonIndicator current={totalSets} previous={previousTotalSets} />}
-          </View>
+          <TrainingOverviewStatItem
+            label="Sets"
+            value={String(totalSets)}
+            labelColor={theme.colors.onSurfaceVariant}
+            comparison={previousTotalSets > 0 ? {current: totalSets, previous: previousTotalSets} : undefined}
+          />
 
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{formatTime(totalTimeMinutes)}</Text>
-            <Text style={styles.statLabel}>Time</Text>
-            {totalTimePreviousMinutes > 0 && <ComparisonIndicator current={totalTimeMinutes} previous={totalTimePreviousMinutes} unit=" min" />}
-          </View>
+          <TrainingOverviewStatItem
+            label="Time"
+            value={formatTime(totalTimeMinutes)}
+            labelColor={theme.colors.onSurfaceVariant}
+            comparison={totalTimePreviousMinutes > 0 ? {current: totalTimeMinutes, previous: totalTimePreviousMinutes, unit: ' min'} : undefined}
+          />
 
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{totalVolume} kg</Text>
-            <Text style={styles.statLabel}>Volume</Text>
-            {previousTotalVolume > 0 && <ComparisonIndicator current={totalVolume} previous={previousTotalVolume} unit=" kg" />}
-          </View>
+          <TrainingOverviewStatItem
+            label="Volume"
+            value={`${totalVolume} kg`}
+            labelColor={theme.colors.onSurfaceVariant}
+            comparison={previousTotalVolume > 0 ? {current: totalVolume, previous: previousTotalVolume, unit: ' kg'} : undefined}
+          />
 
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {completedTrainings}/{totalPlannedTrainings}
-            </Text>
-            <Text style={styles.statLabel}>Done</Text>
-          </View>
+          <TrainingOverviewStatItem
+            label="Records"
+            value={String(currentRecordExercises)}
+            labelColor={theme.colors.onSurfaceVariant}
+            testID="training-overview-records-stat"
+            valueTestID="training-overview-records-value"
+            comparison={
+              previousRecordExercises > 0
+                ? {
+                    current: currentRecordExercises,
+                    previous: previousRecordExercises,
+                    testID: 'training-overview-records-comparison',
+                  }
+                : undefined
+            }
+          />
+
+          <TrainingOverviewStatItem label="Done" value={`${completedTrainings}/${totalPlannedTrainings}`} labelColor={theme.colors.onSurfaceVariant} />
         </View>
 
         <View style={styles.progressContainer}>
-          <Text style={styles.progressText}>
-            {trainings.length} trainings • {totalReps} reps • {recordExercises} records
+          <Text style={[styles.progressText, {color: theme.colors.onSurfaceVariant}]}>
+            {trainings.length} trainings • {totalReps} reps • {currentRecordExercises} records
           </Text>
-          {lastCompletedTraining && <Text style={styles.lastTrainingText}>Last: {formatDate(new Date(lastCompletedTraining.end!))}</Text>}
+          {lastCompletedTraining && <Text style={[styles.lastTrainingText, {color: theme.colors.onSurfaceVariant}]}>Last: {formatDate(new Date(lastCompletedTraining.end!))}</Text>}
         </View>
       </View>
     </View>
   );
+};
+
+const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCardProps) => {
+  if (!currentMicro) {
+    return null;
+  }
+
+  return <TrainingOverviewCardContent trainingsPlan={trainingsPlan} currentMicro={currentMicro} />;
 };
 
 const styles = StyleSheet.create({
@@ -154,26 +165,9 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#666',
-    marginBottom: 2,
-  },
-  comparisonText: {
-    fontSize: 10,
-    fontWeight: '500',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   progressContainer: {
     alignItems: 'center',
@@ -181,11 +175,10 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 11,
-    color: '#666',
+    textAlign: 'center',
   },
   lastTrainingText: {
     fontSize: 11,
-    color: '#666',
     marginTop: 2,
   },
 });
