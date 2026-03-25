@@ -28,6 +28,7 @@ Always prefer the bundled scripts instead of re-implementing the mechanics in th
 - `scripts/reserve_emulators.py`
 - `scripts/create_worktree.py`
 - `scripts/launch_feature_job.py`
+- `scripts/monitor_feedback.py`
 - `scripts/read_run_status.py`
 - `scripts/validate_review_bundle.py`
 - `scripts/update_state.py`
@@ -40,6 +41,7 @@ Handle these intents:
 
 - Start or add tickets from the current prompt.
 - Show status for running, queued, blocked, or review-ready tickets.
+- Enable periodic feedback for active tickets, for example every 5 minutes.
 - Apply `feedback <ticket-id>: ...` to an existing ticket.
 - Apply `accept <ticket-id>` to close a review-ready ticket and release its emulator.
 
@@ -85,7 +87,14 @@ If any required field is missing, ask the user once before launching a worker.
    - newly started tickets
    - tickets waiting for input
    - tickets ready for review
+   - blocked agents and their blocker text
    - tickets still queued because no emulator was free
+
+If the user asks for automatic feedback while runs are active:
+
+- start `scripts/monitor_feedback.py --watch --interval-seconds 300`
+- use its generated summaries under `.codex-orchestrator/monitor/`
+- surface the latest ticket status and blocked-agent list when reporting back
 
 ## Review And Question Handling
 

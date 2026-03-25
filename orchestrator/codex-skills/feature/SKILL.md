@@ -1,6 +1,6 @@
 ---
 name: feature
-description: Implement exactly one ready ticket in a real local git worktree with an assigned Android emulator, local commits, screenshots, and validation artifacts. Use when a worker is started by the orchestrator to modify code directly in the target worktree, run tests, lint, and emulator checks, and write `needs_input`, `ready_for_review`, or `blocked` status back to the matching `.codex-orchestrator/runs/` ticket directory.
+description: Implement exactly one ready ticket in a real local git worktree with an assigned Android emulator, local commits, screenshots, and validation artifacts. Use when a worker is started by the orchestrator to modify code directly in the target worktree, run tests and emulator checks, and write `needs_input`, `ready_for_review`, or `blocked` status back to the matching `.codex-orchestrator/runs/` ticket directory.
 ---
 
 # Feature
@@ -34,7 +34,8 @@ If any of these are missing, write `needs_input` instead of guessing.
 - Use the assigned branch.
 - Export or honor `ANDROID_SERIAL=<emulator_serial>` for device commands.
 - Reuse existing adb host or socket environment when it is already configured by the orchestrator.
-- Before running Metro-dependent app or Maestro checks, ensure Metro is reachable. If it is not already running, start `npm start -- --host 0.0.0.0 --port 8081`.
+- If the orchestrator already provided a host Metro process or `E2E_METRO_PORT`, reuse it and do not start another packager.
+- Before running Metro-dependent app or Maestro checks, ensure Metro is reachable. Only if no host Metro was provided should you start `npm start -- --host 0.0.0.0 --port 8081`.
 - For the full WSL, adb, and Maestro setup, read `__tests__/e2e/README.md` instead of re-deriving the environment details.
 - Do not ask the user questions directly.
 - Do not finish without writing `status.json` and `summary.md` in `run_dir`.
@@ -47,11 +48,10 @@ If any of these are missing, write `needs_input` instead of guessing.
 3. Implement the feature directly in the assigned worktree.
 4. Run the smallest relevant checks while iterating.
 5. Before review, run the final checks relevant to the change:
-   - `npm run typecheck`
    - `npm test`
-   - `npm run lint`
    - emulator verification
    - for UI or flow changes, run Maestro smoke or a relevant flow against the assigned emulator
+   - workspace-wide `typecheck` and `lint` are optional health checks; record them if you run them, but they are not required for `ready_for_review`
 6. Capture at least one screenshot that shows the implemented result.
 7. Produce review evidence for every acceptance criterion:
    - map each criterion to the specific code change, screenshot, and check or e2e result that proves it
@@ -121,10 +121,11 @@ Rules:
 - Use `needs_input` for permission or business questions.
 - Use `blocked` for technical blockers you cannot safely resolve.
 - Use `ready_for_review` only after commits, screenshots, acceptance evidence, and review checks are in place.
-- For `ready_for_review`, include passed results for `typecheck`, `test`, and `lint`.
+- For `ready_for_review`, include at least one passed automated test check relevant to the change, typically `npm test` or a focused test command.
 - For `ready_for_review`, include at least one passed e2e or Maestro check with a stored log or report.
 - For `ready_for_review`, include at least one screenshot file that exists under `run_dir`.
 - For `ready_for_review`, every acceptance criterion must have one `acceptance_evidence` entry with concrete artifact or check references.
+- Do not block `ready_for_review` only because repo-wide `typecheck` or `lint` fail outside the ticket scope.
 - Store artifact paths relative to `run_dir`.
 
 ## Summary File
