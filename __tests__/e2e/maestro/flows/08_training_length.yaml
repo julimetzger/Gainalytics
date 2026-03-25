@@ -1,0 +1,30 @@
+appId: com.powerliftingworkoutplanner
+---
+- runFlow: 00_import_baseline.yaml
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Training Length"
+    direction: DOWN
+- tapOn: "Training Length"
+- extendedWaitUntil:
+    visible: "Grouped by Day"
+    timeout: 30000
+- assertVisible:
+    id: "training-length-chart"
+- tapOn:
+    id: "training-length-accumulation-week"
+- assertVisible: "Grouped by Week"
+- tapOn:
+    id: "training-length-accumulation-month"
+- assertVisible: "Grouped by Month"
+- assertVisible:
+    id: "training-length-chart"

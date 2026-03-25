@@ -9,6 +9,7 @@ import GraphsTab from '../tabs/Analyse/GraphsTab';
 import {IconButton, useTheme} from 'react-native-paper';
 import VideoAnalysisTab from '../tabs/Analyse/VideoAnalysisTab';
 import VideoAnalysisDetailTab from '../tabs/Analyse/VideoAnalysisDetailTab';
+import TrainingLengthTab from '../tabs/Analyse/TrainingLengthTab';
 
 export type RootStackParamList = {
   History: {exercise: Exercise; lowerRangeBound: Date | undefined};
@@ -16,6 +17,7 @@ export type RootStackParamList = {
   Records: undefined;
   Metrics: undefined;
   Graphs: undefined;
+  TrainingLength: undefined;
   VideoAnalyses: undefined;
   VideoAnalysisDetail: {analysisId: number};
 };
@@ -44,6 +46,13 @@ const AnalyseRouter = () => {
         component={GraphsTab}
         options={() => ({
           title: 'Exercise Graphs',
+        })}
+      />
+      <Stack.Screen
+        name="TrainingLength"
+        component={TrainingLengthTab}
+        options={() => ({
+          title: 'Training Length',
         })}
       />
       <Stack.Screen
