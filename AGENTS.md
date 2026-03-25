@@ -4,6 +4,10 @@ This file defines the binding technical context and coding rules for AI coding a
 
 Agents MUST follow these conventions when creating or modifying code.
 
+For orchestrator, emulator, Metro, adb, and Maestro operational lessons, agents SHOULD
+also read [docs/agent-orchestration-memory.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/docs/agent-orchestration-memory.md)
+before changing worker infrastructure or re-debugging local automation failures.
+
 ---
 
 # Project Overview
@@ -215,3 +219,6 @@ Code is complete when:
 - no duplicate logic introduced
 - component structure follows conventions
 - tests are green and code is covered
+
+Operational note:
+- For orchestrated local worker runs, current review-gate behavior and known environment exceptions are documented in [docs/agent-orchestration-memory.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/docs/agent-orchestration-memory.md).

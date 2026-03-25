@@ -76,6 +76,8 @@ If any required field is missing, ask the user once before launching a worker.
    - if emulator discovery returns an adb error, surface that error clearly and leave new tickets queued
 6. For each startable ticket:
    - create or reuse the local feature worktree
+     - default worktree mode is `resume`
+     - use `scripts/create_worktree.py --worktree-mode fresh` only when the user explicitly asks for a clean or fresh start
    - create or reuse the run directory
    - launch one external `codex exec` worker
    - record `job_id`, branch, worktree, emulator, and status `running`

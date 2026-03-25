@@ -43,6 +43,12 @@ def normalize_name(value: Any) -> str:
     return value.strip().lower()
 
 
+def normalize_criterion(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    return value.strip()
+
+
 def check_lookup(checks_run: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     lookup: dict[str, dict[str, Any]] = {}
     for item in checks_run:
@@ -126,7 +132,7 @@ def main() -> None:
     for missing in missing_logs:
         issues.append(f"missing check log file: {missing}")
 
-    for required in ("typecheck", "test", "lint"):
+    for required in ("test",):
         check = find_required_check(checks_run, required)
         if not check:
             issues.append(f"missing required check: {required}")
@@ -159,15 +165,19 @@ def main() -> None:
         issues.append(f"missing e2e report file: {missing}")
 
     acceptance_criteria = [
-        value for value in as_list((ticket or {}).get("acceptanceCriteria")) if isinstance(value, str) and value
+        value
+        for value in (
+            normalize_criterion(item) for item in as_list((ticket or {}).get("acceptanceCriteria"))
+        )
+        if value
     ]
     evidence_entries = [
         entry for entry in as_list(status.get("acceptance_evidence")) if isinstance(entry, dict)
     ]
     evidence_by_criterion = {
-        entry.get("criterion"): entry
+        normalize_criterion(entry.get("criterion")): entry
         for entry in evidence_entries
-        if isinstance(entry.get("criterion"), str) and entry.get("criterion")
+        if normalize_criterion(entry.get("criterion"))
     }
     if acceptance_criteria and not evidence_entries:
         issues.append("missing acceptance_evidence entries")

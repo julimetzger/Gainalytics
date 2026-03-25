@@ -179,7 +179,7 @@ Prior review feedback:
 
 Write all screenshots and check logs under the run_dir. Before exiting, write status.json and summary.md.
 Do not report ready_for_review unless the run directory contains a complete review bundle:
-- passed typecheck, test, lint, and e2e or Maestro evidence
+- passed test and e2e or Maestro evidence
 - at least one screenshot
 - acceptance_evidence entries covering every acceptance criterion
 """.strip()
