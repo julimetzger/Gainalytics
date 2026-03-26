@@ -13,7 +13,7 @@ import TrainingLengthTab from '../tabs/Analyse/TrainingLengthTab';
 
 export type RootStackParamList = {
   History: {exercise: Exercise; lowerRangeBound: Date | undefined};
-  Analyse: {exercise: {name: string}};
+  AnalyseHome: {exercise: {name: string}};
   Records: undefined;
   Metrics: undefined;
   Graphs: undefined;
@@ -28,14 +28,14 @@ const AnalyseRouter = () => {
 
   return (
     <Stack.Navigator
-      initialRouteName="Analyse"
+      initialRouteName="AnalyseHome"
       screenOptions={({navigation}) => ({
         headerTintColor: theme.colors.onSecondaryContainer,
         headerLeft: () => <IconButton icon="menu" testID="analyse-drawer-toggle" onPress={() => navigation.toggleDrawer()} />,
       })}
     >
       <Stack.Screen
-        name="Analyse"
+        name="AnalyseHome"
         component={AnalyseGraphics}
         options={({route}) => ({
           title: route.params?.exercise?.name ?? 'Analyse',

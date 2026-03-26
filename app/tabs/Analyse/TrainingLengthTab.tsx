@@ -2,8 +2,11 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {processColor, ScrollView, StyleSheet, View} from 'react-native';
 import {BarChart, BarData, BarValue, ChartSelectEvent} from 'react-native-charts-wrapper';
 import {Card, SegmentedButtons, Text, useTheme} from 'react-native-paper';
+import TrainingLengthBucketDetails from '../../components/analyse/TrainingLengthBucketDetails';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
 import {AccumulationMode} from '../../models/AccumulationMode';
+import {getTrainingFromTrainingInMicroIndex} from '../../redux/Training/trainingsPlanReducer';
+import {useAllTrainingsPlans} from '../../redux/Training/use/useAllTrainingsPlans';
 import {useCompletedTrainingsIn} from '../../redux/Training/use/useCompletedTrainingsIn';
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
 import {
@@ -11,7 +14,6 @@ import {
   formatTrainingLength,
   getTrainingLengthAxisPattern,
   getTrainingLengthBarWidth,
-  getTrainingLengthBucketLabel,
 } from '../../utils/training-length-analysis';
 
 interface AccumulationButtonConfig {
@@ -36,7 +38,24 @@ const TrainingLengthTab = () => {
   const [range, setRange] = useState(createDefaultRange);
   const [accumulationMode, setAccumulationMode] = useState(AccumulationMode.SINGLE_DAY);
   const [selectedBucketKey, setSelectedBucketKey] = useState<string | null>(null);
+  const trainingsPlans = useAllTrainingsPlans();
   const trainings = useCompletedTrainingsIn(range);
+  const trainingNameById = useMemo(
+    () =>
+      trainingsPlans.reduce<Record<number, string>>((accumulator, trainingsPlan) => {
+        Object.entries(trainingsPlan.trainings).forEach(([trainingKey, trainingId]) => {
+          if (typeof trainingId !== 'number') {
+            return;
+          }
+
+          const trainingInMicro = getTrainingFromTrainingInMicroIndex(trainingKey);
+          accumulator[trainingId] = trainingsPlan.trainingNames?.[trainingInMicro] ?? `Training ${trainingInMicro}`;
+        });
+
+        return accumulator;
+      }, {}),
+    [trainingsPlans],
+  );
 
   const buckets = useMemo(() => aggregateTrainingLengths(trainings, accumulationMode), [accumulationMode, trainings]);
 
@@ -44,8 +63,8 @@ const TrainingLengthTab = () => {
     () =>
       buckets.map((bucket) => ({
         x: bucket.x,
-        y: bucket.totalDurationMinutes,
-        marker: `${formatTrainingLength(bucket.totalDurationMinutes)}\n${bucket.trainingCount} completed trainings`,
+        y: bucket.averageDurationMinutes,
+        marker: `Average ${formatTrainingLength(bucket.averageDurationMinutes)}\n${bucket.trainingCount} completed trainings`,
       })) satisfies BarValue[],
     [buckets],
   );
@@ -123,14 +142,14 @@ const TrainingLengthTab = () => {
         <Card style={styles.emptyStateCard} testID="training-length-empty-state">
           <Card.Title title="No completed trainings in this range" />
           <Card.Content>
-            <Text style={{color: theme.colors.onSurfaceVariant}}>Pick a different date range to compare completed training duration.</Text>
+            <Text style={{color: theme.colors.onSurfaceVariant}}>Pick a different date range to compare average completed training duration.</Text>
           </Card.Content>
         </Card>
       ) : (
         <>
           <Card style={styles.chartCard}>
             <Card.Content>
-              <Text style={[styles.chartDescription, {color: theme.colors.onSurfaceVariant}]}>Completed training duration in minutes.</Text>
+              <Text style={[styles.chartDescription, {color: theme.colors.onSurfaceVariant}]}>Average completed training duration in minutes for each selected time bucket.</Text>
               <View testID="training-length-chart">
                 <BarChart
                   drawGridBackground={false}
@@ -158,13 +177,7 @@ const TrainingLengthTab = () => {
           </Card>
 
           {selectedBucket && (
-            <Card style={styles.detailCard}>
-              <Card.Title title={getTrainingLengthBucketLabel(selectedBucket.startDate, accumulationMode)} />
-              <Card.Content>
-                <Text>{formatTrainingLength(selectedBucket.totalDurationMinutes)}</Text>
-                <Text style={{color: theme.colors.onSurfaceVariant}}>{selectedBucket.trainingCount} completed trainings</Text>
-              </Card.Content>
-            </Card>
+            <TrainingLengthBucketDetails accumulationMode={accumulationMode} bucket={selectedBucket} trainingNameById={trainingNameById} />
           )}
         </>
       )}
@@ -201,10 +214,6 @@ const styles = StyleSheet.create({
   },
   chart: {
     height: 320,
-  },
-  detailCard: {
-    marginHorizontal: 12,
-    marginTop: 8,
   },
 });
 

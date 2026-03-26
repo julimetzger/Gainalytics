@@ -202,6 +202,6 @@ const styles = StyleSheet.create({
   },
 });
 
-export type Props = NativeStackScreenProps<RootStackParamList, 'Analyse'>;
+export type Props = NativeStackScreenProps<RootStackParamList, 'AnalyseHome'>;
 
 export default AnalyseGraphics;

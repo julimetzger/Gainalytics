@@ -15,26 +15,40 @@ const createTraining = (training: Partial<Training>) =>
     state: training.state ?? TrainingsState.PLANNED,
   }) satisfies Training;
 
+const createCompletedTrainingLength = ({id, start, end}: {id: number; start: Date; end: Date}) => ({
+  key: `${id}-${end.toISOString()}`,
+  trainingId: id,
+  start,
+  end,
+  durationMinutes: (end.getTime() - start.getTime()) / (1000 * 60),
+});
+
 describe('training-length-analysis', () => {
   it('aggregates completed training duration by day, week, and month while ignoring incomplete trainings', () => {
+    const trainingOneStart = new Date('2026-03-03T10:00:00.000Z');
+    const trainingOneEnd = new Date('2026-03-03T11:30:00.000Z');
+    const trainingTwoStart = new Date('2026-03-05T14:00:00.000Z');
+    const trainingTwoEnd = new Date('2026-03-05T15:00:00.000Z');
+    const trainingThreeStart = new Date('2026-04-02T09:00:00.000Z');
+    const trainingThreeEnd = new Date('2026-04-02T11:15:00.000Z');
     const trainings = [
       createTraining({
         id: 1,
         state: TrainingsState.FINISHED,
-        start: new Date('2026-03-03T10:00:00.000Z'),
-        end: new Date('2026-03-03T11:30:00.000Z'),
+        start: trainingOneStart,
+        end: trainingOneEnd,
       }),
       createTraining({
         id: 2,
         state: TrainingsState.FINISHED,
-        start: new Date('2026-03-05T14:00:00.000Z'),
-        end: new Date('2026-03-05T15:00:00.000Z'),
+        start: trainingTwoStart,
+        end: trainingTwoEnd,
       }),
       createTraining({
         id: 3,
         state: TrainingsState.FINISHED,
-        start: new Date('2026-04-02T09:00:00.000Z'),
-        end: new Date('2026-04-02T11:15:00.000Z'),
+        start: trainingThreeStart,
+        end: trainingThreeEnd,
       }),
       createTraining({
         id: 4,
@@ -68,25 +82,28 @@ describe('training-length-analysis', () => {
         key: marchThird.toISOString(),
         startDate: new Date(marchThird),
         x: marchThird.getTime() / (1000 * 60 * 60 * 24),
+        averageDurationMinutes: 90,
         totalDurationMinutes: 90,
         trainingCount: 1,
-        trainingIds: [1],
+        trainings: [createCompletedTrainingLength({id: 1, start: trainingOneStart, end: trainingOneEnd})],
       },
       {
         key: marchFifth.toISOString(),
         startDate: new Date(marchFifth),
         x: marchFifth.getTime() / (1000 * 60 * 60 * 24),
+        averageDurationMinutes: 60,
         totalDurationMinutes: 60,
         trainingCount: 1,
-        trainingIds: [2],
+        trainings: [createCompletedTrainingLength({id: 2, start: trainingTwoStart, end: trainingTwoEnd})],
       },
       {
         key: aprilSecond.toISOString(),
         startDate: new Date(aprilSecond),
         x: aprilSecond.getTime() / (1000 * 60 * 60 * 24),
+        averageDurationMinutes: 135,
         totalDurationMinutes: 135,
         trainingCount: 1,
-        trainingIds: [3],
+        trainings: [createCompletedTrainingLength({id: 3, start: trainingThreeStart, end: trainingThreeEnd})],
       },
     ]);
 
@@ -95,17 +112,22 @@ describe('training-length-analysis', () => {
         key: marchSecondWeekStart.toISOString(),
         startDate: new Date(marchSecondWeekStart),
         x: marchSecondWeekStart.getTime() / (1000 * 60 * 60 * 24),
+        averageDurationMinutes: 75,
         totalDurationMinutes: 150,
         trainingCount: 2,
-        trainingIds: [1, 2],
+        trainings: [
+          createCompletedTrainingLength({id: 1, start: trainingOneStart, end: trainingOneEnd}),
+          createCompletedTrainingLength({id: 2, start: trainingTwoStart, end: trainingTwoEnd}),
+        ],
       },
       {
         key: marchThirtiethWeekStart.toISOString(),
         startDate: new Date(marchThirtiethWeekStart),
         x: marchThirtiethWeekStart.getTime() / (1000 * 60 * 60 * 24),
+        averageDurationMinutes: 135,
         totalDurationMinutes: 135,
         trainingCount: 1,
-        trainingIds: [3],
+        trainings: [createCompletedTrainingLength({id: 3, start: trainingThreeStart, end: trainingThreeEnd})],
       },
     ]);
 
@@ -114,17 +136,22 @@ describe('training-length-analysis', () => {
         key: marchMonthStart.toISOString(),
         startDate: new Date(marchMonthStart),
         x: marchMonthStart.getTime() / (1000 * 60 * 60 * 24),
+        averageDurationMinutes: 75,
         totalDurationMinutes: 150,
         trainingCount: 2,
-        trainingIds: [1, 2],
+        trainings: [
+          createCompletedTrainingLength({id: 1, start: trainingOneStart, end: trainingOneEnd}),
+          createCompletedTrainingLength({id: 2, start: trainingTwoStart, end: trainingTwoEnd}),
+        ],
       },
       {
         key: aprilMonthStart.toISOString(),
         startDate: new Date(aprilMonthStart),
         x: aprilMonthStart.getTime() / (1000 * 60 * 60 * 24),
+        averageDurationMinutes: 135,
         totalDurationMinutes: 135,
         trainingCount: 1,
-        trainingIds: [3],
+        trainings: [createCompletedTrainingLength({id: 3, start: trainingThreeStart, end: trainingThreeEnd})],
       },
     ]);
   });

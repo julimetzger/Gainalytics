@@ -1,6 +1,9 @@
 appId: com.powerliftingworkoutplanner
 ---
-- runFlow: 00_import_baseline.yaml
+- launchApp
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 30000
 - extendedWaitUntil:
     visible: "tab-analyse"
     timeout: 30000

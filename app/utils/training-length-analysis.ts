@@ -8,13 +8,22 @@ import {handleAccumulationModeBatching} from './HandleAccumulationModeBatching';
 const MILLISECONDS_IN_MINUTE = 1000 * 60;
 const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
 
+export interface CompletedTrainingLength {
+  key: string;
+  trainingId?: number;
+  start: Date;
+  end: Date;
+  durationMinutes: number;
+}
+
 export interface TrainingLengthBucket {
   key: string;
   startDate: Date;
   x: number;
+  averageDurationMinutes: number;
   totalDurationMinutes: number;
   trainingCount: number;
-  trainingIds: number[];
+  trainings: CompletedTrainingLength[];
 }
 
 export const getCompletedTrainingDurationMinutes = (training: Training): number | null => {
@@ -30,38 +39,58 @@ export const getCompletedTrainingDurationMinutes = (training: Training): number 
   return durationInMilliseconds / MILLISECONDS_IN_MINUTE;
 };
 
+const toCompletedTrainingLength = (training: Training): CompletedTrainingLength | null => {
+  const durationMinutes = getCompletedTrainingDurationMinutes(training);
+  if (durationMinutes === null || training.start === undefined || training.end === undefined) {
+    return null;
+  }
+
+  const start = new Date(training.start);
+  const end = new Date(training.end);
+
+  return {
+    key: `${training.id ?? start.toISOString()}-${end.toISOString()}`,
+    trainingId: training.id,
+    start,
+    end,
+    durationMinutes,
+  };
+};
+
 export const aggregateTrainingLengths = (trainings: Training[], accumulationMode: AccumulationMode): TrainingLengthBucket[] => {
-  const completedTrainings = trainings.filter((training) => getCompletedTrainingDurationMinutes(training) !== null);
+  const completedTrainings = trainings.flatMap((training) => {
+    const completedTraining = toCompletedTrainingLength(training);
+    return completedTraining ? [completedTraining] : [];
+  });
   const groupedTrainings = completedTrainings.reduce(
     handleAccumulationModeBatching(completedTrainings, new Accumulation(accumulationMode)),
-    new Map<string, Training[]>(),
+    new Map<string, CompletedTrainingLength[]>(),
   );
 
   return Array.from(groupedTrainings.entries())
     .map(([key, trainingsForBucket]) => {
-      const bucketTrainings = trainingsForBucket.filter(
-        (training): training is Training =>
-          'doneWorkoutIds' in training && 'plannedWorkouts' in training && 'exercises' in training && 'state' in training,
-      );
+      const bucketTrainings = [...trainingsForBucket].sort((left, right) => left.start.getTime() - right.start.getTime());
       const startDate = new Date(key);
-      const totalDurationMinutes = Math.round(sum(bucketTrainings.map((training) => getCompletedTrainingDurationMinutes(training) ?? 0)));
-      const trainingIds = bucketTrainings.flatMap((training) => (typeof training.id === 'number' ? [training.id] : []));
+      const totalDurationMinutes = Math.round(sum(bucketTrainings.map((training) => training.durationMinutes)));
+      const trainingCount = bucketTrainings.length;
 
       return {
         key,
         startDate,
         x: startDate.getTime() / MILLISECONDS_IN_DAY,
+        averageDurationMinutes: Math.round(totalDurationMinutes / trainingCount),
         totalDurationMinutes,
-        trainingCount: bucketTrainings.length,
-        trainingIds,
+        trainingCount,
+        trainings: bucketTrainings,
       };
     })
     .sort((left, right) => left.startDate.getTime() - right.startDate.getTime());
 };
 
 export const formatTrainingLength = (totalDurationMinutes: number) => {
-  const hours = Math.floor(totalDurationMinutes / 60);
-  const remainingMinutes = totalDurationMinutes % 60;
+  const roundedDurationMinutes = Math.round(totalDurationMinutes);
+  const hours = Math.floor(roundedDurationMinutes / 60);
+  const remainingMinutes = roundedDurationMinutes % 60;
 
   if (hours <= 0) {
     return `${remainingMinutes} min`;
@@ -99,3 +128,10 @@ export const getTrainingLengthBarWidth = (accumulationMode: AccumulationMode) =>
       return 0.8;
   }
 };
+
+export const formatTrainingLengthDate = (date: Date) =>
+  date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
