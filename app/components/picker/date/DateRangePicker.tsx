@@ -1,5 +1,5 @@
 import {DatePickerInput} from 'react-native-paper-dates';
-import React, {useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Button, Icon, Modal, Portal} from 'react-native-paper';
 import {getDateStringFromDate} from '../../../utils/DateHelper';
 import {StyleSheet, View} from 'react-native';
@@ -11,6 +11,12 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
   const [open, setOpen] = useState(false);
   const [uncompleteRange, setUncompleteRange] = useState<NullableRange>(new NullableRange(range.startDate, range.endDate));
 
+  useEffect(() => {
+    if (open) {
+      setUncompleteRange(new NullableRange(range.startDate, range.endDate));
+    }
+  }, [open]);
+
   let swipeableRef = useRef(null);
   let close = () => {
     setTimeout(() => {
@@ -20,8 +26,8 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
 
   function onSubmit() {
     setOpen(false);
-    if (uncompleteRange.startDate && uncompleteRange.endDate) {
-      setRange(new Range(uncompleteRange.startDate, uncompleteRange.endDate));
+    if (uncompleteRange.startDate) {
+      setRange(new Range(uncompleteRange.startDate, uncompleteRange.endDate ?? new Date()));
     }
   }
 
@@ -61,10 +67,10 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
           <View style={styles.modalContent}>
             <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'flex-start'}}>
               <View style={{flex: 1}}>
-                <DatePickerInput locale="en" withModal={false} value={range.startDate} onChange={(d) => (d ? setUncompleteRange({...uncompleteRange, startDate: d}) : null)} inputMode="start" />
+                <DatePickerInput locale="en" withModal={false} value={uncompleteRange.startDate} onChange={(d) => (d ? setUncompleteRange((prev) => ({...prev, startDate: d})) : null)} inputMode="start" />
               </View>
               <View style={{flex: 1}}>
-                <DatePickerInput locale="en" withModal={false} value={range.endDate} onChange={(d) => (d ? setUncompleteRange({...uncompleteRange, endDate: d}) : null)} inputMode="end" />
+                <DatePickerInput locale="en" withModal={false} value={uncompleteRange.endDate} onChange={(d) => (d ? setUncompleteRange((prev) => ({...prev, endDate: d})) : null)} inputMode="end" />
               </View>
               <View style={{flex: 1}}>
                 <Button mode="elevated" onPress={onSubmit}>

@@ -119,17 +119,16 @@ export const DatePickerModal = <T extends DateOrRange>({date, onChange}: DatePic
 
   function extracted(dateData: DateData) {
     if (date instanceof NullableRange) {
-      if (date.startDate && !date.endDate) {
-        onChange(new NullableRange(new Date(date.startDate), new Date(dateData.dateString)) as T);
-      }
-      if (date.startDate && date.endDate) {
-        onChange(new NullableRange(new Date(dateData.dateString), undefined) as T);
-      }
       if (!date.startDate && !date.endDate) {
         onChange(new NullableRange(new Date(dateData.dateString), undefined) as T);
-      }
-      if (date.startDate && date.startDate > new Date(dateData.dateString)) {
+      } else if (date.startDate && date.endDate) {
         onChange(new NullableRange(new Date(dateData.dateString), undefined) as T);
+      } else if (date.startDate && !date.endDate) {
+        if (date.startDate > new Date(dateData.dateString)) {
+          onChange(new NullableRange(new Date(dateData.dateString), undefined) as T);
+        } else {
+          onChange(new NullableRange(new Date(date.startDate), new Date(dateData.dateString)) as T);
+        }
       }
     }
     if (date instanceof Date) {
