@@ -33,7 +33,7 @@ const TIME_PLOT_HEIGHT = 112;
 const SPEED_PLOT_HEIGHT = 180;
 const BAR_PATH_SMOOTHING_WINDOW = 5;
 const SPEED_SMOOTHING_WINDOW = 5;
-const PLAYBACK_UI_UPDATE_INTERVAL_MS = 120;
+const PLAYBACK_UI_UPDATE_INTERVAL_MS = 50;
 
 const formatDuration = (timeMs: number) => {
   const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
@@ -332,6 +332,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const currentRepIndexRef = useRef<number | undefined>(undefined);
   const pendingSeekTargetMsRef = useRef<number | undefined>(undefined);
   const pendingSeekDeadlineMsRef = useRef(0);
+  const isScrubbingRef = useRef(false);
 
   const repSegments = result.repSegments;
   const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
@@ -494,10 +495,15 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       }
 
       const currentTimeMs = nativeEvent.currentTimeMs;
+
+      if (isScrubbingRef.current) {
+        return;
+      }
+
       const nowMs = Date.now();
       const pendingSeekTargetMs = pendingSeekTargetMsRef.current;
       if (pendingSeekTargetMs !== undefined && nowMs < pendingSeekDeadlineMsRef.current) {
-        if (Math.abs(currentTimeMs - pendingSeekTargetMs) > 1500) {
+        if (Math.abs(currentTimeMs - pendingSeekTargetMs) > 200) {
           return;
         }
         pendingSeekTargetMsRef.current = undefined;
@@ -570,6 +576,17 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     setTimePlotWidth(event.nativeEvent.layout.width);
   }, []);
 
+  const onSpeedChartSelect = useCallback(
+    (event: {nativeEvent?: {x?: number}}) => {
+      const x = event.nativeEvent?.x;
+      if (x === undefined) {
+        return;
+      }
+      applySeekTimeMs(x);
+    },
+    [applySeekTimeMs],
+  );
+
   const onScrubberTouch = useCallback(
     (locationX: number, width: number) => {
       if (width <= 0 || correctedPlaybackDurationMs <= 0) {
@@ -600,6 +617,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     currentRepIndexRef.current = undefined;
     pendingSeekTargetMsRef.current = undefined;
     pendingSeekDeadlineMsRef.current = 0;
+    isScrubbingRef.current = false;
   }, [localVideoPath, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx, result.barPathSeries, result.repSegments]);
 
   return (
@@ -692,6 +710,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
         <LineChart
           testID="video-analysis-playback-speed-plot"
           style={[styles.speedPlotContainer, themedStyles.speedPlotBackground]}
+          onSelect={onSpeedChartSelect}
           data={{
             dataSets: [
               {
@@ -775,10 +794,33 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           onLayout={onScrubberLayout}
           onStartShouldSetResponder={() => true}
           onMoveShouldSetResponder={() => true}
-          onResponderGrant={(event) => onScrubberTouch(event.nativeEvent.locationX, scrubberWidth)}
-          onResponderMove={(event) => onScrubberTouch(event.nativeEvent.locationX, scrubberWidth)}>
+          onResponderGrant={(event) => {
+            isScrubbingRef.current = true;
+            onScrubberTouch(event.nativeEvent.locationX, scrubberWidth);
+          }}
+          onResponderMove={(event) => onScrubberTouch(event.nativeEvent.locationX, scrubberWidth)}
+          onResponderRelease={() => {
+            isScrubbingRef.current = false;
+          }}
+          onResponderTerminate={() => {
+            isScrubbingRef.current = false;
+          }}>
           <View style={[styles.scrubberFill, themedStyles.scrubberFill, {width: `${scrubberProgress * 100}%`}]} />
           <View style={[styles.scrubberThumb, themedStyles.scrubberThumb, {left: `${scrubberProgress * 100}%`}]} />
+        </View>
+        <View style={styles.stepButtonsRow}>
+          <Button testID="video-analysis-step-minus200" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current - 200)}>
+            -0.2s
+          </Button>
+          <Button testID="video-analysis-step-minus50" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current - 50)}>
+            -0.05s
+          </Button>
+          <Button testID="video-analysis-step-plus50" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current + 50)}>
+            +0.05s
+          </Button>
+          <Button testID="video-analysis-step-plus200" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current + 200)}>
+            +0.2s
+          </Button>
         </View>
       </View>
     </>
@@ -888,6 +930,12 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     marginLeft: -10,
+  },
+  stepButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 4,
   },
 });
 
