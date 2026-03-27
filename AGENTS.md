@@ -5,8 +5,10 @@ This file defines the binding technical context and coding rules for AI coding a
 Agents MUST follow these conventions when creating or modifying code.
 
 For orchestrator, emulator, Metro, adb, and Maestro operational lessons, agents SHOULD
-also read [docs/agent-orchestration-memory.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/docs/agent-orchestration-memory.md)
-before changing worker infrastructure or re-debugging local automation failures.
+also read the appropriate memory file before changing worker infrastructure or re-debugging
+local automation failures:
+- Orchestrator sessions: [docs/memory/orchestrator-memory.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/docs/memory/orchestrator-memory.md)
+- Feature worker sessions: [docs/memory/agent-memory.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/docs/memory/agent-memory.md)
 
 ---
 
@@ -138,6 +140,8 @@ Local state:
 
 IMPORTANT: Reducers MUST be pure. Do not mutate the state object directly (prefer spread operator).
 
+IMPORTANT: When storing class instances (e.g. `NullableRange`, `Range`) in React state, NEVER use the spread operator to update them (`{...prev, field: value}`). Spread produces a plain object and breaks `instanceof` checks elsewhere in the code. Always construct a new instance: `new MyClass(newField, prev.otherField)`.
+
 Agents MUST avoid unnecessary re-renders.
 
 ---
@@ -221,4 +225,4 @@ Code is complete when:
 - tests are green and code is covered
 
 Operational note:
-- For orchestrated local worker runs, current review-gate behavior and known environment exceptions are documented in [docs/agent-orchestration-memory.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/docs/agent-orchestration-memory.md).
+- For orchestrated local worker runs, current review-gate behavior and known environment exceptions are documented in [docs/memory/orchestrator-memory.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/docs/memory/orchestrator-memory.md).

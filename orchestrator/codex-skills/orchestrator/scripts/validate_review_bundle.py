@@ -18,22 +18,41 @@ def as_list(value: Any) -> list[Any]:
     return []
 
 
+def extract_path(value: str) -> str:
+    """Extract the bare file path from an evidence string.
+
+    Agents sometimes write evidence entries like:
+        "checks/test.log (test: 'some test name')"
+    Strip everything from the first whitespace or parenthesis so the validator
+    can locate the actual file regardless of inline annotation.
+    """
+    for sep in (" ", "("):
+        idx = value.find(sep)
+        if idx != -1:
+            value = value[:idx]
+    return value.strip()
+
+
 def existing_relative_files(run_dir: Path, values: list[Any]) -> tuple[list[str], list[str]]:
     existing: list[str] = []
     missing: list[str] = []
     for value in values:
         if not isinstance(value, str) or not value:
             continue
-        candidate = (run_dir / value).resolve()
+        bare = extract_path(value)
+        if not bare:
+            missing.append(value)
+            continue
+        candidate = (run_dir / bare).resolve()
         try:
             candidate.relative_to(run_dir.resolve())
         except ValueError:
-            missing.append(value)
+            missing.append(bare)
             continue
         if candidate.exists():
-            existing.append(value)
+            existing.append(bare)
         else:
-            missing.append(value)
+            missing.append(bare)
     return existing, missing
 
 

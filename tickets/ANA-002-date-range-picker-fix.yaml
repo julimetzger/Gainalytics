@@ -1,0 +1,52 @@
+id: ANA-002
+status: ready
+area: analyse
+priority: medium
+title: Fix DateRangePicker interactions in the Analyse tab
+source:
+  - TODOS.md:44
+description: >
+  The DateRangePicker in AnalyseGraphics has three broken interaction modes.
+  First, tapping a single day in the calendar should highlight it and set it as
+  the start date in the inputs; if no end date is subsequently selected, today is
+  used as the end date when Save is pressed. Second, when the user selects a start
+  and end date in the calendar modal, the text inputs at the top of the modal do
+  not update to reflect the pending selection — they keep showing the previously
+  confirmed range because they read from `range` instead of `uncompleteRange`.
+  Third, editing the text inputs writes into `uncompleteRange` via a stale closure
+  that captures the old value, so calendar and input selections overwrite each other.
+  All three paths should result in an updated confirmed range applied on Save.
+components:
+  - app/components/picker/date/DateRangePicker.tsx
+  - app/components/picker/date/DatePickerModal.tsx
+  - app/tabs/Analyse/AnalyseGraphics.tsx
+  - __tests__/components/picker/date/DateRangePicker.spec.tsx
+acceptanceCriteria:
+  - >
+    Tapping a single day in the calendar highlights that day and sets it as the
+    start date in the text inputs. If the user presses Save without selecting an
+    end date, today is used as the end date.
+  - >
+    After selecting start and end dates in the calendar, both text inputs at the
+    top of the modal update in real time to show the pending selection before the
+    user presses Save.
+  - >
+    Editing the start or end text inputs updates the pending selection correctly
+    even after prior calendar interaction (no stale-closure overwrite).
+  - >
+    Pressing Save applies the pending range, closes the modal, and the analysis
+    chart and data update to reflect the new range.
+  - >
+    Automated tests cover: single-day tap sets start date and falls back to today
+    as end date on Save, calendar start+end selection syncs to inputs, and input
+    editing is reflected in the confirmed range.
+evidenceRequired:
+  - One screenshot of the modal with a single-day tap showing the highlighted day and updated start input.
+  - One screenshot of the analysis view reflecting the newly applied range.
+  - Updated or new component tests for DateRangePicker covering all three interaction paths.
+constraints:
+  - Do not change the Range or NullableRange data models unless strictly necessary.
+  - Keep the existing Swipeable left/right shortcut for shifting the range intact.
+nonGoals:
+  - Redesigning the modal layout or replacing the calendar library.
+  - Fixing other issues in the Analyse tab unrelated to date range selection.

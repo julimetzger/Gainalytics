@@ -1,18 +1,6 @@
-# Agent Orchestration Memory
+# Agent Memory
 
-This document captures the important operational lessons from getting local
-`codex exec` workers, Metro, adb, and Maestro stable in this repository.
-
-Use this as the first reference for future orchestrator and worker fixes instead
-of rediscovering the same environment issues.
-
-## Current Working Model
-
-- Start one host-side Metro process per worktree.
-- Give each worktree its own host Metro port.
-- Reuse that host Metro from the worker instead of starting Metro inside the worker.
-- Give each concurrent Maestro session its own driver host port.
-- Treat `.codex-orchestrator/runs/<ticket-id>/status.json` as the source of truth for terminal worker results.
+This file captures learnings for feature worker agents — code patterns, test quality, emulator/Maestro usage from the worker perspective, and React Native gotchas.
 
 ## Problems And Working Solutions
 
@@ -54,7 +42,6 @@ Relevant files:
 - [metro_host.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/metro_host.py)
 - [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
 - [run-maestro-from-wsl.sh](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/scripts/run-maestro-from-wsl.sh)
-- [feature/SKILL.md](/home/jmetzger/.codex/skills/feature/SKILL.md)
 
 ### 3. Metro resolver must not force everything through root node_modules
 
@@ -131,62 +118,9 @@ Relevant files:
 - [run-maestro-from-wsl.sh](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/scripts/run-maestro-from-wsl.sh)
 
 Environment note:
-- The live Maestro install was switched to the `2.0.9-ports` fork in the user’s Windows Maestro location, with a backup created beforehand.
+- The live Maestro install was switched to the `2.0.9-ports` fork in the user's Windows Maestro location, with a backup created beforehand.
 
-### 7. Use status.json as the terminal truth, not stale state.json
-
-Problem:
-- `.codex-orchestrator/state.json` can become stale if workers finish but the orchestrator has not refreshed yet.
-
-Symptoms:
-- state still said `running` even though the worker had already written a terminal `status.json`
-
-Working solution:
-- Use `runs/<ticket-id>/status.json` as the terminal source of truth.
-- Sync terminal `status.json` payloads back into `state.json`.
-- Use the monitor script for periodic summaries and stale-state healing.
-
-Relevant files:
-- [read_run_status.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/read_run_status.py)
-- [monitor_feedback.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/monitor_feedback.py)
-- [runtime_state.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/runtime_state.py)
-
-### 8. Review gating should not confuse repo-wide health with ticket quality
-
-Problem:
-- Repo-wide `typecheck` and `lint` failures blocked otherwise valid ticket review bundles.
-
-Symptoms:
-- a ticket had passing tests, emulator evidence, and correct UI changes, but still landed in `blocked`
-
-Working solution:
-- For orchestrated worker review bundles, require:
-  - passed relevant automated tests
-  - passed emulator/Maestro evidence
-  - screenshot evidence
-  - acceptance evidence for every criterion
-- Keep `typecheck` and `lint` as optional health checks that can still be logged.
-
-Relevant files:
-- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
-- [validate_review_bundle.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
-- [feature/SKILL.md](/home/jmetzger/.codex/skills/feature/SKILL.md)
-
-### 9. Acceptance criteria must be normalized before validation
-
-Problem:
-- The review validator previously matched criteria literally, including trailing newlines from ticket files.
-
-Symptoms:
-- a bundle could have correct `acceptance_evidence` and still fail validation with “missing acceptance evidence”
-
-Working solution:
-- Normalize criteria strings with `.strip()` before matching them in the validator.
-
-Relevant files:
-- [validate_review_bundle.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
-
-### 10. The repository currently depends on react-dom for this environment
+### 7. The repository currently depends on react-dom for this environment
 
 Problem:
 - In this setup, `react-redux` resolution and runtime behavior were broken without `react-dom`.
@@ -198,11 +132,44 @@ Relevant files:
 - [package.json](/home/jmetzger/projects/PowerliftingWorkoutPlanner/package.json)
 - [package-lock.json](/home/jmetzger/projects/PowerliftingWorkoutPlanner/package-lock.json)
 
-## Operational Guidance For Future Agents
+### 8. Spread operator on class instances breaks instanceof checks in React state
+
+Problem:
+- When updating a NullableRange instance stored in React state using the spread operator ({...prev, startDate: d}), the result is a plain object, not a NullableRange instance. Any downstream code using instanceof NullableRange returns false.
+
+Symptoms:
+- Calendar became unresponsive after a text-input Save
+- DatePickerModal.extracted() ran the `if (date instanceof NullableRange)` branch and returned false, so no onChange was called
+- Analyse tab stopped showing workouts (useWorkoutsIn received an invalid range object)
+
+Working solution:
+- Always use the class constructor when updating class instances in state: new NullableRange(d, prev.endDate) instead of {...prev, startDate: d}.
+- Added AGENTS.md rule: "When storing class instances in React state, NEVER use the spread operator. Always construct a new instance."
+
+Relevant files:
+- [AGENTS.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/AGENTS.md)
+- [DateRangePicker.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/picker/date/DateRangePicker.tsx)
+
+### 9. Maestro assertions must verify actual values, not just element visibility
+
+Problem:
+- Maestro flows that only assert assertNotVisible: "Save" and assertVisible: id: "button-text" prove the modal closed — they do not prove the feature worked correctly.
+
+Symptoms:
+- A Maestro flow passed but the confirmed range was not verified. Review accepted the flow as e2e evidence even though a wrong range would also have passed.
+
+Working solution:
+- Use assertVisible: text: "..." to verify the actual content of changed UI elements.
+- For dynamic values (e.g. today's date), use evalScript to compute the expected string and assert against it.
+- Added explicit Maestro Test Quality Rules section to feature/SKILL.md.
+
+Relevant files:
+- [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
+
+## Operational Guidance For Feature Agents
 
 - Do not spend time re-debugging host-vs-worker Metro. Reuse host Metro.
-- Do not assume `state.json` is current if a run directory already has `status.json`.
-- Do not classify a feature as broken just because repo-wide `typecheck` or `lint` is red.
-- If a run must start clean, use `--worktree-mode fresh` and a known `--base-ref`.
-- If concurrent emulator verification behaves strangely, check driver-port assignment before changing ticket code.
-- If a worker reports the app works manually but Maestro is flaky, separate app/runtime problems from Maestro driver plumbing before changing the feature.
+- Never use spread to update class instances in React state. Always use the constructor.
+- A Maestro flow is only valid evidence if it asserts the actual resulting value, not just element presence.
+- Check run_dir for existing artifacts before repeating work in a resumed round.
+- Evidence paths in status.json acceptance_evidence must be bare relative paths with no inline annotations.

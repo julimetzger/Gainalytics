@@ -98,6 +98,22 @@ def load_ticket(path: Path) -> dict:
     return yaml.safe_load(raw_text)
 
 
+def load_skill_content(skill_name: str) -> str | None:
+    """Return the content of a SKILL.md for the given skill, frontmatter stripped, or None if not found."""
+    repo_root = detect_repo_root()
+    skill_path = repo_root / "orchestrator" / "codex-skills" / skill_name / "SKILL.md"
+    if not skill_path.exists():
+        return None
+    content = skill_path.read_text(encoding="utf-8")
+    # Strip YAML frontmatter (--- ... ---) so the prompt does not start with '--'
+    # which the claude CLI would misparse as an option.
+    if content.startswith("---"):
+        end = content.find("\n---", 3)
+        if end != -1:
+            content = content[end + 4:].lstrip("\n")
+    return content
+
+
 def build_prompt(
     ticket: dict,
     worktree_path: Path,
@@ -111,6 +127,7 @@ def build_prompt(
     metro_port: int | None = None,
     metro_device_port: int = DEFAULT_DEVICE_METRO_PORT,
     maestro_driver_port: int | None = None,
+    skill_preamble: str | None = None,
 ) -> str:
     acceptance = "\n".join(f"- {item}" for item in ticket.get("acceptanceCriteria", [])) or "- none"
     constraints = "\n".join(f"- {item}" for item in ticket.get("constraints", [])) or "- none"
@@ -142,8 +159,9 @@ def build_prompt(
 - when invoking `run-maestro-from-wsl.sh`, prefer `--driver-host-port {maestro_driver_port}` or the provided `E2E_MAESTRO_DRIVER_PORT` env var
 """.rstrip()
 
+    preamble = skill_preamble if skill_preamble is not None else "Use $feature to implement this ticket in the assigned local worktree."
     return f"""
-Use $feature to implement this ticket in the assigned local worktree.
+{preamble}
 
 Ticket:
 - id: {ticket["id"]}
@@ -186,13 +204,19 @@ Do not report ready_for_review unless the run directory contains a complete revi
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Launch one external codex exec feature worker.")
+    parser = argparse.ArgumentParser(description="Launch one external feature worker.")
     parser.add_argument("--ticket-file", required=True)
     parser.add_argument("--ticket-id", required=True)
     parser.add_argument("--worktree", required=True)
     parser.add_argument("--branch", required=True)
     parser.add_argument("--emulator-serial", required=True)
     parser.add_argument("--state-file", default=None)
+    parser.add_argument(
+        "--runner",
+        choices=["codex", "claude"],
+        default="codex",
+        help="Which AI CLI to use for the worker process (default: codex).",
+    )
     args = parser.parse_args()
 
     state_path = Path(args.state_file).resolve() if args.state_file else state_file_path()
@@ -224,6 +248,8 @@ def main() -> None:
     env["E2E_METRO_PORT"] = str(metro["host_port"])
     env["E2E_DEVICE_METRO_PORT"] = str(metro["device_port"])
     state_root = str(state_path.parent.resolve())
+
+    skill_preamble = load_skill_content("feature") if args.runner == "claude" else None
     prompt = build_prompt(
         ticket=ticket,
         worktree_path=worktree_path,
@@ -237,6 +263,7 @@ def main() -> None:
         metro_port=int(metro["host_port"]),
         metro_device_port=int(metro["device_port"]),
         maestro_driver_port=maestro_driver_port,
+        skill_preamble=skill_preamble,
     )
     prompt_path = run_dir / "prompt.txt"
     ticket_copy_path = run_dir / "ticket.json"
@@ -245,28 +272,37 @@ def main() -> None:
     prompt_path.write_text(prompt, encoding="utf-8")
     ticket_copy_path.write_text(json.dumps(ticket, indent=2), encoding="utf-8")
 
+    if args.runner == "claude":
+        cmd = [
+            "claude",
+            "--allowedTools", "Bash,Read,Write,Edit,Glob,Grep",
+            "--output-format", "stream-json",
+            "--verbose",
+            "-p", prompt,
+        ]
+        popen_kwargs: dict = {"start_new_session": True, "env": env, "cwd": str(worktree_path)}
+    else:
+        cmd = [
+            "codex",
+            "exec",
+            "-c", "sandbox_workspace_write.network_access=true",
+            "-c", "shell_environment_policy.inherit=all",
+            "--full-auto",
+            "--verbose",
+            "--add-dir", state_root,
+            "-C", str(worktree_path),
+            prompt,
+        ]
+        popen_kwargs = {"start_new_session": True, "env": env}
+
     with stdout_log.open("w", encoding="utf-8") as stdout_handle, stderr_log.open(
         "w", encoding="utf-8"
     ) as stderr_handle:
         process = subprocess.Popen(
-            [
-                "codex",
-                "exec",
-                "-c",
-                "sandbox_workspace_write.network_access=true",
-                "-c",
-                "shell_environment_policy.inherit=all",
-                "--full-auto",
-                "--add-dir",
-                state_root,
-                "-C",
-                str(worktree_path),
-                prompt,
-            ],
+            cmd,
             stdout=stdout_handle,
             stderr=stderr_handle,
-            start_new_session=True,
-            env=env,
+            **popen_kwargs,
         )
 
     update_run(

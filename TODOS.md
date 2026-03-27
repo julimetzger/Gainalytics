@@ -32,6 +32,11 @@
 
 ## Video Analyse Funktion
 
+- Erkennen von reps
+- Player verbesserungen 
+  - nicht sehr responsive die Anzeige der Zeit in dem Geschwindigkeitsblock 
+- performance verbessern
+
 ## Try out
 
 - Toast für records Farben sind noch nicht passend
@@ -41,7 +46,12 @@
 ## Bugs
 
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
-- DatePicker funktioniert nicht 
+- [ready] DateRangePicker funktioniert nicht im analyseTab analayse
+  - auswahl eines Startpunktes per tab auf tag: Auswahl von dem tag bis heute - aktualisierung der Zeiten oben
+  - auswahl einer Range tab auf start und Endpunkt: Aktualiesierung der Timestamps
+  - Auswahl einer Range über die inputs oben 
+  - Alle drei Fälle sollen über maestro tests abgedeckt werden. Öffnen datepicker -> Fall durschpielen -> check im datepicker ob Tiemstamps oben passen -> zurück in analys -> check ob range passt in der Anzeige
+  
 
 ## Low Prio Themen
 

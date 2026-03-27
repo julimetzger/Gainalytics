@@ -1,9 +1,11 @@
 # OSX
 #
+.worktrees
 .DS_Store
 coverage
 __tests__/coverage
 .expo
+.codex-orchestrator
 */.env
 .jest/cache
 # Xcode
