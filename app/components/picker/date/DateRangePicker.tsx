@@ -1,5 +1,5 @@
 import {DatePickerInput} from 'react-native-paper-dates';
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Button, Icon, Modal, Portal} from 'react-native-paper';
 import {getDateStringFromDate} from '../../../utils/DateHelper';
 import {StyleSheet, View} from 'react-native';
@@ -10,12 +10,23 @@ import {NullableRange} from './NullableRange';
 const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
   const [open, setOpen] = useState(false);
   const [uncompleteRange, setUncompleteRange] = useState<NullableRange>(new NullableRange(range.startDate, range.endDate));
+  // true when the calendar has confirmed both start and end; false after a single-day tap.
+  // Text-input edits do NOT change this flag so that a single-day tap always falls back to
+  // today on Save, regardless of what the user types in the end input afterward.
+  const calendarEndSelectedRef = useRef(true);
 
   useEffect(() => {
     if (open) {
       setUncompleteRange(new NullableRange(range.startDate, range.endDate));
+      // The confirmed range always has an end date, so mark it as selected.
+      calendarEndSelectedRef.current = true;
     }
   }, [open]);
+
+  const handleCalendarChange = useCallback((newRange: NullableRange) => {
+    calendarEndSelectedRef.current = !!newRange.endDate;
+    setUncompleteRange(newRange);
+  }, []);
 
   let swipeableRef = useRef(null);
   let close = () => {
@@ -27,7 +38,11 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
   function onSubmit() {
     setOpen(false);
     if (uncompleteRange.startDate) {
-      setRange(new Range(uncompleteRange.startDate, uncompleteRange.endDate ?? new Date()));
+      // Use the calendar-selected end date only when the calendar confirmed it.
+      // When the user tapped a single day (calendarEndSelectedRef = false), always
+      // fall back to today — ignoring any value typed into the end text input.
+      const endDate = calendarEndSelectedRef.current && uncompleteRange.endDate ? uncompleteRange.endDate : new Date();
+      setRange(new Range(uncompleteRange.startDate, endDate));
     }
   }
 
@@ -57,7 +72,7 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
           overshootRight={false}
           overshootLeft={false}
         >
-          <Button onPress={() => setOpen(true)} uppercase={false} mode="outlined" style={{display: 'flex', alignSelf: 'center'}}>
+          <Button testID="date-range-picker-button" onPress={() => setOpen(true)} uppercase={false} mode="outlined" style={{display: 'flex', alignSelf: 'center'}}>
             {getDateStringFromDate(range.startDate) + ' to ' + getDateStringFromDate(range.endDate)}
           </Button>
         </Swipeable>
@@ -78,7 +93,7 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
                 </Button>
               </View>
             </View>
-            <DatePickerModal date={uncompleteRange} onChange={setUncompleteRange} />
+            <DatePickerModal date={uncompleteRange} onChange={handleCalendarChange} />
           </View>
         </Modal>
       </Portal>

@@ -131,23 +131,47 @@ describe('DateRangePicker', () => {
     const setRange = jest.fn();
     const {result} = setup(setRange);
 
-    // Calendar selects a start date only
+    // Calendar selects a full range (calendarEndSelectedRef = true)
+    act(() => {
+      mockDatePickerModalRef.current?.onChange(new NullableRange(JAN_5, JAN_25));
+    });
+
+    // User edits the start input — functional update must apply on top of latest state
+    act(() => {
+      mockStartInputRef.current?.onChange(new Date('2024-01-03T00:00:00.000Z'));
+    });
+
+    // Press Save — start must reflect the text-input edit; end comes from calendar
+    fireEvent.press(result.getByTestId('button-Save-elevated'));
+
+    expect(setRange).toHaveBeenCalledTimes(1);
+    const calledWith: Range = setRange.mock.calls[0][0];
+    expect(calledWith.startDate).toEqual(new Date('2024-01-03T00:00:00.000Z'));
+    expect(calledWith.endDate).toEqual(JAN_25);
+  });
+
+  it('single-day tap then end-input edit: Save uses today, not the typed end date', () => {
+    const setRange = jest.fn();
+    const {result} = setup(setRange);
+
+    // Calendar single-day tap (calendarEndSelectedRef = false)
     act(() => {
       mockDatePickerModalRef.current?.onChange(new NullableRange(JAN_5, undefined));
     });
 
-    // User edits the end input directly
+    // User types an end date in the text input
     act(() => {
       mockEndInputRef.current?.onChange(JAN_25);
     });
 
-    // Press Save — should apply the functionally-updated state, not a stale spread
+    // Press Save — reviewer requires today to be used, not the typed end date
     fireEvent.press(result.getByTestId('button-Save-elevated'));
 
     expect(setRange).toHaveBeenCalledTimes(1);
     const calledWith: Range = setRange.mock.calls[0][0];
     expect(calledWith.startDate).toEqual(JAN_5);
-    expect(calledWith.endDate).toEqual(JAN_25);
+    // End date must be today (2024-03-15), not the typed JAN_25
+    expect(calledWith.endDate.toISOString().slice(0, 10)).toBe('2024-03-15');
   });
 
   it('Save with both start and end selected applies the confirmed range', () => {
