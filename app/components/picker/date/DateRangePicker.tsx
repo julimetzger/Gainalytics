@@ -82,10 +82,10 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
           <View style={styles.modalContent}>
             <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'flex-start'}}>
               <View style={{flex: 1}}>
-                <DatePickerInput locale="en" withModal={false} value={uncompleteRange.startDate} onChange={(d) => (d ? setUncompleteRange((prev) => ({...prev, startDate: d})) : null)} inputMode="start" />
+                <DatePickerInput locale="en" withModal={false} value={uncompleteRange.startDate} onChange={(d) => (d ? setUncompleteRange((prev) => new NullableRange(d, prev.endDate)) : null)} inputMode="start" />
               </View>
               <View style={{flex: 1}}>
-                <DatePickerInput locale="en" withModal={false} value={uncompleteRange.endDate} onChange={(d) => (d ? setUncompleteRange((prev) => ({...prev, endDate: d})) : null)} inputMode="end" />
+                <DatePickerInput locale="en" withModal={false} value={uncompleteRange.endDate} onChange={(d) => (d ? setUncompleteRange((prev) => new NullableRange(prev.startDate, d)) : null)} inputMode="end" />
               </View>
               <View style={{flex: 1}}>
                 <Button mode="elevated" onPress={onSubmit}>

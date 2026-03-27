@@ -174,6 +174,28 @@ describe('DateRangePicker', () => {
     expect(calledWith.endDate.toISOString().slice(0, 10)).toBe('2024-03-15');
   });
 
+  it('calendar remains responsive after a text-input Save (no stale instanceof breakage)', () => {
+    const setRange = jest.fn();
+    const {result} = setup(setRange);
+
+    // User edits both text inputs (no prior calendar tap)
+    act(() => {
+      mockStartInputRef.current?.onChange(new Date('2024-01-03T00:00:00.000Z'));
+    });
+    act(() => {
+      mockEndInputRef.current?.onChange(JAN_25);
+    });
+
+    // Press Save — applies the text-input range
+    fireEvent.press(result.getByTestId('button-Save-elevated'));
+    expect(setRange).toHaveBeenCalledTimes(1);
+
+    // The DatePickerModal prop must still be a NullableRange instance so the
+    // calendar's extracted() can respond to day taps.
+    // After the text-input edits the uncompleteRange must remain a NullableRange.
+    expect(mockDatePickerModalRef.current?.date).toBeInstanceOf(NullableRange);
+  });
+
   it('Save with both start and end selected applies the confirmed range', () => {
     const setRange = jest.fn();
     const {result} = setup(setRange);
