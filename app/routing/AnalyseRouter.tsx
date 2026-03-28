@@ -5,7 +5,7 @@ import {createDrawerNavigator} from '@react-navigation/drawer';
 import AnalyseGraphics from '../tabs/Analyse/AnalyseGraphics';
 import RecordsTab from '../tabs/Analyse/Records';
 import MetricsTab from '../tabs/Analyse/Metrics';
-import GraphsTab from '../tabs/Analyse/GraphsTab';
+import ExerciseGraphs from '../tabs/Analyse/ExerciseGraphs';
 import {IconButton, useTheme} from 'react-native-paper';
 import VideoAnalysisTab from '../tabs/Analyse/VideoAnalysisTab';
 import VideoAnalysisDetailTab from '../tabs/Analyse/VideoAnalysisDetailTab';
@@ -41,7 +41,7 @@ const AnalyseRouter = () => {
       />
       <Stack.Screen
         name="Graphs"
-        component={GraphsTab}
+        component={ExerciseGraphs}
         options={() => ({
           title: 'Exercise Graphs',
         })}

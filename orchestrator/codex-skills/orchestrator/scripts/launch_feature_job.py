@@ -132,6 +132,7 @@ def build_prompt(
     acceptance = "\n".join(f"- {item}" for item in ticket.get("acceptanceCriteria", [])) or "- none"
     constraints = "\n".join(f"- {item}" for item in ticket.get("constraints", [])) or "- none"
     components = "\n".join(f"- {item}" for item in ticket.get("components", [])) or "- none"
+    screens = "\n".join(f"- {item}" for item in ticket.get("screens", [])) or None
     feedback_items = review_feedback if review_feedback is not None else ticket.get("review_feedback", [])
     feedback = "\n".join(f"- {item}" for item in feedback_items) or "- none"
     proxy_instructions = ""
@@ -176,7 +177,7 @@ Constraints:
 
 Components:
 {components}
-
+{"" if screens is None else f"App screens (read these before implementing to understand the UI context):{chr(10)}{screens}"}
 Assigned execution context:
 - worktree_path: {worktree_path}
 - branch: {branch}

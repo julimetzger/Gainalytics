@@ -20,6 +20,7 @@ Expect the orchestrator prompt to provide:
 - `description`
 - `acceptanceCriteria`
 - optional `constraints`, `components`, `priority`
+- optional `screens` — paths to app screenshots under `orchestrator/AppStruktur/` that show the UI area affected by the ticket
 - `worktree_path`
 - `branch`
 - `emulator_serial`
@@ -42,10 +43,21 @@ If any of these are missing, write `needs_input` instead of guessing.
 - Store screenshots and check logs under `run_dir`.
 - Before starting, check `run_dir` for existing artifacts (logs, screenshots, commits). If a previous round was interrupted, reuse what is already there instead of repeating completed work.
 
+## App Structure Screenshots
+
+Screenshots of the most common app screens are stored under `orchestrator/AppStruktur/`:
+
+- `orchestrator/AppStruktur/analyse/` — Analyse tab screens (Analyse, ExerciseGraphs, History, MetricsOverview, Records, VideoAnalysisDetail, videoAnalysis)
+- `orchestrator/AppStruktur/exercises/` — Exercise tab screens (ExerciseHome, ExerciseTab, ExerciseHistory, Exercisestats)
+- `orchestrator/AppStruktur/training/` — Training tab screens (TrainingHome, TrainingOverview, TrainingActive, TrainingWorkouts, MicroOverviewTraining, PlanTraining, PlanSuggestion, EditTraining, addTraining)
+
+If the ticket provides a `screens` list, read those images before starting implementation to understand the visual context and UI patterns of the area you are changing.
+Even without an explicit `screens` list, consult the relevant screenshots in `orchestrator/AppStruktur/` when implementing UI changes.
+
 ## Workflow
 
 1. Confirm the branch and worktree state.
-2. Read the ticket, current code, and any prior feedback.
+2. Read the ticket, current code, relevant app screenshots, and any prior feedback.
 3. Implement the feature directly in the assigned worktree.
 4. Run the smallest relevant checks while iterating.
 5. Before review, run the final checks relevant to the change:
