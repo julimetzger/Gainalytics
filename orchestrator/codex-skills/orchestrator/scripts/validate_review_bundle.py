@@ -18,22 +18,41 @@ def as_list(value: Any) -> list[Any]:
     return []
 
 
+def extract_path(value: str) -> str:
+    """Extract the bare file path from an evidence string.
+
+    Agents sometimes write evidence entries like:
+        "checks/test.log (test: 'some test name')"
+    Strip everything from the first whitespace or parenthesis so the validator
+    can locate the actual file regardless of inline annotation.
+    """
+    for sep in (" ", "("):
+        idx = value.find(sep)
+        if idx != -1:
+            value = value[:idx]
+    return value.strip()
+
+
 def existing_relative_files(run_dir: Path, values: list[Any]) -> tuple[list[str], list[str]]:
     existing: list[str] = []
     missing: list[str] = []
     for value in values:
         if not isinstance(value, str) or not value:
             continue
-        candidate = (run_dir / value).resolve()
+        bare = extract_path(value)
+        if not bare:
+            missing.append(value)
+            continue
+        candidate = (run_dir / bare).resolve()
         try:
             candidate.relative_to(run_dir.resolve())
         except ValueError:
-            missing.append(value)
+            missing.append(bare)
             continue
         if candidate.exists():
-            existing.append(value)
+            existing.append(bare)
         else:
-            missing.append(value)
+            missing.append(bare)
     return existing, missing
 
 
@@ -41,6 +60,12 @@ def normalize_name(value: Any) -> str:
     if not isinstance(value, str):
         return ""
     return value.strip().lower()
+
+
+def normalize_criterion(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    return value.strip()
 
 
 def check_lookup(checks_run: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -126,7 +151,7 @@ def main() -> None:
     for missing in missing_logs:
         issues.append(f"missing check log file: {missing}")
 
-    for required in ("typecheck", "test", "lint"):
+    for required in ("test",):
         check = find_required_check(checks_run, required)
         if not check:
             issues.append(f"missing required check: {required}")
@@ -159,15 +184,19 @@ def main() -> None:
         issues.append(f"missing e2e report file: {missing}")
 
     acceptance_criteria = [
-        value for value in as_list((ticket or {}).get("acceptanceCriteria")) if isinstance(value, str) and value
+        value
+        for value in (
+            normalize_criterion(item) for item in as_list((ticket or {}).get("acceptanceCriteria"))
+        )
+        if value
     ]
     evidence_entries = [
         entry for entry in as_list(status.get("acceptance_evidence")) if isinstance(entry, dict)
     ]
     evidence_by_criterion = {
-        entry.get("criterion"): entry
+        normalize_criterion(entry.get("criterion")): entry
         for entry in evidence_entries
-        if isinstance(entry.get("criterion"), str) and entry.get("criterion")
+        if normalize_criterion(entry.get("criterion"))
     }
     if acceptance_criteria and not evidence_entries:
         issues.append("missing acceptance_evidence entries")

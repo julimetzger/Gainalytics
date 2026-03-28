@@ -2,12 +2,12 @@ id: TRN-001
 status: ready
 area: trainings
 priority: medium
-title: Show record comparison for the current micro in the training overview
+title: Show record comparison for the current micro in the training overview inside the trainingsplan (not on the TrainingHome)
 source:
   - TODOS.md:5
 description: >
-  Extend the existing training overview card so the current micro shows a dedicated
-  record metric and a comparison against the previous micro. The goal is to make the
+  Extend the existing MicroOverview so the current micro shows a dedicated
+  record metric and a comparison against the previous micro in a card. The goal is to make the
   record trend visible without relying on the compact footer text.
 components:
   - app/components/Training/analyse/TrainingOverviewCard.tsx

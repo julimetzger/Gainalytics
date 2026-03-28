@@ -28,6 +28,7 @@ Always prefer the bundled scripts instead of re-implementing the mechanics in th
 - `scripts/reserve_emulators.py`
 - `scripts/create_worktree.py`
 - `scripts/launch_feature_job.py`
+- `scripts/monitor_feedback.py`
 - `scripts/read_run_status.py`
 - `scripts/validate_review_bundle.py`
 - `scripts/update_state.py`
@@ -40,6 +41,7 @@ Handle these intents:
 
 - Start or add tickets from the current prompt.
 - Show status for running, queued, blocked, or review-ready tickets.
+- Enable periodic feedback for active tickets, for example every 5 minutes.
 - Apply `feedback <ticket-id>: ...` to an existing ticket.
 - Apply `accept <ticket-id>` to close a review-ready ticket and release its emulator.
 
@@ -76,14 +78,23 @@ If any required field is missing, ask the user once before launching a worker.
    - if emulator discovery returns an adb error, surface that error clearly and leave new tickets queued
 6. For each startable ticket:
    - create or reuse the local feature worktree
+     - default worktree mode is `resume`
+     - use `scripts/create_worktree.py --worktree-mode fresh` only when the user explicitly asks for a clean or fresh start
    - create or reuse the run directory
-   - launch one external `codex exec` worker
+   - launch one external worker via `scripts/launch_feature_job.py` (pass `--runner claude` when running as Claude Code, omit or pass `--runner codex` for Codex)
    - record `job_id`, branch, worktree, emulator, and status `running`
 7. Summarize:
    - newly started tickets
    - tickets waiting for input
    - tickets ready for review
+   - blocked agents and their blocker text
    - tickets still queued because no emulator was free
+
+If the user asks for automatic feedback while runs are active:
+
+- start `scripts/monitor_feedback.py --watch --interval-seconds 300`
+- use its generated summaries under `.codex-orchestrator/monitor/`
+- surface the latest ticket status and blocked-agent list when reporting back
 
 ## Review And Question Handling
 
@@ -122,14 +133,24 @@ When a worker reports `ready_for_review`:
 
 Launch workers through `scripts/launch_feature_job.py`.
 
+The script supports two runners via `--runner`:
+
+- `--runner codex` (default): launches `codex exec --full-auto` — use when running as a Codex orchestrator
+- `--runner claude`: launches `claude --allowedTools Bash,Read,Write,Edit,Glob,Grep -p` — use when running as a Claude Code orchestrator
+
 Each worker must:
 
-- use `$feature`
 - work directly in the assigned local worktree
 - use the assigned emulator through `ANDROID_SERIAL`
 - write `status.json` and `summary.md` to the run directory before exiting
 
 The worker lifecycle is resumable rounds, not one permanently attached process.
+
+## Memory
+
+At the end of every orchestrator session — after summarizing ticket statuses — run
+`$memory` to capture non-obvious learnings from this session into
+`docs/memory/orchestrator-memory.md`. Skip if nothing new was learned.
 
 ## Final Response Shape
 

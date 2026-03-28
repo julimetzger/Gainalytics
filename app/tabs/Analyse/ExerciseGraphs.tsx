@@ -19,7 +19,7 @@ import {generateTrend} from '../../utils/generateTrend';
 import {Metric} from "../../models/Metric";
 import {AccumulationMode} from '../../models/AccumulationMode';
 
-const GraphsTab = () => {
+const ExerciseGraphs = () => {
   let now = new Date(Date.now());
   const [range, setRange] = useState(new Range(subtractMonths(3, firstDayOfWeek(now, 1)), lastDayOfWeek(now, 0)));
   const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumulationMode.SINGLE_DAY));
@@ -198,6 +198,6 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GraphsTab;
+export default ExerciseGraphs;
 
 export type Props = NativeStackScreenProps<RootStackParamList, 'Graphs'>;

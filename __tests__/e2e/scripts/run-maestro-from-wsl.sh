@@ -14,6 +14,8 @@ ADB_HOST="${E2E_ADB_HOST:-}"
 ADB_PORT="${E2E_ADB_PORT:-5037}"
 MAESTRO_RUN_HOME="${E2E_MAESTRO_HOME:-${REPO_ROOT}/__tests__/reports/.maestro-home}"
 METRO_PORT="${E2E_METRO_PORT:-8081}"
+DEVICE_METRO_PORT="${E2E_DEVICE_METRO_PORT:-8081}"
+DRIVER_HOST_PORT="${E2E_MAESTRO_DRIVER_PORT:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -47,6 +49,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --adb-port)
       ADB_PORT="$2"
+      shift 2
+      ;;
+    --metro-port)
+      METRO_PORT="$2"
+      shift 2
+      ;;
+    --device-metro-port)
+      DEVICE_METRO_PORT="$2"
+      shift 2
+      ;;
+    --driver-host-port)
+      DRIVER_HOST_PORT="$2"
       shift 2
       ;;
     *)
@@ -93,10 +107,14 @@ run_maestro_test() {
   local debug_dir
   debug_dir="$(dirname "${REPORT_PATH}")/maestro-debug"
   mkdir -p "${debug_dir}"
+  local maestro_test_args=("${MAESTRO_ARGS[@]}")
+  if [[ -n "${DRIVER_HOST_PORT}" ]]; then
+    maestro_test_args+=(--driver-host-port "${DRIVER_HOST_PORT}")
+  fi
   HOME="${MAESTRO_RUN_HOME}" \
     XDG_CACHE_HOME="${MAESTRO_RUN_HOME}/.cache" \
     MAESTRO_CLI_NO_ANALYTICS=1 \
-    maestro "${MAESTRO_ARGS[@]}" test "${SUITE_PATH}" --format junit --output "${REPORT_PATH}" --debug-output "${debug_dir}"
+    maestro "${maestro_test_args[@]}" test "${SUITE_PATH}" --format junit --output "${REPORT_PATH}" --debug-output "${debug_dir}"
 }
 
 if [[ "${MODE}" == "build" ]]; then
@@ -123,7 +141,7 @@ if [[ "${MODE}" == "bootstrap" || "${MODE}" == "full" || "${MODE}" == "smoke" ]]
     exit 127
   fi
   adb_cmd push "${FIXTURE_PATH}" "/sdcard/Download/baseline.gains"
-  adb_cmd reverse "tcp:${METRO_PORT}" "tcp:${METRO_PORT}" >/dev/null 2>&1 || true
+  adb_cmd reverse "tcp:${DEVICE_METRO_PORT}" "tcp:${METRO_PORT}" >/dev/null 2>&1 || true
   adb_cmd shell am force-stop "${APP_ID}" >/dev/null 2>&1 || true
 fi
 
