@@ -115,7 +115,8 @@ const TrainingLengthTab = () => {
       }
 
       const selectedBucketForX = buckets.find((bucket) => Math.abs(bucket.x - selectedX) < 0.0001);
-      setSelectedBucketKey(selectedBucketForX?.key ?? null);
+      const nextKey = selectedBucketForX?.key ?? null;
+      setSelectedBucketKey((prev) => (prev === nextKey ? null : nextKey));
     },
     [buckets],
   );

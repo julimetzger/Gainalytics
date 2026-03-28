@@ -191,6 +191,28 @@ describe('TrainingLengthTab', () => {
     expect(getByText('1 h')).toBeTruthy();
   });
 
+  it('hides the bucket details when the same bar is tapped a second time', () => {
+    mockedUseAllTrainingsPlans.mockReturnValue([]);
+    mockedUseCompletedTrainingsIn.mockReturnValue([
+      createTraining({
+        id: 1,
+        state: TrainingsState.FINISHED,
+        start: new Date('2026-03-12T09:00:00.000Z'),
+        end: new Date('2026-03-12T10:30:00.000Z'),
+      }),
+    ]);
+
+    const {getByTestId, queryByTestId} = render(<TrainingLengthTab />);
+
+    expect(queryByTestId('training-length-selected-bucket')).toBeNull();
+
+    fireEvent.press(getByTestId('mock-bar-chart-select'));
+    expect(getByTestId('training-length-selected-bucket')).toBeTruthy();
+
+    fireEvent.press(getByTestId('mock-bar-chart-select'));
+    expect(queryByTestId('training-length-selected-bucket')).toBeNull();
+  });
+
   it('shows a clear empty state when no completed trainings are available', () => {
     mockedUseAllTrainingsPlans.mockReturnValue([]);
     mockedUseCompletedTrainingsIn.mockReturnValue([]);
