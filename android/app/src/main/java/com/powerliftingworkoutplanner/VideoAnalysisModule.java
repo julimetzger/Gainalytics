@@ -71,7 +71,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             boolean isUint8Input);
     private static final int DEFAULT_DURATION_MS = 6000;
     private static final double DEFAULT_SOURCE_FPS = 30.0;
-    private static final double FIXED_ANALYZED_FPS = 30.0;
+    private static final double FIXED_ANALYZED_FPS = 20.0;
     private static final int MODEL_INPUT_SIZE = 320;
     private static final int MAX_CANDIDATES = 20;
     private static final int MIN_FEATURE_VECTOR_LENGTH = 5;
