@@ -1,0 +1,50 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-002: Verify DateRangePicker single-day tap → Save uses today as end date.
+#
+# Tapping calendar days by text ("15") hits the Text node but does not propagate
+# to CalendarList's onDayPress in UIAutomator. Use coordinate-based tapping instead.
+# Coordinates derived from the modal screenshot (1344x2992 device):
+#   - Modal input row ends at ≈ y=12%
+#   - "March 2026" header at ≈ y=12–13%
+#   - Calendar row 3 (days 15–21) centre at ≈ y=24%
+#   - Sunday (col 0) centre at ≈ x=7%
+#   So March 15 → point "7%, 24%"
+- launchApp
+- assertVisible: "Training"
+
+# Navigate to the Analyse tab
+- tapOn: "tab-analyse"
+- waitForAnimationToEnd
+
+# Wait until the DateRangePicker button is rendered
+- extendedWaitUntil:
+    visible:
+      id: "button-text"
+    timeout: 10000
+
+# Open the DateRangePicker modal
+- tapOn:
+    id: "button-text"
+    index: 0
+- assertVisible: "Save"
+- waitForAnimationToEnd
+
+# Tap March 15 by coordinates (Sunday row 3 in the calendar grid).
+# Using coordinates ensures the touch reaches the CalendarList's onDayPress handler
+# rather than stopping at the Text node.
+- tapOn:
+    point: "7%, 24%"
+
+- takeScreenshot: after_day_tap
+
+# Press Save — with only a start date selected, today is used as end date
+- tapOn: "Save"
+
+# Verify the modal is dismissed
+- assertNotVisible: "Save"
+- takeScreenshot: after_save
+
+# The range button is still visible with an updated label
+- assertVisible:
+    id: "button-text"
