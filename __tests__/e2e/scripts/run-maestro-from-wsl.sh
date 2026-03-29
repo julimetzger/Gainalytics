@@ -16,6 +16,7 @@ MAESTRO_RUN_HOME="${E2E_MAESTRO_HOME:-${REPO_ROOT}/__tests__/reports/.maestro-ho
 METRO_PORT="${E2E_METRO_PORT:-8081}"
 DEVICE_METRO_PORT="${E2E_DEVICE_METRO_PORT:-8081}"
 DRIVER_HOST_PORT="${E2E_MAESTRO_DRIVER_PORT:-}"
+DEVICE_ID="${ANDROID_SERIAL:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -63,6 +64,10 @@ while [[ $# -gt 0 ]]; do
       DRIVER_HOST_PORT="$2"
       shift 2
       ;;
+    --device|--udid)
+      DEVICE_ID="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown argument: $1" >&2
       exit 1
@@ -93,14 +98,32 @@ if [[ -n "${ADB_HOST}" ]]; then
 else
   unset ADB_SERVER_SOCKET || true
 fi
+if [[ -n "${DEVICE_ID}" ]]; then
+  ADB_ARGS+=(-s "${DEVICE_ID}")
+fi
 
 MAESTRO_ARGS=()
 if [[ -n "${MAESTRO_HOST}" ]]; then
   MAESTRO_ARGS=(--host "${MAESTRO_HOST}")
 fi
+if [[ -n "${DEVICE_ID}" ]]; then
+  MAESTRO_ARGS+=(--device "${DEVICE_ID}")
+fi
 
 adb_cmd() {
   adb "${ADB_ARGS[@]}" "$@"
+}
+
+require_explicit_device_if_needed() {
+  if [[ -z "${DEVICE_ID}" ]]; then
+    echo "Refusing to run Maestro without an explicit emulator device. Set ANDROID_SERIAL or pass --device/--udid." >&2
+    exit 2
+  fi
+
+  if [[ "${DEVICE_ID}" != emulator-* ]]; then
+    echo "Refusing to run Maestro on non-emulator device '${DEVICE_ID}'." >&2
+    exit 2
+  fi
 }
 
 run_maestro_test() {
@@ -122,12 +145,20 @@ if [[ "${MODE}" == "build" ]]; then
     echo "adb is required in WSL PATH for build mode." >&2
     exit 127
   fi
+  require_explicit_device_if_needed
   cd "${REPO_ROOT}/android"
   if [[ -x "./gradlew" ]]; then
-    ./gradlew installDebug
+    ./gradlew assembleDebug
   else
-    bash ./gradlew installDebug
+    bash ./gradlew assembleDebug
   fi
+  APK_PATH="${REPO_ROOT}/android/app/build/outputs/apk/debug/app-debug.apk"
+  if [[ ! -f "${APK_PATH}" ]]; then
+    echo "Debug APK not found at ${APK_PATH} after assembleDebug." >&2
+    exit 1
+  fi
+  adb_cmd wait-for-device
+  adb_cmd install -r "${APK_PATH}"
   exit 0
 fi
 
@@ -140,6 +171,7 @@ if [[ "${MODE}" == "bootstrap" || "${MODE}" == "full" || "${MODE}" == "smoke" ]]
     echo "maestro is required in WSL PATH." >&2
     exit 127
   fi
+  require_explicit_device_if_needed
   adb_cmd push "${FIXTURE_PATH}" "/sdcard/Download/baseline.gains"
   adb_cmd reverse "tcp:${DEVICE_METRO_PORT}" "tcp:${METRO_PORT}" >/dev/null 2>&1 || true
   adb_cmd shell am force-stop "${APP_ID}" >/dev/null 2>&1 || true

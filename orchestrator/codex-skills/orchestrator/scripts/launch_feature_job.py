@@ -187,7 +187,10 @@ Assigned execution context:
 - summary_md: {run_dir / "summary.md"}
 
 Environment:
-- honor ANDROID_SERIAL={emulator_serial}
+- export ANDROID_SERIAL={emulator_serial} for child processes
+- in every direct adb command, pass `-s {emulator_serial}` explicitly and do not rely on adb default device selection
+- in every direct maestro command, pass `--device {emulator_serial}` explicitly
+- never target a non-emulator device such as `R5CN30HWZFN`
 - if adb host or socket variables are already present in the environment, keep using them
 {proxy_instructions}
 {metro_instructions}
@@ -289,7 +292,6 @@ def main() -> None:
             "-c", "sandbox_workspace_write.network_access=true",
             "-c", "shell_environment_policy.inherit=all",
             "--full-auto",
-            "--verbose",
             "--add-dir", state_root,
             "-C", str(worktree_path),
             prompt,

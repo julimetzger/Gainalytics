@@ -33,7 +33,10 @@ If any of these are missing, write `needs_input` instead of guessing.
 
 - Work only inside the assigned worktree.
 - Use the assigned branch.
-- Export or honor `ANDROID_SERIAL=<emulator_serial>` for device commands.
+- Export `ANDROID_SERIAL=<emulator_serial>` for child processes, but do not rely on adb default device selection.
+- In every direct adb command, pass `-s "$ANDROID_SERIAL"` explicitly.
+- In every direct Maestro command, pass `--device "$ANDROID_SERIAL"` explicitly.
+- Never target a non-emulator device.
 - Reuse existing adb host or socket environment when it is already configured by the orchestrator.
 - If the orchestrator already provided a host Metro process or `E2E_METRO_PORT`, reuse it and do not start another packager.
 - Before running Metro-dependent app or Maestro checks, ensure Metro is reachable. Only if no host Metro was provided should you start `npm start -- --host 0.0.0.0 --port 8081`.
@@ -76,7 +79,7 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
 Use commands like these when they fit the ticket:
 
 ```bash
-adb exec-out screencap -p > "<run_dir>/screenshots/final.png"
+adb -s "$ANDROID_SERIAL" exec-out screencap -p > "<run_dir>/screenshots/final.png"
 bash ./__tests__/e2e/scripts/run-maestro-from-wsl.sh --mode smoke --device "$ANDROID_SERIAL" > "<run_dir>/checks/maestro-smoke.log" 2>&1
 npm run typecheck > "<run_dir>/checks/typecheck.log" 2>&1
 npm test > "<run_dir>/checks/test.log" 2>&1
