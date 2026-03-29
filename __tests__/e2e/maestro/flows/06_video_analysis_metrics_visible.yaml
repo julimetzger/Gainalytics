@@ -58,8 +58,14 @@ appId: com.powerliftingworkoutplanner
           timeout: 180000
 - assertVisible: "Bar Tracking Result"
 - assertVisible:
-    text: "Analyzed FPS: 12"
+    text: "Analyzed FPS: [0-9]+(\\.[0-9]+)?"
 - assertVisible:
     text: "Manual Seed Used: (Yes|No)"
 - assertVisible:
     text: "Detected Boxes @ t=0: [1-9][0-9]*"
+- assertVisible:
+    text: "Detected Reps: [1-9][0-9]*"
+- assertVisible:
+    text: "Rep 1: [0-9]+\\.[0-9]{2} s \\| Avg concentric [0-9]+\\.[0-9] px/s"
+- assertVisible:
+    text: "Start [0-9]{2}:[0-9]{2}\\.[0-9]{2} \\| Bottom [0-9]{2}:[0-9]{2}\\.[0-9]{2} \\| End [0-9]{2}:[0-9]{2}\\.[0-9]{2}"

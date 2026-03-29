@@ -1,9 +1,10 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {LayoutChangeEvent, StyleSheet, View, processColor} from 'react-native';
 import {Button, MD3Theme, Text, useTheme} from 'react-native-paper';
-import {LineChart, LineValue} from 'react-native-charts-wrapper';
+import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment} from '../../models/entities/VideoAnalysis';
 import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
+import {calculateBarVerticalVelocitySeries, smoothBarPathSeries} from '../../utils/video-analysis-signal';
 
 interface Props {
   localVideoPath: string;
@@ -22,6 +23,14 @@ interface OverlayPoint {
   y: number;
 }
 
+interface OverlayLineSegment {
+  key: string;
+  centerX: number;
+  centerY: number;
+  width: number;
+  angleRad: number;
+}
+
 interface TimePlotPoint {
   key: string;
   x: number;
@@ -31,10 +40,10 @@ interface TimePlotPoint {
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
 const TIME_PLOT_HEIGHT = 112;
 const SPEED_PLOT_HEIGHT = 180;
-const BAR_PATH_SMOOTHING_WINDOW = 5;
-const SPEED_SMOOTHING_WINDOW = 5;
 const PLAYBACK_UI_UPDATE_INTERVAL_MS = 50;
 const PENDING_SEEK_MATCH_THRESHOLD_MS = 200;
+const PATH_SEGMENT_THICKNESS = 4;
+const ACTIVE_REP_PATH_COLOR = '#63A002';
 
 const formatDuration = (timeMs: number) => {
   const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
@@ -47,64 +56,6 @@ const formatDuration = (timeMs: number) => {
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.max(min, Math.min(max, value));
-};
-
-const smoothNumberSeries = (values: number[], windowSize: number): number[] => {
-  if (values.length === 0 || windowSize <= 1) {
-    return values;
-  }
-
-  const halfWindow = Math.floor(windowSize / 2);
-  return values.map((_, index) => {
-    const start = Math.max(0, index - halfWindow);
-    const end = Math.min(values.length - 1, index + halfWindow);
-    let sum = 0;
-    let count = 0;
-    for (let cursor = start; cursor <= end; cursor += 1) {
-      sum += values[cursor];
-      count += 1;
-    }
-    return count > 0 ? sum / count : 0;
-  });
-};
-
-const smoothBarPathSeries = (barPathSeries: BarPathPoint[]): BarPathPoint[] => {
-  if (barPathSeries.length < 3) {
-    return barPathSeries;
-  }
-
-  const smoothedX = smoothNumberSeries(
-    barPathSeries.map((point) => point.x),
-    BAR_PATH_SMOOTHING_WINDOW,
-  );
-  const smoothedY = smoothNumberSeries(
-    barPathSeries.map((point) => point.y),
-    BAR_PATH_SMOOTHING_WINDOW,
-  );
-
-  return barPathSeries.map((point, index) => ({
-    ...point,
-    x: smoothedX[index],
-    y: smoothedY[index],
-  }));
-};
-
-const calculateBarVerticalVelocitySeries = (barPathSeries: BarPathPoint[]): number[] => {
-  if (barPathSeries.length === 0) {
-    return [];
-  }
-
-  const rawVerticalVelocities = barPathSeries.map((_, index) => {
-    const previous = barPathSeries[Math.max(0, index - 1)];
-    const next = barPathSeries[Math.min(barPathSeries.length - 1, index + 1)];
-    const deltaTimeMs = Math.max(1, next.tMs - previous.tMs);
-    const deltaTimeSeconds = deltaTimeMs / 1000;
-    // Screen-space y increases downward; expose physics-friendly sign:
-    // downward movement => negative v_y, upward movement => positive v_y.
-    return (previous.y - next.y) / deltaTimeSeconds;
-  });
-
-  return smoothNumberSeries(rawVerticalVelocities, SPEED_SMOOTHING_WINDOW);
 };
 
 const getTimeRange = (barPathSeries: BarPathPoint[]): TimeRange => {
@@ -192,6 +143,49 @@ const mapBarPathToOverlay = (
   }));
 };
 
+const buildOverlayLineSegments = (overlayPoints: OverlayPoint[]): OverlayLineSegment[] => {
+  if (overlayPoints.length < 2) {
+    return [];
+  }
+
+  const segments: OverlayLineSegment[] = [];
+  for (let index = 1; index < overlayPoints.length; index += 1) {
+    const previousPoint = overlayPoints[index - 1];
+    const nextPoint = overlayPoints[index];
+    const deltaX = nextPoint.x - previousPoint.x;
+    const deltaY = nextPoint.y - previousPoint.y;
+    const width = Math.hypot(deltaX, deltaY);
+    if (width < 1) {
+      continue;
+    }
+
+    segments.push({
+      key: `${previousPoint.key}-${nextPoint.key}`,
+      centerX: (previousPoint.x + nextPoint.x) / 2,
+      centerY: (previousPoint.y + nextPoint.y) / 2,
+      width,
+      angleRad: Math.atan2(deltaY, deltaX),
+    });
+  }
+
+  return segments;
+};
+
+const selectOverlayPointsForRep = (
+  overlayPoints: OverlayPoint[],
+  barPathSeries: BarPathPoint[],
+  repSegment: RepSegment | undefined,
+) => {
+  if (!repSegment || overlayPoints.length === 0 || barPathSeries.length === 0) {
+    return [];
+  }
+
+  return overlayPoints.filter((_, index) => {
+    const point = barPathSeries[index];
+    return !!point && point.tMs >= repSegment.startMs && point.tMs <= repSegment.endMs;
+  });
+};
+
 const mapBarPathToTimePlot = (barPathSeries: BarPathPoint[], plotWidth: number, plotHeight: number, trackingFrameHeightPx?: number): TimePlotPoint[] => {
   if (barPathSeries.length === 0 || plotWidth <= 0 || plotHeight <= 0) {
     return [];
@@ -271,8 +265,8 @@ const createThemedStyles = (theme: MD3Theme) =>
     previewBackground: {
       backgroundColor: theme.colors.surfaceVariant,
     },
-    historyPoint: {
-      backgroundColor: theme.colors.onSurfaceVariant,
+    fullPathSegment: {
+      backgroundColor: theme.colors.outlineVariant,
     },
     scrubberTrack: {
       backgroundColor: theme.colors.surfaceVariant,
@@ -297,6 +291,9 @@ const createThemedStyles = (theme: MD3Theme) =>
     },
     speedPlotBackground: {
       backgroundColor: theme.colors.surfaceVariant,
+    },
+    activeRepPathSegment: {
+      backgroundColor: ACTIVE_REP_PATH_COLOR,
     },
   });
 
@@ -377,6 +374,16 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       smoothedBarPathSeries,
     ],
   );
+  const fullPathOverlaySegments = useMemo(() => buildOverlayLineSegments(historyOverlayPoints), [historyOverlayPoints]);
+  const activeRepSegment = useMemo(
+    () => repSegments.find((segment) => segment.repIndex === currentRepIndex),
+    [currentRepIndex, repSegments],
+  );
+  const activeRepOverlayPoints = useMemo(
+    () => selectOverlayPointsForRep(historyOverlayPoints, smoothedBarPathSeries, activeRepSegment),
+    [activeRepSegment, historyOverlayPoints, smoothedBarPathSeries],
+  );
+  const activeRepOverlaySegments = useMemo(() => buildOverlayLineSegments(activeRepOverlayPoints), [activeRepOverlayPoints]);
   const scrubberProgress = correctedPlaybackDurationMs > 0 ? clamp(playbackTimeMs / correctedPlaybackDurationMs, 0, 1) : 0;
   const timePlotPoints = useMemo(
     () => mapBarPathToTimePlot(smoothedBarPathSeries, timePlotWidth, TIME_PLOT_HEIGHT, result.analysisMeta.trackingFrameHeightPx),
@@ -578,7 +585,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   }, []);
 
   const onSpeedChartSelect = useCallback(
-    (event: {nativeEvent?: {x?: number}}) => {
+    (event: ChartSelectEvent) => {
       const x = event.nativeEvent?.x;
       if (x === undefined) {
         return;
@@ -639,19 +646,44 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           onEnd={onPlayerEnd}
         />
         <View pointerEvents="none" style={styles.historyOverlayLayer}>
-          {historyOverlayPoints.map((point) => (
-            <View
-              key={point.key}
-              style={[
-                styles.historyPoint,
-                themedStyles.historyPoint,
-                {
-                  left: point.x - 1,
-                  top: point.y - 1,
-                },
-              ]}
-            />
-          ))}
+          {fullPathOverlaySegments.length > 0 ? (
+            <View testID="video-analysis-playback-full-path" style={styles.historyOverlayLayer}>
+              {fullPathOverlaySegments.map((segment) => (
+                <View
+                  key={segment.key}
+                  style={[
+                    styles.pathSegment,
+                    themedStyles.fullPathSegment,
+                    {
+                      left: segment.centerX - segment.width / 2,
+                      top: segment.centerY - PATH_SEGMENT_THICKNESS / 2,
+                      width: segment.width,
+                      transform: [{rotateZ: `${segment.angleRad}rad`}],
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+          ) : null}
+          {activeRepOverlaySegments.length > 0 ? (
+            <View testID="video-analysis-playback-active-rep-path" style={styles.historyOverlayLayer}>
+              {activeRepOverlaySegments.map((segment) => (
+                <View
+                  key={segment.key}
+                  style={[
+                    styles.pathSegment,
+                    themedStyles.activeRepPathSegment,
+                    {
+                      left: segment.centerX - segment.width / 2,
+                      top: segment.centerY - PATH_SEGMENT_THICKNESS / 2,
+                      width: segment.width,
+                      transform: [{rotateZ: `${segment.angleRad}rad`}],
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+          ) : null}
         </View>
       </View>
 
@@ -841,12 +873,11 @@ const styles = StyleSheet.create({
   historyOverlayLayer: {
     ...StyleSheet.absoluteFillObject,
   },
-  historyPoint: {
+  pathSegment: {
     position: 'absolute',
-    width: 2,
-    height: 2,
-    borderRadius: 1,
-    opacity: 0.18,
+    height: PATH_SEGMENT_THICKNESS,
+    borderRadius: PATH_SEGMENT_THICKNESS / 2,
+    opacity: 0.92,
   },
   overlayHint: {
     marginBottom: 10,

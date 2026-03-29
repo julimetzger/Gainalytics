@@ -34,8 +34,52 @@ interface PreviewDimensions {
   height: number;
 }
 
+interface RepSummaryItem {
+  repIndex: number;
+  startMs: number;
+  bottomMs: number;
+  endMs: number;
+  repTimeMs: number;
+  averageConcentricSpeedPxPerS?: number;
+}
+
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
 const DEFAULT_PREVIEW_DIMENSIONS: PreviewDimensions = {width: 1600, height: 900};
+
+const formatRepTimestamp = (timeMs: number) => {
+  const totalCentiseconds = Math.max(0, Math.round(timeMs / 10));
+  const minutes = Math.floor(totalCentiseconds / 6000)
+    .toString()
+    .padStart(2, '0');
+  const seconds = Math.floor((totalCentiseconds % 6000) / 100)
+    .toString()
+    .padStart(2, '0');
+  const centiseconds = (totalCentiseconds % 100).toString().padStart(2, '0');
+  return `${minutes}:${seconds}.${centiseconds}`;
+};
+
+const formatRepDurationSeconds = (timeMs: number) => {
+  return (Math.max(0, timeMs) / 1000).toFixed(2);
+};
+
+const buildRepSummaryItems = (result?: BarTrackingResult): RepSummaryItem[] => {
+  if (!result) {
+    return [];
+  }
+
+  const metricsByRepIndex = new Map(result.repMetrics.map((metric) => [metric.repIndex, metric]));
+  return result.repSegments.map((segment) => {
+    const metric = metricsByRepIndex.get(segment.repIndex);
+    return {
+      repIndex: segment.repIndex,
+      startMs: segment.startMs,
+      bottomMs: segment.bottomMs,
+      endMs: segment.endMs,
+      repTimeMs: metric?.repTimeMs ?? Math.max(0, segment.endMs - segment.startMs),
+      averageConcentricSpeedPxPerS: metric?.averageConcentricSpeedPxPerS,
+    };
+  });
+};
 
 const mapPointsToOverlay = (
   barPathSeries: BarPathPoint[],
@@ -278,6 +322,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       result?.analysisMeta.trackingFrameWidthPx,
     ],
   );
+  const repSummaryItems = useMemo(() => buildRepSummaryItems(result), [result]);
 
   const onOverlayLayout = (event: LayoutChangeEvent) => {
     const {width, height} = event.nativeEvent.layout;
@@ -347,6 +392,27 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
               <Text>Manual Seed Used: {result.analysisMeta.manualSeedUsed ? 'Yes' : 'No'}</Text>
               <Text>Detected Boxes @ t=0: {result.analysisMeta.detectedBoxesAtStart?.length ?? 0}</Text>
               <Text>Quality Flags: {result.qualityFlags.join(', ') || 'None'}</Text>
+              <Text testID="video-analysis-detail-rep-count">Detected Reps: {repSummaryItems.length}</Text>
+              {repSummaryItems.length === 0 ? (
+                <Text testID="video-analysis-detail-rep-empty">No reliable reps detected from the tracked motion.</Text>
+              ) : (
+                <View testID="video-analysis-detail-rep-summary" style={styles.repSummaryList}>
+                  {repSummaryItems.map((repSummary) => (
+                    <View key={repSummary.repIndex} style={styles.repSummaryItem}>
+                      <Text testID={`video-analysis-detail-rep-${repSummary.repIndex}`}>
+                        {`Rep ${repSummary.repIndex}: ${formatRepDurationSeconds(repSummary.repTimeMs)} s | Avg concentric ${
+                          repSummary.averageConcentricSpeedPxPerS !== undefined
+                            ? repSummary.averageConcentricSpeedPxPerS.toFixed(1)
+                            : '-'
+                        } px/s`}
+                      </Text>
+                      <Text style={styles.repSummaryDetail}>
+                        {`Start ${formatRepTimestamp(repSummary.startMs)} | Bottom ${formatRepTimestamp(repSummary.bottomMs)} | End ${formatRepTimestamp(repSummary.endMs)}`}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </>
           )}
         </Card.Content>
@@ -483,6 +549,16 @@ const styles = StyleSheet.create({
   },
   overlayHint: {
     marginBottom: 10,
+  },
+  repSummaryList: {
+    marginTop: 8,
+    gap: 8,
+  },
+  repSummaryItem: {
+    gap: 2,
+  },
+  repSummaryDetail: {
+    opacity: 0.75,
   },
 });
 

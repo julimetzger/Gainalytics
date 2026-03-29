@@ -3,7 +3,7 @@ import {PersistGate} from 'redux-persist/integration/react';
 import {Provider} from 'react-redux';
 import configureStore from './configureStore';
 import {NavigationContainer} from '@react-navigation/native';
-import {MD3DarkTheme as PaperDarkTheme, MD3LightTheme, Provider as PaperProvider} from 'react-native-paper';
+import {MD3DarkTheme as PaperDarkTheme, MD3LightTheme, Provider as PaperProvider, Text} from 'react-native-paper';
 import {BottomTabs} from './app/routing/bottomNavigator';
 import {EventProvider} from 'react-native-outside-press';
 import {registerTranslation} from 'react-native-paper-dates';
@@ -1014,7 +1014,7 @@ const AppWithPersist = () => {
   let paperThemes = appSettings?.mode === 'light' ? LightThemeCombined : DarkTheme;
 
   return (
-    <PersistGate loading={null} persistor={persistor}>
+    <PersistGate loading={<Text testID="app-persist-loading">Loading app...</Text>} persistor={persistor}>
       <PaperProvider theme={paperThemes}>
         <SafeAreaProvider>
           <EventProvider>

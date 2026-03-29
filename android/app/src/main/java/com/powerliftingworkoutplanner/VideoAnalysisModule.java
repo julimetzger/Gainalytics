@@ -77,6 +77,14 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final int MIN_FEATURE_VECTOR_LENGTH = 5;
     private static final int MAX_FEATURE_VECTOR_LENGTH = 64;
     private static final long DECODER_TIMEOUT_US = 10_000L;
+    private static final int REP_SIGNAL_SMOOTHING_WINDOW = 5;
+    private static final double REP_MIN_STRONG_VELOCITY_PX_PER_S = 24.0;
+    private static final double REP_STRONG_VELOCITY_THRESHOLD_RATIO = 0.18;
+    private static final double REP_MIN_DISPLACEMENT_PX = 18.0;
+    private static final double REP_MIN_DISPLACEMENT_RATIO = 0.12;
+    private static final int REP_MIN_RUN_SAMPLES = 2;
+    private static final int REP_MIN_DURATION_MS = 500;
+    private static final int REP_MIN_CONCENTRIC_DURATION_MS = 200;
 
     private static final float DETECTION_CONFIDENCE_THRESHOLD = 0.2f;
     private static final float NMS_IOU_THRESHOLD = 0.45f;
@@ -262,8 +270,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             result.put("units", "px/s");
             result.put("barPathSeries", trackingSeries.barPathSeries);
             result.put("confidenceSeries", trackingSeries.confidenceSeries);
-            result.put("repSegments", new JSONArray());
-            result.put("repMetrics", new JSONArray());
+            RepDetectionResult repDetectionResult = detectRepsFromTrackedMotion(trackingSeries.trackedPoints);
+            result.put("repSegments", repDetectionResult.repSegments);
+            result.put("repMetrics", repDetectionResult.repMetrics);
 
             JSONObject analysisMeta = new JSONObject();
             analysisMeta.put("sourceFps", roundTo3(sourceFps));
@@ -289,6 +298,8 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             qualityFlags.put("BOX_FORMAT:xyxy");
             qualityFlags.put("PLAUSIBILITY_MAX_JUMP:" + PLAUSIBILITY_MAX_JUMP_NORMALIZED);
             qualityFlags.put("ANALYZED_FPS:" + roundTo3(analyzedFps));
+            qualityFlags.put("REP_DETECTION:velocity_zero_crossings");
+            qualityFlags.put("REP_COUNT:" + repDetectionResult.repCount);
             qualityFlags.put(previewFramePath == null ? "PREVIEW_FRAME_MISSING" : "PREVIEW_FRAME_READY");
             if (manualSelection != null) {
                 qualityFlags.put("MANUAL_SEED_USED");
@@ -352,6 +363,325 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             array.put(candidate.toJsonBox());
         }
         return array;
+    }
+
+    private void appendAcceptedTrackingSample(
+        TrackingSeries series,
+        int timeMs,
+        double xPx,
+        double yPx,
+        double score
+    ) throws Exception {
+        double roundedX = roundTo3(xPx);
+        double roundedY = roundTo3(yPx);
+        double roundedScore = roundTo3(score);
+
+        JSONObject barPoint = new JSONObject();
+        barPoint.put("tMs", timeMs);
+        barPoint.put("x", roundedX);
+        barPoint.put("y", roundedY);
+        series.barPathSeries.put(barPoint);
+
+        JSONObject confidencePoint = new JSONObject();
+        confidencePoint.put("tMs", timeMs);
+        confidencePoint.put("score", roundedScore);
+        series.confidenceSeries.put(confidencePoint);
+
+        TrackedBarPoint trackedPoint = new TrackedBarPoint();
+        trackedPoint.tMs = timeMs;
+        trackedPoint.x = roundedX;
+        trackedPoint.y = roundedY;
+        series.trackedPoints.add(trackedPoint);
+    }
+
+    private RepDetectionResult detectRepsFromTrackedMotion(List<TrackedBarPoint> trackedPoints) throws Exception {
+        RepDetectionResult repDetectionResult = new RepDetectionResult();
+        repDetectionResult.repSegments = new JSONArray();
+        repDetectionResult.repMetrics = new JSONArray();
+        repDetectionResult.repCount = 0;
+
+        if (trackedPoints == null || trackedPoints.size() < 6) {
+            return repDetectionResult;
+        }
+
+        List<TrackedBarPoint> smoothedTrackedPoints = smoothTrackedBarPath(trackedPoints);
+        double[] verticalVelocitySeries = calculateBarVerticalVelocitySeries(smoothedTrackedPoints);
+        if (verticalVelocitySeries.length == 0) {
+            return repDetectionResult;
+        }
+
+        double minY = Double.MAX_VALUE;
+        double maxY = -Double.MAX_VALUE;
+        double maxAbsoluteVelocity = 0.0;
+        for (TrackedBarPoint trackedPoint : smoothedTrackedPoints) {
+            minY = Math.min(minY, trackedPoint.y);
+            maxY = Math.max(maxY, trackedPoint.y);
+        }
+        for (double velocity : verticalVelocitySeries) {
+            maxAbsoluteVelocity = Math.max(maxAbsoluteVelocity, Math.abs(velocity));
+        }
+
+        double ySpan = maxY - minY;
+        if (ySpan < REP_MIN_DISPLACEMENT_PX || maxAbsoluteVelocity < REP_MIN_STRONG_VELOCITY_PX_PER_S) {
+            return repDetectionResult;
+        }
+
+        double strongVelocityThreshold = Math.max(
+            REP_MIN_STRONG_VELOCITY_PX_PER_S,
+            maxAbsoluteVelocity * REP_STRONG_VELOCITY_THRESHOLD_RATIO
+        );
+        double minDisplacementPx = Math.max(REP_MIN_DISPLACEMENT_PX, ySpan * REP_MIN_DISPLACEMENT_RATIO);
+        List<MotionRun> motionRuns = buildMotionRuns(verticalVelocitySeries, strongVelocityThreshold);
+        if (motionRuns.size() < 2) {
+            return repDetectionResult;
+        }
+
+        int lastRepEndIndex = -1;
+        for (int runIndex = 0; runIndex < motionRuns.size(); runIndex++) {
+            MotionRun concentricRun = motionRuns.get(runIndex);
+            if (concentricRun.direction != 1 || concentricRun.sampleCount < REP_MIN_RUN_SAMPLES) {
+                continue;
+            }
+
+            int eccentricRunIndex = findPreviousMotionRunIndex(motionRuns, runIndex, -1);
+            if (eccentricRunIndex < 0) {
+                continue;
+            }
+
+            MotionRun eccentricRun = motionRuns.get(eccentricRunIndex);
+            int priorPositiveRunIndex = findPreviousMotionRunIndex(motionRuns, eccentricRunIndex, 1);
+            MotionRun priorPositiveRun = priorPositiveRunIndex >= 0 ? motionRuns.get(priorPositiveRunIndex) : null;
+            int nextNegativeRunIndex = findNextMotionRunIndex(motionRuns, runIndex, -1);
+            MotionRun nextNegativeRun = nextNegativeRunIndex >= 0 ? motionRuns.get(nextNegativeRunIndex) : null;
+
+            int startSearchStartIndex = Math.max(0, lastRepEndIndex);
+            int startSearchFromRun = priorPositiveRun != null
+                ? Math.max(startSearchStartIndex, priorPositiveRun.endIndex)
+                : startSearchStartIndex;
+            int startIndex = findExtremeIndex(smoothedTrackedPoints, startSearchFromRun, eccentricRun.startIndex, false);
+            int bottomIndex = findExtremeIndex(smoothedTrackedPoints, eccentricRun.endIndex, concentricRun.startIndex, true);
+            int endSearchStartIndex = Math.max(bottomIndex, concentricRun.endIndex);
+            int endSearchEndIndex = nextNegativeRun != null ? nextNegativeRun.startIndex : smoothedTrackedPoints.size() - 1;
+            int endIndex = findExtremeIndex(smoothedTrackedPoints, endSearchStartIndex, endSearchEndIndex, false);
+
+            if (startIndex < 0 || bottomIndex < 0 || endIndex < 0) {
+                continue;
+            }
+            if (!(startIndex < bottomIndex && bottomIndex < endIndex)) {
+                continue;
+            }
+            if (startIndex < lastRepEndIndex) {
+                continue;
+            }
+
+            TrackedBarPoint startPoint = smoothedTrackedPoints.get(startIndex);
+            TrackedBarPoint bottomPoint = smoothedTrackedPoints.get(bottomIndex);
+            TrackedBarPoint endPoint = smoothedTrackedPoints.get(endIndex);
+
+            double eccentricDisplacementPx = bottomPoint.y - startPoint.y;
+            double concentricDisplacementPx = bottomPoint.y - endPoint.y;
+            int repTimeMs = Math.max(0, endPoint.tMs - startPoint.tMs);
+            int concentricDurationMs = Math.max(0, endPoint.tMs - bottomPoint.tMs);
+
+            if (eccentricDisplacementPx < minDisplacementPx || concentricDisplacementPx < minDisplacementPx) {
+                continue;
+            }
+            if (repTimeMs < REP_MIN_DURATION_MS || concentricDurationMs < REP_MIN_CONCENTRIC_DURATION_MS) {
+                continue;
+            }
+
+            double averageConcentricSpeedPxPerS = roundTo3(
+                (concentricDisplacementPx * 1000.0) / Math.max(1, concentricDurationMs)
+            );
+            if (averageConcentricSpeedPxPerS <= 0.0) {
+                continue;
+            }
+
+            int repIndex = repDetectionResult.repCount + 1;
+            JSONObject repSegment = new JSONObject();
+            repSegment.put("repIndex", repIndex);
+            repSegment.put("startMs", startPoint.tMs);
+            repSegment.put("bottomMs", bottomPoint.tMs);
+            repSegment.put("endMs", endPoint.tMs);
+            repDetectionResult.repSegments.put(repSegment);
+
+            JSONObject repMetric = new JSONObject();
+            repMetric.put("repIndex", repIndex);
+            repMetric.put("averageConcentricSpeedPxPerS", averageConcentricSpeedPxPerS);
+            repMetric.put(
+                "lowestConcentricSpeedPxPerS",
+                roundTo3(
+                    calculateLowestConcentricSpeed(
+                        verticalVelocitySeries,
+                        bottomIndex,
+                        endIndex,
+                        averageConcentricSpeedPxPerS
+                    )
+                )
+            );
+            repMetric.put("repTimeMs", repTimeMs);
+            repDetectionResult.repMetrics.put(repMetric);
+
+            repDetectionResult.repCount = repIndex;
+            lastRepEndIndex = endIndex;
+        }
+
+        return repDetectionResult;
+    }
+
+    private List<TrackedBarPoint> smoothTrackedBarPath(List<TrackedBarPoint> trackedPoints) {
+        if (trackedPoints.size() < 3) {
+            return trackedPoints;
+        }
+
+        double[] xValues = new double[trackedPoints.size()];
+        double[] yValues = new double[trackedPoints.size()];
+        for (int index = 0; index < trackedPoints.size(); index++) {
+            xValues[index] = trackedPoints.get(index).x;
+            yValues[index] = trackedPoints.get(index).y;
+        }
+
+        double[] smoothedX = smoothNumberSeries(xValues, REP_SIGNAL_SMOOTHING_WINDOW);
+        double[] smoothedY = smoothNumberSeries(yValues, REP_SIGNAL_SMOOTHING_WINDOW);
+        List<TrackedBarPoint> smoothedPoints = new ArrayList<>(trackedPoints.size());
+        for (int index = 0; index < trackedPoints.size(); index++) {
+            TrackedBarPoint smoothedPoint = new TrackedBarPoint();
+            smoothedPoint.tMs = trackedPoints.get(index).tMs;
+            smoothedPoint.x = smoothedX[index];
+            smoothedPoint.y = smoothedY[index];
+            smoothedPoints.add(smoothedPoint);
+        }
+
+        return smoothedPoints;
+    }
+
+    private double[] smoothNumberSeries(double[] values, int windowSize) {
+        if (values.length == 0 || windowSize <= 1) {
+            return values;
+        }
+
+        int halfWindow = Math.floorDiv(windowSize, 2);
+        double[] smoothedValues = new double[values.length];
+        for (int index = 0; index < values.length; index++) {
+            int startIndex = Math.max(0, index - halfWindow);
+            int endIndex = Math.min(values.length - 1, index + halfWindow);
+            double sum = 0.0;
+            int count = 0;
+            for (int cursor = startIndex; cursor <= endIndex; cursor++) {
+                sum += values[cursor];
+                count += 1;
+            }
+            smoothedValues[index] = count == 0 ? 0.0 : sum / count;
+        }
+
+        return smoothedValues;
+    }
+
+    private double[] calculateBarVerticalVelocitySeries(List<TrackedBarPoint> trackedPoints) {
+        if (trackedPoints.isEmpty()) {
+            return new double[0];
+        }
+
+        double[] rawVelocities = new double[trackedPoints.size()];
+        for (int index = 0; index < trackedPoints.size(); index++) {
+            TrackedBarPoint previousPoint = trackedPoints.get(Math.max(0, index - 1));
+            TrackedBarPoint nextPoint = trackedPoints.get(Math.min(trackedPoints.size() - 1, index + 1));
+            int deltaTimeMs = Math.max(1, nextPoint.tMs - previousPoint.tMs);
+            double deltaTimeSeconds = deltaTimeMs / 1000.0;
+
+            // Screen-space y increases downward; expose physics-friendly sign:
+            // downward movement => negative v_y, upward movement => positive v_y.
+            rawVelocities[index] = (previousPoint.y - nextPoint.y) / deltaTimeSeconds;
+        }
+
+        return smoothNumberSeries(rawVelocities, REP_SIGNAL_SMOOTHING_WINDOW);
+    }
+
+    private List<MotionRun> buildMotionRuns(double[] verticalVelocitySeries, double strongVelocityThreshold) {
+        List<MotionRun> motionRuns = new ArrayList<>();
+        for (int index = 0; index < verticalVelocitySeries.length; index++) {
+            int direction = 0;
+            if (verticalVelocitySeries[index] >= strongVelocityThreshold) {
+                direction = 1;
+            } else if (verticalVelocitySeries[index] <= -strongVelocityThreshold) {
+                direction = -1;
+            }
+            if (direction == 0) {
+                continue;
+            }
+
+            MotionRun previousRun = motionRuns.isEmpty() ? null : motionRuns.get(motionRuns.size() - 1);
+            if (previousRun != null && previousRun.direction == direction) {
+                previousRun.endIndex = index;
+                previousRun.sampleCount += 1;
+                continue;
+            }
+
+            MotionRun motionRun = new MotionRun();
+            motionRun.direction = direction;
+            motionRun.startIndex = index;
+            motionRun.endIndex = index;
+            motionRun.sampleCount = 1;
+            motionRuns.add(motionRun);
+        }
+        return motionRuns;
+    }
+
+    private int findPreviousMotionRunIndex(List<MotionRun> motionRuns, int startIndexExclusive, int direction) {
+        for (int runIndex = startIndexExclusive - 1; runIndex >= 0; runIndex--) {
+            MotionRun motionRun = motionRuns.get(runIndex);
+            if (motionRun.direction == direction && motionRun.sampleCount >= REP_MIN_RUN_SAMPLES) {
+                return runIndex;
+            }
+        }
+        return -1;
+    }
+
+    private int findNextMotionRunIndex(List<MotionRun> motionRuns, int startIndexExclusive, int direction) {
+        for (int runIndex = startIndexExclusive + 1; runIndex < motionRuns.size(); runIndex++) {
+            MotionRun motionRun = motionRuns.get(runIndex);
+            if (motionRun.direction == direction && motionRun.sampleCount >= REP_MIN_RUN_SAMPLES) {
+                return runIndex;
+            }
+        }
+        return -1;
+    }
+
+    private int findExtremeIndex(List<TrackedBarPoint> trackedPoints, int rawStartIndex, int rawEndIndex, boolean findMaximum) {
+        if (trackedPoints.isEmpty()) {
+            return -1;
+        }
+
+        int startIndex = Math.max(0, Math.min(trackedPoints.size() - 1, Math.min(rawStartIndex, rawEndIndex) - 1));
+        int endIndex = Math.max(startIndex, Math.min(trackedPoints.size() - 1, Math.max(rawStartIndex, rawEndIndex) + 1));
+        int bestIndex = startIndex;
+        for (int index = startIndex + 1; index <= endIndex; index++) {
+            double candidateY = trackedPoints.get(index).y;
+            double bestY = trackedPoints.get(bestIndex).y;
+            if (findMaximum ? candidateY > bestY : candidateY < bestY) {
+                bestIndex = index;
+            }
+        }
+        return bestIndex;
+    }
+
+    private double calculateLowestConcentricSpeed(
+        double[] verticalVelocitySeries,
+        int bottomIndex,
+        int endIndex,
+        double fallbackSpeed
+    ) {
+        Double lowestPositiveVelocity = null;
+        for (int index = bottomIndex; index <= endIndex && index < verticalVelocitySeries.length; index++) {
+            double velocity = verticalVelocitySeries[index];
+            if (velocity <= 0.0) {
+                continue;
+            }
+            if (lowestPositiveVelocity == null || velocity < lowestPositiveVelocity) {
+                lowestPositiveVelocity = velocity;
+            }
+        }
+        return lowestPositiveVelocity == null ? fallbackSpeed : lowestPositiveVelocity;
     }
 
     private String writePreviewFrame(String localVideoPath, int analysisId, File rootDir) {
@@ -578,6 +908,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             series.barPathSeries = new JSONArray();
             series.confidenceSeries = new JSONArray();
             series.plausibilityRejections = new JSONArray();
+            series.trackedPoints = new ArrayList<>();
             series.frameCount = 0;
             series.frameWidthPx = 0;
             series.frameHeightPx = 0;
@@ -630,16 +961,13 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                     lastAcceptedSample.normalizedX = centerX;
                     lastAcceptedSample.normalizedY = centerY;
 
-                    JSONObject barPoint = new JSONObject();
-                    barPoint.put("tMs", timeMs);
-                    barPoint.put("x", roundTo3(centerX * series.frameWidthPx));
-                    barPoint.put("y", roundTo3(centerY * series.frameHeightPx));
-                    series.barPathSeries.put(barPoint);
-
-                    JSONObject confidencePoint = new JSONObject();
-                    confidencePoint.put("tMs", timeMs);
-                    confidencePoint.put("score", roundTo3(score));
-                    series.confidenceSeries.put(confidencePoint);
+                    appendAcceptedTrackingSample(
+                        series,
+                        timeMs,
+                        centerX * series.frameWidthPx,
+                        centerY * series.frameHeightPx,
+                        score
+                    );
 
                     accumulatedConfidence += score;
                     confidenceCount += 1;
@@ -705,6 +1033,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             series.barPathSeries = new JSONArray();
             series.confidenceSeries = new JSONArray();
             series.plausibilityRejections = new JSONArray();
+            series.trackedPoints = new ArrayList<>();
             series.frameCount = 0;
             series.frameWidthPx = 0;
             series.frameHeightPx = 0;
@@ -810,16 +1139,13 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                         lastAcceptedSample.normalizedX = centerX;
                         lastAcceptedSample.normalizedY = centerY;
 
-                        JSONObject barPoint = new JSONObject();
-                        barPoint.put("tMs", timeMs);
-                        barPoint.put("x", roundTo3(centerX * series.frameWidthPx));
-                        barPoint.put("y", roundTo3(centerY * series.frameHeightPx));
-                        series.barPathSeries.put(barPoint);
-
-                        JSONObject confidencePoint = new JSONObject();
-                        confidencePoint.put("tMs", timeMs);
-                        confidencePoint.put("score", roundTo3(score));
-                        series.confidenceSeries.put(confidencePoint);
+                        appendAcceptedTrackingSample(
+                            series,
+                            timeMs,
+                            centerX * series.frameWidthPx,
+                            centerY * series.frameHeightPx,
+                            score
+                        );
 
                         accumulatedConfidence += score;
                         confidenceCount += 1;
@@ -1620,6 +1946,25 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         double normalizedY;
     }
 
+    private static class TrackedBarPoint {
+        int tMs;
+        double x;
+        double y;
+    }
+
+    private static class MotionRun {
+        int direction;
+        int startIndex;
+        int endIndex;
+        int sampleCount;
+    }
+
+    private static class RepDetectionResult {
+        JSONArray repSegments;
+        JSONArray repMetrics;
+        int repCount;
+    }
+
     private static class SeedSelection {
         String candidateId;
         double normalizedX;
@@ -1791,6 +2136,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         JSONArray barPathSeries;
         JSONArray confidenceSeries;
         JSONArray plausibilityRejections;
+        List<TrackedBarPoint> trackedPoints;
         int frameCount;
         int frameWidthPx;
         int frameHeightPx;

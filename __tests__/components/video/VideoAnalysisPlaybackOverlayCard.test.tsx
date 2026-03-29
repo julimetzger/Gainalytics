@@ -8,29 +8,49 @@ jest.mock('react-native-charts-wrapper', () => ({
   LineChart: 'LineChart',
 }));
 
-const makeResult = (): BarTrackingResult => ({
-  analysisId: 1,
-  units: 'px/s',
-  barPathSeries: [
-    {tMs: 0, x: 100, y: 200},
-    {tMs: 500, x: 110, y: 210},
-    {tMs: 1000, x: 120, y: 220},
-    {tMs: 1500, x: 130, y: 230},
-    {tMs: 2000, x: 140, y: 240},
-  ],
-  confidenceSeries: [],
-  repSegments: [],
-  repMetrics: [],
-  qualityFlags: [],
-  analysisMeta: {
-    sourceFps: 30,
-    analyzedFps: 30,
-    frameCount: 60,
-    averageConfidence: 0.9,
-    trackingFrameWidthPx: 640,
-    trackingFrameHeightPx: 480,
-  },
-});
+interface MakeResultOverrides {
+  analysisMeta?: Partial<BarTrackingResult['analysisMeta']>;
+  barPathSeries?: BarTrackingResult['barPathSeries'];
+  confidenceSeries?: BarTrackingResult['confidenceSeries'];
+  repSegments?: BarTrackingResult['repSegments'];
+  repMetrics?: BarTrackingResult['repMetrics'];
+  qualityFlags?: BarTrackingResult['qualityFlags'];
+}
+
+const makeResult = (overrides: MakeResultOverrides = {}): BarTrackingResult => {
+  const baseResult = {
+    analysisId: 1,
+    units: 'px/s',
+    barPathSeries: [
+      {tMs: 0, x: 100, y: 200},
+      {tMs: 500, x: 110, y: 210},
+      {tMs: 1000, x: 120, y: 220},
+      {tMs: 1500, x: 130, y: 230},
+      {tMs: 2000, x: 140, y: 240},
+    ],
+    confidenceSeries: [],
+    repSegments: [],
+    repMetrics: [],
+    qualityFlags: [],
+    analysisMeta: {
+      sourceFps: 30,
+      analyzedFps: 30,
+      frameCount: 60,
+      averageConfidence: 0.9,
+      trackingFrameWidthPx: 640,
+      trackingFrameHeightPx: 480,
+    },
+  } satisfies BarTrackingResult;
+
+  return {
+    ...baseResult,
+    ...overrides,
+    analysisMeta: {
+      ...baseResult.analysisMeta,
+      ...overrides.analysisMeta,
+    },
+  };
+};
 
 const loadPlayer = (player: any, durationMs = 3000) => {
   act(() => {
@@ -268,5 +288,49 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
       fillWidth: '75%',
       thumbLeft: '75%',
     });
+  });
+});
+
+describe('VideoAnalysisPlaybackOverlayCard – rep path overlay', () => {
+  it('renders the active rep path once playback enters a detected rep', () => {
+    const {getByTestId, queryByTestId, getByText} = render(
+      <VideoAnalysisPlaybackOverlayCard
+        localVideoPath="/test/video.mp4"
+        result={makeResult({
+          barPathSeries: [
+            {tMs: 0, x: 100, y: 140},
+            {tMs: 500, x: 110, y: 180},
+            {tMs: 1000, x: 120, y: 220},
+            {tMs: 1500, x: 130, y: 180},
+            {tMs: 2000, x: 140, y: 140},
+          ],
+          repSegments: [{repIndex: 1, startMs: 0, bottomMs: 1000, endMs: 2000}],
+          repMetrics: [
+            {
+              repIndex: 1,
+              averageConcentricSpeedPxPerS: 80,
+              lowestConcentricSpeedPxPerS: 60,
+              repTimeMs: 2000,
+            },
+          ],
+        })}
+      />,
+    );
+
+    const player = getByTestId('video-analysis-playback-player');
+    const overlay = getByTestId('video-analysis-playback-overlay');
+
+    act(() => {
+      overlay.props.onLayout({nativeEvent: {layout: {width: 320, height: 180}}});
+    });
+    loadPlayer(player, 2500);
+
+    expect(getByTestId('video-analysis-playback-full-path')).toBeTruthy();
+    expect(queryByTestId('video-analysis-playback-active-rep-path')).toBeNull();
+
+    progressPlayer(player, 1000, 2500);
+
+    expect(getByTestId('video-analysis-playback-active-rep-path')).toBeTruthy();
+    expect(getByText('Current Rep: 1')).toBeTruthy();
   });
 });
