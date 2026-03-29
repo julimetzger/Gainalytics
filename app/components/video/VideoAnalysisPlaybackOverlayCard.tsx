@@ -34,6 +34,7 @@ const SPEED_PLOT_HEIGHT = 180;
 const BAR_PATH_SMOOTHING_WINDOW = 5;
 const SPEED_SMOOTHING_WINDOW = 5;
 const PLAYBACK_UI_UPDATE_INTERVAL_MS = 50;
+const PENDING_SEEK_MATCH_THRESHOLD_MS = 200;
 
 const formatDuration = (timeMs: number) => {
   const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
@@ -503,7 +504,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       const nowMs = Date.now();
       const pendingSeekTargetMs = pendingSeekTargetMsRef.current;
       if (pendingSeekTargetMs !== undefined && nowMs < pendingSeekDeadlineMsRef.current) {
-        if (Math.abs(currentTimeMs - pendingSeekTargetMs) > 200) {
+        if (Math.abs(currentTimeMs - pendingSeekTargetMs) > PENDING_SEEK_MATCH_THRESHOLD_MS) {
           return;
         }
         pendingSeekTargetMsRef.current = undefined;
@@ -559,7 +560,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       latestProgressTimeRef.current = clampedTimeMs;
       playbackTimeRef.current = clampedTimeMs;
       pendingSeekTargetMsRef.current = clampedTimeMs;
-      pendingSeekDeadlineMsRef.current = Date.now() + 2000;
+      pendingSeekDeadlineMsRef.current = Date.now() + PENDING_SEEK_MATCH_THRESHOLD_MS;
       commitPlaybackTimeMs(clampedTimeMs, true);
       setSeekPositionMs(clampedTimeMs);
       updateCurrentRepForPlaybackTime(clampedTimeMs);
@@ -805,8 +806,8 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           onResponderTerminate={() => {
             isScrubbingRef.current = false;
           }}>
-          <View style={[styles.scrubberFill, themedStyles.scrubberFill, {width: `${scrubberProgress * 100}%`}]} />
-          <View style={[styles.scrubberThumb, themedStyles.scrubberThumb, {left: `${scrubberProgress * 100}%`}]} />
+          <View testID="video-analysis-playback-scrubber-fill" style={[styles.scrubberFill, themedStyles.scrubberFill, {width: `${scrubberProgress * 100}%`}]} />
+          <View testID="video-analysis-playback-scrubber-thumb" style={[styles.scrubberThumb, themedStyles.scrubberThumb, {left: `${scrubberProgress * 100}%`}]} />
         </View>
         <View style={styles.stepButtonsRow}>
           <Button testID="video-analysis-step-minus200" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current - 200)}>

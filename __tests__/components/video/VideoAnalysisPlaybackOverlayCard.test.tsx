@@ -1,4 +1,5 @@
 import React from 'react';
+import {StyleSheet} from 'react-native';
 import {act, fireEvent, render} from '@testing-library/react-native';
 import VideoAnalysisPlaybackOverlayCard from '../../../app/components/video/VideoAnalysisPlaybackOverlayCard';
 import {BarTrackingResult} from '../../../app/models/entities/VideoAnalysis';
@@ -43,6 +44,24 @@ const progressPlayer = (player: any, currentTimeMs: number, durationMs = 3000) =
   });
 };
 
+const setScrubberWidth = (scrubber: any, width: number) => {
+  act(() => {
+    scrubber.props.onLayout({nativeEvent: {layout: {width}}});
+  });
+};
+
+const getScrubberState = (getByTestId: (testId: string) => any) => {
+  const scrubberFill = getByTestId('video-analysis-playback-scrubber-fill');
+  const scrubberThumb = getByTestId('video-analysis-playback-scrubber-thumb');
+  const fillStyle = StyleSheet.flatten(scrubberFill.props.style);
+  const thumbStyle = StyleSheet.flatten(scrubberThumb.props.style);
+
+  return {
+    fillWidth: fillStyle.width,
+    thumbLeft: thumbStyle.left,
+  };
+};
+
 describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
   it('renders four step buttons with correct labels', () => {
     const {getByTestId, getByText} = render(
@@ -74,6 +93,10 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
     });
 
     expect(player.props.seekPositionMs).toBe(1200);
+    expect(getScrubberState(getByTestId)).toEqual({
+      fillWidth: '40%',
+      thumbLeft: '40%',
+    });
   });
 
   it('-0.2s button seeks backward 200ms from current time', () => {
@@ -190,5 +213,60 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
     expect(player.props.seekPositionMs).toBe(5200);
     // Time display shows the seeked value (5200ms → still "00:05")
     expect(timeDisplay.props.children.join('')).toContain('00:05');
+  });
+
+  it('tapping the speed chart seeks the player and updates the scrubber immediately', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+    const player = getByTestId('video-analysis-playback-player');
+
+    loadPlayer(player, 3000);
+
+    act(() => {
+      fireEvent(getByTestId('video-analysis-playback-speed-plot'), 'onSelect', {
+        nativeEvent: {x: 1500},
+      });
+    });
+
+    expect(player.props.seekPositionMs).toBe(1500);
+    expect(getScrubberState(getByTestId)).toEqual({
+      fillWidth: '50%',
+      thumbLeft: '50%',
+    });
+  });
+
+  it('scrubber drag ignores stale native progress while the user is dragging', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+    const player = getByTestId('video-analysis-playback-player');
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
+
+    loadPlayer(player, 3000);
+    setScrubberWidth(scrubber, 100);
+
+    act(() => {
+      scrubber.props.onResponderGrant({nativeEvent: {locationX: 75}});
+    });
+
+    progressPlayer(player, 1200, 3000);
+
+    expect(player.props.seekPositionMs).toBe(2250);
+    expect(getScrubberState(getByTestId)).toEqual({
+      fillWidth: '75%',
+      thumbLeft: '75%',
+    });
+
+    act(() => {
+      scrubber.props.onResponderRelease();
+    });
+
+    progressPlayer(player, 1600, 3000);
+
+    expect(getScrubberState(getByTestId)).toEqual({
+      fillWidth: '75%',
+      thumbLeft: '75%',
+    });
   });
 });
