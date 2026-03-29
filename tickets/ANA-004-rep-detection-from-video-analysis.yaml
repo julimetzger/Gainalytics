@@ -1,0 +1,75 @@
+id: ANA-004
+status: ready
+area: analyse
+priority: medium
+title: Detect reps from velocity zero-crossings in video analysis
+source:
+  - TODOS.md:31
+description: >
+  The current video analysis pipeline already persists `repSegments` and
+  `repMetrics` in `BarTrackingResult`, but the native analysis currently writes
+  both arrays as empty JSON arrays for real analyses. Add real rep detection to
+  the tracked barbell signal so the app can identify repetitions from the
+  movement itself instead of leaving the rep model empty.
+
+  Detect reps from the vertical velocity signal of the tracked bar path. A rep
+  should be segmented from the tracked motion, with the bottom point inferred
+  from the velocity change / zero crossing around the turnaround. Reuse the
+  existing `RepSegment` and `RepMetric` model so each detected rep has
+  `startMs`, `bottomMs`, `endMs`, `repTimeMs`, and an average concentric speed.
+
+  In the UI, surface the rep result in `VideoAnalysisDetail` as simple summary
+  values first: show the detected rep times and average concentric speed per rep
+  in the analysis summary. During playback, the overlay should highlight the
+  currently active rep as a green curve segment so the user can see which part
+  of the bar path belongs to the current repetition. The full tracked bar path
+  should still be visible as a clearer light-gray line in the background so the
+  full movement remains readable instead of only relying on sparse plotted
+  points.
+components:
+  - android/app/src/main/java/com/powerliftingworkoutplanner/VideoAnalysisModule.java
+  - app/models/entities/VideoAnalysis.ts
+  - app/tabs/Analyse/VideoAnalysisDetailTab.tsx
+  - app/components/video/VideoAnalysisPlaybackOverlayCard.tsx
+screens:
+  - orchestrator/AppStruktur/analyse/VideoAnalysisDetail.png
+  - orchestrator/AppStruktur/analyse/videoAnalysis.png
+acceptanceCriteria:
+  - >
+    Real video analyses populate `repSegments` and `repMetrics` from the tracked
+    bar path / vertical velocity signal when repetitions are detectable; the
+    arrays are no longer always empty for native analysis results.
+  - >
+    Each detected rep records a start time, bottom time, end time, rep time,
+    and average concentric speed using the existing `RepSegment` / `RepMetric`
+    shape.
+  - >
+    `VideoAnalysisDetail` shows the detected reps in the summary as values for
+    rep time and average concentric speed per rep.
+  - >
+    While playback is inside a detected rep, the overlay highlights that rep's
+    curve segment in green.
+  - >
+    The playback overlay renders the full tracked bar path as a readable
+    light-gray line behind the active-rep highlight.
+  - >
+    If no reliable reps are detected, the analysis screen still renders
+    normally, shows no green rep highlight, and degrades gracefully without a
+    crash.
+  - >
+    Automated tests cover rep segmentation / metric calculation and at least one
+    UI rendering path for the rep summary or active-rep overlay state.
+evidenceRequired:
+  - Screenshot of the analysis summary showing detected rep times and average speeds.
+  - Screenshot or emulator proof of the playback overlay showing the light-gray full path and green active-rep highlight.
+  - Focused automated test log proving rep detection and metric calculation.
+constraints:
+  - Reuse the existing `repSegments` and `repMetrics` fields in `BarTrackingResult`;
+    do not introduce a parallel rep result model.
+  - Derive reps from the tracked motion / velocity signal of the native
+    analysis result, not from a fixed-duration placeholder estimate.
+  - Keep the existing playback time, scrubber, and overlay dot behavior intact.
+nonGoals:
+  - Adding estimated 1RM or strength recommendations from detected reps.
+  - Replacing the existing chart library or playback implementation.
+  - Exporting rep metrics outside the current analysis detail screen.

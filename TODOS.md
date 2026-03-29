@@ -13,10 +13,6 @@
 
 ## Analyse
 
-- [ready] [ANA-001](tickets/ANA-001-training-length-analysis-page.yaml) Seite mit TrainingsLänge mit Balkendiagramm im Analysetab
-  - es gibt eine neue Seite im Analysetab mit Namen Trainingslänge
-  - Im Tab wird die Trainingslänge als Balkendiagramm angezeigt
-  - Filter ist über Accumulation Mode möglich (Day, Week, Month)
 - RIR Verlauf/ RIR distribution
 - RIRmax/RIRaverage als metrik aufnehmen
 - Pausenzeit generell und pro muskel/exercise (nur zwischen set im Workout berücksichtigen?? also dl satz 1 pause dl satz 2 pause dl satz 3 fertig -> 2 Pausenzeiten getrackt)
@@ -32,13 +28,13 @@
 
 ## Video Analyse Funktion
 
-- Erkennen von reps [VideoAnalysisDetails]
+- [ready] [ANA-004](tickets/ANA-004-rep-detection-from-video-analysis.yaml) Erkennen von reps [VideoAnalysisDetails]
   - Rep zeit ermitteln anhand nulldurchlauf der Geschwindigkeit. Berechnung der durschnittlichen Geschwindigkeit der Rep. Ausgabe der Repzeiten erstmal nur als Zeiten für dir reps als Werte in der Zusammenfassung.
   - Anzeige einer Rep im overlay mit grüner Farbe als kurve während der Ausführung einer reptetion
-- [ready] [ANA-003](tickets/ANA-003-video-player-improvements.yaml) Player verbesserungen [VideoAnalsysisDetails]
-  - nicht sehr responsive die Anzeige der Zeit in dem Geschwindigkeitsblock ist nicht gut. Die progress bar hängt oft hinterher. Weitere Entkopplung vom js bridge als Option.
-  - Auswahl der Zeit im Player durch klich auf Geschwindigkeitsgraph
-  - buttons um Zeit um 0.05s 0.2s zurück oder vor zu setzen und dienen Erkenntnissen
+  - den gesamten bar verlauf als hellgraue linie plotten. Ein bisschen deutlicher als im moment die punkte geplottet werden.
+- [ready] Asynchrone Analyse des Videos
+  - User kann währen der Analyse die app ganz normal benutzen. Notification weißt auf die fertige analyse hin
+  - Der Loading spinner zeigt den Progress an. Hier wird die Zeit die gebraucht wird abgeschätzt anhand der letzten analysen. Dazu wird im state gespeichert wie lange eine Minute anaylse beim letzten video gebraucht wird und dann abgeschätzt wie lange die neue analyse brauch für die länge des videos. Für den ersten Wert nehmen wir an 1s analyse pro 1s Video.
 - Player Verbesserungen part 2 [VideoAnalysisDeteils]
   - Playergeschwindigkeite einstellen in 0.1er prozent schritten also von 0.1 bis 1.0 der tatsächlichen Geschwindigkeit
 - performance verbessern
@@ -51,13 +47,7 @@
 
 ## Bugs
 - Training done notification kommt auch wenn das training abgeschlossen ist
-
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
-- [ready] DateRangePicker funktioniert nicht im analyseTab analayse
-  - auswahl eines Startpunktes per tab auf tag: Auswahl von dem tag bis heute - aktualisierung der Zeiten oben
-  - auswahl einer Range tab auf start und Endpunkt: Aktualiesierung der Timestamps
-  - Auswahl einer Range über die inputs oben 
-  - Alle drei Fälle sollen über maestro tests abgedeckt werden. Öffnen datepicker -> Fall durschpielen -> check im datepicker ob Tiemstamps oben passen -> zurück in analys -> check ob range passt in der Anzeige
   
 
 ## Low Prio Themen
