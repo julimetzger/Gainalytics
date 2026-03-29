@@ -1,0 +1,71 @@
+appId: com.powerliftingworkoutplanner
+---
+- launchApp
+- tapOn:
+    text: "Don't Show Again"
+    optional: true
+- tapOn:
+    text: "OK"
+    optional: true
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 30000
+- tapOn: "tab-settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-import-data-button"
+    direction: DOWN
+- tapOn:
+    id: "settings-import-data-button"
+- tapOn:
+    id: "settings-import-confirm-button"
+    optional: true
+- tapOn: "baseline.gains"
+- assertVisible: "Import successful!"
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Training Length"
+    direction: DOWN
+- tapOn: "Training Length"
+- extendedWaitUntil:
+    visible: "Grouped by Day"
+    timeout: 30000
+- assertVisible:
+    id: "training-length-chart"
+- tapOn:
+    id: "training-length-accumulation-week"
+- assertVisible: "Grouped by Week"
+- tapOn:
+    id: "training-length-accumulation-month"
+- assertVisible: "Grouped by Month"
+- assertVisible:
+    id: "training-length-chart"
+- tapOn:
+    id: "training-length-chart"
+- extendedWaitUntil:
+    visible:
+      id: "training-length-selected-bucket"
+    timeout: 8000
+- scrollUntilVisible:
+    element:
+      id: "training-length-selected-trainings"
+    direction: DOWN
+- assertVisible:
+    id: "training-length-selected-trainings"
+- scrollUntilVisible:
+    element:
+      id: "training-length-accumulation-day"
+    direction: UP
+- tapOn:
+    id: "training-length-accumulation-day"
+- assertNotVisible:
+    id: "training-length-selected-bucket"

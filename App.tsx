@@ -9,7 +9,7 @@ import {EventProvider} from 'react-native-outside-press';
 import {registerTranslation} from 'react-native-paper-dates';
 import {useSettings} from './app/redux/settings/use/useSettings';
 import Toast from 'react-native-toast-message';
-import {StatusBar} from 'react-native';
+import {LogBox, StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 
 registerTranslation('en-GB', {
@@ -30,6 +30,10 @@ registerTranslation('en-GB', {
   hour: 'Hour',
   minute: 'Minute',
 });
+
+LogBox.ignoreLogs([
+  '[Reanimated] Reduced motion setting is enabled on this device.',
+]);
 
 const {store, persistor} = configureStore();
 

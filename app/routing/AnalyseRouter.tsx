@@ -9,13 +9,15 @@ import ExerciseGraphs from '../tabs/Analyse/ExerciseGraphs';
 import {IconButton, useTheme} from 'react-native-paper';
 import VideoAnalysisTab from '../tabs/Analyse/VideoAnalysisTab';
 import VideoAnalysisDetailTab from '../tabs/Analyse/VideoAnalysisDetailTab';
+import TrainingLengthTab from '../tabs/Analyse/TrainingLengthTab';
 
 export type RootStackParamList = {
   History: {exercise: Exercise; lowerRangeBound: Date | undefined};
-  Analyse: {exercise: {name: string}};
+  AnalyseHome: {exercise: {name: string}};
   Records: undefined;
   Metrics: undefined;
   Graphs: undefined;
+  TrainingLength: undefined;
   VideoAnalyses: undefined;
   VideoAnalysisDetail: {analysisId: number};
 };
@@ -26,14 +28,14 @@ const AnalyseRouter = () => {
 
   return (
     <Stack.Navigator
-      initialRouteName="Analyse"
+      initialRouteName="AnalyseHome"
       screenOptions={({navigation}) => ({
         headerTintColor: theme.colors.onSecondaryContainer,
         headerLeft: () => <IconButton icon="menu" testID="analyse-drawer-toggle" onPress={() => navigation.toggleDrawer()} />,
       })}
     >
       <Stack.Screen
-        name="Analyse"
+        name="AnalyseHome"
         component={AnalyseGraphics}
         options={({route}) => ({
           title: route.params?.exercise?.name ?? 'Analyse',
@@ -44,6 +46,13 @@ const AnalyseRouter = () => {
         component={ExerciseGraphs}
         options={() => ({
           title: 'Exercise Graphs',
+        })}
+      />
+      <Stack.Screen
+        name="TrainingLength"
+        component={TrainingLengthTab}
+        options={() => ({
+          title: 'Training Length',
         })}
       />
       <Stack.Screen
