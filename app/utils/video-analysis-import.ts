@@ -1,7 +1,12 @@
 import {PermissionsAndroid, Platform} from 'react-native';
 import {VideoAnalysis, VideoAnalysisStatus} from '../models/entities/VideoAnalysis';
 import {copyImportedVideoToLocalStorage} from './videoAnalysisStorage';
-import {analyzeSquatVideo, ManualSeedPayload, prepareSquatVideoSeed} from './videoAnalysisNative';
+import {analyzeSquatVideo, getVideoDuration, ManualSeedPayload, prepareSquatVideoSeed} from './videoAnalysisNative';
+import {
+  postVideoAnalysisCompleteNotification,
+  postVideoAnalysisFailedNotification,
+  requestVideoAnalysisNotificationPermission,
+} from './videoAnalysisNotification';
 
 export const EMULATOR_SQUAT_VIDEO_PATH = '/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4';
 
@@ -12,6 +17,7 @@ interface ImportVideoAnalysisParams {
   sourceUri: string;
   addVideoAnalysis: (videoAnalysis: VideoAnalysis) => void;
   setVideoAnalysisStatus: (analysisId: number, status: VideoAnalysisStatus, error?: string) => void;
+  setVideoAnalysisDuration: (analysisId: number, durationMs: number) => void;
   setManualSeedFramePath: (analysisId: number, manualSeedFramePath?: string, localVideoPath?: string) => void;
   setSeedPreflight: (
     analysisId: number,
@@ -39,6 +45,7 @@ export const importVideoAnalysisFromSource = async ({
   sourceUri,
   addVideoAnalysis,
   setVideoAnalysisStatus,
+  setVideoAnalysisDuration,
   setManualSeedFramePath,
   setSeedPreflight,
   attachVideoAnalysisResult,
@@ -49,6 +56,10 @@ export const importVideoAnalysisFromSource = async ({
   let preflightMs = 0;
   let nativeAnalysisMs = 0;
   let outcome: VideoAnalysisImportOutcome | 'failed' = 'failed';
+
+  // Request notification permission before analysis starts.
+  // Analysis continues regardless of whether permission is granted.
+  await requestVideoAnalysisNotificationPermission();
 
   addVideoAnalysis({
     id: analysisId,
@@ -70,6 +81,13 @@ export const importVideoAnalysisFromSource = async ({
     localVideoPath = await copyImportedVideoToLocalStorage(sourceUri, analysisId);
     copyMs = Date.now() - copyStartedAtMs;
 
+    // Read actual video duration from file metadata.
+    // Falls back to 0 (unknown) if the native module cannot determine it.
+    const videoDurationMs = await getVideoDuration(localVideoPath);
+    if (videoDurationMs > 0) {
+      setVideoAnalysisDuration(analysisId, videoDurationMs);
+    }
+
     const preflightStartedAtMs = Date.now();
     const preflight = await prepareSquatVideoSeed(localVideoPath, analysisId);
     preflightMs = Date.now() - preflightStartedAtMs;
@@ -87,6 +105,7 @@ export const importVideoAnalysisFromSource = async ({
       setManualSeedFramePath(analysisId, preflight.previewFramePath, localVideoPath);
       setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.FAILED, 'No outer plate candidate found at t=0');
       outcome = 'failed_no_candidate';
+      postVideoAnalysisFailedNotification(analysisId).catch(() => {});
       return 'failed_no_candidate';
     }
 
@@ -101,9 +120,11 @@ export const importVideoAnalysisFromSource = async ({
     nativeAnalysisMs = Date.now() - nativeAnalysisStartedAtMs;
     attachVideoAnalysisResult(analysisId, resultPath, localVideoPath);
     outcome = 'done';
+    postVideoAnalysisCompleteNotification(analysisId).catch(() => {});
     return 'done';
   } catch (error) {
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.FAILED, 'Import or preprocessing failed');
+    postVideoAnalysisFailedNotification(analysisId).catch(() => {});
     throw error;
   } finally {
     console.info(
