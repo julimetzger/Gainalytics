@@ -43,7 +43,6 @@ const SPEED_PLOT_HEIGHT = 180;
 const PLAYBACK_UI_UPDATE_INTERVAL_MS = 50;
 const PENDING_SEEK_MATCH_THRESHOLD_MS = 200;
 const PATH_SEGMENT_THICKNESS = 4;
-const ACTIVE_REP_PATH_COLOR = '#63A002';
 
 const formatDuration = (timeMs: number) => {
   const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
@@ -293,7 +292,7 @@ const createThemedStyles = (theme: MD3Theme) =>
       backgroundColor: theme.colors.surfaceVariant,
     },
     activeRepPathSegment: {
-      backgroundColor: ACTIVE_REP_PATH_COLOR,
+      backgroundColor: theme.colors.primary,
     },
   });
 
