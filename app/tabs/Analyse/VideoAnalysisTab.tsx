@@ -1,6 +1,6 @@
-import React, {useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Platform, ScrollView, StyleSheet, View} from 'react-native';
-import {Button, Card, MD3Theme, Text, useTheme} from 'react-native-paper';
+import {Button, Card, MD3Theme, ProgressBar, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
 import Toast from 'react-native-toast-message';
@@ -13,8 +13,11 @@ import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/d
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {dispatchSetVideoAnalysisDuration} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisDuration';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
+import {VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoReadPermission} from '../../utils/video-analysis-import';
+import {calculateAnalysisProgress} from '../../utils/videoAnalysisProgress';
+import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
 
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
@@ -39,12 +42,28 @@ const VideoAnalysisTab = () => {
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const [importing, setImporting] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const [lastSecondsPerVideoSecond, setLastSecondsPerVideoSecond] = useState(1.0);
+  const analysisStartTimes = useRef<Map<number, number>>(new Map());
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map((item) => item.id ?? 0)) + 1 : 1;
 
+  // Refresh every 500ms while any analysis is in PROCESSING state so the
+  // progress bar advances smoothly.
+  const processingCount = analyses.filter((a) => a.status === VideoAnalysisStatus.PROCESSING).length;
+  useEffect(() => {
+    if (processingCount === 0) {
+      return;
+    }
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [processingCount]);
+
   const importFromSource = async (sourceUri: string) => {
+    const currentAnalysisId = nextAnalysisId;
+    analysisStartTimes.current.set(currentAnalysisId, Date.now());
     try {
       const outcome = await importVideoAnalysisFromSource({
-        analysisId: nextAnalysisId,
+        analysisId: currentAnalysisId,
         sourceUri,
         addVideoAnalysis,
         setVideoAnalysisStatus,
@@ -53,6 +72,18 @@ const VideoAnalysisTab = () => {
         setSeedPreflight,
         attachVideoAnalysisResult,
       });
+
+      if (outcome === 'done') {
+        // Update learned analysis speed for future progress estimates.
+        const startTime = analysisStartTimes.current.get(currentAnalysisId);
+        const analysis = analyses.find((a) => a.id === currentAnalysisId);
+        const videoDurationMs = analysis?.videoMeta?.durationMs ?? 0;
+        if (startTime !== undefined && videoDurationMs > 0) {
+          const elapsedSec = (Date.now() - startTime) / 1000;
+          const videoDurationSec = videoDurationMs / 1000;
+          setLastSecondsPerVideoSecond(elapsedSec / videoDurationSec);
+        }
+      }
 
       if (outcome === 'awaiting_seed_selection') {
         Toast.show({
@@ -184,6 +215,16 @@ const VideoAnalysisTab = () => {
             <Card.Title title={`Analysis #${analysis.id}`} subtitle={new Date(analysis.createdAt).toLocaleString()} />
             <Card.Content>
               <Text testID={`video-analysis-status-${analysis.id}`}>Status: {analysis.status}</Text>
+              {analysis.status === VideoAnalysisStatus.PROCESSING && analysis.id !== undefined && (
+                <ProgressBar
+                  testID={`video-analysis-progress-${analysis.id}`}
+                  progress={calculateAnalysisProgress(
+                    now - (analysisStartTimes.current.get(analysis.id) ?? now),
+                    estimateAnalysisTimeMs(analysis.videoMeta?.durationMs ?? 0, lastSecondsPerVideoSecond),
+                  )}
+                  style={styles.progressBar}
+                />
+              )}
               {analysis.error && <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>}
             </Card.Content>
             <Card.Actions>
@@ -225,6 +266,9 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 10,
     marginBottom: 10,
+  },
+  progressBar: {
+    marginTop: 8,
   },
 });
 

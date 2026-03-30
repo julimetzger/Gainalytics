@@ -7,6 +7,7 @@ import {
   postVideoAnalysisFailedNotification,
   requestVideoAnalysisNotificationPermission,
 } from './videoAnalysisNotification';
+import {decrementActiveAnalysisCount, incrementActiveAnalysisCount} from './videoAnalysisProgress';
 
 export const EMULATOR_SQUAT_VIDEO_PATH = '/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4';
 
@@ -78,6 +79,10 @@ export const importVideoAnalysisFromSource = async ({
     },
   });
 
+  // Track active analyses so the foreground service is only stopped
+  // when all concurrent analyses have finished (ANA-005-fix issue 3).
+  incrementActiveAnalysisCount();
+
   try {
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING);
 
@@ -131,6 +136,7 @@ export const importVideoAnalysisFromSource = async ({
     postVideoAnalysisFailedNotification(analysisId).catch(() => {});
     throw error;
   } finally {
+    decrementActiveAnalysisCount();
     console.info(
       '[VideoAnalysisImportMetrics]',
       JSON.stringify({
