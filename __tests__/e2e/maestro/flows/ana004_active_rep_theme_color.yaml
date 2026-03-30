@@ -1,0 +1,26 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-004-fix: Verify overlay card renders with new theme-color code (no crash).
+# Uses clearState: false to navigate to the existing analysis detail.
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Video Analysis Detail"
+    timeout: 15000
+- assertVisible: "Playback Overlay"
+- assertVisible: "Bar Tracking Result"

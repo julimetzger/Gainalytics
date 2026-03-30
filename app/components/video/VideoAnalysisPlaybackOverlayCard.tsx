@@ -22,6 +22,14 @@ interface OverlayPoint {
   y: number;
 }
 
+interface OverlayLineSegment {
+  key: string;
+  centerX: number;
+  centerY: number;
+  width: number;
+  angleRad: number;
+}
+
 interface TimePlotPoint {
   key: string;
   x: number;
@@ -35,6 +43,7 @@ const BAR_PATH_SMOOTHING_WINDOW = 5;
 const SPEED_SMOOTHING_WINDOW = 5;
 const PLAYBACK_UI_UPDATE_INTERVAL_MS = 50;
 const PENDING_SEEK_MATCH_THRESHOLD_MS = 200;
+const PATH_SEGMENT_THICKNESS = 4;
 
 const formatDuration = (timeMs: number) => {
   const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
@@ -192,6 +201,49 @@ const mapBarPathToOverlay = (
   }));
 };
 
+const buildOverlayLineSegments = (overlayPoints: OverlayPoint[]): OverlayLineSegment[] => {
+  if (overlayPoints.length < 2) {
+    return [];
+  }
+
+  const segments: OverlayLineSegment[] = [];
+  for (let index = 1; index < overlayPoints.length; index += 1) {
+    const previousPoint = overlayPoints[index - 1];
+    const nextPoint = overlayPoints[index];
+    const deltaX = nextPoint.x - previousPoint.x;
+    const deltaY = nextPoint.y - previousPoint.y;
+    const width = Math.hypot(deltaX, deltaY);
+    if (width < 1) {
+      continue;
+    }
+
+    segments.push({
+      key: `${previousPoint.key}-${nextPoint.key}`,
+      centerX: (previousPoint.x + nextPoint.x) / 2,
+      centerY: (previousPoint.y + nextPoint.y) / 2,
+      width,
+      angleRad: Math.atan2(deltaY, deltaX),
+    });
+  }
+
+  return segments;
+};
+
+const selectOverlayPointsForRep = (
+  overlayPoints: OverlayPoint[],
+  barPathSeries: BarPathPoint[],
+  repSegment: RepSegment | undefined,
+): OverlayPoint[] => {
+  if (!repSegment || overlayPoints.length === 0 || barPathSeries.length === 0) {
+    return [];
+  }
+
+  return overlayPoints.filter((_, index) => {
+    const point = barPathSeries[index];
+    return !!point && point.tMs >= repSegment.startMs && point.tMs <= repSegment.endMs;
+  });
+};
+
 const mapBarPathToTimePlot = (barPathSeries: BarPathPoint[], plotWidth: number, plotHeight: number, trackingFrameHeightPx?: number): TimePlotPoint[] => {
   if (barPathSeries.length === 0 || plotWidth <= 0 || plotHeight <= 0) {
     return [];
@@ -298,6 +350,9 @@ const createThemedStyles = (theme: MD3Theme) =>
     speedPlotBackground: {
       backgroundColor: theme.colors.surfaceVariant,
     },
+    activeRepPathSegment: {
+      backgroundColor: theme.colors.primary,
+    },
   });
 
 const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
@@ -377,6 +432,15 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       smoothedBarPathSeries,
     ],
   );
+  const activeRepSegment = useMemo(
+    () => repSegments.find((segment) => segment.repIndex === currentRepIndex),
+    [currentRepIndex, repSegments],
+  );
+  const activeRepOverlayPoints = useMemo(
+    () => selectOverlayPointsForRep(historyOverlayPoints, smoothedBarPathSeries, activeRepSegment),
+    [activeRepSegment, historyOverlayPoints, smoothedBarPathSeries],
+  );
+  const activeRepOverlaySegments = useMemo(() => buildOverlayLineSegments(activeRepOverlayPoints), [activeRepOverlayPoints]);
   const scrubberProgress = correctedPlaybackDurationMs > 0 ? clamp(playbackTimeMs / correctedPlaybackDurationMs, 0, 1) : 0;
   const timePlotPoints = useMemo(
     () => mapBarPathToTimePlot(smoothedBarPathSeries, timePlotWidth, TIME_PLOT_HEIGHT, result.analysisMeta.trackingFrameHeightPx),
@@ -653,6 +717,25 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             />
           ))}
         </View>
+        {activeRepOverlaySegments.length > 0 ? (
+          <View testID="video-analysis-playback-active-rep-path" pointerEvents="none" style={styles.historyOverlayLayer}>
+            {activeRepOverlaySegments.map((segment) => (
+              <View
+                key={segment.key}
+                style={[
+                  styles.pathSegment,
+                  themedStyles.activeRepPathSegment,
+                  {
+                    left: segment.centerX - segment.width / 2,
+                    top: segment.centerY - PATH_SEGMENT_THICKNESS / 2,
+                    width: segment.width,
+                    transform: [{rotateZ: `${segment.angleRad}rad`}],
+                  },
+                ]}
+              />
+            ))}
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.timePlotSection}>
@@ -847,6 +930,12 @@ const styles = StyleSheet.create({
     height: 2,
     borderRadius: 1,
     opacity: 0.18,
+  },
+  pathSegment: {
+    position: 'absolute',
+    height: PATH_SEGMENT_THICKNESS,
+    borderRadius: PATH_SEGMENT_THICKNESS / 2,
+    opacity: 0.92,
   },
   overlayHint: {
     marginBottom: 10,
