@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Platform, ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Card, MD3Theme, ProgressBar, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
@@ -29,6 +29,9 @@ const createThemedStyles = (theme: MD3Theme) =>
     },
   });
 
+// Module-level map so start times survive navigation (component unmount/remount).
+const _analysisStartTimes = new Map<number, number>();
+
 const VideoAnalysisTab = () => {
   const navigation = useNavigation<any>();
   const analyses = useAllVideoAnalyses();
@@ -44,7 +47,6 @@ const VideoAnalysisTab = () => {
   const [importing, setImporting] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [lastSecondsPerVideoSecond, setLastSecondsPerVideoSecond] = useState(1.0);
-  const analysisStartTimes = useRef<Map<number, number>>(new Map());
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map((item) => item.id ?? 0)) + 1 : 1;
 
   // Refresh every 500ms while any analysis is in PROCESSING state so the
@@ -60,7 +62,7 @@ const VideoAnalysisTab = () => {
 
   const importFromSource = async (sourceUri: string) => {
     const currentAnalysisId = nextAnalysisId;
-    analysisStartTimes.current.set(currentAnalysisId, Date.now());
+    _analysisStartTimes.set(currentAnalysisId, Date.now());
     try {
       const outcome = await importVideoAnalysisFromSource({
         analysisId: currentAnalysisId,
@@ -75,7 +77,7 @@ const VideoAnalysisTab = () => {
 
       if (outcome === 'done') {
         // Update learned analysis speed for future progress estimates.
-        const startTime = analysisStartTimes.current.get(currentAnalysisId);
+        const startTime = _analysisStartTimes.get(currentAnalysisId);
         const analysis = analyses.find((a) => a.id === currentAnalysisId);
         const videoDurationMs = analysis?.videoMeta?.durationMs ?? 0;
         if (startTime !== undefined && videoDurationMs > 0) {
@@ -219,7 +221,7 @@ const VideoAnalysisTab = () => {
                 <ProgressBar
                   testID={`video-analysis-progress-${analysis.id}`}
                   progress={calculateAnalysisProgress(
-                    now - (analysisStartTimes.current.get(analysis.id) ?? now),
+                    now - (_analysisStartTimes.get(analysis.id) ?? now),
                     estimateAnalysisTimeMs(analysis.videoMeta?.durationMs ?? 0, lastSecondsPerVideoSecond),
                   )}
                   style={styles.progressBar}
