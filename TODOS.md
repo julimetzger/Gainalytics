@@ -36,9 +36,7 @@
 - [ready] [ANA-005](tickets/ANA-005-async-video-analysis.yaml) Asynchrone Analyse des Videos
   - User kann währen der Analyse die app ganz normal benutzen. Notification weißt auf die fertige analyse hin
   - Der Loading spinner zeigt den Progress an. Hier wird die Zeit die gebraucht wird abgeschätzt anhand der letzten analysen. Dazu wird im state gespeichert wie lange eine Minute anaylse beim letzten video gebraucht wird und dann abgeschätzt wie lange die neue analyse brauch für die länge des videos. Für den ersten Wert nehmen wir an 1s analyse pro 1s Video.
-  - [ready] [ANA-005-fix-tap](tickets/ANA-005-fix-notification-tap-background.yaml) Notification-Tap navigiert nicht zur Analyse wenn App im Hintergrund/terminiert
-  - [ready] [ANA-005-fix-perm](tickets/ANA-005-fix-notification-permission.yaml) Notification-Permission wird nicht abgefragt vor dem Posten
-  - [ready] [ANA-005-fix-duration](tickets/ANA-005-fix-video-duration-estimate.yaml) Hardcoded 6s Video-Dauer statt echte Dauer für Progress-Schätzung
+  - [ready] [ANA-005-fix](tickets/ANA-005-fix-codex-review.yaml) Codex-Review Fixes: Notification-Tap Background, Permission, echte Video-Dauer
 - Player Verbesserungen part 2 [VideoAnalysisDeteils]
   - Playergeschwindigkeite einstellen in 0.1er prozent schritten also von 0.1 bis 1.0 der tatsächlichen Geschwindigkeit
 - performance verbessern
