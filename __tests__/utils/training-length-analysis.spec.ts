@@ -1,7 +1,7 @@
 import {AccumulationMode} from '../../app/models/AccumulationMode';
 import {Training} from '../../app/models/entities/Training';
 import {TrainingsState} from '../../app/models/TrainingsState';
-import {aggregateTrainingLengths, formatTrainingLength} from '../../app/utils/training-length-analysis';
+import {aggregateTrainingLengths, findBucketByX, formatTrainingLength, TrainingLengthBucket} from '../../app/utils/training-length-analysis';
 
 const createTraining = (training: Partial<Training>) =>
   ({
@@ -162,5 +162,69 @@ describe('training-length-analysis', () => {
       formatTrainingLength(60),
       formatTrainingLength(95),
     ]).toEqual(['45 min', '1 h', '1 h 35 min']);
+  });
+});
+
+const makeBucket = (key: string, x: number): TrainingLengthBucket => ({
+  key,
+  startDate: new Date(key),
+  x,
+  averageDurationMinutes: 60,
+  totalDurationMinutes: 60,
+  trainingCount: 1,
+  trainings: [],
+});
+
+describe('findBucketByX', () => {
+  const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
+
+  const bucketA = makeBucket('2026-03-03T00:00:00.000Z', new Date('2026-03-03T00:00:00.000Z').getTime() / MILLISECONDS_IN_DAY);
+  const bucketB = makeBucket('2026-03-05T00:00:00.000Z', new Date('2026-03-05T00:00:00.000Z').getTime() / MILLISECONDS_IN_DAY);
+  const bucketC = makeBucket('2026-04-02T00:00:00.000Z', new Date('2026-04-02T00:00:00.000Z').getTime() / MILLISECONDS_IN_DAY);
+
+  it('returns null for an empty bucket list', () => {
+    expect(findBucketByX([], bucketA.x)).toBeNull();
+  });
+
+  it('returns the exact-match bucket when selectedX equals bucket.x', () => {
+    expect(findBucketByX([bucketA, bucketB, bucketC], bucketA.x)).toBe(bucketA);
+    expect(findBucketByX([bucketA, bucketB, bucketC], bucketB.x)).toBe(bucketB);
+    expect(findBucketByX([bucketA, bucketB, bucketC], bucketC.x)).toBe(bucketC);
+  });
+
+  it('matches the nearest bucket when selectedX has float-precision error (simulates non-UTC timezone tap)', () => {
+    // Simulate a float error that is far larger than the old 0.0001 tolerance
+    // (e.g. a timezone offset of UTC+1 causes an offset of 1/24 ≈ 0.0417 in epoch-day units)
+    const floatErrorX = bucketB.x + 0.04;
+    expect(findBucketByX([bucketA, bucketB, bucketC], floatErrorX)).toBe(bucketB);
+  });
+
+  it('selects the single bucket regardless of float drift', () => {
+    const driftedX = bucketA.x + 0.1;
+    expect(findBucketByX([bucketA], driftedX)).toBe(bucketA);
+  });
+
+  describe('toggle behavior via setSelectedBucketKey pattern', () => {
+    it('first tap sets the key, second tap on the same bar clears it', () => {
+      // Simulate the React state updater: (prev) => (prev === nextKey ? null : nextKey)
+      const toggle = (prev: string | null, nextKey: string | null) => (prev === nextKey ? null : nextKey);
+
+      const nextKey = bucketB.key;
+
+      // First tap: no prior selection
+      let state: string | null = null;
+      state = toggle(state, nextKey);
+      expect(state).toBe(nextKey);
+
+      // Second tap on the same bar: should deselect
+      state = toggle(state, nextKey);
+      expect(state).toBeNull();
+
+      // Tap on a different bar switches the selection
+      state = toggle(state, bucketA.key);
+      expect(state).toBe(bucketA.key);
+      state = toggle(state, bucketB.key);
+      expect(state).toBe(bucketB.key);
+    });
   });
 });

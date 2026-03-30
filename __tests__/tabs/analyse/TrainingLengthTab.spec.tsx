@@ -47,14 +47,25 @@ jest.mock('react-native-charts-wrapper', () => {
     }: {
       data: {dataSets?: Array<{values?: Array<{x: number}>}>};
       onSelect?: (event: {nativeEvent: {x: number}}) => void;
-    }) => (
-      <View>
-        <Text>{`Bars: ${data.dataSets?.[0]?.values?.length ?? 0}`}</Text>
-        <TouchableOpacity testID="mock-bar-chart-select" onPress={() => onSelect?.({nativeEvent: {x: data.dataSets?.[0]?.values?.[0]?.x ?? 0}})}>
-          <Text>Select first bar</Text>
-        </TouchableOpacity>
-      </View>
-    ),
+    }) => {
+      const values = data.dataSets?.[0]?.values ?? [];
+      return (
+        <View>
+          <Text>{`Bars: ${values.length}`}</Text>
+          <TouchableOpacity testID="mock-bar-chart-select" onPress={() => onSelect?.({nativeEvent: {x: values[0]?.x ?? 0}})}>
+            <Text>Select first bar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="mock-bar-chart-select-float-offset"
+            onPress={() => onSelect?.({nativeEvent: {x: (values[0]?.x ?? 0) + 0.08}})}>
+            <Text>Select first bar with float offset</Text>
+          </TouchableOpacity>
+          <TouchableOpacity testID="mock-bar-chart-select-second" onPress={() => onSelect?.({nativeEvent: {x: values[1]?.x ?? 0}})}>
+            <Text>Select second bar</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    },
   };
 });
 
@@ -211,6 +222,64 @@ describe('TrainingLengthTab', () => {
 
     fireEvent.press(getByTestId('mock-bar-chart-select'));
     expect(queryByTestId('training-length-selected-bucket')).toBeNull();
+  });
+
+  it('selects the correct bucket even when the x value has float imprecision (timezone offset simulation)', () => {
+    mockedUseAllTrainingsPlans.mockReturnValue([]);
+    mockedUseCompletedTrainingsIn.mockReturnValue([
+      createTraining({
+        id: 1,
+        state: TrainingsState.FINISHED,
+        start: new Date('2026-03-12T09:00:00.000Z'),
+        end: new Date('2026-03-12T10:30:00.000Z'),
+      }),
+    ]);
+
+    const {getByTestId, queryByTestId} = render(<TrainingLengthTab />);
+
+    // Simulate a tap with x offset of ~0.08 days (≈ UTC+2 timezone) — old 0.0001 tolerance would miss this
+    fireEvent.press(getByTestId('mock-bar-chart-select-float-offset'));
+    expect(getByTestId('training-length-selected-bucket')).toBeTruthy();
+
+    // Second tap with same offset toggles off
+    fireEvent.press(getByTestId('mock-bar-chart-select-float-offset'));
+    expect(queryByTestId('training-length-selected-bucket')).toBeNull();
+  });
+
+  it('switches the detail table when a different bar is tapped', () => {
+    mockedUseAllTrainingsPlans.mockReturnValue([
+      createTrainingsPlan({
+        id: 10,
+        trainings: {'1,1': 1, '1,2': 2},
+        trainingNames: {1: 'Squat Day', 2: 'Bench Day'},
+      }),
+    ]);
+    mockedUseCompletedTrainingsIn.mockReturnValue([
+      createTraining({
+        id: 1,
+        state: TrainingsState.FINISHED,
+        start: new Date('2026-03-09T09:00:00.000Z'),
+        end: new Date('2026-03-09T10:30:00.000Z'),
+      }),
+      createTraining({
+        id: 2,
+        state: TrainingsState.FINISHED,
+        start: new Date('2026-03-16T08:00:00.000Z'),
+        end: new Date('2026-03-16T09:00:00.000Z'),
+      }),
+    ]);
+
+    const {getByTestId, getByText, queryByText} = render(<TrainingLengthTab />);
+
+    // Select first bar (Squat Day week)
+    fireEvent.press(getByTestId('mock-bar-chart-select'));
+    expect(getByText('Squat Day')).toBeTruthy();
+    expect(queryByText('Bench Day')).toBeNull();
+
+    // Select second bar (Bench Day week) — detail should switch
+    fireEvent.press(getByTestId('mock-bar-chart-select-second'));
+    expect(getByText('Bench Day')).toBeTruthy();
+    expect(queryByText('Squat Day')).toBeNull();
   });
 
   it('shows a clear empty state when no completed trainings are available', () => {
