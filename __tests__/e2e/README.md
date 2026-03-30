@@ -1,11 +1,11 @@
-# Maestro E2E (WSL + Windows Emulator)
+# Maestro E2E (WSL + Windows Android Device)
 
 This E2E setup is intentionally under `__tests__`.
 
 Environment split:
 
 - Orchestration from WSL
-- Emulator, `adb`, and `maestro` on Windows
+- Android device, `adb`, and `maestro` on Windows
 
 ## Windows
 
@@ -40,13 +40,13 @@ Default fixture source:
 
 - `__tests__/testdata/1772318214222.gains`
 
-The fixture is pushed to emulator as:
+The fixture is pushed to the device as:
 
 - `/sdcard/Download/baseline.gains`
 
 Video analysis flow prerequisite:
 
-- Place a video at `/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4` in the emulator.
+- Place a video at `/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4` on the device.
 
 Notes:
 - `run-maestro-from-wsl.sh` auto-detects the WSL host IP from `/etc/resolv.conf` when `E2E_MAESTRO_HOST` is not set.

@@ -119,6 +119,144 @@ Working solution:
 Relevant files:
 - [read_run_status.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/read_run_status.py)
 
+### 13. Restarted runs can have a live worker and a stale terminal status.json at the same time
+
+Problem:
+- The orchestrator reuses the same `run_dir` when a ticket is restarted.
+- If the previous round already wrote `status.json`, that file stays in place until the new round exits.
+
+Symptoms:
+- `.codex-orchestrator/state.json` says `running`
+- the worker PID is alive and `worker.stderr.log` keeps changing
+- `runs/<ticket-id>/status.json` still says `blocked` or `ready_for_review` from the previous round
+
+Working solution:
+- Treat `status.json` as the terminal truth for the previous completed round, not automatically for the currently running restarted round.
+- When a ticket has been relaunched, check all three before reporting status:
+  - current worker process still exists
+  - `worker.stderr.log` or fresh check artifacts are still updating
+  - `status.json` timestamp predates the new worker activity
+- Operationally, report this as "old terminal status is stale; new round is live".
+
+Relevant files:
+- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+- [read_run_status.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/read_run_status.py)
+
+### 14. Review feedback written into state.json is not delivered live to an already-running worker
+
+Problem:
+- Appending `review_feedback` in `.codex-orchestrator/state.json` does not update the prompt of a worker that is already running.
+
+Symptoms:
+- state contains the new feedback
+- the live worker behavior does not change
+- the feedback only appears after a restart or a new worker round
+
+Working solution:
+- Treat feedback as next-round input.
+- If the user needs the worker to react to that feedback immediately, restart the ticket in the same worktree and on the same device.
+
+Relevant files:
+- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+- [runtime_state.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/runtime_state.py)
+
+### 15. Restarting a worker does not resume the old Codex conversation
+
+Problem:
+- A restarted ticket launches a new external `codex exec` process instead of reconnecting to the previous session.
+
+Symptoms:
+- a new job id appears for the same ticket
+- the old session context is not conversationally resumed
+- `worker.stdout.log` and `worker.stderr.log` are reopened and overwritten for the new round
+
+Working solution:
+- Describe restarts as "new worker round in the same worktree", not as session resume.
+- Preserve context through:
+  - the existing worktree
+  - the run directory artifacts
+  - `review_feedback`
+- Do not promise live session continuity to the user.
+
+Relevant files:
+- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+
+### 16. Validator requires exact backtick-matching in acceptance criteria text
+
+Problem:
+- The validate_review_bundle.py validator matches acceptance criteria strings literally. Workers often strip backticks (e.g. `repSegments` → repSegments) which causes false "missing acceptance evidence" failures.
+
+Symptoms:
+- Validator reports "missing acceptance evidence for criterion" even though the worker wrote matching evidence entries
+- The criterion text in status.json differs only by missing backticks
+
+Working solution:
+- Orchestrator manually fixes backticks in status.json when the only mismatch is formatting.
+- Long-term: normalize both sides (strip backticks) before matching in the validator.
+
+Relevant files:
+- [validate_review_bundle.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
+
+### 17. Validator requires specific check names: `test` and a name containing `maestro`/`e2e`/`smoke`
+
+Problem:
+- Workers name their checks freely (e.g. `jest-focused`, `emulator-state-export-proof`) but the validator requires exactly `test` and a check name containing `maestro`, `e2e`, or `smoke`.
+
+Symptoms:
+- Validator reports "missing required check: test" or "missing e2e or maestro check" even though equivalent checks passed
+
+Working solution:
+- Orchestrator renames checks in status.json to match validator expectations.
+- Workers should be instructed to use `test` for Jest and include `maestro`/`e2e` in e2e check names.
+
+Relevant files:
+- [validate_review_bundle.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
+
+### 18. Workers crash from `pkill -f maestro` killing their own process
+
+Problem:
+- Worker prompts contain the word "maestro" multiple times. When a worker runs `pkill -f maestro`, it matches its own claude process and kills itself.
+
+Symptoms:
+- Worker exits with code 144 (signal 16) immediately after running pkill
+- worker.stdout.log shows the pkill command as the last action
+- status.json is never written
+
+Working solution:
+- Never use `pkill -f maestro` in worker feedback. Use a more specific pattern: `ps aux | grep maestro | grep java | grep -v grep | awk '{print $2}' | xargs kill 2>/dev/null || true`
+
+Relevant files:
+- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+
+### 19. Workers crash from screenshot dimension limit (>2000px)
+
+Problem:
+- Claude's multi-image context has a 2000px dimension limit. Emulator screenshots are typically larger and crash the worker when read.
+
+Symptoms:
+- Worker result: "An image in the conversation exceeds the dimension limit for many-image requests (2000px)"
+- status.json is never updated
+- Worker exits without completing
+
+Working solution:
+- Instruct workers to resize all screenshots immediately after capture: `convert file.png -resize 800x800\> file.png`
+- Or capture with inline resize: `adb exec-out screencap -p | convert - -resize 800x800\> file.png`
+
+### 20. `$memory` skill call does not work in non-interactive `claude -p` mode
+
+Problem:
+- The feature SKILL.md instructed workers to run `$memory` at the end of their run, but skill invocations are not available in `claude -p` (prompt) mode.
+
+Symptoms:
+- Workers never write to `docs/memory/agent-memory.md`
+- No error — the instruction is simply ignored
+
+Working solution:
+- Replaced `$memory` skill reference with direct instructions to read and append to `docs/memory/agent-memory.md` in the feature SKILL.md.
+
+Relevant files:
+- [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
+
 ## Operational Guidance For Future Agents
 
 - Do not assume `state.json` is current if a run directory already has `status.json`.
@@ -129,3 +267,11 @@ Relevant files:
 - Before accepting that a validator failure is real, check whether evidence paths contain inline annotations — the agent may have used the correct file with an annotation that broke path matching.
 - When a worker dies with no status.json and no obvious error, check worker.stdout.log for rate-limit messages before assuming a code bug.
 - When launching claude workers, always strip SKILL.md frontmatter before passing content as a CLI argument.
+- After a ticket restart, do not report the old `status.json` without checking whether a new worker round is already live in the same `run_dir`.
+- Feedback added in `state.json` is next-round context only; it does not hot-reload into a running worker.
+- A worker restart reuses filesystem context, not the same Codex session.
+- When validator reports missing criteria evidence, first check for backtick mismatches before relaunching workers.
+- Worker check names must be exactly `test` for Jest and contain `maestro`/`e2e`/`smoke` for e2e checks.
+- Never include `pkill -f maestro` in worker feedback — it kills the worker itself. Use `grep java` to target actual Maestro processes.
+- Always instruct workers to resize screenshots to max 800x800 before reading them (2000px context limit).
+- `$memory` and other skill calls do not work in `claude -p` mode — embed instructions directly in the prompt.

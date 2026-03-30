@@ -116,12 +116,7 @@ adb_cmd() {
 
 require_explicit_device_if_needed() {
   if [[ -z "${DEVICE_ID}" ]]; then
-    echo "Refusing to run Maestro without an explicit emulator device. Set ANDROID_SERIAL or pass --device/--udid." >&2
-    exit 2
-  fi
-
-  if [[ "${DEVICE_ID}" != emulator-* ]]; then
-    echo "Refusing to run Maestro on non-emulator device '${DEVICE_ID}'." >&2
+    echo "Refusing to run Maestro without an explicit Android device. Set ANDROID_SERIAL or pass --device/--udid." >&2
     exit 2
   fi
 }

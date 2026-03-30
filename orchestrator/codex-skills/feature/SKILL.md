@@ -1,6 +1,6 @@
 ---
 name: feature
-description: Implement exactly one ready ticket in a real local git worktree with an assigned Android emulator, local commits, screenshots, and validation artifacts. Use when a worker is started by the orchestrator to modify code directly in the target worktree, run tests and emulator checks, and write `needs_input`, `ready_for_review`, or `blocked` status back to the matching `.codex-orchestrator/runs/` ticket directory.
+description: Implement exactly one ready ticket in a real local git worktree with an assigned Android device, local commits, screenshots, and validation artifacts. Use when a worker is started by the orchestrator to modify code directly in the target worktree, run tests and device checks, and write `needs_input`, `ready_for_review`, or `blocked` status back to the matching `.codex-orchestrator/runs/` ticket directory.
 ---
 
 # Feature
@@ -8,7 +8,7 @@ description: Implement exactly one ready ticket in a real local git worktree wit
 ## Overview
 
 Implement one ticket end-to-end inside the assigned local worktree. Use the assigned
-emulator for verification, create local commits on the feature branch, and write the
+Android device for verification, create local commits on the feature branch, and write the
 result contract back to the run directory before exiting.
 
 ## Required Inputs
@@ -23,7 +23,7 @@ Expect the orchestrator prompt to provide:
 - optional `screens` — paths to app screenshots under `orchestrator/AppStruktur/` that show the UI area affected by the ticket
 - `worktree_path`
 - `branch`
-- `emulator_serial`
+- `device_serial` (or legacy `emulator_serial`)
 - `run_dir`
 - prior review feedback, if this is a resumed round
 
@@ -33,10 +33,10 @@ If any of these are missing, write `needs_input` instead of guessing.
 
 - Work only inside the assigned worktree.
 - Use the assigned branch.
-- Export `ANDROID_SERIAL=<emulator_serial>` for child processes, but do not rely on adb default device selection.
+- Export `ANDROID_SERIAL` for the assigned device serial, but do not rely on adb default device selection.
 - In every direct adb command, pass `-s "$ANDROID_SERIAL"` explicitly.
 - In every direct Maestro command, pass `--device "$ANDROID_SERIAL"` explicitly.
-- Never target a non-emulator device.
+- Never target a different Android device than the one assigned by the orchestrator.
 - Reuse existing adb host or socket environment when it is already configured by the orchestrator.
 - If the orchestrator already provided a host Metro process or `E2E_METRO_PORT`, reuse it and do not start another packager.
 - Before running Metro-dependent app or Maestro checks, ensure Metro is reachable. Only if no host Metro was provided should you start `npm start -- --host 0.0.0.0 --port 8081`.
@@ -60,19 +60,21 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
 ## Workflow
 
 1. Confirm the branch and worktree state.
-2. Read the ticket, current code, relevant app screenshots, and any prior feedback.
-3. Implement the feature directly in the assigned worktree.
-4. Run the smallest relevant checks while iterating.
-5. Before review, run the final checks relevant to the change:
+2. Read `docs/memory/agent-memory.md` to learn from previous agent runs.
+3. Read the ticket, current code, relevant app screenshots, and any prior feedback.
+4. Implement the feature directly in the assigned worktree.
+5. Run the smallest relevant checks while iterating.
+6. Before review, run the final checks relevant to the change:
    - `npm test`
-   - emulator verification
-   - for UI or flow changes, run Maestro smoke or a relevant flow against the assigned emulator
+   - Android device verification
+   - for UI or flow changes, run Maestro smoke or a relevant flow against the assigned device
    - workspace-wide `typecheck` and `lint` are optional health checks; record them if you run them, but they are not required for `ready_for_review`
-6. Capture at least one screenshot that shows the implemented result.
-7. Produce review evidence for every acceptance criterion:
+7. Capture at least one screenshot that shows the implemented result.
+8. Produce review evidence for every acceptance criterion:
    - map each criterion to the specific code change, screenshot, and check or e2e result that proves it
-8. Create one or more local commits on the assigned feature branch.
-9. Write `status.json` and `summary.md`, then exit.
+9. Create one or more local commits on the assigned feature branch.
+10. Write `status.json` and `summary.md`.
+11. Append new learnings to `docs/memory/agent-memory.md` (see Memory section), then exit.
 
 ## Emulator And Artifact Commands
 
@@ -86,7 +88,7 @@ npm test > "<run_dir>/checks/test.log" 2>&1
 npm run lint > "<run_dir>/checks/lint.log" 2>&1
 ```
 
-Adapt the exact verification to the ticket. Do not skip emulator verification when the
+Adapt the exact verification to the ticket. Do not skip Android device verification when the
 change affects UI or user flows.
 
 ## Maestro Test Quality Rules
@@ -151,7 +153,7 @@ Write `status.json` with this shape:
 {
   "ticket_id": "TRN-104",
   "status": "ready_for_review",
-  "summary": "Implemented the feature and verified it on emulator-5554.",
+  "summary": "Implemented the feature and verified it on the assigned Android device.",
   "commit_hashes": ["abc1234"],
   "changed_files": ["app/example.tsx"],
   "checks_run": [
@@ -206,10 +208,26 @@ Rules:
 
 ## Memory
 
-After writing `status.json` and `summary.md`, run `$memory` to capture non-obvious
-learnings from this run into `docs/memory/agent-memory.md`. Focus on:
-infrastructure issues, code-pattern discoveries, test quality observations. Skip if
-nothing new was learned.
+Before starting implementation, read `docs/memory/agent-memory.md` to avoid repeating
+known pitfalls (adb, Metro, Maestro, React Native patterns, test quality).
+
+After writing `status.json` and `summary.md`, review what you learned during this run
+and append new entries directly to `docs/memory/agent-memory.md`. Focus on:
+
+- Infrastructure issues (adb, Metro, Maestro, emulator, WSL, port problems)
+- Code patterns that caused bugs or were non-obvious
+- Test quality observations (what made a test weak or strong)
+- Agent behavior patterns (what worked, what caused regressions)
+
+Rules for writing memory entries:
+
+1. Read `docs/memory/agent-memory.md` first — do NOT duplicate existing entries.
+2. Only write entries that are genuinely new and non-obvious.
+3. Follow the existing format (numbered `### N. Title`, with Problem/Symptoms/Working solution or Observation/Apply when sections).
+4. Increment the entry number from the last existing entry.
+5. If nothing new was learned, do not write anything.
+6. Keep entries concise (max 10 lines per entry).
+7. Do NOT use `$memory` — write directly to the file.
 
 ## Summary File
 

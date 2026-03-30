@@ -129,6 +129,8 @@ def build_prompt(
     maestro_driver_port: int | None = None,
     skill_preamble: str | None = None,
 ) -> str:
+    device_kind = "emulator" if emulator_serial.startswith("emulator-") else "device"
+    target_phrase = f"assigned Android {device_kind}"
     acceptance = "\n".join(f"- {item}" for item in ticket.get("acceptanceCriteria", [])) or "- none"
     constraints = "\n".join(f"- {item}" for item in ticket.get("constraints", [])) or "- none"
     components = "\n".join(f"- {item}" for item in ticket.get("components", [])) or "- none"
@@ -140,7 +142,7 @@ def build_prompt(
         proxy_instructions = f"""
 - adb_proxy_host: {proxy_host}
 - adb_proxy_port: {proxy_port}
-- prefer explicit adb commands like `adb -H {proxy_host} -P {proxy_port} ...` for emulator verification
+- prefer explicit adb commands like `adb -H {proxy_host} -P {proxy_port} ...` for Android device verification
 - prefer explicit maestro script args like `--host {proxy_host} --adb-host {proxy_host} --adb-port {proxy_port}` instead of relying only on inherited env
 """.rstrip()
     metro_instructions = ""
@@ -150,7 +152,7 @@ def build_prompt(
 - host_metro_port: {metro_port}
 - device_metro_port: {metro_device_port}
 - a host Metro process is already running for this worktree; reuse it instead of starting a new packager
-- for emulator validation, reverse device port `{metro_device_port}` to host port `{metro_port}` or use the provided `E2E_DEVICE_METRO_PORT` and `E2E_METRO_PORT` env vars
+- for Android device validation, reverse device port `{metro_device_port}` to host port `{metro_port}` or use the provided `E2E_DEVICE_METRO_PORT` and `E2E_METRO_PORT` env vars
 """.rstrip()
     maestro_port_instructions = ""
     if maestro_driver_port is not None:
@@ -181,6 +183,7 @@ Components:
 Assigned execution context:
 - worktree_path: {worktree_path}
 - branch: {branch}
+- device_serial: {emulator_serial}
 - emulator_serial: {emulator_serial}
 - run_dir: {run_dir}
 - status_json: {run_dir / "status.json"}
@@ -190,7 +193,7 @@ Environment:
 - export ANDROID_SERIAL={emulator_serial} for child processes
 - in every direct adb command, pass `-s {emulator_serial}` explicitly and do not rely on adb default device selection
 - in every direct maestro command, pass `--device {emulator_serial}` explicitly
-- never target a non-emulator device such as `R5CN30HWZFN`
+- only use the {target_phrase} `{emulator_serial}` for device commands and verification; do not switch devices mid-run
 - if adb host or socket variables are already present in the environment, keep using them
 {proxy_instructions}
 {metro_instructions}
@@ -279,6 +282,7 @@ def main() -> None:
     if args.runner == "claude":
         cmd = [
             "claude",
+            "--model", "sonnet",
             "--allowedTools", "Bash,Read,Write,Edit,Glob,Grep",
             "--output-format", "stream-json",
             "--verbose",
