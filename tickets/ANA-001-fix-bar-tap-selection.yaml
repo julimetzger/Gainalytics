@@ -1,0 +1,54 @@
+id: ANA-001-fix
+status: ready
+area: analyse
+priority: high
+title: Fix Training Length bar chart tap selection not showing detail table
+source:
+  - "https://github.com/julimetzger/Gainalytics/pull/17#discussion_r3004657690"
+description: >
+  The Training Length analysis screen (ANA-001) has a broken bar tap interaction.
+  When the user taps a bar in the chart, the detail table with individual trainings
+  for that bucket never appears. The root cause is a float-precision bug in the
+  tap handler: `Math.abs(bucket.x - selectedX) < 0.0001` uses epoch-day x values
+  that are often fractional in non-UTC time zones, and the chart selection values
+  come back from native code as float-precision numbers. The conversion error is
+  commonly larger than 1e-4, so valid taps fail to match any bucket.
+
+  Additionally, when the user taps a bar, the tap should toggle the detail table:
+  first tap shows the table with all trainings in that bucket (training name, date,
+  duration), second tap on the same bar hides it again.
+
+  Fix the matching logic to use a safer approach (e.g. index-based matching,
+  key from marker metadata, or a much looser tolerance) and verify the detail
+  table actually appears and disappears on tap.
+components:
+  - app/tabs/Analyse/TrainingLengthTab.tsx
+  - app/utils/training-length-analysis.ts
+screens:
+  - orchestrator/AppStruktur/analyse/Analyse.png
+acceptanceCriteria:
+  - >
+    Tapping a bar in the Training Length chart reliably shows the detail table
+    below the chart with all trainings for that bucket, regardless of timezone
+    or float-precision differences.
+  - >
+    Each row in the detail table shows the training name, the training date
+    (formatted), and the training duration (e.g. '1h 23min').
+  - >
+    Tapping the same bar again hides the detail table (toggle behavior).
+  - >
+    Tapping a different bar switches the detail table to the new bucket's trainings.
+  - >
+    The fix works for all three accumulation modes (Day, Week, Month).
+  - >
+    Automated tests cover the bar selection matching logic and the toggle behavior.
+evidenceRequired:
+  - Screenshot showing the detail table visible after tapping a bar.
+  - Screenshot showing the table hidden after tapping the same bar again.
+  - Maestro or e2e evidence that taps a bar and verifies the detail table appears.
+constraints:
+  - Do not change the chart library or the existing chart configuration.
+  - Use index-based or key-based matching instead of float comparison with tight tolerance.
+nonGoals:
+  - Redesigning the Training Length chart layout.
+  - Changing the accumulation logic or duration calculation.

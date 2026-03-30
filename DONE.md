@@ -5,6 +5,7 @@
     - es gibt eine neue Seite im Analysetab mit Namen Trainingslänge
     - Im Tab wird die Trainingslänge als Balkendiagramm angezeigt
     - Filter ist über Accumulation Mode möglich (Day, Week, Month)
+    - [ready] [ANA-001-fix](tickets/ANA-001-fix-bar-tap-selection.yaml) Bugfix: Klick auf Balken zeigt keine Detail-Tabelle (Float-Precision-Bug im Tap-Handler)
 
 - [ANA-002] DateRangePicker funktioniert nicht im analyseTab analayse
     - auswahl eines Startpunktes per tab auf tag: Auswahl von dem tag bis heute - aktualisierung der Zeiten oben
@@ -21,6 +22,9 @@
 
 | Feature                                        | version | passed | Notes |
 |------------------------------------------------|---------|--------|-------|
+| [ANA-001](tickets/ANA-001-training-length-analysis-page.yaml) Training Length Analyse | 151 | | Defect: [ANA-001-fix](tickets/ANA-001-fix-bar-tap-selection.yaml) Tap auf Balken zeigt keine Detail-Tabelle |
+| [ANA-002] DateRangePicker Fix                  | 151     |        |       |
+| [ANA-003](tickets/ANA-003-video-player-improvements.yaml) Video Player Verbesserungen | 151 | | |
 | **Export/Import Funktion für Trainings/Micro** | 145     |        |       |
 | Trainings löschbar machen                      | 145     |        |       |
 

@@ -1,0 +1,49 @@
+id: TRN-003
+status: ready
+area: trainings
+priority: medium
+title: Fix training done notification firing after training is already finished
+source:
+  - TODOS.md:49
+description: >
+  The "Training in progress!" notification is scheduled every time a set is
+  submitted (`onSubmitSet`) or the user navigates to the next exercise
+  (`goToNextExercise`) — regardless of whether the training is still in
+  `STARTED` state. This means the notification can fire even after the training
+  has been finished (`FINISHED` state), because `scheduleFinisTraining()` is
+  called without checking `training?.state`.
+
+  The fix should guard the `scheduleFinisTraining()` calls so the notification
+  is only scheduled when `training?.state === TrainingsState.STARTED`. When
+  the training is already `FINISHED` or `PLANNED`, the notification should
+  not be scheduled. The existing cancel logic in `changePlanningmode()` when
+  finishing a training is correct and should remain unchanged.
+components:
+  - app/components/Training/TrainingsPlanNode.tsx
+  - app/components/Training/execute/FinishTrainingNotification.ts
+screens:
+  - orchestrator/AppStruktur/training/TrainingActive.png
+acceptanceCriteria:
+  - >
+    The "Training in progress!" notification is only scheduled when the
+    training is in `STARTED` state.
+  - >
+    After the training is finished (`FINISHED` state), no new "Training in
+    progress!" notification is scheduled, even if the user interacts with
+    the training view (e.g. editing sets).
+  - >
+    The existing cancel logic when finishing a training remains intact — the
+    notification is cancelled when the user finishes the training.
+  - >
+    Automated tests cover the guard logic: notification is scheduled during
+    active training and not scheduled after finish.
+evidenceRequired:
+  - Updated test log showing the guard logic is covered.
+  - Emulator or Maestro evidence showing no notification fires after finishing a training.
+constraints:
+  - Do not change the FinishTrainingNotification hook interface.
+  - Do not change the notification content or channel configuration.
+  - Keep the fix minimal — only add the state guard to the existing call sites.
+nonGoals:
+  - Refactoring the notification system.
+  - Adding new notification types or channels.

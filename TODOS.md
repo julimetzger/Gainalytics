@@ -32,7 +32,7 @@
   - Rep zeit ermitteln anhand nulldurchlauf der Geschwindigkeit. Berechnung der durschnittlichen Geschwindigkeit der Rep. Ausgabe der Repzeiten erstmal nur als Zeiten für dir reps als Werte in der Zusammenfassung.
   - Anzeige einer Rep im overlay mit grüner Farbe als kurve während der Ausführung einer reptetion
   - den gesamten bar verlauf als hellgraue linie plotten. Ein bisschen deutlicher als im moment die punkte geplottet werden.
-- [ready] Asynchrone Analyse des Videos
+- [ready] [ANA-005](tickets/ANA-005-async-video-analysis.yaml) Asynchrone Analyse des Videos
   - User kann währen der Analyse die app ganz normal benutzen. Notification weißt auf die fertige analyse hin
   - Der Loading spinner zeigt den Progress an. Hier wird die Zeit die gebraucht wird abgeschätzt anhand der letzten analysen. Dazu wird im state gespeichert wie lange eine Minute anaylse beim letzten video gebraucht wird und dann abgeschätzt wie lange die neue analyse brauch für die länge des videos. Für den ersten Wert nehmen wir an 1s analyse pro 1s Video.
 - Player Verbesserungen part 2 [VideoAnalysisDeteils]
@@ -46,7 +46,7 @@
 - Tabs für Analyse https://www.npmjs.com/package/react-native-paper-tabs
 
 ## Bugs
-- Training done notification kommt auch wenn das training abgeschlossen ist
+- [ready] [TRN-003](tickets/TRN-003-fix-done-notification-after-finish.yaml) Training done notification kommt auch wenn das training abgeschlossen ist
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
   
 
