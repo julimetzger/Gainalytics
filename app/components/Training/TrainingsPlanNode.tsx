@@ -114,14 +114,18 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     setRefresHeky(Math.random());
     setTimeInWorkout(new Date(Date.now()));
     setchosenExercise(exercises[number].id);
-    scheduleFinisTraining();
+    if (training?.state === TrainingsState.STARTED) {
+      scheduleFinisTraining();
+    }
     resetPauseNotification();
   }
 
   const onSubmitSet = () => {
     setTimeInWorkout(new Date(Date.now()));
     schedulePauseDoneNotification();
-    scheduleFinisTraining();
+    if (training?.state === TrainingsState.STARTED) {
+      scheduleFinisTraining();
+    }
   };
 
   function onDeleteTraining() {
