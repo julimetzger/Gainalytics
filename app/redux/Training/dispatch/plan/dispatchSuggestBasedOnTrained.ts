@@ -5,15 +5,25 @@ import {useLastTrainingInMicro} from '../../use/useLastTrainingInMicro';
 import {useNextWorkoutId} from '../../../Workout/use/useNextWorkoutId';
 import {useWorkoutsByIds} from '../../../Workout/use/useWorkoutsByIds';
 import {Workout} from '../../../../models/entities/Workout';
+import {
+  applyLinearProgressionToWorkout,
+  DEFAULT_SUGGESTION_PROGRESSION_PROFILE,
+  SuggestionProgressionProfile,
+} from '../../../../utils/AnalyseUtils';
 
-export const dispatchSuggestBasedOnTrained = (trainingsPlanId: number, trainingsNumber: number) => {
+export const dispatchSuggestBasedOnTrained = (
+  trainingsPlanId: number,
+  trainingsNumber: number,
+  progressionProfile: SuggestionProgressionProfile = DEFAULT_SUGGESTION_PROGRESSION_PROFILE,
+) => {
   const dispatch = useDispatch();
   let nextTrainingsId = useNextTrainingsId();
   let nextWorkoutId = useNextWorkoutId();
   let lastTrainingInMicro = useLastTrainingInMicro(trainingsPlanId, trainingsNumber);
-  let workouts = useWorkoutsByIds(lastTrainingInMicro?.doneWorkoutIds ? Object.values(lastTrainingInMicro.doneWorkoutIds) : []);
-  if (lastTrainingInMicro?.doneWorkoutIds ? Object.values(lastTrainingInMicro.doneWorkoutIds).length > 0 : false) {
-    let map = workouts.map((workout, index) => [nextWorkoutId + index, workout] as [number, Workout]);
+  const doneWorkoutIds = lastTrainingInMicro?.doneWorkoutIds ? Object.values(lastTrainingInMicro.doneWorkoutIds) : [];
+  let workouts = useWorkoutsByIds(doneWorkoutIds);
+  if (doneWorkoutIds.length > 0) {
+    let map = workouts.map((workout, index) => [nextWorkoutId + index, applyLinearProgressionToWorkout(workout, progressionProfile)] as [number, Workout]);
     let workoutIdWorkoutMap = new Map(map);
     return (trainingsPlanId: number, microNumber: number, trainingInMicroNumber: number) =>
       dispatch({
