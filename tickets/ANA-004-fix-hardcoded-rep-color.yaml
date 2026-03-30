@@ -1,0 +1,33 @@
+id: ANA-004-fix
+status: ready
+area: analyse
+priority: medium
+title: Replace hardcoded active-rep color with theme token
+source:
+  - "https://github.com/julimetzger/Gainalytics/pull/22#discussion"
+description: >
+  The active rep path in VideoAnalysisPlaybackOverlayCard uses a hardcoded
+  color `'#63A002'` instead of a `theme.colors` token. This violates the
+  project styling conventions in AGENTS.md which require using theme colors
+  and disallow hardcoded color values. A fixed hex color bypasses light/dark
+  theme adaptation and can reduce contrast for users on non-default themes.
+
+  Replace `'#63A002'` with an appropriate `theme.colors` value (e.g.
+  `theme.colors.primary` or `theme.colors.tertiary`).
+components:
+  - app/components/video/VideoAnalysisPlaybackOverlayCard.tsx
+acceptanceCriteria:
+  - >
+    The active-rep highlight color in `VideoAnalysisPlaybackOverlayCard` uses
+    a `theme.colors` token instead of a hardcoded hex value.
+  - >
+    The overlay remains visually distinct and readable on both light and dark themes.
+  - >
+    Automated tests still pass after the change.
+evidenceRequired:
+  - Screenshot showing the overlay with the themed color.
+  - Passing test log.
+constraints:
+  - Use an existing theme color token, do not add new theme entries.
+nonGoals:
+  - Changing other colors in the overlay or chart components.

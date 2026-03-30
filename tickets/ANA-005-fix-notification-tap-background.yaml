@@ -1,0 +1,41 @@
+id: ANA-005-fix-tap
+status: ready
+area: analyse
+priority: high
+title: Handle notification tap when app is in background or terminated
+source:
+  - "https://github.com/julimetzger/Gainalytics/pull/23#discussion"
+description: >
+  The background handler for `video_analysis_complete` notifications does
+  nothing, so tapping the completion notification while the app is not in
+  the foreground loses the deep-link. In the terminated/background launch
+  path, the callback may run before navigation is ready and there is no
+  persisted handoff (e.g. via `getInitialNotification`), so users open
+  the app from the notification and do not land on VideoAnalysisDetail.
+
+  Fix by checking `getInitialNotification()` on app startup and navigating
+  to the finished analysis if the launch was triggered by the completion
+  notification. Also handle the background event callback properly.
+components:
+  - App.tsx
+  - app/utils/videoAnalysisNotification.ts
+acceptanceCriteria:
+  - >
+    Tapping the completion notification while the app is in the background
+    opens the app and navigates to the finished VideoAnalysisDetail screen.
+  - >
+    Tapping the completion notification when the app is terminated launches
+    the app and navigates to the finished analysis.
+  - >
+    If the app is already in the foreground, the existing navigation behavior
+    remains unchanged.
+  - >
+    Automated tests cover the initial notification handling path.
+evidenceRequired:
+  - Emulator evidence of notification tap navigating to the analysis from background.
+  - Passing test log.
+constraints:
+  - Use @notifee getInitialNotification() for the cold-start path.
+  - Do not change the notification content or channel.
+nonGoals:
+  - Handling notifications for other features.
