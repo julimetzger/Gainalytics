@@ -1,9 +1,9 @@
 import {PermissionsAndroid, Platform} from 'react-native';
 import {VideoAnalysis, VideoAnalysisStatus} from '../models/entities/VideoAnalysis';
 import {copyImportedVideoToLocalStorage} from './videoAnalysisStorage';
-import {analyzeSquatVideo, ManualSeedPayload, prepareSquatVideoSeed, startVideoAnalysisForegroundService, stopVideoAnalysisForegroundService} from './videoAnalysisNative';
+import {analyzeSquatVideo, getVideoDuration, ManualSeedPayload, prepareSquatVideoSeed, startVideoAnalysisForegroundService, stopVideoAnalysisForegroundService} from './videoAnalysisNative';
 import {computeSecondsPerVideoSecond} from './videoAnalysisProgress';
-import {showAnalysisCompleteNotification, showAnalysisFailedNotification} from './videoAnalysisNotification';
+import {requestVideoAnalysisNotificationPermission, showAnalysisCompleteNotification, showAnalysisFailedNotification} from './videoAnalysisNotification';
 
 export const EMULATOR_SQUAT_VIDEO_PATH = '/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4';
 
@@ -24,6 +24,7 @@ interface ImportVideoAnalysisParams {
     localVideoPath?: string,
   ) => void;
   attachVideoAnalysisResult: (analysisId: number, resultPath: string, localVideoPath?: string) => void;
+  setVideoAnalysisDuration: (analysisId: number, durationMs: number) => void;
   setLastAnalysisSecondsPerVideoSecond: (value: number) => void;
 }
 
@@ -80,6 +81,7 @@ export const importVideoAnalysisFromSource = async ({
   setManualSeedFramePath,
   setSeedPreflight,
   attachVideoAnalysisResult,
+  setVideoAnalysisDuration,
   setLastAnalysisSecondsPerVideoSecond,
 }: ImportVideoAnalysisParams): Promise<VideoAnalysisImportOutcome> => {
   const importStartedAtMs = Date.now();
@@ -87,6 +89,10 @@ export const importVideoAnalysisFromSource = async ({
   let copyMs = 0;
   let preflightMs = 0;
   let outcome: VideoAnalysisImportOutcome | 'failed' = 'failed';
+
+  // Request notification permission before analysis starts.
+  // Analysis continues regardless of whether permission is granted.
+  await requestVideoAnalysisNotificationPermission();
 
   addVideoAnalysis({
     id: analysisId,
@@ -134,9 +140,12 @@ export const importVideoAnalysisFromSource = async ({
       return 'awaiting_seed_selection';
     }
 
-    // Estimate video duration from metadata (approximation using standard duration)
-    // The native module will extract the real duration during analysis
-    const estimatedVideoDurationMs = 6000;
+    // Read actual video duration from file metadata.
+    // Falls back to 0 (unknown) if the native module cannot determine it.
+    const estimatedVideoDurationMs = await getVideoDuration(localVideoPath);
+    if (estimatedVideoDurationMs > 0) {
+      setVideoAnalysisDuration(analysisId, estimatedVideoDurationMs);
+    }
 
     const analysisStartedAtMs = Date.now();
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING, undefined, {

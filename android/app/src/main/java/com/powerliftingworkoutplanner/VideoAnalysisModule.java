@@ -419,6 +419,11 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         }
     }
 
+    @ReactMethod
+    public void getVideoDuration(String localVideoPath, Promise promise) {
+        promise.resolve((double) extractDurationMs(localVideoPath));
+    }
+
     private long extractDurationMs(String localVideoPath) {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {

@@ -51,6 +51,22 @@ export const analyzeSquatVideo = async (localVideoPath: string, analysisId: numb
   return writeBarTrackingResultToFile(buildStubBarTrackingResult(analysisId));
 };
 
+/**
+ * Returns the video duration in milliseconds.
+ * Falls back to 0 when the native module is unavailable or metadata cannot be read.
+ */
+export const getVideoDuration = async (localVideoPath: string): Promise<number> => {
+  const nativeGetDuration = VideoAnalysis?.getVideoDuration as undefined | ((path: string) => Promise<number>);
+  if (!nativeGetDuration) {
+    return 0;
+  }
+  try {
+    return await nativeGetDuration(localVideoPath);
+  } catch {
+    return 0;
+  }
+};
+
 export const prepareSquatVideoSeed = async (localVideoPath: string, analysisId: number): Promise<SeedPreflightResult> => {
   const nativePrepare = VideoAnalysis?.prepareSquatVideoSeed as undefined | ((...args: unknown[]) => Promise<SeedPreflightResult>);
   if (!nativePrepare) {

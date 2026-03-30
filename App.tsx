@@ -1,8 +1,8 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect} from 'react';
 import {PersistGate} from 'redux-persist/integration/react';
 import {Provider} from 'react-redux';
 import configureStore from './configureStore';
-import {NavigationContainer, NavigationContainerRef} from '@react-navigation/native';
+import {createNavigationContainerRef, NavigationContainer} from '@react-navigation/native';
 import {MD3DarkTheme as PaperDarkTheme, MD3LightTheme, Provider as PaperProvider} from 'react-native-paper';
 import {BottomTabs} from './app/routing/bottomNavigator';
 import {EventProvider} from 'react-native-outside-press';
@@ -12,6 +12,36 @@ import Toast from 'react-native-toast-message';
 import {LogBox, StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import notifee, {EventType} from '@notifee/react-native';
+import {extractAnalysisIdFromNotification} from './app/utils/videoAnalysisNotification';
+
+export const navigationRef = createNavigationContainerRef<any>();
+
+// Pending deep-link analysisId stored by the background event handler.
+// Consumed in onReady() once the navigation tree is mounted.
+let pendingVideoAnalysisNavigation: number | undefined;
+
+function navigateToVideoAnalysis(analysisId: number) {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate('Analyse', {
+      screen: 'VideoAnalysisDetail',
+      params: {analysisId},
+    } as any);
+  } else {
+    pendingVideoAnalysisNavigation = analysisId;
+  }
+}
+
+// Background event handler: runs when the app is in the background and the
+// user taps a video_analysis_complete notification. Must be registered at
+// module scope (outside React tree) before any component is mounted.
+notifee.onBackgroundEvent(async ({type, detail}) => {
+  if (type === EventType.PRESS && detail.notification) {
+    const analysisId = extractAnalysisIdFromNotification(detail.notification as any);
+    if (analysisId !== undefined) {
+      navigateToVideoAnalysis(analysisId);
+    }
+  }
+});
 
 registerTranslation('en-GB', {
   save: 'Save',
@@ -1009,32 +1039,42 @@ function buildThemes(palette?: 'blue' | 'green' | 'purple') {
   return {DarkTheme, LightThemeCombined};
 }
 
-const navigationRef = React.createRef<NavigationContainerRef<any>>();
-
-notifee.onBackgroundEvent(async ({type, detail}) => {
-  if (type === EventType.PRESS && detail.notification?.data?.type === 'video_analysis_complete') {
-    // Navigation is handled in onForegroundEvent once the app activates
-  }
-});
-
 const AppWithPersist = () => {
   let appSettings = useSettings();
   const {DarkTheme, LightThemeCombined} = buildThemes(appSettings?.palette);
   let paperThemes = appSettings?.mode === 'light' ? LightThemeCombined : DarkTheme;
 
+  // Register foreground event handler for notification taps while the app is active.
   useEffect(() => {
-    return notifee.onForegroundEvent(({type, detail}) => {
-      if (type === EventType.PRESS && detail.notification?.data?.type === 'video_analysis_complete') {
-        const analysisId = Number(detail.notification.data.analysisId);
-        if (!isNaN(analysisId) && navigationRef.current) {
-          navigationRef.current.navigate('Analyse', {
-            screen: 'VideoAnalysisDetail',
-            params: {analysisId},
-          });
+    const unsubscribe = notifee.onForegroundEvent(({type, detail}) => {
+      if (type === EventType.PRESS && detail.notification) {
+        const analysisId = extractAnalysisIdFromNotification(detail.notification as any);
+        if (analysisId !== undefined) {
+          navigateToVideoAnalysis(analysisId);
         }
       }
     });
+    return unsubscribe;
   }, []);
+
+  const handleNavigationReady = async () => {
+    // Consume any pending navigation stored by the background event handler.
+    if (pendingVideoAnalysisNavigation !== undefined) {
+      const id = pendingVideoAnalysisNavigation;
+      pendingVideoAnalysisNavigation = undefined;
+      navigateToVideoAnalysis(id);
+    }
+
+    // Cold-start path: check if the app was launched by tapping a notification
+    // while it was terminated.
+    const initialEvent = await notifee.getInitialNotification();
+    if (initialEvent?.notification) {
+      const analysisId = extractAnalysisIdFromNotification(initialEvent.notification as any);
+      if (analysisId !== undefined) {
+        navigateToVideoAnalysis(analysisId);
+      }
+    }
+  };
 
   return (
     <PersistGate loading={null} persistor={persistor}>
@@ -1045,6 +1085,7 @@ const AppWithPersist = () => {
             <NavigationContainer
               ref={navigationRef}
               theme={paperThemes}
+              onReady={handleNavigationReady}
               onStateChange={(state) => {
                 // Navigation-State-Tracking für Analytics
               }}

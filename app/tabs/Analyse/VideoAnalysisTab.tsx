@@ -11,6 +11,7 @@ import {dispatchDeleteVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/di
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisSeedPreflight';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
+import {dispatchSetVideoAnalysisDuration} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisDuration';
 import {dispatchSetLastAnalysisRate} from '../../redux/settings/dispatch/dispatchSetLastAnalysisRate';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {useSettings} from '../../redux/settings/use/useSettings';
@@ -65,6 +66,7 @@ const VideoAnalysisTab = () => {
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const setSeedPreflight = dispatchSetVideoAnalysisSeedPreflight();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
+  const setVideoAnalysisDuration = dispatchSetVideoAnalysisDuration();
   const setLastAnalysisRate = dispatchSetLastAnalysisRate();
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
@@ -81,6 +83,7 @@ const VideoAnalysisTab = () => {
         setManualSeedFramePath,
         setSeedPreflight,
         attachVideoAnalysisResult,
+        setVideoAnalysisDuration,
         setLastAnalysisSecondsPerVideoSecond: setLastAnalysisRate,
       });
 

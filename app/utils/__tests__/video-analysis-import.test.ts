@@ -8,11 +8,13 @@ jest.mock('../videoAnalysisStorage', () => ({
 jest.mock('../videoAnalysisNative', () => ({
   prepareSquatVideoSeed: jest.fn(),
   analyzeSquatVideo: jest.fn(),
+  getVideoDuration: jest.fn(),
   startVideoAnalysisForegroundService: jest.fn(),
   stopVideoAnalysisForegroundService: jest.fn(),
 }));
 
 jest.mock('../videoAnalysisNotification', () => ({
+  requestVideoAnalysisNotificationPermission: jest.fn().mockResolvedValue(true),
   showAnalysisCompleteNotification: jest.fn().mockResolvedValue(undefined),
   showAnalysisFailedNotification: jest.fn().mockResolvedValue(undefined),
 }));
@@ -25,14 +27,22 @@ const {copyImportedVideoToLocalStorage} = jest.requireMock('../videoAnalysisStor
   copyImportedVideoToLocalStorage: jest.Mock;
 };
 
-const {prepareSquatVideoSeed, analyzeSquatVideo} = jest.requireMock('../videoAnalysisNative') as {
+const {prepareSquatVideoSeed, analyzeSquatVideo, getVideoDuration} = jest.requireMock('../videoAnalysisNative') as {
   prepareSquatVideoSeed: jest.Mock;
   analyzeSquatVideo: jest.Mock;
+  getVideoDuration: jest.Mock;
+};
+
+const {
+  requestVideoAnalysisNotificationPermission,
+} = jest.requireMock('../videoAnalysisNotification') as {
+  requestVideoAnalysisNotificationPermission: jest.Mock;
 };
 
 describe('importVideoAnalysisFromSource', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getVideoDuration.mockResolvedValue(0);
   });
 
   it('should start background analysis and return analysis_started when exactly one candidate is found', async () => {
@@ -60,6 +70,7 @@ describe('importVideoAnalysisFromSource', () => {
     const setManualSeedFramePath = jest.fn();
     const setSeedPreflight = jest.fn();
     const attachVideoAnalysisResult = jest.fn();
+    const setVideoAnalysisDuration = jest.fn();
     const setLastAnalysisSecondsPerVideoSecond = jest.fn();
 
     const outcome = await importVideoAnalysisFromSource({
@@ -70,10 +81,12 @@ describe('importVideoAnalysisFromSource', () => {
       setManualSeedFramePath,
       setSeedPreflight,
       attachVideoAnalysisResult,
+      setVideoAnalysisDuration,
       setLastAnalysisSecondsPerVideoSecond,
     });
 
     expect(outcome).toBe('analysis_started');
+    expect(requestVideoAnalysisNotificationPermission).toHaveBeenCalledTimes(1);
     // First call: PROCESSING, second call: PROCESSING with analysisStartedAtMs and videoDurationMs
     expect(setVideoAnalysisStatus).toHaveBeenCalledTimes(2);
     expect(setVideoAnalysisStatus.mock.calls[0]).toEqual([7, VideoAnalysisStatus.PROCESSING]);
@@ -128,6 +141,7 @@ describe('importVideoAnalysisFromSource', () => {
     const setManualSeedFramePath = jest.fn();
     const setSeedPreflight = jest.fn();
     const attachVideoAnalysisResult = jest.fn();
+    const setVideoAnalysisDuration = jest.fn();
     const setLastAnalysisSecondsPerVideoSecond = jest.fn();
 
     const outcome = await importVideoAnalysisFromSource({
@@ -138,6 +152,7 @@ describe('importVideoAnalysisFromSource', () => {
       setManualSeedFramePath,
       setSeedPreflight,
       attachVideoAnalysisResult,
+      setVideoAnalysisDuration,
       setLastAnalysisSecondsPerVideoSecond,
     });
 
@@ -191,6 +206,7 @@ describe('importVideoAnalysisFromSource', () => {
     const setManualSeedFramePath = jest.fn();
     const setSeedPreflight = jest.fn();
     const attachVideoAnalysisResult = jest.fn();
+    const setVideoAnalysisDuration = jest.fn();
     const setLastAnalysisSecondsPerVideoSecond = jest.fn();
 
     const outcome = await importVideoAnalysisFromSource({
@@ -201,6 +217,7 @@ describe('importVideoAnalysisFromSource', () => {
       setManualSeedFramePath,
       setSeedPreflight,
       attachVideoAnalysisResult,
+      setVideoAnalysisDuration,
       setLastAnalysisSecondsPerVideoSecond,
     });
 
@@ -215,6 +232,8 @@ describe('importVideoAnalysisFromSource', () => {
 
   it('should handle background analysis completion with result attachment', async () => {
     copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    // Provide actual video duration so the rate is learned after analysis
+    getVideoDuration.mockResolvedValue(10000);
     prepareSquatVideoSeed.mockResolvedValue({
       previewFramePath: '/tmp/preview.jpg',
       frameWidthPx: 1080,
@@ -242,6 +261,7 @@ describe('importVideoAnalysisFromSource', () => {
     const setManualSeedFramePath = jest.fn();
     const setSeedPreflight = jest.fn();
     const attachVideoAnalysisResult = jest.fn();
+    const setVideoAnalysisDuration = jest.fn();
     const setLastAnalysisSecondsPerVideoSecond = jest.fn();
 
     await importVideoAnalysisFromSource({
@@ -252,8 +272,12 @@ describe('importVideoAnalysisFromSource', () => {
       setManualSeedFramePath,
       setSeedPreflight,
       attachVideoAnalysisResult,
+      setVideoAnalysisDuration,
       setLastAnalysisSecondsPerVideoSecond,
     });
+
+    // setVideoAnalysisDuration called with actual duration from metadata
+    expect(setVideoAnalysisDuration).toHaveBeenCalledWith(10, 10000);
 
     // Resolve the background analysis
     resolveAnalysis!('/tmp/results/analysis-10.json');
@@ -261,6 +285,7 @@ describe('importVideoAnalysisFromSource', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(attachVideoAnalysisResult).toHaveBeenCalledWith(10, '/tmp/results/analysis-10.json', '/tmp/video.mp4');
+    // Rate should be learned because video duration was known
     expect(setLastAnalysisSecondsPerVideoSecond).toHaveBeenCalled();
   });
 
@@ -292,6 +317,7 @@ describe('importVideoAnalysisFromSource', () => {
     const setManualSeedFramePath = jest.fn();
     const setSeedPreflight = jest.fn();
     const attachVideoAnalysisResult = jest.fn();
+    const setVideoAnalysisDuration = jest.fn();
     const setLastAnalysisSecondsPerVideoSecond = jest.fn();
 
     await importVideoAnalysisFromSource({
@@ -302,6 +328,7 @@ describe('importVideoAnalysisFromSource', () => {
       setManualSeedFramePath,
       setSeedPreflight,
       attachVideoAnalysisResult,
+      setVideoAnalysisDuration,
       setLastAnalysisSecondsPerVideoSecond,
     });
 
@@ -316,5 +343,92 @@ describe('importVideoAnalysisFromSource', () => {
     expect(failedCall).toBeTruthy();
     expect(failedCall![2]).toBe('Background analysis failed');
     expect(attachVideoAnalysisResult).not.toHaveBeenCalled();
+  });
+
+  it('should request notification permission before starting analysis', async () => {
+    requestVideoAnalysisNotificationPermission.mockResolvedValue(false);
+    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    prepareSquatVideoSeed.mockResolvedValue({
+      previewFramePath: '/tmp/preview.jpg',
+      frameWidthPx: 1080,
+      frameHeightPx: 1920,
+      trackerVersion: 'tflite-yolo26-outer-plate-v1',
+      candidates: [
+        {
+          id: 'candidate-1',
+          normalizedX: 0.3,
+          normalizedY: 0.4,
+          normalizedWidth: 0.12,
+          normalizedHeight: 0.08,
+          score: 0.91,
+        },
+      ],
+    });
+    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-12.json');
+
+    const outcome = await importVideoAnalysisFromSource({
+      analysisId: 12,
+      sourceUri: 'content://video.mp4',
+      addVideoAnalysis: jest.fn(),
+      setVideoAnalysisStatus: jest.fn(),
+      setManualSeedFramePath: jest.fn(),
+      setSeedPreflight: jest.fn(),
+      attachVideoAnalysisResult: jest.fn(),
+      setVideoAnalysisDuration: jest.fn(),
+      setLastAnalysisSecondsPerVideoSecond: jest.fn(),
+    });
+
+    // Permission is requested exactly once, analysis still starts even when denied
+    expect(requestVideoAnalysisNotificationPermission).toHaveBeenCalledTimes(1);
+    expect(outcome).toBe('analysis_started');
+  });
+
+  it('should not call setVideoAnalysisDuration or update rate when video duration is unknown', async () => {
+    getVideoDuration.mockResolvedValue(0);
+    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    prepareSquatVideoSeed.mockResolvedValue({
+      previewFramePath: '/tmp/preview.jpg',
+      frameWidthPx: 1080,
+      frameHeightPx: 1920,
+      trackerVersion: 'tflite-yolo26-outer-plate-v1',
+      candidates: [
+        {
+          id: 'candidate-1',
+          normalizedX: 0.3,
+          normalizedY: 0.4,
+          normalizedWidth: 0.12,
+          normalizedHeight: 0.08,
+          score: 0.91,
+        },
+      ],
+    });
+    let resolveAnalysis: (value: string) => void;
+    analyzeSquatVideo.mockReturnValue(new Promise<string>((resolve) => {
+      resolveAnalysis = resolve;
+    }));
+
+    const setVideoAnalysisDuration = jest.fn();
+    const setLastAnalysisSecondsPerVideoSecond = jest.fn();
+
+    await importVideoAnalysisFromSource({
+      analysisId: 13,
+      sourceUri: 'content://video.mp4',
+      addVideoAnalysis: jest.fn(),
+      setVideoAnalysisStatus: jest.fn(),
+      setManualSeedFramePath: jest.fn(),
+      setSeedPreflight: jest.fn(),
+      attachVideoAnalysisResult: jest.fn(),
+      setVideoAnalysisDuration,
+      setLastAnalysisSecondsPerVideoSecond,
+    });
+
+    // Duration unknown → setVideoAnalysisDuration not called
+    expect(setVideoAnalysisDuration).not.toHaveBeenCalled();
+
+    resolveAnalysis!('/tmp/results/analysis-13.json');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Rate not updated when video duration is 0
+    expect(setLastAnalysisSecondsPerVideoSecond).not.toHaveBeenCalled();
   });
 });
