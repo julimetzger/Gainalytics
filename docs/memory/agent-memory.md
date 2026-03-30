@@ -298,3 +298,62 @@ Relevant files:
 - Match react-native-paper `Button` by label text (`tapOn: "Play"`), not by testID — `id:` selector does not work for paper Button.
 - Use `clearState: false` for playback/overlay flows that reuse an existing analysis; `clearState: true` + CPU-intensive analysis = Maestro gRPC DEADLINE_EXCEEDED crash.
 - Avoid generic `scroll` commands after bringing a screen region into view if react-native-charts-wrapper charts are present; use `extendedWaitUntil` instead to avoid accidental chart `onSelect` triggers.
+
+### 16. jest.mock factory hoisting prevents using outer jest.fn() variables
+
+Problem:
+- Defining `const mockFn = jest.fn()` before a `jest.mock(...)` call and then referencing `mockFn` inside the factory body causes it to be `undefined` at runtime, because jest hoists `jest.mock` calls before variable declarations.
+
+Symptoms:
+- `TypeError: _moduleName.default.method is not a function` even though the mock factory appears correct
+- Tests that worked in isolation fail with confusing "not a function" errors
+
+Working solution:
+- Define `jest.fn()` **inside** the mock factory: `jest.mock('mod', () => ({ default: { method: jest.fn() } }))`
+- Retrieve the mock reference **after** `jest.mock` via `jest.requireMock`: `const { default: mock } = jest.requireMock('mod')`
+- Never assign `const myMock = jest.fn()` before the `jest.mock(...)` call that uses it
+
+### 17. notifee default export + jest mock requires __esModule: true with default key
+
+Problem:
+- `@notifee/react-native` is an ES module with a class instance as the default export.
+- Mocking it with `jest.mock('@notifee/react-native', () => ({ requestPermission: jest.fn() }))` does NOT work because `notifee` in source code maps to the `default` export.
+
+Working solution:
+- Use `{ __esModule: true, default: { requestPermission: jest.fn(), ... }, AuthorizationStatus: {...} }`
+- Then `jest.requireMock('@notifee/react-native').default` gives the mock object
+
+### 18. Maestro smoke shows all-black screenshots via Windows --host bridge in WSL worktree
+
+Problem:
+- Maestro with `--host <WSL_IP>` connects to adb but `launchApp` completes while the screenshot captured by Maestro is entirely black.
+- `adb -s device shell screencap` from WSL shows the app correctly; only Maestro's screenshot is black.
+
+Symptoms:
+- `assertVisible: "Training"` fails immediately after a COMPLETED `launchApp`
+- Debug screenshot in `.maestro/tests/` is a solid black image
+
+Observation:
+- This appears to be an emulator rendering sync issue specific to worktrees that have not previously run Maestro flows.
+- The app IS running (direct adb screenshot confirms it).
+- Maestro smoke tests in the main working directory do not have this problem.
+
+Apply when:
+- If Maestro black-screen occurs in a new worktree, try running a single `adb shell input keyevent KEYCODE_WAKEUP` and retrying. If still black, treat as a pre-existing infrastructure issue and use unit tests + adb screenshot as primary evidence.
+
+### 19. A resumed round may carry an expanded ticket with more acceptance criteria
+
+Problem:
+- A ticket handed to a resumed round may list more acceptance criteria than the previous round's status.json covered. The old `ready_for_review` status.json only maps evidence for the original criteria.
+
+Symptoms:
+- `status.json` says `ready_for_review` with a subset of the new acceptance_evidence list.
+- New criteria (e.g. foreground-service ref-counting, permission guard, progress bar) are not covered.
+
+Working solution:
+- Always re-read the prompt ticket description, not just the previous status.json, to get the current acceptance criteria list.
+- Diff the old `acceptance_evidence` entries against the new criteria and implement the missing items.
+- Write a new commit and update both `status.json` and `summary.md` to cover all criteria.
+
+Apply when:
+- The orchestrator sends a worker on a resumed round with `Prior review feedback: none` but the ticket has more criteria than the previous status.json covers.
