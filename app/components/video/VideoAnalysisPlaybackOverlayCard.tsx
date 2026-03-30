@@ -813,7 +813,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
         </View>
       </View>
 
-      <View style={styles.playbackControls}>
+      <View testID="video-analysis-playback-controls" style={styles.playbackControls}>
         <Button testID="video-analysis-playback-toggle" mode="outlined" onPress={() => setPlaybackPaused((paused) => !paused)}>
           {playbackPaused ? 'Play' : 'Pause'}
         </Button>

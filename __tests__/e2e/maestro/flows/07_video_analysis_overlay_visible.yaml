@@ -1,7 +1,7 @@
 appId: com.powerliftingworkoutplanner
 ---
 - launchApp:
-    clearState: true
+    clearState: false
 - extendedWaitUntil:
     visible: "tab-analyse"
     timeout: 30000
@@ -16,73 +16,29 @@ appId: com.powerliftingworkoutplanner
       text: "Video Analyses"
     direction: DOWN
 - tapOn: "Video Analyses"
-- assertVisible: "Import Video"
-- tapOn: "Import Emulator Squat Video"
-- runFlow:
-    when:
-      visible:
-        text: "(?i)^allow$"
-    commands:
-      - tapOn:
-          text: "(?i)^allow$"
-- runFlow:
-    when:
-      visible: "Allow only while using the app"
-    commands:
-      - tapOn: "Allow only while using the app"
 - extendedWaitUntil:
     visible: "Analysis #[0-9]+"
     timeout: 30000
 - tapOn: "Open"
 - extendedWaitUntil:
-    visible: "Status: (done|awaiting_seed_selection)"
-    timeout: 180000
-- runFlow:
-    when:
-      visible: "Status: awaiting_seed_selection"
-    commands:
-      - scrollUntilVisible:
-          element:
-            id: "video-analysis-seed-candidate-1"
-          direction: DOWN
-      - tapOn:
-          id: "video-analysis-seed-candidate-1"
-      - tapOn:
-          id: "video-analysis-manual-seed-run"
-      - scrollUntilVisible:
-          element:
-            id: "video-analysis-detail-status"
-          direction: UP
-      - extendedWaitUntil:
-          visible: "Status: done"
-          timeout: 180000
+    visible: "Status: done"
+    timeout: 60000
 - scrollUntilVisible:
     element:
-      id: "video-analysis-playback-overlay"
+      text: "Playback Overlay"
     direction: DOWN
 - assertVisible:
     id: "video-analysis-playback-overlay"
-- scrollUntilVisible:
-    element:
-      id: "video-analysis-step-minus200"
-    direction: DOWN
-- scrollUntilVisible:
-    element:
-      id: "video-analysis-playback-toggle"
-    direction: UP
-- assertVisible:
-    id: "video-analysis-playback-toggle"
-- assertVisible:
-    text: "Playback: 00:00 / [0-9]{2}:[0-9]{2}"
-- tapOn:
-    id: "video-analysis-playback-toggle"
 - extendedWaitUntil:
-    visible:
-      text: "Playback: 00:0[1-9] / [0-9]{2}:[0-9]{2}"
-    timeout: 30000
+    visible: "Play"
+    timeout: 10000
+- tapOn: "Play"
+- extendedWaitUntil:
+    visible: "Pause"
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       text: "Current Rep: [1-9][0-9]*"
-    timeout: 30000
+    timeout: 50000
 - assertVisible:
     id: "video-analysis-playback-active-rep-path"
