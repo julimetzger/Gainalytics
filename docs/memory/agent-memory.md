@@ -357,3 +357,37 @@ Working solution:
 
 Apply when:
 - The orchestrator sends a worker on a resumed round with `Prior review feedback: none` but the ticket has more criteria than the previous status.json covers.
+
+### 20. Utility functions written without call-sites are an integration gap
+
+Problem:
+- A previous round wrote utility functions (`incrementActiveAnalysisCount`, `decrementActiveAnalysisCount`, `calculateAnalysisProgress`) but never called them from the relevant modules or rendered them in the UI.
+
+Symptoms:
+- Review feedback says "INTEGRATION GAP — functions exist only as utilities" and "not used in UI".
+- Tests pass for the utility but no production code invokes it.
+
+Observation:
+- Writing a utility and its tests is not the same as integrating it. Always trace the call-site chain: utility → service/import module → UI component.
+- For ref-counting: increment before the try block, decrement in finally (not just in the success path).
+- For UI components: use `useRef` for per-item start times (Map) and `useState` + `setInterval` for the tick that drives re-renders.
+
+Apply when:
+- Any new utility for a lifecycle event (start/stop of analysis, progress tracking) must be wired into the lifecycle at the point where the event actually occurs, not left as standalone functions.
+
+### 21. adb touch coordinates must use physical screen pixels (1080×2400), not screenshot display pixels
+
+Problem:
+- Screenshots are displayed scaled-down by the viewer (~270×600), but `adb shell input tap` uses the actual physical pixel coordinates (1080×2400).
+
+Symptoms:
+- `adb shell input tap 170 553` hits a list item or wrong element instead of the intended nav bar tab.
+- The nav bar is at y≈2160–2295 in physical coords, not y≈553.
+
+Working solution:
+- Check `adb shell wm size` to get physical resolution.
+- Use `adb shell uiautomator dump` + parse XML to get exact bounds of nav items before tapping.
+- Navigation drawer items are found in the UIAutomator dump with their `text` or `content-desc`; compute center from bounds.
+
+Apply when:
+- Any adb tap-based navigation on the emulator needs precise coordinates.
