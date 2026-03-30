@@ -257,6 +257,46 @@ Working solution:
 Relevant files:
 - [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
 
+### 21. Fix-Tickets für PRs müssen auf dem PR-Branch arbeiten, nicht auf master
+
+Problem:
+- Ein Fix-Ticket (z.B. ANA-005-fix) wurde auf einem frischen Branch von master erstellt. Der Fix-Agent implementierte die Änderungen von Grund auf, statt sie auf dem bestehenden PR-Branch aufzubauen. Cherry-pick/Merge auf den PR-Branch hatte massive Konflikte.
+
+Symptoms:
+- Cherry-pick zeigt Konflikte in fast allen Dateien
+- Der Fix-Branch hat die gleichen Dateien nochmal von Grund auf geändert
+
+Working solution:
+- Fix-Worker immer direkt auf dem bestehenden PR-Branch/Worktree starten, nicht auf einem frischen Branch von master.
+- `launch_feature_job.py` mit `--worktree <PR-worktree> --branch <PR-branch>` aufrufen.
+- Ticket-File per absolutem Pfad übergeben, da es im älteren Worktree nicht existiert.
+
+### 22. launch_feature_job.py muss vom Hauptrepo ausgeführt werden
+
+Problem:
+- `launch_feature_job.py` im Worktree-Kontext ausgeführt versucht verschachtelte Worktree-Pfade zu erstellen und scheitert mit FileNotFoundError.
+
+Symptoms:
+- `FileNotFoundError: '../../../../node_modules' -> '.worktrees/feature-X/.worktrees/feature-X/node_modules'`
+
+Working solution:
+- Immer `python3 /absolute/path/to/launch_feature_job.py` vom Hauptrepo-Root ausführen, nicht vom Worktree.
+- Ticket-Files ebenfalls per absolutem Pfad übergeben.
+
+### 23. Deploy auf echtes Gerät: Metro Worktree-Config mit unstable_enableSymlinks nötig
+
+Problem:
+- Debug-Builds laden JS von Metro. Metro ohne Worktree-Config scheitert an Symlinks im Worktree mit SHA-1 Fehlern.
+
+Symptoms:
+- Red screen: "Metro has encountered an error: SHA-1 for file ... is not computed"
+- "You have symlinks in your project - watchman does not follow symlinks"
+
+Working solution:
+- Metro mit der Worktree-Config starten: `--config .codex-orchestrator/runs/<ticket>/metro.worktree.config.cjs`
+- Diese Config setzt `unstable_enableSymlinks: true` und korrekte `projectRoot`/`watchFolders`.
+- Alternativ: Einen Feature-Worker-Agent starten der die App-Deployment-Skills kennt.
+
 ## Operational Guidance For Future Agents
 
 - Do not assume `state.json` is current if a run directory already has `status.json`.
@@ -275,3 +315,7 @@ Relevant files:
 - Never include `pkill -f maestro` in worker feedback — it kills the worker itself. Use `grep java` to target actual Maestro processes.
 - Always instruct workers to resize screenshots to max 800x800 before reading them (2000px context limit).
 - `$memory` and other skill calls do not work in `claude -p` mode — embed instructions directly in the prompt.
+- Fix-Tickets für bestehende PRs: Worker direkt auf dem PR-Branch/Worktree starten, nicht auf frischem master-Branch.
+- `launch_feature_job.py` immer vom Hauptrepo-Root ausführen, nicht vom Worktree. Ticket-Files per absolutem Pfad.
+- Für App-Deploy auf echtem Gerät: Metro mit Worktree-Config starten oder den Feature-Agent deployen lassen.
+- Codex-Review-Anmerkungen pro PR in ein einzelnes Ticket konsolidieren, nicht ein Ticket pro Anmerkung.

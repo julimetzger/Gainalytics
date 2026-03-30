@@ -44,6 +44,7 @@ Handle these intents:
 - Enable periodic feedback for active tickets, for example every 5 minutes.
 - Apply `feedback <ticket-id>: ...` to an existing ticket.
 - Apply `accept <ticket-id>` to close a review-ready ticket and release its emulator.
+- Apply `release <ticket-id>` to free the emulator without closing the ticket.
 
 If the prompt contains tickets plus a status or feedback request, handle the control action first,
 then attempt to dispatch any newly startable tickets.
@@ -69,6 +70,9 @@ If any required field is missing, ask the user once before launching a worker.
    - `accept <ticket-id>`:
      - mark the ticket `accepted`, then `closed`
      - release its emulator reservation
+   - `release <ticket-id>`:
+     - release the emulator reservation only
+     - do not change the ticket status
    - `feedback <ticket-id>: ...`:
      - append the feedback to the ticket history
      - mark the ticket `running`
@@ -127,7 +131,11 @@ When a worker reports `ready_for_review`:
   - screenshot paths
   - e2e report or log paths
   - short implementation summary
+  - **the emulator or device serial where the feature is installed and can be tested**
 - do not close the ticket automatically
+- the assigned emulator/device stays reserved until the user explicitly releases it
+  via `accept <ticket-id>` or `release <ticket-id>` — do not free the device on
+  `ready_for_review`
 
 ## Launch Contract For Workers
 
@@ -164,3 +172,7 @@ Keep your chat response compact and grouped by ticket:
 
 Always mention when no emulator was free, when a worker was resumed from feedback,
 and when a ticket was closed by acceptance.
+
+For `ready_for_review` tickets, always include the emulator/device serial where the
+feature is installed and available for manual testing. The device stays reserved until
+the user explicitly accepts or releases the ticket.

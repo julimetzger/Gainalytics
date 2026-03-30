@@ -205,6 +205,7 @@ Rules:
 - For `ready_for_review`, every acceptance criterion must have one `acceptance_evidence` entry with concrete artifact or check references.
 - Do not block `ready_for_review` only because repo-wide `typecheck` or `lint` fail outside the ticket scope.
 - Store artifact paths relative to `run_dir`.
+- For `ready_for_review`, ensure the app with the implemented feature is still installed and runnable on the assigned device. Do not uninstall, clear state, or reset the device after the final verification. The user will manually test the feature on this device.
 
 ## Memory
 
