@@ -11,6 +11,7 @@ import {useCompletedTrainingsIn} from '../../redux/Training/use/useCompletedTrai
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
 import {
   aggregateTrainingLengths,
+  findBucketByX,
   formatTrainingLength,
   getTrainingLengthAxisPattern,
   getTrainingLengthBarWidth,
@@ -111,10 +112,15 @@ const TrainingLengthTab = () => {
     (event: ChartSelectEvent) => {
       const selectedX = event.nativeEvent?.x;
       if (typeof selectedX !== 'number') {
+        // nativeEvent is null when the chart fires a deselect (tap on empty area or already-selected bar)
+        setSelectedBucketKey(null);
         return;
       }
 
-      const selectedBucketForX = buckets.find((bucket) => Math.abs(bucket.x - selectedX) < 0.0001);
+      // Use nearest-bucket matching instead of a tight tolerance.
+      // Epoch-day x values are often fractional in non-UTC timezones, and native code
+      // returns float-precision numbers, so a tolerance like 0.0001 is unreliable.
+      const selectedBucketForX = findBucketByX(buckets, selectedX);
       const nextKey = selectedBucketForX?.key ?? null;
       setSelectedBucketKey((prev) => (prev === nextKey ? null : nextKey));
     },
