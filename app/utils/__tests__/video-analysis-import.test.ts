@@ -198,6 +198,20 @@ describe('importVideoAnalysisFromSource', () => {
     expect(requestVideoAnalysisNotificationPermission).toHaveBeenCalledTimes(1);
   });
 
+  it('does not throw when requestVideoAnalysisNotificationPermission rejects (permission guard)', async () => {
+    requestVideoAnalysisNotificationPermission.mockRejectedValue(new Error('Bridge not initialised'));
+    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
+    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
+
+    const mocks = makeMocks();
+    // Should NOT throw — analysis must proceed even if permission throws
+    await expect(
+      importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks}),
+    ).resolves.toBe('done');
+    expect(mocks.attachVideoAnalysisResult).toHaveBeenCalled();
+  });
+
   it('completes analysis even when notification permission is denied', async () => {
     requestVideoAnalysisNotificationPermission.mockResolvedValue(false);
     copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');

@@ -58,8 +58,12 @@ export const importVideoAnalysisFromSource = async ({
   let outcome: VideoAnalysisImportOutcome | 'failed' = 'failed';
 
   // Request notification permission before analysis starts.
-  // Analysis continues regardless of whether permission is granted.
-  await requestVideoAnalysisNotificationPermission();
+  // Permission errors must not block the analysis from starting.
+  try {
+    await requestVideoAnalysisNotificationPermission();
+  } catch {
+    // Non-fatal: analysis continues without notification support.
+  }
 
   addVideoAnalysis({
     id: analysisId,
