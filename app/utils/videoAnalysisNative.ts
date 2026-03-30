@@ -1,4 +1,4 @@
-import {NativeModules} from 'react-native';
+import {NativeModules, Platform} from 'react-native';
 import {buildStubBarTrackingResult, writeBarTrackingResultToFile} from './videoAnalysisStorage';
 import {SeedCandidate} from '../models/entities/VideoAnalysis';
 
@@ -57,4 +57,20 @@ export const prepareSquatVideoSeed = async (localVideoPath: string, analysisId: 
     throw new Error('Native prepareSquatVideoSeed is unavailable');
   }
   return nativePrepare(localVideoPath, analysisId);
+};
+
+export const startVideoAnalysisForegroundService = () => {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  const start = VideoAnalysis?.startForegroundService as undefined | (() => void);
+  start?.();
+};
+
+export const stopVideoAnalysisForegroundService = () => {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  const stop = VideoAnalysis?.stopForegroundService as undefined | (() => void);
+  stop?.();
 };

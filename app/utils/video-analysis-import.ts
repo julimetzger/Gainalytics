@@ -1,17 +1,19 @@
 import {PermissionsAndroid, Platform} from 'react-native';
 import {VideoAnalysis, VideoAnalysisStatus} from '../models/entities/VideoAnalysis';
 import {copyImportedVideoToLocalStorage} from './videoAnalysisStorage';
-import {analyzeSquatVideo, ManualSeedPayload, prepareSquatVideoSeed} from './videoAnalysisNative';
+import {analyzeSquatVideo, ManualSeedPayload, prepareSquatVideoSeed, startVideoAnalysisForegroundService, stopVideoAnalysisForegroundService} from './videoAnalysisNative';
+import {computeSecondsPerVideoSecond} from './videoAnalysisProgress';
+import {showAnalysisCompleteNotification, showAnalysisFailedNotification} from './videoAnalysisNotification';
 
 export const EMULATOR_SQUAT_VIDEO_PATH = '/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4';
 
-export type VideoAnalysisImportOutcome = 'awaiting_seed_selection' | 'done' | 'failed_no_candidate';
+export type VideoAnalysisImportOutcome = 'awaiting_seed_selection' | 'done' | 'analysis_started' | 'failed_no_candidate';
 
 interface ImportVideoAnalysisParams {
   analysisId: number;
   sourceUri: string;
   addVideoAnalysis: (videoAnalysis: VideoAnalysis) => void;
-  setVideoAnalysisStatus: (analysisId: number, status: VideoAnalysisStatus, error?: string) => void;
+  setVideoAnalysisStatus: (analysisId: number, status: VideoAnalysisStatus, error?: string, extra?: {analysisStartedAtMs?: number; videoDurationMs?: number}) => void;
   setManualSeedFramePath: (analysisId: number, manualSeedFramePath?: string, localVideoPath?: string) => void;
   setSeedPreflight: (
     analysisId: number,
@@ -22,6 +24,7 @@ interface ImportVideoAnalysisParams {
     localVideoPath?: string,
   ) => void;
   attachVideoAnalysisResult: (analysisId: number, resultPath: string, localVideoPath?: string) => void;
+  setLastAnalysisSecondsPerVideoSecond: (value: number) => void;
 }
 
 const toManualSeedPayload = (candidate: NonNullable<VideoAnalysis['seedCandidates']>[number]): ManualSeedPayload => {
@@ -34,6 +37,41 @@ const toManualSeedPayload = (candidate: NonNullable<VideoAnalysis['seedCandidate
   };
 };
 
+const runBackgroundAnalysis = (
+  analysisId: number,
+  localVideoPath: string,
+  manualSeed: ManualSeedPayload,
+  videoDurationMs: number,
+  attachVideoAnalysisResult: ImportVideoAnalysisParams['attachVideoAnalysisResult'],
+  setVideoAnalysisStatus: ImportVideoAnalysisParams['setVideoAnalysisStatus'],
+  setLastAnalysisSecondsPerVideoSecond: ImportVideoAnalysisParams['setLastAnalysisSecondsPerVideoSecond'],
+) => {
+  const nativeAnalysisStartedAtMs = Date.now();
+
+  startVideoAnalysisForegroundService();
+
+  analyzeSquatVideo(localVideoPath, analysisId, manualSeed)
+    .then((resultPath) => {
+      const totalAnalysisMs = Date.now() - nativeAnalysisStartedAtMs;
+      attachVideoAnalysisResult(analysisId, resultPath, localVideoPath);
+
+      if (videoDurationMs > 0) {
+        const rate = computeSecondsPerVideoSecond(totalAnalysisMs, videoDurationMs);
+        setLastAnalysisSecondsPerVideoSecond(rate);
+      }
+
+      showAnalysisCompleteNotification(analysisId).catch(() => {});
+    })
+    .catch((error) => {
+      console.error('[BackgroundVideoAnalysis] Analysis failed:', error);
+      setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.FAILED, 'Background analysis failed');
+      showAnalysisFailedNotification(analysisId).catch(() => {});
+    })
+    .finally(() => {
+      stopVideoAnalysisForegroundService();
+    });
+};
+
 export const importVideoAnalysisFromSource = async ({
   analysisId,
   sourceUri,
@@ -42,12 +80,12 @@ export const importVideoAnalysisFromSource = async ({
   setManualSeedFramePath,
   setSeedPreflight,
   attachVideoAnalysisResult,
+  setLastAnalysisSecondsPerVideoSecond,
 }: ImportVideoAnalysisParams): Promise<VideoAnalysisImportOutcome> => {
   const importStartedAtMs = Date.now();
   let localVideoPath: string | undefined;
   let copyMs = 0;
   let preflightMs = 0;
-  let nativeAnalysisMs = 0;
   let outcome: VideoAnalysisImportOutcome | 'failed' = 'failed';
 
   addVideoAnalysis({
@@ -96,12 +134,28 @@ export const importVideoAnalysisFromSource = async ({
       return 'awaiting_seed_selection';
     }
 
-    const nativeAnalysisStartedAtMs = Date.now();
-    const resultPath = await analyzeSquatVideo(localVideoPath, analysisId, toManualSeedPayload(candidates[0]));
-    nativeAnalysisMs = Date.now() - nativeAnalysisStartedAtMs;
-    attachVideoAnalysisResult(analysisId, resultPath, localVideoPath);
-    outcome = 'done';
-    return 'done';
+    // Estimate video duration from metadata (approximation using standard duration)
+    // The native module will extract the real duration during analysis
+    const estimatedVideoDurationMs = 6000;
+
+    const analysisStartedAtMs = Date.now();
+    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING, undefined, {
+      analysisStartedAtMs,
+      videoDurationMs: estimatedVideoDurationMs,
+    });
+
+    runBackgroundAnalysis(
+      analysisId,
+      localVideoPath,
+      toManualSeedPayload(candidates[0]),
+      estimatedVideoDurationMs,
+      attachVideoAnalysisResult,
+      setVideoAnalysisStatus,
+      setLastAnalysisSecondsPerVideoSecond,
+    );
+
+    outcome = 'analysis_started';
+    return 'analysis_started';
   } catch (error) {
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.FAILED, 'Import or preprocessing failed');
     throw error;
@@ -115,7 +169,6 @@ export const importVideoAnalysisFromSource = async ({
         outcome,
         copyMs,
         preflightMs,
-        nativeAnalysisMs,
         totalImportMs: Date.now() - importStartedAtMs,
       }),
     );

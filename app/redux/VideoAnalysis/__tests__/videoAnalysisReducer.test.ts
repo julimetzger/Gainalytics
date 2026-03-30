@@ -168,6 +168,76 @@ describe('videoAnalysisReducer', () => {
     });
   });
 
+  it('should track analysisStartedAtMs and videoDurationMs in SET_VIDEO_ANALYSIS_STATUS', () => {
+    const baseState = videoAnalysisReducer(undefined, {
+      type: 'ADD_VIDEO_ANALYSIS',
+      videoAnalysis: {
+        id: 10,
+        sourceUri: 'content://video.mp4',
+        createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        status: VideoAnalysisStatus.QUEUED,
+        videoMeta: {durationMs: 0, fps: 0, width: 0, height: 0},
+      },
+    });
+
+    const processingState = videoAnalysisReducer(baseState, {
+      type: 'SET_VIDEO_ANALYSIS_STATUS',
+      analysisId: 10,
+      status: VideoAnalysisStatus.PROCESSING,
+      analysisStartedAtMs: 1700000000000,
+      videoDurationMs: 6000,
+    });
+
+    expect(processingState.byId[10].status).toBe(VideoAnalysisStatus.PROCESSING);
+    expect(processingState.byId[10].analysisStartedAtMs).toBe(1700000000000);
+    expect(processingState.byId[10].videoDurationMs).toBe(6000);
+  });
+
+  it('should set FAILED status with error message for background analysis errors', () => {
+    const baseState = videoAnalysisReducer(undefined, {
+      type: 'ADD_VIDEO_ANALYSIS',
+      videoAnalysis: {
+        id: 11,
+        sourceUri: 'content://video.mp4',
+        createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        status: VideoAnalysisStatus.PROCESSING,
+        videoMeta: {durationMs: 0, fps: 0, width: 0, height: 0},
+      },
+    });
+
+    const failedState = videoAnalysisReducer(baseState, {
+      type: 'SET_VIDEO_ANALYSIS_STATUS',
+      analysisId: 11,
+      status: VideoAnalysisStatus.FAILED,
+      error: 'Background analysis failed',
+    });
+
+    expect(failedState.byId[11].status).toBe(VideoAnalysisStatus.FAILED);
+    expect(failedState.byId[11].error).toBe('Background analysis failed');
+  });
+
+  it('should not include extra fields when not provided in SET_VIDEO_ANALYSIS_STATUS', () => {
+    const baseState = videoAnalysisReducer(undefined, {
+      type: 'ADD_VIDEO_ANALYSIS',
+      videoAnalysis: {
+        id: 12,
+        sourceUri: 'content://video.mp4',
+        createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        status: VideoAnalysisStatus.QUEUED,
+        videoMeta: {durationMs: 0, fps: 0, width: 0, height: 0},
+      },
+    });
+
+    const processingState = videoAnalysisReducer(baseState, {
+      type: 'SET_VIDEO_ANALYSIS_STATUS',
+      analysisId: 12,
+      status: VideoAnalysisStatus.PROCESSING,
+    });
+
+    expect(processingState.byId[12].analysisStartedAtMs).toBeUndefined();
+    expect(processingState.byId[12].videoDurationMs).toBeUndefined();
+  });
+
   it('should persist seed preflight data and clear it when a result attaches', () => {
     const seedCandidates = [
       {

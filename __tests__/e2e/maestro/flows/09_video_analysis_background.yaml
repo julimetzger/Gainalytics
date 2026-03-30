@@ -1,0 +1,77 @@
+appId: com.powerliftingworkoutplanner
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- assertVisible: "Import Video"
+- tapOn: "Import Emulator Squat Video"
+# Handle permission prompts
+- runFlow:
+    when:
+      visible:
+        text: "(?i)^allow$"
+    commands:
+      - tapOn:
+          text: "(?i)^allow$"
+- runFlow:
+    when:
+      visible: "Allow only while using the app"
+    commands:
+      - tapOn: "Allow only while using the app"
+# Wait for the analysis card to appear
+- extendedWaitUntil:
+    visible: "Analysis #[0-9]+"
+    timeout: 60000
+# Verify the progress indicator is visible while analysis is processing
+- extendedWaitUntil:
+    visible:
+      id: "video-analysis-progress-bar"
+    timeout: 30000
+# Assert progress text with remaining time is shown
+- assertVisible:
+    id: "video-analysis-progress-text"
+# Wait for the analysis to complete in background
+- extendedWaitUntil:
+    visible: "Status: (done|awaiting_seed_selection)"
+    timeout: 300000
+# Handle seed selection if multiple candidates
+- runFlow:
+    when:
+      visible: "Status: awaiting_seed_selection"
+    commands:
+      - tapOn: "Open"
+      - scrollUntilVisible:
+          element:
+            id: "video-analysis-seed-candidate-1"
+          direction: DOWN
+      - tapOn:
+          id: "video-analysis-seed-candidate-1"
+      - tapOn:
+          id: "video-analysis-manual-seed-run"
+      - scrollUntilVisible:
+          element:
+            id: "video-analysis-detail-status"
+          direction: UP
+      - extendedWaitUntil:
+          visible: "Status: done"
+          timeout: 300000
+# Open the analysis detail to verify result
+- tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Status: done"
+    timeout: 10000
+- assertVisible: "Bar Tracking Result"
+- assertVisible: "Units: px/s"

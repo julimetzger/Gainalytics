@@ -30,6 +30,8 @@ export interface VideoAnalysis {
   seedFrameHeightPx?: number;
   analysisMeta?: AnalysisMeta;
   error?: string;
+  analysisStartedAtMs?: number;
+  videoDurationMs?: number;
 }
 
 export interface SeedCandidate {

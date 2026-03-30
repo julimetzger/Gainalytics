@@ -14,6 +14,7 @@ export interface AppSettings {
     disableTimer?: boolean;
     showPlusButtonLeft?: boolean;
   };
+  lastAnalysisSecondsPerVideoSecond?: number;
 }
 
 const initialState = {
@@ -96,6 +97,12 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
           ...settings.localNotification,
           exactAlarmPermission: action.hasPermission,
         },
+      };
+
+    case 'SET_LAST_ANALYSIS_SECONDS_PER_VIDEO_SECOND':
+      return {
+        ...settings,
+        lastAnalysisSecondsPerVideoSecond: action.value,
       };
 
     default:

@@ -1,8 +1,8 @@
-import React from 'react';
+import React, {useEffect, useRef} from 'react';
 import {PersistGate} from 'redux-persist/integration/react';
 import {Provider} from 'react-redux';
 import configureStore from './configureStore';
-import {NavigationContainer} from '@react-navigation/native';
+import {NavigationContainer, NavigationContainerRef} from '@react-navigation/native';
 import {MD3DarkTheme as PaperDarkTheme, MD3LightTheme, Provider as PaperProvider} from 'react-native-paper';
 import {BottomTabs} from './app/routing/bottomNavigator';
 import {EventProvider} from 'react-native-outside-press';
@@ -11,6 +11,7 @@ import {useSettings} from './app/redux/settings/use/useSettings';
 import Toast from 'react-native-toast-message';
 import {LogBox, StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
+import notifee, {EventType} from '@notifee/react-native';
 
 registerTranslation('en-GB', {
   save: 'Save',
@@ -1008,10 +1009,32 @@ function buildThemes(palette?: 'blue' | 'green' | 'purple') {
   return {DarkTheme, LightThemeCombined};
 }
 
+const navigationRef = React.createRef<NavigationContainerRef<any>>();
+
+notifee.onBackgroundEvent(async ({type, detail}) => {
+  if (type === EventType.PRESS && detail.notification?.data?.type === 'video_analysis_complete') {
+    // Navigation is handled in onForegroundEvent once the app activates
+  }
+});
+
 const AppWithPersist = () => {
   let appSettings = useSettings();
   const {DarkTheme, LightThemeCombined} = buildThemes(appSettings?.palette);
   let paperThemes = appSettings?.mode === 'light' ? LightThemeCombined : DarkTheme;
+
+  useEffect(() => {
+    return notifee.onForegroundEvent(({type, detail}) => {
+      if (type === EventType.PRESS && detail.notification?.data?.type === 'video_analysis_complete') {
+        const analysisId = Number(detail.notification.data.analysisId);
+        if (!isNaN(analysisId) && navigationRef.current) {
+          navigationRef.current.navigate('Analyse', {
+            screen: 'VideoAnalysisDetail',
+            params: {analysisId},
+          });
+        }
+      }
+    });
+  }, []);
 
   return (
     <PersistGate loading={null} persistor={persistor}>
@@ -1020,6 +1043,7 @@ const AppWithPersist = () => {
           <EventProvider>
             <StatusBar backgroundColor={paperThemes.colors.background} barStyle={appSettings?.mode === 'light' ? 'dark-content' : 'light-content'} />
             <NavigationContainer
+              ref={navigationRef}
               theme={paperThemes}
               onStateChange={(state) => {
                 // Navigation-State-Tracking für Analytics

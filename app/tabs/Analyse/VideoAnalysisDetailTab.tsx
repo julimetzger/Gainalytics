@@ -12,7 +12,9 @@ import VideoAnalysisManualSeedCard from '../../components/video/VideoAnalysisMan
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
-import {ManualSeedPayload, analyzeSquatVideo} from '../../utils/videoAnalysisNative';
+import {ManualSeedPayload, analyzeSquatVideo, startVideoAnalysisForegroundService, stopVideoAnalysisForegroundService} from '../../utils/videoAnalysisNative';
+import {showAnalysisCompleteNotification, showAnalysisFailedNotification} from '../../utils/videoAnalysisNotification';
+import Toast from 'react-native-toast-message';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
 
@@ -291,17 +293,34 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         return;
       }
 
-      try {
-        setManualSeedRunning(true);
-        setVideoAnalysisStatus(analysis.id, VideoAnalysisStatus.PROCESSING);
-        const resultPath = await analyzeSquatVideo(analysis.localVideoPath, analysis.id, manualSeed);
-        attachVideoAnalysisResult(analysis.id, resultPath, analysis.localVideoPath);
-        setManualSeedFramePath(analysis.id, undefined);
-      } catch (error) {
-        setVideoAnalysisStatus(analysis.id, VideoAnalysisStatus.FAILED, 'Seeded analysis failed');
-      } finally {
-        setManualSeedRunning(false);
-      }
+      const analysisId = analysis.id;
+      const videoPath = analysis.localVideoPath;
+
+      setManualSeedRunning(true);
+      setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING);
+      startVideoAnalysisForegroundService();
+
+      analyzeSquatVideo(videoPath, analysisId, manualSeed)
+        .then((resultPath) => {
+          attachVideoAnalysisResult(analysisId, resultPath, videoPath);
+          setManualSeedFramePath(analysisId, undefined);
+          showAnalysisCompleteNotification(analysisId).catch(() => {});
+        })
+        .catch(() => {
+          setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.FAILED, 'Seeded analysis failed');
+          showAnalysisFailedNotification(analysisId).catch(() => {});
+        })
+        .finally(() => {
+          setManualSeedRunning(false);
+          stopVideoAnalysisForegroundService();
+        });
+
+      Toast.show({
+        type: 'info',
+        text1: 'Analysis running in background',
+        text2: 'You can continue using the app.',
+        position: 'top',
+      });
     },
     [analysis?.id, analysis?.localVideoPath, attachVideoAnalysisResult, setManualSeedFramePath, setVideoAnalysisStatus],
   );

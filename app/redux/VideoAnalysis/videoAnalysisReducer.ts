@@ -37,6 +37,8 @@ const videoAnalysisReducer = (state: NormalizedState<VideoAnalysis> = initialSta
             ...current,
             status: action.status as VideoAnalysisStatus,
             error: action.error,
+            ...(action.analysisStartedAtMs !== undefined && {analysisStartedAtMs: action.analysisStartedAtMs}),
+            ...(action.videoDurationMs !== undefined && {videoDurationMs: action.videoDurationMs}),
           },
         },
       };

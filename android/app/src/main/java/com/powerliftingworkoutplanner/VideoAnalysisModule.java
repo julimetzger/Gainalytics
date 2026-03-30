@@ -16,6 +16,9 @@ import android.media.MediaMetadataRetriever;
 import android.os.SystemClock;
 import android.util.Log;
 
+import android.content.Intent;
+import android.os.Build;
+
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -106,6 +109,24 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     @Override
     public String getName() {
         return "VideoAnalysis";
+    }
+
+    @ReactMethod
+    public void startForegroundService() {
+        ReactApplicationContext context = getReactApplicationContext();
+        Intent intent = new Intent(context, VideoAnalysisForegroundService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent);
+        } else {
+            context.startService(intent);
+        }
+    }
+
+    @ReactMethod
+    public void stopForegroundService() {
+        ReactApplicationContext context = getReactApplicationContext();
+        Intent intent = new Intent(context, VideoAnalysisForegroundService.class);
+        context.stopService(intent);
     }
 
     @Override
