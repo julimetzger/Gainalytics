@@ -321,3 +321,78 @@ Working solution:
 Relevant files:
 - [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
 - [ana003_speed_chart_marker.yaml](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/maestro/flows/ana003_speed_chart_marker.yaml)
+
+### 17. `latestProgressTimeRef` forward guard silently drops all progress events after seek
+
+Problem:
+- Scrubber reached 100% at ~1:30min for a 47s video. After seeking to any future position the scrubber appeared frozen.
+
+Root cause:
+- `onPlayerProgress` had a guard: `if (currentTimeMs < latestProgressTimeRef.current) return;`
+- `applySeekTimeMs` set `latestProgressTimeRef.current = seekTargetMs` before the seek.
+- The seek target (~90000ms from bar-path duration) was larger than any real video position (0–47000ms), so every subsequent progress event was silently dropped.
+- The scrubber only advanced when `onPlayerEnd` fired.
+
+Working solution:
+- Remove the forward guard from `onPlayerProgress` entirely. If forward-guard semantics are needed for another reason, scope it more narrowly (e.g. only within a short debounce window after seek).
+
+Relevant files:
+- [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
+
+### 18. ExoPlayer `durationMs` can be 0 at `STATE_READY` — refresh it in the progress loop
+
+Problem:
+- JS received `durationMs = 0` from `onLoad`, fell back to `timeRange.durationMs` (~90s bar-path duration) as `correctedPlaybackDurationMs`. Scrubber denominator was wrong.
+
+Root cause:
+- `VideoAnalysisPlayerView.java` emits `onLoad` at `STATE_READY`. ExoPlayer does not always know the stream duration at that exact state (especially with HTTP sources). `getSafeDurationMs()` returned 0.
+
+Working solution:
+- In `progressRunnable.run()`, add a one-time refresh:
+  ```java
+  if (durationMs <= 0) {
+      int freshDuration = getSafeDurationMs();
+      if (freshDuration > 0) {
+          durationMs = freshDuration;
+          emitLoad();
+      }
+  }
+  ```
+- This fires at most once per playback session (on the first progress tick after ExoPlayer buffers enough to know the duration).
+
+Relevant files:
+- [VideoAnalysisPlayerView.java](/home/jmetzger/projects/PowerliftingWorkoutPlanner/android/app/src/main/java/com/powerliftingworkoutplanner/VideoAnalysisPlayerView.java)
+
+### 19. Thousands of small React Views in a chart section cause heavy reconciliation even with Reanimated markers
+
+Problem:
+- Moving the progress marker to the UI thread (Reanimated) eliminated Bridge saturation for the marker. But the JS thread was still slow during playback — React reconciliation was expensive.
+
+Root cause:
+- The time-plot section rendered one `<View>` dot per bar-path frame. A typical bar path has hundreds of frames → hundreds of tiny Views in the React tree. Re-rendering this tree 5–20×/second costs significant JS time regardless of Reanimated use.
+
+Working solution:
+- Remove the section entirely if it is not an acceptance criterion. Dot charts are best rendered natively (Canvas/SVG) rather than as hundreds of React Views.
+- If the feature is required: render to a single `<Canvas>` (react-native-skia) or use a fixed-size native chart component.
+
+Relevant files:
+- [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
+
+### 20. Windows adb server (WSL2) drops gRPC connections during Maestro TcpForwarder setup
+
+Problem:
+- Maestro flows fail immediately at `deviceInfo` with "Network closed for unknown reason" even though the device is connected and `adb devices` succeeds.
+
+Root cause:
+- WSL2 uses a remote adb server at the Windows host IP (e.g. 172.18.240.1:5037). This TCP connection is routed through the WSL2 virtual NIC and is inherently unstable for long-lived connections.
+- Maestro's `TcpForwarder` (dadb library) opens an adb-protocol tunnel via `adb forward` and then immediately exchanges gRPC frames. If the adb server drops the connection in the <100ms between tunnel setup and the first gRPC call, the entire flow fails.
+- Socat proxies, different HOME settings, and JAVA_TOOL_OPTIONS all fail to fix this because the instability is in the adb server TCP layer, not in Maestro's JVM.
+
+Mitigation:
+- Retry the Maestro run multiple times — the adb server is intermittently available.
+- If the prior round's Maestro run already proves the same criterion, cite it in `status.json` and document the infra blocker in `blocker`.
+- Use the `--debug-output` flag to capture a port-level log when investigating.
+- Long-term fix: run a native Linux adb server on WSL2 instead of relying on the Windows host adb server.
+
+Relevant files:
+- [run-maestro-from-wsl.sh](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/scripts/run-maestro-from-wsl.sh)
