@@ -232,6 +232,7 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
         {notSwipeableContent}
         <GestureDetector gesture={panGesture}>
           <Animated.View
+            importantForAccessibility="no"
             style={[
               animatedStyle,
               {

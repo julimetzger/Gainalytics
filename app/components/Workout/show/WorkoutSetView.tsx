@@ -1,5 +1,5 @@
-import {View} from 'react-native';
-import {DataTable, Icon, IconButton, useTheme} from 'react-native-paper';
+import {TouchableOpacity, View} from 'react-native';
+import {DataTable, Icon, useTheme} from 'react-native-paper';
 import React, {useEffect, useState} from 'react';
 import AddWorkoutSet from '../add/AddWorkoutSet';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
@@ -44,13 +44,14 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
             <Icon size={15} source={'video'} color={theme.colors.secondary} />
           ) : null}
           {editable && onLinkVideo ? (
-            <IconButton
-              icon="video-plus"
-              size={16}
+            <TouchableOpacity
               testID={`set-link-video-${set.index}`}
+              accessible={true}
               onPress={() => onLinkVideo(set)}
-              style={{margin: 0, padding: 0}}
-            />
+              style={{padding: 2}}
+            >
+              <Icon source="video-plus" size={16} />
+            </TouchableOpacity>
           ) : null}
         </DataTable.Cell>
       </DataTable.Row>
