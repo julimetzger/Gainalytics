@@ -1,0 +1,77 @@
+appId: com.powerliftingworkoutplanner
+---
+# Quick flow: navigate to Video Analyses, start analysis, capture bar fill screenshot
+
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 60000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- assertVisible: "Import Emulator Squat Video"
+
+- tapOn: "Import Emulator Squat Video"
+
+- runFlow:
+    when:
+      visible:
+        text: "(?i)^allow$"
+    commands:
+      - tapOn:
+          text: "(?i)^allow$"
+- runFlow:
+    when:
+      visible: "Allow only while using the app"
+    commands:
+      - tapOn: "Allow only while using the app"
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
+
+# Wait for PROCESSING to start
+- extendedWaitUntil:
+    visible: "Status: processing"
+    timeout: 30000
+
+# Wait 8s so bar has advanced from 0%
+- runScript:
+    file: sleep6s.js
+- runScript:
+    file: sleep6s.js
+
+# Take screenshot: bar should be at ~26% fill (16s elapsed / 45s estimate)
+- takeScreenshot: bar_fill_26pct
+
+# Wait 15 more seconds
+- runScript:
+    file: sleep6s.js
+- runScript:
+    file: sleep6s.js
+
+# Take screenshot 2: bar should be at ~58% fill (31s elapsed / 45s)
+- runFlow:
+    when:
+      visible: "Status: processing"
+    commands:
+      - takeScreenshot: bar_fill_58pct
+
+# Wait for done
+- extendedWaitUntil:
+    visible: "Status: done"
+    timeout: 1800000
+- takeScreenshot: bar_done_no_bar
+- assertNotVisible:
+    id: "video-analysis-progress-1"

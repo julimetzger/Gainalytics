@@ -1,8 +1,13 @@
 import {
   VIDEO_ANALYSIS_NOTIFICATION_DATA_TYPE,
   estimateAnalysisTimeMs,
+  extractAnalysisIdFromInitialNotification,
   extractAnalysisIdFromNotification,
+  extractAnalysisIdFromNotificationPressEvent,
+  postVideoAnalysisCompleteNotification,
+  postVideoAnalysisFailedNotification,
   requestVideoAnalysisNotificationPermission,
+  _resetVideoAnalysisNotificationPermissionCacheForTesting,
 } from '../videoAnalysisNotification';
 
 // ---------------------------------------------------------------------------
@@ -30,9 +35,15 @@ jest.mock('@notifee/react-native', () => ({
 
 // Grab the mock via requireMock AFTER mock is registered (no hoisting issue).
 const {default: notifeeMock} = jest.requireMock('@notifee/react-native') as {
-  default: {requestPermission: jest.Mock};
+  default: {
+    requestPermission: jest.Mock;
+    createChannel: jest.Mock;
+    displayNotification: jest.Mock;
+  };
 };
 const mockRequestPermission = notifeeMock.requestPermission;
+const mockCreateChannel = notifeeMock.createChannel;
+const mockDisplayNotification = notifeeMock.displayNotification;
 
 // ---------------------------------------------------------------------------
 // requestVideoAnalysisNotificationPermission
@@ -40,6 +51,7 @@ const mockRequestPermission = notifeeMock.requestPermission;
 describe('requestVideoAnalysisNotificationPermission', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    _resetVideoAnalysisNotificationPermissionCacheForTesting();
   });
 
   it('returns true when permission is AUTHORIZED', async () => {
@@ -64,6 +76,66 @@ describe('requestVideoAnalysisNotificationPermission', () => {
     mockRequestPermission.mockResolvedValue({authorizationStatus: 1});
     await requestVideoAnalysisNotificationPermission();
     expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// posting notifications
+// ---------------------------------------------------------------------------
+describe('postVideoAnalysisCompleteNotification', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    _resetVideoAnalysisNotificationPermissionCacheForTesting();
+  });
+
+  it('requests permission before posting the completion notification', async () => {
+    mockRequestPermission.mockResolvedValue({authorizationStatus: 1});
+
+    await postVideoAnalysisCompleteNotification(42);
+
+    expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+    expect(mockCreateChannel).toHaveBeenCalledTimes(1);
+    expect(mockDisplayNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          type: VIDEO_ANALYSIS_NOTIFICATION_DATA_TYPE,
+          analysisId: '42',
+        },
+      }),
+    );
+  });
+
+  it('does not post the completion notification when permission is denied', async () => {
+    mockRequestPermission.mockResolvedValue({authorizationStatus: 0});
+
+    await postVideoAnalysisCompleteNotification(42);
+
+    expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+    expect(mockCreateChannel).not.toHaveBeenCalled();
+    expect(mockDisplayNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe('postVideoAnalysisFailedNotification', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    _resetVideoAnalysisNotificationPermissionCacheForTesting();
+  });
+
+  it('requests permission before posting the failure notification', async () => {
+    mockRequestPermission.mockResolvedValue({authorizationStatus: 1});
+
+    await postVideoAnalysisFailedNotification(7);
+
+    expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+    expect(mockDisplayNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          type: VIDEO_ANALYSIS_NOTIFICATION_DATA_TYPE,
+          analysisId: '7',
+        },
+      }),
+    );
   });
 });
 
@@ -110,6 +182,44 @@ describe('extractAnalysisIdFromNotification', () => {
     };
     // parseInt('0') = 0, which is not NaN, so it should return 0
     expect(extractAnalysisIdFromNotification(notification)).toBe(0);
+  });
+});
+
+describe('extractAnalysisIdFromNotificationPressEvent', () => {
+  it('returns the analysisId for press events with matching notification data', () => {
+    expect(
+      extractAnalysisIdFromNotificationPressEvent(1, {
+        notification: {
+          data: {type: VIDEO_ANALYSIS_NOTIFICATION_DATA_TYPE, analysisId: '8'},
+        },
+      }),
+    ).toBe(8);
+  });
+
+  it('returns undefined for non-press events', () => {
+    expect(
+      extractAnalysisIdFromNotificationPressEvent(0, {
+        notification: {
+          data: {type: VIDEO_ANALYSIS_NOTIFICATION_DATA_TYPE, analysisId: '8'},
+        },
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('extractAnalysisIdFromInitialNotification', () => {
+  it('extracts the analysisId from an initial notifee notification payload', () => {
+    expect(
+      extractAnalysisIdFromInitialNotification({
+        notification: {
+          data: {type: VIDEO_ANALYSIS_NOTIFICATION_DATA_TYPE, analysisId: '13'},
+        },
+      }),
+    ).toBe(13);
+  });
+
+  it('returns undefined when the initial notification is missing', () => {
+    expect(extractAnalysisIdFromInitialNotification(null)).toBeUndefined();
   });
 });
 
