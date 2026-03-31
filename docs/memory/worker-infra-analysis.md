@@ -8,18 +8,19 @@ Last updated: 2026-03-30
 
 ## Per-Worker Breakdown
 
-| Ticket | Driver-Port | gRPC Crash | Wrong Device | ADB Reverse | Metro | Red Screen | Build | Screenshot | Feedback Rounds | Final Status |
-|--------|-------------|------------|-------------|-------------|-------|------------|-------|------------|----------------|-------------|
-| ANA-001 | 34 | 0 | 7 | 15 | 4 | 14 | 16 | 0 | 10 | closed |
-| ANA-002 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | closed |
-| ANA-003 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | closed |
-| ANA-004 | 35 | 24 | 6 | 8 | 4 | 47 | 48 | 1 | 5 | review |
-| ANA-005 | 9 | 4 | 0 | 2 | 1 | 43 | 16 | 6 | 0 | review |
-| TRN-002 | 6 | 0 | 2 | 2 | 2 | 14 | 3 | 12 | 6 | review |
-| TRN-003 | 24 | 6 | 4 | 16 | 8 | 24 | 10 | 0 | 0 | review |
-| ANA-001-fix | 10 | 7 | 4 | 22 | 23 | 27 | 16 | 2 | 0 | review |
-| ANA-004-fix | 8 | 8 | 2 | 5 | 7 | 21 | 13 | 0 | 0 | review |
-| ANA-005-fix | 13 | 1 | 3 | 6 | 2 | 4 | 6 | 0 | 0 | review |
+| Ticket | Device | Driver-Port | gRPC Crash | Wrong Device | ADB Reverse | Metro | Red Screen | Build | Screenshot | Feedback Rounds | Final Status |
+|--------|--------|-------------|------------|-------------|-------------|-------|------------|-------|------------|----------------|-------------|
+| ANA-001 | emu | 34 | 0 | 7 | 15 | 4 | 14 | 16 | 0 | 10 | closed |
+| ANA-002 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | closed |
+| ANA-003 | emu | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | closed |
+| ANA-003-fix | real | 3 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 4 | review |
+| ANA-004 | emu | 35 | 24 | 6 | 8 | 4 | 47 | 48 | 1 | 5 | review |
+| ANA-005 | emu | 9 | 4 | 0 | 2 | 1 | 43 | 16 | 6 | 0 | review |
+| TRN-002 | emu | 6 | 0 | 2 | 2 | 2 | 14 | 3 | 12 | 6 | review |
+| TRN-003 | emu | 24 | 6 | 4 | 16 | 8 | 24 | 10 | 0 | 0 | review |
+| ANA-001-fix | emu | 10 | 7 | 4 | 22 | 23 | 27 | 16 | 2 | 0 | review |
+| ANA-004-fix | emu | 8 | 8 | 2 | 5 | 7 | 21 | 13 | 0 | 0 | review |
+| ANA-005-fix | emu | 13 | 1 | 3 | 6 | 2 | 4 | 6 | 0 | 0 | review |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 

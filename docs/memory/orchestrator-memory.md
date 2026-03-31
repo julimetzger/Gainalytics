@@ -297,6 +297,57 @@ Working solution:
 - Diese Config setzt `unstable_enableSymlinks: true` und korrekte `projectRoot`/`watchFolders`.
 - Alternativ: Einen Feature-Worker-Agent starten der die App-Deployment-Skills kennt.
 
+### 24. Cleanup vor Worker-Neustart: Metro/Maestro/socat Prozesse killen
+
+Problem:
+- Nach mehreren Worker-Runden sammeln sich tote Metro-Instanzen, doppelte socat-Proxies und stale Maestro-Prozesse an. Neue Worker starten ihre eigenen, was zu Port-Konflikten führt.
+
+Symptoms:
+- 3x socat auf Port 8081, mehrere Metro auf verschiedenen Ports
+- Worker findet Metro nicht weil der falsche Prozess den Port belegt
+- Emulator adb reverse zeigt auf toten Metro-Port
+
+Working solution:
+- Vor einem Cleanup-Neustart aller Worker: alle Metro, socat, Maestro und Gradle-Prozesse killen
+- Danach `adb devices` prüfen ob Devices erreichbar sind
+- Dann Worker starten — launch_feature_job.py startet frische Metro/socat
+
+### 25. Echte Devices haben deutlich weniger Infra-Probleme als Emulatoren
+
+Observation:
+- ANA-003-fix auf dem echten Device (R5CN30HWZFN) hatte 0 gRPC Crashes, 0 Red Screens, 0 Metro-Probleme
+- Alle Emulator-Worker hatten signifikante Infra-Overhead (gRPC, Red Screen, adb reverse)
+
+Apply when:
+- Bei kritischen Tickets oder zeitkritischen Reviews das echte Device bevorzugen
+- worker-infra-analysis.md enthält jetzt eine Device-Spalte (real/emu) für die Korrelation
+
+### 26. Codex-Runner Sandbox braucht Schreibzugriff für git/gradle
+
+Problem:
+- Codex exec Sandbox blockiert Schreibzugriff auf `.git/worktrees/*/index.lock` und `node_modules/` — git commit und gradle build scheitern.
+
+Symptoms:
+- status.json: blocked mit "read-only file system"
+- git commit: "could not write index.lock"
+- gradle: Schreibfehler in node_modules
+
+Working solution:
+- Codex-Runner ist ideal für reine Maestro-Evidence-Runs wo kein Build/Commit nötig ist
+- Für Runs die Build + Commit brauchen: Claude-Runner oder sandbox_workspace_write Konfiguration anpassen
+- Metro muss extern (außerhalb der Sandbox) gestartet werden — das Launch-Script macht das automatisch
+
+### 27. withTiming-Architektur für chart-synchrone Animationen ohne JS-Bridge
+
+Observation:
+- Reanimated `withTiming` kann eine Marker-Animation für die gesamte Video-Dauer vorberechnen und auf dem UI-Thread abspielen — null JS-Bridge-Last während Playback
+- Sync zwischen Player und Linie nur bei User-Interaktion (Play/Pause/Seek/Step)
+- Dramatische Verbesserung der App-Responsiveness verglichen mit 50ms/200ms State-Updates
+
+Apply when:
+- Jede UI-Komponente die synchron mit Video/Audio-Playback laufen muss
+- Continuous-update-Patterns die den JS-Thread blockieren
+
 ## Operational Guidance For Future Agents
 
 - Do not assume `state.json` is current if a run directory already has `status.json`.
@@ -319,3 +370,7 @@ Working solution:
 - `launch_feature_job.py` immer vom Hauptrepo-Root ausführen, nicht vom Worktree. Ticket-Files per absolutem Pfad.
 - Für App-Deploy auf echtem Gerät: Metro mit Worktree-Config starten oder den Feature-Agent deployen lassen.
 - Codex-Review-Anmerkungen pro PR in ein einzelnes Ticket konsolidieren, nicht ein Ticket pro Anmerkung.
+- Vor Worker-Neustart: alle Metro/socat/Maestro/Gradle-Reste killen um Port-Konflikte zu vermeiden.
+- Echtes Device hat signifikant weniger Infra-Overhead als Emulatoren — für zeitkritische Reviews bevorzugen.
+- worker-infra-analysis.md enthält eine Device-Spalte (real/emu) — Worker müssen diese befüllen.
+- Codex-Runner für reine Evidence-Runs (Maestro + Screenshots) geeignet; für Build+Commit Claude-Runner oder angepasste Sandbox.

@@ -36,9 +36,11 @@
 - [ready] [ANA-005](tickets/ANA-005-async-video-analysis.yaml) Asynchrone Analyse des Videos
   - User kann währen der Analyse die app ganz normal benutzen. Notification weißt auf die fertige analyse hin
   - Der Loading spinner zeigt den Progress an. Hier wird die Zeit die gebraucht wird abgeschätzt anhand der letzten analysen. Dazu wird im state gespeichert wie lange eine Minute anaylse beim letzten video gebraucht wird und dann abgeschätzt wie lange die neue analyse brauch für die länge des videos. Für den ersten Wert nehmen wir an 1s analyse pro 1s Video.
-  - [ready] [ANA-005-fix](tickets/ANA-005-fix-codex-review.yaml) Codex-Review Fixes: Notification-Tap Background, Permission, echte Video-Dauer
-- Player Verbesserungen part 2 [VideoAnalysisDeteils]
-  - Playergeschwindigkeite einstellen in 0.1er prozent schritten also von 0.1 bis 1.0 der tatsächlichen Geschwindigkeit
+  - [ready] [ANA-005-fix](tickets/ANA-005-fix-codex-review.yaml) Codex-Review Fixes + realistische Progressbar: Notification, Permission, Service Ref-Count, echte Video-Dauer, Progressbar
+- [ready] [ANA-003-fix](tickets/ANA-003-fix-speed-chart-perf.yaml) Speed-Chart Performance — Progress-Marker aus Bridge entkoppeln
+  - [ready] [ANA-003-fix2](tickets/ANA-003-fix2-marker-alignment.yaml) Marker-Linie am Velocity-Plot ausrichten (fängt zu früh an, hört zu spät auf)
+- [ready] [ANA-007](tickets/ANA-007-playback-speed-control.yaml) Player Verbesserungen part 2 — Wiedergabegeschwindigkeit (0.1x–1.0x)
+- [ready] [ANA-006](tickets/ANA-006-link-video-analysis-to-set.yaml) Verknüpfung eines Sets mit der Video Analysis (4 UI-Flows)
 - performance verbessern
 
 ## Try out
@@ -67,7 +69,10 @@
 ## Analyse
 
 - Seite mit Datepicker
-- Auswahlmöglichkeit der Metriken in MetricsOverview
+- [ready] Auswahlmöglichkeit der Metriken in MetricsOverview.
+  - Stand: Es gibt sowohl für muscles als auch exercises drei vorbelegte metriken siehe MetricsOverview.png (für exercises 1RM, Reps, Max Intensity)
+  - Anforderung 1: Sowohl für muscles als auch Exercises ist auswählbar welche Metrik für die einzelnen drei slots angezeitgt und vergleicht wird. Dazu gibt es bei press auf die Metric einen dropdown mit der Auswahlmöglichkeit aller metriken. Bei Klick auf eine der Metriken aus dem Dropdown wird die Spalte geupdated und die neue Metrik angezeigt. Diese auswahl wird separat für muscles und exercises auch im state gespeichert und ist für alle MetricOverviews ab jetzt geändert.
+  - Anforderung 2: Muscles Overview über Exercise Overview verschieben
 
 ## Exercises
 

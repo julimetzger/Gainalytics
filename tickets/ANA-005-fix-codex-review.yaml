@@ -2,33 +2,52 @@ id: ANA-005-fix
 status: ready
 area: analyse
 priority: high
-title: Fix Codex review findings for async video analysis (PR #23)
+title: Fix Codex review findings + Progress-Bar für async video analysis (PR #23)
 source:
   - "https://github.com/julimetzger/Gainalytics/pull/23"
 description: >
-  Three issues were identified by Codex review on PR #23:
+  Fünf Issues aus dem Codex-Review auf PR #23 plus eine neue Anforderung
+  für eine realistische Progressbar:
 
-  1. **Notification tap from background (P1):** The background handler for
-  `video_analysis_complete` does nothing, so tapping the notification while the
-  app is in the background or terminated loses the deep-link. Use
-  `getInitialNotification()` on app startup to handle the cold-start path and
-  properly handle the background event callback.
+  1. **Notification tap from background (P1):** Der Background-Handler für
+  `video_analysis_complete` tut nichts — ein Tap auf die Notification im
+  Background/Terminated-State verliert den Deep-Link. Fix: `getInitialNotification()`
+  beim App-Start verwenden und den Background-Event-Callback korrekt behandeln.
 
-  2. **Missing notification permission (P1):** Both completion and failure
-  notifications are posted without calling `notifee.requestPermission()` first.
-  On Android 13+ this causes silent non-delivery for users who never granted
-  POST_NOTIFICATIONS. Request permission before posting, or at the start of the
-  analysis flow.
+  2. **Missing notification permission (P1):** Notifications werden ohne
+  `notifee.requestPermission()` gepostet. Auf Android 13+ führt das zu
+  stiller Nicht-Zustellung. Fix: Permission vor dem Posten anfragen.
 
-  3. **Hardcoded video duration (P2):** `estimatedVideoDurationMs = 6000` is
-  hardcoded instead of reading the actual video duration from file metadata.
-  This makes progress estimates and the learned
-  `lastAnalysisSecondsPerVideoSecond` rate systematically wrong. Read the real
-  duration from the native module or video metadata.
+  3. **Foreground-Service Reference-Counting (P1):** `runBackgroundAnalysis`
+  ruft immer `stopVideoAnalysisForegroundService()` auf, wenn eine Analyse
+  fertig wird — auch wenn noch weitere laufen. Das kann den Service für
+  laufende Analysen stoppen und zu einem Kill durch Android führen.
+  Fix: Stop-Aufruf per Reference-Count oder Job-Scope absichern.
+
+  4. **Permission-Request Guard (P2):** `requestVideoAnalysisNotificationPermission()`
+  wird vor dem try-Block geawaited. Wirft es eine Exception (Bridge-/Init-Fehler),
+  bricht der gesamte Import ab. Fix: Fehler catchen oder den Aufruf in den
+  bestehenden try-Block verschieben, damit Permission-Fehler die Analyse nicht
+  blockieren.
+
+  5. **Hardcoded video duration (P2):** `estimatedVideoDurationMs = 6000` statt
+  der echten Videolänge. Macht Progress-Schätzungen und den gelernten
+  `lastAnalysisSecondsPerVideoSecond`-Wert systematisch falsch.
+  Fix: Echte Dauer aus Video-Metadaten lesen.
+
+  6. **Realistische Progressbar (NEU):** Die Loading-Bar soll den tatsächlichen
+  Fortschritt der VideoAnalyse über die gesamte Videolänge abbilden. Wenn die
+  Bar voll ist, soll das Video fertig analysiert sein (oder fast fertig).
+  Initiale Schätzung: 1 Sekunde Analyse pro Sekunde Videolänge (d.h. ein
+  45-Sekunden-Video → 45 Sekunden bis die Bar voll ist). Nach der ersten
+  Analyse soll `lastAnalysisSecondsPerVideoSecond` aus der vorherigen Analyse
+  für die Geschwindigkeitsschätzung verwendet werden.
 components:
   - App.tsx
   - app/utils/videoAnalysisNotification.ts
   - app/utils/video-analysis-import.ts
+  - app/utils/videoAnalysisProgress.ts
+  - app/tabs/Analyse/VideoAnalysisTab.tsx
   - android/app/src/main/java/com/powerliftingworkoutplanner/VideoAnalysisModule.java
 acceptanceCriteria:
   - >
@@ -38,19 +57,34 @@ acceptanceCriteria:
     `notifee.requestPermission()` is called before any notification is posted
     by the video analysis flow. If denied, the analysis still completes normally.
   - >
-    The progress estimation uses the actual video duration from file metadata
-    instead of a hardcoded 6s value. Falls back to 1:1 ratio if duration cannot
-    be determined.
+    Der Foreground-Service wird erst gestoppt, wenn keine Analyse mehr läuft
+    (Reference-Counting oder Job-Scope).
+  - >
+    Ein Fehler in `requestVideoAnalysisNotificationPermission()` blockiert
+    nicht den Analyse-Start — die Analyse läuft auch ohne Permission weiter.
+  - >
+    Die Progress-Schätzung verwendet die echte Videolänge aus den Metadaten
+    statt eines hardcoded 6s-Werts. Fallback auf 1:1 Ratio wenn die Dauer
+    nicht ermittelt werden kann.
+  - >
+    Die Progressbar zeigt den Fortschritt relativ zur geschätzten Gesamtdauer:
+    Initiale Schätzung 1s Analyse pro 1s Video. Nach der ersten Analyse wird
+    `lastAnalysisSecondsPerVideoSecond` für genauere Schätzungen herangezogen.
+    Bei einem 45s-Video dauert die Bar beim ersten Mal ~45s bis sie voll ist.
   - >
     Automated tests cover notification permission, initial notification handling,
-    and duration-based progress calculation.
+    foreground service reference counting, and duration-based progress calculation.
 evidenceRequired:
   - Emulator evidence of notification tap navigating to analysis from background.
-  - Passing test log for permission, tap handling, and progress calculation.
+  - Screen-Recording oder Maestro-Flow der die Progressbar bei einer Video-Analyse zeigt.
+  - Passing test log for permission, tap handling, service ref-counting, and progress calculation.
 constraints:
   - Use @notifee getInitialNotification() for the cold-start path.
   - Do not request permission at app startup — only when analysis is used.
   - Reuse existing native module methods for video duration if possible.
+  - Keine neuen Dependencies für die Progressbar — react-native-reanimated und
+    bestehende ProgressBar-Komponenten verwenden.
 nonGoals:
   - Adding a custom permission rationale dialog.
   - Frame-level progress tracking during analysis.
+  - Exakte sekundengenaue Progressbar — eine gute Schätzung reicht.
