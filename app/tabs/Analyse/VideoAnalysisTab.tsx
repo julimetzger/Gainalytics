@@ -14,6 +14,7 @@ import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispa
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoReadPermission} from '../../utils/video-analysis-import';
+import SetSelectionModal from '../../components/video/SetSelectionModal';
 
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
@@ -37,6 +38,7 @@ const VideoAnalysisTab = () => {
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const [importing, setImporting] = useState(false);
+  const [linkSetForAnalysisId, setLinkSetForAnalysisId] = useState<number | undefined>(undefined);
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map((item) => item.id ?? 0)) + 1 : 1;
 
   const importFromSource = async (sourceUri: string) => {
@@ -147,6 +149,14 @@ const VideoAnalysisTab = () => {
 
   return (
     <View style={[styles.container, themedStyles.background]} testID="video-analysis-screen">
+      {linkSetForAnalysisId !== undefined && (
+        <SetSelectionModal
+          visible={true}
+          onDismiss={() => setLinkSetForAnalysisId(undefined)}
+          analysisId={linkSetForAnalysisId}
+          onLinked={() => setLinkSetForAnalysisId(undefined)}
+        />
+      )}
       <Button
         testID="video-analysis-import-button"
         mode="contained"
@@ -197,6 +207,19 @@ const VideoAnalysisTab = () => {
               >
                 Open
               </Button>
+              {!analysis.workoutId && (
+                <Button
+                  testID={`video-analysis-link-set-${analysis.id}`}
+                  onPress={() => setLinkSetForAnalysisId(analysis.id)}
+                >
+                  Link
+                </Button>
+              )}
+              {analysis.workoutId && (
+                <Text testID={`video-analysis-linked-badge-${analysis.id}`} style={{fontSize: 12, color: theme.colors.secondary}}>
+                  Linked
+                </Text>
+              )}
               <Button
                 testID={`video-analysis-delete-${analysis.id}`}
                 textColor={theme.colors.error}
