@@ -1,6 +1,7 @@
 import React from 'react';
 import {StyleSheet} from 'react-native';
 import {act, fireEvent, render} from '@testing-library/react-native';
+import {MD3DarkTheme, MD3LightTheme, MD3Theme, Provider as PaperProvider} from 'react-native-paper';
 import VideoAnalysisPlaybackOverlayCard from '../../../app/components/video/VideoAnalysisPlaybackOverlayCard';
 import {BarTrackingResult} from '../../../app/models/entities/VideoAnalysis';
 
@@ -32,6 +33,18 @@ const makeResult = (): BarTrackingResult => ({
   },
 });
 
+const makeActiveRepResult = (): BarTrackingResult => ({
+  ...makeResult(),
+  repSegments: [
+    {
+      repIndex: 0,
+      startMs: 500,
+      bottomMs: 1000,
+      endMs: 1500,
+    },
+  ],
+});
+
 const loadPlayer = (player: any, durationMs = 3000) => {
   act(() => {
     player.props.onLoad({nativeEvent: {durationMs, videoWidth: 640, videoHeight: 480}});
@@ -50,6 +63,12 @@ const setScrubberWidth = (scrubber: any, width: number) => {
   });
 };
 
+const setOverlaySize = (overlay: any, width: number, height: number) => {
+  act(() => {
+    overlay.props.onLayout({nativeEvent: {layout: {width, height}}});
+  });
+};
+
 const getScrubberState = (getByTestId: (testId: string) => any) => {
   const scrubberFill = getByTestId('video-analysis-playback-scrubber-fill');
   const scrubberThumb = getByTestId('video-analysis-playback-scrubber-thumb');
@@ -60,6 +79,28 @@ const getScrubberState = (getByTestId: (testId: string) => any) => {
     fillWidth: fillStyle.width,
     thumbLeft: thumbStyle.left,
   };
+};
+
+const getActiveRepPathSegmentStyle = (theme: MD3Theme) => {
+  const rendered = render(
+    <PaperProvider theme={theme}>
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeActiveRepResult()} />
+    </PaperProvider>,
+  );
+  const player = rendered.getByTestId('video-analysis-playback-player');
+  const overlay = rendered.getByTestId('video-analysis-playback-overlay');
+
+  setOverlaySize(overlay, 320, 180);
+  loadPlayer(player);
+  progressPlayer(player, 1000);
+
+  const activeRepPath = rendered.getByTestId('video-analysis-playback-active-rep-path');
+  const [segment] = activeRepPath.findAll((node) => {
+    const style = StyleSheet.flatten(node.props.style);
+    return style?.height === 4 && style?.opacity === 0.92;
+  });
+
+  return StyleSheet.flatten(segment.props.style);
 };
 
 describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
@@ -267,6 +308,56 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
     expect(getScrubberState(getByTestId)).toEqual({
       fillWidth: '75%',
       thumbLeft: '75%',
+    });
+  });
+});
+
+describe('VideoAnalysisPlaybackOverlayCard – active rep path theme color', () => {
+  it('uses the light theme primary color for the active rep path', () => {
+    const lightTheme: MD3Theme = {
+      ...MD3LightTheme,
+      colors: {
+        ...MD3LightTheme.colors,
+        primary: 'rgb(18, 52, 86)',
+      },
+    };
+
+    const segmentStyle = getActiveRepPathSegmentStyle(lightTheme);
+
+    expect({
+      backgroundColor: segmentStyle.backgroundColor,
+      borderRadius: segmentStyle.borderRadius,
+      height: segmentStyle.height,
+      opacity: segmentStyle.opacity,
+    }).toEqual({
+      backgroundColor: lightTheme.colors.primary,
+      borderRadius: 2,
+      height: 4,
+      opacity: 0.92,
+    });
+  });
+
+  it('uses the dark theme primary color for the active rep path', () => {
+    const darkTheme: MD3Theme = {
+      ...MD3DarkTheme,
+      colors: {
+        ...MD3DarkTheme.colors,
+        primary: 'rgb(171, 205, 239)',
+      },
+    };
+
+    const segmentStyle = getActiveRepPathSegmentStyle(darkTheme);
+
+    expect({
+      backgroundColor: segmentStyle.backgroundColor,
+      borderRadius: segmentStyle.borderRadius,
+      height: segmentStyle.height,
+      opacity: segmentStyle.opacity,
+    }).toEqual({
+      backgroundColor: darkTheme.colors.primary,
+      borderRadius: 2,
+      height: 4,
+      opacity: 0.92,
     });
   });
 });
