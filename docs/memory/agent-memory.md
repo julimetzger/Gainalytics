@@ -298,3 +298,26 @@ Relevant files:
 - Match react-native-paper `Button` by label text (`tapOn: "Play"`), not by testID — `id:` selector does not work for paper Button.
 - Use `clearState: false` for playback/overlay flows that reuse an existing analysis; `clearState: true` + CPU-intensive analysis = Maestro gRPC DEADLINE_EXCEEDED crash.
 - Avoid generic `scroll` commands after bringing a screen region into view if react-native-charts-wrapper charts are present; use `extendedWaitUntil` instead to avoid accidental chart `onSelect` triggers.
+- `dragEnabled={false}` on MPAndroidChart does NOT stop touch event consumption — only `touchEnabled={false}` causes the chart to pass events to the parent ScrollView.
+- When `touchEnabled={false}` is set on a react-native-charts-wrapper chart, `onSelect` no longer fires. Re-implement tap-to-seek using `onTouchEnd` on a wrapper View with `locationX / chartWidth` coordinate math.
+- react-native-paper `Button` text is NOT in the Android accessibility tree when off-screen — `scrollUntilVisible: text: "+0.2s"` will fail if the button is below the fold. Use Card.Title text (always in the tree) as the scroll anchor, then swipe to reach buttons.
+- `video-analysis-playback-scrubber-fill` has `width: 0%` at t=0 so Maestro treats it as not visible. Assert `video-analysis-playback-scrubber-thumb` (fixed 20×20) instead for scrubber visibility proofs.
+- Maestro driver ports (dadb TcpForwarder) cannot be reused immediately after a prior run — the port stays occupied for several minutes. Use a fresh high port number (7100, 7200…) for each run attempt.
+
+### 16. MPAndroidChart touchEnabled=false is required to let ScrollView scroll through chart
+
+Problem:
+- A react-native-charts-wrapper `LineChart` inside a ScrollView blocks ALL vertical scroll gestures, even after setting `dragEnabled={false}`.
+
+Symptoms:
+- `scrollUntilVisible` times out immediately after the chart becomes visible — Maestro cannot find off-screen elements below the chart
+- `dragEnabled={false}` has no effect on touch event interception
+
+Working solution:
+- Set `touchEnabled={false}` on the LineChart to stop MPAndroidChart from returning `true` from `onTouchEvent`
+- Re-implement any chart tap callbacks (`onSelect`) using `onTouchEnd` on a wrapper View with manual coordinate math: `timeMs = minTimeMs + clamp((locationX - CHART_LEFT_PADDING) / drawableWidth, 0, 1) * durationMs`
+- The wrapper View needs its own `testID` for Maestro and unit test targeting
+
+Relevant files:
+- [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
+- [ana003_speed_chart_marker.yaml](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/maestro/flows/ana003_speed_chart_marker.yaml)
