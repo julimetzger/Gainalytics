@@ -1,0 +1,134 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-003: Speed-Chart Progress-Marker decoupled from Bridge
+# Self-contained: import video, wait for analysis, verify step buttons and scrubber.
+# touchEnabled=false on the LineChart (added as part of ANA-003-fix) means
+# scroll gestures pass through the chart to the parent ScrollView.
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      visible: "Android App Compatibility"
+    commands:
+      - tapOn:
+          text: "Don't Show Again"
+- runFlow:
+    when:
+      visible: "Unable to load script"
+    commands:
+      - tapOn:
+          text: "RELOAD"
+      - waitForAnimationToEnd:
+          timeout: 8000
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 15000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- assertVisible: "Import Video"
+- tapOn: "Import Emulator Squat Video"
+- runFlow:
+    when:
+      visible:
+        text: "(?i)^allow$"
+    commands:
+      - tapOn:
+          text: "(?i)^allow$"
+- runFlow:
+    when:
+      visible: "Allow only while using the app"
+    commands:
+      - tapOn: "Allow only while using the app"
+- extendedWaitUntil:
+    visible: "Analysis #[0-9]+"
+    timeout: 30000
+- tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Status: (done|awaiting_seed_selection)"
+    timeout: 180000
+- runFlow:
+    when:
+      visible: "Status: awaiting_seed_selection"
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "video-analysis-seed-candidate-1"
+          direction: DOWN
+      - tapOn:
+          id: "video-analysis-seed-candidate-1"
+      - tapOn:
+          id: "video-analysis-manual-seed-run"
+      - scrollUntilVisible:
+          element:
+            id: "video-analysis-detail-status"
+          direction: UP
+      - extendedWaitUntil:
+          visible: "Status: done"
+          timeout: 180000
+# "Playback Overlay" is a Card.Title — in the accessibility tree even when off-screen.
+- scrollUntilVisible:
+    element:
+      text: "Playback Overlay"
+    direction: DOWN
+# Swipe to scroll past video player and both charts.
+# Starting at Y=40% (Bar Y time plot area, plain View — not a native chart).
+# touchEnabled=false on speed chart means these swipes pass through to ScrollView.
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+# After 3 swipes: scrubber thumb (just above step buttons) is visible.
+# Assert scrubber thumb (20x20, always non-zero) before any tap changes scroll state.
+- assertVisible:
+    id: "video-analysis-playback-scrubber-thumb"
+# Small downward scroll to bring step buttons fully into view.
+# Finger moves UP (50%→30%) = content scrolls DOWN = shows content from below.
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 30%"
+    duration: 300
+- waitForAnimationToEnd:
+    timeout: 200
+# Now assert and tap step buttons
+- assertVisible:
+    text: "-0.2s"
+- assertVisible:
+    text: "+0.2s"
+# Tap +0.2s — Reanimated marker moves to 200ms, playback time updates
+- tapOn:
+    text: "+0.2s"
+- waitForAnimationToEnd:
+    timeout: 500
+- assertVisible:
+    text: "Playback: [0-9]{2}:[0-9]{2} / [0-9]{2}:[0-9]{2}"
+# Tap -0.2s — marker goes back
+- tapOn:
+    text: "-0.2s"
+- waitForAnimationToEnd:
+    timeout: 500
+- assertVisible:
+    text: "Playback: [0-9]{2}:[0-9]{2} / [0-9]{2}:[0-9]{2}"
+- takeScreenshot: "step_buttons_scrubber"
