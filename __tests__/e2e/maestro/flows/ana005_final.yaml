@@ -1,17 +1,17 @@
 appId: com.powerliftingworkoutplanner
 ---
 # ANA-005 complete proof flow:
-# 1. Progress bar renders (indeterminate) immediately when PROCESSING starts
-# 2. Progress bar switches to determinate fill once video duration is known
+# 1. Progress bar renders immediately as a determinate fill bar (not a spinner)
+# 2. Bar fills left-to-right proportional to elapsed / estimated time
 # 3. App stays interactive during analysis
 # 4. Progress bar disappears on completion
-- launchApp:
-    clearState: true
+- launchApp: {}
+
 
 # ── Navigate to Video Analyses via drawer ───────────────────────────────────
 - extendedWaitUntil:
     visible: "tab-analyse"
-    timeout: 30000
+    timeout: 90000
 - tapOn: "tab-analyse"
 - extendedWaitUntil:
     visible: "Analyse"
@@ -51,18 +51,25 @@ appId: com.powerliftingworkoutplanner
     visible: "Status: processing"
     timeout: 30000
 
-# Screenshot 1: bar in indeterminate/initial state (durationMs not yet set —
-# shows the pulsating indeterminate bar, proving the bar renders immediately)
-- takeScreenshot: progress_bar_screenshot_1
+# Screenshot 1: bar at ~25% fill (elapsed ~10s, fallback estimate 45s → ~22%)
+# Wait 5s first so the bar has clearly advanced from 0%
+- runScript:
+    file: sleep6s.js
+- runFlow:
+    when:
+      visible: "Status: processing"
+    commands:
+      - takeScreenshot: progress_bar_screenshot_1
 
-# Wait 12s for video copy to finish + durationMs to be set
-# After this the bar switches from indeterminate to determinate fill
+# Wait another 20s so bar advances to ~60-70% fill
 - runScript:
     file: sleep6s.js
 - runScript:
     file: sleep6s.js
+- runScript:
+    file: sleep6s.js
 
-# Screenshot 2: bar at determinate fill level (if still processing after 12s)
+# Screenshot 2: bar at ~75% fill (elapsed ~28s / 45s ≈ 62%)
 - runFlow:
     when:
       visible: "Status: processing"

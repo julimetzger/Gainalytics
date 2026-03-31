@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {Platform, ScrollView, StyleSheet, View} from 'react-native';
-import {Button, Card, MD3Theme, ProgressBar, Text, useTheme} from 'react-native-paper';
+import {Button, Card, MD3Theme, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
 import Toast from 'react-native-toast-message';
@@ -31,6 +31,11 @@ const createThemedStyles = (theme: MD3Theme) =>
 
 // Module-level map so start times survive navigation (component unmount/remount).
 const _analysisStartTimes = new Map<number, number>();
+
+// Fallback estimated video duration used when the real durationMs is not yet
+// available (e.g. while the video is still being copied to local storage).
+// Chosen to match the ticket's default scenario: ~45s video → ~45s bar fill.
+const FALLBACK_VIDEO_DURATION_MS = 45_000;
 
 const VideoAnalysisTab = () => {
   const navigation = useNavigation<any>();
@@ -212,52 +217,61 @@ const VideoAnalysisTab = () => {
             </Card.Content>
           </Card>
         )}
-        {analyses.map((analysis) => (
-          <Card key={analysis.id} style={styles.card} testID={`video-analysis-card-${analysis.id}`}>
-            <Card.Title title={`Analysis #${analysis.id}`} subtitle={new Date(analysis.createdAt).toLocaleString()} />
-            <Card.Content>
-              <Text testID={`video-analysis-status-${analysis.id}`}>Status: {analysis.status}</Text>
-              {analysis.status === VideoAnalysisStatus.PROCESSING && analysis.id !== undefined && (
-                <ProgressBar
-                  testID={`video-analysis-progress-${analysis.id}`}
-                  indeterminate={!analysis.videoMeta?.durationMs}
-                  progress={
-                    analysis.videoMeta?.durationMs
-                      ? calculateAnalysisProgress(
-                          now - (_analysisStartTimes.get(analysis.id) ?? now),
-                          estimateAnalysisTimeMs(analysis.videoMeta.durationMs, lastSecondsPerVideoSecond),
-                        )
-                      : undefined
-                  }
-                  style={styles.progressBar}
-                />
-              )}
-              {analysis.error && <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>}
-            </Card.Content>
-            <Card.Actions>
-              <Button
-                testID={`video-analysis-open-${analysis.id}`}
-                onPress={() => {
-                  if (analysis.id !== undefined) {
-                    navigation.navigate({
-                      name: 'VideoAnalysisDetail',
-                      params: {analysisId: analysis.id},
-                    });
-                  }
-                }}
+        {analyses.map((analysis) => {
+          let progressBar: React.ReactNode = null;
+          const analysisId = analysis.id;
+          if (analysis.status === VideoAnalysisStatus.PROCESSING && analysisId !== undefined) {
+            const startTime = _analysisStartTimes.get(analysisId);
+            const elapsed = startTime !== undefined ? Math.max(0, now - startTime) : 0;
+            const estimated = estimateAnalysisTimeMs(
+              analysis.videoMeta?.durationMs || FALLBACK_VIDEO_DURATION_MS,
+              lastSecondsPerVideoSecond,
+            );
+            const progress = calculateAnalysisProgress(elapsed, estimated);
+            // At least 3% so the track + fill are clearly visible from the start.
+            const fillPercent = `${Math.max(3, Math.round(progress * 100))}%`;
+            progressBar = (
+              <View
+                testID={`video-analysis-progress-${analysisId}`}
+                style={styles.progressBarTrack}
               >
-                Open
-              </Button>
-              <Button
-                testID={`video-analysis-delete-${analysis.id}`}
-                textColor={theme.colors.error}
-                onPress={() => onDelete(analysis.id, analysis.resultPath, analysis.localVideoPath)}
-              >
-                Delete
-              </Button>
-            </Card.Actions>
-          </Card>
-        ))}
+                <View style={[styles.progressBarFill, {width: fillPercent}]} />
+              </View>
+            );
+          }
+          return (
+            <Card key={analysisId} style={styles.card} testID={`video-analysis-card-${analysisId}`}>
+              <Card.Title title={`Analysis #${analysisId}`} subtitle={new Date(analysis.createdAt).toLocaleString()} />
+              <Card.Content>
+                <Text testID={`video-analysis-status-${analysisId}`}>Status: {analysis.status}</Text>
+                {progressBar}
+                {analysis.error && <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>}
+              </Card.Content>
+              <Card.Actions>
+                <Button
+                  testID={`video-analysis-open-${analysisId}`}
+                  onPress={() => {
+                    if (analysisId !== undefined) {
+                      navigation.navigate({
+                        name: 'VideoAnalysisDetail',
+                        params: {analysisId},
+                      });
+                    }
+                  }}
+                >
+                  Open
+                </Button>
+                <Button
+                  testID={`video-analysis-delete-${analysisId}`}
+                  textColor={theme.colors.error}
+                  onPress={() => onDelete(analysisId, analysis.resultPath, analysis.localVideoPath)}
+                >
+                  Delete
+                </Button>
+              </Card.Actions>
+            </Card>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -274,9 +288,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     marginBottom: 10,
   },
-  progressBar: {
-    marginTop: 8,
-    height: 8,
+  progressBarTrack: {
+    marginTop: 10,
+    height: 30,
+    borderRadius: 5,
+    overflow: 'hidden',
+    backgroundColor: '#FFFF00',
+  },
+  progressBarFill: {
+    height: 30,
+    backgroundColor: '#FF0000',
   },
 });
 
