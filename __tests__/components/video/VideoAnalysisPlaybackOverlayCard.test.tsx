@@ -220,13 +220,19 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
+    const speedPlot = getByTestId('video-analysis-playback-speed-plot');
+    const speedChart = getByTestId('video-analysis-playback-speed-chart');
 
     loadPlayer(player, 3000);
 
+    // Set chart width: 248px total = 48px left padding + 200px drawable
     act(() => {
-      fireEvent(getByTestId('video-analysis-playback-speed-plot'), 'onSelect', {
-        nativeEvent: {x: 1500},
-      });
+      speedPlot.props.onLayout({nativeEvent: {layout: {width: 248}}});
+    });
+
+    // Tap at locationX=198: progress = (198-48)/200 = 0.75, seekMs = 0 + 0.75*2000 = 1500
+    act(() => {
+      fireEvent(speedChart, 'touchEnd', {nativeEvent: {locationX: 198}});
     });
 
     expect(player.props.seekPositionMs).toBe(1500);

@@ -1,5 +1,6 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {LayoutChangeEvent, StyleSheet, View, processColor} from 'react-native';
+import {GestureResponderEvent, LayoutChangeEvent, StyleSheet, View, processColor} from 'react-native';
+import Animated, {useAnimatedStyle, useSharedValue} from 'react-native-reanimated';
 import {Button, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment} from '../../models/entities/VideoAnalysis';
@@ -31,6 +32,9 @@ interface TimePlotPoint {
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
 const TIME_PLOT_HEIGHT = 112;
 const SPEED_PLOT_HEIGHT = 180;
+// Visually calibrated Y-axis label width for the speed chart.
+// This is the left offset where the drawable chart area starts.
+const SPEED_CHART_LEFT_PADDING = 48;
 const BAR_PATH_SMOOTHING_WINDOW = 5;
 const SPEED_SMOOTHING_WINDOW = 5;
 const PLAYBACK_UI_UPDATE_INTERVAL_MS = 50;
@@ -240,12 +244,6 @@ const buildHorizontalReferenceLine = (barPathSeries: BarPathPoint[], yValue: num
   ];
 };
 
-const buildVerticalProgressLine = (timeMs: number, minY: number, maxY: number): LineValue[] => {
-  return [
-    {x: timeMs, y: minY},
-    {x: timeMs, y: maxY},
-  ];
-};
 
 const findNearestBarPathPointIndex = (barPathSeries: BarPathPoint[], timeMs: number): number | undefined => {
   if (barPathSeries.length === 0) {
@@ -325,6 +323,9 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const [scrubberWidth, setScrubberWidth] = useState(0);
   const [timePlotWidth, setTimePlotWidth] = useState(0);
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
+  const [speedChartWidth, setSpeedChartWidth] = useState(0);
+
+  const progressMarkerLeft = useSharedValue(0);
 
   const playbackDurationRef = useRef(0);
   const latestProgressTimeRef = useRef(0);
@@ -408,13 +409,35 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     return Math.max(50, Math.ceil(maxAbsoluteVelocity * 1.15));
   }, [smoothedBarVerticalVelocitySeries]);
   const zeroVelocityLineValues = useMemo(() => buildHorizontalReferenceLine(smoothedBarPathSeries, 0), [smoothedBarPathSeries]);
-  const progressVelocityLineValues = useMemo(() => {
-    if (smoothedBarPathSeries.length === 0) {
-      return [];
-    }
-    const clampedTimeMs = clamp(playbackTimeMs, timeRange.minTimeMs, timeRange.maxTimeMs);
-    return buildVerticalProgressLine(clampedTimeMs, -verticalVelocityAxisLimit, verticalVelocityAxisLimit);
-  }, [playbackTimeMs, smoothedBarPathSeries.length, timeRange.maxTimeMs, timeRange.minTimeMs, verticalVelocityAxisLimit]);
+  const speedChartData = useMemo(
+    () => ({
+      dataSets: [
+        {
+          values: verticalVelocityLineValues,
+          config: {
+            color: speedChartColors.line,
+            drawCircles: false,
+            drawValues: false,
+            lineWidth: 2,
+            mode: 'HORIZONTAL_BEZIER',
+            highlightEnabled: false,
+          },
+        },
+        {
+          values: zeroVelocityLineValues,
+          config: {
+            color: speedChartColors.zeroLine,
+            drawCircles: false,
+            drawValues: false,
+            lineWidth: 1,
+            mode: 'LINEAR',
+            highlightEnabled: false,
+          },
+        },
+      ],
+    }),
+    [verticalVelocityLineValues, zeroVelocityLineValues, speedChartColors.line, speedChartColors.zeroLine],
+  );
   const currentTimePlotMarker = useMemo(() => {
     if (timePlotWidth <= 0 || !currentBarPathPoint) {
       return undefined;
@@ -577,15 +600,21 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     setTimePlotWidth(event.nativeEvent.layout.width);
   }, []);
 
-  const onSpeedChartSelect = useCallback(
-    (event: {nativeEvent?: {x?: number}}) => {
-      const x = event.nativeEvent?.x;
-      if (x === undefined) {
+  const onSpeedChartLayout = useCallback((event: LayoutChangeEvent) => {
+    setSpeedChartWidth(event.nativeEvent.layout.width);
+  }, []);
+
+  const onSpeedChartTouch = useCallback(
+    (event: GestureResponderEvent) => {
+      if (speedChartWidth <= 0 || timeRange.durationMs <= 0) {
         return;
       }
-      applySeekTimeMs(x);
+      const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING);
+      const x = event.nativeEvent.locationX - SPEED_CHART_LEFT_PADDING;
+      const progress = clamp(x / drawableWidth, 0, 1);
+      applySeekTimeMs(Math.round(timeRange.minTimeMs + progress * timeRange.durationMs));
     },
-    [applySeekTimeMs],
+    [speedChartWidth, timeRange, applySeekTimeMs],
   );
 
   const onScrubberTouch = useCallback(
@@ -602,6 +631,20 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   useEffect(() => {
     playbackTimeRef.current = playbackTimeMs;
   }, [playbackTimeMs]);
+
+  useEffect(() => {
+    if (speedChartWidth <= 0 || timeRange.durationMs <= 0) {
+      return;
+    }
+    const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING);
+    const clampedTimeMs = clamp(playbackTimeMs, timeRange.minTimeMs, timeRange.maxTimeMs);
+    const progress = (clampedTimeMs - timeRange.minTimeMs) / timeRange.durationMs;
+    progressMarkerLeft.value = SPEED_CHART_LEFT_PADDING + clamp(progress, 0, 1) * drawableWidth;
+  }, [playbackTimeMs, speedChartWidth, timeRange.durationMs, timeRange.minTimeMs, timeRange.maxTimeMs, progressMarkerLeft]);
+
+  const progressMarkerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{translateX: progressMarkerLeft.value}],
+  }));
 
   useEffect(() => {
     setPlaybackPaused(true);
@@ -708,68 +751,41 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             v_y={currentBarVerticalVelocityPxPerSecond !== undefined ? Math.round(currentBarVerticalVelocityPxPerSecond) : '-'} px/s
           </Text>
         </View>
-        <LineChart
-          testID="video-analysis-playback-speed-plot"
-          style={[styles.speedPlotContainer, themedStyles.speedPlotBackground]}
-          onSelect={onSpeedChartSelect}
-          data={{
-            dataSets: [
-              {
-                values: verticalVelocityLineValues,
-                config: {
-                  color: speedChartColors.line,
-                  drawCircles: false,
-                  drawValues: false,
-                  lineWidth: 2,
-                  mode: 'HORIZONTAL_BEZIER',
-                  highlightEnabled: false,
+        <View style={styles.speedPlotWrapper}>
+          <View testID="video-analysis-playback-speed-chart" onTouchEnd={onSpeedChartTouch}>
+            <LineChart
+              testID="video-analysis-playback-speed-plot"
+              style={[styles.speedPlotContainer, themedStyles.speedPlotBackground]}
+              onLayout={onSpeedChartLayout}
+              data={speedChartData}
+              touchEnabled={false}
+              legend={{enabled: false}}
+              chartDescription={{text: ''}}
+              marker={{enabled: false}}
+              xAxis={{
+                enabled: false,
+                drawGridLines: false,
+                drawAxisLine: false,
+              }}
+              yAxis={{
+                left: {
+                  axisMinimum: -verticalVelocityAxisLimit,
+                  axisMaximum: verticalVelocityAxisLimit,
+                  textColor: speedChartColors.text,
+                  gridColor: speedChartColors.grid,
+                  axisLineColor: speedChartColors.axis,
                 },
-              },
-              {
-                values: zeroVelocityLineValues,
-                config: {
-                  color: speedChartColors.zeroLine,
-                  drawCircles: false,
-                  drawValues: false,
-                  lineWidth: 1,
-                  mode: 'LINEAR',
-                  highlightEnabled: false,
+                right: {
+                  enabled: false,
                 },
-              },
-              {
-                values: progressVelocityLineValues,
-                config: {
-                  color: speedChartColors.progressLine,
-                  drawCircles: false,
-                  drawValues: false,
-                  lineWidth: 1.5,
-                  mode: 'LINEAR',
-                  highlightEnabled: false,
-                },
-              },
-            ],
-          }}
-          legend={{enabled: false}}
-          chartDescription={{text: ''}}
-          marker={{enabled: false}}
-          xAxis={{
-            enabled: false,
-            drawGridLines: false,
-            drawAxisLine: false,
-          }}
-          yAxis={{
-            left: {
-              axisMinimum: -verticalVelocityAxisLimit,
-              axisMaximum: verticalVelocityAxisLimit,
-              textColor: speedChartColors.text,
-              gridColor: speedChartColors.grid,
-              axisLineColor: speedChartColors.axis,
-            },
-            right: {
-              enabled: false,
-            },
-          }}
-        />
+              }}
+            />
+          </View>
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.speedMarkerLine, {backgroundColor: theme.colors.primary}, progressMarkerAnimatedStyle]}
+          />
+        </View>
         <View style={styles.timePlotAxisRow}>
           <Text variant="bodySmall">down (-)</Text>
           <Text variant="bodySmall">{currentBarVerticalVelocityPxPerSecond !== undefined ? `${Math.round(currentBarVerticalVelocityPxPerSecond)} px/s` : '-'}</Text>
@@ -903,12 +919,23 @@ const styles = StyleSheet.create({
   speedPlotSection: {
     marginTop: 12,
   },
+  speedPlotWrapper: {
+    position: 'relative',
+    marginTop: 8,
+  },
   speedPlotContainer: {
     position: 'relative',
     height: SPEED_PLOT_HEIGHT,
     borderRadius: 8,
     overflow: 'hidden',
-    marginTop: 8,
+  },
+  speedMarkerLine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 1.5,
+    height: SPEED_PLOT_HEIGHT,
+    opacity: 0.75,
   },
   scrubberTrack: {
     position: 'relative',
