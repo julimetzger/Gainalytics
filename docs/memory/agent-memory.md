@@ -299,6 +299,99 @@ Relevant files:
 - Use `clearState: false` for playback/overlay flows that reuse an existing analysis; `clearState: true` + CPU-intensive analysis = Maestro gRPC DEADLINE_EXCEEDED crash.
 - Avoid generic `scroll` commands after bringing a screen region into view if react-native-charts-wrapper charts are present; use `extendedWaitUntil` instead to avoid accidental chart `onSelect` triggers.
 
+
+### 16. jest.mock factory hoisting prevents using outer jest.fn() variables
+
+Problem:
+- Defining `const mockFn = jest.fn()` before a `jest.mock(...)` call and then referencing `mockFn` inside the factory body causes it to be `undefined` at runtime, because jest hoists `jest.mock` calls before variable declarations.
+
+Symptoms:
+- `TypeError: _moduleName.default.method is not a function` even though the mock factory appears correct
+- Tests that worked in isolation fail with confusing "not a function" errors
+
+Working solution:
+- Define `jest.fn()` **inside** the mock factory: `jest.mock('mod', () => ({ default: { method: jest.fn() } }))`
+- Retrieve the mock reference **after** `jest.mock` via `jest.requireMock`: `const { default: mock } = jest.requireMock('mod')`
+- Never assign `const myMock = jest.fn()` before the `jest.mock(...)` call that uses it
+
+### 17. notifee default export + jest mock requires __esModule: true with default key
+
+Problem:
+- `@notifee/react-native` is an ES module with a class instance as the default export.
+- Mocking it with `jest.mock('@notifee/react-native', () => ({ requestPermission: jest.fn() }))` does NOT work because `notifee` in source code maps to the `default` export.
+
+Working solution:
+- Use `{ __esModule: true, default: { requestPermission: jest.fn(), ... }, AuthorizationStatus: {...} }`
+- Then `jest.requireMock('@notifee/react-native').default` gives the mock object
+
+### 18. Maestro smoke shows all-black screenshots via Windows --host bridge in WSL worktree
+
+Problem:
+- Maestro with `--host <WSL_IP>` connects to adb but `launchApp` completes while the screenshot captured by Maestro is entirely black.
+- `adb -s device shell screencap` from WSL shows the app correctly; only Maestro's screenshot is black.
+
+Symptoms:
+- `assertVisible: "Training"` fails immediately after a COMPLETED `launchApp`
+- Debug screenshot in `.maestro/tests/` is a solid black image
+
+Observation:
+- This appears to be an emulator rendering sync issue specific to worktrees that have not previously run Maestro flows.
+- The app IS running (direct adb screenshot confirms it).
+- Maestro smoke tests in the main working directory do not have this problem.
+
+Apply when:
+- If Maestro black-screen occurs in a new worktree, try running a single `adb shell input keyevent KEYCODE_WAKEUP` and retrying. If still black, treat as a pre-existing infrastructure issue and use unit tests + adb screenshot as primary evidence.
+
+### 19. A resumed round may carry an expanded ticket with more acceptance criteria
+
+Problem:
+- A ticket handed to a resumed round may list more acceptance criteria than the previous round's status.json covered. The old `ready_for_review` status.json only maps evidence for the original criteria.
+
+Symptoms:
+- `status.json` says `ready_for_review` with a subset of the new acceptance_evidence list.
+- New criteria (e.g. foreground-service ref-counting, permission guard, progress bar) are not covered.
+
+Working solution:
+- Always re-read the prompt ticket description, not just the previous status.json, to get the current acceptance criteria list.
+- Diff the old `acceptance_evidence` entries against the new criteria and implement the missing items.
+- Write a new commit and update both `status.json` and `summary.md` to cover all criteria.
+
+Apply when:
+- The orchestrator sends a worker on a resumed round with `Prior review feedback: none` but the ticket has more criteria than the previous status.json covers.
+
+### 20. Utility functions written without call-sites are an integration gap
+
+Problem:
+- A previous round wrote utility functions (`incrementActiveAnalysisCount`, `decrementActiveAnalysisCount`, `calculateAnalysisProgress`) but never called them from the relevant modules or rendered them in the UI.
+
+Symptoms:
+- Review feedback says "INTEGRATION GAP — functions exist only as utilities" and "not used in UI".
+- Tests pass for the utility but no production code invokes it.
+
+Observation:
+- Writing a utility and its tests is not the same as integrating it. Always trace the call-site chain: utility → service/import module → UI component.
+- For ref-counting: increment before the try block, decrement in finally (not just in the success path).
+- For UI components: use `useRef` for per-item start times (Map) and `useState` + `setInterval` for the tick that drives re-renders.
+
+Apply when:
+- Any new utility for a lifecycle event (start/stop of analysis, progress tracking) must be wired into the lifecycle at the point where the event actually occurs, not left as standalone functions.
+
+### 21. adb touch coordinates must use physical screen pixels (1080×2400), not screenshot display pixels
+
+Problem:
+- Screenshots are displayed scaled-down by the viewer (~270×600), but `adb shell input tap` uses the actual physical pixel coordinates (1080×2400).
+
+Symptoms:
+- `adb shell input tap 170 553` hits a list item or wrong element instead of the intended nav bar tab.
+- The nav bar is at y≈2160–2295 in physical coords, not y≈553.
+
+Working solution:
+- Check `adb shell wm size` to get physical resolution.
+- Use `adb shell uiautomator dump` + parse XML to get exact bounds of nav items before tapping.
+- Navigation drawer items are found in the UIAutomator dump with their `text` or `content-desc`; compute center from bounds.
+
+Apply when:
+- Any adb tap-based navigation on the emulator needs precise coordinates.
 - `dragEnabled={false}` on MPAndroidChart does NOT stop touch event consumption — only `touchEnabled={false}` causes the chart to pass events to the parent ScrollView.
 - When `touchEnabled={false}` is set on a react-native-charts-wrapper chart, `onSelect` no longer fires. Re-implement tap-to-seek using `onTouchEnd` on a wrapper View with `locationX / chartWidth` coordinate math.
 - react-native-paper `Button` text is NOT in the Android accessibility tree when off-screen — `scrollUntilVisible: text: "+0.2s"` will fail if the button is below the fold. Use Card.Title text (always in the tree) as the scroll anchor, then swipe to reach buttons.
