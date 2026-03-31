@@ -220,10 +220,15 @@ const VideoAnalysisTab = () => {
               {analysis.status === VideoAnalysisStatus.PROCESSING && analysis.id !== undefined && (
                 <ProgressBar
                   testID={`video-analysis-progress-${analysis.id}`}
-                  progress={calculateAnalysisProgress(
-                    now - (_analysisStartTimes.get(analysis.id) ?? now),
-                    estimateAnalysisTimeMs(analysis.videoMeta?.durationMs ?? 0, lastSecondsPerVideoSecond),
-                  )}
+                  indeterminate={!analysis.videoMeta?.durationMs}
+                  progress={
+                    analysis.videoMeta?.durationMs
+                      ? calculateAnalysisProgress(
+                          now - (_analysisStartTimes.get(analysis.id) ?? now),
+                          estimateAnalysisTimeMs(analysis.videoMeta.durationMs, lastSecondsPerVideoSecond),
+                        )
+                      : undefined
+                  }
                   style={styles.progressBar}
                 />
               )}
@@ -271,6 +276,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     marginTop: 8,
+    height: 8,
   },
 });
 

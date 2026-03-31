@@ -1,0 +1,98 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-005 complete proof flow:
+# 1. Progress bar renders (indeterminate) immediately when PROCESSING starts
+# 2. Progress bar switches to determinate fill once video duration is known
+# 3. App stays interactive during analysis
+# 4. Progress bar disappears on completion
+- launchApp:
+    clearState: true
+
+# ── Navigate to Video Analyses via drawer ───────────────────────────────────
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- assertVisible: "Import Emulator Squat Video"
+
+# ── Start analysis ───────────────────────────────────────────────────────────
+- tapOn: "Import Emulator Squat Video"
+
+- runFlow:
+    when:
+      visible:
+        text: "(?i)^allow$"
+    commands:
+      - tapOn:
+          text: "(?i)^allow$"
+- runFlow:
+    when:
+      visible: "Allow only while using the app"
+    commands:
+      - tapOn: "Allow only while using the app"
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
+
+# ── Wait for PROCESSING state ─────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: "Status: processing"
+    timeout: 30000
+
+# Screenshot 1: bar in indeterminate/initial state (durationMs not yet set —
+# shows the pulsating indeterminate bar, proving the bar renders immediately)
+- takeScreenshot: progress_bar_screenshot_1
+
+# Wait 12s for video copy to finish + durationMs to be set
+# After this the bar switches from indeterminate to determinate fill
+- runScript:
+    file: sleep6s.js
+- runScript:
+    file: sleep6s.js
+
+# Screenshot 2: bar at determinate fill level (if still processing after 12s)
+- runFlow:
+    when:
+      visible: "Status: processing"
+    commands:
+      - takeScreenshot: progress_bar_screenshot_2
+
+# ── Prove interactivity: Training tab while analysis runs ───────────────────
+- tapOn: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "training-home-screen"
+    timeout: 15000
+- takeScreenshot: training_tab_during_analysis
+
+# ── Navigate back using tab (stack preserved — no drawer needed) ────────────
+- tapOn: "tab-analyse"
+- waitForAnimationToEnd:
+    timeout: 3000
+# Confirm we are on Video Analyses screen (Analyse tab remembers its stack)
+- extendedWaitUntil:
+    visible: "Video Analyses"
+    timeout: 10000
+
+# Wait for terminal state. The emulator squat video usually reaches "done"
+# via the slow path (analyzeSquatVideo). Timeout 30 minutes.
+- extendedWaitUntil:
+    visible: "Status: done"
+    timeout: 1800000
+
+# Screenshot 3: done state — progress bar must be absent
+- takeScreenshot: progress_bar_screenshot_3_done
+- assertNotVisible:
+    id: "video-analysis-progress-1"
