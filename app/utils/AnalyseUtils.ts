@@ -6,6 +6,16 @@ import {WorkoutSet} from '../models/entities/WorkoutSet';
 import {Workout} from '../models/entities/Workout';
 import {Metric} from '../models/Metric';
 
+export interface SuggestionProgressionProfile {
+  rirDelta: number;
+  weightIncreasePercent: number;
+}
+
+export const DEFAULT_SUGGESTION_PROGRESSION_PROFILE = {
+  rirDelta: 1,
+  weightIncreasePercent: 0,
+} satisfies SuggestionProgressionProfile;
+
 export const repetitionMax = (...workoutSet: WorkoutSet[]) => {
   let number = Math.max(...workoutSet.map((value) => value.weight * repsCoefficient(value.reps + value.rir)));
   return number !== -Infinity ? number : 0;
@@ -22,6 +32,35 @@ function repsCoefficient(reps: number) {
 
 export const repetitionWeightByOneRm = (reps: number, rir: number, oneRm: number) => {
   return oneRm / repsCoefficient(reps + rir);
+};
+
+export const calculateLinearProgressionWeight = (workoutSet: WorkoutSet, progressionProfile: SuggestionProgressionProfile) => {
+  const sourceOneRm = repetitionMax(workoutSet);
+  const adjustedRir = Math.max(workoutSet.rir - progressionProfile.rirDelta, 0);
+  const suggestedWeight = repetitionWeightByOneRm(workoutSet.reps, adjustedRir, sourceOneRm);
+  const weightWithIncrease = suggestedWeight * (1 + progressionProfile.weightIncreasePercent / 100);
+  return Math.round(weightWithIncrease);
+};
+
+export const applyLinearProgressionToWorkout = (workout: Workout, progressionProfile: SuggestionProgressionProfile): Workout => {
+  if (workout.sets.some((set) => set.rir === 0)) {
+    return {
+      ...workout,
+      sets: workout.sets.map((set) => ({...set})),
+    };
+  }
+
+  return {
+    ...workout,
+    sets: workout.sets.map((set) => {
+      const adjustedRir = Math.max(set.rir - progressionProfile.rirDelta, 0);
+      return {
+        ...set,
+        rir: adjustedRir,
+        weight: calculateLinearProgressionWeight(set, progressionProfile),
+      };
+    }),
+  };
 };
 
 export function calculateMetricValue(sets: WorkoutSet[], metric: Metric) {

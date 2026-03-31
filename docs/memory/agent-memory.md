@@ -299,6 +299,7 @@ Relevant files:
 - Use `clearState: false` for playback/overlay flows that reuse an existing analysis; `clearState: true` + CPU-intensive analysis = Maestro gRPC DEADLINE_EXCEEDED crash.
 - Avoid generic `scroll` commands after bringing a screen region into view if react-native-charts-wrapper charts are present; use `extendedWaitUntil` instead to avoid accidental chart `onSelect` triggers.
 
+
 ### 16. jest.mock factory hoisting prevents using outer jest.fn() variables
 
 Problem:
@@ -391,3 +392,163 @@ Working solution:
 
 Apply when:
 - Any adb tap-based navigation on the emulator needs precise coordinates.
+
+### 12. Progress bar indeterminate state for unknown-duration analysis
+
+Problem:
+- When a video analysis starts, `durationMs` is 0 until the video copy + `getVideoDuration()` completes.
+- `calculateAnalysisProgress(elapsed, 0) = 0` always, so the ProgressBar rendered at 0% fill (visually invisible on dark background).
+- Screenshots taken early in PROCESSING state showed no visible bar.
+
+Observation:
+- react-native-paper `ProgressBar` supports `indeterminate={true}` for a pulsating animation.
+- Switching to `indeterminate` while `durationMs` is unknown, then `determinate` once duration is set, gives two visually distinct states.
+
+Working solution:
+```jsx
+<ProgressBar
+  indeterminate={!analysis.videoMeta?.durationMs}
+  progress={analysis.videoMeta?.durationMs
+    ? calculateAnalysisProgress(elapsed, estimated)
+    : undefined}
+/>
+```
+
+Apply when: any ProgressBar showing time-based fill where the total duration is not immediately available.
+
+### 13. Maestro driver port conflict after back-to-back flows
+
+Problem:
+- Running a second Maestro flow immediately after a successful one with the same `--driver-host-port` fails:
+  `Maestro Android driver did not start up in time`.
+
+Symptoms:
+- Port `7010` still occupied by the previous session for ~30s.
+
+Working solution:
+- Wait at least 30s before reusing the same driver-host-port.
+- Or use a different port for each back-to-back run.
+- The issue only affects the driver port; the adb connection and app state are unaffected.
+
+### 14. JAVA_TOOL_OPTIONS leaks into Gradle builds via previous Maestro runs
+
+Problem:
+- The Maestro run script sets `JAVA_TOOL_OPTIONS=-Duser.home=<maestro-java-home>` for its own isolation.
+- This env var persists in the shell if the run script is sourced or if the var is exported globally.
+- Gradle picks up `JAVA_TOOL_OPTIONS` and fails with CMake/compilation errors.
+
+Working solution:
+- Always `unset JAVA_TOOL_OPTIONS` before running Gradle builds.
+- The Maestro run script should be invoked in a sub-shell with a fresh JAVA_TOOL_OPTIONS scoped only to that invocation.
+
+### 16. Reanimated mock creates new SharedValue objects per render — do NOT include them in useCallback/useEffect deps
+
+Problem:
+- `react-native-reanimated/mock` implements `useSharedValue` as `(v) => ({ value: v })` — a new plain JS object on every call.
+- In production, Reanimated uses a ref internally so `useSharedValue` returns the same stable object across renders.
+- Including SharedValue objects in `useCallback` or `useEffect` dep arrays works fine in production but causes dep churn in tests, since each render creates new objects.
+
+Symptoms in tests:
+- All interaction tests fail with unexpected `undefined` values.
+- Reset `useEffect` fires on every render (because mock SharedValue is "new" each time), resetting all state back to initial values and creating an infinite-loop-like reset.
+- `useCallback` deps referencing SharedValues get recreated every render, breaking closure stability.
+
+Working solution:
+- Never include Reanimated SharedValues in `useCallback` or `useEffect` deps arrays.
+- SharedValues ARE stable refs in production code — excluding them from deps is semantically correct.
+- The eslint exhaustive-deps rule may warn; suppress with `// eslint-disable-line` if needed, or trust it is correct.
+
+Apply when: using Reanimated `useSharedValue` results in `useCallback`/`useEffect` hooks.
+
+### 17. Both chart markers must be decoupled for full Bridge responsiveness
+
+Problem:
+- Partial fix (only speed-chart marker moved to Reanimated) still overloads the Bridge.
+- The root cause is `setPlaybackTimeMs` being called 20×/second, causing full React re-renders.
+- Even one state-driven marker (time-plot marker via useMemo + plain View) processed through the Bridge blocks the JS thread and prevents user input.
+
+Observation:
+- Moving BOTH markers to `useDerivedValue` + `Animated.View` on the UI thread AND increasing `PLAYBACK_UI_UPDATE_INTERVAL_MS` (50→200ms) reduces React re-renders from 20/s to 5/s.
+- The combined effect makes the JS thread available for user interaction during playback.
+- A Maestro tab-switch during active playback is the definitive responsiveness proof.
+
+Apply when: implementing playback markers in react-native-charts-wrapper overlays.
+
+### 16. socat proxy for ADB and reuseaddr flag (ANA-006)
+
+Problem:
+- `socat TCP-LISTEN:5037,fork TCP:172.18.240.1:5037` exits with "Address already in use" when a prior socat child process is still in TIME_WAIT.
+
+Working solution:
+- Use `socat TCP-LISTEN:5037,reuseaddr,fork TCP:172.18.240.1:5037` — the `reuseaddr` flag bypasses the TIME_WAIT issue.
+
+Apply when: re-starting the ADB proxy after a session restart.
+
+### 17. DocumentsUI file picker filters .gains files as unknown MIME type (ANA-006)
+
+Problem:
+- `DocumentPicker.types.allFiles` opens the Android DocumentsUI picker, but `.gains` files do not appear in the Downloads folder because they have no registered MIME type.
+- Files only appear in "Recent" if previously imported in the same device lifetime.
+
+Working solution:
+- After `am force-stop` or `pm clear`, the file must be re-imported via Maestro's `tapOn: "baseline.gains"` only if it appears in "Recent". Otherwise, use `adb shell content insert` or copy the file to a path accessible as "Downloads" with a registered extension (e.g. rename to `.json`).
+
+Apply when: importing baseline.gains after a device state reset.
+
+### 18. 00_import_baseline.yaml needs extendedWaitUntil for bundle load (ANA-006)
+
+Problem:
+- `00_import_baseline.yaml` uses `assertVisible: "Training"` immediately after `launchApp`. After a force-stop, the Metro bundle loads from 10.0.2.2:8081 in ~30s. The assertion fires before the bundle renders and fails.
+
+Working solution:
+- Replace `assertVisible: "Training"` with:
+  ```yaml
+  - extendedWaitUntil:
+      visible: "Training"
+      timeout: 60000
+  ```
+
+Apply when: writing or modifying import/setup flows that run after a cold app launch.
+
+### 19. Maestro driver needs time between back-to-back sessions (ANA-006)
+
+Problem:
+- Running two Maestro flows within a few seconds of each other causes `java.util.concurrent.TimeoutException` in `TcpForwarder` or `dadb.open(tcp:7001)` timeout on the second run.
+
+Working solution:
+- Wait at least 5 seconds between Maestro test invocations.
+- If `pm list instrumentation` returns empty after a force-stop cycle, let Maestro install its own driver by running it fresh (it detects outdated APKs and reinstalls).
+
+Apply when: running Maestro flows in sequence from a script.
+
+### 20. Reanimated mock creates new SharedValue per render — stabilise with useRef
+
+Problem:
+- `useSharedValue(v)` in the Reanimated mock returns `{ value: v }` — a new plain object on every call.
+- `useAnimatedStyle(fn)` in mock calls `fn()` immediately during render.
+- Without a stable object, `fn()` always reads `value: 0` (the initial from the fresh object), even after `sv.value = someNewValue` on a previous render.
+
+Symptoms in tests:
+- `getScrubberState()` always returns `'0%'` even after seeks.
+- All animated style checks fail with zero/initial values.
+
+Working solution:
+```js
+const playbackTimeMsSV = useRef(useSharedValue(0)).current;
+```
+`useRef(initialValue)` only uses `initialValue` on the FIRST render; subsequent renders return the same ref object. So the SharedValue object is created once and mutations persist across renders.
+
+Apply when: using `useAnimatedStyle` or `useDerivedValue` that reads a SharedValue and testing with assertions on the computed style.
+
+### 21. "Import Emulator Squat Video" on physical device R5CN30HWZFN imports real PXL camera video
+
+Problem:
+- `tapOn: "Import Emulator Squat Video"` in Maestro triggers a file picker that imports a real camera video (`PXL_20250917_171414039~2.mp4`) on device R5CN30HWZFN, not the short test video.
+- Processing takes 30+ minutes and the `extendedWaitUntil: "Status: done", timeout: 180000` always times out.
+
+Working solution:
+- Do NOT rely on "Import Emulator Squat Video" on R5CN30HWZFN for fresh Maestro runs.
+- Keep an existing "done" analysis on the device between sessions; avoid clearing state.
+- Use the prior round's Maestro evidence if the setup flow cannot produce a completed analysis.
+
+Apply when: planning Maestro flows on R5CN30HWZFN that require a video analysis.

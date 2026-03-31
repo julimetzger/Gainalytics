@@ -4,6 +4,7 @@ import React, {useEffect, useState} from 'react';
 import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {useSettings} from '../../../redux/settings/use/useSettings';
+import {convertToNumber, ensureFormat} from '../../../utils/numberInput';
 
 interface AddWorkoutProps {
   onSubmit: (arg: WorkoutSet) => void;
@@ -283,13 +284,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-
-function convertToNumber(value: string) {
-  return Number.parseFloat(value);
-}
-
-function ensureFormat(value: string): string {
-  return value.replace(',', '.');
-}
 
 export default AddWorkoutSet;

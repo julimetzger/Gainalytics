@@ -330,7 +330,9 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
         suggestedWorkouts: {...workoutState.suggestedWorkouts},
       };
       action.workoutIdWorkoutMap.forEach((value: Workout, key: number) => {
-        let workoutCopy = {...workoutState.byId[value.id!!]};
+        const sourceWorkout = value.sets !== undefined ? value : workoutState.byId[value.id!!];
+        if (sourceWorkout === undefined) return;
+        let workoutCopy = {...sourceWorkout};
         workoutCopy.end = undefined;
         workoutCopy.start = undefined;
         workoutCopy.notes = '';
