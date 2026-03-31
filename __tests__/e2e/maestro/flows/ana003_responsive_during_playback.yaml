@@ -1,0 +1,96 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-003-fix: Responsiveness proof during video playback.
+# Verifies the JS Bridge is no longer saturated during playback by proving
+# that a tab-switch tap is processed while the video is actively playing.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: "Unable to load script"
+    commands:
+      - tapOn:
+          text: "RELOAD"
+      - waitForAnimationToEnd:
+          timeout: 8000
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+# Navigate to Analyse tab
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 15000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+# Open the existing analysis (relies on analysis being present from prior run)
+- scrollUntilVisible:
+    element:
+      text: "Open"
+    direction: DOWN
+- tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Status: done"
+    timeout: 60000
+# Scroll to Playback Overlay section
+- scrollUntilVisible:
+    element:
+      text: "Playback Overlay"
+    direction: DOWN
+# Swipe up to expose Play button and step buttons.
+# Start at Y=40% (Bar Y time plot area) to avoid speed chart onSelect.
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 30%"
+    duration: 300
+- waitForAnimationToEnd:
+    timeout: 200
+# Confirm play controls are visible
+- assertVisible: "Play"
+- assertVisible:
+    text: "+0.2s"
+# Take screenshot: initial state (paused)
+- takeScreenshot: "initial_paused"
+# START PLAYBACK
+- tapOn: "Play"
+# Brief wait so video actually plays (Bridge was previously overloaded here)
+- waitForAnimationToEnd:
+    timeout: 1000
+# RESPONSIVENESS PROOF: tap the Training tab WHILE video is playing.
+# With the old Bridge-overloaded implementation this tap was swallowed.
+# With the new Reanimated-on-UI-thread implementation the tap must succeed.
+- tapOn: "tab-training"
+# Assert Training tab opened – proves the JS thread was NOT blocked during playback.
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 5000
+- takeScreenshot: "tab_switch_during_playback"
+# Navigate back to confirm the app is fully functional
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 10000
+- takeScreenshot: "back_on_analyse_after_playback"

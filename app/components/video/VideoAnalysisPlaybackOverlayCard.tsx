@@ -1,6 +1,6 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GestureResponderEvent, LayoutChangeEvent, StyleSheet, View, processColor} from 'react-native';
-import Animated, {useAnimatedStyle, useSharedValue} from 'react-native-reanimated';
+import Animated, {useAnimatedStyle, useDerivedValue, useSharedValue} from 'react-native-reanimated';
 import {Button, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment} from '../../models/entities/VideoAnalysis';
@@ -37,7 +37,7 @@ const SPEED_PLOT_HEIGHT = 180;
 const SPEED_CHART_LEFT_PADDING = 48;
 const BAR_PATH_SMOOTHING_WINDOW = 5;
 const SPEED_SMOOTHING_WINDOW = 5;
-const PLAYBACK_UI_UPDATE_INTERVAL_MS = 50;
+const PLAYBACK_UI_UPDATE_INTERVAL_MS = 200;
 const PENDING_SEEK_MATCH_THRESHOLD_MS = 200;
 
 const formatDuration = (timeMs: number) => {
@@ -325,7 +325,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
 
-  const progressMarkerLeft = useSharedValue(0);
+  const playbackTimeMsSV = useSharedValue(0);
 
   const playbackDurationRef = useRef(0);
   const latestProgressTimeRef = useRef(0);
@@ -346,6 +346,32 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     }
     return timeRange.durationMs;
   }, [playbackDurationMs, timeRange.durationMs]);
+  const timeRangeMinMsSV = useSharedValue(timeRange.minTimeMs);
+  const timeRangeDurationMsSV = useSharedValue(timeRange.durationMs);
+  const correctedPlaybackDurationMsSV = useSharedValue(correctedPlaybackDurationMs);
+  const speedChartWidthSV = useSharedValue(0);
+  const timePlotWidthSV = useSharedValue(0);
+  const progressMarkerLeft = useDerivedValue(() => {
+    'worklet';
+    if (speedChartWidthSV.value <= 0 || timeRangeDurationMsSV.value <= 0) {
+      return 0;
+    }
+    const drawableWidth = Math.max(0, speedChartWidthSV.value - SPEED_CHART_LEFT_PADDING);
+    const clampedTime = Math.max(
+      timeRangeMinMsSV.value,
+      Math.min(timeRangeMinMsSV.value + timeRangeDurationMsSV.value, playbackTimeMsSV.value),
+    );
+    const progress = (clampedTime - timeRangeMinMsSV.value) / timeRangeDurationMsSV.value;
+    return SPEED_CHART_LEFT_PADDING + Math.min(1, Math.max(0, progress)) * drawableWidth;
+  });
+  const timePlotMarkerXDerived = useDerivedValue(() => {
+    'worklet';
+    if (timePlotWidthSV.value <= 0 || correctedPlaybackDurationMsSV.value <= 0) {
+      return 0;
+    }
+    const progress = Math.min(1, Math.max(0, playbackTimeMsSV.value / correctedPlaybackDurationMsSV.value));
+    return progress * timePlotWidthSV.value;
+  });
   const playbackAspectRatio = useMemo(() => {
     const trackingWidth = result.analysisMeta.trackingFrameWidthPx;
     const trackingHeight = result.analysisMeta.trackingFrameHeightPx;
@@ -438,24 +464,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     }),
     [verticalVelocityLineValues, zeroVelocityLineValues, speedChartColors.line, speedChartColors.zeroLine],
   );
-  const currentTimePlotMarker = useMemo(() => {
-    if (timePlotWidth <= 0 || !currentBarPathPoint) {
-      return undefined;
-    }
-
-    const timeX = correctedPlaybackDurationMs > 0 ? clamp(playbackTimeMs / correctedPlaybackDurationMs, 0, 1) * timePlotWidth : 0;
-    const maxY =
-      result.analysisMeta.trackingFrameHeightPx && result.analysisMeta.trackingFrameHeightPx > 0
-        ? result.analysisMeta.trackingFrameHeightPx
-        : Math.max(1, ...smoothedBarPathSeries.map((point) => point.y));
-    const markerY = clamp(currentBarPathPoint.y / Math.max(1, maxY), 0, 1) * TIME_PLOT_HEIGHT;
-
-    return {
-      x: timeX,
-      y: markerY,
-    };
-  }, [correctedPlaybackDurationMs, currentBarPathPoint, playbackTimeMs, result.analysisMeta.trackingFrameHeightPx, smoothedBarPathSeries, timePlotWidth]);
-
   const updateCurrentRepForPlaybackTime = useCallback(
     (nextPlaybackTimeMs: number) => {
       if (repSegments.length === 0) {
@@ -479,6 +487,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const commitPlaybackTimeMs = useCallback((nextTimeMs: number, force = false): boolean => {
     const clampedTimeMs = Math.max(0, Math.round(nextTimeMs));
     playbackTimeRef.current = clampedTimeMs;
+    playbackTimeMsSV.value = clampedTimeMs;
 
     const nextUiBucket = Math.floor(clampedTimeMs / PLAYBACK_UI_UPDATE_INTERVAL_MS);
     if (!force && nextUiBucket === lastRenderedPlaybackBucketRef.current) {
@@ -597,11 +606,15 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   }, []);
 
   const onTimePlotLayout = useCallback((event: LayoutChangeEvent) => {
-    setTimePlotWidth(event.nativeEvent.layout.width);
+    const width = event.nativeEvent.layout.width;
+    setTimePlotWidth(width);
+    timePlotWidthSV.value = width;
   }, []);
 
   const onSpeedChartLayout = useCallback((event: LayoutChangeEvent) => {
-    setSpeedChartWidth(event.nativeEvent.layout.width);
+    const width = event.nativeEvent.layout.width;
+    setSpeedChartWidth(width);
+    speedChartWidthSV.value = width;
   }, []);
 
   const onSpeedChartTouch = useCallback(
@@ -633,17 +646,20 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   }, [playbackTimeMs]);
 
   useEffect(() => {
-    if (speedChartWidth <= 0 || timeRange.durationMs <= 0) {
-      return;
-    }
-    const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING);
-    const clampedTimeMs = clamp(playbackTimeMs, timeRange.minTimeMs, timeRange.maxTimeMs);
-    const progress = (clampedTimeMs - timeRange.minTimeMs) / timeRange.durationMs;
-    progressMarkerLeft.value = SPEED_CHART_LEFT_PADDING + clamp(progress, 0, 1) * drawableWidth;
-  }, [playbackTimeMs, speedChartWidth, timeRange.durationMs, timeRange.minTimeMs, timeRange.maxTimeMs, progressMarkerLeft]);
+    timeRangeMinMsSV.value = timeRange.minTimeMs;
+    timeRangeDurationMsSV.value = timeRange.durationMs;
+  }, [timeRange.minTimeMs, timeRange.durationMs]);
+
+  useEffect(() => {
+    correctedPlaybackDurationMsSV.value = correctedPlaybackDurationMs;
+  }, [correctedPlaybackDurationMs]);
 
   const progressMarkerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{translateX: progressMarkerLeft.value}],
+  }));
+
+  const timePlotMarkerLineStyle = useAnimatedStyle(() => ({
+    transform: [{translateX: timePlotMarkerXDerived.value}],
   }));
 
   useEffect(() => {
@@ -654,6 +670,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     setPlaybackVideoHeight(0);
     setCurrentRepIndex(undefined);
     setSeekPositionMs(undefined);
+    playbackTimeMsSV.value = 0;
     playbackDurationRef.current = 0;
     latestProgressTimeRef.current = 0;
     playbackTimeRef.current = 0;
@@ -721,22 +738,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
               ]}
             />
           ))}
-          {currentTimePlotMarker ? (
-            <>
-              <View pointerEvents="none" style={[styles.timePlotMarkerLine, themedStyles.timePlotMarkerLine, {left: currentTimePlotMarker.x}]} />
-              <View
-                pointerEvents="none"
-                style={[
-                  styles.timePlotMarker,
-                  themedStyles.timePlotMarker,
-                  {
-                    left: currentTimePlotMarker.x - 4,
-                    top: currentTimePlotMarker.y - 4,
-                  },
-                ]}
-              />
-            </>
-          ) : null}
+          <Animated.View pointerEvents="none" style={[styles.timePlotMarkerLine, themedStyles.timePlotMarkerLine, timePlotMarkerLineStyle]} />
         </View>
         <View style={styles.timePlotAxisRow}>
           <Text variant="bodySmall">0:00</Text>
