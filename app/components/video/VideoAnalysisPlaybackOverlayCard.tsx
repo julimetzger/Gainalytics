@@ -1,6 +1,6 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GestureResponderEvent, LayoutChangeEvent, StyleSheet, View, processColor} from 'react-native';
-import Animated, {useAnimatedStyle, useDerivedValue, useSharedValue} from 'react-native-reanimated';
+import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming} from 'react-native-reanimated';
 import {Button, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment} from '../../models/entities/VideoAnalysis';
@@ -30,8 +30,6 @@ const SPEED_PLOT_HEIGHT = 180;
 const SPEED_CHART_LEFT_PADDING = 48;
 const BAR_PATH_SMOOTHING_WINDOW = 5;
 const SPEED_SMOOTHING_WINDOW = 5;
-const PLAYBACK_UI_UPDATE_INTERVAL_MS = 200;
-const PENDING_SEEK_MATCH_THRESHOLD_MS = 200;
 
 const formatDuration = (timeMs: number) => {
   const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
@@ -283,14 +281,18 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
 
-  const playbackTimeMsSV = useSharedValue(0);
+  // useRef wrapper ensures the SharedValue object is stable across renders.
+  // The Reanimated mock creates a new plain object on each useSharedValue call,
+  // so without useRef the animated styles would always see value=0 in tests.
+  const playbackTimeMsSV = useRef(useSharedValue(0)).current;
+  // Tracks actual video duration as a SharedValue for UI-thread marker/scrubber animations.
+  const videoDurationMsSV = useRef(useSharedValue(0)).current;
+  const speedChartWidthSV = useRef(useSharedValue(0)).current;
+
   const playbackDurationRef = useRef(0);
-  const latestProgressTimeRef = useRef(0);
   const playbackTimeRef = useRef(0);
-  const lastRenderedPlaybackBucketRef = useRef(-1);
+  const playbackPausedRef = useRef(true);
   const currentRepIndexRef = useRef<number | undefined>(undefined);
-  const pendingSeekTargetMsRef = useRef<number | undefined>(undefined);
-  const pendingSeekDeadlineMsRef = useRef(0);
   const isScrubbingRef = useRef(false);
 
   const repSegments = result.repSegments;
@@ -303,22 +305,45 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     }
     return timeRange.durationMs;
   }, [playbackDurationMs, timeRange.durationMs]);
-  const timeRangeMinMsSV = useSharedValue(timeRange.minTimeMs);
-  const timeRangeDurationMsSV = useSharedValue(timeRange.durationMs);
-  const speedChartWidthSV = useSharedValue(0);
+
+  // Keep videoDurationMsSV in sync with correctedPlaybackDurationMs for UI-thread animations.
+  // SharedValue intentionally excluded from deps (stable ref, memory entry #16).
+  useEffect(() => {
+    if (correctedPlaybackDurationMs > 0) {
+      videoDurationMsSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
+    }
+  }, [correctedPlaybackDurationMs]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const progressMarkerLeft = useDerivedValue(() => {
     'worklet';
-    if (speedChartWidthSV.value <= 0 || timeRangeDurationMsSV.value <= 0) {
+    if (speedChartWidthSV.value <= 0 || videoDurationMsSV.value <= 0) {
       return 0;
     }
     const drawableWidth = Math.max(0, speedChartWidthSV.value - SPEED_CHART_LEFT_PADDING);
-    const clampedTime = Math.max(
-      timeRangeMinMsSV.value,
-      Math.min(timeRangeMinMsSV.value + timeRangeDurationMsSV.value, playbackTimeMsSV.value),
-    );
-    const progress = (clampedTime - timeRangeMinMsSV.value) / timeRangeDurationMsSV.value;
-    return SPEED_CHART_LEFT_PADDING + Math.min(1, Math.max(0, progress)) * drawableWidth;
+    // Marker maps to VIDEO TIME (0..videoDuration), not bar-path time.
+    const progress = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value));
+    return SPEED_CHART_LEFT_PADDING + progress * drawableWidth;
   });
+
+  // Scrubber fill and thumb are driven by Reanimated SharedValues on the UI thread — no JS state.
+  const scrubberFillStyle = useAnimatedStyle(() => {
+    'worklet';
+    if (videoDurationMsSV.value <= 0) {
+      return {width: '0%'};
+    }
+    const pct = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value)) * 100;
+    return {width: `${pct}%` as any};
+  });
+
+  const scrubberThumbStyle = useAnimatedStyle(() => {
+    'worklet';
+    if (videoDurationMsSV.value <= 0) {
+      return {left: '0%'};
+    }
+    const pct = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value)) * 100;
+    return {left: `${pct}%` as any};
+  });
+
   const playbackAspectRatio = useMemo(() => {
     const trackingWidth = result.analysisMeta.trackingFrameWidthPx;
     const trackingHeight = result.analysisMeta.trackingFrameHeightPx;
@@ -351,7 +376,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       smoothedBarPathSeries,
     ],
   );
-  const scrubberProgress = correctedPlaybackDurationMs > 0 ? clamp(playbackTimeMs / correctedPlaybackDurationMs, 0, 1) : 0;
   const verticalVelocityLineValues = useMemo(() => mapVerticalVelocitySeriesToLineValues(smoothedBarPathSeries, smoothedBarVerticalVelocitySeries), [
     smoothedBarPathSeries,
     smoothedBarVerticalVelocitySeries,
@@ -423,26 +447,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     [repSegments, timeRange.maxTimeMs, timeRange.minTimeMs],
   );
 
-  const commitPlaybackTimeMs = useCallback((nextTimeMs: number, force = false): boolean => {
-    const clampedTimeMs = Math.max(0, Math.round(nextTimeMs));
-    playbackTimeRef.current = clampedTimeMs;
-    playbackTimeMsSV.value = clampedTimeMs;
-
-    const nextUiBucket = Math.floor(clampedTimeMs / PLAYBACK_UI_UPDATE_INTERVAL_MS);
-    if (!force && nextUiBucket === lastRenderedPlaybackBucketRef.current) {
-      return false;
-    }
-
-    lastRenderedPlaybackBucketRef.current = nextUiBucket;
-    setPlaybackTimeMs((previousMs) => {
-      if (previousMs === clampedTimeMs) {
-        return previousMs;
-      }
-      return clampedTimeMs;
-    });
-    return true;
-  }, []);
-
   const onPlayerLoad = useCallback((event: {nativeEvent?: VideoPlayerLoadEvent}) => {
     if (!event.nativeEvent) {
       return;
@@ -459,32 +463,14 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     }
   }, []);
 
+  // onPlayerProgress ONLY updates playbackDurationMs — no time-driven state updates.
+  // The marker and scrubber are animated via withTiming on the UI thread during playback.
   const onPlayerProgress = useCallback(
     (event: {nativeEvent?: VideoPlayerProgressEvent}) => {
       const nativeEvent = event.nativeEvent;
       if (!nativeEvent) {
         return;
       }
-
-      const currentTimeMs = nativeEvent.currentTimeMs;
-
-      if (isScrubbingRef.current) {
-        return;
-      }
-
-      const nowMs = Date.now();
-      const pendingSeekTargetMs = pendingSeekTargetMsRef.current;
-      if (pendingSeekTargetMs !== undefined && nowMs < pendingSeekDeadlineMsRef.current) {
-        if (Math.abs(currentTimeMs - pendingSeekTargetMs) > PENDING_SEEK_MATCH_THRESHOLD_MS) {
-          return;
-        }
-        pendingSeekTargetMsRef.current = undefined;
-      } else if (pendingSeekTargetMs !== undefined && nowMs >= pendingSeekDeadlineMsRef.current) {
-        pendingSeekTargetMsRef.current = undefined;
-      }
-
-      latestProgressTimeRef.current = currentTimeMs;
-
       if (nativeEvent.durationMs > 0) {
         const nextDuration = Math.max(playbackDurationRef.current, nativeEvent.durationMs);
         if (nextDuration !== playbackDurationRef.current) {
@@ -492,29 +478,20 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           setPlaybackDurationMs(nextDuration);
         }
       }
-
-      if (playbackPaused) {
-        const didCommit = commitPlaybackTimeMs(currentTimeMs);
-        if (didCommit) {
-          updateCurrentRepForPlaybackTime(currentTimeMs);
-        }
-        return;
-      }
-
-      const didCommit = commitPlaybackTimeMs(currentTimeMs);
-      if (didCommit) {
-        updateCurrentRepForPlaybackTime(currentTimeMs);
-      }
     },
-    [commitPlaybackTimeMs, playbackPaused, updateCurrentRepForPlaybackTime],
+    [],
   );
 
   const onPlayerEnd = useCallback(() => {
+    cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
+    const duration = playbackDurationRef.current;
+    playbackTimeMsSV.value = duration; // eslint-disable-line react-hooks/exhaustive-deps
+    playbackTimeRef.current = duration;
+    setPlaybackTimeMs(duration);
     setPlaybackPaused(true);
-    const finalTimeMs = Math.max(playbackDurationRef.current, latestProgressTimeRef.current);
-    commitPlaybackTimeMs(finalTimeMs, true);
-    updateCurrentRepForPlaybackTime(finalTimeMs);
-  }, [commitPlaybackTimeMs, updateCurrentRepForPlaybackTime]);
+    playbackPausedRef.current = true;
+    updateCurrentRepForPlaybackTime(duration);
+  }, [updateCurrentRepForPlaybackTime]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onOverlayLayout = useCallback((event: LayoutChangeEvent) => {
     const {width, height} = event.nativeEvent.layout;
@@ -522,18 +499,30 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     setOverlayHeight(height);
   }, []);
 
+  // applySeekTimeMs: cancel any running animation, jump to new position immediately,
+  // and restart the animation if currently playing.
   const applySeekTimeMs = useCallback(
     (nextTimeMs: number) => {
       const clampedTimeMs = clamp(Math.round(nextTimeMs), 0, correctedPlaybackDurationMs);
-      latestProgressTimeRef.current = clampedTimeMs;
+      cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
+      playbackTimeMsSV.value = clampedTimeMs; // eslint-disable-line react-hooks/exhaustive-deps
       playbackTimeRef.current = clampedTimeMs;
-      pendingSeekTargetMsRef.current = clampedTimeMs;
-      pendingSeekDeadlineMsRef.current = Date.now() + PENDING_SEEK_MATCH_THRESHOLD_MS;
-      commitPlaybackTimeMs(clampedTimeMs, true);
+      setPlaybackTimeMs(clampedTimeMs);
       setSeekPositionMs(clampedTimeMs);
       updateCurrentRepForPlaybackTime(clampedTimeMs);
+
+      // Restart animation from new position if currently playing.
+      if (!playbackPausedRef.current && correctedPlaybackDurationMs > 0) {
+        const remainingMs = Math.max(0, correctedPlaybackDurationMs - clampedTimeMs);
+        if (remainingMs > 0) {
+          playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
+            duration: remainingMs,
+            easing: Easing.linear,
+          });
+        }
+      }
     },
-    [commitPlaybackTimeMs, correctedPlaybackDurationMs, updateCurrentRepForPlaybackTime],
+    [correctedPlaybackDurationMs, updateCurrentRepForPlaybackTime], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const onScrubberLayout = useCallback((event: LayoutChangeEvent) => {
@@ -544,20 +533,24 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const onSpeedChartLayout = useCallback((event: LayoutChangeEvent) => {
     const width = event.nativeEvent.layout.width;
     setSpeedChartWidth(width);
-    speedChartWidthSV.value = width;
-  }, []);
+    speedChartWidthSV.value = width; // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Tap-to-seek maps tap position to VIDEO TIME (0..videoDuration).
   const onSpeedChartTouch = useCallback(
     (event: GestureResponderEvent) => {
-      if (speedChartWidth <= 0 || timeRange.durationMs <= 0) {
+      if (speedChartWidth <= 0 || correctedPlaybackDurationMs <= 0) {
         return;
       }
       const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING);
+      if (drawableWidth <= 0) {
+        return;
+      }
       const x = event.nativeEvent.locationX - SPEED_CHART_LEFT_PADDING;
       const progress = clamp(x / drawableWidth, 0, 1);
-      applySeekTimeMs(Math.round(timeRange.minTimeMs + progress * timeRange.durationMs));
+      applySeekTimeMs(Math.round(progress * correctedPlaybackDurationMs));
     },
-    [speedChartWidth, timeRange, applySeekTimeMs],
+    [speedChartWidth, correctedPlaybackDurationMs, applySeekTimeMs],
   );
 
   const onScrubberTouch = useCallback(
@@ -571,37 +564,59 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     [applySeekTimeMs, correctedPlaybackDurationMs],
   );
 
+  // Play/Pause toggle: starts a withTiming animation on Play, cancels it on Pause.
+  // Sync between player and marker happens only at user interaction (no onPlayerProgress state updates).
+  const onPlayPauseToggle = useCallback(() => {
+    const nextPaused = !playbackPausedRef.current;
+    playbackPausedRef.current = nextPaused;
+    setPlaybackPaused(nextPaused);
+
+    if (!nextPaused && correctedPlaybackDurationMs > 0) {
+      // Transitioning to PLAY: animate marker from current position to end.
+      const currentMs = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
+      const remainingMs = Math.max(0, correctedPlaybackDurationMs - currentMs);
+      if (remainingMs > 0) {
+        playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
+          duration: remainingMs,
+          easing: Easing.linear,
+        });
+      }
+    } else if (nextPaused) {
+      // Transitioning to PAUSE: stop animation, read current position, sync player.
+      cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
+      const currentMs = Math.round(playbackTimeMsSV.value); // eslint-disable-line react-hooks/exhaustive-deps
+      playbackTimeRef.current = currentMs;
+      setPlaybackTimeMs(currentMs);
+      setSeekPositionMs(currentMs);
+      updateCurrentRepForPlaybackTime(currentMs);
+    }
+  }, [correctedPlaybackDurationMs, updateCurrentRepForPlaybackTime]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     playbackTimeRef.current = playbackTimeMs;
   }, [playbackTimeMs]);
-
-  useEffect(() => {
-    timeRangeMinMsSV.value = timeRange.minTimeMs;
-    timeRangeDurationMsSV.value = timeRange.durationMs;
-  }, [timeRange.minTimeMs, timeRange.durationMs]);
 
   const progressMarkerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{translateX: progressMarkerLeft.value}],
   }));
 
   useEffect(() => {
+    cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
     setPlaybackPaused(true);
+    playbackPausedRef.current = true;
     setPlaybackTimeMs(0);
     setPlaybackDurationMs(0);
     setPlaybackVideoWidth(0);
     setPlaybackVideoHeight(0);
     setCurrentRepIndex(undefined);
     setSeekPositionMs(undefined);
-    playbackTimeMsSV.value = 0;
+    playbackTimeMsSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    videoDurationMsSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
     playbackDurationRef.current = 0;
-    latestProgressTimeRef.current = 0;
     playbackTimeRef.current = 0;
-    lastRenderedPlaybackBucketRef.current = -1;
     currentRepIndexRef.current = undefined;
-    pendingSeekTargetMsRef.current = undefined;
-    pendingSeekDeadlineMsRef.current = 0;
     isScrubbingRef.current = false;
-  }, [localVideoPath, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx, result.barPathSeries, result.repSegments]);
+  }, [localVideoPath, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx, result.barPathSeries, result.repSegments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -691,7 +706,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       </View>
 
       <View style={styles.playbackControls}>
-        <Button testID="video-analysis-playback-toggle" mode="outlined" onPress={() => setPlaybackPaused((paused) => !paused)}>
+        <Button testID="video-analysis-playback-toggle" mode="outlined" onPress={onPlayPauseToggle}>
           {playbackPaused ? 'Play' : 'Pause'}
         </Button>
         <Text testID="video-analysis-playback-time">
@@ -715,8 +730,8 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           onResponderTerminate={() => {
             isScrubbingRef.current = false;
           }}>
-          <View testID="video-analysis-playback-scrubber-fill" style={[styles.scrubberFill, themedStyles.scrubberFill, {width: `${scrubberProgress * 100}%`}]} />
-          <View testID="video-analysis-playback-scrubber-thumb" style={[styles.scrubberThumb, themedStyles.scrubberThumb, {left: `${scrubberProgress * 100}%`}]} />
+          <Animated.View testID="video-analysis-playback-scrubber-fill" style={[styles.scrubberFill, themedStyles.scrubberFill, scrubberFillStyle]} />
+          <Animated.View testID="video-analysis-playback-scrubber-thumb" style={[styles.scrubberThumb, themedStyles.scrubberThumb, scrubberThumbStyle]} />
         </View>
         <View style={styles.stepButtonsRow}>
           <Button testID="video-analysis-step-minus200" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current - 200)}>
