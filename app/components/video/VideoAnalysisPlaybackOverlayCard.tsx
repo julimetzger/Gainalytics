@@ -23,14 +23,7 @@ interface OverlayPoint {
   y: number;
 }
 
-interface TimePlotPoint {
-  key: string;
-  x: number;
-  y: number;
-}
-
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
-const TIME_PLOT_HEIGHT = 112;
 const SPEED_PLOT_HEIGHT = 180;
 // Visually calibrated Y-axis label width for the speed chart.
 // This is the left offset where the drawable chart area starts.
@@ -196,28 +189,6 @@ const mapBarPathToOverlay = (
   }));
 };
 
-const mapBarPathToTimePlot = (barPathSeries: BarPathPoint[], plotWidth: number, plotHeight: number, trackingFrameHeightPx?: number): TimePlotPoint[] => {
-  if (barPathSeries.length === 0 || plotWidth <= 0 || plotHeight <= 0) {
-    return [];
-  }
-
-  const timeRange = getTimeRange(barPathSeries);
-  const minY = 0;
-  const maxY = trackingFrameHeightPx && trackingFrameHeightPx > 0 ? trackingFrameHeightPx : Math.max(...barPathSeries.map((point) => point.y));
-  const ySpan = Math.max(1, maxY - minY);
-
-  return barPathSeries.map((point, index) => {
-    const xProgress = timeRange.durationMs > 0 ? (point.tMs - timeRange.minTimeMs) / timeRange.durationMs : 0;
-    const yProgress = (point.y - minY) / ySpan;
-
-    return {
-      key: `time-plot-${point.tMs}-${index}`,
-      x: xProgress * plotWidth,
-      y: clamp(yProgress, 0, 1) * plotHeight,
-    };
-  });
-};
-
 const mapVerticalVelocitySeriesToLineValues = (barPathSeries: BarPathPoint[], verticalVelocitySeries: number[]): LineValue[] => {
   if (barPathSeries.length === 0 || verticalVelocitySeries.length === 0) {
     return [];
@@ -281,18 +252,6 @@ const createThemedStyles = (theme: MD3Theme) =>
     scrubberThumb: {
       backgroundColor: theme.colors.primary,
     },
-    timePlotBackground: {
-      backgroundColor: theme.colors.surfaceVariant,
-    },
-    timePlotPoint: {
-      backgroundColor: theme.colors.outline,
-    },
-    timePlotMarker: {
-      backgroundColor: theme.colors.primary,
-    },
-    timePlotMarkerLine: {
-      backgroundColor: theme.colors.primary,
-    },
     speedPlotBackground: {
       backgroundColor: theme.colors.surfaceVariant,
     },
@@ -321,12 +280,10 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const [overlayWidth, setOverlayWidth] = useState(0);
   const [overlayHeight, setOverlayHeight] = useState(0);
   const [scrubberWidth, setScrubberWidth] = useState(0);
-  const [timePlotWidth, setTimePlotWidth] = useState(0);
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
 
   const playbackTimeMsSV = useSharedValue(0);
-
   const playbackDurationRef = useRef(0);
   const latestProgressTimeRef = useRef(0);
   const playbackTimeRef = useRef(0);
@@ -348,9 +305,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   }, [playbackDurationMs, timeRange.durationMs]);
   const timeRangeMinMsSV = useSharedValue(timeRange.minTimeMs);
   const timeRangeDurationMsSV = useSharedValue(timeRange.durationMs);
-  const correctedPlaybackDurationMsSV = useSharedValue(correctedPlaybackDurationMs);
   const speedChartWidthSV = useSharedValue(0);
-  const timePlotWidthSV = useSharedValue(0);
   const progressMarkerLeft = useDerivedValue(() => {
     'worklet';
     if (speedChartWidthSV.value <= 0 || timeRangeDurationMsSV.value <= 0) {
@@ -363,14 +318,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     );
     const progress = (clampedTime - timeRangeMinMsSV.value) / timeRangeDurationMsSV.value;
     return SPEED_CHART_LEFT_PADDING + Math.min(1, Math.max(0, progress)) * drawableWidth;
-  });
-  const timePlotMarkerXDerived = useDerivedValue(() => {
-    'worklet';
-    if (timePlotWidthSV.value <= 0 || correctedPlaybackDurationMsSV.value <= 0) {
-      return 0;
-    }
-    const progress = Math.min(1, Math.max(0, playbackTimeMsSV.value / correctedPlaybackDurationMsSV.value));
-    return progress * timePlotWidthSV.value;
   });
   const playbackAspectRatio = useMemo(() => {
     const trackingWidth = result.analysisMeta.trackingFrameWidthPx;
@@ -405,10 +352,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     ],
   );
   const scrubberProgress = correctedPlaybackDurationMs > 0 ? clamp(playbackTimeMs / correctedPlaybackDurationMs, 0, 1) : 0;
-  const timePlotPoints = useMemo(
-    () => mapBarPathToTimePlot(smoothedBarPathSeries, timePlotWidth, TIME_PLOT_HEIGHT, result.analysisMeta.trackingFrameHeightPx),
-    [result.analysisMeta.trackingFrameHeightPx, smoothedBarPathSeries, timePlotWidth],
-  );
   const verticalVelocityLineValues = useMemo(() => mapVerticalVelocitySeriesToLineValues(smoothedBarPathSeries, smoothedBarVerticalVelocitySeries), [
     smoothedBarPathSeries,
     smoothedBarVerticalVelocitySeries,
@@ -416,10 +359,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const currentBarPathPointIndex = useMemo(
     () => findNearestBarPathPointIndex(smoothedBarPathSeries, playbackTimeMs),
     [playbackTimeMs, smoothedBarPathSeries],
-  );
-  const currentBarPathPoint = useMemo(
-    () => (currentBarPathPointIndex !== undefined ? smoothedBarPathSeries[currentBarPathPointIndex] : undefined),
-    [currentBarPathPointIndex, smoothedBarPathSeries],
   );
   const currentBarVerticalVelocityPxPerSecond = useMemo(() => {
     if (currentBarPathPointIndex === undefined || currentBarPathPointIndex >= smoothedBarVerticalVelocitySeries.length) {
@@ -544,9 +483,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
         pendingSeekTargetMsRef.current = undefined;
       }
 
-      if (currentTimeMs < latestProgressTimeRef.current) {
-        return;
-      }
       latestProgressTimeRef.current = currentTimeMs;
 
       if (nativeEvent.durationMs > 0) {
@@ -605,12 +541,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     setScrubberWidth(width);
   }, []);
 
-  const onTimePlotLayout = useCallback((event: LayoutChangeEvent) => {
-    const width = event.nativeEvent.layout.width;
-    setTimePlotWidth(width);
-    timePlotWidthSV.value = width;
-  }, []);
-
   const onSpeedChartLayout = useCallback((event: LayoutChangeEvent) => {
     const width = event.nativeEvent.layout.width;
     setSpeedChartWidth(width);
@@ -650,16 +580,8 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     timeRangeDurationMsSV.value = timeRange.durationMs;
   }, [timeRange.minTimeMs, timeRange.durationMs]);
 
-  useEffect(() => {
-    correctedPlaybackDurationMsSV.value = correctedPlaybackDurationMs;
-  }, [correctedPlaybackDurationMs]);
-
   const progressMarkerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{translateX: progressMarkerLeft.value}],
-  }));
-
-  const timePlotMarkerLineStyle = useAnimatedStyle(() => ({
-    transform: [{translateX: timePlotMarkerXDerived.value}],
   }));
 
   useEffect(() => {
@@ -715,41 +637,10 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
         </View>
       </View>
 
-      <View style={styles.timePlotSection}>
-        <View style={styles.timePlotHeader}>
-          <View style={styles.timePlotHeaderTopRow}>
-            <Text variant="labelMedium">Bar Y Position Over Time</Text>
-            <Text variant="bodySmall">
-              t={formatDuration(playbackTimeMs)} | y={currentBarPathPoint ? Math.round(currentBarPathPoint.y) : '-'}
-            </Text>
-          </View>
-        </View>
-        <View testID="video-analysis-playback-time-plot" style={[styles.timePlotContainer, themedStyles.timePlotBackground]} onLayout={onTimePlotLayout}>
-          {timePlotPoints.map((point) => (
-            <View
-              key={point.key}
-              style={[
-                styles.timePlotPoint,
-                themedStyles.timePlotPoint,
-                {
-                  left: point.x - 1.5,
-                  top: point.y - 1.5,
-                },
-              ]}
-            />
-          ))}
-          <Animated.View pointerEvents="none" style={[styles.timePlotMarkerLine, themedStyles.timePlotMarkerLine, timePlotMarkerLineStyle]} />
-        </View>
-        <View style={styles.timePlotAxisRow}>
-          <Text variant="bodySmall">0:00</Text>
-          <Text variant="bodySmall">{formatDuration(correctedPlaybackDurationMs)}</Text>
-        </View>
-      </View>
-
       <View style={styles.speedPlotSection}>
-        <View style={styles.timePlotHeaderTopRow}>
+        <View style={styles.chartHeaderRow}>
           <Text variant="labelMedium">Bar v_y Over Time</Text>
-          <Text testID="video-analysis-playback-speed" variant="bodySmall" style={styles.timePlotSpeedText}>
+          <Text testID="video-analysis-playback-speed" variant="bodySmall" style={styles.chartSpeedText}>
             v_y={currentBarVerticalVelocityPxPerSecond !== undefined ? Math.round(currentBarVerticalVelocityPxPerSecond) : '-'} px/s
           </Text>
         </View>
@@ -788,12 +679,12 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             style={[styles.speedMarkerLine, {backgroundColor: theme.colors.primary}, progressMarkerAnimatedStyle]}
           />
         </View>
-        <View style={styles.timePlotAxisRow}>
+        <View style={styles.chartAxisRow}>
           <Text variant="bodySmall">down (-)</Text>
           <Text variant="bodySmall">{currentBarVerticalVelocityPxPerSecond !== undefined ? `${Math.round(currentBarVerticalVelocityPxPerSecond)} px/s` : '-'}</Text>
           <Text variant="bodySmall">up (+)</Text>
         </View>
-        <View style={styles.timePlotAxisRow}>
+        <View style={styles.chartAxisRow}>
           <Text variant="bodySmall">t=0:00</Text>
           <Text variant="bodySmall">{formatDuration(correctedPlaybackDurationMs)}</Text>
         </View>
@@ -872,48 +763,15 @@ const styles = StyleSheet.create({
   playbackControls: {
     marginTop: 10,
   },
-  timePlotSection: {
-    marginTop: 12,
-  },
-  timePlotHeader: {
-    marginBottom: 8,
-    gap: 4,
-  },
-  timePlotHeaderTopRow: {
+  chartHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
   },
-  timePlotSpeedText: {
+  chartSpeedText: {
     marginTop: 2,
   },
-  timePlotContainer: {
-    position: 'relative',
-    height: TIME_PLOT_HEIGHT,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  timePlotPoint: {
-    position: 'absolute',
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    opacity: 0.5,
-  },
-  timePlotMarkerLine: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 2,
-    opacity: 0.45,
-  },
-  timePlotMarker: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  timePlotAxisRow: {
+  chartAxisRow: {
     marginTop: 6,
     flexDirection: 'row',
     justifyContent: 'space-between',

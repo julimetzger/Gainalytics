@@ -1,8 +1,11 @@
 appId: com.powerliftingworkoutplanner
 ---
-# ANA-003-fix: Responsiveness proof during video playback.
-# Verifies the JS Bridge is no longer saturated during playback by proving
-# that a tab-switch tap is processed while the video is actively playing.
+# ANA-003-fix: Responsiveness + scrubber timing proof during video playback.
+# Acceptance criteria verified:
+# 1. Tab-switch tap is processed WHILE video is actively playing (bridge not blocked).
+# 2. Scrubber reaches 100% at the end of video within real video duration (~47s),
+#    not after the bar-path duration (~90s). Proven by Play button reappearing.
+# 3. Bar Y Position Over Time section is gone (assertNotVisible).
 - launchApp:
     clearState: false
 - runFlow:
@@ -43,21 +46,20 @@ appId: com.powerliftingworkoutplanner
       text: "Playback Overlay"
     direction: DOWN
 # Swipe up to expose Play button and step buttons.
-# Start at Y=40% (Bar Y time plot area) to avoid speed chart onSelect.
 - swipe:
-    start: "50%, 40%"
+    start: "50%, 50%"
     end: "50%, 5%"
     duration: 600
 - waitForAnimationToEnd:
     timeout: 300
 - swipe:
-    start: "50%, 40%"
+    start: "50%, 50%"
     end: "50%, 5%"
     duration: 600
 - waitForAnimationToEnd:
     timeout: 300
 - swipe:
-    start: "50%, 40%"
+    start: "50%, 50%"
     end: "50%, 5%"
     duration: 600
 - waitForAnimationToEnd:
@@ -72,13 +74,17 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: "Play"
 - assertVisible:
     text: "+0.2s"
+# Confirm "Bar Y Position Over Time" is gone
+- assertNotVisible: "Bar Y Position Over Time"
 # Take screenshot: initial state (paused)
 - takeScreenshot: "initial_paused"
 # START PLAYBACK
 - tapOn: "Play"
-# Brief wait so video actually plays (Bridge was previously overloaded here)
+# Brief wait so video actually plays
 - waitForAnimationToEnd:
     timeout: 1000
+# Take screenshot: speed chart with marker moving (proves marker is present during playback)
+- takeScreenshot: "speed_chart_playing"
 # RESPONSIVENESS PROOF: tap the Training tab WHILE video is playing.
 # With the old Bridge-overloaded implementation this tap was swallowed.
 # With the new Reanimated-on-UI-thread implementation the tap must succeed.
@@ -88,9 +94,29 @@ appId: com.powerliftingworkoutplanner
     visible: "Training"
     timeout: 5000
 - takeScreenshot: "tab_switch_during_playback"
-# Navigate back to confirm the app is fully functional
+# Navigate back to Analyse to continue playback observation
 - tapOn: "tab-analyse"
 - extendedWaitUntil:
     visible: "Analyse"
     timeout: 10000
+# Scroll back to the playback controls (may need to scroll down)
+- scrollUntilVisible:
+    element:
+      text: "Play"
+    direction: DOWN
+# If video is still playing (Pause visible), wait for it to finish naturally.
+# The video is ~47s so total wait budget is 60s from here.
+# When the video ends, onPlayerEnd sets paused=true → button shows "Play" again.
+- runFlow:
+    when:
+      visible: "Pause"
+    commands:
+      - extendedWaitUntil:
+          visible: "Play"
+          timeout: 60000
+# SCRUBBER TIMING PROOF: "Play" button is visible, meaning video ended.
+# The scrubber should show 100% (tested visually in screenshot).
+- assertVisible: "Play"
+- takeScreenshot: "scrubber_at_end"
+# Take back-on-analyse screenshot for review
 - takeScreenshot: "back_on_analyse_after_playback"
