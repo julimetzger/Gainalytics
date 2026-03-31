@@ -32,6 +32,32 @@ const makeResult = (): BarTrackingResult => ({
   },
 });
 
+// Fixture with a non-zero minTimeMs to expose the bar-path time range offset.
+// timeRange: minTimeMs=1000, maxTimeMs=3000, durationMs=2000
+const makeResultWithOffset = (): BarTrackingResult => ({
+  analysisId: 2,
+  units: 'px/s',
+  barPathSeries: [
+    {tMs: 1000, x: 100, y: 200},
+    {tMs: 1500, x: 110, y: 210},
+    {tMs: 2000, x: 120, y: 220},
+    {tMs: 2500, x: 130, y: 230},
+    {tMs: 3000, x: 140, y: 240},
+  ],
+  confidenceSeries: [],
+  repSegments: [],
+  repMetrics: [],
+  qualityFlags: [],
+  analysisMeta: {
+    sourceFps: 30,
+    analyzedFps: 30,
+    frameCount: 60,
+    averageConfidence: 0.9,
+    trackingFrameWidthPx: 640,
+    trackingFrameHeightPx: 480,
+  },
+});
+
 const loadPlayer = (player: any, durationMs = 3000) => {
   act(() => {
     player.props.onLoad({nativeEvent: {durationMs, videoWidth: 640, videoHeight: 480}});
@@ -50,6 +76,18 @@ const setScrubberWidth = (scrubber: any, width: number) => {
   });
 };
 
+// Helper: seek to a specific time via scrubber drag.
+// Requires scrubber width to be set first via setScrubberWidth.
+const seekViaScrubbingTo = (scrubber: any, timeMs: number, durationMs: number, scrubberWidthPx: number) => {
+  const locationX = (timeMs / durationMs) * scrubberWidthPx;
+  act(() => {
+    scrubber.props.onResponderGrant({nativeEvent: {locationX}});
+  });
+  act(() => {
+    scrubber.props.onResponderRelease();
+  });
+};
+
 const getScrubberState = (getByTestId: (testId: string) => any) => {
   const scrubberFill = getByTestId('video-analysis-playback-scrubber-fill');
   const scrubberThumb = getByTestId('video-analysis-playback-scrubber-thumb');
@@ -60,6 +98,21 @@ const getScrubberState = (getByTestId: (testId: string) => any) => {
     fillWidth: fillStyle.width,
     thumbLeft: thumbStyle.left,
   };
+};
+
+const getMarkerTranslateX = (getByTestId: (testId: string) => any): number => {
+  const marker = getByTestId('video-analysis-speed-marker');
+  const style = StyleSheet.flatten(marker.props.style);
+  const transform: Array<{translateX?: number}> = style.transform ?? [];
+  const translateEntry = transform.find((t) => t.translateX !== undefined);
+  return translateEntry?.translateX ?? 0;
+};
+
+// Trigger the speed chart layout event so speedChartWidthSV is set.
+const setSpeedChartWidth = (getByTestId: (testId: string) => any, width: number) => {
+  act(() => {
+    getByTestId('video-analysis-playback-speed-plot').props.onLayout({nativeEvent: {layout: {width}}});
+  });
 };
 
 describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
@@ -84,9 +137,12 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
 
-    loadPlayer(player);
-    progressPlayer(player, 1000);
+    loadPlayer(player, 3000);
+    // Set initial position to 1000ms via scrubber (onPlayerProgress no longer drives time).
+    setScrubberWidth(scrubber, 100);
+    seekViaScrubbingTo(scrubber, 1000, 3000, 100);
 
     act(() => {
       fireEvent.press(getByTestId('video-analysis-step-plus200'));
@@ -104,9 +160,11 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
 
-    loadPlayer(player);
-    progressPlayer(player, 1000);
+    loadPlayer(player, 3000);
+    setScrubberWidth(scrubber, 100);
+    seekViaScrubbingTo(scrubber, 1000, 3000, 100);
 
     act(() => {
       fireEvent.press(getByTestId('video-analysis-step-minus200'));
@@ -120,9 +178,11 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
 
-    loadPlayer(player);
-    progressPlayer(player, 1000);
+    loadPlayer(player, 3000);
+    setScrubberWidth(scrubber, 100);
+    seekViaScrubbingTo(scrubber, 1000, 3000, 100);
 
     act(() => {
       fireEvent.press(getByTestId('video-analysis-step-plus50'));
@@ -136,9 +196,11 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
 
-    loadPlayer(player);
-    progressPlayer(player, 1000);
+    loadPlayer(player, 3000);
+    setScrubberWidth(scrubber, 100);
+    seekViaScrubbingTo(scrubber, 1000, 3000, 100);
 
     act(() => {
       fireEvent.press(getByTestId('video-analysis-step-minus50'));
@@ -152,9 +214,11 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
 
     loadPlayer(player, 3000);
-    progressPlayer(player, 100);
+    setScrubberWidth(scrubber, 100);
+    seekViaScrubbingTo(scrubber, 100, 3000, 100);
 
     act(() => {
       fireEvent.press(getByTestId('video-analysis-step-minus200'));
@@ -168,9 +232,11 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
 
     loadPlayer(player, 3000);
-    progressPlayer(player, 2900);
+    setScrubberWidth(scrubber, 100);
+    seekViaScrubbingTo(scrubber, 2900, 3000, 100);
 
     act(() => {
       fireEvent.press(getByTestId('video-analysis-step-plus200'));
@@ -181,14 +247,17 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
 });
 
 describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
-  it('playback time display updates to reflect progress event', () => {
+  it('playback time display updates after seek (onPlayerProgress no longer drives time)', () => {
     const {getByTestId} = render(
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
 
     loadPlayer(player, 60000);
-    progressPlayer(player, 5000);
+    setScrubberWidth(scrubber, 100);
+    // Seek to 5000ms via scrubber: 5000/60000 ≈ 8.333%
+    seekViaScrubbingTo(scrubber, 5000, 60000, 100);
 
     const timeDisplay = getByTestId('video-analysis-playback-time');
     // 5000ms = 00:05
@@ -200,18 +269,19 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
 
     loadPlayer(player, 60000);
-    progressPlayer(player, 5000);
+    setScrubberWidth(scrubber, 100);
+    seekViaScrubbingTo(scrubber, 5000, 60000, 100);
 
     act(() => {
       fireEvent.press(getByTestId('video-analysis-step-plus200'));
     });
 
     const timeDisplay = getByTestId('video-analysis-playback-time');
-    // 5200ms = 00:05 (same minute/second bucket, but seekPositionMs is updated)
+    // 5200ms = 00:05
     expect(player.props.seekPositionMs).toBe(5200);
-    // Time display shows the seeked value (5200ms → still "00:05")
     expect(timeDisplay.props.children.join('')).toContain('00:05');
   });
 
@@ -220,19 +290,25 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
+    const speedPlot = getByTestId('video-analysis-playback-speed-plot');
+    const speedChart = getByTestId('video-analysis-playback-speed-chart');
 
     loadPlayer(player, 3000);
 
+    // Set chart width: 248px total = 48px left padding + 200px drawable
     act(() => {
-      fireEvent(getByTestId('video-analysis-playback-speed-plot'), 'onSelect', {
-        nativeEvent: {x: 1500},
-      });
+      speedPlot.props.onLayout({nativeEvent: {layout: {width: 248}}});
     });
 
-    expect(player.props.seekPositionMs).toBe(1500);
+    // Tap at locationX=198: progress = (198-48)/200 = 0.75, seekMs = 0.75 * videoDuration = 0.75 * 3000 = 2250
+    act(() => {
+      fireEvent(speedChart, 'touchEnd', {nativeEvent: {locationX: 198}});
+    });
+
+    expect(player.props.seekPositionMs).toBe(2250);
     expect(getScrubberState(getByTestId)).toEqual({
-      fillWidth: '50%',
-      thumbLeft: '50%',
+      fillWidth: '75%',
+      thumbLeft: '75%',
     });
   });
 
@@ -250,6 +326,7 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
       scrubber.props.onResponderGrant({nativeEvent: {locationX: 75}});
     });
 
+    // onPlayerProgress no longer updates playback time — scrubber position unchanged.
     progressPlayer(player, 1200, 3000);
 
     expect(player.props.seekPositionMs).toBe(2250);
@@ -262,11 +339,79 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
       scrubber.props.onResponderRelease();
     });
 
+    // Even after release, onPlayerProgress still does not update playback time.
     progressPlayer(player, 1600, 3000);
 
     expect(getScrubberState(getByTestId)).toEqual({
       fillWidth: '75%',
       thumbLeft: '75%',
     });
+  });
+});
+
+// Speed chart = 248px total: 48px Y-axis padding + 200px drawable area.
+// Bar-path time range: minTimeMs=1000, maxTimeMs=3000, durationMs=2000.
+// Video duration: 5000ms.
+describe('VideoAnalysisPlaybackOverlayCard – speed chart marker alignment', () => {
+  const CHART_WIDTH = 248;
+  const LEFT_PADDING = 48;
+  const DRAWABLE_WIDTH = CHART_WIDTH - LEFT_PADDING; // 200
+
+  const setupWithOffset = () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithOffset()} />,
+    );
+    const player = getByTestId('video-analysis-playback-player');
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
+
+    loadPlayer(player, 5000);
+    setScrubberWidth(scrubber, 100);
+    setSpeedChartWidth(getByTestId, CHART_WIDTH);
+
+    return {getByTestId, player, scrubber};
+  };
+
+  it('marker sits at left edge when playback time == timeRange.minTimeMs (1000ms)', () => {
+    const {getByTestId, scrubber} = setupWithOffset();
+    // Seek to minTimeMs=1000 via scrubber: 1000/5000 = 20% of scrubberWidth
+    seekViaScrubbingTo(scrubber, 1000, 5000, 100);
+
+    // progress = (1000 - 1000) / 2000 = 0 → left edge
+    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + 0 * DRAWABLE_WIDTH);
+  });
+
+  it('marker sits at right edge when playback time == timeRange.maxTimeMs (3000ms)', () => {
+    const {getByTestId, scrubber} = setupWithOffset();
+    seekViaScrubbingTo(scrubber, 3000, 5000, 100);
+
+    // progress = (3000 - 1000) / 2000 = 1 → right edge
+    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + 1 * DRAWABLE_WIDTH);
+  });
+
+  it('marker is clamped at left edge when playback time < timeRange.minTimeMs', () => {
+    const {getByTestId, scrubber} = setupWithOffset();
+    // Seek to 0ms (before first data point at 1000ms)
+    seekViaScrubbingTo(scrubber, 0, 5000, 100);
+
+    // progress = clamp((0 - 1000) / 2000, 0, 1) = 0 → left edge
+    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + 0 * DRAWABLE_WIDTH);
+  });
+
+  it('marker is clamped at right edge when playback time > timeRange.maxTimeMs', () => {
+    const {getByTestId, scrubber} = setupWithOffset();
+    // Seek to 5000ms (past last data point at 3000ms)
+    seekViaScrubbingTo(scrubber, 5000, 5000, 100);
+
+    // progress = clamp((5000 - 1000) / 2000, 0, 1) = 1 → right edge
+    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + 1 * DRAWABLE_WIDTH);
+  });
+
+  it('marker moves to midpoint when playback time == midpoint of data range', () => {
+    const {getByTestId, scrubber} = setupWithOffset();
+    // Midpoint of [1000, 3000] is 2000ms
+    seekViaScrubbingTo(scrubber, 2000, 5000, 100);
+
+    // progress = (2000 - 1000) / 2000 = 0.5 → midpoint
+    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + 0.5 * DRAWABLE_WIDTH);
   });
 });
