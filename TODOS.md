@@ -5,9 +5,6 @@
 - [ready] [TRN-001](tickets/TRN-001-training-overview-record-comparison.yaml) Records in Training Overview - micro vergleich anzeigen
   - Im TrainingsNode für status Done und Overview
   - es gibt eine Kachel die anzeigt wieviele Records in diesem Micro waren im Vergleich zum vorherigen
-- [ready] [TRN-002](tickets/TRN-002-linear-progression-from-last-training.yaml) progression einbauen bei hinzufügen aus letztem planned or done training ( linear) 
-  - rir erhöhen generell -> suggested weight geht hoch über 1RM estimate aus letztem planned/done training. Man kann hier sagen rir -+ Zahl. Wenn rir schon auf 0 dann passiert nichts für die Exercise.
-  - % weight increasement
 - Overview mit Grafik für RIR Sets im Vergleich zum vorherigen Macro
 - Labels für Sets/Workouts hinzufügen
 
@@ -28,17 +25,12 @@
 
 ## Video Analyse Funktion
 
-- [ready] [ANA-004](tickets/ANA-004-rep-detection-from-video-analysis.yaml) Erkennen von reps [VideoAnalysisDetails]
-  - Rep zeit ermitteln anhand nulldurchlauf der Geschwindigkeit. Berechnung der durschnittlichen Geschwindigkeit der Rep. Ausgabe der Repzeiten erstmal nur als Zeiten für dir reps als Werte in der Zusammenfassung.
-  - Anzeige einer Rep im overlay mit grüner Farbe als kurve während der Ausführung einer reptetion
-  - den gesamten bar verlauf als hellgraue linie plotten. Ein bisschen deutlicher als im moment die punkte geplottet werden.
   - [ready] [ANA-004-fix](tickets/ANA-004-fix-hardcoded-rep-color.yaml) Hardcoded Farbe `#63A002` durch theme.colors Token ersetzen
 - [ready] [ANA-005](tickets/ANA-005-async-video-analysis.yaml) Asynchrone Analyse des Videos
   - User kann währen der Analyse die app ganz normal benutzen. Notification weißt auf die fertige analyse hin
   - Der Loading spinner zeigt den Progress an. Hier wird die Zeit die gebraucht wird abgeschätzt anhand der letzten analysen. Dazu wird im state gespeichert wie lange eine Minute anaylse beim letzten video gebraucht wird und dann abgeschätzt wie lange die neue analyse brauch für die länge des videos. Für den ersten Wert nehmen wir an 1s analyse pro 1s Video.
   - [ready] [ANA-005-fix](tickets/ANA-005-fix-codex-review.yaml) Codex-Review Fixes + realistische Progressbar: Notification, Permission, Service Ref-Count, echte Video-Dauer, Progressbar
-- [ready] [ANA-003-fix](tickets/ANA-003-fix-speed-chart-perf.yaml) Speed-Chart Performance — Progress-Marker aus Bridge entkoppeln
-  - [ready] [ANA-003-fix2](tickets/ANA-003-fix2-marker-alignment.yaml) Marker-Linie am Velocity-Plot ausrichten (fängt zu früh an, hört zu spät auf)
+- [ready] [ANA-003-fix2](tickets/ANA-003-fix2-marker-alignment.yaml) Marker-Linie am Velocity-Plot ausrichten (fängt zu früh an, hört zu spät auf)
 - [ready] [ANA-007](tickets/ANA-007-playback-speed-control.yaml) Player Verbesserungen part 2 — Wiedergabegeschwindigkeit (0.1x–1.0x)
 - [ready] [ANA-006](tickets/ANA-006-link-video-analysis-to-set.yaml) Verknüpfung eines Sets mit der Video Analysis (4 UI-Flows)
 - performance verbessern
@@ -50,7 +42,6 @@
 - Tabs für Analyse https://www.npmjs.com/package/react-native-paper-tabs
 
 ## Bugs
-- [ready] [TRN-003](tickets/TRN-003-fix-done-notification-after-finish.yaml) Training done notification kommt auch wenn das training abgeschlossen ist
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
   
 
