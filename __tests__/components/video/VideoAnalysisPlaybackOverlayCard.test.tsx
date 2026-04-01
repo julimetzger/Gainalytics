@@ -352,6 +352,7 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
 // Speed chart = 248px total: 48px Y-axis padding + 200px drawable area.
 // Bar-path time range: minTimeMs=1000, maxTimeMs=3000, durationMs=2000.
 // Video duration: 5000ms.
+// Before minTimeMs: raw x = 48 + fraction*200 can be negative, clamped to [0, 248].
 describe('VideoAnalysisPlaybackOverlayCard – speed chart marker alignment', () => {
   const CHART_WIDTH = 248;
   const LEFT_PADDING = 48;
@@ -388,13 +389,13 @@ describe('VideoAnalysisPlaybackOverlayCard – speed chart marker alignment', ()
     expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + 1 * DRAWABLE_WIDTH);
   });
 
-  it('marker is clamped at left edge when playback time < timeRange.minTimeMs', () => {
+  it('marker is clamped at container left (x=0) when playback time < timeRange.minTimeMs', () => {
     const {getByTestId, scrubber} = setupWithOffset();
     // Seek to 0ms (before first data point at 1000ms)
     seekViaScrubbingTo(scrubber, 0, 5000, 100);
 
-    // progress = clamp((0 - 1000) / 2000, 0, 1) = 0 → left edge
-    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + 0 * DRAWABLE_WIDTH);
+    // x = 48 + ((0 - 1000) / 2000) * 200 = 48 - 100 = -52 → clamped to 0
+    expect(getMarkerTranslateX(getByTestId)).toBe(0);
   });
 
   it('marker is clamped at right edge when playback time > timeRange.maxTimeMs', () => {

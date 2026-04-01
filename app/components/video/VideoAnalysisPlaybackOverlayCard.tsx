@@ -329,12 +329,13 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       return 0;
     }
     const drawableWidth = Math.max(0, speedChartWidthSV.value - SPEED_CHART_LEFT_PADDING);
-    // Map playback time to the chart's visible data range [minTimeMs, maxTimeMs], clamped.
-    // Left edge when playbackTime <= minTimeMs, right edge when playbackTime >= maxTimeMs.
-    const progress = Math.min(1, Math.max(0,
-      (playbackTimeMsSV.value - timeRangeMinMsSV.value) / timeRangeDurationMsSV.value,
-    ));
-    return SPEED_CHART_LEFT_PADDING + progress * drawableWidth;
+    // Map playback time to chart pixel position.
+    // x = SPEED_CHART_LEFT_PADDING at t=minTimeMs, x = chartWidth at t=maxTimeMs.
+    // Before minTimeMs the marker sits left of the data area (may overlap Y-axis labels),
+    // clamped at 0. After maxTimeMs it is clamped at chartWidth.
+    const fraction = (playbackTimeMsSV.value - timeRangeMinMsSV.value) / timeRangeDurationMsSV.value;
+    const x = SPEED_CHART_LEFT_PADDING + fraction * drawableWidth;
+    return Math.min(speedChartWidthSV.value, Math.max(0, x));
   });
 
   // Scrubber fill and thumb are driven by Reanimated SharedValues on the UI thread — no JS state.
