@@ -2,32 +2,56 @@ id: ANA-004-fix
 status: ready
 area: analyse
 priority: medium
-title: Replace hardcoded active-rep color with theme token
+title: Active-Rep Overlay mit theme.colors und Hintergrund-Verlauf
 source:
   - "https://github.com/julimetzger/Gainalytics/pull/22#discussion"
+  - ANA-004
 description: >
-  The active rep path in VideoAnalysisPlaybackOverlayCard uses a hardcoded
-  color `'#63A002'` instead of a `theme.colors` token. This violates the
-  project styling conventions in AGENTS.md which require using theme colors
-  and disallow hardcoded color values. A fixed hex color bypasses light/dark
-  theme adaptation and can reduce contrast for users on non-default themes.
+  Im VideoAnalysisPlaybackOverlayCard soll der Bar-Verlauf während einer
+  aktiven Rep visuell hervorgehoben werden:
 
-  Replace `'#63A002'` with an appropriate `theme.colors` value (e.g.
-  `theme.colors.primary` or `theme.colors.tertiary`).
+  1. Aktive Rep — Während der Wiedergabe einer erkannten Rep wird der
+     Bar-Verlauf (Kurve) in `theme.colors.primary` gezeichnet. Die Kurve
+     bewegt sich mit der Rep mit und zeigt den aktuellen Abschnitt.
+
+  2. Hintergrund-Verlauf — Der gesamte Bar-Verlauf über alle Reps wird
+     als matte graue Linie im Hintergrund geplottet, damit der Kontext
+     sichtbar bleibt.
+
+  3. Metriken — Die Anzahl der erkannten Reps und ihre jeweilige Dauer
+     werden als Werte in der Zusammenfassung angezeigt.
+
+  4. Keine hardcoded Farben — `#63A002` durch `theme.colors.primary`
+     ersetzen. Keine hardcoded Color-Literals (AGENTS.md Styling Rules).
+
 components:
   - app/components/video/VideoAnalysisPlaybackOverlayCard.tsx
+
 acceptanceCriteria:
   - >
-    The active-rep highlight color in `VideoAnalysisPlaybackOverlayCard` uses
-    a `theme.colors` token instead of a hardcoded hex value.
+    Während einer aktiven Rep wird der Bar-Verlauf als Kurve in
+    `theme.colors.primary` gezeichnet, synchron mit der Wiedergabe.
   - >
-    The overlay remains visually distinct and readable on both light and dark themes.
+    Der gesamte Bar-Verlauf aller Reps ist als matte graue Linie im
+    Hintergrund sichtbar.
   - >
-    Automated tests still pass after the change.
+    Die Anzahl der erkannten Reps und ihre Dauer werden als Metriken
+    in der Zusammenfassung angezeigt.
+  - >
+    Keine hardcoded Farb-Literals — alle Farben nutzen `theme.colors`.
+  - >
+    Automated tests pass nach der Änderung.
+
 evidenceRequired:
-  - Screenshot showing the overlay with the themed color.
+  - >
+    Screenshot WÄHREND einer aktiven Rep (Current Rep zeigt eine Nummer),
+    wo die primary-farbene Kurve und die graue Hintergrund-Linie sichtbar sind.
   - Passing test log.
+
 constraints:
-  - Use an existing theme color token, do not add new theme entries.
+  - Bestehende theme.colors Tokens nutzen, keine neuen Theme-Einträge.
+  - Rep-Detection aus ANA-004 (repSegments) wiederverwenden.
+
 nonGoals:
-  - Changing other colors in the overlay or chart components.
+  - Änderungen an der Rep-Detection-Logik selbst.
+  - Änderungen an anderen Charts oder Screens.
