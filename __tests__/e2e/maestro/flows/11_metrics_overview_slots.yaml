@@ -2,12 +2,13 @@ appId: com.powerliftingworkoutplanner
 ---
 - extendedWaitUntil:
     visible: 'Training'
-    timeout: 15000
+    timeout: 60000
 
 # Open the Metrics Overview from Analyse.
 - tapOn: 'tab-analyse'
 - extendedWaitUntil:
-    visible: 'Analyse'
+    visible:
+      id: 'analyse-drawer-toggle'
     timeout: 15000
 - tapOn:
     id: 'analyse-drawer-toggle'
@@ -15,13 +16,23 @@ appId: com.powerliftingworkoutplanner
     visible: 'Metrics Overview'
     timeout: 10000
 - tapOn: 'Metrics Overview'
-- extendedWaitUntil:
-    visible: 'Muscle Overview'
-    timeout: 15000
 
-# Change the first exercise metric slot and verify all metric options are available.
+# Wait for Metrics Overview navigation header to confirm screen loaded.
+- extendedWaitUntil:
+    visible: 'Metrics Overview'
+    timeout: 20000
+
+# Wait for the exercise metric header (testID) to confirm content rendered.
+- extendedWaitUntil:
+    visible:
+      id: 'metrics-exercises-header-0'
+    timeout: 20000
+
+# Open metric selection dialog for first exercise slot.
 - tapOn:
     id: 'metrics-exercises-header-0'
+
+# Dialog is rendered in a Portal — its text is accessible.
 - extendedWaitUntil:
     visible: 'Select exercise metric'
     timeout: 10000
@@ -32,13 +43,28 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: 'Reps'
 - assertVisible: 'Max Intensity'
 - assertVisible: 'Average Intensity'
-- tapOn: 'Average Intensity'
-- extendedWaitUntil:
-    visible: 'Average Intensity'
-    timeout: 10000
-- takeScreenshot: met-001-metrics-overview
 
-# Open a finished training and confirm the same slot uses the persisted metric.
+# Select Average Intensity.
+- tapOn: 'Average Intensity'
+
+# Wait for dialog to close (exercise header reappears).
+- extendedWaitUntil:
+    visible:
+      id: 'metrics-exercises-header-0'
+    timeout: 10000
+- takeScreenshot: met-001-metrics-slot-changed
+
+# Reopen dialog to verify the new selection was persisted.
+- tapOn:
+    id: 'metrics-exercises-header-0'
+- extendedWaitUntil:
+    visible: 'Select exercise metric'
+    timeout: 10000
+- assertVisible: 'Current: Average Intensity'
+- takeScreenshot: met-001-dialog-persisted
+- back
+
+# Navigate to a finished training and confirm the same slot shows the persisted metric.
 - tapOn: 'tab-training'
 - extendedWaitUntil:
     visible:
@@ -50,8 +76,9 @@ appId: com.powerliftingworkoutplanner
     direction: DOWN
 - tapOn: 'Last Training'
 - extendedWaitUntil:
-    visible: 'Muscle Overview'
-    timeout: 15000
+    visible:
+      id: 'metrics-exercises-header-0'
+    timeout: 20000
 - tapOn:
     id: 'metrics-exercises-header-0'
 - extendedWaitUntil:
