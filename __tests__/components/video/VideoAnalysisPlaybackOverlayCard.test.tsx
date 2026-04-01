@@ -352,11 +352,15 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
 // Speed chart = 248px total: 48px Y-axis padding + 200px drawable area.
 // Bar-path time range: minTimeMs=1000, maxTimeMs=3000, durationMs=2000.
 // Video duration: 5000ms.
-// Before minTimeMs: raw x = 48 + fraction*200 can be negative, clamped to [0, 248].
+// The chart X-axis spans the full video timeline, so the first data point sits at
+// x = 48 + (1000 / 5000) * 200 = 88 instead of directly at the chart start.
 describe('VideoAnalysisPlaybackOverlayCard – speed chart marker alignment', () => {
   const CHART_WIDTH = 248;
   const LEFT_PADDING = 48;
   const DRAWABLE_WIDTH = CHART_WIDTH - LEFT_PADDING; // 200
+  const VIDEO_DURATION_MS = 5000;
+  const FIRST_DATA_TIME_MS = 1000;
+  const LAST_DATA_TIME_MS = 3000;
 
   const setupWithOffset = () => {
     const {getByTestId} = render(
@@ -365,54 +369,64 @@ describe('VideoAnalysisPlaybackOverlayCard – speed chart marker alignment', ()
     const player = getByTestId('video-analysis-playback-player');
     const scrubber = getByTestId('video-analysis-playback-scrubber');
 
-    loadPlayer(player, 5000);
+    loadPlayer(player, VIDEO_DURATION_MS);
     setScrubberWidth(scrubber, 100);
     setSpeedChartWidth(getByTestId, CHART_WIDTH);
 
     return {getByTestId, player, scrubber};
   };
 
-  it('marker sits at left edge when playback time == timeRange.minTimeMs (1000ms)', () => {
-    const {getByTestId, scrubber} = setupWithOffset();
-    // Seek to minTimeMs=1000 via scrubber: 1000/5000 = 20% of scrubberWidth
-    seekViaScrubbingTo(scrubber, 1000, 5000, 100);
+  it('configures the speed chart x-axis to span the full video duration', () => {
+    const {getByTestId} = setupWithOffset();
+    const speedPlot = getByTestId('video-analysis-playback-speed-plot');
 
-    // progress = (1000 - 1000) / 2000 = 0 → left edge
-    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + 0 * DRAWABLE_WIDTH);
+    expect(speedPlot.props.xAxis).toEqual(
+      expect.objectContaining({
+        axisMinimum: 0,
+        axisMaximum: VIDEO_DURATION_MS,
+      }),
+    );
   });
 
-  it('marker sits at right edge when playback time == timeRange.maxTimeMs (3000ms)', () => {
+  it('marker starts at the chart left edge at playback t=0 even when data starts later', () => {
     const {getByTestId, scrubber} = setupWithOffset();
-    seekViaScrubbingTo(scrubber, 3000, 5000, 100);
+    seekViaScrubbingTo(scrubber, 0, VIDEO_DURATION_MS, 100);
 
-    // progress = (3000 - 1000) / 2000 = 1 → right edge
-    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + 1 * DRAWABLE_WIDTH);
+    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING);
   });
 
-  it('marker is clamped at container left (x=0) when playback time < timeRange.minTimeMs', () => {
+  it('marker aligns with the first data timestamp inside the chart when playback time == timeRange.minTimeMs', () => {
     const {getByTestId, scrubber} = setupWithOffset();
-    // Seek to 0ms (before first data point at 1000ms)
-    seekViaScrubbingTo(scrubber, 0, 5000, 100);
+    seekViaScrubbingTo(scrubber, FIRST_DATA_TIME_MS, VIDEO_DURATION_MS, 100);
 
-    // x = 48 + ((0 - 1000) / 2000) * 200 = 48 - 100 = -52 → clamped to 0
-    expect(getMarkerTranslateX(getByTestId)).toBe(0);
+    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + (FIRST_DATA_TIME_MS / VIDEO_DURATION_MS) * DRAWABLE_WIDTH);
   });
 
-  it('marker is clamped at right edge when playback time > timeRange.maxTimeMs', () => {
+  it('marker aligns with the last data timestamp inside the chart when playback time == timeRange.maxTimeMs', () => {
     const {getByTestId, scrubber} = setupWithOffset();
-    // Seek to 5000ms (past last data point at 3000ms)
-    seekViaScrubbingTo(scrubber, 5000, 5000, 100);
+    seekViaScrubbingTo(scrubber, LAST_DATA_TIME_MS, VIDEO_DURATION_MS, 100);
 
-    // progress = clamp((5000 - 1000) / 2000, 0, 1) = 1 → right edge
-    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + 1 * DRAWABLE_WIDTH);
+    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + (LAST_DATA_TIME_MS / VIDEO_DURATION_MS) * DRAWABLE_WIDTH);
   });
 
-  it('marker moves to midpoint when playback time == midpoint of data range', () => {
+  it('marker stays left of the first data point while playback time is before timeRange.minTimeMs', () => {
     const {getByTestId, scrubber} = setupWithOffset();
-    // Midpoint of [1000, 3000] is 2000ms
-    seekViaScrubbingTo(scrubber, 2000, 5000, 100);
+    seekViaScrubbingTo(scrubber, 500, VIDEO_DURATION_MS, 100);
 
-    // progress = (2000 - 1000) / 2000 = 0.5 → midpoint
-    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + 0.5 * DRAWABLE_WIDTH);
+    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + (500 / VIDEO_DURATION_MS) * DRAWABLE_WIDTH);
+  });
+
+  it('marker reaches the chart right edge at the end of the video even after the data range has ended', () => {
+    const {getByTestId, scrubber} = setupWithOffset();
+    seekViaScrubbingTo(scrubber, VIDEO_DURATION_MS, VIDEO_DURATION_MS, 100);
+
+    expect(getMarkerTranslateX(getByTestId)).toBe(CHART_WIDTH);
+  });
+
+  it('marker follows the shared 0..duration timeline at intermediate playback times', () => {
+    const {getByTestId, scrubber} = setupWithOffset();
+    seekViaScrubbingTo(scrubber, 2000, VIDEO_DURATION_MS, 100);
+
+    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + (2000 / VIDEO_DURATION_MS) * DRAWABLE_WIDTH);
   });
 });

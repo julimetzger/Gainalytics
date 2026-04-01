@@ -288,9 +288,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   // Tracks actual video duration as a SharedValue for UI-thread marker/scrubber animations.
   const videoDurationMsSV = useRef(useSharedValue(0)).current;
   const speedChartWidthSV = useRef(useSharedValue(0)).current;
-  // Track bar-path time range as SharedValues so the worklet can access them on the UI thread.
-  const timeRangeMinMsSV = useRef(useSharedValue(0)).current;
-  const timeRangeDurationMsSV = useRef(useSharedValue(0)).current;
 
   const playbackDurationRef = useRef(0);
   const playbackTimeRef = useRef(0);
@@ -303,11 +300,8 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const smoothedBarVerticalVelocitySeries = useMemo(() => calculateBarVerticalVelocitySeries(smoothedBarPathSeries), [smoothedBarPathSeries]);
   const timeRange = useMemo(() => getTimeRange(smoothedBarPathSeries), [smoothedBarPathSeries]);
   const correctedPlaybackDurationMs = useMemo(() => {
-    if (playbackDurationMs > 0) {
-      return playbackDurationMs;
-    }
-    return timeRange.durationMs;
-  }, [playbackDurationMs, timeRange.durationMs]);
+    return Math.max(playbackDurationMs, timeRange.maxTimeMs);
+  }, [playbackDurationMs, timeRange.maxTimeMs]);
 
   // Keep videoDurationMsSV in sync with correctedPlaybackDurationMs for UI-thread animations.
   // SharedValue intentionally excluded from deps (stable ref, memory entry #16).
@@ -317,25 +311,21 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     }
   }, [correctedPlaybackDurationMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keep bar-path time range SharedValues in sync for the marker worklet.
-  useEffect(() => {
-    timeRangeMinMsSV.value = timeRange.minTimeMs; // eslint-disable-line react-hooks/exhaustive-deps
-    timeRangeDurationMsSV.value = timeRange.durationMs; // eslint-disable-line react-hooks/exhaustive-deps
-  }, [timeRange.minTimeMs, timeRange.durationMs]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const progressMarkerLeft = useDerivedValue(() => {
     'worklet';
-    if (speedChartWidthSV.value <= 0 || timeRangeDurationMsSV.value <= 0) {
+    if (speedChartWidthSV.value <= 0) {
       return 0;
     }
     const drawableWidth = Math.max(0, speedChartWidthSV.value - SPEED_CHART_LEFT_PADDING);
-    // Map playback time to chart pixel position.
-    // x = SPEED_CHART_LEFT_PADDING at t=minTimeMs, x = chartWidth at t=maxTimeMs.
-    // Before minTimeMs the marker sits left of the data area (may overlap Y-axis labels),
-    // clamped at 0. After maxTimeMs it is clamped at chartWidth.
-    const fraction = (playbackTimeMsSV.value - timeRangeMinMsSV.value) / timeRangeDurationMsSV.value;
-    const x = SPEED_CHART_LEFT_PADDING + fraction * drawableWidth;
-    return Math.min(speedChartWidthSV.value, Math.max(0, x));
+    if (videoDurationMsSV.value <= 0) {
+      return SPEED_CHART_LEFT_PADDING;
+    }
+
+    // Keep the marker on the same 0..videoDuration timeline as the scrubber and player.
+    // The chart uses the same domain, so non-zero minTimeMs values naturally shift the data
+    // to the right while the marker still starts at the chart's left edge at t=0.
+    const progress = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value));
+    return SPEED_CHART_LEFT_PADDING + progress * drawableWidth;
   });
 
   // Scrubber fill and thumb are driven by Reanimated SharedValues on the UI thread — no JS state.
@@ -687,6 +677,8 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
                 enabled: false,
                 drawGridLines: false,
                 drawAxisLine: false,
+                axisMinimum: 0,
+                axisMaximum: correctedPlaybackDurationMs > 0 ? correctedPlaybackDurationMs : 1,
               }}
               yAxis={{
                 left: {
