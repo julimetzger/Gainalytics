@@ -1,0 +1,71 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-003-fix2 round-6b: Capture marker during playback (mid-chart position).
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: "Android App Compatibility"
+    commands:
+      - tapOn:
+          text: "Don't Show Again"
+- runFlow:
+    when:
+      visible: "Unable to load script"
+    commands:
+      - tapOn:
+          text: "RELOAD"
+      - waitForAnimationToEnd:
+          timeout: 8000
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 15000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- scrollUntilVisible:
+    element:
+      text: "Open"
+    direction: DOWN
+- tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Status: done"
+    timeout: 180000
+# Scroll to Playback Overlay section
+- scrollUntilVisible:
+    element:
+      text: "Playback Overlay"
+    direction: DOWN
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- assertVisible: "Bar v_y Over Time"
+- assertVisible: "Play"
+# Screenshot at t=0:00 (marker before data area, formula gives x < 48)
+- takeScreenshot: "marker_r6_t0_before_data"
+# Play for 8 seconds (past minTimeMs ~5s), then take screenshot via adb
+- tapOn: "Play"
+- waitForAnimationToEnd:
+    timeout: 8000
+# Use +0.2s step to pause at a specific position - actually just take screenshot while playing
+- takeScreenshot: "marker_r6_t8s_in_data"
+- waitForAnimationToEnd:
+    timeout: 15000
+- takeScreenshot: "marker_r6_t23s_in_data"

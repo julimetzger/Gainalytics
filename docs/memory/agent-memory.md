@@ -521,3 +521,17 @@ Working solution:
 - Wait at least 15 seconds before the next Maestro invocation.
 
 Apply when: a Maestro session crashed mid-flow and a new flow will be started against the same device.
+
+### 25. Marker-formula bug: clamping progress to [0,1] before pixel-multiply causes off-by-offset issue
+
+Problem: If `progress = clamp((t - minTimeMs) / durationMs, 0, 1)` is used, then all `t <= minTimeMs` map to `x = LEFT_PADDING`. When `minTimeMs > 0`, the marker appears at the data-start pixel at video `t=0:00`, ahead of the scrubber.
+
+Observation: The correct formula is to compute raw `x = LEFT_PADDING + fraction * drawableWidth` (where fraction can be negative), then clamp the final pixel position to `[0, chartWidth]`. This allows the marker to sit in the Y-axis area for `t < minTimeMs`.
+
+Apply when: implementing overlay markers on charts where the chart X-range `[minTimeMs, maxTimeMs]` does not start at 0. Always clamp pixel result, never clamp the fraction.
+
+### 26. Emulator test video vs device test video have different minTimeMs
+
+Problem: `Import Emulator Squat Video` on device R5CN30HWZFN uses a real camera video (PXL_...) which tends to have `minTimeMs ≈ 0`. The reviewer's analysis had `minTimeMs ≈ 5000ms`. Unit tests with `makeResultWithOffset()` (minTimeMs=1000) are the reliable way to prove non-zero-offset behavior.
+
+Apply when: taking device screenshots to prove marker-offset fixes — the fix may be invisible on screen if test data has minTimeMs=0. Prioritize unit test evidence for this class of bug.
