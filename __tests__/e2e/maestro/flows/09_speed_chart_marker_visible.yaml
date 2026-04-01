@@ -1,0 +1,84 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-003-fix2 round-5: Capture marker at left AND right edges of velocity chart.
+# Run WITHOUT --format junit to avoid TestSuiteInteractor gRPC disconnect issue.
+# Assumes an existing "done" analysis is on the device.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: "Android App Compatibility"
+    commands:
+      - tapOn:
+          text: "Don't Show Again"
+- runFlow:
+    when:
+      visible: "Unable to load script"
+    commands:
+      - tapOn:
+          text: "RELOAD"
+      - waitForAnimationToEnd:
+          timeout: 8000
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 15000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- scrollUntilVisible:
+    element:
+      text: "Open"
+    direction: DOWN
+- tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Status: done"
+    timeout: 180000
+# Scroll to Playback Overlay section
+- scrollUntilVisible:
+    element:
+      text: "Playback Overlay"
+    direction: DOWN
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+# Verify controls are in view
+- assertVisible: "Bar v_y Over Time"
+- assertVisible:
+    text: "Playback: 00:00 / [0-9]{2}:[0-9]{2}"
+- assertVisible: "Play"
+# ── Screenshot A: marker at left edge of data area (clamped, t=0:00 < minTimeMs ~5s) ──
+- takeScreenshot: "marker_A_left_edge_clamped"
+# ── Play video, wait for animation, take mid-chart screenshot ──
+- tapOn: "Play"
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: "marker_B_playing_early"
+# ── Continue playing to near maxTimeMs, then take right-edge screenshot ──
+- waitForAnimationToEnd:
+    timeout: 40000
+- takeScreenshot: "marker_C_playing_mid"
+- waitForAnimationToEnd:
+    timeout: 30000
+- tapOn: "Pause"
+- waitForAnimationToEnd:
+    timeout: 500
+- assertVisible:
+    id: "video-analysis-speed-marker"
+- takeScreenshot: "marker_D_paused_near_end"

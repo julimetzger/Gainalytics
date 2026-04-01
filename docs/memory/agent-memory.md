@@ -458,3 +458,66 @@ Working solution:
 - Use the prior round's Maestro evidence if the setup flow cannot produce a completed analysis.
 
 Apply when: planning Maestro flows on R5CN30HWZFN that require a video analysis.
+
+### 22. Maestro TcpForwarder timeout when HOME is overridden but driver port is in use
+
+Problem:
+- Running `maestro ... test` with a custom `HOME` (as in `run-maestro-from-wsl.sh`) causes TcpForwarder timeout when the driver port is held by an existing orchestrator session.
+
+Symptoms:
+- `java.util.concurrent.TimeoutException` from `dadb.forwarding.TcpForwarder.waitFor`
+- Happens when `HOME` is overridden AND `--driver-host-port` conflicts with an active session.
+
+Working solution:
+- Run `maestro` directly without overriding `HOME` and without `--host`, passing only `--device` and `--driver-host-port` from the current shell.
+- This uses the existing adb connection and reuses the driver port correctly.
+- Only change `HOME` when no active driver session is holding the port.
+
+Apply when: running one-off Maestro flows directly (not via run-maestro-from-wsl.sh) in a worker that has an orchestrator-assigned driver port.
+
+### 23. Maestro `tapOn: "Play"` DEADLINE_EXCEEDED when video is playing (ANA-003-fix2)
+
+Problem:
+- Maestro's `waitForAppToSettle` calls `AndroidDriver.callViewHierarchy` via gRPC with a 120s deadline.
+- When a video is playing, the playback time label (`00:12 / 00:47`) updates every second.
+- The UI hierarchy is never "settled", so `waitForAppToSettle` hangs until the 120s gRPC deadline expires.
+- Both `--format junit` (TestSuiteInteractor path) and plain `maestro test` (TestCommand path) hit this.
+
+Symptoms:
+- `tapOn: "Play"` fails with `DEADLINE_EXCEEDED` after exactly 120s.
+- Any subsequent Maestro step after Play also fails.
+- The app is fine; only Maestro's gRPC driver is timed out.
+
+Working solution:
+- Use Maestro only for navigation steps where the UI is stable (navigate to screen, scroll, assertions on static text).
+- Switch to **pure ADB** for the Play tap and all subsequent screenshots:
+  ```bash
+  adb shell input tap <x> <y>      # Play button coords from uiautomator dump
+  sleep 8
+  adb exec-out screencap -p > screenshot.png
+  ```
+- Use `adb shell uiautomator dump` to get exact element coordinates before tapping.
+- The video will naturally play to the end; a final `adb exec-out screencap` captures the right-edge state.
+
+Apply when: any Maestro flow needs to interact with or screenshot a continuously-updating UI (video playback, live timers, animations).
+
+### 24. Crashed Maestro session leaves device driver in bad state for subsequent run
+
+Problem:
+- After a Maestro gRPC disconnect (DEADLINE_EXCEEDED or TcpForwarder timeout), the Maestro agent on the device is stuck.
+- The next Maestro run hits the same gRPC issue on the first heavy gesture (swipe, scroll) even though it previously worked.
+
+Symptoms:
+- First run: navigation works, then fails on Play.
+- Second run immediately after: fails on first swipe with gRPC disconnect.
+
+Working solution:
+- After any crashed Maestro session, before running the next flow:
+  ```bash
+  adb shell am force-stop com.powerliftingworkoutplanner
+  adb shell am force-stop dev.mobile.maestro.android
+  sleep 15
+  ```
+- Wait at least 15 seconds before the next Maestro invocation.
+
+Apply when: a Maestro session crashed mid-flow and a new flow will be started against the same device.
