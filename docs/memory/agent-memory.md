@@ -285,6 +285,69 @@ Working solution:
 Relevant files:
 - [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
 
+### 16. Merge conflict resolutions can silently drop features, not just code
+
+Problem:
+- A merge commit (`b52ea32`) resolved a conflict in `VideoAnalysisPlaybackOverlayCard.tsx` by removing the entire active-rep visual feature and the related helpers (`buildOverlayLineSegments`, `selectOverlayPointsForRep`, `OverlayLineSegment`) along with the hardcoded `#63A002` constant.
+- The resulting code had no hardcoded color, but also had no active rep visualization at all — a silent regression.
+
+Symptoms:
+- `git log --all -- file` shows the last commit was `73220e0`, which still had the color.
+- `git show HEAD:file | grep 63A002` returns empty — no hardcoded color, but also no active rep path.
+- The ticket's description was still valid despite the constant being gone.
+
+Working solution:
+- When a ticket says "replace hardcoded X with Y", grep for Y but also grep for the feature it enabled (e.g., `activeRepPathSegment`, `buildOverlayLineSegments`) to confirm the feature still exists.
+- If the feature is gone too, restore it with the theme color — not just remove the constant.
+
+Relevant files:
+- [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
+
+### 17. Emulator video analysis fails with "No outer plate candidate found at t=0" on fresh state
+
+Problem:
+- The emulator squat video on `emulator-5556` fails auto-detection with "No outer plate candidate at t=0".
+- The analysis status goes directly to `failed` without passing through `awaiting_seed_selection`.
+
+Symptoms:
+- Maestro waits for `Status: (done|awaiting_seed_selection)` but times out because the status becomes `Status: failed`.
+- The seed selection branch in the Maestro flow never fires.
+
+Working solution:
+- For e2e proof of overlay/playback features on this emulator, write a simpler flow with `clearState: false` that navigates to the existing (possibly failed) analysis detail and asserts the overlay sections are visible.
+- Use Jest unit tests as the primary evidence for code correctness; Maestro proves no crash, not the full visual.
+
+Relevant files:
+- [ana004_active_rep_theme_color.yaml](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/maestro/flows/ana004_active_rep_theme_color.yaml)
+
+### 18. uiautomator dump writes stale cached file when device is busy
+
+Problem:
+- `adb shell uiautomator dump` on a physical device under load (React Native rendering) often times out or produces a 0-byte file at the default path `/sdcard/window_dump.xml`.
+- Pulling the file after a timeout returns the previously-written XML, not the current UI state.
+
+Symptoms:
+- Multiple `adb pull /sdcard/window_dump.xml` return files with identical byte sizes across different screen states.
+- Element bounds from the dump don't match what's visible on screen.
+
+Working solution:
+- Check file size: if identical to previous pull, the dump is stale — retry or fall back to visual estimation from screenshots.
+- Use a timestamped unique output path (`/sdcard/dump_$(date +%s).xml`) and check that the file appears before pulling.
+- On a physical device, prefer `timeout 10 adb shell uiautomator dump` to avoid blocking indefinitely.
+
+### 19. adb input swipe near screen bottom triggers Android gesture nav (goes to home)
+
+Problem:
+- On physical devices with gesture navigation, `adb shell input swipe` with an end-Y near the bottom edge (y > ~1400 on a 1600-tall screen) triggers the Android home gesture instead of scrolling.
+
+Symptoms:
+- `input swipe 360 900 360 200` scrolls correctly; `input swipe 360 700 360 200` may also trigger home if the swipe ends in the gesture zone.
+- App disappears and home screen shows.
+
+Working solution:
+- Keep swipe end-Y above y=1300 on a 720x1600 device to avoid the gesture zone (approximately 1376–1600).
+- Use shorter swipe distances and moderate speed (400–600ms duration).
+
 ## Operational Guidance For Feature Agents
 
 - Do not spend time re-debugging host-vs-worker Metro. Reuse host Metro.
