@@ -3,6 +3,7 @@
 ### 153
 
 - [ready] [ANA-005-fix](tickets/done/ANA-005-fix-codex-review.yaml) Fix Codex review findings + Progress-Bar für async video analysis (PR #23)
+- [ready] [FUN-001](tickets/review/FUN-001-cardio-easter-egg.yaml) Easter Egg — Cardio-Warnung bei mehr als 20 Reps
 
 ### 152
 
