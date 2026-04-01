@@ -535,3 +535,31 @@ Apply when: implementing overlay markers on charts where the chart X-range `[min
 Problem: `Import Emulator Squat Video` on device R5CN30HWZFN uses a real camera video (PXL_...) which tends to have `minTimeMs ≈ 0`. The reviewer's analysis had `minTimeMs ≈ 5000ms`. Unit tests with `makeResultWithOffset()` (minTimeMs=1000) are the reliable way to prove non-zero-offset behavior.
 
 Apply when: taking device screenshots to prove marker-offset fixes — the fix may be invisible on screen if test data has minTimeMs=0. Prioritize unit test evidence for this class of bug.
+
+### 27. Chart marker and video scrubber must share the same timeline domain
+
+Problem: Multiple rounds (R1-R6) tried to align the marker by mapping it to `[minTimeMs, maxTimeMs]`. The real issue was that the chart x-axis domain and the scrubber domain were different. The scrubber uses `[0, videoDuration]` (full video timeline), but the chart was implicitly using `[minTimeMs, maxTimeMs]` (data range).
+
+Working solution: Set `axisMinimum=0` and `axisMaximum=videoDuration` on the chart x-axis. Then use `progress = t / videoDuration` for the marker (same as scrubber). Data points with `tMs > 0` naturally appear offset from the left edge.
+
+Apply when: implementing overlay markers on time-series charts in video analysis UIs. Always make the chart x-axis domain explicit and match it to the video timeline, not the data range.
+
+### 28. Maestro `assertVisible` does not support regex patterns in text field
+
+Problem: Using `assertVisible: text: "Playback: 00:00 / [0-9]{2}:[0-9]{2}"` fails with "Assertion is false" even when the text is on screen.
+
+Observation: Maestro's `assertVisible` treats the `text` value as a literal string, not a regex. Remove the dynamic part and only assert the static prefix: `text: "Playback: 00:00"`.
+
+Apply when: writing Maestro flows that assert on time-display strings with dynamic components (seconds, minutes). Assert only the fixed prefix.
+
+### 29. Use viewPortOffsets to pin a chart overlay marker to the Y-axis line
+
+Problem: Hardcoding `SPEED_CHART_LEFT_PADDING = 48` to estimate the Y-axis label width was unreliable. MPAndroidChart auto-calculates the left offset based on the actual text width of Y-axis labels, which is wider than the guess (~48dp). The marker at t=0 ended up 16dp too far left, inside the label area.
+
+Working solution:
+- Add `viewPortOffsets={{ left: N, top: 4, right: 4, bottom: 4 }}` to the `react-native-charts-wrapper` `LineChart`.
+- Set the overlay marker constant to the same N: `SPEED_CHART_LEFT_PADDING = N`.
+- `viewPortOffsets.left = N` overrides MPAndroidChart's auto-calculated left offset and forces the drawable area to start at exactly x=N dp. The Y-axis line is at x=N by definition.
+- N=64 fits Y-axis labels up to 4 digits (e.g. "-999"). No native rebuild needed — `viewPortOffsets` is already a JS-bridge prop in `react-native-charts-wrapper/lib/BarLineChartBase.js`.
+
+Apply when: implementing an Animated overlay marker on a react-native-charts-wrapper chart and the marker must align precisely with the Y-axis line.
