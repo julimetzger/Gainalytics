@@ -25,9 +25,10 @@ interface OverlayPoint {
 
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
 const SPEED_PLOT_HEIGHT = 180;
-// Visually calibrated Y-axis label width for the speed chart.
-// This is the left offset where the drawable chart area starts.
-const SPEED_CHART_LEFT_PADDING = 48;
+// Left offset of the chart drawable area (dp). Must match viewPortOffsets.left on the LineChart.
+// Using viewPortOffsets forces MPAndroidChart to use this exact offset, so the marker can be
+// placed precisely on the Y-axis line at t=0.
+const SPEED_CHART_LEFT_PADDING = 64;
 const BAR_PATH_SMOOTHING_WINDOW = 5;
 const SPEED_SMOOTHING_WINDOW = 5;
 
@@ -673,6 +674,12 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
               legend={{enabled: false}}
               chartDescription={{text: ''}}
               marker={{enabled: false}}
+              viewPortOffsets={{
+                left: SPEED_CHART_LEFT_PADDING,
+                top: 4,
+                right: 4,
+                bottom: 4,
+              }}
               xAxis={{
                 enabled: false,
                 drawGridLines: false,
