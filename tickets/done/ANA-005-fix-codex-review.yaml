@@ -35,7 +35,32 @@ description: >
   `lastAnalysisSecondsPerVideoSecond`-Wert systematisch falsch.
   Fix: Echte Dauer aus Video-Metadaten lesen.
 
-  6. **Realistische Progressbar (NEU):** Die Loading-Bar soll den tatsächlichen
+  6. **Progressbar nicht sichtbar (PR #28 Test):** Die Progressbar ist beim
+  Testen nicht sichtbar gewesen. Muss sichtbar den Fortschritt anzeigen.
+
+  7. **Keine Theme-Farben in Progressbar (PR #28 Codex P1):** Hardcoded
+  Color-Literals statt `theme.colors` — verletzt Styling Rules (STRICT) aus
+  AGENTS.md. Kontrast-Probleme bei verschiedenen Themes.
+  Fix: Alle Farben in der Progressbar durch `theme.colors` ersetzen.
+
+  8. **App unresponsiv gegen Ende der Analyse (PR #28 Test):** Gegen Ende
+  der Video-Analyse wird die App komplett unresponsiv und muss neugestartet
+  werden. Vermutlich blockiert die Analyse den JS-Thread.
+  Fix: Sicherstellen dass die Analyse den UI-Thread nicht blockiert.
+
+  9. **Background-Handler Navigation ohne React-Context (PR #28 Codex P1):**
+  `EventType.PRESS` in `onBackgroundEvent` ruft `navigateToVideoAnalysis` auf,
+  aber Notifee Background-Handler laufen ohne React-Context — Navigation-Container
+  ist nicht verfügbar. Tap auf Notification im Background öffnet nicht die
+  Analysis-Detail-Seite.
+
+  10. **Gelernter Progress-Rate wird nicht aktualisiert (PR #28 Codex P2):**
+  Nach `importVideoAnalysisFromSource` wird das `analyses`-Array vom Import-Start
+  verwendet — die neu erstellte Analyse ist dort nicht enthalten. Dadurch läuft
+  `setLastSecondsPerVideoSecond` nie und die gelernte Progress-Rate bleibt beim
+  Default-Wert hängen.
+
+  11. **Realistische Progressbar (NEU):** Die Loading-Bar soll den tatsächlichen
   Fortschritt der VideoAnalyse über die gesamte Videolänge abbilden. Wenn die
   Bar voll ist, soll das Video fertig analysiert sein (oder fast fertig).
   Initiale Schätzung: 1 Sekunde Analyse pro Sekunde Videolänge (d.h. ein
@@ -71,6 +96,18 @@ acceptanceCriteria:
     Initiale Schätzung 1s Analyse pro 1s Video. Nach der ersten Analyse wird
     `lastAnalysisSecondsPerVideoSecond` für genauere Schätzungen herangezogen.
     Bei einem 45s-Video dauert die Bar beim ersten Mal ~45s bis sie voll ist.
+  - >
+    Die Progressbar ist sichtbar und zeigt den Fortschritt während der Analyse an.
+  - >
+    Alle Farben in der Progressbar verwenden `theme.colors` — keine hardcoded
+    Color-Literals.
+  - >
+    Die App bleibt während der gesamten Video-Analyse responsiv — kein Freeze
+    oder Neustart nötig.
+  - >
+    Nach einer abgeschlossenen Analyse wird `lastSecondsPerVideoSecond` mit dem
+    aktuellen (frisch gelesenen) State aktualisiert, nicht mit dem veralteten
+    Snapshot vom Import-Start.
   - >
     Automated tests cover notification permission, initial notification handling,
     foreground service reference counting, and duration-based progress calculation.
