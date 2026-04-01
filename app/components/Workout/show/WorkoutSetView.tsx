@@ -1,4 +1,4 @@
-import {View} from 'react-native';
+import {TouchableOpacity, View} from 'react-native';
 import {DataTable, Icon, useTheme} from 'react-native-paper';
 import React, {useEffect, useState} from 'react';
 import AddWorkoutSet from '../add/AddWorkoutSet';
@@ -6,7 +6,7 @@ import {calculateMetricValue} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {Metric} from "../../../models/Metric";
 
-const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMode}: WorkoutSetViewProps) => {
+const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMode, onLinkVideo, linkedSetIndices}: WorkoutSetViewProps) => {
   const theme = useTheme();
   const [setToUpdate, setSetToUpdate] = useState<WorkoutSet>();
   let indexOfSelectedWorkout = setToUpdate ? sets.indexOf(setToUpdate) : undefined;
@@ -37,6 +37,21 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
         <DataTable.Cell style={{flex: 1}}>
           {highLightMode && (highLightMode === Metric.MAX_INTENSITY || highLightMode === Metric.ONE_RM) && highlightValue === calculateMetricValue([set], highLightMode) ? (
             <Icon size={15} source={'trophy'} color={theme.colors.primary} />
+          ) : null}
+        </DataTable.Cell>
+        <DataTable.Cell style={{flex: 1}}>
+          {linkedSetIndices && set.index !== undefined && linkedSetIndices.includes(set.index) ? (
+            <Icon size={15} source={'video'} color={theme.colors.secondary} />
+          ) : null}
+          {editable && onLinkVideo ? (
+            <TouchableOpacity
+              testID={`set-link-video-${set.index}`}
+              accessible={true}
+              onPress={() => onLinkVideo(set)}
+              style={{padding: 2}}
+            >
+              <Icon source="video-plus" size={16} />
+            </TouchableOpacity>
           ) : null}
         </DataTable.Cell>
       </DataTable.Row>
@@ -71,6 +86,8 @@ interface WorkoutSetViewProps {
   onSubmit?: (workoutSet: WorkoutSet) => void;
   editable?: boolean;
   highLightMode?: Metric;
+  onLinkVideo?: (set: WorkoutSet) => void;
+  linkedSetIndices?: number[];
 }
 
 export default WorkoutSetView;

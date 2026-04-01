@@ -18,7 +18,7 @@ interface ImportVideoAnalysisParams {
   sourceUri: string;
   addVideoAnalysis: (videoAnalysis: VideoAnalysis) => void;
   setVideoAnalysisStatus: (analysisId: number, status: VideoAnalysisStatus, error?: string) => void;
-  setVideoAnalysisDuration: (analysisId: number, durationMs: number) => void;
+  setVideoAnalysisDuration?: (analysisId: number, durationMs: number) => void;
   setManualSeedFramePath: (analysisId: number, manualSeedFramePath?: string, localVideoPath?: string) => void;
   setSeedPreflight: (
     analysisId: number,
@@ -94,7 +94,7 @@ export const importVideoAnalysisFromSource = async ({
     // Falls back to 0 (unknown) if the native module cannot determine it.
     const videoDurationMs = await getVideoDuration(localVideoPath);
     if (videoDurationMs > 0) {
-      setVideoAnalysisDuration(analysisId, videoDurationMs);
+      setVideoAnalysisDuration?.(analysisId, videoDurationMs);
     }
 
     const preflightStartedAtMs = Date.now();
