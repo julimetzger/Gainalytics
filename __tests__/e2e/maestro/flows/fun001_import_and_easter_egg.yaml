@@ -1,0 +1,50 @@
+appId: com.powerliftingworkoutplanner
+---
+# FUN-001 combined: import baseline, then verify cardio Easter egg
+
+# Step 1: Import baseline data
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: "Training"
+    timeout: 20000
+- tapOn: "tab-settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-import-data-button"
+    direction: DOWN
+- tapOn:
+    id: "settings-import-data-button"
+- tapOn:
+    id: "settings-import-confirm-button"
+- tapOn: "baseline.gains"
+- assertVisible: "Import successful!"
+
+# Step 2: Navigate to exercises and trigger Easter egg
+- tapOn: "tab-exercises"
+- tapOn:
+    text: ".*Bankdrücken.*"
+# Enter a set with 21 reps (triggers Easter egg)
+- tapOn:
+    id: "add-workout-set-reps-input"
+- eraseText
+- inputText: "21"
+- tapOn:
+    id: "add-workout-set-rir-input"
+- eraseText
+- inputText: "0"
+- tapOn:
+    id: "add-workout-set-weight-input"
+- eraseText
+- inputText: "50"
+- hideKeyboard
+- tapOn:
+    id: "add-workout-set-submit-button"
+# Assert the Easter egg toast is visible
+- assertVisible:
+    text: "Cardio detected!"
+- assertVisible:
+    text: "This app can't be used to track cardio"
+# Assert the set was still saved (finalize button is still accessible)
+- assertVisible:
+    id: "add-workout-finalize-button"

@@ -4,6 +4,11 @@ import {fireEvent, render} from '@testing-library/react-native';
 import AddWorkoutSet from '../../../../app/components/Workout/add/AddWorkoutSet';
 import {useSettings} from '../../../../app/redux/settings/use/useSettings';
 import {WorkoutSet} from '../../../../app/models/entities/WorkoutSet';
+import Toast from 'react-native-toast-message';
+
+jest.mock('react-native-toast-message', () => ({
+  show: jest.fn(),
+}));
 
 jest.mock('../../../../app/redux/settings/use/useSettings', () => ({
   useSettings: jest.fn(),
@@ -57,6 +62,55 @@ describe('AddWorkoutSet', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('shows cardio Easter egg toast when reps > 20', () => {
+    const onSubmit = jest.fn();
+    const submitDate = new Date('2024-01-03T12:00:00.000Z');
+
+    const {getByLabelText, getByTestId} = render(<AddWorkoutSet onSubmit={onSubmit} date={submitDate} />);
+
+    fireEvent.changeText(getByLabelText('Reps'), '21');
+    fireEvent.changeText(getByLabelText('RIR'), '0');
+    fireEvent.changeText(getByLabelText('Weight'), '50');
+    fireEvent.press(getByTestId('button-Add'));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(Toast.show).toHaveBeenCalledTimes(1);
+    expect(Toast.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'error',
+        text2: expect.stringContaining("This app can't be used to track cardio"),
+      }),
+    );
+  });
+
+  it('does not show cardio toast when reps are exactly 20', () => {
+    const onSubmit = jest.fn();
+
+    const {getByLabelText, getByTestId} = render(<AddWorkoutSet onSubmit={onSubmit} />);
+
+    fireEvent.changeText(getByLabelText('Reps'), '20');
+    fireEvent.changeText(getByLabelText('RIR'), '0');
+    fireEvent.changeText(getByLabelText('Weight'), '50');
+    fireEvent.press(getByTestId('button-Add'));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(Toast.show).not.toHaveBeenCalled();
+  });
+
+  it('does not show cardio toast when reps are below 20', () => {
+    const onSubmit = jest.fn();
+
+    const {getByLabelText, getByTestId} = render(<AddWorkoutSet onSubmit={onSubmit} />);
+
+    fireEvent.changeText(getByLabelText('Reps'), '5');
+    fireEvent.changeText(getByLabelText('RIR'), '2');
+    fireEvent.changeText(getByLabelText('Weight'), '100');
+    fireEvent.press(getByTestId('button-Add'));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(Toast.show).not.toHaveBeenCalled();
   });
 
   it('validates required fields and does not submit empty values', () => {
