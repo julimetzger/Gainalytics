@@ -205,6 +205,7 @@ Rules:
 - For `ready_for_review`, every acceptance criterion must have one `acceptance_evidence` entry with concrete artifact or check references.
 - Do not block `ready_for_review` only because repo-wide `typecheck` or `lint` fail outside the ticket scope.
 - Store artifact paths relative to `run_dir`.
+- For `ready_for_review`, ensure the app with the implemented feature is still installed and runnable on the assigned device. Do not uninstall, clear state, or reset the device after the final verification. The user will manually test the feature on this device.
 
 ## Memory
 
@@ -228,6 +229,34 @@ Rules for writing memory entries:
 5. If nothing new was learned, do not write anything.
 6. Keep entries concise (max 10 lines per entry).
 7. Do NOT use `$memory` — write directly to the file.
+
+## Infrastructure Analysis
+
+After writing memory entries, also update `docs/memory/worker-infra-analysis.md` with
+any infrastructure problems encountered during this run. This file tracks time spent
+on setup/infra issues vs. feature work across all workers.
+
+Focus on problems during **setup and verification**, not feature code:
+- Metro connectivity (unreachable, wrong port, adb reverse failures)
+- Maestro issues (driver port conflicts, gRPC timeouts, wrong device, stale processes)
+- ADB problems (device not found, reverse setup, connection refused)
+- Build issues (Gradle failures, JAVA_TOOL_OPTIONS pollution, native rebuild)
+- Red screen / app not loading (bundle errors, crash on launch)
+- Screenshot capture failures
+
+Update the **Per-Worker Breakdown** table with a new row for your ticket, using log
+line counts or approximate time spent per category. If your ticket already has a row,
+update it with the latest round's data. Include the **Device** column: `real` for a
+physical device (e.g. R5CN30HWZFN) or `emu` for an emulator (e.g. emulator-5554).
+
+If no infrastructure problems occurred, still add a row with zeros — this is valuable
+data showing the setup worked cleanly.
+
+Rules:
+1. Read the file first to understand the existing format.
+2. Add or update your ticket's row in the table.
+3. If you discovered a new systemic gap, add it to the **Gaps** section.
+4. Keep entries factual and concise.
 
 ## Summary File
 

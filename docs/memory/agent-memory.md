@@ -361,3 +361,355 @@ Working solution:
 - Match react-native-paper `Button` by label text (`tapOn: "Play"`), not by testID — `id:` selector does not work for paper Button.
 - Use `clearState: false` for playback/overlay flows that reuse an existing analysis; `clearState: true` + CPU-intensive analysis = Maestro gRPC DEADLINE_EXCEEDED crash.
 - Avoid generic `scroll` commands after bringing a screen region into view if react-native-charts-wrapper charts are present; use `extendedWaitUntil` instead to avoid accidental chart `onSelect` triggers.
+
+
+### 16. jest.mock factory hoisting prevents using outer jest.fn() variables
+
+Problem:
+- Defining `const mockFn = jest.fn()` before a `jest.mock(...)` call and then referencing `mockFn` inside the factory body causes it to be `undefined` at runtime, because jest hoists `jest.mock` calls before variable declarations.
+
+Symptoms:
+- `TypeError: _moduleName.default.method is not a function` even though the mock factory appears correct
+- Tests that worked in isolation fail with confusing "not a function" errors
+
+Working solution:
+- Define `jest.fn()` **inside** the mock factory: `jest.mock('mod', () => ({ default: { method: jest.fn() } }))`
+- Retrieve the mock reference **after** `jest.mock` via `jest.requireMock`: `const { default: mock } = jest.requireMock('mod')`
+- Never assign `const myMock = jest.fn()` before the `jest.mock(...)` call that uses it
+
+### 17. notifee default export + jest mock requires __esModule: true with default key
+
+Problem:
+- `@notifee/react-native` is an ES module with a class instance as the default export.
+- Mocking it with `jest.mock('@notifee/react-native', () => ({ requestPermission: jest.fn() }))` does NOT work because `notifee` in source code maps to the `default` export.
+
+Working solution:
+- Use `{ __esModule: true, default: { requestPermission: jest.fn(), ... }, AuthorizationStatus: {...} }`
+- Then `jest.requireMock('@notifee/react-native').default` gives the mock object
+
+### 18. Maestro smoke shows all-black screenshots via Windows --host bridge in WSL worktree
+
+Problem:
+- Maestro with `--host <WSL_IP>` connects to adb but `launchApp` completes while the screenshot captured by Maestro is entirely black.
+- `adb -s device shell screencap` from WSL shows the app correctly; only Maestro's screenshot is black.
+
+Symptoms:
+- `assertVisible: "Training"` fails immediately after a COMPLETED `launchApp`
+- Debug screenshot in `.maestro/tests/` is a solid black image
+
+Observation:
+- This appears to be an emulator rendering sync issue specific to worktrees that have not previously run Maestro flows.
+- The app IS running (direct adb screenshot confirms it).
+- Maestro smoke tests in the main working directory do not have this problem.
+
+Apply when:
+- If Maestro black-screen occurs in a new worktree, try running a single `adb shell input keyevent KEYCODE_WAKEUP` and retrying. If still black, treat as a pre-existing infrastructure issue and use unit tests + adb screenshot as primary evidence.
+
+### 19. A resumed round may carry an expanded ticket with more acceptance criteria
+
+Problem:
+- A ticket handed to a resumed round may list more acceptance criteria than the previous round's status.json covered. The old `ready_for_review` status.json only maps evidence for the original criteria.
+
+Symptoms:
+- `status.json` says `ready_for_review` with a subset of the new acceptance_evidence list.
+- New criteria (e.g. foreground-service ref-counting, permission guard, progress bar) are not covered.
+
+Working solution:
+- Always re-read the prompt ticket description, not just the previous status.json, to get the current acceptance criteria list.
+- Diff the old `acceptance_evidence` entries against the new criteria and implement the missing items.
+- Write a new commit and update both `status.json` and `summary.md` to cover all criteria.
+
+Apply when:
+- The orchestrator sends a worker on a resumed round with `Prior review feedback: none` but the ticket has more criteria than the previous status.json covers.
+
+### 20. Utility functions written without call-sites are an integration gap
+
+Problem:
+- A previous round wrote utility functions (`incrementActiveAnalysisCount`, `decrementActiveAnalysisCount`, `calculateAnalysisProgress`) but never called them from the relevant modules or rendered them in the UI.
+
+Symptoms:
+- Review feedback says "INTEGRATION GAP — functions exist only as utilities" and "not used in UI".
+- Tests pass for the utility but no production code invokes it.
+
+Observation:
+- Writing a utility and its tests is not the same as integrating it. Always trace the call-site chain: utility → service/import module → UI component.
+- For ref-counting: increment before the try block, decrement in finally (not just in the success path).
+- For UI components: use `useRef` for per-item start times (Map) and `useState` + `setInterval` for the tick that drives re-renders.
+
+Apply when:
+- Any new utility for a lifecycle event (start/stop of analysis, progress tracking) must be wired into the lifecycle at the point where the event actually occurs, not left as standalone functions.
+
+### 21. adb touch coordinates must use physical screen pixels (1080×2400), not screenshot display pixels
+
+Problem:
+- Screenshots are displayed scaled-down by the viewer (~270×600), but `adb shell input tap` uses the actual physical pixel coordinates (1080×2400).
+
+Symptoms:
+- `adb shell input tap 170 553` hits a list item or wrong element instead of the intended nav bar tab.
+- The nav bar is at y≈2160–2295 in physical coords, not y≈553.
+
+Working solution:
+- Check `adb shell wm size` to get physical resolution.
+- Use `adb shell uiautomator dump` + parse XML to get exact bounds of nav items before tapping.
+- Navigation drawer items are found in the UIAutomator dump with their `text` or `content-desc`; compute center from bounds.
+
+Apply when:
+- Any adb tap-based navigation on the emulator needs precise coordinates.
+- `dragEnabled={false}` on MPAndroidChart does NOT stop touch event consumption — only `touchEnabled={false}` causes the chart to pass events to the parent ScrollView.
+- When `touchEnabled={false}` is set on a react-native-charts-wrapper chart, `onSelect` no longer fires. Re-implement tap-to-seek using `onTouchEnd` on a wrapper View with `locationX / chartWidth` coordinate math.
+- react-native-paper `Button` text is NOT in the Android accessibility tree when off-screen — `scrollUntilVisible: text: "+0.2s"` will fail if the button is below the fold. Use Card.Title text (always in the tree) as the scroll anchor, then swipe to reach buttons.
+- `video-analysis-playback-scrubber-fill` has `width: 0%` at t=0 so Maestro treats it as not visible. Assert `video-analysis-playback-scrubber-thumb` (fixed 20×20) instead for scrubber visibility proofs.
+- Maestro driver ports (dadb TcpForwarder) cannot be reused immediately after a prior run — the port stays occupied for several minutes. Use a fresh high port number (7100, 7200…) for each run attempt.
+
+### 16. MPAndroidChart touchEnabled=false is required to let ScrollView scroll through chart
+
+Problem:
+- A react-native-charts-wrapper `LineChart` inside a ScrollView blocks ALL vertical scroll gestures, even after setting `dragEnabled={false}`.
+
+Symptoms:
+- `scrollUntilVisible` times out immediately after the chart becomes visible — Maestro cannot find off-screen elements below the chart
+- `dragEnabled={false}` has no effect on touch event interception
+
+Working solution:
+- Set `touchEnabled={false}` on the LineChart to stop MPAndroidChart from returning `true` from `onTouchEvent`
+- Re-implement any chart tap callbacks (`onSelect`) using `onTouchEnd` on a wrapper View with manual coordinate math: `timeMs = minTimeMs + clamp((locationX - CHART_LEFT_PADDING) / drawableWidth, 0, 1) * durationMs`
+- The wrapper View needs its own `testID` for Maestro and unit test targeting
+
+Relevant files:
+- [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
+- [ana003_speed_chart_marker.yaml](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/maestro/flows/ana003_speed_chart_marker.yaml)
+
+### 17. `latestProgressTimeRef` forward guard silently drops all progress events after seek
+
+Problem:
+- Scrubber reached 100% at ~1:30min for a 47s video. After seeking to any future position the scrubber appeared frozen.
+
+Root cause:
+- `onPlayerProgress` had a guard: `if (currentTimeMs < latestProgressTimeRef.current) return;`
+- `applySeekTimeMs` set `latestProgressTimeRef.current = seekTargetMs` before the seek.
+- The seek target (~90000ms from bar-path duration) was larger than any real video position (0–47000ms), so every subsequent progress event was silently dropped.
+- The scrubber only advanced when `onPlayerEnd` fired.
+
+Working solution:
+- Remove the forward guard from `onPlayerProgress` entirely. If forward-guard semantics are needed for another reason, scope it more narrowly (e.g. only within a short debounce window after seek).
+
+Relevant files:
+- [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
+
+### 18. ExoPlayer `durationMs` can be 0 at `STATE_READY` — refresh it in the progress loop
+
+Problem:
+- JS received `durationMs = 0` from `onLoad`, fell back to `timeRange.durationMs` (~90s bar-path duration) as `correctedPlaybackDurationMs`. Scrubber denominator was wrong.
+
+Root cause:
+- `VideoAnalysisPlayerView.java` emits `onLoad` at `STATE_READY`. ExoPlayer does not always know the stream duration at that exact state (especially with HTTP sources). `getSafeDurationMs()` returned 0.
+
+Working solution:
+- In `progressRunnable.run()`, add a one-time refresh:
+  ```java
+  if (durationMs <= 0) {
+      int freshDuration = getSafeDurationMs();
+      if (freshDuration > 0) {
+          durationMs = freshDuration;
+          emitLoad();
+      }
+  }
+  ```
+- This fires at most once per playback session (on the first progress tick after ExoPlayer buffers enough to know the duration).
+
+Relevant files:
+- [VideoAnalysisPlayerView.java](/home/jmetzger/projects/PowerliftingWorkoutPlanner/android/app/src/main/java/com/powerliftingworkoutplanner/VideoAnalysisPlayerView.java)
+
+### 19. Thousands of small React Views in a chart section cause heavy reconciliation even with Reanimated markers
+
+Problem:
+- Moving the progress marker to the UI thread (Reanimated) eliminated Bridge saturation for the marker. But the JS thread was still slow during playback — React reconciliation was expensive.
+
+Root cause:
+- The time-plot section rendered one `<View>` dot per bar-path frame. A typical bar path has hundreds of frames → hundreds of tiny Views in the React tree. Re-rendering this tree 5–20×/second costs significant JS time regardless of Reanimated use.
+
+Working solution:
+- Remove the section entirely if it is not an acceptance criterion. Dot charts are best rendered natively (Canvas/SVG) rather than as hundreds of React Views.
+- If the feature is required: render to a single `<Canvas>` (react-native-skia) or use a fixed-size native chart component.
+
+Relevant files:
+- [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
+
+### 20. Windows adb server (WSL2) drops gRPC connections during Maestro TcpForwarder setup
+
+Problem:
+- Maestro flows fail immediately at `deviceInfo` with "Network closed for unknown reason" even though the device is connected and `adb devices` succeeds.
+
+Root cause:
+- WSL2 uses a remote adb server at the Windows host IP (e.g. 172.18.240.1:5037). This TCP connection is routed through the WSL2 virtual NIC and is inherently unstable for long-lived connections.
+- Maestro's `TcpForwarder` (dadb library) opens an adb-protocol tunnel via `adb forward` and then immediately exchanges gRPC frames. If the adb server drops the connection in the <100ms between tunnel setup and the first gRPC call, the entire flow fails.
+- Socat proxies, different HOME settings, and JAVA_TOOL_OPTIONS all fail to fix this because the instability is in the adb server TCP layer, not in Maestro's JVM.
+
+Mitigation:
+- Retry the Maestro run multiple times — the adb server is intermittently available.
+- If the prior round's Maestro run already proves the same criterion, cite it in `status.json` and document the infra blocker in `blocker`.
+- Use the `--debug-output` flag to capture a port-level log when investigating.
+- Long-term fix: run a native Linux adb server on WSL2 instead of relying on the Windows host adb server.
+
+Relevant files:
+- [run-maestro-from-wsl.sh](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/scripts/run-maestro-from-wsl.sh)
+
+### 12. Progress bar indeterminate state for unknown-duration analysis
+
+Problem:
+- When a video analysis starts, `durationMs` is 0 until the video copy + `getVideoDuration()` completes.
+- `calculateAnalysisProgress(elapsed, 0) = 0` always, so the ProgressBar rendered at 0% fill (visually invisible on dark background).
+- Screenshots taken early in PROCESSING state showed no visible bar.
+
+Observation:
+- react-native-paper `ProgressBar` supports `indeterminate={true}` for a pulsating animation.
+- Switching to `indeterminate` while `durationMs` is unknown, then `determinate` once duration is set, gives two visually distinct states.
+
+Working solution:
+```jsx
+<ProgressBar
+  indeterminate={!analysis.videoMeta?.durationMs}
+  progress={analysis.videoMeta?.durationMs
+    ? calculateAnalysisProgress(elapsed, estimated)
+    : undefined}
+/>
+```
+
+Apply when: any ProgressBar showing time-based fill where the total duration is not immediately available.
+
+### 13. Maestro driver port conflict after back-to-back flows
+
+Problem:
+- Running a second Maestro flow immediately after a successful one with the same `--driver-host-port` fails:
+  `Maestro Android driver did not start up in time`.
+
+Symptoms:
+- Port `7010` still occupied by the previous session for ~30s.
+
+Working solution:
+- Wait at least 30s before reusing the same driver-host-port.
+- Or use a different port for each back-to-back run.
+- The issue only affects the driver port; the adb connection and app state are unaffected.
+
+### 14. JAVA_TOOL_OPTIONS leaks into Gradle builds via previous Maestro runs
+
+Problem:
+- The Maestro run script sets `JAVA_TOOL_OPTIONS=-Duser.home=<maestro-java-home>` for its own isolation.
+- This env var persists in the shell if the run script is sourced or if the var is exported globally.
+- Gradle picks up `JAVA_TOOL_OPTIONS` and fails with CMake/compilation errors.
+
+Working solution:
+- Always `unset JAVA_TOOL_OPTIONS` before running Gradle builds.
+- The Maestro run script should be invoked in a sub-shell with a fresh JAVA_TOOL_OPTIONS scoped only to that invocation.
+
+### 16. Reanimated mock creates new SharedValue objects per render — do NOT include them in useCallback/useEffect deps
+
+Problem:
+- `react-native-reanimated/mock` implements `useSharedValue` as `(v) => ({ value: v })` — a new plain JS object on every call.
+- In production, Reanimated uses a ref internally so `useSharedValue` returns the same stable object across renders.
+- Including SharedValue objects in `useCallback` or `useEffect` dep arrays works fine in production but causes dep churn in tests, since each render creates new objects.
+
+Symptoms in tests:
+- All interaction tests fail with unexpected `undefined` values.
+- Reset `useEffect` fires on every render (because mock SharedValue is "new" each time), resetting all state back to initial values and creating an infinite-loop-like reset.
+- `useCallback` deps referencing SharedValues get recreated every render, breaking closure stability.
+
+Working solution:
+- Never include Reanimated SharedValues in `useCallback` or `useEffect` deps arrays.
+- SharedValues ARE stable refs in production code — excluding them from deps is semantically correct.
+- The eslint exhaustive-deps rule may warn; suppress with `// eslint-disable-line` if needed, or trust it is correct.
+
+Apply when: using Reanimated `useSharedValue` results in `useCallback`/`useEffect` hooks.
+
+### 17. Both chart markers must be decoupled for full Bridge responsiveness
+
+Problem:
+- Partial fix (only speed-chart marker moved to Reanimated) still overloads the Bridge.
+- The root cause is `setPlaybackTimeMs` being called 20×/second, causing full React re-renders.
+- Even one state-driven marker (time-plot marker via useMemo + plain View) processed through the Bridge blocks the JS thread and prevents user input.
+
+Observation:
+- Moving BOTH markers to `useDerivedValue` + `Animated.View` on the UI thread AND increasing `PLAYBACK_UI_UPDATE_INTERVAL_MS` (50→200ms) reduces React re-renders from 20/s to 5/s.
+- The combined effect makes the JS thread available for user interaction during playback.
+- A Maestro tab-switch during active playback is the definitive responsiveness proof.
+
+Apply when: implementing playback markers in react-native-charts-wrapper overlays.
+
+### 16. socat proxy for ADB and reuseaddr flag (ANA-006)
+
+Problem:
+- `socat TCP-LISTEN:5037,fork TCP:172.18.240.1:5037` exits with "Address already in use" when a prior socat child process is still in TIME_WAIT.
+
+Working solution:
+- Use `socat TCP-LISTEN:5037,reuseaddr,fork TCP:172.18.240.1:5037` — the `reuseaddr` flag bypasses the TIME_WAIT issue.
+
+Apply when: re-starting the ADB proxy after a session restart.
+
+### 17. DocumentsUI file picker filters .gains files as unknown MIME type (ANA-006)
+
+Problem:
+- `DocumentPicker.types.allFiles` opens the Android DocumentsUI picker, but `.gains` files do not appear in the Downloads folder because they have no registered MIME type.
+- Files only appear in "Recent" if previously imported in the same device lifetime.
+
+Working solution:
+- After `am force-stop` or `pm clear`, the file must be re-imported via Maestro's `tapOn: "baseline.gains"` only if it appears in "Recent". Otherwise, use `adb shell content insert` or copy the file to a path accessible as "Downloads" with a registered extension (e.g. rename to `.json`).
+
+Apply when: importing baseline.gains after a device state reset.
+
+### 18. 00_import_baseline.yaml needs extendedWaitUntil for bundle load (ANA-006)
+
+Problem:
+- `00_import_baseline.yaml` uses `assertVisible: "Training"` immediately after `launchApp`. After a force-stop, the Metro bundle loads from 10.0.2.2:8081 in ~30s. The assertion fires before the bundle renders and fails.
+
+Working solution:
+- Replace `assertVisible: "Training"` with:
+  ```yaml
+  - extendedWaitUntil:
+      visible: "Training"
+      timeout: 60000
+  ```
+
+Apply when: writing or modifying import/setup flows that run after a cold app launch.
+
+### 19. Maestro driver needs time between back-to-back sessions (ANA-006)
+
+Problem:
+- Running two Maestro flows within a few seconds of each other causes `java.util.concurrent.TimeoutException` in `TcpForwarder` or `dadb.open(tcp:7001)` timeout on the second run.
+
+Working solution:
+- Wait at least 5 seconds between Maestro test invocations.
+- If `pm list instrumentation` returns empty after a force-stop cycle, let Maestro install its own driver by running it fresh (it detects outdated APKs and reinstalls).
+
+Apply when: running Maestro flows in sequence from a script.
+
+### 20. Reanimated mock creates new SharedValue per render — stabilise with useRef
+
+Problem:
+- `useSharedValue(v)` in the Reanimated mock returns `{ value: v }` — a new plain object on every call.
+- `useAnimatedStyle(fn)` in mock calls `fn()` immediately during render.
+- Without a stable object, `fn()` always reads `value: 0` (the initial from the fresh object), even after `sv.value = someNewValue` on a previous render.
+
+Symptoms in tests:
+- `getScrubberState()` always returns `'0%'` even after seeks.
+- All animated style checks fail with zero/initial values.
+
+Working solution:
+```js
+const playbackTimeMsSV = useRef(useSharedValue(0)).current;
+```
+`useRef(initialValue)` only uses `initialValue` on the FIRST render; subsequent renders return the same ref object. So the SharedValue object is created once and mutations persist across renders.
+
+Apply when: using `useAnimatedStyle` or `useDerivedValue` that reads a SharedValue and testing with assertions on the computed style.
+
+### 21. "Import Emulator Squat Video" on physical device R5CN30HWZFN imports real PXL camera video
+
+Problem:
+- `tapOn: "Import Emulator Squat Video"` in Maestro triggers a file picker that imports a real camera video (`PXL_20250917_171414039~2.mp4`) on device R5CN30HWZFN, not the short test video.
+- Processing takes 30+ minutes and the `extendedWaitUntil: "Status: done", timeout: 180000` always times out.
+
+Working solution:
+- Do NOT rely on "Import Emulator Squat Video" on R5CN30HWZFN for fresh Maestro runs.
+- Keep an existing "done" analysis on the device between sessions; avoid clearing state.
+- Use the prior round's Maestro evidence if the setup flow cannot produce a completed analysis.
+
+Apply when: planning Maestro flows on R5CN30HWZFN that require a video analysis.

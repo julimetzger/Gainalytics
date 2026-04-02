@@ -74,6 +74,25 @@ def main() -> None:
         else:
             subprocess.run(["git", "worktree", "add", "-b", branch, str(worktree_path), args.base_ref], check=True)
 
+    # On resume, merge the latest base ref (usually master) into the feature branch
+    # so the worktree has up-to-date shared files (tickets, config, memory, etc.).
+    if not fresh and worktree_path.exists():
+        try:
+            subprocess.run(
+                ["git", "-C", str(worktree_path), "merge", args.base_ref, "--no-edit", "-q"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            print(f"Merged {args.base_ref} into {branch}")
+        except subprocess.CalledProcessError as e:
+            # Abort merge on conflict — leave the branch as-is and warn
+            subprocess.run(
+                ["git", "-C", str(worktree_path), "merge", "--abort"],
+                check=False,
+            )
+            print(f"Warning: could not merge {args.base_ref} into {branch}: {e.stderr.strip()}")
+
     ensure_worktree_node_modules(worktree_path, repo_root)
 
     print(

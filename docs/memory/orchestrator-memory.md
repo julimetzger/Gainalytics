@@ -257,6 +257,97 @@ Working solution:
 Relevant files:
 - [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
 
+### 21. Fix-Tickets für PRs müssen auf dem PR-Branch arbeiten, nicht auf master
+
+Problem:
+- Ein Fix-Ticket (z.B. ANA-005-fix) wurde auf einem frischen Branch von master erstellt. Der Fix-Agent implementierte die Änderungen von Grund auf, statt sie auf dem bestehenden PR-Branch aufzubauen. Cherry-pick/Merge auf den PR-Branch hatte massive Konflikte.
+
+Symptoms:
+- Cherry-pick zeigt Konflikte in fast allen Dateien
+- Der Fix-Branch hat die gleichen Dateien nochmal von Grund auf geändert
+
+Working solution:
+- Fix-Worker immer direkt auf dem bestehenden PR-Branch/Worktree starten, nicht auf einem frischen Branch von master.
+- `launch_feature_job.py` mit `--worktree <PR-worktree> --branch <PR-branch>` aufrufen.
+- Ticket-File per absolutem Pfad übergeben, da es im älteren Worktree nicht existiert.
+
+### 22. launch_feature_job.py muss vom Hauptrepo ausgeführt werden
+
+Problem:
+- `launch_feature_job.py` im Worktree-Kontext ausgeführt versucht verschachtelte Worktree-Pfade zu erstellen und scheitert mit FileNotFoundError.
+
+Symptoms:
+- `FileNotFoundError: '../../../../node_modules' -> '.worktrees/feature-X/.worktrees/feature-X/node_modules'`
+
+Working solution:
+- Immer `python3 /absolute/path/to/launch_feature_job.py` vom Hauptrepo-Root ausführen, nicht vom Worktree.
+- Ticket-Files ebenfalls per absolutem Pfad übergeben.
+
+### 23. Deploy auf echtes Gerät: Metro Worktree-Config mit unstable_enableSymlinks nötig
+
+Problem:
+- Debug-Builds laden JS von Metro. Metro ohne Worktree-Config scheitert an Symlinks im Worktree mit SHA-1 Fehlern.
+
+Symptoms:
+- Red screen: "Metro has encountered an error: SHA-1 for file ... is not computed"
+- "You have symlinks in your project - watchman does not follow symlinks"
+
+Working solution:
+- Metro mit der Worktree-Config starten: `--config .codex-orchestrator/runs/<ticket>/metro.worktree.config.cjs`
+- Diese Config setzt `unstable_enableSymlinks: true` und korrekte `projectRoot`/`watchFolders`.
+- Alternativ: Einen Feature-Worker-Agent starten der die App-Deployment-Skills kennt.
+
+### 24. Cleanup vor Worker-Neustart: Metro/Maestro/socat Prozesse killen
+
+Problem:
+- Nach mehreren Worker-Runden sammeln sich tote Metro-Instanzen, doppelte socat-Proxies und stale Maestro-Prozesse an. Neue Worker starten ihre eigenen, was zu Port-Konflikten führt.
+
+Symptoms:
+- 3x socat auf Port 8081, mehrere Metro auf verschiedenen Ports
+- Worker findet Metro nicht weil der falsche Prozess den Port belegt
+- Emulator adb reverse zeigt auf toten Metro-Port
+
+Working solution:
+- Vor einem Cleanup-Neustart aller Worker: alle Metro, socat, Maestro und Gradle-Prozesse killen
+- Danach `adb devices` prüfen ob Devices erreichbar sind
+- Dann Worker starten — launch_feature_job.py startet frische Metro/socat
+
+### 25. Echte Devices haben deutlich weniger Infra-Probleme als Emulatoren
+
+Observation:
+- ANA-003-fix auf dem echten Device (R5CN30HWZFN) hatte 0 gRPC Crashes, 0 Red Screens, 0 Metro-Probleme
+- Alle Emulator-Worker hatten signifikante Infra-Overhead (gRPC, Red Screen, adb reverse)
+
+Apply when:
+- Bei kritischen Tickets oder zeitkritischen Reviews das echte Device bevorzugen
+- worker-infra-analysis.md enthält jetzt eine Device-Spalte (real/emu) für die Korrelation
+
+### 26. Codex-Runner Sandbox braucht Schreibzugriff für git/gradle
+
+Problem:
+- Codex exec Sandbox blockiert Schreibzugriff auf `.git/worktrees/*/index.lock` und `node_modules/` — git commit und gradle build scheitern.
+
+Symptoms:
+- status.json: blocked mit "read-only file system"
+- git commit: "could not write index.lock"
+- gradle: Schreibfehler in node_modules
+
+Working solution:
+- Codex-Runner ist ideal für reine Maestro-Evidence-Runs wo kein Build/Commit nötig ist
+- Für Runs die Build + Commit brauchen: Claude-Runner oder sandbox_workspace_write Konfiguration anpassen
+- Metro muss extern (außerhalb der Sandbox) gestartet werden — das Launch-Script macht das automatisch
+
+### 27. withTiming-Architektur für chart-synchrone Animationen ohne JS-Bridge
+
+Observation:
+- Reanimated `withTiming` kann eine Marker-Animation für die gesamte Video-Dauer vorberechnen und auf dem UI-Thread abspielen — null JS-Bridge-Last während Playback
+- Sync zwischen Player und Linie nur bei User-Interaktion (Play/Pause/Seek/Step)
+- Dramatische Verbesserung der App-Responsiveness verglichen mit 50ms/200ms State-Updates
+
+Apply when:
+- Jede UI-Komponente die synchron mit Video/Audio-Playback laufen muss
+- Continuous-update-Patterns die den JS-Thread blockieren
+
 ## Operational Guidance For Future Agents
 
 - Do not assume `state.json` is current if a run directory already has `status.json`.
@@ -275,3 +366,11 @@ Relevant files:
 - Never include `pkill -f maestro` in worker feedback — it kills the worker itself. Use `grep java` to target actual Maestro processes.
 - Always instruct workers to resize screenshots to max 800x800 before reading them (2000px context limit).
 - `$memory` and other skill calls do not work in `claude -p` mode — embed instructions directly in the prompt.
+- Fix-Tickets für bestehende PRs: Worker direkt auf dem PR-Branch/Worktree starten, nicht auf frischem master-Branch.
+- `launch_feature_job.py` immer vom Hauptrepo-Root ausführen, nicht vom Worktree. Ticket-Files per absolutem Pfad.
+- Für App-Deploy auf echtem Gerät: Metro mit Worktree-Config starten oder den Feature-Agent deployen lassen.
+- Codex-Review-Anmerkungen pro PR in ein einzelnes Ticket konsolidieren, nicht ein Ticket pro Anmerkung.
+- Vor Worker-Neustart: alle Metro/socat/Maestro/Gradle-Reste killen um Port-Konflikte zu vermeiden.
+- Echtes Device hat signifikant weniger Infra-Overhead als Emulatoren — für zeitkritische Reviews bevorzugen.
+- worker-infra-analysis.md enthält eine Device-Spalte (real/emu) — Worker müssen diese befüllen.
+- Codex-Runner für reine Evidence-Runs (Maestro + Screenshots) geeignet; für Build+Commit Claude-Runner oder angepasste Sandbox.

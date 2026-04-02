@@ -135,3 +135,20 @@ export const formatTrainingLengthDate = (date: Date) =>
     month: 'short',
     year: 'numeric',
   });
+
+/**
+ * Find the bucket whose x value is nearest to selectedX.
+ *
+ * Using nearest-bucket matching rather than a tight tolerance avoids float-precision
+ * failures caused by epoch-day x values being fractional in non-UTC time zones and
+ * by the native chart library returning slightly imprecise float values on tap.
+ */
+export const findBucketByX = (buckets: TrainingLengthBucket[], selectedX: number): TrainingLengthBucket | null => {
+  if (buckets.length === 0) {
+    return null;
+  }
+
+  return buckets.reduce((closest, bucket) =>
+    Math.abs(bucket.x - selectedX) < Math.abs(closest.x - selectedX) ? bucket : closest,
+  );
+};

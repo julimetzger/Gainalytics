@@ -1255,6 +1255,71 @@ describe('workoutReducer', () => {
       });
     });
 
+    it('should copy the progressed workout values carried by the action map', () => {
+      expect(
+        exerciseReducer(
+          {
+            ...STATE_WITH_TWO_WORKOUTS(),
+            byId: {
+              ...STATE_WITH_TWO_WORKOUTS().byId,
+              1: {
+                exerciseId: 11,
+                id: 1,
+                notes: '',
+                sets: [{reps: 5, rir: 2, weight: 100, date: TEST_DATE, index: 1}],
+                start: TEST_DATE,
+                end: TEST_DATE,
+              },
+            },
+          },
+          {
+            type: 'SUGGEST_TRAINING',
+            trainingsId: 3,
+            nextTrainingsId: 3,
+            lastTrainingInMicro: {
+              exercises: [11],
+            },
+            workoutIdWorkoutMap: new Map([
+              [
+                3,
+                {
+                  id: 1,
+                  exerciseId: 11,
+                  notes: '',
+                  sets: [{reps: 5, rir: 1, weight: 108, date: TEST_DATE, index: 1}],
+                  start: TEST_DATE,
+                  end: TEST_DATE,
+                },
+              ],
+            ]),
+          },
+        ),
+      ).toEqual({
+        ...STATE_WITH_TWO_WORKOUTS(),
+        byId: {
+          ...STATE_WITH_TWO_WORKOUTS().byId,
+          1: {
+            exerciseId: 11,
+            id: 1,
+            notes: '',
+            sets: [{reps: 5, rir: 2, weight: 100, date: TEST_DATE, index: 1}],
+            start: TEST_DATE,
+            end: TEST_DATE,
+          },
+          3: {
+            exerciseId: 11,
+            id: 3,
+            notes: '',
+            trainingsId: 3,
+            sets: [{reps: 5, rir: 1, weight: 108, date: undefined, index: 1}],
+            start: undefined,
+            end: undefined,
+          },
+        },
+        plannedWorkouts: [3],
+      });
+    });
+
     it('should set copied planned workouts to nextTrainingsId when trainingsId is undefined', () => {
       expect(
         exerciseReducer(

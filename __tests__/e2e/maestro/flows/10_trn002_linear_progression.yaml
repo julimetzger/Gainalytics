@@ -1,0 +1,116 @@
+appId: com.powerliftingworkoutplanner
+---
+# Phase 1: Import baseline fixture (file already pushed to /sdcard/Download/baseline.gains)
+# Tap Settings tab (4th tab, rightmost ~87% horizontal, ~97% vertical)
+- tapOn:
+    point: "87%,97%"
+- scrollUntilVisible:
+    element:
+      id: "settings-import-data-button"
+    direction: DOWN
+- tapOn:
+    id: "settings-import-data-button"
+- tapOn:
+    id: "settings-import-confirm-button"
+- scrollUntilVisible:
+    element:
+      text: "baseline.gains"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "baseline.gains"
+- extendedWaitUntil:
+    visible: "Import successful!"
+    timeout: 60000
+
+# Phase 2: Navigate to Training tab (1st tab, leftmost ~12% horizontal)
+- tapOn:
+    point: "12%,97%"
+- extendedWaitUntil:
+    visible:
+      id: "training-home-screen"
+    timeout: 15000
+
+# Screenshot: Training Home after import
+- takeScreenshot: trn-002-training-home
+
+# Tap first training plan card (Push pull)
+- tapOn:
+    point: "50%,29%"
+- extendedWaitUntil:
+    visible:
+      id: "icon-button"
+    timeout: 15000
+
+# Phase 3: Navigate to Micro 7 via drawer
+- tapOn:
+    id: "icon-button"
+- extendedWaitUntil:
+    visible: "Trainings:"
+    timeout: 10000
+
+# Navigate through micros
+- tapOn: "Micro 2"
+- tapOn: "Micro 3"
+- tapOn: "Micro 4"
+- tapOn: "Micro 5"
+- tapOn: "Micro 6"
+- tapOn: "Micro 7"
+
+# Close drawer - tap Pull
+- tapOn: "Pull"
+
+# Phase 4: Verify progression controls
+- extendedWaitUntil:
+    visible:
+      id: "training-suggest-rir-delta-input"
+    timeout: 15000
+
+# Screenshot: Progression controls visible
+- takeScreenshot: trn-002-controls-visible
+
+# Verify both controls and buttons exist
+- assertVisible:
+    id: "training-suggest-weight-increase-input"
+- assertVisible:
+    id: "training-suggest-last-training-button"
+- assertVisible:
+    id: "training-suggest-last-planned-training-button"
+
+# Verify default RIR delta value is "1"
+- copyTextFrom:
+    id: "training-suggest-rir-delta-input"
+- evalScript: |
+    output.rirOk = output.value === "1";
+- assertTrue: ${rirOk}
+
+# Verify default weight increase is "0"
+- copyTextFrom:
+    id: "training-suggest-weight-increase-input"
+- evalScript: |
+    output.weightOk = output.value === "0";
+- assertTrue: ${weightOk}
+
+# Set weight increase to 5%
+- tapOn:
+    id: "training-suggest-weight-increase-input"
+- eraseText
+- inputText: "5"
+- hideKeyboard
+
+# Screenshot: Controls with values set
+- takeScreenshot: trn-002-controls-set
+
+# Tap suggest based on last planned training
+- tapOn:
+    id: "training-suggest-last-planned-training-button"
+
+# Wait for training creation (Show Sets appears in workout cards)
+- extendedWaitUntil:
+    visible: "Show Sets"
+    timeout: 15000
+
+# Screenshot: After suggestion created
+- takeScreenshot: trn-002-after-suggest
+
+# Assert training was created (Show Sets proves workouts exist)
+- assertVisible: "Show Sets"

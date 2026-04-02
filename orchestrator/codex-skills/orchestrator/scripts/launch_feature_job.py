@@ -61,6 +61,55 @@ def configure_maestro_env(env: dict[str, str], run_dir: Path) -> None:
 DEFAULT_MAESTRO_DRIVER_PORT_START = 7001
 
 
+def cleanup_stale_maestro(emulator_serial: str, driver_port: int | None = None) -> None:
+    """Kill stale Maestro Java processes targeting the given device or driver port.
+
+    Runs before each worker launch so the new worker starts with a clean Maestro
+    environment instead of fighting stale drivers from previous runs.
+    """
+    import signal
+
+    try:
+        ps_output = subprocess.check_output(["ps", "aux"], text=True)
+    except subprocess.CalledProcessError:
+        return
+
+    stale_pids: list[int] = []
+    for line in ps_output.splitlines():
+        # Only target Maestro Java processes, never claude/node/python
+        if "java" not in line or "maestro" not in line.lower():
+            continue
+        # Skip gradle daemon lines (they also mention java)
+        if "GradleDaemon" in line or "KotlinCompileDaemon" in line:
+            continue
+
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        try:
+            pid = int(parts[1])
+        except ValueError:
+            continue
+
+        # Kill if it references our device or our driver port
+        is_target = emulator_serial in line
+        if driver_port is not None and str(driver_port) in line:
+            is_target = True
+        # Also kill any maestro process with a driver-host-port in our reserved range
+        if is_target:
+            stale_pids.append(pid)
+
+    for pid in stale_pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+
+    if stale_pids:
+        import time
+        time.sleep(1)  # brief wait for processes to exit
+
+
 def reserve_maestro_driver_port(state: dict, ticket_id: str, prior_run: dict) -> int:
     reserved_ports = {
         run.get("maestro_driver_port")
@@ -243,6 +292,8 @@ def main() -> None:
     env["ANDROID_SERIAL"] = args.emulator_serial
     parsed_proxy = configure_proxy_env(env)
     configure_maestro_env(env, run_dir)
+    prior_driver_port = prior_run.get("maestro_driver_port")
+    cleanup_stale_maestro(args.emulator_serial, prior_driver_port)
     maestro_driver_port = reserve_maestro_driver_port(state, args.ticket_id, prior_run)
     env["E2E_MAESTRO_DRIVER_PORT"] = str(maestro_driver_port)
     metro = start_or_reuse_metro(
