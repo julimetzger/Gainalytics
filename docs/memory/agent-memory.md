@@ -299,198 +299,6 @@ Relevant files:
 - Use `clearState: false` for playback/overlay flows that reuse an existing analysis; `clearState: true` + CPU-intensive analysis = Maestro gRPC DEADLINE_EXCEEDED crash.
 - Avoid generic `scroll` commands after bringing a screen region into view if react-native-charts-wrapper charts are present; use `extendedWaitUntil` instead to avoid accidental chart `onSelect` triggers.
 
-
-### 16. jest.mock factory hoisting prevents using outer jest.fn() variables
-
-Problem:
-- Defining `const mockFn = jest.fn()` before a `jest.mock(...)` call and then referencing `mockFn` inside the factory body causes it to be `undefined` at runtime, because jest hoists `jest.mock` calls before variable declarations.
-
-Symptoms:
-- `TypeError: _moduleName.default.method is not a function` even though the mock factory appears correct
-- Tests that worked in isolation fail with confusing "not a function" errors
-
-Working solution:
-- Define `jest.fn()` **inside** the mock factory: `jest.mock('mod', () => ({ default: { method: jest.fn() } }))`
-- Retrieve the mock reference **after** `jest.mock` via `jest.requireMock`: `const { default: mock } = jest.requireMock('mod')`
-- Never assign `const myMock = jest.fn()` before the `jest.mock(...)` call that uses it
-
-### 17. notifee default export + jest mock requires __esModule: true with default key
-
-Problem:
-- `@notifee/react-native` is an ES module with a class instance as the default export.
-- Mocking it with `jest.mock('@notifee/react-native', () => ({ requestPermission: jest.fn() }))` does NOT work because `notifee` in source code maps to the `default` export.
-
-Working solution:
-- Use `{ __esModule: true, default: { requestPermission: jest.fn(), ... }, AuthorizationStatus: {...} }`
-- Then `jest.requireMock('@notifee/react-native').default` gives the mock object
-
-### 18. Maestro smoke shows all-black screenshots via Windows --host bridge in WSL worktree
-
-Problem:
-- Maestro with `--host <WSL_IP>` connects to adb but `launchApp` completes while the screenshot captured by Maestro is entirely black.
-- `adb -s device shell screencap` from WSL shows the app correctly; only Maestro's screenshot is black.
-
-Symptoms:
-- `assertVisible: "Training"` fails immediately after a COMPLETED `launchApp`
-- Debug screenshot in `.maestro/tests/` is a solid black image
-
-Observation:
-- This appears to be an emulator rendering sync issue specific to worktrees that have not previously run Maestro flows.
-- The app IS running (direct adb screenshot confirms it).
-- Maestro smoke tests in the main working directory do not have this problem.
-
-Apply when:
-- If Maestro black-screen occurs in a new worktree, try running a single `adb shell input keyevent KEYCODE_WAKEUP` and retrying. If still black, treat as a pre-existing infrastructure issue and use unit tests + adb screenshot as primary evidence.
-
-### 19. A resumed round may carry an expanded ticket with more acceptance criteria
-
-Problem:
-- A ticket handed to a resumed round may list more acceptance criteria than the previous round's status.json covered. The old `ready_for_review` status.json only maps evidence for the original criteria.
-
-Symptoms:
-- `status.json` says `ready_for_review` with a subset of the new acceptance_evidence list.
-- New criteria (e.g. foreground-service ref-counting, permission guard, progress bar) are not covered.
-
-Working solution:
-- Always re-read the prompt ticket description, not just the previous status.json, to get the current acceptance criteria list.
-- Diff the old `acceptance_evidence` entries against the new criteria and implement the missing items.
-- Write a new commit and update both `status.json` and `summary.md` to cover all criteria.
-
-Apply when:
-- The orchestrator sends a worker on a resumed round with `Prior review feedback: none` but the ticket has more criteria than the previous status.json covers.
-
-### 20. Utility functions written without call-sites are an integration gap
-
-Problem:
-- A previous round wrote utility functions (`incrementActiveAnalysisCount`, `decrementActiveAnalysisCount`, `calculateAnalysisProgress`) but never called them from the relevant modules or rendered them in the UI.
-
-Symptoms:
-- Review feedback says "INTEGRATION GAP — functions exist only as utilities" and "not used in UI".
-- Tests pass for the utility but no production code invokes it.
-
-Observation:
-- Writing a utility and its tests is not the same as integrating it. Always trace the call-site chain: utility → service/import module → UI component.
-- For ref-counting: increment before the try block, decrement in finally (not just in the success path).
-- For UI components: use `useRef` for per-item start times (Map) and `useState` + `setInterval` for the tick that drives re-renders.
-
-Apply when:
-- Any new utility for a lifecycle event (start/stop of analysis, progress tracking) must be wired into the lifecycle at the point where the event actually occurs, not left as standalone functions.
-
-### 21. adb touch coordinates must use physical screen pixels (1080×2400), not screenshot display pixels
-
-Problem:
-- Screenshots are displayed scaled-down by the viewer (~270×600), but `adb shell input tap` uses the actual physical pixel coordinates (1080×2400).
-
-Symptoms:
-- `adb shell input tap 170 553` hits a list item or wrong element instead of the intended nav bar tab.
-- The nav bar is at y≈2160–2295 in physical coords, not y≈553.
-
-Working solution:
-- Check `adb shell wm size` to get physical resolution.
-- Use `adb shell uiautomator dump` + parse XML to get exact bounds of nav items before tapping.
-- Navigation drawer items are found in the UIAutomator dump with their `text` or `content-desc`; compute center from bounds.
-
-Apply when:
-- Any adb tap-based navigation on the emulator needs precise coordinates.
-- `dragEnabled={false}` on MPAndroidChart does NOT stop touch event consumption — only `touchEnabled={false}` causes the chart to pass events to the parent ScrollView.
-- When `touchEnabled={false}` is set on a react-native-charts-wrapper chart, `onSelect` no longer fires. Re-implement tap-to-seek using `onTouchEnd` on a wrapper View with `locationX / chartWidth` coordinate math.
-- react-native-paper `Button` text is NOT in the Android accessibility tree when off-screen — `scrollUntilVisible: text: "+0.2s"` will fail if the button is below the fold. Use Card.Title text (always in the tree) as the scroll anchor, then swipe to reach buttons.
-- `video-analysis-playback-scrubber-fill` has `width: 0%` at t=0 so Maestro treats it as not visible. Assert `video-analysis-playback-scrubber-thumb` (fixed 20×20) instead for scrubber visibility proofs.
-- Maestro driver ports (dadb TcpForwarder) cannot be reused immediately after a prior run — the port stays occupied for several minutes. Use a fresh high port number (7100, 7200…) for each run attempt.
-
-### 16. MPAndroidChart touchEnabled=false is required to let ScrollView scroll through chart
-
-Problem:
-- A react-native-charts-wrapper `LineChart` inside a ScrollView blocks ALL vertical scroll gestures, even after setting `dragEnabled={false}`.
-
-Symptoms:
-- `scrollUntilVisible` times out immediately after the chart becomes visible — Maestro cannot find off-screen elements below the chart
-- `dragEnabled={false}` has no effect on touch event interception
-
-Working solution:
-- Set `touchEnabled={false}` on the LineChart to stop MPAndroidChart from returning `true` from `onTouchEvent`
-- Re-implement any chart tap callbacks (`onSelect`) using `onTouchEnd` on a wrapper View with manual coordinate math: `timeMs = minTimeMs + clamp((locationX - CHART_LEFT_PADDING) / drawableWidth, 0, 1) * durationMs`
-- The wrapper View needs its own `testID` for Maestro and unit test targeting
-
-Relevant files:
-- [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
-- [ana003_speed_chart_marker.yaml](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/maestro/flows/ana003_speed_chart_marker.yaml)
-
-### 17. `latestProgressTimeRef` forward guard silently drops all progress events after seek
-
-Problem:
-- Scrubber reached 100% at ~1:30min for a 47s video. After seeking to any future position the scrubber appeared frozen.
-
-Root cause:
-- `onPlayerProgress` had a guard: `if (currentTimeMs < latestProgressTimeRef.current) return;`
-- `applySeekTimeMs` set `latestProgressTimeRef.current = seekTargetMs` before the seek.
-- The seek target (~90000ms from bar-path duration) was larger than any real video position (0–47000ms), so every subsequent progress event was silently dropped.
-- The scrubber only advanced when `onPlayerEnd` fired.
-
-Working solution:
-- Remove the forward guard from `onPlayerProgress` entirely. If forward-guard semantics are needed for another reason, scope it more narrowly (e.g. only within a short debounce window after seek).
-
-Relevant files:
-- [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
-
-### 18. ExoPlayer `durationMs` can be 0 at `STATE_READY` — refresh it in the progress loop
-
-Problem:
-- JS received `durationMs = 0` from `onLoad`, fell back to `timeRange.durationMs` (~90s bar-path duration) as `correctedPlaybackDurationMs`. Scrubber denominator was wrong.
-
-Root cause:
-- `VideoAnalysisPlayerView.java` emits `onLoad` at `STATE_READY`. ExoPlayer does not always know the stream duration at that exact state (especially with HTTP sources). `getSafeDurationMs()` returned 0.
-
-Working solution:
-- In `progressRunnable.run()`, add a one-time refresh:
-  ```java
-  if (durationMs <= 0) {
-      int freshDuration = getSafeDurationMs();
-      if (freshDuration > 0) {
-          durationMs = freshDuration;
-          emitLoad();
-      }
-  }
-  ```
-- This fires at most once per playback session (on the first progress tick after ExoPlayer buffers enough to know the duration).
-
-Relevant files:
-- [VideoAnalysisPlayerView.java](/home/jmetzger/projects/PowerliftingWorkoutPlanner/android/app/src/main/java/com/powerliftingworkoutplanner/VideoAnalysisPlayerView.java)
-
-### 19. Thousands of small React Views in a chart section cause heavy reconciliation even with Reanimated markers
-
-Problem:
-- Moving the progress marker to the UI thread (Reanimated) eliminated Bridge saturation for the marker. But the JS thread was still slow during playback — React reconciliation was expensive.
-
-Root cause:
-- The time-plot section rendered one `<View>` dot per bar-path frame. A typical bar path has hundreds of frames → hundreds of tiny Views in the React tree. Re-rendering this tree 5–20×/second costs significant JS time regardless of Reanimated use.
-
-Working solution:
-- Remove the section entirely if it is not an acceptance criterion. Dot charts are best rendered natively (Canvas/SVG) rather than as hundreds of React Views.
-- If the feature is required: render to a single `<Canvas>` (react-native-skia) or use a fixed-size native chart component.
-
-Relevant files:
-- [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
-
-### 20. Windows adb server (WSL2) drops gRPC connections during Maestro TcpForwarder setup
-
-Problem:
-- Maestro flows fail immediately at `deviceInfo` with "Network closed for unknown reason" even though the device is connected and `adb devices` succeeds.
-
-Root cause:
-- WSL2 uses a remote adb server at the Windows host IP (e.g. 172.18.240.1:5037). This TCP connection is routed through the WSL2 virtual NIC and is inherently unstable for long-lived connections.
-- Maestro's `TcpForwarder` (dadb library) opens an adb-protocol tunnel via `adb forward` and then immediately exchanges gRPC frames. If the adb server drops the connection in the <100ms between tunnel setup and the first gRPC call, the entire flow fails.
-- Socat proxies, different HOME settings, and JAVA_TOOL_OPTIONS all fail to fix this because the instability is in the adb server TCP layer, not in Maestro's JVM.
-
-Mitigation:
-- Retry the Maestro run multiple times — the adb server is intermittently available.
-- If the prior round's Maestro run already proves the same criterion, cite it in `status.json` and document the infra blocker in `blocker`.
-- Use the `--debug-output` flag to capture a port-level log when investigating.
-- Long-term fix: run a native Linux adb server on WSL2 instead of relying on the Windows host adb server.
-
-Relevant files:
-- [run-maestro-from-wsl.sh](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/scripts/run-maestro-from-wsl.sh)
-
 ### 12. Progress bar indeterminate state for unknown-duration analysis
 
 Problem:
@@ -650,3 +458,122 @@ Working solution:
 - Use the prior round's Maestro evidence if the setup flow cannot produce a completed analysis.
 
 Apply when: planning Maestro flows on R5CN30HWZFN that require a video analysis.
+
+### 22. Maestro TcpForwarder timeout when HOME is overridden but driver port is in use
+
+Problem:
+- Running `maestro ... test` with a custom `HOME` (as in `run-maestro-from-wsl.sh`) causes TcpForwarder timeout when the driver port is held by an existing orchestrator session.
+
+Symptoms:
+- `java.util.concurrent.TimeoutException` from `dadb.forwarding.TcpForwarder.waitFor`
+- Happens when `HOME` is overridden AND `--driver-host-port` conflicts with an active session.
+
+Working solution:
+- Run `maestro` directly without overriding `HOME` and without `--host`, passing only `--device` and `--driver-host-port` from the current shell.
+- This uses the existing adb connection and reuses the driver port correctly.
+- Only change `HOME` when no active driver session is holding the port.
+
+Apply when: running one-off Maestro flows directly (not via run-maestro-from-wsl.sh) in a worker that has an orchestrator-assigned driver port.
+
+### 23. Maestro `tapOn: "Play"` DEADLINE_EXCEEDED when video is playing (ANA-003-fix2)
+
+Problem:
+- Maestro's `waitForAppToSettle` calls `AndroidDriver.callViewHierarchy` via gRPC with a 120s deadline.
+- When a video is playing, the playback time label (`00:12 / 00:47`) updates every second.
+- The UI hierarchy is never "settled", so `waitForAppToSettle` hangs until the 120s gRPC deadline expires.
+- Both `--format junit` (TestSuiteInteractor path) and plain `maestro test` (TestCommand path) hit this.
+
+Symptoms:
+- `tapOn: "Play"` fails with `DEADLINE_EXCEEDED` after exactly 120s.
+- Any subsequent Maestro step after Play also fails.
+- The app is fine; only Maestro's gRPC driver is timed out.
+
+Working solution:
+- Use Maestro only for navigation steps where the UI is stable (navigate to screen, scroll, assertions on static text).
+- Switch to **pure ADB** for the Play tap and all subsequent screenshots:
+  ```bash
+  adb shell input tap <x> <y>      # Play button coords from uiautomator dump
+  sleep 8
+  adb exec-out screencap -p > screenshot.png
+  ```
+- Use `adb shell uiautomator dump` to get exact element coordinates before tapping.
+- The video will naturally play to the end; a final `adb exec-out screencap` captures the right-edge state.
+
+Apply when: any Maestro flow needs to interact with or screenshot a continuously-updating UI (video playback, live timers, animations).
+
+### 24. Crashed Maestro session leaves device driver in bad state for subsequent run
+
+Problem:
+- After a Maestro gRPC disconnect (DEADLINE_EXCEEDED or TcpForwarder timeout), the Maestro agent on the device is stuck.
+- The next Maestro run hits the same gRPC issue on the first heavy gesture (swipe, scroll) even though it previously worked.
+
+Symptoms:
+- First run: navigation works, then fails on Play.
+- Second run immediately after: fails on first swipe with gRPC disconnect.
+
+Working solution:
+- After any crashed Maestro session, before running the next flow:
+  ```bash
+  adb shell am force-stop com.powerliftingworkoutplanner
+  adb shell am force-stop dev.mobile.maestro.android
+  sleep 15
+  ```
+- Wait at least 15 seconds before the next Maestro invocation.
+
+Apply when: a Maestro session crashed mid-flow and a new flow will be started against the same device.
+
+### 25. Marker-formula bug: clamping progress to [0,1] before pixel-multiply causes off-by-offset issue
+
+Problem: If `progress = clamp((t - minTimeMs) / durationMs, 0, 1)` is used, then all `t <= minTimeMs` map to `x = LEFT_PADDING`. When `minTimeMs > 0`, the marker appears at the data-start pixel at video `t=0:00`, ahead of the scrubber.
+
+Observation: The correct formula is to compute raw `x = LEFT_PADDING + fraction * drawableWidth` (where fraction can be negative), then clamp the final pixel position to `[0, chartWidth]`. This allows the marker to sit in the Y-axis area for `t < minTimeMs`.
+
+Apply when: implementing overlay markers on charts where the chart X-range `[minTimeMs, maxTimeMs]` does not start at 0. Always clamp pixel result, never clamp the fraction.
+
+### 26. Emulator test video vs device test video have different minTimeMs
+
+Problem: `Import Emulator Squat Video` on device R5CN30HWZFN uses a real camera video (PXL_...) which tends to have `minTimeMs ≈ 0`. The reviewer's analysis had `minTimeMs ≈ 5000ms`. Unit tests with `makeResultWithOffset()` (minTimeMs=1000) are the reliable way to prove non-zero-offset behavior.
+
+Apply when: taking device screenshots to prove marker-offset fixes — the fix may be invisible on screen if test data has minTimeMs=0. Prioritize unit test evidence for this class of bug.
+
+### 27. Chart marker and video scrubber must share the same timeline domain
+
+Problem: Multiple rounds (R1-R6) tried to align the marker by mapping it to `[minTimeMs, maxTimeMs]`. The real issue was that the chart x-axis domain and the scrubber domain were different. The scrubber uses `[0, videoDuration]` (full video timeline), but the chart was implicitly using `[minTimeMs, maxTimeMs]` (data range).
+
+Working solution: Set `axisMinimum=0` and `axisMaximum=videoDuration` on the chart x-axis. Then use `progress = t / videoDuration` for the marker (same as scrubber). Data points with `tMs > 0` naturally appear offset from the left edge.
+
+Apply when: implementing overlay markers on time-series charts in video analysis UIs. Always make the chart x-axis domain explicit and match it to the video timeline, not the data range.
+
+### 28. Maestro `assertVisible` does not support regex patterns in text field
+
+Problem: Using `assertVisible: text: "Playback: 00:00 / [0-9]{2}:[0-9]{2}"` fails with "Assertion is false" even when the text is on screen.
+
+Observation: Maestro's `assertVisible` treats the `text` value as a literal string, not a regex. Remove the dynamic part and only assert the static prefix: `text: "Playback: 00:00"`.
+
+Apply when: writing Maestro flows that assert on time-display strings with dynamic components (seconds, minutes). Assert only the fixed prefix.
+
+### 29. Use viewPortOffsets to pin a chart overlay marker to the Y-axis line
+
+Problem: Hardcoding `SPEED_CHART_LEFT_PADDING = 48` to estimate the Y-axis label width was unreliable. MPAndroidChart auto-calculates the left offset based on the actual text width of Y-axis labels, which is wider than the guess (~48dp). The marker at t=0 ended up 16dp too far left, inside the label area.
+
+Working solution:
+- Add `viewPortOffsets={{ left: N, top: 4, right: 4, bottom: 4 }}` to the `react-native-charts-wrapper` `LineChart`.
+- Set the overlay marker constant to the same N: `SPEED_CHART_LEFT_PADDING = N`.
+- `viewPortOffsets.left = N` overrides MPAndroidChart's auto-calculated left offset and forces the drawable area to start at exactly x=N dp. The Y-axis line is at x=N by definition.
+- N=64 fits Y-axis labels up to 4 digits (e.g. "-999"). No native rebuild needed — `viewPortOffsets` is already a JS-bridge prop in `react-native-charts-wrapper/lib/BarLineChartBase.js`.
+
+Apply when: implementing an Animated overlay marker on a react-native-charts-wrapper chart and the marker must align precisely with the Y-axis line.
+
+### 30. viewPortOffsets requires physical pixels, not dp
+
+Problem: In round 8, `viewPortOffsets={{ left: 64, top: 4, right: 4, bottom: 4 }}` was used with raw dp numbers. MPAndroidChart's `setViewPortOffsets()` expects **physical pixels**, not dp. At density 2.75, 64dp ≠ 64px, so the forced viewport offset did not match the JS marker translateX (which is always in dp). This caused a systematic misalignment proportional to (density - 1).
+
+Working solution:
+- Convert all viewPortOffsets values to physical pixels: `Math.round(VALUE_DP * PixelRatio.get())`.
+- Keep the JS overlay constant in dp: `SPEED_CHART_LEFT_PADDING = 64` (dp).
+- The marker uses `translateX: SPEED_CHART_LEFT_PADDING` (in dp), which React Native converts to the same 176px at density 2.75.
+- Pixel analysis (Python + Pillow) is the reliable way to verify alignment: check that the marker left edge pixel overlaps with or immediately follows the Y-axis right edge pixel.
+
+Observation: At density 2.75 with SPEED_CHART_LEFT_PADDING=64, the Y-axis occupies x=231-235 and the marker starts at x=236 (1px gap). This gap is structural — MPAndroidChart draws the axis line into the offset region, so the marker can never perfectly overlap it using the same constant. The 1px gap (<0.4dp) is visually imperceptible.
+
+Apply when: using `viewPortOffsets` on a react-native-charts-wrapper `LineChart` with an Animated overlay.
