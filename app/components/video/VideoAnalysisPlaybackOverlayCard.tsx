@@ -1,5 +1,5 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {GestureResponderEvent, LayoutChangeEvent, StyleSheet, View, processColor} from 'react-native';
+import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, View, processColor} from 'react-native';
 import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming} from 'react-native-reanimated';
 import {Button, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
@@ -25,10 +25,12 @@ interface OverlayPoint {
 
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
 const SPEED_PLOT_HEIGHT = 180;
-// Left offset of the chart drawable area (dp). Must match viewPortOffsets.left on the LineChart.
-// Using viewPortOffsets forces MPAndroidChart to use this exact offset, so the marker can be
-// placed precisely on the Y-axis line at t=0.
+// Left offset of the chart drawable area (dp). Used for JS layout (translateX, touch mapping).
+// viewPortOffsets.left must be SPEED_CHART_LEFT_PADDING * PixelRatio.get() because
+// MPAndroidChart's setViewPortOffsets() expects physical pixels, not dp.
 const SPEED_CHART_LEFT_PADDING = 64;
+// Right viewport offset in dp — must stay in sync with viewPortOffsets.right.
+const SPEED_CHART_RIGHT_PADDING = 4;
 const BAR_PATH_SMOOTHING_WINDOW = 5;
 const SPEED_SMOOTHING_WINDOW = 5;
 
@@ -317,7 +319,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     if (speedChartWidthSV.value <= 0) {
       return 0;
     }
-    const drawableWidth = Math.max(0, speedChartWidthSV.value - SPEED_CHART_LEFT_PADDING);
+    const drawableWidth = Math.max(0, speedChartWidthSV.value - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
     if (videoDurationMsSV.value <= 0) {
       return SPEED_CHART_LEFT_PADDING;
     }
@@ -546,7 +548,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       if (speedChartWidth <= 0 || correctedPlaybackDurationMs <= 0) {
         return;
       }
-      const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING);
+      const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
       if (drawableWidth <= 0) {
         return;
       }
@@ -675,10 +677,10 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
               chartDescription={{text: ''}}
               marker={{enabled: false}}
               viewPortOffsets={{
-                left: SPEED_CHART_LEFT_PADDING,
-                top: 4,
-                right: 4,
-                bottom: 4,
+                left: Math.round(SPEED_CHART_LEFT_PADDING * PixelRatio.get()),
+                top: Math.round(4 * PixelRatio.get()),
+                right: Math.round(SPEED_CHART_RIGHT_PADDING * PixelRatio.get()),
+                bottom: Math.round(4 * PixelRatio.get()),
               }}
               xAxis={{
                 enabled: false,
@@ -694,6 +696,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
                   textColor: speedChartColors.text,
                   gridColor: speedChartColors.grid,
                   axisLineColor: speedChartColors.axis,
+                  axisLineWidth: 1,
                 },
                 right: {
                   enabled: false,
@@ -821,7 +824,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 1.5,
+    width: 4,
     height: SPEED_PLOT_HEIGHT,
     opacity: 0.75,
   },
