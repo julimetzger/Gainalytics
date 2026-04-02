@@ -650,3 +650,48 @@ Working solution:
 - Use the prior round's Maestro evidence if the setup flow cannot produce a completed analysis.
 
 Apply when: planning Maestro flows on R5CN30HWZFN that require a video analysis.
+
+### 22. Emulator-5558 needed a forced React Native debug host override to use the assigned worktree Metro
+
+Problem:
+- On `emulator-5558`, the React Native debug build defaulted to `10.0.2.2:8081`.
+- The assigned worktree Metro for MET-001 was running on host port `8089`, so the app either loaded the wrong bundle or stayed on the loading screen.
+
+Symptoms:
+- App screen showed `Loading from 10.0.2.2:8081...`
+- `adb reverse tcp:8081 tcp:8089` alone was not enough, because the app still tried `10.0.2.2`, not `localhost`
+- Full-flow Maestro assertions failed immediately because the app UI never rendered
+
+Working solution:
+- Write `debug_http_host=localhost:8081` into the app default shared preferences file:
+  - `shared_prefs/com.powerliftingworkoutplanner_preferences.xml`
+- Because `run-as ... sh -c` landed in a misleading root shell on this emulator, the reliable write path was:
+  1. create the XML in `/data/local/tmp`
+  2. `adb -s emulator-5558 shell run-as com.powerliftingworkoutplanner cp /data/local/tmp/<file> shared_prefs/com.powerliftingworkoutplanner_preferences.xml`
+- Then keep `adb -s emulator-5558 reverse tcp:8081 tcp:8089`
+
+Apply when: a worktree uses a non-8081 Metro port and the emulator still shows `10.0.2.2:8081`.
+
+### 23. Manual Maestro driver install plus `fuser -k 7016/tcp` was required before retries on MET-001
+
+Problem:
+- Maestro on `emulator-5558` repeatedly failed before the flow started with `dadb.forwarding.TcpForwarder.waitFor` / `AndroidDriver.allocateForwarder`.
+- `pm list instrumentation` was empty, and stale listeners on `7016` sometimes remained after failed runs.
+
+Symptoms:
+- `java.util.concurrent.TimeoutException` in `TcpForwarder.waitFor`
+- `Maestro Android driver did not start up in time`
+- `ss -ltnp | rg 7016` still showed a listener even after the wrapper exited
+
+Working solution:
+- Extract and install the Android Maestro APKs from the local Maestro jar:
+  - `maestro-app.apk`
+  - `maestro-server.apk`
+- Verify:
+  - `adb -s emulator-5558 shell pm list packages | rg 'dev.mobile.maestro'`
+  - `adb -s emulator-5558 shell pm list instrumentation`
+- Before each retry, clear the stale listener with:
+  - `fuser -k 7016/tcp || true`
+- Even with those fixes, the full MET-001 flow still remained intermittently flaky, but import-only Maestro became passable again.
+
+Apply when: Maestro retries on `emulator-5558` keep failing on port `7016` before any flow steps run.
