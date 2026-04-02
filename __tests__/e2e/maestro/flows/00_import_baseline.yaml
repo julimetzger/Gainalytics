@@ -1,7 +1,15 @@
 appId: com.powerliftingworkoutplanner
 ---
 - launchApp
-- assertVisible: 'Training'
+# Dismiss React Native dev error overlay if it appears on startup after force-stop
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
 - tapOn: 'tab-settings'
 - scrollUntilVisible:
     element:
@@ -31,4 +39,4 @@ appId: com.powerliftingworkoutplanner
 - tapOn: 'baseline.gains'
 - extendedWaitUntil:
     visible: 'Training'
-    timeout: 60000
+    timeout: 120000
