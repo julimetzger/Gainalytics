@@ -1,0 +1,63 @@
+id: ANA-007
+status: ready
+area: analyse
+priority: medium
+title: Video-Analyse Wiedergabegeschwindigkeit steuerbar (0.1x – 1.0x)
+source:
+  - TODOS.md
+description: >
+  Im VideoAnalysisDetails-Screen soll die Wiedergabegeschwindigkeit des Videos
+  in 0.1er-Schritten einstellbar sein, von 0.1x bis 1.0x der tatsächlichen
+  Geschwindigkeit. Slow-Motion ist für die Analyse von Reps essentiell.
+
+  Native-Seite (VideoAnalysisPlayerView.java):
+    - Neue Prop "playbackSpeed" (float, default 1.0) empfangen
+    - ExoPlayer.setPlaybackParameters(PlaybackParameters(speed)) aufrufen
+    - Bei Änderung der Prop den Wert live updaten (kein Neustart nötig)
+
+  JS-Seite (VideoAnalysisPlaybackOverlayCard.tsx):
+    - State für playbackSpeed (default 1.0)
+    - UI-Control: Slider oder Button-Reihe mit vordefinierten Werten
+      (0.1, 0.2, 0.3, 0.5, 0.75, 1.0) unterhalb der Step-Buttons
+    - Aktueller Speed wird als Label angezeigt (z.B. "0.3x")
+    - Speed-Prop an VideoAnalysisPlayerView übergeben
+
+  Wichtig: Die Geschwindigkeitsanpassung betrifft nur die Videowiedergabe.
+  Die berechneten Geschwindigkeitswerte im Speed-Chart (px/s) bleiben
+  unverändert — sie zeigen immer die reale Barbell-Geschwindigkeit.
+
+components:
+  - app/components/video/VideoAnalysisPlaybackOverlayCard.tsx
+  - app/components/video/VideoAnalysisPlayerView.tsx
+  - android/app/src/main/java/com/powerliftingworkoutplanner/VideoAnalysisPlayerView.java
+
+acceptanceCriteria:
+  - >
+    Ein Speed-Control ist sichtbar im VideoAnalysisDetails-Screen,
+    unterhalb der Step-Buttons.
+  - >
+    Geschwindigkeit ist in 0.1er-Schritten von 0.1x bis 1.0x einstellbar.
+  - >
+    Änderung der Geschwindigkeit wirkt sofort auf die Videowiedergabe,
+    ohne Neustart des Players.
+  - >
+    Der aktuelle Speed-Wert wird als Label angezeigt (z.B. "0.5x").
+  - >
+    Die Geschwindigkeitswerte im Speed-Chart (px/s) ändern sich nicht
+    bei Speed-Änderung — sie zeigen immer die reale Geschwindigkeit.
+  - >
+    Default-Geschwindigkeit ist 1.0x.
+
+evidenceRequired:
+  - Maestro-Flow der Speed-Änderung zeigt und Video-Wiedergabe verifiziert.
+  - Jest-Tests für Speed-Control UI und Prop-Übergabe.
+
+constraints:
+  - ExoPlayer PlaybackParameters API nutzen (keine eigene Timing-Logik).
+  - Kein Speed > 1.0x nötig (nur Slow-Motion relevant für Analyse).
+  - Progress-Events weiterhin in Echtzeit-Millisekunden (nicht skaliert).
+
+nonGoals:
+  - Geschwindigkeit > 1.0x.
+  - Pitch-Korrektur für Audio.
+  - Speed-Control für andere Screens außer VideoAnalysisDetails.

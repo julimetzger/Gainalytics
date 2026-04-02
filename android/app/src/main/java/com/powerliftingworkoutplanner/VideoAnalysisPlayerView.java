@@ -64,6 +64,15 @@ public class VideoAnalysisPlayerView extends FrameLayout {
                 return;
             }
 
+            // Refresh duration if ExoPlayer did not know it at STATE_READY
+            if (durationMs <= 0) {
+                int freshDuration = getSafeDurationMs();
+                if (freshDuration > 0) {
+                    durationMs = freshDuration;
+                    emitLoad();
+                }
+            }
+
             int currentTimeMs = getSafeCurrentPositionMs();
             updateOverlayPointForTimeMs(currentTimeMs);
             maybeEmitProgress(currentTimeMs, false);

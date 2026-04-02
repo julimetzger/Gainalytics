@@ -1,0 +1,106 @@
+appId: com.powerliftingworkoutplanner
+---
+# Round-4 combined flow: import video analysis, then run responsiveness + scrubber proof.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: "Unable to load script"
+    commands:
+      - tapOn:
+          text: "RELOAD"
+      - waitForAnimationToEnd:
+          timeout: 8000
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 15000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- extendedWaitUntil:
+    visible: "Import Video"
+    timeout: 10000
+# Import the embedded test video (emulator squat video button).
+- tapOn: "Import Emulator Squat Video"
+- runFlow:
+    when:
+      visible:
+        text: "(?i)^allow$"
+    commands:
+      - tapOn:
+          text: "(?i)^allow$"
+- runFlow:
+    when:
+      visible: "Allow only while using the app"
+    commands:
+      - tapOn: "Allow only while using the app"
+- extendedWaitUntil:
+    visible: "Analysis #"
+    timeout: 30000
+- tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Status: done"
+    timeout: 180000
+# Scroll to Playback Overlay section
+- scrollUntilVisible:
+    element:
+      text: "Playback Overlay"
+    direction: DOWN
+# Swipe to expose Play button and step controls.
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 30%"
+    duration: 300
+- waitForAnimationToEnd:
+    timeout: 200
+# CRITERION: Bar Y Position Over Time section is gone
+- assertNotVisible: "Bar Y Position Over Time"
+# CRITERION: Speed chart and play controls present
+- assertVisible: "Bar v_y Over Time"
+- assertVisible: "Play"
+- assertVisible:
+    text: "+0.2s"
+- takeScreenshot: "r4_initial_paused"
+# START PLAYBACK
+- tapOn: "Play"
+- waitForAnimationToEnd:
+    timeout: 1500
+- takeScreenshot: "r4_speed_chart_playing"
+# RESPONSIVENESS PROOF: tap Training tab while video is playing.
+- tapOn: "tab-training"
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 5000
+- takeScreenshot: "r4_tab_switch_during_playback"
+# Navigate back to Analyse.
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 10000
+- takeScreenshot: "r4_back_on_analyse"

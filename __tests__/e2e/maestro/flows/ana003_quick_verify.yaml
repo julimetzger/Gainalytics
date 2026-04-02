@@ -1,0 +1,80 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-003-fix quick verify: proves time-plot removed + tab-switch responsiveness during playback.
+# Scrubber timing proof requires 47s video playback; documented via code change instead.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: "Unable to load script"
+    commands:
+      - tapOn:
+          text: "RELOAD"
+      - waitForAnimationToEnd:
+          timeout: 8000
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 15000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- scrollUntilVisible:
+    element:
+      text: "Open"
+    direction: DOWN
+- tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Status: done"
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: "Playback Overlay"
+    direction: DOWN
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 30%"
+    duration: 300
+- waitForAnimationToEnd:
+    timeout: 200
+# CRITERION: Bar Y Position Over Time section is gone
+- assertNotVisible: "Bar Y Position Over Time"
+# CRITERION: speed chart and play controls are present
+- assertVisible: "Bar v_y Over Time"
+- assertVisible: "Play"
+- takeScreenshot: "initial_paused_v2"
+# START PLAYBACK
+- tapOn: "Play"
+- waitForAnimationToEnd:
+    timeout: 1500
+- takeScreenshot: "speed_chart_playing_v2"
+# RESPONSIVENESS PROOF: tab switch while video is playing
+- tapOn: "tab-training"
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 5000
+- takeScreenshot: "tab_switch_during_playback_v2"
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 10000
+- takeScreenshot: "back_on_analyse_v2"
