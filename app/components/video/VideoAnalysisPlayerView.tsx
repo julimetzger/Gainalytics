@@ -22,11 +22,21 @@ export interface VideoBarPathPoint {
   y: number;
 }
 
+export interface VideoRepSegment {
+  repIndex: number;
+  startMs: number;
+  bottomMs: number;
+  endMs: number;
+}
+
 interface VideoAnalysisPlayerViewProps extends ViewProps {
   source: string;
   paused: boolean;
   seekPositionMs?: number;
   barPathSeries?: VideoBarPathPoint[];
+  repSegments?: VideoRepSegment[];
+  primaryColor?: number;
+  pathColor?: number;
   trackingFrameWidthPx?: number;
   trackingFrameHeightPx?: number;
   onLoad?: (event: NativeSyntheticEvent<VideoPlayerLoadEvent>) => void;

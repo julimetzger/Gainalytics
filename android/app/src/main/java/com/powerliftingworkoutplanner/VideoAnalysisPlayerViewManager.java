@@ -56,6 +56,25 @@ public class VideoAnalysisPlayerViewManager extends SimpleViewManager<VideoAnaly
         view.setTrackingFrameHeightPx(trackingFrameHeightPx);
     }
 
+    @ReactProp(name = "repSegments")
+    public void setRepSegments(VideoAnalysisPlayerView view, ReadableArray repSegments) {
+        view.setRepSegments(repSegments);
+    }
+
+    @ReactProp(name = "primaryColor", defaultInt = 0)
+    public void setPrimaryColor(VideoAnalysisPlayerView view, int primaryColor) {
+        if (primaryColor != 0) {
+            view.setPrimaryColor(primaryColor);
+        }
+    }
+
+    @ReactProp(name = "pathColor", defaultInt = 0)
+    public void setPathColor(VideoAnalysisPlayerView view, int pathColor) {
+        if (pathColor != 0) {
+            view.setPathColor(pathColor);
+        }
+    }
+
     @Override
     public void onDropViewInstance(@NonNull VideoAnalysisPlayerView view) {
         super.onDropViewInstance(view);

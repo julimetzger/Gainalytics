@@ -17,12 +17,6 @@ interface TimeRange {
   durationMs: number;
 }
 
-interface OverlayPoint {
-  key: string;
-  x: number;
-  y: number;
-}
-
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
 const SPEED_PLOT_HEIGHT = 180;
 // Left offset of the chart drawable area (dp). Used for JS layout (translateX, touch mapping).
@@ -141,55 +135,6 @@ const findRepIndexForTimeMs = (segments: RepSegment[], timeMs: number): number |
   return undefined;
 };
 
-const mapBarPathToOverlay = (
-  barPathSeries: BarPathPoint[],
-  overlayWidth: number,
-  overlayHeight: number,
-  videoWidth: number,
-  videoHeight: number,
-  trackingFrameWidthPx?: number,
-  trackingFrameHeightPx?: number,
-): OverlayPoint[] => {
-  if (barPathSeries.length === 0 || overlayWidth <= 0 || overlayHeight <= 0) {
-    return [];
-  }
-
-  const sourceWidth = trackingFrameWidthPx && trackingFrameWidthPx > 0 ? trackingFrameWidthPx : videoWidth > 0 ? videoWidth : overlayWidth;
-  const sourceHeight = trackingFrameHeightPx && trackingFrameHeightPx > 0 ? trackingFrameHeightPx : videoHeight > 0 ? videoHeight : overlayHeight;
-  if (sourceWidth <= 0 || sourceHeight <= 0) {
-    return [];
-  }
-
-  const scale = Math.min(overlayWidth / sourceWidth, overlayHeight / sourceHeight);
-  const renderedWidth = sourceWidth * scale;
-  const renderedHeight = sourceHeight * scale;
-  const offsetX = (overlayWidth - renderedWidth) / 2;
-  const offsetY = (overlayHeight - renderedHeight) / 2;
-
-  if (trackingFrameWidthPx && trackingFrameHeightPx && trackingFrameWidthPx > 0 && trackingFrameHeightPx > 0) {
-    return barPathSeries.map((point, index) => ({
-      key: `${point.tMs}-${index}`,
-      x: offsetX + point.x * (renderedWidth / trackingFrameWidthPx),
-      y: offsetY + point.y * (renderedHeight / trackingFrameHeightPx),
-    }));
-  }
-
-  const xValues = barPathSeries.map((point) => point.x);
-  const yValues = barPathSeries.map((point) => point.y);
-  const minX = Math.min(...xValues);
-  const maxX = Math.max(...xValues);
-  const minY = Math.min(...yValues);
-  const maxY = Math.max(...yValues);
-  const xSpan = Math.max(1, maxX - minX);
-  const ySpan = Math.max(1, maxY - minY);
-
-  return barPathSeries.map((point, index) => ({
-    key: `${point.tMs}-${index}`,
-    x: offsetX + ((point.x - minX) / xSpan) * renderedWidth,
-    y: offsetY + ((point.y - minY) / ySpan) * renderedHeight,
-  }));
-};
-
 const mapVerticalVelocitySeriesToLineValues = (barPathSeries: BarPathPoint[], verticalVelocitySeries: number[]): LineValue[] => {
   if (barPathSeries.length === 0 || verticalVelocitySeries.length === 0) {
     return [];
@@ -241,9 +186,6 @@ const createThemedStyles = (theme: MD3Theme) =>
     previewBackground: {
       backgroundColor: theme.colors.surfaceVariant,
     },
-    historyPoint: {
-      backgroundColor: theme.colors.onSurfaceVariant,
-    },
     scrubberTrack: {
       backgroundColor: theme.colors.surfaceVariant,
     },
@@ -278,8 +220,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const [playbackVideoWidth, setPlaybackVideoWidth] = useState(0);
   const [playbackVideoHeight, setPlaybackVideoHeight] = useState(0);
   const [currentRepIndex, setCurrentRepIndex] = useState<number | undefined>();
-  const [overlayWidth, setOverlayWidth] = useState(0);
-  const [overlayHeight, setOverlayHeight] = useState(0);
   const [scrubberWidth, setScrubberWidth] = useState(0);
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
@@ -361,27 +301,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     }
     return DEFAULT_PREVIEW_ASPECT_RATIO;
   }, [playbackVideoHeight, playbackVideoWidth, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx]);
-  const historyOverlayPoints = useMemo(
-    () =>
-      mapBarPathToOverlay(
-        smoothedBarPathSeries,
-        overlayWidth,
-        overlayHeight,
-        playbackVideoWidth,
-        playbackVideoHeight,
-        result.analysisMeta.trackingFrameWidthPx,
-        result.analysisMeta.trackingFrameHeightPx,
-      ),
-    [
-      overlayHeight,
-      overlayWidth,
-      playbackVideoHeight,
-      playbackVideoWidth,
-      result.analysisMeta.trackingFrameHeightPx,
-      result.analysisMeta.trackingFrameWidthPx,
-      smoothedBarPathSeries,
-    ],
-  );
   const verticalVelocityLineValues = useMemo(() => mapVerticalVelocitySeriesToLineValues(smoothedBarPathSeries, smoothedBarVerticalVelocitySeries), [
     smoothedBarPathSeries,
     smoothedBarVerticalVelocitySeries,
@@ -498,12 +417,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     playbackPausedRef.current = true;
     updateCurrentRepForPlaybackTime(duration);
   }, [updateCurrentRepForPlaybackTime]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const onOverlayLayout = useCallback((event: LayoutChangeEvent) => {
-    const {width, height} = event.nativeEvent.layout;
-    setOverlayWidth(width);
-    setOverlayHeight(height);
-  }, []);
 
   // applySeekTimeMs: cancel any running animation, jump to new position immediately,
   // and restart the animation if currently playing.
@@ -627,7 +540,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   return (
     <>
       <Text style={styles.overlayHint}>Live playback with current detected bar position.</Text>
-      <View testID="video-analysis-playback-overlay" style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio}]} onLayout={onOverlayLayout}>
+      <View testID="video-analysis-overlay-card" style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio}]}>
         <VideoAnalysisPlayerView
           testID="video-analysis-playback-player"
           style={styles.previewImage}
@@ -635,27 +548,15 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           paused={playbackPaused}
           seekPositionMs={seekPositionMs}
           barPathSeries={smoothedBarPathSeries}
+          repSegments={repSegments}
+          primaryColor={speedChartColors.progressLine as number}
+          pathColor={speedChartColors.grid as number}
           trackingFrameWidthPx={result.analysisMeta.trackingFrameWidthPx}
           trackingFrameHeightPx={result.analysisMeta.trackingFrameHeightPx}
           onLoad={onPlayerLoad}
           onProgress={onPlayerProgress}
           onEnd={onPlayerEnd}
         />
-        <View pointerEvents="none" style={styles.historyOverlayLayer}>
-          {historyOverlayPoints.map((point) => (
-            <View
-              key={point.key}
-              style={[
-                styles.historyPoint,
-                themedStyles.historyPoint,
-                {
-                  left: point.x - 1,
-                  top: point.y - 1,
-                },
-              ]}
-            />
-          ))}
-        </View>
       </View>
 
       <View style={styles.speedPlotSection}>
@@ -764,6 +665,27 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           </Button>
         </View>
       </View>
+
+      {result.repMetrics.length > 0 && (
+        <View testID="video-analysis-rep-summary" style={styles.repSummarySection}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>
+            Rep Summary ({result.repMetrics.length} {result.repMetrics.length === 1 ? 'rep' : 'reps'})
+          </Text>
+          {result.repMetrics.map((metric) => (
+            <View key={metric.repIndex} testID={`video-analysis-rep-metric-${metric.repIndex}`} style={[styles.repMetricRow, {borderLeftColor: theme.colors.primary}]}>
+              <Text variant="bodySmall" style={styles.repMetricLabel}>
+                Rep {metric.repIndex + 1}
+              </Text>
+              <Text testID={`video-analysis-rep-time-${metric.repIndex}`} variant="bodySmall">
+                {(metric.repTimeMs / 1000).toFixed(2)}s
+              </Text>
+              <Text testID={`video-analysis-rep-speed-${metric.repIndex}`} variant="bodySmall">
+                {Math.round(metric.averageConcentricSpeedPxPerS)} px/s
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
     </>
   );
 };
@@ -778,18 +700,26 @@ const styles = StyleSheet.create({
   previewImage: {
     ...StyleSheet.absoluteFillObject,
   },
-  historyOverlayLayer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  historyPoint: {
-    position: 'absolute',
-    width: 2,
-    height: 2,
-    borderRadius: 1,
-    opacity: 0.18,
-  },
   overlayHint: {
     marginBottom: 10,
+  },
+  repSummarySection: {
+    marginTop: 12,
+  },
+  repSummaryTitle: {
+    marginBottom: 4,
+  },
+  repMetricRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginBottom: 2,
+    borderLeftWidth: 3,
+    borderRadius: 4,
+  },
+  repMetricLabel: {
+    flex: 1,
   },
   playbackControls: {
     marginTop: 10,

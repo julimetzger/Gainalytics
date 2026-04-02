@@ -431,3 +431,114 @@ describe('VideoAnalysisPlaybackOverlayCard – speed chart marker alignment', ()
     expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + (2000 / VIDEO_DURATION_MS) * DRAWABLE_WIDTH);
   });
 });
+
+// --- Fixture with rep data ---
+const makeResultWithReps = (): BarTrackingResult => ({
+  analysisId: 3,
+  units: 'px/s',
+  barPathSeries: [
+    {tMs: 0, x: 100, y: 200},
+    {tMs: 500, x: 110, y: 210},
+    {tMs: 1000, x: 120, y: 250},
+    {tMs: 1500, x: 130, y: 210},
+    {tMs: 2000, x: 140, y: 200},
+    {tMs: 2500, x: 150, y: 250},
+    {tMs: 3000, x: 160, y: 210},
+  ],
+  confidenceSeries: [],
+  repSegments: [
+    {repIndex: 0, startMs: 0, bottomMs: 1000, endMs: 2000},
+    {repIndex: 1, startMs: 2000, bottomMs: 2500, endMs: 3000},
+  ],
+  repMetrics: [
+    {repIndex: 0, repTimeMs: 2000, averageConcentricSpeedPxPerS: 50, lowestConcentricSpeedPxPerS: 30},
+    {repIndex: 1, repTimeMs: 1000, averageConcentricSpeedPxPerS: 80, lowestConcentricSpeedPxPerS: 60},
+  ],
+  qualityFlags: [],
+  analysisMeta: {
+    sourceFps: 30,
+    analyzedFps: 30,
+    frameCount: 60,
+    averageConfidence: 0.9,
+    trackingFrameWidthPx: 640,
+    trackingFrameHeightPx: 480,
+  },
+});
+
+describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
+  it('renders rep summary section when repMetrics is non-empty', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+
+    expect(getByTestId('video-analysis-rep-summary')).toBeTruthy();
+  });
+
+  it('rep summary shows correct rep count label', () => {
+    const {getByText} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+
+    expect(getByText('Rep Summary (2 reps)')).toBeTruthy();
+  });
+
+  it('rep summary shows rep time for each rep', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+
+    const flatChildren = (el: any): string => [].concat(el.props.children).join('');
+    // Rep 0: 2000ms = 2.00s
+    expect(flatChildren(getByTestId('video-analysis-rep-time-0'))).toBe('2.00s');
+    // Rep 1: 1000ms = 1.00s
+    expect(flatChildren(getByTestId('video-analysis-rep-time-1'))).toBe('1.00s');
+  });
+
+  it('rep summary shows average concentric speed for each rep', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+
+    const flatChildren = (el: any): string => [].concat(el.props.children).join('');
+    // Rep 0: 50 px/s
+    expect(flatChildren(getByTestId('video-analysis-rep-speed-0'))).toBe('50 px/s');
+    // Rep 1: 80 px/s
+    expect(flatChildren(getByTestId('video-analysis-rep-speed-1'))).toBe('80 px/s');
+  });
+
+  it('does not render rep summary section when repMetrics is empty', () => {
+    const {queryByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+
+    expect(queryByTestId('video-analysis-rep-summary')).toBeNull();
+  });
+
+  it('renders without crash when repSegments is empty (graceful degradation)', () => {
+    const result = makeResult();
+    expect(() =>
+      render(<VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={result} />),
+    ).not.toThrow();
+  });
+
+  it('passes repSegments prop to native player', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+
+    const player = getByTestId('video-analysis-playback-player');
+    expect(player.props.repSegments).toHaveLength(2);
+    expect(player.props.repSegments[0].repIndex).toBe(0);
+    expect(player.props.repSegments[0].startMs).toBe(0);
+    expect(player.props.repSegments[0].bottomMs).toBe(1000);
+    expect(player.props.repSegments[0].endMs).toBe(2000);
+  });
+
+  it('native player overlay card is rendered with correct testID', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+
+    expect(getByTestId('video-analysis-overlay-card')).toBeTruthy();
+  });
+});

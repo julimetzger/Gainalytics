@@ -267,8 +267,10 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             result.put("units", "px/s");
             result.put("barPathSeries", trackingSeries.barPathSeries);
             result.put("confidenceSeries", trackingSeries.confidenceSeries);
-            result.put("repSegments", new JSONArray());
-            result.put("repMetrics", new JSONArray());
+            JSONArray detectedRepMetrics = new JSONArray();
+            JSONArray detectedRepSegments = detectRepSegments(trackingSeries.barPathSeries, detectedRepMetrics);
+            result.put("repSegments", detectedRepSegments);
+            result.put("repMetrics", detectedRepMetrics);
 
             JSONObject analysisMeta = new JSONObject();
             analysisMeta.put("sourceFps", roundTo3(sourceFps));
@@ -1525,6 +1527,152 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         } finally {
             fileDescriptor.close();
         }
+    }
+
+    /**
+     * Detect rep segments from the bar-path vertical velocity signal using zero-crossings.
+     *
+     * Screen-space y increases downward, so:
+     *   vy > 0 → bar moving down (eccentric/descent)
+     *   vy < 0 → bar moving up (concentric/ascent)
+     *
+     * A rep is defined as: [top-crossing (descent start), bottom-crossing (reversal), next top-crossing].
+     *
+     * @param barPathSeries JSONArray of {tMs, x, y} tracking points.
+     * @param repMetricsOut output JSONArray that receives RepMetric objects.
+     * @return JSONArray of RepSegment objects.
+     */
+    private static JSONArray detectRepSegments(JSONArray barPathSeries, JSONArray repMetricsOut) throws Exception {
+        JSONArray repSegments = new JSONArray();
+        int n = barPathSeries.length();
+        if (n < 6) {
+            return repSegments;
+        }
+
+        int[] tMsArr = new int[n];
+        double[] yArr = new double[n];
+        for (int i = 0; i < n; i++) {
+            JSONObject point = barPathSeries.getJSONObject(i);
+            tMsArr[i] = point.getInt("tMs");
+            yArr[i] = point.getDouble("y");
+        }
+
+        // Central-difference vertical velocity: vy[i] = (y[i+1] - y[i-1]) / (dt in seconds)
+        double[] rawVy = new double[n];
+        for (int i = 1; i < n - 1; i++) {
+            double dtS = Math.max(1, tMsArr[i + 1] - tMsArr[i - 1]) / 1000.0;
+            rawVy[i] = (yArr[i + 1] - yArr[i - 1]) / dtS;
+        }
+
+        double[] vy = smoothDoubleArray(rawVy, 5);
+
+        // Minimum duration (ms) per phase to filter out noise crossings.
+        int minPhaseDurationMs = 200;
+
+        // Collect zero-crossing indices:
+        //   bottomCrossings: vy goes from positive to negative (bar reversal, was descending now ascending)
+        //   topCrossings:    vy goes from negative to positive (bar was ascending, starts descending again)
+        List<Integer> bottomCrossings = new ArrayList<>();
+        List<Integer> topCrossings = new ArrayList<>();
+        for (int i = 1; i < n; i++) {
+            if (vy[i - 1] > 0 && vy[i] <= 0) {
+                bottomCrossings.add(i);
+            } else if (vy[i - 1] <= 0 && vy[i] > 0) {
+                topCrossings.add(i);
+            }
+        }
+
+        if (bottomCrossings.isEmpty()) {
+            return repSegments;
+        }
+
+        int repIndex = 0;
+        for (int bottomIdx : bottomCrossings) {
+            int bottomMs = tMsArr[bottomIdx];
+
+            // Find the last top-crossing before this bottom (= start of descent)
+            int startIdx = 0;
+            for (int topIdx : topCrossings) {
+                if (tMsArr[topIdx] < bottomMs) {
+                    startIdx = topIdx;
+                } else {
+                    break;
+                }
+            }
+            int startMs = tMsArr[startIdx];
+
+            // Find the first top-crossing after this bottom (= end of concentric)
+            int endIdx = n - 1;
+            for (int topIdx : topCrossings) {
+                if (tMsArr[topIdx] > bottomMs) {
+                    endIdx = topIdx;
+                    break;
+                }
+            }
+            int endMs = tMsArr[endIdx];
+
+            // Discard if phases are too short
+            if (bottomMs - startMs < minPhaseDurationMs || endMs - bottomMs < minPhaseDurationMs) {
+                continue;
+            }
+
+            // RepSegment
+            JSONObject segment = new JSONObject();
+            segment.put("repIndex", repIndex);
+            segment.put("startMs", startMs);
+            segment.put("bottomMs", bottomMs);
+            segment.put("endMs", endMs);
+            repSegments.put(segment);
+
+            // RepMetric: concentric phase displacement / time
+            double yAtBottom = yArr[bottomIdx];
+            double yAtEnd = yArr[endIdx];
+            double concentricDispPx = Math.abs(yAtBottom - yAtEnd);
+            double concentricTimeS = Math.max(0.001, (endMs - bottomMs) / 1000.0);
+            double avgConcentricSpeedPxPerS = concentricDispPx / concentricTimeS;
+
+            // Lowest concentric speed: minimum |vy| in concentric window
+            double lowestSpeed = Double.MAX_VALUE;
+            for (int i = bottomIdx; i <= endIdx && i < n; i++) {
+                double speed = Math.abs(vy[i]);
+                if (speed < lowestSpeed) {
+                    lowestSpeed = speed;
+                }
+            }
+            if (lowestSpeed == Double.MAX_VALUE) {
+                lowestSpeed = 0.0;
+            }
+
+            JSONObject metric = new JSONObject();
+            metric.put("repIndex", repIndex);
+            metric.put("repTimeMs", endMs - startMs);
+            metric.put("averageConcentricSpeedPxPerS", roundTo3(avgConcentricSpeedPxPerS));
+            metric.put("lowestConcentricSpeedPxPerS", roundTo3(lowestSpeed));
+            repMetricsOut.put(metric);
+
+            repIndex++;
+        }
+
+        return repSegments;
+    }
+
+    private static double[] smoothDoubleArray(double[] arr, int windowSize) {
+        if (arr.length == 0 || windowSize <= 1) {
+            return arr;
+        }
+        int half = windowSize / 2;
+        double[] result = new double[arr.length];
+        for (int i = 0; i < arr.length; i++) {
+            int start = Math.max(0, i - half);
+            int end = Math.min(arr.length - 1, i + half);
+            double sum = 0;
+            int count = end - start + 1;
+            for (int j = start; j <= end; j++) {
+                sum += arr[j];
+            }
+            result[i] = sum / count;
+        }
+        return result;
     }
 
     private static double roundTo3(double value) {

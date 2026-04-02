@@ -3,6 +3,7 @@ package com.powerliftingworkoutplanner;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -56,6 +57,14 @@ public class VideoAnalysisPlayerView extends FrameLayout {
     private float fallbackMaxY = 0f;
     private boolean hasFallbackBounds = false;
     private int lastProgressEventTimeMs = -1;
+
+    // Bar-path canvas overlay fields
+    private int currentTimeMs = 0;
+    private final List<RepSegmentData> repSegmentList = new ArrayList<>();
+    private final Paint backgroundPathPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint activeRepPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path bgPathBuffer = new Path();
+    private final Path trailPathBuffer = new Path();
 
     private final Runnable progressRunnable = new Runnable() {
         @Override
@@ -136,6 +145,22 @@ public class VideoAnalysisPlayerView extends FrameLayout {
 
     public VideoAnalysisPlayerView(@NonNull ReactContext context) {
         super(context);
+
+        // Bar-path background: matte gray polyline (permanent, full path)
+        backgroundPathPaint.setStyle(Paint.Style.STROKE);
+        backgroundPathPaint.setStrokeWidth(4f);
+        backgroundPathPaint.setColor(Color.argb(100, 160, 160, 160));
+        backgroundPathPaint.setStrokeCap(Paint.Cap.ROUND);
+        backgroundPathPaint.setStrokeJoin(Paint.Join.ROUND);
+
+        // Active rep trail: primary-color polyline (grows from rep start to current frame)
+        activeRepPaint.setStyle(Paint.Style.STROKE);
+        activeRepPaint.setStrokeWidth(5f);
+        activeRepPaint.setColor(Color.argb(220, 255, 90, 90));
+        activeRepPaint.setStrokeCap(Paint.Cap.ROUND);
+        activeRepPaint.setStrokeJoin(Paint.Join.ROUND);
+
+        setWillNotDraw(false);
 
         player = new ExoPlayer.Builder(context).build();
         player.addListener(playerListener);
@@ -264,6 +289,143 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         }
     }
 
+    public void setRepSegments(@Nullable ReadableArray segments) {
+        repSegmentList.clear();
+        if (segments != null) {
+            for (int i = 0; i < segments.size(); i++) {
+                ReadableMap seg = segments.getMap(i);
+                if (seg == null) {
+                    continue;
+                }
+                RepSegmentData data = new RepSegmentData();
+                data.repIndex = seg.hasKey("repIndex") ? seg.getInt("repIndex") : i;
+                data.startMs = seg.hasKey("startMs") ? (int) Math.round(seg.getDouble("startMs")) : 0;
+                data.bottomMs = seg.hasKey("bottomMs") ? (int) Math.round(seg.getDouble("bottomMs")) : 0;
+                data.endMs = seg.hasKey("endMs") ? (int) Math.round(seg.getDouble("endMs")) : 0;
+                repSegmentList.add(data);
+            }
+        }
+        postInvalidateOnAnimation();
+    }
+
+    public void setPrimaryColor(int color) {
+        activeRepPaint.setColor(color);
+        postInvalidateOnAnimation();
+    }
+
+    public void setPathColor(int color) {
+        backgroundPathPaint.setColor(color);
+        postInvalidateOnAnimation();
+    }
+
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+        super.dispatchDraw(canvas);
+        drawBarPathOverlay(canvas);
+    }
+
+    private void drawBarPathOverlay(Canvas canvas) {
+        if (barPathSeries.isEmpty()) {
+            return;
+        }
+
+        int viewWidth = getWidth();
+        int viewHeight = getHeight();
+        if (viewWidth <= 0 || viewHeight <= 0) {
+            return;
+        }
+
+        float sourceWidth = trackingFrameWidthPx > 0 ? trackingFrameWidthPx : (videoWidth > 0 ? videoWidth : viewWidth);
+        float sourceHeight = trackingFrameHeightPx > 0 ? trackingFrameHeightPx : (videoHeight > 0 ? videoHeight : viewHeight);
+        if (sourceWidth <= 0f || sourceHeight <= 0f) {
+            return;
+        }
+
+        float scale = Math.min(viewWidth / sourceWidth, viewHeight / sourceHeight);
+        float renderedWidth = sourceWidth * scale;
+        float renderedHeight = sourceHeight * scale;
+        float offsetX = (viewWidth - renderedWidth) / 2f;
+        float offsetY = (viewHeight - renderedHeight) / 2f;
+
+        // Determine x/y mapping based on whether we have tracking frame dimensions or fallback bounds
+        boolean useTrackingFrame = trackingFrameWidthPx > 0 && trackingFrameHeightPx > 0;
+
+        // Draw gray background path (full bar path, permanent)
+        bgPathBuffer.reset();
+        boolean firstBg = true;
+        for (TrackingPoint point : barPathSeries) {
+            float px = mapTrackingX(point.x, offsetX, renderedWidth, sourceWidth, useTrackingFrame);
+            float py = mapTrackingY(point.y, offsetY, renderedHeight, sourceHeight, useTrackingFrame);
+            if (firstBg) {
+                bgPathBuffer.moveTo(px, py);
+                firstBg = false;
+            } else {
+                bgPathBuffer.lineTo(px, py);
+            }
+        }
+        if (!firstBg) {
+            canvas.drawPath(bgPathBuffer, backgroundPathPaint);
+        }
+
+        // Find the currently active rep segment
+        RepSegmentData activeRep = null;
+        for (RepSegmentData seg : repSegmentList) {
+            if (currentTimeMs >= seg.startMs && currentTimeMs <= seg.endMs) {
+                activeRep = seg;
+                break;
+            }
+        }
+
+        if (activeRep == null) {
+            return;
+        }
+
+        // Draw primary-color active rep trail (grows from rep start to current time)
+        trailPathBuffer.reset();
+        boolean firstTrail = true;
+        for (TrackingPoint point : barPathSeries) {
+            if (point.tMs < activeRep.startMs) {
+                continue;
+            }
+            if (point.tMs > currentTimeMs) {
+                break;
+            }
+            float px = mapTrackingX(point.x, offsetX, renderedWidth, sourceWidth, useTrackingFrame);
+            float py = mapTrackingY(point.y, offsetY, renderedHeight, sourceHeight, useTrackingFrame);
+            if (firstTrail) {
+                trailPathBuffer.moveTo(px, py);
+                firstTrail = false;
+            } else {
+                trailPathBuffer.lineTo(px, py);
+            }
+        }
+        if (!firstTrail) {
+            canvas.drawPath(trailPathBuffer, activeRepPaint);
+        }
+    }
+
+    private float mapTrackingX(float x, float offsetX, float renderedWidth, float sourceWidth, boolean useTrackingFrame) {
+        if (useTrackingFrame) {
+            return offsetX + x * (renderedWidth / sourceWidth);
+        }
+        if (hasFallbackBounds) {
+            float xSpan = Math.max(1f, fallbackMaxX - fallbackMinX);
+            return offsetX + ((x - fallbackMinX) / xSpan) * renderedWidth;
+        }
+        return offsetX + renderedWidth * 0.5f;
+    }
+
+    private float mapTrackingY(float y, float offsetY, float renderedHeight, float sourceHeight, boolean useTrackingFrame) {
+        if (useTrackingFrame) {
+            return offsetY + y * (renderedHeight / sourceHeight);
+        }
+        if (hasFallbackBounds) {
+            float ySpan = Math.max(1f, fallbackMaxY - fallbackMinY);
+            return offsetY + ((y - fallbackMinY) / ySpan) * renderedHeight;
+        }
+        return offsetY + renderedHeight * 0.5f;
+    }
+
     public void setTrackingFrameWidthPx(int widthPx) {
         trackingFrameWidthPx = Math.max(0, widthPx);
         if (prepared) {
@@ -296,13 +458,17 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         progressHandler.removeCallbacks(progressRunnable);
     }
 
-    private void updateOverlayPointForTimeMs(int currentTimeMs) {
+    private void updateOverlayPointForTimeMs(int timeMs) {
+        currentTimeMs = timeMs;
+        // Trigger redraw for bar-path canvas overlay
+        postInvalidateOnAnimation();
+
         if (barPathSeries.isEmpty()) {
             overlayView.clearPoint();
             return;
         }
 
-        TrackingPoint nearestPoint = findNearestPointForTimeMs(currentTimeMs);
+        TrackingPoint nearestPoint = findNearestPointForTimeMs(timeMs);
         if (nearestPoint == null) {
             overlayView.clearPoint();
             return;
@@ -508,6 +674,13 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         int tMs;
         float x;
         float y;
+    }
+
+    private static class RepSegmentData {
+        int repIndex;
+        int startMs;
+        int bottomMs;
+        int endMs;
     }
 
     private static class OverlayDotView extends View {
