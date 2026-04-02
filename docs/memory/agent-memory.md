@@ -563,3 +563,17 @@ Working solution:
 - N=64 fits Y-axis labels up to 4 digits (e.g. "-999"). No native rebuild needed — `viewPortOffsets` is already a JS-bridge prop in `react-native-charts-wrapper/lib/BarLineChartBase.js`.
 
 Apply when: implementing an Animated overlay marker on a react-native-charts-wrapper chart and the marker must align precisely with the Y-axis line.
+
+### 30. viewPortOffsets requires physical pixels, not dp
+
+Problem: In round 8, `viewPortOffsets={{ left: 64, top: 4, right: 4, bottom: 4 }}` was used with raw dp numbers. MPAndroidChart's `setViewPortOffsets()` expects **physical pixels**, not dp. At density 2.75, 64dp ≠ 64px, so the forced viewport offset did not match the JS marker translateX (which is always in dp). This caused a systematic misalignment proportional to (density - 1).
+
+Working solution:
+- Convert all viewPortOffsets values to physical pixels: `Math.round(VALUE_DP * PixelRatio.get())`.
+- Keep the JS overlay constant in dp: `SPEED_CHART_LEFT_PADDING = 64` (dp).
+- The marker uses `translateX: SPEED_CHART_LEFT_PADDING` (in dp), which React Native converts to the same 176px at density 2.75.
+- Pixel analysis (Python + Pillow) is the reliable way to verify alignment: check that the marker left edge pixel overlaps with or immediately follows the Y-axis right edge pixel.
+
+Observation: At density 2.75 with SPEED_CHART_LEFT_PADDING=64, the Y-axis occupies x=231-235 and the marker starts at x=236 (1px gap). This gap is structural — MPAndroidChart draws the axis line into the offset region, so the marker can never perfectly overlap it using the same constant. The 1px gap (<0.4dp) is visually imperceptible.
+
+Apply when: using `viewPortOffsets` on a react-native-charts-wrapper `LineChart` with an Animated overlay.
