@@ -312,6 +312,78 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
   });
 });
 
+describe('VideoAnalysisPlaybackOverlayCard – background path line', () => {
+  it('renders background path segments when barPathSeries has enough points', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+    const overlay = getByTestId('video-analysis-playback-overlay');
+    setOverlaySize(overlay, 320, 180);
+
+    const backgroundPath = getByTestId('video-analysis-background-path');
+    expect(backgroundPath).toBeTruthy();
+  });
+
+  it('background path segments use onSurfaceVariant color from theme', () => {
+    const theme: MD3Theme = {
+      ...MD3LightTheme,
+      colors: {
+        ...MD3LightTheme.colors,
+        onSurfaceVariant: 'rgb(80, 80, 80)',
+      },
+    };
+    const {getByTestId} = render(
+      <PaperProvider theme={theme}>
+        <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />
+      </PaperProvider>,
+    );
+    const overlay = getByTestId('video-analysis-playback-overlay');
+    setOverlaySize(overlay, 320, 180);
+
+    const backgroundPath = getByTestId('video-analysis-background-path');
+    const [segment] = backgroundPath.findAll((node: any) => {
+      const style = StyleSheet.flatten(node.props.style);
+      return style?.height === 4 && style?.opacity === 0.22;
+    });
+    expect(StyleSheet.flatten(segment.props.style).backgroundColor).toBe(theme.colors.onSurfaceVariant);
+  });
+});
+
+describe('VideoAnalysisPlaybackOverlayCard – rep metrics', () => {
+  it('renders rep metrics section when repSegments are present', () => {
+    const {getByTestId, getByText} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeActiveRepResult()} />,
+    );
+    expect(getByTestId('video-analysis-rep-metrics')).toBeTruthy();
+    expect(getByText('Detected Reps: 1')).toBeTruthy();
+  });
+
+  it('shows correct rep duration in metrics', () => {
+    const result: BarTrackingResult = {
+      ...makeActiveRepResult(),
+      repSegments: [
+        {repIndex: 0, startMs: 500, bottomMs: 1000, endMs: 1500},
+        {repIndex: 1, startMs: 2000, bottomMs: 2500, endMs: 3000},
+      ],
+    };
+    const {getByText} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={result} />,
+    );
+    expect(getByText('Detected Reps: 2')).toBeTruthy();
+    // rep 0: 1500 - 500 = 1000ms = 00:01
+    expect(getByText('Rep 1: 00:01')).toBeTruthy();
+    // rep 1: 3000 - 2000 = 1000ms = 00:01
+    expect(getByText('Rep 2: 00:01')).toBeTruthy();
+  });
+
+  it('does not render rep metrics section when there are no repSegments', () => {
+    const {queryByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+    expect(queryByTestId('video-analysis-rep-metrics')).toBeNull();
+  });
+});
+
 describe('VideoAnalysisPlaybackOverlayCard – active rep path theme color', () => {
   it('uses the light theme primary color for the active rep path', () => {
     const lightTheme: MD3Theme = {

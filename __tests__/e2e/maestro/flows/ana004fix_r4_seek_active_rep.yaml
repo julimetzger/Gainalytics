@@ -1,0 +1,71 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-004-fix Round 4: Navigate to Analysis #2 (with patched rep segments),
+# seek to an active rep, and capture screenshot.
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- extendedWaitUntil:
+    visible: "Video Analyses"
+    timeout: 10000
+# Open Analysis #2 (most recent)
+- tapOn:
+    id: "video-analysis-open-2"
+- extendedWaitUntil:
+    visible: "Video Analysis Detail"
+    timeout: 15000
+# Scroll down until the Play button is visible
+- scrollUntilVisible:
+    element:
+      id: "video-analysis-playback-toggle"
+    direction: DOWN
+    timeout: 20000
+# Step forward 20 times x 0.2s = 4 seconds (into active rep at ~3328ms)
+- repeat:
+    times: 20
+    commands:
+      - tapOn:
+          id: "video-analysis-step-plus200"
+# Wait for UI to update
+- extendedWaitUntil:
+    visible:
+      text: "Current Rep: [0-9]+"
+    timeout: 5000
+# Assert active rep is visible
+- assertVisible:
+    text: "Current Rep: [0-9]+"
+# Assert rep metrics section shows detected reps
+- scrollUntilVisible:
+    element:
+      id: "video-analysis-rep-metrics"
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    id: "video-analysis-rep-metrics"
+- assertVisible:
+    text: "Detected Reps: 7"
+- takeScreenshot: ana004fix-active-rep-with-metrics
+# Scroll back up to see the video overlay with the active rep colored path
+- scrollUntilVisible:
+    element:
+      id: "video-analysis-playback-overlay"
+    direction: UP
+    timeout: 10000
+- takeScreenshot: ana004fix-active-rep-video-overlay
+- assertVisible:
+    id: "video-analysis-playback-active-rep-path"
+- assertVisible:
+    id: "video-analysis-background-path"

@@ -353,6 +353,9 @@ const createThemedStyles = (theme: MD3Theme) =>
     activeRepPathSegment: {
       backgroundColor: theme.colors.primary,
     },
+    backgroundRepPathSegment: {
+      backgroundColor: theme.colors.onSurfaceVariant,
+    },
   });
 
 const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
@@ -441,6 +444,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     [activeRepSegment, historyOverlayPoints, smoothedBarPathSeries],
   );
   const activeRepOverlaySegments = useMemo(() => buildOverlayLineSegments(activeRepOverlayPoints), [activeRepOverlayPoints]);
+  const historyOverlaySegments = useMemo(() => buildOverlayLineSegments(historyOverlayPoints), [historyOverlayPoints]);
   const scrubberProgress = correctedPlaybackDurationMs > 0 ? clamp(playbackTimeMs / correctedPlaybackDurationMs, 0, 1) : 0;
   const timePlotPoints = useMemo(
     () => mapBarPathToTimePlot(smoothedBarPathSeries, timePlotWidth, TIME_PLOT_HEIGHT, result.analysisMeta.trackingFrameHeightPx),
@@ -702,21 +706,25 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           onProgress={onPlayerProgress}
           onEnd={onPlayerEnd}
         />
-        <View pointerEvents="none" style={styles.historyOverlayLayer}>
-          {historyOverlayPoints.map((point) => (
-            <View
-              key={point.key}
-              style={[
-                styles.historyPoint,
-                themedStyles.historyPoint,
-                {
-                  left: point.x - 1,
-                  top: point.y - 1,
-                },
-              ]}
-            />
-          ))}
-        </View>
+        {historyOverlaySegments.length > 0 ? (
+          <View testID="video-analysis-background-path" pointerEvents="none" style={styles.historyOverlayLayer}>
+            {historyOverlaySegments.map((segment) => (
+              <View
+                key={segment.key}
+                style={[
+                  styles.backgroundPathSegment,
+                  themedStyles.backgroundRepPathSegment,
+                  {
+                    left: segment.centerX - segment.width / 2,
+                    top: segment.centerY - PATH_SEGMENT_THICKNESS / 2,
+                    width: segment.width,
+                    transform: [{rotateZ: `${segment.angleRad}rad`}],
+                  },
+                ]}
+              />
+            ))}
+          </View>
+        ) : null}
         {activeRepOverlaySegments.length > 0 ? (
           <View testID="video-analysis-playback-active-rep-path" pointerEvents="none" style={styles.historyOverlayLayer}>
             {activeRepOverlaySegments.map((segment) => (
@@ -864,6 +872,17 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
         </View>
       </View>
 
+      {repSegments.length > 0 ? (
+        <View testID="video-analysis-rep-metrics" style={styles.repMetricsSection}>
+          <Text variant="labelMedium">Detected Reps: {repSegments.length}</Text>
+          {repSegments.map((seg) => (
+            <Text key={seg.repIndex} variant="bodySmall">
+              Rep {seg.repIndex + 1}: {formatDuration(seg.endMs - seg.startMs)}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+
       <View style={styles.playbackControls}>
         <Button testID="video-analysis-playback-toggle" mode="outlined" onPress={() => setPlaybackPaused((paused) => !paused)}>
           {playbackPaused ? 'Play' : 'Pause'}
@@ -936,6 +955,12 @@ const styles = StyleSheet.create({
     height: PATH_SEGMENT_THICKNESS,
     borderRadius: PATH_SEGMENT_THICKNESS / 2,
     opacity: 0.92,
+  },
+  backgroundPathSegment: {
+    position: 'absolute',
+    height: PATH_SEGMENT_THICKNESS,
+    borderRadius: PATH_SEGMENT_THICKNESS / 2,
+    opacity: 0.22,
   },
   overlayHint: {
     marginBottom: 10,
@@ -1026,6 +1051,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 8,
     gap: 4,
+  },
+  repMetricsSection: {
+    marginTop: 12,
+    gap: 2,
   },
 });
 
