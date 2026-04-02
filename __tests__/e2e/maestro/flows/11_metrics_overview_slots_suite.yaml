@@ -1,4 +1,3 @@
 appId: com.powerliftingworkoutplanner
 ---
-- runFlow: 00_import_baseline.yaml
 - runFlow: 11_metrics_overview_slots.yaml

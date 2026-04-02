@@ -9,8 +9,10 @@ appId: com.powerliftingworkoutplanner
     direction: DOWN
 - tapOn:
     id: 'settings-import-data-button'
-- tapOn:
-    id: 'settings-import-confirm-button'
+- extendedWaitUntil:
+    visible: 'Import full data from backup file?'
+    timeout: 10000
+- tapOn: 'Import'
 - runFlow:
     when:
       visible: 'Use without an account'
@@ -27,4 +29,6 @@ appId: com.powerliftingworkoutplanner
     direction: DOWN
     timeout: 30000
 - tapOn: 'baseline.gains'
-- assertVisible: 'Import successful!'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 60000

@@ -1,5 +1,7 @@
 appId: com.powerliftingworkoutplanner
 ---
+
+# Ensure the app is ready before navigating to Analyse.
 - extendedWaitUntil:
     visible: 'Training'
     timeout: 60000
@@ -22,7 +24,33 @@ appId: com.powerliftingworkoutplanner
     visible: 'Metrics Overview'
     timeout: 20000
 
-# Wait for the exercise metric header (testID) to confirm content rendered.
+# Wait for the muscle metric header (testID) to confirm content rendered.
+- extendedWaitUntil:
+    visible:
+      id: 'metrics-muscles-header-0'
+    timeout: 20000
+- assertVisible: 'Muscle Overview'
+
+# Verify the muscle metric dropdown exposes all available metrics.
+- tapOn:
+    id: 'metrics-muscles-header-0'
+- extendedWaitUntil:
+    visible: 'Select muscle metric'
+    timeout: 10000
+- assertVisible: 'Current: Volume'
+- assertVisible: 'Volume'
+- assertVisible: '1RM'
+- assertVisible: 'Sets'
+- assertVisible: 'Reps'
+- assertVisible: 'Max Intensity'
+- assertVisible: 'Average Intensity'
+- back
+
+# Scroll down to the exercise section and wait for its first metric header.
+- scrollUntilVisible:
+    element:
+      text: 'Exercise Overview'
+    direction: DOWN
 - extendedWaitUntil:
     visible:
       id: 'metrics-exercises-header-0'
