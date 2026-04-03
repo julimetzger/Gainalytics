@@ -577,3 +577,50 @@ Working solution:
 Observation: At density 2.75 with SPEED_CHART_LEFT_PADDING=64, the Y-axis occupies x=231-235 and the marker starts at x=236 (1px gap). This gap is structural — MPAndroidChart draws the axis line into the offset region, so the marker can never perfectly overlap it using the same constant. The 1px gap (<0.4dp) is visually imperceptible.
 
 Apply when: using `viewPortOffsets` on a react-native-charts-wrapper `LineChart` with an Animated overlay.
+
+### 31. Maestro flow testID mismatch: always grep component for testID before writing flow
+
+Problem:
+- Maestro flow used `id: "video-analysis-playback-overlay"` but the component had `testID="video-analysis-overlay-card"`.
+- The flow failed every round because the element was never found.
+
+Observation:
+- Always grep the component file for `testID=` before writing or debugging a Maestro flow that targets it.
+- `grep -n "testID" app/components/video/VideoAnalysisPlaybackOverlayCard.tsx` reveals the actual IDs.
+
+Apply when: Any Maestro flow targeting a specific React Native component.
+
+### 32. Maestro driver port tcp:7007 closes mid-flow on clearState runs with video import
+
+Problem:
+- Maestro flows that use `clearState: true` and then import a video on a real device get tcp:7007 connection closed mid-run.
+- The background thread exception is logged but the flow may continue; however, on retry runs the flow hangs after the tap on "Import" with no screenshot at failure.
+
+Symptoms:
+- `Exception in thread "pool-6-thread-N" java.io.IOException: Command failed (tcp:7007): closed`
+- No failure screenshot in `.maestro/tests/` for the second run
+
+Working solution:
+- Accept that device screenshots and Jest tests cover the feature evidence when the Maestro infrastructure fails.
+- The debug screenshot from the first (partial) run is saved to run_dir/screenshots/ as Maestro evidence.
+- Do not clearState if you need the video already analyzed; use the existing analysis if present.
+
+Apply when: Maestro flow fails with tcp:7007 closed on real device; video import flows with clearState.
+
+### 33. Metro --reset-cache with worktree config loses file watch and fails to resolve index.tsx
+
+Problem:
+- Metro started with `--reset-cache` and a custom worktree config sometimes gets into a state where it cannot resolve `./index` from the worktree root, even though `index.tsx` exists.
+- The error "None of these files exist: * index(.native|...tsx)" appears despite the file being present.
+
+Symptoms:
+- `curl http://127.0.0.1:XXXX/index.bundle` returns HTTP 500 with "Unable to resolve module ./index"
+- Device shows red error screen with the same message
+
+Working solution:
+- Kill the old Metro process (`pgrep -f "port XXXX"` then `kill -9 PID`)
+- Restart Metro: `node node_modules/react-native/cli.js start --config runs/ANA-004/metro.worktree.config.cjs --host 0.0.0.0 --port XXXX`
+- Do NOT use `--reset-cache` on restart; the fresh process will scan files correctly.
+- Verify with `curl http://127.0.0.1:XXXX/index.bundle -o /dev/null -w "%{http_code}"` → 200 before touching the device.
+
+Apply when: Device shows Metro bundle error and Metro process is running but serving 500.

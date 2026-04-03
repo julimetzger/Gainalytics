@@ -12,7 +12,7 @@ import VideoAnalysisManualSeedCard from '../../components/video/VideoAnalysisMan
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
-import {ManualSeedPayload, analyzeSquatVideo} from '../../utils/videoAnalysisNative';
+import {ManualSeedPayload, analyzeSquatVideo, migrateBarTrackingResultIfNeeded} from '../../utils/videoAnalysisNative';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
 
@@ -188,7 +188,8 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         return;
       }
 
-      const loadedResult = await readBarTrackingResultFromFile(analysis.resultPath);
+      const migratedResultPath = await migrateBarTrackingResultIfNeeded(analysis.resultPath);
+      const loadedResult = await readBarTrackingResultFromFile(migratedResultPath ?? analysis.resultPath);
       if (active) {
         setResult(loadedResult);
       }

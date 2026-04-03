@@ -51,6 +51,23 @@ export const analyzeSquatVideo = async (localVideoPath: string, analysisId: numb
   return writeBarTrackingResultToFile(buildStubBarTrackingResult(analysisId));
 };
 
+export const migrateBarTrackingResultIfNeeded = async (resultPath?: string) => {
+  if (!resultPath) {
+    return undefined;
+  }
+
+  const nativeMigrate = VideoAnalysis?.migrateBarTrackingResultIfNeeded as undefined | ((path: string) => Promise<string>);
+  if (!nativeMigrate) {
+    return resultPath;
+  }
+
+  try {
+    return await nativeMigrate(resultPath);
+  } catch {
+    return resultPath;
+  }
+};
+
 /**
  * Returns the video duration in milliseconds.
  * Falls back to 0 when the native module is unavailable or metadata cannot be read.

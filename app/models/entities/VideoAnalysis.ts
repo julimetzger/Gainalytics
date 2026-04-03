@@ -81,6 +81,7 @@ export interface AnalysisMeta {
   frameCount: number;
   averageConfidence: number;
   trackerVersion?: string;
+  repDetectionVersion?: string;
   trackingFrameWidthPx?: number;
   trackingFrameHeightPx?: number;
   manualSeedUsed?: boolean;

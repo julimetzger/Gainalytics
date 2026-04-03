@@ -61,18 +61,19 @@ public class VideoAnalysisPlayerViewManager extends SimpleViewManager<VideoAnaly
         view.setRepSegments(repSegments);
     }
 
+    @ReactProp(name = "currentRepIndex", defaultInt = -1)
+    public void setCurrentRepIndex(VideoAnalysisPlayerView view, int currentRepIndex) {
+        view.setCurrentRepIndex(currentRepIndex);
+    }
+
     @ReactProp(name = "primaryColor", defaultInt = 0)
     public void setPrimaryColor(VideoAnalysisPlayerView view, int primaryColor) {
-        if (primaryColor != 0) {
-            view.setPrimaryColor(primaryColor);
-        }
+        view.setPrimaryColor(primaryColor);
     }
 
     @ReactProp(name = "pathColor", defaultInt = 0)
     public void setPathColor(VideoAnalysisPlayerView view, int pathColor) {
-        if (pathColor != 0) {
-            view.setPathColor(pathColor);
-        }
+        view.setPathColor(pathColor);
     }
 
     @Override

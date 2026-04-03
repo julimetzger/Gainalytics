@@ -35,6 +35,7 @@ interface VideoAnalysisPlayerViewProps extends ViewProps {
   seekPositionMs?: number;
   barPathSeries?: VideoBarPathPoint[];
   repSegments?: VideoRepSegment[];
+  currentRepIndex?: number;
   primaryColor?: number;
   pathColor?: number;
   trackingFrameWidthPx?: number;

@@ -534,6 +534,33 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
     expect(player.props.repSegments[0].endMs).toBe(2000);
   });
 
+  it('passes currentRepIndex and themed native overlay colors to the player', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+
+    loadPlayer(getByTestId('video-analysis-playback-player'), 3000);
+
+    act(() => {
+      getByTestId('video-analysis-playback-player').props.onProgress({
+        nativeEvent: {currentTimeMs: 1500, durationMs: 3000},
+      });
+    });
+
+    const player = getByTestId('video-analysis-playback-player');
+    expect(player.props.currentRepIndex).toBe(0);
+    expect(player.props.primaryColor).toBeDefined();
+    expect(player.props.pathColor).toBeDefined();
+  });
+
+  it('renders the playback overlay wrapper used by native overlay capture flows', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+
+    expect(getByTestId('video-analysis-playback-overlay')).toBeTruthy();
+  });
+
   it('native player overlay card is rendered with correct testID', () => {
     const {getByTestId} = render(
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,

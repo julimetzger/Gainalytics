@@ -198,6 +198,9 @@ const createThemedStyles = (theme: MD3Theme) =>
     speedPlotBackground: {
       backgroundColor: theme.colors.surfaceVariant,
     },
+    repMetricAccent: {
+      borderLeftColor: theme.colors.primary,
+    },
   });
 
 const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
@@ -211,6 +214,13 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       text: processColor(theme.colors.onSurfaceVariant),
       grid: processColor(theme.colors.outlineVariant),
       axis: processColor(theme.colors.outline),
+    }),
+    [theme],
+  );
+  const nativeOverlayColors = useMemo(
+    () => ({
+      primary: (processColor(theme.colors.primary) ?? undefined) as number | undefined,
+      path: (processColor(theme.colors.outline) ?? undefined) as number | undefined,
     }),
     [theme],
   );
@@ -403,8 +413,9 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           setPlaybackDurationMs(nextDuration);
         }
       }
+      updateCurrentRepForPlaybackTime(nativeEvent.currentTimeMs);
     },
-    [],
+    [updateCurrentRepForPlaybackTime],
   );
 
   const onPlayerEnd = useCallback(() => {
@@ -540,23 +551,26 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   return (
     <>
       <Text style={styles.overlayHint}>Live playback with current detected bar position.</Text>
-      <View testID="video-analysis-overlay-card" style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio}]}>
-        <VideoAnalysisPlayerView
-          testID="video-analysis-playback-player"
-          style={styles.previewImage}
-          source={localVideoPath}
-          paused={playbackPaused}
-          seekPositionMs={seekPositionMs}
-          barPathSeries={smoothedBarPathSeries}
-          repSegments={repSegments}
-          primaryColor={speedChartColors.progressLine as number}
-          pathColor={speedChartColors.grid as number}
-          trackingFrameWidthPx={result.analysisMeta.trackingFrameWidthPx}
-          trackingFrameHeightPx={result.analysisMeta.trackingFrameHeightPx}
-          onLoad={onPlayerLoad}
-          onProgress={onPlayerProgress}
-          onEnd={onPlayerEnd}
-        />
+      <View testID="video-analysis-playback-overlay">
+        <View testID="video-analysis-overlay-card" style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio}]}>
+          <VideoAnalysisPlayerView
+            testID="video-analysis-playback-player"
+            style={styles.previewImage}
+            source={localVideoPath}
+            paused={playbackPaused}
+            seekPositionMs={seekPositionMs}
+            barPathSeries={smoothedBarPathSeries}
+            repSegments={repSegments}
+            currentRepIndex={currentRepIndex}
+            primaryColor={nativeOverlayColors.primary}
+            pathColor={nativeOverlayColors.path}
+            trackingFrameWidthPx={result.analysisMeta.trackingFrameWidthPx}
+            trackingFrameHeightPx={result.analysisMeta.trackingFrameHeightPx}
+            onLoad={onPlayerLoad}
+            onProgress={onPlayerProgress}
+            onEnd={onPlayerEnd}
+          />
+        </View>
       </View>
 
       <View style={styles.speedPlotSection}>
@@ -629,7 +643,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
         <Text testID="video-analysis-playback-time">
           Playback: {formatDuration(playbackTimeMs)} / {formatDuration(correctedPlaybackDurationMs)}
         </Text>
-        <Text>{currentRepIndex !== undefined ? `Current Rep: ${currentRepIndex}` : 'Current Rep: -'}</Text>
+        <Text>{currentRepIndex !== undefined ? `Current Rep: ${currentRepIndex + 1}` : 'Current Rep: -'}</Text>
         <View
           testID="video-analysis-playback-scrubber"
           style={[styles.scrubberTrack, themedStyles.scrubberTrack]}
@@ -672,7 +686,10 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             Rep Summary ({result.repMetrics.length} {result.repMetrics.length === 1 ? 'rep' : 'reps'})
           </Text>
           {result.repMetrics.map((metric) => (
-            <View key={metric.repIndex} testID={`video-analysis-rep-metric-${metric.repIndex}`} style={[styles.repMetricRow, {borderLeftColor: theme.colors.primary}]}>
+            <View
+              key={metric.repIndex}
+              testID={`video-analysis-rep-metric-${metric.repIndex}`}
+              style={[styles.repMetricRow, themedStyles.repMetricAccent]}>
               <Text variant="bodySmall" style={styles.repMetricLabel}>
                 Rep {metric.repIndex + 1}
               </Text>
