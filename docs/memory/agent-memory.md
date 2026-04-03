@@ -61,3 +61,22 @@ The mock creates a new object per render. Wrap with `useRef`: `const sv = useRef
 - Evidence paths in `status.json` must be bare relative paths, no inline annotations.
 - On real devices, check for redbox before blaming the Maestro flow.
 - Avoid generic `scroll` commands over `react-native-charts-wrapper` charts — they fire `onSelect`.
+
+### 16. Maestro --host targets physical device, not emulator
+**Problem:** `maestro --host 172.18.240.1 --device emulator-5554` sent test traffic to the physical Samsung phone (R5CN30HWZFN) instead of the emulator, even with explicit `--device emulator-5554`.
+**Symptoms:** Debug screenshots showed Samsung home screen. Steps FAILED on launch.
+**Working solution:** Run without `--host`: `maestro --udid emulator-5554 test flow.yaml`. The local WSL ADB server already sees the emulator via `ADB_SERVER_SOCKET`.
+
+### 17. clearState:true causes slow app startup (~15-20s navigation delay)
+**Problem:** After `launchApp: clearState: true`, the JS bundle reloads from Metro. Navigation from TrainingHome to TrainingsPlanTab can take 15-25s before the target screen renders.
+**Symptoms:** Assertions on elements in TrainingsPlanTab timed out even with 8s timeout; screenshot showed home screen but the app later navigated.
+**Working solution:** Use `extendedWaitUntil` anchored on a testID unique to the destination screen (e.g., `icon-menu`), with `timeout: 30000`.
+
+### 18. Leading whitespace in JSX breaks Maestro exact text matching
+**Problem:** `<Text> {name}</Text>` renders `" TRN004 Test Plan"` (with leading space). Maestro's `assertVisible: text: "TRN004 Test Plan"` never matches because it does exact matching.
+**Symptoms:** Assertion fails even though the element is visually present in the screenshot.
+**Working solution:** Remove the leading space: `<Text>{name}</Text>`. Or match with regex `".*TRN004 Test Plan"`.
+
+### 19. Nested Pressable + Chip: use text: "Meso 1" not chip testID for navigation tap
+**Problem:** Meso chips have dynamic testIDs (`meso-card-{planId}-{mesoId}` with timestamp IDs), making Maestro ID-based tap impossible after clearState.
+**Working solution:** Use `tapOn: text: "Meso 1"` — Maestro correctly targets the Chip even inside a nested ScrollView/Pressable. Wait for navigation anchor (e.g., `icon-menu` testID) before asserting destination screen state.

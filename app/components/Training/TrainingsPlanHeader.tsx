@@ -34,6 +34,7 @@ const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, 
       <View style={{flex: 1, justifyContent: 'space-between', alignItems: 'flex-end', flexDirection: 'row'}}>
         <View style={{flexDirection: 'column'}}>
           <Text
+            testID="header-plan-meso-name"
             style={{
               fontSize: theme.fonts.titleMedium.fontSize,
               fontWeight: 'bold',

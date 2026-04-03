@@ -82,7 +82,7 @@ const TrainingsPlanDrawer = ({
             >
               <View>
                 {editMesoId !== meso.id && (
-                  <Text style={{fontSize: 20, margin: 5}}>
+                  <Text testID={`drawer-meso-name-${meso.id}`} style={{fontSize: 20, margin: 5}}>
                     {meso.name}
                   </Text>
                 )}
