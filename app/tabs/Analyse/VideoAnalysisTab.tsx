@@ -19,6 +19,8 @@ import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoRe
 import {calculateAnalysisProgress, getLastAnalysisSecondsPerVideoSecond} from '../../utils/videoAnalysisProgress';
 import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
 import SetSelectionModal from '../../components/video/SetSelectionModal';
+import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
+import {useExercise} from '../../redux/Exercises/use/useExercise';
 
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
@@ -32,6 +34,25 @@ const createThemedStyles = (theme: MD3Theme) =>
 
 // Module-level map so start times survive navigation (component unmount/remount).
 const _analysisStartTimes = new Map<number, number>();
+
+const LinkedSetInfo = ({workoutId, exerciseId, setIndex}: {workoutId: number; exerciseId?: number; setIndex?: number}) => {
+  const workout = useWorkoutById(workoutId);
+  const exercise = useExercise(exerciseId);
+  if (!workout || setIndex === undefined) {
+    return null;
+  }
+  const set = workout.sets.find(s => s.index === setIndex);
+  if (!set) {
+    return null;
+  }
+  const exerciseName = exercise?.name ?? 'Unknown';
+  const label = `${exerciseName} \u2014 ${set.reps} reps \u00d7 ${set.weight} kg @ ${set.rir} RIR`;
+  return (
+    <Text testID={`video-analysis-linked-set-info`} style={{fontSize: 12, marginTop: 2}}>
+      {label}
+    </Text>
+  );
+};
 
 
 const VideoAnalysisTab = () => {
@@ -253,6 +274,13 @@ const VideoAnalysisTab = () => {
               <Card.Title title={`Analysis #${analysisId}`} subtitle={new Date(analysis.createdAt).toLocaleString()} />
               <Card.Content>
                 <Text testID={`video-analysis-status-${analysisId}`}>Status: {analysis.status}</Text>
+                {analysis.workoutId !== undefined && (
+                  <LinkedSetInfo
+                    workoutId={analysis.workoutId}
+                    exerciseId={analysis.exerciseId}
+                    setIndex={analysis.setIndex}
+                  />
+                )}
                 {progressBar}
                 {analysis.error && <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>}
               </Card.Content>
