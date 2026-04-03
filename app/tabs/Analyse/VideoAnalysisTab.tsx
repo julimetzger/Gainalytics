@@ -104,14 +104,7 @@ const VideoAnalysisTab = () => {
           text2: 'Open the analysis detail and choose the correct detected plate.',
           position: 'top',
         });
-      } else if (outcome === 'analysis_started') {
-        Toast.show({
-          type: 'info',
-          text1: 'Analysis started',
-          text2: 'The analysis continues in the background. You can keep using the app.',
-          position: 'top',
-        });
-      } else {
+      } else if (outcome === 'failed_no_candidate') {
         Toast.show({
           type: 'error',
           text1: 'No plate candidate found',
@@ -236,7 +229,7 @@ const VideoAnalysisTab = () => {
           if (analysis.status === VideoAnalysisStatus.PROCESSING && analysisId !== undefined) {
             const startTime = _analysisStartTimes.get(analysisId);
             const elapsed = startTime !== undefined ? Math.max(0, now - startTime) : 0;
-            const estimatedVideoDurationMs = analysis.videoMeta?.durationMs ?? 0;
+            const estimatedVideoDurationMs = analysis.videoMeta?.durationMs || 10_000;
             const estimated = estimateAnalysisTimeMs(estimatedVideoDurationMs, learnedSecondsPerVideoSecond);
             const progress = calculateAnalysisProgress(elapsed, estimated);
             progressBar = (
