@@ -60,21 +60,22 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
 ## Workflow
 
 1. Confirm the branch and worktree state.
-2. Read `docs/memory/agent-memory.md` to learn from previous agent runs.
-3. Read the ticket, current code, relevant app screenshots, and any prior feedback.
-4. Implement the feature directly in the assigned worktree.
-5. Run the smallest relevant checks while iterating.
-6. Before review, run the final checks relevant to the change:
+2. If prior review feedback is present, immediately write `status.json` with `"status": "feedback_round"` to clear the stale status from the previous round.
+3. Read `docs/memory/agent-memory.md` to learn from previous agent runs.
+4. Read the ticket, current code, relevant app screenshots, and any prior feedback.
+5. Implement the feature directly in the assigned worktree.
+6. Run the smallest relevant checks while iterating.
+7. Before review, run the final checks relevant to the change:
    - `npm test`
    - Android device verification
    - for UI or flow changes, run Maestro smoke or a relevant flow against the assigned device
    - workspace-wide `typecheck` and `lint` are optional health checks; record them if you run them, but they are not required for `ready_for_review`
-7. Capture at least one screenshot that shows the implemented result.
-8. Produce review evidence for every acceptance criterion:
+8. Capture at least one screenshot that shows the implemented result.
+9. Produce review evidence for every acceptance criterion:
    - map each criterion to the specific code change, screenshot, and check or e2e result that proves it
-9. Create one or more local commits on the assigned feature branch.
-10. Write `status.json` and `summary.md`.
-11. Append new learnings to `docs/memory/agent-memory.md` (see Memory section), then exit.
+10. Create one or more local commits on the assigned feature branch.
+11. Write `status.json` (with `ready_for_review`) and `summary.md`.
+12. Append new learnings to `docs/memory/agent-memory.md` (see Memory section), then exit.
 
 ## App Deployment
 
@@ -212,6 +213,10 @@ Valid `status` values:
 - `needs_input`
 - `ready_for_review`
 - `blocked`
+- `feedback_round` — write this as your FIRST action when prior review feedback is present.
+  This signals the orchestrator that you have started working on the feedback and clears
+  the stale `ready_for_review` from the previous round. Then continue implementing the
+  feedback and write `ready_for_review` (or `blocked`) when done.
 
 Evidence path rule:
 
