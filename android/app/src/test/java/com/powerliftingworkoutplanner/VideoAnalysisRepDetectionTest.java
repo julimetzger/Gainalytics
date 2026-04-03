@@ -44,6 +44,18 @@ public class VideoAnalysisRepDetectionTest {
     }
 
     @Test
+    public void detectRepSegmentsDetectsLastRepWhenVideoEndsSoon() {
+        // Two squat reps but the video cuts shortly after the second rep returns to top.
+        // Only one full crossing triplet exists; the tail check should catch the second rep.
+        VideoAnalysisRepDetection.RepDetectionResult detectedReps = VideoAnalysisRepDetection.detectRepData(
+            new int[] {0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000},
+            new double[] {100, 180, 260, 300, 260, 180, 100, 180, 260, 300, 260, 180, 100, 100, 100}
+        );
+
+        assertEquals(2, detectedReps.repSegments.size());
+    }
+
+    @Test
     public void detectRepSegmentsFiltersShortMicroReps() {
         VideoAnalysisRepDetection.RepDetectionResult detectedReps = VideoAnalysisRepDetection.detectRepData(
             new int[] {0, 200, 400, 600, 800, 1000, 1200},

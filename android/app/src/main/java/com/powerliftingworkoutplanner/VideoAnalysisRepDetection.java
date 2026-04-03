@@ -124,8 +124,9 @@ final class VideoAnalysisRepDetection {
         // of the next rep (no overlapping detections).
         int repIndex = 0;
         List<Double> repDisplacements = new ArrayList<>();
+        int ci = 0;
 
-        for (int ci = 0; ci + 2 < crossings.size();) {
+        for (; ci + 2 < crossings.size();) {
             Crossing first = crossings.get(ci);
             Crossing second = crossings.get(ci + 1);
             Crossing third = crossings.get(ci + 2);
@@ -224,6 +225,99 @@ final class VideoAnalysisRepDetection {
                 ci += 2;
             } else {
                 ci++;
+            }
+        }
+
+        // Tail check: if exactly 2 unused crossings remain, try to close the last rep
+        // using the end of the data as the third boundary point.
+        if (ci + 1 < crossings.size() && ci + 2 >= crossings.size()) {
+            Crossing first = crossings.get(ci);
+            Crossing second = crossings.get(ci + 1);
+            int lastSampleIdx = sampleCount - 1;
+
+            if (first.type != second.type) {
+                boolean eccentricFirst = first.type == CrossingType.TOP;
+
+                int startIdx;
+                int turnaroundIdx;
+                int endIdx;
+
+                if (eccentricFirst) {
+                    startIdx = ci > 0
+                        ? findMinimumIndex(yPositions, crossings.get(ci - 1).index, first.index)
+                        : findMinimumIndex(yPositions, 0, first.index);
+                    turnaroundIdx = findMaximumIndex(yPositions, first.index, second.index);
+                    endIdx = findMinimumIndex(yPositions, second.index, lastSampleIdx);
+                } else {
+                    startIdx = ci > 0
+                        ? findMaximumIndex(yPositions, crossings.get(ci - 1).index, first.index)
+                        : findMaximumIndex(yPositions, 0, first.index);
+                    turnaroundIdx = findMinimumIndex(yPositions, first.index, second.index);
+                    endIdx = findMaximumIndex(yPositions, second.index, lastSampleIdx);
+                }
+
+                int repStartMs = timeMs[startIdx];
+                int turnaroundMs = timeMs[turnaroundIdx];
+                int repEndMs = timeMs[endIdx];
+                int firstPhaseDurationMs = turnaroundMs - repStartMs;
+                int secondPhaseDurationMs = repEndMs - turnaroundMs;
+                int repDurationMs = repEndMs - repStartMs;
+                double firstPhaseDisplacement = Math.abs(yPositions[startIdx] - yPositions[turnaroundIdx]);
+                double secondPhaseDisplacement = Math.abs(yPositions[turnaroundIdx] - yPositions[endIdx]);
+                double maxDisplacement = Math.max(firstPhaseDisplacement, secondPhaseDisplacement);
+                double displacementAsymmetry = maxDisplacement > 0
+                    ? Math.abs(firstPhaseDisplacement - secondPhaseDisplacement) / maxDisplacement
+                    : 1.0;
+
+                if (
+                    startIdx < turnaroundIdx &&
+                    turnaroundIdx < endIdx &&
+                    firstPhaseDurationMs >= MIN_PHASE_DURATION_MS &&
+                    secondPhaseDurationMs >= MIN_PHASE_DURATION_MS &&
+                    repDurationMs >= MIN_REP_DURATION_MS &&
+                    firstPhaseDisplacement >= minimumConcentricDisplacement &&
+                    secondPhaseDisplacement >= minimumConcentricDisplacement &&
+                    displacementAsymmetry <= MAX_PHASE_DISPLACEMENT_ASYMMETRY
+                ) {
+                    result.repSegments.add(new RepSegmentData(repIndex, repStartMs, turnaroundMs, repEndMs));
+
+                    int concentricStartIdx;
+                    int concentricEndIdx;
+                    double concentricDurationMs;
+                    if (eccentricFirst) {
+                        concentricStartIdx = turnaroundIdx;
+                        concentricEndIdx = endIdx;
+                        concentricDurationMs = secondPhaseDurationMs;
+                    } else {
+                        concentricStartIdx = startIdx;
+                        concentricEndIdx = turnaroundIdx;
+                        concentricDurationMs = firstPhaseDurationMs;
+                    }
+
+                    double concentricTimeSeconds = Math.max(0.001, concentricDurationMs / 1000.0);
+                    double concentricDisplacementPx = Math.abs(
+                        yPositions[concentricStartIdx] - yPositions[concentricEndIdx]
+                    );
+                    double averageConcentricSpeedPxPerS = concentricDisplacementPx / concentricTimeSeconds;
+                    double lowestConcentricSpeedPxPerS = 0.0;
+                    double minimumObservedSpeed = Double.MAX_VALUE;
+                    for (int si = concentricStartIdx; si <= concentricEndIdx; si++) {
+                        double absoluteVelocity = Math.abs(velocity[si]);
+                        if (absoluteVelocity < zeroCrossingThreshold) {
+                            continue;
+                        }
+                        minimumObservedSpeed = Math.min(minimumObservedSpeed, absoluteVelocity);
+                    }
+                    if (minimumObservedSpeed != Double.MAX_VALUE) {
+                        lowestConcentricSpeedPxPerS = minimumObservedSpeed;
+                    }
+
+                    result.repMetrics.add(
+                        new RepMetricData(repIndex, repDurationMs, averageConcentricSpeedPxPerS, lowestConcentricSpeedPxPerS)
+                    );
+                    repDisplacements.add(maxDisplacement);
+                    repIndex += 1;
+                }
             }
         }
 
