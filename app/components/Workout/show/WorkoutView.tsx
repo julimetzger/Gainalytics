@@ -10,6 +10,10 @@ import dispatchDeleteWorkout from '../../../redux/Workout/dispatch/dispatchDelet
 import {useWorkoutById} from '../../../redux/Workout/use/useWorkoutById';
 import {useExercise} from '../../../redux/Exercises/use/useExercise';
 import {Metric} from "../../../models/Metric";
+import {useSelector} from 'react-redux';
+import {GlobalState} from '../../../redux/rootReducer';
+import {WorkoutSet} from '../../../models/entities/WorkoutSet';
+import VideoSelectionModal from '../../video/VideoSelectionModal';
 
 interface WorkoutViewTileProps {
   workoutId: number;
@@ -20,12 +24,20 @@ interface WorkoutViewTileProps {
 const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps) => {
   const theme = useTheme();
   const [showEdit, setShowEdit] = useState(false);
+  const [linkVideoSet, setLinkVideoSet] = useState<WorkoutSet | undefined>(undefined);
 
   const workout = useWorkoutById(workoutId);
   const userExercise = useExercise(workout?.exerciseId);
   const deleteWorkout = dispatchDeleteWorkout();
   const deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
   const addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(userExercise);
+
+  const linkedSetIndices = useSelector((state: GlobalState) =>
+    state.videoAnalyses.allIds
+      .map(id => state.videoAnalyses.byId[id])
+      .filter(a => a.workoutId === workoutId && a.setIndex !== undefined)
+      .map(a => a.setIndex as number)
+  );
 
   const setShowEditWhenEditable = (shouldShow: boolean) => {
     if (editable) {
@@ -37,6 +49,16 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
 
   return (
     <View>
+      {linkVideoSet !== undefined && workout?.id !== undefined && (
+        <VideoSelectionModal
+          visible={true}
+          onDismiss={() => setLinkVideoSet(undefined)}
+          workoutId={workout.id}
+          setIndex={linkVideoSet.index ?? 0}
+          exerciseId={workout.exerciseId}
+          onLinked={() => setLinkVideoSet(undefined)}
+        />
+      )}
       {editable ? (
         <OutsidePressHandler onOutsidePress={() => setShowEditWhenEditable(false)} key={workout.id}>
           <Card mode="outlined" style={styles.card} onLongPress={() => setShowEditWhenEditable(true)} key={workout.id}>
@@ -63,6 +85,8 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
               onSubmit={(workoutSet) => addOrUpdateSetInWorkout(workoutSet, workout)}
               highLightMode={effectiveHighlightMode}
               editable={editable}
+              onLinkVideo={editable ? (set) => setLinkVideoSet(set) : undefined}
+              linkedSetIndices={linkedSetIndices}
             />
           </Card>
         </OutsidePressHandler>

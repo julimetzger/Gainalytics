@@ -31,7 +31,7 @@ interface ImportVideoAnalysisParams {
   sourceUri: string;
   addVideoAnalysis: (videoAnalysis: VideoAnalysis) => void;
   setVideoAnalysisStatus: (analysisId: number, status: VideoAnalysisStatus, error?: string) => void;
-  setVideoAnalysisDuration: (analysisId: number, durationMs: number) => void;
+  setVideoAnalysisDuration?: (analysisId: number, durationMs: number) => void;
   setManualSeedFramePath: (analysisId: number, manualSeedFramePath?: string, localVideoPath?: string) => void;
   setSeedPreflight: (
     analysisId: number,
@@ -148,7 +148,7 @@ export const importVideoAnalysisFromSource = async ({
       videoDurationMs = resolvedVideoDurationMs;
     }
     if (videoDurationMs > 0 && videoDurationMs !== sourceVideoDurationMs) {
-      setVideoAnalysisDuration(analysisId, videoDurationMs);
+      setVideoAnalysisDuration?.(analysisId, videoDurationMs);
     }
 
     const preflightStartedAtMs = Date.now();

@@ -11,7 +11,6 @@ import {dispatchDeleteVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/di
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisSeedPreflight';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
-import {dispatchSetVideoAnalysisDuration} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisDuration';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import VideoAnalysisProgressBar from '../../components/video/VideoAnalysisProgressBar';
@@ -19,6 +18,7 @@ import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../u
 import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoReadPermission} from '../../utils/video-analysis-import';
 import {calculateAnalysisProgress, getLastAnalysisSecondsPerVideoSecond} from '../../utils/videoAnalysisProgress';
 import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
+import SetSelectionModal from '../../components/video/SetSelectionModal';
 
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
@@ -33,6 +33,7 @@ const createThemedStyles = (theme: MD3Theme) =>
 // Module-level map so start times survive navigation (component unmount/remount).
 const _analysisStartTimes = new Map<number, number>();
 
+
 const VideoAnalysisTab = () => {
   const navigation = useNavigation<any>();
   const analyses = useAllVideoAnalyses();
@@ -42,10 +43,10 @@ const VideoAnalysisTab = () => {
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const setSeedPreflight = dispatchSetVideoAnalysisSeedPreflight();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
-  const setVideoAnalysisDuration = dispatchSetVideoAnalysisDuration();
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const [importing, setImporting] = useState(false);
+  const [linkSetForAnalysisId, setLinkSetForAnalysisId] = useState<number | undefined>(undefined);
   const [now, setNow] = useState(() => Date.now());
   const learnedSecondsPerVideoSecond = useMemo(() => getLastAnalysisSecondsPerVideoSecond(), [analyses]);
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map((item) => item.id ?? 0)) + 1 : 1;
@@ -83,16 +84,14 @@ const VideoAnalysisTab = () => {
     });
   }, [analyses]);
 
+
   const importFromSource = async (sourceUri: string) => {
-    const currentAnalysisId = nextAnalysisId;
-    _analysisStartTimes.set(currentAnalysisId, Date.now());
     try {
       const outcome = await importVideoAnalysisFromSource({
-        analysisId: currentAnalysisId,
+        analysisId: nextAnalysisId,
         sourceUri,
         addVideoAnalysis,
         setVideoAnalysisStatus,
-        setVideoAnalysisDuration,
         setManualSeedFramePath,
         setSeedPreflight,
         attachVideoAnalysisResult,
@@ -194,6 +193,14 @@ const VideoAnalysisTab = () => {
 
   return (
     <View style={[styles.container, themedStyles.background]} testID="video-analysis-screen">
+      {linkSetForAnalysisId !== undefined && (
+        <SetSelectionModal
+          visible={true}
+          onDismiss={() => setLinkSetForAnalysisId(undefined)}
+          analysisId={linkSetForAnalysisId}
+          onLinked={() => setLinkSetForAnalysisId(undefined)}
+        />
+      )}
       <Button
         testID="video-analysis-import-button"
         mode="contained"
@@ -263,15 +270,28 @@ const VideoAnalysisTab = () => {
                 >
                   Open
                 </Button>
+                {!analysis.workoutId && (
                 <Button
-                  testID={`video-analysis-delete-${analysisId}`}
-                  textColor={theme.colors.error}
-                  onPress={() => onDelete(analysisId, analysis.resultPath, analysis.localVideoPath)}
+                  testID={`video-analysis-link-set-${analysis.id}`}
+                  onPress={() => setLinkSetForAnalysisId(analysis.id)}
                 >
-                  Delete
+                  Link
                 </Button>
-              </Card.Actions>
-            </Card>
+              )}
+              {analysis.workoutId && (
+                <Text testID={`video-analysis-linked-badge-${analysis.id}`} style={{fontSize: 12, color: theme.colors.secondary}}>
+                  Linked
+                </Text>
+              )}
+              <Button
+                testID={`video-analysis-delete-${analysis.id}`}
+                textColor={theme.colors.error}
+                onPress={() => onDelete(analysis.id, analysis.resultPath, analysis.localVideoPath)}
+              >
+                Delete
+              </Button>
+            </Card.Actions>
+          </Card>
           );
         })}
       </ScrollView>
