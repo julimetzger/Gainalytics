@@ -1,0 +1,3 @@
+appId: com.powerliftingworkoutplanner
+---
+- runFlow: 11_metrics_overview_slots.yaml
