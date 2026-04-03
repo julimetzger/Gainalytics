@@ -61,9 +61,10 @@ export interface RepSegment {
 
 export interface RepMetric {
   repIndex: number;
+  repTimeMs: number;
+  concentricTimeMs: number;
   averageConcentricSpeedPxPerS: number;
   lowestConcentricSpeedPxPerS: number;
-  repTimeMs: number;
 }
 
 export interface DetectedBox {

@@ -1,7 +1,7 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, TouchableOpacity, View, processColor} from 'react-native';
 import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming} from 'react-native-reanimated';
-import {MD3Theme, Text, useTheme} from 'react-native-paper';
+import {IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment} from '../../models/entities/VideoAnalysis';
 import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
@@ -18,11 +18,11 @@ interface TimeRange {
 }
 
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
-const SPEED_PLOT_HEIGHT = 180;
+const SPEED_PLOT_HEIGHT = 240;
 // Left offset of the chart drawable area (dp). Used for JS layout (translateX, touch mapping).
 // viewPortOffsets.left must be SPEED_CHART_LEFT_PADDING * PixelRatio.get() because
 // MPAndroidChart's setViewPortOffsets() expects physical pixels, not dp.
-const SPEED_CHART_LEFT_PADDING = 64;
+const SPEED_CHART_LEFT_PADDING = 36;
 // Right viewport offset in dp — must stay in sync with viewPortOffsets.right.
 const SPEED_CHART_RIGHT_PADDING = 4;
 const BAR_PATH_SMOOTHING_WINDOW = 5;
@@ -201,6 +201,9 @@ const createThemedStyles = (theme: MD3Theme) =>
     repMetricAccent: {
       borderLeftColor: theme.colors.primary,
     },
+    videoControlsBackground: {
+      backgroundColor: theme.colors.backdrop,
+    },
   });
 
 const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
@@ -233,6 +236,8 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const [scrubberWidth, setScrubberWidth] = useState(0);
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
+  const [lastRepTurnaroundOverrideMs, setLastRepTurnaroundOverrideMs] = useState<number | null>(null);
+  const [lastRepEndOverrideMs, setLastRepEndOverrideMs] = useState<number | null>(null);
 
   // useRef wrapper ensures the SharedValue object is stable across renders.
   // The Reanimated mock creates a new plain object on each useSharedValue call,
@@ -250,6 +255,10 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const seekCooldownUntilRef = useRef(0);
 
   const repSegments = result.repSegments;
+  const lastRepSegment = repSegments.length > 0 ? repSegments[repSegments.length - 1] : null;
+  const lastRepTurnaroundMs = lastRepTurnaroundOverrideMs ?? lastRepSegment?.turnaroundMs ?? 0;
+  const lastRepEndMs = lastRepEndOverrideMs ?? lastRepSegment?.endMs ?? 0;
+  const lastRepConcentricTimeMs = lastRepSegment ? Math.max(0, lastRepEndMs - lastRepTurnaroundMs) : 0;
   const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
   const smoothedBarVerticalVelocitySeries = useMemo(() => calculateBarVerticalVelocitySeries(smoothedBarPathSeries), [smoothedBarPathSeries]);
   const timeRange = useMemo(() => getTimeRange(smoothedBarPathSeries), [smoothedBarPathSeries]);
@@ -598,22 +607,12 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             onProgress={onPlayerProgress}
             onEnd={onPlayerEnd}
           />
-          <View style={styles.videoControlsOverlay} pointerEvents="box-none">
-            <TouchableOpacity testID="video-analysis-step-minus200" onPress={() => applySeekTimeMs(playbackTimeRef.current - 200)}>
-              <Text style={[styles.videoControlSymbol, {color: theme.colors.primary}]}>{'\u00AB'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity testID="video-analysis-step-minus50" onPress={() => applySeekTimeMs(playbackTimeRef.current - 50)}>
-              <Text style={[styles.videoControlSymbol, {color: theme.colors.primary}]}>{'\u2039'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity testID="video-analysis-playback-toggle" onPress={onPlayPauseToggle}>
-              <Text style={[styles.videoControlSymbol, {color: theme.colors.primary}]}>{playbackPaused ? '\u25B6' : '\u23F8'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity testID="video-analysis-step-plus50" onPress={() => applySeekTimeMs(playbackTimeRef.current + 50)}>
-              <Text style={[styles.videoControlSymbol, {color: theme.colors.primary}]}>{'\u203A'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity testID="video-analysis-step-plus200" onPress={() => applySeekTimeMs(playbackTimeRef.current + 200)}>
-              <Text style={[styles.videoControlSymbol, {color: theme.colors.primary}]}>{'\u00BB'}</Text>
-            </TouchableOpacity>
+          <View style={[styles.videoControlsOverlay, themedStyles.videoControlsBackground]} pointerEvents="box-none">
+            <IconButton testID="video-analysis-step-minus200" icon="rewind" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current - 200)} style={styles.videoControlButton} />
+            <IconButton testID="video-analysis-step-minus50" icon="skip-previous" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current - 50)} style={styles.videoControlButton} />
+            <IconButton testID="video-analysis-playback-toggle" icon={playbackPaused ? 'play' : 'pause'} size={32} iconColor={theme.colors.primary} onPress={onPlayPauseToggle} style={styles.videoControlButton} />
+            <IconButton testID="video-analysis-step-plus50" icon="skip-next" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current + 50)} style={styles.videoControlButton} />
+            <IconButton testID="video-analysis-step-plus200" icon="fast-forward" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current + 200)} style={styles.videoControlButton} />
           </View>
         </View>
       </View>
@@ -663,6 +662,39 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             pointerEvents="none"
             style={[styles.speedMarkerLine, {backgroundColor: theme.colors.primary}, progressMarkerAnimatedStyle]}
           />
+          {lastRepSegment && speedChartWidth > 0 && correctedPlaybackDurationMs > 0 && (() => {
+            const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
+            const toX = (timeMs: number) => SPEED_CHART_LEFT_PADDING + (timeMs / correctedPlaybackDurationMs) * drawableWidth;
+            const turnaroundX = toX(lastRepTurnaroundMs);
+            const endX = toX(lastRepEndMs);
+            const STEP_MS = 20;
+            return (
+              <>
+                <View style={[styles.adjustLine, {left: turnaroundX}]} pointerEvents="box-none">
+                  <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
+                  <View style={styles.adjustButtonRow}>
+                    <TouchableOpacity onPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs - STEP_MS)}>
+                      <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs + STEP_MS)}>
+                      <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <View style={[styles.adjustLine, {left: endX}]} pointerEvents="box-none">
+                  <View style={styles.adjustButtonRow}>
+                    <TouchableOpacity onPress={() => setLastRepEndOverrideMs(lastRepEndMs - STEP_MS)}>
+                      <Text style={[styles.adjustButtonText, {color: theme.colors.secondary}]}>{'\u2039'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setLastRepEndOverrideMs(lastRepEndMs + STEP_MS)}>
+                      <Text style={[styles.adjustButtonText, {color: theme.colors.secondary}]}>{'\u203A'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.secondary}]} />
+                </View>
+              </>
+            );
+          })()}
         </View>
       </View>
 
@@ -694,22 +726,31 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           <Text variant="labelMedium" style={styles.repSummaryTitle}>
             Rep Summary ({result.repMetrics.length} {result.repMetrics.length === 1 ? 'rep' : 'reps'})
           </Text>
-          {result.repMetrics.map((metric) => (
-            <View
-              key={metric.repIndex}
-              testID={`video-analysis-rep-metric-${metric.repIndex}`}
-              style={[styles.repMetricRow, themedStyles.repMetricAccent]}>
-              <Text variant="bodySmall" style={styles.repMetricLabel}>
-                Rep {metric.repIndex + 1}
-              </Text>
-              <Text testID={`video-analysis-rep-time-${metric.repIndex}`} variant="bodySmall">
-                {(metric.repTimeMs / 1000).toFixed(2)}s
-              </Text>
-              <Text testID={`video-analysis-rep-speed-${metric.repIndex}`} variant="bodySmall">
-                {Math.round(metric.averageConcentricSpeedPxPerS)} px/s
-              </Text>
-            </View>
-          ))}
+          {result.repMetrics.map((metric, idx) => {
+            const isLastRep = idx === result.repMetrics.length - 1;
+            const concTimeMs = isLastRep && lastRepSegment ? lastRepConcentricTimeMs : (metric.concentricTimeMs ?? 0);
+            return (
+              <View
+                key={metric.repIndex}
+                testID={`video-analysis-rep-metric-${metric.repIndex}`}
+                style={[styles.repMetricRow, themedStyles.repMetricAccent]}>
+                <Text variant="bodySmall" style={styles.repMetricLabel}>
+                  Rep {metric.repIndex + 1}
+                </Text>
+                <Text testID={`video-analysis-rep-time-${metric.repIndex}`} variant="bodySmall">
+                  {(metric.repTimeMs / 1000).toFixed(2)}s
+                </Text>
+                {concTimeMs > 0 && (
+                  <Text testID={`video-analysis-rep-conc-${metric.repIndex}`} variant="bodySmall">
+                    conc {(concTimeMs / 1000).toFixed(2)}s
+                  </Text>
+                )}
+                <Text testID={`video-analysis-rep-speed-${metric.repIndex}`} variant="bodySmall">
+                  {Math.round(metric.averageConcentricSpeedPxPerS)} px/s
+                </Text>
+              </View>
+            );
+          })}
         </View>
       )}
     </>
@@ -735,15 +776,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 6,
-    gap: 24,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    gap: 4,
+    // backgroundColor set via themedStyles.videoControlsBackground
   },
-  videoControlSymbol: {
-    fontSize: 28,
-    fontWeight: '700',
-    opacity: 0.85,
-    textAlign: 'center',
-    minWidth: 36,
+  videoControlButton: {
+    margin: 0,
   },
   repSummarySection: {
     marginTop: 12,
@@ -762,6 +799,30 @@ const styles = StyleSheet.create({
   },
   repMetricLabel: {
     flex: 1,
+  },
+  adjustLine: {
+    position: 'absolute',
+    top: 0,
+    height: SPEED_PLOT_HEIGHT,
+    alignItems: 'center',
+    width: 0,
+    overflow: 'visible',
+  },
+  adjustLineStem: {
+    width: 1,
+    flex: 1,
+    opacity: 0.7,
+  },
+  adjustButtonRow: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  adjustButtonText: {
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 22,
+    textAlign: 'center',
+    minWidth: 18,
   },
   playbackControls: {
     marginTop: 10,

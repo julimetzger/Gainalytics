@@ -285,14 +285,14 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
 
     loadPlayer(player, 3000);
 
-    // Set chart width: 264px total = 64px left padding + 196px drawable + 4px right padding
+    // Set chart width: 240px total = 36px left padding + 200px drawable + 4px right padding
     act(() => {
-      speedPlot.props.onLayout({nativeEvent: {layout: {width: 264}}});
+      speedPlot.props.onLayout({nativeEvent: {layout: {width: 240}}});
     });
 
-    // Tap at locationX=211: progress = (211-64)/196 = 0.75, seekMs = 0.75 * videoDuration = 0.75 * 3000 = 2250
+    // Tap at locationX=186: progress = (186-36)/200 = 0.75, seekMs = 0.75 * videoDuration = 0.75 * 3000 = 2250
     act(() => {
-      fireEvent(speedChart, 'touchEnd', {nativeEvent: {locationX: 211}});
+      fireEvent(speedChart, 'touchEnd', {nativeEvent: {locationX: 186}});
     });
 
     expect(player.props.seekPositionMs).toBe(2250);
@@ -339,14 +339,14 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
   });
 });
 
-// Speed chart = 264px total: 64px Y-axis padding (left) + 196px drawable area + 4px right padding.
+// Speed chart = 240px total: 36px Y-axis padding (left) + 200px drawable area + 4px right padding.
 // Bar-path time range: minTimeMs=1000, maxTimeMs=3000, durationMs=2000.
 // Video duration: 5000ms.
 // The chart X-axis spans the full video timeline, so the first data point sits at
-// x = 64 + (1000 / 5000) * 196 = 103.2 instead of directly at the chart start.
+// x = 36 + (1000 / 5000) * 200 = 76 instead of directly at the chart start.
 describe('VideoAnalysisPlaybackOverlayCard – speed chart marker alignment', () => {
-  const CHART_WIDTH = 264;
-  const LEFT_PADDING = 64;
+  const CHART_WIDTH = 240;
+  const LEFT_PADDING = 36;
   const RIGHT_PADDING = 4;
   const DRAWABLE_WIDTH = CHART_WIDTH - LEFT_PADDING - RIGHT_PADDING; // 196
   const VIDEO_DURATION_MS = 5000;

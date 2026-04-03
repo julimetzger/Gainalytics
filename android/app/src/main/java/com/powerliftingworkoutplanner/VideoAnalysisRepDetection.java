@@ -54,6 +54,7 @@ final class VideoAnalysisRepDetection {
                 new JSONObject()
                     .put("repIndex", metric.repIndex)
                     .put("repTimeMs", metric.repTimeMs)
+                    .put("concentricTimeMs", metric.concentricTimeMs)
                     .put("averageConcentricSpeedPxPerS", roundTo3(metric.averageConcentricSpeedPxPerS))
                     .put("lowestConcentricSpeedPxPerS", roundTo3(metric.lowestConcentricSpeedPxPerS))
             );
@@ -218,7 +219,7 @@ final class VideoAnalysisRepDetection {
                 }
 
                 result.repMetrics.add(
-                    new RepMetricData(repIndex, repDurationMs, averageConcentricSpeedPxPerS, lowestConcentricSpeedPxPerS)
+                    new RepMetricData(repIndex, repDurationMs, (int) concentricDurationMs, averageConcentricSpeedPxPerS, lowestConcentricSpeedPxPerS)
                 );
                 repDisplacements.add(maxDisplacement);
                 repIndex += 1;
@@ -313,7 +314,7 @@ final class VideoAnalysisRepDetection {
                     }
 
                     result.repMetrics.add(
-                        new RepMetricData(repIndex, repDurationMs, averageConcentricSpeedPxPerS, lowestConcentricSpeedPxPerS)
+                        new RepMetricData(repIndex, repDurationMs, (int) concentricDurationMs, averageConcentricSpeedPxPerS, lowestConcentricSpeedPxPerS)
                     );
                     repDisplacements.add(maxDisplacement);
                     repIndex += 1;
@@ -336,7 +337,7 @@ final class VideoAnalysisRepDetection {
                         RepSegmentData seg = result.repSegments.get(ri);
                         result.repSegments.set(writeIdx, new RepSegmentData(writeIdx, seg.startMs, seg.turnaroundMs, seg.endMs));
                         RepMetricData met = result.repMetrics.get(ri);
-                        result.repMetrics.set(writeIdx, new RepMetricData(writeIdx, met.repTimeMs, met.averageConcentricSpeedPxPerS, met.lowestConcentricSpeedPxPerS));
+                        result.repMetrics.set(writeIdx, new RepMetricData(writeIdx, met.repTimeMs, met.concentricTimeMs, met.averageConcentricSpeedPxPerS, met.lowestConcentricSpeedPxPerS));
                     }
                     writeIdx++;
                 }
@@ -493,17 +494,20 @@ final class VideoAnalysisRepDetection {
     static final class RepMetricData {
         final int repIndex;
         final int repTimeMs;
+        final int concentricTimeMs;
         final double averageConcentricSpeedPxPerS;
         final double lowestConcentricSpeedPxPerS;
 
         RepMetricData(
             int repIndex,
             int repTimeMs,
+            int concentricTimeMs,
             double averageConcentricSpeedPxPerS,
             double lowestConcentricSpeedPxPerS
         ) {
             this.repIndex = repIndex;
             this.repTimeMs = repTimeMs;
+            this.concentricTimeMs = concentricTimeMs;
             this.averageConcentricSpeedPxPerS = averageConcentricSpeedPxPerS;
             this.lowestConcentricSpeedPxPerS = lowestConcentricSpeedPxPerS;
         }
