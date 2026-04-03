@@ -1,0 +1,33 @@
+appId: com.powerliftingworkoutplanner
+---
+# FUN-001: Cardio Easter Egg — toast appears for reps > 20, set is still saved
+- launchApp
+- waitForAnimationToEnd:
+    timeout: 8000
+- tapOn: "tab-exercises"
+- tapOn:
+    text: ".*Bankdrücken.*"
+# Enter a set with 21 reps (triggers Easter egg)
+- tapOn:
+    id: "add-workout-set-reps-input"
+- eraseText
+- inputText: "21"
+- tapOn:
+    id: "add-workout-set-rir-input"
+- eraseText
+- inputText: "0"
+- tapOn:
+    id: "add-workout-set-weight-input"
+- eraseText
+- inputText: "50"
+- hideKeyboard
+- tapOn:
+    id: "add-workout-set-submit-button"
+# Assert the Easter egg toast is visible
+- assertVisible:
+    text: "Cardio detected!"
+- assertVisible:
+    text: "This app can't be used to track cardio"
+# Assert the set was still saved (finalize button is still accessible)
+- assertVisible:
+    id: "add-workout-finalize-button"

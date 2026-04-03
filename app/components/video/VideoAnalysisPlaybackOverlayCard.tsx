@@ -1,5 +1,5 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {GestureResponderEvent, LayoutChangeEvent, StyleSheet, View, processColor} from 'react-native';
+import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, View, processColor} from 'react-native';
 import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming} from 'react-native-reanimated';
 import {Button, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
@@ -25,9 +25,12 @@ interface OverlayPoint {
 
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
 const SPEED_PLOT_HEIGHT = 180;
-// Visually calibrated Y-axis label width for the speed chart.
-// This is the left offset where the drawable chart area starts.
-const SPEED_CHART_LEFT_PADDING = 48;
+// Left offset of the chart drawable area (dp). Used for JS layout (translateX, touch mapping).
+// viewPortOffsets.left must be SPEED_CHART_LEFT_PADDING * PixelRatio.get() because
+// MPAndroidChart's setViewPortOffsets() expects physical pixels, not dp.
+const SPEED_CHART_LEFT_PADDING = 64;
+// Right viewport offset in dp — must stay in sync with viewPortOffsets.right.
+const SPEED_CHART_RIGHT_PADDING = 4;
 const BAR_PATH_SMOOTHING_WINDOW = 5;
 const SPEED_SMOOTHING_WINDOW = 5;
 
@@ -300,11 +303,8 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const smoothedBarVerticalVelocitySeries = useMemo(() => calculateBarVerticalVelocitySeries(smoothedBarPathSeries), [smoothedBarPathSeries]);
   const timeRange = useMemo(() => getTimeRange(smoothedBarPathSeries), [smoothedBarPathSeries]);
   const correctedPlaybackDurationMs = useMemo(() => {
-    if (playbackDurationMs > 0) {
-      return playbackDurationMs;
-    }
-    return timeRange.durationMs;
-  }, [playbackDurationMs, timeRange.durationMs]);
+    return Math.max(playbackDurationMs, timeRange.maxTimeMs);
+  }, [playbackDurationMs, timeRange.maxTimeMs]);
 
   // Keep videoDurationMsSV in sync with correctedPlaybackDurationMs for UI-thread animations.
   // SharedValue intentionally excluded from deps (stable ref, memory entry #16).
@@ -316,11 +316,17 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
 
   const progressMarkerLeft = useDerivedValue(() => {
     'worklet';
-    if (speedChartWidthSV.value <= 0 || videoDurationMsSV.value <= 0) {
+    if (speedChartWidthSV.value <= 0) {
       return 0;
     }
-    const drawableWidth = Math.max(0, speedChartWidthSV.value - SPEED_CHART_LEFT_PADDING);
-    // Marker maps to VIDEO TIME (0..videoDuration), not bar-path time.
+    const drawableWidth = Math.max(0, speedChartWidthSV.value - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
+    if (videoDurationMsSV.value <= 0) {
+      return SPEED_CHART_LEFT_PADDING;
+    }
+
+    // Keep the marker on the same 0..videoDuration timeline as the scrubber and player.
+    // The chart uses the same domain, so non-zero minTimeMs values naturally shift the data
+    // to the right while the marker still starts at the chart's left edge at t=0.
     const progress = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value));
     return SPEED_CHART_LEFT_PADDING + progress * drawableWidth;
   });
@@ -542,7 +548,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       if (speedChartWidth <= 0 || correctedPlaybackDurationMs <= 0) {
         return;
       }
-      const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING);
+      const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
       if (drawableWidth <= 0) {
         return;
       }
@@ -670,10 +676,18 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
               legend={{enabled: false}}
               chartDescription={{text: ''}}
               marker={{enabled: false}}
+              viewPortOffsets={{
+                left: Math.round(SPEED_CHART_LEFT_PADDING * PixelRatio.get()),
+                top: Math.round(4 * PixelRatio.get()),
+                right: Math.round(SPEED_CHART_RIGHT_PADDING * PixelRatio.get()),
+                bottom: Math.round(4 * PixelRatio.get()),
+              }}
               xAxis={{
                 enabled: false,
                 drawGridLines: false,
                 drawAxisLine: false,
+                axisMinimum: 0,
+                axisMaximum: correctedPlaybackDurationMs > 0 ? correctedPlaybackDurationMs : 1,
               }}
               yAxis={{
                 left: {
@@ -682,6 +696,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
                   textColor: speedChartColors.text,
                   gridColor: speedChartColors.grid,
                   axisLineColor: speedChartColors.axis,
+                  axisLineWidth: 1,
                 },
                 right: {
                   enabled: false,
@@ -690,6 +705,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             />
           </View>
           <Animated.View
+            testID="video-analysis-speed-marker"
             pointerEvents="none"
             style={[styles.speedMarkerLine, {backgroundColor: theme.colors.primary}, progressMarkerAnimatedStyle]}
           />
@@ -808,7 +824,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 1.5,
+    width: 4,
     height: SPEED_PLOT_HEIGHT,
     opacity: 0.75,
   },

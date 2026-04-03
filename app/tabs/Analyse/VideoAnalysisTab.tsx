@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Platform, ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Card, MD3Theme, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
@@ -12,8 +12,12 @@ import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnal
 import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisSeedPreflight';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
+import {VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
+import VideoAnalysisProgressBar from '../../components/video/VideoAnalysisProgressBar';
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoReadPermission} from '../../utils/video-analysis-import';
+import {calculateAnalysisProgress, getLastAnalysisSecondsPerVideoSecond} from '../../utils/videoAnalysisProgress';
+import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
 import SetSelectionModal from '../../components/video/SetSelectionModal';
 
 const createThemedStyles = (theme: MD3Theme) =>
@@ -25,6 +29,10 @@ const createThemedStyles = (theme: MD3Theme) =>
       color: theme.colors.error,
     },
   });
+
+// Module-level map so start times survive navigation (component unmount/remount).
+const _analysisStartTimes = new Map<number, number>();
+
 
 const VideoAnalysisTab = () => {
   const navigation = useNavigation<any>();
@@ -39,7 +47,43 @@ const VideoAnalysisTab = () => {
   const themedStyles = createThemedStyles(theme);
   const [importing, setImporting] = useState(false);
   const [linkSetForAnalysisId, setLinkSetForAnalysisId] = useState<number | undefined>(undefined);
+  const [now, setNow] = useState(() => Date.now());
+  const learnedSecondsPerVideoSecond = useMemo(() => getLastAnalysisSecondsPerVideoSecond(), [analyses]);
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map((item) => item.id ?? 0)) + 1 : 1;
+  const processingCount = useMemo(
+    () => analyses.filter((analysis) => analysis.status === VideoAnalysisStatus.PROCESSING).length,
+    [analyses],
+  );
+
+  // Refresh every 500ms while any analysis is in PROCESSING state so the
+  // progress bar advances smoothly.
+  useEffect(() => {
+    if (processingCount === 0) {
+      return;
+    }
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [processingCount]);
+
+  useEffect(() => {
+    analyses.forEach((analysis) => {
+      const analysisId = analysis.id;
+      if (analysisId === undefined) {
+        return;
+      }
+
+      if (analysis.status === VideoAnalysisStatus.PROCESSING) {
+        const persistedStartTime = new Date(analysis.createdAt).getTime();
+        if (!_analysisStartTimes.has(analysisId)) {
+          _analysisStartTimes.set(analysisId, persistedStartTime);
+        }
+        return;
+      }
+
+      _analysisStartTimes.delete(analysisId);
+    });
+  }, [analyses]);
+
 
   const importFromSource = async (sourceUri: string) => {
     try {
@@ -60,11 +104,11 @@ const VideoAnalysisTab = () => {
           text2: 'Open the analysis detail and choose the correct detected plate.',
           position: 'top',
         });
-      } else if (outcome === 'done') {
+      } else if (outcome === 'analysis_started') {
         Toast.show({
           type: 'info',
-          text1: 'Analysis completed',
-          text2: 'The video was analyzed automatically and is ready in the list.',
+          text1: 'Analysis started',
+          text2: 'The analysis continues in the background. You can keep using the app.',
           position: 'top',
         });
       } else {
@@ -186,28 +230,47 @@ const VideoAnalysisTab = () => {
             </Card.Content>
           </Card>
         )}
-        {analyses.map((analysis) => (
-          <Card key={analysis.id} style={styles.card} testID={`video-analysis-card-${analysis.id}`}>
-            <Card.Title title={`Analysis #${analysis.id}`} subtitle={new Date(analysis.createdAt).toLocaleString()} />
-            <Card.Content>
-              <Text testID={`video-analysis-status-${analysis.id}`}>Status: {analysis.status}</Text>
-              {analysis.error && <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>}
-            </Card.Content>
-            <Card.Actions>
-              <Button
-                testID={`video-analysis-open-${analysis.id}`}
-                onPress={() => {
-                  if (analysis.id !== undefined) {
-                    navigation.navigate({
-                      name: 'VideoAnalysisDetail',
-                      params: {analysisId: analysis.id},
-                    });
-                  }
-                }}
-              >
-                Open
-              </Button>
-              {!analysis.workoutId && (
+        {analyses.map((analysis) => {
+          let progressBar: React.ReactNode = null;
+          const analysisId = analysis.id;
+          if (analysis.status === VideoAnalysisStatus.PROCESSING && analysisId !== undefined) {
+            const startTime = _analysisStartTimes.get(analysisId);
+            const elapsed = startTime !== undefined ? Math.max(0, now - startTime) : 0;
+            const estimatedVideoDurationMs = analysis.videoMeta?.durationMs ?? 0;
+            const estimated = estimateAnalysisTimeMs(estimatedVideoDurationMs, learnedSecondsPerVideoSecond);
+            const progress = calculateAnalysisProgress(elapsed, estimated);
+            progressBar = (
+              <VideoAnalysisProgressBar
+                elapsedMs={elapsed}
+                estimatedTotalMs={estimated}
+                progress={progress}
+                testID={`video-analysis-progress-${analysisId}`}
+              />
+            );
+          }
+          return (
+            <Card key={analysisId} style={styles.card} testID={`video-analysis-card-${analysisId}`}>
+              <Card.Title title={`Analysis #${analysisId}`} subtitle={new Date(analysis.createdAt).toLocaleString()} />
+              <Card.Content>
+                <Text testID={`video-analysis-status-${analysisId}`}>Status: {analysis.status}</Text>
+                {progressBar}
+                {analysis.error && <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>}
+              </Card.Content>
+              <Card.Actions>
+                <Button
+                  testID={`video-analysis-open-${analysisId}`}
+                  onPress={() => {
+                    if (analysisId !== undefined) {
+                      navigation.navigate({
+                        name: 'VideoAnalysisDetail',
+                        params: {analysisId},
+                      });
+                    }
+                  }}
+                >
+                  Open
+                </Button>
+                {!analysis.workoutId && (
                 <Button
                   testID={`video-analysis-link-set-${analysis.id}`}
                   onPress={() => setLinkSetForAnalysisId(analysis.id)}
@@ -229,7 +292,8 @@ const VideoAnalysisTab = () => {
               </Button>
             </Card.Actions>
           </Card>
-        ))}
+          );
+        })}
       </ScrollView>
     </View>
   );

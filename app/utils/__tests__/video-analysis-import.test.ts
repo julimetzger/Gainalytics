@@ -1,6 +1,11 @@
 import {VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import {importVideoAnalysisFromSource} from '../video-analysis-import';
-import {getActiveAnalysisCount, _resetActiveAnalysisCountForTesting} from '../videoAnalysisProgress';
+import {
+  getActiveAnalysisCount,
+  getLastAnalysisSecondsPerVideoSecond,
+  _resetActiveAnalysisCountForTesting,
+  _resetLastAnalysisSecondsPerVideoSecondForTesting,
+} from '../videoAnalysisProgress';
 
 jest.mock('../videoAnalysisStorage', () => ({
   copyImportedVideoToLocalStorage: jest.fn(),
@@ -10,6 +15,8 @@ jest.mock('../videoAnalysisNative', () => ({
   prepareSquatVideoSeed: jest.fn(),
   analyzeSquatVideo: jest.fn(),
   getVideoDuration: jest.fn(),
+  startVideoAnalysisForegroundService: jest.fn(),
+  stopVideoAnalysisForegroundService: jest.fn(),
 }));
 
 jest.mock('../videoAnalysisNotification', () => ({
@@ -22,10 +29,13 @@ const {copyImportedVideoToLocalStorage} = jest.requireMock('../videoAnalysisStor
   copyImportedVideoToLocalStorage: jest.Mock;
 };
 
-const {prepareSquatVideoSeed, analyzeSquatVideo, getVideoDuration} = jest.requireMock('../videoAnalysisNative') as {
+const {prepareSquatVideoSeed, analyzeSquatVideo, getVideoDuration, startVideoAnalysisForegroundService, stopVideoAnalysisForegroundService} =
+  jest.requireMock('../videoAnalysisNative') as {
   prepareSquatVideoSeed: jest.Mock;
   analyzeSquatVideo: jest.Mock;
   getVideoDuration: jest.Mock;
+  startVideoAnalysisForegroundService: jest.Mock;
+  stopVideoAnalysisForegroundService: jest.Mock;
 };
 
 const {
@@ -64,14 +74,31 @@ const SINGLE_CANDIDATE_PREFLIGHT = {
   ],
 };
 
+const flushBackgroundWork = async () => {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+};
+
 describe('importVideoAnalysisFromSource', () => {
+  let consoleInfoSpy: jest.SpyInstance;
+  let consoleErrorSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
     getVideoDuration.mockResolvedValue(0);
     _resetActiveAnalysisCountForTesting();
+    _resetLastAnalysisSecondsPerVideoSecondForTesting();
+    consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
-  it('should auto-analyze when exactly one candidate is found', async () => {
+  afterEach(() => {
+    consoleInfoSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('starts background analysis when exactly one candidate is found', async () => {
     copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
@@ -79,7 +106,7 @@ describe('importVideoAnalysisFromSource', () => {
     const mocks = makeMocks();
     const outcome = await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks});
 
-    expect(outcome).toBe('done');
+    expect(outcome).toBe('analysis_started');
     expect(mocks.setVideoAnalysisStatus.mock.calls).toEqual([[7, VideoAnalysisStatus.PROCESSING]]);
     expect(analyzeSquatVideo.mock.calls).toEqual([
       [
@@ -94,6 +121,7 @@ describe('importVideoAnalysisFromSource', () => {
         },
       ],
     ]);
+    await flushBackgroundWork();
     expect(mocks.attachVideoAnalysisResult.mock.calls).toEqual([[7, '/tmp/results/analysis-7.json', '/tmp/video.mp4']]);
     expect(mocks.setManualSeedFramePath.mock.calls).toEqual([]);
   });
@@ -210,7 +238,8 @@ describe('importVideoAnalysisFromSource', () => {
     // Should NOT throw — analysis must proceed even if permission throws
     await expect(
       importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks}),
-    ).resolves.toBe('done');
+    ).resolves.toBe('analysis_started');
+    await flushBackgroundWork();
     expect(mocks.attachVideoAnalysisResult).toHaveBeenCalled();
   });
 
@@ -223,7 +252,8 @@ describe('importVideoAnalysisFromSource', () => {
     const mocks = makeMocks();
     const outcome = await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks});
 
-    expect(outcome).toBe('done');
+    expect(outcome).toBe('analysis_started');
+    await flushBackgroundWork();
     expect(mocks.attachVideoAnalysisResult).toHaveBeenCalled();
   });
 
@@ -235,8 +265,7 @@ describe('importVideoAnalysisFromSource', () => {
     const mocks = makeMocks();
     await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks});
 
-    // Allow the fire-and-forget notification promise to resolve
-    await Promise.resolve();
+    await flushBackgroundWork();
     expect(postVideoAnalysisCompleteNotification).toHaveBeenCalledWith(7);
   });
 
@@ -262,7 +291,7 @@ describe('importVideoAnalysisFromSource', () => {
   // -------------------------------------------------------------------------
 
   it('calls setVideoAnalysisDuration with the actual duration from native', async () => {
-    getVideoDuration.mockResolvedValue(8500);
+    getVideoDuration.mockResolvedValueOnce(0).mockResolvedValueOnce(8500);
     copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
@@ -270,11 +299,12 @@ describe('importVideoAnalysisFromSource', () => {
     const mocks = makeMocks();
     await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks});
 
+    await flushBackgroundWork();
     expect(mocks.setVideoAnalysisDuration).toHaveBeenCalledWith(7, 8500);
   });
 
   it('does not call setVideoAnalysisDuration when native returns 0 (unknown)', async () => {
-    getVideoDuration.mockResolvedValue(0);
+    getVideoDuration.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
     copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
@@ -282,63 +312,129 @@ describe('importVideoAnalysisFromSource', () => {
     const mocks = makeMocks();
     await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks});
 
+    await flushBackgroundWork();
     expect(mocks.setVideoAnalysisDuration).not.toHaveBeenCalled();
+  });
+
+  it('stores a pre-read source duration immediately when metadata is available before copy', async () => {
+    getVideoDuration.mockResolvedValueOnce(45_000).mockResolvedValueOnce(45_000);
+    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
+    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
+
+    const mocks = makeMocks();
+    await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks});
+
+    await flushBackgroundWork();
+    expect(mocks.addVideoAnalysis).toHaveBeenCalledWith({
+      id: 7,
+      sourceUri: 'content://video.mp4',
+      createdAt: expect.any(Date),
+      status: VideoAnalysisStatus.QUEUED,
+      videoMeta: {
+        durationMs: 45_000,
+        fps: 0,
+        width: 0,
+        height: 0,
+      },
+    });
+    expect(mocks.setVideoAnalysisDuration).not.toHaveBeenCalled();
+  });
+
+  it('updates the learned analysis rate from the completed run duration and video duration', async () => {
+    const timestamps = [1000, 1000, 5000, 10_000, 15_000, 20_000, 25_000, 46_000, 46_000, 46_000];
+    const dateNowSpy = jest.spyOn(Date, 'now').mockImplementation(() => timestamps.shift() ?? 46_000);
+    getVideoDuration.mockResolvedValueOnce(45_000).mockResolvedValueOnce(45_000);
+    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
+    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
+
+    const mocks = makeMocks();
+    await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks});
+
+    await flushBackgroundWork();
+    expect(getLastAnalysisSecondsPerVideoSecond()).toBe(1);
+    dateNowSpy.mockRestore();
   });
 
   // -------------------------------------------------------------------------
   // Foreground-service reference counting (ANA-005-fix issue 3 – integration)
   // -------------------------------------------------------------------------
 
-  it('increments active count at the start and decrements it on completion', async () => {
+  it('increments active count during background analysis and decrements it on completion', async () => {
     copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
-    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
+    let resolveAnalysis!: (value: string) => void;
+    const analysisDone = new Promise<string>((resolve) => {
+      resolveAnalysis = resolve;
+    });
+    analyzeSquatVideo.mockReturnValue(analysisDone);
 
     const mocks = makeMocks();
     await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks});
 
-    // After completion the count must be back to 0 (foreground service may stop).
+    expect(startVideoAnalysisForegroundService).toHaveBeenCalledTimes(1);
+    expect(getActiveAnalysisCount()).toBe(1);
+    resolveAnalysis('/tmp/results/analysis-7.json');
+    await flushBackgroundWork();
     expect(getActiveAnalysisCount()).toBe(0);
+    expect(stopVideoAnalysisForegroundService).toHaveBeenCalledTimes(1);
   });
 
-  it('decrements active count even when the analysis throws', async () => {
+  it('decrements active count even when the background analysis throws', async () => {
     copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
-    prepareSquatVideoSeed.mockRejectedValue(new Error('Native module crashed'));
+    prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
+    let rejectAnalysis!: (error: Error) => void;
+    const analysisFailed = new Promise<string>((_, reject) => {
+      rejectAnalysis = reject;
+    });
+    analyzeSquatVideo.mockReturnValue(analysisFailed);
 
     const mocks = makeMocks();
-    await expect(
-      importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks}),
-    ).rejects.toThrow('Native module crashed');
+    await expect(importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks})).resolves.toBe(
+      'analysis_started',
+    );
 
-    // Count must still return to 0 so the foreground service is not kept alive.
+    expect(getActiveAnalysisCount()).toBe(1);
+    rejectAnalysis(new Error('Native module crashed'));
+    await flushBackgroundWork();
     expect(getActiveAnalysisCount()).toBe(0);
+    expect(mocks.setVideoAnalysisStatus).toHaveBeenLastCalledWith(7, VideoAnalysisStatus.FAILED, 'Background analysis failed');
+    expect(stopVideoAnalysisForegroundService).toHaveBeenCalledTimes(1);
   });
 
   it('keeps active count at 1 while a concurrent analysis is still running', async () => {
     copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
 
-    let resolveFirst!: (v: string) => void;
+    let resolveFirst!: (value: string) => void;
+    let resolveSecond!: (value: string) => void;
     const firstDone = new Promise<string>((res) => (resolveFirst = res));
-    analyzeSquatVideo.mockReturnValueOnce(firstDone).mockResolvedValueOnce('/tmp/results/analysis-8.json');
+    const secondDone = new Promise<string>((res) => (resolveSecond = res));
+    analyzeSquatVideo.mockReturnValueOnce(firstDone).mockReturnValueOnce(secondDone);
 
     const mocks = makeMocks();
 
-    // Start first analysis (will block on analyzeSquatVideo).
-    const firstPromise = importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks});
+    await expect(importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks})).resolves.toBe(
+      'analysis_started',
+    );
+    await expect(importVideoAnalysisFromSource({analysisId: 8, sourceUri: 'content://video.mp4', ...mocks})).resolves.toBe(
+      'analysis_started',
+    );
 
-    // Start second analysis immediately.
-    const secondPromise = importVideoAnalysisFromSource({analysisId: 8, sourceUri: 'content://video.mp4', ...mocks});
+    expect(startVideoAnalysisForegroundService).toHaveBeenCalledTimes(1);
+    expect(getActiveAnalysisCount()).toBe(2);
 
-    // Resolve first analysis.
     resolveFirst('/tmp/results/analysis-7.json');
-    await firstPromise;
+    await flushBackgroundWork();
 
-    // Second is still running — count must be 1, not 0.
-    // (second analysis has already incremented before first resolved)
-    await secondPromise;
+    expect(stopVideoAnalysisForegroundService).not.toHaveBeenCalled();
+    expect(getActiveAnalysisCount()).toBe(1);
 
-    // Both done — count must be 0.
+    resolveSecond('/tmp/results/analysis-8.json');
+    await flushBackgroundWork();
+
     expect(getActiveAnalysisCount()).toBe(0);
+    expect(stopVideoAnalysisForegroundService).toHaveBeenCalledTimes(1);
   });
 });
