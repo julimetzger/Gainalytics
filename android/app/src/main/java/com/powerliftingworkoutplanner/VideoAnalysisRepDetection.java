@@ -18,6 +18,8 @@ final class VideoAnalysisRepDetection {
     private static final double ZERO_CROSSING_SPEED_RATIO = 0.08;
     private static final double MIN_CONCENTRIC_DISPLACEMENT_PX = 12.0;
     private static final double MIN_CONCENTRIC_DISPLACEMENT_RATIO = 0.12;
+    private static final double MAX_PHASE_DISPLACEMENT_ASYMMETRY = 0.30;
+    private static final double MIN_REP_DISPLACEMENT_VS_MAX = 0.50;
 
     private VideoAnalysisRepDetection() {
     }
@@ -121,6 +123,7 @@ final class VideoAnalysisRepDetection {
         // After a valid rep, advance by 2 so the end crossing becomes the start
         // of the next rep (no overlapping detections).
         int repIndex = 0;
+        List<Double> repDisplacements = new ArrayList<>();
 
         for (int ci = 0; ci + 2 < crossings.size();) {
             Crossing first = crossings.get(ci);
@@ -160,7 +163,12 @@ final class VideoAnalysisRepDetection {
             int firstPhaseDurationMs = turnaroundMs - repStartMs;
             int secondPhaseDurationMs = repEndMs - turnaroundMs;
             int repDurationMs = repEndMs - repStartMs;
-            double displacementPx = Math.abs(yPositions[turnaroundIdx] - yPositions[endIdx]);
+            double firstPhaseDisplacement = Math.abs(yPositions[startIdx] - yPositions[turnaroundIdx]);
+            double secondPhaseDisplacement = Math.abs(yPositions[turnaroundIdx] - yPositions[endIdx]);
+            double maxDisplacement = Math.max(firstPhaseDisplacement, secondPhaseDisplacement);
+            double displacementAsymmetry = maxDisplacement > 0
+                ? Math.abs(firstPhaseDisplacement - secondPhaseDisplacement) / maxDisplacement
+                : 1.0;
 
             if (
                 startIdx < turnaroundIdx &&
@@ -168,7 +176,9 @@ final class VideoAnalysisRepDetection {
                 firstPhaseDurationMs >= MIN_PHASE_DURATION_MS &&
                 secondPhaseDurationMs >= MIN_PHASE_DURATION_MS &&
                 repDurationMs >= MIN_REP_DURATION_MS &&
-                displacementPx >= minimumConcentricDisplacement
+                firstPhaseDisplacement >= minimumConcentricDisplacement &&
+                secondPhaseDisplacement >= minimumConcentricDisplacement &&
+                displacementAsymmetry <= MAX_PHASE_DISPLACEMENT_ASYMMETRY
             ) {
                 result.repSegments.add(new RepSegmentData(repIndex, repStartMs, turnaroundMs, repEndMs));
 
@@ -209,10 +219,37 @@ final class VideoAnalysisRepDetection {
                 result.repMetrics.add(
                     new RepMetricData(repIndex, repDurationMs, averageConcentricSpeedPxPerS, lowestConcentricSpeedPxPerS)
                 );
+                repDisplacements.add(maxDisplacement);
                 repIndex += 1;
                 ci += 2;
             } else {
                 ci++;
+            }
+        }
+
+        // Post-filter: remove reps whose displacement is less than 50% of the largest rep.
+        if (!repDisplacements.isEmpty()) {
+            double largestDisplacement = 0.0;
+            for (double d : repDisplacements) {
+                largestDisplacement = Math.max(largestDisplacement, d);
+            }
+            double displacementThreshold = largestDisplacement * MIN_REP_DISPLACEMENT_VS_MAX;
+
+            int writeIdx = 0;
+            for (int ri = 0; ri < repDisplacements.size(); ri++) {
+                if (repDisplacements.get(ri) >= displacementThreshold) {
+                    if (writeIdx != ri) {
+                        RepSegmentData seg = result.repSegments.get(ri);
+                        result.repSegments.set(writeIdx, new RepSegmentData(writeIdx, seg.startMs, seg.bottomMs, seg.endMs));
+                        RepMetricData met = result.repMetrics.get(ri);
+                        result.repMetrics.set(writeIdx, new RepMetricData(writeIdx, met.repTimeMs, met.averageConcentricSpeedPxPerS, met.lowestConcentricSpeedPxPerS));
+                    }
+                    writeIdx++;
+                }
+            }
+            while (result.repSegments.size() > writeIdx) {
+                result.repSegments.remove(result.repSegments.size() - 1);
+                result.repMetrics.remove(result.repMetrics.size() - 1);
             }
         }
 
