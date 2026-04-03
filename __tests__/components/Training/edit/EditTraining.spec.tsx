@@ -5,7 +5,6 @@ import EditTraining from '../../../../app/components/Training/execute/EditTraini
 import {TrainingsState} from '../../../../app/models/TrainingsState';
 
 const mockEditTrainingTimes = jest.fn();
-const mockDatePickerValues: Record<string, string> = {};
 
 global.setImmediate = ((callback: (...args: any[]) => void, ...args: any[]) => setTimeout(callback, 0, ...args)) as any;
 
@@ -17,29 +16,34 @@ jest.mock('../../../../app/components/Training/execute/ExecuteTraining', () => '
 
 jest.mock('../../../../app/components/picker/date/DatePicker', () => {
   const React = require('react');
-  const {Text, TouchableOpacity, View} = require('react-native');
+  const {Text, TextInput, View} = require('react-native');
+  const {formatTrainingTimeInput, getTrainingTimeInputError, parseTrainingTimeInput} = require('../../../../app/utils/training-times');
 
-  return ({date, setDate, label, testID}: {date: Date | number; setDate: (date: Date) => void; label?: string; testID?: string}) => (
-    <TouchableOpacity
-      testID={testID}
-      onPress={() => {
-        const nextValue = testID ? mockDatePickerValues[testID] : undefined;
-        if (nextValue) {
-          setDate(new Date(nextValue));
-        }
-      }}
-    >
-      <View>
-        <Text>{label}</Text>
-        <Text>{new Date(date).toISOString()}</Text>
-      </View>
-    </TouchableOpacity>
+  return ({date, setDate, label, testID, onErrorChange}: {date: Date | number; setDate: (date: Date) => void; label?: string; testID?: string; onErrorChange?: (error: string | null) => void}) => (
+    <View>
+      {label ? <Text>{label}</Text> : null}
+      <TextInput
+        testID={testID}
+        value={formatTrainingTimeInput(date)}
+        onChangeText={(value) => {
+          const nextError = getTrainingTimeInputError(value, date);
+          onErrorChange?.(nextError);
+          if (nextError) {
+            return;
+          }
+
+          const nextDate = parseTrainingTimeInput(value, date);
+          if (nextDate) {
+            setDate(nextDate);
+          }
+        }}
+      />
+    </View>
   );
 });
 
 describe('EditTraining', () => {
-  const isDisabled = (testID: string) =>
-    !!(screen.getByTestId(testID).props.accessibilityState?.disabled ?? screen.getByTestId(testID).props.disabled);
+  const isDisabled = (testID: string) => !!(screen.getByTestId(testID).props.accessibilityState?.disabled ?? screen.getByTestId(testID).props.disabled);
 
   const training = {
     id: 1,
@@ -47,8 +51,8 @@ describe('EditTraining', () => {
     exercises: [10],
     doneWorkoutIds: {10: 42},
     plannedWorkouts: {},
-    start: new Date('2026-04-03T10:00:00.000Z'),
-    end: new Date('2026-04-03T11:00:00.000Z'),
+    start: new Date(2026, 3, 3, 10, 0),
+    end: new Date(2026, 3, 3, 11, 0),
   };
 
   const chosenExercise = {
@@ -58,12 +62,9 @@ describe('EditTraining', () => {
 
   beforeEach(() => {
     mockEditTrainingTimes.mockClear();
-    Object.keys(mockDatePickerValues).forEach((key) => delete mockDatePickerValues[key]);
   });
 
   it('persists updated training times', () => {
-    mockDatePickerValues['edit-training-times-end'] = '2026-04-03T12:30:00.000Z';
-
     render(
       <PaperProvider>
         <EditTraining training={training as any} chosenExercise={chosenExercise as any} onSubmit={jest.fn()} />
@@ -75,19 +76,13 @@ describe('EditTraining', () => {
     fireEvent.press(screen.getByTestId('edit-training-open-times-modal'));
     expect(isDisabled('edit-training-times-save')).toBe(true);
 
-    fireEvent.press(screen.getByTestId('edit-training-times-end'));
+    fireEvent.changeText(screen.getByTestId('edit-training-times-end'), '03/04/2026 12:30');
     fireEvent.press(screen.getByTestId('edit-training-times-save'));
 
-    expect(mockEditTrainingTimes).toHaveBeenCalledWith(
-      1,
-      new Date('2026-04-03T10:00:00.000Z').getTime(),
-      new Date('2026-04-03T12:30:00.000Z').getTime(),
-    );
+    expect(mockEditTrainingTimes).toHaveBeenCalledWith(1, new Date(2026, 3, 3, 10, 0).getTime(), new Date(2026, 3, 3, 12, 30).getTime());
   });
 
   it('blocks saving when end is before start', () => {
-    mockDatePickerValues['edit-training-times-end'] = '2026-04-03T09:30:00.000Z';
-
     render(
       <PaperProvider>
         <EditTraining training={training as any} chosenExercise={chosenExercise as any} onSubmit={jest.fn()} />
@@ -95,7 +90,7 @@ describe('EditTraining', () => {
     );
 
     fireEvent.press(screen.getByTestId('edit-training-open-times-modal'));
-    fireEvent.press(screen.getByTestId('edit-training-times-end'));
+    fireEvent.changeText(screen.getByTestId('edit-training-times-end'), '03/04/2026 09:30');
 
     expect(screen.getByText('End time cannot be before start time.')).toBeTruthy();
     expect(isDisabled('edit-training-times-save')).toBe(true);

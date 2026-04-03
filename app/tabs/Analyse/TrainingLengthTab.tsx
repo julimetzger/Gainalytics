@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {processColor, ScrollView, StyleSheet, View} from 'react-native';
-import {BarChart, BarData, BarValue, ChartChangeEvent, ChartSelectEvent} from 'react-native-charts-wrapper';
+import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, Pressable, processColor, ScrollView, StyleSheet, View} from 'react-native';
+import {BarChart, BarData, BarValue} from 'react-native-charts-wrapper';
 import {Card, SegmentedButtons, Text, useTheme} from 'react-native-paper';
 import TrainingLengthBucketDetails from '../../components/analyse/TrainingLengthBucketDetails';
 import TrainingLengthEditDialog from '../../components/analyse/TrainingLengthEditDialog';
@@ -10,13 +10,7 @@ import {getTrainingFromTrainingInMicroIndex} from '../../redux/Training/training
 import {useAllTrainingsPlans} from '../../redux/Training/use/useAllTrainingsPlans';
 import {useCompletedTrainingsIn} from '../../redux/Training/use/useCompletedTrainingsIn';
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
-import {
-  aggregateTrainingLengths,
-  findBucketByX,
-  formatTrainingLength,
-  getTrainingLengthAxisPattern,
-  getTrainingLengthBarWidth,
-} from '../../utils/training-length-analysis';
+import {aggregateTrainingLengths, findBucketByX, formatTrainingLength, getTrainingLengthAxisPattern, getTrainingLengthBarWidth} from '../../utils/training-length-analysis';
 
 interface AccumulationButtonConfig {
   label: string;
@@ -30,9 +24,41 @@ const accumulationButtons: AccumulationButtonConfig[] = [
   {label: 'Month', value: AccumulationMode.MONTH, testID: 'training-length-accumulation-month'},
 ];
 
+const DEFAULT_CHART_WIDTH = 320;
+const CHART_LEFT_PADDING = 56;
+const CHART_RIGHT_PADDING = 16;
+const CHART_TOP_PADDING = 8;
+const CHART_BOTTOM_PADDING = 32;
+
 const createDefaultRange = () => {
   const now = new Date();
   return new Range(subtractMonths(3, firstDayOfWeek(now, 1)), lastDayOfWeek(now, 0));
+};
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+const getChartDomain = (buckets: ReturnType<typeof aggregateTrainingLengths>, accumulationMode: AccumulationMode) => {
+  if (buckets.length === 0) {
+    return null;
+  }
+
+  const barPadding = Math.max(1, getTrainingLengthBarWidth(accumulationMode) / 2);
+  return {
+    minX: buckets[0].x - barPadding,
+    maxX: buckets[buckets.length - 1].x + barPadding,
+  };
+};
+
+const findBucketForTouch = (buckets: ReturnType<typeof aggregateTrainingLengths>, accumulationMode: AccumulationMode, chartWidth: number, locationX: number) => {
+  const chartDomain = getChartDomain(buckets, accumulationMode);
+  const drawableWidth = chartWidth - CHART_LEFT_PADDING - CHART_RIGHT_PADDING;
+  if (!chartDomain || drawableWidth <= 0 || locationX < CHART_LEFT_PADDING || locationX > chartWidth - CHART_RIGHT_PADDING) {
+    return null;
+  }
+
+  const progress = clamp((locationX - CHART_LEFT_PADDING) / drawableWidth, 0, 1);
+  const selectedX = chartDomain.minX + progress * (chartDomain.maxX - chartDomain.minX);
+  return findBucketByX(buckets, selectedX);
 };
 
 const TrainingLengthTab = () => {
@@ -41,8 +67,8 @@ const TrainingLengthTab = () => {
   const [accumulationMode, setAccumulationMode] = useState(AccumulationMode.SINGLE_DAY);
   const [selectedBucketKey, setSelectedBucketKey] = useState<string | null>(null);
   const [bucketForEdit, setBucketForEdit] = useState<ReturnType<typeof findBucketByX>>(null);
-  const selectedBucketRef = useRef<ReturnType<typeof findBucketByX>>(null);
-  const lastSelectedBucketRef = useRef<ReturnType<typeof findBucketByX>>(null);
+  const [chartWidth, setChartWidth] = useState(DEFAULT_CHART_WIDTH);
+  const skipNextPressRef = useRef(false);
   const trainingsPlans = useAllTrainingsPlans();
   const trainings = useCompletedTrainingsIn(range);
   const trainingNameById = useMemo(
@@ -63,6 +89,7 @@ const TrainingLengthTab = () => {
   );
 
   const buckets = useMemo(() => aggregateTrainingLengths(trainings, accumulationMode), [accumulationMode, trainings]);
+  const chartDomain = useMemo(() => getChartDomain(buckets, accumulationMode), [accumulationMode, buckets]);
 
   const barValues = useMemo(
     () =>
@@ -75,6 +102,7 @@ const TrainingLengthTab = () => {
   );
 
   const selectedBucket = useMemo(() => buckets.find((bucket) => bucket.key === selectedBucketKey) ?? null, [buckets, selectedBucketKey]);
+  const highlightedBars = useMemo(() => (selectedBucket ? [{x: selectedBucket.x, dataSetIndex: 0}] : []), [selectedBucket]);
 
   const chartData = useMemo(
     () =>
@@ -97,15 +125,14 @@ const TrainingLengthTab = () => {
         config: {
           barWidth: getTrainingLengthBarWidth(accumulationMode),
         },
-      }) satisfies BarData,
+      } satisfies BarData),
     [accumulationMode, barValues, theme.colors.primary, theme.colors.primaryContainer, theme.colors.secondary],
   );
 
   useEffect(() => {
     setSelectedBucketKey(null);
     setBucketForEdit(null);
-    selectedBucketRef.current = null;
-    lastSelectedBucketRef.current = null;
+    skipNextPressRef.current = false;
   }, [accumulationMode, range]);
 
   const handleAccumulationModeChange = useCallback((value: string) => {
@@ -115,43 +142,49 @@ const TrainingLengthTab = () => {
     }
   }, []);
 
-  const handleBarSelect = useCallback(
-    (event: ChartSelectEvent) => {
-      const selectedX = event.nativeEvent?.x;
-      if (typeof selectedX !== 'number') {
-        // nativeEvent is null when the chart fires a deselect (tap on empty area or already-selected bar)
-        selectedBucketRef.current = null;
+  const getTouchedBucket = useCallback(
+    (event: GestureResponderEvent) => findBucketForTouch(buckets, accumulationMode, chartWidth, event.nativeEvent.locationX),
+    [accumulationMode, buckets, chartWidth],
+  );
+
+  const handleChartLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextWidth = event.nativeEvent.layout.width;
+    if (nextWidth > 0) {
+      setChartWidth(nextWidth);
+    }
+  }, []);
+
+  const handleChartPress = useCallback(
+    (event: GestureResponderEvent) => {
+      if (skipNextPressRef.current) {
+        skipNextPressRef.current = false;
+        return;
+      }
+
+      const touchedBucket = getTouchedBucket(event);
+      if (!touchedBucket) {
         setSelectedBucketKey(null);
         return;
       }
 
-      // Use nearest-bucket matching instead of a tight tolerance.
-      // Epoch-day x values are often fractional in non-UTC timezones, and native code
-      // returns float-precision numbers, so a tolerance like 0.0001 is unreliable.
-      const selectedBucketForX = findBucketByX(buckets, selectedX);
-      selectedBucketRef.current = selectedBucketForX;
-      if (selectedBucketForX) {
-        lastSelectedBucketRef.current = selectedBucketForX;
-      }
-      const nextKey = selectedBucketForX?.key ?? null;
-      setSelectedBucketKey((prev) => (prev === nextKey ? null : nextKey));
+      setSelectedBucketKey((currentBucketKey) => (currentBucketKey === touchedBucket.key ? null : touchedBucket.key));
     },
-    [buckets],
+    [getTouchedBucket],
   );
 
-  const handleChartChange = useCallback((event: ChartChangeEvent) => {
-    if (event.nativeEvent?.action !== 'chartLongPress') {
-      return;
-    }
+  const handleChartLongPress = useCallback(
+    (event: GestureResponderEvent) => {
+      const touchedBucket = getTouchedBucket(event);
+      if (!touchedBucket) {
+        return;
+      }
 
-    const bucketToEdit = selectedBucketRef.current ?? lastSelectedBucketRef.current;
-    if (!bucketToEdit) {
-      return;
-    }
-
-    setBucketForEdit(bucketToEdit);
-    setSelectedBucketKey(bucketToEdit.key);
-  }, []);
+      skipNextPressRef.current = true;
+      setSelectedBucketKey(touchedBucket.key);
+      setBucketForEdit(touchedBucket);
+    },
+    [getTouchedBucket],
+  );
 
   return (
     <ScrollView style={[styles.container, {backgroundColor: theme.colors.background}]} contentContainerStyle={styles.content} testID="training-length-screen">
@@ -161,11 +194,7 @@ const TrainingLengthTab = () => {
           <Text variant="bodyMedium" style={[styles.modeLabel, {color: theme.colors.onSurfaceVariant}]} testID="training-length-mode-label">
             Grouped by {accumulationMode}
           </Text>
-          <SegmentedButtons
-            value={accumulationMode}
-            onValueChange={handleAccumulationModeChange}
-            buttons={accumulationButtons.map((button) => ({...button}))}
-          />
+          <SegmentedButtons value={accumulationMode} onValueChange={handleAccumulationModeChange} buttons={accumulationButtons.map((button) => ({...button}))} />
         </Card.Content>
       </Card>
 
@@ -183,19 +212,29 @@ const TrainingLengthTab = () => {
           <Card style={styles.chartCard}>
             <Card.Content>
               <Text style={[styles.chartDescription, {color: theme.colors.onSurfaceVariant}]}>Average completed training duration in minutes for each selected time bucket.</Text>
-              <View testID="training-length-chart">
+              <View style={styles.chartContainer} onLayout={handleChartLayout}>
                 <BarChart
+                  style={styles.chart}
                   drawGridBackground={false}
                   data={chartData}
                   drawValueAboveBar={false}
                   borderColor={processColor(theme.colors.outline)}
-                  style={styles.chart}
+                  touchEnabled={false}
+                  highlights={highlightedBars}
+                  viewPortOffsets={{
+                    left: Math.round(CHART_LEFT_PADDING * PixelRatio.get()),
+                    top: Math.round(CHART_TOP_PADDING * PixelRatio.get()),
+                    right: Math.round(CHART_RIGHT_PADDING * PixelRatio.get()),
+                    bottom: Math.round(CHART_BOTTOM_PADDING * PixelRatio.get()),
+                  }}
                   xAxis={{
                     timeUnit: 'DAYS',
                     valueFormatter: 'date',
                     valueFormatterPattern: getTrainingLengthAxisPattern(accumulationMode),
                     position: 'BOTTOM',
                     textColor: processColor(theme.colors.onBackground),
+                    axisMinimum: chartDomain?.minX,
+                    axisMaximum: chartDomain?.maxX,
                   }}
                   yAxis={{
                     left: {textColor: processColor(theme.colors.onBackground)},
@@ -203,16 +242,13 @@ const TrainingLengthTab = () => {
                   }}
                   legend={{enabled: false}}
                   chartDescription={{text: ''}}
-                  onSelect={handleBarSelect}
-                  onChange={handleChartChange}
                 />
+                <Pressable style={styles.chartTouchTarget} testID="training-length-chart" onPress={handleChartPress} onLongPress={handleChartLongPress} />
               </View>
             </Card.Content>
           </Card>
 
-          {selectedBucket && (
-            <TrainingLengthBucketDetails accumulationMode={accumulationMode} bucket={selectedBucket} trainingNameById={trainingNameById} />
-          )}
+          {selectedBucket && <TrainingLengthBucketDetails accumulationMode={accumulationMode} bucket={selectedBucket} trainingNameById={trainingNameById} />}
         </>
       )}
       <TrainingLengthEditDialog accumulationMode={accumulationMode} bucket={bucketForEdit} onDismiss={() => setBucketForEdit(null)} trainingNameById={trainingNameById} />
@@ -247,8 +283,14 @@ const styles = StyleSheet.create({
   chartDescription: {
     marginBottom: 12,
   },
+  chartContainer: {
+    height: 320,
+  },
   chart: {
     height: 320,
+  },
+  chartTouchTarget: {
+    ...StyleSheet.absoluteFillObject,
   },
 });
 

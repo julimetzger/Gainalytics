@@ -5,73 +5,72 @@ appId: com.powerliftingworkoutplanner
     text: "Don't Show Again"
     optional: true
 - tapOn:
-    text: "OK"
+    text: 'OK'
     optional: true
 - extendedWaitUntil:
-    visible: "Training"
+    visible: 'Training'
     timeout: 30000
-- tapOn: "tab-settings"
+- tapOn: 'tab-settings'
 - scrollUntilVisible:
     element:
-      id: "settings-import-data-button"
+      id: 'settings-import-data-button'
     direction: DOWN
 - tapOn:
-    id: "settings-import-data-button"
+    id: 'settings-import-data-button'
 - tapOn:
-    id: "settings-import-confirm-button"
+    id: 'settings-import-confirm-button'
     optional: true
-- tapOn: "baseline.gains"
-- assertVisible: "Import successful!"
-- tapOn: "tab-training"
+- tapOn: 'baseline.gains'
+- assertVisible: 'Import successful!'
+- tapOn: 'tab-training'
 - extendedWaitUntil:
     visible:
-      id: "training-home-screen"
+      id: 'training-home-screen'
     timeout: 30000
-- tapOn: "Last Training"
+- tapOn: 'Last Training'
 - extendedWaitUntil:
-    visible: "Edit"
+    visible: 'Edit'
     timeout: 30000
-- tapOn: "Edit"
+- tapOn: 'Edit'
 - extendedWaitUntil:
     visible:
-      id: "edit-training-open-times-modal"
+      id: 'edit-training-open-times-modal'
     timeout: 30000
 - tapOn:
-    id: "edit-training-open-times-modal"
+    id: 'edit-training-open-times-modal'
 - extendedWaitUntil:
-    visible: "Edit Training Times"
+    visible: 'Edit Training Times'
     timeout: 8000
-- assertVisible: "Start"
-- assertVisible: "End"
-- tapOn: "Cancel"
+- assertVisible: 'Start'
+- assertVisible: 'End'
+- tapOn: 'Cancel'
 - extendedWaitUntil:
-    visible: "tab-analyse"
+    visible: 'tab-analyse'
     timeout: 30000
-- tapOn: "tab-analyse"
+- tapOn: 'tab-analyse'
 - extendedWaitUntil:
-    visible: "Analyse"
+    visible: 'Analyse'
     timeout: 30000
 - tapOn:
-    id: "analyse-drawer-toggle"
+    id: 'analyse-drawer-toggle'
 - scrollUntilVisible:
     element:
-      text: "Training Length"
+      text: 'Training Length'
     direction: DOWN
-- tapOn: "Training Length"
+- tapOn: 'Training Length'
 - extendedWaitUntil:
-    visible: "Grouped by Day"
+    visible: 'Grouped by Day'
     timeout: 30000
 - assertVisible:
-    id: "training-length-chart"
-- tapOn:
-    id: "training-length-chart"
+    id: 'training-length-chart'
+- longPressOn:
+    id: 'training-length-chart'
+- extendedWaitUntil:
+    visible: 'Edit Training Times'
+    timeout: 8000
+- assertVisible: 'Live average duration:'
+- tapOn: 'Cancel'
 - extendedWaitUntil:
     visible:
-      id: "training-length-selected-bucket"
+      id: 'training-length-selected-bucket'
     timeout: 8000
-- longPressOn:
-    id: "training-length-chart"
-- extendedWaitUntil:
-    visible: "Edit Training Times"
-    timeout: 8000
-- assertVisible: "Live average duration:"
