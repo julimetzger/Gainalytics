@@ -1,11 +1,15 @@
 import {
   calculateAnalysisProgress,
   MAX_REPORTED_PROGRESS,
+  DEFAULT_ANALYSIS_SECONDS_PER_VIDEO_SECOND,
   incrementActiveAnalysisCount,
   decrementActiveAnalysisCount,
   getActiveAnalysisCount,
+  getLastAnalysisSecondsPerVideoSecond,
+  recordCompletedAnalysisRate,
   shouldStopForegroundService,
   _resetActiveAnalysisCountForTesting,
+  _resetLastAnalysisSecondsPerVideoSecondForTesting,
 } from '../videoAnalysisProgress';
 
 // ---------------------------------------------------------------------------
@@ -56,12 +60,35 @@ describe('calculateAnalysisProgress', () => {
   });
 });
 
+describe('recordCompletedAnalysisRate', () => {
+  beforeEach(() => {
+    _resetLastAnalysisSecondsPerVideoSecondForTesting();
+  });
+
+  it('starts with a 1:1 analysis-to-video ratio', () => {
+    expect(getLastAnalysisSecondsPerVideoSecond()).toBe(DEFAULT_ANALYSIS_SECONDS_PER_VIDEO_SECOND);
+  });
+
+  it('learns the ratio from a completed analysis duration', () => {
+    expect(recordCompletedAnalysisRate(90_000, 45_000)).toBe(2);
+    expect(getLastAnalysisSecondsPerVideoSecond()).toBe(2);
+  });
+
+  it('keeps the previous ratio when the completed analysis has no valid duration', () => {
+    recordCompletedAnalysisRate(60_000, 30_000);
+
+    expect(recordCompletedAnalysisRate(10_000, 0)).toBe(2);
+    expect(getLastAnalysisSecondsPerVideoSecond()).toBe(2);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Foreground service reference counting (ANA-005-fix issue 3)
 // ---------------------------------------------------------------------------
 describe('foreground service reference counting', () => {
   beforeEach(() => {
     _resetActiveAnalysisCountForTesting();
+    _resetLastAnalysisSecondsPerVideoSecondForTesting();
   });
 
   it('starts at 0 active analyses', () => {
