@@ -1,6 +1,7 @@
 import {Keyboard, StyleSheet, View} from 'react-native';
 import {Button, IconButton, Text, TextInput, ToggleButton, Tooltip, useTheme} from 'react-native-paper';
 import React, {useEffect, useState} from 'react';
+import Toast from 'react-native-toast-message';
 import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {useSettings} from '../../../redux/settings/use/useSettings';
@@ -104,13 +105,21 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
       rir === undefined && setRirEmpty(true);
       return;
     }
+    const repsNumber = convertToNumber(reps);
     onSubmit({
       index: workoutSet?.index,
       date: date ?? new Date(Date.now()),
       weight: convertToNumber(weight),
-      reps: convertToNumber(reps),
+      reps: repsNumber,
       rir: Number.isNaN(convertToNumber(rir)) ? 0 : convertToNumber(rir),
     } as WorkoutSet);
+    if (repsNumber > 20) {
+      Toast.show({
+        type: 'error',
+        text1: 'Cardio detected!',
+        text2: "This app can't be used to track cardio. Please use real weights! Next time the app catches you doing cardio, the app will be deinstalled.",
+      });
+    }
     setEditing(false);
   }
 

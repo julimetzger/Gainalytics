@@ -1,0 +1,79 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-003-fix2: Speed-chart marker alignment verification.
+# Assumes an analysis is already present on device (imported by prior flow or manually).
+# Verifies: speed chart is present, step buttons work, screenshots capture the marker.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: "Unable to load script"
+    commands:
+      - tapOn:
+          text: "RELOAD"
+      - waitForAnimationToEnd:
+          timeout: 8000
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 15000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- scrollUntilVisible:
+    element:
+      text: "Open"
+    direction: DOWN
+- tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Status: done"
+    timeout: 180000
+# Scroll down to Playback Overlay section
+- scrollUntilVisible:
+    element:
+      text: "Playback Overlay"
+    direction: DOWN
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 5%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 300
+# After 2 swipes: speed chart + playback controls should be fully visible.
+# CRITERION: Speed chart is present with the velocity curve.
+- assertVisible: "Bar v_y Over Time"
+# CRITERION: Playback time display is visible at 00:00 / 00:47
+- assertVisible:
+    text: "Playback: 00:00 / 00:47"
+# Step buttons are visible (all four controls are in view)
+- assertVisible:
+    text: "-0.2s"
+- assertVisible:
+    text: "+0.2s"
+# Take baseline screenshot — marker should be at LEFT EDGE (clamped, time=0 < minTimeMs)
+- takeScreenshot: "speed_chart_marker_at_left"
+# Tap +0.2s to seek forward — marker moves toward minTimeMs
+- tapOn:
+    text: "+0.2s"
+- waitForAnimationToEnd:
+    timeout: 500
+- takeScreenshot: "speed_chart_marker_seeked"
+# Tap -0.2s to seek back to 0
+- tapOn:
+    text: "-0.2s"
+- waitForAnimationToEnd:
+    timeout: 500
+- takeScreenshot: "speed_chart_marker_seeked_back"

@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Platform, ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Card, MD3Theme, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
@@ -11,13 +11,14 @@ import {dispatchDeleteVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/di
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisSeedPreflight';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
-import {dispatchSetVideoAnalysisDuration} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisDuration';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
+import VideoAnalysisProgressBar from '../../components/video/VideoAnalysisProgressBar';
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoReadPermission} from '../../utils/video-analysis-import';
-import {calculateAnalysisProgress} from '../../utils/videoAnalysisProgress';
+import {calculateAnalysisProgress, getLastAnalysisSecondsPerVideoSecond} from '../../utils/videoAnalysisProgress';
 import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
+import SetSelectionModal from '../../components/video/SetSelectionModal';
 
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
@@ -32,10 +33,6 @@ const createThemedStyles = (theme: MD3Theme) =>
 // Module-level map so start times survive navigation (component unmount/remount).
 const _analysisStartTimes = new Map<number, number>();
 
-// Fallback estimated video duration used when the real durationMs is not yet
-// available (e.g. while the video is still being copied to local storage).
-// Chosen to match the ticket's default scenario: ~45s video → ~45s bar fill.
-const FALLBACK_VIDEO_DURATION_MS = 45_000;
 
 const VideoAnalysisTab = () => {
   const navigation = useNavigation<any>();
@@ -46,17 +43,20 @@ const VideoAnalysisTab = () => {
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const setSeedPreflight = dispatchSetVideoAnalysisSeedPreflight();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
-  const setVideoAnalysisDuration = dispatchSetVideoAnalysisDuration();
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const [importing, setImporting] = useState(false);
+  const [linkSetForAnalysisId, setLinkSetForAnalysisId] = useState<number | undefined>(undefined);
   const [now, setNow] = useState(() => Date.now());
-  const [lastSecondsPerVideoSecond, setLastSecondsPerVideoSecond] = useState(1.0);
+  const learnedSecondsPerVideoSecond = useMemo(() => getLastAnalysisSecondsPerVideoSecond(), [analyses]);
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map((item) => item.id ?? 0)) + 1 : 1;
+  const processingCount = useMemo(
+    () => analyses.filter((analysis) => analysis.status === VideoAnalysisStatus.PROCESSING).length,
+    [analyses],
+  );
 
   // Refresh every 500ms while any analysis is in PROCESSING state so the
   // progress bar advances smoothly.
-  const processingCount = analyses.filter((a) => a.status === VideoAnalysisStatus.PROCESSING).length;
   useEffect(() => {
     if (processingCount === 0) {
       return;
@@ -65,32 +65,37 @@ const VideoAnalysisTab = () => {
     return () => clearInterval(id);
   }, [processingCount]);
 
+  useEffect(() => {
+    analyses.forEach((analysis) => {
+      const analysisId = analysis.id;
+      if (analysisId === undefined) {
+        return;
+      }
+
+      if (analysis.status === VideoAnalysisStatus.PROCESSING) {
+        const persistedStartTime = new Date(analysis.createdAt).getTime();
+        if (!_analysisStartTimes.has(analysisId)) {
+          _analysisStartTimes.set(analysisId, persistedStartTime);
+        }
+        return;
+      }
+
+      _analysisStartTimes.delete(analysisId);
+    });
+  }, [analyses]);
+
+
   const importFromSource = async (sourceUri: string) => {
-    const currentAnalysisId = nextAnalysisId;
-    _analysisStartTimes.set(currentAnalysisId, Date.now());
     try {
       const outcome = await importVideoAnalysisFromSource({
-        analysisId: currentAnalysisId,
+        analysisId: nextAnalysisId,
         sourceUri,
         addVideoAnalysis,
         setVideoAnalysisStatus,
-        setVideoAnalysisDuration,
         setManualSeedFramePath,
         setSeedPreflight,
         attachVideoAnalysisResult,
       });
-
-      if (outcome === 'done') {
-        // Update learned analysis speed for future progress estimates.
-        const startTime = _analysisStartTimes.get(currentAnalysisId);
-        const analysis = analyses.find((a) => a.id === currentAnalysisId);
-        const videoDurationMs = analysis?.videoMeta?.durationMs ?? 0;
-        if (startTime !== undefined && videoDurationMs > 0) {
-          const elapsedSec = (Date.now() - startTime) / 1000;
-          const videoDurationSec = videoDurationMs / 1000;
-          setLastSecondsPerVideoSecond(elapsedSec / videoDurationSec);
-        }
-      }
 
       if (outcome === 'awaiting_seed_selection') {
         Toast.show({
@@ -99,11 +104,11 @@ const VideoAnalysisTab = () => {
           text2: 'Open the analysis detail and choose the correct detected plate.',
           position: 'top',
         });
-      } else if (outcome === 'done') {
+      } else if (outcome === 'analysis_started') {
         Toast.show({
           type: 'info',
-          text1: 'Analysis completed',
-          text2: 'The video was analyzed automatically and is ready in the list.',
+          text1: 'Analysis started',
+          text2: 'The analysis continues in the background. You can keep using the app.',
           position: 'top',
         });
       } else {
@@ -188,6 +193,14 @@ const VideoAnalysisTab = () => {
 
   return (
     <View style={[styles.container, themedStyles.background]} testID="video-analysis-screen">
+      {linkSetForAnalysisId !== undefined && (
+        <SetSelectionModal
+          visible={true}
+          onDismiss={() => setLinkSetForAnalysisId(undefined)}
+          analysisId={linkSetForAnalysisId}
+          onLinked={() => setLinkSetForAnalysisId(undefined)}
+        />
+      )}
       <Button
         testID="video-analysis-import-button"
         mode="contained"
@@ -223,20 +236,16 @@ const VideoAnalysisTab = () => {
           if (analysis.status === VideoAnalysisStatus.PROCESSING && analysisId !== undefined) {
             const startTime = _analysisStartTimes.get(analysisId);
             const elapsed = startTime !== undefined ? Math.max(0, now - startTime) : 0;
-            const estimated = estimateAnalysisTimeMs(
-              analysis.videoMeta?.durationMs || FALLBACK_VIDEO_DURATION_MS,
-              lastSecondsPerVideoSecond,
-            );
+            const estimatedVideoDurationMs = analysis.videoMeta?.durationMs ?? 0;
+            const estimated = estimateAnalysisTimeMs(estimatedVideoDurationMs, learnedSecondsPerVideoSecond);
             const progress = calculateAnalysisProgress(elapsed, estimated);
-            // At least 3% so the track + fill are clearly visible from the start.
-            const fillPercent = `${Math.max(3, Math.round(progress * 100))}%`;
             progressBar = (
-              <View
+              <VideoAnalysisProgressBar
+                elapsedMs={elapsed}
+                estimatedTotalMs={estimated}
+                progress={progress}
                 testID={`video-analysis-progress-${analysisId}`}
-                style={styles.progressBarTrack}
-              >
-                <View style={[styles.progressBarFill, {width: fillPercent}]} />
-              </View>
+              />
             );
           }
           return (
@@ -261,15 +270,28 @@ const VideoAnalysisTab = () => {
                 >
                   Open
                 </Button>
+                {!analysis.workoutId && (
                 <Button
-                  testID={`video-analysis-delete-${analysisId}`}
-                  textColor={theme.colors.error}
-                  onPress={() => onDelete(analysisId, analysis.resultPath, analysis.localVideoPath)}
+                  testID={`video-analysis-link-set-${analysis.id}`}
+                  onPress={() => setLinkSetForAnalysisId(analysis.id)}
                 >
-                  Delete
+                  Link
                 </Button>
-              </Card.Actions>
-            </Card>
+              )}
+              {analysis.workoutId && (
+                <Text testID={`video-analysis-linked-badge-${analysis.id}`} style={{fontSize: 12, color: theme.colors.secondary}}>
+                  Linked
+                </Text>
+              )}
+              <Button
+                testID={`video-analysis-delete-${analysis.id}`}
+                textColor={theme.colors.error}
+                onPress={() => onDelete(analysis.id, analysis.resultPath, analysis.localVideoPath)}
+              >
+                Delete
+              </Button>
+            </Card.Actions>
+          </Card>
           );
         })}
       </ScrollView>
@@ -287,17 +309,6 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 10,
     marginBottom: 10,
-  },
-  progressBarTrack: {
-    marginTop: 10,
-    height: 30,
-    borderRadius: 5,
-    overflow: 'hidden',
-    backgroundColor: '#FFFF00',
-  },
-  progressBarFill: {
-    height: 30,
-    backgroundColor: '#FF0000',
   },
 });
 

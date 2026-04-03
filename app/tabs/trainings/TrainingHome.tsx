@@ -112,6 +112,7 @@ const TrainingHome = ({navigation, route}: Props) => {
                 <View style={styles.buttonContainer}>
                   {planToStartTraining.get(trainingsPlan.id!!)?.nextTraining && (
                     <Button
+                      testID={`training-home-next-training-${trainingsPlan.id}`}
                       style={styles.button}
                       onPress={() =>
                         navigation.navigate({
@@ -129,6 +130,7 @@ const TrainingHome = ({navigation, route}: Props) => {
                   )}
                   {planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining && (
                     <Button
+                      testID={`training-home-active-training-${trainingsPlan.id}`}
                       style={styles.button}
                       onPress={() =>
                         navigation.navigate({
@@ -146,6 +148,7 @@ const TrainingHome = ({navigation, route}: Props) => {
                   )}
                   {planToStartTraining.get(trainingsPlan.id!!)?.lastDoneTraining && (
                     <Button
+                      testID={`training-home-last-training-${trainingsPlan.id}`}
                       style={styles.button}
                       onPress={() =>
                         navigation.navigate({

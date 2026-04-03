@@ -1,4 +1,10 @@
 import {AnyAction} from '@reduxjs/toolkit';
+import {Metric, MetricOverviewSection, resolveMetricOverviewSlots} from '../../models/Metric';
+
+export interface MetricOverviewSettings {
+  muscles?: Metric[];
+  exercises?: Metric[];
+}
 
 export interface AppSettings {
   mode: 'light' | 'dark';
@@ -14,6 +20,7 @@ export interface AppSettings {
     disableTimer?: boolean;
     showPlusButtonLeft?: boolean;
   };
+  metricOverview?: MetricOverviewSettings;
 }
 
 const initialState = {
@@ -21,7 +28,7 @@ const initialState = {
   palette: 'blue',
 } as AppSettings;
 
-const settingsReducer = (settings: AppSettings = initialState, action: AnyAction) : AppSettings => {
+const settingsReducer = (settings: AppSettings = initialState, action: AnyAction): AppSettings => {
   switch (action.type) {
     case 'TOGGLE_MODE': {
       return {
@@ -97,6 +104,19 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
           exactAlarmPermission: action.hasPermission,
         },
       };
+    case 'SET_METRIC_OVERVIEW_SLOT': {
+      const slots = resolveMetricOverviewSlots(settings.metricOverview?.[action.section as MetricOverviewSection], action.section as MetricOverviewSection).map((metric, index) =>
+        index === action.slotIndex ? action.metric : metric,
+      );
+
+      return {
+        ...settings,
+        metricOverview: {
+          ...settings.metricOverview,
+          [action.section]: slots,
+        },
+      };
+    }
 
     default:
       return settings;

@@ -2,35 +2,51 @@ id: ANA-004
 status: ready
 area: analyse
 priority: medium
-title: Detect reps from velocity zero-crossings in video analysis
+title: Detect reps from velocity zero-crossings + native bar-path overlay
 source:
   - TODOS.md:31
 description: >
-  The current video analysis pipeline already persists `repSegments` and
-  `repMetrics` in `BarTrackingResult`, but the native analysis currently writes
-  both arrays as empty JSON arrays for real analyses. Add real rep detection to
-  the tracked barbell signal so the app can identify repetitions from the
-  movement itself instead of leaving the rep model empty.
+  Die aktuelle Video-Analyse-Pipeline hat `repSegments` und `repMetrics` in
+  `BarTrackingResult`, aber die native Analyse schreibt beide Arrays leer.
+  Rep-Detection soll über Zero-Crossings der vertikalen Geschwindigkeit erfolgen.
 
-  Detect reps from the vertical velocity signal of the tracked bar path. A rep
-  should be segmented from the tracked motion, with the bottom point inferred
-  from the velocity change / zero crossing around the turnaround. Reuse the
-  existing `RepSegment` and `RepMetric` model so each detected rep has
-  `startMs`, `bottomMs`, `endMs`, `repTimeMs`, and an average concentric speed.
+  Der Bar-Path soll als native Canvas-Linie frame-synchron über dem Video
+  gerendert werden — NICHT als JS-Overlay. Dafür wird die Zeichnung in den
+  nativen VideoAnalysisPlayerView (Kotlin/Canvas) verlegt.
 
-  In the UI, surface the rep result in `VideoAnalysisDetail` as simple summary
-  values first: show the detected rep times and average concentric speed per rep
-  in the analysis summary. During playback, the overlay should highlight the
-  currently active rep as a green curve segment so the user can see which part
-  of the bar path belongs to the current repetition. The full tracked bar path
-  should still be visible as a clearer light-gray line in the background so the
-  full movement remains readable instead of only relying on sparse plotted
-  points.
+  ## Rep-Detection (Kotlin-seitig)
+  Reps aus dem vertikalen Velocity-Signal erkennen. Ein Rep wird segmentiert
+  von der Bewegung, mit dem Umkehrpunkt aus der Velocity-Änderung / Zero-Crossing.
+  Bestehende `RepSegment` und `RepMetric` Modelle nutzen (startMs, bottomMs,
+  endMs, repTimeMs, average concentric speed).
+
+  ## Nativer Bar-Path Overlay (Kotlin Canvas)
+  VideoAnalysisPlayerView.java bekommt eine Canvas-Draw-Methode (dispatchDraw
+  Override), die den Bar-Path als Linie über das Video zeichnet. Die Zeichnung
+  erfolgt im selben Render-Cycle wie das Video-Frame — null Delay.
+
+  - Aktive Rep Trail: Die primary-farbene Linie wird LIVE mit der Bar
+    mitgezeichnet — wie eine Spur. Bei Rep-Start ist nur ein Punkt an der
+    aktuellen Bar-Position sichtbar. Mit jedem Frame wächst die Linie und
+    folgt der Bar-Bewegung. Die Spur bleibt für die Dauer der Rep bestehen.
+    Sobald die Rep endet, wird die Spur entfernt (Canvas gecleart) und die
+    nächste Rep startet wieder mit einem einzelnen Punkt.
+  - Hintergrund: Der gesamte Bar-Path bleibt als matte graue Linie permanent
+    sichtbar — unabhängig vom aktiven Rep-Trail.
+  - Props: Bar-Path-Punkte (x,y,tMs), Rep-Segmente, aktuelle Rep-Index und
+    Primary-Farbe werden als React Native Props an den nativen View übergeben.
+    Der native View mappt die Punkte auf die aktuelle Video-Frame-Größe.
+
+  ## JS-seitige Metriken
+  Rep-Anzahl und Dauer als Zusammenfassung unterhalb des Players anzeigen.
+  Keine hardcoded Farben — alle Farben kommen als Props aus theme.colors.
+
 components:
+  - android/app/src/main/java/com/powerliftingworkoutplanner/VideoAnalysisPlayerView.java
   - android/app/src/main/java/com/powerliftingworkoutplanner/VideoAnalysisModule.java
-  - app/models/entities/VideoAnalysis.ts
-  - app/tabs/Analyse/VideoAnalysisDetailTab.tsx
+  - app/components/video/VideoAnalysisPlayerView.tsx
   - app/components/video/VideoAnalysisPlaybackOverlayCard.tsx
+  - app/models/entities/VideoAnalysis.ts
 screens:
   - orchestrator/AppStruktur/analyse/VideoAnalysisDetail.png
   - orchestrator/AppStruktur/analyse/videoAnalysis.png
@@ -44,32 +60,46 @@ acceptanceCriteria:
     and average concentric speed using the existing `RepSegment` / `RepMetric`
     shape.
   - >
+    Der Bar-Path wird als native Canvas-Linie frame-synchron über dem
+    Video gerendert (dispatchDraw in VideoAnalysisPlayerView), ohne
+    sichtbaren Delay zur Wiedergabe.
+  - >
+    Während einer aktiven Rep wird die primary-farbene Linie live mit der
+    Bar mitgezeichnet (Trail-Effekt): bei Rep-Start nur ein Punkt, dann
+    wächst die Linie frame-für-frame mit der Bar-Bewegung. Bei Rep-Ende
+    wird der Trail entfernt. Der graue Hintergrund-Path bleibt permanent.
+  - >
+    Die Bar-Path-Punkte und Farben werden als React Native Props vom
+    JS-Layer an den nativen View übergeben.
+  - >
     `VideoAnalysisDetail` shows the detected reps in the summary as values for
     rep time and average concentric speed per rep.
   - >
-    While playback is inside a detected rep, the overlay highlights that rep's
-    curve segment in green.
-  - >
-    The playback overlay renders the full tracked bar path as a readable
-    light-gray line behind the active-rep highlight.
-  - >
     If no reliable reps are detected, the analysis screen still renders
-    normally, shows no green rep highlight, and degrades gracefully without a
-    crash.
+    normally, shows no rep highlight, and degrades gracefully without a crash.
   - >
     Automated tests cover rep segmentation / metric calculation and at least one
-    UI rendering path for the rep summary or active-rep overlay state.
+    UI rendering path for the rep summary.
+  - >
+    Keine hardcoded Farb-Literals — alle Farben nutzen theme.colors Props.
 evidenceRequired:
   - Screenshot of the analysis summary showing detected rep times and average speeds.
-  - Screenshot or emulator proof of the playback overlay showing the light-gray full path and green active-rep highlight.
+  - >
+    Screenshot WÄHREND einer aktiven Rep, wo die primary-farbene Kurve
+    frame-synchron über dem Video liegt und die graue Hintergrund-Linie
+    sichtbar ist.
   - Focused automated test log proving rep detection and metric calculation.
 constraints:
+  - Native Zeichnung in VideoAnalysisPlayerView.java (Canvas/Paint API).
+  - Kein JS-Overlay für den beweglichen Bar-Path — nur native Canvas.
   - Reuse the existing `repSegments` and `repMetrics` fields in `BarTrackingResult`;
     do not introduce a parallel rep result model.
   - Derive reps from the tracked motion / velocity signal of the native
     analysis result, not from a fixed-duration placeholder estimate.
-  - Keep the existing playback time, scrubber, and overlay dot behavior intact.
+  - Keep the existing playback time, scrubber, and speed chart behavior intact.
+  - Bestehende theme.colors Tokens nutzen, keine neuen Theme-Einträge.
 nonGoals:
+  - JS-basierte Animated/Reanimated Overlays für den Bar-Path.
   - Adding estimated 1RM or strength recommendations from detected reps.
   - Replacing the existing chart library or playback implementation.
   - Exporting rep metrics outside the current analysis detail screen.

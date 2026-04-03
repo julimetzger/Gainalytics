@@ -1,74 +1,60 @@
 # Agent Memory
 
-This file captures learnings for feature worker agents — code patterns, test quality, emulator/Maestro usage from the worker perspective, and React Native gotchas.
+**CRITICAL: Device serial warning**
+This file mentions specific device serials as context. **NEVER copy device serials from this file into your commands.** Always use your assigned `$ANDROID_SERIAL` from the orchestrator prompt.
 
-## Problems And Working Solutions
+## Infrastructure
 
-### 1. Worker sandbox could not reach adb or localhost services
+### 1. Metro must run on the host, not inside the worker
+Workers reuse the host Metro port via `E2E_METRO_PORT`. Use `adb reverse` so the device sees port 8081 while each worktree uses its own host Metro port. Never start a new packager inside the worker.
 
-Problem:
-- `codex exec --full-auto` workers in `workspace-write` could not talk to adb, Maestro, or local TCP ports by default.
+### 2. Parallel Maestro needs unique driver host ports
+Use one unique `--driver-host-port` per concurrent worker. The orchestrator assigns this via `E2E_MAESTRO_DRIVER_PORT`.
 
-Symptoms:
-- `Operation not permitted`
-- adb could see emulators on the host, but the worker could not
-- inner worker commands showed `network_access:false`
+### 3. JAVA_TOOL_OPTIONS leaks into Gradle builds
+Maestro sets `JAVA_TOOL_OPTIONS=-Duser.home=...`. Always `unset JAVA_TOOL_OPTIONS` before running Gradle builds.
 
-Working solution:
-- Launch workers with:
-  - `-c sandbox_workspace_write.network_access=true`
-  - `-c shell_environment_policy.inherit=all`
-- Keep passing explicit adb and Maestro host settings from the orchestrator environment.
+### 4. Maestro driver needs 5-15s cooldown between sessions
+Running two Maestro flows back-to-back on the same driver port causes TcpForwarder timeouts. Wait at least 5s. After a crashed session, force-stop both the app and `dev.mobile.maestro.android`, then wait 15s.
 
-Relevant files:
-- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+### 5. Maestro DEADLINE_EXCEEDED on continuously-updating UI
+When video is playing, Maestro's `waitForAppToSettle` never completes (UI hierarchy changes every frame). Use Maestro only for navigation to stable screens. For Play tap and playback screenshots, use pure ADB: `adb shell input tap <x> <y>` + `adb exec-out screencap -p`.
 
-### 2. Metro must run on the host, not inside the worker
+### 6. Bundle load after force-stop takes ~30s
+Replace `assertVisible: "Training"` with `extendedWaitUntil: visible: "Training", timeout: 60000` after cold app launch.
 
-Problem:
-- Metro started inside the worker sandbox was not a reliable host service for emulator verification.
+### 7. Physical device imports real PXL camera video (30+ min processing)
+On physical devices, "Import Emulator Squat Video" imports a real camera video, not the short test video. Keep an existing "done" analysis on the device; avoid clearing state.
 
-Symptoms:
-- Emulator could launch the app but bundle loading failed or behaved inconsistently.
-- Metro from the worker behaved differently from a normal host-side packager.
+## Maestro Best Practices
 
-Working solution:
-- Start or reuse Metro on the host for each assigned worktree.
-- Pass the host Metro port into the worker.
-- Use adb reverse so the emulator sees device port `8081` while each worktree still uses its own host Metro port.
-- The worker should reuse provided `E2E_METRO_PORT` and not start another packager.
+### 8. Assertions must verify actual values, not just visibility
+Use `assertVisible: text: "expected value"`, not just `id:`. For dynamic values, use `evalScript` + `assertTrue`.
 
-Relevant files:
-- [metro_host.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/metro_host.py)
-- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
-- [run-maestro-from-wsl.sh](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/scripts/run-maestro-from-wsl.sh)
+### 9. Off-screen Views need text anchors for scrollUntilVisible
+React Native Views with `testID` are NOT in the accessibility tree when off-screen. Use `text:` anchors (e.g. Card.Title) instead of `id:` selectors.
 
-### 3. Metro resolver must not force everything through root node_modules
+### 10. react-native-paper Button: match by label text, not testID
+`testID` on `<Button>` does not map to resource-id. Use `tapOn: "Play"` instead of `tapOn: id: "my-button"`.
 
-Problem:
-- A Metro config that forced package resolution through root `node_modules` broke nested dependency resolution.
+### 11. assertVisible does not support regex
+Maestro treats `text:` as literal. For time displays like `"Playback: 00:00 / 00:47"`, assert only the fixed prefix: `text: "Playback: 00:00"`.
 
-Symptoms:
-- `react-redux` crashed at runtime
-- `Provider` became `undefined`
-- wrong `@babel/runtime` helper got bundled
+### 12. clearState:true + CPU-intensive analysis = gRPC timeout
+Use `clearState: false` for overlay/playback flows that reuse an existing analysis.
 
-Working solution:
-- Do not force `extraNodeModules` or `disableHierarchicalLookup` for this repo.
-- Use symlink-friendly Metro config with `unstable_enableSymlinks` and ordered `nodeModulesPaths`.
-- Let packages like `react-redux` resolve their nested runtime dependencies correctly.
+## React Native Patterns
 
-Relevant files:
-- [metro_host.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/metro_host.py)
+### 13. Never spread class instances in React state
+`{...prev, startDate: d}` creates a plain object, breaking `instanceof`. Always use the constructor: `new NullableRange(d, prev.endDate)`.
 
-### 4. Worktrees need shared dependencies
+### 14. Reanimated SharedValues: stable in prod, unstable in mock
+The mock creates a new object per render. Wrap with `useRef`: `const sv = useRef(useSharedValue(0)).current`. Never include SharedValues in `useCallback`/`useEffect` deps.
 
-Problem:
-- Fresh worker worktrees did not always have usable dependencies on their own.
+### 15. viewPortOffsets expects physical pixels, not dp
+`react-native-charts-wrapper` `setViewPortOffsets()` needs `Math.round(VALUE_DP * PixelRatio.get())`. Keep JS overlay constants in dp.
 
-Symptoms:
-- missing Jest binary in a worktree
-- module resolution failures inside a fresh worktree
+## Operational Guidance
 
 Working solution:
 - Ensure each worktree has `node_modules` symlinked to the root repository `node_modules`.
@@ -624,3 +610,9 @@ Working solution:
 - Verify with `curl http://127.0.0.1:XXXX/index.bundle -o /dev/null -w "%{http_code}"` → 200 before touching the device.
 
 Apply when: Device shows Metro bundle error and Metro process is running but serving 500.
+
+- Reuse host Metro; never re-debug host-vs-worker Metro setup.
+- Check `run_dir` for existing artifacts before repeating work in a resumed round.
+- Evidence paths in `status.json` must be bare relative paths, no inline annotations.
+- On real devices, check for redbox before blaming the Maestro flow.
+- Avoid generic `scroll` commands over `react-native-charts-wrapper` charts — they fire `onSelect`.

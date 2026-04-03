@@ -36,7 +36,7 @@ If any of these are missing, write `needs_input` instead of guessing.
 - Export `ANDROID_SERIAL` for the assigned device serial, but do not rely on adb default device selection.
 - In every direct adb command, pass `-s "$ANDROID_SERIAL"` explicitly.
 - In every direct Maestro command, pass `--device "$ANDROID_SERIAL"` explicitly.
-- Never target a different Android device than the one assigned by the orchestrator.
+- Never target a different Android device than the one assigned by the orchestrator. The agent-memory.md file mentions other device serials (e.g. R5CN30HWZFN, emulator-5554) as context — NEVER copy those into your commands. Always use your assigned device_serial.
 - Reuse existing adb host or socket environment when it is already configured by the orchestrator.
 - If the orchestrator already provided a host Metro process or `E2E_METRO_PORT`, reuse it and do not start another packager.
 - Before running Metro-dependent app or Maestro checks, ensure Metro is reachable. Only if no host Metro was provided should you start `npm start -- --host 0.0.0.0 --port 8081`.

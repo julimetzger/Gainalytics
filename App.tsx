@@ -9,37 +9,28 @@ import {EventProvider} from 'react-native-outside-press';
 import {registerTranslation} from 'react-native-paper-dates';
 import {useSettings} from './app/redux/settings/use/useSettings';
 import Toast from 'react-native-toast-message';
-import {LogBox, StatusBar} from 'react-native';
+import {AppState, LogBox, StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
-import notifee, {EventType} from '@notifee/react-native';
-import {extractAnalysisIdFromNotification} from './app/utils/videoAnalysisNotification';
+import notifee from '@notifee/react-native';
+import {
+  extractAnalysisIdFromNotificationPressEvent,
+} from './app/utils/videoAnalysisNotification';
+import {
+  flushPendingVideoAnalysisNavigation,
+  handleInitialVideoAnalysisNotification,
+  handleVideoAnalysisNotificationPressEvent,
+  queueVideoAnalysisNavigation,
+} from './app/utils/videoAnalysisNotificationNavigation';
 
 export const navigationRef = createNavigationContainerRef<any>();
-
-// Pending deep-link analysisId stored by the background event handler.
-// Consumed in onReady() once the navigation tree is mounted.
-let pendingVideoAnalysisNavigation: number | undefined;
-
-function navigateToVideoAnalysis(analysisId: number) {
-  if (navigationRef.isReady()) {
-    navigationRef.navigate('Analyse', {
-      screen: 'VideoAnalysisDetail',
-      params: {analysisId},
-    } as any);
-  } else {
-    pendingVideoAnalysisNavigation = analysisId;
-  }
-}
 
 // Background event handler: runs when the app is in the background and the
 // user taps a video_analysis_complete notification. Must be registered at
 // module scope (outside React tree) before any component is mounted.
 notifee.onBackgroundEvent(async ({type, detail}) => {
-  if (type === EventType.PRESS && detail.notification) {
-    const analysisId = extractAnalysisIdFromNotification(detail.notification as any);
-    if (analysisId !== undefined) {
-      navigateToVideoAnalysis(analysisId);
-    }
+  const analysisId = extractAnalysisIdFromNotificationPressEvent(type, detail as any);
+  if (analysisId !== undefined) {
+    queueVideoAnalysisNavigation(analysisId);
   }
 });
 
@@ -1046,34 +1037,31 @@ const AppWithPersist = () => {
 
   // Register foreground event handler for notification taps while the app is active.
   useEffect(() => {
-    const unsubscribe = notifee.onForegroundEvent(({type, detail}) => {
-      if (type === EventType.PRESS && detail.notification) {
-        const analysisId = extractAnalysisIdFromNotification(detail.notification as any);
-        if (analysisId !== undefined) {
-          navigateToVideoAnalysis(analysisId);
-        }
+    const appStateSubscription = AppState.addEventListener('change', (appState) => {
+      if (appState === 'active') {
+        flushPendingVideoAnalysisNavigation(navigationRef);
       }
     });
-    return unsubscribe;
+
+    const unsubscribe = notifee.onForegroundEvent(({type, detail}) => {
+      handleVideoAnalysisNotificationPressEvent(navigationRef, type, detail as any);
+    });
+
+    flushPendingVideoAnalysisNavigation(navigationRef);
+
+    return () => {
+      appStateSubscription.remove();
+      unsubscribe();
+    };
   }, []);
 
   const handleNavigationReady = async () => {
-    // Consume any pending navigation stored by the background event handler.
-    if (pendingVideoAnalysisNavigation !== undefined) {
-      const id = pendingVideoAnalysisNavigation;
-      pendingVideoAnalysisNavigation = undefined;
-      navigateToVideoAnalysis(id);
-    }
+    flushPendingVideoAnalysisNavigation(navigationRef);
 
     // Cold-start path: check if the app was launched by tapping a notification
     // while it was terminated.
     const initialEvent = await notifee.getInitialNotification();
-    if (initialEvent?.notification) {
-      const analysisId = extractAnalysisIdFromNotification(initialEvent.notification as any);
-      if (analysisId !== undefined) {
-        navigateToVideoAnalysis(analysisId);
-      }
-    }
+    handleInitialVideoAnalysisNotification(navigationRef, initialEvent as any);
   };
 
   return (

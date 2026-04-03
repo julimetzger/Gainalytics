@@ -3,12 +3,22 @@ import notifee, {AndroidImportance, AuthorizationStatus, EventType} from '@notif
 export const VIDEO_ANALYSIS_CHANNEL_ID = 'gainalytics_video_analysis';
 export const VIDEO_ANALYSIS_NOTIFICATION_DATA_TYPE = 'video_analysis_complete';
 
+let cachedVideoAnalysisNotificationPermission: boolean | undefined;
+let pendingVideoAnalysisPermissionRequest: Promise<boolean> | null = null;
+
 async function createVideoAnalysisChannel(): Promise<string> {
   return notifee.createChannel({
     id: VIDEO_ANALYSIS_CHANNEL_ID,
     name: 'Video Analysis',
     importance: AndroidImportance.HIGH,
   });
+}
+
+function isNotificationPermissionGranted(authorizationStatus: number): boolean {
+  return (
+    authorizationStatus === AuthorizationStatus.AUTHORIZED ||
+    authorizationStatus === AuthorizationStatus.PROVISIONAL
+  );
 }
 
 /**
@@ -19,13 +29,33 @@ async function createVideoAnalysisChannel(): Promise<string> {
  */
 export async function requestVideoAnalysisNotificationPermission(): Promise<boolean> {
   const result = await notifee.requestPermission();
-  return (
-    result.authorizationStatus === AuthorizationStatus.AUTHORIZED ||
-    result.authorizationStatus === AuthorizationStatus.PROVISIONAL
-  );
+  const granted = isNotificationPermissionGranted(result.authorizationStatus);
+  cachedVideoAnalysisNotificationPermission = granted;
+  return granted;
+}
+
+async function ensureVideoAnalysisNotificationPermission(): Promise<boolean> {
+  if (cachedVideoAnalysisNotificationPermission !== undefined) {
+    return cachedVideoAnalysisNotificationPermission;
+  }
+
+  if (pendingVideoAnalysisPermissionRequest) {
+    return pendingVideoAnalysisPermissionRequest;
+  }
+
+  pendingVideoAnalysisPermissionRequest = requestVideoAnalysisNotificationPermission().finally(() => {
+    pendingVideoAnalysisPermissionRequest = null;
+  });
+
+  return pendingVideoAnalysisPermissionRequest;
 }
 
 export async function postVideoAnalysisCompleteNotification(analysisId: number): Promise<void> {
+  const hasPermission = await ensureVideoAnalysisNotificationPermission();
+  if (!hasPermission) {
+    return;
+  }
+
   const channelId = await createVideoAnalysisChannel();
   await notifee.displayNotification({
     title: 'Video analysis complete',
@@ -43,6 +73,11 @@ export async function postVideoAnalysisCompleteNotification(analysisId: number):
 }
 
 export async function postVideoAnalysisFailedNotification(analysisId: number): Promise<void> {
+  const hasPermission = await ensureVideoAnalysisNotificationPermission();
+  if (!hasPermission) {
+    return;
+  }
+
   const channelId = await createVideoAnalysisChannel();
   await notifee.displayNotification({
     title: 'Video analysis failed',
@@ -72,6 +107,28 @@ export function extractAnalysisIdFromNotification(
   }
   const id = parseInt(data.analysisId, 10);
   return Number.isNaN(id) ? undefined : id;
+}
+
+export function extractAnalysisIdFromNotificationPressEvent(
+  type: number,
+  detail: {notification?: {data?: Record<string, string>}} | null | undefined,
+): number | undefined {
+  if (type !== EventType.PRESS) {
+    return undefined;
+  }
+
+  return extractAnalysisIdFromNotification(detail?.notification);
+}
+
+export function extractAnalysisIdFromInitialNotification(
+  initialNotification: {notification?: {data?: Record<string, string>}} | null | undefined,
+): number | undefined {
+  return extractAnalysisIdFromNotification(initialNotification?.notification);
+}
+
+export function _resetVideoAnalysisNotificationPermissionCacheForTesting(): void {
+  cachedVideoAnalysisNotificationPermission = undefined;
+  pendingVideoAnalysisPermissionRequest = null;
 }
 
 /**

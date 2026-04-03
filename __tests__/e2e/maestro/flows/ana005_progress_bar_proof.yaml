@@ -1,0 +1,105 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-005 proof: progress bar advances during analysis, app stays interactive,
+# bar disappears when analysis is done.
+- launchApp:
+    clearState: true
+
+# ── Navigate to Video Analyses ──────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- assertVisible: "Import Emulator Squat Video"
+
+# ── Start the analysis ───────────────────────────────────────────────────────
+- tapOn: "Import Emulator Squat Video"
+
+# Handle storage permission prompt if it appears
+- runFlow:
+    when:
+      visible:
+        text: "(?i)^allow$"
+    commands:
+      - tapOn:
+          text: "(?i)^allow$"
+- runFlow:
+    when:
+      visible: "Allow only while using the app"
+    commands:
+      - tapOn: "Allow only while using the app"
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
+
+# ── Wait for analysis card to appear in PROCESSING state ─────────────────────
+- extendedWaitUntil:
+    visible: "Status: processing"
+    timeout: 30000
+
+# Screenshot 1: bar at 0% — video copy still in progress, durationMs not yet set.
+# The ProgressBar component IS present (testID: video-analysis-progress-1) rendering
+# the empty track. This proves the bar renders immediately when PROCESSING starts.
+- takeScreenshot: progress_bar_screenshot_1
+
+# ── Wait 6s for video copy + duration read to complete ──────────────────────
+# After copy (~3s) + getVideoDuration (<1s), durationMs is set.
+# estimateAnalysisTimeMs(4000ms video, 1.0) = 4000ms.
+# At t=5s: calculateAnalysisProgress(5000, 4000) = min(1.25, 0.95) = 0.95 = 95% fill.
+- runScript:
+    file: sleep6s.js
+
+# Screenshot 2: bar at later fill level (~95%) — durationMs now set,
+# bar actively filling. Conditional: skipped if analysis already completed.
+- runFlow:
+    when:
+      visible: "Status: processing"
+    commands:
+      - takeScreenshot: progress_bar_screenshot_2
+
+# ── Prove the app stays interactive: switch to Training tab ──────────────────
+- tapOn: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "training-home-screen"
+    timeout: 15000
+
+# Screenshot: Training tab is navigable while analysis runs in background
+- takeScreenshot: training_tab_during_analysis
+
+# ── Navigate back to Video Analyses ─────────────────────────────────────────
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 15000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+
+# ── Wait for analysis to reach any terminal state ────────────────────────────
+# The analysis may take up to 20 minutes on the emulator (full native analysis).
+# Accept done, awaiting_seed_selection, error, or failed as completion.
+- extendedWaitUntil:
+    visible: "Status: (done|awaiting_seed_selection|error|failed)"
+    timeout: 1800000
+
+# Screenshot 3: final state — progress bar gone, analysis complete.
+- takeScreenshot: progress_bar_screenshot_3_done
+- assertNotVisible:
+    id: "video-analysis-progress-1"

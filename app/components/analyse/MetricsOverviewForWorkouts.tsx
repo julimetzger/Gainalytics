@@ -1,14 +1,17 @@
-import {calculateMetricComparisons, calculateMetricComparisonsForMuscle, calculateMetricValue, WorkoutSetMap} from '../../utils/AnalyseUtils';
+import React, {useMemo, useState} from 'react';
+import {StyleSheet} from 'react-native';
 import {Card, DataTable, Dialog, Portal, Text} from 'react-native-paper';
-import React, {useState} from 'react';
+import {calculateMetricComparisons, calculateMetricComparisonsForMuscle, calculateMetricValue, WorkoutSetMap} from '../../utils/AnalyseUtils';
 import {useExerciseByIds} from '../../redux/Exercises/use/useExerciseByIds';
 import MetricView from './MetricComparison';
 import {Muscles} from '../../models/Muscles';
 import {Exercise, MusclePercentPair} from '../../models/entities/Exercise';
 import {Workout} from '../../models/entities/Workout';
-import {StyleSheet} from 'react-native';
 import ExerciseMetricOverview from '../exercise/show/ExerciseMetricOverview';
-import {Metric} from "../../models/Metric";
+import {Metric, MetricOverviewSection} from '../../models/Metric';
+import {useMetricOverviewSlots} from '../../redux/settings/use/useMetricOverviewSlots';
+import {dispatchSetMetricOverviewSlot} from '../../redux/settings/dispatch/dispatchSetMetricOverviewSlot';
+import MetricSelectionDialog from './MetricSelectionDialog';
 
 export interface Comparison {
   value: number;
@@ -26,98 +29,94 @@ interface MuscleDetails {
   metric: Metric;
 }
 
+interface MetricSelectorState {
+  section: MetricOverviewSection;
+  slotIndex: number;
+}
+
 const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], showExercises = true}: WorkoutSetOverviewProps) => {
-  let trainingExcercises = useExerciseByIds([...trainingsWorkouts].map((workout: Workout) => workout.exerciseId));
-  let previousExercises = useExerciseByIds([...previousWorkouts].map((workout: Workout) => workout.exerciseId));
-  const [seledtedMuscle, setSelectedMuscle] = useState<MuscleDetails | undefined>(undefined);
+  const exerciseIds = useMemo(() => [...new Set([...trainingsWorkouts, ...previousWorkouts].map((workout) => workout.exerciseId))], [previousWorkouts, trainingsWorkouts]);
+  const exercises = useExerciseByIds(exerciseIds);
+  const [selectedMuscle, setSelectedMuscle] = useState<MuscleDetails | undefined>(undefined);
+  const [metricSelector, setMetricSelector] = useState<MetricSelectorState | undefined>(undefined);
+  const muscleMetrics = useMetricOverviewSlots('muscles');
+  const exerciseMetrics = useMetricOverviewSlots('exercises');
+  const setMetricOverviewSlot = dispatchSetMetricOverviewSlot();
 
-  let exerciseWorkoutMap = new Map<Exercise, WorkoutSetMap>();
-  [...trainingExcercises, ...previousExercises].forEach((exercise) => {
-    exerciseWorkoutMap.set(exercise, {
-      currentWorkoutSets: trainingsWorkouts.filter((workout: Workout) => workout.exerciseId === exercise.id).flatMap((workout: Workout) => workout.sets),
-      lastWorkoutSets: previousWorkouts.filter((workout: Workout) => workout.exerciseId === exercise.id).flatMap((workout: Workout) => workout.sets),
-    });
-  });
-  let exerciseMetricMap = new Map<Exercise, Map<Metric, Comparison>>();
+  const exerciseWorkoutMap = useMemo(() => {
+    return new Map(
+      exercises.map((exercise) => [
+        exercise,
+        {
+          currentWorkoutSets: trainingsWorkouts.filter((workout) => workout.exerciseId === exercise.id).flatMap((workout) => workout.sets),
+          lastWorkoutSets: previousWorkouts.filter((workout) => workout.exerciseId === exercise.id).flatMap((workout) => workout.sets),
+        } satisfies WorkoutSetMap,
+      ]),
+    );
+  }, [exercises, previousWorkouts, trainingsWorkouts]);
 
-  Array.from(exerciseWorkoutMap).forEach(([exercise, workout]) => {
-    let metricComparison = calculateMetricComparisons(workout);
-    exerciseMetricMap.set(exercise, metricComparison);
-  });
-  let muscleMetricMap = calculateMetricComparisonsForMuscle(exerciseWorkoutMap);
+  const exerciseMetricMap = useMemo(() => {
+    return new Map(Array.from(exerciseWorkoutMap).map(([exercise, workout]) => [exercise, calculateMetricComparisons(workout)]));
+  }, [exerciseWorkoutMap]);
+
+  const muscleMetricMap = useMemo(() => calculateMetricComparisonsForMuscle(exerciseWorkoutMap), [exerciseWorkoutMap]);
+
+  const activeMetricSlots = metricSelector?.section === 'muscles' ? muscleMetrics : exerciseMetrics;
+  const selectedMetric = metricSelector ? activeMetricSlots[metricSelector.slotIndex] : undefined;
 
   return (
     <>
-      {showExercises && <ExerciseMetricOverview exerciseMetricMap={exerciseMetricMap} />}
-      <Card style={{margin: 5}}>
-        <Card.Title title={<Text>Muscle Overview</Text>}></Card.Title>
+      <Card style={styles.card}>
+        <Card.Title title={<Text>Muscle Overview</Text>} />
         <Card.Content>
           <DataTable>
             <DataTable.Header>
-              <DataTable.Title style={styles.flexL}>Exercise</DataTable.Title>
-              <DataTable.Title style={styles.flexM} numeric>
-                Volume
-              </DataTable.Title>
-              <DataTable.Title style={styles.flexS} numeric>
-                Sets
-              </DataTable.Title>
-              <DataTable.Title style={styles.flexS} numeric>
-                Reps
-              </DataTable.Title>
+              <DataTable.Title style={styles.flexL}>Muscle</DataTable.Title>
+              {muscleMetrics.map((metric, index) => (
+                <DataTable.Title
+                  key={`${metric}-${index}`}
+                  style={getMetricColumnStyle(index)}
+                  numeric
+                  onPress={() => setMetricSelector({section: 'muscles', slotIndex: index})}
+                  testID={`metrics-muscles-header-${index}`}
+                >
+                  <Text numberOfLines={2}>{metric}</Text>
+                </DataTable.Title>
+              ))}
             </DataTable.Header>
             {Array.from(muscleMetricMap)
-              .sort(([muscleA], [muscleB]) => {
-                return muscleA.localeCompare(muscleB);
-              })
-              .map(([muscle, workout]) => {
-                return (
-                  <DataTable.Row key={muscle.toString()}>
-                    <DataTable.Cell style={styles.flexL}>{muscle}</DataTable.Cell>
+              .sort(([muscleA], [muscleB]) => muscleA.localeCompare(muscleB))
+              .map(([muscle, workout]) => (
+                <DataTable.Row key={muscle}>
+                  <DataTable.Cell style={styles.flexL}>{muscle}</DataTable.Cell>
+                  {muscleMetrics.map((metric, index) => (
                     <DataTable.Cell
-                      style={styles.flexM}
+                      key={`${muscle}-${metric}-${index}`}
+                      style={getMetricColumnStyle(index)}
                       numeric
                       onPress={() =>
                         setSelectedMuscle({
-                          muscle: muscle,
-                          metric: Metric.VOLUME,
+                          muscle,
+                          metric,
                         })
                       }
                     >
-                      <MetricView comparison={workout.get(Metric.VOLUME)!!} />
+                      <MetricView comparison={workout.get(metric)!!} />
                     </DataTable.Cell>
-                    <DataTable.Cell
-                      style={styles.flexS}
-                      numeric
-                      onPress={() =>
-                        setSelectedMuscle({
-                          muscle: muscle,
-                          metric: Metric.SETS,
-                        })
-                      }
-                    >
-                      <MetricView comparison={workout.get(Metric.SETS)!!} />
-                    </DataTable.Cell>
-                    <DataTable.Cell
-                      style={styles.flexS}
-                      numeric
-                      onPress={() =>
-                        setSelectedMuscle({
-                          muscle: muscle,
-                          metric: Metric.REPS,
-                        })
-                      }
-                    >
-                      <MetricView comparison={workout.get(Metric.REPS)!!} />
-                    </DataTable.Cell>
-                  </DataTable.Row>
-                );
-              })}
+                  ))}
+                </DataTable.Row>
+              ))}
           </DataTable>
         </Card.Content>
       </Card>
+
+      {showExercises && (
+        <ExerciseMetricOverview exerciseMetricMap={exerciseMetricMap} metrics={exerciseMetrics} onMetricHeaderPress={(slotIndex) => setMetricSelector({section: 'exercises', slotIndex})} />
+      )}
+
       <Portal>
-        <Dialog visible={seledtedMuscle !== undefined} onDismiss={() => setSelectedMuscle(undefined)}>
-          <Dialog.Title>{seledtedMuscle?.muscle + ' ' + seledtedMuscle?.metric + ' Contribution'}</Dialog.Title>
+        <Dialog visible={selectedMuscle !== undefined} onDismiss={() => setSelectedMuscle(undefined)}>
+          <Dialog.Title>{selectedMuscle ? `${selectedMuscle.muscle} ${selectedMuscle.metric} Contribution` : ''}</Dialog.Title>
           <Dialog.Content>
             <DataTable>
               <DataTable.Header>
@@ -133,37 +132,61 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
                 </DataTable.Title>
               </DataTable.Header>
               {Array.from(exerciseWorkoutMap).map(([exercise, workout]) => {
-                let matchedExercise = exercise.muscles?.find((muscle) => muscle.muscle === seledtedMuscle?.muscle) as MusclePercentPair | undefined;
-                if (matchedExercise) {
-                  let unmodifiedMetricValue = calculateMetricValue(workout.currentWorkoutSets, seledtedMuscle!!.metric);
-                  let percent = [Metric.SETS, Metric.VOLUME, Metric.REPS].includes(seledtedMuscle?.metric!!) ? matchedExercise.percent : 100;
-                  return (
-                    <DataTable.Row>
-                      <DataTable.Cell style={styles.flexL}>
-                        <Text>{exercise.name}</Text>
-                      </DataTable.Cell>
-                      <DataTable.Cell style={styles.flexM} numeric>
-                        {unmodifiedMetricValue}
-                      </DataTable.Cell>
-                      <DataTable.Cell style={styles.flexS} numeric>
-                        {percent}
-                      </DataTable.Cell>
-                      <DataTable.Cell style={styles.flexS} numeric>
-                        {(unmodifiedMetricValue!! * percent!!) / 100}
-                      </DataTable.Cell>
-                    </DataTable.Row>
-                  );
+                const matchedExercise = exercise.muscles?.find((muscle) => muscle.muscle === selectedMuscle?.muscle) as MusclePercentPair | undefined;
+
+                if (!matchedExercise || !selectedMuscle) {
+                  return null;
                 }
+
+                const unmodifiedMetricValue = calculateMetricValue(workout.currentWorkoutSets, selectedMuscle.metric) ?? 0;
+                const percent = [Metric.SETS, Metric.VOLUME, Metric.REPS].includes(selectedMuscle.metric) ? matchedExercise.percent ?? 0 : 100;
+
+                return (
+                  <DataTable.Row key={`${exercise.id}-${selectedMuscle.muscle}`}>
+                    <DataTable.Cell style={styles.flexL}>
+                      <Text>{exercise.name}</Text>
+                    </DataTable.Cell>
+                    <DataTable.Cell style={styles.flexM} numeric>
+                      {unmodifiedMetricValue}
+                    </DataTable.Cell>
+                    <DataTable.Cell style={styles.flexS} numeric>
+                      {percent}
+                    </DataTable.Cell>
+                    <DataTable.Cell style={styles.flexS} numeric>
+                      {(unmodifiedMetricValue * percent) / 100}
+                    </DataTable.Cell>
+                  </DataTable.Row>
+                );
               })}
             </DataTable>
           </Dialog.Content>
         </Dialog>
       </Portal>
+
+      {metricSelector && selectedMetric && (
+        <MetricSelectionDialog
+          title={`Select ${metricSelector.section === 'muscles' ? 'muscle' : 'exercise'} metric`}
+          visible={metricSelector !== undefined}
+          selectedMetric={selectedMetric}
+          onDismiss={() => setMetricSelector(undefined)}
+          onSelect={(metric) => {
+            setMetricOverviewSlot(metricSelector.section, metricSelector.slotIndex, metric);
+            setMetricSelector(undefined);
+          }}
+        />
+      )}
     </>
   );
 };
 
-let styles = StyleSheet.create({
+const getMetricColumnStyle = (index: number) => {
+  return index === 0 ? styles.flexM : styles.flexS;
+};
+
+const styles = StyleSheet.create({
+  card: {
+    margin: 5,
+  },
   flexL: {
     flex: 10,
   },
@@ -174,4 +197,5 @@ let styles = StyleSheet.create({
     flex: 6,
   },
 });
+
 export default MetricsOverviewForWorkouts;

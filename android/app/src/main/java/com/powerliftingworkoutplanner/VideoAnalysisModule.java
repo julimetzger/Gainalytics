@@ -1,5 +1,6 @@
 package com.powerliftingworkoutplanner;
 
+import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -13,6 +14,8 @@ import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
+import android.net.Uri;
+import android.os.Build;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -111,6 +114,24 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
         return "VideoAnalysis";
     }
 
+    @ReactMethod
+    public void startForegroundService() {
+        ReactApplicationContext context = getReactApplicationContext();
+        Intent intent = new Intent(context, VideoAnalysisForegroundService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent);
+        } else {
+            context.startService(intent);
+        }
+    }
+
+    @ReactMethod
+    public void stopForegroundService() {
+        ReactApplicationContext context = getReactApplicationContext();
+        Intent intent = new Intent(context, VideoAnalysisForegroundService.class);
+        context.stopService(intent);
+    }
+
     @Override
     public void invalidate() {
         synchronized (interpreterLock) {
@@ -128,7 +149,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void getVideoDuration(String localVideoPath, Promise promise) {
-        promise.resolve((double) extractDurationMs(localVideoPath));
+        promise.resolve((double) extractDurationMsOrZero(localVideoPath));
     }
 
     @ReactMethod
@@ -145,7 +166,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             String previewFramePath = writePreviewFrame(localVideoPath, analysisId, rootDir);
             performanceMetrics.previewFrameWriteMs = SystemClock.elapsedRealtime() - previewStartedAtMs;
 
-            retriever.setDataSource(localVideoPath);
+            setRetrieverDataSource(retriever, localVideoPath);
             long initialFrameReadStartedAtMs = SystemClock.elapsedRealtime();
             frame = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
             performanceMetrics.initialFrameReadMs = SystemClock.elapsedRealtime() - initialFrameReadStartedAtMs;
@@ -203,7 +224,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             long previewStartedAtMs = SystemClock.elapsedRealtime();
             String previewFramePath = writePreviewFrame(localVideoPath, analysisId, rootDir);
             performanceMetrics.previewFrameWriteMs = SystemClock.elapsedRealtime() - previewStartedAtMs;
-            retriever.setDataSource(localVideoPath);
+            setRetrieverDataSource(retriever, localVideoPath);
             long initialFrameReadStartedAtMs = SystemClock.elapsedRealtime();
             firstFrame = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
             performanceMetrics.initialFrameReadMs = SystemClock.elapsedRealtime() - initialFrameReadStartedAtMs;
@@ -455,7 +476,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 return null;
             }
 
-            retriever.setDataSource(localVideoPath);
+            setRetrieverDataSource(retriever, localVideoPath);
             frame = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
             if (frame == null) {
                 return null;
@@ -490,16 +511,24 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     }
 
     private long extractDurationMs(String localVideoPath) {
+        long durationMs = extractDurationMsOrZero(localVideoPath);
+        if (durationMs > 0L) {
+            return durationMs;
+        }
+        return DEFAULT_DURATION_MS;
+    }
+
+    private long extractDurationMsOrZero(String localVideoPath) {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {
-            retriever.setDataSource(localVideoPath);
+            setRetrieverDataSource(retriever, localVideoPath);
             String duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
             if (duration == null) {
-                return DEFAULT_DURATION_MS;
+                return 0L;
             }
             return Long.parseLong(duration);
         } catch (Exception ignored) {
-            return DEFAULT_DURATION_MS;
+            return 0L;
         } finally {
             try {
                 retriever.release();
@@ -512,7 +541,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private double extractSourceFps(String localVideoPath) {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {
-            retriever.setDataSource(localVideoPath);
+            setRetrieverDataSource(retriever, localVideoPath);
             String captureFps = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE);
             if (captureFps == null || captureFps.isEmpty()) {
                 return DEFAULT_SOURCE_FPS;
@@ -532,7 +561,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private int extractVideoRotationDegrees(String localVideoPath) {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {
-            retriever.setDataSource(localVideoPath);
+            setRetrieverDataSource(retriever, localVideoPath);
             String rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
             if (rotation == null || rotation.isEmpty()) {
                 return 0;
@@ -547,6 +576,15 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 // No-op.
             }
         }
+    }
+
+    private void setRetrieverDataSource(MediaMetadataRetriever retriever, String videoPath) {
+        if (videoPath.startsWith("content://") || videoPath.startsWith("file://")) {
+            retriever.setDataSource(getReactApplicationContext(), Uri.parse(videoPath));
+            return;
+        }
+
+        retriever.setDataSource(videoPath);
     }
 
     private double resolveAnalyzedFps(long durationMs, double sourceFps) {

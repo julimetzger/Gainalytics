@@ -32,6 +32,7 @@ Always prefer the bundled scripts instead of re-implementing the mechanics in th
 - `scripts/read_run_status.py`
 - `scripts/validate_review_bundle.py`
 - `scripts/update_state.py`
+- `scripts/upload_screenshots_to_issue.py`
 
 Read `scripts/runtime_state.py` only when you need to patch or debug the state format.
 
@@ -49,9 +50,31 @@ Handle these intents:
 If the prompt contains tickets plus a status or feedback request, handle the control action first,
 then attempt to dispatch any newly startable tickets.
 
-## Ticket Normalization
+## Ticket Sources
 
-Normalize prompt tickets into this minimum shape:
+Tickets can come from two sources:
+
+### GitHub Issues (preferred)
+
+Use `--github-issue <number>` with `launch_feature_job.py`. The script fetches the
+issue body via `gh issue view` and parses Markdown sections (`## Acceptance Criteria`,
+`## Constraints`, `## Components`, `## Screens`) into the ticket dict automatically.
+
+```bash
+python scripts/launch_feature_job.py --github-issue 39 \
+  --runner claude --worktree ... --branch ... --emulator-serial ...
+```
+
+`--ticket-id` is optional — auto-derived as `GH-<number>`. Override with e.g.
+`--ticket-id ANA-003-fix2` when you want a human-readable ID.
+
+### Local YAML/JSON files (legacy)
+
+Use `--ticket-file <path>` with `--ticket-id <id>` as before.
+
+### Ticket Normalization
+
+Both sources normalize into this minimum shape:
 
 - `id`
 - `title`
@@ -74,9 +97,12 @@ If any required field is missing, ask the user once before launching a worker.
      - release the emulator reservation only
      - do not change the ticket status
    - `feedback <ticket-id>: ...`:
-     - append the feedback to the ticket history
+     - append the feedback to `state.json` `runs[ticket_id].review_feedback`
      - mark the ticket `running`
      - launch a new worker round in the same worktree and on the same emulator
+     - local feedback via state.json is always available, even for GitHub-backed tickets
+     - this is the preferred way to give workers quick, detailed instructions without
+       editing the GitHub issue
 4. Normalize any new tickets from the current prompt.
 5. Discover and reserve free emulators.
    - if emulator discovery returns an adb error, surface that error clearly and leave new tickets queued
@@ -123,6 +149,13 @@ When a worker reports `ready_for_review`:
   - do not present the ticket as review-ready
   - treat it as needing another worker round
   - send the missing evidence back as concrete feedback
+- if the run has a `github_issue_number` in state.json, upload evidence screenshots
+  to the GitHub issue:
+  ```bash
+  python scripts/upload_screenshots_to_issue.py \
+    --run-dir .codex-orchestrator/runs/<ticket-id> \
+    --issue <github_issue_number>
+  ```
 - surface:
   - acceptance-criteria evidence
   - commit hashes
@@ -141,7 +174,12 @@ When a worker reports `ready_for_review`:
 
 Launch workers through `scripts/launch_feature_job.py`.
 
-The script supports two runners via `--runner`:
+The script supports two ticket sources:
+
+- `--github-issue <number>`: fetches ticket from GitHub (preferred)
+- `--ticket-file <path>`: reads local YAML/JSON (legacy)
+
+And two runners via `--runner`:
 
 - `--runner codex` (default): launches `codex exec --full-auto` — use when running as a Codex orchestrator
 - `--runner claude`: launches `claude --allowedTools Bash,Read,Write,Edit,Glob,Grep -p` — use when running as a Claude Code orchestrator
