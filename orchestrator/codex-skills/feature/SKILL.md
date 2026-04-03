@@ -102,12 +102,27 @@ If Metro is provided by the orchestrator, ensure the reverse mapping is set befo
 adb -s "$ANDROID_SERIAL" reverse tcp:${E2E_DEVICE_METRO_PORT:-8081} tcp:${E2E_METRO_PORT}
 ```
 
+## Screenshots
+
+**CRITICAL: Always resize screenshots after capture.** Raw device screenshots (1080x2400+)
+exceed the API image dimension limit and will crash your session after a few images with
+`"An image exceeds the dimension limit for many-image requests (2000px)"`.
+
+After every `screencap`, immediately resize to max 800px width:
+
+```bash
+adb -s "$ANDROID_SERIAL" exec-out screencap -p > "<run_dir>/screenshots/raw.png"
+ffmpeg -y -i "<run_dir>/screenshots/raw.png" -vf "scale=800:-1" "<run_dir>/screenshots/final.png" 2>/dev/null
+rm "<run_dir>/screenshots/raw.png"
+```
+
+Never read a raw device screenshot without resizing first.
+
 ## Emulator And Artifact Commands
 
 Use commands like these when they fit the ticket:
 
 ```bash
-adb -s "$ANDROID_SERIAL" exec-out screencap -p > "<run_dir>/screenshots/final.png"
 bash ./__tests__/e2e/scripts/run-maestro-from-wsl.sh --mode smoke --device "$ANDROID_SERIAL" > "<run_dir>/checks/maestro-smoke.log" 2>&1
 npm run typecheck > "<run_dir>/checks/typecheck.log" 2>&1
 npm test > "<run_dir>/checks/test.log" 2>&1
