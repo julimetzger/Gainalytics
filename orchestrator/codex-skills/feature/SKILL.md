@@ -76,6 +76,31 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
 10. Write `status.json` and `summary.md`.
 11. Append new learnings to `docs/memory/agent-memory.md` (see Memory section), then exit.
 
+## App Deployment
+
+**NEVER use `npx react-native run-android` or `npm run android`.** These commands use
+Gradle's device selection which ignores `ANDROID_SERIAL` and may deploy to the wrong
+device (e.g. a physical device that belongs to another session).
+
+Always separate build and install:
+
+```bash
+# 1. Build the APK (device-independent)
+cd "$WORKTREE_PATH/android" && ./gradlew assembleDebug
+
+# 2. Install on the assigned device only
+adb -s "$ANDROID_SERIAL" install -r "$WORKTREE_PATH/android/app/build/outputs/apk/debug/app-debug.apk"
+
+# 3. Launch the app
+adb -s "$ANDROID_SERIAL" shell am start -n com.powerliftingworkoutplanner/.MainActivity
+```
+
+If Metro is provided by the orchestrator, ensure the reverse mapping is set before launching:
+
+```bash
+adb -s "$ANDROID_SERIAL" reverse tcp:${E2E_DEVICE_METRO_PORT:-8081} tcp:${E2E_METRO_PORT}
+```
+
 ## Emulator And Artifact Commands
 
 Use commands like these when they fit the ticket:
