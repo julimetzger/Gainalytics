@@ -146,6 +146,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
 
     public VideoAnalysisPlayerView(@NonNull ReactContext context) {
         super(context);
+        setWillNotDraw(false);
 
         initializePaints();
 
@@ -322,15 +323,18 @@ public class VideoAnalysisPlayerView extends FrameLayout {
     private void initializePaints() {
         backgroundPathPaint.setStyle(Paint.Style.STROKE);
         backgroundPathPaint.setStrokeWidth(BACKGROUND_PATH_STROKE_WIDTH_PX);
+        backgroundPathPaint.setColor(0x64A0A0A0);
         backgroundPathPaint.setStrokeCap(Paint.Cap.ROUND);
         backgroundPathPaint.setStrokeJoin(Paint.Join.ROUND);
 
         activeRepPaint.setStyle(Paint.Style.STROKE);
         activeRepPaint.setStrokeWidth(ACTIVE_PATH_STROKE_WIDTH_PX);
+        activeRepPaint.setColor(0xDCFF5A5A);
         activeRepPaint.setStrokeCap(Paint.Cap.ROUND);
         activeRepPaint.setStrokeJoin(Paint.Join.ROUND);
 
         activeRepPointPaint.setStyle(Paint.Style.FILL);
+        activeRepPointPaint.setColor(0xDCFF5A5A);
     }
 
     private void startProgressLoop() {

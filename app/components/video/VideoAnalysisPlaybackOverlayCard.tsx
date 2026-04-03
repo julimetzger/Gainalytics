@@ -550,7 +550,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
 
   return (
     <>
-      <Text style={styles.overlayHint}>Live playback with current detected bar position.</Text>
+      <Text style={styles.overlayHint}>ANA-004: Live playback with rep detection overlay.</Text>
       <View testID="video-analysis-playback-overlay">
         <View testID="video-analysis-overlay-card" style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio}]}>
           <VideoAnalysisPlayerView
