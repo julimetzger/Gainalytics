@@ -1,7 +1,7 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, View, processColor} from 'react-native';
+import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, TouchableOpacity, View, processColor} from 'react-native';
 import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming} from 'react-native-reanimated';
-import {Button, MD3Theme, Text, useTheme} from 'react-native-paper';
+import {MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment} from '../../models/entities/VideoAnalysis';
 import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
@@ -247,6 +247,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const playbackPausedRef = useRef(true);
   const currentRepIndexRef = useRef<number | undefined>(undefined);
   const isScrubbingRef = useRef(false);
+  const seekCooldownUntilRef = useRef(0);
 
   const repSegments = result.repSegments;
   const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
@@ -398,8 +399,11 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     }
   }, []);
 
-  // onPlayerProgress ONLY updates playbackDurationMs — no time-driven state updates.
-  // The marker and scrubber are animated via withTiming on the UI thread during playback.
+  // onPlayerProgress updates duration and corrects the marker animation when
+  // it drifts too far from the real player position. The withTiming animation
+  // provides smooth 60fps movement, but ExoPlayer can lag behind due to
+  // decoding/buffering, causing the marker to run ahead. A periodic correction
+  // re-syncs the animation without visible jank.
   const onPlayerProgress = useCallback(
     (event: {nativeEvent?: VideoPlayerProgressEvent}) => {
       const nativeEvent = event.nativeEvent;
@@ -414,6 +418,28 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
         }
       }
       updateCurrentRepForPlaybackTime(nativeEvent.currentTimeMs);
+
+      // Correct marker drift: if the animated value is more than 80ms ahead of
+      // the real player position, restart the animation from the actual position.
+      // Skip correction during seek cooldown so the player can catch up.
+      if (!playbackPausedRef.current && !isScrubbingRef.current && Date.now() > seekCooldownUntilRef.current) {
+        const animatedMs = playbackTimeMsSV.value;
+        const drift = animatedMs - nativeEvent.currentTimeMs;
+        if (drift > 80) {
+          const totalDuration = playbackDurationRef.current;
+          if (totalDuration > 0) {
+            cancelAnimation(playbackTimeMsSV);
+            playbackTimeMsSV.value = nativeEvent.currentTimeMs;
+            const remainingMs = Math.max(0, totalDuration - nativeEvent.currentTimeMs);
+            if (remainingMs > 0) {
+              playbackTimeMsSV.value = withTiming(totalDuration, {
+                duration: remainingMs,
+                easing: Easing.linear,
+              });
+            }
+          }
+        }
+      }
     },
     [updateCurrentRepForPlaybackTime],
   );
@@ -440,6 +466,9 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       setPlaybackTimeMs(clampedTimeMs);
       setSeekPositionMs(clampedTimeMs);
       updateCurrentRepForPlaybackTime(clampedTimeMs);
+      // Suppress drift correction for 300ms so the player can catch up to the
+      // new seek position without onPlayerProgress snapping the marker back.
+      seekCooldownUntilRef.current = Date.now() + 300;
 
       // Restart animation from new position if currently playing.
       if (!playbackPausedRef.current && correctedPlaybackDurationMs > 0) {
@@ -550,7 +579,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
 
   return (
     <>
-      <Text style={styles.overlayHint}>ANA-004: Live playback with rep detection overlay.</Text>
       <View testID="video-analysis-playback-overlay">
         <View testID="video-analysis-overlay-card" style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio}]}>
           <VideoAnalysisPlayerView
@@ -570,16 +598,27 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             onProgress={onPlayerProgress}
             onEnd={onPlayerEnd}
           />
+          <View style={styles.videoControlsOverlay} pointerEvents="box-none">
+            <TouchableOpacity testID="video-analysis-step-minus200" onPress={() => applySeekTimeMs(playbackTimeRef.current - 200)}>
+              <Text style={[styles.videoControlSymbol, {color: theme.colors.primary}]}>{'\u00AB'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity testID="video-analysis-step-minus50" onPress={() => applySeekTimeMs(playbackTimeRef.current - 50)}>
+              <Text style={[styles.videoControlSymbol, {color: theme.colors.primary}]}>{'\u2039'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity testID="video-analysis-playback-toggle" onPress={onPlayPauseToggle}>
+              <Text style={[styles.videoControlSymbol, {color: theme.colors.primary}]}>{playbackPaused ? '\u25B6' : '\u23F8'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity testID="video-analysis-step-plus50" onPress={() => applySeekTimeMs(playbackTimeRef.current + 50)}>
+              <Text style={[styles.videoControlSymbol, {color: theme.colors.primary}]}>{'\u203A'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity testID="video-analysis-step-plus200" onPress={() => applySeekTimeMs(playbackTimeRef.current + 200)}>
+              <Text style={[styles.videoControlSymbol, {color: theme.colors.primary}]}>{'\u00BB'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
       <View style={styles.speedPlotSection}>
-        <View style={styles.chartHeaderRow}>
-          <Text variant="labelMedium">Bar v_y Over Time</Text>
-          <Text testID="video-analysis-playback-speed" variant="bodySmall" style={styles.chartSpeedText}>
-            v_y={currentBarVerticalVelocityPxPerSecond !== undefined ? Math.round(currentBarVerticalVelocityPxPerSecond) : '-'} px/s
-          </Text>
-        </View>
         <View style={styles.speedPlotWrapper}>
           <View testID="video-analysis-playback-speed-chart" onTouchEnd={onSpeedChartTouch}>
             <LineChart
@@ -625,25 +664,9 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             style={[styles.speedMarkerLine, {backgroundColor: theme.colors.primary}, progressMarkerAnimatedStyle]}
           />
         </View>
-        <View style={styles.chartAxisRow}>
-          <Text variant="bodySmall">down (-)</Text>
-          <Text variant="bodySmall">{currentBarVerticalVelocityPxPerSecond !== undefined ? `${Math.round(currentBarVerticalVelocityPxPerSecond)} px/s` : '-'}</Text>
-          <Text variant="bodySmall">up (+)</Text>
-        </View>
-        <View style={styles.chartAxisRow}>
-          <Text variant="bodySmall">t=0:00</Text>
-          <Text variant="bodySmall">{formatDuration(correctedPlaybackDurationMs)}</Text>
-        </View>
       </View>
 
       <View style={styles.playbackControls}>
-        <Button testID="video-analysis-playback-toggle" mode="outlined" onPress={onPlayPauseToggle}>
-          {playbackPaused ? 'Play' : 'Pause'}
-        </Button>
-        <Text testID="video-analysis-playback-time">
-          Playback: {formatDuration(playbackTimeMs)} / {formatDuration(correctedPlaybackDurationMs)}
-        </Text>
-        <Text>{currentRepIndex !== undefined ? `Current Rep: ${currentRepIndex + 1}` : 'Current Rep: -'}</Text>
         <View
           testID="video-analysis-playback-scrubber"
           style={[styles.scrubberTrack, themedStyles.scrubberTrack]}
@@ -663,20 +686,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           }}>
           <Animated.View testID="video-analysis-playback-scrubber-fill" style={[styles.scrubberFill, themedStyles.scrubberFill, scrubberFillStyle]} />
           <Animated.View testID="video-analysis-playback-scrubber-thumb" style={[styles.scrubberThumb, themedStyles.scrubberThumb, scrubberThumbStyle]} />
-        </View>
-        <View style={styles.stepButtonsRow}>
-          <Button testID="video-analysis-step-minus200" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current - 200)}>
-            -0.2s
-          </Button>
-          <Button testID="video-analysis-step-minus50" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current - 50)}>
-            -0.05s
-          </Button>
-          <Button testID="video-analysis-step-plus50" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current + 50)}>
-            +0.05s
-          </Button>
-          <Button testID="video-analysis-step-plus200" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current + 200)}>
-            +0.2s
-          </Button>
         </View>
       </View>
 
@@ -717,8 +726,24 @@ const styles = StyleSheet.create({
   previewImage: {
     ...StyleSheet.absoluteFillObject,
   },
-  overlayHint: {
-    marginBottom: 10,
+  videoControlsOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 24,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  videoControlSymbol: {
+    fontSize: 28,
+    fontWeight: '700',
+    opacity: 0.85,
+    textAlign: 'center',
+    minWidth: 36,
   },
   repSummarySection: {
     marginTop: 12,
@@ -771,7 +796,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 4,
+    width: 2,
     height: SPEED_PLOT_HEIGHT,
     opacity: 0.75,
   },

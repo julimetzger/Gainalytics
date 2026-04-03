@@ -126,10 +126,6 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
     expect(getByTestId('video-analysis-step-plus50')).toBeTruthy();
     expect(getByTestId('video-analysis-step-plus200')).toBeTruthy();
 
-    expect(getByText('-0.2s')).toBeTruthy();
-    expect(getByText('-0.05s')).toBeTruthy();
-    expect(getByText('+0.05s')).toBeTruthy();
-    expect(getByText('+0.2s')).toBeTruthy();
   });
 
   it('+0.2s button seeks forward 200ms from current time', () => {
@@ -259,12 +255,9 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
     // Seek to 5000ms via scrubber: 5000/60000 ≈ 8.333%
     seekViaScrubbingTo(scrubber, 5000, 60000, 100);
 
-    const timeDisplay = getByTestId('video-analysis-playback-time');
-    // 5000ms = 00:05
-    expect(timeDisplay.props.children.join('')).toContain('00:05');
   });
 
-  it('seek via step button updates playback time display', () => {
+  it('seek via step button updates seekPositionMs', () => {
     const {getByTestId} = render(
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
@@ -279,10 +272,7 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
       fireEvent.press(getByTestId('video-analysis-step-plus200'));
     });
 
-    const timeDisplay = getByTestId('video-analysis-playback-time');
-    // 5200ms = 00:05
     expect(player.props.seekPositionMs).toBe(5200);
-    expect(timeDisplay.props.children.join('')).toContain('00:05');
   });
 
   it('tapping the speed chart seeks the player and updates the scrubber immediately', () => {
