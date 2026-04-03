@@ -1,4 +1,5 @@
 import settingsReducer, {AppSettings} from '../../../app/redux/settings/settingsReducer';
+import {Metric} from '../../../app/models/Metric';
 
 describe('settingsReducer', () => {
   it('should toggle mode', () => {
@@ -137,6 +138,49 @@ describe('settingsReducer', () => {
       },
       mode: 'light',
     };
+    expect(settingsReducer(initialState, action)).toEqual(expectedState);
+  });
+
+  it('should persist a muscle metric slot without affecting exercise defaults', () => {
+    const initialState = {
+      mode: 'light',
+    } satisfies AppSettings;
+    const action = {
+      type: 'SET_METRIC_OVERVIEW_SLOT',
+      section: 'muscles',
+      slotIndex: 1,
+      metric: Metric.AVERAGE_INTENSITY,
+    };
+    const expectedState = {
+      mode: 'light',
+      metricOverview: {
+        muscles: [Metric.VOLUME, Metric.AVERAGE_INTENSITY, Metric.REPS],
+      },
+    };
+
+    expect(settingsReducer(initialState, action)).toEqual(expectedState);
+  });
+
+  it('should update an exercise metric slot while keeping the other stored slots', () => {
+    const initialState = {
+      mode: 'dark',
+      metricOverview: {
+        exercises: [Metric.ONE_RM, Metric.REPS, Metric.MAX_INTENSITY],
+      },
+    } satisfies AppSettings;
+    const action = {
+      type: 'SET_METRIC_OVERVIEW_SLOT',
+      section: 'exercises',
+      slotIndex: 0,
+      metric: Metric.AVERAGE_INTENSITY,
+    };
+    const expectedState = {
+      mode: 'dark',
+      metricOverview: {
+        exercises: [Metric.AVERAGE_INTENSITY, Metric.REPS, Metric.MAX_INTENSITY],
+      },
+    };
+
     expect(settingsReducer(initialState, action)).toEqual(expectedState);
   });
 });

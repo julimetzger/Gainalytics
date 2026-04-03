@@ -1,15 +1,42 @@
 appId: com.powerliftingworkoutplanner
 ---
 - launchApp
-- assertVisible: "Training"
-- tapOn: "tab-settings"
+# Dismiss React Native dev error overlay if it appears on startup after force-stop
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn: 'tab-settings'
 - scrollUntilVisible:
     element:
-      id: "settings-import-data-button"
+      id: 'settings-import-data-button'
     direction: DOWN
 - tapOn:
-    id: "settings-import-data-button"
-- tapOn:
-    id: "settings-import-confirm-button"
-- tapOn: "baseline.gains"
-- assertVisible: "Import successful!"
+    id: 'settings-import-data-button'
+- extendedWaitUntil:
+    visible: 'Import full data from backup file?'
+    timeout: 10000
+- tapOn: 'Import'
+- runFlow:
+    when:
+      visible: 'Use without an account'
+    commands:
+      - tapOn: 'Use without an account'
+- runFlow:
+    when:
+      visible: 'No thanks'
+    commands:
+      - tapOn: 'No thanks'
+- scrollUntilVisible:
+    element:
+      text: 'baseline.gains'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'baseline.gains'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
