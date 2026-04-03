@@ -25,7 +25,7 @@ export interface VideoBarPathPoint {
 export interface VideoRepSegment {
   repIndex: number;
   startMs: number;
-  bottomMs: number;
+  turnaroundMs: number;
   endMs: number;
 }
 

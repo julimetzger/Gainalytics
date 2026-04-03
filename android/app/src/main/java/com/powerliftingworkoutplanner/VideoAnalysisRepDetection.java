@@ -45,7 +45,7 @@ final class VideoAnalysisRepDetection {
                 new JSONObject()
                     .put("repIndex", segment.repIndex)
                     .put("startMs", segment.startMs)
-                    .put("bottomMs", segment.bottomMs)
+                    .put("turnaroundMs", segment.turnaroundMs)
                     .put("endMs", segment.endMs)
             );
         }
@@ -334,7 +334,7 @@ final class VideoAnalysisRepDetection {
                 if (repDisplacements.get(ri) >= displacementThreshold) {
                     if (writeIdx != ri) {
                         RepSegmentData seg = result.repSegments.get(ri);
-                        result.repSegments.set(writeIdx, new RepSegmentData(writeIdx, seg.startMs, seg.bottomMs, seg.endMs));
+                        result.repSegments.set(writeIdx, new RepSegmentData(writeIdx, seg.startMs, seg.turnaroundMs, seg.endMs));
                         RepMetricData met = result.repMetrics.get(ri);
                         result.repMetrics.set(writeIdx, new RepMetricData(writeIdx, met.repTimeMs, met.averageConcentricSpeedPxPerS, met.lowestConcentricSpeedPxPerS));
                     }
@@ -479,13 +479,13 @@ final class VideoAnalysisRepDetection {
     static final class RepSegmentData {
         final int repIndex;
         final int startMs;
-        final int bottomMs;
+        final int turnaroundMs;
         final int endMs;
 
-        RepSegmentData(int repIndex, int startMs, int bottomMs, int endMs) {
+        RepSegmentData(int repIndex, int startMs, int turnaroundMs, int endMs) {
             this.repIndex = repIndex;
             this.startMs = startMs;
-            this.bottomMs = bottomMs;
+            this.turnaroundMs = turnaroundMs;
             this.endMs = endMs;
         }
     }

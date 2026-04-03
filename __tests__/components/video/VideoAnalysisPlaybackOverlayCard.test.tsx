@@ -447,8 +447,8 @@ const makeResultWithReps = (): BarTrackingResult => ({
   ],
   confidenceSeries: [],
   repSegments: [
-    {repIndex: 0, startMs: 0, bottomMs: 1000, endMs: 2000},
-    {repIndex: 1, startMs: 2000, bottomMs: 2500, endMs: 3000},
+    {repIndex: 0, startMs: 0, turnaroundMs: 1000, endMs: 2000},
+    {repIndex: 1, startMs: 2000, turnaroundMs: 2500, endMs: 3000},
   ],
   repMetrics: [
     {repIndex: 0, repTimeMs: 2000, averageConcentricSpeedPxPerS: 50, lowestConcentricSpeedPxPerS: 30},
@@ -530,7 +530,7 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
     expect(player.props.repSegments).toHaveLength(2);
     expect(player.props.repSegments[0].repIndex).toBe(0);
     expect(player.props.repSegments[0].startMs).toBe(0);
-    expect(player.props.repSegments[0].bottomMs).toBe(1000);
+    expect(player.props.repSegments[0].turnaroundMs).toBe(1000);
     expect(player.props.repSegments[0].endMs).toBe(2000);
   });
 

@@ -267,7 +267,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
                 RepSegmentData repSegment = new RepSegmentData();
                 repSegment.repIndex = segment.hasKey("repIndex") ? segment.getInt("repIndex") : index;
                 repSegment.startMs = segment.hasKey("startMs") ? (int) Math.round(segment.getDouble("startMs")) : 0;
-                repSegment.bottomMs = segment.hasKey("bottomMs") ? (int) Math.round(segment.getDouble("bottomMs")) : 0;
+                repSegment.turnaroundMs = segment.hasKey("turnaroundMs") ? (int) Math.round(segment.getDouble("turnaroundMs")) : 0;
                 repSegment.endMs = segment.hasKey("endMs") ? (int) Math.round(segment.getDouble("endMs")) : 0;
                 repSegmentList.add(repSegment);
             }
@@ -323,18 +323,15 @@ public class VideoAnalysisPlayerView extends FrameLayout {
     private void initializePaints() {
         backgroundPathPaint.setStyle(Paint.Style.STROKE);
         backgroundPathPaint.setStrokeWidth(BACKGROUND_PATH_STROKE_WIDTH_PX);
-        backgroundPathPaint.setColor(0x64A0A0A0);
         backgroundPathPaint.setStrokeCap(Paint.Cap.ROUND);
         backgroundPathPaint.setStrokeJoin(Paint.Join.ROUND);
 
         activeRepPaint.setStyle(Paint.Style.STROKE);
         activeRepPaint.setStrokeWidth(ACTIVE_PATH_STROKE_WIDTH_PX);
-        activeRepPaint.setColor(0xDCFF5A5A);
         activeRepPaint.setStrokeCap(Paint.Cap.ROUND);
         activeRepPaint.setStrokeJoin(Paint.Join.ROUND);
 
         activeRepPointPaint.setStyle(Paint.Style.FILL);
-        activeRepPointPaint.setColor(0xDCFF5A5A);
     }
 
     private void startProgressLoop() {
@@ -604,7 +601,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
     private static final class RepSegmentData {
         int repIndex;
         int startMs;
-        int bottomMs;
+        int turnaroundMs;
         int endMs;
     }
 }
