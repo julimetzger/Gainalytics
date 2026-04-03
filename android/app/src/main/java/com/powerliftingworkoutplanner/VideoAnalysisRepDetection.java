@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class VideoAnalysisRepDetection {
-    static final String REP_DETECTION_VERSION = "velocity-zero-crossing-v2";
+    static final String REP_DETECTION_VERSION = "velocity-zero-crossing-v3";
 
     private static final int MIN_TRACKING_POINTS = 6;
     private static final int SMOOTHING_WINDOW = 5;
@@ -103,79 +103,117 @@ final class VideoAnalysisRepDetection {
             return result;
         }
 
-        int initialDirection = 0;
-        for (double sampleVelocity : velocity) {
-            int direction = toDirection(sampleVelocity, zeroCrossingThreshold);
-            if (direction != 0) {
-                initialDirection = direction;
-                break;
-            }
-        }
+        // Add a synthetic initial crossing so reps that begin before the first
+        // real direction change are captured (e.g. a squat that starts descending
+        // from frame 0). The synthetic type is the opposite of the first real
+        // crossing: if the first real crossing is BOTTOM (bar was going down,
+        // now goes up), the implicit prior state was TOP.
+        Crossing firstReal = crossings.get(0);
+        CrossingType syntheticType = firstReal.type == CrossingType.BOTTOM
+            ? CrossingType.TOP : CrossingType.BOTTOM;
+        crossings.add(0, new Crossing(0, timeMs[0], syntheticType));
 
-        int startIndex = initialDirection > 0 ? 0 : -1;
-        int bottomIndex = -1;
+        // Assemble reps from consecutive crossing triplets.
+        // Squat/Bench pattern (eccentric-first): TOP → BOTTOM → TOP
+        //   start at low y, descend to high y (bottom), ascend back to low y
+        // Deadlift pattern (concentric-first): BOTTOM → TOP → BOTTOM
+        //   start at high y, ascend to low y (top), descend back to high y
+        // After a valid rep, advance by 2 so the end crossing becomes the start
+        // of the next rep (no overlapping detections).
         int repIndex = 0;
 
-        for (Crossing crossing : crossings) {
-            if (crossing.type == CrossingType.BOTTOM) {
-                if (startIndex < 0) {
-                    continue;
-                }
-                int snappedBottomIndex = findMaximumIndex(yPositions, startIndex, crossing.index);
-                if (bottomIndex < 0 || yPositions[snappedBottomIndex] >= yPositions[bottomIndex]) {
-                    bottomIndex = snappedBottomIndex;
-                }
+        for (int ci = 0; ci + 2 < crossings.size();) {
+            Crossing first = crossings.get(ci);
+            Crossing second = crossings.get(ci + 1);
+            Crossing third = crossings.get(ci + 2);
+
+            if (first.type != third.type || first.type == second.type) {
+                ci++;
                 continue;
             }
 
-            int nextStartIndex = crossing.index;
-            if (startIndex >= 0 && bottomIndex >= 0) {
-                nextStartIndex = findMinimumIndex(yPositions, bottomIndex, crossing.index);
-                int repStartMs = timeMs[startIndex];
-                int repBottomMs = timeMs[bottomIndex];
-                int repEndMs = timeMs[nextStartIndex];
-                int eccentricDurationMs = repBottomMs - repStartMs;
-                int concentricDurationMs = repEndMs - repBottomMs;
-                int repDurationMs = repEndMs - repStartMs;
-                double concentricDisplacementPx = Math.abs(yPositions[bottomIndex] - yPositions[nextStartIndex]);
+            boolean eccentricFirst = first.type == CrossingType.TOP;
 
-                if (
-                    startIndex < bottomIndex &&
-                    bottomIndex < nextStartIndex &&
-                    eccentricDurationMs >= MIN_PHASE_DURATION_MS &&
-                    concentricDurationMs >= MIN_PHASE_DURATION_MS &&
-                    repDurationMs >= MIN_REP_DURATION_MS &&
-                    concentricDisplacementPx >= minimumConcentricDisplacement
-                ) {
-                    result.repSegments.add(new RepSegmentData(repIndex, repStartMs, repBottomMs, repEndMs));
+            int startIdx;
+            int turnaroundIdx;
+            int endIdx;
 
-                    double concentricTimeSeconds = Math.max(0.001, concentricDurationMs / 1000.0);
-                    double averageConcentricSpeedPxPerS = concentricDisplacementPx / concentricTimeSeconds;
-                    double lowestConcentricSpeedPxPerS = 0.0;
-                    double minimumObservedSpeed = Double.MAX_VALUE;
-                    for (int sampleIndex = bottomIndex; sampleIndex <= nextStartIndex; sampleIndex++) {
-                        double absoluteVelocity = Math.abs(velocity[sampleIndex]);
-                        if (absoluteVelocity < zeroCrossingThreshold) {
-                            continue;
-                        }
-                        minimumObservedSpeed = Math.min(minimumObservedSpeed, absoluteVelocity);
-                    }
-                    if (minimumObservedSpeed != Double.MAX_VALUE) {
-                        lowestConcentricSpeedPxPerS = minimumObservedSpeed;
-                    }
+            if (eccentricFirst) {
+                // TOP → BOTTOM → TOP: start at min-y before first, turnaround at max-y, end at min-y
+                startIdx = ci > 0
+                    ? findMinimumIndex(yPositions, crossings.get(ci - 1).index, first.index)
+                    : findMinimumIndex(yPositions, 0, first.index);
+                turnaroundIdx = findMaximumIndex(yPositions, first.index, second.index);
+                endIdx = findMinimumIndex(yPositions, second.index, third.index);
+            } else {
+                // BOTTOM → TOP → BOTTOM: start at max-y before first, turnaround at min-y, end at max-y
+                startIdx = ci > 0
+                    ? findMaximumIndex(yPositions, crossings.get(ci - 1).index, first.index)
+                    : findMaximumIndex(yPositions, 0, first.index);
+                turnaroundIdx = findMinimumIndex(yPositions, first.index, second.index);
+                endIdx = findMaximumIndex(yPositions, second.index, third.index);
+            }
 
-                    result.repMetrics.add(
-                        new RepMetricData(repIndex, repDurationMs, averageConcentricSpeedPxPerS, lowestConcentricSpeedPxPerS)
-                    );
-                    repIndex += 1;
+            int repStartMs = timeMs[startIdx];
+            int turnaroundMs = timeMs[turnaroundIdx];
+            int repEndMs = timeMs[endIdx];
+            int firstPhaseDurationMs = turnaroundMs - repStartMs;
+            int secondPhaseDurationMs = repEndMs - turnaroundMs;
+            int repDurationMs = repEndMs - repStartMs;
+            double displacementPx = Math.abs(yPositions[turnaroundIdx] - yPositions[endIdx]);
+
+            if (
+                startIdx < turnaroundIdx &&
+                turnaroundIdx < endIdx &&
+                firstPhaseDurationMs >= MIN_PHASE_DURATION_MS &&
+                secondPhaseDurationMs >= MIN_PHASE_DURATION_MS &&
+                repDurationMs >= MIN_REP_DURATION_MS &&
+                displacementPx >= minimumConcentricDisplacement
+            ) {
+                result.repSegments.add(new RepSegmentData(repIndex, repStartMs, turnaroundMs, repEndMs));
+
+                // Concentric phase: the phase where the bar moves upward (y decreases)
+                int concentricStartIdx;
+                int concentricEndIdx;
+                double concentricDurationMs;
+                if (eccentricFirst) {
+                    // Squat: concentric = turnaround → end
+                    concentricStartIdx = turnaroundIdx;
+                    concentricEndIdx = endIdx;
+                    concentricDurationMs = secondPhaseDurationMs;
+                } else {
+                    // Deadlift: concentric = start → turnaround
+                    concentricStartIdx = startIdx;
+                    concentricEndIdx = turnaroundIdx;
+                    concentricDurationMs = firstPhaseDurationMs;
                 }
-            }
 
-            if (bottomIndex < 0) {
-                nextStartIndex = findMinimumIndex(yPositions, Math.max(0, startIndex), crossing.index);
+                double concentricTimeSeconds = Math.max(0.001, concentricDurationMs / 1000.0);
+                double concentricDisplacementPx = Math.abs(
+                    yPositions[concentricStartIdx] - yPositions[concentricEndIdx]
+                );
+                double averageConcentricSpeedPxPerS = concentricDisplacementPx / concentricTimeSeconds;
+                double lowestConcentricSpeedPxPerS = 0.0;
+                double minimumObservedSpeed = Double.MAX_VALUE;
+                for (int si = concentricStartIdx; si <= concentricEndIdx; si++) {
+                    double absoluteVelocity = Math.abs(velocity[si]);
+                    if (absoluteVelocity < zeroCrossingThreshold) {
+                        continue;
+                    }
+                    minimumObservedSpeed = Math.min(minimumObservedSpeed, absoluteVelocity);
+                }
+                if (minimumObservedSpeed != Double.MAX_VALUE) {
+                    lowestConcentricSpeedPxPerS = minimumObservedSpeed;
+                }
+
+                result.repMetrics.add(
+                    new RepMetricData(repIndex, repDurationMs, averageConcentricSpeedPxPerS, lowestConcentricSpeedPxPerS)
+                );
+                repIndex += 1;
+                ci += 2;
+            } else {
+                ci++;
             }
-            startIndex = nextStartIndex;
-            bottomIndex = -1;
         }
 
         return result;
