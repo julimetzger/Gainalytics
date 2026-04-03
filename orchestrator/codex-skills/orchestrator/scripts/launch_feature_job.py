@@ -368,6 +368,8 @@ def main() -> None:
         args.ticket_id,
         {
             "status": "running",
+            "runner": args.runner,
+            "worker_pid": process.pid,
             "job_id": process.pid,
             "branch": args.branch,
             "worktree_path": str(worktree_path),
@@ -393,6 +395,8 @@ def main() -> None:
         json.dumps(
             {
                 "ticket_id": args.ticket_id,
+                "runner": args.runner,
+                "worker_pid": process.pid,
                 "job_id": process.pid,
                 "worktree_path": str(worktree_path),
                 "run_dir": str(run_dir),

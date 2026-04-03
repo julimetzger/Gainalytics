@@ -1,0 +1,58 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-004-fix Round 4: Navigate to existing analysis, seek into active rep, screenshot overlay.
+# Uses clearState: false to reuse existing analysis with detected rep segments.
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Video Analysis Detail"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "video-analysis-playback-overlay"
+    direction: DOWN
+- assertVisible:
+    id: "video-analysis-playback-overlay"
+- scrollUntilVisible:
+    element:
+      id: "video-analysis-playback-toggle"
+    direction: DOWN
+# Start playback to let rep detection activate
+- tapOn:
+    id: "video-analysis-playback-toggle"
+# Wait until we are in an active rep (Current Rep shows a digit, not "-")
+- extendedWaitUntil:
+    visible:
+      text: "Current Rep: [0-9]+"
+    timeout: 30000
+# Pause to capture the active-rep state
+- tapOn:
+    id: "video-analysis-playback-toggle"
+# Assert active rep number is visible (not "-")
+- assertVisible:
+    text: "Current Rep: [0-9]+"
+# Assert the rep metrics section is visible (Detected Reps: N)
+- assertVisible:
+    id: "video-analysis-rep-metrics"
+# Assert the background path layer is rendered
+- assertVisible:
+    id: "video-analysis-background-path"
+# Assert the active rep path overlay is visible
+- assertVisible:
+    id: "video-analysis-playback-active-rep-path"
+- takeScreenshot: ana004fix-active-rep-overlay

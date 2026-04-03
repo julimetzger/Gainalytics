@@ -31,7 +31,7 @@
   - Anzeige einer Rep im overlay mit grüner Farbe als kurve während der Ausführung einer reptetion
   - den gesamten bar verlauf als hellgraue linie plotten. Ein bisschen deutlicher als im moment die punkte geplottet
     werden.
-  - [ready] [ANA-004-fix](tickets/ANA-004-fix-hardcoded-rep-color.yaml) Hardcoded Farbe `#63A002` durch theme.colors Token ersetzen
+  - ~~ANA-004-fix~~ (superseded — in ANA-004 nativ integriert)
 - [ready] [ANA-003-fix2](tickets/ANA-003-fix2-marker-alignment.yaml) Marker-Linie am Velocity-Plot ausrichten (fängt zu früh an, hört zu spät auf)
 - [ready] [ANA-007](tickets/ANA-007-playback-speed-control.yaml) Player Verbesserungen part 2 — Wiedergabegeschwindigkeit (0.1x–1.0x)
 - [ready] [ANA-006](tickets/ANA-006-link-video-analysis-to-set.yaml) Verknüpfung eines Sets mit der Video Analysis (4 UI-Flows)
