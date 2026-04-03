@@ -24,6 +24,9 @@ import {PauseDoneNotification} from './execute/PauseDoneNotification';
 import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
+import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
+import {dispatchReplaceExerciseInTraining} from '../../redux/Training/dispatch/general/dispatchReplaceExerciseInTraining';
+import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
 
 interface TrainingsPlanNodeProps {
   trainingsPlan: TrainingsPlan;
@@ -53,7 +56,14 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   let appSettings = useSettings();
   const [showPicker, setShowPicker] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showAlternativesDialog, setShowAlternativesDialog] = useState(false);
   const deleteTraining = dispatchDeleteTraining();
+  const replaceExerciseInTraining = dispatchReplaceExerciseInTraining();
+  const plannedWorkout = useWorkoutById(chosenExercise?.id !== undefined ? training?.plannedWorkouts?.[chosenExercise.id] : undefined);
+  const doneWorkout = useWorkoutById(chosenExercise?.id !== undefined ? training?.doneWorkoutIds?.[chosenExercise.id] : undefined);
+  const alternativeExercises = useExerciseByIds(chosenExercise?.alternativeIds ?? [])
+    .filter((exercise) => exercise !== undefined)
+    .filter((exercise) => exercise.id !== undefined && exercise.id !== chosenExercise?.id && !(training?.exercises ?? []).includes(exercise.id)) as Exercise[];
 
   useEffect(() => {
     if (training?.state === TrainingsState.STARTED) {
@@ -146,6 +156,20 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     setOverview(true);
   }
 
+  function onExerciseDoublePress(exercise: Exercise) {
+    setchosenExercise(exercise.id);
+    setShowAlternativesDialog(true);
+  }
+
+  function onReplaceExercise(alternativeExercise: Exercise) {
+    if (training?.id === undefined || chosenExercise?.id === undefined || alternativeExercise.id === undefined) {
+      return;
+    }
+    replaceExerciseInTraining(training.id, chosenExercise.id, alternativeExercise.id, plannedWorkout, doneWorkout);
+    setchosenExercise(alternativeExercise.id);
+    setShowAlternativesDialog(false);
+  }
+
   return (
     <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
       <ScrollView keyboardShouldPersistTaps={'handled'}>
@@ -205,6 +229,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                     chooseExercise={(exercise) => {
                       setchosenExercise(exercise.id);
                     }}
+                    onExerciseDoublePress={onExerciseDoublePress}
                     doneExerciseIds={doneExerciseIds}
                     setAbsolutePosition={(layout) => setIgnoreSwipe([layout])}
                     onTogglePicker={() => setShowPicker(!showPicker)}
@@ -246,6 +271,13 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
             <Button onPress={onDeleteTraining}>Delete</Button>
           </Dialog.Actions>
         </Dialog>
+        <ExerciseAlternativesDialog
+          visible={showAlternativesDialog}
+          exercise={chosenExercise}
+          alternatives={alternativeExercises}
+          onDismiss={() => setShowAlternativesDialog(false)}
+          onSelect={onReplaceExercise}
+        />
       </Portal>
     </View>
   );

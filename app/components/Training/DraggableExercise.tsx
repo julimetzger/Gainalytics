@@ -15,6 +15,7 @@ interface Props {
   exercises: Exercise[];
   chosenExercise?: Exercise;
   chooseExercise: (exercise: Exercise) => void;
+  onExerciseDoublePress?: (exercise: Exercise) => void;
   setExercises: (exercises: Exercise[]) => void;
   doneExerciseIds: number[];
   setAbsolutePosition: (layout: LayoutRectangle) => void;
@@ -22,7 +23,10 @@ interface Props {
   pickerVisible?: boolean;
 }
 
-const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExercise, doneExerciseIds, setAbsolutePosition, onTogglePicker, pickerVisible}: Props) => {
+const DOUBLE_PRESS_DELAY_MS = 700;
+const SwipeViewContainer = SwipeView as any;
+
+const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExercise, onExerciseDoublePress, doneExerciseIds, setAbsolutePosition, onTogglePicker, pickerVisible}: Props) => {
   let theme = useTheme();
   let exerciseData = exercises.map((exercise) => {
     return {
@@ -39,6 +43,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
 
   let edgeInsets = useSafeAreaInsets();
   const textRef = useRef<View>(null);
+  const lastPressedExercise = useRef<{exerciseId: number; timestamp: number} | undefined>(undefined);
   const [positionInternal, setPositionInternal] = useState<LayoutRectangle>();
 
   const screenWidth = Dimensions.get('window').width;
@@ -92,7 +97,24 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
       // This is the add exercise box
       onTogglePicker?.();
     } else {
-      chooseExercise(exercises.find((exercise) => exercise.id === item.key)!!);
+      const selectedExercise = exercises.find((exercise) => exercise.id === item.key);
+      if (selectedExercise === undefined) {
+        return;
+      }
+
+      const now = Date.now();
+      const previousPress = lastPressedExercise.current;
+      const isDoublePress = previousPress !== undefined && previousPress.exerciseId === selectedExercise.id && now - previousPress.timestamp <= DOUBLE_PRESS_DELAY_MS;
+
+      lastPressedExercise.current = {
+        exerciseId: selectedExercise.id!!,
+        timestamp: now,
+      };
+
+      chooseExercise(selectedExercise);
+      if (isDoublePress) {
+        onExerciseDoublePress?.(selectedExercise);
+      }
     }
   };
 
@@ -114,6 +136,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
           onLongPress={drag}
           disabled={isActive}
           onPress={() => onPress(item)}
+          testID={`training-exercise-${item.key}`}
           style={[
             styles.rowItem,
             {
@@ -123,7 +146,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
             },
           ]}
         >
-          <SwipeView
+          <SwipeViewContainer
             position="top"
             style={{marginTop: -20}}
             maxHeight={30}
@@ -147,7 +170,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
                 }}
               />
             )}
-          </SwipeView>
+          </SwipeViewContainer>
           <Text
             numberOfLines={3}
             style={[
