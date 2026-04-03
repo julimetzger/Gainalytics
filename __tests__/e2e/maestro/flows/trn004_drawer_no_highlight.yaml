@@ -1,0 +1,74 @@
+appId: com.powerliftingworkoutplanner
+---
+# TRN-004 round-2: verify meso filter (navigation bounded to current meso) + no drawer highlight
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "TRN004 Test Plan"
+    timeout: 60000
+
+# Navigate into Meso 1 via the chip on TrainingHome
+- tapOn:
+    text: "Meso 1"
+
+# Wait for TrainingsPlanTab to load
+- extendedWaitUntil:
+    visible:
+      id: "icon-menu"
+    timeout: 30000
+
+# AC8: Header shows Meso 1 name after plan name
+- assertVisible:
+    text: "Meso 1"
+
+# AC9: Local micro numbering starts at 1 inside this meso
+- assertVisible:
+    text: "Micro 1"
+
+# Open drawer
+- tapOn:
+    id: "icon-menu"
+
+# Drawer shows "Mesos:" section
+- assertVisible:
+    text: "Mesos:"
+
+# Both mesos are present in the drawer (no crash/filter error)
+- assertVisible:
+    text: "Meso 1"
+
+- assertVisible:
+    text: "Meso 2"
+
+# Navigate to Meso 2 via drawer tap (tests the lockedMeso update)
+- tapOn:
+    text: "Meso 2"
+
+# Wait for navigation to settle
+- extendedWaitUntil:
+    visible:
+      id: "icon-menu"
+    timeout: 15000
+
+# FILTER: Now in Meso 2 — header must show Meso 2 name
+- assertVisible:
+    text: "Meso 2"
+
+# FILTER: Local micro resets to 1 inside Meso 2
+- assertVisible:
+    text: "Micro 1"
+
+# Open drawer again to verify both mesos still accessible without highlight errors
+- tapOn:
+    id: "icon-menu"
+
+- assertVisible:
+    text: "Mesos:"
+
+- assertVisible:
+    text: "Meso 1"
+
+- assertVisible:
+    text: "Meso 2"

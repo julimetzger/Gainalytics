@@ -64,6 +64,15 @@ export function getLocalMicro(mesos: Meso[] | undefined, globalMicro: number): n
   return globalMicro - meso.startMicro + 1;
 }
 
+/** Returns the last global micro that belongs to the given Meso, or undefined if it is the last Meso (unbounded). */
+export function getMesoEndMicro(mesos: Meso[] | undefined, meso: Meso | undefined): number | undefined {
+  if (!meso || !mesos || mesos.length === 0) return undefined;
+  const sorted = [...mesos].sort((a, b) => a.order - b.order);
+  const currentIdx = sorted.findIndex((m) => m.id === meso.id);
+  if (currentIdx === -1 || currentIdx === sorted.length - 1) return undefined;
+  return sorted[currentIdx + 1].startMicro - 1;
+}
+
 /** Computes the startMicro for a new Meso to be appended after all existing mesos/micros. */
 export function computeNextMesoStartMicro(trainingsPlan: TrainingsPlan): number {
   const existingGlobalMicros = Object.keys(trainingsPlan.trainings).map((key) => parseInt(key.split(',')[0]));

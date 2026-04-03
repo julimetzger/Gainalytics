@@ -1,7 +1,7 @@
 import {Button, Divider, IconButton, SegmentedButtons, Text, TextInput, ThemeBase, Tooltip, TouchableRipple} from 'react-native-paper';
 import {MD3Colors, MD3Typescale} from 'react-native-paper/lib/typescript/types';
 import {Action} from 'redux';
-import {Meso, TrainingsPlan} from '../../models/entities/TrainingsPlan';
+import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {View, Keyboard} from 'react-native';
 import React, {useState, useRef, useEffect} from 'react';
 
@@ -26,7 +26,6 @@ interface TrainingsPlanDrawerProps {
   onAddMeso: () => void;
   onEditMeso: (mesoId: number, name: string) => void;
   onDeleteMeso: (mesoId: number) => void;
-  currentMeso: Meso | undefined;
 }
 
 const TrainingsPlanDrawer = ({
@@ -44,7 +43,6 @@ const TrainingsPlanDrawer = ({
   onAddMeso,
   onEditMeso,
   onDeleteMeso,
-  currentMeso,
 }: TrainingsPlanDrawerProps) => {
   const [edit, setEdit] = useState<number | undefined>(undefined);
   const [trainingsName, setTrainingsName] = useState('');
@@ -71,7 +69,6 @@ const TrainingsPlanDrawer = ({
         <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Mesos:</Text>
       </View>
       {sortedMesos.map((meso) => {
-        const isCurrentMeso = currentMeso?.id === meso.id;
         return (
           <View key={meso.id} style={{display: 'flex', flexDirection: 'row', alignItems: 'center', minHeight: 40}}>
             <TouchableRipple
@@ -85,7 +82,7 @@ const TrainingsPlanDrawer = ({
             >
               <View>
                 {editMesoId !== meso.id && (
-                  <Text style={{fontSize: 20, margin: 5, fontWeight: isCurrentMeso ? 'bold' : 'normal', color: isCurrentMeso ? theme.colors.primary : undefined}}>
+                  <Text style={{fontSize: 20, margin: 5}}>
                     {meso.name}
                   </Text>
                 )}

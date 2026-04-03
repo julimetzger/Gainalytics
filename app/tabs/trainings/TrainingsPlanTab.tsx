@@ -11,7 +11,7 @@ import TrainingsPlanDrawer from '../../components/Training/TrainingsPlanDrawer';
 import TrainingsPlanNode from '../../components/Training/TrainingsPlanNode';
 import RangeSwiper from '../../components/RangeSwiper';
 import {LayoutRectangle} from 'react-native';
-import {getMesoForMicro, getLocalMicro} from '../../redux/Training/trainingsPlanReducer';
+import {getMesoForMicro, getLocalMicro, getMesoEndMicro} from '../../redux/Training/trainingsPlanReducer';
 import dispatchAddMeso from '../../redux/Training/dispatch/general/dispatchAddMeso';
 import dispatchEditMeso from '../../redux/Training/dispatch/general/dispatchEditMeso';
 import dispatchDeleteMeso from '../../redux/Training/dispatch/general/dispatchDeleteMeso';
@@ -34,6 +34,8 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   let deleteMeso = dispatchDeleteMeso();
   let theme = useTheme();
 
+  const [lockedMeso, setLockedMeso] = useState(() => getMesoForMicro(trainingsPlan.mesos, route.params.micro ?? 1));
+  const mesoEndMicro = getMesoEndMicro(trainingsPlan.mesos, lockedMeso);
   const currentMeso = getMesoForMicro(trainingsPlan.mesos, micro);
   const localMicro = getLocalMicro(trainingsPlan.mesos, micro);
 
@@ -53,12 +55,16 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
 
   const handleValueChange = (newValue: any) => {
     switch (newValue) {
-      case 'micro - 1':
-        setMicro(micro - 1);
+      case 'micro - 1': {
+        const prev = micro - 1;
+        if (!lockedMeso || prev >= lockedMeso.startMicro) setMicro(prev);
         break;
-      case 'micro + 1':
-        setMicro(micro + 1);
+      }
+      case 'micro + 1': {
+        const next = micro + 1;
+        if (!lockedMeso || mesoEndMicro === undefined || next <= mesoEndMicro) setMicro(next);
         break;
+      }
       default:
         break;
     }
@@ -84,12 +90,12 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
           setTrainingInMicro={setTrainingInMicro}
           setMicro={(m) => {
             setMicro(m);
+            setLockedMeso(getMesoForMicro(trainingsPlan.mesos, m));
             setRerender(Math.random());
           }}
           setOpen={setOpen}
           setShowDone={setShowDone}
           showDone={showDone}
-          currentMeso={currentMeso}
           onAddMeso={() => addMeso(trainingsPlan.id!!, trainingsPlan)}
           onEditMeso={(mesoId, name) => editMeso(trainingsPlan.id!!, mesoId, name)}
           onDeleteMeso={(mesoId) => deleteMeso(trainingsPlan.id!!, mesoId)}
@@ -113,7 +119,14 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             }}
           />
         )}
-        determineValueByIndex={(index, micro) => micro + index}
+        determineValueByIndex={(index, currentMicro) => {
+          const next = currentMicro + index;
+          if (lockedMeso) {
+            if (next < lockedMeso.startMicro) return lockedMeso.startMicro;
+            if (mesoEndMicro !== undefined && next > mesoEndMicro) return mesoEndMicro;
+          }
+          return next;
+        }}
         startValue={micro}
         onUpdateCurrentIndex={(index) => {
           setMicro(micro + index);
