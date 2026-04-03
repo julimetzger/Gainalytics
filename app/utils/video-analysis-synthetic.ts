@@ -30,7 +30,7 @@ const buildRepSegments = (frameCount: number, fps: number, repCount: number) => 
     return {
       repIndex: repIndex + 1,
       startMs: frameToTimeMs(startFrame),
-      bottomMs: frameToTimeMs(Math.max(startFrame, Math.min(bottomFrame, endFrame))),
+      turnaroundMs: frameToTimeMs(Math.max(startFrame, Math.min(bottomFrame, endFrame))),
       endMs: frameToTimeMs(Math.max(endFrame, startFrame)),
     };
   });
@@ -56,7 +56,7 @@ const findNearestBarPoint = (barPathSeries: {tMs: number; x: number; y: number}[
 
 const calculateLowestConcentricSpeedPxPerS = (
   barPathSeries: {tMs: number; x: number; y: number}[],
-  bottomMs: number,
+  turnaroundMs: number,
   endMs: number,
   fallbackSpeed: number,
 ) => {
@@ -65,7 +65,7 @@ const calculateLowestConcentricSpeedPxPerS = (
   for (let index = 1; index < barPathSeries.length; index++) {
     const previousPoint = barPathSeries[index - 1];
     const nextPoint = barPathSeries[index];
-    if (previousPoint.tMs < bottomMs || nextPoint.tMs > endMs) {
+    if (previousPoint.tMs < turnaroundMs || nextPoint.tMs > endMs) {
       continue;
     }
 
@@ -89,12 +89,12 @@ const calculateLowestConcentricSpeedPxPerS = (
 
 const buildRepMetrics = (
   barPathSeries: {tMs: number; x: number; y: number}[],
-  repSegments: {repIndex: number; startMs: number; bottomMs: number; endMs: number}[],
+  repSegments: {repIndex: number; startMs: number; turnaroundMs: number; endMs: number}[],
 ) => {
   return repSegments.map((repSegment) => {
-    const bottomPoint = findNearestBarPoint(barPathSeries, repSegment.bottomMs);
+    const bottomPoint = findNearestBarPoint(barPathSeries, repSegment.turnaroundMs);
     const endPoint = findNearestBarPoint(barPathSeries, repSegment.endMs);
-    const concentricDurationMs = Math.max(1, repSegment.endMs - repSegment.bottomMs);
+    const concentricDurationMs = Math.max(1, repSegment.endMs - repSegment.turnaroundMs);
     const repTimeMs = Math.max(0, repSegment.endMs - repSegment.startMs);
 
     const verticalDisplacementPx =
@@ -102,7 +102,7 @@ const buildRepMetrics = (
     const averageConcentricSpeedPxPerS = roundValue((verticalDisplacementPx * 1000) / concentricDurationMs);
     const lowestConcentricSpeedPxPerS = calculateLowestConcentricSpeedPxPerS(
       barPathSeries,
-      repSegment.bottomMs,
+      repSegment.turnaroundMs,
       repSegment.endMs,
       averageConcentricSpeedPxPerS,
     );

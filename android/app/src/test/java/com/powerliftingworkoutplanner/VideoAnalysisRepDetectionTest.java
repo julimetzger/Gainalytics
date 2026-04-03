@@ -79,7 +79,7 @@ public class VideoAnalysisRepDetectionTest {
                 .append(",")
                 .append(segment.startMs)
                 .append(",")
-                .append(segment.bottomMs)
+                .append(segment.turnaroundMs)
                 .append(",")
                 .append(segment.endMs)
                 .append(")");

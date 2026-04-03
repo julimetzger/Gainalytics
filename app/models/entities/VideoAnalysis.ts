@@ -55,7 +55,7 @@ export interface ConfidencePoint {
 export interface RepSegment {
   repIndex: number;
   startMs: number;
-  bottomMs: number;
+  turnaroundMs: number;
   endMs: number;
 }
 
