@@ -74,8 +74,27 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
 9. Produce review evidence for every acceptance criterion:
    - map each criterion to the specific code change, screenshot, and check or e2e result that proves it
 10. Create one or more local commits on the assigned feature branch.
-11. Write `status.json` (with `ready_for_review`) and `summary.md`.
-12. Append new learnings to `docs/memory/agent-memory.md` (see Memory section), then exit.
+11. Push the branch and create a Pull Request:
+    ```bash
+    git push -u origin <branch>
+    gh pr create --title "<ticket_id>: <title>" --body "$(cat <<EOF
+    ## Summary
+    <1-3 bullet points of what changed>
+
+    Closes #<github_issue_number>
+
+    ## Acceptance Criteria Evidence
+    <for each criterion, one line with status + evidence file>
+
+    ## Test plan
+    <which checks ran and passed>
+    EOF
+    )" --base master --head <branch> --repo julimetzger/Gainalytics
+    ```
+    If a PR for this branch already exists, skip creation — just push the new commits.
+    Store the PR URL in `status.json` as `"pr_url"`.
+12. Write `status.json` (with `ready_for_review`) and `summary.md`.
+13. Append new learnings to `docs/memory/agent-memory.md` (see Memory section), then exit.
 
 ## App Deployment
 
@@ -218,6 +237,7 @@ Write `status.json` with this shape:
     "screenshots": ["screenshots/final.png"],
     "e2e_reports": ["checks/maestro-smoke.log"]
   },
+  "pr_url": "https://github.com/julimetzger/Gainalytics/pull/42",
   "question": null,
   "blocker": null
 }

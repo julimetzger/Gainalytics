@@ -149,10 +149,26 @@ Also write `review.md` as a human-readable summary with the same content.
 
 ## Post to GitHub
 
-If the ticket has a GitHub issue, post the review summary as a comment:
+If there is an open PR for the branch, post the review as a PR review:
 
 ```bash
-gh issue comment <number> --repo julimetzger/Gainalytics --body "$(cat <run_dir>/review.md)"
+# Find the PR number
+PR_NUM=$(gh pr list --repo julimetzger/Gainalytics --head <branch> --json number --jq '.[0].number')
+
+# Post as PR comment with the review
+gh pr comment $PR_NUM --repo julimetzger/Gainalytics --body "$(cat <run_dir>/review.md)"
+
+# If verdict is approve:
+gh pr review $PR_NUM --repo julimetzger/Gainalytics --approve --body "All acceptance criteria covered."
+
+# If verdict is request-changes:
+gh pr review $PR_NUM --repo julimetzger/Gainalytics --request-changes --body "$(cat <run_dir>/review.md)"
+```
+
+If no PR exists, fall back to posting on the GitHub issue:
+
+```bash
+gh issue comment <github_issue_number> --repo julimetzger/Gainalytics --body "$(cat <run_dir>/review.md)"
 ```
 
 ## Rules
