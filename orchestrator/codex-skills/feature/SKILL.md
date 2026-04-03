@@ -74,27 +74,42 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
 9. Produce review evidence for every acceptance criterion:
    - map each criterion to the specific code change, screenshot, and check or e2e result that proves it
 10. Create one or more local commits on the assigned feature branch.
-11. Push the branch and create a Pull Request:
+11. Commit evidence screenshots into the branch so they are visible on GitHub:
+    ```bash
+    # Copy resized screenshots from run_dir into the branch
+    mkdir -p screenshots/<ticket_id>
+    cp <run_dir>/screenshots/*.png screenshots/<ticket_id>/
+    git add screenshots/<ticket_id>/
+    git commit -m "docs(<ticket_id>): add evidence screenshots"
+    ```
+    Only commit the most relevant screenshots (max 5). Prefer: final result, key UI states,
+    before/after comparisons. Do not commit raw or intermediate debug screenshots.
+12. Push the branch and create a Pull Request:
     ```bash
     git push -u origin <branch>
-    gh pr create --title "<ticket_id>: <title>" --body "$(cat <<EOF
+    gh pr create --title "<ticket_id>: <title>" --body "$(cat <<'EOF'
     ## Summary
     <1-3 bullet points of what changed>
 
     Closes #<github_issue_number>
 
-    ## Acceptance Criteria Evidence
-    <for each criterion, one line with status + evidence file>
+    ## Evidence Screenshots
+    <for each relevant screenshot, embed with:>
+    ![description](screenshots/<ticket_id>/filename.png)
+
+    ## Acceptance Criteria
+    <for each criterion, one line with status + evidence>
 
     ## Test plan
     <which checks ran and passed>
     EOF
     )" --base master --head <branch> --repo julimetzger/Gainalytics
     ```
-    If a PR for this branch already exists, skip creation — just push the new commits.
+    If a PR for this branch already exists, skip creation — just push the new commits
+    and update the PR body if needed with `gh pr edit`.
     Store the PR URL in `status.json` as `"pr_url"`.
-12. Write `status.json` (with `ready_for_review`) and `summary.md`.
-13. Append new learnings to `docs/memory/agent-memory.md` (see Memory section), then exit.
+13. Write `status.json` (with `ready_for_review`) and `summary.md`.
+14. Append new learnings to `docs/memory/agent-memory.md` (see Memory section), then exit.
 
 ## App Deployment
 
