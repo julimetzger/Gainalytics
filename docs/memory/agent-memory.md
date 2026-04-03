@@ -80,3 +80,13 @@ The mock creates a new object per render. Wrap with `useRef`: `const sv = useRef
 ### 19. Nested Pressable + Chip: use text: "Meso 1" not chip testID for navigation tap
 **Problem:** Meso chips have dynamic testIDs (`meso-card-{planId}-{mesoId}` with timestamp IDs), making Maestro ID-based tap impossible after clearState.
 **Working solution:** Use `tapOn: text: "Meso 1"` — Maestro correctly targets the Chip even inside a nested ScrollView/Pressable. Wait for navigation anchor (e.g., `icon-menu` testID) before asserting destination screen state.
+
+### 20. Maestro text: cannot substring-match within a single combined React Native Text node
+**Problem:** `assertVisible: text: "Meso 1"` fails when the text node contains "TRN004 Test Plan › Meso 1" (combined plan and meso name). Maestro's textRegex does NOT do substring matching — it requires an exact or full-regex match against the element's text attribute.
+**Symptoms:** Flow fails on "Assert that 'Meso 1' is visible" even though the screenshot clearly shows the text on screen.
+**Working solution:** Add `testID` to the RN `Text` component, then assert with `id: "my-testid"` plus `text: ".*Meso 1.*"` (explicit `.*` prefix/suffix for substring). Or render the meso name as a separate `Text` node with its own testID so Maestro can match it exactly.
+
+### 21. Drawer overlay elements are not reliably matched by Maestro text: selector
+**Problem:** Text elements inside `react-native-drawer-layout` overlays can fail `assertVisible: text: "..."` even when clearly visible in the screenshot and present in the UI hierarchy.
+**Symptoms:** `extendedWaitUntil: visible: "Meso 2" timeout: 5000` times out; screenshot shows "Meso 2" in drawer.
+**Working solution:** Add `testID` to each dynamic element in the drawer and use `assertVisible: id: "drawer-meso-name-2"` for reliable matching. ID-based assertions work correctly even inside overlay drawers.

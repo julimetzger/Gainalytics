@@ -22,7 +22,7 @@ Last updated: 2026-04-02
 | ANA-004-fix | emu | 8 | 8 | 2 | 5 | 7 | 21 | 13 | 0 | 0 | review |
 | ANA-005-fix | emu | 13 | 1 | 3 | 6 | 2 | 4 | 6 | 0 | 0 | review |
 | ANA-003-fix2 | emu | 2 | 15 | 0 | 0 | 0 | 0 | 0 | 12 | 8 | ready_for_review (r9) |
-| TRN-004 | emu | 18 | 8 | 12 | 3 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
+| TRN-004 | emu | 18 | 8 | 12 | 3 | 0 | 0 | 0 | 0 | 0 | ready_for_review (r2) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
