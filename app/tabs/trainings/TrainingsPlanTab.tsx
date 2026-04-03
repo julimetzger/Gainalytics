@@ -46,7 +46,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         micro={micro}
         localMicro={localMicro}
         mode={showDone ? 'Overview' : training?.state}
-        drawerMenu={<IconButton icon="menu" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOpen((prevOpen) => !prevOpen)}></IconButton>}
+        drawerMenu={<IconButton testID="icon-menu" icon="menu" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOpen((prevOpen) => !prevOpen)}></IconButton>}
       />
     ),
   });

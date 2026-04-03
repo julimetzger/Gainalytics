@@ -106,7 +106,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
                 This action will delete the training. The workouts done in this training will not be deleted and are still available in the history. Are you sure you want to delete this training?
               </Text>
             ) : (
-              <TextInput defaultValue={trainingsPlan?.name} label={'Name of the Training Plan'} maxLength={30} onChangeText={(text) => setTrainingName(text)} />
+              <TextInput testID="plan-name-input" defaultValue={trainingsPlan?.name} label={'Name of the Training Plan'} maxLength={30} onChangeText={(text) => setTrainingName(text)} />
             )}
           </Dialog.Content>
           {!deleteOverlay && !trainingsId && (
@@ -133,7 +133,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
                 Delete
               </Button>
             )}
-            {!deleteOverlay && <Button onPress={confirmDialog}>Done</Button>}
+            {!deleteOverlay && <Button testID="confirm-trainings-plan" onPress={confirmDialog}>Done</Button>}
           </Dialog.Actions>
         </Dialog>
       </Portal>

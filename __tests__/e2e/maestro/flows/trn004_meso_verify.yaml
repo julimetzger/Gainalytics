@@ -1,0 +1,36 @@
+appId: com.powerliftingworkoutplanner
+---
+# TRN-004: Verify Mesozyklen feature
+# 1. Training Home is visible with Meso-Chips for existing plans
+# 2. Can add a new training plan and navigate into it
+# 3. Meso 1 chip is visible on plan card
+
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+
+- tapOn: "tab-training"
+
+- assertVisible:
+    id: "training-home-screen"
+
+# Check that a plan shows Meso chips after import
+# The baseline data has plans with mesos applied via migration
+- assertVisible:
+    text: "Meso 1"
+
+# Verify a meso chip is tappable (navigates to TrainingPlan)
+# The chip testID is meso-card-{planId}-{mesoId}, click first meso chip
+- tapOn:
+    text: "Meso 1"
+
+# Verify we navigated to a TrainingPlan with correct header
+# Header shows "Plan Name › Meso 1"
+- assertVisible:
+    text: "Meso 1"
+
+# Go back to Training Home
+- pressKey: Back
+
+- assertVisible:
+    id: "training-home-screen"

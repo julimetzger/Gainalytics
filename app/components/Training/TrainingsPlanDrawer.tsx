@@ -148,6 +148,7 @@ const TrainingsPlanDrawer = ({
       })}
       <View>
         <IconButton
+          testID="icon-plus-circle"
           icon="plus-circle"
           onPress={onAddMeso}
           theme={theme}

@@ -108,7 +108,7 @@ const TrainingHome = ({navigation, route}: Props) => {
                       alignItems: 'center',
                     }}
                   >
-                    <Text style={styles.exerciseText}> {trainingsPlan.name}</Text>
+                    <Text style={styles.exerciseText}>{trainingsPlan.name}</Text>
                     <AddTrainingsPlan trainingsId={trainingsPlan.id} />
                   </View>
                   <ProgressBar
