@@ -6,13 +6,15 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 interface headerProps {
   trainingsPlanName: string;
+  mesoName?: string;
   trainingName: string;
   micro: number;
+  localMicro: number;
   mode: string;
   drawerMenu: React.ReactNode;
 }
 
-const TrainingsPlanHeader = ({trainingsPlanName, trainingName, micro, mode, drawerMenu}: headerProps) => {
+const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, localMicro, mode, drawerMenu}: headerProps) => {
   let theme = useTheme();
   const safe = useSafeAreaInsets();
   return (
@@ -38,7 +40,7 @@ const TrainingsPlanHeader = ({trainingsPlanName, trainingName, micro, mode, draw
               color: theme.colors.onSecondaryContainer,
             }}
           >
-            {trainingsPlanName}
+            {trainingsPlanName}{mesoName ? ` › ${mesoName}` : ''}
           </Text>
           <View style={{display: 'flex', flexDirection: 'row'}}>
             <Text
@@ -47,7 +49,7 @@ const TrainingsPlanHeader = ({trainingsPlanName, trainingName, micro, mode, draw
                 color: theme.colors.onSecondaryContainer,
               }}
             >
-              Micro {micro}
+              Micro {localMicro}
             </Text>
             <Text
               style={{

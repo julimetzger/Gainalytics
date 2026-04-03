@@ -1,6 +1,6 @@
 import {NormalizedState} from '../normalizedState';
 import {AnyAction} from '@reduxjs/toolkit';
-import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
+import {Meso, TrainingsPlan} from '../../models/entities/TrainingsPlan';
 
 const initialState = {
   byId: {},
@@ -45,6 +45,34 @@ export function getAllTrainingsForMicro(
     .map(([key, value]) => value);
 }
 
+/** Returns the Meso that contains the given global micro number. */
+export function getMesoForMicro(mesos: Meso[] | undefined, globalMicro: number): Meso | undefined {
+  if (!mesos || mesos.length === 0) return undefined;
+  const sorted = [...mesos].sort((a, b) => a.order - b.order);
+  let result: Meso | undefined;
+  for (const meso of sorted) {
+    if (meso.startMicro <= globalMicro) result = meso;
+    else break;
+  }
+  return result;
+}
+
+/** Returns the local micro number within a Meso (starts at 1). */
+export function getLocalMicro(mesos: Meso[] | undefined, globalMicro: number): number {
+  const meso = getMesoForMicro(mesos, globalMicro);
+  if (!meso) return globalMicro;
+  return globalMicro - meso.startMicro + 1;
+}
+
+/** Computes the startMicro for a new Meso to be appended after all existing mesos/micros. */
+export function computeNextMesoStartMicro(trainingsPlan: TrainingsPlan): number {
+  const existingGlobalMicros = Object.keys(trainingsPlan.trainings).map((key) => parseInt(key.split(',')[0]));
+  const maxGlobalMicro = existingGlobalMicros.length > 0 ? Math.max(...existingGlobalMicros) : 0;
+  const existingMesos = trainingsPlan.mesos ?? [];
+  const maxStartMicro = existingMesos.length > 0 ? Math.max(...existingMesos.map((m) => m.startMicro)) : 0;
+  return Math.max(maxGlobalMicro, maxStartMicro) + 1;
+}
+
 function determineNewId(trainingsPlanState: NormalizedState<TrainingsPlan>) {
   if (trainingsPlanState.allIds.length > 0) return Math.max(...trainingsPlanState.allIds) + 1;
   else return 1;
@@ -59,7 +87,12 @@ const trainingsPlanReducer = (state: NormalizedState<TrainingsPlan> = initialSta
         ...state,
         byId: {
           ...state.byId,
-          [newId]: {...action.trainingsPlan, id: newId, trainings: {}},
+          [newId]: {
+            ...action.trainingsPlan,
+            id: newId,
+            trainings: {},
+            mesos: [{id: 1, name: 'Meso 1', order: 1, startMicro: 1}],
+          },
         },
         allIds: [...state.allIds, newId],
       };
@@ -129,6 +162,46 @@ const trainingsPlanReducer = (state: NormalizedState<TrainingsPlan> = initialSta
           [action.trainingsPlanId]: {
             ...trainingsPlan,
             trainings,
+          },
+        },
+      };
+    }
+    case 'ADD_MESO': {
+      if (!trainingsPlan) return state;
+      const existingMesos = trainingsPlan.mesos ?? [];
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.trainingsPlanId]: {
+            ...trainingsPlan,
+            mesos: [...existingMesos, action.meso],
+          },
+        },
+      };
+    }
+    case 'EDIT_MESO': {
+      if (!trainingsPlan) return state;
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.trainingsPlanId]: {
+            ...trainingsPlan,
+            mesos: (trainingsPlan.mesos ?? []).map((m) => (m.id === action.mesoId ? {...m, name: action.name} : m)),
+          },
+        },
+      };
+    }
+    case 'DELETE_MESO': {
+      if (!trainingsPlan) return state;
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.trainingsPlanId]: {
+            ...trainingsPlan,
+            mesos: (trainingsPlan.mesos ?? []).filter((m) => m.id !== action.mesoId),
           },
         },
       };

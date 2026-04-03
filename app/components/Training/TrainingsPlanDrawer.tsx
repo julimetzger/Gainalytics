@@ -1,7 +1,7 @@
 import {Button, Divider, IconButton, SegmentedButtons, Text, TextInput, ThemeBase, Tooltip, TouchableRipple} from 'react-native-paper';
 import {MD3Colors, MD3Typescale} from 'react-native-paper/lib/typescript/types';
 import {Action} from 'redux';
-import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
+import {Meso, TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {View, Keyboard} from 'react-native';
 import React, {useState, useRef, useEffect} from 'react';
 
@@ -15,6 +15,7 @@ interface TrainingsPlanDrawerProps {
   changeTrainingsName: (trainingsPlanId: number, trainingsName: string, trainingsNumber: number) => Action<any>;
   trainingsPlan: TrainingsPlan;
   setTrainingInMicro: (value: ((prevState: number) => number) | number) => void;
+  setMicro: (micro: number) => void;
   setOpen: (value: ((prevState: boolean) => boolean) | boolean) => void;
   showPlanned: boolean;
   setShowPlanned: (value: ((prevState: boolean) => boolean) | boolean) => void;
@@ -22,6 +23,10 @@ interface TrainingsPlanDrawerProps {
   setShowDone: (value: ((prevState: boolean) => boolean) | boolean) => void;
   handleValueChange: (newValue: any) => void;
   micro: number;
+  onAddMeso: () => void;
+  onEditMeso: (mesoId: number, name: string) => void;
+  onDeleteMeso: (mesoId: number) => void;
+  currentMeso: Meso | undefined;
 }
 
 const TrainingsPlanDrawer = ({
@@ -29,17 +34,27 @@ const TrainingsPlanDrawer = ({
   changeTrainingsName,
   trainingsPlan,
   setTrainingInMicro,
+  setMicro,
   setOpen,
   showPlanned,
   setShowPlanned,
   setShowDone,
   handleValueChange,
   micro,
+  onAddMeso,
+  onEditMeso,
+  onDeleteMeso,
+  currentMeso,
 }: TrainingsPlanDrawerProps) => {
   const [edit, setEdit] = useState<number | undefined>(undefined);
   const [trainingsName, setTrainingsName] = useState('');
   const [longPressIndex, setLongPressIndex] = useState<number | undefined>(undefined);
   const inputRef = useRef(null);
+
+  const [editMesoId, setEditMesoId] = useState<number | undefined>(undefined);
+  const [mesoName, setMesoName] = useState('');
+  const [longPressMesoId, setLongPressMesoId] = useState<number | undefined>(undefined);
+  const mesoInputRef = useRef(null);
 
   useEffect(() => {
     if (!trainingsPlan.trainingNames || Object.keys(trainingsPlan.trainingNames).length === 0) {
@@ -47,8 +62,99 @@ const TrainingsPlanDrawer = ({
     }
   }, [trainingsPlan, changeTrainingsName]);
 
+  const sortedMesos = [...(trainingsPlan.mesos ?? [])].sort((a, b) => a.order - b.order);
+
   return (
     <View style={{display: 'flex', flexDirection: 'column'}}>
+      <Divider />
+      <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
+        <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Mesos:</Text>
+      </View>
+      {sortedMesos.map((meso) => {
+        const isCurrentMeso = currentMeso?.id === meso.id;
+        return (
+          <View key={meso.id} style={{display: 'flex', flexDirection: 'row', alignItems: 'center', minHeight: 40}}>
+            <TouchableRipple
+              style={{flex: 1}}
+              onPress={() => {
+                setMicro(meso.startMicro);
+                setOpen(false);
+                setShowDone(false);
+              }}
+              onLongPress={() => setLongPressMesoId(meso.id)}
+            >
+              <View>
+                {editMesoId !== meso.id && (
+                  <Text style={{fontSize: 20, margin: 5, fontWeight: isCurrentMeso ? 'bold' : 'normal', color: isCurrentMeso ? theme.colors.primary : undefined}}>
+                    {meso.name}
+                  </Text>
+                )}
+                {editMesoId === meso.id && (
+                  <TextInput
+                    ref={mesoInputRef}
+                    mode="outlined"
+                    maxLength={20}
+                    value={mesoName}
+                    onChangeText={(text) => setMesoName(text)}
+                    onEndEditing={() => {
+                      onEditMeso(meso.id, mesoName);
+                      setEditMesoId(undefined);
+                      setMesoName('');
+                      mesoInputRef.current?.blur();
+                      Keyboard.dismiss();
+                    }}
+                    selectTextOnFocus={true}
+                    right={
+                      <TextInput.Icon
+                        icon="check"
+                        onPress={() => {
+                          onEditMeso(meso.id, mesoName);
+                          setEditMesoId(undefined);
+                          setMesoName('');
+                          mesoInputRef.current?.blur();
+                          Keyboard.dismiss();
+                        }}
+                      />
+                    }
+                  />
+                )}
+              </View>
+            </TouchableRipple>
+            {editMesoId !== meso.id &&
+              (longPressMesoId === meso.id ? (
+                <IconButton
+                  icon="delete"
+                  onPress={() => {
+                    onDeleteMeso(meso.id);
+                    setLongPressMesoId(undefined);
+                  }}
+                  size={20}
+                  style={{marginRight: 5}}
+                />
+              ) : (
+                <IconButton
+                  icon="pencil"
+                  onPress={() => {
+                    setEditMesoId(meso.id);
+                    setMesoName(meso.name);
+                    setTimeout(() => mesoInputRef.current?.focus(), 0);
+                  }}
+                  size={20}
+                  style={{marginRight: 5}}
+                />
+              ))}
+          </View>
+        );
+      })}
+      <View>
+        <IconButton
+          icon="plus-circle"
+          onPress={onAddMeso}
+          theme={theme}
+          iconColor={theme.colors.tertiaryContainer}
+          size={40}
+        />
+      </View>
       <Divider />
       <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
         <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Trainings:</Text>

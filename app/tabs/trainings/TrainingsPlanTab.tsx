@@ -11,6 +11,10 @@ import TrainingsPlanDrawer from '../../components/Training/TrainingsPlanDrawer';
 import TrainingsPlanNode from '../../components/Training/TrainingsPlanNode';
 import RangeSwiper from '../../components/RangeSwiper';
 import {LayoutRectangle} from 'react-native';
+import {getMesoForMicro, getLocalMicro} from '../../redux/Training/trainingsPlanReducer';
+import dispatchAddMeso from '../../redux/Training/dispatch/general/dispatchAddMeso';
+import dispatchEditMeso from '../../redux/Training/dispatch/general/dispatchEditMeso';
+import dispatchDeleteMeso from '../../redux/Training/dispatch/general/dispatchDeleteMeso';
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
   const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
@@ -25,19 +29,28 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   const [ignoreSwipeLocations, setIgnoreSwipeLocations] = useState<LayoutRectangle[]>([]);
 
   let changeTrainingsName = dispatchChangeTrainingsName();
+  let addMeso = dispatchAddMeso();
+  let editMeso = dispatchEditMeso();
+  let deleteMeso = dispatchDeleteMeso();
   let theme = useTheme();
+
+  const currentMeso = getMesoForMicro(trainingsPlan.mesos, micro);
+  const localMicro = getLocalMicro(trainingsPlan.mesos, micro);
 
   navigation.setOptions({
     header: (props) => (
       <TrainingsPlanHeader
         trainingsPlanName={trainingsPlan.name}
+        mesoName={currentMeso?.name}
         trainingName={showDone ? 'Overview' : trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
         micro={micro}
+        localMicro={localMicro}
         mode={showDone ? 'Overview' : training?.state}
         drawerMenu={<IconButton icon="menu" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOpen((prevOpen) => !prevOpen)}></IconButton>}
       />
     ),
   });
+
   const handleValueChange = (newValue: any) => {
     switch (newValue) {
       case 'micro - 1':
@@ -69,9 +82,17 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
           setShowPlanned={setShowPlanned}
           showPlanned={showPlanned}
           setTrainingInMicro={setTrainingInMicro}
+          setMicro={(m) => {
+            setMicro(m);
+            setRerender(Math.random());
+          }}
           setOpen={setOpen}
           setShowDone={setShowDone}
           showDone={showDone}
+          currentMeso={currentMeso}
+          onAddMeso={() => addMeso(trainingsPlan.id!!, trainingsPlan)}
+          onEditMeso={(mesoId, name) => editMeso(trainingsPlan.id!!, mesoId, name)}
+          onDeleteMeso={(mesoId) => deleteMeso(trainingsPlan.id!!, mesoId)}
         />
       )}
     >

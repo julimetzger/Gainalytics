@@ -1,6 +1,6 @@
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import React, {useEffect, useState} from 'react';
-import {Button, Card, IconButton, ProgressBar, Text, TextInput} from 'react-native-paper';
+import {Button, Card, Chip, IconButton, ProgressBar, Text, TextInput} from 'react-native-paper';
 import {useAllTrainingsPlans} from '../../redux/Training/use/useAllTrainingsPlans';
 import {RootStackParamList} from '../../routing/TrainingRouter';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -8,8 +8,8 @@ import AddTrainingsPlan from '../../components/Training/add/AddTrainingsPlan';
 import {TrainingsState} from '../../models/TrainingsState';
 import {useTrainings} from '../../redux/Training/use/useTrainings';
 import {Exercise} from '../../models/entities/Exercise';
-import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
-import {getMicroFromTrainingInMicroIndex, getTrainingFromTrainingInMicroIndex} from '../../redux/Training/trainingsPlanReducer';
+import {Meso, TrainingsPlan} from '../../models/entities/TrainingsPlan';
+import {getMicroFromTrainingInMicroIndex, getTrainingFromTrainingInMicroIndex, getMesoForMicro} from '../../redux/Training/trainingsPlanReducer';
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {TextInput as RNTextInput} from 'react-native';
 import TrainingOverviewCard from '../../components/Training/analyse/TrainingOverviewCard';
@@ -83,91 +83,122 @@ const TrainingHome = ({navigation, route}: Props) => {
       <ScrollView contentInsetAdjustmentBehavior="automatic">
         {trainingsPlans
           .filter((exercise: TrainingsPlan) => exercise.name.toLowerCase().includes(filter.toLowerCase()))
-          .map((trainingsPlan: TrainingsPlan) => (
-            <Card style={{margin: 5}} key={trainingsPlan.id}>
-              <Pressable
-                onPress={() =>
-                  navigation.navigate({
-                    name: 'TrainingPlan',
-                    params: {trainingsPlan: trainingsPlan},
-                  })
-                }
-              >
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
+          .map((trainingsPlan: TrainingsPlan) => {
+            const lastDone = lastDonee(trainingsPlan);
+            const currentMeso = lastDone ? getMesoForMicro(trainingsPlan.mesos, lastDone.micro) : undefined;
+            const sortedMesos = [...(trainingsPlan.mesos ?? [])].sort((a, b) => a.order - b.order);
+            return (
+              <Card style={{margin: 5}} key={trainingsPlan.id}>
+                <Pressable
+                  onPress={() =>
+                    navigation.navigate({
+                      name: 'TrainingPlan',
+                      params: {
+                        trainingsPlan: trainingsPlan,
+                        micro: currentMeso?.startMicro ?? lastDone?.micro,
+                      },
+                    })
+                  }
                 >
-                  <Text style={styles.exerciseText}> {trainingsPlan.name}</Text>
-                  <AddTrainingsPlan trainingsId={trainingsPlan.id} />
-                </View>
-                <ProgressBar
-                  visible={planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining !== undefined}
-                  progress={planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.percentOfDone}
-                ></ProgressBar>
-                <TrainingOverviewCard trainingsPlan={trainingsPlan} currentMicro={lastDonee(trainingsPlan)?.micro} />
-                <View style={styles.buttonContainer}>
-                  {planToStartTraining.get(trainingsPlan.id!!)?.nextTraining && (
-                    <Button
-                      testID={`training-home-next-training-${trainingsPlan.id}`}
-                      style={styles.button}
-                      onPress={() =>
-                        navigation.navigate({
-                          name: 'TrainingPlan',
-                          params: {
-                            trainingsPlan: trainingsPlan,
-                            micro: planToStartTraining.get(trainingsPlan.id!!)?.nextTraining?.micro,
-                            training: planToStartTraining.get(trainingsPlan.id!!)?.nextTraining?.training,
-                          },
-                        })
-                      }
-                    >
-                      Next Training
-                    </Button>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={styles.exerciseText}> {trainingsPlan.name}</Text>
+                    <AddTrainingsPlan trainingsId={trainingsPlan.id} />
+                  </View>
+                  <ProgressBar
+                    visible={planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining !== undefined}
+                    progress={planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.percentOfDone}
+                  ></ProgressBar>
+                  {sortedMesos.length > 0 && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.mesoScrollView}>
+                      {sortedMesos.map((meso: Meso) => (
+                        <Chip
+                          key={meso.id}
+                          testID={`meso-card-${trainingsPlan.id}-${meso.id}`}
+                          selected={currentMeso?.id === meso.id}
+                          style={styles.mesoChip}
+                          onPress={() =>
+                            navigation.navigate({
+                              name: 'TrainingPlan',
+                              params: {
+                                trainingsPlan: trainingsPlan,
+                                micro: meso.startMicro,
+                              },
+                            })
+                          }
+                        >
+                          {meso.name}
+                        </Chip>
+                      ))}
+                    </ScrollView>
                   )}
-                  {planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining && (
-                    <Button
-                      testID={`training-home-active-training-${trainingsPlan.id}`}
-                      style={styles.button}
-                      onPress={() =>
-                        navigation.navigate({
-                          name: 'TrainingPlan',
-                          params: {
-                            trainingsPlan: trainingsPlan,
-                            micro: planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.micro,
-                            training: planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.training,
-                          },
-                        })
-                      }
-                    >
-                      Active Training
-                    </Button>
-                  )}
-                  {planToStartTraining.get(trainingsPlan.id!!)?.lastDoneTraining && (
-                    <Button
-                      testID={`training-home-last-training-${trainingsPlan.id}`}
-                      style={styles.button}
-                      onPress={() =>
-                        navigation.navigate({
-                          name: 'TrainingPlan',
-                          params: {
-                            trainingsPlan: trainingsPlan,
-                            micro: planToStartTraining.get(trainingsPlan.id!!)?.lastDoneTraining?.micro,
-                            training: planToStartTraining.get(trainingsPlan.id!!)?.lastDoneTraining?.training,
-                          },
-                        })
-                      }
-                    >
-                      Last Training
-                    </Button>
-                  )}
-                </View>
-              </Pressable>
-            </Card>
-          ))}
+                  <TrainingOverviewCard trainingsPlan={trainingsPlan} currentMicro={lastDonee(trainingsPlan)?.micro} />
+                  <View style={styles.buttonContainer}>
+                    {planToStartTraining.get(trainingsPlan.id!!)?.nextTraining && (
+                      <Button
+                        testID={`training-home-next-training-${trainingsPlan.id}`}
+                        style={styles.button}
+                        onPress={() =>
+                          navigation.navigate({
+                            name: 'TrainingPlan',
+                            params: {
+                              trainingsPlan: trainingsPlan,
+                              micro: planToStartTraining.get(trainingsPlan.id!!)?.nextTraining?.micro,
+                              training: planToStartTraining.get(trainingsPlan.id!!)?.nextTraining?.training,
+                            },
+                          })
+                        }
+                      >
+                        Next Training
+                      </Button>
+                    )}
+                    {planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining && (
+                      <Button
+                        testID={`training-home-active-training-${trainingsPlan.id}`}
+                        style={styles.button}
+                        onPress={() =>
+                          navigation.navigate({
+                            name: 'TrainingPlan',
+                            params: {
+                              trainingsPlan: trainingsPlan,
+                              micro: planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.micro,
+                              training: planToStartTraining.get(trainingsPlan.id!!)?.firstStartedTraining?.training,
+                            },
+                          })
+                        }
+                      >
+                        Active Training
+                      </Button>
+                    )}
+                    {planToStartTraining.get(trainingsPlan.id!!)?.lastDoneTraining && (
+                      <Button
+                        testID={`training-home-last-training-${trainingsPlan.id}`}
+                        style={styles.button}
+                        onPress={() =>
+                          navigation.navigate({
+                            name: 'TrainingPlan',
+                            params: {
+                              trainingsPlan: trainingsPlan,
+                              micro: planToStartTraining.get(trainingsPlan.id!!)?.lastDoneTraining?.micro,
+                              training: planToStartTraining.get(trainingsPlan.id!!)?.lastDoneTraining?.training,
+                            },
+                          })
+                        }
+                      >
+                        Last Training
+                      </Button>
+                    )}
+                  </View>
+                </Pressable>
+              </Card>
+            );
+          })}
       </ScrollView>
       <AddTrainingsPlan
         style={{
@@ -227,6 +258,13 @@ const styles = StyleSheet.create({
   button: {
     flex: 1,
     margin: 5,
+  },
+  mesoScrollView: {
+    paddingHorizontal: 5,
+    paddingVertical: 4,
+  },
+  mesoChip: {
+    marginRight: 6,
   },
 });
 

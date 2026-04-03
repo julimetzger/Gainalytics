@@ -1,6 +1,8 @@
 import trainingsPlanReducer from '../../../app/redux/Training/trainingsPlanReducer';
 import {TrainingsPlan} from '../../../app/models/entities/TrainingsPlan';
 
+const DEFAULT_MESO = {id: 1, name: 'Meso 1', order: 1, startMicro: 1};
+
 function ONE_TRAININGS_PLAN() {
   return {
     byId: {
@@ -9,6 +11,7 @@ function ONE_TRAININGS_PLAN() {
         name: 'plan',
         trainings: {},
         trainingNames: {['1']: 'Push'},
+        mesos: [DEFAULT_MESO],
       } satisfies TrainingsPlan,
     },
     allIds: [1],
@@ -23,6 +26,7 @@ function ONE_TRAININGS_PLAN_WITH_TRAINING() {
         name: 'plan',
         trainings: {'2,1': 4},
         trainingNames: {['1']: 'Push'},
+        mesos: [DEFAULT_MESO],
       } satisfies TrainingsPlan,
     },
     allIds: [1],
@@ -64,12 +68,14 @@ describe('trainingsPlanReducer', () => {
             name: 'plan',
             trainings: {},
             trainingNames: {['1']: 'Push'},
+            mesos: [DEFAULT_MESO],
           },
           2: {
             id: 2,
             name: 'plan',
             trainings: {},
             trainingNames: {['1']: 'Push'},
+            mesos: [DEFAULT_MESO],
           },
         },
         allIds: [1, 2],
@@ -91,6 +97,7 @@ describe('trainingsPlanReducer', () => {
             name: 'new name',
             trainings: {},
             trainingNames: {['1']: 'Push'},
+            mesos: [DEFAULT_MESO],
           },
         },
         allIds: [1],
@@ -126,6 +133,7 @@ describe('trainingsPlanReducer', () => {
             name: 'plan',
             trainings: {},
             trainingNames: {['1']: 'Push'},
+            mesos: [DEFAULT_MESO],
           },
         },
         allIds: [1],
@@ -163,6 +171,7 @@ describe('trainingsPlanReducer', () => {
               '1,1': 2,
             },
             trainingNames: {['1']: 'Push'},
+            mesos: [DEFAULT_MESO],
           },
         },
         allIds: [1],
@@ -200,6 +209,7 @@ describe('trainingsPlanReducer', () => {
               '1,1': 2,
             },
             trainingNames: {['1']: 'Push'},
+            mesos: [DEFAULT_MESO],
           },
         },
         allIds: [1],
@@ -225,6 +235,7 @@ describe('trainingsPlanReducer', () => {
               '1,1': 2,
             },
             trainingNames: {['1']: 'Push'},
+            mesos: [DEFAULT_MESO],
           },
         },
         allIds: [1],
@@ -249,6 +260,7 @@ describe('trainingsPlanReducer', () => {
             trainingNames: {
               1: 'new name',
             },
+            mesos: [DEFAULT_MESO],
           },
         },
         allIds: [1],
@@ -262,6 +274,71 @@ describe('trainingsPlanReducer', () => {
           type: 'UNKNOWN',
         }),
       ).toEqual(ONE_TRAININGS_PLAN());
+    });
+  });
+
+  describe('ADD_MESO', () => {
+    it('should add a meso to a plan without mesos', () => {
+      const emptyMesosPlan = {
+        byId: {1: {...ONE_TRAININGS_PLAN().byId[1], mesos: [] as any}},
+        allIds: [1],
+      };
+      const meso = {id: 2, name: 'Meso 2', order: 2, startMicro: 5};
+      const result = trainingsPlanReducer(emptyMesosPlan, {
+        type: 'ADD_MESO',
+        trainingsPlanId: 1,
+        meso,
+      });
+      expect(result.byId[1].mesos).toEqual([meso]);
+    });
+
+    it('should append a meso when one already exists', () => {
+      const existingMeso = {id: 1, name: 'Meso 1', order: 1, startMicro: 1};
+      const newMeso = {id: 2, name: 'Meso 2', order: 2, startMicro: 5};
+      const stateWithMeso = {
+        ...ONE_TRAININGS_PLAN(),
+        byId: {1: {...ONE_TRAININGS_PLAN().byId[1], mesos: [existingMeso]}},
+      };
+      const result = trainingsPlanReducer(stateWithMeso, {
+        type: 'ADD_MESO',
+        trainingsPlanId: 1,
+        meso: newMeso,
+      });
+      expect(result.byId[1].mesos).toEqual([existingMeso, newMeso]);
+    });
+  });
+
+  describe('EDIT_MESO', () => {
+    it('should rename a meso', () => {
+      const meso = {id: 1, name: 'Meso 1', order: 1, startMicro: 1};
+      const stateWithMeso = {
+        ...ONE_TRAININGS_PLAN(),
+        byId: {1: {...ONE_TRAININGS_PLAN().byId[1], mesos: [meso]}},
+      };
+      const result = trainingsPlanReducer(stateWithMeso, {
+        type: 'EDIT_MESO',
+        trainingsPlanId: 1,
+        mesoId: 1,
+        name: 'Hypertrophy Block',
+      });
+      expect(result.byId[1].mesos![0].name).toBe('Hypertrophy Block');
+    });
+  });
+
+  describe('DELETE_MESO', () => {
+    it('should delete a meso by id', () => {
+      const meso1 = {id: 1, name: 'Meso 1', order: 1, startMicro: 1};
+      const meso2 = {id: 2, name: 'Meso 2', order: 2, startMicro: 5};
+      const stateWithMesos = {
+        ...ONE_TRAININGS_PLAN(),
+        byId: {1: {...ONE_TRAININGS_PLAN().byId[1], mesos: [meso1, meso2]}},
+      };
+      const result = trainingsPlanReducer(stateWithMesos, {
+        type: 'DELETE_MESO',
+        trainingsPlanId: 1,
+        mesoId: 1,
+      });
+      expect(result.byId[1].mesos).toEqual([meso2]);
     });
   });
 });

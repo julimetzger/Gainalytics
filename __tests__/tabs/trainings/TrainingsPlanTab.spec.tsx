@@ -17,6 +17,9 @@ jest.mock('../../../app/redux/Training/use/useTrainingInTrainingsPlan', () => ({
 }));
 
 jest.mock('../../../app/redux/Training/dispatch/general/dispatchChangeTrainingsName', () => jest.fn(() => mockChangeTrainingsName));
+jest.mock('../../../app/redux/Training/dispatch/general/dispatchAddMeso', () => jest.fn(() => jest.fn()));
+jest.mock('../../../app/redux/Training/dispatch/general/dispatchEditMeso', () => jest.fn(() => jest.fn()));
+jest.mock('../../../app/redux/Training/dispatch/general/dispatchDeleteMeso', () => jest.fn(() => jest.fn()));
 
 jest.mock('react-native-paper', () => {
   const React = require('react');
@@ -60,7 +63,7 @@ jest.mock('../../../app/components/Training/TrainingsPlanHeader', () => {
   const React = require('react');
   const {Text, View} = require('react-native');
 
-  return ({trainingsPlanName, trainingName, mode, micro, drawerMenu}: {trainingsPlanName: string; trainingName: string; mode: string; micro: number; drawerMenu: React.ReactNode}) => (
+  return ({trainingsPlanName, trainingName, mode, micro, localMicro, drawerMenu}: {trainingsPlanName: string; trainingName: string; mode: string; micro: number; localMicro: number; drawerMenu: React.ReactNode}) => (
     <View>
       <Text testID="header-plan-name">{trainingsPlanName}</Text>
       <Text testID="header-training-name">{trainingName}</Text>
@@ -127,6 +130,7 @@ describe('TrainingsPlanTab', () => {
       name: 'Power Plan',
       trainings: {'2,1': 100},
       trainingNames: {1: 'Upper Day'},
+      mesos: [{id: 1, name: 'Meso 1', order: 1, startMicro: 1}],
     });
 
     mockedUseTrainingInTrainingsPlan.mockReturnValue({
