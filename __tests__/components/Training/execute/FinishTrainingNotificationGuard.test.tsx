@@ -113,7 +113,7 @@ const mockStore = {
 };
 
 const defaultProps = {
-  trainingsPlan: {id: 1, name: 'Test Plan', trainingNames: ['Day 1']},
+  trainingsPlan: {id: 1, name: 'Test Plan', trainings: {}, trainingNames: ['Day 1']},
   trainingInMicro: 0,
   micro: 0,
   showDone: false,

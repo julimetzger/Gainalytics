@@ -1,8 +1,9 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {processColor, ScrollView, StyleSheet, View} from 'react-native';
-import {BarChart, BarData, BarValue, ChartSelectEvent} from 'react-native-charts-wrapper';
+import {BarChart, BarData, BarValue, ChartChangeEvent, ChartSelectEvent} from 'react-native-charts-wrapper';
 import {Card, SegmentedButtons, Text, useTheme} from 'react-native-paper';
 import TrainingLengthBucketDetails from '../../components/analyse/TrainingLengthBucketDetails';
+import TrainingLengthEditDialog from '../../components/analyse/TrainingLengthEditDialog';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
 import {AccumulationMode} from '../../models/AccumulationMode';
 import {getTrainingFromTrainingInMicroIndex} from '../../redux/Training/trainingsPlanReducer';
@@ -39,6 +40,8 @@ const TrainingLengthTab = () => {
   const [range, setRange] = useState(createDefaultRange);
   const [accumulationMode, setAccumulationMode] = useState(AccumulationMode.SINGLE_DAY);
   const [selectedBucketKey, setSelectedBucketKey] = useState<string | null>(null);
+  const [bucketForEdit, setBucketForEdit] = useState<ReturnType<typeof findBucketByX>>(null);
+  const selectedBucketRef = useRef<ReturnType<typeof findBucketByX>>(null);
   const trainingsPlans = useAllTrainingsPlans();
   const trainings = useCompletedTrainingsIn(range);
   const trainingNameById = useMemo(
@@ -99,6 +102,8 @@ const TrainingLengthTab = () => {
 
   useEffect(() => {
     setSelectedBucketKey(null);
+    setBucketForEdit(null);
+    selectedBucketRef.current = null;
   }, [accumulationMode, range]);
 
   const handleAccumulationModeChange = useCallback((value: string) => {
@@ -113,6 +118,7 @@ const TrainingLengthTab = () => {
       const selectedX = event.nativeEvent?.x;
       if (typeof selectedX !== 'number') {
         // nativeEvent is null when the chart fires a deselect (tap on empty area or already-selected bar)
+        selectedBucketRef.current = null;
         setSelectedBucketKey(null);
         return;
       }
@@ -121,11 +127,21 @@ const TrainingLengthTab = () => {
       // Epoch-day x values are often fractional in non-UTC timezones, and native code
       // returns float-precision numbers, so a tolerance like 0.0001 is unreliable.
       const selectedBucketForX = findBucketByX(buckets, selectedX);
+      selectedBucketRef.current = selectedBucketForX;
       const nextKey = selectedBucketForX?.key ?? null;
       setSelectedBucketKey((prev) => (prev === nextKey ? null : nextKey));
     },
     [buckets],
   );
+
+  const handleChartChange = useCallback((event: ChartChangeEvent) => {
+    if (event.nativeEvent?.action !== 'chartLongPress' || !selectedBucketRef.current) {
+      return;
+    }
+
+    setBucketForEdit(selectedBucketRef.current);
+    setSelectedBucketKey(selectedBucketRef.current.key);
+  }, []);
 
   return (
     <ScrollView style={[styles.container, {backgroundColor: theme.colors.background}]} contentContainerStyle={styles.content} testID="training-length-screen">
@@ -178,6 +194,7 @@ const TrainingLengthTab = () => {
                   legend={{enabled: false}}
                   chartDescription={{text: ''}}
                   onSelect={handleBarSelect}
+                  onChange={handleChartChange}
                 />
               </View>
             </Card.Content>
@@ -188,6 +205,7 @@ const TrainingLengthTab = () => {
           )}
         </>
       )}
+      <TrainingLengthEditDialog accumulationMode={accumulationMode} bucket={bucketForEdit} onDismiss={() => setBucketForEdit(null)} trainingNameById={trainingNameById} />
     </ScrollView>
   );
 };

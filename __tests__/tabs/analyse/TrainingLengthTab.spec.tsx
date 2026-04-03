@@ -15,6 +15,13 @@ jest.mock('../../../app/redux/Training/use/useAllTrainingsPlans', () => ({
   useAllTrainingsPlans: jest.fn(),
 }));
 
+jest.mock('../../../app/components/analyse/TrainingLengthEditDialog', () => {
+  const React = require('react');
+  const {Text} = require('react-native');
+
+  return ({bucket}: {bucket: {key: string} | null}) => (bucket ? <Text testID="training-length-edit-dialog-marker">{bucket.key}</Text> : null);
+});
+
 jest.mock('../../../app/components/picker/date/DateRangePicker', () => {
   const React = require('react');
   const {Text} = require('react-native');
@@ -44,9 +51,11 @@ jest.mock('react-native-charts-wrapper', () => {
     BarChart: ({
       data,
       onSelect,
+      onChange,
     }: {
       data: {dataSets?: Array<{values?: Array<{x: number}>}>};
       onSelect?: (event: {nativeEvent: {x: number}}) => void;
+      onChange?: (event: {nativeEvent: {action: string}}) => void;
     }) => {
       const values = data.dataSets?.[0]?.values ?? [];
       return (
@@ -62,6 +71,9 @@ jest.mock('react-native-charts-wrapper', () => {
           </TouchableOpacity>
           <TouchableOpacity testID="mock-bar-chart-select-second" onPress={() => onSelect?.({nativeEvent: {x: values[1]?.x ?? 0}})}>
             <Text>Select second bar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity testID="mock-bar-chart-long-press" onPress={() => onChange?.({nativeEvent: {action: 'chartLongPress'}})}>
+            <Text>Long press selected bar</Text>
           </TouchableOpacity>
         </View>
       );
@@ -291,5 +303,24 @@ describe('TrainingLengthTab', () => {
     expect(getByTestId('training-length-empty-state')).toBeTruthy();
     expect(getByText('No completed trainings in this range')).toBeTruthy();
     expect(queryByTestId('training-length-chart')).toBeNull();
+  });
+
+  it('opens the edit dialog when a selected bar is long-pressed', () => {
+    mockedUseAllTrainingsPlans.mockReturnValue([]);
+    mockedUseCompletedTrainingsIn.mockReturnValue([
+      createTraining({
+        id: 1,
+        state: TrainingsState.FINISHED,
+        start: new Date('2026-03-12T09:00:00.000Z'),
+        end: new Date('2026-03-12T10:30:00.000Z'),
+      }),
+    ]);
+
+    const {getByTestId} = render(<TrainingLengthTab />);
+
+    fireEvent.press(getByTestId('mock-bar-chart-select'));
+    fireEvent.press(getByTestId('mock-bar-chart-long-press'));
+
+    expect(getByTestId('training-length-edit-dialog-marker')).toBeTruthy();
   });
 });

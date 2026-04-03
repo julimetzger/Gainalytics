@@ -94,6 +94,21 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
           },
         },
       };
+    case 'EDIT_TRAINING_TIMES':
+      if (action.trainingsId === undefined || state.byId[action.trainingsId] === undefined) {
+        return state;
+      }
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.trainingsId]: {
+            ...state.byId[action.trainingsId],
+            start: action.start,
+            end: action.end,
+          },
+        },
+      };
     case 'START_TRAINING':
       if (state.byId[action.trainingsId].state === TrainingsState.STARTED) return state;
       return {

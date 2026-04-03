@@ -10,6 +10,7 @@ import TrainingsBase from './TrainingsBase';
 import PlanWorkoutInTraining from './plan/PlanTraining';
 import PlanningOverview from './plan/PlanningOverview';
 import ExecuteWorkoutInTraining from './execute/ExecuteTraining';
+import EditTraining from './execute/EditTraining';
 import TrainingsOverview from './analyse/TrainingsOverview';
 import TrainingHistory from './analyse/TrainingHistory';
 import React, {useEffect, useState} from 'react';
@@ -226,8 +227,11 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                 <PlanWorkoutInTraining training={training} trainingsPlanId={trainingsPlan.id!!} trainingInMicro={trainingInMicro} micro={micro} chosenExercise={chosenExercise!!} />
               )}
               {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro} />}
-              {(training?.state === TrainingsState.STARTED || (training?.state === TrainingsState.FINISHED && isEditing)) && chosenExercise && (
+              {training?.state === TrainingsState.STARTED && chosenExercise && (
                 <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise!!} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} />
+              )}
+              {training?.state === TrainingsState.FINISHED && isEditing && chosenExercise && (
+                <EditTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} />
               )}
               {training?.state === TrainingsState.FINISHED && overview && <TrainingsOverview training={training} previousTraining={lastTraining} />}
               {training?.state === TrainingsState.FINISHED && !overview && <TrainingHistory training={training} />}
