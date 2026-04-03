@@ -208,6 +208,11 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void analyzeSquatVideo(String localVideoPath, int analysisId, ReadableMap manualSeed, Promise promise) {
+        // Copy manual seed data before leaving the NativeModules thread,
+        // because ReadableMap is not safe to access from a background thread.
+        final SeedSelection manualSelection = parseManualSeed(manualSeed);
+
+        new Thread(() -> {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         AnalysisPerformanceMetrics performanceMetrics = new AnalysisPerformanceMetrics();
         long analysisStartedAtMs = SystemClock.elapsedRealtime();
@@ -237,7 +242,6 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             long initialDetectionStartedAtMs = SystemClock.elapsedRealtime();
             List<DetectionCandidate> initialCandidates = detectCandidates(firstFrame, detectionContext, performanceMetrics);
             performanceMetrics.initialDetectionMs = SystemClock.elapsedRealtime() - initialDetectionStartedAtMs;
-            SeedSelection manualSelection = parseManualSeed(manualSeed);
             SeedSelection activeSeed = resolveSeedSelection(initialCandidates, manualSelection);
 
             if (activeSeed == null) {
@@ -355,6 +359,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 // No-op.
             }
         }
+        }, "VideoAnalysis-" + analysisId).start();
     }
 
     private File ensureVideoAnalysisRootDir() {
