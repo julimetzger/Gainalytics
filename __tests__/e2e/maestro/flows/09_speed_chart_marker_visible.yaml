@@ -62,7 +62,7 @@ appId: com.powerliftingworkoutplanner
 # Verify controls are in view
 - assertVisible: "Bar v_y Over Time"
 - assertVisible:
-    text: "Playback: 00:00 / [0-9]{2}:[0-9]{2}"
+    id: "video-analysis-playback-scrubber"
 - assertVisible: "Play"
 # ── Screenshot A: t=0:00 — marker is in Y-axis area (left of data start), NOT at data start ──
 # With new formula: x = 48 + (0 - minTimeMs)/durationMs * drawableWidth < 48 (left of data)
