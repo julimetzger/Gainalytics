@@ -1,0 +1,99 @@
+id: MNT-001
+status: ready
+area: maintenance
+priority: medium
+title: Maestro-Flow Analyse — Startzeit messen & Import-Baseline prüfen
+source:
+  - TODOS.md
+description: >
+  Systematische Analyse der bestehenden Maestro-Flows auf Zuverlässigkeit
+  und Performance. Zwei Schwerpunkte:
+
+  1. Startzeit messen:
+     - Zeit vom Agent-Start bis zum erfolgreichen Starten eines Maestro-Flows messen.
+     - Alle Failures dokumentieren (Timeout, Emulator nicht bereit, App-Crash, etc.).
+     - Ergebnis: Tabelle mit Flow-Name, Startdauer, Ergebnis (pass/fail), Fehlergrund.
+
+  2. Import-Baseline-Flow prüfen:
+     - Vermutung: Der Import-Baseline-Flow (`base.gains`) funktioniert nicht mehr
+       zuverlässig, wenn andere Downloads im Download-Ordner existieren.
+     - Der Flow findet `base.gains` nicht mehr, weil die Datei in der Liste
+       zu weit unten rutscht.
+     - Reproduzieren: Mehrere Dummy-Dateien in den Download-Ordner legen,
+       dann Import-Flow ausführen.
+     - Fix-Vorschlag erarbeiten (z.B. Scrolling, Suche, oder Ordner bereinigen
+       vor dem Flow).
+
+acceptanceCriteria:
+  - >
+    Dokumentation aller Maestro-Flows mit gemessener Startzeit und
+    Erfolgs-/Fehlerquote liegt vor.
+  - >
+    Alle beobachteten Failure-Typen sind mit Häufigkeit und Fehlergrund dokumentiert.
+  - >
+    Import-Baseline-Flow wurde mit zusätzlichen Downloads im Ordner getestet
+    und das Verhalten dokumentiert.
+  - >
+    Falls der Import-Flow fehlschlägt: Fix-Vorschlag oder implementierter Fix vorhanden.
+
+analysisResults: >
+  Erste Analyse (2026-04-01) ergab: 6/21 Flows passed, 15 failed.
+  Dokumentation liegt in docs/maestro-flow-analysis.md (Worktree feature/MNT-001).
+
+  Identifizierte Fehlertypen:
+    A) File Picker Scroll (2 Flows) — baseline.gains nicht sichtbar bei ≥42 Dateien.
+       BESTÄTIGT und REPRODUZIERT. Fix verifiziert aber NICHT committed.
+    B) State-Abhängigkeit (9 Flows) — Video-Analyse-Flows brauchen vorher importierten State.
+    C) Video Processing Timeout (3 Flows) — 180s zu knapp für langsame Emulatoren.
+    D) Fragile Koordinaten-Navigation (1 Flow) — tapOn point statt tapOn id.
+    E) clearState + Tab Discovery (1 Flow) — Analyse-Tab nach State-Clear nicht sichtbar.
+
+  Maestro JVM Startup-Overhead: 24-35s pro Flow.
+
+implementedFixes:
+  - fix: >
+      scrollUntilVisible vor tapOn "baseline.gains" in 00_import_baseline.yaml
+      und 08_training_length.yaml. Verifiziert mit 51 Dateien im Download-Ordner.
+    files:
+      - __tests__/e2e/maestro/flows/00_import_baseline.yaml
+      - __tests__/e2e/maestro/flows/08_training_length.yaml
+    pattern: |
+      # VORHER (fragil):
+      - tapOn: "baseline.gains"
+
+      # NACHHER (robust):
+      - scrollUntilVisible:
+          element:
+            text: "baseline.gains"
+          direction: DOWN
+          timeout: 30000
+      - tapOn: "baseline.gains"
+    status: verifiziert, noch nicht committed
+
+  - fix: >
+      Koordinaten-Navigation in 10_trn002_linear_progression.yaml durch
+      id-basierte Taps ersetzen (tapOn point "87%,97%" → tapOn "tab-settings").
+    files:
+      - __tests__/e2e/maestro/flows/10_trn002_linear_progression.yaml
+    status: Vorschlag, noch nicht implementiert
+
+  - fix: >
+      Video-Analyse-Flows Timeout von 180s auf 300s erhöhen für langsame Emulatoren.
+    files:
+      - __tests__/e2e/maestro/flows/07_video_analysis_static_overlay_capture.yaml
+      - __tests__/e2e/maestro/flows/08_video_analysis_step_buttons.yaml
+      - __tests__/e2e/maestro/flows/ana003_speed_chart_marker.yaml
+    status: Vorschlag, noch nicht implementiert
+
+relatedMemory:
+  - "agent-memory.md #17: DocumentsUI .gains MIME-Type Problem"
+  - "agent-memory.md #18: extendedWaitUntil für Bundle-Load nach Cold Launch"
+  - "agent-memory.md #19: 5s Pause zwischen Maestro-Sessions"
+
+constraints:
+  - Ergebnisse in docs/ oder als Markdown-Tabelle ablegen.
+  - Fixes in die bestehenden Maestro-Flows einbauen und mit Tests belegen.
+
+nonGoals:
+  - Neue Maestro-Flows schreiben.
+  - Performance-Optimierung der App selbst.
