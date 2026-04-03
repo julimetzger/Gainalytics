@@ -36,6 +36,7 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'edit-training-open-times-modal'
     timeout: 30000
+# --- Cancel path: verify modal opens and has expected fields ---
 - tapOn:
     id: 'edit-training-open-times-modal'
 - extendedWaitUntil:
@@ -44,6 +45,33 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: 'Start'
 - assertVisible: 'End'
 - tapOn: 'Cancel'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-training-open-times-modal'
+    timeout: 8000
+# --- Save path: change times and confirm save works ---
+- tapOn:
+    id: 'edit-training-open-times-modal'
+- extendedWaitUntil:
+    visible: 'Edit Training Times'
+    timeout: 8000
+- tapOn:
+    id: 'edit-training-times-start'
+- eraseText
+- inputText: '01/01/2025 08:00'
+- tapOn:
+    id: 'edit-training-times-end'
+- eraseText
+- inputText: '01/01/2025 10:00'
+- assertVisible:
+    id: 'edit-training-times-duration'
+- tapOn:
+    id: 'edit-training-times-save'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-training-open-times-modal'
+    timeout: 8000
+# --- TrainingLengthTab: longpress opens overlay ---
 - extendedWaitUntil:
     visible: 'tab-analyse'
     timeout: 30000

@@ -82,6 +82,23 @@ describe('EditTraining', () => {
     expect(mockEditTrainingTimes).toHaveBeenCalledWith(1, new Date(2026, 3, 3, 10, 0).getTime(), new Date(2026, 3, 3, 12, 30).getTime());
   });
 
+  it('enables save when training has no start time (missing times use-case)', () => {
+    const trainingWithoutTimes = {
+      ...training,
+      start: undefined,
+      end: undefined,
+    };
+
+    render(
+      <PaperProvider>
+        <EditTraining training={trainingWithoutTimes as any} chosenExercise={chosenExercise as any} onSubmit={jest.fn()} />
+      </PaperProvider>,
+    );
+
+    fireEvent.press(screen.getByTestId('edit-training-open-times-modal'));
+    expect(isDisabled('edit-training-times-save')).toBe(false);
+  });
+
   it('blocks saving when end is before start', () => {
     render(
       <PaperProvider>

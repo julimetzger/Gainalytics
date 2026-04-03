@@ -40,10 +40,13 @@ const EditTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: EditTra
     setDraftEnd(nextDraftTimes.end);
   }, [training.end, training.start]);
 
-  const hasChanges = useMemo(
-    () => new Date(training.start ?? draftStart).getTime() !== draftStart.getTime() || new Date(training.end ?? draftEnd).getTime() !== draftEnd.getTime(),
-    [draftEnd, draftStart, training.end, training.start],
-  );
+  const hasChanges = useMemo(() => {
+    if (training.start == null || training.end == null) {
+      return true;
+    }
+
+    return new Date(training.start).getTime() !== draftStart.getTime() || new Date(training.end).getTime() !== draftEnd.getTime();
+  }, [draftEnd, draftStart, training.end, training.start]);
   const currentTimeLabel = useMemo(() => `${getDateTimeStringFromDate(draftStart)} - ${getDateTimeStringFromDate(draftEnd)}`, [draftEnd, draftStart]);
 
   const resetDraftTimes = useCallback(() => {

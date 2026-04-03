@@ -161,7 +161,7 @@ const TrainingLengthEditDialog = ({accumulationMode, bucket, onDismiss, training
         </Dialog.Content>
         <Dialog.Actions>
           <Button onPress={onDismiss}>Cancel</Button>
-          <Button onPress={handleSave} disabled={!hasChanges || hasValidationError}>
+          <Button onPress={handleSave} disabled={!hasChanges || hasValidationError} testID="training-length-edit-save">
             Save
           </Button>
         </Dialog.Actions>
