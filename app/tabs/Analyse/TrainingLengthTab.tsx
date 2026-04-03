@@ -42,6 +42,7 @@ const TrainingLengthTab = () => {
   const [selectedBucketKey, setSelectedBucketKey] = useState<string | null>(null);
   const [bucketForEdit, setBucketForEdit] = useState<ReturnType<typeof findBucketByX>>(null);
   const selectedBucketRef = useRef<ReturnType<typeof findBucketByX>>(null);
+  const lastSelectedBucketRef = useRef<ReturnType<typeof findBucketByX>>(null);
   const trainingsPlans = useAllTrainingsPlans();
   const trainings = useCompletedTrainingsIn(range);
   const trainingNameById = useMemo(
@@ -104,6 +105,7 @@ const TrainingLengthTab = () => {
     setSelectedBucketKey(null);
     setBucketForEdit(null);
     selectedBucketRef.current = null;
+    lastSelectedBucketRef.current = null;
   }, [accumulationMode, range]);
 
   const handleAccumulationModeChange = useCallback((value: string) => {
@@ -128,6 +130,9 @@ const TrainingLengthTab = () => {
       // returns float-precision numbers, so a tolerance like 0.0001 is unreliable.
       const selectedBucketForX = findBucketByX(buckets, selectedX);
       selectedBucketRef.current = selectedBucketForX;
+      if (selectedBucketForX) {
+        lastSelectedBucketRef.current = selectedBucketForX;
+      }
       const nextKey = selectedBucketForX?.key ?? null;
       setSelectedBucketKey((prev) => (prev === nextKey ? null : nextKey));
     },
@@ -135,12 +140,17 @@ const TrainingLengthTab = () => {
   );
 
   const handleChartChange = useCallback((event: ChartChangeEvent) => {
-    if (event.nativeEvent?.action !== 'chartLongPress' || !selectedBucketRef.current) {
+    if (event.nativeEvent?.action !== 'chartLongPress') {
       return;
     }
 
-    setBucketForEdit(selectedBucketRef.current);
-    setSelectedBucketKey(selectedBucketRef.current.key);
+    const bucketToEdit = selectedBucketRef.current ?? lastSelectedBucketRef.current;
+    if (!bucketToEdit) {
+      return;
+    }
+
+    setBucketForEdit(bucketToEdit);
+    setSelectedBucketKey(bucketToEdit.key);
   }, []);
 
   return (

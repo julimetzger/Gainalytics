@@ -3,7 +3,7 @@ import {ScrollView, StyleSheet} from 'react-native';
 import {Button, Card, Dialog, Portal, Text, useTheme} from 'react-native-paper';
 import {TrainingLengthBucket, formatTrainingLength, getTrainingLengthBucketLabel} from '../../utils/training-length-analysis';
 import {dispatchEditTrainingTimes} from '../../redux/Training/dispatch/general/dispatchEditTrainingTimes';
-import {getTrainingDurationMinutes, getTrainingTimeValidationError} from '../../utils/training-times';
+import {getTrainingDurationMinutes} from '../../utils/training-times';
 import {AccumulationMode} from '../../models/AccumulationMode';
 import TrainingTimesFields from '../Training/execute/TrainingTimesFields';
 
@@ -47,15 +47,14 @@ const TrainingLengthEditDialog = ({accumulationMode, bucket, onDismiss, training
   const theme = useTheme();
   const editTrainingTimes = dispatchEditTrainingTimes();
   const [draftTrainings, setDraftTrainings] = useState<DraftTrainingTimes[]>(() => createDraftTrainings(bucket, trainingNameById));
+  const [validationErrors, setValidationErrors] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     setDraftTrainings(createDraftTrainings(bucket, trainingNameById));
+    setValidationErrors({});
   }, [bucket, trainingNameById]);
 
-  const hasValidationError = useMemo(
-    () => draftTrainings.some((training) => getTrainingTimeValidationError(training.start, training.end)),
-    [draftTrainings],
-  );
+  const hasValidationError = useMemo(() => draftTrainings.some((training) => !!validationErrors[training.key]), [draftTrainings, validationErrors]);
 
   const hasChanges = useMemo(
     () =>
@@ -66,6 +65,10 @@ const TrainingLengthEditDialog = ({accumulationMode, bucket, onDismiss, training
   );
 
   const averageDurationLabel = useMemo(() => {
+    if (draftTrainings.some((training) => !!validationErrors[training.key])) {
+      return 'Invalid time range';
+    }
+
     const durations = draftTrainings
       .map((training) => getTrainingDurationMinutes(training.start, training.end))
       .filter((durationMinutes): durationMinutes is number => durationMinutes !== null);
@@ -76,7 +79,7 @@ const TrainingLengthEditDialog = ({accumulationMode, bucket, onDismiss, training
 
     const averageDuration = durations.reduce((sum, durationMinutes) => sum + durationMinutes, 0) / durations.length;
     return formatTrainingLength(averageDuration);
-  }, [draftTrainings]);
+  }, [draftTrainings, validationErrors]);
 
   const updateTrainingField = useCallback((key: string, field: 'start' | 'end', value: Date) => {
     setDraftTrainings((currentTrainings) =>
@@ -112,6 +115,19 @@ const TrainingLengthEditDialog = ({accumulationMode, bucket, onDismiss, training
     onDismiss();
   }, [bucket, draftTrainings, editTrainingTimes, hasValidationError, onDismiss]);
 
+  const handleValidationChange = useCallback((key: string, error: string | null) => {
+    setValidationErrors((currentValidationErrors) => {
+      if (currentValidationErrors[key] === error) {
+        return currentValidationErrors;
+      }
+
+      return {
+        ...currentValidationErrors,
+        [key]: error,
+      };
+    });
+  }, []);
+
   return (
     <Portal>
       <Dialog visible={bucket !== null} onDismiss={onDismiss} style={styles.dialog} testID="training-length-edit-dialog">
@@ -136,6 +152,7 @@ const TrainingLengthEditDialog = ({accumulationMode, bucket, onDismiss, training
                     onStartChange={(value) => updateTrainingField(training.key, 'start', value)}
                     onEndChange={(value) => updateTrainingField(training.key, 'end', value)}
                     testIDPrefix={`training-length-edit-${training.trainingId ?? training.key}`}
+                    onValidationChange={(error) => handleValidationChange(training.key, error)}
                   />
                 </Card.Content>
               </Card>

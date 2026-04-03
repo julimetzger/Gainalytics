@@ -1,4 +1,4 @@
-import React, {memo, useMemo} from 'react';
+import React, {memo, useEffect, useMemo, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
 import DatePicker from '../../picker/date/DatePicker';
@@ -12,21 +12,42 @@ interface TrainingTimesFieldsProps {
   onStartChange: (date: Date) => void;
   onEndChange: (date: Date) => void;
   testIDPrefix?: string;
+  onValidationChange?: (error: string | null) => void;
 }
 
-const TrainingTimesFields = ({title, start, end, onStartChange, onEndChange, testIDPrefix}: TrainingTimesFieldsProps) => {
+const TrainingTimesFields = ({title, start, end, onStartChange, onEndChange, testIDPrefix, onValidationChange}: TrainingTimesFieldsProps) => {
   const theme = useTheme();
-  const validationError = useMemo(() => getTrainingTimeValidationError(start, end), [end, start]);
-  const durationMinutes = useMemo(() => getTrainingDurationMinutes(start, end), [end, start]);
+  const [startInputError, setStartInputError] = useState<string | null>(null);
+  const [endInputError, setEndInputError] = useState<string | null>(null);
+  const validationError = useMemo(() => startInputError ?? endInputError ?? getTrainingTimeValidationError(start, end), [end, endInputError, start, startInputError]);
+  const durationMinutes = useMemo(() => (startInputError || endInputError ? null : getTrainingDurationMinutes(start, end)), [end, endInputError, start, startInputError]);
+
+  useEffect(() => {
+    onValidationChange?.(validationError);
+  }, [onValidationChange, validationError]);
 
   return (
     <View>
       {title && <Text variant="titleMedium">{title}</Text>}
       <View style={styles.field}>
-        <DatePicker date={start} setDate={onStartChange} mode="datetime" label="Start" testID={testIDPrefix ? `${testIDPrefix}-start` : undefined} />
+        <DatePicker
+          date={start}
+          setDate={onStartChange}
+          mode="datetime"
+          label="Start"
+          testID={testIDPrefix ? `${testIDPrefix}-start` : undefined}
+          onErrorChange={setStartInputError}
+        />
       </View>
       <View style={styles.field}>
-        <DatePicker date={end} setDate={onEndChange} mode="datetime" label="End" testID={testIDPrefix ? `${testIDPrefix}-end` : undefined} />
+        <DatePicker
+          date={end}
+          setDate={onEndChange}
+          mode="datetime"
+          label="End"
+          testID={testIDPrefix ? `${testIDPrefix}-end` : undefined}
+          onErrorChange={setEndInputError}
+        />
       </View>
       <Text style={styles.duration} testID={testIDPrefix ? `${testIDPrefix}-duration` : undefined}>
         Duration: {durationMinutes === null ? 'Invalid time range' : formatTrainingLength(durationMinutes)}

@@ -7,6 +7,8 @@ import {TrainingsState} from '../../../../app/models/TrainingsState';
 const mockEditTrainingTimes = jest.fn();
 const mockDatePickerValues: Record<string, string> = {};
 
+global.setImmediate = ((callback: (...args: any[]) => void, ...args: any[]) => setTimeout(callback, 0, ...args)) as any;
+
 jest.mock('../../../../app/redux/Training/dispatch/general/dispatchEditTrainingTimes', () => ({
   dispatchEditTrainingTimes: () => mockEditTrainingTimes,
 }));
@@ -68,6 +70,9 @@ describe('EditTraining', () => {
       </PaperProvider>,
     );
 
+    expect(screen.queryByTestId('edit-training-times-end')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('edit-training-open-times-modal'));
     expect(isDisabled('edit-training-times-save')).toBe(true);
 
     fireEvent.press(screen.getByTestId('edit-training-times-end'));
@@ -89,6 +94,7 @@ describe('EditTraining', () => {
       </PaperProvider>,
     );
 
+    fireEvent.press(screen.getByTestId('edit-training-open-times-modal'));
     fireEvent.press(screen.getByTestId('edit-training-times-end'));
 
     expect(screen.getByText('End time cannot be before start time.')).toBeTruthy();

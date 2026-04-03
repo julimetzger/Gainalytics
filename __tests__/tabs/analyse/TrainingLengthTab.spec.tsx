@@ -54,7 +54,7 @@ jest.mock('react-native-charts-wrapper', () => {
       onChange,
     }: {
       data: {dataSets?: Array<{values?: Array<{x: number}>}>};
-      onSelect?: (event: {nativeEvent: {x: number}}) => void;
+      onSelect?: (event: {nativeEvent: {x?: number}}) => void;
       onChange?: (event: {nativeEvent: {action: string}}) => void;
     }) => {
       const values = data.dataSets?.[0]?.values ?? [];
@@ -71,6 +71,9 @@ jest.mock('react-native-charts-wrapper', () => {
           </TouchableOpacity>
           <TouchableOpacity testID="mock-bar-chart-select-second" onPress={() => onSelect?.({nativeEvent: {x: values[1]?.x ?? 0}})}>
             <Text>Select second bar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity testID="mock-bar-chart-clear-selection" onPress={() => onSelect?.({nativeEvent: {}})}>
+            <Text>Clear selected bar</Text>
           </TouchableOpacity>
           <TouchableOpacity testID="mock-bar-chart-long-press" onPress={() => onChange?.({nativeEvent: {action: 'chartLongPress'}})}>
             <Text>Long press selected bar</Text>
@@ -319,6 +322,26 @@ describe('TrainingLengthTab', () => {
     const {getByTestId} = render(<TrainingLengthTab />);
 
     fireEvent.press(getByTestId('mock-bar-chart-select'));
+    fireEvent.press(getByTestId('mock-bar-chart-long-press'));
+
+    expect(getByTestId('training-length-edit-dialog-marker')).toBeTruthy();
+  });
+
+  it('keeps the long-press target available when the chart clears selection before firing the gesture event', () => {
+    mockedUseAllTrainingsPlans.mockReturnValue([]);
+    mockedUseCompletedTrainingsIn.mockReturnValue([
+      createTraining({
+        id: 1,
+        state: TrainingsState.FINISHED,
+        start: new Date('2026-03-12T09:00:00.000Z'),
+        end: new Date('2026-03-12T10:30:00.000Z'),
+      }),
+    ]);
+
+    const {getByTestId} = render(<TrainingLengthTab />);
+
+    fireEvent.press(getByTestId('mock-bar-chart-select'));
+    fireEvent.press(getByTestId('mock-bar-chart-clear-selection'));
     fireEvent.press(getByTestId('mock-bar-chart-long-press'));
 
     expect(getByTestId('training-length-edit-dialog-marker')).toBeTruthy();

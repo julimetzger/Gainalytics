@@ -1,11 +1,12 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Button, Card} from 'react-native-paper';
+import {Button, Card, Dialog, Portal, Text} from 'react-native-paper';
 import {Training} from '../../../models/entities/Training';
 import {Exercise} from '../../../models/entities/Exercise';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
+import {TrainingsState} from '../../../models/TrainingsState';
+import {getDateTimeStringFromDate} from '../../../utils/DateHelper';
 import {dispatchEditTrainingTimes} from '../../../redux/Training/dispatch/general/dispatchEditTrainingTimes';
-import {getTrainingTimeValidationError} from '../../../utils/training-times';
 import ExecuteTraining from './ExecuteTraining';
 import TrainingTimesFields from './TrainingTimesFields';
 
@@ -30,6 +31,8 @@ const EditTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: EditTra
   const editTrainingTimes = dispatchEditTrainingTimes();
   const [draftStart, setDraftStart] = useState(() => toDraftTimes(training).start);
   const [draftEnd, setDraftEnd] = useState(() => toDraftTimes(training).end);
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const [trainingTimesError, setTrainingTimesError] = useState<string | null>(null);
 
   useEffect(() => {
     const nextDraftTimes = toDraftTimes(training);
@@ -37,44 +40,73 @@ const EditTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: EditTra
     setDraftEnd(nextDraftTimes.end);
   }, [training.end, training.start]);
 
-  const validationError = useMemo(() => getTrainingTimeValidationError(draftStart, draftEnd), [draftEnd, draftStart]);
   const hasChanges = useMemo(
     () => new Date(training.start ?? draftStart).getTime() !== draftStart.getTime() || new Date(training.end ?? draftEnd).getTime() !== draftEnd.getTime(),
     [draftEnd, draftStart, training.end, training.start],
   );
+  const currentTimeLabel = useMemo(() => `${getDateTimeStringFromDate(draftStart)} - ${getDateTimeStringFromDate(draftEnd)}`, [draftEnd, draftStart]);
+
+  const resetDraftTimes = useCallback(() => {
+    const nextDraftTimes = toDraftTimes(training);
+    setDraftStart(nextDraftTimes.start);
+    setDraftEnd(nextDraftTimes.end);
+    setTrainingTimesError(null);
+  }, [training.end, training.start]);
+
+  const handleOpenTrainingTimesDialog = useCallback(() => {
+    resetDraftTimes();
+    setDialogVisible(true);
+  }, [resetDraftTimes]);
+
+  const handleDismissTrainingTimesDialog = useCallback(() => {
+    resetDraftTimes();
+    setDialogVisible(false);
+  }, [resetDraftTimes]);
 
   const handleSaveTrainingTimes = useCallback(() => {
-    if (!training.id || validationError) {
+    if (!training.id || trainingTimesError) {
       return;
     }
 
     editTrainingTimes(training.id, draftStart.getTime(), draftEnd.getTime());
-  }, [draftEnd, draftStart, editTrainingTimes, training.id, validationError]);
+    setDialogVisible(false);
+  }, [draftEnd, draftStart, editTrainingTimes, training.id, trainingTimesError]);
 
   return (
     <View>
-      <Card style={styles.card}>
-        <Card.Content>
-          <TrainingTimesFields
-            title="Training Times"
-            start={draftStart}
-            end={draftEnd}
-            onStartChange={setDraftStart}
-            onEndChange={setDraftEnd}
-            testIDPrefix="edit-training-times"
-          />
-          <Button
-            mode="contained"
-            style={styles.saveButton}
-            onPress={handleSaveTrainingTimes}
-            disabled={!training.id || !hasChanges || !!validationError}
-            testID="edit-training-times-save"
-          >
-            Save Training Times
-          </Button>
-        </Card.Content>
-      </Card>
+      {training.state === TrainingsState.FINISHED && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium">Training Times</Text>
+            <Button mode="outlined" style={styles.openButton} onPress={handleOpenTrainingTimesDialog} testID="edit-training-open-times-modal">
+              {currentTimeLabel}
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
       <ExecuteTraining training={training} chosenExercise={chosenExercise} onSubmit={onSubmit} onSubmitSet={onSubmitSet} />
+      <Portal>
+        <Dialog visible={dialogVisible} onDismiss={handleDismissTrainingTimesDialog} testID="edit-training-times-dialog">
+          <Dialog.Title>Edit Training Times</Dialog.Title>
+          <Dialog.Content>
+            <TrainingTimesFields
+              title="Completed Training"
+              start={draftStart}
+              end={draftEnd}
+              onStartChange={setDraftStart}
+              onEndChange={setDraftEnd}
+              testIDPrefix="edit-training-times"
+              onValidationChange={setTrainingTimesError}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={handleDismissTrainingTimesDialog}>Cancel</Button>
+            <Button onPress={handleSaveTrainingTimes} disabled={!training.id || !hasChanges || !!trainingTimesError} testID="edit-training-times-save">
+              Save
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 };
@@ -84,8 +116,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 12,
   },
-  saveButton: {
-    marginTop: 16,
+  openButton: {
+    marginTop: 12,
   },
 });
 
