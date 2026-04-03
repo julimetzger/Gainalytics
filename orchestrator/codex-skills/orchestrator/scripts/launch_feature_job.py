@@ -147,6 +147,71 @@ def load_ticket(path: Path) -> dict:
     return yaml.safe_load(raw_text)
 
 
+# ---------------------------------------------------------------------------
+# GitHub Issue → ticket dict
+# ---------------------------------------------------------------------------
+
+def _split_markdown_sections(body: str) -> dict[str, str]:
+    """Split a Markdown body on ## headers into {lowercase_header: content}."""
+    import re
+    sections: dict[str, str] = {}
+    current_key = "description"
+    current_lines: list[str] = []
+    for line in body.splitlines():
+        m = re.match(r"^##\s+(.+)", line)
+        if m:
+            sections[current_key] = "\n".join(current_lines).strip()
+            current_key = m.group(1).strip().lower()
+            current_lines = []
+        else:
+            current_lines.append(line)
+    sections[current_key] = "\n".join(current_lines).strip()
+    return sections
+
+
+def _extract_list(sections: dict[str, str], keys: list[str]) -> list[str]:
+    """Extract a bullet list from the first matching section key."""
+    import re
+    for key in keys:
+        if key in sections:
+            items = re.findall(r"^[-*]\s+(.+)", sections[key], re.MULTILINE)
+            return [item.strip() for item in items if item.strip()]
+    return []
+
+
+def fetch_github_issue(issue_number: int, repo: str = "julimetzger/Gainalytics") -> dict:
+    """Fetch a GitHub issue and normalize it into the ticket dict format."""
+    result = subprocess.run(
+        ["gh", "issue", "view", str(issue_number), "--repo", repo,
+         "--json", "number,title,body,labels"],
+        check=True, capture_output=True, text=True,
+    )
+    raw = json.loads(result.stdout)
+    return parse_github_issue_body(raw)
+
+
+def parse_github_issue_body(raw: dict) -> dict:
+    number = raw["number"]
+    title = raw["title"]
+    body = raw.get("body", "") or ""
+
+    sections = _split_markdown_sections(body)
+
+    return {
+        "id": f"GH-{number}",
+        "title": title,
+        "description": sections.get("description", body),
+        "acceptanceCriteria": _extract_list(sections,
+            ["acceptance criteria", "acceptance", "ac"]),
+        "constraints": _extract_list(sections,
+            ["constraints", "technical constraints"]),
+        "components": _extract_list(sections,
+            ["components", "affected components", "files"]),
+        "screens": _extract_list(sections, ["screens", "app screens"]),
+        "github_issue_number": number,
+    }
+
+
 def load_skill_content(skill_name: str) -> str | None:
     """Return the content of a SKILL.md for the given skill, frontmatter stripped, or None if not found."""
     repo_root = detect_repo_root()
@@ -261,8 +326,10 @@ Do not report ready_for_review unless the run directory contains a complete revi
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Launch one external feature worker.")
-    parser.add_argument("--ticket-file", required=True)
-    parser.add_argument("--ticket-id", required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--ticket-file", help="Path to local YAML/JSON ticket")
+    source.add_argument("--github-issue", type=int, help="GitHub issue number to fetch as ticket")
+    parser.add_argument("--ticket-id", default=None, help="Override ticket ID (auto-derived if omitted)")
     parser.add_argument("--worktree", required=True)
     parser.add_argument("--branch", required=True)
     parser.add_argument("--emulator-serial", required=True)
@@ -277,11 +344,17 @@ def main() -> None:
 
     state_path = Path(args.state_file).resolve() if args.state_file else state_file_path()
     state = load_state(state_path)
-    ticket = load_ticket(Path(args.ticket_file))
-    prior_run = state.get("runs", {}).get(args.ticket_id, {})
 
-    ensure_runtime_dirs(ticket_id=args.ticket_id)
-    run_dir = state_path.parent / "runs" / args.ticket_id
+    if args.ticket_file:
+        ticket = load_ticket(Path(args.ticket_file))
+    else:
+        ticket = fetch_github_issue(args.github_issue)
+
+    ticket_id = args.ticket_id or ticket.get("id") or f"GH-{args.github_issue}"
+    prior_run = state.get("runs", {}).get(ticket_id, {})
+
+    ensure_runtime_dirs(ticket_id=ticket_id)
+    run_dir = state_path.parent / "runs" / ticket_id
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "checks").mkdir(parents=True, exist_ok=True)
     (run_dir / "screenshots").mkdir(parents=True, exist_ok=True)
@@ -294,7 +367,7 @@ def main() -> None:
     configure_maestro_env(env, run_dir)
     prior_driver_port = prior_run.get("maestro_driver_port")
     cleanup_stale_maestro(args.emulator_serial, prior_driver_port)
-    maestro_driver_port = reserve_maestro_driver_port(state, args.ticket_id, prior_run)
+    maestro_driver_port = reserve_maestro_driver_port(state, ticket_id, prior_run)
     env["E2E_MAESTRO_DRIVER_PORT"] = str(maestro_driver_port)
     metro = start_or_reuse_metro(
         worktree_path=worktree_path,
@@ -365,7 +438,7 @@ def main() -> None:
 
     update_run(
         state,
-        args.ticket_id,
+        ticket_id,
         {
             "status": "running",
             "runner": args.runner,
@@ -386,6 +459,7 @@ def main() -> None:
             "metro_log": str(metro["log_path"]) if metro.get("log_path") else None,
             "metro_config": str(metro["config_path"]),
             "maestro_driver_port": maestro_driver_port,
+            "github_issue_number": ticket.get("github_issue_number"),
             "ticket": ticket,
         },
     )
@@ -394,7 +468,7 @@ def main() -> None:
     print(
         json.dumps(
             {
-                "ticket_id": args.ticket_id,
+                "ticket_id": ticket_id,
                 "runner": args.runner,
                 "worker_pid": process.pid,
                 "job_id": process.pid,
