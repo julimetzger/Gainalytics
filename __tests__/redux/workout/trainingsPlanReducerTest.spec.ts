@@ -1,3 +1,7 @@
+import {
+  getAllTrainingsForMicro,
+  getPreviousTrainingsForTrainingInMeso,
+} from '../../../app/redux/Training/trainingsPlanReducer';
 import trainingsPlanReducer from '../../../app/redux/Training/trainingsPlanReducer';
 import {TrainingsPlan} from '../../../app/models/entities/TrainingsPlan';
 
@@ -34,6 +38,40 @@ function ONE_TRAININGS_PLAN_WITH_TRAINING() {
 }
 
 describe('trainingsPlanReducer', () => {
+  describe('helper functions', () => {
+    it('should only return trainings for the exact global micro', () => {
+      expect(
+        getAllTrainingsForMicro(
+          {
+            '1,1': 10,
+            '1,2': 11,
+            '10,1': 20,
+          },
+          1,
+        ),
+      ).toEqual([10, 11]);
+    });
+
+    it('should only return previous trainings from the same meso', () => {
+      expect(
+        getPreviousTrainingsForTrainingInMeso(
+          {
+            '1,1': 10,
+            '2,1': 11,
+            '3,1': 12,
+            '4,1': 13,
+          },
+          1,
+          4,
+          [
+            {id: 1, name: 'Meso 1', order: 1, startMicro: 1},
+            {id: 2, name: 'Meso 2', order: 2, startMicro: 3},
+          ],
+        ),
+      ).toEqual([12]);
+    });
+  });
+
   describe('ADD_TRAININGS_PLAN', () => {
     it('it should add first trainings plan', () => {
       expect(
@@ -289,7 +327,7 @@ describe('trainingsPlanReducer', () => {
         trainingsPlanId: 1,
         meso,
       });
-      expect(result.byId[1].mesos).toEqual([meso]);
+      expect(result.byId[1].mesos).toEqual([DEFAULT_MESO, meso]);
     });
 
     it('should append a meso when one already exists', () => {
@@ -326,7 +364,7 @@ describe('trainingsPlanReducer', () => {
   });
 
   describe('DELETE_MESO', () => {
-    it('should delete a meso by id', () => {
+    it('should move a deleted first meso into the next meso', () => {
       const meso1 = {id: 1, name: 'Meso 1', order: 1, startMicro: 1};
       const meso2 = {id: 2, name: 'Meso 2', order: 2, startMicro: 5};
       const stateWithMesos = {
@@ -338,7 +376,16 @@ describe('trainingsPlanReducer', () => {
         trainingsPlanId: 1,
         mesoId: 1,
       });
-      expect(result.byId[1].mesos).toEqual([meso2]);
+      expect(result.byId[1].mesos).toEqual([{...meso2, startMicro: 1}]);
+    });
+
+    it('should keep the final meso instead of deleting all meso ownership', () => {
+      const result = trainingsPlanReducer(ONE_TRAININGS_PLAN(), {
+        type: 'DELETE_MESO',
+        trainingsPlanId: 1,
+        mesoId: 1,
+      });
+      expect(result).toEqual(ONE_TRAININGS_PLAN());
     });
   });
 });

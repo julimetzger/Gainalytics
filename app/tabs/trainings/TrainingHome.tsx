@@ -9,7 +9,7 @@ import {TrainingsState} from '../../models/TrainingsState';
 import {useTrainings} from '../../redux/Training/use/useTrainings';
 import {Exercise} from '../../models/entities/Exercise';
 import {Meso, TrainingsPlan} from '../../models/entities/TrainingsPlan';
-import {getMicroFromTrainingInMicroIndex, getTrainingFromTrainingInMicroIndex, getMesoForMicro} from '../../redux/Training/trainingsPlanReducer';
+import {getMicroFromTrainingInMicroIndex, getTrainingFromTrainingInMicroIndex, getMesoForMicro, getSortedMesos} from '../../redux/Training/trainingsPlanReducer';
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {TextInput as RNTextInput} from 'react-native';
 import TrainingOverviewCard from '../../components/Training/analyse/TrainingOverviewCard';
@@ -86,7 +86,7 @@ const TrainingHome = ({navigation, route}: Props) => {
           .map((trainingsPlan: TrainingsPlan) => {
             const lastDone = lastDonee(trainingsPlan);
             const currentMeso = lastDone ? getMesoForMicro(trainingsPlan.mesos, lastDone.micro) : undefined;
-            const sortedMesos = [...(trainingsPlan.mesos ?? [])].sort((a, b) => a.order - b.order);
+            const sortedMesos = getSortedMesos(trainingsPlan.mesos);
             return (
               <Card style={{margin: 5}} key={trainingsPlan.id}>
                 <Pressable

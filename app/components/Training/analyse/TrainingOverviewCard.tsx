@@ -9,6 +9,7 @@ import {sum} from 'lodash';
 import {Workout} from '../../../models/entities/Workout';
 import {Record} from '../../../models/entities/Exercise';
 import {Metric} from '../../../models/Metric';
+import {getLocalMicro, getPreviousMicroInMeso} from '../../../redux/Training/trainingsPlanReducer';
 
 export const countRecordExercisesInMicro = (workouts: Workout[]) => {
   const recordExerciseIds = new Set<number>();
@@ -31,8 +32,10 @@ const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCar
   }
 
   const theme = useTheme();
+  const localCurrentMicro = getLocalMicro(trainingsPlan.mesos, currentMicro);
+  const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, currentMicro);
   const trainings = useAllTrainingsInMicro(trainingsPlan.id!!, currentMicro);
-  const previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, currentMicro - 1);
+  const previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, previousMicro ?? -1);
 
   // Find the latest training with an end date
   const lastCompletedTraining = trainings.filter((training) => training.end).sort((a, b) => new Date(b.end!).getTime() - new Date(a.end!).getTime())[0];
@@ -105,7 +108,7 @@ const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCar
   return (
     <View>
       <View>
-        <Text style={[styles.Title, {color: theme.colors.primary}]}>Micro {currentMicro}</Text>
+        <Text style={[styles.Title, {color: theme.colors.primary}]}>Micro {localCurrentMicro}</Text>
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>

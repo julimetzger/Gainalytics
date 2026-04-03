@@ -198,4 +198,30 @@ describe('TrainingsPlanTab', () => {
 
     await act(async () => undefined);
   });
+
+  it('keeps swipe navigation inside the locked meso', async () => {
+    mockedUseTrainingsPlan.mockReturnValue({
+      id: 50,
+      name: 'Power Plan',
+      trainings: {'1,1': 100, '2,1': 101},
+      trainingNames: {1: 'Upper Day'},
+      mesos: [
+        {id: 1, name: 'Meso 1', order: 1, startMicro: 1},
+        {id: 2, name: 'Meso 2', order: 2, startMicro: 2},
+      ],
+    });
+
+    const navigation = {setOptions: jest.fn()};
+    const route = {params: {trainingsPlan: {id: 50, name: 'Power Plan'}, micro: 1, training: 1}};
+
+    const {getByTestId} = render(<TrainingsPlanTab navigation={navigation} route={route} />);
+
+    expect(getByTestId('node-micro').props.children).toBe('1');
+
+    fireEvent.press(getByTestId('swiper-next'));
+
+    await waitFor(() => {
+      expect(getByTestId('node-micro').props.children).toBe('1');
+    });
+  });
 });

@@ -1,10 +1,12 @@
 import {useSelector} from 'react-redux';
 import {GlobalState} from '../../rootReducer';
-import {getAllTrainingsForTraining} from '../trainingsPlanReducer';
+import {getPreviousTrainingsForTrainingInMeso} from '../trainingsPlanReducer';
 
-export const useLastTrainingInMicro = (trainingsPlanId: number, trainingsNumber: number) =>
+export const useLastTrainingInMicro = (trainingsPlanId: number, trainingsNumber: number, micro: number) =>
   useSelector((state: GlobalState) => {
-    const microsForTraining = getAllTrainingsForTraining(state.trainingsPlan.byId[trainingsPlanId].trainings, trainingsNumber);
+    const trainingsPlan = state.trainingsPlan.byId[trainingsPlanId];
+    if (!trainingsPlan) return undefined;
+    const microsForTraining = getPreviousTrainingsForTrainingInMeso(trainingsPlan.trainings, trainingsNumber, micro, trainingsPlan.mesos);
     let trainingsId = microsForTraining[microsForTraining.length - 1];
     return trainingsId ? state.trainings.byId[trainingsId] : undefined;
   });

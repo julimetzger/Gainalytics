@@ -4,6 +4,7 @@ import {Action} from 'redux';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {View, Keyboard} from 'react-native';
 import React, {useState, useRef, useEffect} from 'react';
+import {getLocalMicro, getMesoEndMicro, getMesoForMicro, getSortedMesos} from '../../redux/Training/trainingsPlanReducer';
 
 interface TrainingsPlanDrawerProps {
   theme: ThemeBase & {
@@ -60,7 +61,14 @@ const TrainingsPlanDrawer = ({
     }
   }, [trainingsPlan, changeTrainingsName]);
 
-  const sortedMesos = [...(trainingsPlan.mesos ?? [])].sort((a, b) => a.order - b.order);
+  const sortedMesos = getSortedMesos(trainingsPlan.mesos);
+  const currentMeso = getMesoForMicro(trainingsPlan.mesos, micro);
+  const mesoEndMicro = getMesoEndMicro(trainingsPlan.mesos, currentMeso);
+  const localMicro = getLocalMicro(trainingsPlan.mesos, micro);
+  const maxLocalMicro = mesoEndMicro ? getLocalMicro(trainingsPlan.mesos, mesoEndMicro) : undefined;
+  const canDeleteMesos = sortedMesos.length > 1;
+  const previousLocalMicroLabel = Math.max(1, localMicro - 1);
+  const nextLocalMicroLabel = maxLocalMicro ? Math.min(maxLocalMicro, localMicro + 1) : localMicro + 1;
 
   return (
     <View style={{display: 'flex', flexDirection: 'column'}}>
@@ -78,7 +86,7 @@ const TrainingsPlanDrawer = ({
                 setOpen(false);
                 setShowDone(false);
               }}
-              onLongPress={() => setLongPressMesoId(meso.id)}
+              onLongPress={() => canDeleteMesos && setLongPressMesoId(meso.id)}
             >
               <View>
                 {editMesoId !== meso.id && (
@@ -118,7 +126,7 @@ const TrainingsPlanDrawer = ({
               </View>
             </TouchableRipple>
             {editMesoId !== meso.id &&
-              (longPressMesoId === meso.id ? (
+              (longPressMesoId === meso.id && canDeleteMesos ? (
                 <IconButton
                   icon="delete"
                   onPress={() => {
@@ -269,13 +277,14 @@ const TrainingsPlanDrawer = ({
           {
             icon: 'chevron-left',
             value: 'micro - 1',
-            label: 'Micro ' + (micro - 1),
-            disabled: micro === 1,
+            label: 'Micro ' + previousLocalMicroLabel,
+            disabled: currentMeso ? micro === currentMeso.startMicro : micro === 1,
           },
           {
             icon: 'chevron-right',
             value: 'micro + 1',
-            label: 'Micro ' + (micro + 1),
+            label: 'Micro ' + nextLocalMicroLabel,
+            disabled: mesoEndMicro !== undefined && micro >= mesoEndMicro,
           },
         ]}
       />
