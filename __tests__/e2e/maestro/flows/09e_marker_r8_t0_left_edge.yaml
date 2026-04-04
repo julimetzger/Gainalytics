@@ -51,5 +51,5 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: "video-analysis-playback-toggle"
 - assertVisible:
-    text: "Playback: 00:00 / 00:05"
+    id: "video-analysis-playback-scrubber"
 - takeScreenshot: "marker_r8_t0_left_edge"

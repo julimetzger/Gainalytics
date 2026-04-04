@@ -36,9 +36,11 @@ public class VideoAnalysisForegroundService extends Service {
 
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Video Analysis")
-            .setContentText("Analyzing your squat video...")
+            .setContentText("Analyzing your Lift!")
             .setSmallIcon(R.mipmap.icon_notification)
             .setOngoing(true)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .setContentIntent(pendingIntent)
             .build();
 
@@ -56,7 +58,7 @@ public class VideoAnalysisForegroundService extends Service {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_MIN
             );
             channel.setDescription("Shows progress while a video analysis is running");
             NotificationManager manager = getSystemService(NotificationManager.class);

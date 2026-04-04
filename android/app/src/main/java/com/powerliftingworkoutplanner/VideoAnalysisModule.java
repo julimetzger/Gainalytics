@@ -36,16 +36,19 @@ import org.tensorflow.lite.Tensor;
 import org.tensorflow.lite.gpu.CompatibilityList;
 import org.tensorflow.lite.gpu.GpuDelegate;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -205,6 +208,11 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void analyzeSquatVideo(String localVideoPath, int analysisId, ReadableMap manualSeed, Promise promise) {
+        // Copy manual seed data before leaving the NativeModules thread,
+        // because ReadableMap is not safe to access from a background thread.
+        final SeedSelection manualSelection = parseManualSeed(manualSeed);
+
+        new Thread(() -> {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         AnalysisPerformanceMetrics performanceMetrics = new AnalysisPerformanceMetrics();
         long analysisStartedAtMs = SystemClock.elapsedRealtime();
@@ -234,7 +242,6 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             long initialDetectionStartedAtMs = SystemClock.elapsedRealtime();
             List<DetectionCandidate> initialCandidates = detectCandidates(firstFrame, detectionContext, performanceMetrics);
             performanceMetrics.initialDetectionMs = SystemClock.elapsedRealtime() - initialDetectionStartedAtMs;
-            SeedSelection manualSelection = parseManualSeed(manualSeed);
             SeedSelection activeSeed = resolveSeedSelection(initialCandidates, manualSelection);
 
             if (activeSeed == null) {
@@ -288,13 +295,19 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             result.put("units", "px/s");
             result.put("barPathSeries", trackingSeries.barPathSeries);
             result.put("confidenceSeries", trackingSeries.confidenceSeries);
-            result.put("repSegments", new JSONArray());
-            result.put("repMetrics", new JSONArray());
+            JSONArray detectedRepMetrics = new JSONArray();
+            JSONArray detectedRepSegments = VideoAnalysisRepDetection.detectRepSegments(
+                trackingSeries.barPathSeries,
+                detectedRepMetrics
+            );
+            result.put("repSegments", detectedRepSegments);
+            result.put("repMetrics", detectedRepMetrics);
 
             JSONObject analysisMeta = new JSONObject();
             analysisMeta.put("sourceFps", roundTo3(sourceFps));
             analysisMeta.put("analyzedFps", roundTo3(analyzedFps));
             analysisMeta.put("trackerVersion", TRACKER_VERSION);
+            analysisMeta.put("repDetectionVersion", VideoAnalysisRepDetection.REP_DETECTION_VERSION);
             analysisMeta.put("frameCount", trackingSeries.frameCount);
             analysisMeta.put("averageConfidence", roundTo3(trackingSeries.averageConfidence));
             analysisMeta.put("trackingFrameWidthPx", trackingSeries.frameWidthPx);
@@ -346,6 +359,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
                 // No-op.
             }
         }
+        }, "VideoAnalysis-" + analysisId).start();
     }
 
     private File ensureVideoAnalysisRootDir() {
@@ -355,6 +369,62 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             throw new IllegalStateException("Could not create video analysis directory");
         }
         return rootDir;
+    }
+
+    @ReactMethod
+    public void migrateBarTrackingResultIfNeeded(String resultPath, Promise promise) {
+        try {
+            if (resultPath == null || resultPath.isEmpty()) {
+                promise.resolve(null);
+                return;
+            }
+
+            File resultFile = new File(resultPath);
+            if (!resultFile.exists()) {
+                promise.resolve(null);
+                return;
+            }
+
+            JSONObject result = readJsonObject(resultFile);
+            JSONObject analysisMeta = result.optJSONObject("analysisMeta");
+            if (analysisMeta == null) {
+                analysisMeta = new JSONObject();
+            }
+
+            boolean alreadyMigrated =
+                VideoAnalysisRepDetection.REP_DETECTION_VERSION.equals(
+                    analysisMeta.optString("repDetectionVersion", "")
+                );
+            if (
+                alreadyMigrated &&
+                result.optJSONArray("repSegments") != null &&
+                result.optJSONArray("repMetrics") != null
+            ) {
+                promise.resolve(resultFile.getAbsolutePath());
+                return;
+            }
+
+            JSONArray barPathSeries = result.optJSONArray("barPathSeries");
+            if (barPathSeries == null || barPathSeries.length() < 2) {
+                promise.resolve(resultFile.getAbsolutePath());
+                return;
+            }
+
+            JSONArray migratedRepMetrics = new JSONArray();
+            JSONArray migratedRepSegments = VideoAnalysisRepDetection.detectRepSegments(
+                barPathSeries,
+                migratedRepMetrics
+            );
+            result.put("repSegments", migratedRepSegments);
+            result.put("repMetrics", migratedRepMetrics);
+            analysisMeta.put("repDetectionVersion", VideoAnalysisRepDetection.REP_DETECTION_VERSION);
+            result.put("analysisMeta", analysisMeta);
+
+            writeJsonObject(resultFile, result);
+            promise.resolve(resultFile.getAbsolutePath());
+        } catch (Exception error) {
+            promise.reject(ERR_VIDEO_ANALYSIS, error);
+        }
     }
 
     private WritableArray toSeedCandidatesArray(List<DetectionCandidate> candidates) {
@@ -378,6 +448,27 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             array.put(candidate.toJsonBox());
         }
         return array;
+    }
+
+    private JSONObject readJsonObject(File jsonFile) throws Exception {
+        StringBuilder content = new StringBuilder();
+        try (
+            FileInputStream inputStream = new FileInputStream(jsonFile);
+            InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+            BufferedReader reader = new BufferedReader(inputStreamReader)
+        ) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                content.append(line);
+            }
+        }
+        return new JSONObject(content.toString());
+    }
+
+    private void writeJsonObject(File jsonFile, JSONObject jsonObject) throws Exception {
+        try (FileWriter writer = new FileWriter(jsonFile)) {
+            writer.write(jsonObject.toString(2));
+        }
     }
 
     private String writePreviewFrame(String localVideoPath, int analysisId, File rootDir) {

@@ -1,12 +1,12 @@
 package com.powerliftingworkoutplanner;
 
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.View;
+import android.view.TextureView;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
@@ -18,7 +18,6 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.ui.PlayerView;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReadableArray;
@@ -34,12 +33,20 @@ import java.util.List;
 public class VideoAnalysisPlayerView extends FrameLayout {
     private static final int PROGRESS_INTERVAL_MS = 50;
     private static final int PROGRESS_EVENT_INTERVAL_MS = 50;
+    private static final float BACKGROUND_PATH_STROKE_WIDTH_PX = 4f;
+    private static final float ACTIVE_PATH_STROKE_WIDTH_PX = 5f;
+    private static final float ACTIVE_POINT_RADIUS_PX = 7f;
 
     private final ExoPlayer player;
-    private final PlayerView playerView;
-    private final OverlayDotView overlayView;
+    private final TextureView textureView;
     private final Handler progressHandler = new Handler(Looper.getMainLooper());
     private final List<TrackingPoint> barPathSeries = new ArrayList<>();
+    private final List<RepSegmentData> repSegmentList = new ArrayList<>();
+    private final Paint backgroundPathPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint activeRepPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint activeRepPointPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path backgroundPathBuffer = new Path();
+    private final Path activeTrailPathBuffer = new Path();
 
     private String sourcePath;
     private boolean paused = true;
@@ -56,6 +63,8 @@ public class VideoAnalysisPlayerView extends FrameLayout {
     private float fallbackMaxY = 0f;
     private boolean hasFallbackBounds = false;
     private int lastProgressEventTimeMs = -1;
+    private int currentTimeMs = 0;
+    private int currentRepIndex = -1;
 
     private final Runnable progressRunnable = new Runnable() {
         @Override
@@ -64,7 +73,6 @@ public class VideoAnalysisPlayerView extends FrameLayout {
                 return;
             }
 
-            // Refresh duration if ExoPlayer did not know it at STATE_READY
             if (durationMs <= 0) {
                 int freshDuration = getSafeDurationMs();
                 if (freshDuration > 0) {
@@ -73,9 +81,9 @@ public class VideoAnalysisPlayerView extends FrameLayout {
                 }
             }
 
-            int currentTimeMs = getSafeCurrentPositionMs();
-            updateOverlayPointForTimeMs(currentTimeMs);
-            maybeEmitProgress(currentTimeMs, false);
+            int nextCurrentTimeMs = getSafeCurrentPositionMs();
+            updateOverlayTimeForMs(nextCurrentTimeMs);
+            maybeEmitProgress(nextCurrentTimeMs, false);
 
             if (!paused) {
                 progressHandler.postDelayed(this, PROGRESS_INTERVAL_MS);
@@ -93,12 +101,12 @@ public class VideoAnalysisPlayerView extends FrameLayout {
 
                 if (paused) {
                     player.pause();
-                    int currentTimeMs = getSafeCurrentPositionMs();
-                    updateOverlayPointForTimeMs(currentTimeMs);
-                    maybeEmitProgress(currentTimeMs, true);
+                    int nextCurrentTimeMs = getSafeCurrentPositionMs();
+                    updateOverlayTimeForMs(nextCurrentTimeMs);
+                    maybeEmitProgress(nextCurrentTimeMs, true);
                 } else {
                     player.play();
-                    updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
+                    updateOverlayTimeForMs(getSafeCurrentPositionMs());
                     startProgressLoop();
                 }
                 return;
@@ -108,7 +116,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
                 paused = true;
                 stopProgressLoop();
                 int endTimeMs = Math.max(getSafeDurationMs(), getSafeCurrentPositionMs());
-                updateOverlayPointForTimeMs(endTimeMs);
+                updateOverlayTimeForMs(endTimeMs);
                 maybeEmitProgress(endTimeMs, true);
                 emitEnd();
             }
@@ -120,7 +128,9 @@ public class VideoAnalysisPlayerView extends FrameLayout {
             videoHeight = Math.max(0, size.height);
             if (prepared) {
                 emitLoad();
-                updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
+                updateOverlayTimeForMs(getSafeCurrentPositionMs());
+            } else {
+                postInvalidateOnAnimation();
             }
         }
 
@@ -130,47 +140,29 @@ public class VideoAnalysisPlayerView extends FrameLayout {
             stopProgressLoop();
             paused = true;
             prepared = false;
-            overlayView.clearPoint();
+            updateOverlayTimeForMs(0);
         }
     };
 
     public VideoAnalysisPlayerView(@NonNull ReactContext context) {
         super(context);
+        setWillNotDraw(false);
+
+        initializePaints();
 
         player = new ExoPlayer.Builder(context).build();
         player.addListener(playerListener);
 
-        playerView = new PlayerView(context);
-        playerView.setUseController(false);
-        playerView.setPlayer(player);
-
-        LayoutParams layoutParams = new LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
+        textureView = new TextureView(context);
+        textureView.setLayoutParams(
+            new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         );
-        playerView.setLayoutParams(layoutParams);
-        addView(playerView);
-
-        overlayView = new OverlayDotView(context);
-        LayoutParams overlayParams = new LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        );
-
-        FrameLayout overlayContainer = playerView.getOverlayFrameLayout();
-        if (overlayContainer != null) {
-            overlayContainer.addView(overlayView, overlayParams);
-        } else {
-            overlayView.setLayoutParams(overlayParams);
-            addView(overlayView);
-        }
+        addView(textureView);
+        player.setVideoTextureView(textureView);
     }
 
     public void setSourcePath(String path) {
-        if (path == null || path.isEmpty()) {
-            return;
-        }
-        if (path.equals(sourcePath)) {
+        if (path == null || path.isEmpty() || path.equals(sourcePath)) {
             return;
         }
 
@@ -179,14 +171,16 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         durationMs = 0;
         videoWidth = 0;
         videoHeight = 0;
+        currentTimeMs = 0;
+        lastRequestedSeekMs = -1;
         resetProgressEventState();
         stopProgressLoop();
-        overlayView.clearPoint();
+        postInvalidateOnAnimation();
 
-        String normalized = path.startsWith("file://") ? path.substring(7) : path;
-        File file = new File(normalized);
+        String normalizedPath = path.startsWith("file://") ? path.substring(7) : path;
+        File file = new File(normalizedPath);
         if (!file.exists()) {
-            emitError("Video source not found: " + normalized);
+            emitError("Video source not found: " + normalizedPath);
             return;
         }
 
@@ -208,16 +202,16 @@ public class VideoAnalysisPlayerView extends FrameLayout {
             player.pause();
             stopProgressLoop();
             if (prepared) {
-                int currentTimeMs = getSafeCurrentPositionMs();
-                updateOverlayPointForTimeMs(currentTimeMs);
-                maybeEmitProgress(currentTimeMs, true);
+                int nextCurrentTimeMs = getSafeCurrentPositionMs();
+                updateOverlayTimeForMs(nextCurrentTimeMs);
+                maybeEmitProgress(nextCurrentTimeMs, true);
             }
             return;
         }
 
         player.play();
         if (prepared) {
-            updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
+            updateOverlayTimeForMs(getSafeCurrentPositionMs());
             startProgressLoop();
         }
     }
@@ -231,10 +225,11 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         if (Math.abs(clampedSeekMs - lastRequestedSeekMs) < 16) {
             return;
         }
+
         lastRequestedSeekMs = clampedSeekMs;
         player.seekTo(clampedSeekMs);
+        updateOverlayTimeForMs(clampedSeekMs);
         if (prepared) {
-            updateOverlayPointForTimeMs(clampedSeekMs);
             maybeEmitProgress(clampedSeekMs, true);
         }
     }
@@ -257,34 +252,86 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         }
 
         recalculateFallbackBounds();
-        if (prepared) {
-            updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
-        } else {
-            overlayView.clearPoint();
+        postInvalidateOnAnimation();
+    }
+
+    public void setRepSegments(@Nullable ReadableArray segments) {
+        repSegmentList.clear();
+        if (segments != null) {
+            for (int index = 0; index < segments.size(); index++) {
+                ReadableMap segment = segments.getMap(index);
+                if (segment == null) {
+                    continue;
+                }
+
+                RepSegmentData repSegment = new RepSegmentData();
+                repSegment.repIndex = segment.hasKey("repIndex") ? segment.getInt("repIndex") : index;
+                repSegment.startMs = segment.hasKey("startMs") ? (int) Math.round(segment.getDouble("startMs")) : 0;
+                repSegment.turnaroundMs = segment.hasKey("turnaroundMs") ? (int) Math.round(segment.getDouble("turnaroundMs")) : 0;
+                repSegment.endMs = segment.hasKey("endMs") ? (int) Math.round(segment.getDouble("endMs")) : 0;
+                repSegmentList.add(repSegment);
+            }
         }
+
+        postInvalidateOnAnimation();
+    }
+
+    public void setCurrentRepIndex(int repIndex) {
+        currentRepIndex = repIndex >= 0 ? repIndex : -1;
+        postInvalidateOnAnimation();
+    }
+
+    public void setPrimaryColor(int color) {
+        activeRepPaint.setColor(color);
+        activeRepPointPaint.setColor(color);
+        postInvalidateOnAnimation();
+    }
+
+    public void setPathColor(int color) {
+        backgroundPathPaint.setColor(color);
+        postInvalidateOnAnimation();
     }
 
     public void setTrackingFrameWidthPx(int widthPx) {
         trackingFrameWidthPx = Math.max(0, widthPx);
-        if (prepared) {
-            updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
-        }
+        postInvalidateOnAnimation();
     }
 
     public void setTrackingFrameHeightPx(int heightPx) {
         trackingFrameHeightPx = Math.max(0, heightPx);
-        if (prepared) {
-            updateOverlayPointForTimeMs(getSafeCurrentPositionMs());
-        }
+        postInvalidateOnAnimation();
     }
 
     public void onDropView() {
         stopProgressLoop();
         player.removeListener(playerListener);
-        playerView.setPlayer(null);
+        player.clearVideoTextureView(textureView);
         player.release();
-        overlayView.clearPoint();
         resetProgressEventState();
+    }
+
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+        super.dispatchDraw(canvas);
+        drawBarPathOverlay(canvas);
+
+        if (prepared && !paused) {
+            postInvalidateOnAnimation();
+        }
+    }
+
+    private void initializePaints() {
+        backgroundPathPaint.setStyle(Paint.Style.STROKE);
+        backgroundPathPaint.setStrokeWidth(BACKGROUND_PATH_STROKE_WIDTH_PX);
+        backgroundPathPaint.setStrokeCap(Paint.Cap.ROUND);
+        backgroundPathPaint.setStrokeJoin(Paint.Join.ROUND);
+
+        activeRepPaint.setStyle(Paint.Style.STROKE);
+        activeRepPaint.setStrokeWidth(ACTIVE_PATH_STROKE_WIDTH_PX);
+        activeRepPaint.setStrokeCap(Paint.Cap.ROUND);
+        activeRepPaint.setStrokeJoin(Paint.Join.ROUND);
+
+        activeRepPointPaint.setStyle(Paint.Style.FILL);
     }
 
     private void startProgressLoop() {
@@ -296,81 +343,26 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         progressHandler.removeCallbacks(progressRunnable);
     }
 
-    private void updateOverlayPointForTimeMs(int currentTimeMs) {
-        if (barPathSeries.isEmpty()) {
-            overlayView.clearPoint();
-            return;
-        }
-
-        TrackingPoint nearestPoint = findNearestPointForTimeMs(currentTimeMs);
-        if (nearestPoint == null) {
-            overlayView.clearPoint();
-            return;
-        }
-
-        float[] mappedPoint = mapPointToOverlay(nearestPoint);
-        if (mappedPoint == null) {
-            overlayView.clearPoint();
-            return;
-        }
-
-        overlayView.setPoint(mappedPoint[0], mappedPoint[1]);
+    private void updateOverlayTimeForMs(int timeMs) {
+        currentTimeMs = Math.max(0, timeMs);
+        postInvalidateOnAnimation();
     }
 
-    @Nullable
-    private TrackingPoint findNearestPointForTimeMs(int targetMs) {
+    private void drawBarPathOverlay(Canvas canvas) {
         if (barPathSeries.isEmpty()) {
-            return null;
-        }
-        if (barPathSeries.size() == 1) {
-            return barPathSeries.get(0);
+            return;
         }
 
-        TrackingPoint firstPoint = barPathSeries.get(0);
-        TrackingPoint lastPoint = barPathSeries.get(barPathSeries.size() - 1);
-        if (targetMs <= firstPoint.tMs) {
-            return firstPoint;
-        }
-        if (targetMs >= lastPoint.tMs) {
-            return lastPoint;
-        }
-
-        int low = 0;
-        int high = barPathSeries.size() - 1;
-        while (low <= high) {
-            int middle = (low + high) / 2;
-            TrackingPoint middlePoint = barPathSeries.get(middle);
-            if (middlePoint.tMs == targetMs) {
-                return middlePoint;
-            }
-            if (middlePoint.tMs < targetMs) {
-                low = middle + 1;
-            } else {
-                high = middle - 1;
-            }
-        }
-
-        int rightIndex = clampInt(low, 0, barPathSeries.size() - 1);
-        int leftIndex = clampInt(rightIndex - 1, 0, barPathSeries.size() - 1);
-        TrackingPoint leftPoint = barPathSeries.get(leftIndex);
-        TrackingPoint rightPoint = barPathSeries.get(rightIndex);
-        int leftDelta = Math.abs(targetMs - leftPoint.tMs);
-        int rightDelta = Math.abs(rightPoint.tMs - targetMs);
-        return leftDelta <= rightDelta ? leftPoint : rightPoint;
-    }
-
-    @Nullable
-    private float[] mapPointToOverlay(TrackingPoint point) {
-        int viewWidth = overlayView.getWidth();
-        int viewHeight = overlayView.getHeight();
+        int viewWidth = getWidth();
+        int viewHeight = getHeight();
         if (viewWidth <= 0 || viewHeight <= 0) {
-            return null;
+            return;
         }
 
         float sourceWidth = trackingFrameWidthPx > 0 ? trackingFrameWidthPx : (videoWidth > 0 ? videoWidth : viewWidth);
         float sourceHeight = trackingFrameHeightPx > 0 ? trackingFrameHeightPx : (videoHeight > 0 ? videoHeight : viewHeight);
         if (sourceWidth <= 0f || sourceHeight <= 0f) {
-            return null;
+            return;
         }
 
         float scale = Math.min(viewWidth / sourceWidth, viewHeight / sourceHeight);
@@ -378,25 +370,124 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         float renderedHeight = sourceHeight * scale;
         float offsetX = (viewWidth - renderedWidth) / 2f;
         float offsetY = (viewHeight - renderedHeight) / 2f;
+        boolean useTrackingFrame = trackingFrameWidthPx > 0 && trackingFrameHeightPx > 0;
+        int drawTimeMs = resolveDrawTimeMs();
 
-        float mappedX;
-        float mappedY;
-        if (trackingFrameWidthPx > 0 && trackingFrameHeightPx > 0) {
-            mappedX = offsetX + point.x * (renderedWidth / trackingFrameWidthPx);
-            mappedY = offsetY + point.y * (renderedHeight / trackingFrameHeightPx);
-        } else if (hasFallbackBounds) {
-            float xSpan = Math.max(1f, fallbackMaxX - fallbackMinX);
-            float ySpan = Math.max(1f, fallbackMaxY - fallbackMinY);
-            mappedX = offsetX + ((point.x - fallbackMinX) / xSpan) * renderedWidth;
-            mappedY = offsetY + ((point.y - fallbackMinY) / ySpan) * renderedHeight;
-        } else {
-            mappedX = offsetX + (renderedWidth * 0.5f);
-            mappedY = offsetY + (renderedHeight * 0.5f);
+        backgroundPathBuffer.reset();
+        boolean hasBackgroundPath = false;
+        for (TrackingPoint point : barPathSeries) {
+            float mappedX = mapX(point.x, offsetX, renderedWidth, sourceWidth, useTrackingFrame);
+            float mappedY = mapY(point.y, offsetY, renderedHeight, sourceHeight, useTrackingFrame);
+            if (!hasBackgroundPath) {
+                backgroundPathBuffer.moveTo(mappedX, mappedY);
+                hasBackgroundPath = true;
+            } else {
+                backgroundPathBuffer.lineTo(mappedX, mappedY);
+            }
+        }
+        if (hasBackgroundPath) {
+            canvas.drawPath(backgroundPathBuffer, backgroundPathPaint);
         }
 
-        float clampedX = clampFloat(mappedX, 0f, viewWidth);
-        float clampedY = clampFloat(mappedY, 0f, viewHeight);
-        return new float[] {clampedX, clampedY};
+        RepSegmentData activeRep = findActiveRep(drawTimeMs);
+        if (activeRep == null) {
+            return;
+        }
+
+        activeTrailPathBuffer.reset();
+        int visibleTrailPointCount = 0;
+        float lastTrailX = Float.NaN;
+        float lastTrailY = Float.NaN;
+        for (TrackingPoint point : barPathSeries) {
+            if (point.tMs < activeRep.startMs) {
+                continue;
+            }
+            if (point.tMs > drawTimeMs) {
+                break;
+            }
+
+            float mappedX = mapX(point.x, offsetX, renderedWidth, sourceWidth, useTrackingFrame);
+            float mappedY = mapY(point.y, offsetY, renderedHeight, sourceHeight, useTrackingFrame);
+            if (visibleTrailPointCount == 0) {
+                activeTrailPathBuffer.moveTo(mappedX, mappedY);
+            } else {
+                activeTrailPathBuffer.lineTo(mappedX, mappedY);
+            }
+            visibleTrailPointCount += 1;
+            lastTrailX = mappedX;
+            lastTrailY = mappedY;
+        }
+
+        if (visibleTrailPointCount > 1) {
+            canvas.drawPath(activeTrailPathBuffer, activeRepPaint);
+        }
+        if (visibleTrailPointCount > 0 && !Float.isNaN(lastTrailX) && !Float.isNaN(lastTrailY)) {
+            canvas.drawCircle(lastTrailX, lastTrailY, ACTIVE_POINT_RADIUS_PX, activeRepPointPaint);
+        }
+    }
+
+    private int resolveDrawTimeMs() {
+        if (!prepared || paused) {
+            return currentTimeMs;
+        }
+
+        currentTimeMs = getSafeCurrentPositionMs();
+        return currentTimeMs;
+    }
+
+    @Nullable
+    private RepSegmentData findActiveRep(int timeMs) {
+        if (repSegmentList.isEmpty()) {
+            return null;
+        }
+
+        if (currentRepIndex >= 0) {
+            for (RepSegmentData segment : repSegmentList) {
+                if (
+                    segment.repIndex == currentRepIndex &&
+                    timeMs >= segment.startMs &&
+                    timeMs <= segment.endMs
+                ) {
+                    return segment;
+                }
+            }
+        }
+
+        for (RepSegmentData segment : repSegmentList) {
+            if (timeMs >= segment.startMs && timeMs <= segment.endMs) {
+                return segment;
+            }
+        }
+
+        return null;
+    }
+
+    private float mapX(float x, float offsetX, float renderedWidth, float sourceWidth, boolean useTrackingFrame) {
+        float mappedX;
+        if (useTrackingFrame) {
+            mappedX = offsetX + x * (renderedWidth / sourceWidth);
+        } else if (hasFallbackBounds) {
+            float xSpan = Math.max(1f, fallbackMaxX - fallbackMinX);
+            mappedX = offsetX + ((x - fallbackMinX) / xSpan) * renderedWidth;
+        } else {
+            mappedX = offsetX + renderedWidth * 0.5f;
+        }
+
+        return clampFloat(mappedX, 0f, getWidth());
+    }
+
+    private float mapY(float y, float offsetY, float renderedHeight, float sourceHeight, boolean useTrackingFrame) {
+        float mappedY;
+        if (useTrackingFrame) {
+            mappedY = offsetY + y * (renderedHeight / sourceHeight);
+        } else if (hasFallbackBounds) {
+            float ySpan = Math.max(1f, fallbackMaxY - fallbackMinY);
+            mappedY = offsetY + ((y - fallbackMinY) / ySpan) * renderedHeight;
+        } else {
+            mappedY = offsetY + renderedHeight * 0.5f;
+        }
+
+        return clampFloat(mappedY, 0f, getHeight());
     }
 
     private void recalculateFallbackBounds() {
@@ -449,10 +540,6 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         return (int) durationValue;
     }
 
-    private int clampInt(int value, int min, int max) {
-        return Math.max(min, Math.min(max, value));
-    }
-
     private float clampFloat(float value, float min, float max) {
         return Math.max(min, Math.min(max, value));
     }
@@ -465,22 +552,23 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         dispatchEvent("onLoad", payload);
     }
 
-    private void emitProgress(int currentTimeMs) {
+    private void emitProgress(int nextCurrentTimeMs) {
         WritableMap payload = Arguments.createMap();
-        payload.putInt("currentTimeMs", Math.max(0, currentTimeMs));
+        payload.putInt("currentTimeMs", Math.max(0, nextCurrentTimeMs));
         payload.putInt("durationMs", Math.max(0, durationMs));
         dispatchEvent("onProgress", payload);
     }
 
-    private void maybeEmitProgress(int currentTimeMs, boolean forceEmit) {
+    private void maybeEmitProgress(int nextCurrentTimeMs, boolean forceEmit) {
         if (!forceEmit && lastProgressEventTimeMs >= 0) {
-            int elapsedSinceLastEvent = Math.abs(currentTimeMs - lastProgressEventTimeMs);
+            int elapsedSinceLastEvent = Math.abs(nextCurrentTimeMs - lastProgressEventTimeMs);
             if (elapsedSinceLastEvent < PROGRESS_EVENT_INTERVAL_MS) {
                 return;
             }
         }
-        lastProgressEventTimeMs = Math.max(0, currentTimeMs);
-        emitProgress(currentTimeMs);
+
+        lastProgressEventTimeMs = Math.max(0, nextCurrentTimeMs);
+        emitProgress(nextCurrentTimeMs);
     }
 
     private void resetProgressEventState() {
@@ -504,47 +592,16 @@ public class VideoAnalysisPlayerView extends FrameLayout {
             .receiveEvent(getId(), eventName, payload);
     }
 
-    private static class TrackingPoint {
+    private static final class TrackingPoint {
         int tMs;
         float x;
         float y;
     }
 
-    private static class OverlayDotView extends View {
-        private static final float DOT_RADIUS_PX = 8f;
-
-        private final Paint dotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private float pointX = Float.NaN;
-        private float pointY = Float.NaN;
-
-        OverlayDotView(ReactContext context) {
-            super(context);
-            dotPaint.setColor(Color.argb(230, 255, 90, 90));
-            setWillNotDraw(false);
-        }
-
-        void setPoint(float x, float y) {
-            pointX = x;
-            pointY = y;
-            postInvalidateOnAnimation();
-        }
-
-        void clearPoint() {
-            if (Float.isNaN(pointX) && Float.isNaN(pointY)) {
-                return;
-            }
-            pointX = Float.NaN;
-            pointY = Float.NaN;
-            postInvalidateOnAnimation();
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-            if (Float.isNaN(pointX) || Float.isNaN(pointY)) {
-                return;
-            }
-            canvas.drawCircle(pointX, pointY, DOT_RADIUS_PX, dotPaint);
-        }
+    private static final class RepSegmentData {
+        int repIndex;
+        int startMs;
+        int turnaroundMs;
+        int endMs;
     }
 }

@@ -1,5 +1,5 @@
 import {Button, Dialog, IconButton, Portal, Text, TextInput, useTheme} from 'react-native-paper';
-import {View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import React, {useState} from 'react';
 import {useDispatchAddExercise} from '../../../redux/Exercises/dispatch/dispatchAddExercise';
 import {dispatchEditExercise} from '../../../redux/Exercises/dispatch/dispatchEditExercise';
@@ -7,6 +7,7 @@ import {useExercise} from '../../../redux/Exercises/use/useExercise';
 import {dispatchDeleteExercise} from '../../../redux/Exercises/dispatch/dispatchDeleteExercise';
 import MusclePicker from './MusclePicker';
 import {MusclePercentPair} from '../../../models/entities/Exercise';
+import ExerciseAlternativesField from './ExerciseAlternativesField';
 
 interface AddExerciseProperties {
   style?: any;
@@ -20,17 +21,22 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
   let exercise = exerciseId ? useExercise(exerciseId) : undefined;
   const [newExerciseName, setNewExerciseName] = useState(exercise?.name ?? '');
   const [muscles, setMuscles] = useState<MusclePercentPair[]>(exercise?.muscles ?? []);
+  const [alternativeIds, setAlternativeIds] = useState<number[]>(exercise?.alternativeIds ?? []);
   const [error, setError] = useState<string>();
   let editExercise = dispatchEditExercise();
   let deleteExercise = dispatchDeleteExercise();
   let theme = useTheme();
   const showDialog = () => {
     setError(undefined);
+    setNewExerciseName(exercise?.name ?? '');
+    setMuscles(exercise?.muscles ?? []);
+    setAlternativeIds(exercise?.alternativeIds ?? []);
     setVisible(true);
   };
   const hideDialog = () => {
     setVisible(false);
     setDeleteOverlay(false);
+    setError(undefined);
   };
   const confirmDialog = () => {
     let undefinedMuscles = muscles.find((muscle) => muscle.percent === undefined || muscle.muscle === undefined);
@@ -43,15 +49,15 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
       return;
     }
     setVisible(false);
-    exerciseId ? editExercise(exerciseId, newExerciseName, muscles) : dispatchAddExercise(newExerciseName, muscles);
+    exerciseId ? editExercise(exerciseId, newExerciseName, muscles, alternativeIds) : dispatchAddExercise(newExerciseName, muscles, alternativeIds);
   };
 
   return (
     <View style={style}>
       {exerciseId ? (
-        <IconButton icon={'dots-vertical'} onPress={() => showDialog()} theme={theme} />
+        <IconButton icon={'dots-vertical'} onPress={() => showDialog()} theme={theme} testID={`edit-exercise-${exerciseId}`} />
       ) : (
-        <IconButton icon="plus-circle" onPress={() => showDialog()} theme={theme} iconColor={theme.colors.tertiaryContainer} size={40}></IconButton>
+        <IconButton icon="plus-circle" onPress={() => showDialog()} theme={theme} iconColor={theme.colors.tertiaryContainer} size={40} testID="add-exercise-button"></IconButton>
       )}
       <Portal>
         <Dialog visible={visible} onDismiss={hideDialog} theme={theme}>
@@ -63,7 +69,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
               <Text>This action will delete the exercise and all workouts saved for the exercise. Are you sure you want to delete this exercise?</Text>
             ) : (
               <View>
-                <TextInput defaultValue={exercise?.name} label={'Name of the Exercise'} onChangeText={(text) => setNewExerciseName(text)} />
+                <TextInput value={newExerciseName} label={'Name of the Exercise'} onChangeText={(text) => setNewExerciseName(text)} />
                 {muscles.map((muscleFromMap: MusclePercentPair) => {
                   return (
                     <MusclePicker
@@ -75,11 +81,12 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                   );
                 })}
                 <Button onPress={() => setMuscles([...muscles, {muscle: undefined, percent: undefined}])}>Add Muscle Group</Button>
+                <ExerciseAlternativesField exerciseId={exerciseId} alternativeIds={alternativeIds} onChange={setAlternativeIds} />
               </View>
             )}
           </Dialog.Content>
-          <Text style={{color: theme.colors.error}}>{error}</Text>
-          <Dialog.Actions style={{justifyContent: 'space-between'}}>
+          <Text style={[styles.errorText, {color: theme.colors.error}]}>{error}</Text>
+          <Dialog.Actions style={styles.actions}>
             <Button onPress={hideDialog}>Cancel</Button>
             {exerciseId && (
               <Button
@@ -100,3 +107,12 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
 };
 
 export default AddExercise;
+
+const styles = StyleSheet.create({
+  actions: {
+    justifyContent: 'space-between',
+  },
+  errorText: {
+    paddingHorizontal: 24,
+  },
+});

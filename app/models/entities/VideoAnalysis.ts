@@ -55,15 +55,16 @@ export interface ConfidencePoint {
 export interface RepSegment {
   repIndex: number;
   startMs: number;
-  bottomMs: number;
+  turnaroundMs: number;
   endMs: number;
 }
 
 export interface RepMetric {
   repIndex: number;
+  repTimeMs: number;
+  concentricTimeMs: number;
   averageConcentricSpeedPxPerS: number;
   lowestConcentricSpeedPxPerS: number;
-  repTimeMs: number;
 }
 
 export interface DetectedBox {
@@ -81,6 +82,7 @@ export interface AnalysisMeta {
   frameCount: number;
   averageConfidence: number;
   trackerVersion?: string;
+  repDetectionVersion?: string;
   trackingFrameWidthPx?: number;
   trackingFrameHeightPx?: number;
   manualSeedUsed?: boolean;

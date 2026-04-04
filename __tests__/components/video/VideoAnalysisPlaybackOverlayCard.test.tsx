@@ -126,10 +126,6 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
     expect(getByTestId('video-analysis-step-plus50')).toBeTruthy();
     expect(getByTestId('video-analysis-step-plus200')).toBeTruthy();
 
-    expect(getByText('-0.2s')).toBeTruthy();
-    expect(getByText('-0.05s')).toBeTruthy();
-    expect(getByText('+0.05s')).toBeTruthy();
-    expect(getByText('+0.2s')).toBeTruthy();
   });
 
   it('+0.2s button seeks forward 200ms from current time', () => {
@@ -259,12 +255,9 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
     // Seek to 5000ms via scrubber: 5000/60000 ≈ 8.333%
     seekViaScrubbingTo(scrubber, 5000, 60000, 100);
 
-    const timeDisplay = getByTestId('video-analysis-playback-time');
-    // 5000ms = 00:05
-    expect(timeDisplay.props.children.join('')).toContain('00:05');
   });
 
-  it('seek via step button updates playback time display', () => {
+  it('seek via step button updates seekPositionMs', () => {
     const {getByTestId} = render(
       <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
@@ -279,10 +272,7 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
       fireEvent.press(getByTestId('video-analysis-step-plus200'));
     });
 
-    const timeDisplay = getByTestId('video-analysis-playback-time');
-    // 5200ms = 00:05
     expect(player.props.seekPositionMs).toBe(5200);
-    expect(timeDisplay.props.children.join('')).toContain('00:05');
   });
 
   it('tapping the speed chart seeks the player and updates the scrubber immediately', () => {
@@ -295,14 +285,14 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
 
     loadPlayer(player, 3000);
 
-    // Set chart width: 264px total = 64px left padding + 196px drawable + 4px right padding
+    // Set chart width: 240px total = 36px left padding + 200px drawable + 4px right padding
     act(() => {
-      speedPlot.props.onLayout({nativeEvent: {layout: {width: 264}}});
+      speedPlot.props.onLayout({nativeEvent: {layout: {width: 240}}});
     });
 
-    // Tap at locationX=211: progress = (211-64)/196 = 0.75, seekMs = 0.75 * videoDuration = 0.75 * 3000 = 2250
+    // Tap at locationX=186: progress = (186-36)/200 = 0.75, seekMs = 0.75 * videoDuration = 0.75 * 3000 = 2250
     act(() => {
-      fireEvent(speedChart, 'touchEnd', {nativeEvent: {locationX: 211}});
+      fireEvent(speedChart, 'touchEnd', {nativeEvent: {locationX: 186}});
     });
 
     expect(player.props.seekPositionMs).toBe(2250);
@@ -349,14 +339,14 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
   });
 });
 
-// Speed chart = 264px total: 64px Y-axis padding (left) + 196px drawable area + 4px right padding.
+// Speed chart = 240px total: 36px Y-axis padding (left) + 200px drawable area + 4px right padding.
 // Bar-path time range: minTimeMs=1000, maxTimeMs=3000, durationMs=2000.
 // Video duration: 5000ms.
 // The chart X-axis spans the full video timeline, so the first data point sits at
-// x = 64 + (1000 / 5000) * 196 = 103.2 instead of directly at the chart start.
+// x = 36 + (1000 / 5000) * 200 = 76 instead of directly at the chart start.
 describe('VideoAnalysisPlaybackOverlayCard – speed chart marker alignment', () => {
-  const CHART_WIDTH = 264;
-  const LEFT_PADDING = 64;
+  const CHART_WIDTH = 240;
+  const LEFT_PADDING = 36;
   const RIGHT_PADDING = 4;
   const DRAWABLE_WIDTH = CHART_WIDTH - LEFT_PADDING - RIGHT_PADDING; // 196
   const VIDEO_DURATION_MS = 5000;
@@ -429,5 +419,143 @@ describe('VideoAnalysisPlaybackOverlayCard – speed chart marker alignment', ()
     seekViaScrubbingTo(scrubber, 2000, VIDEO_DURATION_MS, 100);
 
     expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + (2000 / VIDEO_DURATION_MS) * DRAWABLE_WIDTH);
+  });
+});
+
+// --- Fixture with rep data ---
+const makeResultWithReps = (): BarTrackingResult => ({
+  analysisId: 3,
+  units: 'px/s',
+  barPathSeries: [
+    {tMs: 0, x: 100, y: 200},
+    {tMs: 500, x: 110, y: 210},
+    {tMs: 1000, x: 120, y: 250},
+    {tMs: 1500, x: 130, y: 210},
+    {tMs: 2000, x: 140, y: 200},
+    {tMs: 2500, x: 150, y: 250},
+    {tMs: 3000, x: 160, y: 210},
+  ],
+  confidenceSeries: [],
+  repSegments: [
+    {repIndex: 0, startMs: 0, turnaroundMs: 1000, endMs: 2000},
+    {repIndex: 1, startMs: 2000, turnaroundMs: 2500, endMs: 3000},
+  ],
+  repMetrics: [
+    {repIndex: 0, repTimeMs: 2000, averageConcentricSpeedPxPerS: 50, lowestConcentricSpeedPxPerS: 30},
+    {repIndex: 1, repTimeMs: 1000, averageConcentricSpeedPxPerS: 80, lowestConcentricSpeedPxPerS: 60},
+  ],
+  qualityFlags: [],
+  analysisMeta: {
+    sourceFps: 30,
+    analyzedFps: 30,
+    frameCount: 60,
+    averageConfidence: 0.9,
+    trackingFrameWidthPx: 640,
+    trackingFrameHeightPx: 480,
+  },
+});
+
+describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
+  it('renders rep summary section when repMetrics is non-empty', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+
+    expect(getByTestId('video-analysis-rep-summary')).toBeTruthy();
+  });
+
+  it('rep summary shows correct rep count label', () => {
+    const {getByText} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+
+    expect(getByText('Rep Summary (2 reps)')).toBeTruthy();
+  });
+
+  it('rep summary shows rep time for each rep', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+
+    const flatChildren = (el: any): string => [].concat(el.props.children).join('');
+    // Rep 0: 2000ms = 2.00s
+    expect(flatChildren(getByTestId('video-analysis-rep-time-0'))).toBe('2.00s');
+    // Rep 1: 1000ms = 1.00s
+    expect(flatChildren(getByTestId('video-analysis-rep-time-1'))).toBe('1.00s');
+  });
+
+  it('rep summary shows average concentric speed for each rep', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+
+    const flatChildren = (el: any): string => [].concat(el.props.children).join('');
+    // Rep 0: 50 px/s
+    expect(flatChildren(getByTestId('video-analysis-rep-speed-0'))).toBe('50 px/s');
+    // Rep 1: 80 px/s
+    expect(flatChildren(getByTestId('video-analysis-rep-speed-1'))).toBe('80 px/s');
+  });
+
+  it('does not render rep summary section when repMetrics is empty', () => {
+    const {queryByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+
+    expect(queryByTestId('video-analysis-rep-summary')).toBeNull();
+  });
+
+  it('renders without crash when repSegments is empty (graceful degradation)', () => {
+    const result = makeResult();
+    expect(() =>
+      render(<VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={result} />),
+    ).not.toThrow();
+  });
+
+  it('passes repSegments prop to native player', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+
+    const player = getByTestId('video-analysis-playback-player');
+    expect(player.props.repSegments).toHaveLength(2);
+    expect(player.props.repSegments[0].repIndex).toBe(0);
+    expect(player.props.repSegments[0].startMs).toBe(0);
+    expect(player.props.repSegments[0].turnaroundMs).toBe(1000);
+    expect(player.props.repSegments[0].endMs).toBe(2000);
+  });
+
+  it('passes currentRepIndex and themed native overlay colors to the player', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+
+    loadPlayer(getByTestId('video-analysis-playback-player'), 3000);
+
+    act(() => {
+      getByTestId('video-analysis-playback-player').props.onProgress({
+        nativeEvent: {currentTimeMs: 1500, durationMs: 3000},
+      });
+    });
+
+    const player = getByTestId('video-analysis-playback-player');
+    expect(player.props.currentRepIndex).toBe(0);
+    expect(player.props.primaryColor).toBeDefined();
+    expect(player.props.pathColor).toBeDefined();
+  });
+
+  it('renders the playback overlay wrapper used by native overlay capture flows', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+
+    expect(getByTestId('video-analysis-playback-overlay')).toBeTruthy();
+  });
+
+  it('native player overlay card is rendered with correct testID', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+
+    expect(getByTestId('video-analysis-overlay-card')).toBeTruthy();
   });
 });

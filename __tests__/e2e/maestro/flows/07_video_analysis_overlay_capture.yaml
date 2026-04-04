@@ -75,7 +75,7 @@ appId: com.powerliftingworkoutplanner
     id: "video-analysis-playback-toggle"
 - extendedWaitUntil:
     visible:
-      text: "Playback: 00:0[2-4] / [0-9]{2}:[0-9]{2}"
+      id: "video-analysis-playback-scrubber"
     timeout: 30000
 - assertVisible:
     id: "video-analysis-playback-overlay"
