@@ -23,6 +23,7 @@ Last updated: 2026-04-02 (ANA-004-fix2)
 | ANA-004-fix2 | real | 2 | 0 | 0 | 1 | 5 | 0 | 0 | 0 | 0 | ready_for_review |
 | ANA-005-fix | emu | 13 | 1 | 3 | 6 | 2 | 4 | 6 | 0 | 0 | review |
 | ANA-003-fix2 | emu | 2 | 15 | 0 | 0 | 0 | 0 | 0 | 12 | 8 | ready_for_review (r9) |
+| MNT-002 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 

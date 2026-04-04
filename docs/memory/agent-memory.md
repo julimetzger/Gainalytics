@@ -616,3 +616,11 @@ Apply when: Device shows Metro bundle error and Metro process is running but ser
 - Evidence paths in `status.json` must be bare relative paths, no inline annotations.
 - On real devices, check for redbox before blaming the Maestro flow.
 - Avoid generic `scroll` commands over `react-native-charts-wrapper` charts — they fire `onSelect`.
+
+### 34. Global jest.setup.js mock for @notifee/react-native fixes import-chain failures
+**Observation:** Any test file that imports a component whose dependency chain includes `@notifee/react-native` will fail at import time with "Notifee native module not found" unless there is a mock. A single global mock in `jest.setup.js` fixes all affected suites at once.
+**Apply when:** A native module causes import-chain failures across many test suites. Add the global mock to `jest.setup.js` with `__esModule: true` and all used named exports.
+
+### 35. Global react-redux useSelector/useDispatch mock prevents Provider-less component test failures
+**Observation:** When a component adds a `useSelector` call (e.g. after a feature merge) but its spec file does not wrap renders in a `<Provider>`, all tests in that spec fail with "could not find react-redux context value". A global mock using `jest.requireActual` spread + mock hooks in `jest.setup.js` fixes this without breaking specs that have their own `jest.mock('react-redux', ...)`.
+**Apply when:** Specs render hooks-using components without a Provider. Use `{ ...jest.requireActual('react-redux'), useSelector: jest.fn(() => []), useDispatch: jest.fn(() => jest.fn()) }`.
