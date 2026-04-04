@@ -240,6 +240,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const [scrubberWidth, setScrubberWidth] = useState(0);
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
+  const [showCalibration, setShowCalibration] = useState(false);
   const [firstRepTurnaroundOverrideMs, setFirstRepTurnaroundOverrideMs] = useState<number | null>(null);
   const [firstRepEndOverrideMs, setFirstRepEndOverrideMs] = useState<number | null>(null);
   const [lastRepTurnaroundOverrideMs, setLastRepTurnaroundOverrideMs] = useState<number | null>(null);
@@ -889,6 +890,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
               );
             };
 
+            if (!showCalibration) { return null; }
             return (
               <>
                 {firstRepSegment && renderRepLines(firstRepTurnaroundMs, firstRepEndMs, setFirstRepTurnaroundOverrideMs, setFirstRepEndOverrideMs)}
@@ -927,35 +929,53 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           <Text variant="labelMedium" style={styles.repSummaryTitle}>
             Rep Summary ({result.repMetrics.length} {result.repMetrics.length === 1 ? 'rep' : 'reps'})
           </Text>
+          <View style={styles.tableHeader}>
+            <Text variant="labelSmall" style={styles.tableColRep}>Rep</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>Total</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>Ecc</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>Conc</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>vAvg</Text>
+          </View>
           {result.repMetrics.map((metric, idx) => {
             const isFirstRep = idx === 0;
             const isLastRep = idx === result.repMetrics.length - 1;
+            const seg = repSegments[idx];
             const concTimeMs = isFirstRep && firstRepSegment ? firstRepConcentricTimeMs
               : isLastRep && lastRepSegment ? lastRepConcentricTimeMs
+              : seg ? Math.max(0, seg.endMs - seg.turnaroundMs)
               : (metric.concentricTimeMs ?? 0);
+            const eccTimeMs = metric.repTimeMs - concTimeMs;
             return (
               <View
                 key={metric.repIndex}
                 testID={`video-analysis-rep-metric-${metric.repIndex}`}
-                style={[styles.repMetricRow, themedStyles.repMetricAccent]}>
-                <Text variant="bodySmall" style={styles.repMetricLabel}>
-                  Rep {metric.repIndex + 1}
-                </Text>
-                <Text testID={`video-analysis-rep-time-${metric.repIndex}`} variant="bodySmall">
+                style={[styles.tableRow, themedStyles.repMetricAccent]}>
+                <Text variant="bodySmall" style={styles.tableColRep}>{metric.repIndex + 1}</Text>
+                <Text testID={`video-analysis-rep-time-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
                   {(metric.repTimeMs / 1000).toFixed(2)}s
                 </Text>
-                {concTimeMs > 0 && (
-                  <Text testID={`video-analysis-rep-conc-${metric.repIndex}`} variant="bodySmall">
-                    conc {(concTimeMs / 1000).toFixed(2)}s
-                  </Text>
-                )}
-                <Text testID={`video-analysis-rep-speed-${metric.repIndex}`} variant="bodySmall">
-                  {Math.round(metric.averageConcentricSpeedPxPerS)} px/s
+                <Text variant="bodySmall" style={styles.tableCol}>
+                  {eccTimeMs > 0 ? `${(eccTimeMs / 1000).toFixed(2)}s` : '-'}
+                </Text>
+                <Text testID={`video-analysis-rep-conc-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
+                  {concTimeMs > 0 ? `${(concTimeMs / 1000).toFixed(2)}s` : '-'}
+                </Text>
+                <Text testID={`video-analysis-rep-speed-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
+                  {Math.round(metric.averageConcentricSpeedPxPerS)}
                 </Text>
               </View>
             );
           })}
         </View>
+      )}
+      {repSegments.length > 0 && (
+        <IconButton
+          icon={showCalibration ? 'chevron-up' : 'tune'}
+          size={20}
+          iconColor={theme.colors.tertiary}
+          onPress={() => setShowCalibration(!showCalibration)}
+          style={styles.calibrateButton}
+        />
       )}
       {firstRepIntervalMetrics && (
         <View style={styles.intervalMetrics}>
@@ -963,7 +983,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           <View style={styles.intervalMetricsRow}>
             <Text variant="bodySmall">t={(firstRepIntervalMetrics.timeMs / 1000).toFixed(2)}s</Text>
             <Text variant="bodySmall">vPeak={firstRepIntervalMetrics.vPeak} px/s</Text>
-            <Text variant="bodySmall">vMin={firstRepIntervalMetrics.vMin} px/s</Text>
+
             <Text variant="bodySmall">vAvg={firstRepIntervalMetrics.vAvg} px/s</Text>
           </View>
         </View>
@@ -974,7 +994,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           <View style={styles.intervalMetricsRow}>
             <Text variant="bodySmall">t={(lastRepIntervalMetrics.timeMs / 1000).toFixed(2)}s</Text>
             <Text variant="bodySmall">vPeak={lastRepIntervalMetrics.vPeak} px/s</Text>
-            <Text variant="bodySmall">vMin={lastRepIntervalMetrics.vMin} px/s</Text>
+
             <Text variant="bodySmall">vAvg={lastRepIntervalMetrics.vAvg} px/s</Text>
           </View>
         </View>
@@ -1032,17 +1052,26 @@ const styles = StyleSheet.create({
   repSummaryTitle: {
     marginBottom: 4,
   },
-  repMetricRow: {
+  tableHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    marginBottom: 2,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
     borderLeftWidth: 3,
     borderRadius: 4,
+    marginBottom: 1,
   },
-  repMetricLabel: {
+  tableColRep: {
+    width: 30,
+    textAlign: 'center',
+  },
+  tableCol: {
     flex: 1,
+    textAlign: 'right',
   },
   adjustLine: {
     position: 'absolute',
@@ -1076,6 +1105,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     fontSize: 10,
     fontWeight: '700',
+  },
+  calibrateButton: {
+    alignSelf: 'flex-end',
+    margin: 0,
   },
   intervalMetrics: {
     marginTop: 8,
