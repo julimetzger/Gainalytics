@@ -5,6 +5,25 @@ jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
 // Reanimated mock (required by the plugin in tests)
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 
+// Mock react-native-gesture-handler
+jest.mock('react-native-gesture-handler', () => {
+  const View = require('react-native').View;
+  const chainable = () => {
+    const obj = {};
+    const handler = {get: (_, prop) => (prop === Symbol.toPrimitive ? undefined : () => new Proxy(obj, handler))};
+    return new Proxy(obj, handler);
+  };
+  return {
+    GestureHandlerRootView: View,
+    GestureDetector: ({children}) => children,
+    Gesture: {
+      Pinch: chainable,
+      Pan: chainable,
+      Simultaneous: chainable,
+    },
+  };
+});
+
 // Mock DocumentPicker
 jest.mock('react-native-document-picker', () => ({
   pick: jest.fn(),
