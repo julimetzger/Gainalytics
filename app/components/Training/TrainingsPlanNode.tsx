@@ -157,6 +157,9 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   }
 
   function onExerciseDoublePress(exercise: Exercise) {
+    if (training?.state === TrainingsState.FINISHED) {
+      return;
+    }
     setchosenExercise(exercise.id);
     setShowAlternativesDialog(true);
   }
@@ -235,6 +238,13 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                     onTogglePicker={() => setShowPicker(!showPicker)}
                     pickerVisible={showPicker}
                   />
+                  <ExerciseAlternativesDialog
+                    visible={showAlternativesDialog}
+                    exercise={chosenExercise}
+                    alternatives={alternativeExercises}
+                    onDismiss={() => setShowAlternativesDialog(false)}
+                    onSelect={onReplaceExercise}
+                  />
                   <TrainingElementPicker
                     exercise={exercises}
                     setExercise={setExerciseWithSideEffects}
@@ -271,13 +281,6 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
             <Button onPress={onDeleteTraining}>Delete</Button>
           </Dialog.Actions>
         </Dialog>
-        <ExerciseAlternativesDialog
-          visible={showAlternativesDialog}
-          exercise={chosenExercise}
-          alternatives={alternativeExercises}
-          onDismiss={() => setShowAlternativesDialog(false)}
-          onSelect={onReplaceExercise}
-        />
       </Portal>
     </View>
   );

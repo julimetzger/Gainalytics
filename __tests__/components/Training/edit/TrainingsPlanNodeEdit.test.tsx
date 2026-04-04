@@ -7,7 +7,7 @@ const mockDeleteTraining = jest.fn();
 
 // Create a simple mock store manually
 const mockStore = {
-  getState: () => ({}),
+  getState: () => ({workouts: {byId: {}, allIds: []}}),
   dispatch: jest.fn(),
   subscribe: jest.fn(),
 };
@@ -60,6 +60,9 @@ jest.mock('../../../../app/redux/Training/dispatch/execute/dispatchFinishTrainin
 jest.mock('../../../../app/redux/Training/dispatch/general/dispatchDeleteTraining', () => ({
     dispatchDeleteTraining: () => mockDeleteTraining,
 }));
+jest.mock('../../../../app/redux/Training/dispatch/general/dispatchReplaceExerciseInTraining', () => ({
+    dispatchReplaceExerciseInTraining: () => jest.fn(),
+}));
 
 // Robust Paper Button mock
 jest.mock('react-native-paper', () => {
@@ -91,6 +94,7 @@ jest.mock('../../../../app/components/Training/execute/FinishTrainingNotificatio
 }));
 
 // Mock other components
+jest.mock('../../../../app/components/Training/ExerciseAlternativesDialog', () => 'ExerciseAlternativesDialog');
 jest.mock('../../../../app/components/Training/execute/ExecuteTraining', () => 'ExecuteWorkoutInTraining');
 jest.mock('../../../../app/components/picker/elements/TrainingElementPicker', () => 'TrainingElementPicker');
 jest.mock('../../../../app/components/Training/DraggableExercise', () => 'DraggableExercise');

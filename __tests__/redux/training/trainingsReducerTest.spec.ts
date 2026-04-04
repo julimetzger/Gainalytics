@@ -212,6 +212,28 @@ describe('trainingsReducer', () => {
         allIds: [3],
       });
     });
+    it('does not replace exercise when training is FINISHED', () => {
+      const state = {
+        byId: {
+          3: {
+            id: 3,
+            exercises: [2, 4],
+            plannedWorkouts: {2: 11},
+            doneWorkoutIds: {2: 21},
+            state: TrainingsState.FINISHED,
+          },
+        },
+        allIds: [3],
+      };
+      expect(
+        trainingsReducer(state, {
+          type: 'REPLACE_EXERCISE_IN_TRAINING',
+          trainingsId: 3,
+          fromExerciseId: 2,
+          toExerciseId: 5,
+        }),
+      ).toEqual(state);
+    });
   });
   describe('DELETE_WORKOUT', () => {
     it('it should skip if not connected to training', () => {

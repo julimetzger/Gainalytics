@@ -71,6 +71,7 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
       const existingTraining = state.byId[action.trainingsId];
       if (
         existingTraining === undefined ||
+        existingTraining.state === TrainingsState.FINISHED ||
         action.fromExerciseId === action.toExerciseId ||
         !existingTraining.exercises.includes(action.fromExerciseId) ||
         existingTraining.exercises.includes(action.toExerciseId)

@@ -1,6 +1,6 @@
 import React from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Button, Dialog, Portal, Text} from 'react-native-paper';
+import {Button, Divider, Text, useTheme} from 'react-native-paper';
 import {Exercise} from '../../models/entities/Exercise';
 
 interface Props {
@@ -12,34 +12,56 @@ interface Props {
 }
 
 const ExerciseAlternativesDialog = ({visible, exercise, alternatives, onDismiss, onSelect}: Props) => {
+  const theme = useTheme();
+
+  if (!visible) return null;
+
   return (
-    <Portal>
-      <Dialog visible={visible} onDismiss={onDismiss}>
-        <Dialog.Title>{exercise ? `Alternatives for ${exercise.name}` : 'Alternatives'}</Dialog.Title>
-        <Dialog.Content>
-          {alternatives.length > 0 ? (
-            <View style={styles.options}>
-              {alternatives.map((alternative) => (
-                <Button key={alternative.id} mode="outlined" onPress={() => onSelect(alternative)}>
-                  {alternative.name}
-                </Button>
-              ))}
-            </View>
-          ) : (
-            <Text>No alternatives available</Text>
-          )}
-        </Dialog.Content>
-        <Dialog.Actions>
-          <Button onPress={onDismiss}>Close</Button>
-        </Dialog.Actions>
-      </Dialog>
-    </Portal>
+    <View style={[styles.container, {backgroundColor: theme.colors.surface, borderColor: theme.colors.outline}]}>
+      <Text variant="titleSmall" style={styles.title}>
+        {exercise ? `Alternativen für ${exercise.name}` : 'Alternativen'}
+      </Text>
+      <Divider style={styles.divider} />
+      {alternatives.length > 0 ? (
+        <View style={styles.options}>
+          {alternatives.map((alternative) => (
+            <Button key={alternative.id} mode="outlined" onPress={() => onSelect(alternative)}>
+              {alternative.name}
+            </Button>
+          ))}
+        </View>
+      ) : (
+        <Text style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>Keine Alternativen</Text>
+      )}
+      <Button onPress={onDismiss} style={styles.closeButton}>Schließen</Button>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    margin: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+  },
+  title: {
+    marginBottom: 8,
+  },
+  divider: {
+    marginBottom: 8,
+  },
   options: {
     gap: 8,
+    marginBottom: 4,
+  },
+  emptyText: {
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  closeButton: {
+    marginTop: 8,
+    alignSelf: 'flex-end',
   },
 });
 
