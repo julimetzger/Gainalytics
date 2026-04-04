@@ -257,6 +257,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const seekCooldownUntilRef = useRef(0);
   const chartVisibleMinRef = useRef(-1);
   const chartVisibleMaxRef = useRef(-1);
+  const chartGestureActiveUntilRef = useRef(0);
 
   const repSegments = result.repSegments;
   const lastRepSegment = repSegments.length > 0 ? repSegments[repSegments.length - 1] : null;
@@ -512,6 +513,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       chartVisibleMaxSV.value = right; // eslint-disable-line react-hooks/exhaustive-deps
       chartVisibleMinRef.current = left;
       chartVisibleMaxRef.current = right;
+      chartGestureActiveUntilRef.current = Date.now() + 300;
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -529,7 +531,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   // Tap-to-seek maps tap position to the visible time range (zoomed or full).
   const onSpeedChartTouch = useCallback(
     (event: GestureResponderEvent) => {
-      if (speedChartWidth <= 0 || correctedPlaybackDurationMs <= 0) {
+      if (Date.now() < chartGestureActiveUntilRef.current || speedChartWidth <= 0 || correctedPlaybackDurationMs <= 0) {
         return;
       }
       const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
