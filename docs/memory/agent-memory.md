@@ -623,15 +623,94 @@ Apply when: Device shows Metro bundle error and Metro process is running but ser
 - On real devices, check for redbox before blaming the Maestro flow.
 - Avoid generic `scroll` commands over `react-native-charts-wrapper` charts — they fire `onSelect`.
 
-### 16. Maestro clearState:true clears SharedPreferences debug_http_host
+### 34. Maestro clearState:true clears SharedPreferences debug_http_host
 When multiple Metro instances run on different ports and `socat` bridges one port to a different Metro, `clearState: true` wipes SharedPreferences including the `debug_http_host` override. The app then connects to whatever socat is forwarding `10.0.2.2:8081`, which may be a different worker's Metro. After any Maestro `clearState: true` run, re-write `debug_http_host` via `run-as` before relaunching.
 
-### 17. linkedSetIndices prop → linkedAnalyses for navigation
+### 35. linkedSetIndices prop → linkedAnalyses for navigation
 When WorkoutSetView needs to support navigation to VideoAnalysisDetail on tapping a video indicator icon, pass `linkedAnalyses: {setIndex: number; analysisId: number}[]` instead of `linkedSetIndices: number[]`. This carries the analysisId needed for the navigate call without extra selectors.
-### 34. Global jest.setup.js mock for @notifee/react-native fixes import-chain failures
+
+### 36. Global jest.setup.js mock for @notifee/react-native fixes import-chain failures
 **Observation:** Any test file that imports a component whose dependency chain includes `@notifee/react-native` will fail at import time with "Notifee native module not found" unless there is a mock. A single global mock in `jest.setup.js` fixes all affected suites at once.
 **Apply when:** A native module causes import-chain failures across many test suites. Add the global mock to `jest.setup.js` with `__esModule: true` and all used named exports.
 
-### 35. Global react-redux useSelector/useDispatch mock prevents Provider-less component test failures
+### 37. Global react-redux useSelector/useDispatch mock prevents Provider-less component test failures
 **Observation:** When a component adds a `useSelector` call (e.g. after a feature merge) but its spec file does not wrap renders in a `<Provider>`, all tests in that spec fail with "could not find react-redux context value". A global mock using `jest.requireActual` spread + mock hooks in `jest.setup.js` fixes this without breaking specs that have their own `jest.mock('react-redux', ...)`.
 **Apply when:** Specs render hooks-using components without a Provider. Use `{ ...jest.requireActual('react-redux'), useSelector: jest.fn(() => []), useDispatch: jest.fn(() => jest.fn()) }`.
+
+### 38. Mock store in component tests must include all Redux slices accessed
+
+Problem:
+- Component tests using a minimal mock store (e.g. `getState: () => ({})`) fail when the component calls any `useSelector` hook that accesses a slice not in the mock.
+- Pre-existing tests for `TrainingsPlanNode` failed because `useWorkoutById` reads `state.workouts.byId` but the mock store returned `{}`.
+
+Symptoms:
+- `TypeError: Cannot read properties of undefined (reading 'byId')` from a `useSelector` inside the component
+
+Working solution:
+- Ensure mock store includes all Redux slices the component accesses, even if the component was written after the test.
+- Minimum required for TrainingsPlanNode: `{workouts: {byId: {}, allIds: []}}`.
+- Also mock any dispatch hooks the component calls (e.g. `dispatchReplaceExerciseInTraining`) or they will throw on import.
+
+Apply when: Component tests fail with `undefined.byId` style errors pointing to a `useSelector` selector.
+
+### 39. Windows adb server may not be running during fix/review rounds
+
+Problem:
+- The socat proxy at localhost:5037 may be running but the upstream Windows adb server at the gateway IP may not be.
+- `nc <gateway>:5037` fails with Connection refused while `nc 127.0.0.1:5037` succeeds — but `adb` gives "protocol fault (couldn't read status): Success".
+
+Symptoms:
+- `adb devices` or any adb command returns "protocol fault (couldn't read status): Success"
+- `nc 172.18.240.1 5037` → Connection refused
+
+Working solution:
+- Device verification must be skipped; note the infrastructure issue in status.json and summary.md.
+- Commit code changes, use unit tests as primary evidence for logic changes.
+- This does not block `ready_for_review` for pure-code changes.
+
+Apply when: adb fails in a fix/review round that wasn't specifically set up with a running adb server.
+
+### 40. @notifee/react-native causes Jest suite failure via transitive import chain
+
+Problem:
+- Adding `VideoSelectionModal` to `AddWorkout.tsx` pulled in `video-analysis-import.ts` → `videoAnalysisNotification.ts` → `@notifee/react-native`, a native module that crashes Jest with "Notifee native module not found".
+- The failing tests did NOT directly import notifee; the failure came 4 levels deep in the import chain.
+
+Symptoms:
+- `Test suite failed to run: Notifee native module not found` for AddWorkout.spec.tsx and any other test that imports AddWorkout
+
+Working solution:
+- Add `jest.mock('@notifee/react-native', ...)` to `jest.setup.js` with stubs for `createChannel`, `requestPermission`, `displayNotification`, `onForegroundEvent`, and the enums.
+- Also mock `react-redux` `useSelector` + `@react-navigation/native` `useNavigation` in any test that renders a component which now calls these hooks without Provider/NavigationContainer.
+
+Apply when: A new component or hook import chain pulls in a native module that has no Jest mock yet; check jest.setup.js first before debugging the test.
+
+### 41. emulator-5554 APK debug_http_host baked to wrong Metro port (GH-57)
+
+Problem:
+- The installed debug APK connected to `10.0.2.2:8086` (another worker's Metro) even after `adb reverse tcp:8081 tcp:8087` was set.
+- `adb reverse` only intercepts connections to `localhost:PORT`; connections to `10.0.2.2:PORT` bypass the tunnel entirely and go directly to the host.
+- SharedPreferences on the device only contained `remote_js_debug: false`; no `debug_http_host` entry was written.
+
+Symptoms:
+- App loads but shows the wrong codebase (previous worker's bundle); new components don't appear.
+- `logcat` shows `http://10.0.2.2:8086/index.bundle` in stack traces.
+
+Working solution:
+- Open the React Native Dev Menu → tap "Change Bundle Location" → enter `localhost:8081` → OK.
+- This writes `debug_http_host=localhost:8081` to SharedPreferences and the next reload uses the `adb reverse` tunnel.
+- Alternatively: `am force-stop` the app, then use `adb shell am broadcast -a com.facebook.react.devsupport.action.RELOAD_JS` after setting the preference.
+
+Apply when: an emulator APK is loading from the wrong Metro server in a multi-worker environment.
+
+### 42. screencap returns white frames on Android emulator with GPU acceleration (GH-57)
+
+Problem:
+- `adb exec-out screencap -p` or `adb shell screencap -p /sdcard/screen.png` produces white (or near-white) PNG images on the Android emulator when hardware GPU acceleration is enabled.
+- `setprop debug.hwui.renderer skiaswvk` (software renderer) does not resolve this in WSL2/Windows emulator combinations.
+
+Observation:
+- `uiautomator dump` + grep for text nodes is the reliable fallback to confirm UI content without a visual screenshot.
+- Maestro is the only reliable screenshot path on this emulator setup; if Maestro is unavailable (OOM, driver timeout), use UIAutomator text dumps as evidence.
+
+Apply when: screenshots are needed from emulator-5554 in the WSL2 environment and screencap returns white frames.
