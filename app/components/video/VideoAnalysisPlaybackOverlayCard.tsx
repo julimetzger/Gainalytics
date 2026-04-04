@@ -240,6 +240,8 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const [scrubberWidth, setScrubberWidth] = useState(0);
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
+  const [firstRepTurnaroundOverrideMs, setFirstRepTurnaroundOverrideMs] = useState<number | null>(null);
+  const [firstRepEndOverrideMs, setFirstRepEndOverrideMs] = useState<number | null>(null);
   const [lastRepTurnaroundOverrideMs, setLastRepTurnaroundOverrideMs] = useState<number | null>(null);
   const [lastRepEndOverrideMs, setLastRepEndOverrideMs] = useState<number | null>(null);
   // useRef wrapper ensures the SharedValue object is stable across renders.
@@ -273,21 +275,25 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const videoTranslateYBase = useRef(useSharedValue(0)).current;
 
   const repSegments = result.repSegments;
-  const lastRepSegment = repSegments.length > 0 ? repSegments[repSegments.length - 1] : null;
+  const firstRepSegment = repSegments.length > 0 ? repSegments[0] : null;
+  const firstRepTurnaroundMs = firstRepTurnaroundOverrideMs ?? firstRepSegment?.turnaroundMs ?? 0;
+  const firstRepEndMs = firstRepEndOverrideMs ?? firstRepSegment?.endMs ?? 0;
+  const firstRepConcentricTimeMs = firstRepSegment ? Math.max(0, firstRepEndMs - firstRepTurnaroundMs) : 0;
+  const lastRepSegment = repSegments.length > 1 ? repSegments[repSegments.length - 1] : null;
   const lastRepTurnaroundMs = lastRepTurnaroundOverrideMs ?? lastRepSegment?.turnaroundMs ?? 0;
   const lastRepEndMs = lastRepEndOverrideMs ?? lastRepSegment?.endMs ?? 0;
   const lastRepConcentricTimeMs = lastRepSegment ? Math.max(0, lastRepEndMs - lastRepTurnaroundMs) : 0;
   const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
   const smoothedBarVerticalVelocitySeries = useMemo(() => calculateBarVerticalVelocitySeries(smoothedBarPathSeries), [smoothedBarPathSeries]);
 
-  const lastRepIntervalMetrics = useMemo(() => {
-    if (!lastRepSegment || lastRepTurnaroundMs >= lastRepEndMs || smoothedBarPathSeries.length === 0) {
+  const calcIntervalMetrics = useCallback((startMs: number, endMs: number) => {
+    if (startMs >= endMs || smoothedBarPathSeries.length === 0) {
       return null;
     }
     const velocities: number[] = [];
     for (let i = 0; i < smoothedBarPathSeries.length; i++) {
       const t = smoothedBarPathSeries[i].tMs;
-      if (t >= lastRepTurnaroundMs && t <= lastRepEndMs && i < smoothedBarVerticalVelocitySeries.length) {
+      if (t >= startMs && t <= endMs && i < smoothedBarVerticalVelocitySeries.length) {
         velocities.push(smoothedBarVerticalVelocitySeries[i]);
       }
     }
@@ -295,16 +301,44 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       return null;
     }
     const absVelocities = velocities.map(Math.abs);
-    const vPeak = Math.max(...absVelocities);
-    const vMin = Math.min(...absVelocities);
-    const vAvg = absVelocities.reduce((sum, v) => sum + v, 0) / absVelocities.length;
     return {
-      timeMs: lastRepEndMs - lastRepTurnaroundMs,
-      vPeak: Math.round(vPeak),
-      vMin: Math.round(vMin),
-      vAvg: Math.round(vAvg),
+      timeMs: endMs - startMs,
+      vPeak: Math.round(Math.max(...absVelocities)),
+      vMin: Math.round(Math.min(...absVelocities)),
+      vAvg: Math.round(absVelocities.reduce((sum, v) => sum + v, 0) / absVelocities.length),
     };
-  }, [lastRepSegment, lastRepTurnaroundMs, lastRepEndMs, smoothedBarPathSeries, smoothedBarVerticalVelocitySeries]);
+  }, [smoothedBarPathSeries, smoothedBarVerticalVelocitySeries]);
+
+  const firstRepIntervalMetrics = useMemo(
+    () => firstRepSegment ? calcIntervalMetrics(firstRepTurnaroundMs, firstRepEndMs) : null,
+    [firstRepSegment, firstRepTurnaroundMs, firstRepEndMs, calcIntervalMetrics],
+  );
+  const lastRepIntervalMetrics = useMemo(
+    () => lastRepSegment ? calcIntervalMetrics(lastRepTurnaroundMs, lastRepEndMs) : null,
+    [lastRepSegment, lastRepTurnaroundMs, lastRepEndMs, calcIntervalMetrics],
+  );
+  // Velocity Loss: VL = 1 - (v_last / v_ref), where v_ref is the best avg
+  // velocity from the first rep (proxy for max of first 3 reps).
+  const velocityLoss = useMemo(() => {
+    if (!firstRepIntervalMetrics || !lastRepIntervalMetrics || firstRepIntervalMetrics.vAvg <= 0) {
+      return null;
+    }
+    const vl = 1 - (lastRepIntervalMetrics.vAvg / firstRepIntervalMetrics.vAvg);
+    return Math.round(vl * 100);
+  }, [firstRepIntervalMetrics, lastRepIntervalMetrics]);
+
+  // RIR estimate based on velocity loss (heuristic v1 from issue #66)
+  const rirEstimate = useMemo(() => {
+    if (velocityLoss === null) {
+      return null;
+    }
+    if (velocityLoss < 10) { return '4+'; }
+    if (velocityLoss < 20) { return '3-4'; }
+    if (velocityLoss < 30) { return '2-3'; }
+    if (velocityLoss < 40) { return '1-2'; }
+    return '0-1';
+  }, [velocityLoss]);
+
   const timeRange = useMemo(() => getTimeRange(smoothedBarPathSeries), [smoothedBarPathSeries]);
   const correctedPlaybackDurationMs = useMemo(() => {
     return Math.max(playbackDurationMs, timeRange.maxTimeMs);
@@ -803,59 +837,62 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             pointerEvents="none"
             style={[styles.speedMarkerLine, {backgroundColor: theme.colors.primary}, progressMarkerAnimatedStyle]}
           />
-          {lastRepSegment && speedChartWidth > 0 && correctedPlaybackDurationMs > 0 && (() => {
+          {speedChartWidth > 0 && correctedPlaybackDurationMs > 0 && (() => {
             const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
             const visMin = chartVisibleForLines?.min ?? 0;
             const visMax = chartVisibleForLines?.max ?? correctedPlaybackDurationMs;
             const visRange = visMax > visMin ? visMax - visMin : correctedPlaybackDurationMs;
             const toX = (timeMs: number) => SPEED_CHART_LEFT_PADDING + ((timeMs - visMin) / visRange) * drawableWidth;
-            const turnaroundX = toX(lastRepTurnaroundMs);
-            const endX = toX(lastRepEndMs);
-            const turnaroundVelIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, lastRepTurnaroundMs);
-            const endVelIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, lastRepEndMs);
-            const turnaroundVel = turnaroundVelIdx !== undefined && turnaroundVelIdx < smoothedBarVerticalVelocitySeries.length
-              ? Math.round(smoothedBarVerticalVelocitySeries[turnaroundVelIdx]) : null;
-            const endVel = endVelIdx !== undefined && endVelIdx < smoothedBarVerticalVelocitySeries.length
-              ? Math.round(smoothedBarVerticalVelocitySeries[endVelIdx]) : null;
             const STEP_MS = 20;
+
+            const renderRepLines = (
+              turnaroundMs: number,
+              endMs: number,
+              setTurnaround: (ms: number) => void,
+              setEnd: (ms: number) => void,
+            ) => {
+              const tX = toX(turnaroundMs);
+              const eX = toX(endMs);
+              const tIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, turnaroundMs);
+              const eIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, endMs);
+              const tVel = tIdx !== undefined && tIdx < smoothedBarVerticalVelocitySeries.length
+                ? Math.round(smoothedBarVerticalVelocitySeries[tIdx]) : null;
+              const eVel = eIdx !== undefined && eIdx < smoothedBarVerticalVelocitySeries.length
+                ? Math.round(smoothedBarVerticalVelocitySeries[eIdx]) : null;
+              return (
+                <>
+                  <View style={[styles.adjustLine, {left: tX}]} pointerEvents="box-none">
+                    <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
+                    <View style={styles.adjustButtonRow}>
+                      <TouchableOpacity onPress={() => setTurnaround(turnaroundMs - STEP_MS)} onLongPress={() => setTurnaround(turnaroundMs - 200)}>
+                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setTurnaround(turnaroundMs + STEP_MS)} onLongPress={() => setTurnaround(turnaroundMs + 200)}>
+                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <View style={[styles.adjustLine, {left: eX}]} pointerEvents="box-none">
+                    <View style={styles.adjustButtonRow}>
+                      <TouchableOpacity onPress={() => setEnd(endMs - STEP_MS)} onLongPress={() => setEnd(endMs - 200)}>
+                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setEnd(endMs + STEP_MS)} onLongPress={() => setEnd(endMs + 200)}>
+                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
+                  </View>
+                  {tVel !== null && <Text style={[styles.adjustVelLabel, {color: theme.colors.tertiary, left: tX + 4, top: 2}]}>{tVel}</Text>}
+                  {eVel !== null && <Text style={[styles.adjustVelLabel, {color: theme.colors.tertiary, left: eX + 4, bottom: 2}]}>{eVel}</Text>}
+                </>
+              );
+            };
+
             return (
               <>
-                <View style={[styles.adjustLine, {left: turnaroundX}]} pointerEvents="box-none">
-                  <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
-                  <View style={styles.adjustButtonRow}>
-                    <TouchableOpacity
-                      onPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs - STEP_MS)}
-                      onLongPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs - 200)}>
-                      <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs + STEP_MS)}
-                      onLongPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs + 200)}>
-                      <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <View style={[styles.adjustLine, {left: endX}]} pointerEvents="box-none">
-                  <View style={styles.adjustButtonRow}>
-                    <TouchableOpacity
-                      onPress={() => setLastRepEndOverrideMs(lastRepEndMs - STEP_MS)}
-                      onLongPress={() => setLastRepEndOverrideMs(lastRepEndMs - 200)}>
-                      <Text style={[styles.adjustButtonText, {color: theme.colors.secondary}]}>{'\u2039'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setLastRepEndOverrideMs(lastRepEndMs + STEP_MS)}
-                      onLongPress={() => setLastRepEndOverrideMs(lastRepEndMs + 200)}>
-                      <Text style={[styles.adjustButtonText, {color: theme.colors.secondary}]}>{'\u203A'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
-                </View>
-                {turnaroundVel !== null && (
-                  <Text style={[styles.adjustVelLabel, {color: theme.colors.tertiary, left: turnaroundX + 4, top: 2}]}>{turnaroundVel}</Text>
-                )}
-                {endVel !== null && (
-                  <Text style={[styles.adjustVelLabel, {color: theme.colors.secondary, left: endX + 4, bottom: 2}]}>{endVel}</Text>
-                )}
+                {firstRepSegment && renderRepLines(firstRepTurnaroundMs, firstRepEndMs, setFirstRepTurnaroundOverrideMs, setFirstRepEndOverrideMs)}
+                {lastRepSegment && renderRepLines(lastRepTurnaroundMs, lastRepEndMs, setLastRepTurnaroundOverrideMs, setLastRepEndOverrideMs)}
               </>
             );
           })()}
@@ -891,8 +928,11 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             Rep Summary ({result.repMetrics.length} {result.repMetrics.length === 1 ? 'rep' : 'reps'})
           </Text>
           {result.repMetrics.map((metric, idx) => {
+            const isFirstRep = idx === 0;
             const isLastRep = idx === result.repMetrics.length - 1;
-            const concTimeMs = isLastRep && lastRepSegment ? lastRepConcentricTimeMs : (metric.concentricTimeMs ?? 0);
+            const concTimeMs = isFirstRep && firstRepSegment ? firstRepConcentricTimeMs
+              : isLastRep && lastRepSegment ? lastRepConcentricTimeMs
+              : (metric.concentricTimeMs ?? 0);
             return (
               <View
                 key={metric.repIndex}
@@ -917,6 +957,17 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           })}
         </View>
       )}
+      {firstRepIntervalMetrics && (
+        <View style={styles.intervalMetrics}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>Concentric Phase (Rep 1)</Text>
+          <View style={styles.intervalMetricsRow}>
+            <Text variant="bodySmall">t={(firstRepIntervalMetrics.timeMs / 1000).toFixed(2)}s</Text>
+            <Text variant="bodySmall">vPeak={firstRepIntervalMetrics.vPeak} px/s</Text>
+            <Text variant="bodySmall">vMin={firstRepIntervalMetrics.vMin} px/s</Text>
+            <Text variant="bodySmall">vAvg={firstRepIntervalMetrics.vAvg} px/s</Text>
+          </View>
+        </View>
+      )}
       {lastRepIntervalMetrics && (
         <View style={styles.intervalMetrics}>
           <Text variant="labelMedium" style={styles.repSummaryTitle}>Concentric Phase (Last Rep)</Text>
@@ -925,6 +976,15 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             <Text variant="bodySmall">vPeak={lastRepIntervalMetrics.vPeak} px/s</Text>
             <Text variant="bodySmall">vMin={lastRepIntervalMetrics.vMin} px/s</Text>
             <Text variant="bodySmall">vAvg={lastRepIntervalMetrics.vAvg} px/s</Text>
+          </View>
+        </View>
+      )}
+      {velocityLoss !== null && (
+        <View style={styles.intervalMetrics}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>Velocity Loss</Text>
+          <View style={styles.intervalMetricsRow}>
+            <Text variant="bodySmall">VL={velocityLoss}%</Text>
+            {rirEstimate && <Text variant="bodySmall">RIR={rirEstimate}</Text>}
           </View>
         </View>
       )}
