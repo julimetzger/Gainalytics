@@ -1,6 +1,6 @@
 import {Exercise} from '../../models/entities/Exercise';
 import {LayoutRectangle, ScrollView, View} from 'react-native';
-import MicroOverview from './analyse/MicroOverview';
+import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
 import {TrainingsState} from '../../models/TrainingsState';
 import Timer from './execute/Timer';
@@ -151,7 +151,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
       <ScrollView keyboardShouldPersistTaps={'handled'}>
         <View>
           {showDone ? (
-            <MicroOverview trainingsPlan={trainingsPlan} micro={micro} />
+            <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} />
           ) : (
             <View>
               <View
