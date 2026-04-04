@@ -1,6 +1,7 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, TouchableOpacity, View, processColor} from 'react-native';
 import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming} from 'react-native-reanimated';
+import {Gesture, GestureDetector, GestureHandlerRootView} from 'react-native-gesture-handler';
 import {IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment} from '../../models/entities/VideoAnalysis';
@@ -204,6 +205,9 @@ const createThemedStyles = (theme: MD3Theme) =>
     videoControlsBackground: {
       backgroundColor: theme.colors.backdrop,
     },
+    statsText: {
+      color: theme.colors.onSurfaceVariant,
+    },
   });
 
 const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
@@ -238,7 +242,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
   const [lastRepTurnaroundOverrideMs, setLastRepTurnaroundOverrideMs] = useState<number | null>(null);
   const [lastRepEndOverrideMs, setLastRepEndOverrideMs] = useState<number | null>(null);
-
   // useRef wrapper ensures the SharedValue object is stable across renders.
   // The Reanimated mock creates a new plain object on each useSharedValue call,
   // so without useRef the animated styles would always see value=0 in tests.
@@ -246,6 +249,9 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   // Tracks actual video duration as a SharedValue for UI-thread marker/scrubber animations.
   const videoDurationMsSV = useRef(useSharedValue(0)).current;
   const speedChartWidthSV = useRef(useSharedValue(0)).current;
+  // Visible x-range as reported by the native chart on zoom/pan.
+  const chartVisibleMinSV = useRef(useSharedValue(0)).current;
+  const chartVisibleMaxSV = useRef(useSharedValue(0)).current;
 
   const playbackDurationRef = useRef(0);
   const playbackTimeRef = useRef(0);
@@ -253,6 +259,17 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const currentRepIndexRef = useRef<number | undefined>(undefined);
   const isScrubbingRef = useRef(false);
   const seekCooldownUntilRef = useRef(0);
+  const chartVisibleMinRef = useRef(-1);
+  const chartVisibleMaxRef = useRef(-1);
+  const chartGestureActiveUntilRef = useRef(0);
+
+  // Video pinch-to-zoom state (UI thread only, no re-renders).
+  const videoScale = useRef(useSharedValue(1)).current;
+  const videoTranslateX = useRef(useSharedValue(0)).current;
+  const videoTranslateY = useRef(useSharedValue(0)).current;
+  const videoScaleBase = useRef(useSharedValue(1)).current;
+  const videoTranslateXBase = useRef(useSharedValue(0)).current;
+  const videoTranslateYBase = useRef(useSharedValue(0)).current;
 
   const repSegments = result.repSegments;
   const lastRepSegment = repSegments.length > 0 ? repSegments[repSegments.length - 1] : null;
@@ -271,6 +288,12 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   useEffect(() => {
     if (correctedPlaybackDurationMs > 0) {
       videoDurationMsSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
+      // Initialize visible range to full duration so the marker is correctly
+      // positioned before any zoom event arrives from the chart.
+      chartVisibleMinSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMaxSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMinRef.current = 0;
+      chartVisibleMaxRef.current = correctedPlaybackDurationMs;
     }
   }, [correctedPlaybackDurationMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -280,14 +303,13 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       return 0;
     }
     const drawableWidth = Math.max(0, speedChartWidthSV.value - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
-    if (videoDurationMsSV.value <= 0) {
+    const rangeMin = chartVisibleMinSV.value;
+    const rangeMax = chartVisibleMaxSV.value;
+    const rangeSpan = rangeMax - rangeMin;
+    if (rangeSpan <= 0) {
       return SPEED_CHART_LEFT_PADDING;
     }
-
-    // Keep the marker on the same 0..videoDuration timeline as the scrubber and player.
-    // The chart uses the same domain, so non-zero minTimeMs values naturally shift the data
-    // to the right while the marker still starts at the chart's left edge at t=0.
-    const progress = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value));
+    const progress = Math.min(1, Math.max(0, (playbackTimeMsSV.value - rangeMin) / rangeSpan));
     return SPEED_CHART_LEFT_PADDING + progress * drawableWidth;
   });
 
@@ -493,6 +515,20 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     [correctedPlaybackDurationMs, updateCurrentRepForPlaybackTime], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  // Called by the native chart on zoom/pan. Updates SharedValues so the marker
+  // tracks the visible x-range on the UI thread without triggering re-renders.
+  const onChartChange = useCallback((event: any) => {
+    const {left, right, action} = event.nativeEvent ?? {};
+    if ((action === 'chartScaled' || action === 'chartTranslated') &&
+        typeof left === 'number' && typeof right === 'number' && right > left) {
+      chartVisibleMinSV.value = left; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMaxSV.value = right; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMinRef.current = left;
+      chartVisibleMaxRef.current = right;
+      chartGestureActiveUntilRef.current = Date.now() + 300;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const onScrubberLayout = useCallback((event: LayoutChangeEvent) => {
     const {width} = event.nativeEvent.layout;
     setScrubberWidth(width);
@@ -504,10 +540,10 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     speedChartWidthSV.value = width; // eslint-disable-line react-hooks/exhaustive-deps
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Tap-to-seek maps tap position to VIDEO TIME (0..videoDuration).
+  // Tap-to-seek maps tap position to the visible time range (zoomed or full).
   const onSpeedChartTouch = useCallback(
     (event: GestureResponderEvent) => {
-      if (speedChartWidth <= 0 || correctedPlaybackDurationMs <= 0) {
+      if (Date.now() < chartGestureActiveUntilRef.current || speedChartWidth <= 0 || correctedPlaybackDurationMs <= 0) {
         return;
       }
       const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
@@ -516,7 +552,9 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       }
       const x = event.nativeEvent.locationX - SPEED_CHART_LEFT_PADDING;
       const progress = clamp(x / drawableWidth, 0, 1);
-      applySeekTimeMs(Math.round(progress * correctedPlaybackDurationMs));
+      const rangeMin = chartVisibleMinRef.current;
+      const rangeMax = chartVisibleMaxRef.current > rangeMin ? chartVisibleMaxRef.current : correctedPlaybackDurationMs;
+      applySeekTimeMs(Math.round(rangeMin + progress * (rangeMax - rangeMin)));
     },
     [speedChartWidth, correctedPlaybackDurationMs, applySeekTimeMs],
   );
@@ -568,6 +606,49 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     transform: [{translateX: progressMarkerLeft.value}],
   }));
 
+  // Video pinch-to-zoom gesture.
+  const videoPinchGesture = Gesture.Pinch()
+    .onBegin(() => {
+      'worklet';
+      videoScaleBase.value = videoScale.value;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      videoScale.value = Math.max(1, Math.min(5, videoScaleBase.value * e.scale));
+    })
+    .onEnd(() => {
+      'worklet';
+      if (videoScale.value < 1.05) {
+        videoScale.value = 1;
+        videoTranslateX.value = 0;
+        videoTranslateY.value = 0;
+      }
+    });
+
+  // Video pan gesture (only when zoomed in).
+  const videoPanGesture = Gesture.Pan()
+    .onBegin(() => {
+      'worklet';
+      videoTranslateXBase.value = videoTranslateX.value;
+      videoTranslateYBase.value = videoTranslateY.value;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      if (videoScale.value <= 1) {
+        return;
+      }
+      videoTranslateX.value = videoTranslateXBase.value + e.translationX;
+      videoTranslateY.value = videoTranslateYBase.value + e.translationY;
+    });
+
+  const videoZoomStyle = useAnimatedStyle(() => ({
+    transform: [
+      {translateX: videoTranslateX.value},
+      {translateY: videoTranslateY.value},
+      {scale: videoScale.value},
+    ],
+  }));
+
   useEffect(() => {
     cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
     setPlaybackPaused(true);
@@ -580,16 +661,26 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     setSeekPositionMs(undefined);
     playbackTimeMsSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
     videoDurationMsSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    chartVisibleMinSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    chartVisibleMaxSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    chartVisibleMinRef.current = 0;
+    chartVisibleMaxRef.current = 0;
     playbackDurationRef.current = 0;
     playbackTimeRef.current = 0;
     currentRepIndexRef.current = undefined;
     isScrubbingRef.current = false;
+    videoScale.value = 1; // eslint-disable-line react-hooks/exhaustive-deps
+    videoTranslateX.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    videoTranslateY.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
   }, [localVideoPath, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx, result.barPathSeries, result.repSegments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
-      <View testID="video-analysis-playback-overlay">
-        <View testID="video-analysis-overlay-card" style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio}]}>
+      <View testID="video-analysis-playback-overlay" style={styles.videoRow}>
+        <GestureHandlerRootView style={{flex: 1}}>
+        <GestureDetector gesture={Gesture.Simultaneous(videoPinchGesture, videoPanGesture)}>
+        <View testID="video-analysis-overlay-card" style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio, maxHeight: 520}]}>
+          <Animated.View style={[styles.previewImage, videoZoomStyle]}>
           <VideoAnalysisPlayerView
             testID="video-analysis-playback-player"
             style={styles.previewImage}
@@ -607,6 +698,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             onProgress={onPlayerProgress}
             onEnd={onPlayerEnd}
           />
+          </Animated.View>
           <View style={[styles.videoControlsOverlay, themedStyles.videoControlsBackground]} pointerEvents="box-none">
             <IconButton testID="video-analysis-step-minus200" icon="rewind" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current - 200)} style={styles.videoControlButton} />
             <IconButton testID="video-analysis-step-minus50" icon="skip-previous" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current - 50)} style={styles.videoControlButton} />
@@ -614,6 +706,16 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             <IconButton testID="video-analysis-step-plus50" icon="skip-next" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current + 50)} style={styles.videoControlButton} />
             <IconButton testID="video-analysis-step-plus200" icon="fast-forward" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current + 200)} style={styles.videoControlButton} />
           </View>
+        </View>
+        </GestureDetector>
+        </GestureHandlerRootView>
+        <View style={styles.videoStatsPanel}>
+          <Text variant="labelSmall" style={themedStyles.statsText}>
+            {currentRepIndex !== undefined ? `Rep ${currentRepIndex + 1}` : '-'}
+          </Text>
+          <Text variant="labelSmall" style={themedStyles.statsText}>
+            {currentBarVerticalVelocityPxPerSecond !== undefined ? `${Math.round(currentBarVerticalVelocityPxPerSecond)} px/s` : '-'}
+          </Text>
         </View>
       </View>
 
@@ -625,7 +727,13 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
               style={[styles.speedPlotContainer, themedStyles.speedPlotBackground]}
               onLayout={onSpeedChartLayout}
               data={speedChartData}
-              touchEnabled={false}
+              touchEnabled={true}
+              pinchZoom={true}
+              doubleTapToZoomEnabled={false}
+              scaleXEnabled={true}
+              scaleYEnabled={false}
+              dragEnabled={true}
+              onChange={onChartChange}
               legend={{enabled: false}}
               chartDescription={{text: ''}}
               marker={{enabled: false}}
@@ -767,6 +875,15 @@ const styles = StyleSheet.create({
   previewImage: {
     ...StyleSheet.absoluteFillObject,
   },
+  videoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  videoStatsPanel: {
+    width: 64,
+    paddingLeft: 8,
+    alignItems: 'flex-start',
+  },
   videoControlsOverlay: {
     position: 'absolute',
     left: 0,
@@ -841,11 +958,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   speedPlotSection: {
-    marginTop: 12,
+    marginTop: 0,
   },
   speedPlotWrapper: {
     position: 'relative',
-    marginTop: 8,
+    marginTop: 0,
   },
   speedPlotContainer: {
     position: 'relative',
