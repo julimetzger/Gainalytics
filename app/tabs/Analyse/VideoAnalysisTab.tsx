@@ -274,6 +274,13 @@ const VideoAnalysisTab = () => {
                     setIndex={analysis.setIndex}
                   />
                 )}
+                {analysis.setResult && (
+                  <Text style={{fontSize: 12, marginTop: 4}}>
+                    {analysis.setResult.repResults.length} reps
+                    {analysis.setResult.velocityLossPercent !== null ? ` | VL ${analysis.setResult.velocityLossPercent}%` : ''}
+                    {analysis.setResult.rirEstimate ? ` | RIR ${analysis.setResult.rirEstimate}` : ''}
+                  </Text>
+                )}
                 {progressBar}
                 {analysis.error && <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>}
               </Card.Content>
