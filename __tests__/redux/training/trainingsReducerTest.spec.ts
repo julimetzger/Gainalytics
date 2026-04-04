@@ -176,6 +176,65 @@ describe('trainingsReducer', () => {
       ).toEqual(STATE_WITH_ONE_TRAINING());
     });
   });
+  describe('REPLACE_EXERCISE_IN_TRAINING', () => {
+    it('replaces the exercise only inside the selected training and keeps workout ids', () => {
+      expect(
+        trainingsReducer(
+          {
+            byId: {
+              3: {
+                id: 3,
+                exercises: [2, 4],
+                plannedWorkouts: {2: 11},
+                doneWorkoutIds: {2: 21},
+                state: TrainingsState.STARTED,
+              },
+            },
+            allIds: [3],
+          },
+          {
+            type: 'REPLACE_EXERCISE_IN_TRAINING',
+            trainingsId: 3,
+            fromExerciseId: 2,
+            toExerciseId: 5,
+          },
+        ),
+      ).toEqual({
+        byId: {
+          3: {
+            id: 3,
+            exercises: [5, 4],
+            plannedWorkouts: {5: 11},
+            doneWorkoutIds: {5: 21},
+            state: TrainingsState.STARTED,
+          },
+        },
+        allIds: [3],
+      });
+    });
+    it('does not replace exercise when training is FINISHED', () => {
+      const state = {
+        byId: {
+          3: {
+            id: 3,
+            exercises: [2, 4],
+            plannedWorkouts: {2: 11},
+            doneWorkoutIds: {2: 21},
+            state: TrainingsState.FINISHED,
+          },
+        },
+        allIds: [3],
+      };
+      expect(
+        trainingsReducer(state, {
+          type: 'REPLACE_EXERCISE_IN_TRAINING',
+          trainingsId: 3,
+          fromExerciseId: 2,
+          toExerciseId: 5,
+        }),
+      ).toEqual(state);
+    });
+  });
   describe('DELETE_WORKOUT', () => {
     it('it should skip if not connected to training', () => {
       expect(

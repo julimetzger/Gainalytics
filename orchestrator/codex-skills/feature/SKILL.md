@@ -60,28 +60,103 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
 ## Workflow
 
 1. Confirm the branch and worktree state.
-2. Read `docs/memory/agent-memory.md` to learn from previous agent runs.
-3. Read the ticket, current code, relevant app screenshots, and any prior feedback.
-4. Implement the feature directly in the assigned worktree.
-5. Run the smallest relevant checks while iterating.
-6. Before review, run the final checks relevant to the change:
+2. If prior review feedback is present, immediately write `status.json` with `"status": "feedback_round"` to clear the stale status from the previous round.
+3. Read `docs/memory/agent-memory.md` to learn from previous agent runs.
+4. Read the ticket, current code, relevant app screenshots, and any prior feedback.
+5. Implement the feature directly in the assigned worktree.
+6. Run the smallest relevant checks while iterating.
+7. Before review, run the final checks relevant to the change:
    - `npm test`
    - Android device verification
    - for UI or flow changes, run Maestro smoke or a relevant flow against the assigned device
    - workspace-wide `typecheck` and `lint` are optional health checks; record them if you run them, but they are not required for `ready_for_review`
-7. Capture at least one screenshot that shows the implemented result.
-8. Produce review evidence for every acceptance criterion:
+8. Capture at least one screenshot that shows the implemented result.
+9. Produce review evidence for every acceptance criterion:
    - map each criterion to the specific code change, screenshot, and check or e2e result that proves it
-9. Create one or more local commits on the assigned feature branch.
-10. Write `status.json` and `summary.md`.
-11. Append new learnings to `docs/memory/agent-memory.md` (see Memory section), then exit.
+10. Create one or more local commits on the assigned feature branch.
+11. Commit evidence screenshots into the branch so they are visible on GitHub:
+    ```bash
+    # Copy resized screenshots from run_dir into the branch
+    mkdir -p screenshots/<ticket_id>
+    cp <run_dir>/screenshots/*.png screenshots/<ticket_id>/
+    git add screenshots/<ticket_id>/
+    git commit -m "docs(<ticket_id>): add evidence screenshots"
+    ```
+    Only commit the most relevant screenshots (max 5). Prefer: final result, key UI states,
+    before/after comparisons. Do not commit raw or intermediate debug screenshots.
+12. Push the branch and create a Pull Request:
+    ```bash
+    git push -u origin <branch>
+    gh pr create --title "<ticket_id>: <title>" --body "$(cat <<'EOF'
+    ## Summary
+    <1-3 bullet points of what changed>
+
+    Closes #<github_issue_number>
+
+    ## Evidence Screenshots
+    <for each relevant screenshot, embed with:>
+    ![description](screenshots/<ticket_id>/filename.png)
+
+    ## Acceptance Criteria
+    <for each criterion, one line with status + evidence>
+
+    ## Test plan
+    <which checks ran and passed>
+    EOF
+    )" --base master --head <branch> --repo julimetzger/Gainalytics
+    ```
+    If a PR for this branch already exists, skip creation — just push the new commits
+    and update the PR body if needed with `gh pr edit`.
+    Store the PR URL in `status.json` as `"pr_url"`.
+13. Write `status.json` (with `ready_for_review`) and `summary.md`.
+14. Append new learnings to `docs/memory/agent-memory.md` (see Memory section), then exit.
+
+## App Deployment
+
+**NEVER use `npx react-native run-android` or `npm run android`.** These commands use
+Gradle's device selection which ignores `ANDROID_SERIAL` and may deploy to the wrong
+device (e.g. a physical device that belongs to another session).
+
+Always separate build and install:
+
+```bash
+# 1. Build the APK (device-independent)
+cd "$WORKTREE_PATH/android" && ./gradlew assembleDebug
+
+# 2. Install on the assigned device only
+adb -s "$ANDROID_SERIAL" install -r "$WORKTREE_PATH/android/app/build/outputs/apk/debug/app-debug.apk"
+
+# 3. Launch the app
+adb -s "$ANDROID_SERIAL" shell am start -n com.powerliftingworkoutplanner/.MainActivity
+```
+
+If Metro is provided by the orchestrator, ensure the reverse mapping is set before launching:
+
+```bash
+adb -s "$ANDROID_SERIAL" reverse tcp:${E2E_DEVICE_METRO_PORT:-8081} tcp:${E2E_METRO_PORT}
+```
+
+## Screenshots
+
+**CRITICAL: Always resize screenshots after capture.** Raw device screenshots (1080x2400+)
+exceed the API image dimension limit and will crash your session after a few images with
+`"An image exceeds the dimension limit for many-image requests (2000px)"`.
+
+After every `screencap`, immediately resize to max 800px width:
+
+```bash
+adb -s "$ANDROID_SERIAL" exec-out screencap -p > "<run_dir>/screenshots/raw.png"
+ffmpeg -y -i "<run_dir>/screenshots/raw.png" -vf "scale=800:-1" "<run_dir>/screenshots/final.png" 2>/dev/null
+rm "<run_dir>/screenshots/raw.png"
+```
+
+Never read a raw device screenshot without resizing first.
 
 ## Emulator And Artifact Commands
 
 Use commands like these when they fit the ticket:
 
 ```bash
-adb -s "$ANDROID_SERIAL" exec-out screencap -p > "<run_dir>/screenshots/final.png"
 bash ./__tests__/e2e/scripts/run-maestro-from-wsl.sh --mode smoke --device "$ANDROID_SERIAL" > "<run_dir>/checks/maestro-smoke.log" 2>&1
 npm run typecheck > "<run_dir>/checks/typecheck.log" 2>&1
 npm test > "<run_dir>/checks/test.log" 2>&1
@@ -177,6 +252,7 @@ Write `status.json` with this shape:
     "screenshots": ["screenshots/final.png"],
     "e2e_reports": ["checks/maestro-smoke.log"]
   },
+  "pr_url": "https://github.com/julimetzger/Gainalytics/pull/42",
   "question": null,
   "blocker": null
 }
@@ -187,6 +263,10 @@ Valid `status` values:
 - `needs_input`
 - `ready_for_review`
 - `blocked`
+- `feedback_round` — write this as your FIRST action when prior review feedback is present.
+  This signals the orchestrator that you have started working on the feedback and clears
+  the stale `ready_for_review` from the previous round. Then continue implementing the
+  feedback and write `ready_for_review` (or `blocked`) when done.
 
 Evidence path rule:
 

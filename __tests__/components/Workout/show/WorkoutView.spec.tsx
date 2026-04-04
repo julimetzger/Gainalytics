@@ -74,6 +74,21 @@ jest.mock('../../../../app/components/Workout/show/WorkoutSetView', () => {
   );
 });
 
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: jest.fn(() => ({navigate: jest.fn()})),
+}));
+
+jest.mock('react-redux', () => ({
+  useSelector: jest.fn(() => []),
+  useDispatch: jest.fn(() => jest.fn()),
+}));
+
+jest.mock('../../../../app/components/video/VideoSelectionModal', () => () => null);
+
+jest.mock('../../../../app/redux/VideoAnalysis/dispatch/dispatchLinkVideoAnalysisToWorkout', () => ({
+  dispatchLinkVideoAnalysisToWorkout: jest.fn(() => jest.fn()),
+}));
+
 jest.mock('react-native-outside-press', () => {
   const React = require('react');
   const {TouchableOpacity, View, Text} = require('react-native');

@@ -21,7 +21,7 @@ describe('buildSyntheticBarTrackingResult', () => {
         {tMs: 500, score: 0.9},
         {tMs: 1000, score: 0.84},
       ],
-      repSegments: [{repIndex: 1, startMs: 0, bottomMs: 500, endMs: 1000}],
+      repSegments: [{repIndex: 1, startMs: 0, turnaroundMs: 500, endMs: 1000}],
       repMetrics: [
         {
           repIndex: 1,
