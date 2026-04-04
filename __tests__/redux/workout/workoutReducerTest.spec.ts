@@ -887,6 +887,91 @@ describe('workoutReducer', () => {
       });
     });
   });
+  describe('REPLACE_EXERCISE_IN_TRAINING', () => {
+    it('moves planned and done workouts to the replacement exercise while keeping sets', () => {
+      expect(
+        exerciseReducer(
+          {
+            ...STATE_WITH_TWO_WORKOUTS(),
+            byId: {
+              ...STATE_WITH_TWO_WORKOUTS().byId,
+              1: {
+                ...STATE_WITH_TWO_WORKOUTS().byId[1],
+                sets: [{reps: 5, rir: 2, weight: 100, date: TEST_DATE, index: 1}],
+              },
+              3: {
+                id: 3,
+                exerciseId: 11,
+                notes: '',
+                sets: [{reps: 8, rir: 3, weight: 80, date: TEST_DATE, index: 1}],
+                start: TEST_DATE,
+              },
+            },
+            plannedWorkouts: [3],
+            notFinishedWorkouts: {11: 1},
+            suggestedWorkouts: {
+              11: {
+                exerciseId: 11,
+                notes: '',
+                sets: [{reps: 6, rir: 2, weight: 90, date: undefined, index: 1}],
+              },
+            },
+          },
+          {
+            type: 'REPLACE_EXERCISE_IN_TRAINING',
+            fromExerciseId: 11,
+            toExerciseId: 33,
+            plannedWorkout: {
+              id: 3,
+              exerciseId: 11,
+              notes: '',
+              sets: [{reps: 8, rir: 3, weight: 80, date: TEST_DATE, index: 1}],
+              start: TEST_DATE,
+            },
+            doneWorkout: {
+              id: 1,
+              exerciseId: 11,
+              notes: '',
+              sets: [{reps: 5, rir: 2, weight: 100, date: TEST_DATE, index: 1}],
+              start: TEST_DATE,
+              end: TEST_DATE,
+            },
+          },
+        ),
+      ).toEqual({
+        ...STATE_WITH_TWO_WORKOUTS(),
+        byId: {
+          ...STATE_WITH_TWO_WORKOUTS().byId,
+          1: {
+            ...STATE_WITH_TWO_WORKOUTS().byId[1],
+            exerciseId: 33,
+            sets: [{reps: 5, rir: 2, weight: 100, date: TEST_DATE, index: 1}],
+          },
+          3: {
+            id: 3,
+            exerciseId: 33,
+            notes: '',
+            sets: [{reps: 8, rir: 3, weight: 80, date: TEST_DATE, index: 1}],
+            start: TEST_DATE,
+          },
+        },
+        byExerciseId: {
+          11: [],
+          22: [2],
+          33: [1],
+        },
+        plannedWorkouts: [3],
+        notFinishedWorkouts: {33: 1},
+        suggestedWorkouts: {
+          33: {
+            exerciseId: 33,
+            notes: '',
+            sets: [{reps: 6, rir: 2, weight: 90, date: undefined, index: 1}],
+          },
+        },
+      });
+    });
+  });
   describe('DELETE_TRAINING', () => {
     it('should delete all connected workouts', () => {
       expect(

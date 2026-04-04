@@ -1,5 +1,4 @@
 import {AnyAction} from '@reduxjs/toolkit';
-import {NormalizedState} from '../normalizedState';
 import {determineNewWorkoutId, NormalizedWorkoutState} from '../normalizedWorkoutState';
 import {Workout} from '../../models/entities/Workout';
 import {WorkoutSet} from '../../models/entities/WorkoutSet';
@@ -67,7 +66,7 @@ function deleteWorkout(workoutState: NormalizedWorkoutState<Workout>, exerciseId
     return {
       ...workoutState,
       suggestedWorkouts: suggested,
-    } as NormalizedState<Workout>;
+    } as NormalizedWorkoutState<Workout>;
   }
   let {[workoutId]: removed, ...rest} = workoutState.byId;
   let notFinished = {...workoutState.notFinishedWorkouts};
@@ -84,7 +83,7 @@ function deleteWorkout(workoutState: NormalizedWorkoutState<Workout>, exerciseId
       [exerciseId]: workoutState.byExerciseId[exerciseId]?.filter((value) => value !== workoutId),
     },
     notFinishedWorkouts: notFinished,
-  } as NormalizedState<Workout>;
+  } as NormalizedWorkoutState<Workout>;
 }
 
 function handleDeleteSuggestedSetWhenNotFoundInPersistedSet(workoutState: NormalizedWorkoutState<Workout>, exerciseId: number, set: WorkoutSet) {
@@ -132,7 +131,20 @@ function deleteTrainingWorkouts(workoutState: NormalizedWorkoutState<Workout>, w
   };
 }
 
-const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initialState, action: AnyAction) => {
+function moveWorkoutIdBetweenExercises(workoutState: NormalizedWorkoutState<Workout>, workoutId: number, fromExerciseId: number, toExerciseId: number) {
+  const fromWorkoutIds = (workoutState.byExerciseId[fromExerciseId] ?? []).filter((value) => value !== workoutId);
+  const toWorkoutIds = [...(workoutState.byExerciseId[toExerciseId] ?? []).filter((value) => value !== workoutId), workoutId].sort(
+    (leftId, rightId) => workoutState.allIds.indexOf(leftId) - workoutState.allIds.indexOf(rightId),
+  );
+
+  return {
+    ...workoutState.byExerciseId,
+    [fromExerciseId]: fromWorkoutIds,
+    [toExerciseId]: toWorkoutIds,
+  };
+}
+
+const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initialState, action: AnyAction): NormalizedWorkoutState<Workout> => {
   switch (action.type) {
     case 'ADD_WORKOUT': {
       let newId = addNewWorkoutToState(workoutState, action.workout);
@@ -146,7 +158,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
         byExerciseId: {...workoutState.byExerciseId},
         notFinishedWorkouts: {...workoutState.notFinishedWorkouts},
         suggestedWorkouts: {...suggested},
-      } as NormalizedState<Workout>;
+      } as NormalizedWorkoutState<Workout>;
     }
 
     case 'ADD_OR_UPDATE_SET_IN_WORKOUT': {
@@ -239,6 +251,58 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
     case 'DELETE_WORKOUT': {
       return deleteWorkout(workoutState, action.workout.exerciseId, action.workout.id);
     }
+    case 'REPLACE_EXERCISE_IN_TRAINING': {
+      const hasDoneWorkout = action.doneWorkout?.id !== undefined && workoutState.byId[action.doneWorkout.id] !== undefined;
+      const hasPlannedWorkout = action.plannedWorkout?.id !== undefined && workoutState.byId[action.plannedWorkout.id] !== undefined;
+      const hasSuggestedWorkout = workoutState.suggestedWorkouts?.[action.fromExerciseId] !== undefined;
+      if (action.fromExerciseId === action.toExerciseId || (!hasDoneWorkout && !hasPlannedWorkout && !hasSuggestedWorkout)) {
+        return workoutState;
+      }
+
+      let nextWorkoutState = {
+        ...workoutState,
+        byId: {...workoutState.byId},
+        byExerciseId: {...workoutState.byExerciseId},
+        notFinishedWorkouts: {...workoutState.notFinishedWorkouts},
+        suggestedWorkouts: workoutState.suggestedWorkouts ? {...workoutState.suggestedWorkouts} : undefined,
+      };
+
+      if (hasDoneWorkout) {
+        nextWorkoutState.byId[action.doneWorkout.id] = {
+          ...nextWorkoutState.byId[action.doneWorkout.id],
+          exerciseId: action.toExerciseId,
+        };
+        nextWorkoutState.byExerciseId = moveWorkoutIdBetweenExercises(nextWorkoutState, action.doneWorkout.id, action.fromExerciseId, action.toExerciseId);
+
+        if (nextWorkoutState.notFinishedWorkouts?.[action.fromExerciseId] === action.doneWorkout.id) {
+          nextWorkoutState.notFinishedWorkouts[action.toExerciseId] = action.doneWorkout.id;
+          delete nextWorkoutState.notFinishedWorkouts[action.fromExerciseId];
+        }
+      }
+
+      if (hasPlannedWorkout) {
+        nextWorkoutState.byId[action.plannedWorkout.id] = {
+          ...nextWorkoutState.byId[action.plannedWorkout.id],
+          exerciseId: action.toExerciseId,
+        };
+      }
+
+      if (hasSuggestedWorkout && nextWorkoutState.suggestedWorkouts !== undefined) {
+        nextWorkoutState.suggestedWorkouts[action.toExerciseId] = {
+          ...nextWorkoutState.suggestedWorkouts[action.fromExerciseId],
+          exerciseId: action.toExerciseId,
+        };
+        delete nextWorkoutState.suggestedWorkouts[action.fromExerciseId];
+      }
+
+      return {
+        ...workoutState,
+        byId: nextWorkoutState.byId,
+        byExerciseId: nextWorkoutState.byExerciseId,
+        notFinishedWorkouts: nextWorkoutState.notFinishedWorkouts,
+        suggestedWorkouts: nextWorkoutState.suggestedWorkouts,
+      };
+    }
     case 'SUGGEST_WORKOUT': {
       const keys = workoutState.byExerciseId[action.exerciseId][workoutState.byExerciseId[action.exerciseId].length - 1];
       let lastWorkout = {
@@ -275,7 +339,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
       if (workoutState.notFinishedWorkouts !== undefined && workoutState.notFinishedWorkouts[action.exerciseId] !== undefined) delete workoutState.notFinishedWorkouts[action.exerciseId];
       return {
         ...workoutState,
-      } as NormalizedState<Workout>;
+      } as NormalizedWorkoutState<Workout>;
     }
     case 'ADD_PLANED_TRAINING_WORKOUT': {
       if (action.workout.id === undefined) {

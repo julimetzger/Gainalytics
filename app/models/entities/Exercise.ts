@@ -4,6 +4,7 @@ export type Exercise = {
   id?: number;
   name: string;
   muscles?: MusclePercentPair[];
+  alternativeIds?: number[];
   records?: {
     [recordAsString: string]: ExerciseRecord[];
   };

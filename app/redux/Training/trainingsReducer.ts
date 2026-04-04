@@ -67,6 +67,37 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
         },
         allIds: [...allIds],
       };
+    case 'REPLACE_EXERCISE_IN_TRAINING': {
+      const existingTraining = state.byId[action.trainingsId];
+      if (
+        existingTraining === undefined ||
+        existingTraining.state === TrainingsState.FINISHED ||
+        action.fromExerciseId === action.toExerciseId ||
+        !existingTraining.exercises.includes(action.fromExerciseId) ||
+        existingTraining.exercises.includes(action.toExerciseId)
+      ) {
+        return state;
+      }
+
+      const nextExercises = existingTraining.exercises.map((exerciseId) => (exerciseId === action.fromExerciseId ? action.toExerciseId : exerciseId));
+      const fromPlannedWorkoutId = existingTraining.plannedWorkouts?.[action.fromExerciseId];
+      const fromDoneWorkoutId = existingTraining.doneWorkoutIds?.[action.fromExerciseId];
+      const plannedWithoutOld = Object.fromEntries(Object.entries(existingTraining.plannedWorkouts ?? {}).filter(([exerciseId]) => parseInt(exerciseId) !== action.fromExerciseId));
+      const doneWithoutOld = Object.fromEntries(Object.entries(existingTraining.doneWorkoutIds ?? {}).filter(([exerciseId]) => parseInt(exerciseId) !== action.fromExerciseId));
+
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.trainingsId]: {
+            ...existingTraining,
+            exercises: nextExercises,
+            plannedWorkouts: fromPlannedWorkoutId !== undefined ? {...plannedWithoutOld, [action.toExerciseId]: fromPlannedWorkoutId} : plannedWithoutOld,
+            doneWorkoutIds: fromDoneWorkoutId !== undefined ? {...doneWithoutOld, [action.toExerciseId]: fromDoneWorkoutId} : doneWithoutOld,
+          },
+        },
+      };
+    }
     case 'ADD_WORKOUT':
       if (action.trainingsId === undefined) return state;
       return {
