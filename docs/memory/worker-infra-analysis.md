@@ -23,6 +23,7 @@ Last updated: 2026-04-02
 | ANA-005-fix | emu | 13 | 1 | 3 | 6 | 2 | 4 | 6 | 0 | 0 | review |
 | ANA-003-fix2 | emu | 2 | 15 | 0 | 0 | 0 | 0 | 0 | 12 | 8 | ready_for_review (r9) |
 | TRN-004 | emu | 18 | 8 | 12 | 3 | 0 | 0 | 0 | 0 | 0 | ready_for_review (r2) |
+| TRN-004-fix | emu | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
@@ -103,3 +104,10 @@ The following infra patterns are already documented in `docs/memory/agent-memory
    and agent-memory.md, agents still try to figure out the networking setup
    from scratch. The feature SKILL.md should include a concrete "Emulator
    Preflight Checklist" with exact commands.
+
+6. **Windows ADB server can go offline between sessions.** When the Windows ADB
+   server is not running, socat at 0.0.0.0:5037 exists but all connections are
+   refused. A fix round run the next day found this. Workers should detect
+   "connection refused to 172.18.240.1:5037" and report as blocked immediately
+   rather than trying alternative ports — there is no WSL-side workaround when
+   the Windows host ADB server is down.

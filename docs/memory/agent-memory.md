@@ -90,3 +90,13 @@ The mock creates a new object per render. Wrap with `useRef`: `const sv = useRef
 **Problem:** Text elements inside `react-native-drawer-layout` overlays can fail `assertVisible: text: "..."` even when clearly visible in the screenshot and present in the UI hierarchy.
 **Symptoms:** `extendedWaitUntil: visible: "Meso 2" timeout: 5000` times out; screenshot shows "Meso 2" in drawer.
 **Working solution:** Add `testID` to each dynamic element in the drawer and use `assertVisible: id: "drawer-meso-name-2"` for reliable matching. ID-based assertions work correctly even inside overlay drawers.
+
+### 22. New RN component in a screen requires adding it to paper mock in tests
+**Problem:** Adding a new `react-native-paper` component (e.g. `Chip`) to a screen causes tests that render that screen to fail with "Element type is invalid: ... got undefined".
+**Symptoms:** `TrainingHome.spec.tsx` crashed with "Element type is invalid" after `Chip` was added to `TrainingHome`. The mock for `react-native-paper` was missing a `Chip` entry.
+**Apply when:** Any time a new paper component is used in a screen that has tests — always update the `jest.mock('react-native-paper', ...)` block in the corresponding spec file.
+
+### 23. Adding a new arg to a dispatch hook breaks call-site test assertions
+**Problem:** When a dispatch function's signature gains a new parameter (e.g. `microNumber`), tests that assert on `toHaveBeenCalledWith(...)` with the old arg count fail.
+**Symptoms:** `TrainingsBase.spec` expected `dispatchSuggestBasedOnTrained(3, 1, {rirDelta: 2})` but the code now calls `dispatchSuggestBasedOnTrained(3, 1, 2, {rirDelta: 2})`.
+**Apply when:** Refactoring a hook to accept more context (meso, scope, etc.) — search for `toHaveBeenCalledWith` on that hook in specs and update the expected args.
