@@ -6,10 +6,11 @@ import {MusclePercentPair} from '../../../models/entities/Exercise';
 export const useDispatchAddExercise = () => {
   const dispatch = useDispatch();
 
-  return (nameOfExercise: String, muscles: MusclePercentPair[]) =>
+  return (nameOfExercise: String, muscles: MusclePercentPair[], alternativeIds?: number[]) =>
     dispatch({
       type: 'ADD_EXERCISE',
       nameOfExercise,
       muscles,
+      alternativeIds,
     } as Action);
 };

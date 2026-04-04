@@ -348,6 +348,112 @@ Apply when:
 - Jede UI-Komponente die synchron mit Video/Audio-Playback laufen muss
 - Continuous-update-Patterns die den JS-Thread blockieren
 
+### 28. Gradle run-android ignoriert ANDROID_SERIAL und deployed auf falsches Device
+
+Problem:
+- `npx react-native run-android` nutzt Gradle's Device-Auswahl die `ANDROID_SERIAL` ignoriert. Bei mehreren Devices (Emulatoren + echtes Gerät) deployed es auf das erste gefundene.
+
+Symptoms:
+- Worker deployed auf echtes Device obwohl emulator-5554 zugewiesen war
+- User braucht das echte Device für eigene Arbeit
+
+Working solution:
+- Feature SKILL verbietet `npx react-native run-android` und `npm run android`
+- Stattdessen: `gradlew assembleDebug` + `adb -s $SERIAL install -r <apk>`
+- Build und Install getrennt, Install immer mit explizitem `-s`
+
+Relevant files:
+- [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
+
+### 29. GitHub Issues als Ticket-Source: deutsche Section-Header mappen
+
+Problem:
+- `fetch_github_issue()` parst `## Headers` als Sections. Deutsche Tickets nutzen `## Beschreibung` statt `## Description` — die Description blieb leer.
+
+Symptoms:
+- Prompt zeigt `description: (leer)` obwohl das Issue einen ausführlichen Beschreibungstext hat
+
+Working solution:
+- `parse_github_issue_body()` mappt deutsche Varianten: Beschreibung, Zusammenfassung, Überblick → description
+
+Relevant files:
+- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+
+### 30. feedback_round Status verhindert Verwirrung mit altem ready_for_review
+
+Problem:
+- Nach Feedback-Relaunch zeigte status.json noch `ready_for_review` vom vorherigen Run. Nicht unterscheidbar ob der Worker gerade arbeitet oder fertig ist.
+
+Symptoms:
+- Orchestrator meldet `ready_for_review` obwohl der Worker erst 2min läuft
+- User denkt der Worker ist fertig, Worker arbeitet aber noch
+
+Working solution:
+- Neuer Status `feedback_round` — Worker schreibt ihn als erste Aktion wenn prior review feedback vorhanden ist
+- Klärt sofort dass der alte Status stale ist
+
+Relevant files:
+- [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
+
+### 31. ffmpeg statt ImageMagick für Screenshot-Resize
+
+Problem:
+- Worker-Sessions crashen weil Screenshots >2000px die API-Limits überschreiten (Entry 19). ImageMagick (`convert`) ist nicht installiert.
+
+Working solution:
+- `ffmpeg` ist verfügbar und resized zuverlässig: `ffmpeg -y -i raw.png -vf "scale=800:-1" final.png`
+- Feature SKILL schreibt vor: nach jedem `screencap` sofort resizen, raw löschen
+
+Relevant files:
+- [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
+
+### 32. Cross-Runner Review Pattern: Implementierer ≠ Reviewer
+
+Observation:
+- Claude implementiert → Codex reviewt (und umgekehrt) liefert bessere Reviews als Same-Runner
+- Codex-Reviews sind schnell (~2-5min) und finden echte Bugs (Schema-Breaks, Invariant-Verletzungen)
+- Claude-Reviews sind gründlicher mit Code-Zitaten und Severity-Levels
+
+Apply when:
+- Immer den entgegengesetzten Runner für Reviews nutzen
+- Review-Worker brauchen kein Device/Emulator (read-only)
+
+Relevant files:
+- [launch_review_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_review_job.py)
+- [review/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/review/SKILL.md)
+
+### 33. Codex-Sandbox blockiert gradlew und native Builds
+
+Problem:
+- Codex `exec` Sandbox erlaubt keine Schreibzugriffe unter `node_modules/@react-native/gradle-plugin/build`. Gradle-Builds und native Tests scheitern.
+
+Symptoms:
+- Review-Worker meldet "Blocked by sandbox write restrictions under node_modules/@react-native/gradle-plugin/build"
+- Feature-Worker (TRN-006) kann App nicht rebuilden, Emulator zeigt alten Code
+
+Working solution:
+- Codex-Runner für Code-Only-Tasks: Reviews, Reducer-Tests, reine JS-Arbeit
+- Claude-Runner für Tasks die Build + Device-Deploy brauchen
+- Oder: Metro extern starten + APK vor Worker-Start installieren (Local Dev Setup)
+
+### 34. Metro Worktree-Config braucht explizite nodeModulesPaths und watchFolders
+
+Problem:
+- Metro gestartet vom Worktree findet `@babel/runtime` und `react-native` nicht, obwohl node_modules als Symlink existiert.
+
+Symptoms:
+- Red screen: "Unable to resolve module @babel/runtime/helpers/interopRequireDefault"
+- Metro log: "could not be found within the project or in these directories: node_modules, ../../node_modules"
+
+Working solution:
+- Metro Worktree-Config mit expliziten Pfaden:
+  ```js
+  projectRoot: worktreePath,
+  watchFolders: [repoRoot + '/node_modules', worktreePath],
+  resolver: { nodeModulesPaths: [repoRoot + '/node_modules'] }
+  ```
+- Metro immer über `node <repoRoot>/node_modules/react-native/cli.js start --config <config>` starten, nie `npx react-native start` im Worktree
+
 ## Operational Guidance For Future Agents
 
 - Do not assume `state.json` is current if a run directory already has `status.json`.
@@ -374,3 +480,10 @@ Apply when:
 - Echtes Device hat signifikant weniger Infra-Overhead als Emulatoren — für zeitkritische Reviews bevorzugen.
 - worker-infra-analysis.md enthält eine Device-Spalte (real/emu) — Worker müssen diese befüllen.
 - Codex-Runner für reine Evidence-Runs (Maestro + Screenshots) geeignet; für Build+Commit Claude-Runner oder angepasste Sandbox.
+- Nie `npx react-native run-android` — immer `gradlew assembleDebug` + `adb -s $SERIAL install`.
+- GitHub Issues als Ticket-Source: `--github-issue <number>` statt `--ticket-file`. Deutsche Section-Header werden automatisch gemappt.
+- Bei Feedback-Relaunch: Worker soll sofort `feedback_round` in status.json schreiben um stale `ready_for_review` zu klären.
+- Screenshots immer mit `ffmpeg -vf "scale=800:-1"` resizen — `convert` ist nicht verfügbar.
+- Cross-Runner Reviews: Claude implementiert → Codex reviewt (und umgekehrt) für bessere Ergebnisse.
+- Codex kann keine Gradle-Builds in der Sandbox — für Build-Tasks Claude-Runner nutzen.
+- Metro Worktree-Config mit expliziten `nodeModulesPaths` und `watchFolders` nötig — nie `npx react-native start` im Worktree.

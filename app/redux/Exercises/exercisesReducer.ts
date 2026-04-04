@@ -2,6 +2,7 @@ import {AnyAction} from '@reduxjs/toolkit';
 import {NormalizedState} from '../normalizedState';
 import {Muscles} from '../../models/Muscles';
 import {Exercise, ExerciseRecord} from '../../models/entities/Exercise';
+import {Workout} from '../../models/entities/Workout';
 
 const initialState = {
   byId: {
@@ -170,41 +171,174 @@ const initialState = {
   allIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
 } as NormalizedState<Exercise>;
 
+function sanitizeAlternativeIds(exercises: NormalizedState<Exercise>, exerciseId: number, alternativeIds?: number[]) {
+  const seen = new Set<number>();
+  return (alternativeIds ?? []).filter((alternativeId) => {
+    if (alternativeId === exerciseId || exercises.byId[alternativeId] === undefined || seen.has(alternativeId)) {
+      return false;
+    }
+    seen.add(alternativeId);
+    return true;
+  });
+}
+
+function normalizeAlternativeIds(alternativeIds?: number[]) {
+  return alternativeIds && alternativeIds.length > 0 ? alternativeIds : undefined;
+}
+
+function upsertBidirectionalAlternatives(
+  exercises: NormalizedState<Exercise>,
+  exerciseId: number,
+  alternativeIds?: number[],
+  previousAlternativeIds?: number[],
+) {
+  const exercise = exercises.byId[exerciseId];
+  if (exercise === undefined) {
+    return exercises;
+  }
+
+  const sanitizedAlternativeIds = sanitizeAlternativeIds(exercises, exerciseId, alternativeIds);
+  const affectedExerciseIds = new Set<number>([exerciseId, ...(previousAlternativeIds ?? exercise.alternativeIds ?? []), ...sanitizedAlternativeIds]);
+  const byId = {...exercises.byId};
+
+  byId[exerciseId] = {
+    ...exercise,
+    alternativeIds: normalizeAlternativeIds(sanitizedAlternativeIds),
+  };
+
+  affectedExerciseIds.forEach((affectedExerciseId) => {
+    if (affectedExerciseId === exerciseId) {
+      return;
+    }
+    const affectedExercise = exercises.byId[affectedExerciseId];
+    if (affectedExercise === undefined) {
+      return;
+    }
+
+    const nextAlternativeIds = (affectedExercise.alternativeIds ?? []).filter((value) => value !== exerciseId);
+    if (sanitizedAlternativeIds.includes(affectedExerciseId)) {
+      nextAlternativeIds.push(exerciseId);
+    }
+
+    byId[affectedExerciseId] = {
+      ...affectedExercise,
+      alternativeIds: normalizeAlternativeIds([...new Set(nextAlternativeIds)]),
+    };
+  });
+
+  return {
+    ...exercises,
+    byId,
+  };
+}
+
+function removeExerciseFromAlternatives(exercises: NormalizedState<Exercise>, exerciseId: number) {
+  const byId = Object.fromEntries(
+    Object.entries(exercises.byId)
+      .filter(([currentExerciseId]) => parseInt(currentExerciseId) !== exerciseId)
+      .map(([currentExerciseId, exercise]) => {
+        const nextAlternativeIds = (exercise.alternativeIds ?? []).filter((value) => value !== exerciseId);
+        return [
+          currentExerciseId,
+          {
+            ...exercise,
+            alternativeIds: normalizeAlternativeIds(nextAlternativeIds),
+          },
+        ];
+      }),
+  ) as {[exerciseId: number]: Exercise};
+
+  return {
+    byId,
+    allIds: exercises.allIds.filter((id) => id !== exerciseId),
+  };
+}
+
+function moveWorkoutRecords(exercises: NormalizedState<Exercise>, fromExerciseId: number, toExerciseId: number, workout?: Workout) {
+  if (workout?.id === undefined || workout.records === undefined) {
+    return exercises;
+  }
+
+  const fromExercise = exercises.byId[fromExerciseId];
+  const toExercise = exercises.byId[toExerciseId];
+  if (fromExercise === undefined || toExercise === undefined) {
+    return exercises;
+  }
+
+  const fromRecords = {...fromExercise.records};
+  const toRecords = {...toExercise.records};
+
+  Object.entries(workout.records).forEach(([recordName, value]) => {
+    const nextFromValues = (fromRecords?.[recordName] ?? []).filter((record) => record.workoutId !== workout.id);
+    if (nextFromValues.length > 0) {
+      fromRecords[recordName] = nextFromValues;
+    } else if (fromRecords) {
+      delete fromRecords[recordName];
+    }
+
+    toRecords[recordName] = [
+      ...(toRecords?.[recordName] ?? []).filter((record) => record.workoutId !== workout.id),
+      {
+        value,
+        workoutId: workout.id,
+      },
+    ] as ExerciseRecord[];
+  });
+
+  return {
+    ...exercises,
+    byId: {
+      ...exercises.byId,
+      [fromExerciseId]: {
+        ...fromExercise,
+        records: Object.keys(fromRecords ?? {}).length > 0 ? fromRecords : undefined,
+      },
+      [toExerciseId]: {
+        ...toExercise,
+        records: toRecords,
+      },
+    },
+  };
+}
+
 const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, action: AnyAction) => {
   switch (action.type) {
     case 'ADD_EXERCISE': {
       const newId = Math.max(...exercises.allIds) + 1;
-      return {
+      const nextState = {
         byId: {
           ...exercises.byId,
-          [newId]: {id: newId, name: action.nameOfExercise, muscles: action.muscles} as Exercise,
+          [newId]: {
+            id: newId,
+            name: action.nameOfExercise,
+            muscles: action.muscles,
+            alternativeIds: normalizeAlternativeIds(action.alternativeIds),
+          } as Exercise,
         },
         allIds: [...exercises.allIds, newId],
       };
+      return upsertBidirectionalAlternatives(nextState, newId, action.alternativeIds);
     }
     case 'DELETE_EXERCISE': {
-      const index = exercises.allIds.indexOf(action.exerciseId);
-      exercises.allIds.splice(index, 1);
-      delete exercises.byId[action.exerciseId];
-      return {
-        byId: {
-          ...exercises.byId,
-        },
-        allIds: [...exercises.allIds],
-      };
+      return removeExerciseFromAlternatives(exercises, action.exerciseId);
     }
     case 'EDIT_EXERCISE': {
-      return {
+      const nextState = {
         byId: {
           ...exercises.byId,
           [action.exerciseId]: {
             ...exercises.byId[action.exerciseId],
             name: action.nameOfExercise,
             muscles: action.muscles,
+            alternativeIds: normalizeAlternativeIds(action.alternativeIds),
           },
         },
         allIds: [...exercises.allIds],
       };
+      return upsertBidirectionalAlternatives(nextState, action.exerciseId, action.alternativeIds, exercises.byId[action.exerciseId]?.alternativeIds);
+    }
+    case 'REPLACE_EXERCISE_IN_TRAINING': {
+      return moveWorkoutRecords(exercises, action.fromExerciseId, action.toExerciseId, action.doneWorkout);
     }
     case 'ADD_RECORD': {
       let recordExercise = {...exercises.byId[action.exerciseId]};

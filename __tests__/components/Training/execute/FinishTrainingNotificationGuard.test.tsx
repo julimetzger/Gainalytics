@@ -9,6 +9,7 @@ import React from 'react';
 import {render, act, screen, fireEvent} from '@testing-library/react-native';
 import {Provider} from 'react-redux';
 import TrainingsPlanNode from '../../../../app/components/Training/TrainingsPlanNode';
+import {TrainingsPlan} from '../../../../app/models/entities/TrainingsPlan';
 
 const mockScheduleFinisTraining = jest.fn();
 const mockResetFinishTraining = jest.fn();
@@ -91,6 +92,7 @@ jest.mock('../../../../app/components/Training/execute/ExecuteTraining', () => {
   );
 });
 
+jest.mock('../../../../app/components/Training/execute/EditTraining', () => 'EditTraining');
 jest.mock('../../../../app/components/picker/elements/TrainingElementPicker', () => 'TrainingElementPicker');
 jest.mock('../../../../app/components/Training/DraggableExercise', () => 'DraggableExercise');
 jest.mock('../../../../app/components/Training/execute/Timer', () => 'Timer');
@@ -113,7 +115,12 @@ const mockStore = {
 };
 
 const defaultProps = {
-  trainingsPlan: {id: 1, name: 'Test Plan', trainingNames: ['Day 1']},
+  trainingsPlan: {
+    id: 1,
+    name: 'Test Plan',
+    trainings: {},
+    trainingNames: {0: 'Day 1'},
+  } satisfies TrainingsPlan,
   trainingInMicro: 0,
   micro: 0,
   showDone: false,

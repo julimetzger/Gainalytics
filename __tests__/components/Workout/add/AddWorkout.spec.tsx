@@ -77,6 +77,17 @@ jest.mock('../../../../app/components/Workout/add/AddWorkoutSet', () => {
   );
 });
 
+jest.mock('react-redux', () => ({
+  useSelector: jest.fn(() => []),
+  useDispatch: jest.fn(() => jest.fn()),
+}));
+
+jest.mock('../../../../app/components/video/VideoSelectionModal', () => () => null);
+
+jest.mock('../../../../app/redux/VideoAnalysis/dispatch/dispatchLinkVideoAnalysisToWorkout', () => ({
+  dispatchLinkVideoAnalysisToWorkout: jest.fn(() => jest.fn()),
+}));
+
 jest.mock('react-native-paper', () => {
   const React = require('react');
   const {Text, TouchableOpacity} = require('react-native');

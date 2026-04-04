@@ -54,6 +54,12 @@ The mock creates a new object per render. Wrap with `useRef`: `const sv = useRef
 ### 15. viewPortOffsets expects physical pixels, not dp
 `react-native-charts-wrapper` `setViewPortOffsets()` needs `Math.round(VALUE_DP * PixelRatio.get())`. Keep JS overlay constants in dp.
 
+### 16. Maestro 2.0.9-ports text input: eraseText / inputText, not clearText / typeText
+`clearText` and `typeText` are not valid commands in Maestro 2.0.9-ports. Use `eraseText` (no argument needed to clear the focused field) and `inputText: "value"` to enter text.
+
+### 17. null-coalescing fallback on self creates always-false comparison
+`new Date(x ?? y).getTime() !== y.getTime()` is always `false` when `x` is null/undefined, because it becomes `new Date(y).getTime() !== y.getTime()`. Guard with an explicit null check: `if (x == null) return true;` before comparing.
+
 ## Operational Guidance
 
 Working solution:
@@ -616,3 +622,16 @@ Apply when: Device shows Metro bundle error and Metro process is running but ser
 - Evidence paths in `status.json` must be bare relative paths, no inline annotations.
 - On real devices, check for redbox before blaming the Maestro flow.
 - Avoid generic `scroll` commands over `react-native-charts-wrapper` charts — they fire `onSelect`.
+
+### 16. Maestro clearState:true clears SharedPreferences debug_http_host
+When multiple Metro instances run on different ports and `socat` bridges one port to a different Metro, `clearState: true` wipes SharedPreferences including the `debug_http_host` override. The app then connects to whatever socat is forwarding `10.0.2.2:8081`, which may be a different worker's Metro. After any Maestro `clearState: true` run, re-write `debug_http_host` via `run-as` before relaunching.
+
+### 17. linkedSetIndices prop → linkedAnalyses for navigation
+When WorkoutSetView needs to support navigation to VideoAnalysisDetail on tapping a video indicator icon, pass `linkedAnalyses: {setIndex: number; analysisId: number}[]` instead of `linkedSetIndices: number[]`. This carries the analysisId needed for the navigate call without extra selectors.
+### 34. Global jest.setup.js mock for @notifee/react-native fixes import-chain failures
+**Observation:** Any test file that imports a component whose dependency chain includes `@notifee/react-native` will fail at import time with "Notifee native module not found" unless there is a mock. A single global mock in `jest.setup.js` fixes all affected suites at once.
+**Apply when:** A native module causes import-chain failures across many test suites. Add the global mock to `jest.setup.js` with `__esModule: true` and all used named exports.
+
+### 35. Global react-redux useSelector/useDispatch mock prevents Provider-less component test failures
+**Observation:** When a component adds a `useSelector` call (e.g. after a feature merge) but its spec file does not wrap renders in a `<Provider>`, all tests in that spec fail with "could not find react-redux context value". A global mock using `jest.requireActual` spread + mock hooks in `jest.setup.js` fixes this without breaking specs that have their own `jest.mock('react-redux', ...)`.
+**Apply when:** Specs render hooks-using components without a Provider. Use `{ ...jest.requireActual('react-redux'), useSelector: jest.fn(() => []), useDispatch: jest.fn(() => jest.fn()) }`.

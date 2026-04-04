@@ -33,6 +33,7 @@ Always prefer the bundled scripts instead of re-implementing the mechanics in th
 - `scripts/validate_review_bundle.py`
 - `scripts/update_state.py`
 - `scripts/upload_screenshots_to_issue.py`
+- `scripts/launch_review_job.py`
 
 Read `scripts/runtime_state.py` only when you need to patch or debug the state format.
 

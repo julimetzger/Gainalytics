@@ -14,6 +14,7 @@ import {useSelector} from 'react-redux';
 import {GlobalState} from '../../../redux/rootReducer';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import VideoSelectionModal from '../../video/VideoSelectionModal';
+import {useNavigation} from '@react-navigation/native';
 
 interface WorkoutViewTileProps {
   workoutId: number;
@@ -23,6 +24,7 @@ interface WorkoutViewTileProps {
 
 const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps) => {
   const theme = useTheme();
+  const navigation = useNavigation<any>();
   const [showEdit, setShowEdit] = useState(false);
   const [linkVideoSet, setLinkVideoSet] = useState<WorkoutSet | undefined>(undefined);
 
@@ -32,11 +34,11 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
   const deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
   const addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(userExercise);
 
-  const linkedSetIndices = useSelector((state: GlobalState) =>
+  const linkedAnalyses = useSelector((state: GlobalState) =>
     state.videoAnalyses.allIds
       .map(id => state.videoAnalyses.byId[id])
-      .filter(a => a.workoutId === workoutId && a.setIndex !== undefined)
-      .map(a => a.setIndex as number)
+      .filter(a => a.workoutId === workoutId && a.setIndex !== undefined && a.id !== undefined)
+      .map(a => ({setIndex: a.setIndex as number, analysisId: a.id as number}))
   );
 
   const setShowEditWhenEditable = (shouldShow: boolean) => {
@@ -85,8 +87,9 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
               onSubmit={(workoutSet) => addOrUpdateSetInWorkout(workoutSet, workout)}
               highLightMode={effectiveHighlightMode}
               editable={editable}
-              onLinkVideo={editable ? (set) => setLinkVideoSet(set) : undefined}
-              linkedSetIndices={linkedSetIndices}
+              onLinkVideo={showEdit ? (set) => setLinkVideoSet(set) : undefined}
+              linkedAnalyses={linkedAnalyses}
+              onVideoPress={(analysisId) => navigation.navigate('VideoAnalysisDetail', {analysisId})}
             />
           </Card>
         </OutsidePressHandler>
@@ -115,6 +118,8 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
             onSubmit={(workoutSet) => addOrUpdateSetInWorkout(workoutSet, workout)}
             highLightMode={effectiveHighlightMode}
             editable={editable}
+            linkedAnalyses={linkedAnalyses}
+            onVideoPress={(analysisId) => navigation.navigate('VideoAnalysisDetail', {analysisId})}
           />
         </Card>
       )}
