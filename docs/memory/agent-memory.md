@@ -617,6 +617,11 @@ Apply when: Device shows Metro bundle error and Metro process is running but ser
 - On real devices, check for redbox before blaming the Maestro flow.
 - Avoid generic `scroll` commands over `react-native-charts-wrapper` charts — they fire `onSelect`.
 
+### 16. Maestro clearState:true clears SharedPreferences debug_http_host
+When multiple Metro instances run on different ports and `socat` bridges one port to a different Metro, `clearState: true` wipes SharedPreferences including the `debug_http_host` override. The app then connects to whatever socat is forwarding `10.0.2.2:8081`, which may be a different worker's Metro. After any Maestro `clearState: true` run, re-write `debug_http_host` via `run-as` before relaunching.
+
+### 17. linkedSetIndices prop → linkedAnalyses for navigation
+When WorkoutSetView needs to support navigation to VideoAnalysisDetail on tapping a video indicator icon, pass `linkedAnalyses: {setIndex: number; analysisId: number}[]` instead of `linkedSetIndices: number[]`. This carries the analysisId needed for the navigate call without extra selectors.
 ### 34. Global jest.setup.js mock for @notifee/react-native fixes import-chain failures
 **Observation:** Any test file that imports a component whose dependency chain includes `@notifee/react-native` will fail at import time with "Notifee native module not found" unless there is a mock. A single global mock in `jest.setup.js` fixes all affected suites at once.
 **Apply when:** A native module causes import-chain failures across many test suites. Add the global mock to `jest.setup.js` with `__esModule: true` and all used named exports.
