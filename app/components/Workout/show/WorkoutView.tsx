@@ -16,6 +16,14 @@ import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import VideoSelectionModal from '../../video/VideoSelectionModal';
 import {useNavigation} from '@react-navigation/native';
 
+const useOptionalNavigation = () => {
+  try {
+    return useNavigation<any>();
+  } catch {
+    return null;
+  }
+};
+
 interface WorkoutViewTileProps {
   workoutId: number;
   highlightMode?: Metric;
@@ -24,7 +32,7 @@ interface WorkoutViewTileProps {
 
 const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps) => {
   const theme = useTheme();
-  const navigation = useNavigation<any>();
+  const navigation = useOptionalNavigation();
   const [showEdit, setShowEdit] = useState(false);
   const [linkVideoSet, setLinkVideoSet] = useState<WorkoutSet | undefined>(undefined);
 
@@ -89,7 +97,7 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
               editable={editable}
               onLinkVideo={showEdit ? (set) => setLinkVideoSet(set) : undefined}
               linkedAnalyses={linkedAnalyses}
-              onVideoPress={(analysisId) => navigation.navigate('VideoAnalysisDetail', {analysisId})}
+              onVideoPress={navigation ? (analysisId) => navigation.navigate('VideoAnalysisDetail', {analysisId}) : undefined}
             />
           </Card>
         </OutsidePressHandler>
@@ -119,7 +127,7 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
             highLightMode={effectiveHighlightMode}
             editable={editable}
             linkedAnalyses={linkedAnalyses}
-            onVideoPress={(analysisId) => navigation.navigate('VideoAnalysisDetail', {analysisId})}
+            onVideoPress={navigation ? (analysisId) => navigation.navigate('VideoAnalysisDetail', {analysisId}) : undefined}
           />
         </Card>
       )}
