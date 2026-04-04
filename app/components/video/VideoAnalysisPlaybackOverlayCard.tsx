@@ -4,12 +4,15 @@ import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, us
 import {Gesture, GestureDetector, GestureHandlerRootView} from 'react-native-gesture-handler';
 import {IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
-import {BarPathPoint, BarTrackingResult, RepSegment} from '../../models/entities/VideoAnalysis';
+import {BarPathPoint, BarTrackingResult, RepSegment, VideoAnalysisRepResult, VideoAnalysisSetResult} from '../../models/entities/VideoAnalysis';
+import {dispatchSaveVideoAnalysisSetResult} from '../../redux/VideoAnalysis/dispatch/dispatchSaveVideoAnalysisSetResult';
 import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
 
 interface Props {
+  analysisId: number;
   localVideoPath: string;
   result: BarTrackingResult;
+  savedSetResult?: VideoAnalysisSetResult;
 }
 
 interface TimeRange {
@@ -210,9 +213,10 @@ const createThemedStyles = (theme: MD3Theme) =>
     },
   });
 
-const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
+const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, savedSetResult}: Props) => {
   const theme = useTheme();
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
+  const saveSetResult = dispatchSaveVideoAnalysisSetResult();
   const speedChartColors = useMemo(
     () => ({
       line: processColor(theme.colors.secondary),
@@ -673,6 +677,54 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     transform: [{translateX: progressMarkerLeft.value}],
   }));
 
+  const onSaveSetResult = useCallback(() => {
+    const repResults: VideoAnalysisRepResult[] = result.repSegments.map((seg, idx) => {
+      const isFirst = idx === 0;
+      const isLast = idx === result.repSegments.length - 1;
+      const startMs = seg.startMs;
+      const turnaroundMs = isFirst && firstRepTurnaroundOverrideMs !== null ? firstRepTurnaroundOverrideMs
+        : isLast && lastRepTurnaroundOverrideMs !== null ? lastRepTurnaroundOverrideMs
+        : seg.turnaroundMs;
+      const endMs = isFirst && firstRepEndOverrideMs !== null ? firstRepEndOverrideMs
+        : isLast && lastRepEndOverrideMs !== null ? lastRepEndOverrideMs
+        : seg.endMs;
+      const totalTimeMs = endMs - startMs;
+      const concentricTimeMs = Math.max(0, endMs - turnaroundMs);
+      const eccentricTimeMs = Math.max(0, turnaroundMs - startMs);
+      const metrics = calcIntervalMetrics(turnaroundMs, endMs);
+      return {
+        repIndex: seg.repIndex,
+        startMs,
+        turnaroundMs,
+        endMs,
+        totalTimeMs,
+        eccentricTimeMs,
+        concentricTimeMs,
+        vAvg: metrics?.vAvg ?? 0,
+        vPeak: metrics?.vPeak ?? 0,
+      };
+    });
+
+    const firstVAvg = repResults.length > 0 ? repResults[0].vAvg : 0;
+    const lastVAvg = repResults.length > 0 ? repResults[repResults.length - 1].vAvg : 0;
+    const vlPercent = firstVAvg > 0 ? Math.round((1 - lastVAvg / firstVAvg) * 100) : null;
+    let rir: string | null = null;
+    if (vlPercent !== null) {
+      if (vlPercent < 10) { rir = '4+'; }
+      else if (vlPercent < 20) { rir = '3-4'; }
+      else if (vlPercent < 30) { rir = '2-3'; }
+      else if (vlPercent < 40) { rir = '1-2'; }
+      else { rir = '0-1'; }
+    }
+
+    saveSetResult(analysisId, {
+      repResults,
+      velocityLossPercent: vlPercent,
+      rirEstimate: rir,
+      calibratedAt: new Date().toISOString(),
+    });
+  }, [analysisId, result.repSegments, firstRepTurnaroundOverrideMs, firstRepEndOverrideMs, lastRepTurnaroundOverrideMs, lastRepEndOverrideMs, calcIntervalMetrics, saveSetResult]);
+
   // Video pinch-to-zoom gesture.
   const videoPinchGesture = Gesture.Pinch()
     .onBegin(() => {
@@ -939,12 +991,16 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           {result.repMetrics.map((metric, idx) => {
             const isFirstRep = idx === 0;
             const isLastRep = idx === result.repMetrics.length - 1;
+            const saved = savedSetResult?.repResults?.[idx];
             const seg = repSegments[idx];
-            const concTimeMs = isFirstRep && firstRepSegment ? firstRepConcentricTimeMs
+            const concTimeMs = saved ? saved.concentricTimeMs
+              : isFirstRep && firstRepSegment ? firstRepConcentricTimeMs
               : isLastRep && lastRepSegment ? lastRepConcentricTimeMs
               : seg ? Math.max(0, seg.endMs - seg.turnaroundMs)
               : (metric.concentricTimeMs ?? 0);
-            const eccTimeMs = metric.repTimeMs - concTimeMs;
+            const eccTimeMs = saved ? saved.eccentricTimeMs : (metric.repTimeMs - concTimeMs);
+            const totalTimeMs = saved ? saved.totalTimeMs : metric.repTimeMs;
+            const vAvg = saved ? saved.vAvg : Math.round(metric.averageConcentricSpeedPxPerS);
             return (
               <View
                 key={metric.repIndex}
@@ -952,7 +1008,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
                 style={[styles.tableRow, themedStyles.repMetricAccent]}>
                 <Text variant="bodySmall" style={styles.tableColRep}>{metric.repIndex + 1}</Text>
                 <Text testID={`video-analysis-rep-time-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
-                  {(metric.repTimeMs / 1000).toFixed(2)}s
+                  {(totalTimeMs / 1000).toFixed(2)}s
                 </Text>
                 <Text variant="bodySmall" style={styles.tableCol}>
                   {eccTimeMs > 0 ? `${(eccTimeMs / 1000).toFixed(2)}s` : '-'}
@@ -961,7 +1017,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
                   {concTimeMs > 0 ? `${(concTimeMs / 1000).toFixed(2)}s` : '-'}
                 </Text>
                 <Text testID={`video-analysis-rep-speed-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
-                  {Math.round(metric.averageConcentricSpeedPxPerS)}
+                  {vAvg}
                 </Text>
               </View>
             );
@@ -969,13 +1025,24 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
         </View>
       )}
       {repSegments.length > 0 && (
-        <IconButton
-          icon={showCalibration ? 'chevron-up' : 'tune'}
-          size={20}
-          iconColor={theme.colors.tertiary}
-          onPress={() => setShowCalibration(!showCalibration)}
-          style={styles.calibrateButton}
-        />
+        <View style={styles.calibrateRow}>
+          <IconButton
+            icon={showCalibration ? 'chevron-up' : 'tune'}
+            size={20}
+            iconColor={theme.colors.tertiary}
+            onPress={() => setShowCalibration(!showCalibration)}
+            style={styles.calibrateButton}
+          />
+          {showCalibration && (
+            <IconButton
+              icon="content-save"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={onSaveSetResult}
+              style={styles.calibrateButton}
+            />
+          )}
+        </View>
       )}
       {firstRepIntervalMetrics && (
         <View style={styles.intervalMetrics}>
@@ -999,12 +1066,14 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           </View>
         </View>
       )}
-      {velocityLoss !== null && (
+      {(velocityLoss !== null || savedSetResult?.velocityLossPercent !== undefined) && (
         <View style={styles.intervalMetrics}>
           <Text variant="labelMedium" style={styles.repSummaryTitle}>Velocity Loss</Text>
           <View style={styles.intervalMetricsRow}>
-            <Text variant="bodySmall">VL={velocityLoss}%</Text>
-            {rirEstimate && <Text variant="bodySmall">RIR={rirEstimate}</Text>}
+            <Text variant="bodySmall">VL={savedSetResult?.velocityLossPercent ?? velocityLoss}%</Text>
+            {(savedSetResult?.rirEstimate ?? rirEstimate) && (
+              <Text variant="bodySmall">RIR={savedSetResult?.rirEstimate ?? rirEstimate}</Text>
+            )}
           </View>
         </View>
       )}
@@ -1106,8 +1175,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
+  calibrateRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
   calibrateButton: {
-    alignSelf: 'flex-end',
     margin: 0,
   },
   intervalMetrics: {

@@ -363,8 +363,10 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           {analysis.localVideoPath && result && (
             <VideoAnalysisPlaybackOverlayCard
               key={`${analysis.id}-${analysis.localVideoPath}`}
+              analysisId={analysis.id!}
               localVideoPath={analysis.localVideoPath}
               result={result}
+              savedSetResult={analysis.setResult}
             />
           )}
         </Card.Content>
