@@ -70,11 +70,11 @@ describe('TrainingsBase', () => {
     fireEvent.changeText(getByLabelText('RIR delta'), '2');
     fireEvent.changeText(getByLabelText('Weight increase %'), '5,5');
 
-    expect(mockedDispatchSuggestBasedOnTrained).toHaveBeenLastCalledWith(3, 1, {
+    expect(mockedDispatchSuggestBasedOnTrained).toHaveBeenLastCalledWith(3, 1, 2, {
       rirDelta: 2,
       weightIncreasePercent: 5.5,
     });
-    expect(mockedDispatchSuggestBasedOnPlanned).toHaveBeenLastCalledWith(3, 1, {
+    expect(mockedDispatchSuggestBasedOnPlanned).toHaveBeenLastCalledWith(3, 1, 2, {
       rirDelta: 2,
       weightIncreasePercent: 5.5,
     });
