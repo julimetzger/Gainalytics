@@ -1,6 +1,7 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, TouchableOpacity, View, processColor} from 'react-native';
 import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming} from 'react-native-reanimated';
+import {Gesture, GestureDetector, GestureHandlerRootView} from 'react-native-gesture-handler';
 import {IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment} from '../../models/entities/VideoAnalysis';
@@ -204,6 +205,9 @@ const createThemedStyles = (theme: MD3Theme) =>
     videoControlsBackground: {
       backgroundColor: theme.colors.backdrop,
     },
+    statsText: {
+      color: theme.colors.onSurfaceVariant,
+    },
   });
 
 const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
@@ -258,6 +262,14 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const chartVisibleMinRef = useRef(-1);
   const chartVisibleMaxRef = useRef(-1);
   const chartGestureActiveUntilRef = useRef(0);
+
+  // Video pinch-to-zoom state (UI thread only, no re-renders).
+  const videoScale = useRef(useSharedValue(1)).current;
+  const videoTranslateX = useRef(useSharedValue(0)).current;
+  const videoTranslateY = useRef(useSharedValue(0)).current;
+  const videoScaleBase = useRef(useSharedValue(1)).current;
+  const videoTranslateXBase = useRef(useSharedValue(0)).current;
+  const videoTranslateYBase = useRef(useSharedValue(0)).current;
 
   const repSegments = result.repSegments;
   const lastRepSegment = repSegments.length > 0 ? repSegments[repSegments.length - 1] : null;
@@ -594,6 +606,49 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     transform: [{translateX: progressMarkerLeft.value}],
   }));
 
+  // Video pinch-to-zoom gesture.
+  const videoPinchGesture = Gesture.Pinch()
+    .onBegin(() => {
+      'worklet';
+      videoScaleBase.value = videoScale.value;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      videoScale.value = Math.max(1, Math.min(5, videoScaleBase.value * e.scale));
+    })
+    .onEnd(() => {
+      'worklet';
+      if (videoScale.value < 1.05) {
+        videoScale.value = 1;
+        videoTranslateX.value = 0;
+        videoTranslateY.value = 0;
+      }
+    });
+
+  // Video pan gesture (only when zoomed in).
+  const videoPanGesture = Gesture.Pan()
+    .onBegin(() => {
+      'worklet';
+      videoTranslateXBase.value = videoTranslateX.value;
+      videoTranslateYBase.value = videoTranslateY.value;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      if (videoScale.value <= 1) {
+        return;
+      }
+      videoTranslateX.value = videoTranslateXBase.value + e.translationX;
+      videoTranslateY.value = videoTranslateYBase.value + e.translationY;
+    });
+
+  const videoZoomStyle = useAnimatedStyle(() => ({
+    transform: [
+      {translateX: videoTranslateX.value},
+      {translateY: videoTranslateY.value},
+      {scale: videoScale.value},
+    ],
+  }));
+
   useEffect(() => {
     cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
     setPlaybackPaused(true);
@@ -614,12 +669,18 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     playbackTimeRef.current = 0;
     currentRepIndexRef.current = undefined;
     isScrubbingRef.current = false;
+    videoScale.value = 1; // eslint-disable-line react-hooks/exhaustive-deps
+    videoTranslateX.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    videoTranslateY.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
   }, [localVideoPath, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx, result.barPathSeries, result.repSegments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
-      <View testID="video-analysis-playback-overlay">
-        <View testID="video-analysis-overlay-card" style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio}]}>
+      <View testID="video-analysis-playback-overlay" style={styles.videoRow}>
+        <GestureHandlerRootView style={{flex: 1}}>
+        <GestureDetector gesture={Gesture.Simultaneous(videoPinchGesture, videoPanGesture)}>
+        <View testID="video-analysis-overlay-card" style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio, maxHeight: 520}]}>
+          <Animated.View style={[styles.previewImage, videoZoomStyle]}>
           <VideoAnalysisPlayerView
             testID="video-analysis-playback-player"
             style={styles.previewImage}
@@ -637,6 +698,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             onProgress={onPlayerProgress}
             onEnd={onPlayerEnd}
           />
+          </Animated.View>
           <View style={[styles.videoControlsOverlay, themedStyles.videoControlsBackground]} pointerEvents="box-none">
             <IconButton testID="video-analysis-step-minus200" icon="rewind" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current - 200)} style={styles.videoControlButton} />
             <IconButton testID="video-analysis-step-minus50" icon="skip-previous" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current - 50)} style={styles.videoControlButton} />
@@ -644,6 +706,16 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             <IconButton testID="video-analysis-step-plus50" icon="skip-next" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current + 50)} style={styles.videoControlButton} />
             <IconButton testID="video-analysis-step-plus200" icon="fast-forward" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current + 200)} style={styles.videoControlButton} />
           </View>
+        </View>
+        </GestureDetector>
+        </GestureHandlerRootView>
+        <View style={styles.videoStatsPanel}>
+          <Text variant="labelSmall" style={themedStyles.statsText}>
+            {currentRepIndex !== undefined ? `Rep ${currentRepIndex + 1}` : '-'}
+          </Text>
+          <Text variant="labelSmall" style={themedStyles.statsText}>
+            {currentBarVerticalVelocityPxPerSecond !== undefined ? `${Math.round(currentBarVerticalVelocityPxPerSecond)} px/s` : '-'}
+          </Text>
         </View>
       </View>
 
@@ -760,7 +832,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       {result.repMetrics.length > 0 && (
         <View testID="video-analysis-rep-summary" style={styles.repSummarySection}>
           <Text variant="labelMedium" style={styles.repSummaryTitle}>
-            ANA-008 Rep Summary ({result.repMetrics.length} {result.repMetrics.length === 1 ? 'rep' : 'reps'})
+            Rep Summary ({result.repMetrics.length} {result.repMetrics.length === 1 ? 'rep' : 'reps'})
           </Text>
           {result.repMetrics.map((metric, idx) => {
             const isLastRep = idx === result.repMetrics.length - 1;
@@ -802,6 +874,15 @@ const styles = StyleSheet.create({
   },
   previewImage: {
     ...StyleSheet.absoluteFillObject,
+  },
+  videoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  videoStatsPanel: {
+    width: 64,
+    paddingLeft: 8,
+    alignItems: 'flex-start',
   },
   videoControlsOverlay: {
     position: 'absolute',
@@ -877,11 +958,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   speedPlotSection: {
-    marginTop: 12,
+    marginTop: 0,
   },
   speedPlotWrapper: {
     position: 'relative',
-    marginTop: 8,
+    marginTop: 0,
   },
   speedPlotContainer: {
     position: 'relative',
