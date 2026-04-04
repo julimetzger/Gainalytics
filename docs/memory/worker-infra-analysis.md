@@ -23,6 +23,7 @@ Last updated: 2026-04-02 (ANA-004-fix2)
 | ANA-004-fix2 | real | 2 | 0 | 0 | 1 | 5 | 0 | 0 | 0 | 0 | ready_for_review |
 | ANA-005-fix | emu | 13 | 1 | 3 | 6 | 2 | 4 | 6 | 0 | 0 | review |
 | ANA-003-fix2 | emu | 2 | 15 | 0 | 0 | 0 | 0 | 0 | 12 | 8 | ready_for_review (r9) |
+| TRN-005 | emu | 4 | 3 | 0 | 2 | 0 | 2 | 8 | 0 | 2 | ready_for_review (r2) |
 | ANA-006-fix | emu | 0 | 0 | 0 | 8 | 35 | 0 | 0 | 5 | 2 | ready_for_review (r2) |
 | MNT-002 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
 

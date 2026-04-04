@@ -54,6 +54,12 @@ The mock creates a new object per render. Wrap with `useRef`: `const sv = useRef
 ### 15. viewPortOffsets expects physical pixels, not dp
 `react-native-charts-wrapper` `setViewPortOffsets()` needs `Math.round(VALUE_DP * PixelRatio.get())`. Keep JS overlay constants in dp.
 
+### 16. Maestro 2.0.9-ports text input: eraseText / inputText, not clearText / typeText
+`clearText` and `typeText` are not valid commands in Maestro 2.0.9-ports. Use `eraseText` (no argument needed to clear the focused field) and `inputText: "value"` to enter text.
+
+### 17. null-coalescing fallback on self creates always-false comparison
+`new Date(x ?? y).getTime() !== y.getTime()` is always `false` when `x` is null/undefined, because it becomes `new Date(y).getTime() !== y.getTime()`. Guard with an explicit null check: `if (x == null) return true;` before comparing.
+
 ## Operational Guidance
 
 Working solution:

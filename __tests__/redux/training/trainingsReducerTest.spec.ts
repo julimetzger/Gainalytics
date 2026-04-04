@@ -406,6 +406,44 @@ describe('trainingsReducer', () => {
       });
     });
   });
+  describe('EDIT_TRAINING_TIMES', () => {
+    it('it should update persisted training start and end timestamps', () => {
+      const start = new Date('2026-04-03T10:00:00.000Z').getTime();
+      const end = new Date('2026-04-03T12:00:00.000Z').getTime();
+
+      expect(
+        trainingsReducer(
+          {
+            byId: {
+              3: {
+                ...STATE_WITH_ONE_TRAINING().byId[3],
+                state: TrainingsState.FINISHED,
+                start: new Date('2026-04-03T09:00:00.000Z'),
+                end: new Date('2026-04-03T11:00:00.000Z'),
+              },
+            },
+            allIds: [3],
+          },
+          {
+            type: 'EDIT_TRAINING_TIMES',
+            trainingsId: 3,
+            start,
+            end,
+          },
+        ),
+      ).toEqual({
+        byId: {
+          3: {
+            ...STATE_WITH_ONE_TRAINING().byId[3],
+            state: TrainingsState.FINISHED,
+            start,
+            end,
+          },
+        },
+        allIds: [3],
+      });
+    });
+  });
   describe('default', () => {
     it('it should return state', () => {
       expect(

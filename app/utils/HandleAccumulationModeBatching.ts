@@ -1,10 +1,10 @@
 import {Accumulation} from '../components/picker/elements/TrainingElementPicker';
 import {firstDayOfWeek, getFirstDayOfMonth} from './DateHelper';
 import {getAllTrainingsForMicro, getMicroFromTrainingInMicroIndex} from '../redux/Training/trainingsPlanReducer';
-import {AccumulationMode} from "../models/AccumulationMode";
+import {AccumulationMode} from '../models/AccumulationMode';
 
-export const handleAccumulationModeBatching = (allWorkouts: Acuumalatable[], accumulationMode?: Accumulation) => {
-  return (acc: Map<string, Acuumalatable[]>, workout: Acuumalatable): Map<string, Acuumalatable[]> => {
+export const handleAccumulationModeBatching = <T extends Acuumalatable>(allWorkouts: T[], accumulationMode?: Accumulation) => {
+  return (acc: Map<string, T[]>, workout: T): Map<string, T[]> => {
     switch (accumulationMode?.getAccumulationMode()) {
       case AccumulationMode.SINGLE_DAY: {
         let dateDayStart = new Date(new Date(workout.start!!).setHours(0, 0, 0, 0));
@@ -43,8 +43,8 @@ export const handleAccumulationModeBatching = (allWorkouts: Acuumalatable[], acc
                 let micro = getMicroFromTrainingInMicroIndex(key);
                 let allTrainingsForMicro = getAllTrainingsForMicro(trainings, micro);
                 let dates = allWorkouts
-                  .filter((workout: Acuumalatable) => allTrainingsForMicro.includes(workout.trainingsId!!))
-                  .map((workout: Acuumalatable) => workout.start!!)
+                  .filter((workoutInMicro: T) => allTrainingsForMicro.includes(workoutInMicro.trainingsId!!))
+                  .map((workoutInMicro: T) => workoutInMicro.start!!)
                   .sort();
                 if (dates.length > 0) {
                   let start = new Date(dates[0]);

@@ -2,6 +2,7 @@ import React from 'react';
 import {render, fireEvent, screen, waitFor} from '@testing-library/react-native';
 import TrainingsPlanNode from '../../../../app/components/Training/TrainingsPlanNode';
 import {Provider} from 'react-redux';
+import {TrainingsPlan} from '../../../../app/models/entities/TrainingsPlan';
 
 const mockDeleteTraining = jest.fn();
 
@@ -96,6 +97,7 @@ jest.mock('../../../../app/components/Training/execute/FinishTrainingNotificatio
 // Mock other components
 jest.mock('../../../../app/components/Training/ExerciseAlternativesDialog', () => 'ExerciseAlternativesDialog');
 jest.mock('../../../../app/components/Training/execute/ExecuteTraining', () => 'ExecuteWorkoutInTraining');
+jest.mock('../../../../app/components/Training/execute/EditTraining', () => 'EditTraining');
 jest.mock('../../../../app/components/picker/elements/TrainingElementPicker', () => 'TrainingElementPicker');
 jest.mock('../../../../app/components/Training/DraggableExercise', () => 'DraggableExercise');
 jest.mock('../../../../app/components/Training/execute/Timer', () => 'Timer');
@@ -113,7 +115,12 @@ jest.mock('react-native-toast-message', () => ({
 }));
 
 describe('TrainingsPlanNode - Edit Finished Training', () => {
-  const mockPlan = { id: 1, name: 'Test Plan', trainingNames: ['Day 1'] };
+  const mockPlan = {
+    id: 1,
+    name: 'Test Plan',
+    trainings: {},
+    trainingNames: {0: 'Day 1'},
+  } satisfies TrainingsPlan;
 
   it('renders "Edit" button for FINISHED training in overview mode', () => {
     render(
