@@ -1,7 +1,6 @@
 import React, {useMemo, useState} from 'react';
-import {StyleSheet, View} from 'react-native';
-import {Button, Chip, Dialog, Icon, Portal, Text, useTheme} from 'react-native-paper';
-import {IDropdownData, MultiselectDropdown} from 'sharingan-rn-modal-dropdown';
+import {ScrollView, StyleSheet, View} from 'react-native';
+import {Button, Checkbox, Chip, Text, useTheme} from 'react-native-paper';
 import {useAlleExercises} from '../../../redux/Exercises/use/useAllExercises';
 
 interface Props {
@@ -25,22 +24,20 @@ const ExerciseAlternativesField = ({exerciseId, alternativeIds, onChange}: Props
     [alternativeIds, availableExercises],
   );
 
-  const dropdownData = useMemo<IDropdownData[]>(
-    () =>
-      availableExercises.map((exercise) => ({
-        label: exercise.name,
-        value: exercise.id!!.toString(),
-        avatarComponent: <Icon source="swap-horizontal" size={20} />,
-      })),
-    [availableExercises],
-  );
+  const toggleExercise = (id: number) => {
+    if (alternativeIds.includes(id)) {
+      onChange(alternativeIds.filter((altId) => altId !== id));
+    } else {
+      onChange([...alternativeIds, id]);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text variant="titleSmall">Alternatives</Text>
-        <Button mode="outlined" compact testID="exercise-alternatives-open-button" onPress={() => setVisible(true)}>
-          +
+        <Button mode="outlined" compact testID="exercise-alternatives-open-button" onPress={() => setVisible(!visible)}>
+          {visible ? 'Done' : '+'}
         </Button>
       </View>
       <View style={styles.chips}>
@@ -59,31 +56,20 @@ const ExerciseAlternativesField = ({exerciseId, alternativeIds, onChange}: Props
           <Text style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>No alternatives selected</Text>
         )}
       </View>
-      <Portal>
-        <Dialog visible={visible} onDismiss={() => setVisible(false)}>
-          <Dialog.Title>Select Alternatives</Dialog.Title>
-          <Dialog.Content>
-            <MultiselectDropdown
-              label="Alternatives"
-              enableSearch
-              hideChip
-              multiline
-              value={alternativeIds.map((alternativeId) => alternativeId.toString())}
-              onChange={(values: string[]) => onChange(values.map((value: string) => parseInt(value, 10)))}
-              searchInputTheme={{colors: {primary: theme.colors.primary}}}
-              data={dropdownData}
-              paperTheme={theme}
-              disableSort={false}
-              selectedItemViewStyle={{backgroundColor: theme.colors.primaryContainer, color: theme.colors.onPrimaryContainer}}
-              primaryColor={theme.colors.primaryContainer}
-              enableAvatar
+      {visible && (
+        <ScrollView style={styles.listContainer} nestedScrollEnabled>
+          {availableExercises.map((exercise) => (
+            <Checkbox.Item
+              key={exercise.id}
+              label={exercise.name}
+              status={alternativeIds.includes(exercise.id!) ? 'checked' : 'unchecked'}
+              onPress={() => toggleExercise(exercise.id!)}
+              style={styles.checkboxItem}
+              labelStyle={styles.checkboxLabel}
             />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setVisible(false)}>Done</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 };
@@ -108,6 +94,16 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontStyle: 'italic',
+  },
+  listContainer: {
+    maxHeight: 200,
+  },
+  checkboxItem: {
+    paddingVertical: 2,
+    paddingHorizontal: 0,
+  },
+  checkboxLabel: {
+    fontSize: 14,
   },
 });
 

@@ -248,7 +248,7 @@ const TrainingLengthTab = () => {
             </Card.Content>
           </Card>
 
-          {selectedBucket && <TrainingLengthBucketDetails accumulationMode={accumulationMode} bucket={selectedBucket} trainingNameById={trainingNameById} />}
+          {selectedBucket && <TrainingLengthBucketDetails accumulationMode={accumulationMode} bucket={selectedBucket} trainingNameById={trainingNameById} onEditBucket={setBucketForEdit} />}
         </>
       )}
       <TrainingLengthEditDialog accumulationMode={accumulationMode} bucket={bucketForEdit} onDismiss={() => setBucketForEdit(null)} trainingNameById={trainingNameById} />

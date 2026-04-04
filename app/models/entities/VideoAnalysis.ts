@@ -29,6 +29,7 @@ export interface VideoAnalysis {
   seedFrameWidthPx?: number;
   seedFrameHeightPx?: number;
   analysisMeta?: AnalysisMeta;
+  setResult?: VideoAnalysisSetResult;
   error?: string;
 }
 
@@ -65,6 +66,25 @@ export interface RepMetric {
   concentricTimeMs: number;
   averageConcentricSpeedPxPerS: number;
   lowestConcentricSpeedPxPerS: number;
+}
+
+export interface VideoAnalysisRepResult {
+  repIndex: number;
+  startMs: number;
+  turnaroundMs: number;
+  endMs: number;
+  totalTimeMs: number;
+  eccentricTimeMs: number;
+  concentricTimeMs: number;
+  vAvg: number;
+  vPeak: number;
+}
+
+export interface VideoAnalysisSetResult {
+  repResults: VideoAnalysisRepResult[];
+  velocityLossPercent: number | null;
+  rirEstimate: string | null;
+  calibratedAt?: string;
 }
 
 export interface DetectedBox {

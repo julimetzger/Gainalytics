@@ -4,12 +4,15 @@ import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, us
 import {Gesture, GestureDetector, GestureHandlerRootView} from 'react-native-gesture-handler';
 import {IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
-import {BarPathPoint, BarTrackingResult, RepSegment} from '../../models/entities/VideoAnalysis';
+import {BarPathPoint, BarTrackingResult, RepSegment, VideoAnalysisRepResult, VideoAnalysisSetResult} from '../../models/entities/VideoAnalysis';
+import {dispatchSaveVideoAnalysisSetResult} from '../../redux/VideoAnalysis/dispatch/dispatchSaveVideoAnalysisSetResult';
 import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
 
 interface Props {
+  analysisId: number;
   localVideoPath: string;
   result: BarTrackingResult;
+  savedSetResult?: VideoAnalysisSetResult;
 }
 
 interface TimeRange {
@@ -210,9 +213,10 @@ const createThemedStyles = (theme: MD3Theme) =>
     },
   });
 
-const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
+const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, savedSetResult}: Props) => {
   const theme = useTheme();
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
+  const saveSetResult = dispatchSaveVideoAnalysisSetResult();
   const speedChartColors = useMemo(
     () => ({
       line: processColor(theme.colors.secondary),
@@ -240,6 +244,9 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const [scrubberWidth, setScrubberWidth] = useState(0);
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
+  const [showCalibration, setShowCalibration] = useState(false);
+  const [firstRepTurnaroundOverrideMs, setFirstRepTurnaroundOverrideMs] = useState<number | null>(null);
+  const [firstRepEndOverrideMs, setFirstRepEndOverrideMs] = useState<number | null>(null);
   const [lastRepTurnaroundOverrideMs, setLastRepTurnaroundOverrideMs] = useState<number | null>(null);
   const [lastRepEndOverrideMs, setLastRepEndOverrideMs] = useState<number | null>(null);
   // useRef wrapper ensures the SharedValue object is stable across renders.
@@ -261,6 +268,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const seekCooldownUntilRef = useRef(0);
   const chartVisibleMinRef = useRef(-1);
   const chartVisibleMaxRef = useRef(-1);
+  const [chartVisibleForLines, setChartVisibleForLines] = useState<{min: number; max: number} | null>(null);
   const chartGestureActiveUntilRef = useRef(0);
 
   // Video pinch-to-zoom state (UI thread only, no re-renders).
@@ -272,12 +280,70 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const videoTranslateYBase = useRef(useSharedValue(0)).current;
 
   const repSegments = result.repSegments;
-  const lastRepSegment = repSegments.length > 0 ? repSegments[repSegments.length - 1] : null;
+  const firstRepSegment = repSegments.length > 0 ? repSegments[0] : null;
+  const firstRepTurnaroundMs = firstRepTurnaroundOverrideMs ?? firstRepSegment?.turnaroundMs ?? 0;
+  const firstRepEndMs = firstRepEndOverrideMs ?? firstRepSegment?.endMs ?? 0;
+  const firstRepConcentricTimeMs = firstRepSegment ? Math.max(0, firstRepEndMs - firstRepTurnaroundMs) : 0;
+  const lastRepSegment = repSegments.length > 1 ? repSegments[repSegments.length - 1] : null;
   const lastRepTurnaroundMs = lastRepTurnaroundOverrideMs ?? lastRepSegment?.turnaroundMs ?? 0;
   const lastRepEndMs = lastRepEndOverrideMs ?? lastRepSegment?.endMs ?? 0;
   const lastRepConcentricTimeMs = lastRepSegment ? Math.max(0, lastRepEndMs - lastRepTurnaroundMs) : 0;
   const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
   const smoothedBarVerticalVelocitySeries = useMemo(() => calculateBarVerticalVelocitySeries(smoothedBarPathSeries), [smoothedBarPathSeries]);
+
+  const calcIntervalMetrics = useCallback((startMs: number, endMs: number) => {
+    if (startMs >= endMs || smoothedBarPathSeries.length === 0) {
+      return null;
+    }
+    const velocities: number[] = [];
+    for (let i = 0; i < smoothedBarPathSeries.length; i++) {
+      const t = smoothedBarPathSeries[i].tMs;
+      if (t >= startMs && t <= endMs && i < smoothedBarVerticalVelocitySeries.length) {
+        velocities.push(smoothedBarVerticalVelocitySeries[i]);
+      }
+    }
+    if (velocities.length === 0) {
+      return null;
+    }
+    const absVelocities = velocities.map(Math.abs);
+    return {
+      timeMs: endMs - startMs,
+      vPeak: Math.round(Math.max(...absVelocities)),
+      vMin: Math.round(Math.min(...absVelocities)),
+      vAvg: Math.round(absVelocities.reduce((sum, v) => sum + v, 0) / absVelocities.length),
+    };
+  }, [smoothedBarPathSeries, smoothedBarVerticalVelocitySeries]);
+
+  const firstRepIntervalMetrics = useMemo(
+    () => firstRepSegment ? calcIntervalMetrics(firstRepTurnaroundMs, firstRepEndMs) : null,
+    [firstRepSegment, firstRepTurnaroundMs, firstRepEndMs, calcIntervalMetrics],
+  );
+  const lastRepIntervalMetrics = useMemo(
+    () => lastRepSegment ? calcIntervalMetrics(lastRepTurnaroundMs, lastRepEndMs) : null,
+    [lastRepSegment, lastRepTurnaroundMs, lastRepEndMs, calcIntervalMetrics],
+  );
+  // Velocity Loss: VL = 1 - (v_last / v_ref), where v_ref is the best avg
+  // velocity from the first rep (proxy for max of first 3 reps).
+  const velocityLoss = useMemo(() => {
+    if (!firstRepIntervalMetrics || !lastRepIntervalMetrics || firstRepIntervalMetrics.vAvg <= 0) {
+      return null;
+    }
+    const vl = 1 - (lastRepIntervalMetrics.vAvg / firstRepIntervalMetrics.vAvg);
+    return Math.round(vl * 100);
+  }, [firstRepIntervalMetrics, lastRepIntervalMetrics]);
+
+  // RIR estimate based on velocity loss (heuristic v1 from issue #66)
+  const rirEstimate = useMemo(() => {
+    if (velocityLoss === null) {
+      return null;
+    }
+    if (velocityLoss < 10) { return '4+'; }
+    if (velocityLoss < 20) { return '3-4'; }
+    if (velocityLoss < 30) { return '2-3'; }
+    if (velocityLoss < 40) { return '1-2'; }
+    return '0-1';
+  }, [velocityLoss]);
+
   const timeRange = useMemo(() => getTimeRange(smoothedBarPathSeries), [smoothedBarPathSeries]);
   const correctedPlaybackDurationMs = useMemo(() => {
     return Math.max(playbackDurationMs, timeRange.maxTimeMs);
@@ -519,13 +585,18 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   // tracks the visible x-range on the UI thread without triggering re-renders.
   const onChartChange = useCallback((event: any) => {
     const {left, right, action} = event.nativeEvent ?? {};
-    if ((action === 'chartScaled' || action === 'chartTranslated') &&
-        typeof left === 'number' && typeof right === 'number' && right > left) {
+    if (typeof left !== 'number' || typeof right !== 'number' || right <= left) {
+      return;
+    }
+    if (action === 'chartScaled' || action === 'chartTranslated') {
       chartVisibleMinSV.value = left; // eslint-disable-line react-hooks/exhaustive-deps
       chartVisibleMaxSV.value = right; // eslint-disable-line react-hooks/exhaustive-deps
       chartVisibleMinRef.current = left;
       chartVisibleMaxRef.current = right;
       chartGestureActiveUntilRef.current = Date.now() + 300;
+    }
+    if (action === 'chartGestureEnd') {
+      setChartVisibleForLines({min: left, max: right});
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -606,6 +677,54 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     transform: [{translateX: progressMarkerLeft.value}],
   }));
 
+  const onSaveSetResult = useCallback(() => {
+    const repResults: VideoAnalysisRepResult[] = result.repSegments.map((seg, idx) => {
+      const isFirst = idx === 0;
+      const isLast = idx === result.repSegments.length - 1;
+      const startMs = seg.startMs;
+      const turnaroundMs = isFirst && firstRepTurnaroundOverrideMs !== null ? firstRepTurnaroundOverrideMs
+        : isLast && lastRepTurnaroundOverrideMs !== null ? lastRepTurnaroundOverrideMs
+        : seg.turnaroundMs;
+      const endMs = isFirst && firstRepEndOverrideMs !== null ? firstRepEndOverrideMs
+        : isLast && lastRepEndOverrideMs !== null ? lastRepEndOverrideMs
+        : seg.endMs;
+      const totalTimeMs = endMs - startMs;
+      const concentricTimeMs = Math.max(0, endMs - turnaroundMs);
+      const eccentricTimeMs = Math.max(0, turnaroundMs - startMs);
+      const metrics = calcIntervalMetrics(turnaroundMs, endMs);
+      return {
+        repIndex: seg.repIndex,
+        startMs,
+        turnaroundMs,
+        endMs,
+        totalTimeMs,
+        eccentricTimeMs,
+        concentricTimeMs,
+        vAvg: metrics?.vAvg ?? 0,
+        vPeak: metrics?.vPeak ?? 0,
+      };
+    });
+
+    const firstVAvg = repResults.length > 0 ? repResults[0].vAvg : 0;
+    const lastVAvg = repResults.length > 0 ? repResults[repResults.length - 1].vAvg : 0;
+    const vlPercent = firstVAvg > 0 ? Math.round((1 - lastVAvg / firstVAvg) * 100) : null;
+    let rir: string | null = null;
+    if (vlPercent !== null) {
+      if (vlPercent < 10) { rir = '4+'; }
+      else if (vlPercent < 20) { rir = '3-4'; }
+      else if (vlPercent < 30) { rir = '2-3'; }
+      else if (vlPercent < 40) { rir = '1-2'; }
+      else { rir = '0-1'; }
+    }
+
+    saveSetResult(analysisId, {
+      repResults,
+      velocityLossPercent: vlPercent,
+      rirEstimate: rir,
+      calibratedAt: new Date().toISOString(),
+    });
+  }, [analysisId, result.repSegments, firstRepTurnaroundOverrideMs, firstRepEndOverrideMs, lastRepTurnaroundOverrideMs, lastRepEndOverrideMs, calcIntervalMetrics, saveSetResult]);
+
   // Video pinch-to-zoom gesture.
   const videoPinchGesture = Gesture.Pinch()
     .onBegin(() => {
@@ -665,6 +784,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     chartVisibleMaxSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
     chartVisibleMinRef.current = 0;
     chartVisibleMaxRef.current = 0;
+    setChartVisibleForLines(null);
     playbackDurationRef.current = 0;
     playbackTimeRef.current = 0;
     currentRepIndexRef.current = undefined;
@@ -770,36 +890,63 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             pointerEvents="none"
             style={[styles.speedMarkerLine, {backgroundColor: theme.colors.primary}, progressMarkerAnimatedStyle]}
           />
-          {lastRepSegment && speedChartWidth > 0 && correctedPlaybackDurationMs > 0 && (() => {
+          {speedChartWidth > 0 && correctedPlaybackDurationMs > 0 && (() => {
             const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
-            const toX = (timeMs: number) => SPEED_CHART_LEFT_PADDING + (timeMs / correctedPlaybackDurationMs) * drawableWidth;
-            const turnaroundX = toX(lastRepTurnaroundMs);
-            const endX = toX(lastRepEndMs);
+            const visMin = chartVisibleForLines?.min ?? 0;
+            const visMax = chartVisibleForLines?.max ?? correctedPlaybackDurationMs;
+            const visRange = visMax > visMin ? visMax - visMin : correctedPlaybackDurationMs;
+            const toX = (timeMs: number) => SPEED_CHART_LEFT_PADDING + ((timeMs - visMin) / visRange) * drawableWidth;
             const STEP_MS = 20;
+
+            const renderRepLines = (
+              turnaroundMs: number,
+              endMs: number,
+              setTurnaround: (ms: number) => void,
+              setEnd: (ms: number) => void,
+            ) => {
+              const tX = toX(turnaroundMs);
+              const eX = toX(endMs);
+              const tIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, turnaroundMs);
+              const eIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, endMs);
+              const tVel = tIdx !== undefined && tIdx < smoothedBarVerticalVelocitySeries.length
+                ? Math.round(smoothedBarVerticalVelocitySeries[tIdx]) : null;
+              const eVel = eIdx !== undefined && eIdx < smoothedBarVerticalVelocitySeries.length
+                ? Math.round(smoothedBarVerticalVelocitySeries[eIdx]) : null;
+              return (
+                <>
+                  <View style={[styles.adjustLine, {left: tX}]} pointerEvents="box-none">
+                    <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
+                    <View style={styles.adjustButtonRow}>
+                      <TouchableOpacity onPress={() => setTurnaround(turnaroundMs - STEP_MS)} onLongPress={() => setTurnaround(turnaroundMs - 200)}>
+                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setTurnaround(turnaroundMs + STEP_MS)} onLongPress={() => setTurnaround(turnaroundMs + 200)}>
+                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <View style={[styles.adjustLine, {left: eX}]} pointerEvents="box-none">
+                    <View style={styles.adjustButtonRow}>
+                      <TouchableOpacity onPress={() => setEnd(endMs - STEP_MS)} onLongPress={() => setEnd(endMs - 200)}>
+                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setEnd(endMs + STEP_MS)} onLongPress={() => setEnd(endMs + 200)}>
+                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
+                  </View>
+                  {tVel !== null && <Text style={[styles.adjustVelLabel, {color: theme.colors.tertiary, left: tX + 4, top: 2}]}>{tVel}</Text>}
+                  {eVel !== null && <Text style={[styles.adjustVelLabel, {color: theme.colors.tertiary, left: eX + 4, bottom: 2}]}>{eVel}</Text>}
+                </>
+              );
+            };
+
+            if (!showCalibration) { return null; }
             return (
               <>
-                <View style={[styles.adjustLine, {left: turnaroundX}]} pointerEvents="box-none">
-                  <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
-                  <View style={styles.adjustButtonRow}>
-                    <TouchableOpacity onPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs - STEP_MS)}>
-                      <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs + STEP_MS)}>
-                      <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <View style={[styles.adjustLine, {left: endX}]} pointerEvents="box-none">
-                  <View style={styles.adjustButtonRow}>
-                    <TouchableOpacity onPress={() => setLastRepEndOverrideMs(lastRepEndMs - STEP_MS)}>
-                      <Text style={[styles.adjustButtonText, {color: theme.colors.secondary}]}>{'\u2039'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setLastRepEndOverrideMs(lastRepEndMs + STEP_MS)}>
-                      <Text style={[styles.adjustButtonText, {color: theme.colors.secondary}]}>{'\u203A'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.secondary}]} />
-                </View>
+                {firstRepSegment && renderRepLines(firstRepTurnaroundMs, firstRepEndMs, setFirstRepTurnaroundOverrideMs, setFirstRepEndOverrideMs)}
+                {lastRepSegment && renderRepLines(lastRepTurnaroundMs, lastRepEndMs, setLastRepTurnaroundOverrideMs, setLastRepEndOverrideMs)}
               </>
             );
           })()}
@@ -834,31 +981,100 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           <Text variant="labelMedium" style={styles.repSummaryTitle}>
             Rep Summary ({result.repMetrics.length} {result.repMetrics.length === 1 ? 'rep' : 'reps'})
           </Text>
+          <View style={styles.tableHeader}>
+            <Text variant="labelSmall" style={styles.tableColRep}>Rep</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>Total</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>Ecc</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>Conc</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>vAvg</Text>
+          </View>
           {result.repMetrics.map((metric, idx) => {
+            const isFirstRep = idx === 0;
             const isLastRep = idx === result.repMetrics.length - 1;
-            const concTimeMs = isLastRep && lastRepSegment ? lastRepConcentricTimeMs : (metric.concentricTimeMs ?? 0);
+            const saved = savedSetResult?.repResults?.[idx];
+            const seg = repSegments[idx];
+            const concTimeMs = saved ? saved.concentricTimeMs
+              : isFirstRep && firstRepSegment ? firstRepConcentricTimeMs
+              : isLastRep && lastRepSegment ? lastRepConcentricTimeMs
+              : seg ? Math.max(0, seg.endMs - seg.turnaroundMs)
+              : (metric.concentricTimeMs ?? 0);
+            const eccTimeMs = saved ? saved.eccentricTimeMs : (metric.repTimeMs - concTimeMs);
+            const totalTimeMs = saved ? saved.totalTimeMs : metric.repTimeMs;
+            const vAvg = saved ? saved.vAvg : Math.round(metric.averageConcentricSpeedPxPerS);
             return (
               <View
                 key={metric.repIndex}
                 testID={`video-analysis-rep-metric-${metric.repIndex}`}
-                style={[styles.repMetricRow, themedStyles.repMetricAccent]}>
-                <Text variant="bodySmall" style={styles.repMetricLabel}>
-                  Rep {metric.repIndex + 1}
+                style={[styles.tableRow, themedStyles.repMetricAccent]}>
+                <Text variant="bodySmall" style={styles.tableColRep}>{metric.repIndex + 1}</Text>
+                <Text testID={`video-analysis-rep-time-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
+                  {(totalTimeMs / 1000).toFixed(2)}s
                 </Text>
-                <Text testID={`video-analysis-rep-time-${metric.repIndex}`} variant="bodySmall">
-                  {(metric.repTimeMs / 1000).toFixed(2)}s
+                <Text variant="bodySmall" style={styles.tableCol}>
+                  {eccTimeMs > 0 ? `${(eccTimeMs / 1000).toFixed(2)}s` : '-'}
                 </Text>
-                {concTimeMs > 0 && (
-                  <Text testID={`video-analysis-rep-conc-${metric.repIndex}`} variant="bodySmall">
-                    conc {(concTimeMs / 1000).toFixed(2)}s
-                  </Text>
-                )}
-                <Text testID={`video-analysis-rep-speed-${metric.repIndex}`} variant="bodySmall">
-                  {Math.round(metric.averageConcentricSpeedPxPerS)} px/s
+                <Text testID={`video-analysis-rep-conc-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
+                  {concTimeMs > 0 ? `${(concTimeMs / 1000).toFixed(2)}s` : '-'}
+                </Text>
+                <Text testID={`video-analysis-rep-speed-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
+                  {vAvg}
                 </Text>
               </View>
             );
           })}
+        </View>
+      )}
+      {repSegments.length > 0 && (
+        <View style={styles.calibrateRow}>
+          <IconButton
+            icon={showCalibration ? 'chevron-up' : 'tune'}
+            size={20}
+            iconColor={theme.colors.tertiary}
+            onPress={() => setShowCalibration(!showCalibration)}
+            style={styles.calibrateButton}
+          />
+          {showCalibration && (
+            <IconButton
+              icon="content-save"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={onSaveSetResult}
+              style={styles.calibrateButton}
+            />
+          )}
+        </View>
+      )}
+      {firstRepIntervalMetrics && (
+        <View style={styles.intervalMetrics}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>Concentric Phase (Rep 1)</Text>
+          <View style={styles.intervalMetricsRow}>
+            <Text variant="bodySmall">t={(firstRepIntervalMetrics.timeMs / 1000).toFixed(2)}s</Text>
+            <Text variant="bodySmall">vPeak={firstRepIntervalMetrics.vPeak} px/s</Text>
+
+            <Text variant="bodySmall">vAvg={firstRepIntervalMetrics.vAvg} px/s</Text>
+          </View>
+        </View>
+      )}
+      {lastRepIntervalMetrics && (
+        <View style={styles.intervalMetrics}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>Concentric Phase (Last Rep)</Text>
+          <View style={styles.intervalMetricsRow}>
+            <Text variant="bodySmall">t={(lastRepIntervalMetrics.timeMs / 1000).toFixed(2)}s</Text>
+            <Text variant="bodySmall">vPeak={lastRepIntervalMetrics.vPeak} px/s</Text>
+
+            <Text variant="bodySmall">vAvg={lastRepIntervalMetrics.vAvg} px/s</Text>
+          </View>
+        </View>
+      )}
+      {(velocityLoss !== null || savedSetResult?.velocityLossPercent !== undefined) && (
+        <View style={styles.intervalMetrics}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>Velocity Loss</Text>
+          <View style={styles.intervalMetricsRow}>
+            <Text variant="bodySmall">VL={savedSetResult?.velocityLossPercent ?? velocityLoss}%</Text>
+            {(savedSetResult?.rirEstimate ?? rirEstimate) && (
+              <Text variant="bodySmall">RIR={savedSetResult?.rirEstimate ?? rirEstimate}</Text>
+            )}
+          </View>
         </View>
       )}
     </>
@@ -905,41 +1121,75 @@ const styles = StyleSheet.create({
   repSummaryTitle: {
     marginBottom: 4,
   },
-  repMetricRow: {
+  tableHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    marginBottom: 2,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
     borderLeftWidth: 3,
     borderRadius: 4,
+    marginBottom: 1,
   },
-  repMetricLabel: {
+  tableColRep: {
+    width: 30,
+    textAlign: 'center',
+  },
+  tableCol: {
     flex: 1,
+    textAlign: 'right',
   },
   adjustLine: {
     position: 'absolute',
     top: 0,
     height: SPEED_PLOT_HEIGHT,
     alignItems: 'center',
-    width: 0,
-    overflow: 'visible',
+    width: 14,
+    marginLeft: -7,
   },
   adjustLineStem: {
-    width: 1,
+    width: 1.5,
     flex: 1,
-    opacity: 0.7,
   },
   adjustButtonRow: {
     flexDirection: 'row',
-    gap: 2,
+    gap: 4,
   },
   adjustButtonText: {
-    fontSize: 20,
+    fontSize: 33,
     fontWeight: '700',
-    lineHeight: 22,
+    lineHeight: 36,
     textAlign: 'center',
-    minWidth: 18,
+    minWidth: 33,
+  },
+  adjustLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  adjustVelLabel: {
+    position: 'absolute',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  calibrateRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  calibrateButton: {
+    margin: 0,
+  },
+  intervalMetrics: {
+    marginTop: 8,
+  },
+  intervalMetricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 4,
   },
   playbackControls: {
     marginTop: 10,

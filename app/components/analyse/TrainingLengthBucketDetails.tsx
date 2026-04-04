@@ -1,5 +1,5 @@
 import React from 'react';
-import {StyleSheet, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
 import {Card, Text, useTheme} from 'react-native-paper';
 import {AccumulationMode} from '../../models/AccumulationMode';
 import {TrainingLengthBucket, formatTrainingLength, formatTrainingLengthDate, getTrainingLengthBucketLabel} from '../../utils/training-length-analysis';
@@ -8,6 +8,7 @@ interface TrainingLengthBucketDetailsProps {
   accumulationMode: AccumulationMode;
   bucket: TrainingLengthBucket;
   trainingNameById: Record<number, string>;
+  onEditBucket?: (bucket: TrainingLengthBucket) => void;
 }
 
 const getTrainingName = (trainingId: number | undefined, trainingNameById: Record<number, string>) => {
@@ -18,7 +19,7 @@ const getTrainingName = (trainingId: number | undefined, trainingNameById: Recor
   return trainingNameById[trainingId] ?? `Training ${trainingId}`;
 };
 
-const TrainingLengthBucketDetails = ({accumulationMode, bucket, trainingNameById}: TrainingLengthBucketDetailsProps) => {
+const TrainingLengthBucketDetails = ({accumulationMode, bucket, trainingNameById, onEditBucket}: TrainingLengthBucketDetailsProps) => {
   const theme = useTheme();
 
   return (
@@ -33,7 +34,7 @@ const TrainingLengthBucketDetails = ({accumulationMode, bucket, trainingNameById
 
         <View style={styles.list} testID="training-length-selected-trainings">
           {bucket.trainings.map((training, index) => (
-            <View
+            <Pressable
               key={training.key}
               style={[
                 styles.row,
@@ -43,13 +44,20 @@ const TrainingLengthBucketDetails = ({accumulationMode, bucket, trainingNameById
                 },
               ]}
               testID={`training-length-selected-training-${training.trainingId ?? index}`}
+              onLongPress={onEditBucket ? () => onEditBucket({
+                ...bucket,
+                trainings: [training],
+                trainingCount: 1,
+                totalDurationMinutes: training.durationMinutes,
+                averageDurationMinutes: training.durationMinutes,
+              }) : undefined}
             >
               <View style={styles.meta}>
                 <Text variant="bodyLarge">{getTrainingName(training.trainingId, trainingNameById)}</Text>
                 <Text style={[styles.date, {color: theme.colors.onSurfaceVariant}]}>{formatTrainingLengthDate(training.start)}</Text>
               </View>
               <Text variant="bodyMedium">{formatTrainingLength(training.durationMinutes)}</Text>
-            </View>
+            </Pressable>
           ))}
         </View>
       </Card.Content>
