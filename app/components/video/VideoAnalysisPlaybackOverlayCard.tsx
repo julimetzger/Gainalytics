@@ -261,6 +261,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const seekCooldownUntilRef = useRef(0);
   const chartVisibleMinRef = useRef(-1);
   const chartVisibleMaxRef = useRef(-1);
+  const [chartVisibleForLines, setChartVisibleForLines] = useState<{min: number; max: number} | null>(null);
   const chartGestureActiveUntilRef = useRef(0);
 
   // Video pinch-to-zoom state (UI thread only, no re-renders).
@@ -278,6 +279,32 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   const lastRepConcentricTimeMs = lastRepSegment ? Math.max(0, lastRepEndMs - lastRepTurnaroundMs) : 0;
   const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
   const smoothedBarVerticalVelocitySeries = useMemo(() => calculateBarVerticalVelocitySeries(smoothedBarPathSeries), [smoothedBarPathSeries]);
+
+  const lastRepIntervalMetrics = useMemo(() => {
+    if (!lastRepSegment || lastRepTurnaroundMs >= lastRepEndMs || smoothedBarPathSeries.length === 0) {
+      return null;
+    }
+    const velocities: number[] = [];
+    for (let i = 0; i < smoothedBarPathSeries.length; i++) {
+      const t = smoothedBarPathSeries[i].tMs;
+      if (t >= lastRepTurnaroundMs && t <= lastRepEndMs && i < smoothedBarVerticalVelocitySeries.length) {
+        velocities.push(smoothedBarVerticalVelocitySeries[i]);
+      }
+    }
+    if (velocities.length === 0) {
+      return null;
+    }
+    const absVelocities = velocities.map(Math.abs);
+    const vPeak = Math.max(...absVelocities);
+    const vMin = Math.min(...absVelocities);
+    const vAvg = absVelocities.reduce((sum, v) => sum + v, 0) / absVelocities.length;
+    return {
+      timeMs: lastRepEndMs - lastRepTurnaroundMs,
+      vPeak: Math.round(vPeak),
+      vMin: Math.round(vMin),
+      vAvg: Math.round(vAvg),
+    };
+  }, [lastRepSegment, lastRepTurnaroundMs, lastRepEndMs, smoothedBarPathSeries, smoothedBarVerticalVelocitySeries]);
   const timeRange = useMemo(() => getTimeRange(smoothedBarPathSeries), [smoothedBarPathSeries]);
   const correctedPlaybackDurationMs = useMemo(() => {
     return Math.max(playbackDurationMs, timeRange.maxTimeMs);
@@ -519,13 +546,18 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   // tracks the visible x-range on the UI thread without triggering re-renders.
   const onChartChange = useCallback((event: any) => {
     const {left, right, action} = event.nativeEvent ?? {};
-    if ((action === 'chartScaled' || action === 'chartTranslated') &&
-        typeof left === 'number' && typeof right === 'number' && right > left) {
+    if (typeof left !== 'number' || typeof right !== 'number' || right <= left) {
+      return;
+    }
+    if (action === 'chartScaled' || action === 'chartTranslated') {
       chartVisibleMinSV.value = left; // eslint-disable-line react-hooks/exhaustive-deps
       chartVisibleMaxSV.value = right; // eslint-disable-line react-hooks/exhaustive-deps
       chartVisibleMinRef.current = left;
       chartVisibleMaxRef.current = right;
       chartGestureActiveUntilRef.current = Date.now() + 300;
+    }
+    if (action === 'chartGestureEnd') {
+      setChartVisibleForLines({min: left, max: right});
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -665,6 +697,7 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     chartVisibleMaxSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
     chartVisibleMinRef.current = 0;
     chartVisibleMaxRef.current = 0;
+    setChartVisibleForLines(null);
     playbackDurationRef.current = 0;
     playbackTimeRef.current = 0;
     currentRepIndexRef.current = undefined;
@@ -772,34 +805,57 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           />
           {lastRepSegment && speedChartWidth > 0 && correctedPlaybackDurationMs > 0 && (() => {
             const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
-            const toX = (timeMs: number) => SPEED_CHART_LEFT_PADDING + (timeMs / correctedPlaybackDurationMs) * drawableWidth;
+            const visMin = chartVisibleForLines?.min ?? 0;
+            const visMax = chartVisibleForLines?.max ?? correctedPlaybackDurationMs;
+            const visRange = visMax > visMin ? visMax - visMin : correctedPlaybackDurationMs;
+            const toX = (timeMs: number) => SPEED_CHART_LEFT_PADDING + ((timeMs - visMin) / visRange) * drawableWidth;
             const turnaroundX = toX(lastRepTurnaroundMs);
             const endX = toX(lastRepEndMs);
+            const turnaroundVelIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, lastRepTurnaroundMs);
+            const endVelIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, lastRepEndMs);
+            const turnaroundVel = turnaroundVelIdx !== undefined && turnaroundVelIdx < smoothedBarVerticalVelocitySeries.length
+              ? Math.round(smoothedBarVerticalVelocitySeries[turnaroundVelIdx]) : null;
+            const endVel = endVelIdx !== undefined && endVelIdx < smoothedBarVerticalVelocitySeries.length
+              ? Math.round(smoothedBarVerticalVelocitySeries[endVelIdx]) : null;
             const STEP_MS = 20;
             return (
               <>
                 <View style={[styles.adjustLine, {left: turnaroundX}]} pointerEvents="box-none">
                   <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
                   <View style={styles.adjustButtonRow}>
-                    <TouchableOpacity onPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs - STEP_MS)}>
+                    <TouchableOpacity
+                      onPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs - STEP_MS)}
+                      onLongPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs - 200)}>
                       <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs + STEP_MS)}>
+                    <TouchableOpacity
+                      onPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs + STEP_MS)}
+                      onLongPress={() => setLastRepTurnaroundOverrideMs(lastRepTurnaroundMs + 200)}>
                       <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
                 <View style={[styles.adjustLine, {left: endX}]} pointerEvents="box-none">
                   <View style={styles.adjustButtonRow}>
-                    <TouchableOpacity onPress={() => setLastRepEndOverrideMs(lastRepEndMs - STEP_MS)}>
+                    <TouchableOpacity
+                      onPress={() => setLastRepEndOverrideMs(lastRepEndMs - STEP_MS)}
+                      onLongPress={() => setLastRepEndOverrideMs(lastRepEndMs - 200)}>
                       <Text style={[styles.adjustButtonText, {color: theme.colors.secondary}]}>{'\u2039'}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setLastRepEndOverrideMs(lastRepEndMs + STEP_MS)}>
+                    <TouchableOpacity
+                      onPress={() => setLastRepEndOverrideMs(lastRepEndMs + STEP_MS)}
+                      onLongPress={() => setLastRepEndOverrideMs(lastRepEndMs + 200)}>
                       <Text style={[styles.adjustButtonText, {color: theme.colors.secondary}]}>{'\u203A'}</Text>
                     </TouchableOpacity>
                   </View>
-                  <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.secondary}]} />
+                  <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
                 </View>
+                {turnaroundVel !== null && (
+                  <Text style={[styles.adjustVelLabel, {color: theme.colors.tertiary, left: turnaroundX + 4, top: 2}]}>{turnaroundVel}</Text>
+                )}
+                {endVel !== null && (
+                  <Text style={[styles.adjustVelLabel, {color: theme.colors.secondary, left: endX + 4, bottom: 2}]}>{endVel}</Text>
+                )}
               </>
             );
           })()}
@@ -859,6 +915,17 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
               </View>
             );
           })}
+        </View>
+      )}
+      {lastRepIntervalMetrics && (
+        <View style={styles.intervalMetrics}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>Concentric Phase (Last Rep)</Text>
+          <View style={styles.intervalMetricsRow}>
+            <Text variant="bodySmall">t={(lastRepIntervalMetrics.timeMs / 1000).toFixed(2)}s</Text>
+            <Text variant="bodySmall">vPeak={lastRepIntervalMetrics.vPeak} px/s</Text>
+            <Text variant="bodySmall">vMin={lastRepIntervalMetrics.vMin} px/s</Text>
+            <Text variant="bodySmall">vAvg={lastRepIntervalMetrics.vAvg} px/s</Text>
+          </View>
         </View>
       )}
     </>
@@ -922,24 +989,42 @@ const styles = StyleSheet.create({
     top: 0,
     height: SPEED_PLOT_HEIGHT,
     alignItems: 'center',
-    width: 0,
-    overflow: 'visible',
+    width: 14,
+    marginLeft: -7,
   },
   adjustLineStem: {
-    width: 1,
+    width: 1.5,
     flex: 1,
-    opacity: 0.7,
   },
   adjustButtonRow: {
     flexDirection: 'row',
-    gap: 2,
+    gap: 4,
   },
   adjustButtonText: {
-    fontSize: 20,
+    fontSize: 33,
     fontWeight: '700',
-    lineHeight: 22,
+    lineHeight: 36,
     textAlign: 'center',
-    minWidth: 18,
+    minWidth: 33,
+  },
+  adjustLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  adjustVelLabel: {
+    position: 'absolute',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  intervalMetrics: {
+    marginTop: 8,
+  },
+  intervalMetricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 4,
   },
   playbackControls: {
     marginTop: 10,
