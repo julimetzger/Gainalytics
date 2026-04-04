@@ -8,9 +8,6 @@ jest.mock('react-native-charts-wrapper', () => ({
   LineChart: 'LineChart',
 }));
 
-jest.mock('react-redux', () => ({
-  useDispatch: () => jest.fn(),
-}));
 
 const makeResult = (): BarTrackingResult => ({
   analysisId: 1,
