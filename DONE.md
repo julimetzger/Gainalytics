@@ -1,5 +1,23 @@
 ## Test on device - app is released
 
+### 154
+
+- [ready] [ANA-004](tickets/ANA-004-rep-detection-from-video-analysis.yaml) Rep Detection from velocity zero-crossings + native bar-path overlay (PR #69)
+- [ready] [EXC-001](tickets/done/EXC-001-exercise-alternatives.yaml) Exercise-Alternativen mit bidirektionaler Verknüpfung (PR #65)
+- [ready] [ANA-006-fix](tickets/done/ANA-006-fix-video-workout-linking.yaml) Video-Workout Linking — Review Fix Round (PR #64)
+- [ready] [TRN-005](tickets/done/TRN-005-edit-training-times.yaml) Editieren der Trainingszeiten Start/Ende (PR #61)
+- [ready] [GH-57](tickets/done/GH-57-micro-training-overview.yaml) Micro Trainingsübersicht — 3 View Modes (PR #70)
+- [ready] [MNT-002](tickets/MNT-002-fix-notifee-test-mock.yaml) Fix failing unit tests — @notifee/react-native Mock (PR #67)
+
+| Feature                                                                          | version | passed | Notes |
+|----------------------------------------------------------------------------------|---------|--------|-------|
+| [ANA-004] Rep Detection + Bar-Path Overlay                                       | 154     |        |       |
+| [EXC-001] Exercise-Alternativen mit bidirektionaler Verknüpfung                  | 154     |        |       |
+| [ANA-006-fix] Video-Workout Linking — Review Fix                                 | 154     |        |       |
+| [TRN-005] Editieren der Trainingszeiten (Start/Ende)                             | 154     |        |       |
+| [GH-57] Micro Trainingsübersicht — Gesamt/Exercise/Muscle                        | 154     |        |       |
+| [MNT-002] Fix failing unit tests — @notifee Mock                                 | 154     |        |       |
+
 ### 153
 
 - [ready] [ANA-005-fix](tickets/done/ANA-005-fix-codex-review.yaml) Fix Codex review findings + Progress-Bar für async video analysis (PR #23)

@@ -26,6 +26,8 @@ Last updated: 2026-04-02 (ANA-004-fix2)
 | TRN-005 | emu | 4 | 3 | 0 | 2 | 0 | 2 | 8 | 0 | 2 | ready_for_review (r2) |
 | ANA-006-fix | emu | 0 | 0 | 0 | 8 | 35 | 0 | 0 | 5 | 2 | ready_for_review (r2) |
 | MNT-002 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
+| EXC-001-fix | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | ready_for_review |
+| GH-46-fix2 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | ready_for_review |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
@@ -106,3 +108,9 @@ The following infra patterns are already documented in `docs/memory/agent-memory
    and agent-memory.md, agents still try to figure out the networking setup
    from scratch. The feature SKILL.md should include a concrete "Emulator
    Preflight Checklist" with exact commands.
+
+6. **Windows adb server may not be running in fix/review rounds.** The orchestrator
+   starts the socat proxy but does not ensure the Windows adb server is running.
+   Fix round workers discover this only after the first adb command fails. The
+   orchestrator should include an adb server health check in the fix round launch
+   setup (or the fix prompt should note if adb is expected to be unavailable).

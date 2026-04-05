@@ -70,11 +70,15 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
    - Android device verification
    - for UI or flow changes, run Maestro smoke or a relevant flow against the assigned device
    - workspace-wide `typecheck` and `lint` are optional health checks; record them if you run them, but they are not required for `ready_for_review`
-8. Capture at least one screenshot that shows the implemented result.
+8. **Capture screenshots — this is MANDATORY, not optional.**
+   - Take at least one screenshot showing the implemented result on the assigned device.
+   - For UI changes: capture before AND after states.
+   - For multi-step flows: capture the key states (e.g. dialog open, after save).
+   - A PR without screenshots will be rejected. No exceptions.
 9. Produce review evidence for every acceptance criterion:
    - map each criterion to the specific code change, screenshot, and check or e2e result that proves it
 10. Create one or more local commits on the assigned feature branch.
-11. Commit evidence screenshots into the branch so they are visible on GitHub:
+11. **Commit evidence screenshots into the branch so they are visible on GitHub (REQUIRED):**
     ```bash
     # Copy resized screenshots from run_dir into the branch
     mkdir -p screenshots/<ticket_id>
@@ -94,8 +98,11 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
     Closes #<github_issue_number>
 
     ## Evidence Screenshots
-    <for each relevant screenshot, embed with:>
-    ![description](screenshots/<ticket_id>/filename.png)
+    <for each relevant screenshot, use the blob URL so images render in private repos:>
+    ![description](https://github.com/julimetzger/Gainalytics/blob/<branch>/screenshots/<ticket_id>/filename.png?raw=true)
+
+    IMPORTANT: Relative paths do NOT render in GitHub PR descriptions. Always use the full
+    blob URL with `?raw=true`.
 
     ## Acceptance Criteria
     <for each criterion, one line with status + evidence>
@@ -108,6 +115,10 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
     If a PR for this branch already exists, skip creation — just push the new commits
     and update the PR body if needed with `gh pr edit`.
     Store the PR URL in `status.json` as `"pr_url"`.
+
+    **HARD REQUIREMENT:** The PR body MUST contain at least one embedded screenshot
+    (`![description](screenshots/<ticket_id>/filename.png)`). If no screenshots are
+    embedded in the PR body, the PR is incomplete and will be rejected.
 13. Write `status.json` (with `ready_for_review`) and `summary.md`.
 14. Append new learnings to `docs/memory/agent-memory.md` (see Memory section), then exit.
 
@@ -281,7 +292,7 @@ Rules:
 - Use `ready_for_review` only after commits, screenshots, acceptance evidence, and review checks are in place.
 - For `ready_for_review`, include at least one passed automated test check relevant to the change, typically `npm test` or a focused test command.
 - For `ready_for_review`, include at least one passed e2e or Maestro check with a stored log or report.
-- For `ready_for_review`, include at least one screenshot file that exists under `run_dir`.
+- For `ready_for_review`, include at least one screenshot file that exists under `run_dir`. **BLOCKER: If `artifacts.screenshots` is empty or the files don't exist, do NOT set status to `ready_for_review` — set `blocked` with reason "missing screenshots" instead.**
 - For `ready_for_review`, every acceptance criterion must have one `acceptance_evidence` entry with concrete artifact or check references.
 - Do not block `ready_for_review` only because repo-wide `typecheck` or `lint` fail outside the ticket scope.
 - Store artifact paths relative to `run_dir`.
