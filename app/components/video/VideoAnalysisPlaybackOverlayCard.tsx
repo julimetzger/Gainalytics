@@ -245,10 +245,20 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
   const [showCalibration, setShowCalibration] = useState(false);
-  const [firstRepTurnaroundOverrideMs, setFirstRepTurnaroundOverrideMs] = useState<number | null>(null);
-  const [firstRepEndOverrideMs, setFirstRepEndOverrideMs] = useState<number | null>(null);
-  const [lastRepTurnaroundOverrideMs, setLastRepTurnaroundOverrideMs] = useState<number | null>(null);
-  const [lastRepEndOverrideMs, setLastRepEndOverrideMs] = useState<number | null>(null);
+  const [firstRepTurnaroundOverrideMs, setFirstRepTurnaroundOverrideMs] = useState<number | null>(
+    () => savedSetResult?.repResults?.[0]?.turnaroundMs ?? null,
+  );
+  const [firstRepEndOverrideMs, setFirstRepEndOverrideMs] = useState<number | null>(
+    () => savedSetResult?.repResults?.[0]?.endMs ?? null,
+  );
+  const [lastRepTurnaroundOverrideMs, setLastRepTurnaroundOverrideMs] = useState<number | null>(() => {
+    const rr = savedSetResult?.repResults;
+    return rr && rr.length > 1 ? rr[rr.length - 1].turnaroundMs : null;
+  });
+  const [lastRepEndOverrideMs, setLastRepEndOverrideMs] = useState<number | null>(() => {
+    const rr = savedSetResult?.repResults;
+    return rr && rr.length > 1 ? rr[rr.length - 1].endMs : null;
+  });
   // useRef wrapper ensures the SharedValue object is stable across renders.
   // The Reanimated mock creates a new plain object on each useSharedValue call,
   // so without useRef the animated styles would always see value=0 in tests.
@@ -270,6 +280,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const chartVisibleMaxRef = useRef(-1);
   const [chartVisibleForLines, setChartVisibleForLines] = useState<{min: number; max: number} | null>(null);
   const chartGestureActiveUntilRef = useRef(0);
+  const repeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Video pinch-to-zoom state (UI thread only, no re-renders).
   const videoScale = useRef(useSharedValue(1)).current;
@@ -673,6 +684,14 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     playbackTimeRef.current = playbackTimeMs;
   }, [playbackTimeMs]);
 
+  useEffect(() => {
+    return () => {
+      if (repeatIntervalRef.current !== null) {
+        clearInterval(repeatIntervalRef.current);
+      }
+    };
+  }, []);
+
   const progressMarkerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{translateX: progressMarkerLeft.value}],
   }));
@@ -897,12 +916,20 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             const visRange = visMax > visMin ? visMax - visMin : correctedPlaybackDurationMs;
             const toX = (timeMs: number) => SPEED_CHART_LEFT_PADDING + ((timeMs - visMin) / visRange) * drawableWidth;
             const STEP_MS = 20;
+            const LONGPRESS_STEP_MS = 1000;
+            const LONGPRESS_REPEAT_INTERVAL_MS = 150;
+            const stopRepeat = () => {
+              if (repeatIntervalRef.current !== null) {
+                clearInterval(repeatIntervalRef.current);
+                repeatIntervalRef.current = null;
+              }
+            };
 
             const renderRepLines = (
               turnaroundMs: number,
               endMs: number,
-              setTurnaround: (ms: number) => void,
-              setEnd: (ms: number) => void,
+              setTurnaround: React.Dispatch<React.SetStateAction<number | null>>,
+              setEnd: React.Dispatch<React.SetStateAction<number | null>>,
             ) => {
               const tX = toX(turnaroundMs);
               const eX = toX(endMs);
@@ -917,20 +944,48 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
                   <View style={[styles.adjustLine, {left: tX}]} pointerEvents="box-none">
                     <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
                     <View style={styles.adjustButtonRow}>
-                      <TouchableOpacity onPress={() => setTurnaround(turnaroundMs - STEP_MS)} onLongPress={() => setTurnaround(turnaroundMs - 200)}>
+                      <TouchableOpacity
+                        onPress={() => setTurnaround(turnaroundMs - STEP_MS)}
+                        onLongPress={() => {
+                          stopRepeat();
+                          setTurnaround(turnaroundMs - LONGPRESS_STEP_MS);
+                          repeatIntervalRef.current = setInterval(() => { setTurnaround(prev => (prev ?? turnaroundMs) - LONGPRESS_STEP_MS); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                        }}
+                        onPressOut={stopRepeat}>
                         <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => setTurnaround(turnaroundMs + STEP_MS)} onLongPress={() => setTurnaround(turnaroundMs + 200)}>
+                      <TouchableOpacity
+                        onPress={() => setTurnaround(turnaroundMs + STEP_MS)}
+                        onLongPress={() => {
+                          stopRepeat();
+                          setTurnaround(turnaroundMs + LONGPRESS_STEP_MS);
+                          repeatIntervalRef.current = setInterval(() => { setTurnaround(prev => (prev ?? turnaroundMs) + LONGPRESS_STEP_MS); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                        }}
+                        onPressOut={stopRepeat}>
                         <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
                   <View style={[styles.adjustLine, {left: eX}]} pointerEvents="box-none">
                     <View style={styles.adjustButtonRow}>
-                      <TouchableOpacity onPress={() => setEnd(endMs - STEP_MS)} onLongPress={() => setEnd(endMs - 200)}>
+                      <TouchableOpacity
+                        onPress={() => setEnd(endMs - STEP_MS)}
+                        onLongPress={() => {
+                          stopRepeat();
+                          setEnd(endMs - LONGPRESS_STEP_MS);
+                          repeatIntervalRef.current = setInterval(() => { setEnd(prev => (prev ?? endMs) - LONGPRESS_STEP_MS); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                        }}
+                        onPressOut={stopRepeat}>
                         <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => setEnd(endMs + STEP_MS)} onLongPress={() => setEnd(endMs + 200)}>
+                      <TouchableOpacity
+                        onPress={() => setEnd(endMs + STEP_MS)}
+                        onLongPress={() => {
+                          stopRepeat();
+                          setEnd(endMs + LONGPRESS_STEP_MS);
+                          repeatIntervalRef.current = setInterval(() => { setEnd(prev => (prev ?? endMs) + LONGPRESS_STEP_MS); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                        }}
+                        onPressOut={stopRepeat}>
                         <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
                       </TouchableOpacity>
                     </View>
