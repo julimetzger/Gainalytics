@@ -100,3 +100,18 @@ The mock creates a new object per render. Wrap with `useRef`: `const sv = useRef
 **Problem:** When a dispatch function's signature gains a new parameter (e.g. `microNumber`), tests that assert on `toHaveBeenCalledWith(...)` with the old arg count fail.
 **Symptoms:** `TrainingsBase.spec` expected `dispatchSuggestBasedOnTrained(3, 1, {rirDelta: 2})` but the code now calls `dispatchSuggestBasedOnTrained(3, 1, 2, {rirDelta: 2})`.
 **Apply when:** Refactoring a hook to accept more context (meso, scope, etc.) — search for `toHaveBeenCalledWith` on that hook in specs and update the expected args.
+
+### 24. Code review findings vs. device-observed findings must be treated separately
+**Problem:** A reviewer may submit both "code review" findings (based on reading diff at commit X) and "UI/device" findings (based on testing build Y). If commit Z was made after commit X fixes the code-review items, the reviewer's feedback might include stale code-review line numbers that have already been fixed — while the device findings may still be valid.
+**Symptoms:** All 5 review items looked unfixed in the feedback, but 3 were already addressed in bd981d2 before the review was submitted. Wasted multiple analysis cycles.
+**Apply when:** Before investigating review feedback, check git log to see if fixes were already committed after the reviewer's last-tested commit.
+
+### 25. Round-4 test assertion: single-micro Meso has "Micro 1" on BOTH drawer nav buttons
+**Problem:** A test asserting "Micro 2" in the right SegmentedButton when in Meso 1 (with 1 micro) fails. `computeNextMesoStartMicro` for a fresh plan returns `startMicro+1 = 2` so Meso 1 ends at micro 1. `nextLocalMicroLabel = Math.min(maxLocalMicro, localMicro+1) = Math.min(1,2) = 1`.
+**Symptoms:** `Assertion is false: "Micro 2" is visible` in the drawer filter test.
+**Apply when:** Writing Maestro assertions for SegmentedButtons in a meso — compute expected labels from `computeNextMesoStartMicro` first; a fresh single-training plan's first meso has only 1 micro.
+
+### 26. Windows ADB server needs `-a` flag for WSL access; existing process blocks rebind
+**Problem:** When `adb -a -P 5037 nodaemon server` is called but another adb process is already running on 127.0.0.1:5037 (bound to localhost only), the new invocation fails with WSAEADDRINUSE (10048).
+**Symptoms:** `nc -zv 172.18.240.1 5037` returns "Connection refused"; `adb devices` errors with "cannot connect to daemon".
+**Working solution:** `powershell.exe "Get-Process adb | Stop-Process -Force"` to kill all existing adb processes, then re-run `Start-Process -NoNewWindow 'adb.exe' '-a -P 5037 nodaemon server'`. Then `nc -zv 172.18.240.1 5037` should succeed.
