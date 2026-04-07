@@ -21,6 +21,11 @@ import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
 import SetSelectionModal from '../../components/video/SetSelectionModal';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
 import {useExercise} from '../../redux/Exercises/use/useExercise';
+import TrainingElementPicker from '../../components/picker/elements/TrainingElementPicker';
+import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
+import {useExercisesForMuscles} from '../../redux/Exercises/use/useExercisesForMuscles';
+import {Exercise} from '../../models/entities/Exercise';
+import {Muscles} from '../../models/Muscles';
 
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
@@ -76,6 +81,12 @@ const VideoAnalysisTab = () => {
     [analyses],
   );
 
+  // Filter state
+  const [filterExercise, setFilterExercise] = useState<Exercise[]>([]);
+  const [filterMuscle, setFilterMuscle] = useState<Muscles[]>([]);
+  const [dateRange, setDateRange] = useState<Range | null>(null);
+  const exercisesForMuscles = useExercisesForMuscles(filterMuscle);
+
   // Refresh every 500ms while any analysis is in PROCESSING state so the
   // progress bar advances smoothly.
   useEffect(() => {
@@ -105,6 +116,32 @@ const VideoAnalysisTab = () => {
     });
   }, [analyses]);
 
+  const filteredAnalyses = useMemo(() => {
+    return analyses.filter((analysis) => {
+      // Exercise filter: if exercises selected, analysis.exerciseId must match
+      if (filterExercise.length > 0) {
+        const exerciseIds = filterExercise.map((e) => e.id);
+        if (!exerciseIds.includes(analysis.exerciseId)) {
+          return false;
+        }
+      }
+      // Muscle filter: if muscles selected, analysis.exerciseId must map to an exercise with that muscle
+      if (filterMuscle.length > 0) {
+        const muscleExerciseIds = exercisesForMuscles.map((e) => e.id);
+        if (!muscleExerciseIds.includes(analysis.exerciseId)) {
+          return false;
+        }
+      }
+      // Date filter: only applied when dateRange is set
+      if (dateRange !== null) {
+        const createdAt = new Date(analysis.createdAt).getTime();
+        if (createdAt < dateRange.startDate.getTime() || createdAt > dateRange.endDate.getTime()) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [analyses, filterExercise, filterMuscle, exercisesForMuscles, dateRange]);
 
   const importFromSource = async (sourceUri: string) => {
     try {
@@ -236,15 +273,49 @@ const VideoAnalysisTab = () => {
           Import Emulator Squat Video
         </Button>
       )}
+      <TrainingElementPicker
+        exercise={filterExercise}
+        setExercise={setFilterExercise}
+        muscle={filterMuscle}
+        setMuscle={setFilterMuscle}
+        dropdownLabel="Filter by Exercise or Muscle"
+        hideChip={false}
+      />
+      <View style={styles.dateFilterRow}>
+        <Button
+          testID="video-analysis-date-filter-toggle"
+          mode={dateRange !== null ? 'contained' : 'outlined'}
+          onPress={() => {
+            if (dateRange !== null) {
+              setDateRange(null);
+            } else {
+              const end = new Date();
+              const start = new Date(end);
+              start.setMonth(start.getMonth() - 3);
+              setDateRange(new Range(start, end));
+            }
+          }}
+          style={styles.dateFilterToggle}
+        >
+          {dateRange !== null ? 'Date Filter: On' : 'Date Filter: Off'}
+        </Button>
+        {dateRange !== null && (
+          <DateRangePicker range={dateRange} setRange={setDateRange} />
+        )}
+      </View>
       <ScrollView contentInsetAdjustmentBehavior="automatic">
-        {analyses.length === 0 && (
+        {filteredAnalyses.length === 0 && (
           <Card style={styles.card} testID="video-analysis-empty-card">
             <Card.Content>
-              <Text>No video analyses yet. Import your first training video.</Text>
+              <Text>
+                {analyses.length === 0
+                  ? 'No video analyses yet. Import your first training video.'
+                  : 'No analyses match the active filters.'}
+              </Text>
             </Card.Content>
           </Card>
         )}
-        {analyses.map((analysis) => {
+        {filteredAnalyses.map((analysis) => {
           let progressBar: React.ReactNode = null;
           const analysisId = analysis.id;
           if (analysis.status === VideoAnalysisStatus.PROCESSING && analysisId !== undefined) {
@@ -337,6 +408,13 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 10,
     marginBottom: 10,
+  },
+  dateFilterRow: {
+    marginHorizontal: 10,
+    marginBottom: 4,
+  },
+  dateFilterToggle: {
+    marginBottom: 4,
   },
 });
 
