@@ -4,7 +4,7 @@ This document tracks how much time workers spend on infrastructure vs. feature w
 which problems recur, and which workers are affected. Use this to identify systemic
 issues and prevent agents from re-discovering known solutions.
 
-Last updated: 2026-04-02 (ANA-004-fix2)
+Last updated: 2026-04-07 (GH-71)
 
 ## Per-Worker Breakdown
 
@@ -28,6 +28,7 @@ Last updated: 2026-04-02 (ANA-004-fix2)
 | MNT-002 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
 | EXC-001-fix | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | ready_for_review |
 | GH-46-fix2 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | ready_for_review |
+| GH-71 | emu | 0 | 0 | 0 | 1 | 8 | 1 | 0 | 0 | 0 | ready_for_review |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 

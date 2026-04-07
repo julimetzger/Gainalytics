@@ -714,3 +714,35 @@ Observation:
 - Maestro is the only reliable screenshot path on this emulator setup; if Maestro is unavailable (OOM, driver timeout), use UIAutomator text dumps as evidence.
 
 Apply when: screenshots are needed from emulator-5554 in the WSL2 environment and screencap returns white frames.
+
+### 43. Metro crashes watching Gradle .cxx build directories
+
+Problem:
+- After a Gradle `assembleDebug` build, Metro crashes with `ENOENT: no such file or directory, watch '/android/app/.cxx/Debug/.../x86'`.
+- The `.cxx` dir is created during the native build and removed or renamed, leaving Metro watching a nonexistent path.
+
+Symptoms:
+- App shows red "Unable to load script" screen after a fresh build.
+- Metro log ends with `Error: ENOENT ... .cxx/Debug/...`.
+
+Working solution:
+- Restart Metro after the Gradle build: kill the old process, start a new one on the same port.
+- The orchestrator-assigned socat proxy on port 8081 → 8084 stays up; only the Metro node process needs restarting.
+
+Apply when: red screen after `assembleDebug`, Metro log shows ENOENT on `.cxx` path.
+
+### 44. Emulator /data partition fills up — uninstall old APK before reinstalling
+
+Problem:
+- `adb install -r` fails with `INSTALL_FAILED_INSUFFICIENT_STORAGE` when the emulator's /data partition is ~90% full and the APK is >200 MB.
+- The streaming install needs headroom beyond the APK size for staging.
+
+Symptoms:
+- `Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Failed to override installation location]`
+- `df /data` shows ~650 MB free, APK is 216 MB.
+
+Working solution:
+- `adb -s $DEVICE uninstall com.powerliftingworkoutplanner` first (frees ~220 MB).
+- Then `adb -s $DEVICE install -r <apk>`.
+
+Apply when: install fails with insufficient storage on a previously-used emulator.
