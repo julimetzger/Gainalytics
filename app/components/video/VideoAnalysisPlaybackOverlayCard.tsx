@@ -236,6 +236,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     [theme],
   );
   const [playbackPaused, setPlaybackPaused] = useState(true);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [playbackTimeMs, setPlaybackTimeMs] = useState(0);
   const [playbackDurationMs, setPlaybackDurationMs] = useState(0);
   const [playbackVideoWidth, setPlaybackVideoWidth] = useState(0);
@@ -807,6 +808,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             source={localVideoPath}
             paused={playbackPaused}
             seekPositionMs={seekPositionMs}
+            playbackSpeed={playbackSpeed}
             barPathSeries={smoothedBarPathSeries}
             repSegments={repSegments}
             currentRepIndex={currentRepIndex}
@@ -973,6 +975,20 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
           }}>
           <Animated.View testID="video-analysis-playback-scrubber-fill" style={[styles.scrubberFill, themedStyles.scrubberFill, scrubberFillStyle]} />
           <Animated.View testID="video-analysis-playback-scrubber-thumb" style={[styles.scrubberThumb, themedStyles.scrubberThumb, scrubberThumbStyle]} />
+        </View>
+        <View testID="video-analysis-speed-control" style={styles.speedControlRow}>
+          <Text testID="video-analysis-speed-label" variant="labelSmall" style={styles.speedLabel}>{playbackSpeed.toFixed(1)}x</Text>
+          {([0.1, 0.2, 0.3, 0.5, 0.75, 1.0] as const).map((speed) => (
+            <TouchableOpacity
+              key={speed}
+              testID={`video-analysis-speed-btn-${speed}`}
+              onPress={() => setPlaybackSpeed(speed)}
+              style={[styles.speedButton, playbackSpeed === speed && styles.speedButtonActive]}>
+              <Text variant="labelSmall" style={[styles.speedButtonText, playbackSpeed === speed && {color: theme.colors.primary}]}>
+                {speed === 1.0 ? '1x' : `${speed}x`}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
@@ -1255,6 +1271,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 8,
     gap: 4,
+  },
+  speedControlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 4,
+  },
+  speedLabel: {
+    minWidth: 32,
+    textAlign: 'center',
+    marginRight: 4,
+  },
+  speedButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  speedButtonActive: {
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  speedButtonText: {
+    fontSize: 12,
   },
 });
 
