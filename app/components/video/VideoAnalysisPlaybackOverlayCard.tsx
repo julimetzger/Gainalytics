@@ -259,6 +259,12 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     const rr = savedSetResult?.repResults;
     return rr && rr.length > 1 ? rr[rr.length - 1].endMs : null;
   });
+  // Track whether we have already seeded override states from savedSetResult.
+  // Initialised to true when savedSetResult is already available at mount (lazy useState
+  // initializers above handle that case). Set to true after the first time the effect
+  // below syncs from a late-arriving savedSetResult (e.g. tab-switch scenario where
+  // the screen was already mounted before the save propagated through Redux).
+  const savedOverridesApplied = useRef<boolean>(!!savedSetResult?.repResults?.length);
   // useRef wrapper ensures the SharedValue object is stable across renders.
   // The Reanimated mock creates a new plain object on each useSharedValue call,
   // so without useRef the animated styles would always see value=0 in tests.
@@ -691,6 +697,22 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       }
     };
   }, []);
+
+  // When savedSetResult arrives after mount (e.g. tab-switch: screen stays mounted while
+  // Redux propagates the save), apply the stored overrides once — but only if the user
+  // hasn't already been given initialised values from the lazy useState above.
+  useEffect(() => {
+    const rr = savedSetResult?.repResults;
+    if (!savedOverridesApplied.current && rr && rr.length > 0) {
+      savedOverridesApplied.current = true;
+      setFirstRepTurnaroundOverrideMs(rr[0].turnaroundMs);
+      setFirstRepEndOverrideMs(rr[0].endMs);
+      if (rr.length > 1) {
+        setLastRepTurnaroundOverrideMs(rr[rr.length - 1].turnaroundMs);
+        setLastRepEndOverrideMs(rr[rr.length - 1].endMs);
+      }
+    }
+  }, [savedSetResult]);
 
   const progressMarkerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{translateX: progressMarkerLeft.value}],
