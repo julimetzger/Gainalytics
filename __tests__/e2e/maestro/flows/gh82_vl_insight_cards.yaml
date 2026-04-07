@@ -1,0 +1,42 @@
+appId: com.powerliftingworkoutplanner
+---
+# Navigate to training Done overview and verify VL Insight Cards
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 90000
+- takeScreenshot: training_home
+# Navigate into a training plan with linked video analysis
+- scrollUntilVisible:
+    element:
+      text: "Push pull"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "Push pull"
+- extendedWaitUntil:
+    visible: "Micro"
+    timeout: 30000
+- takeScreenshot: plan_overview
+# Find the most recent Micro and tap Done
+- scrollUntilVisible:
+    element:
+      text: "Done"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "Done"
+- extendedWaitUntil:
+    visible: "Edit"
+    timeout: 30000
+- takeScreenshot: training_done_overview
+# Scroll down to find VL Insight Cards (below Muscle/Exercise Overview)
+- scrollUntilVisible:
+    element:
+      text: "VL"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: vl_insight_cards_visible
+# Assert VL% label is present
+- assertVisible:
+    text: "% VL"
+- takeScreenshot: vl_percent_asserted
