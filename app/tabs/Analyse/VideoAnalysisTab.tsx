@@ -135,7 +135,9 @@ const VideoAnalysisTab = () => {
       // Date filter: only applied when dateRange is set
       if (dateRange !== null) {
         const createdAt = new Date(analysis.createdAt).getTime();
-        if (createdAt < dateRange.startDate.getTime() || createdAt > dateRange.endDate.getTime()) {
+        const endOfDay = new Date(dateRange.endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (createdAt < dateRange.startDate.getTime() || createdAt > endOfDay.getTime()) {
           return false;
         }
       }
