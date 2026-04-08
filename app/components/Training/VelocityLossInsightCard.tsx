@@ -15,6 +15,7 @@ interface Props {
   vlRirEstimate: string;
   reportedRir: number;
   microHistory: MicroVLDataPoint[];
+  currentMicro: number;
 }
 
 const SPARKLINE_HEIGHT = 32;
@@ -62,7 +63,7 @@ const VlSparkline = ({data, currentMicro}: {data: MicroVLDataPoint[]; currentMic
   );
 };
 
-const VelocityLossInsightCard = ({exerciseName, heaviestWeightKg, currentVlPercent, vlRirEstimate, reportedRir, microHistory}: Props) => {
+const VelocityLossInsightCard = ({exerciseName, heaviestWeightKg, currentVlPercent, vlRirEstimate, reportedRir, microHistory, currentMicro}: Props) => {
   const theme = useTheme();
   const discrepancy = hasRirDiscrepancy(reportedRir, currentVlPercent);
 
@@ -111,7 +112,7 @@ const VelocityLossInsightCard = ({exerciseName, heaviestWeightKg, currentVlPerce
           </View>
         )}
 
-        <VlSparkline data={microHistory} currentMicro={microHistory.length > 0 ? microHistory[microHistory.length - 1].micro : 0} />
+        <VlSparkline data={microHistory} currentMicro={currentMicro} />
       </Card.Content>
     </Card>
   );

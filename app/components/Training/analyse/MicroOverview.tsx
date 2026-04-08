@@ -82,6 +82,7 @@ const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
               vlRirEstimate={insight.vlRirEstimate}
               reportedRir={insight.reportedRir}
               microHistory={insight.microHistory}
+              currentMicro={micro}
             />
           ))}
         </View>
