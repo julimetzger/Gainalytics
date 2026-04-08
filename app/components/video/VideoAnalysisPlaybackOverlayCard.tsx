@@ -1275,7 +1275,7 @@ const styles = StyleSheet.create({
   speedControlRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
     gap: 4,
   },
   speedLabel: {
@@ -1285,13 +1285,13 @@ const styles = StyleSheet.create({
   },
   speedButton: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: 'rgba(128,128,128,0.4)',
   },
   speedButtonActive: {
-    borderColor: 'transparent',
+    borderColor: 'rgba(128,128,128,0.6)',
     backgroundColor: 'rgba(0,0,0,0.08)',
   },
   speedButtonText: {
