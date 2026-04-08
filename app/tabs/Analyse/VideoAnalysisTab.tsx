@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Platform, ScrollView, StyleSheet, View} from 'react-native';
-import {Button, Card, MD3Theme, Text, useTheme} from 'react-native-paper';
+import {Button, Card, Chip, MD3Theme, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
 import Toast from 'react-native-toast-message';
@@ -26,6 +26,40 @@ import DateRangePicker, {Range} from '../../components/picker/date/DateRangePick
 import {useExercisesForMuscles} from '../../redux/Exercises/use/useExercisesForMuscles';
 import {Exercise} from '../../models/entities/Exercise';
 import {Muscles} from '../../models/Muscles';
+
+const VL_PRESETS = ['<10%', '10-20%', '20-30%', '>30%'];
+const RIR_PRESETS = ['0-1', '1-2', '2-3', '3-4', '4+'];
+
+function matchesVlPreset(vl: number | null, preset: string): boolean {
+  if (vl === null) {
+    return false;
+  }
+  switch (preset) {
+    case '<10%': return vl < 10;
+    case '10-20%': return vl >= 10 && vl < 20;
+    case '20-30%': return vl >= 20 && vl < 30;
+    case '>30%': return vl >= 30;
+    default: return false;
+  }
+}
+
+function matchesRirPreset(rirStr: string | null, preset: string): boolean {
+  if (rirStr === null) {
+    return false;
+  }
+  const rir = parseFloat(rirStr);
+  if (isNaN(rir)) {
+    return false;
+  }
+  switch (preset) {
+    case '0-1': return rir >= 0 && rir < 1;
+    case '1-2': return rir >= 1 && rir < 2;
+    case '2-3': return rir >= 2 && rir < 3;
+    case '3-4': return rir >= 3 && rir < 4;
+    case '4+': return rir >= 4;
+    default: return false;
+  }
+}
 
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
@@ -84,7 +118,14 @@ const VideoAnalysisTab = () => {
   // Filter state
   const [filterExercise, setFilterExercise] = useState<Exercise[]>([]);
   const [filterMuscle, setFilterMuscle] = useState<Muscles[]>([]);
-  const [dateRange, setDateRange] = useState<Range | null>(null);
+  const [dateRange, setDateRange] = useState<Range>(() => {
+    const end = new Date();
+    const start = new Date(end);
+    start.setMonth(start.getMonth() - 3);
+    return new Range(start, end);
+  });
+  const [vlPresets, setVlPresets] = useState<string[]>([]);
+  const [rirPresets, setRirPresets] = useState<string[]>([]);
   const exercisesForMuscles = useExercisesForMuscles(filterMuscle);
 
   // Refresh every 500ms while any analysis is in PROCESSING state so the
@@ -132,18 +173,34 @@ const VideoAnalysisTab = () => {
           return false;
         }
       }
-      // Date filter: only applied when dateRange is set
-      if (dateRange !== null) {
-        const createdAt = new Date(analysis.createdAt).getTime();
-        const endOfDay = new Date(dateRange.endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        if (createdAt < dateRange.startDate.getTime() || createdAt > endOfDay.getTime()) {
+      // Date filter: always applied
+      const createdAt = new Date(analysis.createdAt).getTime();
+      const endOfDay = new Date(dateRange.endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      if (createdAt < dateRange.startDate.getTime() || createdAt > endOfDay.getTime()) {
+        return false;
+      }
+      // VL filter: if any preset selected, hide analyses without setResult
+      if (vlPresets.length > 0) {
+        if (!analysis.setResult) {
+          return false;
+        }
+        if (!vlPresets.some(p => matchesVlPreset(analysis.setResult!.velocityLossPercent, p))) {
+          return false;
+        }
+      }
+      // RIR filter: if any preset selected, hide analyses without setResult
+      if (rirPresets.length > 0) {
+        if (!analysis.setResult) {
+          return false;
+        }
+        if (!rirPresets.some(p => matchesRirPreset(analysis.setResult!.rirEstimate, p))) {
           return false;
         }
       }
       return true;
     });
-  }, [analyses, filterExercise, filterMuscle, exercisesForMuscles, dateRange]);
+  }, [analyses, filterExercise, filterMuscle, exercisesForMuscles, dateRange, vlPresets, rirPresets]);
 
   const importFromSource = async (sourceUri: string) => {
     try {
@@ -284,26 +341,37 @@ const VideoAnalysisTab = () => {
         hideChip={false}
       />
       <View style={styles.dateFilterRow}>
-        <Button
-          testID="video-analysis-date-filter-toggle"
-          mode={dateRange !== null ? 'contained' : 'outlined'}
-          onPress={() => {
-            if (dateRange !== null) {
-              setDateRange(null);
-            } else {
-              const end = new Date();
-              const start = new Date(end);
-              start.setMonth(start.getMonth() - 3);
-              setDateRange(new Range(start, end));
-            }
-          }}
-          style={styles.dateFilterToggle}
-        >
-          {dateRange !== null ? 'Date Filter: On' : 'Date Filter: Off'}
-        </Button>
-        {dateRange !== null && (
-          <DateRangePicker range={dateRange} setRange={setDateRange} />
-        )}
+        <DateRangePicker range={dateRange} setRange={setDateRange} />
+      </View>
+      <View style={styles.chipRow}>
+        <Text variant="labelSmall" style={styles.chipLabel}>VL%</Text>
+        {VL_PRESETS.map(p => (
+          <Chip
+            key={p}
+            testID={`video-analysis-vl-chip-${p}`}
+            selected={vlPresets.includes(p)}
+            onPress={() => setVlPresets(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])}
+            style={styles.chip}
+            compact
+          >
+            {p}
+          </Chip>
+        ))}
+      </View>
+      <View style={styles.chipRow}>
+        <Text variant="labelSmall" style={styles.chipLabel}>RIR</Text>
+        {RIR_PRESETS.map(p => (
+          <Chip
+            key={p}
+            testID={`video-analysis-rir-chip-${p}`}
+            selected={rirPresets.includes(p)}
+            onPress={() => setRirPresets(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])}
+            style={styles.chip}
+            compact
+          >
+            {p}
+          </Chip>
+        ))}
       </View>
       <ScrollView contentInsetAdjustmentBehavior="automatic">
         {filteredAnalyses.length === 0 && (
@@ -415,8 +483,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     marginBottom: 4,
   },
-  dateFilterToggle: {
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginHorizontal: 10,
     marginBottom: 4,
+    gap: 4,
+  },
+  chipLabel: {
+    marginRight: 4,
+    alignSelf: 'center',
+  },
+  chip: {
+    marginRight: 2,
   },
 });
 
