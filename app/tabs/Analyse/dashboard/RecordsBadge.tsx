@@ -20,9 +20,9 @@ const RecordsBadge = ({currentWorkouts, exercises}: RecordsBadgeProps) => {
     .flatMap((w) => {
       const exercise = exercises.find((e) => e.id === w.exerciseId);
       if (!exercise) return [];
-      return Object.values(w.records ?? {}).flat().map((rec) => ({
+      return Object.values(w.records ?? {}).map((value) => ({
         exerciseName: exercise.name,
-        value: rec.value,
+        value: value,
       }));
     })
     .slice(0, 5);
