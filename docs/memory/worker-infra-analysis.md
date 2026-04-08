@@ -28,6 +28,8 @@ Last updated: 2026-04-02 (ANA-004-fix2)
 | MNT-002 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
 | EXC-001-fix | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | ready_for_review |
 | GH-46-fix2 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | ready_for_review |
+| GH-77 | emu | 0 | 0 | 0 | 2 | 8 | 12 | 0 | 3 | 2 | ready_for_review |
+| GH-77-fix | emu | 0 | 0 | 0 | 0 | 15 | 18 | 0 | 2 | 0 | ready_for_review (r2) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
