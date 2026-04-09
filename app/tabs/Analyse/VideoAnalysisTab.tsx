@@ -275,10 +275,12 @@ const VideoAnalysisTab = () => {
                   />
                 )}
                 {analysis.setResult && (
-                  <Text style={{fontSize: 12, marginTop: 4}}>
+                  <Text testID={`video-analysis-set-summary-${analysisId}`} style={{fontSize: 12, marginTop: 4}}>
                     {analysis.setResult.repResults.length} reps
                     {analysis.setResult.velocityLossPercent !== null ? ` | VL ${analysis.setResult.velocityLossPercent}%` : ''}
                     {analysis.setResult.rirEstimate ? ` | RIR ${analysis.setResult.rirEstimate}` : ''}
+                    {analysis.setResult.mean_path_deviation != null ? ` | Dev ${(analysis.setResult.mean_path_deviation * 100).toFixed(1)}%` : ''}
+                    {analysis.setResult.path_deviation_slope != null ? ` | Slope ${(analysis.setResult.path_deviation_slope * 100).toFixed(2)}%/rep` : ''}
                   </Text>
                 )}
                 {progressBar}
