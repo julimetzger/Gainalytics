@@ -573,7 +573,7 @@ describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
     );
 
     expect(getByTestId('video-analysis-speed-control')).toBeTruthy();
-    expect(getSpeedLabelText(getByTestId)).toBe('1.0x');
+    expect(getSpeedLabelText(getByTestId)).toBe('Speed: 1.0x');
   });
 
   it('renders speed buttons for all preset values', () => {
@@ -604,7 +604,7 @@ describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
       fireEvent.press(getByTestId('video-analysis-speed-btn-0.3'));
     });
 
-    expect(getSpeedLabelText(getByTestId)).toBe('0.3x');
+    expect(getSpeedLabelText(getByTestId)).toBe('Speed: 0.3x');
     expect(getByTestId('video-analysis-playback-player').props.playbackSpeed).toBe(0.3);
   });
 
@@ -623,6 +623,19 @@ describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
     // barPathSeries passed to native player must be unchanged
     expect(getByTestId('video-analysis-playback-player').props.barPathSeries).toEqual(barPathBefore);
     // speed label updated
-    expect(getSpeedLabelText(getByTestId)).toBe('0.1x');
+    expect(getSpeedLabelText(getByTestId)).toBe('Speed: 0.1x');
+  });
+
+  it('speed label shows 0.75x without rounding to 0.8x', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+
+    act(() => {
+      fireEvent.press(getByTestId('video-analysis-speed-btn-0.75'));
+    });
+
+    expect(getSpeedLabelText(getByTestId)).toBe('Speed: 0.75x');
+    expect(getByTestId('video-analysis-playback-player').props.playbackSpeed).toBe(0.75);
   });
 });
