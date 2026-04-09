@@ -7,6 +7,7 @@ import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment, VideoAnalysisRepResult, VideoAnalysisSetResult} from '../../models/entities/VideoAnalysis';
 import {dispatchSaveVideoAnalysisSetResult} from '../../redux/VideoAnalysis/dispatch/dispatchSaveVideoAnalysisSetResult';
 import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
+import {vlToRirEstimate} from '../../utils/velocityLossRir';
 
 interface Props {
   analysisId: number;
@@ -343,16 +344,12 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     return Math.round(vl * 100);
   }, [firstRepIntervalMetrics, lastRepIntervalMetrics]);
 
-  // RIR estimate based on velocity loss (heuristic v1 from issue #66)
+  // RIR estimate based on velocity loss (heuristic v1 from issue #66) — uses shared vlToRirEstimate utility
   const rirEstimate = useMemo(() => {
     if (velocityLoss === null) {
       return null;
     }
-    if (velocityLoss < 10) { return '4+'; }
-    if (velocityLoss < 20) { return '3-4'; }
-    if (velocityLoss < 30) { return '2-3'; }
-    if (velocityLoss < 40) { return '1-2'; }
-    return '0-1';
+    return vlToRirEstimate(velocityLoss);
   }, [velocityLoss]);
 
   const timeRange = useMemo(() => getTimeRange(smoothedBarPathSeries), [smoothedBarPathSeries]);

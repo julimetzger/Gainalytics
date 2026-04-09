@@ -715,6 +715,20 @@ Observation:
 
 Apply when: screenshots are needed from emulator-5554 in the WSL2 environment and screencap returns white frames.
 
+### 43. Physical device Samsung PIN lock: screencap returns 0 bytes, Maestro blocked
+
+Problem:
+- On physical Samsung device R5CN30HWZFN, `adb exec-out screencap -p` produces a 0-byte file when the device is locked with a PIN (even if `mWakefulness=Awake`).
+- `uiautomator dump` shows the PIN input screen, not the app UI.
+- Maestro `launchApp` cannot bypass the PIN lock; flows fail with "Training is not visible".
+- Samsung "Accidental Touch Protection" overlay may appear on top of the PIN screen — swipe up from the arrow icon (~y=1022) to dismiss it first.
+
+Working approach:
+- Get UIAutomator dump to identify PIN digit button coordinates, then tap each digit.
+- Common dev PINs 1234, 0000, 1111 may not work; stop after 3 attempts to avoid lockout.
+- If PIN is unknown, mark ticket as `blocked` with clear instructions for manual device unlock.
+
+Apply when: device PIN is locked unexpectedly mid-session on the physical Samsung device; screencap returns 0 bytes.
 ### 43. Redux persist + component state: saved data won't restore if not read on mount
 
 Problem:
