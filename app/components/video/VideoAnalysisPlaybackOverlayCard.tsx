@@ -150,17 +150,17 @@ export const calculateBarPathDeviation = (
   turnaroundMs: number,
   endMs: number,
   trackingFrameWidthPx: number,
-): {delta_x: number[]; path_deviation: number} => {
-  const empty = {delta_x: [], path_deviation: 0};
+): {delta_x: number[]; path_deviation: number | undefined} => {
+  const noData = {delta_x: [], path_deviation: undefined};
   if (barPathSeries.length < 4 || turnaroundMs <= startMs || endMs <= turnaroundMs || trackingFrameWidthPx <= 0) {
-    return empty;
+    return noData;
   }
 
   const eccPhase = barPathSeries.filter((p) => p.tMs >= startMs && p.tMs <= turnaroundMs);
   const conPhase = barPathSeries.filter((p) => p.tMs >= turnaroundMs && p.tMs <= endMs);
 
   if (eccPhase.length < 2 || conPhase.length < 2) {
-    return empty;
+    return noData;
   }
 
   const eccYMin = Math.min(...eccPhase.map((p) => p.y));
@@ -173,7 +173,7 @@ export const calculateBarPathDeviation = (
   const overlapYMax = Math.min(eccYMax, conYMax);
 
   if (overlapYMax <= overlapYMin) {
-    return empty;
+    return noData;
   }
 
   const eccX = resampleXAtYPoints(eccPhase, overlapYMin, overlapYMax, DEVIATION_RESAMPLE_COUNT);

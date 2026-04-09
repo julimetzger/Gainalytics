@@ -613,17 +613,17 @@ describe('calculateBarPathDeviation', () => {
   it('returns empty result for insufficient data', () => {
     const {delta_x, path_deviation} = calculateBarPathDeviation([], 0, 500, 1000, FRAME_WIDTH);
     expect(delta_x).toHaveLength(0);
-    expect(path_deviation).toBe(0);
+    expect(path_deviation).toBeUndefined();
   });
 
-  it('returns empty result when trackingFrameWidthPx is zero', () => {
+  it('returns undefined path_deviation when trackingFrameWidthPx is zero', () => {
     const ecc = makePathSegment(ECC_START, ECC_END, 100, 100, 300, 10);
     const con = makePathSegment(CON_START, CON_END, 200, 300, 100, 10);
     const all = [...ecc, ...con];
 
     const {delta_x, path_deviation} = calculateBarPathDeviation(all, ECC_START, TURNAROUND, CON_END, 0);
     expect(delta_x).toHaveLength(0);
-    expect(path_deviation).toBe(0);
+    expect(path_deviation).toBeUndefined();
   });
 
   it('normalises path_deviation relative to tracking frame width', () => {
