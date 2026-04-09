@@ -979,3 +979,36 @@ grep -r "Import Emulator Squat Video" app/
 3. Do NOT try to make Linux adb client talk to Windows adb server — the version mismatch is fundamental.
 
 **Apply when:** WSL2 adb connects to Windows server but gets empty device list.
+
+### 55. Absolutely-positioned overlay inside a shared View clips sibling pickers
+
+Problem:
+- `TrainingElementPicker` (wrapping `sharingan-rn-modal-dropdown`) renders an absolutely-positioned dropdown overlay.
+- When wrapped together with `DateRangePicker` inside a shared `filterBar` View, the overlay's z-stacking is clipped to the `filterBar` bounds, making it visually cover or clip the `DateRangePicker` below.
+
+Symptoms:
+- DateRangePicker not tappable or visually obscured after opening the TrainingElementPicker dropdown.
+
+Working solution:
+- Remove the shared wrapper View entirely. Place `TrainingElementPicker` and `DateRangePicker` as **direct siblings** in the outermost container View.
+- Do NOT add `zIndex` or `overflow: visible` hacks — they do not reliably fix the stacking order in React Native.
+
+Apply when: any absolutely-positioned overlay (dropdowns, modals) rendered by a picker component clips or covers a sibling component placed inside a shared wrapper View.
+
+### 56. Maestro --driver-host-port maps to a fixed device; restarting Windows ADB server breaks the mapping
+
+Problem:
+- After restarting the Windows ADB server with `adb -a -P 5037 nodaemon server`, the Maestro gRPC driver ports no longer map to the same devices.
+- Port 7035 (originally assigned to emulator-5558) may end up connected to R5CN30HWZFN or another emulator.
+- Passing `--device emulator-5558` to the WSL Maestro client does not override the driver's active device connection.
+
+Symptoms:
+- Maestro screenshots show the wrong device (Samsung phone wallpaper, or emulator with old code).
+- Navigation steps complete but layout assertions fail because the targeted device doesn't have the latest code.
+
+Working solution:
+- Use direct `adb -s $DEVICE exec-out screencap` + UIAutomator dumps as fallback device verification.
+- For Maestro evidence, use navigation-only flows (that any device with the same app can pass) as the minimum Maestro check.
+- Avoid restarting the Windows ADB server mid-session — it resets Maestro driver mappings.
+
+Apply when: Maestro screenshots show unexpected device/screen despite `--device` flag being correct.
