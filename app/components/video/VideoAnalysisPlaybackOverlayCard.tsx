@@ -104,6 +104,89 @@ const calculateBarVerticalVelocitySeries = (barPathSeries: BarPathPoint[]): numb
   return smoothNumberSeries(rawVerticalVelocities, SPEED_SMOOTHING_WINDOW);
 };
 
+/**
+ * Resample an (x, y) series at evenly-spaced Y values within [yMin, yMax].
+ * Assumes the series is monotone in Y (either ascending or descending).
+ * Returns an array of interpolated X values of length `sampleCount`.
+ */
+const resampleXAtYPoints = (series: BarPathPoint[], yMin: number, yMax: number, sampleCount: number): number[] => {
+  if (series.length < 2 || sampleCount < 1 || yMax <= yMin) {
+    return Array(sampleCount).fill(0);
+  }
+  const result: number[] = [];
+  for (let i = 0; i < sampleCount; i++) {
+    const targetY = yMin + (i / Math.max(1, sampleCount - 1)) * (yMax - yMin);
+    // Find the two nearest points that bracket targetY
+    let lo = 0;
+    let hi = series.length - 1;
+    for (let j = 0; j < series.length - 1; j++) {
+      const yA = series[j].y;
+      const yB = series[j + 1].y;
+      if ((yA <= targetY && targetY <= yB) || (yB <= targetY && targetY <= yA)) {
+        lo = j;
+        hi = j + 1;
+        break;
+      }
+    }
+    const yLo = series[lo].y;
+    const yHi = series[hi].y;
+    const span = yHi - yLo;
+    const t = Math.abs(span) < 0.001 ? 0 : (targetY - yLo) / span;
+    result.push(series[lo].x + t * (series[hi].x - series[lo].x));
+  }
+  return result;
+};
+
+const DEVIATION_RESAMPLE_COUNT = 20;
+
+/**
+ * Calculate the bar-path deviation between eccentric and concentric phases for one rep.
+ * The eccentric path (bar going down) serves as the reference line.
+ * Returns delta_x (concentric_x − eccentric_x at each resampled Y point)
+ * and path_deviation (mean |delta_x| / trackingFrameWidthPx).
+ */
+export const calculateBarPathDeviation = (
+  barPathSeries: BarPathPoint[],
+  startMs: number,
+  turnaroundMs: number,
+  endMs: number,
+  trackingFrameWidthPx: number,
+): {delta_x: number[]; path_deviation: number | undefined} => {
+  const noData = {delta_x: [], path_deviation: undefined};
+  if (barPathSeries.length < 4 || turnaroundMs <= startMs || endMs <= turnaroundMs || trackingFrameWidthPx <= 0) {
+    return noData;
+  }
+
+  const eccPhase = barPathSeries.filter((p) => p.tMs >= startMs && p.tMs <= turnaroundMs);
+  const conPhase = barPathSeries.filter((p) => p.tMs >= turnaroundMs && p.tMs <= endMs);
+
+  if (eccPhase.length < 2 || conPhase.length < 2) {
+    return noData;
+  }
+
+  const eccYMin = Math.min(...eccPhase.map((p) => p.y));
+  const eccYMax = Math.max(...eccPhase.map((p) => p.y));
+  const conYMin = Math.min(...conPhase.map((p) => p.y));
+  const conYMax = Math.max(...conPhase.map((p) => p.y));
+
+  // Overlapping Y range (screen-space: larger Y = lower physical position)
+  const overlapYMin = Math.max(eccYMin, conYMin);
+  const overlapYMax = Math.min(eccYMax, conYMax);
+
+  if (overlapYMax <= overlapYMin) {
+    return noData;
+  }
+
+  const eccX = resampleXAtYPoints(eccPhase, overlapYMin, overlapYMax, DEVIATION_RESAMPLE_COUNT);
+  const conX = resampleXAtYPoints(conPhase, overlapYMin, overlapYMax, DEVIATION_RESAMPLE_COUNT);
+
+  const delta_x = eccX.map((ex, i) => conX[i] - ex);
+  const meanAbsDelta = delta_x.reduce((sum, d) => sum + Math.abs(d), 0) / delta_x.length;
+  const path_deviation = meanAbsDelta / trackingFrameWidthPx;
+
+  return {delta_x, path_deviation};
+};
+
 const getTimeRange = (barPathSeries: BarPathPoint[]): TimeRange => {
   if (barPathSeries.length === 0) {
     return {minTimeMs: 0, maxTimeMs: 0, durationMs: 0};
@@ -705,6 +788,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   }));
 
   const onSaveSetResult = useCallback(() => {
+    const trackingFrameWidth = result.analysisMeta.trackingFrameWidthPx ?? 0;
     const repResults: VideoAnalysisRepResult[] = result.repSegments.map((seg, idx) => {
       const isFirst = idx === 0;
       const isLast = idx === result.repSegments.length - 1;
@@ -719,6 +803,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       const concentricTimeMs = Math.max(0, endMs - turnaroundMs);
       const eccentricTimeMs = Math.max(0, turnaroundMs - startMs);
       const metrics = calcIntervalMetrics(turnaroundMs, endMs);
+      const deviation = calculateBarPathDeviation(smoothedBarPathSeries, startMs, turnaroundMs, endMs, trackingFrameWidth);
       return {
         repIndex: seg.repIndex,
         startMs,
@@ -729,6 +814,8 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
         concentricTimeMs,
         vAvg: metrics?.vAvg ?? 0,
         vPeak: metrics?.vPeak ?? 0,
+        delta_x: deviation.delta_x,
+        path_deviation: deviation.path_deviation,
       };
     });
 
@@ -744,13 +831,38 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       else { rir = '0-1'; }
     }
 
+    // Set-level path deviation aggregates
+    const repDeviations = repResults
+      .map((r) => r.path_deviation)
+      .filter((d): d is number => d !== undefined && isFinite(d));
+    let mean_path_deviation: number | null = null;
+    let path_deviation_slope: number | null = null;
+    if (repDeviations.length > 0) {
+      mean_path_deviation = repDeviations.reduce((s, d) => s + d, 0) / repDeviations.length;
+      if (repDeviations.length > 1) {
+        // Simple linear regression slope: deviation vs rep index (0-based)
+        const n = repDeviations.length;
+        const xMean = (n - 1) / 2;
+        const yMean = mean_path_deviation;
+        let num = 0;
+        let den = 0;
+        for (let i = 0; i < n; i++) {
+          num += (i - xMean) * (repDeviations[i] - yMean);
+          den += (i - xMean) ** 2;
+        }
+        path_deviation_slope = den > 0 ? num / den : 0;
+      }
+    }
+
     saveSetResult(analysisId, {
       repResults,
       velocityLossPercent: vlPercent,
       rirEstimate: rir,
       calibratedAt: new Date().toISOString(),
+      mean_path_deviation,
+      path_deviation_slope,
     });
-  }, [analysisId, result.repSegments, firstRepTurnaroundOverrideMs, firstRepEndOverrideMs, lastRepTurnaroundOverrideMs, lastRepEndOverrideMs, calcIntervalMetrics, saveSetResult]);
+  }, [analysisId, result.repSegments, result.analysisMeta.trackingFrameWidthPx, firstRepTurnaroundOverrideMs, firstRepEndOverrideMs, lastRepTurnaroundOverrideMs, lastRepEndOverrideMs, calcIntervalMetrics, smoothedBarPathSeries, saveSetResult]);
 
   // Video pinch-to-zoom gesture.
   const videoPinchGesture = Gesture.Pinch()
@@ -1029,6 +1141,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             <Text variant="labelSmall" style={styles.tableCol}>Ecc</Text>
             <Text variant="labelSmall" style={styles.tableCol}>Conc</Text>
             <Text variant="labelSmall" style={styles.tableCol}>vAvg</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>Dev</Text>
           </View>
           {result.repMetrics.map((metric, idx) => {
             const isFirstRep = idx === 0;
@@ -1043,6 +1156,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             const eccTimeMs = saved ? saved.eccentricTimeMs : (metric.repTimeMs - concTimeMs);
             const totalTimeMs = saved ? saved.totalTimeMs : metric.repTimeMs;
             const vAvg = saved ? saved.vAvg : Math.round(metric.averageConcentricSpeedPxPerS);
+            const pathDev = saved?.path_deviation;
             return (
               <View
                 key={metric.repIndex}
@@ -1060,6 +1174,9 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
                 </Text>
                 <Text testID={`video-analysis-rep-speed-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
                   {vAvg}
+                </Text>
+                <Text testID={`video-analysis-rep-path-dev-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
+                  {pathDev !== undefined ? `${(pathDev * 100).toFixed(1)}%` : '-'}
                 </Text>
               </View>
             );
@@ -1115,6 +1232,23 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             <Text variant="bodySmall">VL={savedSetResult?.velocityLossPercent ?? velocityLoss}%</Text>
             {(savedSetResult?.rirEstimate ?? rirEstimate) && (
               <Text variant="bodySmall">RIR={savedSetResult?.rirEstimate ?? rirEstimate}</Text>
+            )}
+          </View>
+        </View>
+      )}
+      {(savedSetResult?.mean_path_deviation != null || savedSetResult?.path_deviation_slope != null) && (
+        <View testID="video-analysis-bar-drift" style={styles.intervalMetrics}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>Bar Drift (Ecc vs Con)</Text>
+          <View style={styles.intervalMetricsRow}>
+            {savedSetResult.mean_path_deviation != null && (
+              <Text testID="video-analysis-mean-path-deviation" variant="bodySmall">
+                Ø Dev={(savedSetResult.mean_path_deviation * 100).toFixed(1)}%
+              </Text>
+            )}
+            {savedSetResult.path_deviation_slope != null && (
+              <Text testID="video-analysis-path-deviation-slope" variant="bodySmall">
+                Slope={(savedSetResult.path_deviation_slope * 100).toFixed(2)}%/rep
+              </Text>
             )}
           </View>
         </View>

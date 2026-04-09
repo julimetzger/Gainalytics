@@ -1,8 +1,8 @@
 import React from 'react';
 import {StyleSheet} from 'react-native';
 import {act, fireEvent, render} from '@testing-library/react-native';
-import VideoAnalysisPlaybackOverlayCard from '../../../app/components/video/VideoAnalysisPlaybackOverlayCard';
-import {BarTrackingResult} from '../../../app/models/entities/VideoAnalysis';
+import VideoAnalysisPlaybackOverlayCard, {calculateBarPathDeviation} from '../../../app/components/video/VideoAnalysisPlaybackOverlayCard';
+import {BarPathPoint, BarTrackingResult} from '../../../app/models/entities/VideoAnalysis';
 
 jest.mock('react-native-charts-wrapper', () => ({
   LineChart: 'LineChart',
@@ -561,6 +561,79 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
   });
 });
 
+// ─── calculateBarPathDeviation unit tests ──────────────────────────────────
+
+/**
+ * Build a path segment with constant x, y linearly interpolated.
+ * Uses non-overlapping timestamps to avoid shared turnaround point.
+ */
+const makePathSegment = (startMs: number, endMs: number, xBase: number, yStart: number, yEnd: number, count: number): BarPathPoint[] => {
+  const pts: BarPathPoint[] = [];
+  for (let i = 0; i < count; i++) {
+    const t = i / (count - 1);
+    pts.push({tMs: startMs + t * (endMs - startMs), x: xBase, y: yStart + t * (yEnd - yStart)});
+  }
+  return pts;
+};
+
+describe('calculateBarPathDeviation', () => {
+  const FRAME_WIDTH = 640;
+  // Timestamps: ecc 0-900ms, turnaround at 1000ms (gap avoids shared point), con 1100-2000ms
+  const ECC_START = 0;
+  const TURNAROUND = 1000;
+  const CON_END = 2000;
+  const ECC_END = 900;   // eccentric ends before turnaround
+  const CON_START = 1100; // concentric starts after turnaround
+
+  it('returns zero deviation when concentric path mirrors eccentric path exactly', () => {
+    // Eccentric: x=100, y 100→300; Concentric: x=100, y 300→100 — same x, zero drift
+    const ecc = makePathSegment(ECC_START, ECC_END, 100, 100, 300, 10);
+    const con = makePathSegment(CON_START, CON_END, 100, 300, 100, 10);
+    const all = [...ecc, ...con];
+
+    const {delta_x, path_deviation} = calculateBarPathDeviation(all, ECC_START, TURNAROUND, CON_END, FRAME_WIDTH);
+
+    expect(delta_x.length).toBe(20);
+    delta_x.forEach((d) => expect(Math.abs(d)).toBeLessThan(0.01));
+    expect(path_deviation).toBeCloseTo(0, 2);
+  });
+
+  it('detects lateral drift when concentric path is offset to the right', () => {
+    // Eccentric: x=100; Concentric: x=200 — 100px constant offset
+    const ecc = makePathSegment(ECC_START, ECC_END, 100, 100, 300, 10);
+    const con = makePathSegment(CON_START, CON_END, 200, 300, 100, 10);
+    const all = [...ecc, ...con];
+
+    const {delta_x, path_deviation} = calculateBarPathDeviation(all, ECC_START, TURNAROUND, CON_END, FRAME_WIDTH);
+
+    delta_x.forEach((d) => expect(d).toBeCloseTo(100, 0));
+    expect(path_deviation).toBeCloseTo(100 / FRAME_WIDTH, 3);
+  });
+
+  it('returns empty result for insufficient data', () => {
+    const {delta_x, path_deviation} = calculateBarPathDeviation([], 0, 500, 1000, FRAME_WIDTH);
+    expect(delta_x).toHaveLength(0);
+    expect(path_deviation).toBeUndefined();
+  });
+
+  it('returns undefined path_deviation when trackingFrameWidthPx is zero', () => {
+    const ecc = makePathSegment(ECC_START, ECC_END, 100, 100, 300, 10);
+    const con = makePathSegment(CON_START, CON_END, 200, 300, 100, 10);
+    const all = [...ecc, ...con];
+
+    const {delta_x, path_deviation} = calculateBarPathDeviation(all, ECC_START, TURNAROUND, CON_END, 0);
+    expect(delta_x).toHaveLength(0);
+    expect(path_deviation).toBeUndefined();
+  });
+
+  it('normalises path_deviation relative to tracking frame width', () => {
+    // 64px drift → path_deviation = 64 / 640 = 0.1
+    const ecc = makePathSegment(ECC_START, ECC_END, 100, 100, 300, 10);
+    const con = makePathSegment(CON_START, CON_END, 164, 300, 100, 10);
+    const all = [...ecc, ...con];
+
+    const {path_deviation} = calculateBarPathDeviation(all, ECC_START, TURNAROUND, CON_END, FRAME_WIDTH);
+    expect(path_deviation).toBeCloseTo(64 / FRAME_WIDTH, 2);
 describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
   const getSpeedLabelText = (getByTestId: (id: string) => any): string => {
     const children = getByTestId('video-analysis-speed-label').props.children;
