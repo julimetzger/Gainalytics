@@ -115,3 +115,18 @@ The mock creates a new object per render. Wrap with `useRef`: `const sv = useRef
 **Problem:** When `adb -a -P 5037 nodaemon server` is called but another adb process is already running on 127.0.0.1:5037 (bound to localhost only), the new invocation fails with WSAEADDRINUSE (10048).
 **Symptoms:** `nc -zv 172.18.240.1 5037` returns "Connection refused"; `adb devices` errors with "cannot connect to daemon".
 **Working solution:** `powershell.exe "Get-Process adb | Stop-Process -Force"` to kill all existing adb processes, then re-run `Start-Process -NoNewWindow 'adb.exe' '-a -P 5037 nodaemon server'`. Then `nc -zv 172.18.240.1 5037` should succeed.
+
+### 27. JAVA_TOOL_OPTIONS polluted by previous Maestro run blocks Gradle
+**Problem:** After a Maestro run, `JAVA_TOOL_OPTIONS` may be set to a path like `-Duser.home=<run_dir>/checks/maestro-java-home`. Subsequent Gradle builds fail in `configureCMakeDebug` with "Picked up JAVA_TOOL_OPTIONS: ..." causing a native build error.
+**Symptoms:** `BUILD FAILED` on `:react-native-reanimated:configureCMakeDebug` with `JAVA_TOOL_OPTIONS` in the error message.
+**Working solution:** `unset JAVA_TOOL_OPTIONS` before calling `./gradlew assembleDebug`.
+
+### 28. Maestro `assertNotVisible` fails if stale plan state exists from previous partial run
+**Problem:** When a Maestro flow creates a test plan (e.g. "R4Test"), a partial run may leave it with added mesos. Subsequent runs that tap "R4Test" land on the contaminated plan, causing unexpected state (e.g. `canDeleteMesos=true` when expecting false).
+**Symptoms:** `assertNotVisible: id: delete-meso-1` fails because the plan has 2 mesos from a previous run.
+**Working solution:** Use existing persistent plans (e.g. "Push pull") or use unique names per run. Do NOT rely on plan state created in previous failed runs.
+
+### 29. `gh pr edit` fails with exit 1 on repos with GitHub Projects Classic
+**Problem:** When a PR is associated with a GitHub Projects Classic project, `gh pr edit` fails with `GraphQL: Projects (classic) is being deprecated...` and exits 1, even if the edit succeeded.
+**Symptoms:** `gh pr edit --body ...` returns exit 1 but the body may or may not have been updated.
+**Working solution:** Use `gh api repos/OWNER/REPO/pulls/NUMBER --method PATCH --field body='...'` to update PR body directly via REST API — no Projects Classic involvement.
