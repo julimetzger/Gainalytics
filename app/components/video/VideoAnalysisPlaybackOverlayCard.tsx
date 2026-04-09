@@ -987,7 +987,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
                         onLongPress={() => {
                           stopRepeat();
                           setTurnaround(Math.min(correctedPlaybackDurationMs, Math.min(endMs, turnaroundMs + LONGPRESS_STEP_MS)));
-                          repeatIntervalRef.current = setInterval(() => { setTurnaround(prev => Math.min(correctedPlaybackDurationMs, (prev ?? turnaroundMs) + LONGPRESS_STEP_MS)); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                          repeatIntervalRef.current = setInterval(() => { setTurnaround(prev => Math.min(correctedPlaybackDurationMs, Math.min(endMs, (prev ?? turnaroundMs) + LONGPRESS_STEP_MS))); }, LONGPRESS_REPEAT_INTERVAL_MS);
                         }}
                         onPressOut={stopRepeat}>
                         <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
@@ -1002,7 +1002,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
                         onLongPress={() => {
                           stopRepeat();
                           setEnd(Math.max(turnaroundMs, Math.max(0, endMs - LONGPRESS_STEP_MS)));
-                          repeatIntervalRef.current = setInterval(() => { setEnd(prev => Math.max(0, (prev ?? endMs) - LONGPRESS_STEP_MS)); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                          repeatIntervalRef.current = setInterval(() => { setEnd(prev => Math.max(turnaroundMs, Math.max(0, (prev ?? endMs) - LONGPRESS_STEP_MS))); }, LONGPRESS_REPEAT_INTERVAL_MS);
                         }}
                         onPressOut={stopRepeat}>
                         <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>

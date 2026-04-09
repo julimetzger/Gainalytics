@@ -676,6 +676,76 @@ describe('VideoAnalysisPlaybackOverlayCard – calibration clamping (GH-86 P2)',
       }),
     );
   });
+
+  it('longpress turnaround-right repeat does not exceed endMs (marker order)', () => {
+    // last rep: turnaround=2800, end=3000 — one step would push to 3800 but must clamp to end=3000
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultNearBoundary()} />,
+    );
+    const player = getByTestId('video-analysis-playback-player');
+    loadPlayer(player, 3000);
+    setSpeedChartWidth(getByTestId, 240);
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-toggle-calibration')); });
+
+    // initial longpress: 2800+1000=3800 → clamped to min(3000, 3000)=3000
+    act(() => { fireEvent(getByTestId('calibrate-last-turnaround-right'), 'longPress'); });
+    // repeat tick: prev=3000 → 3000+1000=4000 → must clamp to 3000 (not exceed endMs)
+    act(() => { jest.advanceTimersByTime(150); });
+    act(() => { jest.advanceTimersByTime(150); });
+    act(() => { fireEvent(getByTestId('calibrate-last-turnaround-right'), 'pressOut'); });
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-save-calibration')); });
+
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SAVE_VIDEO_ANALYSIS_SET_RESULT',
+        setResult: expect.objectContaining({
+          repResults: expect.arrayContaining([
+            expect.objectContaining({
+              repIndex: 1,
+              turnaroundMs: 3000, // clamped to endMs, not above
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('longpress end-left repeat does not go below turnaroundMs (marker order)', () => {
+    // last rep: turnaround=2800, end=3000 — one step would push end to 2000 but must clamp to turnaround=2800
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultNearBoundary()} />,
+    );
+    const player = getByTestId('video-analysis-playback-player');
+    loadPlayer(player, 3000);
+    setSpeedChartWidth(getByTestId, 240);
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-toggle-calibration')); });
+
+    // initial longpress: 3000-1000=2000 → clamped to max(2800, 2000)=2800
+    act(() => { fireEvent(getByTestId('calibrate-last-end-left'), 'longPress'); });
+    // repeat tick: prev=2800 → 2800-1000=1800 → must clamp to max(turnaroundMs=2800, 0)=2800
+    act(() => { jest.advanceTimersByTime(150); });
+    act(() => { jest.advanceTimersByTime(150); });
+    act(() => { fireEvent(getByTestId('calibrate-last-end-left'), 'pressOut'); });
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-save-calibration')); });
+
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SAVE_VIDEO_ANALYSIS_SET_RESULT',
+        setResult: expect.objectContaining({
+          repResults: expect.arrayContaining([
+            expect.objectContaining({
+              repIndex: 1,
+              endMs: 2800, // clamped to turnaroundMs, not below
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
 });
 
 describe('VideoAnalysisPlaybackOverlayCard – override-clobber guard (GH-86 P2)', () => {
