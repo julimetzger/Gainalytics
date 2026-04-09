@@ -128,6 +128,7 @@ const TrainingsPlanDrawer = ({
             {editMesoId !== meso.id &&
               (longPressMesoId === meso.id && canDeleteMesos ? (
                 <IconButton
+                  testID={`delete-meso-${meso.id}`}
                   icon="delete"
                   onPress={() => {
                     onDeleteMeso(meso.id);
