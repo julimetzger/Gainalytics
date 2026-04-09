@@ -152,6 +152,15 @@ const mapVerticalVelocitySeriesToLineValues = (barPathSeries: BarPathPoint[], ve
   }));
 };
 
+// Format speed for display label. Uses 1 decimal for values representable with 1 decimal
+// (0.1, 0.2, 0.3, 0.5, 1.0), and 2 decimals for values like 0.75.
+const formatSpeedLabel = (speed: number): string => {
+  if (Number(speed.toFixed(1)) === speed) {
+    return speed.toFixed(1);
+  }
+  return speed.toFixed(2);
+};
+
 const buildHorizontalReferenceLine = (barPathSeries: BarPathPoint[], yValue: number): LineValue[] => {
   if (barPathSeries.length === 0) {
     return [];
@@ -237,6 +246,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     [theme],
   );
   const [playbackPaused, setPlaybackPaused] = useState(true);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [playbackTimeMs, setPlaybackTimeMs] = useState(0);
   const [playbackDurationMs, setPlaybackDurationMs] = useState(0);
   const [playbackVideoWidth, setPlaybackVideoWidth] = useState(0);
@@ -264,6 +274,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const playbackDurationRef = useRef(0);
   const playbackTimeRef = useRef(0);
   const playbackPausedRef = useRef(true);
+  const playbackSpeedRef = useRef(1.0);
   const currentRepIndexRef = useRef<number | undefined>(undefined);
   const isScrubbingRef = useRef(false);
   const seekCooldownUntilRef = useRef(0);
@@ -527,7 +538,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             const remainingMs = Math.max(0, totalDuration - nativeEvent.currentTimeMs);
             if (remainingMs > 0) {
               playbackTimeMsSV.value = withTiming(totalDuration, {
-                duration: remainingMs,
+                duration: remainingMs / playbackSpeedRef.current,
                 easing: Easing.linear,
               });
             }
@@ -537,6 +548,23 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     },
     [updateCurrentRepForPlaybackTime],
   );
+
+  // When playback speed changes, update the ref and restart the marker animation
+  // so the scrubber/velocity marker advance at the correct rate for the new speed.
+  useEffect(() => {
+    playbackSpeedRef.current = playbackSpeed; // eslint-disable-line react-hooks/exhaustive-deps
+    if (!playbackPausedRef.current && correctedPlaybackDurationMs > 0) {
+      const currentMs = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
+      const remainingMs = Math.max(0, correctedPlaybackDurationMs - currentMs);
+      if (remainingMs > 0) {
+        cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
+        playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
+          duration: remainingMs / playbackSpeed,
+          easing: Easing.linear,
+        });
+      }
+    }
+  }, [playbackSpeed, correctedPlaybackDurationMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onPlayerEnd = useCallback(() => {
     cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
@@ -569,7 +597,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
         const remainingMs = Math.max(0, correctedPlaybackDurationMs - clampedTimeMs);
         if (remainingMs > 0) {
           playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
-            duration: remainingMs,
+            duration: remainingMs / playbackSpeedRef.current,
             easing: Easing.linear,
           });
         }
@@ -647,11 +675,13 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
 
     if (!nextPaused && correctedPlaybackDurationMs > 0) {
       // Transitioning to PLAY: animate marker from current position to end.
+      // Divide wall-clock duration by playback speed so the marker advances at the
+      // same rate as the video (e.g. 0.5x speed → marker takes 2x longer to reach end).
       const currentMs = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
       const remainingMs = Math.max(0, correctedPlaybackDurationMs - currentMs);
       if (remainingMs > 0) {
         playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
-          duration: remainingMs,
+          duration: remainingMs / playbackSpeedRef.current,
           easing: Easing.linear,
         });
       }
@@ -804,6 +834,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             source={localVideoPath}
             paused={playbackPaused}
             seekPositionMs={seekPositionMs}
+            playbackSpeed={playbackSpeed}
             barPathSeries={smoothedBarPathSeries}
             repSegments={repSegments}
             currentRepIndex={currentRepIndex}
@@ -970,6 +1001,20 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
           }}>
           <Animated.View testID="video-analysis-playback-scrubber-fill" style={[styles.scrubberFill, themedStyles.scrubberFill, scrubberFillStyle]} />
           <Animated.View testID="video-analysis-playback-scrubber-thumb" style={[styles.scrubberThumb, themedStyles.scrubberThumb, scrubberThumbStyle]} />
+        </View>
+        <View testID="video-analysis-speed-control" style={styles.speedControlRow}>
+          <Text testID="video-analysis-speed-label" variant="labelSmall" style={styles.speedLabel}>{'Speed: '}{formatSpeedLabel(playbackSpeed)}{'x'}</Text>
+          {([0.1, 0.2, 0.3, 0.5, 0.75, 1.0] as const).map((speed) => (
+            <TouchableOpacity
+              key={speed}
+              testID={`video-analysis-speed-btn-${speed}`}
+              onPress={() => setPlaybackSpeed(speed)}
+              style={[styles.speedButton, playbackSpeed === speed && styles.speedButtonActive]}>
+              <Text variant="labelSmall" style={[styles.speedButtonText, playbackSpeed === speed && {color: theme.colors.primary}]}>
+                {speed === 1.0 ? '1x' : `${speed}x`}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
@@ -1252,6 +1297,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 8,
     gap: 4,
+  },
+  speedControlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 4,
+  },
+  speedLabel: {
+    minWidth: 64,
+    textAlign: 'center',
+    marginRight: 4,
+  },
+  speedButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(128,128,128,0.4)',
+  },
+  speedButtonActive: {
+    borderColor: 'rgba(128,128,128,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  speedButtonText: {
+    fontSize: 12,
   },
 });
 

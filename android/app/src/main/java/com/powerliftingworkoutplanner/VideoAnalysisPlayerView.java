@@ -15,6 +15,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -50,6 +51,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
 
     private String sourcePath;
     private boolean paused = true;
+    private float playbackSpeed = 1.0f;
     private boolean prepared = false;
     private int durationMs = 0;
     private int videoWidth = 0;
@@ -290,6 +292,11 @@ public class VideoAnalysisPlayerView extends FrameLayout {
     public void setPathColor(int color) {
         backgroundPathPaint.setColor(color);
         postInvalidateOnAnimation();
+    }
+
+    public void setPlaybackSpeed(float speed) {
+        playbackSpeed = Math.max(0.1f, Math.min(1.0f, speed));
+        player.setPlaybackParameters(new PlaybackParameters(playbackSpeed));
     }
 
     public void setTrackingFrameWidthPx(int widthPx) {
