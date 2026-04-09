@@ -90,6 +90,35 @@ Working solution:
 Relevant files:
 - [create_worktree.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/create_worktree.py)
 
+### 18. Emulator uses 10.0.2.2:8081 for Metro, not localhost — socat proxy needed for non-8081 Metro ports
+
+Problem:
+- Android emulator apps connect to Metro at `10.0.2.2:8081` by default. `adb reverse tcp:8081 tcp:8085` only forwards `localhost:8081` connections, NOT `10.0.2.2:8081` ones.
+
+Symptoms:
+- "Could not connect to development server" showing URL `http://10.0.2.2:8081/...`
+- `adb reverse --list` confirms reverse is set up, but app still can't connect
+
+Working solution:
+- Start a `socat` proxy on the host: `socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:8085 &`
+- Verify: `curl http://127.0.0.1:8081/status` should return `packager-status:running`
+- This is only needed when Metro is NOT on port 8081. Proxy is per-session; re-run after reboot.
+
+### 19. Object.values() on typed {[key: string]: number} records returns numbers, not objects
+
+Problem: `Workout.records` type is `{ [key: string]: number }`. `Object.values(w.records)` returns `number[]`, NOT objects with a `.value` property.
+
+Apply when: Reading `w.records` values — always use them directly as numbers, never access `.value` on them.
+
+### 20. Emulator ANR "System UI isn't responding" blocks Maestro and manual tap
+
+Problem: After a Metro bundle failure + emulator reboot, the SystemUI process keeps triggering ANR dialogs that stack on top of the RN error screen.
+
+Working solution:
+- `adb shell am force-stop <appid>` clears the app's CPU load causing the ANR
+- `adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS` dismisses overlay dialogs
+- After clearing, rebooting Metro connectivity (socat proxy) lets the app load cleanly
+
 ### 6. Parallel Maestro needs unique driver host ports
 
 Problem:

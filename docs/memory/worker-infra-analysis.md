@@ -28,6 +28,8 @@ Last updated: 2026-04-02 (ANA-004-fix2)
 | MNT-002 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
 | EXC-001-fix | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | ready_for_review |
 | GH-46-fix2 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | ready_for_review |
+| GH-77 | emu | 0 | 0 | 0 | 2 | 8 | 12 | 0 | 3 | 2 | ready_for_review |
+| GH-77-fix | emu | 0 | 0 | 0 | 0 | 15 | 18 | 0 | 2 | 0 | ready_for_review (r2) |
 | GH-86 | emu | 7 | 0 | 0 | 8 | 45 | 5 | 10 | 0 | 2 | ready_for_review (r2) |
 | GH-86 (r4) | emu | 12 | 0 | 0 | 2 | 5 | 3 | 0 | 0 | 4 | ready_for_review (r4) |
 | GH-82 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 15 | 2 | ready_for_review (r2: adb server unavailable during fix round, unit tests primary evidence) |
