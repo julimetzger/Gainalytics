@@ -705,11 +705,14 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     const rr = savedSetResult?.repResults;
     if (!savedOverridesApplied.current && rr && rr.length > 0) {
       savedOverridesApplied.current = true;
-      setFirstRepTurnaroundOverrideMs(rr[0].turnaroundMs);
-      setFirstRepEndOverrideMs(rr[0].endMs);
+      // Use functional updaters: only seed each override if the user has not already
+      // set a value manually. prev !== null means the user (or the lazy initializer)
+      // already provided a value — never clobber that with a stale save.
+      setFirstRepTurnaroundOverrideMs(prev => prev !== null ? prev : rr[0].turnaroundMs);
+      setFirstRepEndOverrideMs(prev => prev !== null ? prev : rr[0].endMs);
       if (rr.length > 1) {
-        setLastRepTurnaroundOverrideMs(rr[rr.length - 1].turnaroundMs);
-        setLastRepEndOverrideMs(rr[rr.length - 1].endMs);
+        setLastRepTurnaroundOverrideMs(prev => prev !== null ? prev : rr[rr.length - 1].turnaroundMs);
+        setLastRepEndOverrideMs(prev => prev !== null ? prev : rr[rr.length - 1].endMs);
       }
     }
   }, [savedSetResult]);
@@ -952,6 +955,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
               endMs: number,
               setTurnaround: React.Dispatch<React.SetStateAction<number | null>>,
               setEnd: React.Dispatch<React.SetStateAction<number | null>>,
+              repKey: string,
             ) => {
               const tX = toX(turnaroundMs);
               const eX = toX(endMs);
@@ -967,21 +971,23 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
                     <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
                     <View style={styles.adjustButtonRow}>
                       <TouchableOpacity
+                        testID={`calibrate-${repKey}-turnaround-left`}
                         onPress={() => setTurnaround(turnaroundMs - STEP_MS)}
                         onLongPress={() => {
                           stopRepeat();
-                          setTurnaround(turnaroundMs - LONGPRESS_STEP_MS);
-                          repeatIntervalRef.current = setInterval(() => { setTurnaround(prev => (prev ?? turnaroundMs) - LONGPRESS_STEP_MS); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                          setTurnaround(Math.max(0, turnaroundMs - LONGPRESS_STEP_MS));
+                          repeatIntervalRef.current = setInterval(() => { setTurnaround(prev => Math.max(0, (prev ?? turnaroundMs) - LONGPRESS_STEP_MS)); }, LONGPRESS_REPEAT_INTERVAL_MS);
                         }}
                         onPressOut={stopRepeat}>
                         <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
+                        testID={`calibrate-${repKey}-turnaround-right`}
                         onPress={() => setTurnaround(turnaroundMs + STEP_MS)}
                         onLongPress={() => {
                           stopRepeat();
-                          setTurnaround(turnaroundMs + LONGPRESS_STEP_MS);
-                          repeatIntervalRef.current = setInterval(() => { setTurnaround(prev => (prev ?? turnaroundMs) + LONGPRESS_STEP_MS); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                          setTurnaround(Math.min(correctedPlaybackDurationMs, Math.min(endMs, turnaroundMs + LONGPRESS_STEP_MS)));
+                          repeatIntervalRef.current = setInterval(() => { setTurnaround(prev => Math.min(correctedPlaybackDurationMs, (prev ?? turnaroundMs) + LONGPRESS_STEP_MS)); }, LONGPRESS_REPEAT_INTERVAL_MS);
                         }}
                         onPressOut={stopRepeat}>
                         <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
@@ -991,21 +997,23 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
                   <View style={[styles.adjustLine, {left: eX}]} pointerEvents="box-none">
                     <View style={styles.adjustButtonRow}>
                       <TouchableOpacity
+                        testID={`calibrate-${repKey}-end-left`}
                         onPress={() => setEnd(endMs - STEP_MS)}
                         onLongPress={() => {
                           stopRepeat();
-                          setEnd(endMs - LONGPRESS_STEP_MS);
-                          repeatIntervalRef.current = setInterval(() => { setEnd(prev => (prev ?? endMs) - LONGPRESS_STEP_MS); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                          setEnd(Math.max(turnaroundMs, Math.max(0, endMs - LONGPRESS_STEP_MS)));
+                          repeatIntervalRef.current = setInterval(() => { setEnd(prev => Math.max(0, (prev ?? endMs) - LONGPRESS_STEP_MS)); }, LONGPRESS_REPEAT_INTERVAL_MS);
                         }}
                         onPressOut={stopRepeat}>
                         <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
+                        testID={`calibrate-${repKey}-end-right`}
                         onPress={() => setEnd(endMs + STEP_MS)}
                         onLongPress={() => {
                           stopRepeat();
-                          setEnd(endMs + LONGPRESS_STEP_MS);
-                          repeatIntervalRef.current = setInterval(() => { setEnd(prev => (prev ?? endMs) + LONGPRESS_STEP_MS); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                          setEnd(Math.min(correctedPlaybackDurationMs, endMs + LONGPRESS_STEP_MS));
+                          repeatIntervalRef.current = setInterval(() => { setEnd(prev => Math.min(correctedPlaybackDurationMs, (prev ?? endMs) + LONGPRESS_STEP_MS)); }, LONGPRESS_REPEAT_INTERVAL_MS);
                         }}
                         onPressOut={stopRepeat}>
                         <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
@@ -1022,8 +1030,8 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             if (!showCalibration) { return null; }
             return (
               <>
-                {firstRepSegment && renderRepLines(firstRepTurnaroundMs, firstRepEndMs, setFirstRepTurnaroundOverrideMs, setFirstRepEndOverrideMs)}
-                {lastRepSegment && renderRepLines(lastRepTurnaroundMs, lastRepEndMs, setLastRepTurnaroundOverrideMs, setLastRepEndOverrideMs)}
+                {firstRepSegment && renderRepLines(firstRepTurnaroundMs, firstRepEndMs, setFirstRepTurnaroundOverrideMs, setFirstRepEndOverrideMs, 'first')}
+                {lastRepSegment && renderRepLines(lastRepTurnaroundMs, lastRepEndMs, setLastRepTurnaroundOverrideMs, setLastRepEndOverrideMs, 'last')}
               </>
             );
           })()}
@@ -1104,6 +1112,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       {repSegments.length > 0 && (
         <View style={styles.calibrateRow}>
           <IconButton
+            testID="video-analysis-toggle-calibration"
             icon={showCalibration ? 'chevron-up' : 'tune'}
             size={20}
             iconColor={theme.colors.tertiary}
@@ -1112,6 +1121,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
           />
           {showCalibration && (
             <IconButton
+              testID="video-analysis-save-calibration"
               icon="content-save"
               size={20}
               iconColor={theme.colors.primary}
