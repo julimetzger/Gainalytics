@@ -746,3 +746,19 @@ Working solution:
 - Then `adb -s $DEVICE install -r <apk>`.
 
 Apply when: install fails with insufficient storage on a previously-used emulator.
+
+### 45. Date range end-boundary: normalize endDate to 23:59:59.999 for inclusive filtering
+
+Observation:
+- When a user picks a specific end date via DateRangePicker, the resulting `Date` object carries the exact selection timestamp (e.g. 14:32:00). Analyses created later that same day (e.g. 15:00) fail the `createdAt <= endDate.getTime()` comparison even though the user expects the whole day to be included.
+
+Working solution:
+```ts
+const endOfDay = new Date(dateRange.endDate);
+endOfDay.setHours(23, 59, 59, 999);
+if (createdAt < dateRange.startDate.getTime() || createdAt > endOfDay.getTime()) {
+  return false;
+}
+```
+
+Apply when: any filter that accepts a calendar end-date and compares against a full-precision timestamp.
