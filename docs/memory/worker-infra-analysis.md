@@ -4,7 +4,7 @@ This document tracks how much time workers spend on infrastructure vs. feature w
 which problems recur, and which workers are affected. Use this to identify systemic
 issues and prevent agents from re-discovering known solutions.
 
-Last updated: 2026-04-02
+Last updated: 2026-04-02 (ANA-004-fix2)
 
 ## Per-Worker Breakdown
 
@@ -20,12 +20,23 @@ Last updated: 2026-04-02
 | TRN-003 | emu | 24 | 6 | 4 | 16 | 8 | 24 | 10 | 0 | 0 | review |
 | ANA-001-fix | emu | 10 | 7 | 4 | 22 | 23 | 27 | 16 | 2 | 0 | review |
 | ANA-004-fix | emu | 8 | 8 | 2 | 5 | 7 | 21 | 13 | 0 | 0 | review |
+| ANA-004-fix2 | real | 2 | 0 | 0 | 1 | 5 | 0 | 0 | 0 | 0 | ready_for_review |
 | ANA-005-fix | emu | 13 | 1 | 3 | 6 | 2 | 4 | 6 | 0 | 0 | review |
 | ANA-003-fix2 | emu | 2 | 15 | 0 | 0 | 0 | 0 | 0 | 12 | 8 | ready_for_review (r9) |
 | TRN-004 | emu | 18 | 8 | 12 | 3 | 0 | 0 | 0 | 0 | 0 | ready_for_review (r2) |
 | TRN-004-fix | emu | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
 | TRN-004-r3 | real | 7 | 0 | 0 | 8 | 0 | 5 | 0 | 0 | 0 | ready_for_review |
 | TRN-004-r4 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 3 | 0 | ready_for_review |
+| TRN-005 | emu | 4 | 3 | 0 | 2 | 0 | 2 | 8 | 0 | 2 | ready_for_review (r2) |
+| ANA-006-fix | emu | 0 | 0 | 0 | 8 | 35 | 0 | 0 | 5 | 2 | ready_for_review (r2) |
+| MNT-002 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
+| EXC-001-fix | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | ready_for_review |
+| GH-46-fix2 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | ready_for_review |
+| GH-77 | emu | 0 | 0 | 0 | 2 | 8 | 12 | 0 | 3 | 2 | ready_for_review |
+| GH-77-fix | emu | 0 | 0 | 0 | 0 | 15 | 18 | 0 | 2 | 0 | ready_for_review (r2) |
+| GH-86 | emu | 7 | 0 | 0 | 8 | 45 | 5 | 10 | 0 | 2 | ready_for_review (r2) |
+| GH-86 (r4) | emu | 12 | 0 | 0 | 2 | 5 | 3 | 0 | 0 | 4 | ready_for_review (r4) |
+| GH-82 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 15 | 2 | ready_for_review (r2: adb server unavailable during fix round, unit tests primary evidence) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
@@ -114,3 +125,19 @@ The following infra patterns are already documented in `docs/memory/agent-memory
    rather than trying alternative ports — there is no WSL-side workaround when
    the Windows host ADB server is down.
 
+7. **Physical device PIN lock blocks all adb screencap and Maestro operations.** Samsung devices lock after inactivity; screencap returns 0 bytes, Maestro flows fail before reaching the app. No automated unlock path exists without knowing the PIN. Orchestrator should either keep the device awake (`adb shell svc power stayon true`) or have a known PIN for dev devices.
+
+6. **Windows adb server may not be running in fix/review rounds.** The orchestrator
+   starts the socat proxy but does not ensure the Windows adb server is running.
+   Fix round workers discover this only after the first adb command fails. The
+   orchestrator should include an adb server health check in the fix round launch
+   setup (or the fix prompt should note if adb is expected to be unavailable).
+
+7. **`adb reverse` does not cover `10.0.2.2` traffic from AVD emulators.** (GH-86)
+   Android AVDs connect to Metro via `10.0.2.2:8081` (host loopback), not
+   `127.0.0.1:8081`. `adb reverse tcp:8081 tcp:PORT` only tunnels `127.0.0.1`
+   connections, so it has no effect on `10.0.2.2`. Fix: run
+   `socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:PORT` on WSL so WSL2
+   auto-forwarding propagates Windows `localhost:8081` → WSL socat → Metro.
+   The orchestrator or SKILL.md preflight should start this socat bridge
+   automatically when Metro is on a non-8081 port.

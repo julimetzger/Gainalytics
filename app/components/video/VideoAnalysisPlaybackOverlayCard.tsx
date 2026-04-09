@@ -1,14 +1,19 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, View, processColor} from 'react-native';
+import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, TouchableOpacity, View, processColor} from 'react-native';
 import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming} from 'react-native-reanimated';
-import {Button, MD3Theme, Text, useTheme} from 'react-native-paper';
+import {Gesture, GestureDetector, GestureHandlerRootView} from 'react-native-gesture-handler';
+import {IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
-import {BarPathPoint, BarTrackingResult, RepSegment} from '../../models/entities/VideoAnalysis';
+import {BarPathPoint, BarTrackingResult, RepSegment, VideoAnalysisRepResult, VideoAnalysisSetResult} from '../../models/entities/VideoAnalysis';
+import {dispatchSaveVideoAnalysisSetResult} from '../../redux/VideoAnalysis/dispatch/dispatchSaveVideoAnalysisSetResult';
 import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
+import {vlToRirEstimate} from '../../utils/velocityLossRir';
 
 interface Props {
+  analysisId: number;
   localVideoPath: string;
   result: BarTrackingResult;
+  savedSetResult?: VideoAnalysisSetResult;
 }
 
 interface TimeRange {
@@ -17,18 +22,12 @@ interface TimeRange {
   durationMs: number;
 }
 
-interface OverlayPoint {
-  key: string;
-  x: number;
-  y: number;
-}
-
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
-const SPEED_PLOT_HEIGHT = 180;
+const SPEED_PLOT_HEIGHT = 240;
 // Left offset of the chart drawable area (dp). Used for JS layout (translateX, touch mapping).
 // viewPortOffsets.left must be SPEED_CHART_LEFT_PADDING * PixelRatio.get() because
 // MPAndroidChart's setViewPortOffsets() expects physical pixels, not dp.
-const SPEED_CHART_LEFT_PADDING = 64;
+const SPEED_CHART_LEFT_PADDING = 36;
 // Right viewport offset in dp — must stay in sync with viewPortOffsets.right.
 const SPEED_CHART_RIGHT_PADDING = 4;
 const BAR_PATH_SMOOTHING_WINDOW = 5;
@@ -105,6 +104,89 @@ const calculateBarVerticalVelocitySeries = (barPathSeries: BarPathPoint[]): numb
   return smoothNumberSeries(rawVerticalVelocities, SPEED_SMOOTHING_WINDOW);
 };
 
+/**
+ * Resample an (x, y) series at evenly-spaced Y values within [yMin, yMax].
+ * Assumes the series is monotone in Y (either ascending or descending).
+ * Returns an array of interpolated X values of length `sampleCount`.
+ */
+const resampleXAtYPoints = (series: BarPathPoint[], yMin: number, yMax: number, sampleCount: number): number[] => {
+  if (series.length < 2 || sampleCount < 1 || yMax <= yMin) {
+    return Array(sampleCount).fill(0);
+  }
+  const result: number[] = [];
+  for (let i = 0; i < sampleCount; i++) {
+    const targetY = yMin + (i / Math.max(1, sampleCount - 1)) * (yMax - yMin);
+    // Find the two nearest points that bracket targetY
+    let lo = 0;
+    let hi = series.length - 1;
+    for (let j = 0; j < series.length - 1; j++) {
+      const yA = series[j].y;
+      const yB = series[j + 1].y;
+      if ((yA <= targetY && targetY <= yB) || (yB <= targetY && targetY <= yA)) {
+        lo = j;
+        hi = j + 1;
+        break;
+      }
+    }
+    const yLo = series[lo].y;
+    const yHi = series[hi].y;
+    const span = yHi - yLo;
+    const t = Math.abs(span) < 0.001 ? 0 : (targetY - yLo) / span;
+    result.push(series[lo].x + t * (series[hi].x - series[lo].x));
+  }
+  return result;
+};
+
+const DEVIATION_RESAMPLE_COUNT = 20;
+
+/**
+ * Calculate the bar-path deviation between eccentric and concentric phases for one rep.
+ * The eccentric path (bar going down) serves as the reference line.
+ * Returns delta_x (concentric_x − eccentric_x at each resampled Y point)
+ * and path_deviation (mean |delta_x| / trackingFrameWidthPx).
+ */
+export const calculateBarPathDeviation = (
+  barPathSeries: BarPathPoint[],
+  startMs: number,
+  turnaroundMs: number,
+  endMs: number,
+  trackingFrameWidthPx: number,
+): {delta_x: number[]; path_deviation: number | undefined} => {
+  const noData = {delta_x: [], path_deviation: undefined};
+  if (barPathSeries.length < 4 || turnaroundMs <= startMs || endMs <= turnaroundMs || trackingFrameWidthPx <= 0) {
+    return noData;
+  }
+
+  const eccPhase = barPathSeries.filter((p) => p.tMs >= startMs && p.tMs <= turnaroundMs);
+  const conPhase = barPathSeries.filter((p) => p.tMs >= turnaroundMs && p.tMs <= endMs);
+
+  if (eccPhase.length < 2 || conPhase.length < 2) {
+    return noData;
+  }
+
+  const eccYMin = Math.min(...eccPhase.map((p) => p.y));
+  const eccYMax = Math.max(...eccPhase.map((p) => p.y));
+  const conYMin = Math.min(...conPhase.map((p) => p.y));
+  const conYMax = Math.max(...conPhase.map((p) => p.y));
+
+  // Overlapping Y range (screen-space: larger Y = lower physical position)
+  const overlapYMin = Math.max(eccYMin, conYMin);
+  const overlapYMax = Math.min(eccYMax, conYMax);
+
+  if (overlapYMax <= overlapYMin) {
+    return noData;
+  }
+
+  const eccX = resampleXAtYPoints(eccPhase, overlapYMin, overlapYMax, DEVIATION_RESAMPLE_COUNT);
+  const conX = resampleXAtYPoints(conPhase, overlapYMin, overlapYMax, DEVIATION_RESAMPLE_COUNT);
+
+  const delta_x = eccX.map((ex, i) => conX[i] - ex);
+  const meanAbsDelta = delta_x.reduce((sum, d) => sum + Math.abs(d), 0) / delta_x.length;
+  const path_deviation = meanAbsDelta / trackingFrameWidthPx;
+
+  return {delta_x, path_deviation};
+};
+
 const getTimeRange = (barPathSeries: BarPathPoint[]): TimeRange => {
   if (barPathSeries.length === 0) {
     return {minTimeMs: 0, maxTimeMs: 0, durationMs: 0};
@@ -141,55 +223,6 @@ const findRepIndexForTimeMs = (segments: RepSegment[], timeMs: number): number |
   return undefined;
 };
 
-const mapBarPathToOverlay = (
-  barPathSeries: BarPathPoint[],
-  overlayWidth: number,
-  overlayHeight: number,
-  videoWidth: number,
-  videoHeight: number,
-  trackingFrameWidthPx?: number,
-  trackingFrameHeightPx?: number,
-): OverlayPoint[] => {
-  if (barPathSeries.length === 0 || overlayWidth <= 0 || overlayHeight <= 0) {
-    return [];
-  }
-
-  const sourceWidth = trackingFrameWidthPx && trackingFrameWidthPx > 0 ? trackingFrameWidthPx : videoWidth > 0 ? videoWidth : overlayWidth;
-  const sourceHeight = trackingFrameHeightPx && trackingFrameHeightPx > 0 ? trackingFrameHeightPx : videoHeight > 0 ? videoHeight : overlayHeight;
-  if (sourceWidth <= 0 || sourceHeight <= 0) {
-    return [];
-  }
-
-  const scale = Math.min(overlayWidth / sourceWidth, overlayHeight / sourceHeight);
-  const renderedWidth = sourceWidth * scale;
-  const renderedHeight = sourceHeight * scale;
-  const offsetX = (overlayWidth - renderedWidth) / 2;
-  const offsetY = (overlayHeight - renderedHeight) / 2;
-
-  if (trackingFrameWidthPx && trackingFrameHeightPx && trackingFrameWidthPx > 0 && trackingFrameHeightPx > 0) {
-    return barPathSeries.map((point, index) => ({
-      key: `${point.tMs}-${index}`,
-      x: offsetX + point.x * (renderedWidth / trackingFrameWidthPx),
-      y: offsetY + point.y * (renderedHeight / trackingFrameHeightPx),
-    }));
-  }
-
-  const xValues = barPathSeries.map((point) => point.x);
-  const yValues = barPathSeries.map((point) => point.y);
-  const minX = Math.min(...xValues);
-  const maxX = Math.max(...xValues);
-  const minY = Math.min(...yValues);
-  const maxY = Math.max(...yValues);
-  const xSpan = Math.max(1, maxX - minX);
-  const ySpan = Math.max(1, maxY - minY);
-
-  return barPathSeries.map((point, index) => ({
-    key: `${point.tMs}-${index}`,
-    x: offsetX + ((point.x - minX) / xSpan) * renderedWidth,
-    y: offsetY + ((point.y - minY) / ySpan) * renderedHeight,
-  }));
-};
-
 const mapVerticalVelocitySeriesToLineValues = (barPathSeries: BarPathPoint[], verticalVelocitySeries: number[]): LineValue[] => {
   if (barPathSeries.length === 0 || verticalVelocitySeries.length === 0) {
     return [];
@@ -200,6 +233,15 @@ const mapVerticalVelocitySeriesToLineValues = (barPathSeries: BarPathPoint[], ve
     x: point.tMs,
     y: verticalVelocitySeries[index],
   }));
+};
+
+// Format speed for display label. Uses 1 decimal for values representable with 1 decimal
+// (0.1, 0.2, 0.3, 0.5, 1.0), and 2 decimals for values like 0.75.
+const formatSpeedLabel = (speed: number): string => {
+  if (Number(speed.toFixed(1)) === speed) {
+    return speed.toFixed(1);
+  }
+  return speed.toFixed(2);
 };
 
 const buildHorizontalReferenceLine = (barPathSeries: BarPathPoint[], yValue: number): LineValue[] => {
@@ -241,9 +283,6 @@ const createThemedStyles = (theme: MD3Theme) =>
     previewBackground: {
       backgroundColor: theme.colors.surfaceVariant,
     },
-    historyPoint: {
-      backgroundColor: theme.colors.onSurfaceVariant,
-    },
     scrubberTrack: {
       backgroundColor: theme.colors.surfaceVariant,
     },
@@ -256,11 +295,21 @@ const createThemedStyles = (theme: MD3Theme) =>
     speedPlotBackground: {
       backgroundColor: theme.colors.surfaceVariant,
     },
+    repMetricAccent: {
+      borderLeftColor: theme.colors.primary,
+    },
+    videoControlsBackground: {
+      backgroundColor: theme.colors.backdrop,
+    },
+    statsText: {
+      color: theme.colors.onSurfaceVariant,
+    },
   });
 
-const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
+const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, savedSetResult}: Props) => {
   const theme = useTheme();
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
+  const saveSetResult = dispatchSaveVideoAnalysisSetResult();
   const speedChartColors = useMemo(
     () => ({
       line: processColor(theme.colors.secondary),
@@ -272,18 +321,44 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     }),
     [theme],
   );
+  const nativeOverlayColors = useMemo(
+    () => ({
+      primary: (processColor(theme.colors.primary) ?? undefined) as number | undefined,
+      path: (processColor(theme.colors.outline) ?? undefined) as number | undefined,
+    }),
+    [theme],
+  );
   const [playbackPaused, setPlaybackPaused] = useState(true);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [playbackTimeMs, setPlaybackTimeMs] = useState(0);
   const [playbackDurationMs, setPlaybackDurationMs] = useState(0);
   const [playbackVideoWidth, setPlaybackVideoWidth] = useState(0);
   const [playbackVideoHeight, setPlaybackVideoHeight] = useState(0);
   const [currentRepIndex, setCurrentRepIndex] = useState<number | undefined>();
-  const [overlayWidth, setOverlayWidth] = useState(0);
-  const [overlayHeight, setOverlayHeight] = useState(0);
   const [scrubberWidth, setScrubberWidth] = useState(0);
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
-
+  const [showCalibration, setShowCalibration] = useState(false);
+  const [firstRepTurnaroundOverrideMs, setFirstRepTurnaroundOverrideMs] = useState<number | null>(
+    () => savedSetResult?.repResults?.[0]?.turnaroundMs ?? null,
+  );
+  const [firstRepEndOverrideMs, setFirstRepEndOverrideMs] = useState<number | null>(
+    () => savedSetResult?.repResults?.[0]?.endMs ?? null,
+  );
+  const [lastRepTurnaroundOverrideMs, setLastRepTurnaroundOverrideMs] = useState<number | null>(() => {
+    const rr = savedSetResult?.repResults;
+    return rr && rr.length > 1 ? rr[rr.length - 1].turnaroundMs : null;
+  });
+  const [lastRepEndOverrideMs, setLastRepEndOverrideMs] = useState<number | null>(() => {
+    const rr = savedSetResult?.repResults;
+    return rr && rr.length > 1 ? rr[rr.length - 1].endMs : null;
+  });
+  // Track whether we have already seeded override states from savedSetResult.
+  // Initialised to true when savedSetResult is already available at mount (lazy useState
+  // initializers above handle that case). Set to true after the first time the effect
+  // below syncs from a late-arriving savedSetResult (e.g. tab-switch scenario where
+  // the screen was already mounted before the save propagated through Redux).
+  const savedOverridesApplied = useRef<boolean>(!!savedSetResult?.repResults?.length);
   // useRef wrapper ensures the SharedValue object is stable across renders.
   // The Reanimated mock creates a new plain object on each useSharedValue call,
   // so without useRef the animated styles would always see value=0 in tests.
@@ -291,16 +366,92 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   // Tracks actual video duration as a SharedValue for UI-thread marker/scrubber animations.
   const videoDurationMsSV = useRef(useSharedValue(0)).current;
   const speedChartWidthSV = useRef(useSharedValue(0)).current;
+  // Visible x-range as reported by the native chart on zoom/pan.
+  const chartVisibleMinSV = useRef(useSharedValue(0)).current;
+  const chartVisibleMaxSV = useRef(useSharedValue(0)).current;
 
   const playbackDurationRef = useRef(0);
   const playbackTimeRef = useRef(0);
   const playbackPausedRef = useRef(true);
+  const playbackSpeedRef = useRef(1.0);
   const currentRepIndexRef = useRef<number | undefined>(undefined);
   const isScrubbingRef = useRef(false);
+  const seekCooldownUntilRef = useRef(0);
+  const chartVisibleMinRef = useRef(-1);
+  const chartVisibleMaxRef = useRef(-1);
+  const [chartVisibleForLines, setChartVisibleForLines] = useState<{min: number; max: number} | null>(null);
+  const chartGestureActiveUntilRef = useRef(0);
+  const repeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Video pinch-to-zoom state (UI thread only, no re-renders).
+  const videoScale = useRef(useSharedValue(1)).current;
+  const videoTranslateX = useRef(useSharedValue(0)).current;
+  const videoTranslateY = useRef(useSharedValue(0)).current;
+  const videoScaleBase = useRef(useSharedValue(1)).current;
+  const videoTranslateXBase = useRef(useSharedValue(0)).current;
+  const videoTranslateYBase = useRef(useSharedValue(0)).current;
 
   const repSegments = result.repSegments;
+  const firstRepSegment = repSegments.length > 0 ? repSegments[0] : null;
+  const firstRepTurnaroundMs = firstRepTurnaroundOverrideMs ?? firstRepSegment?.turnaroundMs ?? 0;
+  const firstRepEndMs = firstRepEndOverrideMs ?? firstRepSegment?.endMs ?? 0;
+  const firstRepConcentricTimeMs = firstRepSegment ? Math.max(0, firstRepEndMs - firstRepTurnaroundMs) : 0;
+  const lastRepSegment = repSegments.length > 1 ? repSegments[repSegments.length - 1] : null;
+  const lastRepTurnaroundMs = lastRepTurnaroundOverrideMs ?? lastRepSegment?.turnaroundMs ?? 0;
+  const lastRepEndMs = lastRepEndOverrideMs ?? lastRepSegment?.endMs ?? 0;
+  const lastRepConcentricTimeMs = lastRepSegment ? Math.max(0, lastRepEndMs - lastRepTurnaroundMs) : 0;
   const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
   const smoothedBarVerticalVelocitySeries = useMemo(() => calculateBarVerticalVelocitySeries(smoothedBarPathSeries), [smoothedBarPathSeries]);
+
+  const calcIntervalMetrics = useCallback((startMs: number, endMs: number) => {
+    if (startMs >= endMs || smoothedBarPathSeries.length === 0) {
+      return null;
+    }
+    const velocities: number[] = [];
+    for (let i = 0; i < smoothedBarPathSeries.length; i++) {
+      const t = smoothedBarPathSeries[i].tMs;
+      if (t >= startMs && t <= endMs && i < smoothedBarVerticalVelocitySeries.length) {
+        velocities.push(smoothedBarVerticalVelocitySeries[i]);
+      }
+    }
+    if (velocities.length === 0) {
+      return null;
+    }
+    const absVelocities = velocities.map(Math.abs);
+    return {
+      timeMs: endMs - startMs,
+      vPeak: Math.round(Math.max(...absVelocities)),
+      vMin: Math.round(Math.min(...absVelocities)),
+      vAvg: Math.round(absVelocities.reduce((sum, v) => sum + v, 0) / absVelocities.length),
+    };
+  }, [smoothedBarPathSeries, smoothedBarVerticalVelocitySeries]);
+
+  const firstRepIntervalMetrics = useMemo(
+    () => firstRepSegment ? calcIntervalMetrics(firstRepTurnaroundMs, firstRepEndMs) : null,
+    [firstRepSegment, firstRepTurnaroundMs, firstRepEndMs, calcIntervalMetrics],
+  );
+  const lastRepIntervalMetrics = useMemo(
+    () => lastRepSegment ? calcIntervalMetrics(lastRepTurnaroundMs, lastRepEndMs) : null,
+    [lastRepSegment, lastRepTurnaroundMs, lastRepEndMs, calcIntervalMetrics],
+  );
+  // Velocity Loss: VL = 1 - (v_last / v_ref), where v_ref is the best avg
+  // velocity from the first rep (proxy for max of first 3 reps).
+  const velocityLoss = useMemo(() => {
+    if (!firstRepIntervalMetrics || !lastRepIntervalMetrics || firstRepIntervalMetrics.vAvg <= 0) {
+      return null;
+    }
+    const vl = 1 - (lastRepIntervalMetrics.vAvg / firstRepIntervalMetrics.vAvg);
+    return Math.round(vl * 100);
+  }, [firstRepIntervalMetrics, lastRepIntervalMetrics]);
+
+  // RIR estimate based on velocity loss (heuristic v1 from issue #66) — uses shared vlToRirEstimate utility
+  const rirEstimate = useMemo(() => {
+    if (velocityLoss === null) {
+      return null;
+    }
+    return vlToRirEstimate(velocityLoss);
+  }, [velocityLoss]);
+
   const timeRange = useMemo(() => getTimeRange(smoothedBarPathSeries), [smoothedBarPathSeries]);
   const correctedPlaybackDurationMs = useMemo(() => {
     return Math.max(playbackDurationMs, timeRange.maxTimeMs);
@@ -311,6 +462,12 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
   useEffect(() => {
     if (correctedPlaybackDurationMs > 0) {
       videoDurationMsSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
+      // Initialize visible range to full duration so the marker is correctly
+      // positioned before any zoom event arrives from the chart.
+      chartVisibleMinSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMaxSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMinRef.current = 0;
+      chartVisibleMaxRef.current = correctedPlaybackDurationMs;
     }
   }, [correctedPlaybackDurationMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -320,14 +477,13 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       return 0;
     }
     const drawableWidth = Math.max(0, speedChartWidthSV.value - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
-    if (videoDurationMsSV.value <= 0) {
+    const rangeMin = chartVisibleMinSV.value;
+    const rangeMax = chartVisibleMaxSV.value;
+    const rangeSpan = rangeMax - rangeMin;
+    if (rangeSpan <= 0) {
       return SPEED_CHART_LEFT_PADDING;
     }
-
-    // Keep the marker on the same 0..videoDuration timeline as the scrubber and player.
-    // The chart uses the same domain, so non-zero minTimeMs values naturally shift the data
-    // to the right while the marker still starts at the chart's left edge at t=0.
-    const progress = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value));
+    const progress = Math.min(1, Math.max(0, (playbackTimeMsSV.value - rangeMin) / rangeSpan));
     return SPEED_CHART_LEFT_PADDING + progress * drawableWidth;
   });
 
@@ -361,27 +517,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     }
     return DEFAULT_PREVIEW_ASPECT_RATIO;
   }, [playbackVideoHeight, playbackVideoWidth, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx]);
-  const historyOverlayPoints = useMemo(
-    () =>
-      mapBarPathToOverlay(
-        smoothedBarPathSeries,
-        overlayWidth,
-        overlayHeight,
-        playbackVideoWidth,
-        playbackVideoHeight,
-        result.analysisMeta.trackingFrameWidthPx,
-        result.analysisMeta.trackingFrameHeightPx,
-      ),
-    [
-      overlayHeight,
-      overlayWidth,
-      playbackVideoHeight,
-      playbackVideoWidth,
-      result.analysisMeta.trackingFrameHeightPx,
-      result.analysisMeta.trackingFrameWidthPx,
-      smoothedBarPathSeries,
-    ],
-  );
   const verticalVelocityLineValues = useMemo(() => mapVerticalVelocitySeriesToLineValues(smoothedBarPathSeries, smoothedBarVerticalVelocitySeries), [
     smoothedBarPathSeries,
     smoothedBarVerticalVelocitySeries,
@@ -469,8 +604,11 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     }
   }, []);
 
-  // onPlayerProgress ONLY updates playbackDurationMs — no time-driven state updates.
-  // The marker and scrubber are animated via withTiming on the UI thread during playback.
+  // onPlayerProgress updates duration and corrects the marker animation when
+  // it drifts too far from the real player position. The withTiming animation
+  // provides smooth 60fps movement, but ExoPlayer can lag behind due to
+  // decoding/buffering, causing the marker to run ahead. A periodic correction
+  // re-syncs the animation without visible jank.
   const onPlayerProgress = useCallback(
     (event: {nativeEvent?: VideoPlayerProgressEvent}) => {
       const nativeEvent = event.nativeEvent;
@@ -484,9 +622,49 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           setPlaybackDurationMs(nextDuration);
         }
       }
+      updateCurrentRepForPlaybackTime(nativeEvent.currentTimeMs);
+
+      // Correct marker drift: if the animated value is more than 80ms ahead of
+      // the real player position, restart the animation from the actual position.
+      // Skip correction during seek cooldown so the player can catch up.
+      if (!playbackPausedRef.current && !isScrubbingRef.current && Date.now() > seekCooldownUntilRef.current) {
+        const animatedMs = playbackTimeMsSV.value;
+        const drift = animatedMs - nativeEvent.currentTimeMs;
+        if (drift > 80) {
+          const totalDuration = playbackDurationRef.current;
+          if (totalDuration > 0) {
+            cancelAnimation(playbackTimeMsSV);
+            playbackTimeMsSV.value = nativeEvent.currentTimeMs;
+            const remainingMs = Math.max(0, totalDuration - nativeEvent.currentTimeMs);
+            if (remainingMs > 0) {
+              playbackTimeMsSV.value = withTiming(totalDuration, {
+                duration: remainingMs / playbackSpeedRef.current,
+                easing: Easing.linear,
+              });
+            }
+          }
+        }
+      }
     },
-    [],
+    [updateCurrentRepForPlaybackTime],
   );
+
+  // When playback speed changes, update the ref and restart the marker animation
+  // so the scrubber/velocity marker advance at the correct rate for the new speed.
+  useEffect(() => {
+    playbackSpeedRef.current = playbackSpeed; // eslint-disable-line react-hooks/exhaustive-deps
+    if (!playbackPausedRef.current && correctedPlaybackDurationMs > 0) {
+      const currentMs = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
+      const remainingMs = Math.max(0, correctedPlaybackDurationMs - currentMs);
+      if (remainingMs > 0) {
+        cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
+        playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
+          duration: remainingMs / playbackSpeed,
+          easing: Easing.linear,
+        });
+      }
+    }
+  }, [playbackSpeed, correctedPlaybackDurationMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onPlayerEnd = useCallback(() => {
     cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
@@ -499,12 +677,6 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     updateCurrentRepForPlaybackTime(duration);
   }, [updateCurrentRepForPlaybackTime]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const onOverlayLayout = useCallback((event: LayoutChangeEvent) => {
-    const {width, height} = event.nativeEvent.layout;
-    setOverlayWidth(width);
-    setOverlayHeight(height);
-  }, []);
-
   // applySeekTimeMs: cancel any running animation, jump to new position immediately,
   // and restart the animation if currently playing.
   const applySeekTimeMs = useCallback(
@@ -516,13 +688,16 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       setPlaybackTimeMs(clampedTimeMs);
       setSeekPositionMs(clampedTimeMs);
       updateCurrentRepForPlaybackTime(clampedTimeMs);
+      // Suppress drift correction for 300ms so the player can catch up to the
+      // new seek position without onPlayerProgress snapping the marker back.
+      seekCooldownUntilRef.current = Date.now() + 300;
 
       // Restart animation from new position if currently playing.
       if (!playbackPausedRef.current && correctedPlaybackDurationMs > 0) {
         const remainingMs = Math.max(0, correctedPlaybackDurationMs - clampedTimeMs);
         if (remainingMs > 0) {
           playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
-            duration: remainingMs,
+            duration: remainingMs / playbackSpeedRef.current,
             easing: Easing.linear,
           });
         }
@@ -530,6 +705,25 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     },
     [correctedPlaybackDurationMs, updateCurrentRepForPlaybackTime], // eslint-disable-line react-hooks/exhaustive-deps
   );
+
+  // Called by the native chart on zoom/pan. Updates SharedValues so the marker
+  // tracks the visible x-range on the UI thread without triggering re-renders.
+  const onChartChange = useCallback((event: any) => {
+    const {left, right, action} = event.nativeEvent ?? {};
+    if (typeof left !== 'number' || typeof right !== 'number' || right <= left) {
+      return;
+    }
+    if (action === 'chartScaled' || action === 'chartTranslated') {
+      chartVisibleMinSV.value = left; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMaxSV.value = right; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMinRef.current = left;
+      chartVisibleMaxRef.current = right;
+      chartGestureActiveUntilRef.current = Date.now() + 300;
+    }
+    if (action === 'chartGestureEnd') {
+      setChartVisibleForLines({min: left, max: right});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onScrubberLayout = useCallback((event: LayoutChangeEvent) => {
     const {width} = event.nativeEvent.layout;
@@ -542,10 +736,10 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     speedChartWidthSV.value = width; // eslint-disable-line react-hooks/exhaustive-deps
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Tap-to-seek maps tap position to VIDEO TIME (0..videoDuration).
+  // Tap-to-seek maps tap position to the visible time range (zoomed or full).
   const onSpeedChartTouch = useCallback(
     (event: GestureResponderEvent) => {
-      if (speedChartWidth <= 0 || correctedPlaybackDurationMs <= 0) {
+      if (Date.now() < chartGestureActiveUntilRef.current || speedChartWidth <= 0 || correctedPlaybackDurationMs <= 0) {
         return;
       }
       const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
@@ -554,7 +748,9 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
       }
       const x = event.nativeEvent.locationX - SPEED_CHART_LEFT_PADDING;
       const progress = clamp(x / drawableWidth, 0, 1);
-      applySeekTimeMs(Math.round(progress * correctedPlaybackDurationMs));
+      const rangeMin = chartVisibleMinRef.current;
+      const rangeMax = chartVisibleMaxRef.current > rangeMin ? chartVisibleMaxRef.current : correctedPlaybackDurationMs;
+      applySeekTimeMs(Math.round(rangeMin + progress * (rangeMax - rangeMin)));
     },
     [speedChartWidth, correctedPlaybackDurationMs, applySeekTimeMs],
   );
@@ -579,11 +775,13 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
 
     if (!nextPaused && correctedPlaybackDurationMs > 0) {
       // Transitioning to PLAY: animate marker from current position to end.
+      // Divide wall-clock duration by playback speed so the marker advances at the
+      // same rate as the video (e.g. 0.5x speed → marker takes 2x longer to reach end).
       const currentMs = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
       const remainingMs = Math.max(0, correctedPlaybackDurationMs - currentMs);
       if (remainingMs > 0) {
         playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
-          duration: remainingMs,
+          duration: remainingMs / playbackSpeedRef.current,
           easing: Easing.linear,
         });
       }
@@ -602,8 +800,155 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     playbackTimeRef.current = playbackTimeMs;
   }, [playbackTimeMs]);
 
+  useEffect(() => {
+    return () => {
+      if (repeatIntervalRef.current !== null) {
+        clearInterval(repeatIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // When savedSetResult arrives after mount (e.g. tab-switch: screen stays mounted while
+  // Redux propagates the save), apply the stored overrides once — but only if the user
+  // hasn't already been given initialised values from the lazy useState above.
+  useEffect(() => {
+    const rr = savedSetResult?.repResults;
+    if (!savedOverridesApplied.current && rr && rr.length > 0) {
+      savedOverridesApplied.current = true;
+      // Use functional updaters: only seed each override if the user has not already
+      // set a value manually. prev !== null means the user (or the lazy initializer)
+      // already provided a value — never clobber that with a stale save.
+      setFirstRepTurnaroundOverrideMs(prev => prev !== null ? prev : rr[0].turnaroundMs);
+      setFirstRepEndOverrideMs(prev => prev !== null ? prev : rr[0].endMs);
+      if (rr.length > 1) {
+        setLastRepTurnaroundOverrideMs(prev => prev !== null ? prev : rr[rr.length - 1].turnaroundMs);
+        setLastRepEndOverrideMs(prev => prev !== null ? prev : rr[rr.length - 1].endMs);
+      }
+    }
+  }, [savedSetResult]);
+
   const progressMarkerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{translateX: progressMarkerLeft.value}],
+  }));
+
+  const onSaveSetResult = useCallback(() => {
+    const trackingFrameWidth = result.analysisMeta.trackingFrameWidthPx ?? 0;
+    const repResults: VideoAnalysisRepResult[] = result.repSegments.map((seg, idx) => {
+      const isFirst = idx === 0;
+      const isLast = idx === result.repSegments.length - 1;
+      const startMs = seg.startMs;
+      const turnaroundMs = isFirst && firstRepTurnaroundOverrideMs !== null ? firstRepTurnaroundOverrideMs
+        : isLast && lastRepTurnaroundOverrideMs !== null ? lastRepTurnaroundOverrideMs
+        : seg.turnaroundMs;
+      const endMs = isFirst && firstRepEndOverrideMs !== null ? firstRepEndOverrideMs
+        : isLast && lastRepEndOverrideMs !== null ? lastRepEndOverrideMs
+        : seg.endMs;
+      const totalTimeMs = endMs - startMs;
+      const concentricTimeMs = Math.max(0, endMs - turnaroundMs);
+      const eccentricTimeMs = Math.max(0, turnaroundMs - startMs);
+      const metrics = calcIntervalMetrics(turnaroundMs, endMs);
+      const deviation = calculateBarPathDeviation(smoothedBarPathSeries, startMs, turnaroundMs, endMs, trackingFrameWidth);
+      return {
+        repIndex: seg.repIndex,
+        startMs,
+        turnaroundMs,
+        endMs,
+        totalTimeMs,
+        eccentricTimeMs,
+        concentricTimeMs,
+        vAvg: metrics?.vAvg ?? 0,
+        vPeak: metrics?.vPeak ?? 0,
+        delta_x: deviation.delta_x,
+        path_deviation: deviation.path_deviation,
+      };
+    });
+
+    const firstVAvg = repResults.length > 0 ? repResults[0].vAvg : 0;
+    const lastVAvg = repResults.length > 0 ? repResults[repResults.length - 1].vAvg : 0;
+    const vlPercent = firstVAvg > 0 ? Math.round((1 - lastVAvg / firstVAvg) * 100) : null;
+    let rir: string | null = null;
+    if (vlPercent !== null) {
+      if (vlPercent < 10) { rir = '4+'; }
+      else if (vlPercent < 20) { rir = '3-4'; }
+      else if (vlPercent < 30) { rir = '2-3'; }
+      else if (vlPercent < 40) { rir = '1-2'; }
+      else { rir = '0-1'; }
+    }
+
+    // Set-level path deviation aggregates
+    const repDeviations = repResults
+      .map((r) => r.path_deviation)
+      .filter((d): d is number => d !== undefined && isFinite(d));
+    let mean_path_deviation: number | null = null;
+    let path_deviation_slope: number | null = null;
+    if (repDeviations.length > 0) {
+      mean_path_deviation = repDeviations.reduce((s, d) => s + d, 0) / repDeviations.length;
+      if (repDeviations.length > 1) {
+        // Simple linear regression slope: deviation vs rep index (0-based)
+        const n = repDeviations.length;
+        const xMean = (n - 1) / 2;
+        const yMean = mean_path_deviation;
+        let num = 0;
+        let den = 0;
+        for (let i = 0; i < n; i++) {
+          num += (i - xMean) * (repDeviations[i] - yMean);
+          den += (i - xMean) ** 2;
+        }
+        path_deviation_slope = den > 0 ? num / den : 0;
+      }
+    }
+
+    saveSetResult(analysisId, {
+      repResults,
+      velocityLossPercent: vlPercent,
+      rirEstimate: rir,
+      calibratedAt: new Date().toISOString(),
+      mean_path_deviation,
+      path_deviation_slope,
+    });
+  }, [analysisId, result.repSegments, result.analysisMeta.trackingFrameWidthPx, firstRepTurnaroundOverrideMs, firstRepEndOverrideMs, lastRepTurnaroundOverrideMs, lastRepEndOverrideMs, calcIntervalMetrics, smoothedBarPathSeries, saveSetResult]);
+
+  // Video pinch-to-zoom gesture.
+  const videoPinchGesture = Gesture.Pinch()
+    .onBegin(() => {
+      'worklet';
+      videoScaleBase.value = videoScale.value;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      videoScale.value = Math.max(1, Math.min(5, videoScaleBase.value * e.scale));
+    })
+    .onEnd(() => {
+      'worklet';
+      if (videoScale.value < 1.05) {
+        videoScale.value = 1;
+        videoTranslateX.value = 0;
+        videoTranslateY.value = 0;
+      }
+    });
+
+  // Video pan gesture (only when zoomed in).
+  const videoPanGesture = Gesture.Pan()
+    .onBegin(() => {
+      'worklet';
+      videoTranslateXBase.value = videoTranslateX.value;
+      videoTranslateYBase.value = videoTranslateY.value;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      if (videoScale.value <= 1) {
+        return;
+      }
+      videoTranslateX.value = videoTranslateXBase.value + e.translationX;
+      videoTranslateY.value = videoTranslateYBase.value + e.translationY;
+    });
+
+  const videoZoomStyle = useAnimatedStyle(() => ({
+    transform: [
+      {translateX: videoTranslateX.value},
+      {translateY: videoTranslateY.value},
+      {scale: videoScale.value},
+    ],
   }));
 
   useEffect(() => {
@@ -618,53 +963,67 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
     setSeekPositionMs(undefined);
     playbackTimeMsSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
     videoDurationMsSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    chartVisibleMinSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    chartVisibleMaxSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    chartVisibleMinRef.current = 0;
+    chartVisibleMaxRef.current = 0;
+    setChartVisibleForLines(null);
     playbackDurationRef.current = 0;
     playbackTimeRef.current = 0;
     currentRepIndexRef.current = undefined;
     isScrubbingRef.current = false;
+    videoScale.value = 1; // eslint-disable-line react-hooks/exhaustive-deps
+    videoTranslateX.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    videoTranslateY.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
   }, [localVideoPath, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx, result.barPathSeries, result.repSegments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
-      <Text style={styles.overlayHint}>Live playback with current detected bar position.</Text>
-      <View testID="video-analysis-playback-overlay" style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio}]} onLayout={onOverlayLayout}>
-        <VideoAnalysisPlayerView
-          testID="video-analysis-playback-player"
-          style={styles.previewImage}
-          source={localVideoPath}
-          paused={playbackPaused}
-          seekPositionMs={seekPositionMs}
-          barPathSeries={smoothedBarPathSeries}
-          trackingFrameWidthPx={result.analysisMeta.trackingFrameWidthPx}
-          trackingFrameHeightPx={result.analysisMeta.trackingFrameHeightPx}
-          onLoad={onPlayerLoad}
-          onProgress={onPlayerProgress}
-          onEnd={onPlayerEnd}
-        />
-        <View pointerEvents="none" style={styles.historyOverlayLayer}>
-          {historyOverlayPoints.map((point) => (
-            <View
-              key={point.key}
-              style={[
-                styles.historyPoint,
-                themedStyles.historyPoint,
-                {
-                  left: point.x - 1,
-                  top: point.y - 1,
-                },
-              ]}
-            />
-          ))}
+      <View testID="video-analysis-playback-overlay" style={styles.videoRow}>
+        <GestureHandlerRootView style={{flex: 1}}>
+        <GestureDetector gesture={Gesture.Simultaneous(videoPinchGesture, videoPanGesture)}>
+        <View testID="video-analysis-overlay-card" style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: playbackAspectRatio, maxHeight: 520}]}>
+          <Animated.View style={[styles.previewImage, videoZoomStyle]}>
+          <VideoAnalysisPlayerView
+            testID="video-analysis-playback-player"
+            style={styles.previewImage}
+            source={localVideoPath}
+            paused={playbackPaused}
+            seekPositionMs={seekPositionMs}
+            playbackSpeed={playbackSpeed}
+            barPathSeries={smoothedBarPathSeries}
+            repSegments={repSegments}
+            currentRepIndex={currentRepIndex}
+            primaryColor={nativeOverlayColors.primary}
+            pathColor={nativeOverlayColors.path}
+            trackingFrameWidthPx={result.analysisMeta.trackingFrameWidthPx}
+            trackingFrameHeightPx={result.analysisMeta.trackingFrameHeightPx}
+            onLoad={onPlayerLoad}
+            onProgress={onPlayerProgress}
+            onEnd={onPlayerEnd}
+          />
+          </Animated.View>
+          <View style={[styles.videoControlsOverlay, themedStyles.videoControlsBackground]} pointerEvents="box-none">
+            <IconButton testID="video-analysis-step-minus200" icon="rewind" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current - 200)} style={styles.videoControlButton} />
+            <IconButton testID="video-analysis-step-minus50" icon="skip-previous" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current - 50)} style={styles.videoControlButton} />
+            <IconButton testID="video-analysis-playback-toggle" icon={playbackPaused ? 'play' : 'pause'} size={32} iconColor={theme.colors.primary} onPress={onPlayPauseToggle} style={styles.videoControlButton} />
+            <IconButton testID="video-analysis-step-plus50" icon="skip-next" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current + 50)} style={styles.videoControlButton} />
+            <IconButton testID="video-analysis-step-plus200" icon="fast-forward" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current + 200)} style={styles.videoControlButton} />
+          </View>
+        </View>
+        </GestureDetector>
+        </GestureHandlerRootView>
+        <View style={styles.videoStatsPanel}>
+          <Text variant="labelSmall" style={themedStyles.statsText}>
+            {currentRepIndex !== undefined ? `Rep ${currentRepIndex + 1}` : '-'}
+          </Text>
+          <Text variant="labelSmall" style={themedStyles.statsText}>
+            {currentBarVerticalVelocityPxPerSecond !== undefined ? `${Math.round(currentBarVerticalVelocityPxPerSecond)} px/s` : '-'}
+          </Text>
         </View>
       </View>
 
       <View style={styles.speedPlotSection}>
-        <View style={styles.chartHeaderRow}>
-          <Text variant="labelMedium">Bar v_y Over Time</Text>
-          <Text testID="video-analysis-playback-speed" variant="bodySmall" style={styles.chartSpeedText}>
-            v_y={currentBarVerticalVelocityPxPerSecond !== undefined ? Math.round(currentBarVerticalVelocityPxPerSecond) : '-'} px/s
-          </Text>
-        </View>
         <View style={styles.speedPlotWrapper}>
           <View testID="video-analysis-playback-speed-chart" onTouchEnd={onSpeedChartTouch}>
             <LineChart
@@ -672,7 +1031,13 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
               style={[styles.speedPlotContainer, themedStyles.speedPlotBackground]}
               onLayout={onSpeedChartLayout}
               data={speedChartData}
-              touchEnabled={false}
+              touchEnabled={true}
+              pinchZoom={true}
+              doubleTapToZoomEnabled={false}
+              scaleXEnabled={true}
+              scaleYEnabled={false}
+              dragEnabled={true}
+              onChange={onChartChange}
               legend={{enabled: false}}
               chartDescription={{text: ''}}
               marker={{enabled: false}}
@@ -709,26 +1074,111 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
             pointerEvents="none"
             style={[styles.speedMarkerLine, {backgroundColor: theme.colors.primary}, progressMarkerAnimatedStyle]}
           />
-        </View>
-        <View style={styles.chartAxisRow}>
-          <Text variant="bodySmall">down (-)</Text>
-          <Text variant="bodySmall">{currentBarVerticalVelocityPxPerSecond !== undefined ? `${Math.round(currentBarVerticalVelocityPxPerSecond)} px/s` : '-'}</Text>
-          <Text variant="bodySmall">up (+)</Text>
-        </View>
-        <View style={styles.chartAxisRow}>
-          <Text variant="bodySmall">t=0:00</Text>
-          <Text variant="bodySmall">{formatDuration(correctedPlaybackDurationMs)}</Text>
+          {speedChartWidth > 0 && correctedPlaybackDurationMs > 0 && (() => {
+            const drawableWidth = Math.max(0, speedChartWidth - SPEED_CHART_LEFT_PADDING - SPEED_CHART_RIGHT_PADDING);
+            const visMin = chartVisibleForLines?.min ?? 0;
+            const visMax = chartVisibleForLines?.max ?? correctedPlaybackDurationMs;
+            const visRange = visMax > visMin ? visMax - visMin : correctedPlaybackDurationMs;
+            const toX = (timeMs: number) => SPEED_CHART_LEFT_PADDING + ((timeMs - visMin) / visRange) * drawableWidth;
+            const STEP_MS = 20;
+            const LONGPRESS_STEP_MS = 1000;
+            const LONGPRESS_REPEAT_INTERVAL_MS = 150;
+            const stopRepeat = () => {
+              if (repeatIntervalRef.current !== null) {
+                clearInterval(repeatIntervalRef.current);
+                repeatIntervalRef.current = null;
+              }
+            };
+
+            const renderRepLines = (
+              turnaroundMs: number,
+              endMs: number,
+              setTurnaround: React.Dispatch<React.SetStateAction<number | null>>,
+              setEnd: React.Dispatch<React.SetStateAction<number | null>>,
+              repKey: string,
+            ) => {
+              const tX = toX(turnaroundMs);
+              const eX = toX(endMs);
+              const tIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, turnaroundMs);
+              const eIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, endMs);
+              const tVel = tIdx !== undefined && tIdx < smoothedBarVerticalVelocitySeries.length
+                ? Math.round(smoothedBarVerticalVelocitySeries[tIdx]) : null;
+              const eVel = eIdx !== undefined && eIdx < smoothedBarVerticalVelocitySeries.length
+                ? Math.round(smoothedBarVerticalVelocitySeries[eIdx]) : null;
+              return (
+                <>
+                  <View style={[styles.adjustLine, {left: tX}]} pointerEvents="box-none">
+                    <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
+                    <View style={styles.adjustButtonRow}>
+                      <TouchableOpacity
+                        testID={`calibrate-${repKey}-turnaround-left`}
+                        onPress={() => setTurnaround(turnaroundMs - STEP_MS)}
+                        onLongPress={() => {
+                          stopRepeat();
+                          setTurnaround(Math.max(0, turnaroundMs - LONGPRESS_STEP_MS));
+                          repeatIntervalRef.current = setInterval(() => { setTurnaround(prev => Math.max(0, (prev ?? turnaroundMs) - LONGPRESS_STEP_MS)); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                        }}
+                        onPressOut={stopRepeat}>
+                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        testID={`calibrate-${repKey}-turnaround-right`}
+                        onPress={() => setTurnaround(turnaroundMs + STEP_MS)}
+                        onLongPress={() => {
+                          stopRepeat();
+                          setTurnaround(Math.min(correctedPlaybackDurationMs, Math.min(endMs, turnaroundMs + LONGPRESS_STEP_MS)));
+                          repeatIntervalRef.current = setInterval(() => { setTurnaround(prev => Math.min(correctedPlaybackDurationMs, Math.min(endMs, (prev ?? turnaroundMs) + LONGPRESS_STEP_MS))); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                        }}
+                        onPressOut={stopRepeat}>
+                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <View style={[styles.adjustLine, {left: eX}]} pointerEvents="box-none">
+                    <View style={styles.adjustButtonRow}>
+                      <TouchableOpacity
+                        testID={`calibrate-${repKey}-end-left`}
+                        onPress={() => setEnd(endMs - STEP_MS)}
+                        onLongPress={() => {
+                          stopRepeat();
+                          setEnd(Math.max(turnaroundMs, Math.max(0, endMs - LONGPRESS_STEP_MS)));
+                          repeatIntervalRef.current = setInterval(() => { setEnd(prev => Math.max(turnaroundMs, Math.max(0, (prev ?? endMs) - LONGPRESS_STEP_MS))); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                        }}
+                        onPressOut={stopRepeat}>
+                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        testID={`calibrate-${repKey}-end-right`}
+                        onPress={() => setEnd(endMs + STEP_MS)}
+                        onLongPress={() => {
+                          stopRepeat();
+                          setEnd(Math.min(correctedPlaybackDurationMs, endMs + LONGPRESS_STEP_MS));
+                          repeatIntervalRef.current = setInterval(() => { setEnd(prev => Math.min(correctedPlaybackDurationMs, (prev ?? endMs) + LONGPRESS_STEP_MS)); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                        }}
+                        onPressOut={stopRepeat}>
+                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
+                  </View>
+                  {tVel !== null && <Text style={[styles.adjustVelLabel, {color: theme.colors.tertiary, left: tX + 4, top: 2}]}>{tVel}</Text>}
+                  {eVel !== null && <Text style={[styles.adjustVelLabel, {color: theme.colors.tertiary, left: eX + 4, bottom: 2}]}>{eVel}</Text>}
+                </>
+              );
+            };
+
+            if (!showCalibration) { return null; }
+            return (
+              <>
+                {firstRepSegment && renderRepLines(firstRepTurnaroundMs, firstRepEndMs, setFirstRepTurnaroundOverrideMs, setFirstRepEndOverrideMs, 'first')}
+                {lastRepSegment && renderRepLines(lastRepTurnaroundMs, lastRepEndMs, setLastRepTurnaroundOverrideMs, setLastRepEndOverrideMs, 'last')}
+              </>
+            );
+          })()}
         </View>
       </View>
 
       <View style={styles.playbackControls}>
-        <Button testID="video-analysis-playback-toggle" mode="outlined" onPress={onPlayPauseToggle}>
-          {playbackPaused ? 'Play' : 'Pause'}
-        </Button>
-        <Text testID="video-analysis-playback-time">
-          Playback: {formatDuration(playbackTimeMs)} / {formatDuration(correctedPlaybackDurationMs)}
-        </Text>
-        <Text>{currentRepIndex !== undefined ? `Current Rep: ${currentRepIndex}` : 'Current Rep: -'}</Text>
         <View
           testID="video-analysis-playback-scrubber"
           style={[styles.scrubberTrack, themedStyles.scrubberTrack]}
@@ -749,21 +1199,147 @@ const VideoAnalysisPlaybackOverlayCard = ({localVideoPath, result}: Props) => {
           <Animated.View testID="video-analysis-playback-scrubber-fill" style={[styles.scrubberFill, themedStyles.scrubberFill, scrubberFillStyle]} />
           <Animated.View testID="video-analysis-playback-scrubber-thumb" style={[styles.scrubberThumb, themedStyles.scrubberThumb, scrubberThumbStyle]} />
         </View>
-        <View style={styles.stepButtonsRow}>
-          <Button testID="video-analysis-step-minus200" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current - 200)}>
-            -0.2s
-          </Button>
-          <Button testID="video-analysis-step-minus50" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current - 50)}>
-            -0.05s
-          </Button>
-          <Button testID="video-analysis-step-plus50" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current + 50)}>
-            +0.05s
-          </Button>
-          <Button testID="video-analysis-step-plus200" mode="outlined" compact onPress={() => applySeekTimeMs(playbackTimeRef.current + 200)}>
-            +0.2s
-          </Button>
+        <View testID="video-analysis-speed-control" style={styles.speedControlRow}>
+          <Text testID="video-analysis-speed-label" variant="labelSmall" style={styles.speedLabel}>{'Speed: '}{formatSpeedLabel(playbackSpeed)}{'x'}</Text>
+          {([0.1, 0.2, 0.3, 0.5, 0.75, 1.0] as const).map((speed) => (
+            <TouchableOpacity
+              key={speed}
+              testID={`video-analysis-speed-btn-${speed}`}
+              onPress={() => setPlaybackSpeed(speed)}
+              style={[styles.speedButton, playbackSpeed === speed && styles.speedButtonActive]}>
+              <Text variant="labelSmall" style={[styles.speedButtonText, playbackSpeed === speed && {color: theme.colors.primary}]}>
+                {speed === 1.0 ? '1x' : `${speed}x`}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
+
+      {result.repMetrics.length > 0 && (
+        <View testID="video-analysis-rep-summary" style={styles.repSummarySection}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>
+            Rep Summary ({result.repMetrics.length} {result.repMetrics.length === 1 ? 'rep' : 'reps'})
+          </Text>
+          <View style={styles.tableHeader}>
+            <Text variant="labelSmall" style={styles.tableColRep}>Rep</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>Total</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>Ecc</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>Conc</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>vAvg</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>Dev</Text>
+          </View>
+          {result.repMetrics.map((metric, idx) => {
+            const isFirstRep = idx === 0;
+            const isLastRep = idx === result.repMetrics.length - 1;
+            const saved = savedSetResult?.repResults?.[idx];
+            const seg = repSegments[idx];
+            const concTimeMs = saved ? saved.concentricTimeMs
+              : isFirstRep && firstRepSegment ? firstRepConcentricTimeMs
+              : isLastRep && lastRepSegment ? lastRepConcentricTimeMs
+              : seg ? Math.max(0, seg.endMs - seg.turnaroundMs)
+              : (metric.concentricTimeMs ?? 0);
+            const eccTimeMs = saved ? saved.eccentricTimeMs : (metric.repTimeMs - concTimeMs);
+            const totalTimeMs = saved ? saved.totalTimeMs : metric.repTimeMs;
+            const vAvg = saved ? saved.vAvg : Math.round(metric.averageConcentricSpeedPxPerS);
+            const pathDev = saved?.path_deviation;
+            return (
+              <View
+                key={metric.repIndex}
+                testID={`video-analysis-rep-metric-${metric.repIndex}`}
+                style={[styles.tableRow, themedStyles.repMetricAccent]}>
+                <Text variant="bodySmall" style={styles.tableColRep}>{metric.repIndex + 1}</Text>
+                <Text testID={`video-analysis-rep-time-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
+                  {(totalTimeMs / 1000).toFixed(2)}s
+                </Text>
+                <Text variant="bodySmall" style={styles.tableCol}>
+                  {eccTimeMs > 0 ? `${(eccTimeMs / 1000).toFixed(2)}s` : '-'}
+                </Text>
+                <Text testID={`video-analysis-rep-conc-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
+                  {concTimeMs > 0 ? `${(concTimeMs / 1000).toFixed(2)}s` : '-'}
+                </Text>
+                <Text testID={`video-analysis-rep-speed-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
+                  {vAvg}
+                </Text>
+                <Text testID={`video-analysis-rep-path-dev-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
+                  {pathDev !== undefined ? `${(pathDev * 100).toFixed(1)}%` : '-'}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+      {repSegments.length > 0 && (
+        <View style={styles.calibrateRow}>
+          <IconButton
+            testID="video-analysis-toggle-calibration"
+            icon={showCalibration ? 'chevron-up' : 'tune'}
+            size={20}
+            iconColor={theme.colors.tertiary}
+            onPress={() => setShowCalibration(!showCalibration)}
+            style={styles.calibrateButton}
+          />
+          {showCalibration && (
+            <IconButton
+              testID="video-analysis-save-calibration"
+              icon="content-save"
+              size={20}
+              iconColor={theme.colors.primary}
+              onPress={onSaveSetResult}
+              style={styles.calibrateButton}
+            />
+          )}
+        </View>
+      )}
+      {firstRepIntervalMetrics && (
+        <View style={styles.intervalMetrics}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>Concentric Phase (Rep 1)</Text>
+          <View style={styles.intervalMetricsRow}>
+            <Text variant="bodySmall">t={(firstRepIntervalMetrics.timeMs / 1000).toFixed(2)}s</Text>
+            <Text variant="bodySmall">vPeak={firstRepIntervalMetrics.vPeak} px/s</Text>
+
+            <Text variant="bodySmall">vAvg={firstRepIntervalMetrics.vAvg} px/s</Text>
+          </View>
+        </View>
+      )}
+      {lastRepIntervalMetrics && (
+        <View style={styles.intervalMetrics}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>Concentric Phase (Last Rep)</Text>
+          <View style={styles.intervalMetricsRow}>
+            <Text variant="bodySmall">t={(lastRepIntervalMetrics.timeMs / 1000).toFixed(2)}s</Text>
+            <Text variant="bodySmall">vPeak={lastRepIntervalMetrics.vPeak} px/s</Text>
+
+            <Text variant="bodySmall">vAvg={lastRepIntervalMetrics.vAvg} px/s</Text>
+          </View>
+        </View>
+      )}
+      {(velocityLoss !== null || savedSetResult?.velocityLossPercent !== undefined) && (
+        <View style={styles.intervalMetrics}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>Velocity Loss</Text>
+          <View style={styles.intervalMetricsRow}>
+            <Text variant="bodySmall">VL={savedSetResult?.velocityLossPercent ?? velocityLoss}%</Text>
+            {(savedSetResult?.rirEstimate ?? rirEstimate) && (
+              <Text variant="bodySmall">RIR={savedSetResult?.rirEstimate ?? rirEstimate}</Text>
+            )}
+          </View>
+        </View>
+      )}
+      {(savedSetResult?.mean_path_deviation != null || savedSetResult?.path_deviation_slope != null) && (
+        <View testID="video-analysis-bar-drift" style={styles.intervalMetrics}>
+          <Text variant="labelMedium" style={styles.repSummaryTitle}>Bar Drift (Ecc vs Con)</Text>
+          <View style={styles.intervalMetricsRow}>
+            {savedSetResult.mean_path_deviation != null && (
+              <Text testID="video-analysis-mean-path-deviation" variant="bodySmall">
+                Ø Dev={(savedSetResult.mean_path_deviation * 100).toFixed(1)}%
+              </Text>
+            )}
+            {savedSetResult.path_deviation_slope != null && (
+              <Text testID="video-analysis-path-deviation-slope" variant="bodySmall">
+                Slope={(savedSetResult.path_deviation_slope * 100).toFixed(2)}%/rep
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
     </>
   );
 };
@@ -778,18 +1354,105 @@ const styles = StyleSheet.create({
   previewImage: {
     ...StyleSheet.absoluteFillObject,
   },
-  historyOverlayLayer: {
-    ...StyleSheet.absoluteFillObject,
+  videoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  historyPoint: {
+  videoStatsPanel: {
+    width: 64,
+    paddingLeft: 8,
+    alignItems: 'flex-start',
+  },
+  videoControlsOverlay: {
     position: 'absolute',
-    width: 2,
-    height: 2,
-    borderRadius: 1,
-    opacity: 0.18,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 4,
+    // backgroundColor set via themedStyles.videoControlsBackground
   },
-  overlayHint: {
-    marginBottom: 10,
+  videoControlButton: {
+    margin: 0,
+  },
+  repSummarySection: {
+    marginTop: 12,
+  },
+  repSummaryTitle: {
+    marginBottom: 4,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderLeftWidth: 3,
+    borderRadius: 4,
+    marginBottom: 1,
+  },
+  tableColRep: {
+    width: 30,
+    textAlign: 'center',
+  },
+  tableCol: {
+    flex: 1,
+    textAlign: 'right',
+  },
+  adjustLine: {
+    position: 'absolute',
+    top: 0,
+    height: SPEED_PLOT_HEIGHT,
+    alignItems: 'center',
+    width: 14,
+    marginLeft: -7,
+  },
+  adjustLineStem: {
+    width: 1.5,
+    flex: 1,
+  },
+  adjustButtonRow: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  adjustButtonText: {
+    fontSize: 33,
+    fontWeight: '700',
+    lineHeight: 36,
+    textAlign: 'center',
+    minWidth: 33,
+  },
+  adjustLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  adjustVelLabel: {
+    position: 'absolute',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  calibrateRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  calibrateButton: {
+    margin: 0,
+  },
+  intervalMetrics: {
+    marginTop: 8,
+  },
+  intervalMetricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 4,
   },
   playbackControls: {
     marginTop: 10,
@@ -808,11 +1471,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   speedPlotSection: {
-    marginTop: 12,
+    marginTop: 0,
   },
   speedPlotWrapper: {
     position: 'relative',
-    marginTop: 8,
+    marginTop: 0,
   },
   speedPlotContainer: {
     position: 'relative',
@@ -824,7 +1487,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 4,
+    width: 2,
     height: SPEED_PLOT_HEIGHT,
     opacity: 0.75,
   },
@@ -855,6 +1518,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 8,
     gap: 4,
+  },
+  speedControlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 4,
+  },
+  speedLabel: {
+    minWidth: 64,
+    textAlign: 'center',
+    marginRight: 4,
+  },
+  speedButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(128,128,128,0.4)',
+  },
+  speedButtonActive: {
+    borderColor: 'rgba(128,128,128,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  speedButtonText: {
+    fontSize: 12,
   },
 });
 

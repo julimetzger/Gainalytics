@@ -55,9 +55,9 @@ appId: com.powerliftingworkoutplanner
 # After 2 swipes: speed chart + playback controls should be fully visible.
 # CRITERION: Speed chart is present with the velocity curve.
 - assertVisible: "Bar v_y Over Time"
-# CRITERION: Playback time display is visible at 00:00 / 00:47
+# CRITERION: Playback scrubber is visible
 - assertVisible:
-    text: "Playback: 00:00 / 00:47"
+    id: "video-analysis-playback-scrubber"
 # Step buttons are visible (all four controls are in view)
 - assertVisible:
     text: "-0.2s"

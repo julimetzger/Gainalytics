@@ -29,6 +29,7 @@ export interface VideoAnalysis {
   seedFrameWidthPx?: number;
   seedFrameHeightPx?: number;
   analysisMeta?: AnalysisMeta;
+  setResult?: VideoAnalysisSetResult;
   error?: string;
 }
 
@@ -55,15 +56,43 @@ export interface ConfidencePoint {
 export interface RepSegment {
   repIndex: number;
   startMs: number;
-  bottomMs: number;
+  turnaroundMs: number;
   endMs: number;
 }
 
 export interface RepMetric {
   repIndex: number;
+  repTimeMs: number;
+  concentricTimeMs: number;
   averageConcentricSpeedPxPerS: number;
   lowestConcentricSpeedPxPerS: number;
-  repTimeMs: number;
+}
+
+export interface VideoAnalysisRepResult {
+  repIndex: number;
+  startMs: number;
+  turnaroundMs: number;
+  endMs: number;
+  totalTimeMs: number;
+  eccentricTimeMs: number;
+  concentricTimeMs: number;
+  vAvg: number;
+  vPeak: number;
+  /** X-deviation per resampled Y-point: concentric_x − eccentric_x (in px) */
+  delta_x?: number[];
+  /** Mean |delta_x| normalised to tracking frame width (0.0–1.0+) */
+  path_deviation?: number;
+}
+
+export interface VideoAnalysisSetResult {
+  repResults: VideoAnalysisRepResult[];
+  velocityLossPercent: number | null;
+  rirEstimate: string | null;
+  calibratedAt?: string;
+  /** Mean path_deviation across all reps (normalised, 0–1+) */
+  mean_path_deviation?: number | null;
+  /** Linear slope of path_deviation over reps (positive = increasing drift) */
+  path_deviation_slope?: number | null;
 }
 
 export interface DetectedBox {
@@ -81,6 +110,7 @@ export interface AnalysisMeta {
   frameCount: number;
   averageConfidence: number;
   trackerVersion?: string;
+  repDetectionVersion?: string;
   trackingFrameWidthPx?: number;
   trackingFrameHeightPx?: number;
   manualSeedUsed?: boolean;

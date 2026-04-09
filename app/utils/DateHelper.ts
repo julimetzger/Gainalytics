@@ -62,6 +62,21 @@ export const getDateStringFromDate = (date?: Date | number) => {
   }
 };
 
+export const getDateTimeStringFromDate = (date?: Date | number | string) => {
+  if (date === undefined) {
+    return undefined;
+  }
+
+  return new Date(date).toLocaleString('en-GB', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 export function dateComparator(a: Date, b: Date): number {
   const dateA = new Date(a).getTime();
   const dateB = new Date(b).getTime();

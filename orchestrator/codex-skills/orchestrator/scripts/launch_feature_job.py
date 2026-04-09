@@ -197,10 +197,20 @@ def parse_github_issue_body(raw: dict) -> dict:
 
     sections = _split_markdown_sections(body)
 
+    # Map German/English section variants for description
+    desc = sections.get("description", "")
+    if not desc:
+        for key in ["beschreibung", "summary", "zusammenfassung", "overview", "überblick"]:
+            if key in sections:
+                desc = sections[key]
+                break
+    if not desc:
+        desc = body
+
     return {
         "id": f"GH-{number}",
         "title": title,
-        "description": sections.get("description", body),
+        "description": desc,
         "acceptanceCriteria": _extract_list(sections,
             ["acceptance criteria", "acceptance", "ac"]),
         "constraints": _extract_list(sections,

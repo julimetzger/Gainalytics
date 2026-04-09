@@ -6,7 +6,7 @@ import {calculateMetricValue} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {Metric} from "../../../models/Metric";
 
-const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMode, onLinkVideo, linkedSetIndices}: WorkoutSetViewProps) => {
+const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMode, onLinkVideo, linkedAnalyses, onVideoPress}: WorkoutSetViewProps) => {
   const theme = useTheme();
   const [setToUpdate, setSetToUpdate] = useState<WorkoutSet>();
   let indexOfSelectedWorkout = setToUpdate ? sets.indexOf(setToUpdate) : undefined;
@@ -21,6 +21,7 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
   useEffect(() => {}, [sets]);
   let highlightValue = highLightMode ? calculateMetricValue(sets, highLightMode) : undefined;
   function showSets(set: WorkoutSet) {
+    const linkedEntry = linkedAnalyses?.find(la => la.setIndex === set.index);
     return (
       <DataTable.Row
         style={{minHeight: 35}}
@@ -40,10 +41,17 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
           ) : null}
         </DataTable.Cell>
         <DataTable.Cell style={{flex: 1}}>
-          {linkedSetIndices && set.index !== undefined && linkedSetIndices.includes(set.index) ? (
-            <Icon size={15} source={'video'} color={theme.colors.secondary} />
+          {linkedEntry ? (
+            <TouchableOpacity
+              testID={`set-linked-video-${set.index}`}
+              accessible={true}
+              onPress={() => onVideoPress && onVideoPress(linkedEntry.analysisId)}
+              style={{padding: 2}}
+            >
+              <Icon size={15} source={'video'} color={theme.colors.secondary} />
+            </TouchableOpacity>
           ) : null}
-          {editable && onLinkVideo ? (
+          {!linkedEntry && editable && onLinkVideo ? (
             <TouchableOpacity
               testID={`set-link-video-${set.index}`}
               accessible={true}
@@ -87,7 +95,8 @@ interface WorkoutSetViewProps {
   editable?: boolean;
   highLightMode?: Metric;
   onLinkVideo?: (set: WorkoutSet) => void;
-  linkedSetIndices?: number[];
+  linkedAnalyses?: {setIndex: number; analysisId: number}[];
+  onVideoPress?: (analysisId: number) => void;
 }
 
 export default WorkoutSetView;

@@ -110,7 +110,7 @@ appId: com.powerliftingworkoutplanner
     id: "video-analysis-playback-toggle"
 - extendedWaitUntil:
     visible:
-      text: "Playback: 00:0[1-9] / [0-9]{2}:[0-9]{2}"
+      id: "video-analysis-playback-scrubber"
     timeout: 30000
 - tapOn:
     id: "video-analysis-playback-toggle"
@@ -134,7 +134,6 @@ appId: com.powerliftingworkoutplanner
 - evalScript: |
     var before = output.timeBefore;
     var after = output.value;
-    // Both strings are like "Playback: MM:SS / MM:SS"
     // After pressing +0.2s the displayed time should be >= the time before
     output.valid = (after !== undefined && before !== undefined && typeof after === 'string');
 - assertTrue: ${valid}
@@ -144,6 +143,6 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd:
     timeout: 500
 - assertVisible:
-    text: "Playback: [0-9]{2}:[0-9]{2} / [0-9]{2}:[0-9]{2}"
+    id: "video-analysis-playback-scrubber"
 # Screenshot showing step buttons and current playback time
 - takeScreenshot: "step_buttons_result"

@@ -27,7 +27,6 @@ Start metro server with (to bind windows -> wsl):
 npm start -- --host 0.0.0.0 --port 8081
 ```
 
-
 Run commands:
 
 - `npm run e2e:android:build`

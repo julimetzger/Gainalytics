@@ -146,6 +146,23 @@ const videoAnalysisReducer = (state: NormalizedState<VideoAnalysis> = initialSta
         },
       };
     }
+    case 'SAVE_VIDEO_ANALYSIS_SET_RESULT': {
+      const current = state.byId[action.analysisId];
+      if (!current) {
+        return state;
+      }
+
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.analysisId]: {
+            ...current,
+            setResult: action.setResult,
+          },
+        },
+      };
+    }
     case 'DELETE_VIDEO_ANALYSIS': {
       if (state.byId[action.analysisId] === undefined) {
         return state;

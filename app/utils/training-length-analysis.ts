@@ -4,8 +4,8 @@ import {AccumulationMode} from '../models/AccumulationMode';
 import {Training} from '../models/entities/Training';
 import {TrainingsState} from '../models/TrainingsState';
 import {handleAccumulationModeBatching} from './HandleAccumulationModeBatching';
+import {getTrainingDurationMinutes} from './training-times';
 
-const MILLISECONDS_IN_MINUTE = 1000 * 60;
 const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
 
 export interface CompletedTrainingLength {
@@ -31,12 +31,7 @@ export const getCompletedTrainingDurationMinutes = (training: Training): number 
     return null;
   }
 
-  const durationInMilliseconds = new Date(training.end).getTime() - new Date(training.start).getTime();
-  if (durationInMilliseconds <= 0) {
-    return null;
-  }
-
-  return durationInMilliseconds / MILLISECONDS_IN_MINUTE;
+  return getTrainingDurationMinutes(training.start, training.end);
 };
 
 const toCompletedTrainingLength = (training: Training): CompletedTrainingLength | null => {

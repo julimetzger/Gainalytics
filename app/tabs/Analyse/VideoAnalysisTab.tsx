@@ -19,6 +19,8 @@ import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoRe
 import {calculateAnalysisProgress, getLastAnalysisSecondsPerVideoSecond} from '../../utils/videoAnalysisProgress';
 import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
 import SetSelectionModal from '../../components/video/SetSelectionModal';
+import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
+import {useExercise} from '../../redux/Exercises/use/useExercise';
 
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
@@ -32,6 +34,25 @@ const createThemedStyles = (theme: MD3Theme) =>
 
 // Module-level map so start times survive navigation (component unmount/remount).
 const _analysisStartTimes = new Map<number, number>();
+
+const LinkedSetInfo = ({workoutId, exerciseId, setIndex}: {workoutId: number; exerciseId?: number; setIndex?: number}) => {
+  const workout = useWorkoutById(workoutId);
+  const exercise = useExercise(exerciseId);
+  if (!workout || setIndex === undefined) {
+    return null;
+  }
+  const set = workout.sets.find(s => s.index === setIndex);
+  if (!set) {
+    return null;
+  }
+  const exerciseName = exercise?.name ?? 'Unknown';
+  const label = `${exerciseName} \u2014 ${set.reps} reps \u00d7 ${set.weight} kg @ ${set.rir} RIR`;
+  return (
+    <Text testID={`video-analysis-linked-set-info`} style={{fontSize: 12, marginTop: 2}}>
+      {label}
+    </Text>
+  );
+};
 
 
 const VideoAnalysisTab = () => {
@@ -104,14 +125,7 @@ const VideoAnalysisTab = () => {
           text2: 'Open the analysis detail and choose the correct detected plate.',
           position: 'top',
         });
-      } else if (outcome === 'analysis_started') {
-        Toast.show({
-          type: 'info',
-          text1: 'Analysis started',
-          text2: 'The analysis continues in the background. You can keep using the app.',
-          position: 'top',
-        });
-      } else {
+      } else if (outcome === 'failed_no_candidate') {
         Toast.show({
           type: 'error',
           text1: 'No plate candidate found',
@@ -236,7 +250,7 @@ const VideoAnalysisTab = () => {
           if (analysis.status === VideoAnalysisStatus.PROCESSING && analysisId !== undefined) {
             const startTime = _analysisStartTimes.get(analysisId);
             const elapsed = startTime !== undefined ? Math.max(0, now - startTime) : 0;
-            const estimatedVideoDurationMs = analysis.videoMeta?.durationMs ?? 0;
+            const estimatedVideoDurationMs = analysis.videoMeta?.durationMs || 10_000;
             const estimated = estimateAnalysisTimeMs(estimatedVideoDurationMs, learnedSecondsPerVideoSecond);
             const progress = calculateAnalysisProgress(elapsed, estimated);
             progressBar = (
@@ -253,6 +267,22 @@ const VideoAnalysisTab = () => {
               <Card.Title title={`Analysis #${analysisId}`} subtitle={new Date(analysis.createdAt).toLocaleString()} />
               <Card.Content>
                 <Text testID={`video-analysis-status-${analysisId}`}>Status: {analysis.status}</Text>
+                {analysis.workoutId !== undefined && (
+                  <LinkedSetInfo
+                    workoutId={analysis.workoutId}
+                    exerciseId={analysis.exerciseId}
+                    setIndex={analysis.setIndex}
+                  />
+                )}
+                {analysis.setResult && (
+                  <Text testID={`video-analysis-set-summary-${analysisId}`} style={{fontSize: 12, marginTop: 4}}>
+                    {analysis.setResult.repResults.length} reps
+                    {analysis.setResult.velocityLossPercent !== null ? ` | VL ${analysis.setResult.velocityLossPercent}%` : ''}
+                    {analysis.setResult.rirEstimate ? ` | RIR ${analysis.setResult.rirEstimate}` : ''}
+                    {analysis.setResult.mean_path_deviation != null ? ` | Dev ${(analysis.setResult.mean_path_deviation * 100).toFixed(1)}%` : ''}
+                    {analysis.setResult.path_deviation_slope != null ? ` | Slope ${(analysis.setResult.path_deviation_slope * 100).toFixed(2)}%/rep` : ''}
+                  </Text>
+                )}
                 {progressBar}
                 {analysis.error && <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>}
               </Card.Content>

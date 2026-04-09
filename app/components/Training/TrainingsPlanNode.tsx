@@ -1,6 +1,6 @@
 import {Exercise} from '../../models/entities/Exercise';
 import {LayoutRectangle, ScrollView, View} from 'react-native';
-import MicroOverview from './analyse/MicroOverview';
+import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
 import {TrainingsState} from '../../models/TrainingsState';
 import Timer from './execute/Timer';
@@ -10,6 +10,7 @@ import TrainingsBase from './TrainingsBase';
 import PlanWorkoutInTraining from './plan/PlanTraining';
 import PlanningOverview from './plan/PlanningOverview';
 import ExecuteWorkoutInTraining from './execute/ExecuteTraining';
+import EditTraining from './execute/EditTraining';
 import TrainingsOverview from './analyse/TrainingsOverview';
 import TrainingHistory from './analyse/TrainingHistory';
 import React, {useEffect, useState} from 'react';
@@ -25,6 +26,9 @@ import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
 import {getPreviousMicroInMeso} from '../../redux/Training/trainingsPlanReducer';
+import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
+import {dispatchReplaceExerciseInTraining} from '../../redux/Training/dispatch/general/dispatchReplaceExerciseInTraining';
+import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
 
 interface TrainingsPlanNodeProps {
   trainingsPlan: TrainingsPlan;
@@ -55,7 +59,14 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   let appSettings = useSettings();
   const [showPicker, setShowPicker] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showAlternativesDialog, setShowAlternativesDialog] = useState(false);
   const deleteTraining = dispatchDeleteTraining();
+  const replaceExerciseInTraining = dispatchReplaceExerciseInTraining();
+  const plannedWorkout = useWorkoutById(chosenExercise?.id !== undefined ? training?.plannedWorkouts?.[chosenExercise.id] : undefined);
+  const doneWorkout = useWorkoutById(chosenExercise?.id !== undefined ? training?.doneWorkoutIds?.[chosenExercise.id] : undefined);
+  const alternativeExercises = useExerciseByIds(chosenExercise?.alternativeIds ?? [])
+    .filter((exercise) => exercise !== undefined)
+    .filter((exercise) => exercise.id !== undefined && exercise.id !== chosenExercise?.id && !(training?.exercises ?? []).includes(exercise.id)) as Exercise[];
 
   useEffect(() => {
     if (training?.state === TrainingsState.STARTED) {
@@ -148,12 +159,29 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     setOverview(true);
   }
 
+  function onExerciseDoublePress(exercise: Exercise) {
+    if (training?.state === TrainingsState.FINISHED) {
+      return;
+    }
+    setchosenExercise(exercise.id);
+    setShowAlternativesDialog(true);
+  }
+
+  function onReplaceExercise(alternativeExercise: Exercise) {
+    if (training?.id === undefined || chosenExercise?.id === undefined || alternativeExercise.id === undefined) {
+      return;
+    }
+    replaceExerciseInTraining(training.id, chosenExercise.id, alternativeExercise.id, plannedWorkout, doneWorkout);
+    setchosenExercise(alternativeExercise.id);
+    setShowAlternativesDialog(false);
+  }
+
   return (
     <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
       <ScrollView keyboardShouldPersistTaps={'handled'}>
         <View>
           {showDone ? (
-            <MicroOverview trainingsPlan={trainingsPlan} micro={micro} />
+            <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} />
           ) : (
             <View>
               <View
@@ -207,10 +235,18 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                     chooseExercise={(exercise) => {
                       setchosenExercise(exercise.id);
                     }}
+                    onExerciseDoublePress={onExerciseDoublePress}
                     doneExerciseIds={doneExerciseIds}
                     setAbsolutePosition={(layout) => setIgnoreSwipe([layout])}
                     onTogglePicker={() => setShowPicker(!showPicker)}
                     pickerVisible={showPicker}
+                  />
+                  <ExerciseAlternativesDialog
+                    visible={showAlternativesDialog}
+                    exercise={chosenExercise}
+                    alternatives={alternativeExercises}
+                    onDismiss={() => setShowAlternativesDialog(false)}
+                    onSelect={onReplaceExercise}
                   />
                   <TrainingElementPicker
                     exercise={exercises}
@@ -228,8 +264,11 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                 <PlanWorkoutInTraining training={training} trainingsPlanId={trainingsPlan.id!!} trainingInMicro={trainingInMicro} micro={micro} chosenExercise={chosenExercise!!} />
               )}
               {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro} />}
-              {(training?.state === TrainingsState.STARTED || (training?.state === TrainingsState.FINISHED && isEditing)) && chosenExercise && (
+              {training?.state === TrainingsState.STARTED && chosenExercise && (
                 <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise!!} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} />
+              )}
+              {training?.state === TrainingsState.FINISHED && isEditing && chosenExercise && (
+                <EditTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} />
               )}
               {training?.state === TrainingsState.FINISHED && overview && <TrainingsOverview training={training} previousTraining={lastTraining} />}
               {training?.state === TrainingsState.FINISHED && !overview && <TrainingHistory training={training} />}

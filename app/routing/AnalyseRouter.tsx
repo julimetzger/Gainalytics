@@ -10,8 +10,10 @@ import {IconButton, useTheme} from 'react-native-paper';
 import VideoAnalysisTab from '../tabs/Analyse/VideoAnalysisTab';
 import VideoAnalysisDetailTab from '../tabs/Analyse/VideoAnalysisDetailTab';
 import TrainingLengthTab from '../tabs/Analyse/TrainingLengthTab';
+import DashboardTab from '../tabs/Analyse/DashboardTab';
 
 export type RootStackParamList = {
+  Dashboard: undefined;
   History: {exercise: Exercise; lowerRangeBound: Date | undefined};
   AnalyseHome: {exercise: {name: string}};
   Records: undefined;
@@ -28,12 +30,19 @@ const AnalyseRouter = () => {
 
   return (
     <Stack.Navigator
-      initialRouteName="AnalyseHome"
+      initialRouteName="Dashboard"
       screenOptions={({navigation}) => ({
         headerTintColor: theme.colors.onSecondaryContainer,
         headerLeft: () => <IconButton icon="menu" testID="analyse-drawer-toggle" onPress={() => navigation.toggleDrawer()} />,
       })}
     >
+      <Stack.Screen
+        name="Dashboard"
+        component={DashboardTab}
+        options={() => ({
+          title: 'Dashboard',
+        })}
+      />
       <Stack.Screen
         name="AnalyseHome"
         component={AnalyseGraphics}
