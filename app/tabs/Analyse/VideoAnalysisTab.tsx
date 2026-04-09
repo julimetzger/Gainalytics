@@ -289,15 +289,13 @@ const VideoAnalysisTab = () => {
       >
         Import Video
       </Button>
-      <View style={styles.pickerContainer}>
-        <TrainingElementPicker
-          exercise={filterExercise}
-          setExercise={setFilterExercise}
-          muscle={filterMuscle}
-          setMuscle={setFilterMuscle}
-        />
-      </View>
-      <View style={styles.dateFilterRow}>
+      <TrainingElementPicker
+        exercise={filterExercise}
+        setExercise={setFilterExercise}
+        muscle={filterMuscle}
+        setMuscle={setFilterMuscle}
+      />
+      <View style={styles.datePickerRow}>
         <DateRangePicker range={dateRange} setRange={setDateRange} />
       </View>
       <View style={styles.chipRow}>
@@ -438,16 +436,9 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     marginBottom: 10,
   },
-  pickerContainer: {
-    marginHorizontal: 10,
-    zIndex: 10,
-    elevation: 10,
-  },
-  dateFilterRow: {
-    marginHorizontal: 10,
-    marginTop: 8,
+  datePickerRow: {
+    marginTop: 4,
     marginBottom: 4,
-    zIndex: 1,
   },
   chipRow: {
     flexDirection: 'row',
