@@ -53,6 +53,11 @@ jest.mock('react-native-paper', () => {
       </TouchableOpacity>
     ),
     Card: ({children}: any) => <View>{children}</View>,
+    Chip: ({children, onPress, testID}: any) => (
+      <TouchableOpacity testID={testID} onPress={onPress}>
+        <Text>{children}</Text>
+      </TouchableOpacity>
+    ),
     Dialog,
     Portal: ({children}: any) => <View>{children}</View>,
     IconButton: ({onPress, testID}: any) => (

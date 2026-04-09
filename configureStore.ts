@@ -58,6 +58,25 @@ const migrations = {
       },
     };
   },
+  5: (state) => {
+    const byId = {...(state.trainingsPlan?.byId ?? {})};
+    Object.keys(byId).forEach((id) => {
+      const plan = byId[id];
+      if (!plan.mesos || plan.mesos.length === 0) {
+        byId[id] = {
+          ...plan,
+          mesos: [{id: 1, name: 'Meso 1', order: 1, startMicro: 1}],
+        };
+      }
+    });
+    return {
+      ...state,
+      trainingsPlan: {
+        ...(state.trainingsPlan ?? {byId: {}, allIds: []}),
+        byId,
+      },
+    };
+  },
 };
 
 const storage = new MMKV();
@@ -81,7 +100,7 @@ const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseI
 
 const persistConfig = {
   key: 'root',
-  version: 4,
+  version: 5,
   storage: reduxStorage,
   whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'settings'],
   stateReconciler: hardSet,

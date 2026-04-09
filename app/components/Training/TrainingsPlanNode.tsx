@@ -25,6 +25,7 @@ import {PauseDoneNotification} from './execute/PauseDoneNotification';
 import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
+import {getPreviousMicroInMeso} from '../../redux/Training/trainingsPlanReducer';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
 import {dispatchReplaceExerciseInTraining} from '../../redux/Training/dispatch/general/dispatchReplaceExerciseInTraining';
 import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
@@ -42,7 +43,8 @@ interface TrainingsPlanNodeProps {
 
 const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, overview, setOverview, setIgnoreSwipe}: TrainingsPlanNodeProps) => {
   const training = useTrainingInTrainingsPlan(trainingsPlan.id!!, micro, trainingInMicro);
-  const lastTraining = useTrainingInTrainingsPlan(trainingsPlan.id!!, micro - 1, trainingInMicro);
+  const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
+  const lastTraining = useTrainingInTrainingsPlan(trainingsPlan.id!!, previousMicro ?? -1, trainingInMicro);
   const startTraining = dispatchStartTraining(training?.id);
   const [timeInWorkout, setTimeInWorkout] = useState(new Date(Date.now()));
   const [refresHeky, setRefresHeky] = useState(Math.random());

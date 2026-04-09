@@ -64,13 +64,14 @@ describe('training suggestion dispatchers', () => {
     });
     mockedUseWorkoutsByIds.mockReturnValue([sourceWorkout]);
 
-    const suggestTraining = dispatchSuggestBasedOnPlanned(4, 2, {
+    const suggestTraining = dispatchSuggestBasedOnPlanned(4, 2, 3, {
       rirDelta: 1,
       weightIncreasePercent: 5,
     });
 
     suggestTraining?.(4, 3, 2);
 
+    expect(mockedUseLastTrainingInMicro).toHaveBeenCalledWith(4, 2, 3);
     expect(mockDispatch).toHaveBeenCalledTimes(1);
     expect(mockDispatch).toHaveBeenCalledWith({
       type: 'SUGGEST_TRAINING',
@@ -109,13 +110,14 @@ describe('training suggestion dispatchers', () => {
     });
     mockedUseWorkoutsByIds.mockReturnValue([sourceWorkout]);
 
-    const suggestTraining = dispatchSuggestBasedOnTrained(4, 2, {
+    const suggestTraining = dispatchSuggestBasedOnTrained(4, 2, 3, {
       rirDelta: 1,
       weightIncreasePercent: 5,
     });
 
     suggestTraining?.(4, 3, 2);
 
+    expect(mockedUseLastTrainingInMicro).toHaveBeenCalledWith(4, 2, 3);
     expect(mockDispatch).toHaveBeenCalledTimes(1);
     expect(mockDispatch).toHaveBeenCalledWith({
       type: 'SUGGEST_TRAINING',

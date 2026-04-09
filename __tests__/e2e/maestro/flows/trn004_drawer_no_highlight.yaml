@@ -1,0 +1,137 @@
+appId: com.powerliftingworkoutplanner
+---
+# TRN-004 round-2: verify meso filter (navigation bounded to current meso) + no drawer highlight
+# Self-contained: creates plan + mesos fresh, then tests the round-2 fixes.
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 30000
+
+- assertVisible:
+    id: "training-home-screen"
+
+# Create "TRN004 Test Plan"
+- tapOn:
+    id: "add-trainings-plan"
+
+- extendedWaitUntil:
+    visible: "Add new Training Plan"
+    timeout: 10000
+
+- tapOn:
+    id: "plan-name-input"
+- inputText: "TRN004 Test Plan"
+
+- pressKey: back
+- tapOn:
+    id: "confirm-trainings-plan"
+
+- extendedWaitUntil:
+    visible: "TRN004 Test Plan"
+    timeout: 30000
+
+# AC5: Meso 1 chip is visible on the plan card in TrainingHome
+- assertVisible:
+    text: "Meso 1"
+
+# Navigate into the plan via the Meso 1 chip (AC7)
+- tapOn:
+    text: "Meso 1"
+
+- extendedWaitUntil:
+    visible:
+      id: "icon-menu"
+    timeout: 30000
+
+# AC8: Header shows Meso 1 (wait for header to settle after navigation)
+- extendedWaitUntil:
+    visible:
+      id: "header-plan-meso-name"
+      text: ".*Meso 1.*"
+    timeout: 10000
+
+# AC9: Local micro starts at 1
+- extendedWaitUntil:
+    visible:
+      text: "Micro 1"
+    timeout: 5000
+
+# Open drawer and add Meso 2
+- tapOn:
+    id: "icon-menu"
+
+- assertVisible:
+    text: "Mesos:"
+
+# Drawer shows Meso 1 with no highlight
+- assertVisible:
+    id: "drawer-meso-name-1"
+
+- tapOn:
+    id: "icon-plus-circle"
+
+- extendedWaitUntil:
+    visible:
+      id: "drawer-meso-name-2"
+    timeout: 5000
+
+# ROUND-2 FILTER: Tap Meso 2 in drawer — lockedMeso must update, header must switch
+- tapOn:
+    id: "drawer-meso-name-2"
+
+# Drawer closes on meso tap; wait for drawer-close signal (icon-menu still visible)
+- extendedWaitUntil:
+    visible:
+      id: "icon-menu"
+    timeout: 15000
+
+# FILTER assertion: header now shows Meso 2
+- extendedWaitUntil:
+    visible:
+      id: "header-plan-meso-name"
+      text: ".*Meso 2.*"
+    timeout: 10000
+
+# FILTER assertion: local micro resets to 1 inside Meso 2
+- extendedWaitUntil:
+    visible:
+      text: "Micro 1"
+    timeout: 5000
+
+# Open drawer again to verify no highlight crash and both mesos accessible
+- tapOn:
+    id: "icon-menu"
+
+- assertVisible:
+    text: "Mesos:"
+
+# DRAWER NO-HIGHLIGHT: both mesos are in the drawer (verifies drawer renders without crash)
+- assertVisible:
+    id: "drawer-meso-name-1"
+
+- assertVisible:
+    id: "drawer-meso-name-2"
+
+# Switch back to Meso 1 via drawer (verifies lockedMeso update works bidirectionally)
+- tapOn:
+    id: "drawer-meso-name-1"
+
+- extendedWaitUntil:
+    visible:
+      id: "icon-menu"
+    timeout: 15000
+
+# FILTER: back in Meso 1 — header shows Meso 1 and local Micro 1
+- extendedWaitUntil:
+    visible:
+      id: "header-plan-meso-name"
+      text: ".*Meso 1.*"
+    timeout: 10000
+
+- extendedWaitUntil:
+    visible:
+      text: "Micro 1"
+    timeout: 5000

@@ -26,8 +26,8 @@ const TrainingsBase = ({trainingsPlan, trainingInMicro, micro}: TrainingsBasePro
     [rirDeltaInput, weightIncreasePercentInput],
   );
 
-  let suggestBasedOnTrained = dispatchSuggestBasedOnTrained(trainingsPlanId, trainingInMicro, progressionProfile);
-  let suggestBasedOnPlanned = dispatchSuggestBasedOnPlanned(trainingsPlanId, trainingInMicro, progressionProfile);
+  let suggestBasedOnTrained = dispatchSuggestBasedOnTrained(trainingsPlanId, trainingInMicro, micro, progressionProfile);
+  let suggestBasedOnPlanned = dispatchSuggestBasedOnPlanned(trainingsPlanId, trainingInMicro, micro, progressionProfile);
 
   const handleRirDeltaChange = useCallback((value: string) => {
     setRirDeltaInput(ensureFormat(value));

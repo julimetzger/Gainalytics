@@ -9,6 +9,8 @@ import {calculateMetricComparisons} from '../../../utils/AnalyseUtils';
 import {sum} from 'lodash';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {Workout} from '../../../models/entities/Workout';
+import {Metric} from '../../../models/Metric';
+import {getPreviousMicroInMeso} from '../../../redux/Training/trainingsPlanReducer';
 import {Metric} from "../../../models/Metric";
 import VelocityLossInsightCard from '../VelocityLossInsightCard';
 import {useVelocityLossInsights} from '../useVelocityLossInsights';
@@ -19,9 +21,10 @@ interface TrainingsBaseProps {
 }
 
 const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
+  const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
   const vlInsights = useVelocityLossInsights(trainingsPlan, micro);
   let trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
-  let previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro - 1);
+  let previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, previousMicro ?? -1);
   let totalTimeTraining = new Date(sum(trainings.map((training) => (training.end && training.start ? new Date(training.end!!).getTime() - new Date(training.start!!).getTime() : 0))));
   let totalTimePreviousTraining =
     previousTrainings?.length > 0

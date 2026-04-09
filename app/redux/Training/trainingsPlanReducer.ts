@@ -1,6 +1,6 @@
 import {NormalizedState} from '../normalizedState';
 import {AnyAction} from '@reduxjs/toolkit';
-import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
+import {Meso, TrainingsPlan} from '../../models/entities/TrainingsPlan';
 
 const initialState = {
   byId: {},
@@ -19,17 +19,53 @@ export function getMicroFromTrainingInMicroIndex(trainingInMicroIndex: string) {
   return parseInt(trainingInMicroIndex.split(',')[0]);
 }
 
+function createDefaultMeso(): Meso {
+  return {
+    id: 1,
+    name: 'Meso 1',
+    order: 1,
+    startMicro: 1,
+  };
+}
+
+export function getSortedMesos(mesos: Meso[] | undefined): Meso[] {
+  const persistedMesos = mesos && mesos.length > 0 ? mesos : [createDefaultMeso()];
+  return [...persistedMesos].sort((a, b) => a.order - b.order);
+}
+
+function getTrainingsWithMicro(
+  trainings: {
+    [microComaTrainingInMicro: string]: number;
+  },
+  trainingsNumber: number,
+) {
+  return Object.entries(trainings ?? {})
+    .filter(([key]) => getTrainingFromTrainingInMicroIndex(key) === trainingsNumber)
+    .map(([key, value]) => [getMicroFromTrainingInMicroIndex(key), value] as [number, number])
+    .sort((a, b) => a[0] - b[0]);
+}
+
 export function getAllTrainingsForTraining(
   trainings: {
     [microComaTrainingInMicro: string]: number;
   },
   trainingsNumber: number,
 ) {
-  let numbers = Object.entries(trainings)
-    .filter(([key, value]) => key.endsWith(',' + trainingsNumber))
-    .map(([key, value]) => [parseInt(key.split(',')[0]), value] as [number, number])
-    .sort((a, b) => a[0] - b[0]);
-  return numbers.map(([key, value]) => value);
+  return getTrainingsWithMicro(trainings, trainingsNumber).map(([key, value]) => value);
+}
+
+export function getPreviousTrainingsForTrainingInMeso(
+  trainings: {
+    [microComaTrainingInMicro: string]: number;
+  },
+  trainingsNumber: number,
+  currentMicro: number,
+  mesos: Meso[] | undefined,
+) {
+  const currentMeso = getMesoForMicro(mesos, currentMicro);
+  return getTrainingsWithMicro(trainings, trainingsNumber)
+    .filter(([micro]) => micro < currentMicro && (!currentMeso || micro >= currentMeso.startMicro))
+    .map(([key, value]) => value);
 }
 
 export function getAllTrainingsForMicro(
@@ -38,11 +74,63 @@ export function getAllTrainingsForMicro(
   },
   microNumber: number,
 ) {
-  return Object.entries(trainings)
-    .filter(([key, value]) => key.startsWith(microNumber.toString()))
-    .map(([key, value]) => [parseInt(key.split(',')[0]), value] as [number, number])
+  return Object.entries(trainings ?? {})
+    .filter(([key]) => getMicroFromTrainingInMicroIndex(key) === microNumber)
+    .map(([key, value]) => [getMicroFromTrainingInMicroIndex(key), value] as [number, number])
     .sort((a, b) => a[0] - b[0])
     .map(([key, value]) => value);
+}
+
+/** Returns the Meso that contains the given global micro number. */
+export function getMesoForMicro(mesos: Meso[] | undefined, globalMicro: number): Meso | undefined {
+  const sorted = getSortedMesos(mesos);
+  let result: Meso | undefined;
+  for (const meso of sorted) {
+    if (meso.startMicro <= globalMicro) result = meso;
+    else break;
+  }
+  return result;
+}
+
+/** Returns the local micro number within a Meso (starts at 1). */
+export function getLocalMicro(mesos: Meso[] | undefined, globalMicro: number): number {
+  const meso = getMesoForMicro(mesos, globalMicro);
+  if (!meso) return globalMicro;
+  return globalMicro - meso.startMicro + 1;
+}
+
+/** Returns the last global micro that belongs to the given Meso, or undefined if it is the last Meso (unbounded). */
+export function getMesoEndMicro(mesos: Meso[] | undefined, meso: Meso | undefined): number | undefined {
+  if (!meso) return undefined;
+  const sorted = getSortedMesos(mesos);
+  const currentIdx = sorted.findIndex((m) => m.id === meso.id);
+  if (currentIdx === -1 || currentIdx === sorted.length - 1) return undefined;
+  return sorted[currentIdx + 1].startMicro - 1;
+}
+
+export function getPreviousMicroInMeso(mesos: Meso[] | undefined, globalMicro: number): number | undefined {
+  const previousMicro = globalMicro - 1;
+  const currentMeso = getMesoForMicro(mesos, globalMicro);
+  if (previousMicro < 1) return undefined;
+  if (!currentMeso) return previousMicro;
+  return previousMicro >= currentMeso.startMicro ? previousMicro : undefined;
+}
+
+export function clampMicroToMeso(mesos: Meso[] | undefined, meso: Meso | undefined, globalMicro: number): number {
+  if (!meso) return globalMicro;
+  const mesoEndMicro = getMesoEndMicro(mesos, meso);
+  const lowerBoundedMicro = Math.max(globalMicro, meso.startMicro);
+  if (mesoEndMicro === undefined) return lowerBoundedMicro;
+  return Math.min(lowerBoundedMicro, mesoEndMicro);
+}
+
+/** Computes the startMicro for a new Meso to be appended after all existing mesos/micros. */
+export function computeNextMesoStartMicro(trainingsPlan: TrainingsPlan): number {
+  const existingGlobalMicros = Object.keys(trainingsPlan.trainings).map((key) => parseInt(key.split(',')[0]));
+  const maxGlobalMicro = existingGlobalMicros.length > 0 ? Math.max(...existingGlobalMicros) : 0;
+  const existingMesos = getSortedMesos(trainingsPlan.mesos);
+  const maxStartMicro = existingMesos.length > 0 ? Math.max(...existingMesos.map((m) => m.startMicro)) : 0;
+  return Math.max(maxGlobalMicro, maxStartMicro) + 1;
 }
 
 function determineNewId(trainingsPlanState: NormalizedState<TrainingsPlan>) {
@@ -59,7 +147,12 @@ const trainingsPlanReducer = (state: NormalizedState<TrainingsPlan> = initialSta
         ...state,
         byId: {
           ...state.byId,
-          [newId]: {...action.trainingsPlan, id: newId, trainings: {}},
+          [newId]: {
+            ...action.trainingsPlan,
+            id: newId,
+            trainings: {},
+            mesos: [createDefaultMeso()],
+          },
         },
         allIds: [...state.allIds, newId],
       };
@@ -129,6 +222,56 @@ const trainingsPlanReducer = (state: NormalizedState<TrainingsPlan> = initialSta
           [action.trainingsPlanId]: {
             ...trainingsPlan,
             trainings,
+          },
+        },
+      };
+    }
+    case 'ADD_MESO': {
+      if (!trainingsPlan) return state;
+      const existingMesos = getSortedMesos(trainingsPlan.mesos);
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.trainingsPlanId]: {
+            ...trainingsPlan,
+            mesos: [...existingMesos, action.meso],
+          },
+        },
+      };
+    }
+    case 'EDIT_MESO': {
+      if (!trainingsPlan) return state;
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.trainingsPlanId]: {
+            ...trainingsPlan,
+            mesos: getSortedMesos(trainingsPlan.mesos).map((m) => (m.id === action.mesoId ? {...m, name: action.name} : m)),
+          },
+        },
+      };
+    }
+    case 'DELETE_MESO': {
+      if (!trainingsPlan) return state;
+      const existingMesos = getSortedMesos(trainingsPlan.mesos);
+      if (existingMesos.length === 1) return state;
+      const mesoIndex = existingMesos.findIndex((meso) => meso.id === action.mesoId);
+      if (mesoIndex === -1) return state;
+      const deletedMeso = existingMesos[mesoIndex];
+      const nextMeso = existingMesos[mesoIndex + 1];
+      // Preserve the invariant that every micro belongs to exactly one meso.
+      const updatedMesos = existingMesos
+        .filter((meso) => meso.id !== action.mesoId)
+        .map((meso) => (nextMeso && meso.id === nextMeso.id ? {...meso, startMicro: deletedMeso.startMicro} : meso));
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.trainingsPlanId]: {
+            ...trainingsPlan,
+            mesos: updatedMesos,
           },
         },
       };
