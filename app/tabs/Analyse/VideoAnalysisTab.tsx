@@ -1,8 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {Platform, ScrollView, StyleSheet, View} from 'react-native';
+import {ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Card, Chip, MD3Theme, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
-import RNFS from 'react-native-fs';
 import Toast from 'react-native-toast-message';
 import {useNavigation} from '@react-navigation/native';
 import {dispatchAddVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchAddVideoAnalysis';
@@ -15,7 +14,7 @@ import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnal
 import {VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import VideoAnalysisProgressBar from '../../components/video/VideoAnalysisProgressBar';
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
-import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoReadPermission} from '../../utils/video-analysis-import';
+import {importVideoAnalysisFromSource} from '../../utils/video-analysis-import';
 import {calculateAnalysisProgress, getLastAnalysisSecondsPerVideoSecond} from '../../utils/videoAnalysisProgress';
 import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
 import SetSelectionModal from '../../components/video/SetSelectionModal';
@@ -262,37 +261,6 @@ const VideoAnalysisTab = () => {
     }
   };
 
-  const importEmulatorSquatVideo = async () => {
-    try {
-      setImporting(true);
-      const hasPermission = await requestVideoReadPermission();
-      if (!hasPermission) {
-        Toast.show({
-          type: 'error',
-          text1: 'Permission required',
-          text2: 'Storage permission is required to import the emulator video.',
-          position: 'top',
-        });
-        return;
-      }
-
-      const exists = await RNFS.exists(EMULATOR_SQUAT_VIDEO_PATH);
-      if (!exists) {
-        Toast.show({
-          type: 'error',
-          text1: 'Sample video missing',
-          text2: EMULATOR_SQUAT_VIDEO_PATH,
-          position: 'top',
-        });
-        return;
-      }
-
-      await importFromSource(EMULATOR_SQUAT_VIDEO_PATH);
-    } finally {
-      setImporting(false);
-    }
-  };
-
   const onDelete = async (analysisId?: number, resultPath?: string, localVideoPath?: string) => {
     if (analysisId === undefined) {
       return;
@@ -321,25 +289,14 @@ const VideoAnalysisTab = () => {
       >
         Import Video
       </Button>
-      {Platform.OS === 'android' && (
-        <Button
-          testID="video-analysis-import-emulator-button"
-          mode="outlined"
-          onPress={importEmulatorSquatVideo}
-          disabled={importing}
-          style={styles.importButton}
-        >
-          Import Emulator Squat Video
-        </Button>
-      )}
-      <TrainingElementPicker
-        exercise={filterExercise}
-        setExercise={setFilterExercise}
-        muscle={filterMuscle}
-        setMuscle={setFilterMuscle}
-        dropdownLabel="Filter by Exercise or Muscle"
-        hideChip={false}
-      />
+      <View style={styles.pickerContainer}>
+        <TrainingElementPicker
+          exercise={filterExercise}
+          setExercise={setFilterExercise}
+          muscle={filterMuscle}
+          setMuscle={setFilterMuscle}
+        />
+      </View>
       <View style={styles.dateFilterRow}>
         <DateRangePicker range={dateRange} setRange={setDateRange} />
       </View>
@@ -479,9 +436,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     marginBottom: 10,
   },
+  pickerContainer: {
+    marginHorizontal: 10,
+    zIndex: 10,
+    elevation: 10,
+  },
   dateFilterRow: {
     marginHorizontal: 10,
+    marginTop: 8,
     marginBottom: 4,
+    zIndex: 1,
   },
   chipRow: {
     flexDirection: 'row',
