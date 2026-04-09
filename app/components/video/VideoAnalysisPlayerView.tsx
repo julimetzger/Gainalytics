@@ -33,6 +33,7 @@ interface VideoAnalysisPlayerViewProps extends ViewProps {
   source: string;
   paused: boolean;
   seekPositionMs?: number;
+  playbackSpeed?: number;
   barPathSeries?: VideoBarPathPoint[];
   repSegments?: VideoRepSegment[];
   currentRepIndex?: number;

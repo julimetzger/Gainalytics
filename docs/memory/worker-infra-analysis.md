@@ -28,6 +28,7 @@ Last updated: 2026-04-02 (ANA-004-fix2)
 | MNT-002 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
 | EXC-001-fix | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | ready_for_review |
 | GH-46-fix2 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | ready_for_review |
+| GH-82 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 15 | 2 | ready_for_review (r2: adb server unavailable during fix round, unit tests primary evidence) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
@@ -108,6 +109,8 @@ The following infra patterns are already documented in `docs/memory/agent-memory
    and agent-memory.md, agents still try to figure out the networking setup
    from scratch. The feature SKILL.md should include a concrete "Emulator
    Preflight Checklist" with exact commands.
+
+7. **Physical device PIN lock blocks all adb screencap and Maestro operations.** Samsung devices lock after inactivity; screencap returns 0 bytes, Maestro flows fail before reaching the app. No automated unlock path exists without knowing the PIN. Orchestrator should either keep the device awake (`adb shell svc power stayon true`) or have a known PIN for dev devices.
 
 6. **Windows adb server may not be running in fix/review rounds.** The orchestrator
    starts the socat proxy but does not ensure the Windows adb server is running.

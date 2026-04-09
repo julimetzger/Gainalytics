@@ -1,0 +1,21 @@
+appId: com.powerliftingworkoutplanner
+---
+# Verify VL Insight Cards on Push pull Micro 1 Overview screen
+# Prerequisite: app is showing the Micro Overview with VL cards
+# (achieved via: Training Home → Push pull → hamburger menu → Overview)
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "% VL"
+    timeout: 15000
+- takeScreenshot: vl_insight_cards_visible
+# Assert VL card content is present
+- assertVisible:
+    text: "% VL"
+- assertVisible:
+    text: "RIR"
+- assertVisible:
+    text: "Bankdrücken"
+- assertVisible:
+    text: "Squat"
+- takeScreenshot: vl_cards_full_assert
