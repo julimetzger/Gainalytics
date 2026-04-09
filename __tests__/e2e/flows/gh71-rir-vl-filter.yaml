@@ -1,0 +1,73 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-71: VideoAnalysis filters – layout + RIR/VL chips
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 60000
+
+- tapOn: "tab-analyse"
+
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 10000
+
+# Open the Analyse drawer
+- tapOn:
+    id: "analyse-drawer-toggle"
+
+- extendedWaitUntil:
+    visible:
+      text: "Video Analyses"
+    timeout: 5000
+
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+
+- tapOn: "Video Analyses"
+
+- extendedWaitUntil:
+    visible: "Import Video"
+    timeout: 10000
+
+# AC: DateRangePicker is always visible – assert "0 selected" picker and the VL row
+# (Date range text format varies by locale/date so we skip exact date assertion)
+- assertVisible:
+    text: "0 selected"
+
+# AC: VL% chips visible
+- assertVisible:
+    text: "VL%"
+
+- assertVisible:
+    text: "<10%"
+
+- assertVisible:
+    text: ">30%"
+
+# AC: RIR chips visible
+- assertVisible:
+    text: "RIR"
+
+- assertVisible:
+    text: "0-1"
+
+- assertVisible:
+    text: "4+"
+
+# AC: Default state – empty message visible (no analyses imported)
+- assertVisible:
+    text: "No video analyses yet. Import your first training video."
+
+# AC: Tapping VL% chip still shows the same empty-state message (no false "match" message)
+- tapOn: "<10%"
+
+- assertVisible:
+    text: "No video analyses yet. Import your first training video."
+
+# Deselect
+- tapOn: "<10%"
