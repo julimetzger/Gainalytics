@@ -762,3 +762,220 @@ if (createdAt < dateRange.startDate.getTime() || createdAt > endOfDay.getTime())
 ```
 
 Apply when: any filter that accepts a calendar end-date and compares against a full-precision timestamp.
+### 43. Tab-navigator keeps component mounted — lazy useState won't re-run on prop update
+
+Problem:
+- `VideoAnalysisPlaybackOverlayCard` override states were seeded with lazy `useState(() => savedSetResult?.repResults?.[0]?.turnaroundMs ?? null)`.
+- In a tab-navigator, the screen stays mounted across tab switches. When the user saves and Redux updates `savedSetResult`, the component re-renders but lazy initializers don't re-run.
+- Result: override states remain at `null`; user sees original positions instead of saved ones.
+
+Working solution:
+- Add a one-shot `useEffect` guarded by a `useRef` flag:
+  ```tsx
+  const savedOverridesApplied = useRef(!!savedSetResult?.repResults?.length);
+  useEffect(() => {
+    const rr = savedSetResult?.repResults;
+    if (!savedOverridesApplied.current && rr?.length) {
+      savedOverridesApplied.current = true;
+      setFirstRepTurnaroundOverrideMs(rr[0].turnaroundMs);
+      // ... other overrides
+    }
+  }, [savedSetResult]);
+  ```
+- Lazy initializers still handle the mount-time case; the effect handles late-arrival.
+
+Apply when: a component with lazy useState initializers is inside a tab-navigator and its initializing prop can arrive after mount.
+
+### 44. Android emulator Metro: connects to 10.0.2.2:8081, not 127.0.0.1 — adb reverse is insufficient
+
+Problem:
+- `adb reverse tcp:8081 tcp:8087` maps emulator's `127.0.0.1:8081` → Windows:8087.
+- But the emulator connects to `10.0.2.2:8081` (special AVD loopback for host machine), which bypasses the adb reverse tunnel entirely.
+- `logcat` shows: `Couldn't connect to "ws://10.0.2.2:8081/message"`.
+
+Working solution:
+- Start a socat bridge on WSL: `socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:8087`.
+- WSL2 auto-forwarding then makes Windows `localhost:8081` reach WSL `socat` → Metro:8087.
+- Chain: emulator `10.0.2.2:8081` → Windows localhost:8081 → WSL2 auto-forward → WSL:8081 → socat → WSL:8087 → Metro.
+- Verify: `curl http://127.0.0.1:8081/status` from WSL should return `packager-status:running`.
+
+Apply when: a new APK is installed on an AVD emulator (emulator-5556) and shows "Unable to load script" or "Loading from 10.0.2.2:8081" but never completes.
+
+### 45. Maestro driver port blocked by stale Java process — kill and retry
+
+Problem:
+- Maestro `TcpForwarder` fails with `closed` or `TimeoutException` on the assigned driver port even after force-stopping the Maestro Android agent.
+- The host-side Java listener from a previous Maestro session can still hold the port.
+
+Symptoms:
+- `Command failed (tcp:7037): closed` immediately after `Waiting for flows to complete...`
+- `TcpForwarder.waitFor` TimeoutException, same port
+
+Working solution:
+- Run `ss -tlnp | grep <driver-port>` to find the stale Java PID.
+- Kill it: `kill -9 <PID>`.
+- Force-stop Maestro on device: `adb -s $SERIAL shell am force-stop dev.mobile.maestro.android`.
+- Wait 5-10s cooldown before retrying Maestro.
+
+Apply when: Maestro driver port error appears even though no other worker is currently running on the same port.
+### 43. Physical device Samsung PIN lock: screencap returns 0 bytes, Maestro blocked
+
+Problem:
+- On physical Samsung device R5CN30HWZFN, `adb exec-out screencap -p` produces a 0-byte file when the device is locked with a PIN (even if `mWakefulness=Awake`).
+- `uiautomator dump` shows the PIN input screen, not the app UI.
+- Maestro `launchApp` cannot bypass the PIN lock; flows fail with "Training is not visible".
+- Samsung "Accidental Touch Protection" overlay may appear on top of the PIN screen — swipe up from the arrow icon (~y=1022) to dismiss it first.
+
+Working approach:
+- Get UIAutomator dump to identify PIN digit button coordinates, then tap each digit.
+- Common dev PINs 1234, 0000, 1111 may not work; stop after 3 attempts to avoid lockout.
+- If PIN is unknown, mark ticket as `blocked` with clear instructions for manual device unlock.
+
+Apply when: device PIN is locked unexpectedly mid-session on the physical Samsung device; screencap returns 0 bytes.
+### 43. Redux persist + component state: saved data won't restore if not read on mount
+
+Problem:
+- Redux persist + MMKV correctly stores `setResult` in `videoAnalyses`, but `VideoAnalysisPlaybackOverlayCard` initialised override states to `null` unconditionally, ignoring `savedSetResult` prop.
+
+Symptoms:
+- Calibration markers jumped back to raw analysis defaults after tab switch or app restart.
+- Save button wrote correct values to Redux, but component never read them back.
+
+Working solution:
+- Use lazy `useState` initializers: `useState(() => savedSetResult?.repResults?.[0]?.turnaroundMs ?? null)`.
+- Always check: "does the component read persisted data on mount, or only on initial import?"
+
+Apply when: a component receives a prop from Redux with saved overrides but its local state may shadow those overrides.
+
+### 44. Hold-to-repeat on TouchableOpacity: onLongPress + setInterval + onPressOut
+
+Problem:
+- `onLongPress` fires once; there is no built-in repeat on TouchableOpacity in React Native.
+
+Working solution:
+- On `onLongPress`: call the setter once, then start `repeatIntervalRef.current = setInterval(...)` with a fast interval (e.g. 150ms).
+- On `onPressOut`: call `clearInterval(repeatIntervalRef.current)` and null the ref.
+- Use functional state update inside the interval (`prev =>`) so each tick uses the latest committed value, not a stale closure.
+- Add cleanup `useEffect(() => () => clearInterval(repeatIntervalRef.current), [])` for unmount safety.
+- Share one ref across all buttons (only one can be held at a time).
+
+Apply when: buttons need a "hold to scrub/increment" UX.
+
+### 45. Maestro cannot assert formatted numeric text inside nested Views
+
+Problem:
+- `% VL` text (e.g. "26.7% VL") rendered inside a `<Text>` component nested in `<View>` hierarchy is not exposed in the Android accessibility tree.
+- Maestro `assertVisible: text: "% VL"` fails even when the text is visually present on screen.
+
+Working solution:
+- Use `testID` props on `Text` elements and assert via `id:` in Maestro for reliable E2E assertions.
+- Alternatively, accept screenshots as primary E2E evidence when the text is clearly visible but not accessible.
+- Do not waste time retrying Maestro text assertions for formatted numeric strings — check accessibility exposure first via `adb shell uiautomator dump`.
+
+Apply when: Maestro fails to find text that is visually present; especially for numeric/formatted text in custom components.
+
+### 46. Redux-persist: imported fixture clears on restart if version mismatch
+
+Problem:
+- A fixture with `_persist: {version: 2}` imported via FULL_IMPORT will trigger redux-persist migrations on next cold start.
+- Migrations 3+4 clear `videoAnalyses` (byId, allIds). After force-stop + restart, VL cards disappear.
+
+Working solution:
+- Set `_persist.version` to match the current persist config version (version 4 in configureStore.ts) so no migrations run.
+- Or: import fixture while app is running, take screenshots immediately, do NOT force-stop before capturing evidence.
+
+Apply when: imported fixture data disappears after app restart/force-stop.
+
+### 47. Maestro navigation: clickable node ≠ text node (leading space issue)
+
+Problem:
+- Training plan cards in the list have `text=""` on the clickable parent, while the visible plan name " Push pull" (with leading space) is a non-interactive child Text node.
+- Maestro `tapOn: text: "Push pull"` fails — it finds the text node but it is not tappable.
+
+Working solution:
+- Use coordinate-based tap (`tapOn: point: "x%,y%"`) or `tapOn: id: "..."` with testID for reliable navigation.
+- Avoid text-based taps for list items where the clickable wrapper and text node are separate.
+
+Apply when: Maestro `tapOn: text:` fails on list items that are visually tappable.
+
+### 48. Windows Maestro blocked by QEMU IPv6 port 7001 — use --driver-host-port
+
+**Problem:** Running Maestro from Windows cmd.exe (needed when WSL ADB is broken) fails with `TcpForwarder.waitFor` TimeoutException. Root cause: QEMU (Android emulator process) holds `[::]:7001` (IPv6 Bound state), blocking `new ServerSocket(7001)` in the Maestro dadb library.
+
+**Symptoms:**
+- `TcpForwarder.waitFor` TimeoutException at `AndroidDriver.allocateForwarder`
+- Port 7001 shows as `Address already in use` even when `netstat` shows `127.0.0.1:7001` as free
+- `Get-NetTCPConnection -LocalPort 7001` reveals `:: 7001 Bound` owned by `qemu-system-x86_64`
+
+**Working solution:**
+```bash
+cmd.exe /c "maestro.bat --driver-host-port=7002 test flow.yaml"
+```
+Use any free port not held by QEMU. Check with: `Get-NetTCPConnection -LocalPort <port>`.
+
+**Apply when:** Running Maestro from Windows cmd.exe on a machine with Android emulators running.
+
+### 49. WSL ADB breaks after Windows ADB server restart — use 127.0.0.1 but expect device-list failure
+
+**Problem:** After killing/restarting the Windows ADB server, `ADB_SERVER_SOCKET=tcp:172.18.240.1:5037` stops working (Windows Firewall blocks new WSL→Windows connections on that IP). The ADB server restarts bound to `127.0.0.1:5037` only.
+
+**Symptoms:** `Connection refused` at `172.18.240.1:5037`. WSL `nc 127.0.0.1 5037` succeeds but WSL ADB (v36) gets "protocol fault" with Windows ADB (v30.0.5) — version mismatch.
+
+**Working solution:** Run Maestro from Windows cmd.exe via `cmd.exe /c "maestro.bat ..."` — this uses the Windows ADB server directly. Add `--driver-host-port=7002` to avoid QEMU port conflict (entry #48).
+
+**Apply when:** Working after an ADB server restart mid-session. Do NOT try to restore `172.18.240.1:5037` — the firewall blocks it on reconnect.
+
+### 50. Maestro screenshot "Access denied" when flow path is Windows temp from WSL UNC
+
+**Problem:** Running `cmd.exe /c "maestro.bat test C:\...\flow.yaml"` from WSL — cmd.exe starts in `C:\Windows\` (UNC path not supported). Relative `takeScreenshot: "name"` paths resolve to `C:\Windows\name.png` → access denied.
+
+**Working solution:** Use absolute Windows paths in takeScreenshot:
+```yaml
+- takeScreenshot: "C:\\Users\\username\\AppData\\Local\\Temp\\screenshot_name"
+```
+
+**Apply when:** Running Maestro via cmd.exe from WSL — always use absolute Windows paths for screenshots.
+
+### 51. ADB_SERVER_SOCKET environment pollution blocks device access in feedback rounds
+
+**Problem:** The orchestrator sets `ADB_SERVER_SOCKET=tcp:172.18.240.1:5037` in the worker environment, but the Windows ADB server is not always reachable across WSL sessions (e.g. after session restarts or when the Windows-side ADB daemon is not running). All `adb` calls fail with "Connection refused" even though a local Linux adb server is running on `127.0.0.1:5037`.
+
+**Symptoms:** `adb devices` returns error. `ss -tlnp | grep 5037` shows a listening Linux adb at `127.0.0.1:5037` with no attached devices. `nc 172.18.240.1 5037` fails.
+
+**Working solution:** Use pre-collected ADB evidence from the previous round when the device was reachable. For new runs, override with `ADB_SERVER_SOCKET="tcp:127.0.0.1:5037"` and verify the device is actually listed before proceeding with Maestro.
+
+**Apply when:** Starting a feedback round and ADB fails immediately — check if it's the environment variable pointing to an unreachable host before spending time debugging.
+
+### 52. Bundled APK without Metro: Maestro flows fail on assertVisible immediately after launchApp
+
+**Problem:** `assertVisible: "Training"` in smoke/setup flows fails when the APK was built with a bundled JS (no Metro). The app launch takes ~3-5 seconds before React Native renders any UI. Maestro's `launchApp` returns as soon as the process starts — not when the UI is ready.
+
+**Symptoms:** Maestro screenshot at failure shows a blank/white screen (splash state). The flow fails on the first assertion after `launchApp`.
+
+**Working solution:** Use `extendedWaitUntil: visible: "Training", timeout: 60000` instead of bare `assertVisible: "Training"` after `launchApp`. The flows `99_smoke.yaml` and `analyse_date_range_picker.yaml` currently use bare `assertVisible` and will fail consistently with bundled APKs.
+
+**Apply when:** Running Maestro against a bundled APK (no Metro). Consider this a pre-existing flow bug, not a regression in the feature being tested.
+
+### 53. "Import Emulator Squat Video" dev button exists in VideoSelectionModal, not just VideoAnalysisTab
+
+**Problem:** The dev-only button was present in TWO files: `VideoAnalysisTab.tsx` and `VideoSelectionModal.tsx`. When the PR review asked to remove it, it had already been removed from VideoAnalysisTab but remained in VideoSelectionModal.
+
+**Working solution:** When removing dev-only buttons from video analysis UI, always grep BOTH files:
+```bash
+grep -r "Import Emulator Squat Video" app/
+```
+
+**Apply when:** Removing or searching for any video-analysis-specific dev/debug UI elements.
+
+### 54. Win ADB v34 server vs Linux ADB v36 client: device list is empty over 127.0.0.1:5037
+
+**Problem:** From WSL2, `adb -H 127.0.0.1 -P 5037 devices` connects to the Windows ADB server but returns an empty device list. The Windows ADB server (v34) and Linux adb client (v36) have a protocol mismatch that causes device enumeration to fail silently.
+
+**Symptoms:** `adb -H 127.0.0.1 -P 5037 devices` → `List of devices attached` (empty). But `win_adb.exe devices` shows all devices.
+
+**Working solution:**
+1. For ADB commands: use `WIN_ADB="/mnt/c/Users/metzg/AppData/Local/Android/Sdk/platform-tools/adb.exe"` directly.
+2. For Maestro (which uses dadb, not adb binary): run via `cmd.exe /c "maestro.bat ..."` — Windows Maestro can access the emulator directly without going through WSL.
+3. Do NOT try to make Linux adb client talk to Windows adb server — the version mismatch is fundamental.
+
+**Apply when:** WSL2 adb connects to Windows server but gets empty device list.

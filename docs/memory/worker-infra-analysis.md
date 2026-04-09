@@ -30,6 +30,9 @@ Last updated: 2026-04-09 (GH-71-fb2)
 | GH-46-fix2 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | ready_for_review |
 | GH-71 | emu | 0 | 0 | 0 | 1 | 8 | 1 | 0 | 0 | 0 | ready_for_review |
 | GH-71-fb2 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3 | ready_for_review |
+| GH-86 | emu | 7 | 0 | 0 | 8 | 45 | 5 | 10 | 0 | 2 | ready_for_review (r2) |
+| GH-86 (r4) | emu | 12 | 0 | 0 | 2 | 5 | 3 | 0 | 0 | 4 | ready_for_review (r4) |
+| GH-82 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 15 | 2 | ready_for_review (r2: adb server unavailable during fix round, unit tests primary evidence) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
@@ -111,8 +114,19 @@ The following infra patterns are already documented in `docs/memory/agent-memory
    from scratch. The feature SKILL.md should include a concrete "Emulator
    Preflight Checklist" with exact commands.
 
+7. **Physical device PIN lock blocks all adb screencap and Maestro operations.** Samsung devices lock after inactivity; screencap returns 0 bytes, Maestro flows fail before reaching the app. No automated unlock path exists without knowing the PIN. Orchestrator should either keep the device awake (`adb shell svc power stayon true`) or have a known PIN for dev devices.
+
 6. **Windows adb server may not be running in fix/review rounds.** The orchestrator
    starts the socat proxy but does not ensure the Windows adb server is running.
    Fix round workers discover this only after the first adb command fails. The
    orchestrator should include an adb server health check in the fix round launch
    setup (or the fix prompt should note if adb is expected to be unavailable).
+
+7. **`adb reverse` does not cover `10.0.2.2` traffic from AVD emulators.** (GH-86)
+   Android AVDs connect to Metro via `10.0.2.2:8081` (host loopback), not
+   `127.0.0.1:8081`. `adb reverse tcp:8081 tcp:PORT` only tunnels `127.0.0.1`
+   connections, so it has no effect on `10.0.2.2`. Fix: run
+   `socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:PORT` on WSL so WSL2
+   auto-forwarding propagates Windows `localhost:8081` → WSL socat → Metro.
+   The orchestrator or SKILL.md preflight should start this socat bridge
+   automatically when Metro is on a non-8081 port.

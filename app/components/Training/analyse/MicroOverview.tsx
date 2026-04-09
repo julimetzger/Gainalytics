@@ -10,6 +10,8 @@ import {sum} from 'lodash';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {Workout} from '../../../models/entities/Workout';
 import {Metric} from "../../../models/Metric";
+import VelocityLossInsightCard from '../VelocityLossInsightCard';
+import {useVelocityLossInsights} from '../useVelocityLossInsights';
 
 interface TrainingsBaseProps {
   trainingsPlan: TrainingsPlan;
@@ -17,6 +19,7 @@ interface TrainingsBaseProps {
 }
 
 const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
+  const vlInsights = useVelocityLossInsights(trainingsPlan, micro);
   let trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
   let previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro - 1);
   let totalTimeTraining = new Date(sum(trainings.map((training) => (training.end && training.start ? new Date(training.end!!).getTime() - new Date(training.start!!).getTime() : 0))));
@@ -68,6 +71,22 @@ const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
           </Card.Content>
         </Card>
       </View>
+      {vlInsights.length > 0 && (
+        <View style={{marginTop: 4}}>
+          {vlInsights.map((insight) => (
+            <VelocityLossInsightCard
+              key={insight.exerciseId}
+              exerciseName={insight.exerciseName}
+              heaviestWeightKg={insight.heaviestWeightKg}
+              currentVlPercent={insight.currentVlPercent}
+              vlRirEstimate={insight.vlRirEstimate}
+              reportedRir={insight.reportedRir}
+              microHistory={insight.microHistory}
+              currentMicro={micro}
+            />
+          ))}
+        </View>
+      )}
       <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
     </ScrollView>
   );
