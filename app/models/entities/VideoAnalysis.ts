@@ -78,6 +78,10 @@ export interface VideoAnalysisRepResult {
   concentricTimeMs: number;
   vAvg: number;
   vPeak: number;
+  /** X-deviation per resampled Y-point: concentric_x − eccentric_x (in px) */
+  delta_x?: number[];
+  /** Mean |delta_x| normalised to tracking frame width (0.0–1.0+) */
+  path_deviation?: number;
 }
 
 export interface VideoAnalysisSetResult {
@@ -85,6 +89,10 @@ export interface VideoAnalysisSetResult {
   velocityLossPercent: number | null;
   rirEstimate: string | null;
   calibratedAt?: string;
+  /** Mean path_deviation across all reps (normalised, 0–1+) */
+  mean_path_deviation?: number | null;
+  /** Linear slope of path_deviation over reps (positive = increasing drift) */
+  path_deviation_slope?: number | null;
 }
 
 export interface DetectedBox {
