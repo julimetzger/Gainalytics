@@ -561,6 +561,256 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
   });
 });
 
+// Fixture with a short video (3000ms) and two reps where turnaround starts near 0
+// so that clamping under longpress can be tested.
+const makeResultNearBoundary = (): BarTrackingResult => ({
+  analysisId: 4,
+  units: 'px/s',
+  barPathSeries: [
+    {tMs: 0,    x: 100, y: 200},
+    {tMs: 500,  x: 110, y: 250},
+    {tMs: 1000, x: 120, y: 200},
+    {tMs: 2000, x: 130, y: 250},
+    {tMs: 3000, x: 140, y: 200},
+  ],
+  confidenceSeries: [],
+  repSegments: [
+    // turnaround at 100ms — just 100ms from 0, one longpress (1000ms) should clamp to 0
+    {repIndex: 0, startMs: 0, turnaroundMs: 100, endMs: 2000},
+    {repIndex: 1, startMs: 2000, turnaroundMs: 2800, endMs: 3000},
+  ],
+  repMetrics: [
+    {repIndex: 0, repTimeMs: 2000, averageConcentricSpeedPxPerS: 50, lowestConcentricSpeedPxPerS: 30},
+    {repIndex: 1, repTimeMs: 1000, averageConcentricSpeedPxPerS: 80, lowestConcentricSpeedPxPerS: 60},
+  ],
+  qualityFlags: [],
+  analysisMeta: {
+    sourceFps: 30, analyzedFps: 30, frameCount: 90, averageConfidence: 0.9,
+    trackingFrameWidthPx: 640, trackingFrameHeightPx: 480,
+  },
+});
+
+describe('VideoAnalysisPlaybackOverlayCard – calibration clamping (GH-86 P2)', () => {
+  let dispatchMock: jest.Mock;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    dispatchMock = jest.fn();
+    // Inject a stable dispatch mock so we can inspect what the Save button sends.
+    (require('react-redux') as any).useDispatch.mockReturnValue(dispatchMock);
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('longpress turnaround-left clamps to 0 and repeat does not go negative', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultNearBoundary()} />,
+    );
+    const player = getByTestId('video-analysis-playback-player');
+    loadPlayer(player, 3000);
+    setSpeedChartWidth(getByTestId, 240);
+
+    // Open calibration panel
+    act(() => { fireEvent.press(getByTestId('video-analysis-toggle-calibration')); });
+
+    // Longpress the turnaround-left button: turnaround is at 100ms, step is 1000ms → clamp to 0
+    act(() => { fireEvent(getByTestId('calibrate-first-turnaround-left'), 'longPress'); });
+
+    // Advance two repeat intervals to confirm the interval also clamps at 0
+    act(() => { jest.advanceTimersByTime(150); });
+    act(() => { jest.advanceTimersByTime(150); });
+
+    // Release to stop repeat
+    act(() => { fireEvent(getByTestId('calibrate-first-turnaround-left'), 'pressOut'); });
+
+    // Press Save and inspect the dispatched action
+    act(() => { fireEvent.press(getByTestId('video-analysis-save-calibration')); });
+
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SAVE_VIDEO_ANALYSIS_SET_RESULT',
+        setResult: expect.objectContaining({
+          repResults: expect.arrayContaining([
+            expect.objectContaining({
+              repIndex: 0,
+              turnaroundMs: 0, // clamped: never below 0
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('longpress end-right clamps to correctedPlaybackDurationMs and repeat does not exceed it', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultNearBoundary()} />,
+    );
+    const player = getByTestId('video-analysis-playback-player');
+    loadPlayer(player, 3000);
+    setSpeedChartWidth(getByTestId, 240);
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-toggle-calibration')); });
+
+    // end at 2000ms, +1000ms = 3000ms → at the duration boundary
+    // second interval tick would try 4000ms → must be clamped to 3000ms
+    act(() => { fireEvent(getByTestId('calibrate-first-end-right'), 'longPress'); });
+    act(() => { jest.advanceTimersByTime(150); });
+    act(() => { jest.advanceTimersByTime(150); });
+    act(() => { fireEvent(getByTestId('calibrate-first-end-right'), 'pressOut'); });
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-save-calibration')); });
+
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SAVE_VIDEO_ANALYSIS_SET_RESULT',
+        setResult: expect.objectContaining({
+          repResults: expect.arrayContaining([
+            expect.objectContaining({
+              repIndex: 0,
+              endMs: 3000, // clamped: never above duration
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('longpress turnaround-right repeat does not exceed endMs (marker order)', () => {
+    // last rep: turnaround=2800, end=3000 — one step would push to 3800 but must clamp to end=3000
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultNearBoundary()} />,
+    );
+    const player = getByTestId('video-analysis-playback-player');
+    loadPlayer(player, 3000);
+    setSpeedChartWidth(getByTestId, 240);
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-toggle-calibration')); });
+
+    // initial longpress: 2800+1000=3800 → clamped to min(3000, 3000)=3000
+    act(() => { fireEvent(getByTestId('calibrate-last-turnaround-right'), 'longPress'); });
+    // repeat tick: prev=3000 → 3000+1000=4000 → must clamp to 3000 (not exceed endMs)
+    act(() => { jest.advanceTimersByTime(150); });
+    act(() => { jest.advanceTimersByTime(150); });
+    act(() => { fireEvent(getByTestId('calibrate-last-turnaround-right'), 'pressOut'); });
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-save-calibration')); });
+
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SAVE_VIDEO_ANALYSIS_SET_RESULT',
+        setResult: expect.objectContaining({
+          repResults: expect.arrayContaining([
+            expect.objectContaining({
+              repIndex: 1,
+              turnaroundMs: 3000, // clamped to endMs, not above
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('longpress end-left repeat does not go below turnaroundMs (marker order)', () => {
+    // last rep: turnaround=2800, end=3000 — one step would push end to 2000 but must clamp to turnaround=2800
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultNearBoundary()} />,
+    );
+    const player = getByTestId('video-analysis-playback-player');
+    loadPlayer(player, 3000);
+    setSpeedChartWidth(getByTestId, 240);
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-toggle-calibration')); });
+
+    // initial longpress: 3000-1000=2000 → clamped to max(2800, 2000)=2800
+    act(() => { fireEvent(getByTestId('calibrate-last-end-left'), 'longPress'); });
+    // repeat tick: prev=2800 → 2800-1000=1800 → must clamp to max(turnaroundMs=2800, 0)=2800
+    act(() => { jest.advanceTimersByTime(150); });
+    act(() => { jest.advanceTimersByTime(150); });
+    act(() => { fireEvent(getByTestId('calibrate-last-end-left'), 'pressOut'); });
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-save-calibration')); });
+
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SAVE_VIDEO_ANALYSIS_SET_RESULT',
+        setResult: expect.objectContaining({
+          repResults: expect.arrayContaining([
+            expect.objectContaining({
+              repIndex: 1,
+              endMs: 2800, // clamped to turnaroundMs, not below
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+});
+
+describe('VideoAnalysisPlaybackOverlayCard – override-clobber guard (GH-86 P2)', () => {
+  let dispatchMock: jest.Mock;
+
+  beforeEach(() => {
+    dispatchMock = jest.fn();
+    (require('react-redux') as any).useDispatch.mockReturnValue(dispatchMock);
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('late-arriving savedSetResult does not overwrite a manually adjusted turnaround', () => {
+    // Render without any savedSetResult → overrides start null
+    const {getByTestId, rerender} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+    const player = getByTestId('video-analysis-playback-player');
+    loadPlayer(player, 3000);
+    setSpeedChartWidth(getByTestId, 240);
+
+    // Open calibration and manually press turnaround-right (+20ms tap, not longpress)
+    // firstRepSegment.turnaroundMs = 1000 → after tap → 1020
+    act(() => { fireEvent.press(getByTestId('video-analysis-toggle-calibration')); });
+    act(() => { fireEvent.press(getByTestId('calibrate-first-turnaround-right')); });
+
+    // Now savedSetResult arrives (simulating Redux tab-switch propagation)
+    // with a different turnaroundMs (900). The override-clobber guard must
+    // prevent this from overwriting the user's manual edit.
+    const savedSetResult = {
+      repResults: [
+        {repIndex: 0, startMs: 0, turnaroundMs: 900, endMs: 2000,
+          totalTimeMs: 2000, eccentricTimeMs: 900, concentricTimeMs: 1100,
+          vAvg: 50, vPeak: 80},
+        {repIndex: 1, startMs: 2000, turnaroundMs: 2500, endMs: 3000,
+          totalTimeMs: 1000, eccentricTimeMs: 500, concentricTimeMs: 500,
+          vAvg: 80, vPeak: 100},
+      ],
+      velocityLossPercent: 10,
+      rirEstimate: '3-4',
+      calibratedAt: '2026-01-01T00:00:00.000Z',
+    };
+    act(() => {
+      rerender(
+        <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultWithReps()} savedSetResult={savedSetResult} />,
+      );
+    });
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-save-calibration')); });
+
+    // The dispatched action must use 1020 (user's edit), not 900 (savedSetResult value)
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SAVE_VIDEO_ANALYSIS_SET_RESULT',
+        setResult: expect.objectContaining({
+          repResults: expect.arrayContaining([
+            expect.objectContaining({
+              repIndex: 0,
+              turnaroundMs: 1020,
+            }),
+          ]),
+        }),
+      }),
+    );
 // ─── calculateBarPathDeviation unit tests ──────────────────────────────────
 
 /**
