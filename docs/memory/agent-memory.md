@@ -714,3 +714,60 @@ Observation:
 - Maestro is the only reliable screenshot path on this emulator setup; if Maestro is unavailable (OOM, driver timeout), use UIAutomator text dumps as evidence.
 
 Apply when: screenshots are needed from emulator-5554 in the WSL2 environment and screencap returns white frames.
+
+### 43. Tab-navigator keeps component mounted — lazy useState won't re-run on prop update
+
+Problem:
+- `VideoAnalysisPlaybackOverlayCard` override states were seeded with lazy `useState(() => savedSetResult?.repResults?.[0]?.turnaroundMs ?? null)`.
+- In a tab-navigator, the screen stays mounted across tab switches. When the user saves and Redux updates `savedSetResult`, the component re-renders but lazy initializers don't re-run.
+- Result: override states remain at `null`; user sees original positions instead of saved ones.
+
+Working solution:
+- Add a one-shot `useEffect` guarded by a `useRef` flag:
+  ```tsx
+  const savedOverridesApplied = useRef(!!savedSetResult?.repResults?.length);
+  useEffect(() => {
+    const rr = savedSetResult?.repResults;
+    if (!savedOverridesApplied.current && rr?.length) {
+      savedOverridesApplied.current = true;
+      setFirstRepTurnaroundOverrideMs(rr[0].turnaroundMs);
+      // ... other overrides
+    }
+  }, [savedSetResult]);
+  ```
+- Lazy initializers still handle the mount-time case; the effect handles late-arrival.
+
+Apply when: a component with lazy useState initializers is inside a tab-navigator and its initializing prop can arrive after mount.
+
+### 44. Android emulator Metro: connects to 10.0.2.2:8081, not 127.0.0.1 — adb reverse is insufficient
+
+Problem:
+- `adb reverse tcp:8081 tcp:8087` maps emulator's `127.0.0.1:8081` → Windows:8087.
+- But the emulator connects to `10.0.2.2:8081` (special AVD loopback for host machine), which bypasses the adb reverse tunnel entirely.
+- `logcat` shows: `Couldn't connect to "ws://10.0.2.2:8081/message"`.
+
+Working solution:
+- Start a socat bridge on WSL: `socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:8087`.
+- WSL2 auto-forwarding then makes Windows `localhost:8081` reach WSL `socat` → Metro:8087.
+- Chain: emulator `10.0.2.2:8081` → Windows localhost:8081 → WSL2 auto-forward → WSL:8081 → socat → WSL:8087 → Metro.
+- Verify: `curl http://127.0.0.1:8081/status` from WSL should return `packager-status:running`.
+
+Apply when: a new APK is installed on an AVD emulator (emulator-5556) and shows "Unable to load script" or "Loading from 10.0.2.2:8081" but never completes.
+
+### 45. Maestro driver port blocked by stale Java process — kill and retry
+
+Problem:
+- Maestro `TcpForwarder` fails with `closed` or `TimeoutException` on the assigned driver port even after force-stopping the Maestro Android agent.
+- The host-side Java listener from a previous Maestro session can still hold the port.
+
+Symptoms:
+- `Command failed (tcp:7037): closed` immediately after `Waiting for flows to complete...`
+- `TcpForwarder.waitFor` TimeoutException, same port
+
+Working solution:
+- Run `ss -tlnp | grep <driver-port>` to find the stale Java PID.
+- Kill it: `kill -9 <PID>`.
+- Force-stop Maestro on device: `adb -s $SERIAL shell am force-stop dev.mobile.maestro.android`.
+- Wait 5-10s cooldown before retrying Maestro.
+
+Apply when: Maestro driver port error appears even though no other worker is currently running on the same port.

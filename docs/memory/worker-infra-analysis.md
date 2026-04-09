@@ -28,6 +28,8 @@ Last updated: 2026-04-02 (ANA-004-fix2)
 | MNT-002 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
 | EXC-001-fix | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | ready_for_review |
 | GH-46-fix2 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | ready_for_review |
+| GH-86 | emu | 7 | 0 | 0 | 8 | 45 | 5 | 10 | 0 | 2 | ready_for_review (r2) |
+| GH-86 (r4) | emu | 12 | 0 | 0 | 2 | 5 | 3 | 0 | 0 | 4 | ready_for_review (r4) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
@@ -114,3 +116,12 @@ The following infra patterns are already documented in `docs/memory/agent-memory
    Fix round workers discover this only after the first adb command fails. The
    orchestrator should include an adb server health check in the fix round launch
    setup (or the fix prompt should note if adb is expected to be unavailable).
+
+7. **`adb reverse` does not cover `10.0.2.2` traffic from AVD emulators.** (GH-86)
+   Android AVDs connect to Metro via `10.0.2.2:8081` (host loopback), not
+   `127.0.0.1:8081`. `adb reverse tcp:8081 tcp:PORT` only tunnels `127.0.0.1`
+   connections, so it has no effect on `10.0.2.2`. Fix: run
+   `socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:PORT` on WSL so WSL2
+   auto-forwarding propagates Windows `localhost:8081` → WSL socat → Metro.
+   The orchestrator or SKILL.md preflight should start this socat bridge
+   automatically when Metro is on a non-8081 port.
