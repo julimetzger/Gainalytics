@@ -560,3 +560,82 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
     expect(getByTestId('video-analysis-overlay-card')).toBeTruthy();
   });
 });
+
+describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
+  const getSpeedLabelText = (getByTestId: (id: string) => any): string => {
+    const children = getByTestId('video-analysis-speed-label').props.children;
+    return Array.isArray(children) ? children.join('') : String(children);
+  };
+
+  it('renders speed control with default 1.0x label', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+
+    expect(getByTestId('video-analysis-speed-control')).toBeTruthy();
+    expect(getSpeedLabelText(getByTestId)).toBe('Speed: 1.0x');
+  });
+
+  it('renders speed buttons for all preset values', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+
+    for (const speed of [0.1, 0.2, 0.3, 0.5, 0.75, 1.0]) {
+      expect(getByTestId(`video-analysis-speed-btn-${speed}`)).toBeTruthy();
+    }
+  });
+
+  it('passes default playbackSpeed 1.0 to the native player', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+
+    const player = getByTestId('video-analysis-playback-player');
+    expect(player.props.playbackSpeed).toBe(1.0);
+  });
+
+  it('pressing a speed button updates the label and passes new speed to native player', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+
+    act(() => {
+      fireEvent.press(getByTestId('video-analysis-speed-btn-0.3'));
+    });
+
+    expect(getSpeedLabelText(getByTestId)).toBe('Speed: 0.3x');
+    expect(getByTestId('video-analysis-playback-player').props.playbackSpeed).toBe(0.3);
+  });
+
+  it('speed chart velocity values (px/s) are not affected by speed selection', () => {
+    const result = makeResult();
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={result} />,
+    );
+    const player = getByTestId('video-analysis-playback-player');
+    const barPathBefore = player.props.barPathSeries;
+
+    act(() => {
+      fireEvent.press(getByTestId('video-analysis-speed-btn-0.1'));
+    });
+
+    // barPathSeries passed to native player must be unchanged
+    expect(getByTestId('video-analysis-playback-player').props.barPathSeries).toEqual(barPathBefore);
+    // speed label updated
+    expect(getSpeedLabelText(getByTestId)).toBe('Speed: 0.1x');
+  });
+
+  it('speed label shows 0.75x without rounding to 0.8x', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+
+    act(() => {
+      fireEvent.press(getByTestId('video-analysis-speed-btn-0.75'));
+    });
+
+    expect(getSpeedLabelText(getByTestId)).toBe('Speed: 0.75x');
+    expect(getByTestId('video-analysis-playback-player').props.playbackSpeed).toBe(0.75);
+  });
+});

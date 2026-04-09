@@ -66,6 +66,11 @@ public class VideoAnalysisPlayerViewManager extends SimpleViewManager<VideoAnaly
         view.setCurrentRepIndex(currentRepIndex);
     }
 
+    @ReactProp(name = "playbackSpeed", defaultFloat = 1.0f)
+    public void setPlaybackSpeed(VideoAnalysisPlayerView view, float playbackSpeed) {
+        view.setPlaybackSpeed(playbackSpeed);
+    }
+
     @ReactProp(name = "primaryColor", defaultInt = 0)
     public void setPrimaryColor(VideoAnalysisPlayerView view, int primaryColor) {
         view.setPrimaryColor(primaryColor);
