@@ -10,6 +10,7 @@ import TrainingsPlanHeader from '../../components/Training/TrainingsPlanHeader';
 import TrainingsPlanDrawer from '../../components/Training/TrainingsPlanDrawer';
 import TrainingsPlanNode from '../../components/Training/TrainingsPlanNode';
 import RangeSwiper from '../../components/RangeSwiper';
+import TrainingHistoryCalendar from '../../components/Training/analyse/TrainingHistoryCalendar';
 import {LayoutRectangle} from 'react-native';
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
@@ -22,6 +23,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   const [overview, setOverview] = useState(true);
   let [showPlanned, setShowPlanned] = useState(false);
   let [showDone, setShowDone] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [ignoreSwipeLocations, setIgnoreSwipeLocations] = useState<LayoutRectangle[]>([]);
 
   let changeTrainingsName = dispatchChangeTrainingsName();
@@ -72,32 +74,53 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
           setOpen={setOpen}
           setShowDone={setShowDone}
           showDone={showDone}
+          setShowHistory={setShowHistory}
         />
       )}
     >
-      <RangeSwiper
-        key={rerender}
-        ignoreSwipe={ignoreSwipeLocations}
-        nodeFunction={(value, setRange) => (
-          <TrainingsPlanNode
-            trainingsPlan={trainingsPlan}
-            micro={value}
-            showPlanned={showPlanned}
-            overview={overview}
-            setOverview={setOverview}
-            showDone={showDone}
-            trainingInMicro={trainingInMicro}
-            setIgnoreSwipe={(locations) => {
-              locations && locations.length > 0 && setIgnoreSwipeLocations(locations);
-            }}
-          />
-        )}
-        determineValueByIndex={(index, micro) => micro + index}
-        startValue={micro}
-        onUpdateCurrentIndex={(index) => {
-          setMicro(micro + index);
-        }}
-      />
+      {showHistory ? (
+        <TrainingHistoryCalendar
+          currentPlan={trainingsPlan}
+          onNavigateToTraining={(targetPlan, targetMicro, targetTrainingInMicro) => {
+            setShowHistory(false);
+            if (targetPlan.id === trainingsPlan.id) {
+              setMicro(targetMicro);
+              setTrainingInMicro(targetTrainingInMicro);
+              setShowDone(false);
+            } else {
+              navigation.navigate('TrainingPlan', {
+                trainingsPlan: targetPlan,
+                micro: targetMicro,
+                training: targetTrainingInMicro,
+              });
+            }
+          }}
+        />
+      ) : (
+        <RangeSwiper
+          key={rerender}
+          ignoreSwipe={ignoreSwipeLocations}
+          nodeFunction={(value, setRange) => (
+            <TrainingsPlanNode
+              trainingsPlan={trainingsPlan}
+              micro={value}
+              showPlanned={showPlanned}
+              overview={overview}
+              setOverview={setOverview}
+              showDone={showDone}
+              trainingInMicro={trainingInMicro}
+              setIgnoreSwipe={(locations) => {
+                locations && locations.length > 0 && setIgnoreSwipeLocations(locations);
+              }}
+            />
+          )}
+          determineValueByIndex={(index, micro) => micro + index}
+          startValue={micro}
+          onUpdateCurrentIndex={(index) => {
+            setMicro(micro + index);
+          }}
+        />
+      )}
     </Drawer>
   );
 };

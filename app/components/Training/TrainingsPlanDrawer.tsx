@@ -20,6 +20,7 @@ interface TrainingsPlanDrawerProps {
   setShowPlanned: (value: ((prevState: boolean) => boolean) | boolean) => void;
   showDone: boolean;
   setShowDone: (value: ((prevState: boolean) => boolean) | boolean) => void;
+  setShowHistory: (value: ((prevState: boolean) => boolean) | boolean) => void;
   handleValueChange: (newValue: any) => void;
   micro: number;
 }
@@ -33,6 +34,7 @@ const TrainingsPlanDrawer = ({
   showPlanned,
   setShowPlanned,
   setShowDone,
+  setShowHistory,
   handleValueChange,
   micro,
 }: TrainingsPlanDrawerProps) => {
@@ -148,6 +150,19 @@ const TrainingsPlanDrawer = ({
             }}
           >
             Overview
+          </Text>
+        </Tooltip>
+      </TouchableRipple>
+      <TouchableRipple>
+        <Tooltip title="Shows a calendar with all completed trainings">
+          <Text
+            style={{fontSize: 20, margin: 5}}
+            onPress={() => {
+              setOpen(false);
+              setShowHistory(true);
+            }}
+          >
+            History
           </Text>
         </Tooltip>
       </TouchableRipple>
