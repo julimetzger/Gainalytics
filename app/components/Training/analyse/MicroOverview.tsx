@@ -9,7 +9,6 @@ import {calculateMetricComparisons} from '../../../utils/AnalyseUtils';
 import {sum} from 'lodash';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {Workout} from '../../../models/entities/Workout';
-import {Metric} from '../../../models/Metric';
 import {getPreviousMicroInMeso} from '../../../redux/Training/trainingsPlanReducer';
 import {Metric} from "../../../models/Metric";
 import VelocityLossInsightCard from '../VelocityLossInsightCard';
