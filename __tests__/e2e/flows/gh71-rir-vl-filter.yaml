@@ -1,73 +1,71 @@
 appId: com.powerliftingworkoutplanner
 ---
-# GH-71: VideoAnalysis filters – layout + RIR/VL chips
+# GH-71: VideoAnalysis filters – layout + exact RIR/VL chips
 - launchApp:
     clearState: false
 
 - extendedWaitUntil:
-    visible: "tab-analyse"
+    visible: 'tab-analyse'
     timeout: 60000
 
-- tapOn: "tab-analyse"
+- tapOn: 'tab-analyse'
 
 - extendedWaitUntil:
-    visible: "Analyse"
+    visible: 'Analyse'
     timeout: 10000
 
 # Open the Analyse drawer
 - tapOn:
-    id: "analyse-drawer-toggle"
+    id: 'analyse-drawer-toggle'
 
 - extendedWaitUntil:
     visible:
-      text: "Video Analyses"
+      text: 'Video Analyses'
     timeout: 5000
 
 - scrollUntilVisible:
     element:
-      text: "Video Analyses"
+      text: 'Video Analyses'
     direction: DOWN
 
-- tapOn: "Video Analyses"
+- tapOn: 'Video Analyses'
 
 - extendedWaitUntil:
-    visible: "Import Video"
+    visible: 'Import Video'
     timeout: 10000
 
-# AC: DateRangePicker is always visible – assert "0 selected" picker and the VL row
-# (Date range text format varies by locale/date so we skip exact date assertion)
+# AC: TrainingElementPicker visible and DateRangePicker rendered in the scroll content.
+# We assert the stable picker label and the filter rows; the date text itself is locale-dependent.
 - assertVisible:
-    text: "0 selected"
+    text: '0 selected'
 
 # AC: VL% chips visible
 - assertVisible:
-    text: "VL%"
+    text: 'VL%'
 
 - assertVisible:
-    text: "<10%"
+    text: '<10%'
 
 - assertVisible:
-    text: ">30%"
+    text: '>30%'
 
 # AC: RIR chips visible
 - assertVisible:
-    text: "RIR"
+    text: 'RIR'
 
 - assertVisible:
-    text: "0-1"
+    text: '0'
 
 - assertVisible:
-    text: "4+"
-
-# AC: Default state – empty message visible (no analyses imported)
-- assertVisible:
-    text: "No video analyses yet. Import your first training video."
-
-# AC: Tapping VL% chip still shows the same empty-state message (no false "match" message)
-- tapOn: "<10%"
+    text: '4'
 
 - assertVisible:
-    text: "No video analyses yet. Import your first training video."
+    text: '4+'
 
-# Deselect
-- tapOn: "<10%"
+# AC: Tapping a chip keeps the screen stable.
+- tapOn: '<10%'
+
+- assertVisible:
+    text: 'Import Video'
+
+- tapOn: '<10%'

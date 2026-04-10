@@ -1,8 +1,11 @@
 import {Range} from '../components/picker/date/DateRangePicker';
 import {VideoAnalysis} from '../models/entities/VideoAnalysis';
 
-export const VL_PRESETS = ['<10%', '10-20%', '20-30%', '>30%'];
-export const RIR_PRESETS = ['0-1', '1-2', '2-3', '3-4', '4+'];
+export const VL_PRESETS = ['<10%', '10-20%', '20-30%', '>30%'] as const;
+export const RIR_PRESETS = ['0', '1', '2', '3', '4', '4+'] as const;
+
+type VlPreset = (typeof VL_PRESETS)[number];
+type RirPreset = (typeof RIR_PRESETS)[number];
 
 interface VideoAnalysisFilterArgs {
   analyses: VideoAnalysis[];
@@ -11,8 +14,8 @@ interface VideoAnalysisFilterArgs {
   muscleExerciseIds: number[];
   dateRange: Range;
   isDateRangeFilterActive: boolean;
-  vlPresets: string[];
-  rirPresets: string[];
+  vlPresets: VlPreset[];
+  rirPresets: RirPreset[];
 }
 
 function startOfDay(date: Date): Date {
@@ -27,7 +30,7 @@ function endOfDay(date: Date): Date {
   return value;
 }
 
-export function matchesVlPreset(vl: number | null, preset: string): boolean {
+export function matchesVlPreset(vl: number | null, preset: VlPreset): boolean {
   if (vl === null) {
     return false;
   }
@@ -46,29 +49,62 @@ export function matchesVlPreset(vl: number | null, preset: string): boolean {
   }
 }
 
-export function matchesRirPreset(rirStr: string | null, preset: string): boolean {
+export function matchesRirPreset(rirStr: string | null, preset: RirPreset): boolean {
+  return normalizeRirPreset(rirStr) === preset;
+}
+
+function normalizeRirPreset(rirStr: string | null): RirPreset | null {
   if (rirStr === null) {
-    return false;
+    return null;
   }
 
-  const rir = parseFloat(rirStr);
+  const trimmedValue = rirStr.trim();
+  if (trimmedValue.length === 0) {
+    return null;
+  }
+
+  if (trimmedValue === '4+') {
+    return '4+';
+  }
+
+  const rir = Number.parseFloat(trimmedValue);
   if (Number.isNaN(rir)) {
-    return false;
+    return null;
   }
 
-  switch (preset) {
-    case '0-1':
-      return rir >= 0 && rir < 1;
-    case '1-2':
-      return rir >= 1 && rir < 2;
-    case '2-3':
-      return rir >= 2 && rir < 3;
-    case '3-4':
-      return rir >= 3 && rir < 4;
-    case '4+':
-      return rir >= 4;
+  if (trimmedValue.includes('-')) {
+    return toRirPreset(Math.trunc(rir));
+  }
+
+  if (!Number.isInteger(rir)) {
+    return null;
+  }
+
+  return toRirPreset(rir);
+}
+
+function toRirPreset(rir: number): RirPreset | null {
+  if (rir < 0) {
+    return null;
+  }
+
+  if (rir > 4) {
+    return '4+';
+  }
+
+  switch (rir) {
+    case 0:
+      return '0';
+    case 1:
+      return '1';
+    case 2:
+      return '2';
+    case 3:
+      return '3';
+    case 4:
+      return '4';
     default:
-      return false;
+      return null;
   }
 }
 

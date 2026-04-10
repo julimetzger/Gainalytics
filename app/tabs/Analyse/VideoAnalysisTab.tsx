@@ -40,7 +40,13 @@ const createThemedStyles = (theme: MD3Theme) =>
 // Module-level map so start times survive navigation (component unmount/remount).
 const _analysisStartTimes = new Map<number, number>();
 
-const LinkedSetInfo = ({workoutId, exerciseId, setIndex}: {workoutId: number; exerciseId?: number; setIndex?: number}) => {
+interface LinkedSetInfoProps {
+  workoutId: number;
+  exerciseId?: number;
+  setIndex?: number;
+}
+
+const LinkedSetInfo = ({workoutId, exerciseId, setIndex}: LinkedSetInfoProps) => {
   const workout = useWorkoutById(workoutId);
   const exercise = useExercise(exerciseId);
   if (!workout || setIndex === undefined) {
@@ -53,7 +59,7 @@ const LinkedSetInfo = ({workoutId, exerciseId, setIndex}: {workoutId: number; ex
   const exerciseName = exercise?.name ?? 'Unknown';
   const label = `${exerciseName} \u2014 ${set.reps} reps \u00d7 ${set.weight} kg @ ${set.rir} RIR`;
   return (
-    <Text testID={`video-analysis-linked-set-info`} style={{fontSize: 12, marginTop: 2}}>
+    <Text testID="video-analysis-linked-set-info" style={styles.linkedSetInfo}>
       {label}
     </Text>
   );
@@ -83,8 +89,8 @@ const VideoAnalysisTab = () => {
   const defaultDateRange = useMemo(() => buildVideoAnalysisDefaultDateRange(analyses), [analyses]);
   const [dateRange, setDateRange] = useState<Range>(() => defaultDateRange);
   const [isDateRangeFilterActive, setIsDateRangeFilterActive] = useState(false);
-  const [vlPresets, setVlPresets] = useState<string[]>([]);
-  const [rirPresets, setRirPresets] = useState<string[]>([]);
+  const [vlPresets, setVlPresets] = useState<Array<(typeof VL_PRESETS)[number]>>([]);
+  const [rirPresets, setRirPresets] = useState<Array<(typeof RIR_PRESETS)[number]>>([]);
   const exercisesForMuscles = useExercisesForMuscles(filterMuscle);
   const filterExerciseIds = useMemo(() => filterExercise.flatMap((exercise) => (exercise.id === undefined ? [] : [exercise.id])), [filterExercise]);
   const muscleExerciseIds = useMemo(() => exercisesForMuscles.flatMap((exercise) => (exercise.id === undefined ? [] : [exercise.id])), [exercisesForMuscles]);
@@ -285,7 +291,7 @@ const VideoAnalysisTab = () => {
                 <Text testID={`video-analysis-status-${analysisId}`}>Status: {analysis.status}</Text>
                 {analysis.workoutId !== undefined && <LinkedSetInfo workoutId={analysis.workoutId} exerciseId={analysis.exerciseId} setIndex={analysis.setIndex} />}
                 {analysis.setResult && (
-                  <Text testID={`video-analysis-set-summary-${analysisId}`} style={{fontSize: 12, marginTop: 4}}>
+                  <Text testID={`video-analysis-set-summary-${analysisId}`} style={styles.setSummary}>
                     {analysis.setResult.repResults.length} reps
                     {analysis.setResult.velocityLossPercent !== null ? ` | VL ${analysis.setResult.velocityLossPercent}%` : ''}
                     {analysis.setResult.rirEstimate ? ` | RIR ${analysis.setResult.rirEstimate}` : ''}
@@ -316,7 +322,7 @@ const VideoAnalysisTab = () => {
                   </Button>
                 )}
                 {analysis.workoutId && (
-                  <Text testID={`video-analysis-linked-badge-${analysis.id}`} style={{fontSize: 12, color: theme.colors.secondary}}>
+                  <Text testID={`video-analysis-linked-badge-${analysis.id}`} style={[styles.linkedBadge, {color: theme.colors.secondary}]}>
                     Linked
                   </Text>
                 )}
@@ -369,6 +375,17 @@ const styles = StyleSheet.create({
   },
   chip: {
     marginRight: 2,
+  },
+  linkedSetInfo: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  setSummary: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  linkedBadge: {
+    fontSize: 12,
   },
 });
 
