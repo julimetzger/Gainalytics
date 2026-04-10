@@ -4,7 +4,7 @@ This document tracks how much time workers spend on infrastructure vs. feature w
 which problems recur, and which workers are affected. Use this to identify systemic
 issues and prevent agents from re-discovering known solutions.
 
-Last updated: 2026-04-09 (GH-71-fb2)
+Last updated: 2026-04-11 (GH-71-fb6)
 
 ## Per-Worker Breakdown
 
@@ -34,6 +34,7 @@ Last updated: 2026-04-09 (GH-71-fb2)
 | GH-86 (r4) | emu | 12 | 0 | 0 | 2 | 5 | 3 | 0 | 0 | 4 | ready_for_review (r4) |
 | GH-82 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 15 | 2 | ready_for_review (r2: adb server unavailable during fix round, unit tests primary evidence) |
 | GH-71-fb5 | emu | 0 | 0 | 0 | 2 | 30 | 8 | 0 | 0 | 0 | ready_for_review (Maestro driver ports all mapped to wrong device after ADB server restart; direct adb screenshots used as layout evidence) |
+| GH-71-fb6 | emu | 0 | 0 | 8 | 5 | 20 | 10 | 0 | 0 | 0 | ready_for_review (emulator uses 10.0.2.2:8081 not adb reverse; fresh install failed disk full ~720MB; cleared GMS/Play caches to free 300MB; Dev Settings localhost:8081 fix) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
