@@ -339,6 +339,35 @@ Working solution:
 - Always `unset JAVA_TOOL_OPTIONS` before running Gradle builds.
 - The Maestro run script should be invoked in a sub-shell with a fresh JAVA_TOOL_OPTIONS scoped only to that invocation.
 
+### 15. CalendarList needs explicit height inside react-native-drawer-layout Drawer
+
+Problem:
+- `CalendarList` from react-native-calendars renders invisibly (blank screen) when placed inside the content area of `react-native-drawer-layout`'s `<Drawer>` component, even with `flex: 1`.
+
+Symptoms:
+- Tapping History closes the drawer and the main area appears completely blank.
+- No JS errors in Metro or adb logcat.
+
+Working solution:
+- Use `Calendar` (single-month, swipeable) instead of `CalendarList`. `Calendar` renders without a defined parent height and handles month navigation via `enableSwipeMonths={true}`.
+- Wrap in a `<ScrollView style={{flex:1}} contentContainerStyle={{flexGrow:1}}>` so the detail panel below the calendar is scrollable.
+- `CalendarList` would work inside a `<Modal>` (as in DatePickerModal) but fails in the Drawer layout.
+
+Apply when: adding a react-native-calendars calendar to any non-Modal screen context.
+
+### 16. Device resolution from adb uiautomator dump, not from image scaling
+
+Problem:
+- Estimating tap coordinates by scaling from a resized screenshot leads to wrong device coordinates.
+
+Symptoms:
+- Repeated taps on what appears to be the correct element in the screenshot hit adjacent elements.
+
+Working solution:
+- Run `adb -s <DEVICE> shell uiautomator dump /sdcard/ui.xml && adb pull /sdcard/ui.xml` to get exact `bounds="[x1,y1][x2,y2]"` for every element.
+- Use the center of those bounds for `adb input tap`.
+- The Samsung Galaxy A31 (R5CN30HWZFN) has a 720×1467 visible-area resolution (not 1080×2400 as assumed from HD+ spec), because uiautomator reports in dp, not raw pixels.
+
 ### 16. Reanimated mock creates new SharedValue objects per render — do NOT include them in useCallback/useEffect deps
 
 Problem:
