@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Card, Chip, MD3Theme, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
@@ -25,40 +25,7 @@ import DateRangePicker, {Range} from '../../components/picker/date/DateRangePick
 import {useExercisesForMuscles} from '../../redux/Exercises/use/useExercisesForMuscles';
 import {Exercise} from '../../models/entities/Exercise';
 import {Muscles} from '../../models/Muscles';
-
-const VL_PRESETS = ['<10%', '10-20%', '20-30%', '>30%'];
-const RIR_PRESETS = ['0-1', '1-2', '2-3', '3-4', '4+'];
-
-function matchesVlPreset(vl: number | null, preset: string): boolean {
-  if (vl === null) {
-    return false;
-  }
-  switch (preset) {
-    case '<10%': return vl < 10;
-    case '10-20%': return vl >= 10 && vl < 20;
-    case '20-30%': return vl >= 20 && vl < 30;
-    case '>30%': return vl >= 30;
-    default: return false;
-  }
-}
-
-function matchesRirPreset(rirStr: string | null, preset: string): boolean {
-  if (rirStr === null) {
-    return false;
-  }
-  const rir = parseFloat(rirStr);
-  if (isNaN(rir)) {
-    return false;
-  }
-  switch (preset) {
-    case '0-1': return rir >= 0 && rir < 1;
-    case '1-2': return rir >= 1 && rir < 2;
-    case '2-3': return rir >= 2 && rir < 3;
-    case '3-4': return rir >= 3 && rir < 4;
-    case '4+': return rir >= 4;
-    default: return false;
-  }
-}
+import {buildVideoAnalysisDefaultDateRange, filterVideoAnalyses, isSameRange, RIR_PRESETS, VL_PRESETS} from '../../utils/video-analysis-filters';
 
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
@@ -79,7 +46,7 @@ const LinkedSetInfo = ({workoutId, exerciseId, setIndex}: {workoutId: number; ex
   if (!workout || setIndex === undefined) {
     return null;
   }
-  const set = workout.sets.find(s => s.index === setIndex);
+  const set = workout.sets.find((s) => s.index === setIndex);
   if (!set) {
     return null;
   }
@@ -91,7 +58,6 @@ const LinkedSetInfo = ({workoutId, exerciseId, setIndex}: {workoutId: number; ex
     </Text>
   );
 };
-
 
 const VideoAnalysisTab = () => {
   const navigation = useNavigation<any>();
@@ -109,23 +75,19 @@ const VideoAnalysisTab = () => {
   const [now, setNow] = useState(() => Date.now());
   const learnedSecondsPerVideoSecond = useMemo(() => getLastAnalysisSecondsPerVideoSecond(), [analyses]);
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map((item) => item.id ?? 0)) + 1 : 1;
-  const processingCount = useMemo(
-    () => analyses.filter((analysis) => analysis.status === VideoAnalysisStatus.PROCESSING).length,
-    [analyses],
-  );
+  const processingCount = useMemo(() => analyses.filter((analysis) => analysis.status === VideoAnalysisStatus.PROCESSING).length, [analyses]);
 
   // Filter state
   const [filterExercise, setFilterExercise] = useState<Exercise[]>([]);
   const [filterMuscle, setFilterMuscle] = useState<Muscles[]>([]);
-  const [dateRange, setDateRange] = useState<Range>(() => {
-    const end = new Date();
-    const start = new Date(end);
-    start.setMonth(start.getMonth() - 3);
-    return new Range(start, end);
-  });
+  const defaultDateRange = useMemo(() => buildVideoAnalysisDefaultDateRange(analyses), [analyses]);
+  const [dateRange, setDateRange] = useState<Range>(() => defaultDateRange);
+  const [isDateRangeFilterActive, setIsDateRangeFilterActive] = useState(false);
   const [vlPresets, setVlPresets] = useState<string[]>([]);
   const [rirPresets, setRirPresets] = useState<string[]>([]);
   const exercisesForMuscles = useExercisesForMuscles(filterMuscle);
+  const filterExerciseIds = useMemo(() => filterExercise.flatMap((exercise) => (exercise.id === undefined ? [] : [exercise.id])), [filterExercise]);
+  const muscleExerciseIds = useMemo(() => exercisesForMuscles.flatMap((exercise) => (exercise.id === undefined ? [] : [exercise.id])), [exercisesForMuscles]);
 
   // Refresh every 500ms while any analysis is in PROCESSING state so the
   // progress bar advances smoothly.
@@ -156,50 +118,32 @@ const VideoAnalysisTab = () => {
     });
   }, [analyses]);
 
+  useEffect(() => {
+    if (!isDateRangeFilterActive) {
+      setDateRange(defaultDateRange);
+    }
+  }, [defaultDateRange, isDateRangeFilterActive]);
+
+  const onDateRangeChange = useCallback(
+    (nextRange: Range) => {
+      setDateRange(nextRange);
+      setIsDateRangeFilterActive(!isSameRange(nextRange, defaultDateRange));
+    },
+    [defaultDateRange],
+  );
+
   const filteredAnalyses = useMemo(() => {
-    return analyses.filter((analysis) => {
-      // Exercise filter: if exercises selected, analysis.exerciseId must match
-      if (filterExercise.length > 0) {
-        const exerciseIds = filterExercise.map((e) => e.id);
-        if (!exerciseIds.includes(analysis.exerciseId)) {
-          return false;
-        }
-      }
-      // Muscle filter: if muscles selected, analysis.exerciseId must map to an exercise with that muscle
-      if (filterMuscle.length > 0) {
-        const muscleExerciseIds = exercisesForMuscles.map((e) => e.id);
-        if (!muscleExerciseIds.includes(analysis.exerciseId)) {
-          return false;
-        }
-      }
-      // Date filter: always applied
-      const createdAt = new Date(analysis.createdAt).getTime();
-      const endOfDay = new Date(dateRange.endDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      if (createdAt < dateRange.startDate.getTime() || createdAt > endOfDay.getTime()) {
-        return false;
-      }
-      // VL filter: if any preset selected, hide analyses without setResult
-      if (vlPresets.length > 0) {
-        if (!analysis.setResult) {
-          return false;
-        }
-        if (!vlPresets.some(p => matchesVlPreset(analysis.setResult!.velocityLossPercent, p))) {
-          return false;
-        }
-      }
-      // RIR filter: if any preset selected, hide analyses without setResult
-      if (rirPresets.length > 0) {
-        if (!analysis.setResult) {
-          return false;
-        }
-        if (!rirPresets.some(p => matchesRirPreset(analysis.setResult!.rirEstimate, p))) {
-          return false;
-        }
-      }
-      return true;
+    return filterVideoAnalyses({
+      analyses,
+      exerciseIds: filterExerciseIds,
+      hasMuscleFilter: filterMuscle.length > 0,
+      muscleExerciseIds,
+      dateRange,
+      isDateRangeFilterActive,
+      vlPresets,
+      rirPresets,
     });
-  }, [analyses, filterExercise, filterMuscle, exercisesForMuscles, dateRange, vlPresets, rirPresets]);
+  }, [analyses, dateRange, filterExerciseIds, filterMuscle.length, isDateRangeFilterActive, muscleExerciseIds, rirPresets, vlPresets]);
 
   const importFromSource = async (sourceUri: string) => {
     try {
@@ -272,71 +216,54 @@ const VideoAnalysisTab = () => {
   return (
     <View style={[styles.container, themedStyles.background]} testID="video-analysis-screen">
       {linkSetForAnalysisId !== undefined && (
-        <SetSelectionModal
-          visible={true}
-          onDismiss={() => setLinkSetForAnalysisId(undefined)}
-          analysisId={linkSetForAnalysisId}
-          onLinked={() => setLinkSetForAnalysisId(undefined)}
-        />
+        <SetSelectionModal visible={true} onDismiss={() => setLinkSetForAnalysisId(undefined)} analysisId={linkSetForAnalysisId} onLinked={() => setLinkSetForAnalysisId(undefined)} />
       )}
-      <Button
-        testID="video-analysis-import-button"
-        mode="contained"
-        onPress={importFromGallery}
-        loading={importing}
-        disabled={importing}
-        style={styles.importButton}
-      >
-        Import Video
-      </Button>
-      <TrainingElementPicker
-        exercise={filterExercise}
-        setExercise={setFilterExercise}
-        muscle={filterMuscle}
-        setMuscle={setFilterMuscle}
-      />
-      <View style={styles.datePickerRow}>
-        <DateRangePicker range={dateRange} setRange={setDateRange} />
-      </View>
-      <View style={styles.chipRow}>
-        <Text variant="labelSmall" style={styles.chipLabel}>VL%</Text>
-        {VL_PRESETS.map(p => (
-          <Chip
-            key={p}
-            testID={`video-analysis-vl-chip-${p}`}
-            selected={vlPresets.includes(p)}
-            onPress={() => setVlPresets(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])}
-            style={styles.chip}
-            compact
-          >
-            {p}
-          </Chip>
-        ))}
-      </View>
-      <View style={styles.chipRow}>
-        <Text variant="labelSmall" style={styles.chipLabel}>RIR</Text>
-        {RIR_PRESETS.map(p => (
-          <Chip
-            key={p}
-            testID={`video-analysis-rir-chip-${p}`}
-            selected={rirPresets.includes(p)}
-            onPress={() => setRirPresets(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])}
-            style={styles.chip}
-            compact
-          >
-            {p}
-          </Chip>
-        ))}
-      </View>
-      <ScrollView contentInsetAdjustmentBehavior="automatic">
+      <TrainingElementPicker exercise={filterExercise} setExercise={setFilterExercise} muscle={filterMuscle} setMuscle={setFilterMuscle} style={styles.trainingElementPicker} />
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent}>
+        <Button testID="video-analysis-import-button" mode="contained" onPress={importFromGallery} loading={importing} disabled={importing} style={styles.importButton}>
+          Import Video
+        </Button>
+        <View style={styles.datePickerRow}>
+          <DateRangePicker range={dateRange} setRange={onDateRangeChange} />
+        </View>
+        <View style={styles.chipRow}>
+          <Text variant="labelSmall" style={styles.chipLabel}>
+            VL%
+          </Text>
+          {VL_PRESETS.map((preset) => (
+            <Chip
+              key={preset}
+              testID={`video-analysis-vl-chip-${preset}`}
+              selected={vlPresets.includes(preset)}
+              onPress={() => setVlPresets((previous) => (previous.includes(preset) ? previous.filter((value) => value !== preset) : [...previous, preset]))}
+              style={styles.chip}
+              compact
+            >
+              {preset}
+            </Chip>
+          ))}
+        </View>
+        <View style={styles.chipRow}>
+          <Text variant="labelSmall" style={styles.chipLabel}>
+            RIR
+          </Text>
+          {RIR_PRESETS.map((preset) => (
+            <Chip
+              key={preset}
+              testID={`video-analysis-rir-chip-${preset}`}
+              selected={rirPresets.includes(preset)}
+              onPress={() => setRirPresets((previous) => (previous.includes(preset) ? previous.filter((value) => value !== preset) : [...previous, preset]))}
+              style={styles.chip}
+              compact
+            >
+              {preset}
+            </Chip>
+          ))}
+        </View>
         {filteredAnalyses.length === 0 && (
           <Card style={styles.card} testID="video-analysis-empty-card">
             <Card.Content>
-              <Text>
-                {analyses.length === 0
-                  ? 'No video analyses yet. Import your first training video.'
-                  : 'No analyses match the active filters.'}
-              </Text>
+              <Text>{analyses.length === 0 ? 'No video analyses yet. Import your first training video.' : 'No analyses match the active filters.'}</Text>
             </Card.Content>
           </Card>
         )}
@@ -349,27 +276,14 @@ const VideoAnalysisTab = () => {
             const estimatedVideoDurationMs = analysis.videoMeta?.durationMs || 10_000;
             const estimated = estimateAnalysisTimeMs(estimatedVideoDurationMs, learnedSecondsPerVideoSecond);
             const progress = calculateAnalysisProgress(elapsed, estimated);
-            progressBar = (
-              <VideoAnalysisProgressBar
-                elapsedMs={elapsed}
-                estimatedTotalMs={estimated}
-                progress={progress}
-                testID={`video-analysis-progress-${analysisId}`}
-              />
-            );
+            progressBar = <VideoAnalysisProgressBar elapsedMs={elapsed} estimatedTotalMs={estimated} progress={progress} testID={`video-analysis-progress-${analysisId}`} />;
           }
           return (
             <Card key={analysisId} style={styles.card} testID={`video-analysis-card-${analysisId}`}>
               <Card.Title title={`Analysis #${analysisId}`} subtitle={new Date(analysis.createdAt).toLocaleString()} />
               <Card.Content>
                 <Text testID={`video-analysis-status-${analysisId}`}>Status: {analysis.status}</Text>
-                {analysis.workoutId !== undefined && (
-                  <LinkedSetInfo
-                    workoutId={analysis.workoutId}
-                    exerciseId={analysis.exerciseId}
-                    setIndex={analysis.setIndex}
-                  />
-                )}
+                {analysis.workoutId !== undefined && <LinkedSetInfo workoutId={analysis.workoutId} exerciseId={analysis.exerciseId} setIndex={analysis.setIndex} />}
                 {analysis.setResult && (
                   <Text testID={`video-analysis-set-summary-${analysisId}`} style={{fontSize: 12, marginTop: 4}}>
                     {analysis.setResult.repResults.length} reps
@@ -397,27 +311,20 @@ const VideoAnalysisTab = () => {
                   Open
                 </Button>
                 {!analysis.workoutId && (
-                <Button
-                  testID={`video-analysis-link-set-${analysis.id}`}
-                  onPress={() => setLinkSetForAnalysisId(analysis.id)}
-                >
-                  Link
+                  <Button testID={`video-analysis-link-set-${analysis.id}`} onPress={() => setLinkSetForAnalysisId(analysis.id)}>
+                    Link
+                  </Button>
+                )}
+                {analysis.workoutId && (
+                  <Text testID={`video-analysis-linked-badge-${analysis.id}`} style={{fontSize: 12, color: theme.colors.secondary}}>
+                    Linked
+                  </Text>
+                )}
+                <Button testID={`video-analysis-delete-${analysis.id}`} textColor={theme.colors.error} onPress={() => onDelete(analysis.id, analysis.resultPath, analysis.localVideoPath)}>
+                  Delete
                 </Button>
-              )}
-              {analysis.workoutId && (
-                <Text testID={`video-analysis-linked-badge-${analysis.id}`} style={{fontSize: 12, color: theme.colors.secondary}}>
-                  Linked
-                </Text>
-              )}
-              <Button
-                testID={`video-analysis-delete-${analysis.id}`}
-                textColor={theme.colors.error}
-                onPress={() => onDelete(analysis.id, analysis.resultPath, analysis.localVideoPath)}
-              >
-                Delete
-              </Button>
-            </Card.Actions>
-          </Card>
+              </Card.Actions>
+            </Card>
           );
         })}
       </ScrollView>
@@ -429,15 +336,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 12,
+  },
+  trainingElementPicker: {
+    marginHorizontal: 10,
+    marginTop: 10,
+  },
   importButton: {
-    margin: 10,
+    marginHorizontal: 10,
+    marginBottom: 10,
   },
   card: {
     marginHorizontal: 10,
     marginBottom: 10,
   },
   datePickerRow: {
-    marginTop: 4,
+    marginHorizontal: 10,
     marginBottom: 4,
   },
   chipRow: {
