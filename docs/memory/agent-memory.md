@@ -1012,3 +1012,45 @@ Working solution:
 - Avoid restarting the Windows ADB server mid-session — it resets Maestro driver mappings.
 
 Apply when: Maestro screenshots show unexpected device/screen despite `--device` flag being correct.
+
+### 57. Emulator uses 10.0.2.2:8081 to reach host Metro — adb reverse alone is not enough after fresh install
+
+Problem:
+- Fresh APK install connects to Metro via `10.0.2.2:8081` (Android emulator host alias), bypassing `adb reverse tcp:8081`.
+- App loads bundled/cached JS instead of Metro — shows old code even with correct adb reverse set.
+
+Symptoms:
+- App shows old UI (e.g., "Import Emulator Squat Video" button that was removed) after fresh install.
+- `curl http://127.0.0.1:8083/index.bundle` confirms Metro serves correct code.
+- `adb reverse --list` confirms mapping exists; app still loads wrong bundle.
+
+Working solution:
+- After fresh install, open Dev Menu (keyevent 82) → Settings → "Debug server host & port for device".
+- Set it to `localhost:8081` (which goes through adb reverse to the assigned Metro port).
+- Force-stop and relaunch the app; it now fetches from Metro via the reverse tunnel.
+
+Apply when: fresh APK install on emulator, metro is on a non-default port (not 8081), app loads old UI.
+
+### 58. Emulator install fails: clear Google Play + GMS caches to free ~300MB extra space
+
+Problem:
+- `INSTALL_FAILED_INSUFFICIENT_STORAGE` even with ~720MB free; Android needs ~1GB headroom for 225MB APK.
+
+Symptoms:
+- `adb install` reports "Requested internal only, but not enough space" with ~720MB available.
+
+Working solution:
+- `adb shell pm clear com.android.vending` + `adb shell pm clear com.google.android.gms` + `adb shell pm clear com.google.android.gsf`
+- This frees ~300MB, bringing available to ~1GB+ — enough for the APK install.
+- After uninstalling the app (`pm uninstall`) AND clearing Google caches, fresh install succeeds.
+
+Apply when: INSTALL_FAILED_INSUFFICIENT_STORAGE after `pm uninstall` still fails with 700-750MB free.
+
+### 59. MultiselectDropdown renders as thin bar with empty Redux store (no exercises)
+
+Observation:
+- `TrainingElementPicker` with `visible=true` renders `MultiselectDropdown` from sharingan-rn-modal-dropdown.
+- When the Redux exercises store is empty (e.g., after `pm clear`), the dropdown collapses to a thin bar with no readable text in uiautomator.
+- Maestro `assertVisible: text: '0 selected'` fails in this state even though the component IS rendered.
+
+Apply when: asserting TrainingElementPicker state on a device with cleared app data. Use VL%/RIR chips or DateRangePicker assertions instead — they are independent of the exercises store.
