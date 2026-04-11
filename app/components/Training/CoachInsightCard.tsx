@@ -5,7 +5,7 @@ import {useSelector} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
 import {Training} from '../../models/entities/Training';
 import {TrainingsState} from '../../models/TrainingsState';
-import {buildCoachPrompt, buildExerciseSummaries} from '../../utils/coachInsight';
+import {buildRawTrainingData, buildCoachPrompt} from '../../utils/coachInsight';
 import {callAnthropicClaude} from '../../utils/llmApi';
 import {insightCache} from '../../utils/insightCache';
 import {secureStorage} from '../../utils/secureStorage';
@@ -36,13 +36,12 @@ const CoachInsightCard = ({trainings}: Props) => {
   const workoutsById = useSelector((s: GlobalState) =>
     s.workouts.byId as Record<number, import('../../models/entities/Workout').Workout>,
   );
-  const exercisesById = useSelector((s: GlobalState) => {
-    const map: Record<number, string> = {};
-    s.exercises.allIds.forEach(id => {
-      map[id] = s.exercises.byId[id]?.name ?? `Exercise ${id}`;
-    });
-    return map;
-  });
+  const exercisesById = useSelector((s: GlobalState) =>
+    s.exercises.byId as Record<number, import('../../models/entities/Exercise').Exercise>,
+  );
+  const videoAnalysesById = useSelector((s: GlobalState) =>
+    s.videoAnalyses.byId as Record<number, import('../../models/entities/VideoAnalysis').VideoAnalysis>,
+  );
 
   const finishedTrainings = trainings.filter(t => t.state === TrainingsState.FINISHED);
   const key = cacheKey(finishedTrainings);
@@ -69,22 +68,26 @@ const CoachInsightCard = ({trainings}: Props) => {
     const recentTrainings = finishedTrainings.filter(
       t => t.end && new Date(t.end).getTime() >= cutoff,
     );
-    const summaries = buildExerciseSummaries(recentTrainings, workoutsById, exercisesById);
 
-    if (summaries.length === 0) {
+    // Current training = the most recently finished one (highest end timestamp)
+    const currentTraining = [...recentTrainings]
+      .filter(t => t.end != null)
+      .sort((a, b) => new Date(b.end!).getTime() - new Date(a.end!).getTime())[0];
+
+    const coachInput = buildRawTrainingData(
+      recentTrainings,
+      currentTraining?.id,
+      workoutsById,
+      exercisesById,
+      videoAnalysesById,
+    );
+
+    if (coachInput.sessions.length === 0) {
       setState({status: 'error', message: 'Not enough data for an insight yet.'});
       return;
     }
 
-    const latestEnd = finishedTrainings
-      .map(t => (t.end ? new Date(t.end) : null))
-      .filter(Boolean)
-      .sort((a, b) => b!.getTime() - a!.getTime())[0];
-
-    const {system, user} = buildCoachPrompt({
-      trainingDate: latestEnd ? latestEnd.toISOString().substring(0, 10) : 'unknown',
-      exerciseSummaries: summaries,
-    });
+    const {system, user} = buildCoachPrompt(coachInput);
 
     callAnthropicClaude(apiKey, system, user).then(result => {
       if (result.ok) {

@@ -1,120 +1,203 @@
 /**
  * Prepares training data for the AI Coach and builds the prompt.
- * Only aggregated stats are sent — no raw set-level data.
+ * Sends the raw Redux training structure (chronological sessions with per-set data).
+ * No own aggregation — the LLM receives the data and identifies patterns itself.
  */
-import {sumBy} from 'lodash';
 import {Training} from '../models/entities/Training';
 import {Workout} from '../models/entities/Workout';
 import {WorkoutSet} from '../models/entities/WorkoutSet';
+import {Exercise} from '../models/entities/Exercise';
+import {VideoAnalysis, VideoAnalysisStatus} from '../models/entities/VideoAnalysis';
 import {TrainingsState} from '../models/TrainingsState';
-import {repetitionMax} from './AnalyseUtils';
 
-export interface ExerciseSummary {
-  exerciseName: string;
-  sessions: number;
-  totalVolume: number;
-  oneRmEstimate: number;
-  avgRir: number;
-  trend: 'up' | 'down' | 'stable' | 'insufficient_data';
+// ─────────────────────────────────────────────────────────────────────────────
+// Data types sent to the LLM (clean, no internal Redux ids)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SetData {
+  reps: number;
+  weight_kg: number;
+  rir: number;
+  /** Velocity loss percent from video analysis, if available for this set */
+  vl_percent?: number;
+}
+
+export interface ExerciseSession {
+  name: string;
+  /** Primary muscles (highest % first, max 2) */
+  primary_muscles: string[];
+  sets: SetData[];
+}
+
+export interface TrainingSession {
+  date: string; // ISO date string, e.g. "2026-04-08"
+  /** True for the most recently completed training (the one just finished) */
+  is_current_training: boolean;
+  exercises: ExerciseSession[];
 }
 
 export interface CoachInsightInput {
-  trainingDate: string;
-  exerciseSummaries: ExerciseSummary[];
+  sessions: TrainingSession[];
 }
 
-function calcTrend(weeklyVolumes: number[]): ExerciseSummary['trend'] {
-  if (weeklyVolumes.length < 2) return 'insufficient_data';
-  const first = weeklyVolumes[0];
-  const last = weeklyVolumes[weeklyVolumes.length - 1];
-  const delta = last - first;
-  const pct = first > 0 ? delta / first : 0;
-  if (pct > 0.05) return 'up';
-  if (pct < -0.05) return 'down';
-  return 'stable';
+// ─────────────────────────────────────────────────────────────────────────────
+// Data builder
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build a VL% lookup keyed by `${workoutId}_${setIndex}` from video analyses.
+ */
+function buildVlLookup(
+  videoAnalysesById: Record<number, VideoAnalysis>,
+): Map<string, number> {
+  const lookup = new Map<string, number>();
+  for (const analysis of Object.values(videoAnalysesById)) {
+    if (
+      analysis.status === VideoAnalysisStatus.DONE &&
+      analysis.workoutId != null &&
+      analysis.setIndex != null &&
+      analysis.setResult?.velocityLossPercent != null
+    ) {
+      lookup.set(
+        `${analysis.workoutId}_${analysis.setIndex}`,
+        Math.round(analysis.setResult.velocityLossPercent),
+      );
+    }
+  }
+  return lookup;
 }
 
 /**
- * Build per-exercise summaries from the last 4 weeks of finished trainings.
- *
- * @param recentTrainings - All FINISHED trainings from the last ~4 weeks (caller filters by date)
- * @param workoutsById    - Lookup map: workout id → Workout
- * @param exercisesById   - Lookup map: exercise id → name string
+ * Build the primary muscles label for an exercise (top 1-2 muscle groups by %).
  */
-export function buildExerciseSummaries(
-  recentTrainings: Training[],
+function primaryMuscles(exercise: Exercise | undefined): string[] {
+  if (!exercise?.muscles || exercise.muscles.length === 0) return [];
+  const sorted = [...exercise.muscles]
+    .filter(m => m.muscle != null)
+    .sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0))
+    .slice(0, 2);
+  return sorted.map(m => m.muscle as string);
+}
+
+/**
+ * Convert a Training's doneWorkoutIds to ExerciseSessions with raw set data.
+ */
+function trainingToSessions(
+  training: Training,
   workoutsById: Record<number, Workout>,
-  exercisesById: Record<number, string>,
-): ExerciseSummary[] {
+  exercisesById: Record<number, Exercise>,
+  vlLookup: Map<string, number>,
+): ExerciseSession[] {
+  const sessions: ExerciseSession[] = [];
+
+  for (const [exIdStr, workoutId] of Object.entries(training.doneWorkoutIds)) {
+    const exerciseId = parseInt(exIdStr, 10);
+    const workout = workoutsById[workoutId];
+    if (!workout || !workout.sets || workout.sets.length === 0) continue;
+
+    const exercise = exercisesById[exerciseId];
+    const name = exercise?.name ?? `Exercise ${exerciseId}`;
+    const muscles = primaryMuscles(exercise);
+
+    const sets: SetData[] = (workout.sets as WorkoutSet[]).map((s, idx) => {
+      const key = `${workoutId}_${idx}`;
+      const vlPct = vlLookup.get(key);
+      const setData: SetData = {
+        reps: s.reps,
+        weight_kg: s.weight,
+        rir: s.rir,
+      };
+      if (vlPct != null) setData.vl_percent = vlPct;
+      return setData;
+    });
+
+    sessions.push({name, primary_muscles: muscles, sets});
+  }
+
+  return sessions;
+}
+
+/**
+ * Build raw training data from the last 4 weeks of finished trainings.
+ *
+ * @param recentTrainings    FINISHED trainings from the last ~28 days, any order
+ * @param currentTrainingId  id of the training just completed (marked is_current_training)
+ * @param workoutsById       Redux workouts lookup
+ * @param exercisesById      Redux exercises lookup (full Exercise objects)
+ * @param videoAnalysesById  Redux video analyses lookup
+ */
+export function buildRawTrainingData(
+  recentTrainings: Training[],
+  currentTrainingId: number | undefined,
+  workoutsById: Record<number, Workout>,
+  exercisesById: Record<number, Exercise>,
+  videoAnalysesById: Record<number, VideoAnalysis>,
+): CoachInsightInput {
   const finished = recentTrainings.filter(t => t.state === TrainingsState.FINISHED);
 
-  // Group workouts by exercise
-  const exerciseWorkouts = new Map<number, {workout: Workout; trainingDate: Date}[]>();
+  // Sort chronologically (oldest → newest)
+  const sorted = [...finished].sort((a, b) => {
+    const ta = a.end ? new Date(a.end).getTime() : 0;
+    const tb = b.end ? new Date(b.end).getTime() : 0;
+    return ta - tb;
+  });
 
-  for (const training of finished) {
-    const trainingDate = training.end ? new Date(training.end) : new Date();
-    for (const [exIdStr, workoutId] of Object.entries(training.doneWorkoutIds)) {
-      const exerciseId = parseInt(exIdStr, 10);
-      const workout = workoutsById[workoutId];
-      if (!workout || !workout.sets || workout.sets.length === 0) continue;
+  const vlLookup = buildVlLookup(videoAnalysesById);
 
-      if (!exerciseWorkouts.has(exerciseId)) {
-        exerciseWorkouts.set(exerciseId, []);
+  const sessions: TrainingSession[] = sorted.map(training => {
+    const endDate = training.end
+      ? new Date(training.end).toISOString().substring(0, 10)
+      : 'unknown';
+    const isCurrent = training.id != null && training.id === currentTrainingId;
+    const exercises = trainingToSessions(training, workoutsById, exercisesById, vlLookup);
+    return {
+      date: endDate,
+      is_current_training: isCurrent,
+      exercises,
+    };
+  });
+
+  return {sessions};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Prompt builder
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildCoachPrompt(input: CoachInsightInput): {system: string; user: string} {
+  const system =
+    `You are an expert powerlifting coach reviewing an athlete's training log. ` +
+    `Analyse the chronological sessions below and give ONE concise, actionable insight. ` +
+    `Max 3 sentences. Be direct and specific. ` +
+    `Focus on the most important finding. Prioritise these signals if present:\n` +
+    `- VL% vs RIR discrepancy: high velocity loss but high RIR reported (possible under-reporting of effort or form breakdown)\n` +
+    `- Muscle-group frequency imbalance: one primary muscle group trained significantly less often than others\n` +
+    `- Volume stagnation: no load or volume progression across consecutive sessions for the same exercise\n` +
+    `- Sets where vl_percent > 25: typically indicates excessive fatigue accumulation`;
+
+  // Render sessions as structured text (not JSON — shorter token count)
+  const sessionLines: string[] = [];
+  for (const session of input.sessions) {
+    const label = session.is_current_training
+      ? `=== CURRENT TRAINING (${session.date}) ===`
+      : `--- Session ${session.date} ---`;
+    sessionLines.push(label);
+    for (const ex of session.exercises) {
+      const muscleStr = ex.primary_muscles.length > 0
+        ? ` [${ex.primary_muscles.join(', ')}]`
+        : '';
+      sessionLines.push(`  ${ex.name}${muscleStr}`);
+      for (const s of ex.sets) {
+        const vlStr = s.vl_percent != null ? `, VL%=${s.vl_percent}` : '';
+        sessionLines.push(`    ${s.weight_kg}kg × ${s.reps} reps, RIR ${s.rir}${vlStr}`);
       }
-      exerciseWorkouts.get(exerciseId)!.push({workout, trainingDate});
     }
   }
 
-  const summaries: ExerciseSummary[] = [];
-
-  exerciseWorkouts.forEach((entries, exerciseId) => {
-    const exerciseName = exercisesById[exerciseId] ?? `Exercise ${exerciseId}`;
-
-    // Sort by date ascending for trend calculation
-    entries.sort((a, b) => a.trainingDate.getTime() - b.trainingDate.getTime());
-
-    const allSets = entries.flatMap(e => e.workout.sets as WorkoutSet[]);
-    const totalVolume = sumBy(allSets, s => s.weight * s.reps);
-    const oneRmEstimate = Math.round(repetitionMax(...allSets) * 10) / 10;
-    const avgRir = allSets.length > 0
-      ? Math.round((sumBy(allSets, s => s.rir) / allSets.length) * 10) / 10
-      : 0;
-
-    // Weekly volume for trend (4 buckets by week)
-    const now = Date.now();
-    const weekVolumes = [0, 0, 0, 0];
-    for (const {workout, trainingDate} of entries) {
-      const weeksAgo = Math.floor((now - trainingDate.getTime()) / (7 * 24 * 3600 * 1000));
-      const bucket = Math.min(weeksAgo, 3);
-      // bucket 0 = most recent week; reverse so index 0 = oldest
-      const reverseBucket = 3 - bucket;
-      weekVolumes[reverseBucket] += sumBy(workout.sets as WorkoutSet[], s => s.weight * s.reps);
-    }
-
-    // Only include weeks that had data for trend calc
-    const nonZeroWeeks = weekVolumes.filter(v => v > 0);
-
-    summaries.push({
-      exerciseName,
-      sessions: entries.length,
-      totalVolume: Math.round(totalVolume),
-      oneRmEstimate,
-      avgRir,
-      trend: calcTrend(nonZeroWeeks),
-    });
-  });
-
-  return summaries;
-}
-
-export function buildCoachPrompt(input: CoachInsightInput): {system: string; user: string} {
-  const system = `You are an expert powerlifting coach. Analyse the training data and give one concise, actionable insight for the athlete. Max 3 sentences. Be direct and specific. Focus on the most important finding.`;
-
-  const dataLines = input.exerciseSummaries.map(ex =>
-    `${ex.exerciseName}: ${ex.sessions} sessions, volume ${ex.totalVolume} kg·reps, est. 1RM ${ex.oneRmEstimate} kg, avg RIR ${ex.avgRir}, trend ${ex.trend}`,
-  );
-
-  const user = `Training date: ${input.trainingDate}\n\nLast 4 weeks per exercise:\n${dataLines.join('\n')}\n\nCoach insight:`;
+  const user =
+    `Training log (last 4 weeks, chronological):\n\n` +
+    sessionLines.join('\n') +
+    `\n\nCoach insight:`;
 
   return {system, user};
 }
