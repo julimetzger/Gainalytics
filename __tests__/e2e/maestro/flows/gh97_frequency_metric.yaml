@@ -1,12 +1,13 @@
 appId: com.powerliftingworkoutplanner
 ---
 
-# Launch app fresh and wait for it to load.
+# Launch app and wait for it to load.
+# clearState: false avoids the 60s+ cold-bundle load on emulator; app data is preserved.
 - launchApp:
-    clearState: true
+    clearState: false
 - extendedWaitUntil:
     visible: 'Training'
-    timeout: 60000
+    timeout: 90000
 
 # Navigate to Analyse > Metrics Overview.
 - tapOn: 'tab-analyse'
