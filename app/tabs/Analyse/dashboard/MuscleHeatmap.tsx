@@ -10,10 +10,10 @@ interface MuscleHeatmapProps {
   onMusclePress: (muscle: Muscles) => void;
 }
 
-const muscleChipColor = (comparison: Comparison | undefined, errorColor: string): string | undefined => {
+const muscleChipColor = (comparison: Comparison | undefined, positiveColor: string, errorColor: string): string | undefined => {
   if (!comparison) return undefined;
   if (comparison.difference === undefined) return undefined;
-  if (comparison.difference > 0) return '#558b2f';
+  if (comparison.difference > 0) return positiveColor;
   if (comparison.difference < 0) return errorColor;
   return undefined;
 };
@@ -30,7 +30,7 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
           {allMuscles.map((muscle) => {
             const metrics = muscleMetricMap.get(muscle);
             const volumeComparison = metrics?.get(Metric.VOLUME);
-            const chipColor = muscleChipColor(volumeComparison, theme.colors.error);
+            const chipColor = muscleChipColor(volumeComparison, theme.colors.primary, theme.colors.error);
             const hasData = volumeComparison !== undefined && volumeComparison.value > 0;
 
             return (
