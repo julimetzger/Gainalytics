@@ -40,18 +40,12 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 
 # KEY ASSERTION: Frequency must be present in the dropdown.
-# maxHeight 520 shows all 7 metrics; Frequency is the last item.
-# Swipe up in the dialog to ensure Frequency is in view, then assert.
-- swipe:
-    start: "50%, 65%"
-    end: "50%, 35%"
-    duration: 500
+# maxHeight 520 shows all 7 metrics without scrolling.
 - assertVisible:
     text: 'Frequency'
 - takeScreenshot: gh97-frequency-in-muscle-dropdown
 
-# Select Frequency. Dialog modal scrim ensures this targets the dialog list item,
-# not any table column header that might show "Frequency" text.
+# Select Frequency. Dialog modal scrim ensures this targets the dialog list item.
 - tapOn:
     text: 'Frequency'
 
@@ -97,10 +91,6 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 
 # KEY ASSERTION: Frequency must be present in exercise dropdown too.
-- swipe:
-    start: "50%, 65%"
-    end: "50%, 35%"
-    duration: 500
 - assertVisible:
     text: 'Frequency'
 - takeScreenshot: gh97-frequency-in-exercise-dropdown
