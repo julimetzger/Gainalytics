@@ -54,7 +54,7 @@ appId: com.powerliftingworkoutplanner
 # Wait for dialog to close (Muscle Overview text becomes visible again).
 - extendedWaitUntil:
     visible:
-      text: 'Muscle Overview'
+      text: 'Metrics Overview'
     timeout: 10000
 
 # Re-open the muscle dropdown to verify "Current: Frequency" persists.
@@ -72,7 +72,7 @@ appId: com.powerliftingworkoutplanner
     id: 'metric-selector-option-volume'
 - extendedWaitUntil:
     visible:
-      text: 'Muscle Overview'
+      text: 'Metrics Overview'
     timeout: 10000
 
 # Scroll to Exercise Overview section.
@@ -100,6 +100,6 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'metric-selector-option-frequency'
 - extendedWaitUntil:
-    visible: 'Exercise Overview'
+    visible: 'Metrics Overview'
     timeout: 10000
 - takeScreenshot: gh97-frequency-selected-exercise
