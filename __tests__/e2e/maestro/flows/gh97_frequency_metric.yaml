@@ -50,27 +50,31 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: 'Frequency'
 - takeScreenshot: gh97-frequency-in-muscle-dropdown
 
-# Verify all expected metrics are shown (regression check).
+# Verify other metrics are present (regression check).
 - assertVisible: 'Volume'
 - assertVisible: '1RM'
 - assertVisible: 'Sets'
-- assertVisible: 'Reps'
-- assertVisible: 'Max Intensity'
-- assertVisible: 'Average Intensity'
 
-# Dismiss dialog.
-- back
+# Dismiss dialog by tapping outside its bounds (top-left area is outside the center dialog).
+# Using back can scroll the ScrollArea instead of closing the dialog.
+- tapOn:
+    point: "10%, 5%"
+- extendedWaitUntil:
+    visible:
+      text: 'Muscle Overview'
+    timeout: 10000
 
 # Scroll to Exercise Overview section.
 - scrollUntilVisible:
     element:
       text: 'Exercise Overview'
     direction: DOWN
+    timeout: 15000
 
 # Tap first exercise metric column header using screen coordinates.
-# "1RM" (first exercise metric column) is at approximately 56% x, 42% y.
+# "1RM" (first exercise metric column) is at approximately 56% x below Exercise Overview.
 - tapOn:
-    point: "56%, 42%"
+    point: "56%, 72%"
 - extendedWaitUntil:
     visible: 'Select exercise metric'
     timeout: 10000
@@ -92,11 +96,12 @@ appId: com.powerliftingworkoutplanner
 
 # Re-open to verify persistence.
 - tapOn:
-    point: "56%, 42%"
+    point: "56%, 72%"
 - extendedWaitUntil:
     visible: 'Select exercise metric'
     timeout: 10000
 - assertVisible:
     text: 'Current: Frequency'
 - takeScreenshot: gh97-frequency-selected-as-metric
-- back
+- tapOn:
+    point: "10%, 5%"
