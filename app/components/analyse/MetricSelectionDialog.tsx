@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   scrollArea: {
-    maxHeight: 420,
+    maxHeight: 520,
     paddingHorizontal: 0,
   },
   option: {
