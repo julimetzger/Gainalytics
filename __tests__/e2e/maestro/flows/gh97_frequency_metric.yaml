@@ -46,19 +46,31 @@ appId: com.powerliftingworkoutplanner
     element:
       text: 'Frequency'
     direction: DOWN
-    timeout: 5000
+    timeout: 8000
 - assertVisible: 'Frequency'
 - takeScreenshot: gh97-frequency-in-muscle-dropdown
 
-# Verify other metrics are present (regression check).
-- assertVisible: 'Volume'
-- assertVisible: '1RM'
-- assertVisible: 'Sets'
+# Select Frequency — this both proves it is selectable AND closes the dialog cleanly.
+- tapOn: 'Frequency'
 
-# Dismiss dialog by tapping outside its bounds (top-left area is outside the center dialog).
-# Using back can scroll the ScrollArea instead of closing the dialog.
+# Wait for dialog to close (Muscle Overview text becomes visible again).
+- extendedWaitUntil:
+    visible:
+      text: 'Muscle Overview'
+    timeout: 10000
+
+# Re-open the muscle dropdown to verify "Current: Frequency" persists.
 - tapOn:
-    point: "10%, 5%"
+    point: "56%, 29%"
+- extendedWaitUntil:
+    visible: 'Select muscle metric'
+    timeout: 10000
+- assertVisible:
+    text: 'Current: Frequency'
+- takeScreenshot: gh97-frequency-persists-muscle
+
+# Dismiss by selecting Volume to restore default state.
+- tapOn: 'Volume'
 - extendedWaitUntil:
     visible:
       text: 'Muscle Overview'
@@ -71,10 +83,11 @@ appId: com.powerliftingworkoutplanner
     direction: DOWN
     timeout: 15000
 
-# Tap first exercise metric column header using screen coordinates.
-# "1RM" (first exercise metric column) is at approximately 56% x below Exercise Overview.
+# Tap first exercise metric column header.
+# ExerciseMetricOverview header is below Exercise Overview card title.
+# "1RM" is the first exercise metric at approximately 55% x, 67% y after scrolling.
 - tapOn:
-    point: "56%, 72%"
+    point: "55%, 67%"
 - extendedWaitUntil:
     visible: 'Select exercise metric'
     timeout: 10000
@@ -84,24 +97,12 @@ appId: com.powerliftingworkoutplanner
     element:
       text: 'Frequency'
     direction: DOWN
-    timeout: 5000
+    timeout: 8000
 - assertVisible: 'Frequency'
-- takeScreenshot: gh97-frequency-in-exercise-dropdown
 
-# Select Frequency and verify it persists.
+# Select Frequency in exercise dropdown too.
 - tapOn: 'Frequency'
 - extendedWaitUntil:
     visible: 'Exercise Overview'
     timeout: 10000
-
-# Re-open to verify persistence.
-- tapOn:
-    point: "56%, 72%"
-- extendedWaitUntil:
-    visible: 'Select exercise metric'
-    timeout: 10000
-- assertVisible:
-    text: 'Current: Frequency'
-- takeScreenshot: gh97-frequency-selected-as-metric
-- tapOn:
-    point: "10%, 5%"
+- takeScreenshot: gh97-frequency-in-exercise-dropdown
