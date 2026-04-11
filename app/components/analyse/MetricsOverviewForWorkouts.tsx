@@ -45,13 +45,19 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
 
   const exerciseWorkoutMap = useMemo(() => {
     return new Map(
-      exercises.map((exercise) => [
-        exercise,
-        {
-          currentWorkoutSets: trainingsWorkouts.filter((workout) => workout.exerciseId === exercise.id).flatMap((workout) => workout.sets),
-          lastWorkoutSets: previousWorkouts.filter((workout) => workout.exerciseId === exercise.id).flatMap((workout) => workout.sets),
-        } satisfies WorkoutSetMap,
-      ]),
+      exercises.map((exercise) => {
+        const currentWorkouts = trainingsWorkouts.filter((workout) => workout.exerciseId === exercise.id);
+        const lastWorkouts = previousWorkouts.filter((workout) => workout.exerciseId === exercise.id);
+        return [
+          exercise,
+          {
+            currentWorkoutSets: currentWorkouts.flatMap((workout) => workout.sets),
+            lastWorkoutSets: lastWorkouts.flatMap((workout) => workout.sets),
+            currentWorkoutsCount: currentWorkouts.length,
+            lastWorkoutsCount: lastWorkouts.length,
+          } satisfies WorkoutSetMap,
+        ];
+      }),
     );
   }, [exercises, previousWorkouts, trainingsWorkouts]);
 
@@ -138,8 +144,8 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
                   return null;
                 }
 
-                const unmodifiedMetricValue = calculateMetricValue(workout.currentWorkoutSets, selectedMuscle.metric) ?? 0;
-                const percent = [Metric.SETS, Metric.VOLUME, Metric.REPS].includes(selectedMuscle.metric) ? matchedExercise.percent ?? 0 : 100;
+                const unmodifiedMetricValue = calculateMetricValue(workout.currentWorkoutSets, selectedMuscle.metric, workout.currentWorkoutsCount) ?? 0;
+                const percent = [Metric.SETS, Metric.VOLUME, Metric.REPS, Metric.FREQUENCY].includes(selectedMuscle.metric) ? matchedExercise.percent ?? 0 : 100;
 
                 return (
                   <DataTable.Row key={`${exercise.id}-${selectedMuscle.muscle}`}>
