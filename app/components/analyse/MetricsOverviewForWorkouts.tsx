@@ -73,7 +73,7 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
   return (
     <>
       <Card style={styles.card}>
-        <Card.Title title={<Text>Muscle Overview</Text>} />
+        <Card.Title title="Muscle Overview" />
         <Card.Content>
           <DataTable>
             <DataTable.Header>
@@ -83,10 +83,11 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
                   key={`${metric}-${index}`}
                   style={getMetricColumnStyle(index)}
                   numeric
+                  numberOfLines={2}
                   onPress={() => setMetricSelector({section: 'muscles', slotIndex: index})}
                   testID={`metrics-muscles-header-${index}`}
                 >
-                  <Text numberOfLines={2}>{metric}</Text>
+                  {metric}
                 </DataTable.Title>
               ))}
             </DataTable.Header>

@@ -15,14 +15,14 @@ interface ExerciseMetricOverviewProps {
 const ExerciseMetricOverview = ({exerciseMetricMap, metrics, onMetricHeaderPress}: ExerciseMetricOverviewProps) => {
   return (
     <Card style={styles.card}>
-      <Card.Title title={<Text>Exercise Overview</Text>} />
+      <Card.Title title="Exercise Overview" />
       <Card.Content>
         <DataTable>
           <DataTable.Header>
             <DataTable.Title style={styles.flexL}>Exercise</DataTable.Title>
             {metrics.map((metric, index) => (
-              <DataTable.Title key={`${metric}-${index}`} style={getMetricColumnStyle(index)} numeric onPress={() => onMetricHeaderPress(index)} testID={`metrics-exercises-header-${index}`}>
-                <Text numberOfLines={2}>{metric}</Text>
+              <DataTable.Title key={`${metric}-${index}`} style={getMetricColumnStyle(index)} numeric numberOfLines={2} onPress={() => onMetricHeaderPress(index)} testID={`metrics-exercises-header-${index}`}>
+                {metric}
               </DataTable.Title>
             ))}
           </DataTable.Header>
