@@ -1,9 +1,11 @@
 import React, {useState} from 'react';
+import {useStore} from 'react-redux';
 import {Dimensions, Platform, ScrollView, StyleSheet} from 'react-native';
 import {Button, Card, Dialog, IconButton, Portal, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
 import Toast from 'react-native-toast-message';
+import {GlobalState} from '../../redux/rootReducer';
 import {dispatchAddVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchAddVideoAnalysis';
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
@@ -31,7 +33,14 @@ const VideoSelectionModal = ({visible, onDismiss, workoutId, setIndex, exerciseI
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
   const linkVideoAnalysis = dispatchLinkVideoAnalysisToWorkout();
   const theme = useTheme();
+  const store = useStore<GlobalState>();
   const [importing, setImporting] = useState(false);
+
+  const showToast = (params: Parameters<typeof Toast.show>[0]) => {
+    if (!store.getState().settings?.toggles?.disableToasts) {
+      Toast.show(params);
+    }
+  };
   const screenHeight = Dimensions.get('window').height;
 
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map(a => a.id ?? 0)) + 1 : 1;
@@ -60,9 +69,9 @@ const VideoSelectionModal = ({visible, onDismiss, workoutId, setIndex, exerciseI
       linkVideoAnalysis(nextAnalysisId, workoutId, exerciseId, setIndex);
       onLinked?.();
       onDismiss();
-      Toast.show({type: 'info', text1: 'Video linked', text2: 'The imported video has been linked to the set.', position: 'top'});
+      showToast({type: 'info', text1: 'Video linked', text2: 'The imported video has been linked to the set.', position: 'top'});
     } catch {
-      Toast.show({type: 'error', text1: 'Import failed', text2: 'Could not import or process the selected video.', position: 'top'});
+      showToast({type: 'error', text1: 'Import failed', text2: 'Could not import or process the selected video.', position: 'top'});
     }
   };
 
@@ -73,7 +82,7 @@ const VideoSelectionModal = ({visible, onDismiss, workoutId, setIndex, exerciseI
       await importFromSource(selected.fileCopyUri ?? selected.uri);
     } catch (e) {
       if (!DocumentPicker.isCancel(e)) {
-        Toast.show({type: 'error', text1: 'Import failed', text2: 'Could not pick a video from the gallery.', position: 'top'});
+        showToast({type: 'error', text1: 'Import failed', text2: 'Could not pick a video from the gallery.', position: 'top'});
       }
     } finally {
       setImporting(false);
@@ -84,11 +93,11 @@ const VideoSelectionModal = ({visible, onDismiss, workoutId, setIndex, exerciseI
     try {
       setImporting(true);
       if (!(await requestVideoReadPermission())) {
-        Toast.show({type: 'error', text1: 'Permission required', text2: 'Storage permission is required to import the emulator video.', position: 'top'});
+        showToast({type: 'error', text1: 'Permission required', text2: 'Storage permission is required to import the emulator video.', position: 'top'});
         return;
       }
       if (!(await RNFS.exists(EMULATOR_SQUAT_VIDEO_PATH))) {
-        Toast.show({type: 'error', text1: 'Sample video missing', text2: EMULATOR_SQUAT_VIDEO_PATH, position: 'top'});
+        showToast({type: 'error', text1: 'Sample video missing', text2: EMULATOR_SQUAT_VIDEO_PATH, position: 'top'});
         return;
       }
       await importFromSource(EMULATOR_SQUAT_VIDEO_PATH);
