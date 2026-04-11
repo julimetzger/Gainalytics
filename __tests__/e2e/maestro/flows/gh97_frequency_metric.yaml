@@ -27,25 +27,30 @@ appId: com.powerliftingworkoutplanner
     visible: 'Metrics Overview'
     timeout: 20000
 
+# Scroll to top so the muscle table header is fully visible.
+- scroll:
+    direction: UP
+    duration: 500
+
 # Take a screenshot to show the loaded Metrics Overview screen.
 - takeScreenshot: gh97-metrics-overview-loaded
 
-# Tap on the first muscle metric column header using screen coordinates.
-# DataTable.Title testIDs are not in the Android accessibility tree, so we use
-# point-based tapping. "Volume" (first muscle metric column) is at ~56% x, 29% y.
+# Tap the "Volume" text inside the first muscle metric column header.
+# DataTable.Title testIDs are not exposed in the Android accessibility tree.
+# Text-based tap reaches the inner <Text> node and bubbles up to DataTable.Title's onPress.
 - tapOn:
-    point: "56%, 29%"
+    text: "Volume"
 - extendedWaitUntil:
     visible: 'Select muscle metric'
     timeout: 10000
 
 # KEY ASSERTION: Frequency must be present in the dropdown.
-# maxHeight 520 shows all 7 metrics without scrolling.
+# List.Item uses plain-string title so Maestro can find it by text.
 - assertVisible:
     text: 'Frequency'
 - takeScreenshot: gh97-frequency-in-muscle-dropdown
 
-# Select Frequency. Dialog modal scrim ensures this targets the dialog list item.
+# Select Frequency. tapOn exact text avoids ambiguity with "Current: Volume".
 - tapOn:
     text: 'Frequency'
 
@@ -56,8 +61,9 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 
 # Re-open the muscle dropdown to verify "Current: Frequency" persists.
+# Column header now shows "Frequency", so we tap that text.
 - tapOn:
-    point: "56%, 29%"
+    text: "Frequency"
 - extendedWaitUntil:
     visible: 'Select muscle metric'
     timeout: 10000
@@ -74,18 +80,16 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 
 # Scroll to Exercise Overview section.
-# Use "Exercise" (DataTable column header, plain string) as scroll anchor
-# since Card.Title with React element child is not in accessibility tree.
+# Use "Exercise" (DataTable column header plain string) as scroll anchor.
 - scrollUntilVisible:
     element:
       text: 'Exercise'
     direction: DOWN
     timeout: 15000
 
-# Tap first exercise metric column header using screen coordinates.
-# After scrolling, the exercise header is at approximately 56% x, 67% y.
+# Tap "1RM" text inside the first exercise metric column header (default slot 0 = 1RM).
 - tapOn:
-    point: "56%, 67%"
+    text: "1RM"
 - extendedWaitUntil:
     visible: 'Select exercise metric'
     timeout: 10000

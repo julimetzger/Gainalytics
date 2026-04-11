@@ -23,7 +23,7 @@ const MetricSelectionDialog = ({title, visible, selectedMetric, onDismiss, onSel
           {ALL_METRICS.map((metric) => (
             <List.Item
               key={metric}
-              title={<Text>{metric}</Text>}
+              title={metric}
               onPress={() => onSelect(metric)}
               testID={`metric-selector-option-${metric
                 .toLowerCase()
