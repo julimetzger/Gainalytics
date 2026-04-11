@@ -35,8 +35,7 @@ appId: com.powerliftingworkoutplanner
 # Android accessibility tree (left: -1080 offset hides it from uiautomator).
 # We use point-based tap to trigger the MetricSelectionDialog Portal,
 # which IS accessible once rendered at the root Portal host.
-# Column 0 (first metric, "Volume" by default) sits at ~51% x, ~33% y
-# on a 1080x2400 screen (approx x=550, y=792).
+# Column 0 (first metric) header sits at ~51% x, ~33% y on a 1080x2400 screen.
 - tapOn:
     point: "51%,33%"
 - extendedWaitUntil:
@@ -59,7 +58,6 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 
 # Re-open the muscle dropdown to verify "Current: Frequency" persists.
-# Same coordinate tap.
 - tapOn:
     point: "51%,33%"
 - extendedWaitUntil:
@@ -77,23 +75,23 @@ appId: com.powerliftingworkoutplanner
       text: 'Metrics Overview'
     timeout: 10000
 
-# Scroll down to Exercise Overview section.
-- scroll:
-    direction: DOWN
-    duration: 1500
-- scroll:
-    direction: DOWN
-    duration: 1500
+# Scroll down to Exercise Overview section and verify Frequency there too.
+- swipe:
+    start: "50%, 70%"
+    end: "50%, 30%"
+    duration: 1000
+- swipe:
+    start: "50%, 70%"
+    end: "50%, 30%"
+    duration: 1000
 
-# Wait briefly for scroll to settle.
+# Wait for scroll to settle.
 - extendedWaitUntil:
     visible: 'Metrics Overview'
     timeout: 5000
 
-# Tap the first exercise metric column header using coordinates.
-# ExerciseMetricOverview DataTable is rendered below the fold.
-# After scrolling down ~2 full screens the exercise header row is near the top.
-# Exercise column 0 header at approximately x=550, y=33% of current viewport.
+# Tap the first exercise metric column header using coordinate tap.
+# After scrolling down, the exercise header row should be near 33% of viewport.
 - tapOn:
     point: "51%,33%"
 - runFlow:
