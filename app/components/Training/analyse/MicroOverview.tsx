@@ -13,6 +13,7 @@ import {getPreviousMicroInMeso} from '../../../redux/Training/trainingsPlanReduc
 import {Metric} from "../../../models/Metric";
 import VelocityLossInsightCard from '../VelocityLossInsightCard';
 import {useVelocityLossInsights} from '../useVelocityLossInsights';
+import CoachInsightCard from '../CoachInsightCard';
 
 interface TrainingsBaseProps {
   trainingsPlan: TrainingsPlan;
@@ -89,6 +90,7 @@ const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
           ))}
         </View>
       )}
+      <CoachInsightCard trainings={trainings} />
       <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
     </ScrollView>
   );

@@ -91,6 +91,28 @@ jest.mock('../../../app/utils/NotificationUtils', () => ({
   openExactAlarmSettings: jest.fn(),
 }));
 
+jest.mock('../../../app/utils/secureStorage', () => ({
+  secureStorage: {
+    getAnthropicApiKey: jest.fn(() => undefined),
+    setAnthropicApiKey: jest.fn(),
+    deleteAnthropicApiKey: jest.fn(),
+    hasAnthropicApiKey: jest.fn(() => false),
+  },
+}));
+
+jest.mock('../../../app/utils/llmApi', () => ({
+  validateAnthropicApiKey: jest.fn().mockResolvedValue({ok: true, text: 'OK'}),
+}));
+
+jest.mock('react-native-mmkv', () => ({
+  MMKV: jest.fn().mockImplementation(() => ({
+    getString: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    contains: jest.fn(() => false),
+  })),
+}));
+
 jest.mock('../../../app/components/picker/date/TimeRangePicker', () => {
   const React = require('react');
   const {Text, TouchableOpacity, View} = require('react-native');
@@ -170,6 +192,22 @@ jest.mock('react-native-paper', () => {
       </TouchableOpacity>
     ),
     Text: ({children}: {children: React.ReactNode}) => <Text>{children}</Text>,
+    HelperText: ({children}: {children: React.ReactNode}) => <Text>{children}</Text>,
+    ActivityIndicator: () => <View testID="activity-indicator" />,
+    TextInput: Object.assign(
+      ({value, onChangeText, label, testID}: {value?: string; onChangeText?: (t: string) => void; label?: string; testID?: string; [k: string]: any}) => (
+        <View testID={testID}>
+          <Text>{label}</Text>
+        </View>
+      ),
+      {
+        Icon: ({icon, onPress}: {icon: string; onPress?: () => void}) => (
+          <TouchableOpacity onPress={onPress} testID={`text-input-icon-${icon}`}>
+            <Text>{icon}</Text>
+          </TouchableOpacity>
+        ),
+      },
+    ),
   };
 });
 

@@ -2,6 +2,16 @@
 // Silence Animated: "useNativeDriver" warnings, etc.
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
 
+// Mock react-native-mmkv (used for secureStorage and insightCache)
+jest.mock('react-native-mmkv', () => ({
+  MMKV: jest.fn().mockImplementation(() => ({
+    getString: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    contains: jest.fn(() => false),
+  })),
+}));
+
 // Reanimated mock (required by the plugin in tests)
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 

@@ -2,7 +2,9 @@ import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
 import React, {useState, useEffect} from 'react';
 import {Alert, ScrollView, View, StyleSheet, Platform} from 'react-native';
-import {Button, Dialog, Divider, Portal, RadioButton, Switch, Text} from 'react-native-paper';
+import {Button, Dialog, Divider, HelperText, Portal, RadioButton, Switch, Text, TextInput} from 'react-native-paper';
+import {secureStorage} from '../../utils/secureStorage';
+import {validateAnthropicApiKey} from '../../utils/llmApi';
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {useStore} from 'react-redux';
 import DocumentPicker, {DocumentPickerResponse} from 'react-native-document-picker';
@@ -33,6 +35,11 @@ const SettingsTab = ({navigation}: Props) => {
 
   const [importDialog, setImportDialog] = useState(false);
   const [exactAlarmStatus, setExactAlarmStatus] = useState<boolean | null>(null);
+
+  // AI Coach API key state
+  const [apiKeyInput, setApiKeyInput] = useState(() => secureStorage.getAnthropicApiKey() ?? '');
+  const [apiKeySecure, setApiKeySecure] = useState(true);
+  const [apiKeyValidating, setApiKeyValidating] = useState(false);
 
   let fullImport = dispatchFullImport();
   let setPauseTimer = dispatchSetPauseTimer();
@@ -107,6 +114,42 @@ const SettingsTab = ({navigation}: Props) => {
 
   const showAlert = () => {
     Alert.alert('Nope. This app is not using stupid measuring systems.');
+  };
+
+  const handleSaveApiKey = () => {
+    const trimmed = apiKeyInput.trim();
+    if (trimmed === '') {
+      secureStorage.deleteAnthropicApiKey();
+      Toast.show({type: 'info', text1: 'API key removed', position: 'top', visibilityTime: 3000});
+    } else {
+      secureStorage.setAnthropicApiKey(trimmed);
+      Toast.show({type: 'success', text1: 'API key saved', position: 'top', visibilityTime: 3000});
+    }
+  };
+
+  const handleTestApiKey = async () => {
+    const trimmed = apiKeyInput.trim();
+    if (!trimmed) {
+      Toast.show({type: 'error', text1: 'Enter a key first', position: 'top', visibilityTime: 3000});
+      return;
+    }
+    setApiKeyValidating(true);
+    try {
+      const result = await validateAnthropicApiKey(trimmed);
+      if (result.ok) {
+        Toast.show({type: 'success', text1: 'API key is valid ✓', position: 'top', visibilityTime: 3000});
+      } else {
+        const err = result.error;
+        const msg =
+          err.type === 'invalid_key' ? 'Invalid API key' :
+          err.type === 'rate_limit' ? 'Rate limit reached' :
+          err.type === 'network' ? `Network error: ${err.message}` :
+          'Validation failed';
+        Toast.show({type: 'error', text1: msg, position: 'top', visibilityTime: 4000});
+      }
+    } finally {
+      setApiKeyValidating(false);
+    }
   };
 
   function importDump(documentPickerRespons: DocumentPickerResponse) {
@@ -234,6 +277,60 @@ const SettingsTab = ({navigation}: Props) => {
       <View style={styles.divider}>
         <Divider />
       </View>
+      {/* AI Coach section */}
+      <View style={styles.divider}>
+        <Divider />
+      </View>
+      <View style={{marginHorizontal: 15, marginVertical: 8}}>
+        <Text variant="titleSmall" style={{marginBottom: 4}}>AI Coach (Anthropic Claude)</Text>
+        <Text variant="bodySmall" style={{color: 'gray', marginBottom: 8}}>
+          Your API key is stored encrypted on this device only. It is never sent to any server other
+          than Anthropic. You need an Anthropic account to use this feature.
+        </Text>
+        <TextInput
+          mode="outlined"
+          label="Anthropic API Key"
+          value={apiKeyInput}
+          onChangeText={setApiKeyInput}
+          secureTextEntry={apiKeySecure}
+          right={
+            <TextInput.Icon
+              icon={apiKeySecure ? 'eye' : 'eye-off'}
+              onPress={() => setApiKeySecure(v => !v)}
+            />
+          }
+          testID="settings-anthropic-api-key-input"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <HelperText type="info">
+          Get your key at console.anthropic.com
+        </HelperText>
+        <View style={{flexDirection: 'row', gap: 8, marginTop: 4}}>
+          <Button
+            mode="outlined"
+            onPress={handleSaveApiKey}
+            style={{flex: 1}}
+            testID="settings-save-api-key-button"
+          >
+            Save Key
+          </Button>
+          <Button
+            mode="contained"
+            onPress={handleTestApiKey}
+            loading={apiKeyValidating}
+            disabled={apiKeyValidating}
+            style={{flex: 1}}
+            testID="settings-test-api-key-button"
+          >
+            Test Key
+          </Button>
+        </View>
+      </View>
+      <View style={styles.divider}>
+        <Divider />
+      </View>
+
       <View style={{flexDirection: 'row'}}>
         <Button
           mode="elevated"
