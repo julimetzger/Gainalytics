@@ -41,17 +41,15 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 
 # KEY ASSERTION: Frequency must be present in the dropdown.
-# Scroll down within the dialog to reveal Frequency if it's below the viewport.
-- scrollUntilVisible:
-    element:
-      text: 'Frequency'
-    direction: DOWN
-    timeout: 8000
-- assertVisible: 'Frequency'
+# With maxHeight 520, all 7 metrics fit without scrolling.
+- assertVisible:
+    id: 'metric-selector-option-frequency'
 - takeScreenshot: gh97-frequency-in-muscle-dropdown
 
-# Select Frequency — this both proves it is selectable AND closes the dialog cleanly.
-- tapOn: 'Frequency'
+# Select Frequency using its testID — avoids tapping the table column header
+# which also shows "Frequency" text when it was previously selected.
+- tapOn:
+    id: 'metric-selector-option-frequency'
 
 # Wait for dialog to close (Muscle Overview text becomes visible again).
 - extendedWaitUntil:
@@ -70,7 +68,8 @@ appId: com.powerliftingworkoutplanner
 - takeScreenshot: gh97-frequency-persists-muscle
 
 # Dismiss by selecting Volume to restore default state.
-- tapOn: 'Volume'
+- tapOn:
+    id: 'metric-selector-option-volume'
 - extendedWaitUntil:
     visible:
       text: 'Muscle Overview'
@@ -93,16 +92,14 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 
 # KEY ASSERTION: Frequency must be present in exercise dropdown too.
-- scrollUntilVisible:
-    element:
-      text: 'Frequency'
-    direction: DOWN
-    timeout: 8000
-- assertVisible: 'Frequency'
+- assertVisible:
+    id: 'metric-selector-option-frequency'
+- takeScreenshot: gh97-frequency-in-exercise-dropdown
 
-# Select Frequency in exercise dropdown too.
-- tapOn: 'Frequency'
+# Select Frequency in exercise dropdown too, using testID to avoid ambiguity.
+- tapOn:
+    id: 'metric-selector-option-frequency'
 - extendedWaitUntil:
     visible: 'Exercise Overview'
     timeout: 10000
-- takeScreenshot: gh97-frequency-in-exercise-dropdown
+- takeScreenshot: gh97-frequency-selected-exercise
