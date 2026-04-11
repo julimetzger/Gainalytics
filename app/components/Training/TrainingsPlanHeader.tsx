@@ -7,7 +7,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 interface headerProps {
   trainingsPlanName: string;
   trainingName: string;
-  micro: number;
+  micro?: number;
   mode: string;
   drawerMenu: React.ReactNode;
 }
@@ -41,25 +41,27 @@ const TrainingsPlanHeader = ({trainingsPlanName, trainingName, micro, mode, draw
             {trainingsPlanName}
           </Text>
           <View style={{display: 'flex', flexDirection: 'row'}}>
+            {micro !== undefined && (
+              <Text
+                style={{
+                  fontSize: 20,
+                  color: theme.colors.onSecondaryContainer,
+                }}
+              >
+                Micro {micro}
+              </Text>
+            )}
             <Text
               style={{
                 fontSize: 20,
                 color: theme.colors.onSecondaryContainer,
               }}
             >
-              Micro {micro}
-            </Text>
-            <Text
-              style={{
-                fontSize: 20,
-                color: theme.colors.onSecondaryContainer,
-              }}
-            >
-              {' ' + trainingName}
+              {micro !== undefined ? ' ' + trainingName : trainingName}
             </Text>
           </View>
         </View>
-        {mode !== 'Overview' && (
+        {micro !== undefined && mode !== 'Overview' && (
           <View style={{flexDirection: 'column', width: 80, marginEnd: 10}}>
             <Text style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold', color: theme.colors.onSecondaryContainer}}>Mode</Text>
             <Text

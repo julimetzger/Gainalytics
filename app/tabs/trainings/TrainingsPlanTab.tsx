@@ -1,4 +1,5 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
+import {BackHandler} from 'react-native';
 import {IconButton, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/TrainingRouter';
@@ -29,14 +30,28 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   let changeTrainingsName = dispatchChangeTrainingsName();
   let theme = useTheme();
 
+  // Android hardware back closes the calendar instead of leaving the screen
+  useEffect(() => {
+    if (!showHistory) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setShowHistory(false);
+      return true; // consume the event
+    });
+    return () => sub.remove();
+  }, [showHistory]);
+
   navigation.setOptions({
     header: (props) => (
       <TrainingsPlanHeader
         trainingsPlanName={trainingsPlan.name}
-        trainingName={showDone ? 'Overview' : trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
-        micro={micro}
-        mode={showDone ? 'Overview' : training?.state}
-        drawerMenu={<IconButton icon="menu" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOpen((prevOpen) => !prevOpen)}></IconButton>}
+        trainingName={showHistory ? 'History' : showDone ? 'Overview' : trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
+        micro={showHistory ? undefined : micro}
+        mode={showHistory ? 'History' : showDone ? 'Overview' : training?.state}
+        drawerMenu={
+          showHistory
+            ? <IconButton icon="arrow-left" iconColor={theme.colors.onSecondaryContainer} onPress={() => setShowHistory(false)} />
+            : <IconButton icon="menu" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOpen((prevOpen) => !prevOpen)} />
+        }
       />
     ),
   });
@@ -87,6 +102,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
               setMicro(targetMicro);
               setTrainingInMicro(targetTrainingInMicro);
               setShowDone(false);
+              setRerender(Math.random());
             } else {
               navigation.navigate('TrainingPlan', {
                 trainingsPlan: targetPlan,

@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useMemo, useRef, useState} from 'react';
 import {ScrollView, TouchableOpacity, View, StyleSheet} from 'react-native';
 import {Button, Card, Divider, Text, useTheme} from 'react-native-paper';
 import {Calendar} from 'react-native-calendars/src';
@@ -249,6 +249,8 @@ interface TrainingHistoryCalendarProps {
 const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHistoryCalendarProps) => {
   const theme = useTheme();
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
+  const scrollRef = useRef<ScrollView>(null);
+  const detailY = useRef<number>(0);
 
   // Read all plans and all trainings from Redux
   const allPlans = useSelector((state: GlobalState) =>
@@ -379,7 +381,18 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHi
   }, [allPlans, trainingsById, selectedDate]);
 
   const handleDayPress = (day: DateData) => {
-    setSelectedDate((prev) => (prev === day.dateString ? undefined : day.dateString));
+    const hasTraining = !!markedDates[day.dateString]?.trainingId;
+    if (hasTraining) {
+      setSelectedDate((prev) => {
+        if (prev !== day.dateString) {
+          // Scroll to detail panel after state update
+          setTimeout(() => scrollRef.current?.scrollTo({y: detailY.current, animated: true}), 100);
+        }
+        return prev === day.dateString ? undefined : day.dateString;
+      });
+    } else {
+      setSelectedDate((prev) => (prev === day.dateString ? undefined : day.dateString));
+    }
   };
 
   const calTheme = useMemo(
@@ -397,7 +410,7 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHi
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{flexGrow: 1}}>
+    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={{flexGrow: 1}}>
       <Calendar
         theme={calTheme}
         markedDates={markedDates}
@@ -416,12 +429,14 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHi
         current={new Date().toISOString().slice(0, 10)}
       />
       {selectedTraining && (
-        <TrainingDetailPanel
-          selected={selectedTraining}
-          onNavigate={() =>
-            onNavigateToTraining(selectedTraining.plan, selectedTraining.micro, selectedTraining.trainingInMicro)
-          }
-        />
+        <View onLayout={(e) => { detailY.current = e.nativeEvent.layout.y; }}>
+          <TrainingDetailPanel
+            selected={selectedTraining}
+            onNavigate={() =>
+              onNavigateToTraining(selectedTraining.plan, selectedTraining.micro, selectedTraining.trainingInMicro)
+            }
+          />
+        </View>
       )}
     </ScrollView>
   );

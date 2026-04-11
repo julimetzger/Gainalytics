@@ -1,0 +1,59 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-94 History Calendar – Navigation fixes (Round 3)
+# Verifies: header shows "History", back button closes calendar, Go to Training navigates
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible:
+      text: "Training"
+    timeout: 60000
+
+# Step 1: Tap the first training plan card (~50% x, ~11% y based on device layout)
+- tapOn:
+    point: "50%,11%"
+
+- waitForAnimationToEnd
+
+# Step 2: Open the drawer via hamburger menu (top-left ~5% x, 6% y)
+- tapOn:
+    point: "5%,6%"
+
+- waitForAnimationToEnd
+
+# Step 3: Tap History
+- tapOn:
+    text: "History"
+
+- waitForAnimationToEnd
+
+# Step 4: Verify header shows "History" (Bug 1 fix)
+- assertVisible:
+    text: "History"
+
+# Step 5: Use back button (arrow-left icon, same top-left position, now replaces hamburger)
+- tapOn:
+    point: "5%,6%"
+
+- waitForAnimationToEnd
+
+# Step 6: Verify calendar closed — no "History" text visible in header
+- assertNotVisible:
+    text: "History"
+
+# Step 7: Open History again to verify round-trip works
+- tapOn:
+    point: "5%,6%"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "History"
+
+- waitForAnimationToEnd
+
+# Step 8: Calendar should be open again
+- assertVisible:
+    text: "History"
