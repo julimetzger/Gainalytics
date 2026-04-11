@@ -76,17 +76,17 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 
 # Scroll to Exercise Overview section.
+# Use "Exercise" (DataTable column header, plain string) as scroll anchor
+# since Card.Title with React element child is not in accessibility tree.
 - scrollUntilVisible:
     element:
-      text: 'Exercise Overview'
+      text: 'Exercise'
     direction: DOWN
     timeout: 15000
 
-# Tap first exercise metric column header.
-# ExerciseMetricOverview header is below Exercise Overview card title.
-# "1RM" is the first exercise metric at approximately 55% x, 67% y after scrolling.
+# Tap first exercise metric column header using testID.
 - tapOn:
-    point: "55%, 67%"
+    id: 'metrics-exercises-header-0'
 - extendedWaitUntil:
     visible: 'Select exercise metric'
     timeout: 10000
