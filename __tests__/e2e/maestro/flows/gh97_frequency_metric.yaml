@@ -32,8 +32,7 @@ appId: com.powerliftingworkoutplanner
 
 # Tap on the first muscle metric column header using screen coordinates.
 # DataTable.Title testIDs are not in the Android accessibility tree, so we use
-# point-based tapping. "Volume" (first muscle metric column) is at approximately
-# 56% x, 29% y on the 1080x2400 emulator screen.
+# point-based tapping. "Volume" (first muscle metric column) is at ~56% x, 29% y.
 - tapOn:
     point: "56%, 29%"
 - extendedWaitUntil:
@@ -41,17 +40,24 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 
 # KEY ASSERTION: Frequency must be present in the dropdown.
-# With maxHeight 520, all 7 metrics fit without scrolling.
+# maxHeight 520 shows all 7 metrics; Frequency is the last item.
+# Swipe up in the dialog to ensure Frequency is in view, then assert.
+- swipe:
+    startX: 50%
+    startY: 65%
+    endX: 50%
+    endY: 35%
+    duration: 500
 - assertVisible:
-    id: 'metric-selector-option-frequency'
+    text: 'Frequency'
 - takeScreenshot: gh97-frequency-in-muscle-dropdown
 
-# Select Frequency using its testID — avoids tapping the table column header
-# which also shows "Frequency" text when it was previously selected.
+# Select Frequency. Dialog modal scrim ensures this targets the dialog list item,
+# not any table column header that might show "Frequency" text.
 - tapOn:
-    id: 'metric-selector-option-frequency'
+    text: 'Frequency'
 
-# Wait for dialog to close (Muscle Overview text becomes visible again).
+# Wait for dialog to close — the nav header "Metrics Overview" remains visible.
 - extendedWaitUntil:
     visible:
       text: 'Metrics Overview'
@@ -67,9 +73,9 @@ appId: com.powerliftingworkoutplanner
     text: 'Current: Frequency'
 - takeScreenshot: gh97-frequency-persists-muscle
 
-# Dismiss by selecting Volume to restore default state.
+# Dismiss by tapping Volume to restore default state.
 - tapOn:
-    id: 'metric-selector-option-volume'
+    text: 'Volume'
 - extendedWaitUntil:
     visible:
       text: 'Metrics Overview'
@@ -84,22 +90,30 @@ appId: com.powerliftingworkoutplanner
     direction: DOWN
     timeout: 15000
 
-# Tap first exercise metric column header using testID.
+# Tap first exercise metric column header using screen coordinates.
+# After scrolling, the exercise header is at approximately 56% x, 67% y.
 - tapOn:
-    id: 'metrics-exercises-header-0'
+    point: "56%, 67%"
 - extendedWaitUntil:
     visible: 'Select exercise metric'
     timeout: 10000
 
 # KEY ASSERTION: Frequency must be present in exercise dropdown too.
+- swipe:
+    startX: 50%
+    startY: 65%
+    endX: 50%
+    endY: 35%
+    duration: 500
 - assertVisible:
-    id: 'metric-selector-option-frequency'
+    text: 'Frequency'
 - takeScreenshot: gh97-frequency-in-exercise-dropdown
 
-# Select Frequency in exercise dropdown too, using testID to avoid ambiguity.
+# Select Frequency in exercise dropdown too.
 - tapOn:
-    id: 'metric-selector-option-frequency'
+    text: 'Frequency'
 - extendedWaitUntil:
-    visible: 'Metrics Overview'
+    visible:
+      text: 'Metrics Overview'
     timeout: 10000
 - takeScreenshot: gh97-frequency-selected-exercise
