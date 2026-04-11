@@ -16,6 +16,31 @@ import MetricView from '../../analyse/MetricComparison';
 import {Metric} from '../../../models/Metric';
 import {Workout} from '../../../models/entities/Workout';
 
+// ─── date helpers ────────────────────────────────────────────────────────────
+
+/** Return the Monday of the week containing `date` (week starts Mon). */
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const dow = d.getDay(); // 0=Sun … 6=Sat
+  const diff = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+/** Return the Sunday of the week containing `date`. */
+function getWeekEnd(date: Date): Date {
+  const start = getWeekStart(date);
+  start.setDate(start.getDate() + 6);
+  return start;
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
 // ─── types ──────────────────────────────────────────────────────────────────
 
 type DayMark = {
@@ -135,42 +160,30 @@ const HistoryDayComponent = ({date, state, marking, onPress, selectedDate}: DayC
   const hasTraining = !!info.trainingId;
   const inMicro = !!info.inMicroRange;
   const MICRO_COLOR = theme.colors.secondary;
-  const BORDER = 1.5;
+
+  // Background period style: soft translucent fill with rounded ends
+  const isSingleDay = inMicro && info.isMicroStart && info.isMicroEnd;
+  const bgLeft = inMicro ? (info.isMicroStart ? CELL_W / 2 : 0) : 0;
+  const bgRight = inMicro ? (info.isMicroEnd ? CELL_W / 2 : 0) : 0;
 
   return (
     <View style={styles.dayCell}>
-      {/* micro-range top + bottom lines */}
+      {/* micro-range background (period fill) */}
       {inMicro && (
         <View
           style={[
-            styles.microLineTop,
+            styles.microRangeBg,
             {
-              backgroundColor: MICRO_COLOR,
-              left: info.isMicroStart ? 8 : 0,
-              right: info.isMicroEnd ? 8 : 0,
+              backgroundColor: MICRO_COLOR + '28', // ~16% opacity
+              left: isSingleDay ? 5 : bgLeft,
+              right: isSingleDay ? 5 : bgRight,
+              borderTopLeftRadius: info.isMicroStart ? BG_RADIUS : 0,
+              borderBottomLeftRadius: info.isMicroStart ? BG_RADIUS : 0,
+              borderTopRightRadius: info.isMicroEnd ? BG_RADIUS : 0,
+              borderBottomRightRadius: info.isMicroEnd ? BG_RADIUS : 0,
             },
           ]}
         />
-      )}
-      {inMicro && (
-        <View
-          style={[
-            styles.microLineBottom,
-            {
-              backgroundColor: MICRO_COLOR,
-              left: info.isMicroStart ? 8 : 0,
-              right: info.isMicroEnd ? 8 : 0,
-            },
-          ]}
-        />
-      )}
-      {/* left cap */}
-      {inMicro && info.isMicroStart && (
-        <View style={[styles.microCapLeft, {backgroundColor: MICRO_COLOR}]} />
-      )}
-      {/* right cap */}
-      {inMicro && info.isMicroEnd && (
-        <View style={[styles.microCapRight, {backgroundColor: MICRO_COLOR}]} />
       )}
 
       {/* micro number badge */}
@@ -254,17 +267,22 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHi
     allPlans.forEach((plan) => {
       if (!plan?.trainings) return;
 
-      // Collect per-micro ranges: micro → [finished trainings]
-      const microTrainings: Map<number, Training[]> = new Map();
+      // ── Step 1: collect all finished training dates per micro ────────────
+      const microTrainingDates: Map<number, Date[]> = new Map();
+      // All events in this plan (for boundary cut detection)
+      const allPlanEvents: {date: Date; micro: number}[] = [];
 
       Object.entries(plan.trainings).forEach(([key, trainingId]) => {
         const micro = getMicroFromTrainingInMicroIndex(key);
         const trainingInMicro = getTrainingFromTrainingInMicroIndex(key);
         const training = trainingsById[trainingId];
-        if (!training) return;
-        if (training.state !== TrainingsState.FINISHED || !training.start) return;
+        if (!training || training.state !== TrainingsState.FINISHED || !training.start) return;
 
-        const dateStr = getYYYYMMDDFormat(new Date(training.start));
+        const rawDate = new Date(training.start);
+        const normalized = new Date(rawDate);
+        normalized.setHours(0, 0, 0, 0);
+
+        const dateStr = getYYYYMMDDFormat(rawDate);
         const trainingName = plan.trainingNames?.[trainingInMicro] ?? `Training ${trainingInMicro}`;
 
         setMark(dateStr, {
@@ -276,42 +294,65 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHi
           planName: plan.name,
         });
 
-        if (!microTrainings.has(micro)) microTrainings.set(micro, []);
-        microTrainings.get(micro)!.push(training);
+        if (!microTrainingDates.has(micro)) microTrainingDates.set(micro, []);
+        microTrainingDates.get(micro)!.push(normalized);
+        allPlanEvents.push({date: normalized, micro});
       });
 
-      // For each micro, mark its date range with the micro border info
-      microTrainings.forEach((trainings, micro) => {
-        const dates = trainings
-          .map((t) => new Date(t.start!).getTime())
-          .filter((t) => !isNaN(t));
+      // ── Step 2: week-stretched ranges with boundary cuts ─────────────────
+      microTrainingDates.forEach((dates, micro) => {
         if (dates.length === 0) return;
 
-        const minDate = new Date(Math.min(...dates));
-        const maxDate = new Date(Math.max(...dates));
-        const allDates = getDaysBetween(minDate, maxDate);
+        const sorted = [...dates].sort((a, b) => a.getTime() - b.getTime());
+        const firstTraining = sorted[0];
+        const lastTraining = sorted[sorted.length - 1];
 
-        allDates.forEach((d, i) => {
+        // Base range: Monday of first-training-week → Sunday of last-training-week
+        let rangeStart = getWeekStart(firstTraining);
+        let rangeEnd = getWeekEnd(lastTraining);
+
+        // Cut start: another micro had a training in the same week, before firstTraining
+        const firstWeekStart = getWeekStart(firstTraining);
+        const hasConflictBefore = allPlanEvents.some(
+          (e) =>
+            e.micro !== micro &&
+            e.date.getTime() >= firstWeekStart.getTime() &&
+            e.date.getTime() < firstTraining.getTime(),
+        );
+        if (hasConflictBefore) {
+          rangeStart = firstTraining;
+        }
+
+        // Cut end: another micro has its first training in the same week, after lastTraining
+        const lastWeekEnd = getWeekEnd(lastTraining);
+        const conflictsAfter = allPlanEvents.filter(
+          (e) =>
+            e.micro !== micro &&
+            e.date.getTime() > lastTraining.getTime() &&
+            e.date.getTime() <= lastWeekEnd.getTime(),
+        );
+        if (conflictsAfter.length > 0) {
+          const earliest = conflictsAfter.reduce((min, e) => (e.date < min.date ? e : min));
+          rangeEnd = addDays(earliest.date, -1);
+        }
+
+        // Fill all days in [rangeStart, rangeEnd] (inclusive)
+        const allDays = getDaysBetween(rangeStart, rangeEnd);
+        allDays.forEach((d, i) => {
           const ds = getYYYYMMDDFormat(d);
-          const isMicroStart = i === 0;
-          const isMicroEnd = i === allDates.length - 1;
           setMark(ds, {
             inMicroRange: true,
-            isMicroStart: (marks[ds]?.isMicroStart ?? false) || isMicroStart,
-            isMicroEnd: (marks[ds]?.isMicroEnd ?? false) || isMicroEnd,
+            isMicroStart: (marks[ds]?.isMicroStart ?? false) || i === 0,
+            isMicroEnd: (marks[ds]?.isMicroEnd ?? false) || i === allDays.length - 1,
             microRangeNumber: micro,
           });
         });
       });
 
-      // Mark the very first training day of the plan as meso start
-      const allFinishedDates = Object.entries(plan.trainings)
-        .map(([, tid]) => trainingsById[tid])
-        .filter((t) => t?.state === TrainingsState.FINISHED && t.start)
-        .map((t) => new Date(t.start!).getTime());
-
-      if (allFinishedDates.length > 0) {
-        const mesoStartDate = new Date(Math.min(...allFinishedDates));
+      // ── Step 3: mark meso start ──────────────────────────────────────────
+      const allFinishedTimes = allPlanEvents.map((e) => e.date.getTime());
+      if (allFinishedTimes.length > 0) {
+        const mesoStartDate = new Date(Math.min(...allFinishedTimes));
         const mesoDateStr = getYYYYMMDDFormat(mesoStartDate);
         setMark(mesoDateStr, {isMesoStart: true, mesoName: plan.name});
       }
@@ -392,8 +433,8 @@ const CELL_W = 38;
 const CELL_H = 48;
 const DOT_SIZE = 5;
 const CIRCLE_SIZE = 26;
-const BORDER_W = 1.5;
-const CAP_H = 14; // height of the vertical cap on micro start/end
+const BG_H = CIRCLE_SIZE + 6; // height of the period background band
+const BG_RADIUS = BG_H / 2;
 
 const styles = StyleSheet.create({
   container: {flex: 1},
@@ -419,30 +460,11 @@ const styles = StyleSheet.create({
     borderRadius: DOT_SIZE / 2,
     marginTop: 1,
   },
-  // micro range lines
-  microLineTop: {
+  // micro period background
+  microRangeBg: {
     position: 'absolute',
-    top: 8,
-    height: BORDER_W,
-  },
-  microLineBottom: {
-    position: 'absolute',
-    bottom: 9,
-    height: BORDER_W,
-  },
-  microCapLeft: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    width: BORDER_W,
-    height: CAP_H,
-  },
-  microCapRight: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: BORDER_W,
-    height: CAP_H,
+    top: (CELL_H - BG_H) / 2,
+    height: BG_H,
   },
   // labels
   microBadge: {
