@@ -961,3 +961,32 @@ grep -r "Import Emulator Squat Video" app/
 3. Do NOT try to make Linux adb client talk to Windows adb server — the version mismatch is fundamental.
 
 **Apply when:** WSL2 adb connects to Windows server but gets empty device list.
+
+### 55. Hardcoded colors in Dashboard components crash in Purple Theme
+
+**Problem:** Using hardcoded color values like `backgroundColor: '#fff9c4'` (yellow) and `color: '#f57f17'` (orange) in `RecordsBadge`, and `'#558b2f'` (green) in `WeeklySummaryCard`, `MuscleHeatmap`, `TopExercisesCard` causes visual inconsistencies or crashes in non-default themes (Purple, Green).
+
+**Symptoms:** App crashes when Purple Theme is active and RecordsBadge would render (records exist for the week). Positive delta colors appear visually wrong in all non-blue themes.
+
+**Working solution:**
+- In `RecordsBadge`: use `theme.colors.secondaryContainer` for background, `theme.colors.onSecondaryContainer` for title text
+- For positive delta colors: use `theme.colors.primary` (brand color signals a positive outcome in MD3)
+- Always add `useTheme()` and pull colors from `theme.colors.*` instead of literals
+
+**Apply when:** Building any new Dashboard or analysis component that displays delta values or achievement badges. Always use react-native-paper `useTheme()` colors.
+
+### 56. Training duration in minutes is a float — must round before formatting
+
+**Problem:** `getTrainingDurationMinutes()` returns `(end - start) / MILLISECONDS_IN_MINUTE` which is a floating-point number. When used in time string formatting like `${mins}min`, the result is e.g. `44.999999...min`.
+
+**Symptoms:** Time display in WeeklySummaryCard shows minutes with ~20 decimal places.
+
+**Working solution:**
+```javascript
+const roundedMinutes = Math.round(currentMinutes);
+const hours = Math.floor(roundedMinutes / 60);
+const mins = roundedMinutes % 60;
+```
+Also apply `Math.round()` to any computed delta before displaying it as a whole-number suffix.
+
+**Apply when:** Any component that displays training duration from `getCompletedTrainingDurationMinutes()` in a formatted string.
