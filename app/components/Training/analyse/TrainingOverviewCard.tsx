@@ -9,6 +9,8 @@ import {sum} from 'lodash';
 import {Workout} from '../../../models/entities/Workout';
 import {Record} from '../../../models/entities/Exercise';
 import {Metric} from '../../../models/Metric';
+import VelocityLossInsightCard from '../VelocityLossInsightCard';
+import {useVelocityLossInsights} from '../useVelocityLossInsights';
 
 export const countRecordExercisesInMicro = (workouts: Workout[]) => {
   const recordExerciseIds = new Set<number>();
@@ -57,6 +59,8 @@ const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCar
   const previousSets = previousWorkouts.flatMap((workout: Workout) => workout.sets);
 
   const recordExercises = countRecordExercisesInMicro(trainingsWorkouts);
+
+  const vlInsights = useVelocityLossInsights(trainingsPlan, currentMicro);
 
   // Use existing metric calculation methods
   const totalSets = calculateMetricValue(currentSets, Metric.SETS);
@@ -141,6 +145,23 @@ const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCar
           {lastCompletedTraining && <Text style={styles.lastTrainingText}>Last: {formatDate(new Date(lastCompletedTraining.end!))}</Text>}
         </View>
       </View>
+
+      {vlInsights.length > 0 && (
+        <View style={styles.vlInsightsContainer}>
+          {vlInsights.map((insight) => (
+            <VelocityLossInsightCard
+              key={insight.exerciseId}
+              exerciseName={insight.exerciseName}
+              heaviestWeightKg={insight.heaviestWeightKg}
+              currentVlPercent={insight.currentVlPercent}
+              vlRirEstimate={insight.vlRirEstimate}
+              reportedRir={insight.reportedRir}
+              microHistory={insight.microHistory}
+              currentMicro={currentMicro}
+            />
+          ))}
+        </View>
+      )}
     </View>
   );
 };
@@ -187,6 +208,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#666',
     marginTop: 2,
+  },
+  vlInsightsContainer: {
+    marginTop: 8,
   },
 });
 

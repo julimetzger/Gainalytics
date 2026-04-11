@@ -15,6 +15,10 @@ jest.mock('../../../../app/utils/AnalyseUtils', () => ({
   calculateMetricValue: jest.fn(() => 0),
 }));
 
+jest.mock('../../../../app/components/Training/useVelocityLossInsights', () => ({
+  useVelocityLossInsights: jest.fn(() => []),
+}));
+
 const mockedUseAllTrainingsInMicro = require('../../../../app/redux/Training/use/useAllTrainingsInMicro').useAllTrainingsInMicro as jest.Mock;
 const mockedUseWorkoutsByIds = require('../../../../app/redux/Workout/use/useWorkoutsByIds').useWorkoutsByIds as jest.Mock;
 
