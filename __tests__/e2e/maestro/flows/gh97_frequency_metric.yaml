@@ -43,10 +43,8 @@ appId: com.powerliftingworkoutplanner
 # maxHeight 520 shows all 7 metrics; Frequency is the last item.
 # Swipe up in the dialog to ensure Frequency is in view, then assert.
 - swipe:
-    startX: 50%
-    startY: 65%
-    endX: 50%
-    endY: 35%
+    start: "50%, 65%"
+    end: "50%, 35%"
     duration: 500
 - assertVisible:
     text: 'Frequency'
@@ -100,10 +98,8 @@ appId: com.powerliftingworkoutplanner
 
 # KEY ASSERTION: Frequency must be present in exercise dropdown too.
 - swipe:
-    startX: 50%
-    startY: 65%
-    endX: 50%
-    endY: 35%
+    start: "50%, 65%"
+    end: "50%, 35%"
     duration: 500
 - assertVisible:
     text: 'Frequency'
