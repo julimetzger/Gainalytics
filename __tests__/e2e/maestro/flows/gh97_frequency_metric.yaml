@@ -27,30 +27,23 @@ appId: com.powerliftingworkoutplanner
     visible: 'Metrics Overview'
     timeout: 20000
 
-# Scroll to top so the muscle table header is fully visible.
-- scroll:
-    direction: UP
-    duration: 500
-
 # Take a screenshot to show the loaded Metrics Overview screen.
 - takeScreenshot: gh97-metrics-overview-loaded
 
-# Tap the "Volume" text inside the first muscle metric column header.
-# DataTable.Title testIDs are not exposed in the Android accessibility tree.
-# Text-based tap reaches the inner <Text> node and bubbles up to DataTable.Title's onPress.
+# Tap the first muscle metric column header (slot 0) by testID.
+# DataTable.Title has accessible={true} which exposes testID to the accessibility tree.
 - tapOn:
-    text: "Volume"
+    id: 'metrics-muscles-header-0'
 - extendedWaitUntil:
     visible: 'Select muscle metric'
     timeout: 10000
 
 # KEY ASSERTION: Frequency must be present in the dropdown.
-# List.Item uses plain-string title so Maestro can find it by text.
 - assertVisible:
     text: 'Frequency'
 - takeScreenshot: gh97-frequency-in-muscle-dropdown
 
-# Select Frequency. tapOn exact text avoids ambiguity with "Current: Volume".
+# Select Frequency.
 - tapOn:
     text: 'Frequency'
 
@@ -61,9 +54,8 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 
 # Re-open the muscle dropdown to verify "Current: Frequency" persists.
-# Column header now shows "Frequency", so we tap that text.
 - tapOn:
-    text: "Frequency"
+    id: 'metrics-muscles-header-0'
 - extendedWaitUntil:
     visible: 'Select muscle metric'
     timeout: 10000
@@ -80,16 +72,15 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 
 # Scroll to Exercise Overview section.
-# Use "Exercise" (DataTable column header plain string) as scroll anchor.
 - scrollUntilVisible:
     element:
-      text: 'Exercise'
+      id: 'metrics-exercises-header-0'
     direction: DOWN
     timeout: 15000
 
-# Tap "1RM" text inside the first exercise metric column header (default slot 0 = 1RM).
+# Tap the first exercise metric column header (slot 0) by testID.
 - tapOn:
-    text: "1RM"
+    id: 'metrics-exercises-header-0'
 - extendedWaitUntil:
     visible: 'Select exercise metric'
     timeout: 10000
