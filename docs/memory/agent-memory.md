@@ -1029,3 +1029,49 @@ grep -r "Import Emulator Squat Video" app/
 3. Do NOT try to make Linux adb client talk to Windows adb server — the version mismatch is fundamental.
 
 **Apply when:** WSL2 adb connects to Windows server but gets empty device list.
+
+### 55. Samsung Galaxy S20 override resolution is 720x1600, not physical 1440x3200
+
+**Problem:** Tapping adb coordinates based on physical screen size (1440x3200) or a visible screenshot width (800px scaled) hits wrong UI elements. The device uses an override resolution of 720x1600.
+
+**Symptoms:** `adb shell input tap 810 2337` opens a Samsung system dialog instead of the app tab. `adb shell input tap 630 1570` triggers the Samsung software update prompt from the background.
+
+**Working solution:** Always run `adb shell wm size` first. For this device: override is 720x1600. Bottom nav tabs are at y≈1435, x positions: Training=90, Exercises=270, Analyse=450, Settings=630. Use `uiautomator dump` to confirm exact bounds before tapping.
+
+**Apply when:** Taking device screenshots on Samsung Galaxy S20 (R5CN30HWZFN) — always verify with `wm size` and UI dump.
+
+### 56. CoachInsightCard returns null without API key — device screenshots won't show it
+
+**Problem:** `CoachInsightCard` renders `null` when `status === 'no_key'` (no API key configured). On a test device without a real Anthropic API key, the card is invisible in any screenshot of MicroOverview.
+
+**Observation:** This is correct designed behavior (spec: "kein Key → Card not shown"). It cannot be demonstrated via device screenshots alone.
+
+**Mitigation (GH-95 R3):** Use unit tests as primary acceptance evidence for CoachInsightCard behavior (refresh, timestamp, isActive, idle reset). Use device screenshots only for the Settings > AI Coach section where the keychain privacy message is visible.
+
+### 57. react-native-keychain MMKV key migration wipes existing encrypted data
+
+**Problem:** When a new APK replaces a hardcoded MMKV encryption key with a `react-native-keychain`-derived key, the MMKV store (encrypted with the old key) becomes unreadable. On first launch, `initSecureStore()` generates a fresh random key, MMKV opens a new (empty) store with it. All prior Redux-persist data is inaccessible.
+
+**Symptoms:** After installing the new APK, the Training tab is empty even if the device had training plans before. Device storage is not actually cleared — the old encrypted file remains but cannot be decrypted.
+
+**Mitigation strategies:**
+1. Accept data loss on first install of the new version (simplest; appropriate if userbase is small/dev stage).
+2. Implement one-time migration: try old hardcoded key first, re-encrypt with new key if successful.
+3. Skip MMKV encryption entirely for non-sensitive Redux state (only encrypt the Anthropic API key in MMKV with the keychain-derived key).
+
+**Apply when:** Adding or changing MMKV encryption key strategy in any React Native app with persisted state.
+
+### 58. useSelector in useEffect deps causes infinite re-renders — use scalar counts instead
+
+**Problem:** Adding `workoutsById` (or any `useSelector` object) as a `useEffect` dependency causes infinite re-renders because `useSelector` returns a new object reference on every render, even when the content is identical.
+
+**Working solution:** Derive stable scalar values from the selector result:
+```ts
+const workoutCount = Object.keys(workoutsById).length;
+const exerciseCount = Object.keys(exercisesById).length;
+// Use [workoutCount, exerciseCount] in useEffect deps, not [workoutsById, exercisesById]
+```
+
+**Apply when:** Redux object selectors need to trigger effects only when the data actually changes (e.g. after initial load).
+
+**Apply when:** Reviewing/testing CoachInsightCard evidence — accept Settings section screenshots + test log as sufficient proof; do not block `ready_for_review` due to missing card-in-done-view screenshot if no key is available.
