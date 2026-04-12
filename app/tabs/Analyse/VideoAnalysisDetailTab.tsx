@@ -14,8 +14,7 @@ import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispa
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisMetersPerPixel} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisMetersPerPixel';
 import {ManualSeedPayload, analyzeSquatVideo, migrateBarTrackingResultIfNeeded} from '../../utils/videoAnalysisNative';
-
-const PLATE_DIAMETER_M = 0.45;
+import {calibrateFromSeed} from '../../utils/video-analysis-import';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
 
@@ -301,9 +300,8 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         setVideoAnalysisStatus(analysis.id, VideoAnalysisStatus.PROCESSING);
 
         // Calculate metersPerPixel from known plate diameter and detected plate width.
-        const plateWidthPx = manualSeed.normalizedWidth * (analysis.seedFrameWidthPx ?? 0);
-        if (plateWidthPx > 0) {
-          const mpp = PLATE_DIAMETER_M / plateWidthPx;
+        const mpp = calibrateFromSeed(manualSeed.normalizedWidth, analysis.seedFrameWidthPx ?? 0);
+        if (mpp != null) {
           setMetersPerPixel(analysis.id, mpp);
         }
 

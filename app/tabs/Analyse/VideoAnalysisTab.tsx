@@ -11,6 +11,7 @@ import {dispatchDeleteVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/di
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisSeedPreflight';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
+import {dispatchSetVideoAnalysisMetersPerPixel} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisMetersPerPixel';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import VideoAnalysisProgressBar from '../../components/video/VideoAnalysisProgressBar';
@@ -64,6 +65,7 @@ const VideoAnalysisTab = () => {
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const setSeedPreflight = dispatchSetVideoAnalysisSeedPreflight();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
+  const setMetersPerPixel = dispatchSetVideoAnalysisMetersPerPixel();
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const [importing, setImporting] = useState(false);
@@ -116,6 +118,7 @@ const VideoAnalysisTab = () => {
         setManualSeedFramePath,
         setSeedPreflight,
         attachVideoAnalysisResult,
+        setMetersPerPixel,
       });
 
       if (outcome === 'awaiting_seed_selection') {

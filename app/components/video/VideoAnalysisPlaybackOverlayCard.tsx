@@ -112,7 +112,7 @@ const calculateBarVerticalVelocitySeries = (barPathSeries: BarPathPoint[]): numb
  */
 const formatVelocity = (pxPerSecond: number, mpp?: number): string => {
   if (mpp != null && mpp > 0) {
-    return `${(Math.abs(pxPerSecond) * mpp).toFixed(3)} m/s`;
+    return `${(pxPerSecond * mpp).toFixed(3)} m/s`;
   }
   return `${Math.round(pxPerSecond)} px/s`;
 };
