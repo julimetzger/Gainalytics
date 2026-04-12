@@ -22,7 +22,7 @@ const DeltaView = ({delta, suffix = ''}: DeltaViewProps) => {
   const theme = useTheme();
   if (delta === undefined) return null;
   const positive = delta >= 0;
-  const color = delta === 0 ? theme.colors.onSurface : positive ? '#558b2f' : theme.colors.error;
+  const color = delta === 0 ? theme.colors.onSurface : positive ? theme.colors.primary : theme.colors.error;
   return (
     <Text style={[styles.deltaText, {color}]}>
       {(positive ? '+' : '') + delta.toFixed(0)}
@@ -42,10 +42,11 @@ const WeeklySummaryCard = ({currentTrainings, previousTrainings, currentWorkouts
 
   const currentMinutes = currentTrainings.reduce((acc, t) => acc + (getCompletedTrainingDurationMinutes(t) ?? 0), 0);
   const previousMinutes = previousTrainings.reduce((acc, t) => acc + (getCompletedTrainingDurationMinutes(t) ?? 0), 0);
-  const timeDelta = previousMinutes > 0 ? currentMinutes - previousMinutes : undefined;
+  const timeDelta = previousMinutes > 0 ? Math.round(currentMinutes - previousMinutes) : undefined;
 
-  const hours = Math.floor(currentMinutes / 60);
-  const mins = currentMinutes % 60;
+  const roundedMinutes = Math.round(currentMinutes);
+  const hours = Math.floor(roundedMinutes / 60);
+  const mins = roundedMinutes % 60;
   const timeString = hours > 0 ? `${hours}h ${mins}min` : `${mins}min`;
 
   return (

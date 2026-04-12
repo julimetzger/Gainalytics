@@ -8,6 +8,7 @@ import {useTrainings} from '../redux/Training/use/useTrainings';
 import {TrainingsState} from '../models/TrainingsState';
 import useExerciseRecord from '../redux/Effects/useExerciseRecord';
 import Toast from 'react-native-toast-message';
+import {useSettings} from '../redux/settings/use/useSettings';
 import {useExercise} from '../redux/Exercises/use/useExercise';
 import {useNavigation} from '@react-navigation/native';
 
@@ -15,13 +16,14 @@ const Tab = createMaterialBottomTabNavigator();
 
 export const BottomTabs = () => {
   const navigation = useNavigation();
+  const settings = useSettings();
   const allTrainings = useTrainings();
   let useExerciseRecord1 = useExerciseRecord();
   let exercise = useExercise(useExerciseRecord1?.exerciseId);
   let isTrainingStarted = allTrainings.some((A) => A.state === TrainingsState.STARTED);
 
   React.useEffect(() => {
-    if (useExerciseRecord1 && exercise) {
+    if (useExerciseRecord1 && exercise && !settings.toggles?.disableToasts) {
       Toast.show({
         type: 'success',
         text1: 'New Record!',
@@ -39,7 +41,7 @@ export const BottomTabs = () => {
         },
       });
     }
-  }, [useExerciseRecord1, exercise, navigation]);
+  }, [useExerciseRecord1, exercise, navigation, settings.toggles?.disableToasts]);
 
   return (
     <Tab.Navigator initialRouteName="Feed" shifting={true}>

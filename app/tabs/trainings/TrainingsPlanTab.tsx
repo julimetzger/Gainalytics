@@ -114,6 +114,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             setOverview={setOverview}
             showDone={showDone}
             trainingInMicro={trainingInMicro}
+            isActive={value === micro}
             setIgnoreSwipe={(locations) => {
               locations && locations.length > 0 && setIgnoreSwipeLocations(locations);
             }}

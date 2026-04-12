@@ -9,6 +9,7 @@ import ExerciseGraphs from '../tabs/Analyse/ExerciseGraphs';
 import {IconButton, useTheme} from 'react-native-paper';
 import VideoAnalysisTab from '../tabs/Analyse/VideoAnalysisTab';
 import VideoAnalysisDetailTab from '../tabs/Analyse/VideoAnalysisDetailTab';
+import VideoAnalysisCompareTab from '../tabs/Analyse/VideoAnalysisCompareTab';
 import TrainingLengthTab from '../tabs/Analyse/TrainingLengthTab';
 import DashboardTab from '../tabs/Analyse/DashboardTab';
 
@@ -22,6 +23,7 @@ export type RootStackParamList = {
   TrainingLength: undefined;
   VideoAnalyses: undefined;
   VideoAnalysisDetail: {analysisId: number};
+  VideoAnalysisCompare: {analysisId: number; compareAnalysisId: number};
 };
 
 const AnalyseRouter = () => {
@@ -97,6 +99,13 @@ const AnalyseRouter = () => {
         component={VideoAnalysisDetailTab}
         options={() => ({
           title: 'Video Analysis Detail',
+        })}
+      />
+      <Stack.Screen
+        name="VideoAnalysisCompare"
+        component={VideoAnalysisCompareTab}
+        options={() => ({
+          title: 'Compare Analyses',
         })}
       />
     </Stack.Navigator>

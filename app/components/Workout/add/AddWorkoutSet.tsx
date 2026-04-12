@@ -113,7 +113,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
       reps: repsNumber,
       rir: Number.isNaN(convertToNumber(rir)) ? 0 : convertToNumber(rir),
     } as WorkoutSet);
-    if (repsNumber > 20) {
+    if (repsNumber > 20 && !appSettings.toggles?.disableToasts) {
       Toast.show({
         type: 'error',
         text1: 'Cardio detected!',
