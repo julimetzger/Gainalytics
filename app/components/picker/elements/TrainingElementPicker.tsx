@@ -36,7 +36,6 @@ const TrainingElementPicker = ({
     setShow(visible);
   }, [visible]);
 
-  let selectedExercises = exercise.map((exercise: Exercise) => (exercise.id ? exercise.id : 0)).map((value: number) => value.toString());
   //TODO is this good? sollen wirklich die exercises nicht angezeigt werden? Beim adden der exercises passiert dann gar nichts mehr
   // selectedExercises = selectedExercises.filter((value: string) => !exercisesByMuscles.map(value => value.id?.toString()).includes(value));
 
@@ -50,6 +49,13 @@ const TrainingElementPicker = ({
   // useMemo to recompute whenever setMuscle([]) was called with a new [] reference,
   // which re-triggered the library's useEffect loop and crashed the component tree.
   const hasMuscle = muscle !== undefined;
+
+  // Serialize selection to stable string keys so useMemo below only recomputes when
+  // the *content* changes, not whenever the parent creates new array references.
+  const exerciseIdsKey = exercise.map((ex: Exercise) => ex.id ?? 0).join(',');
+  const muscleKey = (muscle ?? []).join(',');
+  const metricKey = metric ?? '';
+  const accKey = accumulation?.getId() ?? '';
 
   const allAccumalations = useMemo<Accumulation[]>(() => {
     if (!setAccumulation) {
@@ -94,13 +100,24 @@ const TrainingElementPicker = ({
     return structure;
   }, [allExercises, allAccumalations, setMetric, hasMuscle]);
 
-  let selectedValues = [...selectedExercises, ...(muscle ?? [])];
-  if (metric !== undefined) {
-    selectedValues.push(metric);
-  }
-  if (accumulation !== undefined) {
-    selectedValues.push(accumulation.getId());
-  }
+  // Memoize selectedValues so its reference is stable when content hasn't changed.
+  // The library's internal useEffect depends on the `value` prop reference — a new
+  // array on every render (even with identical content) triggers a setSelectedItems
+  // call, which triggers another render, causing "Maximum update depth exceeded".
+  const selectedValues = useMemo<string[]>(() => {
+    const values = exerciseIdsKey ? exerciseIdsKey.split(',') : [];
+    if (muscleKey) {
+      values.push(...muscleKey.split(','));
+    }
+    if (metricKey) {
+      values.push(metricKey);
+    }
+    if (accKey) {
+      values.push(accKey);
+    }
+    return values;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exerciseIdsKey, muscleKey, metricKey, accKey]);
   useEffect(() => {
     if (accumulation?.accumulationMode === AccumulationMode.TRAINING_MICROCYCLE && setAccumulation) {
       setAccumulation(Accumulation.fromTrainingsPlan(trainingsPlan.find((trainingsPlan: TrainingsPlan) => trainingsPlan.id === accumulation?.trainingsPlan?.id)!!));
