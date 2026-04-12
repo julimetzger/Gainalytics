@@ -1,5 +1,7 @@
 export enum VideoAnalysisStatus {
   QUEUED = 'queued',
+  COPYING = 'copying',
+  PREFLIGHT = 'preflight',
   PROCESSING = 'processing',
   AWAITING_SEED_SELECTION = 'awaiting_seed_selection',
   DONE = 'done',
@@ -31,6 +33,8 @@ export interface VideoAnalysis {
   analysisMeta?: AnalysisMeta;
   setResult?: VideoAnalysisSetResult;
   error?: string;
+  /** Calibration: metres per tracking pixel from plate-based seed selection. */
+  metersPerPixel?: number;
 }
 
 export interface SeedCandidate {
@@ -78,6 +82,10 @@ export interface VideoAnalysisRepResult {
   concentricTimeMs: number;
   vAvg: number;
   vPeak: number;
+  /** X-deviation per resampled Y-point: concentric_x − eccentric_x (in px) */
+  delta_x?: number[];
+  /** Mean |delta_x| normalised to tracking frame width (0.0–1.0+) */
+  path_deviation?: number;
 }
 
 export interface VideoAnalysisSetResult {
@@ -85,6 +93,10 @@ export interface VideoAnalysisSetResult {
   velocityLossPercent: number | null;
   rirEstimate: string | null;
   calibratedAt?: string;
+  /** Mean path_deviation across all reps (normalised, 0–1+) */
+  mean_path_deviation?: number | null;
+  /** Linear slope of path_deviation over reps (positive = increasing drift) */
+  path_deviation_slope?: number | null;
 }
 
 export interface DetectedBox {
@@ -110,6 +122,8 @@ export interface AnalysisMeta {
   initialSeedBox?: DetectedBox;
   plausibilityRejections?: PlausibilityRejection[];
   performanceMetrics?: AnalysisPerformanceMetrics;
+  /** Calibration: metres per tracking pixel, derived from known plate diameter (0.45 m). */
+  metersPerPixel?: number;
 }
 
 export interface PlausibilityRejection {

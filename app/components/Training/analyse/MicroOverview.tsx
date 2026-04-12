@@ -1,6 +1,7 @@
 import React from 'react';
 import {ScrollView, View} from 'react-native';
 import {useAllTrainingsInMicro} from '../../../redux/Training/use/useAllTrainingsInMicro';
+import {useTrainingsInLastDays} from '../../../redux/Training/use/useTrainingsInLastDays';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {Card, Text} from 'react-native-paper';
@@ -9,16 +10,24 @@ import {calculateMetricComparisons} from '../../../utils/AnalyseUtils';
 import {sum} from 'lodash';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {Workout} from '../../../models/entities/Workout';
+import {getPreviousMicroInMeso} from '../../../redux/Training/trainingsPlanReducer';
 import {Metric} from "../../../models/Metric";
+import VelocityLossInsightCard from '../VelocityLossInsightCard';
+import {useVelocityLossInsights} from '../useVelocityLossInsights';
+import CoachInsightCard from '../CoachInsightCard';
 
 interface TrainingsBaseProps {
   trainingsPlan: TrainingsPlan;
   micro: number;
+  /** Pass false when this pane is off-screen (swiper) to suppress API calls. */
+  isActive?: boolean;
 }
 
-const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
+const MicroOverview = ({trainingsPlan, micro, isActive = true}: TrainingsBaseProps) => {
+  const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
+  const vlInsights = useVelocityLossInsights(trainingsPlan, micro);
   let trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
-  let previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro - 1);
+  let previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, previousMicro ?? -1);
   let totalTimeTraining = new Date(sum(trainings.map((training) => (training.end && training.start ? new Date(training.end!!).getTime() - new Date(training.start!!).getTime() : 0))));
   let totalTimePreviousTraining =
     previousTrainings?.length > 0
@@ -40,6 +49,10 @@ const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
     }),
     lastWorkoutSets: previousWorkouts.flatMap((workout: Workout) => workout.sets),
   });
+
+  // Use cross-micro 28-day window for the AI coach so it can analyse trends
+  // across micros, not just the current micro.
+  const trainingsInLast28Days = useTrainingsInLastDays(28);
 
   return (
     <ScrollView>
@@ -68,6 +81,23 @@ const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
           </Card.Content>
         </Card>
       </View>
+      {vlInsights.length > 0 && (
+        <View style={{marginTop: 4}}>
+          {vlInsights.map((insight) => (
+            <VelocityLossInsightCard
+              key={insight.exerciseId}
+              exerciseName={insight.exerciseName}
+              heaviestWeightKg={insight.heaviestWeightKg}
+              currentVlPercent={insight.currentVlPercent}
+              vlRirEstimate={insight.vlRirEstimate}
+              reportedRir={insight.reportedRir}
+              microHistory={insight.microHistory}
+              currentMicro={micro}
+            />
+          ))}
+        </View>
+      )}
+      <CoachInsightCard trainings={trainingsInLast28Days} isActive={isActive} />
       <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
     </ScrollView>
   );

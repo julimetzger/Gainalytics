@@ -1,0 +1,38 @@
+appId: com.powerliftingworkoutplanner
+name: GH-95 AI Coach Settings Verification
+---
+# Launch app
+- launchApp:
+    clearState: false
+
+# Wait for app to settle
+- extendedWaitUntil:
+    visible:
+      text: "Training"
+    timeout: 60000
+
+# Tap Settings tab (gear icon - bottom right)
+- tapOn:
+    point: "86%,92%"
+
+# Wait for Settings screen with AI Coach section
+- extendedWaitUntil:
+    visible:
+      text: "AI Coach (Anthropic Claude)"
+    timeout: 15000
+
+# Assert AI Coach heading text (confirmed visible)
+- assertVisible:
+    text: "AI Coach (Anthropic Claude)"
+
+# Assert helper text for key acquisition
+- assertVisible:
+    text: "console.anthropic.com"
+
+# Assert Save Key button
+- assertVisible:
+    text: "Save Key"
+
+# Assert Test Key button
+- assertVisible:
+    text: "Test Key"

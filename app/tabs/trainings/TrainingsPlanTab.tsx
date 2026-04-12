@@ -14,6 +14,10 @@ import TrainingsPlanNode from '../../components/Training/TrainingsPlanNode';
 import RangeSwiper from '../../components/RangeSwiper';
 import TrainingHistoryCalendar from '../../components/Training/analyse/TrainingHistoryCalendar';
 import {LayoutRectangle} from 'react-native';
+import {clampMicroToMeso, getLocalMicro, getMesoForMicro, getSortedMesos} from '../../redux/Training/trainingsPlanReducer';
+import dispatchAddMeso from '../../redux/Training/dispatch/general/dispatchAddMeso';
+import dispatchEditMeso from '../../redux/Training/dispatch/general/dispatchEditMeso';
+import dispatchDeleteMeso from '../../redux/Training/dispatch/general/dispatchDeleteMeso';
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
   const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
@@ -29,6 +33,9 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   const [ignoreSwipeLocations, setIgnoreSwipeLocations] = useState<LayoutRectangle[]>([]);
 
   let changeTrainingsName = dispatchChangeTrainingsName();
+  let addMeso = dispatchAddMeso();
+  let editMeso = dispatchEditMeso();
+  let deleteMeso = dispatchDeleteMeso();
   let theme = useTheme();
 
   // Android hardware back closes the calendar instead of leaving the screen.
@@ -44,12 +51,21 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     }, [showHistory]),
   );
 
+  const [lockedMesoId, setLockedMesoId] = useState(() => getMesoForMicro(trainingsPlan.mesos, route.params.micro ?? 1)?.id);
+  const lockedMeso = getSortedMesos(trainingsPlan.mesos).find((meso) => meso.id === lockedMesoId) ?? getMesoForMicro(trainingsPlan.mesos, micro);
+  const currentMeso = getMesoForMicro(trainingsPlan.mesos, micro);
+  const localMicro = getLocalMicro(trainingsPlan.mesos, micro);
+
+  const getBoundedMicro = (candidateMicro: number) => clampMicroToMeso(trainingsPlan.mesos, lockedMeso, candidateMicro);
+
   navigation.setOptions({
     header: (props) => (
       <TrainingsPlanHeader
         trainingsPlanName={trainingsPlan.name}
+        mesoName={showHistory ? undefined : currentMeso?.name}
         trainingName={showHistory ? 'History' : showDone ? 'Overview' : trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
         micro={showHistory ? undefined : micro}
+        localMicro={showHistory ? undefined : localMicro}
         mode={showHistory ? 'History' : showDone ? 'Overview' : training?.state}
         drawerMenu={
           showHistory
@@ -59,15 +75,18 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
       />
     ),
   });
+
   const handleValueChange = (newValue: any) => {
     setShowHistory(false);
     switch (newValue) {
-      case 'micro - 1':
-        setMicro(micro - 1);
+      case 'micro - 1': {
+        setMicro((prev) => getBoundedMicro(prev - 1));
         break;
-      case 'micro + 1':
-        setMicro(micro + 1);
+      }
+      case 'micro + 1': {
+        setMicro((prev) => getBoundedMicro(prev + 1));
         break;
+      }
       default:
         break;
     }
@@ -92,10 +111,18 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
           setShowPlanned={setShowPlanned}
           showPlanned={showPlanned}
           setTrainingInMicro={setTrainingInMicro}
+          setMicro={(m) => {
+            setMicro(m);
+            setLockedMesoId(getMesoForMicro(trainingsPlan.mesos, m)?.id);
+            setRerender(Math.random());
+          }}
           setOpen={setOpen}
           setShowDone={setShowDone}
           showDone={showDone}
           setShowHistory={setShowHistory}
+          onAddMeso={() => addMeso(trainingsPlan.id!!, trainingsPlan)}
+          onEditMeso={(mesoId, name) => editMeso(trainingsPlan.id!!, mesoId, name)}
+          onDeleteMeso={(mesoId) => deleteMeso(trainingsPlan.id!!, mesoId)}
         />
       )}
     >
@@ -132,15 +159,18 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
               setOverview={setOverview}
               showDone={showDone}
               trainingInMicro={trainingInMicro}
+              isActive={value === micro}
               setIgnoreSwipe={(locations) => {
                 locations && locations.length > 0 && setIgnoreSwipeLocations(locations);
               }}
             />
           )}
-          determineValueByIndex={(index, micro) => micro + index}
+          determineValueByIndex={(index, currentMicro) => {
+            return getBoundedMicro(currentMicro + index);
+          }}
           startValue={micro}
           onUpdateCurrentIndex={(index) => {
-            setMicro(micro + index);
+            setMicro((currentMicro) => getBoundedMicro(currentMicro + index));
           }}
         />
       )}

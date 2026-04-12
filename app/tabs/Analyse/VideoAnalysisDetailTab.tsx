@@ -1,18 +1,22 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {Image, LayoutChangeEvent, ScrollView, StyleSheet, View} from 'react-native';
+import {Image, LayoutChangeEvent, Modal, ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
 import RNFS from 'react-native-fs';
 import {Button, Card, Divider, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import {useNavigation} from '@react-navigation/native';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
 import {BarPathPoint, BarTrackingResult, DetectedBox, VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
+import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {getVideoAnalysisPreviewPath, readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
 import VideoAnalysisPlaybackOverlayCard from '../../components/video/VideoAnalysisPlaybackOverlayCard';
 import VideoAnalysisManualSeedCard from '../../components/video/VideoAnalysisManualSeedCard';
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
+import {dispatchSetVideoAnalysisMetersPerPixel} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisMetersPerPixel';
 import {ManualSeedPayload, analyzeSquatVideo, migrateBarTrackingResultIfNeeded} from '../../utils/videoAnalysisNative';
+import {calibrateFromSeed} from '../../utils/video-analysis-import';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
 
@@ -164,10 +168,43 @@ const createThemedStyles = (theme: MD3Theme) =>
 const VideoAnalysisDetailTab = ({route}: Props) => {
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
+  const navigation = useNavigation<any>();
   const analysis = useVideoAnalysis(route.params.analysisId);
+  const allAnalyses = useAllVideoAnalyses();
+  const [showComparePicker, setShowComparePicker] = useState(false);
+
+  const compareTargets = useMemo(() => {
+    const currentId = analysis?.id;
+    const currentExerciseId = analysis?.exerciseId;
+    return allAnalyses.filter((a) => {
+      if (a.id === currentId) {
+        return false;
+      }
+      if (a.status !== VideoAnalysisStatus.DONE) {
+        return false;
+      }
+      // Prefer same exercise; if no exercise link, show all DONE analyses
+      if (currentExerciseId != null && a.exerciseId != null) {
+        return a.exerciseId === currentExerciseId;
+      }
+      return true;
+    });
+  }, [allAnalyses, analysis?.id, analysis?.exerciseId]);
+
+  const onSelectCompare = useCallback(
+    (compareId: number) => {
+      setShowComparePicker(false);
+      navigation.navigate('VideoAnalysisCompare', {
+        analysisId: analysis!.id!,
+        compareAnalysisId: compareId,
+      });
+    },
+    [navigation, analysis],
+  );
   const setVideoAnalysisStatus = dispatchSetVideoAnalysisStatus();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
+  const setMetersPerPixel = dispatchSetVideoAnalysisMetersPerPixel();
   const [result, setResult] = useState<BarTrackingResult | undefined>();
   const [previewUri, setPreviewUri] = useState<string | undefined>();
   const [previewAspectRatio, setPreviewAspectRatio] = useState(DEFAULT_PREVIEW_ASPECT_RATIO);
@@ -295,6 +332,13 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       try {
         setManualSeedRunning(true);
         setVideoAnalysisStatus(analysis.id, VideoAnalysisStatus.PROCESSING);
+
+        // Calculate metersPerPixel from known plate diameter and detected plate width.
+        const mpp = calibrateFromSeed(manualSeed.normalizedWidth, analysis.seedFrameWidthPx ?? 0);
+        if (mpp != null) {
+          setMetersPerPixel(analysis.id, mpp);
+        }
+
         const resultPath = await analyzeSquatVideo(analysis.localVideoPath, analysis.id, manualSeed);
         attachVideoAnalysisResult(analysis.id, resultPath, analysis.localVideoPath);
         setManualSeedFramePath(analysis.id, undefined);
@@ -304,7 +348,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         setManualSeedRunning(false);
       }
     },
-    [analysis?.id, analysis?.localVideoPath, attachVideoAnalysisResult, setManualSeedFramePath, setVideoAnalysisStatus],
+    [analysis?.id, analysis?.localVideoPath, analysis?.seedFrameWidthPx, attachVideoAnalysisResult, setManualSeedFramePath, setMetersPerPixel, setVideoAnalysisStatus],
   );
 
   if (!analysis) {
@@ -321,6 +365,49 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       style={[styles.container, themedStyles.background]}
       contentInsetAdjustmentBehavior="automatic"
     >
+      {/* Compare picker modal */}
+      <Modal
+        visible={showComparePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowComparePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, {backgroundColor: theme.colors.surface}]}>
+            <Text style={styles.modalTitle}>Select analysis to compare</Text>
+            <ScrollView style={styles.modalScroll}>
+              {compareTargets.length === 0 && (
+                <Text style={styles.modalEmpty}>No other completed analyses available.</Text>
+              )}
+              {compareTargets.map((a) => (
+                <TouchableOpacity
+                  key={a.id}
+                  testID={`compare-picker-item-${a.id}`}
+                  style={[styles.modalItem, {borderBottomColor: theme.colors.outlineVariant}]}
+                  onPress={() => onSelectCompare(a.id!)}
+                >
+                  <Text style={styles.modalItemTitle}>{`Analysis #${a.id}`}</Text>
+                  <Text style={styles.modalItemSubtitle}>{new Date(a.createdAt).toLocaleString()}</Text>
+                  {a.setResult && (
+                    <Text style={styles.modalItemMeta}>
+                      {`${a.setResult.repResults.length} reps${a.setResult.velocityLossPercent !== null ? ` | VL ${a.setResult.velocityLossPercent}%` : ''}`}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <Button
+              testID="compare-picker-cancel"
+              mode="outlined"
+              onPress={() => setShowComparePicker(false)}
+              style={styles.modalCancel}
+            >
+              Cancel
+            </Button>
+          </View>
+        </View>
+      </Modal>
+
       <Card style={styles.card}>
         <Card.Title title={`Analysis #${analysis.id}`} subtitle={new Date(analysis.createdAt).toLocaleString()} />
         <Card.Content>
@@ -329,6 +416,17 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           {analysis.localVideoPath && <Text>Local Video: {analysis.localVideoPath}</Text>}
           {analysis.error && <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>}
         </Card.Content>
+        {analysis.status === VideoAnalysisStatus.DONE && (
+          <Card.Actions>
+            <Button
+              testID="video-analysis-compare-button"
+              mode="outlined"
+              onPress={() => setShowComparePicker(true)}
+            >
+              Compare
+            </Button>
+          </Card.Actions>
+        )}
       </Card>
 
       <Divider style={styles.divider} />
@@ -367,6 +465,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
               localVideoPath={analysis.localVideoPath}
               result={result}
               savedSetResult={analysis.setResult}
+              metersPerPixel={analysis.metersPerPixel}
             />
           )}
         </Card.Content>
@@ -486,6 +585,51 @@ const styles = StyleSheet.create({
   },
   overlayHint: {
     marginBottom: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 16,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  modalScroll: {
+    maxHeight: 320,
+  },
+  modalEmpty: {
+    marginVertical: 20,
+    textAlign: 'center',
+    opacity: 0.6,
+  },
+  modalItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  modalItemTitle: {
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  modalItemSubtitle: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 2,
+  },
+  modalItemMeta: {
+    fontSize: 12,
+    opacity: 0.6,
+    marginTop: 2,
+  },
+  modalCancel: {
+    marginTop: 12,
   },
 });
 

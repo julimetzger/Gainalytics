@@ -4,6 +4,7 @@ import {Action} from 'redux';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {View, Keyboard, ScrollView} from 'react-native';
 import React, {useState, useRef, useEffect} from 'react';
+import {getLocalMicro, getMesoEndMicro, getMesoForMicro, getSortedMesos} from '../../redux/Training/trainingsPlanReducer';
 
 interface TrainingsPlanDrawerProps {
   theme: ThemeBase & {
@@ -15,6 +16,7 @@ interface TrainingsPlanDrawerProps {
   changeTrainingsName: (trainingsPlanId: number, trainingsName: string, trainingsNumber: number) => Action<any>;
   trainingsPlan: TrainingsPlan;
   setTrainingInMicro: (value: ((prevState: number) => number) | number) => void;
+  setMicro: (micro: number) => void;
   setOpen: (value: ((prevState: boolean) => boolean) | boolean) => void;
   showPlanned: boolean;
   setShowPlanned: (value: ((prevState: boolean) => boolean) | boolean) => void;
@@ -23,6 +25,9 @@ interface TrainingsPlanDrawerProps {
   setShowHistory: (value: ((prevState: boolean) => boolean) | boolean) => void;
   handleValueChange: (newValue: any) => void;
   micro: number;
+  onAddMeso: () => void;
+  onEditMeso: (mesoId: number, name: string) => void;
+  onDeleteMeso: (mesoId: number) => void;
 }
 
 const TrainingsPlanDrawer = ({
@@ -30,6 +35,7 @@ const TrainingsPlanDrawer = ({
   changeTrainingsName,
   trainingsPlan,
   setTrainingInMicro,
+  setMicro,
   setOpen,
   showPlanned,
   setShowPlanned,
@@ -37,11 +43,19 @@ const TrainingsPlanDrawer = ({
   setShowHistory,
   handleValueChange,
   micro,
+  onAddMeso,
+  onEditMeso,
+  onDeleteMeso,
 }: TrainingsPlanDrawerProps) => {
   const [edit, setEdit] = useState<number | undefined>(undefined);
   const [trainingsName, setTrainingsName] = useState('');
   const [longPressIndex, setLongPressIndex] = useState<number | undefined>(undefined);
   const inputRef = useRef(null);
+
+  const [editMesoId, setEditMesoId] = useState<number | undefined>(undefined);
+  const [mesoName, setMesoName] = useState('');
+  const [longPressMesoId, setLongPressMesoId] = useState<number | undefined>(undefined);
+  const mesoInputRef = useRef(null);
 
   useEffect(() => {
     if (!trainingsPlan.trainingNames || Object.keys(trainingsPlan.trainingNames).length === 0) {
@@ -49,8 +63,107 @@ const TrainingsPlanDrawer = ({
     }
   }, [trainingsPlan, changeTrainingsName]);
 
+  const sortedMesos = getSortedMesos(trainingsPlan.mesos);
+  const currentMeso = getMesoForMicro(trainingsPlan.mesos, micro);
+  const mesoEndMicro = getMesoEndMicro(trainingsPlan.mesos, currentMeso);
+  const localMicro = getLocalMicro(trainingsPlan.mesos, micro);
+  const maxLocalMicro = mesoEndMicro ? getLocalMicro(trainingsPlan.mesos, mesoEndMicro) : undefined;
+  const canDeleteMesos = sortedMesos.length > 1;
+  const previousLocalMicroLabel = Math.max(1, localMicro - 1);
+  const nextLocalMicroLabel = maxLocalMicro ? Math.min(maxLocalMicro, localMicro + 1) : localMicro + 1;
+
   return (
     <ScrollView style={{flex: 1}} contentContainerStyle={{flexDirection: 'column'}}>
+      <Divider />
+      <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
+        <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Mesos:</Text>
+      </View>
+      {sortedMesos.map((meso) => {
+        return (
+          <View key={meso.id} style={{display: 'flex', flexDirection: 'row', alignItems: 'center', minHeight: 40}}>
+            <TouchableRipple
+              style={{flex: 1}}
+              onPress={() => {
+                setMicro(meso.startMicro);
+                setOpen(false);
+                setShowDone(false);
+              }}
+              onLongPress={() => canDeleteMesos && setLongPressMesoId(meso.id)}
+            >
+              <View>
+                {editMesoId !== meso.id && (
+                  <Text testID={`drawer-meso-name-${meso.id}`} style={{fontSize: 20, margin: 5}}>
+                    {meso.name}
+                  </Text>
+                )}
+                {editMesoId === meso.id && (
+                  <TextInput
+                    ref={mesoInputRef}
+                    mode="outlined"
+                    maxLength={20}
+                    value={mesoName}
+                    onChangeText={(text) => setMesoName(text)}
+                    onEndEditing={() => {
+                      onEditMeso(meso.id, mesoName);
+                      setEditMesoId(undefined);
+                      setMesoName('');
+                      mesoInputRef.current?.blur();
+                      Keyboard.dismiss();
+                    }}
+                    selectTextOnFocus={true}
+                    right={
+                      <TextInput.Icon
+                        icon="check"
+                        onPress={() => {
+                          onEditMeso(meso.id, mesoName);
+                          setEditMesoId(undefined);
+                          setMesoName('');
+                          mesoInputRef.current?.blur();
+                          Keyboard.dismiss();
+                        }}
+                      />
+                    }
+                  />
+                )}
+              </View>
+            </TouchableRipple>
+            {editMesoId !== meso.id &&
+              (longPressMesoId === meso.id && canDeleteMesos ? (
+                <IconButton
+                  testID={`delete-meso-${meso.id}`}
+                  icon="delete"
+                  onPress={() => {
+                    onDeleteMeso(meso.id);
+                    setLongPressMesoId(undefined);
+                  }}
+                  size={20}
+                  style={{marginRight: 5}}
+                />
+              ) : (
+                <IconButton
+                  icon="pencil"
+                  onPress={() => {
+                    setEditMesoId(meso.id);
+                    setMesoName(meso.name);
+                    setTimeout(() => mesoInputRef.current?.focus(), 0);
+                  }}
+                  size={20}
+                  style={{marginRight: 5}}
+                />
+              ))}
+          </View>
+        );
+      })}
+      <View>
+        <IconButton
+          testID="icon-plus-circle"
+          icon="plus-circle"
+          onPress={onAddMeso}
+          theme={theme}
+          iconColor={theme.colors.tertiaryContainer}
+          size={40}
+        />
+      </View>
       <Divider />
       <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
         <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Trainings:</Text>
@@ -182,13 +295,14 @@ const TrainingsPlanDrawer = ({
           {
             icon: 'chevron-left',
             value: 'micro - 1',
-            label: 'Micro ' + (micro - 1),
-            disabled: micro === 1,
+            label: 'Micro ' + previousLocalMicroLabel,
+            disabled: currentMeso ? micro === currentMeso.startMicro : micro === 1,
           },
           {
             icon: 'chevron-right',
             value: 'micro + 1',
-            label: 'Micro ' + (micro + 1),
+            label: 'Micro ' + nextLocalMicroLabel,
+            disabled: mesoEndMicro !== undefined && micro >= mesoEndMicro,
           },
         ]}
       />

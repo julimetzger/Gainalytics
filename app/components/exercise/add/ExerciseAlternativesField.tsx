@@ -35,7 +35,7 @@ const ExerciseAlternativesField = ({exerciseId, alternativeIds, onChange}: Props
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text variant="titleSmall">Alternatives</Text>
+        <Text variant="titleSmall">Alternative Exercises</Text>
         <Button mode="outlined" compact testID="exercise-alternatives-open-button" onPress={() => setVisible(!visible)}>
           {visible ? 'Done' : '+'}
         </Button>

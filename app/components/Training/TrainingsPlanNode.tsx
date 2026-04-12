@@ -25,6 +25,7 @@ import {PauseDoneNotification} from './execute/PauseDoneNotification';
 import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
+import {getPreviousMicroInMeso} from '../../redux/Training/trainingsPlanReducer';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
 import {dispatchReplaceExerciseInTraining} from '../../redux/Training/dispatch/general/dispatchReplaceExerciseInTraining';
 import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
@@ -38,11 +39,14 @@ interface TrainingsPlanNodeProps {
   overview: boolean;
   setOverview: (overview: boolean) => void;
   setIgnoreSwipe: (ignoreSwipe: LayoutRectangle[]) => void;
+  /** Pass false when this node is an off-screen swiper pane to suppress AI API calls. */
+  isActive?: boolean;
 }
 
-const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, overview, setOverview, setIgnoreSwipe}: TrainingsPlanNodeProps) => {
+const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, overview, setOverview, setIgnoreSwipe, isActive = true}: TrainingsPlanNodeProps) => {
   const training = useTrainingInTrainingsPlan(trainingsPlan.id!!, micro, trainingInMicro);
-  const lastTraining = useTrainingInTrainingsPlan(trainingsPlan.id!!, micro - 1, trainingInMicro);
+  const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
+  const lastTraining = useTrainingInTrainingsPlan(trainingsPlan.id!!, previousMicro ?? -1, trainingInMicro);
   const startTraining = dispatchStartTraining(training?.id);
   const [timeInWorkout, setTimeInWorkout] = useState(new Date(Date.now()));
   const [refresHeky, setRefresHeky] = useState(Math.random());
@@ -81,25 +85,29 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   function changePlanningmode() {
     if (training?.state === TrainingsState.PLANNED) {
       startTraining();
-      Toast.show({
-        type: 'info',
-        text1: 'Training started!',
-        text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
-        position: 'top',
-        visibilityTime: 5000,
-      });
+      if (!appSettings.toggles?.disableToasts) {
+        Toast.show({
+          type: 'info',
+          text1: 'Training started!',
+          text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+          position: 'top',
+          visibilityTime: 5000,
+        });
+      }
     }
     if (training?.state === TrainingsState.STARTED) {
       finishTraining(training.id!!, trainingsPlan.id!!);
       resetPauseNotification();
       resetFinishTraining();
-      Toast.show({
-        type: 'info',
-        text1: 'Training finished!',
-        text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
-        position: 'top',
-        visibilityTime: 5000,
-      });
+      if (!appSettings.toggles?.disableToasts) {
+        Toast.show({
+          type: 'info',
+          text1: 'Training finished!',
+          text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+          position: 'top',
+          visibilityTime: 5000,
+        });
+      }
     }
     if (training?.state === TrainingsState.FINISHED) {
       if (chosenExercise === undefined && exercises?.length > 0) setchosenExercise(exercises[0].id);
@@ -179,7 +187,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
       <ScrollView keyboardShouldPersistTaps={'handled'}>
         <View>
           {showDone ? (
-            <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} />
+            <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} />
           ) : (
             <View>
               <View

@@ -14,6 +14,25 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 
+// Mock react-native-keychain (native module — unavailable in JS test environment)
+jest.mock('react-native-keychain', () => ({
+  getGenericPassword: jest.fn().mockResolvedValue(false),
+  setGenericPassword: jest.fn().mockResolvedValue(true),
+  ACCESSIBLE: {
+    WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WhenUnlockedThisDeviceOnly',
+  },
+}));
+
+// Mock react-native-mmkv (used for secureStorage and insightCache)
+jest.mock('react-native-mmkv', () => ({
+  MMKV: jest.fn().mockImplementation(() => ({
+    getString: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    contains: jest.fn(() => false),
+  })),
+}));
+
 // Reanimated mock (required by the plugin in tests)
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 

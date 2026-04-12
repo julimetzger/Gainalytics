@@ -27,9 +27,11 @@ interface Props {
   onSubmitSet?: (workoutSet: WorkoutSet) => void;
   date: Date;
   info?: React.ReactNode;
+  linkVideoMode?: boolean;
+  onDisableLinkVideoMode?: () => void;
 }
 
-const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info}: Props) => {
+const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info, linkVideoMode, onDisableLinkVideoMode}: Props) => {
   let unfinishedWorkout = useUnfinishedWorkout(exercise.id!!);
   unfinishedWorkout = workout ?? unfinishedWorkout;
   let workouts = useAllLastWorkouts(exercise, 1);
@@ -40,7 +42,6 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
   let finalizeWorkout = dispatchFinalizeWorkout();
   let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
   let suggestedWorkout = dispatchSuggest();
-  const [linkVideoMode, setLinkVideoMode] = useState(false);
   const [selectedSetForLink, setSelectedSetForLink] = useState<WorkoutSet | undefined>(undefined);
 
   const linkedSetIndices = useSelector((state: GlobalState) =>
@@ -115,41 +116,29 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
             return <AddWorkoutSet key={workoutSet.index} workoutSet={workoutSet} onSubmit={submitWorkoutSet} onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!)} date={date} />;
           })}
       </View>
-      {unfinishedWorkout && unfinishedWorkout.id !== undefined && unfinishedWorkout.sets.length > 0 && (
-        <View>
-          <Button
-            style={styles.linkVideoButton}
-            mode="outlined"
-            testID="add-workout-link-video-button"
-            onPress={() => setLinkVideoMode(!linkVideoMode)}
-          >
-            {linkVideoMode ? 'Cancel Link Video' : 'Link Video'}
-          </Button>
-          {linkVideoMode && (
-            <View style={styles.linkVideoSection}>
-              <Text style={styles.linkVideoHint}>Tap a set to link a video:</Text>
-              {unfinishedWorkout.sets.map(set => (
-                <TouchableOpacity
-                  key={set.index}
-                  testID={`add-workout-link-set-${set.index}`}
-                  onPress={() => {
-                    setSelectedSetForLink(set);
-                    setLinkVideoMode(false);
-                  }}
-                  style={styles.linkSetRow}
-                >
-                  <Text style={styles.linkSetText}>
-                    Set {set.index}: {set.reps} reps × {set.weight} kg @ {set.rir} RIR
-                  </Text>
-                  {linkedSetIndices.includes(set.index ?? -1) ? (
-                    <Icon source="video" size={16} color={theme.colors.secondary} />
-                  ) : (
-                    <Icon source="video-plus" size={16} color={theme.colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+      {linkVideoMode && unfinishedWorkout && unfinishedWorkout.id !== undefined && unfinishedWorkout.sets.length > 0 && (
+        <View style={styles.linkVideoSection}>
+          <Text style={styles.linkVideoHint}>Tap a set to link a video:</Text>
+          {unfinishedWorkout.sets.map(set => (
+            <TouchableOpacity
+              key={set.index}
+              testID={`add-workout-link-set-${set.index}`}
+              onPress={() => {
+                setSelectedSetForLink(set);
+                onDisableLinkVideoMode?.();
+              }}
+              style={styles.linkSetRow}
+            >
+              <Text style={styles.linkSetText}>
+                Set {set.index}: {set.reps} reps × {set.weight} kg @ {set.rir} RIR
+              </Text>
+              {linkedSetIndices.includes(set.index ?? -1) ? (
+                <Icon source="video" size={16} color={theme.colors.secondary} />
+              ) : (
+                <Icon source="video-plus" size={16} color={theme.colors.primary} />
+              )}
+            </TouchableOpacity>
+          ))}
         </View>
       )}
       {(!workout || workout.end === undefined) && (
@@ -218,11 +207,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignSelf: 'center',
     margin: 5,
-  },
-
-  linkVideoButton: {
-    marginTop: 10,
-    alignSelf: 'center',
   },
 
   linkVideoSection: {

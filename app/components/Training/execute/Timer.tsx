@@ -17,6 +17,12 @@ const Timer = ({start, label, reset = false, children, onReset}: TimerProps) => 
   const [date, setDate] = useState(new Date(Date.now()));
   let theme = useTheme();
   const stylesheet = StyleSheet.create({
+    card: {
+      backgroundColor: theme.colors.background,
+      elevation: 0,
+      shadowOpacity: 0,
+      shadowOffset: {width: 0, height: 0},
+    },
     textstyle: {
       textAlign: 'center',
       justifyContent: 'center',
@@ -42,6 +48,8 @@ const Timer = ({start, label, reset = false, children, onReset}: TimerProps) => 
     <View>
       <Card
         key={Math.random()}
+        mode="contained"
+        style={stylesheet.card}
         onPress={() => {
           if (reset) {
             setSarted(new Date(Date.now()));
