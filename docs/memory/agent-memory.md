@@ -1071,3 +1071,42 @@ Working solution:
 - Do NOT block ready_for_review on ADB connectivity if: (1) existing screenshots exist in run_dir, (2) the current changes have no visual component.
 
 Apply when: ADB_SERVER_SOCKET connects to Windows host and that host becomes unreachable mid-session.
+
+### 61. sharingan MultiselectDropdown items do NOT respond to adb input tap / swipe (GH-71 fb9)
+
+Problem:
+- Capturing "exercise selected" evidence requires driving the `MultiselectDropdown` from `sharingan-rn-modal-dropdown` via automation.
+- `adb shell input tap x y` and `adb shell input touchscreen swipe x y x y 100/150/200` do NOT trigger `onPress` on the dropdown list items. Taps on the surrounding `ScrollView`/`Search` field DO register, but the list rows are inert to synthetic events.
+- Suspected cause: the library uses `react-native-gesture-handler` internally, which filters out taps that aren't full MotionEvent sequences with proper pointer IDs.
+
+Apply when: trying to drive sharingan `MultiselectDropdown` via adb for screenshot capture. Do not waste time tuning tap duration — it will not work. Use Maestro `tapOn: text: "<item>"` which goes through the accessibility service instead.
+
+### 62. Local Maestro 2.0.9-ports dadb install fails with EOFException on emulator-5558 (GH-71 fb9)
+
+Problem:
+- `ANDROID_SERIAL=emulator-5558 maestro test <flow>` from WSL using `/mnt/c/Users/metzg/maestro/maestro/bin/maestro` sees "Want to use 0 devices, which is not enough to run 1 shards" — Maestro's bundled `dadb` client bypasses `adb devices` and scans TCP ports directly.
+- Forcing `--host 127.0.0.1 --port 5037` (local adb server) makes Maestro find the device, but then `maestro-driver` install fails with `java.io.EOFException` in `dadb.AdbConnection.connect`.
+
+Apply when: planning UI automation for this repo from WSL. Prefer the `__tests__/e2e/scripts/run-maestro-from-wsl.sh` wrapper, which targets the Windows-side adb server at `172.18.240.1:5037`. Do NOT try to bypass it with local `maestro --host 127.0.0.1` — the maestro-driver install path is broken on this emulator image.
+
+### 63. Maestro via Windows host targets wrong device view (GH-71 fb9)
+
+Problem:
+- `maestro --host 172.18.240.1 --device emulator-5558 test <flow>` connects through the Windows-side adb server, which has a different view of connected devices than WSL-side `adb devices`.
+- Screenshots end up captured on a 720x1600 device (Windows-visible emulator) instead of the expected 1080x2400 emulator-5558 — the flow appears to succeed but the state is completely wrong.
+- Additionally, `run-maestro-from-wsl.sh` does `am force-stop com.powerliftingworkoutplanner` before the flow starts. On relaunch after a force-stop, Metro (port 8081 on the device, reverse-mapped) may not be immediately reachable, causing a "Unable to load script" red screen that blocks the flow.
+
+Apply when: Maestro flow "runs successfully" but screenshots show unexpected state. First verify which device Maestro actually hit via `maestro --host <host> hierarchy` — if dimensions don't match, the Windows adb server is pointing at a sibling emulator.
+
+### 64. TrainingElementPicker "Maximum update depth exceeded" NOT fully fixed by useMemo on selectedValues (GH-71 fb9, P1)
+
+Problem:
+- Commits 893f6fb + b070647 memoized `selectedValues` in `TrainingElementPicker.tsx` to stop a render loop in `sharingan-rn-modal-dropdown`'s internal `useEffect` (triggered by new `value` array references on every render).
+- The fix is INCOMPLETE: typing into the picker's built-in Search input on the Video Analyses screen still crashes with `Maximum update depth exceeded. This can happen when a component repeatedly calls setState inside componentWillUpdate or componentDidUpdate.`
+- Component stack: RCTView → View → ScrollView. The crash is reproducible: open picker → tap Search → type any character.
+
+Suspected root cause:
+- `dropdownExerciseStructure` (TrainingElementPicker.tsx:69-101) depends on `allExercises` and `allAccumalations`, which in turn come from `useAlleExercises()` / `useAllTrainingsPlans()` Redux hooks. If those selectors return new array references on every store tick, `useMemo` recomputes the dropdown structure, the library's internal search-filter `useEffect` re-fires, the parent re-renders, and the loop restarts.
+- Fix direction: convert the Redux selectors to `createSelector` (Reselect) so references are stable across unrelated dispatches, OR replace sharingan with `react-native-element-dropdown`.
+
+Apply when: user reports picker crash on search in any screen using `TrainingElementPicker`. Do not assume the commit history's "fix" is sufficient — verify by actually typing in the search input, not just opening the dropdown.
