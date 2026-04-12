@@ -4,6 +4,7 @@ import {Card, Chip, Text, useTheme} from 'react-native-paper';
 import {Muscles} from '../../../models/Muscles';
 import {Comparison} from '../../../components/analyse/MetricsOverviewForWorkouts';
 import {Metric} from '../../../models/Metric';
+import {withAlpha} from '../../../utils/colorUtils';
 
 interface MuscleHeatmapProps {
   muscleMetricMap: Map<Muscles, Map<Metric, Comparison>>;
@@ -36,7 +37,7 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
             return (
               <Chip
                 key={muscle}
-                style={[styles.chip, hasData && chipColor ? {backgroundColor: chipColor + '33'} : undefined]}
+                style={[styles.chip, hasData && chipColor ? {backgroundColor: withAlpha(chipColor, 0.2)} : undefined]}
                 textStyle={hasData && chipColor ? {color: chipColor} : {opacity: 0.5}}
                 onPress={() => onMusclePress(muscle)}
                 testID={`muscle-chip-${muscle}`}
