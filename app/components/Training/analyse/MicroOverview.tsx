@@ -1,6 +1,7 @@
 import React from 'react';
 import {ScrollView, View} from 'react-native';
 import {useAllTrainingsInMicro} from '../../../redux/Training/use/useAllTrainingsInMicro';
+import {useTrainingsInLastDays} from '../../../redux/Training/use/useTrainingsInLastDays';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {Card, Text} from 'react-native-paper';
@@ -13,13 +14,16 @@ import {getPreviousMicroInMeso} from '../../../redux/Training/trainingsPlanReduc
 import {Metric} from "../../../models/Metric";
 import VelocityLossInsightCard from '../VelocityLossInsightCard';
 import {useVelocityLossInsights} from '../useVelocityLossInsights';
+import CoachInsightCard from '../CoachInsightCard';
 
 interface TrainingsBaseProps {
   trainingsPlan: TrainingsPlan;
   micro: number;
+  /** Pass false when this pane is off-screen (swiper) to suppress API calls. */
+  isActive?: boolean;
 }
 
-const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
+const MicroOverview = ({trainingsPlan, micro, isActive = true}: TrainingsBaseProps) => {
   const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
   const vlInsights = useVelocityLossInsights(trainingsPlan, micro);
   let trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
@@ -45,6 +49,10 @@ const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
     }),
     lastWorkoutSets: previousWorkouts.flatMap((workout: Workout) => workout.sets),
   });
+
+  // Use cross-micro 28-day window for the AI coach so it can analyse trends
+  // across micros, not just the current micro.
+  const trainingsInLast28Days = useTrainingsInLastDays(28);
 
   return (
     <ScrollView>
@@ -89,6 +97,7 @@ const MicroOverview = ({trainingsPlan, micro}: TrainingsBaseProps) => {
           ))}
         </View>
       )}
+      <CoachInsightCard trainings={trainingsInLast28Days} isActive={isActive} />
       <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
     </ScrollView>
   );

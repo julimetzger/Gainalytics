@@ -22,7 +22,25 @@ import {
   shouldStopForegroundService,
 } from './videoAnalysisProgress';
 
-export const EMULATOR_SQUAT_VIDEO_PATH = '/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4';
+export const EMULATOR_SQUAT_VIDEO_PATH = '/sdcard/Android/data/com.powerliftingworkoutplanner/cache/squat_test.mp4';
+
+/** Known plate diameter in metres (outer plate, 45 kg / standard Olympic plate). */
+export const PLATE_DIAMETER_M = 0.45;
+
+/**
+ * Compute metersPerPixel from a seed candidate's normalised width and the frame width in pixels.
+ * Returns null when the computed plate width is zero (cannot calibrate).
+ */
+export const calibrateFromSeed = (
+  normalizedWidth: number,
+  frameWidthPx: number,
+): number | null => {
+  const plateWidthPx = normalizedWidth * frameWidthPx;
+  if (plateWidthPx <= 0) {
+    return null;
+  }
+  return PLATE_DIAMETER_M / plateWidthPx;
+};
 
 export type VideoAnalysisImportOutcome = 'awaiting_seed_selection' | 'analysis_started' | 'failed_no_candidate';
 
@@ -42,6 +60,7 @@ interface ImportVideoAnalysisParams {
     localVideoPath?: string,
   ) => void;
   attachVideoAnalysisResult: (analysisId: number, resultPath: string, localVideoPath?: string) => void;
+  setMetersPerPixel?: (analysisId: number, metersPerPixel: number) => void;
 }
 
 const toManualSeedPayload = (candidate: NonNullable<VideoAnalysis['seedCandidates']>[number]): ManualSeedPayload => {
@@ -104,6 +123,7 @@ export const importVideoAnalysisFromSource = async ({
   setManualSeedFramePath,
   setSeedPreflight,
   attachVideoAnalysisResult,
+  setMetersPerPixel,
 }: ImportVideoAnalysisParams): Promise<VideoAnalysisImportOutcome> => {
   const importStartedAtMs = Date.now();
   let localVideoPath: string | undefined;
@@ -181,6 +201,10 @@ export const importVideoAnalysisFromSource = async ({
       return 'awaiting_seed_selection';
     }
 
+    const mpp = calibrateFromSeed(candidates[0].normalizedWidth, preflight.frameWidthPx ?? 0);
+    if (mpp != null && setMetersPerPixel) {
+      setMetersPerPixel(analysisId, mpp);
+    }
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING);
     runBackgroundAnalysis({
       analysisId,

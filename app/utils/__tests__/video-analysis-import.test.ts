@@ -1,5 +1,5 @@
 import {VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
-import {importVideoAnalysisFromSource} from '../video-analysis-import';
+import {importVideoAnalysisFromSource, calibrateFromSeed, PLATE_DIAMETER_M} from '../video-analysis-import';
 import {
   getActiveAnalysisCount,
   getLastAnalysisSecondsPerVideoSecond,
@@ -55,6 +55,7 @@ const makeMocks = () => ({
   setManualSeedFramePath: jest.fn(),
   setSeedPreflight: jest.fn(),
   attachVideoAnalysisResult: jest.fn(),
+  setMetersPerPixel: jest.fn(),
 });
 
 const SINGLE_CANDIDATE_PREFLIGHT = {
@@ -446,5 +447,92 @@ describe('importVideoAnalysisFromSource', () => {
 
     expect(getActiveAnalysisCount()).toBe(0);
     expect(stopVideoAnalysisForegroundService).toHaveBeenCalledTimes(1);
+  });
+
+  // -------------------------------------------------------------------------
+  // Calibration: automatic single-candidate path must call setMetersPerPixel
+  // -------------------------------------------------------------------------
+
+  it('calls setMetersPerPixel with the correct value when a single candidate is found', async () => {
+    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
+    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
+
+    const mocks = makeMocks();
+    await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks});
+
+    // Expected: PLATE_DIAMETER_M / (normalizedWidth * frameWidthPx)
+    // = 0.45 / (0.12 * 1080) = 0.45 / 129.6 ~ 0.003472
+    const expectedMpp = PLATE_DIAMETER_M / (0.12 * 1080);
+    expect(mocks.setMetersPerPixel).toHaveBeenCalledTimes(1);
+    expect(mocks.setMetersPerPixel).toHaveBeenCalledWith(7, expectedMpp);
+  });
+
+  it('does not call setMetersPerPixel when multiple candidates require manual selection', async () => {
+    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    prepareSquatVideoSeed.mockResolvedValue({
+      previewFramePath: '/tmp/preview.jpg',
+      frameWidthPx: 1080,
+      frameHeightPx: 1920,
+      trackerVersion: 'tflite-yolo26-outer-plate-v1',
+      candidates: [
+        {id: 'c1', normalizedX: 0.3, normalizedY: 0.4, normalizedWidth: 0.12, normalizedHeight: 0.08, score: 0.91},
+        {id: 'c2', normalizedX: 0.6, normalizedY: 0.4, normalizedWidth: 0.11, normalizedHeight: 0.08, score: 0.72},
+      ],
+    });
+
+    const mocks = makeMocks();
+    await importVideoAnalysisFromSource({analysisId: 8, sourceUri: 'content://video.mp4', ...mocks});
+
+    expect(mocks.setMetersPerPixel).not.toHaveBeenCalled();
+  });
+});
+
+describe('calibrateFromSeed', () => {
+  it('computes metersPerPixel from normalizedWidth and frameWidthPx', () => {
+    // plateWidthPx = 0.12 * 1080 = 129.6
+    // mpp = 0.45 / 129.6 ~ 0.003472
+    const result = calibrateFromSeed(0.12, 1080);
+    expect(result).toBeCloseTo(PLATE_DIAMETER_M / (0.12 * 1080), 10);
+  });
+
+  it('returns null when frameWidthPx is 0', () => {
+    expect(calibrateFromSeed(0.12, 0)).toBeNull();
+  });
+
+  it('returns null when normalizedWidth is 0', () => {
+    expect(calibrateFromSeed(0, 1080)).toBeNull();
+  });
+
+  it('produces the same metersPerPixel for manual and automatic single-candidate flows', async () => {
+    // Both the manual seed confirmation (VideoAnalysisDetailTab.runManualSeedAnalysis) and
+    // the automatic single-candidate path (importVideoAnalysisFromSource) call calibrateFromSeed
+    // with the same arguments. This test verifies they would reach the same calibration value
+    // for an identical seed, ensuring no divergence between the two flows.
+    const normalizedWidth = 0.12;
+    const frameWidthPx = 1080;
+
+    // Manual flow: directly calls calibrateFromSeed
+    const mppManual = calibrateFromSeed(normalizedWidth, frameWidthPx);
+
+    // Automatic flow: importVideoAnalysisFromSource calls calibrateFromSeed internally
+    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    prepareSquatVideoSeed.mockResolvedValue({
+      previewFramePath: '/tmp/preview.jpg',
+      frameWidthPx,
+      frameHeightPx: 1920,
+      trackerVersion: 'tflite-yolo26-outer-plate-v1',
+      candidates: [
+        {id: 'c1', normalizedX: 0.3, normalizedY: 0.4, normalizedWidth, normalizedHeight: 0.08, score: 0.91},
+      ],
+    });
+    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-9.json');
+    const mocks = makeMocks();
+    await importVideoAnalysisFromSource({analysisId: 9, sourceUri: 'content://video.mp4', ...mocks});
+    const mppAutomatic = mocks.setMetersPerPixel.mock.calls[0]?.[1] ?? null;
+
+    expect(mppManual).not.toBeNull();
+    expect(mppAutomatic).not.toBeNull();
+    expect(mppAutomatic).toBe(mppManual);
   });
 });

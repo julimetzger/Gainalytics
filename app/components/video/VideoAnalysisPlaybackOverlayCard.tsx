@@ -14,6 +14,8 @@ interface Props {
   localVideoPath: string;
   result: BarTrackingResult;
   savedSetResult?: VideoAnalysisSetResult;
+  /** When set, velocity values are displayed in m/s instead of px/s. */
+  metersPerPixel?: number;
 }
 
 interface TimeRange {
@@ -102,6 +104,17 @@ const calculateBarVerticalVelocitySeries = (barPathSeries: BarPathPoint[]): numb
   });
 
   return smoothNumberSeries(rawVerticalVelocities, SPEED_SMOOTHING_WINDOW);
+};
+
+/**
+ * Format a velocity value (px/s) for display.
+ * When metersPerPixel is provided the value is converted to m/s.
+ */
+const formatVelocity = (pxPerSecond: number, mpp?: number): string => {
+  if (mpp != null && mpp > 0) {
+    return `${(pxPerSecond * mpp).toFixed(3)} m/s`;
+  }
+  return `${Math.round(pxPerSecond)} px/s`;
 };
 
 /**
@@ -306,7 +319,7 @@ const createThemedStyles = (theme: MD3Theme) =>
     },
   });
 
-const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, savedSetResult}: Props) => {
+const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, savedSetResult, metersPerPixel}: Props) => {
   const theme = useTheme();
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
   const saveSetResult = dispatchSaveVideoAnalysisSetResult();
@@ -1018,7 +1031,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             {currentRepIndex !== undefined ? `Rep ${currentRepIndex + 1}` : '-'}
           </Text>
           <Text variant="labelSmall" style={themedStyles.statsText}>
-            {currentBarVerticalVelocityPxPerSecond !== undefined ? `${Math.round(currentBarVerticalVelocityPxPerSecond)} px/s` : '-'}
+            {currentBarVerticalVelocityPxPerSecond !== undefined ? formatVelocity(currentBarVerticalVelocityPxPerSecond, metersPerPixel) : '-'}
           </Text>
         </View>
       </View>
@@ -1225,7 +1238,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             <Text variant="labelSmall" style={styles.tableCol}>Total</Text>
             <Text variant="labelSmall" style={styles.tableCol}>Ecc</Text>
             <Text variant="labelSmall" style={styles.tableCol}>Conc</Text>
-            <Text variant="labelSmall" style={styles.tableCol}>vAvg</Text>
+            <Text variant="labelSmall" style={styles.tableCol}>{metersPerPixel ? 'vAvg m/s' : 'vAvg'}</Text>
             <Text variant="labelSmall" style={styles.tableCol}>Dev</Text>
           </View>
           {result.repMetrics.map((metric, idx) => {
@@ -1258,7 +1271,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
                   {concTimeMs > 0 ? `${(concTimeMs / 1000).toFixed(2)}s` : '-'}
                 </Text>
                 <Text testID={`video-analysis-rep-speed-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
-                  {vAvg}
+                  {metersPerPixel ? (vAvg * metersPerPixel).toFixed(3) : vAvg}
                 </Text>
                 <Text testID={`video-analysis-rep-path-dev-${metric.repIndex}`} variant="bodySmall" style={styles.tableCol}>
                   {pathDev !== undefined ? `${(pathDev * 100).toFixed(1)}%` : '-'}
@@ -1295,9 +1308,8 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
           <Text variant="labelMedium" style={styles.repSummaryTitle}>Concentric Phase (Rep 1)</Text>
           <View style={styles.intervalMetricsRow}>
             <Text variant="bodySmall">t={(firstRepIntervalMetrics.timeMs / 1000).toFixed(2)}s</Text>
-            <Text variant="bodySmall">vPeak={firstRepIntervalMetrics.vPeak} px/s</Text>
-
-            <Text variant="bodySmall">vAvg={firstRepIntervalMetrics.vAvg} px/s</Text>
+            <Text variant="bodySmall">vPeak={formatVelocity(firstRepIntervalMetrics.vPeak, metersPerPixel)}</Text>
+            <Text variant="bodySmall">vAvg={formatVelocity(firstRepIntervalMetrics.vAvg, metersPerPixel)}</Text>
           </View>
         </View>
       )}
@@ -1306,9 +1318,8 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
           <Text variant="labelMedium" style={styles.repSummaryTitle}>Concentric Phase (Last Rep)</Text>
           <View style={styles.intervalMetricsRow}>
             <Text variant="bodySmall">t={(lastRepIntervalMetrics.timeMs / 1000).toFixed(2)}s</Text>
-            <Text variant="bodySmall">vPeak={lastRepIntervalMetrics.vPeak} px/s</Text>
-
-            <Text variant="bodySmall">vAvg={lastRepIntervalMetrics.vAvg} px/s</Text>
+            <Text variant="bodySmall">vPeak={formatVelocity(lastRepIntervalMetrics.vPeak, metersPerPixel)}</Text>
+            <Text variant="bodySmall">vAvg={formatVelocity(lastRepIntervalMetrics.vAvg, metersPerPixel)}</Text>
           </View>
         </View>
       )}

@@ -1017,6 +1017,54 @@ grep -r "Import Emulator Squat Video" app/
 
 **Apply when:** Removing or searching for any video-analysis-specific dev/debug UI elements.
 
+### 55. Emulator storage full (225MB APK): remove YouTube before install
+
+**Problem:** 225MB debug APK fails to install on emulator with `INSTALL_FAILED_INSUFFICIENT_STORAGE` even after `pm clear` of the target app.
+
+**Working solution:** `adb shell pm uninstall com.google.android.youtube` frees ~400MB on this emulator, enough for the debug APK. Check with `adb shell df /data` first — need ~700MB+ free for a 225MB APK.
+
+**Apply when:** Install fails with insufficient storage; always check `df /data` before blaming the APK size.
+
+---
+
+### 56. Bottom navigation tab coordinates: use UIAutomator dump, not visual guess
+
+**Problem:** Tab tap coordinates calculated from scaled screenshots are unreliable. The actual navigation bar may be at y=2127-2337 on a 1080x2400 device, not where it visually appears in a scaled image.
+
+**Working solution:** `adb shell uiautomator dump && pull` then find `content-desc="tab-analyse"` for exact bounds. Centre of bounds is the reliable tap target.
+
+**Apply when:** Any bottom navigation interaction via adb tap.
+
+---
+
+### 57. Drawer toggle in Analyse tab: use `input swipe x y x y 100` not `input tap`
+
+**Problem:** `adb shell input tap` on the drawer hamburger (≡) in the Analyse screen often doesn't register (possible touch event timing issue).
+
+**Working solution:** `adb shell input swipe 68 209 68 209 100` (100ms hold) reliably opens the drawer. Coordinates from UIAutomator: button at `[16,157][121,262]`, centre `(68, 209)`.
+
+---
+
+### 58. ndk abiFilters x86_64: fastest way to halve debug APK size for emulator
+
+**Problem:** Debug APK can reach 200-225MB due to all ABI slices. Emulator has limited /data storage, making install impossible.
+
+**Working solution:** Add `ndk { abiFilters "x86_64" }` inside `defaultConfig` in `android/app/build.gradle`. Reduces APK from ~216MB to ~77MB. Remove before shipping a release build or add only to the debug block.
+
+**Apply when:** INSTALL_FAILED_INSUFFICIENT_STORAGE on emulator after removing YouTube already freed space.
+
+---
+
+### 59. Git stash on dirty working tree can cause merge conflicts in unrelated files
+
+**Problem:** `git stash` and `git stash pop` across pre-staged but uncommitted changes from a different in-progress feature can cause merge conflicts in files you never touched (e.g. `VideoAnalysisPlaybackOverlayCard.tsx`).
+
+**Working solution:** Resolve conflicts with `git checkout --theirs <file>` (keep stash version) if the conflicting file was NOT part of your current work. Then `git stash drop`. Re-apply your own changes manually using the original diff.
+
+**Apply when:** `git stash pop` causes unexpected merge conflicts in files outside the current feature's scope.
+
+---
+
 ### 54. Win ADB v34 server vs Linux ADB v36 client: device list is empty over 127.0.0.1:5037
 
 **Problem:** From WSL2, `adb -H 127.0.0.1 -P 5037 devices` connects to the Windows ADB server but returns an empty device list. The Windows ADB server (v34) and Linux adb client (v36) have a protocol mismatch that causes device enumeration to fail silently.
@@ -1189,3 +1237,131 @@ Notes:
 - `adb shell screencap -p` returns the *live* device frame, not a cached one — trust it over Maestro screenshots
 
 **Apply when:** Maestro assertion fails but `uiautomator dump` shows the element; you need UI evidence for a PR and the Maestro environment is flaky.
+### 55. Reanimated Animated.View with left offset removes children from Android accessibility tree
+
+**Problem:** DataTable headers inside `RangeSwiper`'s `Reanimated.Animated.View` (with `left: -deviceWidth` initial offset) are completely absent from the Android accessibility tree. Maestro `tapOn: id:` and `tapOn: text:` both fail for these elements. `uiautomator dump` confirms only ~90 nodes with no DataTable content.
+
+**Symptoms:** `Element not found: Id matching regex: metrics-muscles-header-0` even though the element is visually on screen.
+
+**Working solution:** Use `tapOn: point: "X%,Y%"` in Maestro to open a Portal-based dialog triggered by the hidden element. Portal dialogs render at the root host and ARE fully accessible. Assert/interact with the dialog content normally after the coordinate tap.
+
+**Apply when:** Any Maestro flow needs to interact with elements inside RangeSwiper (Metrics Overview column headers, etc.).
+
+### 56. Debug APK for emulator: add ndk.abiFilters "x86_64" to reduce size from 229MB to 79MB
+
+**Problem:** Full debug APK with all ABIs is ~229MB. Fresh emulator `/data` partition fills up, causing `INSTALL_FAILED_INSUFFICIENT_STORAGE`.
+
+**Working solution:** Add to `android/app/build.gradle` debug buildType:
+```gradle
+debug {
+    signingConfig signingConfigs.debug
+    ndk {
+        abiFilters "x86_64"
+    }
+}
+```
+This restricts to x86_64 only (matching emulator ABI), reducing APK to ~79MB.
+
+**Apply when:** Installing a fresh debug APK on an emulator that reports insufficient storage.
+
+### 57. Maestro --test-output-dir saves takeScreenshot files in a "screenshots/" subdirectory
+
+**Problem:** When running `maestro test --test-output-dir "$RUN_DIR"`, `takeScreenshot: name` saves to `$RUN_DIR/screenshots/name.png`, not directly to `$RUN_DIR/name.png`.
+
+**Apply when:** Looking for Maestro `takeScreenshot` output files after a run.
+### 55. Samsung Galaxy S20 override resolution is 720x1600, not physical 1440x3200
+
+**Problem:** Tapping adb coordinates based on physical screen size (1440x3200) or a visible screenshot width (800px scaled) hits wrong UI elements. The device uses an override resolution of 720x1600.
+
+**Symptoms:** `adb shell input tap 810 2337` opens a Samsung system dialog instead of the app tab. `adb shell input tap 630 1570` triggers the Samsung software update prompt from the background.
+
+**Working solution:** Always run `adb shell wm size` first. For this device: override is 720x1600. Bottom nav tabs are at y≈1435, x positions: Training=90, Exercises=270, Analyse=450, Settings=630. Use `uiautomator dump` to confirm exact bounds before tapping.
+
+**Apply when:** Taking device screenshots on Samsung Galaxy S20 (R5CN30HWZFN) — always verify with `wm size` and UI dump.
+
+### 56. CoachInsightCard returns null without API key — device screenshots won't show it
+
+**Problem:** `CoachInsightCard` renders `null` when `status === 'no_key'` (no API key configured). On a test device without a real Anthropic API key, the card is invisible in any screenshot of MicroOverview.
+
+**Observation:** This is correct designed behavior (spec: "kein Key → Card not shown"). It cannot be demonstrated via device screenshots alone.
+
+**Mitigation (GH-95 R3):** Use unit tests as primary acceptance evidence for CoachInsightCard behavior (refresh, timestamp, isActive, idle reset). Use device screenshots only for the Settings > AI Coach section where the keychain privacy message is visible.
+
+### 57. react-native-keychain MMKV key migration wipes existing encrypted data
+
+**Problem:** When a new APK replaces a hardcoded MMKV encryption key with a `react-native-keychain`-derived key, the MMKV store (encrypted with the old key) becomes unreadable. On first launch, `initSecureStore()` generates a fresh random key, MMKV opens a new (empty) store with it. All prior Redux-persist data is inaccessible.
+
+**Symptoms:** After installing the new APK, the Training tab is empty even if the device had training plans before. Device storage is not actually cleared — the old encrypted file remains but cannot be decrypted.
+
+**Mitigation strategies:**
+1. Accept data loss on first install of the new version (simplest; appropriate if userbase is small/dev stage).
+2. Implement one-time migration: try old hardcoded key first, re-encrypt with new key if successful.
+3. Skip MMKV encryption entirely for non-sensitive Redux state (only encrypt the Anthropic API key in MMKV with the keychain-derived key).
+
+**Apply when:** Adding or changing MMKV encryption key strategy in any React Native app with persisted state.
+
+### 58. useSelector in useEffect deps causes infinite re-renders — use scalar counts instead
+
+**Problem:** Adding `workoutsById` (or any `useSelector` object) as a `useEffect` dependency causes infinite re-renders because `useSelector` returns a new object reference on every render, even when the content is identical.
+
+**Working solution:** Derive stable scalar values from the selector result:
+```ts
+const workoutCount = Object.keys(workoutsById).length;
+const exerciseCount = Object.keys(exercisesById).length;
+// Use [workoutCount, exerciseCount] in useEffect deps, not [workoutsById, exercisesById]
+```
+
+**Apply when:** Redux object selectors need to trigger effects only when the data actually changes (e.g. after initial load).
+
+**Apply when:** Reviewing/testing CoachInsightCard evidence — accept Settings section screenshots + test log as sufficient proof; do not block `ready_for_review` due to missing card-in-done-view screenshot if no key is available.
+### 55. Pre-existing Babel parse failure in test file: empty trailing line
+
+**Problem:** `__tests__/components/video/VideoAnalysisPlaybackOverlayCard.test.tsx` fails to parse in Jest with `SyntaxError: Unexpected token (965:0)`. The file ends with an empty line after the final `});` and Babel rejects it.
+
+**Observation:** This failure exists in master (the file was introduced in a pre-GH-72 commit). All 49 actual tests pass; only the suite runner fails. It does NOT affect feature tickets that don't touch this file.
+
+**Apply when:** Seeing this specific test suite failure — note it as pre-existing and not a regression. Do not block `ready_for_review` for it.
+
+### 56. Feedback round: write all code FIRST, commit, THEN run device/Maestro commands
+
+**Problem:** In a previous GH-72 round, the worker ran adb/screencap commands before writing and committing all feature code, leading to review rejection.
+
+**Working solution:** For feedback rounds with existing code, follow this order: (1) write/fix all code, (2) commit all changes, (3) set up Metro reverse, (4) take screenshots, (5) run Maestro. Never interleave device commands with uncommitted code.
+
+**Apply when:** Starting any feedback round or resuming a partially-complete ticket. Check status.json and git log first to understand what is already committed.
+
+### 57. `gh pr edit` fails with exit code 1 when PR is in a classic GitHub Project
+
+**Problem:** `gh pr edit 102 --body "..."` exits with code 1 and `GraphQL: Projects (classic) is being deprecated`. The CLI fetches `projectCards` as part of the PR query, and the server returns a deprecation error that the CLI treats as fatal.
+
+**Working solution:** Use the REST API directly: `gh api repos/{owner}/{repo}/pulls/{number} -X PATCH -F body="$BODY"`. This bypasses the GraphQL projectCards field entirely. Returns the PR URL on success.
+
+**Apply when:** Updating PR body/title on any PR that is associated with a GitHub classic project (common in this repo).
+### 55. Hardcoded colors in Dashboard components crash in Purple Theme
+
+**Problem:** Using hardcoded color values like `backgroundColor: '#fff9c4'` (yellow) and `color: '#f57f17'` (orange) in `RecordsBadge`, and `'#558b2f'` (green) in `WeeklySummaryCard`, `MuscleHeatmap`, `TopExercisesCard` causes visual inconsistencies or crashes in non-default themes (Purple, Green).
+
+**Symptoms:** App crashes when Purple Theme is active and RecordsBadge would render (records exist for the week). Positive delta colors appear visually wrong in all non-blue themes.
+
+**Working solution:**
+- In `RecordsBadge`: use `theme.colors.secondaryContainer` for background, `theme.colors.onSecondaryContainer` for title text
+- For positive delta colors: use `theme.colors.primary` (brand color signals a positive outcome in MD3)
+- Always add `useTheme()` and pull colors from `theme.colors.*` instead of literals
+
+**Apply when:** Building any new Dashboard or analysis component that displays delta values or achievement badges. Always use react-native-paper `useTheme()` colors.
+
+### 56. Training duration in minutes is a float — must round before formatting
+
+**Problem:** `getTrainingDurationMinutes()` returns `(end - start) / MILLISECONDS_IN_MINUTE` which is a floating-point number. When used in time string formatting like `${mins}min`, the result is e.g. `44.999999...min`.
+
+**Symptoms:** Time display in WeeklySummaryCard shows minutes with ~20 decimal places.
+
+**Working solution:**
+```javascript
+const roundedMinutes = Math.round(currentMinutes);
+const hours = Math.floor(roundedMinutes / 60);
+const mins = roundedMinutes % 60;
+```
+Also apply `Math.round()` to any computed delta before displaying it as a whole-number suffix.
+
+**Apply when:** Any component that displays training duration from `getCompletedTrainingDurationMinutes()` in a formatted string.

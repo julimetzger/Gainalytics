@@ -163,6 +163,23 @@ const videoAnalysisReducer = (state: NormalizedState<VideoAnalysis> = initialSta
         },
       };
     }
+    case 'SET_VIDEO_ANALYSIS_METERS_PER_PIXEL': {
+      const current = state.byId[action.analysisId];
+      if (!current) {
+        return state;
+      }
+
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.analysisId]: {
+            ...current,
+            metersPerPixel: action.metersPerPixel,
+          },
+        },
+      };
+    }
     case 'DELETE_VIDEO_ANALYSIS': {
       if (state.byId[action.analysisId] === undefined) {
         return state;
