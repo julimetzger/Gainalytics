@@ -63,7 +63,7 @@ export const applyLinearProgressionToWorkout = (workout: Workout, progressionPro
   };
 };
 
-export function calculateMetricValue(sets: WorkoutSet[], metric: Metric) {
+export function calculateMetricValue(sets: WorkoutSet[], metric: Metric, workoutsCount?: number) {
   const oneRm = repetitionMax(...sets)?.valueOf();
   switch (metric) {
     case Metric.ONE_RM:
@@ -78,10 +78,15 @@ export function calculateMetricValue(sets: WorkoutSet[], metric: Metric) {
       return sets.length;
     case Metric.REPS:
       return sumBy(sets, (value) => value.reps);
+    case Metric.FREQUENCY:
+      if (workoutsCount === undefined) {
+        throw new Error('calculateMetricValue: workoutsCount is required for Metric.FREQUENCY');
+      }
+      return workoutsCount;
   }
 }
 
-export function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise, WorkoutSet[]>, metric: Metric, muscle: Muscles) {
+export function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise, WorkoutSet[]>, metric: Metric, muscle: Muscles, workoutsCounts?: Map<Exercise, number>) {
   let sets = Array.from(exerxiseWorkoutMap.values()).flat();
   const oneRm = repetitionMax(...sets)?.valueOf();
   switch (metric) {
@@ -106,14 +111,21 @@ export function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise,
           sumBy(workoutSets, (value) => ((exercise.muscles?.find((m) => m.muscle === muscle)?.percent ?? 0) / 100) * value.reps),
         ),
       );
+    case Metric.FREQUENCY:
+      return sum(
+        Array.from(exerxiseWorkoutMap.entries()).map(([exercise]) => {
+          const count = workoutsCounts?.get(exercise) ?? 0;
+          return count * ((exercise.muscles?.find((m) => m.muscle === muscle)?.percent ?? 0) / 100);
+        }),
+      );
   }
 }
 
 export function calculateMetricComparisons(workout: WorkoutSetMap): Map<Metric, Comparison> {
   let metricComparison = new Map<Metric, Comparison>();
   Object.values(Metric).forEach((metric) => {
-    let current = calculateMetricValue(workout.currentWorkoutSets, metric)!!;
-    let last = (workout.lastWorkoutSets?.length ?? 0) > 0 ? calculateMetricValue(workout.lastWorkoutSets ?? [], metric) : undefined;
+    let current = calculateMetricValue(workout.currentWorkoutSets, metric, workout.currentWorkoutsCount)!!;
+    let last = (workout.lastWorkoutSets?.length ?? 0) > 0 ? calculateMetricValue(workout.lastWorkoutSets ?? [], metric, workout.lastWorkoutsCount) : undefined;
     let difference = last ? current - last : undefined;
     metricComparison.set(metric, {value: current, difference: difference});
   });
@@ -124,10 +136,14 @@ export function calculateMetricComparisonsForMuscle(workout: Map<Exercise, Worko
   let exerciseWorkoutMap: ExerciseWorkoutSetMap = {
     currentWorkoutSets: new Map<Exercise, WorkoutSet[]>(),
     lastWorkoutSets: new Map<Exercise, WorkoutSet[]>(),
+    currentWorkoutsCounts: new Map<Exercise, number>(),
+    lastWorkoutsCounts: new Map<Exercise, number>(),
   };
   Array.from(workout.entries()).forEach(([exercise, workoutSetMap]) => {
     exerciseWorkoutMap.currentWorkoutSets.set(exercise, workoutSetMap.currentWorkoutSets);
     exerciseWorkoutMap?.lastWorkoutSets?.set(exercise, workoutSetMap.lastWorkoutSets ?? []);
+    exerciseWorkoutMap?.currentWorkoutsCounts?.set(exercise, workoutSetMap.currentWorkoutsCount ?? 0);
+    exerciseWorkoutMap?.lastWorkoutsCounts?.set(exercise, workoutSetMap.lastWorkoutsCount ?? 0);
   });
   let muscles = [
     ...new Set(
@@ -142,8 +158,8 @@ export function calculateMetricComparisonsForMuscle(workout: Map<Exercise, Worko
   muscles.map((muscle) => {
     let metricComparison = new Map<Metric, Comparison>();
     Object.values(Metric).forEach((metric) => {
-      let current = calculateMetricValueForMuscles(exerciseWorkoutMap.currentWorkoutSets, metric, muscle)!!;
-      let last = (exerciseWorkoutMap.lastWorkoutSets?.size ?? 0) > 0 ? calculateMetricValueForMuscles(exerciseWorkoutMap.lastWorkoutSets ?? new Map(), metric, muscle) : undefined;
+      let current = calculateMetricValueForMuscles(exerciseWorkoutMap.currentWorkoutSets, metric, muscle, exerciseWorkoutMap.currentWorkoutsCounts)!!;
+      let last = (exerciseWorkoutMap.lastWorkoutSets?.size ?? 0) > 0 ? calculateMetricValueForMuscles(exerciseWorkoutMap.lastWorkoutSets ?? new Map(), metric, muscle, exerciseWorkoutMap.lastWorkoutsCounts) : undefined;
       let difference = last ? current - last : undefined;
       metricComparison.set(metric, {value: current, difference: difference});
     });
@@ -155,9 +171,13 @@ export function calculateMetricComparisonsForMuscle(workout: Map<Exercise, Worko
 export interface WorkoutSetMap {
   currentWorkoutSets: WorkoutSet[];
   lastWorkoutSets?: WorkoutSet[];
+  currentWorkoutsCount?: number;
+  lastWorkoutsCount?: number;
 }
 
 export interface ExerciseWorkoutSetMap {
   currentWorkoutSets: Map<Exercise, WorkoutSet[]>;
   lastWorkoutSets?: Map<Exercise, WorkoutSet[]>;
+  currentWorkoutsCounts?: Map<Exercise, number>;
+  lastWorkoutsCounts?: Map<Exercise, number>;
 }

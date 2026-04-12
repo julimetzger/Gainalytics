@@ -18,6 +18,7 @@ export interface AppSettings {
     useRpe?: boolean;
     disable1RMButton?: boolean;
     disableTimer?: boolean;
+    disableToasts?: boolean;
     showPlusButtonLeft?: boolean;
   };
   metricOverview?: MetricOverviewSettings;
@@ -84,6 +85,15 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
         toggles: {
           ...settings.toggles,
           disableTimer: !settings.toggles?.disableTimer,
+        },
+      } as AppSettings;
+    }
+    case 'TOGGLE_DISABLE_TOASTS': {
+      return {
+        ...settings,
+        toggles: {
+          ...settings.toggles,
+          disableToasts: !settings.toggles?.disableToasts,
         },
       } as AppSettings;
     }
