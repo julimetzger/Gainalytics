@@ -124,6 +124,39 @@ export function clampMicroToMeso(mesos: Meso[] | undefined, meso: Meso | undefin
   return Math.min(lowerBoundedMicro, mesoEndMicro);
 }
 
+/**
+ * Returns the training ID of the last training (for the given trainingsNumber) in the Meso
+ * that precedes the Meso containing `currentMicro`. Returns undefined when there is no
+ * previous Meso or no training recorded there.
+ */
+export function getLastTrainingOfPreviousMeso(
+  trainings: {[microComaTrainingInMicro: string]: number},
+  trainingsNumber: number,
+  currentMicro: number,
+  mesos: Meso[] | undefined,
+): number | undefined {
+  const sorted = getSortedMesos(mesos);
+  const currentMeso = getMesoForMicro(mesos, currentMicro);
+  if (!currentMeso) return undefined;
+
+  const currentMesoIdx = sorted.findIndex((m) => m.id === currentMeso.id);
+  if (currentMesoIdx <= 0) return undefined; // No previous meso
+
+  const previousMeso = sorted[currentMesoIdx - 1];
+  const previousMesoEnd = currentMeso.startMicro - 1;
+
+  const entriesInPreviousMeso = Object.entries(trainings ?? {})
+    .filter(([key]) => {
+      const micro = getMicroFromTrainingInMicroIndex(key);
+      const training = getTrainingFromTrainingInMicroIndex(key);
+      return training === trainingsNumber && micro >= previousMeso.startMicro && micro <= previousMesoEnd;
+    })
+    .sort((a, b) => getMicroFromTrainingInMicroIndex(a[0]) - getMicroFromTrainingInMicroIndex(b[0]));
+
+  if (entriesInPreviousMeso.length === 0) return undefined;
+  return entriesInPreviousMeso[entriesInPreviousMeso.length - 1][1];
+}
+
 /** Computes the startMicro for a new Meso to be appended after all existing mesos/micros. */
 export function computeNextMesoStartMicro(trainingsPlan: TrainingsPlan): number {
   const existingGlobalMicros = Object.keys(trainingsPlan.trainings).map((key) => parseInt(key.split(',')[0]));
