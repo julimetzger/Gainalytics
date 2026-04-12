@@ -79,7 +79,10 @@ export function calculateMetricValue(sets: WorkoutSet[], metric: Metric, workout
     case Metric.REPS:
       return sumBy(sets, (value) => value.reps);
     case Metric.FREQUENCY:
-      return workoutsCount ?? 0;
+      if (workoutsCount === undefined) {
+        throw new Error('calculateMetricValue: workoutsCount is required for Metric.FREQUENCY');
+      }
+      return workoutsCount;
   }
 }
 

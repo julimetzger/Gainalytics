@@ -19,7 +19,7 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
     workoutsAfter = sets;
   }
   useEffect(() => {}, [sets]);
-  let highlightValue = highLightMode ? calculateMetricValue(sets, highLightMode) : undefined;
+  let highlightValue = (highLightMode && highLightMode !== Metric.FREQUENCY) ? calculateMetricValue(sets, highLightMode) : undefined;
   function showSets(set: WorkoutSet) {
     const linkedEntry = linkedAnalyses?.find(la => la.setIndex === set.index);
     return (
