@@ -224,8 +224,8 @@ const VideoAnalysisTab = () => {
       {linkSetForAnalysisId !== undefined && (
         <SetSelectionModal visible={true} onDismiss={() => setLinkSetForAnalysisId(undefined)} analysisId={linkSetForAnalysisId} onLinked={() => setLinkSetForAnalysisId(undefined)} />
       )}
-      <TrainingElementPicker exercise={filterExercise} setExercise={setFilterExercise} muscle={filterMuscle} setMuscle={setFilterMuscle} style={styles.trainingElementPicker} />
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent}>
+        <TrainingElementPicker exercise={filterExercise} setExercise={setFilterExercise} muscle={filterMuscle} setMuscle={setFilterMuscle} style={styles.trainingElementPicker} />
         <Button testID="video-analysis-import-button" mode="contained" onPress={importFromGallery} loading={importing} disabled={importing} style={styles.importButton}>
           Import Video
         </Button>

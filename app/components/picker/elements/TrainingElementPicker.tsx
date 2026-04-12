@@ -1,5 +1,5 @@
 import {useAlleExercises} from '../../../redux/Exercises/use/useAllExercises';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {IDropdownData, MultiselectDropdown} from 'sharingan-rn-modal-dropdown';
 import {Icon, IconButton, useTheme} from 'react-native-paper';
 import {StyleProp, View, ViewStyle} from 'react-native';
@@ -37,52 +37,69 @@ const TrainingElementPicker = ({
   }, [visible]);
 
   let selectedExercises = exercise.map((exercise: Exercise) => (exercise.id ? exercise.id : 0)).map((value: number) => value.toString());
-  let dropdownExerciseStructure: IDropdownData[] = allExercises.map((exercise: Exercise) => {
-    return {
-      label: exercise.name,
-      value: exercise.id!!.toString(),
-      avatarComponent: <Icon source="weight-lifter" size={20}></Icon>,
-    };
-  });
   //TODO is this good? sollen wirklich die exercises nicht angezeigt werden? Beim adden der exercises passiert dann gar nichts mehr
   // selectedExercises = selectedExercises.filter((value: string) => !exercisesByMuscles.map(value => value.id?.toString()).includes(value));
-  let allAccumalations: Accumulation[] = [];
-  if (setAccumulation) {
-    let trainingAccumalations = trainingsPlan.map((trainingsPlan: TrainingsPlan) => Accumulation.fromTrainingsPlan(trainingsPlan));
-    let nonTrainingAccumalations = Accumulation.forAllNonTrainingModes();
-    allAccumalations = [...trainingAccumalations, ...nonTrainingAccumalations];
-    allAccumalations.map((value: Accumulation) => {
-      dropdownExerciseStructure.push({
-        label: value.getName(),
-        value: value.getId(),
-        avatarComponent: <Icon source="book-open-variant" size={20}></Icon>,
+
+  // Memoize the dropdown structure so its reference stays stable between renders.
+  // Without this, sharingan-rn-modal-dropdown's internal useEffect re-fires on every
+  // render (data reference changes), causing a "Maximum update depth exceeded" loop.
+  //
+  // IMPORTANT: Use `muscle !== undefined` (boolean) as the dep, NOT the `muscle` array.
+  // The array content doesn't affect which items appear in the dropdown (all Muscles enum
+  // values are always added when the prop is provided). Using the array reference caused
+  // useMemo to recompute whenever setMuscle([]) was called with a new [] reference,
+  // which re-triggered the library's useEffect loop and crashed the component tree.
+  const hasMuscle = muscle !== undefined;
+
+  const allAccumalations = useMemo<Accumulation[]>(() => {
+    if (!setAccumulation) {
+      return [];
+    }
+    const trainingAccumalations = trainingsPlan.map((tp: TrainingsPlan) => Accumulation.fromTrainingsPlan(tp));
+    const nonTrainingAccumalations = Accumulation.forAllNonTrainingModes();
+    return [...trainingAccumalations, ...nonTrainingAccumalations];
+  }, [setAccumulation, trainingsPlan]);
+
+  const dropdownExerciseStructure = useMemo<IDropdownData[]>(() => {
+    const structure: IDropdownData[] = allExercises.map((ex: Exercise) => ({
+      label: ex.name,
+      value: ex.id!!.toString(),
+      avatarComponent: <Icon source="weight-lifter" size={20} />,
+    }));
+    allAccumalations.forEach((acc: Accumulation) => {
+      structure.push({
+        label: acc.getName(),
+        value: acc.getId(),
+        avatarComponent: <Icon source="book-open-variant" size={20} />,
       });
     });
-  }
+    if (setMetric) {
+      Object.values(Metric).forEach((value: string) => {
+        structure.push({
+          label: value,
+          value: value,
+          avatarComponent: <Icon source="trending-up" size={20} />,
+        });
+      });
+    }
+    if (hasMuscle) {
+      Object.values(Muscles).forEach((value: string) => {
+        structure.push({
+          label: value,
+          value: value,
+          avatarComponent: <Icon source="arm-flex" size={20} />,
+        });
+      });
+    }
+    return structure;
+  }, [allExercises, allAccumalations, setMetric, hasMuscle]);
+
   let selectedValues = [...selectedExercises, ...(muscle ?? [])];
   if (metric !== undefined) {
     selectedValues.push(metric);
   }
   if (accumulation !== undefined) {
     selectedValues.push(accumulation.getId());
-  }
-  if (setMetric) {
-    Object.values(Metric).map((value: string) => {
-      dropdownExerciseStructure.push({
-        label: value,
-        value: value,
-        avatarComponent: <Icon source="trending-up" size={20}></Icon>,
-      });
-    });
-  }
-  if (muscle) {
-    Object.values(Muscles).map((value: string) => {
-      dropdownExerciseStructure.push({
-        label: value,
-        value: value,
-        avatarComponent: <Icon source="arm-flex" size={20}></Icon>,
-      });
-    });
   }
   useEffect(() => {
     if (accumulation?.accumulationMode === AccumulationMode.TRAINING_MICROCYCLE && setAccumulation) {
