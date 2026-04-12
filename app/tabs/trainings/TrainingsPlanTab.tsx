@@ -1,5 +1,6 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useCallback} from 'react';
 import {BackHandler} from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
 import {IconButton, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/TrainingRouter';
@@ -30,15 +31,18 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   let changeTrainingsName = dispatchChangeTrainingsName();
   let theme = useTheme();
 
-  // Android hardware back closes the calendar instead of leaving the screen
-  useEffect(() => {
-    if (!showHistory) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      setShowHistory(false);
-      return true; // consume the event
-    });
-    return () => sub.remove();
-  }, [showHistory]);
+  // Android hardware back closes the calendar instead of leaving the screen.
+  // Scoped to screen focus so the listener doesn't bleed into other tabs.
+  useFocusEffect(
+    useCallback(() => {
+      if (!showHistory) return;
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        setShowHistory(false);
+        return true; // consume the event
+      });
+      return () => sub.remove();
+    }, [showHistory]),
+  );
 
   navigation.setOptions({
     header: (props) => (
@@ -49,13 +53,14 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         mode={showHistory ? 'History' : showDone ? 'Overview' : training?.state}
         drawerMenu={
           showHistory
-            ? <IconButton icon="arrow-left" iconColor={theme.colors.onSecondaryContainer} onPress={() => setShowHistory(false)} />
-            : <IconButton icon="menu" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOpen((prevOpen) => !prevOpen)} />
+            ? <IconButton testID="history-back-icon" icon="arrow-left" iconColor={theme.colors.onSecondaryContainer} onPress={() => setShowHistory(false)} />
+            : <IconButton testID="drawer-menu-button" icon="menu" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOpen((prevOpen) => !prevOpen)} />
         }
       />
     ),
   });
   const handleValueChange = (newValue: any) => {
+    setShowHistory(false);
     switch (newValue) {
       case 'micro - 1':
         setMicro(micro - 1);
@@ -76,6 +81,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
       onOpen={() => setOpen(true)}
       onClose={() => setOpen(false)}
       drawerType={'front'}
+      swipeEnabled={!showHistory}
       renderDrawerContent={() => (
         <TrainingsPlanDrawer
           trainingsPlan={trainingsPlan}
@@ -96,6 +102,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
       {showHistory ? (
         <TrainingHistoryCalendar
           currentPlan={trainingsPlan}
+          onBack={() => setShowHistory(false)}
           onNavigateToTraining={(targetPlan, targetMicro, targetTrainingInMicro) => {
             setShowHistory(false);
             if (targetPlan.id === trainingsPlan.id) {
@@ -104,7 +111,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
               setShowDone(false);
               setRerender(Math.random());
             } else {
-              navigation.navigate('TrainingPlan', {
+              navigation.push('TrainingPlan', {
                 trainingsPlan: targetPlan,
                 micro: targetMicro,
                 training: targetTrainingInMicro,

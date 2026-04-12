@@ -1,7 +1,14 @@
 appId: com.powerliftingworkoutplanner
 ---
-# GH-94 History Calendar – Navigation fixes (Round 3)
-# Verifies: header shows "History", back button closes calendar, Go to Training navigates
+# GH-94 History Calendar – Navigation fixes (Round 4)
+# Verifies:
+#   - "Zurück zum Plan" button visible as explicit exit path (P1 exit-path fix)
+#   - Drawer "Overview" action while History is open exits History (P1 drawer-action fix)
+#   - "Zurück zum Plan" button closes History
+#   - Header back-button (arrow-left) closes History
+#
+# Uses an existing plan in app state so the test is reliable regardless of
+# plan-list position.
 
 - launchApp:
     clearState: false
@@ -11,49 +18,122 @@ appId: com.powerliftingworkoutplanner
       text: "Training"
     timeout: 60000
 
-# Step 1: Tap the first training plan card (~50% x, ~11% y based on device layout)
+# ── Step 1: Navigate into an existing plan ────────────────────────────────────
+# Tap the first plan card in the list (top of the Training tab)
+- scrollUntilVisible:
+    element:
+      text: "Push pull"
+    direction: UP
+    timeout: 10000
+
 - tapOn:
-    point: "50%,11%"
+    text: "Push pull"
+
+# Wait for plan screen to be fully interactive (header renders Micro N text)
+- extendedWaitUntil:
+    visible:
+      text: "Micro 1"
+    timeout: 20000
+
+# ── Step 2: Open History from the drawer ─────────────────────────────────────
+- tapOn:
+    point: "4%,7%"
 
 - waitForAnimationToEnd
 
-# Step 2: Open the drawer via hamburger menu (top-left ~5% x, 6% y)
-- tapOn:
-    point: "5%,6%"
+- scrollUntilVisible:
+    element:
+      text: "History"
+    direction: DOWN
+    timeout: 8000
 
-- waitForAnimationToEnd
-
-# Step 3: Tap History
 - tapOn:
     text: "History"
 
 - waitForAnimationToEnd
 
-# Step 4: Verify header shows "History" (Bug 1 fix)
+# Verify History is open: "Zurück zum Plan" button must be visible (P1 exit-path fix)
 - assertVisible:
-    text: "History"
+    text: "Zurück zum Plan"
 
-# Step 5: Use back button (arrow-left icon, same top-left position, now replaces hamburger)
+# ── Step 3: Drawer action exits History — open drawer, tap "Overview" ─────────
+# P1 fix: any drawer action must clear showHistory
 - tapOn:
-    point: "5%,6%"
+    point: "4%,7%"
 
 - waitForAnimationToEnd
 
-# Step 6: Verify calendar closed — no "History" text visible in header
+- scrollUntilVisible:
+    element:
+      text: "Overview"
+    direction: DOWN
+    timeout: 8000
+
+- tapOn:
+    text: "Overview"
+
+- waitForAnimationToEnd
+
+# History must now be closed
 - assertNotVisible:
-    text: "History"
+    text: "Zurück zum Plan"
 
-# Step 7: Open History again to verify round-trip works
+# ── Step 4: Re-open History ───────────────────────────────────────────────────
 - tapOn:
-    point: "5%,6%"
+    point: "4%,7%"
 
 - waitForAnimationToEnd
 
+- scrollUntilVisible:
+    element:
+      text: "History"
+    direction: DOWN
+    timeout: 8000
+
 - tapOn:
     text: "History"
 
 - waitForAnimationToEnd
 
-# Step 8: Calendar should be open again
 - assertVisible:
+    text: "Zurück zum Plan"
+
+# ── Step 5: Close via "Zurück zum Plan" button ────────────────────────────────
+- tapOn:
+    text: "Zurück zum Plan"
+
+- waitForAnimationToEnd
+
+- assertNotVisible:
+    text: "Zurück zum Plan"
+
+# ── Step 6: Re-open History for header back-button test ───────────────────────
+- tapOn:
+    point: "4%,7%"
+
+- waitForAnimationToEnd
+
+- scrollUntilVisible:
+    element:
+      text: "History"
+    direction: DOWN
+    timeout: 8000
+
+- tapOn:
     text: "History"
+
+- waitForAnimationToEnd
+
+- assertVisible:
+    text: "Zurück zum Plan"
+
+# ── Step 7: Close via header back button (the ← arrow that appears in header) ─
+# In History mode the header shows an arrow-left icon at the same position as the
+# menu hamburger. Tapping it must close History.
+- tapOn:
+    point: "4%,7%"
+
+- waitForAnimationToEnd
+
+- assertNotVisible:
+    text: "Zurück zum Plan"

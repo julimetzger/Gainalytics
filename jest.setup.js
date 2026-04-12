@@ -2,6 +2,18 @@
 // Silence Animated: "useNativeDriver" warnings, etc.
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
 
+// Provide a NavigationContainer-free useFocusEffect so components using it
+// can render in unit tests that don't wrap in NavigationContainer.
+jest.mock('@react-navigation/native', () => {
+  const React = require('react');
+  const actual = jest.requireActual('@react-navigation/native');
+  return {
+    ...actual,
+    useFocusEffect: (cb) => React.useEffect(cb, []),
+    useIsFocused: () => true,
+  };
+});
+
 // Reanimated mock (required by the plugin in tests)
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 

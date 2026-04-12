@@ -1,6 +1,6 @@
 import React, {useMemo, useRef, useState} from 'react';
 import {ScrollView, TouchableOpacity, View, StyleSheet} from 'react-native';
-import {Button, Card, Divider, Text, useTheme} from 'react-native-paper';
+import {Button, Card, Divider, SegmentedButtons, Text, useTheme} from 'react-native-paper';
 import {Calendar} from 'react-native-calendars/src';
 import {DateData} from 'react-native-calendars';
 import {useSelector} from 'react-redux';
@@ -43,13 +43,18 @@ function addDays(date: Date, days: number): Date {
 
 // ─── types ──────────────────────────────────────────────────────────────────
 
+type TrainingEntry = {
+  trainingId: number;
+  planId: number;
+  microNumber: number;
+  trainingInMicro: number;
+  trainingName: string;
+  planName: string;
+};
+
 type DayMark = {
-  trainingId?: number;
-  planId?: number;
-  microNumber?: number;
-  trainingInMicro?: number;
-  trainingName?: string;
-  planName?: string;
+  /** All trainings completed on this day (supports multiple per day). */
+  trainings?: TrainingEntry[];
   // micro-range visual info (may be set even on non-training rest days)
   inMicroRange?: boolean;
   isMicroStart?: boolean;
@@ -157,7 +162,7 @@ const HistoryDayComponent = ({date, state, marking, onPress, selectedDate}: DayC
   const info = marking ?? {};
   const isToday = state === 'today';
   const isSelected = date.dateString === selectedDate;
-  const hasTraining = !!info.trainingId;
+  const hasTraining = (info.trainings?.length ?? 0) > 0;
   const inMicro = !!info.inMicroRange;
   const MICRO_COLOR = theme.colors.secondary;
 
@@ -244,11 +249,14 @@ interface TrainingHistoryCalendarProps {
   /** The plan whose drawer opened this calendar */
   currentPlan: TrainingsPlan;
   onNavigateToTraining: (plan: TrainingsPlan, micro: number, trainingInMicro: number) => void;
+  /** Called when the user taps "Zurück zum Plan" — clears the history view */
+  onBack?: () => void;
 }
 
-const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHistoryCalendarProps) => {
+const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining, onBack}: TrainingHistoryCalendarProps) => {
   const theme = useTheme();
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
+  const [selectedTrainingIndex, setSelectedTrainingIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const detailY = useRef<number>(0);
 
@@ -259,11 +267,21 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHi
   const trainingsById = useSelector((state: GlobalState) => state.trainings.byId);
 
   // Build the marking data
-  const {markedDates, selectedTraining} = useMemo(() => {
+  const {markedDates, selectedTrainings} = useMemo(() => {
     const marks: {[dateStr: string]: DayMark} = {};
 
     const setMark = (dateStr: string, partial: Partial<DayMark>) => {
-      marks[dateStr] = {...(marks[dateStr] ?? {}), ...partial};
+      const existing = marks[dateStr] ?? {};
+      // Accumulate trainings array instead of overwriting
+      if (partial.trainings) {
+        marks[dateStr] = {
+          ...existing,
+          ...partial,
+          trainings: [...(existing.trainings ?? []), ...partial.trainings],
+        };
+      } else {
+        marks[dateStr] = {...existing, ...partial};
+      }
     };
 
     allPlans.forEach((plan) => {
@@ -288,12 +306,14 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHi
         const trainingName = plan.trainingNames?.[trainingInMicro] ?? `Training ${trainingInMicro}`;
 
         setMark(dateStr, {
-          trainingId: training.id,
-          planId: plan.id,
-          microNumber: micro,
-          trainingInMicro,
-          trainingName,
-          planName: plan.name,
+          trainings: [{
+            trainingId: training.id!,
+            planId: plan.id!,
+            microNumber: micro,
+            trainingInMicro,
+            trainingName,
+            planName: plan.name,
+          }],
         });
 
         if (!microTrainingDates.has(micro)) microTrainingDates.set(micro, []);
@@ -360,31 +380,32 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHi
       }
     });
 
-    // Resolve selectedTraining from selectedDate
-    let sel: SelectedTraining | undefined;
-    if (selectedDate && marks[selectedDate]?.trainingId !== undefined) {
-      const mark = marks[selectedDate];
-      const training = trainingsById[mark.trainingId!];
-      const plan = allPlans.find((p) => p?.id === mark.planId);
-      if (training && plan) {
-        sel = {
+    // Resolve all trainings for the selected date
+    let selectedTrainings: SelectedTraining[] = [];
+    if (selectedDate && (marks[selectedDate]?.trainings?.length ?? 0) > 0) {
+      selectedTrainings = (marks[selectedDate].trainings ?? []).flatMap((entry) => {
+        const training = trainingsById[entry.trainingId];
+        const plan = allPlans.find((p) => p?.id === entry.planId);
+        if (!training || !plan) return [];
+        return [{
           training,
           plan,
-          micro: mark.microNumber!,
-          trainingInMicro: mark.trainingInMicro!,
-          trainingName: mark.trainingName ?? 'Training',
-        };
-      }
+          micro: entry.microNumber,
+          trainingInMicro: entry.trainingInMicro,
+          trainingName: entry.trainingName,
+        }];
+      });
     }
 
-    return {markedDates: marks, selectedTraining: sel};
-  }, [allPlans, trainingsById, selectedDate]);
+    return {markedDates: marks, selectedTrainings};
+  }, [allPlans, trainingsById, selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDayPress = (day: DateData) => {
-    const hasTraining = !!markedDates[day.dateString]?.trainingId;
+    const hasTraining = (markedDates[day.dateString]?.trainings?.length ?? 0) > 0;
     if (hasTraining) {
       setSelectedDate((prev) => {
         if (prev !== day.dateString) {
+          setSelectedTrainingIndex(0);
           // Scroll to detail panel after state update
           setTimeout(() => scrollRef.current?.scrollTo({y: detailY.current, animated: true}), 100);
         }
@@ -409,8 +430,22 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHi
     [theme],
   );
 
+  const activeTraining = selectedTrainings[selectedTrainingIndex] ?? selectedTrainings[0];
+
   return (
     <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={{flexGrow: 1}}>
+      {onBack && (
+        <Button
+          mode="text"
+          icon="arrow-left"
+          onPress={onBack}
+          style={styles.backButton}
+          contentStyle={{flexDirection: 'row-reverse'}}
+          testID="history-back-button"
+        >
+          Zurück zum Plan
+        </Button>
+      )}
       <Calendar
         theme={calTheme}
         markedDates={markedDates}
@@ -426,14 +461,25 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHi
         )}
         enableSwipeMonths={true}
         style={styles.calendar}
-        current={new Date().toISOString().slice(0, 10)}
+        current={getYYYYMMDDFormat(new Date())}
       />
-      {selectedTraining && (
+      {selectedTrainings.length > 0 && activeTraining && (
         <View onLayout={(e) => { detailY.current = e.nativeEvent.layout.y; }}>
+          {selectedTrainings.length > 1 && (
+            <SegmentedButtons
+              value={String(selectedTrainingIndex)}
+              onValueChange={(v) => setSelectedTrainingIndex(Number(v))}
+              style={styles.trainingPicker}
+              buttons={selectedTrainings.map((t, i) => ({
+                value: String(i),
+                label: t.trainingName,
+              }))}
+            />
+          )}
           <TrainingDetailPanel
-            selected={selectedTraining}
+            selected={activeTraining}
             onNavigate={() =>
-              onNavigateToTraining(selectedTraining.plan, selectedTraining.micro, selectedTraining.trainingInMicro)
+              onNavigateToTraining(activeTraining.plan, activeTraining.micro, activeTraining.trainingInMicro)
             }
           />
         </View>
@@ -496,6 +542,13 @@ const styles = StyleSheet.create({
     fontSize: 6,
     lineHeight: 8,
     fontWeight: '600',
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  trainingPicker: {
+    margin: 8,
   },
   // detail panel
   detailPanel: {
