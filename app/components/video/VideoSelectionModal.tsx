@@ -11,6 +11,7 @@ import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisSeedPreflight';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
+import {dispatchSetVideoAnalysisMetersPerPixel} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisMetersPerPixel';
 import {dispatchLinkVideoAnalysisToWorkout} from '../../redux/VideoAnalysis/dispatch/dispatchLinkVideoAnalysisToWorkout';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {EMULATOR_SQUAT_VIDEO_PATH, importVideoAnalysisFromSource, requestVideoReadPermission} from '../../utils/video-analysis-import';
@@ -31,6 +32,7 @@ const VideoSelectionModal = ({visible, onDismiss, workoutId, setIndex, exerciseI
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const setSeedPreflight = dispatchSetVideoAnalysisSeedPreflight();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
+  const setMetersPerPixel = dispatchSetVideoAnalysisMetersPerPixel();
   const linkVideoAnalysis = dispatchLinkVideoAnalysisToWorkout();
   const theme = useTheme();
   const store = useStore<GlobalState>();
@@ -65,6 +67,7 @@ const VideoSelectionModal = ({visible, onDismiss, workoutId, setIndex, exerciseI
         setManualSeedFramePath,
         setSeedPreflight,
         attachVideoAnalysisResult,
+        setMetersPerPixel,
       });
       linkVideoAnalysis(nextAnalysisId, workoutId, exerciseId, setIndex);
       onLinked?.();

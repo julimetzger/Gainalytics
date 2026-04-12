@@ -14,7 +14,9 @@ import VideoAnalysisManualSeedCard from '../../components/video/VideoAnalysisMan
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
+import {dispatchSetVideoAnalysisMetersPerPixel} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisMetersPerPixel';
 import {ManualSeedPayload, analyzeSquatVideo, migrateBarTrackingResultIfNeeded} from '../../utils/videoAnalysisNative';
+import {calibrateFromSeed} from '../../utils/video-analysis-import';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
 
@@ -202,6 +204,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const setVideoAnalysisStatus = dispatchSetVideoAnalysisStatus();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
+  const setMetersPerPixel = dispatchSetVideoAnalysisMetersPerPixel();
   const [result, setResult] = useState<BarTrackingResult | undefined>();
   const [previewUri, setPreviewUri] = useState<string | undefined>();
   const [previewAspectRatio, setPreviewAspectRatio] = useState(DEFAULT_PREVIEW_ASPECT_RATIO);
@@ -329,6 +332,13 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       try {
         setManualSeedRunning(true);
         setVideoAnalysisStatus(analysis.id, VideoAnalysisStatus.PROCESSING);
+
+        // Calculate metersPerPixel from known plate diameter and detected plate width.
+        const mpp = calibrateFromSeed(manualSeed.normalizedWidth, analysis.seedFrameWidthPx ?? 0);
+        if (mpp != null) {
+          setMetersPerPixel(analysis.id, mpp);
+        }
+
         const resultPath = await analyzeSquatVideo(analysis.localVideoPath, analysis.id, manualSeed);
         attachVideoAnalysisResult(analysis.id, resultPath, analysis.localVideoPath);
         setManualSeedFramePath(analysis.id, undefined);
@@ -338,7 +348,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         setManualSeedRunning(false);
       }
     },
-    [analysis?.id, analysis?.localVideoPath, attachVideoAnalysisResult, setManualSeedFramePath, setVideoAnalysisStatus],
+    [analysis?.id, analysis?.localVideoPath, analysis?.seedFrameWidthPx, attachVideoAnalysisResult, setManualSeedFramePath, setMetersPerPixel, setVideoAnalysisStatus],
   );
 
   if (!analysis) {
@@ -455,6 +465,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
               localVideoPath={analysis.localVideoPath}
               result={result}
               savedSetResult={analysis.setResult}
+              metersPerPixel={analysis.metersPerPixel}
             />
           )}
         </Card.Content>
