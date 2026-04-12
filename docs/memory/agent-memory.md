@@ -1030,6 +1030,38 @@ grep -r "Import Emulator Squat Video" app/
 
 **Apply when:** WSL2 adb connects to Windows server but gets empty device list.
 
+### 55. Reanimated Animated.View with left offset removes children from Android accessibility tree
+
+**Problem:** DataTable headers inside `RangeSwiper`'s `Reanimated.Animated.View` (with `left: -deviceWidth` initial offset) are completely absent from the Android accessibility tree. Maestro `tapOn: id:` and `tapOn: text:` both fail for these elements. `uiautomator dump` confirms only ~90 nodes with no DataTable content.
+
+**Symptoms:** `Element not found: Id matching regex: metrics-muscles-header-0` even though the element is visually on screen.
+
+**Working solution:** Use `tapOn: point: "X%,Y%"` in Maestro to open a Portal-based dialog triggered by the hidden element. Portal dialogs render at the root host and ARE fully accessible. Assert/interact with the dialog content normally after the coordinate tap.
+
+**Apply when:** Any Maestro flow needs to interact with elements inside RangeSwiper (Metrics Overview column headers, etc.).
+
+### 56. Debug APK for emulator: add ndk.abiFilters "x86_64" to reduce size from 229MB to 79MB
+
+**Problem:** Full debug APK with all ABIs is ~229MB. Fresh emulator `/data` partition fills up, causing `INSTALL_FAILED_INSUFFICIENT_STORAGE`.
+
+**Working solution:** Add to `android/app/build.gradle` debug buildType:
+```gradle
+debug {
+    signingConfig signingConfigs.debug
+    ndk {
+        abiFilters "x86_64"
+    }
+}
+```
+This restricts to x86_64 only (matching emulator ABI), reducing APK to ~79MB.
+
+**Apply when:** Installing a fresh debug APK on an emulator that reports insufficient storage.
+
+### 57. Maestro --test-output-dir saves takeScreenshot files in a "screenshots/" subdirectory
+
+**Problem:** When running `maestro test --test-output-dir "$RUN_DIR"`, `takeScreenshot: name` saves to `$RUN_DIR/screenshots/name.png`, not directly to `$RUN_DIR/name.png`.
+
+**Apply when:** Looking for Maestro `takeScreenshot` output files after a run.
 ### 55. Samsung Galaxy S20 override resolution is 720x1600, not physical 1440x3200
 
 **Problem:** Tapping adb coordinates based on physical screen size (1440x3200) or a visible screenshot width (800px scaled) hits wrong UI elements. The device uses an override resolution of 720x1600.
