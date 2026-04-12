@@ -19,6 +19,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
   let plannedWorkout = useWorkoutById(training.plannedWorkouts[chosenExercise.id!!]);
   let [openPlanned, setOpenPlanned] = useState(false);
   let [openHistory, setOpenHistory] = useState(false);
+  let [linkVideoMode, setLinkVideoMode] = useState(false);
 
   const screenHeight = Dimensions.get('window').height;
   const [date, setDate] = useState(new Date(Date.now()));
@@ -42,6 +43,8 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
         trainingsId={training.id ?? nextTrainingsId}
         onSubmitSet={onSubmitSet}
         date={date}
+        linkVideoMode={linkVideoMode}
+        onDisableLinkVideoMode={() => setLinkVideoMode(false)}
         info={
           <View style={{display: 'flex', flexDirection: 'row'}}>
             <Tooltip enterTouchDelay={300} title="Shows Exercise History">
@@ -58,6 +61,12 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
                 onPress={() => {
                   setOpenPlanned(true);
                 }}
+              ></IconButton>
+            </Tooltip>
+            <Tooltip enterTouchDelay={300} title={linkVideoMode ? 'Cancel Link Video' : 'Link Video'}>
+              <IconButton
+                icon={linkVideoMode ? 'close' : 'video-plus'}
+                onPress={() => setLinkVideoMode(prev => !prev)}
               ></IconButton>
             </Tooltip>
           </View>

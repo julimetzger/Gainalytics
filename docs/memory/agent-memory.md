@@ -1017,6 +1017,54 @@ grep -r "Import Emulator Squat Video" app/
 
 **Apply when:** Removing or searching for any video-analysis-specific dev/debug UI elements.
 
+### 55. Emulator storage full (225MB APK): remove YouTube before install
+
+**Problem:** 225MB debug APK fails to install on emulator with `INSTALL_FAILED_INSUFFICIENT_STORAGE` even after `pm clear` of the target app.
+
+**Working solution:** `adb shell pm uninstall com.google.android.youtube` frees ~400MB on this emulator, enough for the debug APK. Check with `adb shell df /data` first — need ~700MB+ free for a 225MB APK.
+
+**Apply when:** Install fails with insufficient storage; always check `df /data` before blaming the APK size.
+
+---
+
+### 56. Bottom navigation tab coordinates: use UIAutomator dump, not visual guess
+
+**Problem:** Tab tap coordinates calculated from scaled screenshots are unreliable. The actual navigation bar may be at y=2127-2337 on a 1080x2400 device, not where it visually appears in a scaled image.
+
+**Working solution:** `adb shell uiautomator dump && pull` then find `content-desc="tab-analyse"` for exact bounds. Centre of bounds is the reliable tap target.
+
+**Apply when:** Any bottom navigation interaction via adb tap.
+
+---
+
+### 57. Drawer toggle in Analyse tab: use `input swipe x y x y 100` not `input tap`
+
+**Problem:** `adb shell input tap` on the drawer hamburger (≡) in the Analyse screen often doesn't register (possible touch event timing issue).
+
+**Working solution:** `adb shell input swipe 68 209 68 209 100` (100ms hold) reliably opens the drawer. Coordinates from UIAutomator: button at `[16,157][121,262]`, centre `(68, 209)`.
+
+---
+
+### 58. ndk abiFilters x86_64: fastest way to halve debug APK size for emulator
+
+**Problem:** Debug APK can reach 200-225MB due to all ABI slices. Emulator has limited /data storage, making install impossible.
+
+**Working solution:** Add `ndk { abiFilters "x86_64" }` inside `defaultConfig` in `android/app/build.gradle`. Reduces APK from ~216MB to ~77MB. Remove before shipping a release build or add only to the debug block.
+
+**Apply when:** INSTALL_FAILED_INSUFFICIENT_STORAGE on emulator after removing YouTube already freed space.
+
+---
+
+### 59. Git stash on dirty working tree can cause merge conflicts in unrelated files
+
+**Problem:** `git stash` and `git stash pop` across pre-staged but uncommitted changes from a different in-progress feature can cause merge conflicts in files you never touched (e.g. `VideoAnalysisPlaybackOverlayCard.tsx`).
+
+**Working solution:** Resolve conflicts with `git checkout --theirs <file>` (keep stash version) if the conflicting file was NOT part of your current work. Then `git stash drop`. Re-apply your own changes manually using the original diff.
+
+**Apply when:** `git stash pop` causes unexpected merge conflicts in files outside the current feature's scope.
+
+---
+
 ### 54. Win ADB v34 server vs Linux ADB v36 client: device list is empty over 127.0.0.1:5037
 
 **Problem:** From WSL2, `adb -H 127.0.0.1 -P 5037 devices` connects to the Windows ADB server but returns an empty device list. The Windows ADB server (v34) and Linux adb client (v36) have a protocol mismatch that causes device enumeration to fail silently.
