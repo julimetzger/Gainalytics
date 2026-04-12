@@ -15,6 +15,24 @@ import {processColor} from 'react-native';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisCompare'> {}
 
+/** Pure helper — exported for unit testing. */
+export function computeRepSeekPositions(
+  result1: Pick<BarTrackingResult, 'repSegments'>,
+  result2: Pick<BarTrackingResult, 'repSegments'> | undefined,
+  repIndex: number,
+): {seekMs1: number; seekMs2: number} | null {
+  const seg1 = result1.repSegments[repIndex];
+  if (!seg1) {
+    return null;
+  }
+  const seg2 = result2?.repSegments[repIndex];
+  return {
+    seekMs1: seg1.startMs,
+    // Fall back to seg1 time only when result2 has no segment at this index
+    seekMs2: seg2 ? seg2.startMs : seg1.startMs,
+  };
+}
+
 const DEFAULT_ASPECT_RATIO = 16 / 9;
 
 const createThemedStyles = (theme: MD3Theme) =>
@@ -52,7 +70,8 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
 
   const [paused, setPaused] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
-  const [seekMs, setSeekMs] = useState<number | undefined>(undefined);
+  const [seekMs1, setSeekMs1] = useState<number | undefined>(undefined);
+  const [seekMs2, setSeekMs2] = useState<number | undefined>(undefined);
   const [currentRepIndex, setCurrentRepIndex] = useState<number | undefined>(undefined);
 
   const [duration1Ms, setDuration1Ms] = useState(0);
@@ -139,20 +158,26 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
 
   const togglePlayback = useCallback(() => {
     setPaused((prev) => !prev);
-    setSeekMs(undefined);
+    setSeekMs1(undefined);
+    setSeekMs2(undefined);
   }, []);
 
   const handleRepPress = useCallback((repIndex: number) => {
     if (!result1) {
       return;
     }
-    const segment = result1.repSegments[repIndex];
-    if (segment) {
-      setSeekMs(segment.startMs);
-      setCurrentRepIndex(repIndex);
-      setPaused(false);
+    // Seek each player to its own rep's start position — videos may have different
+    // pacing or trimming, so using a single timestamp would land video B at the
+    // wrong moment.
+    const positions = computeRepSeekPositions(result1, result2, repIndex);
+    if (!positions) {
+      return;
     }
-  }, [result1]);
+    setSeekMs1(positions.seekMs1);
+    setSeekMs2(positions.seekMs2);
+    setCurrentRepIndex(repIndex);
+    setPaused(false);
+  }, [result1, result2]);
 
   const cycleSpeed = useCallback(() => {
     setPlaybackSpeed((prev) => {
@@ -243,7 +268,7 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
                   <VideoAnalysisPlayerView
                     source={analysis1.localVideoPath!}
                     paused={paused}
-                    seekPositionMs={seekMs}
+                    seekPositionMs={seekMs1}
                     playbackSpeed={playbackSpeed}
                     barPathSeries={result1?.barPathSeries}
                     repSegments={result1?.repSegments}
@@ -261,7 +286,7 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
                   <VideoAnalysisPlayerView
                     source={analysis2.localVideoPath!}
                     paused={paused}
-                    seekPositionMs={seekMs}
+                    seekPositionMs={seekMs2}
                     playbackSpeed={playbackSpeed}
                     barPathSeries={result2?.barPathSeries}
                     repSegments={result2?.repSegments}
