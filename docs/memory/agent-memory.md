@@ -1029,3 +1029,122 @@ grep -r "Import Emulator Squat Video" app/
 3. Do NOT try to make Linux adb client talk to Windows adb server — the version mismatch is fundamental.
 
 **Apply when:** WSL2 adb connects to Windows server but gets empty device list.
+
+### 55. Maestro: plan name text in Training list is not accessible via assertVisible/tapOn text
+
+**Problem:** In the TrainingHome tab, plan card names (e.g. "Push pull") are rendered in a `Text` component inside a `Pressable`. Maestro's `assertVisible: "Push pull"` and `tapOn: text: "Push pull"` fail consistently — the text is in the accessibility tree but not found.
+
+**Symptoms:** Flow fails with "Element not found: Text matching regex: Push pull" even though the text is clearly visible in the debug screenshot.
+
+**Working solution:** Use coordinate-based `tapOn: point: "50%,11%"` to tap the plan card. Then navigate into the plan (TrainingsPlanTab). Open the side drawer by tapping the hamburger icon at `5%,6%`.
+
+**Apply when:** Trying to navigate to a specific plan in the Training tab via Maestro.
+
+### 56. Calendar day period background: use left/right absolute edges + conditional border-radius
+
+**Problem:** Implementing a "period" background for calendar day cells (like react-native-calendars period marking) requires careful positioning. Using `left: CELL_W/2` for start days and `right: CELL_W/2` for end days, with `left: 0` / `right: 0` for middle days, achieves the half-cell extension needed for the period visual.
+
+**Observation:** Single-day micros (isMicroStart && isMicroEnd) need special handling — if both left and right are set to CELL_W/2, the width becomes 0. Use fixed insets (e.g. `left: 5, right: 5`) with full border-radius instead.
+
+**Apply when:** Implementing custom calendar period/range backgrounds in a custom dayComponent.
+
+### 57. Android file picker: use search icon to find .gains files faster
+
+**Problem:** The Downloads folder contains many files (screenshots, exported .gains files). Scrolling through the grid view to find a specific `.gains` file takes many scroll passes and the file can be near the very bottom.
+
+**Working solution:** Tap the magnifying glass (Search) icon in the top-right of the file picker toolbar, type the filename (e.g. `test_video`), and the file appears immediately as a single result. Then tap its card center (not the preview icon in the corner) to select it.
+
+**Apply when:** Importing a `.gains` fixture file via the app's Settings → Import Data flow.
+
+### 58. VL fixture: analyses must reference workouts in the plan's current micro
+
+**Problem:** `useVelocityLossInsights` filters analyses by matching their `workoutId` to the `currentMicro`. If the VL analyses in a fixture point to workouts in micro 1 but the plan's `lastTraining` puts `currentMicro = 6`, no VL cards will render on the TrainingOverviewCard.
+
+**Working solution:** Update the fixture's `videoAnalyses.byId` entries to set `workoutId` and `exerciseId` to a workout that actually belongs to the plan's current micro. Derive `currentMicro` from `plan.lastTraining` → find it in `plan.trainings` → parse `parseInt(key.split(',')[0])`.
+
+**Apply when:** Writing or debugging VL Insight Card evidence with fixture data.
+
+### 59. Conditional navigation header in React Navigation: pass different props, not a different component
+
+**Problem:** Needing to show a different header (back button vs hamburger) for different app states (e.g. showHistory vs normal) — it's tempting to render different header components.
+
+**Working solution:** Keep one header component but make props optional. Pass `undefined` for props that should hide sections (e.g. `micro?: number` — when undefined, hide "Micro X" prefix and Mode section). Replace the `drawerMenu` node with a back-arrow `IconButton` via a conditional expression directly in `navigation.setOptions`. This avoids extra components and keeps all header logic in one place.
+
+**Apply when:** A screen has multiple "modes" with different header appearances.
+
+### 60. ScrollView detail panel below the fold: auto-scroll on selection
+
+**Problem:** A `ScrollView` containing a tall calendar followed by a detail panel — users tap a calendar day to show the detail panel, but the panel is below the screen and invisible.
+
+**Working solution:** Add a `useRef<ScrollView>` ref and a `detailY = useRef<number>(0)` for the panel's Y position. On the detail-panel container add `onLayout={(e) => { detailY.current = e.nativeEvent.layout.y; }}`. In the press handler, after `setSelectedDate(...)`, call `setTimeout(() => scrollRef.current?.scrollTo({y: detailY.current, animated: true}), 100)`. The 100ms delay lets React process the state update before scrolling.
+
+**Apply when:** Calendar or list followed by a contextual detail panel that might be off-screen.
+
+### 61. react-native-mmkv needs a global Jest mock in jest.setup.js
+
+**Problem:** Tests that import any module using `new MMKV(...)` (e.g. `secureStorage.ts`, `insightCache.ts`) fail with `Cannot read properties of undefined (reading 'getString')` unless MMKV is mocked globally.
+
+**Working solution:** Add to `jest.setup.js`:
+```js
+jest.mock('react-native-mmkv', () => ({
+  MMKV: jest.fn().mockImplementation(() => ({
+    getString: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    contains: jest.fn(() => false),
+  })),
+}));
+```
+Individual test files can override with `jest.mock('react-native-mmkv', ...)` inside the file. The global mock prevents import-time crashes for all other test suites that transitively import these utils.
+
+**Apply when:** Adding any new utility that uses MMKV; always add the global mock to jest.setup.js at the same time.
+
+### 62. insightCache composite key: accept string|number, not just number
+
+**Problem:** `insightCache.ts` was typed with `(trainingId: number)`. `CoachInsightCard` calls it with a composite string key like `"1,2,3"` (joined finished training IDs). TypeScript error at call site.
+
+**Working solution:** Change the insightCache signature to `(cacheKey: string | number)`. The internal MMKV key becomes `insight_${cacheKey}` which works for both numeric and string inputs.
+
+**Apply when:** Cache keys need to represent compound state (e.g. multiple entity IDs).
+
+### 63. Purple theme colors are rgb() strings — hex concat breaks React Native
+
+**Problem:** react-native-paper Purple theme defines colors as `rgb(r, g, b)` strings (e.g. `primary: 'rgb(220, 184, 255)'`). Appending a hex alpha suffix like `color + '33'` produces `rgb(220, 184, 255)33` which is not a valid React Native color and silently crashes any component that uses it as a `backgroundColor`.
+
+**Working solution:** Use a `withAlpha(color, alpha)` helper (see `app/utils/colorUtils.ts`) that parses both `#rrggbb` hex and `rgb(...)` inputs and always outputs a valid `rgba(r, g, b, alpha)` string. Replace all `color + '33'` patterns with `withAlpha(color, 0.2)`.
+
+**Apply when:** Any component applies an alpha-transparent version of a theme color as a background. Never concatenate hex alpha suffixes onto theme color strings.
+
+### 64. Windows ADB server loses external binding after auto-restart
+
+**Problem:** After the Windows ADB server (PID) is killed, the replacement auto-started server binds only to `127.0.0.1:5037` instead of `0.0.0.0:5037`. This breaks WSL → Windows ADB connectivity (`ADB_SERVER_SOCKET=tcp:172.18.240.1:5037` fails).
+
+**Working solution:** Kill the auto-started server, then immediately start it with `-a` flag: `taskkill /PID <pid> /F && adb.exe -a -P 5037 nodaemon server`. Check connectivity with `nc -z -w3 172.18.240.1 5037`.
+
+**Apply when:** `adb -s <device> get-state` times out after ADB operations or system sleep. Always verify port is open before running adb commands in the session.
+
+### 65. WSL Metro port is exposed on Windows localhost — adb reverse to device:8081
+
+**Problem:** Metro runs in WSL on some port (e.g. 8081 or 8085). The Windows ADB reverse (`adb reverse tcp:8081 tcp:PORT`) only works if something is reachable on Windows `127.0.0.1:PORT`. WSL2 auto-exposes WSL ports to Windows localhost, so WSL Metro on port 8081 is accessible as `127.0.0.1:8081` on Windows.
+
+**Working solution:** `adb -s <device> reverse tcp:8081 tcp:8081` correctly routes device loopback port 8081 → Windows:127.0.0.1:8081 → WSL Metro:8081. Verify with `ss -tlnp | grep <port>` in WSL to confirm Metro is running there.
+
+**Apply when:** App shows "Loading from 10.0.2.2:8081..." without loading. Check which port WSL Metro is actually on, then set up the matching adb reverse.
+
+### 66. Metro /reload HTTP endpoint unblocks stuck native promise callbacks
+
+**Problem:** After a video analysis native module completes (`analyzeSquatVideo` logged `metrics=...`), the JS `.then()` callback sometimes never fires — app stays in PROCESSING state indefinitely despite the result file existing on disk.
+
+**Root cause (suspected):** The native-to-JS bridge delivers the promise resolution lazily; a stuck JNI lock or busy JS thread can delay it indefinitely after a long-running native operation (37+ minute emulator run).
+
+**Working solution:** `curl -X POST http://localhost:8082/reload` (Metro host port) triggers a JS bundle reload. On reload, MMKV state is restored. If the native analysis had already written its result file AND the ATTACH action fired (it may have fired during the reload), the Redux store picks up the DONE status. Result: the detail screen shows the completed analysis including m/s velocity.
+
+**Apply when:** Analysis shows "Status: processing" indefinitely after the native `analyzeSquatVideo` metrics log has appeared and the result JSON file exists on device.
+
+### 67. Long emulator video analysis: ~15× real-time on CPU-only x86_64 emulator
+
+**Problem:** A 48-second squat video took ~37 minutes total on emulator-5554 (x86_64, CPU-only, no GPU delegate). Breakdown: 23 min preflight (model load + single detection), 6 min background tracking.
+
+**Working solution:** Use `adb logcat | grep "VideoAnalysis.*tracking-progress"` to see real-time progress (logs every 10 samples). Calculate ETA: remaining_samples × avg_detection_ms. The emulator's ML inference runs at ~262ms/frame vs. ~30ms on a real device.
+
+**Apply when:** Waiting for analysis to complete on emulator. Don't assume the analysis is stuck — check tracking-progress logs first.
