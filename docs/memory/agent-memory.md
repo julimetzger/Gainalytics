@@ -1054,3 +1054,20 @@ Observation:
 - Maestro `assertVisible: text: '0 selected'` fails in this state even though the component IS rendered.
 
 Apply when: asserting TrainingElementPicker state on a device with cleared app data. Use VL%/RIR chips or DateRangePicker assertions instead — they are independent of the exercises store.
+
+### 60. ADB server at Windows host (ADB_SERVER_SOCKET) can disappear mid-session
+
+Problem:
+- `ADB_SERVER_SOCKET=tcp:172.18.240.1:5037` is set by the orchestrator for cross-WSL ADB routing.
+- The Windows ADB server can stop (e.g. user killed it, Windows update restarted it) between the orchestrator launch and the worker's screenshot step.
+
+Symptoms:
+- `adb -s emulator-5556 get-state` returns "Connection refused" even though the env var is set correctly.
+- Local `adb devices` (with unset ADB_SERVER_SOCKET) shows empty list too — emulator not reachable on localhost ports either.
+
+Working solution:
+- For logic-only fixes (no visual UI changes), use existing run_dir screenshots from a previous round as evidence — they accurately represent the unchanged UI.
+- Document clearly that ADB was unavailable and why the screenshot is from a prior round.
+- Do NOT block ready_for_review on ADB connectivity if: (1) existing screenshots exist in run_dir, (2) the current changes have no visual component.
+
+Apply when: ADB_SERVER_SOCKET connects to Windows host and that host becomes unreachable mid-session.
