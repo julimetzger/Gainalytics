@@ -3,8 +3,10 @@ appId: com.powerliftingworkoutplanner
 - runFlow: 00_import_baseline.yaml
 - runFlow: 01_training_smoke.yaml
 - runFlow: 02_add_workout_set.yaml
-- runFlow: 03_video_analysis_import.yaml
-- runFlow: 04_video_analysis_bar_path_done.yaml
-- runFlow: 05_video_analysis_rep_segments_visible.yaml
-- runFlow: 06_video_analysis_metrics_visible.yaml
-- runFlow: 07_video_analysis_overlay_visible.yaml
+# Flows 03–07 (video analysis import + detail verification) were removed because
+# the dev-only "Import Emulator Squat Video" entry-point was intentionally deleted
+# as part of GH-71 (filter feature cleanup). The remaining import path (document
+# picker via "Import Video") requires user interaction and cannot be driven by
+# Maestro in CI. Re-enable these flows if a testable import entry-point is
+# reintroduced (e.g. a test-only intent or file-push fixture).
+- runFlow: 08_training_length.yaml

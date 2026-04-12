@@ -4,6 +4,7 @@ This document tracks how much time workers spend on infrastructure vs. feature w
 which problems recur, and which workers are affected. Use this to identify systemic
 issues and prevent agents from re-discovering known solutions.
 
+Last updated: 2026-04-12 (GH-71-fb7)
 Last updated: 2026-04-12 (GH-95-r3)
 
 ## Per-Worker Breakdown
@@ -32,6 +33,14 @@ Last updated: 2026-04-12 (GH-95-r3)
 | MNT-002 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review |
 | EXC-001-fix | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | ready_for_review |
 | GH-46-fix2 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | ready_for_review |
+| GH-71 | emu | 0 | 0 | 0 | 1 | 8 | 1 | 0 | 0 | 0 | ready_for_review |
+| GH-71-fb2 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3 | ready_for_review |
+| GH-86 | emu | 7 | 0 | 0 | 8 | 45 | 5 | 10 | 0 | 2 | ready_for_review (r2) |
+| GH-86 (r4) | emu | 12 | 0 | 0 | 2 | 5 | 3 | 0 | 0 | 4 | ready_for_review (r4) |
+| GH-82 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 15 | 2 | ready_for_review (r2: adb server unavailable during fix round, unit tests primary evidence) |
+| GH-71-fb5 | emu | 0 | 0 | 0 | 2 | 30 | 8 | 0 | 0 | 0 | ready_for_review (Maestro driver ports all mapped to wrong device after ADB server restart; direct adb screenshots used as layout evidence) |
+| GH-71-fb6 | emu | 0 | 0 | 8 | 5 | 20 | 10 | 0 | 0 | 0 | ready_for_review (emulator uses 10.0.2.2:8081 not adb reverse; fresh install failed disk full ~720MB; cleared GMS/Play caches to free 300MB; Dev Settings localhost:8081 fix) |
+| GH-71-fb7 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review (ADB_SERVER_SOCKET Windows host unreachable; logic-only fixes — reused fb6 screenshots; 20 unit tests primary evidence) |
 | GH-94 | real | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 3 | ready_for_review |
 | GH-94-r4 | emu | 0 | 5 | 0 | 1 | 0 | 0 | 2 | 0 | 4 | ready_for_review |
 | GH-77 | emu | 0 | 0 | 0 | 2 | 8 | 12 | 0 | 3 | 2 | ready_for_review |

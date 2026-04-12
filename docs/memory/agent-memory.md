@@ -841,6 +841,53 @@ Observation:
 
 Apply when: screenshots are needed from emulator-5554 in the WSL2 environment and screencap returns white frames.
 
+### 43. Metro crashes watching Gradle .cxx build directories
+
+Problem:
+- After a Gradle `assembleDebug` build, Metro crashes with `ENOENT: no such file or directory, watch '/android/app/.cxx/Debug/.../x86'`.
+- The `.cxx` dir is created during the native build and removed or renamed, leaving Metro watching a nonexistent path.
+
+Symptoms:
+- App shows red "Unable to load script" screen after a fresh build.
+- Metro log ends with `Error: ENOENT ... .cxx/Debug/...`.
+
+Working solution:
+- Restart Metro after the Gradle build: kill the old process, start a new one on the same port.
+- The orchestrator-assigned socat proxy on port 8081 → 8084 stays up; only the Metro node process needs restarting.
+
+Apply when: red screen after `assembleDebug`, Metro log shows ENOENT on `.cxx` path.
+
+### 44. Emulator /data partition fills up — uninstall old APK before reinstalling
+
+Problem:
+- `adb install -r` fails with `INSTALL_FAILED_INSUFFICIENT_STORAGE` when the emulator's /data partition is ~90% full and the APK is >200 MB.
+- The streaming install needs headroom beyond the APK size for staging.
+
+Symptoms:
+- `Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Failed to override installation location]`
+- `df /data` shows ~650 MB free, APK is 216 MB.
+
+Working solution:
+- `adb -s $DEVICE uninstall com.powerliftingworkoutplanner` first (frees ~220 MB).
+- Then `adb -s $DEVICE install -r <apk>`.
+
+Apply when: install fails with insufficient storage on a previously-used emulator.
+
+### 45. Date range end-boundary: normalize endDate to 23:59:59.999 for inclusive filtering
+
+Observation:
+- When a user picks a specific end date via DateRangePicker, the resulting `Date` object carries the exact selection timestamp (e.g. 14:32:00). Analyses created later that same day (e.g. 15:00) fail the `createdAt <= endDate.getTime()` comparison even though the user expects the whole day to be included.
+
+Working solution:
+```ts
+const endOfDay = new Date(dateRange.endDate);
+endOfDay.setHours(23, 59, 59, 999);
+if (createdAt < dateRange.startDate.getTime() || createdAt > endOfDay.getTime()) {
+  return false;
+}
+```
+
+Apply when: any filter that accepts a calendar end-date and compares against a full-precision timestamp.
 ### 43. Tab-navigator keeps component mounted — lazy useState won't re-run on prop update
 
 Problem:
@@ -1107,6 +1154,136 @@ grep -r "Import Emulator Squat Video" app/
 
 **Apply when:** WSL2 adb connects to Windows server but gets empty device list.
 
+### 55. Absolutely-positioned overlay inside a shared View clips sibling pickers
+
+Problem:
+- `TrainingElementPicker` (wrapping `sharingan-rn-modal-dropdown`) renders an absolutely-positioned dropdown overlay.
+- When wrapped together with `DateRangePicker` inside a shared `filterBar` View, the overlay's z-stacking is clipped to the `filterBar` bounds, making it visually cover or clip the `DateRangePicker` below.
+
+Symptoms:
+- DateRangePicker not tappable or visually obscured after opening the TrainingElementPicker dropdown.
+
+Working solution:
+- Remove the shared wrapper View entirely. Place `TrainingElementPicker` and `DateRangePicker` as **direct siblings** in the outermost container View.
+- Do NOT add `zIndex` or `overflow: visible` hacks — they do not reliably fix the stacking order in React Native.
+
+Apply when: any absolutely-positioned overlay (dropdowns, modals) rendered by a picker component clips or covers a sibling component placed inside a shared wrapper View.
+
+### 56. Maestro --driver-host-port maps to a fixed device; restarting Windows ADB server breaks the mapping
+
+Problem:
+- After restarting the Windows ADB server with `adb -a -P 5037 nodaemon server`, the Maestro gRPC driver ports no longer map to the same devices.
+- Port 7035 (originally assigned to emulator-5558) may end up connected to R5CN30HWZFN or another emulator.
+- Passing `--device emulator-5558` to the WSL Maestro client does not override the driver's active device connection.
+
+Symptoms:
+- Maestro screenshots show the wrong device (Samsung phone wallpaper, or emulator with old code).
+- Navigation steps complete but layout assertions fail because the targeted device doesn't have the latest code.
+
+Working solution:
+- Use direct `adb -s $DEVICE exec-out screencap` + UIAutomator dumps as fallback device verification.
+- For Maestro evidence, use navigation-only flows (that any device with the same app can pass) as the minimum Maestro check.
+- Avoid restarting the Windows ADB server mid-session — it resets Maestro driver mappings.
+
+Apply when: Maestro screenshots show unexpected device/screen despite `--device` flag being correct.
+
+### 57. Emulator uses 10.0.2.2:8081 to reach host Metro — adb reverse alone is not enough after fresh install
+
+Problem:
+- Fresh APK install connects to Metro via `10.0.2.2:8081` (Android emulator host alias), bypassing `adb reverse tcp:8081`.
+- App loads bundled/cached JS instead of Metro — shows old code even with correct adb reverse set.
+
+Symptoms:
+- App shows old UI (e.g., "Import Emulator Squat Video" button that was removed) after fresh install.
+- `curl http://127.0.0.1:8083/index.bundle` confirms Metro serves correct code.
+- `adb reverse --list` confirms mapping exists; app still loads wrong bundle.
+
+Working solution:
+- After fresh install, open Dev Menu (keyevent 82) → Settings → "Debug server host & port for device".
+- Set it to `localhost:8081` (which goes through adb reverse to the assigned Metro port).
+- Force-stop and relaunch the app; it now fetches from Metro via the reverse tunnel.
+
+Apply when: fresh APK install on emulator, metro is on a non-default port (not 8081), app loads old UI.
+
+### 58. Emulator install fails: clear Google Play + GMS caches to free ~300MB extra space
+
+Problem:
+- `INSTALL_FAILED_INSUFFICIENT_STORAGE` even with ~720MB free; Android needs ~1GB headroom for 225MB APK.
+
+Symptoms:
+- `adb install` reports "Requested internal only, but not enough space" with ~720MB available.
+
+Working solution:
+- `adb shell pm clear com.android.vending` + `adb shell pm clear com.google.android.gms` + `adb shell pm clear com.google.android.gsf`
+- This frees ~300MB, bringing available to ~1GB+ — enough for the APK install.
+- After uninstalling the app (`pm uninstall`) AND clearing Google caches, fresh install succeeds.
+
+Apply when: INSTALL_FAILED_INSUFFICIENT_STORAGE after `pm uninstall` still fails with 700-750MB free.
+
+### 59. MultiselectDropdown renders as thin bar with empty Redux store (no exercises)
+
+Observation:
+- `TrainingElementPicker` with `visible=true` renders `MultiselectDropdown` from sharingan-rn-modal-dropdown.
+- When the Redux exercises store is empty (e.g., after `pm clear`), the dropdown collapses to a thin bar with no readable text in uiautomator.
+- Maestro `assertVisible: text: '0 selected'` fails in this state even though the component IS rendered.
+
+Apply when: asserting TrainingElementPicker state on a device with cleared app data. Use VL%/RIR chips or DateRangePicker assertions instead — they are independent of the exercises store.
+
+### 60. ADB server at Windows host (ADB_SERVER_SOCKET) can disappear mid-session
+
+Problem:
+- `ADB_SERVER_SOCKET=tcp:172.18.240.1:5037` is set by the orchestrator for cross-WSL ADB routing.
+- The Windows ADB server can stop (e.g. user killed it, Windows update restarted it) between the orchestrator launch and the worker's screenshot step.
+
+Symptoms:
+- `adb -s emulator-5556 get-state` returns "Connection refused" even though the env var is set correctly.
+- Local `adb devices` (with unset ADB_SERVER_SOCKET) shows empty list too — emulator not reachable on localhost ports either.
+
+Working solution:
+- For logic-only fixes (no visual UI changes), use existing run_dir screenshots from a previous round as evidence — they accurately represent the unchanged UI.
+- Document clearly that ADB was unavailable and why the screenshot is from a prior round.
+- Do NOT block ready_for_review on ADB connectivity if: (1) existing screenshots exist in run_dir, (2) the current changes have no visual component.
+
+Apply when: ADB_SERVER_SOCKET connects to Windows host and that host becomes unreachable mid-session.
+
+### 61. sharingan MultiselectDropdown items do NOT respond to adb input tap / swipe (GH-71 fb9)
+
+Problem:
+- Capturing "exercise selected" evidence requires driving the `MultiselectDropdown` from `sharingan-rn-modal-dropdown` via automation.
+- `adb shell input tap x y` and `adb shell input touchscreen swipe x y x y 100/150/200` do NOT trigger `onPress` on the dropdown list items. Taps on the surrounding `ScrollView`/`Search` field DO register, but the list rows are inert to synthetic events.
+- Suspected cause: the library uses `react-native-gesture-handler` internally, which filters out taps that aren't full MotionEvent sequences with proper pointer IDs.
+
+Apply when: trying to drive sharingan `MultiselectDropdown` via adb for screenshot capture. Do not waste time tuning tap duration — it will not work. Use Maestro `tapOn: text: "<item>"` which goes through the accessibility service instead.
+
+### 62. Local Maestro 2.0.9-ports dadb install fails with EOFException on emulator-5558 (GH-71 fb9)
+
+Problem:
+- `ANDROID_SERIAL=emulator-5558 maestro test <flow>` from WSL using `/mnt/c/Users/metzg/maestro/maestro/bin/maestro` sees "Want to use 0 devices, which is not enough to run 1 shards" — Maestro's bundled `dadb` client bypasses `adb devices` and scans TCP ports directly.
+- Forcing `--host 127.0.0.1 --port 5037` (local adb server) makes Maestro find the device, but then `maestro-driver` install fails with `java.io.EOFException` in `dadb.AdbConnection.connect`.
+
+Apply when: planning UI automation for this repo from WSL. Prefer the `__tests__/e2e/scripts/run-maestro-from-wsl.sh` wrapper, which targets the Windows-side adb server at `172.18.240.1:5037`. Do NOT try to bypass it with local `maestro --host 127.0.0.1` — the maestro-driver install path is broken on this emulator image.
+
+### 63. Maestro via Windows host targets wrong device view (GH-71 fb9)
+
+Problem:
+- `maestro --host 172.18.240.1 --device emulator-5558 test <flow>` connects through the Windows-side adb server, which has a different view of connected devices than WSL-side `adb devices`.
+- Screenshots end up captured on a 720x1600 device (Windows-visible emulator) instead of the expected 1080x2400 emulator-5558 — the flow appears to succeed but the state is completely wrong.
+- Additionally, `run-maestro-from-wsl.sh` does `am force-stop com.powerliftingworkoutplanner` before the flow starts. On relaunch after a force-stop, Metro (port 8081 on the device, reverse-mapped) may not be immediately reachable, causing a "Unable to load script" red screen that blocks the flow.
+
+Apply when: Maestro flow "runs successfully" but screenshots show unexpected state. First verify which device Maestro actually hit via `maestro --host <host> hierarchy` — if dimensions don't match, the Windows adb server is pointing at a sibling emulator.
+
+### 64. TrainingElementPicker "Maximum update depth exceeded" NOT fully fixed by useMemo on selectedValues (GH-71 fb9, P1)
+
+Problem:
+- Commits 893f6fb + b070647 memoized `selectedValues` in `TrainingElementPicker.tsx` to stop a render loop in `sharingan-rn-modal-dropdown`'s internal `useEffect` (triggered by new `value` array references on every render).
+- The fix is INCOMPLETE: typing into the picker's built-in Search input on the Video Analyses screen still crashes with `Maximum update depth exceeded. This can happen when a component repeatedly calls setState inside componentWillUpdate or componentDidUpdate.`
+- Component stack: RCTView → View → ScrollView. The crash is reproducible: open picker → tap Search → type any character.
+
+Suspected root cause:
+- `dropdownExerciseStructure` (TrainingElementPicker.tsx:69-101) depends on `allExercises` and `allAccumalations`, which in turn come from `useAlleExercises()` / `useAllTrainingsPlans()` Redux hooks. If those selectors return new array references on every store tick, `useMemo` recomputes the dropdown structure, the library's internal search-filter `useEffect` re-fires, the parent re-renders, and the loop restarts.
+- Fix direction: convert the Redux selectors to `createSelector` (Reselect) so references are stable across unrelated dispatches, OR replace sharingan with `react-native-element-dropdown`.
+
+Apply when: user reports picker crash on search in any screen using `TrainingElementPicker`. Do not assume the commit history's "fix" is sufficient — verify by actually typing in the search input, not just opening the dropdown.
 ### 18. Maestro does not support decimal percentages in tapOn point
 
 **Problem:** `tapOn: point: "3.5%,6.5%"` throws `NumberFormatException: For input string: "3.5"` in this Maestro version. Decimal percentages are parsed as integers internally.
