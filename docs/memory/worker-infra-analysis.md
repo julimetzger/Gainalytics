@@ -29,6 +29,7 @@ Last updated: 2026-04-02 (ANA-004-fix2)
 | EXC-001-fix | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | ready_for_review |
 | GH-46-fix2 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | ready_for_review |
 | GH-94 | real | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 3 | ready_for_review |
+| GH-94-r4 | emu | 0 | 5 | 0 | 1 | 0 | 0 | 2 | 0 | 4 | ready_for_review |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 

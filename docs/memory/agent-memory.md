@@ -891,3 +891,35 @@ grep -r "Import Emulator Squat Video" app/
 3. Do NOT try to make Linux adb client talk to Windows adb server — the version mismatch is fundamental.
 
 **Apply when:** WSL2 adb connects to Windows server but gets empty device list.
+
+### 18. Maestro does not support decimal percentages in tapOn point
+
+**Problem:** `tapOn: point: "3.5%,6.5%"` throws `NumberFormatException: For input string: "3.5"` in this Maestro version. Decimal percentages are parsed as integers internally.
+
+**Symptoms:** Maestro crashes at `tapOnPointV2Command` with NumberFormatException on any coordinate with a decimal percentage.
+
+**Working solution:** Use integer percentages only: `"4%,7%"` instead of `"3.5%,6.5%"`.
+
+**Apply when:** Writing any Maestro `tapOn: point:` command.
+
+### 19. Drawer View content clips on tall training lists — use ScrollView
+
+**Problem:** `TrainingsPlanDrawer.tsx` renders a plain `View` with `flexDirection: column`. When the training list has many items, the Height overflows the screen and bottom items (Overview, History) are invisible to Maestro `assertVisible` and to users.
+
+**Symptoms:** Maestro `extendedWaitUntil: visible: text: "History"` fails even though the element is rendered — it's below the screen fold.
+
+**Working solution:** Wrap the drawer content in `<ScrollView>` so all items are accessible via scroll. This also makes `scrollUntilVisible` work in Maestro flows.
+
+**Apply when:** Rendering lists inside `react-native-drawer-layout` renderDrawerContent.
+
+### 20. Windows ADB server may die mid-session with no restart path from WSL
+
+**Problem:** The Windows ADB server (`adb -a -P 5037 nodaemon server`) can crash or stop during a long agent session. Once it's gone, `ADB_SERVER_SOCKET=tcp:172.18.240.1:5037` connections all fail. Running `adb.exe -a -P 5037 nodaemon server` or `powershell.exe Start-Process adb.exe ...` from WSL does NOT reliably restart the Windows-side server because Windows interop processes don't bind to Windows network interfaces.
+
+**Symptoms:** All `adb` commands fail with "Connection refused" at 172.18.240.1:5037. `nc -zv 172.18.240.1 5037` also fails.
+
+**Working solution:** No reliable workaround from WSL alone. Options:
+1. User must manually restart `adb.exe -a -P 5037 nodaemon server` on Windows.
+2. Proceed with code and unit test evidence; document the infra blocker in status.json.
+
+**Apply when:** adb commands suddenly start refusing connections mid-session.
