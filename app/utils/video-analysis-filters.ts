@@ -41,71 +41,64 @@ export function matchesVlPreset(vl: number | null, preset: VlPreset): boolean {
     case '10-20%':
       return vl >= 10 && vl < 20;
     case '20-30%':
-      return vl >= 20 && vl < 30;
+      return vl >= 20 && vl <= 30;
     case '>30%':
-      return vl >= 30;
+      return vl > 30;
     default:
       return false;
   }
 }
 
 export function matchesRirPreset(rirStr: string | null, preset: RirPreset): boolean {
-  return normalizeRirPreset(rirStr) === preset;
-}
-
-function normalizeRirPreset(rirStr: string | null): RirPreset | null {
   if (rirStr === null) {
-    return null;
+    return false;
   }
 
-  const trimmedValue = rirStr.trim();
-  if (trimmedValue.length === 0) {
-    return null;
+  const trimmed = rirStr.trim();
+  if (trimmed.length === 0) {
+    return false;
   }
 
-  if (trimmedValue === '4+') {
-    return '4+';
+  // Exact "4+" estimate only matches the "4+" chip
+  if (trimmed === '4+') {
+    return preset === '4+';
   }
 
-  const rir = Number.parseFloat(trimmedValue);
-  if (Number.isNaN(rir)) {
-    return null;
+  // Range-style estimates like "0-1", "1-2", "2-3", "3-4":
+  // chip X matches if lowerBound <= X <= upperBound
+  if (trimmed.includes('-')) {
+    const dashIndex = trimmed.indexOf('-');
+    const low = Number.parseFloat(trimmed.slice(0, dashIndex));
+    const high = Number.parseFloat(trimmed.slice(dashIndex + 1));
+    if (Number.isNaN(low) || Number.isNaN(high)) {
+      return false;
+    }
+
+    if (preset === '4+') {
+      // "4+" chip matches range estimates whose lower bound is >= 4
+      return low >= 4;
+    }
+
+    const chipValue = Number.parseInt(preset, 10);
+    return chipValue >= low && chipValue <= high;
   }
 
-  if (trimmedValue.includes('-')) {
-    return toRirPreset(Math.trunc(rir));
+  // Single-value estimates (legacy data): direct comparison
+  const val = Number.parseFloat(trimmed);
+  if (Number.isNaN(val)) {
+    return false;
   }
 
-  if (!Number.isInteger(rir)) {
-    return null;
+  if (preset === '4+') {
+    return val >= 4;
   }
 
-  return toRirPreset(rir);
-}
-
-function toRirPreset(rir: number): RirPreset | null {
-  if (rir < 0) {
-    return null;
+  if (!Number.isInteger(val)) {
+    return false;
   }
 
-  if (rir > 4) {
-    return '4+';
-  }
-
-  switch (rir) {
-    case 0:
-      return '0';
-    case 1:
-      return '1';
-    case 2:
-      return '2';
-    case 3:
-      return '3';
-    case 4:
-      return '4';
-    default:
-      return null;
-  }
+  const chipValue = Number.parseInt(preset, 10);
+  return val === chipValue;
 }
 
 export function buildVideoAnalysisDefaultDateRange(analyses: VideoAnalysis[], now = new Date()): Range {
