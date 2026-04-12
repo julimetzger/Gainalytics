@@ -39,9 +39,11 @@ interface TrainingsPlanNodeProps {
   overview: boolean;
   setOverview: (overview: boolean) => void;
   setIgnoreSwipe: (ignoreSwipe: LayoutRectangle[]) => void;
+  /** Pass false when this node is an off-screen swiper pane to suppress AI API calls. */
+  isActive?: boolean;
 }
 
-const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, overview, setOverview, setIgnoreSwipe}: TrainingsPlanNodeProps) => {
+const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, overview, setOverview, setIgnoreSwipe, isActive = true}: TrainingsPlanNodeProps) => {
   const training = useTrainingInTrainingsPlan(trainingsPlan.id!!, micro, trainingInMicro);
   const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
   const lastTraining = useTrainingInTrainingsPlan(trainingsPlan.id!!, previousMicro ?? -1, trainingInMicro);
@@ -181,7 +183,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
       <ScrollView keyboardShouldPersistTaps={'handled'}>
         <View>
           {showDone ? (
-            <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} />
+            <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} />
           ) : (
             <View>
               <View

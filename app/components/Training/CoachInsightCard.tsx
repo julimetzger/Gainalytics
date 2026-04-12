@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {View} from 'react-native';
 import {ActivityIndicator, Card, IconButton, Text, useTheme} from 'react-native-paper';
 import {useSelector} from 'react-redux';
@@ -7,17 +7,19 @@ import {Training} from '../../models/entities/Training';
 import {TrainingsState} from '../../models/TrainingsState';
 import {buildRawTrainingData, buildCoachPrompt} from '../../utils/coachInsight';
 import {callAnthropicClaude} from '../../utils/llmApi';
-import {insightCache} from '../../utils/insightCache';
-import {secureStorage} from '../../utils/secureStorage';
+import {insightCache, formatGeneratedAt} from '../../utils/insightCache';
+import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
 
 interface Props {
   trainings: Training[];
+  /** When false, the API call is suppressed (off-screen swiper pane). Defaults to true. */
+  isActive?: boolean;
 }
 
 type State =
   | {status: 'idle'}
   | {status: 'loading'}
-  | {status: 'done'; text: string}
+  | {status: 'done'; text: string; generatedAt: number}
   | {status: 'no_key'}
   | {status: 'error'; message: string};
 
@@ -29,9 +31,29 @@ function cacheKey(trainings: Training[]): string {
     .join(',');
 }
 
-const CoachInsightCard = ({trainings}: Props) => {
+const CoachInsightCard = ({trainings, isActive = true}: Props) => {
   const theme = useTheme();
   const [state, setState] = useState<State>({status: 'idle'});
+
+  // Reactive API key: update when user saves / removes the key in Settings.
+  const [apiKey, setApiKey] = useState<string | undefined>(() => {
+    try {
+      return secureStorage.getAnthropicApiKey();
+    } catch {
+      return undefined;
+    }
+  });
+
+  useEffect(() => {
+    const unsub = subscribeToApiKeyChanges(() => {
+      try {
+        setApiKey(secureStorage.getAnthropicApiKey());
+      } catch {
+        setApiKey(undefined);
+      }
+    });
+    return unsub;
+  }, []);
 
   const workoutsById = useSelector((s: GlobalState) =>
     s.workouts.byId as Record<number, import('../../models/entities/Workout').Workout>,
@@ -46,73 +68,114 @@ const CoachInsightCard = ({trainings}: Props) => {
   const finishedTrainings = trainings.filter(t => t.state === TrainingsState.FINISHED);
   const key = cacheKey(finishedTrainings);
 
-  useEffect(() => {
-    if (finishedTrainings.length === 0) return;
+  // Keep a stable ref to avoid stale-closure issues inside fetchInsight
+  const workoutsByIdRef = useRef(workoutsById);
+  const exercisesByIdRef = useRef(exercisesById);
+  const videoAnalysesByIdRef = useRef(videoAnalysesById);
+  workoutsByIdRef.current = workoutsById;
+  exercisesByIdRef.current = exercisesById;
+  videoAnalysesByIdRef.current = videoAnalysesById;
 
-    const cached = key ? insightCache.get(key) : undefined;
-    if (cached) {
-      setState({status: 'done', text: cached});
-      return;
-    }
-
-    const apiKey = secureStorage.getAnthropicApiKey();
-    if (!apiKey) {
-      setState({status: 'no_key'});
-      return;
-    }
-
-    setState({status: 'loading'});
-
-    // Last 4 weeks: filter trainings whose end date is within 28 days
-    const cutoff = Date.now() - 28 * 24 * 3600 * 1000;
-    const recentTrainings = finishedTrainings.filter(
-      t => t.end && new Date(t.end).getTime() >= cutoff,
-    );
-
-    // Current training = the most recently finished one (highest end timestamp)
-    const currentTraining = [...recentTrainings]
-      .filter(t => t.end != null)
-      .sort((a, b) => new Date(b.end!).getTime() - new Date(a.end!).getTime())[0];
-
-    const coachInput = buildRawTrainingData(
-      recentTrainings,
-      currentTraining?.id,
-      workoutsById,
-      exercisesById,
-      videoAnalysesById,
-    );
-
-    if (coachInput.sessions.length === 0) {
-      setState({status: 'error', message: 'Not enough data for an insight yet.'});
-      return;
-    }
-
-    const {system, user} = buildCoachPrompt(coachInput);
-
-    callAnthropicClaude(apiKey, system, user).then(result => {
-      if (result.ok) {
-        insightCache.set(key, result.text);
-        setState({status: 'done', text: result.text});
-      } else {
-        const err = result.error;
-        if (err.type === 'no_key') {
-          setState({status: 'no_key'});
-        } else if (err.type === 'invalid_key') {
-          setState({status: 'error', message: 'Invalid API key. Check your settings.'});
-        } else if (err.type === 'rate_limit') {
-          setState({status: 'error', message: 'API rate limit reached. Try again later.'});
-        } else if (err.type === 'network') {
-          setState({status: 'error', message: `Network error: ${err.message}`});
-        } else {
-          setState({status: 'error', message: `API error (${err.status}): ${err.message}`});
-        }
+  const fetchInsight = useCallback(
+    (cKey: string, currentApiKey: string | undefined, currentFinished: Training[]) => {
+      if (currentFinished.length === 0) {
+        setState({status: 'idle'});
+        return;
       }
-    });
-  }, [key]);
+
+      const cached = cKey ? insightCache.get(cKey) : undefined;
+      if (cached) {
+        setState({status: 'done', text: cached.text, generatedAt: cached.generatedAt});
+        return;
+      }
+
+      if (!currentApiKey) {
+        setState({status: 'no_key'});
+        return;
+      }
+
+      setState({status: 'loading'});
+
+      const cutoff = Date.now() - 28 * 24 * 3600 * 1000;
+      const recentTrainings = currentFinished.filter(
+        t => t.end && new Date(t.end).getTime() >= cutoff,
+      );
+
+      const currentTraining = [...recentTrainings]
+        .filter(t => t.end != null)
+        .sort((a, b) => new Date(b.end!).getTime() - new Date(a.end!).getTime())[0];
+
+      const coachInput = buildRawTrainingData(
+        recentTrainings,
+        currentTraining?.id,
+        workoutsByIdRef.current,
+        exercisesByIdRef.current,
+        videoAnalysesByIdRef.current,
+      );
+
+      if (coachInput.sessions.length === 0) {
+        setState({status: 'error', message: 'Not enough data for an insight yet.'});
+        return;
+      }
+
+      const {system, user} = buildCoachPrompt(coachInput);
+
+      callAnthropicClaude(currentApiKey, system, user).then(result => {
+        if (result.ok) {
+          const generatedAt = Date.now();
+          insightCache.set(cKey, {text: result.text, generatedAt});
+          setState({status: 'done', text: result.text, generatedAt});
+        } else {
+          const err = result.error;
+          if (err.type === 'no_key') {
+            setState({status: 'no_key'});
+          } else if (err.type === 'invalid_key') {
+            setState({status: 'error', message: 'Invalid API key. Check your settings.'});
+          } else if (err.type === 'rate_limit') {
+            setState({status: 'error', message: 'API rate limit reached. Try again later.'});
+          } else if (err.type === 'network') {
+            setState({status: 'error', message: `Network error: ${err.message}`});
+          } else {
+            setState({status: 'error', message: `API error (${err.status}): ${err.message}`});
+          }
+        }
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // Number of loaded workouts / exercises: a stable scalar dep that changes when
+  // Redux data arrives (initial empty state → populated), without triggering on
+  // every render because the selector returns a new object reference each time.
+  const workoutCount = Object.keys(workoutsById).length;
+  const exerciseCount = Object.keys(exercisesById).length;
+
+  useEffect(() => {
+    if (!isActive) return;
+
+    if (finishedTrainings.length === 0) {
+      setState({status: 'idle'});
+      return;
+    }
+
+    fetchInsight(key, apiKey, finishedTrainings);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, apiKey, isActive, workoutCount, exerciseCount]);
+
+  const handleRefresh = () => {
+    if (key) {
+      insightCache.delete(key);
+    }
+    setState({status: 'loading'});
+    fetchInsight(key, apiKey, finishedTrainings);
+  };
 
   if (state.status === 'idle' || state.status === 'no_key') {
     return null;
   }
+
+  const isLoading = state.status === 'loading';
 
   return (
     <Card
@@ -122,15 +185,25 @@ const CoachInsightCard = ({trainings}: Props) => {
       <Card.Title
         title={<Text variant="titleSmall">Coach Insight</Text>}
         right={() => (
-          <IconButton
-            icon="robot"
-            iconColor={theme.colors.primary}
-            size={18}
-          />
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <IconButton
+              icon="robot"
+              iconColor={theme.colors.primary}
+              size={18}
+            />
+            <IconButton
+              icon="refresh"
+              iconColor={theme.colors.onSurfaceVariant}
+              size={18}
+              disabled={isLoading}
+              onPress={handleRefresh}
+              testID="coach-insight-refresh"
+            />
+          </View>
         )}
       />
       <Card.Content>
-        {state.status === 'loading' && (
+        {isLoading && (
           <View
             style={{flexDirection: 'row', alignItems: 'center', gap: 8}}
             testID="coach-insight-loading"
@@ -142,12 +215,21 @@ const CoachInsightCard = ({trainings}: Props) => {
           </View>
         )}
         {state.status === 'done' && (
-          <Text
-            variant="bodyMedium"
-            testID="coach-insight-text"
-          >
-            {state.text}
-          </Text>
+          <>
+            <Text
+              variant="bodyMedium"
+              testID="coach-insight-text"
+            >
+              {state.text}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{color: theme.colors.onSurfaceVariant, marginTop: 6}}
+              testID="coach-insight-timestamp"
+            >
+              {formatGeneratedAt(state.generatedAt)}
+            </Text>
+          </>
         )}
         {state.status === 'error' && (
           <Text
