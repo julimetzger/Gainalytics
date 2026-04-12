@@ -124,6 +124,17 @@ android {
     }
 }
 
+// Force androidx.fragment to a version the D8 shipped with AGP 7.4.2 can dex.
+// react-native-keychain 10.0.0 transitively pulls fragment 1.8.6, whose Kotlin
+// metadata format is not understood by the older D8, causing a
+// NullPointerException during :app:mergeExtDexRelease. 1.6.2 is the last line
+// that dexes cleanly with AGP 7.4.x.
+configurations.all {
+    resolutionStrategy {
+        force "androidx.fragment:fragment:1.6.2"
+    }
+}
+
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
