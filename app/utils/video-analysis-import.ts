@@ -106,48 +106,51 @@ export const importVideoAnalysisFromSource = async ({
   attachVideoAnalysisResult,
 }: ImportVideoAnalysisParams): Promise<VideoAnalysisImportOutcome> => {
   const importStartedAtMs = Date.now();
-  const sourceVideoDurationMs = await getVideoDuration(sourceUri);
   let localVideoPath: string | undefined;
-  let videoDurationMs = sourceVideoDurationMs > 0 ? sourceVideoDurationMs : 0;
+  let videoDurationMs = 0;
   let copyMs = 0;
   let preflightMs = 0;
   let outcome: VideoAnalysisImportOutcome | 'failed' = 'failed';
 
-  // Request notification permission before analysis starts.
-  // Permission errors must not block the analysis from starting.
-  try {
-    await requestVideoAnalysisNotificationPermission();
-  } catch {
-    // Non-fatal: analysis continues without notification support.
-  }
-
+  // Add the card to the list IMMEDIATELY — before any async work.
+  // This ensures the card appears < 1 s after the user taps Import.
   addVideoAnalysis({
     id: analysisId,
     sourceUri,
     createdAt: new Date(Date.now()),
     status: VideoAnalysisStatus.QUEUED,
     videoMeta: {
-      durationMs: videoDurationMs,
+      durationMs: 0,
       fps: 0,
       width: 0,
       height: 0,
     },
   });
 
+  // Request notification permission in the background — must not block the import flow.
+  requestVideoAnalysisNotificationPermission().catch(() => {});
+
   try {
-    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING);
+    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.COPYING);
+
+    // Read source duration for early progress estimation.
+    // Non-blocking: we update the card if metadata is available, then proceed with the copy.
+    const sourceVideoDurationMs = await getVideoDuration(sourceUri);
+    if (sourceVideoDurationMs > 0) {
+      videoDurationMs = sourceVideoDurationMs;
+      setVideoAnalysisDuration?.(analysisId, sourceVideoDurationMs);
+    }
 
     const copyStartedAtMs = Date.now();
     localVideoPath = await copyImportedVideoToLocalStorage(sourceUri, analysisId);
     copyMs = Date.now() - copyStartedAtMs;
 
-    // Read actual video duration from file metadata.
-    // Falls back to 0 (unknown) if the native module cannot determine it.
+    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PREFLIGHT);
+
+    // Read actual video duration from the local copy (more reliable than source URI metadata).
     const resolvedVideoDurationMs = await getVideoDuration(localVideoPath);
-    if (resolvedVideoDurationMs > 0) {
+    if (resolvedVideoDurationMs > 0 && resolvedVideoDurationMs !== videoDurationMs) {
       videoDurationMs = resolvedVideoDurationMs;
-    }
-    if (videoDurationMs > 0 && videoDurationMs !== sourceVideoDurationMs) {
       setVideoAnalysisDuration?.(analysisId, videoDurationMs);
     }
 
@@ -178,6 +181,7 @@ export const importVideoAnalysisFromSource = async ({
       return 'awaiting_seed_selection';
     }
 
+    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING);
     runBackgroundAnalysis({
       analysisId,
       localVideoPath,

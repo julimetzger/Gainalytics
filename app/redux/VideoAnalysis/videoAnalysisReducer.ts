@@ -176,6 +176,30 @@ const videoAnalysisReducer = (state: NormalizedState<VideoAnalysis> = initialSta
         allIds: state.allIds.filter((id) => id !== action.analysisId),
       };
     }
+    case 'RECOVER_STALE_VIDEO_ANALYSES': {
+      // On app restart, any analysis stuck in an in-progress state (QUEUED/COPYING/PREFLIGHT/PROCESSING)
+      // will never complete — the background work was lost when the app was killed. Reset them to FAILED.
+      const staleStatuses: VideoAnalysisStatus[] = [
+        VideoAnalysisStatus.QUEUED,
+        VideoAnalysisStatus.COPYING,
+        VideoAnalysisStatus.PREFLIGHT,
+        VideoAnalysisStatus.PROCESSING,
+      ];
+      const updatedById = {...state.byId};
+      let changed = false;
+      Object.keys(updatedById).forEach((idStr) => {
+        const analysis = updatedById[idStr];
+        if (staleStatuses.includes(analysis.status)) {
+          updatedById[idStr] = {
+            ...analysis,
+            status: VideoAnalysisStatus.FAILED,
+            error: 'App was closed while import or analysis was running',
+          };
+          changed = true;
+        }
+      });
+      return changed ? {...state, byId: updatedById} : state;
+    }
     default:
       return state;
   }

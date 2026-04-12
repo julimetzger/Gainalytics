@@ -107,7 +107,11 @@ describe('importVideoAnalysisFromSource', () => {
     const outcome = await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks});
 
     expect(outcome).toBe('analysis_started');
-    expect(mocks.setVideoAnalysisStatus.mock.calls).toEqual([[7, VideoAnalysisStatus.PROCESSING]]);
+    expect(mocks.setVideoAnalysisStatus.mock.calls).toEqual([
+      [7, VideoAnalysisStatus.COPYING],
+      [7, VideoAnalysisStatus.PREFLIGHT],
+      [7, VideoAnalysisStatus.PROCESSING],
+    ]);
     expect(analyzeSquatVideo.mock.calls).toEqual([
       [
         '/tmp/video.mp4',
@@ -158,7 +162,8 @@ describe('importVideoAnalysisFromSource', () => {
 
     expect(outcome).toBe('awaiting_seed_selection');
     expect(mocks.setVideoAnalysisStatus.mock.calls).toEqual([
-      [8, VideoAnalysisStatus.PROCESSING],
+      [8, VideoAnalysisStatus.COPYING],
+      [8, VideoAnalysisStatus.PREFLIGHT],
       [8, VideoAnalysisStatus.AWAITING_SEED_SELECTION],
     ]);
     expect(mocks.setSeedPreflight.mock.calls).toEqual([
@@ -206,7 +211,8 @@ describe('importVideoAnalysisFromSource', () => {
 
     expect(outcome).toBe('failed_no_candidate');
     expect(mocks.setVideoAnalysisStatus.mock.calls).toEqual([
-      [9, VideoAnalysisStatus.PROCESSING],
+      [9, VideoAnalysisStatus.COPYING],
+      [9, VideoAnalysisStatus.PREFLIGHT],
       [9, VideoAnalysisStatus.FAILED, 'No outer plate candidate found at t=0'],
     ]);
     expect(mocks.setManualSeedFramePath.mock.calls).toEqual([[9, '/tmp/preview.jpg', '/tmp/video.mp4']]);
@@ -316,7 +322,7 @@ describe('importVideoAnalysisFromSource', () => {
     expect(mocks.setVideoAnalysisDuration).not.toHaveBeenCalled();
   });
 
-  it('stores a pre-read source duration immediately when metadata is available before copy', async () => {
+  it('adds card immediately with zero duration then updates from source metadata', async () => {
     getVideoDuration.mockResolvedValueOnce(45_000).mockResolvedValueOnce(45_000);
     copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
@@ -326,19 +332,23 @@ describe('importVideoAnalysisFromSource', () => {
     await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', ...mocks});
 
     await flushBackgroundWork();
+    // Card is added immediately with durationMs: 0 — no async blocking before addVideoAnalysis.
     expect(mocks.addVideoAnalysis).toHaveBeenCalledWith({
       id: 7,
       sourceUri: 'content://video.mp4',
       createdAt: expect.any(Date),
       status: VideoAnalysisStatus.QUEUED,
       videoMeta: {
-        durationMs: 45_000,
+        durationMs: 0,
         fps: 0,
         width: 0,
         height: 0,
       },
     });
-    expect(mocks.setVideoAnalysisDuration).not.toHaveBeenCalled();
+    // Duration is then updated via setVideoAnalysisDuration from source metadata.
+    // Local duration matches source (45_000 === 45_000), so only one update is made.
+    expect(mocks.setVideoAnalysisDuration).toHaveBeenCalledWith(7, 45_000);
+    expect(mocks.setVideoAnalysisDuration).toHaveBeenCalledTimes(1);
   });
 
   it('updates the learned analysis rate from the completed run duration and video duration', async () => {

@@ -72,7 +72,15 @@ const VideoAnalysisTab = () => {
   const learnedSecondsPerVideoSecond = useMemo(() => getLastAnalysisSecondsPerVideoSecond(), [analyses]);
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map((item) => item.id ?? 0)) + 1 : 1;
   const processingCount = useMemo(
-    () => analyses.filter((analysis) => analysis.status === VideoAnalysisStatus.PROCESSING).length,
+    () =>
+      analyses.filter((analysis) =>
+        [
+          VideoAnalysisStatus.QUEUED,
+          VideoAnalysisStatus.COPYING,
+          VideoAnalysisStatus.PREFLIGHT,
+          VideoAnalysisStatus.PROCESSING,
+        ].includes(analysis.status),
+      ).length,
     [analyses],
   );
 
@@ -118,7 +126,14 @@ const VideoAnalysisTab = () => {
         attachVideoAnalysisResult,
       });
 
-      if (outcome === 'awaiting_seed_selection') {
+      if (outcome === 'analysis_started') {
+        Toast.show({
+          type: 'info',
+          text1: 'Video analysis started',
+          text2: 'Analysis is running in the background.',
+          position: 'top',
+        });
+      } else if (outcome === 'awaiting_seed_selection') {
         Toast.show({
           type: 'info',
           text1: 'Seed selection required',
