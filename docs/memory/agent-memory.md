@@ -1148,3 +1148,44 @@ Individual test files can override with `jest.mock('react-native-mmkv', ...)` in
 **Working solution:** Use `adb logcat | grep "VideoAnalysis.*tracking-progress"` to see real-time progress (logs every 10 samples). Calculate ETA: remaining_samples × avg_detection_ms. The emulator's ML inference runs at ~262ms/frame vs. ~30ms on a real device.
 
 **Apply when:** Waiting for analysis to complete on emulator. Don't assume the analysis is stuck — check tracking-progress logs first.
+
+### 68. GH-87: addVideoAnalysis must land before any await for immediate card visibility
+
+**Problem:** When `importVideoAnalysisFromSource` was previously written as `await getVideoDuration(); await copyImportedVideoToLocalStorage(); ... addVideoAnalysis(...)`, the Video Analyses list was still empty 15-20 s after the user tapped Import. The user-visible symptom was a "frozen" UI even though the import was actually running.
+
+**Working solution:** Call `addVideoAnalysis({id, sourceUri, status: QUEUED, videoMeta: {durationMs:0,...}})` as the very first statement of `importVideoAnalysisFromSource`, before any `await`. Then drive `setVideoAnalysisStatus(QUEUED → COPYING → PREFLIGHT → PROCESSING)` between the native calls. Also add `COPYING` and `PREFLIGHT` to `VideoAnalysisStatus` and include all four in-progress statuses in `VideoAnalysisTab.processingCount` so the 500 ms progress tick stays alive during preprocessing.
+
+**Apply when:** Any flow that adds a list item after an async pipeline. Dispatch the optimistic state item first; let the async pipeline just transition its status.
+
+### 69. pm clear wipes debug_http_host; rewrite via run-as before relaunching on emulator-5554
+
+**Problem:** After `adb shell pm clear com.powerliftingworkoutplanner` (or Maestro `clearState: true`), the app launches, pulls the bundle from `10.0.2.2:8081` (the emulator's default Metro host), bypasses the `adb reverse` tunnel that only forwards `localhost:8081`, and lands on a "Unable to load script" redbox. Then all Maestro assertions fail because the app is frozen on the redbox.
+
+**Working solution:** After any state clear, write `debug_http_host=localhost:8081` into SharedPreferences via `run-as`, then relaunch. This forces RN to load the bundle via `localhost` which `adb reverse tcp:8081 tcp:<hostMetroPort>` handles correctly.
+
+```bash
+adb -s emulator-5554 shell am force-stop com.powerliftingworkoutplanner
+PREFS='<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<map>
+    <boolean name="remote_js_debug" value="false" />
+    <string name="debug_http_host">localhost:8081</string>
+</map>'
+adb -s emulator-5554 shell "run-as com.powerliftingworkoutplanner sh -c 'cat > shared_prefs/com.powerliftingworkoutplanner_preferences.xml'" <<< "$PREFS"
+adb -s emulator-5554 reverse tcp:8081 tcp:$E2E_METRO_PORT
+adb -s emulator-5554 shell am start -n com.powerliftingworkoutplanner/.MainActivity
+```
+
+**Apply when:** Any time you force-stop/pm-clear/Maestro-clearState the app between runs on an emulator whose Metro lives on a non-8081 port.
+
+### 70. GH-87: Maestro tab-analyse false-negative on emulator-5554 + WSL — capture via adb instead
+
+**Problem:** Maestro (either via `run-maestro-from-wsl.sh` or direct `maestro --host 172.18.240.1 --device emulator-5554 test ...`) fails at `extendedWaitUntil visible: "tab-analyse"` even though an `adb exec-out uiautomator dump` taken seconds before and after shows `content-desc="tab-analyse"` on the bottom tab. Maestro's screenshot in that moment shows the RN redbox, but the live device state is the app home — i.e. Maestro is reading stale view hierarchy / screenshot state.
+
+**Working solution:** Don't burn hours on Maestro. Drive the flow directly via `adb shell input tap` on coordinates parsed from `uiautomator dump`, and capture evidence with `screencap -p | ffmpeg -vf scale=800:-1`. Every step needed for GH-87 evidence (drawer open → Video Analyses → Import Emulator Squat Video → permission grants → status observation) is reliable this way.
+
+Notes:
+- drawer items do NOT render in `uiautomator dump` reliably — measure coordinates from the screenshot
+- Permission dialogs (Android photos + notifications) DO appear in the dump under `com.android.permissioncontroller` package — tap via bounds from the dump
+- `adb shell screencap -p` returns the *live* device frame, not a cached one — trust it over Maestro screenshots
+
+**Apply when:** Maestro assertion fails but `uiautomator dump` shows the element; you need UI evidence for a PR and the Maestro environment is flaky.
