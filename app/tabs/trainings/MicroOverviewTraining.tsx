@@ -15,6 +15,7 @@ type ViewMode = 'gesamt' | 'exercise' | 'muscle';
 interface Props {
   trainingsPlan: TrainingsPlan;
   micro: number;
+  isActive?: boolean;
 }
 
 interface TrainingMuscleCardProps {
@@ -73,7 +74,7 @@ const MuscleView = ({trainingsPlan, micro}: Props) => {
   );
 };
 
-const MicroOverviewTraining = ({trainingsPlan, micro}: Props) => {
+const MicroOverviewTraining = ({trainingsPlan, micro, isActive = true}: Props) => {
   const [view, setView] = useState<ViewMode>('gesamt');
 
   return (
@@ -88,7 +89,7 @@ const MicroOverviewTraining = ({trainingsPlan, micro}: Props) => {
           {value: 'muscle', label: 'Muscle'},
         ]}
       />
-      {view === 'gesamt' && <MicroOverview trainingsPlan={trainingsPlan} micro={micro} />}
+      {view === 'gesamt' && <MicroOverview trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} />}
       {view === 'exercise' && <MicroExerciseOverview trainingsPlan={trainingsPlan} micro={micro} />}
       {view === 'muscle' && <MuscleView trainingsPlan={trainingsPlan} micro={micro} />}
     </View>

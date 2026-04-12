@@ -4,7 +4,7 @@ This document tracks how much time workers spend on infrastructure vs. feature w
 which problems recur, and which workers are affected. Use this to identify systemic
 issues and prevent agents from re-discovering known solutions.
 
-Last updated: 2026-04-02 (ANA-004-fix2)
+Last updated: 2026-04-12 (GH-95-r3)
 
 ## Per-Worker Breakdown
 
@@ -37,6 +37,8 @@ Last updated: 2026-04-02 (ANA-004-fix2)
 | GH-86 | emu | 7 | 0 | 0 | 8 | 45 | 5 | 10 | 0 | 2 | ready_for_review (r2) |
 | GH-86 (r4) | emu | 12 | 0 | 0 | 2 | 5 | 3 | 0 | 0 | 4 | ready_for_review (r4) |
 | GH-82 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 15 | 2 | ready_for_review (r2: adb server unavailable during fix round, unit tests primary evidence) |
+| GH-95 | real | 0 | 0 | 0 | 1 | 0 | 0 | 2 | 5 | 2 | ready_for_review (r2: Samsung override res 720x1600 needed uiautomator dump; no API key so CoachInsightCard not visible in screenshots) |
+| GH-95-r3 | real | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 3 | 5 | ready_for_review (r3: keychain MMKV migration wiped device data; Metro blocklist needed for android/build; unit tests primary evidence for CoachInsightCard) |
 | GH-72 | emu | 7 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 3 | ready_for_review (r3: P1 logic fix + unit tests; ADB server down in fix round — no device re-run; unit tests sufficient) |
 | GH-77-fix2 | emu | 0 | 0 | 0 | 1 | 0 | 0 | 5 | 0 | 0 | ready_for_review (r3: Gradle CMake/reanimated rebuild failed, JS-only changes served via existing APK+Metro) |
 
