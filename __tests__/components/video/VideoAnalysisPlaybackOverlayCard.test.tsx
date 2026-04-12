@@ -811,6 +811,9 @@ describe('VideoAnalysisPlaybackOverlayCard – override-clobber guard (GH-86 P2)
         }),
       }),
     );
+  });
+});
+
 // ─── calculateBarPathDeviation unit tests ──────────────────────────────────
 
 /**
@@ -884,6 +887,9 @@ describe('calculateBarPathDeviation', () => {
 
     const {path_deviation} = calculateBarPathDeviation(all, ECC_START, TURNAROUND, CON_END, FRAME_WIDTH);
     expect(path_deviation).toBeCloseTo(64 / FRAME_WIDTH, 2);
+  });
+});
+
 describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
   const getSpeedLabelText = (getByTestId: (id: string) => any): string => {
     const children = getByTestId('video-analysis-speed-label').props.children;
