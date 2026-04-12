@@ -2,7 +2,9 @@ import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
 import React, {useState, useEffect} from 'react';
 import {Alert, ScrollView, View, StyleSheet, Platform} from 'react-native';
-import {Button, Dialog, Divider, Portal, RadioButton, Switch, Text} from 'react-native-paper';
+import {Button, Dialog, Divider, HelperText, Portal, RadioButton, Switch, Text, TextInput} from 'react-native-paper';
+import {secureStorage} from '../../utils/secureStorage';
+import {validateAnthropicApiKey} from '../../utils/llmApi';
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {useStore} from 'react-redux';
 import DocumentPicker, {DocumentPickerResponse} from 'react-native-document-picker';
@@ -14,6 +16,7 @@ import TimeRangePicker from '../../components/picker/date/TimeRangePicker';
 import {dispatchSetFinishTrainingTimer} from '../../redux/settings/dispatch/dispatchSetFinishTrainingTimer';
 import {dispatchToggleDisable1RMpreselect} from '../../redux/settings/dispatch/dispatchToggleDisable1RMpreselect';
 import {dispatchToggleShowTimer} from '../../redux/settings/dispatch/dispatchToggleShowTimer';
+import {dispatchToggleShowToasts} from '../../redux/settings/dispatch/dispatchToggleShowToasts';
 import {dispatchToggleShowPlusButtonLeft} from '../../redux/settings/dispatch/dispatchToggleShowPlusButtonLeft';
 import {dispatchToggleMode} from '../../redux/settings/dispatch/dispatchToggleMode';
 import {dispatchSetPalette} from '../../redux/settings/dispatch/dispatchSetPalette';
@@ -25,6 +28,7 @@ const SettingsTab = ({navigation}: Props) => {
   let dispatchToggleMode1 = dispatchToggleMode();
   let toggleDisable1RMpreselect = dispatchToggleDisable1RMpreselect();
   let toggleShowTimer = dispatchToggleShowTimer();
+  let toggleShowToasts = dispatchToggleShowToasts();
   let toggleShowPlusButtonLeft = dispatchToggleShowPlusButtonLeft();
   let setPalette = dispatchSetPalette();
   let setExactAlarmPermission = dispatchSetExactAlarmPermission();
@@ -33,6 +37,11 @@ const SettingsTab = ({navigation}: Props) => {
 
   const [importDialog, setImportDialog] = useState(false);
   const [exactAlarmStatus, setExactAlarmStatus] = useState<boolean | null>(null);
+
+  // AI Coach API key state
+  const [apiKeyInput, setApiKeyInput] = useState(() => secureStorage.getAnthropicApiKey() ?? '');
+  const [apiKeySecure, setApiKeySecure] = useState(true);
+  const [apiKeyValidating, setApiKeyValidating] = useState(false);
 
   let fullImport = dispatchFullImport();
   let setPauseTimer = dispatchSetPauseTimer();
@@ -72,7 +81,7 @@ const SettingsTab = ({navigation}: Props) => {
           setExactAlarmStatus(hasPermission);
           setExactAlarmPermission(hasPermission);
 
-          if (hasPermission) {
+          if (hasPermission && !store.getState().settings?.toggles?.disableToasts) {
             Toast.show({
               type: 'success',
               text1: 'Exact Alarm Permission Granted',
@@ -87,13 +96,15 @@ const SettingsTab = ({navigation}: Props) => {
       }, 1000);
     } catch (error) {
       console.error('Error opening exact alarm settings:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Settings Error',
-        text2: 'Could not open alarm settings',
-        position: 'top',
-        visibilityTime: 3000,
-      });
+      if (!store.getState().settings?.toggles?.disableToasts) {
+        Toast.show({
+          type: 'error',
+          text1: 'Settings Error',
+          text2: 'Could not open alarm settings',
+          position: 'top',
+          visibilityTime: 3000,
+        });
+      }
     }
   };
 
@@ -109,27 +120,67 @@ const SettingsTab = ({navigation}: Props) => {
     Alert.alert('Nope. This app is not using stupid measuring systems.');
   };
 
+  const handleSaveApiKey = () => {
+    const trimmed = apiKeyInput.trim();
+    if (trimmed === '') {
+      secureStorage.deleteAnthropicApiKey();
+      Toast.show({type: 'info', text1: 'API key removed', position: 'top', visibilityTime: 3000});
+    } else {
+      secureStorage.setAnthropicApiKey(trimmed);
+      Toast.show({type: 'success', text1: 'API key saved', position: 'top', visibilityTime: 3000});
+    }
+  };
+
+  const handleTestApiKey = async () => {
+    const trimmed = apiKeyInput.trim();
+    if (!trimmed) {
+      Toast.show({type: 'error', text1: 'Enter a key first', position: 'top', visibilityTime: 3000});
+      return;
+    }
+    setApiKeyValidating(true);
+    try {
+      const result = await validateAnthropicApiKey(trimmed);
+      if (result.ok) {
+        Toast.show({type: 'success', text1: 'API key is valid ✓', position: 'top', visibilityTime: 3000});
+      } else {
+        const err = result.error;
+        const msg =
+          err.type === 'invalid_key' ? 'Invalid API key' :
+          err.type === 'rate_limit' ? 'Rate limit reached' :
+          err.type === 'network' ? `Network error: ${err.message}` :
+          'Validation failed';
+        Toast.show({type: 'error', text1: msg, position: 'top', visibilityTime: 4000});
+      }
+    } finally {
+      setApiKeyValidating(false);
+    }
+  };
+
   function importDump(documentPickerRespons: DocumentPickerResponse) {
     FileSaver.readFile(documentPickerRespons.uri).then(
       (res: string) => {
         let state = JSON.parse(res) as GlobalState;
         fullImport(state);
-        Toast.show({
-          type: 'info',
-          text1: 'Import successful!',
-          text2: `Data imported from ${documentPickerRespons.name}`,
-          position: 'top',
-          visibilityTime: 5000,
-        });
+        if (!store.getState().settings?.toggles?.disableToasts) {
+          Toast.show({
+            type: 'info',
+            text1: 'Import successful!',
+            text2: `Data imported from ${documentPickerRespons.name}`,
+            position: 'top',
+            visibilityTime: 5000,
+          });
+        }
       },
       (err: any) => {
-        Toast.show({
-          type: 'error',
-          text1: 'Import failed successfully!',
-          text2: `Data could not be imported from ${documentPickerRespons.name}`,
-          position: 'top',
-          visibilityTime: 5000,
-        });
+        if (!store.getState().settings?.toggles?.disableToasts) {
+          Toast.show({
+            type: 'error',
+            text1: 'Import failed successfully!',
+            text2: `Data could not be imported from ${documentPickerRespons.name}`,
+            position: 'top',
+            visibilityTime: 5000,
+          });
+        }
       },
     );
   }
@@ -205,6 +256,15 @@ const SettingsTab = ({navigation}: Props) => {
           value={!settings.toggles?.disableTimer}
         />
       </View>
+      <View style={styles.row}>
+        <Text style={{alignSelf: 'center'}}>Show Toasts</Text>
+        <Switch
+          onValueChange={(_) => {
+            toggleShowToasts();
+          }}
+          value={!settings.toggles?.disableToasts}
+        />
+      </View>
       <View style={styles.divider}>
         <Divider />
       </View>
@@ -234,6 +294,60 @@ const SettingsTab = ({navigation}: Props) => {
       <View style={styles.divider}>
         <Divider />
       </View>
+      {/* AI Coach section */}
+      <View style={styles.divider}>
+        <Divider />
+      </View>
+      <View style={{marginHorizontal: 15, marginVertical: 8}}>
+        <Text variant="titleSmall" style={{marginBottom: 4}}>AI Coach (Anthropic Claude)</Text>
+        <Text variant="bodySmall" style={{color: 'gray', marginBottom: 8}}>
+          Your API key is stored encrypted on this device only. It is never sent to any server other
+          than Anthropic. You need an Anthropic account to use this feature.
+        </Text>
+        <TextInput
+          mode="outlined"
+          label="Anthropic API Key"
+          value={apiKeyInput}
+          onChangeText={setApiKeyInput}
+          secureTextEntry={apiKeySecure}
+          right={
+            <TextInput.Icon
+              icon={apiKeySecure ? 'eye' : 'eye-off'}
+              onPress={() => setApiKeySecure(v => !v)}
+            />
+          }
+          testID="settings-anthropic-api-key-input"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <HelperText type="info">
+          Get your key at console.anthropic.com
+        </HelperText>
+        <View style={{flexDirection: 'row', gap: 8, marginTop: 4}}>
+          <Button
+            mode="outlined"
+            onPress={handleSaveApiKey}
+            style={{flex: 1}}
+            testID="settings-save-api-key-button"
+          >
+            Save Key
+          </Button>
+          <Button
+            mode="contained"
+            onPress={handleTestApiKey}
+            loading={apiKeyValidating}
+            disabled={apiKeyValidating}
+            style={{flex: 1}}
+            testID="settings-test-api-key-button"
+          >
+            Test Key
+          </Button>
+        </View>
+      </View>
+      <View style={styles.divider}>
+        <Divider />
+      </View>
+
       <View style={{flexDirection: 'row'}}>
         <Button
           mode="elevated"

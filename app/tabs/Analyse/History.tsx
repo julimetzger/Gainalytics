@@ -6,9 +6,15 @@ import {Muscles} from '../../models/Muscles';
 import {Exercise} from '../../models/entities/Exercise';
 import RangeSwiper from '../../components/RangeSwiper';
 import {firstDayOfWeek, lastDayOfWeek} from '../../utils/DateHelper';
+import {useRoute, RouteProp} from '@react-navigation/native';
+import {RootStackParamList} from '../../routing/AnalyseRouter';
 
 const History = () => {
-  const [exercise, setExercise] = useState<Exercise[]>([]);
+  const route = useRoute<RouteProp<RootStackParamList, 'History'>>();
+  const routeExercise = route.params?.exercise;
+  const [exercise, setExercise] = useState<Exercise[]>(
+    routeExercise && routeExercise.id != null ? [routeExercise] : [],
+  );
   const [muscle, setMuscle] = useState<Muscles[]>([]);
   const now = new Date();
 

@@ -3,6 +3,8 @@ import {ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Card, Chip, MD3Theme, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
 import Toast from 'react-native-toast-message';
+import {useStore} from 'react-redux';
+import {GlobalState} from '../../redux/rootReducer';
 import {useNavigation} from '@react-navigation/native';
 import {dispatchAddVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchAddVideoAnalysis';
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
@@ -10,6 +12,7 @@ import {dispatchDeleteVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/di
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisSeedPreflight';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
+import {dispatchSetVideoAnalysisMetersPerPixel} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisMetersPerPixel';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import VideoAnalysisProgressBar from '../../components/video/VideoAnalysisProgressBar';
@@ -67,6 +70,7 @@ const LinkedSetInfo = ({workoutId, exerciseId, setIndex}: LinkedSetInfoProps) =>
 
 const VideoAnalysisTab = () => {
   const navigation = useNavigation<any>();
+  const store = useStore<GlobalState>();
   const analyses = useAllVideoAnalyses();
   const addVideoAnalysis = dispatchAddVideoAnalysis();
   const setVideoAnalysisStatus = dispatchSetVideoAnalysisStatus();
@@ -74,14 +78,31 @@ const VideoAnalysisTab = () => {
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const setSeedPreflight = dispatchSetVideoAnalysisSeedPreflight();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
+  const setMetersPerPixel = dispatchSetVideoAnalysisMetersPerPixel();
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const [importing, setImporting] = useState(false);
   const [linkSetForAnalysisId, setLinkSetForAnalysisId] = useState<number | undefined>(undefined);
   const [now, setNow] = useState(() => Date.now());
+  const showToast = (params: Parameters<typeof Toast.show>[0]) => {
+    if (!store.getState().settings?.toggles?.disableToasts) {
+      Toast.show(params);
+    }
+  };
   const learnedSecondsPerVideoSecond = useMemo(() => getLastAnalysisSecondsPerVideoSecond(), [analyses]);
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map((item) => item.id ?? 0)) + 1 : 1;
-  const processingCount = useMemo(() => analyses.filter((analysis) => analysis.status === VideoAnalysisStatus.PROCESSING).length, [analyses]);
+  const processingCount = useMemo(
+    () =>
+      analyses.filter((analysis) =>
+        [
+          VideoAnalysisStatus.QUEUED,
+          VideoAnalysisStatus.COPYING,
+          VideoAnalysisStatus.PREFLIGHT,
+          VideoAnalysisStatus.PROCESSING,
+        ].includes(analysis.status),
+      ).length,
+    [analyses],
+  );
 
   // Filter state
   const [filterExercise, setFilterExercise] = useState<Exercise[]>([]);
@@ -161,17 +182,25 @@ const VideoAnalysisTab = () => {
         setManualSeedFramePath,
         setSeedPreflight,
         attachVideoAnalysisResult,
+        setMetersPerPixel,
       });
 
-      if (outcome === 'awaiting_seed_selection') {
-        Toast.show({
+      if (outcome === 'analysis_started') {
+        showToast({
+          type: 'info',
+          text1: 'Video analysis started',
+          text2: 'Analysis is running in the background.',
+          position: 'top',
+        });
+      } else if (outcome === 'awaiting_seed_selection') {
+        showToast({
           type: 'info',
           text1: 'Seed selection required',
           text2: 'Open the analysis detail and choose the correct detected plate.',
           position: 'top',
         });
       } else if (outcome === 'failed_no_candidate') {
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'No plate candidate found',
           text2: 'No outer plate was detected at t=0. Try another clip.',
@@ -179,7 +208,7 @@ const VideoAnalysisTab = () => {
         });
       }
     } catch (error) {
-      Toast.show({
+      showToast({
         type: 'error',
         text1: 'Import failed',
         text2: 'Could not import or process the selected video.',
@@ -199,7 +228,7 @@ const VideoAnalysisTab = () => {
       await importFromSource(sourceUri);
     } catch (error) {
       if (!DocumentPicker.isCancel(error)) {
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'Import failed',
           text2: 'Could not pick a video from the gallery.',

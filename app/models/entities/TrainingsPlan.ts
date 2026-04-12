@@ -1,3 +1,10 @@
+export type Meso = {
+  id: number;
+  name: string;
+  order: number;
+  startMicro: number;
+};
+
 export type TrainingsPlan = {
   id?: number;
   name: string;
@@ -5,4 +12,5 @@ export type TrainingsPlan = {
   trainings: {[microComaTrainingInMicro: string]: number};
   trainingNames: {[training: string]: string};
   lastTraining?: number;
+  mesos?: Meso[];
 };

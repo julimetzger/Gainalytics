@@ -14,12 +14,13 @@ import {
 export const dispatchSuggestBasedOnTrained = (
   trainingsPlanId: number,
   trainingsNumber: number,
+  microNumber: number,
   progressionProfile: SuggestionProgressionProfile = DEFAULT_SUGGESTION_PROGRESSION_PROFILE,
 ) => {
   const dispatch = useDispatch();
   let nextTrainingsId = useNextTrainingsId();
   let nextWorkoutId = useNextWorkoutId();
-  let lastTrainingInMicro = useLastTrainingInMicro(trainingsPlanId, trainingsNumber);
+  let lastTrainingInMicro = useLastTrainingInMicro(trainingsPlanId, trainingsNumber, microNumber);
   const doneWorkoutIds = lastTrainingInMicro?.doneWorkoutIds ? Object.values(lastTrainingInMicro.doneWorkoutIds) : [];
   let workouts = useWorkoutsByIds(doneWorkoutIds);
   if (doneWorkoutIds.length > 0) {

@@ -6,13 +6,15 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 interface headerProps {
   trainingsPlanName: string;
+  mesoName?: string;
   trainingName: string;
-  micro: number;
+  micro?: number;
+  localMicro?: number;
   mode: string;
   drawerMenu: React.ReactNode;
 }
 
-const TrainingsPlanHeader = ({trainingsPlanName, trainingName, micro, mode, drawerMenu}: headerProps) => {
+const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, localMicro, mode, drawerMenu}: headerProps) => {
   let theme = useTheme();
   const safe = useSafeAreaInsets();
   return (
@@ -32,22 +34,33 @@ const TrainingsPlanHeader = ({trainingsPlanName, trainingName, micro, mode, draw
       <View style={{flex: 1, justifyContent: 'space-between', alignItems: 'flex-end', flexDirection: 'row'}}>
         <View style={{flexDirection: 'column'}}>
           <Text
+            testID="header-plan-meso-name"
             style={{
               fontSize: theme.fonts.titleMedium.fontSize,
               fontWeight: 'bold',
               color: theme.colors.onSecondaryContainer,
             }}
           >
-            {trainingsPlanName}
+            {trainingsPlanName}{mesoName ? ` › ${mesoName}` : ''}
           </Text>
           <View style={{display: 'flex', flexDirection: 'row'}}>
+            {micro !== undefined && (
+              <Text
+                style={{
+                  fontSize: 20,
+                  color: theme.colors.onSecondaryContainer,
+                }}
+              >
+                Micro {micro}
+              </Text>
+            )}
             <Text
               style={{
                 fontSize: 20,
                 color: theme.colors.onSecondaryContainer,
               }}
             >
-              Micro {micro}
+              {localMicro !== undefined ? `Micro ${localMicro}` : ''}
             </Text>
             <Text
               style={{
@@ -55,11 +68,11 @@ const TrainingsPlanHeader = ({trainingsPlanName, trainingName, micro, mode, draw
                 color: theme.colors.onSecondaryContainer,
               }}
             >
-              {' ' + trainingName}
+              {(micro !== undefined || localMicro !== undefined) ? ' ' + trainingName : trainingName}
             </Text>
           </View>
         </View>
-        {mode !== 'Overview' && (
+        {micro !== undefined && mode !== 'Overview' && (
           <View style={{flexDirection: 'column', width: 80, marginEnd: 10}}>
             <Text style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold', color: theme.colors.onSecondaryContainer}}>Mode</Text>
             <Text

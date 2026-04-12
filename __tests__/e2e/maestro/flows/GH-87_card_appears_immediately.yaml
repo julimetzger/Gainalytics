@@ -1,0 +1,53 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-87: Verify video import card appears immediately (< 2s after tap)
+# and status transitions are visible on the card.
+# This flow does NOT wait for full analysis completion.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 180000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- assertVisible: "Import Video"
+# Tap import — triggers the import flow
+- tapOn: "Import Emulator Squat Video"
+# Handle permission dialogs if they appear
+- runFlow:
+    when:
+      visible:
+        text: "(?i)^allow$"
+    commands:
+      - tapOn:
+          text: "(?i)^allow$"
+- runFlow:
+    when:
+      visible: "Allow only while using the app"
+    commands:
+      - tapOn: "Allow only while using the app"
+# CRITICAL ASSERTION: Card must appear within 2 seconds of tapping import.
+# Before GH-87, this took 15-20 seconds because getVideoDuration() was awaited
+# before addVideoAnalysis() was called. Now addVideoAnalysis() is called first.
+- extendedWaitUntil:
+    visible: "Analysis #1"
+    timeout: 2000
+# Verify the card is present with the expected testID
+- assertVisible:
+    id: "video-analysis-card-1"
+# Verify import button still works (screen didn't navigate away unexpectedly)
+- assertVisible: "Import Emulator Squat Video"
+# Verify the status shows one of the expected in-progress states
+# (queued is the initial state, copying/preflight follow quickly)
+- extendedWaitUntil:
+    visible: "Status: (queued|copying|preflight|processing|awaiting_seed_selection|done|failed)"
+    timeout: 3000

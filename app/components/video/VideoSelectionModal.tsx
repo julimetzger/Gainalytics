@@ -1,13 +1,16 @@
 import React, {useState} from 'react';
+import {useStore} from 'react-redux';
 import {Dimensions, ScrollView, StyleSheet} from 'react-native';
 import {Button, Card, Dialog, IconButton, Portal, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
 import Toast from 'react-native-toast-message';
+import {GlobalState} from '../../redux/rootReducer';
 import {dispatchAddVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchAddVideoAnalysis';
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisSeedPreflight';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
+import {dispatchSetVideoAnalysisMetersPerPixel} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisMetersPerPixel';
 import {dispatchLinkVideoAnalysisToWorkout} from '../../redux/VideoAnalysis/dispatch/dispatchLinkVideoAnalysisToWorkout';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {importVideoAnalysisFromSource} from '../../utils/video-analysis-import';
@@ -28,9 +31,17 @@ const VideoSelectionModal = ({visible, onDismiss, workoutId, setIndex, exerciseI
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const setSeedPreflight = dispatchSetVideoAnalysisSeedPreflight();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
+  const setMetersPerPixel = dispatchSetVideoAnalysisMetersPerPixel();
   const linkVideoAnalysis = dispatchLinkVideoAnalysisToWorkout();
   const theme = useTheme();
+  const store = useStore<GlobalState>();
   const [importing, setImporting] = useState(false);
+
+  const showToast = (params: Parameters<typeof Toast.show>[0]) => {
+    if (!store.getState().settings?.toggles?.disableToasts) {
+      Toast.show(params);
+    }
+  };
   const screenHeight = Dimensions.get('window').height;
 
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map(a => a.id ?? 0)) + 1 : 1;
@@ -55,13 +66,14 @@ const VideoSelectionModal = ({visible, onDismiss, workoutId, setIndex, exerciseI
         setManualSeedFramePath,
         setSeedPreflight,
         attachVideoAnalysisResult,
+        setMetersPerPixel,
       });
       linkVideoAnalysis(nextAnalysisId, workoutId, exerciseId, setIndex);
       onLinked?.();
       onDismiss();
-      Toast.show({type: 'info', text1: 'Video linked', text2: 'The imported video has been linked to the set.', position: 'top'});
+      showToast({type: 'info', text1: 'Video linked', text2: 'The imported video has been linked to the set.', position: 'top'});
     } catch {
-      Toast.show({type: 'error', text1: 'Import failed', text2: 'Could not import or process the selected video.', position: 'top'});
+      showToast({type: 'error', text1: 'Import failed', text2: 'Could not import or process the selected video.', position: 'top'});
     }
   };
 
@@ -72,7 +84,7 @@ const VideoSelectionModal = ({visible, onDismiss, workoutId, setIndex, exerciseI
       await importFromSource(selected.fileCopyUri ?? selected.uri);
     } catch (e) {
       if (!DocumentPicker.isCancel(e)) {
-        Toast.show({type: 'error', text1: 'Import failed', text2: 'Could not pick a video from the gallery.', position: 'top'});
+        showToast({type: 'error', text1: 'Import failed', text2: 'Could not pick a video from the gallery.', position: 'top'});
       }
     } finally {
       setImporting(false);

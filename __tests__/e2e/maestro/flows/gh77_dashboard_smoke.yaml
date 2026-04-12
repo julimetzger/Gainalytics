@@ -1,0 +1,27 @@
+appId: com.powerliftingworkoutplanner
+---
+# Navigate to Analyse tab and verify Dashboard is the initial screen
+- launchApp
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 10000
+- assertVisible:
+    id: "dashboard-scroll"
+- assertVisible: "Deine Woche auf einen Blick"
+- assertVisible:
+    id: "weekly-summary-card"
+- assertVisible:
+    id: "muscle-heatmap-card"
+- assertVisible: "Muskelgruppen"
+- assertVisible: "Schnellzugriff"
+# Verify navigation to Records works
+- tapOn:
+    id: "nav-records"
+- extendedWaitUntil:
+    visible: "Records"
+    timeout: 10000
+- assertVisible: "Records"

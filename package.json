@@ -48,6 +48,7 @@
     "react-native-elements": "^3.4.3",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.0.0",
+    "react-native-keychain": "^10.0.0",
     "react-native-mmkv": "^2.11.0",
     "react-native-modal": "^13.0.1",
     "react-native-outside-press": "^1.2.2",

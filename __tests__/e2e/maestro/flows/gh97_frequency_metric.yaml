@@ -1,0 +1,110 @@
+appId: com.powerliftingworkoutplanner
+---
+
+# Launch app and wait for it to load.
+# clearState: false avoids the 60s+ cold-bundle load on emulator; app data is preserved.
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 90000
+
+# Navigate to Analyse > Metrics Overview.
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 15000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Metrics Overview'
+    timeout: 10000
+- tapOn: 'Metrics Overview'
+
+# Wait for MetricsOverview navigation header to confirm screen loaded.
+- extendedWaitUntil:
+    visible: 'Metrics Overview'
+    timeout: 20000
+
+# Take a screenshot to show the loaded Metrics Overview screen.
+- takeScreenshot: gh97-metrics-overview-loaded
+
+# Tap the first muscle metric column header using coordinates.
+# DataTable inside RangeSwiper's Reanimated.Animated.View is NOT in the
+# Android accessibility tree (left: -1080 offset hides it from uiautomator).
+# We use point-based tap to trigger the MetricSelectionDialog Portal,
+# which IS accessible once rendered at the root Portal host.
+# Column 0 (first metric) header sits at ~51% x, ~33% y on a 1080x2400 screen.
+- tapOn:
+    point: "51%,33%"
+- extendedWaitUntil:
+    visible: 'Select muscle metric'
+    timeout: 10000
+
+# KEY ASSERTION: Frequency must be present in the dropdown.
+- assertVisible:
+    text: 'Frequency'
+- takeScreenshot: gh97-frequency-in-muscle-dropdown
+
+# Select Frequency.
+- tapOn:
+    text: 'Frequency'
+
+# Wait for dialog to close — the nav header "Metrics Overview" remains visible.
+- extendedWaitUntil:
+    visible:
+      text: 'Metrics Overview'
+    timeout: 10000
+
+# Re-open the muscle dropdown to verify "Current: Frequency" persists.
+- tapOn:
+    point: "51%,33%"
+- extendedWaitUntil:
+    visible: 'Select muscle metric'
+    timeout: 10000
+- assertVisible:
+    text: 'Current: Frequency'
+- takeScreenshot: gh97-frequency-persists-muscle
+
+# Dismiss by tapping Volume to restore default state.
+- tapOn:
+    text: 'Volume'
+- extendedWaitUntil:
+    visible:
+      text: 'Metrics Overview'
+    timeout: 10000
+
+# Scroll down to Exercise Overview section and verify Frequency there too.
+- swipe:
+    start: "50%, 70%"
+    end: "50%, 30%"
+    duration: 1000
+- swipe:
+    start: "50%, 70%"
+    end: "50%, 30%"
+    duration: 1000
+
+# Wait for scroll to settle.
+- extendedWaitUntil:
+    visible: 'Metrics Overview'
+    timeout: 5000
+
+# Tap the first exercise metric column header using coordinate tap.
+# After scrolling down, the exercise header row should be near 33% of viewport.
+- tapOn:
+    point: "51%,33%"
+- runFlow:
+    when:
+      visible: 'Select exercise metric'
+    commands:
+      - assertVisible:
+          text: 'Frequency'
+      - takeScreenshot: gh97-frequency-in-exercise-dropdown
+      - tapOn:
+          text: 'Frequency'
+      - extendedWaitUntil:
+          visible:
+            text: 'Metrics Overview'
+          timeout: 10000
+      - takeScreenshot: gh97-frequency-selected-exercise
