@@ -1,5 +1,7 @@
 export enum VideoAnalysisStatus {
   QUEUED = 'queued',
+  COPYING = 'copying',
+  PREFLIGHT = 'preflight',
   PROCESSING = 'processing',
   AWAITING_SEED_SELECTION = 'awaiting_seed_selection',
   DONE = 'done',

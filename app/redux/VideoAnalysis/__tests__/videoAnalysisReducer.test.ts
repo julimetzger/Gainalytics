@@ -260,4 +260,57 @@ describe('videoAnalysisReducer', () => {
       allIds: [7],
     });
   });
+
+  it('RECOVER_STALE_VIDEO_ANALYSES sets in-progress analyses to FAILED and leaves terminal states unchanged', () => {
+    const makeAnalysis = (id: number, status: VideoAnalysisStatus) => ({
+      id,
+      sourceUri: 'content://video.mp4',
+      createdAt: new Date('2026-03-01T00:00:00.000Z'),
+      status,
+      videoMeta: {durationMs: 0, fps: 0, width: 0, height: 0},
+    });
+
+    const state = {
+      byId: {
+        1: makeAnalysis(1, VideoAnalysisStatus.QUEUED),
+        2: makeAnalysis(2, VideoAnalysisStatus.COPYING),
+        3: makeAnalysis(3, VideoAnalysisStatus.PREFLIGHT),
+        4: makeAnalysis(4, VideoAnalysisStatus.PROCESSING),
+        5: makeAnalysis(5, VideoAnalysisStatus.AWAITING_SEED_SELECTION),
+        6: makeAnalysis(6, VideoAnalysisStatus.DONE),
+        7: makeAnalysis(7, VideoAnalysisStatus.FAILED),
+      },
+      allIds: [1, 2, 3, 4, 5, 6, 7],
+    };
+
+    const recovered = videoAnalysisReducer(state, {type: 'RECOVER_STALE_VIDEO_ANALYSES'});
+
+    expect(recovered.byId[1].status).toBe(VideoAnalysisStatus.FAILED);
+    expect(recovered.byId[2].status).toBe(VideoAnalysisStatus.FAILED);
+    expect(recovered.byId[3].status).toBe(VideoAnalysisStatus.FAILED);
+    expect(recovered.byId[4].status).toBe(VideoAnalysisStatus.FAILED);
+    // Terminal and user-interactive states are untouched
+    expect(recovered.byId[5].status).toBe(VideoAnalysisStatus.AWAITING_SEED_SELECTION);
+    expect(recovered.byId[6].status).toBe(VideoAnalysisStatus.DONE);
+    expect(recovered.byId[7].status).toBe(VideoAnalysisStatus.FAILED);
+    expect(recovered.allIds).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it('RECOVER_STALE_VIDEO_ANALYSES returns the same state reference when nothing changes', () => {
+    const state = {
+      byId: {
+        1: {
+          id: 1,
+          sourceUri: 'content://video.mp4',
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+          status: VideoAnalysisStatus.DONE,
+          videoMeta: {durationMs: 0, fps: 0, width: 0, height: 0},
+        },
+      },
+      allIds: [1],
+    };
+
+    const recovered = videoAnalysisReducer(state, {type: 'RECOVER_STALE_VIDEO_ANALYSES'});
+    expect(recovered).toBe(state);
+  });
 });
