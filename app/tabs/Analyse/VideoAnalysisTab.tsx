@@ -4,6 +4,8 @@ import {Button, Card, MD3Theme, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
 import Toast from 'react-native-toast-message';
+import {useStore} from 'react-redux';
+import {GlobalState} from '../../redux/rootReducer';
 import {useNavigation} from '@react-navigation/native';
 import {dispatchAddVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchAddVideoAnalysis';
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
@@ -11,6 +13,7 @@ import {dispatchDeleteVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/di
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisSeedPreflight';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
+import {dispatchSetVideoAnalysisMetersPerPixel} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisMetersPerPixel';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import VideoAnalysisProgressBar from '../../components/video/VideoAnalysisProgressBar';
@@ -57,6 +60,7 @@ const LinkedSetInfo = ({workoutId, exerciseId, setIndex}: {workoutId: number; ex
 
 const VideoAnalysisTab = () => {
   const navigation = useNavigation<any>();
+  const store = useStore<GlobalState>();
   const analyses = useAllVideoAnalyses();
   const addVideoAnalysis = dispatchAddVideoAnalysis();
   const setVideoAnalysisStatus = dispatchSetVideoAnalysisStatus();
@@ -64,11 +68,17 @@ const VideoAnalysisTab = () => {
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const setSeedPreflight = dispatchSetVideoAnalysisSeedPreflight();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
+  const setMetersPerPixel = dispatchSetVideoAnalysisMetersPerPixel();
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const [importing, setImporting] = useState(false);
   const [linkSetForAnalysisId, setLinkSetForAnalysisId] = useState<number | undefined>(undefined);
   const [now, setNow] = useState(() => Date.now());
+  const showToast = (params: Parameters<typeof Toast.show>[0]) => {
+    if (!store.getState().settings?.toggles?.disableToasts) {
+      Toast.show(params);
+    }
+  };
   const learnedSecondsPerVideoSecond = useMemo(() => getLastAnalysisSecondsPerVideoSecond(), [analyses]);
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map((item) => item.id ?? 0)) + 1 : 1;
   const processingCount = useMemo(
@@ -116,17 +126,18 @@ const VideoAnalysisTab = () => {
         setManualSeedFramePath,
         setSeedPreflight,
         attachVideoAnalysisResult,
+        setMetersPerPixel,
       });
 
       if (outcome === 'awaiting_seed_selection') {
-        Toast.show({
+        showToast({
           type: 'info',
           text1: 'Seed selection required',
           text2: 'Open the analysis detail and choose the correct detected plate.',
           position: 'top',
         });
       } else if (outcome === 'failed_no_candidate') {
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'No plate candidate found',
           text2: 'No outer plate was detected at t=0. Try another clip.',
@@ -134,7 +145,7 @@ const VideoAnalysisTab = () => {
         });
       }
     } catch (error) {
-      Toast.show({
+      showToast({
         type: 'error',
         text1: 'Import failed',
         text2: 'Could not import or process the selected video.',
@@ -154,7 +165,7 @@ const VideoAnalysisTab = () => {
       await importFromSource(sourceUri);
     } catch (error) {
       if (!DocumentPicker.isCancel(error)) {
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'Import failed',
           text2: 'Could not pick a video from the gallery.',
@@ -171,7 +182,7 @@ const VideoAnalysisTab = () => {
       setImporting(true);
       const hasPermission = await requestVideoReadPermission();
       if (!hasPermission) {
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'Permission required',
           text2: 'Storage permission is required to import the emulator video.',
@@ -182,7 +193,7 @@ const VideoAnalysisTab = () => {
 
       const exists = await RNFS.exists(EMULATOR_SQUAT_VIDEO_PATH);
       if (!exists) {
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'Sample video missing',
           text2: EMULATOR_SQUAT_VIDEO_PATH,

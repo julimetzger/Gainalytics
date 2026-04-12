@@ -67,13 +67,15 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
 
     exportTrainingsPlanToFile(trainingsPlan, store.getState())
       .then((path) => {
-        Toast.show({
-          type: 'success',
-          text1: 'Training plan exported',
-          text2: path,
-          position: 'top',
-          visibilityTime: 4000,
-        });
+        if (!store.getState().settings?.toggles?.disableToasts) {
+          Toast.show({
+            type: 'success',
+            text1: 'Training plan exported',
+            text2: path,
+            position: 'top',
+            visibilityTime: 4000,
+          });
+        }
       })
       .catch((error) => {
         console.error('Failed to export training plan', error);
