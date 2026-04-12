@@ -16,6 +16,7 @@ import TimeRangePicker from '../../components/picker/date/TimeRangePicker';
 import {dispatchSetFinishTrainingTimer} from '../../redux/settings/dispatch/dispatchSetFinishTrainingTimer';
 import {dispatchToggleDisable1RMpreselect} from '../../redux/settings/dispatch/dispatchToggleDisable1RMpreselect';
 import {dispatchToggleShowTimer} from '../../redux/settings/dispatch/dispatchToggleShowTimer';
+import {dispatchToggleShowToasts} from '../../redux/settings/dispatch/dispatchToggleShowToasts';
 import {dispatchToggleShowPlusButtonLeft} from '../../redux/settings/dispatch/dispatchToggleShowPlusButtonLeft';
 import {dispatchToggleMode} from '../../redux/settings/dispatch/dispatchToggleMode';
 import {dispatchSetPalette} from '../../redux/settings/dispatch/dispatchSetPalette';
@@ -27,6 +28,7 @@ const SettingsTab = ({navigation}: Props) => {
   let dispatchToggleMode1 = dispatchToggleMode();
   let toggleDisable1RMpreselect = dispatchToggleDisable1RMpreselect();
   let toggleShowTimer = dispatchToggleShowTimer();
+  let toggleShowToasts = dispatchToggleShowToasts();
   let toggleShowPlusButtonLeft = dispatchToggleShowPlusButtonLeft();
   let setPalette = dispatchSetPalette();
   let setExactAlarmPermission = dispatchSetExactAlarmPermission();
@@ -79,7 +81,7 @@ const SettingsTab = ({navigation}: Props) => {
           setExactAlarmStatus(hasPermission);
           setExactAlarmPermission(hasPermission);
 
-          if (hasPermission) {
+          if (hasPermission && !store.getState().settings?.toggles?.disableToasts) {
             Toast.show({
               type: 'success',
               text1: 'Exact Alarm Permission Granted',
@@ -94,13 +96,15 @@ const SettingsTab = ({navigation}: Props) => {
       }, 1000);
     } catch (error) {
       console.error('Error opening exact alarm settings:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Settings Error',
-        text2: 'Could not open alarm settings',
-        position: 'top',
-        visibilityTime: 3000,
-      });
+      if (!store.getState().settings?.toggles?.disableToasts) {
+        Toast.show({
+          type: 'error',
+          text1: 'Settings Error',
+          text2: 'Could not open alarm settings',
+          position: 'top',
+          visibilityTime: 3000,
+        });
+      }
     }
   };
 
@@ -157,22 +161,26 @@ const SettingsTab = ({navigation}: Props) => {
       (res: string) => {
         let state = JSON.parse(res) as GlobalState;
         fullImport(state);
-        Toast.show({
-          type: 'info',
-          text1: 'Import successful!',
-          text2: `Data imported from ${documentPickerRespons.name}`,
-          position: 'top',
-          visibilityTime: 5000,
-        });
+        if (!store.getState().settings?.toggles?.disableToasts) {
+          Toast.show({
+            type: 'info',
+            text1: 'Import successful!',
+            text2: `Data imported from ${documentPickerRespons.name}`,
+            position: 'top',
+            visibilityTime: 5000,
+          });
+        }
       },
       (err: any) => {
-        Toast.show({
-          type: 'error',
-          text1: 'Import failed successfully!',
-          text2: `Data could not be imported from ${documentPickerRespons.name}`,
-          position: 'top',
-          visibilityTime: 5000,
-        });
+        if (!store.getState().settings?.toggles?.disableToasts) {
+          Toast.show({
+            type: 'error',
+            text1: 'Import failed successfully!',
+            text2: `Data could not be imported from ${documentPickerRespons.name}`,
+            position: 'top',
+            visibilityTime: 5000,
+          });
+        }
       },
     );
   }
@@ -246,6 +254,15 @@ const SettingsTab = ({navigation}: Props) => {
             toggleShowTimer();
           }}
           value={!settings.toggles?.disableTimer}
+        />
+      </View>
+      <View style={styles.row}>
+        <Text style={{alignSelf: 'center'}}>Show Toasts</Text>
+        <Switch
+          onValueChange={(_) => {
+            toggleShowToasts();
+          }}
+          value={!settings.toggles?.disableToasts}
         />
       </View>
       <View style={styles.divider}>

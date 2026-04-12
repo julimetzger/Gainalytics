@@ -141,6 +141,29 @@ describe('settingsReducer', () => {
     expect(settingsReducer(initialState, action)).toEqual(expectedState);
   });
 
+  it.each([
+    {inital: undefined, expected: true},
+    {inital: true, expected: false},
+    {inital: false, expected: true},
+  ])('should toggle showToasts for %s', ({inital, expected}) => {
+    const initialState = {
+      toggles: {
+        disableToasts: inital,
+      },
+      mode: 'light',
+    } satisfies AppSettings;
+    const action = {
+      type: 'TOGGLE_DISABLE_TOASTS',
+    };
+    const expectedState = {
+      toggles: {
+        disableToasts: expected,
+      },
+      mode: 'light',
+    };
+    expect(settingsReducer(initialState, action)).toEqual(expectedState);
+  });
+
   it('should persist a muscle metric slot without affecting exercise defaults', () => {
     const initialState = {
       mode: 'light',

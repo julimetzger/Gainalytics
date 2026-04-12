@@ -1,0 +1,48 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-72: Quick compare button verification
+# Assumes Analysis #1 is already DONE on the device
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "tab-analyse"
+    timeout: 60000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Analyse"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- extendedWaitUntil:
+    visible: "Video Analyses"
+    timeout: 10000
+- tapOn: "Video Analyses"
+- extendedWaitUntil:
+    visible: "Status: done"
+    timeout: 15000
+- tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Video Analysis Detail"
+    timeout: 10000
+# Scroll to make Compare button visible (it's at bottom of first card)
+- scrollUntilVisible:
+    element:
+      text: "Compare"
+    direction: DOWN
+    timeout: 5000
+- assertVisible:
+    text: "Compare"
+- takeScreenshot: compare_button_visible
+# Tap Compare button to open picker (AC1)
+- tapOn: "Compare"
+- extendedWaitUntil:
+    visible: "Select analysis to compare"
+    timeout: 10000
+- assertVisible:
+    text: "Select analysis to compare"
+- takeScreenshot: compare_picker_open
+# Cancel picker — detail screen must stay intact (AC8)
+- tapOn: "Cancel"
+- assertVisible:
+    id: "video-analysis-detail-screen"
+- takeScreenshot: detail_intact_after_cancel

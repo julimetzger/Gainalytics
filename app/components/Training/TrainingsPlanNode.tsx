@@ -85,25 +85,29 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   function changePlanningmode() {
     if (training?.state === TrainingsState.PLANNED) {
       startTraining();
-      Toast.show({
-        type: 'info',
-        text1: 'Training started!',
-        text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
-        position: 'top',
-        visibilityTime: 5000,
-      });
+      if (!appSettings.toggles?.disableToasts) {
+        Toast.show({
+          type: 'info',
+          text1: 'Training started!',
+          text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+          position: 'top',
+          visibilityTime: 5000,
+        });
+      }
     }
     if (training?.state === TrainingsState.STARTED) {
       finishTraining(training.id!!, trainingsPlan.id!!);
       resetPauseNotification();
       resetFinishTraining();
-      Toast.show({
-        type: 'info',
-        text1: 'Training finished!',
-        text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
-        position: 'top',
-        visibilityTime: 5000,
-      });
+      if (!appSettings.toggles?.disableToasts) {
+        Toast.show({
+          type: 'info',
+          text1: 'Training finished!',
+          text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+          position: 'top',
+          visibilityTime: 5000,
+        });
+      }
     }
     if (training?.state === TrainingsState.FINISHED) {
       if (chosenExercise === undefined && exercises?.length > 0) setchosenExercise(exercises[0].id);
