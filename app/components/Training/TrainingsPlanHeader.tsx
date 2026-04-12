@@ -8,8 +8,8 @@ interface headerProps {
   trainingsPlanName: string;
   mesoName?: string;
   trainingName: string;
-  micro: number;
-  localMicro: number;
+  micro?: number;
+  localMicro?: number;
   mode: string;
   drawerMenu: React.ReactNode;
 }
@@ -44,13 +44,23 @@ const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, 
             {trainingsPlanName}{mesoName ? ` › ${mesoName}` : ''}
           </Text>
           <View style={{display: 'flex', flexDirection: 'row'}}>
+            {micro !== undefined && (
+              <Text
+                style={{
+                  fontSize: 20,
+                  color: theme.colors.onSecondaryContainer,
+                }}
+              >
+                Micro {micro}
+              </Text>
+            )}
             <Text
               style={{
                 fontSize: 20,
                 color: theme.colors.onSecondaryContainer,
               }}
             >
-              Micro {localMicro}
+              {localMicro !== undefined ? `Micro ${localMicro}` : ''}
             </Text>
             <Text
               style={{
@@ -58,11 +68,11 @@ const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, 
                 color: theme.colors.onSecondaryContainer,
               }}
             >
-              {' ' + trainingName}
+              {(micro !== undefined || localMicro !== undefined) ? ' ' + trainingName : trainingName}
             </Text>
           </View>
         </View>
-        {mode !== 'Overview' && (
+        {micro !== undefined && mode !== 'Overview' && (
           <View style={{flexDirection: 'column', width: 80, marginEnd: 10}}>
             <Text style={{fontSize: theme.fonts.titleMedium.fontSize, fontWeight: 'bold', color: theme.colors.onSecondaryContainer}}>Mode</Text>
             <Text

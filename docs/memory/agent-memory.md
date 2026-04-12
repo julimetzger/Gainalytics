@@ -368,6 +368,35 @@ Working solution:
 - Always `unset JAVA_TOOL_OPTIONS` before running Gradle builds.
 - The Maestro run script should be invoked in a sub-shell with a fresh JAVA_TOOL_OPTIONS scoped only to that invocation.
 
+### 15. CalendarList needs explicit height inside react-native-drawer-layout Drawer
+
+Problem:
+- `CalendarList` from react-native-calendars renders invisibly (blank screen) when placed inside the content area of `react-native-drawer-layout`'s `<Drawer>` component, even with `flex: 1`.
+
+Symptoms:
+- Tapping History closes the drawer and the main area appears completely blank.
+- No JS errors in Metro or adb logcat.
+
+Working solution:
+- Use `Calendar` (single-month, swipeable) instead of `CalendarList`. `Calendar` renders without a defined parent height and handles month navigation via `enableSwipeMonths={true}`.
+- Wrap in a `<ScrollView style={{flex:1}} contentContainerStyle={{flexGrow:1}}>` so the detail panel below the calendar is scrollable.
+- `CalendarList` would work inside a `<Modal>` (as in DatePickerModal) but fails in the Drawer layout.
+
+Apply when: adding a react-native-calendars calendar to any non-Modal screen context.
+
+### 16. Device resolution from adb uiautomator dump, not from image scaling
+
+Problem:
+- Estimating tap coordinates by scaling from a resized screenshot leads to wrong device coordinates.
+
+Symptoms:
+- Repeated taps on what appears to be the correct element in the screenshot hit adjacent elements.
+
+Working solution:
+- Run `adb -s <DEVICE> shell uiautomator dump /sdcard/ui.xml && adb pull /sdcard/ui.xml` to get exact `bounds="[x1,y1][x2,y2]"` for every element.
+- Use the center of those bounds for `adb input tap`.
+- The Samsung Galaxy A31 (R5CN30HWZFN) has a 720×1467 visible-area resolution (not 1080×2400 as assumed from HD+ spec), because uiautomator reports in dp, not raw pixels.
+
 ### 16. Reanimated mock creates new SharedValue objects per render — do NOT include them in useCallback/useEffect deps
 
 Problem:
@@ -1078,6 +1107,37 @@ grep -r "Import Emulator Squat Video" app/
 
 **Apply when:** WSL2 adb connects to Windows server but gets empty device list.
 
+### 18. Maestro does not support decimal percentages in tapOn point
+
+**Problem:** `tapOn: point: "3.5%,6.5%"` throws `NumberFormatException: For input string: "3.5"` in this Maestro version. Decimal percentages are parsed as integers internally.
+
+**Symptoms:** Maestro crashes at `tapOnPointV2Command` with NumberFormatException on any coordinate with a decimal percentage.
+
+**Working solution:** Use integer percentages only: `"4%,7%"` instead of `"3.5%,6.5%"`.
+
+**Apply when:** Writing any Maestro `tapOn: point:` command.
+
+### 19. Drawer View content clips on tall training lists — use ScrollView
+
+**Problem:** `TrainingsPlanDrawer.tsx` renders a plain `View` with `flexDirection: column`. When the training list has many items, the Height overflows the screen and bottom items (Overview, History) are invisible to Maestro `assertVisible` and to users.
+
+**Symptoms:** Maestro `extendedWaitUntil: visible: text: "History"` fails even though the element is rendered — it's below the screen fold.
+
+**Working solution:** Wrap the drawer content in `<ScrollView>` so all items are accessible via scroll. This also makes `scrollUntilVisible` work in Maestro flows.
+
+**Apply when:** Rendering lists inside `react-native-drawer-layout` renderDrawerContent.
+
+### 20. Windows ADB server may die mid-session with no restart path from WSL
+
+**Problem:** The Windows ADB server (`adb -a -P 5037 nodaemon server`) can crash or stop during a long agent session. Once it's gone, `ADB_SERVER_SOCKET=tcp:172.18.240.1:5037` connections all fail. Running `adb.exe -a -P 5037 nodaemon server` or `powershell.exe Start-Process adb.exe ...` from WSL does NOT reliably restart the Windows-side server because Windows interop processes don't bind to Windows network interfaces.
+
+**Symptoms:** All `adb` commands fail with "Connection refused" at 172.18.240.1:5037. `nc -zv 172.18.240.1 5037` also fails.
+
+**Working solution:** No reliable workaround from WSL alone. Options:
+1. User must manually restart `adb.exe -a -P 5037 nodaemon server` on Windows.
+2. Proceed with code and unit test evidence; document the infra blocker in status.json.
+
+**Apply when:** adb commands suddenly start refusing connections mid-session.
 ### 55. Maestro: plan name text in Training list is not accessible via assertVisible/tapOn text
 
 **Problem:** In the TrainingHome tab, plan card names (e.g. "Push pull") are rendered in a `Text` component inside a `Pressable`. Maestro's `assertVisible: "Push pull"` and `tapOn: text: "Push pull"` fail consistently — the text is in the accessibility tree but not found.
