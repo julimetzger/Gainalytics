@@ -1764,3 +1764,32 @@ npx jest --testPathIgnorePatterns='/node_modules/' --testPathIgnorePatterns='/__
 This drops the `/.worktrees/` pattern for the one run and all 47 suites / 392 tests execute normally.
 
 **Apply when:** Any feature worker running `npm test` from within `.worktrees/feature-*/`. Also worth fixing upstream (e.g. anchor the pattern to avoid matching worktree paths, or use a `WORKTREE_JEST=1` env switch) but that's a separate cleanup, not in scope for a feedback round.
+
+### GH-115.1 RN 0.75 upgrade PRs can ship green while node_modules still holds the old RN
+
+**Problem:** GH-113 merged an RN 0.73→0.75 upgrade (package.json, android/*, ios/Podfile, etc.) but nobody re-ran `npm install` at the repo root, so `node_modules/react-native` stayed at 0.72.6 and `node_modules/@react-native/gradle-plugin` at 0.72.11. Gradle inside a worker then fails at `settings.gradle` line 2 with `Plugin [id: 'com.facebook.react.settings'] was not found` because that plugin only exists from the 0.74 gradle-plugin onward. Jest fails with `Cannot find module '@react-native/babel-preset'` for the same reason. Both errors look like "broken worker env" but the real cause is a stale install.
+
+**Working solution (one-shot per environment):**
+```
+cd <repo-root> && npm install --legacy-peer-deps
+```
+After that, `node_modules/react-native/package.json` reports `0.75.5` and both the Gradle `com.facebook.react.settings` plugin and `@react-native/babel-preset` resolve. `--legacy-peer-deps` is required because `@types/react-dom@17` still peer-requires `@types/react@^17` while RN 0.75 drags in `@types/react@18`. `package.json` / `package-lock.json` do not change.
+
+**Apply when:** A worker in a fresh worktree hits any of these symptoms after a React Native major bump: `com.facebook.react.settings plugin not found`, `Cannot find module '@react-native/babel-preset'`, jest stack traces leaking `/mnt/c/...` paths, or gradle plugin descriptors missing `com.facebook.react.settings.properties` under `node_modules/@react-native/gradle-plugin/build/pluginDescriptors/`. Always sanity-check `node_modules/react-native/package.json` against the root `package.json` before opening a ticket-level investigation.
+
+### GH-115.2 Release build verification without the production keystore
+
+**Problem:** GH-109.4 documents that `your_key_name.keystore` and `ANDROID_RELEASE_PASSWORD` aren't provisioned for workers, so `./gradlew assembleRelease` fails at `:app:packageRelease` with `SigningConfig "release" is missing required property "storePassword"`. Tickets that must prove an on-device release crash fix (GH-110, GH-115) cannot just fall back to `-x packageRelease` — they need an actually installable release-type APK on the device.
+
+**Working solution:** Temporarily swap the release `signingConfig` to `signingConfigs.debug` in `android/app/build.gradle`, build, install, verify, then revert before committing:
+```gradle
+release {
+    signingConfig signingConfigs.debug  // TEMP for on-device verification
+    debuggable false
+    minifyEnabled enableProguardInReleaseBuilds
+    proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+}
+```
+The APK is still `buildType = release` (Hermes, production JS bundle, `debuggable false`, ProGuard rules applied) so it exercises the exact code path the crash came from, but it's signed with the debug key so it installs on any device without the secret. Copy `android/app/your_key_name.keystore` from the main repo checkout into the worktree (it is `.gitignore`d, so the copy never lands in a commit) so that `signingConfigs.release` still parses when you revert the `debuggable/signingConfig` block before committing.
+
+**Apply when:** A ticket's acceptance criteria require running a release APK on a device to prove a crash fix, and the worker environment has no release keystore. Do **not** commit the `signingConfigs.debug` swap — always revert it on the same branch before `git commit`. Call this out in the PR body so reviewers know the device-run APK was debug-signed; the production release still needs to be cut from a machine that has the real keystore + `ANDROID_RELEASE_PASSWORD`.
