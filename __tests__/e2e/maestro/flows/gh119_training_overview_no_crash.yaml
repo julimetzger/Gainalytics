@@ -1,0 +1,83 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-119: TrainingsOverview must render without crashing when opening a
+# FINISHED training. Before the fix, calculateMetricComparisons threw
+# "workoutsCount is required for Metric.FREQUENCY" from inside the React
+# render of TrainingsOverview and crashed the app. This flow imports the
+# baseline fixture (which contains multiple FINISHED trainings), opens the
+# most recent one, and verifies that the Duration / Volume / Sets overview
+# cards are actually visible — i.e. the component rendered to completion.
+
+- launchApp:
+    clearState: false
+# Dismiss a stale RN red box from a previous worker session, if any.
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+
+# Import the baseline data so at least one FINISHED training exists.
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-import-data-button'
+    direction: DOWN
+- tapOn:
+    id: 'settings-import-data-button'
+- tapOn:
+    id: 'settings-import-confirm-button'
+    optional: true
+- tapOn: 'baseline.gains'
+- extendedWaitUntil:
+    visible: 'Import successful!'
+    timeout: 60000
+
+# Go to the training tab and open the "last training" card of the first
+# plan in the training home. This navigates to a FINISHED training, which
+# renders TrainingsPlanNode → TrainingsOverview.
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+- tapOn:
+    id: 'training-home-last-training-.*'
+
+# Give the screen 2 seconds to settle and capture what Maestro sees.
+- takeScreenshot: gh119-debug-after-nav
+
+# The FINISHED training screen must show all three TrainingsOverview cards.
+# If the crash had fired, the React tree would have unmounted and none of
+# these testIDs would be present.
+- extendedWaitUntil:
+    visible:
+      id: 'trainings-overview-duration-card'
+    timeout: 30000
+- assertVisible:
+    id: 'trainings-overview-duration-card'
+- assertVisible:
+    id: 'trainings-overview-volume-card'
+- assertVisible:
+    id: 'trainings-overview-sets-card'
+
+# Duration value Text shows a formatted HH:MM:SS time. Assert the HH:MM:SS
+# shape (two digits, colon, two digits, colon, two digits) so we prove real
+# data made it into the card, not just an empty label.
+- assertVisible:
+    id: 'trainings-overview-duration-value'
+    text: '\d{2}:\d{2}:\d{2}'
+
+- takeScreenshot: gh119-training-overview-finished-no-crash
+
+# Now verify the Analyse tab — the other crash site from release 0.160.
+# DashboardTab calls calculateMetricComparisons per-exercise without a
+# workoutsCount and used to crash the same way.
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: 'Analyse'
+    timeout: 30000
+- takeScreenshot: gh119-analyse-tab-no-crash

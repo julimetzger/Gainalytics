@@ -34,32 +34,40 @@ const TrainingsOverview = ({training, previousTraining}: TrainingsOverviewProps)
     lastWorkoutSets: prviousWorkoutSets,
   });
   return (
-    <ScrollView>
-      <View>
+    <ScrollView testID="trainings-overview" accessible accessibilityLabel="trainings-overview">
+      <View testID="trainings-overview-root" accessible accessibilityLabel="trainings-overview-root">
         <View style={{display: 'flex', flexDirection: 'row', flex: 1}}>
-          <Card style={{margin: 5, flex: 1}}>
-            <Card.Title title={<Text>Duration</Text>}></Card.Title>
-            <Card.Content>
-              {formattedDifference && <Text>{formattedDifference}</Text>}
-              <Text>{trainingDate.toISOString().substring(11, 19)}</Text>
-            </Card.Content>
-          </Card>
-          <Card style={{margin: 5, flex: 1}}>
-            <Card.Title title={<Text>Volume</Text>} />
-            <Card.Content>
-              <Text>
-                <MetricView comparison={metricToComparison.get(Metric.VOLUME)!!} />
-              </Text>
-            </Card.Content>
-          </Card>
-          <Card style={{margin: 5, flex: 1}}>
-            <Card.Title title={<Text>Sets</Text>} />
-            <Card.Content>
-              <Text>
-                <MetricView comparison={metricToComparison.get(Metric.SETS)!!} />
-              </Text>
-            </Card.Content>
-          </Card>
+          <View style={{flex: 1}} testID="trainings-overview-duration-card" accessible accessibilityLabel="trainings-overview-duration-card">
+            <Card style={{margin: 5, flex: 1}}>
+              <Card.Title title={<Text>Duration</Text>}></Card.Title>
+              <Card.Content>
+                {formattedDifference && <Text>{formattedDifference}</Text>}
+                <Text testID="trainings-overview-duration-value" accessible accessibilityLabel={`duration-${trainingDate.toISOString().substring(11, 19)}`}>
+                  {trainingDate.toISOString().substring(11, 19)}
+                </Text>
+              </Card.Content>
+            </Card>
+          </View>
+          <View style={{flex: 1}} testID="trainings-overview-volume-card" accessible accessibilityLabel="trainings-overview-volume-card">
+            <Card style={{margin: 5, flex: 1}}>
+              <Card.Title title={<Text>Volume</Text>} />
+              <Card.Content>
+                <Text testID="trainings-overview-volume-value" accessible accessibilityLabel="trainings-overview-volume-value">
+                  <MetricView comparison={metricToComparison.get(Metric.VOLUME)!!} />
+                </Text>
+              </Card.Content>
+            </Card>
+          </View>
+          <View style={{flex: 1}} testID="trainings-overview-sets-card" accessible accessibilityLabel="trainings-overview-sets-card">
+            <Card style={{margin: 5, flex: 1}}>
+              <Card.Title title={<Text>Sets</Text>} />
+              <Card.Content>
+                <Text testID="trainings-overview-sets-value" accessible accessibilityLabel="trainings-overview-sets-value">
+                  <MetricView comparison={metricToComparison.get(Metric.SETS)!!} />
+                </Text>
+              </Card.Content>
+            </Card>
+          </View>
         </View>
         <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
       </View>
