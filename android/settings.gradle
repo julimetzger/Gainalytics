@@ -1,6 +1,18 @@
 pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
 plugins { id("com.facebook.react.settings") }
-extensions.configure(com.facebook.react.ReactSettingsExtension) { ex -> ex.autolinkLibrariesFromCommand() }
+// RN 0.75 autolinking: default command is `npx @react-native-community/cli config`,
+// which on Windows resolves to npx.cmd — a batch file that Java ProcessBuilder
+// cannot execute directly, leaving autolinking.json at 0 bytes and breaking the
+// build. On Windows we route the call through cmd.exe explicitly; on Unix we use
+// the upstream default so nothing changes in CI / WSL / Linux / macOS.
+extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
+    def isWindows = System.getProperty("os.name").toLowerCase().contains("windows")
+    if (isWindows) {
+        ex.autolinkLibrariesFromCommand(["cmd", "/c", "npx.cmd", "@react-native-community/cli", "config"])
+    } else {
+        ex.autolinkLibrariesFromCommand()
+    }
+}
 rootProject.name = 'PowerliftingWorkoutPlanner'
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')
