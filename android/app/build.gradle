@@ -128,15 +128,9 @@ android {
     }
 }
 
-// Drop the KMP -jvm variants of datastore + datastore-preferences. We explicitly
-// depend on the -android variants below (see dependencies block), and keeping both
-// produces "Duplicate class" errors in D8 because the shared utility classes ship
-// in both variants.
+// androidx.core 1.16.0 requires AGP 8.6+; RN 0.75 ships with AGP 8.5.
+// Pin to 1.13.1, the last version compatible with AGP 8.5 + compileSdk 35.
 configurations.all {
-    exclude group: 'androidx.datastore', module: 'datastore-jvm'
-    exclude group: 'androidx.datastore', module: 'datastore-preferences-jvm'
-    // androidx.core 1.16.0 requires AGP 8.6+; RN 0.75 ships with AGP 8.5.
-    // Pin to 1.13.1, the last version compatible with AGP 8.5 + compileSdk 35.
     resolutionStrategy {
         force 'androidx.core:core:1.13.1'
         force 'androidx.core:core-ktx:1.13.1'
@@ -146,15 +140,6 @@ configurations.all {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    // react-native-keychain 10.0.0 transitively pulls androidx.datastore:datastore-preferences:1.1.1,
-    // a KMP library. Because our app module does not apply the kotlin-android plugin, its runtime
-    // classpath does not request kotlin.platform.type=androidJvm, and Gradle resolves the -jvm
-    // variant instead of -android. That variant is missing PreferenceDataStoreDelegateKt and
-    // SharedPreferencesMigration (both Context-based), which crashes KeychainModule.<init> with
-    // NoClassDefFoundError on app start. Pulling the -android artifacts in directly forces the
-    // correct classes into the APK without requiring kotlin-android on the app module.
-    implementation("androidx.datastore:datastore-preferences-android:1.1.1")
-    implementation("androidx.datastore:datastore-android:1.1.1")
     implementation("androidx.media3:media3-exoplayer:1.2.1")
     implementation("androidx.media3:media3-ui:1.2.1")
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
