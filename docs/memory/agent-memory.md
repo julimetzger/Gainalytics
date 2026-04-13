@@ -1602,3 +1602,57 @@ const mins = roundedMinutes % 60;
 Also apply `Math.round()` to any computed delta before displaying it as a whole-number suffix.
 
 **Apply when:** Any component that displays training duration from `getCompletedTrainingDurationMinutes()` in a formatted string.
+
+### GH-109.1 RN 0.73 npm dedup drops transitive deps that worked at 0.72
+
+**Problem:** After `npm install react-native@0.73.11`, `npm test` failed in 4 suites with `Invariant Violation: __fbBatchedBridgeConfig is not set`, and `:app:createBundleReleaseJsAndAssets` failed with `Unable to resolve module @react-navigation/native from App.tsx`. Both packages had been resolved transitively at 0.72 but were dropped from the worktree's `node_modules` by 0.73's dedup pass.
+
+**Working solution:** Promote both to direct deps in `package.json`:
+- `react-native-vector-icons: ^10.0.3` (peer of `sharingan-rn-modal-dropdown`, also referenced by `android/app/build.gradle` via `apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"`).
+- `@react-navigation/native: ^6.1.10` (imported directly in `App.tsx`, peer of `@react-navigation/{drawer,native-stack,stack}`).
+
+**Apply when:** Doing any RN minor/major upgrade — grep `App.tsx` and android/app/build.gradle for direct/path-based references to packages that are not listed as direct deps. Pin them before the upgrade or expect bundle/test failures right after.
+
+### GH-109.2 RN 0.73 Flipper: drop local ReactNativeFlipper.java, use flipper-integration
+
+**Problem:** RN 0.73's template no longer ships per-app `ReactNativeFlipper.java` in `src/{debug,release}/java/...`. The 0.72-style local copy + the manual `debugImplementation("com.facebook.flipper:flipper:$FLIPPER_VERSION")` block in `android/app/build.gradle` no longer compiles cleanly against 0.73.
+
+**Working solution:**
+1. Delete `android/app/src/{debug,release}/java/com/<pkg>/ReactNativeFlipper.java`.
+2. In `android/app/build.gradle` dependencies: replace the three `debugImplementation("com.facebook.flipper:…")` lines with a single `implementation("com.facebook.react:flipper-integration")`.
+3. In `MainApplication.java`, call `com.facebook.react.flipper.ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager())` directly instead of the local class.
+4. Remove `FLIPPER_VERSION=…` from `android/gradle.properties` (no longer needed).
+
+**Apply when:** Upgrading any 0.72-template app to 0.73+ that still has the locally maintained `ReactNativeFlipper.java` files.
+
+### GH-109.3 RN 0.73 root build.gradle needs kotlinVersion + com.facebook.react.rootproject plugin
+
+**Problem:** RN 0.73's `:app` build.gradle applies `org.jetbrains.kotlin.android` (required for the new template's Kotlin sources even when MainActivity/MainApplication stay in Java). Without `kotlinVersion` and the Kotlin Gradle plugin classpath at the root, the build fails. The root `apply plugin: "com.facebook.react.rootproject"` is also new in 0.73 and required for the autolinking pipeline.
+
+**Working solution (in `android/build.gradle`):**
+```gradle
+buildscript {
+  ext {
+    kotlinVersion = "1.8.0"
+    ndkVersion = "25.1.8937393"
+    // ... existing buildToolsVersion / sdk versions
+  }
+  dependencies {
+    classpath("com.android.tools.build:gradle")
+    classpath("com.facebook.react:react-native-gradle-plugin")
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+  }
+}
+apply plugin: "com.facebook.react.rootproject"
+```
+Also bump Gradle wrapper to 8.3 and apply `org.jetbrains.kotlin.android` in `android/app/build.gradle`. `MainActivity` / `MainApplication` can still stay in Java.
+
+**Apply when:** Upgrading from RN 0.72 (or older) to 0.73 — even if you do not migrate any app code to Kotlin.
+
+### GH-109.4 Worktree release builds: keystore missing, use `-x packageRelease`
+
+**Problem:** `./gradlew assembleRelease` fails inside `.worktrees/feature-*` with `your_key_name.keystore doesn't exist` because the keystore lives only in the main repo and `ANDROID_RELEASE_PASSWORD` is not set in the worker env.
+
+**Working solution:** Run `./gradlew assembleRelease -x packageRelease`. This compiles all Java/native (CMake), bundles JS, runs lint, and assembles every `:react-native-*:assembleRelease` task — everything except the final signing step. Document explicitly in summary.md/PR that signing is unverified due to missing local keystore + password; none of the upgrade changes touch signing config so it is a safe omission.
+
+**Apply when:** Any worker that needs to verify a release-config build inside a worktree without the production keystore.

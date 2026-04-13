@@ -6,6 +6,7 @@ issues and prevent agents from re-discovering known solutions.
 
 Last updated: 2026-04-12 (GH-71-fb7)
 Last updated: 2026-04-12 (GH-95-r3)
+Last updated: 2026-04-13 (GH-109)
 
 ## Per-Worker Breakdown
 
@@ -54,6 +55,7 @@ Last updated: 2026-04-12 (GH-95-r3)
 | GH-95-r3 | real | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 3 | 5 | ready_for_review (r3: keychain MMKV migration wiped device data; Metro blocklist needed for android/build; unit tests primary evidence for CoachInsightCard) |
 | GH-72 | emu | 7 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 3 | ready_for_review (r3: P1 logic fix + unit tests; ADB server down in fix round — no device re-run; unit tests sufficient) |
 | GH-77-fix2 | emu | 0 | 0 | 0 | 1 | 0 | 0 | 5 | 0 | 0 | ready_for_review (r3: Gradle CMake/reanimated rebuild failed, JS-only changes served via existing APK+Metro) |
+| GH-109 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | ready_for_review (RN 0.72→0.73 upgrade; npm dedup dropped vector-icons + @react-navigation/native — promoted to direct deps; release keystore missing in worktree → used `-x packageRelease`; emulator /data full → uninstalled YouTube; no Maestro/driver issues) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
