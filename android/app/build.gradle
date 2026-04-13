@@ -48,6 +48,8 @@ react {
     //
     //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
     // hermesFlags = ["-O", "-output-source-map"]
+
+    autolinkLibrariesWithApp()
 }
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
@@ -101,7 +103,7 @@ android {
         debug {
             signingConfig signingConfigs.debug
             ndk {
-                abiFilters "x86_64"
+                abiFilters "x86_64", "arm64-v8a"
             }
         }
         release {
@@ -133,12 +135,17 @@ android {
 configurations.all {
     exclude group: 'androidx.datastore', module: 'datastore-jvm'
     exclude group: 'androidx.datastore', module: 'datastore-preferences-jvm'
+    // androidx.core 1.16.0 requires AGP 8.6+; RN 0.75 ships with AGP 8.5.
+    // Pin to 1.13.1, the last version compatible with AGP 8.5 + compileSdk 35.
+    resolutionStrategy {
+        force 'androidx.core:core:1.13.1'
+        force 'androidx.core:core-ktx:1.13.1'
+    }
 }
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    implementation("com.facebook.react:flipper-integration")
     // react-native-keychain 10.0.0 transitively pulls androidx.datastore:datastore-preferences:1.1.1,
     // a KMP library. Because our app module does not apply the kotlin-android plugin, its runtime
     // classpath does not request kotlin.platform.type=androidJvm, and Gradle resolves the -jvm
@@ -164,4 +171,4 @@ dependencies {
     }
 }
 apply from:("../../node_modules/react-native-vector-icons/fonts.gradle");
-apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
+
