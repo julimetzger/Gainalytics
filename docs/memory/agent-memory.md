@@ -1739,3 +1739,28 @@ org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m
 ```
 
 **Apply when:** Any RN 0.75 upgrade that still has `android.enableJetifier=true`. `assembleRelease` is less sensitive because it doesn't jetify the same combination of debug-only artifacts.
+
+### GH-113.7 RN 0.75 iOS Podfile: drop Flipper, drop get_default_flags, drop Xcode_12_5_M1 workaround
+
+**Problem:** After an RN 0.73→0.75 upgrade it is easy to miss the `ios/Podfile` because Android builds succeed. The RN 0.73 Podfile template references `FlipperConfiguration.disabled/enabled`, passes `:flipper_configuration => flipper_config` and `:hermes_enabled/:fabric_enabled => flags[...]` to `use_react_native!`, and calls `__apply_Xcode_12_5_M1_post_install_workaround(installer)`. None of these exist in the RN 0.75 CocoaPods scripts — `pod install` fails with `uninitialized constant FlipperConfiguration`.
+
+**Working solution:** Rewrite `ios/Podfile` to match `facebook/react-native` `template/ios/Podfile` at the target tag (e.g. `v0.75.5`). For an RN 0.75.5 upgrade with no project-specific extras, the diff is zero except the target name. Removed:
+- `FlipperConfiguration` variable and `:flipper_configuration` option
+- `flags = get_default_flags()` and the `:hermes_enabled` / `:fabric_enabled` passes
+- `__apply_Xcode_12_5_M1_post_install_workaround(installer)`
+
+Also clean `AppDelegate.m`: once the pods stop exporting `FB_SONARKIT_ENABLED`, any `#ifdef FB_SONARKIT_ENABLED` FlipperKit import block + `InitializeFlipper()` call is permanently dead code.
+
+**Apply when:** Any RN major upgrade crossing the 0.73→0.74 boundary on iOS. Pre-check with `grep -i flipper ios/` — it should come back empty after the fix. Verify by diffing against the upstream template Podfile (`gh api repos/react-native-community/template/contents/template/ios/Podfile?ref=<branch>`). Not runnable on WSL — iOS needs a Mac host for the real `pod install`.
+
+### GH-113.8 Jest `/.worktrees/` ignore pattern silently skips all tests when run from inside a worktree
+
+**Problem:** `jest.config.cjs` has `testPathIgnorePatterns: ['/node_modules/', '/__tests__/coverage/', '/.worktrees/']`. The intent was to stop Jest from finding tests inside nested worktree copies when running from master. But when jest runs from *inside* a worktree (`cwd=/.worktrees/feature-GH-XXX/`), absolute test paths contain `/.worktrees/` and get ignored too, so `npm test` prints `No tests found, exiting with code 1` even though `testMatch: 47 matches`. Exit code 1 makes workers think the JS side is broken.
+
+**Working solution:** Override the ignore patterns on the CLI:
+```
+npx jest --testPathIgnorePatterns='/node_modules/' --testPathIgnorePatterns='/__tests__/coverage/'
+```
+This drops the `/.worktrees/` pattern for the one run and all 47 suites / 392 tests execute normally.
+
+**Apply when:** Any feature worker running `npm test` from within `.worktrees/feature-*/`. Also worth fixing upstream (e.g. anchor the pattern to avoid matching worktree paths, or use a `WORKTREE_JEST=1` env switch) but that's a separate cleanup, not in scope for a feedback round.
