@@ -59,7 +59,5 @@ public void onCreate() {
         // If you opted-in for the New Architecture, we load the native entry point for this app.
         DefaultNewArchitectureEntryPoint.load();
     }
-    com.facebook.react.flipper.ReactNativeFlipper.initializeFlipper(
-        this, getReactNativeHost().getReactInstanceManager());
 }
 }
