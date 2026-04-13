@@ -22,6 +22,13 @@ sed -i'' -e "s/versionName \"$previousVersion\"/versionName \"$newVersion\"/g" a
 echo 'releasing'
 mkdir -p android/app/build/outputs/apk/release/
 mkdir -p app/build/outputs/bundle/release/
+
+# RN 0.75 autolinking: pre-generate autolinking.source.json here using the
+# current shell's own node/npx, so android/settings.gradle can read it via
+# autolinkLibrariesFromConfigFile() and sidestep the Gradle ProcessBuilder
+# that breaks on some Windows setups. See android/settings.gradle for why.
+npx react-native config > android/autolinking.source.json
+
 export ENTRY_FILE=index.tsx
 cd android
 rm -rf app/src/main/res/drawable*

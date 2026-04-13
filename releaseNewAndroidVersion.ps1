@@ -35,12 +35,13 @@ Write-Host "update minor version from $previousVersion to $newVersion"
 $buildGradle = $buildGradle -replace "versionName `"$previousVersion`"", "versionName `"$newVersion`""
 Set-Content -Path android/app/build.gradle -Value $buildGradle -NoNewline
 
-# Workaround for RN 0.75 autolinking on Windows: pre-generate the file
-# so the gradle settings plugin has something to read even if its
-# internal `node` invocation produces an empty file.
-New-Item -ItemType Directory -Force -Path 'android/build/generated/autolinking' | Out-Null
-npx react-native config --platform android | Out-File -Encoding utf8 -FilePath android/build/generated/autolinking/autolinking.json
+# RN 0.75 autolinking: pre-generate autolinking.source.json here using the
+# current shell's own node/npx, so android/settings.gradle can read it via
+# autolinkLibrariesFromConfigFile() and sidestep the Gradle ProcessBuilder
+# that breaks on Windows. See android/settings.gradle for why.
+$configJson = & npx react-native config
 if ($LASTEXITCODE -ne 0) { throw "react-native config failed" }
+[System.IO.File]::WriteAllText("$PWD\android\autolinking.source.json", ($configJson -join "`n"), [System.Text.UTF8Encoding]::new($false))
 
 Write-Host 'releasing'
 New-Item -ItemType Directory -Force -Path android/app/build/outputs/apk/release | Out-Null

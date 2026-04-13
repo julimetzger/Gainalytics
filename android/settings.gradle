@@ -1,14 +1,24 @@
 pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
 plugins { id("com.facebook.react.settings") }
-// RN 0.75 autolinking: default command is `npx @react-native-community/cli config`,
-// which on Windows resolves to npx.cmd — a batch file that Java ProcessBuilder
-// cannot execute directly, leaving autolinking.json at 0 bytes and breaking the
-// build. On Windows we route the call through cmd.exe explicitly; on Unix we use
-// the upstream default so nothing changes in CI / WSL / Linux / macOS.
+// RN 0.75 autolinking:
+// The default `autolinkLibrariesFromCommand()` spawns `npx @react-native-community/cli config`
+// via Java ProcessBuilder and caches the result. On some Windows setups the subprocess
+// produces a 0-byte file, which then gets cached and breaks every subsequent build until
+// someone manually wipes android/build/generated/autolinking/.
+//
+// To sidestep the issue entirely we let the release scripts (releaseNewAndroidVersion.sh /
+// .ps1) pre-generate a JSON file at android/autolinking.source.json via `npx react-native
+// config` from the current shell's own PATH — that call is known-working on every platform
+// we build on. Gradle then just copies that file via autolinkLibrariesFromConfigFile and
+// never touches ProcessBuilder.
+//
+// If the pre-generated file is missing or empty (e.g. an Android Studio IDE build that
+// does not go through the release script), we fall back to the upstream default so IDE
+// workflows on Linux/macOS keep working.
 extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
-    def isWindows = System.getProperty("os.name").toLowerCase().contains("windows")
-    if (isWindows) {
-        ex.autolinkLibrariesFromCommand(["cmd", "/c", "npx.cmd", "@react-native-community/cli", "config"])
+    def preGenerated = new File(settings.rootDir, "autolinking.source.json")
+    if (preGenerated.exists() && preGenerated.length() > 0) {
+        ex.autolinkLibrariesFromConfigFile(preGenerated)
     } else {
         ex.autolinkLibrariesFromCommand()
     }
