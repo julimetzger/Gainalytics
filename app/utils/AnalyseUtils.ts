@@ -124,8 +124,18 @@ export function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise,
 export function calculateMetricComparisons(workout: WorkoutSetMap): Map<Metric, Comparison> {
   let metricComparison = new Map<Metric, Comparison>();
   Object.values(Metric).forEach((metric) => {
+    // Per-training callers pass no workoutsCount because a single-training
+    // Frequency has no meaning. Skip FREQUENCY instead of letting the fail-fast
+    // guard in calculateMetricValue throw and crash the React tree. (GH-119)
+    if (metric === Metric.FREQUENCY && workout.currentWorkoutsCount === undefined) {
+      return;
+    }
     let current = calculateMetricValue(workout.currentWorkoutSets, metric, workout.currentWorkoutsCount)!!;
-    let last = (workout.lastWorkoutSets?.length ?? 0) > 0 ? calculateMetricValue(workout.lastWorkoutSets ?? [], metric, workout.lastWorkoutsCount) : undefined;
+    const canComputeLast = metric !== Metric.FREQUENCY || workout.lastWorkoutsCount !== undefined;
+    let last =
+      (workout.lastWorkoutSets?.length ?? 0) > 0 && canComputeLast
+        ? calculateMetricValue(workout.lastWorkoutSets ?? [], metric, workout.lastWorkoutsCount)
+        : undefined;
     let difference = last ? current - last : undefined;
     metricComparison.set(metric, {value: current, difference: difference});
   });

@@ -1,6 +1,7 @@
 import {
   applyLinearProgressionToWorkout,
   calculateLinearProgressionWeight,
+  calculateMetricComparisons,
   calculateMetricValue,
   calculateMetricValueForMuscles,
   SuggestionProgressionProfile,
@@ -112,6 +113,48 @@ describe('Frequency metric', () => {
     const exerciseMap = new Map<Exercise, WorkoutSet[]>([[exercise, sets]]);
 
     expect(calculateMetricValueForMuscles(exerciseMap, Metric.FREQUENCY, Muscles.CHEST, undefined)).toBe(0);
+  });
+});
+
+describe('calculateMetricComparisons with FREQUENCY', () => {
+  const sets: WorkoutSet[] = [
+    {index: 1, reps: 5, rir: 2, weight: 100},
+    {index: 2, reps: 3, rir: 1, weight: 120},
+  ];
+
+  it('does not throw when currentWorkoutsCount is undefined and FREQUENCY is in the metric list (GH-119)', () => {
+    // Reproduces the TrainingsOverview/Analyse crash: per-training callers
+    // have no meaningful workoutsCount, but calculateMetricComparisons iterates
+    // Object.values(Metric) which includes FREQUENCY.
+    expect(() =>
+      calculateMetricComparisons({
+        currentWorkoutSets: sets,
+        lastWorkoutSets: [],
+      }),
+    ).not.toThrow();
+  });
+
+  it('still computes non-FREQUENCY metrics when workoutsCount is undefined', () => {
+    const result = calculateMetricComparisons({
+      currentWorkoutSets: sets,
+      lastWorkoutSets: [],
+    });
+
+    expect(result.get(Metric.VOLUME)?.value).toBe(100 * 5 + 120 * 3);
+    expect(result.get(Metric.SETS)?.value).toBe(2);
+    // FREQUENCY is omitted when no count is provided, because per-training
+    // Frequency has no meaning — callers never read it in that context.
+    expect(result.has(Metric.FREQUENCY)).toBe(false);
+  });
+
+  it('still computes FREQUENCY when workoutsCount is provided', () => {
+    const result = calculateMetricComparisons({
+      currentWorkoutSets: sets,
+      lastWorkoutSets: [],
+      currentWorkoutsCount: 3,
+    });
+
+    expect(result.get(Metric.FREQUENCY)?.value).toBe(3);
   });
 });
 
