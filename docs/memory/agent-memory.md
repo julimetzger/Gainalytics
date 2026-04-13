@@ -1656,3 +1656,86 @@ Also bump Gradle wrapper to 8.3 and apply `org.jetbrains.kotlin.android` in `and
 **Working solution:** Run `./gradlew assembleRelease -x packageRelease`. This compiles all Java/native (CMake), bundles JS, runs lint, and assembles every `:react-native-*:assembleRelease` task — everything except the final signing step. Document explicitly in summary.md/PR that signing is unverified due to missing local keystore + password; none of the upgrade changes touch signing config so it is a safe omission.
 
 **Apply when:** Any worker that needs to verify a release-config build inside a worktree without the production keystore.
+
+### GH-113.1 RN 0.75 moves autolinking into the Settings plugin
+
+**Problem:** After bumping to RN 0.75, `:app:generateAutolinkingPackageList` fails with `autolinking.json not found` and `PackageList.java` compile errors ("cannot find symbol RNFSPackage"). The autolinking pipeline was moved out of `@react-native-community/cli-platform-android/native_modules.gradle` into `@react-native/gradle-plugin`'s Settings plugin.
+
+**Working solution:**
+1. Rewrite `android/settings.gradle`:
+   ```gradle
+   pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
+   plugins { id("com.facebook.react.settings") }
+   extensions.configure(com.facebook.react.ReactSettingsExtension) { ex -> ex.autolinkLibrariesFromCommand() }
+   rootProject.name = 'PowerliftingWorkoutPlanner'
+   include ':app'
+   includeBuild('../node_modules/@react-native/gradle-plugin')
+   ```
+2. Delete the legacy `apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")` line from `android/app/build.gradle`.
+3. Inside the `react { ... }` block in `android/app/build.gradle`, call `autolinkLibrariesWithApp()`. Without this the generated `PackageList.java` still references packages that were never wired into the app classpath.
+
+**Apply when:** Upgrading from RN 0.73/0.74 to 0.75+. This is the single most common "my build broke after the RN bump" symptom on 0.75.
+
+### GH-113.2 RN 0.75 AGP 8.5 collides with androidx.core 1.16.0
+
+**Problem:** Some transitive dep (typically `react-native-keychain`, `react-native-reanimated`, or `androidx.compose.*`) pulls `androidx.core:core:1.16.0`, which requires AGP 8.6+. RN 0.75 ships AGP 8.5.0 via `node_modules/@react-native/gradle-plugin/gradle/libs.versions.toml`. Build fails with: `Dependency 'androidx.core:core:1.16.0' requires libraries and applications that depend on it to compile against version 36 or later of the Android APIs.`
+
+**Working solution:** Force the last AGP-8.5-compatible version in `android/app/build.gradle`:
+```gradle
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.core:core:1.13.1'
+        force 'androidx.core:core-ktx:1.13.1'
+    }
+}
+```
+Do NOT bump AGP alone — the RN gradle plugin pins it and upstream-maintaining a patched plugin is not worth it.
+
+**Apply when:** Staying on RN 0.75 and seeing the androidx.core 1.16 requirement.
+
+### GH-113.3 RN 0.75 pins on reanimated and gesture-handler
+
+**Problem:** `react-native-reanimated@^3.15.5` caret-resolves to 3.19.x which has `assertMinimalReactNativeVersionTask` failing for anything below RN 0.78. Similarly `react-native-gesture-handler@^2.20.2` resolves to 2.31.x which uses `ViewManagerWithGeneratedInterface` that's only present in RN 0.78+.
+
+**Working solution:** Pin with tilde, not caret:
+```json
+"react-native-reanimated": "~3.15.5",
+"react-native-gesture-handler": "~2.20.2",
+```
+
+**Apply when:** Any RN 0.75.x upgrade that keeps reanimated / gesture-handler on their pre-0.78-compatible versions.
+
+### GH-113.4 Flipper integration removed in RN 0.74+
+
+**Problem:** After bumping to RN 0.74+, `implementation("com.facebook.react:flipper-integration")` resolves to a non-existent artifact and the `ReactNativeFlipper.initializeFlipper(...)` call in `MainApplication` fails to compile. Flipper support was removed upstream.
+
+**Working solution:**
+1. Remove the `implementation("com.facebook.react:flipper-integration")` line from `android/app/build.gradle`.
+2. Remove the `ReactNativeFlipper.initializeFlipper(...)` call from `MainApplication.onCreate()`.
+
+**Apply when:** Upgrading from RN 0.73 (which still had the integration artifact) to 0.74 or 0.75. Inverse of the GH-109.2 recipe above — those files were added in 0.73 and deleted again in 0.74.
+
+### GH-113.5 Debug APK needs arm64-v8a abiFilter for Samsung arm64 devices
+
+**Problem:** Pre-existing debug build config has `abiFilters "x86_64"` only (originally set for emulator perf). Installing the resulting `app-debug.apk` on a real Samsung arm64 device fails with `INSTALL_FAILED_NO_MATCHING_ABIS`.
+
+**Working solution:** Add `arm64-v8a` to debug filters:
+```gradle
+debug {
+    signingConfig signingConfigs.debug
+    ndk { abiFilters "x86_64", "arm64-v8a" }
+}
+```
+
+**Apply when:** Debug-install against a physical arm64 device (`R5CN30HWZFN` in the orchestrator fleet). Release builds still use the default ABI set from `reactNativeArchitectures`.
+
+### GH-113.6 JetifyTransform OOMs on RN 0.75 assembleDebug
+
+**Problem:** `assembleDebug` fails with `Java heap space` during `JetifyTransform` — typically while transforming the large androidx.datastore or androidx.compose artifacts. Default `org.gradle.jvmargs=-Xmx2048m` is too tight after the dep-graph explosion in RN 0.75.
+
+**Working solution:** Bump `android/gradle.properties`:
+```
+org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m
+```
+
+**Apply when:** Any RN 0.75 upgrade that still has `android.enableJetifier=true`. `assembleRelease` is less sensitive because it doesn't jetify the same combination of debug-only artifacts.
