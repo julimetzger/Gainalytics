@@ -1,4 +1,5 @@
 apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 /** * This is the configuration block to customize your React Native Android app.
@@ -69,7 +70,8 @@ def androidReleasePassword = System.getenv("ANDROID_RELEASE_PASSWORD")
 
 android {
     ndkVersion rootProject.ext.ndkVersion
-    compileSdkVersion rootProject.ext.compileSdkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.powerliftingworkoutplanner"
 
@@ -124,32 +126,15 @@ android {
     }
 }
 
-// Force androidx.fragment to a version the D8 shipped with AGP 7.4.2 can dex.
-// react-native-keychain 10.0.0 transitively pulls fragment 1.8.6, whose Kotlin
-// metadata format is not understood by the older D8, causing a
-// NullPointerException during :app:mergeExtDexRelease. 1.6.2 is the last line
-// that dexes cleanly with AGP 7.4.x.
-configurations.all {
-    resolutionStrategy {
-        force "androidx.fragment:fragment:1.6.2"
-    }
-}
-
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    implementation("com.facebook.react:flipper-integration")
     implementation("androidx.media3:media3-exoplayer:1.2.1")
     implementation("androidx.media3:media3-ui:1.2.1")
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
     implementation("org.tensorflow:tensorflow-lite-gpu:2.16.1")
     implementation("org.tensorflow:tensorflow-lite-gpu-api:2.16.1")
-    debugImplementation("com.facebook.flipper:flipper:${FLIPPER_VERSION}")
-
-    debugImplementation("com.facebook.flipper:flipper-network-plugin:${FLIPPER_VERSION}") {
-        exclude group:'com.squareup.okhttp3', module:'okhttp'
-    }
-
-    debugImplementation("com.facebook.flipper:flipper-fresco-plugin:${FLIPPER_VERSION}")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test:runner:1.5.2")
