@@ -1,0 +1,15 @@
+appId: com.powerliftingworkoutplanner
+---
+# Navigate to Video Analyses screen via drawer
+# Hamburger menu is in top-left at approx 6%,6% of screen
+- tapOn:
+    point: "6%,6%"
+- extendedWaitUntil:
+    visible: "Video Analyses"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Video Analyses"
+    direction: DOWN
+- tapOn: "Video Analyses"
+- assertVisible: "Import Video"

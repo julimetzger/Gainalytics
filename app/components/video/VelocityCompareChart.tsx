@@ -1,6 +1,7 @@
 import React, {useMemo} from 'react';
 import {LayoutChangeEvent, StyleSheet, View} from 'react-native';
-import {processColor, useTheme} from 'react-native-paper';
+import {processColor} from 'react-native';
+import {useTheme} from 'react-native-paper';
 import {LineChart} from 'react-native-charts-wrapper';
 import {BarPathPoint} from '../../models/entities/VideoAnalysis';
 

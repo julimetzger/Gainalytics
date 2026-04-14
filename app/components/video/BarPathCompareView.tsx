@@ -1,7 +1,8 @@
 import React, {useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
-import {processColor, useTheme} from 'react-native-paper';
+import {processColor} from 'react-native';
+import {useTheme} from 'react-native-paper';
 import {BarPathPoint} from '../../models/entities/VideoAnalysis';
 
 interface Props {
