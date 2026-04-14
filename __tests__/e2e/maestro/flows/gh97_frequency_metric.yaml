@@ -13,23 +13,44 @@ appId: com.powerliftingworkoutplanner
 # Part 1: Metrics Overview – verify FREQUENCY option exists
 # ───────────────────────────────────────────────────────
 
-# Navigate to Analyse tab, then open the drawer to navigate to Metrics Overview.
-# Wait for analyse-drawer-toggle (only visible on Analyse screens) to confirm the
-# tab switch happened before tapping the hamburger.
+# Navigate to the Analyse tab, then reach Metrics Overview.
+# Two cases depending on which Analyse screen the app resumes on:
+#
+# Case A – Sub-screen with drawer toggle (e.g. Exercise Graphs, History):
+#   The drawer is the only navigation surface. We open it and tap Metrics Overview.
+#   This is safe because the screen title is NOT "Metrics Overview", so there is no
+#   text ambiguity between the drawer item and the screen header.
+#
+# Case B – Dashboard ("Deine Woche auf einen Blick"):
+#   No drawer toggle visible. Use the "Alle Metriken" quick-access button.
+#   This is safe because we DON'T then open the drawer – we're already on Metrics Overview.
+#
 - tapOn: 'tab-analyse'
-- extendedWaitUntil:
-    visible:
-      id: 'analyse-drawer-toggle'
-    timeout: 15000
-- tapOn:
-    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      visible:
+        id: 'analyse-drawer-toggle'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - extendedWaitUntil:
+          visible: 'Metrics Overview'
+          timeout: 10000
+      - tapOn: 'Metrics Overview'
+      - extendedWaitUntil:
+          visible: 'Metrics Overview'
+          timeout: 15000
+- runFlow:
+    when:
+      visible: 'Alle Metriken'
+    commands:
+      - tapOn: 'Alle Metriken'
+      - extendedWaitUntil:
+          visible: 'Metrics Overview'
+          timeout: 15000
 - extendedWaitUntil:
     visible: 'Metrics Overview'
-    timeout: 10000
-- tapOn: 'Metrics Overview'
-- extendedWaitUntil:
-    visible: 'Metrics Overview'
-    timeout: 15000
+    timeout: 5000
 
 # Screenshot: Metrics Overview loaded
 - takeScreenshot: gh97-metrics-overview-loaded
@@ -83,6 +104,8 @@ appId: com.powerliftingworkoutplanner
 
 # Open the Analyse drawer via the hamburger icon to navigate to Exercise Graphs.
 # analyse-drawer-toggle is already visible (we're still on Metrics Overview).
+# From Metrics Overview the drawer item "Exercise Graphs" is visible at position 3
+# (no scroll needed) and there is no text ambiguity with the current screen title.
 - tapOn:
     id: 'analyse-drawer-toggle'
 - extendedWaitUntil:
