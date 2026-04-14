@@ -1,6 +1,6 @@
-import React from 'react';
+import React, {useRef} from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
-import {fireEvent, render} from '@testing-library/react-native';
+import {fireEvent, render, act} from '@testing-library/react-native';
 import TrainingElementPicker, {Accumulation} from '../../../../app/components/picker/elements/TrainingElementPicker';
 import {useAlleExercises} from '../../../../app/redux/Exercises/use/useAllExercises';
 import {useAllTrainingsPlans} from '../../../../app/redux/Training/use/useAllTrainingsPlans';
@@ -165,5 +165,62 @@ describe('TrainingElementPicker', () => {
 
     fireEvent.press(getByTestId('toggle-picker'));
     expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression test for GH-127: infinite render loop caused by non-memoized selectors
+  // and .find() in useEffect dep array. Simulates the pattern that triggered the crash:
+  // the parent re-renders with a new exercises/plans array reference on each tick
+  // (as if the Redux selector was not memoized), and the library's internal onChange
+  // calls back into the component. Render count must stay bounded.
+  it('does not enter an infinite render loop when hooks return new array references on each call', () => {
+    let renderCount = 0;
+
+    // Track how many times MultiselectDropdown receives a new `data` prop reference
+    let dataRefChangeCount = 0;
+    let lastDataRef: unknown = undefined;
+
+    // Override the mock to count data reference changes (simulates library's useEffect)
+    const {MultiselectDropdown: OriginalMock} = jest.requireMock('sharingan-rn-modal-dropdown');
+    const spyMock = jest.fn(({data, ...rest}: {data: unknown; label: string; value: string[]; onChange: (v: string[]) => void}) => {
+      if (data !== lastDataRef) {
+        dataRefChangeCount++;
+        lastDataRef = data;
+      }
+      renderCount++;
+      return OriginalMock({data, ...rest});
+    });
+
+    // Temporarily override the mock with the spy
+    const mockModule = jest.requireMock('sharingan-rn-modal-dropdown');
+    const originalImpl = mockModule.MultiselectDropdown;
+    mockModule.MultiselectDropdown = spyMock;
+
+    try {
+      const setExercise = jest.fn();
+
+      // Simulate the hooks returning new array references on every call (pre-fix behaviour)
+      // By always returning a new [] the component sees unstable deps every render
+      mockedUseAlleExercises.mockImplementation(() => [...exercises]);
+      mockedUseAllTrainingsPlans.mockImplementation(() => [...trainingsPlan]);
+
+      const {rerender} = render(<TrainingElementPicker exercise={[]} setExercise={setExercise} />);
+
+      // Simulate several parent re-renders (as if unrelated store ticks happened)
+      act(() => {
+        rerender(<TrainingElementPicker exercise={[]} setExercise={setExercise} />);
+        rerender(<TrainingElementPicker exercise={[]} setExercise={setExercise} />);
+        rerender(<TrainingElementPicker exercise={[]} setExercise={setExercise} />);
+      });
+
+      // Even though the hooks return new array refs each call, the component's internal
+      // useMemo should stabilize dropdownExerciseStructure so the library sees stable data.
+      // Data reference changes must be bounded — if they grow with each rerender, the loop
+      // is back. Allow at most 2 (initial + one recompute at most).
+      expect(dataRefChangeCount).toBeLessThanOrEqual(2);
+      // setExercise must not be called spuriously by the render loop
+      expect(setExercise).not.toHaveBeenCalled();
+    } finally {
+      mockModule.MultiselectDropdown = originalImpl;
+    }
   });
 });
