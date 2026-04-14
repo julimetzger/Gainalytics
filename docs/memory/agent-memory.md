@@ -199,3 +199,25 @@ In RN 0.80, the path no longer exists. Remove any `jest.mock('react-native/Libra
 
 ### React 19 async batching can cause test timeouts at 5s default
 Tests using `waitFor` with React 19 may take 8+ seconds on first render. Add a `15000` timeout arg to any `it(...)` that flakes: `it('...', async () => { ... }, 15000);`.
+
+## GH-130 / Maestro Real Device Learnings
+
+### 37. `useSelector` without `shallowEqual` causes infinite re-renders when returning mapped arrays
+**Problem:** `useSelector(state => state.x.allIds.map(...))` returns a new array reference on every store access, even when the data hasn't changed. If a component subscribes to this in a render cycle that itself triggers state updates (e.g. a picker dropdown), the result is "Maximum update depth exceeded" in React.
+**Working solution:** Always pass `shallowEqual` as the second arg to `useSelector` when the selector returns a new array via `.map()`: `useSelector(selector, shallowEqual)`.
+**Apply when:** Any `useSelector` call that uses `.map()`, `.filter()`, or `.reduce()` to return a new collection.
+
+### 38. Maestro `extendedWaitUntil` timeout must exceed actual navigation render time
+**Problem:** After tapping a drawer item, the target screen can take 10–15s to render on a real device over Metro. `extendedWaitUntil: visible: "X", timeout: 10000` fails intermittently.
+**Working solution:** Use at least 20000ms for post-drawer-navigation waits. For screens with heavy data (video analyses list), 20s is the minimum.
+**Apply when:** Writing Maestro flows that navigate through drawer menus on real devices.
+
+### 39. Maestro flows must start by navigating to the correct tab — never assume current tab
+**Problem:** A flow that starts with `tapOn: point "6%,6%"` (drawer hamburger) will open the CURRENT tab's drawer, not the Analyse drawer. If the app is on Training tab, "Video Analyses" won't be in the drawer.
+**Working solution:** Always start drawer-based flows with an explicit `tapOn: "tab-analyse"` (or the target tab) before opening the hamburger. The `tab-*` content-desc selectors reliably match the bottom nav on both real devices and emulators.
+**Apply when:** Any Maestro flow that navigates via the Analyse or Training drawer.
+
+### 40. `processColor` must be imported from `react-native`, not `react-native-paper`
+**Problem:** `react-native-paper` does not export `processColor`. Importing from Paper compiles without error (re-export) but crashes at runtime when the function is called.
+**Working solution:** Always import `processColor` from `react-native`: `import {processColor} from 'react-native';`
+**Apply when:** Any component that uses `processColor` for chart colors (react-native-charts-wrapper).
