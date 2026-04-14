@@ -199,3 +199,27 @@ In RN 0.80, the path no longer exists. Remove any `jest.mock('react-native/Libra
 
 ### React 19 async batching can cause test timeouts at 5s default
 Tests using `waitFor` with React 19 may take 8+ seconds on first render. Add a `15000` timeout arg to any `it(...)` that flakes: `it('...', async () => { ... }, 15000);`.
+
+### 54. Inline `.map()` in `useSelector` causes infinite render loops with `MultiselectDropdown`
+**Problem**: `useSelector((state) => state.slice.allIds.map(id => state.slice.byId[id]))` creates a new array reference on every call. `useSelector` uses reference equality, so it triggers a re-render on every store tick. Third-party libraries with internal `useEffect` on their `data`/`options` prop (like `sharingan-rn-modal-dropdown`) then re-run their own state updates, causing "Maximum update depth exceeded".
+**Working solution**: Use `createSelector` from `@reduxjs/toolkit` (Reselect). The selector only recomputes — and only returns a new array — when the input references change.
+```ts
+const selectAll = createSelector(
+  (state) => state.slice.allIds,
+  (state) => state.slice.byId,
+  (allIds, byId) => allIds.map(id => byId[id]),
+);
+export const useAll = () => useSelector(selectAll);
+```
+**Apply when**: Any `useSelector` whose selector uses `.map()`, `.filter()`, or object spread — these always return new references.
+
+### 55. Never call `.find()` or `.filter()` directly in `useEffect` dependency array
+**Problem**: `useEffect(() => {...}, [list.find(x => x.id === id)])` calls `.find()` on every render, returning a new object reference even when the found item hasn't changed. React's dep comparison then always sees "changed" → effect fires every render → state update → re-render → loop.
+**Working solution**: Extract to a local `const` above the effect: `const item = list.find(x => x.id === id); useEffect(() => {...}, [item]);`. Since Redux state items are immutable, the reference is stable unless the actual item changed.
+**Apply when**: Any `.find()`, `.filter()`, or other array method call in a `useEffect` dep array.
+
+### 56. `jest.setup.js` NativeAnimatedHelper mock removed in RN 0.76+ (not only 0.80)
+Agent-memory previously noted this as an RN 0.80 change. In practice, the path `react-native/Libraries/Animated/NativeAnimatedHelper` no longer exists from RN 0.76+. Remove the mock from `jest.setup.js` for any project on RN ≥ 0.76; the RN jest preset handles it internally.
+
+### 57. Maestro `00_import_baseline` flow fails when app remembers a non-Training last tab
+`launchApp` (without `clearState: true`) restores the app to its last tab. If that's Settings, the flow's `extendedWaitUntil visible: 'Training'` never matches. Workaround: manually navigate via adb taps (Settings → Import Data button) and confirm the file picker. The baseline `.gains` file pushed to `/sdcard/Download/` is still found by the native file picker.
