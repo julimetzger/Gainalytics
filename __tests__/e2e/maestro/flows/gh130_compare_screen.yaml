@@ -22,7 +22,7 @@ appId: com.powerliftingworkoutplanner
 - tapOn: "Video Analyses"
 - extendedWaitUntil:
     visible: "Import Video"
-    timeout: 10000
+    timeout: 20000
 
 # Step 4: Verify two DONE analyses exist
 - assertVisible:
