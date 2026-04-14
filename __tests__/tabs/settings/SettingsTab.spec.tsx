@@ -370,6 +370,7 @@ describe('SettingsTab', () => {
     expect(Alert.alert).toHaveBeenCalledWith('exported to /mock/path/1234.gains');
   });
 
+  // Increase timeout: React 19 async batching can make waitFor take longer on first run
   it('renders exact alarm section and opens platform settings', async () => {
     mockedCanScheduleExactAlarms.mockResolvedValue(false);
 
@@ -387,5 +388,5 @@ describe('SettingsTab', () => {
     await waitFor(() => {
       expect(mockedOpenExactAlarmSettings).toHaveBeenCalledTimes(1);
     });
-  });
+  }, 15000);
 });
