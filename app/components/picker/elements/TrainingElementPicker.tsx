@@ -118,11 +118,16 @@ const TrainingElementPicker = ({
     return values;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exerciseIdsKey, muscleKey, metricKey, accKey]);
+  // Re-sync the accumulation object when its backing training plan changes in the store.
+  // IMPORTANT: never call .find() directly in the dep array — it creates a new object
+  // on every render even when nothing changed, causing an infinite update loop (GH-127).
+  const syncedPlan = trainingsPlan.find((tp: TrainingsPlan) => tp.id === accumulation?.trainingsPlan?.id);
   useEffect(() => {
-    if (accumulation?.accumulationMode === AccumulationMode.TRAINING_MICROCYCLE && setAccumulation) {
-      setAccumulation(Accumulation.fromTrainingsPlan(trainingsPlan.find((trainingsPlan: TrainingsPlan) => trainingsPlan.id === accumulation?.trainingsPlan?.id)!!));
+    if (accumulation?.accumulationMode === AccumulationMode.TRAINING_MICROCYCLE && setAccumulation && syncedPlan) {
+      setAccumulation(Accumulation.fromTrainingsPlan(syncedPlan));
     }
-  }, [trainingsPlan.find((trainingsPlan: TrainingsPlan) => trainingsPlan.id === accumulation?.trainingsPlan?.id)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncedPlan]);
 
   return (
     <View style={style}>
