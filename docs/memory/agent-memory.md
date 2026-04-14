@@ -173,3 +173,29 @@ A Maestro flow failing on the first assertion is often an app bootstrap crash (r
 
 ### Grep for dev/debug UI elements in both tab screens and modals
 "Import Emulator Squat Video" and similar dev-only buttons have historically lived in multiple places (main tab + selection modal). When removing them, `grep -r "<dev button text>" app/` before assuming one file is enough.
+
+## React Native 0.80 Upgrade Specifics
+
+### `GuardedResultAsyncTask` was removed in RN 0.80
+`com.facebook.react.bridge.GuardedResultAsyncTask` no longer exists. Any third-party native module that imports it (e.g. `react-native-document-picker@9.3.1`) will fail to compile. Fix via `patch-package`: replace `extends GuardedResultAsyncTask<T>` with a static helper class and `Executors.newSingleThreadExecutor().execute(...)`.
+
+### `SoLoader.init` was replaced in RN 0.80 `MainApplication.kt`
+The RN 0.80 template uses `ReactNativeApplicationEntryPoint.loadReactNative(this)` instead of `SoLoader.init(this, false)` + `OpenSourceMergedSoMapping.install()`. Update `MainApplication.kt`; the `SoLoader` import is gone.
+
+### React 19 forces `legacy-peer-deps` for older ecosystem packages
+`@reduxjs/toolkit@1.9.x` peer dep declaration excludes React 19 (`^16.9.0 || ^17.0.0 || ^18`). Create `.npmrc` with `legacy-peer-deps=true` to allow `npm ci` to pass. Don't upgrade RTK as part of an RN-only upgrade.
+
+### compileSdkVersion must be bumped to 36 for RN 0.80
+Removing `force 'androidx.core:core:1.13.1'` lets `androidx.core:core-ktx:1.17.x` resolve, which requires `compileSdkVersion 36`. Install Android SDK Platform 36 via `sdkmanager "platforms;android-36"` before the Gradle build.
+
+### JSC flavor artifact group changed in RN 0.80
+`org.webkit:android-jsc-intl:+` no longer resolves. Use `io.github.react-native-community:jsc-android-intl:2026004.+`.
+
+### NDK 27.1.12297006 required for RN 0.80 + Kotlin 2.1.20
+RN 0.80 with Kotlin 2.1.20 needs NDK 27. Install via `sdkmanager "ndk;27.1.12297006"` (not 26.x).
+
+### Jest mock path `react-native/Libraries/Animated/NativeAnimatedHelper` was removed
+In RN 0.80, the path no longer exists. Remove any `jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper')` from `jest.setup.js`. The RN jest preset handles animated mocking internally.
+
+### React 19 async batching can cause test timeouts at 5s default
+Tests using `waitFor` with React 19 may take 8+ seconds on first render. Add a `15000` timeout arg to any `it(...)` that flakes: `it('...', async () => { ... }, 15000);`.
