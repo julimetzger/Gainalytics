@@ -1,4 +1,6 @@
 // jest.setup.js
+// NOTE: react-native/Libraries/Animated/NativeAnimatedHelper was removed in RN 0.80.
+// The RN jest preset handles animated mocking internally — no manual mock needed.
 // Note: react-native/Libraries/Animated/NativeAnimatedHelper was removed in RN 0.76+.
 // The RN jest preset handles animated mocking internally — no explicit mock needed.
 
