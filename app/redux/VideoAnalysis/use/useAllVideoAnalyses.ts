@@ -1,4 +1,4 @@
-import {useSelector} from 'react-redux';
+import {shallowEqual, useSelector} from 'react-redux';
 import {VideoAnalysis} from '../../../models/entities/VideoAnalysis';
 import {GlobalState} from '../../rootReducer';
 
@@ -9,4 +9,4 @@ export const useAllVideoAnalyses = () =>
       .sort((left: VideoAnalysis, right: VideoAnalysis) => {
         return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
       });
-  });
+  }, shallowEqual);
