@@ -1,6 +1,8 @@
 // jest.setup.js
-// Silence Animated: "useNativeDriver" warnings, etc.
-jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
+// NOTE: react-native/Libraries/Animated/NativeAnimatedHelper was removed in RN 0.80.
+// The RN jest preset handles animated mocking internally — no manual mock needed.
+// Note: react-native/Libraries/Animated/NativeAnimatedHelper was removed in RN 0.76+.
+// The RN jest preset handles animated mocking internally — no explicit mock needed.
 
 // Provide a NavigationContainer-free useFocusEffect so components using it
 // can render in unit tests that don't wrap in NavigationContainer.

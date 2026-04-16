@@ -9,6 +9,7 @@ Last updated: 2026-04-12 (GH-95-r3)
 Last updated: 2026-04-13 (GH-109)
 Last updated: 2026-04-13 (GH-113-fb1)
 Last updated: 2026-04-14 (GH-130)
+Last updated: 2026-04-16 (merge: GH-127 + GH-130)
 
 ## Per-Worker Breakdown
 
@@ -61,6 +62,7 @@ Last updated: 2026-04-14 (GH-130)
 | GH-113 | real | 0 | 0 | 0 | 0 | 0 | 0 | 20 | 0 | 0 | ready_for_review (RN 0.73→0.75 upgrade; autolinking moved into Settings plugin, androidx.core 1.16 forced back to 1.13.1, JetifyTransform OOM → Xmx4096m, arm64-v8a added to debug abiFilters, Flipper removed from MainApplication.java; smoke.yaml pre-existing fragility in 00_import_baseline.yaml) |
 | GH-113-fb1 | real | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | ready_for_review (PR #114 review: ios/Podfile still on RN 0.73 template with FlipperConfiguration — rewrote to match RN 0.75.5 upstream template byte-for-byte, cleaned dead FB_SONARKIT_ENABLED block from AppDelegate.m; `pod install` not runnable on WSL so verified via template diff; npm test hit the /.worktrees/ ignore-pattern gotcha — overrode on CLI) |
 | GH-115 | real | 0 | 0 | 0 | 0 | 0 | 0 | 30 | 0 | 0 | ready_for_review (root `node_modules` stale at RN 0.72 after the #114 RN 0.75 bump → `com.facebook.react.settings` plugin-not-found, jest `@react-native/babel-preset` missing; fixed with one `npm install --legacy-peer-deps` at repo root; `your_key_name.keystore` + `ANDROID_RELEASE_PASSWORD` missing in worker env → temporarily swapped release `signingConfig` to `signingConfigs.debug`, built, installed, verified, reverted before commit; Jest `/.worktrees/` ignore pattern hit again — used `--runInBand` + CLI override) |
+| GH-127 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | ready_for_review (pure JS fix — createSelector memoization; Maestro import flow failed because app remembered Settings as last tab; imported manually via adb taps; no driver/gRPC/build issues; jest.setup.js NativeAnimatedHelper mock blocked all test suites — removed as known RN 0.76 change) |
 | GH-130 | real | 5 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 1 | ready_for_review (no APK rebuild needed — JS-only crash fix via Metro; Maestro TcpForwarder closed-port error was background noise, not fatal; baseline data already loaded from prior session; npm test pre-existing fail: RN 0.75.5 in Windows node_modules vs 0.76.9 in worktree causes NativeAnimatedHelper not found) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.

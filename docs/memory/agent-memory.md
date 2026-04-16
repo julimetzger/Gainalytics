@@ -200,24 +200,43 @@ In RN 0.80, the path no longer exists. Remove any `jest.mock('react-native/Libra
 ### React 19 async batching can cause test timeouts at 5s default
 Tests using `waitFor` with React 19 may take 8+ seconds on first render. Add a `15000` timeout arg to any `it(...)` that flakes: `it('...', async () => { ... }, 15000);`.
 
+### 54. Inline `.map()` in `useSelector` causes infinite render loops with `MultiselectDropdown`
+**Problem**: `useSelector((state) => state.slice.allIds.map(id => state.slice.byId[id]))` creates a new array reference on every call. `useSelector` uses reference equality, so it triggers a re-render on every store tick. Third-party libraries with internal `useEffect` on their `data`/`options` prop (like `sharingan-rn-modal-dropdown`) then re-run their own state updates, causing "Maximum update depth exceeded".
+**Working solution**: Use `createSelector` from `@reduxjs/toolkit` (Reselect). The selector only recomputes — and only returns a new array — when the input references change.
+```ts
+const selectAll = createSelector(
+  (state) => state.slice.allIds,
+  (state) => state.slice.byId,
+  (allIds, byId) => allIds.map(id => byId[id]),
+);
+export const useAll = () => useSelector(selectAll);
+```
+**Apply when**: Any `useSelector` whose selector uses `.map()`, `.filter()`, or object spread — these always return new references.
+
+### 55. Never call `.find()` or `.filter()` directly in `useEffect` dependency array
+**Problem**: `useEffect(() => {...}, [list.find(x => x.id === id)])` calls `.find()` on every render, returning a new object reference even when the found item hasn't changed. React's dep comparison then always sees "changed" → effect fires every render → state update → re-render → loop.
+**Working solution**: Extract to a local `const` above the effect: `const item = list.find(x => x.id === id); useEffect(() => {...}, [item]);`. Since Redux state items are immutable, the reference is stable unless the actual item changed.
+**Apply when**: Any `.find()`, `.filter()`, or other array method call in a `useEffect` dep array.
+
+### 56. `jest.setup.js` NativeAnimatedHelper mock removed in RN 0.76+ (not only 0.80)
+Agent-memory previously noted this as an RN 0.80 change. In practice, the path `react-native/Libraries/Animated/NativeAnimatedHelper` no longer exists from RN 0.76+. Remove the mock from `jest.setup.js` for any project on RN ≥ 0.76; the RN jest preset handles it internally.
+
+### 57. Maestro `00_import_baseline` flow fails when app remembers a non-Training last tab
+`launchApp` (without `clearState: true`) restores the app to its last tab. If that's Settings, the flow's `extendedWaitUntil visible: 'Training'` never matches. Workaround: manually navigate via adb taps (Settings → Import Data button) and confirm the file picker. The baseline `.gains` file pushed to `/sdcard/Download/` is still found by the native file picker.
+
 ## GH-130 / Maestro Real Device Learnings
 
-### 37. `useSelector` without `shallowEqual` causes infinite re-renders when returning mapped arrays
-**Problem:** `useSelector(state => state.x.allIds.map(...))` returns a new array reference on every store access, even when the data hasn't changed. If a component subscribes to this in a render cycle that itself triggers state updates (e.g. a picker dropdown), the result is "Maximum update depth exceeded" in React.
-**Working solution:** Always pass `shallowEqual` as the second arg to `useSelector` when the selector returns a new array via `.map()`: `useSelector(selector, shallowEqual)`.
-**Apply when:** Any `useSelector` call that uses `.map()`, `.filter()`, or `.reduce()` to return a new collection.
-
-### 38. Maestro `extendedWaitUntil` timeout must exceed actual navigation render time
+### 58. Maestro `extendedWaitUntil` timeout must exceed actual navigation render time
 **Problem:** After tapping a drawer item, the target screen can take 10–15s to render on a real device over Metro. `extendedWaitUntil: visible: "X", timeout: 10000` fails intermittently.
 **Working solution:** Use at least 20000ms for post-drawer-navigation waits. For screens with heavy data (video analyses list), 20s is the minimum.
 **Apply when:** Writing Maestro flows that navigate through drawer menus on real devices.
 
-### 39. Maestro flows must start by navigating to the correct tab — never assume current tab
+### 59. Maestro flows must start by navigating to the correct tab — never assume current tab
 **Problem:** A flow that starts with `tapOn: point "6%,6%"` (drawer hamburger) will open the CURRENT tab's drawer, not the Analyse drawer. If the app is on Training tab, "Video Analyses" won't be in the drawer.
 **Working solution:** Always start drawer-based flows with an explicit `tapOn: "tab-analyse"` (or the target tab) before opening the hamburger. The `tab-*` content-desc selectors reliably match the bottom nav on both real devices and emulators.
 **Apply when:** Any Maestro flow that navigates via the Analyse or Training drawer.
 
-### 40. `processColor` must be imported from `react-native`, not `react-native-paper`
+### 60. `processColor` must be imported from `react-native`, not `react-native-paper`
 **Problem:** `react-native-paper` does not export `processColor`. Importing from Paper compiles without error (re-export) but crashes at runtime when the function is called.
 **Working solution:** Always import `processColor` from `react-native`: `import {processColor} from 'react-native';`
 **Apply when:** Any component that uses `processColor` for chart colors (react-native-charts-wrapper).
