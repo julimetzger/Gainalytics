@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-document-picker/android/src/main/java/com/reactnativedocumentpicker/RNDocumentPickerModule.java b/node_modules/react-native-document-picker/android/src/main/java/com/reactnativedocumentpicker/RNDocumentPickerModule.java
-index 5001525..6cf4d39 100644
+index 5001525..bac5b01 100644
 --- a/node_modules/react-native-document-picker/android/src/main/java/com/reactnativedocumentpicker/RNDocumentPickerModule.java
 +++ b/node_modules/react-native-document-picker/android/src/main/java/com/reactnativedocumentpicker/RNDocumentPickerModule.java
 @@ -18,7 +18,6 @@ import androidx.annotation.NonNull;
@@ -10,15 +10,29 @@ index 5001525..6cf4d39 100644
  import com.facebook.react.bridge.Promise;
  import com.facebook.react.bridge.ReactApplicationContext;
  import com.facebook.react.bridge.ReactContext;
-@@ -36,6 +35,7 @@ import java.lang.ref.WeakReference;
+@@ -36,9 +35,13 @@ import java.lang.ref.WeakReference;
  import java.util.ArrayList;
  import java.util.List;
  import java.util.UUID;
++import java.util.concurrent.ExecutorService;
 +import java.util.concurrent.Executors;
  
  public class RNDocumentPickerModule extends NativeDocumentPickerSpec {
    public static final String NAME = "RNDocumentPicker";
-@@ -223,42 +223,23 @@ public class RNDocumentPickerModule extends NativeDocumentPickerSpec {
++  // Instance-level executor; shut down in invalidate() to avoid thread leaks across React reloads
++  private final ExecutorService executor = Executors.newSingleThreadExecutor();
+   private static final int READ_REQUEST_CODE = 41;
+   private static final int PICK_DIR_REQUEST_CODE = 42;
+ 
+@@ -104,6 +107,7 @@ public class RNDocumentPickerModule extends NativeDocumentPickerSpec {
+ 
+   @Override
+   public void invalidate() {
++    executor.shutdown();
+     getReactApplicationContext().removeActivityEventListener(activityEventListener);
+     super.invalidate();
+   }
+@@ -223,42 +227,23 @@ public class RNDocumentPickerModule extends NativeDocumentPickerSpec {
          return;
        }
  
@@ -26,7 +40,7 @@ index 5001525..6cf4d39 100644
 +      final Context appContext = getReactApplicationContext().getApplicationContext();
 +      final List<Uri> finalUris = uris;
 +      final String finalCopyTo = copyTo;
-+      Executors.newSingleThreadExecutor().execute(() -> {
++      executor.execute(() -> {
 +        WritableArray results = Arguments.createArray();
 +        for (Uri u : finalUris) {
 +          results.pushMap(ProcessDataHelper.getMetadata(appContext, u, finalCopyTo));
@@ -73,7 +87,7 @@ index 5001525..6cf4d39 100644
        if (context == null) {
          return Arguments.createMap();
        }
-@@ -288,19 +269,19 @@ public class RNDocumentPickerModule extends NativeDocumentPickerSpec {
+@@ -288,19 +273,19 @@ public class RNDocumentPickerModule extends NativeDocumentPickerSpec {
          }
        }
  
@@ -97,7 +111,7 @@ index 5001525..6cf4d39 100644
        File dir = context.getCacheDir();
        if (copyTo.equals("documentDirectory")) {
          dir = context.getFilesDir();
-@@ -326,7 +307,7 @@ public class RNDocumentPickerModule extends NativeDocumentPickerSpec {
+@@ -326,7 +311,7 @@ public class RNDocumentPickerModule extends NativeDocumentPickerSpec {
        }
      }
  
