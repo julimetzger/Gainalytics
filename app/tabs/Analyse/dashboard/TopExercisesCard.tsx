@@ -23,7 +23,7 @@ const TopExercisesCard = ({exerciseMetricMap, onExercisePress}: TopExercisesCard
 
   return (
     <Card style={styles.card} testID="top-exercises-card">
-      <Card.Title title="Top Übungen der Woche" />
+      <Card.Title title="Top Exercises This Week" />
       <Card.Content>
         {topExercises.map(({exercise, metrics}) => {
           const volume = metrics.get(Metric.VOLUME);

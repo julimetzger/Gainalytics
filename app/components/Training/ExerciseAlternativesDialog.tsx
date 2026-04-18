@@ -19,7 +19,7 @@ const ExerciseAlternativesDialog = ({visible, exercise, alternatives, onDismiss,
   return (
     <View style={[styles.container, {backgroundColor: theme.colors.surface, borderColor: theme.colors.outline}]}>
       <Text variant="titleSmall" style={styles.title}>
-        {exercise ? `Alternativen für ${exercise.name}` : 'Alternativen'}
+        {exercise ? `Alternatives for ${exercise.name}` : 'Alternatives'}
       </Text>
       <Divider style={styles.divider} />
       {alternatives.length > 0 ? (
@@ -31,9 +31,9 @@ const ExerciseAlternativesDialog = ({visible, exercise, alternatives, onDismiss,
           ))}
         </View>
       ) : (
-        <Text style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>Keine Alternativen</Text>
+        <Text style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>No Alternatives</Text>
       )}
-      <Button onPress={onDismiss} style={styles.closeButton}>Schließen</Button>
+      <Button onPress={onDismiss} style={styles.closeButton}>Close</Button>
     </View>
   );
 };

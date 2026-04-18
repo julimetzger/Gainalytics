@@ -1075,7 +1075,7 @@ const AppWithPersist = () => {
               theme={paperThemes}
               onReady={handleNavigationReady}
               onStateChange={(state) => {
-                // Navigation-State-Tracking für Analytics
+                // Navigation state tracking for analytics
               }}
             >
               <BottomTabs />
