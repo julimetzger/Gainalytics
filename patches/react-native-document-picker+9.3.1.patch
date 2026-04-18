@@ -32,20 +32,24 @@ index 5001525..bac5b01 100644
      getReactApplicationContext().removeActivityEventListener(activityEventListener);
      super.invalidate();
    }
-@@ -223,42 +227,23 @@ public class RNDocumentPickerModule extends NativeDocumentPickerSpec {
+@@ -223,42 +227,27 @@ public class RNDocumentPickerModule extends NativeDocumentPickerSpec {
          return;
        }
- 
+
 -      new ProcessDataTask(getReactApplicationContext(), uris, copyTo, promise).execute();
 +      final Context appContext = getReactApplicationContext().getApplicationContext();
 +      final List<Uri> finalUris = uris;
 +      final String finalCopyTo = copyTo;
 +      executor.execute(() -> {
-+        WritableArray results = Arguments.createArray();
-+        for (Uri u : finalUris) {
-+          results.pushMap(ProcessDataHelper.getMetadata(appContext, u, finalCopyTo));
++        try {
++          WritableArray results = Arguments.createArray();
++          for (Uri u : finalUris) {
++            results.pushMap(ProcessDataHelper.getMetadata(appContext, u, finalCopyTo));
++          }
++          promise.resolve(results);
++        } catch (Throwable t) {
++          promise.reject(E_UNEXPECTED_EXCEPTION, t.getMessage() != null ? t.getMessage() : t.toString(), t);
 +        }
-+        promise.resolve(results);
 +      });
      } catch (Exception e) {
        sendError(E_UNEXPECTED_EXCEPTION, e.getLocalizedMessage(), e);
