@@ -98,6 +98,16 @@ After an RN upgrade, always validate with a fresh `npm ci` from scratch, not jus
 ### `react-native-gesture-handler` needs a root-entry import, not a lazy one
 Any screen that uses `@react-navigation/drawer` or `react-native-drawer-layout` depends on the gesture-handler native module being registered at JS evaluation time. Debug builds get away without the root import because Fast Refresh paths end up registering it before the drawer renders; release builds can evaluate the drawer screen first and crash on mount. The fix is the documented `import 'react-native-gesture-handler';` as the **first** import of `index.tsx` — not inside any lazy code path. Symptoms: release-only crash the moment you tab into Analyse or open a Training plan; debug works fine.
 
+### `debug_http_host` via `run-as`: use `/data/local/tmp` as intermediary
+Direct shell redirect with `run-as` fails: `adb shell "run-as com.pkg sh -c 'echo X > /data/data/.../prefs.xml'"` throws "Permission denied" due to quoting/pipe handling. Reliable pattern:
+1. Push correct XML to neutral ground: `adb push /tmp/prefs.xml /data/local/tmp/prefs.xml`
+2. Copy with run-as: `adb shell "run-as com.powerliftingworkoutplanner sh -c 'cat /data/local/tmp/prefs.xml > /data/data/com.powerliftingworkoutplanner/shared_prefs/com.powerliftingworkoutplanner_preferences.xml'"`
+
+The SharedPreferences file is `com.powerliftingworkoutplanner_preferences.xml` (underscore-separated, not `com.powerliftingworkoutplanner.xml`). Set `debug_http_host` to `10.0.2.2:PORT` (not `127.0.0.1` or `localhost`) for AVD emulators.
+
+### Hermes lazy bundle incompatibility: connection succeeds but JS parse fails
+RN 0.82 (New Architecture) Metro sends bundles with `?lazy=true`. If you test against an APK built from a different Metro/Hermes version pair, Hermes accepts the connection (`isMetroRunning()=true` in logcat) but throws `Compiling JS failed: ']' expected at end of array literal` deep inside a bundled library (often @react-navigation). This is a pre-existing APK/Metro version mismatch — not a code regression. The only fix is rebuilding the APK. When you can't rebuild (e.g. Gradle Kotlin mismatch), use unit tests as primary evidence and document the infra caveat in summary.md.
+
 ### Jest `testPathIgnorePatterns: ['/.worktrees/']` hides specs in a worktree
 When you run `jest` from inside `.worktrees/feature-*/`, every test file's absolute path contains `/.worktrees/`, so the default ignore pattern matches them all and jest reports "No tests found". Workaround for a single run: `npx jest --testPathIgnorePatterns=/node_modules/ --testPathIgnorePatterns=/__tests__/coverage/`. Don't waste time debugging missing specs in a worktree — check the ignore pattern first.
 

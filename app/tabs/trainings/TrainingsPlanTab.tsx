@@ -1,4 +1,5 @@
 import React, {useState, useCallback} from 'react';
+import {ViewMode} from './MicroOverviewTraining';
 import {BackHandler} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {IconButton, useTheme} from 'react-native-paper';
@@ -31,6 +32,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   let [showDone, setShowDone] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [ignoreSwipeLocations, setIgnoreSwipeLocations] = useState<LayoutRectangle[]>([]);
+  const [microViewMode, setMicroViewMode] = useState<ViewMode>('gesamt');
 
   let changeTrainingsName = dispatchChangeTrainingsName();
   let addMeso = dispatchAddMeso();
@@ -163,6 +165,8 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
               setIgnoreSwipe={(locations) => {
                 locations && locations.length > 0 && setIgnoreSwipeLocations(locations);
               }}
+              microViewMode={microViewMode}
+              onMicroViewModeChange={setMicroViewMode}
             />
           )}
           determineValueByIndex={(index, currentMicro) => {

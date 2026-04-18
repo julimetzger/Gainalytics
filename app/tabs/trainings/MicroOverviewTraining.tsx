@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useMemo} from 'react';
 import {ScrollView, View} from 'react-native';
 import {SegmentedButtons, Text} from 'react-native-paper';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
@@ -10,12 +10,14 @@ import MicroExerciseOverview from '../../components/Training/analyse/MicroExerci
 import MetricsOverviewForWorkouts from '../../components/analyse/MetricsOverviewForWorkouts';
 import {Training} from '../../models/entities/Training';
 
-type ViewMode = 'gesamt' | 'exercise' | 'muscle';
+export type ViewMode = 'gesamt' | 'exercise' | 'muscle';
 
 interface Props {
   trainingsPlan: TrainingsPlan;
   micro: number;
   isActive?: boolean;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
 }
 
 interface TrainingMuscleCardProps {
@@ -74,14 +76,12 @@ const MuscleView = ({trainingsPlan, micro}: Props) => {
   );
 };
 
-const MicroOverviewTraining = ({trainingsPlan, micro, isActive = true}: Props) => {
-  const [view, setView] = useState<ViewMode>('gesamt');
-
+const MicroOverviewTraining = ({trainingsPlan, micro, isActive = true, viewMode, onViewModeChange}: Props) => {
   return (
     <View style={{flex: 1}}>
       <SegmentedButtons
-        value={view}
-        onValueChange={(v) => setView(v as ViewMode)}
+        value={viewMode}
+        onValueChange={(v) => onViewModeChange(v as ViewMode)}
         style={{margin: 8}}
         buttons={[
           {value: 'gesamt', label: 'Gesamt'},
@@ -89,9 +89,9 @@ const MicroOverviewTraining = ({trainingsPlan, micro, isActive = true}: Props) =
           {value: 'muscle', label: 'Muscle'},
         ]}
       />
-      {view === 'gesamt' && <MicroOverview trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} />}
-      {view === 'exercise' && <MicroExerciseOverview trainingsPlan={trainingsPlan} micro={micro} />}
-      {view === 'muscle' && <MuscleView trainingsPlan={trainingsPlan} micro={micro} />}
+      {viewMode === 'gesamt' && <MicroOverview trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} />}
+      {viewMode === 'exercise' && <MicroExerciseOverview trainingsPlan={trainingsPlan} micro={micro} />}
+      {viewMode === 'muscle' && <MuscleView trainingsPlan={trainingsPlan} micro={micro} />}
     </View>
   );
 };
