@@ -154,6 +154,14 @@ Tests that render the screen crash with "Element type is invalid" until the new 
 ### Exclude `.worktrees/` from Jest discovery
 A repo full of `.worktrees/feature-*/` directories each with its own test suite explodes the test run to thousands of suites. Add `/.worktrees/` to `testPathIgnorePatterns` in `jest.config.cjs`.
 
+## ADB / Device
+
+### Samsung real-device screencap returns 0 bytes (DRM/secure mode)
+On Samsung Galaxy devices with Knox or certain Developer Options states, `adb exec-out screencap -p` and `adb shell screencap /sdcard/x.png` both exit 0 but produce empty output. Use Maestro's `takeScreenshot` step instead — Maestro's internal UIAutomator-based screencap bypasses this restriction. If you need a screenshot *without* a Maestro flow, check if the screen is DRM-protected before wasting time debugging the pipe.
+
+### Stale Maestro process blocks subsequent sessions on the same driver port
+A Maestro session that crashes or is interrupted leaves a JVM process listening on the `--driver-host-port`. The next `maestro test` attempt immediately fails with "Command failed (tcp:<port>): closed". Fix: `kill -9 $(lsof -ti tcp:<port>)` or `netstat -tlnp | grep <port>` to find the PID, then kill it. Use a fresh port if the PID cannot be found.
+
 ## Worker Discipline
 
 ### Check `run_dir` for existing artifacts before repeating work

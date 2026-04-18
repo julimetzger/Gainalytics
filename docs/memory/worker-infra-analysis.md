@@ -12,6 +12,7 @@ Last updated: 2026-04-14 (GH-130)
 Last updated: 2026-04-16 (merge: GH-127 + GH-130)
 Last updated: 2026-04-17 (GH-124-fix1)
 Last updated: 2026-04-18 (GH-124-fix1 r2)
+Last updated: 2026-04-18 (GH-133)
 
 ## Per-Worker Breakdown
 
@@ -69,6 +70,7 @@ Last updated: 2026-04-18 (GH-124-fix1 r2)
 | GH-127 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | ready_for_review (pure JS fix — createSelector memoization; Maestro import flow failed because app remembered Settings as last tab; imported manually via adb taps; no driver/gRPC/build issues; jest.setup.js NativeAnimatedHelper mock blocked all test suites — removed as known RN 0.76 change) |
 | GH-130 | real | 5 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 1 | ready_for_review (no APK rebuild needed — JS-only crash fix via Metro; Maestro TcpForwarder closed-port error was background noise, not fatal; baseline data already loaded from prior session; npm test pre-existing fail: RN 0.75.5 in Windows node_modules vs 0.76.9 in worktree causes NativeAnimatedHelper not found) |
 | GH-134 | emu | 5 | 0 | 0 | 8 | 30 | 0 | 20 | 0 | 0 | ready_for_review (Metro at 8084 had pre-existing VirtualView.js TC39 pattern-matching syntax error — bundled JS offline with npx react-native bundle + assembled APK; Maestro TcpForwarder port 7057 closed; imported baseline data manually via adb+app UI; pure JS fix, no native changes) |
+| GH-133 | real | 8 | 0 | 0 | 0 | 0 | 0 | 0 | 15 | 0 | ready_for_review (Samsung device screencap produces 0 bytes regardless of method — DRM secure mode; Maestro takeScreenshot bypasses this; stale Maestro JVM process on port 7056 required kill + use port 7058; JS-only change, no APK rebuild; 396 unit tests passed) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
