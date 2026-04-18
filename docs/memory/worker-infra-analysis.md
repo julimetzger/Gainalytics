@@ -14,6 +14,8 @@ Last updated: 2026-04-17 (GH-124-fix1)
 Last updated: 2026-04-18 (GH-124-fix1 r2)
 Last updated: 2026-04-18 (GH-133)
 Last updated: 2026-04-18 (GH-143)
+Last updated: 2026-04-18 (GH-139)
+Last updated: 2026-04-18 (GH-139-fix1)
 
 ## Per-Worker Breakdown
 
@@ -74,6 +76,8 @@ Last updated: 2026-04-18 (GH-143)
 | GH-133 | real | 8 | 0 | 0 | 0 | 0 | 0 | 0 | 15 | 0 | ready_for_review (Samsung device screencap produces 0 bytes regardless of method — DRM secure mode; Maestro takeScreenshot bypasses this; stale Maestro JVM process on port 7056 required kill + use port 7058; JS-only change, no APK rebuild; 396 unit tests passed) |
 | GH-143 | emu | 0 | 0 | 0 | 15 | 30 | 20 | 20 | 10 | 0 | ready_for_review (pre-existing Gradle Kotlin 2.1.20 vs gesture-handler 1.9.0 metadata mismatch prevented APK build; Hermes lazy bundle incompatibility with GH-135 APK prevented live Metro testing; SharedPreferences debug_http_host fixed via /data/local/tmp intermediary; unit tests primary evidence for fix) |
 | GH-142 | emu | 0 | 5 | 0 | 5 | 10 | 0 | 0 | 0 | 0 | ready_for_review (APK build failed — pre-existing CMake/reanimated `No compatible library found`; used GH-135 APK; GH-139 APK incompatible with GH-142 bundle → Drawer `useLegacyImplementation` crash; Maestro import needed retry; baseline fixture has no VL data so `useVelocityLossInsights` always returns []; `with VL` screenshot AC met via unit tests only) |
+| GH-139 | real | 0 | 0 | 0 | 1 | 0 | 3 | 2 | 15 | 0 | ready_for_review (RN 0.82→0.84 upgrade; reanimated 4 required react-navigation v7 upgrade; initialRouteName="Feed" typo caught by nav v7; react-native-worklets Jest mock needed; debug build ~10 min first clean build of worklets CMake; no Maestro/ADB issues) |
+| GH-139-fix1 | real | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review (pure one-line signing-config revert; assembleDebug clean pass; no ADB/Maestro/Metro issues; gh pr edit --body fails with GraphQL Projects deprecation warning but completes) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
