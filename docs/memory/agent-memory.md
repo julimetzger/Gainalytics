@@ -120,6 +120,9 @@ If a screen reads persisted data via lazy `useState(() => savedX)`, it sees `und
 ### `viewPortOffsets` on `react-native-charts-wrapper` expects physical pixels, not dp
 `{left: 64, ...}` with a dp value misaligns overlays at density ≠ 1. Use `Math.round(VALUE_DP * PixelRatio.get())` for the chart prop and keep the JS overlay constant in dp.
 
+### Metro may fail with TC39 pattern-matching syntax in RN 0.76 `src/private` files
+`VirtualView.js` and similar new files in `react-native/src/private/` use `match (mode) { ... }` (TC39 proposal), which the bundled `hermes-parser` version may not support. Symptom: `SyntaxError: ';' expected` at the `match` keyword when loading the bundle from Metro, even though the APK builds fine. **Workaround:** bundle the JS offline (`npx react-native bundle --platform android --dev true --entry-file index.tsx --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res`), then rebuild the APK with Gradle. The prebuilt bundle bypasses Metro at runtime.
+
 ### Hex-color string concatenation breaks under `rgb()` themes
 `theme.colors.primary + '33'` works when primary is `#rrggbb` but produces `rgb(...)33` under themes that return `rgb()` strings, which is not a valid React Native color and crashes at render. Use an alpha-safe helper that accepts both formats and emits `rgba(r,g,b,alpha)`.
 
