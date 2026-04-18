@@ -1,0 +1,129 @@
+diff --git a/node_modules/react-native-reanimated/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxy.h b/node_modules/react-native-reanimated/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxy.h
+index 8e970cb..7992d3a 100644
+--- a/node_modules/react-native-reanimated/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxy.h
++++ b/node_modules/react-native-reanimated/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxy.h
+@@ -57,7 +57,7 @@ struct LayoutAnimationsProxy
+   mutable std::unordered_set<SurfaceId> surfacesToRemove_;
+   mutable std::vector<Tag> finishedAnimationTags_;
+   std::shared_ptr<LayoutAnimationsManager> layoutAnimationsManager_;
+-  ContextContainer::Shared contextContainer_;
++  std::shared_ptr<const ContextContainer> contextContainer_;
+   SharedComponentDescriptorRegistry componentDescriptorRegistry_;
+   jsi::Runtime &uiRuntime_;
+   const std::shared_ptr<UIScheduler> uiScheduler_;
+@@ -70,7 +70,7 @@ struct LayoutAnimationsProxy
+   LayoutAnimationsProxy(
+       std::shared_ptr<LayoutAnimationsManager> layoutAnimationsManager,
+       SharedComponentDescriptorRegistry componentDescriptorRegistry,
+-      ContextContainer::Shared contextContainer,
++      std::shared_ptr<const ContextContainer> contextContainer,
+       jsi::Runtime &uiRuntime,
+       const std::shared_ptr<UIScheduler> uiScheduler
+ #ifdef ANDROID
+diff --git a/node_modules/react-native-reanimated/android/src/main/cpp/worklets/CMakeLists.txt b/node_modules/react-native-reanimated/android/src/main/cpp/worklets/CMakeLists.txt
+index bb61ff7..3747fce 100644
+--- a/node_modules/react-native-reanimated/android/src/main/cpp/worklets/CMakeLists.txt
++++ b/node_modules/react-native-reanimated/android/src/main/cpp/worklets/CMakeLists.txt
+@@ -57,7 +57,12 @@ else()
+ endif()
+ 
+ if(${JS_RUNTIME} STREQUAL "hermes")
+-  target_link_libraries(worklets hermes-engine::libhermes)
++  # RN 0.82 renamed the hermes prefab module from libhermes to hermesvm
++  if(ReactAndroid_VERSION_MINOR GREATER_EQUAL 82)
++    target_link_libraries(worklets hermes-engine::hermesvm)
++  else()
++    target_link_libraries(worklets hermes-engine::libhermes)
++  endif()
+ 
+   if(${HERMES_ENABLE_DEBUGGER})
+     string(APPEND CMAKE_CXX_FLAGS " -DHERMES_ENABLE_DEBUGGER=1")
+diff --git a/node_modules/react-native-reanimated/android/src/main/java/com/swmansion/reanimated/ReanimatedModule.java b/node_modules/react-native-reanimated/android/src/main/java/com/swmansion/reanimated/ReanimatedModule.java
+index 14d252c..9dd3dcf 100644
+--- a/node_modules/react-native-reanimated/android/src/main/java/com/swmansion/reanimated/ReanimatedModule.java
++++ b/node_modules/react-native-reanimated/android/src/main/java/com/swmansion/reanimated/ReanimatedModule.java
+@@ -10,7 +10,6 @@ import com.facebook.react.bridge.UIManagerListener;
+ import com.facebook.react.fabric.FabricUIManager;
+ import com.facebook.react.module.annotations.ReactModule;
+ import com.facebook.react.uimanager.UIManagerModule;
+-import com.facebook.react.uimanager.UIManagerModuleListener;
+ import com.swmansion.worklets.WorkletsModule;
+ import java.util.ArrayList;
+ import java.util.Objects;
+@@ -18,7 +17,7 @@ import javax.annotation.Nullable;
+ 
+ @ReactModule(name = ReanimatedModule.NAME)
+ public class ReanimatedModule extends NativeReanimatedModuleSpec
+-    implements LifecycleEventListener, UIManagerModuleListener, UIManagerListener {
++    implements LifecycleEventListener, UIManagerListener {
+ 
+   public void didDispatchMountItems(@NonNull UIManager uiManager) {
+     // Keep: Required for UIManagerListener
+@@ -33,8 +32,7 @@ public class ReanimatedModule extends NativeReanimatedModuleSpec
+   }
+ 
+   public void willDispatchViewUpdates(@NonNull UIManager uiManager) {
+-    // This method is called for the interface of UIManagerListener on Fabric.
+-    // The below function with the same name won't be called.
++    // Called by UIManagerListener on both Fabric (New Arch) and UIManagerModule (Old Arch in RN 0.82+).
+     if (mOperations.isEmpty()) {
+       return;
+     }
+@@ -49,8 +47,19 @@ public class ReanimatedModule extends NativeReanimatedModuleSpec
+                   operation.execute(nodesManager);
+                 }
+               });
++    } else if (uiManager instanceof UIManagerModule) {
++      // Old Architecture path: RN 0.82 removed UIManagerModuleListener; UIManagerModule now
++      // calls UIManagerListener.willDispatchViewUpdates with itself as UIManager argument.
++      ((UIManagerModule) uiManager)
++          .addUIBlock(
++              nativeViewHierarchyManager -> {
++                NodesManager nodesManager = getNodesManager();
++                for (UIThreadOperation operation : operations) {
++                  operation.execute(nodesManager);
++                }
++              });
+     } else {
+-      throw new RuntimeException("[Reanimated] Failed to obtain instance of FabricUIManager.");
++      throw new RuntimeException("[Reanimated] Failed to obtain UIManagerModule or FabricUIManager.");
+     }
+   }
+ 
+@@ -92,9 +101,9 @@ public class ReanimatedModule extends NativeReanimatedModuleSpec
+     } else {
+       UIManagerModule uiManager =
+           Objects.requireNonNull(reactCtx.getNativeModule(UIManagerModule.class));
+-      uiManager.addUIManagerListener(this);
++      uiManager.addUIManagerEventListener(this);
+       mUnsubscribe =
+-          Utils.combineRunnables(mUnsubscribe, () -> uiManager.removeUIManagerListener(this));
++          Utils.combineRunnables(mUnsubscribe, () -> uiManager.removeUIManagerEventListener(this));
+     }
+     reactCtx.addLifecycleEventListener(this);
+     mUnsubscribe =
+@@ -120,24 +129,6 @@ public class ReanimatedModule extends NativeReanimatedModuleSpec
+     // do nothing
+   }
+ 
+-  @Override
+-  public void willDispatchViewUpdates(final UIManagerModule uiManager) {
+-    // This method is called for the interface of UIManagerModuleListener on
+-    // Paper. The below function with the same name won't be called.
+-    if (mOperations.isEmpty()) {
+-      return;
+-    }
+-    final ArrayList<UIThreadOperation> operations = mOperations;
+-    mOperations = new ArrayList<>();
+-    uiManager.addUIBlock(
+-        nativeViewHierarchyManager -> {
+-          NodesManager nodesManager = getNodesManager();
+-          for (UIThreadOperation operation : operations) {
+-            operation.execute(nodesManager);
+-          }
+-        });
+-  }
+-
+   /*package*/
+   public NodesManager getNodesManager() {
+     if (mNodesManager == null) {
