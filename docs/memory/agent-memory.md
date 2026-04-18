@@ -342,3 +342,24 @@ A Maestro test piped to a log file (`maestro test ... > run.log 2>&1 &`) may sho
 ### 62. APK from older worktree + newer Metro bundle can show Drawer `useLegacyImplementation` crash
 **Problem/Symptoms:** Installing an APK from an older worktree (e.g. GH-139) with a newer Metro bundle causes "The `useLegacyImplementation` prop is not available with Reanimated 3" crash on drawer navigation. Dismissed, but app reloads and navigation is broken.
 **Working solution:** Use the most recent compatible APK (GH-135 was built from the RN 0.82 upgrade and works with subsequent JS bundles). Prefer GH-135's APK over GH-139's when the current worktree can't build.
+
+## GH-139 / React Native 0.84 Upgrade Learnings
+
+### Reanimated 4.x breaks @react-navigation/drawer v6 in two ways
+**Problem/Symptoms:** (1) `isConfigured()` is exported from reanimated 4 but returns `false` (it's deprecated — use `reanimatedVersion` instead). `@react-navigation/drawer@6.x` defaults `useLegacyImplementation = !Reanimated.isConfigured?.()` → `true`, then throws "The `useLegacyImplementation` prop is not available with Reanimated 3". (2) The modern drawer in v6 uses `useAnimatedGestureHandler` which was removed in reanimated 4.
+**Working solution:** Upgrade `@react-navigation/drawer` to v7.x and `react-native-drawer-layout` to v4.x. This requires upgrading all of `@react-navigation/*` to v7 since drawer v7 depends on `@react-navigation/native ^7.x`. The v6→v7 upgrade is non-breaking for the APIs used in this app (createDrawerNavigator, createNativeStackNavigator, NativeStackScreenProps, useNavigation, useFocusEffect).
+**Apply when:** Any upgrade to react-native-reanimated ≥ 4.0.
+
+### react-native-worklets requires a Jest mock from reanimated 4.x onwards
+**Problem/Symptoms:** `require('react-native-reanimated/mock')` in jest.setup.js now transitively imports `react-native-worklets` (new package split from reanimated 4). Without a mock, any test file crashes with `WorkletsError: Native part of Worklets doesn't seem to be initialized`.
+**Working solution:** Add `jest.mock('react-native-worklets', () => require('react-native-worklets/lib/module/mock'));` to `jest.setup.js` BEFORE the reanimated mock.
+**Apply when:** Any project upgrading to react-native-reanimated ≥ 4.0.
+
+### react-navigation v7 validates initialRouteName strictly
+**Problem/Symptoms:** `initialRouteName="Feed"` in a Tab.Navigator that has no "Feed" screen was silently ignored in v6. In v7, it throws "Couldn't find a screen named 'Feed' to use as initialRouteName." at startup.
+**Working solution:** Change `initialRouteName` to match an actual registered screen name (e.g., "Training").
+**Apply when:** Upgrading @react-navigation/* v6 → v7 — check all Navigator components for phantom `initialRouteName` values.
+
+### react-native-reanimated 4.x patch from 0.82 upgrade is no longer needed
+**Observation:** The `react-native-reanimated+3.19.5.patch` that fixed hermes prefab rename (libhermes → hermesvm) and UIManagerModuleListener removal for RN 0.82 is specific to reanimated 3.x. Reanimated 4.x includes these fixes natively. Drop the patch when upgrading to reanimated 4.
+**Apply when:** Upgrading from reanimated 3.x to 4.x — check if the patch still applies and if it addresses an issue still present in the new version before keeping it.
