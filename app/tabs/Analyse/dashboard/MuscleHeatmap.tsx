@@ -25,7 +25,7 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
 
   return (
     <Card style={styles.card} testID="muscle-heatmap-card">
-      <Card.Title title="Muskelgruppen" />
+      <Card.Title title="Muscle Groups" />
       <Card.Content>
         <View style={styles.chipContainer}>
           {allMuscles.map((muscle) => {
@@ -47,7 +47,7 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
             );
           })}
         </View>
-        <Text style={styles.hint}>Tippe auf eine Muskelgruppe für Details</Text>
+        <Text style={styles.hint}>Tap a muscle group for details</Text>
       </Card.Content>
     </Card>
   );

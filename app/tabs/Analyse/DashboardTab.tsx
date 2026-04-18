@@ -77,13 +77,13 @@ const DashboardTab = () => {
       <TopExercisesCard exerciseMetricMap={exerciseMetricMap} onExercisePress={handleExercisePress} />
 
       <View style={styles.quickNav}>
-        <Text style={styles.quickNavTitle}>Schnellzugriff</Text>
+        <Text style={styles.quickNavTitle}>Quick Access</Text>
         <View style={styles.quickNavRow}>
           <Button mode="outlined" onPress={() => navigation.navigate('Metrics')} style={styles.navButton} testID="nav-metrics">
-            Alle Metriken
+            All Metrics
           </Button>
           <Button mode="outlined" onPress={() => navigation.navigate('History', {exercise: {name: ''}, lowerRangeBound: undefined})} style={styles.navButton} testID="nav-history">
-            Verlauf
+            History
           </Button>
           <Button mode="outlined" onPress={() => navigation.navigate('Records')} style={styles.navButton} testID="nav-records">
             Records

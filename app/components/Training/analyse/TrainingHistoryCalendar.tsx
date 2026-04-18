@@ -249,7 +249,7 @@ interface TrainingHistoryCalendarProps {
   /** The plan whose drawer opened this calendar */
   currentPlan: TrainingsPlan;
   onNavigateToTraining: (plan: TrainingsPlan, micro: number, trainingInMicro: number) => void;
-  /** Called when the user taps "Zurück zum Plan" — clears the history view */
+  /** Called when the user taps "Back to Plan" — clears the history view */
   onBack?: () => void;
 }
 
@@ -443,7 +443,7 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining, onBack}: Tr
           contentStyle={{flexDirection: 'row-reverse'}}
           testID="history-back-button"
         >
-          Zurück zum Plan
+          Back to Plan
         </Button>
       )}
       <Calendar

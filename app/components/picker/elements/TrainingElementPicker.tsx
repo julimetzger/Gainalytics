@@ -36,7 +36,7 @@ const TrainingElementPicker = ({
     setShow(visible);
   }, [visible]);
 
-  //TODO is this good? sollen wirklich die exercises nicht angezeigt werden? Beim adden der exercises passiert dann gar nichts mehr
+  //TODO is this good? should exercises really not be shown? When adding exercises nothing happens anymore
   // selectedExercises = selectedExercises.filter((value: string) => !exercisesByMuscles.map(value => value.id?.toString()).includes(value));
 
   // Memoize the dropdown structure so its reference stays stable between renders.

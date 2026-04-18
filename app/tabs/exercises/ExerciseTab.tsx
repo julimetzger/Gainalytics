@@ -16,7 +16,7 @@ const ExerciseTab = ({navigation, route}: Props) => {
   const exercises = useAlleExercises().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
   const settings = useSettings();
 
-  // Ref für das TextInput
+  // Ref for the TextInput
   const filterInputRef = React.useRef<RNTextInput>(null);
 
   useEffect(() => {

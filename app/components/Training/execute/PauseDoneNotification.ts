@@ -34,15 +34,15 @@ export const PauseDoneNotification = () => {
 
     const trigger: TimestampTrigger = {
       type: TriggerType.TIMESTAMP,
-      timestamp: Date.now() + pauseTimerInSeconds * 1000 + 250, // kleine Pufferzeit
+      timestamp: Date.now() + pauseTimerInSeconds * 1000 + 250, // small buffer time
       ...(useExact && {alarmManager: {type: AlarmType.SET_EXACT_AND_ALLOW_WHILE_IDLE}}),
     };
 
     await notifee.createTriggerNotification(
       {
         id: notificationIdRef.current,
-        title: 'Pause beendet!',
-        body: 'Zeit, das nächste Set zu starten!',
+        title: 'Pause done!',
+        body: 'Time to start the next set!',
         android: {
           channelId,
           smallIcon: '@mipmap/icon_notification',
