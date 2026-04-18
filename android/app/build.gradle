@@ -67,7 +67,7 @@ def enableProguardInReleaseBuilds = false
  * give correct results when using with locales other than en-US.  Note that
  * this variant is about 6MiB larger per architecture than default.
  */
-def jscFlavor = 'org.webkit:android-jsc-intl:+'
+def jscFlavor = 'io.github.react-native-community:jsc-android-intl:2026004.+'
 def androidReleasePassword = System.getenv("ANDROID_RELEASE_PASSWORD")
 
 android {
@@ -128,14 +128,6 @@ android {
     }
 }
 
-// androidx.core 1.16.0 requires AGP 8.6+; RN 0.75 ships with AGP 8.5.
-// Pin to 1.13.1, the last version compatible with AGP 8.5 + compileSdk 35.
-configurations.all {
-    resolutionStrategy {
-        force 'androidx.core:core:1.13.1'
-        force 'androidx.core:core-ktx:1.13.1'
-    }
-}
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
