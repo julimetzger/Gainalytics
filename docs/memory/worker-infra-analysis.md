@@ -73,6 +73,7 @@ Last updated: 2026-04-18 (GH-143)
 | GH-134 | emu | 5 | 0 | 0 | 8 | 30 | 0 | 20 | 0 | 0 | ready_for_review (Metro at 8084 had pre-existing VirtualView.js TC39 pattern-matching syntax error — bundled JS offline with npx react-native bundle + assembled APK; Maestro TcpForwarder port 7057 closed; imported baseline data manually via adb+app UI; pure JS fix, no native changes) |
 | GH-133 | real | 8 | 0 | 0 | 0 | 0 | 0 | 0 | 15 | 0 | ready_for_review (Samsung device screencap produces 0 bytes regardless of method — DRM secure mode; Maestro takeScreenshot bypasses this; stale Maestro JVM process on port 7056 required kill + use port 7058; JS-only change, no APK rebuild; 396 unit tests passed) |
 | GH-143 | emu | 0 | 0 | 0 | 15 | 30 | 20 | 20 | 10 | 0 | ready_for_review (pre-existing Gradle Kotlin 2.1.20 vs gesture-handler 1.9.0 metadata mismatch prevented APK build; Hermes lazy bundle incompatibility with GH-135 APK prevented live Metro testing; SharedPreferences debug_http_host fixed via /data/local/tmp intermediary; unit tests primary evidence for fix) |
+| GH-142 | emu | 0 | 5 | 0 | 5 | 10 | 0 | 0 | 0 | 0 | ready_for_review (APK build failed — pre-existing CMake/reanimated `No compatible library found`; used GH-135 APK; GH-139 APK incompatible with GH-142 bundle → Drawer `useLegacyImplementation` crash; Maestro import needed retry; baseline fixture has no VL data so `useVelocityLossInsights` always returns []; `with VL` screenshot AC met via unit tests only) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 

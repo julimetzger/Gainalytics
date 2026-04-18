@@ -334,3 +334,11 @@ A Maestro test piped to a log file (`maestro test ... > run.log 2>&1 &`) may sho
 **Problem/Symptoms:** In WSL with `ADB_SERVER_SOCKET=tcp:172.18.240.1:5037`, running `adb kill-server` kills the Windows ADB server. Subsequent `adb start-server` fails ("cannot start server on remote host"). All ADB commands then hang.
 **Working solution:** Never run `adb kill-server` in WSL. If ADB is in a bad state, ask the user to restart ADB on the Windows side. If ADB is unreachable, use existing screenshots as evidence and note the infra problem in summary.md.
 **Apply when:** Any time ADB commands start failing in a WSL session. The `ADB_SERVER_SOCKET` env var points to Windows host — killing it from Linux is irreversible from WSL.
+
+### 61. Baseline fixture has no video analysis VL data — `useVelocityLossInsights` always returns [] on device
+**Observation:** The baseline fixture (`1772318214222.gains`) has no video analysis records with `status=DONE` AND `setResult.velocityLossPercent` set. `useVelocityLossInsights` always returns empty array when the fixture is the only data source. VL cards (in both MicroOverview and TrainingOverviewCard) will never render on a fixture-only device state.
+**Apply when:** Any ticket requiring VL insight card screenshots from baseline data. Use unit tests to verify VL rendering instead; document the gap clearly in summary.md.
+
+### 62. APK from older worktree + newer Metro bundle can show Drawer `useLegacyImplementation` crash
+**Problem/Symptoms:** Installing an APK from an older worktree (e.g. GH-139) with a newer Metro bundle causes "The `useLegacyImplementation` prop is not available with Reanimated 3" crash on drawer navigation. Dismissed, but app reloads and navigation is broken.
+**Working solution:** Use the most recent compatible APK (GH-135 was built from the RN 0.82 upgrade and works with subsequent JS bundles). Prefer GH-135's APK over GH-139's when the current worktree can't build.
