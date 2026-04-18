@@ -98,16 +98,6 @@ After an RN upgrade, always validate with a fresh `npm ci` from scratch, not jus
 ### `react-native-gesture-handler` needs a root-entry import, not a lazy one
 Any screen that uses `@react-navigation/drawer` or `react-native-drawer-layout` depends on the gesture-handler native module being registered at JS evaluation time. Debug builds get away without the root import because Fast Refresh paths end up registering it before the drawer renders; release builds can evaluate the drawer screen first and crash on mount. The fix is the documented `import 'react-native-gesture-handler';` as the **first** import of `index.tsx` — not inside any lazy code path. Symptoms: release-only crash the moment you tab into Analyse or open a Training plan; debug works fine.
 
-### `debug_http_host` via `run-as`: use `/data/local/tmp` as intermediary
-Direct shell redirect with `run-as` fails: `adb shell "run-as com.pkg sh -c 'echo X > /data/data/.../prefs.xml'"` throws "Permission denied" due to quoting/pipe handling. Reliable pattern:
-1. Push correct XML to neutral ground: `adb push /tmp/prefs.xml /data/local/tmp/prefs.xml`
-2. Copy with run-as: `adb shell "run-as com.powerliftingworkoutplanner sh -c 'cat /data/local/tmp/prefs.xml > /data/data/com.powerliftingworkoutplanner/shared_prefs/com.powerliftingworkoutplanner_preferences.xml'"`
-
-The SharedPreferences file is `com.powerliftingworkoutplanner_preferences.xml` (underscore-separated, not `com.powerliftingworkoutplanner.xml`). Set `debug_http_host` to `10.0.2.2:PORT` (not `127.0.0.1` or `localhost`) for AVD emulators.
-
-### Hermes lazy bundle incompatibility: connection succeeds but JS parse fails
-RN 0.82 (New Architecture) Metro sends bundles with `?lazy=true`. If you test against an APK built from a different Metro/Hermes version pair, Hermes accepts the connection (`isMetroRunning()=true` in logcat) but throws `Compiling JS failed: ']' expected at end of array literal` deep inside a bundled library (often @react-navigation). This is a pre-existing APK/Metro version mismatch — not a code regression. The only fix is rebuilding the APK. When you can't rebuild (e.g. Gradle Kotlin mismatch), use unit tests as primary evidence and document the infra caveat in summary.md.
-
 ### Jest `testPathIgnorePatterns: ['/.worktrees/']` hides specs in a worktree
 When you run `jest` from inside `.worktrees/feature-*/`, every test file's absolute path contains `/.worktrees/`, so the default ignore pattern matches them all and jest reports "No tests found". Workaround for a single run: `npx jest --testPathIgnorePatterns=/node_modules/ --testPathIgnorePatterns=/__tests__/coverage/`. Don't waste time debugging missing specs in a worktree — check the ignore pattern first.
 
@@ -129,9 +119,6 @@ If a screen reads persisted data via lazy `useState(() => savedX)`, it sees `und
 
 ### `viewPortOffsets` on `react-native-charts-wrapper` expects physical pixels, not dp
 `{left: 64, ...}` with a dp value misaligns overlays at density ≠ 1. Use `Math.round(VALUE_DP * PixelRatio.get())` for the chart prop and keep the JS overlay constant in dp.
-
-### Metro may fail with TC39 pattern-matching syntax in RN 0.76 `src/private` files
-`VirtualView.js` and similar new files in `react-native/src/private/` use `match (mode) { ... }` (TC39 proposal), which the bundled `hermes-parser` version may not support. Symptom: `SyntaxError: ';' expected` at the `match` keyword when loading the bundle from Metro, even though the APK builds fine. **Workaround:** bundle the JS offline (`npx react-native bundle --platform android --dev true --entry-file index.tsx --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res`), then rebuild the APK with Gradle. The prebuilt bundle bypasses Metro at runtime.
 
 ### Hex-color string concatenation breaks under `rgb()` themes
 `theme.colors.primary + '33'` works when primary is `#rrggbb` but produces `rgb(...)33` under themes that return `rgb()` strings, which is not a valid React Native color and crashes at render. Use an alpha-safe helper that accepts both formats and emits `rgba(r,g,b,alpha)`.
@@ -164,14 +151,6 @@ Tests that render the screen crash with "Element type is invalid" until the new 
 ### Exclude `.worktrees/` from Jest discovery
 A repo full of `.worktrees/feature-*/` directories each with its own test suite explodes the test run to thousands of suites. Add `/.worktrees/` to `testPathIgnorePatterns` in `jest.config.cjs`.
 
-## ADB / Device
-
-### Samsung real-device screencap returns 0 bytes (DRM/secure mode)
-On Samsung Galaxy devices with Knox or certain Developer Options states, `adb exec-out screencap -p` and `adb shell screencap /sdcard/x.png` both exit 0 but produce empty output. Use Maestro's `takeScreenshot` step instead — Maestro's internal UIAutomator-based screencap bypasses this restriction. If you need a screenshot *without* a Maestro flow, check if the screen is DRM-protected before wasting time debugging the pipe.
-
-### Stale Maestro process blocks subsequent sessions on the same driver port
-A Maestro session that crashes or is interrupted leaves a JVM process listening on the `--driver-host-port`. The next `maestro test` attempt immediately fails with "Command failed (tcp:<port>): closed". Fix: `kill -9 $(lsof -ti tcp:<port>)` or `netstat -tlnp | grep <port>` to find the PID, then kill it. Use a fresh port if the PID cannot be found.
-
 ## Worker Discipline
 
 ### Check `run_dir` for existing artifacts before repeating work
@@ -182,6 +161,18 @@ A reviewer may submit stale code-review line references (based on a commit that'
 
 ### Fix-workers run on the PR branch, not a fresh one from master
 When addressing review feedback on an already-open PR, resume the existing worktree so the fixes land on top of the PR's current HEAD. A fresh branch from master loses the original work.
+
+### Multiple Metro processes can coexist; ensure the right one serves the installed APK
+After an RN upgrade, the project's shared `node_modules` may still be at the old RN version while the branch `package.json` says a newer version. A Metro started from the shared node_modules serves an old-RN bundle to a new-RN native APK → `PlatformConstants` TurboModule not found. Check `cat node_modules/react-native/package.json | grep version` and compare to the branch `package.json`. If they diverge, use the worktree that has its own installed node_modules (check with `cat .worktrees/feature-*/node_modules/react-native/package.json`).
+
+### Maestro `--host 172.18.240.1` is required on WSL + Windows ADB
+The Maestro binary is Windows-native (`/mnt/c/.../maestro.bat`). Without `--host 172.18.240.1`, Maestro reports "Device not connected" even when `adb devices` (WSL-side) shows the device. Always pass `--host 172.18.240.1 --device <SERIAL>` on this setup.
+
+### Emulator-only video flows (30+) cannot run on a real physical device
+All flows that assert `"Import Emulator Squat Video"` or wait for the `"Open"` file-picker dialog are targeting an emulator-specific mechanism. These flows fail on real device by design. Do not investigate these as app regressions.
+
+### Gradle build fails with Kotlin type-inference in gesture-handler when node_modules mismatch
+After upgrading `package.json` to RN 0.82+ without running `npm install`, the shared node_modules still reference older gesture-handler. The mismatch causes `Cannot infer a type for this parameter` errors in `FlingGestureHandler.kt`. Run `npm ci` in the worktree root (separate from main) before attempting `./gradlew assembleDebug`.
 
 ### Evidence paths in `status.json` must be bare relative paths
 No inline annotations, no absolute paths, no "(updated in round 3)" suffixes. The validator checks that each path exists — annotations break it.
@@ -194,6 +185,12 @@ A Maestro flow failing on the first assertion is often an app bootstrap crash (r
 
 ### Grep for dev/debug UI elements in both tab screens and modals
 "Import Emulator Squat Video" and similar dev-only buttons have historically lived in multiple places (main tab + selection modal). When removing them, `grep -r "<dev button text>" app/` before assuming one file is enough.
+
+### RN version mismatch between worktrees causes `TurboModuleRegistry.getEnforcing` crash
+Each worktree that ran `npm install` gets its own `node_modules` with a potentially different RN version. If an APK was built from a worktree running RN 0.84.1 but you serve it a Metro bundle from another worktree using RN 0.76.9, you get: `Invariant Violation: TurboModuleRegistry.getEnforcing(...): 'PlatformConstants' could not be found`. Check `node -e "require('./node_modules/react-native/package.json').version"` in the Metro-serving worktree and compare against the APK's RN version before loading the bundle. Install an APK built from a worktree with the matching RN version.
+
+### socat bridges host Metro to emulator when `adb reverse` isn't enough
+Android emulator reaches the host at `10.0.2.2`, not `localhost`. `adb reverse tcp:8081 tcp:<metro-port>` only captures `localhost:8081` traffic — the emulator's `debug_http_host` setting of `10.0.2.2:8081` bypasses it. Fix: run `nohup socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:<metro-port> &` on the host. The emulator connects to `10.0.2.2:8081` which socat forwards to the actual Metro port. Verify with `curl http://127.0.0.1:8081/status` after starting socat.
 
 ## React Native 0.80 Upgrade Specifics
 
