@@ -10,6 +10,7 @@ import {Training} from '../../../models/entities/Training';
 import {TrainingsState} from '../../../models/TrainingsState';
 import {getYYYYMMDDFormat, getDateTimeStringFromDate, getDaysBetween} from '../../../utils/DateHelper';
 import {getMicroFromTrainingInMicroIndex, getTrainingFromTrainingInMicroIndex} from '../../../redux/Training/trainingsPlanReducer';
+import {getMicroLabel} from '../../../utils/meso-format';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {calculateMetricComparisons} from '../../../utils/AnalyseUtils';
 import MetricView from '../../analyse/MetricComparison';
@@ -60,6 +61,7 @@ type DayMark = {
   isMicroStart?: boolean;
   isMicroEnd?: boolean;
   microRangeNumber?: number;
+  microLabel?: string;
   // meso start
   isMesoStart?: boolean;
   mesoName?: string;
@@ -108,7 +110,7 @@ const TrainingDetailPanel = ({selected, onNavigate}: DetailPanelProps) => {
           {training.end ? '  –  ' + getDateTimeStringFromDate(training.end) : ''}
         </Text>
         <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>
-          {plan.name}  ·  Micro {selected.micro}
+          {plan.name}  ·  Micro {getMicroLabel(plan.mesos, selected.micro)}
         </Text>
       </View>
       <View style={styles.cardRow}>
@@ -193,7 +195,7 @@ const HistoryDayComponent = ({date, state, marking, onPress, selectedDate}: DayC
 
       {/* micro number badge */}
       {info.isMicroStart && (
-        <Text style={[styles.microBadge, {color: MICRO_COLOR}]}>M{info.microRangeNumber}</Text>
+        <Text style={[styles.microBadge, {color: MICRO_COLOR}]}>{info.microLabel ?? `M${info.microRangeNumber}`}</Text>
       )}
 
       {/* meso start label */}
@@ -360,6 +362,7 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining, onBack}: Tr
 
         // Fill all days in [rangeStart, rangeEnd] (inclusive)
         const allDays = getDaysBetween(rangeStart, rangeEnd);
+        const label = getMicroLabel(plan.mesos, micro);
         allDays.forEach((d, i) => {
           const ds = getYYYYMMDDFormat(d);
           setMark(ds, {
@@ -367,6 +370,7 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining, onBack}: Tr
             isMicroStart: (marks[ds]?.isMicroStart ?? false) || i === 0,
             isMicroEnd: (marks[ds]?.isMicroEnd ?? false) || i === allDays.length - 1,
             microRangeNumber: micro,
+            microLabel: label,
           });
         });
       });
