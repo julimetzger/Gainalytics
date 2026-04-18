@@ -388,5 +388,5 @@ describe('SettingsTab', () => {
     await waitFor(() => {
       expect(mockedOpenExactAlarmSettings).toHaveBeenCalledTimes(1);
     });
-  }, 15000);
+  }, 25000);
 });

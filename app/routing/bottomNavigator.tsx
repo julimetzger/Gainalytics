@@ -44,7 +44,7 @@ export const BottomTabs = () => {
   }, [useExerciseRecord1, exercise, navigation, settings.toggles?.disableToasts]);
 
   return (
-    <Tab.Navigator initialRouteName="Feed" shifting={true}>
+    <Tab.Navigator initialRouteName="Training" shifting={true}>
       <Tab.Screen
         name="Training"
         component={TrainingRouter}

@@ -33,6 +33,9 @@ jest.mock('react-native-mmkv', () => ({
   })),
 }));
 
+// react-native-worklets mock (required by reanimated 4.x which imports worklets at init time)
+jest.mock('react-native-worklets', () => require('react-native-worklets/lib/module/mock'));
+
 // Reanimated mock (required by the plugin in tests)
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 
