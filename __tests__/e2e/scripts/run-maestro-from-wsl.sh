@@ -7,7 +7,9 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 MODE="full"
 SUITE_PATH="${REPO_ROOT}/__tests__/e2e/maestro/flows/suite.yaml"
 REPORT_PATH="${REPO_ROOT}/__tests__/reports/maestro.xml"
-FIXTURE_PATH="${REPO_ROOT}/__tests__/testdata/1772318214222.gains"
+FIXTURE_PATH="${REPO_ROOT}/__tests__/e2e/maestro/fixtures/baseline.gains"
+VIDEO1_PATH="${REPO_ROOT}/__tests__/e2e/maestro/fixtures/squat-3reps.mp4"
+VIDEO2_PATH="${REPO_ROOT}/__tests__/e2e/maestro/fixtures/squat-1rep.mp4"
 APP_ID="com.powerliftingworkoutplanner"
 MAESTRO_HOST="${E2E_MAESTRO_HOST:-}"
 ADB_HOST="${E2E_ADB_HOST:-}"
@@ -81,6 +83,8 @@ fi
 
 SUITE_PATH="$(realpath "${SUITE_PATH}")"
 FIXTURE_PATH="$(realpath "${FIXTURE_PATH}")"
+[[ -f "${VIDEO1_PATH}" ]] && VIDEO1_PATH="$(realpath "${VIDEO1_PATH}")"
+[[ -f "${VIDEO2_PATH}" ]] && VIDEO2_PATH="$(realpath "${VIDEO2_PATH}")"
 REPORT_DIR="$(cd "$(dirname "${REPORT_PATH}")" && pwd)"
 REPORT_PATH="${REPORT_DIR}/$(basename "${REPORT_PATH}")"
 
@@ -168,6 +172,12 @@ if [[ "${MODE}" == "bootstrap" || "${MODE}" == "full" || "${MODE}" == "smoke" ]]
   fi
   require_explicit_device_if_needed
   adb_cmd push "${FIXTURE_PATH}" "/sdcard/Download/baseline.gains"
+  if [[ -f "${VIDEO1_PATH}" ]]; then
+    adb_cmd push "${VIDEO1_PATH}" "/sdcard/Download/squat-3reps.mp4"
+  fi
+  if [[ -f "${VIDEO2_PATH}" ]]; then
+    adb_cmd push "${VIDEO2_PATH}" "/sdcard/Download/squat-1rep.mp4"
+  fi
   adb_cmd reverse "tcp:${DEVICE_METRO_PORT}" "tcp:${METRO_PORT}" >/dev/null 2>&1 || true
   adb_cmd shell am force-stop "${APP_ID}" >/dev/null 2>&1 || true
 fi

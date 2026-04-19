@@ -385,3 +385,33 @@ A Maestro test piped to a log file (`maestro test ... > run.log 2>&1 &`) may sho
 ### 65. Fresh APK + adb reverse is sufficient for RN 0.84.1 emulators
 **Observation:** After installing a freshly-built APK (no SharedPreferences set) and running `adb -s $DEVICE reverse tcp:8081 tcp:$HOST_METRO_PORT`, the app loaded from the correct Metro on an Android emulator running API 35. This contradicts the earlier note that 10.0.2.2:8081 bypasses adb reverse — it appears that on RN 0.84.1 or newer emulator images, localhost:8081 is used by default (not 10.0.2.2:8081), so the adb reverse IS sufficient.
 **Apply when:** RN 0.84.1+ and API 35 emulator — try adb reverse first before setting up socat bridges or manually editing SharedPreferences.
+
+## GH-152 / Maestro Video Analysis Flow Consolidation
+
+### 66. Samsung real-device PIN lock blocks Maestro even though adb shows "device"
+**Problem/Symptoms:** `adb get-state` returns "device" and file pushes succeed, but Maestro flow fails at first `assertVisible` with "element not visible". UI dump shows "PIN eingeben" (lock screen). `wm dismiss-keyguard` has no effect on a PIN-locked device. Maestro screenshots are black (Samsung DRM).
+**Working solution:** Device must be manually unlocked before any Maestro session. Check `adb shell uiautomator dump` for "PIN eingeben" text immediately after starting a run. If found, write `blocked` status — do not try workarounds.
+**Apply when:** Any Maestro run against Samsung R5CN30HWZFN (or any real Samsung with PIN lock).
+
+### 67. Video analysis setResult/repResults is computed in PlaybackOverlayCard, not on analysis completion
+**Problem/Symptoms:** After `Status: done`, the list card shows "N reps | VL X%" only if `VideoAnalysisPlaybackOverlayCard` has rendered and dispatched `dispatchSaveVideoAnalysisSetResult`. This card is in the detail view (scroll-down). If you never open the detail, `setResult` is never saved.
+**Working solution:** To assert rep count and velocity in list view, first open the detail and scroll down to the Playback section so PlaybackOverlayCard runs its useEffect. Then go back to list to assert `video-analysis-set-summary-N` text.
+**Apply when:** Maestro flows that assert rep count, VL%, or RIR from the VideoAnalysisTab list card.
+
+### 68. YOLO plate detection (outer_plate_yolo26n_float32.tflite) requires real barbell footage for reliable results
+**Observation:** Synthetic ffmpeg-generated videos (gray ring on dark background) may or may not be detected with the 0.2 confidence threshold. The model was trained on real barbell outer plates in gym settings. If 0 candidates are detected at t=0, analysis fails immediately (ERR_VIDEO_ANALYSIS_NO_CANDIDATE) with no fallback. For guaranteed results, use real squat videos. Synthetic fixtures are acceptable for flow structure testing if the `awaiting_seed_selection` path is also handled.
+**Apply when:** Creating video analysis Maestro fixtures. If YOLO detection fails on synthetic videos, check the device's /sdcard/Download/ for existing real squat videos.
+
+### 69. RIR chip filter is the most reliable filter for Maestro video analysis filter flows
+**Observation:** Any analysis without a computed rirEstimate (null) is hidden by any RIR chip filter. This includes done analyses where the Playback detail was never opened (rirEstimate not dispatched) and freshly imported analyses in QUEUED/COPYING/PREFLIGHT/PROCESSING state. Use `tapOn: {id: 'video-analysis-rir-chip-0'}` (resource-id match). VL chip filters are less reliable because completed analyses may have various VL values.
+**Apply when:** Writing Maestro flows that test the VideoAnalysisTab filter chips.
+
+### 67. `tapOn: 'some-testID'` matches by TEXT, not by resource-id — always use `tapOn: {id: 'some-testID'}` for testID matching
+**Problem/Symptoms:** Maestro flow fails with "Element not found: Text matching regex: analyse-drawer-toggle" even though the element has `testID="analyse-drawer-toggle"` in React Native. `tapOn: 'some-string'` in Maestro matches by text/content-desc, NOT by resource-id/testID.
+**Working solution:** Always use `tapOn: {id: 'resource-id-value'}` for matching by testID/resource-id. Also applies to `assertVisible: {id: '...'}` vs `assertVisible: "..."` (text match). Similarly, `extendedWaitUntil: visible: {id: '...'}` for resource-id wait, vs `visible: "text"` for text wait.
+**Apply when:** Every `tapOn`, `assertVisible`, and `extendedWaitUntil` in Maestro flows — always be explicit about whether you're matching by text or id.
+
+### 68. Android 13+ photo picker doesn't show adb-pushed files — use existing device data for video analysis flows
+**Problem/Symptoms:** Files pushed to `/sdcard/Download/` via `adb push` don't appear in the Android photo picker (ACTION_PICK_IMAGES / Google Photo Picker). The picker only shows media-indexed files. `MEDIA_SCANNER_SCAN_FILE` broadcast requires system permission on Android 13+. Synthetic fixture files stay invisible to the picker until indexed.
+**Working solution:** Design video analysis Maestro flows to work with EXISTING analyses on the device rather than importing new ones. The device typically has real analyses from previous sessions. Assert from real data (Status: done with actual tracking points) instead of triggering new imports through the broken picker path.
+**Apply when:** Any Maestro flow on R5CN30HWZFN (or any Android 13+ device) that needs to interact with the video file picker for importing analysis videos.

@@ -1,0 +1,65 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-152: Navigate to VideoAnalysisTab, assert at least one analysis is visible,
+# then verify that the RIR filter chip reduces the list and deselecting restores it.
+#
+# Prerequisites (determinism guarantee):
+# - Run bootstrap first to import baseline.gains, which contains exactly ONE
+#   videoAnalysis with rirEstimate: null (id=1, status=done).
+# - After bootstrap, FULL_IMPORT replaces all videoAnalyses on the device with the
+#   fixture data. This means exactly 1 analysis exists and it has rirEstimate=null.
+# - Tapping the RIR=0 chip hides any analysis whose rirEstimate != "0",
+#   including analyses with rirEstimate=null. So the list becomes empty — deterministic.
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+# Navigate to Analyse tab → Video Analyses
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- scrollUntilVisible:
+    element:
+      text: 'Video Analyses'
+    direction: DOWN
+    timeout: 15000
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 30000
+# Assert at least one analysis exists before testing the filter.
+# After bootstrap, the fixture provides exactly one analysis (Analysis #1).
+- assertVisible:
+    text: "Analysis #[0-9]+"
+- takeScreenshot: "video_analysis_filter_before"
+# Tap RIR chip "0" — the fixture analysis has rirEstimate=null, so it is hidden
+# by any RIR preset filter. After bootstrap, no analysis has rirEstimate="0",
+# so the filtered list is guaranteed to be empty.
+- tapOn:
+    id: 'video-analysis-rir-chip-0'
+# Assert that the filter hides all analyses (fixture has zero analyses with rirEstimate="0")
+- extendedWaitUntil:
+    visible:
+      id: "video-analysis-empty-card"
+    timeout: 10000
+- assertVisible:
+    text: "No analyses match the active filters."
+- takeScreenshot: "video_analysis_filter_active"
+# Deselect the chip — list must be fully restored to the fixture state
+- tapOn:
+    id: 'video-analysis-rir-chip-0'
+- extendedWaitUntil:
+    visible:
+      text: "Analysis #[0-9]+"
+    timeout: 10000
+- assertVisible:
+    text: "Analysis #[0-9]+"
+- takeScreenshot: "video_analysis_filter_reset"
