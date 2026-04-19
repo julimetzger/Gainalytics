@@ -20,6 +20,8 @@ Last updated: 2026-04-19 (GH-151 r2)
 Last updated: 2026-04-19 (GH-152 r2)
 Last updated: 2026-04-19 (GH-153)
 Last updated: 2026-04-19 (GH-159-fix1)
+Last updated: 2026-04-19 (GH-157)
+Last updated: 2026-04-19 (GH-157-fix1)
 
 ## Per-Worker Breakdown
 
@@ -89,6 +91,8 @@ Last updated: 2026-04-19 (GH-159-fix1)
 | GH-153 | emu | 30 | 45 | 0 | 5 | 5 | 0 | 0 | 15 | 0 | ready_for_review (YAML-only ticket; WSL Maestro gRPC DEADLINE_EXCEEDED on consecutive sessions — workaround: cmd.exe/UNC path; takeScreenshot in UNC mode needs writable Windows CWD; Windows ADB needs -a flag restart for WSL access; DashboardTab pre-existing crash blocks screenshot evidence) |
 | GH-159 | emu | 0 | 0 | 0 | 1 | 0 | 0 | 5 | 0 | 0 | ready_for_review (INSTALL_FAILED_INSUFFICIENT_STORAGE — uninstalled app before fresh install to free 720MB; Maestro swipe/scrollUntilVisible cannot scroll RN ScrollView — simplified flow to visible-only assertions; screenshot + uiautomator dump provide below-fold evidence; 432 unit tests all pass) |
 | GH-159-fix1 | emu | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | ready_for_review (pure logic fix — no APK rebuild; jest /.worktrees/ ignore pattern hit → testPathIgnorePatterns override on CLI; 436/436 tests pass; cold-start component test added; adb reverse + screencap clean) |
+| GH-157 | emu | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 0 | 0 | ready_for_review (new AI Chat tab feature; CMake/reanimated build failed first attempt, passed on retry; MMKV encryption key unstable across emulator sessions → API key unreadable → 401 on all requests despite valid key from WSL curl; live assistant screenshot not possible; unit tests (18/18) + error-handling screenshots as evidence; Jest /.worktrees/ ignore pattern hit — CLI override required) |
+| GH-157-fix1 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | ready_for_review (resume round — prior worker crashed due to API image dimension limit from accumulated screenshots; all code changes already in worktree; Jest /.worktrees/ ignore pattern hit again — CLI config override required; gh pr edit --body fails with GraphQL Projects deprecation → used REST API patch; clean real-device run, 35/35 tests pass) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 

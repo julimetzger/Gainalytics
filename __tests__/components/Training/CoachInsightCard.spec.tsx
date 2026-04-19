@@ -54,6 +54,16 @@ jest.mock('../../../app/utils/coachInsight', () => ({
   buildCoachPrompt: jest.fn(() => ({system: 'sys', user: 'user'})),
 }));
 
+jest.mock('../../../app/utils/ai/serializeTrainingsForChat', () => ({
+  serializeTrainingsForChat: jest.fn(() => null),
+}));
+
+const mockNavigate = jest.fn();
+jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
+  useNavigation: () => ({navigate: mockNavigate}),
+}));
+
 // react-native-paper: minimal stubs
 jest.mock('react-native-paper', () => {
   const React = require('react');
@@ -82,6 +92,7 @@ jest.mock('react-native-paper', () => {
   };
 });
 
+const mockDispatch = jest.fn();
 // useSelector returns empty objects by default; override per-test when needed.
 jest.mock('react-redux', () => ({
   ...jest.requireActual('react-redux'),
@@ -89,6 +100,7 @@ jest.mock('react-redux', () => ({
     // Return empty objects for workoutsById, exercisesById, videoAnalysesById
     return {};
   }),
+  useDispatch: () => mockDispatch,
 }));
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

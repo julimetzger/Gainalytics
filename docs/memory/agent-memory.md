@@ -252,6 +252,16 @@ Agent-memory previously noted this as an RN 0.80 change. In practice, the path `
 **Working solution:** Use at least 20000ms for post-drawer-navigation waits. For screens with heavy data (video analyses list), 20s is the minimum.
 **Apply when:** Writing Maestro flows that navigate through drawer menus on real devices.
 
+### 59. Emulator MMKV encryption key instability prevents secureStorage reads across sessions
+**Problem:** `secureStorage` uses an MMKV instance backed by a Keychain-stored encryption key. On Android emulators, Keychain (`react-native-keychain`) is unreliable across app restarts — the encryption key may change between sessions, making previously stored data (including the Anthropic API key) unreadable. Symptoms: API key appears to be set (UI shows dots), but every API call returns 401. `curl` from the host confirms the key itself is valid.
+**Working solution:** For live API testing on emulator, use `adb shell am start -n ... --es "debug_api_key" "<key>"` to inject the key at runtime, or skip live API evidence and rely on unit tests + error-handling screenshots. Note this infra limitation explicitly in `summary.md`.
+**Apply when:** Any feature that reads secureStorage on emulator and needs a live API response as evidence.
+
+### 60. React state for API key must subscribe to `subscribeToApiKeyChanges`, not read once at mount
+**Problem:** A component that reads `secureStorage.hasAnthropicApiKey()` as a lazy `useState` initializer sees the value at mount time only. If the user adds or removes an API key in Settings, the component's UI stays stale (showing "add API key" even after saving one).
+**Working solution:** Use `useState` with a synchronous initializer, then add a `useEffect` that calls `subscribeToApiKeyChanges(() => setHasApiKey(secureStorage.hasAnthropicApiKey()))` and returns the unsubscribe function. This makes the component reactive to key changes without a Redux store for the key itself.
+**Apply when:** Any component that gates UI on whether an API key is present.
+
 ### 59. Maestro flows must start by navigating to the correct tab — never assume current tab
 **Problem:** A flow that starts with `tapOn: point "6%,6%"` (drawer hamburger) will open the CURRENT tab's drawer, not the Analyse drawer. If the app is on Training tab, "Video Analyses" won't be in the drawer.
 **Working solution:** Always start drawer-based flows with an explicit `tapOn: "tab-analyse"` (or the target tab) before opening the hamburger. The `tab-*` content-desc selectors reliably match the bottom nav on both real devices and emulators.
