@@ -16,6 +16,7 @@ Last updated: 2026-04-18 (GH-133)
 Last updated: 2026-04-18 (GH-143)
 Last updated: 2026-04-18 (GH-139)
 Last updated: 2026-04-18 (GH-139-fix1)
+Last updated: 2026-04-19 (GH-148)
 Last updated: 2026-04-19 (GH-151 r2)
 Last updated: 2026-04-19 (GH-152 r2)
 Last updated: 2026-04-19 (GH-153)
@@ -84,6 +85,8 @@ Last updated: 2026-04-19 (GH-157-fix1)
 | GH-142 | emu | 0 | 5 | 0 | 5 | 10 | 0 | 0 | 0 | 0 | ready_for_review (APK build failed — pre-existing CMake/reanimated `No compatible library found`; used GH-135 APK; GH-139 APK incompatible with GH-142 bundle → Drawer `useLegacyImplementation` crash; Maestro import needed retry; baseline fixture has no VL data so `useVelocityLossInsights` always returns []; `with VL` screenshot AC met via unit tests only) |
 | GH-139 | real | 0 | 0 | 0 | 1 | 0 | 3 | 2 | 15 | 0 | ready_for_review (RN 0.82→0.84 upgrade; reanimated 4 required react-navigation v7 upgrade; initialRouteName="Feed" typo caught by nav v7; react-native-worklets Jest mock needed; debug build ~10 min first clean build of worklets CMake; no Maestro/ADB issues) |
 | GH-139-fix1 | real | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review (pure one-line signing-config revert; assembleDebug clean pass; no ADB/Maestro/Metro issues; gh pr edit --body fails with GraphQL Projects deprecation warning but completes) |
+| GH-144 | emu | 0 | 0 | 0 | 10 | 40 | 20 | 20 | 0 | 0 | ready_for_review (Gradle Kotlin metadata 2.1.0 vs compiler 1.9.0 prevented APK build; GH-139 APK RN 0.84.1 incompatible with shared node_modules Metro RN 0.76.9 → TurboModuleRegistry PlatformConstants error; installed GH-121 APK (RN 0.76.9 match) + socat TCP-LISTEN:8081→:8086 for emulator→host bridge; Jest /.worktrees/ ignore pattern hit — overrode on CLI; detail panel confirmed "Micro M3" new format) |
+| GH-148 | real | 7062 | 0 | 0 | 5 | 15 | 10 | 0 | 25 | 0 | ready_for_review (analysis-only inventory ticket; Gradle build failed: gesture-handler Kotlin type-inference in node_modules; shared node_modules at 0.76.9 but branch package.json says 0.82.1 → used GH-139 APK+Metro (RN 0.84.1) for compatibility; Maestro --host 172.18.240.1 required; 63 flows run: 3 PASS, 47 FLOW-FAIL, 13 INFRA-FAIL, 0 APP-CRASH; ~30 FLOW-FAILs are emulator-only video flows) |
 | GH-151 | emu | 0 | 0 | 5 | 30 | 15 | 0 | 0 | 0 | 0 | ready_for_review (previous worker committed code but left no status.json or screenshots; debug_http_host pointed at another worker's Metro on :8083 — full APK rebuild required (11 min) to get correct bundle; Maestro import flow failed with WSL ADB server connectivity, imported baseline manually via adb taps; adb reverse + fresh APK worked cleanly for RN 0.84.1 emulator; 24 unit tests primary evidence) |
 | GH-144-fix1 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review (pure logic fix — 2-line change + 3 unit tests; jest /.worktrees/ ignore pattern hit → overrode testPathIgnorePatterns on CLI; no APK/Maestro/ADB issues; 13/13 tests passed) |
 | GH-152 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | blocked (device PIN-locked; adb shows "device" state and file pushes succeed but PIN lock screen blocks Maestro; all code complete — 2 new flows, 2 fixtures, script update, 39 flows deleted; 402 unit tests pass) |
