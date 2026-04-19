@@ -1,0 +1,88 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-152: Import squat-1rep.mp4, then verify VL/RIR filter chips reduce the list
+# and deselecting restores it.
+# Prerequisite: run-maestro-from-wsl.sh bootstrap must have pushed squat-1rep.mp4
+# to /sdcard/Download/ on the target device.
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+# Navigate to Analyse tab → Video Analyses
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 30000
+- tapOn: 'analyse-drawer-toggle'
+- scrollUntilVisible:
+    element:
+      text: 'Video Analyses'
+    direction: DOWN
+    timeout: 15000
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 30000
+# Import the 1-rep squat fixture video via DocumentPicker
+- tapOn: 'Import Video'
+# Handle media permission dialog
+- runFlow:
+    when:
+      visible:
+        text: "(?i)^allow$"
+    commands:
+      - tapOn:
+          text: "(?i)^allow$"
+- runFlow:
+    when:
+      visible: 'Allow only while using the app'
+    commands:
+      - tapOn: 'Allow only while using the app'
+# Dismiss Google Auth prompts
+- runFlow:
+    when:
+      visible: 'Use without an account'
+    commands:
+      - tapOn: 'Use without an account'
+- runFlow:
+    when:
+      visible: 'No thanks'
+    commands:
+      - tapOn: 'No thanks'
+# Navigate file picker to squat-1rep.mp4 in Downloads
+- scrollUntilVisible:
+    element:
+      text: 'squat-1rep.mp4'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'squat-1rep.mp4'
+# Wait for the analysis card to appear in the list (any non-empty state)
+- extendedWaitUntil:
+    visible:
+      text: "Analysis #[0-9]+"
+    timeout: 30000
+- takeScreenshot: "video_analysis_filter_before"
+# Tap RIR chip "0" — a freshly imported (non-done) analysis has no RIR data
+# so it is hidden by any RIR preset filter, reducing the list to empty.
+- tapOn: 'video-analysis-rir-chip-0'
+# Assert that the filter hides the analysis(es) with no matching RIR
+- extendedWaitUntil:
+    visible: "video-analysis-empty-card"
+    timeout: 10000
+- assertVisible:
+    text: "No analyses match the active filters."
+- takeScreenshot: "video_analysis_filter_active"
+# Deselect the chip — list must be fully restored
+- tapOn: 'video-analysis-rir-chip-0'
+- extendedWaitUntil:
+    visible:
+      text: "Analysis #[0-9]+"
+    timeout: 10000
+- assertVisible:
+    text: "Analysis #[0-9]+"
+- takeScreenshot: "video_analysis_filter_reset"
