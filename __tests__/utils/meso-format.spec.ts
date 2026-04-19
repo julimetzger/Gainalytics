@@ -46,6 +46,22 @@ describe('getMicroLabel', () => {
     expect(getMicroLabel(mesos, 1)).toBe('A1');
   });
 
+  it('returns ?<localIndex> when meso name is empty string', () => {
+    const mesos: Meso[] = [{id: 1, name: '', order: 1, startMicro: 1}];
+    expect(getMicroLabel(mesos, 3)).toBe('?3');
+  });
+
+  it('returns ?<localIndex> when meso name is whitespace only', () => {
+    const mesos: Meso[] = [{id: 1, name: '   ', order: 1, startMicro: 1}];
+    expect(getMicroLabel(mesos, 2)).toBe('?2');
+  });
+
+  it('label never starts with a digit when a meso exists with blank name', () => {
+    const mesos: Meso[] = [{id: 1, name: '', order: 1, startMicro: 1}];
+    const label = getMicroLabel(mesos, 5);
+    expect(/^\d/.test(label)).toBe(false);
+  });
+
   it('two mesos with same initial — both use initial, no disambiguation', () => {
     const mesos: Meso[] = [
       {id: 1, name: 'Accumulation', order: 1, startMicro: 1},

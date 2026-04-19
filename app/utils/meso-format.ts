@@ -17,7 +17,8 @@ function stripUmlauts(str: string): string {
 export function getMicroLabel(mesos: Meso[] | undefined, globalMicro: number): string {
   const meso = getMesoForMicro(mesos, globalMicro);
   if (!meso) return String(globalMicro);
-  const initial = stripUmlauts(meso.name.trim()).charAt(0).toUpperCase();
+  const stripped = stripUmlauts(meso.name.trim());
+  const initial = stripped.length > 0 ? stripped.charAt(0).toUpperCase() : '?';
   const localIndex = getLocalMicro(mesos, globalMicro);
   return `${initial}${localIndex}`;
 }
