@@ -403,5 +403,15 @@ A Maestro test piped to a log file (`maestro test ... > run.log 2>&1 &`) may sho
 **Apply when:** Creating video analysis Maestro fixtures. If YOLO detection fails on synthetic videos, check the device's /sdcard/Download/ for existing real squat videos.
 
 ### 69. RIR chip filter is the most reliable filter for Maestro video analysis filter flows
-**Observation:** Any freshly imported analysis (in QUEUED/COPYING/PREFLIGHT/PROCESSING state) has null `rirEstimate`. Tapping any RIR chip immediately hides all analyses without VL/RIR data, regardless of whether other completed analyses exist. Use `tapOn: 'video-analysis-rir-chip-0'` (content-desc match, not `id:`). VL chip filters are less reliable because a completed analysis's VL value is unpredictable from a synthetic sine-wave video.
+**Observation:** Any analysis without a computed rirEstimate (null) is hidden by any RIR chip filter. This includes done analyses where the Playback detail was never opened (rirEstimate not dispatched) and freshly imported analyses in QUEUED/COPYING/PREFLIGHT/PROCESSING state. Use `tapOn: {id: 'video-analysis-rir-chip-0'}` (resource-id match). VL chip filters are less reliable because completed analyses may have various VL values.
 **Apply when:** Writing Maestro flows that test the VideoAnalysisTab filter chips.
+
+### 67. `tapOn: 'some-testID'` matches by TEXT, not by resource-id — always use `tapOn: {id: 'some-testID'}` for testID matching
+**Problem/Symptoms:** Maestro flow fails with "Element not found: Text matching regex: analyse-drawer-toggle" even though the element has `testID="analyse-drawer-toggle"` in React Native. `tapOn: 'some-string'` in Maestro matches by text/content-desc, NOT by resource-id/testID.
+**Working solution:** Always use `tapOn: {id: 'resource-id-value'}` for matching by testID/resource-id. Also applies to `assertVisible: {id: '...'}` vs `assertVisible: "..."` (text match). Similarly, `extendedWaitUntil: visible: {id: '...'}` for resource-id wait, vs `visible: "text"` for text wait.
+**Apply when:** Every `tapOn`, `assertVisible`, and `extendedWaitUntil` in Maestro flows — always be explicit about whether you're matching by text or id.
+
+### 68. Android 13+ photo picker doesn't show adb-pushed files — use existing device data for video analysis flows
+**Problem/Symptoms:** Files pushed to `/sdcard/Download/` via `adb push` don't appear in the Android photo picker (ACTION_PICK_IMAGES / Google Photo Picker). The picker only shows media-indexed files. `MEDIA_SCANNER_SCAN_FILE` broadcast requires system permission on Android 13+. Synthetic fixture files stay invisible to the picker until indexed.
+**Working solution:** Design video analysis Maestro flows to work with EXISTING analyses on the device rather than importing new ones. The device typically has real analyses from previous sessions. Assert from real data (Status: done with actual tracking points) instead of triggering new imports through the broken picker path.
+**Apply when:** Any Maestro flow on R5CN30HWZFN (or any Android 13+ device) that needs to interact with the video file picker for importing analysis videos.
