@@ -18,6 +18,7 @@ Last updated: 2026-04-18 (GH-139)
 Last updated: 2026-04-18 (GH-139-fix1)
 Last updated: 2026-04-19 (GH-151 r2)
 Last updated: 2026-04-19 (GH-152 r2)
+Last updated: 2026-04-19 (GH-153)
 
 ## Per-Worker Breakdown
 
@@ -84,6 +85,7 @@ Last updated: 2026-04-19 (GH-152 r2)
 | GH-144-fix1 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review (pure logic fix — 2-line change + 3 unit tests; jest /.worktrees/ ignore pattern hit → overrode testPathIgnorePatterns on CLI; no APK/Maestro/ADB issues; 13/13 tests passed) |
 | GH-152 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | blocked (device PIN-locked; adb shows "device" state and file pushes succeed but PIN lock screen blocks Maestro; all code complete — 2 new flows, 2 fixtures, script update, 39 flows deleted; 402 unit tests pass) |
 | GH-152 r2 | real | 0 | 4 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | ready_for_review (device unlocked; TcpForwarder closed-port noise on port 7001 — non-fatal, retry passed; Android 13 photo picker blocks adb-pushed files (not media-indexed) — flows redesigned to use existing device analysis; Maestro tapOn 'testID' matches text not id — fixed to tapOn {id:}; both flows pass in <60s each) |
+| GH-153 | emu | 30 | 45 | 0 | 5 | 5 | 0 | 0 | 15 | 0 | ready_for_review (YAML-only ticket; WSL Maestro gRPC DEADLINE_EXCEEDED on consecutive sessions — workaround: cmd.exe/UNC path; takeScreenshot in UNC mode needs writable Windows CWD; Windows ADB needs -a flag restart for WSL access; DashboardTab pre-existing crash blocks screenshot evidence) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 

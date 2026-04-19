@@ -406,12 +406,28 @@ A Maestro test piped to a log file (`maestro test ... > run.log 2>&1 &`) may sho
 **Observation:** Any analysis without a computed rirEstimate (null) is hidden by any RIR chip filter. This includes done analyses where the Playback detail was never opened (rirEstimate not dispatched) and freshly imported analyses in QUEUED/COPYING/PREFLIGHT/PROCESSING state. Use `tapOn: {id: 'video-analysis-rir-chip-0'}` (resource-id match). VL chip filters are less reliable because completed analyses may have various VL values.
 **Apply when:** Writing Maestro flows that test the VideoAnalysisTab filter chips.
 
-### 67. `tapOn: 'some-testID'` matches by TEXT, not by resource-id — always use `tapOn: {id: 'some-testID'}` for testID matching
+### 70. `tapOn: 'some-testID'` matches by TEXT, not by resource-id — always use `tapOn: {id: 'some-testID'}` for testID matching
 **Problem/Symptoms:** Maestro flow fails with "Element not found: Text matching regex: analyse-drawer-toggle" even though the element has `testID="analyse-drawer-toggle"` in React Native. `tapOn: 'some-string'` in Maestro matches by text/content-desc, NOT by resource-id/testID.
 **Working solution:** Always use `tapOn: {id: 'resource-id-value'}` for matching by testID/resource-id. Also applies to `assertVisible: {id: '...'}` vs `assertVisible: "..."` (text match). Similarly, `extendedWaitUntil: visible: {id: '...'}` for resource-id wait, vs `visible: "text"` for text wait.
 **Apply when:** Every `tapOn`, `assertVisible`, and `extendedWaitUntil` in Maestro flows — always be explicit about whether you're matching by text or id.
 
-### 68. Android 13+ photo picker doesn't show adb-pushed files — use existing device data for video analysis flows
+### 71. Android 13+ photo picker doesn't show adb-pushed files — use existing device data for video analysis flows
 **Problem/Symptoms:** Files pushed to `/sdcard/Download/` via `adb push` don't appear in the Android photo picker (ACTION_PICK_IMAGES / Google Photo Picker). The picker only shows media-indexed files. `MEDIA_SCANNER_SCAN_FILE` broadcast requires system permission on Android 13+. Synthetic fixture files stay invisible to the picker until indexed.
 **Working solution:** Design video analysis Maestro flows to work with EXISTING analyses on the device rather than importing new ones. The device typically has real analyses from previous sessions. Assert from real data (Status: done with actual tracking points) instead of triggering new imports through the broken picker path.
 **Apply when:** Any Maestro flow on R5CN30HWZFN (or any Android 13+ device) that needs to interact with the video file picker for importing analysis videos.
+
+## GH-153 / Maestro Selector Cleanup Learnings
+
+### 72. Run Maestro via `cmd.exe /c maestro.bat` with UNC path when WSL gRPC fails
+**Problem/Symptoms:** Maestro run via WSL (`maestro --host 172.18.240.1`) fails with `DEADLINE_EXCEEDED` (120 s gRPC timeout) during `viewHierarchy` on consecutive sessions. Root cause: Maestro's ADB TCP port-forwarding tunnel drops mid-session when the Windows ADB server is accessed via the WSL gateway IP.
+**Working solution:** Run Maestro via `cmd.exe /c "C:\Users\...\maestro.bat --device emulator-5554 --driver-host-port PORT test \\wsl.localhost\Ubuntu-22.04\...\flow.yaml"`. Windows ADB server at `localhost:5037` is always stable for native cmd.exe. Prepend `cd C:\Users\...\AppData\Local\Temp &&` to avoid UNC working-directory errors that break `takeScreenshot` saves.
+**Apply when:** Maestro sessions fail on the second or third run with DEADLINE_EXCEEDED or `Command failed (tcp:PORT): closed`. Only affects the worker's own consecutive session runs, not between separate worker invocations.
+
+### 73. Maestro `takeScreenshot` fails in cmd.exe UNC-path mode without a writable Windows dir
+**Problem/Symptoms:** When running `maestro.bat` with a UNC flow path (`\\wsl.localhost\...`), cmd.exe falls back to the Windows system directory as CWD. `takeScreenshot: foo` tries to write `foo.png` in that directory and throws `java.io.FileNotFoundException: foo.png (Zugriff verweigert)`.
+**Working solution:** Prepend `cd C:\Users\%USERNAME%\AppData\Local\Temp &&` (or any writable Windows path) before `maestro.bat` in the cmd.exe call. Screenshots land in Temp and can be pulled via `adb pull /sdcard/...` or retrieved from `C:\...\Temp\` via `/mnt/c/`.
+**Apply when:** Any cmd.exe Maestro invocation that uses `takeScreenshot` in the flow YAML.
+
+### 74. Baseline fixture data causes DashboardTab crash in current emulator APK (GH-119 unfixed)
+**Observation:** On the currently installed APK on emulator-5554, navigating to the Analyse tab (DashboardTab) after adding a workout set with 21 reps triggers `calculateMetricValue: workoutsCount is required for Metric.FREQUENCY`. Same crash also triggers when navigating to a finished training (TrainingsOverview). This is the pre-existing bug tracked in GH-117/GH-119 — the fix is not deployed to emulator-5554.
+**Apply when:** If evidence screenshots of DashboardTab are required, use the Maestro log from `gh77_dashboard_smoke` (which runs fresh before any session adds data) as proof instead of a direct screencap.
