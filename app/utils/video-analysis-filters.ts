@@ -16,6 +16,8 @@ interface VideoAnalysisFilterArgs {
   isDateRangeFilterActive: boolean;
   vlPresets: VlPreset[];
   rirPresets: RirPreset[];
+  /** Returns the user-reported RIR from the linked workout set, or null if not found. */
+  getSetRir: (workoutId: number, setIndex: number) => number | null;
 }
 
 function startOfDay(date: Date): Date {
@@ -117,7 +119,7 @@ export function isSameRange(left: Range, right: Range): boolean {
   return startOfDay(left.startDate).getTime() === startOfDay(right.startDate).getTime() && startOfDay(left.endDate).getTime() === startOfDay(right.endDate).getTime();
 }
 
-export function filterVideoAnalyses({analyses, exerciseIds, hasMuscleFilter, muscleExerciseIds, dateRange, isDateRangeFilterActive, vlPresets, rirPresets}: VideoAnalysisFilterArgs): VideoAnalysis[] {
+export function filterVideoAnalyses({analyses, exerciseIds, hasMuscleFilter, muscleExerciseIds, dateRange, isDateRangeFilterActive, vlPresets, rirPresets, getSetRir}: VideoAnalysisFilterArgs): VideoAnalysis[] {
   const exerciseIdSet = new Set(exerciseIds);
   const muscleExerciseIdSet = new Set(muscleExerciseIds);
   const rangeStart = startOfDay(dateRange.startDate).getTime();
@@ -152,11 +154,13 @@ export function filterVideoAnalyses({analyses, exerciseIds, hasMuscleFilter, mus
     }
 
     if (rirPresets.length > 0) {
-      if (!analysis.setResult) {
+      const workoutId = analysis.workoutId;
+      const setIndex = analysis.setIndex;
+      if (workoutId === undefined || setIndex === undefined) {
         return false;
       }
-
-      if (!rirPresets.some((preset) => matchesRirPreset(analysis.setResult?.rirEstimate ?? null, preset))) {
+      const userRir = getSetRir(workoutId, setIndex);
+      if (!rirPresets.some((preset) => matchesRirPreset(userRir !== null ? String(userRir) : null, preset))) {
         return false;
       }
     }

@@ -3,7 +3,7 @@ import {ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Card, Chip, MD3Theme, Text, useTheme} from 'react-native-paper';
 import DocumentPicker from 'react-native-document-picker';
 import Toast from 'react-native-toast-message';
-import {useStore} from 'react-redux';
+import {useSelector, useStore} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
 import {useNavigation} from '@react-navigation/native';
 import {dispatchAddVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchAddVideoAnalysis';
@@ -115,6 +115,18 @@ const VideoAnalysisTab = () => {
   const exercisesForMuscles = useExercisesForMuscles(filterMuscle);
   const filterExerciseIds = useMemo(() => filterExercise.flatMap((exercise) => (exercise.id === undefined ? [] : [exercise.id])), [filterExercise]);
   const muscleExerciseIds = useMemo(() => exercisesForMuscles.flatMap((exercise) => (exercise.id === undefined ? [] : [exercise.id])), [exercisesForMuscles]);
+  const workoutsById = useSelector((state: GlobalState) => state.workouts.byId);
+  const getSetRir = useCallback(
+    (workoutId: number, setIndex: number): number | null => {
+      const workout = workoutsById[workoutId];
+      if (!workout) {
+        return null;
+      }
+      const set = workout.sets.find((s) => s.index === setIndex);
+      return set !== undefined ? set.rir : null;
+    },
+    [workoutsById],
+  );
 
   // Refresh every 500ms while any analysis is in PROCESSING state so the
   // progress bar advances smoothly.
@@ -169,8 +181,9 @@ const VideoAnalysisTab = () => {
       isDateRangeFilterActive,
       vlPresets,
       rirPresets,
+      getSetRir,
     });
-  }, [analyses, dateRange, filterExerciseIds, filterMuscle.length, isDateRangeFilterActive, muscleExerciseIds, rirPresets, vlPresets]);
+  }, [analyses, dateRange, filterExerciseIds, filterMuscle.length, getSetRir, isDateRangeFilterActive, muscleExerciseIds, rirPresets, vlPresets]);
 
   const importFromSource = async (sourceUri: string) => {
     try {

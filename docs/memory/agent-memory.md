@@ -363,3 +363,25 @@ A Maestro test piped to a log file (`maestro test ... > run.log 2>&1 &`) may sho
 ### react-native-reanimated 4.x patch from 0.82 upgrade is no longer needed
 **Observation:** The `react-native-reanimated+3.19.5.patch` that fixed hermes prefab rename (libhermes → hermesvm) and UIManagerModuleListener removal for RN 0.82 is specific to reanimated 3.x. Reanimated 4.x includes these fixes natively. Drop the patch when upgrading to reanimated 4.
 **Apply when:** Upgrading from reanimated 3.x to 4.x — check if the patch still applies and if it addresses an issue still present in the new version before keeping it.
+
+### 63. Jest `/.worktrees/` testPathIgnorePattern blocks all test runs from worktrees
+**Problem:** `jest.config.cjs` includes `/.worktrees/` in `testPathIgnorePatterns`. Running `npm test` from inside a worktree path silently finds 0 tests because all absolute paths contain `.worktrees`.
+**Symptoms:** `Pattern: <name> - 0 matches` even when the test file exists. `testMatch: 48 matches` but `testPathIgnorePatterns: 0 matches` — confusing output because the reported "0 matches" refers to files surviving the ignore filter, not files skipped.
+**Working solution:** Override the ignore list on the CLI: `npx jest --config jest.config.cjs --testPathIgnorePatterns "/node_modules/" "/__tests__/coverage/"` (drop `/.worktrees/` from the pattern). Confirmed in GH-113-fb1 and GH-151.
+**Apply when:** Any worker running `npm test` from a worktree path and getting `Pattern: ... - 0 matches` for a test that clearly exists.
+
+### 64. Manually import baseline data via adb taps when Maestro fails
+**Problem:** Maestro `00_import_baseline.yaml` flow fails due to ADB server mismatch (WSL ADB client vs Windows ADB server) or gRPC issues. Baseline import is still needed for evidence screenshots.
+**Working solution:**
+1. Push file: `bash run-maestro-from-wsl.sh --mode bootstrap` (just pushes the .gains file, no Maestro needed)
+2. Navigate to Settings tab: `adb -s $DEVICE shell input tap 945 2232`
+3. Scroll to bottom: `adb -s $DEVICE shell input swipe 540 1500 540 500 500`
+4. Tap "Import Data" button: get bounds from `uiautomator dump`, tap center
+5. Confirm "Import" on dialog: get bounds from dump, tap
+6. Select `baseline.gains` from file picker: get bounds from dump, tap
+7. Verify: navigate to Training tab and check for "Push pull" text in `uiautomator dump`
+**Apply when:** Maestro import fails with device-not-found or connectivity errors; baseline data is required for evidence screenshots.
+
+### 65. Fresh APK + adb reverse is sufficient for RN 0.84.1 emulators
+**Observation:** After installing a freshly-built APK (no SharedPreferences set) and running `adb -s $DEVICE reverse tcp:8081 tcp:$HOST_METRO_PORT`, the app loaded from the correct Metro on an Android emulator running API 35. This contradicts the earlier note that 10.0.2.2:8081 bypasses adb reverse — it appears that on RN 0.84.1 or newer emulator images, localhost:8081 is used by default (not 10.0.2.2:8081), so the adb reverse IS sufficient.
+**Apply when:** RN 0.84.1+ and API 35 emulator — try adb reverse first before setting up socat bridges or manually editing SharedPreferences.
