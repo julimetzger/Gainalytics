@@ -12,6 +12,7 @@ import {insightCache, formatGeneratedAt} from '../../utils/insightCache';
 import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
 import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
 import {startChatWithContext} from '../../redux/AIChat/aiChatSlice';
+import {serializeTrainingsForChat} from '../../utils/ai/serializeTrainingsForChat';
 
 interface Props {
   trainings: Training[];
@@ -179,7 +180,13 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
   };
 
   const handleAskAI = (insightText: string) => {
-    dispatch(startChatWithContext(insightText));
+    const seedContextJson = serializeTrainingsForChat(
+      finishedTrainings,
+      workoutsById,
+      exercisesById,
+      videoAnalysesById,
+    );
+    dispatch(startChatWithContext({insightText, seedContextJson}));
     navigation.navigate('Analyse', {screen: 'AIChat'});
   };
 

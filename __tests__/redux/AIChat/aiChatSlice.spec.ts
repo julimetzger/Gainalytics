@@ -5,9 +5,10 @@ import reducer, {
   setLoading,
   startChatWithContext,
   AIChatState,
+  ChatSeedContext,
 } from '../../../app/redux/AIChat/aiChatSlice';
 
-const initial: AIChatState = {messages: [], isLoading: false, error: null};
+const initial: AIChatState = {messages: [], isLoading: false, error: null, seedContextJson: null};
 
 describe('aiChatSlice', () => {
   it('starts with empty state', () => {
@@ -46,23 +47,41 @@ describe('aiChatSlice', () => {
     expect(state.error).toBeNull();
   });
 
-  it('clearChat resets to initial state', () => {
+  it('clearChat resets to initial state including seedContextJson', () => {
     let state: AIChatState = {
       messages: [{role: 'user', content: 'hi'}, {role: 'assistant', content: 'hello'}],
       isLoading: true,
       error: 'some error',
+      seedContextJson: '{"sessions":[]}',
     };
     state = reducer(state, clearChat());
     expect(state).toEqual(initial);
   });
 
-  it('startChatWithContext seeds conversation with one assistant message', () => {
+  it('startChatWithContext seeds conversation with insightText as assistant message', () => {
+    const ctx: ChatSeedContext = {
+      insightText: 'Here is your analysis: great work!',
+      seedContextJson: null,
+    };
     let state = reducer(initial, appendMessage({role: 'user', content: 'existing'}));
-    state = reducer(state, startChatWithContext('Here is your analysis: great work!'));
+    state = reducer(state, startChatWithContext(ctx));
     expect(state.messages).toHaveLength(1);
     expect(state.messages[0]).toEqual({role: 'assistant', content: 'Here is your analysis: great work!'});
     expect(state.isLoading).toBe(false);
     expect(state.error).toBeNull();
+  });
+
+  it('startChatWithContext stores seedContextJson in state', () => {
+    const seedJson = JSON.stringify({meso_name: 'Hypertrophy', sessions: []});
+    const ctx: ChatSeedContext = {insightText: 'Great training!', seedContextJson: seedJson};
+    const state = reducer(initial, startChatWithContext(ctx));
+    expect(state.seedContextJson).toBe(seedJson);
+  });
+
+  it('startChatWithContext with null seedContextJson stores null', () => {
+    const ctx: ChatSeedContext = {insightText: 'Insight', seedContextJson: null};
+    const state = reducer(initial, startChatWithContext(ctx));
+    expect(state.seedContextJson).toBeNull();
   });
 
   it('startChatWithContext clears previous chat before seeding', () => {
@@ -70,9 +89,11 @@ describe('aiChatSlice', () => {
       messages: [{role: 'user', content: 'old msg'}, {role: 'assistant', content: 'old resp'}],
       isLoading: false,
       error: null,
+      seedContextJson: 'old-context',
     };
-    state = reducer(state, startChatWithContext('new context'));
+    state = reducer(state, startChatWithContext({insightText: 'new context', seedContextJson: null}));
     expect(state.messages).toHaveLength(1);
     expect(state.messages[0].role).toBe('assistant');
+    expect(state.seedContextJson).toBeNull();
   });
 });

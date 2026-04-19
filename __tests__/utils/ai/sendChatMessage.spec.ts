@@ -120,4 +120,17 @@ describe('sendChatMessage', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Network error');
   });
+
+  it('system prompt includes seedContextJson when composed by caller', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('ok'));
+    const seedJson = JSON.stringify({meso_name: 'Hypertrophy', sessions: [{date: '2026-04-01', exercises: []}]});
+    const basePrompt = 'You are an AI training coach specializing in powerlifting and strength training. Use the provided analysis context to give specific, actionable advice. Be concise and practical.';
+    const composedPrompt = `${basePrompt}\n\nAnalysis context (last 28 days of finished trainings as JSON):\n\n${seedJson}`;
+
+    await sendChatMessage([{role: 'user', content: 'How many sessions?'}], 'sk-key', composedPrompt);
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.system).toContain('Analysis context (last 28 days of finished trainings as JSON):');
+    expect(body.system).toContain(seedJson);
+  });
 });

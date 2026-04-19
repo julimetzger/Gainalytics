@@ -1,6 +1,6 @@
 import {useDispatch, useSelector} from 'react-redux';
 import {GlobalState} from '../../rootReducer';
-import {appendMessage, clearChat, setError, setLoading, startChatWithContext} from '../aiChatSlice';
+import {appendMessage, clearChat, setError, setLoading, startChatWithContext, ChatSeedContext} from '../aiChatSlice';
 import {ChatMessage} from '../../../utils/ai/sendChatMessage';
 
 export function useAIChat() {
@@ -17,6 +17,6 @@ export function useAIChat() {
     setLoading: (v: boolean) => dispatch(setLoading(v)),
     setError: (msg: string | null) => dispatch(setError(msg)),
     clearChat: () => dispatch(clearChat()),
-    startChatWithContext: (ctx: string) => dispatch(startChatWithContext(ctx)),
+    startChatWithContext: (ctx: ChatSeedContext) => dispatch(startChatWithContext(ctx)),
   };
 }

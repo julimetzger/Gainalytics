@@ -7,7 +7,7 @@ import {appendMessage, clearChat, setError, setLoading, startChatWithContext} fr
 import {sendChatMessage, ChatMessage} from '../../utils/ai/sendChatMessage';
 import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
 
-const SYSTEM_PROMPT =
+const BASE_SYSTEM_PROMPT =
   'You are an AI training coach specializing in powerlifting and strength training. ' +
   'Use the provided analysis context to give specific, actionable advice. ' +
   'Be concise and practical.';
@@ -18,6 +18,7 @@ const AIChatTab = () => {
   const messages = useSelector((s: GlobalState) => s.aiChat.messages);
   const isLoading = useSelector((s: GlobalState) => s.aiChat.isLoading);
   const error = useSelector((s: GlobalState) => s.aiChat.error);
+  const seedContextJson = useSelector((s: GlobalState) => s.aiChat.seedContextJson);
 
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList>(null);
@@ -65,8 +66,12 @@ const AIChatTab = () => {
     dispatch(setLoading(true));
     dispatch(setError(null));
 
+    const systemPrompt = seedContextJson
+      ? `${BASE_SYSTEM_PROMPT}\n\nAnalysis context (last 28 days of finished trainings as JSON):\n\n${seedContextJson}`
+      : BASE_SYSTEM_PROMPT;
+
     const history: ChatMessage[] = [...messages, userMsg];
-    const result = await sendChatMessage(history, apiKey, SYSTEM_PROMPT);
+    const result = await sendChatMessage(history, apiKey, systemPrompt);
 
     if (result.ok) {
       dispatch(appendMessage({role: 'assistant', content: result.text}));

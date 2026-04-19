@@ -81,6 +81,13 @@ const migrations = {
     ...state,
     aiChat: {messages: [], isLoading: false, error: null},
   }),
+  7: (state) => ({
+    ...state,
+    aiChat: {
+      ...(state.aiChat ?? {messages: [], isLoading: false, error: null}),
+      seedContextJson: null,
+    },
+  }),
 };
 
 const storage = new MMKV();
@@ -104,7 +111,7 @@ const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseI
 
 const persistConfig = {
   key: 'root',
-  version: 6,
+  version: 7,
   storage: reduxStorage,
   whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'settings', 'aiChat'],
   stateReconciler: hardSet,
