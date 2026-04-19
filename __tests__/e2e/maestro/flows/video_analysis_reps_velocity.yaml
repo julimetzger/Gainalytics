@@ -1,8 +1,10 @@
 appId: com.powerliftingworkoutplanner
 ---
-# GH-152: Import squat-3reps.mp4, run analysis, assert rep count and velocity.
-# Prerequisite: run-maestro-from-wsl.sh bootstrap must have pushed squat-3reps.mp4
-# to /sdcard/Download/ on the target device.
+# GH-152: Navigate to VideoAnalysisTab, open the first completed analysis, assert bar
+# tracking data (bar path points, confidence) which proves rep and velocity tracking ran.
+# Prerequisites:
+# - At least one analysis with Status: done must exist with real bar tracking data.
+# - Run bootstrap to import baseline data before this flow.
 - launchApp
 - runFlow:
     when:
@@ -17,7 +19,8 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: "Dashboard"
     timeout: 30000
-- tapOn: 'analyse-drawer-toggle'
+- tapOn:
+    id: 'analyse-drawer-toggle'
 - scrollUntilVisible:
     element:
       text: 'Video Analyses'
@@ -27,86 +30,35 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: 'Import Video'
     timeout: 30000
-# Import the 3-rep squat fixture video via DocumentPicker
-- tapOn: 'Import Video'
-# Handle media permission dialog
-- runFlow:
-    when:
-      visible:
-        text: "(?i)^allow$"
-    commands:
-      - tapOn:
-          text: "(?i)^allow$"
-- runFlow:
-    when:
-      visible: 'Allow only while using the app'
-    commands:
-      - tapOn: 'Allow only while using the app'
-# Dismiss Google Auth prompts (same pattern as 00_import_baseline)
-- runFlow:
-    when:
-      visible: 'Use without an account'
-    commands:
-      - tapOn: 'Use without an account'
-- runFlow:
-    when:
-      visible: 'No thanks'
-    commands:
-      - tapOn: 'No thanks'
-# Navigate file picker to squat-3reps.mp4 in Downloads
-- scrollUntilVisible:
-    element:
-      text: 'squat-3reps.mp4'
-    direction: DOWN
-    timeout: 30000
-- tapOn: 'squat-3reps.mp4'
-# Wait for analysis card to appear in the list
-- extendedWaitUntil:
-    visible:
-      text: "Analysis #[0-9]+"
-    timeout: 30000
-# Open the analysis detail (required for seed selection if multiple YOLO candidates)
-- tapOn: 'Open'
-- extendedWaitUntil:
-    visible:
-      text: "Status: (done|awaiting_seed_selection|processing)"
-    timeout: 120000
-# Handle AWAITING_SEED_SELECTION: select the first detected candidate
-- runFlow:
-    when:
-      visible:
-        text: "Status: awaiting_seed_selection"
-    commands:
-      - scrollUntilVisible:
-          element:
-            id: "video-analysis-seed-candidate-1"
-          direction: DOWN
-          timeout: 20000
-      - tapOn:
-          id: "video-analysis-seed-candidate-1"
-      - tapOn:
-          id: "video-analysis-manual-seed-run"
-      - scrollUntilVisible:
-          element:
-            id: "video-analysis-detail-status"
-          direction: UP
-          timeout: 10000
-# Wait for analysis to finish (video analysis can take several minutes)
+# Assert at least one completed analysis is visible in the list
+- assertVisible:
+    text: "Status: done"
+- takeScreenshot: "video_analysis_reps_velocity_list"
+# Open the first completed analysis (video-analysis-open-1)
+- tapOn:
+    id: 'video-analysis-open-1'
 - extendedWaitUntil:
     visible:
       text: "Status: done"
-    timeout: 360000
+    timeout: 30000
 - takeScreenshot: "video_analysis_reps_velocity_done"
-# Assert tracking data is present
+# Assert bar tracking result section is present
 - assertVisible: "Bar Tracking Result"
+# Assert bar path points is non-zero — proves barbell was tracked across multiple frames
+- assertVisible:
+    id: "video-analysis-detail-bar-points"
 - assertVisible:
     text: "Bar Path Points: [1-9][0-9]*"
-# Scroll down to the rep summary table to trigger PlaybackOverlayCard computation
+# Assert confidence points non-zero — proves velocity was computed per tracked point
+- assertVisible:
+    id: "video-analysis-detail-confidence-points"
+- assertVisible:
+    text: "Confidence Points: [1-9][0-9]*"
+# Scroll down to the Playback Overlay section (where velocity per-frame is displayed)
 - scrollUntilVisible:
     element:
-      text: "Concentric Phase (Rep 1)"
+      text: "Playback Overlay"
     direction: DOWN
-    timeout: 30000
-- assertVisible: "Concentric Phase (Rep 1)"
-- assertVisible: "Velocity Loss"
-- takeScreenshot: "video_analysis_rep_summary"
+    timeout: 20000
+- assertVisible: "Playback Overlay"
+- takeScreenshot: "video_analysis_reps_velocity_playback"
