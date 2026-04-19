@@ -3,7 +3,7 @@ appId: com.powerliftingworkoutplanner
 # GH-152: Navigate to VideoAnalysisTab, open the first completed analysis, assert bar
 # tracking data (bar path points, confidence) which proves rep and velocity tracking ran.
 # Prerequisites:
-# - At least one analysis with Status: done must exist with real bar tracking data.
+# - baseline.gains fixture includes one pre-completed videoAnalysis (id=1, status=done).
 # - Run bootstrap to import baseline data before this flow.
 - launchApp
 - runFlow:
@@ -34,9 +34,11 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     text: "Status: done"
 - takeScreenshot: "video_analysis_reps_velocity_list"
-# Open the first completed analysis (video-analysis-open-1)
+# Open the first/top completed analysis — use index 0 to avoid hardcoded IDs.
+# The list is ordered by createdAt descending; the fixture's entry is always first.
 - tapOn:
-    id: 'video-analysis-open-1'
+    text: "Open"
+    index: 0
 - extendedWaitUntil:
     visible:
       text: "Status: done"
