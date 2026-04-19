@@ -12,6 +12,7 @@ import VideoAnalysisDetailTab from '../tabs/Analyse/VideoAnalysisDetailTab';
 import VideoAnalysisCompareTab from '../tabs/Analyse/VideoAnalysisCompareTab';
 import TrainingLengthTab from '../tabs/Analyse/TrainingLengthTab';
 import DashboardTab from '../tabs/Analyse/DashboardTab';
+import AIChatTab from '../tabs/Analyse/AIChatTab';
 
 export type RootStackParamList = {
   Dashboard: undefined;
@@ -24,6 +25,7 @@ export type RootStackParamList = {
   VideoAnalyses: undefined;
   VideoAnalysisDetail: {analysisId: number};
   VideoAnalysisCompare: {analysisId: number; compareAnalysisId: number};
+  AIChat: undefined;
 };
 
 const AnalyseRouter = () => {
@@ -106,6 +108,16 @@ const AnalyseRouter = () => {
         component={VideoAnalysisCompareTab}
         options={() => ({
           title: 'Compare Analyses',
+        })}
+      />
+      <Stack.Screen
+        name="AIChat"
+        component={AIChatTab}
+        options={() => ({
+          title: 'AI Chat',
+          drawerIcon: ({color, size}: {color: string; size: number}) => (
+            <IconButton icon="chat-processing-outline" iconColor={color} size={size} />
+          ),
         })}
       />
     </Stack.Navigator>

@@ -1,7 +1,8 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {View} from 'react-native';
 import {ActivityIndicator, Card, IconButton, Text, useTheme} from 'react-native-paper';
-import {useSelector} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
+import {useNavigation} from '@react-navigation/native';
 import {GlobalState} from '../../redux/rootReducer';
 import {Training} from '../../models/entities/Training';
 import {TrainingsState} from '../../models/TrainingsState';
@@ -10,6 +11,7 @@ import {callAnthropicClaude} from '../../utils/llmApi';
 import {insightCache, formatGeneratedAt} from '../../utils/insightCache';
 import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
 import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
+import {startChatWithContext} from '../../redux/AIChat/aiChatSlice';
 
 interface Props {
   trainings: Training[];
@@ -34,6 +36,8 @@ function cacheKey(trainings: Training[]): string {
 
 const CoachInsightCard = ({trainings, isActive = true}: Props) => {
   const theme = useTheme();
+  const dispatch = useDispatch();
+  const navigation = useNavigation<any>();
   const [state, setState] = useState<State>({status: 'idle'});
 
   // Reactive API key: update when user saves / removes the key in Settings.
@@ -174,6 +178,11 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
     fetchInsight(key, apiKey, finishedTrainings, model);
   };
 
+  const handleAskAI = (insightText: string) => {
+    dispatch(startChatWithContext(insightText));
+    navigation.navigate('Analyse', {screen: 'AIChat'});
+  };
+
   if (state.status === 'idle' || state.status === 'no_key') {
     return null;
   }
@@ -194,6 +203,15 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
               iconColor={theme.colors.primary}
               size={18}
             />
+            {state.status === 'done' && (
+              <IconButton
+                icon="chat-processing-outline"
+                iconColor={theme.colors.secondary}
+                size={18}
+                onPress={() => handleAskAI((state as {status: 'done'; text: string; generatedAt: number}).text)}
+                testID="coach-insight-ask-ai"
+              />
+            )}
             <IconButton
               icon="refresh"
               iconColor={theme.colors.onSurfaceVariant}
