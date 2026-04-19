@@ -363,3 +363,9 @@ A Maestro test piped to a log file (`maestro test ... > run.log 2>&1 &`) may sho
 ### react-native-reanimated 4.x patch from 0.82 upgrade is no longer needed
 **Observation:** The `react-native-reanimated+3.19.5.patch` that fixed hermes prefab rename (libhermes → hermesvm) and UIManagerModuleListener removal for RN 0.82 is specific to reanimated 3.x. Reanimated 4.x includes these fixes natively. Drop the patch when upgrading to reanimated 4.
 **Apply when:** Upgrading from reanimated 3.x to 4.x — check if the patch still applies and if it addresses an issue still present in the new version before keeping it.
+
+### 63. Jest `/.worktrees/` testPathIgnorePattern blocks all test runs from worktrees
+**Problem:** `jest.config.cjs` includes `/.worktrees/` in `testPathIgnorePatterns`. Running `npm test` from inside a worktree path silently finds 0 tests because all absolute paths contain `.worktrees`.
+**Symptoms:** `Pattern: <name> - 0 matches` even when the test file exists. `testMatch: 48 matches` but `testPathIgnorePatterns: 0 matches` — confusing output because the reported "0 matches" refers to files surviving the ignore filter, not files skipped.
+**Working solution:** Override the ignore list on the CLI: `npx jest --config jest.config.cjs --testPathIgnorePatterns "/node_modules/" "/__tests__/coverage/"` (drop `/.worktrees/` from the pattern). Confirmed in GH-113-fb1 and GH-151.
+**Apply when:** Any worker running `npm test` from a worktree path and getting `Pattern: ... - 0 matches` for a test that clearly exists.
