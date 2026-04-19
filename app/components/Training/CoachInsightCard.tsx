@@ -9,6 +9,7 @@ import {buildRawTrainingData, buildCoachPrompt} from '../../utils/coachInsight';
 import {callAnthropicClaude} from '../../utils/llmApi';
 import {insightCache, formatGeneratedAt} from '../../utils/insightCache';
 import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
+import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
 
 interface Props {
   trainings: Training[];
@@ -55,6 +56,8 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
     return unsub;
   }, []);
 
+  const model = useAnthropicModel();
+
   const workoutsById = useSelector((s: GlobalState) =>
     s.workouts.byId as Record<number, import('../../models/entities/Workout').Workout>,
   );
@@ -68,7 +71,7 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
   const finishedTrainings = trainings.filter(t => t.state === TrainingsState.FINISHED);
   const key = cacheKey(finishedTrainings);
 
-  // Keep a stable ref to avoid stale-closure issues inside fetchInsight
+  // Keep stable refs to avoid stale-closure issues inside fetchInsight
   const workoutsByIdRef = useRef(workoutsById);
   const exercisesByIdRef = useRef(exercisesById);
   const videoAnalysesByIdRef = useRef(videoAnalysesById);
@@ -77,7 +80,7 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
   videoAnalysesByIdRef.current = videoAnalysesById;
 
   const fetchInsight = useCallback(
-    (cKey: string, currentApiKey: string | undefined, currentFinished: Training[]) => {
+    (cKey: string, currentApiKey: string | undefined, currentFinished: Training[], currentModel: string) => {
       if (currentFinished.length === 0) {
         setState({status: 'idle'});
         return;
@@ -120,7 +123,7 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
 
       const {system, user} = buildCoachPrompt(coachInput);
 
-      callAnthropicClaude(currentApiKey, system, user).then(result => {
+      callAnthropicClaude(currentApiKey, system, user, currentModel).then(result => {
         if (result.ok) {
           const generatedAt = Date.now();
           insightCache.set(cKey, {text: result.text, generatedAt});
@@ -159,16 +162,16 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
       return;
     }
 
-    fetchInsight(key, apiKey, finishedTrainings);
+    fetchInsight(key, apiKey, finishedTrainings, model);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, apiKey, isActive, workoutCount, exerciseCount]);
+  }, [key, apiKey, isActive, workoutCount, exerciseCount, model]);
 
   const handleRefresh = () => {
     if (key) {
       insightCache.delete(key);
     }
     setState({status: 'loading'});
-    fetchInsight(key, apiKey, finishedTrainings);
+    fetchInsight(key, apiKey, finishedTrainings, model);
   };
 
   if (state.status === 'idle' || state.status === 'no_key') {

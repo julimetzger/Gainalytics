@@ -9,15 +9,6 @@ const ANTHROPIC_VERSION = '2023-06-01';
 const MAX_TOKENS = 200;
 
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
-let _model = DEFAULT_ANTHROPIC_MODEL;
-
-export function getAnthropicModel(): string {
-  return _model;
-}
-
-export function setAnthropicModel(model: string): void {
-  _model = model && model.trim() ? model.trim() : DEFAULT_ANTHROPIC_MODEL;
-}
 
 export type LlmError =
   | {type: 'no_key'}
@@ -34,6 +25,7 @@ export async function callAnthropicClaude(
   apiKey: string,
   systemPrompt: string,
   userMessage: string,
+  model: string,
 ): Promise<LlmResult> {
   if (!apiKey || apiKey.trim() === '') {
     return {ok: false, error: {type: 'no_key'}};
@@ -48,7 +40,7 @@ export async function callAnthropicClaude(
         'anthropic-version': ANTHROPIC_VERSION,
       },
       body: JSON.stringify({
-        model: getAnthropicModel(),
+        model,
         max_tokens: MAX_TOKENS,
         system: systemPrompt,
         messages: [{role: 'user', content: userMessage}],
@@ -79,5 +71,6 @@ export async function validateAnthropicApiKey(apiKey: string): Promise<LlmResult
     apiKey,
     'You are a helpful assistant.',
     'Reply with exactly: OK',
+    DEFAULT_ANTHROPIC_MODEL,
   );
 }
