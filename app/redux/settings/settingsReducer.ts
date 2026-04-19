@@ -22,6 +22,7 @@ export interface AppSettings {
     showPlusButtonLeft?: boolean;
   };
   metricOverview?: MetricOverviewSettings;
+  anthropicModel?: string;
 }
 
 const initialState = {
@@ -114,6 +115,13 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
           exactAlarmPermission: action.hasPermission,
         },
       };
+    case 'SET_ANTHROPIC_MODEL': {
+      const trimmed = ((action.model as string) ?? '').trim();
+      return {
+        ...settings,
+        anthropicModel: trimmed || undefined,
+      };
+    }
     case 'SET_METRIC_OVERVIEW_SLOT': {
       const slots = resolveMetricOverviewSlots(settings.metricOverview?.[action.section as MetricOverviewSection], action.section as MetricOverviewSection).map((metric, index) =>
         index === action.slotIndex ? action.metric : metric,

@@ -22,6 +22,9 @@ import {dispatchToggleMode} from '../../redux/settings/dispatch/dispatchToggleMo
 import {dispatchSetPalette} from '../../redux/settings/dispatch/dispatchSetPalette';
 import {canScheduleExactAlarms, openExactAlarmSettings} from '../../utils/NotificationUtils';
 import {dispatchSetExactAlarmPermission} from '../../redux/settings/dispatch/dispatchSetExactAlarmPersmission';
+import {dispatchSetAnthropicModel} from '../../redux/settings/dispatch/dispatchSetAnthropicModel';
+import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
+import {DEFAULT_ANTHROPIC_MODEL} from '../../utils/llmApi';
 
 const SettingsTab = ({navigation}: Props) => {
   let settings = useSettings();
@@ -32,6 +35,8 @@ const SettingsTab = ({navigation}: Props) => {
   let toggleShowPlusButtonLeft = dispatchToggleShowPlusButtonLeft();
   let setPalette = dispatchSetPalette();
   let setExactAlarmPermission = dispatchSetExactAlarmPermission();
+  let setAnthropicModelDispatch = dispatchSetAnthropicModel();
+  let currentModel = useAnthropicModel();
   let store = useStore();
   const FileSaver = require('react-native-fs');
 
@@ -40,6 +45,7 @@ const SettingsTab = ({navigation}: Props) => {
 
   // AI Coach API key state
   const [apiKeyInput, setApiKeyInput] = useState(() => secureStorage.getAnthropicApiKey() ?? '');
+  const [modelInput, setModelInput] = useState(currentModel);
   const [apiKeySecure, setApiKeySecure] = useState(true);
   const [apiKeyValidating, setApiKeyValidating] = useState(false);
 
@@ -128,6 +134,18 @@ const SettingsTab = ({navigation}: Props) => {
     } else {
       secureStorage.setAnthropicApiKey(trimmed);
       Toast.show({type: 'success', text1: 'API key saved', position: 'top', visibilityTime: 3000});
+    }
+  };
+
+  const handleSaveModel = () => {
+    const trimmed = modelInput.trim();
+    if (trimmed === '') {
+      setModelInput(DEFAULT_ANTHROPIC_MODEL);
+      setAnthropicModelDispatch('');
+      Toast.show({type: 'info', text1: 'Reset to default model', position: 'top', visibilityTime: 3000});
+    } else {
+      setAnthropicModelDispatch(trimmed);
+      Toast.show({type: 'success', text1: 'Model saved', position: 'top', visibilityTime: 3000});
     }
   };
 
@@ -343,6 +361,28 @@ const SettingsTab = ({navigation}: Props) => {
             Test Key
           </Button>
         </View>
+        <TextInput
+          mode="outlined"
+          label="Claude Model"
+          value={modelInput}
+          onChangeText={setModelInput}
+          placeholder={DEFAULT_ANTHROPIC_MODEL}
+          testID="settings-anthropic-model-input"
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={{marginTop: 12}}
+        />
+        <HelperText type="info">
+          Enter a Claude model ID (e.g. claude-haiku-4-5-20251001). Leave empty to reset to default.
+        </HelperText>
+        <Button
+          mode="outlined"
+          onPress={handleSaveModel}
+          style={{marginTop: 4}}
+          testID="settings-save-model-button"
+        >
+          Save Model
+        </Button>
       </View>
       <View style={styles.divider}>
         <Divider />

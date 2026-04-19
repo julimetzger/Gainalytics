@@ -6,8 +6,18 @@
 
 const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
-const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_TOKENS = 200;
+
+export const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
+let _model = DEFAULT_ANTHROPIC_MODEL;
+
+export function getAnthropicModel(): string {
+  return _model;
+}
+
+export function setAnthropicModel(model: string): void {
+  _model = model && model.trim() ? model.trim() : DEFAULT_ANTHROPIC_MODEL;
+}
 
 export type LlmError =
   | {type: 'no_key'}
@@ -38,7 +48,7 @@ export async function callAnthropicClaude(
         'anthropic-version': ANTHROPIC_VERSION,
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: getAnthropicModel(),
         max_tokens: MAX_TOKENS,
         system: systemPrompt,
         messages: [{role: 'user', content: userMessage}],
