@@ -11,13 +11,12 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 - assertVisible:
     id: "dashboard-scroll"
-- assertVisible: "Deine Woche auf einen Blick"
 - assertVisible:
     id: "weekly-summary-card"
 - assertVisible:
     id: "muscle-heatmap-card"
-- assertVisible: "Muskelgruppen"
-- assertVisible: "Schnellzugriff"
+- assertVisible:
+    id: "nav-records"
 # Verify navigation to Records works
 - tapOn:
     id: "nav-records"

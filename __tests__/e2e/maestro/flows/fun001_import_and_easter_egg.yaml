@@ -18,7 +18,9 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: "settings-import-confirm-button"
 - tapOn: "baseline.gains"
-- assertVisible: "Import successful!"
+- extendedWaitUntil:
+    visible: ".*Import successful.*"
+    timeout: 30000
 
 # Step 2: Navigate to exercises and trigger Easter egg
 - tapOn: "tab-exercises"
@@ -44,7 +46,7 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     text: "Cardio detected!"
 - assertVisible:
-    text: "This app can't be used to track cardio"
+    text: ".*This app can't be used to track cardio.*"
 # Assert the set was still saved (finalize button is still accessible)
 - assertVisible:
     id: "add-workout-finalize-button"

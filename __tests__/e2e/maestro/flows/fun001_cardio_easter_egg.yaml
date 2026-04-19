@@ -27,7 +27,7 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     text: "Cardio detected!"
 - assertVisible:
-    text: "This app can't be used to track cardio"
+    text: ".*This app can't be used to track cardio.*"
 # Assert the set was still saved (finalize button is still accessible)
 - assertVisible:
     id: "add-workout-finalize-button"

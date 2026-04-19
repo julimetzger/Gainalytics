@@ -12,8 +12,10 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: "Training"
     timeout: 30000
-- assertVisible: "TestPlanTestPlan"
-- tapOn: "TestPlanTestPlan"
+- assertVisible:
+    text: ".*Push pull.*"
+- tapOn:
+    text: ".*Push pull.*"
 - extendedWaitUntil:
     visible: "Planning"
     timeout: 30000
