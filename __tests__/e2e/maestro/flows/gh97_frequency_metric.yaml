@@ -21,7 +21,7 @@ appId: com.powerliftingworkoutplanner
 #   This is safe because the screen title is NOT "Metrics Overview", so there is no
 #   text ambiguity between the drawer item and the screen header.
 #
-# Case B – Dashboard ("Deine Woche auf einen Blick"):
+# Case B – Dashboard screen (Weekly Summary view):
 #   No drawer toggle visible. Use the "Alle Metriken" quick-access button.
 #   This is safe because we DON'T then open the drawer – we're already on Metrics Overview.
 #

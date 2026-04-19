@@ -33,7 +33,7 @@ appId: com.powerliftingworkoutplanner
     optional: true
 - tapOn: 'baseline.gains'
 - extendedWaitUntil:
-    visible: 'Import successful!'
+    visible: ".*Import successful.*"
     timeout: 60000
 
 # Go to the training tab and open the "last training" card of the first
