@@ -20,6 +20,8 @@ function createAnalysis(overrides: Partial<VideoAnalysis>): VideoAnalysis {
   };
 }
 
+const noSetRir = (_workoutId: number, _setIndex: number): number | null => null;
+
 describe('video-analysis-filters', () => {
   it('returns all analyses when no filter is active', () => {
     const analyses = [
@@ -38,6 +40,7 @@ describe('video-analysis-filters', () => {
         isDateRangeFilterActive: false,
         vlPresets: [],
         rirPresets: [],
+        getSetRir: noSetRir,
       }),
     ).toEqual(analyses);
   });
@@ -54,6 +57,8 @@ describe('video-analysis-filters', () => {
     const matchingAnalysis = createAnalysis({
       id: 1,
       exerciseId: 11,
+      workoutId: 100,
+      setIndex: 0,
       createdAt: new Date(2026, 3, 2, 12),
       setResult: {
         repResults: [],
@@ -66,6 +71,8 @@ describe('video-analysis-filters', () => {
       createAnalysis({
         id: 2,
         exerciseId: 22,
+        workoutId: 200,
+        setIndex: 0,
         createdAt: new Date(2026, 3, 2, 12),
         setResult: {
           repResults: [],
@@ -76,6 +83,8 @@ describe('video-analysis-filters', () => {
       createAnalysis({
         id: 3,
         exerciseId: 11,
+        workoutId: 300,
+        setIndex: 0,
         createdAt: new Date('2026-03-15T10:00:00.000Z'),
         setResult: {
           repResults: [],
@@ -84,6 +93,19 @@ describe('video-analysis-filters', () => {
         },
       }),
     ];
+
+    const getSetRir = (workoutId: number, _setIndex: number): number | null => {
+      if (workoutId === 100) {
+        return 0;
+      }
+      if (workoutId === 200) {
+        return 0;
+      }
+      if (workoutId === 300) {
+        return 2;
+      }
+      return null;
+    };
 
     expect(
       filterVideoAnalyses({
@@ -95,6 +117,7 @@ describe('video-analysis-filters', () => {
         isDateRangeFilterActive: true,
         vlPresets: ['<10%'],
         rirPresets: ['0'],
+        getSetRir,
       }),
     ).toEqual([matchingAnalysis]);
   });
@@ -112,6 +135,7 @@ describe('video-analysis-filters', () => {
         isDateRangeFilterActive: false,
         vlPresets: [],
         rirPresets: [],
+        getSetRir: noSetRir,
       }),
     ).toEqual([createAnalysis({id: 2, exerciseId: 22})]);
   });
@@ -135,6 +159,7 @@ describe('video-analysis-filters', () => {
           isDateRangeFilterActive: true,
           vlPresets: [],
           rirPresets: [],
+          getSetRir: noSetRir,
         }),
       ).toEqual([lateAnalysis]);
     });
@@ -157,6 +182,7 @@ describe('video-analysis-filters', () => {
           isDateRangeFilterActive: true,
           vlPresets: [],
           rirPresets: [],
+          getSetRir: noSetRir,
         }),
       ).toEqual([earlyAnalysis]);
     });
@@ -174,8 +200,115 @@ describe('video-analysis-filters', () => {
           isDateRangeFilterActive: true,
           vlPresets: [],
           rirPresets: [],
+          getSetRir: noSetRir,
         }),
       ).toEqual([]);
+    });
+  });
+
+  describe('RIR filter — user-reported set RIR', () => {
+    it('passes through only analyses whose linked set has rir matching the preset', () => {
+      const matchRir2 = createAnalysis({id: 1, workoutId: 10, setIndex: 0});
+      const matchRir3 = createAnalysis({id: 2, workoutId: 10, setIndex: 1});
+      const noLink = createAnalysis({id: 3}); // no workoutId/setIndex
+
+      const getSetRir = (workoutId: number, setIndex: number): number | null => {
+        if (workoutId === 10 && setIndex === 0) {
+          return 2;
+        }
+        if (workoutId === 10 && setIndex === 1) {
+          return 3;
+        }
+        return null;
+      };
+
+      const dateRange = buildVideoAnalysisDefaultDateRange([matchRir2, matchRir3, noLink]);
+      const args = {
+        analyses: [matchRir2, matchRir3, noLink],
+        exerciseIds: [],
+        hasMuscleFilter: false,
+        muscleExerciseIds: [],
+        dateRange,
+        isDateRangeFilterActive: false,
+        vlPresets: [] as any,
+        getSetRir,
+      };
+
+      expect(filterVideoAnalyses({...args, rirPresets: ['2']})).toEqual([matchRir2]);
+      expect(filterVideoAnalyses({...args, rirPresets: ['3']})).toEqual([matchRir3]);
+      expect(filterVideoAnalyses({...args, rirPresets: ['2', '3']})).toEqual([matchRir2, matchRir3]);
+    });
+
+    it('excludes analysis without linkedSetId (no workoutId) when RIR filter is active', () => {
+      const noLink = createAnalysis({id: 1}); // no workoutId, no setIndex
+      const dateRange = buildVideoAnalysisDefaultDateRange([noLink]);
+
+      expect(
+        filterVideoAnalyses({
+          analyses: [noLink],
+          exerciseIds: [],
+          hasMuscleFilter: false,
+          muscleExerciseIds: [],
+          dateRange,
+          isDateRangeFilterActive: false,
+          vlPresets: [],
+          rirPresets: ['2'],
+          getSetRir: noSetRir,
+        }),
+      ).toEqual([]);
+    });
+
+    it('excludes analysis where set is not found in workout (getSetRir returns null)', () => {
+      const linked = createAnalysis({id: 1, workoutId: 10, setIndex: 99}); // setIndex 99 not in workout
+      const dateRange = buildVideoAnalysisDefaultDateRange([linked]);
+
+      expect(
+        filterVideoAnalyses({
+          analyses: [linked],
+          exerciseIds: [],
+          hasMuscleFilter: false,
+          muscleExerciseIds: [],
+          dateRange,
+          isDateRangeFilterActive: false,
+          vlPresets: [],
+          rirPresets: ['2'],
+          getSetRir: () => null,
+        }),
+      ).toEqual([]);
+    });
+
+    it('matches 4+ chip for user-reported rir >= 4', () => {
+      const rir4 = createAnalysis({id: 1, workoutId: 10, setIndex: 0});
+      const rir5 = createAnalysis({id: 2, workoutId: 10, setIndex: 1});
+      const rir3 = createAnalysis({id: 3, workoutId: 10, setIndex: 2});
+      const dateRange = buildVideoAnalysisDefaultDateRange([rir4, rir5, rir3]);
+
+      const getSetRir = (_workoutId: number, setIndex: number): number | null => {
+        if (setIndex === 0) {
+          return 4;
+        }
+        if (setIndex === 1) {
+          return 5;
+        }
+        if (setIndex === 2) {
+          return 3;
+        }
+        return null;
+      };
+
+      expect(
+        filterVideoAnalyses({
+          analyses: [rir4, rir5, rir3],
+          exerciseIds: [],
+          hasMuscleFilter: false,
+          muscleExerciseIds: [],
+          dateRange,
+          isDateRangeFilterActive: false,
+          vlPresets: [],
+          rirPresets: ['4+'],
+          getSetRir,
+        }),
+      ).toEqual([rir4, rir5]);
     });
   });
 
