@@ -1,4 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-- takeScreenshot: "/tmp/maestro_diag_screen"
-- assertVisible: ".*"
