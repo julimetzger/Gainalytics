@@ -17,7 +17,11 @@ import {dispatchToggleMode} from '../../../app/redux/settings/dispatch/dispatchT
 import {dispatchSetPalette} from '../../../app/redux/settings/dispatch/dispatchSetPalette';
 import {dispatchSetExactAlarmPermission} from '../../../app/redux/settings/dispatch/dispatchSetExactAlarmPersmission';
 import {canScheduleExactAlarms, openExactAlarmSettings} from '../../../app/utils/NotificationUtils';
+import {dispatchSetAnthropicModel} from '../../../app/redux/settings/dispatch/dispatchSetAnthropicModel';
+import {useAnthropicModel} from '../../../app/redux/settings/use/useAnthropicModel';
+import {DEFAULT_ANTHROPIC_MODEL} from '../../../app/utils/llmApi';
 
+const mockSetAnthropicModel = jest.fn();
 const mockToggleMode = jest.fn();
 const mockToggleDisable1RM = jest.fn();
 const mockToggleShowTimer = jest.fn();
@@ -95,6 +99,14 @@ jest.mock('../../../app/redux/settings/dispatch/dispatchSetExactAlarmPersmission
 jest.mock('../../../app/utils/NotificationUtils', () => ({
   canScheduleExactAlarms: jest.fn(),
   openExactAlarmSettings: jest.fn(),
+}));
+
+jest.mock('../../../app/redux/settings/dispatch/dispatchSetAnthropicModel', () => ({
+  dispatchSetAnthropicModel: jest.fn(() => mockSetAnthropicModel),
+}));
+
+jest.mock('../../../app/redux/settings/use/useAnthropicModel', () => ({
+  useAnthropicModel: jest.fn(() => 'claude-haiku-4-5-20251001'),
 }));
 
 jest.mock('../../../app/utils/secureStorage', () => ({
@@ -201,11 +213,15 @@ jest.mock('react-native-paper', () => {
     HelperText: ({children}: {children: React.ReactNode}) => <Text>{children}</Text>,
     ActivityIndicator: () => <View testID="activity-indicator" />,
     TextInput: Object.assign(
-      ({value, onChangeText, label, testID}: {value?: string; onChangeText?: (t: string) => void; label?: string; testID?: string; [k: string]: any}) => (
-        <View testID={testID}>
-          <Text>{label}</Text>
-        </View>
-      ),
+      ({value, onChangeText, label, testID}: {value?: string; onChangeText?: (t: string) => void; label?: string; testID?: string; [k: string]: any}) => {
+        const {TextInput: RNTextInput} = require('react-native');
+        return (
+          <View>
+            <Text>{label}</Text>
+            <RNTextInput testID={testID} value={value} onChangeText={onChangeText} />
+          </View>
+        );
+      },
       {
         Icon: ({icon, onPress}: {icon: string; onPress?: () => void}) => (
           <TouchableOpacity onPress={onPress} testID={`text-input-icon-${icon}`}>
@@ -281,6 +297,7 @@ describe('SettingsTab', () => {
     mockFullImport.mockReset();
     mockSetPauseTimer.mockReset();
     mockSetFinishTrainingTimer.mockReset();
+    mockSetAnthropicModel.mockReset();
 
     mockedCanScheduleExactAlarms.mockResolvedValue(false);
     mockedOpenExactAlarmSettings.mockResolvedValue();
@@ -368,6 +385,57 @@ describe('SettingsTab', () => {
 
     expect(fileSaver.writeFile).toHaveBeenCalledWith('/mock/path/1234.gains', '{"training":"state"}');
     expect(Alert.alert).toHaveBeenCalledWith('exported to /mock/path/1234.gains');
+  });
+
+  it('renders model input with correct testID', async () => {
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+
+    await waitFor(() => {
+      expect(getByTestId('settings-anthropic-model-input')).toBeTruthy();
+    });
+  });
+
+  it('saves custom model and shows success toast', async () => {
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+
+    await waitFor(() => {
+      expect(getByTestId('button-Save-Model')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByTestId('settings-anthropic-model-input'), 'claude-opus-4-7');
+    fireEvent.press(getByTestId('button-Save-Model'));
+
+    expect(mockSetAnthropicModel).toHaveBeenCalledWith('claude-opus-4-7');
+    expect(Toast.show).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'success',
+      text1: 'Model saved',
+    }));
+  });
+
+  it('resets to default and shows reset toast when model input is empty on save', async () => {
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+
+    await waitFor(() => {
+      expect(getByTestId('button-Save-Model')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByTestId('settings-anthropic-model-input'), '');
+    fireEvent.press(getByTestId('button-Save-Model'));
+
+    expect(mockSetAnthropicModel).toHaveBeenCalledWith('');
+    expect(Toast.show).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'info',
+      text1: 'Reset to default model',
+    }));
   });
 
   // Increase timeout: React 19 async batching can make waitFor take longer on first run

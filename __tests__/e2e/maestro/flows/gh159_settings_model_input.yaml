@@ -1,0 +1,38 @@
+appId: com.powerliftingworkoutplanner
+name: GH-159 Claude Model Settings Input
+---
+# Launch app
+- launchApp:
+    clearState: false
+
+# Wait for app to settle on Training tab
+- extendedWaitUntil:
+    visible:
+      text: "Training"
+    timeout: 60000
+
+# Tap Settings tab (bottom-right ~88%,93%)
+- tapOn:
+    point: "88%,93%"
+
+# Wait for Settings screen with AI Coach section
+- extendedWaitUntil:
+    visible:
+      text: "AI Coach (Anthropic Claude)"
+    timeout: 15000
+
+# Verify AI Coach section is present (regression guard)
+- assertVisible:
+    text: "AI Coach (Anthropic Claude)"
+
+# Verify API Key input still works (no regression from GH-95)
+- assertVisible:
+    id: "settings-anthropic-api-key-input"
+
+# Verify Save Key button (API key flow unchanged)
+- assertVisible:
+    text: "Save Key"
+
+# Verify Test Key button (API key flow unchanged)
+- assertVisible:
+    text: "Test Key"

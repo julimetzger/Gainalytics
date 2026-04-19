@@ -431,3 +431,20 @@ A Maestro test piped to a log file (`maestro test ... > run.log 2>&1 &`) may sho
 ### 74. Baseline fixture data causes DashboardTab crash in current emulator APK (GH-119 unfixed)
 **Observation:** On the currently installed APK on emulator-5554, navigating to the Analyse tab (DashboardTab) after adding a workout set with 21 reps triggers `calculateMetricValue: workoutsCount is required for Metric.FREQUENCY`. Same crash also triggers when navigating to a finished training (TrainingsOverview). This is the pre-existing bug tracked in GH-117/GH-119 — the fix is not deployed to emulator-5554.
 **Apply when:** If evidence screenshots of DashboardTab are required, use the Maestro log from `gh77_dashboard_smoke` (which runs fresh before any session adds data) as proof instead of a direct screencap.
+
+## GH-159 / Settings Model Picker Learnings
+
+### 75. Maestro swipe inside React Native ScrollView unreliable — use coordinate-based assertions or screenshots instead
+**Problem/Symptoms:** `scrollUntilVisible`, `scroll`, and `swipe: direction: UP` all fail to scroll a RN `ScrollView` in the Maestro version used on this project. Elements below the fold cannot be asserted via Maestro even though they are accessible via `uiautomator dump`.
+**Working solution:** (1) Limit Maestro flows to asserting elements already visible without scroll. (2) Use `uiautomator dump` + adb `screencap` to provide visual evidence for scrolled content. (3) Only use Maestro scroll assertions for elements the existing `01_training_smoke.yaml` successfully scrolls (i.e., the training list).
+**Apply when:** Any ticket where the new UI is below the fold in a scrollable screen. Don't block `ready_for_review` on Maestro scroll assertions — use screenshots + adb dump instead.
+
+### 76. react-native-paper TextInput mock must render a real RNTextInput to support fireEvent.changeText in tests
+**Problem/Symptoms:** The default `jest.mock('react-native-paper')` in SettingsTab.spec.tsx renders TextInput as a `<View testID={testID}>` — `fireEvent.changeText(getByTestId(...))` fails silently because View has no `onChangeText`. Tests then fail with unexpected values or wrong dispatch calls.
+**Working solution:** In the TextInput mock, render an inner `<RNTextInput testID={testID} value={value} onChangeText={onChangeText} />` (no testID on the wrapper View to avoid duplicate-testID errors). Import RNTextInput via `require('react-native').TextInput` inside the mock factory.
+**Apply when:** Any test file that needs to `fireEvent.changeText` on a react-native-paper TextInput mock.
+
+### 77. jest.mock factory cannot reference imported variables — use literal strings for default values in mocks
+**Problem/Symptoms:** `jest.mock('../path', () => ({ fn: jest.fn(() => IMPORTED_CONST) }))` throws "The module factory of jest.mock() is not allowed to reference any out-of-scope variables" at test runtime because Babel hoists jest.mock() before imports are evaluated.
+**Working solution:** Use literal string values inside the mock factory (e.g., `'claude-haiku-4-5-20251001'` instead of `DEFAULT_ANTHROPIC_MODEL`). Only variables prefixed with `mock` (case-insensitive) are allowed in the factory scope.
+**Apply when:** Any jest.mock() factory that needs to reference an imported constant. Hardcode the value or compute it inline.

@@ -3,12 +3,20 @@ import {act, fireEvent, render, waitFor} from '@testing-library/react-native';
 import CoachInsightCard from '../../../app/components/Training/CoachInsightCard';
 import {TrainingsState} from '../../../app/models/TrainingsState';
 import {Training} from '../../../app/models/entities/Training';
+import {DEFAULT_ANTHROPIC_MODEL} from '../../../app/utils/llmApi';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
 const mockCallAnthropicClaude = jest.fn();
 jest.mock('../../../app/utils/llmApi', () => ({
   callAnthropicClaude: (...args: any[]) => mockCallAnthropicClaude(...args),
+  DEFAULT_ANTHROPIC_MODEL: 'claude-haiku-4-5-20251001',
+}));
+
+// Default: return the default model; override per-test for the cold-start case.
+const mockUseAnthropicModel = jest.fn(() => DEFAULT_ANTHROPIC_MODEL);
+jest.mock('../../../app/redux/settings/use/useAnthropicModel', () => ({
+  useAnthropicModel: () => mockUseAnthropicModel(),
 }));
 
 const mockInsightCacheGet = jest.fn();
@@ -104,6 +112,7 @@ beforeEach(() => {
   // By default: no cache hit, API returns success
   mockInsightCacheGet.mockReturnValue(undefined);
   mockCallAnthropicClaude.mockResolvedValue({ok: true, text: 'Focus on progressive overload.'});
+  mockUseAnthropicModel.mockReturnValue(DEFAULT_ANTHROPIC_MODEL);
 });
 
 describe('CoachInsightCard — isActive=false', () => {
@@ -194,5 +203,26 @@ describe('CoachInsightCard — empty trainings reset', () => {
 
     expect(queryByTestId('coach-insight-card')).toBeNull();
     expect(mockCallAnthropicClaude).not.toHaveBeenCalled();
+  });
+});
+
+describe('CoachInsightCard — cold-start with persisted custom model (GH-159-fix1, Codex comment 3107258434)', () => {
+  it('uses the persisted custom model on the first API call before Settings is ever opened', async () => {
+    // Simulate: user persisted 'claude-sonnet-4-6-20251001', cold-starts the app,
+    // navigates directly to Training — Settings tab was never opened.
+    // CoachInsightCard reads the model from Redux (via useAnthropicModel) and passes
+    // it into callAnthropicClaude. There is no module-level cache to miss.
+    const persistedModel = 'claude-sonnet-4-6-20251001';
+    mockUseAnthropicModel.mockReturnValue(persistedModel);
+
+    const trainings = [makeFinishedTraining(1)];
+
+    render(<CoachInsightCard trainings={trainings} isActive={true} />);
+
+    await waitFor(() => expect(mockCallAnthropicClaude).toHaveBeenCalledTimes(1));
+
+    // The 4th argument is the model (apiKey, system, user, model)
+    const [, , , modelArg] = mockCallAnthropicClaude.mock.calls[0];
+    expect(modelArg).toBe(persistedModel);
   });
 });
