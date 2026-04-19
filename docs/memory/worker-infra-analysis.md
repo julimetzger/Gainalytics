@@ -80,6 +80,7 @@ Last updated: 2026-04-19 (GH-151 r2)
 | GH-139 | real | 0 | 0 | 0 | 1 | 0 | 3 | 2 | 15 | 0 | ready_for_review (RN 0.82→0.84 upgrade; reanimated 4 required react-navigation v7 upgrade; initialRouteName="Feed" typo caught by nav v7; react-native-worklets Jest mock needed; debug build ~10 min first clean build of worklets CMake; no Maestro/ADB issues) |
 | GH-139-fix1 | real | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review (pure one-line signing-config revert; assembleDebug clean pass; no ADB/Maestro/Metro issues; gh pr edit --body fails with GraphQL Projects deprecation warning but completes) |
 | GH-151 | emu | 0 | 0 | 5 | 30 | 15 | 0 | 0 | 0 | 0 | ready_for_review (previous worker committed code but left no status.json or screenshots; debug_http_host pointed at another worker's Metro on :8083 — full APK rebuild required (11 min) to get correct bundle; Maestro import flow failed with WSL ADB server connectivity, imported baseline manually via adb taps; adb reverse + fresh APK worked cleanly for RN 0.84.1 emulator; 24 unit tests primary evidence) |
+| GH-144-fix1 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review (pure logic fix — 2-line change + 3 unit tests; jest /.worktrees/ ignore pattern hit → overrode testPathIgnorePatterns on CLI; no APK/Maestro/ADB issues; 13/13 tests passed) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
