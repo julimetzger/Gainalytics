@@ -39,11 +39,6 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
     setError(undefined);
   };
   const confirmDialog = () => {
-    let undefinedMuscles = muscles.find((muscle) => muscle.percent === undefined || muscle.muscle === undefined);
-    if (undefinedMuscles) {
-      setError('Please fill in all the muscles and percentages or remove the muscle.');
-      return;
-    }
     if (newExerciseName === '') {
       setError('Please fill in the name of the exercise');
       return;
@@ -70,17 +65,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
             ) : (
               <View>
                 <TextInput value={newExerciseName} label={'Name of the Exercise'} onChangeText={(text) => setNewExerciseName(text)} />
-                {muscles.map((muscleFromMap: MusclePercentPair) => {
-                  return (
-                    <MusclePicker
-                      muscleValue={muscleFromMap}
-                      key={muscleFromMap.muscle}
-                      setMuscles={(muscle) => setMuscles([...muscles.filter((value) => value != muscleFromMap), muscle])}
-                      onDelete={(value) => setMuscles([...muscles.filter((m) => m !== value)])}
-                    />
-                  );
-                })}
-                <Button onPress={() => setMuscles([...muscles, {muscle: undefined, percent: undefined}])}>Add Muscle Group</Button>
+                <MusclePicker muscles={muscles} onChange={setMuscles} />
                 <ExerciseAlternativesField exerciseId={exerciseId} alternativeIds={alternativeIds} onChange={setAlternativeIds} />
               </View>
             )}

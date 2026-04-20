@@ -1,65 +1,115 @@
-import {View} from 'react-native';
-import DropDown from 'react-native-paper-dropdown';
-import {IconButton, TextInput, useTheme} from 'react-native-paper';
-import React, {useEffect, useState} from 'react';
+import React, {useState} from 'react';
+import {View, StyleSheet} from 'react-native';
+import {List, Text, TextInput} from 'react-native-paper';
 import {Muscles} from '../../../models/Muscles';
 import {MusclePercentPair} from '../../../models/entities/Exercise';
 
 interface MusclePickerProps {
-  muscleValue: MusclePercentPair;
-  setMuscles: (muscles: MusclePercentPair) => void;
-  onDelete: (muscle: MusclePercentPair) => void;
+  muscles: MusclePercentPair[];
+  onChange: (muscles: MusclePercentPair[]) => void;
 }
 
-const MusclePicker = ({setMuscles, muscleValue, onDelete}: MusclePickerProps) => {
-  const [dropdownVisible, setDropdownVisible] = useState(false);
-  let theme = useTheme();
-  useEffect(() => {}, [muscleValue]);
+const ALL_MUSCLES = Object.values(Muscles).sort() as Muscles[];
+
+const MusclePicker = ({muscles, onChange}: MusclePickerProps) => {
+  const assignedMuscles = muscles.filter(m => m.muscle && (m.percent ?? 0) > 0);
+
+  const [outerExpanded, setOuterExpanded] = useState(assignedMuscles.length > 0);
+  const [expandedMuscles, setExpandedMuscles] = useState<Set<Muscles>>(
+    new Set(assignedMuscles.map(m => m.muscle as Muscles)),
+  );
+
+  const getPercent = (muscle: Muscles): number | undefined => {
+    const pair = muscles.find(m => m.muscle === muscle);
+    return pair?.percent && pair.percent > 0 ? pair.percent : undefined;
+  };
+
+  const handlePercentChange = (muscle: Muscles, value: string) => {
+    const parsed = parseInt(value, 10);
+    const newMuscles = muscles.filter(m => m.muscle !== muscle);
+    if (!isNaN(parsed) && parsed > 0) {
+      newMuscles.push({muscle, percent: parsed});
+    }
+    onChange(newMuscles);
+  };
+
+  const toggleMuscleExpand = (muscle: Muscles) => {
+    setExpandedMuscles(prev => {
+      const next = new Set(prev);
+      if (next.has(muscle)) {
+        next.delete(muscle);
+      } else {
+        next.add(muscle);
+      }
+      return next;
+    });
+  };
+
+  const totalPercent = muscles.reduce((sum, m) => sum + (m.percent ?? 0), 0);
+  const assignedCount = assignedMuscles.length;
+  const summary = assignedCount > 0 ? `${assignedCount} muscle${assignedCount !== 1 ? 's' : ''} assigned · ${totalPercent}%` : 'No muscles assigned';
 
   return (
-    <View style={{display: 'flex', flexDirection: 'row'}}>
-      <DropDown
-        label={'Muscle'}
-        mode="outlined"
-        inputProps={{width: 100}}
-        visible={dropdownVisible}
-        onDismiss={() => setDropdownVisible(false)}
-        showDropDown={() => setDropdownVisible(true)}
-        value={muscleValue?.muscle}
-        setValue={(muscleUpdate) => setMuscles({muscle: muscleUpdate, percent: muscleValue?.percent ?? 100})}
-        list={Object.values(Muscles).map((value: string) => {
-          return {label: value, value: value};
-        })}
-        activeColor={theme.colors.primary}
-        dropDownItemSelectedStyle={{backgroundColor: theme.colors.primaryContainer}}
-        dropDownItemSelectedTextStyle={{color: theme.colors.onPrimaryContainer, fontWeight: 'bold'}}
-      />
-      <TextInput
-        keyboardType="numeric"
-        inputMode={'numeric'}
-        label={'Involvement'}
-        mode="outlined"
-        defaultValue={'100'}
-        style={{width: 90}}
-        selectTextOnFocus={true}
-        right={<TextInput.Icon icon="percent" size={18} />}
-        value={muscleValue?.percent?.toString()}
-        onChangeText={(value) =>
-          setMuscles({
-            muscle: muscleValue?.muscle,
-            percent: parseInt(value),
-          })
-        }
-      />
-      <IconButton
-        size={28}
-        icon={'delete'}
-        iconColor={theme.colors.secondary}
-        onPress={() => {
-          onDelete(muscleValue);
-        }}
-      />
-    </View>
+    <List.Accordion
+      testID="muscles-outer-accordion"
+      title="Muscles"
+      description={!outerExpanded ? summary : undefined}
+      expanded={outerExpanded}
+      onPress={() => setOuterExpanded(prev => !prev)}
+      left={props => <List.Icon {...props} icon="arm-flex" />}>
+      {ALL_MUSCLES.map(muscle => {
+        const percent = getPercent(muscle);
+        const isExpanded = expandedMuscles.has(muscle);
+
+        return (
+          <List.Accordion
+            key={muscle}
+            testID={`muscle-row-${muscle}`}
+            title={muscle}
+            description={!isExpanded && percent ? `${percent}%` : undefined}
+            expanded={isExpanded}
+            onPress={() => toggleMuscleExpand(muscle)}
+            style={styles.innerAccordion}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                testID={`muscle-input-${muscle}`}
+                keyboardType="numeric"
+                inputMode="numeric"
+                label="Percent"
+                mode="outlined"
+                dense
+                right={<TextInput.Affix text="%" />}
+                value={percent?.toString() ?? ''}
+                onChangeText={value => handlePercentChange(muscle, value)}
+                style={styles.percentInput}
+              />
+            </View>
+          </List.Accordion>
+        );
+      })}
+      <Text testID="muscles-total" style={styles.total}>
+        Total: {totalPercent}%
+      </Text>
+    </List.Accordion>
   );
 };
+
+const styles = StyleSheet.create({
+  innerAccordion: {
+    paddingLeft: 16,
+  },
+  inputContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  percentInput: {
+    width: 120,
+  },
+  total: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    opacity: 0.6,
+  },
+});
+
 export default MusclePicker;
