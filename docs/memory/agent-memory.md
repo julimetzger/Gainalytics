@@ -101,6 +101,19 @@ Any screen that uses `@react-navigation/drawer` or `react-native-drawer-layout` 
 ### Jest `testPathIgnorePatterns: ['/.worktrees/']` hides specs in a worktree
 When you run `jest` from inside `.worktrees/feature-*/`, every test file's absolute path contains `/.worktrees/`, so the default ignore pattern matches them all and jest reports "No tests found". Workaround for a single run: `npx jest --testPathIgnorePatterns=/node_modules/ --testPathIgnorePatterns=/__tests__/coverage/`. Don't waste time debugging missing specs in a worktree — check the ignore pattern first.
 
+### Node.js v24 + jest-cli `exit()` incompatibility produces misleading exit code 1
+After all tests pass, jest-cli throws `TypeError: (0 , _exit(...).default) is not a function` and exits 1. This is a pre-existing Node 24 / jest-cli incompatibility, not a test failure — all test results are accurate. Don't re-run or debug; just check the "Tests:" summary line in output.
+
+### APK hardcoded to non-8081 Metro port: adb reverse + bundle location to `localhost`
+If the APK was built with Metro host `10.0.2.2:PORT` (not the default 8081), `adb reverse` alone won't help — the emulator connects directly to 10.0.2.2 bypassing the tunnel. Fix:
+1. `adb reverse tcp:PORT tcp:$HOST_METRO_PORT` on host
+2. Dev menu → "Change Bundle Location" → `localhost:PORT` (**not** `10.0.2.2:PORT`) so the app uses the adb-reverse tunnel
+
+This is different from the standard setup where the APK uses 8081: in that case you can override with SharedPreferences to `localhost:8081`. For non-8081 ports, only the Dev Menu approach works (SharedPreferences `debug_http_host` is ignored for non-default ports in newer RN).
+
+### Dev Menu "Change Bundle Location" field: clear before typing
+The input may show a previous value. Pattern: open field → `adb shell input keyevent KEYCODE_MOVE_END` → 30× `KEYCODE_DEL` → `adb shell input text "localhost:PORT"`. If you type without clearing, you get a concatenated invalid URL (`80810.0.2.2:PORT`) and a "port invalid" crash.
+
 ### Maestro `id:` matches resource-id, not content-desc
 Custom RN `View`s that expose `testID="tab-analyse"` end up as `content-desc="tab-analyse"` in the Android view tree, **not** as `resource-id`. A Maestro step like `tapOn: { id: "tab-analyse" }` then fails with "Element not found". The bare-string form `tapOn: "tab-analyse"` matches both text and content-desc and works. Same rule as the existing `react-native-paper` note above, but it also applies to plain `<View>` with a testID on the bottom nav.
 
@@ -125,6 +138,9 @@ If a screen reads persisted data via lazy `useState(() => savedX)`, it sees `und
 
 ### Null-coalescing fallback on itself creates an always-false comparison
 `new Date(x ?? y).getTime() !== y.getTime()` is always `false` when `x` is null — it reduces to `y !== y`. Guard with an explicit null check first.
+
+### FlatList in a flex container collapses sibling rows unless it has `flex:1`
+In a `KeyboardAvoidingView` (or any `flex:1` root), a `FlatList` without an explicit `style={{ flex: 1 }}` takes all remaining space greedily, squeezing siblings that have `flexGrow: 0` to 0 height. Symptoms: chip row / picker row have 0 height in `uiautomator dump`. Fix: add `style={{ flex: 1 }}` to the FlatList **and** `flexShrink: 0` to every non-scrolling sibling above it (chips, date picker, info line). Both sides are required — one without the other doesn't work.
 
 ## Jest / Testing
 

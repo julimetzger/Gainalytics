@@ -24,6 +24,7 @@ Last updated: 2026-04-19 (GH-159-fix1)
 Last updated: 2026-04-19 (GH-157)
 Last updated: 2026-04-19 (GH-157-fix1)
 Last updated: 2026-04-20 (GH-79)
+Last updated: 2026-04-20 (GH-162)
 
 ## Per-Worker Breakdown
 
@@ -98,6 +99,7 @@ Last updated: 2026-04-20 (GH-79)
 | GH-157 | emu | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 0 | 0 | ready_for_review (new AI Chat tab feature; CMake/reanimated build failed first attempt, passed on retry; MMKV encryption key unstable across emulator sessions → API key unreadable → 401 on all requests despite valid key from WSL curl; live assistant screenshot not possible; unit tests (18/18) + error-handling screenshots as evidence; Jest /.worktrees/ ignore pattern hit — CLI override required) |
 | GH-157-fix1 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | ready_for_review (resume round — prior worker crashed due to API image dimension limit from accumulated screenshots; all code changes already in worktree; Jest /.worktrees/ ignore pattern hit again — CLI config override required; gh pr edit --body fails with GraphQL Projects deprecation → used REST API patch; clean real-device run, 35/35 tests pass) |
 | GH-79 | emu | 0 | 0 | 0 | 1 | 0 | 0 | 10 | 5 | 0 | ready_for_review (new feature ticket — no Maestro/gRPC issues; System UI "isn't responding" dialog blocked taps, dismissed via `am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS`; Gradle build 10 min; core.ignorecase=true caused test spec path stored as analyse/ not Analyse/ — cleaned up; Jest /.worktrees/ ignore override on CLI; 11 unit tests pass; APK + device verification clean) |
+| GH-162 | emu | 0 | 0 | 0 | 25 | 20 | 10 | 0 | 0 | 0 | ready_for_review (APK hardcoded to 10.0.2.2:8088 not 8081; adb reverse tcp:8088 tcp:8082 + bundle location localhost:8088 via Dev Menu required; bundle location field needed KEYCODE_DEL loop before input; FlatList flex:1 + flexShrink:0 on siblings fixed 0-height chip/picker rows; Node.js v24 jest-cli exit() crash is non-fatal; 27 unit tests passed; worktree jest testPathIgnorePatterns override needed) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
