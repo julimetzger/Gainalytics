@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {View, StyleSheet} from 'react-native';
+import {View, StyleSheet, ScrollView, useWindowDimensions} from 'react-native';
 import {List, Text, TextInput} from 'react-native-paper';
 import {Muscles} from '../../../models/Muscles';
 import {MusclePercentPair} from '../../../models/entities/Exercise';
@@ -12,16 +12,13 @@ interface MusclePickerProps {
 const ALL_MUSCLES = Object.values(Muscles).sort() as Muscles[];
 
 const MusclePicker = ({muscles, onChange}: MusclePickerProps) => {
+  const {height} = useWindowDimensions();
   const assignedMuscles = muscles.filter(m => m.muscle && (m.percent ?? 0) > 0);
-
   const [outerExpanded, setOuterExpanded] = useState(assignedMuscles.length > 0);
-  const [expandedMuscles, setExpandedMuscles] = useState<Set<Muscles>>(
-    new Set(assignedMuscles.map(m => m.muscle as Muscles)),
-  );
 
-  const getPercent = (muscle: Muscles): number | undefined => {
+  const getPercent = (muscle: Muscles): string => {
     const pair = muscles.find(m => m.muscle === muscle);
-    return pair?.percent && pair.percent > 0 ? pair.percent : undefined;
+    return pair?.percent && pair.percent > 0 ? pair.percent.toString() : '';
   };
 
   const handlePercentChange = (muscle: Muscles, value: string) => {
@@ -33,21 +30,12 @@ const MusclePicker = ({muscles, onChange}: MusclePickerProps) => {
     onChange(newMuscles);
   };
 
-  const toggleMuscleExpand = (muscle: Muscles) => {
-    setExpandedMuscles(prev => {
-      const next = new Set(prev);
-      if (next.has(muscle)) {
-        next.delete(muscle);
-      } else {
-        next.add(muscle);
-      }
-      return next;
-    });
-  };
-
   const totalPercent = muscles.reduce((sum, m) => sum + (m.percent ?? 0), 0);
   const assignedCount = assignedMuscles.length;
-  const summary = assignedCount > 0 ? `${assignedCount} muscle${assignedCount !== 1 ? 's' : ''} assigned · ${totalPercent}%` : 'No muscles assigned';
+  const summary =
+    assignedCount > 0
+      ? `${assignedCount} muscle${assignedCount !== 1 ? 's' : ''} assigned · ${totalPercent}%`
+      : 'No muscles assigned';
 
   return (
     <List.Accordion
@@ -57,36 +45,26 @@ const MusclePicker = ({muscles, onChange}: MusclePickerProps) => {
       expanded={outerExpanded}
       onPress={() => setOuterExpanded(prev => !prev)}
       left={props => <List.Icon {...props} icon="arm-flex" />}>
-      {ALL_MUSCLES.map(muscle => {
-        const percent = getPercent(muscle);
-        const isExpanded = expandedMuscles.has(muscle);
-
-        return (
-          <List.Accordion
-            key={muscle}
-            testID={`muscle-row-${muscle}`}
-            title={muscle}
-            description={!isExpanded && percent ? `${percent}%` : undefined}
-            expanded={isExpanded}
-            onPress={() => toggleMuscleExpand(muscle)}
-            style={styles.innerAccordion}>
-            <View style={styles.inputContainer}>
-              <TextInput
-                testID={`muscle-input-${muscle}`}
-                keyboardType="numeric"
-                inputMode="numeric"
-                label="Percent"
-                mode="outlined"
-                dense
-                right={<TextInput.Affix text="%" />}
-                value={percent?.toString() ?? ''}
-                onChangeText={value => handlePercentChange(muscle, value)}
-                style={styles.percentInput}
-              />
-            </View>
-          </List.Accordion>
-        );
-      })}
+      <ScrollView
+        style={[styles.scrollList, {height: height * 0.45}]}
+        nestedScrollEnabled>
+        {ALL_MUSCLES.map(muscle => (
+          <View key={muscle} testID={`muscle-row-${muscle}`} style={styles.muscleRow}>
+            <Text style={styles.muscleName}>{muscle}</Text>
+            <TextInput
+              testID={`muscle-input-${muscle}`}
+              keyboardType="numeric"
+              inputMode="numeric"
+              mode="outlined"
+              dense
+              right={<TextInput.Affix text="%" />}
+              value={getPercent(muscle)}
+              onChangeText={value => handlePercentChange(muscle, value)}
+              style={styles.percentInput}
+            />
+          </View>
+        ))}
+      </ScrollView>
       <Text testID="muscles-total" style={styles.total}>
         Total: {totalPercent}%
       </Text>
@@ -95,20 +73,24 @@ const MusclePicker = ({muscles, onChange}: MusclePickerProps) => {
 };
 
 const styles = StyleSheet.create({
-  innerAccordion: {
-    paddingLeft: 16,
-  },
-  inputContainer: {
+  scrollList: {},
+  muscleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingVertical: 4,
+  },
+  muscleName: {
+    flex: 1,
   },
   percentInput: {
-    width: 120,
+    width: 80,
   },
   total: {
+    opacity: 0.6,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    opacity: 0.6,
   },
 });
 

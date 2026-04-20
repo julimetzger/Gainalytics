@@ -98,34 +98,10 @@ describe('MusclePicker', () => {
     expect(desc.props.children).toBe('2 muscles assigned · 100%');
   });
 
-  it('muscles with percent > 0 are auto-expanded when outer opens', () => {
-    const onChange = jest.fn();
-    const muscles: MusclePercentPair[] = [{muscle: Muscles.CHEST, percent: 70}];
-    const {getByTestId} = render(<MusclePicker muscles={muscles} onChange={onChange} />);
-    // outer is already open, CHEST row should be expanded
-    expect(getByTestId(`expanded-muscle-row-${Muscles.CHEST}`)).toBeTruthy();
-  });
-
-  it('tap on muscle row expands and collapses it', () => {
-    const onChange = jest.fn();
-    const {getByTestId, queryByTestId} = render(<MusclePicker muscles={[]} onChange={onChange} />);
-    fireEvent.press(getByTestId('muscles-outer-accordion'));
-
-    const backRow = getByTestId(`muscle-row-${Muscles.BACK}`);
-    expect(queryByTestId(`expanded-muscle-row-${Muscles.BACK}`)).toBeNull();
-
-    fireEvent.press(backRow);
-    expect(getByTestId(`expanded-muscle-row-${Muscles.BACK}`)).toBeTruthy();
-
-    fireEvent.press(backRow);
-    expect(queryByTestId(`expanded-muscle-row-${Muscles.BACK}`)).toBeNull();
-  });
-
-  it('entering a percent > 0 adds the muscle to the array', () => {
+  it('inline input change updates muscles[] without requiring row expansion', () => {
     const onChange = jest.fn();
     const {getByTestId} = render(<MusclePicker muscles={[]} onChange={onChange} />);
     fireEvent.press(getByTestId('muscles-outer-accordion'));
-    fireEvent.press(getByTestId(`muscle-row-${Muscles.CHEST}`));
 
     act(() => {
       fireEvent.changeText(getByTestId(`muscle-input-${Muscles.CHEST}`), '80');
@@ -180,12 +156,13 @@ describe('MusclePicker', () => {
     expect(total.props.children).toEqual(['Total: ', 110, '%']);
   });
 
-  it('shows all muscles from enum in the list', () => {
+  it('scroll list renders all Muscles enum entries with inline inputs', () => {
     const {getByTestId, queryByTestId} = render(<MusclePicker muscles={[]} onChange={jest.fn()} />);
     fireEvent.press(getByTestId('muscles-outer-accordion'));
     const allMuscles = Object.values(Muscles);
     for (const muscle of allMuscles) {
       expect(queryByTestId(`muscle-row-${muscle}`)).not.toBeNull();
+      expect(queryByTestId(`muscle-input-${muscle}`)).not.toBeNull();
     }
   });
 });
