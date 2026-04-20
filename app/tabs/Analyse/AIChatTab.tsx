@@ -21,7 +21,7 @@ import {filterTrainingsByDateRange} from '../../utils/ai/filterTrainingsByDateRa
 import {Training} from '../../models/entities/Training';
 import {TrainingsState} from '../../models/TrainingsState';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
-import {getMesoForMicro, getMicroFromTrainingInMicroIndex} from '../../redux/Training/trainingsPlanReducer';
+import {getMesoEndMicro, getMesoForMicro, getMicroFromTrainingInMicroIndex} from '../../redux/Training/trainingsPlanReducer';
 
 const BASE_SYSTEM_PROMPT =
   'You are an AI training coach specializing in powerlifting and strength training. ' +
@@ -54,7 +54,7 @@ function formatDateISO(date: Date): string {
   return date.toISOString().substring(0, 10);
 }
 
-function computeMesoRange(
+export function computeMesoRange(
   plans: TrainingsPlan[],
   trainingsById: Record<number, Training>,
 ): MesoRange | null {
@@ -80,11 +80,13 @@ function computeMesoRange(
   const meso = getMesoForMicro(bestPlan.mesos, bestMicro);
   if (!meso) return null;
 
+  const mesoEndMicro = getMesoEndMicro(bestPlan.mesos, meso) ?? Infinity;
+
   let minStart = Infinity;
   let maxEnd = -Infinity;
   for (const [key, trainingId] of Object.entries(bestPlan.trainings ?? {})) {
     const micro = getMicroFromTrainingInMicroIndex(key);
-    if (micro < meso.startMicro) continue;
+    if (micro < meso.startMicro || micro > mesoEndMicro) continue;
     const t = trainingsById[trainingId as number];
     if (t?.state === TrainingsState.FINISHED && t.start && t.end) {
       const s = new Date(t.start).getTime();
@@ -388,7 +390,7 @@ const AIChatTab = () => {
         style={[styles.infoLine, {color: theme.colors.onSurfaceVariant}]}
         testID="chat-context-info"
       >
-        {`KI hat Zugriff auf ${filteredCount} Training${filteredCount !== 1 ? 's' : ''} (${formatDateISO(effectiveRange.startDate)} – ${formatDateISO(effectiveRange.endDate)})`}
+        {`AI has access to ${filteredCount} training${filteredCount !== 1 ? 's' : ''} (${formatDateISO(effectiveRange.startDate)} – ${formatDateISO(effectiveRange.endDate)})`}
       </Text>
 
       {/* Message list */}
