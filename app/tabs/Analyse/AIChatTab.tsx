@@ -12,6 +12,7 @@ import {
   setContextRange,
   ContextRange,
 } from '../../redux/AIChat/aiChatSlice';
+import {selectAllFinishedTrainings} from '../../redux/AIChat/selectors';
 import {sendChatMessage, ChatMessage} from '../../utils/ai/sendChatMessage';
 import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
@@ -114,6 +115,7 @@ const AIChatTab = () => {
   const videoAnalysesById = useSelector((s: GlobalState) => s.videoAnalyses.byId) as Record<number, any>;
   const trainingsPlanById = useSelector((s: GlobalState) => s.trainingsPlan.byId);
   const trainingsPlanAllIds = useSelector((s: GlobalState) => s.trainingsPlan.allIds);
+  const allFinishedTrainings = useSelector(selectAllFinishedTrainings);
 
   const [inputText, setInputText] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<Preset>('28d');
@@ -138,28 +140,17 @@ const AIChatTab = () => {
     return unsub;
   }, []);
 
-  const allFinishedTrainings = useMemo(
-    () =>
-      (trainingsAllIds as number[])
-        .map(id => (trainingsById as Record<number, Training>)[id])
-        .filter((t): t is Training => t != null && t.state === TrainingsState.FINISHED),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trainingsAllIds.length],
-  );
-
   const allPlans = useMemo(
     () =>
       (trainingsPlanAllIds as number[])
         .map(id => (trainingsPlanById as Record<number, TrainingsPlan>)[id])
         .filter(Boolean) as TrainingsPlan[],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trainingsPlanAllIds.length],
+    [trainingsPlanAllIds, trainingsPlanById],
   );
 
   const mesoRange = useMemo(
     () => computeMesoRange(allPlans, trainingsById as Record<number, Training>),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allPlans.length, allFinishedTrainings.length],
+    [allPlans, trainingsById],
   );
 
   const effectiveRange = useMemo(
@@ -191,16 +182,15 @@ const AIChatTab = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-seed seedContextJson whenever contextRange or training data changes
-  const workoutCount = Object.keys(workoutsById).length;
-  const exerciseCount = Object.keys(exercisesById).length;
+  // Re-seed seedContextJson whenever contextRange or training/workout/exercise data changes.
+  // Depends on object references so any Redux mutation (FINISH_TRAINING, set edits, renames)
+  // triggers a reseed — not just count changes.
   useEffect(() => {
     const range = contextRange ? fromContextRange(contextRange) : makeRange(28);
     const filtered = filterTrainingsByDateRange(allFinishedTrainings, range.startDate, range.endDate);
     const json = serializeTrainingsForChat(filtered, workoutsById, exercisesById, videoAnalysesById);
     dispatch(setSeedContextJson(json));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contextRange, allFinishedTrainings.length, workoutCount, exerciseCount]);
+  }, [contextRange, allFinishedTrainings, workoutsById, exercisesById, videoAnalysesById, dispatch]);
 
   const filteredCount = useMemo(
     () =>
@@ -209,8 +199,7 @@ const AIChatTab = () => {
         effectiveRange.startDate,
         effectiveRange.endDate,
       ).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allFinishedTrainings.length, contextRange],
+    [allFinishedTrainings, effectiveRange],
   );
 
   useEffect(() => {
