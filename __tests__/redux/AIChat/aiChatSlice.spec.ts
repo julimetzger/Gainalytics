@@ -3,12 +3,21 @@ import reducer, {
   clearChat,
   setError,
   setLoading,
+  setSeedContextJson,
+  setContextRange,
   startChatWithContext,
   AIChatState,
   ChatSeedContext,
+  ContextRange,
 } from '../../../app/redux/AIChat/aiChatSlice';
 
-const initial: AIChatState = {messages: [], isLoading: false, error: null, seedContextJson: null};
+const initial: AIChatState = {
+  messages: [],
+  isLoading: false,
+  error: null,
+  seedContextJson: null,
+  contextRange: null,
+};
 
 describe('aiChatSlice', () => {
   it('starts with empty state', () => {
@@ -47,15 +56,64 @@ describe('aiChatSlice', () => {
     expect(state.error).toBeNull();
   });
 
-  it('clearChat resets to initial state including seedContextJson', () => {
-    let state: AIChatState = {
+  it('clearChat resets messages/loading/error/seedContextJson but preserves contextRange', () => {
+    const range: ContextRange = {
+      startDate: '2024-01-01T00:00:00.000Z',
+      endDate: '2024-01-28T00:00:00.000Z',
+    };
+    const state: AIChatState = {
       messages: [{role: 'user', content: 'hi'}, {role: 'assistant', content: 'hello'}],
       isLoading: true,
       error: 'some error',
       seedContextJson: '{"sessions":[]}',
+      contextRange: range,
     };
-    state = reducer(state, clearChat());
-    expect(state).toEqual(initial);
+    const result = reducer(state, clearChat());
+    expect(result.messages).toHaveLength(0);
+    expect(result.isLoading).toBe(false);
+    expect(result.error).toBeNull();
+    expect(result.seedContextJson).toBeNull();
+    expect(result.contextRange).toEqual(range);
+  });
+
+  it('clearChat with null contextRange equals initial state', () => {
+    const state: AIChatState = {
+      messages: [{role: 'user', content: 'hi'}, {role: 'assistant', content: 'hello'}],
+      isLoading: true,
+      error: 'some error',
+      seedContextJson: '{"sessions":[]}',
+      contextRange: null,
+    };
+    expect(reducer(state, clearChat())).toEqual(initial);
+  });
+
+  it('setSeedContextJson updates seedContextJson', () => {
+    const json = '{"sessions":[]}';
+    const state = reducer(initial, setSeedContextJson(json));
+    expect(state.seedContextJson).toBe(json);
+  });
+
+  it('setSeedContextJson(null) clears seedContextJson', () => {
+    const withJson = {...initial, seedContextJson: '{"sessions":[]}'};
+    expect(reducer(withJson, setSeedContextJson(null)).seedContextJson).toBeNull();
+  });
+
+  it('setContextRange stores the range', () => {
+    const range: ContextRange = {
+      startDate: '2024-01-01T00:00:00.000Z',
+      endDate: '2024-01-28T00:00:00.000Z',
+    };
+    const state = reducer(initial, setContextRange(range));
+    expect(state.contextRange).toEqual(range);
+  });
+
+  it('setContextRange(null) clears contextRange', () => {
+    const range: ContextRange = {
+      startDate: '2024-01-01T00:00:00.000Z',
+      endDate: '2024-01-28T00:00:00.000Z',
+    };
+    const withRange = {...initial, contextRange: range};
+    expect(reducer(withRange, setContextRange(null)).contextRange).toBeNull();
   });
 
   it('startChatWithContext seeds conversation with insightText as assistant message', () => {
@@ -90,10 +148,24 @@ describe('aiChatSlice', () => {
       isLoading: false,
       error: null,
       seedContextJson: 'old-context',
+      contextRange: null,
     };
     state = reducer(state, startChatWithContext({insightText: 'new context', seedContextJson: null}));
     expect(state.messages).toHaveLength(1);
     expect(state.messages[0].role).toBe('assistant');
     expect(state.seedContextJson).toBeNull();
+  });
+
+  it('startChatWithContext does not touch contextRange', () => {
+    const range: ContextRange = {
+      startDate: '2024-01-01T00:00:00.000Z',
+      endDate: '2024-01-28T00:00:00.000Z',
+    };
+    const state: AIChatState = {...initial, contextRange: range};
+    const result = reducer(
+      state,
+      startChatWithContext({insightText: 'insight', seedContextJson: null}),
+    );
+    expect(result.contextRange).toEqual(range);
   });
 });

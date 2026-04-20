@@ -480,3 +480,13 @@ Repeated `input tap` on the "Wait" button doesn't always work when the System UI
 
 ### 80. Jest tests in worktree must be run from the main project dir via `node node_modules/jest-cli/bin/jest.js --rootDir ./.worktrees/<branch>`
 The `testPathIgnorePatterns: ['/.worktrees/']` in `jest.config.cjs` blocks all tests when `npx jest` is run inside the worktree. Use `node node_modules/jest-cli/bin/jest.js --rootDir ./.worktrees/feature-X --testPathIgnorePatterns=/node_modules/ --testPathIgnorePatterns=/__tests__/coverage/` from the repo root.
+
+### 81. APK embeds a cached JS bundle — Metro is only used if preferences point to it AND it's reachable
+**Problem/Symptoms:** Debug APK includes `assets/index.android.bundle`. Even when Metro is running with `adb reverse`, the app silently falls back to the embedded bundle if `com.powerliftingworkoutplanner_preferences.xml` still has the OLD Metro port. All previous sessions had set `debug_http_host=10.0.2.2:PORT` for a different worker's Metro. Result: app runs old code, no Metro log entries, code changes invisible on device.
+**Working solution:** Check the actual prefs file: `adb shell "run-as com.pkg cat /data/data/com.pkg/shared_prefs/com.pkg_preferences.xml"`. The correct host for an AVD emulator is `localhost:8081` (via `adb reverse tcp:8081 tcp:$HOST_PORT`). Update with: `adb shell "run-as com.pkg sh -c 'printf... > /data/data/com.pkg/shared_prefs/com.pkg_preferences.xml'"`. Then force-stop + restart the app. Confirm in logcat: `isMetroRunning(): Async result = true` + `loadJSBundleFromMetro()`.
+**Apply when:** Code changes are committed but the device shows old behaviour. Check logcat for `isMetroRunning()=false` before wasting time elsewhere.
+
+### 82. `useMemo` with count-based deps produces stale derived state on content edits — use createSelector
+**Observation:** Pattern `useMemo(() => arr.filter(...), [arr.length])` stays cached when Redux mutates existing entities without adding/removing them (FINISH_TRAINING changes `state`, set-value edits change workout data). Same bug with `useEffect` deps like `workoutCount = Object.keys(workoutsById).length`.
+**Working solution:** Extract `createSelector(state => state.slice.byId, state => state.slice.allIds, (byId, allIds) => ...)` — Redux reducers always produce new `byId` references on any mutation. Use the selector's stable output as the `useEffect` dep directly. No `eslint-disable exhaustive-deps` needed.
+**Apply when:** Any `useMemo` or `useEffect` that derives data from Redux normalized state. Check for `.length` in dep arrays as a smell.
