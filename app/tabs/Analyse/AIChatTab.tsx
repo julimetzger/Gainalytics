@@ -1,26 +1,122 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {FlatList, KeyboardAvoidingView, Platform, StyleSheet, View} from 'react-native';
-import {ActivityIndicator, IconButton, Surface, Text, TextInput, useTheme} from 'react-native-paper';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {FlatList, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View} from 'react-native';
+import {ActivityIndicator, Chip, IconButton, Surface, Text, TextInput, useTheme} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
-import {appendMessage, clearChat, setError, setLoading, startChatWithContext} from '../../redux/AIChat/aiChatSlice';
+import {
+  appendMessage,
+  clearChat,
+  setError,
+  setLoading,
+  setSeedContextJson,
+  setContextRange,
+  ContextRange,
+} from '../../redux/AIChat/aiChatSlice';
 import {sendChatMessage, ChatMessage} from '../../utils/ai/sendChatMessage';
 import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
+import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
+import {serializeTrainingsForChat} from '../../utils/ai/serializeTrainingsForChat';
+import {filterTrainingsByDateRange} from '../../utils/ai/filterTrainingsByDateRange';
+import {Training} from '../../models/entities/Training';
+import {TrainingsState} from '../../models/TrainingsState';
+import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
+import {getMesoForMicro, getMicroFromTrainingInMicroIndex} from '../../redux/Training/trainingsPlanReducer';
 
 const BASE_SYSTEM_PROMPT =
   'You are an AI training coach specializing in powerlifting and strength training. ' +
   'Use the provided analysis context to give specific, actionable advice. ' +
   'Be concise and practical.';
 
+type Preset = '7d' | '28d' | '3M' | 'Meso' | 'Custom';
+
+interface MesoRange {
+  start: Date;
+  end: Date;
+  name: string;
+}
+
+function makeRange(days: number): Range {
+  const end = new Date();
+  const start = new Date(end.getTime() - days * 24 * 3600 * 1000);
+  return new Range(start, end);
+}
+
+function toContextRange(range: Range): ContextRange {
+  return {startDate: range.startDate.toISOString(), endDate: range.endDate.toISOString()};
+}
+
+function fromContextRange(cr: ContextRange): Range {
+  return new Range(new Date(cr.startDate), new Date(cr.endDate));
+}
+
+function formatDateISO(date: Date): string {
+  return date.toISOString().substring(0, 10);
+}
+
+function computeMesoRange(
+  plans: TrainingsPlan[],
+  trainingsById: Record<number, Training>,
+): MesoRange | null {
+  let latestTime = 0;
+  let bestPlan: TrainingsPlan | null = null;
+  let bestMicro = 0;
+
+  for (const plan of plans) {
+    for (const [key, trainingId] of Object.entries(plan.trainings ?? {})) {
+      const t = trainingsById[trainingId as number];
+      if (t?.state === TrainingsState.FINISHED && t.end) {
+        const ms = new Date(t.end).getTime();
+        if (ms > latestTime) {
+          latestTime = ms;
+          bestPlan = plan;
+          bestMicro = getMicroFromTrainingInMicroIndex(key);
+        }
+      }
+    }
+  }
+
+  if (!bestPlan || !bestMicro) return null;
+  const meso = getMesoForMicro(bestPlan.mesos, bestMicro);
+  if (!meso) return null;
+
+  let minStart = Infinity;
+  let maxEnd = -Infinity;
+  for (const [key, trainingId] of Object.entries(bestPlan.trainings ?? {})) {
+    const micro = getMicroFromTrainingInMicroIndex(key);
+    if (micro < meso.startMicro) continue;
+    const t = trainingsById[trainingId as number];
+    if (t?.state === TrainingsState.FINISHED && t.start && t.end) {
+      const s = new Date(t.start).getTime();
+      const e = new Date(t.end).getTime();
+      if (s < minStart) minStart = s;
+      if (e > maxEnd) maxEnd = e;
+    }
+  }
+
+  if (!isFinite(minStart) || !isFinite(maxEnd)) return null;
+  return {start: new Date(minStart), end: new Date(maxEnd), name: meso.name};
+}
+
 const AIChatTab = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
+
   const messages = useSelector((s: GlobalState) => s.aiChat.messages);
   const isLoading = useSelector((s: GlobalState) => s.aiChat.isLoading);
   const error = useSelector((s: GlobalState) => s.aiChat.error);
   const seedContextJson = useSelector((s: GlobalState) => s.aiChat.seedContextJson);
+  const contextRange = useSelector((s: GlobalState) => s.aiChat.contextRange);
+
+  const trainingsById = useSelector((s: GlobalState) => s.trainings.byId);
+  const trainingsAllIds = useSelector((s: GlobalState) => s.trainings.allIds);
+  const workoutsById = useSelector((s: GlobalState) => s.workouts.byId) as Record<number, any>;
+  const exercisesById = useSelector((s: GlobalState) => s.exercises.byId) as Record<number, any>;
+  const videoAnalysesById = useSelector((s: GlobalState) => s.videoAnalyses.byId) as Record<number, any>;
+  const trainingsPlanById = useSelector((s: GlobalState) => s.trainingsPlan.byId);
+  const trainingsPlanAllIds = useSelector((s: GlobalState) => s.trainingsPlan.allIds);
 
   const [inputText, setInputText] = useState('');
+  const [selectedPreset, setSelectedPreset] = useState<Preset>('28d');
   const flatListRef = useRef<FlatList>(null);
 
   const [hasApiKey, setHasApiKey] = useState(() => {
@@ -42,17 +138,113 @@ const AIChatTab = () => {
     return unsub;
   }, []);
 
+  const allFinishedTrainings = useMemo(
+    () =>
+      (trainingsAllIds as number[])
+        .map(id => (trainingsById as Record<number, Training>)[id])
+        .filter((t): t is Training => t != null && t.state === TrainingsState.FINISHED),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trainingsAllIds.length],
+  );
+
+  const allPlans = useMemo(
+    () =>
+      (trainingsPlanAllIds as number[])
+        .map(id => (trainingsPlanById as Record<number, TrainingsPlan>)[id])
+        .filter(Boolean) as TrainingsPlan[],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trainingsPlanAllIds.length],
+  );
+
+  const mesoRange = useMemo(
+    () => computeMesoRange(allPlans, trainingsById as Record<number, Training>),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allPlans.length, allFinishedTrainings.length],
+  );
+
+  const effectiveRange = useMemo(
+    () => (contextRange ? fromContextRange(contextRange) : makeRange(28)),
+    [contextRange],
+  );
+
+  // On mount: initialise selectedPreset from persisted contextRange
+  useEffect(() => {
+    if (!contextRange) {
+      setSelectedPreset('28d');
+      return;
+    }
+    const range = fromContextRange(contextRange);
+    const diffDays = Math.round(
+      (range.endDate.getTime() - range.startDate.getTime()) / (24 * 3600 * 1000),
+    );
+    const endIsToday =
+      new Date().toISOString().substring(0, 10) === range.endDate.toISOString().substring(0, 10);
+    if (endIsToday && diffDays >= 6 && diffDays <= 8) {
+      setSelectedPreset('7d');
+    } else if (endIsToday && diffDays >= 27 && diffDays <= 29) {
+      setSelectedPreset('28d');
+    } else if (endIsToday && diffDays >= 88 && diffDays <= 92) {
+      setSelectedPreset('3M');
+    } else {
+      setSelectedPreset('Custom');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-seed seedContextJson whenever contextRange or training data changes
+  const workoutCount = Object.keys(workoutsById).length;
+  const exerciseCount = Object.keys(exercisesById).length;
+  useEffect(() => {
+    const range = contextRange ? fromContextRange(contextRange) : makeRange(28);
+    const filtered = filterTrainingsByDateRange(allFinishedTrainings, range.startDate, range.endDate);
+    const json = serializeTrainingsForChat(filtered, workoutsById, exercisesById, videoAnalysesById);
+    dispatch(setSeedContextJson(json));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextRange, allFinishedTrainings.length, workoutCount, exerciseCount]);
+
+  const filteredCount = useMemo(
+    () =>
+      filterTrainingsByDateRange(
+        allFinishedTrainings,
+        effectiveRange.startDate,
+        effectiveRange.endDate,
+      ).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allFinishedTrainings.length, contextRange],
+  );
+
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => flatListRef.current?.scrollToEnd({animated: true}), 100);
     }
   }, [messages.length]);
 
+  const applyPreset = (preset: Preset) => {
+    setSelectedPreset(preset);
+    if (preset === 'Custom') return; // user will use DateRangePicker directly
+    let range: Range;
+    if (preset === '7d') {
+      range = makeRange(7);
+    } else if (preset === '28d') {
+      range = makeRange(28);
+    } else if (preset === '3M') {
+      range = makeRange(90);
+    } else {
+      // Meso
+      if (!mesoRange) return;
+      range = new Range(mesoRange.start, mesoRange.end);
+    }
+    dispatch(setContextRange(toContextRange(range)));
+  };
+
+  const handleRangeChange = (range: Range) => {
+    setSelectedPreset('Custom');
+    dispatch(setContextRange(toContextRange(range)));
+  };
+
   const handleSend = async () => {
     const text = inputText.trim();
-    if (!text || isLoading) {
-      return;
-    }
+    if (!text || isLoading) return;
 
     const apiKey = secureStorage.getAnthropicApiKey();
     if (!apiKey) {
@@ -67,7 +259,7 @@ const AIChatTab = () => {
     dispatch(setError(null));
 
     const systemPrompt = seedContextJson
-      ? `${BASE_SYSTEM_PROMPT}\n\nAnalysis context (last 28 days of finished trainings as JSON):\n\n${seedContextJson}`
+      ? `${BASE_SYSTEM_PROMPT}\n\nAnalysis context (finished trainings as JSON):\n\n${seedContextJson}`
       : BASE_SYSTEM_PROMPT;
 
     const history: ChatMessage[] = [...messages, userMsg];
@@ -90,10 +282,7 @@ const AIChatTab = () => {
     const isUser = item.role === 'user';
     return (
       <View
-        style={[
-          styles.messageBubbleRow,
-          isUser ? styles.rowRight : styles.rowLeft,
-        ]}
+        style={[styles.messageBubbleRow, isUser ? styles.rowRight : styles.rowLeft]}
         testID={isUser ? 'chat-bubble-user' : 'chat-bubble-assistant'}
       >
         <Surface
@@ -145,7 +334,7 @@ const AIChatTab = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={80}
     >
-      {/* Header clear button */}
+      {/* Header */}
       <View style={styles.headerRow}>
         <Text variant="titleMedium" style={{color: theme.colors.onSurface, flex: 1}}>
           AI Chat
@@ -160,12 +349,66 @@ const AIChatTab = () => {
         />
       </View>
 
+      {/* Preset chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipsRow}
+        contentContainerStyle={styles.chipsContent}
+        testID="chat-preset-chips"
+      >
+        {(['7d', '28d', '3M'] as Preset[]).map(preset => (
+          <Chip
+            key={preset}
+            selected={selectedPreset === preset}
+            onPress={() => applyPreset(preset)}
+            style={styles.chip}
+            testID={`chat-preset-${preset}`}
+          >
+            {preset}
+          </Chip>
+        ))}
+        {mesoRange != null && (
+          <Chip
+            selected={selectedPreset === 'Meso'}
+            onPress={() => applyPreset('Meso')}
+            style={styles.chip}
+            testID="chat-preset-Meso"
+          >
+            Meso
+          </Chip>
+        )}
+        <Chip
+          selected={selectedPreset === 'Custom'}
+          onPress={() => applyPreset('Custom')}
+          style={styles.chip}
+          testID="chat-preset-Custom"
+        >
+          Custom
+        </Chip>
+      </ScrollView>
+
+      {/* DateRangePicker */}
+      <View style={styles.pickerRow} testID="chat-date-range-picker">
+        <DateRangePicker range={effectiveRange} setRange={handleRangeChange} />
+      </View>
+
+      {/* Info line */}
+      <Text
+        variant="bodySmall"
+        style={[styles.infoLine, {color: theme.colors.onSurfaceVariant}]}
+        testID="chat-context-info"
+      >
+        {`KI hat Zugriff auf ${filteredCount} Training${filteredCount !== 1 ? 's' : ''} (${formatDateISO(effectiveRange.startDate)} – ${formatDateISO(effectiveRange.endDate)})`}
+      </Text>
+
       {/* Message list */}
       <FlatList
         ref={flatListRef}
         data={messages}
         keyExtractor={(_, index) => String(index)}
         renderItem={renderMessage}
+        style={styles.messageListFlex}
         contentContainerStyle={styles.messageList}
         testID="chat-message-list"
         ListEmptyComponent={
@@ -184,7 +427,10 @@ const AIChatTab = () => {
 
       {/* Loading indicator */}
       {isLoading && (
-        <View style={[styles.loadingRow, {backgroundColor: theme.colors.surfaceVariant}]} testID="chat-loading">
+        <View
+          style={[styles.loadingRow, {backgroundColor: theme.colors.surfaceVariant}]}
+          testID="chat-loading"
+        >
           <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text variant="bodySmall" style={{marginLeft: 8, color: theme.colors.onSurfaceVariant}}>
             AI is thinking…
@@ -194,7 +440,10 @@ const AIChatTab = () => {
 
       {/* Error message */}
       {error && !isLoading && (
-        <View style={[styles.errorRow, {backgroundColor: theme.colors.errorContainer}]} testID="chat-error">
+        <View
+          style={[styles.errorRow, {backgroundColor: theme.colors.errorContainer}]}
+          testID="chat-error"
+        >
           <Text variant="bodySmall" style={{color: theme.colors.onErrorContainer, flex: 1}}>
             {error}
           </Text>
@@ -249,6 +498,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 4,
+  },
+  chipsRow: {
+    flexGrow: 0,
+    flexShrink: 0,
+    paddingHorizontal: 12,
+  },
+  chipsContent: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  chip: {
+    marginRight: 0,
+  },
+  pickerRow: {
+    flexShrink: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  infoLine: {
+    flexShrink: 0,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+  },
+  messageListFlex: {
+    flex: 1,
   },
   messageList: {
     paddingHorizontal: 12,

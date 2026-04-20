@@ -11,7 +11,7 @@ import {callAnthropicClaude} from '../../utils/llmApi';
 import {insightCache, formatGeneratedAt} from '../../utils/insightCache';
 import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
 import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
-import {startChatWithContext} from '../../redux/AIChat/aiChatSlice';
+import {startChatWithContext, setContextRange} from '../../redux/AIChat/aiChatSlice';
 import {serializeTrainingsForChat} from '../../utils/ai/serializeTrainingsForChat';
 
 interface Props {
@@ -186,6 +186,10 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
       exercisesById,
       videoAnalysesById,
     );
+    // Reset to 28d default so the insight-context pairing stays consistent
+    const end = new Date();
+    const start = new Date(end.getTime() - 28 * 24 * 3600 * 1000);
+    dispatch(setContextRange({startDate: start.toISOString(), endDate: end.toISOString()}));
     dispatch(startChatWithContext({insightText, seedContextJson}));
     navigation.navigate('Analyse', {screen: 'AIChat'});
   };
