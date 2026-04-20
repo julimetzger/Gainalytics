@@ -1,13 +1,13 @@
 import {Button, Dialog, IconButton, Portal, Text, TextInput, useTheme} from 'react-native-paper';
 import {StyleSheet, View} from 'react-native';
-import React, {useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {useDispatchAddExercise} from '../../../redux/Exercises/dispatch/dispatchAddExercise';
 import {dispatchEditExercise} from '../../../redux/Exercises/dispatch/dispatchEditExercise';
 import {useExercise} from '../../../redux/Exercises/use/useExercise';
 import {dispatchDeleteExercise} from '../../../redux/Exercises/dispatch/dispatchDeleteExercise';
-import MusclePicker from './MusclePicker';
 import {MusclePercentPair} from '../../../models/entities/Exercise';
 import ExerciseAlternativesField from './ExerciseAlternativesField';
+import MuscleInvolvementEditor from './MuscleInvolvementEditor';
 
 interface AddExerciseProperties {
   style?: any;
@@ -16,6 +16,7 @@ interface AddExerciseProperties {
 
 const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
   const [visible, setVisible] = React.useState(false);
+  const [muscleEditorVisible, setMuscleEditorVisible] = useState(false);
   const [deleteOverlay, setDeleteOverlay] = useState(false);
   let dispatchAddExercise = useDispatchAddExercise();
   let exercise = exerciseId ? useExercise(exerciseId) : undefined;
@@ -26,29 +27,34 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
   let editExercise = dispatchEditExercise();
   let deleteExercise = dispatchDeleteExercise();
   let theme = useTheme();
+
+  const activeMuscleCount = useMemo(
+    () => muscles.filter((m) => m.muscle !== undefined && (m.percent ?? 0) > 0).length,
+    [muscles],
+  );
+
   const showDialog = () => {
     setError(undefined);
     setNewExerciseName(exercise?.name ?? '');
     setMuscles(exercise?.muscles ?? []);
     setAlternativeIds(exercise?.alternativeIds ?? []);
+    setMuscleEditorVisible(false);
     setVisible(true);
   };
   const hideDialog = () => {
     setVisible(false);
+    setMuscleEditorVisible(false);
     setDeleteOverlay(false);
     setError(undefined);
   };
   const confirmDialog = () => {
-    let undefinedMuscles = muscles.find((muscle) => muscle.percent === undefined || muscle.muscle === undefined);
-    if (undefinedMuscles) {
-      setError('Please fill in all the muscles and percentages or remove the muscle.');
-      return;
-    }
     if (newExerciseName === '') {
       setError('Please fill in the name of the exercise');
       return;
     }
+    setError(undefined);
     setVisible(false);
+    setMuscleEditorVisible(false);
     exerciseId ? editExercise(exerciseId, newExerciseName, muscles, alternativeIds) : dispatchAddExercise(newExerciseName, muscles, alternativeIds);
   };
 
@@ -70,17 +76,14 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
             ) : (
               <View>
                 <TextInput value={newExerciseName} label={'Name of the Exercise'} onChangeText={(text) => setNewExerciseName(text)} />
-                {muscles.map((muscleFromMap: MusclePercentPair) => {
-                  return (
-                    <MusclePicker
-                      muscleValue={muscleFromMap}
-                      key={muscleFromMap.muscle}
-                      setMuscles={(muscle) => setMuscles([...muscles.filter((value) => value != muscleFromMap), muscle])}
-                      onDelete={(value) => setMuscles([...muscles.filter((m) => m !== value)])}
-                    />
-                  );
-                })}
-                <Button onPress={() => setMuscles([...muscles, {muscle: undefined, percent: undefined}])}>Add Muscle Group</Button>
+                <Button mode="outlined" style={styles.muscleButton} onPress={() => setMuscleEditorVisible(true)}>
+                  Muscle involvement
+                </Button>
+                <Text variant="bodySmall" style={[styles.muscleHint, {color: theme.colors.onSurfaceVariant}]}>
+                  {activeMuscleCount === 0
+                    ? 'No muscles set (tap to configure)'
+                    : `${activeMuscleCount} muscle${activeMuscleCount === 1 ? '' : 's'} with involvement`}
+                </Text>
                 <ExerciseAlternativesField exerciseId={exerciseId} alternativeIds={alternativeIds} onChange={setAlternativeIds} />
               </View>
             )}
@@ -102,6 +105,12 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
           </Dialog.Actions>
         </Dialog>
       </Portal>
+      <MuscleInvolvementEditor
+        visible={muscleEditorVisible}
+        onDismiss={() => setMuscleEditorVisible(false)}
+        initialPairs={muscles}
+        onApply={setMuscles}
+      />
     </View>
   );
 };
@@ -114,5 +123,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     paddingHorizontal: 24,
+  },
+  muscleButton: {
+    marginTop: 8,
+  },
+  muscleHint: {
+    marginBottom: 8,
   },
 });
