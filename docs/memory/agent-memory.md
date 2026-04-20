@@ -458,3 +458,12 @@ A Maestro test piped to a log file (`maestro test ... > run.log 2>&1 &`) may sho
 **Problem/Symptoms:** `jest.mock('../path', () => ({ fn: jest.fn(() => IMPORTED_CONST) }))` throws "The module factory of jest.mock() is not allowed to reference any out-of-scope variables" at test runtime because Babel hoists jest.mock() before imports are evaluated.
 **Working solution:** Use literal string values inside the mock factory (e.g., `'claude-haiku-4-5-20251001'` instead of `DEFAULT_ANTHROPIC_MODEL`). Only variables prefixed with `mock` (case-insensitive) are allowed in the factory scope.
 **Apply when:** Any jest.mock() factory that needs to reference an imported constant. Hardcode the value or compute it inline.
+
+### 78. `core.ignorecase = true` in git worktree causes case-path conflicts for new test directories
+When a worktree has `core.ignorecase = true` and existing dirs like `__tests__/tabs/analyse/` already exist in the index, `git add __tests__/tabs/Analyse/new.spec.tsx` stores the file under the lowercase path in the index (`analyse/`), even though the physical file is in `Analyse/`. `git status` then shows it as "deleted". Workaround: check `git config core.ignorecase` early; create new test files directly under the already-indexed lowercase directory to avoid the conflict.
+
+### 79. `adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS` dismisses persistent "System UI isn't responding" dialogs
+Repeated `input tap` on the "Wait" button doesn't always work when the System UI dialog is stuck. The broadcast approach dismisses it reliably and lets subsequent taps reach the app.
+
+### 80. Jest tests in worktree must be run from the main project dir via `node node_modules/jest-cli/bin/jest.js --rootDir ./.worktrees/<branch>`
+The `testPathIgnorePatterns: ['/.worktrees/']` in `jest.config.cjs` blocks all tests when `npx jest` is run inside the worktree. Use `node node_modules/jest-cli/bin/jest.js --rootDir ./.worktrees/feature-X --testPathIgnorePatterns=/node_modules/ --testPathIgnorePatterns=/__tests__/coverage/` from the repo root.
