@@ -458,3 +458,13 @@ A Maestro test piped to a log file (`maestro test ... > run.log 2>&1 &`) may sho
 **Problem/Symptoms:** `jest.mock('../path', () => ({ fn: jest.fn(() => IMPORTED_CONST) }))` throws "The module factory of jest.mock() is not allowed to reference any out-of-scope variables" at test runtime because Babel hoists jest.mock() before imports are evaluated.
 **Working solution:** Use literal string values inside the mock factory (e.g., `'claude-haiku-4-5-20251001'` instead of `DEFAULT_ANTHROPIC_MODEL`). Only variables prefixed with `mock` (case-insensitive) are allowed in the factory scope.
 **Apply when:** Any jest.mock() factory that needs to reference an imported constant. Hardcode the value or compute it inline.
+
+### 78. Gradle corrupted lock/cache files after disk-full interruption — clear specific dirs to recover
+**Problem/Symptoms:** After a prior worker session dies mid-build due to disk full, the next build session fails with `Unexpected lock protocol found in lock file. Expected 3, found 0` or `Truncated class file`. The corrupted files live in the **worktree's local android cache** (`.worktrees/.../android/.gradle/8.14.1/`), not the global `~/.gradle`.
+**Working solution:** Delete the entire local android gradle cache: `rm -rf .worktrees/<branch>/android/.gradle/8.14.1/`. If JAVA_TOOL_OPTIONS redirects Gradle's user.home to a run dir, also clear that dir's `.gradle/caches/`. Stop any running daemons first with `./gradlew --stop`.
+**Apply when:** Build fails immediately after a prior session was killed unexpectedly (disk full, process kill, timeout).
+
+### 79. jest.config.cjs /.worktrees/ ignore pattern blocks tests when running from inside a worktree
+**Problem/Symptoms:** `npm test` run from inside a worktree directory returns "No tests found" even though the test file exists at `__tests__/…/Foo.spec.tsx`. The jest config at `jest.config.cjs` has `testPathIgnorePatterns: ['/.worktrees/']` to prevent the main repo from picking up worktree tests — but when Jest runs *from inside the worktree*, the absolute path still contains `/.worktrees/` and is ignored.
+**Working solution:** Remove `/.worktrees/` from `testPathIgnorePatterns` in the worktree's `jest.config.cjs`. This is safe because the worktree has its own config file that doesn't affect the main repo.
+**Apply when:** Running `npm test` from inside a worktree and new test files in `__tests__/` are not discovered.
