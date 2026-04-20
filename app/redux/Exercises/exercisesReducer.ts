@@ -311,6 +311,7 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
           [newId]: {
             id: newId,
             name: action.nameOfExercise,
+            isFocus: action.isFocus ?? false,
             muscles: action.muscles,
             alternativeIds: normalizeAlternativeIds(action.alternativeIds),
           } as Exercise,
@@ -329,6 +330,7 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
           [action.exerciseId]: {
             ...exercises.byId[action.exerciseId],
             name: action.nameOfExercise,
+            isFocus: action.isFocus ?? exercises.byId[action.exerciseId]?.isFocus ?? false,
             muscles: action.muscles,
             alternativeIds: normalizeAlternativeIds(action.alternativeIds),
           },
@@ -336,6 +338,20 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
         allIds: [...exercises.allIds],
       };
       return upsertBidirectionalAlternatives(nextState, action.exerciseId, action.alternativeIds, exercises.byId[action.exerciseId]?.alternativeIds);
+    }
+    case 'TOGGLE_FOCUS_EXERCISE': {
+      const exercise = exercises.byId[action.exerciseId];
+      if (exercise === undefined) return exercises;
+      return {
+        ...exercises,
+        byId: {
+          ...exercises.byId,
+          [action.exerciseId]: {
+            ...exercise,
+            isFocus: !exercise.isFocus,
+          },
+        },
+      };
     }
     case 'REPLACE_EXERCISE_IN_TRAINING': {
       return moveWorkoutRecords(exercises, action.fromExerciseId, action.toExerciseId, action.doneWorkout);

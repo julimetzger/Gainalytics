@@ -12,6 +12,7 @@ import {Muscles} from '../../models/Muscles';
 import WeeklySummaryCard from './dashboard/WeeklySummaryCard';
 import MuscleHeatmap from './dashboard/MuscleHeatmap';
 import TopExercisesCard from './dashboard/TopExercisesCard';
+import FocusExercisesCard from './dashboard/FocusExercisesCard';
 import RecordsBadge from './dashboard/RecordsBadge';
 import {Exercise} from '../../models/entities/Exercise';
 
@@ -73,6 +74,8 @@ const DashboardTab = () => {
       <RecordsBadge currentWorkouts={currentWorkouts} exercises={exercises} />
 
       <MuscleHeatmap muscleMetricMap={muscleMetricMap} onMusclePress={handleMusclePress} />
+
+      <FocusExercisesCard exerciseMetricMap={exerciseMetricMap} onExercisePress={handleExercisePress} />
 
       <TopExercisesCard exerciseMetricMap={exerciseMetricMap} onExercisePress={handleExercisePress} />
 

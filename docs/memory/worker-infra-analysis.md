@@ -23,6 +23,7 @@ Last updated: 2026-04-19 (GH-153)
 Last updated: 2026-04-19 (GH-159-fix1)
 Last updated: 2026-04-19 (GH-157)
 Last updated: 2026-04-19 (GH-157-fix1)
+Last updated: 2026-04-20 (GH-79)
 
 ## Per-Worker Breakdown
 
@@ -96,6 +97,7 @@ Last updated: 2026-04-19 (GH-157-fix1)
 | GH-159-fix1 | emu | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | ready_for_review (pure logic fix — no APK rebuild; jest /.worktrees/ ignore pattern hit → testPathIgnorePatterns override on CLI; 436/436 tests pass; cold-start component test added; adb reverse + screencap clean) |
 | GH-157 | emu | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 0 | 0 | ready_for_review (new AI Chat tab feature; CMake/reanimated build failed first attempt, passed on retry; MMKV encryption key unstable across emulator sessions → API key unreadable → 401 on all requests despite valid key from WSL curl; live assistant screenshot not possible; unit tests (18/18) + error-handling screenshots as evidence; Jest /.worktrees/ ignore pattern hit — CLI override required) |
 | GH-157-fix1 | real | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | ready_for_review (resume round — prior worker crashed due to API image dimension limit from accumulated screenshots; all code changes already in worktree; Jest /.worktrees/ ignore pattern hit again — CLI config override required; gh pr edit --body fails with GraphQL Projects deprecation → used REST API patch; clean real-device run, 35/35 tests pass) |
+| GH-79 | emu | 0 | 0 | 0 | 1 | 0 | 0 | 10 | 5 | 0 | ready_for_review (new feature ticket — no Maestro/gRPC issues; System UI "isn't responding" dialog blocked taps, dismissed via `am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS`; Gradle build 10 min; core.ignorecase=true caused test spec path stored as analyse/ not Analyse/ — cleaned up; Jest /.worktrees/ ignore override on CLI; 11 unit tests pass; APK + device verification clean) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 

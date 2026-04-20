@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
-import {Divider, Text, TextInput, useTheme, IconButton} from 'react-native-paper';
+import {Divider, Icon, Text, TextInput, useTheme, IconButton} from 'react-native-paper';
 import AddExercise from '../../components/exercise/add/AddExercise';
 import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 import {Exercise} from '../../models/entities/Exercise';
@@ -13,7 +13,11 @@ const ExerciseTab = ({navigation, route}: Props) => {
   const theme = useTheme();
   const [filter, setFilter] = useState(route.params?.filter || '');
   const [showFilter, setShowFilter] = useState(false);
-  const exercises = useAlleExercises().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
+  const exercises = useAlleExercises().sort((a: Exercise, b: Exercise) => {
+    if (a.isFocus && !b.isFocus) return -1;
+    if (!a.isFocus && b.isFocus) return 1;
+    return a.name.localeCompare(b.name);
+  });
   const settings = useSettings();
 
   // Ref for the TextInput
@@ -65,7 +69,10 @@ const ExerciseTab = ({navigation, route}: Props) => {
                   alignItems: 'center',
                 }}
               >
-                <Text style={styles.exerciseText}> {exercise.name}</Text>
+                <View style={styles.nameRow}>
+                  {exercise.isFocus && <Icon source="star" size={18} color="#FFB300" />}
+                  <Text style={styles.exerciseText}>{exercise.name}</Text>
+                </View>
                 <AddExercise exerciseId={exercise.id} />
               </View>
               <Divider />
@@ -84,6 +91,11 @@ const ExerciseTab = ({navigation, route}: Props) => {
 };
 
 const styles = StyleSheet.create({
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   exerciseText: {
     fontSize: 20,
     textAlign: 'left',
