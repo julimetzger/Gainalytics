@@ -83,10 +83,8 @@ describe('Frequency metric', () => {
     expect(calculateMetricValue(sets, Metric.FREQUENCY, 3)).toBe(3);
   });
 
-  it('calculateMetricValue throws for Frequency when workoutsCount is undefined', () => {
-    expect(() => calculateMetricValue(sets, Metric.FREQUENCY, undefined)).toThrow(
-      'calculateMetricValue: workoutsCount is required for Metric.FREQUENCY',
-    );
+  it('calculateMetricValue returns 0 for Frequency when workoutsCount is undefined (safe fallback for highlight-mode callers)', () => {
+    expect(calculateMetricValue(sets, Metric.FREQUENCY, undefined)).toBe(0);
   });
 
   it('calculateMetricValueForMuscles aggregates Frequency weighted by muscle percent', () => {
@@ -155,6 +153,49 @@ describe('calculateMetricComparisons with FREQUENCY', () => {
     });
 
     expect(result.get(Metric.FREQUENCY)?.value).toBe(3);
+  });
+});
+
+describe('GH-169: Frequency+Exercise crash regression (useHighlightWorkout guard)', () => {
+  // Root cause: useHighlightWorkout called calculateMetricValue(sets, Metric.FREQUENCY)
+  // without workoutsCount. This throws whenever an Exercise or Muscle is selected
+  // in AnalyseGraphics while the Frequency metric is active, because WorkoutView
+  // renders with highlightMode={metric} as soon as a selection is made.
+  // Fix: skip FREQUENCY in useHighlightWorkout — mirrors the guard already in WorkoutSetView.
+
+  const sets: WorkoutSet[] = [
+    {index: 1, reps: 5, rir: 2, weight: 100},
+  ];
+
+  it('calling calculateMetricValue with FREQUENCY and no workoutsCount returns 0 (safe fallback, no crash)', () => {
+    // Previously threw — now returns 0 so highlight-mode callers cannot crash the app (GH-169).
+    expect(calculateMetricValue(sets, Metric.FREQUENCY)).toBe(0);
+    expect(calculateMetricValue([], Metric.FREQUENCY)).toBe(0);
+  });
+
+  it('all non-FREQUENCY metrics compute without workoutsCount — safe in highlight mode', () => {
+    expect(() => calculateMetricValue(sets, Metric.ONE_RM)).not.toThrow();
+    expect(() => calculateMetricValue(sets, Metric.VOLUME)).not.toThrow();
+    expect(() => calculateMetricValue(sets, Metric.SETS)).not.toThrow();
+    expect(() => calculateMetricValue(sets, Metric.REPS)).not.toThrow();
+    expect(() => calculateMetricValue(sets, Metric.MAX_INTENSITY)).not.toThrow();
+    expect(() => calculateMetricValue(sets, Metric.AVERAGE_INTENSITY)).not.toThrow();
+  });
+
+  it('calculateMetricValueForMuscles Frequency returns correct weighted count when workoutsCountMap is provided (correctness fix for AnalyseGraphics/ExerciseGraphs)', () => {
+    const exercise: Exercise = {
+      id: 1,
+      name: 'Squat',
+      muscles: [{muscle: Muscles.QUADRICEPS, percent: 80}],
+    } as unknown as Exercise;
+    const exerciseMap = new Map<Exercise, WorkoutSet[]>([[exercise, sets]]);
+    const countMap = new Map<Exercise, number>([[exercise, 3]]);
+
+    // 3 workouts × 80% = 2.4 for QUADRICEPS
+    expect(calculateMetricValueForMuscles(exerciseMap, Metric.FREQUENCY, Muscles.QUADRICEPS, countMap)).toBeCloseTo(2.4);
+
+    // Without the count map the value was silently 0 (not a crash, but wrong)
+    expect(calculateMetricValueForMuscles(exerciseMap, Metric.FREQUENCY, Muscles.QUADRICEPS, undefined)).toBe(0);
   });
 });
 
