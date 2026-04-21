@@ -12,10 +12,12 @@ const CHAT_MAX_TOKENS = 1024;
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  /** UI-only: true if training context JSON was attached on this assistant reply. Stripped before API call. */
+  hadContext?: boolean;
 }
 
 export type SendChatResult =
-  | {ok: true; text: string}
+  | {ok: true; text: string; hadContext: boolean}
   | {ok: false; error: string};
 
 export async function sendChatMessage(
@@ -27,11 +29,19 @@ export async function sendChatMessage(
     return {ok: false, error: 'No API key configured.'};
   }
 
+  const hadContext = Boolean(systemPrompt && systemPrompt.includes('Analysis context'));
+  // Strip UI-only fields before sending to the API
+  const apiMessages = messages.map(({role, content}) => ({role, content}));
+
+  console.log(
+    `[sendChatMessage] context_in_request=${hadContext} system_len=${systemPrompt?.length ?? 0} msg_count=${apiMessages.length}`,
+  );
+
   try {
     const bodyPayload: Record<string, unknown> = {
       model: CHAT_MODEL,
       max_tokens: CHAT_MAX_TOKENS,
-      messages,
+      messages: apiMessages,
     };
     if (systemPrompt) {
       bodyPayload.system = systemPrompt;
@@ -60,7 +70,7 @@ export async function sendChatMessage(
 
     const data = await response.json();
     const text: string = data?.content?.[0]?.text ?? '';
-    return {ok: true, text};
+    return {ok: true, text, hadContext};
   } catch (e: any) {
     return {ok: false, error: `Network error: ${e?.message ?? 'Unknown'}`};
   }

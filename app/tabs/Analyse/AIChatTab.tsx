@@ -115,7 +115,6 @@ const AIChatTab = () => {
   const contextRange = useSelector((s: GlobalState) => s.aiChat.contextRange);
 
   const trainingsById = useSelector((s: GlobalState) => s.trainings.byId);
-  const trainingsAllIds = useSelector((s: GlobalState) => s.trainings.allIds);
   const workoutsById = useSelector((s: GlobalState) => s.workouts.byId) as Record<number, any>;
   const exercisesById = useSelector((s: GlobalState) => s.exercises.byId) as Record<number, any>;
   const videoAnalysesById = useSelector((s: GlobalState) => s.videoAnalyses.byId) as Record<number, any>;
@@ -125,7 +124,9 @@ const AIChatTab = () => {
 
   const [inputText, setInputText] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<Preset>('28d');
+  const [showFilters, setShowFilters] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const textInputRef = useRef<any>(null);
 
   const [hasApiKey, setHasApiKey] = useState(() => {
     try {
@@ -189,8 +190,6 @@ const AIChatTab = () => {
   }, []);
 
   // Re-seed seedContextJson whenever contextRange or training/workout/exercise data changes.
-  // Depends on object references so any Redux mutation (FINISH_TRAINING, set edits, renames)
-  // triggers a reseed — not just count changes.
   useEffect(() => {
     const range = contextRange ? fromContextRange(contextRange) : makeRange(28);
     const filtered = filterTrainingsByDateRange(allFinishedTrainings, range.startDate, range.endDate);
@@ -216,7 +215,7 @@ const AIChatTab = () => {
 
   const applyPreset = (preset: Preset) => {
     setSelectedPreset(preset);
-    if (preset === 'Custom') return; // user will use DateRangePicker directly
+    if (preset === 'Custom') return;
     let range: Range;
     if (preset === '7d') {
       range = makeRange(7);
@@ -247,21 +246,38 @@ const AIChatTab = () => {
       return;
     }
 
+    // Resolve context JSON: prefer Redux value (already computed by useEffect).
+    // Inline fallback guards against a race where useEffect hasn't run yet on first send.
+    let contextJson = seedContextJson;
+    if (contextJson === null && allFinishedTrainings.length > 0) {
+      const range = contextRange ? fromContextRange(contextRange) : makeRange(28);
+      const filtered = filterTrainingsByDateRange(allFinishedTrainings, range.startDate, range.endDate);
+      contextJson = serializeTrainingsForChat(filtered, workoutsById, exercisesById, videoAnalysesById);
+      if (contextJson) {
+        dispatch(setSeedContextJson(contextJson));
+      }
+    }
+
+    const hadContext = Boolean(contextJson);
+    console.log(
+      `[AIChatTab] handleSend: seedContextJson=${hadContext ? `present (${contextJson!.length} bytes)` : 'null'} finishedTrainings=${allFinishedTrainings.length}`,
+    );
+
     const userMsg: ChatMessage = {role: 'user', content: text};
     dispatch(appendMessage(userMsg));
     setInputText('');
     dispatch(setLoading(true));
     dispatch(setError(null));
 
-    const systemPrompt = seedContextJson
-      ? `${BASE_SYSTEM_PROMPT}\n\nAnalysis context (finished trainings as JSON):\n\n${seedContextJson}`
+    const systemPrompt = contextJson
+      ? `${BASE_SYSTEM_PROMPT}\n\nAnalysis context (finished trainings as JSON):\n\n${contextJson}`
       : BASE_SYSTEM_PROMPT;
 
     const history: ChatMessage[] = [...messages, userMsg];
     const result = await sendChatMessage(history, apiKey, systemPrompt);
 
     if (result.ok) {
-      dispatch(appendMessage({role: 'assistant', content: result.text}));
+      dispatch(appendMessage({role: 'assistant', content: result.text, hadContext: result.hadContext}));
       dispatch(setLoading(false));
     } else {
       dispatch(setError(result.error));
@@ -273,42 +289,63 @@ const AIChatTab = () => {
     setInputText('');
   };
 
+  const contextBadgeLabel = useMemo(() => {
+    if (selectedPreset === 'Meso' && mesoRange) return `Meso: ${mesoRange.name}`;
+    if (selectedPreset === 'Custom') {
+      return `${formatDateISO(effectiveRange.startDate)} – ${formatDateISO(effectiveRange.endDate)}`;
+    }
+    return `Context: ${selectedPreset}`;
+  }, [selectedPreset, mesoRange, effectiveRange]);
+
   const renderMessage = ({item}: {item: ChatMessage}) => {
     const isUser = item.role === 'user';
     return (
-      <View
-        style={[styles.messageBubbleRow, isUser ? styles.rowRight : styles.rowLeft]}
-        testID={isUser ? 'chat-bubble-user' : 'chat-bubble-assistant'}
-      >
-        <Surface
-          style={[
-            styles.bubble,
-            {
-              backgroundColor: isUser
-                ? theme.colors.primary
-                : theme.colors.surfaceVariant,
-              maxWidth: '80%',
-            },
-          ]}
-          elevation={1}
-        >
-          {isUser ? (
-            <Text
-              variant="bodyMedium"
-              style={{color: theme.colors.onPrimary}}
-              testID="chat-bubble-user-text"
-            >
-              {item.content}
+      <View>
+        {/* No-context warning banner: shown only on assistant messages without attached context */}
+        {!isUser && item.hadContext === false && (
+          <View
+            style={[styles.noContextBanner, {backgroundColor: theme.colors.errorContainer}]}
+            testID="chat-no-context-warning"
+          >
+            <Text variant="labelSmall" style={{color: theme.colors.onErrorContainer}}>
+              No context attached — AI answered without training data
             </Text>
-          ) : (
-            <Markdown
-              style={aiChatMarkdownStyles(theme)}
-              testID="chat-bubble-assistant-markdown"
-            >
-              {item.content}
-            </Markdown>
-          )}
-        </Surface>
+          </View>
+        )}
+        <View
+          style={[styles.messageBubbleRow, isUser ? styles.rowRight : styles.rowLeft]}
+          testID={isUser ? 'chat-bubble-user' : 'chat-bubble-assistant'}
+        >
+          <Surface
+            style={[
+              styles.bubble,
+              {
+                backgroundColor: isUser
+                  ? theme.colors.primary
+                  : theme.colors.surfaceVariant,
+                maxWidth: '80%',
+              },
+            ]}
+            elevation={1}
+          >
+            {isUser ? (
+              <Text
+                variant="bodyMedium"
+                style={{color: theme.colors.onPrimary}}
+                testID="chat-bubble-user-text"
+              >
+                {item.content}
+              </Text>
+            ) : (
+              <Markdown
+                style={aiChatMarkdownStyles(theme)}
+                testID="chat-bubble-assistant-markdown"
+              >
+                {item.content}
+              </Markdown>
+            )}
+          </Surface>
+        </View>
       </View>
     );
   };
@@ -335,7 +372,7 @@ const AIChatTab = () => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, {backgroundColor: theme.colors.background}]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       keyboardVerticalOffset={80}
     >
       {/* Header */}
@@ -343,6 +380,23 @@ const AIChatTab = () => {
         <Text variant="titleMedium" style={{color: theme.colors.onSurface, flex: 1}}>
           AI Chat
         </Text>
+        {!showFilters && (
+          <Text
+            variant="labelSmall"
+            style={[styles.contextBadge, {color: theme.colors.onSurfaceVariant}]}
+            testID="chat-context-badge"
+            numberOfLines={1}
+          >
+            {contextBadgeLabel}
+          </Text>
+        )}
+        <IconButton
+          icon={showFilters ? 'filter-remove-outline' : 'filter-outline'}
+          size={20}
+          iconColor={theme.colors.onSurfaceVariant}
+          onPress={() => setShowFilters(v => !v)}
+          testID="chat-filter-toggle"
+        />
         <IconButton
           icon="delete-outline"
           size={20}
@@ -353,58 +407,63 @@ const AIChatTab = () => {
         />
       </View>
 
-      {/* Preset chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.chipsRow}
-        contentContainerStyle={styles.chipsContent}
-        testID="chat-preset-chips"
-      >
-        {(['7d', '28d', '3M'] as Preset[]).map(preset => (
-          <Chip
-            key={preset}
-            selected={selectedPreset === preset}
-            onPress={() => applyPreset(preset)}
-            style={styles.chip}
-            testID={`chat-preset-${preset}`}
+      {/* Collapsible filter section */}
+      {showFilters && (
+        <View testID="chat-filter-section">
+          {/* Preset chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.chipsRow}
+            contentContainerStyle={styles.chipsContent}
+            testID="chat-preset-chips"
           >
-            {preset}
-          </Chip>
-        ))}
-        {mesoRange != null && (
-          <Chip
-            selected={selectedPreset === 'Meso'}
-            onPress={() => applyPreset('Meso')}
-            style={styles.chip}
-            testID="chat-preset-Meso"
+            {(['7d', '28d', '3M'] as Preset[]).map(preset => (
+              <Chip
+                key={preset}
+                selected={selectedPreset === preset}
+                onPress={() => applyPreset(preset)}
+                style={styles.chip}
+                testID={`chat-preset-${preset}`}
+              >
+                {preset}
+              </Chip>
+            ))}
+            {mesoRange != null && (
+              <Chip
+                selected={selectedPreset === 'Meso'}
+                onPress={() => applyPreset('Meso')}
+                style={styles.chip}
+                testID="chat-preset-Meso"
+              >
+                Meso
+              </Chip>
+            )}
+            <Chip
+              selected={selectedPreset === 'Custom'}
+              onPress={() => applyPreset('Custom')}
+              style={styles.chip}
+              testID="chat-preset-Custom"
+            >
+              Custom
+            </Chip>
+          </ScrollView>
+
+          {/* DateRangePicker */}
+          <View style={styles.pickerRow} testID="chat-date-range-picker">
+            <DateRangePicker range={effectiveRange} setRange={handleRangeChange} />
+          </View>
+
+          {/* Info line */}
+          <Text
+            variant="bodySmall"
+            style={[styles.infoLine, {color: theme.colors.onSurfaceVariant}]}
+            testID="chat-context-info"
           >
-            Meso
-          </Chip>
-        )}
-        <Chip
-          selected={selectedPreset === 'Custom'}
-          onPress={() => applyPreset('Custom')}
-          style={styles.chip}
-          testID="chat-preset-Custom"
-        >
-          Custom
-        </Chip>
-      </ScrollView>
-
-      {/* DateRangePicker */}
-      <View style={styles.pickerRow} testID="chat-date-range-picker">
-        <DateRangePicker range={effectiveRange} setRange={handleRangeChange} />
-      </View>
-
-      {/* Info line */}
-      <Text
-        variant="bodySmall"
-        style={[styles.infoLine, {color: theme.colors.onSurfaceVariant}]}
-        testID="chat-context-info"
-      >
-        {`AI has access to ${filteredCount} training${filteredCount !== 1 ? 's' : ''} (${formatDateISO(effectiveRange.startDate)} – ${formatDateISO(effectiveRange.endDate)})`}
-      </Text>
+            {`AI has access to ${filteredCount} training${filteredCount !== 1 ? 's' : ''} (${formatDateISO(effectiveRange.startDate)} – ${formatDateISO(effectiveRange.endDate)})`}
+          </Text>
+        </View>
+      )}
 
       {/* Message list */}
       <FlatList
@@ -460,9 +519,13 @@ const AIChatTab = () => {
         </View>
       )}
 
-      {/* Input row */}
-      <View style={[styles.inputRow, {borderTopColor: theme.colors.outlineVariant}]}>
+      {/* Input row — full-width touchable area, min 48dp height per Material guidelines */}
+      <View
+        style={[styles.inputRow, {borderTopColor: theme.colors.outlineVariant}]}
+        testID="chat-input-row"
+      >
         <TextInput
+          ref={textInputRef}
           mode="outlined"
           placeholder="Ask a question…"
           value={inputText}
@@ -502,6 +565,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 4,
+  },
+  contextBadge: {
+    flexShrink: 1,
+    marginRight: 4,
   },
   chipsRow: {
     flexGrow: 0,
@@ -549,6 +616,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
+  noContextBanner: {
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginVertical: 2,
+    alignSelf: 'flex-start',
+  },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
@@ -578,9 +652,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderTopWidth: 1,
+    flexShrink: 0,
   },
   textInput: {
     flex: 1,
+    minHeight: 48,
   },
 });
 
