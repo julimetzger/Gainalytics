@@ -490,3 +490,14 @@ The `testPathIgnorePatterns: ['/.worktrees/']` in `jest.config.cjs` blocks all t
 **Observation:** Pattern `useMemo(() => arr.filter(...), [arr.length])` stays cached when Redux mutates existing entities without adding/removing them (FINISH_TRAINING changes `state`, set-value edits change workout data). Same bug with `useEffect` deps like `workoutCount = Object.keys(workoutsById).length`.
 **Working solution:** Extract `createSelector(state => state.slice.byId, state => state.slice.allIds, (byId, allIds) => ...)` — Redux reducers always produce new `byId` references on any mutation. Use the selector's stable output as the `useEffect` dep directly. No `eslint-disable exhaustive-deps` needed.
 **Apply when:** Any `useMemo` or `useEffect` that derives data from Redux normalized state. Check for `.length` in dep arrays as a smell.
+
+### 83. Corrupted Gradle class file caused by JAVA_TOOL_OPTIONS pointing to Maestro home dir
+**Problem/Symptoms:** `./gradlew clean` fails with "Could not load compiled classes for settings file... from cache. > settings_HASH". All `rm -rf ~/.gradle/caches/` attempts have no effect.
+**Root cause:** `JAVA_TOOL_OPTIONS=-Duser.home=.../maestro-java-home` (set by a previous Maestro run) redirects Gradle's home to the Maestro temp dir. A previous disk-full event corrupted the compiled class files there. Gradle uses the corrupted cache even after a fresh distribution download.
+**Working solution:** (1) Find the JAVA_TOOL_OPTIONS value: `echo $JAVA_TOOL_OPTIONS`. (2) Delete `.gradle/caches/` inside that custom home: `rm -rf <maestro-java-home>/.gradle/caches/`. (3) Stop running daemons with `unset JAVA_TOOL_OPTIONS && ./gradlew --stop`. (4) Rebuild.
+**Apply when:** Gradle clean fails with "Could not load compiled classes... from cache" after any Maestro session, especially after a disk-full incident.
+
+### 84. Rebasing over unpushed release APK commit when pushing a feature branch
+**Problem/Symptoms:** `git push` fails with `GH001: Large files detected` for `android/app/build/outputs/apk/release/app-release.apk` even though the feature branch doesn't explicitly add the file — it's included because the feature branch was based on a local-only release commit.
+**Working solution:** `git rebase --onto origin/master <release-commit-hash> HEAD` to replay only the feature commits onto the remote master tip. Then `git branch -f <branch> HEAD && git checkout <branch>` to update the branch ref.
+**Apply when:** Push rejected for large files when the large file was committed before the feature work (e.g., a release commit that was never pushed to origin).
