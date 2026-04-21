@@ -2,7 +2,7 @@ import {Button, Divider, IconButton, SegmentedButtons, Text, TextInput, ThemeBas
 import {MD3Colors, MD3Typescale} from 'react-native-paper/lib/typescript/types';
 import {Action} from 'redux';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
-import {View, Keyboard} from 'react-native';
+import {View, Keyboard, ScrollView} from 'react-native';
 import React, {useState, useRef, useEffect} from 'react';
 import {getLocalMicro, getMesoEndMicro, getMesoForMicro, getSortedMesos} from '../../redux/Training/trainingsPlanReducer';
 
@@ -22,6 +22,7 @@ interface TrainingsPlanDrawerProps {
   setShowPlanned: (value: ((prevState: boolean) => boolean) | boolean) => void;
   showDone: boolean;
   setShowDone: (value: ((prevState: boolean) => boolean) | boolean) => void;
+  setShowHistory: (value: ((prevState: boolean) => boolean) | boolean) => void;
   handleValueChange: (newValue: any) => void;
   micro: number;
   onAddMeso: () => void;
@@ -39,6 +40,7 @@ const TrainingsPlanDrawer = ({
   showPlanned,
   setShowPlanned,
   setShowDone,
+  setShowHistory,
   handleValueChange,
   micro,
   onAddMeso,
@@ -71,7 +73,7 @@ const TrainingsPlanDrawer = ({
   const nextLocalMicroLabel = maxLocalMicro ? Math.min(maxLocalMicro, localMicro + 1) : localMicro + 1;
 
   return (
-    <View style={{display: 'flex', flexDirection: 'column'}}>
+    <ScrollView style={{flex: 1}} contentContainerStyle={{flexDirection: 'column'}}>
       <Divider />
       <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
         <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Mesos:</Text>
@@ -172,6 +174,7 @@ const TrainingsPlanDrawer = ({
             <TouchableRipple
               style={{flex: 1}}
               onPress={() => {
+                setShowHistory(false);
                 setTrainingInMicro(parseInt(micro));
                 setOpen(false);
                 setShowDone(false);
@@ -256,11 +259,25 @@ const TrainingsPlanDrawer = ({
           <Text
             style={{fontSize: 20, margin: 5}}
             onPress={() => {
+              setShowHistory(false);
               setOpen(false);
               setShowDone(true);
             }}
           >
             Overview
+          </Text>
+        </Tooltip>
+      </TouchableRipple>
+      <TouchableRipple testID="history-drawer-item">
+        <Tooltip title="Shows a calendar with all completed trainings">
+          <Text
+            style={{fontSize: 20, margin: 5}}
+            onPress={() => {
+              setOpen(false);
+              setShowHistory(true);
+            }}
+          >
+            History
           </Text>
         </Tooltip>
       </TouchableRipple>
@@ -289,7 +306,7 @@ const TrainingsPlanDrawer = ({
           },
         ]}
       />
-    </View>
+    </ScrollView>
   );
 };
 

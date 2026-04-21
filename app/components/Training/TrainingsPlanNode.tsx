@@ -14,6 +14,7 @@ import EditTraining from './execute/EditTraining';
 import TrainingsOverview from './analyse/TrainingsOverview';
 import TrainingHistory from './analyse/TrainingHistory';
 import React, {useEffect, useState} from 'react';
+import {ViewMode} from '../../tabs/trainings/MicroOverviewTraining';
 import {dispatchStartTraining} from '../../redux/Training/dispatch/plan/dispatchStartTraining';
 import {useExerciseByIds} from '../../redux/Exercises/use/useExerciseByIds';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
@@ -39,9 +40,16 @@ interface TrainingsPlanNodeProps {
   overview: boolean;
   setOverview: (overview: boolean) => void;
   setIgnoreSwipe: (ignoreSwipe: LayoutRectangle[]) => void;
+  /** Pass false when this node is an off-screen swiper pane to suppress AI API calls. */
+  isActive?: boolean;
+  microViewMode?: ViewMode;
+  onMicroViewModeChange?: (mode: ViewMode) => void;
 }
 
-const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, overview, setOverview, setIgnoreSwipe}: TrainingsPlanNodeProps) => {
+const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, overview, setOverview, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange}: TrainingsPlanNodeProps) => {
+  const [localViewMode, setLocalViewMode] = useState<ViewMode>('gesamt');
+  const effectiveViewMode = microViewMode ?? localViewMode;
+  const effectiveSetViewMode = onMicroViewModeChange ?? setLocalViewMode;
   const training = useTrainingInTrainingsPlan(trainingsPlan.id!!, micro, trainingInMicro);
   const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
   const lastTraining = useTrainingInTrainingsPlan(trainingsPlan.id!!, previousMicro ?? -1, trainingInMicro);
@@ -185,7 +193,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
       <ScrollView keyboardShouldPersistTaps={'handled'}>
         <View>
           {showDone ? (
-            <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} />
+            <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} viewMode={effectiveViewMode} onViewModeChange={effectiveSetViewMode} />
           ) : (
             <View>
               <View

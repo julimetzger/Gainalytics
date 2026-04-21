@@ -12,7 +12,7 @@ echo 'start release'
 set -e
 git pull --rebase
 mkdir -p 'android/app/src/main/assets/'
-react-native bundle --platform android --dev false --entry-file index.tsx --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res
+npx react-native bundle --platform android --dev false --entry-file index.tsx --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res
 
 previousVersion=$(grep -oE 'versionName "([0-9]+\.[0-9]+)"' android/app/build.gradle | sed -E 's/versionName "([0-9]+\.[0-9]+)"/\1/')
 newVersion=$(echo $previousVersion | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
@@ -22,6 +22,13 @@ sed -i'' -e "s/versionName \"$previousVersion\"/versionName \"$newVersion\"/g" a
 echo 'releasing'
 mkdir -p android/app/build/outputs/apk/release/
 mkdir -p app/build/outputs/bundle/release/
+
+# RN 0.75 autolinking: pre-generate autolinking.source.json here using the
+# current shell's own node/npx, so android/settings.gradle can read it via
+# autolinkLibrariesFromConfigFile() and sidestep the Gradle ProcessBuilder
+# that breaks on some Windows setups. See android/settings.gradle for why.
+npx react-native config > android/autolinking.source.json
+
 export ENTRY_FILE=index.tsx
 cd android
 rm -rf app/src/main/res/drawable*

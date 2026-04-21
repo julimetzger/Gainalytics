@@ -1,1031 +1,492 @@
 # Agent Memory
 
-**CRITICAL: Device serial warning**
-This file mentions specific device serials as context. **NEVER copy device serials from this file into your commands.** Always use your assigned `$ANDROID_SERIAL` from the orchestrator prompt.
+Generic, reusable learnings for feature workers on this project. Ticket-specific details, round numbers, and file paths from historical runs are intentionally omitted — check git log, PRs, and TODOS.md for that context.
 
-## Infrastructure
+**CRITICAL — device serials:** Never copy device serials from this file into your commands. Always use your assigned `$ANDROID_SERIAL` from the orchestrator prompt.
 
-### 1. Metro must run on the host, not inside the worker
-Workers reuse the host Metro port via `E2E_METRO_PORT`. Use `adb reverse` so the device sees port 8081 while each worktree uses its own host Metro port. Never start a new packager inside the worker.
+## Metro & ADB Infrastructure
 
-### 2. Parallel Maestro needs unique driver host ports
-Use one unique `--driver-host-port` per concurrent worker. The orchestrator assigns this via `E2E_MAESTRO_DRIVER_PORT`.
+### Reuse host Metro, never start your own
+Workers get `E2E_METRO_PORT` from the orchestrator pointing at a host Metro process. Use `adb reverse` to expose it on the device as port 8081. Starting a second packager in the worker is always wrong.
 
-### 3. JAVA_TOOL_OPTIONS leaks into Gradle builds
-Maestro sets `JAVA_TOOL_OPTIONS=-Duser.home=...`. Always `unset JAVA_TOOL_OPTIONS` before running Gradle builds.
+### Emulator connects to 10.0.2.2:8081, not localhost
+`adb reverse tcp:8081 tcp:$HOST_PORT` only captures connections to `localhost:8081` on the device. The Android emulator connects Metro via the special host alias `10.0.2.2:8081`, which bypasses reverse.
 
-### 4. Maestro driver needs 5-15s cooldown between sessions
-Running two Maestro flows back-to-back on the same driver port causes TcpForwarder timeouts. Wait at least 5s. After a crashed session, force-stop both the app and `dev.mobile.maestro.android`, then wait 15s.
+Two workarounds:
+- **Open the RN Dev Menu** (`adb shell input keyevent 82`) → "Change Bundle Location" → `localhost:8081`. Writes `debug_http_host` to SharedPreferences. Survives relaunches but is wiped by `pm clear` / `clearState: true`.
+- **Run a socat bridge**: `socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:$HOST_PORT`. The `reuseaddr` flag matters — without it the port gets stuck in TIME_WAIT after restarts.
 
-### 5. Maestro DEADLINE_EXCEEDED on continuously-updating UI
-When video is playing, Maestro's `waitForAppToSettle` never completes (UI hierarchy changes every frame). Use Maestro only for navigation to stable screens. For Play tap and playback screenshots, use pure ADB: `adb shell input tap <x> <y>` + `adb exec-out screencap -p`.
+### After `clearState: true`, the bundle-host override is gone
+Any Maestro flow using `clearState: true` wipes SharedPreferences. If Metro is not on port 8081, rewrite `debug_http_host` via `run-as` or the Dev Menu before the next launch, otherwise the app connects to whatever socat happens to be forwarding.
 
-### 6. Bundle load after force-stop takes ~30s
-Replace `assertVisible: "Training"` with `extendedWaitUntil: visible: "Training", timeout: 60000` after cold app launch.
+### `JAVA_TOOL_OPTIONS` leaks from Maestro into Gradle
+Maestro's run script sets `JAVA_TOOL_OPTIONS=-Duser.home=...` for its own isolation. The var persists in the shell and causes Gradle native builds (CMake/NDK) to fail. Always `unset JAVA_TOOL_OPTIONS` before `./gradlew`.
 
-### 7. Physical device imports real PXL camera video (30+ min processing)
-On physical devices, "Import Emulator Squat Video" imports a real camera video, not the short test video. Keep an existing "done" analysis on the device; avoid clearing state.
+### Parallel Maestro sessions need unique driver host ports
+Use `--driver-host-port` (the orchestrator passes it via `E2E_MAESTRO_DRIVER_PORT`). Two concurrent sessions on the same port fail with `TcpForwarder.waitFor` TimeoutException. After a crashed session, force-stop both the app and `dev.mobile.maestro.android`, then wait 10-15s before the next flow.
+
+### ADB server mismatches are a recurring headache
+- WSL2 ADB client (v36) + Windows ADB server (v34) → device list silently empty over `127.0.0.1:5037`. Use Windows `adb.exe` directly via `/mnt/c/.../platform-tools/adb.exe`, or run Maestro through `cmd.exe /c "maestro.bat ..."`.
+- `ADB_SERVER_SOCKET=tcp:<gateway>:5037` can die mid-session if Windows ADB restarts. Don't spend time debugging live — if ADB is unreachable in a pure-code round, use existing run-dir screenshots as evidence and note the infra problem in summary.md.
+- Windows ADB needs `-a` flag to bind on all interfaces so WSL can reach it. Killing stale `adb.exe` processes before restart is usually necessary.
 
 ## Maestro Best Practices
 
-### 8. Assertions must verify actual values, not just visibility
-Use `assertVisible: text: "expected value"`, not just `id:`. For dynamic values, use `evalScript` + `assertTrue`.
+### Assert actual values, not just visibility
+`assertVisible: id: "..."` proves the element exists, not that its content is correct. Use `assertVisible: text: "expected value"`. For dynamic values, compute the expected string with `evalScript` and `assertTrue`.
 
-### 9. Off-screen Views need text anchors for scrollUntilVisible
-React Native Views with `testID` are NOT in the accessibility tree when off-screen. Use `text:` anchors (e.g. Card.Title) instead of `id:` selectors.
+### `text:` matching is literal, not substring and not regex
+- `assertVisible: text: "Foo"` will not match a Text node containing "Bar › Foo". Maestro requires exact or full-regex match against the node's `text` attribute.
+- Workaround: give the element a `testID` and assert `id:` + optional `text: ".*Foo.*"` with explicit regex wildcards.
+- Text displays with dynamic suffixes (e.g. `"Playback: 00:00 / 00:47"`) should assert only the fixed prefix.
 
-### 10. react-native-paper Button: match by label text, not testID
-`testID` on `<Button>` does not map to resource-id. Use `tapOn: "Play"` instead of `tapOn: id: "my-button"`.
+### Off-screen React Native Views are not in the accessibility tree
+`scrollUntilVisible: element: id: "..."` times out for RN `<View>` that is below the viewport — the testID only appears after the view is rendered. Use `text:` anchors (e.g. `Card.Title`) which are always in the tree. After scrolling to the anchor, use `extendedWaitUntil: visible: "..."` to wait for the target child.
 
-### 11. assertVisible does not support regex
-Maestro treats `text:` as literal. For time displays like `"Playback: 00:00 / 00:47"`, assert only the fixed prefix: `text: "Playback: 00:00"`.
+### `react-native-paper` Button does not expose testID as Maestro `id:`
+Paper buttons get `content-desc` equal to the label, not the testID. Match by label text: `tapOn: "Play"`. The `id:` selector works for plain `<View>` / `<TouchableOpacity>` / custom components where testID maps to resource-id.
 
-### 12. clearState:true + CPU-intensive analysis = gRPC timeout
-Use `clearState: false` for overlay/playback flows that reuse an existing analysis.
+### `clearState: true` + CPU-intensive work = gRPC DEADLINE_EXCEEDED
+If an app starts a heavy analysis right after `pm clear`, Maestro's `viewHierarchy` gRPC call times out (120s deadline) before the UI is queryable. Reserve `clearState: true` for cold-start import flows. Overlay/playback flows that reuse existing analyses should run with `clearState: false`.
+
+### Maestro `waitForAppToSettle` never returns on a continuously-updating UI
+Any screen with ticking labels, live charts, or video playback keeps the hierarchy "dirty". The next Maestro step hangs until DEADLINE_EXCEEDED. Use Maestro only for navigation to stable screens. For interactions on live UIs, drop to pure `adb shell input tap <x> <y>` + `adb exec-out screencap -p`. Get coordinates from `adb shell uiautomator dump`.
+
+### After cold launch, assert with `extendedWaitUntil`, not bare `assertVisible`
+A `launchApp` (especially with `clearState: true` or a bundled APK) returns when the process starts, not when React Native finishes rendering. Use `extendedWaitUntil: visible: "X", timeout: 60000` — bare `assertVisible` runs before the bundle loads and fails.
+
+### Leading whitespace in JSX breaks exact text matching
+`<Text> {name}</Text>` renders `" Name"` (with leading space). `assertVisible: text: "Name"` fails. Strip leading whitespace in JSX or use a regex match.
+
+### `tapOn: point` only supports integer percentages
+`"3.5%,6.5%"` throws `NumberFormatException`. Use `"4%,7%"`.
+
+### Grep the component for `testID` before writing the flow
+Memory-writing the wrong testID is the #1 reason new flows fail silently. `grep -n testID path/to/Component.tsx` before authoring or debugging a Maestro step.
+
+## Android Build / Gradle
+
+### `buildToolsVersion` and `compileSdkVersion` must be compatible with the pinned AGP
+AGP 7.4.x officially supports up to compileSdk 34. AGP 8.1 → 34. AGP 8.5 → 35. Bumping compileSdk beyond what AGP supports causes assorted Gradle warnings and sometimes hard failures (resource linking, R class generation).
+
+### Release signing is not available in the worker environment
+The release keystore and `ANDROID_RELEASE_PASSWORD` live on the user's Windows machine. Workers that need to build a release APK to verify a runtime fix should temporarily swap `signingConfig signingConfigs.release` → `signingConfigs.debug` for the build, **not commit that change**, then install the debug-signed APK via `adb install -r`. Final signed-release verification is the user's job after merge.
+
+### Kotlin Multiplatform (KMP) dependencies need the `kotlin-android` plugin on the app module
+Without `apply plugin: 'kotlin-android'`, Gradle cannot do variant-aware resolution for KMP libraries (e.g. `androidx.datastore:datastore-preferences`). Symptoms: debug builds work (hand-picked classpath), release crashes with `NoClassDefFoundError` for top-level Kotlin functions. Excludes and explicit `-android` artifact pulls are fragile workarounds; applying the plugin is the real fix.
+
+### Debug APK ABI filter halves size for emulator installs
+The debug APK with all ABIs can reach 225 MB, which fails to install on an emulator with a tight `/data` partition. Add `ndk { abiFilters "x86_64", "arm64-v8a" }` inside `android.buildTypes.debug`. Never in `release`. Reduces APK to ~80 MB.
+
+### `INSTALL_FAILED_INSUFFICIENT_STORAGE` has multiple knobs
+1. `adb uninstall com.powerliftingworkoutplanner` frees the APK's current footprint (~220 MB).
+2. On emulators, `adb shell pm uninstall com.google.android.youtube` frees ~400 MB.
+3. If still tight, clear Google Play caches: `pm clear com.android.vending && pm clear com.google.android.gms && pm clear com.google.android.gsf` (~300 MB extra).
+4. Check `adb shell df /data` — you need ~1 GB headroom for a 225 MB APK.
+
+### Metro crashes when it watches Gradle `.cxx` build directories
+`./gradlew assembleDebug` creates and tears down `android/app/.cxx/...` during the native build. If Metro is watching the project root, it crashes with `ENOENT ... watch '.cxx/...'` and the next app reload shows a red screen. Restart the Metro process after every native build; the socat bridge stays up.
+
+### Autolinking silently ships a release APK with 0 native modules
+The Windows `autolinkLibrariesFromCommand()` workarounds tolerate a 0-byte JSON output. If that happens, `assembleRelease` builds cleanly with an empty `PackageList` and the APK crashes the first screen that touches any native module (reanimated, gesture-handler, mmkv, …). Add a configuration-time guardrail in `android/settings.gradle` that parses the chosen autolinking config (pre-generated `autolinking.source.json` or cached `build/generated/autolinking/autolinking.json`) and throws if it has zero Android native deps — that way the broken state is caught at `gradlew assembleRelease` configure time instead of at first screen render.
+
+### `npm ci` strictly enforces peer dependencies; `npm install` is lenient
+After an RN upgrade, always validate with a fresh `npm ci` from scratch, not just `npm test` against a symlinked `node_modules`. Workers that skip this step leave the next developer (or CI) with peer-dep conflicts that were invisible in the agent's reused node_modules.
 
 ## React Native Patterns
 
-### 13. Never spread class instances in React state
-`{...prev, startDate: d}` creates a plain object, breaking `instanceof`. Always use the constructor: `new NullableRange(d, prev.endDate)`.
+### `react-native-gesture-handler` needs a root-entry import, not a lazy one
+Any screen that uses `@react-navigation/drawer` or `react-native-drawer-layout` depends on the gesture-handler native module being registered at JS evaluation time. Debug builds get away without the root import because Fast Refresh paths end up registering it before the drawer renders; release builds can evaluate the drawer screen first and crash on mount. The fix is the documented `import 'react-native-gesture-handler';` as the **first** import of `index.tsx` — not inside any lazy code path. Symptoms: release-only crash the moment you tab into Analyse or open a Training plan; debug works fine.
 
-### 14. Reanimated SharedValues: stable in prod, unstable in mock
-The mock creates a new object per render. Wrap with `useRef`: `const sv = useRef(useSharedValue(0)).current`. Never include SharedValues in `useCallback`/`useEffect` deps.
+### Jest `testPathIgnorePatterns: ['/.worktrees/']` hides specs in a worktree
+When you run `jest` from inside `.worktrees/feature-*/`, every test file's absolute path contains `/.worktrees/`, so the default ignore pattern matches them all and jest reports "No tests found". Workaround for a single run: `npx jest --testPathIgnorePatterns=/node_modules/ --testPathIgnorePatterns=/__tests__/coverage/`. Don't waste time debugging missing specs in a worktree — check the ignore pattern first.
 
-### 15. viewPortOffsets expects physical pixels, not dp
-`react-native-charts-wrapper` `setViewPortOffsets()` needs `Math.round(VALUE_DP * PixelRatio.get())`. Keep JS overlay constants in dp.
+### Node.js v24 + jest-cli `exit()` incompatibility produces misleading exit code 1
+After all tests pass, jest-cli throws `TypeError: (0 , _exit(...).default) is not a function` and exits 1. This is a pre-existing Node 24 / jest-cli incompatibility, not a test failure — all test results are accurate. Don't re-run or debug; just check the "Tests:" summary line in output.
 
-### 16. Maestro 2.0.9-ports text input: eraseText / inputText, not clearText / typeText
-`clearText` and `typeText` are not valid commands in Maestro 2.0.9-ports. Use `eraseText` (no argument needed to clear the focused field) and `inputText: "value"` to enter text.
+### APK hardcoded to non-8081 Metro port: adb reverse + bundle location to `localhost`
+If the APK was built with Metro host `10.0.2.2:PORT` (not the default 8081), `adb reverse` alone won't help — the emulator connects directly to 10.0.2.2 bypassing the tunnel. Fix:
+1. `adb reverse tcp:PORT tcp:$HOST_METRO_PORT` on host
+2. Dev menu → "Change Bundle Location" → `localhost:PORT` (**not** `10.0.2.2:PORT`) so the app uses the adb-reverse tunnel
 
-### 17. null-coalescing fallback on self creates always-false comparison
-`new Date(x ?? y).getTime() !== y.getTime()` is always `false` when `x` is null/undefined, because it becomes `new Date(y).getTime() !== y.getTime()`. Guard with an explicit null check: `if (x == null) return true;` before comparing.
+This is different from the standard setup where the APK uses 8081: in that case you can override with SharedPreferences to `localhost:8081`. For non-8081 ports, only the Dev Menu approach works (SharedPreferences `debug_http_host` is ignored for non-default ports in newer RN).
 
-## Operational Guidance
+### Dev Menu "Change Bundle Location" field: clear before typing
+The input may show a previous value. Pattern: open field → `adb shell input keyevent KEYCODE_MOVE_END` → 30× `KEYCODE_DEL` → `adb shell input text "localhost:PORT"`. If you type without clearing, you get a concatenated invalid URL (`80810.0.2.2:PORT`) and a "port invalid" crash.
 
-Working solution:
-- Ensure each worktree has `node_modules` symlinked to the root repository `node_modules`.
-- Ignore the symlink locally so fresh worktrees stay clean.
+### Maestro `id:` matches resource-id, not content-desc
+Custom RN `View`s that expose `testID="tab-analyse"` end up as `content-desc="tab-analyse"` in the Android view tree, **not** as `resource-id`. A Maestro step like `tapOn: { id: "tab-analyse" }` then fails with "Element not found". The bare-string form `tapOn: "tab-analyse"` matches both text and content-desc and works. Same rule as the existing `react-native-paper` note above, but it also applies to plain `<View>` with a testID on the bottom nav.
 
-Relevant files:
-- [create_worktree.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/create_worktree.py)
-- [metro_host.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/metro_host.py)
+### Never spread class instances in React state
+`{...prev, startDate: d}` returns a plain object — `instanceof MyClass` is now false and downstream guards silently skip. Use the constructor: `new NullableRange(d, prev.endDate)`.
 
-### 5. Fresh runs need explicit fresh worktrees
+### Reanimated `useSharedValue` is stable in prod, not in the Jest mock
+Production returns a stable ref; the mock returns `{value: v}` per call. Two consequences in tests:
+1. `useAnimatedStyle` reads a fresh `{value: 0}` every render.
+2. Including SharedValues in `useCallback` / `useEffect` deps triggers infinite resets.
 
-Problem:
-- Reusing long-lived ticket worktrees caused drift, stale artifacts, and confusion about what code a worker was actually running.
+Fix: `const sv = useRef(useSharedValue(0)).current;` — the ref is created once and mutations persist. And never put SharedValues in dep arrays, even when exhaustive-deps warns.
 
-Symptoms:
-- restarted tickets inherited old local state
-- old run artifacts and worktree dirt confused review and status reporting
+### Tab navigators keep components mounted — lazy `useState` initializers do not re-run on prop change
+If a screen reads persisted data via lazy `useState(() => savedX)`, it sees `undefined` on mount and never updates when the prop finally arrives. Add a one-shot `useEffect` guarded by `useRef` that applies the prop when it first becomes non-null.
 
-Working solution:
-- Recreate ticket worktrees explicitly when a fresh round is required.
-- Use:
-  - `create_worktree.py --worktree-mode fresh`
-  - `create_worktree.py --base-ref <snapshot-ref>`
-- If current root fixes must be included, snapshot them first and branch fresh worktrees from that snapshot.
-- Normal orchestrator behavior should stay `resume`; fresh should be an explicit opt-in.
+### `viewPortOffsets` on `react-native-charts-wrapper` expects physical pixels, not dp
+`{left: 64, ...}` with a dp value misaligns overlays at density ≠ 1. Use `Math.round(VALUE_DP * PixelRatio.get())` for the chart prop and keep the JS overlay constant in dp.
 
-Relevant files:
-- [create_worktree.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/create_worktree.py)
+### Hex-color string concatenation breaks under `rgb()` themes
+`theme.colors.primary + '33'` works when primary is `#rrggbb` but produces `rgb(...)33` under themes that return `rgb()` strings, which is not a valid React Native color and crashes at render. Use an alpha-safe helper that accepts both formats and emits `rgba(r,g,b,alpha)`.
 
-### 18. Emulator uses 10.0.2.2:8081 for Metro, not localhost — socat proxy needed for non-8081 Metro ports
+### Null-coalescing fallback on itself creates an always-false comparison
+`new Date(x ?? y).getTime() !== y.getTime()` is always `false` when `x` is null — it reduces to `y !== y`. Guard with an explicit null check first.
 
-Problem:
-- Android emulator apps connect to Metro at `10.0.2.2:8081` by default. `adb reverse tcp:8081 tcp:8085` only forwards `localhost:8081` connections, NOT `10.0.2.2:8081` ones.
+### FlatList in a flex container collapses sibling rows unless it has `flex:1`
+In a `KeyboardAvoidingView` (or any `flex:1` root), a `FlatList` without an explicit `style={{ flex: 1 }}` takes all remaining space greedily, squeezing siblings that have `flexGrow: 0` to 0 height. Symptoms: chip row / picker row have 0 height in `uiautomator dump`. Fix: add `style={{ flex: 1 }}` to the FlatList **and** `flexShrink: 0` to every non-scrolling sibling above it (chips, date picker, info line). Both sides are required — one without the other doesn't work.
 
-Symptoms:
-- "Could not connect to development server" showing URL `http://10.0.2.2:8081/...`
-- `adb reverse --list` confirms reverse is set up, but app still can't connect
+## Jest / Testing
 
-Working solution:
-- Start a `socat` proxy on the host: `socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:8085 &`
-- Verify: `curl http://127.0.0.1:8081/status` should return `packager-status:running`
-- This is only needed when Metro is NOT on port 8081. Proxy is per-session; re-run after reboot.
+### Global mocks in `jest.setup.js` fix whole suites at once
+Native modules that have no Jest implementation (e.g. `@notifee/react-native`, `react-native-keychain`, `react-native-mmkv`) break any suite that transitively imports them, often 4 levels deep. One global `jest.mock(...)` in `jest.setup.js` with the used named exports fixes every affected suite. Prefer this over per-spec mocks.
 
-### 19. Object.values() on typed {[key: string]: number} records returns numbers, not objects
-
-Problem: `Workout.records` type is `{ [key: string]: number }`. `Object.values(w.records)` returns `number[]`, NOT objects with a `.value` property.
-
-Apply when: Reading `w.records` values — always use them directly as numbers, never access `.value` on them.
-
-### 20. Emulator ANR "System UI isn't responding" blocks Maestro and manual tap
-
-Problem: After a Metro bundle failure + emulator reboot, the SystemUI process keeps triggering ANR dialogs that stack on top of the RN error screen.
-
-Working solution:
-- `adb shell am force-stop <appid>` clears the app's CPU load causing the ANR
-- `adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS` dismisses overlay dialogs
-- After clearing, rebooting Metro connectivity (socat proxy) lets the app load cleanly
-
-### 6. Parallel Maestro needs unique driver host ports
-
-Problem:
-- Upstream Maestro was flaky when two Android sessions ran in parallel on the same machine.
-
-Symptoms:
-- whichever session started second often failed in the driver forwarder
-- `dadb.forwarding.TcpForwarder.waitFor`
-- failures around driver port `7001`
-
-Working solution:
-- Use one unique `--driver-host-port` per concurrent worker.
-- Pass that port through the orchestrator and the Maestro wrapper.
-- In this environment, the installed Maestro fork with driver-host-port support was materially better than the default behavior.
-
-Relevant files:
-- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
-- [run-maestro-from-wsl.sh](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/scripts/run-maestro-from-wsl.sh)
-
-Environment note:
-- The live Maestro install was switched to the `2.0.9-ports` fork in the user's Windows Maestro location, with a backup created beforehand.
-
-### 7. The repository currently depends on react-dom for this environment
-
-Problem:
-- In this setup, `react-redux` resolution and runtime behavior were broken without `react-dom`.
-
-Working solution:
-- Keep `react-dom@18.2.0` present in the root dependency set unless the underlying resolution issue is removed in a cleaner way later.
-
-Relevant files:
-- [package.json](/home/jmetzger/projects/PowerliftingWorkoutPlanner/package.json)
-- [package-lock.json](/home/jmetzger/projects/PowerliftingWorkoutPlanner/package-lock.json)
-
-### 8. Spread operator on class instances breaks instanceof checks in React state
-
-Problem:
-- When updating a NullableRange instance stored in React state using the spread operator ({...prev, startDate: d}), the result is a plain object, not a NullableRange instance. Any downstream code using instanceof NullableRange returns false.
-
-Symptoms:
-- Calendar became unresponsive after a text-input Save
-- DatePickerModal.extracted() ran the `if (date instanceof NullableRange)` branch and returned false, so no onChange was called
-- Analyse tab stopped showing workouts (useWorkoutsIn received an invalid range object)
-
-Working solution:
-- Always use the class constructor when updating class instances in state: new NullableRange(d, prev.endDate) instead of {...prev, startDate: d}.
-- Added AGENTS.md rule: "When storing class instances in React state, NEVER use the spread operator. Always construct a new instance."
-
-Relevant files:
-- [AGENTS.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/AGENTS.md)
-- [DateRangePicker.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/picker/date/DateRangePicker.tsx)
-
-### 9. Maestro assertions must verify actual values, not just element visibility
-
-Problem:
-- Maestro flows that only assert assertNotVisible: "Save" and assertVisible: id: "button-text" prove the modal closed — they do not prove the feature worked correctly.
-
-Symptoms:
-- A Maestro flow passed but the confirmed range was not verified. Review accepted the flow as e2e evidence even though a wrong range would also have passed.
-
-Working solution:
-- Use assertVisible: text: "..." to verify the actual content of changed UI elements.
-- For dynamic values (e.g. today's date), use evalScript to compute the expected string and assert against it.
-- Added explicit Maestro Test Quality Rules section to feature/SKILL.md.
-
-Relevant files:
-- [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
-
-### 10. Real-device Maestro failures can actually be app bootstrap crashes, not flow bugs
-
-Problem:
-- A Maestro flow on the physical Android device can fail at the first screen assertion even though the real issue is that the debug bundle never booted cleanly.
-
-Symptoms:
-- Maestro fails on a simple first-step assertion such as `tab-analyse is visible`
-- adb UI dump shows the React Native redbox instead of the app UI
-- the runtime error can move as you patch startup globals, for example:
-  - `ReferenceError: Property 'setImmediate' doesn't exist`
-  - later `ReferenceError: Property 'window' doesn't exist`
-
-Working solution:
-- Before rewriting the flow, inspect the device UI dump or redbox text.
-- If the app is crashing during bootstrap, fix the startup/runtime issue first.
-- Keep the fix as small and early as possible, for example in [index.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/index.tsx), rather than scattering feature-specific workarounds deeper in the app.
-
-Relevant files:
-- [index.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/index.tsx)
-- [VideoAnalysisPlaybackOverlayCard.test.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/components/video/VideoAnalysisPlaybackOverlayCard.test.tsx)
-
-### 11. TRN-002 emulator proof is more stable when it reimports baseline data and drives Planning mode directly
-
-Problem:
-- The earlier direct route into the training suggestion UI on `emulator-5554` was flaky: the body controls intermittently disappeared, and Maestro often failed before the progression inputs were usable.
-
-Symptoms:
-- `Push pull` or `tab-training` assertions failed unpredictably
-- the route showed only a partial body or a minimal hierarchy dump
-- the proof could not reliably reach `RIR delta` and `Weight increase %`
-
-Working solution:
-- Reimport the `.gains` baseline first from Settings.
-- Then drive the proof through:
-  - `tab-training`
-  - open the training card
-  - switch to Planning mode
-  - step to `Micro 6`
-  - scroll to the progression inputs
-  - set `RIR delta = 1`
-  - set `Weight increase % = 5`
-  - trigger `Suggest based on last Training`
-- Keep the focused Jest suite as the invariant proof for the implementation while the emulator flow is still being stabilized.
-
-Relevant files:
-- [trn-002-proof-5554.yaml](/home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/TRN-002/checks/trn-002-proof-5554.yaml)
-- [test.log](/home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/TRN-002/checks/test.log)
-
-### 12. React Native Views are not in the Android accessibility tree when off-screen
-
-Problem:
-- Maestro `scrollUntilVisible` with an `id:` selector fails for React Native Views that are below the current viewport because they are not yet in the Android accessibility tree.
-
-Symptoms:
-- `scrollUntilVisible: element: id: "some-testID"` either times out immediately or scrolls to the bottom without ever finding the element
-- The element IS present in the app and IS visible once you scroll there manually, but Maestro cannot find it to scroll to it
-
-Working solution:
-- Use `scrollUntilVisible: element: text: "Some Label"` to target text elements (rendered by Text components), which ARE typically in the accessibility tree even when off-screen
-- Card.Title text (react-native-paper) works reliably as a scroll target
-- After scrolling to a text anchor, use `extendedWaitUntil: visible: "..."` rather than another `scrollUntilVisible` with an `id:` to wait for child elements to become visible
-
-Relevant files:
-- [07_video_analysis_overlay_visible.yaml](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/maestro/flows/07_video_analysis_overlay_visible.yaml)
-
-### 13. react-native-paper Button testID is not matchable as a Maestro id: selector
-
-Problem:
-- Adding `testID="my-button"` to a react-native-paper `<Button>` does NOT expose "my-button" as a matchable resource-id for Maestro's `id:` or `scrollUntilVisible: element: id:` selector.
-
-Symptoms:
-- `assertVisible: id: "my-button"` fails with element-not-found
-- `tapOn: id: "my-button"` fails with element-not-found
-- The button IS visible on screen and works fine when tapped by `text:` selector
-
-Working solution:
-- Match react-native-paper `Button` elements by their visible label text: `tapOn: "Play"` or `tapOn: text: "Play"`
-- The button container gets `content-desc` equal to the button text, not the testID
-- Only use `id:` selectors for plain React Native `<View>` or `<TouchableOpacity>` components where testID maps reliably to resource-id
-
-Relevant files:
-- [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
-
-### 14. clearState:true combined with CPU-intensive video analysis causes Maestro gRPC DEADLINE_EXCEEDED
-
-Problem:
-- Using `clearState: true` in a Maestro flow that imports and analyzes a video causes the Maestro gRPC driver to time out with DEADLINE_EXCEEDED (2-minute timeout).
-
-Symptoms:
-- Maestro fails immediately after `launchApp: clearState: true` with a gRPC error
-- `viewHierarchy` request times out; Maestro marks the flow as failed before any step runs
-- Happens consistently when the app starts a fresh CPU-intensive analysis right after `pm clear`
-
-Working solution:
-- Use `clearState: false` for overlay/playback flows that reuse an existing analysis result
-- Reserve `clearState: true` only for the initial import flow (flow 06), which runs once in a clean context
-- Chain flows so playback/overlay tests (flow 07) run after the analysis is already complete on the device
-
-Relevant files:
-- [07_video_analysis_overlay_visible.yaml](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/maestro/flows/07_video_analysis_overlay_visible.yaml)
-- [06_video_analysis_metrics_visible.yaml](/home/jmetzger/projects/PowerliftingWorkoutPlanner/__tests__/e2e/maestro/flows/06_video_analysis_metrics_visible.yaml)
-
-### 15. Maestro scroll gestures through react-native-charts-wrapper fire onSelect and seek the video
-
-Problem:
-- A generic Maestro `scroll` (direction DOWN) that passes through a react-native-charts-wrapper chart area fires the chart's `onSelect` callback, causing unintended side effects (e.g. video seeking to a random timestamp).
-
-Symptoms:
-- After a scroll command, the video playback position jumps to ~00:44 even though no tapOn was issued
-- The issue is silent — Maestro does not report an error; the app state just changes unexpectedly
-
-Working solution:
-- Avoid using generic `scroll` commands after `scrollUntilVisible` has brought the overlay into view; use `extendedWaitUntil` instead to wait for elements to appear
-- If scrolling is truly necessary past a chart, use coordinate-based `swipe` with start/end Y values that avoid the chart bounds
-- Wrap chart `onSelect` handlers with a guard that ignores events triggered during Maestro/automated testing if the issue recurs
-
-Relevant files:
-- [VideoAnalysisPlaybackOverlayCard.tsx](/home/jmetzger/projects/PowerliftingWorkoutPlanner/app/components/video/VideoAnalysisPlaybackOverlayCard.tsx)
-
-## Operational Guidance For Feature Agents
-
-- Do not spend time re-debugging host-vs-worker Metro. Reuse host Metro.
-- Never use spread to update class instances in React state. Always use the constructor.
-- A Maestro flow is only valid evidence if it asserts the actual resulting value, not just element presence.
-- Check run_dir for existing artifacts before repeating work in a resumed round.
-- Evidence paths in status.json acceptance_evidence must be bare relative paths with no inline annotations.
-- On real devices, confirm that Maestro is failing on the app UI and not on a redbox before changing the flow itself.
-- For `TRN-002`, prefer the baseline-import plus Planning-mode proof path over the older direct `Push pull` route if the body controls are unstable.
-- For off-screen scroll targets, use `text:` anchors (e.g. Card.Title), NOT `id:` selectors — React Native Views are not in the accessibility tree until scrolled into view.
-- Match react-native-paper `Button` by label text (`tapOn: "Play"`), not by testID — `id:` selector does not work for paper Button.
-- Use `clearState: false` for playback/overlay flows that reuse an existing analysis; `clearState: true` + CPU-intensive analysis = Maestro gRPC DEADLINE_EXCEEDED crash.
-- Avoid generic `scroll` commands after bringing a screen region into view if react-native-charts-wrapper charts are present; use `extendedWaitUntil` instead to avoid accidental chart `onSelect` triggers.
-
-### 12. Progress bar indeterminate state for unknown-duration analysis
-
-Problem:
-- When a video analysis starts, `durationMs` is 0 until the video copy + `getVideoDuration()` completes.
-- `calculateAnalysisProgress(elapsed, 0) = 0` always, so the ProgressBar rendered at 0% fill (visually invisible on dark background).
-- Screenshots taken early in PROCESSING state showed no visible bar.
-
-Observation:
-- react-native-paper `ProgressBar` supports `indeterminate={true}` for a pulsating animation.
-- Switching to `indeterminate` while `durationMs` is unknown, then `determinate` once duration is set, gives two visually distinct states.
-
-Working solution:
-```jsx
-<ProgressBar
-  indeterminate={!analysis.videoMeta?.durationMs}
-  progress={analysis.videoMeta?.durationMs
-    ? calculateAnalysisProgress(elapsed, estimated)
-    : undefined}
-/>
-```
-
-Apply when: any ProgressBar showing time-based fill where the total duration is not immediately available.
-
-### 13. Maestro driver port conflict after back-to-back flows
-
-Problem:
-- Running a second Maestro flow immediately after a successful one with the same `--driver-host-port` fails:
-  `Maestro Android driver did not start up in time`.
-
-Symptoms:
-- Port `7010` still occupied by the previous session for ~30s.
-
-Working solution:
-- Wait at least 30s before reusing the same driver-host-port.
-- Or use a different port for each back-to-back run.
-- The issue only affects the driver port; the adb connection and app state are unaffected.
-
-### 14. JAVA_TOOL_OPTIONS leaks into Gradle builds via previous Maestro runs
-
-Problem:
-- The Maestro run script sets `JAVA_TOOL_OPTIONS=-Duser.home=<maestro-java-home>` for its own isolation.
-- This env var persists in the shell if the run script is sourced or if the var is exported globally.
-- Gradle picks up `JAVA_TOOL_OPTIONS` and fails with CMake/compilation errors.
-
-Working solution:
-- Always `unset JAVA_TOOL_OPTIONS` before running Gradle builds.
-- The Maestro run script should be invoked in a sub-shell with a fresh JAVA_TOOL_OPTIONS scoped only to that invocation.
-
-### 16. Reanimated mock creates new SharedValue objects per render — do NOT include them in useCallback/useEffect deps
-
-Problem:
-- `react-native-reanimated/mock` implements `useSharedValue` as `(v) => ({ value: v })` — a new plain JS object on every call.
-- In production, Reanimated uses a ref internally so `useSharedValue` returns the same stable object across renders.
-- Including SharedValue objects in `useCallback` or `useEffect` dep arrays works fine in production but causes dep churn in tests, since each render creates new objects.
-
-Symptoms in tests:
-- All interaction tests fail with unexpected `undefined` values.
-- Reset `useEffect` fires on every render (because mock SharedValue is "new" each time), resetting all state back to initial values and creating an infinite-loop-like reset.
-- `useCallback` deps referencing SharedValues get recreated every render, breaking closure stability.
-
-Working solution:
-- Never include Reanimated SharedValues in `useCallback` or `useEffect` deps arrays.
-- SharedValues ARE stable refs in production code — excluding them from deps is semantically correct.
-- The eslint exhaustive-deps rule may warn; suppress with `// eslint-disable-line` if needed, or trust it is correct.
-
-Apply when: using Reanimated `useSharedValue` results in `useCallback`/`useEffect` hooks.
-
-### 17. Both chart markers must be decoupled for full Bridge responsiveness
-
-Problem:
-- Partial fix (only speed-chart marker moved to Reanimated) still overloads the Bridge.
-- The root cause is `setPlaybackTimeMs` being called 20×/second, causing full React re-renders.
-- Even one state-driven marker (time-plot marker via useMemo + plain View) processed through the Bridge blocks the JS thread and prevents user input.
-
-Observation:
-- Moving BOTH markers to `useDerivedValue` + `Animated.View` on the UI thread AND increasing `PLAYBACK_UI_UPDATE_INTERVAL_MS` (50→200ms) reduces React re-renders from 20/s to 5/s.
-- The combined effect makes the JS thread available for user interaction during playback.
-- A Maestro tab-switch during active playback is the definitive responsiveness proof.
-
-Apply when: implementing playback markers in react-native-charts-wrapper overlays.
-
-### 16. socat proxy for ADB and reuseaddr flag (ANA-006)
-
-Problem:
-- `socat TCP-LISTEN:5037,fork TCP:172.18.240.1:5037` exits with "Address already in use" when a prior socat child process is still in TIME_WAIT.
-
-Working solution:
-- Use `socat TCP-LISTEN:5037,reuseaddr,fork TCP:172.18.240.1:5037` — the `reuseaddr` flag bypasses the TIME_WAIT issue.
-
-Apply when: re-starting the ADB proxy after a session restart.
-
-### 17. DocumentsUI file picker filters .gains files as unknown MIME type (ANA-006)
-
-Problem:
-- `DocumentPicker.types.allFiles` opens the Android DocumentsUI picker, but `.gains` files do not appear in the Downloads folder because they have no registered MIME type.
-- Files only appear in "Recent" if previously imported in the same device lifetime.
-
-Working solution:
-- After `am force-stop` or `pm clear`, the file must be re-imported via Maestro's `tapOn: "baseline.gains"` only if it appears in "Recent". Otherwise, use `adb shell content insert` or copy the file to a path accessible as "Downloads" with a registered extension (e.g. rename to `.json`).
-
-Apply when: importing baseline.gains after a device state reset.
-
-### 18. 00_import_baseline.yaml needs extendedWaitUntil for bundle load (ANA-006)
-
-Problem:
-- `00_import_baseline.yaml` uses `assertVisible: "Training"` immediately after `launchApp`. After a force-stop, the Metro bundle loads from 10.0.2.2:8081 in ~30s. The assertion fires before the bundle renders and fails.
-
-Working solution:
-- Replace `assertVisible: "Training"` with:
-  ```yaml
-  - extendedWaitUntil:
-      visible: "Training"
-      timeout: 60000
-  ```
-
-Apply when: writing or modifying import/setup flows that run after a cold app launch.
-
-### 19. Maestro driver needs time between back-to-back sessions (ANA-006)
-
-Problem:
-- Running two Maestro flows within a few seconds of each other causes `java.util.concurrent.TimeoutException` in `TcpForwarder` or `dadb.open(tcp:7001)` timeout on the second run.
-
-Working solution:
-- Wait at least 5 seconds between Maestro test invocations.
-- If `pm list instrumentation` returns empty after a force-stop cycle, let Maestro install its own driver by running it fresh (it detects outdated APKs and reinstalls).
-
-Apply when: running Maestro flows in sequence from a script.
-
-### 20. Reanimated mock creates new SharedValue per render — stabilise with useRef
-
-Problem:
-- `useSharedValue(v)` in the Reanimated mock returns `{ value: v }` — a new plain object on every call.
-- `useAnimatedStyle(fn)` in mock calls `fn()` immediately during render.
-- Without a stable object, `fn()` always reads `value: 0` (the initial from the fresh object), even after `sv.value = someNewValue` on a previous render.
-
-Symptoms in tests:
-- `getScrubberState()` always returns `'0%'` even after seeks.
-- All animated style checks fail with zero/initial values.
-
-Working solution:
+### `react-redux` useSelector/useDispatch mock unblocks Provider-less component tests
+When a component gains a `useSelector` call but its spec doesn't wrap renders in `<Provider>`, all tests fail with "could not find react-redux context value". Global mock pattern:
 ```js
-const playbackTimeMsSV = useRef(useSharedValue(0)).current;
+jest.mock('react-redux', () => ({
+  ...jest.requireActual('react-redux'),
+  useSelector: jest.fn(() => []),
+  useDispatch: jest.fn(() => jest.fn()),
+}));
 ```
-`useRef(initialValue)` only uses `initialValue` on the FIRST render; subsequent renders return the same ref object. So the SharedValue object is created once and mutations persist across renders.
+Per-spec mocks can still override.
 
-Apply when: using `useAnimatedStyle` or `useDerivedValue` that reads a SharedValue and testing with assertions on the computed style.
+### Mock store must include every slice the component reads
+A minimal `{getState: () => ({})}` store throws `Cannot read properties of undefined (reading 'byId')` the moment a `useSelector` touches a slice. Seed all slices the component transitively reads, even if the test predates the component's current selectors.
 
-### 21. "Import Emulator Squat Video" on physical device R5CN30HWZFN imports real PXL camera video
+### When a paper component is newly added to a screen, update the paper mock
+Tests that render the screen crash with "Element type is invalid" until the new component (e.g. `Chip`, `IconButton`) is added to the `jest.mock('react-native-paper', ...)` factory in the spec or global setup.
 
-Problem:
-- `tapOn: "Import Emulator Squat Video"` in Maestro triggers a file picker that imports a real camera video (`PXL_20250917_171414039~2.mp4`) on device R5CN30HWZFN, not the short test video.
-- Processing takes 30+ minutes and the `extendedWaitUntil: "Status: done", timeout: 180000` always times out.
+### Exclude `.worktrees/` from Jest discovery
+A repo full of `.worktrees/feature-*/` directories each with its own test suite explodes the test run to thousands of suites. Add `/.worktrees/` to `testPathIgnorePatterns` in `jest.config.cjs`.
 
-Working solution:
-- Do NOT rely on "Import Emulator Squat Video" on R5CN30HWZFN for fresh Maestro runs.
-- Keep an existing "done" analysis on the device between sessions; avoid clearing state.
-- Use the prior round's Maestro evidence if the setup flow cannot produce a completed analysis.
+## Worker Discipline
 
-Apply when: planning Maestro flows on R5CN30HWZFN that require a video analysis.
+### Check `run_dir` for existing artifacts before repeating work
+Resumed rounds inherit screenshots, logcat captures, and intermediate logs from prior rounds. Re-capturing evidence that already exists wastes time and context. Read `summary.md` and `status.json` first.
 
-### 22. Maestro TcpForwarder timeout when HOME is overridden but driver port is in use
+### Code review findings and device-observed findings are different axes
+A reviewer may submit stale code-review line references (based on a commit that's already been fixed) alongside genuinely new device findings. Before investigating review feedback, check `git log` to see which items were already addressed after the reviewer's last-tested commit.
 
-Problem:
-- Running `maestro ... test` with a custom `HOME` (as in `run-maestro-from-wsl.sh`) causes TcpForwarder timeout when the driver port is held by an existing orchestrator session.
+### Fix-workers run on the PR branch, not a fresh one from master
+When addressing review feedback on an already-open PR, resume the existing worktree so the fixes land on top of the PR's current HEAD. A fresh branch from master loses the original work.
 
-Symptoms:
-- `java.util.concurrent.TimeoutException` from `dadb.forwarding.TcpForwarder.waitFor`
-- Happens when `HOME` is overridden AND `--driver-host-port` conflicts with an active session.
+### Multiple Metro processes can coexist; ensure the right one serves the installed APK
+After an RN upgrade, the project's shared `node_modules` may still be at the old RN version while the branch `package.json` says a newer version. A Metro started from the shared node_modules serves an old-RN bundle to a new-RN native APK → `PlatformConstants` TurboModule not found. Check `cat node_modules/react-native/package.json | grep version` and compare to the branch `package.json`. If they diverge, use the worktree that has its own installed node_modules (check with `cat .worktrees/feature-*/node_modules/react-native/package.json`).
 
-Working solution:
-- Run `maestro` directly without overriding `HOME` and without `--host`, passing only `--device` and `--driver-host-port` from the current shell.
-- This uses the existing adb connection and reuses the driver port correctly.
-- Only change `HOME` when no active driver session is holding the port.
+### Maestro `--host 172.18.240.1` is required on WSL + Windows ADB
+The Maestro binary is Windows-native (`/mnt/c/.../maestro.bat`). Without `--host 172.18.240.1`, Maestro reports "Device not connected" even when `adb devices` (WSL-side) shows the device. Always pass `--host 172.18.240.1 --device <SERIAL>` on this setup.
 
-Apply when: running one-off Maestro flows directly (not via run-maestro-from-wsl.sh) in a worker that has an orchestrator-assigned driver port.
+### Emulator-only video flows (30+) cannot run on a real physical device
+All flows that assert `"Import Emulator Squat Video"` or wait for the `"Open"` file-picker dialog are targeting an emulator-specific mechanism. These flows fail on real device by design. Do not investigate these as app regressions.
 
-### 23. Maestro `tapOn: "Play"` DEADLINE_EXCEEDED when video is playing (ANA-003-fix2)
+### Gradle build fails with Kotlin type-inference in gesture-handler when node_modules mismatch
+After upgrading `package.json` to RN 0.82+ without running `npm install`, the shared node_modules still reference older gesture-handler. The mismatch causes `Cannot infer a type for this parameter` errors in `FlingGestureHandler.kt`. Run `npm ci` in the worktree root (separate from main) before attempting `./gradlew assembleDebug`.
 
-Problem:
-- Maestro's `waitForAppToSettle` calls `AndroidDriver.callViewHierarchy` via gRPC with a 120s deadline.
-- When a video is playing, the playback time label (`00:12 / 00:47`) updates every second.
-- The UI hierarchy is never "settled", so `waitForAppToSettle` hangs until the 120s gRPC deadline expires.
-- Both `--format junit` (TestSuiteInteractor path) and plain `maestro test` (TestCommand path) hit this.
+### Evidence paths in `status.json` must be bare relative paths
+No inline annotations, no absolute paths, no "(updated in round 3)" suffixes. The validator checks that each path exists — annotations break it.
 
-Symptoms:
-- `tapOn: "Play"` fails with `DEADLINE_EXCEEDED` after exactly 120s.
-- Any subsequent Maestro step after Play also fails.
-- The app is fine; only Maestro's gRPC driver is timed out.
+### Commit all code changes, run tests, then touch the device
+Once you're in the device-interaction phase, one crashed Maestro run can wipe enough state that you never get back to a clean "write code" moment. Land every code change you plan to make, run `npm test`, then switch modes to device verification.
 
-Working solution:
-- Use Maestro only for navigation steps where the UI is stable (navigate to screen, scroll, assertions on static text).
-- Switch to **pure ADB** for the Play tap and all subsequent screenshots:
-  ```bash
-  adb shell input tap <x> <y>      # Play button coords from uiautomator dump
-  sleep 8
-  adb exec-out screencap -p > screenshot.png
-  ```
-- Use `adb shell uiautomator dump` to get exact element coordinates before tapping.
-- The video will naturally play to the end; a final `adb exec-out screencap` captures the right-edge state.
+### On real devices, check for a red-box before blaming a Maestro flow
+A Maestro flow failing on the first assertion is often an app bootstrap crash (redbox), not a flow bug. `adb shell uiautomator dump` + grep for the stack trace is the fastest triage.
 
-Apply when: any Maestro flow needs to interact with or screenshot a continuously-updating UI (video playback, live timers, animations).
+### Grep for dev/debug UI elements in both tab screens and modals
+"Import Emulator Squat Video" and similar dev-only buttons have historically lived in multiple places (main tab + selection modal). When removing them, `grep -r "<dev button text>" app/` before assuming one file is enough.
 
-### 24. Crashed Maestro session leaves device driver in bad state for subsequent run
+### RN version mismatch between worktrees causes `TurboModuleRegistry.getEnforcing` crash
+Each worktree that ran `npm install` gets its own `node_modules` with a potentially different RN version. If an APK was built from a worktree running RN 0.84.1 but you serve it a Metro bundle from another worktree using RN 0.76.9, you get: `Invariant Violation: TurboModuleRegistry.getEnforcing(...): 'PlatformConstants' could not be found`. Check `node -e "require('./node_modules/react-native/package.json').version"` in the Metro-serving worktree and compare against the APK's RN version before loading the bundle. Install an APK built from a worktree with the matching RN version.
 
-Problem:
-- After a Maestro gRPC disconnect (DEADLINE_EXCEEDED or TcpForwarder timeout), the Maestro agent on the device is stuck.
-- The next Maestro run hits the same gRPC issue on the first heavy gesture (swipe, scroll) even though it previously worked.
+### socat bridges host Metro to emulator when `adb reverse` isn't enough
+Android emulator reaches the host at `10.0.2.2`, not `localhost`. `adb reverse tcp:8081 tcp:<metro-port>` only captures `localhost:8081` traffic — the emulator's `debug_http_host` setting of `10.0.2.2:8081` bypasses it. Fix: run `nohup socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:<metro-port> &` on the host. The emulator connects to `10.0.2.2:8081` which socat forwards to the actual Metro port. Verify with `curl http://127.0.0.1:8081/status` after starting socat.
 
-Symptoms:
-- First run: navigation works, then fails on Play.
-- Second run immediately after: fails on first swipe with gRPC disconnect.
+## React Native 0.80 Upgrade Specifics
 
-Working solution:
-- After any crashed Maestro session, before running the next flow:
-  ```bash
-  adb shell am force-stop com.powerliftingworkoutplanner
-  adb shell am force-stop dev.mobile.maestro.android
-  sleep 15
-  ```
-- Wait at least 15 seconds before the next Maestro invocation.
+### `GuardedResultAsyncTask` was removed in RN 0.80
+`com.facebook.react.bridge.GuardedResultAsyncTask` no longer exists. Any third-party native module that imports it (e.g. `react-native-document-picker@9.3.1`) will fail to compile. Fix via `patch-package`: replace `extends GuardedResultAsyncTask<T>` with a static helper class and `Executors.newSingleThreadExecutor().execute(...)`.
 
-Apply when: a Maestro session crashed mid-flow and a new flow will be started against the same device.
+### `SoLoader.init` was replaced in RN 0.80 `MainApplication.kt`
+The RN 0.80 template uses `ReactNativeApplicationEntryPoint.loadReactNative(this)` instead of `SoLoader.init(this, false)` + `OpenSourceMergedSoMapping.install()`. Update `MainApplication.kt`; the `SoLoader` import is gone.
 
-### 25. Marker-formula bug: clamping progress to [0,1] before pixel-multiply causes off-by-offset issue
+### React 19 forces `legacy-peer-deps` for older ecosystem packages
+`@reduxjs/toolkit@1.9.x` peer dep declaration excludes React 19 (`^16.9.0 || ^17.0.0 || ^18`). Create `.npmrc` with `legacy-peer-deps=true` to allow `npm ci` to pass. Don't upgrade RTK as part of an RN-only upgrade.
 
-Problem: If `progress = clamp((t - minTimeMs) / durationMs, 0, 1)` is used, then all `t <= minTimeMs` map to `x = LEFT_PADDING`. When `minTimeMs > 0`, the marker appears at the data-start pixel at video `t=0:00`, ahead of the scrubber.
+### compileSdkVersion must be bumped to 36 for RN 0.80
+Removing `force 'androidx.core:core:1.13.1'` lets `androidx.core:core-ktx:1.17.x` resolve, which requires `compileSdkVersion 36`. Install Android SDK Platform 36 via `sdkmanager "platforms;android-36"` before the Gradle build.
 
-Observation: The correct formula is to compute raw `x = LEFT_PADDING + fraction * drawableWidth` (where fraction can be negative), then clamp the final pixel position to `[0, chartWidth]`. This allows the marker to sit in the Y-axis area for `t < minTimeMs`.
+### JSC flavor artifact group changed in RN 0.80
+`org.webkit:android-jsc-intl:+` no longer resolves. Use `io.github.react-native-community:jsc-android-intl:2026004.+`.
 
-Apply when: implementing overlay markers on charts where the chart X-range `[minTimeMs, maxTimeMs]` does not start at 0. Always clamp pixel result, never clamp the fraction.
+### NDK 27.1.12297006 required for RN 0.80 + Kotlin 2.1.20
+RN 0.80 with Kotlin 2.1.20 needs NDK 27. Install via `sdkmanager "ndk;27.1.12297006"` (not 26.x).
 
-### 26. Emulator test video vs device test video have different minTimeMs
+### Jest mock path `react-native/Libraries/Animated/NativeAnimatedHelper` was removed
+In RN 0.80, the path no longer exists. Remove any `jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper')` from `jest.setup.js`. The RN jest preset handles animated mocking internally.
 
-Problem: `Import Emulator Squat Video` on device R5CN30HWZFN uses a real camera video (PXL_...) which tends to have `minTimeMs ≈ 0`. The reviewer's analysis had `minTimeMs ≈ 5000ms`. Unit tests with `makeResultWithOffset()` (minTimeMs=1000) are the reliable way to prove non-zero-offset behavior.
+### React 19 async batching can cause test timeouts at 5s default
+Tests using `waitFor` with React 19 may take 8+ seconds on first render. Add a `15000` timeout arg to any `it(...)` that flakes: `it('...', async () => { ... }, 15000);`.
 
-Apply when: taking device screenshots to prove marker-offset fixes — the fix may be invisible on screen if test data has minTimeMs=0. Prioritize unit test evidence for this class of bug.
+### 54. Inline `.map()` in `useSelector` causes infinite render loops with `MultiselectDropdown`
+**Problem**: `useSelector((state) => state.slice.allIds.map(id => state.slice.byId[id]))` creates a new array reference on every call. `useSelector` uses reference equality, so it triggers a re-render on every store tick. Third-party libraries with internal `useEffect` on their `data`/`options` prop (like `sharingan-rn-modal-dropdown`) then re-run their own state updates, causing "Maximum update depth exceeded".
+**Working solution**: Use `createSelector` from `@reduxjs/toolkit` (Reselect). The selector only recomputes — and only returns a new array — when the input references change.
+```ts
+const selectAll = createSelector(
+  (state) => state.slice.allIds,
+  (state) => state.slice.byId,
+  (allIds, byId) => allIds.map(id => byId[id]),
+);
+export const useAll = () => useSelector(selectAll);
+```
+**Apply when**: Any `useSelector` whose selector uses `.map()`, `.filter()`, or object spread — these always return new references.
 
-### 27. Chart marker and video scrubber must share the same timeline domain
+### 55. Never call `.find()` or `.filter()` directly in `useEffect` dependency array
+**Problem**: `useEffect(() => {...}, [list.find(x => x.id === id)])` calls `.find()` on every render, returning a new object reference even when the found item hasn't changed. React's dep comparison then always sees "changed" → effect fires every render → state update → re-render → loop.
+**Working solution**: Extract to a local `const` above the effect: `const item = list.find(x => x.id === id); useEffect(() => {...}, [item]);`. Since Redux state items are immutable, the reference is stable unless the actual item changed.
+**Apply when**: Any `.find()`, `.filter()`, or other array method call in a `useEffect` dep array.
 
-Problem: Multiple rounds (R1-R6) tried to align the marker by mapping it to `[minTimeMs, maxTimeMs]`. The real issue was that the chart x-axis domain and the scrubber domain were different. The scrubber uses `[0, videoDuration]` (full video timeline), but the chart was implicitly using `[minTimeMs, maxTimeMs]` (data range).
+### 56. `jest.setup.js` NativeAnimatedHelper mock removed in RN 0.76+ (not only 0.80)
+Agent-memory previously noted this as an RN 0.80 change. In practice, the path `react-native/Libraries/Animated/NativeAnimatedHelper` no longer exists from RN 0.76+. Remove the mock from `jest.setup.js` for any project on RN ≥ 0.76; the RN jest preset handles it internally.
 
-Working solution: Set `axisMinimum=0` and `axisMaximum=videoDuration` on the chart x-axis. Then use `progress = t / videoDuration` for the marker (same as scrubber). Data points with `tMs > 0` naturally appear offset from the left edge.
-
-Apply when: implementing overlay markers on time-series charts in video analysis UIs. Always make the chart x-axis domain explicit and match it to the video timeline, not the data range.
-
-### 28. Maestro `assertVisible` does not support regex patterns in text field
-
-Problem: Using `assertVisible: text: "Playback: 00:00 / [0-9]{2}:[0-9]{2}"` fails with "Assertion is false" even when the text is on screen.
-
-Observation: Maestro's `assertVisible` treats the `text` value as a literal string, not a regex. Remove the dynamic part and only assert the static prefix: `text: "Playback: 00:00"`.
-
-Apply when: writing Maestro flows that assert on time-display strings with dynamic components (seconds, minutes). Assert only the fixed prefix.
-
-### 29. Use viewPortOffsets to pin a chart overlay marker to the Y-axis line
-
-Problem: Hardcoding `SPEED_CHART_LEFT_PADDING = 48` to estimate the Y-axis label width was unreliable. MPAndroidChart auto-calculates the left offset based on the actual text width of Y-axis labels, which is wider than the guess (~48dp). The marker at t=0 ended up 16dp too far left, inside the label area.
-
-Working solution:
-- Add `viewPortOffsets={{ left: N, top: 4, right: 4, bottom: 4 }}` to the `react-native-charts-wrapper` `LineChart`.
-- Set the overlay marker constant to the same N: `SPEED_CHART_LEFT_PADDING = N`.
-- `viewPortOffsets.left = N` overrides MPAndroidChart's auto-calculated left offset and forces the drawable area to start at exactly x=N dp. The Y-axis line is at x=N by definition.
-- N=64 fits Y-axis labels up to 4 digits (e.g. "-999"). No native rebuild needed — `viewPortOffsets` is already a JS-bridge prop in `react-native-charts-wrapper/lib/BarLineChartBase.js`.
-
-Apply when: implementing an Animated overlay marker on a react-native-charts-wrapper chart and the marker must align precisely with the Y-axis line.
-
-### 30. viewPortOffsets requires physical pixels, not dp
-
-Problem: In round 8, `viewPortOffsets={{ left: 64, top: 4, right: 4, bottom: 4 }}` was used with raw dp numbers. MPAndroidChart's `setViewPortOffsets()` expects **physical pixels**, not dp. At density 2.75, 64dp ≠ 64px, so the forced viewport offset did not match the JS marker translateX (which is always in dp). This caused a systematic misalignment proportional to (density - 1).
-
-Working solution:
-- Convert all viewPortOffsets values to physical pixels: `Math.round(VALUE_DP * PixelRatio.get())`.
-- Keep the JS overlay constant in dp: `SPEED_CHART_LEFT_PADDING = 64` (dp).
-- The marker uses `translateX: SPEED_CHART_LEFT_PADDING` (in dp), which React Native converts to the same 176px at density 2.75.
-- Pixel analysis (Python + Pillow) is the reliable way to verify alignment: check that the marker left edge pixel overlaps with or immediately follows the Y-axis right edge pixel.
-
-Observation: At density 2.75 with SPEED_CHART_LEFT_PADDING=64, the Y-axis occupies x=231-235 and the marker starts at x=236 (1px gap). This gap is structural — MPAndroidChart draws the axis line into the offset region, so the marker can never perfectly overlap it using the same constant. The 1px gap (<0.4dp) is visually imperceptible.
-
-Apply when: using `viewPortOffsets` on a react-native-charts-wrapper `LineChart` with an Animated overlay.
-
-### 31. Maestro flow testID mismatch: always grep component for testID before writing flow
-
-Problem:
-- Maestro flow used `id: "video-analysis-playback-overlay"` but the component had `testID="video-analysis-overlay-card"`.
-- The flow failed every round because the element was never found.
-
-Observation:
-- Always grep the component file for `testID=` before writing or debugging a Maestro flow that targets it.
-- `grep -n "testID" app/components/video/VideoAnalysisPlaybackOverlayCard.tsx` reveals the actual IDs.
-
-Apply when: Any Maestro flow targeting a specific React Native component.
-
-### 32. Maestro driver port tcp:7007 closes mid-flow on clearState runs with video import
-
-Problem:
-- Maestro flows that use `clearState: true` and then import a video on a real device get tcp:7007 connection closed mid-run.
-- The background thread exception is logged but the flow may continue; however, on retry runs the flow hangs after the tap on "Import" with no screenshot at failure.
-
-Symptoms:
-- `Exception in thread "pool-6-thread-N" java.io.IOException: Command failed (tcp:7007): closed`
-- No failure screenshot in `.maestro/tests/` for the second run
-
-Working solution:
-- Accept that device screenshots and Jest tests cover the feature evidence when the Maestro infrastructure fails.
-- The debug screenshot from the first (partial) run is saved to run_dir/screenshots/ as Maestro evidence.
-- Do not clearState if you need the video already analyzed; use the existing analysis if present.
-
-Apply when: Maestro flow fails with tcp:7007 closed on real device; video import flows with clearState.
-
-### 33. Metro --reset-cache with worktree config loses file watch and fails to resolve index.tsx
-
-Problem:
-- Metro started with `--reset-cache` and a custom worktree config sometimes gets into a state where it cannot resolve `./index` from the worktree root, even though `index.tsx` exists.
-- The error "None of these files exist: * index(.native|...tsx)" appears despite the file being present.
-
-Symptoms:
-- `curl http://127.0.0.1:XXXX/index.bundle` returns HTTP 500 with "Unable to resolve module ./index"
-- Device shows red error screen with the same message
-
-Working solution:
-- Kill the old Metro process (`pgrep -f "port XXXX"` then `kill -9 PID`)
-- Restart Metro: `node node_modules/react-native/cli.js start --config runs/ANA-004/metro.worktree.config.cjs --host 0.0.0.0 --port XXXX`
-- Do NOT use `--reset-cache` on restart; the fresh process will scan files correctly.
-- Verify with `curl http://127.0.0.1:XXXX/index.bundle -o /dev/null -w "%{http_code}"` → 200 before touching the device.
-
-Apply when: Device shows Metro bundle error and Metro process is running but serving 500.
-
-- Reuse host Metro; never re-debug host-vs-worker Metro setup.
-- Check `run_dir` for existing artifacts before repeating work in a resumed round.
-- Evidence paths in `status.json` must be bare relative paths, no inline annotations.
-- On real devices, check for redbox before blaming the Maestro flow.
-- Avoid generic `scroll` commands over `react-native-charts-wrapper` charts — they fire `onSelect`.
-
-### 16. Maestro --host targets physical device, not emulator
-**Problem:** `maestro --host 172.18.240.1 --device emulator-5554` sent test traffic to the physical Samsung phone (R5CN30HWZFN) instead of the emulator, even with explicit `--device emulator-5554`.
-**Symptoms:** Debug screenshots showed Samsung home screen. Steps FAILED on launch.
-**Working solution:** Run without `--host`: `maestro --udid emulator-5554 test flow.yaml`. The local WSL ADB server already sees the emulator via `ADB_SERVER_SOCKET`.
-
-### 17. clearState:true causes slow app startup (~15-20s navigation delay)
-**Problem:** After `launchApp: clearState: true`, the JS bundle reloads from Metro. Navigation from TrainingHome to TrainingsPlanTab can take 15-25s before the target screen renders.
-**Symptoms:** Assertions on elements in TrainingsPlanTab timed out even with 8s timeout; screenshot showed home screen but the app later navigated.
-**Working solution:** Use `extendedWaitUntil` anchored on a testID unique to the destination screen (e.g., `icon-menu`), with `timeout: 30000`.
-
-### 18. Leading whitespace in JSX breaks Maestro exact text matching
-**Problem:** `<Text> {name}</Text>` renders `" TRN004 Test Plan"` (with leading space). Maestro's `assertVisible: text: "TRN004 Test Plan"` never matches because it does exact matching.
-**Symptoms:** Assertion fails even though the element is visually present in the screenshot.
-**Working solution:** Remove the leading space: `<Text>{name}</Text>`. Or match with regex `".*TRN004 Test Plan"`.
-
-### 19. Nested Pressable + Chip: use text: "Meso 1" not chip testID for navigation tap
-**Problem:** Meso chips have dynamic testIDs (`meso-card-{planId}-{mesoId}` with timestamp IDs), making Maestro ID-based tap impossible after clearState.
-**Working solution:** Use `tapOn: text: "Meso 1"` — Maestro correctly targets the Chip even inside a nested ScrollView/Pressable. Wait for navigation anchor (e.g., `icon-menu` testID) before asserting destination screen state.
-
-### 20. Maestro text: cannot substring-match within a single combined React Native Text node
-**Problem:** `assertVisible: text: "Meso 1"` fails when the text node contains "TRN004 Test Plan › Meso 1" (combined plan and meso name). Maestro's textRegex does NOT do substring matching — it requires an exact or full-regex match against the element's text attribute.
-**Symptoms:** Flow fails on "Assert that 'Meso 1' is visible" even though the screenshot clearly shows the text on screen.
-**Working solution:** Add `testID` to the RN `Text` component, then assert with `id: "my-testid"` plus `text: ".*Meso 1.*"` (explicit `.*` prefix/suffix for substring). Or render the meso name as a separate `Text` node with its own testID so Maestro can match it exactly.
-
-### 21. Drawer overlay elements are not reliably matched by Maestro text: selector
-**Problem:** Text elements inside `react-native-drawer-layout` overlays can fail `assertVisible: text: "..."` even when clearly visible in the screenshot and present in the UI hierarchy.
-**Symptoms:** `extendedWaitUntil: visible: "Meso 2" timeout: 5000` times out; screenshot shows "Meso 2" in drawer.
-**Working solution:** Add `testID` to each dynamic element in the drawer and use `assertVisible: id: "drawer-meso-name-2"` for reliable matching. ID-based assertions work correctly even inside overlay drawers.
-
-### 22. New RN component in a screen requires adding it to paper mock in tests
-**Problem:** Adding a new `react-native-paper` component (e.g. `Chip`) to a screen causes tests that render that screen to fail with "Element type is invalid: ... got undefined".
-**Symptoms:** `TrainingHome.spec.tsx` crashed with "Element type is invalid" after `Chip` was added to `TrainingHome`. The mock for `react-native-paper` was missing a `Chip` entry.
-**Apply when:** Any time a new paper component is used in a screen that has tests — always update the `jest.mock('react-native-paper', ...)` block in the corresponding spec file.
-
-### 23. Adding a new arg to a dispatch hook breaks call-site test assertions
-**Problem:** When a dispatch function's signature gains a new parameter (e.g. `microNumber`), tests that assert on `toHaveBeenCalledWith(...)` with the old arg count fail.
-**Symptoms:** `TrainingsBase.spec` expected `dispatchSuggestBasedOnTrained(3, 1, {rirDelta: 2})` but the code now calls `dispatchSuggestBasedOnTrained(3, 1, 2, {rirDelta: 2})`.
-**Apply when:** Refactoring a hook to accept more context (meso, scope, etc.) — search for `toHaveBeenCalledWith` on that hook in specs and update the expected args.
-
-### 24. Code review findings vs. device-observed findings must be treated separately
-**Problem:** A reviewer may submit both "code review" findings (based on reading diff at commit X) and "UI/device" findings (based on testing build Y). If commit Z was made after commit X fixes the code-review items, the reviewer's feedback might include stale code-review line numbers that have already been fixed — while the device findings may still be valid.
-**Symptoms:** All 5 review items looked unfixed in the feedback, but 3 were already addressed in bd981d2 before the review was submitted. Wasted multiple analysis cycles.
-**Apply when:** Before investigating review feedback, check git log to see if fixes were already committed after the reviewer's last-tested commit.
-
-### 25. Round-4 test assertion: single-micro Meso has "Micro 1" on BOTH drawer nav buttons
-**Problem:** A test asserting "Micro 2" in the right SegmentedButton when in Meso 1 (with 1 micro) fails. `computeNextMesoStartMicro` for a fresh plan returns `startMicro+1 = 2` so Meso 1 ends at micro 1. `nextLocalMicroLabel = Math.min(maxLocalMicro, localMicro+1) = Math.min(1,2) = 1`.
-**Symptoms:** `Assertion is false: "Micro 2" is visible` in the drawer filter test.
-**Apply when:** Writing Maestro assertions for SegmentedButtons in a meso — compute expected labels from `computeNextMesoStartMicro` first; a fresh single-training plan's first meso has only 1 micro.
-
-### 26. Windows ADB server needs `-a` flag for WSL access; existing process blocks rebind
-**Problem:** When `adb -a -P 5037 nodaemon server` is called but another adb process is already running on 127.0.0.1:5037 (bound to localhost only), the new invocation fails with WSAEADDRINUSE (10048).
-**Symptoms:** `nc -zv 172.18.240.1 5037` returns "Connection refused"; `adb devices` errors with "cannot connect to daemon".
-**Working solution:** `powershell.exe "Get-Process adb | Stop-Process -Force"` to kill all existing adb processes, then re-run `Start-Process -NoNewWindow 'adb.exe' '-a -P 5037 nodaemon server'`. Then `nc -zv 172.18.240.1 5037` should succeed.
-
-### 27. JAVA_TOOL_OPTIONS polluted by previous Maestro run blocks Gradle
-**Problem:** After a Maestro run, `JAVA_TOOL_OPTIONS` may be set to a path like `-Duser.home=<run_dir>/checks/maestro-java-home`. Subsequent Gradle builds fail in `configureCMakeDebug` with "Picked up JAVA_TOOL_OPTIONS: ..." causing a native build error.
-**Symptoms:** `BUILD FAILED` on `:react-native-reanimated:configureCMakeDebug` with `JAVA_TOOL_OPTIONS` in the error message.
-**Working solution:** `unset JAVA_TOOL_OPTIONS` before calling `./gradlew assembleDebug`.
-
-### 28. Maestro `assertNotVisible` fails if stale plan state exists from previous partial run
-**Problem:** When a Maestro flow creates a test plan (e.g. "R4Test"), a partial run may leave it with added mesos. Subsequent runs that tap "R4Test" land on the contaminated plan, causing unexpected state (e.g. `canDeleteMesos=true` when expecting false).
-**Symptoms:** `assertNotVisible: id: delete-meso-1` fails because the plan has 2 mesos from a previous run.
-**Working solution:** Use existing persistent plans (e.g. "Push pull") or use unique names per run. Do NOT rely on plan state created in previous failed runs.
-
-### 29. `gh pr edit` fails with exit 1 on repos with GitHub Projects Classic
-**Problem:** When a PR is associated with a GitHub Projects Classic project, `gh pr edit` fails with `GraphQL: Projects (classic) is being deprecated...` and exits 1, even if the edit succeeded.
-**Symptoms:** `gh pr edit --body ...` returns exit 1 but the body may or may not have been updated.
-**Working solution:** Use `gh api repos/OWNER/REPO/pulls/NUMBER --method PATCH --field body='...'` to update PR body directly via REST API — no Projects Classic involvement.
-### 34. Maestro clearState:true clears SharedPreferences debug_http_host
-When multiple Metro instances run on different ports and `socat` bridges one port to a different Metro, `clearState: true` wipes SharedPreferences including the `debug_http_host` override. The app then connects to whatever socat is forwarding `10.0.2.2:8081`, which may be a different worker's Metro. After any Maestro `clearState: true` run, re-write `debug_http_host` via `run-as` before relaunching.
-
-### 35. linkedSetIndices prop → linkedAnalyses for navigation
-When WorkoutSetView needs to support navigation to VideoAnalysisDetail on tapping a video indicator icon, pass `linkedAnalyses: {setIndex: number; analysisId: number}[]` instead of `linkedSetIndices: number[]`. This carries the analysisId needed for the navigate call without extra selectors.
-
-### 36. Global jest.setup.js mock for @notifee/react-native fixes import-chain failures
-**Observation:** Any test file that imports a component whose dependency chain includes `@notifee/react-native` will fail at import time with "Notifee native module not found" unless there is a mock. A single global mock in `jest.setup.js` fixes all affected suites at once.
-**Apply when:** A native module causes import-chain failures across many test suites. Add the global mock to `jest.setup.js` with `__esModule: true` and all used named exports.
-
-### 37. Global react-redux useSelector/useDispatch mock prevents Provider-less component test failures
-**Observation:** When a component adds a `useSelector` call (e.g. after a feature merge) but its spec file does not wrap renders in a `<Provider>`, all tests in that spec fail with "could not find react-redux context value". A global mock using `jest.requireActual` spread + mock hooks in `jest.setup.js` fixes this without breaking specs that have their own `jest.mock('react-redux', ...)`.
-**Apply when:** Specs render hooks-using components without a Provider. Use `{ ...jest.requireActual('react-redux'), useSelector: jest.fn(() => []), useDispatch: jest.fn(() => jest.fn()) }`.
-
-### 38. Mock store in component tests must include all Redux slices accessed
-
-Problem:
-- Component tests using a minimal mock store (e.g. `getState: () => ({})`) fail when the component calls any `useSelector` hook that accesses a slice not in the mock.
-- Pre-existing tests for `TrainingsPlanNode` failed because `useWorkoutById` reads `state.workouts.byId` but the mock store returned `{}`.
-
-Symptoms:
-- `TypeError: Cannot read properties of undefined (reading 'byId')` from a `useSelector` inside the component
-
-Working solution:
-- Ensure mock store includes all Redux slices the component accesses, even if the component was written after the test.
-- Minimum required for TrainingsPlanNode: `{workouts: {byId: {}, allIds: []}}`.
-- Also mock any dispatch hooks the component calls (e.g. `dispatchReplaceExerciseInTraining`) or they will throw on import.
-
-Apply when: Component tests fail with `undefined.byId` style errors pointing to a `useSelector` selector.
-
-### 39. Windows adb server may not be running during fix/review rounds
-
-Problem:
-- The socat proxy at localhost:5037 may be running but the upstream Windows adb server at the gateway IP may not be.
-- `nc <gateway>:5037` fails with Connection refused while `nc 127.0.0.1:5037` succeeds — but `adb` gives "protocol fault (couldn't read status): Success".
-
-Symptoms:
-- `adb devices` or any adb command returns "protocol fault (couldn't read status): Success"
-- `nc 172.18.240.1 5037` → Connection refused
-
-Working solution:
-- Device verification must be skipped; note the infrastructure issue in status.json and summary.md.
-- Commit code changes, use unit tests as primary evidence for logic changes.
-- This does not block `ready_for_review` for pure-code changes.
-
-Apply when: adb fails in a fix/review round that wasn't specifically set up with a running adb server.
-
-### 40. @notifee/react-native causes Jest suite failure via transitive import chain
-
-Problem:
-- Adding `VideoSelectionModal` to `AddWorkout.tsx` pulled in `video-analysis-import.ts` → `videoAnalysisNotification.ts` → `@notifee/react-native`, a native module that crashes Jest with "Notifee native module not found".
-- The failing tests did NOT directly import notifee; the failure came 4 levels deep in the import chain.
-
-Symptoms:
-- `Test suite failed to run: Notifee native module not found` for AddWorkout.spec.tsx and any other test that imports AddWorkout
-
-Working solution:
-- Add `jest.mock('@notifee/react-native', ...)` to `jest.setup.js` with stubs for `createChannel`, `requestPermission`, `displayNotification`, `onForegroundEvent`, and the enums.
-- Also mock `react-redux` `useSelector` + `@react-navigation/native` `useNavigation` in any test that renders a component which now calls these hooks without Provider/NavigationContainer.
-
-Apply when: A new component or hook import chain pulls in a native module that has no Jest mock yet; check jest.setup.js first before debugging the test.
-
-### 41. emulator-5554 APK debug_http_host baked to wrong Metro port (GH-57)
-
-Problem:
-- The installed debug APK connected to `10.0.2.2:8086` (another worker's Metro) even after `adb reverse tcp:8081 tcp:8087` was set.
-- `adb reverse` only intercepts connections to `localhost:PORT`; connections to `10.0.2.2:PORT` bypass the tunnel entirely and go directly to the host.
-- SharedPreferences on the device only contained `remote_js_debug: false`; no `debug_http_host` entry was written.
-
-Symptoms:
-- App loads but shows the wrong codebase (previous worker's bundle); new components don't appear.
-- `logcat` shows `http://10.0.2.2:8086/index.bundle` in stack traces.
-
-Working solution:
-- Open the React Native Dev Menu → tap "Change Bundle Location" → enter `localhost:8081` → OK.
-- This writes `debug_http_host=localhost:8081` to SharedPreferences and the next reload uses the `adb reverse` tunnel.
-- Alternatively: `am force-stop` the app, then use `adb shell am broadcast -a com.facebook.react.devsupport.action.RELOAD_JS` after setting the preference.
-
-Apply when: an emulator APK is loading from the wrong Metro server in a multi-worker environment.
-
-### 42. screencap returns white frames on Android emulator with GPU acceleration (GH-57)
-
-Problem:
-- `adb exec-out screencap -p` or `adb shell screencap -p /sdcard/screen.png` produces white (or near-white) PNG images on the Android emulator when hardware GPU acceleration is enabled.
-- `setprop debug.hwui.renderer skiaswvk` (software renderer) does not resolve this in WSL2/Windows emulator combinations.
-
-Observation:
-- `uiautomator dump` + grep for text nodes is the reliable fallback to confirm UI content without a visual screenshot.
-- Maestro is the only reliable screenshot path on this emulator setup; if Maestro is unavailable (OOM, driver timeout), use UIAutomator text dumps as evidence.
-
-Apply when: screenshots are needed from emulator-5554 in the WSL2 environment and screencap returns white frames.
-
-### 43. Tab-navigator keeps component mounted — lazy useState won't re-run on prop update
-
-Problem:
-- `VideoAnalysisPlaybackOverlayCard` override states were seeded with lazy `useState(() => savedSetResult?.repResults?.[0]?.turnaroundMs ?? null)`.
-- In a tab-navigator, the screen stays mounted across tab switches. When the user saves and Redux updates `savedSetResult`, the component re-renders but lazy initializers don't re-run.
-- Result: override states remain at `null`; user sees original positions instead of saved ones.
-
-Working solution:
-- Add a one-shot `useEffect` guarded by a `useRef` flag:
-  ```tsx
-  const savedOverridesApplied = useRef(!!savedSetResult?.repResults?.length);
-  useEffect(() => {
-    const rr = savedSetResult?.repResults;
-    if (!savedOverridesApplied.current && rr?.length) {
-      savedOverridesApplied.current = true;
-      setFirstRepTurnaroundOverrideMs(rr[0].turnaroundMs);
-      // ... other overrides
-    }
-  }, [savedSetResult]);
-  ```
-- Lazy initializers still handle the mount-time case; the effect handles late-arrival.
-
-Apply when: a component with lazy useState initializers is inside a tab-navigator and its initializing prop can arrive after mount.
-
-### 44. Android emulator Metro: connects to 10.0.2.2:8081, not 127.0.0.1 — adb reverse is insufficient
-
-Problem:
-- `adb reverse tcp:8081 tcp:8087` maps emulator's `127.0.0.1:8081` → Windows:8087.
-- But the emulator connects to `10.0.2.2:8081` (special AVD loopback for host machine), which bypasses the adb reverse tunnel entirely.
-- `logcat` shows: `Couldn't connect to "ws://10.0.2.2:8081/message"`.
-
-Working solution:
-- Start a socat bridge on WSL: `socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:8087`.
-- WSL2 auto-forwarding then makes Windows `localhost:8081` reach WSL `socat` → Metro:8087.
-- Chain: emulator `10.0.2.2:8081` → Windows localhost:8081 → WSL2 auto-forward → WSL:8081 → socat → WSL:8087 → Metro.
-- Verify: `curl http://127.0.0.1:8081/status` from WSL should return `packager-status:running`.
-
-Apply when: a new APK is installed on an AVD emulator (emulator-5556) and shows "Unable to load script" or "Loading from 10.0.2.2:8081" but never completes.
-
-### 45. Maestro driver port blocked by stale Java process — kill and retry
-
-Problem:
-- Maestro `TcpForwarder` fails with `closed` or `TimeoutException` on the assigned driver port even after force-stopping the Maestro Android agent.
-- The host-side Java listener from a previous Maestro session can still hold the port.
-
-Symptoms:
-- `Command failed (tcp:7037): closed` immediately after `Waiting for flows to complete...`
-- `TcpForwarder.waitFor` TimeoutException, same port
-
-Working solution:
-- Run `ss -tlnp | grep <driver-port>` to find the stale Java PID.
-- Kill it: `kill -9 <PID>`.
-- Force-stop Maestro on device: `adb -s $SERIAL shell am force-stop dev.mobile.maestro.android`.
-- Wait 5-10s cooldown before retrying Maestro.
-
-Apply when: Maestro driver port error appears even though no other worker is currently running on the same port.
-### 43. Physical device Samsung PIN lock: screencap returns 0 bytes, Maestro blocked
-
-Problem:
-- On physical Samsung device R5CN30HWZFN, `adb exec-out screencap -p` produces a 0-byte file when the device is locked with a PIN (even if `mWakefulness=Awake`).
-- `uiautomator dump` shows the PIN input screen, not the app UI.
-- Maestro `launchApp` cannot bypass the PIN lock; flows fail with "Training is not visible".
-- Samsung "Accidental Touch Protection" overlay may appear on top of the PIN screen — swipe up from the arrow icon (~y=1022) to dismiss it first.
-
-Working approach:
-- Get UIAutomator dump to identify PIN digit button coordinates, then tap each digit.
-- Common dev PINs 1234, 0000, 1111 may not work; stop after 3 attempts to avoid lockout.
-- If PIN is unknown, mark ticket as `blocked` with clear instructions for manual device unlock.
-
-Apply when: device PIN is locked unexpectedly mid-session on the physical Samsung device; screencap returns 0 bytes.
-### 43. Redux persist + component state: saved data won't restore if not read on mount
-
-Problem:
-- Redux persist + MMKV correctly stores `setResult` in `videoAnalyses`, but `VideoAnalysisPlaybackOverlayCard` initialised override states to `null` unconditionally, ignoring `savedSetResult` prop.
-
-Symptoms:
-- Calibration markers jumped back to raw analysis defaults after tab switch or app restart.
-- Save button wrote correct values to Redux, but component never read them back.
-
-Working solution:
-- Use lazy `useState` initializers: `useState(() => savedSetResult?.repResults?.[0]?.turnaroundMs ?? null)`.
-- Always check: "does the component read persisted data on mount, or only on initial import?"
-
-Apply when: a component receives a prop from Redux with saved overrides but its local state may shadow those overrides.
-
-### 44. Hold-to-repeat on TouchableOpacity: onLongPress + setInterval + onPressOut
-
-Problem:
-- `onLongPress` fires once; there is no built-in repeat on TouchableOpacity in React Native.
-
-Working solution:
-- On `onLongPress`: call the setter once, then start `repeatIntervalRef.current = setInterval(...)` with a fast interval (e.g. 150ms).
-- On `onPressOut`: call `clearInterval(repeatIntervalRef.current)` and null the ref.
-- Use functional state update inside the interval (`prev =>`) so each tick uses the latest committed value, not a stale closure.
-- Add cleanup `useEffect(() => () => clearInterval(repeatIntervalRef.current), [])` for unmount safety.
-- Share one ref across all buttons (only one can be held at a time).
-
-Apply when: buttons need a "hold to scrub/increment" UX.
-
-### 45. Maestro cannot assert formatted numeric text inside nested Views
-
-Problem:
-- `% VL` text (e.g. "26.7% VL") rendered inside a `<Text>` component nested in `<View>` hierarchy is not exposed in the Android accessibility tree.
-- Maestro `assertVisible: text: "% VL"` fails even when the text is visually present on screen.
-
-Working solution:
-- Use `testID` props on `Text` elements and assert via `id:` in Maestro for reliable E2E assertions.
-- Alternatively, accept screenshots as primary E2E evidence when the text is clearly visible but not accessible.
-- Do not waste time retrying Maestro text assertions for formatted numeric strings — check accessibility exposure first via `adb shell uiautomator dump`.
-
-Apply when: Maestro fails to find text that is visually present; especially for numeric/formatted text in custom components.
-
-### 46. Redux-persist: imported fixture clears on restart if version mismatch
-
-Problem:
-- A fixture with `_persist: {version: 2}` imported via FULL_IMPORT will trigger redux-persist migrations on next cold start.
-- Migrations 3+4 clear `videoAnalyses` (byId, allIds). After force-stop + restart, VL cards disappear.
-
-Working solution:
-- Set `_persist.version` to match the current persist config version (version 4 in configureStore.ts) so no migrations run.
-- Or: import fixture while app is running, take screenshots immediately, do NOT force-stop before capturing evidence.
-
-Apply when: imported fixture data disappears after app restart/force-stop.
-
-### 47. Maestro navigation: clickable node ≠ text node (leading space issue)
-
-Problem:
-- Training plan cards in the list have `text=""` on the clickable parent, while the visible plan name " Push pull" (with leading space) is a non-interactive child Text node.
-- Maestro `tapOn: text: "Push pull"` fails — it finds the text node but it is not tappable.
-
-Working solution:
-- Use coordinate-based tap (`tapOn: point: "x%,y%"`) or `tapOn: id: "..."` with testID for reliable navigation.
-- Avoid text-based taps for list items where the clickable wrapper and text node are separate.
-
-Apply when: Maestro `tapOn: text:` fails on list items that are visually tappable.
-
-### 48. Windows Maestro blocked by QEMU IPv6 port 7001 — use --driver-host-port
-
-**Problem:** Running Maestro from Windows cmd.exe (needed when WSL ADB is broken) fails with `TcpForwarder.waitFor` TimeoutException. Root cause: QEMU (Android emulator process) holds `[::]:7001` (IPv6 Bound state), blocking `new ServerSocket(7001)` in the Maestro dadb library.
-
-**Symptoms:**
-- `TcpForwarder.waitFor` TimeoutException at `AndroidDriver.allocateForwarder`
-- Port 7001 shows as `Address already in use` even when `netstat` shows `127.0.0.1:7001` as free
-- `Get-NetTCPConnection -LocalPort 7001` reveals `:: 7001 Bound` owned by `qemu-system-x86_64`
-
+### 57. Maestro `00_import_baseline` flow fails when app remembers a non-Training last tab
+`launchApp` (without `clearState: true`) restores the app to its last tab. If that's Settings, the flow's `extendedWaitUntil visible: 'Training'` never matches. Workaround: manually navigate via adb taps (Settings → Import Data button) and confirm the file picker. The baseline `.gains` file pushed to `/sdcard/Download/` is still found by the native file picker.
+
+## GH-130 / Maestro Real Device Learnings
+
+### 58. Maestro `extendedWaitUntil` timeout must exceed actual navigation render time
+**Problem:** After tapping a drawer item, the target screen can take 10–15s to render on a real device over Metro. `extendedWaitUntil: visible: "X", timeout: 10000` fails intermittently.
+**Working solution:** Use at least 20000ms for post-drawer-navigation waits. For screens with heavy data (video analyses list), 20s is the minimum.
+**Apply when:** Writing Maestro flows that navigate through drawer menus on real devices.
+
+### 59. Emulator MMKV encryption key instability prevents secureStorage reads across sessions
+**Problem:** `secureStorage` uses an MMKV instance backed by a Keychain-stored encryption key. On Android emulators, Keychain (`react-native-keychain`) is unreliable across app restarts — the encryption key may change between sessions, making previously stored data (including the Anthropic API key) unreadable. Symptoms: API key appears to be set (UI shows dots), but every API call returns 401. `curl` from the host confirms the key itself is valid.
+**Working solution:** For live API testing on emulator, use `adb shell am start -n ... --es "debug_api_key" "<key>"` to inject the key at runtime, or skip live API evidence and rely on unit tests + error-handling screenshots. Note this infra limitation explicitly in `summary.md`.
+**Apply when:** Any feature that reads secureStorage on emulator and needs a live API response as evidence.
+
+### 60. React state for API key must subscribe to `subscribeToApiKeyChanges`, not read once at mount
+**Problem:** A component that reads `secureStorage.hasAnthropicApiKey()` as a lazy `useState` initializer sees the value at mount time only. If the user adds or removes an API key in Settings, the component's UI stays stale (showing "add API key" even after saving one).
+**Working solution:** Use `useState` with a synchronous initializer, then add a `useEffect` that calls `subscribeToApiKeyChanges(() => setHasApiKey(secureStorage.hasAnthropicApiKey()))` and returns the unsubscribe function. This makes the component reactive to key changes without a Redux store for the key itself.
+**Apply when:** Any component that gates UI on whether an API key is present.
+
+### 59. Maestro flows must start by navigating to the correct tab — never assume current tab
+**Problem:** A flow that starts with `tapOn: point "6%,6%"` (drawer hamburger) will open the CURRENT tab's drawer, not the Analyse drawer. If the app is on Training tab, "Video Analyses" won't be in the drawer.
+**Working solution:** Always start drawer-based flows with an explicit `tapOn: "tab-analyse"` (or the target tab) before opening the hamburger. The `tab-*` content-desc selectors reliably match the bottom nav on both real devices and emulators.
+**Apply when:** Any Maestro flow that navigates via the Analyse or Training drawer.
+
+### 60. `processColor` must be imported from `react-native`, not `react-native-paper`
+**Problem:** `react-native-paper` does not export `processColor`. Importing from Paper compiles without error (re-export) but crashes at runtime when the function is called.
+**Working solution:** Always import `processColor` from `react-native`: `import {processColor} from 'react-native';`
+**Apply when:** Any component that uses `processColor` for chart colors (react-native-charts-wrapper).
+
+## Maestro: Analyse Tab Navigation Quirks
+
+### Analyse tab remembers last sub-screen; drawer toggle absent on Dashboard
+After `force-stop` + cold launch, `tapOn: 'tab-analyse'` always shows the Analyse Dashboard ("Deine Woche auf einen Blick"). On subsequent app opens (clearState: false), the tab resumes the last visited sub-screen (e.g. Exercise Graphs). Only sub-screens expose `analyse-drawer-toggle`; the Dashboard does not. Flows that unconditionally `tapOn: id: 'analyse-drawer-toggle'` fail on cold starts. Fix: use two conditional `runFlow: when:` blocks — one for sub-screens (drawer toggle visible) and one for the Dashboard ("Alle Metriken" button visible).
+
+### "Metrics Overview" text ambiguity when opened via drawer
+If already on Metrics Overview and the drawer is opened, both the screen header and the drawer item contain the text "Metrics Overview". `extendedWaitUntil: visible: 'Metrics Overview'` resolves immediately (header is visible), and `tapOn: 'Metrics Overview'` may tap either. This makes the navigation unreliable. Design flows to avoid opening the drawer while already on Metrics Overview. If navigation to Metrics Overview is needed from another sub-screen (unambiguous screen title), the drawer approach is fine.
+
+### Maestro stdout log may be truncated when run as background process
+A Maestro test piped to a log file (`maestro test ... > run.log 2>&1 &`) may show only the first few seconds of output. The internal Maestro debug log at `~/.maestro/tests/<timestamp>/maestro.log` has the full trace. Screenshots are the most reliable evidence of flow completion — if all expected `takeScreenshot` files exist with timestamps spanning the expected flow duration, the flow ran to completion regardless of what the stdout log shows.
+
+## GH-124-fix1 / RN 0.80 Patch Iteration Learnings
+
+### `patch-package` picks up Gradle build artifacts if the library was built before re-patching
+**Problem/Symptoms:** Running `npx patch-package <lib>` after editing node_modules produced a 4.5 MB patch full of binary `.dex` and `.bin` files from `node_modules/<lib>/android/build/`.
+**Working solution:** `rm -rf node_modules/<lib>/android/build` before running `patch-package`. This shrinks the patch to only source file diffs (122 lines vs 52k lines).
+**Apply when:** Any time you edit a library that has been previously built by Gradle in the same checkout, before regenerating its patch.
+
+### `static final ExecutorService` in a RN module is not shut down on ReactContext reload
+**Observation:** Using `static final ExecutorService` across all module instances means the worker thread survives bridge teardown and React context reloads, leaking one thread per reload.
+**Apply when:** Any patch that introduces a thread pool for a RN native module. Prefer an instance-level `final ExecutorService executor` field and call `executor.shutdown()` in `invalidate()` so the thread is released with the module instance.
+
+### `sendError` uses `this.promise` — call `promise.reject` directly inside background runnables
+**Problem/Symptoms:** `sendError(code, message, e)` in RN native modules routes to `this.promise`. Inside a background executor runnable, `this.promise` may have been cleared to null between the time the runnable was submitted and when it catches an exception.
+**Working solution:** Capture `promise` as a `final` local variable before `executor.execute(...)`, then call `promise.reject(code, message, t)` directly in the catch block. This guarantees the specific promise for this pick call is settled.
+**Apply when:** Adding try/catch inside any `executor.execute` lambda in a RN native module that uses an instance-level promise field pattern.
+
+### `gh pr edit --body` fails silently when repo has classic Projects attached
+**Problem/Symptoms:** `gh pr edit 125 --body ...` exits 1 with "Projects (classic) is being deprecated" — the PR body is NOT updated despite the command appearing to run.
+**Working solution:** Use the REST API directly: `gh api repos/<owner>/<repo>/pulls/<N> --method PATCH --field "body=$PR_BODY"`. Returns the PR number on success.
+**Apply when:** Any `gh pr edit` with `--body` or `--body-file` fails with a GraphQL Projects deprecation error.
+
+## GH-135 / React Native 0.82 Upgrade Learnings
+
+### RN 0.82 mandates New Architecture — `newArchEnabled=false` is unsupported
+**Problem/Symptoms:** The GH-135 ticket said "Old Architecture only". But RN 0.82's RNGP (`ReactRootProjectPlugin.kt`) overrides `newArchEnabled=false` → `true` for all subprojects and `AgpConfiguratorUtils.kt` hardcodes `IS_NEW_ARCHITECTURE_ENABLED=true` in BuildConfig. Setting `false` in `gradle.properties` is silently ignored.
+**Working solution:** Accept New Architecture as mandatory in RN 0.82. Set `newArchEnabled=true` explicitly in `gradle.properties` — this is also required so that third-party libraries (e.g. MMKV) detect New Arch and apply the `com.facebook.react` plugin to run codegen.
+**Apply when:** Any RN 0.82+ upgrade. Don't promise Old Architecture support.
+
+### `libappmodules.so` is required in RN 0.82 New Architecture
+**Problem/Symptoms:** App crashes on cold launch: `SoLoaderDSONotFoundError: couldn't find DSO to load: libappmodules.so`. `DefaultNewArchitectureEntryPoint.load()` tries to load this library for TurboModule initialization.
+**Root cause:** The app had a custom `CMakeLists.txt` that only built `gainalytics_native` (video analysis). RN 0.82 requires a separate `appmodules` shared library that registers all TurboModules and Fabric components.
+**Working solution:** Restructure `android/app/src/main/cpp/CMakeLists.txt` to:
+1. `project(appmodules)`
+2. Include `${REACT_ANDROID_DIR}/cmake-utils/ReactNative-application.cmake` (builds `appmodules` from `OnLoad.cpp` + autolinking sources)
+3. Add the custom native library as a separate `add_library(gainalytics_native SHARED native/yuv_to_rgb.cpp)` — move the source to a `native/` subdirectory so the cmake `*.cpp` glob doesn't accidentally include it in `appmodules`.
+**Apply when:** Any app with a custom `externalNativeBuild.cmake.path` upgrading to RN 0.82.
+
+### Hermes prefab module renamed from `libhermes` to `hermesvm` in RN 0.82
+**Problem/Symptoms:** CMake error: `Target "worklets" links to target "hermes-engine::libhermes" but the target was not found`. The hermes AAR's prefab module was renamed.
+**Working solution:** In CMakeLists.txt files that link against hermes: `if(ReactAndroid_VERSION_MINOR GREATER_EQUAL 82) target_link_libraries(... hermes-engine::hermesvm) else() target_link_libraries(... hermes-engine::libhermes) endif()`. Applied via `patches/react-native-reanimated+3.19.5.patch`.
+**Apply when:** Any CMake file that links `hermes-engine::libhermes` when upgrading to RN 0.82.
+
+### `UIManagerModuleListener` removed in RN 0.82; use `UIManagerListener`
+**Problem/Symptoms:** Java compile error: `cannot find symbol: class UIManagerModuleListener`. This interface was removed. `addUIManagerListener`/`removeUIManagerListener` also removed.
+**Working solution:** Replace `implements UIManagerModuleListener` with nothing (or just use `UIManagerListener` which already existed). Use `addUIManagerEventListener`/`removeUIManagerEventListener`. In `willDispatchViewUpdates(UIManager uiManager)`, handle both Fabric (New Arch) and UIManagerModule (Old Arch fallback) via instanceof checks. Applied via `patches/react-native-reanimated+3.19.5.patch`.
+**Apply when:** Any library implementing `UIManagerModuleListener` on RN 0.82.
+
+### `react-native-mmkv@2.x` JSI init broken in RN 0.82 Bridgeless mode
+**Problem/Symptoms:** Redbox: "Failed to create a new MMKV instance: React Native is not running on-device." MMKV v2's `createMMKV.ts` checks `global.mmkvCreateNewInstance` (JSI function auto-installed by TurboModule), then falls back to Old Arch path which checks `global.nativeCallSyncHook`. In Bridgeless mode this auto-install doesn't work.
+**Working solution:** Upgrade to `react-native-mmkv@3.x` (full TurboModule). Note: v3.x needs `newArchEnabled=true` in gradle.properties so codegen generates `NativeMmkvPlatformContextSpec`. API is unchanged: `new MMKV()`, `new MMKV({id: ...})` still work.
+**Apply when:** Using react-native-mmkv on RN 0.82+.
+
+### `patch-package` bloated by reanimated's own `.cxx` build artifacts
+**Problem/Symptoms:** `npx patch-package react-native-reanimated` produces 85,000+ line patch including CMake configure artifacts from `node_modules/react-native-reanimated/android/.cxx/`.
+**Working solution:** `rm -rf node_modules/react-native-reanimated/android/build node_modules/react-native-reanimated/android/.cxx` BEFORE running patch-package. Reduces patch to 129 lines.
+**Apply when:** Any time you edit react-native-reanimated node_modules and then regenerate its patch. The `.cxx` dir is separate from the app's `android/.cxx` — both need to be cleaned.
+
+### `adb kill-server` kills the Windows ADB server when `ADB_SERVER_SOCKET` points to Windows host
+**Problem/Symptoms:** In WSL with `ADB_SERVER_SOCKET=tcp:172.18.240.1:5037`, running `adb kill-server` kills the Windows ADB server. Subsequent `adb start-server` fails ("cannot start server on remote host"). All ADB commands then hang.
+**Working solution:** Never run `adb kill-server` in WSL. If ADB is in a bad state, ask the user to restart ADB on the Windows side. If ADB is unreachable, use existing screenshots as evidence and note the infra problem in summary.md.
+**Apply when:** Any time ADB commands start failing in a WSL session. The `ADB_SERVER_SOCKET` env var points to Windows host — killing it from Linux is irreversible from WSL.
+
+### 61. Baseline fixture has no video analysis VL data — `useVelocityLossInsights` always returns [] on device
+**Observation:** The baseline fixture (`1772318214222.gains`) has no video analysis records with `status=DONE` AND `setResult.velocityLossPercent` set. `useVelocityLossInsights` always returns empty array when the fixture is the only data source. VL cards (in both MicroOverview and TrainingOverviewCard) will never render on a fixture-only device state.
+**Apply when:** Any ticket requiring VL insight card screenshots from baseline data. Use unit tests to verify VL rendering instead; document the gap clearly in summary.md.
+
+### 62. APK from older worktree + newer Metro bundle can show Drawer `useLegacyImplementation` crash
+**Problem/Symptoms:** Installing an APK from an older worktree (e.g. GH-139) with a newer Metro bundle causes "The `useLegacyImplementation` prop is not available with Reanimated 3" crash on drawer navigation. Dismissed, but app reloads and navigation is broken.
+**Working solution:** Use the most recent compatible APK (GH-135 was built from the RN 0.82 upgrade and works with subsequent JS bundles). Prefer GH-135's APK over GH-139's when the current worktree can't build.
+
+## GH-139 / React Native 0.84 Upgrade Learnings
+
+### Reanimated 4.x breaks @react-navigation/drawer v6 in two ways
+**Problem/Symptoms:** (1) `isConfigured()` is exported from reanimated 4 but returns `false` (it's deprecated — use `reanimatedVersion` instead). `@react-navigation/drawer@6.x` defaults `useLegacyImplementation = !Reanimated.isConfigured?.()` → `true`, then throws "The `useLegacyImplementation` prop is not available with Reanimated 3". (2) The modern drawer in v6 uses `useAnimatedGestureHandler` which was removed in reanimated 4.
+**Working solution:** Upgrade `@react-navigation/drawer` to v7.x and `react-native-drawer-layout` to v4.x. This requires upgrading all of `@react-navigation/*` to v7 since drawer v7 depends on `@react-navigation/native ^7.x`. The v6→v7 upgrade is non-breaking for the APIs used in this app (createDrawerNavigator, createNativeStackNavigator, NativeStackScreenProps, useNavigation, useFocusEffect).
+**Apply when:** Any upgrade to react-native-reanimated ≥ 4.0.
+
+### react-native-worklets requires a Jest mock from reanimated 4.x onwards
+**Problem/Symptoms:** `require('react-native-reanimated/mock')` in jest.setup.js now transitively imports `react-native-worklets` (new package split from reanimated 4). Without a mock, any test file crashes with `WorkletsError: Native part of Worklets doesn't seem to be initialized`.
+**Working solution:** Add `jest.mock('react-native-worklets', () => require('react-native-worklets/lib/module/mock'));` to `jest.setup.js` BEFORE the reanimated mock.
+**Apply when:** Any project upgrading to react-native-reanimated ≥ 4.0.
+
+### react-navigation v7 validates initialRouteName strictly
+**Problem/Symptoms:** `initialRouteName="Feed"` in a Tab.Navigator that has no "Feed" screen was silently ignored in v6. In v7, it throws "Couldn't find a screen named 'Feed' to use as initialRouteName." at startup.
+**Working solution:** Change `initialRouteName` to match an actual registered screen name (e.g., "Training").
+**Apply when:** Upgrading @react-navigation/* v6 → v7 — check all Navigator components for phantom `initialRouteName` values.
+
+### react-native-reanimated 4.x patch from 0.82 upgrade is no longer needed
+**Observation:** The `react-native-reanimated+3.19.5.patch` that fixed hermes prefab rename (libhermes → hermesvm) and UIManagerModuleListener removal for RN 0.82 is specific to reanimated 3.x. Reanimated 4.x includes these fixes natively. Drop the patch when upgrading to reanimated 4.
+**Apply when:** Upgrading from reanimated 3.x to 4.x — check if the patch still applies and if it addresses an issue still present in the new version before keeping it.
+
+### 63. Jest `/.worktrees/` testPathIgnorePattern blocks all test runs from worktrees
+**Problem:** `jest.config.cjs` includes `/.worktrees/` in `testPathIgnorePatterns`. Running `npm test` from inside a worktree path silently finds 0 tests because all absolute paths contain `.worktrees`.
+**Symptoms:** `Pattern: <name> - 0 matches` even when the test file exists. `testMatch: 48 matches` but `testPathIgnorePatterns: 0 matches` — confusing output because the reported "0 matches" refers to files surviving the ignore filter, not files skipped.
+**Working solution:** Override the ignore list on the CLI: `npx jest --config jest.config.cjs --testPathIgnorePatterns "/node_modules/" "/__tests__/coverage/"` (drop `/.worktrees/` from the pattern). Confirmed in GH-113-fb1 and GH-151.
+**Apply when:** Any worker running `npm test` from a worktree path and getting `Pattern: ... - 0 matches` for a test that clearly exists.
+
+### 64. Manually import baseline data via adb taps when Maestro fails
+**Problem:** Maestro `00_import_baseline.yaml` flow fails due to ADB server mismatch (WSL ADB client vs Windows ADB server) or gRPC issues. Baseline import is still needed for evidence screenshots.
 **Working solution:**
-```bash
-cmd.exe /c "maestro.bat --driver-host-port=7002 test flow.yaml"
-```
-Use any free port not held by QEMU. Check with: `Get-NetTCPConnection -LocalPort <port>`.
+1. Push file: `bash run-maestro-from-wsl.sh --mode bootstrap` (just pushes the .gains file, no Maestro needed)
+2. Navigate to Settings tab: `adb -s $DEVICE shell input tap 945 2232`
+3. Scroll to bottom: `adb -s $DEVICE shell input swipe 540 1500 540 500 500`
+4. Tap "Import Data" button: get bounds from `uiautomator dump`, tap center
+5. Confirm "Import" on dialog: get bounds from dump, tap
+6. Select `baseline.gains` from file picker: get bounds from dump, tap
+7. Verify: navigate to Training tab and check for "Push pull" text in `uiautomator dump`
+**Apply when:** Maestro import fails with device-not-found or connectivity errors; baseline data is required for evidence screenshots.
 
-**Apply when:** Running Maestro from Windows cmd.exe on a machine with Android emulators running.
+### 65. Fresh APK + adb reverse is sufficient for RN 0.84.1 emulators
+**Observation:** After installing a freshly-built APK (no SharedPreferences set) and running `adb -s $DEVICE reverse tcp:8081 tcp:$HOST_METRO_PORT`, the app loaded from the correct Metro on an Android emulator running API 35. This contradicts the earlier note that 10.0.2.2:8081 bypasses adb reverse — it appears that on RN 0.84.1 or newer emulator images, localhost:8081 is used by default (not 10.0.2.2:8081), so the adb reverse IS sufficient.
+**Apply when:** RN 0.84.1+ and API 35 emulator — try adb reverse first before setting up socat bridges or manually editing SharedPreferences.
 
-### 49. WSL ADB breaks after Windows ADB server restart — use 127.0.0.1 but expect device-list failure
+## GH-152 / Maestro Video Analysis Flow Consolidation
 
-**Problem:** After killing/restarting the Windows ADB server, `ADB_SERVER_SOCKET=tcp:172.18.240.1:5037` stops working (Windows Firewall blocks new WSL→Windows connections on that IP). The ADB server restarts bound to `127.0.0.1:5037` only.
+### 66. Samsung real-device PIN lock blocks Maestro even though adb shows "device"
+**Problem/Symptoms:** `adb get-state` returns "device" and file pushes succeed, but Maestro flow fails at first `assertVisible` with "element not visible". UI dump shows "PIN eingeben" (lock screen). `wm dismiss-keyguard` has no effect on a PIN-locked device. Maestro screenshots are black (Samsung DRM).
+**Working solution:** Device must be manually unlocked before any Maestro session. Check `adb shell uiautomator dump` for "PIN eingeben" text immediately after starting a run. If found, write `blocked` status — do not try workarounds.
+**Apply when:** Any Maestro run against Samsung R5CN30HWZFN (or any real Samsung with PIN lock).
 
-**Symptoms:** `Connection refused` at `172.18.240.1:5037`. WSL `nc 127.0.0.1 5037` succeeds but WSL ADB (v36) gets "protocol fault" with Windows ADB (v30.0.5) — version mismatch.
+### 67. Video analysis setResult/repResults is computed in PlaybackOverlayCard, not on analysis completion
+**Problem/Symptoms:** After `Status: done`, the list card shows "N reps | VL X%" only if `VideoAnalysisPlaybackOverlayCard` has rendered and dispatched `dispatchSaveVideoAnalysisSetResult`. This card is in the detail view (scroll-down). If you never open the detail, `setResult` is never saved.
+**Working solution:** To assert rep count and velocity in list view, first open the detail and scroll down to the Playback section so PlaybackOverlayCard runs its useEffect. Then go back to list to assert `video-analysis-set-summary-N` text.
+**Apply when:** Maestro flows that assert rep count, VL%, or RIR from the VideoAnalysisTab list card.
 
-**Working solution:** Run Maestro from Windows cmd.exe via `cmd.exe /c "maestro.bat ..."` — this uses the Windows ADB server directly. Add `--driver-host-port=7002` to avoid QEMU port conflict (entry #48).
+### 68. YOLO plate detection (outer_plate_yolo26n_float32.tflite) requires real barbell footage for reliable results
+**Observation:** Synthetic ffmpeg-generated videos (gray ring on dark background) may or may not be detected with the 0.2 confidence threshold. The model was trained on real barbell outer plates in gym settings. If 0 candidates are detected at t=0, analysis fails immediately (ERR_VIDEO_ANALYSIS_NO_CANDIDATE) with no fallback. For guaranteed results, use real squat videos. Synthetic fixtures are acceptable for flow structure testing if the `awaiting_seed_selection` path is also handled.
+**Apply when:** Creating video analysis Maestro fixtures. If YOLO detection fails on synthetic videos, check the device's /sdcard/Download/ for existing real squat videos.
 
-**Apply when:** Working after an ADB server restart mid-session. Do NOT try to restore `172.18.240.1:5037` — the firewall blocks it on reconnect.
+### 69. RIR chip filter is the most reliable filter for Maestro video analysis filter flows
+**Observation:** Any analysis without a computed rirEstimate (null) is hidden by any RIR chip filter. This includes done analyses where the Playback detail was never opened (rirEstimate not dispatched) and freshly imported analyses in QUEUED/COPYING/PREFLIGHT/PROCESSING state. Use `tapOn: {id: 'video-analysis-rir-chip-0'}` (resource-id match). VL chip filters are less reliable because completed analyses may have various VL values.
+**Apply when:** Writing Maestro flows that test the VideoAnalysisTab filter chips.
 
-### 50. Maestro screenshot "Access denied" when flow path is Windows temp from WSL UNC
+### 70. `tapOn: 'some-testID'` matches by TEXT, not by resource-id — always use `tapOn: {id: 'some-testID'}` for testID matching
+**Problem/Symptoms:** Maestro flow fails with "Element not found: Text matching regex: analyse-drawer-toggle" even though the element has `testID="analyse-drawer-toggle"` in React Native. `tapOn: 'some-string'` in Maestro matches by text/content-desc, NOT by resource-id/testID.
+**Working solution:** Always use `tapOn: {id: 'resource-id-value'}` for matching by testID/resource-id. Also applies to `assertVisible: {id: '...'}` vs `assertVisible: "..."` (text match). Similarly, `extendedWaitUntil: visible: {id: '...'}` for resource-id wait, vs `visible: "text"` for text wait.
+**Apply when:** Every `tapOn`, `assertVisible`, and `extendedWaitUntil` in Maestro flows — always be explicit about whether you're matching by text or id.
 
-**Problem:** Running `cmd.exe /c "maestro.bat test C:\...\flow.yaml"` from WSL — cmd.exe starts in `C:\Windows\` (UNC path not supported). Relative `takeScreenshot: "name"` paths resolve to `C:\Windows\name.png` → access denied.
+### 71. Android 13+ photo picker doesn't show adb-pushed files — use existing device data for video analysis flows
+**Problem/Symptoms:** Files pushed to `/sdcard/Download/` via `adb push` don't appear in the Android photo picker (ACTION_PICK_IMAGES / Google Photo Picker). The picker only shows media-indexed files. `MEDIA_SCANNER_SCAN_FILE` broadcast requires system permission on Android 13+. Synthetic fixture files stay invisible to the picker until indexed.
+**Working solution:** Design video analysis Maestro flows to work with EXISTING analyses on the device rather than importing new ones. The device typically has real analyses from previous sessions. Assert from real data (Status: done with actual tracking points) instead of triggering new imports through the broken picker path.
+**Apply when:** Any Maestro flow on R5CN30HWZFN (or any Android 13+ device) that needs to interact with the video file picker for importing analysis videos.
 
-**Working solution:** Use absolute Windows paths in takeScreenshot:
-```yaml
-- takeScreenshot: "C:\\Users\\username\\AppData\\Local\\Temp\\screenshot_name"
-```
+## GH-153 / Maestro Selector Cleanup Learnings
 
-**Apply when:** Running Maestro via cmd.exe from WSL — always use absolute Windows paths for screenshots.
+### 72. Run Maestro via `cmd.exe /c maestro.bat` with UNC path when WSL gRPC fails
+**Problem/Symptoms:** Maestro run via WSL (`maestro --host 172.18.240.1`) fails with `DEADLINE_EXCEEDED` (120 s gRPC timeout) during `viewHierarchy` on consecutive sessions. Root cause: Maestro's ADB TCP port-forwarding tunnel drops mid-session when the Windows ADB server is accessed via the WSL gateway IP.
+**Working solution:** Run Maestro via `cmd.exe /c "C:\Users\...\maestro.bat --device emulator-5554 --driver-host-port PORT test \\wsl.localhost\Ubuntu-22.04\...\flow.yaml"`. Windows ADB server at `localhost:5037` is always stable for native cmd.exe. Prepend `cd C:\Users\...\AppData\Local\Temp &&` to avoid UNC working-directory errors that break `takeScreenshot` saves.
+**Apply when:** Maestro sessions fail on the second or third run with DEADLINE_EXCEEDED or `Command failed (tcp:PORT): closed`. Only affects the worker's own consecutive session runs, not between separate worker invocations.
 
-### 51. ADB_SERVER_SOCKET environment pollution blocks device access in feedback rounds
+### 73. Maestro `takeScreenshot` fails in cmd.exe UNC-path mode without a writable Windows dir
+**Problem/Symptoms:** When running `maestro.bat` with a UNC flow path (`\\wsl.localhost\...`), cmd.exe falls back to the Windows system directory as CWD. `takeScreenshot: foo` tries to write `foo.png` in that directory and throws `java.io.FileNotFoundException: foo.png (Zugriff verweigert)`.
+**Working solution:** Prepend `cd C:\Users\%USERNAME%\AppData\Local\Temp &&` (or any writable Windows path) before `maestro.bat` in the cmd.exe call. Screenshots land in Temp and can be pulled via `adb pull /sdcard/...` or retrieved from `C:\...\Temp\` via `/mnt/c/`.
+**Apply when:** Any cmd.exe Maestro invocation that uses `takeScreenshot` in the flow YAML.
 
-**Problem:** The orchestrator sets `ADB_SERVER_SOCKET=tcp:172.18.240.1:5037` in the worker environment, but the Windows ADB server is not always reachable across WSL sessions (e.g. after session restarts or when the Windows-side ADB daemon is not running). All `adb` calls fail with "Connection refused" even though a local Linux adb server is running on `127.0.0.1:5037`.
+### 74. Baseline fixture data causes DashboardTab crash in current emulator APK (GH-119 unfixed)
+**Observation:** On the currently installed APK on emulator-5554, navigating to the Analyse tab (DashboardTab) after adding a workout set with 21 reps triggers `calculateMetricValue: workoutsCount is required for Metric.FREQUENCY`. Same crash also triggers when navigating to a finished training (TrainingsOverview). This is the pre-existing bug tracked in GH-117/GH-119 — the fix is not deployed to emulator-5554.
+**Apply when:** If evidence screenshots of DashboardTab are required, use the Maestro log from `gh77_dashboard_smoke` (which runs fresh before any session adds data) as proof instead of a direct screencap.
 
-**Symptoms:** `adb devices` returns error. `ss -tlnp | grep 5037` shows a listening Linux adb at `127.0.0.1:5037` with no attached devices. `nc 172.18.240.1 5037` fails.
+## GH-159 / Settings Model Picker Learnings
 
-**Working solution:** Use pre-collected ADB evidence from the previous round when the device was reachable. For new runs, override with `ADB_SERVER_SOCKET="tcp:127.0.0.1:5037"` and verify the device is actually listed before proceeding with Maestro.
+### 75. Maestro swipe inside React Native ScrollView unreliable — use coordinate-based assertions or screenshots instead
+**Problem/Symptoms:** `scrollUntilVisible`, `scroll`, and `swipe: direction: UP` all fail to scroll a RN `ScrollView` in the Maestro version used on this project. Elements below the fold cannot be asserted via Maestro even though they are accessible via `uiautomator dump`.
+**Working solution:** (1) Limit Maestro flows to asserting elements already visible without scroll. (2) Use `uiautomator dump` + adb `screencap` to provide visual evidence for scrolled content. (3) Only use Maestro scroll assertions for elements the existing `01_training_smoke.yaml` successfully scrolls (i.e., the training list).
+**Apply when:** Any ticket where the new UI is below the fold in a scrollable screen. Don't block `ready_for_review` on Maestro scroll assertions — use screenshots + adb dump instead.
 
-**Apply when:** Starting a feedback round and ADB fails immediately — check if it's the environment variable pointing to an unreachable host before spending time debugging.
+### 76. react-native-paper TextInput mock must render a real RNTextInput to support fireEvent.changeText in tests
+**Problem/Symptoms:** The default `jest.mock('react-native-paper')` in SettingsTab.spec.tsx renders TextInput as a `<View testID={testID}>` — `fireEvent.changeText(getByTestId(...))` fails silently because View has no `onChangeText`. Tests then fail with unexpected values or wrong dispatch calls.
+**Working solution:** In the TextInput mock, render an inner `<RNTextInput testID={testID} value={value} onChangeText={onChangeText} />` (no testID on the wrapper View to avoid duplicate-testID errors). Import RNTextInput via `require('react-native').TextInput` inside the mock factory.
+**Apply when:** Any test file that needs to `fireEvent.changeText` on a react-native-paper TextInput mock.
 
-### 52. Bundled APK without Metro: Maestro flows fail on assertVisible immediately after launchApp
+### 77. jest.mock factory cannot reference imported variables — use literal strings for default values in mocks
+**Problem/Symptoms:** `jest.mock('../path', () => ({ fn: jest.fn(() => IMPORTED_CONST) }))` throws "The module factory of jest.mock() is not allowed to reference any out-of-scope variables" at test runtime because Babel hoists jest.mock() before imports are evaluated.
+**Working solution:** Use literal string values inside the mock factory (e.g., `'claude-haiku-4-5-20251001'` instead of `DEFAULT_ANTHROPIC_MODEL`). Only variables prefixed with `mock` (case-insensitive) are allowed in the factory scope.
+**Apply when:** Any jest.mock() factory that needs to reference an imported constant. Hardcode the value or compute it inline.
 
-**Problem:** `assertVisible: "Training"` in smoke/setup flows fails when the APK was built with a bundled JS (no Metro). The app launch takes ~3-5 seconds before React Native renders any UI. Maestro's `launchApp` returns as soon as the process starts — not when the UI is ready.
+### 78. `core.ignorecase = true` in git worktree causes case-path conflicts for new test directories
+When a worktree has `core.ignorecase = true` and existing dirs like `__tests__/tabs/analyse/` already exist in the index, `git add __tests__/tabs/Analyse/new.spec.tsx` stores the file under the lowercase path in the index (`analyse/`), even though the physical file is in `Analyse/`. `git status` then shows it as "deleted". Workaround: check `git config core.ignorecase` early; create new test files directly under the already-indexed lowercase directory to avoid the conflict.
 
-**Symptoms:** Maestro screenshot at failure shows a blank/white screen (splash state). The flow fails on the first assertion after `launchApp`.
+### 79. `adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS` dismisses persistent "System UI isn't responding" dialogs
+Repeated `input tap` on the "Wait" button doesn't always work when the System UI dialog is stuck. The broadcast approach dismisses it reliably and lets subsequent taps reach the app.
 
-**Working solution:** Use `extendedWaitUntil: visible: "Training", timeout: 60000` instead of bare `assertVisible: "Training"` after `launchApp`. The flows `99_smoke.yaml` and `analyse_date_range_picker.yaml` currently use bare `assertVisible` and will fail consistently with bundled APKs.
+### 80. Jest tests in worktree must be run from the main project dir via `node node_modules/jest-cli/bin/jest.js --rootDir ./.worktrees/<branch>`
+The `testPathIgnorePatterns: ['/.worktrees/']` in `jest.config.cjs` blocks all tests when `npx jest` is run inside the worktree. Use `node node_modules/jest-cli/bin/jest.js --rootDir ./.worktrees/feature-X --testPathIgnorePatterns=/node_modules/ --testPathIgnorePatterns=/__tests__/coverage/` from the repo root.
 
-**Apply when:** Running Maestro against a bundled APK (no Metro). Consider this a pre-existing flow bug, not a regression in the feature being tested.
+### 81. APK embeds a cached JS bundle — Metro is only used if preferences point to it AND it's reachable
+**Problem/Symptoms:** Debug APK includes `assets/index.android.bundle`. Even when Metro is running with `adb reverse`, the app silently falls back to the embedded bundle if `com.powerliftingworkoutplanner_preferences.xml` still has the OLD Metro port. All previous sessions had set `debug_http_host=10.0.2.2:PORT` for a different worker's Metro. Result: app runs old code, no Metro log entries, code changes invisible on device.
+**Working solution:** Check the actual prefs file: `adb shell "run-as com.pkg cat /data/data/com.pkg/shared_prefs/com.pkg_preferences.xml"`. The correct host for an AVD emulator is `localhost:8081` (via `adb reverse tcp:8081 tcp:$HOST_PORT`). Update with: `adb shell "run-as com.pkg sh -c 'printf... > /data/data/com.pkg/shared_prefs/com.pkg_preferences.xml'"`. Then force-stop + restart the app. Confirm in logcat: `isMetroRunning(): Async result = true` + `loadJSBundleFromMetro()`.
+**Apply when:** Code changes are committed but the device shows old behaviour. Check logcat for `isMetroRunning()=false` before wasting time elsewhere.
 
-### 53. "Import Emulator Squat Video" dev button exists in VideoSelectionModal, not just VideoAnalysisTab
-
-**Problem:** The dev-only button was present in TWO files: `VideoAnalysisTab.tsx` and `VideoSelectionModal.tsx`. When the PR review asked to remove it, it had already been removed from VideoAnalysisTab but remained in VideoSelectionModal.
-
-**Working solution:** When removing dev-only buttons from video analysis UI, always grep BOTH files:
-```bash
-grep -r "Import Emulator Squat Video" app/
-```
-
-**Apply when:** Removing or searching for any video-analysis-specific dev/debug UI elements.
-
-### 54. Win ADB v34 server vs Linux ADB v36 client: device list is empty over 127.0.0.1:5037
-
-**Problem:** From WSL2, `adb -H 127.0.0.1 -P 5037 devices` connects to the Windows ADB server but returns an empty device list. The Windows ADB server (v34) and Linux adb client (v36) have a protocol mismatch that causes device enumeration to fail silently.
-
-**Symptoms:** `adb -H 127.0.0.1 -P 5037 devices` → `List of devices attached` (empty). But `win_adb.exe devices` shows all devices.
-
-**Working solution:**
-1. For ADB commands: use `WIN_ADB="/mnt/c/Users/metzg/AppData/Local/Android/Sdk/platform-tools/adb.exe"` directly.
-2. For Maestro (which uses dadb, not adb binary): run via `cmd.exe /c "maestro.bat ..."` — Windows Maestro can access the emulator directly without going through WSL.
-3. Do NOT try to make Linux adb client talk to Windows adb server — the version mismatch is fundamental.
-
-**Apply when:** WSL2 adb connects to Windows server but gets empty device list.
+### 82. `useMemo` with count-based deps produces stale derived state on content edits — use createSelector
+**Observation:** Pattern `useMemo(() => arr.filter(...), [arr.length])` stays cached when Redux mutates existing entities without adding/removing them (FINISH_TRAINING changes `state`, set-value edits change workout data). Same bug with `useEffect` deps like `workoutCount = Object.keys(workoutsById).length`.
+**Working solution:** Extract `createSelector(state => state.slice.byId, state => state.slice.allIds, (byId, allIds) => ...)` — Redux reducers always produce new `byId` references on any mutation. Use the selector's stable output as the `useEffect` dep directly. No `eslint-disable exhaustive-deps` needed.
+**Apply when:** Any `useMemo` or `useEffect` that derives data from Redux normalized state. Check for `.length` in dep arrays as a smell.

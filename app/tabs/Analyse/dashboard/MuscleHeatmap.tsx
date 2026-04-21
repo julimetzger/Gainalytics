@@ -4,16 +4,17 @@ import {Card, Chip, Text, useTheme} from 'react-native-paper';
 import {Muscles} from '../../../models/Muscles';
 import {Comparison} from '../../../components/analyse/MetricsOverviewForWorkouts';
 import {Metric} from '../../../models/Metric';
+import {withAlpha} from '../../../utils/colorUtils';
 
 interface MuscleHeatmapProps {
   muscleMetricMap: Map<Muscles, Map<Metric, Comparison>>;
   onMusclePress: (muscle: Muscles) => void;
 }
 
-const muscleChipColor = (comparison: Comparison | undefined, errorColor: string): string | undefined => {
+const muscleChipColor = (comparison: Comparison | undefined, positiveColor: string, errorColor: string): string | undefined => {
   if (!comparison) return undefined;
   if (comparison.difference === undefined) return undefined;
-  if (comparison.difference > 0) return '#558b2f';
+  if (comparison.difference > 0) return positiveColor;
   if (comparison.difference < 0) return errorColor;
   return undefined;
 };
@@ -24,19 +25,19 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
 
   return (
     <Card style={styles.card} testID="muscle-heatmap-card">
-      <Card.Title title="Muskelgruppen" />
+      <Card.Title title="Muscle Groups" />
       <Card.Content>
         <View style={styles.chipContainer}>
           {allMuscles.map((muscle) => {
             const metrics = muscleMetricMap.get(muscle);
             const volumeComparison = metrics?.get(Metric.VOLUME);
-            const chipColor = muscleChipColor(volumeComparison, theme.colors.error);
+            const chipColor = muscleChipColor(volumeComparison, theme.colors.primary, theme.colors.error);
             const hasData = volumeComparison !== undefined && volumeComparison.value > 0;
 
             return (
               <Chip
                 key={muscle}
-                style={[styles.chip, hasData && chipColor ? {backgroundColor: chipColor + '33'} : undefined]}
+                style={[styles.chip, hasData && chipColor ? {backgroundColor: withAlpha(chipColor, 0.2)} : undefined]}
                 textStyle={hasData && chipColor ? {color: chipColor} : {opacity: 0.5}}
                 onPress={() => onMusclePress(muscle)}
                 testID={`muscle-chip-${muscle}`}
@@ -46,7 +47,7 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
             );
           })}
         </View>
-        <Text style={styles.hint}>Tippe auf eine Muskelgruppe für Details</Text>
+        <Text style={styles.hint}>Tap a muscle group for details</Text>
       </Card.Content>
     </Card>
   );

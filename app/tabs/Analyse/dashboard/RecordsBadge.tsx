@@ -1,6 +1,6 @@
 import React from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Card, Text} from 'react-native-paper';
+import {Card, Text, useTheme} from 'react-native-paper';
 import {Workout} from '../../../models/entities/Workout';
 import {Exercise} from '../../../models/entities/Exercise';
 
@@ -15,6 +15,7 @@ interface RecordEntry {
 }
 
 const RecordsBadge = ({currentWorkouts, exercises}: RecordsBadgeProps) => {
+  const theme = useTheme();
   const recordEntries: RecordEntry[] = currentWorkouts
     .filter((w) => w.records && Object.keys(w.records).length > 0)
     .flatMap((w) => {
@@ -30,10 +31,10 @@ const RecordsBadge = ({currentWorkouts, exercises}: RecordsBadgeProps) => {
   if (recordEntries.length === 0) return null;
 
   return (
-    <Card style={styles.card} testID="records-badge-card">
+    <Card style={[styles.card, {backgroundColor: theme.colors.secondaryContainer}]} testID="records-badge-card">
       <Card.Title
         title={`🏆 ${recordEntries.length} neue Record${recordEntries.length > 1 ? 's' : ''} diese Woche!`}
-        titleStyle={styles.title}
+        titleStyle={[styles.title, {color: theme.colors.onSecondaryContainer}]}
       />
       <Card.Content>
         <View>
@@ -51,10 +52,8 @@ const RecordsBadge = ({currentWorkouts, exercises}: RecordsBadgeProps) => {
 const styles = StyleSheet.create({
   card: {
     margin: 8,
-    backgroundColor: '#fff9c4',
   },
   title: {
-    color: '#f57f17',
     fontWeight: 'bold',
   },
   recordText: {

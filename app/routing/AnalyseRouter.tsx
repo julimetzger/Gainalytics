@@ -9,8 +9,10 @@ import ExerciseGraphs from '../tabs/Analyse/ExerciseGraphs';
 import {IconButton, useTheme} from 'react-native-paper';
 import VideoAnalysisTab from '../tabs/Analyse/VideoAnalysisTab';
 import VideoAnalysisDetailTab from '../tabs/Analyse/VideoAnalysisDetailTab';
+import VideoAnalysisCompareTab from '../tabs/Analyse/VideoAnalysisCompareTab';
 import TrainingLengthTab from '../tabs/Analyse/TrainingLengthTab';
 import DashboardTab from '../tabs/Analyse/DashboardTab';
+import AIChatTab from '../tabs/Analyse/AIChatTab';
 
 export type RootStackParamList = {
   Dashboard: undefined;
@@ -22,6 +24,8 @@ export type RootStackParamList = {
   TrainingLength: undefined;
   VideoAnalyses: undefined;
   VideoAnalysisDetail: {analysisId: number};
+  VideoAnalysisCompare: {analysisId: number; compareAnalysisId: number};
+  AIChat: undefined;
 };
 
 const AnalyseRouter = () => {
@@ -97,6 +101,23 @@ const AnalyseRouter = () => {
         component={VideoAnalysisDetailTab}
         options={() => ({
           title: 'Video Analysis Detail',
+        })}
+      />
+      <Stack.Screen
+        name="VideoAnalysisCompare"
+        component={VideoAnalysisCompareTab}
+        options={() => ({
+          title: 'Compare Analyses',
+        })}
+      />
+      <Stack.Screen
+        name="AIChat"
+        component={AIChatTab}
+        options={() => ({
+          title: 'AI Chat',
+          drawerIcon: ({color, size}: {color: string; size: number}) => (
+            <IconButton icon="chat-processing-outline" iconColor={color} size={size} />
+          ),
         })}
       />
     </Stack.Navigator>

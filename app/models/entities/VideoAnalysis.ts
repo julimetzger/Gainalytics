@@ -1,5 +1,7 @@
 export enum VideoAnalysisStatus {
   QUEUED = 'queued',
+  COPYING = 'copying',
+  PREFLIGHT = 'preflight',
   PROCESSING = 'processing',
   AWAITING_SEED_SELECTION = 'awaiting_seed_selection',
   DONE = 'done',
@@ -31,6 +33,8 @@ export interface VideoAnalysis {
   analysisMeta?: AnalysisMeta;
   setResult?: VideoAnalysisSetResult;
   error?: string;
+  /** Calibration: metres per tracking pixel from plate-based seed selection. */
+  metersPerPixel?: number;
 }
 
 export interface SeedCandidate {
@@ -118,6 +122,8 @@ export interface AnalysisMeta {
   initialSeedBox?: DetectedBox;
   plausibilityRejections?: PlausibilityRejection[];
   performanceMetrics?: AnalysisPerformanceMetrics;
+  /** Calibration: metres per tracking pixel, derived from known plate diameter (0.45 m). */
+  metersPerPixel?: number;
 }
 
 export interface PlausibilityRejection {

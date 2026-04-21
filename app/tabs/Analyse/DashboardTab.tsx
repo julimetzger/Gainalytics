@@ -12,6 +12,7 @@ import {Muscles} from '../../models/Muscles';
 import WeeklySummaryCard from './dashboard/WeeklySummaryCard';
 import MuscleHeatmap from './dashboard/MuscleHeatmap';
 import TopExercisesCard from './dashboard/TopExercisesCard';
+import FocusExercisesCard from './dashboard/FocusExercisesCard';
 import RecordsBadge from './dashboard/RecordsBadge';
 import {Exercise} from '../../models/entities/Exercise';
 
@@ -74,16 +75,18 @@ const DashboardTab = () => {
 
       <MuscleHeatmap muscleMetricMap={muscleMetricMap} onMusclePress={handleMusclePress} />
 
+      <FocusExercisesCard exerciseMetricMap={exerciseMetricMap} onExercisePress={handleExercisePress} />
+
       <TopExercisesCard exerciseMetricMap={exerciseMetricMap} onExercisePress={handleExercisePress} />
 
       <View style={styles.quickNav}>
-        <Text style={styles.quickNavTitle}>Schnellzugriff</Text>
+        <Text style={styles.quickNavTitle}>Quick Access</Text>
         <View style={styles.quickNavRow}>
           <Button mode="outlined" onPress={() => navigation.navigate('Metrics')} style={styles.navButton} testID="nav-metrics">
-            Alle Metriken
+            All Metrics
           </Button>
           <Button mode="outlined" onPress={() => navigation.navigate('History', {exercise: {name: ''}, lowerRangeBound: undefined})} style={styles.navButton} testID="nav-history">
-            Verlauf
+            History
           </Button>
           <Button mode="outlined" onPress={() => navigation.navigate('Records')} style={styles.navButton} testID="nav-records">
             Records

@@ -1,4 +1,4 @@
-import {Button, Dialog, IconButton, Portal, Text, TextInput, useTheme} from 'react-native-paper';
+import {Button, Checkbox, Dialog, IconButton, Portal, Text, TextInput, useTheme} from 'react-native-paper';
 import {StyleSheet, View} from 'react-native';
 import React, {useMemo, useState} from 'react';
 import {useDispatchAddExercise} from '../../../redux/Exercises/dispatch/dispatchAddExercise';
@@ -23,6 +23,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
   const [newExerciseName, setNewExerciseName] = useState(exercise?.name ?? '');
   const [muscles, setMuscles] = useState<MusclePercentPair[]>(exercise?.muscles ?? []);
   const [alternativeIds, setAlternativeIds] = useState<number[]>(exercise?.alternativeIds ?? []);
+  const [isFocus, setIsFocus] = useState<boolean>(exercise?.isFocus ?? false);
   const [error, setError] = useState<string>();
   let editExercise = dispatchEditExercise();
   let deleteExercise = dispatchDeleteExercise();
@@ -38,6 +39,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
     setNewExerciseName(exercise?.name ?? '');
     setMuscles(exercise?.muscles ?? []);
     setAlternativeIds(exercise?.alternativeIds ?? []);
+    setIsFocus(exercise?.isFocus ?? false);
     setMuscleEditorVisible(false);
     setVisible(true);
   };
@@ -54,6 +56,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
     }
     setError(undefined);
     setVisible(false);
+    exerciseId ? editExercise(exerciseId, newExerciseName, muscles, alternativeIds, isFocus) : dispatchAddExercise(newExerciseName, muscles, alternativeIds, isFocus);
     setMuscleEditorVisible(false);
     exerciseId ? editExercise(exerciseId, newExerciseName, muscles, alternativeIds) : dispatchAddExercise(newExerciseName, muscles, alternativeIds);
   };
@@ -85,6 +88,14 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                     : `${activeMuscleCount} muscle${activeMuscleCount === 1 ? '' : 's'} with involvement`}
                 </Text>
                 <ExerciseAlternativesField exerciseId={exerciseId} alternativeIds={alternativeIds} onChange={setAlternativeIds} />
+                <View style={styles.focusRow}>
+                  <Checkbox
+                    status={isFocus ? 'checked' : 'unchecked'}
+                    onPress={() => setIsFocus(!isFocus)}
+                    testID="focus-exercise-checkbox"
+                  />
+                  <Text onPress={() => setIsFocus(!isFocus)}>Focus Exercise</Text>
+                </View>
               </View>
             )}
           </Dialog.Content>
@@ -123,6 +134,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     paddingHorizontal: 24,
+  },
+  focusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
   },
   muscleButton: {
     marginTop: 8,

@@ -1065,7 +1065,7 @@ const AppWithPersist = () => {
   };
 
   return (
-    <PersistGate loading={null} persistor={persistor}>
+    <PersistGate loading={null} persistor={persistor} onBeforeLift={() => { store.dispatch({type: 'RECOVER_STALE_VIDEO_ANALYSES'}); }}>
       <PaperProvider theme={paperThemes}>
         <SafeAreaProvider>
           <EventProvider>
@@ -1075,7 +1075,7 @@ const AppWithPersist = () => {
               theme={paperThemes}
               onReady={handleNavigationReady}
               onStateChange={(state) => {
-                // Navigation-State-Tracking für Analytics
+                // Navigation state tracking for analytics
               }}
             >
               <BottomTabs />

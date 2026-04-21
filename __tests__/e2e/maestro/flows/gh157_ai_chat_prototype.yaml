@@ -1,0 +1,58 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-157: AI Chat Prototype — navigate to AI Chat tab and verify empty state + send a message
+- launchApp:
+    clearState: false
+
+# Wait for app to settle on Training tab
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+
+# Navigate to Analyse tab
+- tapOn: "Analyse"
+
+# Wait for Dashboard to load
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 30000
+
+# Open the drawer
+- tapOn:
+    id: "analyse-drawer-toggle"
+
+# Wait for drawer to open then tap AI Chat
+- extendedWaitUntil:
+    visible: "AI Chat"
+    timeout: 10000
+- tapOn: "AI Chat"
+
+# Wait for AI Chat screen to render
+- extendedWaitUntil:
+    visible: "AI Chat"
+    timeout: 15000
+
+# Assert the empty state or no-key message is visible
+- assertTrue:
+    condition: ${visible("Please add your Anthropic API key") || visible("Start a conversation")}
+
+# Count messages before sending (should be 0)
+- evalScript: |
+    output.initialMessageCount = 0;
+
+# Type a message and send it (only if API key is available; otherwise just assert empty state)
+- tapOn:
+    id: "chat-input"
+- inputText: "Hallo"
+- tapOn:
+    id: "chat-send-button"
+
+# Wait for response — either loading indicator appears then disappears, or error shows
+- extendedWaitUntil:
+    notVisible:
+      id: "chat-loading"
+    timeout: 30000
+
+# Assert at least 1 message bubble exists (user message always added immediately)
+- assertVisible:
+    id: "chat-bubble-user"

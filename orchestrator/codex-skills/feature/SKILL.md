@@ -163,6 +163,54 @@ rm "<run_dir>/screenshots/raw.png"
 
 Never read a raw device screenshot without resizing first.
 
+### Evidence screenshots MUST be taken with imported test data, not an empty store
+
+**Hard rule — no exceptions.** Every evidence screenshot that proves a ticket's
+acceptance criteria (UI states, crash-fix verification, render-path validation)
+MUST be taken on a device whose Redux store was hydrated from the baseline
+`.gains` fixture before the screenshot was captured.
+
+Why: many code paths only render when the store contains real data —
+FINISHED trainings, plans with multiple mesos, workouts with linked video
+analyses, exercises with records. An empty store silently skips those code
+paths, so a "passing" smoke test or a successful screencap on a fresh-install
+emulator proves nothing about the bug being fixed. A previous release crash
+(GH-117) was misdiagnosed and shipped broken because evidence screenshots were
+taken against an empty store, and the crashing render path (TrainingsOverview
+under a finished training) was never actually exercised.
+
+Required workflow before ANY evidence screenshot:
+
+```bash
+# 1. Import baseline test data via the supported flow. The easiest path is
+#    the existing Maestro import flow, which reuses __tests__/testdata/1772318214222.gains:
+bash ./__tests__/e2e/scripts/run-maestro-from-wsl.sh \
+    --mode bootstrap --device "$ANDROID_SERIAL" \
+    > "<run_dir>/checks/import-baseline.log" 2>&1
+
+# 2. Verify the store has data by asserting a known training/plan is visible:
+adb -s "$ANDROID_SERIAL" shell uiautomator dump /sdcard/ui.xml
+adb -s "$ANDROID_SERIAL" pull /sdcard/ui.xml "<run_dir>/checks/ui-after-import.xml"
+grep -q "Push pull" "<run_dir>/checks/ui-after-import.xml" \
+    || { echo "Baseline data not loaded — ABORT"; exit 1; }
+
+# 3. Only now navigate to the screen under test and capture evidence.
+```
+
+If the ticket has specific state requirements (e.g. a FINISHED training, a
+plan with >1 meso, a video analysis with status DONE), the worker MUST drive
+the app into that state before the capture, either via Maestro or via adb
+taps — and **document the prerequisite state in `summary.md`** so a reviewer
+can reproduce it.
+
+If baseline import fails on the assigned device (Maestro infra issue, device
+state locked, etc.), the worker MUST write `needs_input` with a clear
+"cannot reach the render path under test without baseline data" message
+rather than capturing evidence from an empty store and declaring success.
+
+A PR whose evidence screenshots were captured on an empty store will be
+rejected on review, regardless of how the green the other checks look.
+
 ## Emulator And Artifact Commands
 
 Use commands like these when they fit the ticket:

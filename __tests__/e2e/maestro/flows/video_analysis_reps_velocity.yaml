@@ -1,0 +1,66 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-152: Navigate to VideoAnalysisTab, open the first completed analysis, assert bar
+# tracking data (bar path points, confidence) which proves rep and velocity tracking ran.
+# Prerequisites:
+# - baseline.gains fixture includes one pre-completed videoAnalysis (id=1, status=done).
+# - Run bootstrap to import baseline data before this flow.
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+# Navigate to Analyse tab → Video Analyses
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- scrollUntilVisible:
+    element:
+      text: 'Video Analyses'
+    direction: DOWN
+    timeout: 15000
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 30000
+# Assert at least one completed analysis is visible in the list
+- assertVisible:
+    text: "Status: done"
+- takeScreenshot: "video_analysis_reps_velocity_list"
+# Open the first/top completed analysis — use index 0 to avoid hardcoded IDs.
+# The list is ordered by createdAt descending; the fixture's entry is always first.
+- tapOn:
+    text: "Open"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      text: "Status: done"
+    timeout: 30000
+- takeScreenshot: "video_analysis_reps_velocity_done"
+# Assert bar tracking result section is present
+- assertVisible: "Bar Tracking Result"
+# Assert bar path points is non-zero — proves barbell was tracked across multiple frames
+- assertVisible:
+    id: "video-analysis-detail-bar-points"
+- assertVisible:
+    text: "Bar Path Points: [1-9][0-9]*"
+# Assert confidence points non-zero — proves velocity was computed per tracked point
+- assertVisible:
+    id: "video-analysis-detail-confidence-points"
+- assertVisible:
+    text: "Confidence Points: [1-9][0-9]*"
+# Scroll down to the Playback Overlay section (where velocity per-frame is displayed)
+- scrollUntilVisible:
+    element:
+      text: "Playback Overlay"
+    direction: DOWN
+    timeout: 20000
+- assertVisible: "Playback Overlay"
+- takeScreenshot: "video_analysis_reps_velocity_playback"

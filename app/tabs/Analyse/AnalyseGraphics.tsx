@@ -95,8 +95,9 @@ const AnalyseGraphics = ({}: Props) => {
       let workoutSetForExercises = exercise.flatMap((ex: Exercise) => {
         return workouts.get(ex)?.flatMap((workout) => workout.sets) ?? [];
       });
+      let workoutsCountForExercises = exercise.reduce((total: number, ex: Exercise) => total + (workouts.get(ex)?.length ?? 0), 0);
       let muscleSum = sum(muscle.map((mus) => calculateMetricValueForMuscles(exerciseSetMap, metric, mus)));
-      let exerciseSum = calculateMetricValue(workoutSetForExercises, metric) ?? 0;
+      let exerciseSum = calculateMetricValue(workoutSetForExercises, metric, workoutsCountForExercises) ?? 0;
       let metricValue;
       if (metric === Metric.ONE_RM || metric === Metric.MAX_INTENSITY || metric === Metric.AVERAGE_INTENSITY) {
         metricValue = Math.max(exerciseSum, muscleSum);

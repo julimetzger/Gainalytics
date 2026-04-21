@@ -15,6 +15,7 @@ import effectsReducer, {Effects} from './Effects/effectsReducer';
 import reduceReducers from 'reduce-reducers';
 import fullStateReducer from './fullstateactions/fullStateReducer';
 import videoAnalysisReducer from './VideoAnalysis/videoAnalysisReducer';
+import aiChatReducer, {AIChatState} from './AIChat/aiChatSlice';
 
 export interface GlobalState {
   exercises: NormalizedState<Exercise>;
@@ -24,6 +25,7 @@ export interface GlobalState {
   videoAnalyses: NormalizedState<VideoAnalysis>;
   settings: AppSettings;
   effects: Effects;
+  aiChat: AIChatState;
 }
 
 export default reduceReducers(
@@ -35,6 +37,7 @@ export default reduceReducers(
     videoAnalyses: videoAnalysisReducer,
     settings: settingsReducer,
     effects: effectsReducer,
+    aiChat: aiChatReducer,
   }),
   fullStateReducer,
 );

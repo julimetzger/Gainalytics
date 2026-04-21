@@ -3,6 +3,7 @@ import {Muscles} from '../Muscles';
 export type Exercise = {
   id?: number;
   name: string;
+  isFocus?: boolean;
   muscles?: MusclePercentPair[];
   alternativeIds?: number[];
   records?: {

@@ -3,6 +3,7 @@ import {Button, Text, TextInput} from 'react-native-paper';
 import React, {useCallback, useMemo, useState} from 'react';
 import {dispatchSuggestBasedOnTrained} from '../../redux/Training/dispatch/plan/dispatchSuggestBasedOnTrained';
 import {dispatchSuggestBasedOnPlanned} from '../../redux/Training/dispatch/plan/dispatchSuggestBasedOnPlanned';
+import {dispatchSuggestBasedOnLastMesoTraining} from '../../redux/Training/dispatch/plan/dispatchSuggestBasedOnLastMesoTraining';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {convertToInteger, convertToNumber, ensureFormat} from '../../utils/numberInput';
 import {DEFAULT_SUGGESTION_PROGRESSION_PROFILE, SuggestionProgressionProfile} from '../../utils/AnalyseUtils';
@@ -28,6 +29,7 @@ const TrainingsBase = ({trainingsPlan, trainingInMicro, micro}: TrainingsBasePro
 
   let suggestBasedOnTrained = dispatchSuggestBasedOnTrained(trainingsPlanId, trainingInMicro, micro, progressionProfile);
   let suggestBasedOnPlanned = dispatchSuggestBasedOnPlanned(trainingsPlanId, trainingInMicro, micro, progressionProfile);
+  let suggestBasedOnLastMeso = dispatchSuggestBasedOnLastMesoTraining(trainingsPlanId, trainingInMicro, micro, progressionProfile);
 
   const handleRirDeltaChange = useCallback((value: string) => {
     setRirDeltaInput(ensureFormat(value));
@@ -44,6 +46,10 @@ const TrainingsBase = ({trainingsPlan, trainingInMicro, micro}: TrainingsBasePro
   const handleSuggestBasedOnPlanned = useCallback(() => {
     suggestBasedOnPlanned?.(trainingsPlanId, micro, trainingInMicro);
   }, [micro, suggestBasedOnPlanned, trainingInMicro, trainingsPlanId]);
+
+  const handleSuggestBasedOnLastMeso = useCallback(() => {
+    suggestBasedOnLastMeso?.(trainingsPlanId, micro, trainingInMicro);
+  }, [micro, suggestBasedOnLastMeso, trainingInMicro, trainingsPlanId]);
 
   return (
     <View style={styles.container}>
@@ -74,6 +80,9 @@ const TrainingsBase = ({trainingsPlan, trainingInMicro, micro}: TrainingsBasePro
         </Button>
         <Button disabled={suggestBasedOnPlanned === undefined} onPress={handleSuggestBasedOnPlanned} testID="training-suggest-last-planned-training-button">
           Suggest based on last planned Training
+        </Button>
+        <Button disabled={suggestBasedOnLastMeso === undefined} onPress={handleSuggestBasedOnLastMeso} testID="training-suggest-last-meso-button">
+          Suggest based on last Meso
         </Button>
       </View>
     </View>

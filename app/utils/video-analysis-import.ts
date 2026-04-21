@@ -22,7 +22,25 @@ import {
   shouldStopForegroundService,
 } from './videoAnalysisProgress';
 
-export const EMULATOR_SQUAT_VIDEO_PATH = '/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4';
+export const EMULATOR_SQUAT_VIDEO_PATH = '/sdcard/Android/data/com.powerliftingworkoutplanner/cache/squat_test.mp4';
+
+/** Known plate diameter in metres (outer plate, 45 kg / standard Olympic plate). */
+export const PLATE_DIAMETER_M = 0.45;
+
+/**
+ * Compute metersPerPixel from a seed candidate's normalised width and the frame width in pixels.
+ * Returns null when the computed plate width is zero (cannot calibrate).
+ */
+export const calibrateFromSeed = (
+  normalizedWidth: number,
+  frameWidthPx: number,
+): number | null => {
+  const plateWidthPx = normalizedWidth * frameWidthPx;
+  if (plateWidthPx <= 0) {
+    return null;
+  }
+  return PLATE_DIAMETER_M / plateWidthPx;
+};
 
 export type VideoAnalysisImportOutcome = 'awaiting_seed_selection' | 'analysis_started' | 'failed_no_candidate';
 
@@ -42,6 +60,7 @@ interface ImportVideoAnalysisParams {
     localVideoPath?: string,
   ) => void;
   attachVideoAnalysisResult: (analysisId: number, resultPath: string, localVideoPath?: string) => void;
+  setMetersPerPixel?: (analysisId: number, metersPerPixel: number) => void;
 }
 
 const toManualSeedPayload = (candidate: NonNullable<VideoAnalysis['seedCandidates']>[number]): ManualSeedPayload => {
@@ -104,50 +123,54 @@ export const importVideoAnalysisFromSource = async ({
   setManualSeedFramePath,
   setSeedPreflight,
   attachVideoAnalysisResult,
+  setMetersPerPixel,
 }: ImportVideoAnalysisParams): Promise<VideoAnalysisImportOutcome> => {
   const importStartedAtMs = Date.now();
-  const sourceVideoDurationMs = await getVideoDuration(sourceUri);
   let localVideoPath: string | undefined;
-  let videoDurationMs = sourceVideoDurationMs > 0 ? sourceVideoDurationMs : 0;
+  let videoDurationMs = 0;
   let copyMs = 0;
   let preflightMs = 0;
   let outcome: VideoAnalysisImportOutcome | 'failed' = 'failed';
 
-  // Request notification permission before analysis starts.
-  // Permission errors must not block the analysis from starting.
-  try {
-    await requestVideoAnalysisNotificationPermission();
-  } catch {
-    // Non-fatal: analysis continues without notification support.
-  }
-
+  // Add the card to the list IMMEDIATELY — before any async work.
+  // This ensures the card appears < 1 s after the user taps Import.
   addVideoAnalysis({
     id: analysisId,
     sourceUri,
     createdAt: new Date(Date.now()),
     status: VideoAnalysisStatus.QUEUED,
     videoMeta: {
-      durationMs: videoDurationMs,
+      durationMs: 0,
       fps: 0,
       width: 0,
       height: 0,
     },
   });
 
+  // Request notification permission in the background — must not block the import flow.
+  requestVideoAnalysisNotificationPermission().catch(() => {});
+
   try {
-    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING);
+    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.COPYING);
+
+    // Read source duration for early progress estimation.
+    // Non-blocking: we update the card if metadata is available, then proceed with the copy.
+    const sourceVideoDurationMs = await getVideoDuration(sourceUri);
+    if (sourceVideoDurationMs > 0) {
+      videoDurationMs = sourceVideoDurationMs;
+      setVideoAnalysisDuration?.(analysisId, sourceVideoDurationMs);
+    }
 
     const copyStartedAtMs = Date.now();
     localVideoPath = await copyImportedVideoToLocalStorage(sourceUri, analysisId);
     copyMs = Date.now() - copyStartedAtMs;
 
-    // Read actual video duration from file metadata.
-    // Falls back to 0 (unknown) if the native module cannot determine it.
+    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PREFLIGHT);
+
+    // Read actual video duration from the local copy (more reliable than source URI metadata).
     const resolvedVideoDurationMs = await getVideoDuration(localVideoPath);
-    if (resolvedVideoDurationMs > 0) {
+    if (resolvedVideoDurationMs > 0 && resolvedVideoDurationMs !== videoDurationMs) {
       videoDurationMs = resolvedVideoDurationMs;
-    }
-    if (videoDurationMs > 0 && videoDurationMs !== sourceVideoDurationMs) {
       setVideoAnalysisDuration?.(analysisId, videoDurationMs);
     }
 
@@ -178,6 +201,11 @@ export const importVideoAnalysisFromSource = async ({
       return 'awaiting_seed_selection';
     }
 
+    const mpp = calibrateFromSeed(candidates[0].normalizedWidth, preflight.frameWidthPx ?? 0);
+    if (mpp != null && setMetersPerPixel) {
+      setMetersPerPixel(analysisId, mpp);
+    }
+    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING);
     runBackgroundAnalysis({
       analysisId,
       localVideoPath,

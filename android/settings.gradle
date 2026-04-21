@@ -1,4 +1,51 @@
+pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
+plugins { id("com.facebook.react.settings") }
+// RN 0.75 autolinking:
+// The default `autolinkLibrariesFromCommand()` spawns `npx @react-native-community/cli config`
+// via Java ProcessBuilder and caches the result. On some Windows setups the subprocess
+// produces a 0-byte file, which then gets cached and breaks every subsequent build until
+// someone manually wipes android/build/generated/autolinking/.
+//
+// To sidestep the issue entirely we let the release scripts (releaseNewAndroidVersion.sh /
+// .ps1) pre-generate a JSON file at android/autolinking.source.json via `npx react-native
+// config` from the current shell's own PATH — that call is known-working on every platform
+// we build on. Gradle then just copies that file via autolinkLibrariesFromConfigFile and
+// never touches ProcessBuilder.
+//
+// If the pre-generated file is missing or empty (e.g. an Android Studio IDE build that
+// does not go through the release script), we fall back to the upstream default so IDE
+// workflows on Linux/macOS keep working.
+extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
+    def preGenerated = new File(settings.rootDir, "autolinking.source.json")
+    if (preGenerated.exists() && preGenerated.length() > 0) {
+        ex.autolinkLibrariesFromConfigFile(preGenerated)
+    } else {
+        ex.autolinkLibrariesFromCommand()
+    }
+    // Guardrail: a release APK with 0 autolinked native modules looks fine to
+    // assembleRelease (it just builds an empty PackageList) but crashes the
+    // moment any screen tries to use reanimated, gesture-handler, mmkv, etc.
+    // Detect the broken state at configuration time and abort the build.
+    def cached = new File(settings.rootDir, "build/generated/autolinking/autolinking.json")
+    def configFile = preGenerated.exists() && preGenerated.length() > 0 ? preGenerated : cached
+    if (configFile.exists() && configFile.length() > 0) {
+        def parsed = new groovy.json.JsonSlurper().parse(configFile)
+        def deps = parsed?.dependencies ?: [:]
+        def androidNativeDeps = deps.findAll { name, dep ->
+            dep?.platforms?.android?.sourceDir != null &&
+                dep?.platforms?.android?.isPureCxxDependency != true
+        }
+        if (androidNativeDeps.isEmpty()) {
+            throw new GradleException(
+                "RNGP - Autolinking guardrail: ${configFile.absolutePath} contains 0 " +
+                "Android native dependencies. A release build in this state would " +
+                "ship without reanimated, gesture-handler, mmkv, etc. and crash on " +
+                "first screen render. Delete android/build/generated/autolinking/ " +
+                "and re-run npx react-native config to regenerate autolinking.source.json."
+            )
+        }
+    }
+}
 rootProject.name = 'PowerliftingWorkoutPlanner'
-apply from: file("../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesSettingsGradle(settings)
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')

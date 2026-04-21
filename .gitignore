@@ -30,6 +30,7 @@ DerivedData
 # Android/IntelliJ
 #
 android/app/.cxx
+android/autolinking.source.json
 build/
 .idea
 .gradle

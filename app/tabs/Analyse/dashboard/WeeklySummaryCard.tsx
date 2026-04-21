@@ -22,7 +22,7 @@ const DeltaView = ({delta, suffix = ''}: DeltaViewProps) => {
   const theme = useTheme();
   if (delta === undefined) return null;
   const positive = delta >= 0;
-  const color = delta === 0 ? theme.colors.onSurface : positive ? '#558b2f' : theme.colors.error;
+  const color = delta === 0 ? theme.colors.onSurface : positive ? theme.colors.primary : theme.colors.error;
   return (
     <Text style={[styles.deltaText, {color}]}>
       {(positive ? '+' : '') + delta.toFixed(0)}
@@ -42,30 +42,31 @@ const WeeklySummaryCard = ({currentTrainings, previousTrainings, currentWorkouts
 
   const currentMinutes = currentTrainings.reduce((acc, t) => acc + (getCompletedTrainingDurationMinutes(t) ?? 0), 0);
   const previousMinutes = previousTrainings.reduce((acc, t) => acc + (getCompletedTrainingDurationMinutes(t) ?? 0), 0);
-  const timeDelta = previousMinutes > 0 ? currentMinutes - previousMinutes : undefined;
+  const timeDelta = previousMinutes > 0 ? Math.round(currentMinutes - previousMinutes) : undefined;
 
-  const hours = Math.floor(currentMinutes / 60);
-  const mins = currentMinutes % 60;
+  const roundedMinutes = Math.round(currentMinutes);
+  const hours = Math.floor(roundedMinutes / 60);
+  const mins = roundedMinutes % 60;
   const timeString = hours > 0 ? `${hours}h ${mins}min` : `${mins}min`;
 
   return (
     <Card style={styles.card} testID="weekly-summary-card">
-      <Card.Title title="Deine Woche auf einen Blick" />
+      <Card.Title title="Your Week at a Glance" />
       <Card.Content>
         <View style={styles.row}>
           <View style={styles.kpi}>
             <Text style={styles.kpiValue}>{currentCount}</Text>
-            <Text style={styles.kpiLabel}>Trainings</Text>
+            <Text style={styles.kpiLabel}>Workouts</Text>
             <DeltaView delta={trainingDelta} />
           </View>
           <View style={styles.kpi}>
             <Text style={styles.kpiValue}>{(currentVolume / 1000).toFixed(1)}t</Text>
-            <Text style={styles.kpiLabel}>Volumen</Text>
+            <Text style={styles.kpiLabel}>Volume</Text>
             <DeltaView delta={volumeDelta ? volumeDelta / 1000 : undefined} suffix="t" />
           </View>
           <View style={styles.kpi}>
             <Text style={styles.kpiValue}>{timeString}</Text>
-            <Text style={styles.kpiLabel}>Zeit</Text>
+            <Text style={styles.kpiLabel}>Time</Text>
             <DeltaView delta={timeDelta} suffix="min" />
           </View>
         </View>

@@ -23,14 +23,14 @@ const TopExercisesCard = ({exerciseMetricMap, onExercisePress}: TopExercisesCard
 
   return (
     <Card style={styles.card} testID="top-exercises-card">
-      <Card.Title title="Top Übungen der Woche" />
+      <Card.Title title="Top Exercises This Week" />
       <Card.Content>
         {topExercises.map(({exercise, metrics}) => {
           const volume = metrics.get(Metric.VOLUME);
           const oneRm = metrics.get(Metric.ONE_RM);
           const volumeDelta = volume?.difference;
           const positive = (volumeDelta ?? 0) >= 0;
-          const deltaColor = volumeDelta === undefined ? undefined : volumeDelta === 0 ? theme.colors.onSurface : positive ? '#558b2f' : theme.colors.error;
+          const deltaColor = volumeDelta === undefined ? undefined : volumeDelta === 0 ? theme.colors.onSurface : positive ? theme.colors.primary : theme.colors.error;
 
           return (
             <TouchableOpacity key={exercise.id} onPress={() => onExercisePress(exercise)} style={styles.exerciseRow} testID={`top-exercise-${exercise.id}`}>
