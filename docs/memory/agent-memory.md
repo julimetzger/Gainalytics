@@ -490,3 +490,13 @@ The `testPathIgnorePatterns: ['/.worktrees/']` in `jest.config.cjs` blocks all t
 **Observation:** Pattern `useMemo(() => arr.filter(...), [arr.length])` stays cached when Redux mutates existing entities without adding/removing them (FINISH_TRAINING changes `state`, set-value edits change workout data). Same bug with `useEffect` deps like `workoutCount = Object.keys(workoutsById).length`.
 **Working solution:** Extract `createSelector(state => state.slice.byId, state => state.slice.allIds, (byId, allIds) => ...)` — Redux reducers always produce new `byId` references on any mutation. Use the selector's stable output as the `useEffect` dep directly. No `eslint-disable exhaustive-deps` needed.
 **Apply when:** Any `useMemo` or `useEffect` that derives data from Redux normalized state. Check for `.length` in dep arrays as a smell.
+
+### 83. `accessible={true}` on a ScrollView collapses all descendants — UIAutomator can't see children
+**Problem/Symptoms:** `TrainingsOverview`'s outer `<ScrollView accessible accessibilityLabel="trainings-overview">` makes all its children invisible to UIAutomator and Maestro. `assertVisible: "Duration"` fails even when "Duration" is clearly on screen. `uiautomator dump` shows the parent node but no children.
+**Working solution:** For Maestro assertions on screens where the outer container has `accessible={true}`, assert on elements OUTSIDE the accessible container (e.g., header text, mode label) or use the `accessibilityLabel`/`testID` of the outer node itself. For content-area assertions, use `adb screencap` + screenshot evidence instead.
+**Apply when:** Writing Maestro flows for any screen where the root container has `accessible={true}` (common in TrainingsOverview, TrainingHistory).
+
+### 84. Maestro `takeScreenshot` saves to CWD when HOME is unset or points to non-existent dir
+**Problem/Symptoms:** With `HOME="${MAESTRO_RUN_HOME}"` pointing to a directory that doesn't yet contain `.maestro/tests/`, Maestro's `takeScreenshot` saves PNG files to the working directory (repo root) instead of the expected HOME path. Files appear unexpectedly at the root of the git worktree.
+**Working solution:** After the Maestro run, check the worktree root for loose `.png` files, resize them with ffmpeg, and move them to `run_dir/screenshots/`. Add them to `.gitignore` or handle in the cleanup step to avoid accidental commits.
+**Apply when:** Any Maestro flow using `takeScreenshot` when `HOME` is overridden to a fresh directory.
