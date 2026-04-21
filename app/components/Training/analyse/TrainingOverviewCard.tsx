@@ -10,9 +10,6 @@ import {Workout} from '../../../models/entities/Workout';
 import {Record} from '../../../models/entities/Exercise';
 import {Metric} from '../../../models/Metric';
 import {getLocalMicro, getPreviousMicroInMeso} from '../../../redux/Training/trainingsPlanReducer';
-import VelocityLossInsightCard from '../VelocityLossInsightCard';
-import {useVelocityLossInsights} from '../useVelocityLossInsights';
-
 export const countRecordExercisesInMicro = (workouts: Workout[]) => {
   const recordExerciseIds = new Set<number>();
   workouts.forEach((workout) => {
@@ -34,7 +31,6 @@ const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCar
   }
 
   const theme = useTheme();
-  const vlInsights = useVelocityLossInsights(trainingsPlan, currentMicro);
   const localCurrentMicro = getLocalMicro(trainingsPlan.mesos, currentMicro);
   const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, currentMicro);
   const trainings = useAllTrainingsInMicro(trainingsPlan.id!!, currentMicro);
@@ -146,22 +142,6 @@ const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCar
           </Text>
           {lastCompletedTraining && <Text style={styles.lastTrainingText}>Last: {formatDate(new Date(lastCompletedTraining.end!))}</Text>}
         </View>
-        {vlInsights.length > 0 && (
-          <View style={{marginTop: 4}}>
-            {vlInsights.map((insight) => (
-              <VelocityLossInsightCard
-                key={insight.exerciseId}
-                exerciseName={insight.exerciseName}
-                heaviestWeightKg={insight.heaviestWeightKg}
-                currentVlPercent={insight.currentVlPercent}
-                vlRirEstimate={insight.vlRirEstimate}
-                reportedRir={insight.reportedRir}
-                microHistory={insight.microHistory}
-                currentMicro={currentMicro}
-              />
-            ))}
-          </View>
-        )}
       </View>
     </View>
   );

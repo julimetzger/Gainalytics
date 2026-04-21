@@ -16,6 +16,12 @@
 
 ## Exercises
 
+- [ready] [GH-163](https://github.com/julimetzger/Gainalytics/issues/163) Muscle-Involvement Picker — Quick % Chips (Variante C) + Migration
+  - Design (bindend): `docs/tickets/GH-163/design-variante-c.png`
+  - Ersetzt DropDown+TextInput-UX durch Chip-Row `25 / 50 / 75 / 100` pro Muscle, Search-Filter, Summary-Footer, Farbbalken-Indikator
+  - Tap auf aktiven Chip = Deselect (einzige Möglichkeit, Muscle zu entfernen)
+  - Redux-persist Migration `9`: Percent-Werte auf nächstkleineren Stufen-Wert runden; `< 25` entfernt Muscle aus `muscles[]`
+
 ## Settings
 
 ## General

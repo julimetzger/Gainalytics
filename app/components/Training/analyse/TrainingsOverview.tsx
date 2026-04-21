@@ -8,13 +8,19 @@ import MetricView from '../../analyse/MetricComparison';
 import {Training} from '../../../models/entities/Training';
 import {Workout} from '../../../models/entities/Workout';
 import {Metric} from "../../../models/Metric";
+import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
+import VelocityLossInsightCard from '../VelocityLossInsightCard';
+import {useVelocityLossInsights} from '../useVelocityLossInsights';
 
 interface TrainingsOverviewProps {
   training: Training;
   previousTraining?: Training;
+  trainingsPlan: TrainingsPlan;
+  currentMicro: number;
 }
 
-const TrainingsOverview = ({training, previousTraining}: TrainingsOverviewProps) => {
+const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMicro}: TrainingsOverviewProps) => {
+  const vlInsights = useVelocityLossInsights(trainingsPlan, currentMicro);
   let trainingsWorkouts = useWorkoutsByIds(Object.values(training.doneWorkoutIds));
   let previousWorkouts = useWorkoutsByIds(previousTraining ? Object.values(previousTraining.doneWorkoutIds) : []);
 
@@ -69,6 +75,22 @@ const TrainingsOverview = ({training, previousTraining}: TrainingsOverviewProps)
             </Card>
           </View>
         </View>
+        {vlInsights.length > 0 && (
+          <View style={{marginTop: 4}}>
+            {vlInsights.map((insight) => (
+              <VelocityLossInsightCard
+                key={insight.exerciseId}
+                exerciseName={insight.exerciseName}
+                heaviestWeightKg={insight.heaviestWeightKg}
+                currentVlPercent={insight.currentVlPercent}
+                vlRirEstimate={insight.vlRirEstimate}
+                reportedRir={insight.reportedRir}
+                microHistory={insight.microHistory}
+                currentMicro={currentMicro}
+              />
+            ))}
+          </View>
+        )}
         <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
       </View>
     </ScrollView>

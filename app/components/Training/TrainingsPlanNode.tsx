@@ -282,7 +282,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
               {training?.state === TrainingsState.FINISHED && isEditing && chosenExercise && (
                 <EditTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} />
               )}
-              {training?.state === TrainingsState.FINISHED && overview && <TrainingsOverview training={training} previousTraining={lastTraining} />}
+              {training?.state === TrainingsState.FINISHED && overview && <TrainingsOverview training={training} previousTraining={lastTraining} trainingsPlan={trainingsPlan} currentMicro={micro} />}
               {training?.state === TrainingsState.FINISHED && !overview && <TrainingHistory training={training} />}
             </View>
           )}
