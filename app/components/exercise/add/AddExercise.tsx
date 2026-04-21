@@ -1,5 +1,5 @@
 import {Button, Checkbox, Dialog, IconButton, Portal, Text, TextInput, useTheme} from 'react-native-paper';
-import {StyleSheet, View} from 'react-native';
+import {ScrollView, StyleSheet, View} from 'react-native';
 import React, {useState} from 'react';
 import {useDispatchAddExercise} from '../../../redux/Exercises/dispatch/dispatchAddExercise';
 import {dispatchEditExercise} from '../../../redux/Exercises/dispatch/dispatchEditExercise';
@@ -41,11 +41,6 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
     setError(undefined);
   };
   const confirmDialog = () => {
-    let undefinedMuscles = muscles.find((muscle) => muscle.percent === undefined || muscle.muscle === undefined);
-    if (undefinedMuscles) {
-      setError('Please fill in all the muscles and percentages or remove the muscle.');
-      return;
-    }
     if (newExerciseName === '') {
       setError('Please fill in the name of the exercise');
       return;
@@ -70,19 +65,9 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
             {deleteOverlay ? (
               <Text>This action will delete the exercise and all workouts saved for the exercise. Are you sure you want to delete this exercise?</Text>
             ) : (
-              <View>
+              <ScrollView>
                 <TextInput value={newExerciseName} label={'Name of the Exercise'} onChangeText={(text) => setNewExerciseName(text)} />
-                {muscles.map((muscleFromMap: MusclePercentPair) => {
-                  return (
-                    <MusclePicker
-                      muscleValue={muscleFromMap}
-                      key={muscleFromMap.muscle}
-                      setMuscles={(muscle) => setMuscles([...muscles.filter((value) => value != muscleFromMap), muscle])}
-                      onDelete={(value) => setMuscles([...muscles.filter((m) => m !== value)])}
-                    />
-                  );
-                })}
-                <Button onPress={() => setMuscles([...muscles, {muscle: undefined, percent: undefined}])}>Add Muscle Group</Button>
+                <MusclePicker muscles={muscles} onChange={setMuscles} />
                 <ExerciseAlternativesField exerciseId={exerciseId} alternativeIds={alternativeIds} onChange={setAlternativeIds} />
                 <View style={styles.focusRow}>
                   <Checkbox
@@ -92,7 +77,7 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
                   />
                   <Text onPress={() => setIsFocus(!isFocus)}>Focus Exercise</Text>
                 </View>
-              </View>
+              </ScrollView>
             )}
           </Dialog.Content>
           <Text style={[styles.errorText, {color: theme.colors.error}]}>{error}</Text>

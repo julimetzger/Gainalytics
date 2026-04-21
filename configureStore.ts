@@ -95,6 +95,33 @@ const migrations = {
       contextRange: null,
     },
   }),
+  9: (state) => {
+    const exercisesById = state.exercises?.byId ?? {};
+    const migratedById: Record<string, any> = {};
+    Object.keys(exercisesById).forEach((id) => {
+      const exercise = exercisesById[id];
+      const muscles: Array<{muscle?: string; percent?: number}> = exercise.muscles ?? [];
+      const migratedMuscles = muscles
+        .filter((m) => m.percent != null && m.percent >= 25)
+        .map((m) => {
+          const p = m.percent as number;
+          let snapped: number;
+          if (p >= 100) snapped = 100;
+          else if (p >= 75) snapped = 75;
+          else if (p >= 50) snapped = 50;
+          else snapped = 25;
+          return {...m, percent: snapped};
+        });
+      migratedById[id] = {...exercise, muscles: migratedMuscles};
+    });
+    return {
+      ...state,
+      exercises: {
+        ...(state.exercises ?? {byId: {}, allIds: []}),
+        byId: migratedById,
+      },
+    };
+  },
 };
 
 const storage = new MMKV();
@@ -118,7 +145,7 @@ const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseI
 
 const persistConfig = {
   key: 'root',
-  version: 8,
+  version: 9,
   storage: reduxStorage,
   whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'settings', 'aiChat'],
   stateReconciler: hardSet,
