@@ -531,3 +531,23 @@ The `testPathIgnorePatterns: ['/.worktrees/']` in `jest.config.cjs` blocks all t
 ### 89. UI-only fields on Redux-managed models must be stripped before API calls
 **Observation:** Adding UI-only fields (e.g. `hadContext?: boolean`) to shared interfaces like `ChatMessage` risks leaking them into API request bodies if the serialization isn't explicit. Always strip UI-only fields in the API client layer (e.g. `messages.map(({role, content}) => ({role, content}))`), not in the call site. This keeps the API client safe regardless of what callers add to the messages array.
 **Apply when:** Any shared data model that is both stored in Redux and serialized to an external API. UI annotations belong on the model but must never reach the wire.
+
+### 86. KAV `behavior='padding'` overrides `paddingBottom` on its own `style` prop to 0 when no keyboard
+**Observation:** `KeyboardAvoidingView` with `behavior='padding'` internally uses `StyleSheet.compose(userStyle, {paddingBottom: computedOffset})`. When no keyboard is present, `computedOffset=0`, so `compose` overrides whatever `paddingBottom` you set in the style prop. The spacer approach is the only reliable way.
+**Working solution:** Remove `paddingBottom: insets.bottom` from the KAV's `style` prop. Instead, add `<View style={{height: insets.bottom}} />` as the LAST child inside KAV (after the inputRow). The spacer view is unaffected by KAV's internal padding logic and preserves safe-area gap in both keyboard/no-keyboard states.
+**Apply when:** Any screen with a fixed bottom input inside KAV that needs a safe-area gap.
+
+### 87. `useHeaderHeight()` from `@react-navigation/elements` is required as `keyboardVerticalOffset` inside a DrawerNavigator screen
+**Observation:** When a `KeyboardAvoidingView` is inside a screen managed by a DrawerNavigator (which adds a header), the KAV must be told about the header's height via `keyboardVerticalOffset`. Without this, KAV adds `paddingBottom = keyboard_height - 0 = keyboard_height`, which is correct but only for the visual keyboard area — it doesn't account for the header that the KAV's coordinate calculations are relative to. On emulator the header is ~116dp.
+**Working solution:** `import {useHeaderHeight} from '@react-navigation/elements';` then `const headerHeight = useHeaderHeight();` then `<KeyboardAvoidingView keyboardVerticalOffset={headerHeight}>`.
+**Apply when:** Any KAV inside a stack/drawer screen that has a navigation header. Check `useHeaderHeight()` instead of hardcoded constants.
+
+### 88. `inputRow` collapses to ~45px in constrained layout when react-native-paper TextInput (mode='outlined') is its only child
+**Observation:** With `MaterialBottomTabNavigator (shifting=true)`, the scene expands to full screen height (2400px) and the tab bar floats at position:absolute. The KAV has no `paddingBottom` (after removing it per #86), so the total content area is 2400px. Inside KAV, `chat-message-list` has `flex:1` which takes all available space. The `inputRow` gets the remainder. react-native-paper `TextInput (mode='outlined')` doesn't reliably report its intrinsic height to Yoga in constrained scenarios, so Yoga collapses the row to ~45px (just padding + border).
+**Working solution:** Add `minHeight: 73` to `inputRow` style. 73dp = the known correct height of the input row when measured in keyboard-open state (where Yoga lays it out correctly because the scene height is keyboard-constrained). Never add `flex:1` to the TextInput child inside the inputRow.
+**Apply when:** Any screen with a bottom input row inside a scene managed by MaterialBottomTabNavigator where the input appears collapsed or height=45px.
+
+### 89. ADB reverse is silently lost after app force-stop or Metro restart — always verify before loading bundle
+**Observation:** `adb -s <device> reverse tcp:8081 tcp:$PORT` establishes a tunnel that persists until the adb server disconnects or the reverse is cleared. Force-stopping the app does NOT clear the reverse, but if the adb daemon is restarted (e.g. by Maestro, Android Studio, or USB reconnect), the reverse is gone. The app then loads its embedded bundle silently.
+**Working solution:** Before any layout verification session, run `adb -s <device> reverse --list` and confirm the expected port mapping exists. If missing, re-establish with `adb -s <device> reverse tcp:8081 tcp:$HOST_PORT`. Then force-stop + relaunch the app.
+**Apply when:** Code changes aren't reflected on device (same behavior as before commit). This is the first thing to check before deeper debugging.
