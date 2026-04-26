@@ -631,3 +631,10 @@ if (correctedPlaybackDurationMs > 0) {
 }
 ```
 **Apply when:** Any component where a "reset everything" effect is declared after an "initialize from derived data" effect, and both share deps that change together. The restore must happen in the later effect, not in a third effect, to preserve ordering guarantees.
+
+### 84. Drift correction that targets `playbackDurationRef` instead of `correctedPlaybackDurationMs` breaks animation at every progress event
+**Problem/Symptoms (GH-177 Round 2):** After the Round 1 fix (memory #83), the scrubber and marker still stopped advancing at every sync event (~50ms). Root cause: the drift correction in `onPlayerProgress` read `playbackDurationRef.current` (plain video duration from `onPlayerLoad`) as both the guard condition and the `withTiming` target. Two failure modes:
+1. `playbackDurationRef.current = 0` when ExoPlayer emits `STATE_READY` before the duration is known → `emitLoad()` with `durationMs=0` → JS `onPlayerLoad` skips the ref update → `if (totalDuration > 0)` fails → `cancelAnimation()` is called with NO restart → animation stops every 50ms.
+2. `playbackDurationRef.current < correctedPlaybackDurationMs` when `timeRange.maxTimeMs` is the binding constraint → drift correction restarts animation to the wrong (shorter) target. If `correctedPlaybackDurationMs` didn't change as a result, the effect at line 667 doesn't fire to fix it.
+**Working solution:** Introduce `correctedPlaybackDurationMsRef = useRef(0)` and keep it in sync alongside `videoDurationMsSV` in both the duration effect and the reset effect. The drift correction guards on and targets `correctedPlaybackDurationMsRef.current`, which always matches the value used by `onPlayPauseToggle`.
+**Apply when:** Any `useCallback`/event handler that reads a duration ref to restart a `withTiming` animation. If the animation was started with `correctedX`, the restart must also target `correctedX`, not the underlying raw value. A ref shadowing the corrected value avoids stale-closure or state-read issues inside the callback.
