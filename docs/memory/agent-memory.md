@@ -515,3 +515,16 @@ The `testPathIgnorePatterns: ['/.worktrees/']` in `jest.config.cjs` blocks all t
 **Problem/Symptoms:** `adb shell "run-as com.pkg sh -c 'printf \"%s\" \"...\\n...\" > /path/prefs.xml'"` writes literal `\n` (`5c 6e` in hex) instead of newline (`0a`). Android's XML parser rejects the malformed file and the app falls back to its default Metro URL (10.0.2.2:8081).
 **Working solution:** Use the Dev Menu "Change Bundle Location" → type `localhost:8081` → tap "APPLY CHANGES". Android's `SharedPreferences.edit().putString()` writes the file correctly with real newlines. The in-memory preference is updated immediately and the app reloads cleanly. On next cold start, the file is also read correctly.
 **Apply when:** Writing SharedPreferences via adb shell. Always use the Dev Menu approach for `debug_http_host` — never write the prefs XML file manually.
+
+### 87. `KeyboardAvoidingView` behavior="padding" works on Android; "height" can be unreliable
+**Observation:** `behavior="height"` on Android shrinks the KAV from the top, which can be unexpected and cause the input row to remain hidden. `behavior="padding"` adds bottom padding equal to the keyboard height, which reliably keeps the input visible. The `keyboardVerticalOffset` should equal the height of any fixed UI above the KAV (e.g. drawer navigator header ≈ 80dp).
+**Apply when:** Any chat or form screen with a fixed bottom input on Android. Default to `behavior="padding"` for both platforms unless you have a specific reason for "height".
+
+### 88. Redux useEffect for derived state can miss the first send — add inline fallback
+**Problem:** A `useEffect` that computes derived state (e.g. `seedContextJson` from training data) runs after the first render. If the user triggers an action before the effect fires, the derived state is still `null`. For chat screens this means the first message is sent without context.
+**Working solution:** In the action handler (`handleSend`), check if the derived value is `null` and recompute it inline synchronously as a fallback. Dispatch the result to Redux as a side-effect. This guarantees the action always has the correct data regardless of effect timing.
+**Apply when:** Any flow where a `useEffect` computes data that an action handler depends on, and the handler can be triggered before the effect fires.
+
+### 89. UI-only fields on Redux-managed models must be stripped before API calls
+**Observation:** Adding UI-only fields (e.g. `hadContext?: boolean`) to shared interfaces like `ChatMessage` risks leaking them into API request bodies if the serialization isn't explicit. Always strip UI-only fields in the API client layer (e.g. `messages.map(({role, content}) => ({role, content}))`), not in the call site. This keeps the API client safe regardless of what callers add to the messages array.
+**Apply when:** Any shared data model that is both stored in Redux and serialized to an external API. UI annotations belong on the model but must never reach the wire.

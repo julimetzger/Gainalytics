@@ -3,6 +3,7 @@ import {FlatList, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View} 
 import {ActivityIndicator, Chip, IconButton, Surface, Text, TextInput, useTheme} from 'react-native-paper';
 import Markdown from 'react-native-markdown-display';
 import {aiChatMarkdownStyles} from './aiChatMarkdownStyles';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useDispatch, useSelector} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
 import {
@@ -107,6 +108,7 @@ export function computeMesoRange(
 const AIChatTab = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
 
   const messages = useSelector((s: GlobalState) => s.aiChat.messages);
   const isLoading = useSelector((s: GlobalState) => s.aiChat.isLoading);
@@ -352,7 +354,7 @@ const AIChatTab = () => {
 
   if (!hasApiKey) {
     return (
-      <View style={[styles.centeredContainer, {backgroundColor: theme.colors.background}]}>
+      <View style={[styles.centeredContainer, {backgroundColor: theme.colors.background, paddingBottom: insets.bottom}]}>
         <Text variant="headlineSmall" style={{color: theme.colors.onSurface, marginBottom: 8}}>
           AI Chat
         </Text>
@@ -371,9 +373,9 @@ const AIChatTab = () => {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, {backgroundColor: theme.colors.background}]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-      keyboardVerticalOffset={80}
+      style={[styles.container, {backgroundColor: theme.colors.background, paddingBottom: insets.bottom}]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
     >
       {/* Header */}
       <View style={styles.headerRow}>
