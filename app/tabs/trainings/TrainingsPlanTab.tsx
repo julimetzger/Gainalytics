@@ -131,7 +131,6 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
       {showHistory ? (
         <TrainingHistoryCalendar
           currentPlan={trainingsPlan}
-          onBack={() => setShowHistory(false)}
           onNavigateToTraining={(targetPlan, targetMicro, targetTrainingInMicro) => {
             setShowHistory(false);
             if (targetPlan.id === trainingsPlan.id) {
