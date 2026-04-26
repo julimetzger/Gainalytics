@@ -53,6 +53,15 @@ jest.mock('../../../../app/redux/Training/dispatch/execute/dispatchFinishTrainin
 jest.mock('../../../../app/redux/Training/dispatch/general/dispatchDeleteTraining', () => ({
   dispatchDeleteTraining: () => jest.fn(),
 }));
+jest.mock('../../../../app/redux/Training/dispatch/general/dispatchReplaceExerciseInTraining', () => ({
+  dispatchReplaceExerciseInTraining: () => jest.fn(),
+}));
+jest.mock('../../../../app/redux/Training/trainingsPlanReducer', () => ({
+  getPreviousMicroInMeso: jest.fn(() => null),
+}));
+jest.mock('../../../../app/redux/Workout/use/useWorkoutById', () => ({
+  useWorkoutById: jest.fn(() => undefined),
+}));
 
 jest.mock('../../../../app/components/Training/execute/PauseDoneNotification', () => ({
   PauseDoneNotification: () => [jest.fn(), jest.fn()],
@@ -78,7 +87,11 @@ jest.mock('react-native-paper', () => {
     Dialog: DialogBase,
     Portal: ({children}: any) => <>{children}</>,
     Text: ({children}: any) => <Text>{children}</Text>,
-    useTheme: () => ({colors: {primary: '#000'}}),
+    Menu: Object.assign(
+      ({visible, children}: any) => (visible ? <>{children}</> : null),
+      {Item: ({title, onPress, testID}: any) => <TouchableOpacity testID={testID} onPress={onPress}><Text>{typeof title === 'string' ? title : null}</Text></TouchableOpacity>},
+    ),
+    useTheme: () => ({colors: {primary: '#000', onSurfaceVariant: '#888'}}),
   };
 });
 
@@ -125,8 +138,8 @@ const defaultProps = {
   micro: 0,
   showDone: false,
   showPlanned: false,
-  overview: false,
-  setOverview: jest.fn(),
+  overflowVisible: false,
+  onCloseOverflow: jest.fn(),
   setIgnoreSwipe: jest.fn(),
 };
 
@@ -157,7 +170,7 @@ describe('TRN-003 – FinishTrainingNotification guard', () => {
 
     render(
       <Provider store={mockStore as any}>
-        <TrainingsPlanNode {...defaultProps} overview={false} />
+        <TrainingsPlanNode {...defaultProps} />
       </Provider>,
     );
 
@@ -183,15 +196,15 @@ describe('TRN-003 – FinishTrainingNotification guard', () => {
   });
 
   it('cancel (resetFinishTraining) is called when finishing a training', async () => {
-    mockCurrentState = 'S'; // STARTED – so "Finish Training" button is rendered
+    mockCurrentState = 'S'; // STARTED – so "Finish Training" is in the overflow menu
 
     render(
       <Provider store={mockStore as any}>
-        <TrainingsPlanNode {...defaultProps} />
+        <TrainingsPlanNode {...defaultProps} overflowVisible={true} />
       </Provider>,
     );
 
-    const finishBtn = screen.getByText('Finish Training');
+    const finishBtn = screen.getByTestId('overflow-finish');
     await act(async () => {
       fireEvent.press(finishBtn);
     });

@@ -27,12 +27,12 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   const [trainingInMicro, setTrainingInMicro] = useState(route.params.training ?? 1);
   const training = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);
   const [rerender, setRerender] = useState(Math.random());
-  const [overview, setOverview] = useState(true);
   let [showPlanned, setShowPlanned] = useState(false);
   let [showDone, setShowDone] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [ignoreSwipeLocations, setIgnoreSwipeLocations] = useState<LayoutRectangle[]>([]);
   const [microViewMode, setMicroViewMode] = useState<ViewMode>('gesamt');
+  const [overflowVisible, setOverflowVisible] = useState(false);
 
   let changeTrainingsName = dispatchChangeTrainingsName();
   let addMeso = dispatchAddMeso();
@@ -68,11 +68,17 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         trainingName={showHistory ? 'History' : showDone ? 'Overview' : trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
         micro={showHistory ? undefined : micro}
         localMicro={showHistory ? undefined : localMicro}
-        mode={showHistory ? 'History' : showDone ? 'Overview' : training?.state}
+        trainingState={showHistory ? undefined : showDone ? undefined : training?.state}
+        trainingStart={training?.state === 'S' ? training?.start : undefined}
         drawerMenu={
           showHistory
             ? <IconButton testID="history-back-icon" icon="arrow-left" iconColor={theme.colors.onSecondaryContainer} onPress={() => setShowHistory(false)} />
             : <IconButton testID="drawer-menu-button" icon="menu" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOpen((prevOpen) => !prevOpen)} />
+        }
+        overflowButton={
+          !showHistory && !showDone && training !== undefined
+            ? <IconButton testID="header-overflow-icon" icon="dots-vertical" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOverflowVisible(true)} />
+            : null
         }
       />
     ),
@@ -156,8 +162,6 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
               trainingsPlan={trainingsPlan}
               micro={value}
               showPlanned={showPlanned}
-              overview={overview}
-              setOverview={setOverview}
               showDone={showDone}
               trainingInMicro={trainingInMicro}
               isActive={value === micro}
@@ -166,6 +170,8 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
               }}
               microViewMode={microViewMode}
               onMicroViewModeChange={setMicroViewMode}
+              overflowVisible={overflowVisible && value === micro}
+              onCloseOverflow={() => setOverflowVisible(false)}
             />
           )}
           determineValueByIndex={(index, currentMicro) => {
