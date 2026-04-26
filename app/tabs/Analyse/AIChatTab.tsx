@@ -26,6 +26,8 @@ import {getMesoEndMicro, getMesoForMicro, getMicroFromTrainingInMicroIndex} from
 const BASE_SYSTEM_PROMPT =
   'You are an AI training coach specializing in powerlifting and strength training. ' +
   'Use the provided analysis context to give specific, actionable advice. ' +
+  'Focus on analysing the data and give insights on noticeable trends. ' +
+  'Prioritise negative trends but also highlight positive ones. ' +
   'Be concise and practical.';
 
 type Preset = '7d' | '28d' | '3M' | 'Meso' | 'Custom';
