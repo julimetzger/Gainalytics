@@ -1,6 +1,8 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {FlatList, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View} from 'react-native';
 import {ActivityIndicator, Chip, IconButton, Surface, Text, TextInput, useTheme} from 'react-native-paper';
+import Markdown from 'react-native-markdown-display';
+import {aiChatMarkdownStyles} from './aiChatMarkdownStyles';
 import {useDispatch, useSelector} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
 import {
@@ -290,13 +292,22 @@ const AIChatTab = () => {
           ]}
           elevation={1}
         >
-          <Text
-            variant="bodyMedium"
-            style={{color: isUser ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}}
-            testID={isUser ? 'chat-bubble-user-text' : 'chat-bubble-assistant-text'}
-          >
-            {item.content}
-          </Text>
+          {isUser ? (
+            <Text
+              variant="bodyMedium"
+              style={{color: theme.colors.onPrimary}}
+              testID="chat-bubble-user-text"
+            >
+              {item.content}
+            </Text>
+          ) : (
+            <Markdown
+              style={aiChatMarkdownStyles(theme)}
+              testID="chat-bubble-assistant-markdown"
+            >
+              {item.content}
+            </Markdown>
+          )}
         </Surface>
       </View>
     );
