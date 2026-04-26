@@ -10,7 +10,7 @@ export const useHighlightWorkout = (workoutIds: number[], highlightMode?: Metric
     (state: GlobalState) => {
       let workouts = workoutIds.map((id) => state.workouts.byId[id]).filter((workout): workout is Workout => workout !== undefined);
       let highlighWorkoutIds: number[] = [];
-      if (highlightMode !== undefined) {
+      if (highlightMode !== undefined && highlightMode !== Metric.FREQUENCY) {
         let highlightValue = highlightMode
           ? calculateMetricValue(
               workouts.flatMap((workout: Workout) => workout.sets),
