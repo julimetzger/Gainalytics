@@ -614,3 +614,20 @@ The `stable*` wrappers have permanent identity, so they sit safely in deps array
 **Observation:** A `force-stop` + relaunch of `com.powerliftingworkoutplanner` does NOT re-fetch the bundle from Metro on this APK (the SYN to `10.0.2.2:8081` never connects, the app silently falls back to the bundle inside the APK). The Dev Menu → Change Bundle Location → `localhost:8081` flow is the proper way to switch sources but the APPLY CHANGES button doesn't always commit the SharedPreferences write reliably from `adb shell input tap` (the tap may land outside the button or the focus may be wrong).
 **Working solution:** When you patched a node_modules file and need to verify it on device, the reliable path is `cd android && ./gradlew assembleDebug` (~5 min) followed by `adb -s <serial> install -r <apk>`. Metro hot-reload is fine for app source changes (where the dev bundle URL works), but for node_modules patches the rebuild guarantees the patched code is what runs.
 **Apply when:** You patched a library and need device-level confirmation that the fix is live. Don't waste time fighting the Dev Menu; just rebuild.
+
+### 100. Later `useEffect` overwrites Reanimated SharedValues set by an earlier effect — restore at end of the later effect
+**Problem/Symptoms (GH-177):** `VideoAnalysisPlaybackOverlayCard` had two competing effects:
+1. Duration effect (~line 475): sets `videoDurationMsSV`, `chartVisibleMinSV`, `chartVisibleMaxSV` from `correctedPlaybackDurationMs` — declared first.
+2. Reset effect (~line 967): resets ALL SharedValues to 0 on `localVideoPath`/`result` change — declared later.
+React runs effects in declaration order. When both deps change simultaneously (initial mount), the reset effect fires AFTER the duration effect and zeros out the SharedValues the duration effect correctly set. Because the reset effect's dep array does not include `correctedPlaybackDurationMs`, the duration effect never re-runs to restore them. Result: `videoDurationMsSV.value` = 0 → scrubber guard returns `{width: '0%'}` always; `chartVisibleMaxSV.value` = 0 → `rangeSpan <= 0` guard returns `SPEED_CHART_LEFT_PADDING` always.
+**Working solution:** At the END of the later (reset) effect, after all the zeroing, re-initialize the SharedValues from the data source that was correct before the reset:
+```js
+if (correctedPlaybackDurationMs > 0) {
+  videoDurationMsSV.value = correctedPlaybackDurationMs;
+  chartVisibleMinSV.value = 0;
+  chartVisibleMaxSV.value = correctedPlaybackDurationMs;
+  chartVisibleMinRef.current = 0;
+  chartVisibleMaxRef.current = correctedPlaybackDurationMs;
+}
+```
+**Apply when:** Any component where a "reset everything" effect is declared after an "initialize from derived data" effect, and both share deps that change together. The restore must happen in the later effect, not in a third effect, to preserve ordering guarantees.
