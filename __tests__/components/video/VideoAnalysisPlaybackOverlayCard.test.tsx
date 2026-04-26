@@ -340,6 +340,48 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
   });
 });
 
+// GH-177: scrubber and velocity marker must be usable without waiting for onPlayerLoad.
+// React runs effects in declaration order, so the duration effect (which sets
+// videoDurationMsSV/chartVisibleMaxSV) fires BEFORE the reset effect (which clears them
+// back to 0). Without the fix, the guard conditions in scrubberFillStyle and
+// progressMarkerLeft permanently fail until onPlayerLoad changes correctedPlaybackDurationMs.
+describe('VideoAnalysisPlaybackOverlayCard – scrubber and marker usable before onPlayerLoad', () => {
+  const CHART_WIDTH = 240;
+  const LEFT_PADDING = 36;
+  // makeResult() barPathSeries max time = 2000ms → correctedPlaybackDurationMs = 2000
+  const BAR_PATH_DURATION_MS = 2000;
+
+  it('scrubber reflects seek position even when onPlayerLoad has not yet fired', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
+
+    setScrubberWidth(scrubber, 100);
+    // Seek to 1500ms using correctedPlaybackDurationMs (2000) without calling loadPlayer.
+    seekViaScrubbingTo(scrubber, 1500, BAR_PATH_DURATION_MS, 100);
+
+    expect(getScrubberState(getByTestId)).toEqual({
+      fillWidth: '75%',
+      thumbLeft: '75%',
+    });
+  });
+
+  it('velocity marker moves after seek even when onPlayerLoad has not yet fired', () => {
+    const {getByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
+
+    setScrubberWidth(scrubber, 100);
+    setSpeedChartWidth(getByTestId, CHART_WIDTH);
+    seekViaScrubbingTo(scrubber, 1000, BAR_PATH_DURATION_MS, 100);
+
+    // 1000ms / 2000ms = 50% through the visible range → marker x = 36 + 0.5 * 200 = 136
+    expect(getMarkerTranslateX(getByTestId)).toBe(LEFT_PADDING + (1000 / BAR_PATH_DURATION_MS) * (CHART_WIDTH - LEFT_PADDING - 4));
+  });
+});
+
 // Speed chart = 240px total: 36px Y-axis padding (left) + 200px drawable area + 4px right padding.
 // Bar-path time range: minTimeMs=1000, maxTimeMs=3000, durationMs=2000.
 // Video duration: 5000ms.

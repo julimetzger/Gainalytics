@@ -988,6 +988,18 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     videoScale.value = 1; // eslint-disable-line react-hooks/exhaustive-deps
     videoTranslateX.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
     videoTranslateY.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    // Re-initialize chart range from bar-path data. React runs effects in declaration
+    // order, so the duration effect (line ~475) fires before this reset effect and its
+    // SharedValue writes get overwritten. We restore the correct values here so the
+    // scrubber and velocity marker work before onPlayerLoad fires. When onPlayerLoad
+    // later sets a larger duration, the duration effect will update them again.
+    if (correctedPlaybackDurationMs > 0) { // eslint-disable-line react-hooks/exhaustive-deps
+      videoDurationMsSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMinSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMaxSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMinRef.current = 0;
+      chartVisibleMaxRef.current = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
+    }
   }, [localVideoPath, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx, result.barPathSeries, result.repSegments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
