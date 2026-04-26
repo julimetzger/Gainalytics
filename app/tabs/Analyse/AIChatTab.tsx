@@ -1,9 +1,10 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {FlatList, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View} from 'react-native';
+import {FlatList, KeyboardAvoidingView, ScrollView, StyleSheet, View} from 'react-native';
 import {ActivityIndicator, Chip, IconButton, Surface, Text, TextInput, useTheme} from 'react-native-paper';
 import Markdown from 'react-native-markdown-display';
 import {aiChatMarkdownStyles} from './aiChatMarkdownStyles';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useHeaderHeight} from '@react-navigation/elements';
 import {useDispatch, useSelector} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
 import {
@@ -109,6 +110,7 @@ const AIChatTab = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
 
   const messages = useSelector((s: GlobalState) => s.aiChat.messages);
   const isLoading = useSelector((s: GlobalState) => s.aiChat.isLoading);
@@ -373,9 +375,9 @@ const AIChatTab = () => {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, {backgroundColor: theme.colors.background, paddingBottom: insets.bottom}]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      style={[styles.container, {backgroundColor: theme.colors.background}]}
+      behavior="padding"
+      keyboardVerticalOffset={headerHeight}
     >
       {/* Header */}
       <View style={styles.headerRow}>
@@ -548,6 +550,7 @@ const AIChatTab = () => {
           }
         />
       </View>
+      <View style={{height: insets.bottom}} />
     </KeyboardAvoidingView>
   );
 };
@@ -655,9 +658,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderTopWidth: 1,
     flexShrink: 0,
+    minHeight: 73,
   },
   textInput: {
-    flex: 1,
     minHeight: 48,
   },
 });
