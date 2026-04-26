@@ -100,7 +100,7 @@ function trainingToSessions(
     const muscles = primaryMuscles(exercise);
 
     const sets: SetData[] = (workout.sets as WorkoutSet[]).map((s, idx) => {
-      const key = `${workoutId}_${idx}`;
+      const key = `${workoutId}_${s.index ?? idx}`;
       const vlPct = vlLookup.get(key);
       const setData: SetData = {
         reps: s.reps,
@@ -167,13 +167,14 @@ export function buildRawTrainingData(
 export function buildCoachPrompt(input: CoachInsightInput): {system: string; user: string} {
   const system =
     `You are an expert powerlifting coach reviewing an athlete's training log. ` +
-    `Analyse the chronological sessions below and give ONE concise, actionable insight. ` +
-    `Max 3 sentences. Be direct and specific. ` +
-    `Focus on the most important finding. Prioritise these signals if present:\n` +
+    `Analyse the chronological sessions below and give at most two findings. ` +
+    `Max 3 sentences. Be direct and specific. Prioritise the analysis of the data. ` +
+    `Focus on the most impactful findings. Prioritise these signals if present:\n` +
     `- VL% vs RIR discrepancy: high velocity loss but high RIR reported (possible under-reporting of effort or form breakdown)\n` +
     `- Muscle-group frequency imbalance: one primary muscle group trained significantly less often than others\n` +
     `- Volume stagnation: no load or volume progression across consecutive sessions for the same exercise\n` +
     `- Sets where vl_percent > 25: typically indicates excessive fatigue accumulation`;
+
 
   // Render sessions as structured text (not JSON — shorter token count)
   const sessionLines: string[] = [];

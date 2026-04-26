@@ -131,7 +131,9 @@ const TrainingElementPicker = ({
 
   return (
     <View style={style}>
-      {show && (
+      {/* Keep MultiselectDropdown always mounted to prevent crashing when react-native-modal
+          unmounts while its internal modal is still open. Use display:none to hide instead. */}
+      <View style={show ? null : {display: 'none'}}>
         <MultiselectDropdown
           label={dropdownLabel}
           enableSearch
@@ -147,7 +149,7 @@ const TrainingElementPicker = ({
           multiline={true}
           hideChip={hideChip}
         />
-      )}
+      </View>
       {!hideIconButton && (
         <IconButton
           style={{position: 'absolute', right: 0, zIndex: 2}}

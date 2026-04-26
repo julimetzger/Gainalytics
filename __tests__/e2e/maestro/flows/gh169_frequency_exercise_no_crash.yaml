@@ -1,0 +1,135 @@
+appId: com.powerliftingworkoutplanner
+---
+
+# GH-169: AnalyseGraphics must not crash when Frequency + Exercise (or Muscle) are selected.
+#
+# Root cause: useHighlightWorkout called calculateMetricValue(sets, Metric.FREQUENCY)
+# without workoutsCount. Fix: return 0 instead of throw; guard in useHighlightWorkout;
+# belt-and-suspenders in AnalyseGraphics.
+#
+# Strategy: one simple flow — navigate to Analyse, select Frequency + Bench Press,
+# dismiss picker, assert no crash (picker label still visible). Then add Back muscle.
+# Uses scrollUntilVisible after asserting 1RM is visible (picker open at top).
+
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+
+# Navigate to AnalyseGraphics
+- tapOn: 'tab-analyse'
+- runFlow:
+    when:
+      visible:
+        id: 'analyse-drawer-toggle'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - extendedWaitUntil:
+          visible: 'Analyse'
+          timeout: 10000
+      - tapOn: 'Analyse'
+- runFlow:
+    when:
+      visible: 'Alle Metriken'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - extendedWaitUntil:
+          visible: 'Analyse'
+          timeout: 10000
+      - tapOn: 'Analyse'
+- extendedWaitUntil:
+    visible: 'Select Exercises, Metrics, Accumulation Mode'
+    timeout: 20000
+- takeScreenshot: C:\tmp\gh169-screenshots\gh169-analyse-loaded
+
+# ─────────────────────────────────────────────────────────
+# Open picker: clear all previous selections first by tapping the X on any existing chips,
+# then select Frequency + Bench Press.
+# The picker opens already showing the full list starting from 1RM.
+# scrollUntilVisible within a modal — works when list starts at top.
+# ─────────────────────────────────────────────────────────
+- tapOn: 'Select Exercises, Metrics, Accumulation Mode'
+- extendedWaitUntil:
+    visible: '1RM'
+    timeout: 15000
+
+# Select Frequency (scroll DOWN from 1RM — F comes after 1RM alphabetically)
+- scrollUntilVisible:
+    element:
+      text: 'Frequency'
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 10
+- tapOn: 'Frequency'
+
+# Select Bench Press (scroll UP from Frequency — B comes before F)
+- scrollUntilVisible:
+    element:
+      text: 'Bench Press'
+    direction: UP
+    timeout: 15000
+    visibilityPercentage: 10
+- tapOn: 'Bench Press'
+
+# Select Day accumulation (scroll DOWN — D comes after B)
+- scrollUntilVisible:
+    element:
+      text: 'Day'
+    direction: DOWN
+    timeout: 15000
+    visibilityPercentage: 10
+- tapOn: 'Day'
+
+# Close picker via the collapse button (^ at top-right of picker header, ~72%,12%)
+- tapOn:
+    point: "72%,12%"
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Select Exercises, Metrics, Accumulation Mode'
+    timeout: 15000
+
+# KEY ASSERTION: app must not have crashed.
+- assertVisible: 'Select Exercises, Metrics, Accumulation Mode'
+- takeScreenshot: C:\tmp\gh169-screenshots\gh169-frequency-exercise-day-no-crash
+
+# ─────────────────────────────────────────────────────────
+# Part 2: Add Back muscle (tests Frequency + Muscle path, GH-119 regression guard)
+# ─────────────────────────────────────────────────────────
+- tapOn: 'Select Exercises, Metrics, Accumulation Mode'
+- extendedWaitUntil:
+    visible: '1RM'
+    timeout: 10000
+
+# Scroll UP to top, then DOWN to Back
+- scrollUntilVisible:
+    element:
+      text: 'Back'
+    direction: DOWN
+    timeout: 15000
+    visibilityPercentage: 10
+- tapOn: 'Back'
+
+- tapOn:
+    point: "72%,12%"
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Select Exercises, Metrics, Accumulation Mode'
+    timeout: 10000
+- assertVisible: 'Select Exercises, Metrics, Accumulation Mode'
+- takeScreenshot: C:\tmp\gh169-screenshots\gh169-frequency-muscle-no-crash

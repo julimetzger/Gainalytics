@@ -500,3 +500,13 @@ The `testPathIgnorePatterns: ['/.worktrees/']` in `jest.config.cjs` blocks all t
 **Problem/Symptoms:** With `HOME="${MAESTRO_RUN_HOME}"` pointing to a directory that doesn't yet contain `.maestro/tests/`, Maestro's `takeScreenshot` saves PNG files to the working directory (repo root) instead of the expected HOME path. Files appear unexpectedly at the root of the git worktree.
 **Working solution:** After the Maestro run, check the worktree root for loose `.png` files, resize them with ffmpeg, and move them to `run_dir/screenshots/`. Add them to `.gitignore` or handle in the cleanup step to avoid accidental commits.
 **Apply when:** Any Maestro flow using `takeScreenshot` when `HOME` is overridden to a fresh directory.
+
+### 85. socat TCP proxy corrupts HTTP chunked encoding — causes Hermes "Compiling JS failed" errors
+**Problem/Symptoms:** `socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:$METRO_PORT` forwards TCP correctly but corrupts HTTP chunked transfer encoding for large responses (14MB+ Metro bundles). OkHttp throws `Expected leading [0-9a-fA-F] character but was 0xd` in `MultipartStreamReader`. Hermes then reports "Compiling JS failed: NNNNN:XX: non-terminated string / ';' expected / ')' expected". Error position changes on each reload because Metro recompiles a fresh bundle.
+**Working solution:** Kill socat completely. Use `adb reverse tcp:8081 tcp:$HOST_METRO_PORT` + Dev Menu "Change Bundle Location" → `localhost:8081`. The adb reverse tunnel handles the connection without chunking corruption. Confirm with logcat: `isMetroRunning(): Async result = true` + no `Compiling JS failed` entries.
+**Apply when:** App shows "Compiling JS failed" errors with changing line numbers across reloads. This is socat chunking corruption, not a code syntax error.
+
+### 86. SharedPreferences file written with literal `\n` (backslash-n) instead of real newlines is not parseable
+**Problem/Symptoms:** `adb shell "run-as com.pkg sh -c 'printf \"%s\" \"...\\n...\" > /path/prefs.xml'"` writes literal `\n` (`5c 6e` in hex) instead of newline (`0a`). Android's XML parser rejects the malformed file and the app falls back to its default Metro URL (10.0.2.2:8081).
+**Working solution:** Use the Dev Menu "Change Bundle Location" → type `localhost:8081` → tap "APPLY CHANGES". Android's `SharedPreferences.edit().putString()` writes the file correctly with real newlines. The in-memory preference is updated immediately and the app reloads cleanly. On next cold start, the file is also read correctly.
+**Apply when:** Writing SharedPreferences via adb shell. Always use the Dev Menu approach for `debug_http_host` — never write the prefs XML file manually.

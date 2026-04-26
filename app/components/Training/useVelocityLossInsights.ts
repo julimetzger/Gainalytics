@@ -80,7 +80,7 @@ export function useVelocityLossInsights(trainingsPlan: TrainingsPlan, currentMic
         const workout = a.workoutId !== undefined ? workouts.byId[a.workoutId] : undefined;
         if (!workout) continue;
         const setWeight =
-          a.setIndex !== undefined ? (workout.sets[a.setIndex]?.weight ?? 0) : Math.max(...workout.sets.map((s) => s.weight ?? 0));
+          a.setIndex !== undefined ? (workout.sets.find(s => s.index === a.setIndex)?.weight ?? 0) : Math.max(...workout.sets.map((s) => s.weight ?? 0));
         if (setWeight > bestWeight) {
           bestWeight = setWeight;
           bestAnalysis = a;
@@ -93,10 +93,10 @@ export function useVelocityLossInsights(trainingsPlan: TrainingsPlan, currentMic
       // Use the actual analyzed set's weight (via setIndex)
       const analyzedSetWeight =
         bestAnalysis!.setIndex !== undefined
-          ? (workout.sets[bestAnalysis!.setIndex]?.weight ?? bestWeight)
+          ? (workout.sets.find(s => s.index === bestAnalysis!.setIndex)?.weight ?? bestWeight)
           : bestWeight;
       const analyzedSet =
-        bestAnalysis!.setIndex !== undefined ? workout.sets[bestAnalysis!.setIndex] : undefined;
+        bestAnalysis!.setIndex !== undefined ? workout.sets.find(s => s.index === bestAnalysis!.setIndex) : undefined;
       const reportedRir = analyzedSet?.rir ?? 0;
       const currentVlPercent = bestAnalysis!.setResult!.velocityLossPercent!;
 
@@ -113,7 +113,7 @@ export function useVelocityLossInsights(trainingsPlan: TrainingsPlan, currentMic
         // Use setIndex to get the analyzed set's weight (same logic as insight selection)
         const w =
           a.setIndex !== undefined
-            ? (aWorkout.sets[a.setIndex]?.weight ?? 0)
+            ? (aWorkout.sets.find(s => s.index === a.setIndex)?.weight ?? 0)
             : Math.max(...aWorkout.sets.map((s) => s.weight ?? 0));
         const prev = microHistoryMap.get(micro);
         if (prev === undefined || w > prev.weight) {

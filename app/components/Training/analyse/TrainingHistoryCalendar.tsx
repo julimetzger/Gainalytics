@@ -251,11 +251,9 @@ interface TrainingHistoryCalendarProps {
   /** The plan whose drawer opened this calendar */
   currentPlan: TrainingsPlan;
   onNavigateToTraining: (plan: TrainingsPlan, micro: number, trainingInMicro: number) => void;
-  /** Called when the user taps "Back to Plan" — clears the history view */
-  onBack?: () => void;
 }
 
-const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining, onBack}: TrainingHistoryCalendarProps) => {
+const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHistoryCalendarProps) => {
   const theme = useTheme();
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
   const [selectedTrainingIndex, setSelectedTrainingIndex] = useState(0);
@@ -438,18 +436,6 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining, onBack}: Tr
 
   return (
     <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={{flexGrow: 1}}>
-      {onBack && (
-        <Button
-          mode="text"
-          icon="arrow-left"
-          onPress={onBack}
-          style={styles.backButton}
-          contentStyle={{flexDirection: 'row-reverse'}}
-          testID="history-back-button"
-        >
-          Back to Plan
-        </Button>
-      )}
       <Calendar
         theme={calTheme}
         markedDates={markedDates}
@@ -546,10 +532,6 @@ const styles = StyleSheet.create({
     fontSize: 6,
     lineHeight: 8,
     fontWeight: '600',
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    marginTop: 4,
   },
   trainingPicker: {
     margin: 8,
