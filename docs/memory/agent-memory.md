@@ -496,6 +496,11 @@ The `testPathIgnorePatterns: ['/.worktrees/']` in `jest.config.cjs` blocks all t
 **Working solution:** For Maestro assertions on screens where the outer container has `accessible={true}`, assert on elements OUTSIDE the accessible container (e.g., header text, mode label) or use the `accessibilityLabel`/`testID` of the outer node itself. For content-area assertions, use `adb screencap` + screenshot evidence instead.
 **Apply when:** Writing Maestro flows for any screen where the root container has `accessible={true}` (common in TrainingsOverview, TrainingHistory).
 
+### 85. react-native-calendars custom dayComponent: use `alignSelf:'stretch'` for edge-to-edge backgrounds
+**Problem/Symptoms:** A custom `dayComponent` with `width: CELL_W` (e.g. 38px) gets centered inside the calendar's `flex:1, alignItems:'center'` column wrapper (~54px on typical devices). Absolute-positioned backgrounds within the fixed-width cell cannot span the inter-column gap, so period/range highlights appear as individual bars per day with visible gaps between adjacent cells.
+**Working solution:** Replace `width: CELL_W` on the outer day cell View with `alignSelf: 'stretch'`. The cell then fills the full column. Use `left: '50%'` / `right: '50%'` instead of pixel values for range-start/end positions so the half-fill is always at the exact column midpoint regardless of screen width. This is the same approach used by the library's built-in `period` day type (`alignSelf: 'stretch'` + `flex: 1` fillers with `left: 0, right: 0`).
+**Apply when:** Any custom `dayComponent` that needs a background to span across adjacent day columns (date ranges, week bands, period fills).
+
 ### 84. Maestro `takeScreenshot` saves to CWD when HOME is unset or points to non-existent dir
 **Problem/Symptoms:** With `HOME="${MAESTRO_RUN_HOME}"` pointing to a directory that doesn't yet contain `.maestro/tests/`, Maestro's `takeScreenshot` saves PNG files to the working directory (repo root) instead of the expected HOME path. Files appear unexpectedly at the root of the git worktree.
 **Working solution:** After the Maestro run, check the worktree root for loose `.png` files, resize them with ffmpeg, and move them to `run_dir/screenshots/`. Add them to `.gitignore` or handle in the cleanup step to avoid accidental commits.
