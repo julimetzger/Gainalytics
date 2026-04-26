@@ -27,6 +27,7 @@ Last updated: 2026-04-20 (GH-79)
 Last updated: 2026-04-20 (GH-162)
 Last updated: 2026-04-21 (GH-170)
 Last updated: 2026-04-26 (GH-176)
+Last updated: 2026-04-26 (GH-175)
 
 ## Per-Worker Breakdown
 
@@ -104,6 +105,7 @@ Last updated: 2026-04-26 (GH-176)
 | GH-162 | emu | 0 | 0 | 0 | 25 | 20 | 10 | 0 | 0 | 0 | ready_for_review (APK hardcoded to 10.0.2.2:8088 not 8081; adb reverse tcp:8088 tcp:8082 + bundle location localhost:8088 via Dev Menu required; bundle location field needed KEYCODE_DEL loop before input; FlatList flex:1 + flexShrink:0 on siblings fixed 0-height chip/picker rows; Node.js v24 jest-cli exit() crash is non-fatal; 27 unit tests passed; worktree jest testPathIgnorePatterns override needed) |
 | GH-170 | real | 7074 | 0 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | ready_for_review (APK build 10min; accessible={true} on TrainingsOverview ScrollView collapses all children — UIAutomator can't see Duration/Volume/Sets text; Maestro flow updated to use header elements only; takeScreenshot saved to CWD not HOME due to non-existent MAESTRO_RUN_HOME; 12 unit tests pass; Maestro 1/1 passed) |
 | GH-176 | emu | 0 | 0 | 0 | 20 | 25 | 0 | 15 | 0 | 0 | ready_for_review (pure JS removal — 20 lines deleted; socat TCP-LISTEN:8081→:8085 corrupts HTTP chunked encoding causing Hermes parse errors; killed socat, used Dev Menu localhost:8081 → adb reverse works cleanly; Gradle CMake .cxx dir stale file prevented assembleDebug (6min) — used cached existing APK + Metro instead; prefs file with literal \\n (not real newlines) breaks XML parsing — Android falls back to 10.0.2.2:8081; Dev Menu APPLY CHANGES saves prefs correctly; manual baseline import via Settings → Import Data → file picker; 490/494 tests pass (4 pre-existing exercise reducer failures)) |
+| GH-175 | real | 7076 | 0 | 0 | 1 | 0 | 0 | 0 | 10 | 0 | ready_for_review (pure logic fix; Gradle assembleDebug needed clean build ~7min; Maestro bootstrap+smoke passed; smoke.yaml failed when run with clearState (Metro prefs wiped) — passed when run against existing live app state; baseline data has no video analyses so VL-Loss-Card not visible — unit tests primary evidence; Jest /.worktrees/ ignore pattern overrode via --testPathIgnorePatterns) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
