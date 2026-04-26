@@ -1,18 +1,11 @@
 /**
  * Tests for GH-162-fix1: reference-based memoization in AIChatTab.
- *
- * Both tests verify a scenario that would have been INVISIBLE to the old
- * count-based memoization:
- *
- *  - Old allFinishedTrainings memo: `[trainingsAllIds.length]`
- *    → FINISH_TRAINING keeps allIds.length constant → stale array
- *  - Old reseed effect deps: `[..., workoutCount, exerciseCount]`
- *    → set-value edit keeps counts constant → stale seedContextJson
- *
- * The new code uses createSelector (reference equality on byId/allIds) and
- * object references in the effect deps, so both mutations fire correctly.
+ * Tests for GH-186: Markdown rendering in assistant bubbles.
  */
 
+import React from 'react';
+import {render} from '@testing-library/react-native';
+import {useSelector} from 'react-redux';
 import {selectAllFinishedTrainings} from '../../../app/redux/AIChat/selectors';
 import trainingsReducer from '../../../app/redux/Training/trainingsReducer';
 import {serializeTrainingsForChat} from '../../../app/utils/ai/serializeTrainingsForChat';
@@ -178,5 +171,143 @@ describe('computeMesoRange meso boundary fix (GH-162-fix2)', () => {
     // Range must cover only meso-2 trainings (T103 start → T104 end)
     expect(result!.start.toISOString()).toBe('2026-02-01T10:00:00.000Z');
     expect(result!.end.toISOString()).toBe('2026-02-08T11:00:00.000Z');
+  });
+});
+
+// ─── GH-186: Markdown rendering in assistant bubbles ──────────────────────────
+
+jest.mock('react-native-paper', () => {
+  const React = require('react');
+  const {View, Text} = require('react-native');
+  const mockTheme = {
+    colors: {
+      primary: '#6200EE',
+      onPrimary: '#FFFFFF',
+      surfaceVariant: '#E7E0EC',
+      onSurfaceVariant: '#49454F',
+      surface: '#FFFBFE',
+      background: '#FFFBFE',
+      onSurface: '#1C1B1F',
+      errorContainer: '#F9DEDC',
+      onErrorContainer: '#410E0B',
+      outlineVariant: '#CAC4D0',
+    },
+  };
+  return {
+    useTheme: () => mockTheme,
+    Text: ({children, testID, ...props}: any) => React.createElement(Text, {testID, ...props}, children),
+    Surface: ({children, ...props}: any) => React.createElement(View, props, children),
+    ActivityIndicator: () => null,
+    Chip: ({children, onPress, testID}: any) => React.createElement(Text, {onPress, testID}, children),
+    IconButton: () => null,
+    TextInput: Object.assign(
+      ({testID, ...props}: any) => React.createElement(View, {testID}),
+      {Icon: () => null},
+    ),
+  };
+});
+
+jest.mock('react-native-markdown-display', () => {
+  const React = require('react');
+  const {Text} = require('react-native');
+  const MockMarkdown = ({children, testID}: {children: string; testID?: string}) =>
+    React.createElement(Text, {testID: testID ?? 'markdown-component'}, children);
+  MockMarkdown.displayName = 'Markdown';
+  return {__esModule: true, default: MockMarkdown};
+});
+
+jest.mock('../../../app/utils/secureStorage', () => ({
+  secureStorage: {
+    hasAnthropicApiKey: () => true,
+    getAnthropicApiKey: () => 'test-key',
+  },
+  subscribeToApiKeyChanges: () => () => {},
+}));
+
+jest.mock('../../../app/components/picker/date/DateRangePicker', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  class Range {
+    startDate: Date;
+    endDate: Date;
+    constructor(startDate: Date, endDate: Date) {
+      this.startDate = startDate;
+      this.endDate = endDate;
+    }
+  }
+  return {__esModule: true, default: () => React.createElement(View), Range};
+});
+
+
+describe('AIChatTab Markdown rendering (GH-186)', () => {
+  const mockUseSelector = useSelector as jest.Mock;
+
+  beforeEach(() => {
+    mockUseSelector.mockImplementation((selector: (state: any) => any) => {
+      const state = {
+        aiChat: {messages: [], isLoading: false, error: null, seedContextJson: null, contextRange: null},
+        trainings: {byId: {}, allIds: []},
+        workouts: {byId: {}},
+        exercises: {byId: {}},
+        videoAnalyses: {byId: {}},
+        trainingsPlan: {byId: {}, allIds: []},
+      };
+      return selector(state);
+    });
+  });
+
+  it('assistant bubble renders Markdown component, not plain Text', () => {
+    mockUseSelector.mockImplementation((selector: (state: any) => any) => {
+      const state = {
+        aiChat: {
+          messages: [{role: 'assistant', content: '# Hello\n- **item**'}],
+          isLoading: false,
+          error: null,
+          seedContextJson: null,
+          contextRange: null,
+        },
+        trainings: {byId: {}, allIds: []},
+        workouts: {byId: {}},
+        exercises: {byId: {}},
+        videoAnalyses: {byId: {}},
+        trainingsPlan: {byId: {}, allIds: []},
+      };
+      return selector(state);
+    });
+
+    const AIChatTab = require('../../../app/tabs/Analyse/AIChatTab').default;
+    const {queryByTestId} = render(React.createElement(AIChatTab));
+
+    expect(queryByTestId('chat-bubble-assistant')).not.toBeNull();
+    expect(queryByTestId('chat-bubble-assistant-markdown')).not.toBeNull();
+    // User text node must NOT appear in an assistant bubble
+    expect(queryByTestId('chat-bubble-user-text')).toBeNull();
+  });
+
+  it('user bubble renders plain Text, not Markdown', () => {
+    mockUseSelector.mockImplementation((selector: (state: any) => any) => {
+      const state = {
+        aiChat: {
+          messages: [{role: 'user', content: 'Hello AI'}],
+          isLoading: false,
+          error: null,
+          seedContextJson: null,
+          contextRange: null,
+        },
+        trainings: {byId: {}, allIds: []},
+        workouts: {byId: {}},
+        exercises: {byId: {}},
+        videoAnalyses: {byId: {}},
+        trainingsPlan: {byId: {}, allIds: []},
+      };
+      return selector(state);
+    });
+
+    const AIChatTab = require('../../../app/tabs/Analyse/AIChatTab').default;
+    const {queryByTestId} = render(React.createElement(AIChatTab));
+
+    expect(queryByTestId('chat-bubble-user')).not.toBeNull();
+    expect(queryByTestId('chat-bubble-user-text')).not.toBeNull();
+    expect(queryByTestId('chat-bubble-assistant-markdown')).toBeNull();
   });
 });
