@@ -639,13 +639,14 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       }
       updateCurrentRepForPlaybackTime(nativeEvent.currentTimeMs);
 
-      // Correct marker drift: if the animated value is more than 80ms ahead of
-      // the real player position, restart the animation from the actual position.
-      // Skip correction during seek cooldown so the player can catch up.
+      // Correct marker drift: if the animated value is more than 80ms away from
+      // the real player position (in either direction), restart the animation
+      // from the actual position. Skip correction during seek cooldown.
       if (!playbackPausedRef.current && !isScrubbingRef.current && Date.now() > seekCooldownUntilRef.current) {
         const animatedMs = playbackTimeMsSV.value;
         const drift = animatedMs - nativeEvent.currentTimeMs;
-        if (drift > 80) {
+        console.log(`[GH177_DRIFT] animated=${animatedMs.toFixed(0)} native=${nativeEvent.currentTimeMs.toFixed(0)} drift=${drift.toFixed(0)} paused=${playbackPausedRef.current} duration=${correctedPlaybackDurationMsRef.current}`);
+        if (Math.abs(drift) > 80) {
           const totalDuration = correctedPlaybackDurationMsRef.current;
           if (totalDuration > 0) {
             cancelAnimation(playbackTimeMsSV);
@@ -666,20 +667,26 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
 
   // When playback speed changes, update the ref and restart the marker animation
   // so the scrubber/velocity marker advance at the correct rate for the new speed.
+  // We intentionally read correctedPlaybackDurationMsRef (ref, not state) so this
+  // effect only fires on user speed changes — not on every player duration update.
+  // Duration-update re-syncs are handled by the symmetric drift correction instead.
   useEffect(() => {
     playbackSpeedRef.current = playbackSpeed; // eslint-disable-line react-hooks/exhaustive-deps
-    if (!playbackPausedRef.current && correctedPlaybackDurationMs > 0) {
-      const currentMs = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
-      const remainingMs = Math.max(0, correctedPlaybackDurationMs - currentMs);
-      if (remainingMs > 0) {
-        cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
-        playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
-          duration: remainingMs / playbackSpeed,
-          easing: Easing.linear,
-        });
+    if (!playbackPausedRef.current) {
+      const totalDuration = correctedPlaybackDurationMsRef.current; // eslint-disable-line react-hooks/exhaustive-deps
+      if (totalDuration > 0) {
+        const currentMs = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
+        const remainingMs = Math.max(0, totalDuration - currentMs);
+        if (remainingMs > 0) {
+          cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
+          playbackTimeMsSV.value = withTiming(totalDuration, { // eslint-disable-line react-hooks/exhaustive-deps
+            duration: remainingMs / playbackSpeed,
+            easing: Easing.linear,
+          });
+        }
       }
     }
-  }, [playbackSpeed, correctedPlaybackDurationMs]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [playbackSpeed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onPlayerEnd = useCallback(() => {
     cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
