@@ -80,7 +80,7 @@ export function serializeTrainingsForChat(
       const name = exercise?.name ?? `Exercise ${exerciseId}`;
 
       const sets: SerializedSet[] = (workout.sets as WorkoutSet[]).map((s, idx) => {
-        const vlPct = vlLookup.get(`${workoutId}_${idx}`);
+        const vlPct = vlLookup.get(`${workoutId}_${s.index ?? idx}`);
         const set: SerializedSet = {reps: s.reps, weight_kg: s.weight, rir: s.rir};
         if (vlPct != null) set.vl_percent = vlPct;
         return set;
