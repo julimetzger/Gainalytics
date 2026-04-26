@@ -190,6 +190,9 @@ All flows that assert `"Import Emulator Squat Video"` or wait for the `"Open"` f
 ### Gradle build fails with Kotlin type-inference in gesture-handler when node_modules mismatch
 After upgrading `package.json` to RN 0.82+ without running `npm install`, the shared node_modules still reference older gesture-handler. The mismatch causes `Cannot infer a type for this parameter` errors in `FlingGestureHandler.kt`. Run `npm ci` in the worktree root (separate from main) before attempting `./gradlew assembleDebug`.
 
+### DrawerNavigator does not propagate bottom safe area inset to screen content
+`createDrawerNavigator` renders each screen in a `flex:1` View without adding `paddingBottom: insets.bottom`. If the drawer is nested inside a `createMaterialBottomTabNavigator`, the tab bar height IS set in `SafeAreaInsetsContext` (by the paper navigator), but the drawer doesn't forward it as padding. Any screen with a fixed-bottom element (e.g. a chat input row) must call `useSafeAreaInsets().bottom` itself and apply it as `paddingBottom` to its root container. Screens without fixed-bottom elements won't notice (empty space behind the tab bar is harmless).
+
 ### Evidence paths in `status.json` must be bare relative paths
 No inline annotations, no absolute paths, no "(updated in round 3)" suffixes. The validator checks that each path exists — annotations break it.
 
