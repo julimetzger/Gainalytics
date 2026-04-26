@@ -130,6 +130,41 @@ describe('serializeTrainingsForChat', () => {
     expect(ctx.sessions[0].exercises[0].sets[0].vl_percent).toBe(19); // Math.round(18.7)
   });
 
+  it('assigns vl_percent to correct set when set indices are 1-based (regression GH-175)', () => {
+    // Real sets have index starting at 1, not 0. Video linked to set index 1 must appear on
+    // the first set (array position 0), not on the second set (array position 1).
+    const t = makeTraining();
+    const workout = {
+      id: 100,
+      sets: [
+        {index: 1, reps: 5, weight: 100, rir: 2, date: new Date()},
+        {index: 2, reps: 5, weight: 90,  rir: 2, date: new Date()},
+      ],
+      exerciseId: 10,
+      trainingsId: 1,
+    } as unknown as any;
+    const workoutsById = {100: workout};
+    const exercisesById = {10: makeExercise(10, 'Squat')};
+    const videoAnalysesById: Record<number, VideoAnalysis> = {
+      200: {
+        id: 200,
+        workoutId: 100,
+        setIndex: 1,
+        status: VideoAnalysisStatus.DONE,
+        setResult: {velocityLossPercent: 20.0} as any,
+        sourceUri: '',
+        createdAt: new Date(),
+        videoMeta: {durationMs: 0, fps: 0, width: 0, height: 0},
+      },
+    };
+
+    const json = serializeTrainingsForChat([t], workoutsById, exercisesById, videoAnalysesById);
+    const ctx = JSON.parse(json!);
+    const sets = ctx.sessions[0].exercises[0].sets;
+    expect(sets[0].vl_percent).toBe(20);   // Set index 1 → array position 0
+    expect(sets[1].vl_percent).toBeUndefined(); // Set index 2 → no analysis
+  });
+
   it('does not hardcode 28-day filter — serialises all passed trainings', () => {
     const old = makeTraining({id: 1, end: new Date('2025-01-01'), doneWorkoutIds: {10: 100}});
     const recent = makeTraining({id: 2, end: new Date('2026-04-01'), doneWorkoutIds: {10: 101}});

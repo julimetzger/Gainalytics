@@ -100,7 +100,7 @@ function trainingToSessions(
     const muscles = primaryMuscles(exercise);
 
     const sets: SetData[] = (workout.sets as WorkoutSet[]).map((s, idx) => {
-      const key = `${workoutId}_${idx}`;
+      const key = `${workoutId}_${s.index ?? idx}`;
       const vlPct = vlLookup.get(key);
       const setData: SetData = {
         reps: s.reps,
