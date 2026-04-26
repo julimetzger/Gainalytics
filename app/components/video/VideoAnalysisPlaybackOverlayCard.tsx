@@ -1,6 +1,6 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, TouchableOpacity, View, processColor} from 'react-native';
-import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming} from 'react-native-reanimated';
+import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, useSharedValue, withSequence, withTiming} from 'react-native-reanimated';
 import {Gesture, GestureDetector, GestureHandlerRootView} from 'react-native-gesture-handler';
 import {IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
@@ -639,24 +639,28 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       }
       updateCurrentRepForPlaybackTime(nativeEvent.currentTimeMs);
 
-      // Correct marker drift: if the animated value is more than 80ms away from
-      // the real player position (in either direction), restart the animation
-      // from the actual position. Skip correction during seek cooldown.
+      // Correct marker drift: if the animated value is more than 250ms away from
+      // the real player position (in either direction), soft-sync to the native
+      // position over 80ms and then continue to the end. The 80ms glide avoids
+      // the visible hard-snap that occurs when overwriting a SharedValue directly.
+      // 250ms threshold is above the natural jitter floor (~33ms frame steps +
+      // decoder warmup) so only meaningful desyncs trigger a correction.
+      // Skip correction during seek cooldown.
       if (!playbackPausedRef.current && !isScrubbingRef.current && Date.now() > seekCooldownUntilRef.current) {
         const animatedMs = playbackTimeMsSV.value;
         const drift = animatedMs - nativeEvent.currentTimeMs;
-        console.log(`[GH177_DRIFT] animated=${animatedMs.toFixed(0)} native=${nativeEvent.currentTimeMs.toFixed(0)} drift=${drift.toFixed(0)} paused=${playbackPausedRef.current} duration=${correctedPlaybackDurationMsRef.current}`);
-        if (Math.abs(drift) > 80) {
+        if (Math.abs(drift) > 250) {
           const totalDuration = correctedPlaybackDurationMsRef.current;
           if (totalDuration > 0) {
             cancelAnimation(playbackTimeMsSV);
-            playbackTimeMsSV.value = nativeEvent.currentTimeMs;
             const remainingMs = Math.max(0, totalDuration - nativeEvent.currentTimeMs);
             if (remainingMs > 0) {
-              playbackTimeMsSV.value = withTiming(totalDuration, {
-                duration: remainingMs / playbackSpeedRef.current,
-                easing: Easing.linear,
-              });
+              playbackTimeMsSV.value = withSequence(
+                withTiming(nativeEvent.currentTimeMs, {duration: 80, easing: Easing.linear}),
+                withTiming(totalDuration, {duration: remainingMs / playbackSpeedRef.current, easing: Easing.linear}),
+              );
+            } else {
+              playbackTimeMsSV.value = withTiming(nativeEvent.currentTimeMs, {duration: 80, easing: Easing.linear});
             }
           }
         }
