@@ -1,5 +1,5 @@
 import React, {useMemo, useRef, useState} from 'react';
-import {ScrollView, TouchableOpacity, View, StyleSheet} from 'react-native';
+import {ScrollView, TouchableOpacity, View, StyleSheet, ViewStyle} from 'react-native';
 import {Button, Card, Divider, SegmentedButtons, Text, useTheme} from 'react-native-paper';
 import {Calendar} from 'react-native-calendars/src';
 import {DateData} from 'react-native-calendars';
@@ -168,10 +168,12 @@ const HistoryDayComponent = ({date, state, marking, onPress, selectedDate}: DayC
   const inMicro = !!info.inMicroRange;
   const MICRO_COLOR = theme.colors.secondary;
 
-  // Background period style: soft translucent fill with rounded ends
+  // Background period style: soft translucent fill with rounded ends.
+  // dayCell uses alignSelf:'stretch' so left/right 0 reaches the full column edge.
+  // '50%' positions start/end at the midpoint of the full column width.
   const isSingleDay = inMicro && info.isMicroStart && info.isMicroEnd;
-  const bgLeft = inMicro ? (info.isMicroStart ? CELL_W / 2 : 0) : 0;
-  const bgRight = inMicro ? (info.isMicroEnd ? CELL_W / 2 : 0) : 0;
+  const bgLeft: number | string = inMicro ? (info.isMicroStart ? '50%' : 0) : 0;
+  const bgRight: number | string = inMicro ? (info.isMicroEnd ? '50%' : 0) : 0;
 
   return (
     <View style={styles.dayCell}>
@@ -188,7 +190,7 @@ const HistoryDayComponent = ({date, state, marking, onPress, selectedDate}: DayC
               borderBottomLeftRadius: info.isMicroStart ? BG_RADIUS : 0,
               borderTopRightRadius: info.isMicroEnd ? BG_RADIUS : 0,
               borderBottomRightRadius: info.isMicroEnd ? BG_RADIUS : 0,
-            },
+            } as ViewStyle,
           ]}
         />
       )}
@@ -492,7 +494,7 @@ const styles = StyleSheet.create({
   calendar: {},
   // day cell
   dayCell: {
-    width: CELL_W,
+    alignSelf: 'stretch',
     height: CELL_H,
     alignItems: 'center',
     justifyContent: 'center',
