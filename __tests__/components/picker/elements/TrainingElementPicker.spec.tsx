@@ -156,6 +156,8 @@ describe('TrainingElementPicker', () => {
 
     const {getByTestId, queryByTestId, rerender} = render(<TrainingElementPicker exercise={[]} setExercise={setExercise} visible={false} />);
 
+    // MultiselectDropdown is always mounted but hidden via display:none when not visible.
+    // RNTL excludes display:none elements from default queries, so this returns null.
     expect(queryByTestId('dropdown-label')).toBeNull();
 
     fireEvent.press(getByTestId('toggle-picker'));
