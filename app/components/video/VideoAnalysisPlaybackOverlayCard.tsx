@@ -384,6 +384,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const chartVisibleMaxSV = useRef(useSharedValue(0)).current;
 
   const playbackDurationRef = useRef(0);
+  const correctedPlaybackDurationMsRef = useRef(0);
   const playbackTimeRef = useRef(0);
   const playbackPausedRef = useRef(true);
   const playbackSpeedRef = useRef(1.0);
@@ -474,6 +475,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   // SharedValue intentionally excluded from deps (stable ref, memory entry #16).
   useEffect(() => {
     if (correctedPlaybackDurationMs > 0) {
+      correctedPlaybackDurationMsRef.current = correctedPlaybackDurationMs;
       videoDurationMsSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
       // Initialize visible range to full duration so the marker is correctly
       // positioned before any zoom event arrives from the chart.
@@ -644,7 +646,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
         const animatedMs = playbackTimeMsSV.value;
         const drift = animatedMs - nativeEvent.currentTimeMs;
         if (drift > 80) {
-          const totalDuration = playbackDurationRef.current;
+          const totalDuration = correctedPlaybackDurationMsRef.current;
           if (totalDuration > 0) {
             cancelAnimation(playbackTimeMsSV);
             playbackTimeMsSV.value = nativeEvent.currentTimeMs;
@@ -982,6 +984,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     chartVisibleMaxRef.current = 0;
     setChartVisibleForLines(null);
     playbackDurationRef.current = 0;
+    correctedPlaybackDurationMsRef.current = 0;
     playbackTimeRef.current = 0;
     currentRepIndexRef.current = undefined;
     isScrubbingRef.current = false;
@@ -994,6 +997,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     // scrubber and velocity marker work before onPlayerLoad fires. When onPlayerLoad
     // later sets a larger duration, the duration effect will update them again.
     if (correctedPlaybackDurationMs > 0) { // eslint-disable-line react-hooks/exhaustive-deps
+      correctedPlaybackDurationMsRef.current = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
       videoDurationMsSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
       chartVisibleMinSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
       chartVisibleMaxSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
