@@ -117,7 +117,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
       Toast.show({
         type: 'error',
         text1: 'Cardio detected!',
-        text2: "This app can't be used to track cardio. Please use real weights! Next time the app catches you doing cardio, the app will be deinstalled.",
+        text2: "Please use proper weights!",
       });
     }
     setEditing(false);
