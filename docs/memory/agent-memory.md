@@ -657,3 +657,11 @@ if (correctedPlaybackDurationMs > 0) {
 2. Raise the threshold from 80ms to 250ms. 80ms is below the jitter floor on real devices; 250ms only fires on genuine desync, letting the `withTiming` animation run uninterrupted through normal playback.
 3. Avoid the `'worklet'` + JS-ref pattern in completion callbacks (worklets cannot access React `useRef` values). Use `withSequence` to chain the two animations instead, relying on `cancelAnimation` from `onPlayPauseToggle` to interrupt the sequence when the user pauses.
 **Apply when:** Any `withTiming` animation corrected against an external position source (player, audio, etc.) where the jitter on that source is significant. Hard-snap corrections at high frequency cause visible stutter; a short leading `withTiming` glide hides the correction.
+
+### 88. Drift correction with `withTiming(end, {duration: end - animatedMs})` does NOT converge when animated > native
+**Problem/Symptoms (GH-177 Round 5→6):** After replacing `withSequence` with a single `withTiming` + 500ms cooldown (Round 5), the marker still froze near 100% on R5CN30HWZFN. Root cause: the correction restarted `withTiming(totalDuration, {duration: totalDuration - animatedMs})`. When `animatedMs > nativeMs` (animation ran ahead), `totalDuration - animatedMs` shrank toward 0. The animation finished almost instantly and the marker froze. On the next cooldown window the same thing happened — `animatedMs` was near `totalDuration`, so every correction immediately "completed" and nothing re-started meaningful motion.
+**Working solution:** Use `remainingFromNative = max(0, totalDuration - nativeMs)` as the `withTiming` duration instead. This drives convergence:
+- When ahead: `remainingFromNative > remainingFromHere` → animation runs longer → marker slows, native catches up.
+- When behind: `remainingFromNative < remainingFromHere` → animation runs faster → marker catches up.
+For large drift (>500ms) also snap `playbackTimeMsSV.value = nativeMs` first to avoid the marker lagging for the full cooldown window.
+**Apply when:** Any time you restart `withTiming` toward a fixed endpoint in a drift-correction loop. The duration must be based on the REFERENCE source's remaining time, not the animation's remaining time — otherwise convergence is not guaranteed.

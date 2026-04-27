@@ -34,6 +34,7 @@ Last updated: 2026-04-30 (GH-194-r6)
 Last updated: 2026-04-26 (GH-177 r3)
 Last updated: 2026-04-26 (GH-177 r4)
 Last updated: 2026-04-26 (GH-177 r5)
+Last updated: 2026-04-27 (GH-177 r7)
 
 ## Per-Worker Breakdown
 
@@ -122,6 +123,7 @@ Last updated: 2026-04-26 (GH-177 r5)
 | GH-177 r3 | real | 0 | 0 | 0 | 1 | 0 | 0 | 4 | 0 | 0 | ready_for_review (APK build took ~4.5min; video fills screen — controls only accessible by scrolling from right edge to bypass GestureHandler; uiautomator dump hangs during live playback so UI positions read before play; logcat approach gave definitive 718-event proof; jest /.worktrees/ testPathIgnorePatterns override on CLI; 489 tests passed) |
 | GH-177 r4 | real | 0 | 0 | 0 | 1 | 0 | 0 | 3 | 0 | 0 | ready_for_review (clean round; tab-analyse found via uiautomator dump content-desc not by pixel position — avoids wrong-tab-tap; Maestro --suite override used with existing video_analysis_reps_velocity flow to navigate to Playback Overlay; UI dump before play to get marker x=109, UI dump after play to confirm x=668 (99% of chart); 4-timestamp adb screencaps during live playback; 46 unit tests pass; withSequence replaces hard-snap; 250ms threshold stops jitter-driven corrections) |
 | GH-177 r5 | real | 0 | 0 | 0 | 1 | 0 | 0 | 3 | 5 | 0 | ready_for_review (r5: withSequence cancelled by 50ms onPlayerProgress before phase 2 ran → fixed with single withTiming(totalDuration) + 500ms correctionCooldownUntilRef; fixed element at x=127 in velocity chart biased pixel detection — confirmed advancement via 0→100% wide frame (x=122→x=743 over 20s); jest /.worktrees/ testPathIgnorePatterns override on CLI; gh pr edit --body fails with GraphQL Projects deprecation → pipe through grep -v; Maestro smoke transient failure unrelated — device was mid-VideoAnalysis session; 46/46 unit tests pass) |
+| GH-177 r7 | real | 7079 | 0 | 0 | 1 | 0 | 0 | 5 | 0 | 0 | ready_for_review (convergent drift fix: changed withTiming duration from remainingFromHere to remainingFromNative — root cause of freeze near 100%; also fixed duration resync during playback; Maestro tapOn bare-string fails for react-native-paper IconButton testID — used uiautomator dump + adb tap by coordinate instead; uiautomator dump scrubber-thumb bounds do NOT accurately reflect SharedValue-animated position during live animation — visual screenshots are the only reliable evidence; gh pr edit --body fails GraphQL deprecation → gh api PATCH workaround; 46/46 unit tests; APK build 5min clean) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
