@@ -474,6 +474,9 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
 
   // Keep videoDurationMsSV in sync with correctedPlaybackDurationMs for UI-thread animations.
   // SharedValue intentionally excluded from deps (stable ref, memory entry #16).
+  // Also re-syncs the running withTiming when duration changes mid-playback so the
+  // animation endpoint stays correct (e.g. bar-path reports 4800ms, player later
+  // reports 5000ms — without this the marker stops 200ms before the video ends).
   useEffect(() => {
     if (correctedPlaybackDurationMs > 0) {
       correctedPlaybackDurationMsRef.current = correctedPlaybackDurationMs;
@@ -484,6 +487,19 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       chartVisibleMaxSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
       chartVisibleMinRef.current = 0;
       chartVisibleMaxRef.current = correctedPlaybackDurationMs;
+      // If currently playing, restart withTiming toward the new endpoint so the
+      // marker doesn't stop short when duration grows after initial load.
+      if (!playbackPausedRef.current) { // eslint-disable-line react-hooks/exhaustive-deps
+        const currentMs = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
+        const remainingMs = Math.max(0, correctedPlaybackDurationMs - currentMs);
+        if (remainingMs > 0) {
+          cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
+          playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
+            duration: remainingMs / playbackSpeedRef.current, // eslint-disable-line react-hooks/exhaustive-deps
+            easing: Easing.linear,
+          });
+        }
+      }
     }
   }, [correctedPlaybackDurationMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -641,24 +657,40 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       updateCurrentRepForPlaybackTime(nativeEvent.currentTimeMs);
 
       // Correct marker drift when animation diverges too far from native player.
-      // Uses a 500ms cooldown to prevent back-to-back cancellations (the main cause
-      // of the "jump then sit still" pattern in prior rounds). Restarts from the
-      // current animated position — no snap to native — to preserve visual continuity.
+      //
+      // Root cause of prior freeze: restarting from animatedMs with
+      // (totalDuration - animatedMs) duration did NOT converge. When the marker
+      // was ahead of the player, remainingFromHere shrank to ~0 and the animation
+      // finished instantly, freezing the marker near 100%.
+      //
+      // Fix: always drive toward totalDuration using remainingFromNative as the
+      // duration — this forces convergence. For large drift (>500ms), also snap
+      // to nativeMs first so the marker doesn't visibly lag for tens of seconds.
       if (!playbackPausedRef.current && !isScrubbingRef.current
           && Date.now() > seekCooldownUntilRef.current
           && Date.now() > correctionCooldownUntilRef.current) {
         const animatedMs = playbackTimeMsSV.value;
-        const drift = animatedMs - nativeEvent.currentTimeMs;
-        if (Math.abs(drift) > 200) {
+        const nativeMs = nativeEvent.currentTimeMs;
+        const drift = animatedMs - nativeMs;
+        const absDrift = Math.abs(drift);
+        if (absDrift > 200) {
           const totalDuration = correctedPlaybackDurationMsRef.current;
           if (totalDuration > 0) {
+            const remainingFromNative = Math.max(0, totalDuration - nativeMs);
             cancelAnimation(playbackTimeMsSV);
-            const remainingFromHere = Math.max(0, totalDuration - animatedMs);
-            if (remainingFromHere > 0) {
+            if (remainingFromNative > 0) {
+              if (absDrift > 500) {
+                // Large drift: snap marker to native position before restarting.
+                playbackTimeMsSV.value = nativeMs;
+              }
+              // Use remainingFromNative for duration so the animation converges
+              // to native time regardless of where animatedMs currently is.
               playbackTimeMsSV.value = withTiming(totalDuration, {
-                duration: remainingFromHere / playbackSpeedRef.current,
+                duration: remainingFromNative / playbackSpeedRef.current,
                 easing: Easing.linear,
               });
+            } else {
+              playbackTimeMsSV.value = totalDuration;
             }
             correctionCooldownUntilRef.current = Date.now() + 500;
           }
@@ -670,9 +702,6 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
 
   // When playback speed changes, update the ref and restart the marker animation
   // so the scrubber/velocity marker advance at the correct rate for the new speed.
-  // We intentionally read correctedPlaybackDurationMsRef (ref, not state) so this
-  // effect only fires on user speed changes — not on every player duration update.
-  // Duration-update re-syncs are handled by the symmetric drift correction instead.
   useEffect(() => {
     playbackSpeedRef.current = playbackSpeed; // eslint-disable-line react-hooks/exhaustive-deps
     if (!playbackPausedRef.current) {
