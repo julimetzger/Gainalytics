@@ -1,8 +1,8 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Keyboard, LayoutRectangle, StyleSheet, View} from 'react-native';
 import {Button, Dialog, Portal, Text, useTheme} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useSelector} from 'react-redux';
+import {shallowEqual, useSelector} from 'react-redux';
 import {Exercise} from '../../../models/entities/Exercise';
 import {Training} from '../../../models/entities/Training';
 import {Workout} from '../../../models/entities/Workout';
@@ -72,7 +72,7 @@ const PlanTab = ({
       workouts[Number(exerciseId)] = state.workouts.byId[workoutId];
     });
     return workouts;
-  });
+  }, shallowEqual);
 
   const [mode, setMode] = useState<PlanMode>('read');
   const [quickEditTarget, setQuickEditTarget] = useState<QuickEditTarget | null>(null);
@@ -84,6 +84,14 @@ const PlanTab = ({
   const [hasStructuralChanges, setHasStructuralChanges] = useState(false);
   const fullEditSnapshotRef = useRef<FullEditSnapshot | null>(null);
   const lastEditPlanRequestIdRef = useRef(editPlanRequestId);
+  const exitToReadRef = useRef<() => void>(() => undefined);
+  const handleBackRef = useRef<() => boolean>(() => false);
+
+  // Stable wrappers: their identity never changes, but they always invoke the
+  // latest closure of exitToRead/handleBack via refs. This keeps the chrome
+  // effect deps stable and prevents an infinite re-render loop with the parent.
+  const stableExitToRead = useCallback(() => exitToReadRef.current(), []);
+  const stableHandleBack = useCallback(() => handleBackRef.current(), []);
 
   const plannedWorkout = selectedExercise?.id !== undefined ? plannedWorkoutsByExerciseId[selectedExercise.id] : undefined;
   const plannedSets = useMemo(() => [...(plannedWorkout?.sets ?? [])].sort((left, right) => (left.index ?? 0) - (right.index ?? 0)), [plannedWorkout?.sets]);
@@ -116,6 +124,11 @@ const PlanTab = ({
     enterFullEdit();
   }, [editPlanRequestId, isActive, selectedExercise]);
 
+  // Keep the latest-closure refs in sync with the hoisted function declarations
+  // below, so the stable wrappers always call current state.
+  exitToReadRef.current = exitToRead;
+  handleBackRef.current = handleBack;
+
   useEffect(() => {
     if (!isActive || onChromeChange === undefined) {
       return;
@@ -123,8 +136,8 @@ const PlanTab = ({
 
     onChromeChange({
       mode,
-      exitToRead,
-      handleBack,
+      exitToRead: stableExitToRead,
+      handleBack: stableHandleBack,
     });
 
     return () => {
@@ -134,7 +147,7 @@ const PlanTab = ({
         handleBack: () => false,
       });
     };
-  }, [exitToRead, handleBack, isActive, mode, onChromeChange]);
+  }, [isActive, mode, onChromeChange, stableExitToRead, stableHandleBack]);
 
   if (selectedExercise === undefined) {
     return null;
