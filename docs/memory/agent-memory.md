@@ -665,3 +665,27 @@ if (correctedPlaybackDurationMs > 0) {
 - When behind: `remainingFromNative < remainingFromHere` → animation runs faster → marker catches up.
 For large drift (>500ms) also snap `playbackTimeMsSV.value = nativeMs` first to avoid the marker lagging for the full cooldown window.
 **Apply when:** Any time you restart `withTiming` toward a fixed endpoint in a drift-correction loop. The duration must be based on the REFERENCE source's remaining time, not the animation's remaining time — otherwise convergence is not guaranteed.
+
+### 89. `withTiming` + cancelAnimation choreography produces ~1s ticking when corrections fire on every progress event — switch to `useFrameCallback`
+**Problem/Symptoms (GH-177 Round 7→8):** After r7 made drift correction converge, the user reported the scrubber visibly only advanced once per ExoPlayer progress event (~1s on real devices). Even with a 500ms cooldown, every progress event whose drift exceeded the threshold caused `cancelAnimation(playbackTimeMsSV) + withTiming(end)`. The cancel/restart cycle interrupted Reanimated's worklet animation enough that the visual update only refreshed at the cancel/restart boundaries — not the smooth 60fps `withTiming` is supposed to deliver.
+**Working solution:** Replace `withTiming` entirely with `useFrameCallback`:
+```ts
+useFrameCallback((frame) => {
+  'worklet';
+  if (playbackPausedSV.value || isScrubbingSV.value) return;
+  const total = videoDurationMsSV.value;
+  if (total <= 0) return;
+  const dt = frame.timeSincePreviousFrame ?? 16.67;
+  const next = playbackTimeMsSV.value + dt * playbackSpeedSV.value;
+  playbackTimeMsSV.value = next > total ? total : next;
+});
+```
+The frame callback runs on the UI thread every refresh, advancing the SharedValue by wall-clock delta. Drift correction in `onPlayerProgress` then becomes a rare safety net (only when `|drift| > 1000ms` — player stall or hidden seek), no cancelAnimation needed.
+Required adaptations:
+- State the worklet needs (paused/scrubbing/speed/duration) must live in SharedValues, not refs — worklets cannot read JS refs. Mirror them in JS-side handlers.
+- The shipped reanimated mock (`react-native-reanimated/mock`) omits `useFrameCallback`. Extend it in `jest.setup.js`: `useFrameCallback: jest.fn().mockReturnValue({ setActive: () => {}, isActive: false, callbackId: 0 })`.
+**Apply when:** Any UI-thread animation that needs to track an external time source with frequent sync events. `withTiming` is the wrong primitive when you can't avoid mid-animation cancels; `useFrameCallback` is the right one because it owns the time source itself.
+
+### 90. Photo-Picker import on emulator: Apr 14 5s test video has no detectable plate; use the squat-3reps.mp4 (10s, Apr 26) for evidence runs
+**Observation (GH-177 Round 8):** When importing a video via the in-app `Import Video` button on emulator-5554, the Google Photos picker shows three test videos (Apr 14 5s clip, Apr 26 4s clip = squat-1rep.mp4, Apr 26 10s clip = squat-3reps.mp4). Selecting the Apr 14 video produces an analysis with `Status: failed` (no outer plate detected at t=0). The Apr 26 10s clip produces `Status: done` with a populated `localVideoPath` and is the right choice for any evidence flow that needs actual playback to render.
+**Apply when:** Setting up emulator-5554 to verify a fix in the Playback Overlay path. The Playback Overlay only renders when `analysis.localVideoPath && analysis.result` are both truthy; importing the wrong test video silently leaves `localVideoPath` empty. Tap-coordinates on Pixel_7_3 (1080×2400): photo-picker drag-handle row is around y=950, the 10s tile is at bounds [0,1292][358,1650] (tap 179, 1471), `Done` button is at [866,2175][949,2228] (tap 907, 2200).

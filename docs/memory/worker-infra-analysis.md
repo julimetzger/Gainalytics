@@ -35,6 +35,7 @@ Last updated: 2026-04-26 (GH-177 r3)
 Last updated: 2026-04-26 (GH-177 r4)
 Last updated: 2026-04-26 (GH-177 r5)
 Last updated: 2026-04-27 (GH-177 r7)
+Last updated: 2026-04-28 (GH-177 r8)
 
 ## Per-Worker Breakdown
 
@@ -124,6 +125,7 @@ Last updated: 2026-04-27 (GH-177 r7)
 | GH-177 r4 | real | 0 | 0 | 0 | 1 | 0 | 0 | 3 | 0 | 0 | ready_for_review (clean round; tab-analyse found via uiautomator dump content-desc not by pixel position — avoids wrong-tab-tap; Maestro --suite override used with existing video_analysis_reps_velocity flow to navigate to Playback Overlay; UI dump before play to get marker x=109, UI dump after play to confirm x=668 (99% of chart); 4-timestamp adb screencaps during live playback; 46 unit tests pass; withSequence replaces hard-snap; 250ms threshold stops jitter-driven corrections) |
 | GH-177 r5 | real | 0 | 0 | 0 | 1 | 0 | 0 | 3 | 5 | 0 | ready_for_review (r5: withSequence cancelled by 50ms onPlayerProgress before phase 2 ran → fixed with single withTiming(totalDuration) + 500ms correctionCooldownUntilRef; fixed element at x=127 in velocity chart biased pixel detection — confirmed advancement via 0→100% wide frame (x=122→x=743 over 20s); jest /.worktrees/ testPathIgnorePatterns override on CLI; gh pr edit --body fails with GraphQL Projects deprecation → pipe through grep -v; Maestro smoke transient failure unrelated — device was mid-VideoAnalysis session; 46/46 unit tests pass) |
 | GH-177 r7 | real | 7079 | 0 | 0 | 1 | 0 | 0 | 5 | 0 | 0 | ready_for_review (convergent drift fix: changed withTiming duration from remainingFromHere to remainingFromNative — root cause of freeze near 100%; also fixed duration resync during playback; Maestro tapOn bare-string fails for react-native-paper IconButton testID — used uiautomator dump + adb tap by coordinate instead; uiautomator dump scrubber-thumb bounds do NOT accurately reflect SharedValue-animated position during live animation — visual screenshots are the only reliable evidence; gh pr edit --body fails GraphQL deprecation → gh api PATCH workaround; 46/46 unit tests; APK build 5min clean) |
+| GH-177 r8 | emu  | 7079 | 0 | 0 | 4 | 0 | 0 | 9 | 0 | 0 | ready_for_review (rewrote drift-correction loop with useFrameCallback worklet — `withTiming + cancelAnimation` cycle was the source of ~1s ticking; mock for `useFrameCallback` had to be added to jest.setup.js because shipped reanimated mock omits it; emulator-5554 has tight `/data` partition (89% used, 693MB free) — 224MB multi-ABI APK fails to install with INSUFFICIENT_STORAGE; reduced to single x86_64 ABI via `-PreactNativeArchitectures=x86_64` → 80MB APK installs cleanly; in-app `Import Video` opens Google Photo Picker, not DocumentsUI — the Maestro `00_import_baseline.yaml` flow does NOT cover this path, used adb shell input tap by coordinate to drive picker manually; per-frame python-PIL scrubber-x analysis from screenrec gave quantitative motion proof — 3-7px per 100ms steady advance vs r7 bug pattern of ~0px for 1s then jump; 46/46 unit tests pass; gh pr edit --body fails GraphQL → gh api PATCH workaround) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
