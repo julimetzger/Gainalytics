@@ -6,6 +6,17 @@ export interface MetricOverviewSettings {
   exercises?: Metric[];
 }
 
+export type MuscleMapMetric = 'sets' | 'volume';
+export type MuscleMapCompare = 'micro' | 'last' | 'none';
+
+export interface PlanSettings {
+  muscleMap?: {
+    enabled?: boolean;
+    metric?: MuscleMapMetric;
+    compare?: MuscleMapCompare;
+  };
+}
+
 export interface AppSettings {
   mode: 'light' | 'dark';
   palette?: 'blue' | 'green' | 'purple';
@@ -26,6 +37,7 @@ export interface AppSettings {
   anthropicModel?: string;
   aiChatPrompt?: string;
   aiTrainingPrompt?: string;
+  plan?: PlanSettings;
 }
 
 const initialState = {
@@ -156,6 +168,42 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       return {
         ...settings,
         aiTrainingPrompt: undefined,
+      };
+    }
+    case 'SET_PLAN_MUSCLE_MAP_ENABLED': {
+      return {
+        ...settings,
+        plan: {
+          ...settings.plan,
+          muscleMap: {
+            ...settings.plan?.muscleMap,
+            enabled: !!action.enabled,
+          },
+        },
+      };
+    }
+    case 'SET_PLAN_MUSCLE_MAP_METRIC': {
+      return {
+        ...settings,
+        plan: {
+          ...settings.plan,
+          muscleMap: {
+            ...settings.plan?.muscleMap,
+            metric: action.metric as MuscleMapMetric,
+          },
+        },
+      };
+    }
+    case 'SET_PLAN_MUSCLE_MAP_COMPARE': {
+      return {
+        ...settings,
+        plan: {
+          ...settings.plan,
+          muscleMap: {
+            ...settings.plan?.muscleMap,
+            compare: action.compare as MuscleMapCompare,
+          },
+        },
       };
     }
     case 'SET_METRIC_OVERVIEW_SLOT': {
