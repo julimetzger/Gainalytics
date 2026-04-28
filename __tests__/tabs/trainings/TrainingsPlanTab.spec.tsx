@@ -63,13 +63,14 @@ jest.mock('../../../app/components/Training/TrainingsPlanHeader', () => {
   const React = require('react');
   const {Text, View} = require('react-native');
 
-  return ({trainingsPlanName, trainingName, mode, micro, localMicro, drawerMenu}: {trainingsPlanName: string; trainingName: string; mode: string; micro: number; localMicro: number; drawerMenu: React.ReactNode}) => (
+  return ({trainingsPlanName, trainingName, trainingState, micro, localMicro, drawerMenu, overflowButton}: {trainingsPlanName: string; trainingName: string; trainingState?: string; micro?: number; localMicro?: number; drawerMenu: React.ReactNode; overflowButton: React.ReactNode}) => (
     <View>
       <Text testID="header-plan-name">{trainingsPlanName}</Text>
       <Text testID="header-training-name">{trainingName}</Text>
-      <Text testID="header-mode">{mode}</Text>
-      <Text testID="header-micro">{String(micro)}</Text>
+      <Text testID="header-training-state">{trainingState}</Text>
+      <Text testID="header-micro">{micro !== undefined ? String(micro) : ''}</Text>
       {drawerMenu}
+      {overflowButton}
     </View>
   );
 });
@@ -97,7 +98,7 @@ jest.mock('../../../app/components/Training/TrainingsPlanNode', () => {
   const React = require('react');
   const {Text} = require('react-native');
 
-  return ({micro}: {micro: number}) => <Text testID="node-micro">{String(micro)}</Text>;
+  return ({micro}: {micro: number; overflowVisible?: boolean; onCloseOverflow?: () => void}) => <Text testID="node-micro">{String(micro)}</Text>;
 });
 
 jest.mock('../../../app/components/RangeSwiper', () => {
@@ -157,7 +158,7 @@ describe('TrainingsPlanTab', () => {
 
     expect(getByTestId('header-plan-name').props.children).toBe('Power Plan');
     expect(getByTestId('header-training-name').props.children).toBe('Upper Day');
-    expect(getByTestId('header-mode').props.children).toBe('S');
+    expect(getByTestId('header-training-state').props.children).toBe('S');
     expect(getByTestId('header-micro').props.children).toBe('2');
   });
 

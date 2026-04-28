@@ -3,7 +3,6 @@ import {LayoutRectangle, ScrollView, View} from 'react-native';
 import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
 import {TrainingsState} from '../../models/TrainingsState';
-import Timer from './execute/Timer';
 import {Button, Dialog, Portal, Text} from 'react-native-paper';
 import DraggableExercise from './DraggableExercise';
 import TrainingsBase from './TrainingsBase';
@@ -13,6 +12,8 @@ import ExecuteWorkoutInTraining from './execute/ExecuteTraining';
 import EditTraining from './execute/EditTraining';
 import TrainingsOverview from './analyse/TrainingsOverview';
 import TrainingHistory from './analyse/TrainingHistory';
+import TrainingModeTabs, {SubTab} from './TrainingModeTabs';
+import TrainingOverflowMenu from './TrainingOverflowMenu';
 import React, {useEffect, useState} from 'react';
 import {ViewMode} from '../../tabs/trainings/MicroOverviewTraining';
 import {dispatchStartTraining} from '../../redux/Training/dispatch/plan/dispatchStartTraining';
@@ -37,16 +38,23 @@ interface TrainingsPlanNodeProps {
   micro: number;
   showDone: boolean;
   showPlanned: boolean;
-  overview: boolean;
-  setOverview: (overview: boolean) => void;
   setIgnoreSwipe: (ignoreSwipe: LayoutRectangle[]) => void;
   /** Pass false when this node is an off-screen swiper pane to suppress AI API calls. */
   isActive?: boolean;
   microViewMode?: ViewMode;
   onMicroViewModeChange?: (mode: ViewMode) => void;
+  overflowVisible: boolean;
+  onCloseOverflow: () => void;
 }
 
-const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, overview, setOverview, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange}: TrainingsPlanNodeProps) => {
+const defaultSubTab = (state?: string): SubTab => {
+  if (state === TrainingsState.PLANNED) return 'plan';
+  if (state === TrainingsState.STARTED) return 'train';
+  if (state === TrainingsState.FINISHED) return 'analysis';
+  return 'plan'; // no training → Plan tab shows TrainingsBase (add/suggest)
+};
+
+const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange, overflowVisible, onCloseOverflow}: TrainingsPlanNodeProps) => {
   const [localViewMode, setLocalViewMode] = useState<ViewMode>('gesamt');
   const effectiveViewMode = microViewMode ?? localViewMode;
   const effectiveSetViewMode = onMicroViewModeChange ?? setLocalViewMode;
@@ -76,6 +84,15 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     .filter((exercise) => exercise !== undefined)
     .filter((exercise) => exercise.id !== undefined && exercise.id !== chosenExercise?.id && !(training?.exercises ?? []).includes(exercise.id)) as Exercise[];
 
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultSubTab(training?.state));
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Reset sub-tab when micro/trainingInMicro changes OR when training state changes (e.g. async load → PLANNED)
+  useEffect(() => {
+    setActiveSubTab(defaultSubTab(training?.state));
+    setIsEditing(false);
+  }, [micro, trainingInMicro, training?.state]);
+
   useEffect(() => {
     if (training?.state === TrainingsState.STARTED) {
       startTraining();
@@ -86,45 +103,47 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     modifyExercisesInTraining(exercises, trainingsPlan.id!!, micro, trainingInMicro, training?.id);
   }
 
-  const [isEditing, setIsEditing] = useState(false);
-
-  function changePlanningmode() {
-    if (training?.state === TrainingsState.PLANNED) {
-      startTraining();
-      if (!appSettings.toggles?.disableToasts) {
-        Toast.show({
-          type: 'info',
-          text1: 'Training started!',
-          text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
-          position: 'top',
-          visibilityTime: 5000,
-        });
-      }
+  function handleStart() {
+    startTraining();
+    if (!appSettings.toggles?.disableToasts) {
+      Toast.show({
+        type: 'info',
+        text1: 'Training started!',
+        text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+        position: 'top',
+        visibilityTime: 5000,
+      });
     }
-    if (training?.state === TrainingsState.STARTED) {
-      finishTraining(training.id!!, trainingsPlan.id!!);
-      resetPauseNotification();
-      resetFinishTraining();
-      if (!appSettings.toggles?.disableToasts) {
-        Toast.show({
-          type: 'info',
-          text1: 'Training finished!',
-          text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
-          position: 'top',
-          visibilityTime: 5000,
-        });
-      }
-    }
-    if (training?.state === TrainingsState.FINISHED) {
-      if (chosenExercise === undefined && exercises?.length > 0) setchosenExercise(exercises[0].id);
-      if (isEditing) {
-        setIsEditing(false);
-        setOverview(true);
-      } else {
-        setOverview(!overview);
-      }
-    }
+    setActiveSubTab('train');
     setTimeInWorkout(new Date(Date.now()));
+  }
+
+  function handleFinish() {
+    if (!training?.id) return;
+    finishTraining(training.id, trainingsPlan.id!!);
+    resetPauseNotification();
+    resetFinishTraining();
+    if (!appSettings.toggles?.disableToasts) {
+      Toast.show({
+        type: 'info',
+        text1: 'Training finished!',
+        text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+        position: 'top',
+        visibilityTime: 5000,
+      });
+    }
+    setActiveSubTab('analysis');
+    setTimeInWorkout(new Date(Date.now()));
+  }
+
+  function handleEditTraining() {
+    if (chosenExercise === undefined && exercises?.length > 0) setchosenExercise(exercises[0].id);
+    setIsEditing(true);
+    setActiveSubTab('train');
+  }
+
+  function handleDeleteTraining() {
+    setShowDeleteDialog(true);
   }
 
   function goToNextExercise() {
@@ -132,7 +151,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     if (number >= exercises.length) {
       if (isEditing) {
         setIsEditing(false);
-        setOverview(true);
+        setActiveSubTab('analysis');
       }
       return;
     }
@@ -168,7 +187,6 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     });
     setShowDeleteDialog(false);
     setIsEditing(false);
-    setOverview(true);
   }
 
   function onExerciseDoublePress(exercise: Exercise) {
@@ -188,102 +206,179 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     setShowAlternativesDialog(false);
   }
 
+  const showExerciseSelector =
+    training?.state === TrainingsState.STARTED ||
+    training?.state === TrainingsState.PLANNED ||
+    (training?.state === TrainingsState.FINISHED && isEditing) ||
+    training === undefined;
+
   return (
     <View style={{flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
+      <TrainingOverflowMenu
+        visible={overflowVisible}
+        onDismiss={onCloseOverflow}
+        trainingState={training?.state}
+        onStart={handleStart}
+        onFinish={handleFinish}
+        onEditTraining={handleEditTraining}
+        onDeleteTraining={handleDeleteTraining}
+      />
       <ScrollView keyboardShouldPersistTaps={'handled'}>
         <View>
           {showDone ? (
             <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} viewMode={effectiveViewMode} onViewModeChange={effectiveSetViewMode} />
           ) : (
             <View>
-              <View
-                style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  justifyContent: 'space-evenly',
-                  height: 65,
-                  margin: 5,
-                }}
-              >
-                {!appSettings.toggles?.disableTimer && training?.state === TrainingsState.STARTED && <Timer start={training.start!!} label={'Start Training'} />}
-                {training?.state && (
-                  <View style={{flexDirection: 'row', gap: 5}}>
-                    <Button mode="outlined" style={{alignSelf: 'center'}} onPress={changePlanningmode}>
-                      {training?.state === TrainingsState.PLANNED && 'Start Training'}
-                      {training?.state === TrainingsState.STARTED && 'Finish Training'}
-                      {training?.state === TrainingsState.FINISHED && (isEditing || !overview) && 'Back to Overview'}
-                      {training?.state === TrainingsState.FINISHED && !isEditing && overview && 'Show Sets'}
-                    </Button>
-                    {training?.state === TrainingsState.FINISHED && (overview || !isEditing) && (
-                      <Button
-                        mode="contained"
-                        style={{alignSelf: 'center'}}
-                        onPress={() => {
-                          if (chosenExercise === undefined && exercises?.length > 0) setchosenExercise(exercises[0].id);
-                          setIsEditing(true);
-                          setOverview(false);
+              <TrainingModeTabs activeTab={activeSubTab} onTabChange={setActiveSubTab} />
+
+              {/* Plan Tab — shown in all states */}
+              {activeSubTab === 'plan' && (
+                <View>
+                  {showExerciseSelector && (
+                    <View pointerEvents={'box-none'}>
+                      <DraggableExercise
+                        exercises={exercises}
+                        setExercises={setExerciseWithSideEffects}
+                        chosenExercise={chosenExercise}
+                        chooseExercise={(exercise) => {
+                          setchosenExercise(exercise.id);
                         }}
-                      >
-                        Edit
-                      </Button>
-                    )}
-                    {training?.state === TrainingsState.FINISHED && isEditing && (
-                      <Button mode="contained" onPress={() => setShowDeleteDialog(true)}>
-                        Delete Training
-                      </Button>
-                    )}
-                  </View>
-                )}
-                {!appSettings.toggles?.disableTimer && training?.state === TrainingsState.STARTED && (
-                  <Timer start={timeInWorkout} reset={true} label={'Last Set'} exercise={chosenExercise} onReset={[() => schedulePauseDoneNotification()]} />
-                )}
-              </View>
-              {(training?.state === TrainingsState.STARTED || training?.state === TrainingsState.PLANNED || (training?.state === TrainingsState.FINISHED && isEditing) || training === undefined) && (
-                <View pointerEvents={'box-none'}>
-                  <DraggableExercise
-                    exercises={exercises}
-                    setExercises={setExerciseWithSideEffects}
-                    chosenExercise={chosenExercise}
-                    chooseExercise={(exercise) => {
-                      setchosenExercise(exercise.id);
-                    }}
-                    onExerciseDoublePress={onExerciseDoublePress}
-                    doneExerciseIds={doneExerciseIds}
-                    setAbsolutePosition={(layout) => setIgnoreSwipe([layout])}
-                    onTogglePicker={() => setShowPicker(!showPicker)}
-                    pickerVisible={showPicker}
-                  />
-                  <ExerciseAlternativesDialog
-                    visible={showAlternativesDialog}
-                    exercise={chosenExercise}
-                    alternatives={alternativeExercises}
-                    onDismiss={() => setShowAlternativesDialog(false)}
-                    onSelect={onReplaceExercise}
-                  />
-                  <TrainingElementPicker
-                    exercise={exercises}
-                    setExercise={setExerciseWithSideEffects}
-                    dropdownLabel="Select Exercises for your Training"
-                    hideChip={true}
-                    visible={showPicker}
-                    onToggle={() => setShowPicker(!showPicker)}
-                    hideIconButton={true}
-                  />
+                        onExerciseDoublePress={onExerciseDoublePress}
+                        doneExerciseIds={doneExerciseIds}
+                        setAbsolutePosition={(layout) => setIgnoreSwipe([layout])}
+                        onTogglePicker={() => setShowPicker(!showPicker)}
+                        pickerVisible={showPicker}
+                      />
+                      <ExerciseAlternativesDialog
+                        visible={showAlternativesDialog}
+                        exercise={chosenExercise}
+                        alternatives={alternativeExercises}
+                        onDismiss={() => setShowAlternativesDialog(false)}
+                        onSelect={onReplaceExercise}
+                      />
+                      <TrainingElementPicker
+                        exercise={exercises}
+                        setExercise={setExerciseWithSideEffects}
+                        dropdownLabel="Select Exercises for your Training"
+                        hideChip={true}
+                        visible={showPicker}
+                        onToggle={() => setShowPicker(!showPicker)}
+                        hideIconButton={true}
+                      />
+                    </View>
+                  )}
+                  {(!training || !training.exercises.length) && <TrainingsBase trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro} />}
+                  {chosenExercise && (
+                    <PlanWorkoutInTraining training={training} trainingsPlanId={trainingsPlan.id!!} trainingInMicro={trainingInMicro} micro={micro} chosenExercise={chosenExercise} />
+                  )}
+                  {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro} />}
                 </View>
               )}
-              {training === undefined && <TrainingsBase trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro} />}
-              {chosenExercise && training?.state === TrainingsState.PLANNED && (
-                <PlanWorkoutInTraining training={training} trainingsPlanId={trainingsPlan.id!!} trainingInMicro={trainingInMicro} micro={micro} chosenExercise={chosenExercise!!} />
+
+              {/* Train Tab */}
+              {activeSubTab === 'train' && (
+                <View>
+                  {training?.state === TrainingsState.PLANNED && (
+                    <View style={{padding: 24, alignItems: 'center'}}>
+                      <Button testID="train-tab-start-button" mode="contained" onPress={handleStart}>
+                        Start Training
+                      </Button>
+                    </View>
+                  )}
+                  {training?.state === TrainingsState.STARTED && (
+                    <View>
+                      {showExerciseSelector && (
+                        <View pointerEvents={'box-none'}>
+                          <DraggableExercise
+                            exercises={exercises}
+                            setExercises={setExerciseWithSideEffects}
+                            chosenExercise={chosenExercise}
+                            chooseExercise={(exercise) => {
+                              setchosenExercise(exercise.id);
+                            }}
+                            onExerciseDoublePress={onExerciseDoublePress}
+                            doneExerciseIds={doneExerciseIds}
+                            setAbsolutePosition={(layout) => setIgnoreSwipe([layout])}
+                            onTogglePicker={() => setShowPicker(!showPicker)}
+                            pickerVisible={showPicker}
+                          />
+                          <ExerciseAlternativesDialog
+                            visible={showAlternativesDialog}
+                            exercise={chosenExercise}
+                            alternatives={alternativeExercises}
+                            onDismiss={() => setShowAlternativesDialog(false)}
+                            onSelect={onReplaceExercise}
+                          />
+                          <TrainingElementPicker
+                            exercise={exercises}
+                            setExercise={setExerciseWithSideEffects}
+                            dropdownLabel="Select Exercises for your Training"
+                            hideChip={true}
+                            visible={showPicker}
+                            onToggle={() => setShowPicker(!showPicker)}
+                            hideIconButton={true}
+                          />
+                        </View>
+                      )}
+                      {chosenExercise && (
+                        <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} />
+                      )}
+                    </View>
+                  )}
+                  {training?.state === TrainingsState.FINISHED && (
+                    <View>
+                      {isEditing && (
+                        <View pointerEvents={'box-none'}>
+                          <DraggableExercise
+                            exercises={exercises}
+                            setExercises={setExerciseWithSideEffects}
+                            chosenExercise={chosenExercise}
+                            chooseExercise={(exercise) => {
+                              setchosenExercise(exercise.id);
+                            }}
+                            onExerciseDoublePress={onExerciseDoublePress}
+                            doneExerciseIds={doneExerciseIds}
+                            setAbsolutePosition={(layout) => setIgnoreSwipe([layout])}
+                            onTogglePicker={() => setShowPicker(!showPicker)}
+                            pickerVisible={showPicker}
+                          />
+                          <TrainingElementPicker
+                            exercise={exercises}
+                            setExercise={setExerciseWithSideEffects}
+                            dropdownLabel="Select Exercises for your Training"
+                            hideChip={true}
+                            visible={showPicker}
+                            onToggle={() => setShowPicker(!showPicker)}
+                            hideIconButton={true}
+                          />
+                        </View>
+                      )}
+                      {isEditing && chosenExercise && (
+                        <EditTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} />
+                      )}
+                      {!isEditing && <TrainingHistory training={training} />}
+                    </View>
+                  )}
+                  {training === undefined && (
+                    <View style={{padding: 24, alignItems: 'center'}}>
+                      <Text>Start training to begin</Text>
+                    </View>
+                  )}
+                </View>
               )}
-              {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro} />}
-              {training?.state === TrainingsState.STARTED && chosenExercise && (
-                <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise!!} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} />
+
+              {/* Analysis Tab */}
+              {activeSubTab === 'analysis' && (
+                <View>
+                  {training?.state === TrainingsState.FINISHED ? (
+                    <TrainingsOverview training={training} previousTraining={lastTraining} trainingsPlan={trainingsPlan} currentMicro={micro} />
+                  ) : (
+                    <View style={{padding: 24, alignItems: 'center'}}>
+                      <Text>Analysis available after the training is finished</Text>
+                    </View>
+                  )}
+                </View>
               )}
-              {training?.state === TrainingsState.FINISHED && isEditing && chosenExercise && (
-                <EditTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} />
-              )}
-              {training?.state === TrainingsState.FINISHED && overview && <TrainingsOverview training={training} previousTraining={lastTraining} trainingsPlan={trainingsPlan} currentMicro={micro} />}
-              {training?.state === TrainingsState.FINISHED && !overview && <TrainingHistory training={training} />}
             </View>
           )}
         </View>
