@@ -176,6 +176,23 @@ describe('computeMesoRange meso boundary fix (GH-162-fix2)', () => {
 
 // ─── GH-186: Markdown rendering in assistant bubbles ──────────────────────────
 
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({top: 0, right: 0, bottom: 0, left: 0}),
+}));
+
+jest.mock('@react-navigation/elements', () => ({
+  useHeaderHeight: () => 0,
+}));
+
+jest.mock('react-redux', () => {
+  const actual = jest.requireActual('react-redux');
+  return {
+    ...actual,
+    useDispatch: () => jest.fn(),
+    useSelector: jest.fn(),
+  };
+});
+
 jest.mock('react-native-paper', () => {
   const React = require('react');
   const {View, Text} = require('react-native');
@@ -251,6 +268,7 @@ describe('AIChatTab Markdown rendering (GH-186)', () => {
         exercises: {byId: {}},
         videoAnalyses: {byId: {}},
         trainingsPlan: {byId: {}, allIds: []},
+        settings: {mode: 'dark'},
       };
       return selector(state);
     });
@@ -271,6 +289,7 @@ describe('AIChatTab Markdown rendering (GH-186)', () => {
         exercises: {byId: {}},
         videoAnalyses: {byId: {}},
         trainingsPlan: {byId: {}, allIds: []},
+        settings: {mode: 'dark'},
       };
       return selector(state);
     });
@@ -299,6 +318,7 @@ describe('AIChatTab Markdown rendering (GH-186)', () => {
         exercises: {byId: {}},
         videoAnalyses: {byId: {}},
         trainingsPlan: {byId: {}, allIds: []},
+        settings: {mode: 'dark'},
       };
       return selector(state);
     });

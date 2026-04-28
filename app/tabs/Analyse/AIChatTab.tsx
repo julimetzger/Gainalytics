@@ -26,13 +26,7 @@ import {Training} from '../../models/entities/Training';
 import {TrainingsState} from '../../models/TrainingsState';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {getMesoEndMicro, getMesoForMicro, getMicroFromTrainingInMicroIndex} from '../../redux/Training/trainingsPlanReducer';
-
-const BASE_SYSTEM_PROMPT =
-  'You are an AI training coach specializing in powerlifting and strength training. ' +
-  'Use the provided analysis context to give specific, actionable advice. ' +
-  'Focus on analysing the data and give insights on noticeable trends. ' +
-  'Prioritise negative trends but also highlight positive ones. ' +
-  'Be concise and practical.';
+import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
 
 type Preset = '7d' | '28d' | '3M' | 'Meso' | 'Custom';
 
@@ -109,6 +103,7 @@ export function computeMesoRange(
 const AIChatTab = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const chatPrompt = useAIChatPrompt();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
 
@@ -274,8 +269,8 @@ const AIChatTab = () => {
     dispatch(setError(null));
 
     const systemPrompt = contextJson
-      ? `${BASE_SYSTEM_PROMPT}\n\nAnalysis context (finished trainings as JSON):\n\n${contextJson}`
-      : BASE_SYSTEM_PROMPT;
+      ? `${chatPrompt}\n\nAnalysis context (finished trainings as JSON):\n\n${contextJson}`
+      : chatPrompt;
 
     const history: ChatMessage[] = [...messages, userMsg];
     const result = await sendChatMessage(history, apiKey, systemPrompt);

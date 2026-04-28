@@ -19,6 +19,10 @@ jest.mock('../../../app/redux/settings/use/useAnthropicModel', () => ({
   useAnthropicModel: () => mockUseAnthropicModel(),
 }));
 
+jest.mock('../../../app/redux/settings/use/useAITrainingPrompt', () => ({
+  useAITrainingPrompt: () => 'mock training prompt',
+}));
+
 const mockInsightCacheGet = jest.fn();
 const mockInsightCacheSet = jest.fn();
 const mockInsightCacheDelete = jest.fn();

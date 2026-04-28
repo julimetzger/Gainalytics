@@ -23,6 +23,8 @@ export interface AppSettings {
   };
   metricOverview?: MetricOverviewSettings;
   anthropicModel?: string;
+  aiChatPrompt?: string;
+  aiTrainingPrompt?: string;
 }
 
 const initialState = {
@@ -120,6 +122,32 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       return {
         ...settings,
         anthropicModel: trimmed || undefined,
+      };
+    }
+    case 'SET_AI_CHAT_PROMPT': {
+      const trimmed = ((action.prompt as string) ?? '').trim();
+      return {
+        ...settings,
+        aiChatPrompt: trimmed || undefined,
+      };
+    }
+    case 'RESET_AI_CHAT_PROMPT': {
+      return {
+        ...settings,
+        aiChatPrompt: undefined,
+      };
+    }
+    case 'SET_AI_TRAINING_PROMPT': {
+      const trimmed = ((action.prompt as string) ?? '').trim();
+      return {
+        ...settings,
+        aiTrainingPrompt: trimmed || undefined,
+      };
+    }
+    case 'RESET_AI_TRAINING_PROMPT': {
+      return {
+        ...settings,
+        aiTrainingPrompt: undefined,
       };
     }
     case 'SET_METRIC_OVERVIEW_SLOT': {
