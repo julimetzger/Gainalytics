@@ -1,0 +1,89 @@
+appId: com.powerliftingworkoutplanner
+---
+- launchApp
+# Dismiss React Native dev error overlay if it appears.
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+- tapOn: "tab-training"
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 30000
+
+# Open the Push pull training plan from baseline data.
+- assertVisible:
+    text: ".*Push pull.*"
+- tapOn:
+    text: ".*Push pull.*"
+- extendedWaitUntil:
+    visible: "Plan"
+    timeout: 30000
+
+# Switch to the Train sub-tab.
+- tapOn: "subtab-train"
+
+# If training is still PLANNED, start it. The Start Training button is
+# only visible when state === PLANNED.
+- runFlow:
+    when:
+      visible: "Start Training"
+    commands:
+      - tapOn: "train-tab-start-button"
+
+# 1RM card is mounted unconditionally below the input row.
+- assertVisible:
+    id: "estimated-1rm-card"
+- assertVisible:
+    id: "estimated-1rm-header"
+# Header text comes from the component literal.
+- assertVisible:
+    text: "ESTIMATED 1RM"
+
+# Type a set: reps=8, RIR=2, weight=95 — 1RM should compute to 127 kg
+# via Epley with reps+RIR. Assert against the actual displayed value.
+- tapOn:
+    id: "add-workout-set-reps-input"
+- eraseText
+- inputText: "8"
+- tapOn:
+    id: "add-workout-set-rir-input"
+- eraseText
+- inputText: "2"
+- tapOn:
+    id: "add-workout-set-weight-input"
+- eraseText
+- inputText: "95"
+- hideKeyboard
+- assertVisible:
+    text: "127 kg"
+
+# Submit the set so the rest timer auto-starts.
+- tapOn:
+    id: "add-workout-set-submit-button"
+- assertVisible:
+    id: "rest-timer-card"
+# Default rest target is 90s, so target text reads "target 01:30".
+- assertVisible:
+    text: "target 01:30"
+
+# Open the overflow menu and verify the menu items.
+- tapOn:
+    id: "rest-timer-overflow"
+- assertVisible: "Skip rest"
+- assertVisible: "Edit target…"
+- tapOn: "Edit target…"
+- assertVisible:
+    id: "rest-target-edit-dialog"
+- tapOn:
+    id: "rest-target-cancel"
+
+# Reset button restores target.
+- tapOn:
+    id: "rest-timer-reset"
+- assertVisible:
+    text: "target 01:30"
