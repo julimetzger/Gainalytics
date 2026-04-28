@@ -29,13 +29,18 @@ interface Props {
   info?: React.ReactNode;
   linkVideoMode?: boolean;
   onDisableLinkVideoMode?: () => void;
+  onLiveInputChange?: (input: {reps: number; rir: number; weight: number}) => void;
+  oneRepMaxRef?: (oneRm: number) => void;
 }
 
-const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info, linkVideoMode, onDisableLinkVideoMode}: Props) => {
+const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info, linkVideoMode, onDisableLinkVideoMode, onLiveInputChange, oneRepMaxRef}: Props) => {
   let unfinishedWorkout = useUnfinishedWorkout(exercise.id!!);
   unfinishedWorkout = workout ?? unfinishedWorkout;
   let workouts = useAllLastWorkouts(exercise, 1);
   let oneRepMax = oneRepMaxForWorkouts(...workouts);
+  React.useEffect(() => {
+    oneRepMaxRef?.(oneRepMax);
+  }, [oneRepMax, oneRepMaxRef]);
   let theme = useTheme();
   let addWorkout = dispatchAddWorkout(exercise);
   let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(exercise);
@@ -110,7 +115,7 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
         {info && info}
       </View>
       <View style={styles.contentContainer}>
-        <AddWorkoutSet onSubmit={submitWorkoutSet} oneRepMax={oneRepMax} date={date} />
+        <AddWorkoutSet onSubmit={submitWorkoutSet} oneRepMax={oneRepMax} date={date} onLiveInputChange={onLiveInputChange} />
         {unfinishedWorkout &&
           unfinishedWorkout.sets.map((workoutSet) => {
             return <AddWorkoutSet key={workoutSet.index} workoutSet={workoutSet} onSubmit={submitWorkoutSet} onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!)} date={date} />;

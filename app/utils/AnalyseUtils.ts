@@ -25,10 +25,16 @@ export const oneRepMaxForWorkouts = (...workout: Workout[]) => {
   return repetitionMax(...workout.flatMap((workout) => workout.sets));
 };
 
-function repsCoefficient(reps: number) {
+export function repsCoefficient(reps: number) {
   if (reps === 1) return 1;
   else return 1 + reps / 30;
 }
+
+export const epley1RM = (weight: number, reps: number, rir: number) => {
+  if (!Number.isFinite(weight) || !Number.isFinite(reps) || !Number.isFinite(rir)) return 0;
+  if (weight <= 0 || reps <= 0) return 0;
+  return weight * repsCoefficient(reps + rir);
+};
 
 export const repetitionWeightByOneRm = (reps: number, rir: number, oneRm: number) => {
   return oneRm / repsCoefficient(reps + rir);
