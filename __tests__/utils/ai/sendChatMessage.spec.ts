@@ -134,3 +134,54 @@ describe('sendChatMessage', () => {
     expect(body.system).toContain(seedJson);
   });
 });
+
+describe('sendChatMessage – hadContext tracking (GH-168)', () => {
+  it('returns hadContext:true when system prompt includes training context', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('ok'));
+    const seed = JSON.stringify({sessions: []});
+    const systemPrompt = `You are a coach.\n\nAnalysis context (finished trainings as JSON):\n\n${seed}`;
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key', systemPrompt);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.hadContext).toBe(true);
+  });
+
+  it('returns hadContext:false when system prompt has no training context', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('ok'));
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key', 'You are a coach.');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.hadContext).toBe(false);
+  });
+
+  it('returns hadContext:false when no system prompt is provided', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('ok'));
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.hadContext).toBe(false);
+  });
+
+  it('strips hadContext from ChatMessage objects before sending to the API', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('ok'));
+    const msgs: ChatMessage[] = [
+      {role: 'user', content: 'q1'},
+      {role: 'assistant', content: 'a1', hadContext: true},
+      {role: 'user', content: 'q2'},
+    ];
+    await sendChatMessage(msgs, 'sk-key');
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    // API body must contain only role+content — no hadContext field
+    expect(body.messages[1]).toEqual({role: 'assistant', content: 'a1'});
+    expect(body.messages[1].hadContext).toBeUndefined();
+  });
+
+  it('strips hadContext:false from messages before sending to the API', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('ok'));
+    const msgs: ChatMessage[] = [
+      {role: 'user', content: 'q'},
+      {role: 'assistant', content: 'r', hadContext: false},
+    ];
+    await sendChatMessage(msgs, 'sk-key');
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.messages[1]).toEqual({role: 'assistant', content: 'r'});
+    expect(body.messages[1].hadContext).toBeUndefined();
+  });
+});
