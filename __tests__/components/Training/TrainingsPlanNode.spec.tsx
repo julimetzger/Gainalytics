@@ -102,8 +102,8 @@ jest.mock('react-native-paper', () => {
   DialogBase.Actions = ({children}: any) => <>{children}</>;
 
   return {
-    Button: ({children, onPress}: any) => (
-      <TouchableOpacity onPress={onPress}>
+    Button: ({children, onPress, testID}: any) => (
+      <TouchableOpacity testID={testID} onPress={onPress}>
         <Text>{children}</Text>
       </TouchableOpacity>
     ),
@@ -194,8 +194,9 @@ describe('TrainingsPlanNode — sub-tab switching', () => {
     expect(queryByTestId('plan-workout')).toBeTruthy();
     // press Train tab
     fireEvent.press(getByTestId('subtab-train'));
-    // Train tab for PLANNED → empty state text
+    // Train tab for PLANNED → Start Training button, plan content gone
     expect(queryByTestId('plan-workout')).toBeNull();
+    expect(queryByTestId('train-tab-start-button')).toBeTruthy();
   });
 
   it('switches from Analysis to Train tab for FINISHED state', () => {
@@ -219,11 +220,19 @@ describe('TrainingsPlanNode — sub-tab switching', () => {
 describe('TrainingsPlanNode — body content per tab/state', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('Train tab for PLANNED shows empty state text', () => {
+  it('Train tab for PLANNED shows Start Training button', () => {
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
-    const {getByTestId, getByText} = render(<TrainingsPlanNode {...defaultProps} />);
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
     fireEvent.press(getByTestId('subtab-train'));
-    expect(getByText('Start training to begin')).toBeTruthy();
+    expect(getByTestId('train-tab-start-button')).toBeTruthy();
+  });
+
+  it('Train tab Start button triggers start action for PLANNED', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
+    fireEvent.press(getByTestId('subtab-train'));
+    fireEvent.press(getByTestId('train-tab-start-button'));
+    expect(mockStartTraining).toHaveBeenCalled();
   });
 
   it('Analysis tab for STARTED shows placeholder text', () => {

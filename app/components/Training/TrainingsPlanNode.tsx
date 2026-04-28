@@ -51,7 +51,7 @@ const defaultSubTab = (state?: string): SubTab => {
   if (state === TrainingsState.PLANNED) return 'plan';
   if (state === TrainingsState.STARTED) return 'train';
   if (state === TrainingsState.FINISHED) return 'analysis';
-  return 'train';
+  return 'plan'; // no training → Plan tab shows TrainingsBase (add/suggest)
 };
 
 const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange, overflowVisible, onCloseOverflow}: TrainingsPlanNodeProps) => {
@@ -87,11 +87,11 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultSubTab(training?.state));
   const [isEditing, setIsEditing] = useState(false);
 
-  // Reset sub-tab to state default when micro or training slot changes
+  // Reset sub-tab when micro/trainingInMicro changes OR when training state changes (e.g. async load → PLANNED)
   useEffect(() => {
     setActiveSubTab(defaultSubTab(training?.state));
     setIsEditing(false);
-  }, [micro, trainingInMicro]);
+  }, [micro, trainingInMicro, training?.state]);
 
   useEffect(() => {
     if (training?.state === TrainingsState.STARTED) {
@@ -229,9 +229,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
             <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} viewMode={effectiveViewMode} onViewModeChange={effectiveSetViewMode} />
           ) : (
             <View>
-              {training !== undefined && (
-                <TrainingModeTabs activeTab={activeSubTab} onTabChange={setActiveSubTab} />
-              )}
+              <TrainingModeTabs activeTab={activeSubTab} onTabChange={setActiveSubTab} />
 
               {/* Plan Tab — shown in all states */}
               {activeSubTab === 'plan' && (
@@ -269,7 +267,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                       />
                     </View>
                   )}
-                  {training === undefined && <TrainingsBase trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro} />}
+                  {(!training || !training.exercises.length) && <TrainingsBase trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro} />}
                   {chosenExercise && (
                     <PlanWorkoutInTraining training={training} trainingsPlanId={trainingsPlan.id!!} trainingInMicro={trainingInMicro} micro={micro} chosenExercise={chosenExercise} />
                   )}
@@ -282,7 +280,9 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                 <View>
                   {training?.state === TrainingsState.PLANNED && (
                     <View style={{padding: 24, alignItems: 'center'}}>
-                      <Text>Start training to begin</Text>
+                      <Button testID="train-tab-start-button" mode="contained" onPress={handleStart}>
+                        Start Training
+                      </Button>
                     </View>
                   )}
                   {training?.state === TrainingsState.STARTED && (

@@ -37,7 +37,7 @@ describe('TrainingsPlanHeader', () => {
     expect(getByText('Micro 3')).toBeTruthy();
   });
 
-  it('shows live-dot and session timer when state is STARTED and trainingStart is set', () => {
+  it('shows date, live-dot and session timer when state is STARTED and trainingStart is set', () => {
     const start = new Date(Date.now() - 5000).toISOString();
     const {getByTestId} = render(
       <TrainingsPlanHeader
@@ -46,30 +46,49 @@ describe('TrainingsPlanHeader', () => {
         trainingStart={start}
       />,
     );
+    expect(getByTestId('header-date')).toBeTruthy();
     expect(getByTestId('header-live-dot')).toBeTruthy();
     expect(getByTestId('header-session-timer')).toBeTruthy();
   });
 
-  it('does NOT show live-dot or timer when state is PLANNED', () => {
-    const {queryByTestId} = render(
+  it('shows "Plan" label for PLANNED state and no live-dot or timer', () => {
+    const {getByTestId, queryByTestId} = render(
       <TrainingsPlanHeader
         {...BASE_PROPS}
         trainingState={TrainingsState.PLANNED}
         trainingStart={new Date().toISOString()}
       />,
     );
+    expect(getByTestId('header-plan-label')).toBeTruthy();
     expect(queryByTestId('header-live-dot')).toBeNull();
     expect(queryByTestId('header-session-timer')).toBeNull();
   });
 
-  it('does NOT show live-dot or timer when state is FINISHED', () => {
-    const {queryByTestId} = render(
+  it('shows date and duration for FINISHED when trainingEnd is provided, no live-dot', () => {
+    const start = new Date(Date.now() - 5000).toISOString();
+    const end = new Date().toISOString();
+    const {getByTestId, queryByTestId} = render(
+      <TrainingsPlanHeader
+        {...BASE_PROPS}
+        trainingState={TrainingsState.FINISHED}
+        trainingStart={start}
+        trainingEnd={end}
+      />,
+    );
+    expect(getByTestId('header-date')).toBeTruthy();
+    expect(getByTestId('header-session-timer')).toBeTruthy();
+    expect(queryByTestId('header-live-dot')).toBeNull();
+  });
+
+  it('shows date but no timer for FINISHED when trainingEnd is absent', () => {
+    const {getByTestId, queryByTestId} = render(
       <TrainingsPlanHeader
         {...BASE_PROPS}
         trainingState={TrainingsState.FINISHED}
         trainingStart={new Date().toISOString()}
       />,
     );
+    expect(getByTestId('header-date')).toBeTruthy();
     expect(queryByTestId('header-live-dot')).toBeNull();
     expect(queryByTestId('header-session-timer')).toBeNull();
   });

@@ -19,6 +19,7 @@ import {clampMicroToMeso, getLocalMicro, getMesoForMicro, getSortedMesos} from '
 import dispatchAddMeso from '../../redux/Training/dispatch/general/dispatchAddMeso';
 import dispatchEditMeso from '../../redux/Training/dispatch/general/dispatchEditMeso';
 import dispatchDeleteMeso from '../../redux/Training/dispatch/general/dispatchDeleteMeso';
+import {TrainingsState} from '../../models/TrainingsState';
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
   const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
@@ -69,7 +70,8 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         micro={showHistory ? undefined : micro}
         localMicro={showHistory ? undefined : localMicro}
         trainingState={showHistory ? undefined : showDone ? undefined : training?.state}
-        trainingStart={training?.state === 'S' ? training?.start : undefined}
+        trainingStart={training?.start as any}
+        trainingEnd={training?.state === TrainingsState.FINISHED ? (training?.end as any) : undefined}
         drawerMenu={
           showHistory
             ? <IconButton testID="history-back-icon" icon="arrow-left" iconColor={theme.colors.onSecondaryContainer} onPress={() => setShowHistory(false)} />
