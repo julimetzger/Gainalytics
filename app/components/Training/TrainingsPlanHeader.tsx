@@ -3,6 +3,7 @@ import React, {useEffect, useState} from 'react';
 import {Platform, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {TrainingsState} from '../../models/TrainingsState';
+import {PlanMode} from './plan/planTypes';
 
 interface headerProps {
   trainingsPlanName: string;
@@ -15,6 +16,7 @@ interface headerProps {
   trainingEnd?: string | number;
   drawerMenu: React.ReactNode;
   overflowButton: React.ReactNode;
+  planMode?: PlanMode;
 }
 
 const formatDate = (start: string | number): string => {
@@ -39,10 +41,11 @@ const formatDuration = (startIso: string | number, endIso: string | number): str
   return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 };
 
-const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, localMicro, trainingState, trainingStart, trainingEnd, drawerMenu, overflowButton}: headerProps) => {
+const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, localMicro, trainingState, trainingStart, trainingEnd, drawerMenu, overflowButton, planMode = 'read'}: headerProps) => {
   let theme = useTheme();
   const safe = useSafeAreaInsets();
   const isActive = trainingState === TrainingsState.STARTED;
+  const fullEditMode = planMode === 'fullEdit';
 
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -67,6 +70,19 @@ const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, 
       {drawerMenu}
       <View style={{flex: 1, justifyContent: 'space-between', alignItems: 'center', flexDirection: 'row'}}>
         <View style={{flexDirection: 'column', flex: 1, flexShrink: 1, minWidth: 0, marginRight: 8}}>
+          {fullEditMode && (
+            <Text
+              testID="header-plan-editing-kicker"
+              style={{
+                fontSize: 11,
+                fontWeight: '600',
+                color: theme.colors.primary,
+                marginBottom: 2,
+              }}
+            >
+              EDITING PLAN
+            </Text>
+          )}
           <Text
             testID="header-plan-meso-name"
             numberOfLines={1}

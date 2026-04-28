@@ -233,6 +233,25 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
         byExerciseId: {...workoutState.byExerciseId},
       };
     }
+    case 'REPLACE_WORKOUT_SETS': {
+      const workout = workoutState.byId[action.workoutId];
+      if (workout === undefined) {
+        return workoutState;
+      }
+      if ((action.sets ?? []).length === 0) {
+        return deleteWorkout(workoutState, workout.exerciseId, action.workoutId);
+      }
+      return {
+        ...workoutState,
+        byId: {
+          ...workoutState.byId,
+          [action.workoutId]: {
+            ...workout,
+            sets: [...action.sets].sort((left, right) => (left.index ?? 0) - (right.index ?? 0)),
+          },
+        },
+      };
+    }
     case 'FINALIZE_WORKOUT': {
       workoutState.byId[action.workoutId].end = action.end;
       if (workoutState.notFinishedWorkouts !== undefined)

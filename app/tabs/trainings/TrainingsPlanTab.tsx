@@ -2,7 +2,7 @@ import React, {useState, useCallback} from 'react';
 import {ViewMode} from './MicroOverviewTraining';
 import {BackHandler} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
-import {IconButton, useTheme} from 'react-native-paper';
+import {Button, IconButton, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/TrainingRouter';
 import {Drawer} from 'react-native-drawer-layout';
@@ -20,6 +20,13 @@ import dispatchAddMeso from '../../redux/Training/dispatch/general/dispatchAddMe
 import dispatchEditMeso from '../../redux/Training/dispatch/general/dispatchEditMeso';
 import dispatchDeleteMeso from '../../redux/Training/dispatch/general/dispatchDeleteMeso';
 import {TrainingsState} from '../../models/TrainingsState';
+import {PlanChromeState} from '../../components/Training/plan/PlanTab';
+
+const createDefaultPlanChromeState = (): PlanChromeState => ({
+  mode: 'read',
+  exitToRead: () => undefined,
+  handleBack: () => false,
+});
 
 const TrainingsPlanTab = ({navigation, route}: Props) => {
   const trainingsPlan = useTrainingsPlan(route.params.trainingsPlan.id!!);
@@ -34,6 +41,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   const [ignoreSwipeLocations, setIgnoreSwipeLocations] = useState<LayoutRectangle[]>([]);
   const [microViewMode, setMicroViewMode] = useState<ViewMode>('gesamt');
   const [overflowVisible, setOverflowVisible] = useState(false);
+  const [planChromeState, setPlanChromeState] = useState<PlanChromeState>(createDefaultPlanChromeState);
 
   let changeTrainingsName = dispatchChangeTrainingsName();
   let addMeso = dispatchAddMeso();
@@ -41,17 +49,32 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   let deleteMeso = dispatchDeleteMeso();
   let theme = useTheme();
 
-  // Android hardware back closes the calendar instead of leaving the screen.
-  // Scoped to screen focus so the listener doesn't bleed into other tabs.
   useFocusEffect(
     useCallback(() => {
-      if (!showHistory) return;
       const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-        setShowHistory(false);
-        return true; // consume the event
+        if (showHistory) {
+          setShowHistory(false);
+          return true;
+        }
+        return planChromeState.handleBack();
       });
       return () => sub.remove();
-    }, [showHistory]),
+    }, [planChromeState, showHistory]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      return navigation.addListener('beforeRemove', (event) => {
+        if (showHistory) {
+          event.preventDefault();
+          setShowHistory(false);
+          return;
+        }
+        if (planChromeState.handleBack()) {
+          event.preventDefault();
+        }
+      });
+    }, [navigation, planChromeState, showHistory]),
   );
 
   const [lockedMesoId, setLockedMesoId] = useState(() => getMesoForMicro(trainingsPlan.mesos, route.params.micro ?? 1)?.id);
@@ -60,6 +83,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   const localMicro = getLocalMicro(trainingsPlan.mesos, micro);
 
   const getBoundedMicro = (candidateMicro: number) => clampMicroToMeso(trainingsPlan.mesos, lockedMeso, candidateMicro);
+  const showPlanEditingChrome = !showHistory && !showDone && training !== undefined && planChromeState.mode === 'fullEdit';
 
   navigation.setOptions({
     header: (props) => (
@@ -72,14 +96,30 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         trainingState={showHistory ? undefined : showDone ? undefined : training?.state}
         trainingStart={training?.start as any}
         trainingEnd={training?.state === TrainingsState.FINISHED ? (training?.end as any) : undefined}
+        planMode={showPlanEditingChrome ? planChromeState.mode : 'read'}
         drawerMenu={
           showHistory
             ? <IconButton testID="history-back-icon" icon="arrow-left" iconColor={theme.colors.onSecondaryContainer} onPress={() => setShowHistory(false)} />
+            : showPlanEditingChrome
+            ? <IconButton testID="header-plan-close-button" icon="close" iconColor={theme.colors.primary} onPress={planChromeState.exitToRead} />
             : <IconButton testID="drawer-menu-button" icon="menu" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOpen((prevOpen) => !prevOpen)} />
         }
         overflowButton={
-          !showHistory && !showDone && training !== undefined
-            ? <IconButton testID="header-overflow-icon" icon="dots-vertical" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOverflowVisible(true)} />
+          showPlanEditingChrome
+            ? (
+              <Button
+                mode="contained"
+                compact
+                testID="header-plan-done-button"
+                onPress={planChromeState.exitToRead}
+                contentStyle={{paddingHorizontal: 9}}
+                labelStyle={{fontSize: 13, fontWeight: '600'}}
+              >
+                Done
+              </Button>
+            )
+            : !showHistory && !showDone && training !== undefined
+            ? <IconButton testID="header-overflow-icon" icon="dots-vertical" iconColor={overflowVisible ? theme.colors.primary : theme.colors.onSecondaryContainer} onPress={() => setOverflowVisible(true)} />
             : null
         }
       />
@@ -88,6 +128,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
 
   const handleValueChange = (newValue: any) => {
     setShowHistory(false);
+    setPlanChromeState(createDefaultPlanChromeState());
     switch (newValue) {
       case 'micro - 1': {
         setMicro((prev) => getBoundedMicro(prev - 1));
@@ -174,6 +215,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
               onMicroViewModeChange={setMicroViewMode}
               overflowVisible={overflowVisible && value === micro}
               onCloseOverflow={() => setOverflowVisible(false)}
+              onPlanChromeChange={value === micro ? setPlanChromeState : undefined}
             />
           )}
           determineValueByIndex={(index, currentMicro) => {
