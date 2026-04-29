@@ -5,6 +5,7 @@ import {Icon, Menu, Text, TouchableRipple, useTheme} from 'react-native-paper';
 export interface DropdownChipOption<T extends string> {
   value: T;
   label: string;
+  disabled?: boolean;
 }
 
 interface DropdownChipProps<T extends string> {
@@ -51,7 +52,9 @@ const DropdownChip = <T extends string>({value, options, onChange, testID}: Drop
             testID={testID ? `${testID}-option-${option.value}` : undefined}
             title={option.label}
             leadingIcon={isSelected ? 'check' : undefined}
+            disabled={option.disabled}
             onPress={() => {
+              if (option.disabled) return;
               onChange(option.value);
               setOpen(false);
             }}

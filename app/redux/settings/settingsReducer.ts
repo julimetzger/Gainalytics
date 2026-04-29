@@ -7,7 +7,7 @@ export interface MetricOverviewSettings {
 }
 
 export type MuscleMapMetric = 'sets' | 'volume';
-export type MuscleMapCompare = 'micro' | 'last' | 'none';
+export type MuscleMapCompare = 'none' | 'last_plan' | 'current_total_plan';
 
 export interface PlanSettings {
   muscleMap?: {

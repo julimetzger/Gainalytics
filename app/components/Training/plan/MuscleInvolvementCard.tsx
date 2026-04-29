@@ -23,16 +23,25 @@ const METRIC_OPTIONS: DropdownChipOption<MuscleMapMetric>[] = [
   {value: 'volume', label: 'Volume'},
 ];
 
-const COMPARE_OPTIONS: DropdownChipOption<MuscleMapCompare>[] = [
-  {value: 'micro', label: 'Micro 7'},
-  {value: 'last', label: 'Last training'},
-  {value: 'none', label: 'No compare'},
-];
-
-const TINT_THRESHOLD = 0.6;
+const TINT_THRESHOLD = 0.5;
 const BAR_HEIGHT = 16;
 const LABEL_WIDTH = 76;
-const READOUT_WIDTH = 64;
+const READOUT_WIDTH = 72;
+
+const VALID_COMPARES: MuscleMapCompare[] = ['none', 'last_plan', 'current_total_plan'];
+
+const normalizeCompare = (raw: unknown): MuscleMapCompare => {
+  if (typeof raw === 'string' && (VALID_COMPARES as string[]).includes(raw)) return raw as MuscleMapCompare;
+  return 'current_total_plan';
+};
+
+const compareLabel = (compare: MuscleMapCompare, micro: number): string => {
+  if (compare === 'none') return 'None';
+  if (compare === 'current_total_plan') return 'Current micro plan';
+  // last_plan
+  const previous = Math.max(1, micro - 1);
+  return `Micro ${previous} plan`;
+};
 
 const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, onDismiss}: MuscleInvolvementCardProps) => {
   const theme = useTheme();
@@ -41,8 +50,23 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, onDismi
   const setMetric = dispatchSetPlanMuscleMapMetric();
   const setCompare = dispatchSetPlanMuscleMapCompare();
 
-  const metric: MuscleMapMetric = settings.plan?.muscleMap?.metric ?? 'sets';
-  const compare: MuscleMapCompare = settings.plan?.muscleMap?.compare ?? 'micro';
+  const metric: MuscleMapMetric = settings.plan?.muscleMap?.metric === 'volume' ? 'volume' : 'sets';
+  const compare: MuscleMapCompare = normalizeCompare(settings.plan?.muscleMap?.compare);
+
+  const previousMicroAvailable = micro >= 2;
+
+  const compareOptions = useMemo<DropdownChipOption<MuscleMapCompare>[]>(
+    () => [
+      {value: 'none', label: 'None'},
+      {
+        value: 'last_plan',
+        label: previousMicroAvailable ? `Micro ${micro - 1} plan` : 'No previous plan',
+        disabled: !previousMicroAvailable,
+      },
+      {value: 'current_total_plan', label: 'Current micro plan'},
+    ],
+    [micro, previousMicroAvailable],
+  );
 
   const data = useMuscleInvolvement({trainingsPlanId, micro, trainingInMicro, metric, compare});
 
@@ -56,9 +80,8 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, onDismi
   const onSurfaceVariant = theme.colors.onSurfaceVariant;
   const primary = theme.colors.primary;
   const tertiary = theme.colors.tertiary;
-  const errorColor = theme.colors.error;
 
-  const barColumnWidth = useMemo(() => 0, []); // placeholder; bar is flex:1 in row layout
+  const showReferenceLayer = data.effectiveCompare !== 'none';
 
   return (
     <View testID="muscle-involvement-card" style={[styles.card, {backgroundColor: surfaceContainer}]}>
@@ -76,7 +99,7 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, onDismi
           <DropdownChip<MuscleMapCompare>
             testID="muscle-map-compare-chip"
             value={compare}
-            options={COMPARE_OPTIONS}
+            options={compareOptions}
             onChange={setCompare}
           />
         </View>
@@ -88,6 +111,10 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, onDismi
           accessibilityLabel="Dismiss muscle map"
         />
       </View>
+
+      <Text testID="muscle-map-compare-label" style={[styles.compareLabel, {color: onSurfaceVariant}]}>
+        {compareLabel(data.effectiveCompare, micro)}
+      </Text>
 
       {data.referenceUnavailable && (
         <Text testID="muscle-map-no-reference" style={[styles.hint, {color: onSurfaceVariant}]}>
@@ -104,32 +131,16 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, onDismi
           {data.rows.map((row) => {
             const todayRatio = data.globalMax > 0 ? row.today / data.globalMax : 0;
             const refRatio = data.globalMax > 0 ? row.reference / data.globalMax : 0;
-            const showReference = data.effectiveCompare !== 'none' && row.reference > 0;
-            const isUnderTarget = showReference && row.reference > 0 && row.today / row.reference < TINT_THRESHOLD;
+            const showThisReference = showReferenceLayer && row.reference > 0;
+            const isUnderTarget = showThisReference && row.today < row.reference * TINT_THRESHOLD;
             const todayColor = isUnderTarget ? tertiary : primary;
 
-            const showTicks = data.effectiveCompare === 'micro' && metric === 'sets' && row.reference > 0;
+            const showTicks = showThisReference && metric === 'sets';
             const tickCount = showTicks ? Math.max(0, Math.floor(row.reference) - 1) : 0;
 
-            const showLastEndCap = data.effectiveCompare === 'last' && row.reference > 0;
-
-            let readout: string;
-            let deltaText: string | undefined;
-            let deltaColor: string | undefined;
-
-            if (data.effectiveCompare === 'micro' && row.reference > 0) {
-              readout = `${formatMetricValue(row.today, metric)}/${formatMetricValue(row.reference, metric)}`;
-            } else if (data.effectiveCompare === 'last' && row.reference > 0) {
-              readout = formatMetricValue(row.today, metric);
-              const delta = row.today - row.reference;
-              const sign = delta > 0 ? '+' : '';
-              deltaText = `${sign}${formatMetricValue(Math.abs(delta), metric)}`;
-              if (delta > 0) deltaColor = primary;
-              else if (delta < 0) deltaColor = errorColor;
-              else deltaColor = onSurfaceVariant;
-            } else {
-              readout = formatMetricValue(row.today, metric);
-            }
+            const readout = showThisReference
+              ? `${formatMetricValue(row.today, metric)}/${formatMetricValue(row.reference, metric)}`
+              : formatMetricValue(row.today, metric);
 
             return (
               <View key={row.muscleGroupId} style={styles.row} testID={`muscle-row-${row.muscleGroupId}`}>
@@ -137,17 +148,16 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, onDismi
                   {row.label}
                 </Text>
                 <View style={[styles.barContainer, {height: BAR_HEIGHT}]}>
-                  {/* Reference layer (faint bar for 'micro') */}
-                  {data.effectiveCompare === 'micro' && row.reference > 0 && (
+                  {showThisReference && (
                     <View
+                      testID={`muscle-row-${row.muscleGroupId}-reference-bar`}
                       style={[
                         styles.referenceBar,
                         {width: `${Math.max(0, Math.min(1, refRatio)) * 100}%`, backgroundColor: surfaceContainerHighest},
                       ]}
                     />
                   )}
-                  {/* Tick marks for sets vs micro */}
-                  {showTicks && row.reference > 0 && (
+                  {showTicks && (
                     <View
                       pointerEvents="none"
                       style={[
@@ -169,7 +179,6 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, onDismi
                       ))}
                     </View>
                   )}
-                  {/* Today bar */}
                   <View
                     testID={`muscle-row-${row.muscleGroupId}-today-bar`}
                     style={[
@@ -180,29 +189,11 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, onDismi
                       },
                     ]}
                   />
-                  {/* Last end-cap line */}
-                  {showLastEndCap && (
-                    <View
-                      pointerEvents="none"
-                      style={[
-                        styles.lastEndCap,
-                        {
-                          left: `${Math.max(0, Math.min(1, refRatio)) * 100}%`,
-                          backgroundColor: onSurfaceVariant,
-                        },
-                      ]}
-                    />
-                  )}
                 </View>
                 <View style={styles.readoutContainer}>
                   <Text style={[styles.readout, {color: theme.colors.onSurface}]} numberOfLines={1}>
                     {readout}
                   </Text>
-                  {deltaText !== undefined && (
-                    <Text style={[styles.delta, {color: deltaColor}]} numberOfLines={1}>
-                      {deltaText}
-                    </Text>
-                  )}
                 </View>
               </View>
             );
@@ -223,7 +214,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 4,
     flexWrap: 'wrap',
   },
   headerLeft: {
@@ -241,6 +232,12 @@ const styles = StyleSheet.create({
   headerSeparator: {
     fontSize: 11,
     opacity: 0.7,
+  },
+  compareLabel: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginBottom: 6,
+    marginLeft: 2,
   },
   hint: {
     fontSize: 12,
@@ -291,28 +288,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 1,
   },
-  lastEndCap: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 2,
-    marginLeft: -1,
-  },
   readoutContainer: {
     width: READOUT_WIDTH,
     alignItems: 'flex-end',
-    flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 4,
   },
   readout: {
     fontSize: 12,
     fontVariant: ['tabular-nums'],
     fontFamily: 'monospace',
-  },
-  delta: {
-    fontSize: 11,
-    fontWeight: '600',
   },
 });
 

@@ -3,7 +3,7 @@ import {Exercise} from '../models/entities/Exercise';
 import {Workout} from '../models/entities/Workout';
 
 export type MuscleMapMetric = 'sets' | 'volume';
-export type MuscleMapCompare = 'micro' | 'last' | 'none';
+export type MuscleMapCompare = 'none' | 'last_plan' | 'current_total_plan';
 
 export interface MuscleInvolvementRow {
   muscleGroupId: Muscles;

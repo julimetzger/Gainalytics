@@ -1,8 +1,8 @@
 import {useSelector} from 'react-redux';
 import {GlobalState} from '../../rootReducer';
 import {Training} from '../../../models/entities/Training';
-import {TrainingsState} from '../../../models/TrainingsState';
-import {trainingInMicroIndex, getMicroFromTrainingInMicroIndex, getTrainingFromTrainingInMicroIndex} from '../trainingsPlanReducer';
+import {Muscles} from '../../../models/Muscles';
+import {getMicroFromTrainingInMicroIndex, trainingInMicroIndex} from '../trainingsPlanReducer';
 import {
   MuscleInvolvementData,
   MuscleMapCompare,
@@ -11,8 +11,6 @@ import {
   buildRows,
   computeGlobalMax,
 } from '../../../utils/MuscleInvolvementUtils';
-
-const LAST_TRAINING_LOOKBACK_DAYS = 21;
 
 interface SelectArgs {
   trainingsPlanId: number;
@@ -30,12 +28,26 @@ const collectPlannedExerciseWorkouts = (state: GlobalState, training: Training |
   }));
 };
 
-const collectDoneExerciseWorkouts = (state: GlobalState, training: Training | undefined) => {
-  if (!training) return [];
-  return (training.exercises ?? []).map((exerciseId) => ({
-    exercise: state.exercises.byId[exerciseId],
-    workout: training.doneWorkoutIds?.[exerciseId] !== undefined ? state.workouts.byId[training.doneWorkoutIds[exerciseId]] : undefined,
-  }));
+/**
+ * Sum planned-workout muscle aggregates across every training assigned to the given
+ * micro. Both compare modes ('last_plan' for previousMicro, 'current_total_plan' for
+ * currentMicro) reference planned data only — never completed/done.
+ */
+const aggregatePlannedAcrossMicro = (state: GlobalState, plan: GlobalState['trainingsPlan']['byId'][number] | undefined, targetMicro: number, metric: MuscleMapMetric): Map<Muscles, number> => {
+  const acc = new Map<Muscles, number>();
+  const trainingsMap = plan?.trainings ?? {};
+  const trainingIdsInMicro = Object.entries(trainingsMap)
+    .filter(([key]) => getMicroFromTrainingInMicroIndex(key) === targetMicro)
+    .map(([, id]) => id);
+  for (const id of trainingIdsInMicro) {
+    const t = state.trainings.byId[id];
+    if (!t) continue;
+    const partial = accumulateForTraining(collectPlannedExerciseWorkouts(state, t), metric);
+    for (const [muscle, value] of partial.entries()) {
+      acc.set(muscle, (acc.get(muscle) ?? 0) + value);
+    }
+  }
+  return acc;
 };
 
 export const computeMuscleInvolvement = (state: GlobalState, args: SelectArgs): MuscleInvolvementData => {
@@ -51,48 +63,18 @@ export const computeMuscleInvolvement = (state: GlobalState, args: SelectArgs): 
     return {rows, globalMax: computeGlobalMax(rows), referenceUnavailable: false, effectiveCompare: 'none'};
   }
 
-  let referenceTotals = new Map<ReturnType<typeof Object.values> extends never ? never : any, number>();
+  let referenceTotals = new Map<Muscles, number>();
   let referenceUnavailable = false;
 
-  if (compare === 'micro') {
-    // Sum planned sets across the entire current micro (all trainingInMicro slots).
-    const trainingsMap = plan?.trainings ?? {};
-    const trainingIdsInMicro = Object.entries(trainingsMap)
-      .filter(([key]) => getMicroFromTrainingInMicroIndex(key) === micro)
-      .map(([, id]) => id);
-    if (trainingIdsInMicro.length === 0) {
+  if (compare === 'current_total_plan') {
+    referenceTotals = aggregatePlannedAcrossMicro(state, plan, micro, metric);
+    if (referenceTotals.size === 0) referenceUnavailable = true;
+  } else if (compare === 'last_plan') {
+    const previousMicro = micro - 1;
+    if (previousMicro < 1) {
       referenceUnavailable = true;
     } else {
-      const acc = new Map();
-      for (const id of trainingIdsInMicro) {
-        const t = state.trainings.byId[id];
-        const exerciseWorkouts = collectPlannedExerciseWorkouts(state, t);
-        const partial = accumulateForTraining(exerciseWorkouts, metric);
-        for (const [muscle, value] of partial.entries()) {
-          acc.set(muscle, (acc.get(muscle) ?? 0) + value);
-        }
-      }
-      referenceTotals = acc;
-      // If reference is empty (no planned sets anywhere in micro) treat as unavailable.
-      if (referenceTotals.size === 0) referenceUnavailable = true;
-    }
-  } else if (compare === 'last') {
-    // Find most recent FINISHED training with the same trainingInMicro slot, within last 21 days.
-    const trainingsMap = plan?.trainings ?? {};
-    const cutoff = Date.now() - LAST_TRAINING_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
-    const candidates = Object.entries(trainingsMap)
-      .filter(([key]) => getTrainingFromTrainingInMicroIndex(key) === trainingInMicro && getMicroFromTrainingInMicroIndex(key) !== micro)
-      .map(([, id]) => state.trainings.byId[id])
-      .filter((t): t is Training => !!t && t.state === TrainingsState.FINISHED && !!t.end)
-      .filter((t) => new Date(t.end!).getTime() >= cutoff)
-      .sort((a, b) => new Date(b.end!).getTime() - new Date(a.end!).getTime());
-
-    const last = candidates[0];
-    if (!last) {
-      referenceUnavailable = true;
-    } else {
-      // Reference uses DONE workouts (actual completed performance).
-      referenceTotals = accumulateForTraining(collectDoneExerciseWorkouts(state, last), metric);
+      referenceTotals = aggregatePlannedAcrossMicro(state, plan, previousMicro, metric);
       if (referenceTotals.size === 0) referenceUnavailable = true;
     }
   }
