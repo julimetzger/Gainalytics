@@ -29,6 +29,7 @@ Last updated: 2026-04-21 (GH-170)
 Last updated: 2026-04-26 (GH-176)
 Last updated: 2026-04-26 (GH-181)
 Last updated: 2026-04-28 (GH-188)
+Last updated: 2026-04-29 (GH-194-r5)
 
 ## Per-Worker Breakdown
 
@@ -112,6 +113,7 @@ Last updated: 2026-04-28 (GH-188)
 | GH-168-fb2 | emu | 0 | 0 | 0 | 1 | 0 | 0 | 5 | 5 | 0 | ready_for_review (feedback round: added useSafeAreaInsets().bottom paddingBottom to fix input hidden under tab bar; System UI "isn't responding" dialog required uiautomator dump to get Wait button bounds; APK rebuild 82s (UP-TO-DATE tasks); 30 unit tests passed; uiautomator dump confirmed input y=[2043,2127] exactly adjacent to tab bar y1=2127) |
 | GH-168-r5 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | ready_for_review (verification-only round; codex P1 behavior={undefined} already fixed in r3 as behavior="padding" at AIChatTab.tsx:366; hardware keyboard emulator shows IME as floating toolbar not QWERTY — mInputShown=true via dumpsys; no APK rebuild needed; screenshot evidence taken; PR comment added; gh pr edit body fails with GraphQL Projects deprecation error — used gh pr comment instead) |
 | GH-190 | emu | 7081 | 0 | 0 | 5 | 0 | 0 | 30 | 5 | 2 | ready_for_review (round 2 resume — no APK rebuild, all changes in JS; APK had stale Metro pref pointing to 10.0.2.2:8081 → updated to localhost:8081 via Dev Menu so adb reverse 8081→8089 routes correctly; pre-existing react-native-modal `BackHandler.removeEventListener` crash on RN 0.84 triggered repeatedly during drawer/tab transitions when MultiselectDropdown unmounts — round 1 worker re-introduced the crash by adding `{isActive && <TrainingElementPicker/>}` wraps, round 2 reverted them; Header layout edge case: `Push pull upper lower › Meso 1` + 7+-hour duration overflow icon clipped — `flexShrink:1, minWidth:0` works for Push pull but not Push pull upper lower; STARTED state on-device evidence couldn't be captured because Start Training routes through the modal-unmount path; 43/43 unit tests pass; worktree jest testPathIgnorePatterns override needed) |
+| GH-194-r5 | emu | 7084 | 0 | 0 | 1 | 0 | 0 | 14 | 0 | 4 | ready_for_review (round 5 finalize — r4 left fully working code uncommitted, r5 ran tests/typecheck, drove emulator-5556 manually after Maestro 00_import_baseline timed out at post-import "Training" assertion; INSUFFICIENT_STORAGE blocked APK install -r so reused existing APK with Metro JS; pm clear wiped baseline, re-imported via 4 manual ADB taps (Settings tab → scroll → Import Data → Import → baseline.gains); 39/39 plan+TrainingOverflow+TrainingsPlanHeader+TrainingsPlanNode tests pass; 0 ticket-scope typecheck errors; pre-existing react-native-modal componentWillUnmount crash on back-from-Plan still surfaces but out of ticket scope; worktree jest testPathIgnorePatterns override needed) |
 
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
