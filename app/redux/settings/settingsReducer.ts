@@ -9,6 +9,7 @@ export interface MetricOverviewSettings {
 export interface AppSettings {
   mode: 'light' | 'dark';
   palette?: 'blue' | 'green' | 'purple';
+  videoAnalysisFiltersExpanded?: boolean;
   localNotification?: {
     pauseTimerInSeconds?: number;
     finishTrainingTimerInSeconds?: number;
@@ -30,6 +31,7 @@ export interface AppSettings {
 const initialState = {
   mode: 'dark',
   palette: 'blue',
+  videoAnalysisFiltersExpanded: false,
 } as AppSettings;
 
 const settingsReducer = (settings: AppSettings = initialState, action: AnyAction): AppSettings => {
@@ -44,6 +46,12 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       return {
         ...settings,
         palette: action.palette,
+      } as AppSettings;
+    }
+    case 'SET_VIDEO_ANALYSIS_FILTERS_EXPANDED': {
+      return {
+        ...settings,
+        videoAnalysisFiltersExpanded: action.expanded,
       } as AppSettings;
     }
     case 'SET_PAUSE_TIMER': {
