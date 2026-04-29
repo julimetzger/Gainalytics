@@ -575,3 +575,28 @@ The `testPathIgnorePatterns: ['/.worktrees/']` in `jest.config.cjs` blocks all t
 **Problem/Symptoms:** A `flexDirection:'row'` header with `justifyContent:'space-between'` and a long Text on the left + multiple Texts/Icons on the right pushes trailing icons (e.g. an overflow `IconButton`) off-screen when the title is long. Even with `flexShrink:0` on the right container, the right's natural width may exceed the parent and the last child is clipped without rendering.
 **Working solution:** On the LEFT container, set `flex:1, flexShrink:1, minWidth:0` and on the title `<Text>` set `numberOfLines:1, ellipsizeMode:'tail'`. The `minWidth:0` is crucial — without it RN refuses to shrink below intrinsic content size and the title forces the row wider than the parent. On the RIGHT container keep `flexShrink:0` so icons stay at natural size. This works for short-to-medium titles; very long combinations may still need a `maxWidth` constraint.
 **Apply when:** Any header/row layout where a long left-side label needs to truncate so trailing actions stay visible.
+
+### 94. Latest-ref pattern beats per-callback `useCallback` when child must expose live callbacks to a parent without infinite render loops
+**Problem/Symptoms:** A child component declares `function exitToRead() { ... }` and `function handleBack() { ... }` AFTER the JSX return (function declarations hoist), then references them in a `useEffect` deps array that calls `onChromeChange({mode, exitToRead, handleBack})`. Each render creates new function references, the effect re-fires, the parent's `setPlanChromeState(newObj)` triggers a re-render, the child re-renders with new function refs, loop. Wrapping each helper individually in `useCallback` with proper deps cascades quickly because each helper closes over other helpers, and stale-closure bugs creep in.
+**Working solution:** Use the latest-ref ("useEvent") pattern — one ref per exposed callback:
+```ts
+const exitToReadRef = useRef<() => void>(() => undefined);
+const handleBackRef = useRef<() => boolean>(() => false);
+const stableExitToRead = useCallback(() => exitToReadRef.current(), []);
+const stableHandleBack = useCallback(() => handleBackRef.current(), []);
+// ...later, before JSX return, sync refs to the latest hoisted closures:
+exitToReadRef.current = exitToRead;
+handleBackRef.current = handleBack;
+```
+The `stable*` wrappers have permanent identity, so they sit safely in deps arrays. Each invocation reads `ref.current`, which is re-synced every render, so callers always hit the latest closure (live state). Avoids both the dep cascade of nested `useCallback`s and stale-closure pitfalls. See `app/components/Training/plan/PlanTab.tsx` r3 fix for GH-194.
+**Apply when:** A child exposes "live" callbacks to a parent via a setter prop (`onChromeChange`, `onSomethingReady`), AND those callbacks call other internal helpers that capture component state. Don't memoize each helper — just stabilise the leaf via a ref.
+
+### 95. `useSelector` callbacks that build a fresh object/array on every call MUST pass `shallowEqual` (or use `createSelector`)
+**Problem/Symptoms:** A component subscribes via `useSelector((state) => { const out = {}; entries.forEach(...); return out; })`. Without the second arg, react-redux compares results by `Object.is`, so a freshly-allocated object always looks "different" → re-render → re-allocate → re-render. This is the same family as #54 (`.map()`/`createSelector`) but the symptom can hide longer when combined with another instability — entry #54 surfaced via "Maximum update depth exceeded" on `MultiselectDropdown`, this variant just made the JS thread silently busy with no error overlay.
+**Working solution:** `import {shallowEqual, useSelector} from 'react-redux'` and pass `shallowEqual` as the 2nd arg. One-line fix, no new deps. For derived shapes that need deeper comparison or memoization across components, prefer `createSelector` (entry #54).
+**Apply when:** Any `useSelector` whose body returns `{...}`, `[...]`, `Object.fromEntries(...)`, or any expression that allocates a new container per call. Pair this check with #54 during code review.
+
+### 96. `00_import_baseline.yaml` Maestro flow times out at the final "Training" assertion when the picker is involved
+**Problem/Symptoms:** Running the bundled `00_import_baseline.yaml` flow against an APK that mounts `TrainingElementPicker` inside `PlanTab` reliably fails the final `extendedWaitUntil: visible: 'Training'` (after baseline.gains is selected and the app reloads). The flow does not progress past the Settings tab on the first try because the Maestro tap on `settings-import-data-button` does not always register, even though the button is visible. Manual ADB taps at the same coordinates work first try.
+**Working solution:** When the Maestro flow stalls, drive the import manually via `adb shell input tap` on the resolved bounds: tap settings-tab, scroll, tap `settings-import-data-button` ([13,2008][527,2114] center 270,2061 on a 1080×2400 emulator), confirm the dialog by tapping "Import" in the Paper Dialog (bounds returned by uiautomator), pick `baseline.gains` in DocumentsUI. Verifying via `grep -oE 'text="Push pull"' /sdcard/ui-after-import.xml` is the right gate to start screen-capping evidence.
+**Apply when:** The Plan-tab area mounts a Modal-based picker (`react-native-modal` / `MultiselectDropdown` chain) and the bootstrap Maestro flow keeps failing at the post-import "Training" wait. Don't write `needs_input` — drive the import manually and continue.
