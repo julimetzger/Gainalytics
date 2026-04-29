@@ -2,22 +2,29 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Keyboard, LayoutRectangle, StyleSheet, View} from 'react-native';
 import {Button, Dialog, Portal, Text, useTheme} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {shallowEqual, useSelector} from 'react-redux';
+import {shallowEqual, useDispatch, useSelector} from 'react-redux';
 import {Exercise} from '../../../models/entities/Exercise';
 import {Training} from '../../../models/entities/Training';
 import {Workout} from '../../../models/entities/Workout';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
+import {Action} from 'redux';
 import {dispatchAddPlanedTrainingWorkout} from '../../../redux/Training/dispatch/plan/dispatchAddPlanedTrainingWorkout';
 import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId';
-import {dispatchAddOrUpdateSetInWorkout} from '../../../redux/Workout/dispatch/dispatchAddOrUpdateSetInWorkout';
 import {dispatchDeleteSetFromWorkout} from '../../../redux/Workout/dispatch/dispatchDeleteSetFromWorkout';
 import {dispatchReplaceWorkoutSets} from '../../../redux/Workout/dispatch/dispatchReplaceWorkoutSets';
 import {GlobalState} from '../../../redux/rootReducer';
 import {cloneWorkoutSet, formatPlanNumber, getPlanFieldLabel, isPlanFieldValueValid} from './planUtils';
-import {FullEditSnapshot, PendingPlanSet, PlanChromeState, PlanField, PlanMode, QuickEditTarget} from './planTypes';
+import {
+  FullEditSnapshot,
+  PendingPlanSetByExerciseId,
+  PlanChromeState,
+  PlanField,
+  PlanMode,
+  QuickEditTarget,
+} from './planTypes';
 import PlanEditList from './PlanEditList';
-import PlanExerciseStrip from './PlanExerciseStrip';
 import PlanReadList from './PlanReadList';
+import DraggableExercise from '../DraggableExercise';
 import TrainingElementPicker from '../../picker/elements/TrainingElementPicker';
 
 interface PlanTabProps {
@@ -62,9 +69,9 @@ const PlanTab = ({
   const selectedExercise = chosenExercise ?? exercises[0];
   const nextTrainingId = useNextTrainingsId();
   const addPlannedWorkout = dispatchAddPlanedTrainingWorkout();
-  const addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(selectedExercise as Exercise, true);
   const deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
   const replaceWorkoutSets = dispatchReplaceWorkoutSets();
+  const dispatch = useDispatch();
 
   const plannedWorkoutsByExerciseId = useSelector((state: GlobalState) => {
     const workouts: Record<number, Workout | undefined> = {};
@@ -79,7 +86,7 @@ const PlanTab = ({
   const [quickEditDraft, setQuickEditDraft] = useState('');
   const [quickEditOriginal, setQuickEditOriginal] = useState<number | null>(null);
   const [keyboardInset, setKeyboardInset] = useState(0);
-  const [pendingSet, setPendingSet] = useState<PendingPlanSet | null>(null);
+  const [pendingSetByExerciseId, setPendingSetByExerciseId] = useState<PendingPlanSetByExerciseId>({});
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [hasStructuralChanges, setHasStructuralChanges] = useState(false);
   const fullEditSnapshotRef = useRef<FullEditSnapshot | null>(null);
@@ -93,12 +100,13 @@ const PlanTab = ({
   const stableExitToRead = useCallback(() => exitToReadRef.current(), []);
   const stableHandleBack = useCallback(() => handleBackRef.current(), []);
 
-  const plannedWorkout = selectedExercise?.id !== undefined ? plannedWorkoutsByExerciseId[selectedExercise.id] : undefined;
-  const plannedSets = useMemo(() => [...(plannedWorkout?.sets ?? [])].sort((left, right) => (left.index ?? 0) - (right.index ?? 0)), [plannedWorkout?.sets]);
-  const activeQuickEditSet =
-    quickEditTarget?.exerciseId !== undefined
-      ? plannedWorkoutsByExerciseId[quickEditTarget.exerciseId]?.sets.find((workoutSet) => workoutSet.index === quickEditTarget.setIndex)
-      : undefined;
+  const activeQuickEditSet = useMemo(() => {
+    if (quickEditTarget === null) {
+      return undefined;
+    }
+    const workout = plannedWorkoutsByExerciseId[quickEditTarget.exerciseId];
+    return workout?.sets.find((workoutSet) => workoutSet.index === quickEditTarget.setIndex);
+  }, [plannedWorkoutsByExerciseId, quickEditTarget]);
   const quickEditInvalid = quickEditTarget !== null && !isPlanFieldValueValid(quickEditTarget.field, quickEditDraft);
 
   useEffect(() => {
@@ -153,40 +161,43 @@ const PlanTab = ({
     return null;
   }
 
+  const quickEditExerciseName =
+    quickEditTarget !== null
+      ? exercises.find((exercise) => exercise.id === quickEditTarget.exerciseId)?.name ?? selectedExercise.name
+      : selectedExercise.name;
+
   return (
     <View style={styles.container}>
-      <PlanExerciseStrip
+      <DraggableExercise
         exercises={exercises}
         chosenExercise={selectedExercise}
         chooseExercise={handleChooseExercise}
         onExerciseDoublePress={onExerciseDoublePress}
         doneExerciseIds={doneExerciseIds}
-        mode={mode}
         setExercises={handleSetExercises}
         setAbsolutePosition={setAbsolutePosition}
-        onAddExercise={mode === 'fullEdit' ? onTogglePicker : undefined}
+        onTogglePicker={onTogglePicker}
         pickerVisible={pickerVisible}
       />
-      {mode === 'fullEdit' && (
-        <TrainingElementPicker
-          exercise={exercises}
-          setExercise={handleSetExercises}
-          dropdownLabel="Select Exercises for your Training"
-          hideChip={true}
-          visible={pickerVisible}
-          onToggle={onTogglePicker}
-          hideIconButton={true}
-        />
-      )}
+      <TrainingElementPicker
+        exercise={exercises}
+        setExercise={(nextExercises: Exercise[]) => handleSetExercises(nextExercises, true)}
+        dropdownLabel="Select Exercises for your Training"
+        hideChip={true}
+        visible={pickerVisible}
+        onToggle={onTogglePicker}
+        hideIconButton={true}
+      />
       {mode === 'fullEdit' ? (
         <PlanEditList
-          exercise={selectedExercise}
           exercises={exercises}
-          sets={plannedSets}
-          pendingSet={pendingSet}
+          selectedExerciseId={selectedExercise.id}
+          plannedWorkoutsByExerciseId={plannedWorkoutsByExerciseId}
+          pendingSetByExerciseId={pendingSetByExerciseId}
+          onSelectExercise={chooseExercise}
           onAddSet={handleAddSet}
           onPendingSetChange={handlePendingSetChange}
-          onPendingSetDelete={() => setPendingSet(null)}
+          onPendingSetDelete={handlePendingSetDelete}
           onDeleteSet={handleDeleteSet}
           onUpsertSet={handleFullEditUpsertSet}
           onReorderSets={handleReorderSets}
@@ -194,8 +205,9 @@ const PlanTab = ({
         />
       ) : (
         <PlanReadList
-          exercise={selectedExercise}
-          sets={plannedSets}
+          exercises={exercises}
+          selectedExerciseId={selectedExercise.id}
+          plannedWorkoutsByExerciseId={plannedWorkoutsByExerciseId}
           mode={mode}
           quickEditTarget={quickEditTarget}
           quickEditDraft={quickEditDraft}
@@ -204,13 +216,14 @@ const PlanTab = ({
           onQuickEditChange={handleQuickEditChange}
           onQuickEditSubmit={handleQuickEditDone}
           onQuickEditOutsidePress={handleQuickEditOutsidePress}
+          onSelectExercise={chooseExercise}
         />
       )}
       <Portal>
         {mode === 'quickEdit' && quickEditTarget !== null && (
           <View style={[styles.quickEditAccessory, {backgroundColor: theme.colors.elevation.level3, bottom: keyboardInset > 0 ? keyboardInset : safeAreaInsets.bottom}]}>
             <Text style={[styles.quickEditLabel, {color: theme.colors.onSurfaceVariant}]}>
-              {`Editing ${getPlanFieldLabel(quickEditTarget.field).toLowerCase()} · Set ${quickEditTarget.setIndex} · ${selectedExercise.name}`}
+              {`Editing ${getPlanFieldLabel(quickEditTarget.field).toLowerCase()} · Set ${quickEditTarget.setIndex} · ${quickEditExerciseName}`}
             </Text>
             <Button
               mode="contained"
@@ -249,7 +262,7 @@ const PlanTab = ({
     setQuickEditTarget(null);
     setQuickEditDraft('');
     setQuickEditOriginal(null);
-    setPendingSet(null);
+    setPendingSetByExerciseId({});
     setShowDiscardDialog(false);
     setHasStructuralChanges(false);
     fullEditSnapshotRef.current = null;
@@ -301,7 +314,7 @@ const PlanTab = ({
     }
 
     captureFullEditSnapshot();
-    setPendingSet(null);
+    setPendingSetByExerciseId({});
     setHasStructuralChanges(false);
     setMode('fullEdit');
   }
@@ -373,13 +386,25 @@ const PlanTab = ({
     chooseExercise(exercise);
   }
 
-  function handleReadCellPress(setIndex: number, field: PlanField) {
-    const workoutSet = plannedSets.find((set) => set.index === setIndex);
-    if (workoutSet === undefined || selectedExercise.id === undefined) {
+  function handleReadCellPress(exerciseId: number, setIndex: number, field: PlanField) {
+    const workout = plannedWorkoutsByExerciseId[exerciseId];
+    const workoutSet = workout?.sets.find((set) => set.index === setIndex);
+    if (workoutSet === undefined) {
       return;
     }
 
-    if (mode === 'quickEdit' && quickEditTarget !== null && quickEditTarget.setIndex === setIndex && quickEditTarget.field === field) {
+    const exercise = exercises.find((current) => current.id === exerciseId);
+    if (exercise !== undefined && exerciseId !== selectedExercise.id) {
+      chooseExercise(exercise);
+    }
+
+    if (
+      mode === 'quickEdit' &&
+      quickEditTarget !== null &&
+      quickEditTarget.exerciseId === exerciseId &&
+      quickEditTarget.setIndex === setIndex &&
+      quickEditTarget.field === field
+    ) {
       return;
     }
 
@@ -389,7 +414,7 @@ const PlanTab = ({
 
     setMode('quickEdit');
     setQuickEditTarget({
-      exerciseId: selectedExercise.id,
+      exerciseId,
       setIndex,
       field,
     });
@@ -416,7 +441,7 @@ const PlanTab = ({
     }
 
     const normalizedValue = target.field === 'weight' ? Math.round(parsedValue * 100) / 100 : Math.round(parsedValue);
-    upsertSetInPlan({
+    upsertSetInPlan(target.exerciseId, {
       ...activeQuickEditSet,
       [target.field]: normalizedValue,
     });
@@ -426,7 +451,7 @@ const PlanTab = ({
     if (quickEditTarget === null || quickEditOriginal === null || activeQuickEditSet === undefined) {
       return;
     }
-    upsertSetInPlan({
+    upsertSetInPlan(quickEditTarget.exerciseId, {
       ...activeQuickEditSet,
       [quickEditTarget.field]: quickEditOriginal,
     });
@@ -458,52 +483,84 @@ const PlanTab = ({
     handleQuickEditDone();
   }
 
-  function handleAddSet() {
-    if (pendingSet !== null) {
+  function handleAddSet(exerciseId: number) {
+    if (pendingSetByExerciseId[exerciseId] !== undefined) {
       return;
     }
-    const nextIndex = (plannedSets.map((workoutSet) => workoutSet.index ?? 0).sort((left, right) => left - right).pop() ?? 0) + 1;
-    setPendingSet({
-      index: nextIndex,
-      reps: '',
-      rir: '0',
-      weight: '',
-    });
+    const sets = plannedWorkoutsByExerciseId[exerciseId]?.sets ?? [];
+    const nextIndex = (sets.map((workoutSet) => workoutSet.index ?? 0).sort((left, right) => left - right).pop() ?? 0) + 1;
+    setPendingSetByExerciseId((current) => ({
+      ...current,
+      [exerciseId]: {
+        index: nextIndex,
+        reps: '',
+        rir: '0',
+        weight: '',
+      },
+    }));
     setHasStructuralChanges(true);
   }
 
-  function handlePendingSetChange(field: PlanField, value: string) {
-    setPendingSet((currentPendingSet) => {
-      if (currentPendingSet === null) {
-        return currentPendingSet;
+  function handlePendingSetChange(exerciseId: number, field: PlanField, value: string) {
+    setPendingSetByExerciseId((current) => {
+      const existing = current[exerciseId];
+      if (existing === undefined) {
+        return current;
       }
       return {
-        ...currentPendingSet,
-        [field]: value.replace(',', '.'),
+        ...current,
+        [exerciseId]: {
+          ...existing,
+          [field]: value.replace(',', '.'),
+        },
       };
     });
   }
 
-  function handleFullEditUpsertSet(workoutSet: WorkoutSet) {
-    upsertSetInPlan(workoutSet);
-    setPendingSet((currentPendingSet) => (currentPendingSet?.index === workoutSet.index ? null : currentPendingSet));
+  function handlePendingSetDelete(exerciseId: number) {
+    setPendingSetByExerciseId((current) => {
+      if (current[exerciseId] === undefined) {
+        return current;
+      }
+      const next = {...current};
+      delete next[exerciseId];
+      return next;
+    });
   }
 
-  function upsertSetInPlan(workoutSet: WorkoutSet) {
-    if (selectedExercise.id === undefined) {
+  function clearPendingSetIfMatchingIndex(exerciseId: number, index: number | undefined) {
+    if (index === undefined) {
       return;
     }
+    setPendingSetByExerciseId((current) => {
+      const existing = current[exerciseId];
+      if (existing === undefined || existing.index !== index) {
+        return current;
+      }
+      const next = {...current};
+      delete next[exerciseId];
+      return next;
+    });
+  }
+
+  function handleFullEditUpsertSet(exerciseId: number, workoutSet: WorkoutSet) {
+    upsertSetInPlan(exerciseId, workoutSet);
+    clearPendingSetIfMatchingIndex(exerciseId, workoutSet.index);
+  }
+
+  function upsertSetInPlan(exerciseId: number, workoutSet: WorkoutSet) {
+    const plannedWorkout = plannedWorkoutsByExerciseId[exerciseId];
 
     if (plannedWorkout?.id === undefined) {
       addPlannedWorkout(
         trainingsPlanId,
         micro,
         trainingInMicro,
-        selectedExercise.id,
+        exerciseId,
         {
           sets: [{...workoutSet, index: workoutSet.index ?? 1}],
           notes: '',
-          exerciseId: selectedExercise.id,
+          exerciseId,
           start: new Date(Date.now()),
           trainingsId: training?.id ?? nextTrainingId,
         },
@@ -512,10 +569,15 @@ const PlanTab = ({
       return;
     }
 
-    addOrUpdateSetInWorkout(workoutSet, plannedWorkout);
+    dispatch({
+      type: 'ADD_OR_UPDATE_SET_IN_WORKOUT',
+      set: workoutSet,
+      workoutId: plannedWorkout.id,
+    } as Action);
   }
 
-  function handleDeleteSet(workoutSet: WorkoutSet) {
+  function handleDeleteSet(exerciseId: number, workoutSet: WorkoutSet) {
+    const plannedWorkout = plannedWorkoutsByExerciseId[exerciseId];
     if (plannedWorkout === undefined) {
       return;
     }
@@ -523,7 +585,8 @@ const PlanTab = ({
     setHasStructuralChanges(true);
   }
 
-  function handleReorderSets(reorderedSets: WorkoutSet[]) {
+  function handleReorderSets(exerciseId: number, reorderedSets: WorkoutSet[]) {
+    const plannedWorkout = plannedWorkoutsByExerciseId[exerciseId];
     if (plannedWorkout?.id === undefined) {
       return;
     }
@@ -537,9 +600,11 @@ const PlanTab = ({
     }
     const nextExercises = exercises.filter((currentExercise) => currentExercise.id !== exercise.id);
     handleSetExercises(nextExercises);
-    const nextSelectedExercise = nextExercises[0];
-    if (nextSelectedExercise !== undefined) {
-      chooseExercise(nextSelectedExercise);
+    if (selectedExercise.id === exercise.id) {
+      const nextSelectedExercise = nextExercises[0];
+      if (nextSelectedExercise !== undefined) {
+        chooseExercise(nextSelectedExercise);
+      }
     }
   }
 };

@@ -3,23 +3,25 @@ import {Pressable, StyleSheet, View} from 'react-native';
 import DraggableFlatList, {RenderItemParams, ScaleDecorator} from 'react-native-draggable-flatlist';
 import {Chip, Icon, IconButton, Menu, Text, TextInput, useTheme} from 'react-native-paper';
 import {Exercise} from '../../../models/entities/Exercise';
+import {Workout} from '../../../models/entities/Workout';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {withAlpha} from '../../../utils/colorUtils';
 import DashedAddButton from '../../shared/DashedAddButton';
-import {PendingPlanSet, PlanField} from './planTypes';
+import {PendingPlanSet, PendingPlanSetByExerciseId, PlanField} from './planTypes';
 import {buildWorkoutSetFromDraft, getPlanSetDraft} from './planUtils';
 
 interface PlanEditListProps {
-  exercise: Exercise;
   exercises: Exercise[];
-  sets: WorkoutSet[];
-  pendingSet: PendingPlanSet | null;
-  onAddSet: () => void;
-  onPendingSetChange: (field: PlanField, value: string) => void;
-  onPendingSetDelete: () => void;
-  onDeleteSet: (workoutSet: WorkoutSet) => void;
-  onUpsertSet: (workoutSet: WorkoutSet) => void;
-  onReorderSets: (sets: WorkoutSet[]) => void;
+  selectedExerciseId?: number;
+  plannedWorkoutsByExerciseId: Record<number, Workout | undefined>;
+  pendingSetByExerciseId: PendingPlanSetByExerciseId;
+  onSelectExercise: (exercise: Exercise) => void;
+  onAddSet: (exerciseId: number) => void;
+  onPendingSetChange: (exerciseId: number, field: PlanField, value: string) => void;
+  onPendingSetDelete: (exerciseId: number) => void;
+  onDeleteSet: (exerciseId: number, workoutSet: WorkoutSet) => void;
+  onUpsertSet: (exerciseId: number, workoutSet: WorkoutSet) => void;
+  onReorderSets: (exerciseId: number, sets: WorkoutSet[]) => void;
   onRemoveExercise: (exercise: Exercise) => void;
 }
 
@@ -28,11 +30,14 @@ type RowItem = {
   workoutSet: WorkoutSet;
 };
 
+const sortSets = (sets: WorkoutSet[]) => [...sets].sort((left, right) => (left.index ?? 0) - (right.index ?? 0));
+
 const PlanEditList = ({
-  exercise,
   exercises,
-  sets,
-  pendingSet,
+  selectedExerciseId,
+  plannedWorkoutsByExerciseId,
+  pendingSetByExerciseId,
+  onSelectExercise,
   onAddSet,
   onPendingSetChange,
   onPendingSetDelete,
@@ -41,6 +46,76 @@ const PlanEditList = ({
   onReorderSets,
   onRemoveExercise,
 }: PlanEditListProps) => {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.list}>
+      {exercises.map((exercise) => {
+        if (exercise.id === undefined) {
+          return null;
+        }
+        const exerciseId = exercise.id;
+        const sets = sortSets(plannedWorkoutsByExerciseId[exerciseId]?.sets ?? []);
+        const pendingSet = pendingSetByExerciseId[exerciseId] ?? null;
+        const selected = exerciseId === selectedExerciseId;
+
+        return (
+          <PlanEditExerciseSection
+            key={`plan-edit-section-${exerciseId}`}
+            exercise={exercise}
+            selected={selected}
+            sets={sets}
+            pendingSet={pendingSet}
+            onSelect={() => onSelectExercise(exercise)}
+            onAddSet={() => onAddSet(exerciseId)}
+            onPendingSetChange={(field, value) => onPendingSetChange(exerciseId, field, value)}
+            onPendingSetDelete={() => onPendingSetDelete(exerciseId)}
+            onDeleteSet={(workoutSet) => onDeleteSet(exerciseId, workoutSet)}
+            onUpsertSet={(workoutSet) => onUpsertSet(exerciseId, workoutSet)}
+            onReorderSets={(reorderedSets) => onReorderSets(exerciseId, reorderedSets)}
+            onRemoveExercise={() => onRemoveExercise(exercise)}
+            outlineColor={withAlpha(theme.colors.primary, 0.18)}
+            primaryColor={theme.colors.primary}
+          />
+        );
+      })}
+    </View>
+  );
+};
+
+interface SectionProps {
+  exercise: Exercise;
+  selected: boolean;
+  sets: WorkoutSet[];
+  pendingSet: PendingPlanSet | null;
+  onSelect: () => void;
+  onAddSet: () => void;
+  onPendingSetChange: (field: PlanField, value: string) => void;
+  onPendingSetDelete: () => void;
+  onDeleteSet: (workoutSet: WorkoutSet) => void;
+  onUpsertSet: (workoutSet: WorkoutSet) => void;
+  onReorderSets: (sets: WorkoutSet[]) => void;
+  onRemoveExercise: () => void;
+  outlineColor: string;
+  primaryColor: string;
+}
+
+const PlanEditExerciseSection = ({
+  exercise,
+  selected,
+  sets,
+  pendingSet,
+  onSelect,
+  onAddSet,
+  onPendingSetChange,
+  onPendingSetDelete,
+  onDeleteSet,
+  onUpsertSet,
+  onReorderSets,
+  onRemoveExercise,
+  outlineColor,
+  primaryColor,
+}: SectionProps) => {
   const theme = useTheme();
   const [menuVisible, setMenuVisible] = useState(false);
   const data = useMemo<RowItem[]>(
@@ -52,32 +127,56 @@ const PlanEditList = ({
     [sets],
   );
 
+  const visibleCount = sets.length + (pendingSet ? 1 : 0);
+
   return (
-    <View style={[styles.section, {borderColor: withAlpha(theme.colors.primary, 0.18)}]}>
-      <View style={styles.headerRow}>
+    <View
+      testID={`plan-edit-exercise-section-${exercise.id}`}
+      style={[
+        styles.section,
+        {borderColor: outlineColor},
+        selected && {borderLeftColor: primaryColor, borderLeftWidth: 2},
+      ]}
+    >
+      <Pressable onPress={onSelect} style={styles.headerRow} testID={`plan-edit-exercise-header-${exercise.id}`}>
         <View style={styles.headerTitleRow}>
           <Icon source="drag-horizontal-variant" size={18} color={withAlpha(theme.colors.onSurfaceVariant, 0.6)} />
-          <Text style={[styles.title, {color: theme.colors.onSurface}]}>{exercise.name}</Text>
+          <Text
+            style={[
+              styles.title,
+              {color: theme.colors.onSurface, fontWeight: selected ? '600' : '500'},
+            ]}
+            numberOfLines={1}
+          >
+            {exercise.name}
+          </Text>
           <Chip compact style={styles.chip}>
-            {`${sets.length + (pendingSet ? 1 : 0)} ${(sets.length + (pendingSet ? 1 : 0)) === 1 ? 'set' : 'sets'}`}
+            {`${visibleCount} ${visibleCount === 1 ? 'set' : 'sets'}`}
           </Chip>
         </View>
         <Menu
           visible={menuVisible}
           onDismiss={() => setMenuVisible(false)}
-          anchor={<IconButton testID="plan-exercise-menu-button" icon="dots-vertical" iconColor={theme.colors.onSurfaceVariant} onPress={() => setMenuVisible(true)} />}
+          anchor={
+            <IconButton
+              testID={`plan-exercise-menu-button-${exercise.id}`}
+              icon="dots-vertical"
+              iconColor={theme.colors.onSurfaceVariant}
+              onPress={() => setMenuVisible(true)}
+            />
+          }
         >
           <Menu.Item
-            testID="plan-remove-exercise"
+            testID={`plan-remove-exercise-${exercise.id}`}
             leadingIcon="delete-outline"
             title="Remove exercise"
             onPress={() => {
               setMenuVisible(false);
-              onRemoveExercise(exercise);
+              onRemoveExercise();
             }}
           />
         </Menu>
-      </View>
+      </Pressable>
       <DraggableFlatList
         scrollEnabled={false}
         data={data}
@@ -109,7 +208,12 @@ const PlanEditList = ({
           onCommit={onUpsertSet}
         />
       )}
-      <DashedAddButton label="Add set" testID="plan-add-set-button" onPress={onAddSet} style={styles.addButton} />
+      <DashedAddButton
+        label="Add set"
+        testID={`plan-add-set-button-${exercise.id}`}
+        onPress={onAddSet}
+        style={styles.addButton}
+      />
     </View>
   );
 };
@@ -218,6 +322,9 @@ const PendingPlanEditSetRow = ({pendingSet, onChange, onDelete, onCommit}: Pendi
 };
 
 const styles = StyleSheet.create({
+  list: {
+    paddingTop: 4,
+  },
   section: {
     borderRadius: 20,
     borderWidth: 1,
@@ -240,7 +347,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 15,
-    fontWeight: '600',
+    flexShrink: 1,
   },
   chip: {
     minHeight: 28,

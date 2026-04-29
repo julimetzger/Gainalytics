@@ -27,6 +27,8 @@ export interface PendingPlanSet extends PlanSetDraft {
   index: number;
 }
 
+export type PendingPlanSetByExerciseId = Record<number, PendingPlanSet | undefined>;
+
 export interface FullEditSnapshot {
   chosenExerciseId?: number;
   exercises: Exercise[];

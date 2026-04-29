@@ -1,5 +1,4 @@
 import React from 'react';
-import {Text, TouchableOpacity, View} from 'react-native';
 import {fireEvent, render, waitFor} from '@testing-library/react-native';
 import PlanTab from '../../../../app/components/Training/plan/PlanTab';
 import {TrainingsState} from '../../../../app/models/TrainingsState';
@@ -8,9 +7,9 @@ import {Exercise} from '../../../../app/models/entities/Exercise';
 import {Workout} from '../../../../app/models/entities/Workout';
 
 const mockAddPlannedWorkout = jest.fn();
-const mockAddOrUpdateSetInWorkout = jest.fn();
 const mockDeleteSetFromWorkout = jest.fn();
 const mockReplaceWorkoutSets = jest.fn();
+const mockDispatch = jest.fn();
 const mockUseSelector = jest.fn();
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -18,6 +17,8 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 jest.mock('react-redux', () => ({
+  shallowEqual: (a: unknown, b: unknown) => a === b,
+  useDispatch: () => mockDispatch,
   useSelector: (selector: unknown) => mockUseSelector(selector),
 }));
 
@@ -27,10 +28,6 @@ jest.mock('../../../../app/redux/Training/dispatch/plan/dispatchAddPlanedTrainin
 
 jest.mock('../../../../app/redux/Training/use/useNextTrainingsId', () => ({
   useNextTrainingsId: () => 900,
-}));
-
-jest.mock('../../../../app/redux/Workout/dispatch/dispatchAddOrUpdateSetInWorkout', () => ({
-  dispatchAddOrUpdateSetInWorkout: () => mockAddOrUpdateSetInWorkout,
 }));
 
 jest.mock('../../../../app/redux/Workout/dispatch/dispatchDeleteSetFromWorkout', () => ({
@@ -43,13 +40,13 @@ jest.mock('../../../../app/redux/Workout/dispatch/dispatchReplaceWorkoutSets', (
 
 jest.mock('../../../../app/components/picker/elements/TrainingElementPicker', () => () => null);
 
-jest.mock('../../../../app/components/Training/plan/PlanExerciseStrip', () => {
+jest.mock('../../../../app/components/Training/DraggableExercise', () => {
   const React = require('react');
   const {Text, View} = require('react-native');
 
   return () => (
-    <View testID="plan-exercise-strip">
-      <Text>Exercise strip</Text>
+    <View testID="plan-draggable-exercise">
+      <Text>Existing draggable exercise picker</Text>
     </View>
   );
 });
@@ -58,9 +55,14 @@ jest.mock('../../../../app/components/Training/plan/PlanEditList', () => {
   const React = require('react');
   const {Text, View} = require('react-native');
 
-  return () => (
+  return ({exercises, selectedExerciseId}: {exercises: Array<{id: number; name: string}>; selectedExerciseId?: number}) => (
     <View testID="plan-full-edit-list">
-      <Text>Full edit list</Text>
+      <Text testID="plan-full-edit-selected">{String(selectedExerciseId)}</Text>
+      {exercises.map((exercise) => (
+        <Text key={exercise.id} testID={`plan-full-edit-exercise-${exercise.id}`}>
+          {exercise.name}
+        </Text>
+      ))}
     </View>
   );
 });
@@ -70,23 +72,32 @@ jest.mock('../../../../app/components/Training/plan/PlanReadList', () => {
   const {Text, TouchableOpacity, View} = require('react-native');
 
   return ({
+    exercises,
+    selectedExerciseId,
     mode,
     quickEditInvalid,
     onCellPress,
     onQuickEditChange,
     onQuickEditSubmit,
   }: {
+    exercises: Array<{id: number; name: string}>;
+    selectedExerciseId?: number;
     mode: 'read' | 'quickEdit';
     quickEditInvalid: boolean;
-    onCellPress: (setIndex: number, field: 'reps' | 'rir' | 'weight') => void;
+    onCellPress: (exerciseId: number, setIndex: number, field: 'reps' | 'rir' | 'weight') => void;
     onQuickEditChange: (value: string) => void;
     onQuickEditSubmit: () => void;
   }) => (
     <View>
       <Text testID="plan-read-mode">{mode}</Text>
+      <Text testID="plan-read-selected">{String(selectedExerciseId)}</Text>
       <Text testID="plan-read-invalid">{String(quickEditInvalid)}</Text>
-      <TouchableOpacity testID="plan-open-weight-cell" onPress={() => onCellPress(2, 'weight')}>
+      <Text testID="plan-read-exercise-count">{String(exercises.length)}</Text>
+      <TouchableOpacity testID="plan-open-weight-cell" onPress={() => onCellPress(1, 2, 'weight')}>
         <Text>Open weight cell</Text>
+      </TouchableOpacity>
+      <TouchableOpacity testID="plan-open-other-exercise-cell" onPress={() => onCellPress(2, 1, 'reps')}>
+        <Text>Open other exercise cell</Text>
       </TouchableOpacity>
       <TouchableOpacity testID="plan-enter-invalid-value" onPress={() => onQuickEditChange('1000.1')}>
         <Text>Enter invalid</Text>
@@ -147,13 +158,22 @@ const plannedWorkout = {
   notes: '',
 } satisfies Workout;
 
+const plannedWorkoutBench = {
+  id: 102,
+  exerciseId: 2,
+  sets: [{index: 1, reps: 5, rir: 2, weight: 100}],
+  notes: '',
+} satisfies Workout;
+
 const training = {
   id: 11,
   state: TrainingsState.PLANNED,
   exercises: [1, 2],
   doneWorkoutIds: {},
-  plannedWorkouts: {1: 101},
+  plannedWorkouts: {1: 101, 2: 102},
 } satisfies Training;
+
+const baseChooseExercise = jest.fn();
 
 const baseProps = {
   training,
@@ -162,7 +182,7 @@ const baseProps = {
   trainingInMicro: 1,
   exercises,
   chosenExercise: exercises[0],
-  chooseExercise: jest.fn(),
+  chooseExercise: baseChooseExercise,
   onExerciseDoublePress: jest.fn(),
   setExercises: jest.fn(),
   doneExerciseIds: [],
@@ -182,10 +202,19 @@ describe('PlanTab', () => {
         workouts: {
           byId: {
             101: plannedWorkout,
+            102: plannedWorkoutBench,
           },
         },
       }),
     );
+  });
+
+  it('renders all exercises and the existing draggable exercise picker', () => {
+    const {getByTestId} = render(<PlanTab {...baseProps} />);
+
+    expect(getByTestId('plan-draggable-exercise')).toBeTruthy();
+    expect(getByTestId('plan-read-exercise-count').props.children).toBe('2');
+    expect(getByTestId('plan-read-selected').props.children).toBe('1');
   });
 
   it('enters quick edit, validates values, and commits valid weight updates immediately', async () => {
@@ -210,12 +239,12 @@ describe('PlanTab', () => {
       expect(getByTestId('plan-read-invalid').props.children).toBe('false');
     });
 
-    expect(mockAddOrUpdateSetInWorkout).toHaveBeenCalledWith(
+    expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({
-        index: 2,
-        weight: 97.5,
+        type: 'ADD_OR_UPDATE_SET_IN_WORKOUT',
+        workoutId: 101,
+        set: expect.objectContaining({index: 2, weight: 97.5}),
       }),
-      plannedWorkout,
     );
 
     fireEvent.press(getByTestId('plan-quick-edit-done'));
@@ -224,6 +253,19 @@ describe('PlanTab', () => {
       expect(queryByTestId('plan-quick-edit-done')).toBeNull();
       expect(getByTestId('plan-read-mode').props.children).toBe('read');
     });
+  });
+
+  it('switches the selected exercise when a cell of a different exercise is tapped', async () => {
+    baseChooseExercise.mockReset();
+    const {getByTestId} = render(<PlanTab {...baseProps} />);
+
+    fireEvent.press(getByTestId('plan-open-other-exercise-cell'));
+
+    await waitFor(() => {
+      expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
+    });
+
+    expect(baseChooseExercise).toHaveBeenCalledWith(exercises[1]);
   });
 
   it('enters full edit mode when the parent increments the edit plan request id', async () => {
