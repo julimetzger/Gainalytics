@@ -378,6 +378,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const playbackTimeMsSV = useRef(useSharedValue(0)).current;
   // Tracks actual video duration as a SharedValue for UI-thread marker/scrubber animations.
   const videoDurationMsSV = useRef(useSharedValue(0)).current;
+  const scrubberWidthSV = useRef(useSharedValue(0)).current;
   const speedChartWidthSV = useRef(useSharedValue(0)).current;
   // Visible x-range as reported by the native chart on zoom/pan.
   const chartVisibleMinSV = useRef(useSharedValue(0)).current;
@@ -507,23 +508,27 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     return SPEED_CHART_LEFT_PADDING + progress * drawableWidth;
   });
 
-  // Scrubber fill and thumb are driven by Reanimated SharedValues on the UI thread — no JS state.
+  const scrubberProgressPx = useDerivedValue(() => {
+    'worklet';
+    if (videoDurationMsSV.value <= 0 || scrubberWidthSV.value <= 0) {
+      return 0;
+    }
+    const progress = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value));
+    return progress * scrubberWidthSV.value;
+  });
+
+  // Scrubber fill/thumb stay on the UI thread with numeric pixel values.
+  // Percent-string styles rely on layout updates and stuttered on real devices.
   const scrubberFillStyle = useAnimatedStyle(() => {
     'worklet';
-    if (videoDurationMsSV.value <= 0) {
-      return {width: '0%'};
-    }
-    const pct = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value)) * 100;
-    return {width: `${pct}%` as any};
+    return {width: scrubberProgressPx.value};
   });
 
   const scrubberThumbStyle = useAnimatedStyle(() => {
     'worklet';
-    if (videoDurationMsSV.value <= 0) {
-      return {left: '0%'};
-    }
-    const pct = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value)) * 100;
-    return {left: `${pct}%` as any};
+    return {
+      transform: [{translateX: scrubberProgressPx.value}],
+    };
   });
 
   const playbackAspectRatio = useMemo(() => {
@@ -740,6 +745,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const onScrubberLayout = useCallback((event: LayoutChangeEvent) => {
     const {width} = event.nativeEvent.layout;
     setScrubberWidth(width);
+    scrubberWidthSV.value = width; // eslint-disable-line react-hooks/exhaustive-deps
   }, []);
 
   const onSpeedChartLayout = useCallback((event: LayoutChangeEvent) => {

@@ -94,10 +94,12 @@ const getScrubberState = (getByTestId: (testId: string) => any) => {
   const scrubberThumb = getByTestId('video-analysis-playback-scrubber-thumb');
   const fillStyle = StyleSheet.flatten(scrubberFill.props.style);
   const thumbStyle = StyleSheet.flatten(scrubberThumb.props.style);
+  const transform: Array<{translateX?: number}> = thumbStyle.transform ?? [];
+  const translateEntry = transform.find((t) => t.translateX !== undefined);
 
   return {
     fillWidth: fillStyle.width,
-    thumbLeft: thumbStyle.left,
+    thumbTranslateX: translateEntry?.translateX ?? 0,
   };
 };
 
@@ -147,8 +149,8 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
 
     expect(player.props.seekPositionMs).toBe(1200);
     expect(getScrubberState(getByTestId)).toEqual({
-      fillWidth: '40%',
-      thumbLeft: '40%',
+      fillWidth: 40,
+      thumbTranslateX: 40,
     });
   });
 
@@ -281,10 +283,12 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
       <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
     const speedPlot = getByTestId('video-analysis-playback-speed-plot');
     const speedChart = getByTestId('video-analysis-playback-speed-chart');
 
     loadPlayer(player, 3000);
+    setScrubberWidth(scrubber, 100);
 
     // Set chart width: 240px total = 36px left padding + 200px drawable + 4px right padding
     act(() => {
@@ -298,8 +302,8 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
 
     expect(player.props.seekPositionMs).toBe(2250);
     expect(getScrubberState(getByTestId)).toEqual({
-      fillWidth: '75%',
-      thumbLeft: '75%',
+      fillWidth: 75,
+      thumbTranslateX: 75,
     });
   });
 
@@ -322,8 +326,8 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
 
     expect(player.props.seekPositionMs).toBe(2250);
     expect(getScrubberState(getByTestId)).toEqual({
-      fillWidth: '75%',
-      thumbLeft: '75%',
+      fillWidth: 75,
+      thumbTranslateX: 75,
     });
 
     act(() => {
@@ -334,8 +338,8 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
     progressPlayer(player, 1600, 3000);
 
     expect(getScrubberState(getByTestId)).toEqual({
-      fillWidth: '75%',
-      thumbLeft: '75%',
+      fillWidth: 75,
+      thumbTranslateX: 75,
     });
   });
 });
@@ -362,8 +366,8 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber and marker usable before
     seekViaScrubbingTo(scrubber, 1500, BAR_PATH_DURATION_MS, 100);
 
     expect(getScrubberState(getByTestId)).toEqual({
-      fillWidth: '75%',
-      thumbLeft: '75%',
+      fillWidth: 75,
+      thumbTranslateX: 75,
     });
   });
 
