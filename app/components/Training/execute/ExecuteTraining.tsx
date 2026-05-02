@@ -94,11 +94,15 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
     () =>
       chosenExercise.id === undefined
         ? undefined
-        : () => {
-            // Without a settings deep-link, surface the same edit dialog;
-            // user can save-as-default from within it.
+        : (seconds: number) => {
+            setExerciseDefault(chosenExercise.id!, seconds);
+            // If the running rest timer is for this exercise, reflect the new
+            // default in the active timer's target line immediately.
+            if (activeRest?.exerciseId === chosenExercise.id) {
+              updateRestTarget(seconds);
+            }
           },
-    [chosenExercise.id],
+    [chosenExercise.id, setExerciseDefault, activeRest?.exerciseId, updateRestTarget],
   );
 
   return (
@@ -160,6 +164,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
         onSkip={onSkipRest}
         onEditTarget={onEditTarget}
         onAdjustExerciseDefault={handleAdjustExerciseDefault}
+        exerciseDefaultSeconds={resolvedRestDefault}
       />
       <Portal>
         <Dialog visible={openPlanned} onDismiss={() => setOpenPlanned(false)}>

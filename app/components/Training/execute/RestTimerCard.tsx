@@ -11,7 +11,12 @@ interface RestTimerCardProps {
   onReset: () => void;
   onSkip: () => void;
   onEditTarget: (seconds: number, saveAsDefault: boolean) => void;
-  onAdjustExerciseDefault?: () => void;
+  // Wired iff the active exercise has an id. Receives the raw seconds value
+  // from the dialog and is expected to persist the per-exercise default.
+  onAdjustExerciseDefault?: (seconds: number) => void;
+  // Pre-fill value for the "Adjust default for this exercise" dialog —
+  // resolved by the parent (per-exercise default → user default → 90s).
+  exerciseDefaultSeconds?: number;
 }
 
 const monoFamily = Platform.select({ios: 'Menlo', android: 'monospace', default: 'monospace'});
@@ -24,12 +29,14 @@ const RestTimerCard = ({
   onSkip,
   onEditTarget,
   onAdjustExerciseDefault,
+  exerciseDefaultSeconds,
 }: RestTimerCardProps) => {
   const theme = useTheme();
   const enabled = !!startedAt && !!targetSeconds && targetSeconds > 0;
   const snapshot = useRestTimer({startedAt, targetSeconds, enabled});
   const [menuVisible, setMenuVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
+  const [exerciseDefaultDialogVisible, setExerciseDefaultDialogVisible] = useState(false);
 
   const vibrate = useCallback((duration: number) => {
     Vibration.vibrate(duration);
@@ -82,7 +89,7 @@ const RestTimerCard = ({
                 testID="rest-timer-adjust-default"
                 onPress={() => {
                   setMenuVisible(false);
-                  onAdjustExerciseDefault();
+                  setExerciseDefaultDialogVisible(true);
                 }}
                 title="Adjust default for this exercise"
               />
@@ -122,6 +129,16 @@ const RestTimerCard = ({
         onSave={(seconds, saveAsDefault) => {
           setEditVisible(false);
           onEditTarget(seconds, saveAsDefault);
+        }}
+      />
+      <RestTargetEditDialog
+        visible={exerciseDefaultDialogVisible}
+        mode="exerciseDefault"
+        initialSeconds={exerciseDefaultSeconds ?? targetSeconds!}
+        onCancel={() => setExerciseDefaultDialogVisible(false)}
+        onSave={(seconds) => {
+          setExerciseDefaultDialogVisible(false);
+          onAdjustExerciseDefault?.(seconds);
         }}
       />
     </>

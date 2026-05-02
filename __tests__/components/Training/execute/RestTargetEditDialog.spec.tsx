@@ -24,7 +24,7 @@ jest.mock('react-native-paper', () => {
         <Text>{status}</Text>
       </TouchableOpacity>
     ),
-    Text: ({children, style}: any) => <Text style={style}>{children}</Text>,
+    Text: ({children, style, testID}: any) => <Text testID={testID} style={style}>{children}</Text>,
     TextInput: ({label, onChangeText, value, testID}: any) => (
       <TextInput testID={testID} accessibilityLabel={label} onChangeText={onChangeText} value={value} />
     ),
@@ -66,5 +66,26 @@ describe('RestTargetEditDialog', () => {
     );
     expect(getByTestId('rest-target-minutes').props.value).toBe('2');
     expect(getByTestId('rest-target-seconds').props.value).toBe('30');
+  });
+
+  it('exerciseDefault mode hides the checkbox and forces saveAsDefault=true on Save (GH-195 P2)', () => {
+    const onSave = jest.fn();
+    const {getByTestId, queryByTestId} = render(
+      <RestTargetEditDialog
+        visible={true}
+        initialSeconds={90}
+        mode="exerciseDefault"
+        onCancel={jest.fn()}
+        onSave={onSave}
+      />,
+    );
+    // The opt-in "Save as default" checkbox is replaced by an always-on hint.
+    expect(queryByTestId('rest-target-save-default')).toBeNull();
+    expect(getByTestId('rest-target-exercise-default-hint')).toBeTruthy();
+
+    fireEvent.changeText(getByTestId('rest-target-minutes'), '2');
+    fireEvent.changeText(getByTestId('rest-target-seconds'), '0');
+    fireEvent.press(getByTestId('rest-target-save'));
+    expect(onSave).toHaveBeenCalledWith(120, true);
   });
 });

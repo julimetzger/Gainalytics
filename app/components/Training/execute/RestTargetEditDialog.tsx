@@ -7,14 +7,19 @@ interface RestTargetEditDialogProps {
   initialSeconds: number;
   onCancel: () => void;
   onSave: (seconds: number, saveAsDefault: boolean) => void;
+  // 'adhoc' (default) shows the "Save as default" checkbox.
+  // 'exerciseDefault' is the entry mode for "Adjust default for this exercise"
+  // — the per-exercise default is always persisted (checkbox hidden).
+  mode?: 'adhoc' | 'exerciseDefault';
 }
 
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
 
-const RestTargetEditDialog = ({visible, initialSeconds, onCancel, onSave}: RestTargetEditDialogProps) => {
+const RestTargetEditDialog = ({visible, initialSeconds, onCancel, onSave, mode = 'adhoc'}: RestTargetEditDialogProps) => {
   const [minutes, setMinutes] = useState('');
   const [seconds, setSeconds] = useState('');
   const [saveAsDefault, setSaveAsDefault] = useState(false);
+  const isExerciseDefaultMode = mode === 'exerciseDefault';
 
   useEffect(() => {
     if (visible) {
@@ -34,13 +39,13 @@ const RestTargetEditDialog = ({visible, initialSeconds, onCancel, onSave}: RestT
       onCancel();
       return;
     }
-    onSave(total, saveAsDefault);
+    onSave(total, isExerciseDefaultMode ? true : saveAsDefault);
   };
 
   return (
     <Portal>
       <Dialog visible={visible} onDismiss={onCancel} testID="rest-target-edit-dialog">
-        <Dialog.Title>Edit rest target</Dialog.Title>
+        <Dialog.Title>{isExerciseDefaultMode ? 'Adjust default rest' : 'Edit rest target'}</Dialog.Title>
         <Dialog.Content>
           <View style={styles.inputRow}>
             <TextInput
@@ -63,14 +68,20 @@ const RestTargetEditDialog = ({visible, initialSeconds, onCancel, onSave}: RestT
               style={styles.input}
             />
           </View>
-          <View style={styles.checkRow}>
-            <Checkbox
-              testID="rest-target-save-default"
-              status={saveAsDefault ? 'checked' : 'unchecked'}
-              onPress={() => setSaveAsDefault((v) => !v)}
-            />
-            <Text style={styles.checkLabel}>Save as default for this exercise</Text>
-          </View>
+          {isExerciseDefaultMode ? (
+            <Text testID="rest-target-exercise-default-hint" style={styles.hintLabel}>
+              Saved as default for this exercise.
+            </Text>
+          ) : (
+            <View style={styles.checkRow}>
+              <Checkbox
+                testID="rest-target-save-default"
+                status={saveAsDefault ? 'checked' : 'unchecked'}
+                onPress={() => setSaveAsDefault((v) => !v)}
+              />
+              <Text style={styles.checkLabel}>Save as default for this exercise</Text>
+            </View>
+          )}
         </Dialog.Content>
         <Dialog.Actions>
           <Button onPress={onCancel} testID="rest-target-cancel">Cancel</Button>
@@ -103,6 +114,11 @@ const styles = StyleSheet.create({
   checkLabel: {
     flex: 1,
     fontSize: 14,
+  },
+  hintLabel: {
+    marginTop: 12,
+    fontSize: 13,
+    opacity: 0.7,
   },
 });
 
