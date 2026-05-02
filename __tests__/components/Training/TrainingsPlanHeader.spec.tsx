@@ -103,4 +103,14 @@ describe('TrainingsPlanHeader', () => {
     );
     expect(getByTestId('header-overflow-button')).toBeTruthy();
   });
+
+  it('shows the editing kicker in full edit mode', () => {
+    const {getByTestId} = render(
+      <TrainingsPlanHeader
+        {...BASE_PROPS}
+        planMode="fullEdit"
+      />,
+    );
+    expect(getByTestId('header-plan-editing-kicker')).toBeTruthy();
+  });
 });
