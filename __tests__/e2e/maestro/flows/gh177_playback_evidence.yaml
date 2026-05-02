@@ -1,0 +1,53 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-177 Round 7: Navigate to video analysis playback, tap Play, and capture evidence
+# screenshots proving the scrubber/velocity marker advances during playback.
+# Prerequisites: bootstrap (import baseline) has been run.
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+# Navigate to Analyse tab → Video Analyses
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- scrollUntilVisible:
+    element:
+      text: 'Video Analyses'
+    direction: DOWN
+    timeout: 15000
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 30000
+- assertVisible:
+    text: "Status: done"
+# Open the first completed analysis
+- tapOn:
+    text: "Open"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      text: "Status: done"
+    timeout: 30000
+# Scroll down to the Playback Overlay section
+- scrollUntilVisible:
+    element:
+      text: "Playback Overlay"
+    direction: DOWN
+    timeout: 20000
+- assertVisible: "Playback Overlay"
+# Take screenshot BEFORE tapping play — scrubber should be at 0
+- takeScreenshot: "gh177_r7_before_play"
+# Tap the play button
+- tapOn: "video-analysis-playback-toggle"
+# Take screenshot immediately after play tap (~0.5s after)
+- takeScreenshot: "gh177_r7_t0_playing"

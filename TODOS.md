@@ -58,6 +58,7 @@
 
 ## Bugs
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
+- [PR #179] [GH-177](https://github.com/julimetzger/Gainalytics/issues/177) Video analysis scrubber und velocity line kein sync
 
 ## Maintenance
 - Analyse aller maestro flows

@@ -614,3 +614,90 @@ The `stable*` wrappers have permanent identity, so they sit safely in deps array
 **Observation:** A `force-stop` + relaunch of `com.powerliftingworkoutplanner` does NOT re-fetch the bundle from Metro on this APK (the SYN to `10.0.2.2:8081` never connects, the app silently falls back to the bundle inside the APK). The Dev Menu → Change Bundle Location → `localhost:8081` flow is the proper way to switch sources but the APPLY CHANGES button doesn't always commit the SharedPreferences write reliably from `adb shell input tap` (the tap may land outside the button or the focus may be wrong).
 **Working solution:** When you patched a node_modules file and need to verify it on device, the reliable path is `cd android && ./gradlew assembleDebug` (~5 min) followed by `adb -s <serial> install -r <apk>`. Metro hot-reload is fine for app source changes (where the dev bundle URL works), but for node_modules patches the rebuild guarantees the patched code is what runs.
 **Apply when:** You patched a library and need device-level confirmation that the fix is live. Don't waste time fighting the Dev Menu; just rebuild.
+
+### 100. Later `useEffect` overwrites Reanimated SharedValues set by an earlier effect — restore at end of the later effect
+**Problem/Symptoms (GH-177):** `VideoAnalysisPlaybackOverlayCard` had two competing effects:
+1. Duration effect (~line 475): sets `videoDurationMsSV`, `chartVisibleMinSV`, `chartVisibleMaxSV` from `correctedPlaybackDurationMs` — declared first.
+2. Reset effect (~line 967): resets ALL SharedValues to 0 on `localVideoPath`/`result` change — declared later.
+React runs effects in declaration order. When both deps change simultaneously (initial mount), the reset effect fires AFTER the duration effect and zeros out the SharedValues the duration effect correctly set. Because the reset effect's dep array does not include `correctedPlaybackDurationMs`, the duration effect never re-runs to restore them. Result: `videoDurationMsSV.value` = 0 → scrubber guard returns `{width: '0%'}` always; `chartVisibleMaxSV.value` = 0 → `rangeSpan <= 0` guard returns `SPEED_CHART_LEFT_PADDING` always.
+**Working solution:** At the END of the later (reset) effect, after all the zeroing, re-initialize the SharedValues from the data source that was correct before the reset:
+```js
+if (correctedPlaybackDurationMs > 0) {
+  videoDurationMsSV.value = correctedPlaybackDurationMs;
+  chartVisibleMinSV.value = 0;
+  chartVisibleMaxSV.value = correctedPlaybackDurationMs;
+  chartVisibleMinRef.current = 0;
+  chartVisibleMaxRef.current = correctedPlaybackDurationMs;
+}
+```
+**Apply when:** Any component where a "reset everything" effect is declared after an "initialize from derived data" effect, and both share deps that change together. The restore must happen in the later effect, not in a third effect, to preserve ordering guarantees.
+
+### 84. Drift correction that targets `playbackDurationRef` instead of `correctedPlaybackDurationMs` breaks animation at every progress event
+**Problem/Symptoms (GH-177 Round 2):** After the Round 1 fix (memory #83), the scrubber and marker still stopped advancing at every sync event (~50ms). Root cause: the drift correction in `onPlayerProgress` read `playbackDurationRef.current` (plain video duration from `onPlayerLoad`) as both the guard condition and the `withTiming` target. Two failure modes:
+1. `playbackDurationRef.current = 0` when ExoPlayer emits `STATE_READY` before the duration is known → `emitLoad()` with `durationMs=0` → JS `onPlayerLoad` skips the ref update → `if (totalDuration > 0)` fails → `cancelAnimation()` is called with NO restart → animation stops every 50ms.
+2. `playbackDurationRef.current < correctedPlaybackDurationMs` when `timeRange.maxTimeMs` is the binding constraint → drift correction restarts animation to the wrong (shorter) target. If `correctedPlaybackDurationMs` didn't change as a result, the effect at line 667 doesn't fire to fix it.
+**Working solution:** Introduce `correctedPlaybackDurationMsRef = useRef(0)` and keep it in sync alongside `videoDurationMsSV` in both the duration effect and the reset effect. The drift correction guards on and targets `correctedPlaybackDurationMsRef.current`, which always matches the value used by `onPlayPauseToggle`.
+**Apply when:** Any `useCallback`/event handler that reads a duration ref to restart a `withTiming` animation. If the animation was started with `correctedX`, the restart must also target `correctedX`, not the underlying raw value. A ref shadowing the corrected value avoids stale-closure or state-read issues inside the callback.
+
+### 85. Reanimated drift correction must check `Math.abs(drift)`, not just `drift > threshold`
+**Problem/Symptoms (GH-177 Round 3):** After Rounds 1+2, the scrubber still got stuck during playback. When `withTiming` somehow stalled at 0ms (e.g. before the first restart after duration change), the native player advanced to e.g. 300ms → drift = 0 - 300 = **-300** (negative). The old guard `drift > 80` is false for negative drift, so the correction never fired and the animation stayed at 0 forever.
+**Working solution:** Change `if (drift > 80)` to `if (Math.abs(drift) > 80)` so the correction fires when the animation is *behind* the player, not only ahead.
+**Logcat pattern:** Log `[TAG] animated=X native=Y drift=Z` at every progress event. If you see `animated` stuck at 0 while `native` advances and `drift` stays negative, this is the bug. If you see `animated` occasionally jumping past `native` and then snapping back, that's the positive-drift correction working.
+**Apply when:** Any `withTiming` animation that is corrected against an external position source (video player, audio position, etc.). Always use `Math.abs(drift) > threshold`.
+
+### 86. Including a state value in a `useEffect` dep when you only need the ref triggers spurious `cancelAnimation`
+**Problem/Symptoms (GH-177 Round 3):** The `playbackSpeed` effect had `correctedPlaybackDurationMs` (state) in its dep array so it could read the current duration for `withTiming`. When `onPlayerProgress` first reported the actual video duration, `correctedPlaybackDurationMs` changed from the bar-path-derived value (e.g. 3000ms) to the actual video duration (e.g. 40380ms), triggering the effect. The effect called `cancelAnimation` and then `withTiming` to restart. If any timing issue caused `!playbackPausedRef.current` to be briefly false (or if the restart's `remainingMs` was 0 for any reason), the animation would stop.
+**Working solution:** Replace the state read with a ref that is kept up-to-date by the duration effect (`correctedPlaybackDurationMsRef.current = correctedPlaybackDurationMs`). Remove the state dep from the `playbackSpeed` effect's dep array. The effect then only fires on explicit speed-button taps, not on every progress-event-induced duration change.
+**Apply when:** Any `useEffect` that reads a piece of state only to use its current value inside the callback (not to react to its changes). If you only need "the latest value at fire time", use a ref instead of a state dep. The dep array should only list values whose CHANGES should trigger the effect.
+
+### 87. Reanimated drift correction must use `withSequence` soft-sync, not hard assignment — and raise threshold above jitter floor
+**Problem/Symptoms (GH-177 Round 3/4):** After fixing the `Math.abs(drift)` check, the scrubber advanced but stuttered at 5-10 fps. Root cause: every time drift exceeded 80ms (which happened on almost every `onPlayerProgress` tick due to natural jitter — frame quantization ≈33ms, decoder warmup 50-300ms), the correction did `playbackTimeMsSV.value = nativeMs` (hard assignment) before restarting `withTiming`. This instant snap was visible as the marker jumping backward/forward by 50-150ms before the smooth animation resumed.
+**Working solution:**
+1. Replace `cancelAnimation + playbackTimeMsSV.value = nativeMs + withTiming(end)` with `cancelAnimation + withSequence(withTiming(nativeMs, {duration:80}), withTiming(end, {duration:remaining/speed}))`. The 80ms glide to native position is visually imperceptible and avoids the jump.
+2. Raise the threshold from 80ms to 250ms. 80ms is below the jitter floor on real devices; 250ms only fires on genuine desync, letting the `withTiming` animation run uninterrupted through normal playback.
+3. Avoid the `'worklet'` + JS-ref pattern in completion callbacks (worklets cannot access React `useRef` values). Use `withSequence` to chain the two animations instead, relying on `cancelAnimation` from `onPlayPauseToggle` to interrupt the sequence when the user pauses.
+**Apply when:** Any `withTiming` animation corrected against an external position source (player, audio, etc.) where the jitter on that source is significant. Hard-snap corrections at high frequency cause visible stutter; a short leading `withTiming` glide hides the correction.
+
+### 88. Drift correction with `withTiming(end, {duration: end - animatedMs})` does NOT converge when animated > native
+**Problem/Symptoms (GH-177 Round 5→6):** After replacing `withSequence` with a single `withTiming` + 500ms cooldown (Round 5), the marker still froze near 100% on R5CN30HWZFN. Root cause: the correction restarted `withTiming(totalDuration, {duration: totalDuration - animatedMs})`. When `animatedMs > nativeMs` (animation ran ahead), `totalDuration - animatedMs` shrank toward 0. The animation finished almost instantly and the marker froze. On the next cooldown window the same thing happened — `animatedMs` was near `totalDuration`, so every correction immediately "completed" and nothing re-started meaningful motion.
+**Working solution:** Use `remainingFromNative = max(0, totalDuration - nativeMs)` as the `withTiming` duration instead. This drives convergence:
+- When ahead: `remainingFromNative > remainingFromHere` → animation runs longer → marker slows, native catches up.
+- When behind: `remainingFromNative < remainingFromHere` → animation runs faster → marker catches up.
+For large drift (>500ms) also snap `playbackTimeMsSV.value = nativeMs` first to avoid the marker lagging for the full cooldown window.
+**Apply when:** Any time you restart `withTiming` toward a fixed endpoint in a drift-correction loop. The duration must be based on the REFERENCE source's remaining time, not the animation's remaining time — otherwise convergence is not guaranteed.
+
+### 89. `withTiming` + cancelAnimation choreography produces ~1s ticking when corrections fire on every progress event — switch to `useFrameCallback`
+**Problem/Symptoms (GH-177 Round 7→8):** After r7 made drift correction converge, the user reported the scrubber visibly only advanced once per ExoPlayer progress event (~1s on real devices). Even with a 500ms cooldown, every progress event whose drift exceeded the threshold caused `cancelAnimation(playbackTimeMsSV) + withTiming(end)`. The cancel/restart cycle interrupted Reanimated's worklet animation enough that the visual update only refreshed at the cancel/restart boundaries — not the smooth 60fps `withTiming` is supposed to deliver.
+**Working solution:** Replace `withTiming` entirely with `useFrameCallback`:
+```ts
+useFrameCallback((frame) => {
+  'worklet';
+  if (playbackPausedSV.value || isScrubbingSV.value) return;
+  const total = videoDurationMsSV.value;
+  if (total <= 0) return;
+  const dt = frame.timeSincePreviousFrame ?? 16.67;
+  const next = playbackTimeMsSV.value + dt * playbackSpeedSV.value;
+  playbackTimeMsSV.value = next > total ? total : next;
+});
+```
+The frame callback runs on the UI thread every refresh, advancing the SharedValue by wall-clock delta. Drift correction in `onPlayerProgress` then becomes a rare safety net (only when `|drift| > 1000ms` — player stall or hidden seek), no cancelAnimation needed.
+Required adaptations:
+- State the worklet needs (paused/scrubbing/speed/duration) must live in SharedValues, not refs — worklets cannot read JS refs. Mirror them in JS-side handlers.
+- The shipped reanimated mock (`react-native-reanimated/mock`) omits `useFrameCallback`. Extend it in `jest.setup.js`: `useFrameCallback: jest.fn().mockReturnValue({ setActive: () => {}, isActive: false, callbackId: 0 })`.
+**Apply when:** Any UI-thread animation that needs to track an external time source with frequent sync events. `withTiming` is the wrong primitive when you can't avoid mid-animation cancels; `useFrameCallback` is the right one because it owns the time source itself.
+
+### 90. Photo-Picker import on emulator: Apr 14 5s test video has no detectable plate; use the squat-3reps.mp4 (10s, Apr 26) for evidence runs
+**Observation (GH-177 Round 8):** When importing a video via the in-app `Import Video` button on emulator-5554, the Google Photos picker shows three test videos (Apr 14 5s clip, Apr 26 4s clip = squat-1rep.mp4, Apr 26 10s clip = squat-3reps.mp4). Selecting the Apr 14 video produces an analysis with `Status: failed` (no outer plate detected at t=0). The Apr 26 10s clip produces `Status: done` with a populated `localVideoPath` and is the right choice for any evidence flow that needs actual playback to render.
+**Apply when:** Setting up emulator-5554 to verify a fix in the Playback Overlay path. The Playback Overlay only renders when `analysis.localVideoPath && analysis.result` are both truthy; importing the wrong test video silently leaves `localVideoPath` empty. Tap-coordinates on Pixel_7_3 (1080×2400): photo-picker drag-handle row is around y=950, the 10s tile is at bounds [0,1292][358,1650] (tap 179, 1471), `Done` button is at [866,2175][949,2228] (tap 907, 2200).
+
+### 91. Per-frame scrubber smoothness analysis via screenrec + ffmpeg + thumb x-detection (GH-177 r10)
+**Observation:** When a user reports "scrubber not smooth" on a real device, single screenshots at t=0/3/5/7s prove only that animation eventually advanced — not that motion was continuous between captures. To distinguish "smooth" from "1s ticks" or "stalled", capture a 10s `adb shell screenrecord`, extract every native frame with `ffmpeg -vsync passthrough`, crop to just the scrubber bar strip, and detect the rightmost lavender pixel per frame with PIL/numpy to compute per-frame deltas. On R5CN30HWZFN with the GH-177 r9 fix: 98% positive deltas, mean 1.04 px per native frame (~62 px/s), max stall 50ms (3 frames) — empirically smooth. Mean delta of 0 with bursts of 15+px every ~1s would have indicated the old tick-pattern bug.
+**Apply when:** A round needs to verify or rule out subjective smoothness complaints on a real device. A picture or four pictures cannot prove smoothness — only per-frame motion data can.
+
+### 92. R5CN30HWZFN (Galaxy S20+) ships with `mActiveModeId=9` = 720x1600 @60Hz, NOT 120Hz
+**Observation:** Samsung S20+ supports 120Hz at 1080x2400 (mode 2) but the active display mode is `9` (720x1600 @60Hz) under `dumpsys display | grep mActiveModeId`. This matters when reasoning about Reanimated `useFrameCallback` smoothness — the worklet ticks at the active refresh rate, so it's running ~16.67ms per frame on this device, not 8.33ms. Also: native screenrecord captures at the active mode resolution and ~54.7 fps avg over a 10s window with `--time-limit 10` (variable, not a hard 60).
+**Apply when:** Investigating animation smoothness or designing tests against R5CN30HWZFN. Read `mActiveModeId` from `dumpsys display | grep mActiveModeId` to confirm the actual frame budget. Don't assume 120Hz just because the device "supports" it.
+
+### 93. `IconButton` from react-native-paper exposes its testID as a `resource-id` only after the button is fully on-screen
+**Observation:** The `video-analysis-playback-toggle` button (a paper `IconButton`) appears in `uiautomator dump` as `resource-id="video-analysis-playback-toggle"` ONLY when the player area is fully scrolled into view. Earlier rounds (GH-177 codex r9) failed to find this testID because they searched the dump while the player was partially below the fold. RN's accessibility tree prunes off-screen views.
+**Apply when:** A direct adb tap or Maestro selector cannot find an element you can see in screenshots. Scroll the screen so the element is fully on-screen, then re-dump. Memory entry #44 covers the broader pattern; this entry is a concrete confirmation for the playback-overlay toggle.
