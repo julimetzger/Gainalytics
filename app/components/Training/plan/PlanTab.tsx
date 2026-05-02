@@ -26,6 +26,8 @@ import PlanEditList from './PlanEditList';
 import PlanReadList from './PlanReadList';
 import DraggableExercise from '../DraggableExercise';
 import TrainingElementPicker from '../../picker/elements/TrainingElementPicker';
+import MuscleInvolvementCard from './MuscleInvolvementCard';
+import {useSettings} from '../../../redux/settings/use/useSettings';
 
 interface PlanTabProps {
   training: Training;
@@ -66,6 +68,7 @@ const PlanTab = ({
 }: PlanTabProps) => {
   const theme = useTheme();
   const safeAreaInsets = useSafeAreaInsets();
+  const appSettings = useSettings();
   const selectedExercise = chosenExercise ?? exercises[0];
   const nextTrainingId = useNextTrainingsId();
   const addPlannedWorkout = dispatchAddPlanedTrainingWorkout();
@@ -168,6 +171,9 @@ const PlanTab = ({
 
   return (
     <View style={styles.container}>
+      {appSettings.plan?.muscleMap?.enabled && (
+        <MuscleInvolvementCard trainingsPlanId={trainingsPlanId} micro={micro} trainingInMicro={trainingInMicro} />
+      )}
       <DraggableExercise
         exercises={exercises}
         chosenExercise={selectedExercise}
