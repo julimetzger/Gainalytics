@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {useAllLastWorkouts} from '../../../redux/Workout/use/useAllLastWorkouts';
+import {useLastFinishedWorkout} from '../../../redux/Workout/use/useLastFinishedWorkout';
 import {useUnfinishedWorkout} from '../../../redux/Workout/use/useUnfinishedWorkout';
 import {Button, Icon, Text, useTheme} from 'react-native-paper';
 import {dispatchAddWorkout} from '../../../redux/Workout/dispatch/dispatchAddWorkout';
@@ -37,7 +38,10 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
   let unfinishedWorkout = useUnfinishedWorkout(exercise.id!!);
   unfinishedWorkout = workout ?? unfinishedWorkout;
   let workouts = useAllLastWorkouts(exercise, 1);
-  let oneRepMax = oneRepMaxForWorkouts(...workouts);
+  // 1RM baseline must come from the most recent FINISHED workout, never the
+  // in-progress one (GH-195 P1) — otherwise "vs last" drifts mid-session.
+  let lastFinishedWorkout = useLastFinishedWorkout(exercise);
+  let oneRepMax = lastFinishedWorkout ? oneRepMaxForWorkouts(lastFinishedWorkout) : 0;
   React.useEffect(() => {
     oneRepMaxRef?.(oneRepMax);
   }, [oneRepMax, oneRepMaxRef]);

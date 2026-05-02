@@ -4,6 +4,7 @@ import {fireEvent, render} from '@testing-library/react-native';
 import AddWorkout from '../../../../app/components/Workout/add/AddWorkout';
 import {useUnfinishedWorkout} from '../../../../app/redux/Workout/use/useUnfinishedWorkout';
 import {useAllLastWorkouts} from '../../../../app/redux/Workout/use/useAllLastWorkouts';
+import {useLastFinishedWorkout} from '../../../../app/redux/Workout/use/useLastFinishedWorkout';
 import {dispatchAddWorkout} from '../../../../app/redux/Workout/dispatch/dispatchAddWorkout';
 import {dispatchAddOrUpdateSetInWorkout} from '../../../../app/redux/Workout/dispatch/dispatchAddOrUpdateSetInWorkout';
 import {dispatchFinalizeWorkout} from '../../../../app/redux/Workout/dispatch/dispatchFinalizeWorkout';
@@ -32,6 +33,10 @@ jest.mock('../../../../app/redux/Workout/use/useUnfinishedWorkout', () => ({
 
 jest.mock('../../../../app/redux/Workout/use/useAllLastWorkouts', () => ({
   useAllLastWorkouts: jest.fn(),
+}));
+
+jest.mock('../../../../app/redux/Workout/use/useLastFinishedWorkout', () => ({
+  useLastFinishedWorkout: jest.fn(),
 }));
 
 jest.mock('../../../../app/redux/Workout/dispatch/dispatchAddWorkout', () => ({
@@ -113,6 +118,7 @@ jest.mock('react-native-paper', () => {
 
 const mockedUseUnfinishedWorkout = jest.mocked(useUnfinishedWorkout);
 const mockedUseAllLastWorkouts = jest.mocked(useAllLastWorkouts);
+const mockedUseLastFinishedWorkout = jest.mocked(useLastFinishedWorkout);
 const mockedDispatchAddWorkout = jest.mocked(dispatchAddWorkout);
 const mockedDispatchAddOrUpdateSetInWorkout = jest.mocked(dispatchAddOrUpdateSetInWorkout);
 const mockedDispatchFinalizeWorkout = jest.mocked(dispatchFinalizeWorkout);
@@ -125,6 +131,7 @@ describe('AddWorkout', () => {
 
   beforeEach(() => {
     mockedUseAllLastWorkouts.mockReturnValue([]);
+    mockedUseLastFinishedWorkout.mockReturnValue(undefined);
     mockedUseUnfinishedWorkout.mockReturnValue(undefined);
     mockedDispatchAddWorkout.mockClear();
     mockedDispatchAddOrUpdateSetInWorkout.mockClear();
@@ -232,6 +239,50 @@ describe('AddWorkout', () => {
     expect(mockFinalizeWorkoutSpy).toHaveBeenCalledTimes(1);
     expect(mockFinalizeWorkoutSpy).toHaveBeenCalledWith(date, 42);
     expect(onSubmitWithWorkout).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports the previous FINISHED workout 1RM via oneRepMaxRef, ignoring an in-progress workout (GH-195 P1 regression)', () => {
+    // Spec: "Last training" baseline must point to the previous finished
+    // workout — never the in-progress one. Simulate a previous training
+    // (5×100, 1RM≈115.6) and a current in-progress training already showing
+    // a heavier set (5×110, 1RM≈127.2) in useAllLastWorkouts. The card MUST
+    // still read ~115.6, not ~127.2.
+    const finishedWorkout: Workout = {
+      id: 100,
+      sets: [{index: 1, reps: 5, rir: 0, weight: 100}],
+      notes: '',
+      exerciseId: 7,
+      start: new Date('2024-01-01T00:00:00.000Z'),
+      end: new Date('2024-01-01T01:00:00.000Z'),
+    };
+    const inProgressWorkout: Workout = {
+      id: 200,
+      sets: [{index: 1, reps: 5, rir: 0, weight: 110}],
+      notes: '',
+      exerciseId: 7,
+      start: new Date('2024-02-01T00:00:00.000Z'),
+    };
+    mockedUseAllLastWorkouts.mockReturnValue([inProgressWorkout]);
+    mockedUseLastFinishedWorkout.mockReturnValue(finishedWorkout);
+    mockedUseUnfinishedWorkout.mockReturnValue(inProgressWorkout);
+
+    const oneRepMaxRef = jest.fn();
+    render(
+      <AddWorkout
+        exercise={exercise}
+        onSubmit={jest.fn()}
+        trainingsId={3}
+        date={date}
+        oneRepMaxRef={oneRepMaxRef}
+      />,
+    );
+
+    expect(oneRepMaxRef).toHaveBeenCalled();
+    const reportedOneRm = oneRepMaxRef.mock.calls[oneRepMaxRef.mock.calls.length - 1][0];
+    // 100 * (1 + 5/30) ≈ 116.67. We assert "previous finished" range, not the
+    // in-progress 110-based value (~128.3) which would indicate the bug.
+    expect(reportedOneRm).toBeGreaterThan(110);
+    expect(reportedOneRm).toBeLessThan(120);
   });
 
   it('handles suggest button enablement and dispatch', () => {
