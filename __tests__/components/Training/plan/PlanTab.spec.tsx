@@ -40,6 +40,16 @@ jest.mock('../../../../app/redux/Workout/dispatch/dispatchReplaceWorkoutSets', (
 
 jest.mock('../../../../app/components/picker/elements/TrainingElementPicker', () => () => null);
 
+jest.mock('../../../../app/components/Training/plan/MuscleInvolvementCard', () => {
+  const React = require('react');
+  const {Text, View} = require('react-native');
+  return ({trainingsPlanId, micro, trainingInMicro}: {trainingsPlanId: number; micro: number; trainingInMicro: number}) => (
+    <View testID="muscle-involvement-card-mock">
+      <Text>{`muscle-card:${trainingsPlanId}/${micro}/${trainingInMicro}`}</Text>
+    </View>
+  );
+});
+
 jest.mock('../../../../app/components/Training/DraggableExercise', () => {
   const React = require('react');
   const {Text, View} = require('react-native');
@@ -194,19 +204,25 @@ const baseProps = {
   onChromeChange: jest.fn(),
 };
 
+interface MockState {
+  workouts: {byId: Record<number, Workout>};
+  settings: {plan?: {muscleMap?: {enabled?: boolean}}};
+}
+
+const buildMockState = (settings: MockState['settings'] = {}): MockState => ({
+  workouts: {
+    byId: {
+      101: plannedWorkout,
+      102: plannedWorkoutBench,
+    },
+  },
+  settings,
+});
+
 describe('PlanTab', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseSelector.mockImplementation((selector: (state: {workouts: {byId: Record<number, Workout>}}) => unknown) =>
-      selector({
-        workouts: {
-          byId: {
-            101: plannedWorkout,
-            102: plannedWorkoutBench,
-          },
-        },
-      }),
-    );
+    mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) => selector(buildMockState()));
   });
 
   it('renders all exercises and the existing draggable exercise picker', () => {
@@ -284,5 +300,63 @@ describe('PlanTab', () => {
         mode: 'fullEdit',
       }),
     );
+  });
+
+  describe('MuscleInvolvementCard mount (GH-192)', () => {
+    it('does NOT render the card when muscle map is disabled in settings', () => {
+      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) => selector(buildMockState({})));
+
+      const {queryByTestId} = render(<PlanTab {...baseProps} />);
+      expect(queryByTestId('muscle-involvement-card-mock')).toBeNull();
+    });
+
+    it('renders the card in read mode when muscle map is enabled', () => {
+      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) =>
+        selector(buildMockState({plan: {muscleMap: {enabled: true}}})),
+      );
+
+      const {getByTestId} = render(<PlanTab {...baseProps} />);
+      expect(getByTestId('plan-read-mode').props.children).toBe('read');
+      expect(getByTestId('muscle-involvement-card-mock')).toBeTruthy();
+    });
+
+    it('renders the card in quickEdit mode when muscle map is enabled', async () => {
+      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) =>
+        selector(buildMockState({plan: {muscleMap: {enabled: true}}})),
+      );
+
+      const {getByTestId} = render(<PlanTab {...baseProps} />);
+      fireEvent.press(getByTestId('plan-open-weight-cell'));
+
+      await waitFor(() => {
+        expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
+      });
+      expect(getByTestId('muscle-involvement-card-mock')).toBeTruthy();
+    });
+
+    it('renders the card in fullEdit mode when muscle map is enabled', async () => {
+      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) =>
+        selector(buildMockState({plan: {muscleMap: {enabled: true}}})),
+      );
+
+      const {getByTestId, rerender} = render(<PlanTab {...baseProps} />);
+      rerender(<PlanTab {...baseProps} editPlanRequestId={1} />);
+
+      await waitFor(() => {
+        expect(getByTestId('plan-full-edit-list')).toBeTruthy();
+      });
+      expect(getByTestId('muscle-involvement-card-mock')).toBeTruthy();
+    });
+
+    it('passes through trainingsPlanId / micro / trainingInMicro to the card', () => {
+      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) =>
+        selector(buildMockState({plan: {muscleMap: {enabled: true}}})),
+      );
+
+      const {getByTestId} = render(<PlanTab {...baseProps} />);
+      const card = getByTestId('muscle-involvement-card-mock');
+      // Mock renders `muscle-card:${trainingsPlanId}/${micro}/${trainingInMicro}`
+      expect(card.children[0].props.children).toBe('muscle-card:55/6/1');
+    });
   });
 });
