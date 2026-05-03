@@ -59,6 +59,7 @@ const Estimated1RmCard = ({sessionOneRm, lastTrainingOneRm, allTimePr}: Estimate
       accessibilityLabel="Estimated 1RM card"
       style={[styles.card, {backgroundColor: surfaceLow}]}>
       <View style={styles.row}>
+        {/* LEFT: Trophy avatar + caption + hero + PR stacked vertically */}
         <View style={[styles.avatar, {backgroundColor: primaryContainer}]}>
           <Icon source="trophy" size={22} color={onPrimaryContainer} />
         </View>
@@ -69,8 +70,6 @@ const Estimated1RmCard = ({sessionOneRm, lastTrainingOneRm, allTimePr}: Estimate
           <Text testID="estimated-1rm-value" style={[styles.heroValue, {color: onSurface, fontFamily: mono}]}>
             {hasSession ? fmtInt(sessionOneRm) : '—'}
           </Text>
-        </View>
-        <View style={styles.right}>
           {hasPr ? (
             <Animated.View style={{transform: [{scale}]}}>
               <Text
@@ -80,16 +79,22 @@ const Estimated1RmCard = ({sessionOneRm, lastTrainingOneRm, allTimePr}: Estimate
               </Text>
             </Animated.View>
           ) : null}
-          {hasLast ? (
-            <Text testID="estimated-1rm-last" style={[styles.lastLine, {color: onSurfaceVariant, fontFamily: mono}]}>
-              {`last ${fmt(lastTrainingOneRm!)}`}
-            </Text>
-          ) : null}
-          {deltaStr !== null ? (
-            <Text testID="estimated-1rm-delta" style={[styles.deltaLine, {color: deltaTint, fontFamily: mono}]}>
-              {deltaStr}
-            </Text>
-          ) : null}
+        </View>
+        {/* RIGHT: caption "vs last training" + last + delta — always rendered */}
+        <View style={styles.right}>
+          <Text testID="estimated-1rm-vs-caption" style={[styles.vsCaption, {color: onSurfaceVariant}]}>
+            vs last training
+          </Text>
+          <Text
+            testID="estimated-1rm-last"
+            style={[styles.lastLine, {color: onSurfaceVariant, fontFamily: mono}]}>
+            {hasLast ? `last ${fmt(lastTrainingOneRm!)}` : 'last —'}
+          </Text>
+          <Text
+            testID="estimated-1rm-delta"
+            style={[styles.deltaLine, {color: deltaTint, fontFamily: mono}]}>
+            {deltaStr ?? (hasLast ? '' : 'no history yet')}
+          </Text>
         </View>
       </View>
     </View>
@@ -133,13 +138,18 @@ const styles = StyleSheet.create({
   right: {
     alignItems: 'flex-end',
   },
+  vsCaption: {
+    fontSize: 10,
+    textTransform: 'lowercase',
+  },
   prLine: {
     fontSize: 11,
     fontWeight: '600',
+    marginTop: 2,
   },
   lastLine: {
     fontSize: 11,
-    marginTop: 1,
+    marginTop: 2,
   },
   deltaLine: {
     fontSize: 12,
