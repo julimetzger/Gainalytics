@@ -3,6 +3,7 @@ import {Dimensions, View} from 'react-native';
 import AddWorkout from '../../Workout/add/AddWorkout';
 import {useWorkoutById} from '../../../redux/Workout/use/useWorkoutById';
 import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId';
+import {useUnfinishedWorkout} from '../../../redux/Workout/use/useUnfinishedWorkout';
 import {Training} from '../../../models/entities/Training';
 import {Exercise} from '../../../models/entities/Exercise';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
@@ -13,6 +14,7 @@ import ExerciseHistory from '../../exercise/show/ExerciseHistory';
 import DatePicker from '../../picker/date/DatePicker';
 import Estimated1RmCard from './Estimated1RmCard';
 import RestTimerCard from './RestTimerCard';
+import {oneRepMaxForWorkouts} from '../../../utils/AnalyseUtils';
 import {useSettings} from '../../../redux/settings/use/useSettings';
 import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMax';
 import {
@@ -29,6 +31,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
   let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];
   let doneWorkout = useWorkoutById(doneWorkoutId);
   let nextTrainingsId = useNextTrainingsId();
+  const unfinishedWorkout = useUnfinishedWorkout(chosenExercise.id!);
   let plannedWorkout = useWorkoutById(training.plannedWorkouts[chosenExercise.id!!]);
   let [openPlanned, setOpenPlanned] = useState(false);
   let [openHistory, setOpenHistory] = useState(false);
@@ -52,6 +55,16 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
   const resolvedRestDefault = exerciseDefaultRest ?? userDefaultRest ?? DEFAULT_REST_SECONDS;
 
   const activeRest = settings.restTimer?.active ?? null;
+
+  const sessionOneRm = useMemo(
+    () => {
+      // doneWorkout is the training session's workout (what AddWorkout is actually using).
+      // Fall back to the notFinished hook result if doneWorkout isn't created yet.
+      const src = doneWorkout ?? unfinishedWorkout;
+      return src ? oneRepMaxForWorkouts(src) : 0;
+    },
+    [doneWorkout, unfinishedWorkout],
+  );
 
   useEffect(() => {
     if (doneWorkout?.start) {
@@ -150,9 +163,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
         }
       />
       <Estimated1RmCard
-        reps={liveInput.reps}
-        rir={liveInput.rir}
-        weight={liveInput.weight}
+        sessionOneRm={sessionOneRm}
         lastTrainingOneRm={lastTrainingOneRm}
         allTimePr={allTimePr}
       />

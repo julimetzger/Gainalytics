@@ -67,6 +67,13 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   let exercises = useExerciseByIds(training?.exercises ?? []);
   const [chosenExercises, setchosenExercise] = useState(exercises?.length > 1 ? exercises[0].id : undefined);
   let chosenExercise = exercises.find((exercise) => exercise.id === chosenExercises);
+
+  // exercises arrive after Redux REHYDRATE — re-initialize if still unset
+  useEffect(() => {
+    if (chosenExercises === undefined && exercises?.length > 1) {
+      setchosenExercise(exercises[0].id);
+    }
+  }, [exercises?.length]);
   let doneExerciseIds = training?.doneWorkoutIds ? Object.keys(training.doneWorkoutIds).map((key) => parseInt(key)) : [];
   let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
   let finishTraining = dispatchFinishTraining();

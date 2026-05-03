@@ -1,6 +1,6 @@
 import React, {useCallback, useState} from 'react';
 import {Platform, StyleSheet, TouchableOpacity, Vibration, View} from 'react-native';
-import {Button, IconButton, Menu, Text, useTheme} from 'react-native-paper';
+import {IconButton, Menu, Text, useTheme} from 'react-native-paper';
 import {formatElapsedSecondary, formatTarget, useRestTimer, useVibrationOnRestEvents} from '../../../utils/restTimer';
 import RestTargetEditDialog from './RestTargetEditDialog';
 
@@ -11,15 +11,11 @@ interface RestTimerCardProps {
   onReset: () => void;
   onSkip: () => void;
   onEditTarget: (seconds: number, saveAsDefault: boolean) => void;
-  // Wired iff the active exercise has an id. Receives the raw seconds value
-  // from the dialog and is expected to persist the per-exercise default.
   onAdjustExerciseDefault?: (seconds: number) => void;
-  // Pre-fill value for the "Adjust default for this exercise" dialog —
-  // resolved by the parent (per-exercise default → user default → 90s).
   exerciseDefaultSeconds?: number;
 }
 
-const monoFamily = Platform.select({ios: 'Menlo', android: 'monospace', default: 'monospace'});
+const mono = Platform.select({ios: 'Menlo', android: 'monospace', default: 'monospace'});
 
 const RestTimerCard = ({
   startedAt,
@@ -45,81 +41,84 @@ const RestTimerCard = ({
 
   if (!enabled) return null;
 
-  const tint = snapshot.state === 'overrun' ? theme.colors.error : theme.colors.primary;
-  const surfaceContainer = (theme.colors as any).surfaceVariant ?? theme.colors.surface;
-  const onSurfaceVariant = theme.colors.onSurfaceVariant;
-  const secondaryContainer = (theme.colors as any).secondaryContainer ?? theme.colors.surface;
-  const onSecondaryContainer = (theme.colors as any).onSecondaryContainer ?? theme.colors.onSurface;
-  const secondary = (theme.colors as any).secondary ?? theme.colors.onSurfaceVariant;
+  const colors = theme.colors as any;
+  const isOverrun = snapshot.state === 'overrun';
+  const timerColor = isOverrun ? theme.colors.error : theme.colors.primary;
+  const surfaceHigh = colors.surfaceContainerHigh ?? colors.surfaceVariant ?? colors.surface;
+  const {onSurface, onSurfaceVariant} = theme.colors;
+
+  const elapsedStr = formatElapsedSecondary(targetSeconds!, snapshot.elapsedSeconds);
+  const caption = `target ${formatTarget(targetSeconds!)} · elapsed ${elapsedStr}`;
 
   return (
     <>
-      <View testID="rest-timer-card" style={[styles.card, {backgroundColor: surfaceContainer}]}>
-        <View style={styles.headerRow}>
-          <Text style={[styles.header, {color: onSurfaceVariant}]}>REST</Text>
-          <Menu
-            visible={menuVisible}
-            onDismiss={() => setMenuVisible(false)}
-            anchor={
-              <IconButton
-                testID="rest-timer-overflow"
-                icon="dots-vertical"
-                size={20}
-                onPress={() => setMenuVisible(true)}
-              />
-            }>
-            <Menu.Item
-              testID="rest-timer-skip"
-              onPress={() => {
-                setMenuVisible(false);
-                onSkip();
-              }}
-              title="Skip rest"
-            />
-            <Menu.Item
-              testID="rest-timer-edit-target-menu"
-              onPress={() => {
-                setMenuVisible(false);
-                setEditVisible(true);
-              }}
-              title="Edit target…"
-            />
-            {onAdjustExerciseDefault && (
-              <Menu.Item
-                testID="rest-timer-adjust-default"
-                onPress={() => {
-                  setMenuVisible(false);
-                  setExerciseDefaultDialogVisible(true);
-                }}
-                title="Adjust default for this exercise"
-              />
-            )}
-          </Menu>
-        </View>
-        <View style={styles.bodyRow}>
-          <TouchableOpacity onPress={() => setEditVisible(true)} testID="rest-timer-big">
-            <Text style={[styles.bigTimer, {color: tint, fontFamily: monoFamily}]}>{snapshot.display}</Text>
-          </TouchableOpacity>
-          <View style={styles.rightStack}>
-            <Text style={[styles.targetLabel, {color: onSurfaceVariant, fontFamily: monoFamily}]}>
-              target {formatTarget(targetSeconds!)}
+      <View testID="rest-timer-card" style={[styles.card, {backgroundColor: surfaceHigh}]}>
+        <View style={styles.row}>
+          {/* LEFT: circle avatar with timer text */}
+          <TouchableOpacity
+            testID="rest-timer-big"
+            onPress={() => setEditVisible(true)}
+            style={[styles.circleAvatar, {borderColor: timerColor}]}>
+            <Text style={[styles.circleTimer, {color: timerColor, fontFamily: mono}]}>
+              {snapshot.display}
             </Text>
-            <Text style={[styles.elapsedLabel, {color: secondary, fontFamily: monoFamily}]} testID="rest-timer-elapsed">
-              elapsed {formatElapsedSecondary(targetSeconds!, snapshot.elapsedSeconds)}
+          </TouchableOpacity>
+
+          {/* MIDDLE: Rest label + caption */}
+          <View style={styles.middle}>
+            <Text style={[styles.restLabel, {color: onSurface}]}>Rest</Text>
+            <Text style={[styles.captionLine, {color: onSurfaceVariant}]} testID="rest-timer-elapsed">
+              {caption}
             </Text>
           </View>
-        </View>
-        <View style={styles.actionRow}>
-          <Button
-            testID="rest-timer-reset"
-            mode="contained"
-            buttonColor={secondaryContainer}
-            textColor={onSecondaryContainer}
-            onPress={onReset}
-            style={styles.resetButton}
-            compact>
-            Reset
-          </Button>
+
+          {/* RIGHT: Reset pill + overflow menu */}
+          <View style={styles.rightCluster}>
+            <TouchableOpacity
+              testID="rest-timer-reset"
+              onPress={onReset}
+              style={[styles.resetPill, {borderColor: onSurface}]}>
+              <Text style={[styles.resetLabel, {color: onSurface}]}>Reset</Text>
+            </TouchableOpacity>
+            <Menu
+              visible={menuVisible}
+              onDismiss={() => setMenuVisible(false)}
+              anchor={
+                <IconButton
+                  testID="rest-timer-overflow"
+                  icon="dots-vertical"
+                  size={20}
+                  onPress={() => setMenuVisible(true)}
+                />
+              }>
+              <Menu.Item
+                testID="rest-timer-skip"
+                onPress={() => {
+                  setMenuVisible(false);
+                  onSkip();
+                }}
+                title="Skip rest"
+              />
+              <Menu.Item
+                testID="rest-timer-edit-target-menu"
+                onPress={() => {
+                  setMenuVisible(false);
+                  setEditVisible(true);
+                }}
+                title="Edit target…"
+              />
+              {onAdjustExerciseDefault && (
+                <Menu.Item
+                  testID="rest-timer-adjust-default"
+                  onPress={() => {
+                    setMenuVisible(false);
+                    setExerciseDefaultDialogVisible(true);
+                  }}
+                  title="Adjust default for this exercise"
+                />
+              )}
+            </Menu>
+          </View>
         </View>
       </View>
       <RestTargetEditDialog
@@ -147,47 +146,55 @@ const RestTimerCard = ({
 
 const styles = StyleSheet.create({
   card: {
-    margin: 8,
-    padding: 12,
-    borderRadius: 12,
+    marginTop: 10,
+    marginHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    minHeight: 70,
   },
-  headerRow: {
+  row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 14,
   },
-  header: {
+  circleAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  circleTimer: {
     fontSize: 11,
-    letterSpacing: 0.6,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  bodyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginVertical: 4,
+  middle: {
+    flex: 1,
   },
-  bigTimer: {
-    fontSize: 36,
-    fontWeight: '600',
-  },
-  rightStack: {
-    alignItems: 'flex-end',
-  },
-  targetLabel: {
+  restLabel: {
     fontSize: 13,
+    fontWeight: '500',
   },
-  elapsedLabel: {
-    fontSize: 13,
+  captionLine: {
+    fontSize: 11,
     marginTop: 2,
   },
-  actionRow: {
-    marginTop: 8,
+  rightCluster: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  resetButton: {
-    borderRadius: 16,
+  resetPill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'transparent',
+  },
+  resetLabel: {
+    fontSize: 12,
   },
 });
 

@@ -1,26 +1,28 @@
-import React, {useEffect, useMemo, useRef} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {Animated, Platform, StyleSheet, View} from 'react-native';
-import {Text, useTheme} from 'react-native-paper';
-import {epley1RM} from '../../../utils/AnalyseUtils';
+import {Icon, Text, useTheme} from 'react-native-paper';
 
 export interface Estimated1RmCardProps {
-  reps: number;
-  rir: number;
-  weight: number;
+  sessionOneRm: number;
   lastTrainingOneRm?: number;
   allTimePr?: number;
 }
 
-const monoFamily = Platform.select({ios: 'Menlo', android: 'monospace', default: 'monospace'});
+const mono = Platform.select({ios: 'Menlo', android: 'monospace', default: 'monospace'});
+const fmt = (v: number) => `${v.toFixed(1)} kg`;
+const fmtInt = (v: number) => `${Math.round(v)} kg`;
 
-const formatKg = (value: number) => `${Math.round(value)} kg`;
-
-const Estimated1RmCard = ({reps, rir, weight, lastTrainingOneRm, allTimePr}: Estimated1RmCardProps) => {
+const Estimated1RmCard = ({sessionOneRm, lastTrainingOneRm, allTimePr}: Estimated1RmCardProps) => {
   const theme = useTheme();
-  const live1Rm = useMemo(() => epley1RM(weight, reps, rir), [weight, reps, rir]);
-  const hasLive = live1Rm > 0;
-  const showReference = (lastTrainingOneRm ?? 0) > 0 || (allTimePr ?? 0) > 0;
-  const isNewPr = hasLive && (allTimePr ?? 0) > 0 && live1Rm > (allTimePr ?? 0);
+  const colors = theme.colors as any;
+
+  const hasSession = sessionOneRm > 0;
+  const hasPr = (allTimePr ?? 0) > 0;
+  const hasLast = (lastTrainingOneRm ?? 0) > 0;
+  const isNewPr = hasSession && hasPr && sessionOneRm > (allTimePr ?? 0);
+
+  const deltaRaw = hasSession && hasLast ? sessionOneRm - (lastTrainingOneRm ?? 0) : undefined;
+  const delta = deltaRaw !== undefined ? Math.round(deltaRaw * 10) / 10 : undefined;
 
   const scale = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -32,98 +34,116 @@ const Estimated1RmCard = ({reps, rir, weight, lastTrainingOneRm, allTimePr}: Est
     }
   }, [isNewPr, scale]);
 
-  const delta = hasLive && lastTrainingOneRm ? Math.round(live1Rm - lastTrainingOneRm) : undefined;
+  const primaryContainer = colors.primaryContainer ?? colors.primary;
+  const onPrimaryContainer = colors.onPrimaryContainer ?? colors.onPrimary ?? '#fff';
+  const tertiary = colors.tertiary ?? colors.primary;
+  const surfaceLow = colors.surfaceContainerLow ?? colors.surfaceVariant ?? colors.surface;
+  const success = colors.success ?? colors.tertiary ?? theme.colors.primary;
+  const {onSurface, onSurfaceVariant, primary, error} = theme.colors;
 
-  const deltaTone =
-    delta === undefined ? theme.colors.onSurfaceVariant : delta > 0 ? theme.colors.primary : delta < 0 ? theme.colors.error : theme.colors.onSurfaceVariant;
-  const deltaSymbol = delta === undefined ? '' : delta > 0 ? '▲ +' : delta < 0 ? '▼ ' : '= ';
-  const deltaText =
-    delta === undefined
-      ? ''
-      : delta === 0
-      ? 'same as last'
-      : `${deltaSymbol}${Math.abs(delta)} kg vs last`;
+  const deltaTint =
+    delta === undefined ? onSurfaceVariant
+    : delta > 0 ? success
+    : delta < 0 ? error
+    : onSurfaceVariant;
 
-  const surfaceContainer = (theme.colors as any).surfaceVariant ?? theme.colors.surface;
-  const onSurface = theme.colors.onSurface;
-  const onSurfaceVariant = theme.colors.onSurfaceVariant;
+  const deltaStr =
+    delta === undefined ? null
+    : delta === 0 ? '= 0.0 kg'
+    : delta > 0 ? `+${delta.toFixed(1)} kg`
+    : `${delta.toFixed(1)} kg`;
 
   return (
     <View
       testID="estimated-1rm-card"
       accessibilityLabel="Estimated 1RM card"
-      style={[styles.card, {backgroundColor: surfaceContainer}]}>
-      <Text testID="estimated-1rm-header" style={[styles.header, {color: onSurfaceVariant}]}>
-        ESTIMATED 1RM
-      </Text>
+      style={[styles.card, {backgroundColor: surfaceLow}]}>
       <View style={styles.row}>
-        <Animated.View style={{transform: [{scale}]}}>
-          <Text testID="estimated-1rm-value" style={[styles.bigNumber, {color: onSurface, fontFamily: monoFamily}]}>
-            {hasLive ? formatKg(live1Rm) : '— kg'}
-          </Text>
-        </Animated.View>
-        {showReference && (
-          <Text testID="estimated-1rm-last" style={[styles.lastTraining, {color: onSurfaceVariant}]}>
-            last training: {(lastTrainingOneRm ?? 0) > 0 ? formatKg(lastTrainingOneRm!) : '—'}
-          </Text>
-        )}
-      </View>
-      {showReference && (
-        <View style={styles.subline}>
-          {delta !== undefined && (
-            <Text testID="estimated-1rm-delta" style={[styles.deltaText, {color: deltaTone}]}>
-              {deltaText}
-            </Text>
-          )}
-          {(allTimePr ?? 0) > 0 && (
-            <Text testID="estimated-1rm-pr" style={[styles.prText, {color: isNewPr ? theme.colors.primary : onSurfaceVariant}]}>
-              {delta !== undefined ? ' · ' : ''}
-              {isNewPr ? '🏆 NEW PR' : `PR ${formatKg(allTimePr!)}`}
-            </Text>
-          )}
+        <View style={[styles.avatar, {backgroundColor: primaryContainer}]}>
+          <Icon source="trophy" size={22} color={onPrimaryContainer} />
         </View>
-      )}
+        <View style={styles.middle}>
+          <Text testID="estimated-1rm-header" style={[styles.caption, {color: onSurfaceVariant}]}>
+            ESTIMATED 1RM
+          </Text>
+          <Text testID="estimated-1rm-value" style={[styles.heroValue, {color: onSurface, fontFamily: mono}]}>
+            {hasSession ? fmtInt(sessionOneRm) : '—'}
+          </Text>
+        </View>
+        <View style={styles.right}>
+          {hasPr ? (
+            <Animated.View style={{transform: [{scale}]}}>
+              <Text
+                testID="estimated-1rm-pr"
+                style={[styles.prLine, {color: isNewPr ? primary : tertiary}]}>
+                {isNewPr ? '🏆 NEW PR' : `PR ${fmt(allTimePr!)}`}
+              </Text>
+            </Animated.View>
+          ) : null}
+          {hasLast ? (
+            <Text testID="estimated-1rm-last" style={[styles.lastLine, {color: onSurfaceVariant, fontFamily: mono}]}>
+              {`last ${fmt(lastTrainingOneRm!)}`}
+            </Text>
+          ) : null}
+          {deltaStr !== null ? (
+            <Text testID="estimated-1rm-delta" style={[styles.deltaLine, {color: deltaTint, fontFamily: mono}]}>
+              {deltaStr}
+            </Text>
+          ) : null}
+        </View>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    margin: 8,
-    padding: 12,
-    borderRadius: 12,
-  },
-  header: {
-    fontSize: 11,
-    letterSpacing: 0.6,
-    fontWeight: '600',
+    marginTop: 12,
+    marginHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    minHeight: 70,
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginTop: 4,
-  },
-  bigNumber: {
-    fontSize: 28,
-    fontWeight: '600',
-  },
-  lastTraining: {
-    fontSize: 13,
-  },
-  subline: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
-    flexWrap: 'wrap',
+    gap: 14,
   },
-  deltaText: {
-    fontSize: 12,
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  middle: {
+    flex: 1,
+  },
+  caption: {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  heroValue: {
+    fontSize: 20,
     fontWeight: '500',
+    marginTop: 2,
   },
-  prText: {
-    fontSize: 12,
+  right: {
+    alignItems: 'flex-end',
+  },
+  prLine: {
+    fontSize: 11,
     fontWeight: '600',
+  },
+  lastLine: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  deltaLine: {
+    fontSize: 12,
+    marginTop: 1,
   },
 });
 
