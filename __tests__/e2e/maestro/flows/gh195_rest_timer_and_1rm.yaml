@@ -44,8 +44,8 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     text: "ESTIMATED 1RM"
 
-# Type a set: reps=8, RIR=2, weight=95 — 1RM should compute to 127 kg
-# via Epley with reps+RIR. Assert against the actual displayed value.
+# Type a set: reps=8, RIR=2, weight=95. Session hero shows '—' before submit
+# (hero is driven by logged sets, not live input in the r4 redesign).
 - tapOn:
     id: "add-workout-set-reps-input"
 - eraseText
@@ -59,17 +59,18 @@ appId: com.powerliftingworkoutplanner
 - eraseText
 - inputText: "95"
 - hideKeyboard
-- assertVisible:
-    text: "127 kg"
 
-# Submit the set so the rest timer auto-starts.
+# Submit the set — rest timer auto-starts and session 1RM becomes visible.
 - tapOn:
     id: "add-workout-set-submit-button"
 - assertVisible:
     id: "rest-timer-card"
-# Default rest target is 90s, so target text reads "target 01:30".
+# After logging a set with weight=95 reps=8 rir=2, session 1RM = 127 kg.
 - assertVisible:
-    text: "target 01:30"
+    text: "127 kg"
+# Default rest target is 90s, caption should contain "target 01:30".
+- assertVisible:
+    text: ".*target 01:30.*"
 
 # Open the overflow menu and verify the menu items.
 - tapOn:
@@ -86,4 +87,4 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: "rest-timer-reset"
 - assertVisible:
-    text: "target 01:30"
+    text: ".*target 01:30.*"

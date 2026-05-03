@@ -1,0 +1,131 @@
+appId: com.powerliftingworkoutplanner
+---
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+- tapOn: "tab-training"
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 30000
+
+# Open the Push pull plan from baseline data. The "Active Training"
+# pill on the home card jumps directly to the in-progress training
+# (state STARTED), where the cards mount under the Train sub-tab.
+- assertVisible:
+    text: ".*Push pull.*"
+- tapOn:
+    point: "5%,38%"
+- extendedWaitUntil:
+    visible:
+      id: "header-plan-meso-name"
+    timeout: 30000
+
+# Switch to the Train sub-tab where the cards render. STARTED trainings
+# default to Train, but make this idempotent.
+- tapOn: "subtab-train"
+# If the training is still PLANNED, start it.
+- runFlow:
+    when:
+      visible: "Start Training"
+    commands:
+      - tapOn: "train-tab-start-button"
+# If the training is FINISHED, enter Edit mode so the cards mount.
+- runFlow:
+    when:
+      visible:
+        id: "header-overflow-icon"
+    commands:
+      - tapOn:
+          id: "header-overflow-icon"
+      - runFlow:
+          when:
+            visible: "Edit training"
+          commands:
+            - tapOn:
+                id: "overflow-edit"
+- assertVisible:
+    id: "estimated-1rm-card"
+- assertVisible:
+    text: "ESTIMATED 1RM"
+
+# Screenshot 1: 1RM card idle — trophy avatar (left), session value (center),
+# PR + last + delta (right). r4 layout per spec.
+- takeScreenshot: r5_1rm_idle
+
+# Log a fresh set: reps=8, RIR=2, weight=95 — Epley → 127 kg.
+# This will not necessarily push the session 1RM higher than the existing
+# finished-set max for this exercise (which already drives the hero), but
+# the rest timer auto-starts on submit.
+- tapOn:
+    id: "add-workout-set-reps-input"
+- eraseText
+- inputText: "8"
+- tapOn:
+    id: "add-workout-set-rir-input"
+- eraseText
+- inputText: "2"
+- tapOn:
+    id: "add-workout-set-weight-input"
+- eraseText
+- inputText: "95"
+- hideKeyboard
+- tapOn:
+    id: "add-workout-set-submit-button"
+
+# Rest timer card appears with the redesigned 3-column layout
+# (circle avatar | label+caption | reset pill + overflow).
+- assertVisible:
+    id: "rest-timer-card"
+- assertVisible:
+    text: "Rest"
+# Caption combines target and elapsed with a · separator.
+- assertVisible:
+    text: ".*target 01:30.*"
+
+# Screenshot 2: 1RM card with hero session value + Rest card counting.
+- takeScreenshot: r5_1rm_with_session_and_rest_counting
+
+# Open the overflow menu — assert all three options remain available.
+- tapOn:
+    id: "rest-timer-overflow"
+- assertVisible: "Skip rest"
+- assertVisible: "Edit target…"
+- assertVisible: "Adjust default for this exercise"
+- takeScreenshot: r5_overflow_menu
+
+# Drop the target to 5s so we can capture the overrun visual quickly.
+- tapOn: "Edit target…"
+- assertVisible:
+    id: "rest-target-edit-dialog"
+- tapOn:
+    id: "rest-target-minutes"
+- eraseText
+- inputText: "0"
+- tapOn:
+    id: "rest-target-seconds"
+- eraseText
+- inputText: "5"
+- tapOn:
+    id: "rest-target-save"
+
+# Wait until the timer overruns (counting up with + prefix).
+- extendedWaitUntil:
+    visible: ".*elapsed \\+.*"
+    timeout: 15000
+
+# Screenshot 3: rest timer overrun — circle avatar border in error tint,
+# no large 40px body counter (per r4 spec the only counter is in the avatar).
+- takeScreenshot: r5_rest_overrun
+
+# Reset returns to the original target.
+- tapOn:
+    id: "rest-timer-reset"
+- assertVisible:
+    text: ".*target 00:05.*"
+- takeScreenshot: r5_after_reset
