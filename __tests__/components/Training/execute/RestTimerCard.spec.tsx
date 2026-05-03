@@ -2,6 +2,16 @@ import React from 'react';
 import {fireEvent, render} from '@testing-library/react-native';
 import RestTimerCard from '../../../../app/components/Training/execute/RestTimerCard';
 
+jest.mock('react-native-svg', () => {
+  const {View} = require('react-native');
+  return {
+    __esModule: true,
+    default: ({children, testID}: any) => <View testID={testID}>{children}</View>,
+    Svg: ({children, testID}: any) => <View testID={testID}>{children}</View>,
+    Circle: ({testID}: any) => <View testID={testID} />,
+  };
+});
+
 jest.mock('../../../../app/utils/restTimer', () => ({
   formatElapsedSecondary: jest.fn(() => '-00:30'),
   formatTarget: jest.fn(() => '01:30'),

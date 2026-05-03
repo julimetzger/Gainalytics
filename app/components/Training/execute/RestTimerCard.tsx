@@ -1,8 +1,9 @@
 import React, {useCallback, useState} from 'react';
-import {Platform, StyleSheet, TouchableOpacity, Vibration, View} from 'react-native';
+import {StyleSheet, TouchableOpacity, Vibration, View} from 'react-native';
 import {IconButton, Menu, Text, useTheme} from 'react-native-paper';
 import {formatElapsedSecondary, formatTarget, useRestTimer, useVibrationOnRestEvents} from '../../../utils/restTimer';
 import RestTargetEditDialog from './RestTargetEditDialog';
+import RestProgressRing from './RestProgressRing';
 
 interface RestTimerCardProps {
   startedAt?: number;
@@ -14,8 +15,6 @@ interface RestTimerCardProps {
   onAdjustExerciseDefault?: (seconds: number) => void;
   exerciseDefaultSeconds?: number;
 }
-
-const mono = Platform.select({ios: 'Menlo', android: 'monospace', default: 'monospace'});
 
 const RestTimerCard = ({
   startedAt,
@@ -45,7 +44,7 @@ const RestTimerCard = ({
   const isOverrun = snapshot.state === 'overrun';
   const timerColor = isOverrun ? theme.colors.error : theme.colors.primary;
   const surfaceHigh = colors.surfaceContainerHigh ?? colors.surfaceVariant ?? colors.surface;
-  const {onSurface, onSurfaceVariant} = theme.colors;
+  const {onSurface, onSurfaceVariant, primary, error} = theme.colors;
 
   const elapsedStr = formatElapsedSecondary(targetSeconds!, snapshot.elapsedSeconds);
   const caption = `target ${formatTarget(targetSeconds!)} · elapsed ${elapsedStr}`;
@@ -54,14 +53,21 @@ const RestTimerCard = ({
     <>
       <View testID="rest-timer-card" style={[styles.card, {backgroundColor: surfaceHigh}]}>
         <View style={styles.row}>
-          {/* LEFT: circle avatar with timer text */}
+          {/* LEFT: animated SVG progress ring with timer text */}
           <TouchableOpacity
             testID="rest-timer-big"
             onPress={() => setEditVisible(true)}
-            style={[styles.circleAvatar, {borderColor: timerColor}]}>
-            <Text style={[styles.circleTimer, {color: timerColor, fontFamily: mono}]}>
-              {snapshot.display}
-            </Text>
+            accessibilityLabel="Rest timer ring">
+            <RestProgressRing
+              targetSeconds={targetSeconds!}
+              elapsedSeconds={snapshot.elapsedSeconds}
+              isOverrun={isOverrun}
+              trackColor={onSurfaceVariant}
+              primaryColor={primary}
+              errorColor={error}
+              display={snapshot.display}
+              textColor={timerColor}
+            />
           </TouchableOpacity>
 
           {/* MIDDLE: Rest label + caption */}
@@ -157,19 +163,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-  },
-  circleAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  circleTimer: {
-    fontSize: 11,
-    fontWeight: '700',
   },
   middle: {
     flex: 1,
