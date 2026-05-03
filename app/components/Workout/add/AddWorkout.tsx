@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {useAllLastWorkouts} from '../../../redux/Workout/use/useAllLastWorkouts';
+import {useLastFinishedWorkout} from '../../../redux/Workout/use/useLastFinishedWorkout';
 import {useUnfinishedWorkout} from '../../../redux/Workout/use/useUnfinishedWorkout';
 import {Button, Icon, Text, useTheme} from 'react-native-paper';
 import {dispatchAddWorkout} from '../../../redux/Workout/dispatch/dispatchAddWorkout';
@@ -29,13 +30,21 @@ interface Props {
   info?: React.ReactNode;
   linkVideoMode?: boolean;
   onDisableLinkVideoMode?: () => void;
+  onLiveInputChange?: (input: {reps: number; rir: number; weight: number}) => void;
+  oneRepMaxRef?: (oneRm: number) => void;
 }
 
-const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info, linkVideoMode, onDisableLinkVideoMode}: Props) => {
+const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info, linkVideoMode, onDisableLinkVideoMode, onLiveInputChange, oneRepMaxRef}: Props) => {
   let unfinishedWorkout = useUnfinishedWorkout(exercise.id!!);
   unfinishedWorkout = workout ?? unfinishedWorkout;
   let workouts = useAllLastWorkouts(exercise, 1);
-  let oneRepMax = oneRepMaxForWorkouts(...workouts);
+  // 1RM baseline must come from the most recent FINISHED workout, never the
+  // in-progress one (GH-195 P1) — otherwise "vs last" drifts mid-session.
+  let lastFinishedWorkout = useLastFinishedWorkout(exercise);
+  let oneRepMax = lastFinishedWorkout ? oneRepMaxForWorkouts(lastFinishedWorkout) : 0;
+  React.useEffect(() => {
+    oneRepMaxRef?.(oneRepMax);
+  }, [oneRepMax, oneRepMaxRef]);
   let theme = useTheme();
   let addWorkout = dispatchAddWorkout(exercise);
   let addOrUpdateSetInWorkout = dispatchAddOrUpdateSetInWorkout(exercise);
@@ -110,7 +119,7 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
         {info && info}
       </View>
       <View style={styles.contentContainer}>
-        <AddWorkoutSet onSubmit={submitWorkoutSet} oneRepMax={oneRepMax} date={date} />
+        <AddWorkoutSet onSubmit={submitWorkoutSet} oneRepMax={oneRepMax} date={date} onLiveInputChange={onLiveInputChange} />
         {unfinishedWorkout &&
           unfinishedWorkout.sets.map((workoutSet) => {
             return <AddWorkoutSet key={workoutSet.index} workoutSet={workoutSet} onSubmit={submitWorkoutSet} onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!)} date={date} />;

@@ -15,9 +15,10 @@ interface AddWorkoutProps {
   hasToSaveManually?: boolean;
   isPlanningMode?: boolean;
   date?: Date;
+  onLiveInputChange?: (input: {reps: number; rir: number; weight: number}) => void;
 }
 
-const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManually = false, isPlanningMode = false, date}: AddWorkoutProps) => {
+const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManually = false, isPlanningMode = false, date, onLiveInputChange}: AddWorkoutProps) => {
   let theme = useTheme();
   const [weight, setWeight] = useState(workoutSet?.weight?.toString() ?? '');
   const [rir, setRPE] = useState(workoutSet?.rir?.toString() ?? '0');
@@ -37,6 +38,18 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
       setReps(workoutSet.reps?.toString() ?? '');
     }
   }, [workoutSet]);
+
+  useEffect(() => {
+    if (!onLiveInputChange || workoutSet !== undefined) return;
+    const repsNum = convertToNumber(reps);
+    const rirNum = convertToNumber(rir);
+    const weightNum = convertToNumber(weight);
+    onLiveInputChange({
+      reps: Number.isFinite(repsNum) ? repsNum : 0,
+      rir: Number.isFinite(rirNum) ? rirNum : 0,
+      weight: Number.isFinite(weightNum) ? weightNum : 0,
+    });
+  }, [reps, rir, weight, onLiveInputChange, workoutSet]);
 
   const setWeightOnChange = (value: string) => {
     setWeightEmpty(false);

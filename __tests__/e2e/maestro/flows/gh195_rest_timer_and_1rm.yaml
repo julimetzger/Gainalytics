@@ -1,0 +1,99 @@
+appId: com.powerliftingworkoutplanner
+---
+- launchApp
+# Dismiss React Native dev error overlay if it appears.
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+- tapOn: "tab-training"
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 30000
+
+# Open the Push pull training plan from baseline data.
+- assertVisible:
+    text: ".*Push pull.*"
+- tapOn:
+    text: ".*Push pull.*"
+- extendedWaitUntil:
+    visible: "Plan"
+    timeout: 30000
+
+# Switch to the Train sub-tab.
+- tapOn: "subtab-train"
+
+# If training is still PLANNED, start it. The Start Training button is
+# only visible when state === PLANNED.
+- runFlow:
+    when:
+      visible: "Start Training"
+    commands:
+      - tapOn: "train-tab-start-button"
+
+# 1RM card is mounted unconditionally below the input row.
+- assertVisible:
+    id: "estimated-1rm-card"
+- assertVisible:
+    id: "estimated-1rm-header"
+# Header text comes from the component literal.
+- assertVisible:
+    text: "ESTIMATED 1RM"
+
+# Type a set: reps=8, RIR=2, weight=95. Session hero shows '—' before submit
+# (hero is driven by logged sets, not live input in the r4 redesign).
+- tapOn:
+    id: "add-workout-set-reps-input"
+- eraseText
+- inputText: "8"
+- tapOn:
+    id: "add-workout-set-rir-input"
+- eraseText
+- inputText: "2"
+- tapOn:
+    id: "add-workout-set-weight-input"
+- eraseText
+- inputText: "95"
+- hideKeyboard
+
+# Submit the set — rest timer auto-starts and session 1RM becomes visible.
+- tapOn:
+    id: "add-workout-set-submit-button"
+- assertVisible:
+    id: "rest-timer-card"
+# After logging a set with weight=95 reps=8 rir=2, session 1RM = 127 kg.
+- assertVisible:
+    text: "127 kg"
+# Default rest target is 90s, caption should contain "target 01:30".
+- assertVisible:
+    text: ".*target 01:30.*"
+
+# Open the overflow menu and verify the menu items.
+- tapOn:
+    id: "rest-timer-overflow"
+- assertVisible: "Skip rest"
+- assertVisible: "Edit target…"
+- tapOn: "Edit target…"
+- assertVisible:
+    id: "rest-target-edit-dialog"
+- tapOn:
+    id: "rest-target-cancel"
+
+# Reset button restores target.
+- tapOn:
+    id: "rest-timer-reset"
+- assertVisible:
+    text: ".*target 01:30.*"
+
+# r6: vs-last caption is ALWAYS visible on the 1RM card, even when no last
+# training exists for the chosen exercise.
+- assertVisible:
+    text: "vs last training"
+
+# r6: the SVG progress ring renders inside the rest avatar.
+- assertVisible:
+    id: "rest-progress-ring"

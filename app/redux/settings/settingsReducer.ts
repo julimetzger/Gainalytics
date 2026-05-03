@@ -17,6 +17,19 @@ export interface PlanSettings {
   };
 }
 
+export interface ActiveRestState {
+  startedAt: number;
+  targetSeconds: number;
+  exerciseId?: number;
+  setIndex?: number;
+}
+
+export interface RestTimerSettings {
+  userDefaultSeconds?: number;
+  defaultPerExercise?: {[exerciseId: number]: number};
+  active?: ActiveRestState | null;
+}
+
 export interface AppSettings {
   mode: 'light' | 'dark';
   palette?: 'blue' | 'green' | 'purple';
@@ -38,6 +51,7 @@ export interface AppSettings {
   aiChatPrompt?: string;
   aiTrainingPrompt?: string;
   plan?: PlanSettings;
+  restTimer?: RestTimerSettings;
 }
 
 const initialState = {
@@ -203,6 +217,78 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
             ...settings.plan?.muscleMap,
             compare: action.compare as MuscleMapCompare,
           },
+        },
+      };
+    }
+    case 'SET_REST_TIMER_USER_DEFAULT': {
+      return {
+        ...settings,
+        restTimer: {
+          ...settings.restTimer,
+          userDefaultSeconds: action.seconds,
+        },
+      };
+    }
+    case 'SET_REST_TIMER_EXERCISE_DEFAULT': {
+      return {
+        ...settings,
+        restTimer: {
+          ...settings.restTimer,
+          defaultPerExercise: {
+            ...(settings.restTimer?.defaultPerExercise ?? {}),
+            [action.exerciseId]: action.seconds,
+          },
+        },
+      };
+    }
+    case 'START_REST_TIMER': {
+      return {
+        ...settings,
+        restTimer: {
+          ...settings.restTimer,
+          active: {
+            startedAt: action.startedAt,
+            targetSeconds: action.targetSeconds,
+            exerciseId: action.exerciseId,
+            setIndex: action.setIndex,
+          },
+        },
+      };
+    }
+    case 'UPDATE_REST_TIMER_TARGET': {
+      const current = settings.restTimer?.active;
+      if (!current) return settings;
+      return {
+        ...settings,
+        restTimer: {
+          ...settings.restTimer,
+          active: {
+            ...current,
+            targetSeconds: action.targetSeconds,
+          },
+        },
+      };
+    }
+    case 'RESET_REST_TIMER': {
+      const current = settings.restTimer?.active;
+      if (!current) return settings;
+      return {
+        ...settings,
+        restTimer: {
+          ...settings.restTimer,
+          active: {
+            ...current,
+            startedAt: action.startedAt,
+          },
+        },
+      };
+    }
+    case 'DISMISS_REST_TIMER': {
+      return {
+        ...settings,
+        restTimer: {
+          ...settings.restTimer,
+          active: null,
         },
       };
     }

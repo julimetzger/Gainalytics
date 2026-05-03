@@ -1,8 +1,9 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Dimensions, View} from 'react-native';
 import AddWorkout from '../../Workout/add/AddWorkout';
 import {useWorkoutById} from '../../../redux/Workout/use/useWorkoutById';
 import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId';
+import {useUnfinishedWorkout} from '../../../redux/Workout/use/useUnfinishedWorkout';
 import {Training} from '../../../models/entities/Training';
 import {Exercise} from '../../../models/entities/Exercise';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
@@ -11,11 +12,27 @@ import WorkoutSetView from '../../Workout/show/WorkoutSetView';
 import ExerciseHistory from '../../exercise/show/ExerciseHistory';
 
 import DatePicker from '../../picker/date/DatePicker';
+import Estimated1RmCard from './Estimated1RmCard';
+import {TrainingsState} from '../../../models/TrainingsState';
+import RestTimerCard from './RestTimerCard';
+import {oneRepMaxForWorkouts} from '../../../utils/AnalyseUtils';
+import {useSettings} from '../../../redux/settings/use/useSettings';
+import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMax';
+import {
+  dispatchDismissRestTimer,
+  dispatchResetRestTimer,
+  dispatchSetRestTimerExerciseDefault,
+  dispatchStartRestTimer,
+  dispatchUpdateRestTimerTarget,
+} from '../../../redux/settings/dispatch/dispatchRestTimer';
+
+const DEFAULT_REST_SECONDS = 90;
 
 const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Props) => {
   let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];
   let doneWorkout = useWorkoutById(doneWorkoutId);
   let nextTrainingsId = useNextTrainingsId();
+  const unfinishedWorkout = useUnfinishedWorkout(chosenExercise.id!);
   let plannedWorkout = useWorkoutById(training.plannedWorkouts[chosenExercise.id!!]);
   let [openPlanned, setOpenPlanned] = useState(false);
   let [openHistory, setOpenHistory] = useState(false);
@@ -23,6 +40,32 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
 
   const screenHeight = Dimensions.get('window').height;
   const [date, setDate] = useState(new Date(Date.now()));
+  const [liveInput, setLiveInput] = useState({reps: 0, rir: 0, weight: 0});
+  const [lastTrainingOneRm, setLastTrainingOneRm] = useState<number | undefined>(undefined);
+  const allTimePr = useAllTimeOneRepMax(chosenExercise.id);
+  const settings = useSettings();
+  const startRestTimer = dispatchStartRestTimer();
+  const resetRestTimer = dispatchResetRestTimer();
+  const updateRestTarget = dispatchUpdateRestTimerTarget();
+  const dismissRestTimer = dispatchDismissRestTimer();
+  const setExerciseDefault = dispatchSetRestTimerExerciseDefault();
+
+  const restPerExercise = settings.restTimer?.defaultPerExercise ?? {};
+  const userDefaultRest = settings.restTimer?.userDefaultSeconds;
+  const exerciseDefaultRest = chosenExercise.id !== undefined ? restPerExercise[chosenExercise.id] : undefined;
+  const resolvedRestDefault = exerciseDefaultRest ?? userDefaultRest ?? DEFAULT_REST_SECONDS;
+
+  const activeRest = settings.restTimer?.active ?? null;
+
+  const sessionOneRm = useMemo(
+    () => {
+      // doneWorkout is the training session's workout (what AddWorkout is actually using).
+      // Fall back to the notFinished hook result if doneWorkout isn't created yet.
+      const src = doneWorkout ?? unfinishedWorkout;
+      return src ? oneRepMaxForWorkouts(src) : 0;
+    },
+    [doneWorkout, unfinishedWorkout],
+  );
 
   useEffect(() => {
     if (doneWorkout?.start) {
@@ -30,21 +73,77 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
     }
   }, [doneWorkout?.id, chosenExercise]);
 
+  useEffect(() => {
+    setLastTrainingOneRm(undefined);
+  }, [chosenExercise.id]);
+
+  const onLiveInputChange = useCallback((input: {reps: number; rir: number; weight: number}) => {
+    setLiveInput((prev) => (prev.reps === input.reps && prev.rir === input.rir && prev.weight === input.weight ? prev : input));
+  }, []);
+
+  const onPreviousOneRmKnown = useCallback((value: number) => {
+    setLastTrainingOneRm(value > 0 ? value : undefined);
+  }, []);
+
+  const handleSubmitSet = (workoutSet: WorkoutSet) => {
+    onSubmitSet?.(workoutSet);
+    startRestTimer({
+      targetSeconds: resolvedRestDefault,
+      exerciseId: chosenExercise.id,
+      setIndex: workoutSet.index,
+      startedAt: Date.now(),
+    });
+  };
+
+  const onResetRest = () => resetRestTimer(Date.now());
+  const onSkipRest = () => dismissRestTimer();
+  const onEditTarget = (seconds: number, saveAsDefault: boolean) => {
+    updateRestTarget(seconds);
+    if (saveAsDefault && chosenExercise.id !== undefined) {
+      setExerciseDefault(chosenExercise.id, seconds);
+    }
+  };
+
+  const handleAdjustExerciseDefault = useMemo(
+    () =>
+      chosenExercise.id === undefined
+        ? undefined
+        : (seconds: number) => {
+            setExerciseDefault(chosenExercise.id!, seconds);
+            // If the running rest timer is for this exercise, reflect the new
+            // default in the active timer's target line immediately.
+            if (activeRest?.exerciseId === chosenExercise.id) {
+              updateRestTarget(seconds);
+            }
+          },
+    [chosenExercise.id, setExerciseDefault, activeRest?.exerciseId, updateRestTarget],
+  );
+
+  // GH-195 r6: hide redundant date pill while training is STARTED — the app
+  // header already shows today's date during an active session. The pill stays
+  // for FINISHED-and-editing flows (EditTraining) where doneWorkout.start can
+  // be historical and the user may still need to change it.
+  const showDatePicker = training.state !== TrainingsState.STARTED;
+
   return (
     <View>
-      <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
-        <DatePicker date={date} setDate={setDate} />
-      </View>
+      {showDatePicker && (
+        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
+          <DatePicker date={date} setDate={setDate} />
+        </View>
+      )}
       <AddWorkout
         workout={doneWorkout?.end ? doneWorkout : undefined}
         exercise={chosenExercise}
         onSubmit={onSubmit}
         suggest={false}
         trainingsId={training.id ?? nextTrainingsId}
-        onSubmitSet={onSubmitSet}
+        onSubmitSet={handleSubmitSet}
         date={date}
         linkVideoMode={linkVideoMode}
         onDisableLinkVideoMode={() => setLinkVideoMode(false)}
+        onLiveInputChange={onLiveInputChange}
+        oneRepMaxRef={onPreviousOneRmKnown}
         info={
           <View style={{display: 'flex', flexDirection: 'row'}}>
             <Tooltip enterTouchDelay={300} title="Shows Exercise History">
@@ -71,6 +170,21 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
             </Tooltip>
           </View>
         }
+      />
+      <Estimated1RmCard
+        sessionOneRm={sessionOneRm}
+        lastTrainingOneRm={lastTrainingOneRm}
+        allTimePr={allTimePr}
+      />
+      <RestTimerCard
+        startedAt={activeRest?.startedAt}
+        targetSeconds={activeRest?.targetSeconds}
+        exerciseId={activeRest?.exerciseId}
+        onReset={onResetRest}
+        onSkip={onSkipRest}
+        onEditTarget={onEditTarget}
+        onAdjustExerciseDefault={handleAdjustExerciseDefault}
+        exerciseDefaultSeconds={resolvedRestDefault}
       />
       <Portal>
         <Dialog visible={openPlanned} onDismiss={() => setOpenPlanned(false)}>
