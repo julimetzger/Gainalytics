@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
-import {Card, Chip, IconButton, Text, TextInput} from 'react-native-paper';
+import {Card, Chip, IconButton, Text, TextInput, useTheme} from 'react-native-paper';
 import {useAllTrainingsPlans} from '../../redux/Training/use/useAllTrainingsPlans';
 import {RootStackParamList} from '../../routing/TrainingRouter';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -14,6 +14,7 @@ import {
   getTrainingFromTrainingInMicroIndex,
   getMesoForMicro,
   getSortedMesos,
+  getLocalMicro,
   trainingInMicroIndex,
 } from '../../redux/Training/trainingsPlanReducer';
 import {useSettings} from '../../redux/settings/use/useSettings';
@@ -31,9 +32,19 @@ interface LastDone {
   training: number;
 }
 
-interface NextTraining {
-  micro: number;
-  training: number;
+interface NextSession {
+  isComplete: boolean;
+  micro?: number;
+  training?: number;
+}
+
+type PlanStatus = 'active' | 'paused' | 'draft';
+
+interface PlanRowMeta {
+  status: PlanStatus;
+  metaText: string;
+  currentMeso?: Meso;
+  navigationMicro?: number;
 }
 
 function lastDoneFor(plan: TrainingsPlan): LastDone | undefined {
@@ -46,37 +57,137 @@ function lastDoneFor(plan: TrainingsPlan): LastDone | undefined {
   };
 }
 
-function nextTrainingFor(plan: TrainingsPlan, lastDone: LastDone | undefined): NextTraining | undefined {
-  if (!lastDone) {
-    const keys = Object.keys(plan.trainings).sort((a, b) => {
-      const ma = getMicroFromTrainingInMicroIndex(a);
-      const mb = getMicroFromTrainingInMicroIndex(b);
-      if (ma !== mb) return ma - mb;
-      return getTrainingFromTrainingInMicroIndex(a) - getTrainingFromTrainingInMicroIndex(b);
-    });
-    if (keys.length === 0) return undefined;
+function sortedSlotKeys(plan: TrainingsPlan): string[] {
+  return Object.keys(plan.trainings).sort((a, b) => {
+    const ma = getMicroFromTrainingInMicroIndex(a);
+    const mb = getMicroFromTrainingInMicroIndex(b);
+    if (ma !== mb) return ma - mb;
+    return getTrainingFromTrainingInMicroIndex(a) - getTrainingFromTrainingInMicroIndex(b);
+  });
+}
+
+function nextSessionFor(
+  plan: TrainingsPlan,
+  lastDone: LastDone | undefined,
+  trainingsById: {[id: number]: Training},
+): NextSession {
+  const keys = sortedSlotKeys(plan);
+  const trainingNumbers = Object.keys(plan.trainingNames ?? {})
+    .map(n => parseInt(n, 10))
+    .filter(n => !Number.isNaN(n))
+    .sort((a, b) => a - b);
+
+  // Prefer the first slot that has not yet been finished.
+  const firstUndone = keys.find(k => {
+    const tId = plan.trainings[k];
+    return !trainingsById[tId]?.end;
+  });
+  if (firstUndone) {
     return {
-      micro: getMicroFromTrainingInMicroIndex(keys[0]),
-      training: getTrainingFromTrainingInMicroIndex(keys[0]),
+      isComplete: false,
+      micro: getMicroFromTrainingInMicroIndex(firstUndone),
+      training: getTrainingFromTrainingInMicroIndex(firstUndone),
     };
   }
 
-  const nextNum = lastDone.training + 1;
-  if (plan.trainings[trainingInMicroIndex(lastDone.micro, nextNum)] !== undefined) {
-    return {micro: lastDone.micro, training: nextNum};
+  // No undone slot exists. Synthesize the next session.
+  if (lastDone && trainingNumbers.length > 0) {
+    const numIdx = trainingNumbers.indexOf(lastDone.training);
+    if (numIdx !== -1 && numIdx < trainingNumbers.length - 1) {
+      return {
+        isComplete: false,
+        micro: lastDone.micro,
+        training: trainingNumbers[numIdx + 1],
+      };
+    }
+    return {
+      isComplete: false,
+      micro: lastDone.micro + 1,
+      training: trainingNumbers[0],
+    };
   }
 
-  const nextMicro = lastDone.micro + 1;
-  if (plan.trainings[trainingInMicroIndex(nextMicro, 1)] !== undefined) {
-    return {micro: nextMicro, training: 1};
+  if (!lastDone && trainingNumbers.length > 0) {
+    return {isComplete: false, micro: 1, training: trainingNumbers[0]};
   }
 
-  return undefined;
+  return {isComplete: true};
+}
+
+function statusForPlan(plan: TrainingsPlan, allTrainings: Training[]): PlanRowMeta {
+  const trainingsById: {[id: number]: Training} = {};
+  for (const t of allTrainings) {
+    if (t.id !== undefined) trainingsById[t.id] = t;
+  }
+
+  const slotEntries = Object.entries(plan.trainings ?? {});
+  if (slotEntries.length === 0) {
+    return {status: 'draft', metaText: 'Draft · no trainings yet'};
+  }
+
+  // Find a started training in this plan → active
+  const hasStarted = slotEntries.some(([, tId]) => trainingsById[tId]?.state === TrainingsState.STARTED);
+
+  // Last finished training (by end date)
+  let lastFinishedKey: string | undefined;
+  let lastFinishedTime = 0;
+  for (const [key, tId] of slotEntries) {
+    const t = trainingsById[tId];
+    if (t?.end) {
+      const ts = new Date(t.end).getTime();
+      if (ts > lastFinishedTime) {
+        lastFinishedTime = ts;
+        lastFinishedKey = key;
+      }
+    }
+  }
+
+  if (!lastFinishedKey && !hasStarted) {
+    return {status: 'draft', metaText: 'Draft · planned, not started'};
+  }
+
+  const lastDoneMicro = lastFinishedKey ? getMicroFromTrainingInMicroIndex(lastFinishedKey) : 1;
+  const localMicro = getLocalMicro(plan.mesos, lastDoneMicro);
+  const currentMeso = getMesoForMicro(plan.mesos, lastDoneMicro);
+
+  const microSlots = Object.keys(plan.trainings).filter(k => getMicroFromTrainingInMicroIndex(k) === lastDoneMicro);
+  const microDone = microSlots.filter(k => {
+    const tId = plan.trainings[k];
+    return trainingsById[tId]?.end;
+  }).length;
+  const microTotal = microSlots.length;
+
+  if (hasStarted) {
+    return {
+      status: 'active',
+      metaText: `Active · M${localMicro} · ${microDone}/${microTotal}`,
+      currentMeso,
+      navigationMicro: lastDoneMicro,
+    };
+  }
+
+  // Paused: had finished trainings but nothing currently in progress and last training was a while ago
+  const daysSinceLast = (Date.now() - lastFinishedTime) / 86400000;
+  if (daysSinceLast > 14) {
+    return {
+      status: 'paused',
+      metaText: `Paused · last done ${Math.round(daysSinceLast)}d ago`,
+      currentMeso,
+      navigationMicro: lastDoneMicro,
+    };
+  }
+
+  return {
+    status: 'active',
+    metaText: `Active · M${localMicro} · ${microDone}/${microTotal}`,
+    currentMeso,
+    navigationMicro: lastDoneMicro,
+  };
 }
 
 const TrainingHome = ({navigation, route}: Props) => {
+  const theme = useTheme();
   const [filter, setFilter] = useState((route.params as {filter?: string} | undefined)?.filter || '');
-  const [showFilter, setShowFilter] = useState(false);
   const trainingsPlans = useAllTrainingsPlans().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
   const allTrainings = useTrainings();
   const settings = useSettings();
@@ -85,14 +196,14 @@ const TrainingHome = ({navigation, route}: Props) => {
   const activePlan = useMemo((): TrainingsPlan | undefined => {
     if (trainingsPlans.length === 0) return undefined;
 
-    // Prefer a plan that currently has a STARTED training
-    const startedTrainingIds = new Set(allTrainings.filter((t: Training) => t.state === TrainingsState.STARTED).map((t: Training) => t.id));
+    const startedTrainingIds = new Set(
+      allTrainings.filter((t: Training) => t.state === TrainingsState.STARTED).map((t: Training) => t.id),
+    );
     const withStarted = trainingsPlans.find(plan =>
       Object.values(plan.trainings).some(tId => startedTrainingIds.has(tId)),
     );
     if (withStarted) return withStarted;
 
-    // Otherwise use the plan with the most recent completed training
     let bestPlan: TrainingsPlan | undefined;
     let bestTime = 0;
     for (const plan of trainingsPlans) {
@@ -110,7 +221,33 @@ const TrainingHome = ({navigation, route}: Props) => {
   }, [trainingsPlans, allTrainings]);
 
   const activePlanLastDone = useMemo(() => (activePlan ? lastDoneFor(activePlan) : undefined), [activePlan]);
-  const activePlanNext = useMemo(() => (activePlan ? nextTrainingFor(activePlan, activePlanLastDone) : undefined), [activePlan, activePlanLastDone]);
+  const trainingsById = useMemo(() => {
+    const m: {[id: number]: Training} = {};
+    for (const t of allTrainings) {
+      if (t.id !== undefined) m[t.id] = t;
+    }
+    return m;
+  }, [allTrainings]);
+  const activePlanNext = useMemo<NextSession | undefined>(
+    () => (activePlan ? nextSessionFor(activePlan, activePlanLastDone, trainingsById) : undefined),
+    [activePlan, activePlanLastDone, trainingsById],
+  );
+
+  // Hero current micro: last done if known, otherwise the next session's micro, otherwise 1
+  const heroCurrentMicro = useMemo(() => {
+    if (activePlanLastDone) return activePlanLastDone.micro;
+    if (activePlanNext?.micro !== undefined) return activePlanNext.micro;
+    return 1;
+  }, [activePlanLastDone, activePlanNext]);
+
+  const planMetas = useMemo(() => {
+    const map: {[id: number]: PlanRowMeta} = {};
+    for (const plan of trainingsPlans) {
+      if (plan.id === undefined) continue;
+      map[plan.id] = statusForPlan(plan, allTrainings);
+    }
+    return map;
+  }, [trainingsPlans, allTrainings]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -118,91 +255,120 @@ const TrainingHome = ({navigation, route}: Props) => {
         <IconButton
           icon="magnify"
           onPress={() => {
-            if (showFilter) {
-              setShowFilter(false);
-              setFilter('');
-              filterInputRef.current?.blur();
-            } else {
-              setShowFilter(true);
-              setTimeout(() => filterInputRef.current?.focus(), 100);
-            }
+            filterInputRef.current?.focus();
           }}
         />
       ),
     });
-  }, [navigation, showFilter]);
+  }, [navigation]);
+
+  const filteredPlans = trainingsPlans.filter((p: TrainingsPlan) => p.name.toLowerCase().includes(filter.toLowerCase()));
 
   return (
     <View style={{flex: 1}} testID="training-home-screen">
-      {showFilter && <TextInput label="Filter" value={filter} onChangeText={setFilter} ref={filterInputRef} />}
       <ScrollView contentInsetAdjustmentBehavior="automatic">
         {/* Dashboard section for active plan */}
-        {activePlan && activePlanLastDone && (
+        {activePlan && (
           <>
-            <MicroHeroCard plan={activePlan} currentMicro={activePlanLastDone.micro} />
+            <MicroHeroCard plan={activePlan} currentMicro={heroCurrentMicro} />
             {activePlanNext && (
               <NextTrainingCard
                 plan={activePlan}
                 nextMicro={activePlanNext.micro}
                 nextTrainingNum={activePlanNext.training}
+                isComplete={activePlanNext.isComplete}
                 navigation={navigation}
               />
             )}
-            <MicroRecordsCard plan={activePlan} currentMicro={activePlanLastDone.micro} />
-            <LastTrainingCard plan={activePlan} lastDone={activePlanLastDone} />
+            {activePlanLastDone && (
+              <>
+                <MicroRecordsCard plan={activePlan} currentMicro={activePlanLastDone.micro} />
+                <LastTrainingCard plan={activePlan} lastDone={activePlanLastDone} />
+              </>
+            )}
           </>
         )}
 
-        {/* Plans list */}
-        {trainingsPlans
-          .filter((p: TrainingsPlan) => p.name.toLowerCase().includes(filter.toLowerCase()))
-          .map((trainingsPlan: TrainingsPlan) => {
-            const lastDone = lastDoneFor(trainingsPlan);
-            const currentMeso = lastDone ? getMesoForMicro(trainingsPlan.mesos, lastDone.micro) : undefined;
-            const sortedMesos = getSortedMesos(trainingsPlan.mesos);
-            const isActive = activePlan?.id === trainingsPlan.id;
+        {/* Plans list with visible search + status dots */}
+        <View style={styles.plansHeader}>
+          <Text variant="titleMedium" style={styles.plansTitle}>
+            Plans
+          </Text>
+          <TextInput
+            mode="outlined"
+            dense
+            placeholder="Search plans"
+            value={filter}
+            onChangeText={setFilter}
+            ref={filterInputRef}
+            style={styles.searchField}
+            left={<TextInput.Icon icon="magnify" />}
+            testID="plans-search-field"
+          />
+        </View>
 
-            return (
-              <Card style={[styles.planCard, isActive && styles.planCardActive]} key={trainingsPlan.id}>
-                <Pressable
-                  onPress={() =>
-                    navigation.navigate({
-                      name: 'TrainingPlan',
-                      params: {
-                        trainingsPlan,
-                        micro: currentMeso?.startMicro ?? lastDone?.micro,
-                      },
-                    })
-                  }
-                >
-                  <View style={styles.planHeader}>
-                    <Text style={styles.planName}>{trainingsPlan.name}</Text>
-                    <AddTrainingsPlan trainingsId={trainingsPlan.id} />
+        {filteredPlans.map((trainingsPlan: TrainingsPlan) => {
+          const meta = trainingsPlan.id !== undefined ? planMetas[trainingsPlan.id] : undefined;
+          const lastDone = lastDoneFor(trainingsPlan);
+          const currentMeso = meta?.currentMeso ?? (lastDone ? getMesoForMicro(trainingsPlan.mesos, lastDone.micro) : undefined);
+          const sortedMesos = getSortedMesos(trainingsPlan.mesos);
+          const isActive = activePlan?.id === trainingsPlan.id;
+          const status = meta?.status ?? 'draft';
+          const dotColor =
+            status === 'active' ? theme.colors.primary : status === 'paused' ? theme.colors.tertiary ?? theme.colors.error : theme.colors.onSurfaceVariant;
+
+          return (
+            <Card style={[styles.planCard, isActive && styles.planCardActive]} key={trainingsPlan.id}>
+              <Pressable
+                onPress={() =>
+                  navigation.navigate({
+                    name: 'TrainingPlan',
+                    params: {
+                      trainingsPlan,
+                      micro: meta?.navigationMicro ?? currentMeso?.startMicro ?? lastDone?.micro,
+                    },
+                  })
+                }
+              >
+                <View style={styles.planHeader}>
+                  <View
+                    testID={`plan-status-dot-${trainingsPlan.id}-${status}`}
+                    style={[styles.statusDot, {backgroundColor: dotColor}]}
+                  />
+                  <View style={styles.planTitleBlock}>
+                    <Text style={styles.planName} numberOfLines={1}>
+                      {trainingsPlan.name}
+                    </Text>
+                    <Text variant="bodySmall" style={[styles.planMeta, {color: theme.colors.onSurfaceVariant}]} testID={`plan-meta-${trainingsPlan.id}`}>
+                      {meta?.metaText ?? 'Draft'}
+                    </Text>
                   </View>
-                  {sortedMesos.length > 0 && (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.mesoScroll}>
-                      {sortedMesos.map((meso: Meso) => (
-                        <Chip
-                          key={meso.id}
-                          testID={`meso-card-${trainingsPlan.id}-${meso.id}`}
-                          selected={currentMeso?.id === meso.id}
-                          style={styles.mesoChip}
-                          onPress={() =>
-                            navigation.navigate({
-                              name: 'TrainingPlan',
-                              params: {trainingsPlan, micro: meso.startMicro},
-                            })
-                          }
-                        >
-                          {meso.name}
-                        </Chip>
-                      ))}
-                    </ScrollView>
-                  )}
-                </Pressable>
-              </Card>
-            );
-          })}
+                  <AddTrainingsPlan trainingsId={trainingsPlan.id} />
+                </View>
+                {sortedMesos.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.mesoScroll}>
+                    {sortedMesos.map((meso: Meso) => (
+                      <Chip
+                        key={meso.id}
+                        testID={`meso-card-${trainingsPlan.id}-${meso.id}`}
+                        selected={currentMeso?.id === meso.id}
+                        style={styles.mesoChip}
+                        onPress={() =>
+                          navigation.navigate({
+                            name: 'TrainingPlan',
+                            params: {trainingsPlan, micro: meso.startMicro},
+                          })
+                        }
+                      >
+                        {meso.name}
+                      </Chip>
+                    ))}
+                  </ScrollView>
+                )}
+              </Pressable>
+            </Card>
+          );
+        })}
       </ScrollView>
       <AddTrainingsPlan
         style={{
@@ -216,18 +382,36 @@ const TrainingHome = ({navigation, route}: Props) => {
 };
 
 const styles = StyleSheet.create({
-  planCard: {margin: 5},
-  planCardActive: {opacity: 0.85},
+  plansHeader: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  plansTitle: {fontWeight: '700'},
+  searchField: {flex: 1, height: 40},
+  planCard: {marginHorizontal: 8, marginVertical: 4},
+  planCardActive: {opacity: 0.95},
   planHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 10,
   },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  planTitleBlock: {flex: 1},
   planName: {
-    fontSize: 18,
-    margin: 8,
-    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
   },
+  planMeta: {marginTop: 2},
   mesoScroll: {paddingHorizontal: 5, paddingVertical: 4},
   mesoChip: {marginRight: 6},
 });

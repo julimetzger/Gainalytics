@@ -6,9 +6,17 @@ import {useSelector} from 'react-redux';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {Metric} from '../../../models/Metric';
 import {GlobalState} from '../../../redux/rootReducer';
-import {getAllTrainingsForMicro, getLocalMicro, getMesoForMicro} from '../../../redux/Training/trainingsPlanReducer';
+import {
+  getAllTrainingsForMicro,
+  getLocalMicro,
+  getMesoForMicro,
+  getTrainingFromTrainingInMicroIndex,
+  getMicroFromTrainingInMicroIndex,
+} from '../../../redux/Training/trainingsPlanReducer';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
+import CompletionRing from './CompletionRing';
+import DayStrip, {DayStatus, DayStripDay} from './DayStrip';
 
 type MetricKey = 'volume' | 'sets' | 'time';
 
@@ -59,6 +67,47 @@ const useMesoBarData = (plan: TrainingsPlan, currentMicro: number): MicroBarDatu
     return result;
   });
 
+const useDayStripDays = (plan: TrainingsPlan, currentMicro: number): DayStripDay[] =>
+  useSelector((state: GlobalState) => {
+    const trainingNumbersInMicro = Object.keys(plan.trainings)
+      .filter(k => getMicroFromTrainingInMicroIndex(k) === currentMicro)
+      .map(k => getTrainingFromTrainingInMicroIndex(k))
+      .sort((a, b) => a - b);
+
+    const trainingNumbers =
+      trainingNumbersInMicro.length > 0
+        ? trainingNumbersInMicro
+        : Object.keys(plan.trainingNames ?? {})
+            .map(n => parseInt(n, 10))
+            .sort((a, b) => a - b);
+
+    const startedId = (() => {
+      for (const num of trainingNumbers) {
+        const tId = plan.trainings[`${currentMicro},${num}`];
+        if (tId === undefined) continue;
+        const t = state.trainings.byId[tId];
+        if (t && t.start && !t.end) return tId;
+      }
+      return undefined;
+    })();
+
+    return trainingNumbers.map<DayStripDay>(num => {
+      const tId = plan.trainings[`${currentMicro},${num}`];
+      const t = tId !== undefined ? state.trainings.byId[tId] : undefined;
+      let status: DayStatus = 'future';
+      if (t?.end) {
+        status = 'done';
+      } else if (tId !== undefined && tId === startedId) {
+        status = 'today';
+      } else if (startedId === undefined && t && !t.end && !t.start) {
+        // No active session but a planned training exists — first such planned slot is "today"
+        status = 'today';
+      }
+      const label = plan.trainingNames?.[String(num)]?.slice(0, 6) ?? `D${num}`;
+      return {trainingNum: num, label, status};
+    });
+  });
+
 interface MicroHeroCardProps {
   plan: TrainingsPlan;
   currentMicro: number;
@@ -69,6 +118,16 @@ const MicroHeroCard = ({plan, currentMicro}: MicroHeroCardProps) => {
   const [metric, setMetric] = useState<MetricKey>('volume');
 
   const mesoData = useMesoBarData(plan, currentMicro);
+  const dayStripDaysAll = useDayStripDays(plan, currentMicro);
+  // Promote first 'future' to 'today' if no session is currently active
+  const dayStripDays = useMemo(() => {
+    const hasToday = dayStripDaysAll.some(d => d.status === 'today');
+    if (hasToday) return dayStripDaysAll;
+    const firstFutureIdx = dayStripDaysAll.findIndex(d => d.status === 'future');
+    if (firstFutureIdx === -1) return dayStripDaysAll;
+    return dayStripDaysAll.map((d, i) => (i === firstFutureIdx ? {...d, status: 'today' as DayStatus} : d));
+  }, [dayStripDaysAll]);
+
   const currentData = mesoData[mesoData.length - 1];
   const prevData = mesoData.length > 1 ? mesoData[mesoData.length - 2] : undefined;
 
@@ -152,6 +211,9 @@ const MicroHeroCard = ({plan, currentMicro}: MicroHeroCardProps) => {
       <Card.Content>
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
+            <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
+              Current micro
+            </Text>
             <Text variant="titleMedium" numberOfLines={1}>
               {plan.name}
             </Text>
@@ -159,9 +221,7 @@ const MicroHeroCard = ({plan, currentMicro}: MicroHeroCardProps) => {
               {mesoLabel}M{localMicro}
             </Text>
           </View>
-          <Text variant="titleLarge" style={{color: theme.colors.primary}} testID="micro-hero-completion">
-            {trainingsCompleted}/{trainingsTotal}
-          </Text>
+          <CompletionRing completed={trainingsCompleted} total={trainingsTotal} testID="micro-hero-completion" />
         </View>
 
         <SegmentedButtons
@@ -209,6 +269,8 @@ const MicroHeroCard = ({plan, currentMicro}: MicroHeroCardProps) => {
           />
         )}
 
+        <DayStrip days={dayStripDays} />
+
         <View style={styles.kpiRow}>
           {avgRir !== null && (
             <View style={styles.kpiItem}>
@@ -255,8 +317,9 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 8,
+    gap: 12,
   },
   headerLeft: {flex: 1, marginRight: 8},
   segmented: {marginVertical: 8},

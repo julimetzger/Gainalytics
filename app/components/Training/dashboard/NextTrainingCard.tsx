@@ -1,27 +1,72 @@
 import React from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Button, Card, Text, useTheme} from 'react-native-paper';
+import {useSelector} from 'react-redux';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
-import {getLocalMicro, getMesoForMicro, trainingInMicroIndex} from '../../../redux/Training/trainingsPlanReducer';
+import {
+  getLocalMicro,
+  getMesoForMicro,
+  getMicroFromTrainingInMicroIndex,
+  getTrainingFromTrainingInMicroIndex,
+  trainingInMicroIndex,
+} from '../../../redux/Training/trainingsPlanReducer';
 import {useTraining} from '../../../redux/Training/use/useTraining';
 import {useExercise} from '../../../redux/Exercises/use/useExercise';
 import {usePlannedWorkoutInTraining} from '../../../redux/Training/use/usePlannedWorkoutInTraining';
 import {RootStackParamList} from '../../../routing/TrainingRouter';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {GlobalState} from '../../../redux/rootReducer';
+import {Workout} from '../../../models/entities/Workout';
 
 interface NextTrainingCardProps {
   plan: TrainingsPlan;
-  nextMicro: number;
-  nextTrainingNum: number;
+  nextMicro?: number;
+  nextTrainingNum?: number;
+  isComplete?: boolean;
   navigation: NativeStackNavigationProp<RootStackParamList, 'TrainingHome'>;
 }
 
-const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, navigation}: NextTrainingCardProps) => {
+const useTopSetForExerciseInMicro = (
+  plan: TrainingsPlan,
+  exerciseId: number | undefined,
+  trainingNum: number,
+  beforeMicro: number | undefined,
+): {weight: number; reps: number} | undefined =>
+  useSelector((state: GlobalState) => {
+    if (!exerciseId || beforeMicro === undefined || beforeMicro < 1) return undefined;
+    const sameSlotKeys = Object.keys(plan.trainings).filter(k => {
+      const m = getMicroFromTrainingInMicroIndex(k);
+      const t = getTrainingFromTrainingInMicroIndex(k);
+      return t === trainingNum && m < beforeMicro;
+    });
+    if (sameSlotKeys.length === 0) return undefined;
+    sameSlotKeys.sort((a, b) => getMicroFromTrainingInMicroIndex(b) - getMicroFromTrainingInMicroIndex(a));
+
+    for (const key of sameSlotKeys) {
+      const trainingId = plan.trainings[key];
+      const training = state.trainings.byId[trainingId];
+      if (!training) continue;
+      const workoutId = training.doneWorkoutIds?.[exerciseId];
+      if (workoutId === undefined) continue;
+      const workout: Workout | undefined = state.workouts.byId[workoutId];
+      if (!workout?.sets?.length) continue;
+      const top = workout.sets.reduce((acc, s) => (s.weight > acc.weight ? s : acc), workout.sets[0]);
+      return {weight: top.weight, reps: top.reps};
+    }
+    return undefined;
+  });
+
+const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigation}: NextTrainingCardProps) => {
   const theme = useTheme();
-  const trainingId = plan.trainings[trainingInMicroIndex(nextMicro, nextTrainingNum)];
+
+  const trainingId =
+    nextMicro !== undefined && nextTrainingNum !== undefined
+      ? plan.trainings[trainingInMicroIndex(nextMicro, nextTrainingNum)]
+      : undefined;
   const training = useTraining(trainingId);
-  const localMicro = getLocalMicro(plan.mesos, nextMicro);
-  const currentMeso = getMesoForMicro(plan.mesos, nextMicro);
+
+  const localMicro = nextMicro !== undefined ? getLocalMicro(plan.mesos, nextMicro) : undefined;
+  const currentMeso = nextMicro !== undefined ? getMesoForMicro(plan.mesos, nextMicro) : undefined;
 
   const exerciseId1 = training?.exercises?.[0];
   const exerciseId2 = training?.exercises?.[1];
@@ -30,27 +75,94 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, navigation}: NextTr
   const plannedWorkout1 = usePlannedWorkoutInTraining(trainingId, exerciseId1);
   const plannedWorkout2 = usePlannedWorkoutInTraining(trainingId, exerciseId2);
 
-  const trainingName = plan.trainingNames?.[String(nextTrainingNum)] ?? `Day ${nextTrainingNum}`;
-  const mesoLabel = currentMeso ? `${currentMeso.name} · ` : '';
-  const exerciseCount = training?.exercises?.length ?? 0;
-  const totalSets = training
-    ? Object.values(training.plannedWorkouts ?? {}).reduce((sum, wId) => {
-        return sum;
-      }, 0)
-    : 0;
-
-  const formatSets = (workout: ReturnType<typeof usePlannedWorkoutInTraining>): string => {
-    if (!workout?.sets?.length) return '';
-    const set = workout.sets[0];
-    return `${set.weight}kg × ${set.reps}`;
-  };
+  const prevTopSet1 = useTopSetForExerciseInMicro(plan, exerciseId1, nextTrainingNum ?? 0, nextMicro);
+  const prevTopSet2 = useTopSetForExerciseInMicro(plan, exerciseId2, nextTrainingNum ?? 0, nextMicro);
 
   const handleStart = () => {
+    if (isComplete || nextMicro === undefined || nextTrainingNum === undefined) {
+      // Plan complete: route to first slot to allow restart / new meso
+      const firstKey = Object.keys(plan.trainings).sort((a, b) => {
+        const ma = getMicroFromTrainingInMicroIndex(a);
+        const mb = getMicroFromTrainingInMicroIndex(b);
+        if (ma !== mb) return ma - mb;
+        return getTrainingFromTrainingInMicroIndex(a) - getTrainingFromTrainingInMicroIndex(b);
+      })[0];
+      const fallbackMicro = firstKey ? getMicroFromTrainingInMicroIndex(firstKey) : 1;
+      navigation.navigate({
+        name: 'TrainingPlan',
+        params: {trainingsPlan: plan, micro: fallbackMicro},
+      });
+      return;
+    }
     navigation.navigate({
       name: 'TrainingPlan',
       params: {trainingsPlan: plan, micro: nextMicro, training: nextTrainingNum},
     });
   };
+
+  if (isComplete) {
+    return (
+      <Card style={styles.card} testID="next-training-card">
+        <Card.Content>
+          <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
+            Next Training
+          </Text>
+          <Text variant="titleMedium" style={styles.completeTitle}>
+            Plan complete
+          </Text>
+          <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant, marginBottom: 12}}>
+            You finished every planned session. Start a new meso or revisit week 1.
+          </Text>
+          <Button mode="contained" onPress={handleStart} style={styles.startButton} testID="next-training-start-button">
+            Start over
+          </Button>
+        </Card.Content>
+      </Card>
+    );
+  }
+
+  const trainingName = nextTrainingNum !== undefined ? plan.trainingNames?.[String(nextTrainingNum)] ?? `Day ${nextTrainingNum}` : 'Next session';
+  const mesoLabel = currentMeso ? `${currentMeso.name} · ` : '';
+  const exerciseCount = training?.exercises?.length ?? 0;
+
+  const formatTarget = (workout: ReturnType<typeof usePlannedWorkoutInTraining>): string => {
+    if (!workout?.sets?.length) return '';
+    const set = workout.sets[0];
+    return `${set.weight} × ${set.reps}`;
+  };
+
+  const renderDelta = (
+    plannedWorkout: ReturnType<typeof usePlannedWorkoutInTraining>,
+    prev: {weight: number; reps: number} | undefined,
+    prevMicroLabel: string,
+  ) => {
+    if (!plannedWorkout?.sets?.length || !prev) return null;
+    const planned = plannedWorkout.sets[0];
+    const deltaKg = planned.weight - prev.weight;
+    const deltaReps = planned.reps - prev.reps;
+    const positive = deltaKg > 0 || (deltaKg === 0 && deltaReps > 0);
+    const negative = deltaKg < 0 || (deltaKg === 0 && deltaReps < 0);
+    if (deltaKg === 0 && deltaReps === 0) {
+      return (
+        <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
+          = {prevMicroLabel}
+        </Text>
+      );
+    }
+    const color = positive ? theme.colors.primary : negative ? theme.colors.error : theme.colors.onSurfaceVariant;
+    const sign = deltaKg >= 0 ? '+' : '';
+    const kgPart = `${sign}${deltaKg}kg`;
+    const repsPart = deltaReps !== 0 ? ` ${deltaReps > 0 ? '+' : ''}${deltaReps} reps` : '';
+    return (
+      <Text variant="labelSmall" style={{color, fontWeight: '600'}}>
+        {kgPart}
+        {repsPart} vs {prevMicroLabel}
+      </Text>
+    );
+  };
+
+  const prevLocalMicro = nextMicro !== undefined && localMicro !== undefined ? localMicro - 1 : 0;
+  const prevMicroLabel = prevLocalMicro >= 1 ? `M${prevLocalMicro}` : 'prev';
 
   return (
     <Card style={styles.card} testID="next-training-card">
@@ -71,18 +183,32 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, navigation}: NextTr
           <View style={styles.focusBlock}>
             {exercise1 && (
               <View style={styles.focusRow}>
-                <Text variant="bodyMedium" style={styles.focusExercise}>
-                  {exercise1.name}
-                </Text>
-                {plannedWorkout1 && <Text variant="bodySmall" style={{color: theme.colors.primary}}>{formatSets(plannedWorkout1)}</Text>}
+                <View style={styles.focusLeft}>
+                  <Text variant="bodyMedium" numberOfLines={1}>
+                    {exercise1.name}
+                  </Text>
+                  {renderDelta(plannedWorkout1, prevTopSet1, prevMicroLabel)}
+                </View>
+                {plannedWorkout1 && (
+                  <Text variant="bodyMedium" style={{color: theme.colors.primary, fontWeight: '600'}} testID="next-training-target-1">
+                    {formatTarget(plannedWorkout1)}
+                  </Text>
+                )}
               </View>
             )}
             {exercise2 && (
               <View style={styles.focusRow}>
-                <Text variant="bodyMedium" style={styles.focusExercise}>
-                  {exercise2.name}
-                </Text>
-                {plannedWorkout2 && <Text variant="bodySmall" style={{color: theme.colors.primary}}>{formatSets(plannedWorkout2)}</Text>}
+                <View style={styles.focusLeft}>
+                  <Text variant="bodyMedium" numberOfLines={1}>
+                    {exercise2.name}
+                  </Text>
+                  {renderDelta(plannedWorkout2, prevTopSet2, prevMicroLabel)}
+                </View>
+                {plannedWorkout2 && (
+                  <Text variant="bodyMedium" style={{color: theme.colors.primary, fontWeight: '600'}} testID="next-training-target-2">
+                    {formatTarget(plannedWorkout2)}
+                  </Text>
+                )}
               </View>
             )}
           </View>
@@ -101,9 +227,10 @@ const styles = StyleSheet.create({
   headerRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8},
   headerLeft: {flex: 1},
   focusBlock: {marginBottom: 12},
-  focusRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4},
-  focusExercise: {flex: 1},
+  focusRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4, gap: 12},
+  focusLeft: {flex: 1},
   startButton: {marginTop: 4},
+  completeTitle: {marginVertical: 4},
 });
 
 export default NextTrainingCard;
