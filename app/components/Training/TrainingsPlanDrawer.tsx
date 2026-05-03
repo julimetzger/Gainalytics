@@ -5,6 +5,8 @@ import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {View, Keyboard, ScrollView} from 'react-native';
 import React, {useState, useRef, useEffect} from 'react';
 import {getLocalMicro, getMesoEndMicro, getMesoForMicro, getSortedMesos} from '../../redux/Training/trainingsPlanReducer';
+import {useSettings} from '../../redux/settings/use/useSettings';
+import {dispatchSetPlanMuscleMapEnabled} from '../../redux/settings/dispatch/dispatchSetPlanMuscleMap';
 
 interface TrainingsPlanDrawerProps {
   theme: ThemeBase & {
@@ -56,6 +58,9 @@ const TrainingsPlanDrawer = ({
   const [mesoName, setMesoName] = useState('');
   const [longPressMesoId, setLongPressMesoId] = useState<number | undefined>(undefined);
   const mesoInputRef = useRef(null);
+  const settings = useSettings();
+  const setMuscleMapEnabled = dispatchSetPlanMuscleMapEnabled();
+  const muscleMapEnabled = !!settings.plan?.muscleMap?.enabled;
 
   useEffect(() => {
     if (!trainingsPlan.trainingNames || Object.keys(trainingsPlan.trainingNames).length === 0) {
@@ -285,6 +290,19 @@ const TrainingsPlanDrawer = ({
       <Tooltip title="Displays the planned workout statistics for this Micro">
         <Button mode={showPlanned ? 'contained' : 'outlined'} onPress={() => setShowPlanned(!showPlanned)}>
           Enable Planning Mode
+        </Button>
+      </Tooltip>
+      <Tooltip title="Show how this training distributes load across muscle groups">
+        <Button
+          testID="muscle-map-toggle"
+          style={{marginTop: 5}}
+          mode={muscleMapEnabled ? 'contained' : 'outlined'}
+          onPress={() => {
+            setMuscleMapEnabled(!muscleMapEnabled);
+            setOpen(false);
+          }}
+        >
+          {muscleMapEnabled ? 'Hide muscle map' : 'Show muscle map'}
         </Button>
       </Tooltip>
       <SegmentedButtons

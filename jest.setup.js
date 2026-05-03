@@ -36,8 +36,20 @@ jest.mock('react-native-mmkv', () => ({
 // react-native-worklets mock (required by reanimated 4.x which imports worklets at init time)
 jest.mock('react-native-worklets', () => require('react-native-worklets/lib/module/mock'));
 
-// Reanimated mock (required by the plugin in tests)
-jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+// Reanimated mock (required by the plugin in tests). The shipped mock omits
+// useFrameCallback, so extend it with a no-op implementation that returns the
+// FrameCallback shape so components that register a frame callback render in tests.
+jest.mock('react-native-reanimated', () => {
+  const mock = require('react-native-reanimated/mock');
+  return {
+    ...mock,
+    useFrameCallback: jest.fn().mockReturnValue({
+      setActive: () => {},
+      isActive: false,
+      callbackId: 0,
+    }),
+  };
+});
 
 // Mock react-native-gesture-handler
 jest.mock('react-native-gesture-handler', () => {

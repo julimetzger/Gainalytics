@@ -2,7 +2,7 @@ import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
 import React, {useState, useEffect} from 'react';
 import {Alert, ScrollView, View, StyleSheet, Platform} from 'react-native';
-import {Button, Dialog, Divider, HelperText, Portal, RadioButton, Switch, Text, TextInput} from 'react-native-paper';
+import {Button, Dialog, Divider, HelperText, List, Portal, RadioButton, Switch, Text, TextInput} from 'react-native-paper';
 import {secureStorage} from '../../utils/secureStorage';
 import {validateAnthropicApiKey} from '../../utils/llmApi';
 import {useSettings} from '../../redux/settings/use/useSettings';
@@ -25,6 +25,13 @@ import {dispatchSetExactAlarmPermission} from '../../redux/settings/dispatch/dis
 import {dispatchSetAnthropicModel} from '../../redux/settings/dispatch/dispatchSetAnthropicModel';
 import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
 import {DEFAULT_ANTHROPIC_MODEL} from '../../utils/llmApi';
+import {dispatchSetAIChatPrompt} from '../../redux/settings/dispatch/dispatchSetAIChatPrompt';
+import {dispatchResetAIChatPrompt} from '../../redux/settings/dispatch/dispatchResetAIChatPrompt';
+import {dispatchSetAITrainingPrompt} from '../../redux/settings/dispatch/dispatchSetAITrainingPrompt';
+import {dispatchResetAITrainingPrompt} from '../../redux/settings/dispatch/dispatchResetAITrainingPrompt';
+import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
+import {useAITrainingPrompt} from '../../redux/settings/use/useAITrainingPrompt';
+import {DEFAULT_CHAT_PROMPT, DEFAULT_TRAINING_PROMPT} from '../../constants/aiPrompts';
 
 const SettingsTab = ({navigation}: Props) => {
   let settings = useSettings();
@@ -38,6 +45,12 @@ const SettingsTab = ({navigation}: Props) => {
   let setAnthropicModelDispatch = dispatchSetAnthropicModel();
   let currentModel = useAnthropicModel();
   let store = useStore();
+  let setAIChatPromptDispatch = dispatchSetAIChatPrompt();
+  let resetAIChatPromptDispatch = dispatchResetAIChatPrompt();
+  let setAITrainingPromptDispatch = dispatchSetAITrainingPrompt();
+  let resetAITrainingPromptDispatch = dispatchResetAITrainingPrompt();
+  let currentChatPrompt = useAIChatPrompt();
+  let currentTrainingPrompt = useAITrainingPrompt();
   const FileSaver = require('react-native-fs');
 
   const [importDialog, setImportDialog] = useState(false);
@@ -48,6 +61,9 @@ const SettingsTab = ({navigation}: Props) => {
   const [modelInput, setModelInput] = useState(currentModel);
   const [apiKeySecure, setApiKeySecure] = useState(true);
   const [apiKeyValidating, setApiKeyValidating] = useState(false);
+  const [aiConfigExpanded, setAiConfigExpanded] = useState(false);
+  const [chatPromptInput, setChatPromptInput] = useState(currentChatPrompt);
+  const [trainingPromptInput, setTrainingPromptInput] = useState(currentTrainingPrompt);
 
   let fullImport = dispatchFullImport();
   let setPauseTimer = dispatchSetPauseTimer();
@@ -135,6 +151,28 @@ const SettingsTab = ({navigation}: Props) => {
       secureStorage.setAnthropicApiKey(trimmed);
       Toast.show({type: 'success', text1: 'API key saved', position: 'top', visibilityTime: 3000});
     }
+  };
+
+  const handleSaveChatPrompt = () => {
+    setAIChatPromptDispatch(chatPromptInput);
+    Toast.show({type: 'success', text1: 'Chat prompt saved', position: 'top', visibilityTime: 3000});
+  };
+
+  const handleResetChatPrompt = () => {
+    resetAIChatPromptDispatch();
+    setChatPromptInput(DEFAULT_CHAT_PROMPT);
+    Toast.show({type: 'info', text1: 'Chat prompt reset to default', position: 'top', visibilityTime: 3000});
+  };
+
+  const handleSaveTrainingPrompt = () => {
+    setAITrainingPromptDispatch(trainingPromptInput);
+    Toast.show({type: 'success', text1: 'Training prompt saved', position: 'top', visibilityTime: 3000});
+  };
+
+  const handleResetTrainingPrompt = () => {
+    resetAITrainingPromptDispatch();
+    setTrainingPromptInput(DEFAULT_TRAINING_PROMPT);
+    Toast.show({type: 'info', text1: 'Training prompt reset to default', position: 'top', visibilityTime: 3000});
   };
 
   const handleSaveModel = () => {
@@ -312,78 +350,147 @@ const SettingsTab = ({navigation}: Props) => {
       <View style={styles.divider}>
         <Divider />
       </View>
-      {/* AI Coach section */}
+      {/* AI Configuration accordion */}
       <View style={styles.divider}>
         <Divider />
       </View>
-      <View style={{marginHorizontal: 15, marginVertical: 8}}>
-        <Text variant="titleSmall" style={{marginBottom: 4}}>AI Coach (Anthropic Claude)</Text>
-        <Text variant="bodySmall" style={{color: 'gray', marginBottom: 8}}>
-          Your API key is stored encrypted on this device only. It is never sent to any server other
-          than Anthropic. You need an Anthropic account to use this feature.
-        </Text>
-        <TextInput
-          mode="outlined"
-          label="Anthropic API Key"
-          value={apiKeyInput}
-          onChangeText={setApiKeyInput}
-          secureTextEntry={apiKeySecure}
-          right={
-            <TextInput.Icon
-              icon={apiKeySecure ? 'eye' : 'eye-off'}
-              onPress={() => setApiKeySecure(v => !v)}
-            />
-          }
-          testID="settings-anthropic-api-key-input"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <HelperText type="info">
-          Get your key at console.anthropic.com
-        </HelperText>
-        <View style={{flexDirection: 'row', gap: 8, marginTop: 4}}>
+      <List.Accordion
+        title="AI Configuration"
+        left={props => <List.Icon {...props} icon="cog" />}
+        expanded={aiConfigExpanded}
+        onPress={() => setAiConfigExpanded(v => !v)}
+        testID="settings-ai-config-accordion"
+      >
+        <View style={{marginHorizontal: 15, marginBottom: 8}}>
+          <Text variant="bodySmall" style={{color: 'gray', marginBottom: 8}}>
+            Your API key is stored encrypted on this device only. It is never sent to any server other
+            than Anthropic. You need an Anthropic account to use this feature.
+          </Text>
+          <TextInput
+            mode="outlined"
+            label="Anthropic API Key"
+            value={apiKeyInput}
+            onChangeText={setApiKeyInput}
+            secureTextEntry={apiKeySecure}
+            right={
+              <TextInput.Icon
+                icon={apiKeySecure ? 'eye' : 'eye-off'}
+                onPress={() => setApiKeySecure(v => !v)}
+              />
+            }
+            testID="settings-anthropic-api-key-input"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <HelperText type="info">
+            Get your key at console.anthropic.com
+          </HelperText>
+          <View style={{flexDirection: 'row', gap: 8, marginTop: 4}}>
+            <Button
+              mode="outlined"
+              onPress={handleSaveApiKey}
+              style={{flex: 1}}
+              testID="settings-save-api-key-button"
+            >
+              Save Key
+            </Button>
+            <Button
+              mode="contained"
+              onPress={handleTestApiKey}
+              loading={apiKeyValidating}
+              disabled={apiKeyValidating}
+              style={{flex: 1}}
+              testID="settings-test-api-key-button"
+            >
+              Test Key
+            </Button>
+          </View>
+          <TextInput
+            mode="outlined"
+            label="Claude Model"
+            value={modelInput}
+            onChangeText={setModelInput}
+            placeholder={DEFAULT_ANTHROPIC_MODEL}
+            testID="settings-anthropic-model-input"
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={{marginTop: 12}}
+          />
+          <HelperText type="info">
+            Enter a Claude model ID (e.g. claude-haiku-4-5-20251001). Leave empty to reset to default.
+          </HelperText>
           <Button
             mode="outlined"
-            onPress={handleSaveApiKey}
-            style={{flex: 1}}
-            testID="settings-save-api-key-button"
+            onPress={handleSaveModel}
+            style={{marginTop: 4}}
+            testID="settings-save-model-button"
           >
-            Save Key
+            Save Model
           </Button>
-          <Button
-            mode="contained"
-            onPress={handleTestApiKey}
-            loading={apiKeyValidating}
-            disabled={apiKeyValidating}
-            style={{flex: 1}}
-            testID="settings-test-api-key-button"
-          >
-            Test Key
-          </Button>
+          <Divider style={{marginVertical: 12}} />
+          <Text variant="labelMedium" style={{marginBottom: 4}}>AI Chat Prompt</Text>
+          <TextInput
+            mode="outlined"
+            label="AI Chat System Prompt"
+            value={chatPromptInput}
+            onChangeText={setChatPromptInput}
+            multiline
+            numberOfLines={5}
+            testID="settings-ai-chat-prompt-input"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <View style={{flexDirection: 'row', gap: 8, marginTop: 8}}>
+            <Button
+              mode="outlined"
+              onPress={handleSaveChatPrompt}
+              style={{flex: 1}}
+              testID="settings-save-chat-prompt-button"
+            >
+              Save
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={handleResetChatPrompt}
+              style={{flex: 1}}
+              testID="settings-reset-chat-prompt-button"
+            >
+              Reset to Default
+            </Button>
+          </View>
+          <Divider style={{marginVertical: 12}} />
+          <Text variant="labelMedium" style={{marginBottom: 4}}>AI Training Coach Prompt</Text>
+          <TextInput
+            mode="outlined"
+            label="Training Coach System Prompt"
+            value={trainingPromptInput}
+            onChangeText={setTrainingPromptInput}
+            multiline
+            numberOfLines={5}
+            testID="settings-ai-training-prompt-input"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <View style={{flexDirection: 'row', gap: 8, marginTop: 8}}>
+            <Button
+              mode="outlined"
+              onPress={handleSaveTrainingPrompt}
+              style={{flex: 1}}
+              testID="settings-save-training-prompt-button"
+            >
+              Save
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={handleResetTrainingPrompt}
+              style={{flex: 1}}
+              testID="settings-reset-training-prompt-button"
+            >
+              Reset to Default
+            </Button>
+          </View>
         </View>
-        <TextInput
-          mode="outlined"
-          label="Claude Model"
-          value={modelInput}
-          onChangeText={setModelInput}
-          placeholder={DEFAULT_ANTHROPIC_MODEL}
-          testID="settings-anthropic-model-input"
-          autoCapitalize="none"
-          autoCorrect={false}
-          style={{marginTop: 12}}
-        />
-        <HelperText type="info">
-          Enter a Claude model ID (e.g. claude-haiku-4-5-20251001). Leave empty to reset to default.
-        </HelperText>
-        <Button
-          mode="outlined"
-          onPress={handleSaveModel}
-          style={{marginTop: 4}}
-          testID="settings-save-model-button"
-        >
-          Save Model
-        </Button>
-      </View>
+      </List.Accordion>
       <View style={styles.divider}>
         <Divider />
       </View>

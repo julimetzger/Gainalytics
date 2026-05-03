@@ -1,6 +1,6 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, TouchableOpacity, View, processColor} from 'react-native';
-import Animated, {Easing, cancelAnimation, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming} from 'react-native-reanimated';
+import Animated, {useAnimatedStyle, useDerivedValue, useFrameCallback, useSharedValue} from 'react-native-reanimated';
 import {Gesture, GestureDetector, GestureHandlerRootView} from 'react-native-gesture-handler';
 import {IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
@@ -378,12 +378,19 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const playbackTimeMsSV = useRef(useSharedValue(0)).current;
   // Tracks actual video duration as a SharedValue for UI-thread marker/scrubber animations.
   const videoDurationMsSV = useRef(useSharedValue(0)).current;
+  const scrubberWidthSV = useRef(useSharedValue(0)).current;
   const speedChartWidthSV = useRef(useSharedValue(0)).current;
   // Visible x-range as reported by the native chart on zoom/pan.
   const chartVisibleMinSV = useRef(useSharedValue(0)).current;
   const chartVisibleMaxSV = useRef(useSharedValue(0)).current;
+  // SharedValues for state read by the UI-thread frame callback. JS-side refs below
+  // remain authoritative for JS reads; SVs mirror them so the worklet stays consistent.
+  const playbackPausedSV = useRef(useSharedValue(true)).current;
+  const isScrubbingSV = useRef(useSharedValue(false)).current;
+  const playbackSpeedSV = useRef(useSharedValue(1)).current;
 
   const playbackDurationRef = useRef(0);
+  const correctedPlaybackDurationMsRef = useRef(0);
   const playbackTimeRef = useRef(0);
   const playbackPausedRef = useRef(true);
   const playbackSpeedRef = useRef(1.0);
@@ -474,6 +481,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   // SharedValue intentionally excluded from deps (stable ref, memory entry #16).
   useEffect(() => {
     if (correctedPlaybackDurationMs > 0) {
+      correctedPlaybackDurationMsRef.current = correctedPlaybackDurationMs;
       videoDurationMsSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
       // Initialize visible range to full duration so the marker is correctly
       // positioned before any zoom event arrives from the chart.
@@ -500,23 +508,27 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     return SPEED_CHART_LEFT_PADDING + progress * drawableWidth;
   });
 
-  // Scrubber fill and thumb are driven by Reanimated SharedValues on the UI thread — no JS state.
+  const scrubberProgressPx = useDerivedValue(() => {
+    'worklet';
+    if (videoDurationMsSV.value <= 0 || scrubberWidthSV.value <= 0) {
+      return 0;
+    }
+    const progress = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value));
+    return progress * scrubberWidthSV.value;
+  });
+
+  // Scrubber fill/thumb stay on the UI thread with numeric pixel values.
+  // Percent-string styles rely on layout updates and stuttered on real devices.
   const scrubberFillStyle = useAnimatedStyle(() => {
     'worklet';
-    if (videoDurationMsSV.value <= 0) {
-      return {width: '0%'};
-    }
-    const pct = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value)) * 100;
-    return {width: `${pct}%` as any};
+    return {width: scrubberProgressPx.value};
   });
 
   const scrubberThumbStyle = useAnimatedStyle(() => {
     'worklet';
-    if (videoDurationMsSV.value <= 0) {
-      return {left: '0%'};
-    }
-    const pct = Math.min(1, Math.max(0, playbackTimeMsSV.value / videoDurationMsSV.value)) * 100;
-    return {left: `${pct}%` as any};
+    return {
+      transform: [{translateX: scrubberProgressPx.value}],
+    };
   });
 
   const playbackAspectRatio = useMemo(() => {
@@ -617,11 +629,14 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     }
   }, []);
 
-  // onPlayerProgress updates duration and corrects the marker animation when
-  // it drifts too far from the real player position. The withTiming animation
-  // provides smooth 60fps movement, but ExoPlayer can lag behind due to
-  // decoding/buffering, causing the marker to run ahead. A periodic correction
-  // re-syncs the animation without visible jank.
+  // onPlayerProgress updates duration and applies a hard re-sync only when the
+  // marker has drifted catastrophically (>1000ms) from the native player — e.g.
+  // after a buffer stall. Steady-state smoothness is provided by the UI-thread
+  // frame callback (see useFrameCallback below), which advances the marker at
+  // 60fps based on wall-clock deltas. Earlier rounds attempted to correct small
+  // drift here with cancelAnimation+withTiming; that re-cancellation cycle
+  // produced the ~1s ticking the user reported. Letting the frame callback run
+  // uninterrupted is what restores smooth motion.
   const onPlayerProgress = useCallback(
     (event: {nativeEvent?: VideoPlayerProgressEvent}) => {
       const nativeEvent = event.nativeEvent;
@@ -637,65 +652,65 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       }
       updateCurrentRepForPlaybackTime(nativeEvent.currentTimeMs);
 
-      // Correct marker drift: if the animated value is more than 80ms ahead of
-      // the real player position, restart the animation from the actual position.
-      // Skip correction during seek cooldown so the player can catch up.
-      if (!playbackPausedRef.current && !isScrubbingRef.current && Date.now() > seekCooldownUntilRef.current) {
-        const animatedMs = playbackTimeMsSV.value;
-        const drift = animatedMs - nativeEvent.currentTimeMs;
-        if (drift > 80) {
-          const totalDuration = playbackDurationRef.current;
-          if (totalDuration > 0) {
-            cancelAnimation(playbackTimeMsSV);
-            playbackTimeMsSV.value = nativeEvent.currentTimeMs;
-            const remainingMs = Math.max(0, totalDuration - nativeEvent.currentTimeMs);
-            if (remainingMs > 0) {
-              playbackTimeMsSV.value = withTiming(totalDuration, {
-                duration: remainingMs / playbackSpeedRef.current,
-                easing: Easing.linear,
-              });
-            }
-          }
+      if (!playbackPausedRef.current && !isScrubbingRef.current
+          && Date.now() > seekCooldownUntilRef.current) {
+        const nativeMs = nativeEvent.currentTimeMs;
+        const drift = playbackTimeMsSV.value - nativeMs;
+        if (Math.abs(drift) > 1000) {
+          // Catastrophic drift (player stalled, hidden seek, etc.) — snap to
+          // native position. The frame callback will continue advancing from here.
+          playbackTimeMsSV.value = nativeMs; // eslint-disable-line react-hooks/exhaustive-deps
         }
       }
     },
     [updateCurrentRepForPlaybackTime],
   );
 
-  // When playback speed changes, update the ref and restart the marker animation
-  // so the scrubber/velocity marker advance at the correct rate for the new speed.
-  useEffect(() => {
-    playbackSpeedRef.current = playbackSpeed; // eslint-disable-line react-hooks/exhaustive-deps
-    if (!playbackPausedRef.current && correctedPlaybackDurationMs > 0) {
-      const currentMs = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
-      const remainingMs = Math.max(0, correctedPlaybackDurationMs - currentMs);
-      if (remainingMs > 0) {
-        cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
-        playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
-          duration: remainingMs / playbackSpeed,
-          easing: Easing.linear,
-        });
-      }
+  // Drives the playback marker on the UI thread at the device refresh rate (~60fps).
+  // Every frame, advance playbackTimeMsSV by the elapsed wall-clock time scaled by
+  // playbackSpeed, clamped to the current corrected duration. Reading state via
+  // SharedValues (not refs) keeps the worklet self-contained on the UI thread, so
+  // animation never stalls on JS-thread re-renders or progress-event bursts.
+  useFrameCallback((frameInfo) => {
+    'worklet';
+    if (playbackPausedSV.value || isScrubbingSV.value) {
+      return;
     }
-  }, [playbackSpeed, correctedPlaybackDurationMs]); // eslint-disable-line react-hooks/exhaustive-deps
+    const total = videoDurationMsSV.value;
+    if (total <= 0) {
+      return;
+    }
+    const dt = frameInfo.timeSincePreviousFrame ?? 16.67;
+    const speed = playbackSpeedSV.value;
+    const next = playbackTimeMsSV.value + dt * speed;
+    playbackTimeMsSV.value = next > total ? total : next;
+  });
+
+  // When playback speed changes, mirror it into the UI-thread SharedValue so the
+  // frame callback advances at the new rate. The JS-side ref is kept in sync for
+  // any code paths that still read it (e.g. drift correction).
+  useEffect(() => {
+    playbackSpeedRef.current = playbackSpeed;
+    playbackSpeedSV.value = playbackSpeed; // eslint-disable-line react-hooks/exhaustive-deps
+  }, [playbackSpeed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onPlayerEnd = useCallback(() => {
-    cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
     const duration = playbackDurationRef.current;
     playbackTimeMsSV.value = duration; // eslint-disable-line react-hooks/exhaustive-deps
     playbackTimeRef.current = duration;
     setPlaybackTimeMs(duration);
     setPlaybackPaused(true);
     playbackPausedRef.current = true;
+    playbackPausedSV.value = true; // eslint-disable-line react-hooks/exhaustive-deps
     updateCurrentRepForPlaybackTime(duration);
   }, [updateCurrentRepForPlaybackTime]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // applySeekTimeMs: cancel any running animation, jump to new position immediately,
-  // and restart the animation if currently playing.
+  // applySeekTimeMs: jump the marker to a new position immediately. The frame
+  // callback continues advancing from there once the player resumes (or stays
+  // pinned while paused).
   const applySeekTimeMs = useCallback(
     (nextTimeMs: number) => {
       const clampedTimeMs = clamp(Math.round(nextTimeMs), 0, correctedPlaybackDurationMs);
-      cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
       playbackTimeMsSV.value = clampedTimeMs; // eslint-disable-line react-hooks/exhaustive-deps
       playbackTimeRef.current = clampedTimeMs;
       setPlaybackTimeMs(clampedTimeMs);
@@ -704,17 +719,6 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       // Suppress drift correction for 300ms so the player can catch up to the
       // new seek position without onPlayerProgress snapping the marker back.
       seekCooldownUntilRef.current = Date.now() + 300;
-
-      // Restart animation from new position if currently playing.
-      if (!playbackPausedRef.current && correctedPlaybackDurationMs > 0) {
-        const remainingMs = Math.max(0, correctedPlaybackDurationMs - clampedTimeMs);
-        if (remainingMs > 0) {
-          playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
-            duration: remainingMs / playbackSpeedRef.current,
-            easing: Easing.linear,
-          });
-        }
-      }
     },
     [correctedPlaybackDurationMs, updateCurrentRepForPlaybackTime], // eslint-disable-line react-hooks/exhaustive-deps
   );
@@ -741,6 +745,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const onScrubberLayout = useCallback((event: LayoutChangeEvent) => {
     const {width} = event.nativeEvent.layout;
     setScrubberWidth(width);
+    scrubberWidthSV.value = width; // eslint-disable-line react-hooks/exhaustive-deps
   }, []);
 
   const onSpeedChartLayout = useCallback((event: LayoutChangeEvent) => {
@@ -779,35 +784,23 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     [applySeekTimeMs, correctedPlaybackDurationMs],
   );
 
-  // Play/Pause toggle: starts a withTiming animation on Play, cancels it on Pause.
-  // Sync between player and marker happens only at user interaction (no onPlayerProgress state updates).
+  // Play/Pause toggle: flips the paused SharedValue so the frame callback starts
+  // or stops advancing the marker. On pause, snapshots the current marker position
+  // back into JS state so the player and labels stay in sync.
   const onPlayPauseToggle = useCallback(() => {
     const nextPaused = !playbackPausedRef.current;
     playbackPausedRef.current = nextPaused;
+    playbackPausedSV.value = nextPaused; // eslint-disable-line react-hooks/exhaustive-deps
     setPlaybackPaused(nextPaused);
 
-    if (!nextPaused && correctedPlaybackDurationMs > 0) {
-      // Transitioning to PLAY: animate marker from current position to end.
-      // Divide wall-clock duration by playback speed so the marker advances at the
-      // same rate as the video (e.g. 0.5x speed → marker takes 2x longer to reach end).
-      const currentMs = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
-      const remainingMs = Math.max(0, correctedPlaybackDurationMs - currentMs);
-      if (remainingMs > 0) {
-        playbackTimeMsSV.value = withTiming(correctedPlaybackDurationMs, { // eslint-disable-line react-hooks/exhaustive-deps
-          duration: remainingMs / playbackSpeedRef.current,
-          easing: Easing.linear,
-        });
-      }
-    } else if (nextPaused) {
-      // Transitioning to PAUSE: stop animation, read current position, sync player.
-      cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
+    if (nextPaused) {
       const currentMs = Math.round(playbackTimeMsSV.value); // eslint-disable-line react-hooks/exhaustive-deps
       playbackTimeRef.current = currentMs;
       setPlaybackTimeMs(currentMs);
       setSeekPositionMs(currentMs);
       updateCurrentRepForPlaybackTime(currentMs);
     }
-  }, [correctedPlaybackDurationMs, updateCurrentRepForPlaybackTime]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [updateCurrentRepForPlaybackTime]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     playbackTimeRef.current = playbackTimeMs;
@@ -965,9 +958,11 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   }));
 
   useEffect(() => {
-    cancelAnimation(playbackTimeMsSV); // eslint-disable-line react-hooks/exhaustive-deps
     setPlaybackPaused(true);
     playbackPausedRef.current = true;
+    playbackPausedSV.value = true; // eslint-disable-line react-hooks/exhaustive-deps
+    isScrubbingSV.value = false; // eslint-disable-line react-hooks/exhaustive-deps
+    playbackSpeedSV.value = 1; // eslint-disable-line react-hooks/exhaustive-deps
     setPlaybackTimeMs(0);
     setPlaybackDurationMs(0);
     setPlaybackVideoWidth(0);
@@ -982,12 +977,26 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     chartVisibleMaxRef.current = 0;
     setChartVisibleForLines(null);
     playbackDurationRef.current = 0;
+    correctedPlaybackDurationMsRef.current = 0;
     playbackTimeRef.current = 0;
     currentRepIndexRef.current = undefined;
     isScrubbingRef.current = false;
     videoScale.value = 1; // eslint-disable-line react-hooks/exhaustive-deps
     videoTranslateX.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
     videoTranslateY.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    // Re-initialize chart range from bar-path data. React runs effects in declaration
+    // order, so the duration effect (line ~475) fires before this reset effect and its
+    // SharedValue writes get overwritten. We restore the correct values here so the
+    // scrubber and velocity marker work before onPlayerLoad fires. When onPlayerLoad
+    // later sets a larger duration, the duration effect will update them again.
+    if (correctedPlaybackDurationMs > 0) { // eslint-disable-line react-hooks/exhaustive-deps
+      correctedPlaybackDurationMsRef.current = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
+      videoDurationMsSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMinSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMaxSV.value = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMinRef.current = 0;
+      chartVisibleMaxRef.current = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
+    }
   }, [localVideoPath, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx, result.barPathSeries, result.repSegments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -1200,14 +1209,17 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
           onMoveShouldSetResponder={() => true}
           onResponderGrant={(event) => {
             isScrubbingRef.current = true;
+            isScrubbingSV.value = true;
             onScrubberTouch(event.nativeEvent.locationX, scrubberWidth);
           }}
           onResponderMove={(event) => onScrubberTouch(event.nativeEvent.locationX, scrubberWidth)}
           onResponderRelease={() => {
             isScrubbingRef.current = false;
+            isScrubbingSV.value = false;
           }}
           onResponderTerminate={() => {
             isScrubbingRef.current = false;
+            isScrubbingSV.value = false;
           }}>
           <Animated.View testID="video-analysis-playback-scrubber-fill" style={[styles.scrubberFill, themedStyles.scrubberFill, scrubberFillStyle]} />
           <Animated.View testID="video-analysis-playback-scrubber-thumb" style={[styles.scrubberThumb, themedStyles.scrubberThumb, scrubberThumbStyle]} />

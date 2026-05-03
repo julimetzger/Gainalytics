@@ -206,4 +206,39 @@ describe('settingsReducer', () => {
 
     expect(settingsReducer(initialState, action)).toEqual(expectedState);
   });
+
+  it('should set aiChatPrompt', () => {
+    const initialState = {mode: 'dark'} satisfies AppSettings;
+    const action = {type: 'SET_AI_CHAT_PROMPT', prompt: 'Custom chat prompt'};
+    const result = settingsReducer(initialState, action);
+    expect(result.aiChatPrompt).toBe('Custom chat prompt');
+  });
+
+  it('should clear aiChatPrompt on reset', () => {
+    const initialState = {mode: 'dark', aiChatPrompt: 'Custom chat prompt'} satisfies AppSettings;
+    const action = {type: 'RESET_AI_CHAT_PROMPT'};
+    const result = settingsReducer(initialState, action);
+    expect(result.aiChatPrompt).toBeUndefined();
+  });
+
+  it('should set aiChatPrompt to undefined when empty string', () => {
+    const initialState = {mode: 'dark', aiChatPrompt: 'Custom'} satisfies AppSettings;
+    const action = {type: 'SET_AI_CHAT_PROMPT', prompt: '  '};
+    const result = settingsReducer(initialState, action);
+    expect(result.aiChatPrompt).toBeUndefined();
+  });
+
+  it('should set aiTrainingPrompt', () => {
+    const initialState = {mode: 'dark'} satisfies AppSettings;
+    const action = {type: 'SET_AI_TRAINING_PROMPT', prompt: 'Custom training prompt'};
+    const result = settingsReducer(initialState, action);
+    expect(result.aiTrainingPrompt).toBe('Custom training prompt');
+  });
+
+  it('should clear aiTrainingPrompt on reset', () => {
+    const initialState = {mode: 'dark', aiTrainingPrompt: 'Custom training prompt'} satisfies AppSettings;
+    const action = {type: 'RESET_AI_TRAINING_PROMPT'};
+    const result = settingsReducer(initialState, action);
+    expect(result.aiTrainingPrompt).toBeUndefined();
+  });
 });

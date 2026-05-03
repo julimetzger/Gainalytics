@@ -109,6 +109,30 @@ jest.mock('../../../app/redux/settings/use/useAnthropicModel', () => ({
   useAnthropicModel: jest.fn(() => 'claude-haiku-4-5-20251001'),
 }));
 
+jest.mock('../../../app/redux/settings/dispatch/dispatchSetAIChatPrompt', () => ({
+  dispatchSetAIChatPrompt: jest.fn(() => jest.fn()),
+}));
+
+jest.mock('../../../app/redux/settings/dispatch/dispatchResetAIChatPrompt', () => ({
+  dispatchResetAIChatPrompt: jest.fn(() => jest.fn()),
+}));
+
+jest.mock('../../../app/redux/settings/dispatch/dispatchSetAITrainingPrompt', () => ({
+  dispatchSetAITrainingPrompt: jest.fn(() => jest.fn()),
+}));
+
+jest.mock('../../../app/redux/settings/dispatch/dispatchResetAITrainingPrompt', () => ({
+  dispatchResetAITrainingPrompt: jest.fn(() => jest.fn()),
+}));
+
+jest.mock('../../../app/redux/settings/use/useAIChatPrompt', () => ({
+  useAIChatPrompt: jest.fn(() => 'default chat prompt'),
+}));
+
+jest.mock('../../../app/redux/settings/use/useAITrainingPrompt', () => ({
+  useAITrainingPrompt: jest.fn(() => 'default training prompt'),
+}));
+
 jest.mock('../../../app/utils/secureStorage', () => ({
   secureStorage: {
     getAnthropicApiKey: jest.fn(() => undefined),
@@ -212,6 +236,15 @@ jest.mock('react-native-paper', () => {
     Text: ({children}: {children: React.ReactNode}) => <Text>{children}</Text>,
     HelperText: ({children}: {children: React.ReactNode}) => <Text>{children}</Text>,
     ActivityIndicator: () => <View testID="activity-indicator" />,
+    List: {
+      Accordion: ({children, title, expanded, onPress, testID}: {children: React.ReactNode; title: string; expanded?: boolean; onPress?: () => void; testID?: string}) => (
+        <View>
+          <TouchableOpacity testID={testID} onPress={onPress}><Text>{title}</Text></TouchableOpacity>
+          {expanded && <View>{children}</View>}
+        </View>
+      ),
+      Icon: () => null,
+    },
     TextInput: Object.assign(
       ({value, onChangeText, label, testID}: {value?: string; onChangeText?: (t: string) => void; label?: string; testID?: string; [k: string]: any}) => {
         const {TextInput: RNTextInput} = require('react-native');
@@ -393,6 +426,9 @@ describe('SettingsTab', () => {
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
 
+    // Expand the AI Config accordion first
+    fireEvent.press(getByTestId('settings-ai-config-accordion'));
+
     await waitFor(() => {
       expect(getByTestId('settings-anthropic-model-input')).toBeTruthy();
     });
@@ -403,6 +439,9 @@ describe('SettingsTab', () => {
     const route = {params: {}};
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+
+    // Expand the AI Config accordion first
+    fireEvent.press(getByTestId('settings-ai-config-accordion'));
 
     await waitFor(() => {
       expect(getByTestId('button-Save-Model')).toBeTruthy();
@@ -423,6 +462,9 @@ describe('SettingsTab', () => {
     const route = {params: {}};
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+
+    // Expand the AI Config accordion first
+    fireEvent.press(getByTestId('settings-ai-config-accordion'));
 
     await waitFor(() => {
       expect(getByTestId('button-Save-Model')).toBeTruthy();

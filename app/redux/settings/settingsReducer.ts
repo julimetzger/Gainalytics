@@ -6,6 +6,17 @@ export interface MetricOverviewSettings {
   exercises?: Metric[];
 }
 
+export type MuscleMapMetric = 'sets' | 'volume';
+export type MuscleMapCompare = 'none' | 'last_plan' | 'current_total_plan';
+
+export interface PlanSettings {
+  muscleMap?: {
+    enabled?: boolean;
+    metric?: MuscleMapMetric;
+    compare?: MuscleMapCompare;
+  };
+}
+
 export interface ActiveRestState {
   startedAt: number;
   targetSeconds: number;
@@ -22,6 +33,7 @@ export interface RestTimerSettings {
 export interface AppSettings {
   mode: 'light' | 'dark';
   palette?: 'blue' | 'green' | 'purple';
+  videoAnalysisFiltersExpanded?: boolean;
   localNotification?: {
     pauseTimerInSeconds?: number;
     finishTrainingTimerInSeconds?: number;
@@ -36,12 +48,16 @@ export interface AppSettings {
   };
   metricOverview?: MetricOverviewSettings;
   anthropicModel?: string;
+  aiChatPrompt?: string;
+  aiTrainingPrompt?: string;
+  plan?: PlanSettings;
   restTimer?: RestTimerSettings;
 }
 
 const initialState = {
   mode: 'dark',
   palette: 'blue',
+  videoAnalysisFiltersExpanded: false,
 } as AppSettings;
 
 const settingsReducer = (settings: AppSettings = initialState, action: AnyAction): AppSettings => {
@@ -56,6 +72,12 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       return {
         ...settings,
         palette: action.palette,
+      } as AppSettings;
+    }
+    case 'SET_VIDEO_ANALYSIS_FILTERS_EXPANDED': {
+      return {
+        ...settings,
+        videoAnalysisFiltersExpanded: action.expanded,
       } as AppSettings;
     }
     case 'SET_PAUSE_TIMER': {
@@ -134,6 +156,68 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       return {
         ...settings,
         anthropicModel: trimmed || undefined,
+      };
+    }
+    case 'SET_AI_CHAT_PROMPT': {
+      const trimmed = ((action.prompt as string) ?? '').trim();
+      return {
+        ...settings,
+        aiChatPrompt: trimmed || undefined,
+      };
+    }
+    case 'RESET_AI_CHAT_PROMPT': {
+      return {
+        ...settings,
+        aiChatPrompt: undefined,
+      };
+    }
+    case 'SET_AI_TRAINING_PROMPT': {
+      const trimmed = ((action.prompt as string) ?? '').trim();
+      return {
+        ...settings,
+        aiTrainingPrompt: trimmed || undefined,
+      };
+    }
+    case 'RESET_AI_TRAINING_PROMPT': {
+      return {
+        ...settings,
+        aiTrainingPrompt: undefined,
+      };
+    }
+    case 'SET_PLAN_MUSCLE_MAP_ENABLED': {
+      return {
+        ...settings,
+        plan: {
+          ...settings.plan,
+          muscleMap: {
+            ...settings.plan?.muscleMap,
+            enabled: !!action.enabled,
+          },
+        },
+      };
+    }
+    case 'SET_PLAN_MUSCLE_MAP_METRIC': {
+      return {
+        ...settings,
+        plan: {
+          ...settings.plan,
+          muscleMap: {
+            ...settings.plan?.muscleMap,
+            metric: action.metric as MuscleMapMetric,
+          },
+        },
+      };
+    }
+    case 'SET_PLAN_MUSCLE_MAP_COMPARE': {
+      return {
+        ...settings,
+        plan: {
+          ...settings.plan,
+          muscleMap: {
+            ...settings.plan?.muscleMap,
+            compare: action.compare as MuscleMapCompare,
+          },
+        },
       };
     }
     case 'SET_REST_TIMER_USER_DEFAULT': {

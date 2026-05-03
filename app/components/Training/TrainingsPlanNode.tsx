@@ -6,7 +6,7 @@ import {TrainingsState} from '../../models/TrainingsState';
 import {Button, Dialog, Portal, Text} from 'react-native-paper';
 import DraggableExercise from './DraggableExercise';
 import TrainingsBase from './TrainingsBase';
-import PlanWorkoutInTraining from './plan/PlanTraining';
+import PlanTab, {PlanChromeState} from './plan/PlanTab';
 import PlanningOverview from './plan/PlanningOverview';
 import ExecuteWorkoutInTraining from './execute/ExecuteTraining';
 import EditTraining from './execute/EditTraining';
@@ -45,16 +45,17 @@ interface TrainingsPlanNodeProps {
   onMicroViewModeChange?: (mode: ViewMode) => void;
   overflowVisible: boolean;
   onCloseOverflow: () => void;
+  onPlanChromeChange?: (state: PlanChromeState) => void;
 }
 
-const defaultSubTab = (state?: string): SubTab => {
+export const defaultSubTab = (state?: string): SubTab => {
   if (state === TrainingsState.PLANNED) return 'plan';
   if (state === TrainingsState.STARTED) return 'train';
   if (state === TrainingsState.FINISHED) return 'analysis';
   return 'plan'; // no training → Plan tab shows TrainingsBase (add/suggest)
 };
 
-const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange, overflowVisible, onCloseOverflow}: TrainingsPlanNodeProps) => {
+const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange}: TrainingsPlanNodeProps) => {
   const [localViewMode, setLocalViewMode] = useState<ViewMode>('gesamt');
   const effectiveViewMode = microViewMode ?? localViewMode;
   const effectiveSetViewMode = onMicroViewModeChange ?? setLocalViewMode;
@@ -65,7 +66,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   const [timeInWorkout, setTimeInWorkout] = useState(new Date(Date.now()));
   const [refresHeky, setRefresHeky] = useState(Math.random());
   let exercises = useExerciseByIds(training?.exercises ?? []);
-  const [chosenExercises, setchosenExercise] = useState(exercises?.length > 1 ? exercises[0].id : undefined);
+  const [chosenExercises, setchosenExercise] = useState(exercises[0]?.id);
   let chosenExercise = exercises.find((exercise) => exercise.id === chosenExercises);
 
   // exercises arrive after Redux REHYDRATE — re-initialize if still unset
@@ -93,12 +94,37 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
 
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultSubTab(training?.state));
   const [isEditing, setIsEditing] = useState(false);
+  const [planEditRequestId, setPlanEditRequestId] = useState(0);
 
   // Reset sub-tab when micro/trainingInMicro changes OR when training state changes (e.g. async load → PLANNED)
   useEffect(() => {
     setActiveSubTab(defaultSubTab(training?.state));
     setIsEditing(false);
+    setShowPicker(false);
   }, [micro, trainingInMicro, training?.state]);
+
+  useEffect(() => {
+    if (exercises.length === 0) {
+      setchosenExercise(undefined);
+      return;
+    }
+    if (chosenExercises === undefined || !exercises.some((exercise) => exercise.id === chosenExercises)) {
+      setchosenExercise(exercises[0].id);
+    }
+  }, [chosenExercises, exercises]);
+
+  useEffect(() => {
+    if (!isActive || onPlanChromeChange === undefined) {
+      return;
+    }
+    if (activeSubTab !== 'plan') {
+      onPlanChromeChange({
+        mode: 'read',
+        exitToRead: () => undefined,
+        handleBack: () => false,
+      });
+    }
+  }, [activeSubTab, isActive, onPlanChromeChange]);
 
   useEffect(() => {
     if (training?.state === TrainingsState.STARTED) {
@@ -151,6 +177,11 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
 
   function handleDeleteTraining() {
     setShowDeleteDialog(true);
+  }
+
+  function handleEditPlan() {
+    setActiveSubTab('plan');
+    setPlanEditRequestId((currentRequestId) => currentRequestId + 1);
   }
 
   function goToNextExercise() {
@@ -225,8 +256,10 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
         visible={overflowVisible}
         onDismiss={onCloseOverflow}
         trainingState={training?.state}
+        activeSubTab={activeSubTab}
         onStart={handleStart}
         onFinish={handleFinish}
+        onEditPlan={handleEditPlan}
         onEditTraining={handleEditTraining}
         onDeleteTraining={handleDeleteTraining}
       />
@@ -241,20 +274,28 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
               {/* Plan Tab — shown in all states */}
               {activeSubTab === 'plan' && (
                 <View>
-                  {showExerciseSelector && (
+                  {(!training || !training.exercises.length) && <TrainingsBase trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro} />}
+                  {chosenExercise && (
                     <View pointerEvents={'box-none'}>
-                      <DraggableExercise
+                      <PlanTab
+                        training={training}
+                        trainingsPlanId={trainingsPlan.id!!}
+                        trainingInMicro={trainingInMicro}
+                        micro={micro}
                         exercises={exercises}
-                        setExercises={setExerciseWithSideEffects}
                         chosenExercise={chosenExercise}
                         chooseExercise={(exercise) => {
                           setchosenExercise(exercise.id);
                         }}
                         onExerciseDoublePress={onExerciseDoublePress}
+                        setExercises={setExerciseWithSideEffects}
                         doneExerciseIds={doneExerciseIds}
                         setAbsolutePosition={(layout) => setIgnoreSwipe([layout])}
-                        onTogglePicker={() => setShowPicker(!showPicker)}
                         pickerVisible={showPicker}
+                        onTogglePicker={() => setShowPicker(!showPicker)}
+                        editPlanRequestId={planEditRequestId}
+                        isActive={isActive}
+                        onChromeChange={onPlanChromeChange}
                       />
                       <ExerciseAlternativesDialog
                         visible={showAlternativesDialog}
@@ -263,20 +304,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                         onDismiss={() => setShowAlternativesDialog(false)}
                         onSelect={onReplaceExercise}
                       />
-                      <TrainingElementPicker
-                        exercise={exercises}
-                        setExercise={setExerciseWithSideEffects}
-                        dropdownLabel="Select Exercises for your Training"
-                        hideChip={true}
-                        visible={showPicker}
-                        onToggle={() => setShowPicker(!showPicker)}
-                        hideIconButton={true}
-                      />
                     </View>
-                  )}
-                  {(!training || !training.exercises.length) && <TrainingsBase trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro} />}
-                  {chosenExercise && (
-                    <PlanWorkoutInTraining training={training} trainingsPlanId={trainingsPlan.id!!} trainingInMicro={trainingInMicro} micro={micro} chosenExercise={chosenExercise} />
                   )}
                   {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro} />}
                 </View>

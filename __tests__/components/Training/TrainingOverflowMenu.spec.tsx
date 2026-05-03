@@ -7,6 +7,7 @@ jest.mock('react-native-paper', () => {
   const React = require('react');
   const {Text, TouchableOpacity, View} = require('react-native');
   return {
+    Divider: () => <View testID="menu-divider" />,
     Menu: Object.assign(
       ({visible, children}: any) => (visible ? <View>{children}</View> : null),
       {
@@ -17,9 +18,10 @@ jest.mock('react-native-paper', () => {
         ),
       },
     ),
+    Portal: ({children}: any) => <>{children}</>,
     Text: ({children}: any) => <Text>{children}</Text>,
     useTheme: () => ({
-      colors: {primary: '#6200ee'},
+      colors: {primary: '#6200ee', error: '#b00020'},
     }),
   };
 });
@@ -29,6 +31,7 @@ const BASE = {
   onDismiss: jest.fn(),
   onStart: jest.fn(),
   onFinish: jest.fn(),
+  onEditPlan: jest.fn(),
   onEditTraining: jest.fn(),
   onDeleteTraining: jest.fn(),
 };
@@ -57,7 +60,7 @@ describe('TrainingOverflowMenu', () => {
 
   it('shows Edit and Discard for all states', () => {
     for (const state of [TrainingsState.PLANNED, TrainingsState.STARTED, TrainingsState.FINISHED]) {
-      const {getByTestId} = render(<TrainingOverflowMenu {...BASE} trainingState={state} />);
+      const {getByTestId} = render(<TrainingOverflowMenu {...BASE} activeSubTab="train" trainingState={state} />);
       expect(getByTestId('overflow-edit')).toBeTruthy();
       expect(getByTestId('overflow-discard')).toBeTruthy();
     }
@@ -94,5 +97,41 @@ describe('TrainingOverflowMenu', () => {
     const {getByTestId} = render(<TrainingOverflowMenu {...BASE} onDeleteTraining={onDeleteTraining} onDismiss={onDismiss} trainingState={TrainingsState.FINISHED} />);
     fireEvent.press(getByTestId('overflow-discard'));
     expect(onDeleteTraining).toHaveBeenCalled();
+  });
+
+  it('shows Edit plan item only on the Plan sub-tab', () => {
+    const onEditPlan = jest.fn();
+    const {getByTestId, queryByTestId} = render(
+      <TrainingOverflowMenu
+        {...BASE}
+        activeSubTab="plan"
+        onEditPlan={onEditPlan}
+        trainingState={TrainingsState.PLANNED}
+      />,
+    );
+    expect(getByTestId('overflow-edit-plan')).toBeTruthy();
+    expect(queryByTestId('overflow-edit')).toBeNull();
+  });
+
+  it('does not show Edit plan outside the planned Plan sub-tab state', () => {
+    const {queryByTestId, rerender} = render(
+      <TrainingOverflowMenu
+        {...BASE}
+        activeSubTab="plan"
+        trainingState={TrainingsState.STARTED}
+      />,
+    );
+
+    expect(queryByTestId('overflow-edit-plan')).toBeNull();
+
+    rerender(
+      <TrainingOverflowMenu
+        {...BASE}
+        activeSubTab="train"
+        trainingState={TrainingsState.PLANNED}
+      />,
+    );
+
+    expect(queryByTestId('overflow-edit-plan')).toBeNull();
   });
 });

@@ -11,6 +11,7 @@ import {callAnthropicClaude} from '../../utils/llmApi';
 import {insightCache, formatGeneratedAt} from '../../utils/insightCache';
 import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
 import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
+import {useAITrainingPrompt} from '../../redux/settings/use/useAITrainingPrompt';
 import {startChatWithContext, setContextRange} from '../../redux/AIChat/aiChatSlice';
 import {serializeTrainingsForChat} from '../../utils/ai/serializeTrainingsForChat';
 
@@ -40,6 +41,7 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
   const dispatch = useDispatch();
   const navigation = useNavigation<any>();
   const [state, setState] = useState<State>({status: 'idle'});
+  const trainingPrompt = useAITrainingPrompt();
 
   // Reactive API key: update when user saves / removes the key in Settings.
   const [apiKey, setApiKey] = useState<string | undefined>(() => {
@@ -85,7 +87,7 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
   videoAnalysesByIdRef.current = videoAnalysesById;
 
   const fetchInsight = useCallback(
-    (cKey: string, currentApiKey: string | undefined, currentFinished: Training[], currentModel: string) => {
+    (cKey: string, currentApiKey: string | undefined, currentFinished: Training[], currentModel: string, currentPrompt: string) => {
       if (currentFinished.length === 0) {
         setState({status: 'idle'});
         return;
@@ -126,7 +128,7 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
         return;
       }
 
-      const {system, user} = buildCoachPrompt(coachInput);
+      const {system, user} = buildCoachPrompt(coachInput, currentPrompt);
 
       callAnthropicClaude(currentApiKey, system, user, currentModel).then(result => {
         if (result.ok) {
@@ -167,16 +169,16 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
       return;
     }
 
-    fetchInsight(key, apiKey, finishedTrainings, model);
+    fetchInsight(key, apiKey, finishedTrainings, model, trainingPrompt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, apiKey, isActive, workoutCount, exerciseCount, model]);
+  }, [key, apiKey, isActive, workoutCount, exerciseCount, model, trainingPrompt]);
 
   const handleRefresh = () => {
     if (key) {
       insightCache.delete(key);
     }
     setState({status: 'loading'});
-    fetchInsight(key, apiKey, finishedTrainings, model);
+    fetchInsight(key, apiKey, finishedTrainings, model, trainingPrompt);
   };
 
   const handleAskAI = (insightText: string) => {

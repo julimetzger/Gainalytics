@@ -83,7 +83,7 @@ jest.mock('../../../app/components/Training/analyse/TrainingHistory', () => {
   return () => <Text testID="training-history">TrainingHistory</Text>;
 });
 jest.mock('../../../app/components/Training/TrainingsBase', () => 'TrainingsBase');
-jest.mock('../../../app/components/Training/plan/PlanTraining', () => {
+jest.mock('../../../app/components/Training/plan/PlanTab', () => {
   const {Text} = require('react-native');
   return () => <Text testID="plan-workout">PlanWorkout</Text>;
 });
@@ -120,6 +120,7 @@ jest.mock('react-native-paper', () => {
         ),
       },
     ),
+    Divider: () => <View />,
     useTheme: () => ({
       colors: {background: '#fff', onSurfaceVariant: '#888', primary: '#6200ee'},
       fonts: {},

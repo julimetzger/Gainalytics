@@ -1,0 +1,67 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-204 r2: capture five evidence screenshots of the redesigned Training Home dashboard.
+#
+# Pre-conditions (driven by gh204-r2-evidence.sh wrapper):
+# - Baseline `.gains` fixture imported (Maestro bootstrap)
+# - Bundle URL = localhost:8081 with adb reverse tcp:8081 → host Metro
+# - Dev menu Reload has been triggered so the latest JS bundle is loaded
+#
+# This flow uses `clearState: false` and asserts the new test IDs introduced in r2:
+#   - micro-hero-card / micro-hero-completion (CompletionRing)
+#   - day-strip (DayStrip)
+#   - next-training-card / next-training-target-1 (focus block)
+#   - delta caption "vs M{n-1}"
+#   - plans-search-field (visible search above plans list)
+# NB: this flow is driven by `gh204-r2-evidence.sh`, which sets the bundle URL to
+# localhost:8081 via the dev menu before invoking Maestro. We deliberately do NOT
+# call `launchApp` here — that would force-stop the app and reset the URL back to
+# the emulator default (10.0.2.2:8081), causing Metro to be unreachable.
+- tapOn: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "training-home-screen"
+    timeout: 30000
+
+# r2_a — Hero card with completion ring and day strip
+- extendedWaitUntil:
+    visible:
+      id: "micro-hero-card"
+    timeout: 30000
+- assertVisible:
+    id: "micro-hero-completion"
+- assertVisible:
+    id: "day-strip"
+- assertVisible: "Current micro"
+- takeScreenshot: r2_a_hero_with_ring_and_daystrip
+
+# r2_b — NextTrainingCard with focus block + delta captions
+- assertVisible:
+    id: "next-training-card"
+- assertVisible:
+    id: "next-training-target-1"
+- assertVisible: "Next Training"
+- assertVisible:
+    text: ".*vs M[0-9]+.*"
+- takeScreenshot: r2_b_next_training_with_delta
+
+# r2_c — Plans-list with status dot and visible search field
+- swipe:
+    direction: UP
+- swipe:
+    direction: UP
+- swipe:
+    direction: UP
+- assertVisible:
+    id: "plans-search-field"
+- assertVisible: "Plans"
+- takeScreenshot: r2_c_plans_list_with_status_dot
+
+# r2_e — Full dashboard captured by scrolling back to top
+- swipe:
+    direction: DOWN
+- swipe:
+    direction: DOWN
+- swipe:
+    direction: DOWN
+- takeScreenshot: r2_e_full_dashboard_top

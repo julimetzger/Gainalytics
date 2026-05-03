@@ -5,6 +5,7 @@ import TrainingsPlanTab from '../../../app/tabs/trainings/TrainingsPlanTab';
 import {useTrainingsPlan} from '../../../app/redux/Training/use/useTrainingsPlan';
 import {useTrainingInTrainingsPlan} from '../../../app/redux/Training/use/useTrainingInTrainingsPlan';
 import dispatchChangeTrainingsName from '../../../app/redux/Training/dispatch/general/dispatchChangeTrainingsName';
+import {TrainingsState} from '../../../app/models/TrainingsState';
 
 const mockChangeTrainingsName = jest.fn();
 
@@ -25,6 +26,11 @@ jest.mock('react-native-paper', () => {
   const React = require('react');
   const {Text, TouchableOpacity} = require('react-native');
   return {
+    Button: ({children, onPress, testID}: any) => (
+      <TouchableOpacity testID={testID} onPress={onPress}>
+        <Text>{children}</Text>
+      </TouchableOpacity>
+    ),
     IconButton: ({icon, onPress}: {icon: string; onPress?: () => void}) => (
       <TouchableOpacity testID={`icon-${icon}`} onPress={onPress}>
         <Text>{icon}</Text>
@@ -136,7 +142,7 @@ describe('TrainingsPlanTab', () => {
 
     mockedUseTrainingInTrainingsPlan.mockReturnValue({
       id: 100,
-      state: 'S',
+      state: TrainingsState.STARTED,
       exercises: [],
       doneWorkoutIds: {},
       plannedWorkouts: {},
@@ -147,8 +153,8 @@ describe('TrainingsPlanTab', () => {
   });
 
   it('wires header props from current plan and training', () => {
-    const navigation = {setOptions: jest.fn()};
-    const route = {params: {trainingsPlan: {id: 50, name: 'Power Plan'}, micro: 2, training: 1}};
+    const navigation = {setOptions: jest.fn(), addListener: jest.fn(() => jest.fn())} as any;
+    const route = {params: {trainingsPlan: {id: 50, name: 'Power Plan'}, micro: 2, training: 1}} as any;
 
     render(<TrainingsPlanTab navigation={navigation} route={route} />);
 
@@ -158,13 +164,13 @@ describe('TrainingsPlanTab', () => {
 
     expect(getByTestId('header-plan-name').props.children).toBe('Power Plan');
     expect(getByTestId('header-training-name').props.children).toBe('Upper Day');
-    expect(getByTestId('header-training-state').props.children).toBe('S');
+    expect(getByTestId('header-training-state').props.children).toBe(TrainingsState.STARTED);
     expect(getByTestId('header-micro').props.children).toBe('2');
   });
 
   it('opens and closes drawer from drawer callbacks', () => {
-    const navigation = {setOptions: jest.fn()};
-    const route = {params: {trainingsPlan: {id: 50, name: 'Power Plan'}, micro: 2, training: 1}};
+    const navigation = {setOptions: jest.fn(), addListener: jest.fn(() => jest.fn())} as any;
+    const route = {params: {trainingsPlan: {id: 50, name: 'Power Plan'}, micro: 2, training: 1}} as any;
 
     const {getByTestId} = render(<TrainingsPlanTab navigation={navigation} route={route} />);
 
@@ -178,8 +184,8 @@ describe('TrainingsPlanTab', () => {
   });
 
   it('updates micro from range swiper and drawer value changes', async () => {
-    const navigation = {setOptions: jest.fn()};
-    const route = {params: {trainingsPlan: {id: 50, name: 'Power Plan'}, micro: 2, training: 1}};
+    const navigation = {setOptions: jest.fn(), addListener: jest.fn(() => jest.fn())} as any;
+    const route = {params: {trainingsPlan: {id: 50, name: 'Power Plan'}, micro: 2, training: 1}} as any;
 
     const {getByTestId} = render(<TrainingsPlanTab navigation={navigation} route={route} />);
 
@@ -212,8 +218,8 @@ describe('TrainingsPlanTab', () => {
       ],
     });
 
-    const navigation = {setOptions: jest.fn()};
-    const route = {params: {trainingsPlan: {id: 50, name: 'Power Plan'}, micro: 1, training: 1}};
+    const navigation = {setOptions: jest.fn(), addListener: jest.fn(() => jest.fn())} as any;
+    const route = {params: {trainingsPlan: {id: 50, name: 'Power Plan'}, micro: 1, training: 1}} as any;
 
     const {getByTestId} = render(<TrainingsPlanTab navigation={navigation} route={route} />);
 
