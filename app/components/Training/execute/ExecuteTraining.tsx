@@ -13,6 +13,7 @@ import ExerciseHistory from '../../exercise/show/ExerciseHistory';
 
 import DatePicker from '../../picker/date/DatePicker';
 import Estimated1RmCard from './Estimated1RmCard';
+import {TrainingsState} from '../../../models/TrainingsState';
 import RestTimerCard from './RestTimerCard';
 import {oneRepMaxForWorkouts} from '../../../utils/AnalyseUtils';
 import {useSettings} from '../../../redux/settings/use/useSettings';
@@ -118,11 +119,19 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
     [chosenExercise.id, setExerciseDefault, activeRest?.exerciseId, updateRestTarget],
   );
 
+  // GH-195 r6: hide redundant date pill while training is STARTED — the app
+  // header already shows today's date during an active session. The pill stays
+  // for FINISHED-and-editing flows (EditTraining) where doneWorkout.start can
+  // be historical and the user may still need to change it.
+  const showDatePicker = training.state !== TrainingsState.STARTED;
+
   return (
     <View>
-      <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
-        <DatePicker date={date} setDate={setDate} />
-      </View>
+      {showDatePicker && (
+        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
+          <DatePicker date={date} setDate={setDate} />
+        </View>
+      )}
       <AddWorkout
         workout={doneWorkout?.end ? doneWorkout : undefined}
         exercise={chosenExercise}

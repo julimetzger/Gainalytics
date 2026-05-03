@@ -88,3 +88,12 @@ appId: com.powerliftingworkoutplanner
     id: "rest-timer-reset"
 - assertVisible:
     text: ".*target 01:30.*"
+
+# r6: vs-last caption is ALWAYS visible on the 1RM card, even when no last
+# training exists for the chosen exercise.
+- assertVisible:
+    text: "vs last training"
+
+# r6: the SVG progress ring renders inside the rest avatar.
+- assertVisible:
+    id: "rest-progress-ring"
