@@ -56,7 +56,6 @@ const videoAnalysisReducer = (state: NormalizedState<VideoAnalysis> = initialSta
             resultPath: action.resultPath,
             localVideoPath: action.localVideoPath ?? current.localVideoPath,
             status: VideoAnalysisStatus.DONE,
-            manualSeedFramePath: undefined,
             seedCandidates: undefined,
             seedFrameWidthPx: undefined,
             seedFrameHeightPx: undefined,

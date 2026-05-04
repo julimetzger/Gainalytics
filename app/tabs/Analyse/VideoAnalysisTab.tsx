@@ -10,7 +10,7 @@ import SetSelectionModal from '../../components/video/SetSelectionModal';
 import VideoAnalysisFiltersSection from '../../components/video/VideoAnalysisFiltersSection';
 import VideoAnalysisListItem from '../../components/video/VideoAnalysisListItem';
 import {Exercise} from '../../models/entities/Exercise';
-import {VideoAnalysis} from '../../models/entities/VideoAnalysis';
+import {VideoAnalysis, VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import {dispatchDeleteVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchDeleteVideoAnalysis';
 import {dispatchAddVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchAddVideoAnalysis';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
@@ -24,6 +24,8 @@ import {GlobalState} from '../../redux/rootReducer';
 import {dispatchSetVideoAnalysisFiltersExpanded} from '../../redux/settings/dispatch/dispatchSetVideoAnalysisFiltersExpanded';
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {importVideoAnalysisFromSource} from '../../utils/video-analysis-import';
+import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
+import {calculateAnalysisProgress, getLastAnalysisSecondsPerVideoSecond} from '../../utils/videoAnalysisProgress';
 import {buildVideoAnalysisDefaultDateRange, filterVideoAnalyses, isSameRange, RIR_PRESETS, VL_PRESETS} from '../../utils/video-analysis-filters';
 import {
   buildVideoAnalysisFilterSummary,
@@ -31,6 +33,16 @@ import {
   getVideoAnalysisCountLabel,
   VideoAnalysisRangePreset,
 } from '../../utils/video-analysis-presentation';
+
+const ACTIVE_STATUSES = new Set([
+  VideoAnalysisStatus.QUEUED,
+  VideoAnalysisStatus.COPYING,
+  VideoAnalysisStatus.PREFLIGHT,
+  VideoAnalysisStatus.PROCESSING,
+]);
+
+// Module-level map so start times survive navigation (component unmount/remount).
+const _analysisStartTimes = new Map<number, number>();
 
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
@@ -59,6 +71,7 @@ const VideoAnalysisTab = () => {
 
   const [importing, setImporting] = useState(false);
   const [linkSetForAnalysisId, setLinkSetForAnalysisId] = useState<number | undefined>(undefined);
+  const [now, setNow] = useState(() => Date.now());
   const [filterExercise, setFilterExercise] = useState<Exercise[]>([]);
   const [selectedRangePreset, setSelectedRangePreset] = useState<VideoAnalysisRangePreset>('all');
   const defaultDateRange = useMemo(() => buildVideoAnalysisDefaultDateRange(analyses), [analyses]);
@@ -73,6 +86,7 @@ const VideoAnalysisTab = () => {
     }
   };
 
+  const learnedSecondsPerVideoSecond = useMemo(() => getLastAnalysisSecondsPerVideoSecond(), [analyses]);
   const nextAnalysisId = useMemo(() => (analyses.length > 0 ? Math.max(...analyses.map((analysis) => analysis.id ?? 0)) + 1 : 1), [analyses]);
   const exerciseOptions = useMemo(() => {
     const analysisExerciseIds = new Set(analyses.flatMap((analysis) => (analysis.exerciseId === undefined ? [] : [analysis.exerciseId])));
@@ -99,6 +113,39 @@ const VideoAnalysisTab = () => {
       setSelectedRangePreset('all');
     }
   }, [defaultDateRange, isDateRangeFilterActive]);
+
+  const activeCount = useMemo(() => analyses.filter((a) => ACTIVE_STATUSES.has(a.status)).length, [analyses]);
+
+  useEffect(() => {
+    if (activeCount === 0) {
+      return;
+    }
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [activeCount]);
+
+  useEffect(() => {
+    const currentIds = new Set<number>();
+    analyses.forEach((analysis) => {
+      const analysisId = analysis.id;
+      if (analysisId === undefined) {
+        return;
+      }
+      currentIds.add(analysisId);
+      if (ACTIVE_STATUSES.has(analysis.status)) {
+        if (!_analysisStartTimes.has(analysisId)) {
+          _analysisStartTimes.set(analysisId, new Date(analysis.createdAt).getTime());
+        }
+      } else {
+        _analysisStartTimes.delete(analysisId);
+      }
+    });
+    for (const id of _analysisStartTimes.keys()) {
+      if (!currentIds.has(id)) {
+        _analysisStartTimes.delete(id);
+      }
+    }
+  }, [analyses]);
 
   const filteredAnalyses = useMemo(
     () =>
@@ -269,22 +316,32 @@ const VideoAnalysisTab = () => {
   );
 
   const renderAnalysisItem = useCallback(
-    ({item}: {item: VideoAnalysis}) => (
-      <VideoAnalysisListItem
-        analysis={item}
-        onPress={() => {
-          if (item.id !== undefined) {
-            navigation.navigate({
-              name: 'VideoAnalysisDetail',
-              params: {analysisId: item.id},
-            });
-          }
-        }}
-        onLink={!item.workoutId && item.id !== undefined ? () => setLinkSetForAnalysisId(item.id) : undefined}
-        onDelete={item.id !== undefined ? () => onDelete(item.id, item.resultPath, item.localVideoPath) : undefined}
-      />
-    ),
-    [navigation, onDelete],
+    ({item}: {item: VideoAnalysis}) => {
+      let progressProps: {elapsedMs: number; estimatedTotalMs: number; progress: number} | undefined;
+      if (ACTIVE_STATUSES.has(item.status) && item.id !== undefined) {
+        const startTime = _analysisStartTimes.get(item.id);
+        const elapsedMs = startTime !== undefined ? Math.max(0, now - startTime) : 0;
+        const estimatedTotalMs = estimateAnalysisTimeMs(item.videoMeta?.durationMs || 10_000, learnedSecondsPerVideoSecond);
+        progressProps = {elapsedMs, estimatedTotalMs, progress: calculateAnalysisProgress(elapsedMs, estimatedTotalMs)};
+      }
+      return (
+        <VideoAnalysisListItem
+          analysis={item}
+          onPress={() => {
+            if (item.id !== undefined) {
+              navigation.navigate({
+                name: 'VideoAnalysisDetail',
+                params: {analysisId: item.id},
+              });
+            }
+          }}
+          onLink={!item.workoutId && item.id !== undefined ? () => setLinkSetForAnalysisId(item.id) : undefined}
+          onDelete={item.id !== undefined ? () => onDelete(item.id, item.resultPath, item.localVideoPath) : undefined}
+          {...progressProps}
+        />
+      );
+    },
+    [navigation, now, learnedSecondsPerVideoSecond, onDelete],
   );
 
   const renderEmptyState = useMemo(
