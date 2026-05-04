@@ -10,30 +10,46 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: "Training"
     timeout: 60000
+
+# Import baseline data to ensure consistent plan/training state.
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-import-data-button'
+    direction: DOWN
+- tapOn:
+    id: 'settings-import-data-button'
+- tapOn:
+    id: 'settings-import-confirm-button'
+    optional: true
+- tapOn: 'baseline.gains'
+- assertVisible: 'Import successful!'
+
+# Navigate to training home then plan 1 (Push pull upper lower).
+# micro 70, training 1 (ID 281) is FINISHED — enter edit mode via overflow.
 - tapOn: "tab-training"
 - extendedWaitUntil:
-    visible: "Training"
+    visible:
+      id: "training-home-screen"
     timeout: 30000
-
-# Open the Push pull training plan from baseline data.
-- assertVisible:
-    text: ".*Push pull.*"
+- scrollUntilVisible:
+    element:
+      id: 'plan-meta-1'
+    direction: DOWN
 - tapOn:
-    text: ".*Push pull.*"
+    id: 'plan-meta-1'
 - extendedWaitUntil:
-    visible: "Plan"
+    visible:
+      id: 'header-overflow-icon'
     timeout: 30000
-
-# Switch to the Train sub-tab.
-- tapOn: "subtab-train"
-
-# If training is still PLANNED, start it. The Start Training button is
-# only visible when state === PLANNED.
-- runFlow:
-    when:
-      visible: "Start Training"
-    commands:
-      - tapOn: "train-tab-start-button"
+- tapOn:
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-edit'
+    timeout: 5000
+- tapOn:
+    id: 'overflow-edit'
 
 # 1RM card is mounted unconditionally below the input row.
 - assertVisible:

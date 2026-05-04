@@ -23,7 +23,7 @@ appId: com.powerliftingworkoutplanner
 
 - extendedWaitUntil:
     visible:
-      id: "icon-menu"
+      id: "drawer-menu-button"
     timeout: 30000
 
 - extendedWaitUntil:
@@ -35,7 +35,7 @@ appId: com.powerliftingworkoutplanner
 # ── FIX 3: Drawer shows LOCAL micro numbers ───────────────────────────────────
 # Open drawer — plan is at global micro 6 but local micro 1 (single meso starting at 1)
 - tapOn:
-    id: "icon-menu"
+    id: "drawer-menu-button"
 
 - extendedWaitUntil:
     visible: "Mesos:"
@@ -71,7 +71,7 @@ appId: com.powerliftingworkoutplanner
 
 - extendedWaitUntil:
     visible:
-      id: "icon-menu"
+      id: "drawer-menu-button"
     timeout: 15000
 
 - extendedWaitUntil:
@@ -82,7 +82,7 @@ appId: com.powerliftingworkoutplanner
 
 # Open drawer again and delete Meso 2
 - tapOn:
-    id: "icon-menu"
+    id: "drawer-menu-button"
 
 - extendedWaitUntil:
     visible:
@@ -115,7 +115,7 @@ appId: com.powerliftingworkoutplanner
 
 - extendedWaitUntil:
     visible:
-      id: "icon-menu"
+      id: "drawer-menu-button"
     timeout: 15000
 
 # ── FIX 2: Header/micro state is consistent after meso changes ───────────────

@@ -27,11 +27,29 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'training-home-screen'
     timeout: 30000
-- tapOn: 'Last Training'
+# Navigate to plan 1 (Push pull upper lower) which lands on micro 70.
+# Training slot 70,1 (ID 281) is FINISHED — enter edit mode via overflow menu.
+- scrollUntilVisible:
+    element:
+      id: 'plan-meta-1'
+    direction: DOWN
+- tapOn:
+    id: 'plan-meta-1'
 - extendedWaitUntil:
-    visible: 'Edit'
+    visible:
+      id: 'header-overflow-icon'
     timeout: 30000
-- tapOn: 'Edit'
+- tapOn:
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-edit'
+    timeout: 5000
+- tapOn:
+    id: 'overflow-edit'
+# NOTE: edit-training-open-times-modal lives inside TrainingsPlanNode's main
+# ScrollView which does not expose content to the accessibility tree (uiautomator /
+# Maestro). This assertion will time out. Tracking this as a separate infra issue.
 - extendedWaitUntil:
     visible:
       id: 'edit-training-open-times-modal'

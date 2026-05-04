@@ -54,7 +54,7 @@ appId: com.powerliftingworkoutplanner
 # Uses icon-menu as the anchor - only visible inside TrainingsPlanTab
 - extendedWaitUntil:
     visible:
-      id: "icon-menu"
+      id: "drawer-menu-button"
     timeout: 30000
 
 # AC8: Header shows Meso name after plan name ("TRN004 Test Plan › Meso 1")
@@ -69,7 +69,7 @@ appId: com.powerliftingworkoutplanner
 
 # AC1: Open drawer and verify Mesos section
 - tapOn:
-    id: "icon-menu"
+    id: "drawer-menu-button"
 
 # Verify Mesos: header is visible in the drawer
 - assertVisible:
