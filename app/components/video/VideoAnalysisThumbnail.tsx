@@ -1,5 +1,5 @@
 import React, {memo} from 'react';
-import {StyleSheet, View} from 'react-native';
+import {Image, StyleSheet, View} from 'react-native';
 import {Icon, useTheme} from 'react-native-paper';
 import {VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import {withAlpha} from '../../utils/colorUtils';
@@ -8,6 +8,7 @@ import {VideoAnalysisMovement, getVideoAnalysisVisualStatus} from '../../utils/v
 interface Props {
   movement: VideoAnalysisMovement;
   status: VideoAnalysisStatus;
+  framePath?: string;
 }
 
 const ICON_BY_MOVEMENT: Record<VideoAnalysisMovement, string> = {
@@ -19,14 +20,19 @@ const ICON_BY_MOVEMENT: Record<VideoAnalysisMovement, string> = {
   default: 'barbell',
 };
 
-const VideoAnalysisThumbnail = ({movement, status}: Props) => {
+const VideoAnalysisThumbnail = ({movement, status, framePath}: Props) => {
   const theme = useTheme();
   const visualStatus = getVideoAnalysisVisualStatus(status);
   const overlayColor = withAlpha(theme.colors.scrim, 0.28);
+  const frameUri = framePath ? `file://${framePath}` : undefined;
 
   return (
     <View style={[styles.container, {backgroundColor: theme.colors.surfaceVariant}]}>
-      <Icon source={ICON_BY_MOVEMENT[movement]} size={30} color={theme.colors.primary} />
+      {frameUri ? (
+        <Image source={{uri: frameUri}} key={frameUri} style={styles.frameImage} resizeMode="cover" />
+      ) : (
+        <Icon source={ICON_BY_MOVEMENT[movement]} size={30} color={theme.colors.primary} />
+      )}
       {visualStatus !== 'done' && <View style={[styles.dimOverlay, {backgroundColor: overlayColor}]} />}
       {visualStatus === 'done' ? (
         <View style={[styles.cornerBadge, {backgroundColor: theme.colors.surface}]}>
@@ -50,6 +56,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     position: 'relative',
+  },
+  frameImage: {
+    width: 64,
+    height: 64,
   },
   dimOverlay: {
     ...StyleSheet.absoluteFillObject,

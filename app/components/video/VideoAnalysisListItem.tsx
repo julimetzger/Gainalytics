@@ -11,6 +11,7 @@ import {
   formatVideoAnalysisWeightLabel,
   inferVideoAnalysisMovement,
 } from '../../utils/video-analysis-presentation';
+import VideoAnalysisProgressBar from './VideoAnalysisProgressBar';
 import VideoAnalysisStatusPill from './VideoAnalysisStatusPill';
 import VideoAnalysisThumbnail from './VideoAnalysisThumbnail';
 
@@ -19,9 +20,12 @@ interface Props {
   onPress: () => void;
   onDelete?: () => void;
   onLink?: () => void;
+  elapsedMs?: number;
+  estimatedTotalMs?: number;
+  progress?: number;
 }
 
-const VideoAnalysisListItem = ({analysis, onPress, onDelete, onLink}: Props) => {
+const VideoAnalysisListItem = ({analysis, onPress, onDelete, onLink, elapsedMs, estimatedTotalMs, progress}: Props) => {
   const theme = useTheme();
   const workout = useWorkoutById(analysis.workoutId);
   const exercise = useExercise(analysis.exerciseId ?? workout?.exerciseId);
@@ -37,56 +41,66 @@ const VideoAnalysisListItem = ({analysis, onPress, onDelete, onLink}: Props) => 
   return (
     <TouchableRipple onPress={onPress} style={styles.touchable} testID={`video-analysis-row-${analysis.id}`}>
       <View style={[styles.container, {borderBottomColor: theme.colors.outlineVariant}]}>
-        <VideoAnalysisThumbnail movement={movement} status={analysis.status} />
-        <View style={styles.content}>
-          <View style={styles.topRow}>
-            <Text variant="titleSmall" style={styles.title} numberOfLines={1}>
-              {exerciseName}
-            </Text>
-            <Text variant="titleSmall" style={styles.loadLabel} numberOfLines={1}>
-              {weightLabel}
-            </Text>
+        <View style={styles.row}>
+          <VideoAnalysisThumbnail movement={movement} status={analysis.status} framePath={analysis.manualSeedFramePath} />
+          <View style={styles.content}>
+            <View style={styles.topRow}>
+              <Text variant="titleSmall" style={styles.title} numberOfLines={1}>
+                {exerciseName}
+              </Text>
+              <Text variant="titleSmall" style={styles.loadLabel} numberOfLines={1}>
+                {weightLabel}
+              </Text>
+            </View>
+            <View style={styles.contextRow}>
+              <Text variant="bodySmall" style={[styles.contextText, {color: theme.colors.onSurfaceVariant}]} numberOfLines={1}>
+                {contextLabel}
+              </Text>
+              {trainingMetadata?.micro !== undefined && (
+                <View style={[styles.microBadge, {backgroundColor: theme.colors.elevation.level3}]}>
+                  <Text variant="labelSmall" style={[styles.microBadgeText, {color: theme.colors.onSurfaceVariant}]}>
+                    {`M${trainingMetadata.micro}`}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {analysis.status === VideoAnalysisStatus.DONE && metricsLabel && (
+              <Text variant="bodySmall" style={[styles.subRowText, {color: theme.colors.onSurfaceVariant}]} numberOfLines={1}>
+                {metricsLabel}
+              </Text>
+            )}
+            {analysis.status === VideoAnalysisStatus.FAILED && errorLabel && (
+              <Text variant="bodySmall" style={[styles.subRowText, {color: theme.colors.error}]} numberOfLines={1}>
+                {errorLabel}
+              </Text>
+            )}
           </View>
-          <View style={styles.contextRow}>
-            <Text variant="bodySmall" style={[styles.contextText, {color: theme.colors.onSurfaceVariant}]} numberOfLines={1}>
-              {contextLabel}
-            </Text>
-            {trainingMetadata?.micro !== undefined && (
-              <View style={[styles.microBadge, {backgroundColor: theme.colors.elevation.level3}]}>
-                <Text variant="labelSmall" style={[styles.microBadgeText, {color: theme.colors.onSurfaceVariant}]}>
-                  {`M${trainingMetadata.micro}`}
-                </Text>
+          <View style={styles.trailing}>
+            <VideoAnalysisStatusPill status={analysis.status} />
+            {(onDelete || onLink) && (
+              <View style={styles.actionsRow}>
+                {onLink && !analysis.workoutId && (
+                  <TouchableOpacity onPress={onLink} testID={`video-analysis-link-set-${analysis.id}`} style={styles.actionButton}>
+                    <Icon source="link-variant" size={16} color={theme.colors.onSurfaceVariant} />
+                  </TouchableOpacity>
+                )}
+                {onDelete && (
+                  <TouchableOpacity onPress={onDelete} testID={`video-analysis-delete-${analysis.id}`} style={styles.actionButton}>
+                    <Icon source="delete-outline" size={16} color={theme.colors.error} />
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </View>
-          {analysis.status === VideoAnalysisStatus.DONE && metricsLabel && (
-            <Text variant="bodySmall" style={[styles.subRowText, {color: theme.colors.onSurfaceVariant}]} numberOfLines={1}>
-              {metricsLabel}
-            </Text>
-          )}
-          {analysis.status === VideoAnalysisStatus.FAILED && errorLabel && (
-            <Text variant="bodySmall" style={[styles.subRowText, {color: theme.colors.error}]} numberOfLines={1}>
-              {errorLabel}
-            </Text>
-          )}
         </View>
-        <View style={styles.trailing}>
-          <VideoAnalysisStatusPill status={analysis.status} />
-          {(onDelete || onLink) && (
-            <View style={styles.actionsRow}>
-              {onLink && !analysis.workoutId && (
-                <TouchableOpacity onPress={onLink} testID={`video-analysis-link-set-${analysis.id}`} style={styles.actionButton}>
-                  <Icon source="link-variant" size={16} color={theme.colors.onSurfaceVariant} />
-                </TouchableOpacity>
-              )}
-              {onDelete && (
-                <TouchableOpacity onPress={onDelete} testID={`video-analysis-delete-${analysis.id}`} style={styles.actionButton}>
-                  <Icon source="delete-outline" size={16} color={theme.colors.error} />
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </View>
+        {progress !== undefined && elapsedMs !== undefined && estimatedTotalMs !== undefined && analysis.id !== undefined && (
+          <VideoAnalysisProgressBar
+            elapsedMs={elapsedMs}
+            estimatedTotalMs={estimatedTotalMs}
+            progress={progress}
+            testID={`video-analysis-progress-${analysis.id}`}
+          />
+        )}
       </View>
     </TouchableRipple>
   );
@@ -97,10 +111,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   container: {
-    flexDirection: 'row',
-    gap: 12,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
   },
   content: {
     flex: 1,
