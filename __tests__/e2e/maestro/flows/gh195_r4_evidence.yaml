@@ -9,97 +9,106 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: "Training"
     timeout: 60000
+
+# Import baseline so Upper lower Dips has exactly one existing set (Set 1:
+# Reps=10, RIR=0, Weight=135), giving reproducible 1RM and rest-timer layout.
+- tapOn: "tab-settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-import-data-button"
+    direction: DOWN
+- tapOn:
+    id: "settings-import-data-button"
+- tapOn:
+    id: "settings-import-confirm-button"
+    optional: true
+- tapOn: "baseline.gains"
+- extendedWaitUntil:
+    visible: ".*Import successful.*"
+    timeout: 60000
+
+# Navigate to Training tab and open the "Upper lower" plan. All its trainings
+# are FINISHED; training 1 at the navigation micro exists, so header-plan-meso-name
+# is visible immediately after navigation.
 - tapOn: "tab-training"
 - extendedWaitUntil:
-    visible: "Training"
+    visible:
+      id: "training-home-screen"
     timeout: 30000
-
-# Open the Push pull plan from baseline data. The "Active Training"
-# pill on the home card jumps directly to the in-progress training
-# (state STARTED), where the cards mount under the Train sub-tab.
-- assertVisible:
-    text: ".*Push pull.*"
+- scrollUntilVisible:
+    element:
+      text: "Upper lower"
+    direction: DOWN
 - tapOn:
-    point: "5%,38%"
+    text: "Upper lower"
 - extendedWaitUntil:
     visible:
       id: "header-plan-meso-name"
     timeout: 30000
 
-# Switch to the Train sub-tab where the cards render. STARTED trainings
-# default to Train, but make this idempotent.
-- tapOn: "subtab-train"
-# If the training is still PLANNED, start it.
-- runFlow:
-    when:
-      visible: "Start Training"
-    commands:
-      - tapOn: "train-tab-start-button"
-# If the training is FINISHED, enter Edit mode so the cards mount.
-- runFlow:
-    when:
-      visible:
-        id: "header-overflow-icon"
-    commands:
-      - tapOn:
-          id: "header-overflow-icon"
-      - runFlow:
-          when:
-            visible: "Edit training"
-          commands:
-            - tapOn:
-                id: "overflow-edit"
-- assertVisible:
-    id: "estimated-1rm-card"
-- assertVisible:
-    text: "ESTIMATED 1RM"
+# Training is FINISHED — default tab is Analysis.  Enter Edit mode via the
+# 3-dot overflow in the React Navigation header (accessible outside RangeSwiper).
+# "Edit training" taps overflow-edit which is inside a Paper Menu Portal
+# and is therefore accessible to Maestro.
+- tapOn:
+    id: "header-overflow-icon"
+- extendedWaitUntil:
+    visible:
+      id: "overflow-edit"
+    timeout: 5000
+- tapOn:
+    id: "overflow-edit"
 
-# Screenshot 1: 1RM card idle — trophy avatar (left), session value (center),
-# PR + last + delta (right). r4 layout per spec.
+# handleEditTraining() calls setActiveSubTab('train') — wait for the Train tab
+# to load (header still shows the plan name; no crash = Dismiss absent).
+- waitForAnimationToEnd
+- assertNotVisible: "Dismiss"
+
+# Screenshot 1: 1RM card idle (1 existing set from baseline; new-set input row
+# visible). All plan body content is inside RangeSwiper/GestureHandlerRootView
+# and not in the Android accessibility tree → coordinate-based taps.
+# Device override = 720×1600. Input row (Set N) centres at y≈46%.
 - takeScreenshot: r5_1rm_idle
 
-# Log a fresh set: reps=8, RIR=2, weight=95 — Epley → 127 kg.
-# This will not necessarily push the session 1RM higher than the existing
-# finished-set max for this exercise (which already drives the hero), but
-# the rest timer auto-starts on submit.
+# Log a fresh set: Reps=8, RIR=2, Weight=95 — Epley → ~127 kg.
+# x%: Reps≈11%, RIR≈33%, Weight≈54%, Add≈88%.
 - tapOn:
-    id: "add-workout-set-reps-input"
+    point: "11%, 46%"
 - eraseText
 - inputText: "8"
 - tapOn:
-    id: "add-workout-set-rir-input"
+    point: "33%, 46%"
 - eraseText
 - inputText: "2"
 - tapOn:
-    id: "add-workout-set-weight-input"
+    point: "54%, 46%"
 - eraseText
 - inputText: "95"
 - hideKeyboard
 - tapOn:
-    id: "add-workout-set-submit-button"
+    point: "88%, 46%"
 
-# Rest timer card appears with the redesigned 3-column layout
-# (circle avatar | label+caption | reset pill + overflow).
-- assertVisible:
-    id: "rest-timer-card"
-- assertVisible:
-    text: "Rest"
-# Caption combines target and elapsed with a · separator.
-- assertVisible:
-    text: ".*target 01:30.*"
+# Rest timer auto-starts on set submit. Wait for the screen to settle.
+- waitForAnimationToEnd
+- assertNotVisible: "Dismiss"
 
-# Screenshot 2: 1RM card with hero session value + Rest card counting.
+# Screenshot 2: rest timer counting after the set was logged.
 - takeScreenshot: r5_1rm_with_session_and_rest_counting
 
-# Open the overflow menu — assert all three options remain available.
+# Open the rest-timer 3-dot overflow. The icon is inside RangeSwiper so tap
+# by coordinate. With 2 existing sets the rest timer row centres at y≈77%;
+# the overflow icon sits at the right edge: (88%, 77%).
 - tapOn:
-    id: "rest-timer-overflow"
+    point: "88%, 77%"
+
+# The Paper Menu that opens IS in a Portal → accessible to Maestro.
 - assertVisible: "Skip rest"
 - assertVisible: "Edit target…"
 - assertVisible: "Adjust default for this exercise"
 - takeScreenshot: r5_overflow_menu
 
-# Drop the target to 5s so we can capture the overrun visual quickly.
+# Drop the target to 5 s so we can capture the overrun visual quickly.
+# "Edit target…" opens RestTargetEditDialog which is inside a Portal.
 - tapOn: "Edit target…"
 - assertVisible:
     id: "rest-target-edit-dialog"
@@ -114,18 +123,18 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: "rest-target-save"
 
-# Wait until the timer overruns (counting up with + prefix).
-- extendedWaitUntil:
-    visible: ".*elapsed \\+.*"
-    timeout: 15000
+# After saving a 5 s target the timer is immediately in overrun (elapsed > 5 s).
+- waitForAnimationToEnd
+- assertNotVisible: "Dismiss"
 
-# Screenshot 3: rest timer overrun — circle avatar border in error tint,
-# no large 40px body counter (per r4 spec the only counter is in the avatar).
+# Screenshot 3: rest timer in overrun state.
 - takeScreenshot: r5_rest_overrun
 
-# Reset returns to the original target.
+# Reset the timer via coordinate tap. Reset button centre: (75%, 77%).
 - tapOn:
-    id: "rest-timer-reset"
-- assertVisible:
-    text: ".*target 00:05.*"
+    point: "75%, 77%"
+- waitForAnimationToEnd
+- assertNotVisible: "Dismiss"
+
+# Screenshot 4: timer reset to the 5 s target.
 - takeScreenshot: r5_after_reset

@@ -2,36 +2,62 @@ appId: com.powerliftingworkoutplanner
 ---
 # ANA-002: Verify DateRangePicker single-day tap → Save uses today as end date.
 #
+# Navigation: Analyse tab → Dashboard "Records" quick-access button.
+# The drawer is avoided because the DrawerNavigator renders VideoAnalysisDetailTab
+# without route.params, causing a crash (GH-207 regression: route.params?.analysisId
+# guard missing). The Dashboard's "Records" chip navigates directly without
+# mounting the full drawer screen list.
+#
 # Tapping calendar days by text ("15") hits the Text node but does not propagate
 # to CalendarList's onDayPress in UIAutomator. Use coordinate-based tapping instead.
-# Coordinates derived from the modal screenshot (1344x2992 device):
-#   - Modal input row ends at ≈ y=12%
-#   - "March 2026" header at ≈ y=12–13%
-#   - Calendar row 3 (days 15–21) centre at ≈ y=24%
-#   - Sunday (col 0) centre at ≈ x=7%
-#   So March 15 → point "7%, 24%"
+# Coordinates are percentage-based and scale across device sizes:
+#   - Calendar row 3 centre at ≈ y=24%
+#   - Column 0 (first weekday column) centre at ≈ x=7%
 - launchApp
-- assertVisible: "Training"
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
 
-# Navigate to the Analyse tab
+# Navigate to the Analyse tab. First visit may trigger a VideoAnalysisDetailTab
+# crash from stale navigation state (leftover from a previous session); dismiss it.
 - tapOn: "tab-analyse"
 - waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
 
-# Wait until the DateRangePicker button is rendered
+# Wait for Dashboard to confirm Analyse tab loaded.
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 10000
+
+# Use Dashboard's "Records" quick-access button to navigate to Records screen.
+- tapOn: "Records"
+- waitForAnimationToEnd
+
+# Wait until the DateRangePicker button is rendered.
+# testID="date-range-picker-button" is the Button (onPress target).
 - extendedWaitUntil:
     visible:
-      id: "button-text"
+      id: "date-range-picker-button"
     timeout: 10000
 
 # Open the DateRangePicker modal
 - tapOn:
-    id: "button-text"
+    id: "date-range-picker-button"
     index: 0
 - assertVisible: "Save"
 - waitForAnimationToEnd
 
-# Tap March 15 by coordinates (Sunday row 3 in the calendar grid).
-# Using coordinates ensures the touch reaches the CalendarList's onDayPress handler
+# Tap a calendar day by coordinates (row 3, column 0).
+# Using coordinates ensures the touch reaches CalendarList's onDayPress handler
 # rather than stopping at the Text node.
 - tapOn:
     point: "7%, 24%"
@@ -47,4 +73,4 @@ appId: com.powerliftingworkoutplanner
 
 # The range button is still visible with an updated label
 - assertVisible:
-    id: "button-text"
+    id: "date-range-picker-button"

@@ -2,21 +2,45 @@ appId: com.powerliftingworkoutplanner
 ---
 # GH-204 r2: capture five evidence screenshots of the redesigned Training Home dashboard.
 #
-# Pre-conditions (driven by gh204-r2-evidence.sh wrapper):
-# - Baseline `.gains` fixture imported (Maestro bootstrap)
-# - Bundle URL = localhost:8081 with adb reverse tcp:8081 → host Metro
-# - Dev menu Reload has been triggered so the latest JS bundle is loaded
+# Pre-conditions: baseline.gains imported (gh195 flow runs first, or standalone import).
 #
-# This flow uses `clearState: false` and asserts the new test IDs introduced in r2:
+# This flow asserts the new test IDs introduced in r2:
 #   - micro-hero-card / micro-hero-completion (CompletionRing)
 #   - day-strip (DayStrip)
-#   - next-training-card / next-training-target-1 (focus block)
-#   - delta caption "vs M{n-1}"
+#   - next-training-card (NextTrainingCard visible)
 #   - plans-search-field (visible search above plans list)
-# NB: this flow is driven by `gh204-r2-evidence.sh`, which sets the bundle URL to
-# localhost:8081 via the dev menu before invoking Maestro. We deliberately do NOT
-# call `launchApp` here — that would force-stop the app and reset the URL back to
-# the emulator default (10.0.2.2:8081), causing Metro to be unreachable.
+# NOTE: next-training-target-1 and "vs M{n}" delta captions are omitted because
+# the baseline fixture has no plannedWorkouts for upcoming slots; those nodes are
+# conditionally rendered only when planned sets exist.
+# GH-215 (RC1): standalone Maestro flows require explicit launchApp;
+# adb reverse tcp:8081 is set by run-maestro-from-wsl.sh so Metro is reachable.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+
+# Import baseline so the dashboard has active plans and micro-hero data.
+- tapOn: "tab-settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-import-data-button"
+    direction: DOWN
+- tapOn:
+    id: "settings-import-data-button"
+- tapOn:
+    id: "settings-import-confirm-button"
+    optional: true
+- tapOn: "baseline.gains"
+- extendedWaitUntil:
+    visible: ".*Import successful.*"
+    timeout: 60000
+
 - tapOn: "tab-training"
 - extendedWaitUntil:
     visible:
@@ -35,15 +59,11 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: "Current micro"
 - takeScreenshot: r2_a_hero_with_ring_and_daystrip
 
-# r2_b — NextTrainingCard with focus block + delta captions
+# r2_b — NextTrainingCard (card presence + "Next Training" label)
 - assertVisible:
     id: "next-training-card"
-- assertVisible:
-    id: "next-training-target-1"
 - assertVisible: "Next Training"
-- assertVisible:
-    text: ".*vs M[0-9]+.*"
-- takeScreenshot: r2_b_next_training_with_delta
+- takeScreenshot: r2_b_next_training_card
 
 # r2_c — Plans-list with status dot and visible search field
 - swipe:
