@@ -835,3 +835,22 @@ Required adaptations:
 **Working solution:** Replace the literal-text wait with the screen's testID: `extendedWaitUntil: visible: { id: 'training-home-screen' }, timeout: 60000`. The component hierarchy assigns stable testIDs to screen-level wrappers; use those, not visible labels. If a screen doesn't have a wrapper testID, add one — it's a one-line change that pays back across every flow that needs it.
 **Apply when:** Reviewing or updating Maestro flows. Search for `visible: 'X'` patterns where X is a string that also appears as a screen header or tab label, and migrate them to `id:` selectors. Equally, avoid asserting bottom-tab labels by text — use `id: 'tab-<name>'` (the testID is set in `app/routing/bottomNavigator.tsx`).
 
+
+### 122. `DrawerNavigator` renders ALL drawer screens without `route.params`; screens requiring params must guard against undefined
+**Observation:** In `AnalyseRouter`, `VideoAnalysisDetailTab` requires `route.params.analysisId` (set by GH-207). When any other drawer item (e.g., "Records") is selected, the DrawerNavigator instantiates VideoAnalysisDetailTab as part of its internal state machinery — without params — causing `Cannot read property 'analysisId' of undefined` crash and a red box overlay. This blocks any assertions in the navigated-to screen. Confirmed on device R5CN30HWZFN when running `analyse_date_range_picker` flow.
+**Working solution for flows:** Navigate to the target screen via the Dashboard's "Quick Access" buttons (which call `navigation.navigate` directly) instead of the drawer toggle. Dashboard "Records" chip navigates to Records without mounting the full drawer screen list. Add `runFlow: when: visible: 'Dismiss'` guards around Analyse tab navigation to dismiss any stale crash.
+**Working solution for app code:** Add `route.params?.analysisId` optional chaining in VideoAnalysisDetailTab.tsx:44. One character fix.
+**Apply when:** Writing Maestro flows that navigate within `AnalyseRouter`. Always prefer direct `tapOn: "Records"` (Dashboard quick access) over `analyse-drawer-toggle + tapOn: "Records"` (drawer route). If the app code is fixed with `?.`, the drawer route becomes safe again.
+
+### 123. `baseline.gains` has empty `plannedWorkouts: {}` for all upcoming training slots — assertions depending on planned targets will always fail
+**Observation:** `next-training-target-1` (NextTrainingCard focus block) and delta-caption `".*vs M[0-9]+.*"` only render when `plannedWorkout.sets.length > 0`. Inspecting `baseline.gains` with Python: all upcoming slots in all plans have `"plannedWorkouts": {}`. The baseline was built from actual historical workout data (FINISHED trainings) and does not include future planned progressions.
+**Working solution:** Remove these assertions from flows using baseline.gains. Test `next-training-target-1` only in isolation tests that seed the Redux store with fabricated plannedWorkouts, or in a fixture specifically created for it.
+**Apply when:** Writing assertions in Maestro flows that depend on planning data (planned weights, progression targets, delta captions). Always verify the assertion is satisfiable with baseline.gains by checking `jq '.trainings.byId[].plannedWorkouts' baseline.gains`.
+
+### 124. `tapOn: point:` input coordinates: Training detail (RangeSwiper) y=46% for Set-N input row on 720×1600 override
+**Observation:** The AddWorkout input row in TrainingsPlanNode (inside RangeSwiper, inaccessible by ID) has its text field centers at y≈46% on the 720×1600 device override. Specific x-coordinates: Reps≈11%, RIR≈33%, Weight≈54%, Add button≈88%. These were confirmed by coordinate-driven input and post-add screenshot showing correct Reps=8, RIR=2, Weight=95 values.
+**Apply when:** Tapping workout input fields in any Maestro flow that reaches TrainingsPlanNode's edit mode.
+
+### 125. Rest timer coordinates (720×1600 override) after 2 existing sets: overflow icon≈(88%,77%), Reset button≈(75%,77%)
+**Observation:** After importing baseline + submitting one set (total 2 existing sets for Dips in Upper lower), the rest timer card center is at y≈77%. Overflow (⋮) is near the right edge x≈88%, Reset button x≈75%. With more existing sets pushing the input rows down, the rest timer moves lower (y≈80% with 3 sets). Always import baseline first for reproducible set count.
+**Apply when:** Any Maestro flow that needs to interact with the rest timer overflow menu or Reset button.
