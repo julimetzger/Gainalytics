@@ -1,5 +1,8 @@
 appId: com.powerliftingworkoutplanner
 ---
+- launchApp:
+    appId: com.powerliftingworkoutplanner
+    clearState: false  # warm: preserve imported baseline data from prior flow in the same session
 - runFlow:
     when:
       visible: 'Dismiss'

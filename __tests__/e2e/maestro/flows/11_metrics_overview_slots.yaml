@@ -1,5 +1,8 @@
 appId: com.powerliftingworkoutplanner
 ---
+- launchApp:
+    appId: com.powerliftingworkoutplanner
+    clearState: false
 
 # Ensure the app is ready before navigating to Analyse.
 - extendedWaitUntil:

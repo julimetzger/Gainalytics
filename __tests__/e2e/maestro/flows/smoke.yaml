@@ -1,4 +1,7 @@
 appId: com.powerliftingworkoutplanner
 ---
+- launchApp:
+    appId: com.powerliftingworkoutplanner
+    clearState: false
 - runFlow: 00_import_baseline.yaml
 - runFlow: 99_smoke.yaml
