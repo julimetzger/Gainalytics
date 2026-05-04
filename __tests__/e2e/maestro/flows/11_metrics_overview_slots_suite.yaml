@@ -1,3 +1,6 @@
 appId: com.powerliftingworkoutplanner
 ---
+- launchApp:
+    appId: com.powerliftingworkoutplanner
+    clearState: false
 - runFlow: 11_metrics_overview_slots.yaml

@@ -4,6 +4,9 @@ appId: com.powerliftingworkoutplanner
 # 1. Training Home is visible with Meso-Chips for existing plans
 # 2. Can add a new training plan and navigate into it
 # 3. Meso 1 chip is visible on plan card
+- launchApp:
+    appId: com.powerliftingworkoutplanner
+    clearState: false
 
 - extendedWaitUntil:
     visible: "Training"
