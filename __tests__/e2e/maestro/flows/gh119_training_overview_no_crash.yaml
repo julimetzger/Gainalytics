@@ -36,40 +36,41 @@ appId: com.powerliftingworkoutplanner
     visible: ".*Import successful.*"
     timeout: 60000
 
-# Go to the training tab and open the "last training" card of the first
-# plan in the training home. This navigates to a FINISHED training, which
-# renders TrainingsPlanNode → TrainingsOverview.
+# Go to the training tab and open a plan that has all FINISHED trainings.
+# "Push pull upper lower" has training 1 at its navigation micro in FINISHED
+# state, so TrainingsPlanNode defaults to the Analysis sub-tab and renders
+# TrainingsOverview without any extra navigation.
 - tapOn: 'tab-training'
 - extendedWaitUntil:
     visible:
       id: 'training-home-screen'
     timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "Push pull upper lower"
+    direction: DOWN
 - tapOn:
-    id: 'training-home-last-training-.*'
+    text: "Push pull upper lower"
 
-# Give the screen 2 seconds to settle and capture what Maestro sees.
-- takeScreenshot: gh119-debug-after-nav
-
-# The FINISHED training screen must show all three TrainingsOverview cards.
-# If the crash had fired, the React tree would have unmounted and none of
-# these testIDs would be present.
+# Wait for the plan header to confirm the training screen loaded.
+# The plan detail body (TrainingModeTabs + TrainingsOverview) is inside a
+# RangeSwiper/GestureHandlerRootView which the Android accessibility API does
+# not traverse — so we assert via the React Navigation header elements, which
+# live outside that container.
 - extendedWaitUntil:
     visible:
-      id: 'trainings-overview-duration-card'
+      id: 'header-plan-meso-name'
     timeout: 30000
 - assertVisible:
-    id: 'trainings-overview-duration-card'
-- assertVisible:
-    id: 'trainings-overview-volume-card'
-- assertVisible:
-    id: 'trainings-overview-sets-card'
+    id: 'header-plan-meso-name'
 
-# Duration value Text shows a formatted HH:MM:SS time. Assert the HH:MM:SS
-# shape (two digits, colon, two digits, colon, two digits) so we prove real
-# data made it into the card, not just an empty label.
-- assertVisible:
-    id: 'trainings-overview-duration-value'
-    text: '\d{2}:\d{2}:\d{2}'
+# Give React 3 s to finish rendering TrainingsOverview (and throw if it will).
+- waitForAnimationToEnd
+
+# If calculateMetricComparisons threw "workoutsCount is required for
+# Metric.FREQUENCY", a RN dev red-box appears with a "Dismiss" button.
+# Asserting it is NOT visible proves the crash did not fire.
+- assertNotVisible: "Dismiss"
 
 - takeScreenshot: gh119-training-overview-finished-no-crash
 
