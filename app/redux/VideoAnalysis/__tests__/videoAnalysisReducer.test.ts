@@ -250,7 +250,7 @@ describe('videoAnalysisReducer', () => {
           },
           resultPath: '/tmp/results/analysis-7.json',
           localVideoPath: '/tmp/video.mp4',
-          manualSeedFramePath: undefined,
+          manualSeedFramePath: '/tmp/preflight.jpg',
           seedCandidates: undefined,
           seedFrameWidthPx: undefined,
           seedFrameHeightPx: undefined,

@@ -125,11 +125,13 @@ const VideoAnalysisTab = () => {
   }, [activeCount]);
 
   useEffect(() => {
+    const currentIds = new Set<number>();
     analyses.forEach((analysis) => {
       const analysisId = analysis.id;
       if (analysisId === undefined) {
         return;
       }
+      currentIds.add(analysisId);
       if (ACTIVE_STATUSES.has(analysis.status)) {
         if (!_analysisStartTimes.has(analysisId)) {
           _analysisStartTimes.set(analysisId, new Date(analysis.createdAt).getTime());
@@ -138,6 +140,11 @@ const VideoAnalysisTab = () => {
         _analysisStartTimes.delete(analysisId);
       }
     });
+    for (const id of _analysisStartTimes.keys()) {
+      if (!currentIds.has(id)) {
+        _analysisStartTimes.delete(id);
+      }
+    }
   }, [analyses]);
 
   const filteredAnalyses = useMemo(
