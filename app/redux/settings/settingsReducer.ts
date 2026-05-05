@@ -34,6 +34,7 @@ export interface AppSettings {
   mode: 'light' | 'dark';
   palette?: 'blue' | 'green' | 'purple';
   videoAnalysisFiltersExpanded?: boolean;
+  videoAnalysisLearnedRateSecondsPerVideoSecond?: number;
   localNotification?: {
     pauseTimerInSeconds?: number;
     finishTrainingTimerInSeconds?: number;
@@ -290,6 +291,12 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
           ...settings.restTimer,
           active: null,
         },
+      };
+    }
+    case 'SET_VIDEO_ANALYSIS_LEARNED_RATE': {
+      return {
+        ...settings,
+        videoAnalysisLearnedRateSecondsPerVideoSecond: action.rate,
       };
     }
     case 'SET_METRIC_OVERVIEW_SLOT': {

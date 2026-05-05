@@ -17,15 +17,17 @@ import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispa
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisMetersPerPixel} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisMetersPerPixel';
 import {dispatchSetVideoAnalysisSeedPreflight} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisSeedPreflight';
+import {dispatchSetVideoAnalysisDuration} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisDuration';
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 import {GlobalState} from '../../redux/rootReducer';
 import {dispatchSetVideoAnalysisFiltersExpanded} from '../../redux/settings/dispatch/dispatchSetVideoAnalysisFiltersExpanded';
+import {dispatchSetVideoAnalysisLearnedRate} from '../../redux/settings/dispatch/dispatchSetVideoAnalysisLearnedRate';
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {importVideoAnalysisFromSource} from '../../utils/video-analysis-import';
 import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
-import {calculateAnalysisProgress, getLastAnalysisSecondsPerVideoSecond} from '../../utils/videoAnalysisProgress';
+import {calculateAnalysisProgress, DEFAULT_ANALYSIS_SECONDS_PER_VIDEO_SECOND} from '../../utils/videoAnalysisProgress';
 import {buildVideoAnalysisDefaultDateRange, filterVideoAnalyses, isSameRange, RIR_PRESETS, VL_PRESETS} from '../../utils/video-analysis-filters';
 import {
   buildVideoAnalysisFilterSummary,
@@ -58,12 +60,14 @@ const VideoAnalysisTab = () => {
   const allExercises = useAlleExercises();
   const addVideoAnalysis = dispatchAddVideoAnalysis();
   const setVideoAnalysisStatus = dispatchSetVideoAnalysisStatus();
+  const setVideoAnalysisDuration = dispatchSetVideoAnalysisDuration();
   const removeVideoAnalysis = dispatchDeleteVideoAnalysis();
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const setSeedPreflight = dispatchSetVideoAnalysisSeedPreflight();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
   const setMetersPerPixel = dispatchSetVideoAnalysisMetersPerPixel();
   const setFiltersExpanded = dispatchSetVideoAnalysisFiltersExpanded();
+  const setVideoAnalysisLearnedRate = dispatchSetVideoAnalysisLearnedRate();
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const filtersExpanded = useSelector((state: GlobalState) => state.settings.videoAnalysisFiltersExpanded ?? false);
@@ -86,7 +90,9 @@ const VideoAnalysisTab = () => {
     }
   };
 
-  const learnedSecondsPerVideoSecond = useMemo(() => getLastAnalysisSecondsPerVideoSecond(), [analyses]);
+  const learnedSecondsPerVideoSecond = useSelector(
+    (state: GlobalState) => state.settings.videoAnalysisLearnedRateSecondsPerVideoSecond ?? DEFAULT_ANALYSIS_SECONDS_PER_VIDEO_SECOND,
+  );
   const nextAnalysisId = useMemo(() => (analyses.length > 0 ? Math.max(...analyses.map((analysis) => analysis.id ?? 0)) + 1 : 1), [analyses]);
   const exerciseOptions = useMemo(() => {
     const analysisExerciseIds = new Set(analyses.flatMap((analysis) => (analysis.exerciseId === undefined ? [] : [analysis.exerciseId])));
@@ -182,10 +188,12 @@ const VideoAnalysisTab = () => {
         sourceUri,
         addVideoAnalysis,
         setVideoAnalysisStatus,
+        setVideoAnalysisDuration,
         setManualSeedFramePath,
         setSeedPreflight,
         attachVideoAnalysisResult,
         setMetersPerPixel,
+        onRateUpdated: setVideoAnalysisLearnedRate,
       });
 
       if (outcome === 'analysis_started') {
@@ -321,7 +329,7 @@ const VideoAnalysisTab = () => {
       if (ACTIVE_STATUSES.has(item.status) && item.id !== undefined) {
         const startTime = _analysisStartTimes.get(item.id);
         const elapsedMs = startTime !== undefined ? Math.max(0, now - startTime) : 0;
-        const estimatedTotalMs = estimateAnalysisTimeMs(item.videoMeta?.durationMs || 10_000, learnedSecondsPerVideoSecond);
+        const estimatedTotalMs = estimateAnalysisTimeMs(item.videoMeta?.durationMs ?? 0, learnedSecondsPerVideoSecond);
         progressProps = {elapsedMs, estimatedTotalMs, progress: calculateAnalysisProgress(elapsedMs, estimatedTotalMs)};
       }
       return (

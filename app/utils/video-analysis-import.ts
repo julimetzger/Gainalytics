@@ -61,6 +61,7 @@ interface ImportVideoAnalysisParams {
   ) => void;
   attachVideoAnalysisResult: (analysisId: number, resultPath: string, localVideoPath?: string) => void;
   setMetersPerPixel?: (analysisId: number, metersPerPixel: number) => void;
+  onRateUpdated?: (rate: number) => void;
 }
 
 const toManualSeedPayload = (candidate: NonNullable<VideoAnalysis['seedCandidates']>[number]): ManualSeedPayload => {
@@ -81,6 +82,7 @@ const runBackgroundAnalysis = ({
   importStartedAtMs,
   attachVideoAnalysisResult,
   setVideoAnalysisStatus,
+  onRateUpdated,
 }: {
   analysisId: number;
   localVideoPath: string;
@@ -89,6 +91,7 @@ const runBackgroundAnalysis = ({
   importStartedAtMs: number;
   attachVideoAnalysisResult: ImportVideoAnalysisParams['attachVideoAnalysisResult'];
   setVideoAnalysisStatus: ImportVideoAnalysisParams['setVideoAnalysisStatus'];
+  onRateUpdated?: (rate: number) => void;
 }) => {
   incrementActiveAnalysisCount();
   if (getActiveAnalysisCount() === 1) {
@@ -98,7 +101,8 @@ const runBackgroundAnalysis = ({
   analyzeSquatVideo(localVideoPath, analysisId, manualSeed)
     .then((resultPath) => {
       attachVideoAnalysisResult(analysisId, resultPath, localVideoPath);
-      recordCompletedAnalysisRate(Date.now() - importStartedAtMs, videoDurationMs);
+      const newRate = recordCompletedAnalysisRate(Date.now() - importStartedAtMs, videoDurationMs);
+      onRateUpdated?.(newRate);
       postVideoAnalysisCompleteNotification(analysisId).catch(() => {});
     })
     .catch((error) => {
@@ -124,6 +128,7 @@ export const importVideoAnalysisFromSource = async ({
   setSeedPreflight,
   attachVideoAnalysisResult,
   setMetersPerPixel,
+  onRateUpdated,
 }: ImportVideoAnalysisParams): Promise<VideoAnalysisImportOutcome> => {
   const importStartedAtMs = Date.now();
   let localVideoPath: string | undefined;
@@ -214,6 +219,7 @@ export const importVideoAnalysisFromSource = async ({
       importStartedAtMs,
       attachVideoAnalysisResult,
       setVideoAnalysisStatus,
+      onRateUpdated,
     });
 
     outcome = 'analysis_started';
