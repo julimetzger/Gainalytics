@@ -18,6 +18,7 @@ import RestTimerCard from './RestTimerCard';
 import {oneRepMaxForWorkouts} from '../../../utils/AnalyseUtils';
 import {useSettings} from '../../../redux/settings/use/useSettings';
 import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMax';
+import {useLastFinishedWorkoutsByExerciseIds} from '../../../redux/Workout/use/useLastFinishedWorkoutsByExerciseIds';
 import {
   dispatchDismissRestTimer,
   dispatchResetRestTimer,
@@ -43,6 +44,20 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
   const [liveInput, setLiveInput] = useState({reps: 0, rir: 0, weight: 0});
   const [lastTrainingOneRm, setLastTrainingOneRm] = useState<number | undefined>(undefined);
   const allTimePr = useAllTimeOneRepMax(chosenExercise.id);
+
+  // Fallback: if the slot-specific callback doesn't fire (no suggest for this slot),
+  // derive the last-exercise 1RM directly from Redux so "vs last training" is never
+  // silently blank when the exercise has been done before in any slot.
+  const exerciseFallbackWorkouts = useLastFinishedWorkoutsByExerciseIds(
+    chosenExercise.id !== undefined ? [chosenExercise.id] : [],
+    doneWorkoutId !== undefined ? [doneWorkoutId] : undefined,
+  );
+  const exerciseFallbackOneRm = useMemo(() => {
+    if (exerciseFallbackWorkouts.length === 0) return undefined;
+    const rm = oneRepMaxForWorkouts(exerciseFallbackWorkouts[0]);
+    return rm > 0 ? rm : undefined;
+  }, [exerciseFallbackWorkouts]);
+
   const settings = useSettings();
   const startRestTimer = dispatchStartRestTimer();
   const resetRestTimer = dispatchResetRestTimer();
@@ -173,7 +188,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
       />
       <Estimated1RmCard
         sessionOneRm={sessionOneRm}
-        lastTrainingOneRm={lastTrainingOneRm}
+        lastTrainingOneRm={lastTrainingOneRm ?? exerciseFallbackOneRm}
         allTimePr={allTimePr}
       />
       <RestTimerCard
