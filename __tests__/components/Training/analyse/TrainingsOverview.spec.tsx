@@ -7,6 +7,10 @@ jest.mock('../../../../app/redux/Workout/use/useWorkoutsByIds', () => ({
   useWorkoutsByIds: jest.fn(() => []),
 }));
 
+jest.mock('../../../../app/redux/Workout/use/useLastFinishedWorkoutsByExerciseIds', () => ({
+  useLastFinishedWorkoutsByExerciseIds: jest.fn(() => []),
+}));
+
 jest.mock('../../../../app/utils/AnalyseUtils', () => ({
   calculateMetricComparisons: jest.fn(() => new Map()),
 }));
@@ -31,6 +35,7 @@ jest.mock('../../../../app/components/Training/VelocityLossInsightCard', () => {
 });
 
 const mockedUseVelocityLossInsights = require('../../../../app/components/Training/useVelocityLossInsights').useVelocityLossInsights as jest.Mock;
+const mockedUseLastFinishedWorkoutsByExerciseIds = require('../../../../app/redux/Workout/use/useLastFinishedWorkoutsByExerciseIds').useLastFinishedWorkoutsByExerciseIds as jest.Mock;
 
 const TRAINING = {
   id: 1,
@@ -49,9 +54,21 @@ const TRAININGS_PLAN = {
   trainings: {},
 };
 
+const TRAINING_WITH_EXERCISES = {
+  id: 2,
+  doneWorkoutIds: {10: 100},
+  plannedWorkouts: {},
+  exercises: [10, 11],
+  start: new Date('2025-02-01T10:00:00').toISOString(),
+  end: new Date('2025-02-01T11:00:00').toISOString(),
+  state: TrainingsState.FINISHED,
+};
+
 describe('TrainingsOverview', () => {
   beforeEach(() => {
     mockedUseVelocityLossInsights.mockReset();
+    mockedUseLastFinishedWorkoutsByExerciseIds.mockReset();
+    mockedUseLastFinishedWorkoutsByExerciseIds.mockReturnValue([]);
   });
 
   it('renders no VL cards when vlInsights is empty', () => {
@@ -85,5 +102,44 @@ describe('TrainingsOverview', () => {
     );
 
     expect(mockedUseVelocityLossInsights).toHaveBeenCalledWith(TRAININGS_PLAN, 5);
+  });
+
+  it('calls useLastFinishedWorkoutsByExerciseIds with training.exercises when no previousTraining', () => {
+    mockedUseVelocityLossInsights.mockReturnValue([]);
+
+    render(
+      <TrainingsOverview training={TRAINING_WITH_EXERCISES as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} />,
+    );
+
+    expect(mockedUseLastFinishedWorkoutsByExerciseIds).toHaveBeenCalledWith(
+      TRAINING_WITH_EXERCISES.exercises,
+      Object.values(TRAINING_WITH_EXERCISES.doneWorkoutIds),
+    );
+  });
+
+  it('still calls useLastFinishedWorkoutsByExerciseIds when previousTraining is provided (hooks are unconditional)', () => {
+    mockedUseVelocityLossInsights.mockReturnValue([]);
+
+    const previousTraining = {
+      id: 99,
+      doneWorkoutIds: {10: 200},
+      plannedWorkouts: {},
+      exercises: [10],
+      start: new Date('2025-01-01T10:00:00').toISOString(),
+      end: new Date('2025-01-01T11:00:00').toISOString(),
+      state: TrainingsState.FINISHED,
+    };
+
+    render(
+      <TrainingsOverview
+        training={TRAINING_WITH_EXERCISES as any}
+        previousTraining={previousTraining as any}
+        trainingsPlan={TRAININGS_PLAN as any}
+        currentMicro={1}
+      />,
+    );
+
+    // Hook is always called (React hooks can't be conditional); result is only used when no previousTraining
+    expect(mockedUseLastFinishedWorkoutsByExerciseIds).toHaveBeenCalled();
   });
 });

@@ -19,6 +19,10 @@ jest.mock('../../../app/redux/Training/trainingsPlanReducer', () => ({
   getPreviousMicroInMeso: jest.fn(() => null),
 }));
 
+jest.mock('../../../app/redux/Training/use/useLastTrainingOfPreviousMeso', () => ({
+  useLastTrainingOfPreviousMeso: jest.fn(() => undefined),
+}));
+
 jest.mock('../../../app/redux/Exercises/use/useExerciseByIds', () => ({
   // Two exercises so chosenExercises is initialized to exercises[0].id (requires length > 1)
   useExerciseByIds: jest.fn(() => [

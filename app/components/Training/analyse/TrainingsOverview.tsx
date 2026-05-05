@@ -2,6 +2,7 @@ import {ScrollView, View} from 'react-native';
 import {Card, Text} from 'react-native-paper';
 import React from 'react';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
+import {useLastFinishedWorkoutsByExerciseIds} from '../../../redux/Workout/use/useLastFinishedWorkoutsByExerciseIds';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
 import {calculateMetricComparisons} from '../../../utils/AnalyseUtils';
 import MetricView from '../../analyse/MetricComparison';
@@ -22,7 +23,10 @@ interface TrainingsOverviewProps {
 const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMicro}: TrainingsOverviewProps) => {
   const vlInsights = useVelocityLossInsights(trainingsPlan, currentMicro);
   let trainingsWorkouts = useWorkoutsByIds(Object.values(training.doneWorkoutIds));
-  let previousWorkouts = useWorkoutsByIds(previousTraining ? Object.values(previousTraining.doneWorkoutIds) : []);
+  const currentWorkoutIds = Object.values(training.doneWorkoutIds);
+  let previousWorkoutsFromTraining = useWorkoutsByIds(previousTraining ? Object.values(previousTraining.doneWorkoutIds) : []);
+  let fallbackPreviousWorkouts = useLastFinishedWorkoutsByExerciseIds(training.exercises, currentWorkoutIds);
+  let previousWorkouts = previousTraining !== undefined ? previousWorkoutsFromTraining : fallbackPreviousWorkouts;
 
   const trainingDate = new Date(new Date(training.end!!).getTime() - new Date(training.start!!).getTime());
   const previousTrainingTime = previousTraining?.end ? new Date(new Date(previousTraining.end!!).getTime() - new Date(previousTraining.start!!).getTime()) : undefined;

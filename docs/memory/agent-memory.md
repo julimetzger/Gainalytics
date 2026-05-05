@@ -900,3 +900,12 @@ npx jest --testPathIgnorePatterns="/node_modules/" "/__tests__/coverage/" --test
 **Observation:** `smoke.yaml` runs `00_import_baseline.yaml` as a subflow then `99_smoke.yaml`. When `00_import_baseline` fails, Maestro aborts `smoke.yaml` entirely — `99_smoke` is never reached. The parent's failing step is whatever step inside the subflow failed. This means a suite/smoke flow can fail despite all component flows passing individually, if the import subflow is broken.
 **Working solution:** Don't use suite flows (flows that chain other flows via runFlow) as the primary verification signal for individual features. Verify each component flow standalone first. Suite flows are integration smoke tests only and carry the fragility of all their subflows.
 **Apply when:** Debugging why a suite/smoke flow fails while the individual sub-flows appear to pass.
+
+### useLastTrainingOfPreviousMeso was implemented but not wired for meso-boundary comparison
+`getPreviousMicroInMeso` returns `undefined` at micro 1 of any meso. `TrainingsPlanNode` fell back to `micro=-1` (no training found), leaving `TrainingsOverview` with `previousTraining=undefined` and no comparison data. The fix: always call `useLastTrainingOfPreviousMeso` and use `??` to prefer same-meso over cross-meso. This hook already existed — the bug was purely a missing fallback call.
+
+### Per-exercise last-workout fallback for the "no previous training at all" case
+When no structured previous training exists (first ever meso), `TrainingsOverview` still needs comparison data. The ticket says "otherwise last workout of the exercise". Pattern: `useLastFinishedWorkoutsByExerciseIds(training.exercises, excludeIds)` returns the most recently finished workout for each exercise ID, excluding the current training's workouts. This hook is distinct from `useLastFinishedWorkout` (single exercise) — create a new multi-exercise variant using a `flatMap` + reverse scan over `state.workouts.byExerciseId`.
+
+### React hooks must be called unconditionally — use the result conditionally
+When adding a fallback hook alongside an existing one, BOTH hooks must always be called (React rules). The conditional selection (`previousTraining !== undefined ? primaryResult : fallbackResult`) lives in the JSX logic, not in the hook calls. Tests that assert "hook was not called" for the non-selected path are incorrect — instead, assert which result was used.

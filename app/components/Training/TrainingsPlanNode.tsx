@@ -28,6 +28,7 @@ import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
 import {getPreviousMicroInMeso} from '../../redux/Training/trainingsPlanReducer';
+import {useLastTrainingOfPreviousMeso} from '../../redux/Training/use/useLastTrainingOfPreviousMeso';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
 import {dispatchReplaceExerciseInTraining} from '../../redux/Training/dispatch/general/dispatchReplaceExerciseInTraining';
 import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
@@ -61,7 +62,9 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   const effectiveSetViewMode = onMicroViewModeChange ?? setLocalViewMode;
   const training = useTrainingInTrainingsPlan(trainingsPlan.id!!, micro, trainingInMicro);
   const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
-  const lastTraining = useTrainingInTrainingsPlan(trainingsPlan.id!!, previousMicro ?? -1, trainingInMicro);
+  const lastTrainingInSameMeso = useTrainingInTrainingsPlan(trainingsPlan.id!!, previousMicro ?? -1, trainingInMicro);
+  const lastTrainingFromPreviousMeso = useLastTrainingOfPreviousMeso(trainingsPlan.id!!, trainingInMicro, micro);
+  const lastTraining = lastTrainingInSameMeso ?? lastTrainingFromPreviousMeso;
   const startTraining = dispatchStartTraining(training?.id);
   const [timeInWorkout, setTimeInWorkout] = useState(new Date(Date.now()));
   const [refresHeky, setRefresHeky] = useState(Math.random());
