@@ -920,3 +920,26 @@ printf '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>\n<map>\n    <st
 ```
 The `adb reverse` tunnel handles the full bundle without corruption. Re-run the `run-as tee` command after every `force-stop` or Maestro `clearState: true`, as those wipe SharedPreferences.
 **Apply when:** Setting up Metro dev-bundle serving for an APK built to connect to port 8081 on emulator.
+
+### 129. RN dev bundle host pref lives in `<package>_preferences.xml`, not `devtools_settings.xml`
+**Problem:** Setting `debug_http_host=localhost:8081` in `devtools_settings.xml` (or its namespaced sibling `<pkg>.devtools_settings.xml`) does NOT redirect the dev bundle URL on bridgeless RN. The app keeps fetching `http://10.0.2.2:8081/index.bundle…` despite the file being present and readable.
+**Root cause:** `PackagerConnectionSettings` in RN reads `PreferenceManager.getDefaultSharedPreferences(appContext)`, whose backing file is `${packageName}_preferences.xml`, NOT `devtools_settings.xml`. Other code paths read `devtools_settings.xml` for unrelated dev-menu state, but the dev-server URL lookup uses the *default* prefs file.
+**Working solution:**
+```sh
+printf '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>\n<map>\n    <string name="debug_http_host">localhost:8081</string>\n</map>\n' | \
+  adb -s "$DEVICE" shell "run-as com.powerliftingworkoutplanner tee /data/data/com.powerliftingworkoutplanner/shared_prefs/com.powerliftingworkoutplanner_preferences.xml > /dev/null"
+adb -s "$DEVICE" shell am force-stop com.powerliftingworkoutplanner
+adb -s "$DEVICE" shell am start -n com.powerliftingworkoutplanner/.MainActivity
+```
+Verify the URL flipped by greping logcat for `localhost:8081` vs `10.0.2.2:8081`.
+**Apply when:** Bridgeless RN debug build is fetching from `10.0.2.2:8081` and you need to redirect via `adb reverse` (entry #128). Pair with `adb -s "$DEVICE" reverse tcp:8081 tcp:<metro-port>`.
+
+### 130. `adb shell input tap` often misfires on RN gesture handlers — use short-duration `input swipe` instead
+**Problem:** `adb shell input tap X Y` against an RN button may visually highlight the target (hover state) but the navigation/onPress never fires. The component receives a touch-down without a release the gesture handler accepts. This is reproducible on RN 0.7x bridgeless builds and is the reason Maestro flows always look like "long-tap".
+**Working solution:** Use `adb shell input swipe X Y X Y 80` (same start and end coords, ≥80 ms duration). This emits a proper down-up sequence that RN's gesture system treats as a tap. For drawer-overlays use `~50` for closing taps and `≥100` for "press" interactions.
+**Apply when:** Driving an RN app via raw adb taps (e.g., when Maestro testID assertions are flaky). Also useful when reproducing a tap-only bug without firing up Maestro.
+
+### 131. Native APK rebuild is unnecessary for JS-only fixes — Metro already serves the changed bundle
+**Problem:** A JS-only patch (e.g., a guard in `app/utils/*.ts`) was followed by a 5-minute `./gradlew assembleDebug` rebuild that then failed with an unrelated `react-native-screens` CMake/clang++ linker error on `arm64-v8a`. The previous APK from earlier the same day was already installed and connected to Metro.
+**Working solution:** For JS-only fixes, skip the Gradle rebuild entirely. The existing debug APK + Metro packager exercises the new code on the next bundle reload (force-stop → relaunch, or dev-menu reload). Only rebuild when the patch touches `android/`, native modules, `package.json` deps, or codegen artifacts. Verify the bundle is actually new by greping logcat for the load event after `force-stop`.
+**Apply when:** A worker's Gradle build is failing on a flaky native step that is orthogonal to a JS-only ticket. Don't block `ready_for_review` on the rebuild.
