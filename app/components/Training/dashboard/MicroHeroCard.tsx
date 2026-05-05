@@ -10,8 +10,6 @@ import {
   getAllTrainingsForMicro,
   getLocalMicro,
   getMesoForMicro,
-  getTrainingFromTrainingInMicroIndex,
-  getMicroFromTrainingInMicroIndex,
 } from '../../../redux/Training/trainingsPlanReducer';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
@@ -67,44 +65,66 @@ const useMesoBarData = (plan: TrainingsPlan, currentMicro: number): MicroBarDatu
     return result;
   });
 
-const useDayStripDays = (plan: TrainingsPlan, currentMicro: number): DayStripDay[] =>
+const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+const startOfDay = (d: Date): Date => {
+  const c = new Date(d);
+  c.setHours(0, 0, 0, 0);
+  return c;
+};
+
+const startOfWeek = (d: Date): Date => {
+  const c = startOfDay(d);
+  const dow = c.getDay(); // 0=Sun..6=Sat
+  const diff = (dow + 6) % 7; // days since Monday
+  c.setDate(c.getDate() - diff);
+  return c;
+};
+
+const toLocalIso = (d: Date): string => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const useThisWeekDays = (plan: TrainingsPlan): DayStripDay[] =>
   useSelector((state: GlobalState) => {
-    const trainingNumbersInMicro = Object.keys(plan.trainings)
-      .filter(k => getMicroFromTrainingInMicroIndex(k) === currentMicro)
-      .map(k => getTrainingFromTrainingInMicroIndex(k))
-      .sort((a, b) => a - b);
+    const today = startOfDay(new Date());
+    const weekStart = startOfWeek(today);
 
-    const trainingNumbers =
-      trainingNumbersInMicro.length > 0
-        ? trainingNumbersInMicro
-        : Object.keys(plan.trainingNames ?? {})
-            .map(n => parseInt(n, 10))
-            .sort((a, b) => a - b);
+    const trainingEnds = new Set<string>();
+    for (const tId of Object.values(plan.trainings)) {
+      const t = state.trainings.byId[tId];
+      if (!t?.end) continue;
+      const endDay = startOfDay(new Date(t.end));
+      if (endDay.getTime() < weekStart.getTime()) continue;
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      if (endDay.getTime() >= weekEnd.getTime()) continue;
+      trainingEnds.add(toLocalIso(endDay));
+    }
 
-    const startedId = (() => {
-      for (const num of trainingNumbers) {
-        const tId = plan.trainings[`${currentMicro},${num}`];
-        if (tId === undefined) continue;
-        const t = state.trainings.byId[tId];
-        if (t && t.start && !t.end) return tId;
-      }
-      return undefined;
-    })();
-
-    return trainingNumbers.map<DayStripDay>(num => {
-      const tId = plan.trainings[`${currentMicro},${num}`];
-      const t = tId !== undefined ? state.trainings.byId[tId] : undefined;
-      let status: DayStatus = 'future';
-      if (t?.end) {
+    return Array.from({length: 7}, (_, i) => {
+      const day = new Date(weekStart);
+      day.setDate(weekStart.getDate() + i);
+      const iso = toLocalIso(day);
+      let status: DayStatus;
+      if (trainingEnds.has(iso)) {
         status = 'done';
-      } else if (tId !== undefined && tId === startedId) {
+      } else if (day.getTime() === today.getTime()) {
         status = 'today';
-      } else if (startedId === undefined && t && !t.end && !t.start) {
-        // No active session but a planned training exists — first such planned slot is "today"
-        status = 'today';
+      } else if (day.getTime() < today.getTime()) {
+        status = 'past';
+      } else {
+        status = 'future';
       }
-      const label = plan.trainingNames?.[String(num)]?.slice(0, 6) ?? `D${num}`;
-      return {trainingNum: num, label, status};
+      return {
+        weekday: WEEKDAY_LETTERS[i],
+        dayOfMonth: day.getDate(),
+        status,
+        isoDate: iso,
+      };
     });
   });
 
@@ -118,15 +138,7 @@ const MicroHeroCard = ({plan, currentMicro}: MicroHeroCardProps) => {
   const [metric, setMetric] = useState<MetricKey>('volume');
 
   const mesoData = useMesoBarData(plan, currentMicro);
-  const dayStripDaysAll = useDayStripDays(plan, currentMicro);
-  // Promote first 'future' to 'today' if no session is currently active
-  const dayStripDays = useMemo(() => {
-    const hasToday = dayStripDaysAll.some(d => d.status === 'today');
-    if (hasToday) return dayStripDaysAll;
-    const firstFutureIdx = dayStripDaysAll.findIndex(d => d.status === 'future');
-    if (firstFutureIdx === -1) return dayStripDaysAll;
-    return dayStripDaysAll.map((d, i) => (i === firstFutureIdx ? {...d, status: 'today' as DayStatus} : d));
-  }, [dayStripDaysAll]);
+  const dayStripDays = useThisWeekDays(plan);
 
   const currentData = mesoData[mesoData.length - 1];
   const prevData = mesoData.length > 1 ? mesoData[mesoData.length - 2] : undefined;
@@ -227,10 +239,11 @@ const MicroHeroCard = ({plan, currentMicro}: MicroHeroCardProps) => {
         <SegmentedButtons
           value={metric}
           onValueChange={v => setMetric(v as MetricKey)}
+          density="small"
           buttons={[
-            {value: 'volume', label: 'Volume'},
-            {value: 'sets', label: 'Sets'},
-            {value: 'time', label: 'Time'},
+            {value: 'volume', label: 'Volume', style: styles.segmentBtn, labelStyle: styles.segmentBtnLabel},
+            {value: 'sets', label: 'Sets', style: styles.segmentBtn, labelStyle: styles.segmentBtnLabel},
+            {value: 'time', label: 'Time', style: styles.segmentBtn, labelStyle: styles.segmentBtnLabel},
           ]}
           style={styles.segmented}
         />
@@ -322,7 +335,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerLeft: {flex: 1, marginRight: 8},
-  segmented: {marginVertical: 8},
+  segmented: {marginVertical: 8, alignSelf: 'flex-start'},
+  segmentBtn: {borderWidth: 0, minWidth: 64, paddingHorizontal: 4},
+  segmentBtnLabel: {fontSize: 12, fontWeight: '500'},
   valueRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',

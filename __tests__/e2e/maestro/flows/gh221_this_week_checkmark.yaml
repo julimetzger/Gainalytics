@@ -1,0 +1,141 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-221: "This week" day strip + subtler segmented buttons.
+#
+# Pre-conditions: clean install or stale state. The flow imports baseline.gains
+# from the assets bundled inside the APK so the active plan ("Push pull",
+# plan-meta-5) has a finished training to relocate to today.
+#
+# Strategy:
+#   1. Capture the day strip BEFORE: weekday letters M-S with today as an
+#      outlined ring, no checkmarks (baseline trainings are 65d+ old).
+#   2. Edit the most recent FINISHED training of the active plan to end today.
+#   3. Capture the day strip AFTER: a day-pill-${today}-done element exists,
+#      i.e. the day pill shows the checkmark icon.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 60000
+
+# Import baseline so the active plan has data.
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-import-data-button'
+    direction: DOWN
+- tapOn:
+    id: 'settings-import-data-button'
+- tapOn:
+    id: 'settings-import-confirm-button'
+    optional: true
+- tapOn: 'baseline.gains'
+- extendedWaitUntil:
+    visible: '.*Import successful.*'
+    timeout: 60000
+
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+
+# --- BEFORE: this-week strip with today outlined and segmented buttons subtle.
+- extendedWaitUntil:
+    visible:
+      id: 'micro-hero-card'
+    timeout: 30000
+- assertVisible:
+    id: 'day-strip'
+- assertVisible: 'Volume'
+- assertVisible: 'Sets'
+- assertVisible: 'Time'
+- takeScreenshot: gh221_a_before_this_week_strip
+
+# --- Mutate: edit Push pull's most recent finished training so end = today.
+- scrollUntilVisible:
+    element:
+      id: 'plan-meta-5'
+    direction: DOWN
+- tapOn:
+    id: 'plan-meta-5'
+# After navigation we land on the Plan tab; switch to the Train tab where
+# the per-training overflow icon lives.
+- extendedWaitUntil:
+    visible: 'Train'
+    timeout: 30000
+- tapOn: 'Train'
+- extendedWaitUntil:
+    visible:
+      id: 'header-overflow-icon'
+    timeout: 30000
+- tapOn:
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-edit'
+    timeout: 5000
+- tapOn:
+    id: 'overflow-edit'
+# edit-training-open-times-modal lives inside a ScrollView whose content is
+# not exposed to the accessibility tree (see trn005). The wait is best-effort
+# and the tap continues even on timeout because Maestro still resolves it.
+- extendedWaitUntil:
+    visible:
+      id: 'edit-training-open-times-modal'
+    timeout: 30000
+    optional: true
+- tapOn:
+    id: 'edit-training-open-times-modal'
+- extendedWaitUntil:
+    visible: 'Edit Training Times'
+    timeout: 8000
+- evalScript: |
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0');
+    var yyyy = today.getFullYear();
+    output.startStr = dd + '/' + mm + '/' + yyyy + ' 08:00';
+    output.endStr = dd + '/' + mm + '/' + yyyy + ' 09:00';
+- tapOn:
+    id: 'edit-training-times-start'
+- eraseText
+- inputText: ${output.startStr}
+- tapOn:
+    id: 'edit-training-times-end'
+- eraseText
+- inputText: ${output.endStr}
+- tapOn:
+    id: 'edit-training-times-save'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-training-open-times-modal'
+    timeout: 8000
+    optional: true
+
+# --- Back to home: today should now be a DONE pill (checkmark).
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'day-strip'
+    timeout: 15000
+# Assert the resulting value: a day-pill testID with status suffix "done"
+# is rendered for today's ISO date. The id pattern: day-pill-YYYY-MM-DD-done.
+- evalScript: |
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0');
+    var yyyy = today.getFullYear();
+    output.todayDone = 'day-pill-' + yyyy + '-' + mm + '-' + dd + '-done';
+- assertVisible:
+    id: ${output.todayDone}
+- takeScreenshot: gh221_b_after_today_done_checkmark

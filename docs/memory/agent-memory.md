@@ -872,6 +872,21 @@ Required adaptations:
 **Observation:** The AddWorkout input row in TrainingsPlanNode (inside RangeSwiper, inaccessible by ID) has its text field centers at y≈46% on the 720×1600 device override. Specific x-coordinates: Reps≈11%, RIR≈33%, Weight≈54%, Add button≈88%. These were confirmed by coordinate-driven input and post-add screenshot showing correct Reps=8, RIR=2, Weight=95 values.
 **Apply when:** Tapping workout input fields in any Maestro flow that reaches TrainingsPlanNode's edit mode.
 
+### 126. Maestro `--device` flag does not reliably prevent it from connecting to a different device when multiple devices are attached
+**Observation:** In GH-221, `run-maestro-from-wsl.sh --device emulator-5556` was used. The adb push went to emulator-5556 (confirmed by log), but the `takeScreenshot` in the Maestro flow captured a screenshot that clearly showed the physical device R5CN30HWZFN (hardware nav buttons, different time, old APK design). Maestro's device pinning is unreliable with ≥3 connected devices in some environments.
+**Working solution:** When multi-device ambiguity is suspected, verify the screenshot by reading it and comparing the emulator status bar style (emulator shows gesture-nav bar, physical device shows hardware buttons). Use direct `adb -s $DEVICE exec-out screencap -p` captures as primary evidence — these are guaranteed to be from the correct device.
+**Apply when:** Running Maestro on environments with multiple ADB devices. Always double-check Maestro screenshots against direct adb screencaps if the APK version differs across devices.
+
+### 127. Jest `testPathIgnorePatterns: ['/.worktrees/']` blocks all tests inside a worktree
+
+**Problem:** `jest.config.cjs` contains `'/.worktrees/'` in `testPathIgnorePatterns`. Because the absolute path of every test file inside `.worktrees/feature-XYZ/` contains `.worktrees`, Jest silently skips all tests. `npx jest` and `npm test` both return "No tests found" from inside the worktree.
+
+**Working solution:** Pass `--testPathIgnorePatterns` on the CLI, listing only the patterns you still want to keep (`/node_modules/` and `/__tests__/coverage/`) but **omitting** `/.worktrees/`:
+```
+npx jest --testPathIgnorePatterns="/node_modules/" "/__tests__/coverage/" --testPathPattern="MyComponent" --no-coverage
+```
+**Apply when:** Running any Jest test from inside a git worktree on this project.
+
 ### 125. Rest timer coordinates (720×1600 override) after 2 existing sets: overflow icon≈(88%,77%), Reset button≈(75%,77%)
 **Observation:** After importing baseline + submitting one set (total 2 existing sets for Dips in Upper lower), the rest timer card center is at y≈77%. Overflow (⋮) is near the right edge x≈88%, Reset button x≈75%. With more existing sets pushing the input rows down, the rest timer moves lower (y≈80% with 3 sets). Always import baseline first for reproducible set count.
 **Apply when:** Any Maestro flow that needs to interact with the rest timer overflow menu or Reset button.
