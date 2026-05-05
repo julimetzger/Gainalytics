@@ -5,7 +5,7 @@ import {BarChart} from 'react-native-charts-wrapper';
 import {RepMetric, VideoAnalysisSetResult} from '../../models/entities/VideoAnalysis';
 
 interface Props {
-  repMetrics: RepMetric[];
+  repMetrics?: RepMetric[];
   savedSetResult?: VideoAnalysisSetResult;
 }
 
@@ -13,7 +13,7 @@ type PlotMode = 'vl' | 'drift';
 
 const CHART_HEIGHT = 180;
 
-const VelocityLossBarChart = ({repMetrics, savedSetResult}: Props) => {
+const VelocityLossBarChart = ({repMetrics = [], savedSetResult}: Props) => {
   const theme = useTheme();
   const [mode, setMode] = useState<PlotMode>('vl');
 

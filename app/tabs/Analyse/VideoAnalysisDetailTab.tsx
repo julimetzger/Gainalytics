@@ -262,12 +262,13 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         </Card.Content>
       </Card>
 
-      {analysis.status === VideoAnalysisStatus.DONE && result && result.repMetrics.length > 0 && (
+      {analysis.status === VideoAnalysisStatus.DONE &&
+        ((result?.repMetrics?.length ?? 0) > 0 || (analysis.setResult?.repResults?.length ?? 0) > 0) && (
         <Card style={styles.card}>
           <Card.Title title="Rep Velocity Chart" />
           <Card.Content>
             <VelocityLossBarChart
-              repMetrics={result.repMetrics}
+              repMetrics={result?.repMetrics ?? []}
               savedSetResult={analysis.setResult}
             />
           </Card.Content>
