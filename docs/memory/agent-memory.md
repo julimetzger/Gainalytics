@@ -557,6 +557,27 @@ The `testPathIgnorePatterns: ['/.worktrees/']` in `jest.config.cjs` blocks all t
 **Working solution:** In every feedback round, explicitly grep/read the specific code location the review mentions. If the fix is already there, document the code reference and line number, take a verification screenshot, and write ready_for_review immediately. Do NOT just "investigate and exit without output."
 **Apply when:** Any resume/feedback round where a code review references a specific fix or pattern. Read first, decide, act, exit.
 
+### 92. Training edit mode: navigate via `plan-meta-{id}` + `header-overflow-icon` + `overflow-edit`
+**Observation (GH-218):** Text-based navigation to training screens (e.g. `tapOn ".*Push pull.*"`, `tapOn 'Last Training'`) breaks when the GH-204 dashboard redesign made those cards non-pressable. The reliable pattern for all training edit mode flows is:
+1. `scrollUntilVisible id: 'plan-meta-{plan.id}'` + `tapOn id: 'plan-meta-{plan.id}'` — navigates into the plan
+2. `extendedWaitUntil visible id: 'header-overflow-icon'` — confirms training is loaded
+3. `tapOn id: 'header-overflow-icon'` → `tapOn id: 'overflow-edit'` — enters edit mode (AddWorkoutSet for PLANNED/STARTED, EditTraining for FINISHED)
+`header-overflow-icon` is only visible when `!showHistory && !showDone && training !== undefined`.
+**Apply when:** Writing or debugging Maestro flows that need to enter any training's edit/view mode.
+
+### 93. `MicroHeroCard` and `LastTrainingCard` are non-pressable display cards after GH-204
+**Observation (GH-218):** Flows that used `tapOn ".*Push pull.*"` or `tapOn 'Last Training'` to navigate failed after GH-204 turned those cards from tappable navigation targets into display-only components. Maestro's `tapOn text:` does a best-effort accessibility match — if the element exists but is not pressable, the tap may not register or may fire on a wrong element.
+**Apply when:** Any flow navigating to a training via hero card or "Last Training" text. Use `plan-meta-{id}` + overflow navigation instead (see #92).
+
+### 94. `EditTraining` content is inside TrainingsPlanNode's main ScrollView — inaccessible to Maestro
+**Observation (GH-218):** After entering edit mode for a FINISHED training (via `overflow-edit`), `EditTraining` renders inside `TrainingsPlanNode`'s ScrollView. This ScrollView has `accessible={true}` (or equivalent), collapsing all descendants. `edit-training-open-times-modal`, `edit-training-times-start/end`, `edit-training-times-duration`, `edit-training-times-save` are ALL unreachable by Maestro id/text selectors. The screen renders correctly (confirmed by screencap) but `extendedWaitUntil id: 'edit-training-open-times-modal'` times out. This is the same pattern as #83 (TrainingsOverview).
+**Apply when:** Writing Maestro flows that need to interact with the EditTraining component (FINISHED training edit mode). Use `adb screencap` + uiautomator dump for evidence instead of Maestro assertions.
+
+### 95. Maestro driver port cycling: force-stop `dev.mobile.maestro.android` between consecutive flows
+**Observation (GH-218):** Running multiple Maestro flows in a session without clearing the driver causes `Command failed (tcp:PORT): closed` and `DEADLINE_EXCEEDED` errors on the second and subsequent flows. Root cause: the Maestro driver app on-device holds the port open and gets into a bad state after one flow ends.
+**Working solution:** Between each Maestro run: `adb -s $DEVICE shell am force-stop dev.mobile.maestro.android && sleep 5`. This reliably clears the driver state. The port binding is re-established cleanly when the next `maestro test` starts.
+**Apply when:** Any session that runs multiple Maestro flows sequentially. Always force-stop between runs.
+
 ### 91. Emulator hardware keyboard mode: IME shows as floating toolbar, not QWERTY panel
 **Observation:** When the emulator has a hardware keyboard attached (WSL dev environment), `adb shell input tap` on a TextInput focuses it and triggers IME (`mInputShown=true` confirmed via `dumpsys input_method`), but the soft keyboard does NOT render as a visible QWERTY panel. Instead, a small floating toolbar (mic, backspace, send, emoji, menu) appears. `adb shell uiautomator dump` will NOT show a keyboard package in the hierarchy.
 **Working solution:** To verify keyboard-avoidance behavior, use `dumpsys input_method | grep mInputShown` to confirm IME is active, then take a screencap. The floating toolbar IS the keyboard in this mode. To get a full QWERTY soft keyboard, would need to disable hardware keyboard in emulator config (not accessible from WSL — emulator console TCP port 5554 is unreachable).
@@ -854,3 +875,13 @@ Required adaptations:
 ### 125. Rest timer coordinates (720×1600 override) after 2 existing sets: overflow icon≈(88%,77%), Reset button≈(75%,77%)
 **Observation:** After importing baseline + submitting one set (total 2 existing sets for Dips in Upper lower), the rest timer card center is at y≈77%. Overflow (⋮) is near the right edge x≈88%, Reset button x≈75%. With more existing sets pushing the input rows down, the rest timer moves lower (y≈80% with 3 sets). Always import baseline first for reproducible set count.
 **Apply when:** Any Maestro flow that needs to interact with the rest timer overflow menu or Reset button.
+
+### 126. RC1 launchApp fix is necessary but not sufficient: flows that fail on "Training" literal text need RC2-style assertion fix too
+**Observation:** In r6 (post-RC1 PR#216), 6 flows that received `- launchApp` still fail at `"Training" is visible`. The launchApp executes correctly (visible in logs: "Launch app..."), but the next assertion `assertVisible: "Training"` fails because GH-204 removed the visible text label from inactive bottom-navigation tabs. Verified: `smoke.yaml` log shows launchApp succeeds, then 00_import_baseline subflow asserts "Training" → fails. The RC1 and RC2 fixes targeted non-overlapping sets of flows; the 6 RC1 flows weren't included in the RC2 batch and still carry the stale literal.
+**Working solution:** For any flow that has both `- launchApp` AND `assertVisible: "Training"`, the second fix is to replace the literal with `id: training-home-screen` (or equivalent stable testID). The two fixes must be applied together. When reviewing RC1-style launchApp patches, always scan the first few assertions after launchApp for literal tab-label text.
+**Apply when:** Any Maestro flow that was in Bucket A of the r6 sweep (smoke, suite, gh200_video_analysis_screen_warm, trn004_meso_verify, 11_metrics_overview_slots, 11_metrics_overview_slots_suite). Also any future launchApp-only patch that doesn't update the downstream assertions.
+
+### 127. runFlow sub-flows propagate failure to parent: a suite flow (smoke.yaml) fails even if 99_smoke.yaml passes standalone
+**Observation:** `smoke.yaml` runs `00_import_baseline.yaml` as a subflow then `99_smoke.yaml`. When `00_import_baseline` fails, Maestro aborts `smoke.yaml` entirely — `99_smoke` is never reached. The parent's failing step is whatever step inside the subflow failed. This means a suite/smoke flow can fail despite all component flows passing individually, if the import subflow is broken.
+**Working solution:** Don't use suite flows (flows that chain other flows via runFlow) as the primary verification signal for individual features. Verify each component flow standalone first. Suite flows are integration smoke tests only and carry the fragility of all their subflows.
+**Apply when:** Debugging why a suite/smoke flow fails while the individual sub-flows appear to pass.

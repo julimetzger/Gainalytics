@@ -41,6 +41,7 @@ Last updated: 2026-05-02 (GH-192 r3)
 Last updated: 2026-05-03 (GH-204)
 Last updated: 2026-05-03 (GH-204 r2)
 Last updated: 2026-05-04 (QA-MAESTRO-001 r5)
+Last updated: 2026-05-05 (QA-MAESTRO-001 r6)
 
 ## Per-Worker Breakdown
 
@@ -246,3 +247,4 @@ The following infra patterns are already documented in `docs/memory/agent-memory
    The orchestrator or SKILL.md preflight should start this socat bridge
    automatically when Metro is on a non-8081 port.
 | GH-212 | emu | 0 | 0 | 1 | 0 | 5 | 1 | 0 | 0 | 0 | ready_for_review (RN 0.84 bridgeless metro dev bundle never invokes `runBeforeMain` → `setImmediate`/`window` polyfills missing → cold-start redbox at App.tsx LogBox.ignoreLogs; fixed via `polyfillImmediate.ts` doing `require('react-native/Libraries/Core/InitializeCore')` as first import in index.tsx; metro had to be restarted once after `npm install` to pick up newly-resolved redux-persist-transform-filter dist; maestro CLI from WSL with 3 connected devices ignored `--device emulator-5556` and ran the smoke flow against R5CN30HWZFN — verified by screenshot resolution mismatch (720x1600 override = R5CN30HWZFN; emulator-5556 is 1080x2400) and emulator-5556 still showing launcher during the maestro run; manual smoke equivalent via `adb shell uiautomator dump` after cold-start, found `text="Training"`; baseline.gains imported via direct `adb shell input tap` because maestro import flow lands on the wrong device too; 5 pre-existing jest failures unchanged from master) |
+| QA-MAESTRO-001 r6 | real | 7002 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | blocked-PASS<12 (resume after worker-death; r5 background sweep had already run 38/39 flows; added fun001_cardio_easter_egg as 39th; all 39 flows complete; 0 driver dropouts this round; 0 APK rebuild needed; metro reverse ok 8081→8089; PASS=11, threshold 12 missed by 1; RC2+RC3+RC4 fixes verified with 5 new PASSes; RC1 launchApp fix executed correctly in all 6 targeted flows but secondary assertions stale "Training" literal tab label; Bucket A follow-up needed; blocker status per ticket criterion; PR #224) |
