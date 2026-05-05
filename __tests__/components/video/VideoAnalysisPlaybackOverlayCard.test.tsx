@@ -1,7 +1,7 @@
 import React from 'react';
 import {StyleSheet} from 'react-native';
 import {act, fireEvent, render} from '@testing-library/react-native';
-import VideoAnalysisPlaybackOverlayCard, {calculateBarPathDeviation} from '../../../app/components/video/VideoAnalysisPlaybackOverlayCard';
+import VideoAnalysisPlaybackOverlayCard, {calculateBarPathDeviation, computeRepPhaseTimesMs, getRepPhaseBoundaries, isConcentricFirstRep} from '../../../app/components/video/VideoAnalysisPlaybackOverlayCard';
 import {BarPathPoint, BarTrackingResult} from '../../../app/models/entities/VideoAnalysis';
 
 jest.mock('react-native-charts-wrapper', () => ({
@@ -933,6 +933,81 @@ describe('calculateBarPathDeviation', () => {
 
     const {path_deviation} = calculateBarPathDeviation(all, ECC_START, TURNAROUND, CON_END, FRAME_WIDTH);
     expect(path_deviation).toBeCloseTo(64 / FRAME_WIDTH, 2);
+  });
+});
+
+// GH-211: deadlift's downward phase was being labeled as concentric because the
+// JS code unconditionally treated the first phase (start → turnaround) as eccentric.
+// Squat/Bench start at the top (low y), descend to the bottom (high y), then ascend
+// back — eccentric-first. Deadlift starts at the bottom (high y), ascends to lockout
+// (low y), then descends — concentric-first. The fix derives direction from the bar
+// path itself.
+describe('isConcentricFirstRep / getRepPhaseBoundaries / computeRepPhaseTimesMs (GH-211)', () => {
+  // Squat-style series: start at top (y=200), turnaround at bottom (y=400), end at top.
+  const squatSeries: BarPathPoint[] = [
+    {tMs: 0,    x: 100, y: 200},
+    {tMs: 500,  x: 100, y: 300},
+    {tMs: 1000, x: 100, y: 400},
+    {tMs: 1500, x: 100, y: 300},
+    {tMs: 2000, x: 100, y: 200},
+  ];
+
+  // Deadlift-style series: start at bottom (y=400), turnaround at top (y=200), end at bottom.
+  const deadliftSeries: BarPathPoint[] = [
+    {tMs: 0,    x: 100, y: 400},
+    {tMs: 500,  x: 100, y: 300},
+    {tMs: 1000, x: 100, y: 200},
+    {tMs: 1500, x: 100, y: 300},
+    {tMs: 2000, x: 100, y: 400},
+  ];
+
+  it('isConcentricFirstRep returns false for squat (eccentric-first: top → bottom → top)', () => {
+    expect(isConcentricFirstRep(squatSeries, 0, 1000)).toBe(false);
+  });
+
+  it('isConcentricFirstRep returns true for deadlift (concentric-first: bottom → top → bottom)', () => {
+    expect(isConcentricFirstRep(deadliftSeries, 0, 1000)).toBe(true);
+  });
+
+  it('isConcentricFirstRep returns false for empty series', () => {
+    expect(isConcentricFirstRep([], 0, 1000)).toBe(false);
+  });
+
+  it('isConcentricFirstRep returns false when turnaround is at or before start', () => {
+    expect(isConcentricFirstRep(squatSeries, 1000, 1000)).toBe(false);
+    expect(isConcentricFirstRep(squatSeries, 1000, 500)).toBe(false);
+  });
+
+  it('getRepPhaseBoundaries: squat → eccentric is start→turnaround, concentric is turnaround→end', () => {
+    const b = getRepPhaseBoundaries(squatSeries, 0, 1000, 2000);
+    expect(b.concentricFirst).toBe(false);
+    expect(b.eccentricStartMs).toBe(0);
+    expect(b.eccentricEndMs).toBe(1000);
+    expect(b.concentricStartMs).toBe(1000);
+    expect(b.concentricEndMs).toBe(2000);
+  });
+
+  it('getRepPhaseBoundaries: deadlift → concentric is start→turnaround, eccentric is turnaround→end', () => {
+    const b = getRepPhaseBoundaries(deadliftSeries, 0, 1000, 2000);
+    expect(b.concentricFirst).toBe(true);
+    expect(b.concentricStartMs).toBe(0);
+    expect(b.concentricEndMs).toBe(1000);
+    expect(b.eccentricStartMs).toBe(1000);
+    expect(b.eccentricEndMs).toBe(2000);
+  });
+
+  it('computeRepPhaseTimesMs returns matching durations for squat', () => {
+    const {eccentricTimeMs, concentricTimeMs} = computeRepPhaseTimesMs(squatSeries, 0, 800, 2000);
+    expect(eccentricTimeMs).toBe(800);
+    expect(concentricTimeMs).toBe(1200);
+  });
+
+  it('computeRepPhaseTimesMs swaps phase labels for deadlift', () => {
+    // Same time boundaries — only the bar direction differs. The downward phase
+    // (turnaround → end = 1200ms) must be labeled eccentric, not concentric.
+    const {eccentricTimeMs, concentricTimeMs} = computeRepPhaseTimesMs(deadliftSeries, 0, 800, 2000);
+    expect(concentricTimeMs).toBe(800);
+    expect(eccentricTimeMs).toBe(1200);
   });
 });
 

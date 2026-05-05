@@ -291,6 +291,72 @@ const findNearestBarPathPointIndex = (barPathSeries: BarPathPoint[], timeMs: num
   return nearestIndex;
 };
 
+// Squat/Bench/OHP follow the eccentric-first pattern (TOP → BOTTOM → TOP),
+// Deadlift follows the concentric-first pattern (BOTTOM → TOP → BOTTOM).
+// The bar's vertical motion between startMs and turnaroundMs distinguishes them:
+// upward (Y decreases in screen coords) means concentric-first.
+export const isConcentricFirstRep = (
+  barPathSeries: BarPathPoint[],
+  startMs: number,
+  turnaroundMs: number,
+): boolean => {
+  if (barPathSeries.length === 0 || turnaroundMs <= startMs) {
+    return false;
+  }
+  const startIdx = findNearestBarPathPointIndex(barPathSeries, startMs);
+  const turnIdx = findNearestBarPathPointIndex(barPathSeries, turnaroundMs);
+  if (startIdx === undefined || turnIdx === undefined) {
+    return false;
+  }
+  return barPathSeries[startIdx].y > barPathSeries[turnIdx].y;
+};
+
+export interface RepPhaseBoundaries {
+  concentricStartMs: number;
+  concentricEndMs: number;
+  eccentricStartMs: number;
+  eccentricEndMs: number;
+  concentricFirst: boolean;
+}
+
+export const getRepPhaseBoundaries = (
+  barPathSeries: BarPathPoint[],
+  startMs: number,
+  turnaroundMs: number,
+  endMs: number,
+): RepPhaseBoundaries => {
+  const concentricFirst = isConcentricFirstRep(barPathSeries, startMs, turnaroundMs);
+  if (concentricFirst) {
+    return {
+      concentricStartMs: startMs,
+      concentricEndMs: turnaroundMs,
+      eccentricStartMs: turnaroundMs,
+      eccentricEndMs: endMs,
+      concentricFirst: true,
+    };
+  }
+  return {
+    eccentricStartMs: startMs,
+    eccentricEndMs: turnaroundMs,
+    concentricStartMs: turnaroundMs,
+    concentricEndMs: endMs,
+    concentricFirst: false,
+  };
+};
+
+export const computeRepPhaseTimesMs = (
+  barPathSeries: BarPathPoint[],
+  startMs: number,
+  turnaroundMs: number,
+  endMs: number,
+): {eccentricTimeMs: number; concentricTimeMs: number} => {
+  const b = getRepPhaseBoundaries(barPathSeries, startMs, turnaroundMs, endMs);
+  return {
+    concentricTimeMs: Math.max(0, b.concentricEndMs - b.concentricStartMs),
+    eccentricTimeMs: Math.max(0, b.eccentricEndMs - b.eccentricStartMs),
+  };
+};
+
 const createThemedStyles = (theme: MD3Theme) =>
   StyleSheet.create({
     previewBackground: {
@@ -415,12 +481,21 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const firstRepSegment = repSegments.length > 0 ? repSegments[0] : null;
   const firstRepTurnaroundMs = firstRepTurnaroundOverrideMs ?? firstRepSegment?.turnaroundMs ?? 0;
   const firstRepEndMs = firstRepEndOverrideMs ?? firstRepSegment?.endMs ?? 0;
-  const firstRepConcentricTimeMs = firstRepSegment ? Math.max(0, firstRepEndMs - firstRepTurnaroundMs) : 0;
   const lastRepSegment = repSegments.length > 1 ? repSegments[repSegments.length - 1] : null;
   const lastRepTurnaroundMs = lastRepTurnaroundOverrideMs ?? lastRepSegment?.turnaroundMs ?? 0;
   const lastRepEndMs = lastRepEndOverrideMs ?? lastRepSegment?.endMs ?? 0;
-  const lastRepConcentricTimeMs = lastRepSegment ? Math.max(0, lastRepEndMs - lastRepTurnaroundMs) : 0;
   const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
+  // Direction detection uses the raw series: smoothing across a short window can
+  // pull the start/turnaround samples toward the rep's mean and obscure the
+  // physical up/down direction, while phase-time math is naturally robust to it.
+  const firstRepPhases = firstRepSegment
+    ? getRepPhaseBoundaries(result.barPathSeries, firstRepSegment.startMs, firstRepTurnaroundMs, firstRepEndMs)
+    : null;
+  const lastRepPhases = lastRepSegment
+    ? getRepPhaseBoundaries(result.barPathSeries, lastRepSegment.startMs, lastRepTurnaroundMs, lastRepEndMs)
+    : null;
+  const firstRepConcentricTimeMs = firstRepPhases ? Math.max(0, firstRepPhases.concentricEndMs - firstRepPhases.concentricStartMs) : 0;
+  const lastRepConcentricTimeMs = lastRepPhases ? Math.max(0, lastRepPhases.concentricEndMs - lastRepPhases.concentricStartMs) : 0;
   const smoothedBarVerticalVelocitySeries = useMemo(() => calculateBarVerticalVelocitySeries(smoothedBarPathSeries), [smoothedBarPathSeries]);
 
   const calcIntervalMetrics = useCallback((startMs: number, endMs: number) => {
@@ -447,12 +522,12 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   }, [smoothedBarPathSeries, smoothedBarVerticalVelocitySeries]);
 
   const firstRepIntervalMetrics = useMemo(
-    () => firstRepSegment ? calcIntervalMetrics(firstRepTurnaroundMs, firstRepEndMs) : null,
-    [firstRepSegment, firstRepTurnaroundMs, firstRepEndMs, calcIntervalMetrics],
+    () => firstRepPhases ? calcIntervalMetrics(firstRepPhases.concentricStartMs, firstRepPhases.concentricEndMs) : null,
+    [firstRepPhases, calcIntervalMetrics],
   );
   const lastRepIntervalMetrics = useMemo(
-    () => lastRepSegment ? calcIntervalMetrics(lastRepTurnaroundMs, lastRepEndMs) : null,
-    [lastRepSegment, lastRepTurnaroundMs, lastRepEndMs, calcIntervalMetrics],
+    () => lastRepPhases ? calcIntervalMetrics(lastRepPhases.concentricStartMs, lastRepPhases.concentricEndMs) : null,
+    [lastRepPhases, calcIntervalMetrics],
   );
   // Velocity Loss: VL = 1 - (v_last / v_ref), where v_ref is the best avg
   // velocity from the first rep (proxy for max of first 3 reps).
@@ -850,9 +925,10 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
         : isLast && lastRepEndOverrideMs !== null ? lastRepEndOverrideMs
         : seg.endMs;
       const totalTimeMs = endMs - startMs;
-      const concentricTimeMs = Math.max(0, endMs - turnaroundMs);
-      const eccentricTimeMs = Math.max(0, turnaroundMs - startMs);
-      const metrics = calcIntervalMetrics(turnaroundMs, endMs);
+      const phases = getRepPhaseBoundaries(result.barPathSeries, startMs, turnaroundMs, endMs);
+      const concentricTimeMs = Math.max(0, phases.concentricEndMs - phases.concentricStartMs);
+      const eccentricTimeMs = Math.max(0, phases.eccentricEndMs - phases.eccentricStartMs);
+      const metrics = calcIntervalMetrics(phases.concentricStartMs, phases.concentricEndMs);
       const deviation = calculateBarPathDeviation(smoothedBarPathSeries, startMs, turnaroundMs, endMs, trackingFrameWidth);
       return {
         repIndex: seg.repIndex,
@@ -912,7 +988,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       mean_path_deviation,
       path_deviation_slope,
     });
-  }, [analysisId, result.repSegments, result.analysisMeta.trackingFrameWidthPx, firstRepTurnaroundOverrideMs, firstRepEndOverrideMs, lastRepTurnaroundOverrideMs, lastRepEndOverrideMs, calcIntervalMetrics, smoothedBarPathSeries, saveSetResult]);
+  }, [analysisId, result.repSegments, result.barPathSeries, result.analysisMeta.trackingFrameWidthPx, firstRepTurnaroundOverrideMs, firstRepEndOverrideMs, lastRepTurnaroundOverrideMs, lastRepEndOverrideMs, calcIntervalMetrics, smoothedBarPathSeries, saveSetResult]);
 
   // Video pinch-to-zoom gesture.
   const videoPinchGesture = Gesture.Pinch()
@@ -1258,10 +1334,13 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             const isLastRep = idx === result.repMetrics.length - 1;
             const saved = savedSetResult?.repResults?.[idx];
             const seg = repSegments[idx];
+            const segPhaseTimes = seg
+              ? computeRepPhaseTimesMs(result.barPathSeries, seg.startMs, seg.turnaroundMs, seg.endMs)
+              : null;
             const concTimeMs = saved ? saved.concentricTimeMs
               : isFirstRep && firstRepSegment ? firstRepConcentricTimeMs
               : isLastRep && lastRepSegment ? lastRepConcentricTimeMs
-              : seg ? Math.max(0, seg.endMs - seg.turnaroundMs)
+              : segPhaseTimes ? segPhaseTimes.concentricTimeMs
               : (metric.concentricTimeMs ?? 0);
             const eccTimeMs = saved ? saved.eccentricTimeMs : (metric.repTimeMs - concTimeMs);
             const totalTimeMs = saved ? saved.totalTimeMs : metric.repTimeMs;

@@ -8,6 +8,7 @@ import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
 import {readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
 import {migrateBarTrackingResultIfNeeded} from '../../utils/videoAnalysisNative';
 import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from '../../components/video/VideoAnalysisPlayerView';
+import {computeRepPhaseTimesMs} from '../../components/video/VideoAnalysisPlaybackOverlayCard';
 import VelocityCompareChart from '../../components/video/VelocityCompareChart';
 import BarPathCompareView from '../../components/video/BarPathCompareView';
 import CompareRepSummary from '../../components/video/CompareRepSummary';
@@ -191,29 +192,35 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
     });
   }, []);
 
-  const repResults1 = result1 ? (analysis1?.setResult?.repResults ?? result1.repSegments.map((seg, i) => ({
-    repIndex: i,
-    startMs: seg.startMs,
-    turnaroundMs: seg.turnaroundMs,
-    endMs: seg.endMs,
-    totalTimeMs: seg.endMs - seg.startMs,
-    eccentricTimeMs: seg.turnaroundMs - seg.startMs,
-    concentricTimeMs: seg.endMs - seg.turnaroundMs,
-    vAvg: 0,
-    vPeak: 0,
-  }))) : [];
+  const repResults1 = result1 ? (analysis1?.setResult?.repResults ?? result1.repSegments.map((seg, i) => {
+    const phaseTimes = computeRepPhaseTimesMs(result1.barPathSeries, seg.startMs, seg.turnaroundMs, seg.endMs);
+    return {
+      repIndex: i,
+      startMs: seg.startMs,
+      turnaroundMs: seg.turnaroundMs,
+      endMs: seg.endMs,
+      totalTimeMs: seg.endMs - seg.startMs,
+      eccentricTimeMs: phaseTimes.eccentricTimeMs,
+      concentricTimeMs: phaseTimes.concentricTimeMs,
+      vAvg: 0,
+      vPeak: 0,
+    };
+  })) : [];
 
-  const repResults2 = result2 ? (analysis2?.setResult?.repResults ?? result2.repSegments.map((seg, i) => ({
-    repIndex: i,
-    startMs: seg.startMs,
-    turnaroundMs: seg.turnaroundMs,
-    endMs: seg.endMs,
-    totalTimeMs: seg.endMs - seg.startMs,
-    eccentricTimeMs: seg.turnaroundMs - seg.startMs,
-    concentricTimeMs: seg.endMs - seg.turnaroundMs,
-    vAvg: 0,
-    vPeak: 0,
-  }))) : [];
+  const repResults2 = result2 ? (analysis2?.setResult?.repResults ?? result2.repSegments.map((seg, i) => {
+    const phaseTimes = computeRepPhaseTimesMs(result2.barPathSeries, seg.startMs, seg.turnaroundMs, seg.endMs);
+    return {
+      repIndex: i,
+      startMs: seg.startMs,
+      turnaroundMs: seg.turnaroundMs,
+      endMs: seg.endMs,
+      totalTimeMs: seg.endMs - seg.startMs,
+      eccentricTimeMs: phaseTimes.eccentricTimeMs,
+      concentricTimeMs: phaseTimes.concentricTimeMs,
+      vAvg: 0,
+      vPeak: 0,
+    };
+  })) : [];
 
   if (!analysis1 || !analysis2) {
     return (
