@@ -368,6 +368,41 @@ describe('importVideoAnalysisFromSource', () => {
     dateNowSpy.mockRestore();
   });
 
+  it('calls onRateUpdated with the learned rate after analysis completes', async () => {
+    // 90 s analysis on a 45 s video → rate = 2.0
+    const timestamps = [0, 0, 0, 0, 0, 0, 0, 90_000, 90_000, 90_000];
+    const dateNowSpy = jest.spyOn(Date, 'now').mockImplementation(() => timestamps.shift() ?? 90_000);
+    getVideoDuration.mockResolvedValueOnce(45_000).mockResolvedValueOnce(45_000);
+    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
+    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-8.json');
+
+    const onRateUpdated = jest.fn();
+    const mocks = makeMocks();
+    await importVideoAnalysisFromSource({analysisId: 8, sourceUri: 'content://video.mp4', ...mocks, onRateUpdated});
+
+    await flushBackgroundWork();
+    expect(onRateUpdated).toHaveBeenCalledWith(2);
+    dateNowSpy.mockRestore();
+  });
+
+  it('does NOT call onRateUpdated when videoDurationMs is 0 (would clobber persisted rate)', async () => {
+    // Both source and local duration reads return 0 → videoDurationMs stays 0.
+    getVideoDuration.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
+    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-9.json');
+
+    const onRateUpdated = jest.fn();
+    const mocks = makeMocks();
+    await importVideoAnalysisFromSource({analysisId: 9, sourceUri: 'content://video.mp4', ...mocks, onRateUpdated});
+
+    await flushBackgroundWork();
+    expect(onRateUpdated).not.toHaveBeenCalled();
+    // The previously persisted rate (the in-memory default here) must remain untouched.
+    expect(getLastAnalysisSecondsPerVideoSecond()).toBe(1);
+  });
+
   // -------------------------------------------------------------------------
   // Foreground-service reference counting (ANA-005-fix issue 3 – integration)
   // -------------------------------------------------------------------------
