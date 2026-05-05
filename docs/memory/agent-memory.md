@@ -909,3 +909,14 @@ When no structured previous training exists (first ever meso), `TrainingsOvervie
 
 ### React hooks must be called unconditionally — use the result conditionally
 When adding a fallback hook alongside an existing one, BOTH hooks must always be called (React rules). The conditional selection (`previousTraining !== undefined ? primaryResult : fallbackResult`) lives in the JSX logic, not in the hook calls. Tests that assert "hook was not called" for the non-selected path are incorrect — instead, assert which result was used.
+
+### 128. socat bridge corrupts large Metro bundles — use `adb reverse` + `run-as tee` instead
+**Problem:** A socat bridge (`socat TCP-LISTEN:8081,fork TCP:127.0.0.1:<metro-port>`) appears to work for small payloads but silently corrupts large streaming responses (the 15.5 MB Metro bundle). The app shows a red-screen JS parse error ("invalid hex number", "'}' expected") because the bundle arrives truncated or with TCP fragmentation the socat fork mode doesn't buffer correctly.
+**Working solution:** `adb reverse tcp:8081 tcp:<metro-port>` + write `localhost:8081` to SharedPreferences via `run-as tee`:
+```sh
+adb reverse tcp:8081 tcp:<host-port>
+printf '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>\n<map>\n    <string name="debug_http_host">localhost:8081</string>\n</map>\n' | \
+  adb shell "run-as com.powerliftingworkoutplanner tee /data/data/com.powerliftingworkoutplanner/shared_prefs/devtools_settings.xml > /dev/null"
+```
+The `adb reverse` tunnel handles the full bundle without corruption. Re-run the `run-as tee` command after every `force-stop` or Maestro `clearState: true`, as those wipe SharedPreferences.
+**Apply when:** Setting up Metro dev-bundle serving for an APK built to connect to port 8081 on emulator.
