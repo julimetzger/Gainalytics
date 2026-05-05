@@ -270,6 +270,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
             <VelocityLossBarChart
               repMetrics={result?.repMetrics ?? []}
               savedSetResult={analysis.setResult}
+              metersPerPixel={analysis.metersPerPixel}
             />
           </Card.Content>
         </Card>

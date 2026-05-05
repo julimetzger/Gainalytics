@@ -7,13 +7,15 @@ import {RepMetric, VideoAnalysisSetResult} from '../../models/entities/VideoAnal
 interface Props {
   repMetrics?: RepMetric[];
   savedSetResult?: VideoAnalysisSetResult;
+  metersPerPixel?: number;
 }
 
-type PlotMode = 'vl' | 'drift';
+type PlotMode = 'vl' | 'vAvg' | 'drift';
 
 const CHART_HEIGHT = 180;
+const VL_WARN_THRESHOLD = 30;
 
-const VelocityLossBarChart = ({repMetrics = [], savedSetResult}: Props) => {
+const VelocityLossBarChart = ({repMetrics = [], savedSetResult, metersPerPixel}: Props) => {
   const theme = useTheme();
   const [mode, setMode] = useState<PlotMode>('vl');
 
@@ -34,6 +36,19 @@ const VelocityLossBarChart = ({repMetrics = [], savedSetResult}: Props) => {
     }));
   }, [repMetrics, repResults]);
 
+  const vAvgChartData = useMemo(() => {
+    let rawValues: number[];
+    if (repResults && repResults.length > 0) {
+      rawValues = repResults.map(r => r.vAvg);
+    } else if (repMetrics.length > 0) {
+      rawValues = repMetrics.map(m => m.averageConcentricSpeedPxPerS);
+    } else {
+      return [];
+    }
+    const converted = metersPerPixel ? rawValues.map(v => v * metersPerPixel) : rawValues;
+    return converted.map((v, i) => ({x: i, y: Math.round(v * 100) / 100}));
+  }, [repMetrics, repResults, metersPerPixel]);
+
   const driftChartData = useMemo(() => {
     if (!repResults) {
       return [];
@@ -47,7 +62,7 @@ const VelocityLossBarChart = ({repMetrics = [], savedSetResult}: Props) => {
   }, [repResults]);
 
   const hasDrift = driftChartData.length > 0;
-  const chartData = mode === 'vl' ? vlChartData : driftChartData;
+  const chartData = mode === 'vl' ? vlChartData : mode === 'vAvg' ? vAvgChartData : driftChartData;
 
   const xLabels = useMemo(
     () => Array.from({length: chartData.length}, (_, i) => `R${i + 1}`),
@@ -57,18 +72,38 @@ const VelocityLossBarChart = ({repMetrics = [], savedSetResult}: Props) => {
   const barColors = useMemo(() => {
     if (mode === 'vl') {
       return chartData.map(d =>
-        processColor(d.y <= 0 ? theme.colors.primary : theme.colors.error),
+        processColor(d.y < VL_WARN_THRESHOLD ? theme.colors.primary : theme.colors.error),
       );
+    }
+    if (mode === 'vAvg') {
+      return chartData.map(() => processColor(theme.colors.primary));
     }
     return chartData.map(() => processColor(theme.colors.tertiary));
   }, [chartData, mode, theme.colors.error, theme.colors.primary, theme.colors.tertiary]);
 
+  const valueFormatter = useMemo(() => {
+    if (mode === 'vl') {
+      return chartData.map(d => `${d.y}%`);
+    }
+    return undefined;
+  }, [chartData, mode]);
+
+  const vAvgMax = useMemo(() => {
+    if (vAvgChartData.length === 0) {
+      return 1;
+    }
+    return Math.max(...vAvgChartData.map(d => d.y));
+  }, [vAvgChartData]);
+
   const axisMax = useMemo(() => {
+    if (mode === 'vAvg') {
+      return vAvgMax * 1.15;
+    }
     if (chartData.length === 0) {
       return 10;
     }
     return Math.max(10, Math.ceil(Math.max(...chartData.map(d => Math.abs(d.y))) * 1.3));
-  }, [chartData]);
+  }, [chartData, mode, vAvgMax]);
 
   const axisMin = mode === 'vl' ? -Math.ceil(axisMax * 0.4) : 0;
 
@@ -78,7 +113,35 @@ const VelocityLossBarChart = ({repMetrics = [], savedSetResult}: Props) => {
 
   const textColor = processColor(theme.colors.onSurface);
   const gridColor = processColor(theme.colors.outlineVariant);
-  const zeroLineColor = processColor(theme.colors.error);
+  const vAvgSpeedUnit = metersPerPixel ? 'm/s' : 'px/s';
+
+  const axisLabel =
+    mode === 'vl'
+      ? 'Velocity Loss % per Rep (concentric, rel. Rep 1)'
+      : mode === 'vAvg'
+      ? `Avg Concentric Speed (${vAvgSpeedUnit}) per Rep`
+      : 'Bar Path Drift % per Rep';
+
+  const limitLines =
+    mode === 'vAvg'
+      ? [
+          {
+            limit: vAvgMax,
+            lineColor: processColor(theme.colors.secondary),
+            lineWidth: 1.5,
+            lineDashLengths: [6, 4],
+            lineDashPhase: 0,
+          },
+        ]
+      : [
+          {
+            limit: 0,
+            lineColor: processColor(theme.colors.error),
+            lineWidth: 1.5,
+            lineDashLengths: [6, 4],
+            lineDashPhase: 0,
+          },
+        ];
 
   return (
     <View testID="velocity-loss-bar-chart-container">
@@ -91,6 +154,15 @@ const VelocityLossBarChart = ({repMetrics = [], savedSetResult}: Props) => {
           style={styles.toggleBtn}
         >
           VL Loss
+        </Button>
+        <Button
+          testID="vl-bar-chart-btn-vavg"
+          mode={mode === 'vAvg' ? 'contained-tonal' : 'outlined'}
+          compact
+          onPress={() => setMode('vAvg')}
+          style={styles.toggleBtn}
+        >
+          Velocity Avg
         </Button>
         {hasDrift && (
           <Button
@@ -105,7 +177,7 @@ const VelocityLossBarChart = ({repMetrics = [], savedSetResult}: Props) => {
         )}
       </View>
       <Text variant="labelSmall" style={styles.axisLabel}>
-        {mode === 'vl' ? 'Velocity Loss % per Rep (concentric, rel. Rep 1)' : 'Bar Path Drift % per Rep'}
+        {axisLabel}
       </Text>
       <BarChart
         testID="velocity-loss-bar-chart"
@@ -114,12 +186,13 @@ const VelocityLossBarChart = ({repMetrics = [], savedSetResult}: Props) => {
           dataSets: [
             {
               values: chartData,
-              label: mode === 'vl' ? 'VL Loss %' : 'Drift %',
+              label: mode === 'vl' ? 'VL Loss %' : mode === 'vAvg' ? `vAvg ${vAvgSpeedUnit}` : 'Drift %',
               config: {
                 colors: barColors,
                 drawValues: true,
                 valueTextSize: 10,
                 valueTextColor: textColor,
+                ...(valueFormatter ? {valueFormatter} : {}),
               },
             },
           ],
@@ -146,15 +219,7 @@ const VelocityLossBarChart = ({repMetrics = [], savedSetResult}: Props) => {
             axisMaximum: axisMax,
             textColor: textColor,
             gridColor: gridColor,
-            limitLines: [
-              {
-                limit: 0,
-                lineColor: zeroLineColor,
-                lineWidth: 1.5,
-                lineDashLengths: [6, 4],
-                lineDashPhase: 0,
-              },
-            ],
+            limitLines,
             drawLimitLinesBehindData: true,
           },
           right: {enabled: false},
