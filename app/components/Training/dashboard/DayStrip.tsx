@@ -1,13 +1,14 @@
 import React from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Text, useTheme} from 'react-native-paper';
+import {Icon, Text, useTheme} from 'react-native-paper';
 
-export type DayStatus = 'done' | 'today' | 'future';
+export type DayStatus = 'done' | 'today' | 'past' | 'future';
 
 export interface DayStripDay {
-  trainingNum: number;
-  label: string;
+  weekday: string;
+  dayOfMonth: number;
   status: DayStatus;
+  isoDate: string;
 }
 
 interface DayStripProps {
@@ -21,36 +22,50 @@ const DayStrip = ({days}: DayStripProps) => {
   return (
     <View style={styles.row} testID="day-strip">
       {days.map(day => {
-        const bg =
-          day.status === 'done' ? theme.colors.primary : day.status === 'today' ? theme.colors.surface : theme.colors.surfaceVariant ?? theme.colors.elevation?.level1;
-        const fg =
-          day.status === 'done'
-            ? theme.colors.onPrimary
-            : day.status === 'today'
-            ? theme.colors.primary
-            : theme.colors.onSurfaceVariant;
-        const border = day.status === 'today' ? theme.colors.primary : 'transparent';
+        const isDone = day.status === 'done';
+        const isToday = day.status === 'today';
+        const isMuted = day.status === 'past' || day.status === 'future';
+
+        const weekdayColor = isMuted ? theme.colors.onSurfaceVariant : theme.colors.onSurface;
+        const dayBg = isDone ? theme.colors.primary : 'transparent';
+        const dayBorder = isToday ? theme.colors.primary : 'transparent';
+        const dayFg = isDone ? theme.colors.onPrimary : isToday ? theme.colors.primary : theme.colors.onSurfaceVariant;
 
         return (
           <View
-            key={day.trainingNum}
-            testID={`day-pill-${day.trainingNum}`}
-            style={[
-              styles.pill,
-              {
-                backgroundColor: bg,
-                borderColor: border,
-                borderWidth: day.status === 'today' ? 2 : 0,
-              },
-            ]}
+            key={day.isoDate}
+            testID={`day-pill-${day.isoDate}-${day.status}`}
+            style={styles.dayCol}
           >
             <Text
               variant="labelSmall"
-              style={[styles.label, {color: fg, fontWeight: day.status === 'today' ? '700' : '500'}]}
+              style={[styles.weekdayLabel, {color: weekdayColor}]}
               numberOfLines={1}
             >
-              {day.label}
+              {day.weekday}
             </Text>
+            <View
+              style={[
+                styles.dayCircle,
+                {
+                  backgroundColor: dayBg,
+                  borderColor: dayBorder,
+                  borderWidth: isToday ? 2 : 0,
+                },
+              ]}
+            >
+              {isDone ? (
+                <Icon source="check" size={18} color={dayFg} />
+              ) : (
+                <Text
+                  variant="labelMedium"
+                  style={[styles.dayLabel, {color: dayFg, fontWeight: isToday ? '700' : '500'}]}
+                  numberOfLines={1}
+                >
+                  {day.dayOfMonth}
+                </Text>
+              )}
+            </View>
           </View>
         );
       })}
@@ -59,17 +74,17 @@ const DayStrip = ({days}: DayStripProps) => {
 };
 
 const styles = StyleSheet.create({
-  row: {flexDirection: 'row', gap: 6, marginVertical: 8},
-  pill: {
-    flex: 1,
-    minWidth: 36,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 12,
+  row: {flexDirection: 'row', gap: 4, marginVertical: 8, justifyContent: 'space-between'},
+  dayCol: {flex: 1, alignItems: 'center', gap: 4},
+  weekdayLabel: {textAlign: 'center', fontSize: 11},
+  dayCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  label: {textAlign: 'center'},
+  dayLabel: {textAlign: 'center'},
 });
 
 export default DayStrip;
