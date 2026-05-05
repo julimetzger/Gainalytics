@@ -386,6 +386,23 @@ describe('importVideoAnalysisFromSource', () => {
     dateNowSpy.mockRestore();
   });
 
+  it('does NOT call onRateUpdated when videoDurationMs is 0 (would clobber persisted rate)', async () => {
+    // Both source and local duration reads return 0 → videoDurationMs stays 0.
+    getVideoDuration.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
+    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-9.json');
+
+    const onRateUpdated = jest.fn();
+    const mocks = makeMocks();
+    await importVideoAnalysisFromSource({analysisId: 9, sourceUri: 'content://video.mp4', ...mocks, onRateUpdated});
+
+    await flushBackgroundWork();
+    expect(onRateUpdated).not.toHaveBeenCalled();
+    // The previously persisted rate (the in-memory default here) must remain untouched.
+    expect(getLastAnalysisSecondsPerVideoSecond()).toBe(1);
+  });
+
   // -------------------------------------------------------------------------
   // Foreground-service reference counting (ANA-005-fix issue 3 – integration)
   // -------------------------------------------------------------------------

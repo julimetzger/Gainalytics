@@ -101,8 +101,14 @@ const runBackgroundAnalysis = ({
   analyzeSquatVideo(localVideoPath, analysisId, manualSeed)
     .then((resultPath) => {
       attachVideoAnalysisResult(analysisId, resultPath, localVideoPath);
-      const newRate = recordCompletedAnalysisRate(Date.now() - importStartedAtMs, videoDurationMs);
-      onRateUpdated?.(newRate);
+      // Only persist a learned rate when we actually measured one. With
+      // videoDurationMs <= 0 (metadata read failed) recordCompletedAnalysisRate
+      // returns the in-memory default and would clobber the previously
+      // persisted rate after an app restart.
+      if (videoDurationMs > 0) {
+        const newRate = recordCompletedAnalysisRate(Date.now() - importStartedAtMs, videoDurationMs);
+        onRateUpdated?.(newRate);
+      }
       postVideoAnalysisCompleteNotification(analysisId).catch(() => {});
     })
     .catch((error) => {
