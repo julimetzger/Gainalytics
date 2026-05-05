@@ -11,6 +11,7 @@ import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnal
 import {getVideoAnalysisPreviewPath, readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
 import VideoAnalysisPlaybackOverlayCard from '../../components/video/VideoAnalysisPlaybackOverlayCard';
 import VideoAnalysisManualSeedCard from '../../components/video/VideoAnalysisManualSeedCard';
+import VelocityLossBarChart from '../../components/video/VelocityLossBarChart';
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
@@ -260,6 +261,20 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           )}
         </Card.Content>
       </Card>
+
+      {analysis.status === VideoAnalysisStatus.DONE &&
+        ((result?.repMetrics?.length ?? 0) > 0 || (analysis.setResult?.repResults?.length ?? 0) > 0) && (
+        <Card style={styles.card}>
+          <Card.Title title="Rep Velocity Chart" />
+          <Card.Content>
+            <VelocityLossBarChart
+              repMetrics={result?.repMetrics ?? []}
+              savedSetResult={analysis.setResult}
+              metersPerPixel={analysis.metersPerPixel}
+            />
+          </Card.Content>
+        </Card>
+      )}
 
       {analysis.status === VideoAnalysisStatus.AWAITING_SEED_SELECTION && (
         <VideoAnalysisManualSeedCard
