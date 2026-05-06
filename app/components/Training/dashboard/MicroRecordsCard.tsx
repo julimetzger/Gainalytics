@@ -14,6 +14,7 @@ interface RecordRow {
   exerciseName: string;
   kind: string;
   value: number;
+  setDetails?: {weight: number; reps: number; rir: number};
 }
 
 interface MicroRecordsCardProps {
@@ -35,11 +36,15 @@ const MicroRecordsCard = ({plan, currentMicro}: MicroRecordsCardProps) => {
   const records: RecordRow[] = workouts
     .filter((w: Workout) => w.records && Object.keys(w.records).length > 0)
     .flatMap((w: Workout) =>
-      Object.entries(w.records!).map(([kind, value]) => ({
-        exerciseName: exerciseNames[w.exerciseId]?.name ?? `Exercise ${w.exerciseId}`,
-        kind: kind === Record.ONE_RM ? '1RM' : kind,
-        value,
-      })),
+      Object.entries(w.records!).map(([kind, value]) => {
+        const recordSet = (w.sets ?? []).find(s => s.record?.includes(kind as Record));
+        return {
+          exerciseName: exerciseNames[w.exerciseId]?.name ?? `Exercise ${w.exerciseId}`,
+          kind: kind === Record.ONE_RM ? '1RM' : kind,
+          value,
+          setDetails: recordSet ? {weight: recordSet.weight, reps: recordSet.reps, rir: recordSet.rir} : undefined,
+        };
+      }),
     );
 
   if (records.length === 0) return null;
@@ -55,9 +60,16 @@ const MicroRecordsCard = ({plan, currentMicro}: MicroRecordsCardProps) => {
         </Text>
         {visible.map((r, i) => (
           <View key={i} style={styles.row}>
-            <Text variant="bodyMedium" style={styles.name} numberOfLines={1}>
-              {r.exerciseName}
-            </Text>
+            <View style={styles.nameBlock}>
+              <Text variant="bodyMedium" numberOfLines={1}>
+                {r.exerciseName}
+              </Text>
+              {r.setDetails && (
+                <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
+                  {r.setDetails.weight} kg × {r.setDetails.reps} @ RIR {r.setDetails.rir}
+                </Text>
+              )}
+            </View>
             <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>
               {r.kind}
             </Text>
@@ -79,7 +91,7 @@ const MicroRecordsCard = ({plan, currentMicro}: MicroRecordsCardProps) => {
 const styles = StyleSheet.create({
   card: {marginHorizontal: 8, marginBottom: 8},
   row: {flexDirection: 'row', alignItems: 'center', paddingVertical: 4, gap: 8},
-  name: {flex: 1},
+  nameBlock: {flex: 1},
 });
 
 export default MicroRecordsCard;

@@ -77,8 +77,15 @@ function nextSessionFor(
     .filter(n => !Number.isNaN(n))
     .sort((a, b) => a - b);
 
-  // Prefer the first slot that has not yet been finished.
+  // Find the first undone slot that comes AFTER the lastDone position.
+  // Slots at or before lastDone belong to already-completed micros or were skipped
+  // in a previous meso; returning them would show the wrong meso as "next".
   const firstUndone = keys.find(k => {
+    if (lastDone) {
+      const m = getMicroFromTrainingInMicroIndex(k);
+      const t = getTrainingFromTrainingInMicroIndex(k);
+      if (m < lastDone.micro || (m === lastDone.micro && t <= lastDone.training)) return false;
+    }
     const tId = plan.trainings[k];
     return !trainingsById[tId]?.end;
   });
@@ -147,10 +154,29 @@ function statusForPlan(plan: TrainingsPlan, allTrainings: Training[]): PlanRowMe
   }
 
   const lastDoneMicro = lastFinishedKey ? getMicroFromTrainingInMicroIndex(lastFinishedKey) : 1;
-  const localMicro = getLocalMicro(plan.mesos, lastDoneMicro);
-  const currentMeso = getMesoForMicro(plan.mesos, lastDoneMicro);
+  const lastDoneTraining = lastFinishedKey ? getTrainingFromTrainingInMicroIndex(lastFinishedKey) : 0;
 
-  const microSlots = Object.keys(plan.trainings).filter(k => getMicroFromTrainingInMicroIndex(k) === lastDoneMicro);
+  // Advance to the first undone slot after last done — same logic as nextSessionFor.
+  const sortedAllKeys = Object.keys(plan.trainings).sort((a, b) => {
+    const ma = getMicroFromTrainingInMicroIndex(a), mb = getMicroFromTrainingInMicroIndex(b);
+    if (ma !== mb) return ma - mb;
+    return getTrainingFromTrainingInMicroIndex(a) - getTrainingFromTrainingInMicroIndex(b);
+  });
+  const firstUndoneAfterLast = lastFinishedKey
+    ? sortedAllKeys.find(k => {
+        const m = getMicroFromTrainingInMicroIndex(k);
+        const t = getTrainingFromTrainingInMicroIndex(k);
+        if (m < lastDoneMicro || (m === lastDoneMicro && t <= lastDoneTraining)) return false;
+        return !trainingsById[plan.trainings[k]]?.end;
+      })
+    : undefined;
+  const currentMicro = firstUndoneAfterLast ? getMicroFromTrainingInMicroIndex(firstUndoneAfterLast) : lastDoneMicro;
+
+  const localMicro = getLocalMicro(plan.mesos, currentMicro);
+  const currentMeso = getMesoForMicro(plan.mesos, currentMicro);
+  const navMicro = firstUndoneAfterLast ? currentMicro : lastDoneMicro;
+
+  const microSlots = Object.keys(plan.trainings).filter(k => getMicroFromTrainingInMicroIndex(k) === currentMicro);
   const microDone = microSlots.filter(k => {
     const tId = plan.trainings[k];
     return trainingsById[tId]?.end;
@@ -162,7 +188,7 @@ function statusForPlan(plan: TrainingsPlan, allTrainings: Training[]): PlanRowMe
       status: 'active',
       metaText: `Active · M${localMicro} · ${microDone}/${microTotal}`,
       currentMeso,
-      navigationMicro: lastDoneMicro,
+      navigationMicro: navMicro,
     };
   }
 
@@ -173,7 +199,7 @@ function statusForPlan(plan: TrainingsPlan, allTrainings: Training[]): PlanRowMe
       status: 'paused',
       metaText: `Paused · last done ${Math.round(daysSinceLast)}d ago`,
       currentMeso,
-      navigationMicro: lastDoneMicro,
+      navigationMicro: navMicro,
     };
   }
 
@@ -181,19 +207,20 @@ function statusForPlan(plan: TrainingsPlan, allTrainings: Training[]): PlanRowMe
     status: 'active',
     metaText: `Active · M${localMicro} · ${microDone}/${microTotal}`,
     currentMeso,
-    navigationMicro: lastDoneMicro,
+    navigationMicro: navMicro,
   };
 }
 
 const TrainingHome = ({navigation, route}: Props) => {
   const theme = useTheme();
   const [filter, setFilter] = useState((route.params as {filter?: string} | undefined)?.filter || '');
+  const [selectedPlanId, setSelectedPlanId] = useState<number | undefined>(undefined);
   const trainingsPlans = useAllTrainingsPlans().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
   const allTrainings = useTrainings();
   const settings = useSettings();
   const filterInputRef = React.useRef<RNTextInput>(null);
 
-  const activePlan = useMemo((): TrainingsPlan | undefined => {
+  const autoActivePlan = useMemo((): TrainingsPlan | undefined => {
     if (trainingsPlans.length === 0) return undefined;
 
     const startedTrainingIds = new Set(
@@ -220,6 +247,14 @@ const TrainingHome = ({navigation, route}: Props) => {
     return bestPlan;
   }, [trainingsPlans, allTrainings]);
 
+  const activePlan = useMemo((): TrainingsPlan | undefined => {
+    if (selectedPlanId !== undefined) {
+      const manual = trainingsPlans.find(p => p.id === selectedPlanId);
+      if (manual) return manual;
+    }
+    return autoActivePlan;
+  }, [selectedPlanId, trainingsPlans, autoActivePlan]);
+
   const activePlanLastDone = useMemo(() => (activePlan ? lastDoneFor(activePlan) : undefined), [activePlan]);
   const trainingsById = useMemo(() => {
     const m: {[id: number]: Training} = {};
@@ -233,10 +268,11 @@ const TrainingHome = ({navigation, route}: Props) => {
     [activePlan, activePlanLastDone, trainingsById],
   );
 
-  // Hero current micro: last done if known, otherwise the next session's micro, otherwise 1
+  // Hero current micro: prefer the next session's micro (the one actively being worked on).
+  // Fall back to last done micro only when the plan is complete (no next session).
   const heroCurrentMicro = useMemo(() => {
-    if (activePlanLastDone) return activePlanLastDone.micro;
     if (activePlanNext?.micro !== undefined) return activePlanNext.micro;
+    if (activePlanLastDone) return activePlanLastDone.micro;
     return 1;
   }, [activePlanLastDone, activePlanNext]);
 
@@ -283,7 +319,7 @@ const TrainingHome = ({navigation, route}: Props) => {
             {activePlanLastDone && (
               <>
                 <MicroRecordsCard plan={activePlan} currentMicro={activePlanLastDone.micro} />
-                <LastTrainingCard plan={activePlan} lastDone={activePlanLastDone} />
+                <LastTrainingCard plan={activePlan} lastDone={activePlanLastDone} navigation={navigation} />
               </>
             )}
           </>
@@ -343,6 +379,13 @@ const TrainingHome = ({navigation, route}: Props) => {
                       {meta?.metaText ?? 'Draft'}
                     </Text>
                   </View>
+                  <IconButton
+                    icon={isActive ? 'star' : 'star-outline'}
+                    iconColor={isActive ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                    size={20}
+                    testID={`plan-select-${trainingsPlan.id}`}
+                    onPress={() => setSelectedPlanId(isActive ? undefined : trainingsPlan.id)}
+                  />
                   <AddTrainingsPlan trainingsId={trainingsPlan.id} />
                 </View>
                 {sortedMesos.length > 0 && (
