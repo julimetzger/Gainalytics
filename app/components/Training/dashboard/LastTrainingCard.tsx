@@ -1,5 +1,5 @@
 import React from 'react';
-import {StyleSheet, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
 import {Card, Text, useTheme} from 'react-native-paper';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {Metric} from '../../../models/Metric';
@@ -11,10 +11,13 @@ import {calculateMetricValue} from '../../../utils/AnalyseUtils';
 import {Workout} from '../../../models/entities/Workout';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {sum} from 'lodash';
+import {RootStackParamList} from '../../../routing/TrainingRouter';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 interface LastTrainingCardProps {
   plan: TrainingsPlan;
   lastDone: {micro: number; training: number};
+  navigation: NativeStackNavigationProp<RootStackParamList, 'TrainingHome'>;
 }
 
 const formatTimeAgo = (date: Date): string => {
@@ -30,7 +33,7 @@ const formatTime = (minutes: number): string => {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
-const LastTrainingCard = ({plan, lastDone}: LastTrainingCardProps) => {
+const LastTrainingCard = ({plan, lastDone, navigation}: LastTrainingCardProps) => {
   const theme = useTheme();
   const trainingId = plan.trainings[`${lastDone.micro},${lastDone.training}`];
   const training = useTraining(trainingId);
@@ -67,35 +70,44 @@ const LastTrainingCard = ({plan, lastDone}: LastTrainingCardProps) => {
   const volumeDelta = prevVolume > 0 ? volume - prevVolume : null;
   const isVolPositive = (volumeDelta ?? 0) >= 0;
 
+  const handlePress = () => {
+    navigation.navigate({
+      name: 'TrainingPlan',
+      params: {trainingsPlan: plan, micro: lastDone.micro, training: lastDone.training},
+    });
+  };
+
   return (
     <Card style={styles.card} testID="last-training-card">
-      <Card.Content>
-        <View style={styles.row}>
-          <View style={styles.left}>
-            <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
-              Last Training
-            </Text>
-            <Text variant="titleSmall">{trainingName}</Text>
-            <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>
-              {mesoLabel}M{localMicro} · D{lastDone.training} · {formatTimeAgo(new Date(training.end))}
-            </Text>
-          </View>
-          <View style={styles.metrics}>
-            <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>
-              {totalSets} sets · {formatTime(durationMin)}
-            </Text>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-              <Text variant="bodySmall">{volume.toLocaleString()} kg</Text>
-              {volumeDelta !== null && (
-                <Text style={[styles.delta, {color: isVolPositive ? theme.colors.primary : theme.colors.error}]}>
-                  {isVolPositive ? '+' : ''}
-                  {volumeDelta}
-                </Text>
-              )}
+      <Pressable onPress={handlePress} android_ripple={{color: theme.colors.primaryContainer}}>
+        <Card.Content>
+          <View style={styles.row}>
+            <View style={styles.left}>
+              <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
+                Last Training
+              </Text>
+              <Text variant="titleSmall">{trainingName}</Text>
+              <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>
+                {mesoLabel}M{localMicro} · D{lastDone.training} · {formatTimeAgo(new Date(training.end))}
+              </Text>
+            </View>
+            <View style={styles.metrics}>
+              <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>
+                {totalSets} sets · {formatTime(durationMin)}
+              </Text>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+                <Text variant="bodySmall">{volume.toLocaleString()} kg</Text>
+                {volumeDelta !== null && (
+                  <Text style={[styles.delta, {color: isVolPositive ? theme.colors.primary : theme.colors.error}]}>
+                    {isVolPositive ? '+' : ''}
+                    {volumeDelta}
+                  </Text>
+                )}
+              </View>
             </View>
           </View>
-        </View>
-      </Card.Content>
+        </Card.Content>
+      </Pressable>
     </Card>
   );
 };
