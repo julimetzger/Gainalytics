@@ -59,6 +59,9 @@ const VideoAnalysisManualSeedCard = ({
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | undefined>(undefined);
   const [previewLayout, setPreviewLayout] = useState<PreviewLayout>({width: 0, height: 0});
+  const previewAspectRatio = previewDimensions.width > 0 && previewDimensions.height > 0
+    ? previewDimensions.width / previewDimensions.height
+    : 16 / 9;
 
   const imageMapping = useMemo(() => {
     const containerWidth = previewLayout.width;
@@ -114,7 +117,7 @@ const VideoAnalysisManualSeedCard = ({
           <>
             <View
               testID="video-analysis-manual-seed-preview"
-              style={[styles.previewContainer, themedStyles.previewBackground]}
+              style={[styles.previewContainer, themedStyles.previewBackground, {aspectRatio: previewAspectRatio}]}
               onLayout={onPreviewLayout}
             >
               <Image source={{uri: previewUri}} resizeMode="contain" style={styles.previewImage} />
@@ -190,7 +193,6 @@ const styles = StyleSheet.create({
   },
   previewContainer: {
     width: '100%',
-    aspectRatio: 16 / 9,
     borderRadius: 8,
     overflow: 'hidden',
   },

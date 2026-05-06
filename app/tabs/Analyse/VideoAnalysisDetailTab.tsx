@@ -127,6 +127,9 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
 
         const uri = `file://${previewPath}`;
         setPreviewUri(uri);
+        if (analysis.seedFrameWidthPx && analysis.seedFrameHeightPx) {
+          setPreviewDimensions({width: analysis.seedFrameWidthPx, height: analysis.seedFrameHeightPx});
+        }
       }
     };
 
@@ -134,7 +137,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
     return () => {
       active = false;
     };
-  }, [analysis?.id, analysis?.manualSeedFramePath, analysis?.resultPath]);
+  }, [analysis?.id, analysis?.manualSeedFramePath, analysis?.resultPath, analysis?.seedFrameWidthPx, analysis?.seedFrameHeightPx]);
 
   const runManualSeedAnalysis = useCallback(
     async (manualSeed: ManualSeedPayload) => {
