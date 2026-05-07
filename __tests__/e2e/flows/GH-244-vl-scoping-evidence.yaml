@@ -1,0 +1,28 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-244: Per-training VL scoping — evidence capture
+# App is pre-navigated to the micro-level Overview via adb before this flow runs.
+# This flow: (1) screenshots micro-level Overview, (2) navigates to a finished training's
+# Analysis tab, (3) screenshots per-training Analyse.
+
+# Take screenshot of the current screen (micro-level Overview / MicroOverview)
+- takeScreenshot: "01_micro_level_overview"
+
+# Open drawer to navigate to the Pull finished training
+- tapOn: "drawer-menu-button"
+
+- extendedWaitUntil:
+    visible: "Pull"
+    timeout: 10000
+
+- tapOn: "Pull"
+
+- extendedWaitUntil:
+    visible: "Analysis"
+    timeout: 15000
+
+- assertVisible: "Analysis"
+- assertVisible: "Duration"
+
+# Take screenshot of the per-training Analysis tab (TrainingsOverview with scoped VL)
+- takeScreenshot: "02_per_training_analyse"

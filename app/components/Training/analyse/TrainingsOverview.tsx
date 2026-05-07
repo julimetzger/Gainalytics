@@ -1,6 +1,6 @@
 import {ScrollView, View} from 'react-native';
 import {Card, Text} from 'react-native-paper';
-import React from 'react';
+import React, {useMemo} from 'react';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {useLastFinishedWorkoutsByExerciseIds} from '../../../redux/Workout/use/useLastFinishedWorkoutsByExerciseIds';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
@@ -21,7 +21,11 @@ interface TrainingsOverviewProps {
 }
 
 const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMicro}: TrainingsOverviewProps) => {
-  const vlInsights = useVelocityLossInsights(trainingsPlan, currentMicro);
+  const trainingWorkoutIds = useMemo(
+    () => new Set(Object.values(training.doneWorkoutIds) as number[]),
+    [training.doneWorkoutIds],
+  );
+  const vlInsights = useVelocityLossInsights(trainingsPlan, currentMicro, trainingWorkoutIds);
   let trainingsWorkouts = useWorkoutsByIds(Object.values(training.doneWorkoutIds));
   const currentWorkoutIds = Object.values(training.doneWorkoutIds);
   let previousWorkoutsFromTraining = useWorkoutsByIds(previousTraining ? Object.values(previousTraining.doneWorkoutIds) : []);

@@ -94,14 +94,26 @@ describe('TrainingsOverview', () => {
     expect(getAllByTestId('vl-insight-card')).toHaveLength(2);
   });
 
-  it('passes correct trainingsPlan and currentMicro to useVelocityLossInsights', () => {
+  it('passes trainingsPlan, currentMicro, and training workout IDs to useVelocityLossInsights', () => {
     mockedUseVelocityLossInsights.mockReturnValue([]);
 
     render(
       <TrainingsOverview training={TRAINING as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={5} />,
     );
 
-    expect(mockedUseVelocityLossInsights).toHaveBeenCalledWith(TRAININGS_PLAN, 5);
+    // Third argument must be a Set of the training's doneWorkoutIds values (empty for TRAINING)
+    expect(mockedUseVelocityLossInsights).toHaveBeenCalledWith(TRAININGS_PLAN, 5, new Set());
+  });
+
+  it('passes the training workout IDs set correctly for a training with workouts', () => {
+    mockedUseVelocityLossInsights.mockReturnValue([]);
+
+    render(
+      <TrainingsOverview training={TRAINING_WITH_EXERCISES as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} />,
+    );
+
+    // doneWorkoutIds: {10: 100} → Set([100])
+    expect(mockedUseVelocityLossInsights).toHaveBeenCalledWith(TRAININGS_PLAN, 1, new Set([100]));
   });
 
   it('calls useLastFinishedWorkoutsByExerciseIds with training.exercises when no previousTraining', () => {
