@@ -1,6 +1,6 @@
 import {StyleSheet, View} from 'react-native';
 import {Button, Text, TextInput} from 'react-native-paper';
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {dispatchSuggestBasedOnTrained} from '../../redux/Training/dispatch/plan/dispatchSuggestBasedOnTrained';
 import {dispatchSuggestBasedOnPlanned} from '../../redux/Training/dispatch/plan/dispatchSuggestBasedOnPlanned';
 import {dispatchSuggestBasedOnLastMesoTraining} from '../../redux/Training/dispatch/plan/dispatchSuggestBasedOnLastMesoTraining';
@@ -12,9 +12,10 @@ interface TrainingsBaseProps {
   trainingsPlan: TrainingsPlan;
   trainingInMicro: number;
   micro: number;
+  onEnterPlanMode?: () => void;
 }
 
-const TrainingsBase = ({trainingsPlan, trainingInMicro, micro}: TrainingsBaseProps) => {
+const TrainingsBase = ({trainingsPlan, trainingInMicro, micro, onEnterPlanMode}: TrainingsBaseProps) => {
   const trainingsPlanId = trainingsPlan.id!!;
   const [rirDeltaInput, setRirDeltaInput] = useState(DEFAULT_SUGGESTION_PROGRESSION_PROFILE.rirDelta.toString());
   const [weightIncreasePercentInput, setWeightIncreasePercentInput] = useState(DEFAULT_SUGGESTION_PROGRESSION_PROFILE.weightIncreasePercent.toString());
@@ -51,8 +52,35 @@ const TrainingsBase = ({trainingsPlan, trainingInMicro, micro}: TrainingsBasePro
     suggestBasedOnLastMeso?.(trainingsPlanId, micro, trainingInMicro);
   }, [micro, suggestBasedOnLastMeso, trainingInMicro, trainingsPlanId]);
 
+  // GH-240: when none of the suggestion paths are available for this micro,
+  // we don't want the user staring at an empty suggestions screen. Auto-route
+  // them into plan mode (the manual exercise picker / linear plan flow).
+  const noSuggestionsAvailable =
+    suggestBasedOnTrained === undefined &&
+    suggestBasedOnPlanned === undefined &&
+    suggestBasedOnLastMeso === undefined;
+  const autoEnteredPlanModeRef = useRef(false);
+  useEffect(() => {
+    if (!noSuggestionsAvailable || onEnterPlanMode === undefined || autoEnteredPlanModeRef.current) {
+      return;
+    }
+    autoEnteredPlanModeRef.current = true;
+    onEnterPlanMode();
+  }, [noSuggestionsAvailable, onEnterPlanMode]);
+
   return (
     <View style={styles.container}>
+      {onEnterPlanMode !== undefined && (
+        <Button
+          mode="contained"
+          icon="playlist-edit"
+          onPress={onEnterPlanMode}
+          testID="training-plan-mode-button"
+          style={styles.planModeButton}
+        >
+          Plan mode
+        </Button>
+      )}
       <Text variant="titleSmall">Linear progression</Text>
       <View style={styles.inputsContainer}>
         <TextInput
@@ -116,6 +144,11 @@ const styles = StyleSheet.create({
 
   buttonContainer: {
     gap: 4,
+  },
+
+  planModeButton: {
+    marginBottom: 4,
+    alignSelf: 'flex-start',
   },
 });
 

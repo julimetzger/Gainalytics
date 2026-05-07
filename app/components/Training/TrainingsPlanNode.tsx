@@ -277,7 +277,25 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
               {/* Plan Tab — shown in all states */}
               {activeSubTab === 'plan' && (
                 <View>
-                  {(!training || !training.exercises.length) && <TrainingsBase trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro} />}
+                  {(!training || !training.exercises.length) && (
+                    <>
+                      <TrainingsBase
+                        trainingsPlan={trainingsPlan}
+                        micro={micro}
+                        trainingInMicro={trainingInMicro}
+                        onEnterPlanMode={() => setShowPicker(true)}
+                      />
+                      <TrainingElementPicker
+                        exercise={exercises}
+                        setExercise={setExerciseWithSideEffects}
+                        dropdownLabel="Select Exercises for your Training"
+                        hideChip={true}
+                        visible={showPicker}
+                        onToggle={() => setShowPicker(!showPicker)}
+                        hideIconButton={true}
+                      />
+                    </>
+                  )}
                   {chosenExercise && (
                     <View pointerEvents={'box-none'}>
                       <PlanTab

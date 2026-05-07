@@ -13,7 +13,7 @@ import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId
 import {dispatchDeleteSetFromWorkout} from '../../../redux/Workout/dispatch/dispatchDeleteSetFromWorkout';
 import {dispatchReplaceWorkoutSets} from '../../../redux/Workout/dispatch/dispatchReplaceWorkoutSets';
 import {GlobalState} from '../../../redux/rootReducer';
-import {cloneWorkoutSet, formatPlanNumber, getPlanFieldLabel, isPlanFieldValueValid} from './planUtils';
+import {buildWorkoutSetFromDraft, cloneWorkoutSet, formatPlanNumber, getPlanFieldLabel, isPlanFieldValueValid} from './planUtils';
 import {
   FullEditSnapshot,
   PendingPlanSetByExerciseId,
@@ -490,11 +490,30 @@ const PlanTab = ({
   }
 
   function handleAddSet(exerciseId: number) {
-    if (pendingSetByExerciseId[exerciseId] !== undefined) {
-      return;
+    // GH-240: never silently no-op. If there is already a pending row, commit it
+    // (when valid) and continue adding a new pending. When the pending row still
+    // has invalid values we leave it untouched — the user can finish or delete it,
+    // but we don't drop their click.
+    let pending = pendingSetByExerciseId[exerciseId];
+    if (pending !== undefined) {
+      const built = buildWorkoutSetFromDraft(pending, {
+        index: pending.index,
+        date: new Date(),
+        reps: 0,
+        rir: 0,
+        weight: 0,
+      });
+      if (built === null) {
+        // Invalid pending — keep it so the user can fix it; don't add a second
+        // empty row on top of it.
+        return;
+      }
+      upsertSetInPlan(exerciseId, built);
     }
     const sets = plannedWorkoutsByExerciseId[exerciseId]?.sets ?? [];
-    const nextIndex = (sets.map((workoutSet) => workoutSet.index ?? 0).sort((left, right) => left - right).pop() ?? 0) + 1;
+    const lastSavedIndex = sets.map((workoutSet) => workoutSet.index ?? 0).sort((left, right) => left - right).pop() ?? 0;
+    const lastPendingIndex = pending?.index ?? 0;
+    const nextIndex = Math.max(lastSavedIndex, lastPendingIndex) + 1;
     setPendingSetByExerciseId((current) => ({
       ...current,
       [exerciseId]: {
