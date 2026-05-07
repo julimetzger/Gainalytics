@@ -970,3 +970,15 @@ Using `lastDone.micro` as the "current" micro makes the completion ring show N/N
 
 ### Maestro JVM on WSL cannot reach physical device via ADB_SERVER_SOCKET
 The Maestro shell launcher runs on WSL's JVM. Even with `ADB_SERVER_SOCKET=tcp:172.x.x.x:5037` set, Maestro's JVM does not pick up the env var for device discovery. The Maestro binary at `/mnt/c/Users/metzg/maestro/maestro/bin/maestro` is a JVM-on-Linux process — it doesn't automatically use the Windows ADB server at 172.x.x.x. Workaround: start a local WSL adb server and verify the device appears there before calling maestro, OR use the cmd.exe Maestro path. In pure-code rounds with no Maestro infra, use existing screenshots and note the blocker.
+
+### Maestro gRPC screen capture returns black images in WSL2 + Windows ADB setup
+Even when Maestro successfully connects to the emulator (element finding and taps work), the `takeScreenshot` command captures a fully black image. Root cause: Maestro's internal gRPC screen grab is incompatible with the WSL2 host ↔ Windows ADB ↔ emulator chain. The `adb exec-out screencap -p` path does NOT go through Maestro's gRPC and always produces correct images. Mitigation: use `adb shell screencap -p /sdcard/name.png && adb pull /sdcard/name.png` for all evidence screenshots; note the Maestro screen-capture failure in `summary.md` and `status.json`. Unit tests provide the definitive functional proof.
+
+### Exact coordinates for drawer navigation: use `uiautomator dump` not visual estimates
+`adb shell uiautomator dump /sdcard/ui.xml && adb pull /sdcard/ui.xml` gives exact `bounds="[x1,y1][x2,y2]"` for every element. Visual estimation from rendered screenshots (scaled down) is unreliable because the scale factor varies by viewer. Calculate tap target as `((x1+x2)/2, (y1+y2)/2)` from the dump output.
+
+### `@testing-library/react-hooks` is not installed; use render-wrapper pattern instead
+This project only has `@testing-library/react-native`. To unit-test a custom hook: create a `Wrapper` component that calls the hook and stores the result in a `useRef`, then `render(<Wrapper />)` and read the ref. This is more reliable than `renderHook` from a missing package. Use `.tsx` extension (not `.ts`) because JSX is required for the wrapper component.
+
+### Scoping VL insights to a specific training: optional Set parameter pattern
+`useVelocityLossInsights(plan, currentMicro, trainingWorkoutIds?: ReadonlySet<number>)` — the third param scopes the current-micro filter to that training's workouts. Sparkline history is intentionally NOT filtered (spans all micros). `TrainingsOverview` computes the set via `useMemo` from `training.doneWorkoutIds`; `MicroOverview` omits the param to stay unscoped. This is the pattern for any future hook that needs per-training vs per-micro dual-mode behavior.
