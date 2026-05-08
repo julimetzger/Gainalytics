@@ -1,0 +1,48 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-240 Bug 1: Plan-mode button is rendered on the suggestions screen
+# (TrainingsBase) for any planned-but-not-yet-populated training slot.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+# Wait for the dev-bundle to load (Metro can take ~30s on first cold start).
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn:
+    id: 'next-training-start-button'
+- runFlow:
+    when:
+      visible: "Don't allow"
+    commands:
+      - tapOn: "Don't allow"
+- runFlow:
+    when:
+      visible: 'Don’t allow'
+    commands:
+      - tapOn: 'Don’t allow'
+# We're on the planned slot's Plan tab. TrainingsBase only renders when the slot
+# has no planned exercises — the fixture may already have one. If it does,
+# discard the existing training via the overflow menu so TrainingsBase is exposed.
+- runFlow:
+    when:
+      notVisible: 'Linear progression'
+    commands:
+      - tapOn:
+          id: 'header-overflow-button'
+      - tapOn:
+          id: 'overflow-discard'
+      - tapOn: 'Delete'
+- extendedWaitUntil:
+    visible: 'Plan new Training'
+    timeout: 30000
+- assertVisible: 'Plan new Training'
+- assertVisible:
+    id: 'training-plan-mode-button'
+- assertVisible: 'Suggest based on last Training'
+- assertVisible: 'Suggest based on last planned Training'
+- takeScreenshot: gh240_plan_mode_button_visible
