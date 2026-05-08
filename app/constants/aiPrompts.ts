@@ -12,5 +12,4 @@ export const DEFAULT_TRAINING_PROMPT =
   'Focus on the most impactful findings. Prioritise these signals if present:\n' +
   '- VL% vs RIR discrepancy: high velocity loss but high RIR reported (possible under-reporting of effort or form breakdown)\n' +
   '- Muscle-group frequency imbalance: one primary muscle group trained significantly less often than others\n' +
-  '- Volume stagnation: no load or volume progression across consecutive sessions for the same exercise\n' +
-  '- Sets where vl_percent > 25: typically indicates excessive fatigue accumulation';
+  '- Volume stagnation: no load or volume progression across consecutive sessions for the same exercise';
