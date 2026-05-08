@@ -95,6 +95,23 @@ const migrations = {
       contextRange: null,
     },
   }),
+  9: (state) => {
+    const oldPauseSeconds = state.settings?.localNotification?.pauseTimerInSeconds;
+    const alreadySet = state.settings?.restTimer?.userDefaultSeconds != null;
+    if (!alreadySet && oldPauseSeconds != null) {
+      return {
+        ...state,
+        settings: {
+          ...state.settings,
+          restTimer: {
+            ...(state.settings?.restTimer ?? {}),
+            userDefaultSeconds: oldPauseSeconds,
+          },
+        },
+      };
+    }
+    return state;
+  },
 };
 
 const storage = new MMKV();
@@ -118,7 +135,7 @@ const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseI
 
 const persistConfig = {
   key: 'root',
-  version: 8,
+  version: 9,
   storage: reduxStorage,
   whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'settings', 'aiChat'],
   stateReconciler: hardSet,

@@ -14,7 +14,6 @@ function createChannel() {
 
 export const PauseDoneNotification = () => {
   let appSettings = useSettings();
-  const pauseTimerInSeconds = appSettings.localNotification?.pauseTimerInSeconds ?? 0;
   const useExact = appSettings.localNotification?.exactAlarmPermission ?? false;
   const channelIdRef = useRef<string>();
   const notificationIdRef = useRef<string>('pause_done'); // stable id
@@ -26,15 +25,15 @@ export const PauseDoneNotification = () => {
     })();
   }, []);
 
-  const schedule = useCallback(async () => {
-    if (pauseTimerInSeconds <= 0) return;
+  const schedule = useCallback(async (seconds: number) => {
+    if (seconds <= 0) return;
 
     const channelId = channelIdRef.current ?? (await createChannel());
     channelIdRef.current = channelId;
 
     const trigger: TimestampTrigger = {
       type: TriggerType.TIMESTAMP,
-      timestamp: Date.now() + pauseTimerInSeconds * 1000 + 250, // small buffer time
+      timestamp: Date.now() + seconds * 1000 + 250, // small buffer time
       ...(useExact && {alarmManager: {type: AlarmType.SET_EXACT_AND_ALLOW_WHILE_IDLE}}),
     };
 
@@ -51,7 +50,7 @@ export const PauseDoneNotification = () => {
       },
       trigger,
     );
-  }, [pauseTimerInSeconds]);
+  }, [useExact]);
 
   const cancel = useCallback(async () => {
     await notifee.cancelNotification(notificationIdRef.current);

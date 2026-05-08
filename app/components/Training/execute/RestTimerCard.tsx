@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 14,
-    minHeight: 70,
+    minHeight: 90,
   },
   row: {
     flexDirection: 'row',

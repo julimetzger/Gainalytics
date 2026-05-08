@@ -19,8 +19,8 @@ export interface RestProgressRingProps {
 const mono = Platform.select({ios: 'Menlo', android: 'monospace', default: 'monospace'});
 
 const RestProgressRing = ({
-  size = 44,
-  strokeWidth = 3,
+  size = 66,
+  strokeWidth = 4,
   targetSeconds,
   elapsedSeconds,
   isOverrun,
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timerText: {
-    fontSize: 11,
+    fontSize: 16,
     fontWeight: '700',
   },
 });

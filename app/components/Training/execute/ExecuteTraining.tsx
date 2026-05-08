@@ -29,7 +29,7 @@ import {
 
 const DEFAULT_REST_SECONDS = 90;
 
-const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Props) => {
+const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onScheduleNotification, onCancelNotification}: Props) => {
   let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];
   let doneWorkout = useWorkoutById(doneWorkoutId);
   let nextTrainingsId = useNextTrainingsId();
@@ -108,10 +108,17 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: Prop
       setIndex: workoutSet.index,
       startedAt: Date.now(),
     });
+    onScheduleNotification?.(resolvedRestDefault);
   };
 
-  const onResetRest = () => resetRestTimer(Date.now());
-  const onSkipRest = () => dismissRestTimer();
+  const onResetRest = () => {
+    resetRestTimer(Date.now());
+    onCancelNotification?.();
+  };
+  const onSkipRest = () => {
+    dismissRestTimer();
+    onCancelNotification?.();
+  };
   const onEditTarget = (seconds: number, saveAsDefault: boolean) => {
     updateRestTarget(seconds);
     if (saveAsDefault && chosenExercise.id !== undefined) {
@@ -240,6 +247,8 @@ interface Props {
   chosenExercise: Exercise;
   onSubmit: () => void;
   onSubmitSet?: (workoutSet: WorkoutSet) => void;
+  onScheduleNotification?: (seconds: number) => void;
+  onCancelNotification?: () => void;
 }
 
 export default ExecuteTraining;
