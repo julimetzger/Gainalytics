@@ -19,8 +19,16 @@ export interface VLInsightData {
 /**
  * Derives VL Insight Card data for up to 3 exercises in the given micro.
  * Only exercises that have a linked (done) video analysis are included.
+ *
+ * @param trainingWorkoutIds - When provided, scopes the "current" analyses to only
+ *   workouts belonging to a specific training (for the per-training Analyse tab).
+ *   The sparkline history still spans all micros. Pass undefined for micro-level views.
  */
-export function useVelocityLossInsights(trainingsPlan: TrainingsPlan, currentMicro: number): VLInsightData[] {
+export function useVelocityLossInsights(
+  trainingsPlan: TrainingsPlan,
+  currentMicro: number,
+  trainingWorkoutIds?: ReadonlySet<number>,
+): VLInsightData[] {
   const videoAnalyses = useSelector((state: GlobalState) => state.videoAnalyses);
   const trainings = useSelector((state: GlobalState) => state.trainings);
   const workouts = useSelector((state: GlobalState) => state.workouts);
@@ -51,11 +59,13 @@ export function useVelocityLossInsights(trainingsPlan: TrainingsPlan, currentMic
           workoutIdToMicro.has(a.workoutId!),
       );
 
-    // Group analyses by exerciseId, keeping only those in the current micro for the "current" data
+    // Group analyses by exerciseId, keeping only those in the current micro for the "current" data.
+    // When trainingWorkoutIds is provided, further restrict to workouts of that specific training.
     const currentMicroAnalysesByExercise = new Map<number, typeof linkedAnalyses[0][]>();
     for (const a of linkedAnalyses) {
       const micro = workoutIdToMicro.get(a.workoutId!);
       if (micro !== currentMicro) continue;
+      if (trainingWorkoutIds !== undefined && !trainingWorkoutIds.has(a.workoutId!)) continue;
       const existing = currentMicroAnalysesByExercise.get(a.exerciseId!) ?? [];
       existing.push(a);
       currentMicroAnalysesByExercise.set(a.exerciseId!, existing);
@@ -137,5 +147,5 @@ export function useVelocityLossInsights(trainingsPlan: TrainingsPlan, currentMic
     }
 
     return insights;
-  }, [videoAnalyses, trainings, workouts, exercises, trainingsPlan, currentMicro]);
+  }, [videoAnalyses, trainings, workouts, exercises, trainingsPlan, currentMicro, trainingWorkoutIds]);
 }
