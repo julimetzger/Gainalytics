@@ -118,7 +118,7 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
       </Text>
       <Text variant="bodySmall" style={[styles.muscleHint, {color: theme.colors.onSurfaceVariant}]}>
         {activeMuscleCount === 0
-          ? 'Tap 25 / 50 / 75 / 100 for each involved muscle.'
+          ? 'Type a percent (0–100) for each involved muscle.'
           : `${activeMuscleCount} muscle${activeMuscleCount === 1 ? '' : 's'} with involvement`}
       </Text>
       <MuscleInvolvementEditor pairs={muscles} onChange={setMuscles} />

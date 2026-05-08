@@ -5,9 +5,15 @@ import {Muscles} from '../../../../app/models/Muscles';
 
 jest.mock('react-native-paper', () => {
   const React = require('react');
-  const {Text} = require('react-native');
+  const {Text, TextInput: RNInput, View} = require('react-native');
+  const TextInput = ({value, onChangeText, testID}: any) => (
+    <RNInput testID={testID} value={value} onChangeText={onChangeText} />
+  );
+  TextInput.Affix = ({text}: any) => <Text>{text}</Text>;
+  TextInput.Icon = () => null;
   return {
     Text: ({children}: any) => <Text>{children}</Text>,
+    TextInput,
     useTheme: () => ({
       colors: {
         primary: '#6200ee',
@@ -18,38 +24,72 @@ jest.mock('react-native-paper', () => {
         surfaceVariant: '#eee',
       },
     }),
+    View,
   };
 });
 
-describe('MuscleInvolvementEditor (inline)', () => {
+describe('MuscleInvolvementEditor (numeric input)', () => {
   it('renders inline without a Portal/Dialog wrapper', () => {
-    const {getByTestId, UNSAFE_queryAllByType} = render(
+    const {getByTestId} = render(
       <MuscleInvolvementEditor pairs={[]} onChange={jest.fn()} />,
     );
-    // Inline contract: no Paper Portal/Dialog should appear in the tree.
-    // We use UNSAFE_queryAllByType against the React-Native-Paper modules; the
-    // mock above only re-exports `Text` + `useTheme`, so any Portal/Dialog
-    // would be undefined and not findable. As a belt-and-braces check, we
-    // also assert that the mocked paper module exports do not include Portal.
     expect(getByTestId('muscle-involvement-editor')).toBeTruthy();
     const paper = require('react-native-paper');
     expect(paper.Portal).toBeUndefined();
     expect(paper.Dialog).toBeUndefined();
-    // Confirm muscle rows are rendered as plain Views (no overlay component).
-    expect(UNSAFE_queryAllByType(MuscleInvolvementEditor).length).toBe(1);
   });
 
-  it('shows quick-%-chips (25/50/75/100) for each muscle', () => {
-    const {getByTestId} = render(
+  it('shows a numeric input per muscle (no quick-%-chips)', () => {
+    const {getByTestId, queryByTestId} = render(
       <MuscleInvolvementEditor pairs={[]} onChange={jest.fn()} />,
     );
-    expect(getByTestId(`muscle-chip-${Muscles.CHEST}-25`)).toBeTruthy();
-    expect(getByTestId(`muscle-chip-${Muscles.CHEST}-50`)).toBeTruthy();
-    expect(getByTestId(`muscle-chip-${Muscles.CHEST}-75`)).toBeTruthy();
-    expect(getByTestId(`muscle-chip-${Muscles.CHEST}-100`)).toBeTruthy();
+    expect(getByTestId(`muscle-input-${Muscles.CHEST}`)).toBeTruthy();
+    expect(queryByTestId(`muscle-chip-${Muscles.CHEST}-25`)).toBeNull();
+    expect(queryByTestId(`muscle-chip-${Muscles.CHEST}-50`)).toBeNull();
+    expect(queryByTestId(`muscle-chip-${Muscles.CHEST}-75`)).toBeNull();
+    expect(queryByTestId(`muscle-chip-${Muscles.CHEST}-100`)).toBeNull();
   });
 
-  it('progress-bar fill width reflects the assigned percent for a muscle', () => {
+  it('typing a number sets the percent for the muscle', () => {
+    const onChange = jest.fn();
+    const {getByTestId} = render(
+      <MuscleInvolvementEditor pairs={[]} onChange={onChange} />,
+    );
+    fireEvent.changeText(getByTestId(`muscle-input-${Muscles.CHEST}`), '60');
+    expect(onChange).toHaveBeenCalledWith([{muscle: Muscles.CHEST, percent: 60}]);
+  });
+
+  it('clearing the input removes the muscle from the pair list', () => {
+    const onChange = jest.fn();
+    const {getByTestId} = render(
+      <MuscleInvolvementEditor
+        pairs={[{muscle: Muscles.CHEST, percent: 60}]}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.changeText(getByTestId(`muscle-input-${Muscles.CHEST}`), '');
+    expect(onChange).toHaveBeenCalledWith([]);
+  });
+
+  it('typing a non-numeric character is a no-op (does not crash)', () => {
+    const onChange = jest.fn();
+    const {getByTestId} = render(
+      <MuscleInvolvementEditor pairs={[]} onChange={onChange} />,
+    );
+    fireEvent.changeText(getByTestId(`muscle-input-${Muscles.CHEST}`), 'abc');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('typing a value > 100 clamps to 100', () => {
+    const onChange = jest.fn();
+    const {getByTestId} = render(
+      <MuscleInvolvementEditor pairs={[]} onChange={onChange} />,
+    );
+    fireEvent.changeText(getByTestId(`muscle-input-${Muscles.CHEST}`), '250');
+    expect(onChange).toHaveBeenCalledWith([{muscle: Muscles.CHEST, percent: 100}]);
+  });
+
+  it('progress-bar fill width matches the percent immediately when pairs change', () => {
     const {getByTestId, rerender} = render(
       <MuscleInvolvementEditor pairs={[{muscle: Muscles.CHEST, percent: 75}]} onChange={jest.fn()} />,
     );
@@ -69,30 +109,12 @@ describe('MuscleInvolvementEditor (inline)', () => {
     expect(fill.props.style).toEqual(expect.arrayContaining([expect.objectContaining({width: '0%'})]));
   });
 
-  it('tapping a chip emits onChange with the chosen percent', () => {
-    const onChange = jest.fn();
-    const {getByTestId} = render(
-      <MuscleInvolvementEditor pairs={[]} onChange={onChange} />,
-    );
-    fireEvent.press(getByTestId(`muscle-chip-${Muscles.CHEST}-75`));
-    expect(onChange).toHaveBeenCalledWith([{muscle: Muscles.CHEST, percent: 75}]);
-  });
-
-  it('tapping the active chip deselects (collapses bar to 0)', () => {
-    const onChange = jest.fn();
-    const {getByTestId} = render(
-      <MuscleInvolvementEditor pairs={[{muscle: Muscles.CHEST, percent: 50}]} onChange={onChange} />,
-    );
-    fireEvent.press(getByTestId(`muscle-chip-${Muscles.CHEST}-50`));
-    expect(onChange).toHaveBeenCalledWith([]);
-  });
-
   it('does NOT enforce sum=100 — multiple non-equal percentages are accepted', () => {
     const onChange = jest.fn();
     const {getByTestId, rerender} = render(
       <MuscleInvolvementEditor pairs={[{muscle: Muscles.CHEST, percent: 100}]} onChange={onChange} />,
     );
-    fireEvent.press(getByTestId(`muscle-chip-${Muscles.SHOULDERS}-75`));
+    fireEvent.changeText(getByTestId(`muscle-input-${Muscles.SHOULDERS}`), '75');
     const next = onChange.mock.calls[0][0];
     rerender(<MuscleInvolvementEditor pairs={next} onChange={onChange} />);
     const sum = next.reduce((s: number, p: {percent: number}) => s + p.percent, 0);

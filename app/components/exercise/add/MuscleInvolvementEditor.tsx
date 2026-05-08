@@ -1,11 +1,9 @@
 import React from 'react';
-import {Pressable, StyleSheet, View} from 'react-native';
-import {Text, useTheme} from 'react-native-paper';
+import {StyleSheet, View} from 'react-native';
+import {Text, TextInput, useTheme} from 'react-native-paper';
 import {Muscles} from '../../../models/Muscles';
 import {MusclePercentPair} from '../../../models/entities/Exercise';
 import {ALL_MUSCLES_SORTED} from './muscle-involvement-utils';
-
-const QUICK_PERCENTS = [25, 50, 75, 100] as const;
 
 interface MuscleInvolvementEditorProps {
   pairs: MusclePercentPair[];
@@ -29,6 +27,18 @@ const setPercentFor = (
   return [...others, {muscle, percent}];
 };
 
+// Accept digits and at most one '.', clamp to [0, 100]. Empty string clears the muscle.
+const parseInputToPercent = (raw: string): {percent: number; display: string} | null => {
+  const trimmed = raw.trim();
+  if (trimmed === '') return {percent: 0, display: ''};
+  if (!/^\d*\.?\d*$/.test(trimmed)) return null; // ignore non-numeric character
+  const n = Number(trimmed);
+  if (!Number.isFinite(n)) return null;
+  if (n < 0) return {percent: 0, display: '0'};
+  if (n > 100) return {percent: 100, display: '100'};
+  return {percent: n, display: trimmed};
+};
+
 const MuscleInvolvementEditor = ({pairs, onChange}: MuscleInvolvementEditorProps) => {
   const theme = useTheme();
   const trackColor = theme.colors.surfaceVariant;
@@ -37,6 +47,8 @@ const MuscleInvolvementEditor = ({pairs, onChange}: MuscleInvolvementEditorProps
     <View style={styles.container} testID="muscle-involvement-editor">
       {ALL_MUSCLES_SORTED.map((muscle) => {
         const current = percentFor(pairs, muscle);
+        const fillWidth = `${Math.max(0, Math.min(100, current))}%` as const;
+        const inputValue = current > 0 ? String(current) : '';
         return (
           <View
             key={muscle}
@@ -55,39 +67,28 @@ const MuscleInvolvementEditor = ({pairs, onChange}: MuscleInvolvementEditorProps
                 style={[
                   styles.barFill,
                   {
-                    width: `${Math.max(0, Math.min(100, current))}%`,
+                    width: fillWidth,
                     backgroundColor: theme.colors.primary,
                   },
                 ]}
                 testID={`muscle-bar-fill-${muscle}`}
               />
             </View>
-            <View style={styles.chipsRow}>
-              {QUICK_PERCENTS.map((p) => {
-                const isActive = current === p;
-                return (
-                  <Pressable
-                    key={p}
-                    onPress={() => onChange(setPercentFor(pairs, muscle, isActive ? 0 : p))}
-                    style={[
-                      styles.chip,
-                      {
-                        borderColor: theme.colors.outlineVariant,
-                        backgroundColor: isActive ? theme.colors.primary : 'transparent',
-                      },
-                    ]}
-                    testID={`muscle-chip-${muscle}-${p}`}
-                  >
-                    <Text
-                      variant="labelSmall"
-                      style={{color: isActive ? theme.colors.onPrimary : theme.colors.onSurface}}
-                    >
-                      {p}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <TextInput
+              value={inputValue}
+              onChangeText={(raw) => {
+                const parsed = parseInputToPercent(raw);
+                if (parsed === null) return; // non-numeric → no-op
+                onChange(setPercentFor(pairs, muscle, parsed.percent));
+              }}
+              keyboardType="numeric"
+              mode="outlined"
+              dense
+              style={styles.input}
+              contentStyle={styles.inputContent}
+              testID={`muscle-input-${muscle}`}
+              right={<TextInput.Affix text="%" />}
+            />
           </View>
         );
       })}
@@ -120,18 +121,14 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
-  chipsRow: {
-    flexDirection: 'row',
-    gap: 4,
+  input: {
+    width: 72,
+    height: 36,
   },
-  chip: {
-    minWidth: 32,
-    height: 28,
-    paddingHorizontal: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  inputContent: {
+    paddingHorizontal: 4,
+    fontSize: 14,
+    textAlign: 'right',
   },
 });
 
