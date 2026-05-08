@@ -132,7 +132,7 @@ const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, 
             </Text>
           )}
           {trainingState === TrainingsState.STARTED && trainingStart && (
-            <>
+            <View testID="header-date-timer-stack" style={{flexDirection: 'column', alignItems: 'flex-end'}}>
               <Text
                 testID="header-date"
                 style={{
@@ -142,16 +142,6 @@ const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, 
               >
                 {formatDate(trainingStart)}
               </Text>
-              <View
-                testID="header-live-dot"
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 4,
-                  backgroundColor: theme.colors.primary,
-                  marginHorizontal: 2,
-                }}
-              />
               <Text
                 testID="header-session-timer"
                 style={{
@@ -162,7 +152,7 @@ const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, 
               >
                 {formatElapsed(trainingStart)}
               </Text>
-            </>
+            </View>
           )}
           {trainingState === TrainingsState.FINISHED && trainingStart && (
             <>

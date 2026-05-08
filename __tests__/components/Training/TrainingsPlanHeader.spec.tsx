@@ -37,9 +37,9 @@ describe('TrainingsPlanHeader', () => {
     expect(getByText('Micro 3')).toBeTruthy();
   });
 
-  it('shows date, live-dot and session timer when state is STARTED and trainingStart is set', () => {
+  it('shows date and session timer in a two-row stack when state is STARTED and trainingStart is set', () => {
     const start = new Date(Date.now() - 5000).toISOString();
-    const {getByTestId} = render(
+    const {getByTestId, queryByTestId} = render(
       <TrainingsPlanHeader
         {...BASE_PROPS}
         trainingState={TrainingsState.STARTED}
@@ -47,8 +47,30 @@ describe('TrainingsPlanHeader', () => {
       />,
     );
     expect(getByTestId('header-date')).toBeTruthy();
-    expect(getByTestId('header-live-dot')).toBeTruthy();
+    expect(queryByTestId('header-live-dot')).toBeNull();
     expect(getByTestId('header-session-timer')).toBeTruthy();
+    expect(getByTestId('header-date-timer-stack')).toBeTruthy();
+  });
+
+  it('two-row layout: date on first line, timer on second line inside stack container when STARTED', () => {
+    const start = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const {getByTestId} = render(
+      <TrainingsPlanHeader
+        {...BASE_PROPS}
+        trainingState={TrainingsState.STARTED}
+        trainingStart={start}
+      />,
+    );
+    const stack = getByTestId('header-date-timer-stack');
+    expect(stack.props.style).toMatchObject({flexDirection: 'column', alignItems: 'flex-end'});
+    expect(getByTestId('header-date')).toBeTruthy();
+    expect(getByTestId('header-session-timer')).toBeTruthy();
+  });
+
+  it('single-row layout: no stack container or timer when training is not active', () => {
+    const {queryByTestId} = render(<TrainingsPlanHeader {...BASE_PROPS} />);
+    expect(queryByTestId('header-date-timer-stack')).toBeNull();
+    expect(queryByTestId('header-session-timer')).toBeNull();
   });
 
   it('shows "Plan" label for PLANNED state and no live-dot or timer', () => {
