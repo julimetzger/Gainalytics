@@ -1,17 +1,15 @@
 import React from 'react';
 import ExerciseTab from '../tabs/exercises/ExerciseTab';
-import AddWorkoutTab from '../tabs/exercises/AddWorkoutTab';
-import {useTheme, IconButton} from 'react-native-paper';
+import ExerciseDetailScreen from '../tabs/exercises/ExerciseDetailScreen';
+import EditExerciseSheet from '../tabs/exercises/EditExerciseSheet';
+import {useTheme} from 'react-native-paper';
 import {Exercise} from '../models/entities/Exercise';
-import ExerciseStatisticsTabs from '../tabs/exercises/ExerciseStatisticsTabs';
-import ExerciseHistoryTab from '../tabs/exercises/ExerciseHistoryTab';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 export type RootStackParamList = {
   Exercises: undefined;
-  AddWorkoutTab: {exercise: Exercise};
-  ExerciseStatisticsTab: {exercise: Exercise};
-  ExericseHistory: {exercise: Exercise};
+  AddWorkoutTab: {exercise: Exercise; initialTab?: 'log' | 'stats' | 'history' | 'graph'};
+  EditExerciseSheet: {exerciseId?: number};
   Settings: undefined;
 };
 
@@ -23,31 +21,24 @@ const ExerciseRouter = () => {
       <Stack.Screen
         name="Exercises"
         component={ExerciseTab}
-        options={({navigation}) => ({
+        options={{
           title: 'Exercises',
-          headerRight: () => <IconButton icon="magnify" onPress={() => navigation.setParams({toggleFilter: true})}></IconButton>,
-        })}
+        }}
       />
       <Stack.Screen
         name="AddWorkoutTab"
-        component={AddWorkoutTab}
+        component={ExerciseDetailScreen}
         options={({route}) => ({
           title: route.params.exercise.name,
         })}
       />
       <Stack.Screen
-        name="ExerciseStatisticsTab"
-        component={ExerciseStatisticsTabs}
-        options={({route}) => ({
-          title: route.params.exercise.name,
-        })}
-      />
-      <Stack.Screen
-        name="ExericseHistory"
-        component={ExerciseHistoryTab}
-        options={({route}) => ({
-          title: route.params.exercise.name,
-        })}
+        name="EditExerciseSheet"
+        component={EditExerciseSheet}
+        options={{
+          title: 'New exercise',
+          presentation: 'fullScreenModal',
+        }}
       />
     </Stack.Navigator>
   );

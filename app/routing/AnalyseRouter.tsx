@@ -5,7 +5,6 @@ import {createDrawerNavigator} from '@react-navigation/drawer';
 import AnalyseGraphics from '../tabs/Analyse/AnalyseGraphics';
 import RecordsTab from '../tabs/Analyse/Records';
 import MetricsTab from '../tabs/Analyse/Metrics';
-import ExerciseGraphs from '../tabs/Analyse/ExerciseGraphs';
 import {IconButton, useTheme} from 'react-native-paper';
 import VideoAnalysisTab from '../tabs/Analyse/VideoAnalysisTab';
 import VideoAnalysisDetailTab from '../tabs/Analyse/VideoAnalysisDetailTab';
@@ -20,7 +19,6 @@ export type RootStackParamList = {
   AnalyseHome: {exercise: {name: string}};
   Records: undefined;
   Metrics: undefined;
-  Graphs: undefined;
   TrainingLength: undefined;
   VideoAnalyses: undefined;
   VideoAnalysisDetail: {analysisId: number};
@@ -52,13 +50,6 @@ const AnalyseRouter = () => {
         component={AnalyseGraphics}
         options={({route}) => ({
           title: route.params?.exercise?.name ?? 'Analyse',
-        })}
-      />
-      <Stack.Screen
-        name="Graphs"
-        component={ExerciseGraphs}
-        options={() => ({
-          title: 'Exercise Graphs',
         })}
       />
       <Stack.Screen
