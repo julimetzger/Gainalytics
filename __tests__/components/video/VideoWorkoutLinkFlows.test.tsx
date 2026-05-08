@@ -114,19 +114,23 @@ describe('WorkoutSetView – video link UI', () => {
     expect(getByTestId('set-link-video-2')).toBeTruthy();
   });
 
-  it('does not render camera icon when editable=false', () => {
+  it('renders video-plus icon (non-interactive) when editable=false', () => {
     const onLinkVideo = jest.fn();
-    const {queryByTestId} = wrapWithProviders(
+    const {getByTestId} = wrapWithProviders(
       <WorkoutSetView sets={sets} editable={false} onLinkVideo={onLinkVideo} />,
     );
-    expect(queryByTestId('set-link-video-1')).toBeNull();
+    // Icon is always visible; pressing it is a no-op when not editable
+    expect(getByTestId('set-link-video-1')).toBeTruthy();
+    fireEvent.press(getByTestId('set-link-video-1'));
+    expect(onLinkVideo).not.toHaveBeenCalled();
   });
 
-  it('does not render camera icon when onLinkVideo is not provided', () => {
-    const {queryByTestId} = wrapWithProviders(
+  it('renders video-plus icon (non-interactive) when onLinkVideo is not provided', () => {
+    const {getByTestId} = wrapWithProviders(
       <WorkoutSetView sets={sets} editable={true} />,
     );
-    expect(queryByTestId('set-link-video-1')).toBeNull();
+    // Icon is always visible as a visual indicator even without a handler
+    expect(getByTestId('set-link-video-1')).toBeTruthy();
   });
 
   it('calls onLinkVideo with the tapped set', () => {

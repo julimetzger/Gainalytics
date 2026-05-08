@@ -15,6 +15,7 @@ import {GlobalState} from '../../../redux/rootReducer';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import VideoSelectionModal from '../../video/VideoSelectionModal';
 import {useNavigation} from '@react-navigation/native';
+import {VideoAnalysisStatus} from '../../../models/entities/VideoAnalysis';
 
 const useOptionalNavigation = () => {
   try {
@@ -46,7 +47,12 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
     state.videoAnalyses.allIds
       .map(id => state.videoAnalyses.byId[id])
       .filter(a => a.workoutId === workoutId && a.setIndex !== undefined && a.id !== undefined)
-      .map(a => ({setIndex: a.setIndex as number, analysisId: a.id as number}))
+      .map(a => ({
+        setIndex: a.setIndex as number,
+        analysisId: a.id as number,
+        vlPercent: a.status === VideoAnalysisStatus.DONE ? a.setResult?.velocityLossPercent : undefined,
+        drift: a.status === VideoAnalysisStatus.DONE ? a.setResult?.mean_path_deviation : undefined,
+      }))
   );
 
   const setShowEditWhenEditable = (shouldShow: boolean) => {
