@@ -25,6 +25,33 @@ jest.mock('../../../app/redux/Exercises/use/useExercise', () => ({
 
 jest.mock('../../../app/components/exercise/add/ExerciseAlternativesField', () => () => null);
 
+// Render the GH-163 MuscleInvolvementEditor as a simple inline editor so tests
+// can drive it via testIDs without going through paper Dialog/Portal.
+jest.mock('../../../app/components/exercise/add/MuscleInvolvementEditor', () => {
+  const React = require('react');
+  const {View, TouchableOpacity, Text} = require('react-native');
+  return ({visible, onApply, onDismiss, initialPairs}: any) => {
+    if (!visible) return null;
+    return (
+      <View testID="muscle-involvement-editor">
+        <TouchableOpacity
+          testID="apply-pull-mix"
+          onPress={() => {
+            onApply([
+              {muscle: 'BACK', percent: 100},
+              {muscle: 'BICEPS', percent: 75},
+            ]);
+            onDismiss();
+          }}
+        >
+          <Text>apply</Text>
+        </TouchableOpacity>
+        <Text testID="initial-count">{initialPairs.length}</Text>
+      </View>
+    );
+  };
+});
+
 jest.mock('react-native-paper', () => {
   const React = require('react');
   const {Text, TouchableOpacity, TextInput, View} = require('react-native');
@@ -46,14 +73,6 @@ jest.mock('react-native-paper', () => {
       </TouchableOpacity>
     ),
     Switch,
-    Searchbar: ({value, onChangeText, testID, placeholder}: any) => (
-      <TextInput testID={testID ?? 'muscle-searchbar'} value={value} onChangeText={onChangeText} placeholder={placeholder} />
-    ),
-    Chip: ({children, onPress, testID}: any) => (
-      <TouchableOpacity testID={testID} onPress={onPress}>
-        <Text>{children}</Text>
-      </TouchableOpacity>
-    ),
     Text: ({children}: any) => <Text>{children}</Text>,
     TextInput: ({value, onChangeText, label, testID, placeholder}: any) => (
       <TextInput testID={testID} value={value} onChangeText={onChangeText} placeholder={placeholder ?? label} />
@@ -102,13 +121,14 @@ describe('EditExerciseSheet', () => {
     expect(goBackMock).toHaveBeenCalled();
   });
 
-  it('Save accepts arbitrary muscle percentages without sum=100 validation', () => {
+  it('embeds MuscleInvolvementEditor and accepts arbitrary muscle percentages without sum=100 validation', () => {
     const {nav, setOptionsMock} = makeNavigation();
-    const {getByTestId} = render(<EditExerciseSheet navigation={nav as any} route={{params: {}} as any} />);
+    const {getByTestId, queryByTestId} = render(<EditExerciseSheet navigation={nav as any} route={{params: {}} as any} />);
 
     fireEvent.changeText(getByTestId('edit-exercise-name'), 'Pull');
-    fireEvent.press(getByTestId(`chip-${Muscles.BACK}-100`));
-    fireEvent.press(getByTestId(`chip-${Muscles.BICEPS}-75`));
+    expect(queryByTestId('muscle-involvement-editor')).toBeNull();
+    fireEvent.press(getByTestId('edit-exercise-muscle-button'));
+    fireEvent.press(getByTestId('apply-pull-mix'));
 
     const headerRight = lastHeaderRight(setOptionsMock);
     headerRight.props.onPress();

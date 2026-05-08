@@ -1,6 +1,7 @@
 import React from 'react';
 import {fireEvent, render} from '@testing-library/react-native';
 import ExerciseDetailScreen from '../../../app/tabs/exercises/ExerciseDetailScreen';
+import {useExercise} from '../../../app/redux/Exercises/use/useExercise';
 
 jest.mock('../../../app/redux/Exercises/use/useExercise', () => ({
   useExercise: jest.fn(() => ({id: 5, name: 'Front squat', isFocus: true})),
@@ -23,6 +24,10 @@ jest.mock('../../../app/components/exercise/show/ExerciseHistoryTabContent', () 
 jest.mock('../../../app/components/exercise/show/ExerciseGraphTab', () => () => {
   const {Text} = require('react-native');
   return <Text testID="graph-content">graph</Text>;
+});
+jest.mock('../../../app/components/exercise/show/ExerciseDetailHeaderCards', () => () => {
+  const {Text} = require('react-native');
+  return <Text testID="header-cards">header-cards</Text>;
 });
 
 jest.mock('react-native-paper', () => {
@@ -48,8 +53,14 @@ jest.mock('react-native-paper', () => {
   };
 });
 
+const mockedUseExercise = jest.mocked(useExercise);
+
 describe('ExerciseDetailScreen 4-tab structure', () => {
-  const navigation = {setOptions: jest.fn(), navigate: jest.fn()} as any;
+  beforeEach(() => {
+    mockedUseExercise.mockReturnValue({id: 5, name: 'Front squat', isFocus: true});
+  });
+
+  const navigation = {setOptions: jest.fn(), navigate: jest.fn(), goBack: jest.fn(), canGoBack: jest.fn(() => true)} as any;
   const route = {params: {exercise: {id: 5, name: 'Front squat', isFocus: true}}} as any;
 
   it('renders 4 tab buttons (Log, Stats, History, Graph) and shows Log by default', () => {
@@ -59,6 +70,7 @@ describe('ExerciseDetailScreen 4-tab structure', () => {
     expect(getByTestId('exercise-tab-history')).toBeTruthy();
     expect(getByTestId('exercise-tab-graph')).toBeTruthy();
     expect(getByTestId('log-content')).toBeTruthy();
+    expect(getByTestId('header-cards')).toBeTruthy();
   });
 
   it('switches to Stats tab when tab button pressed', () => {
@@ -76,11 +88,19 @@ describe('ExerciseDetailScreen 4-tab structure', () => {
 
   it('renders header pencil-edit and focus-toggle buttons', () => {
     const setOptionsCalls: any[] = [];
-    const nav = {setOptions: (o: any) => setOptionsCalls.push(o), navigate: jest.fn()} as any;
+    const nav = {setOptions: (o: any) => setOptionsCalls.push(o), navigate: jest.fn(), goBack: jest.fn(), canGoBack: jest.fn(() => true)} as any;
     render(<ExerciseDetailScreen navigation={nav} route={route} />);
     const headerOptions = setOptionsCalls[setOptionsCalls.length - 1];
     const headerRight = headerOptions.headerRight();
     const ids = headerRight.props.children.map((c: any) => c.props.testID);
     expect(ids).toEqual(expect.arrayContaining(['exercise-detail-focus-toggle', 'exercise-detail-edit-button']));
+  });
+
+  it('navigates back when the live exercise is deleted while the screen is open', () => {
+    mockedUseExercise.mockReturnValue(undefined);
+    const goBackMock = jest.fn();
+    const nav = {setOptions: jest.fn(), navigate: jest.fn(), goBack: goBackMock, canGoBack: jest.fn(() => true)} as any;
+    render(<ExerciseDetailScreen navigation={nav} route={route} />);
+    expect(goBackMock).toHaveBeenCalled();
   });
 });

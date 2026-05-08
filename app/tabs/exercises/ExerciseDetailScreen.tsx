@@ -9,6 +9,7 @@ import ExerciseLogTab from '../../components/exercise/show/ExerciseLogTab';
 import ExerciseStatsTab from '../../components/exercise/show/ExerciseStatsTab';
 import ExerciseHistoryTabContent from '../../components/exercise/show/ExerciseHistoryTabContent';
 import ExerciseGraphTab from '../../components/exercise/show/ExerciseGraphTab';
+import ExerciseDetailHeaderCards from '../../components/exercise/show/ExerciseDetailHeaderCards';
 
 type TabKey = 'log' | 'stats' | 'history' | 'graph';
 
@@ -23,8 +24,19 @@ const ExerciseDetailScreen = ({navigation, route}: Props) => {
   const theme = useTheme();
   const exerciseFromParam = route.params.exercise;
   const live = useExercise(exerciseFromParam.id);
-  const exercise = live ?? exerciseFromParam;
 
+  // When the user deletes the current exercise from EditExerciseSheet, the
+  // detail screen would otherwise keep rendering against the stale route
+  // param. Pop back instead so callbacks (focus, edit, log) cannot target an
+  // exercise that no longer exists.
+  useEffect(() => {
+    if (exerciseFromParam.id !== undefined && live === undefined) {
+      if (navigation.canGoBack()) navigation.goBack();
+      else navigation.popToTop?.();
+    }
+  }, [exerciseFromParam.id, live, navigation]);
+
+  const exercise = live ?? exerciseFromParam;
   const [activeTab, setActiveTab] = useState<TabKey>('log');
   const editExercise = dispatchEditExercise();
 
@@ -62,6 +74,7 @@ const ExerciseDetailScreen = ({navigation, route}: Props) => {
 
   return (
     <View style={[styles.root, {backgroundColor: theme.colors.background}]}>
+      <ExerciseDetailHeaderCards exercise={exercise} />
       <View style={[styles.tabBar, {backgroundColor: theme.colors.surfaceVariant}]} testID="exercise-detail-tabbar">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
@@ -113,7 +126,8 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    margin: 8,
+    marginHorizontal: 8,
+    marginBottom: 8,
     padding: 4,
     borderRadius: 12,
     gap: 4,

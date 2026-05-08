@@ -1,4 +1,4 @@
-import React, {useEffect, useLayoutEffect, useState} from 'react';
+import React, {useEffect, useLayoutEffect, useMemo, useState} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Icon, IconButton, Switch, Text, TextInput, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -8,7 +8,7 @@ import {useDispatchAddExercise} from '../../redux/Exercises/dispatch/dispatchAdd
 import {dispatchEditExercise} from '../../redux/Exercises/dispatch/dispatchEditExercise';
 import {dispatchDeleteExercise} from '../../redux/Exercises/dispatch/dispatchDeleteExercise';
 import {MusclePercentPair} from '../../models/entities/Exercise';
-import MusclePicker from '../../components/exercise/add/MusclePicker';
+import MuscleInvolvementEditor from '../../components/exercise/add/MuscleInvolvementEditor';
 import ExerciseAlternativesField from '../../components/exercise/add/ExerciseAlternativesField';
 
 const EditExerciseSheet = ({navigation, route}: Props) => {
@@ -21,6 +21,7 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
   const [isFocus, setIsFocus] = useState<boolean>(existing?.isFocus ?? false);
   const [muscles, setMuscles] = useState<MusclePercentPair[]>(existing?.muscles ?? []);
   const [alternativeIds, setAlternativeIds] = useState<number[]>(existing?.alternativeIds ?? []);
+  const [muscleEditorVisible, setMuscleEditorVisible] = useState(false);
 
   const addExercise = useDispatchAddExercise();
   const editExercise = dispatchEditExercise();
@@ -37,6 +38,11 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
 
   const trimmedName = name.trim();
   const saveDisabled = trimmedName.length === 0;
+
+  const activeMuscleCount = useMemo(
+    () => muscles.filter((m) => m.muscle !== undefined && (m.percent ?? 0) > 0).length,
+    [muscles],
+  );
 
   const handleSave = () => {
     if (saveDisabled) return;
@@ -100,7 +106,19 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
         <Switch value={isFocus} onValueChange={setIsFocus} testID="edit-exercise-focus-switch" />
       </View>
 
-      <MusclePicker muscles={muscles} onChange={setMuscles} />
+      <Button
+        mode="outlined"
+        style={styles.muscleButton}
+        onPress={() => setMuscleEditorVisible(true)}
+        testID="edit-exercise-muscle-button"
+      >
+        Muscle involvement
+      </Button>
+      <Text variant="bodySmall" style={[styles.muscleHint, {color: theme.colors.onSurfaceVariant}]}>
+        {activeMuscleCount === 0
+          ? 'No muscles set (tap to configure)'
+          : `${activeMuscleCount} muscle${activeMuscleCount === 1 ? '' : 's'} with involvement`}
+      </Text>
 
       <ExerciseAlternativesField exerciseId={exerciseId} alternativeIds={alternativeIds} onChange={setAlternativeIds} />
 
@@ -115,6 +133,13 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
           Delete exercise
         </Button>
       )}
+
+      <MuscleInvolvementEditor
+        visible={muscleEditorVisible}
+        onDismiss={() => setMuscleEditorVisible(false)}
+        initialPairs={muscles}
+        onApply={setMuscles}
+      />
     </ScrollView>
   );
 };
@@ -144,6 +169,13 @@ const styles = StyleSheet.create({
   },
   focusText: {
     fontSize: 16,
+  },
+  muscleButton: {
+    marginTop: 4,
+  },
+  muscleHint: {
+    marginTop: 4,
+    marginBottom: 4,
   },
   deleteButton: {
     marginTop: 16,

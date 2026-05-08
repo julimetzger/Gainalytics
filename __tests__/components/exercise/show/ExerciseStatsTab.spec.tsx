@@ -27,7 +27,7 @@ jest.mock('react-native-paper', () => {
   return {
     Card,
     Text: ({children}: any) => <Text>{children}</Text>,
-    useTheme: () => ({colors: {onSurface: '#000', onSurfaceVariant: '#666', outlineVariant: '#ccc'}}),
+    useTheme: () => ({colors: {onSurface: '#000', onSurfaceVariant: '#666', outlineVariant: '#ccc', primaryContainer: '#eef'}}),
   };
 });
 
@@ -47,7 +47,7 @@ describe('ExerciseStatsTab', () => {
       {
         id: 1,
         exerciseId: 2,
-        sets: [{index: 1, reps: 5, rir: 1, weight: 90}],
+        sets: [{index: 1, reps: 5, rir: 1, weight: 90, record: [Record.ONE_RM]}],
         start: new Date(2024, 0, 2),
         records: {[Record.ONE_RM]: 120},
       },
@@ -72,15 +72,17 @@ describe('ExerciseStatsTab', () => {
     expect(getByText('No records found.')).toBeTruthy();
   });
 
-  it('renders 1RM records sorted by descending value, deduped by (value, date)', () => {
+  it('renders records flat-sorted with the highest value at the top, including string-coerced values', () => {
     mockedUseExercise.mockReturnValue({
       id: 2,
       name: 'Bench',
       records: {
         [Record.ONE_RM]: [
+          // Persisted records can hold stringified numbers (toFixed(2) in
+          // legacy reducer). Numeric coercion is mandatory before sorting.
+          {value: '180.00' as unknown as number, workoutId: 3},
           {value: 200, workoutId: 1},
-          {value: 200, workoutId: 2},
-          {value: 180, workoutId: 3},
+          {value: '195.00' as unknown as number, workoutId: 2},
         ],
       },
     });
@@ -88,30 +90,69 @@ describe('ExerciseStatsTab', () => {
       {
         id: 1,
         exerciseId: 2,
-        sets: [{index: 1, reps: 1, rir: 0, weight: 200}],
+        sets: [{index: 2, reps: 1, rir: 0, weight: 200, record: [Record.ONE_RM]}],
         start: new Date(2024, 0, 1),
-        records: {[Record.ONE_RM]: 200},
       },
       {
         id: 2,
         exerciseId: 2,
-        sets: [{index: 1, reps: 1, rir: 0, weight: 200}],
-        start: new Date(2024, 0, 1),
-        records: {[Record.ONE_RM]: 200},
+        sets: [{index: 1, reps: 2, rir: 1, weight: 190, record: [Record.ONE_RM]}],
+        start: new Date(2024, 0, 5),
       },
       {
         id: 3,
         exerciseId: 2,
-        sets: [{index: 1, reps: 1, rir: 0, weight: 180}],
-        start: new Date(2024, 0, 3),
-        records: {[Record.ONE_RM]: 180},
+        sets: [{index: 1, reps: 3, rir: 2, weight: 175, record: [Record.ONE_RM]}],
+        start: new Date(2024, 0, 8),
       },
     ];
     mockedUseWorkoutsByIds.mockReturnValue(workouts);
 
-    const {queryAllByText} = render(<ExerciseStatsTab exercise={{id: 2, name: 'Bench'}} />);
+    const {getByTestId} = render(<ExerciseStatsTab exercise={{id: 2, name: 'Bench'}} />);
 
-    expect(queryAllByText(/200\.0 kg/).length).toBeGreaterThanOrEqual(1);
-    expect(queryAllByText(/180\.0 kg/).length).toBeGreaterThanOrEqual(1);
+    const list = getByTestId('one-rm-records-list');
+    const rowTextOf = (idx: number): string => {
+      const row = getByTestId(`one-rm-record-row-${idx}`);
+      const collect = (node: any): string => {
+        if (typeof node === 'string') return node;
+        if (typeof node === 'number') return String(node);
+        if (Array.isArray(node)) return node.map(collect).join(' ');
+        if (node && node.props && node.props.children !== undefined) return collect(node.props.children);
+        return '';
+      };
+      return collect(row);
+    };
+    expect(list).toBeTruthy();
+    expect(rowTextOf(0)).toMatch(/200\.0/);
+    expect(rowTextOf(0)).toContain('#2');
+    expect(rowTextOf(1)).toMatch(/195\.0/);
+    expect(rowTextOf(2)).toMatch(/180\.0/);
+  });
+
+  it('skips records with non-numeric values entirely (does not render "—" rows)', () => {
+    mockedUseExercise.mockReturnValue({
+      id: 2,
+      name: 'Bench',
+      records: {
+        [Record.ONE_RM]: [
+          {value: 200, workoutId: 1},
+          {value: 'NaN' as unknown as number, workoutId: 2},
+          {value: null as unknown as number, workoutId: 3},
+        ],
+      },
+    });
+    const workouts: Workout[] = [
+      {
+        id: 1,
+        exerciseId: 2,
+        sets: [{index: 1, reps: 1, rir: 0, weight: 200, record: [Record.ONE_RM]}],
+        start: new Date(2024, 0, 1),
+      },
+    ];
+    mockedUseWorkoutsByIds.mockReturnValue(workouts);
+
+    const {queryAllByTestId} = render(<ExerciseStatsTab exercise={{id: 2, name: 'Bench'}} />);
+    const rows = queryAllByTestId(/^one-rm-record-row-/);
+    expect(rows).toHaveLength(1);
   });
 });

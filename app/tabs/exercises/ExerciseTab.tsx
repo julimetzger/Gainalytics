@@ -7,8 +7,10 @@ import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 import {Exercise} from '../../models/entities/Exercise';
 import {Muscles} from '../../models/Muscles';
 import Sparkline from '../../components/exercise/show/Sparkline';
-import {lastOneRm, oneRmHistoryValues} from '../../components/exercise/show/exerciseStats';
+import {lastOneRm, oneRmHistoryValues, oneRmIncreaseDelta} from '../../components/exercise/show/exerciseStats';
 import {exerciseMatchesGroup, MUSCLE_GROUPS, MuscleGroupKey, primaryMuscleTag} from '../../components/exercise/show/MuscleGroupFilters';
+import {useExerciseWorkoutSummary} from '../../redux/Workout/use/useExerciseWorkoutSummary';
+import {formatTimeAgo} from '../../components/exercise/show/formatTimeAgo';
 
 const ExerciseTab = ({navigation}: Props) => {
   const theme = useTheme();
@@ -87,30 +89,9 @@ const ExerciseTab = ({navigation}: Props) => {
               FOCUS EXERCISES
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.focusRow} testID="focus-carousel">
-              {focusExercises.map((ex) => {
-                const oneRm = lastOneRm(ex);
-                const history = oneRmHistoryValues(ex);
-                return (
-                  <Pressable key={ex.id} onPress={() => goToDetail(ex)} testID={`focus-card-${ex.id}`}>
-                    <Card mode="elevated" style={styles.focusCard}>
-                      <Card.Content style={styles.focusCardContent}>
-                        <View style={styles.focusCardHeader}>
-                          <Icon source="star" size={18} color="#FFB300" />
-                          <Text numberOfLines={1} style={[styles.focusName, {color: theme.colors.onSurface}]}>
-                            {ex.name}
-                          </Text>
-                        </View>
-                        <Text variant="headlineSmall" style={[styles.focusValue, {color: theme.colors.onSurface}]}>
-                          {typeof oneRm === 'number' && Number.isFinite(oneRm) ? `${oneRm.toFixed(1)} kg` : '— kg'}
-                        </Text>
-                        <View style={styles.sparklineWrap}>
-                          <Sparkline values={history} width={140} height={36} color={theme.colors.primary} />
-                        </View>
-                      </Card.Content>
-                    </Card>
-                  </Pressable>
-                );
-              })}
+              {focusExercises.map((ex) => (
+                <FocusCard key={ex.id} exercise={ex} onPress={() => goToDetail(ex)} primaryColor={theme.colors.primary} />
+              ))}
             </ScrollView>
           </View>
         )}
@@ -122,42 +103,18 @@ const ExerciseTab = ({navigation}: Props) => {
           {listExercises.length === 0 ? (
             <Text style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>No exercises found</Text>
           ) : (
-            listExercises.map((ex) => {
-              const muscleList = (ex.muscles ?? []).map((m) => m.muscle).filter((m): m is Muscles => m != null);
-              const tag = primaryMuscleTag(muscleList);
-              const oneRm = lastOneRm(ex);
-              const history = oneRmHistoryValues(ex);
-              return (
-                <Pressable
-                  key={ex.id}
-                  onPress={() => goToDetail(ex)}
-                  testID={`exercise-row-${ex.id}`}
-                  style={({pressed}) => [
-                    styles.row,
-                    {borderBottomColor: theme.colors.outlineVariant},
-                    pressed && {backgroundColor: theme.colors.surfaceVariant},
-                  ]}
-                >
-                  <View style={styles.rowMain}>
-                    <View style={styles.rowNameRow}>
-                      {ex.isFocus && <Icon source="star" size={14} color="#FFB300" />}
-                      <Text style={[styles.rowName, {color: theme.colors.onSurface}]} numberOfLines={1}>
-                        {ex.name}
-                      </Text>
-                    </View>
-                    {tag && (
-                      <Text variant="bodySmall" style={[styles.rowTag, {color: theme.colors.onSurfaceVariant}]}>
-                        {tag}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={[styles.rowOneRm, {color: theme.colors.onSurface}]}>
-                    {typeof oneRm === 'number' && Number.isFinite(oneRm) ? `${oneRm.toFixed(0)} kg` : '—'}
-                  </Text>
-                  <Sparkline values={history} width={56} height={20} color={theme.colors.primary} />
-                </Pressable>
-              );
-            })
+            listExercises.map((ex) => (
+              <ExerciseRow
+                key={ex.id}
+                exercise={ex}
+                onPress={() => goToDetail(ex)}
+                outlineColor={theme.colors.outlineVariant}
+                surfaceVariantColor={theme.colors.surfaceVariant}
+                onSurfaceColor={theme.colors.onSurface}
+                onSurfaceVariantColor={theme.colors.onSurfaceVariant}
+                primaryColor={theme.colors.primary}
+              />
+            ))
           )}
         </View>
         <View style={styles.bottomSpacer} />
@@ -233,9 +190,21 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flexShrink: 1,
   },
+  focusValueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    gap: 4,
+  },
   focusValue: {
     fontWeight: '700',
-    marginTop: 4,
+  },
+  focusDeltaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingBottom: 2,
   },
   sparklineWrap: {
     marginTop: 4,
@@ -260,8 +229,17 @@ const styles = StyleSheet.create({
   rowName: {
     fontSize: 16,
   },
-  rowTag: {
+  rowSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 2,
+  },
+  rowTag: {
+    marginRight: 4,
+  },
+  rowLastDone: {
+    fontStyle: 'italic',
   },
   rowOneRm: {
     fontVariant: ['tabular-nums'],
@@ -284,5 +262,105 @@ const styles = StyleSheet.create({
 });
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Exercises'>;
+
+interface FocusCardProps {
+  exercise: Exercise;
+  onPress: () => void;
+  primaryColor: string;
+}
+
+const FocusCard = ({exercise, onPress, primaryColor}: FocusCardProps) => {
+  const theme = useTheme();
+  const oneRm = lastOneRm(exercise);
+  const delta = oneRmIncreaseDelta(exercise);
+  const history = oneRmHistoryValues(exercise);
+  return (
+    <Pressable onPress={onPress} testID={`focus-card-${exercise.id}`}>
+      <Card mode="elevated" style={styles.focusCard}>
+        <Card.Content style={styles.focusCardContent}>
+          <View style={styles.focusCardHeader}>
+            <Icon source="star" size={18} color="#FFB300" />
+            <Text numberOfLines={1} style={[styles.focusName, {color: theme.colors.onSurface}]}>
+              {exercise.name}
+            </Text>
+          </View>
+          <View style={styles.focusValueRow}>
+            <Text variant="headlineSmall" style={[styles.focusValue, {color: theme.colors.onSurface}]}>
+              {typeof oneRm === 'number' && Number.isFinite(oneRm) ? `${oneRm.toFixed(1)} kg` : '— kg'}
+            </Text>
+            {delta !== undefined && delta !== 0 && (
+              <View style={styles.focusDeltaPill} testID={`focus-card-delta-${exercise.id}`}>
+                <Icon source={delta > 0 ? 'arrow-up' : 'arrow-down'} size={12} color={delta > 0 ? primaryColor : theme.colors.error} />
+                <Text variant="labelSmall" style={{color: delta > 0 ? primaryColor : theme.colors.error}}>
+                  {delta > 0 ? '+' : ''}{delta.toFixed(1)} kg
+                </Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.sparklineWrap}>
+            <Sparkline values={history} width={140} height={36} color={primaryColor} />
+          </View>
+        </Card.Content>
+      </Card>
+    </Pressable>
+  );
+};
+
+interface ExerciseRowProps {
+  exercise: Exercise;
+  onPress: () => void;
+  outlineColor: string;
+  surfaceVariantColor: string;
+  onSurfaceColor: string;
+  onSurfaceVariantColor: string;
+  primaryColor: string;
+}
+
+const ExerciseRow = ({exercise, onPress, outlineColor, surfaceVariantColor, onSurfaceColor, onSurfaceVariantColor, primaryColor}: ExerciseRowProps) => {
+  const muscleList = (exercise.muscles ?? []).map((m) => m.muscle).filter((m): m is Muscles => m != null);
+  const tag = primaryMuscleTag(muscleList);
+  const oneRm = lastOneRm(exercise);
+  const history = oneRmHistoryValues(exercise);
+  const summary = useExerciseWorkoutSummary(exercise.id);
+  const lastDoneText = summary.lastWorkoutEnd ? formatTimeAgo(summary.lastWorkoutEnd) : '—';
+  return (
+    <Pressable
+      onPress={onPress}
+      testID={`exercise-row-${exercise.id}`}
+      style={({pressed}) => [
+        styles.row,
+        {borderBottomColor: outlineColor},
+        pressed && {backgroundColor: surfaceVariantColor},
+      ]}
+    >
+      <View style={styles.rowMain}>
+        <View style={styles.rowNameRow}>
+          {exercise.isFocus && <Icon source="star" size={14} color="#FFB300" />}
+          <Text style={[styles.rowName, {color: onSurfaceColor}]} numberOfLines={1}>
+            {exercise.name}
+          </Text>
+        </View>
+        <View style={styles.rowSubRow}>
+          {tag && (
+            <Text variant="bodySmall" style={[styles.rowTag, {color: onSurfaceVariantColor}]}>
+              {tag}
+            </Text>
+          )}
+          <Text
+            variant="bodySmall"
+            style={[styles.rowLastDone, {color: onSurfaceVariantColor}]}
+            testID={`exercise-row-last-done-${exercise.id}`}
+          >
+            {lastDoneText}
+          </Text>
+        </View>
+      </View>
+      <Text style={[styles.rowOneRm, {color: onSurfaceColor}]}>
+        {typeof oneRm === 'number' && Number.isFinite(oneRm) ? `${oneRm.toFixed(0)} kg` : '—'}
+      </Text>
+      <Sparkline values={history} width={56} height={20} color={primaryColor} />
+    </Pressable>
+  );
+};
 
 export default ExerciseTab;

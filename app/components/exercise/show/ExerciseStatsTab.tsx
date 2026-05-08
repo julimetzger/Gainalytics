@@ -2,19 +2,34 @@ import React, {useMemo} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
 import {Card, Text, useTheme} from 'react-native-paper';
 import {Exercise, Record} from '../../../models/entities/Exercise';
+import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
 import {useExercise} from '../../../redux/Exercises/use/useExercise';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {Workout} from '../../../models/entities/Workout';
-import {avgOneRm, bestOneRm, lastOneRm} from './exerciseStats';
+import {lastOneRm, toFiniteNumber} from './exerciseStats';
 
 interface Props {
   exercise: Exercise;
 }
 
+interface RecordRow {
+  value: number;
+  date: Date | undefined;
+  setIndex: number | undefined;
+  reps: number | undefined;
+  rir: number | undefined;
+  key: string;
+}
+
 const REP_BUCKETS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20];
 
-const formatDate = (d?: Date | string) => (d ? new Date(d).toDateString() : 'Unknown Date');
+const formatDate = (d?: Date | string) => (d ? new Date(d).toDateString() : '—');
+
+const findProducingSet = (workout: Workout | undefined): WorkoutSet | undefined => {
+  if (!workout) return undefined;
+  return workout.sets.find((s) => Array.isArray(s.record) && s.record.includes(Record.ONE_RM));
+};
 
 const ExerciseStatsTab = ({exercise}: Props) => {
   const theme = useTheme();
@@ -26,37 +41,27 @@ const ExerciseStatsTab = ({exercise}: Props) => {
   const workouts = useWorkoutsByIds(workoutIds);
 
   const oneRm = lastOneRm(live);
-  const best = bestOneRm(live);
-  const avg = avgOneRm(live);
 
-  const lastWorkout = useMemo(() => {
+  const recordRows = useMemo<RecordRow[]>(() => {
     const recs = live?.records?.[Record.ONE_RM] ?? [];
-    if (recs.length === 0) return undefined;
-    const lastWorkoutId = recs[recs.length - 1]?.workoutId;
-    return workouts.find((w) => w.id === lastWorkoutId);
-  }, [workouts, live]);
-
-  const bestWorkout = useMemo(() => {
-    const recs = live?.records?.[Record.ONE_RM] ?? [];
-    if (recs.length === 0) return undefined;
-    const sorted = [...recs].sort((a, b) => b.value - a.value);
-    return workouts.find((w) => w.id === sorted[0]?.workoutId);
-  }, [workouts, live]);
-
-  const sortedDistinctRecords = useMemo(() => {
-    const recs = live?.records?.[Record.ONE_RM] ?? [];
-    if (recs.length === 0) return [] as {value: number; workout?: Workout}[];
-    const seen = new Set<string>();
-    const out: {value: number; workout?: Workout}[] = [];
-    for (const r of recs) {
+    if (recs.length === 0) return [];
+    const out: RecordRow[] = [];
+    recs.forEach((r, idx) => {
+      const numericValue = toFiniteNumber(r?.value);
+      if (numericValue === undefined) return;
       const w = workouts.find((wk) => wk.id === r.workoutId);
-      const dateKey = w?.start ? new Date(w.start).toDateString() : `unknown-${r.workoutId}`;
-      const key = `${r.value}|${dateKey}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({value: r.value, workout: w});
-    }
-    return out.sort((a, b) => b.value - a.value);
+      const producingSet = findProducingSet(w);
+      out.push({
+        value: numericValue,
+        date: w?.start ? new Date(w.start) : undefined,
+        setIndex: producingSet?.index,
+        reps: producingSet?.reps,
+        rir: producingSet?.rir,
+        key: `${r.workoutId}-${idx}-${numericValue}`,
+      });
+    });
+    out.sort((a, b) => b.value - a.value);
+    return out;
   }, [workouts, live]);
 
   return (
@@ -80,45 +85,47 @@ const ExerciseStatsTab = ({exercise}: Props) => {
       </Card>
 
       <Card style={styles.card}>
-        <Card.Title title="1RM records" titleStyle={styles.cardTitle} />
+        <Card.Title title="1RM records" subtitle="Top record first" titleStyle={styles.cardTitle} />
         <Card.Content>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryCell} testID="stats-summary-best">
-              <Text variant="labelSmall" style={[styles.summaryLabel, {color: theme.colors.onSurfaceVariant}]}>
-                BEST
-              </Text>
-              <Text style={styles.summaryValue}>{Number.isFinite(best as number) ? `${(best as number).toFixed(1)} kg` : '—'}</Text>
-              <Text variant="bodySmall" style={[styles.summaryDate, {color: theme.colors.onSurfaceVariant}]}>
-                {bestWorkout?.start ? formatDate(bestWorkout.start) : '—'}
-              </Text>
-            </View>
-            <View style={styles.summaryCell} testID="stats-summary-last">
-              <Text variant="labelSmall" style={[styles.summaryLabel, {color: theme.colors.onSurfaceVariant}]}>
-                LAST
-              </Text>
-              <Text style={styles.summaryValue}>{Number.isFinite(oneRm as number) ? `${(oneRm as number).toFixed(1)} kg` : '—'}</Text>
-              <Text variant="bodySmall" style={[styles.summaryDate, {color: theme.colors.onSurfaceVariant}]}>
-                {lastWorkout?.start ? formatDate(lastWorkout.start) : '—'}
-              </Text>
-            </View>
-            <View style={styles.summaryCell} testID="stats-summary-avg">
-              <Text variant="labelSmall" style={[styles.summaryLabel, {color: theme.colors.onSurfaceVariant}]}>
-                AVG
-              </Text>
-              <Text style={styles.summaryValue}>{Number.isFinite(avg as number) ? `${(avg as number).toFixed(1)} kg` : '—'}</Text>
-            </View>
-          </View>
-
-          {sortedDistinctRecords.length === 0 ? (
+          {recordRows.length === 0 ? (
             <Text style={styles.emptyText}>No records found.</Text>
           ) : (
             <View testID="one-rm-records-list">
-              {sortedDistinctRecords.map((entry, idx) => (
-                <View key={`${entry.value}-${entry.workout?.id ?? idx}`} style={[styles.recordRow, {borderBottomColor: theme.colors.outlineVariant}]}>
-                  <Text style={[styles.recordDate, {color: theme.colors.onSurfaceVariant}]}>{formatDate(entry.workout?.start)}</Text>
-                  <Text style={styles.recordValue}>{Number.isFinite(entry.value) ? `${entry.value.toFixed(1)} kg` : '—'}</Text>
-                </View>
-              ))}
+              <View style={[styles.recordHeader, {borderBottomColor: theme.colors.outlineVariant}]}>
+                <Text style={[styles.colDate, styles.headerCell, {color: theme.colors.onSurfaceVariant}]}>Date</Text>
+                <Text style={[styles.colSet, styles.headerCell, {color: theme.colors.onSurfaceVariant}]}>Set</Text>
+                <Text style={[styles.colReps, styles.headerCell, {color: theme.colors.onSurfaceVariant}]}>Reps</Text>
+                <Text style={[styles.colRir, styles.headerCell, {color: theme.colors.onSurfaceVariant}]}>RIR</Text>
+                <Text style={[styles.colValue, styles.headerCell, {color: theme.colors.onSurfaceVariant}]}>1RM</Text>
+              </View>
+              {recordRows.map((row, idx) => {
+                const isTop = idx === 0;
+                return (
+                  <View
+                    key={row.key}
+                    style={[
+                      styles.recordRow,
+                      {borderBottomColor: theme.colors.outlineVariant},
+                      isTop && {backgroundColor: theme.colors.primaryContainer},
+                    ]}
+                    testID={`one-rm-record-row-${idx}`}
+                  >
+                    <Text style={[styles.colDate, {color: theme.colors.onSurface}]}>{formatDate(row.date)}</Text>
+                    <Text style={[styles.colSet, {color: theme.colors.onSurface}]}>
+                      {row.setIndex !== undefined ? `#${row.setIndex}` : '—'}
+                    </Text>
+                    <Text style={[styles.colReps, {color: theme.colors.onSurface}]}>
+                      {row.reps !== undefined ? row.reps : '—'}
+                    </Text>
+                    <Text style={[styles.colRir, {color: theme.colors.onSurface}]}>
+                      {row.rir !== undefined ? row.rir : '—'}
+                    </Text>
+                    <Text style={[styles.colValue, {color: theme.colors.onSurface, fontWeight: isTop ? '700' : '500'}]}>
+                      {row.value.toFixed(1)} kg
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           )}
         </Card.Content>
@@ -154,37 +161,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontVariant: ['tabular-nums'],
   },
-  summaryRow: {
+  recordHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 8,
-    gap: 8,
-  },
-  summaryCell: {
-    flex: 1,
     alignItems: 'center',
-  },
-  summaryLabel: {
-    letterSpacing: 1,
-  },
-  summaryValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  summaryDate: {
-    marginTop: 2,
-  },
-  recordRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  recordDate: {
+  recordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: 4,
+  },
+  headerCell: {
+    fontSize: 12,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  colDate: {
+    flex: 2.6,
     fontSize: 13,
   },
-  recordValue: {
+  colSet: {
+    flex: 0.8,
+    textAlign: 'center',
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
+  },
+  colReps: {
+    flex: 0.8,
+    textAlign: 'center',
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
+  },
+  colRir: {
+    flex: 0.8,
+    textAlign: 'center',
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
+  },
+  colValue: {
+    flex: 1.4,
+    textAlign: 'right',
     fontSize: 14,
     fontVariant: ['tabular-nums'],
   },
