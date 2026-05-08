@@ -1,5 +1,5 @@
 import {TouchableOpacity, View} from 'react-native';
-import {DataTable, Icon, Text, useTheme} from 'react-native-paper';
+import {DataTable, Divider, Icon, Text, useTheme} from 'react-native-paper';
 import React, {useEffect, useState} from 'react';
 import AddWorkoutSet from '../add/AddWorkoutSet';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
@@ -21,14 +21,18 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
   useEffect(() => {}, [sets]);
   let highlightValue = (highLightMode && highLightMode !== Metric.FREQUENCY) ? calculateMetricValue(sets, highLightMode) : undefined;
   function showSets(set: WorkoutSet) {
-    const linkedEntry = linkedAnalyses?.find(la => la.setIndex === set.index);
+    // Fix 3: prefer DONE analysis (has vlPercent/drift) over queued/failed for the same set
+    const linkedEntry = linkedAnalyses?.find(la => la.setIndex === set.index && (la.vlPercent != null || la.drift != null))
+      ?? linkedAnalyses?.find(la => la.setIndex === set.index);
     const hasVl = linkedEntry?.vlPercent != null;
     const hasDrift = linkedEntry?.drift != null;
+    const hasMetrics = hasVl || hasDrift;
     const rowKey = set.index!! + set.reps + set.rir + set.weight + (set.date ? new Date(set.date).getTime().toString() : '');
     return (
       <React.Fragment key={rowKey}>
+        {/* Fix 1: suppress the row's own bottom border when metrics follow; Divider renders after metrics instead */}
         <DataTable.Row
-          style={{minHeight: 35}}
+          style={{minHeight: 35, ...(hasMetrics ? {borderBottomWidth: 0} : {})}}
           onPress={() => {
             if (editable) {
               setSetToUpdate(set);
@@ -43,7 +47,8 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
               <Icon size={15} source={'trophy'} color={theme.colors.primary} />
             ) : null}
           </DataTable.Cell>
-          <DataTable.Cell style={{flex: 1}}>
+          {/* Fix 2: always render an icon — video when linked, video-plus when not */}
+          <DataTable.Cell style={{flex: 2}}>
             {linkedEntry ? (
               <TouchableOpacity
                 testID={`set-linked-video-${set.index}`}
@@ -53,43 +58,45 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
               >
                 <Icon size={15} source={'video'} color={theme.colors.secondary} />
               </TouchableOpacity>
-            ) : null}
-            {!linkedEntry && editable && onLinkVideo ? (
+            ) : (
               <TouchableOpacity
                 testID={`set-link-video-${set.index}`}
                 accessible={true}
-                onPress={() => onLinkVideo(set)}
-                style={{padding: 2}}
+                onPress={editable && onLinkVideo ? () => onLinkVideo(set) : undefined}
+                style={{padding: 2, opacity: editable && onLinkVideo ? 1 : 0.35}}
               >
                 <Icon source="video-plus" size={16} />
               </TouchableOpacity>
-            ) : null}
+            )}
           </DataTable.Cell>
         </DataTable.Row>
-        {(hasVl || hasDrift) && (
-          <View
-            testID={`set-video-metrics-${set.index}`}
-            style={{flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 4, gap: 16}}
-          >
-            {hasVl && (
-              <Text
-                testID={`set-vl-${set.index}`}
-                variant="labelSmall"
-                style={{color: linkedEntry!.vlPercent! >= 30 ? theme.colors.error : theme.colors.secondary}}
-              >
-                {'VL ' + Math.round(linkedEntry!.vlPercent!) + '%'}
-              </Text>
-            )}
-            {hasDrift && (
-              <Text
-                testID={`set-drift-${set.index}`}
-                variant="labelSmall"
-                style={{color: theme.colors.tertiary}}
-              >
-                {'Drift ' + (Math.round(linkedEntry!.drift! * 1000) / 10) + '%'}
-              </Text>
-            )}
-          </View>
+        {hasMetrics && (
+          <>
+            <View
+              testID={`set-video-metrics-${set.index}`}
+              style={{flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 4, gap: 16}}
+            >
+              {hasVl && (
+                <Text
+                  testID={`set-vl-${set.index}`}
+                  variant="labelSmall"
+                  style={{color: linkedEntry!.vlPercent! >= 30 ? theme.colors.error : theme.colors.secondary}}
+                >
+                  {'VL ' + Math.round(linkedEntry!.vlPercent!) + '%'}
+                </Text>
+              )}
+              {hasDrift && (
+                <Text
+                  testID={`set-drift-${set.index}`}
+                  variant="labelSmall"
+                  style={{color: theme.colors.tertiary}}
+                >
+                  {'Drift ' + (Math.round(linkedEntry!.drift! * 1000) / 10) + '%'}
+                </Text>
+              )}
+            </View>
+            <Divider testID={`set-metrics-divider-${set.index}`} />
+          </>
         )}
       </React.Fragment>
     );
