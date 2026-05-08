@@ -991,4 +991,21 @@ Debug APKs load JS from Metro (port 8081 on device, exposed via `adb reverse tcp
 The `VideoAnalysisSetResult` TypeScript type uses `mean_path_deviation` (snake_case), not camelCase. When crafting `.gains` test fixtures in Python, use `"mean_path_deviation"` as the JSON key. The WorkoutView selector passes it through as `drift` to WorkoutSetView.
 
 ### History calendar is the fastest path to a finished training when current micro is high
-If a plan is at Micro 70+ but the finished training you need to inspect is in Micro 1, use the drawer menu → History → calendar. Swipe right to go back months (each swipe = ~1 month). Tap the highlighted date → tap "Go to Training" to land directly on Micro 1 without swiping through 70 micros in the RangeSwiper.
+If a plan is at Micro 70+ but the finished training you need to inspect is in Micro 1, use the drawer menu → History → calendar. Swipe right to go back months (each swipe = ~1 month). Tap the highlighted date → tap "Go to Training" to land directly on Micro 1 without swiping through 70 micros in the RangeSwiper.If a plan is at Micro 70+ but the finished training you need to inspect is in Micro 1, use the drawer menu → History → calendar. Swipe right to go back months (each swipe = ~1 month). Tap the highlighted date → tap "Go to Training" to land directly on Micro 1 without swiping through 70 micros in the RangeSwiper.
+
+### Calendar swipe direction: left-to-right (100→600) = previous month
+A swipe from x=100 to x=600 (dragging right) goes BACK one month. A swipe from x=600 to x=100 (dragging left) goes FORWARD one month. This is the standard iOS/Android pager convention. Test data from GH-235 bootstrap is in February 2024, which is ≈52 months before May 2026.
+
+## GH-235 / WorkoutSetView VL+Drift Display Learnings
+
+### `DataTable.Row` bottom border can be suppressed via the `style` prop
+RNP 5.x applies the `style` prop last: `style={[styles.container, { borderBottomColor }, style]}`. Passing `{borderBottomWidth: 0}` overrides `StyleSheet.hairlineWidth`. This is the correct way to suppress the row separator when a metrics sub-row follows so the separator falls below the metrics instead of above them.
+
+### `Divider` accepts `testID` — it extends `$RemoveChildren<typeof View>` (ViewProps)
+`<Divider testID="set-metrics-divider-1" />` works in both production and tests. The jest mock must expose `testID` as a prop for test assertions to work: `Divider: ({testID}: any) => <View testID={testID ?? 'row-divider'} />`.
+
+### Specifying `testPathIgnorePatterns` on the CLI overrides the jest.config array, it doesn't merge
+`npx jest --testPathIgnorePatterns="/node_modules/"` replaces the config's `['/.worktrees/']` entirely. This is the workaround for running tests inside a `.worktrees/` directory without editing `jest.config.cjs`.
+
+### WorkoutSetView icon logic: always render, branch on linked vs not
+The video icon must always be visible per row. The correct pattern is: if a `linkedEntry` exists → render `<TouchableOpacity testID="set-linked-video-N">` wrapping a `video` icon; else → render `<TouchableOpacity testID="set-link-video-N" onPress={editable && onLinkVideo ? ... : undefined} opacity={editable && onLinkVideo ? 1 : 0.35}>` wrapping a `video-plus` icon. Never conditional on editable/onLinkVideo for rendering — only for interactivity.
