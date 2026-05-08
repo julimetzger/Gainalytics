@@ -1,7 +1,6 @@
 import React from 'react';
 import {ScrollView, View} from 'react-native';
 import {useAllTrainingsInMicro} from '../../../redux/Training/use/useAllTrainingsInMicro';
-import {useTrainingsInLastDays} from '../../../redux/Training/use/useTrainingsInLastDays';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {Card, Text} from 'react-native-paper';
@@ -50,10 +49,6 @@ const MicroOverview = ({trainingsPlan, micro, isActive = true}: TrainingsBasePro
     lastWorkoutSets: previousWorkouts.flatMap((workout: Workout) => workout.sets),
   });
 
-  // Use cross-micro 28-day window for the AI coach so it can analyse trends
-  // across micros, not just the current micro.
-  const trainingsInLast28Days = useTrainingsInLastDays(28);
-
   return (
     <ScrollView>
       <View style={{display: 'flex', flexDirection: 'row', flex: 1}}>
@@ -97,7 +92,7 @@ const MicroOverview = ({trainingsPlan, micro, isActive = true}: TrainingsBasePro
           ))}
         </View>
       )}
-      <CoachInsightCard trainings={trainingsInLast28Days} isActive={isActive} />
+      <CoachInsightCard trainings={trainings} isActive={isActive} />
       <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
     </ScrollView>
   );
