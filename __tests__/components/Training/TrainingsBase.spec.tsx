@@ -148,21 +148,22 @@ describe('TrainingsBase', () => {
   });
 
   describe('GH-240 — plan-mode entry', () => {
-    it('renders a Plan mode button when onEnterPlanMode is provided and triggers it on press', () => {
+    it('renders a "Plan new Training" button when onEnterPlanMode is provided and triggers it on press', () => {
       const trainingsPlan = {id: 3, name: 'Push pull', trainings: {}, trainingNames: {}};
       const onEnterPlanMode = jest.fn();
 
-      const {getByTestId} = render(
+      const {getByTestId, getByText} = render(
         <TrainingsBase trainingsPlan={trainingsPlan} micro={2} trainingInMicro={1} onEnterPlanMode={onEnterPlanMode} />,
       );
 
       const button = getByTestId('training-plan-mode-button');
       expect(button).toBeTruthy();
+      expect(getByText('Plan new Training')).toBeTruthy();
       fireEvent.press(button);
       expect(onEnterPlanMode).toHaveBeenCalledTimes(1);
     });
 
-    it('does not render the Plan mode button when onEnterPlanMode is omitted (back-compat)', () => {
+    it('does not render the Plan new Training button when onEnterPlanMode is omitted (back-compat)', () => {
       const trainingsPlan = {id: 3, name: 'Push pull', trainings: {}, trainingNames: {}};
 
       const {queryByTestId} = render(<TrainingsBase trainingsPlan={trainingsPlan} micro={2} trainingInMicro={1} />);
@@ -208,6 +209,45 @@ describe('TrainingsBase', () => {
       rerender(<TrainingsBase trainingsPlan={trainingsPlan} micro={1} trainingInMicro={1} onEnterPlanMode={onEnterPlanMode} />);
 
       expect(onEnterPlanMode).toHaveBeenCalledTimes(1);
+    });
+
+    it('auto-routes again when the slot switches from a populated micro to an empty one (RangeSwiper pane reuse)', () => {
+      // Slot A (micro=2,trainingInMicro=1) has a usable suggestion source — must NOT auto-route.
+      mockedDispatchSuggestBasedOnTrained.mockReturnValue(mockSuggestBasedOnTrained);
+      mockedDispatchSuggestBasedOnPlanned.mockReturnValue(undefined);
+      mockedDispatchSuggestBasedOnLastMeso.mockReturnValue(undefined);
+      const trainingsPlan = {id: 11, name: 'Push pull', trainings: {}, trainingNames: {}};
+      const onEnterPlanMode = jest.fn();
+
+      const {rerender} = render(
+        <TrainingsBase trainingsPlan={trainingsPlan} micro={2} trainingInMicro={1} onEnterPlanMode={onEnterPlanMode} />,
+      );
+      expect(onEnterPlanMode).not.toHaveBeenCalled();
+
+      // RangeSwiper now reuses the same component instance for slot B (micro=3,trainingInMicro=1)
+      // but slot B has no suggestion source — auto-route MUST fire on this fresh slot.
+      mockedDispatchSuggestBasedOnTrained.mockReturnValue(undefined);
+      mockedDispatchSuggestBasedOnPlanned.mockReturnValue(undefined);
+      mockedDispatchSuggestBasedOnLastMeso.mockReturnValue(undefined);
+      rerender(<TrainingsBase trainingsPlan={trainingsPlan} micro={3} trainingInMicro={1} onEnterPlanMode={onEnterPlanMode} />);
+
+      expect(onEnterPlanMode).toHaveBeenCalledTimes(1);
+    });
+
+    it('auto-routes again when switching between two empty slots (each fresh empty slot must trigger the route)', () => {
+      mockedDispatchSuggestBasedOnTrained.mockReturnValue(undefined);
+      mockedDispatchSuggestBasedOnPlanned.mockReturnValue(undefined);
+      mockedDispatchSuggestBasedOnLastMeso.mockReturnValue(undefined);
+      const trainingsPlan = {id: 12, name: 'Push pull', trainings: {}, trainingNames: {}};
+      const onEnterPlanMode = jest.fn();
+
+      const {rerender} = render(
+        <TrainingsBase trainingsPlan={trainingsPlan} micro={1} trainingInMicro={1} onEnterPlanMode={onEnterPlanMode} />,
+      );
+      expect(onEnterPlanMode).toHaveBeenCalledTimes(1);
+
+      rerender(<TrainingsBase trainingsPlan={trainingsPlan} micro={1} trainingInMicro={2} onEnterPlanMode={onEnterPlanMode} />);
+      expect(onEnterPlanMode).toHaveBeenCalledTimes(2);
     });
   });
 });

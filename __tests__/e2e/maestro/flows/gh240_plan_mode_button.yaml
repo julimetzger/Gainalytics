@@ -13,7 +13,8 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: 'Training'
     timeout: 120000
-- tapOn: 'next-training-start-button'
+- tapOn:
+    id: 'next-training-start-button'
 - runFlow:
     when:
       visible: "Don't allow"
@@ -24,11 +25,24 @@ appId: com.powerliftingworkoutplanner
       visible: 'Don’t allow'
     commands:
       - tapOn: 'Don’t allow'
-# Now we should be on the planned slot's Plan tab where TrainingsBase renders.
+# We're on the planned slot's Plan tab. TrainingsBase only renders when the slot
+# has no planned exercises — the fixture may already have one. If it does,
+# discard the existing training via the overflow menu so TrainingsBase is exposed.
+- runFlow:
+    when:
+      notVisible: 'Linear progression'
+    commands:
+      - tapOn:
+          id: 'header-overflow-button'
+      - tapOn:
+          id: 'overflow-discard'
+      - tapOn: 'Delete'
 - extendedWaitUntil:
-    visible: 'Plan mode'
+    visible: 'Plan new Training'
     timeout: 30000
-- assertVisible: 'Plan mode'
-- assertVisible: 'training-plan-mode-button'
+- assertVisible: 'Plan new Training'
+- assertVisible:
+    id: 'training-plan-mode-button'
 - assertVisible: 'Suggest based on last Training'
+- assertVisible: 'Suggest based on last planned Training'
 - takeScreenshot: gh240_plan_mode_button_visible

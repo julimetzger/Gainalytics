@@ -55,32 +55,28 @@ const TrainingsBase = ({trainingsPlan, trainingInMicro, micro, onEnterPlanMode}:
   // GH-240: when none of the suggestion paths are available for this micro,
   // we don't want the user staring at an empty suggestions screen. Auto-route
   // them into plan mode (the manual exercise picker / linear plan flow).
+  // The guard is slot-aware because RangeSwiper reuses pane component
+  // instances across micro/trainingInMicro slots — a plain boolean ref would
+  // only fire once per mounted instance and miss subsequent empty slots.
   const noSuggestionsAvailable =
     suggestBasedOnTrained === undefined &&
     suggestBasedOnPlanned === undefined &&
     suggestBasedOnLastMeso === undefined;
-  const autoEnteredPlanModeRef = useRef(false);
+  const autoEnteredSlotKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!noSuggestionsAvailable || onEnterPlanMode === undefined || autoEnteredPlanModeRef.current) {
+    if (!noSuggestionsAvailable || onEnterPlanMode === undefined) {
       return;
     }
-    autoEnteredPlanModeRef.current = true;
+    const slotKey = `${trainingsPlanId}:${micro}:${trainingInMicro}`;
+    if (autoEnteredSlotKeyRef.current === slotKey) {
+      return;
+    }
+    autoEnteredSlotKeyRef.current = slotKey;
     onEnterPlanMode();
-  }, [noSuggestionsAvailable, onEnterPlanMode]);
+  }, [noSuggestionsAvailable, onEnterPlanMode, trainingsPlanId, micro, trainingInMicro]);
 
   return (
     <View style={styles.container}>
-      {onEnterPlanMode !== undefined && (
-        <Button
-          mode="contained"
-          icon="playlist-edit"
-          onPress={onEnterPlanMode}
-          testID="training-plan-mode-button"
-          style={styles.planModeButton}
-        >
-          Plan mode
-        </Button>
-      )}
       <Text variant="titleSmall">Linear progression</Text>
       <View style={styles.inputsContainer}>
         <TextInput
@@ -112,6 +108,17 @@ const TrainingsBase = ({trainingsPlan, trainingInMicro, micro, onEnterPlanMode}:
         <Button disabled={suggestBasedOnLastMeso === undefined} onPress={handleSuggestBasedOnLastMeso} testID="training-suggest-last-meso-button">
           Suggest based on last Meso
         </Button>
+        {onEnterPlanMode !== undefined && (
+          <Button
+            mode="contained"
+            icon="playlist-edit"
+            onPress={onEnterPlanMode}
+            testID="training-plan-mode-button"
+            style={styles.planModeButton}
+          >
+            Plan new Training
+          </Button>
+        )}
       </View>
     </View>
   );
