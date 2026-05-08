@@ -1,129 +1,138 @@
-import React, {useEffect, useState} from 'react';
-import {Dimensions, ScrollView, StyleSheet, View} from 'react-native';
-import {Button, Dialog, Portal, Text, TextInput, useTheme} from 'react-native-paper';
+import React from 'react';
+import {Pressable, StyleSheet, View} from 'react-native';
+import {Text, useTheme} from 'react-native-paper';
 import {Muscles} from '../../../models/Muscles';
 import {MusclePercentPair} from '../../../models/entities/Exercise';
-import {ALL_MUSCLES_SORTED, draftToPairs, pairsToDraft} from './muscle-involvement-utils';
+import {ALL_MUSCLES_SORTED} from './muscle-involvement-utils';
 
-const SCROLL_MAX_HEIGHT = Math.round(Dimensions.get('window').height * 0.55);
+const QUICK_PERCENTS = [25, 50, 75, 100] as const;
 
 interface MuscleInvolvementEditorProps {
-  visible: boolean;
-  onDismiss: () => void;
-  initialPairs: MusclePercentPair[];
-  onApply: (pairs: MusclePercentPair[]) => void;
+  pairs: MusclePercentPair[];
+  onChange: (pairs: MusclePercentPair[]) => void;
 }
 
-const MuscleInvolvementEditor = ({visible, onDismiss, initialPairs, onApply}: MuscleInvolvementEditorProps) => {
+const percentFor = (pairs: MusclePercentPair[], muscle: Muscles): number => {
+  const found = pairs.find((p) => p.muscle === muscle);
+  if (!found) return 0;
+  const n = Number(found.percent);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+const setPercentFor = (
+  pairs: MusclePercentPair[],
+  muscle: Muscles,
+  percent: number,
+): MusclePercentPair[] => {
+  const others = pairs.filter((p) => p.muscle !== muscle);
+  if (percent <= 0) return others;
+  return [...others, {muscle, percent}];
+};
+
+const MuscleInvolvementEditor = ({pairs, onChange}: MuscleInvolvementEditorProps) => {
   const theme = useTheme();
-  const [draft, setDraft] = useState<Record<Muscles, string>>(() => pairsToDraft(initialPairs));
-
-  useEffect(() => {
-    if (visible) {
-      setDraft(pairsToDraft(initialPairs));
-    }
-  }, [visible, initialPairs]);
-
-  const setPercentFor = (muscle: Muscles, text: string) => {
-    setDraft((prev) => ({...prev, [muscle]: text}));
-  };
-
-  const handleApply = () => {
-    onApply(draftToPairs(draft));
-    onDismiss();
-  };
+  const trackColor = theme.colors.surfaceVariant;
 
   return (
-    <Portal>
-      <Dialog visible={visible} onDismiss={onDismiss} theme={theme}>
-        <Dialog.Title>Muscle involvement</Dialog.Title>
-        <Dialog.Content style={styles.contentPad}>
-          <View style={[styles.headerRow, {borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surfaceVariant}]}>
-            <Text variant="labelMedium" style={[styles.headerMuscleText, {color: theme.colors.onSurfaceVariant}]}>
-              Muscle
-            </Text>
-            <Text variant="labelMedium" style={[styles.headerPercentText, {color: theme.colors.onSurfaceVariant}]}>
-              Involvement in %
-            </Text>
-          </View>
-          <ScrollView
-            style={[styles.scroll, {maxHeight: SCROLL_MAX_HEIGHT}]}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
+    <View style={styles.container} testID="muscle-involvement-editor">
+      {ALL_MUSCLES_SORTED.map((muscle) => {
+        const current = percentFor(pairs, muscle);
+        return (
+          <View
+            key={muscle}
+            style={[styles.row, {borderBottomColor: theme.colors.outlineVariant}]}
+            testID={`muscle-row-${muscle}`}
           >
-            {ALL_MUSCLES_SORTED.map((muscle) => (
-              <View key={muscle} style={[styles.row, {borderColor: theme.colors.outlineVariant}]}>
-                <Text variant="bodyMedium" style={[styles.muscleLabel, {color: theme.colors.onSurface}]} numberOfLines={1}>
-                  {muscle}
-                </Text>
-                <TextInput
-                  mode="outlined"
-                  dense
-                  label=""
-                  keyboardType="numeric"
-                  inputMode="numeric"
-                  style={styles.percentInput}
-                  selectTextOnFocus
-                  value={draft[muscle]}
-                  onChangeText={(t) => setPercentFor(muscle, t)}
-                  right={<TextInput.Affix text="" />}
-                />
-              </View>
-            ))}
-          </ScrollView>
-        </Dialog.Content>
-        <Dialog.Actions>
-          <Button onPress={onDismiss}>Cancel</Button>
-          <Button onPress={handleApply}>Done</Button>
-        </Dialog.Actions>
-      </Dialog>
-    </Portal>
+            <Text
+              variant="bodyMedium"
+              style={[styles.muscleLabel, {color: theme.colors.onSurface}]}
+              numberOfLines={1}
+            >
+              {muscle}
+            </Text>
+            <View style={[styles.barTrack, {backgroundColor: trackColor}]} testID={`muscle-bar-${muscle}`}>
+              <View
+                style={[
+                  styles.barFill,
+                  {
+                    width: `${Math.max(0, Math.min(100, current))}%`,
+                    backgroundColor: theme.colors.primary,
+                  },
+                ]}
+                testID={`muscle-bar-fill-${muscle}`}
+              />
+            </View>
+            <View style={styles.chipsRow}>
+              {QUICK_PERCENTS.map((p) => {
+                const isActive = current === p;
+                return (
+                  <Pressable
+                    key={p}
+                    onPress={() => onChange(setPercentFor(pairs, muscle, isActive ? 0 : p))}
+                    style={[
+                      styles.chip,
+                      {
+                        borderColor: theme.colors.outlineVariant,
+                        backgroundColor: isActive ? theme.colors.primary : 'transparent',
+                      },
+                    ]}
+                    testID={`muscle-chip-${muscle}-${p}`}
+                  >
+                    <Text
+                      variant="labelSmall"
+                      style={{color: isActive ? theme.colors.onPrimary : theme.colors.onSurface}}
+                    >
+                      {p}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        );
+      })}
+    </View>
   );
 };
 
-export default MuscleInvolvementEditor;
-
 const styles = StyleSheet.create({
-  contentPad: {
-    paddingHorizontal: 10,
-  },
-  scroll: {
-    marginHorizontal: -10,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-  },
-  headerMuscleText: {
-    flex: 1,
-  },
-  headerPercentText: {
-    textAlign: 'center',
+  container: {
+    paddingVertical: 4,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderLeftWidth: 0,
-    borderRightWidth: 0,
-    borderBottomWidth: 1,
-    borderBottomEndRadius: 15,
-    borderBottomStartRadius: 15,
-    paddingHorizontal: 15,
-    paddingVertical: 2,
+    paddingVertical: 8,
     gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   muscleLabel: {
-    flex: 1,
-    minWidth: 0,
+    width: 110,
+    flexShrink: 0,
   },
-  percentInput: {
-    width: 100,
-    height: 40,
+  barTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  chip: {
+    minWidth: 32,
+    height: 28,
+    paddingHorizontal: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
+
+export default MuscleInvolvementEditor;

@@ -7,7 +7,7 @@ import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
 import {useExercise} from '../../../redux/Exercises/use/useExercise';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {Workout} from '../../../models/entities/Workout';
-import {lastOneRm, toFiniteNumber} from './exerciseStats';
+import {lastOneRm} from './exerciseStats';
 
 interface Props {
   exercise: Exercise;
@@ -46,9 +46,14 @@ const ExerciseStatsTab = ({exercise}: Props) => {
     const recs = live?.records?.[Record.ONE_RM] ?? [];
     if (recs.length === 0) return [];
     const out: RecordRow[] = [];
-    recs.forEach((r, idx) => {
-      const numericValue = toFiniteNumber(r?.value);
-      if (numericValue === undefined) return;
+    for (let idx = 0; idx < recs.length; idx++) {
+      const r = recs[idx];
+      // Persisted records may contain stringified numbers ("152.50") or null
+      // from older redux-persist migrations. Coerce + finite-check before BOTH
+      // sorting and rendering so the highest 1RM always lands at the top.
+      if (r === undefined || r === null || r.value === null || r.value === undefined || r.value === '') continue;
+      const numericValue = Number(r.value);
+      if (!Number.isFinite(numericValue)) continue;
       const w = workouts.find((wk) => wk.id === r.workoutId);
       const producingSet = findProducingSet(w);
       out.push({
@@ -59,7 +64,7 @@ const ExerciseStatsTab = ({exercise}: Props) => {
         rir: producingSet?.rir,
         key: `${r.workoutId}-${idx}-${numericValue}`,
       });
-    });
+    }
     out.sort((a, b) => b.value - a.value);
     return out;
   }, [workouts, live]);

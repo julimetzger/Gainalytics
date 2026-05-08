@@ -27,14 +27,15 @@ const ExerciseDetailScreen = ({navigation, route}: Props) => {
 
   // When the user deletes the current exercise from EditExerciseSheet, the
   // detail screen would otherwise keep rendering against the stale route
-  // param. Pop back instead so callbacks (focus, edit, log) cannot target an
-  // exercise that no longer exists.
+  // param. Pop back AND early-return so callbacks (focus, edit, log) cannot
+  // target an exercise that no longer exists, even for one frame.
+  const exerciseDeleted = exerciseFromParam.id !== undefined && live === undefined;
   useEffect(() => {
-    if (exerciseFromParam.id !== undefined && live === undefined) {
+    if (exerciseDeleted) {
       if (navigation.canGoBack()) navigation.goBack();
       else navigation.popToTop?.();
     }
-  }, [exerciseFromParam.id, live, navigation]);
+  }, [exerciseDeleted, navigation]);
 
   const exercise = live ?? exerciseFromParam;
   const [activeTab, setActiveTab] = useState<TabKey>('log');
@@ -71,6 +72,10 @@ const ExerciseDetailScreen = ({navigation, route}: Props) => {
       setActiveTab(route.params.initialTab);
     }
   }, [route.params.initialTab]);
+
+  if (exerciseDeleted) {
+    return <View style={[styles.root, {backgroundColor: theme.colors.background}]} testID="exercise-detail-deleted" />;
+  }
 
   return (
     <View style={[styles.root, {backgroundColor: theme.colors.background}]}>

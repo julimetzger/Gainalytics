@@ -274,6 +274,8 @@ const FocusCard = ({exercise, onPress, primaryColor}: FocusCardProps) => {
   const oneRm = lastOneRm(exercise);
   const delta = oneRmIncreaseDelta(exercise);
   const history = oneRmHistoryValues(exercise);
+  const oneRmText = typeof oneRm === 'number' && Number.isFinite(oneRm) ? `${oneRm.toFixed(1)} kg` : '— kg';
+  const showDelta = typeof delta === 'number' && Number.isFinite(delta) && delta !== 0;
   return (
     <Pressable onPress={onPress} testID={`focus-card-${exercise.id}`}>
       <Card mode="elevated" style={styles.focusCard}>
@@ -286,19 +288,19 @@ const FocusCard = ({exercise, onPress, primaryColor}: FocusCardProps) => {
           </View>
           <View style={styles.focusValueRow}>
             <Text variant="headlineSmall" style={[styles.focusValue, {color: theme.colors.onSurface}]}>
-              {typeof oneRm === 'number' && Number.isFinite(oneRm) ? `${oneRm.toFixed(1)} kg` : '— kg'}
+              {oneRmText}
             </Text>
-            {delta !== undefined && delta !== 0 && (
+            {showDelta && (
               <View style={styles.focusDeltaPill} testID={`focus-card-delta-${exercise.id}`}>
-                <Icon source={delta > 0 ? 'arrow-up' : 'arrow-down'} size={12} color={delta > 0 ? primaryColor : theme.colors.error} />
-                <Text variant="labelSmall" style={{color: delta > 0 ? primaryColor : theme.colors.error}}>
-                  {delta > 0 ? '+' : ''}{delta.toFixed(1)} kg
+                <Icon source={delta! > 0 ? 'arrow-up' : 'arrow-down'} size={12} color={delta! > 0 ? primaryColor : theme.colors.error} />
+                <Text variant="labelSmall" style={{color: delta! > 0 ? primaryColor : theme.colors.error}}>
+                  {delta! > 0 ? '+' : ''}{delta!.toFixed(1)} kg
                 </Text>
               </View>
             )}
           </View>
           <View style={styles.sparklineWrap}>
-            <Sparkline values={history} width={140} height={36} color={primaryColor} />
+            <Sparkline values={Array.isArray(history) ? history : []} width={140} height={36} color={primaryColor} />
           </View>
         </Card.Content>
       </Card>
@@ -322,7 +324,10 @@ const ExerciseRow = ({exercise, onPress, outlineColor, surfaceVariantColor, onSu
   const oneRm = lastOneRm(exercise);
   const history = oneRmHistoryValues(exercise);
   const summary = useExerciseWorkoutSummary(exercise.id);
-  const lastDoneText = summary.lastWorkoutEnd ? formatTimeAgo(summary.lastWorkoutEnd) : '—';
+  const lastDoneText =
+    summary.lastWorkoutEnd instanceof Date && !Number.isNaN(summary.lastWorkoutEnd.getTime())
+      ? formatTimeAgo(summary.lastWorkoutEnd)
+      : '—';
   return (
     <Pressable
       onPress={onPress}

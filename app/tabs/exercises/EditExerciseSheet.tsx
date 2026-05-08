@@ -1,6 +1,6 @@
 import React, {useEffect, useLayoutEffect, useMemo, useState} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
-import {Button, Icon, IconButton, Switch, Text, TextInput, useTheme} from 'react-native-paper';
+import {Button, Dialog, Icon, IconButton, Portal, Switch, Text, TextInput, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
 import {useExercise} from '../../redux/Exercises/use/useExercise';
@@ -10,18 +10,20 @@ import {dispatchDeleteExercise} from '../../redux/Exercises/dispatch/dispatchDel
 import {MusclePercentPair} from '../../models/entities/Exercise';
 import MuscleInvolvementEditor from '../../components/exercise/add/MuscleInvolvementEditor';
 import ExerciseAlternativesField from '../../components/exercise/add/ExerciseAlternativesField';
+import {useWorkoutsByExerciseId} from '../../redux/Workout/use/useWorkoutsByExerciseId';
 
 const EditExerciseSheet = ({navigation, route}: Props) => {
   const theme = useTheme();
   const exerciseId = route.params?.exerciseId;
   const existing = useExercise(exerciseId);
   const isEdit = exerciseId !== undefined && existing !== undefined;
+  const linkedWorkouts = useWorkoutsByExerciseId(exerciseId);
 
   const [name, setName] = useState(existing?.name ?? '');
   const [isFocus, setIsFocus] = useState<boolean>(existing?.isFocus ?? false);
   const [muscles, setMuscles] = useState<MusclePercentPair[]>(existing?.muscles ?? []);
   const [alternativeIds, setAlternativeIds] = useState<number[]>(existing?.alternativeIds ?? []);
-  const [muscleEditorVisible, setMuscleEditorVisible] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const addExercise = useDispatchAddExercise();
   const editExercise = dispatchEditExercise();
@@ -54,8 +56,13 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
     navigation.goBack();
   };
 
-  const handleDelete = () => {
+  const handleDeletePress = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = () => {
     if (exerciseId !== undefined) {
+      setShowDeleteDialog(false);
       deleteExercise(exerciseId);
       navigation.goBack();
     }
@@ -106,26 +113,22 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
         <Switch value={isFocus} onValueChange={setIsFocus} testID="edit-exercise-focus-switch" />
       </View>
 
-      <Button
-        mode="outlined"
-        style={styles.muscleButton}
-        onPress={() => setMuscleEditorVisible(true)}
-        testID="edit-exercise-muscle-button"
-      >
+      <Text variant="labelMedium" style={[styles.sectionLabel, {color: theme.colors.onSurfaceVariant}]}>
         Muscle involvement
-      </Button>
+      </Text>
       <Text variant="bodySmall" style={[styles.muscleHint, {color: theme.colors.onSurfaceVariant}]}>
         {activeMuscleCount === 0
-          ? 'No muscles set (tap to configure)'
+          ? 'Tap 25 / 50 / 75 / 100 for each involved muscle.'
           : `${activeMuscleCount} muscle${activeMuscleCount === 1 ? '' : 's'} with involvement`}
       </Text>
+      <MuscleInvolvementEditor pairs={muscles} onChange={setMuscles} />
 
       <ExerciseAlternativesField exerciseId={exerciseId} alternativeIds={alternativeIds} onChange={setAlternativeIds} />
 
       {isEdit && (
         <Button
           mode="outlined"
-          onPress={handleDelete}
+          onPress={handleDeletePress}
           textColor={theme.colors.error}
           style={styles.deleteButton}
           testID="edit-exercise-delete"
@@ -134,12 +137,29 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
         </Button>
       )}
 
-      <MuscleInvolvementEditor
-        visible={muscleEditorVisible}
-        onDismiss={() => setMuscleEditorVisible(false)}
-        initialPairs={muscles}
-        onApply={setMuscles}
-      />
+      <Portal>
+        <Dialog
+          visible={showDeleteDialog}
+          onDismiss={() => setShowDeleteDialog(false)}
+          testID="edit-exercise-delete-dialog"
+        >
+          <Dialog.Title>Delete {existing?.name ?? 'exercise'}?</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              This will also delete {linkedWorkouts.length} workout
+              {linkedWorkouts.length === 1 ? '' : 's'}. This action cannot be undone.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowDeleteDialog(false)} testID="edit-exercise-delete-cancel">
+              Cancel
+            </Button>
+            <Button onPress={handleDeleteConfirm} textColor={theme.colors.error} testID="edit-exercise-delete-confirm">
+              Delete
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ScrollView>
   );
 };
@@ -170,8 +190,10 @@ const styles = StyleSheet.create({
   focusText: {
     fontSize: 16,
   },
-  muscleButton: {
-    marginTop: 4,
+  sectionLabel: {
+    marginTop: 8,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   muscleHint: {
     marginTop: 4,

@@ -65,4 +65,20 @@ describe('formatTimeAgo', () => {
   it('returns months for older entries', () => {
     expect(formatTimeAgo(new Date('2026-02-01T08:00:00Z'), now)).toMatch(/mo ago/);
   });
+  it('uses calendar-day boundaries — 23:30 yesterday viewed at 08:00 today is "yesterday"', () => {
+    // Use local-time constructors so the day boundary aligns with the runner's TZ.
+    const yesterdayLate = new Date(2026, 4, 7, 23, 30).getTime();
+    const todayMorning = new Date(2026, 4, 8, 8, 0).getTime();
+    // Raw-ms diff is only ~8.5 hours (less than 24h), so the old impl would say
+    // "today". Calendar-day diffing must say "yesterday".
+    expect(formatTimeAgo(new Date(yesterdayLate), todayMorning)).toBe('yesterday');
+  });
+  it('returns "today" for a workout earlier the same calendar day', () => {
+    const earlierToday = new Date(2026, 4, 8, 0, 30).getTime();
+    const laterToday = new Date(2026, 4, 8, 23, 30).getTime();
+    expect(formatTimeAgo(new Date(earlierToday), laterToday)).toBe('today');
+  });
+  it('handles undefined date gracefully', () => {
+    expect(formatTimeAgo(undefined, now)).toBe('—');
+  });
 });

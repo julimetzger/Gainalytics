@@ -16,7 +16,6 @@ interface AddExerciseProperties {
 
 const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
   const [visible, setVisible] = React.useState(false);
-  const [muscleEditorVisible, setMuscleEditorVisible] = useState(false);
   const [deleteOverlay, setDeleteOverlay] = useState(false);
   let dispatchAddExercise = useDispatchAddExercise();
   let exercise = exerciseId ? useExercise(exerciseId) : undefined;
@@ -40,12 +39,10 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
     setMuscles(exercise?.muscles ?? []);
     setAlternativeIds(exercise?.alternativeIds ?? []);
     setIsFocus(exercise?.isFocus ?? false);
-    setMuscleEditorVisible(false);
     setVisible(true);
   };
   const hideDialog = () => {
     setVisible(false);
-    setMuscleEditorVisible(false);
     setDeleteOverlay(false);
     setError(undefined);
   };
@@ -57,8 +54,6 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
     setError(undefined);
     setVisible(false);
     exerciseId ? editExercise(exerciseId, newExerciseName, muscles, alternativeIds, isFocus) : dispatchAddExercise(newExerciseName, muscles, alternativeIds, isFocus);
-    setMuscleEditorVisible(false);
-    exerciseId ? editExercise(exerciseId, newExerciseName, muscles, alternativeIds) : dispatchAddExercise(newExerciseName, muscles, alternativeIds);
   };
 
   return (
@@ -79,14 +74,15 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
             ) : (
               <View>
                 <TextInput value={newExerciseName} label={'Name of the Exercise'} onChangeText={(text) => setNewExerciseName(text)} />
-                <Button mode="outlined" style={styles.muscleButton} onPress={() => setMuscleEditorVisible(true)}>
+                <Text variant="labelMedium" style={[styles.muscleLabel, {color: theme.colors.onSurfaceVariant}]}>
                   Muscle involvement
-                </Button>
+                </Text>
                 <Text variant="bodySmall" style={[styles.muscleHint, {color: theme.colors.onSurfaceVariant}]}>
                   {activeMuscleCount === 0
-                    ? 'No muscles set (tap to configure)'
+                    ? 'Tap 25 / 50 / 75 / 100 for each involved muscle.'
                     : `${activeMuscleCount} muscle${activeMuscleCount === 1 ? '' : 's'} with involvement`}
                 </Text>
+                <MuscleInvolvementEditor pairs={muscles} onChange={setMuscles} />
                 <ExerciseAlternativesField exerciseId={exerciseId} alternativeIds={alternativeIds} onChange={setAlternativeIds} />
                 <View style={styles.focusRow}>
                   <Checkbox
@@ -116,12 +112,6 @@ const AddExercise = ({style, exerciseId}: AddExerciseProperties) => {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-      <MuscleInvolvementEditor
-        visible={muscleEditorVisible}
-        onDismiss={() => setMuscleEditorVisible(false)}
-        initialPairs={muscles}
-        onApply={setMuscles}
-      />
     </View>
   );
 };
@@ -140,8 +130,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-  muscleButton: {
+  muscleLabel: {
     marginTop: 8,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   muscleHint: {
     marginBottom: 8,
