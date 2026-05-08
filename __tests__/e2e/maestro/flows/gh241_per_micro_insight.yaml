@@ -1,0 +1,7 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-241: verify MicroOverview renders correctly for two different micros
+# Runs against an already-running app with baseline data imported.
+# Does NOT call launchApp to avoid breaking the Metro connection on WSL.
+- assertVisible: "Push pull"
+- assertVisible: "Meso 1"

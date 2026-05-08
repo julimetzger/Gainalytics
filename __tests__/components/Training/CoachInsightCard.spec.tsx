@@ -242,3 +242,92 @@ describe('CoachInsightCard — cold-start with persisted custom model (GH-159-fi
     expect(modelArg).toBe(persistedModel);
   });
 });
+
+// ── GH-241: per-micro cache key tests ────────────────────────────────────────
+
+describe('CoachInsightCard — GH-241 per-micro cache keys', () => {
+  it('(a) two micro training sets produce two different cache lookups', async () => {
+    // Micro 1 has training IDs 1,2 — micro 2 has IDs 3,4. Both have no cache entry.
+    mockInsightCacheGet.mockReturnValue(undefined);
+    mockCallAnthropicClaude
+      .mockResolvedValueOnce({ok: true, text: 'Insight for micro 1.'})
+      .mockResolvedValueOnce({ok: true, text: 'Insight for micro 2.'});
+
+    const trainings1 = [makeFinishedTraining(1), makeFinishedTraining(2)];
+    const trainings2 = [makeFinishedTraining(3), makeFinishedTraining(4)];
+
+    const {rerender, getByTestId, unmount} = render(
+      <CoachInsightCard trainings={trainings1} isActive={true} />,
+    );
+    await waitFor(() => getByTestId('coach-insight-text'));
+
+    const firstCacheKey = mockInsightCacheGet.mock.calls[0][0] as string;
+
+    unmount();
+    jest.clearAllMocks();
+    mockInsightCacheGet.mockReturnValue(undefined);
+    mockCallAnthropicClaude.mockResolvedValue({ok: true, text: 'Insight for micro 2.'});
+
+    render(<CoachInsightCard trainings={trainings2} isActive={true} />);
+    await waitFor(() => expect(mockCallAnthropicClaude).toHaveBeenCalledTimes(1));
+
+    const secondCacheKey = mockInsightCacheGet.mock.calls[0][0] as string;
+
+    // The two micros must use different cache keys.
+    expect(firstCacheKey).not.toBe(secondCacheKey);
+    // Keys are derived from training IDs.
+    expect(firstCacheKey).toBe('1,2');
+    expect(secondCacheKey).toBe('3,4');
+  });
+
+  it('(b) finishing a workout in micro X invalidates that micro\'s cache', async () => {
+    // Initial state: micro has one finished training → cache miss → API call.
+    mockInsightCacheGet.mockReturnValue(undefined);
+    mockCallAnthropicClaude.mockResolvedValue({ok: true, text: 'Old insight.'});
+
+    const {rerender} = render(
+      <CoachInsightCard trainings={[makeFinishedTraining(10)]} isActive={true} />,
+    );
+    await waitFor(() => expect(mockCallAnthropicClaude).toHaveBeenCalledTimes(1));
+
+    const firstKey = mockInsightCacheGet.mock.calls[0][0] as string;
+    expect(firstKey).toBe('10');
+
+    // A second training is now finished in the same micro → new training set.
+    mockCallAnthropicClaude.mockClear();
+    mockInsightCacheGet.mockClear();
+    mockInsightCacheGet.mockReturnValue(undefined); // new key is also a miss
+
+    rerender(<CoachInsightCard trainings={[makeFinishedTraining(10), makeFinishedTraining(11)]} isActive={true} />);
+
+    await waitFor(() => expect(mockCallAnthropicClaude).toHaveBeenCalledTimes(1));
+
+    const secondKey = mockInsightCacheGet.mock.calls[0][0] as string;
+    // Cache key changed because a new training ID entered the finished set.
+    expect(secondKey).toBe('10,11');
+    expect(secondKey).not.toBe(firstKey);
+  });
+
+  it('(c) old per-meso cache entry (large ID set) does not collide with per-micro key', async () => {
+    // Simulate: old cache has an entry keyed by the full 28-day ID set "1,2,3,4,5".
+    // After the migration, micro 1 only passes IDs [1,2] → different key → cache miss.
+    const oldMesoKey = '1,2,3,4,5';
+    const perMicroKey = '1,2';
+    mockInsightCacheGet.mockImplementation((k: string) => {
+      if (k === oldMesoKey) return {text: 'Old meso insight.', generatedAt: Date.now()};
+      return undefined;
+    });
+
+    mockCallAnthropicClaude.mockResolvedValue({ok: true, text: 'Fresh micro insight.'});
+
+    const microTrainings = [makeFinishedTraining(1), makeFinishedTraining(2)];
+    render(<CoachInsightCard trainings={microTrainings} isActive={true} />);
+
+    await waitFor(() => expect(mockCallAnthropicClaude).toHaveBeenCalledTimes(1));
+
+    // The component queried with the per-micro key, not the old meso key.
+    const queriedKey = mockInsightCacheGet.mock.calls[0][0] as string;
+    expect(queriedKey).toBe(perMicroKey);
+    expect(queriedKey).not.toBe(oldMesoKey);
+  });
+});
