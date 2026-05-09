@@ -88,6 +88,10 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
           ...settings.localNotification,
           pauseTimerInSeconds: action.seconds,
         },
+        restTimer: {
+          ...settings.restTimer,
+          userDefaultSeconds: action.seconds,
+        },
       } as AppSettings;
     }
     case 'SET_FINISH_TRAINING_TIMER': {
@@ -224,6 +228,10 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
     case 'SET_REST_TIMER_USER_DEFAULT': {
       return {
         ...settings,
+        localNotification: {
+          ...settings.localNotification,
+          pauseTimerInSeconds: action.seconds,
+        },
         restTimer: {
           ...settings.restTimer,
           userDefaultSeconds: action.seconds,

@@ -207,7 +207,6 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
 
   const onSubmitSet = () => {
     setTimeInWorkout(new Date(Date.now()));
-    schedulePauseDoneNotification();
     if (training?.state === TrainingsState.STARTED) {
       scheduleFinisTraining();
     }
@@ -377,7 +376,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                         </View>
                       )}
                       {chosenExercise && (
-                        <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} />
+                        <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} onScheduleNotification={(secs) => schedulePauseDoneNotification(secs)} onCancelNotification={resetPauseNotification} />
                       )}
                     </View>
                   )}
