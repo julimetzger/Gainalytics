@@ -1,129 +1,230 @@
-import React, {useEffect, useState} from 'react';
-import {Dimensions, ScrollView, StyleSheet, View} from 'react-native';
-import {Button, Dialog, Portal, Text, TextInput, useTheme} from 'react-native-paper';
+import React, {useCallback, useState} from 'react';
+import {
+  AccessibilityActionEvent,
+  GestureResponderEvent,
+  LayoutChangeEvent,
+  StyleSheet,
+  View,
+} from 'react-native';
+import {Text, TextInput, useTheme} from 'react-native-paper';
 import {Muscles} from '../../../models/Muscles';
 import {MusclePercentPair} from '../../../models/entities/Exercise';
-import {ALL_MUSCLES_SORTED, draftToPairs, pairsToDraft} from './muscle-involvement-utils';
-
-const SCROLL_MAX_HEIGHT = Math.round(Dimensions.get('window').height * 0.55);
+import {ALL_MUSCLES_SORTED} from './muscle-involvement-utils';
 
 interface MuscleInvolvementEditorProps {
-  visible: boolean;
-  onDismiss: () => void;
-  initialPairs: MusclePercentPair[];
-  onApply: (pairs: MusclePercentPair[]) => void;
+  pairs: MusclePercentPair[];
+  onChange: (pairs: MusclePercentPair[]) => void;
 }
 
-const MuscleInvolvementEditor = ({visible, onDismiss, initialPairs, onApply}: MuscleInvolvementEditorProps) => {
-  const theme = useTheme();
-  const [draft, setDraft] = useState<Record<Muscles, string>>(() => pairsToDraft(initialPairs));
+const ACCESSIBILITY_STEP = 5;
 
-  useEffect(() => {
-    if (visible) {
-      setDraft(pairsToDraft(initialPairs));
-    }
-  }, [visible, initialPairs]);
+const percentFor = (pairs: MusclePercentPair[], muscle: Muscles): number => {
+  const found = pairs.find((p) => p.muscle === muscle);
+  if (!found) return 0;
+  const n = Number(found.percent);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
 
-  const setPercentFor = (muscle: Muscles, text: string) => {
-    setDraft((prev) => ({...prev, [muscle]: text}));
-  };
+const setPercentFor = (
+  pairs: MusclePercentPair[],
+  muscle: Muscles,
+  percent: number,
+): MusclePercentPair[] => {
+  const others = pairs.filter((p) => p.muscle !== muscle);
+  if (percent <= 0) return others;
+  return [...others, {muscle, percent}];
+};
 
-  const handleApply = () => {
-    onApply(draftToPairs(draft));
-    onDismiss();
-  };
+const parseInputToPercent = (raw: string): {percent: number; display: string} | null => {
+  const trimmed = raw.trim();
+  if (trimmed === '') return {percent: 0, display: ''};
+  if (!/^\d*\.?\d*$/.test(trimmed)) return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n)) return null;
+  if (n < 0) return {percent: 0, display: '0'};
+  if (n > 100) return {percent: 100, display: '100'};
+  return {percent: n, display: trimmed};
+};
+
+const clampInt = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
+
+interface MuscleRowProps {
+  muscle: Muscles;
+  current: number;
+  trackColor: string;
+  primaryColor: string;
+  onSurfaceColor: string;
+  outlineVariantColor: string;
+  onSetPercent: (muscle: Muscles, percent: number) => void;
+}
+
+const MuscleRow = ({
+  muscle,
+  current,
+  trackColor,
+  primaryColor,
+  onSurfaceColor,
+  outlineVariantColor,
+  onSetPercent,
+}: MuscleRowProps) => {
+  const [barWidth, setBarWidth] = useState(0);
+  const fillWidth = `${Math.max(0, Math.min(100, current))}%` as const;
+  const inputValue = current > 0 ? String(current) : '';
+
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    setBarWidth(e.nativeEvent.layout.width);
+  }, []);
+
+  const setFromTouch = useCallback(
+    (e: GestureResponderEvent) => {
+      if (barWidth <= 0) return;
+      const x = e.nativeEvent.locationX;
+      const percent = clampInt((x / barWidth) * 100);
+      if (percent === current) return;
+      onSetPercent(muscle, percent);
+    },
+    [barWidth, current, muscle, onSetPercent],
+  );
+
+  const handleAccessibilityAction = useCallback(
+    (event: AccessibilityActionEvent) => {
+      const action = event.nativeEvent.actionName;
+      if (action === 'increment') {
+        onSetPercent(muscle, Math.min(100, current + ACCESSIBILITY_STEP));
+      } else if (action === 'decrement') {
+        onSetPercent(muscle, Math.max(0, current - ACCESSIBILITY_STEP));
+      }
+    },
+    [current, muscle, onSetPercent],
+  );
+
+  const handleTextChange = useCallback(
+    (raw: string) => {
+      const parsed = parseInputToPercent(raw);
+      if (parsed === null) return;
+      onSetPercent(muscle, parsed.percent);
+    },
+    [muscle, onSetPercent],
+  );
 
   return (
-    <Portal>
-      <Dialog visible={visible} onDismiss={onDismiss} theme={theme}>
-        <Dialog.Title>Muscle involvement</Dialog.Title>
-        <Dialog.Content style={styles.contentPad}>
-          <View style={[styles.headerRow, {borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surfaceVariant}]}>
-            <Text variant="labelMedium" style={[styles.headerMuscleText, {color: theme.colors.onSurfaceVariant}]}>
-              Muscle
-            </Text>
-            <Text variant="labelMedium" style={[styles.headerPercentText, {color: theme.colors.onSurfaceVariant}]}>
-              Involvement in %
-            </Text>
-          </View>
-          <ScrollView
-            style={[styles.scroll, {maxHeight: SCROLL_MAX_HEIGHT}]}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-          >
-            {ALL_MUSCLES_SORTED.map((muscle) => (
-              <View key={muscle} style={[styles.row, {borderColor: theme.colors.outlineVariant}]}>
-                <Text variant="bodyMedium" style={[styles.muscleLabel, {color: theme.colors.onSurface}]} numberOfLines={1}>
-                  {muscle}
-                </Text>
-                <TextInput
-                  mode="outlined"
-                  dense
-                  label=""
-                  keyboardType="numeric"
-                  inputMode="numeric"
-                  style={styles.percentInput}
-                  selectTextOnFocus
-                  value={draft[muscle]}
-                  onChangeText={(t) => setPercentFor(muscle, t)}
-                  right={<TextInput.Affix text="" />}
-                />
-              </View>
-            ))}
-          </ScrollView>
-        </Dialog.Content>
-        <Dialog.Actions>
-          <Button onPress={onDismiss}>Cancel</Button>
-          <Button onPress={handleApply}>Done</Button>
-        </Dialog.Actions>
-      </Dialog>
-    </Portal>
+    <View
+      style={[styles.row, {borderBottomColor: outlineVariantColor}]}
+      testID={`muscle-row-${muscle}`}
+    >
+      <Text
+        variant="bodyMedium"
+        style={[styles.muscleLabel, {color: onSurfaceColor}]}
+        numberOfLines={1}
+      >
+        {muscle}
+      </Text>
+      <View
+        style={[styles.barTrack, {backgroundColor: trackColor}]}
+        testID={`muscle-bar-${muscle}`}
+        onLayout={handleLayout}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={setFromTouch}
+        onResponderMove={setFromTouch}
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel={`${muscle} involvement`}
+        accessibilityValue={{min: 0, max: 100, now: current}}
+        accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
+        onAccessibilityAction={handleAccessibilityAction}
+      >
+        <View
+          pointerEvents="none"
+          style={[
+            styles.barFill,
+            {
+              width: fillWidth,
+              backgroundColor: primaryColor,
+            },
+          ]}
+          testID={`muscle-bar-fill-${muscle}`}
+        />
+      </View>
+      <TextInput
+        value={inputValue}
+        onChangeText={handleTextChange}
+        keyboardType="numeric"
+        mode="outlined"
+        dense
+        style={styles.input}
+        contentStyle={styles.inputContent}
+        testID={`muscle-input-${muscle}`}
+        right={<TextInput.Affix text="%" />}
+      />
+    </View>
   );
 };
 
-export default MuscleInvolvementEditor;
+const MuscleInvolvementEditor = ({pairs, onChange}: MuscleInvolvementEditorProps) => {
+  const theme = useTheme();
+  const trackColor = theme.colors.surfaceVariant;
+
+  const setPercent = useCallback(
+    (muscle: Muscles, percent: number) => {
+      onChange(setPercentFor(pairs, muscle, percent));
+    },
+    [pairs, onChange],
+  );
+
+  return (
+    <View style={styles.container} testID="muscle-involvement-editor">
+      {ALL_MUSCLES_SORTED.map((muscle) => (
+        <MuscleRow
+          key={muscle}
+          muscle={muscle}
+          current={percentFor(pairs, muscle)}
+          trackColor={trackColor}
+          primaryColor={theme.colors.primary}
+          onSurfaceColor={theme.colors.onSurface}
+          outlineVariantColor={theme.colors.outlineVariant}
+          onSetPercent={setPercent}
+        />
+      ))}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
-  contentPad: {
-    paddingHorizontal: 10,
-  },
-  scroll: {
-    marginHorizontal: -10,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-  },
-  headerMuscleText: {
-    flex: 1,
-  },
-  headerPercentText: {
-    textAlign: 'center',
+  container: {
+    paddingVertical: 4,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderLeftWidth: 0,
-    borderRightWidth: 0,
-    borderBottomWidth: 1,
-    borderBottomEndRadius: 15,
-    borderBottomStartRadius: 15,
-    paddingHorizontal: 15,
-    paddingVertical: 2,
+    paddingVertical: 8,
     gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   muscleLabel: {
-    flex: 1,
-    minWidth: 0,
+    width: 110,
+    flexShrink: 0,
   },
-  percentInput: {
-    width: 100,
-    height: 40,
+  barTrack: {
+    flex: 1,
+    height: 16,
+    borderRadius: 8,
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  barFill: {
+    height: 16,
+    borderRadius: 8,
+  },
+  input: {
+    width: 72,
+    height: 36,
+  },
+  inputContent: {
+    paddingHorizontal: 4,
+    fontSize: 14,
+    textAlign: 'right',
   },
 });
+
+export default MuscleInvolvementEditor;

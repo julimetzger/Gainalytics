@@ -34,8 +34,8 @@ export const BottomTabs = () => {
           navigation.navigate({
             name: 'Exercises',
             params: {
-              screen: 'ExerciseStatisticsTab',
-              params: {exercise: exercise},
+              screen: 'AddWorkoutTab',
+              params: {exercise: exercise, initialTab: 'stats'},
             },
           } as never);
         },

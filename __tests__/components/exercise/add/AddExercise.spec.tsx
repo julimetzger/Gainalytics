@@ -22,7 +22,7 @@ jest.mock('../../../../app/redux/Exercises/use/useExercise', () => ({
   useExercise: jest.fn(() => undefined),
 }));
 
-jest.mock('../../../../app/components/exercise/add/MusclePicker', () => () => null);
+jest.mock('../../../../app/components/exercise/add/MuscleInvolvementEditor', () => () => null);
 jest.mock('../../../../app/components/exercise/add/ExerciseAlternativesField', () => () => null);
 
 jest.mock('react-native-paper', () => {
