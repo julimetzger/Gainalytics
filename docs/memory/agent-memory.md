@@ -1095,3 +1095,20 @@ Add the slot identifiers to the effect deps. The "only fires once for the same s
 ### 145. `accessibilityRole="adjustable"` + `accessibilityActions` is enough for a screen-reader slider — no third-party lib needed
 **Observation:** RN's built-in `<View>` honours `accessibilityRole="adjustable"`, `accessibilityValue={{min, max, now}}`, `accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}`, and `onAccessibilityAction={event => ...}` directly. TalkBack reads "<min..max> slider, X percent, swipe up to increment, swipe down to decrement", and dispatches the corresponding action handler with `event.nativeEvent.actionName` set to `'increment'` or `'decrement'`. The step size is determined entirely by the handler, so a screen-reader "increment" gesture can step 5 % (or any other delta) without extra plumbing.
 **Apply when:** Building a custom slider that must work with TalkBack. Skip `react-native-paper`'s Slider and `@react-native-community/slider` if the only requirement is keyboard/TalkBack adjustability — the four accessibility props above cover it.
+### 135. `BridgelessReactNativeDevBundle.js` cache causes stale bundle on emulator restart
+**Problem:** After a fresh `am force-stop` + `am start`, the debug app loads from the cached bundle at `files/BridgelessReactNativeDevBundle.js` (in the app's private data dir) instead of fetching fresh from Metro. Code changes look absent even when Metro is serving the correct bundle.
+**Workaround before launch:**
+```bash
+adb shell "run-as com.powerliftingworkoutplanner rm -f files/BridgelessReactNativeDevBundle.js"
+```
+Run this immediately before `am start`. Confirmed: after deletion the app fetches fresh from Metro on next launch.
+
+### 136. Metro may serve stale module hashes after worktree creation — `--reset-cache` on first start
+If Metro was started in the worktree and the worktree inherited file-map caches from a prior run, module hashes may be stale even though the files on disk are updated. Start Metro with `--reset-cache` once after creating the worktree or making significant edits. Subsequent starts without `--reset-cache` are fine.
+
+### 137. Maestro `launchApp` restores the previous nav state — don't assume Training tab is active
+`launchApp` re-opens the app from wherever it was last (Settings, Dashboard, etc.). Flows that depend on the Training tab being visible should either:
+- Use `waitForAnimationToEnd` + `tapOn: 'tab-settings'` (string selector) to navigate explicitly
+- Or wait for `Export Data` / screen-specific text instead of 'Training'
+Bare `extendedWaitUntil: visible: 'Training'` fails when the app last closed on Settings because the 'Training' tab label only shows for the selected tab.
+**Apply when:** Any per-slot side-effect inside a component rendered under `RangeSwiper` (or any swiper that re-renders with new props instead of remounting). Includes auto-routes, "show this once" hints, slot-bound analytics, etc.
