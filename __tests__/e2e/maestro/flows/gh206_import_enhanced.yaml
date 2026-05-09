@@ -1,0 +1,46 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-206: Import enhanced fixture (3 video analyses) then verify the search bar
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- waitForAnimationToEnd:
+    timeout: 60000
+- tapOn: 'tab-settings'
+- extendedWaitUntil:
+    visible: 'Import Data'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'settings-import-data-button'
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: 'settings-import-data-button'
+- extendedWaitUntil:
+    visible: 'Import full data from backup file?'
+    timeout: 10000
+- tapOn: 'Import'
+- runFlow:
+    when:
+      visible: 'Use without an account'
+    commands:
+      - tapOn: 'Use without an account'
+- runFlow:
+    when:
+      visible: 'No thanks'
+    commands:
+      - tapOn: 'No thanks'
+- scrollUntilVisible:
+    element:
+      text: 'baseline.gains'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: 'baseline.gains'
+- extendedWaitUntil:
+    visible: 'Export Data'
+    timeout: 60000

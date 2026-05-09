@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Button, Card, MD3Theme, Text, useTheme} from 'react-native-paper';
+import {Button, Card, MD3Theme, Searchbar, Text, useTheme} from 'react-native-paper';
 import {useSelector, useStore} from 'react-redux';
 import {FlashList} from '@shopify/flash-list';
 import DocumentPicker from 'react-native-document-picker';
@@ -28,7 +28,7 @@ import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../u
 import {importVideoAnalysisFromSource} from '../../utils/video-analysis-import';
 import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
 import {calculateAnalysisProgress, DEFAULT_ANALYSIS_SECONDS_PER_VIDEO_SECOND} from '../../utils/videoAnalysisProgress';
-import {buildVideoAnalysisDefaultDateRange, filterVideoAnalyses, isSameRange, RIR_PRESETS, VL_PRESETS} from '../../utils/video-analysis-filters';
+import {buildVideoAnalysisDefaultDateRange, filterVideoAnalyses, filterVideoAnalysesBySearchQuery, isSameRange, RIR_PRESETS, VL_PRESETS} from '../../utils/video-analysis-filters';
 import {
   buildVideoAnalysisFilterSummary,
   buildVideoAnalysisRangeFromPreset,
@@ -83,6 +83,7 @@ const VideoAnalysisTab = () => {
   const [isDateRangeFilterActive, setIsDateRangeFilterActive] = useState(false);
   const [vlPresets, setVlPresets] = useState<Array<(typeof VL_PRESETS)[number]>>([]);
   const [rirPresets, setRirPresets] = useState<Array<(typeof RIR_PRESETS)[number]>>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const showToast = (params: Parameters<typeof Toast.show>[0]) => {
     if (!store.getState().settings?.toggles?.disableToasts) {
@@ -111,6 +112,14 @@ const VideoAnalysisTab = () => {
       return set !== undefined ? set.rir : null;
     },
     [workoutsById],
+  );
+
+  const resolveExerciseName = useCallback(
+    (analysis: {exerciseId?: number; workoutId?: number}): string | undefined => {
+      const exerciseId = analysis.exerciseId ?? (analysis.workoutId !== undefined ? workoutsById[analysis.workoutId]?.exerciseId : undefined);
+      return allExercises.find((e) => e.id === exerciseId)?.name;
+    },
+    [allExercises, workoutsById],
   );
 
   useEffect(() => {
@@ -168,6 +177,12 @@ const VideoAnalysisTab = () => {
       }),
     [analyses, dateRange, filterExerciseIds, getSetRir, isDateRangeFilterActive, rirPresets, vlPresets],
   );
+
+  const searchFilteredAnalyses = useMemo(
+    () => filterVideoAnalysesBySearchQuery(filteredAnalyses, searchQuery, resolveExerciseName, getSetRir),
+    [filteredAnalyses, getSetRir, resolveExerciseName, searchQuery],
+  );
+
   const filterSummary = useMemo(
     () =>
       buildVideoAnalysisFilterSummary({
@@ -296,6 +311,13 @@ const VideoAnalysisTab = () => {
   const renderHeader = useMemo(
     () => (
       <View style={styles.header}>
+        <Searchbar
+          placeholder="Search by exercise or RIR (e.g. Bank 1)"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          testID="video-analysis-search-bar"
+          style={styles.searchBar}
+        />
         <VideoAnalysisFiltersSection
           expanded={filtersExpanded}
           summary={filterSummary}
@@ -315,12 +337,12 @@ const VideoAnalysisTab = () => {
             Import Video
           </Button>
           <Text variant="labelMedium" style={styles.countLabel} testID="video-analysis-lift-count">
-            {getVideoAnalysisCountLabel(filteredAnalyses.length)}
+            {getVideoAnalysisCountLabel(searchFilteredAnalyses.length)}
           </Text>
         </View>
       </View>
     ),
-    [exerciseOptions, filterSummary, filterExercise, filteredAnalyses.length, filtersExpanded, importFromGallery, importing, onSelectRangePreset, onToggleExercise, rirPresets, selectedRangePreset, setFiltersExpanded, vlPresets],
+    [exerciseOptions, filterSummary, filterExercise, searchFilteredAnalyses.length, filtersExpanded, importFromGallery, importing, onSelectRangePreset, onToggleExercise, rirPresets, searchQuery, selectedRangePreset, setFiltersExpanded, vlPresets],
   );
 
   const renderAnalysisItem = useCallback(
@@ -369,7 +391,7 @@ const VideoAnalysisTab = () => {
         <SetSelectionModal visible={true} onDismiss={() => setLinkSetForAnalysisId(undefined)} analysisId={linkSetForAnalysisId} onLinked={() => setLinkSetForAnalysisId(undefined)} />
       )}
       <FlashList
-        data={filteredAnalyses}
+        data={searchFilteredAnalyses}
         renderItem={renderAnalysisItem}
         keyExtractor={(item) => String(item.id)}
         estimatedItemSize={96}
@@ -413,6 +435,9 @@ const styles = StyleSheet.create({
   emptyCard: {
     marginHorizontal: 12,
     marginTop: 4,
+  },
+  searchBar: {
+    elevation: 0,
   },
 });
 

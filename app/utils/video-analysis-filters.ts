@@ -119,6 +119,41 @@ export function isSameRange(left: Range, right: Range): boolean {
   return startOfDay(left.startDate).getTime() === startOfDay(right.startDate).getTime() && startOfDay(left.endDate).getTime() === startOfDay(right.endDate).getTime();
 }
 
+/**
+ * Filters analyses by a free-text search query.
+ * Tokens are split by whitespace. Each token is matched against:
+ * - RIR (if the token is a pure integer)
+ * - exercise name (case-insensitive substring, otherwise)
+ * All tokens must match (AND semantics). Empty query passes everything.
+ */
+export function filterVideoAnalysesBySearchQuery(
+  analyses: VideoAnalysis[],
+  query: string,
+  resolveExerciseName: (analysis: VideoAnalysis) => string | undefined,
+  getSetRir: (workoutId: number, setIndex: number) => number | null,
+): VideoAnalysis[] {
+  const trimmed = query.trim();
+  if (trimmed.length === 0) {
+    return analyses;
+  }
+  const tokens = trimmed.split(/\s+/);
+  return analyses.filter((analysis) =>
+    tokens.every((token) => {
+      const isInteger = /^\d+$/.test(token);
+      if (isInteger) {
+        const rirTarget = parseInt(token, 10);
+        const {workoutId, setIndex} = analysis;
+        if (workoutId === undefined || setIndex === undefined) {
+          return false;
+        }
+        return getSetRir(workoutId, setIndex) === rirTarget;
+      }
+      const name = resolveExerciseName(analysis);
+      return name !== undefined && name.toLowerCase().includes(token.toLowerCase());
+    }),
+  );
+}
+
 export function filterVideoAnalyses({analyses, exerciseIds, hasMuscleFilter, muscleExerciseIds, dateRange, isDateRangeFilterActive, vlPresets, rirPresets, getSetRir}: VideoAnalysisFilterArgs): VideoAnalysis[] {
   const exerciseIdSet = new Set(exerciseIds);
   const muscleExerciseIdSet = new Set(muscleExerciseIds);
