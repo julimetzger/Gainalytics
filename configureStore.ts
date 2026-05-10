@@ -5,7 +5,9 @@ import {MMKV} from 'react-native-mmkv';
 import createFilter from 'redux-persist-transform-filter';
 import {configureStore} from '@reduxjs/toolkit';
 import logger from 'redux-logger';
+import {AppState} from 'react-native';
 import {__DEV_PERF__} from './app/utils/perf/devPerfFlag';
+import {createBaseStorage} from './app/utils/perf/createBaseStorage';
 import {createProfilingStorage} from './app/utils/perf/profilingStorage';
 import {perfMiddleware} from './app/utils/perf/perfMiddleware';
 
@@ -119,23 +121,7 @@ const migrations = {
 
 const storage = new MMKV();
 
-// Plain MMKV-backed redux-persist storage adapter — unchanged shape and
-// contract. The profiling wrapper below only adds timing records and is
-// strictly a measurement layer.
-const baseStorage: Storage = {
-  setItem: (key, value) => {
-    storage.set(key, value);
-    return Promise.resolve(true);
-  },
-  getItem: (key) => {
-    const value = storage.getString(key);
-    return Promise.resolve(value);
-  },
-  removeItem: (key) => {
-    storage.delete(key);
-    return Promise.resolve();
-  },
-};
+const baseStorage: Storage = createBaseStorage(storage);
 
 export const reduxStorage: Storage = __DEV_PERF__
   ? createProfilingStorage(storage)
@@ -172,5 +158,17 @@ export default () => {
     middleware,
   });
   let persistor = persistStore(store);
+  // GH-262 round-2: with `setItem` deferred to a macrotask, a hard kill in
+  // the ~16 ms window between dispatch and the persist write would lose the
+  // latest state. Flush on every active → background/inactive transition so
+  // a swipe-away or recents-clear always lands the latest in-memory state
+  // on disk. `flush()` calls into the same storage adapter, but at that
+  // point we are off the critical-render path so the synchronous write is
+  // fine.
+  AppState.addEventListener('change', (next) => {
+    if (next !== 'active') {
+      persistor.flush();
+    }
+  });
   return {store, persistor};
 };
