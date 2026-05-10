@@ -6,6 +6,7 @@ import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {useSettings} from '../../../redux/settings/use/useSettings';
 import {convertToNumber, ensureFormat} from '../../../utils/numberInput';
+import {instrumentSubmitTiming} from '../../../utils/perf/instrumentSubmitTiming';
 
 interface AddWorkoutProps {
   onSubmit: (arg: WorkoutSet) => void;
@@ -226,9 +227,12 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                 <IconButton
                   icon={'check-circle'}
                   iconColor={determineCheckmarkColor()}
+                  testID="add-workout-set-check-circle"
                   onPress={() => {
-                    submit();
-                    Keyboard.dismiss();
+                    instrumentSubmitTiming('planned-set-edit', () => {
+                      submit();
+                      Keyboard.dismiss();
+                    });
                   }}
                 />
               )}
@@ -236,9 +240,12 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                 <IconButton
                   icon={'check-circle'}
                   iconColor={determineCheckmarkColor()}
+                  testID="add-workout-set-check-circle"
                   onPress={() => {
-                    submit();
-                    Keyboard.dismiss();
+                    instrumentSubmitTiming('planned-set', () => {
+                      submit();
+                      Keyboard.dismiss();
+                    });
                   }}
                 />
               )}
@@ -251,8 +258,10 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
               textColor={theme.colors.onPrimary}
               testID="add-workout-set-submit-button"
               onPress={() => {
-                submit();
-                Keyboard.dismiss();
+                instrumentSubmitTiming('add-set', () => {
+                  submit();
+                  Keyboard.dismiss();
+                });
               }}
             >
               {'Add'}

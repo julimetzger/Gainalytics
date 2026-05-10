@@ -26,6 +26,7 @@ import {
   dispatchStartRestTimer,
   dispatchUpdateRestTimerTarget,
 } from '../../../redux/settings/dispatch/dispatchRestTimer';
+import {instrumentSubmitTiming} from '../../../utils/perf/instrumentSubmitTiming';
 
 const DEFAULT_REST_SECONDS = 90;
 
@@ -101,14 +102,20 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
   }, []);
 
   const handleSubmitSet = (workoutSet: WorkoutSet) => {
-    onSubmitSet?.(workoutSet);
-    startRestTimer({
-      targetSeconds: resolvedRestDefault,
-      exerciseId: chosenExercise.id,
-      setIndex: workoutSet.index,
-      startedAt: Date.now(),
+    // GH-262: capture the cascade started by the inner onSubmitSet (workout
+    // add) + startRestTimer dispatch. Tagged 'execute-training' so the
+    // baseline-vs-throttled report can distinguish it from the outer button
+    // capture in AddWorkoutSet ('planned-set' / 'add-set').
+    instrumentSubmitTiming('execute-training', () => {
+      onSubmitSet?.(workoutSet);
+      startRestTimer({
+        targetSeconds: resolvedRestDefault,
+        exerciseId: chosenExercise.id,
+        setIndex: workoutSet.index,
+        startedAt: Date.now(),
+      });
+      onScheduleNotification?.(resolvedRestDefault);
     });
-    onScheduleNotification?.(resolvedRestDefault);
   };
 
   const onResetRest = () => {

@@ -151,6 +151,7 @@ const persistConfig = {
   stateReconciler: hardSet,
   transforms: [saveUserLoginSubsetFilter],
   migrate: createMigrate(migrations, {debug: true}),
+  throttle: 250,
 };
 
 // @ts-ignore

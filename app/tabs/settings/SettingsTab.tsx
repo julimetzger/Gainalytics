@@ -35,6 +35,7 @@ import {DEFAULT_CHAT_PROMPT, DEFAULT_TRAINING_PROMPT} from '../../constants/aiPr
 import {__DEV_PERF__} from '../../utils/perf/devPerfFlag';
 import {dumpPerfCsv, resetPerfCsv} from '../../utils/perf/dumpPerfCsv';
 import {perfRecorder} from '../../utils/perf/perfRecorder';
+import {instrumentSubmitTiming} from '../../utils/perf/instrumentSubmitTiming';
 
 const SettingsTab = ({navigation}: Props) => {
   let settings = useSettings();
@@ -525,8 +526,73 @@ const SettingsTab = ({navigation}: Props) => {
             <Divider />
           </View>
           <Text style={{marginHorizontal: 10, marginBottom: 4}}>
-            Perf instrumentation (GH-253) — storage rows: {perfRecorder.storage.length}, dispatch rows: {perfRecorder.dispatch.length}
+            Perf instrumentation (GH-253/262) — storage rows: {perfRecorder.storage.length}, dispatch rows: {perfRecorder.dispatch.length}, submit rows: {perfRecorder.submits.length}
           </Text>
+          <Button
+            mode="outlined"
+            style={{margin: 5}}
+            testID="perf-run-5-submits-button"
+            onPress={() => {
+              const state: any = store.getState();
+              const exerciseId = state.exercises?.allIds?.[0];
+              const exercise = exerciseId !== undefined ? state.exercises.byId[exerciseId] : undefined;
+              if (!exercise) {
+                Alert.alert('No exercise', 'No exercise found in store');
+                return;
+              }
+              const workoutIds = state.workouts?.byExerciseId?.[exerciseId];
+              const workoutId = Array.isArray(workoutIds) ? workoutIds[workoutIds.length - 1] : undefined;
+              const workout = workoutId !== undefined ? state.workouts.byId[workoutId] : undefined;
+              if (!workout || workout.id === undefined) {
+                Alert.alert('No workout', 'No workout found for first exercise');
+                return;
+              }
+              const dispatch = (store as any).dispatch;
+              const baseIndex = (workout.sets ?? []).reduce((m: number, s: any) => Math.max(m, s.index ?? 0), 0);
+              const runRep = (i: number) => {
+                instrumentSubmitTiming('simulated-submit', () => {
+                  // Mirrors AddWorkout.submitWorkoutSet → addOrUpdateSetInWorkout
+                  // dispatch + ExecuteTraining.handleSubmitSet → startRestTimer dispatch.
+                  dispatch({
+                    type: 'ADD_OR_UPDATE_SET_IN_WORKOUT',
+                    set: {
+                      index: baseIndex + 1,
+                      date: new Date(),
+                      weight: 100 + i,
+                      reps: 10,
+                      rir: 1,
+                    },
+                    workoutId: workout.id,
+                  });
+                  dispatch({
+                    type: 'START_REST_TIMER',
+                    startedAt: Date.now(),
+                    targetSeconds: 90,
+                    exerciseId: exercise.id,
+                    setIndex: baseIndex + 1,
+                  });
+                });
+              };
+              // Submit 5 sets sequentially, ~4s apart (matches the ticket's 3-5s spacing).
+              // No Alert.alert here — a modal dialog defers setTimeout/rAF and
+              // contaminates the t1-t0 / t2-t0 measurement. Use a Toast instead.
+              for (let i = 0; i < 5; i++) {
+                setTimeout(() => runRep(i), i * 4000);
+              }
+              // Auto-dump the CSV 2s after the last rep so the worker doesn't have to
+              // hunt for a second button after scroll has moved.
+              setTimeout(() => {
+                dumpPerfCsv('gh262-run5').catch(() => {});
+              }, 5 * 4000 + 2000);
+              Toast.show({
+                type: 'success',
+                text1: 'GH-262 Run 5 started',
+                text2: '5 submits ~4s apart; CSV auto-dumped at ~22s',
+              });
+            }}
+          >
+            Run 5 Simulated Submits (GH-262)
+          </Button>
           <View style={{flexDirection: 'row'}}>
             <Button
               mode="outlined"

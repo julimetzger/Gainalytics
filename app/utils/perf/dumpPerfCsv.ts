@@ -16,13 +16,15 @@ export async function dumpPerfCsv(label: string): Promise<string[]> {
   const dir = RNFS.ExternalDirectoryPath || RNFS.DocumentDirectoryPath;
   const storagePath = `${dir}/perf-${safeLabel}-storage-${stamp}.csv`;
   const dispatchPath = `${dir}/perf-${safeLabel}-dispatch-${stamp}.csv`;
+  const submitsPath = `${dir}/perf-${safeLabel}-submits-${stamp}.csv`;
   await RNFS.writeFile(storagePath, perfRecorder.storageCsv(), 'utf8');
   await RNFS.writeFile(dispatchPath, perfRecorder.dispatchCsv(), 'utf8');
+  await RNFS.writeFile(submitsPath, perfRecorder.submitsCsv(), 'utf8');
   Alert.alert(
     'Perf CSV dumped',
-    `${storagePath}\n${dispatchPath}\n\nstorage rows: ${perfRecorder.storage.length}\ndispatch rows: ${perfRecorder.dispatch.length}`,
+    `${storagePath}\n${dispatchPath}\n${submitsPath}\n\nstorage rows: ${perfRecorder.storage.length}\ndispatch rows: ${perfRecorder.dispatch.length}\nsubmit rows: ${perfRecorder.submits.length}`,
   );
-  return [storagePath, dispatchPath];
+  return [storagePath, dispatchPath, submitsPath];
 }
 
 export function resetPerfCsv() {

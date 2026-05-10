@@ -28,9 +28,22 @@ export interface DispatchRecord {
   hardSetCount: number; // count of REHYDRATE in same tick (proxy for the REHYDRATE write storm)
 }
 
+// Per submit-button tap (GH-262). Captures user-perceived latency:
+//   t1 - t0: JS thread free again (setTimeout 0 after the synchronous dispatch
+//            cascade settles)
+//   t2 - t0: checkmark visible (requestAnimationFrame, fires on the next React
+//            commit/paint after the optimistic state change)
+export interface SubmitRecord {
+  ts: number;
+  label: string; // 'planned-set' | 'add-set'
+  t1MinusT0Ms: number;
+  t2MinusT0Ms: number;
+}
+
 class PerfRecorder {
   storage: StorageRecord[] = [];
   dispatch: DispatchRecord[] = [];
+  submits: SubmitRecord[] = [];
   lastActionType: string | null = null;
   // tick scratch (cleared on each dispatch start)
   tickBytes = 0;
@@ -53,6 +66,11 @@ class PerfRecorder {
     this.dispatch.push(rec);
   }
 
+  recordSubmit(rec: SubmitRecord) {
+    if (!this.enabled) return;
+    this.submits.push(rec);
+  }
+
   noteAction(type: string) {
     if (!this.enabled) return;
     this.lastActionType = type;
@@ -70,6 +88,7 @@ class PerfRecorder {
   reset() {
     this.storage = [];
     this.dispatch = [];
+    this.submits = [];
     this.lastActionType = null;
     this.tickBytes = 0;
     this.tickSetItemCalls = 0;
@@ -94,6 +113,15 @@ class PerfRecorder {
     const lines = this.dispatch.map(
       (r) =>
         `${r.ts},${r.actionType},${r.reducerMs.toFixed(3)},${r.totalMs.toFixed(3)},${r.bytesWrittenInTick},${r.setItemCallsInTick},${r.hardSetCount}`,
+    );
+    return header + lines.join('\n') + (lines.length ? '\n' : '');
+  }
+
+  submitsCsv(): string {
+    const header = 'ts_ms,label,t1_minus_t0_ms,t2_minus_t0_ms\n';
+    const lines = this.submits.map(
+      (r) =>
+        `${r.ts},${r.label},${r.t1MinusT0Ms.toFixed(3)},${r.t2MinusT0Ms.toFixed(3)}`,
     );
     return header + lines.join('\n') + (lines.length ? '\n' : '');
   }
