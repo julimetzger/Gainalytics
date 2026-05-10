@@ -32,6 +32,9 @@ import {dispatchResetAITrainingPrompt} from '../../redux/settings/dispatch/dispa
 import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
 import {useAITrainingPrompt} from '../../redux/settings/use/useAITrainingPrompt';
 import {DEFAULT_CHAT_PROMPT, DEFAULT_TRAINING_PROMPT} from '../../constants/aiPrompts';
+import {__DEV_PERF__} from '../../utils/perf/devPerfFlag';
+import {dumpPerfCsv, resetPerfCsv} from '../../utils/perf/dumpPerfCsv';
+import {perfRecorder} from '../../utils/perf/perfRecorder';
 
 const SettingsTab = ({navigation}: Props) => {
   let settings = useSettings();
@@ -516,6 +519,38 @@ const SettingsTab = ({navigation}: Props) => {
           Export Data
         </Button>
       </View>
+      {__DEV_PERF__ && (
+        <View>
+          <View style={styles.divider}>
+            <Divider />
+          </View>
+          <Text style={{marginHorizontal: 10, marginBottom: 4}}>
+            Perf instrumentation (GH-253) — storage rows: {perfRecorder.storage.length}, dispatch rows: {perfRecorder.dispatch.length}
+          </Text>
+          <View style={{flexDirection: 'row'}}>
+            <Button
+              mode="outlined"
+              style={{flex: 1, margin: 5}}
+              testID="perf-dump-csv-button"
+              onPress={() => {
+                dumpPerfCsv('manual').catch(() => {});
+              }}
+            >
+              Dump Perf CSV
+            </Button>
+            <Button
+              mode="outlined"
+              style={{flex: 1, margin: 5}}
+              testID="perf-reset-button"
+              onPress={() => {
+                resetPerfCsv();
+              }}
+            >
+              Reset Perf
+            </Button>
+          </View>
+        </View>
+      )}
       <Portal>
         <Dialog visible={importDialog} onDismiss={() => setImportDialog(false)}>
           <Dialog.Title>Import full data from backup file?</Dialog.Title>

@@ -5,6 +5,9 @@ import {MMKV} from 'react-native-mmkv';
 import createFilter from 'redux-persist-transform-filter';
 import {configureStore} from '@reduxjs/toolkit';
 import logger from 'redux-logger';
+import {__DEV_PERF__} from './app/utils/perf/devPerfFlag';
+import {createProfilingStorage} from './app/utils/perf/profilingStorage';
+import {perfMiddleware} from './app/utils/perf/perfMiddleware';
 
 const migrations = {
   0: (state) => {
@@ -116,7 +119,10 @@ const migrations = {
 
 const storage = new MMKV();
 
-export const reduxStorage: Storage = {
+// Plain MMKV-backed redux-persist storage adapter — unchanged shape and
+// contract. The profiling wrapper below only adds timing records and is
+// strictly a measurement layer.
+const baseStorage: Storage = {
   setItem: (key, value) => {
     storage.set(key, value);
     return Promise.resolve(true);
@@ -130,6 +136,10 @@ export const reduxStorage: Storage = {
     return Promise.resolve();
   },
 };
+
+export const reduxStorage: Storage = __DEV_PERF__
+  ? createProfilingStorage(storage)
+  : baseStorage;
 
 const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseId', 'allIds', 'plannedWorkouts']);
 
@@ -147,10 +157,18 @@ const persistConfig = {
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export default () => {
+  const isDev = process?.env?.NODE_ENV === 'development';
+  const middleware: any[] = [];
+  if (__DEV_PERF__) middleware.push(perfMiddleware);
+  // redux-logger dominates dispatch time on a 1.7 MB store and would mask
+  // the persist costs we are trying to measure. With perf instrumentation
+  // on, leave logger out so the per-dispatch numbers reflect reducer +
+  // persist debounce only.
+  if (isDev && !__DEV_PERF__) middleware.push(logger);
   const store = configureStore({
     reducer: persistedReducer,
-    devTools: process?.env?.NODE_ENV === 'development',
-    middleware: process?.env?.NODE_ENV === 'development' ? [logger] : [],
+    devTools: isDev,
+    middleware,
   });
   let persistor = persistStore(store);
   return {store, persistor};
