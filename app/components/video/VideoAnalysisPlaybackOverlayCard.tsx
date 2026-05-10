@@ -418,19 +418,15 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
   const [showCalibration, setShowCalibration] = useState(false);
-  const [firstRepTurnaroundOverrideMs, setFirstRepTurnaroundOverrideMs] = useState<number | null>(
-    () => savedSetResult?.repResults?.[0]?.turnaroundMs ?? null,
-  );
-  const [firstRepEndOverrideMs, setFirstRepEndOverrideMs] = useState<number | null>(
-    () => savedSetResult?.repResults?.[0]?.endMs ?? null,
-  );
-  const [lastRepTurnaroundOverrideMs, setLastRepTurnaroundOverrideMs] = useState<number | null>(() => {
+  type RepOverride = { turnaroundMs: number | null; endMs: number | null };
+  const [repOverrides, setRepOverrides] = useState<Record<number, RepOverride>>(() => {
     const rr = savedSetResult?.repResults;
-    return rr && rr.length > 1 ? rr[rr.length - 1].turnaroundMs : null;
-  });
-  const [lastRepEndOverrideMs, setLastRepEndOverrideMs] = useState<number | null>(() => {
-    const rr = savedSetResult?.repResults;
-    return rr && rr.length > 1 ? rr[rr.length - 1].endMs : null;
+    if (!rr || rr.length === 0) { return {}; }
+    const map: Record<number, RepOverride> = {};
+    for (const r of rr) {
+      map[r.repIndex] = { turnaroundMs: r.turnaroundMs, endMs: r.endMs };
+    }
+    return map;
   });
   // Track whether we have already seeded override states from savedSetResult.
   // Initialised to true when savedSetResult is already available at mount (lazy useState
@@ -479,11 +475,11 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
 
   const repSegments = result.repSegments;
   const firstRepSegment = repSegments.length > 0 ? repSegments[0] : null;
-  const firstRepTurnaroundMs = firstRepTurnaroundOverrideMs ?? firstRepSegment?.turnaroundMs ?? 0;
-  const firstRepEndMs = firstRepEndOverrideMs ?? firstRepSegment?.endMs ?? 0;
+  const firstRepTurnaroundMs = repOverrides[0]?.turnaroundMs ?? firstRepSegment?.turnaroundMs ?? 0;
+  const firstRepEndMs = repOverrides[0]?.endMs ?? firstRepSegment?.endMs ?? 0;
   const lastRepSegment = repSegments.length > 1 ? repSegments[repSegments.length - 1] : null;
-  const lastRepTurnaroundMs = lastRepTurnaroundOverrideMs ?? lastRepSegment?.turnaroundMs ?? 0;
-  const lastRepEndMs = lastRepEndOverrideMs ?? lastRepSegment?.endMs ?? 0;
+  const lastRepTurnaroundMs = repOverrides[repSegments.length - 1]?.turnaroundMs ?? lastRepSegment?.turnaroundMs ?? 0;
+  const lastRepEndMs = repOverrides[repSegments.length - 1]?.endMs ?? lastRepSegment?.endMs ?? 0;
   const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
   // Direction detection uses the raw series: smoothing across a short window can
   // pull the start/turnaround samples toward the rep's mean and obscure the
@@ -896,17 +892,22 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     const rr = savedSetResult?.repResults;
     if (!savedOverridesApplied.current && rr && rr.length > 0) {
       savedOverridesApplied.current = true;
-      // Use functional updaters: only seed each override if the user has not already
-      // set a value manually. prev !== null means the user (or the lazy initializer)
-      // already provided a value — never clobber that with a stale save.
-      setFirstRepTurnaroundOverrideMs(prev => prev !== null ? prev : rr[0].turnaroundMs);
-      setFirstRepEndOverrideMs(prev => prev !== null ? prev : rr[0].endMs);
-      if (rr.length > 1) {
-        setLastRepTurnaroundOverrideMs(prev => prev !== null ? prev : rr[rr.length - 1].turnaroundMs);
-        setLastRepEndOverrideMs(prev => prev !== null ? prev : rr[rr.length - 1].endMs);
-      }
+      // Use functional updater: seed each rep index where the user has not already set a
+      // value manually. A non-null existing value means the user (or lazy init) provided
+      // it — never clobber that with a stale save.
+      setRepOverrides(prev => {
+        const next: Record<number, RepOverride> = {...prev};
+        for (const r of rr) {
+          const existing = prev[r.repIndex];
+          next[r.repIndex] = {
+            turnaroundMs: existing?.turnaroundMs !== null && existing?.turnaroundMs !== undefined ? existing.turnaroundMs : r.turnaroundMs,
+            endMs: existing?.endMs !== null && existing?.endMs !== undefined ? existing.endMs : r.endMs,
+          };
+        }
+        return next;
+      });
     }
-  }, [savedSetResult]);
+  }, [savedSetResult]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const progressMarkerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{translateX: progressMarkerLeft.value}],
@@ -915,15 +916,10 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const onSaveSetResult = useCallback(() => {
     const trackingFrameWidth = result.analysisMeta.trackingFrameWidthPx ?? 0;
     const repResults: VideoAnalysisRepResult[] = result.repSegments.map((seg, idx) => {
-      const isFirst = idx === 0;
-      const isLast = idx === result.repSegments.length - 1;
+      const override = repOverrides[idx];
       const startMs = seg.startMs;
-      const turnaroundMs = isFirst && firstRepTurnaroundOverrideMs !== null ? firstRepTurnaroundOverrideMs
-        : isLast && lastRepTurnaroundOverrideMs !== null ? lastRepTurnaroundOverrideMs
-        : seg.turnaroundMs;
-      const endMs = isFirst && firstRepEndOverrideMs !== null ? firstRepEndOverrideMs
-        : isLast && lastRepEndOverrideMs !== null ? lastRepEndOverrideMs
-        : seg.endMs;
+      const turnaroundMs = override?.turnaroundMs !== null && override?.turnaroundMs !== undefined ? override.turnaroundMs : seg.turnaroundMs;
+      const endMs = override?.endMs !== null && override?.endMs !== undefined ? override.endMs : seg.endMs;
       const totalTimeMs = endMs - startMs;
       const phases = getRepPhaseBoundaries(result.barPathSeries, startMs, turnaroundMs, endMs);
       const concentricTimeMs = Math.max(0, phases.concentricEndMs - phases.concentricStartMs);
@@ -988,7 +984,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       mean_path_deviation,
       path_deviation_slope,
     });
-  }, [analysisId, result.repSegments, result.barPathSeries, result.analysisMeta.trackingFrameWidthPx, firstRepTurnaroundOverrideMs, firstRepEndOverrideMs, lastRepTurnaroundOverrideMs, lastRepEndOverrideMs, calcIntervalMetrics, smoothedBarPathSeries, saveSetResult]);
+  }, [analysisId, result.repSegments, result.barPathSeries, result.analysisMeta.trackingFrameWidthPx, repOverrides, calcIntervalMetrics, smoothedBarPathSeries, saveSetResult]);
 
   // Video pinch-to-zoom gesture.
   const videoPinchGesture = Gesture.Pinch()
@@ -1268,8 +1264,25 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             if (!showCalibration) { return null; }
             return (
               <>
-                {firstRepSegment && renderRepLines(firstRepTurnaroundMs, firstRepEndMs, setFirstRepTurnaroundOverrideMs, setFirstRepEndOverrideMs, 'first')}
-                {lastRepSegment && renderRepLines(lastRepTurnaroundMs, lastRepEndMs, setLastRepTurnaroundOverrideMs, setLastRepEndOverrideMs, 'last')}
+                {repSegments.map((seg, i) => {
+                  const tMs = repOverrides[i]?.turnaroundMs ?? seg.turnaroundMs;
+                  const eMs = repOverrides[i]?.endMs ?? seg.endMs;
+                  const setTurnaround: React.Dispatch<React.SetStateAction<number | null>> = (valueOrUpdater) => {
+                    setRepOverrides(prev => {
+                      const cur = prev[i]?.turnaroundMs ?? null;
+                      const next = typeof valueOrUpdater === 'function' ? valueOrUpdater(cur) : valueOrUpdater;
+                      return {...prev, [i]: {...prev[i], turnaroundMs: next, endMs: prev[i]?.endMs ?? null}};
+                    });
+                  };
+                  const setEnd: React.Dispatch<React.SetStateAction<number | null>> = (valueOrUpdater) => {
+                    setRepOverrides(prev => {
+                      const cur = prev[i]?.endMs ?? null;
+                      const next = typeof valueOrUpdater === 'function' ? valueOrUpdater(cur) : valueOrUpdater;
+                      return {...prev, [i]: {...prev[i], turnaroundMs: prev[i]?.turnaroundMs ?? null, endMs: next}};
+                    });
+                  };
+                  return <React.Fragment key={i}>{renderRepLines(tMs, eMs, setTurnaround, setEnd, `rep-${i}`)}</React.Fragment>;
+                })}
               </>
             );
           })()}
