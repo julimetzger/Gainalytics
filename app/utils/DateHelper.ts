@@ -13,13 +13,14 @@ export const firstDayOfWeek = (dateObject: Date, firstDayOfWeekIndex: number) =>
 export const lastDayOfWeek = (dateObject: Date, lastDayOfWeekIndex: number) => {
   dateObject = new Date(dateObject);
   const dayOfWeek = dateObject.getDay(),
-    firstDayOfWeek = dateObject,
-    diff = dayOfWeek >= lastDayOfWeekIndex ? dayOfWeek - lastDayOfWeekIndex : 6 - dayOfWeek;
+    result = dateObject,
+    // days to advance until we reach lastDayOfWeekIndex (0 when already on that day)
+    daysUntilEnd = lastDayOfWeekIndex >= dayOfWeek ? lastDayOfWeekIndex - dayOfWeek : 7 - dayOfWeek + lastDayOfWeekIndex;
 
-  firstDayOfWeek.setDate(dateObject.getDate() - diff + 7);
-  firstDayOfWeek.setHours(23, 59, 59, 0);
+  result.setDate(dateObject.getDate() + daysUntilEnd);
+  result.setHours(23, 59, 59, 999);
 
-  return firstDayOfWeek;
+  return result;
 };
 
 export const getFirstDayOfMonth = (date: Date) => {

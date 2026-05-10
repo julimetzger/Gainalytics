@@ -10,7 +10,7 @@ const selectTrainings = (state: GlobalState) => state.trainings;
 
 const passRange = (_state: GlobalState, range: Range) => range;
 
-const findCompletedTrainingsIn = (trainings: NormalizedState<Training>, range: Range) =>
+export const findCompletedTrainingsIn = (trainings: NormalizedState<Training>, range: Range) =>
   trainings.allIds
     .map((trainingId) => trainings.byId[trainingId])
     .filter((training) => {
@@ -20,7 +20,7 @@ const findCompletedTrainingsIn = (trainings: NormalizedState<Training>, range: R
 
       const start = new Date(training.start).getTime();
       const end = new Date(training.end).getTime();
-      return start > range.startDate.getTime() && end < range.endDate.getTime();
+      return start >= range.startDate.getTime() && end <= range.endDate.getTime();
     });
 
 const selector = createSelector(selectTrainings, passRange, (trainings, range) => findCompletedTrainingsIn(trainings, range));
