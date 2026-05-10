@@ -68,8 +68,14 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigat
   const localMicro = nextMicro !== undefined ? getLocalMicro(plan.mesos, nextMicro) : undefined;
   const currentMeso = nextMicro !== undefined ? getMesoForMicro(plan.mesos, nextMicro) : undefined;
 
-  const exerciseId1 = training?.exercises?.[0];
-  const exerciseId2 = training?.exercises?.[1];
+  const [exerciseId1, exerciseId2] = useSelector((state: GlobalState) => {
+    const exs = training?.exercises ?? [];
+    if (exs.length === 0) return [undefined, undefined] as const;
+    const focus = exs.filter(id => state.exercises.byId[id]?.isFocus);
+    const nonFocus = exs.filter(id => !state.exercises.byId[id]?.isFocus);
+    const ordered = [...focus, ...nonFocus];
+    return [ordered[0], ordered[1]] as const;
+  });
   const exercise1 = useExercise(exerciseId1);
   const exercise2 = useExercise(exerciseId2);
   const plannedWorkout1 = usePlannedWorkoutInTraining(trainingId, exerciseId1);
@@ -102,7 +108,7 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigat
 
   if (isComplete) {
     return (
-      <Card style={styles.card} testID="next-training-card">
+      <Card style={[styles.card, {borderLeftWidth: 4, borderLeftColor: theme.colors.primary}]} testID="next-training-card">
         <Card.Content>
           <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
             Next Training
@@ -165,7 +171,7 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigat
   const prevMicroLabel = prevLocalMicro >= 1 ? `M${prevLocalMicro}` : 'prev';
 
   return (
-    <Card style={styles.card} testID="next-training-card">
+    <Card style={[styles.card, {borderLeftWidth: 4, borderLeftColor: theme.colors.primary}]} testID="next-training-card">
       <Card.Content>
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>

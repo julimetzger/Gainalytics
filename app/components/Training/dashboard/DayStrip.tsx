@@ -1,5 +1,5 @@
 import React from 'react';
-import {StyleSheet, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
 import {Icon, Text, useTheme} from 'react-native-paper';
 
 export type DayStatus = 'done' | 'today' | 'past' | 'future';
@@ -9,13 +9,15 @@ export interface DayStripDay {
   dayOfMonth: number;
   status: DayStatus;
   isoDate: string;
+  trainingId?: number;
 }
 
 interface DayStripProps {
   days: DayStripDay[];
+  onDayPress?: (trainingId: number) => void;
 }
 
-const DayStrip = ({days}: DayStripProps) => {
+const DayStrip = ({days, onDayPress}: DayStripProps) => {
   const theme = useTheme();
   if (!days.length) return null;
 
@@ -27,9 +29,32 @@ const DayStrip = ({days}: DayStripProps) => {
         const isMuted = day.status === 'past' || day.status === 'future';
 
         const weekdayColor = isMuted ? theme.colors.onSurfaceVariant : theme.colors.onSurface;
-        const dayBg = isDone ? theme.colors.primary : 'transparent';
+        const dayBg = isDone ? theme.colors.primaryContainer : 'transparent';
         const dayBorder = isToday ? theme.colors.primary : 'transparent';
-        const dayFg = isDone ? theme.colors.onPrimary : isToday ? theme.colors.primary : theme.colors.onSurfaceVariant;
+        const dayFg = isDone ? theme.colors.onPrimaryContainer : isToday ? theme.colors.primary : theme.colors.onSurfaceVariant;
+
+        const pillContent = isDone ? (
+          <Icon source="check" size={18} color={dayFg} />
+        ) : (
+          <Text
+            variant="labelMedium"
+            style={[styles.dayLabel, {color: dayFg, fontWeight: isToday ? '700' : '500'}]}
+            numberOfLines={1}
+          >
+            {day.dayOfMonth}
+          </Text>
+        );
+
+        const pillStyle = [
+          styles.dayCircle,
+          {
+            backgroundColor: dayBg,
+            borderColor: dayBorder,
+            borderWidth: isToday ? 2 : 0,
+          },
+        ];
+
+        const isClickable = isDone && day.trainingId !== undefined && onDayPress;
 
         return (
           <View
@@ -44,28 +69,16 @@ const DayStrip = ({days}: DayStripProps) => {
             >
               {day.weekday}
             </Text>
-            <View
-              style={[
-                styles.dayCircle,
-                {
-                  backgroundColor: dayBg,
-                  borderColor: dayBorder,
-                  borderWidth: isToday ? 2 : 0,
-                },
-              ]}
-            >
-              {isDone ? (
-                <Icon source="check" size={18} color={dayFg} />
-              ) : (
-                <Text
-                  variant="labelMedium"
-                  style={[styles.dayLabel, {color: dayFg, fontWeight: isToday ? '700' : '500'}]}
-                  numberOfLines={1}
-                >
-                  {day.dayOfMonth}
-                </Text>
-              )}
-            </View>
+            {isClickable ? (
+              <Pressable
+                onPress={() => onDayPress(day.trainingId!)}
+                android_ripple={{color: theme.colors.onPrimaryContainer, borderless: true}}
+              >
+                <View style={pillStyle}>{pillContent}</View>
+              </Pressable>
+            ) : (
+              <View style={pillStyle}>{pillContent}</View>
+            )}
           </View>
         );
       })}
