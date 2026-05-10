@@ -1112,3 +1112,24 @@ If Metro was started in the worktree and the worktree inherited file-map caches 
 - Or wait for `Export Data` / screen-specific text instead of 'Training'
 Bare `extendedWaitUntil: visible: 'Training'` fails when the app last closed on Settings because the 'Training' tab label only shows for the selected tab.
 **Apply when:** Any per-slot side-effect inside a component rendered under `RangeSwiper` (or any swiper that re-renders with new props instead of remounting). Includes auto-routes, "show this once" hints, slot-bound analytics, etc.
+### 146. `react-native-fs` `DownloadDirectoryPath` writes to a scoped-storage path that may not be visible to `adb pull` on Android 11+
+**Problem/Symptoms:** RNFS `writeFile(DownloadDirectoryPath + '/file.csv')` resolves successfully and the on-screen alert reports the literal path `/storage/emulated/0/Download/...`, but `adb shell ls /storage/emulated/0/Download/` does not show the file. Files appear briefly, then are reaped by Samsung One UI's MediaStore scanner.
+**Working solution:** Use `RNFS.ExternalDirectoryPath` (`/storage/emulated/0/Android/data/<pkg>/files`) for any debug-tool file an agent needs to `adb pull` reliably. The path is the app's own external sandbox, persists across MediaStore scans, and `adb` (not `adb root`) can read it.
+**Apply when:** Adding any dev-only "Export to file" / "Dump CSV" / "Save logs" button to debug a real-device run.
+
+### 147. `redux-persist` with `key: 'root'` + `hardSet` reconciler writes the full root JSON on every dispatch, regardless of which slice changed
+**Observation:** Measured on R5CN30HWZFN with a 2 MB persisted blob (3,211 workouts dominating 85% of bytes): every dispatch on any whitelisted slice — `TOGGLE_DISABLE_TOASTS` (touches `settings`, ~100 bytes diff), `TOGGLE_ENABLE_1RM_BUTTON` (touches `settings.toggles.preselect1RM`), `FULL_IMPORT` (touches everything) — produces exactly one `setItem('persist:root', <2 MB>)`. The MMKV native call is fast (~10–18 ms) but JSON.stringify of the 2 MB root inside redux-persist's queue dominates `total_ms` (50–1,200 ms depending on debounce alignment).
+**Apply when:** Triaging "the app feels slow when I edit a small thing" reports, or estimating the cost of any new persisted-slice action. Until the persist config is split into per-slice keys, assume each whitelisted dispatch costs ~2 MB of JSON.stringify + MMKV write, NOT proportional to the diff size.
+
+### 148. To size a redux-persist MMKV blob without parsing the MMKV file format, export via existing UI and parse with Python
+**Working solution:** This codebase has a Settings → Export Data button that calls `JSON.stringify(state)` and writes to `Download/<timestamp>.gains`. `adb pull` it, then `json.dumps(v)` per top-level key gives bytes-per-slice. This is the fastest path to a per-slice byte breakdown — no MMKV C++ tooling needed.
+**Apply when:** Any future perf or storage triage that needs per-slice persisted size for a real device's store.
+
+### 149. perf middleware `setTimeout(0)` is required to capture bytes written by redux-persist's debounced `setItem`
+**Observation:** redux-persist queues `setItem` writes via a microtask debounce (default 33 ms). A redux middleware that records "bytes written this tick" synchronously inside `next(action)` returns 0 — the storage adapter hasn't been called yet. The fix is to schedule the recording via `setTimeout(0)` (a macrotask), which lets the persist queue land before the recording reads tick scratch state. This shifts `total_ms` to be "dispatch entry → next macrotask," which is exactly the user-visible latency window we want to measure.
+**Apply when:** Building any other "what does dispatch X actually cost" instrumentation in this app.
+
+### 150. Maestro's WSL → Windows-host adb bridge can hang silently on `--device` flag with multiple Android devices attached; fall back to direct adb taps
+**Symptoms:** `maestro --host 172.18.240.1 --device R5CN30HWZFN test flow.yaml` reports `Run flow when "Dismiss" is visible` twice in the log then exits with no output, no error code in stdout, and no completion of the flow steps. UI hierarchy on the device shows the flow only got 1–2 steps in. This is unrelated to the maestro flow yaml itself.
+**Working solution:** For the rest of the run, drive remaining steps via `adb shell input tap <x> <y>` against `uiautomator dump`-derived bounds. The driver-host-port collision with sibling worktrees (e.g. emulator-5554's worker on 7011) does NOT cause this — it's the multi-device adb default-device confusion compounded by the WSL bridge.
+**Apply when:** A maestro flow stalls partway on a real Samsung device while another worker is using a different driver port. Don't burn time debugging maestro; switch to adb taps + `uiautomator dump` for ad-hoc UI driving.
