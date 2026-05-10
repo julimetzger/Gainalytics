@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Pressable, StyleSheet, View} from 'react-native';
-import DraggableFlatList, {RenderItemParams, ScaleDecorator} from 'react-native-draggable-flatlist';
+import {NestableDraggableFlatList, RenderItemParams, ScaleDecorator} from 'react-native-draggable-flatlist';
 import {Chip, Icon, IconButton, Menu, Text, TextInput, useTheme} from 'react-native-paper';
 import {Exercise} from '../../../models/entities/Exercise';
 import {Workout} from '../../../models/entities/Workout';
@@ -177,7 +177,7 @@ const PlanEditExerciseSection = ({
           />
         </Menu>
       </Pressable>
-      <DraggableFlatList
+      <NestableDraggableFlatList
         scrollEnabled={false}
         data={data}
         keyExtractor={(item) => item.key}

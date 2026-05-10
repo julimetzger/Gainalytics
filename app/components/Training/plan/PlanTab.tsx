@@ -28,6 +28,10 @@ import DraggableExercise from '../DraggableExercise';
 import TrainingElementPicker from '../../picker/elements/TrainingElementPicker';
 import MuscleInvolvementCard from './MuscleInvolvementCard';
 import {useSettings} from '../../../redux/settings/use/useSettings';
+import Estimated1RmCard from '../execute/Estimated1RmCard';
+import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMax';
+import {useLastFinishedWorkoutsByExerciseIds} from '../../../redux/Workout/use/useLastFinishedWorkoutsByExerciseIds';
+import {oneRepMaxForWorkouts} from '../../../utils/AnalyseUtils';
 
 interface PlanTabProps {
   training: Training;
@@ -46,6 +50,7 @@ interface PlanTabProps {
   editPlanRequestId: number;
   isActive?: boolean;
   onChromeChange?: (state: PlanChromeState) => void;
+  initialMode?: PlanMode;
 }
 
 const PlanTab = ({
@@ -65,6 +70,7 @@ const PlanTab = ({
   editPlanRequestId,
   isActive = true,
   onChromeChange,
+  initialMode,
 }: PlanTabProps) => {
   const theme = useTheme();
   const safeAreaInsets = useSafeAreaInsets();
@@ -76,6 +82,10 @@ const PlanTab = ({
   const replaceWorkoutSets = dispatchReplaceWorkoutSets();
   const dispatch = useDispatch();
 
+  const allTimePr = useAllTimeOneRepMax(selectedExercise?.id);
+  const lastFinishedWorkouts = useLastFinishedWorkoutsByExerciseIds(selectedExercise?.id !== undefined ? [selectedExercise.id] : []);
+  const lastTrainingOneRm = lastFinishedWorkouts.length > 0 ? oneRepMaxForWorkouts(lastFinishedWorkouts[0]) : undefined;
+
   const plannedWorkoutsByExerciseId = useSelector((state: GlobalState) => {
     const workouts: Record<number, Workout | undefined> = {};
     Object.entries(training.plannedWorkouts ?? {}).forEach(([exerciseId, workoutId]) => {
@@ -84,7 +94,7 @@ const PlanTab = ({
     return workouts;
   }, shallowEqual);
 
-  const [mode, setMode] = useState<PlanMode>('read');
+  const [mode, setMode] = useState<PlanMode>(initialMode ?? 'read');
   const [quickEditTarget, setQuickEditTarget] = useState<QuickEditTarget | null>(null);
   const [quickEditDraft, setQuickEditDraft] = useState('');
   const [quickEditOriginal, setQuickEditOriginal] = useState<number | null>(null);
@@ -164,6 +174,9 @@ const PlanTab = ({
     return null;
   }
 
+  const plannedWorkoutForSelected = selectedExercise.id !== undefined ? plannedWorkoutsByExerciseId[selectedExercise.id] : undefined;
+  const sessionOneRm = plannedWorkoutForSelected ? oneRepMaxForWorkouts(plannedWorkoutForSelected) : 0;
+
   const quickEditExerciseName =
     quickEditTarget !== null
       ? exercises.find((exercise) => exercise.id === quickEditTarget.exerciseId)?.name ?? selectedExercise.name
@@ -195,20 +208,27 @@ const PlanTab = ({
         hideIconButton={true}
       />
       {mode === 'fullEdit' ? (
-        <PlanEditList
-          exercises={exercises}
-          selectedExerciseId={selectedExercise.id}
-          plannedWorkoutsByExerciseId={plannedWorkoutsByExerciseId}
-          pendingSetByExerciseId={pendingSetByExerciseId}
-          onSelectExercise={chooseExercise}
-          onAddSet={handleAddSet}
-          onPendingSetChange={handlePendingSetChange}
-          onPendingSetDelete={handlePendingSetDelete}
-          onDeleteSet={handleDeleteSet}
-          onUpsertSet={handleFullEditUpsertSet}
-          onReorderSets={handleReorderSets}
-          onRemoveExercise={handleRemoveExercise}
-        />
+        <>
+          <Estimated1RmCard
+            sessionOneRm={sessionOneRm}
+            lastTrainingOneRm={lastTrainingOneRm && lastTrainingOneRm > 0 ? lastTrainingOneRm : undefined}
+            allTimePr={allTimePr > 0 ? allTimePr : undefined}
+          />
+          <PlanEditList
+            exercises={exercises}
+            selectedExerciseId={selectedExercise.id}
+            plannedWorkoutsByExerciseId={plannedWorkoutsByExerciseId}
+            pendingSetByExerciseId={pendingSetByExerciseId}
+            onSelectExercise={chooseExercise}
+            onAddSet={handleAddSet}
+            onPendingSetChange={handlePendingSetChange}
+            onPendingSetDelete={handlePendingSetDelete}
+            onDeleteSet={handleDeleteSet}
+            onUpsertSet={handleFullEditUpsertSet}
+            onReorderSets={handleReorderSets}
+            onRemoveExercise={handleRemoveExercise}
+          />
+        </>
       ) : (
         <PlanReadList
           exercises={exercises}
@@ -664,4 +684,4 @@ const styles = StyleSheet.create({
 });
 
 export default PlanTab;
-export type {PlanChromeState} from './planTypes';
+export type {PlanChromeState, PlanMode} from './planTypes';

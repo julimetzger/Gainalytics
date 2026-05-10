@@ -51,6 +51,29 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+// Mock react-native-draggable-flatlist (includes NestableScrollContainer used by TrainingsPlanNode)
+jest.mock('react-native-draggable-flatlist', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  const ScaleDecorator = ({children}) => children;
+  const ListComponent = ({data, renderItem, keyExtractor}) =>
+    React.createElement(
+      View,
+      null,
+      (data || []).map((item, index) =>
+        React.createElement(View, {key: keyExtractor ? keyExtractor(item) : String(index)}, renderItem({item, drag: () => {}, isActive: false})),
+      ),
+    );
+  const NestableScrollContainer = ({children, ...rest}) => React.createElement(View, rest, children);
+  return {
+    __esModule: true,
+    default: ListComponent,
+    NestableDraggableFlatList: ListComponent,
+    NestableScrollContainer,
+    ScaleDecorator,
+  };
+});
+
 // Mock react-native-gesture-handler
 jest.mock('react-native-gesture-handler', () => {
   const View = require('react-native').View;
