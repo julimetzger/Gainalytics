@@ -350,6 +350,11 @@ def main() -> None:
         default="codex",
         help="Which AI CLI to use for the worker process (default: codex).",
     )
+    parser.add_argument(
+        "--model",
+        default="sonnet",
+        help="Claude model alias passed via --model (claude runner only). Default: sonnet.",
+    )
     args = parser.parse_args()
 
     state_path = Path(args.state_file).resolve() if args.state_file else state_file_path()
@@ -416,7 +421,7 @@ def main() -> None:
     if args.runner == "claude":
         cmd = [
             "claude",
-            "--model", "sonnet",
+            "--model", args.model,
             "--allowedTools", "Bash,Read,Write,Edit,Glob,Grep",
             "--output-format", "stream-json",
             "--verbose",
