@@ -475,11 +475,11 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
 
   const repSegments = result.repSegments;
   const firstRepSegment = repSegments.length > 0 ? repSegments[0] : null;
-  const firstRepTurnaroundMs = repOverrides[0]?.turnaroundMs ?? firstRepSegment?.turnaroundMs ?? 0;
-  const firstRepEndMs = repOverrides[0]?.endMs ?? firstRepSegment?.endMs ?? 0;
+  const firstRepTurnaroundMs = (firstRepSegment ? repOverrides[firstRepSegment.repIndex]?.turnaroundMs : null) ?? firstRepSegment?.turnaroundMs ?? 0;
+  const firstRepEndMs = (firstRepSegment ? repOverrides[firstRepSegment.repIndex]?.endMs : null) ?? firstRepSegment?.endMs ?? 0;
   const lastRepSegment = repSegments.length > 1 ? repSegments[repSegments.length - 1] : null;
-  const lastRepTurnaroundMs = repOverrides[repSegments.length - 1]?.turnaroundMs ?? lastRepSegment?.turnaroundMs ?? 0;
-  const lastRepEndMs = repOverrides[repSegments.length - 1]?.endMs ?? lastRepSegment?.endMs ?? 0;
+  const lastRepTurnaroundMs = (lastRepSegment ? repOverrides[lastRepSegment.repIndex]?.turnaroundMs : null) ?? lastRepSegment?.turnaroundMs ?? 0;
+  const lastRepEndMs = (lastRepSegment ? repOverrides[lastRepSegment.repIndex]?.endMs : null) ?? lastRepSegment?.endMs ?? 0;
   const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
   // Direction detection uses the raw series: smoothing across a short window can
   // pull the start/turnaround samples toward the rep's mean and obscure the
@@ -915,8 +915,8 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
 
   const onSaveSetResult = useCallback(() => {
     const trackingFrameWidth = result.analysisMeta.trackingFrameWidthPx ?? 0;
-    const repResults: VideoAnalysisRepResult[] = result.repSegments.map((seg, idx) => {
-      const override = repOverrides[idx];
+    const repResults: VideoAnalysisRepResult[] = result.repSegments.map((seg) => {
+      const override = repOverrides[seg.repIndex];
       const startMs = seg.startMs;
       const turnaroundMs = override?.turnaroundMs !== null && override?.turnaroundMs !== undefined ? override.turnaroundMs : seg.turnaroundMs;
       const endMs = override?.endMs !== null && override?.endMs !== undefined ? override.endMs : seg.endMs;
@@ -1265,23 +1265,23 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             return (
               <>
                 {repSegments.map((seg, i) => {
-                  const tMs = repOverrides[i]?.turnaroundMs ?? seg.turnaroundMs;
-                  const eMs = repOverrides[i]?.endMs ?? seg.endMs;
+                  const tMs = repOverrides[seg.repIndex]?.turnaroundMs ?? seg.turnaroundMs;
+                  const eMs = repOverrides[seg.repIndex]?.endMs ?? seg.endMs;
                   const setTurnaround: React.Dispatch<React.SetStateAction<number | null>> = (valueOrUpdater) => {
                     setRepOverrides(prev => {
-                      const cur = prev[i]?.turnaroundMs ?? null;
+                      const cur = prev[seg.repIndex]?.turnaroundMs ?? null;
                       const next = typeof valueOrUpdater === 'function' ? valueOrUpdater(cur) : valueOrUpdater;
-                      return {...prev, [i]: {...prev[i], turnaroundMs: next, endMs: prev[i]?.endMs ?? null}};
+                      return {...prev, [seg.repIndex]: {...prev[seg.repIndex], turnaroundMs: next, endMs: prev[seg.repIndex]?.endMs ?? null}};
                     });
                   };
                   const setEnd: React.Dispatch<React.SetStateAction<number | null>> = (valueOrUpdater) => {
                     setRepOverrides(prev => {
-                      const cur = prev[i]?.endMs ?? null;
+                      const cur = prev[seg.repIndex]?.endMs ?? null;
                       const next = typeof valueOrUpdater === 'function' ? valueOrUpdater(cur) : valueOrUpdater;
-                      return {...prev, [i]: {...prev[i], turnaroundMs: prev[i]?.turnaroundMs ?? null, endMs: next}};
+                      return {...prev, [seg.repIndex]: {...prev[seg.repIndex], turnaroundMs: prev[seg.repIndex]?.turnaroundMs ?? null, endMs: next}};
                     });
                   };
-                  return <React.Fragment key={i}>{renderRepLines(tMs, eMs, setTurnaround, setEnd, `rep-${i}`)}</React.Fragment>;
+                  return <React.Fragment key={seg.repIndex}>{renderRepLines(tMs, eMs, setTurnaround, setEnd, `rep-${i}`)}</React.Fragment>;
                 })}
               </>
             );
@@ -1431,9 +1431,12 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
         <View style={styles.intervalMetrics}>
           <Text variant="labelMedium" style={styles.repSummaryTitle}>Velocity Loss</Text>
           <View style={styles.intervalMetricsRow}>
-            <Text variant="bodySmall">VL={savedSetResult?.velocityLossPercent ?? velocityLoss}%</Text>
-            {(savedSetResult?.rirEstimate ?? rirEstimate) && (
-              <Text variant="bodySmall">RIR={savedSetResult?.rirEstimate ?? rirEstimate}</Text>
+            {/* Live-computed VL wins over savedSetResult: keeps the value in sync */}
+            {/* with user-moved boundaries before save, and avoids stale 0 from older */}
+            {/* buggy saves. Falls back to saved value only when the live calc is null. */}
+            <Text variant="bodySmall">VL={velocityLoss ?? savedSetResult?.velocityLossPercent}%</Text>
+            {(rirEstimate ?? savedSetResult?.rirEstimate) && (
+              <Text variant="bodySmall">RIR={rirEstimate ?? savedSetResult?.rirEstimate}</Text>
             )}
           </View>
         </View>
