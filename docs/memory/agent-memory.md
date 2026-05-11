@@ -1112,3 +1112,27 @@ If Metro was started in the worktree and the worktree inherited file-map caches 
 - Or wait for `Export Data` / screen-specific text instead of 'Training'
 Bare `extendedWaitUntil: visible: 'Training'` fails when the app last closed on Settings because the 'Training' tab label only shows for the selected tab.
 **Apply when:** Any per-slot side-effect inside a component rendered under `RangeSwiper` (or any swiper that re-renders with new props instead of remounting). Includes auto-routes, "show this once" hints, slot-bound analytics, etc.
+### 146. `adb shell input swipe` cannot trigger `Pressable.onLongPress` — use `input motionevent` instead
+**Problem:** Drag handles wired via `<Pressable onLongPress={drag}>` (the pattern used by `react-native-draggable-flatlist`'s renderItem `drag` callback) need ≥500 ms of stationary touch before the drag activates. `adb shell input swipe x1 y1 x2 y2 duration` interpolates linearly with no initial hold, so the gesture handler sees motion immediately and never crosses the long-press threshold. The screen ends up scrolling (or doing nothing) instead of starting drag.
+**Working solution:** Compose the gesture from raw motion events:
+```
+adb shell 'input motionevent DOWN <x> <y> && \
+  for i in $(seq 1 12); do sleep 0.1; input motionevent MOVE <x> <y>; done && \
+  for i in $(seq 1 N); do sleep 0.05; y=$((<y_start> - i*<step>)); input motionevent MOVE <x> $y; done && \
+  input motionevent UP <x> <y_end>'
+```
+The 12 stationary MOVE events at 100 ms = ~1.2 s long-press, which reliably activates `Pressable.onLongPress`. Then the ramp MOVE events do the actual drag, and UP finalises. Confirmed in GH-263: this swapped Set 1 ↔ Set 2 in the PlanEditList NestableDraggableFlatList; `input swipe 135 1267 135 1050 2500` failed to reorder.
+**Apply when:** Any device verification that depends on react-native-gesture-handler / Pressable long-press drag (Plan editor sets, exercise reorder squares, any future draggable list). Use `motionevent`, not `swipe`.
+
+### 147. `react-native-draggable-flatlist` nested in ScrollView needs the Nestable* APIs, not the plain ones
+**Problem:** A vertical `DraggableFlatList` inside an outer `ScrollView` looks fine but the drag gesture never activates: the long-press fires (the `ScaleDecorator` even pulses visually) but the pan movement is captured by the parent scroll, so reordering doesn't happen. This is `react-native-draggable-flatlist`'s well-known nested-scroll problem.
+**Working solution:** Use `NestableScrollContainer` (replaces the outer `ScrollView`) + `NestableDraggableFlatList` (replaces inner `DraggableFlatList`). Both are exported from `react-native-draggable-flatlist@4`. The inner list registers itself with the container so the pan gesture is routed correctly. Confirmed in GH-263 commit `488854b6`: replacing the inner list and wrapping `TrainingsPlanNode`'s outer scroll in `NestableScrollContainer` fixed set-reorder while keeping the rest of the screen scrollable.
+**Apply when:** Any vertical draggable list lives inside a vertical scroll view in this repo. Horizontal `DraggableFlatList` inside a vertical ScrollView is usually fine and doesn't need the Nestable variant.
+
+### 148. Worktree branch already at HEAD with all changes — resume by verifying, not reimplementing
+**Observation:** When the orchestrator hands a worker a `feedback_round` ticket and the prior worker died **after committing locally but before pushing**, the worktree already contains the full implementation. `git log` shows the relevant commit ahead of origin/master and `git status` shows nothing else.
+**Apply when:** A feedback-round prompt explicitly says "branch has full implementation locally; previous worker died before push." Do **NOT** redo the implementation — that wastes 10+ minutes of build + emulator time and risks creating a divergent second commit. Verify the existing commit by reading the diff, run the targeted tests, build + install the APK, capture device evidence, push, open the PR. Only fix defects with **additional** commits on the same branch; never amend or recreate the existing commit.
+
+### 149. Pre-existing test failures: diff the failing file against origin/master before assuming you broke it
+**Observation:** If `npm test` reports failures in files you didn't touch, do not assume regression. Run `git diff HEAD origin/master -- <file>` — zero diff means the failure is pre-existing on master and unrelated to your change. Confirmed in GH-263: `exerciseReducerTest`, `settingsReducerTest`, `exercisesReducerTest`, `AddWorkoutSet` all failed identically on origin/master (a `feat: alternativeIds` addition surfaced the snapshot drift before this branch was cut). Use this evidence in the PR body to pre-empt review questions.
+**Apply when:** Workspace-wide test runs show failures outside your touched files. Spend 30 s diffing before spending an hour "fixing" a master bug.
