@@ -28,6 +28,7 @@ import {
 } from '../../../redux/settings/dispatch/dispatchRestTimer';
 import {instrumentSubmitTiming} from '../../../utils/perf/instrumentSubmitTiming';
 import {DevPerfProfiler} from '../../../utils/perf/DevPerfProfiler';
+import {LiveCascadeOverlay} from '../../../utils/perf/LiveCascadeOverlay';
 
 const DEFAULT_REST_SECONDS = 90;
 
@@ -155,68 +156,81 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
   // be historical and the user may still need to change it.
   const showDatePicker = training.state !== TrainingsState.STARTED;
 
+  // GH-272: id used to lookup the workout in the LiveCascadeOverlay so the
+  // synthetic cascade dispatches against the SAME workout the user is editing.
+  const overlayWorkoutId = doneWorkout?.id ?? unfinishedWorkout?.id;
+
   return (
-    <DevPerfProfiler id="execute-training">
+    <DevPerfProfiler id="execute-training-root">
     <View>
+      <LiveCascadeOverlay workoutId={overlayWorkoutId} exerciseId={chosenExercise.id} />
       {showDatePicker && (
-        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
-          <DatePicker date={date} setDate={setDate} />
-        </View>
-      )}
-      <AddWorkout
-        workout={doneWorkout?.end ? doneWorkout : undefined}
-        exercise={chosenExercise}
-        onSubmit={onSubmit}
-        suggest={false}
-        trainingsId={training.id ?? nextTrainingsId}
-        onSubmitSet={handleSubmitSet}
-        date={date}
-        linkVideoMode={linkVideoMode}
-        onDisableLinkVideoMode={() => setLinkVideoMode(false)}
-        onLiveInputChange={onLiveInputChange}
-        oneRepMaxRef={onPreviousOneRmKnown}
-        info={
-          <View style={{display: 'flex', flexDirection: 'row'}}>
-            <Tooltip enterTouchDelay={300} title="Shows Exercise History">
-              <IconButton
-                icon="history"
-                onPress={() => {
-                  setOpenHistory(true);
-                }}
-              ></IconButton>
-            </Tooltip>
-            <Tooltip enterTouchDelay={300} title="Shows Planned Training">
-              <IconButton
-                icon="book-open-variant"
-                onPress={() => {
-                  setOpenPlanned(true);
-                }}
-              ></IconButton>
-            </Tooltip>
-            <Tooltip enterTouchDelay={300} title={linkVideoMode ? 'Cancel Link Video' : 'Link Video'}>
-              <IconButton
-                icon={linkVideoMode ? 'close' : 'video-plus'}
-                onPress={() => setLinkVideoMode(prev => !prev)}
-              ></IconButton>
-            </Tooltip>
+        <DevPerfProfiler id="aux-date-picker">
+          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
+            <DatePicker date={date} setDate={setDate} />
           </View>
-        }
-      />
-      <Estimated1RmCard
-        sessionOneRm={sessionOneRm}
-        lastTrainingOneRm={lastTrainingOneRm ?? exerciseFallbackOneRm}
-        allTimePr={allTimePr}
-      />
-      <RestTimerCard
-        startedAt={activeRest?.startedAt}
-        targetSeconds={activeRest?.targetSeconds}
-        exerciseId={activeRest?.exerciseId}
-        onReset={onResetRest}
-        onSkip={onSkipRest}
-        onEditTarget={onEditTarget}
-        onAdjustExerciseDefault={handleAdjustExerciseDefault}
-        exerciseDefaultSeconds={resolvedRestDefault}
-      />
+        </DevPerfProfiler>
+      )}
+      <DevPerfProfiler id="set-list">
+        <AddWorkout
+          workout={doneWorkout?.end ? doneWorkout : undefined}
+          exercise={chosenExercise}
+          onSubmit={onSubmit}
+          suggest={false}
+          trainingsId={training.id ?? nextTrainingsId}
+          onSubmitSet={handleSubmitSet}
+          date={date}
+          linkVideoMode={linkVideoMode}
+          onDisableLinkVideoMode={() => setLinkVideoMode(false)}
+          onLiveInputChange={onLiveInputChange}
+          oneRepMaxRef={onPreviousOneRmKnown}
+          info={
+            <View style={{display: 'flex', flexDirection: 'row'}}>
+              <Tooltip enterTouchDelay={300} title="Shows Exercise History">
+                <IconButton
+                  icon="history"
+                  onPress={() => {
+                    setOpenHistory(true);
+                  }}
+                ></IconButton>
+              </Tooltip>
+              <Tooltip enterTouchDelay={300} title="Shows Planned Training">
+                <IconButton
+                  icon="book-open-variant"
+                  onPress={() => {
+                    setOpenPlanned(true);
+                  }}
+                ></IconButton>
+              </Tooltip>
+              <Tooltip enterTouchDelay={300} title={linkVideoMode ? 'Cancel Link Video' : 'Link Video'}>
+                <IconButton
+                  icon={linkVideoMode ? 'close' : 'video-plus'}
+                  onPress={() => setLinkVideoMode(prev => !prev)}
+                ></IconButton>
+              </Tooltip>
+            </View>
+          }
+        />
+      </DevPerfProfiler>
+      <DevPerfProfiler id="estimated-1rm-card">
+        <Estimated1RmCard
+          sessionOneRm={sessionOneRm}
+          lastTrainingOneRm={lastTrainingOneRm ?? exerciseFallbackOneRm}
+          allTimePr={allTimePr}
+        />
+      </DevPerfProfiler>
+      <DevPerfProfiler id="rest-timer-card">
+        <RestTimerCard
+          startedAt={activeRest?.startedAt}
+          targetSeconds={activeRest?.targetSeconds}
+          exerciseId={activeRest?.exerciseId}
+          onReset={onResetRest}
+          onSkip={onSkipRest}
+          onEditTarget={onEditTarget}
+          onAdjustExerciseDefault={handleAdjustExerciseDefault}
+          exerciseDefaultSeconds={resolvedRestDefault}
+        />
+      </DevPerfProfiler>
       <Portal>
         <Dialog visible={openPlanned} onDismiss={() => setOpenPlanned(false)}>
           <Dialog.Title>Planned Workout for {chosenExercise.name}</Dialog.Title>
