@@ -28,13 +28,9 @@ import DraggableExercise from '../DraggableExercise';
 import TrainingElementPicker from '../../picker/elements/TrainingElementPicker';
 import MuscleInvolvementCard from './MuscleInvolvementCard';
 import {useSettings} from '../../../redux/settings/use/useSettings';
-import Estimated1RmCard from '../execute/Estimated1RmCard';
-import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMax';
-import {useLastFinishedWorkoutsByExerciseIds} from '../../../redux/Workout/use/useLastFinishedWorkoutsByExerciseIds';
-import {oneRepMaxForWorkouts} from '../../../utils/AnalyseUtils';
 
 interface PlanTabProps {
-  training: Training;
+  training?: Training;
   trainingsPlanId: number;
   micro: number;
   trainingInMicro: number;
@@ -82,13 +78,9 @@ const PlanTab = ({
   const replaceWorkoutSets = dispatchReplaceWorkoutSets();
   const dispatch = useDispatch();
 
-  const allTimePr = useAllTimeOneRepMax(selectedExercise?.id);
-  const lastFinishedWorkouts = useLastFinishedWorkoutsByExerciseIds(selectedExercise?.id !== undefined ? [selectedExercise.id] : []);
-  const lastTrainingOneRm = lastFinishedWorkouts.length > 0 ? oneRepMaxForWorkouts(lastFinishedWorkouts[0]) : undefined;
-
   const plannedWorkoutsByExerciseId = useSelector((state: GlobalState) => {
     const workouts: Record<number, Workout | undefined> = {};
-    Object.entries(training.plannedWorkouts ?? {}).forEach(([exerciseId, workoutId]) => {
+    Object.entries(training?.plannedWorkouts ?? {}).forEach(([exerciseId, workoutId]) => {
       workouts[Number(exerciseId)] = state.workouts.byId[workoutId];
     });
     return workouts;
@@ -123,16 +115,13 @@ const PlanTab = ({
   const quickEditInvalid = quickEditTarget !== null && !isPlanFieldValueValid(quickEditTarget.field, quickEditDraft);
 
   useEffect(() => {
-    if (selectedExercise === undefined) {
-      return;
-    }
     const showSub = Keyboard.addListener('keyboardDidShow', (event) => setKeyboardInset(event.endCoordinates.height));
     const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardInset(0));
     return () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, [selectedExercise]);
+  }, []);
 
   useEffect(() => {
     if (!isActive || selectedExercise === undefined) {
@@ -144,6 +133,17 @@ const PlanTab = ({
     lastEditPlanRequestIdRef.current = editPlanRequestId;
     enterFullEdit();
   }, [editPlanRequestId, isActive, selectedExercise]);
+
+  // GH-263 Item 1: when fullEdit was requested via initialMode but the user has
+  // not picked an exercise yet, auto-open the inline picker so the picker
+  // appears INSIDE the fullEdit screen rather than as a separate dropdown step.
+  useEffect(() => {
+    if (mode === 'fullEdit' && exercises.length === 0 && !pickerVisible) {
+      onTogglePicker();
+    }
+    // intentionally omit onTogglePicker from deps; parent's identity changes per render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, exercises.length]);
 
   // Keep the latest-closure refs in sync with the hoisted function declarations
   // below, so the stable wrappers always call current state.
@@ -170,21 +170,14 @@ const PlanTab = ({
     };
   }, [isActive, mode, onChromeChange, stableExitToRead, stableHandleBack]);
 
-  if (selectedExercise === undefined) {
-    return null;
-  }
-
-  const plannedWorkoutForSelected = selectedExercise.id !== undefined ? plannedWorkoutsByExerciseId[selectedExercise.id] : undefined;
-  const sessionOneRm = plannedWorkoutForSelected ? oneRepMaxForWorkouts(plannedWorkoutForSelected) : 0;
-
   const quickEditExerciseName =
     quickEditTarget !== null
-      ? exercises.find((exercise) => exercise.id === quickEditTarget.exerciseId)?.name ?? selectedExercise.name
-      : selectedExercise.name;
+      ? exercises.find((exercise) => exercise.id === quickEditTarget.exerciseId)?.name ?? selectedExercise?.name ?? ''
+      : selectedExercise?.name ?? '';
 
   return (
     <View style={styles.container}>
-      {appSettings.plan?.muscleMap?.enabled && (
+      {appSettings.plan?.muscleMap?.enabled && selectedExercise !== undefined && (
         <MuscleInvolvementCard trainingsPlanId={trainingsPlanId} micro={micro} trainingInMicro={trainingInMicro} />
       )}
       <DraggableExercise
@@ -207,28 +200,27 @@ const PlanTab = ({
         onToggle={onTogglePicker}
         hideIconButton={true}
       />
-      {mode === 'fullEdit' ? (
-        <>
-          <Estimated1RmCard
-            sessionOneRm={sessionOneRm}
-            lastTrainingOneRm={lastTrainingOneRm && lastTrainingOneRm > 0 ? lastTrainingOneRm : undefined}
-            allTimePr={allTimePr > 0 ? allTimePr : undefined}
-          />
-          <PlanEditList
-            exercises={exercises}
-            selectedExerciseId={selectedExercise.id}
-            plannedWorkoutsByExerciseId={plannedWorkoutsByExerciseId}
-            pendingSetByExerciseId={pendingSetByExerciseId}
-            onSelectExercise={chooseExercise}
-            onAddSet={handleAddSet}
-            onPendingSetChange={handlePendingSetChange}
-            onPendingSetDelete={handlePendingSetDelete}
-            onDeleteSet={handleDeleteSet}
-            onUpsertSet={handleFullEditUpsertSet}
-            onReorderSets={handleReorderSets}
-            onRemoveExercise={handleRemoveExercise}
-          />
-        </>
+      {selectedExercise === undefined ? (
+        <View style={styles.emptyState}>
+          <Text style={{color: theme.colors.onSurfaceVariant, textAlign: 'center'}} testID="plan-edit-empty-hint">
+            Pick an exercise from the picker above to start planning.
+          </Text>
+        </View>
+      ) : mode === 'fullEdit' ? (
+        <PlanEditList
+          exercises={exercises}
+          selectedExerciseId={selectedExercise.id}
+          plannedWorkoutsByExerciseId={plannedWorkoutsByExerciseId}
+          pendingSetByExerciseId={pendingSetByExerciseId}
+          onSelectExercise={chooseExercise}
+          onAddSet={handleAddSet}
+          onPendingSetChange={handlePendingSetChange}
+          onPendingSetDelete={handlePendingSetDelete}
+          onDeleteSet={handleDeleteSet}
+          onUpsertSet={handleFullEditUpsertSet}
+          onReorderSets={handleReorderSets}
+          onRemoveExercise={handleRemoveExercise}
+        />
       ) : (
         <PlanReadList
           exercises={exercises}
@@ -319,7 +311,7 @@ const PlanTab = ({
 
   function captureFullEditSnapshot() {
     fullEditSnapshotRef.current = {
-      chosenExerciseId: selectedExercise.id,
+      chosenExerciseId: selectedExercise?.id,
       exercises: exercises.map((exercise) => ({...exercise})),
       setsByExerciseId: Object.fromEntries(
         exercises
@@ -645,7 +637,7 @@ const PlanTab = ({
     }
     const nextExercises = exercises.filter((currentExercise) => currentExercise.id !== exercise.id);
     handleSetExercises(nextExercises);
-    if (selectedExercise.id === exercise.id) {
+    if (selectedExercise?.id === exercise.id) {
       const nextSelectedExercise = nextExercises[0];
       if (nextSelectedExercise !== undefined) {
         chooseExercise(nextSelectedExercise);
@@ -657,6 +649,11 @@ const PlanTab = ({
 const styles = StyleSheet.create({
   container: {
     paddingBottom: 16,
+  },
+  emptyState: {
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    alignItems: 'center',
   },
   quickEditAccessory: {
     position: 'absolute',

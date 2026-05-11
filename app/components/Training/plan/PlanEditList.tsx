@@ -1,11 +1,13 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Pressable, StyleSheet, View} from 'react-native';
 import {NestableDraggableFlatList, RenderItemParams, ScaleDecorator} from 'react-native-draggable-flatlist';
-import {Chip, Icon, IconButton, Menu, Text, TextInput, useTheme} from 'react-native-paper';
+import {Chip, Icon, IconButton, Menu, Text, TextInput, ToggleButton, useTheme} from 'react-native-paper';
 import {Exercise} from '../../../models/entities/Exercise';
 import {Workout} from '../../../models/entities/Workout';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {withAlpha} from '../../../utils/colorUtils';
+import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
+import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMax';
 import DashedAddButton from '../../shared/DashedAddButton';
 import {PendingPlanSet, PendingPlanSetByExerciseId, PlanField} from './planTypes';
 import {buildWorkoutSetFromDraft, getPlanSetDraft} from './planUtils';
@@ -118,6 +120,7 @@ const PlanEditExerciseSection = ({
 }: SectionProps) => {
   const theme = useTheme();
   const [menuVisible, setMenuVisible] = useState(false);
+  const oneRepMax = useAllTimeOneRepMax(exercise.id);
   const data = useMemo<RowItem[]>(
     () =>
       sets.map((workoutSet) => ({
@@ -203,6 +206,7 @@ const PlanEditExerciseSection = ({
       {pendingSet !== null && (
         <PendingPlanEditSetRow
           pendingSet={pendingSet}
+          oneRepMax={oneRepMax > 0 ? oneRepMax : undefined}
           onChange={onPendingSetChange}
           onDelete={onPendingSetDelete}
           onCommit={onUpsertSet}
@@ -292,13 +296,24 @@ const PlanEditSetRow = ({workoutSet, onDelete, onDrag, onUpsert, active}: PlanEd
 
 interface PendingPlanEditSetRowProps {
   pendingSet: PendingPlanSet;
+  oneRepMax?: number;
   onChange: (field: PlanField, value: string) => void;
   onDelete: () => void;
   onCommit: (workoutSet: WorkoutSet) => void;
 }
 
-const PendingPlanEditSetRow = ({pendingSet, onChange, onDelete, onCommit}: PendingPlanEditSetRowProps) => {
+// GH-263 Item 2: inline weight-suggestion pattern ported from AddWorkoutSet.tsx
+// (L28-29, L70-86, L194-195). When the user has a known 1RM for this exercise
+// and types reps or RIR, the weight TextInput auto-prefills with the computed
+// weight using the same Brzycki/Epley formula AddWorkoutSet uses. The weight
+// input is rendered with primary-color outline + text while the prefill is
+// still the suggested default; once the user manually edits the weight, the
+// highlight + auto-prefill drop. The 1RM toggle mirrors AddWorkoutSet's chip.
+const PendingPlanEditSetRow = ({pendingSet, oneRepMax, onChange, onDelete, onCommit}: PendingPlanEditSetRowProps) => {
   const theme = useTheme();
+  const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(false);
+  const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
+  const lastSuggestedWeightRef = useRef<string | null>(null);
 
   useEffect(() => {
     const nextSet = buildWorkoutSetFromDraft(pendingSet, {index: pendingSet.index, date: new Date(), reps: 0, rir: 0, weight: 0});
@@ -307,15 +322,116 @@ const PendingPlanEditSetRow = ({pendingSet, onChange, onDelete, onCommit}: Pendi
     }
   }, [onCommit, pendingSet]);
 
+  const setWeightSuggestionFromReps = (repsValue: string, rirValue: string) => {
+    if (oneRepMax === undefined || disable1RMWeightCalculation) {
+      return;
+    }
+    const repsNum = Number.parseFloat(repsValue);
+    const rirNum = Number.parseFloat(rirValue);
+    if (!Number.isFinite(repsNum) || !Number.isFinite(rirNum) || repsNum <= 0) {
+      return;
+    }
+    const computed = repetitionWeightByOneRm(repsNum, rirNum, oneRepMax).toFixed(0);
+    lastSuggestedWeightRef.current = computed;
+    onChange('weight', computed);
+  };
+
+  const handleRepsChange = (value: string) => {
+    const next = value.replace(',', '.');
+    onChange('reps', next);
+    setWeightSuggestionFromReps(next, pendingSet.rir);
+  };
+
+  const handleRirChange = (value: string) => {
+    const next = value.replace(',', '.');
+    onChange('rir', next);
+    setWeightSuggestionFromReps(pendingSet.reps, next);
+  };
+
+  const handleWeightChange = (value: string) => {
+    const next = value.replace(',', '.');
+    // If the user types a value that differs from the current suggestion, they
+    // are overriding it — disable further auto-prefill.
+    if (lastSuggestedWeightRef.current !== null && next !== lastSuggestedWeightRef.current) {
+      setDisable1RMWeightCalculation(true);
+    }
+    onChange('weight', next);
+  };
+
+  const handleToggle1RM = () => {
+    setDisable1RMWeightCalculation((prev) => {
+      const nextDisabled = !prev;
+      if (!nextDisabled) {
+        // Re-enabling — recompute the suggestion from the current reps/rir.
+        setWeightSuggestionFromReps(pendingSet.reps, pendingSet.rir);
+      }
+      return nextDisabled;
+    });
+  };
+
+  // The weight field is "still the suggestion" if its current value matches
+  // the last computed suggestion. Once the user changes it manually, the
+  // values diverge and the highlight drops.
+  const weightIsStillSuggested =
+    lastSuggestedWeightRef.current !== null && pendingSet.weight === lastSuggestedWeightRef.current;
+  const showHighlight =
+    highlightWeightSuggestion && !disable1RMWeightCalculation && oneRepMax !== undefined && weightIsStillSuggested;
+  const highlightColor = showHighlight ? theme.colors.primary : undefined;
+
   return (
     <View style={[styles.row, {backgroundColor: withAlpha(theme.colors.primary, 0.04)}]}>
       <View style={styles.dragHandle}>
         <Icon source="drag-horizontal-variant" size={18} color={withAlpha(theme.colors.onSurfaceVariant, 0.6)} />
       </View>
       <Text style={[styles.setIndex, {color: withAlpha(theme.colors.onSurfaceVariant, 0.7)}]}>{pendingSet.index}</Text>
-      <TextInput testID="plan-pending-set-reps-input" mode="outlined" dense keyboardType="numeric" label="Reps" value={pendingSet.reps} style={styles.input} onChangeText={(value) => onChange('reps', value.replace(',', '.'))} />
-      <TextInput testID="plan-pending-set-rir-input" mode="outlined" dense keyboardType="numeric" label="RIR" value={pendingSet.rir} style={styles.input} onChangeText={(value) => onChange('rir', value.replace(',', '.'))} />
-      <TextInput testID="plan-pending-set-weight-input" mode="outlined" dense keyboardType="numeric" label="Weight" value={pendingSet.weight} style={styles.input} onChangeText={(value) => onChange('weight', value.replace(',', '.'))} />
+      <TextInput
+        testID="plan-pending-set-reps-input"
+        mode="outlined"
+        dense
+        keyboardType="numeric"
+        label="Reps"
+        value={pendingSet.reps}
+        style={styles.input}
+        onChangeText={handleRepsChange}
+        onFocus={() => setHighlightWeightSuggestion(true)}
+        onBlur={() => setHighlightWeightSuggestion(false)}
+      />
+      <TextInput
+        testID="plan-pending-set-rir-input"
+        mode="outlined"
+        dense
+        keyboardType="numeric"
+        label="RIR"
+        value={pendingSet.rir}
+        style={styles.input}
+        onChangeText={handleRirChange}
+        onFocus={() => setHighlightWeightSuggestion(true)}
+        onBlur={() => setHighlightWeightSuggestion(false)}
+      />
+      <TextInput
+        testID="plan-pending-set-weight-input"
+        mode="outlined"
+        dense
+        keyboardType="numeric"
+        label="Weight"
+        value={pendingSet.weight}
+        style={styles.input}
+        textColor={highlightColor}
+        outlineColor={highlightColor}
+        onChangeText={handleWeightChange}
+      />
+      {oneRepMax !== undefined && (
+        <ToggleButton
+          testID="plan-pending-set-1rm-toggle"
+          icon={() => (
+            <Text style={{color: disable1RMWeightCalculation ? theme.colors.onSurfaceDisabled : theme.colors.primary, fontSize: 11, fontWeight: '600'}}>1RM</Text>
+          )}
+          status={disable1RMWeightCalculation ? 'unchecked' : 'checked'}
+          onPress={handleToggle1RM}
+          style={styles.oneRmToggle}
+          size={28}
+        />
+      )}
       <IconButton testID="plan-pending-set-delete" icon="delete-outline" iconColor={theme.colors.error} onPress={onDelete} />
     </View>
   );
@@ -372,6 +488,11 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     marginHorizontal: 2,
+  },
+  oneRmToggle: {
+    marginHorizontal: 2,
+    height: 32,
+    width: 36,
   },
   addButton: {
     marginLeft: 28,

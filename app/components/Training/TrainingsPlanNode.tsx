@@ -87,6 +87,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   let appSettings = useSettings();
   const [showPicker, setShowPicker] = useState(false);
   const [nextPlanMode, setNextPlanMode] = useState<PlanMode>('read');
+  const [planEntryRequested, setPlanEntryRequested] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAlternativesDialog, setShowAlternativesDialog] = useState(false);
   const deleteTraining = dispatchDeleteTraining();
@@ -106,7 +107,19 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     setActiveSubTab(defaultSubTab(training?.state));
     setIsEditing(false);
     setShowPicker(false);
+    setPlanEntryRequested(false);
+    setNextPlanMode('read');
   }, [micro, trainingInMicro, training?.state]);
+
+  // GH-263 Item 1: once the user has picked at least one exercise after tapping
+  // "Plan new Training", clear the entry-requested flag and the picker so PlanTab
+  // takes over the normal rendering path.
+  useEffect(() => {
+    if (planEntryRequested && exercises.length > 0) {
+      setPlanEntryRequested(false);
+      setShowPicker(false);
+    }
+  }, [planEntryRequested, exercises.length]);
 
   useEffect(() => {
     if (exercises.length === 0) {
@@ -278,29 +291,19 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
               {/* Plan Tab — shown in all states */}
               {activeSubTab === 'plan' && (
                 <View>
-                  {(!training || !training.exercises.length) && (
-                    <>
-                      <TrainingsBase
-                        trainingsPlan={trainingsPlan}
-                        micro={micro}
-                        trainingInMicro={trainingInMicro}
-                        onEnterPlanMode={() => {
-                          setShowPicker(true);
-                          setNextPlanMode('fullEdit');
-                        }}
-                      />
-                      <TrainingElementPicker
-                        exercise={exercises}
-                        setExercise={setExerciseWithSideEffects}
-                        dropdownLabel="Select Exercises for your Training"
-                        hideChip={true}
-                        visible={showPicker}
-                        onToggle={() => setShowPicker(!showPicker)}
-                        hideIconButton={true}
-                      />
-                    </>
+                  {(!training || !training.exercises.length) && !planEntryRequested && (
+                    <TrainingsBase
+                      trainingsPlan={trainingsPlan}
+                      micro={micro}
+                      trainingInMicro={trainingInMicro}
+                      onEnterPlanMode={() => {
+                        setNextPlanMode('fullEdit');
+                        setPlanEntryRequested(true);
+                        setShowPicker(true);
+                      }}
+                    />
                   )}
-                  {chosenExercise && (
+                  {(chosenExercise || planEntryRequested) && (
                     <View pointerEvents={'box-none'}>
                       <PlanTab
                         training={training}
@@ -323,13 +326,15 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                         onChromeChange={onPlanChromeChange}
                         initialMode={nextPlanMode}
                       />
-                      <ExerciseAlternativesDialog
-                        visible={showAlternativesDialog}
-                        exercise={chosenExercise}
-                        alternatives={alternativeExercises}
-                        onDismiss={() => setShowAlternativesDialog(false)}
-                        onSelect={onReplaceExercise}
-                      />
+                      {chosenExercise && (
+                        <ExerciseAlternativesDialog
+                          visible={showAlternativesDialog}
+                          exercise={chosenExercise}
+                          alternatives={alternativeExercises}
+                          onDismiss={() => setShowAlternativesDialog(false)}
+                          onSelect={onReplaceExercise}
+                        />
+                      )}
                     </View>
                   )}
                   {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro} />}
