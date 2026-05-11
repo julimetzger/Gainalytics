@@ -1,6 +1,7 @@
 import {Storage} from 'redux-persist';
 import {MMKV} from 'react-native-mmkv';
 import {perfRecorder} from './perfRecorder';
+import {isForceSyncWritesEnabled} from './createBaseStorage';
 
 // Wraps the MMKV-backed redux-persist storage adapter and records per-call
 // timing. Pure measurement: the wrapped contract still resolves the same
@@ -30,6 +31,32 @@ export function createProfilingStorage(mmkv: MMKV): Storage {
       if (perfRecorder.enabled) {
         perfRecorder.tickBytes += bytes;
         perfRecorder.tickSetItemCalls += 1;
+      }
+      // GH-270: when a safe-point flush has flipped sync mode on, write
+      // synchronously so the bytes land BEFORE the activity onStop pauses
+      // the JS bridge. See createBaseStorage.ts for the rationale.
+      if (isForceSyncWritesEnabled()) {
+        const start =
+          typeof performance !== 'undefined' && performance.now
+            ? performance.now()
+            : Date.now();
+        mmkv.set(key, value);
+        const end =
+          typeof performance !== 'undefined' && performance.now
+            ? performance.now()
+            : Date.now();
+        if (perfRecorder.enabled) {
+          perfRecorder.storage.push({
+            ts: Date.now(),
+            op: 'setItem',
+            key,
+            bytes,
+            jsonMs: -1,
+            mmkvMs: end - start,
+            lastActionType: perfRecorder.lastActionType,
+          });
+        }
+        return Promise.resolve(true);
       }
       setTimeout(() => {
         const start =

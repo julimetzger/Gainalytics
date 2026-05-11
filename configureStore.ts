@@ -11,6 +11,11 @@ import {createBaseStorage} from './app/utils/perf/createBaseStorage';
 import {createProfilingStorage} from './app/utils/perf/profilingStorage';
 import {perfMiddleware} from './app/utils/perf/perfMiddleware';
 import {paintGapMiddleware} from './app/utils/perf/paintGapMiddleware';
+import {
+  attachPersistorForHotActionSkip,
+  flushHotActionState,
+  skipPersistOnHotActions,
+} from './app/redux/middleware/skipPersistOnHotActions';
 
 const migrations = {
   0: (state) => {
@@ -147,6 +152,11 @@ const persistedReducer = persistReducer(persistConfig, rootReducer);
 export default () => {
   const isDev = process?.env?.NODE_ENV === 'development';
   const middleware: any[] = [];
+  // GH-270: must run BEFORE perfMiddleware / paintGapMiddleware so the
+  // pause/resume happens around the same `next(action)` they measure. Hot
+  // actions therefore record zero `bytes_written_in_tick` / no storage rows
+  // in the AFTER CSV — that is the win we are quantifying.
+  middleware.push(skipPersistOnHotActions);
   if (__DEV_PERF__) middleware.push(perfMiddleware);
   // GH-267: per-dispatch entry/return + rAF paint-observed timestamps so the
   // ~365 ms gap between perfMiddleware's totalMs and instrumentSubmitTiming's
@@ -163,17 +173,27 @@ export default () => {
     middleware,
   });
   let persistor = persistStore(store);
-  // GH-262 round-2: with `setItem` deferred to a macrotask, a hard kill in
-  // the ~16 ms window between dispatch and the persist write would lose the
-  // latest state. Flush on every active → background/inactive transition so
-  // a swipe-away or recents-clear always lands the latest in-memory state
-  // on disk. `flush()` calls into the same storage adapter, but at that
-  // point we are off the critical-render path so the synchronous write is
-  // fine.
+  // GH-270: hand the persistor to the hot-action middleware so it can call
+  // pause/persist around hot dispatches and flush on FINALIZE_WORKOUT.
+  attachPersistorForHotActionSkip(persistor, store, persistConfig.key);
+  // GH-262 round-2 + GH-270: flush on every active → background/inactive
+  // transition. Originally a 16 ms-window closer for the deferred MMKV
+  // setItem; under GH-270 it also closes the much bigger window where
+  // hot-action state has accumulated under a paused persistor. We use
+  // `flushHotActionState` rather than `persistor.flush()` because the
+  // persistor's queue is empty after a hot-only cascade — see middleware
+  // comment for the REHYDRATE-resync rationale.
   AppState.addEventListener('change', (next) => {
     if (next !== 'active') {
-      persistor.flush();
+      flushHotActionState();
     }
   });
+  // GH-270: 30 s interval flush as a crash-window backup. If the user never
+  // backgrounds the app (screen-off mid-workout, force-kill from recents
+  // while the activity is still foreground-resumed) this caps the worst-case
+  // data-loss window at ~30 s of hot-action state.
+  setInterval(() => {
+    flushHotActionState();
+  }, 30_000);
   return {store, persistor};
 };

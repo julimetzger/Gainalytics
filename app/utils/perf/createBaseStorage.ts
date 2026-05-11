@@ -13,10 +13,37 @@ import type {MMKV} from 'react-native-mmkv';
 // `getItem` and `removeItem` stay synchronous — `getItem` is only used
 // during hydration where blocking is correct, and `removeItem` runs in
 // response to slice purges where ordering matters.
+//
+// GH-270 — synchronous write mode for safe-point flushes.
+// `setForceSyncWrites(true)` switches `setItem` from the `setTimeout(0)`
+// deferred path back to a synchronous `mmkv.set`. The hot-action middleware
+// (`flushHotActionState`) flips this flag on while it dispatches the
+// REHYDRATE-resync + `persistor.flush()` pair on AppState
+// background/inactive, FINALIZE_WORKOUT, and the 30 s interval. Without sync
+// mode, the deferred `setTimeout(0)` would queue behind the activity
+// `onStop` and the JS bridge can pause before the macrotask drains —
+// observed on R5CN30HWZFN where HOME-key + 5 s wait would still produce a
+// stale on-disk snapshot. With sync mode, MMKV is committed inside the
+// same synchronous frame as the AppState change event, so a HOME press or
+// SIGKILL after a hot-only cascade no longer loses the cascade state.
+let forceSyncWrites = false;
+
+export function setForceSyncWrites(on: boolean): void {
+  forceSyncWrites = on;
+}
+
+export function isForceSyncWritesEnabled(): boolean {
+  return forceSyncWrites;
+}
+
 export function createBaseStorage(mmkv: Pick<MMKV, 'set' | 'getString' | 'delete'>): Storage {
   return {
     setItem: (key, value) => {
-      setTimeout(() => mmkv.set(key, value), 0);
+      if (forceSyncWrites) {
+        mmkv.set(key, value);
+      } else {
+        setTimeout(() => mmkv.set(key, value), 0);
+      }
       return Promise.resolve(true);
     },
     getItem: (key) => {
