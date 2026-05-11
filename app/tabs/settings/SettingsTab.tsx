@@ -36,6 +36,7 @@ import {__DEV_PERF__} from '../../utils/perf/devPerfFlag';
 import {dumpPerfCsv, resetPerfCsv} from '../../utils/perf/dumpPerfCsv';
 import {perfRecorder} from '../../utils/perf/perfRecorder';
 import {instrumentSubmitTiming} from '../../utils/perf/instrumentSubmitTiming';
+import {LiveSubscribedProbe} from '../../utils/perf/LiveSubscribedProbe';
 
 const SettingsTab = ({navigation}: Props) => {
   let settings = useSettings();
@@ -59,6 +60,11 @@ const SettingsTab = ({navigation}: Props) => {
 
   const [importDialog, setImportDialog] = useState(false);
   const [exactAlarmStatus, setExactAlarmStatus] = useState<boolean | null>(null);
+  // GH-267: when true, mount the LiveSubscribedProbe so a synthetic
+  // ADD_OR_UPDATE_SET_IN_WORKOUT cascade triggers a real React commit on a
+  // workouts-slice subscriber (the path missing from the GH-262 synthetic
+  // run, which only commits the Settings subtree).
+  const [liveProbeMounted, setLiveProbeMounted] = useState(false);
 
   // AI Coach API key state
   const [apiKeyInput, setApiKeyInput] = useState(() => secureStorage.getAnthropicApiKey() ?? '');
@@ -526,8 +532,19 @@ const SettingsTab = ({navigation}: Props) => {
             <Divider />
           </View>
           <Text style={{marginHorizontal: 10, marginBottom: 4}}>
-            Perf instrumentation (GH-253/262) — storage rows: {perfRecorder.storage.length}, dispatch rows: {perfRecorder.dispatch.length}, submit rows: {perfRecorder.submits.length}
+            Perf instrumentation (GH-253/262/267) — storage: {perfRecorder.storage.length}, dispatch: {perfRecorder.dispatch.length}, submit: {perfRecorder.submits.length}, render: {perfRecorder.renders.length}, paint-gap: {perfRecorder.paintGaps.length}, selector: {perfRecorder.selectors.length}
           </Text>
+          <View style={{flexDirection: 'row', alignItems: 'center', marginHorizontal: 10, marginBottom: 4}}>
+            <Switch
+              testID="perf-live-probe-toggle"
+              value={liveProbeMounted}
+              onValueChange={setLiveProbeMounted}
+            />
+            <Text style={{marginLeft: 8}}>
+              GH-267: mount LiveSubscribedProbe (workouts-slice subscriber)
+            </Text>
+          </View>
+          {liveProbeMounted && <LiveSubscribedProbe />}
           <Button
             mode="outlined"
             style={{margin: 5}}
@@ -592,6 +609,65 @@ const SettingsTab = ({navigation}: Props) => {
             }}
           >
             Run 5 Simulated Submits (GH-262)
+          </Button>
+          <Button
+            mode="outlined"
+            style={{margin: 5}}
+            testID="perf-gh267-run-5-submits-button"
+            onPress={() => {
+              const state: any = store.getState();
+              const exerciseId = state.exercises?.allIds?.[0];
+              const exercise = exerciseId !== undefined ? state.exercises.byId[exerciseId] : undefined;
+              if (!exercise) {
+                Alert.alert('No exercise', 'No exercise found in store');
+                return;
+              }
+              const workoutIds = state.workouts?.byExerciseId?.[exerciseId];
+              const workoutId = Array.isArray(workoutIds) ? workoutIds[workoutIds.length - 1] : undefined;
+              const workout = workoutId !== undefined ? state.workouts.byId[workoutId] : undefined;
+              if (!workout || workout.id === undefined) {
+                Alert.alert('No workout', 'No workout found for first exercise');
+                return;
+              }
+              const dispatch = (store as any).dispatch;
+              const baseIndex = (workout.sets ?? []).reduce((m: number, s: any) => Math.max(m, s.index ?? 0), 0);
+              const variant = liveProbeMounted ? 'live' : 'synthetic';
+              const runRep = (i: number) => {
+                instrumentSubmitTiming(`gh267-${variant}-submit`, () => {
+                  dispatch({
+                    type: 'ADD_OR_UPDATE_SET_IN_WORKOUT',
+                    set: {
+                      index: baseIndex + 100 + i,
+                      date: new Date(),
+                      weight: 100 + i,
+                      reps: 10,
+                      rir: 1,
+                    },
+                    workoutId: workout.id,
+                  });
+                  dispatch({
+                    type: 'START_REST_TIMER',
+                    startedAt: Date.now(),
+                    targetSeconds: 90,
+                    exerciseId: exercise.id,
+                    setIndex: baseIndex + 100 + i,
+                  });
+                });
+              };
+              for (let i = 0; i < 5; i++) {
+                setTimeout(() => runRep(i), i * 4000);
+              }
+              setTimeout(() => {
+                dumpPerfCsv(`gh267-${variant}`).catch(() => {});
+              }, 5 * 4000 + 2000);
+              Toast.show({
+                type: 'success',
+                text1: `GH-267 Run 5 (${variant}) started`,
+                text2: '5 submits ~4s apart; CSV auto-dumped at ~22s',
+              });
+            }}
+          >
+            Run 5 Simulated Submits (GH-267 — render+paint-gap)
           </Button>
           <View style={{flexDirection: 'row'}}>
             <Button

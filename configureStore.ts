@@ -10,6 +10,7 @@ import {__DEV_PERF__} from './app/utils/perf/devPerfFlag';
 import {createBaseStorage} from './app/utils/perf/createBaseStorage';
 import {createProfilingStorage} from './app/utils/perf/profilingStorage';
 import {perfMiddleware} from './app/utils/perf/perfMiddleware';
+import {paintGapMiddleware} from './app/utils/perf/paintGapMiddleware';
 
 const migrations = {
   0: (state) => {
@@ -147,6 +148,10 @@ export default () => {
   const isDev = process?.env?.NODE_ENV === 'development';
   const middleware: any[] = [];
   if (__DEV_PERF__) middleware.push(perfMiddleware);
+  // GH-267: per-dispatch entry/return + rAF paint-observed timestamps so the
+  // ~365 ms gap between perfMiddleware's totalMs and instrumentSubmitTiming's
+  // t2-t0 can be attributed to React commit + native paint specifically.
+  if (__DEV_PERF__) middleware.push(paintGapMiddleware);
   // redux-logger dominates dispatch time on a 1.7 MB store and would mask
   // the persist costs we are trying to measure. With perf instrumentation
   // on, leave logger out so the per-dispatch numbers reflect reducer +

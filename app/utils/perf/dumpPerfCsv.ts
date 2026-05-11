@@ -17,14 +17,20 @@ export async function dumpPerfCsv(label: string): Promise<string[]> {
   const storagePath = `${dir}/perf-${safeLabel}-storage-${stamp}.csv`;
   const dispatchPath = `${dir}/perf-${safeLabel}-dispatch-${stamp}.csv`;
   const submitsPath = `${dir}/perf-${safeLabel}-submits-${stamp}.csv`;
+  const rendersPath = `${dir}/perf-${safeLabel}-render-${stamp}.csv`;
+  const paintGapPath = `${dir}/perf-${safeLabel}-paint-gap-${stamp}.csv`;
+  const selectorPath = `${dir}/perf-${safeLabel}-selector-${stamp}.csv`;
   await RNFS.writeFile(storagePath, perfRecorder.storageCsv(), 'utf8');
   await RNFS.writeFile(dispatchPath, perfRecorder.dispatchCsv(), 'utf8');
   await RNFS.writeFile(submitsPath, perfRecorder.submitsCsv(), 'utf8');
+  await RNFS.writeFile(rendersPath, perfRecorder.rendersCsv(), 'utf8');
+  await RNFS.writeFile(paintGapPath, perfRecorder.paintGapCsv(), 'utf8');
+  await RNFS.writeFile(selectorPath, perfRecorder.selectorCsv(), 'utf8');
   Alert.alert(
     'Perf CSV dumped',
-    `${storagePath}\n${dispatchPath}\n${submitsPath}\n\nstorage rows: ${perfRecorder.storage.length}\ndispatch rows: ${perfRecorder.dispatch.length}\nsubmit rows: ${perfRecorder.submits.length}`,
+    `${storagePath}\n${dispatchPath}\n${submitsPath}\n${rendersPath}\n${paintGapPath}\n${selectorPath}\n\nstorage: ${perfRecorder.storage.length}\ndispatch: ${perfRecorder.dispatch.length}\nsubmit: ${perfRecorder.submits.length}\nrender: ${perfRecorder.renders.length}\npaint-gap: ${perfRecorder.paintGaps.length}\nselector: ${perfRecorder.selectors.length}`,
   );
-  return [storagePath, dispatchPath, submitsPath];
+  return [storagePath, dispatchPath, submitsPath, rendersPath, paintGapPath, selectorPath];
 }
 
 export function resetPerfCsv() {

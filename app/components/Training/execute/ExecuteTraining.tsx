@@ -27,6 +27,7 @@ import {
   dispatchUpdateRestTimerTarget,
 } from '../../../redux/settings/dispatch/dispatchRestTimer';
 import {instrumentSubmitTiming} from '../../../utils/perf/instrumentSubmitTiming';
+import {DevPerfProfiler} from '../../../utils/perf/DevPerfProfiler';
 
 const DEFAULT_REST_SECONDS = 90;
 
@@ -155,6 +156,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
   const showDatePicker = training.state !== TrainingsState.STARTED;
 
   return (
+    <DevPerfProfiler id="execute-training">
     <View>
       {showDatePicker && (
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
@@ -246,6 +248,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
         </Dialog>
       </Portal>
     </View>
+    </DevPerfProfiler>
   );
 };
 

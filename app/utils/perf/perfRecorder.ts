@@ -40,10 +40,49 @@ export interface SubmitRecord {
   t2MinusT0Ms: number;
 }
 
+// React.Profiler onRender record (GH-267). One row per commit per Profiler.
+// `id` is the Profiler tag set in <Profiler id="...">. `phase` is React's
+// 'mount' | 'update' | 'nested-update'. Durations are React's own measure
+// of the component-tree wall time during that commit.
+export interface RenderRecord {
+  ts: number;
+  id: string;
+  phase: string;
+  actualDuration: number;
+  baseDuration: number;
+  startTime: number;
+  commitTime: number;
+  lastActionType: string | null;
+}
+
+// Per-dispatch paint-gap record (GH-267). Decomposes the user-perceived
+// latency into "synchronous reducer cost" vs "React commit + paint cost".
+export interface PaintGapRecord {
+  ts: number;
+  actionType: string;
+  dispatchEntryMs: number;
+  dispatchReturnMs: number;
+  paintObservedMs: number;
+  gapMs: number;
+}
+
+// Per-call selector record from useTracedSelector (GH-267). Allows ranking
+// selectors by total ms over a measurement window. `lastActionType` ties
+// the record back to the dispatch that triggered react-redux's re-run.
+export interface SelectorRecord {
+  ts: number;
+  name: string;
+  ms: number;
+  lastActionType: string | null;
+}
+
 class PerfRecorder {
   storage: StorageRecord[] = [];
   dispatch: DispatchRecord[] = [];
   submits: SubmitRecord[] = [];
+  renders: RenderRecord[] = [];
+  paintGaps: PaintGapRecord[] = [];
+  selectors: SelectorRecord[] = [];
   lastActionType: string | null = null;
   // tick scratch (cleared on each dispatch start)
   tickBytes = 0;
@@ -71,6 +110,21 @@ class PerfRecorder {
     this.submits.push(rec);
   }
 
+  recordRender(rec: RenderRecord) {
+    if (!this.enabled) return;
+    this.renders.push(rec);
+  }
+
+  recordPaintGap(rec: PaintGapRecord) {
+    if (!this.enabled) return;
+    this.paintGaps.push(rec);
+  }
+
+  recordSelector(rec: SelectorRecord) {
+    if (!this.enabled) return;
+    this.selectors.push(rec);
+  }
+
   noteAction(type: string) {
     if (!this.enabled) return;
     this.lastActionType = type;
@@ -89,6 +143,9 @@ class PerfRecorder {
     this.storage = [];
     this.dispatch = [];
     this.submits = [];
+    this.renders = [];
+    this.paintGaps = [];
+    this.selectors = [];
     this.lastActionType = null;
     this.tickBytes = 0;
     this.tickSetItemCalls = 0;
@@ -122,6 +179,34 @@ class PerfRecorder {
     const lines = this.submits.map(
       (r) =>
         `${r.ts},${r.label},${r.t1MinusT0Ms.toFixed(3)},${r.t2MinusT0Ms.toFixed(3)}`,
+    );
+    return header + lines.join('\n') + (lines.length ? '\n' : '');
+  }
+
+  rendersCsv(): string {
+    const header =
+      'ts_ms,id,phase,actual_duration_ms,base_duration_ms,start_time_ms,commit_time_ms,last_action_type\n';
+    const lines = this.renders.map(
+      (r) =>
+        `${r.ts},${r.id},${r.phase},${r.actualDuration.toFixed(3)},${r.baseDuration.toFixed(3)},${r.startTime.toFixed(3)},${r.commitTime.toFixed(3)},${r.lastActionType ?? ''}`,
+    );
+    return header + lines.join('\n') + (lines.length ? '\n' : '');
+  }
+
+  paintGapCsv(): string {
+    const header =
+      'ts_ms,action_type,dispatch_entry_ms,dispatch_return_ms,paint_observed_ms,gap_ms\n';
+    const lines = this.paintGaps.map(
+      (r) =>
+        `${r.ts},${r.actionType},${r.dispatchEntryMs.toFixed(3)},${r.dispatchReturnMs.toFixed(3)},${r.paintObservedMs.toFixed(3)},${r.gapMs.toFixed(3)}`,
+    );
+    return header + lines.join('\n') + (lines.length ? '\n' : '');
+  }
+
+  selectorCsv(): string {
+    const header = 'ts_ms,name,ms,last_action_type\n';
+    const lines = this.selectors.map(
+      (r) => `${r.ts},${r.name},${r.ms.toFixed(3)},${r.lastActionType ?? ''}`,
     );
     return header + lines.join('\n') + (lines.length ? '\n' : '');
   }
