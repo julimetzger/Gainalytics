@@ -281,6 +281,13 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
   );
 };
 
+// Memoize the export so the unmemoized input-form usage in
+// AddWorkout.tsx:153 bails when persist/PERSIST and other
+// store-housekeeping actions trigger re-renders of <AddWorkout>.
+// Per-row usage is already gated by SetRow's React.memo; the inner
+// check is cheap and never reached when SetRow bails.
+const MemoizedAddWorkoutSet = React.memo(AddWorkoutSet);
+
 const styles = StyleSheet.create({
   // Container-Layout
   container: {
@@ -323,4 +330,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AddWorkoutSet;
+export default MemoizedAddWorkoutSet;

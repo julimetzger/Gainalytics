@@ -15,7 +15,7 @@ import {sameDate} from '../../../utils/DateHelper';
 import {Exercise} from '../../../models/entities/Exercise';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {Workout} from '../../../models/entities/Workout';
-import {useSelector} from 'react-redux';
+import {shallowEqual, useSelector} from 'react-redux';
 import {GlobalState} from '../../../redux/rootReducer';
 import VideoSelectionModal from '../../video/VideoSelectionModal';
 import SetRow from './SetRow';
@@ -71,13 +71,15 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
   addOrUpdateSetInWorkoutRef.current = addOrUpdateSetInWorkout;
   deleteSetFromWorkoutRef.current = deleteSetFromWorkout;
 
-  const linkedSetIndices = useSelector((state: GlobalState) =>
-    unfinishedWorkout?.id !== undefined
-      ? state.videoAnalyses.allIds
-          .map(id => state.videoAnalyses.byId[id])
-          .filter(a => a.workoutId === unfinishedWorkout!.id && a.setIndex !== undefined)
-          .map(a => a.setIndex as number)
-      : []
+  const linkedSetIndices = useSelector(
+    (state: GlobalState) =>
+      unfinishedWorkout?.id !== undefined
+        ? state.videoAnalyses.allIds
+            .map(id => state.videoAnalyses.byId[id])
+            .filter(a => a.workoutId === unfinishedWorkout!.id && a.setIndex !== undefined)
+            .map(a => a.setIndex as number)
+        : [],
+    shallowEqual,
   );
 
   const submitWorkoutSet = React.useCallback((workoutSet: WorkoutSet) => {
