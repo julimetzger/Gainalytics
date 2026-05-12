@@ -1,0 +1,7 @@
+ts_ms,op,key,bytes,json_ms,mmkv_ms,last_action_type
+1778614399943,setItem,persist:root,2035974,-1.000,10.870,persist/FLUSH
+1778614404364,setItem,persist:root,2035974,-1.000,10.930,persist/REHYDRATE
+1778614408319,setItem,persist:root,2035974,-1.000,10.872,persist/REHYDRATE
+1778614412338,setItem,persist:root,2035974,-1.000,9.433,persist/REHYDRATE
+1778614416299,setItem,persist:root,2035974,-1.000,10.493,persist/REHYDRATE
+1778614420308,setItem,persist:root,2035974,-1.000,11.489,persist/REHYDRATE
