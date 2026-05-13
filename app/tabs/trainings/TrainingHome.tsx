@@ -1,4 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
+import {DevPerfProfiler} from '../../utils/perf/DevPerfProfiler';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Card, Chip, IconButton, Text, TextInput, useTheme} from 'react-native-paper';
 import {useAllTrainingsPlans} from '../../redux/Training/use/useAllTrainingsPlans';
@@ -301,6 +302,7 @@ const TrainingHome = ({navigation, route}: Props) => {
   const filteredPlans = trainingsPlans.filter((p: TrainingsPlan) => p.name.toLowerCase().includes(filter.toLowerCase()));
 
   return (
+    <DevPerfProfiler id="route-training-home">
     <View style={{flex: 1}} testID="training-home-screen">
       <ScrollView contentInsetAdjustmentBehavior="automatic">
         {/* Dashboard section for active plan */}
@@ -421,6 +423,7 @@ const TrainingHome = ({navigation, route}: Props) => {
         }}
       />
     </View>
+    </DevPerfProfiler>
   );
 };
 

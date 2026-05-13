@@ -8,6 +8,7 @@ import {Muscles} from '../../models/Muscles';
 import RangeSwiper from '../../components/RangeSwiper';
 import {firstDayOfWeek, lastDayOfWeek} from '../../utils/DateHelper';
 import MetricsNode from '../../components/analyse/MetricsNode';
+import {DevPerfProfiler} from '../../utils/perf/DevPerfProfiler';
 
 const MetricsTab = () => {
   const [exercise, setExercise] = useState<Exercise[]>([]);
@@ -15,23 +16,25 @@ const MetricsTab = () => {
   const now = new Date();
 
   return (
-    <RangeSwiper
-      notSwipeableContent={<TrainingElementPicker exercise={exercise} setExercise={setExercise} muscle={muscle} setMuscle={setMuscle} />}
-      nodeFunction={(range: Range, setRange: (range: Range) => void) => <MetricsNode range={range} setRange={setRange} exercise={exercise} muscle={muscle} />}
-      determineValueByIndex={(index: number, range: Range) => {
-        if (index === 0) {
+    <DevPerfProfiler id="route-metrics">
+      <RangeSwiper
+        notSwipeableContent={<TrainingElementPicker exercise={exercise} setExercise={setExercise} muscle={muscle} setMuscle={setMuscle} />}
+        nodeFunction={(range: Range, setRange: (range: Range) => void) => <MetricsNode range={range} setRange={setRange} exercise={exercise} muscle={muscle} />}
+        determineValueByIndex={(index: number, range: Range) => {
+          if (index === 0) {
+            return range;
+          }
+          if (index === 1) {
+            return range.plusOneRange();
+          }
+          if (index === -1) {
+            return range.minusRange();
+          }
           return range;
-        }
-        if (index === 1) {
-          return range.plusOneRange();
-        }
-        if (index === -1) {
-          return range.minusRange();
-        }
-        return range;
-      }}
-      startValue={new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0))}
-    />
+        }}
+        startValue={new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0))}
+      />
+    </DevPerfProfiler>
   );
 };
 

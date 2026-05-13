@@ -8,6 +8,7 @@ import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
 import {calculateMetricValue, calculateMetricValueForMuscles} from '../../utils/AnalyseUtils';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
+import {DevPerfProfiler} from '../../utils/perf/DevPerfProfiler';
 import {sum} from 'lodash';
 import TrainingElementPicker, {Accumulation} from '../../components/picker/elements/TrainingElementPicker';
 import {useWorkoutsByIds} from '../../redux/Workout/use/useWorkoutsByIds';
@@ -115,6 +116,7 @@ const AnalyseGraphics = ({}: Props) => {
     .sort((a, b) => a.x!! - b.x!!);
 
   return (
+    <DevPerfProfiler id="route-graphics">
     <ScrollView
       style={{
         backgroundColor: theme.colors.background,
@@ -195,6 +197,7 @@ const AnalyseGraphics = ({}: Props) => {
         {errorMessage}
       </HelperText>
     </ScrollView>
+    </DevPerfProfiler>
   );
 };
 

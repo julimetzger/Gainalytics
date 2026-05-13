@@ -1,4 +1,5 @@
 import React, {useMemo} from 'react';
+import {DevPerfProfiler} from '../../utils/perf/DevPerfProfiler';
 import {ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Text} from 'react-native-paper';
 import {useNavigation} from '@react-navigation/native';
@@ -63,6 +64,7 @@ const DashboardTab = () => {
   };
 
   return (
+    <DevPerfProfiler id="route-dashboard">
     <ScrollView style={styles.container} testID="dashboard-scroll">
       <WeeklySummaryCard
         currentTrainings={currentTrainings}
@@ -94,6 +96,7 @@ const DashboardTab = () => {
         </View>
       </View>
     </ScrollView>
+    </DevPerfProfiler>
   );
 };
 

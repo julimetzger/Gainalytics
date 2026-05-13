@@ -13,6 +13,7 @@ import {Workout} from '../../models/entities/Workout';
 import {useExercisesForMuscles} from '../../redux/Exercises/use/useExercisesForMuscles';
 import {handleAccumulationModeBatching} from '../../utils/HandleAccumulationModeBatching';
 import {Card, Text, useTheme} from 'react-native-paper';
+import {DevPerfProfiler} from '../../utils/perf/DevPerfProfiler';
 import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 import {AccumulationMode} from "../../models/AccumulationMode";
 
@@ -70,6 +71,7 @@ const RecordsTab = () => {
   }
 
   return (
+    <DevPerfProfiler id="route-records">
     <ScrollView
       style={{
         backgroundColor: theme.colors.background,
@@ -141,6 +143,7 @@ const RecordsTab = () => {
         <></>
       )}
     </ScrollView>
+    </DevPerfProfiler>
   );
 };
 

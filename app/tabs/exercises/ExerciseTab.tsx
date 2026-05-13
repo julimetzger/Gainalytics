@@ -1,4 +1,5 @@
 import React, {useMemo, useState} from 'react';
+import {DevPerfProfiler} from '../../utils/perf/DevPerfProfiler';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
@@ -47,6 +48,7 @@ const ExerciseTab = ({navigation}: Props) => {
   };
 
   return (
+    <DevPerfProfiler id="route-exercises">
     <View style={[styles.root, {backgroundColor: theme.colors.background}]}>
       <Searchbar
         placeholder="Search exercises"
@@ -133,6 +135,7 @@ const ExerciseTab = ({navigation}: Props) => {
         testID="exercise-fab-new"
       />
     </View>
+    </DevPerfProfiler>
   );
 };
 

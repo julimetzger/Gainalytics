@@ -21,6 +21,7 @@ import {
   handleVideoAnalysisNotificationPressEvent,
   queueVideoAnalysisNavigation,
 } from './app/utils/videoAnalysisNotificationNavigation';
+import {DevPerfProfiler} from './app/utils/perf/DevPerfProfiler';
 
 export const navigationRef = createNavigationContainerRef<any>();
 
@@ -1090,11 +1091,11 @@ const AppWithPersist = () => {
 
 const App: () => React.ReactElement = () => {
   return (
-    <>
+    <DevPerfProfiler id="app-root">
       <Provider store={store}>
         <AppWithPersist />
       </Provider>
-    </>
+    </DevPerfProfiler>
   );
 };
 

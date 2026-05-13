@@ -1,4 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {DevPerfProfiler} from '../../utils/perf/DevPerfProfiler';
 import {StyleSheet, View} from 'react-native';
 import {Button, Card, MD3Theme, Searchbar, Text, useTheme} from 'react-native-paper';
 import {useSelector, useStore} from 'react-redux';
@@ -386,6 +387,7 @@ const VideoAnalysisTab = () => {
   );
 
   return (
+    <DevPerfProfiler id="route-video-analysis">
     <View style={[styles.container, themedStyles.background]} testID="video-analysis-screen">
       {linkSetForAnalysisId !== undefined && (
         <SetSelectionModal visible={true} onDismiss={() => setLinkSetForAnalysisId(undefined)} analysisId={linkSetForAnalysisId} onLinked={() => setLinkSetForAnalysisId(undefined)} />
@@ -401,6 +403,7 @@ const VideoAnalysisTab = () => {
         keyboardShouldPersistTaps="handled"
       />
     </View>
+    </DevPerfProfiler>
   );
 };
 

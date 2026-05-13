@@ -11,8 +11,14 @@ import Toast from 'react-native-toast-message';
 import {useSettings} from '../redux/settings/use/useSettings';
 import {useExercise} from '../redux/Exercises/use/useExercise';
 import {useNavigation} from '@react-navigation/native';
+import {DevPerfProfiler} from '../utils/perf/DevPerfProfiler';
 
 const Tab = createMaterialBottomTabNavigator();
+
+const TrainingTabRoot = () => <DevPerfProfiler id="tab-training"><TrainingRouter /></DevPerfProfiler>;
+const ExerciseTabRoot = () => <DevPerfProfiler id="tab-exercises"><ExerciseRouter /></DevPerfProfiler>;
+const AnalyseTabRoot = () => <DevPerfProfiler id="tab-analyse"><AnalyseRouter /></DevPerfProfiler>;
+const SettingsTabRoot = () => <DevPerfProfiler id="tab-settings"><SettingsRouter /></DevPerfProfiler>;
 
 export const BottomTabs = () => {
   const navigation = useNavigation();
@@ -47,7 +53,7 @@ export const BottomTabs = () => {
     <Tab.Navigator initialRouteName="Training" shifting={true}>
       <Tab.Screen
         name="Training"
-        component={TrainingRouter}
+        component={TrainingTabRoot}
         options={{
           tabBarIcon: 'book-open-variant',
           tabBarBadge: isTrainingStarted,
@@ -57,7 +63,7 @@ export const BottomTabs = () => {
       />
       <Tab.Screen
         name="Exercises"
-        component={ExerciseRouter}
+        component={ExerciseTabRoot}
         options={{
           tabBarIcon: 'weight-lifter',
           tabBarAccessibilityLabel: 'tab-exercises',
@@ -66,7 +72,7 @@ export const BottomTabs = () => {
       />
       <Tab.Screen
         name="Analyse"
-        component={AnalyseRouter}
+        component={AnalyseTabRoot}
         options={{
           tabBarIcon: 'trending-up',
           tabBarAccessibilityLabel: 'tab-analyse',
@@ -75,7 +81,7 @@ export const BottomTabs = () => {
       />
       <Tab.Screen
         name="Settings"
-        component={SettingsRouter}
+        component={SettingsTabRoot}
         options={{
           tabBarIcon: 'cog',
           tabBarAccessibilityLabel: 'tab-settings',

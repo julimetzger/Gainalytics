@@ -1,4 +1,5 @@
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import {DevPerfProfiler} from '../../utils/perf/DevPerfProfiler';
 import {RootStackParamList} from '../../routing/exerciseRouter';
 import React, {useState, useEffect} from 'react';
 import {Alert, ScrollView, View, StyleSheet, Platform} from 'react-native';
@@ -259,6 +260,7 @@ const SettingsTab = ({navigation}: Props) => {
   };
 
   return (
+    <DevPerfProfiler id="route-settings">
     <ScrollView>
       <View style={styles.row}>
         <Text style={{alignSelf: 'center'}}>Enable Dark Mode</Text>
@@ -716,6 +718,7 @@ const SettingsTab = ({navigation}: Props) => {
         </Dialog>
       </Portal>
     </ScrollView>
+    </DevPerfProfiler>
   );
 };
 
