@@ -4,9 +4,10 @@ import React, {useEffect, useState} from 'react';
 import Toast from 'react-native-toast-message';
 import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
-import {useSettings} from '../../../redux/settings/use/useSettings';
 import {convertToNumber, ensureFormat} from '../../../utils/numberInput';
 import {instrumentSubmitTiming} from '../../../utils/perf/instrumentSubmitTiming';
+import {shallowEqual, useSelector} from 'react-redux';
+import {GlobalState} from '../../../redux/rootReducer';
 
 interface AddWorkoutProps {
   onSubmit: (arg: WorkoutSet) => void;
@@ -25,8 +26,14 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
   const [rir, setRPE] = useState(workoutSet?.rir?.toString() ?? '0');
   const [reps, setReps] = useState(workoutSet?.reps?.toString() ?? '');
   const [editing, setEditing] = useState(hasToSaveManually);
-  let appSettings = useSettings();
-  const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(appSettings.toggles?.disable1RMButton);
+  const appSettings = useSelector(
+    (state: GlobalState) => ({
+      disable1RMButton: state.settings.toggles?.disable1RMButton,
+      disableToasts: state.settings.toggles?.disableToasts,
+    }),
+    shallowEqual,
+  );
+  const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(appSettings.disable1RMButton);
   const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
   const [weightEmpty, setWeightEmpty] = useState(false);
   const [rirEmpty, setRirEmpty] = useState(false);
@@ -127,7 +134,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
       reps: repsNumber,
       rir: Number.isNaN(convertToNumber(rir)) ? 0 : convertToNumber(rir),
     } as WorkoutSet);
-    if (repsNumber > 20 && !appSettings.toggles?.disableToasts) {
+    if (repsNumber > 20 && !appSettings.disableToasts) {
       Toast.show({
         type: 'error',
         text1: 'Cardio detected!',
@@ -274,6 +281,13 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
   );
 };
 
+// Memoize the export so the unmemoized input-form usage in
+// AddWorkout.tsx:153 bails when persist/PERSIST and other
+// store-housekeeping actions trigger re-renders of <AddWorkout>.
+// Per-row usage is already gated by SetRow's React.memo; the inner
+// check is cheap and never reached when SetRow bails.
+const MemoizedAddWorkoutSet = React.memo(AddWorkoutSet);
+
 const styles = StyleSheet.create({
   // Container-Layout
   container: {
@@ -316,4 +330,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AddWorkoutSet;
+export default MemoizedAddWorkoutSet;
