@@ -11,6 +11,7 @@ import {useSettings} from './app/redux/settings/use/useSettings';
 import Toast from 'react-native-toast-message';
 import {AppState, LogBox, StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import notifee from '@notifee/react-native';
 import {
   extractAnalysisIdFromNotificationPressEvent,
@@ -1066,24 +1067,26 @@ const AppWithPersist = () => {
 
   return (
     <PersistGate loading={null} persistor={persistor} onBeforeLift={() => { store.dispatch({type: 'RECOVER_STALE_VIDEO_ANALYSES'}); }}>
-      <PaperProvider theme={paperThemes}>
-        <SafeAreaProvider>
-          <EventProvider>
-            <StatusBar backgroundColor={paperThemes.colors.background} barStyle={appSettings?.mode === 'light' ? 'dark-content' : 'light-content'} />
-            <NavigationContainer
-              ref={navigationRef}
-              theme={paperThemes}
-              onReady={handleNavigationReady}
-              onStateChange={(state) => {
-                // Navigation state tracking for analytics
-              }}
-            >
-              <BottomTabs />
-            </NavigationContainer>
-          </EventProvider>
-        </SafeAreaProvider>
-      </PaperProvider>
-      <Toast />
+      <GestureHandlerRootView style={{flex: 1}}>
+        <PaperProvider theme={paperThemes}>
+          <SafeAreaProvider>
+            <EventProvider>
+              <StatusBar backgroundColor={paperThemes.colors.background} barStyle={appSettings?.mode === 'light' ? 'dark-content' : 'light-content'} />
+              <NavigationContainer
+                ref={navigationRef}
+                theme={paperThemes}
+                onReady={handleNavigationReady}
+                onStateChange={(state) => {
+                  // Navigation state tracking for analytics
+                }}
+              >
+                <BottomTabs />
+              </NavigationContainer>
+            </EventProvider>
+          </SafeAreaProvider>
+        </PaperProvider>
+        <Toast />
+      </GestureHandlerRootView>
     </PersistGate>
   );
 };

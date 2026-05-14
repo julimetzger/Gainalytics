@@ -4,6 +4,8 @@ import {Card, Chip, IconButton, Text, TextInput, useTheme} from 'react-native-pa
 import {useAllTrainingsPlans} from '../../redux/Training/use/useAllTrainingsPlans';
 import {RootStackParamList} from '../../routing/TrainingRouter';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import {useIsFocused} from '@react-navigation/native';
+import {Freeze} from 'react-freeze';
 import AddTrainingsPlan from '../../components/Training/add/AddTrainingsPlan';
 import {TrainingsState} from '../../models/TrainingsState';
 import {useTrainings} from '../../redux/Training/use/useTrainings';
@@ -211,7 +213,7 @@ function statusForPlan(plan: TrainingsPlan, allTrainings: Training[]): PlanRowMe
   };
 }
 
-const TrainingHome = ({navigation, route}: Props) => {
+const TrainingHomeContent = ({navigation, route}: Props) => {
   const theme = useTheme();
   const [filter, setFilter] = useState((route.params as {filter?: string} | undefined)?.filter || '');
   const [selectedPlanId, setSelectedPlanId] = useState<number | undefined>(undefined);
@@ -458,5 +460,24 @@ const styles = StyleSheet.create({
   mesoScroll: {paddingHorizontal: 5, paddingVertical: 4},
   mesoChip: {marginRight: 6},
 });
+
+// GH-284 background-render guard.
+// TrainingHome stays mounted in the native stack behind TrainingPlan /
+// ExecuteTraining during a workout session (and behind the other bottom tabs).
+// Its selectors — notably useTrainings(), which builds a fresh array on every
+// store tick — re-rendered the whole dashboard subtree on every
+// ADD_OR_UPDATE_SET_IN_WORKOUT dispatch (~90 ms of work) even though the screen
+// is invisible. <Freeze> suspends the subtree whenever the screen is not
+// focused, so no selector or memo work runs while it is off-screen; it resumes
+// with fresh Redux data the moment focus returns, so the visible behaviour is
+// unchanged.
+const TrainingHome = (props: Props) => {
+  const isFocused = useIsFocused();
+  return (
+    <Freeze freeze={!isFocused}>
+      <TrainingHomeContent {...props} />
+    </Freeze>
+  );
+};
 
 export default TrainingHome;

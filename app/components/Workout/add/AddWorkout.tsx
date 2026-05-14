@@ -15,9 +15,10 @@ import {sameDate} from '../../../utils/DateHelper';
 import {Exercise} from '../../../models/entities/Exercise';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {Workout} from '../../../models/entities/Workout';
-import {useSelector} from 'react-redux';
+import {shallowEqual, useSelector} from 'react-redux';
 import {GlobalState} from '../../../redux/rootReducer';
 import VideoSelectionModal from '../../video/VideoSelectionModal';
+import SetRow from './SetRow';
 
 interface Props {
   exercise: Exercise;
@@ -52,54 +53,86 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
   let deleteSetFromWorkout = dispatchDeleteSetFromWorkout();
   let suggestedWorkout = dispatchSuggest();
   const [selectedSetForLink, setSelectedSetForLink] = useState<WorkoutSet | undefined>(undefined);
+  const unfinishedWorkoutRef = React.useRef<Workout | undefined>(unfinishedWorkout);
+  const dateRef = React.useRef(date);
+  const exerciseIdRef = React.useRef(exercise.id);
+  const trainingsIdRef = React.useRef(trainingsId);
+  const onSubmitSetRef = React.useRef(onSubmitSet);
+  const addWorkoutRef = React.useRef(addWorkout);
+  const addOrUpdateSetInWorkoutRef = React.useRef(addOrUpdateSetInWorkout);
+  const deleteSetFromWorkoutRef = React.useRef(deleteSetFromWorkout);
 
-  const linkedSetIndices = useSelector((state: GlobalState) =>
-    unfinishedWorkout?.id !== undefined
-      ? state.videoAnalyses.allIds
-          .map(id => state.videoAnalyses.byId[id])
-          .filter(a => a.workoutId === unfinishedWorkout!.id && a.setIndex !== undefined)
-          .map(a => a.setIndex as number)
-      : []
+  unfinishedWorkoutRef.current = unfinishedWorkout;
+  dateRef.current = date;
+  exerciseIdRef.current = exercise.id;
+  trainingsIdRef.current = trainingsId;
+  onSubmitSetRef.current = onSubmitSet;
+  addWorkoutRef.current = addWorkout;
+  addOrUpdateSetInWorkoutRef.current = addOrUpdateSetInWorkout;
+  deleteSetFromWorkoutRef.current = deleteSetFromWorkout;
+
+  const linkedSetIndices = useSelector(
+    (state: GlobalState) =>
+      unfinishedWorkout?.id !== undefined
+        ? state.videoAnalyses.allIds
+            .map(id => state.videoAnalyses.byId[id])
+            .filter(a => a.workoutId === unfinishedWorkout!.id && a.setIndex !== undefined)
+            .map(a => a.setIndex as number)
+        : [],
+    shallowEqual,
   );
 
-  function submitWorkoutSet(workoutSet: WorkoutSet) {
-    onSubmitSet ? onSubmitSet(workoutSet) : 0;
-    if (unfinishedWorkout === undefined) {
-      addWorkout(
+  const submitWorkoutSet = React.useCallback((workoutSet: WorkoutSet) => {
+    onSubmitSetRef.current?.(workoutSet);
+    const currentWorkout = unfinishedWorkoutRef.current;
+    const exerciseId = exerciseIdRef.current;
+    if (exerciseId === undefined) {
+      return;
+    }
+    if (currentWorkout === undefined) {
+      addWorkoutRef.current(
         {
           //TODO index should be set by reducer
           //TODO nextTrainingsID should be handled by dispatch
           sets: [{...workoutSet, index: workoutSet.index ?? 1}],
           notes: '',
-          exerciseId: exercise.id!!!,
-          trainingsId: trainingsId,
-          start: date,
+          exerciseId: exerciseId,
+          trainingsId: trainingsIdRef.current,
+          start: dateRef.current,
         },
-        trainingsId,
+        trainingsIdRef.current,
       );
       return;
     }
-    if (unfinishedWorkout.id === undefined) {
-      addWorkout(
+    if (currentWorkout.id === undefined) {
+      addWorkoutRef.current(
         {
           //TODO index should be set by reducer
           sets: [
             {
               ...workoutSet,
-              index: workoutSet.index ?? unfinishedWorkout!!.sets.map((it) => it.index!!).reduce((a, b) => Math.max(a, b)) + 1,
+              index: workoutSet.index ?? currentWorkout.sets.map((it) => it.index!!).reduce((a, b) => Math.max(a, b)) + 1,
             },
           ],
           notes: '',
-          exerciseId: exercise.id!!,
-          trainingsId: trainingsId,
-          start: date,
+          exerciseId: exerciseId,
+          trainingsId: trainingsIdRef.current,
+          start: dateRef.current,
         },
-        trainingsId,
+        trainingsIdRef.current,
       );
       return;
     }
-    addOrUpdateSetInWorkout(workoutSet, unfinishedWorkout);
-  }
+    addOrUpdateSetInWorkoutRef.current(workoutSet, currentWorkout);
+  }, []);
+
+  const deleteWorkoutSet = React.useCallback((workoutSet: WorkoutSet) => {
+    const currentWorkout = unfinishedWorkoutRef.current;
+    if (currentWorkout === undefined) {
+      return;
+    }
+    deleteSetFromWorkoutRef.current(workoutSet, currentWorkout);
+  }, []);
 
   return (
     <View>
@@ -121,9 +154,21 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
       <View style={styles.contentContainer}>
         <AddWorkoutSet onSubmit={submitWorkoutSet} oneRepMax={oneRepMax} date={date} onLiveInputChange={onLiveInputChange} />
         {unfinishedWorkout &&
-          unfinishedWorkout.sets.map((workoutSet) => {
-            return <AddWorkoutSet key={workoutSet.index} workoutSet={workoutSet} onSubmit={submitWorkoutSet} onDelete={() => deleteSetFromWorkout(workoutSet, unfinishedWorkout!!)} date={date} />;
-          })}
+          unfinishedWorkout.sets.map((workoutSet) => (
+            <SetRow
+              key={workoutSet.index}
+              workoutSet={workoutSet}
+              setId={workoutSet.index}
+              reps={workoutSet.reps}
+              weight={workoutSet.weight}
+              rir={workoutSet.rir}
+              isDone={workoutSet.date !== undefined}
+              isCurrent={false}
+              onSubmit={submitWorkoutSet}
+              onDelete={deleteWorkoutSet}
+              date={date}
+            />
+          ))}
       </View>
       {linkVideoMode && unfinishedWorkout && unfinishedWorkout.id !== undefined && unfinishedWorkout.sets.length > 0 && (
         <View style={styles.linkVideoSection}>
