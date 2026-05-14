@@ -1,10 +1,22 @@
 import React from 'react';
 import {render, act} from '@testing-library/react-native';
 import History, {buildHistoryRows} from '../../../app/tabs/Analyse/History';
-import {useAllFinishedWorkoutIds} from '../../../app/redux/Workout/use/useAllFinishedWorkoutIds';
+import {useAllWorkoutIds} from '../../../app/redux/Workout/use/useAllWorkoutIds';
+import {useWorkoutsByExerciseId} from '../../../app/redux/Workout/use/useWorkoutsByExerciseId';
+import {useRoute} from '@react-navigation/native';
 
-jest.mock('../../../app/redux/Workout/use/useAllFinishedWorkoutIds', () => ({
-  useAllFinishedWorkoutIds: jest.fn(),
+jest.mock('../../../app/redux/Workout/use/useAllWorkoutIds', () => ({
+  useAllWorkoutIds: jest.fn(),
+}));
+
+jest.mock('../../../app/redux/Workout/use/useWorkoutsByExerciseId', () => ({
+  useWorkoutsByExerciseId: jest.fn(() => []),
+}));
+
+// History reads route.params?.exercise to decide between the full history and
+// the Dashboard exercise drill-down — mock useRoute so both paths are testable.
+jest.mock('@react-navigation/native', () => ({
+  useRoute: jest.fn(() => ({params: undefined})),
 }));
 
 // Group every visible id into its own date bucket so the flattened row list
@@ -30,11 +42,16 @@ jest.mock('@shopify/flash-list', () => {
   };
 });
 
-// The workout tile renders Redux-connected children; stub it down to a marker.
+// The workout tile renders Redux-connected children; stub it down to a marker
+// that also exposes the editable prop so the editable-rows behaviour is testable.
 jest.mock('../../../app/components/Workout/show/WorkoutView', () => {
   const React = require('react');
   const {Text} = require('react-native');
-  return ({workoutId}: {workoutId: number}) => <Text testID="workout-row">{workoutId}</Text>;
+  return ({workoutId, editable}: {workoutId: number; editable?: boolean}) => (
+    <Text testID="workout-row" accessibilityState={{disabled: editable === false}}>
+      {workoutId}
+    </Text>
+  );
 });
 
 jest.mock('react-native-paper', () => {
@@ -46,7 +63,14 @@ jest.mock('react-native-paper', () => {
   };
 });
 
-const mockUseAllFinishedWorkoutIds = jest.mocked(useAllFinishedWorkoutIds);
+const mockUseAllWorkoutIds = jest.mocked(useAllWorkoutIds);
+const mockUseWorkoutsByExerciseId = jest.mocked(useWorkoutsByExerciseId);
+const mockUseRoute = jest.mocked(useRoute);
+
+beforeEach(() => {
+  mockUseRoute.mockReturnValue({params: undefined} as any);
+  mockUseWorkoutsByExerciseId.mockReturnValue([]);
+});
 
 describe('buildHistoryRows', () => {
   it('flattens a date->workoutIds map into header + workout rows', () => {
@@ -68,14 +92,14 @@ describe('buildHistoryRows', () => {
 
 describe('History tab', () => {
   it('shows empty state when there are no workouts', () => {
-    mockUseAllFinishedWorkoutIds.mockReturnValue([]);
+    mockUseAllWorkoutIds.mockReturnValue([]);
     const {getByTestId, queryByTestId} = render(<History />);
     expect(getByTestId('history-empty-state')).toBeTruthy();
     expect(queryByTestId('history-list-container')).toBeNull();
   });
 
   it('renders the FlashList container when workouts exist', () => {
-    mockUseAllFinishedWorkoutIds.mockReturnValue([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
+    mockUseAllWorkoutIds.mockReturnValue([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
     const {getByTestId, queryByTestId} = render(<History />);
     expect(getByTestId('history-list-container')).toBeTruthy();
     expect(getByTestId('history-flash-list')).toBeTruthy();
@@ -83,13 +107,13 @@ describe('History tab', () => {
   });
 
   it('initially renders at most PAGE_SIZE (20) workouts', () => {
-    mockUseAllFinishedWorkoutIds.mockReturnValue(Array.from({length: 50}, (_, i) => 50 - i));
+    mockUseAllWorkoutIds.mockReturnValue(Array.from({length: 50}, (_, i) => 50 - i));
     const {getAllByTestId} = render(<History />);
     expect(getAllByTestId('workout-row')).toHaveLength(20);
   });
 
   it('loads the next batch when onEndReached fires', () => {
-    mockUseAllFinishedWorkoutIds.mockReturnValue(Array.from({length: 50}, (_, i) => 50 - i));
+    mockUseAllWorkoutIds.mockReturnValue(Array.from({length: 50}, (_, i) => 50 - i));
     const {getByTestId, getAllByTestId} = render(<History />);
     expect(getAllByTestId('workout-row')).toHaveLength(20);
 
@@ -101,7 +125,7 @@ describe('History tab', () => {
   });
 
   it('caps the visible window at the total workout count', () => {
-    mockUseAllFinishedWorkoutIds.mockReturnValue(Array.from({length: 25}, (_, i) => 25 - i));
+    mockUseAllWorkoutIds.mockReturnValue(Array.from({length: 25}, (_, i) => 25 - i));
     const {getByTestId, getAllByTestId} = render(<History />);
     expect(getAllByTestId('workout-row')).toHaveLength(20);
 
@@ -114,13 +138,13 @@ describe('History tab', () => {
   });
 
   it('shows all workouts when the total is below PAGE_SIZE', () => {
-    mockUseAllFinishedWorkoutIds.mockReturnValue([5, 4, 3, 2, 1]);
+    mockUseAllWorkoutIds.mockReturnValue([5, 4, 3, 2, 1]);
     const {getAllByTestId} = render(<History />);
     expect(getAllByTestId('workout-row')).toHaveLength(5);
   });
 
   it('does not grow the window when already showing every workout', () => {
-    mockUseAllFinishedWorkoutIds.mockReturnValue(Array.from({length: 20}, (_, i) => 20 - i));
+    mockUseAllWorkoutIds.mockReturnValue(Array.from({length: 20}, (_, i) => 20 - i));
     const {getByTestId, getAllByTestId} = render(<History />);
     expect(getAllByTestId('workout-row')).toHaveLength(20);
 
@@ -132,9 +156,42 @@ describe('History tab', () => {
   });
 
   it('renders a date header for each grouped batch', () => {
-    mockUseAllFinishedWorkoutIds.mockReturnValue([3, 2, 1]);
+    mockUseAllWorkoutIds.mockReturnValue([3, 2, 1]);
     const {getAllByTestId} = render(<History />);
     // mocked useDateWorkoutMapByIds buckets each id under its own date
     expect(getAllByTestId('history-date-header')).toHaveLength(3);
+  });
+
+  it('renders workout rows as editable so long-press edit/delete works', () => {
+    mockUseAllWorkoutIds.mockReturnValue([1]);
+    const {getAllByTestId} = render(<History />);
+    // editable===false would set disabled:true on the stubbed tile; rows must stay editable
+    expect(getAllByTestId('workout-row')[0].props.accessibilityState.disabled).toBe(false);
+  });
+});
+
+describe('History tab — Dashboard exercise drill-down', () => {
+  it('shows only the drilled-down exercise workouts when an exercise param is present', () => {
+    // Full history would be these ids; the exercise drill-down must ignore them.
+    mockUseAllWorkoutIds.mockReturnValue([99, 98, 97]);
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 7, name: 'Bench Press'}}} as any);
+    mockUseWorkoutsByExerciseId.mockReturnValue([
+      {id: 11, exerciseId: 7, sets: [], start: new Date(2026, 0, 10), end: new Date(2026, 0, 10)},
+      {id: 12, exerciseId: 7, sets: [], start: new Date(2026, 0, 20), end: new Date(2026, 0, 20)},
+    ] as any);
+
+    const {getAllByTestId} = render(<History />);
+    const rows = getAllByTestId('workout-row').map((r) => r.props.children);
+    // only the exercise's two workouts, newest-first (id 12 before id 11)
+    expect(rows).toEqual([12, 11]);
+  });
+
+  it('passes the exercise id from the route param to useWorkoutsByExerciseId', () => {
+    mockUseAllWorkoutIds.mockReturnValue([]);
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 42, name: 'Squat'}}} as any);
+    mockUseWorkoutsByExerciseId.mockReturnValue([]);
+
+    render(<History />);
+    expect(mockUseWorkoutsByExerciseId).toHaveBeenCalledWith(42);
   });
 });
