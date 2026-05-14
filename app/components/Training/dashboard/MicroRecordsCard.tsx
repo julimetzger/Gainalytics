@@ -37,7 +37,9 @@ const MicroRecordsCard = ({plan, currentMicro}: MicroRecordsCardProps) => {
     .filter((w: Workout) => w.records && Object.keys(w.records).length > 0)
     .flatMap((w: Workout) =>
       Object.entries(w.records!).map(([kind, value]) => {
-        const recordSet = (w.sets ?? []).find(s => s.record?.includes(kind as Record));
+        const recordSet =
+          (w.sets ?? []).find(s => s.record?.includes(kind as Record)) ??
+          [...(w.sets ?? [])].sort((a, b) => b.weight - a.weight)[0];
         return {
           exerciseName: exerciseNames[w.exerciseId]?.name ?? `Exercise ${w.exerciseId}`,
           kind: kind === Record.ONE_RM ? '1RM' : kind,

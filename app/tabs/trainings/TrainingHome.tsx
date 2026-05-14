@@ -308,7 +308,7 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
         {/* Dashboard section for active plan */}
         {activePlan && (
           <>
-            <MicroHeroCard plan={activePlan} currentMicro={heroCurrentMicro} />
+            <MicroHeroCard plan={activePlan} currentMicro={heroCurrentMicro} navigation={navigation} />
             {activePlanNext && (
               <NextTrainingCard
                 plan={activePlan}
