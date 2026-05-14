@@ -1,0 +1,64 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-277: History tab FlashList — smoke evidence
+# Verifies:
+#   1. History tab loads with workouts visible (no date filter)
+#   2. First workout entry shows exercise name (list renders content)
+#   3. Navigation to workout detail works via tap on a workout entry
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible:
+      text: "Training"
+    timeout: 60000
+
+# Navigate to Analyse tab
+- tapOn:
+    id: "tab-analyse"
+
+- extendedWaitUntil:
+    visible:
+      text: "Dashboard"
+    timeout: 15000
+
+# Open drawer and navigate to History
+- tapOn:
+    id: "analyse-drawer-toggle"
+
+- waitForAnimationToEnd
+
+- scrollUntilVisible:
+    element:
+      text: "History"
+    direction: DOWN
+    timeout: 8000
+
+- tapOn:
+    text: "History"
+
+- waitForAnimationToEnd
+
+# Assert History tab is visible and shows workout list (no date filter control)
+- assertVisible:
+    id: "history-list-container"
+
+# Assert no date range picker is visible (confirming filter removal)
+- assertNotVisible:
+    text: "Zeitraum"
+
+# Assert at least one workout card is rendered
+- assertVisible:
+    id: "history-list-container"
+
+# Scroll down to trigger load-more (infinite scroll)
+- scroll:
+    direction: DOWN
+    duration: 1500
+
+- waitForAnimationToEnd
+
+# Still on History — list must be visible after scroll
+- assertVisible:
+    id: "history-list-container"

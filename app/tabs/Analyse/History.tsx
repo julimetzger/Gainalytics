@@ -1,42 +1,59 @@
 import React, {useState} from 'react';
-import {Range} from '../../components/picker/date/DateRangePicker';
-import HistoryNode from '../../components/analyse/HistoryNode';
-import TrainingElementPicker from '../../components/picker/elements/TrainingElementPicker';
-import {Muscles} from '../../models/Muscles';
-import {Exercise} from '../../models/entities/Exercise';
-import RangeSwiper from '../../components/RangeSwiper';
-import {firstDayOfWeek, lastDayOfWeek} from '../../utils/DateHelper';
-import {useRoute, RouteProp} from '@react-navigation/native';
-import {RootStackParamList} from '../../routing/AnalyseRouter';
+import {ScrollView, StyleSheet, View} from 'react-native';
+import {Text} from 'react-native-paper';
+import WorkoutDoneList from '../../components/Workout/show/WorkoutDoneList';
+import {useAllFinishedWorkoutIds} from '../../redux/Workout/use/useAllFinishedWorkoutIds';
+
+const PAGE_SIZE = 20;
 
 const History = () => {
-  const route = useRoute<RouteProp<RootStackParamList, 'History'>>();
-  const routeExercise = route.params?.exercise;
-  const [exercise, setExercise] = useState<Exercise[]>(
-    routeExercise && routeExercise.id != null ? [routeExercise] : [],
-  );
-  const [muscle, setMuscle] = useState<Muscles[]>([]);
-  const now = new Date();
+  const allIds = useAllFinishedWorkoutIds();
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const visibleIds = allIds.slice(0, pageSize);
+
+  const loadMore = () => {
+    if (pageSize < allIds.length) {
+      setPageSize(prev => Math.min(prev + PAGE_SIZE, allIds.length));
+    }
+  };
+
+  if (allIds.length === 0) {
+    return (
+      <View testID="history-empty-state" style={styles.empty}>
+        <Text>Noch keine Trainings vorhanden.</Text>
+      </View>
+    );
+  }
 
   return (
-    <RangeSwiper
-      notSwipeableContent={<TrainingElementPicker exercise={exercise} setExercise={setExercise} muscle={muscle} setMuscle={setMuscle} />}
-      nodeFunction={(range: Range, setRange: (range: Range) => void) => <HistoryNode range={range} setRange={setRange} exercise={exercise} muscle={muscle} />}
-      determineValueByIndex={(index: number, range: Range) => {
-        if (index === 0) {
-          return range;
+    <ScrollView
+      testID="history-list-container"
+      style={styles.container}
+      onScroll={({nativeEvent}) => {
+        const {layoutMeasurement, contentOffset, contentSize} = nativeEvent;
+        if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 200) {
+          loadMore();
         }
-        if (index === 1) {
-          return range.plusOneRange();
-        }
-        if (index === -1) {
-          return range.minusRange();
-        }
-        return range;
       }}
-      startValue={new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0))}
-    />
+      scrollEventThrottle={400}
+    >
+      <WorkoutDoneList
+        workoutIds={visibleIds}
+        editable={false}
+      />
+    </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  empty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
 
 export default History;
