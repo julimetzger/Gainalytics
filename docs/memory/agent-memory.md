@@ -1119,11 +1119,81 @@ If Metro was started in the worktree and the worktree inherited file-map caches 
 Bare `extendedWaitUntil: visible: 'Training'` fails when the app last closed on Settings because the 'Training' tab label only shows for the selected tab.
 **Apply when:** Any per-slot side-effect inside a component rendered under `RangeSwiper` (or any swiper that re-renders with new props instead of remounting). Includes auto-routes, "show this once" hints, slot-bound analytics, etc.
 
-### 146. `<Freeze>` from `react-freeze` is the right background-render guard for native-stack screens that stay mounted
+### 138. `??` operator does NOT fall back through `0` — be explicit when display priority matters
+**Problem/Symptoms:** `<Text>{savedValue ?? liveValue}</Text>` keeps showing `0` when `savedValue === 0`, because nullish coalescing only short-circuits on `null` / `undefined`. A stale buggy save that persisted `velocityLossPercent: 0` then made the VL display stick at `0%` even though the live calculation produced a non-zero value. Users only saw the correct value after touching+saving again.
+**Working solution:** When the live calc is the source of truth, flip the priority: `liveValue ?? savedValue`. If both can legitimately be `0`, you almost always want the live value to win — savedSetResult is just a snapshot, live should reflect the current effective boundaries / state.
+**Apply when:** Any "show saved unless live exists" UI where the saved value can be `0` (counts, percentages, deltas, slopes). Use `??` with live FIRST, or compare against `null` / `undefined` explicitly.
+
+### 139. RN ScrollView under a touch-grabbing child (video / chart) — swipe from the empty margin to scroll
+**Problem/Symptoms:** A `<ScrollView>` containing a `<Video>` player + native chart didn't scroll on adb `input swipe 540 1800 540 600`, regardless of duration. The video container's gesture system swallowed the swipe. Lowering `wm density` to 280 to fit more on-screen kicked the app to the launcher and required `wm density reset` + relaunch.
+**Working solution:** Swipe from the **right edge of the screen (x ≈ 1000 / 1080)** where the video container doesn't extend — that's the only path that reaches the parent ScrollView without the video stealing the responder. `adb shell input swipe 1000 1900 1000 600 800` scrolled the overlay card reliably. Do NOT change density to compensate.
+**Apply when:** Capturing evidence on any screen that nests video/chart inside a scrollable container. Swipe the right-side margin, not the center.
+
+### 140. `analysisN` list entries can have `localVideoPath: undefined` after `.gains` import — re-import via "Import Video" to get the overlay
+**Problem/Symptoms:** Baseline `.gains` import populated the Video Analyses list with a "Squat" entry whose detail screen showed "No local video path available yet". The playback overlay card mounts only when `localVideoPath` is set on the Redux entity, so VL / scrubber / rep summary never rendered — no Item B evidence possible.
+**Working solution:** `adb push` the fixture mp4 to `/sdcard/Download/`, then in the app: Video Analyses → **Import Video** → 3-dot menu → Browse → Downloads → select the mp4. The in-app analyzer creates a fresh analysis with `localVideoPath` set, and the overlay card renders correctly. The pre-existing list entry stays broken (no easy way to attach a path post-hoc) — just create a new analysis alongside it.
+**Apply when:** Worker needs to capture evidence on the VideoAnalysisPlaybackOverlayCard but the baseline analysis from `.gains` import has no localVideoPath. Don't fight it — import a fresh mp4.
+
+### 146. `adb shell input swipe` cannot trigger `Pressable.onLongPress` — use `input motionevent` instead
+**Problem:** Drag handles wired via `<Pressable onLongPress={drag}>` (the pattern used by `react-native-draggable-flatlist`'s renderItem `drag` callback) need ≥500 ms of stationary touch before the drag activates. `adb shell input swipe x1 y1 x2 y2 duration` interpolates linearly with no initial hold, so the gesture handler sees motion immediately and never crosses the long-press threshold. The screen ends up scrolling (or doing nothing) instead of starting drag.
+**Working solution:** Compose the gesture from raw motion events:
+```
+adb shell 'input motionevent DOWN <x> <y> && \
+  for i in $(seq 1 12); do sleep 0.1; input motionevent MOVE <x> <y>; done && \
+  for i in $(seq 1 N); do sleep 0.05; y=$((<y_start> - i*<step>)); input motionevent MOVE <x> $y; done && \
+  input motionevent UP <x> <y_end>'
+```
+The 12 stationary MOVE events at 100 ms = ~1.2 s long-press, which reliably activates `Pressable.onLongPress`. Then the ramp MOVE events do the actual drag, and UP finalises. Confirmed in GH-263: this swapped Set 1 ↔ Set 2 in the PlanEditList NestableDraggableFlatList; `input swipe 135 1267 135 1050 2500` failed to reorder.
+**Apply when:** Any device verification that depends on react-native-gesture-handler / Pressable long-press drag (Plan editor sets, exercise reorder squares, any future draggable list). Use `motionevent`, not `swipe`.
+
+### 147. `react-native-draggable-flatlist` nested in ScrollView needs the Nestable* APIs, not the plain ones
+**Problem:** A vertical `DraggableFlatList` inside an outer `ScrollView` looks fine but the drag gesture never activates: the long-press fires (the `ScaleDecorator` even pulses visually) but the pan movement is captured by the parent scroll, so reordering doesn't happen. This is `react-native-draggable-flatlist`'s well-known nested-scroll problem.
+**Working solution:** Use `NestableScrollContainer` (replaces the outer `ScrollView`) + `NestableDraggableFlatList` (replaces inner `DraggableFlatList`). Both are exported from `react-native-draggable-flatlist@4`. The inner list registers itself with the container so the pan gesture is routed correctly. Confirmed in GH-263 commit `488854b6`: replacing the inner list and wrapping `TrainingsPlanNode`'s outer scroll in `NestableScrollContainer` fixed set-reorder while keeping the rest of the screen scrollable.
+**Apply when:** Any vertical draggable list lives inside a vertical scroll view in this repo. Horizontal `DraggableFlatList` inside a vertical ScrollView is usually fine and doesn't need the Nestable variant.
+
+### 148. Worktree branch already at HEAD with all changes — resume by verifying, not reimplementing
+**Observation:** When the orchestrator hands a worker a `feedback_round` ticket and the prior worker died **after committing locally but before pushing**, the worktree already contains the full implementation. `git log` shows the relevant commit ahead of origin/master and `git status` shows nothing else.
+**Apply when:** A feedback-round prompt explicitly says "branch has full implementation locally; previous worker died before push." Do **NOT** redo the implementation — that wastes 10+ minutes of build + emulator time and risks creating a divergent second commit. Verify the existing commit by reading the diff, run the targeted tests, build + install the APK, capture device evidence, push, open the PR. Only fix defects with **additional** commits on the same branch; never amend or recreate the existing commit.
+
+### 149. Pre-existing test failures: diff the failing file against origin/master before assuming you broke it
+**Observation:** If `npm test` reports failures in files you didn't touch, do not assume regression. Run `git diff HEAD origin/master -- <file>` — zero diff means the failure is pre-existing on master and unrelated to your change. Confirmed in GH-263: `exerciseReducerTest`, `settingsReducerTest`, `exercisesReducerTest`, `AddWorkoutSet` all failed identically on origin/master (a `feat: alternativeIds` addition surfaced the snapshot drift before this branch was cut). Use this evidence in the PR body to pre-empt review questions.
+**Apply when:** Workspace-wide test runs show failures outside your touched files. Spend 30 s diffing before spending an hour "fixing" a master bug.
+
+### 150. `GestureHandlerRootView` is REQUIRED at the app root for Android — missing it silently breaks drag/pan
+**Problem:** `react-native-gesture-handler` requires a `<GestureHandlerRootView>` wrapper at the app root on Android. Without it, ALL pan/drag gestures inside the app (including those `react-native-draggable-flatlist` uses internally) are silently dropped — no warning, no error. `onLongPress` from RN's built-in responder still fires (so libraries that activate drag via `onLongPress={drag}` like draggable-flatlist appear to "respond" — the row is marked active, the ScaleDecorator pulses — but the subsequent pan movement never reaches `PanGestureHandler` and the actual reorder never happens). `import 'react-native-gesture-handler'` in `index.tsx` registers the native module but is NOT sufficient by itself.
+**Working solution:**
+```tsx
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
+// inside App body:
+<GestureHandlerRootView style={{flex: 1}}>
+  <PaperProvider>...</PaperProvider>
+</GestureHandlerRootView>
+```
+Confirmed in GH-263 round 2: round 1 swapped `DraggableFlatList` → `NestableDraggableFlatList` + `NestableScrollContainer` and reported success based on adb-driven testing that activated drag without verifying actual reorder. The user found drag still didn't work because the gesture-handler root was never installed. Round 2 added `GestureHandlerRootView` to `App.tsx`; drag activation now visibly fires (Set 2 active highlight). On iOS this is auto-handled, but Android needs the explicit wrapper.
+**Apply when:** Touch any draggable-flatlist or gesture-handler-dependent UI. **Always check `App.tsx` (or `index.js` root) for `GestureHandlerRootView` BEFORE assuming drag works.** It's a one-line bug that wastes hours otherwise.
+
+### 151. `adb input motionevent` reliably triggers long-press drag activation but NOT the subsequent pan-reorder
+**Observation:** Memory entry 146 noted that 12 stationary MOVE events at 100ms successfully cross `Pressable.onLongPress` threshold. In GH-263 round 2 the activation worked (row marked active, ScaleDecorator pulses) but the subsequent ramp-down MOVE events that should drive the actual reorder never propagated to `react-native-draggable-flatlist`'s internal `PanGestureHandler`. The library waits for new pan events AFTER the drag callback fires, and adb's motionevent stream apparently breaks pointer continuity at the moment of activation (possibly because the FlatList captures the pointer via a separate Reanimated worklet which doesn't see subsequent motionevent injections as the same touch session).
+**Apply when:** Verifying drag-and-drop on Android via adb. Use the long-press activation (row visibly active) as proof that the gesture system is wired correctly, but **defer the actual reorder verification to a real-finger test by the user**. Don't waste hours trying to script a perfect motionevent sequence — `draggable-flatlist`'s drag mode is not friction-free with adb input emulation. Document the activation in the PR and request user touch verification.
+
+### 152. Round-2 verification on a NEW emulator with baseline data: use the drawer to find an empty training slot
+**Observation:** When the orchestrator assigns a fresh emulator with baseline data, the "next training" the dashboard surfaces may be already populated (e.g. Push squat after a prior worker's interactions or after the bootstrap script left it populated). The TrainingsPlanDrawer (≡ button top-left of the Plan tab) lists ALL training slots in the current micro by name. Tap a different slot (e.g. "Push" or "Pull" in Micro 7) to reach an empty training without discarding the populated one.
+**Apply when:** You need a fresh empty training slot for verifying first-time flows (like "Plan new Training" → fullEdit). The drawer is faster and safer than overflow → Discard which dismisses the populated state you may want to keep for other-item verification.
+
+### 153. JS-only changes don't need a Gradle rebuild — Metro serves the new bundle on app force-stop + relaunch
+**Observation:** Confirmed in GH-263 round 2. The round-2 fixes (App.tsx GestureHandlerRootView, PlanTab restructure, PlanEditList inline 1RM) are all JS-side. `react-native-gesture-handler`'s native module is already linked from the prior APK install (registered via `import 'react-native-gesture-handler'` at the top of `index.tsx`). Force-stopping the app via `adb shell am force-stop com.powerliftingworkoutplanner && adb shell am start -n com.powerliftingworkoutplanner/.MainActivity` was sufficient for the new JS bundle (with the new `<GestureHandlerRootView>` JSX wrapper) to load from Metro. No `gradlew assembleDebug` + `adb install` cycle needed for JS-only changes.
+**Apply when:** Any JS-only feedback round where the native modules used by the changed JS are already in the prior APK. Save the 7-10 minute Gradle build by reloading via Metro. (Still build the APK in background as a safety net in case Metro is flaky — but don't block on it.)
+
+### 154. Extracting a feature from a "contaminated" branch: `git show <commit> -- <files>` separates the real change from branch-base context
+**Problem (GH-283):** A reusable change (set-list memoization) lived only on a branch where unrelated instrumentation was woven into the same files — the ticket warned "do not blind cherry-pick". The fear: cherry-picking `3fc61bf6`/`25bf2245` would drag in GH-262/GH-270 `instrumentSubmitTiming` code.
+**Working solution:** `git show <perf-commit> -- <file>` shows the contamination as **unchanged context lines** (no `+`/`-`), not as part of the diff — proof it was already on the branch base and is NOT introduced by the perf commits. The commits' actual `+`/`-` hunks are clean. So: read `git show` for each commit, confirm the unwanted import only appears as context, then hand-apply only the `+`/`-` hunks onto master's files. Verify the result with `git diff <master> HEAD | grep -E "<bad-pattern>"` returning nothing. Here the final `AddWorkout.tsx` came out byte-identical to the branch version (same blob hash `0120115f`) because that file had no contamination at all; only `AddWorkoutSet.tsx` needed the import dropped.
+**Apply when:** Any "extract X cleanly from a tangled/abandoned branch" ticket. Don't cherry-pick and don't diff-against-master-and-eyeball — diff each source commit against *its own parent* to see exactly what it added.
+
+### 155. `<Freeze>` from `react-freeze` is the right background-render guard for native-stack screens that stay mounted
 **Problem:** Native-stack screens (e.g. `TrainingHome`) stay mounted behind the screen on top. If they hold redux subscriptions they keep re-rendering on every dispatch while invisible. `React.memo` on the screen does NOT help — its own `useSelector`/`useMemo` still run, and child dashboard cards have their *own* `useSelector` subscriptions that fire independently.
 **Working solution:** Split the screen into a thin shell + a content component, wrap the content in `react-freeze`'s `<Freeze freeze={!isFocused}>` (`useIsFocused()` from `@react-navigation/native`). A suspended subtree is treated as hidden/offscreen by React, so neither the content's memo work NOR any descendant's `useSelector` runs while frozen. It does NOT unmount, so component state + scroll position survive; it resumes with fresh data on focus. `react-freeze` is already in `node_modules` (transitive dep of `react-native-screens`) — promote it to an explicit `package.json` dep when importing it directly. Measured GH-284: 9 off-screen re-renders @ ~91.7 ms → 0.
 **Apply when:** Any mounted-but-invisible screen does measurable render work on unrelated dispatches. Don't bother with `React.memo`/per-card focus props — `<Freeze>` gates the whole subtree at once.
 
-### 147. `useTrainings()` returns a brand-new array on every store tick — every consumer re-renders on ANY dispatch
+### 156. `useTrainings()` returns a brand-new array on every store tick — every consumer re-renders on ANY dispatch
 **Problem:** `useTrainings()` is `useSelector(state => state.trainings.allIds.map(...))` — the inline `.map()` builds a fresh array reference every call, so `useSelector`'s reference check always sees a change and force-re-renders the consumer on *any* redux dispatch, not just trainings changes. Same bug GH-127 fixed for `useAllTrainingsPlans` (via `createSelector`), but `useTrainings` was never converted.
 **Apply when:** Diagnosing "why does this component re-render on every dispatch". Hooks with an inline `.map()`/`.filter()` inside `useSelector` are unconditional re-render sources. Fix the hook with `createSelector`, or (if the consumer is a whole screen) gate it with `<Freeze>` per entry 146.

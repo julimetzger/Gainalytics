@@ -1,12 +1,13 @@
 import {Exercise} from '../../models/entities/Exercise';
-import {LayoutRectangle, ScrollView, View} from 'react-native';
+import {LayoutRectangle, View} from 'react-native';
+import {NestableScrollContainer} from 'react-native-draggable-flatlist';
 import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
 import {TrainingsState} from '../../models/TrainingsState';
 import {Button, Dialog, Portal, Text} from 'react-native-paper';
 import DraggableExercise from './DraggableExercise';
 import TrainingsBase from './TrainingsBase';
-import PlanTab, {PlanChromeState} from './plan/PlanTab';
+import PlanTab, {PlanChromeState, PlanMode} from './plan/PlanTab';
 import PlanningOverview from './plan/PlanningOverview';
 import ExecuteWorkoutInTraining from './execute/ExecuteTraining';
 import EditTraining from './execute/EditTraining';
@@ -85,6 +86,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   let [scheduleFinisTraining, resetFinishTraining] = FinishTrainingNotification();
   let appSettings = useSettings();
   const [showPicker, setShowPicker] = useState(false);
+  const [nextPlanMode, setNextPlanMode] = useState<PlanMode>('read');
+  const [planEntryRequested, setPlanEntryRequested] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAlternativesDialog, setShowAlternativesDialog] = useState(false);
   const deleteTraining = dispatchDeleteTraining();
@@ -104,7 +107,19 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     setActiveSubTab(defaultSubTab(training?.state));
     setIsEditing(false);
     setShowPicker(false);
+    setPlanEntryRequested(false);
+    setNextPlanMode('read');
   }, [micro, trainingInMicro, training?.state]);
+
+  // GH-263 Item 1: once the user has picked at least one exercise after tapping
+  // "Plan new Training", clear the entry-requested flag and the picker so PlanTab
+  // takes over the normal rendering path.
+  useEffect(() => {
+    if (planEntryRequested && exercises.length > 0) {
+      setPlanEntryRequested(false);
+      setShowPicker(false);
+    }
+  }, [planEntryRequested, exercises.length]);
 
   useEffect(() => {
     if (exercises.length === 0) {
@@ -265,7 +280,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
         onEditTraining={handleEditTraining}
         onDeleteTraining={handleDeleteTraining}
       />
-      <ScrollView keyboardShouldPersistTaps={'handled'}>
+      <NestableScrollContainer keyboardShouldPersistTaps={'handled'}>
         <View>
           {showDone ? (
             <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} viewMode={effectiveViewMode} onViewModeChange={effectiveSetViewMode} />
@@ -276,26 +291,19 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
               {/* Plan Tab — shown in all states */}
               {activeSubTab === 'plan' && (
                 <View>
-                  {(!training || !training.exercises.length) && (
-                    <>
-                      <TrainingsBase
-                        trainingsPlan={trainingsPlan}
-                        micro={micro}
-                        trainingInMicro={trainingInMicro}
-                        onEnterPlanMode={() => setShowPicker(true)}
-                      />
-                      <TrainingElementPicker
-                        exercise={exercises}
-                        setExercise={setExerciseWithSideEffects}
-                        dropdownLabel="Select Exercises for your Training"
-                        hideChip={true}
-                        visible={showPicker}
-                        onToggle={() => setShowPicker(!showPicker)}
-                        hideIconButton={true}
-                      />
-                    </>
+                  {(!training || !training.exercises.length) && !planEntryRequested && (
+                    <TrainingsBase
+                      trainingsPlan={trainingsPlan}
+                      micro={micro}
+                      trainingInMicro={trainingInMicro}
+                      onEnterPlanMode={() => {
+                        setNextPlanMode('fullEdit');
+                        setPlanEntryRequested(true);
+                        setShowPicker(true);
+                      }}
+                    />
                   )}
-                  {chosenExercise && (
+                  {(chosenExercise || planEntryRequested) && (
                     <View pointerEvents={'box-none'}>
                       <PlanTab
                         training={training}
@@ -316,14 +324,17 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                         editPlanRequestId={planEditRequestId}
                         isActive={isActive}
                         onChromeChange={onPlanChromeChange}
+                        initialMode={nextPlanMode}
                       />
-                      <ExerciseAlternativesDialog
-                        visible={showAlternativesDialog}
-                        exercise={chosenExercise}
-                        alternatives={alternativeExercises}
-                        onDismiss={() => setShowAlternativesDialog(false)}
-                        onSelect={onReplaceExercise}
-                      />
+                      {chosenExercise && (
+                        <ExerciseAlternativesDialog
+                          visible={showAlternativesDialog}
+                          exercise={chosenExercise}
+                          alternatives={alternativeExercises}
+                          onDismiss={() => setShowAlternativesDialog(false)}
+                          onSelect={onReplaceExercise}
+                        />
+                      )}
                     </View>
                   )}
                   {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro} />}
@@ -437,7 +448,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
             </View>
           )}
         </View>
-      </ScrollView>
+      </NestableScrollContainer>
       <Portal>
         <Dialog visible={showDeleteDialog} onDismiss={() => setShowDeleteDialog(false)}>
           <Dialog.Title>Delete Training</Dialog.Title>
