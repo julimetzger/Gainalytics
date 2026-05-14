@@ -1,22 +1,40 @@
 import React from 'react';
 import {render, act} from '@testing-library/react-native';
-import History from '../../../app/tabs/Analyse/History';
+import History, {buildHistoryRows} from '../../../app/tabs/Analyse/History';
 import {useAllFinishedWorkoutIds} from '../../../app/redux/Workout/use/useAllFinishedWorkoutIds';
 
 jest.mock('../../../app/redux/Workout/use/useAllFinishedWorkoutIds', () => ({
   useAllFinishedWorkoutIds: jest.fn(),
 }));
 
-const mockUseAllFinishedWorkoutIds = jest.mocked(useAllFinishedWorkoutIds);
+// Group every visible id into its own date bucket so the flattened row list
+// has one header + one workout row per visible id. This lets the tests assert
+// exactly how many workouts the current page window exposed.
+jest.mock('../../../app/redux/Workout/use/useDateWorkoutMapByIds', () => ({
+  useDateWorkoutMapByIds: jest.fn((ids: number[]) => new Map(ids.map((id, i) => [new Date(2026, 0, 1 + i), [id]]))),
+}));
 
-jest.mock('../../../app/components/Workout/show/WorkoutDoneList', () => {
+// Mock FlashList with a plain View that renders every item and exposes
+// onEndReached as a prop the tests can fire to simulate scroll-to-end.
+jest.mock('@shopify/flash-list', () => {
   const React = require('react');
-  const {View, Text} = require('react-native');
-  return ({workoutIds}: {workoutIds: number[]}) => (
-    <View testID="mock-workout-done-list">
-      <Text testID="visible-count">{workoutIds.length}</Text>
-    </View>
-  );
+  const {View} = require('react-native');
+  return {
+    FlashList: ({data, renderItem, onEndReached, keyExtractor, testID}: any) => (
+      <View testID={testID} onEndReached={onEndReached}>
+        {data.map((item: any, index: number) => (
+          <View key={keyExtractor ? keyExtractor(item, index) : index}>{renderItem({item, index})}</View>
+        ))}
+      </View>
+    ),
+  };
+});
+
+// The workout tile renders Redux-connected children; stub it down to a marker.
+jest.mock('../../../app/components/Workout/show/WorkoutView', () => {
+  const React = require('react');
+  const {Text} = require('react-native');
+  return ({workoutId}: {workoutId: number}) => <Text testID="workout-row">{workoutId}</Text>;
 });
 
 jest.mock('react-native-paper', () => {
@@ -24,94 +42,99 @@ jest.mock('react-native-paper', () => {
   const {Text} = require('react-native');
   return {
     Text: ({children, ...props}: {children: React.ReactNode}) => <Text {...props}>{children}</Text>,
+    useTheme: () => ({fonts: {titleLarge: {fontSize: 22}}}),
   };
+});
+
+const mockUseAllFinishedWorkoutIds = jest.mocked(useAllFinishedWorkoutIds);
+
+describe('buildHistoryRows', () => {
+  it('flattens a date->workoutIds map into header + workout rows', () => {
+    const map = new Map<Date, number[]>([
+      [new Date(2026, 1, 28), [3, 2]],
+      [new Date(2026, 1, 27), [1]],
+    ]);
+    const rows = buildHistoryRows(map);
+    expect(rows.map((r) => r.type)).toEqual(['header', 'workout', 'workout', 'header', 'workout']);
+    expect(rows.filter((r) => r.type === 'workout')).toHaveLength(3);
+    // keys are stable and unique so FlashList can recycle correctly
+    expect(new Set(rows.map((r) => r.key)).size).toBe(rows.length);
+  });
+
+  it('returns an empty list for an empty map', () => {
+    expect(buildHistoryRows(new Map())).toEqual([]);
+  });
 });
 
 describe('History tab', () => {
   it('shows empty state when there are no workouts', () => {
     mockUseAllFinishedWorkoutIds.mockReturnValue([]);
-    const {getByTestId} = render(<History />);
+    const {getByTestId, queryByTestId} = render(<History />);
     expect(getByTestId('history-empty-state')).toBeTruthy();
+    expect(queryByTestId('history-list-container')).toBeNull();
   });
 
-  it('shows the scrollable list when workouts exist', () => {
-    const ids = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
-    mockUseAllFinishedWorkoutIds.mockReturnValue(ids);
+  it('renders the FlashList container when workouts exist', () => {
+    mockUseAllFinishedWorkoutIds.mockReturnValue([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
     const {getByTestId, queryByTestId} = render(<History />);
     expect(getByTestId('history-list-container')).toBeTruthy();
-    expect(getByTestId('mock-workout-done-list')).toBeTruthy();
+    expect(getByTestId('history-flash-list')).toBeTruthy();
     expect(queryByTestId('history-empty-state')).toBeNull();
   });
 
-  it('initially renders PAGE_SIZE (20) items at most', () => {
-    const ids = Array.from({length: 50}, (_, i) => 50 - i);
-    mockUseAllFinishedWorkoutIds.mockReturnValue(ids);
-    const {getByTestId} = render(<History />);
-    expect(getByTestId('visible-count').props.children).toBe(20);
+  it('initially renders at most PAGE_SIZE (20) workouts', () => {
+    mockUseAllFinishedWorkoutIds.mockReturnValue(Array.from({length: 50}, (_, i) => 50 - i));
+    const {getAllByTestId} = render(<History />);
+    expect(getAllByTestId('workout-row')).toHaveLength(20);
   });
 
-  it('loads the next batch when loadMore is triggered via onScroll', () => {
-    const ids = Array.from({length: 50}, (_, i) => 50 - i);
-    mockUseAllFinishedWorkoutIds.mockReturnValue(ids);
-    const {getByTestId} = render(<History />);
-    expect(getByTestId('visible-count').props.children).toBe(20);
-
-    // Simulate scroll near the bottom to trigger loadMore
-    act(() => {
-      getByTestId('history-list-container').props.onScroll({
-        nativeEvent: {
-          layoutMeasurement: {height: 800},
-          contentOffset: {y: 4800},
-          contentSize: {height: 5000},
-        },
-      });
-    });
-
-    expect(getByTestId('visible-count').props.children).toBe(40);
-  });
-
-  it('does not exceed total workout count when end is reached', () => {
-    const ids = Array.from({length: 25}, (_, i) => 25 - i);
-    mockUseAllFinishedWorkoutIds.mockReturnValue(ids);
-    const {getByTestId} = render(<History />);
+  it('loads the next batch when onEndReached fires', () => {
+    mockUseAllFinishedWorkoutIds.mockReturnValue(Array.from({length: 50}, (_, i) => 50 - i));
+    const {getByTestId, getAllByTestId} = render(<History />);
+    expect(getAllByTestId('workout-row')).toHaveLength(20);
 
     act(() => {
-      getByTestId('history-list-container').props.onScroll({
-        nativeEvent: {
-          layoutMeasurement: {height: 800},
-          contentOffset: {y: 4800},
-          contentSize: {height: 5000},
-        },
-      });
+      getByTestId('history-flash-list').props.onEndReached();
     });
 
-    // 20 + 20 = 40 but total is 25, so should cap at 25
-    expect(getByTestId('visible-count').props.children).toBe(25);
+    expect(getAllByTestId('workout-row')).toHaveLength(40);
   });
 
-  it('shows all workouts when total is less than PAGE_SIZE', () => {
-    const ids = [5, 4, 3, 2, 1];
-    mockUseAllFinishedWorkoutIds.mockReturnValue(ids);
-    const {getByTestId} = render(<History />);
-    expect(getByTestId('visible-count').props.children).toBe(5);
-  });
-
-  it('does not loadMore when already at total count', () => {
-    const ids = Array.from({length: 20}, (_, i) => 20 - i);
-    mockUseAllFinishedWorkoutIds.mockReturnValue(ids);
-    const {getByTestId} = render(<History />);
+  it('caps the visible window at the total workout count', () => {
+    mockUseAllFinishedWorkoutIds.mockReturnValue(Array.from({length: 25}, (_, i) => 25 - i));
+    const {getByTestId, getAllByTestId} = render(<History />);
+    expect(getAllByTestId('workout-row')).toHaveLength(20);
 
     act(() => {
-      getByTestId('history-list-container').props.onScroll({
-        nativeEvent: {
-          layoutMeasurement: {height: 800},
-          contentOffset: {y: 4800},
-          contentSize: {height: 5000},
-        },
-      });
+      getByTestId('history-flash-list').props.onEndReached();
     });
 
-    // Already showing all 20, no extra load
-    expect(getByTestId('visible-count').props.children).toBe(20);
+    // 20 + 20 = 40 but only 25 exist, so it caps at 25
+    expect(getAllByTestId('workout-row')).toHaveLength(25);
+  });
+
+  it('shows all workouts when the total is below PAGE_SIZE', () => {
+    mockUseAllFinishedWorkoutIds.mockReturnValue([5, 4, 3, 2, 1]);
+    const {getAllByTestId} = render(<History />);
+    expect(getAllByTestId('workout-row')).toHaveLength(5);
+  });
+
+  it('does not grow the window when already showing every workout', () => {
+    mockUseAllFinishedWorkoutIds.mockReturnValue(Array.from({length: 20}, (_, i) => 20 - i));
+    const {getByTestId, getAllByTestId} = render(<History />);
+    expect(getAllByTestId('workout-row')).toHaveLength(20);
+
+    act(() => {
+      getByTestId('history-flash-list').props.onEndReached();
+    });
+
+    expect(getAllByTestId('workout-row')).toHaveLength(20);
+  });
+
+  it('renders a date header for each grouped batch', () => {
+    mockUseAllFinishedWorkoutIds.mockReturnValue([3, 2, 1]);
+    const {getAllByTestId} = render(<History />);
+    // mocked useDateWorkoutMapByIds buckets each id under its own date
+    expect(getAllByTestId('history-date-header')).toHaveLength(3);
   });
 });
