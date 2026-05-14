@@ -138,6 +138,7 @@ jest.mock('react-native-paper', () => {
       </TouchableOpacity>
     ),
     Dialog: DialogBase,
+    Icon: () => null,
     Portal: ({children}: {children: React.ReactNode}) => <>{children}</>,
     Text: ({children, testID}: {children: React.ReactNode; testID?: string}) => <Text testID={testID}>{children}</Text>,
     useTheme: () => ({
