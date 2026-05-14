@@ -3,7 +3,7 @@ import {ScrollView, StyleSheet, View} from 'react-native';
 import {Card, Text, useTheme} from 'react-native-paper';
 import {Exercise, Record} from '../../../models/entities/Exercise';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
-import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
+import {epley1RM, repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
 import {useExercise} from '../../../redux/Exercises/use/useExercise';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {Workout} from '../../../models/entities/Workout';
@@ -26,9 +26,24 @@ const REP_BUCKETS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20];
 
 const formatDate = (d?: Date | string) => (d ? new Date(d).toDateString() : '—');
 
+// The producing set is rarely tagged on disk (only forward-going code writes
+// `set.record`), so when the tag is missing we fall back to the set whose
+// individual 1RM is highest — that is the set that drove `workout.records[ONE_RM]`
+// by definition of `repetitionMax(...sets)` in AnalyseUtils.
 const findProducingSet = (workout: Workout | undefined): WorkoutSet | undefined => {
-  if (!workout) return undefined;
-  return workout.sets.find((s) => Array.isArray(s.record) && s.record.includes(Record.ONE_RM));
+  if (!workout || !Array.isArray(workout.sets) || workout.sets.length === 0) return undefined;
+  const tagged = workout.sets.find((s) => Array.isArray(s.record) && s.record.includes(Record.ONE_RM));
+  if (tagged) return tagged;
+  let best: WorkoutSet | undefined;
+  let bestOneRm = -Infinity;
+  for (const s of workout.sets) {
+    const oneRm = epley1RM(s.weight, s.reps, s.rir);
+    if (oneRm > bestOneRm) {
+      bestOneRm = oneRm;
+      best = s;
+    }
+  }
+  return bestOneRm > 0 ? best : undefined;
 };
 
 const ExerciseStatsTab = ({exercise}: Props) => {
@@ -117,7 +132,7 @@ const ExerciseStatsTab = ({exercise}: Props) => {
                   >
                     <Text style={[styles.colDate, {color: theme.colors.onSurface}]}>{formatDate(row.date)}</Text>
                     <Text style={[styles.colSet, {color: theme.colors.onSurface}]}>
-                      {row.setIndex !== undefined ? `#${row.setIndex}` : '—'}
+                      {row.setIndex !== undefined ? `Set ${row.setIndex}` : '—'}
                     </Text>
                     <Text style={[styles.colReps, {color: theme.colors.onSurface}]}>
                       {row.reps !== undefined ? row.reps : '—'}
@@ -190,7 +205,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   colSet: {
-    flex: 0.8,
+    flex: 1.1,
     textAlign: 'center',
     fontSize: 13,
     fontVariant: ['tabular-nums'],

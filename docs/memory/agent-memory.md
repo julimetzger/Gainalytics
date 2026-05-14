@@ -1106,10 +1106,16 @@ Run this immediately before `am start`. Confirmed: after deletion the app fetche
 ### 136. Metro may serve stale module hashes after worktree creation — `--reset-cache` on first start
 If Metro was started in the worktree and the worktree inherited file-map caches from a prior run, module hashes may be stale even though the files on disk are updated. Start Metro with `--reset-cache` once after creating the worktree or making significant edits. Subsequent starts without `--reset-cache` are fine.
 
-### 138. FlashList with dynamic-height groups: flatten into typed rows, do NOT wrap in a ScrollView
+### 138. `new Date(isoString)` + `.toISOString()` in Jest tests breaks in non-UTC timezones
+`new Date('2024-01-08T12:00:00')` (no trailing Z) is parsed as LOCAL time. But `.toISOString()` returns UTC, so midnight local in Europe/Berlin gives `2024-01-07T23:00:00.000Z` — slicing to `[:10]` gives the wrong date. Always use `new Date(year, month, day, hour)` to create local dates in tests, and use `getFullYear()/getMonth()/getDate()` for assertions, not `toISOString().slice(0, 10)`.
+
+### 139. `adb shell date` is blocked on user-build emulators (no root access)
+`ro.build.type=user` emulators reject `adb shell date MMDDHHmmYYYY.SS` with "Operation not permitted". Neither `su` nor `am broadcast android.intent.action.TIME_SET` works without root. If you need to set the device date for evidence screenshots, the emulator must be an `userdebug` or `eng` build. When stuck on a user build, rely on unit tests as the primary evidence for date-related bugs.
+
+### 149. FlashList with dynamic-height groups: flatten into typed rows, do NOT wrap in a ScrollView
 A `FlashList` whose `data` items are variable-height group cards (e.g. a date-group card wrapping N workout tiles) clips badly if `scrollEnabled={true}` — it measures only the first child's height. The tempting fix of `scrollEnabled={false}` + a parent `ScrollView` **defeats virtualization entirely** (every row mounts statically) and was rejected on review for GH-277. Correct pattern: **flatten the grouped data into a single typed-item list** — emit `{type:'header'}` and `{type:'workout'}` rows as separate FlashList items, give the list `getItemType={item => item.type}`, and let the FlashList itself be the scroll container (`scrollEnabled` default true). Use `onEndReached` + `onEndReachedThreshold` for incremental loading. Each item is then fixed-purpose and FlashList virtualizes/recycles correctly. See `app/tabs/Analyse/History.tsx`.
 
-### 139. Jest `testPathIgnorePatterns` override in worktrees needs `--testPathIgnorePatterns='[]'`
+### 150. Jest `testPathIgnorePatterns` override in worktrees needs `--testPathIgnorePatterns='[]'`
 Passing `--testPathIgnorePatterns=/node_modules/` does not *replace* the config's pattern list — it *appends*. The config's `/.worktrees/` entry still applies. The only reliable workaround is `--testPathIgnorePatterns='[]'` (JSON empty array), which completely replaces the configured list and lets all files through.
 
 ### 137. Maestro `launchApp` restores the previous nav state — don't assume Training tab is active
