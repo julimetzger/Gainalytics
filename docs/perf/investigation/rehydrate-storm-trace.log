@@ -1,0 +1,41 @@
+### GH-279 persist-action trace — CLEAN MASTER build (origin/master @ f98f3715)
+### Device: R5CN30HWZFN | App: com.powerliftingworkoutplanner (debug) | captured 2026-05-14
+### Trace source: app/redux/middleware/persistActionTrace.ts (dev-gated, [PERSIST_TRACE] lines)
+### Action stream cross-check: redux-logger (┐ action <TYPE>)
+
+=== ALL [PERSIST_TRACE] lines in the ENTIRE session (boot + 5-set cascade) ===
+05-14 11:35:30.707 I/ReactNativeJS( 6501): [PERSIST_TRACE] #1 persist/PERSIST @ 1778751330706
+05-14 11:35:30.773 I/ReactNativeJS( 6501): [PERSIST_TRACE] #2 persist/REHYDRATE @ 1778751330773
+
+=== Cascade window CASCADE_START .. CASCADE_END (markers + hot actions + any persist) ===
+05-14 11:42:06.180 I/PERSIST_TRACE_MARK( 9459): ===== CASCADE_START 1778751723671 =====
+05-14 11:42:10.400 I/ReactNativeJS( 6501): ┐ action START_REST_TIMER @ 11:42:10.381
+05-14 11:42:10.550 I/ReactNativeJS( 6501): ┐ action ADD_OR_UPDATE_SET_IN_WORKOUT @ 11:42:10.531
+05-14 11:43:08.588 I/ReactNativeJS( 6501): ┐ action START_REST_TIMER @ 11:43:08.569
+05-14 11:43:08.735 I/ReactNativeJS( 6501): ┐ action ADD_OR_UPDATE_SET_IN_WORKOUT @ 11:43:08.716
+05-14 11:43:10.211 I/PERSIST_TRACE_MARK( 9845): CASCADE AFTER_SET_2 1778751788130
+05-14 11:43:15.180 I/ReactNativeJS( 6501): ┐ action START_REST_TIMER @ 11:43:15.161
+05-14 11:43:15.332 I/ReactNativeJS( 6501): ┐ action ADD_OR_UPDATE_SET_IN_WORKOUT @ 11:43:15.312
+05-14 11:43:17.300 I/PERSIST_TRACE_MARK( 9969): CASCADE AFTER_SET_3 1778751794558
+05-14 11:43:21.947 I/ReactNativeJS( 6501): ┐ action START_REST_TIMER @ 11:43:21.904
+05-14 11:43:22.097 I/ReactNativeJS( 6501): ┐ action ADD_OR_UPDATE_SET_IN_WORKOUT @ 11:43:22.077
+05-14 11:43:23.944 I/PERSIST_TRACE_MARK(10107): CASCADE AFTER_SET_4 1778751800896
+05-14 11:43:28.878 I/ReactNativeJS( 6501): ┐ action START_REST_TIMER @ 11:43:28.857
+05-14 11:43:29.089 I/ReactNativeJS( 6501): ┐ action ADD_OR_UPDATE_SET_IN_WORKOUT @ 11:43:29.069
+05-14 11:43:30.532 I/PERSIST_TRACE_MARK(10238): CASCADE AFTER_SET_5 1778751809680
+05-14 11:43:30.575 I/PERSIST_TRACE_MARK(10240): CASCADE_END 1778751809713
+
+=== COUNTS per 5-set cascade — CLEAN MASTER (this run) ===
+persist/REHYDRATE : 0
+persist/PERSIST   : 0
+persist/FLUSH     : 0
+persist/PAUSE     : 0
+ADD_OR_UPDATE_SET_IN_WORKOUT (hot) : 5
+START_REST_TIMER (hot)             : 5
+
+=== COUNTS at app BOOT — CLEAN MASTER (this run) ===
+persist/PERSIST   : 1
+persist/REHYDRATE : 1
+
+=== Reference: PERF-COVERAGE run (instrumentation stack), coverage-dispatch-1948.csv ===
+persist/REHYDRATE : 11   persist/PERSIST : 10   persist/PAUSE : 10   persist/FLUSH : 1

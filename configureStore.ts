@@ -5,6 +5,7 @@ import {MMKV} from 'react-native-mmkv';
 import createFilter from 'redux-persist-transform-filter';
 import {configureStore} from '@reduxjs/toolkit';
 import logger from 'redux-logger';
+import {persistActionTrace} from './app/redux/middleware/persistActionTrace';
 
 const migrations = {
   0: (state) => {
@@ -150,7 +151,9 @@ export default () => {
   const store = configureStore({
     reducer: persistedReducer,
     devTools: process?.env?.NODE_ENV === 'development',
-    middleware: process?.env?.NODE_ENV === 'development' ? [logger] : [],
+    // GH-279: persistActionTrace runs first so it logs persist/* actions
+    // before redux-logger. Dev-only — the production middleware array stays [].
+    middleware: process?.env?.NODE_ENV === 'development' ? [persistActionTrace, logger] : [],
   });
   let persistor = persistStore(store);
   return {store, persistor};
