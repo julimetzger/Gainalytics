@@ -10,11 +10,15 @@ import {
   getAllTrainingsForMicro,
   getLocalMicro,
   getMesoForMicro,
+  getMicroFromTrainingInMicroIndex,
+  getTrainingFromTrainingInMicroIndex,
 } from '../../../redux/Training/trainingsPlanReducer';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import CompletionRing from './CompletionRing';
 import DayStrip, {DayStatus, DayStripDay} from './DayStrip';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {RootStackParamList} from '../../../routing/TrainingRouter';
 
 type MetricKey = 'volume' | 'sets' | 'time';
 
@@ -93,7 +97,8 @@ const useThisWeekDays = (plan: TrainingsPlan): DayStripDay[] =>
     const today = startOfDay(new Date());
     const weekStart = startOfWeek(today);
 
-    const trainingEnds = new Set<string>();
+    // Map isoDate -> trainingId for trainings that ended this week
+    const trainingEndMap = new Map<string, number>();
     for (const tId of Object.values(plan.trainings)) {
       const t = state.trainings.byId[tId];
       if (!t?.end) continue;
@@ -102,15 +107,16 @@ const useThisWeekDays = (plan: TrainingsPlan): DayStripDay[] =>
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekEnd.getDate() + 7);
       if (endDay.getTime() >= weekEnd.getTime()) continue;
-      trainingEnds.add(toLocalIso(endDay));
+      trainingEndMap.set(toLocalIso(endDay), tId);
     }
 
     return Array.from({length: 7}, (_, i) => {
       const day = new Date(weekStart);
       day.setDate(weekStart.getDate() + i);
       const iso = toLocalIso(day);
+      const trainingId = trainingEndMap.get(iso);
       let status: DayStatus;
-      if (trainingEnds.has(iso)) {
+      if (trainingId !== undefined) {
         status = 'done';
       } else if (day.getTime() === today.getTime()) {
         status = 'today';
@@ -124,6 +130,7 @@ const useThisWeekDays = (plan: TrainingsPlan): DayStripDay[] =>
         dayOfMonth: day.getDate(),
         status,
         isoDate: iso,
+        trainingId,
       };
     });
   });
@@ -131,9 +138,10 @@ const useThisWeekDays = (plan: TrainingsPlan): DayStripDay[] =>
 interface MicroHeroCardProps {
   plan: TrainingsPlan;
   currentMicro: number;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'TrainingHome'>;
 }
 
-const MicroHeroCard = ({plan, currentMicro}: MicroHeroCardProps) => {
+const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => {
   const theme = useTheme();
   const [metric, setMetric] = useState<MetricKey>('volume');
 
@@ -282,7 +290,16 @@ const MicroHeroCard = ({plan, currentMicro}: MicroHeroCardProps) => {
           />
         )}
 
-        <DayStrip days={dayStripDays} />
+        <DayStrip
+          days={dayStripDays}
+          onDayPress={trainingId => {
+            const entry = Object.entries(plan.trainings).find(([, v]) => v === trainingId);
+            if (!entry) return;
+            const micro = getMicroFromTrainingInMicroIndex(entry[0]);
+            const training = getTrainingFromTrainingInMicroIndex(entry[0]);
+            navigation.navigate({name: 'TrainingPlan', params: {trainingsPlan: plan, micro, training}});
+          }}
+        />
 
         <View style={styles.kpiRow}>
           {avgRir !== null && (

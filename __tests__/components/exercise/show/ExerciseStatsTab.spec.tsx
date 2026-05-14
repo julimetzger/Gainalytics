@@ -124,9 +124,88 @@ describe('ExerciseStatsTab', () => {
     };
     expect(list).toBeTruthy();
     expect(rowTextOf(0)).toMatch(/200\.0/);
-    expect(rowTextOf(0)).toContain('#2');
+    expect(rowTextOf(0)).toContain('Set 2');
     expect(rowTextOf(1)).toMatch(/195\.0/);
     expect(rowTextOf(2)).toMatch(/180\.0/);
+  });
+
+  it('renders SET/REPS/RIR from the producing set even when no set is tagged with Record.ONE_RM (GH-264)', () => {
+    // Persisted data never tags `set.record` — only `Workout.records[ONE_RM]`
+    // (a number) and `Exercise.records[ONE_RM]` ({value, workoutId}) are written
+    // by the reducer. The render path must therefore identify the producing set
+    // by picking the set with the highest individual 1RM.
+    mockedUseExercise.mockReturnValue({
+      id: 2,
+      name: 'Bench',
+      records: {
+        [Record.ONE_RM]: [{value: 150, workoutId: 10}],
+      },
+    });
+    const workouts: Workout[] = [
+      {
+        id: 10,
+        exerciseId: 2,
+        // Mixed set strengths — set #3 (140 kg × 4 reps @ 1 RIR) produces the
+        // highest individual 1RM, so SET / REPS / RIR should pick it up.
+        sets: [
+          {index: 1, reps: 8, rir: 3, weight: 100},
+          {index: 2, reps: 6, rir: 2, weight: 120},
+          {index: 3, reps: 4, rir: 1, weight: 140},
+          {index: 4, reps: 6, rir: 3, weight: 110},
+        ],
+        start: new Date(2024, 0, 12),
+      },
+    ];
+    mockedUseWorkoutsByIds.mockReturnValue(workouts);
+
+    const {getByTestId} = render(<ExerciseStatsTab exercise={{id: 2, name: 'Bench'}} />);
+
+    const rowTextOf = (idx: number): string => {
+      const row = getByTestId(`one-rm-record-row-${idx}`);
+      const collect = (node: any): string => {
+        if (typeof node === 'string') return node;
+        if (typeof node === 'number') return String(node);
+        if (Array.isArray(node)) return node.map(collect).join(' ');
+        if (node && node.props && node.props.children !== undefined) return collect(node.props.children);
+        return '';
+      };
+      return collect(row);
+    };
+
+    const text = rowTextOf(0);
+    expect(text).toContain('Set 3');
+    // Reps and RIR from the producing set, not '—'
+    expect(text).toMatch(/(^|\s)4(\s|$)/);
+    expect(text).toMatch(/(^|\s)1(\s|$)/);
+    expect(text).not.toContain('—');
+  });
+
+  it('renders SET/REPS/RIR as "—" when the source workout has no sets (e.g. deleted)', () => {
+    mockedUseExercise.mockReturnValue({
+      id: 2,
+      name: 'Bench',
+      records: {
+        [Record.ONE_RM]: [{value: 150, workoutId: 99}],
+      },
+    });
+    // No matching workout returned by useWorkoutsByIds — simulates a record
+    // pointing at a workout that was later deleted.
+    mockedUseWorkoutsByIds.mockReturnValue([]);
+
+    const {getByTestId} = render(<ExerciseStatsTab exercise={{id: 2, name: 'Bench'}} />);
+
+    const row = getByTestId('one-rm-record-row-0');
+    const collect = (node: any): string => {
+      if (typeof node === 'string') return node;
+      if (typeof node === 'number') return String(node);
+      if (Array.isArray(node)) return node.map(collect).join(' ');
+      if (node && node.props && node.props.children !== undefined) return collect(node.props.children);
+      return '';
+    };
+    const text = collect(row);
+    // 1RM still rendered, but SET / REPS / RIR fall back to '—' three times.
+    expect(text).toMatch(/150\.0/);
+    expect((text.match(/—/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
 
   it('skips records with non-numeric values entirely (does not render "—" rows)', () => {

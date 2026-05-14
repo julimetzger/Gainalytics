@@ -1106,6 +1106,12 @@ Run this immediately before `am start`. Confirmed: after deletion the app fetche
 ### 136. Metro may serve stale module hashes after worktree creation — `--reset-cache` on first start
 If Metro was started in the worktree and the worktree inherited file-map caches from a prior run, module hashes may be stale even though the files on disk are updated. Start Metro with `--reset-cache` once after creating the worktree or making significant edits. Subsequent starts without `--reset-cache` are fine.
 
+### 138. `new Date(isoString)` + `.toISOString()` in Jest tests breaks in non-UTC timezones
+`new Date('2024-01-08T12:00:00')` (no trailing Z) is parsed as LOCAL time. But `.toISOString()` returns UTC, so midnight local in Europe/Berlin gives `2024-01-07T23:00:00.000Z` — slicing to `[:10]` gives the wrong date. Always use `new Date(year, month, day, hour)` to create local dates in tests, and use `getFullYear()/getMonth()/getDate()` for assertions, not `toISOString().slice(0, 10)`.
+
+### 139. `adb shell date` is blocked on user-build emulators (no root access)
+`ro.build.type=user` emulators reject `adb shell date MMDDHHmmYYYY.SS` with "Operation not permitted". Neither `su` nor `am broadcast android.intent.action.TIME_SET` works without root. If you need to set the device date for evidence screenshots, the emulator must be an `userdebug` or `eng` build. When stuck on a user build, rely on unit tests as the primary evidence for date-related bugs.
+
 ### 137. Maestro `launchApp` restores the previous nav state — don't assume Training tab is active
 `launchApp` re-opens the app from wherever it was last (Settings, Dashboard, etc.). Flows that depend on the Training tab being visible should either:
 - Use `waitForAnimationToEnd` + `tapOn: 'tab-settings'` (string selector) to navigate explicitly
