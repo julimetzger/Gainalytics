@@ -1,0 +1,54 @@
+appId: com.powerliftingworkoutplanner
+# GH-283: verify the memoized set-list (SetRow / React.memo(AddWorkoutSet))
+# still renders and edits correctly. Asserts the ACTUAL resulting values
+# of the set row, not just element visibility.
+---
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- tapOn: 'tab-exercises'
+- tapOn:
+    text: '.*Bankdrücken.*'
+# --- add a set: drives AddWorkout -> SetRow render path ---
+- tapOn:
+    id: 'add-workout-set-reps-input'
+- eraseText
+- inputText: '5'
+- tapOn:
+    id: 'add-workout-set-rir-input'
+- eraseText
+- inputText: '2'
+- tapOn:
+    id: 'add-workout-set-weight-input'
+- eraseText
+- inputText: '100'
+- hideKeyboard
+- tapOn:
+    id: 'add-workout-set-submit-button'
+# the set-list now renders one SetRow -> header advances to "Set 2"
+- assertVisible:
+    text: '.*Set 2.*'
+# actual resulting values of the rendered set row must be visible
+- assertVisible:
+    text: '100'
+- assertVisible:
+    text: '5'
+# --- edit the rendered set row: index 1 = the set-list row, index 0 = the input form ---
+- tapOn:
+    id: 'add-workout-set-weight-input'
+    index: 1
+- eraseText
+- inputText: '125'
+- hideKeyboard
+# tapping the rir input blurs the weight field -> persisted row auto-submits
+- tapOn:
+    id: 'add-workout-set-rir-input'
+    index: 1
+- hideKeyboard
+# the edited value is reflected back in the memoized set row
+- assertVisible:
+    text: '125'
+- takeScreenshot: gh283_set_list_after_edit
