@@ -1117,4 +1117,19 @@ If Metro was started in the worktree and the worktree inherited file-map caches 
 - Use `waitForAnimationToEnd` + `tapOn: 'tab-settings'` (string selector) to navigate explicitly
 - Or wait for `Export Data` / screen-specific text instead of 'Training'
 Bare `extendedWaitUntil: visible: 'Training'` fails when the app last closed on Settings because the 'Training' tab label only shows for the selected tab.
+
+### 138. `??` operator does NOT fall back through `0` — be explicit when display priority matters
+**Problem/Symptoms:** `<Text>{savedValue ?? liveValue}</Text>` keeps showing `0` when `savedValue === 0`, because nullish coalescing only short-circuits on `null` / `undefined`. A stale buggy save that persisted `velocityLossPercent: 0` then made the VL display stick at `0%` even though the live calculation produced a non-zero value. Users only saw the correct value after touching+saving again.
+**Working solution:** When the live calc is the source of truth, flip the priority: `liveValue ?? savedValue`. If both can legitimately be `0`, you almost always want the live value to win — savedSetResult is just a snapshot, live should reflect the current effective boundaries / state.
+**Apply when:** Any "show saved unless live exists" UI where the saved value can be `0` (counts, percentages, deltas, slopes). Use `??` with live FIRST, or compare against `null` / `undefined` explicitly.
+
+### 139. RN ScrollView under a touch-grabbing child (video / chart) — swipe from the empty margin to scroll
+**Problem/Symptoms:** A `<ScrollView>` containing a `<Video>` player + native chart didn't scroll on adb `input swipe 540 1800 540 600`, regardless of duration. The video container's gesture system swallowed the swipe. Lowering `wm density` to 280 to fit more on-screen kicked the app to the launcher and required `wm density reset` + relaunch.
+**Working solution:** Swipe from the **right edge of the screen (x ≈ 1000 / 1080)** where the video container doesn't extend — that's the only path that reaches the parent ScrollView without the video stealing the responder. `adb shell input swipe 1000 1900 1000 600 800` scrolled the overlay card reliably. Do NOT change density to compensate.
+**Apply when:** Capturing evidence on any screen that nests video/chart inside a scrollable container. Swipe the right-side margin, not the center.
+
+### 140. `analysisN` list entries can have `localVideoPath: undefined` after `.gains` import — re-import via "Import Video" to get the overlay
+**Problem/Symptoms:** Baseline `.gains` import populated the Video Analyses list with a "Squat" entry whose detail screen showed "No local video path available yet". The playback overlay card mounts only when `localVideoPath` is set on the Redux entity, so VL / scrubber / rep summary never rendered — no Item B evidence possible.
+**Working solution:** `adb push` the fixture mp4 to `/sdcard/Download/`, then in the app: Video Analyses → **Import Video** → 3-dot menu → Browse → Downloads → select the mp4. The in-app analyzer creates a fresh analysis with `localVideoPath` set, and the overlay card renders correctly. The pre-existing list entry stays broken (no easy way to attach a path post-hoc) — just create a new analysis alongside it.
+**Apply when:** Worker needs to capture evidence on the VideoAnalysisPlaybackOverlayCard but the baseline analysis from `.gains` import has no localVideoPath. Don't fight it — import a fresh mp4.
 **Apply when:** Any per-slot side-effect inside a component rendered under `RangeSwiper` (or any swiper that re-renders with new props instead of remounting). Includes auto-routes, "show this once" hints, slot-bound analytics, etc.
