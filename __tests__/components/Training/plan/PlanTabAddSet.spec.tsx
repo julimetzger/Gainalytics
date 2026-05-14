@@ -122,7 +122,7 @@ jest.mock('react-native-draggable-flatlist', () => {
       ))}
     </View>
   );
-  return {__esModule: true, default: Component, ScaleDecorator};
+  return {__esModule: true, default: Component, NestableDraggableFlatList: Component, ScaleDecorator};
 });
 
 jest.mock('../../../../app/components/shared/DashedAddButton', () => {

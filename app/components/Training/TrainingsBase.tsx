@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
 
   planModeButton: {
     marginBottom: 4,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
   },
 });
 
