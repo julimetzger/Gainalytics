@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
 import {FlashList} from '@shopify/flash-list';
@@ -6,9 +6,11 @@ import {useRoute, RouteProp} from '@react-navigation/native';
 import WorkoutViewTile from '../../components/Workout/show/WorkoutView';
 import {getDateStringFromDate} from '../../utils/DateHelper';
 import {useDateWorkoutMapByIds} from '../../redux/Workout/use/useDateWorkoutMapByIds';
-import {useAllWorkoutIds} from '../../redux/Workout/use/useAllWorkoutIds';
-import {useWorkoutsByExerciseId} from '../../redux/Workout/use/useWorkoutsByExerciseId';
+import {useWorkoutsByFilters} from '../../redux/Workout/use/useWorkoutsByFilters';
+import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
+import {Muscles} from '../../models/Muscles';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
+import HistoryFiltersSection from '../../components/Analyse/HistoryFiltersSection';
 
 const PAGE_SIZE = 20;
 
@@ -31,34 +33,57 @@ export const buildHistoryRows = (dateWorkoutMap: Map<Date, number[]>): HistoryRo
   return rows;
 };
 
-// Newest-first ordering for the exercise drill-down list, mirroring the
-// ordering useAllWorkoutIds applies to the full history.
-const workoutTimestamp = (workout: {end?: Date; start?: Date}): number => {
-  const date = workout.end ?? workout.start;
-  return date ? new Date(date).getTime() : 0;
-};
+const EMPTY_MUSCLES: Muscles[] = [];
+const EMPTY_EXERCISE_IDS: number[] = [];
 
 const History = () => {
   const theme = useTheme();
   const route = useRoute<RouteProp<RootStackParamList, 'History'>>();
   // Dashboard drill-down (DashboardTab.handleExercisePress) navigates here with
-  // an `exercise` param; in that case History must show only that exercise's
-  // workouts so the list matches the screen title. Without the param it shows
-  // every workout.
+  // an `exercise` param; pre-select that exercise's chip so the list is filtered
+  // to that exercise on mount, while still allowing further toggling.
   const routeExercise = route.params?.exercise;
-  const allWorkoutIds = useAllWorkoutIds();
-  const exerciseWorkouts = useWorkoutsByExerciseId(routeExercise?.id);
+
+  const [selectedMuscles, setSelectedMuscles] = useState<Muscles[]>(EMPTY_MUSCLES);
+  const [selectedExerciseIds, setSelectedExerciseIds] = useState<number[]>(() =>
+    routeExercise?.id !== undefined ? [routeExercise.id] : EMPTY_EXERCISE_IDS,
+  );
+  const [filterExpanded, setFilterExpanded] = useState(false);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
-  const allIds = useMemo(() => {
-    if (routeExercise?.id === undefined) {
-      return allWorkoutIds;
-    }
-    return [...exerciseWorkouts]
-      .filter((workout) => workout.start !== undefined && workout.id !== undefined)
-      .sort((a, b) => workoutTimestamp(b) - workoutTimestamp(a))
-      .map((workout) => workout.id as number);
-  }, [routeExercise?.id, exerciseWorkouts, allWorkoutIds]);
+  const allIds = useWorkoutsByFilters(selectedMuscles, selectedExerciseIds);
+  const allExercises = useAlleExercises();
+
+  const sortedExercises = useMemo(
+    () => [...allExercises].sort((a, b) => a.name.localeCompare(b.name)),
+    [allExercises],
+  );
+
+  // Reset pagination to the first page whenever filters change.
+  useEffect(() => {
+    setPageSize(PAGE_SIZE);
+  }, [selectedMuscles, selectedExerciseIds]);
+
+  const totalActiveFilters = selectedMuscles.length + selectedExerciseIds.length;
+
+  const filterSummary =
+    totalActiveFilters > 0
+      ? `Filters · ${totalActiveFilters}`
+      : 'No filters active';
+
+  const onToggleMuscle = useCallback((muscle: Muscles) => {
+    setSelectedMuscles((prev) =>
+      prev.includes(muscle) ? prev.filter((m) => m !== muscle) : [...prev, muscle],
+    );
+  }, []);
+
+  const onToggleExercise = useCallback((exerciseId: number) => {
+    setSelectedExerciseIds((prev) =>
+      prev.includes(exerciseId) ? prev.filter((id) => id !== exerciseId) : [...prev, exerciseId],
+    );
+  }, []);
+
+  const onToggleExpanded = useCallback(() => setFilterExpanded((prev) => !prev), []);
 
   // Client-side pagination: only the first `pageSize` ids are grouped and
   // rendered. Scrolling near the end grows the window by one PAGE_SIZE batch.
@@ -84,7 +109,8 @@ const History = () => {
     [theme],
   );
 
-  if (allIds.length === 0) {
+  // True empty state: no workouts exist at all and no filters are set.
+  if (allIds.length === 0 && totalActiveFilters === 0) {
     return (
       <View testID="history-empty-state" style={styles.empty}>
         <Text>No workouts yet.</Text>
@@ -94,18 +120,34 @@ const History = () => {
 
   return (
     <View testID="history-list-container" style={styles.container}>
-      <FlashList
-        testID="history-flash-list"
-        data={rows}
-        renderItem={renderRow}
-        keyExtractor={(item) => item.key}
-        getItemType={(item) => item.type}
-        estimatedItemSize={120}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        keyboardShouldPersistTaps="always"
-        contentContainerStyle={styles.listContent}
+      <HistoryFiltersSection
+        expanded={filterExpanded}
+        summary={filterSummary}
+        selectedMuscles={selectedMuscles}
+        selectedExerciseIds={selectedExerciseIds}
+        exercises={sortedExercises}
+        onToggleExpanded={onToggleExpanded}
+        onToggleMuscle={onToggleMuscle}
+        onToggleExercise={onToggleExercise}
       />
+      {allIds.length === 0 ? (
+        <View testID="history-filters-empty" style={styles.filtersEmpty}>
+          <Text>No workouts match the current filters.</Text>
+        </View>
+      ) : (
+        <FlashList
+          testID="history-flash-list"
+          data={rows}
+          renderItem={renderRow}
+          keyExtractor={(item) => item.key}
+          getItemType={(item) => item.type}
+          estimatedItemSize={120}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          keyboardShouldPersistTaps="always"
+          contentContainerStyle={styles.listContent}
+        />
+      )}
     </View>
   );
 };
@@ -126,6 +168,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   empty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filtersEmpty: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
