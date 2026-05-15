@@ -23,7 +23,7 @@ describe('exercisesReducer', () => {
       }),
     ).toEqual({
       byId: {
-        1: {id: 1, name: 'Bench Press', muscles: [], alternativeIds: [2, 3]},
+        1: {id: 1, name: 'Bench Press', isFocus: false, muscles: [], alternativeIds: [2, 3]},
         2: {id: 2, name: 'Incline Bench', muscles: [], alternativeIds: [1]},
         3: {id: 3, name: 'Dumbbell Bench', muscles: [], alternativeIds: [1]},
       },
@@ -52,8 +52,8 @@ describe('exercisesReducer', () => {
       ),
     ).toEqual({
       byId: {
-        1: {id: 1, name: 'Bench Press', muscles: [], alternativeIds: [3]},
-        2: {id: 2, name: 'Incline Bench', muscles: []},
+        1: {id: 1, name: 'Bench Press', isFocus: false, muscles: [], alternativeIds: [3]},
+        2: {id: 2, name: 'Incline Bench', muscles: [], alternativeIds: undefined},
         3: {id: 3, name: 'Dumbbell Bench', muscles: [], alternativeIds: [1]},
       },
       allIds: [1, 2, 3],

@@ -80,7 +80,7 @@ describe('AddWorkoutSet', () => {
     expect(Toast.show).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'error',
-        text2: expect.stringContaining("This app can't be used to track cardio"),
+        text2: expect.stringContaining('Please use proper weights'),
       }),
     );
   });

@@ -44,7 +44,9 @@ describe('exerciseReducer', () => {
         4: {
           id: 4,
           name: 'Overhead Press',
+          isFocus: false,
           muscles: [{muscle: 'Bizeps', percent: 50}],
+          alternativeIds: undefined,
         },
       },
       allIds: [1, 2, 3, 4],
@@ -121,7 +123,9 @@ describe('exerciseReducer', () => {
         2: {
           id: 2,
           name: 'Front Squat',
+          isFocus: false,
           muscles: [{muscle: 'Bizeps', percent: 50}],
+          alternativeIds: undefined,
         },
         3: {
           id: 3,
@@ -333,7 +337,7 @@ describe('exerciseReducer', () => {
           date: new Date(),
           exerciseId: 2,
           notes: '',
-        } ,
+        },
       };
       const expectedState = {
         byId: {
