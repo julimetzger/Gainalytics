@@ -5,9 +5,6 @@ import {MMKV} from 'react-native-mmkv';
 import createFilter from 'redux-persist-transform-filter';
 import {configureStore} from '@reduxjs/toolkit';
 import logger from 'redux-logger';
-// GH-288: dev-only control-measurement middleware. Wired in only for
-// NODE_ENV === 'development' below — production middleware array stays [].
-import {persistActionTrace} from './app/redux/middleware/persistActionTrace';
 
 const migrations = {
   0: (state) => {
@@ -153,7 +150,7 @@ export default () => {
   const store = configureStore({
     reducer: persistedReducer,
     devTools: process?.env?.NODE_ENV === 'development',
-    middleware: process?.env?.NODE_ENV === 'development' ? [persistActionTrace, logger] : [],
+    middleware: process?.env?.NODE_ENV === 'development' ? [logger] : [],
   });
   let persistor = persistStore(store);
   return {store, persistor};
