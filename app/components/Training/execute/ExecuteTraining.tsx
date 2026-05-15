@@ -15,6 +15,9 @@ import DatePicker from '../../picker/date/DatePicker';
 import Estimated1RmCard from './Estimated1RmCard';
 import {TrainingsState} from '../../../models/TrainingsState';
 import RestTimerCard from './RestTimerCard';
+// GH-288: dev-only render-time instrumentation. Transparent pass-through in
+// production (React.Profiler is only mounted under __DEV__).
+import RenderProfiler from '../../dev/RenderProfiler';
 import {oneRepMaxForWorkouts} from '../../../utils/AnalyseUtils';
 import {useSettings} from '../../../redux/settings/use/useSettings';
 import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMax';
@@ -148,97 +151,105 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
   const showDatePicker = training.state !== TrainingsState.STARTED;
 
   return (
-    <View>
-      {showDatePicker && (
-        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
-          <DatePicker date={date} setDate={setDate} />
-        </View>
-      )}
-      <AddWorkout
-        workout={doneWorkout?.end ? doneWorkout : undefined}
-        exercise={chosenExercise}
-        onSubmit={onSubmit}
-        suggest={false}
-        trainingsId={training.id ?? nextTrainingsId}
-        onSubmitSet={handleSubmitSet}
-        date={date}
-        linkVideoMode={linkVideoMode}
-        onDisableLinkVideoMode={() => setLinkVideoMode(false)}
-        onLiveInputChange={onLiveInputChange}
-        oneRepMaxRef={onPreviousOneRmKnown}
-        info={
-          <View style={{display: 'flex', flexDirection: 'row'}}>
-            <Tooltip enterTouchDelay={300} title="Shows Exercise History">
-              <IconButton
-                icon="history"
-                onPress={() => {
-                  setOpenHistory(true);
-                }}
-              ></IconButton>
-            </Tooltip>
-            <Tooltip enterTouchDelay={300} title="Shows Planned Training">
-              <IconButton
-                icon="book-open-variant"
-                onPress={() => {
-                  setOpenPlanned(true);
-                }}
-              ></IconButton>
-            </Tooltip>
-            <Tooltip enterTouchDelay={300} title={linkVideoMode ? 'Cancel Link Video' : 'Link Video'}>
-              <IconButton
-                icon={linkVideoMode ? 'close' : 'video-plus'}
-                onPress={() => setLinkVideoMode(prev => !prev)}
-              ></IconButton>
-            </Tooltip>
+    <RenderProfiler id="execute-training-root">
+      <View>
+        {showDatePicker && (
+          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
+            <DatePicker date={date} setDate={setDate} />
           </View>
-        }
-      />
-      <Estimated1RmCard
-        sessionOneRm={sessionOneRm}
-        lastTrainingOneRm={lastTrainingOneRm ?? exerciseFallbackOneRm}
-        allTimePr={allTimePr}
-      />
-      <RestTimerCard
-        startedAt={activeRest?.startedAt}
-        targetSeconds={activeRest?.targetSeconds}
-        exerciseId={activeRest?.exerciseId}
-        onReset={onResetRest}
-        onSkip={onSkipRest}
-        onEditTarget={onEditTarget}
-        onAdjustExerciseDefault={handleAdjustExerciseDefault}
-        exerciseDefaultSeconds={resolvedRestDefault}
-      />
-      <Portal>
-        <Dialog visible={openPlanned} onDismiss={() => setOpenPlanned(false)}>
-          <Dialog.Title>Planned Workout for {chosenExercise.name}</Dialog.Title>
-          <Dialog.Content>
-            <View>
-              {(plannedWorkout?.sets ?? []).length > 0 ? (
-                <WorkoutSetView sets={plannedWorkout?.sets ?? []} editable={false} />
-              ) : (
-                <Text style={{textAlign: 'center', padding: 20}}>No workout planned for {chosenExercise.name}</Text>
-              )}
-            </View>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <IconButton icon={'close'} onPress={() => setOpenPlanned(false)}></IconButton>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-      <Portal>
-        <Dialog style={{maxHeight: screenHeight * 0.95}} visible={openHistory} onDismiss={() => setOpenHistory(false)}>
-          <Dialog.Title numberOfLines={1}>History for {chosenExercise.name}</Dialog.Title>
-          <Dialog.Content style={{marginHorizontal: -20}}>
-            <View style={{maxHeight: screenHeight * 0.75}}>
-              <ExerciseHistory exercise={chosenExercise} editable={false} />
-            </View>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <IconButton icon={'close'} onPress={() => setOpenHistory(false)}></IconButton>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </View>
+        )}
+        <RenderProfiler id="set-list">
+          <AddWorkout
+            workout={doneWorkout?.end ? doneWorkout : undefined}
+            exercise={chosenExercise}
+            onSubmit={onSubmit}
+            suggest={false}
+            trainingsId={training.id ?? nextTrainingsId}
+            onSubmitSet={handleSubmitSet}
+            date={date}
+            linkVideoMode={linkVideoMode}
+            onDisableLinkVideoMode={() => setLinkVideoMode(false)}
+            onLiveInputChange={onLiveInputChange}
+            oneRepMaxRef={onPreviousOneRmKnown}
+            info={
+              <View style={{display: 'flex', flexDirection: 'row'}}>
+                <Tooltip enterTouchDelay={300} title="Shows Exercise History">
+                  <IconButton
+                    icon="history"
+                    onPress={() => {
+                      setOpenHistory(true);
+                    }}
+                  ></IconButton>
+                </Tooltip>
+                <Tooltip enterTouchDelay={300} title="Shows Planned Training">
+                  <IconButton
+                    icon="book-open-variant"
+                    onPress={() => {
+                      setOpenPlanned(true);
+                    }}
+                  ></IconButton>
+                </Tooltip>
+                <Tooltip enterTouchDelay={300} title={linkVideoMode ? 'Cancel Link Video' : 'Link Video'}>
+                  <IconButton
+                    icon={linkVideoMode ? 'close' : 'video-plus'}
+                    onPress={() => setLinkVideoMode(prev => !prev)}
+                  ></IconButton>
+                </Tooltip>
+              </View>
+            }
+          />
+        </RenderProfiler>
+        <RenderProfiler id="estimated-1rm-card">
+          <Estimated1RmCard
+            sessionOneRm={sessionOneRm}
+            lastTrainingOneRm={lastTrainingOneRm ?? exerciseFallbackOneRm}
+            allTimePr={allTimePr}
+          />
+        </RenderProfiler>
+        <RenderProfiler id="rest-timer-card">
+          <RestTimerCard
+            startedAt={activeRest?.startedAt}
+            targetSeconds={activeRest?.targetSeconds}
+            exerciseId={activeRest?.exerciseId}
+            onReset={onResetRest}
+            onSkip={onSkipRest}
+            onEditTarget={onEditTarget}
+            onAdjustExerciseDefault={handleAdjustExerciseDefault}
+            exerciseDefaultSeconds={resolvedRestDefault}
+          />
+        </RenderProfiler>
+        <Portal>
+          <Dialog visible={openPlanned} onDismiss={() => setOpenPlanned(false)}>
+            <Dialog.Title>Planned Workout for {chosenExercise.name}</Dialog.Title>
+            <Dialog.Content>
+              <View>
+                {(plannedWorkout?.sets ?? []).length > 0 ? (
+                  <WorkoutSetView sets={plannedWorkout?.sets ?? []} editable={false} />
+                ) : (
+                  <Text style={{textAlign: 'center', padding: 20}}>No workout planned for {chosenExercise.name}</Text>
+                )}
+              </View>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <IconButton icon={'close'} onPress={() => setOpenPlanned(false)}></IconButton>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
+        <Portal>
+          <Dialog style={{maxHeight: screenHeight * 0.95}} visible={openHistory} onDismiss={() => setOpenHistory(false)}>
+            <Dialog.Title numberOfLines={1}>History for {chosenExercise.name}</Dialog.Title>
+            <Dialog.Content style={{marginHorizontal: -20}}>
+              <View style={{maxHeight: screenHeight * 0.75}}>
+                <ExerciseHistory exercise={chosenExercise} editable={false} />
+              </View>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <IconButton icon={'close'} onPress={() => setOpenHistory(false)}></IconButton>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
+      </View>
+    </RenderProfiler>
   );
 };
 
