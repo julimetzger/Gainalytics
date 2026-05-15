@@ -1,6 +1,8 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {View} from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import {ActivityIndicator, Card, IconButton, Text, useTheme} from 'react-native-paper';
+import {aiChatMarkdownStyles} from '../../tabs/Analyse/aiChatMarkdownStyles';
 import {useDispatch, useSelector} from 'react-redux';
 import {useNavigation} from '@react-navigation/native';
 import {GlobalState} from '../../redux/rootReducer';
@@ -250,12 +252,12 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
         )}
         {state.status === 'done' && (
           <>
-            <Text
-              variant="bodyMedium"
+            <Markdown
+              style={aiChatMarkdownStyles(theme)}
               testID="coach-insight-text"
             >
               {state.text}
-            </Text>
+            </Markdown>
             <Text
               variant="bodySmall"
               style={{color: theme.colors.onSurfaceVariant, marginTop: 6}}
