@@ -1,6 +1,6 @@
 import React from 'react';
 import {Pressable, StyleSheet, View} from 'react-native';
-import {Card, Text, useTheme} from 'react-native-paper';
+import {Card, Icon, Text, useTheme} from 'react-native-paper';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {Metric} from '../../../models/Metric';
 import {getLocalMicro, getMesoForMicro, getMicroFromTrainingInMicroIndex, getTrainingFromTrainingInMicroIndex} from '../../../redux/Training/trainingsPlanReducer';
@@ -78,27 +78,53 @@ const LastTrainingCard = ({plan, lastDone, navigation}: LastTrainingCardProps) =
   };
 
   return (
-    <Card style={styles.card} testID="last-training-card">
-      <Pressable onPress={handlePress} android_ripple={{color: theme.colors.primaryContainer}}>
-        <Card.Content>
-          <View style={styles.row}>
-            <View style={styles.left}>
+    <Card
+      style={[styles.card, {borderLeftWidth: 4, borderLeftColor: theme.colors.secondary ?? theme.colors.primary}]}
+      testID="last-training-card">
+      <Pressable
+        onPress={handlePress}
+        android_ripple={{color: theme.colors.primaryContainer}}
+        testID="last-training-card-pressable">
+        <Card.Content style={styles.content}>
+          <View style={styles.headerRow}>
+            <View style={styles.headerLeft}>
               <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
                 Last Training
               </Text>
-              <Text variant="titleSmall">{trainingName}</Text>
-              <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>
+              <Text variant="titleMedium" style={styles.title}>
+                {trainingName}
+              </Text>
+              <Text variant="bodyMedium" style={{color: theme.colors.onSurfaceVariant}}>
                 {mesoLabel}M{localMicro} · D{lastDone.training} · {formatTimeAgo(new Date(training.end))}
               </Text>
             </View>
-            <View style={styles.metrics}>
-              <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>
-                {totalSets} sets · {formatTime(durationMin)}
+            <View style={styles.chevron} testID="last-training-card-chevron">
+              <Icon source="chevron-right" size={28} color={theme.colors.onSurfaceVariant} />
+            </View>
+          </View>
+
+          <View style={styles.metricsRow}>
+            <View style={styles.metricBlock}>
+              <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
+                Sets
               </Text>
-              <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                <Text variant="bodySmall">{volume.toLocaleString()} kg</Text>
+              <Text variant="titleMedium">{totalSets}</Text>
+            </View>
+            <View style={styles.metricBlock}>
+              <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
+                Duration
+              </Text>
+              <Text variant="titleMedium">{formatTime(durationMin)}</Text>
+            </View>
+            <View style={styles.metricBlock}>
+              <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
+                Volume
+              </Text>
+              <View style={styles.volumeRow}>
+                <Text variant="titleMedium">{volume.toLocaleString()} kg</Text>
                 {volumeDelta !== null && (
-                  <Text style={[styles.delta, {color: isVolPositive ? theme.colors.primary : theme.colors.error}]}>
+                  <Text
+                    style={[styles.delta, {color: isVolPositive ? theme.colors.primary : theme.colors.error}]}>
                     {isVolPositive ? '+' : ''}
                     {volumeDelta}
                   </Text>
@@ -106,6 +132,13 @@ const LastTrainingCard = ({plan, lastDone, navigation}: LastTrainingCardProps) =
               </View>
             </View>
           </View>
+
+          <Text
+            variant="labelSmall"
+            style={[styles.hint, {color: theme.colors.onSurfaceVariant}]}
+            testID="last-training-card-hint">
+            Tap to view training details
+          </Text>
         </Card.Content>
       </Pressable>
     </Card>
@@ -114,10 +147,21 @@ const LastTrainingCard = ({plan, lastDone, navigation}: LastTrainingCardProps) =
 
 const styles = StyleSheet.create({
   card: {marginHorizontal: 8, marginBottom: 8},
-  row: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
-  left: {flex: 1},
-  metrics: {alignItems: 'flex-end'},
-  delta: {fontSize: 11},
+  content: {paddingVertical: 12},
+  headerRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
+  headerLeft: {flex: 1},
+  title: {marginTop: 2, marginBottom: 2},
+  chevron: {paddingLeft: 8},
+  metricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    gap: 12,
+  },
+  metricBlock: {flex: 1, minWidth: 0},
+  volumeRow: {flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap'},
+  delta: {fontSize: 12, fontWeight: '600'},
+  hint: {marginTop: 10, fontStyle: 'italic'},
 });
 
 export default LastTrainingCard;

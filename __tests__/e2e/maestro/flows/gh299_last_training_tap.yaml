@@ -1,0 +1,14 @@
+appId: com.powerliftingworkoutplanner
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: "Last Training"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "Last Training"
+- assertVisible:
+    id: "last-training-card"
