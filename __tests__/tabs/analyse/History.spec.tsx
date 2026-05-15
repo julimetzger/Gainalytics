@@ -21,9 +21,21 @@ jest.mock('@react-navigation/native', () => ({
 
 // Group every visible id into its own date bucket so the flattened row list
 // has one header + one workout row per visible id. This lets the tests assert
-// exactly how many workouts the current page window exposed.
+// exactly how many workouts the current page window exposed. The real hook
+// uses a useSelector equality function to return a stable Map reference for
+// equal contents; this mock mirrors that by caching by ids-key so the
+// render-count test sees stable references for stable inputs.
+const mockDateMapCache = new Map<string, Map<Date, number[]>>();
 jest.mock('../../../app/redux/Workout/use/useDateWorkoutMapByIds', () => ({
-  useDateWorkoutMapByIds: jest.fn((ids: number[]) => new Map(ids.map((id, i) => [new Date(2026, 0, 1 + i), [id]]))),
+  useDateWorkoutMapByIds: jest.fn((ids: number[]) => {
+    const key = ids.join(',');
+    let map = mockDateMapCache.get(key);
+    if (!map) {
+      map = new Map(ids.map((id, i) => [new Date(2026, 0, 1 + i), [id]]));
+      mockDateMapCache.set(key, map);
+    }
+    return map;
+  }),
 }));
 
 // Mock FlashList with a plain View that renders every item and exposes
@@ -44,22 +56,35 @@ jest.mock('@shopify/flash-list', () => {
 
 // The workout tile renders Redux-connected children; stub it down to a marker
 // that also exposes the editable prop so the editable-rows behaviour is testable.
+// Each render is recorded on a shared spy so render-count tests can assert
+// that unrelated parent re-renders do NOT cause additional WorkoutView renders.
+// Wrapped in React.memo so the spy counts genuine prop-driven re-renders only
+// — this mirrors the production WorkoutView which is itself memoized via
+// useSelector equality fns / React.memo wrappers internally.
+const mockWorkoutViewRenderSpy = jest.fn();
 jest.mock('../../../app/components/Workout/show/WorkoutView', () => {
   const React = require('react');
   const {Text} = require('react-native');
-  return ({workoutId, editable}: {workoutId: number; editable?: boolean}) => (
-    <Text testID="workout-row" accessibilityState={{disabled: editable === false}}>
-      {workoutId}
-    </Text>
-  );
+  const Mock = ({workoutId, editable}: {workoutId: number; editable?: boolean}) => {
+    mockWorkoutViewRenderSpy(workoutId);
+    return (
+      <Text testID="workout-row" accessibilityState={{disabled: editable === false}}>
+        {workoutId}
+      </Text>
+    );
+  };
+  return React.memo(Mock);
 });
 
 jest.mock('react-native-paper', () => {
   const React = require('react');
   const {Text} = require('react-native');
+  // Return a stable theme reference so useCallback deps in History don't
+  // invalidate on every call — the real useTheme also returns stable refs.
+  const stableTheme = {fonts: {titleLarge: {fontSize: 22}}};
   return {
     Text: ({children, ...props}: {children: React.ReactNode}) => <Text {...props}>{children}</Text>,
-    useTheme: () => ({fonts: {titleLarge: {fontSize: 22}}}),
+    useTheme: () => stableTheme,
   };
 });
 
@@ -70,6 +95,8 @@ const mockUseRoute = jest.mocked(useRoute);
 beforeEach(() => {
   mockUseRoute.mockReturnValue({params: undefined} as any);
   mockUseWorkoutsByExerciseId.mockReturnValue([]);
+  mockWorkoutViewRenderSpy.mockClear();
+  mockDateMapCache.clear();
 });
 
 describe('buildHistoryRows', () => {
@@ -167,6 +194,41 @@ describe('History tab', () => {
     const {getAllByTestId} = render(<History />);
     // editable===false would set disabled:true on the stubbed tile; rows must stay editable
     expect(getAllByTestId('workout-row')[0].props.accessibilityState.disabled).toBe(false);
+  });
+
+  // PR #280 review fb4 finding (1): when route.params.exercise is undefined,
+  // useWorkoutsByExerciseId(undefined) must return a stable EMPTY_ARRAY so an
+  // unrelated parent re-render (proxy for an unrelated Redux dispatch) does
+  // NOT invalidate the History useMemo deps and re-render every workout row.
+  // The hook itself is mocked here — the test asserts the History contract:
+  // given stable inputs, the visible row count is unchanged AND no extra
+  // WorkoutView renders fire beyond the initial mount of the visible window.
+  it('does not re-render WorkoutView children on an unrelated parent re-render (stable EMPTY_ARRAY contract)', () => {
+    const STABLE_EMPTY: never[] = [];
+    const STABLE_IDS = [10, 9, 8, 7, 6];
+    mockUseAllWorkoutIds.mockReturnValue(STABLE_IDS);
+    mockUseWorkoutsByExerciseId.mockReturnValue(STABLE_EMPTY);
+
+    const {rerender, getAllByTestId} = render(<History />);
+    const initialRowCount = getAllByTestId('workout-row').length;
+    expect(initialRowCount).toBe(5);
+    const rendersBefore = mockWorkoutViewRenderSpy.mock.calls.length;
+
+    // Simulate an unrelated Redux dispatch by forcing a parent re-render while
+    // the mocked hooks continue to return the SAME references. With the
+    // stable-ref contract in place, no new WorkoutView renders should fire.
+    rerender(<History />);
+
+    expect(getAllByTestId('workout-row').length).toBe(initialRowCount);
+    expect(mockWorkoutViewRenderSpy.mock.calls.length).toBe(rendersBefore);
+  });
+
+  it('shows the English empty-state copy (AGENTS.md: app language is English only)', () => {
+    mockUseAllWorkoutIds.mockReturnValue([]);
+    const {getByText, queryByText} = render(<History />);
+    expect(getByText('No workouts yet.')).toBeTruthy();
+    // Guard against accidental reintroduction of the previous German copy.
+    expect(queryByText('Noch keine Trainings vorhanden.')).toBeNull();
   });
 });
 

@@ -87,7 +87,7 @@ const History = () => {
   if (allIds.length === 0) {
     return (
       <View testID="history-empty-state" style={styles.empty}>
-        <Text>Noch keine Trainings vorhanden.</Text>
+        <Text>No workouts yet.</Text>
       </View>
     );
   }
