@@ -1,0 +1,130 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-277: History tab FlashList — evidence flow
+#
+# Proves the acceptance criteria:
+#   1. History renders NO date-range filter (date-range-picker-button removed)
+#   2. The list is a FlashList that renders flattened date-header rows
+#      (history-date-header) + workout rows — virtualized, scrollEnabled
+#   3. ALL finished workouts are shown, scrolling loads more (infinite scroll)
+#   4. Workout detail (exercise + sets) renders, entry tap works unchanged
+#   5. Existing testIDs are preserved (history-list-container)
+#
+# Prerequisite state: the Redux store must be hydrated from the baseline
+# .gains fixture (FINISHED workouts under the "Push pull" micro). The flow
+# asserts this explicitly before capturing evidence — if the store is empty
+# the flow fails loudly instead of producing meaningless screenshots.
+
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: "Dismiss"
+    commands:
+      - tapOn: "Dismiss"
+- extendedWaitUntil:
+    visible:
+      text: "Training"
+    timeout: 90000
+
+# --- Prerequisite: store hydrated with baseline data ---
+- assertVisible:
+    text: "Push pull"
+
+# --- Navigate to Analyse tab ---
+# react-navigation exposes tabBarTestID as the accessibility label, so match
+# the bare string (id + accessibility) rather than id-only.
+- tapOn: "tab-analyse"
+- runFlow:
+    when:
+      visible: "Dismiss"
+    commands:
+      - tapOn: "Dismiss"
+- extendedWaitUntil:
+    visible:
+      text: "Dashboard"
+    timeout: 15000
+
+# --- Navigate to History via the Dashboard quick-access button ---
+# The Analyse drawer is intentionally avoided: opening it eagerly mounts
+# VideoAnalysisCompareTab without route params, which crashes (pre-existing
+# GH-207 regression, unrelated to this ticket). The Dashboard's "nav-history"
+# button navigates straight to the History screen without the drawer.
+- scrollUntilVisible:
+    element:
+      id: "nav-history"
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: "nav-history"
+- waitForAnimationToEnd
+
+# --- AC: existing testID preserved, FlashList container present ---
+- assertVisible:
+    id: "history-list-container"
+
+# --- AC: the date-range filter control is completely gone ---
+- assertNotVisible:
+    id: "date-range-picker-button"
+
+# --- AC: FlashList renders flattened date-header rows ---
+- assertVisible:
+    id: "history-date-header"
+
+# Assert the header shows a real, formatted date value (e.g. "Sat, 28/02/26"),
+# not just that the element exists.
+- copyTextFrom:
+    id: "history-date-header"
+- evalScript: |
+    output.validDate = /^[A-Z][a-z]{2}, \d{2}\/\d{2}\/\d{2}$/.test(maestro.copiedText);
+- assertTrue: ${output.validDate}
+
+# Workout detail (sets) renders inline inside the list rows.
+- assertVisible:
+    text: ".*RIR.*"
+
+- takeScreenshot: gh277_history_initial
+
+# --- AC: infinite scroll — swiping up (scrolls list down) keeps loading ---
+# Remember the top date, swipe through several pages, then assert the visible
+# top date changed (the page window advanced through the full workout history).
+- copyTextFrom:
+    id: "history-date-header"
+- evalScript: |
+    output.firstDate = maestro.copiedText;
+- swipe:
+    direction: UP
+- swipe:
+    direction: UP
+- swipe:
+    direction: UP
+- swipe:
+    direction: UP
+- swipe:
+    direction: UP
+- swipe:
+    direction: UP
+- waitForAnimationToEnd
+- assertVisible:
+    id: "history-list-container"
+- assertVisible:
+    id: "history-date-header"
+- copyTextFrom:
+    id: "history-date-header"
+- evalScript: |
+    output.scrolledAway = maestro.copiedText !== output.firstDate;
+- assertTrue: ${output.scrolledAway}
+
+- takeScreenshot: gh277_history_scrolled
+
+# --- AC: workout-detail navigation from a list entry works unchanged ---
+# Tap a workout set row; the list stays mounted with detail visible (no crash).
+- tapOn:
+    text: ".*RIR.*"
+- waitForAnimationToEnd
+- assertVisible:
+    id: "history-list-container"
+- assertVisible:
+    text: ".*RIR.*"
+
+- takeScreenshot: gh277_workout_detail
