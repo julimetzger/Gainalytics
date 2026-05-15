@@ -1,0 +1,11 @@
+--------- beginning of main
+05-15 18:03:40.631 I/ReactNativeJS(21903): [PROFILER] id=set-list phase=update actual=37.669 base=98.103 @1778861020629
+05-15 18:03:40.632 I/ReactNativeJS(21903): [PROFILER] id=execute-training-root phase=update actual=37.742 base=103.822 @1778861020631
+05-15 18:03:40.844 I/ReactNativeJS(21903): [PROFILER] id=set-list phase=update actual=2.324 base=97.241 @1778861020842
+05-15 18:03:40.846 I/ReactNativeJS(21903): [PROFILER] id=execute-training-root phase=update actual=2.349 base=102.960 @1778861020844
+05-15 18:03:41.674 I/ReactNativeJS(21903): [PROFILER] id=set-list phase=update actual=38.705 base=98.915 @1778861021673
+05-15 18:03:41.676 I/ReactNativeJS(21903): [PROFILER] id=execute-training-root phase=update actual=38.792 base=104.634 @1778861021674
+05-15 18:03:41.702 I/ReactNativeJS(21903): [PROFILER] id=set-list phase=update actual=0.075 base=98.915 @1778861021701
+05-15 18:03:41.704 I/ReactNativeJS(21903): [PROFILER] id=execute-training-root phase=update actual=0.099 base=104.634 @1778861021702
+05-15 18:03:41.898 I/ReactNativeJS(21903): [PROFILER] id=set-list phase=update actual=1.859 base=95.635 @1778861021896
+05-15 18:03:41.899 I/ReactNativeJS(21903): [PROFILER] id=execute-training-root phase=update actual=1.881 base=101.354 @1778861021898

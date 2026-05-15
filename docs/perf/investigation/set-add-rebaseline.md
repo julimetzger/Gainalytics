@@ -232,3 +232,26 @@ once per second for a screen that is supposed to be idle between sets.
   each time the wrapper re-renders. That is part of why the set-list
   outside-cascade commits exist at all; it would also be cleaned up by
   the follow-up (fewer wrapper re-renders → fewer fresh `info` props).
+
+## Update post GH-291 (verified on R5CN30HWZFN)
+
+Re-measured on `feature/GH-291` (commits `3f5d65f8` + `c57a09fc`), same
+device, same baseline `.gains`, live training on Push pull › M7 › Push
+squat / Adductor. Logcat captured for ~3.3 min on the idle live-training
+screen after three benign taps that dispatched redux actions.
+
+| profiler_id           |   n | total actual (ms) | mean (ms) | max (ms) |
+| --------------------- | --: | ----------------: | --------: | -------: |
+| execute-training-root |   5 |             80.86 |     16.17 |    38.79 |
+| set-list              |   5 |             80.63 |     16.13 |    38.70 |
+
+All 10 commits fired in the first 1.27 s (the three tap-induced dispatches).
+After that, **zero PROFILER commits for ~3 min idle**. Extrapolated to a
+5-min window: ≤ 8 commits per component vs. GH-288's 300 (`execute-training-root`)
+and 197 (`set-list`). Background render work eliminated. The `createSelector`
+memoization on `useUnfinishedWorkout` + `useAllLastWorkouts` cuts the outside-
+cascade re-render rate by >30×, well under the <50/5min target. Set-add
+cascades themselves were not re-measured this round (live-training "Add"
+button targeting was unreliable on the worker); the fix is reference-stability
+only, so cascade cost is expected to match GH-288. Evidence: `data/logcat-full.log`,
+`data/aggregate-summary.txt`, `screenshots/GH-291/01-live-training-during-gh291-measurement.png`.

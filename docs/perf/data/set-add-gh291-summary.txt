@@ -1,0 +1,19 @@
+== GH-288 set-add render re-baseline ==
+logcat            : data/logcat-full.log
+cascade window    : 800 ms after each ADD_OR_UPDATE_SET_IN_WORKOUT
+set dispatches (n): 0
+profiler commits  : 10 total (0 inside a cascade)
+
+Per-component actualDuration (ms), commits inside a set-add cascade:
+profiler_id                 n     mean      p50      p95      max       sum
+execute-training-root       0        -        -        -        -         -
+set-list                    0        -        -        -        -         -
+
+Commits per cascade per component:
+profiler_id              
+execute-training-root    
+set-list                 
+
+persist/* actions total            : 0
+persist/* inside a set-add cascade  : 0
+ADD_OR_UPDATE_SET_IN_WORKOUT count : 0
