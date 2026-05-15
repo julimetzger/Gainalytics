@@ -7,6 +7,15 @@ import {DEFAULT_ANTHROPIC_MODEL} from '../../../app/utils/llmApi';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
+jest.mock('react-native-markdown-display', () => {
+  const React = require('react');
+  const {Text} = require('react-native');
+  const MockMarkdown = ({children, testID}: {children: string; testID?: string}) =>
+    React.createElement(Text, {testID: testID ?? 'markdown-component'}, children);
+  MockMarkdown.displayName = 'Markdown';
+  return {__esModule: true, default: MockMarkdown};
+});
+
 const mockCallAnthropicClaude = jest.fn();
 jest.mock('../../../app/utils/llmApi', () => ({
   callAnthropicClaude: (...args: any[]) => mockCallAnthropicClaude(...args),
