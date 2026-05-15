@@ -255,3 +255,24 @@ cascades themselves were not re-measured this round (live-training "Add"
 button targeting was unreliable on the worker); the fix is reference-stability
 only, so cascade cost is expected to match GH-288. Evidence: `data/logcat-full.log`,
 `data/aggregate-summary.txt`, `screenshots/GH-291/01-live-training-during-gh291-measurement.png`.
+
+## GH-291 inside-cascade re-measurement (GH-297)
+
+On `feature/GH-291` / `R5CN30HWZFN`, 5 real `ADD_OR_UPDATE_SET_IN_WORKOUT`
+dispatches were captured on the live Adductor form. The resumed device state
+was already at `Set 5` when capture started, so the list/root absolute numbers
+below are shifted upward versus GH-288's earlier-set baseline.
+
+| profiler_id             | mean | p50 | p95 | max |
+| ----------------------- | ---: | --: | --: | --: |
+| `set-list`              | 177.72 | 178.99 | 207.51 | 210.75 |
+| `execute-training-root` | 194.32 | 194.81 | 223.17 | 226.24 |
+| `rest-timer-card`       | 11.68 | 11.39 | 13.48 | 13.99 |
+| `estimated-1rm-card`    | 3.37 | 3.36 | 3.42 | 3.43 |
+
+`persist/*` inside a set-add cascade stayed `0` again, and the capture still
+shows exactly 1 profiler commit per component per cascade. Versus GH-288, the
+side cards are effectively unchanged while `set-list` / wrapper stay the only
+meaningful costs; their absolute means are higher because this run started
+several rows deeper in the same live workout, not because GH-291 changed the
+inside-cascade fan-out.
