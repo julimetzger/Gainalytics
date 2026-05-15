@@ -30,6 +30,9 @@ describe('settingsReducer', () => {
       localNotification: {
         pauseTimerInSeconds: 10,
       },
+      restTimer: {
+        userDefaultSeconds: 10,
+      },
       mode: 'dark',
     };
     expect(settingsReducer(initialState, action)).toEqual(expectedState);
@@ -49,6 +52,9 @@ describe('settingsReducer', () => {
     const expectedState = {
       localNotification: {
         pauseTimerInSeconds: undefined,
+      },
+      restTimer: {
+        userDefaultSeconds: undefined,
       },
       mode: 'light',
     };
