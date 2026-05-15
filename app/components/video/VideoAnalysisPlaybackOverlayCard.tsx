@@ -32,6 +32,10 @@ const SPEED_PLOT_HEIGHT = 240;
 const SPEED_CHART_LEFT_PADDING = 36;
 // Right viewport offset in dp — must stay in sync with viewPortOffsets.right.
 const SPEED_CHART_RIGHT_PADDING = 4;
+// Bottom viewport offset (dp) — leaves room for x-axis time labels.
+const SPEED_CHART_BOTTOM_PADDING = 22;
+// Top viewport offset (dp).
+const SPEED_CHART_TOP_PADDING = 8;
 const BAR_PATH_SMOOTHING_WINDOW = 5;
 const SPEED_SMOOTHING_WINDOW = 5;
 
@@ -372,7 +376,7 @@ const createThemedStyles = (theme: MD3Theme) =>
       backgroundColor: theme.colors.primary,
     },
     speedPlotBackground: {
-      backgroundColor: theme.colors.surfaceVariant,
+      backgroundColor: theme.colors.background,
     },
     repMetricAccent: {
       borderLeftColor: theme.colors.primary,
@@ -391,10 +395,10 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const saveSetResult = dispatchSaveVideoAnalysisSetResult();
   const speedChartColors = useMemo(
     () => ({
-      line: processColor(theme.colors.secondary),
+      line: processColor(theme.colors.primary),
       zeroLine: processColor(theme.colors.outline),
       progressLine: processColor(theme.colors.primary),
-      text: processColor(theme.colors.onSurfaceVariant),
+      text: processColor(theme.colors.onBackground),
       grid: processColor(theme.colors.outlineVariant),
       axis: processColor(theme.colors.outline),
     }),
@@ -450,6 +454,15 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const playbackPausedSV = useRef(useSharedValue(true)).current;
   const isScrubbingSV = useRef(useSharedValue(false)).current;
   const playbackSpeedSV = useRef(useSharedValue(1)).current;
+  // Anchor for marker interpolation: the marker is computed as
+  //   marker = playerAnchorTimeMs + (now - playerAnchorRecvAt) * speed
+  // so it tracks the native player precisely (within one progress-event period
+  // of ~50 ms) instead of free-running on wall-clock dt. uiNowMsSV is updated
+  // every frame by the worklet using frameInfo.timestamp so JS code can sample
+  // the same monotonic clock the worklet uses, avoiding Date.now() in worklets.
+  const playerAnchorTimeMsSV = useRef(useSharedValue(0)).current;
+  const playerAnchorRecvAtMsSV = useRef(useSharedValue(0)).current;
+  const uiNowMsSV = useRef(useSharedValue(0)).current;
 
   const playbackDurationRef = useRef(0);
   const correctedPlaybackDurationMsRef = useRef(0);
@@ -700,14 +713,13 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     }
   }, []);
 
-  // onPlayerProgress updates duration and applies a hard re-sync only when the
-  // marker has drifted catastrophically (>1000ms) from the native player — e.g.
-  // after a buffer stall. Steady-state smoothness is provided by the UI-thread
-  // frame callback (see useFrameCallback below), which advances the marker at
-  // 60fps based on wall-clock deltas. Earlier rounds attempted to correct small
-  // drift here with cancelAnimation+withTiming; that re-cancellation cycle
-  // produced the ~1s ticking the user reported. Letting the frame callback run
-  // uninterrupted is what restores smooth motion.
+  // onPlayerProgress updates duration and re-anchors marker interpolation to the
+  // native player position. The marker is rendered by the frame callback below
+  // as `anchor + (now - anchorRecvAt) * speed`, so updating the anchor here keeps
+  // the marker locked to the player within one progress-event period (~50 ms).
+  // Earlier designs let the marker free-run on wall-clock dt and only corrected
+  // when drift exceeded 1000 ms, which let the marker fall up to a full second
+  // behind the video before any correction.
   const onPlayerProgress = useCallback(
     (event: {nativeEvent?: VideoPlayerProgressEvent}) => {
       const nativeEvent = event.nativeEvent;
@@ -725,25 +737,24 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
 
       if (!playbackPausedRef.current && !isScrubbingRef.current
           && Date.now() > seekCooldownUntilRef.current) {
-        const nativeMs = nativeEvent.currentTimeMs;
-        const drift = playbackTimeMsSV.value - nativeMs;
-        if (Math.abs(drift) > 1000) {
-          // Catastrophic drift (player stalled, hidden seek, etc.) — snap to
-          // native position. The frame callback will continue advancing from here.
-          playbackTimeMsSV.value = nativeMs; // eslint-disable-line react-hooks/exhaustive-deps
-        }
+        // Re-anchor marker interpolation to the native player's reported time.
+        // uiNowMsSV is set every frame by the worklet from frameInfo.timestamp,
+        // so it matches the monotonic clock the frame callback uses below.
+        playerAnchorTimeMsSV.value = nativeEvent.currentTimeMs; // eslint-disable-line react-hooks/exhaustive-deps
+        playerAnchorRecvAtMsSV.value = uiNowMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
       }
     },
     [updateCurrentRepForPlaybackTime],
   );
 
   // Drives the playback marker on the UI thread at the device refresh rate (~60fps).
-  // Every frame, advance playbackTimeMsSV by the elapsed wall-clock time scaled by
-  // playbackSpeed, clamped to the current corrected duration. Reading state via
-  // SharedValues (not refs) keeps the worklet self-contained on the UI thread, so
-  // animation never stalls on JS-thread re-renders or progress-event bursts.
+  // Marker position = playerAnchor + (now - anchorRecvAt) * speed, so it tracks the
+  // native player precisely while interpolating smoothly between progress events.
+  // uiNowMsSV is updated each frame so JS callers can sample the same clock when
+  // setting the anchor, avoiding any need for Date.now() inside the worklet.
   useFrameCallback((frameInfo) => {
     'worklet';
+    uiNowMsSV.value = frameInfo.timestamp;
     if (playbackPausedSV.value || isScrubbingSV.value) {
       return;
     }
@@ -751,18 +762,26 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     if (total <= 0) {
       return;
     }
-    const dt = frameInfo.timeSincePreviousFrame ?? 16.67;
+    const anchorAt = playerAnchorRecvAtMsSV.value;
+    if (anchorAt <= 0) {
+      return;
+    }
+    const anchor = playerAnchorTimeMsSV.value;
     const speed = playbackSpeedSV.value;
-    const next = playbackTimeMsSV.value + dt * speed;
-    playbackTimeMsSV.value = next > total ? total : next;
+    const elapsed = frameInfo.timestamp - anchorAt;
+    const target = anchor + elapsed * speed;
+    playbackTimeMsSV.value = target > total ? total : target < 0 ? 0 : target;
   });
 
   // When playback speed changes, mirror it into the UI-thread SharedValue so the
-  // frame callback advances at the new rate. The JS-side ref is kept in sync for
-  // any code paths that still read it (e.g. drift correction).
+  // frame callback advances at the new rate. Re-anchor at the current marker
+  // position so the marker stays continuous instead of jumping forward by the
+  // accumulated `(now - anchorRecvAt) * (newSpeed - oldSpeed)` term.
   useEffect(() => {
     playbackSpeedRef.current = playbackSpeed;
     playbackSpeedSV.value = playbackSpeed; // eslint-disable-line react-hooks/exhaustive-deps
+    playerAnchorTimeMsSV.value = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
+    playerAnchorRecvAtMsSV.value = uiNowMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
   }, [playbackSpeed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onPlayerEnd = useCallback(() => {
@@ -777,8 +796,8 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   }, [updateCurrentRepForPlaybackTime]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // applySeekTimeMs: jump the marker to a new position immediately. The frame
-  // callback continues advancing from there once the player resumes (or stays
-  // pinned while paused).
+  // callback continues advancing from the new anchor once the player resumes
+  // (or stays pinned while paused).
   const applySeekTimeMs = useCallback(
     (nextTimeMs: number) => {
       const clampedTimeMs = clamp(Math.round(nextTimeMs), 0, correctedPlaybackDurationMs);
@@ -787,8 +806,12 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       setPlaybackTimeMs(clampedTimeMs);
       setSeekPositionMs(clampedTimeMs);
       updateCurrentRepForPlaybackTime(clampedTimeMs);
-      // Suppress drift correction for 300ms so the player can catch up to the
-      // new seek position without onPlayerProgress snapping the marker back.
+      // Anchor at the seek target so the frame callback interpolates from here
+      // until the next progress event arrives.
+      playerAnchorTimeMsSV.value = clampedTimeMs; // eslint-disable-line react-hooks/exhaustive-deps
+      playerAnchorRecvAtMsSV.value = uiNowMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
+      // Suppress anchor updates from stale onPlayerProgress events for 300 ms
+      // so the player can catch up without snapping the marker back.
       seekCooldownUntilRef.current = Date.now() + 300;
     },
     [correctedPlaybackDurationMs, updateCurrentRepForPlaybackTime], // eslint-disable-line react-hooks/exhaustive-deps
@@ -857,7 +880,9 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
 
   // Play/Pause toggle: flips the paused SharedValue so the frame callback starts
   // or stops advancing the marker. On pause, snapshots the current marker position
-  // back into JS state so the player and labels stay in sync.
+  // back into JS state so the player and labels stay in sync. On unpause, resets
+  // the interpolation anchor so the marker does not jump forward by the wall-clock
+  // time elapsed during the pause.
   const onPlayPauseToggle = useCallback(() => {
     const nextPaused = !playbackPausedRef.current;
     playbackPausedRef.current = nextPaused;
@@ -870,6 +895,9 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       setPlaybackTimeMs(currentMs);
       setSeekPositionMs(currentMs);
       updateCurrentRepForPlaybackTime(currentMs);
+    } else {
+      playerAnchorTimeMsSV.value = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
+      playerAnchorRecvAtMsSV.value = uiNowMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
     }
   }, [updateCurrentRepForPlaybackTime]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1047,6 +1075,8 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     chartVisibleMaxSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
     chartVisibleMinRef.current = 0;
     chartVisibleMaxRef.current = 0;
+    playerAnchorTimeMsSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    playerAnchorRecvAtMsSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
     setChartVisibleForLines(null);
     playbackDurationRef.current = 0;
     correctedPlaybackDurationMsRef.current = 0;
@@ -1137,14 +1167,26 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
               marker={{enabled: false}}
               viewPortOffsets={{
                 left: Math.round(SPEED_CHART_LEFT_PADDING * PixelRatio.get()),
-                top: Math.round(4 * PixelRatio.get()),
+                top: Math.round(SPEED_CHART_TOP_PADDING * PixelRatio.get()),
                 right: Math.round(SPEED_CHART_RIGHT_PADDING * PixelRatio.get()),
-                bottom: Math.round(4 * PixelRatio.get()),
+                bottom: Math.round(SPEED_CHART_BOTTOM_PADDING * PixelRatio.get()),
               }}
               xAxis={{
-                enabled: false,
-                drawGridLines: false,
-                drawAxisLine: false,
+                position: 'BOTTOM',
+                drawGridLines: true,
+                drawAxisLine: true,
+                drawLabels: true,
+                textColor: speedChartColors.text,
+                gridColor: speedChartColors.grid,
+                axisLineColor: speedChartColors.axis,
+                // x values are video time in ms. SimpleDateFormat pattern "mm:ss"
+                // renders minutes-of-hour and seconds-of-minute relative to the
+                // device's local timezone; for typical sub-hour set durations the
+                // label values are correct in any whole-hour timezone.
+                valueFormatter: 'date',
+                valueFormatterPattern: 'mm:ss',
+                granularity: 1000,
+                granularityEnabled: true,
                 axisMinimum: 0,
                 axisMaximum: correctedPlaybackDurationMs > 0 ? correctedPlaybackDurationMs : 1,
               }}
