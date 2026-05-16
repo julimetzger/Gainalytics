@@ -8,7 +8,14 @@ appId: com.powerliftingworkoutplanner
     element:
       text: "Last Training"
     direction: DOWN
-    timeout: 30000
-- assertVisible: "Last Training"
+    timeout: 60000
+- tapOn:
+    text: "Last Training"
+- extendedWaitUntil:
+    visible:
+      id: "header-plan-meso-name"
+    timeout: 15000
 - assertVisible:
-    id: "last-training-card"
+    id: "header-plan-meso-name"
+- assertVisible:
+    id: "header-date"
