@@ -7,10 +7,10 @@ import WorkoutViewTile from '../../components/Workout/show/WorkoutView';
 import {getDateStringFromDate} from '../../utils/DateHelper';
 import {useDateWorkoutMapByIds} from '../../redux/Workout/use/useDateWorkoutMapByIds';
 import {useWorkoutsByFilters} from '../../redux/Workout/use/useWorkoutsByFilters';
-import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 import {Muscles} from '../../models/Muscles';
+import {Exercise} from '../../models/entities/Exercise';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
-import HistoryFiltersSection from '../../components/analyse/HistoryFiltersSection';
+import TrainingElementPicker from '../../components/picker/elements/TrainingElementPicker';
 
 const PAGE_SIZE = 20;
 
@@ -34,67 +34,45 @@ export const buildHistoryRows = (dateWorkoutMap: Map<Date, number[]>): HistoryRo
 };
 
 const EMPTY_MUSCLES: Muscles[] = [];
-const EMPTY_EXERCISE_IDS: number[] = [];
+const EMPTY_EXERCISES: Exercise[] = [];
 
 const History = () => {
   const theme = useTheme();
   const route = useRoute<RouteProp<RootStackParamList, 'History'>>();
   // Dashboard drill-down (DashboardTab.handleExercisePress) navigates here with
-  // an `exercise` param; pre-select that exercise's chip so the list is filtered
-  // to that exercise on mount, while still allowing further toggling.
+  // an `exercise` param; pre-select that exercise so the list is filtered on mount.
   const routeExercise = route.params?.exercise;
 
   const [selectedMuscles, setSelectedMuscles] = useState<Muscles[]>(EMPTY_MUSCLES);
-  const [selectedExerciseIds, setSelectedExerciseIds] = useState<number[]>(() =>
-    routeExercise?.id !== undefined ? [routeExercise.id] : EMPTY_EXERCISE_IDS,
+  const [selectedExercises, setSelectedExercises] = useState<Exercise[]>(() =>
+    routeExercise?.id !== undefined ? [routeExercise as Exercise] : EMPTY_EXERCISES,
   );
 
   // Drawer screens stay mounted, so the useState init above only runs once.
   // Re-sync when Dashboard re-navigates here with a different exercise param.
-  // Treat undefined param as "keep current chips" so Drawer entry doesn't clear filters.
+  // Treat undefined param as "keep current selection" so Drawer entry doesn't clear filters.
   useEffect(() => {
     if (routeExercise?.id !== undefined) {
-      setSelectedExerciseIds([routeExercise.id]);
+      setSelectedExercises([routeExercise as Exercise]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeExercise?.id]);
 
-  const [filterExpanded, setFilterExpanded] = useState(false);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
-  const allIds = useWorkoutsByFilters(selectedMuscles, selectedExerciseIds);
-  const allExercises = useAlleExercises();
-
-  const sortedExercises = useMemo(
-    () => [...allExercises].sort((a, b) => a.name.localeCompare(b.name)),
-    [allExercises],
+  const selectedExerciseIds = useMemo(
+    () => selectedExercises.map((e) => e.id!),
+    [selectedExercises],
   );
+
+  const allIds = useWorkoutsByFilters(selectedMuscles, selectedExerciseIds);
 
   // Reset pagination to the first page whenever filters change.
   useEffect(() => {
     setPageSize(PAGE_SIZE);
-  }, [selectedMuscles, selectedExerciseIds]);
+  }, [selectedMuscles, selectedExercises]);
 
-  const totalActiveFilters = selectedMuscles.length + selectedExerciseIds.length;
-
-  const filterSummary =
-    totalActiveFilters > 0
-      ? `Filters · ${totalActiveFilters}`
-      : 'No filters active';
-
-  const onToggleMuscle = useCallback((muscle: Muscles) => {
-    setSelectedMuscles((prev) =>
-      prev.includes(muscle) ? prev.filter((m) => m !== muscle) : [...prev, muscle],
-    );
-  }, []);
-
-  const onToggleExercise = useCallback((exerciseId: number) => {
-    setSelectedExerciseIds((prev) =>
-      prev.includes(exerciseId) ? prev.filter((id) => id !== exerciseId) : [...prev, exerciseId],
-    );
-  }, []);
-
-  const onToggleExpanded = useCallback(() => setFilterExpanded((prev) => !prev), []);
+  const totalActiveFilters = selectedMuscles.length + selectedExercises.length;
 
   // Client-side pagination: only the first `pageSize` ids are grouped and
   // rendered. Scrolling near the end grows the window by one PAGE_SIZE batch.
@@ -131,15 +109,11 @@ const History = () => {
 
   return (
     <View testID="history-list-container" style={styles.container}>
-      <HistoryFiltersSection
-        expanded={filterExpanded}
-        summary={filterSummary}
-        selectedMuscles={selectedMuscles}
-        selectedExerciseIds={selectedExerciseIds}
-        exercises={sortedExercises}
-        onToggleExpanded={onToggleExpanded}
-        onToggleMuscle={onToggleMuscle}
-        onToggleExercise={onToggleExercise}
+      <TrainingElementPicker
+        exercise={selectedExercises}
+        setExercise={setSelectedExercises}
+        muscle={selectedMuscles}
+        setMuscle={setSelectedMuscles}
       />
       {allIds.length === 0 ? (
         <View testID="history-filters-empty" style={styles.filtersEmpty}>

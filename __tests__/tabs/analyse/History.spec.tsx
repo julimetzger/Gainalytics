@@ -8,10 +8,6 @@ jest.mock('../../../app/redux/Workout/use/useWorkoutsByFilters', () => ({
   useWorkoutsByFilters: jest.fn(() => []),
 }));
 
-jest.mock('../../../app/redux/Exercises/use/useAllExercises', () => ({
-  useAlleExercises: jest.fn(() => []),
-}));
-
 // History reads route.params?.exercise to decide the initial filter selection —
 // mock useRoute so both paths are testable.
 jest.mock('@react-navigation/native', () => ({
@@ -75,18 +71,13 @@ jest.mock('../../../app/components/Workout/show/WorkoutView', () => {
   return React.memo(Mock);
 });
 
-jest.mock('../../../app/components/analyse/HistoryFiltersSection', () => {
+jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () => {
   const React = require('react');
-  const {View, Text, TouchableOpacity} = require('react-native');
+  const {View} = require('react-native');
   return {
     __esModule: true,
-    default: ({expanded, summary, onToggleExpanded}: any) => (
-      <View testID="history-filters-section">
-        <TouchableOpacity testID="history-filters-toggle" onPress={onToggleExpanded}>
-          <Text testID="history-filters-summary">{summary}</Text>
-        </TouchableOpacity>
-        {expanded && <Text testID="history-filters-expanded">expanded</Text>}
-      </View>
+    default: ({exercise, setExercise, muscle, setMuscle}: any) => (
+      <View testID="training-element-picker" />
     ),
   };
 });
@@ -235,10 +226,10 @@ describe('History tab', () => {
     expect(queryByText('Noch keine Trainings vorhanden.')).toBeNull();
   });
 
-  it('renders the filter section in the list container', () => {
+  it('renders TrainingElementPicker in the list container', () => {
     mockUseWorkoutsByFilters.mockReturnValue([1, 2]);
     const {getByTestId} = render(<History />);
-    expect(getByTestId('history-filters-section')).toBeTruthy();
+    expect(getByTestId('training-element-picker')).toBeTruthy();
   });
 
   it('shows no-match message when filters are active but no workouts match', () => {
