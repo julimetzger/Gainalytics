@@ -75,7 +75,7 @@ jest.mock('../../../app/components/Workout/show/WorkoutView', () => {
   return React.memo(Mock);
 });
 
-jest.mock('../../../app/components/Analyse/HistoryFiltersSection', () => {
+jest.mock('../../../app/components/analyse/HistoryFiltersSection', () => {
   const React = require('react');
   const {View, Text, TouchableOpacity} = require('react-native');
   return {
@@ -272,5 +272,43 @@ describe('History tab — Dashboard exercise drill-down', () => {
     const {getAllByTestId} = render(<History />);
     const rows = getAllByTestId('workout-row').map((r) => r.props.children);
     expect(rows).toEqual([12, 11]);
+  });
+
+  it('re-syncs chip selection when Dashboard re-navigates with a different exercise param', () => {
+    // Mount with exercise A (id: 7)
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 7, name: 'Bench Press'}}} as any);
+    mockUseWorkoutsByFilters.mockReturnValue([11, 10]);
+
+    const {rerender} = render(<History />);
+    expect(mockUseWorkoutsByFilters).toHaveBeenCalledWith([], [7]);
+
+    // Simulate Dashboard re-navigating with exercise B (id: 42)
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 42, name: 'Squat'}}} as any);
+
+    act(() => {
+      rerender(<History />);
+    });
+
+    // Must now filter by exercise B, NOT exercise A
+    expect(mockUseWorkoutsByFilters).toHaveBeenLastCalledWith([], [42]);
+  });
+
+  it('keeps current chip selection when re-navigating without an exercise param', () => {
+    // Mount with exercise A (id: 7) — user has a chip selected
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 7, name: 'Bench Press'}}} as any);
+    mockUseWorkoutsByFilters.mockReturnValue([11, 10]);
+
+    const {rerender} = render(<History />);
+    expect(mockUseWorkoutsByFilters).toHaveBeenCalledWith([], [7]);
+
+    // Simulate arriving via Drawer (no exercise param) — chips must not be cleared
+    mockUseRoute.mockReturnValue({params: undefined} as any);
+
+    act(() => {
+      rerender(<History />);
+    });
+
+    // Chip selection must still be [7] (not cleared)
+    expect(mockUseWorkoutsByFilters).toHaveBeenLastCalledWith([], [7]);
   });
 });

@@ -48,6 +48,17 @@ const History = () => {
   const [selectedExerciseIds, setSelectedExerciseIds] = useState<number[]>(() =>
     routeExercise?.id !== undefined ? [routeExercise.id] : EMPTY_EXERCISE_IDS,
   );
+
+  // Drawer screens stay mounted, so the useState init above only runs once.
+  // Re-sync when Dashboard re-navigates here with a different exercise param.
+  // Treat undefined param as "keep current chips" so Drawer entry doesn't clear filters.
+  useEffect(() => {
+    if (routeExercise?.id !== undefined) {
+      setSelectedExerciseIds([routeExercise.id]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeExercise?.id]);
+
   const [filterExpanded, setFilterExpanded] = useState(false);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
