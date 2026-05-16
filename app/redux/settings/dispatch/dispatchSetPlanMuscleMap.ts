@@ -31,3 +31,13 @@ export const dispatchSetPlanMuscleMapCompare = () => {
       compare,
     } as Action & {compare: MuscleMapCompare});
 };
+
+export const dispatchSetAnalyseMuscleMapCompare = () => {
+  const dispatch = useDispatch();
+
+  return (compare: MuscleMapCompare) =>
+    dispatch({
+      type: 'SET_ANALYSE_MUSCLE_MAP_COMPARE',
+      compare,
+    } as Action & {compare: MuscleMapCompare});
+};

@@ -22,4 +22,38 @@ describe('settingsReducer', () => {
       videoAnalysisFiltersExpanded: true,
     });
   });
+
+  describe('muscle map compare persistence (GH-300)', () => {
+    it('stores the Plan-View compare selection without touching the Analyse selection', () => {
+      const initial = {
+        mode: 'dark',
+        muscleMapCompareSelectionPlan: 'current_total_plan',
+        muscleMapCompareSelectionAnalyse: 'last_training_done',
+      } as AppSettings;
+
+      const next = settingsReducer(initial, {type: 'SET_PLAN_MUSCLE_MAP_COMPARE', compare: 'last_training_plan'});
+
+      expect(next.muscleMapCompareSelectionPlan).toBe('last_training_plan');
+      expect(next.muscleMapCompareSelectionAnalyse).toBe('last_training_done');
+    });
+
+    it('stores the Analyse-View compare selection without touching the Plan selection', () => {
+      const initial = {
+        mode: 'dark',
+        muscleMapCompareSelectionPlan: 'current_total_plan',
+        muscleMapCompareSelectionAnalyse: 'last_training_done',
+      } as AppSettings;
+
+      const next = settingsReducer(initial, {type: 'SET_ANALYSE_MUSCLE_MAP_COMPARE', compare: 'last_training_plan'});
+
+      expect(next.muscleMapCompareSelectionAnalyse).toBe('last_training_plan');
+      expect(next.muscleMapCompareSelectionPlan).toBe('current_total_plan');
+    });
+
+    it('mirrors Plan-View selection into the legacy plan.muscleMap.compare slot for compat', () => {
+      const initial = {mode: 'dark'} as AppSettings;
+      const next = settingsReducer(initial, {type: 'SET_PLAN_MUSCLE_MAP_COMPARE', compare: 'last_training_plan'});
+      expect(next.plan?.muscleMap?.compare).toBe('last_training_plan');
+    });
+  });
 });

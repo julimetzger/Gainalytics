@@ -1,4 +1,4 @@
-import {computeMuscleInvolvement} from '../use/useMuscleInvolvement';
+import {computeMuscleInvolvement, findLastMatchingTraining} from '../use/useMuscleInvolvement';
 import {GlobalState} from '../../rootReducer';
 import {Muscles} from '../../../models/Muscles';
 import {TrainingsState} from '../../../models/TrainingsState';
@@ -204,5 +204,156 @@ describe('computeMuscleInvolvement', () => {
       const chest = data.rows.find((r) => r.muscleGroupId === Muscles.CHEST);
       expect(chest?.reference).toBeCloseTo(4, 5); // 4 sets, NOT 4+3
     });
+  });
+});
+
+// GH-300: per-training compare modes (last_training_plan / last_training_done).
+// Uses a two-meso fixture so we can prove the same-meso preference and previous-meso fallback.
+const MESOS = [
+  {id: 1, name: 'Meso 1', order: 1, startMicro: 1},
+  {id: 2, name: 'Meso 2', order: 2, startMicro: 3},
+];
+
+const makeSets = (n: number, weight: number) => Array.from({length: n}, (_, i) => ({index: i + 1, reps: 5, weight, rir: 0}));
+
+const fixtureMultiMeso = () =>
+  makeState({
+    exercises: {byId: {1: exerciseBench}, allIds: [1]} as any,
+    workouts: {
+      byId: {
+        // planned bench, one workout per training
+        1001: {id: 1001, exerciseId: 1, sets: makeSets(3, 100)}, // planned m1 (3 sets)
+        1002: {id: 1002, exerciseId: 1, sets: makeSets(4, 110)}, // planned m2 (4 sets)
+        1003: {id: 1003, exerciseId: 1, sets: makeSets(2, 120)}, // planned m3 (2 sets)
+        1004: {id: 1004, exerciseId: 1, sets: makeSets(1, 130)}, // planned m4 — current (1 set)
+        // done bench (only m1 and m2 actually completed)
+        2001: {id: 2001, exerciseId: 1, sets: makeSets(3, 95)},
+        2002: {id: 2002, exerciseId: 1, sets: makeSets(4, 105)},
+      },
+      allIds: [1001, 1002, 1003, 1004, 2001, 2002],
+      byExerciseId: {},
+      plannedWorkouts: [],
+    } as any,
+    trainings: {
+      byId: {
+        301: {id: 301, exercises: [1], plannedWorkouts: {1: 1001}, doneWorkoutIds: {1: 2001}, state: TrainingsState.FINISHED, end: new Date('2026-01-08')},
+        302: {id: 302, exercises: [1], plannedWorkouts: {1: 1002}, doneWorkoutIds: {1: 2002}, state: TrainingsState.FINISHED, end: new Date('2026-01-15')},
+        303: {id: 303, exercises: [1], plannedWorkouts: {1: 1003}, doneWorkoutIds: {}, state: TrainingsState.PLANNED},
+        304: {id: 304, exercises: [1], plannedWorkouts: {1: 1004}, doneWorkoutIds: {}, state: TrainingsState.PLANNED},
+      },
+      allIds: [301, 302, 303, 304],
+    },
+    trainingsPlan: {
+      byId: {
+        1: {
+          id: 1,
+          name: 'Test Plan',
+          trainings: {'1,0': 301, '2,0': 302, '3,0': 303, '4,0': 304},
+          trainingNames: {0: 'Push'},
+          mesos: MESOS,
+        },
+      },
+      allIds: [1],
+    } as any,
+  });
+
+describe('findLastMatchingTraining', () => {
+  it('prefers a same-meso match over a previous-meso match', () => {
+    const state = fixtureMultiMeso();
+    const plan = state.trainingsPlan.byId[1];
+    const match = findLastMatchingTraining(state, plan, 0, 4, false);
+    expect(match?.micro).toBe(3);
+    expect(match?.training.id).toBe(303);
+  });
+
+  it('falls back to the previous meso when no same-meso match exists', () => {
+    const state = fixtureMultiMeso();
+    const plan = state.trainingsPlan.byId[1];
+    // From micro 3 (start of meso 2) there is no earlier same-meso training; should jump to meso 1 (last entry: m2).
+    const match = findLastMatchingTraining(state, plan, 0, 3, false);
+    expect(match?.micro).toBe(2);
+    expect(match?.training.id).toBe(302);
+  });
+
+  it('skips trainings without end when requireDone=true (last_training_done filter)', () => {
+    const state = fixtureMultiMeso();
+    const plan = state.trainingsPlan.byId[1];
+    // From micro 4, same-meso candidate is m3 (PLANNED, no end). Done filter forces fallback to meso 1 (m2 — last done).
+    const match = findLastMatchingTraining(state, plan, 0, 4, true);
+    expect(match?.micro).toBe(2);
+    expect(match?.training.id).toBe(302);
+  });
+
+  it('returns undefined when no earlier matching training exists in either meso', () => {
+    const state = fixtureMultiMeso();
+    const plan = state.trainingsPlan.byId[1];
+    const match = findLastMatchingTraining(state, plan, 0, 1, false);
+    expect(match).toBeUndefined();
+  });
+
+  it('returns undefined for last_training_done when no training has an end date', () => {
+    const state = fixtureMultiMeso();
+    const plan = state.trainingsPlan.byId[1];
+    state.trainings.byId[301] = {...state.trainings.byId[301], end: undefined};
+    state.trainings.byId[302] = {...state.trainings.byId[302], end: undefined};
+    const match = findLastMatchingTraining(state, plan, 0, 4, true);
+    expect(match).toBeUndefined();
+  });
+});
+
+describe('computeMuscleInvolvement — last_training_plan / last_training_done (GH-300)', () => {
+  it('uses planned data of the same-meso last match for last_training_plan', () => {
+    const state = fixtureMultiMeso();
+    const data = computeMuscleInvolvement(state, {
+      trainingsPlanId: 1,
+      micro: 4,
+      trainingInMicro: 0,
+      metric: 'sets',
+      compare: 'last_training_plan',
+      view: 'plan',
+    });
+    expect(data.effectiveCompare).toBe('last_training_plan');
+    const chest = data.rows.find((r) => r.muscleGroupId === Muscles.CHEST);
+    // today = m4 planned (1 set bench); reference = m3 planned (2 sets bench)
+    expect(chest?.today).toBeCloseTo(1, 5);
+    expect(chest?.reference).toBeCloseTo(2, 5);
+  });
+
+  it('uses done data of the last matching done training for last_training_done (cross-meso fallback)', () => {
+    const state = fixtureMultiMeso();
+    // Give the current (m4) training done sets so today is non-empty in analyse view.
+    state.trainings.byId[304] = {
+      ...state.trainings.byId[304],
+      doneWorkoutIds: {1: 2002},
+      state: TrainingsState.FINISHED,
+      end: new Date('2026-01-22'),
+    };
+    const data = computeMuscleInvolvement(state, {
+      trainingsPlanId: 1,
+      micro: 4,
+      trainingInMicro: 0,
+      metric: 'sets',
+      compare: 'last_training_done',
+      view: 'analyse',
+    });
+    expect(data.effectiveCompare).toBe('last_training_done');
+    const chest = data.rows.find((r) => r.muscleGroupId === Muscles.CHEST);
+    // today = m4 done (4 sets); reference = m2 done (4 sets) — m3 has no end so it is skipped
+    expect(chest?.today).toBeCloseTo(4, 5);
+    expect(chest?.reference).toBeCloseTo(4, 5);
+  });
+
+  it('marks reference unavailable for last_training_plan when no earlier training exists', () => {
+    const state = fixtureMultiMeso();
+    const data = computeMuscleInvolvement(state, {
+      trainingsPlanId: 1,
+      micro: 1,
+      trainingInMicro: 0,
+      metric: 'sets',
+      compare: 'last_training_plan',
+      view: 'plan',
+    });
+    expect(data.referenceUnavailable).toBe(true);
+    expect(data.effectiveCompare).toBe('none');
   });
 });
