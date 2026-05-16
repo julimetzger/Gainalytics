@@ -10,7 +10,7 @@ import {useWorkoutsByFilters} from '../../redux/Workout/use/useWorkoutsByFilters
 import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 import {Muscles} from '../../models/Muscles';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
-import HistoryFiltersSection from '../../components/Analyse/HistoryFiltersSection';
+import HistoryFiltersSection from '../../components/analyse/HistoryFiltersSection';
 
 const PAGE_SIZE = 20;
 
