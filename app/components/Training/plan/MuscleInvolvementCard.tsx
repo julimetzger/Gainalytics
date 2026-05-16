@@ -118,8 +118,11 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 
   }, [micro, previousMicroAvailable, lastPlannedMicro, lastDoneMicro, trainingName]);
 
   // If the persisted compare is 'last_training_done' but no done match exists in the
-  // current context, fall back to a sensible alternative so the card still renders.
-  const effectiveSelectedCompare: MuscleMapCompare = compare === 'last_training_done' && lastDoneMicro === undefined ? fallbackCompare : compare;
+  // current context, fall back to 'current_total_plan' which is always in compareOptions.
+  // Using fallbackCompare here was wrong: in analyse view fallbackCompare itself is
+  // 'last_training_done', which is NOT added to compareOptions when lastDoneMicro is
+  // undefined — causing the DropdownChip to receive a value outside its options list.
+  const effectiveSelectedCompare: MuscleMapCompare = compare === 'last_training_done' && lastDoneMicro === undefined ? 'current_total_plan' : compare;
 
   const data = useMuscleInvolvement({trainingsPlanId, micro, trainingInMicro, metric, compare: effectiveSelectedCompare, view});
 
