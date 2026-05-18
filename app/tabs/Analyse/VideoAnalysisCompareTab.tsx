@@ -6,7 +6,7 @@ import {RootStackParamList} from '../../routing/AnalyseRouter';
 import {BarTrackingResult, VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
 import {readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
-import {attachVideoRotationToResult, migrateBarTrackingResultIfNeeded} from '../../utils/videoAnalysisNative';
+import {migrateBarTrackingResultIfNeeded} from '../../utils/videoAnalysisNative';
 import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from '../../components/video/VideoAnalysisPlayerView';
 import {computeRepPhaseTimesMs} from '../../components/video/VideoAnalysisPlaybackOverlayCard';
 import VelocityCompareChart from '../../components/video/VelocityCompareChart';
@@ -105,9 +105,8 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
       }
       const migratedPath = await migrateBarTrackingResultIfNeeded(analysis1.resultPath);
       const loaded = await readBarTrackingResultFromFile(migratedPath ?? analysis1.resultPath);
-      const withRotation = await attachVideoRotationToResult(loaded, analysis1.localVideoPath);
       if (active) {
-        setResult1(withRotation);
+        setResult1(loaded);
       }
     };
     load();
@@ -128,9 +127,8 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
       }
       const migratedPath = await migrateBarTrackingResultIfNeeded(analysis2.resultPath);
       const loaded = await readBarTrackingResultFromFile(migratedPath ?? analysis2.resultPath);
-      const withRotation = await attachVideoRotationToResult(loaded, analysis2.localVideoPath);
       if (active) {
-        setResult2(withRotation);
+        setResult2(loaded);
       }
     };
     load();
@@ -195,7 +193,7 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
   }, []);
 
   const repResults1 = result1 ? (analysis1?.setResult?.repResults ?? result1.repSegments.map((seg, i) => {
-    const phaseTimes = computeRepPhaseTimesMs(result1.barPathSeries, seg.startMs, seg.turnaroundMs, seg.endMs, result1.analysisMeta);
+    const phaseTimes = computeRepPhaseTimesMs(result1.barPathSeries, seg.startMs, seg.turnaroundMs, seg.endMs);
     return {
       repIndex: i,
       startMs: seg.startMs,
@@ -210,7 +208,7 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
   })) : [];
 
   const repResults2 = result2 ? (analysis2?.setResult?.repResults ?? result2.repSegments.map((seg, i) => {
-    const phaseTimes = computeRepPhaseTimesMs(result2.barPathSeries, seg.startMs, seg.turnaroundMs, seg.endMs, result2.analysisMeta);
+    const phaseTimes = computeRepPhaseTimesMs(result2.barPathSeries, seg.startMs, seg.turnaroundMs, seg.endMs);
     return {
       repIndex: i,
       startMs: seg.startMs,

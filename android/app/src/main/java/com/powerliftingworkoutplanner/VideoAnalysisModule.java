@@ -153,11 +153,6 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void getVideoRotationDegrees(String localVideoPath, Promise promise) {
-        promise.resolve((double) extractVideoRotationDegrees(localVideoPath));
-    }
-
-    @ReactMethod
     public void prepareSquatVideoSeed(String localVideoPath, int analysisId, Promise promise) {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         AnalysisPerformanceMetrics performanceMetrics = new AnalysisPerformanceMetrics();
@@ -313,7 +308,6 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             analysisMeta.put("analyzedFps", roundTo3(analyzedFps));
             analysisMeta.put("trackerVersion", TRACKER_VERSION);
             analysisMeta.put("repDetectionVersion", VideoAnalysisRepDetection.REP_DETECTION_VERSION);
-            analysisMeta.put("videoRotationDegrees", extractVideoRotationDegrees(localVideoPath));
             analysisMeta.put("frameCount", trackingSeries.frameCount);
             analysisMeta.put("averageConfidence", roundTo3(trackingSeries.averageConfidence));
             analysisMeta.put("trackingFrameWidthPx", trackingSeries.frameWidthPx);

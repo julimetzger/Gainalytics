@@ -4,7 +4,7 @@ import Animated, {useAnimatedStyle, useDerivedValue, useFrameCallback, useShared
 import {Gesture, GestureDetector, GestureHandlerRootView} from 'react-native-gesture-handler';
 import {IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
-import {AnalysisMeta, BarPathPoint, BarTrackingResult, RepSegment, VideoAnalysisRepResult, VideoAnalysisSetResult} from '../../models/entities/VideoAnalysis';
+import {BarPathPoint, BarTrackingResult, RepSegment, VideoAnalysisRepResult, VideoAnalysisSetResult} from '../../models/entities/VideoAnalysis';
 import {dispatchSaveVideoAnalysisSetResult} from '../../redux/VideoAnalysis/dispatch/dispatchSaveVideoAnalysisSetResult';
 import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
 import {vlToRirEstimate} from '../../utils/velocityLossRir';
@@ -295,27 +295,17 @@ const findNearestBarPathPointIndex = (barPathSeries: BarPathPoint[], timeMs: num
   return nearestIndex;
 };
 
-// GH-307: clips with rotation=90 metadata are rotated by the playback renderer
-// in the opposite direction from the JS-visible y-axis of the bar-path samples,
-// so for that subset of recordings the screen-space "y decreased" heuristic
-// returns the wrong phase order. Flip when both signals are present (rotation
-// tag = 90° AND the tracking frame was decoded into portrait orientation).
-export const shouldInvertPhaseYAxis = (analysisMeta?: AnalysisMeta): boolean => {
-  const rotation = analysisMeta?.videoRotationDegrees ?? 0;
-  const trackingWidth = analysisMeta?.trackingFrameWidthPx ?? 0;
-  const trackingHeight = analysisMeta?.trackingFrameHeightPx ?? 0;
-  return rotation === 90 && trackingWidth > 0 && trackingHeight > trackingWidth;
-};
-
 // Squat/Bench/OHP follow the eccentric-first pattern (TOP → BOTTOM → TOP),
 // Deadlift follows the concentric-first pattern (BOTTOM → TOP → BOTTOM).
 // The bar's vertical motion between startMs and turnaroundMs distinguishes them:
-// upward (Y decreases in screen coords) means concentric-first.
+// the bar tracker emits Y in tracking-frame coordinates where larger Y = lower
+// position (bar on floor) and smaller Y = higher position (bar at lockout).
+// A deadlift therefore satisfies startY > turnY (start on floor, turn at top),
+// while a squat satisfies startY < turnY (start at top, turn at bottom).
 export const isConcentricFirstRep = (
   barPathSeries: BarPathPoint[],
   startMs: number,
   turnaroundMs: number,
-  analysisMeta?: AnalysisMeta,
 ): boolean => {
   if (barPathSeries.length === 0 || turnaroundMs <= startMs) {
     return false;
@@ -325,8 +315,7 @@ export const isConcentricFirstRep = (
   if (startIdx === undefined || turnIdx === undefined) {
     return false;
   }
-  const screenYAxisConcentricFirst = barPathSeries[startIdx].y > barPathSeries[turnIdx].y;
-  return shouldInvertPhaseYAxis(analysisMeta) ? !screenYAxisConcentricFirst : screenYAxisConcentricFirst;
+  return barPathSeries[startIdx].y > barPathSeries[turnIdx].y;
 };
 
 export interface RepPhaseBoundaries {
@@ -342,9 +331,8 @@ export const getRepPhaseBoundaries = (
   startMs: number,
   turnaroundMs: number,
   endMs: number,
-  analysisMeta?: AnalysisMeta,
 ): RepPhaseBoundaries => {
-  const concentricFirst = isConcentricFirstRep(barPathSeries, startMs, turnaroundMs, analysisMeta);
+  const concentricFirst = isConcentricFirstRep(barPathSeries, startMs, turnaroundMs);
   if (concentricFirst) {
     return {
       concentricStartMs: startMs,
@@ -368,9 +356,8 @@ export const computeRepPhaseTimesMs = (
   startMs: number,
   turnaroundMs: number,
   endMs: number,
-  analysisMeta?: AnalysisMeta,
 ): {eccentricTimeMs: number; concentricTimeMs: number} => {
-  const b = getRepPhaseBoundaries(barPathSeries, startMs, turnaroundMs, endMs, analysisMeta);
+  const b = getRepPhaseBoundaries(barPathSeries, startMs, turnaroundMs, endMs);
   return {
     concentricTimeMs: Math.max(0, b.concentricEndMs - b.concentricStartMs),
     eccentricTimeMs: Math.max(0, b.eccentricEndMs - b.eccentricStartMs),
@@ -514,10 +501,10 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   // pull the start/turnaround samples toward the rep's mean and obscure the
   // physical up/down direction, while phase-time math is naturally robust to it.
   const firstRepPhases = firstRepSegment
-    ? getRepPhaseBoundaries(result.barPathSeries, firstRepSegment.startMs, firstRepTurnaroundMs, firstRepEndMs, result.analysisMeta)
+    ? getRepPhaseBoundaries(result.barPathSeries, firstRepSegment.startMs, firstRepTurnaroundMs, firstRepEndMs)
     : null;
   const lastRepPhases = lastRepSegment
-    ? getRepPhaseBoundaries(result.barPathSeries, lastRepSegment.startMs, lastRepTurnaroundMs, lastRepEndMs, result.analysisMeta)
+    ? getRepPhaseBoundaries(result.barPathSeries, lastRepSegment.startMs, lastRepTurnaroundMs, lastRepEndMs)
     : null;
   const firstRepConcentricTimeMs = firstRepPhases ? Math.max(0, firstRepPhases.concentricEndMs - firstRepPhases.concentricStartMs) : 0;
   const lastRepConcentricTimeMs = lastRepPhases ? Math.max(0, lastRepPhases.concentricEndMs - lastRepPhases.concentricStartMs) : 0;
@@ -965,7 +952,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       const turnaroundMs = override?.turnaroundMs !== null && override?.turnaroundMs !== undefined ? override.turnaroundMs : seg.turnaroundMs;
       const endMs = override?.endMs !== null && override?.endMs !== undefined ? override.endMs : seg.endMs;
       const totalTimeMs = endMs - startMs;
-      const phases = getRepPhaseBoundaries(result.barPathSeries, startMs, turnaroundMs, endMs, result.analysisMeta);
+      const phases = getRepPhaseBoundaries(result.barPathSeries, startMs, turnaroundMs, endMs);
       const concentricTimeMs = Math.max(0, phases.concentricEndMs - phases.concentricStartMs);
       const eccentricTimeMs = Math.max(0, phases.eccentricEndMs - phases.eccentricStartMs);
       const metrics = calcIntervalMetrics(phases.concentricStartMs, phases.concentricEndMs);
@@ -1406,7 +1393,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             const saved = savedSetResult?.repResults?.[idx];
             const seg = repSegments[idx];
             const segPhaseTimes = seg
-              ? computeRepPhaseTimesMs(result.barPathSeries, seg.startMs, seg.turnaroundMs, seg.endMs, result.analysisMeta)
+              ? computeRepPhaseTimesMs(result.barPathSeries, seg.startMs, seg.turnaroundMs, seg.endMs)
               : null;
             const concTimeMs = saved ? saved.concentricTimeMs
               : isFirstRep && firstRepSegment ? firstRepConcentricTimeMs

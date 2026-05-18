@@ -24,31 +24,31 @@
     "resultPath": "/data/user/0/com.powerliftingworkoutplanner/files/video-analysis/results/analysis-2.json"
   },
   "groundTruth": {
-    "note": "User-provided ground truth: this recording is uniformly inverted in the current app; every phase currently labeled concentric must be labeled eccentric and vice versa.",
+    "note": "User-confirmed ground truth (round 5): for this deadlift recording every rep is concentric-first. The bar starts on the floor (high tracking-Y), rises to lockout at the turnaround (low tracking-Y), then drops back to the floor. The user verified this on R5CN30HWZFN in the playback overlay: the FIRST peak in each rep must be labeled CONCENTRIC, and the concentric duration must exceed the eccentric duration.",
     "expectedConcentricFirstByRep": [
       {
         "repIndex": 0,
-        "concentricFirst": false
+        "concentricFirst": true
       },
       {
         "repIndex": 1,
-        "concentricFirst": false
+        "concentricFirst": true
       },
       {
         "repIndex": 2,
-        "concentricFirst": false
+        "concentricFirst": true
       },
       {
         "repIndex": 3,
-        "concentricFirst": false
+        "concentricFirst": true
       },
       {
         "repIndex": 4,
-        "concentricFirst": false
+        "concentricFirst": true
       },
       {
         "repIndex": 5,
-        "concentricFirst": false
+        "concentricFirst": true
       }
     ]
   },

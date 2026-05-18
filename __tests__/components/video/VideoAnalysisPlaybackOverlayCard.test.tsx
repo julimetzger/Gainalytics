@@ -1013,22 +1013,16 @@ describe('isConcentricFirstRep / getRepPhaseBoundaries / computeRepPhaseTimesMs 
   });
 });
 
-describe('getRepPhaseBoundaries – rotated-90 portrait clips (GH-307)', () => {
+describe('getRepPhaseBoundaries – real deadlift recording from R5CN30HWZFN (GH-307)', () => {
   const gh307Fixture = require('../../fixtures/gh307/analysis-2-2026-05-18T09-25-32-066Z.json');
 
-  const fixtureMetaWithRotation = {
-    ...gh307Fixture.barTrackingResult.analysisMeta,
-    videoRotationDegrees: gh307Fixture.source.videoRotationDegrees,
-  };
-
-  it('returns ground-truth concentricFirst per rep for the rotated deadlift recording', () => {
+  it('labels every rep as concentric-first matching the user-confirmed ground truth', () => {
     const actual = gh307Fixture.barTrackingResult.repSegments.map((segment: {repIndex: number; startMs: number; turnaroundMs: number; endMs: number}) => {
       const phases = getRepPhaseBoundaries(
         gh307Fixture.barTrackingResult.barPathSeries,
         segment.startMs,
         segment.turnaroundMs,
         segment.endMs,
-        fixtureMetaWithRotation,
       );
       return {repIndex: segment.repIndex, concentricFirst: phases.concentricFirst};
     });
@@ -1036,30 +1030,21 @@ describe('getRepPhaseBoundaries – rotated-90 portrait clips (GH-307)', () => {
     expect(actual).toEqual(gh307Fixture.groundTruth.expectedConcentricFirstByRep);
   });
 
-  it('does not invert when rotation metadata is absent (preserves pre-GH-307 behavior)', () => {
-    const firstSeg = gh307Fixture.barTrackingResult.repSegments[0];
-    const phasesWithoutMeta = getRepPhaseBoundaries(
-      gh307Fixture.barTrackingResult.barPathSeries,
-      firstSeg.startMs,
-      firstSeg.turnaroundMs,
-      firstSeg.endMs,
-    );
-    // Without the rotation+portrait gate firing, the screen-space heuristic returns
-    // true (start.y > turn.y for this fixture), i.e. the old labeling. This guards
-    // against the fix accidentally inverting non-rotated recordings.
-    expect(phasesWithoutMeta.concentricFirst).toBe(true);
-  });
-
-  it('does not invert when only rotation=90 is set but tracking frame is landscape', () => {
-    const firstSeg = gh307Fixture.barTrackingResult.repSegments[0];
-    const phasesLandscape = getRepPhaseBoundaries(
-      gh307Fixture.barTrackingResult.barPathSeries,
-      firstSeg.startMs,
-      firstSeg.turnaroundMs,
-      firstSeg.endMs,
-      {...fixtureMetaWithRotation, trackingFrameWidthPx: 1920, trackingFrameHeightPx: 1088},
-    );
-    expect(phasesLandscape.concentricFirst).toBe(true);
+  it('marks the bar lift (start → turnaround) as the concentric phase for each rep', () => {
+    for (const segment of gh307Fixture.barTrackingResult.repSegments) {
+      const phases = getRepPhaseBoundaries(
+        gh307Fixture.barTrackingResult.barPathSeries,
+        segment.startMs,
+        segment.turnaroundMs,
+        segment.endMs,
+      );
+      // GH-307 user ground truth: the first peak (start → turnaround, bar moving up
+      // off the floor) must fall inside the concentric phase, not the eccentric one.
+      expect(phases.concentricStartMs).toBe(segment.startMs);
+      expect(phases.concentricEndMs).toBe(segment.turnaroundMs);
+      expect(phases.eccentricStartMs).toBe(segment.turnaroundMs);
+      expect(phases.eccentricEndMs).toBe(segment.endMs);
+    }
   });
 });
 
