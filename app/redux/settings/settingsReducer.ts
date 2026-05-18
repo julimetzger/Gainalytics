@@ -7,12 +7,23 @@ export interface MetricOverviewSettings {
 }
 
 export type MuscleMapMetric = 'sets' | 'volume';
-export type MuscleMapCompare = 'none' | 'last_plan' | 'current_total_plan';
+export type MuscleMapCompare =
+  | 'none'
+  | 'last_plan'
+  | 'current_total_plan'
+  | 'last_training_plan'
+  | 'last_training_done';
+
+/** Persisted compare selection for the Plan-View card. */
+export const muscleMapCompareSelectionPlanKey = 'muscleMapCompareSelectionPlan';
+/** Persisted compare selection for the Analyse (Done) -View card. */
+export const muscleMapCompareSelectionAnalyseKey = 'muscleMapCompareSelectionAnalyse';
 
 export interface PlanSettings {
   muscleMap?: {
     enabled?: boolean;
     metric?: MuscleMapMetric;
+    /** @deprecated kept for migration only — read muscleMapCompareSelectionPlan instead. */
     compare?: MuscleMapCompare;
   };
 }
@@ -53,6 +64,13 @@ export interface AppSettings {
   aiTrainingPrompt?: string;
   plan?: PlanSettings;
   restTimer?: RestTimerSettings;
+  /**
+   * Persisted compare selection for the Plan-View muscle map.
+   * Separate from the Analyse selection so the two views can be tuned independently.
+   */
+  muscleMapCompareSelectionPlan?: MuscleMapCompare;
+  /** Persisted compare selection for the Analyse (Done) -View muscle map. */
+  muscleMapCompareSelectionAnalyse?: MuscleMapCompare;
 }
 
 const initialState = {
@@ -216,6 +234,10 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
     case 'SET_PLAN_MUSCLE_MAP_COMPARE': {
       return {
         ...settings,
+        muscleMapCompareSelectionPlan: action.compare as MuscleMapCompare,
+        // Keep the legacy nested slot in sync so any code still reading
+        // settings.plan.muscleMap.compare during the deprecation window
+        // sees the latest user choice.
         plan: {
           ...settings.plan,
           muscleMap: {
@@ -223,6 +245,12 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
             compare: action.compare as MuscleMapCompare,
           },
         },
+      };
+    }
+    case 'SET_ANALYSE_MUSCLE_MAP_COMPARE': {
+      return {
+        ...settings,
+        muscleMapCompareSelectionAnalyse: action.compare as MuscleMapCompare,
       };
     }
     case 'SET_REST_TIMER_USER_DEFAULT': {
