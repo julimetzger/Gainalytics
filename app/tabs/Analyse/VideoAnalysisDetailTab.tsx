@@ -16,7 +16,7 @@ import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisMetersPerPixel} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisMetersPerPixel';
-import {ManualSeedPayload, analyzeSquatVideo, migrateBarTrackingResultIfNeeded} from '../../utils/videoAnalysisNative';
+import {ManualSeedPayload, analyzeSquatVideo, attachVideoRotationToResult, migrateBarTrackingResultIfNeeded} from '../../utils/videoAnalysisNative';
 import {calibrateFromSeed} from '../../utils/video-analysis-import';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
@@ -96,8 +96,9 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
 
       const migratedResultPath = await migrateBarTrackingResultIfNeeded(analysis.resultPath);
       const loadedResult = await readBarTrackingResultFromFile(migratedResultPath ?? analysis.resultPath);
+      const rotatedResult = await attachVideoRotationToResult(loadedResult, analysis.localVideoPath);
       if (active) {
-        setResult(loadedResult);
+        setResult(rotatedResult);
       }
     };
 

@@ -1013,6 +1013,56 @@ describe('isConcentricFirstRep / getRepPhaseBoundaries / computeRepPhaseTimesMs 
   });
 });
 
+describe('getRepPhaseBoundaries – rotated-90 portrait clips (GH-307)', () => {
+  const gh307Fixture = require('../../fixtures/gh307/analysis-2-2026-05-18T09-25-32-066Z.json');
+
+  const fixtureMetaWithRotation = {
+    ...gh307Fixture.barTrackingResult.analysisMeta,
+    videoRotationDegrees: gh307Fixture.source.videoRotationDegrees,
+  };
+
+  it('returns ground-truth concentricFirst per rep for the rotated deadlift recording', () => {
+    const actual = gh307Fixture.barTrackingResult.repSegments.map((segment: {repIndex: number; startMs: number; turnaroundMs: number; endMs: number}) => {
+      const phases = getRepPhaseBoundaries(
+        gh307Fixture.barTrackingResult.barPathSeries,
+        segment.startMs,
+        segment.turnaroundMs,
+        segment.endMs,
+        fixtureMetaWithRotation,
+      );
+      return {repIndex: segment.repIndex, concentricFirst: phases.concentricFirst};
+    });
+
+    expect(actual).toEqual(gh307Fixture.groundTruth.expectedConcentricFirstByRep);
+  });
+
+  it('does not invert when rotation metadata is absent (preserves pre-GH-307 behavior)', () => {
+    const firstSeg = gh307Fixture.barTrackingResult.repSegments[0];
+    const phasesWithoutMeta = getRepPhaseBoundaries(
+      gh307Fixture.barTrackingResult.barPathSeries,
+      firstSeg.startMs,
+      firstSeg.turnaroundMs,
+      firstSeg.endMs,
+    );
+    // Without the rotation+portrait gate firing, the screen-space heuristic returns
+    // true (start.y > turn.y for this fixture), i.e. the old labeling. This guards
+    // against the fix accidentally inverting non-rotated recordings.
+    expect(phasesWithoutMeta.concentricFirst).toBe(true);
+  });
+
+  it('does not invert when only rotation=90 is set but tracking frame is landscape', () => {
+    const firstSeg = gh307Fixture.barTrackingResult.repSegments[0];
+    const phasesLandscape = getRepPhaseBoundaries(
+      gh307Fixture.barTrackingResult.barPathSeries,
+      firstSeg.startMs,
+      firstSeg.turnaroundMs,
+      firstSeg.endMs,
+      {...fixtureMetaWithRotation, trackingFrameWidthPx: 1920, trackingFrameHeightPx: 1088},
+    );
+    expect(phasesLandscape.concentricFirst).toBe(true);
+  });
+});
+
 describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
   const getSpeedLabelText = (getByTestId: (id: string) => any): string => {
     const children = getByTestId('video-analysis-speed-label').props.children;

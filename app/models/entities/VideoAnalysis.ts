@@ -115,6 +115,7 @@ export interface AnalysisMeta {
   averageConfidence: number;
   trackerVersion?: string;
   repDetectionVersion?: string;
+  videoRotationDegrees?: number;
   trackingFrameWidthPx?: number;
   trackingFrameHeightPx?: number;
   manualSeedUsed?: boolean;

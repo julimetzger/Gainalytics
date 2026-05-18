@@ -1,6 +1,6 @@
 import {NativeModules, Platform} from 'react-native';
 import {buildStubBarTrackingResult, writeBarTrackingResultToFile} from './videoAnalysisStorage';
-import {SeedCandidate} from '../models/entities/VideoAnalysis';
+import {BarTrackingResult, SeedCandidate} from '../models/entities/VideoAnalysis';
 
 const {VideoAnalysis} = NativeModules;
 
@@ -86,6 +86,35 @@ export const getVideoDuration = async (localVideoPath: string): Promise<number> 
   } catch {
     return 0;
   }
+};
+
+export const getVideoRotationDegrees = async (localVideoPath: string): Promise<number> => {
+  const nativeGetRotation = VideoAnalysis?.getVideoRotationDegrees as undefined | ((path: string) => Promise<number>);
+  if (!nativeGetRotation) {
+    return 0;
+  }
+  try {
+    return nativeGetRotation(normalizeVideoPath(localVideoPath));
+  } catch {
+    return 0;
+  }
+};
+
+export const attachVideoRotationToResult = async (
+  result: BarTrackingResult | undefined,
+  localVideoPath?: string,
+): Promise<BarTrackingResult | undefined> => {
+  if (!result || !localVideoPath) {
+    return result;
+  }
+  const videoRotationDegrees = result.analysisMeta.videoRotationDegrees ?? await getVideoRotationDegrees(localVideoPath);
+  return {
+    ...result,
+    analysisMeta: {
+      ...result.analysisMeta,
+      videoRotationDegrees,
+    },
+  };
 };
 
 export const prepareSquatVideoSeed = async (localVideoPath: string, analysisId: number): Promise<SeedPreflightResult> => {
