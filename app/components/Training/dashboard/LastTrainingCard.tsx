@@ -133,12 +133,6 @@ const LastTrainingCard = ({plan, lastDone, navigation}: LastTrainingCardProps) =
             </View>
           </View>
 
-          <Text
-            variant="labelSmall"
-            style={[styles.hint, {color: theme.colors.onSurfaceVariant}]}
-            testID="last-training-card-hint">
-            Tap to view training details
-          </Text>
         </Card.Content>
       </Pressable>
     </Card>
@@ -161,7 +155,6 @@ const styles = StyleSheet.create({
   metricBlock: {flex: 1, minWidth: 0},
   volumeRow: {flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap'},
   delta: {fontSize: 12, fontWeight: '600'},
-  hint: {marginTop: 10, fontStyle: 'italic'},
 });
 
 export default LastTrainingCard;
