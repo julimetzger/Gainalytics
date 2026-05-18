@@ -34,6 +34,8 @@ jest.mock('../../../../app/components/Training/VelocityLossInsightCard', () => {
   return ({exerciseName}: {exerciseName: string}) => <Text testID="vl-insight-card">{exerciseName}</Text>;
 });
 
+jest.mock('../../../../app/components/Training/plan/MuscleInvolvementCard', () => () => null);
+
 const mockedUseVelocityLossInsights = require('../../../../app/components/Training/useVelocityLossInsights').useVelocityLossInsights as jest.Mock;
 const mockedUseLastFinishedWorkoutsByExerciseIds = require('../../../../app/redux/Workout/use/useLastFinishedWorkoutsByExerciseIds').useLastFinishedWorkoutsByExerciseIds as jest.Mock;
 
@@ -75,7 +77,7 @@ describe('TrainingsOverview', () => {
     mockedUseVelocityLossInsights.mockReturnValue([]);
 
     const {queryAllByTestId} = render(
-      <TrainingsOverview training={TRAINING as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} />,
+      <TrainingsOverview training={TRAINING as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} trainingInMicro={0} />,
     );
 
     expect(queryAllByTestId('vl-insight-card')).toHaveLength(0);
@@ -88,7 +90,7 @@ describe('TrainingsOverview', () => {
     ]);
 
     const {getAllByTestId} = render(
-      <TrainingsOverview training={TRAINING as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} />,
+      <TrainingsOverview training={TRAINING as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} trainingInMicro={0} />,
     );
 
     expect(getAllByTestId('vl-insight-card')).toHaveLength(2);
@@ -98,7 +100,7 @@ describe('TrainingsOverview', () => {
     mockedUseVelocityLossInsights.mockReturnValue([]);
 
     render(
-      <TrainingsOverview training={TRAINING as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={5} />,
+      <TrainingsOverview training={TRAINING as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={5} trainingInMicro={0} />,
     );
 
     // Third argument must be a Set of the training's doneWorkoutIds values (empty for TRAINING)
@@ -109,7 +111,7 @@ describe('TrainingsOverview', () => {
     mockedUseVelocityLossInsights.mockReturnValue([]);
 
     render(
-      <TrainingsOverview training={TRAINING_WITH_EXERCISES as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} />,
+      <TrainingsOverview training={TRAINING_WITH_EXERCISES as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} trainingInMicro={0} />,
     );
 
     // doneWorkoutIds: {10: 100} → Set([100])
@@ -120,7 +122,7 @@ describe('TrainingsOverview', () => {
     mockedUseVelocityLossInsights.mockReturnValue([]);
 
     render(
-      <TrainingsOverview training={TRAINING_WITH_EXERCISES as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} />,
+      <TrainingsOverview training={TRAINING_WITH_EXERCISES as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} trainingInMicro={0} />,
     );
 
     expect(mockedUseLastFinishedWorkoutsByExerciseIds).toHaveBeenCalledWith(
@@ -148,6 +150,7 @@ describe('TrainingsOverview', () => {
         previousTraining={previousTraining as any}
         trainingsPlan={TRAININGS_PLAN as any}
         currentMicro={1}
+        trainingInMicro={0}
       />,
     );
 

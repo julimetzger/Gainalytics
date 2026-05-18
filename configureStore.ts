@@ -112,6 +112,19 @@ const migrations = {
     }
     return state;
   },
+  10: (state) => {
+    // GH-300: split the single Plan-View compare selection into per-view selections.
+    // Keep the existing value as the Plan default so behaviour is unchanged on upgrade.
+    const legacyCompare = state?.settings?.plan?.muscleMap?.compare;
+    return {
+      ...state,
+      settings: {
+        ...(state?.settings ?? {}),
+        muscleMapCompareSelectionPlan: state?.settings?.muscleMapCompareSelectionPlan ?? legacyCompare ?? 'current_total_plan',
+        muscleMapCompareSelectionAnalyse: state?.settings?.muscleMapCompareSelectionAnalyse ?? 'last_training_done',
+      },
+    };
+  },
 };
 
 const storage = new MMKV();
@@ -135,7 +148,7 @@ const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseI
 
 const persistConfig = {
   key: 'root',
-  version: 9,
+  version: 10,
   storage: reduxStorage,
   whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'settings', 'aiChat'],
   stateReconciler: hardSet,
