@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useLayoutEffect} from 'react';
 import {ViewMode} from './MicroOverviewTraining';
 import {BackHandler} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
@@ -83,47 +83,47 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   const localMicro = getLocalMicro(trainingsPlan.mesos, micro);
 
   const getBoundedMicro = (candidateMicro: number) => clampMicroToMeso(trainingsPlan.mesos, lockedMeso, candidateMicro);
-  const showPlanEditingChrome = !showHistory && !showDone && training !== undefined && planChromeState.mode === 'fullEdit';
+  const showPlanEditingChrome = !showHistory && !showDone && planChromeState.mode === 'fullEdit';
 
-  navigation.setOptions({
-    header: (props) => (
-      <TrainingsPlanHeader
-        trainingsPlanName={trainingsPlan.name}
-        mesoName={showHistory ? undefined : currentMeso?.name}
-        trainingName={showHistory ? 'History' : showDone ? 'Overview' : trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
-        micro={showHistory ? undefined : micro}
-        localMicro={showHistory ? undefined : localMicro}
-        trainingState={showHistory ? undefined : showDone ? undefined : training?.state}
-        trainingStart={training?.start as any}
-        trainingEnd={training?.state === TrainingsState.FINISHED ? (training?.end as any) : undefined}
-        planMode={showPlanEditingChrome ? planChromeState.mode : 'read'}
-        drawerMenu={
-          showHistory
-            ? <IconButton testID="history-back-icon" icon="arrow-left" iconColor={theme.colors.onSecondaryContainer} onPress={() => setShowHistory(false)} />
-            : showPlanEditingChrome
-            ? <IconButton testID="header-plan-close-button" icon="close" iconColor={theme.colors.primary} onPress={planChromeState.exitToRead} />
-            : <IconButton testID="drawer-menu-button" icon="menu" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOpen((prevOpen) => !prevOpen)} />
-        }
-        overflowButton={
-          showPlanEditingChrome
-            ? (
-              <Button
-                mode="contained"
-                compact
-                testID="header-plan-done-button"
-                onPress={planChromeState.exitToRead}
-                contentStyle={{paddingHorizontal: 9}}
-                labelStyle={{fontSize: 13, fontWeight: '600'}}
-              >
-                Done
-              </Button>
-            )
-            : !showHistory && !showDone && training !== undefined
-            ? <IconButton testID="header-overflow-icon" icon="dots-vertical" iconColor={overflowVisible ? theme.colors.primary : theme.colors.onSecondaryContainer} onPress={() => setOverflowVisible(true)} />
-            : null
-        }
-      />
-    ),
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      header: (props) => (
+        <TrainingsPlanHeader
+          trainingsPlanName={trainingsPlan.name}
+          mesoName={showHistory ? undefined : currentMeso?.name}
+          trainingName={showHistory ? 'History' : showDone ? 'Overview' : trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
+          micro={showHistory ? undefined : micro}
+          localMicro={showHistory ? undefined : localMicro}
+          trainingState={showHistory ? undefined : showDone ? undefined : training?.state}
+          trainingStart={training?.start as any}
+          trainingEnd={training?.state === TrainingsState.FINISHED ? (training?.end as any) : undefined}
+          planMode={showPlanEditingChrome ? planChromeState.mode : 'read'}
+          drawerMenu={
+            showHistory
+              ? <IconButton testID="history-back-icon" icon="arrow-left" iconColor={theme.colors.onSecondaryContainer} onPress={() => setShowHistory(false)} />
+              : <IconButton testID="drawer-menu-button" icon="menu" iconColor={theme.colors.onSecondaryContainer} onPress={() => setOpen((prevOpen) => !prevOpen)} />
+          }
+          overflowButton={
+            showPlanEditingChrome
+              ? (
+                <Button
+                  mode="contained"
+                  compact
+                  testID="header-plan-done-button"
+                  onPress={planChromeState.exitToRead}
+                  contentStyle={{paddingHorizontal: 9}}
+                  labelStyle={{fontSize: 13, fontWeight: '600'}}
+                >
+                  Done
+                </Button>
+              )
+              : !showHistory && !showDone && training !== undefined
+              ? <IconButton testID="header-overflow-icon" icon="dots-vertical" iconColor={overflowVisible ? theme.colors.primary : theme.colors.onSecondaryContainer} onPress={() => setOverflowVisible(true)} />
+              : null
+          }
+        />
+      ),
+    });
   });
 
   const handleValueChange = (newValue: any) => {
