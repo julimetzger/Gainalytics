@@ -233,10 +233,29 @@ interface PlanEditSetRowProps {
 const PlanEditSetRow = ({workoutSet, onDelete, onDrag, onUpsert, active}: PlanEditSetRowProps) => {
   const theme = useTheme();
   const [draft, setDraft] = useState(() => getPlanSetDraft(workoutSet));
+  const draftRef = useRef(draft);
 
   useEffect(() => {
-    setDraft(getPlanSetDraft(workoutSet));
+    const next = getPlanSetDraft(workoutSet);
+    setDraft(next);
+    draftRef.current = next;
   }, [workoutSet.index, workoutSet.reps, workoutSet.rir, workoutSet.weight]);
+
+  function updateField(field: PlanField, value: string) {
+    const nextDraft = {
+      ...draftRef.current,
+      [field]: value.replace(',', '.'),
+    };
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
+  }
+
+  function commitDraft() {
+    const nextSet = buildWorkoutSetFromDraft(draftRef.current, workoutSet);
+    if (nextSet !== null) {
+      onUpsert(nextSet);
+    }
+  }
 
   return (
     <View style={[styles.row, active && {backgroundColor: theme.colors.secondaryContainer}]}>
@@ -254,6 +273,7 @@ const PlanEditSetRow = ({workoutSet, onDelete, onDrag, onUpsert, active}: PlanEd
         error={draft.reps.length > 0 && buildWorkoutSetFromDraft({...draft, reps: draft.reps}, workoutSet) === null}
         style={styles.input}
         onChangeText={(value) => updateField('reps', value)}
+        onBlur={commitDraft}
       />
       <TextInput
         mode="outlined"
@@ -265,6 +285,7 @@ const PlanEditSetRow = ({workoutSet, onDelete, onDrag, onUpsert, active}: PlanEd
         error={draft.rir.length > 0 && buildWorkoutSetFromDraft({...draft, rir: draft.rir}, workoutSet) === null}
         style={styles.input}
         onChangeText={(value) => updateField('rir', value)}
+        onBlur={commitDraft}
       />
       <TextInput
         mode="outlined"
@@ -276,22 +297,11 @@ const PlanEditSetRow = ({workoutSet, onDelete, onDrag, onUpsert, active}: PlanEd
         error={draft.weight.length > 0 && buildWorkoutSetFromDraft({...draft, weight: draft.weight}, workoutSet) === null}
         style={styles.input}
         onChangeText={(value) => updateField('weight', value)}
+        onBlur={commitDraft}
       />
       <IconButton testID={`plan-set-${workoutSet.index}-delete`} icon="delete-outline" iconColor={theme.colors.error} onPress={onDelete} />
     </View>
   );
-
-  function updateField(field: PlanField, value: string) {
-    const nextDraft = {
-      ...draft,
-      [field]: value.replace(',', '.'),
-    };
-    setDraft(nextDraft);
-    const nextSet = buildWorkoutSetFromDraft(nextDraft, workoutSet);
-    if (nextSet !== null) {
-      onUpsert(nextSet);
-    }
-  }
 };
 
 interface PendingPlanEditSetRowProps {
@@ -312,7 +322,6 @@ interface PendingPlanEditSetRowProps {
 const PendingPlanEditSetRow = ({pendingSet, oneRepMax, onChange, onDelete, onCommit}: PendingPlanEditSetRowProps) => {
   const theme = useTheme();
   const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(false);
-  const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
   const lastSuggestedWeightRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -369,13 +378,10 @@ const PendingPlanEditSetRow = ({pendingSet, oneRepMax, onChange, onDelete, onCom
     });
   };
 
-  // The weight field is "still the suggestion" if its current value matches
-  // the last computed suggestion. Once the user changes it manually, the
-  // values diverge and the highlight drops.
+  // Show weight highlight whenever the suggestion is active and not overridden.
   const weightIsStillSuggested =
     lastSuggestedWeightRef.current !== null && pendingSet.weight === lastSuggestedWeightRef.current;
-  const showHighlight =
-    highlightWeightSuggestion && !disable1RMWeightCalculation && oneRepMax !== undefined && weightIsStillSuggested;
+  const showHighlight = !disable1RMWeightCalculation && oneRepMax !== undefined && weightIsStillSuggested;
   const highlightColor = showHighlight ? theme.colors.primary : undefined;
 
   return (
@@ -393,8 +399,6 @@ const PendingPlanEditSetRow = ({pendingSet, oneRepMax, onChange, onDelete, onCom
         value={pendingSet.reps}
         style={styles.input}
         onChangeText={handleRepsChange}
-        onFocus={() => setHighlightWeightSuggestion(true)}
-        onBlur={() => setHighlightWeightSuggestion(false)}
       />
       <TextInput
         testID="plan-pending-set-rir-input"
@@ -405,8 +409,6 @@ const PendingPlanEditSetRow = ({pendingSet, oneRepMax, onChange, onDelete, onCom
         value={pendingSet.rir}
         style={styles.input}
         onChangeText={handleRirChange}
-        onFocus={() => setHighlightWeightSuggestion(true)}
-        onBlur={() => setHighlightWeightSuggestion(false)}
       />
       <TextInput
         testID="plan-pending-set-weight-input"

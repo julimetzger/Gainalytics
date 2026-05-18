@@ -299,7 +299,6 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                       onEnterPlanMode={() => {
                         setNextPlanMode('fullEdit');
                         setPlanEntryRequested(true);
-                        setShowPicker(true);
                       }}
                     />
                   )}

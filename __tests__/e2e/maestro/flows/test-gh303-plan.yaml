@@ -1,0 +1,74 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-303 — Plan Mode User flow
+#
+# Validates ticket items 3 + 4:
+#  3) Tapping "Plan new Training" enters Full-Edit mode directly (no need to
+#     add an exercise first); the picker visual bug is gone (picker does NOT
+#     auto-open under the new screen).
+#  4) The burger drawer-menu button stays visible while in Full-Edit mode so
+#     the user can still navigate to other features.
+#
+# Navigation: launch → scroll Training home until the "Push pull" plan card is
+# visible → open the plan → open the drawer → switch to a training slot whose
+# plannedWorkouts in baseline.gains is empty ("Pull dl" in micro 7 of Push
+# pull) so the TrainingsBase "Plan new Training" button is shown.
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 30000
+# Scroll the Training tab home to expose the Plans list. The plan card has the
+# literal text "Push pull" and lives below the Current Micro / Next Training /
+# Last Training cards.
+- scrollUntilVisible:
+    element:
+      text: "Paused · last done 79d ago"
+    direction: DOWN
+    timeout: 15000
+# Tap the Push pull plan title in the plans list.
+- tapOn:
+    text: "Push pull"
+    index: 1
+- extendedWaitUntil:
+    visible:
+      id: "drawer-menu-button"
+    timeout: 15000
+# Open the plan drawer so we can switch to a slot whose planned training is
+# empty. "Pull dl" is the second training name in micro 7 of Push pull and has
+# no exercises in baseline.gains → TrainingsBase renders "Plan new Training".
+- tapOn:
+    id: "drawer-menu-button"
+- extendedWaitUntil:
+    visible: "Trainings:"
+    timeout: 10000
+- tapOn: "Pull dl"
+- extendedWaitUntil:
+    visible: "Plan new Training"
+    timeout: 15000
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-303/screenshots/gh303-before-tap
+# Tap "Plan new Training" — must place the user directly into fullEdit mode.
+- tapOn: "Plan new Training"
+- waitForAnimationToEnd
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-303/screenshots/gh303-after-tap-fullEdit
+# Item 3: header kicker "EDITING PLAN" is only rendered when planMode==='fullEdit'
+# in TrainingsPlanHeader (testID 'header-plan-editing-kicker', literal text
+# "EDITING PLAN"). Its presence proves the screen is in fullEdit mode WITHOUT
+# the user having added an exercise yet.
+- assertVisible:
+    id: "header-plan-editing-kicker"
+- assertVisible: "EDITING PLAN"
+# Item 4: burger drawer-menu button must still be visible during full edit.
+# In TrainingsPlanTab the drawerMenu slot is set to an IconButton with
+# testID="drawer-menu-button" whenever showHistory is false (i.e. always in
+# the editing screen).
+- assertVisible:
+    id: "drawer-menu-button"
+# Item 3 (picker visual bug): the inline picker must NOT auto-open on entry.
+# The empty-state hint testID="plan-edit-empty-hint" is rendered exactly when
+# fullEdit is active AND no exercise is selected — i.e. the user is on the
+# Full-Edit screen and is being asked to pick one. If the auto-open picker
+# regression returns, the picker overlay would cover this hint.
+- assertVisible:
+    id: "plan-edit-empty-hint"
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-303/screenshots/gh303-fullEdit-burger-and-hint
