@@ -23,7 +23,7 @@ module.exports = {
   ],
 
   testMatch: ['**/?(*.)+(spec|test).(ts|tsx|js|jsx)'],
-  testPathIgnorePatterns: ['/node_modules/', '/__tests__/coverage/'],
+  testPathIgnorePatterns: ['/node_modules/', '/__tests__/coverage/', '<rootDir>/.worktrees/'],
 
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
 
