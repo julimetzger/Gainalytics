@@ -36,6 +36,13 @@ const AnalyseRouter = () => {
       screenOptions={({navigation}) => ({
         headerTintColor: theme.colors.onSecondaryContainer,
         headerLeft: () => <IconButton icon="menu" testID="analyse-drawer-toggle" onPress={() => navigation.toggleDrawer()} />,
+        // GH-313 background-render guard. The drawer keeps every screen mounted, so
+        // unfocused screens (Dashboard, Records, History, Metrics, TrainingLength, …)
+        // re-ran their selectors and memos on every store dispatch. freezeOnBlur lets
+        // react-native-screens wrap each off-screen subtree with react-freeze, which
+        // suspends rendering until the screen is focused again. Same mechanism as the
+        // explicit <Freeze> guard from GH-284.
+        freezeOnBlur: true,
       })}
     >
       <Stack.Screen
