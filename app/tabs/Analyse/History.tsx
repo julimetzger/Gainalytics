@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Text, useTheme} from 'react-native-paper';
+import {IconButton, Text, useTheme} from 'react-native-paper';
 import {FlashList} from '@shopify/flash-list';
 import {useRoute, RouteProp} from '@react-navigation/native';
 import WorkoutViewTile from '../../components/Workout/show/WorkoutView';
@@ -43,6 +43,7 @@ const History = () => {
   // an `exercise` param; pre-select that exercise so the list is filtered on mount.
   const routeExercise = route.params?.exercise;
 
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedMuscles, setSelectedMuscles] = useState<Muscles[]>(EMPTY_MUSCLES);
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>(() =>
     routeExercise?.id !== undefined ? [routeExercise as Exercise] : EMPTY_EXERCISES,
@@ -111,12 +112,23 @@ const History = () => {
 
   return (
     <View testID="history-list-container" style={styles.container}>
-      <TrainingElementPicker
-        exercise={selectedExercises}
-        setExercise={setSelectedExercises}
-        muscle={selectedMuscles}
-        setMuscle={setSelectedMuscles}
-        style={styles.picker}
+      {/* Wrapper is height:0/overflow:hidden when closed so the picker takes no vertical space.
+          The component stays mounted (not unmounted) to avoid react-native-modal crash. */}
+      <View style={pickerOpen ? undefined : styles.pickerWhenClosed}>
+        <TrainingElementPicker
+          exercise={selectedExercises}
+          setExercise={setSelectedExercises}
+          muscle={selectedMuscles}
+          setMuscle={setSelectedMuscles}
+          hideIconButton={true}
+        />
+      </View>
+      {/* Chevron floats top-right always. When picker is closed the wrapper has 0 height so
+          the list fills the screen and this button overlaps only the top-right corner. */}
+      <IconButton
+        icon={pickerOpen ? 'chevron-up' : 'chevron-down'}
+        onPress={() => setPickerOpen((open) => !open)}
+        style={styles.pickerToggle}
       />
       {allIds.length === 0 ? (
         <View testID="history-filters-empty" style={styles.filtersEmpty}>
@@ -144,10 +156,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  picker: {
-    // Reserve at least the IconButton height so the chevron doesn't float
-    // over the FlashList when the picker is collapsed (display:none inner view → 0 height).
-    minHeight: 48,
+  pickerWhenClosed: {
+    height: 0,
+    overflow: 'hidden',
+  },
+  pickerToggle: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 10,
   },
   listContent: {
     paddingBottom: 16,

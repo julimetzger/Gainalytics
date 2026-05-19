@@ -88,13 +88,14 @@ jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () =>
 
 jest.mock('react-native-paper', () => {
   const React = require('react');
-  const {Text} = require('react-native');
+  const {Text, View} = require('react-native');
   // Return a stable theme reference so useCallback deps in History don't
   // invalidate on every call — the real useTheme also returns stable refs.
   const stableTheme = {fonts: {titleLarge: {fontSize: 22}}};
   return {
     Text: ({children, ...props}: {children: React.ReactNode}) => <Text {...props}>{children}</Text>,
     useTheme: () => stableTheme,
+    IconButton: ({onPress, icon}: any) => <View testID="picker-toggle-button" onTouchEnd={onPress} accessibilityLabel={icon} />,
   };
 });
 
