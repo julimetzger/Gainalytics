@@ -142,6 +142,13 @@ If a screen reads persisted data via lazy `useState(() => savedX)`, it sees `und
 ### FlatList in a flex container collapses sibling rows unless it has `flex:1`
 In a `KeyboardAvoidingView` (or any `flex:1` root), a `FlatList` without an explicit `style={{ flex: 1 }}` takes all remaining space greedily, squeezing siblings that have `flexGrow: 0` to 0 height. Symptoms: chip row / picker row have 0 height in `uiautomator dump`. Fix: add `style={{ flex: 1 }}` to the FlatList **and** `flexShrink: 0` to every non-scrolling sibling above it (chips, date picker, info line). Both sides are required — one without the other doesn't work.
 
+### Metro delta bundle can be corrupted even when the full bundle URL is valid
+**Problem:** When multiple workers share a Metro server and a new APK is installed, the app fetches an *incremental delta* bundle rather than the full bundle. The delta can fail to compile (e.g. `non-terminated string at line 286044`) even when a direct `curl` of the full bundle URL returns clean JS. Reloading from the dev menu doesn't help — it still uses the delta path.
+
+**Working solution:** Build a debug APK (`./gradlew assembleDebug`) so the embedded bundle in the APK contains the new code, then kill the socat bridge and remove `adb reverse`. With no Metro reachable, the app falls back to the embedded bundle, which is correct. Verify via UIAutomator dump rather than relying on Metro hot-reload.
+
+**Apply when:** App shows `CompileJsFailed` red screen after code changes even though `curl http://HOST:PORT/index.bundle` returns valid JS.
+
 ## Jest / Testing
 
 ### Global mocks in `jest.setup.js` fix whole suites at once
