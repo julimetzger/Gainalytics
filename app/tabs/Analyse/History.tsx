@@ -51,9 +51,11 @@ const History = () => {
   // Drawer screens stay mounted, so the useState init above only runs once.
   // Re-sync when Dashboard re-navigates here with a different exercise param.
   // Treat undefined param as "keep current selection" so Drawer entry doesn't clear filters.
+  // Clear muscle filters on drill-down so the list shows only the tapped exercise's workouts.
   useEffect(() => {
     if (routeExercise?.id !== undefined) {
       setSelectedExercises([routeExercise as Exercise]);
+      setSelectedMuscles(EMPTY_MUSCLES);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeExercise?.id]);
@@ -114,6 +116,7 @@ const History = () => {
         setExercise={setSelectedExercises}
         muscle={selectedMuscles}
         setMuscle={setSelectedMuscles}
+        style={styles.picker}
       />
       {allIds.length === 0 ? (
         <View testID="history-filters-empty" style={styles.filtersEmpty}>
@@ -140,6 +143,11 @@ const History = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  picker: {
+    // Reserve at least the IconButton height so the chevron doesn't float
+    // over the FlashList when the picker is collapsed (display:none inner view → 0 height).
+    minHeight: 48,
   },
   listContent: {
     paddingBottom: 16,

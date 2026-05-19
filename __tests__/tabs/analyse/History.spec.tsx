@@ -71,14 +71,18 @@ jest.mock('../../../app/components/Workout/show/WorkoutView', () => {
   return React.memo(Mock);
 });
 
+// Capture the setMuscle callback so tests can simulate muscle selection.
+let capturedSetMuscle: ((m: any[]) => void) | undefined;
+
 jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () => {
   const React = require('react');
   const {View} = require('react-native');
   return {
     __esModule: true,
-    default: ({exercise, setExercise, muscle, setMuscle}: any) => (
-      <View testID="training-element-picker" />
-    ),
+    default: ({exercise, setExercise, muscle, setMuscle}: any) => {
+      capturedSetMuscle = setMuscle;
+      return <View testID="training-element-picker" />;
+    },
   };
 });
 
@@ -98,6 +102,7 @@ const mockUseWorkoutsByFilters = jest.mocked(useWorkoutsByFilters);
 const mockUseRoute = jest.mocked(useRoute);
 
 beforeEach(() => {
+  capturedSetMuscle = undefined;
   mockUseRoute.mockReturnValue({params: undefined} as any);
   mockUseWorkoutsByFilters.mockReturnValue([]);
   mockWorkoutViewRenderSpy.mockClear();
@@ -301,5 +306,27 @@ describe('History tab — Dashboard exercise drill-down', () => {
 
     // Chip selection must still be [7] (not cleared)
     expect(mockUseWorkoutsByFilters).toHaveBeenLastCalledWith([], [7]);
+  });
+
+  it('resets muscle filters when Dashboard drill-down arrives with a new exercise', () => {
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 7, name: 'Bench Press'}}} as any);
+    mockUseWorkoutsByFilters.mockReturnValue([11, 10]);
+
+    const {rerender} = render(<History />);
+
+    // Simulate the user setting a muscle filter manually via the picker
+    act(() => {
+      capturedSetMuscle!(['Quadriceps']);
+    });
+
+    expect(mockUseWorkoutsByFilters).toHaveBeenLastCalledWith(['Quadriceps'], [7]);
+
+    // Dashboard navigates to a different exercise — muscles must be cleared
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 42, name: 'Squat'}}} as any);
+    act(() => {
+      rerender(<History />);
+    });
+
+    expect(mockUseWorkoutsByFilters).toHaveBeenLastCalledWith([], [42]);
   });
 });
