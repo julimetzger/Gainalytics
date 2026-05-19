@@ -99,7 +99,7 @@ After an RN upgrade, always validate with a fresh `npm ci` from scratch, not jus
 Any screen that uses `@react-navigation/drawer` or `react-native-drawer-layout` depends on the gesture-handler native module being registered at JS evaluation time. Debug builds get away without the root import because Fast Refresh paths end up registering it before the drawer renders; release builds can evaluate the drawer screen first and crash on mount. The fix is the documented `import 'react-native-gesture-handler';` as the **first** import of `index.tsx` — not inside any lazy code path. Symptoms: release-only crash the moment you tab into Analyse or open a Training plan; debug works fine.
 
 ### Jest `testPathIgnorePatterns: ['/.worktrees/']` hides specs in a worktree
-When you run `jest` from inside `.worktrees/feature-*/`, every test file's absolute path contains `/.worktrees/`, so the default ignore pattern matches them all and jest reports "No tests found". Workaround for a single run: `npx jest --testPathIgnorePatterns=/node_modules/ --testPathIgnorePatterns=/__tests__/coverage/`. Don't waste time debugging missing specs in a worktree — check the ignore pattern first.
+When you run `jest` from inside `.worktrees/feature-*/`, every test file's absolute path contains `/.worktrees/`, so the default ignore pattern matches them all and jest reports "No tests found". The CLI override `--testPathIgnorePatterns` does NOT reliably fix this (it may be parsed as an additional pattern). **Real fix: edit the worktree's `jest.config.cjs` and remove `'/.worktrees/'` from `testPathIgnorePatterns`.** This is a one-time fix per worktree. Don't waste time debugging missing specs — check this pattern first.
 
 ### Node.js v24 + jest-cli `exit()` incompatibility produces misleading exit code 1
 After all tests pass, jest-cli throws `TypeError: (0 , _exit(...).default) is not a function` and exits 1. This is a pre-existing Node 24 / jest-cli incompatibility, not a test failure — all test results are accurate. Don't re-run or debug; just check the "Tests:" summary line in output.
@@ -1292,6 +1292,16 @@ Contrary to memory #150, running `npx jest <path> --testPathIgnorePatterns=/node
 ### 177. TrainingElementPicker collapses to zero layout height when show=false; IconButton is absolutely positioned
 **Pattern (GH-302 FB2):** `TrainingElementPicker` has `style={{position: 'absolute', right: 0, zIndex: 2}}` on its IconButton. When `show=false`, `MultiselectDropdown` gets `display: 'none'` (zero layout height). The outer TrainingElementPicker View collapses to zero height (only the absolute IconButton remains), so the content below (e.g. FlashList) shifts up to y=304 (content area start). The IconButton floats at ~y=320 overlapping the first FlashList item. When `show=true`, the MultiselectDropdown adds ~31px of layout height, pushing the FlashList down. The MultiselectDropdown's selector bar does NOT appear as a `clickable=true` element in uiautomator — it responds to adb `input tap` but the gesture may be consumed by nearby FlashList gesture handlers when touch targets overlap.
 **Apply when:** Debugging why TrainingElementPicker appears to overlap a list view, or why tapping the selector bar area doesn't open the dropdown modal. The chevron IconButton at absolute right-0 IS the safe toggle target.
+
+### 178. Jest `testPathIgnorePatterns`: use `<rootDir>/` prefix to make patterns root-relative
+
+**Problem:** Removing `/.worktrees/` from `testPathIgnorePatterns` (so workers inside a worktree can find their own specs) means a plain `/.worktrees/` pattern is gone — and when the branch merges to master, the new main-checkout config no longer ignores sibling worktree specs during `npm test`.
+
+**Working solution:** Use `<rootDir>/.worktrees/` instead of `/.worktrees/`. Jest expands `<rootDir>` at runtime:
+- From main checkout (`rootDir=/repo`): pattern = `/repo/.worktrees/` → matches any worktree spec → excluded ✓
+- From inside worktree (`rootDir=/repo/.worktrees/feature-XYZ`): pattern = `/repo/.worktrees/feature-XYZ/.worktrees/` → non-existent path → nothing excluded, own specs run ✓
+
+**Apply when:** Any jest.config.cjs that must be shared between main checkout and worker worktrees. Always use `<rootDir>/` prefix for path-based ignore patterns to get root-relative semantics.
 
 ### 175. React Navigation Drawer screens stay mounted — `useState` lazy init runs once, use `useEffect` for route param re-sync
 **Pattern (GH-302 feedback):** When a Drawer screen (e.g. History) has state initialized from `route.params?.exercise` via lazy `useState`, re-navigation with a different exercise param does NOT trigger re-initialization — the component is already mounted. The chip filter stays stale after repeated Dashboard drill-down navigations.
