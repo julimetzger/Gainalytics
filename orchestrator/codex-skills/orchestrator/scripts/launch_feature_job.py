@@ -352,8 +352,13 @@ def main() -> None:
     )
     parser.add_argument(
         "--model",
-        default="sonnet",
-        help="Claude model alias passed via --model (claude runner only). Default: sonnet.",
+        default=None,
+        help=(
+            "Model override. For --runner claude: passed via 'claude --model <value>' "
+            "(default when omitted: sonnet). For --runner codex: passed via "
+            "'codex exec -c model=\"<value>\"' (default when omitted: codex CLI's "
+            "config.toml default)."
+        ),
     )
     args = parser.parse_args()
 
@@ -421,7 +426,7 @@ def main() -> None:
     if args.runner == "claude":
         cmd = [
             "claude",
-            "--model", args.model,
+            "--model", args.model or "sonnet",
             "--allowedTools", "Bash,Read,Write,Edit,Glob,Grep",
             "--output-format", "stream-json",
             "--verbose",
@@ -434,11 +439,15 @@ def main() -> None:
             "exec",
             "-c", "sandbox_workspace_write.network_access=true",
             "-c", "shell_environment_policy.inherit=all",
+        ]
+        if args.model:
+            cmd.extend(["-c", f'model="{args.model}"'])
+        cmd.extend([
             "--full-auto",
             "--add-dir", state_root,
             "-C", str(worktree_path),
             prompt,
-        ]
+        ])
         popen_kwargs = {"start_new_session": True, "env": env}
 
     with stdout_log.open("w", encoding="utf-8") as stdout_handle, stderr_log.open(

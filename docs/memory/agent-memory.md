@@ -29,6 +29,10 @@ Use `--driver-host-port` (the orchestrator passes it via `E2E_MAESTRO_DRIVER_POR
 - WSL2 ADB client (v36) + Windows ADB server (v34) → device list silently empty over `127.0.0.1:5037`. Use Windows `adb.exe` directly via `/mnt/c/.../platform-tools/adb.exe`, or run Maestro through `cmd.exe /c "maestro.bat ..."`.
 - `ADB_SERVER_SOCKET=tcp:<gateway>:5037` can die mid-session if Windows ADB restarts. Don't spend time debugging live — if ADB is unreachable in a pure-code round, use existing run-dir screenshots as evidence and note the infra problem in summary.md.
 - Windows ADB needs `-a` flag to bind on all interfaces so WSL can reach it. Killing stale `adb.exe` processes before restart is usually necessary.
+- **NEVER run `adb kill-server` from WSL2.** It kills the shared Windows ADB server. Recovery: `powershell.exe -Command "adb.exe kill-server && adb.exe start-server"`. The Windows ADB after restart may only bind to `127.0.0.1` (WSL-inaccessible), not `0.0.0.0`. If so, run Maestro from PowerShell: `powershell.exe -Command "& 'C:\Users\...\maestro.bat' --device emulator-5554 test ..."`.
+
+### Embedded bundle fallback masks code changes when adb reverse is missing
+When `adb reverse tcp:8081 tcp:$HOST_METRO_PORT` is not active, the app falls back to the APK's embedded JS bundle. That bundle is from the last full build — if it predates your changes, the app runs old code silently. Always verify `adb reverse --list` shows the tunnel before relying on Metro. If Maestro's `launchApp` resets the tunnel mid-test, re-establish it before the next run.
 
 ## Maestro Best Practices
 
@@ -45,6 +49,9 @@ Use `--driver-host-port` (the orchestrator passes it via `E2E_MAESTRO_DRIVER_POR
 
 ### `react-native-paper` Button does not expose testID as Maestro `id:`
 Paper buttons get `content-desc` equal to the label, not the testID. Match by label text: `tapOn: "Play"`. The `id:` selector works for plain `<View>` / `<TouchableOpacity>` / custom components where testID maps to resource-id.
+
+### `takeScreenshot` with a relative path fails when Maestro runs as a Windows binary on a UNC path
+When `maestro.bat` is run via PowerShell from a WSL2 working directory, the CWD is a UNC path (`\\wsl.localhost\...`). A relative `takeScreenshot: "my-name"` tries to write `my-name.png` in that UNC directory and fails with "Zugriff verweigert" (access denied). Only add debug `takeScreenshot` steps during local investigation; remove them before the final test run (or make them `optional: true`).
 
 ### `clearState: true` + CPU-intensive work = gRPC DEADLINE_EXCEEDED
 If an app starts a heavy analysis right after `pm clear`, Maestro's `viewHierarchy` gRPC call times out (120s deadline) before the UI is queryable. Reserve `clearState: true` for cold-start import flows. Overlay/playback flows that reuse existing analyses should run with `clearState: false`.
@@ -173,6 +180,35 @@ Tests that render the screen crash with "Element type is invalid" until the new 
 
 ### Exclude `.worktrees/` from Jest discovery
 A repo full of `.worktrees/feature-*/` directories each with its own test suite explodes the test run to thousands of suites. Add `/.worktrees/` to `testPathIgnorePatterns` in `jest.config.cjs`.
+
+### Hermes parse error on Metro-proxied bundle — TCP pipe artefact
+**Problem:** App shows `[runtime not ready]: Compiling JS failed: <line>:<col>: ')' expected` after the
+new bundle is streamed via a TCP forwarder (`node net.createServer` pipe to Metro). The same URL
+fetched via `curl` is valid JS. Hermes's bytecode compiler fails mid-bundle.
+
+**Root cause:** A naive TCP pipe doesn't speak HTTP; it may drop or reorder chunks in the chunked
+transfer, producing a garbled bundle for Hermes. `curl` uses a single keep-alive stream and handles
+chunked encoding natively.
+
+**Fix options (prefer first):**
+1. Use `socat TCP-LISTEN:8081,fork,reuseaddr TCP:127.0.0.1:$HOST_METRO_PORT` — socat handles HTTP
+   chunked encoding correctly as a raw byte pipe.
+2. Build a debug APK (`./gradlew assembleDebug`) so the embedded bundle is used; kill Metro/socat
+   so the app falls back to the baked bundle.
+3. Already noted in "Metro delta bundle" entry above — apply the same Gradle fallback.
+
+**Apply when:** You set up a `node -e "require('net')..."` TCP forwarder and then see a Hermes
+`CompileJsFailed` despite `curl` returning clean JS.
+
+### `display:none` on TrainingElementPicker does not collapse layout height on all API levels
+`TrainingElementPicker` (sharingan-rn-modal-dropdown) uses `display: 'none'` internally when not
+showing. On some API levels this does NOT collapse the layout height to zero. A `visible={false}`
+prop therefore leaves a visible gap above the content.
+
+**Fix:** Wrap the picker in a `<View style={{ height: 0, overflow: 'hidden' }}>` from the parent
+instead of relying on the picker's own `display: 'none'`. The parent-side height:0 is always
+respected. Keep the picker mounted (not conditionally rendered) to avoid react-native-modal crashes.
+Float the external toggle icon absolutely outside the wrapper.
 
 ## Worker Discipline
 
