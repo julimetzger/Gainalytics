@@ -1288,3 +1288,8 @@ Contrary to memory #150, running `npx jest <path> --testPathIgnorePatterns=/node
 **Root cause:** The fallback variable was set to "the best preferred value for this view" rather than "the safest guaranteed-present value". When the preferred value can itself disappear from the options list, the fallback produces an invalid chip state.
 **Fix pattern:** In the `effectiveSelected` computation, always use a value that is **unconditionally** present in the options list as the ultimate fallback (e.g. `'current_total_plan'` which is always added). Reserve conditional / view-specific defaults for initial seeding of the persisted value, not for the runtime safety fallback.
 **Apply when:** Any component with a picker/chip where some options are conditionally rendered. The "effective value" resolution must guarantee the result is always present in the rendered options — use a constant safe fallback, not a variable that can itself be out of options.
+
+### 175. `plan.trainings` slot count ≠ training-type count — use `trainingNames` for the denominator
+**Problem (GH-311):** `trainingsTotal` was computed from `Object.entries(plan.trainings).filter(micro === m).length`. But `plan.trainings` slots are only written when a training is actually planned/started. A plan with 4 `trainingNames` types may have 0-4 slots for any given micro. Using slot count as the "total" gives the wrong denominator in `CompletionRing` (e.g. 0/1 instead of 0/4).
+**Fix:** Use `Object.keys(plan.trainingNames ?? {}).length` for the total. Fall back to slot count only when `trainingNames` is empty (legacy plans).
+**Apply when:** Any UI displays "N of M trainings done in micro X". Always source M from `trainingNames` length, not from `plan.trainings` slot count.
