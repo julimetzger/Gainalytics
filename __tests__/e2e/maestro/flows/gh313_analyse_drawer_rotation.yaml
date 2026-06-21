@@ -1,0 +1,90 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-313: Verify each Analyse drawer screen renders correctly after enabling
+# freezeOnBlur in AnalyseRouter. The drawer keeps all 10 screens mounted at once,
+# so we rotate through 4 of the 5 GH-313 screens (Dashboard, Metrics, Training
+# Length, Records) and back to Dashboard to prove the freeze + unfreeze cycle
+# works.
+#
+# Assertions stick to drawer-header text and accessibility-visible picker chips.
+# Card.Title strings inside `RangeSwiper`'s GestureDetector subtree (e.g. "Muscle
+# Overview", "Exercise Overview") are NOT exposed to the Android accessibility
+# tree — see the docstring in 11_metrics_overview_slots.yaml and memory #171.
+
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+
+# Pin to a known tab so launchApp's restore doesn't leave us on the wrong tab.
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+
+# Dashboard is the drawer's initialRouteName.
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 15000
+
+# Dashboard → Metrics Overview
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Metrics Overview'
+    timeout: 10000
+- tapOn: 'Metrics Overview'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: 'Metrics Overview'
+    timeout: 20000
+- assertVisible: 'Select Exercises, Metrics, Accumulation Mode'
+
+# Metrics → Training Length
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Training Length'
+    timeout: 10000
+- tapOn: 'Training Length'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: 'Training Length'
+    timeout: 20000
+- assertVisible: 'Grouped by Day'
+
+# Training Length → Records
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Records'
+    timeout: 10000
+- tapOn: 'Records'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: 'Records'
+    timeout: 20000
+- assertVisible: 'Select Exercises, Metrics, Accumulation Mode'
+
+# Records → Dashboard (full freeze + unfreeze cycle).
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 10000
+- tapOn: 'Dashboard'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 20000

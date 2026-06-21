@@ -305,7 +305,7 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
 
   return (
     <View style={{flex: 1}} testID="training-home-screen">
-      <ScrollView contentInsetAdjustmentBehavior="automatic">
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{paddingBottom: 300}}>
         {/* Dashboard section for active plan */}
         {activePlan && (
           <>
