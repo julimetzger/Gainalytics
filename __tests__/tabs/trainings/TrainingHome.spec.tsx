@@ -39,6 +39,30 @@ jest.mock('react-native-toast-message', () => ({
   show: jest.fn(),
 }));
 
+jest.mock('../../../app/components/Training/dashboard/MicroHeroCard', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return () => React.createElement(View, {testID: 'micro-hero-card'});
+});
+
+jest.mock('../../../app/components/Training/dashboard/NextTrainingCard', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return () => React.createElement(View, {testID: 'next-training-card'});
+});
+
+jest.mock('../../../app/components/Training/dashboard/MicroRecordsCard', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return () => React.createElement(View, {testID: 'micro-records-card'});
+});
+
+jest.mock('../../../app/components/Training/dashboard/LastTrainingCard', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return () => React.createElement(View, {testID: 'last-training-card'});
+});
+
 jest.mock('react-native-paper', () => {
   const React = require('react');
   const {Text, TouchableOpacity, View} = require('react-native');
@@ -46,6 +70,8 @@ jest.mock('react-native-paper', () => {
   Dialog.Title = ({children}: any) => <Text>{children}</Text>;
   Dialog.Content = ({children}: any) => <View>{children}</View>;
   Dialog.Actions = ({children}: any) => <View>{children}</View>;
+  const TextInputComponent = ({value}: any) => <Text>{value}</Text>;
+  (TextInputComponent as any).Icon = () => null;
   return {
     Button: ({children, onPress, testID, mode}: any) => (
       <TouchableOpacity testID={testID || (typeof children === 'string' ? children : undefined)} onPress={onPress}>
@@ -66,8 +92,9 @@ jest.mock('react-native-paper', () => {
       </TouchableOpacity>
     ),
     ProgressBar: () => null,
-    Text: ({children}: any) => <Text>{children}</Text>,
-    TextInput: ({value}: any) => <Text>{value}</Text>,
+    SegmentedButtons: () => null,
+    Text: ({children, testID}: any) => <Text testID={testID}>{children}</Text>,
+    TextInput: TextInputComponent,
     useTheme: () => ({colors: {primary: '#000'}}),
   };
 });
@@ -142,5 +169,38 @@ describe('TrainingHome', () => {
     await waitFor(() => {
       expect(Alert.alert).toHaveBeenCalledWith('Export failed', 'Could not export the training plan.');
     });
+  });
+
+  it('GH-311: plan meta shows total from trainingNames, not from slot count', () => {
+    const planWith4Types: TrainingsPlan = {
+      id: 2,
+      name: 'PPL Plan',
+      trainingNames: {'1': 'Push', '2': 'Pull', '3': 'Legs', '4': 'Upper'},
+      trainings: {'1,1': 20},
+      lastTraining: 20,
+    };
+
+    const yesterday = new Date(Date.now() - 86400000).toISOString();
+    mockedUseAllTrainingsPlans.mockReturnValue([planWith4Types]);
+    mockedUseTrainings.mockReturnValue([
+      {
+        id: 20,
+        state: TrainingsState.FINISHED,
+        end: yesterday,
+        start: yesterday,
+        plannedWorkouts: {},
+        doneWorkoutIds: {},
+        exercises: [],
+      },
+    ]);
+    mockState.trainingsPlan.byId = {2: planWith4Types};
+
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId} = render(<TrainingHome navigation={navigation as any} route={route as any} />);
+
+    const meta = getByTestId('plan-meta-2');
+    expect(meta.props.children).toContain('1/4');
   });
 });
