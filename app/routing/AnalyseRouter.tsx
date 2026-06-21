@@ -33,6 +33,7 @@ const AnalyseRouter = () => {
   return (
     <Stack.Navigator
       initialRouteName="Dashboard"
+      backBehavior="history"
       screenOptions={({navigation}) => ({
         headerTintColor: theme.colors.onSecondaryContainer,
         headerLeft: () => <IconButton icon="menu" testID="analyse-drawer-toggle" onPress={() => navigation.toggleDrawer()} />,
