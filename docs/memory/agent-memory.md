@@ -99,7 +99,7 @@ After an RN upgrade, always validate with a fresh `npm ci` from scratch, not jus
 Any screen that uses `@react-navigation/drawer` or `react-native-drawer-layout` depends on the gesture-handler native module being registered at JS evaluation time. Debug builds get away without the root import because Fast Refresh paths end up registering it before the drawer renders; release builds can evaluate the drawer screen first and crash on mount. The fix is the documented `import 'react-native-gesture-handler';` as the **first** import of `index.tsx` — not inside any lazy code path. Symptoms: release-only crash the moment you tab into Analyse or open a Training plan; debug works fine.
 
 ### Jest `testPathIgnorePatterns: ['/.worktrees/']` hides specs in a worktree
-When you run `jest` from inside `.worktrees/feature-*/`, every test file's absolute path contains `/.worktrees/`, so the default ignore pattern matches them all and jest reports "No tests found". Workaround for a single run: `npx jest --testPathIgnorePatterns=/node_modules/ --testPathIgnorePatterns=/__tests__/coverage/`. Don't waste time debugging missing specs in a worktree — check the ignore pattern first.
+When you run `jest` from inside `.worktrees/feature-*/`, every test file's absolute path contains `/.worktrees/`, so the default ignore pattern matches them all and jest reports "No tests found". The CLI override `--testPathIgnorePatterns` does NOT reliably fix this (it may be parsed as an additional pattern). **Real fix: edit the worktree's `jest.config.cjs` and remove `'/.worktrees/'` from `testPathIgnorePatterns`.** This is a one-time fix per worktree. Don't waste time debugging missing specs — check this pattern first.
 
 ### Node.js v24 + jest-cli `exit()` incompatibility produces misleading exit code 1
 After all tests pass, jest-cli throws `TypeError: (0 , _exit(...).default) is not a function` and exits 1. This is a pre-existing Node 24 / jest-cli incompatibility, not a test failure — all test results are accurate. Don't re-run or debug; just check the "Tests:" summary line in output.
@@ -1271,6 +1271,49 @@ Contrary to memory #150, running `npx jest <path> --testPathIgnorePatterns=/node
 1. Run the import flow explicitly: `run-maestro-from-wsl.sh --mode full --suite __tests__/e2e/maestro/flows/00_import_baseline.yaml` (note: Maestro may still mismatch devices — see memory #118/#126/#133).
 2. Drive the import manually via adb: (a) `adb shell am force-stop com.powerliftingworkoutplanner`, (b) `adb shell am start -n com.powerliftingworkoutplanner/.MainActivity`, (c) `adb shell uiautomator dump` to find Settings tab coords, (d) tap Settings → Import Data → file picker → tap `baseline.gains` in the file list.
 **Apply when:** Any worker that uses `--mode bootstrap` and then wonders why the app shows no training data. The file push is a necessary precondition but the import tap-sequence must be driven separately.
+
+### 171. `debuggableVariants = []` in app/build.gradle means debug APK embeds the JS bundle
+**Observation (GH-302):** This project sets `debuggableVariants = []` in the `react {}` block of `android/app/build.gradle`, overriding RN's default which would skip JS bundling for the debug variant. As a result, `./gradlew assembleDebug` runs the full `bundleDebugJsAndAssets` Gradle task and embeds the JS in the APK — the same as a release build. When Metro is unreachable from the emulator (see #172), this is the reliable fallback: build a fresh APK and install it to get the updated code on device.
+**Apply when:** Metro is unreachable from the emulator and device verification is needed. Build with `./gradlew assembleDebug` (takes ~8 min first time, faster on incremental). The APK will contain the current branch's JS.
+
+### 172. On this project's emulator-5556, Metro status check uses 10.0.2.2:8081 (bypasses adb reverse)
+**Problem (GH-302):** The RN 0.84.1 app on emulator-5556 calls `isMetroRunning()` which checks `10.0.2.2:8081` — the Android emulator's host alias pointing directly to the Windows machine. WSL's Metro (on WSL 127.0.0.1:8085) is NOT reachable at that address. `adb reverse tcp:8081 tcp:8085` only forwards `localhost:8081` connections, not `10.0.2.2:8081`. When the check fails, the app falls back to the embedded APK bundle.
+**Working solution:** Build and install a fresh APK (see #171) — `debuggableVariants = []` means the APK bundles the current JS. This is faster than fighting the Metro routing. Note: entry #65 suggests adb reverse should work on RN 0.84.1, but that was not observed on emulator-5556 in GH-302.
+**Apply when:** You see logcat: "The packager does not seem to be running... failed to connect to /10.0.2.2 (port 8081)". Don't debug Metro routing — just do a fresh APK build.
+
+### 173. Git core.ignorecase=true in a case-sensitive Linux filesystem causes silently wrong tracked paths
+**Problem (GH-302):** `git config core.ignorecase` is `true` in this repo (set during clone from Windows). When a new file is staged and committed as `app/components/Analyse/HistoryFiltersSection.tsx` (capital A), git's ignorecase logic may normalize and store it as `app/components/analyse/HistoryFiltersSection.tsx` (lowercase). On Linux (ext4 case-sensitive), the file lives at `Analyse/` but git tracks it at `analyse/`, reporting the file as "deleted" and the correctly-cased path as clean.
+**Working solution:** Always place new files under the EXISTING directory (check `ls` first). In this repo, `app/components/analyse/` (lowercase) is the correct location for all Analyse-tab components. If you accidentally create a new dir with wrong case, `mv` the file to the correct existing dir and update imports. Don't try to use `git rm --cached + git add` with ignorecase on — it won't change the normalized path.
+**Apply when:** Git shows "deleted" for a file you just created and "untracked" for the same file at a different case. Check `ls` to find the existing same-named directory with the correct case.
+
+### 174. `jest.mock` paths must match the exact filesystem case on Linux
+**Problem (GH-302 feedback):** A History spec had `jest.mock('../../../app/components/Analyse/HistoryFiltersSection', ...)` (capital A). Jest on Linux (case-sensitive filesystem) throws `Cannot find module` because the actual file is at `app/components/analyse/` (lowercase a). The error is unrelated to the test logic — it only surfaces when actually running the spec file.
+**Working solution:** Always match the exact filesystem case in `jest.mock()` paths. Run `ls app/components/` first to confirm casing. Related to memory entry #173 (git ignorecase stores files at lowercase path) — the two combine: git records the path as `analyse/` but the test might reference `Analyse/`.
+**Apply when:** A jest.mock throws `Cannot find module` for a path you believe exists. Check the case of every directory segment in the path.
+
+### 176. Dev Menu "Change Bundle Location" must be set in the running session, not just via SharedPreferences
+**Problem (GH-302 FB2):** Writing `debug_http_host=localhost:8081` to SharedPreferences via `adb shell run-as ... sh -c 'printf ... > shared_prefs/com.facebook.react.devsupport.xml'` is NOT enough. The running app session continues to use whatever host it loaded at startup (e.g. `10.0.2.2:8081`). Even killing and relaunching the app may not pick up the SharedPreferences change reliably on this emulator.
+**Working solution:** While the app is running, open Dev Menu (`adb shell input keyevent 82`), tap "Change Bundle Location", clear the field, type `localhost:8081`, tap "Apply Changes". This writes the value AND immediately reconfigures the running JS engine. After the reload, Metro bundles from `localhost:8081` (via `adb reverse tcp:8081 tcp:8085`).
+**Apply when:** Logcat shows the app is using `10.0.2.2:8081` or the Dev Menu shows "Connect to the bundler" (bundler not connected). Writing SharedPreferences via run-as alone is insufficient.
+
+### 177. TrainingElementPicker collapses to zero layout height when show=false; IconButton is absolutely positioned
+**Pattern (GH-302 FB2):** `TrainingElementPicker` has `style={{position: 'absolute', right: 0, zIndex: 2}}` on its IconButton. When `show=false`, `MultiselectDropdown` gets `display: 'none'` (zero layout height). The outer TrainingElementPicker View collapses to zero height (only the absolute IconButton remains), so the content below (e.g. FlashList) shifts up to y=304 (content area start). The IconButton floats at ~y=320 overlapping the first FlashList item. When `show=true`, the MultiselectDropdown adds ~31px of layout height, pushing the FlashList down. The MultiselectDropdown's selector bar does NOT appear as a `clickable=true` element in uiautomator — it responds to adb `input tap` but the gesture may be consumed by nearby FlashList gesture handlers when touch targets overlap.
+**Apply when:** Debugging why TrainingElementPicker appears to overlap a list view, or why tapping the selector bar area doesn't open the dropdown modal. The chevron IconButton at absolute right-0 IS the safe toggle target.
+
+### 178. Jest `testPathIgnorePatterns`: use `<rootDir>/` prefix to make patterns root-relative
+
+**Problem:** Removing `/.worktrees/` from `testPathIgnorePatterns` (so workers inside a worktree can find their own specs) means a plain `/.worktrees/` pattern is gone — and when the branch merges to master, the new main-checkout config no longer ignores sibling worktree specs during `npm test`.
+
+**Working solution:** Use `<rootDir>/.worktrees/` instead of `/.worktrees/`. Jest expands `<rootDir>` at runtime:
+- From main checkout (`rootDir=/repo`): pattern = `/repo/.worktrees/` → matches any worktree spec → excluded ✓
+- From inside worktree (`rootDir=/repo/.worktrees/feature-XYZ`): pattern = `/repo/.worktrees/feature-XYZ/.worktrees/` → non-existent path → nothing excluded, own specs run ✓
+
+**Apply when:** Any jest.config.cjs that must be shared between main checkout and worker worktrees. Always use `<rootDir>/` prefix for path-based ignore patterns to get root-relative semantics.
+
+### 175. React Navigation Drawer screens stay mounted — `useState` lazy init runs once, use `useEffect` for route param re-sync
+**Pattern (GH-302 feedback):** When a Drawer screen (e.g. History) has state initialized from `route.params?.exercise` via lazy `useState`, re-navigation with a different exercise param does NOT trigger re-initialization — the component is already mounted. The chip filter stays stale after repeated Dashboard drill-down navigations.
+**Working solution:** Add `useEffect(() => { if (param !== undefined) setState([param]); }, [param])` where `param` is the route param value (not the object reference). Use undefined as a sentinel for "keep current state" so that navigations without the param (e.g. from Drawer entry without a drill-down) don't reset manually-toggled filters.
+**Apply when:** Any screen in a Drawer navigator that reads `route.params` to pre-populate local state. The `useState` init is insufficient — always pair it with a `useEffect` that re-syncs on the param's value dependency.
 
 ### 171. `scrollUntilVisible: text: "<header>"` lands the header at the bottom edge of the viewport — the rest of the card body is still off-screen
 **Problem (GH-299):** A Maestro flow that did `scrollUntilVisible: text: "Last Training"` and then `assertVisible: "Sets"` / `assertVisible: "Tap to view training details"` failed: Maestro stops scrolling the *instant* the target text enters the visible region, which on a tall card means the header is at the very bottom of the screen and every metric/hint below it is still below the fold. Adding a follow-up `swipe direction: UP` is unreliable because it can scroll the header back off the top.
