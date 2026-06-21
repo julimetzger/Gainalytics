@@ -1,14 +1,17 @@
-import React, {useMemo} from 'react';
-import {ScrollView, View} from 'react-native';
-import {Card, DataTable, Text} from 'react-native-paper';
+import React, {useMemo, useState} from 'react';
+import {View, ScrollView} from 'react-native';
+import {Card, DataTable, IconButton, Text} from 'react-native-paper';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {TrainingsState} from '../../../models/TrainingsState';
 import {useAllTrainingsInMicro} from '../../../redux/Training/use/useAllTrainingsInMicro';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {useExerciseByIds} from '../../../redux/Exercises/use/useExerciseByIds';
 import {Training} from '../../../models/entities/Training';
+import {Workout} from '../../../models/entities/Workout';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {formatPlanNumber} from '../plan/planUtils';
+
+export type ExerciseSortMode = 'plan' | 'date';
 
 interface Props {
   trainingsPlan: TrainingsPlan;
@@ -18,6 +21,7 @@ interface Props {
 interface TrainingExerciseCardProps {
   training: Training;
   trainingName: string;
+  sortMode: ExerciseSortMode;
 }
 
 export function computeWeightRangeLabel(sets: ReadonlyArray<Pick<WorkoutSet, 'weight'>>): string {
@@ -28,6 +32,27 @@ export function computeWeightRangeLabel(sets: ReadonlyArray<Pick<WorkoutSet, 'we
   return min === max ? formatPlanNumber(min) : `${formatPlanNumber(min)}-${formatPlanNumber(max)}`;
 }
 
+/** Returns exercise IDs in planned training order, filtered to those actually logged. */
+export function sortExerciseIdsByPlan(
+  trainingExercises: number[],
+  doneWorkoutIds: {[exerciseId: number]: number},
+): number[] {
+  return trainingExercises.filter((exId) => doneWorkoutIds[exId] !== undefined);
+}
+
+/** Returns exercise IDs sorted by workout start date (ascending). */
+export function sortExerciseIdsByDate(
+  workouts: ReadonlyArray<Pick<Workout, 'exerciseId' | 'start'>>,
+): number[] {
+  return [...workouts]
+    .sort((a, b) => {
+      const aTime = a.start ? new Date(a.start).getTime() : 0;
+      const bTime = b.start ? new Date(b.start).getTime() : 0;
+      return aTime - bTime;
+    })
+    .map((w) => w.exerciseId);
+}
+
 const COL_FLEX = {
   exercise: 12,
   sets: 3,
@@ -36,11 +61,18 @@ const COL_FLEX = {
   rir: 3,
 };
 
-const TrainingExerciseCard = ({training, trainingName}: TrainingExerciseCardProps) => {
+const TrainingExerciseCard = ({training, trainingName, sortMode}: TrainingExerciseCardProps) => {
   const workoutIds = useMemo(() => Object.values(training.doneWorkoutIds), [training.doneWorkoutIds]);
   const workouts = useWorkoutsByIds(workoutIds);
-  const exerciseIds = useMemo(() => workouts.map((w) => w.exerciseId), [workouts]);
-  const exercises = useExerciseByIds(exerciseIds);
+
+  const sortedExerciseIds = useMemo(() => {
+    if (sortMode === 'plan') {
+      return sortExerciseIdsByPlan(training.exercises, training.doneWorkoutIds);
+    }
+    return sortExerciseIdsByDate(workouts);
+  }, [sortMode, training.exercises, training.doneWorkoutIds, workouts]);
+
+  const exercises = useExerciseByIds(sortedExerciseIds);
 
   return (
     <Card style={{margin: 5}}>
@@ -86,6 +118,7 @@ const TrainingExerciseCard = ({training, trainingName}: TrainingExerciseCardProp
 };
 
 const MicroExerciseOverview = ({trainingsPlan, micro}: Props) => {
+  const [sortMode, setSortMode] = useState<ExerciseSortMode>('plan');
   const trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
   const executedTrainings = useMemo(() => trainings.filter((t) => t.state === TrainingsState.FINISHED), [trainings]);
 
@@ -110,15 +143,26 @@ const MicroExerciseOverview = ({trainingsPlan, micro}: Props) => {
   }
 
   return (
-    <ScrollView>
-      {executedTrainings.map((training) => (
-        <TrainingExerciseCard
-          key={training.id}
-          training={training}
-          trainingName={trainingNameMap.get(training.id!!) ?? `Training`}
+    <View style={{flex: 1}}>
+      <View style={{flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 4}}>
+        <IconButton
+          testID="exercise-sort-toggle"
+          accessibilityLabel={sortMode === 'plan' ? 'Sorted by training order' : 'Sorted by date'}
+          icon={sortMode === 'plan' ? 'sort-variant' : 'sort-clock-ascending-outline'}
+          onPress={() => setSortMode((prev) => (prev === 'plan' ? 'date' : 'plan'))}
         />
-      ))}
-    </ScrollView>
+      </View>
+      <ScrollView>
+        {executedTrainings.map((training) => (
+          <TrainingExerciseCard
+            key={training.id}
+            training={training}
+            trainingName={trainingNameMap.get(training.id!!) ?? `Training`}
+            sortMode={sortMode}
+          />
+        ))}
+      </ScrollView>
+    </View>
   );
 };
 
