@@ -33,9 +33,10 @@ interface Props {
   onDisableLinkVideoMode?: () => void;
   onLiveInputChange?: (input: {reps: number; rir: number; weight: number}) => void;
   oneRepMaxRef?: (oneRm: number) => void;
+  allowRefinalizeWhenDone?: boolean;
 }
 
-const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info, linkVideoMode, onDisableLinkVideoMode, onLiveInputChange, oneRepMaxRef}: Props) => {
+const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info, linkVideoMode, onDisableLinkVideoMode, onLiveInputChange, oneRepMaxRef, allowRefinalizeWhenDone}: Props) => {
   let unfinishedWorkout = useUnfinishedWorkout(exercise.id!!);
   unfinishedWorkout = workout ?? unfinishedWorkout;
   let workouts = useAllLastWorkouts(exercise, 1);
@@ -195,7 +196,7 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
           ))}
         </View>
       )}
-      {(!workout || workout.end === undefined) && (
+      {(!workout || workout.end === undefined || allowRefinalizeWhenDone) && (
         <Button
           style={styles.addWorkoutButton}
           buttonColor={theme.colors.primary}

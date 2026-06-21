@@ -285,6 +285,42 @@ describe('AddWorkout', () => {
     expect(reportedOneRm).toBeLessThan(120);
   });
 
+  it('hides Done button when workout.end is defined and allowRefinalizeWhenDone is not set (normal mode)', () => {
+    const finalizedWorkout: Workout = {
+      id: 77,
+      sets: [{index: 1, reps: 5, rir: 1, weight: 100, date: date}],
+      notes: '',
+      exerciseId: 7,
+      start: date,
+      end: date,
+    };
+
+    const {queryByTestId} = render(
+      <AddWorkout exercise={exercise} onSubmit={jest.fn()} trainingsId={3} date={date} workout={finalizedWorkout} />,
+    );
+
+    expect(queryByTestId('button-Add-Workout')).toBeNull();
+  });
+
+  it('shows Done button when workout.end is defined and allowRefinalizeWhenDone=true (GH-323 edit mode regression)', () => {
+    const finalizedWorkout: Workout = {
+      id: 77,
+      sets: [{index: 1, reps: 5, rir: 1, weight: 100, date: date}],
+      notes: '',
+      exerciseId: 7,
+      start: date,
+      end: date,
+    };
+    mockedUseUnfinishedWorkout.mockReturnValue(finalizedWorkout);
+
+    const {getByTestId} = render(
+      <AddWorkout exercise={exercise} onSubmit={jest.fn()} trainingsId={3} date={date} workout={finalizedWorkout} allowRefinalizeWhenDone />,
+    );
+
+    expect(getByTestId('button-Add-Workout')).toBeTruthy();
+    expect(getByTestId('button-Add-Workout')).toBeEnabled();
+  });
+
   it('handles suggest button enablement and dispatch', () => {
     const onSubmit = jest.fn();
     mockedUseAllLastWorkouts.mockReturnValue([

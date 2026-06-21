@@ -386,7 +386,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                         </View>
                       )}
                       {chosenExercise && (
-                        <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} onScheduleNotification={(secs) => schedulePauseDoneNotification(secs)} onCancelNotification={resetPauseNotification} />
+                        <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} onScheduleNotification={(secs) => schedulePauseDoneNotification(secs)} onCancelNotification={resetPauseNotification} editMode={isEditing} />
                       )}
                     </View>
                   )}
