@@ -212,6 +212,12 @@ A Maestro flow failing on the first assertion is often an app bootstrap crash (r
 ### Grep for dev/debug UI elements in both tab screens and modals
 "Import Emulator Squat Video" and similar dev-only buttons have historically lived in multiple places (main tab + selection modal). When removing them, `grep -r "<dev button text>" app/` before assuming one file is enough.
 
+### AddWorkout hides the Done button when `workout.end` is defined
+`AddWorkout` takes a `workout` prop and hides the "Add Workout" (Done) button when `workout?.end` is set. `ExecuteTraining` passes `workout={doneWorkout?.end ? doneWorkout : undefined}` — so a finalized exercise's Done button is hidden. In edit mode, this is wrong: use `allowRefinalizeWhenDone={editMode}` + pass `workout={editMode ? doneWorkout : (doneWorkout?.end ? doneWorkout : undefined)}` so the button stays visible and points to the existing workout record.
+
+### Nested ScrollViews hide component testIDs from Maestro
+Elements inside `TrainingsPlanNode`'s main ScrollView are not exposed in the accessibility tree; Maestro `assertVisible: id: "some-testid"` times out. Use `assertVisible: text: "button label"` instead — text nodes ARE propagated. If even text fails (the whole subtree is hidden), record visual evidence via `adb exec-out screencap -p` and note the limitation in the flow comment (same pattern as `trn005_edit_training_times.yaml`).
+
 ### RN version mismatch between worktrees causes `TurboModuleRegistry.getEnforcing` crash
 Each worktree that ran `npm install` gets its own `node_modules` with a potentially different RN version. If an APK was built from a worktree running RN 0.84.1 but you serve it a Metro bundle from another worktree using RN 0.76.9, you get: `Invariant Violation: TurboModuleRegistry.getEnforcing(...): 'PlatformConstants' could not be found`. Check `node -e "require('./node_modules/react-native/package.json').version"` in the Metro-serving worktree and compare against the APK's RN version before loading the bundle. Install an APK built from a worktree with the matching RN version.
 
