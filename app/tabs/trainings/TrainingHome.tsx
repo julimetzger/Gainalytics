@@ -183,7 +183,8 @@ function statusForPlan(plan: TrainingsPlan, allTrainings: Training[]): PlanRowMe
     const tId = plan.trainings[k];
     return trainingsById[tId]?.end;
   }).length;
-  const microTotal = microSlots.length;
+  const trainingTypeCount = Object.keys(plan.trainingNames ?? {}).length;
+  const microTotal = trainingTypeCount > 0 ? trainingTypeCount : microSlots.length;
 
   if (hasStarted) {
     return {
@@ -304,7 +305,7 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
 
   return (
     <View style={{flex: 1}} testID="training-home-screen">
-      <ScrollView contentInsetAdjustmentBehavior="automatic">
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{paddingBottom: 300}}>
         {/* Dashboard section for active plan */}
         {activePlan && (
           <>

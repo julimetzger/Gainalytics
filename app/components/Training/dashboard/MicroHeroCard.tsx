@@ -55,13 +55,14 @@ const useMesoBarData = (plan: TrainingsPlan, currentMicro: number): MicroBarDatu
         return sum;
       }, 0);
 
+      const trainingTypeCount = Object.keys(plan.trainingNames ?? {}).length;
       result.push({
         localMicro: m - mesoStart + 1,
         volume: Math.round(calculateMetricValue(sets, Metric.VOLUME)),
         sets: calculateMetricValue(sets, Metric.SETS),
         timeMinutes: Math.round(timeMs / 60000),
         trainingsCompleted: trainings.filter(t => t.end).length,
-        trainingsTotal: trainingIds.length,
+        trainingsTotal: trainingTypeCount > 0 ? trainingTypeCount : trainingIds.length,
         avgRir: sets.length > 0 ? sets.reduce((s, ws) => s + (ws.rir ?? 0), 0) / sets.length : null,
       });
     }

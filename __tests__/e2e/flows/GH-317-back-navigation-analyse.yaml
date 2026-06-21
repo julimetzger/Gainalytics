@@ -1,0 +1,90 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-317: Back navigation in Analyse tab
+#
+# Verifies that pressing back from the Analyse tab returns to the previously
+# active tab (history-based), not always to the first tab (Training).
+#
+# Root cause: Tab Navigator used backBehavior="firstRoute" (default).
+# Fix: Both Drawer Navigator and Tab Navigator now use backBehavior="history".
+#
+# Test scenario:
+#   Training → Exercises (switch tab) → Analyse (switch tab) → Metrics sub-screen
+#   → back (→ Dashboard within Analyse) → back (→ Exercises, not Training)
+
+- launchApp:
+    clearState: false
+
+# Wait for app to be fully loaded on Training tab
+- extendedWaitUntil:
+    visible:
+      text: "Training"
+    timeout: 60000
+
+# Step 1: Navigate to Exercises tab (so history = Training → Exercises)
+# Use content-desc (tapOn bare string matches both text and content-desc)
+- tapOn: "tab-exercises"
+
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "Exercises"
+    timeout: 15000
+
+# Step 2: Navigate to Analyse tab (so history = Training → Exercises → Analyse)
+- tapOn: "tab-analyse"
+
+- waitForAnimationToEnd
+
+# Verify we are on Analyse Dashboard
+- extendedWaitUntil:
+    visible:
+      text: "Dashboard"
+    timeout: 20000
+
+# Step 3: Navigate to Metrics within Analyse via Quick Access
+- scrollUntilVisible:
+    element:
+      text: "All Metrics"
+    direction: DOWN
+    timeout: 10000
+
+- tapOn:
+    text: "All Metrics"
+
+- waitForAnimationToEnd
+
+# Verify we are on Metrics Overview screen
+- extendedWaitUntil:
+    visible:
+      text: "Metrics Overview"
+    timeout: 10000
+
+# Step 4: Press back → should return to Dashboard (within Analyse)
+- pressKey: "back"
+
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "Dashboard"
+    timeout: 10000
+
+- assertVisible:
+    text: "Dashboard"
+
+# Step 5: Press back from Dashboard → should return to Exercises tab (history-based)
+# Without the fix this would navigate to Training (firstRoute) instead of Exercises.
+- pressKey: "back"
+
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "Exercises"
+    timeout: 10000
+
+# Assert we are on Exercises tab, NOT on Training (which would be the old firstRoute behavior)
+- assertVisible:
+    text: "Exercises"

@@ -12,15 +12,17 @@ import {Metric} from "../../../models/Metric";
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import VelocityLossInsightCard from '../VelocityLossInsightCard';
 import {useVelocityLossInsights} from '../useVelocityLossInsights';
+import MuscleInvolvementCard from '../plan/MuscleInvolvementCard';
 
 interface TrainingsOverviewProps {
   training: Training;
   previousTraining?: Training;
   trainingsPlan: TrainingsPlan;
   currentMicro: number;
+  trainingInMicro: number;
 }
 
-const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMicro}: TrainingsOverviewProps) => {
+const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMicro, trainingInMicro}: TrainingsOverviewProps) => {
   const trainingWorkoutIds = useMemo(
     () => new Set(Object.values(training.doneWorkoutIds) as number[]),
     [training.doneWorkoutIds],
@@ -100,6 +102,15 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
           </View>
         )}
         <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
+        {trainingsPlan.id !== undefined && (
+          <MuscleInvolvementCard
+            trainingsPlanId={trainingsPlan.id}
+            micro={currentMicro}
+            trainingInMicro={trainingInMicro}
+            view="analyse"
+            showDismiss={false}
+          />
+        )}
       </View>
     </ScrollView>
   );

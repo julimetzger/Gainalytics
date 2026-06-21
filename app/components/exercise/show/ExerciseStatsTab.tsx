@@ -16,7 +16,7 @@ interface Props {
 interface RecordRow {
   value: number;
   date: Date | undefined;
-  setIndex: number | undefined;
+  weight: number | undefined;
   reps: number | undefined;
   rir: number | undefined;
   key: string;
@@ -74,7 +74,7 @@ const ExerciseStatsTab = ({exercise}: Props) => {
       out.push({
         value: numericValue,
         date: w?.start ? new Date(w.start) : undefined,
-        setIndex: producingSet?.index,
+        weight: producingSet?.weight,
         reps: producingSet?.reps,
         rir: producingSet?.rir,
         key: `${r.workoutId}-${idx}-${numericValue}`,
@@ -113,7 +113,7 @@ const ExerciseStatsTab = ({exercise}: Props) => {
             <View testID="one-rm-records-list">
               <View style={[styles.recordHeader, {borderBottomColor: theme.colors.outlineVariant}]}>
                 <Text style={[styles.colDate, styles.headerCell, {color: theme.colors.onSurfaceVariant}]}>Date</Text>
-                <Text style={[styles.colSet, styles.headerCell, {color: theme.colors.onSurfaceVariant}]}>Set</Text>
+                <Text style={[styles.colWeight, styles.headerCell, {color: theme.colors.onSurfaceVariant}]}>Weight</Text>
                 <Text style={[styles.colReps, styles.headerCell, {color: theme.colors.onSurfaceVariant}]}>Reps</Text>
                 <Text style={[styles.colRir, styles.headerCell, {color: theme.colors.onSurfaceVariant}]}>RIR</Text>
                 <Text style={[styles.colValue, styles.headerCell, {color: theme.colors.onSurfaceVariant}]}>1RM</Text>
@@ -131,8 +131,8 @@ const ExerciseStatsTab = ({exercise}: Props) => {
                     testID={`one-rm-record-row-${idx}`}
                   >
                     <Text style={[styles.colDate, {color: theme.colors.onSurface}]}>{formatDate(row.date)}</Text>
-                    <Text style={[styles.colSet, {color: theme.colors.onSurface}]}>
-                      {row.setIndex !== undefined ? `Set ${row.setIndex}` : '—'}
+                    <Text style={[styles.colWeight, {color: theme.colors.onSurface}]}>
+                      {row.weight !== undefined ? `${row.weight} kg` : '—'}
                     </Text>
                     <Text style={[styles.colReps, {color: theme.colors.onSurface}]}>
                       {row.reps !== undefined ? row.reps : '—'}
@@ -204,8 +204,8 @@ const styles = StyleSheet.create({
     flex: 2.6,
     fontSize: 13,
   },
-  colSet: {
-    flex: 1.1,
+  colWeight: {
+    flex: 1.4,
     textAlign: 'center',
     fontSize: 13,
     fontVariant: ['tabular-nums'],

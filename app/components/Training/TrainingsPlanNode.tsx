@@ -299,7 +299,6 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                       onEnterPlanMode={() => {
                         setNextPlanMode('fullEdit');
                         setPlanEntryRequested(true);
-                        setShowPicker(true);
                       }}
                     />
                   )}
@@ -437,7 +436,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
               {activeSubTab === 'analysis' && (
                 <View>
                   {training?.state === TrainingsState.FINISHED ? (
-                    <TrainingsOverview training={training} previousTraining={lastTraining} trainingsPlan={trainingsPlan} currentMicro={micro} />
+                    <TrainingsOverview training={training} previousTraining={lastTraining} trainingsPlan={trainingsPlan} currentMicro={micro} trainingInMicro={trainingInMicro} />
                   ) : (
                     <View style={{padding: 24, alignItems: 'center'}}>
                       <Text>Analysis available after the training is finished</Text>

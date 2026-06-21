@@ -2,19 +2,25 @@ import React, {useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {IconButton, Text, useTheme} from 'react-native-paper';
 import DropdownChip, {DropdownChipOption} from '../../shared/DropdownChip';
-import {useMuscleInvolvement} from '../../../redux/Training/use/useMuscleInvolvement';
+import {useLastMatchingTrainingMicro, useMuscleInvolvement} from '../../../redux/Training/use/useMuscleInvolvement';
 import {useSettings} from '../../../redux/settings/use/useSettings';
+import {useTrainingsPlan} from '../../../redux/Training/use/useTrainingsPlan';
 import {
+  dispatchSetAnalyseMuscleMapCompare,
   dispatchSetPlanMuscleMapCompare,
   dispatchSetPlanMuscleMapEnabled,
   dispatchSetPlanMuscleMapMetric,
 } from '../../../redux/settings/dispatch/dispatchSetPlanMuscleMap';
-import {MuscleMapCompare, MuscleMapMetric, formatMetricValue} from '../../../utils/MuscleInvolvementUtils';
+import {MuscleMapCompare, MuscleMapMetric, MuscleMapView, formatMetricValue} from '../../../utils/MuscleInvolvementUtils';
 
 interface MuscleInvolvementCardProps {
   trainingsPlanId: number;
   micro: number;
   trainingInMicro: number;
+  /** 'plan' (default) — today subject is the planned workouts; 'analyse' — today subject is the done workouts. */
+  view?: MuscleMapView;
+  /** Hide the dismiss (close) button. Set this on the Done-View where the card is permanent. */
+  showDismiss?: boolean;
   onDismiss?: () => void;
 }
 
@@ -28,47 +34,97 @@ const BAR_HEIGHT = 16;
 const LABEL_WIDTH = 76;
 const READOUT_WIDTH = 72;
 
-const VALID_COMPARES: MuscleMapCompare[] = ['none', 'last_plan', 'current_total_plan'];
+const VALID_COMPARES: MuscleMapCompare[] = ['none', 'last_plan', 'current_total_plan', 'last_training_plan', 'last_training_done'];
 
-const normalizeCompare = (raw: unknown): MuscleMapCompare => {
+const normalizeCompare = (raw: unknown, fallback: MuscleMapCompare): MuscleMapCompare => {
   if (typeof raw === 'string' && (VALID_COMPARES as string[]).includes(raw)) return raw as MuscleMapCompare;
-  return 'current_total_plan';
+  return fallback;
 };
 
-const compareLabel = (compare: MuscleMapCompare, micro: number): string => {
+const trainingNameFor = (trainingNames: {[k: string]: string} | undefined, trainingInMicro: number): string => {
+  const explicit = trainingNames?.[trainingInMicro];
+  if (explicit && explicit.trim().length > 0) return explicit;
+  return `Training ${trainingInMicro + 1}`;
+};
+
+const compareLabel = (
+  compare: MuscleMapCompare,
+  micro: number,
+  trainingName: string,
+  lastPlannedMicro: number | undefined,
+  lastDoneMicro: number | undefined,
+): string => {
   if (compare === 'none') return 'None';
   if (compare === 'current_total_plan') return 'Current micro plan';
-  // last_plan
-  const previous = Math.max(1, micro - 1);
-  return `Micro ${previous} plan`;
+  if (compare === 'last_plan') {
+    const previous = Math.max(1, micro - 1);
+    return `Micro ${previous} plan`;
+  }
+  if (compare === 'last_training_plan') {
+    if (lastPlannedMicro === undefined) return `Last ${trainingName} plan`;
+    return `Micro ${lastPlannedMicro} · ${trainingName} (plan)`;
+  }
+  if (compare === 'last_training_done') {
+    if (lastDoneMicro === undefined) return `Last ${trainingName} done`;
+    return `Micro ${lastDoneMicro} · ${trainingName} (done)`;
+  }
+  return '';
 };
 
-const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, onDismiss}: MuscleInvolvementCardProps) => {
+const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 'plan', showDismiss = true, onDismiss}: MuscleInvolvementCardProps) => {
   const theme = useTheme();
   const settings = useSettings();
+  const plan = useTrainingsPlan(trainingsPlanId);
   const setEnabled = dispatchSetPlanMuscleMapEnabled();
   const setMetric = dispatchSetPlanMuscleMapMetric();
-  const setCompare = dispatchSetPlanMuscleMapCompare();
+  const setPlanCompare = dispatchSetPlanMuscleMapCompare();
+  const setAnalyseCompare = dispatchSetAnalyseMuscleMapCompare();
 
   const metric: MuscleMapMetric = settings.plan?.muscleMap?.metric === 'volume' ? 'volume' : 'sets';
-  const compare: MuscleMapCompare = normalizeCompare(settings.plan?.muscleMap?.compare);
 
+  const fallbackCompare: MuscleMapCompare = view === 'analyse' ? 'last_training_done' : 'current_total_plan';
+  const persistedCompare = view === 'analyse' ? settings.muscleMapCompareSelectionAnalyse : settings.muscleMapCompareSelectionPlan ?? settings.plan?.muscleMap?.compare;
+  const setCompare = view === 'analyse' ? setAnalyseCompare : setPlanCompare;
+  const compare: MuscleMapCompare = normalizeCompare(persistedCompare, fallbackCompare);
+
+  const trainingName = trainingNameFor(plan?.trainingNames, trainingInMicro);
   const previousMicroAvailable = micro >= 2;
 
-  const compareOptions = useMemo<DropdownChipOption<MuscleMapCompare>[]>(
-    () => [
+  const lastPlannedMicro = useLastMatchingTrainingMicro(trainingsPlanId, trainingInMicro, micro, false);
+  const lastDoneMicro = useLastMatchingTrainingMicro(trainingsPlanId, trainingInMicro, micro, true);
+
+  const compareOptions = useMemo<DropdownChipOption<MuscleMapCompare>[]>(() => {
+    const options: DropdownChipOption<MuscleMapCompare>[] = [
       {value: 'none', label: 'None'},
+      {value: 'current_total_plan', label: 'Current micro plan'},
       {
         value: 'last_plan',
         label: previousMicroAvailable ? `Micro ${micro - 1} plan` : 'No previous plan',
         disabled: !previousMicroAvailable,
       },
-      {value: 'current_total_plan', label: 'Current micro plan'},
-    ],
-    [micro, previousMicroAvailable],
-  );
+      {
+        value: 'last_training_plan',
+        label: lastPlannedMicro !== undefined ? `Micro ${lastPlannedMicro} · ${trainingName} (plan)` : `Last ${trainingName} (plan)`,
+        disabled: lastPlannedMicro === undefined,
+      },
+    ];
+    if (lastDoneMicro !== undefined) {
+      options.push({
+        value: 'last_training_done',
+        label: `Micro ${lastDoneMicro} · ${trainingName} (done)`,
+      });
+    }
+    return options;
+  }, [micro, previousMicroAvailable, lastPlannedMicro, lastDoneMicro, trainingName]);
 
-  const data = useMuscleInvolvement({trainingsPlanId, micro, trainingInMicro, metric, compare});
+  // If the persisted compare is 'last_training_done' but no done match exists in the
+  // current context, fall back to 'current_total_plan' which is always in compareOptions.
+  // Using fallbackCompare here was wrong: in analyse view fallbackCompare itself is
+  // 'last_training_done', which is NOT added to compareOptions when lastDoneMicro is
+  // undefined — causing the DropdownChip to receive a value outside its options list.
+  const effectiveSelectedCompare: MuscleMapCompare = compare === 'last_training_done' && lastDoneMicro === undefined ? 'current_total_plan' : compare;
+
+  const data = useMuscleInvolvement({trainingsPlanId, micro, trainingInMicro, metric, compare: effectiveSelectedCompare, view});
 
   const handleDismiss = () => {
     setEnabled(false);
@@ -83,11 +139,13 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, onDismi
 
   const showReferenceLayer = data.effectiveCompare !== 'none';
 
+  const headerLabel = view === 'analyse' ? 'THIS DONE TRAINING' : 'THIS TRAINING';
+
   return (
-    <View testID="muscle-involvement-card" style={[styles.card, {backgroundColor: surfaceContainer}]}>
+    <View testID={view === 'analyse' ? 'muscle-involvement-card-analyse' : 'muscle-involvement-card'} style={[styles.card, {backgroundColor: surfaceContainer}]}>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Text style={[styles.headerLabel, {color: onSurfaceVariant}]}>THIS TRAINING</Text>
+          <Text style={[styles.headerLabel, {color: onSurfaceVariant}]}>{headerLabel}</Text>
           <Text style={[styles.headerSeparator, {color: onSurfaceVariant}]}>·</Text>
           <DropdownChip<MuscleMapMetric>
             testID="muscle-map-metric-chip"
@@ -97,23 +155,25 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, onDismi
           />
           <Text style={[styles.headerSeparator, {color: onSurfaceVariant}]}>vs</Text>
           <DropdownChip<MuscleMapCompare>
-            testID="muscle-map-compare-chip"
-            value={compare}
+            testID={view === 'analyse' ? 'muscle-map-compare-chip-analyse' : 'muscle-map-compare-chip'}
+            value={effectiveSelectedCompare}
             options={compareOptions}
             onChange={setCompare}
           />
         </View>
-        <IconButton
-          testID="muscle-map-dismiss"
-          icon="close"
-          size={20}
-          onPress={handleDismiss}
-          accessibilityLabel="Dismiss muscle map"
-        />
+        {showDismiss && (
+          <IconButton
+            testID="muscle-map-dismiss"
+            icon="close"
+            size={20}
+            onPress={handleDismiss}
+            accessibilityLabel="Dismiss muscle map"
+          />
+        )}
       </View>
 
       <Text testID="muscle-map-compare-label" style={[styles.compareLabel, {color: onSurfaceVariant}]}>
-        {compareLabel(data.effectiveCompare, micro)}
+        {compareLabel(data.effectiveCompare, micro, trainingName, lastPlannedMicro, lastDoneMicro)}
       </Text>
 
       {data.referenceUnavailable && (

@@ -129,7 +129,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
     if (repsNumber > 20 && !appSettings.toggles?.disableToasts) {
       Toast.show({
         type: 'error',
-        text1: 'Cardio detected!',
+        text1: 'WARNING: Cardio detected!',
         text2: "Please use proper weights!",
       });
     }
