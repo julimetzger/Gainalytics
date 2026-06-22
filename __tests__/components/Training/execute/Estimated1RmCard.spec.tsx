@@ -1,5 +1,5 @@
 import React from 'react';
-import {render} from '@testing-library/react-native';
+import {render, fireEvent} from '@testing-library/react-native';
 import Estimated1RmCard from '../../../../app/components/Training/execute/Estimated1RmCard';
 
 jest.mock('react-native-paper', () => {
@@ -78,5 +78,22 @@ describe('Estimated1RmCard (r6 layout)', () => {
       <Estimated1RmCard sessionOneRm={100} lastTrainingOneRm={120} allTimePr={130} />,
     );
     expect(getByTestId('estimated-1rm-delta').props.children).toBe('-20.0 kg');
+  });
+
+  it('calls onPressTrophy when the trophy avatar is tapped', () => {
+    const onPress = jest.fn();
+    const {getByTestId} = render(
+      <Estimated1RmCard sessionOneRm={100} allTimePr={120} onPressTrophy={onPress} />,
+    );
+    fireEvent.press(getByTestId('trophy-icon-button'));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('trophy button renders without onPressTrophy and is not tappable', () => {
+    // When no handler is provided the button is disabled — pressing it must not throw.
+    const {getByTestId} = render(
+      <Estimated1RmCard sessionOneRm={100} allTimePr={120} />,
+    );
+    expect(() => fireEvent.press(getByTestId('trophy-icon-button'))).not.toThrow();
   });
 });
