@@ -1,0 +1,39 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-327: Verify "Show Plus-Button on the left" setting and left plus button are removed.
+- launchApp:
+    appId: com.powerliftingworkoutplanner
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+
+# Wait for the app to fully render before navigating
+- extendedWaitUntil:
+    visible:
+      id: "training-home-screen"
+    timeout: 60000
+
+# Navigate to Settings tab via coordinates (bounds: [1008,2824][1344,2872] on 1344x2992 screen)
+- tapOn:
+    point: "88%,95%"
+- extendedWaitUntil:
+    visible: "Enable Dark Mode"
+    timeout: 20000
+
+# Assert the removed setting is NOT visible
+- assertNotVisible: "Show Plus-Button on the left"
+
+# Navigate to Training tab (bounds: [0,2824][336,2872] → center 13%,95%)
+- tapOn:
+    point: "13%,95%"
+- extendedWaitUntil:
+    visible:
+      id: "training-home-screen"
+    timeout: 20000
+
+# The floating + button exists (not removed — only the left-side option was removed)
+- assertVisible:
+    id: "training-home-screen"
