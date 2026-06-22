@@ -1,18 +1,19 @@
 import React, {useEffect, useRef} from 'react';
-import {Animated, Platform, StyleSheet, View} from 'react-native';
+import {Animated, Platform, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Icon, Text, useTheme} from 'react-native-paper';
 
 export interface Estimated1RmCardProps {
   sessionOneRm: number;
   lastTrainingOneRm?: number;
   allTimePr?: number;
+  onPressTrophy?: () => void;
 }
 
 const mono = Platform.select({ios: 'Menlo', android: 'monospace', default: 'monospace'});
 const fmt = (v: number) => `${v.toFixed(1)} kg`;
 const fmtInt = (v: number) => `${Math.round(v)} kg`;
 
-const Estimated1RmCard = ({sessionOneRm, lastTrainingOneRm, allTimePr}: Estimated1RmCardProps) => {
+const Estimated1RmCard = ({sessionOneRm, lastTrainingOneRm, allTimePr, onPressTrophy}: Estimated1RmCardProps) => {
   const theme = useTheme();
   const colors = theme.colors as any;
 
@@ -59,10 +60,15 @@ const Estimated1RmCard = ({sessionOneRm, lastTrainingOneRm, allTimePr}: Estimate
       accessibilityLabel="Estimated 1RM card"
       style={[styles.card, {backgroundColor: surfaceLow}]}>
       <View style={styles.row}>
-        {/* LEFT: Trophy avatar + caption + hero + PR stacked vertically */}
-        <View style={[styles.avatar, {backgroundColor: primaryContainer}]}>
+        {/* LEFT: Trophy avatar — tappable when onPressTrophy is provided */}
+        <TouchableOpacity
+          testID="trophy-icon-button"
+          accessibilityLabel="Show exercise records"
+          onPress={onPressTrophy}
+          disabled={!onPressTrophy}
+          style={[styles.avatar, {backgroundColor: primaryContainer}]}>
           <Icon source="trophy" size={22} color={onPrimaryContainer} />
-        </View>
+        </TouchableOpacity>
         <View style={styles.middle}>
           <Text testID="estimated-1rm-header" style={[styles.caption, {color: onSurfaceVariant}]}>
             ESTIMATED 1RM
