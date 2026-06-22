@@ -172,6 +172,15 @@ jest.mock('react-redux', () => ({
 ```
 Per-spec mocks can still override.
 
+## GitHub / CI
+
+### `gh pr edit` fails with exit code 1 on PRs linked to Projects (classic)
+`gh pr edit 123 --body "..."` returns exit 1 with `GraphQL: Projects (classic) is being deprecated`. The PR body is NOT updated. Use the REST endpoint instead:
+```bash
+gh api repos/OWNER/REPO/pulls/NUMBER --method PATCH --field body="$BODY"
+```
+This bypasses the GraphQL Projects query entirely and updates the body successfully.
+
 ### Mock store must include every slice the component reads
 A minimal `{getState: () => ({})}` store throws `Cannot read properties of undefined (reading 'byId')` the moment a `useSelector` touches a slice. Seed all slices the component transitively reads, even if the test predates the component's current selectors.
 
@@ -1402,6 +1411,25 @@ Contrary to memory #150, running `npx jest <path> --testPathIgnorePatterns=/node
 ### 176. Samsung Android logcat suppresses `ReactNativeJS` tag and RN 0.84 Metro stopped echoing JS logs to the terminal — `console.log` is no longer a usable instrumentation channel on this device
 **Observation (GH-313):** On R5CN30HWZFN (SM-G986B), `adb logcat -s ReactNativeJS:V` produces no output even after triggering app activity; the system logcat also has no entries from the RN bridge. Separately, the Metro server bundled with RN 0.84 prints `INFO 💡 JavaScript logs have moved! They can now be viewed in React Native DevTools.` and stops echoing JS console output to the terminal log. The combination means: a `console.log('[mytag]', ...)` added to a screen for ad-hoc render-count instrumentation produces no measurable output on this device unless DevTools is attached or the log is captured via Hermes inspector.
 **Apply when:** Planning to measure render counts / timing on R5CN30HWZFN (or any RN 0.84+ device). Don't reach for `console.log`. Either (a) attach RN DevTools, (b) write to AsyncStorage / a file the host can pull, (c) render an on-screen `useRef`-backed counter as evidence, or (d) lean on the validated prior measurement from a comparable fix and document the inheritance.
+
+### 178. Training execution screen: live timer blocks all Maestro assertions — use adb for interactions
+**Problem (GH-329):** The training execution screen (`ExecuteTraining.tsx`) has a live running timer in the header. While the timer ticks, Maestro's `viewHierarchy` gRPC call never completes → `DEADLINE_EXCEEDED` on every `extendedWaitUntil visible` call, including elements that are clearly on-screen. This makes standard Maestro assertion + tap patterns impossible on this screen.
+**Working solution:** Use the Maestro flow for navigation only (getting to the execution screen); then drive all interactions and capture screenshots exclusively via `adb shell input tap` and `adb exec-out screencap -p`. Coordinate finding: capture a screenshot, scale with ffmpeg to 800px wide, use Python PIL to read pixel colors at candidate positions, then multiply by 1.35 (=1080/800) to get device coordinates.
+**Apply when:** Any ticket that requires interacting with a running training session in e2e / screenshot evidence. Don't waste time trying to stabilize Maestro on this screen — it's a fundamental gRPC timeout issue, not a flow bug.
+
+### 179. PIL pixel analysis for finding UI element coordinates on emulator screenshots
+**Pattern (GH-329):** When you need to tap an element but don't know its coordinates (adb uiautomator dump times out or gives stale data): capture a raw screenshot (`adb exec-out screencap -p`), scale to 800px wide with ffmpeg, then write a Python one-liner to sample pixel colors in a search grid around the expected element location. For react-native-paper elements with a themed `primaryContainer` background (e.g. the trophy IconButton): look for the primaryContainer color (in this app: ~RGB(170,199,255) / dark variant ~RGB(75,89,113)) in a 100×100 pixel search window. Once found: device_x = file_x * 1.35, device_y = file_y * 1.35 (scale factor = 1080 / 800).
+**Apply when:** Coordinate-finding for adb taps is needed and the element isn't easily estimable from visual inspection. Saves many failed taps from guessing.
+
+### 180. TypeScript `Record<>` name conflict: import aliasing needed when using Record enum from Exercise model
+**Problem (GH-329):** `ExerciseRecordsModal.tsx` imports `Record` (an enum from the Exercise model with value `Record.ONE_RM = '1RM'`) and also needed a `Record<number, ...>` TypeScript mapped type. The two names conflict.
+**Fix:** Avoid the TypeScript `Record<K,V>` utility type when the Exercise `Record` enum is in scope. Use an index signature instead: `{[id: number]: {start?: string}}` instead of `Record<number, {start?: string}>`.
+**Apply when:** Any component that imports `Record` from the Exercise model and also needs TypeScript's `Record<>` utility type.
+
+### 181. JSX children concatenation requires template literals to avoid array-children prop in tests
+**Problem (GH-329):** Writing `{Number(x).toFixed(1)} kg` in JSX produces a React children array `["130.0", " kg"]`. In react-testing-library, `element.props.children` then returns an array, and `toBe('130.0 kg')` fails.
+**Fix:** Always use template literals for mixed expressions: `` {`${Number(x).toFixed(1)} kg`} `` produces a single string child.
+**Apply when:** Writing any JSX that mixes an expression with adjacent literal text (units, punctuation, prefixes).
 
 ### 179. Clearing `com.google.android.gms` caches crashes System UI and reboots the emulator
 **Problem (GH-326):** `adb shell pm clear com.google.android.gms` to free storage caused "System UI isn't responding" dialog immediately, then the emulator went offline and rebooted. After reboot, storage was only partially freed (GMS caches partly restored). The app was still installed (non-system APKs survive a soft reboot) but the emulator needed a full boot cycle before `sys.boot_completed=1`.
