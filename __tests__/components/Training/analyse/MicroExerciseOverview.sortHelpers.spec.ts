@@ -22,10 +22,24 @@ describe('sortExerciseIdsByPlan', () => {
     expect(sortExerciseIdsByPlan(trainingExercises, doneWorkoutIds)).toEqual([]);
   });
 
-  it('returns an empty array when training has no planned exercises', () => {
+  it('appends unplanned logged exercises when training has no planned exercises', () => {
     const trainingExercises: number[] = [];
     const doneWorkoutIds: {[key: number]: number} = {1: 10};
-    expect(sortExerciseIdsByPlan(trainingExercises, doneWorkoutIds)).toEqual([]);
+    expect(sortExerciseIdsByPlan(trainingExercises, doneWorkoutIds)).toEqual([1]);
+  });
+
+  it('appends logged exercises not in the plan after planned ones', () => {
+    // exercises 3,1,2 are planned; exercise 99 was logged but is not in the plan
+    const trainingExercises = [3, 1, 2];
+    const doneWorkoutIds: {[key: number]: number} = {1: 10, 2: 20, 3: 30, 99: 90};
+    expect(sortExerciseIdsByPlan(trainingExercises, doneWorkoutIds)).toEqual([3, 1, 2, 99]);
+  });
+
+  it('shows only the unplanned logged exercise when no planned exercises were logged', () => {
+    // only exercise 5 was planned, but only exercise 99 (unplanned) was actually logged
+    const trainingExercises = [5];
+    const doneWorkoutIds: {[key: number]: number} = {99: 90};
+    expect(sortExerciseIdsByPlan(trainingExercises, doneWorkoutIds)).toEqual([99]);
   });
 });
 

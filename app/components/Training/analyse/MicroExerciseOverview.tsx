@@ -32,12 +32,20 @@ export function computeWeightRangeLabel(sets: ReadonlyArray<Pick<WorkoutSet, 'we
   return min === max ? formatPlanNumber(min) : `${formatPlanNumber(min)}-${formatPlanNumber(max)}`;
 }
 
-/** Returns exercise IDs in planned training order, filtered to those actually logged. */
+/**
+ * Returns exercise IDs in planned training order, with any logged exercises not in
+ * the plan appended at the end. No logged exercise is hidden in plan-sort mode.
+ */
 export function sortExerciseIdsByPlan(
   trainingExercises: number[],
   doneWorkoutIds: {[exerciseId: number]: number},
 ): number[] {
-  return trainingExercises.filter((exId) => doneWorkoutIds[exId] !== undefined);
+  const plannedInOrder = trainingExercises.filter((exId) => doneWorkoutIds[exId] !== undefined);
+  const plannedSet = new Set(trainingExercises);
+  const unplannedLogged = Object.keys(doneWorkoutIds)
+    .map(Number)
+    .filter((exId) => !plannedSet.has(exId));
+  return [...plannedInOrder, ...unplannedLogged];
 }
 
 /** Returns exercise IDs sorted by workout start date (ascending). */
