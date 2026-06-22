@@ -27,7 +27,10 @@ jest.mock('react-native-paper', () => {
     useTheme: () => ({
       colors: {
         primary: '#0066ff',
+        onSurface: '#000',
         onSurfaceVariant: '#666',
+        outlineVariant: '#ccc',
+        primaryContainer: '#e8f0ff',
         surface: '#fff',
       },
     }),
@@ -72,7 +75,7 @@ describe('ExerciseRecordsModal', () => {
     expect(getByTestId('exercise-records-empty')).toBeTruthy();
   });
 
-  it('shows records sorted by value descending', () => {
+  it('shows records sorted by value descending using the Stats table format', () => {
     mockedUseExercise.mockReturnValue({
       ...EXERCISE,
       records: {
@@ -86,9 +89,11 @@ describe('ExerciseRecordsModal', () => {
     const {getByTestId} = render(
       <ExerciseRecordsModal visible={true} onDismiss={jest.fn()} exercise={EXERCISE} />,
     );
-    expect(getByTestId('exercise-record-value-0').props.children).toBe('130.0 kg');
-    expect(getByTestId('exercise-record-value-1').props.children).toBe('115.0 kg');
-    expect(getByTestId('exercise-record-value-2').props.children).toBe('100.0 kg');
+    // Records rendered using ExerciseOneRmRecordsTable (same as Stats tab)
+    expect(getByTestId('one-rm-records-list')).toBeTruthy();
+    expect(getByTestId('one-rm-record-value-0').props.children).toBe('130.0 kg');
+    expect(getByTestId('one-rm-record-value-1').props.children).toBe('115.0 kg');
+    expect(getByTestId('one-rm-record-value-2').props.children).toBe('100.0 kg');
   });
 
   it('shows records for the correct exercise (bound to chosenExercise.id)', () => {
@@ -100,7 +105,7 @@ describe('ExerciseRecordsModal', () => {
     const {getByTestId, getByText} = render(
       <ExerciseRecordsModal visible={true} onDismiss={jest.fn()} exercise={EXERCISE} />,
     );
-    expect(getByTestId('exercise-record-value-0').props.children).toBe('120.0 kg');
+    expect(getByTestId('one-rm-record-value-0').props.children).toBe('120.0 kg');
     expect(getByText('Records: Bench Press')).toBeTruthy();
   });
 
