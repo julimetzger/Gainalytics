@@ -126,14 +126,6 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
               )
               : !showHistory && !showDone && training !== undefined
               ? <IconButton testID="header-overflow-icon" icon="dots-vertical" iconColor={overflowVisible ? theme.colors.primary : theme.colors.onSecondaryContainer} onPress={() => setOverflowVisible(true)} />
-              : showDone && microViewMode === 'exercise'
-              ? <IconButton
-                  testID="header-exercise-sort-toggle"
-                  accessibilityLabel={microSortMode === 'plan' ? 'Sorted by training order' : 'Sorted by date'}
-                  icon={microSortMode === 'plan' ? 'sort-variant' : 'sort-clock-ascending-outline'}
-                  iconColor={theme.colors.onSecondaryContainer}
-                  onPress={() => setMicroSortMode(prev => prev === 'plan' ? 'date' : 'plan')}
-                />
               : null
           }
         />
