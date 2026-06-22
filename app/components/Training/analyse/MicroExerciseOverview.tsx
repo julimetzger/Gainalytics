@@ -16,6 +16,8 @@ export type ExerciseSortMode = 'plan' | 'date';
 interface Props {
   trainingsPlan: TrainingsPlan;
   micro: number;
+  sortMode?: ExerciseSortMode;
+  onSortModeChange?: (mode: ExerciseSortMode) => void;
 }
 
 interface TrainingExerciseCardProps {
@@ -125,8 +127,10 @@ const TrainingExerciseCard = ({training, trainingName, sortMode}: TrainingExerci
   );
 };
 
-const MicroExerciseOverview = ({trainingsPlan, micro}: Props) => {
-  const [sortMode, setSortMode] = useState<ExerciseSortMode>('plan');
+const MicroExerciseOverview = ({trainingsPlan, micro, sortMode: sortModeProp, onSortModeChange}: Props) => {
+  const [localSortMode, setLocalSortMode] = useState<ExerciseSortMode>('plan');
+  const sortMode = sortModeProp ?? localSortMode;
+  const setSortMode = onSortModeChange ?? setLocalSortMode;
   const trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
   const executedTrainings = useMemo(() => trainings.filter((t) => t.state === TrainingsState.FINISHED), [trainings]);
 

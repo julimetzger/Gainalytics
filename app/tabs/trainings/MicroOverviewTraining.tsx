@@ -6,7 +6,7 @@ import {TrainingsState} from '../../models/TrainingsState';
 import {useAllTrainingsInMicro} from '../../redux/Training/use/useAllTrainingsInMicro';
 import {useWorkoutsByIds} from '../../redux/Workout/use/useWorkoutsByIds';
 import MicroOverview from '../../components/Training/analyse/MicroOverview';
-import MicroExerciseOverview from '../../components/Training/analyse/MicroExerciseOverview';
+import MicroExerciseOverview, {ExerciseSortMode} from '../../components/Training/analyse/MicroExerciseOverview';
 import MetricsOverviewForWorkouts from '../../components/analyse/MetricsOverviewForWorkouts';
 import {Training} from '../../models/entities/Training';
 
@@ -18,6 +18,8 @@ interface Props {
   isActive?: boolean;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  sortMode?: ExerciseSortMode;
+  onSortModeChange?: (mode: ExerciseSortMode) => void;
 }
 
 interface TrainingMuscleCardProps {
@@ -76,7 +78,7 @@ const MuscleView = ({trainingsPlan, micro}: Props) => {
   );
 };
 
-const MicroOverviewTraining = ({trainingsPlan, micro, isActive = true, viewMode, onViewModeChange}: Props) => {
+const MicroOverviewTraining = ({trainingsPlan, micro, isActive = true, viewMode, onViewModeChange, sortMode, onSortModeChange}: Props) => {
   return (
     <View style={{flex: 1}}>
       <SegmentedButtons
@@ -90,7 +92,7 @@ const MicroOverviewTraining = ({trainingsPlan, micro, isActive = true, viewMode,
         ]}
       />
       {viewMode === 'gesamt' && <MicroOverview trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} />}
-      {viewMode === 'exercise' && <MicroExerciseOverview trainingsPlan={trainingsPlan} micro={micro} />}
+      {viewMode === 'exercise' && <MicroExerciseOverview trainingsPlan={trainingsPlan} micro={micro} sortMode={sortMode} onSortModeChange={onSortModeChange} />}
       {viewMode === 'muscle' && <MuscleView trainingsPlan={trainingsPlan} micro={micro} />}
     </View>
   );
