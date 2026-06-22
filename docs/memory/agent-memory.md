@@ -1375,3 +1375,14 @@ Contrary to memory #150, running `npx jest <path> --testPathIgnorePatterns=/node
 **Problem (GH-311):** `trainingsTotal` was computed from `Object.entries(plan.trainings).filter(micro === m).length`. But `plan.trainings` slots are only written when a training is actually planned/started. A plan with 4 `trainingNames` types may have 0-4 slots for any given micro. Using slot count as the "total" gives the wrong denominator in `CompletionRing` (e.g. 0/1 instead of 0/4).
 **Fix:** Use `Object.keys(plan.trainingNames ?? {}).length` for the total. Fall back to slot count only when `trainingNames` is empty (legacy plans).
 **Apply when:** Any UI displays "N of M trainings done in micro X". Always source M from `trainingNames` length, not from `plan.trainings` slot count.
+
+### 179. `adb shell uiautomator dump` as a reliable Maestro fallback for element-absence assertions
+When Maestro fails (gRPC DEADLINE_EXCEEDED, tab navigation not finding testID, clearState timing), use adb to assert UI state directly:
+```bash
+adb -s "$ANDROID_SERIAL" shell uiautomator dump /sdcard/ui.xml
+adb -s "$ANDROID_SERIAL" pull /sdcard/ui.xml /tmp/ui.xml
+grep -c "My Expected Text" /tmp/ui.xml  # 0 = absent (PASS for removal tickets)
+```
+**Problem**: Maestro tab navigation frequently fails on emulator-5558 (1344×2992, density 480) — `tapOn: "tab-training"` from smoke.yaml can't find the element, and `tapOn: {point}` fires before the app is interactive after `launchApp`.
+**Observation**: uiautomator dump is synchronous, does not hit gRPC timeouts, and works even when the screen has live-updating charts. Use it for removal tickets where the acceptance criterion is "text X must not appear in the UI".
+**Apply when**: Maestro infra is broken and you need to prove an element was removed from the UI.

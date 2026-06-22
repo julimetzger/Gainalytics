@@ -56,7 +56,6 @@ export interface AppSettings {
     disable1RMButton?: boolean;
     disableTimer?: boolean;
     disableToasts?: boolean;
-    showPlusButtonLeft?: boolean;
   };
   metricOverview?: MetricOverviewSettings;
   anthropicModel?: string;
@@ -154,15 +153,6 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
         toggles: {
           ...settings.toggles,
           disableToasts: !settings.toggles?.disableToasts,
-        },
-      } as AppSettings;
-    }
-    case 'SHOW_PLUS_BUTTON_LEFT': {
-      return {
-        ...settings,
-        toggles: {
-          ...settings.toggles,
-          showPlusButtonLeft: !settings.toggles?.showPlusButtonLeft,
         },
       } as AppSettings;
     }
