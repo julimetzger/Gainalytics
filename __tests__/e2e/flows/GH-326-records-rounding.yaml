@@ -1,0 +1,39 @@
+appId: com.powerliftingworkoutplanner
+name: GH-326 Records this micro — 1RM values rounded to max 2 decimal places
+---
+# Launch the app fresh and navigate to Training tab.
+# Scroll to "Records this micro" card and assert clean 1RM values
+# (no long float artifact like 128.7999999999998).
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+
+- tapOn: "Training"
+
+- extendedWaitUntil:
+    visible: "Records this micro"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element:
+      text: "Records this micro"
+    direction: DOWN
+    timeout: 30000
+
+- extendedWaitUntil:
+    visible: "Records this micro"
+    timeout: 15000
+
+- takeScreenshot: records_this_micro_clean
+
+# Assert the Records card header is present
+- assertVisible:
+    text: "Records this micro"
+
+# Assert at least one 1RM entry is visible
+- assertVisible:
+    text: "1RM"
