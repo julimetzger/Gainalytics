@@ -170,6 +170,8 @@ Last updated: 2026-05-19 (GH-302-fb4)
 
 | GH-308 | emu | 7001 | 0 | 0 | 5 | 30 | 5 | 15 | 5 | 0 | ready_for_review (pure display fix — replace Set index column with Weight; Metro delta bundle corrupted when app tried to use socat TCP-LISTEN:8081→:8082 bridge — `CompileJsFailed: non-terminated string` at line 286044; killed socat + removed adb reverse → embedded APK bundle used (correct code); full APK rebuild assembleDebug ~10min needed to get embedded bundle with new code; jest /.worktrees/ testPathIgnorePatterns override needed — temp jest config /tmp/jest-worktree.cjs; 852/852 unit tests pass; device verified: WEIGHT header + real weight values confirmed via uiautomator dump) |
 
+| GH-326 | emu | 7007 | 0 | 0 | 1 | 0 | 25 | 15 | 0 | 0 | ready_for_review (pure display+storage fix; APK rebuild 12min; clearing GMS caches to free storage crashed System UI + rebooted emulator — do NOT clear GMS; post-reboot storage 526MB, YouTube pm uninstall blocked (system app), reused pre-reboot-installed APK (still present after soft reboot); Maestro driver silently stuck after emulator reboot — gRPC bound to port 7007 but no flow steps executed even after 8min; used adb exec-out screencap as evidence (adb-/Maestro-Evidence both accepted); 872/872 unit tests pass; 5 new dispatchRecord.spec.ts tests) |
+
 Numbers = log line counts mentioning that problem category. Higher = more time wasted.
 
 ## Key Findings
