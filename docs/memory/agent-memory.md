@@ -1371,6 +1371,52 @@ Contrary to memory #150, running `npx jest <path> --testPathIgnorePatterns=/node
 **Working solution:** Accept that Maestro is unreliable on an emulator that just recovered from a System UI crash. Use `adb exec-out screencap -p` + ffmpeg resize as the screenshot evidence (the acceptance criteria says "adb-/Maestro-Evidence" — either is acceptable). Document the infra gap in summary.md.
 **Apply when:** Maestro process starts, binds to driver port, but produces no log output after 3+ minutes. If emulator recently crashed/rebooted, don't debug Maestro — use adb screenshot instead.
 
+### 181. ADB screenshot stale-cache: delete the target file before each screencap
+
+**Problem (UX-PLAN-001):** `adb shell screencap -p /sdcard/screen.png` + `adb pull` produced identical files (same byte count, same content) across multiple calls when the device returned a cached write. The stale result was reproducible — `wc -c` showed 56280 bytes for every capture regardless of what was on screen.
+
+**Fix:** Always delete the previous capture before taking a new one:
+```bash
+$ADB shell rm -f /sdcard/screen.png
+sleep 0.4
+$ADB shell screencap -p /sdcard/screen.png
+sleep 0.3
+$ADB pull /sdcard/screen.png /tmp/raw.png
+```
+
+**Apply when:** Any ADB screenshot loop. If captures look identical, this is the first thing to check.
+
+---
+
+### 182. RN Plan-Editing: coordinate mapping from 800px screenshot to physical device
+
+**Context (UX-PLAN-001, device R5CN30HWZFN, 720×1600 physical):**  
+Screenshots captured at native resolution then rescaled to 800px wide (height becomes ~1778px). Conversion formula:
+- `x_phys = x_screenshot * (720 / 800)`
+- `y_phys = y_screenshot * (1600 / 1778)`
+
+UIAutomator dump must be used for any element that IS accessible (FAB, nav tabs, dialog buttons, plan list cards). For RN components that are NOT in the accessibility tree (exercise cards, set inputs, picker modal items), estimate from screenshot pixel positions using the formula above.
+
+**Apply when:** Automating any interaction on the Training/Plan screens via ADB taps. Always prefer UIAutomator bounds over screenshot estimates — run `uiautomator dump` first.
+
+---
+
+### 183. Exercise picker trigger: tap LEFT side of label row, not center or right
+
+**Context (UX-PLAN-001):** `TrainingElementPicker`'s `MultiselectDropdown` (sharingan-rn-modal-dropdown) opens the selection modal when the LEFT portion of the label row is tapped (approximately x≈180 physical on 720px device). Tapping center (x=360) or right does nothing. The `IconButton` on the right edge (chevron) only collapses/expands the picker visibility — it does NOT open the modal.
+
+**Apply when:** Automating exercise picker interaction via ADB. Use `input tap 180 <y>` where `<y>` is the physical y-coordinate of the label row.
+
+---
+
+### 184. Plan edit mode: back button auto-saves silently
+
+**Observation (UX-PLAN-001):** Pressing Android back (`input keyevent 4`) from the plan fullEdit mode (PlanTab with exercise tabs visible) saves all current state immediately and navigates to the plan list. There is NO confirmation dialog and NO toast/snackbar. Changes — including accidentally scrambled set values — are persisted without feedback.
+
+**Apply when:** Automating plan edit flows via ADB. To discard changes, use the ⋮ overflow menu → "Discard this training" (hidden in context menu). Don't expect a confirmation dialog on back.
+
+---
+
 ### 178. `plan.trainings` slot count ≠ training-type count — use `trainingNames` for the denominator
 **Problem (GH-311):** `trainingsTotal` was computed from `Object.entries(plan.trainings).filter(micro === m).length`. But `plan.trainings` slots are only written when a training is actually planned/started. A plan with 4 `trainingNames` types may have 0-4 slots for any given micro. Using slot count as the "total" gives the wrong denominator in `CompletionRing` (e.g. 0/1 instead of 0/4).
 **Fix:** Use `Object.keys(plan.trainingNames ?? {}).length` for the total. Fall back to slot count only when `trainingNames` is empty (legacy plans).
