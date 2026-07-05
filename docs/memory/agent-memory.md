@@ -1376,17 +1376,28 @@ Contrary to memory #150, running `npx jest <path> --testPathIgnorePatterns=/node
 **Fix:** Use `Object.keys(plan.trainingNames ?? {}).length` for the total. Fall back to slot count only when `trainingNames` is empty (legacy plans).
 **Apply when:** Any UI displays "N of M trainings done in micro X". Always source M from `trainingNames` length, not from `plan.trainings` slot count.
 
-### 179. react-native-paper `IconButton` is invisible to UIAutomator and Maestro testID/text selectors
+### 179. `adb shell uiautomator dump` as a reliable Maestro fallback for element-absence assertions
+When Maestro fails (gRPC DEADLINE_EXCEEDED, tab navigation not finding testID, clearState timing), use adb to assert UI state directly:
+```bash
+adb -s "$ANDROID_SERIAL" shell uiautomator dump /sdcard/ui.xml
+adb -s "$ANDROID_SERIAL" pull /sdcard/ui.xml /tmp/ui.xml
+grep -c "My Expected Text" /tmp/ui.xml  # 0 = absent (PASS for removal tickets)
+```
+**Problem**: Maestro tab navigation frequently fails on emulator-5558 (1344×2992, density 480) — `tapOn: "tab-training"` from smoke.yaml can't find the element, and `tapOn: {point}` fires before the app is interactive after `launchApp`.
+**Observation**: uiautomator dump is synchronous, does not hit gRPC timeouts, and works even when the screen has live-updating charts. Use it for removal tickets where the acceptance criterion is "text X must not appear in the UI".
+**Apply when**: Maestro infra is broken and you need to prove an element was removed from the UI.
+
+### 181. react-native-paper `IconButton` is invisible to UIAutomator and Maestro testID/text selectors
 **Problem (GH-322):** `IconButton` with `testID="exercise-sort-toggle"` does not appear in `uiautomator dump` at all — not as resource-id, not as content-desc. Maestro `tapOn: id: 'exercise-sort-toggle'` and `tapOn: text: 'Sorted by training order'` both fail with "Element not found". UIAutomator lists the entire React-rendered content area as a single `android.widget.ScrollView` node `[0,283][1080,2127]` with no subnodes.
 **Working solution:** Use direct ADB coordinate taps: `adb -s $DEVICE shell input tap <x> <y>`. To find exact coordinates, use Python PIL on the native screencap: `python3 -c "from PIL import Image, numpy as np; img=Image.open('screen.png'); arr=np.array(img); bright=np.where((arr[y1:y2,x1:x2,0]>180)&...)"`. The icon's x/y in the native screenshot maps 1:1 to ADB tap coordinates.
 **Apply when:** Any react-native-paper icon/action button needs to be tapped via Maestro or ADB. Use PIL pixel analysis on a screencap to find exact coordinates instead of relying on testID or accessibility label.
 
-### 180. Screencap pixel coordinates map 1:1 to ADB tap coordinates; center the tap precisely
+### 182. Screencap pixel coordinates map 1:1 to ADB tap coordinates; center the tap precisely
 **Problem (GH-322):** `adb exec-out screencap -p` saves at native device resolution (1080×2400). The sort icon's visible center was at approximately pixel x=1001, y=499. Tapping at x=950 (50px off-center) consistently missed because the icon's hit area is ~100px wide. Off-by-50 is enough to miss.
 **Working solution:** Use PIL pixel analysis on the screencap to find the icon center precisely: look for bright pixels (R>180, G>180, B>180) in the expected quadrant. Then tap the exact centroid. Verify by screenshotting immediately after — the icon should change appearance on toggle.
 **Apply when:** Coordinate taps in the content area fail. Don't guess from visual inspection of the scaled display — compute from the full-resolution PNG.
 
-### 181. Maestro `--host` flag routes through Windows ADB server and selects the Samsung phone even when `--device emulator-5558` is passed
+### 183. Maestro `--host` flag routes through Windows ADB server and selects the Samsung phone even when `--device emulator-5558` is passed
 **Problem (GH-322):** Maestro was launched with `--host $(cat /etc/resolv.conf | grep nameserver | awk '{print $2}')` (Windows host IP from WSL) to reuse the Windows ADB server. Even though `--device emulator-5558` was also passed, Maestro connected to the Samsung physical device (R5CN30HWZFN, 720×1600) instead. The `extendedWaitUntil: id: 'header-exercise-sort-toggle'` never found the element because the old app build on the Samsung device didn't have the GH-322 changes.
 **Detection:** Compare screenshot dimensions. emulator-5558 is 1344×2992 px native; Samsung R5CN30HWZFN is 720×1600. A 720-wide screenshot when you expect 1344 is proof you're on the wrong device.
 **Working solution:** Run Maestro WITHOUT `--host`. Without `--host`, Maestro uses the local WSL ADB server which sees only the emulator. Command:
@@ -1397,7 +1408,7 @@ HOME="$MAESTRO_HOME" XDG_CACHE_HOME="$MAESTRO_HOME/.cache" MAESTRO_CLI_NO_ANALYT
 ```
 **Apply when:** Maestro targets the wrong device despite `--device` flag. Check screenshot size. If Windows ADB is involved, drop `--host`.
 
-### 182. GestureHandlerRootView/GestureDetector (react-native-gesture-handler) intercepts ALL Maestro accessibility taps; move interactive controls to the React Navigation header
+### 184. GestureHandlerRootView/GestureDetector (react-native-gesture-handler) intercepts ALL Maestro accessibility taps; move interactive controls to the React Navigation header
 **Problem (GH-322):** `RangeSwiper` wraps all training pane content in `GestureHandlerRootView` + `GestureDetector` (panGesture for horizontal swipe). Maestro uses Android UiAutomation (accessibility service) for `tapOn`, which is intercepted by the gesture handler before it reaches any child React element. `SegmentedButtons`, `IconButton`, and any other controls rendered inside the swiper are unreachable via Maestro's accessibility-based taps.
 **Working solution:** Move any UI control that needs to be tappable by Maestro into the React Navigation header (via `navigation.setOptions`). The header is rendered OUTSIDE `GestureHandlerRootView` and is fully accessible to Maestro's `tapOn: id:`. For GH-322 the sort toggle was moved from inside the exercise overview into the header as `testID="header-exercise-sort-toggle"` — Maestro could tap it reliably.
 **Alternative (when header is not suitable):** `adb shell input tap <x> <y>` uses Android InputManager directly and bypasses UiAutomation — it works inside GestureHandlerRootView, but requires pixel-coordinate targeting (see memory #180).

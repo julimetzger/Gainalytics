@@ -17,7 +17,6 @@ import {dispatchSetFinishTrainingTimer} from '../../redux/settings/dispatch/disp
 import {dispatchToggleDisable1RMpreselect} from '../../redux/settings/dispatch/dispatchToggleDisable1RMpreselect';
 import {dispatchToggleShowTimer} from '../../redux/settings/dispatch/dispatchToggleShowTimer';
 import {dispatchToggleShowToasts} from '../../redux/settings/dispatch/dispatchToggleShowToasts';
-import {dispatchToggleShowPlusButtonLeft} from '../../redux/settings/dispatch/dispatchToggleShowPlusButtonLeft';
 import {dispatchToggleMode} from '../../redux/settings/dispatch/dispatchToggleMode';
 import {dispatchSetPalette} from '../../redux/settings/dispatch/dispatchSetPalette';
 import {canScheduleExactAlarms, openExactAlarmSettings} from '../../utils/NotificationUtils';
@@ -39,7 +38,6 @@ const SettingsTab = ({navigation}: Props) => {
   let toggleDisable1RMpreselect = dispatchToggleDisable1RMpreselect();
   let toggleShowTimer = dispatchToggleShowTimer();
   let toggleShowToasts = dispatchToggleShowToasts();
-  let toggleShowPlusButtonLeft = dispatchToggleShowPlusButtonLeft();
   let setPalette = dispatchSetPalette();
   let setExactAlarmPermission = dispatchSetExactAlarmPermission();
   let setAnthropicModelDispatch = dispatchSetAnthropicModel();
@@ -293,15 +291,6 @@ const SettingsTab = ({navigation}: Props) => {
       <View style={styles.row}>
         <Text style={{alignSelf: 'center'}}>Use Imperial Units</Text>
         <Switch onValueChange={showAlert} value={false} />
-      </View>
-      <View style={styles.row}>
-        <Text style={{alignSelf: 'center'}}>Show Plus-Button on the left</Text>
-        <Switch
-          onValueChange={(_) => {
-            toggleShowPlusButtonLeft();
-          }}
-          value={!!settings.toggles?.showPlusButtonLeft}
-        />
       </View>
       <View style={styles.row}>
         <Text style={{alignSelf: 'center'}}>Show Training Timer</Text>

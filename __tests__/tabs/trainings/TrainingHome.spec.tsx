@@ -27,10 +27,6 @@ jest.mock('../../../app/redux/Training/use/useTrainings', () => ({
   useTrainings: jest.fn(),
 }));
 
-jest.mock('../../../app/redux/settings/use/useSettings', () => ({
-  useSettings: jest.fn(),
-}));
-
 jest.mock('../../../app/utils/exportTrainingsPlan', () => ({
   exportTrainingsPlanToFile: jest.fn(),
 }));
@@ -101,7 +97,6 @@ jest.mock('react-native-paper', () => {
 
 const mockedUseAllTrainingsPlans = require('../../../app/redux/Training/use/useAllTrainingsPlans').useAllTrainingsPlans as jest.Mock;
 const mockedUseTrainings = require('../../../app/redux/Training/use/useTrainings').useTrainings as jest.Mock;
-const mockedUseSettings = require('../../../app/redux/settings/use/useSettings').useSettings as jest.Mock;
 const mockedExportTrainingsPlanToFile = exportTrainingsPlanToFile as jest.Mock;
 
 const plan: TrainingsPlan = {
@@ -123,7 +118,6 @@ describe('TrainingHome', () => {
         exercises: [],
       },
     ]);
-    mockedUseSettings.mockReturnValue({toggles: {showPlusButtonLeft: false}});
     mockedExportTrainingsPlanToFile.mockResolvedValue('/downloads/plan.json');
     mockState.trainingsPlan.byId = {[plan.id]: plan};
   });
