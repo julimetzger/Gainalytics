@@ -298,7 +298,10 @@ const findNearestBarPathPointIndex = (barPathSeries: BarPathPoint[], timeMs: num
 // Squat/Bench/OHP follow the eccentric-first pattern (TOP → BOTTOM → TOP),
 // Deadlift follows the concentric-first pattern (BOTTOM → TOP → BOTTOM).
 // The bar's vertical motion between startMs and turnaroundMs distinguishes them:
-// upward (Y decreases in screen coords) means concentric-first.
+// the bar tracker emits Y in tracking-frame coordinates where larger Y = lower
+// position (bar on floor) and smaller Y = higher position (bar at lockout).
+// A deadlift therefore satisfies startY > turnY (start on floor, turn at top),
+// while a squat satisfies startY < turnY (start at top, turn at bottom).
 export const isConcentricFirstRep = (
   barPathSeries: BarPathPoint[],
   startMs: number,
@@ -422,13 +425,13 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   const [seekPositionMs, setSeekPositionMs] = useState<number | undefined>(undefined);
   const [speedChartWidth, setSpeedChartWidth] = useState(0);
   const [showCalibration, setShowCalibration] = useState(false);
-  type RepOverride = { turnaroundMs: number | null; endMs: number | null };
+  type RepOverride = { startMs: number | null; turnaroundMs: number | null; endMs: number | null };
   const [repOverrides, setRepOverrides] = useState<Record<number, RepOverride>>(() => {
     const rr = savedSetResult?.repResults;
     if (!rr || rr.length === 0) { return {}; }
     const map: Record<number, RepOverride> = {};
     for (const r of rr) {
-      map[r.repIndex] = { turnaroundMs: r.turnaroundMs, endMs: r.endMs };
+      map[r.repIndex] = { startMs: r.startMs, turnaroundMs: r.turnaroundMs, endMs: r.endMs };
     }
     return map;
   });
@@ -488,9 +491,11 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
 
   const repSegments = result.repSegments;
   const firstRepSegment = repSegments.length > 0 ? repSegments[0] : null;
+  const firstRepStartMs = (firstRepSegment ? repOverrides[firstRepSegment.repIndex]?.startMs : null) ?? firstRepSegment?.startMs ?? 0;
   const firstRepTurnaroundMs = (firstRepSegment ? repOverrides[firstRepSegment.repIndex]?.turnaroundMs : null) ?? firstRepSegment?.turnaroundMs ?? 0;
   const firstRepEndMs = (firstRepSegment ? repOverrides[firstRepSegment.repIndex]?.endMs : null) ?? firstRepSegment?.endMs ?? 0;
   const lastRepSegment = repSegments.length > 1 ? repSegments[repSegments.length - 1] : null;
+  const lastRepStartMs = (lastRepSegment ? repOverrides[lastRepSegment.repIndex]?.startMs : null) ?? lastRepSegment?.startMs ?? 0;
   const lastRepTurnaroundMs = (lastRepSegment ? repOverrides[lastRepSegment.repIndex]?.turnaroundMs : null) ?? lastRepSegment?.turnaroundMs ?? 0;
   const lastRepEndMs = (lastRepSegment ? repOverrides[lastRepSegment.repIndex]?.endMs : null) ?? lastRepSegment?.endMs ?? 0;
   const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
@@ -498,10 +503,10 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
   // pull the start/turnaround samples toward the rep's mean and obscure the
   // physical up/down direction, while phase-time math is naturally robust to it.
   const firstRepPhases = firstRepSegment
-    ? getRepPhaseBoundaries(result.barPathSeries, firstRepSegment.startMs, firstRepTurnaroundMs, firstRepEndMs)
+    ? getRepPhaseBoundaries(result.barPathSeries, firstRepStartMs, firstRepTurnaroundMs, firstRepEndMs)
     : null;
   const lastRepPhases = lastRepSegment
-    ? getRepPhaseBoundaries(result.barPathSeries, lastRepSegment.startMs, lastRepTurnaroundMs, lastRepEndMs)
+    ? getRepPhaseBoundaries(result.barPathSeries, lastRepStartMs, lastRepTurnaroundMs, lastRepEndMs)
     : null;
   const firstRepConcentricTimeMs = firstRepPhases ? Math.max(0, firstRepPhases.concentricEndMs - firstRepPhases.concentricStartMs) : 0;
   const lastRepConcentricTimeMs = lastRepPhases ? Math.max(0, lastRepPhases.concentricEndMs - lastRepPhases.concentricStartMs) : 0;
@@ -928,6 +933,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
         for (const r of rr) {
           const existing = prev[r.repIndex];
           next[r.repIndex] = {
+            startMs: existing?.startMs !== null && existing?.startMs !== undefined ? existing.startMs : r.startMs,
             turnaroundMs: existing?.turnaroundMs !== null && existing?.turnaroundMs !== undefined ? existing.turnaroundMs : r.turnaroundMs,
             endMs: existing?.endMs !== null && existing?.endMs !== undefined ? existing.endMs : r.endMs,
           };
@@ -945,7 +951,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     const trackingFrameWidth = result.analysisMeta.trackingFrameWidthPx ?? 0;
     const repResults: VideoAnalysisRepResult[] = result.repSegments.map((seg) => {
       const override = repOverrides[seg.repIndex];
-      const startMs = seg.startMs;
+      const startMs = override?.startMs !== null && override?.startMs !== undefined ? override.startMs : seg.startMs;
       const turnaroundMs = override?.turnaroundMs !== null && override?.turnaroundMs !== undefined ? override.turnaroundMs : seg.turnaroundMs;
       const endMs = override?.endMs !== null && override?.endMs !== undefined ? override.endMs : seg.endMs;
       const totalTimeMs = endMs - startMs;
@@ -1226,79 +1232,89 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
               }
             };
 
+            type AdjustableLine = {
+              idBase: 'start' | 'turnaround' | 'end';
+              timeMs: number;
+              setter: React.Dispatch<React.SetStateAction<number | null>>;
+              decMin: number;
+              incMax: number;
+            };
+
+            const renderAdjustableLine = (line: AdjustableLine, repKey: string, buttonsBelowStem: boolean) => {
+              const {idBase, timeMs, setter, decMin, incMax} = line;
+              const buttonRow = (
+                <View style={styles.adjustButtonRow}>
+                  <TouchableOpacity
+                    testID={`calibrate-${repKey}-${idBase}-left`}
+                    onPress={() => setter(timeMs - STEP_MS)}
+                    onLongPress={() => {
+                      stopRepeat();
+                      setter(Math.max(decMin, timeMs - LONGPRESS_STEP_MS));
+                      repeatIntervalRef.current = setInterval(() => { setter(prev => Math.max(decMin, (prev ?? timeMs) - LONGPRESS_STEP_MS)); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                    }}
+                    onPressOut={stopRepeat}>
+                    <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    testID={`calibrate-${repKey}-${idBase}-right`}
+                    onPress={() => setter(timeMs + STEP_MS)}
+                    onLongPress={() => {
+                      stopRepeat();
+                      setter(Math.min(incMax, timeMs + LONGPRESS_STEP_MS));
+                      repeatIntervalRef.current = setInterval(() => { setter(prev => Math.min(incMax, (prev ?? timeMs) + LONGPRESS_STEP_MS)); }, LONGPRESS_REPEAT_INTERVAL_MS);
+                    }}
+                    onPressOut={stopRepeat}>
+                    <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+              return (
+                <View testID={`calibrate-${repKey}-${idBase}-line`} style={[styles.adjustLine, {left: toX(timeMs)}]} pointerEvents="box-none">
+                  {buttonsBelowStem && <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />}
+                  {buttonRow}
+                  {!buttonsBelowStem && <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />}
+                </View>
+              );
+            };
+
             const renderRepLines = (
+              segStartMs: number,
+              segTurnaroundMs: number,
+              startMs: number,
               turnaroundMs: number,
               endMs: number,
+              setStart: React.Dispatch<React.SetStateAction<number | null>>,
               setTurnaround: React.Dispatch<React.SetStateAction<number | null>>,
               setEnd: React.Dispatch<React.SetStateAction<number | null>>,
               repKey: string,
             ) => {
-              const tX = toX(turnaroundMs);
-              const eX = toX(endMs);
-              const tIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, turnaroundMs);
-              const eIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, endMs);
-              const tVel = tIdx !== undefined && tIdx < smoothedBarVerticalVelocitySeries.length
-                ? Math.round(smoothedBarVerticalVelocitySeries[tIdx]) : null;
+              // The two marker lines frame the CONCENTRIC phase (the upward bar
+              // movement / positive velocity peak): concentric-first reps (deadlift)
+              // get lines at [startMs, turnaroundMs], eccentric-first reps
+              // (squat/bench/OHP) keep them at [turnaroundMs, endMs] (GH-307).
+              // The pairing is classified from the DETECTED segment boundaries (not
+              // the user-adjusted overrides) so the handles never re-pair mid-drag.
+              // Direction detection uses the raw series, matching the
+              // getRepPhaseBoundaries callsites elsewhere in this file.
+              const concentricFirst = isConcentricFirstRep(result.barPathSeries, segStartMs, segTurnaroundMs);
+              const windowStartLine: AdjustableLine = concentricFirst
+                ? {idBase: 'start', timeMs: startMs, setter: setStart, decMin: 0, incMax: Math.min(correctedPlaybackDurationMs, turnaroundMs)}
+                : {idBase: 'turnaround', timeMs: turnaroundMs, setter: setTurnaround, decMin: 0, incMax: Math.min(correctedPlaybackDurationMs, endMs)};
+              const windowEndLine: AdjustableLine = concentricFirst
+                ? {idBase: 'turnaround', timeMs: turnaroundMs, setter: setTurnaround, decMin: Math.max(0, startMs), incMax: Math.min(correctedPlaybackDurationMs, endMs)}
+                : {idBase: 'end', timeMs: endMs, setter: setEnd, decMin: Math.max(0, turnaroundMs), incMax: correctedPlaybackDurationMs};
+              const sIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, windowStartLine.timeMs);
+              const eIdx = findNearestBarPathPointIndex(smoothedBarPathSeries, windowEndLine.timeMs);
+              const sVel = sIdx !== undefined && sIdx < smoothedBarVerticalVelocitySeries.length
+                ? Math.round(smoothedBarVerticalVelocitySeries[sIdx]) : null;
               const eVel = eIdx !== undefined && eIdx < smoothedBarVerticalVelocitySeries.length
                 ? Math.round(smoothedBarVerticalVelocitySeries[eIdx]) : null;
               return (
                 <>
-                  <View style={[styles.adjustLine, {left: tX}]} pointerEvents="box-none">
-                    <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
-                    <View style={styles.adjustButtonRow}>
-                      <TouchableOpacity
-                        testID={`calibrate-${repKey}-turnaround-left`}
-                        onPress={() => setTurnaround(turnaroundMs - STEP_MS)}
-                        onLongPress={() => {
-                          stopRepeat();
-                          setTurnaround(Math.max(0, turnaroundMs - LONGPRESS_STEP_MS));
-                          repeatIntervalRef.current = setInterval(() => { setTurnaround(prev => Math.max(0, (prev ?? turnaroundMs) - LONGPRESS_STEP_MS)); }, LONGPRESS_REPEAT_INTERVAL_MS);
-                        }}
-                        onPressOut={stopRepeat}>
-                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        testID={`calibrate-${repKey}-turnaround-right`}
-                        onPress={() => setTurnaround(turnaroundMs + STEP_MS)}
-                        onLongPress={() => {
-                          stopRepeat();
-                          setTurnaround(Math.min(correctedPlaybackDurationMs, Math.min(endMs, turnaroundMs + LONGPRESS_STEP_MS)));
-                          repeatIntervalRef.current = setInterval(() => { setTurnaround(prev => Math.min(correctedPlaybackDurationMs, Math.min(endMs, (prev ?? turnaroundMs) + LONGPRESS_STEP_MS))); }, LONGPRESS_REPEAT_INTERVAL_MS);
-                        }}
-                        onPressOut={stopRepeat}>
-                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  <View style={[styles.adjustLine, {left: eX}]} pointerEvents="box-none">
-                    <View style={styles.adjustButtonRow}>
-                      <TouchableOpacity
-                        testID={`calibrate-${repKey}-end-left`}
-                        onPress={() => setEnd(endMs - STEP_MS)}
-                        onLongPress={() => {
-                          stopRepeat();
-                          setEnd(Math.max(turnaroundMs, Math.max(0, endMs - LONGPRESS_STEP_MS)));
-                          repeatIntervalRef.current = setInterval(() => { setEnd(prev => Math.max(turnaroundMs, Math.max(0, (prev ?? endMs) - LONGPRESS_STEP_MS))); }, LONGPRESS_REPEAT_INTERVAL_MS);
-                        }}
-                        onPressOut={stopRepeat}>
-                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u2039'}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        testID={`calibrate-${repKey}-end-right`}
-                        onPress={() => setEnd(endMs + STEP_MS)}
-                        onLongPress={() => {
-                          stopRepeat();
-                          setEnd(Math.min(correctedPlaybackDurationMs, endMs + LONGPRESS_STEP_MS));
-                          repeatIntervalRef.current = setInterval(() => { setEnd(prev => Math.min(correctedPlaybackDurationMs, (prev ?? endMs) + LONGPRESS_STEP_MS)); }, LONGPRESS_REPEAT_INTERVAL_MS);
-                        }}
-                        onPressOut={stopRepeat}>
-                        <Text style={[styles.adjustButtonText, {color: theme.colors.tertiary}]}>{'\u203A'}</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <View style={[styles.adjustLineStem, {backgroundColor: theme.colors.tertiary}]} />
-                  </View>
-                  {tVel !== null && <Text style={[styles.adjustVelLabel, {color: theme.colors.tertiary, left: tX + 4, top: 2}]}>{tVel}</Text>}
-                  {eVel !== null && <Text style={[styles.adjustVelLabel, {color: theme.colors.tertiary, left: eX + 4, bottom: 2}]}>{eVel}</Text>}
+                  {renderAdjustableLine(windowStartLine, repKey, true)}
+                  {renderAdjustableLine(windowEndLine, repKey, false)}
+                  {sVel !== null && <Text style={[styles.adjustVelLabel, {color: theme.colors.tertiary, left: toX(windowStartLine.timeMs) + 4, top: 2}]}>{sVel}</Text>}
+                  {eVel !== null && <Text style={[styles.adjustVelLabel, {color: theme.colors.tertiary, left: toX(windowEndLine.timeMs) + 4, bottom: 2}]}>{eVel}</Text>}
                 </>
               );
             };
@@ -1307,23 +1323,31 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             return (
               <>
                 {repSegments.map((seg, i) => {
+                  const sMs = repOverrides[seg.repIndex]?.startMs ?? seg.startMs;
                   const tMs = repOverrides[seg.repIndex]?.turnaroundMs ?? seg.turnaroundMs;
                   const eMs = repOverrides[seg.repIndex]?.endMs ?? seg.endMs;
+                  const setStart: React.Dispatch<React.SetStateAction<number | null>> = (valueOrUpdater) => {
+                    setRepOverrides(prev => {
+                      const cur = prev[seg.repIndex]?.startMs ?? null;
+                      const next = typeof valueOrUpdater === 'function' ? valueOrUpdater(cur) : valueOrUpdater;
+                      return {...prev, [seg.repIndex]: {startMs: next, turnaroundMs: prev[seg.repIndex]?.turnaroundMs ?? null, endMs: prev[seg.repIndex]?.endMs ?? null}};
+                    });
+                  };
                   const setTurnaround: React.Dispatch<React.SetStateAction<number | null>> = (valueOrUpdater) => {
                     setRepOverrides(prev => {
                       const cur = prev[seg.repIndex]?.turnaroundMs ?? null;
                       const next = typeof valueOrUpdater === 'function' ? valueOrUpdater(cur) : valueOrUpdater;
-                      return {...prev, [seg.repIndex]: {...prev[seg.repIndex], turnaroundMs: next, endMs: prev[seg.repIndex]?.endMs ?? null}};
+                      return {...prev, [seg.repIndex]: {startMs: prev[seg.repIndex]?.startMs ?? null, turnaroundMs: next, endMs: prev[seg.repIndex]?.endMs ?? null}};
                     });
                   };
                   const setEnd: React.Dispatch<React.SetStateAction<number | null>> = (valueOrUpdater) => {
                     setRepOverrides(prev => {
                       const cur = prev[seg.repIndex]?.endMs ?? null;
                       const next = typeof valueOrUpdater === 'function' ? valueOrUpdater(cur) : valueOrUpdater;
-                      return {...prev, [seg.repIndex]: {...prev[seg.repIndex], turnaroundMs: prev[seg.repIndex]?.turnaroundMs ?? null, endMs: next}};
+                      return {...prev, [seg.repIndex]: {startMs: prev[seg.repIndex]?.startMs ?? null, turnaroundMs: prev[seg.repIndex]?.turnaroundMs ?? null, endMs: next}};
                     });
                   };
-                  return <React.Fragment key={seg.repIndex}>{renderRepLines(tMs, eMs, setTurnaround, setEnd, `rep-${i}`)}</React.Fragment>;
+                  return <React.Fragment key={seg.repIndex}>{renderRepLines(seg.startMs, seg.turnaroundMs, sMs, tMs, eMs, setStart, setTurnaround, setEnd, `rep-${i}`)}</React.Fragment>;
                 })}
               </>
             );

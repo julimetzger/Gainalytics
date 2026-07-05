@@ -113,7 +113,7 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
     return () => {
       active = false;
     };
-  }, [analysis1?.id, analysis1?.resultPath, analysis1?.status]);
+  }, [analysis1?.id, analysis1?.localVideoPath, analysis1?.resultPath, analysis1?.status]);
 
   // Load result for analysis 2
   useEffect(() => {
@@ -135,7 +135,7 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
     return () => {
       active = false;
     };
-  }, [analysis2?.id, analysis2?.resultPath, analysis2?.status]);
+  }, [analysis2?.id, analysis2?.localVideoPath, analysis2?.resultPath, analysis2?.status]);
 
   const handleLoad1 = useCallback((event: {nativeEvent: VideoPlayerLoadEvent}) => {
     const {durationMs, videoWidth, videoHeight} = event.nativeEvent;
