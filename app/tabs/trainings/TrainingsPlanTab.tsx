@@ -1,5 +1,6 @@
 import React, {useState, useCallback, useLayoutEffect} from 'react';
 import {ViewMode} from './MicroOverviewTraining';
+import {ExerciseSortMode} from '../../components/Training/analyse/MicroExerciseOverview';
 import {BackHandler} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {Button, IconButton, useTheme} from 'react-native-paper';
@@ -39,7 +40,13 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   let [showDone, setShowDone] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [ignoreSwipeLocations, setIgnoreSwipeLocations] = useState<LayoutRectangle[]>([]);
-  const [microViewMode, setMicroViewMode] = useState<ViewMode>('gesamt');
+  const [microViewMode, setMicroViewMode] = useState<ViewMode>('exercise');
+  const [microSortMode, setMicroSortMode] = useState<ExerciseSortMode>('plan');
+  const handleSetShowDone = useCallback((value: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof value === 'function' ? value(false) : value;
+    setShowDone(next);
+    if (next) setMicroViewMode('exercise');
+  }, []);
   const [overflowVisible, setOverflowVisible] = useState(false);
   const [planChromeState, setPlanChromeState] = useState<PlanChromeState>(createDefaultPlanChromeState);
 
@@ -168,7 +175,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             setRerender(Math.random());
           }}
           setOpen={setOpen}
-          setShowDone={setShowDone}
+          setShowDone={handleSetShowDone}
           showDone={showDone}
           setShowHistory={setShowHistory}
           onAddMeso={() => addMeso(trainingsPlan.id!!, trainingsPlan)}
@@ -213,6 +220,8 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
               }}
               microViewMode={microViewMode}
               onMicroViewModeChange={setMicroViewMode}
+              microSortMode={microSortMode}
+              onMicroSortModeChange={setMicroSortMode}
               overflowVisible={overflowVisible && value === micro}
               onCloseOverflow={() => setOverflowVisible(false)}
               onPlanChromeChange={value === micro ? setPlanChromeState : undefined}

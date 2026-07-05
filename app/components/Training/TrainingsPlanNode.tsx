@@ -17,6 +17,7 @@ import TrainingModeTabs, {SubTab} from './TrainingModeTabs';
 import TrainingOverflowMenu from './TrainingOverflowMenu';
 import React, {useEffect, useState} from 'react';
 import {ViewMode} from '../../tabs/trainings/MicroOverviewTraining';
+import {ExerciseSortMode} from './analyse/MicroExerciseOverview';
 import {dispatchStartTraining} from '../../redux/Training/dispatch/plan/dispatchStartTraining';
 import {useExerciseByIds} from '../../redux/Exercises/use/useExerciseByIds';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
@@ -45,6 +46,8 @@ interface TrainingsPlanNodeProps {
   isActive?: boolean;
   microViewMode?: ViewMode;
   onMicroViewModeChange?: (mode: ViewMode) => void;
+  microSortMode?: ExerciseSortMode;
+  onMicroSortModeChange?: (mode: ExerciseSortMode) => void;
   overflowVisible: boolean;
   onCloseOverflow: () => void;
   onPlanChromeChange?: (state: PlanChromeState) => void;
@@ -57,10 +60,13 @@ export const defaultSubTab = (state?: string): SubTab => {
   return 'plan'; // no training → Plan tab shows TrainingsBase (add/suggest)
 };
 
-const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange}: TrainingsPlanNodeProps) => {
+const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange, microSortMode, onMicroSortModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange}: TrainingsPlanNodeProps) => {
   const [localViewMode, setLocalViewMode] = useState<ViewMode>('gesamt');
   const effectiveViewMode = microViewMode ?? localViewMode;
   const effectiveSetViewMode = onMicroViewModeChange ?? setLocalViewMode;
+  const [localSortMode, setLocalSortMode] = useState<ExerciseSortMode>('plan');
+  const effectiveSortMode = microSortMode ?? localSortMode;
+  const effectiveSetSortMode = onMicroSortModeChange ?? setLocalSortMode;
   const training = useTrainingInTrainingsPlan(trainingsPlan.id!!, micro, trainingInMicro);
   const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
   const lastTrainingInSameMeso = useTrainingInTrainingsPlan(trainingsPlan.id!!, previousMicro ?? -1, trainingInMicro);
@@ -283,7 +289,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
       <NestableScrollContainer keyboardShouldPersistTaps={'handled'}>
         <View>
           {showDone ? (
-            <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} viewMode={effectiveViewMode} onViewModeChange={effectiveSetViewMode} />
+            <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} viewMode={effectiveViewMode} onViewModeChange={effectiveSetViewMode} sortMode={effectiveSortMode} onSortModeChange={effectiveSetSortMode} />
           ) : (
             <View>
               <TrainingModeTabs activeTab={activeSubTab} onTabChange={setActiveSubTab} />
