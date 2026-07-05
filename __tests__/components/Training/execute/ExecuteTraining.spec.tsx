@@ -1,5 +1,5 @@
 import React from 'react';
-import {render} from '@testing-library/react-native';
+import {render, fireEvent} from '@testing-library/react-native';
 import {Text, View} from 'react-native';
 import {TrainingsState} from '../../../../app/models/TrainingsState';
 
@@ -30,14 +30,25 @@ jest.mock('../../../../app/components/Workout/show/WorkoutSetView', () => {
   return () => <V />;
 });
 
-// Mock Estimated1RmCard to expose the lastTrainingOneRm prop for assertions
+// Mock Estimated1RmCard to expose lastTrainingOneRm and onPressTrophy
 jest.mock('../../../../app/components/Training/execute/Estimated1RmCard', () => {
-  const {View: V, Text: T} = require('react-native');
-  return ({lastTrainingOneRm}: {lastTrainingOneRm?: number}) => (
+  const {View: V, Text: T, TouchableOpacity} = require('react-native');
+  return ({lastTrainingOneRm, onPressTrophy}: {lastTrainingOneRm?: number; onPressTrophy?: () => void}) => (
     <V testID="estimated-1rm-card">
       <T testID="last-rm-value">{lastTrainingOneRm ?? 'none'}</T>
+      <TouchableOpacity testID="trophy-tap-trigger" onPress={onPressTrophy} />
     </V>
   );
+});
+
+jest.mock('../../../../app/components/Training/execute/ExerciseRecordsModal', () => {
+  const {View: V, Text: T} = require('react-native');
+  return ({visible, exercise}: {visible: boolean; exercise: {name: string}}) =>
+    visible ? (
+      <V testID="exercise-records-modal-mock">
+        <T testID="records-modal-exercise-name">{exercise.name}</T>
+      </V>
+    ) : null;
 });
 
 // --- redux hook mocks ---
@@ -193,5 +204,28 @@ describe('ExecuteTraining – exerciseFallbackOneRm', () => {
     // With current timing, state-based lastTrainingOneRm is reset to undefined;
     // fallback (120) is used. Priority ordering is preserved by the ?? operator.
     expect(getByTestId('last-rm-value').props.children).toBe(120);
+  });
+});
+
+describe('ExecuteTraining – ExerciseRecordsModal', () => {
+  beforeEach(() => {
+    mockedUseLastFinishedWorkoutsByExerciseIds.mockReset();
+    mockedUseLastFinishedWorkoutsByExerciseIds.mockReturnValue([]);
+  });
+
+  it('records modal is hidden by default', () => {
+    const {queryByTestId} = render(
+      <ExecuteTraining training={TRAINING as any} chosenExercise={EXERCISE as any} onSubmit={jest.fn()} />,
+    );
+    expect(queryByTestId('exercise-records-modal-mock')).toBeNull();
+  });
+
+  it('tapping trophy opens the records modal for the current exercise', () => {
+    const {getByTestId} = render(
+      <ExecuteTraining training={TRAINING as any} chosenExercise={EXERCISE as any} onSubmit={jest.fn()} />,
+    );
+    fireEvent.press(getByTestId('trophy-tap-trigger'));
+    expect(getByTestId('exercise-records-modal-mock')).toBeTruthy();
+    expect(getByTestId('records-modal-exercise-name').props.children).toBe('Squat');
   });
 });

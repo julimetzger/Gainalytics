@@ -134,17 +134,6 @@ const PlanTab = ({
     enterFullEdit();
   }, [editPlanRequestId, isActive, selectedExercise]);
 
-  // GH-263 Item 1: when fullEdit was requested via initialMode but the user has
-  // not picked an exercise yet, auto-open the inline picker so the picker
-  // appears INSIDE the fullEdit screen rather than as a separate dropdown step.
-  useEffect(() => {
-    if (mode === 'fullEdit' && exercises.length === 0 && !pickerVisible) {
-      onTogglePicker();
-    }
-    // intentionally omit onTogglePicker from deps; parent's identity changes per render
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, exercises.length]);
-
   // Keep the latest-closure refs in sync with the hoisted function declarations
   // below, so the stable wrappers always call current state.
   exitToReadRef.current = exitToRead;

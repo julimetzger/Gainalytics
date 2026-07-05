@@ -124,12 +124,12 @@ describe('ExerciseStatsTab', () => {
     };
     expect(list).toBeTruthy();
     expect(rowTextOf(0)).toMatch(/200\.0/);
-    expect(rowTextOf(0)).toContain('Set 2');
+    expect(rowTextOf(0)).toContain('200 kg');
     expect(rowTextOf(1)).toMatch(/195\.0/);
     expect(rowTextOf(2)).toMatch(/180\.0/);
   });
 
-  it('renders SET/REPS/RIR from the producing set even when no set is tagged with Record.ONE_RM (GH-264)', () => {
+  it('renders WEIGHT/REPS/RIR from the producing set even when no set is tagged with Record.ONE_RM (GH-264)', () => {
     // Persisted data never tags `set.record` — only `Workout.records[ONE_RM]`
     // (a number) and `Exercise.records[ONE_RM]` ({value, workoutId}) are written
     // by the reducer. The render path must therefore identify the producing set
@@ -173,7 +173,7 @@ describe('ExerciseStatsTab', () => {
     };
 
     const text = rowTextOf(0);
-    expect(text).toContain('Set 3');
+    expect(text).toContain('140 kg');
     // Reps and RIR from the producing set, not '—'
     expect(text).toMatch(/(^|\s)4(\s|$)/);
     expect(text).toMatch(/(^|\s)1(\s|$)/);
@@ -203,7 +203,7 @@ describe('ExerciseStatsTab', () => {
       return '';
     };
     const text = collect(row);
-    // 1RM still rendered, but SET / REPS / RIR fall back to '—' three times.
+    // 1RM still rendered, but WEIGHT / REPS / RIR fall back to '—' three times.
     expect(text).toMatch(/150\.0/);
     expect((text.match(/—/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });

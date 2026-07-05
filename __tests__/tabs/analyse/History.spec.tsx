@@ -1,20 +1,15 @@
 import React from 'react';
-import {render, act} from '@testing-library/react-native';
+import {render, act, fireEvent} from '@testing-library/react-native';
 import History, {buildHistoryRows} from '../../../app/tabs/Analyse/History';
-import {useAllWorkoutIds} from '../../../app/redux/Workout/use/useAllWorkoutIds';
-import {useWorkoutsByExerciseId} from '../../../app/redux/Workout/use/useWorkoutsByExerciseId';
+import {useWorkoutsByFilters} from '../../../app/redux/Workout/use/useWorkoutsByFilters';
 import {useRoute} from '@react-navigation/native';
 
-jest.mock('../../../app/redux/Workout/use/useAllWorkoutIds', () => ({
-  useAllWorkoutIds: jest.fn(),
+jest.mock('../../../app/redux/Workout/use/useWorkoutsByFilters', () => ({
+  useWorkoutsByFilters: jest.fn(() => []),
 }));
 
-jest.mock('../../../app/redux/Workout/use/useWorkoutsByExerciseId', () => ({
-  useWorkoutsByExerciseId: jest.fn(() => []),
-}));
-
-// History reads route.params?.exercise to decide between the full history and
-// the Dashboard exercise drill-down — mock useRoute so both paths are testable.
+// History reads route.params?.exercise to decide the initial filter selection —
+// mock useRoute so both paths are testable.
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({params: undefined})),
 }));
@@ -76,25 +71,41 @@ jest.mock('../../../app/components/Workout/show/WorkoutView', () => {
   return React.memo(Mock);
 });
 
+// Capture the setMuscle callback so tests can simulate muscle selection.
+let capturedSetMuscle: ((m: any[]) => void) | undefined;
+
+jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return {
+    __esModule: true,
+    default: ({exercise, setExercise, muscle, setMuscle}: any) => {
+      capturedSetMuscle = setMuscle;
+      return <View testID="training-element-picker" />;
+    },
+  };
+});
+
 jest.mock('react-native-paper', () => {
   const React = require('react');
-  const {Text} = require('react-native');
+  const {Text, View} = require('react-native');
   // Return a stable theme reference so useCallback deps in History don't
   // invalidate on every call — the real useTheme also returns stable refs.
   const stableTheme = {fonts: {titleLarge: {fontSize: 22}}};
   return {
     Text: ({children, ...props}: {children: React.ReactNode}) => <Text {...props}>{children}</Text>,
     useTheme: () => stableTheme,
+    IconButton: ({onPress, icon}: any) => <View testID="picker-toggle-button" onTouchEnd={onPress} accessibilityLabel={icon} />,
   };
 });
 
-const mockUseAllWorkoutIds = jest.mocked(useAllWorkoutIds);
-const mockUseWorkoutsByExerciseId = jest.mocked(useWorkoutsByExerciseId);
+const mockUseWorkoutsByFilters = jest.mocked(useWorkoutsByFilters);
 const mockUseRoute = jest.mocked(useRoute);
 
 beforeEach(() => {
+  capturedSetMuscle = undefined;
   mockUseRoute.mockReturnValue({params: undefined} as any);
-  mockUseWorkoutsByExerciseId.mockReturnValue([]);
+  mockUseWorkoutsByFilters.mockReturnValue([]);
   mockWorkoutViewRenderSpy.mockClear();
   mockDateMapCache.clear();
 });
@@ -119,14 +130,14 @@ describe('buildHistoryRows', () => {
 
 describe('History tab', () => {
   it('shows empty state when there are no workouts', () => {
-    mockUseAllWorkoutIds.mockReturnValue([]);
+    mockUseWorkoutsByFilters.mockReturnValue([]);
     const {getByTestId, queryByTestId} = render(<History />);
     expect(getByTestId('history-empty-state')).toBeTruthy();
     expect(queryByTestId('history-list-container')).toBeNull();
   });
 
   it('renders the FlashList container when workouts exist', () => {
-    mockUseAllWorkoutIds.mockReturnValue([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
+    mockUseWorkoutsByFilters.mockReturnValue([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
     const {getByTestId, queryByTestId} = render(<History />);
     expect(getByTestId('history-list-container')).toBeTruthy();
     expect(getByTestId('history-flash-list')).toBeTruthy();
@@ -134,13 +145,13 @@ describe('History tab', () => {
   });
 
   it('initially renders at most PAGE_SIZE (20) workouts', () => {
-    mockUseAllWorkoutIds.mockReturnValue(Array.from({length: 50}, (_, i) => 50 - i));
+    mockUseWorkoutsByFilters.mockReturnValue(Array.from({length: 50}, (_, i) => 50 - i));
     const {getAllByTestId} = render(<History />);
     expect(getAllByTestId('workout-row')).toHaveLength(20);
   });
 
   it('loads the next batch when onEndReached fires', () => {
-    mockUseAllWorkoutIds.mockReturnValue(Array.from({length: 50}, (_, i) => 50 - i));
+    mockUseWorkoutsByFilters.mockReturnValue(Array.from({length: 50}, (_, i) => 50 - i));
     const {getByTestId, getAllByTestId} = render(<History />);
     expect(getAllByTestId('workout-row')).toHaveLength(20);
 
@@ -152,7 +163,7 @@ describe('History tab', () => {
   });
 
   it('caps the visible window at the total workout count', () => {
-    mockUseAllWorkoutIds.mockReturnValue(Array.from({length: 25}, (_, i) => 25 - i));
+    mockUseWorkoutsByFilters.mockReturnValue(Array.from({length: 25}, (_, i) => 25 - i));
     const {getByTestId, getAllByTestId} = render(<History />);
     expect(getAllByTestId('workout-row')).toHaveLength(20);
 
@@ -165,13 +176,13 @@ describe('History tab', () => {
   });
 
   it('shows all workouts when the total is below PAGE_SIZE', () => {
-    mockUseAllWorkoutIds.mockReturnValue([5, 4, 3, 2, 1]);
+    mockUseWorkoutsByFilters.mockReturnValue([5, 4, 3, 2, 1]);
     const {getAllByTestId} = render(<History />);
     expect(getAllByTestId('workout-row')).toHaveLength(5);
   });
 
   it('does not grow the window when already showing every workout', () => {
-    mockUseAllWorkoutIds.mockReturnValue(Array.from({length: 20}, (_, i) => 20 - i));
+    mockUseWorkoutsByFilters.mockReturnValue(Array.from({length: 20}, (_, i) => 20 - i));
     const {getByTestId, getAllByTestId} = render(<History />);
     expect(getAllByTestId('workout-row')).toHaveLength(20);
 
@@ -183,31 +194,22 @@ describe('History tab', () => {
   });
 
   it('renders a date header for each grouped batch', () => {
-    mockUseAllWorkoutIds.mockReturnValue([3, 2, 1]);
+    mockUseWorkoutsByFilters.mockReturnValue([3, 2, 1]);
     const {getAllByTestId} = render(<History />);
     // mocked useDateWorkoutMapByIds buckets each id under its own date
     expect(getAllByTestId('history-date-header')).toHaveLength(3);
   });
 
   it('renders workout rows as editable so long-press edit/delete works', () => {
-    mockUseAllWorkoutIds.mockReturnValue([1]);
+    mockUseWorkoutsByFilters.mockReturnValue([1]);
     const {getAllByTestId} = render(<History />);
     // editable===false would set disabled:true on the stubbed tile; rows must stay editable
     expect(getAllByTestId('workout-row')[0].props.accessibilityState.disabled).toBe(false);
   });
 
-  // PR #280 review fb4 finding (1): when route.params.exercise is undefined,
-  // useWorkoutsByExerciseId(undefined) must return a stable EMPTY_ARRAY so an
-  // unrelated parent re-render (proxy for an unrelated Redux dispatch) does
-  // NOT invalidate the History useMemo deps and re-render every workout row.
-  // The hook itself is mocked here — the test asserts the History contract:
-  // given stable inputs, the visible row count is unchanged AND no extra
-  // WorkoutView renders fire beyond the initial mount of the visible window.
-  it('does not re-render WorkoutView children on an unrelated parent re-render (stable EMPTY_ARRAY contract)', () => {
-    const STABLE_EMPTY: never[] = [];
+  it('does not re-render WorkoutView children on an unrelated parent re-render (stable ref contract)', () => {
     const STABLE_IDS = [10, 9, 8, 7, 6];
-    mockUseAllWorkoutIds.mockReturnValue(STABLE_IDS);
-    mockUseWorkoutsByExerciseId.mockReturnValue(STABLE_EMPTY);
+    mockUseWorkoutsByFilters.mockReturnValue(STABLE_IDS);
 
     const {rerender, getAllByTestId} = render(<History />);
     const initialRowCount = getAllByTestId('workout-row').length;
@@ -215,8 +217,7 @@ describe('History tab', () => {
     const rendersBefore = mockWorkoutViewRenderSpy.mock.calls.length;
 
     // Simulate an unrelated Redux dispatch by forcing a parent re-render while
-    // the mocked hooks continue to return the SAME references. With the
-    // stable-ref contract in place, no new WorkoutView renders should fire.
+    // the mocked hook continues to return the SAME reference.
     rerender(<History />);
 
     expect(getAllByTestId('workout-row').length).toBe(initialRowCount);
@@ -224,36 +225,109 @@ describe('History tab', () => {
   });
 
   it('shows the English empty-state copy (AGENTS.md: app language is English only)', () => {
-    mockUseAllWorkoutIds.mockReturnValue([]);
+    mockUseWorkoutsByFilters.mockReturnValue([]);
     const {getByText, queryByText} = render(<History />);
     expect(getByText('No workouts yet.')).toBeTruthy();
     // Guard against accidental reintroduction of the previous German copy.
     expect(queryByText('Noch keine Trainings vorhanden.')).toBeNull();
   });
+
+  it('renders TrainingElementPicker in the list container', () => {
+    mockUseWorkoutsByFilters.mockReturnValue([1, 2]);
+    const {getByTestId} = render(<History />);
+    expect(getByTestId('training-element-picker')).toBeTruthy();
+  });
+
+  it('shows no-match message when filters are active but no workouts match', () => {
+    // Simulate: filters are active (route exercise pre-selects id 42) but hook returns empty
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 42, name: 'Squat'}}} as any);
+    mockUseWorkoutsByFilters.mockReturnValue([]);
+    const {getByTestId, queryByTestId} = render(<History />);
+    // The container is rendered (not the global empty state) with the filter section
+    expect(getByTestId('history-list-container')).toBeTruthy();
+    expect(getByTestId('history-filters-empty')).toBeTruthy();
+    expect(queryByTestId('history-empty-state')).toBeNull();
+  });
 });
 
 describe('History tab — Dashboard exercise drill-down', () => {
-  it('shows only the drilled-down exercise workouts when an exercise param is present', () => {
-    // Full history would be these ids; the exercise drill-down must ignore them.
-    mockUseAllWorkoutIds.mockReturnValue([99, 98, 97]);
+  it('pre-selects the route exercise so useWorkoutsByFilters is called with that exercise id', () => {
     mockUseRoute.mockReturnValue({params: {exercise: {id: 7, name: 'Bench Press'}}} as any);
-    mockUseWorkoutsByExerciseId.mockReturnValue([
-      {id: 11, exerciseId: 7, sets: [], start: new Date(2026, 0, 10), end: new Date(2026, 0, 10)},
-      {id: 12, exerciseId: 7, sets: [], start: new Date(2026, 0, 20), end: new Date(2026, 0, 20)},
-    ] as any);
+    mockUseWorkoutsByFilters.mockReturnValue([11, 10]);
+
+    render(<History />);
+
+    // On initial mount, useWorkoutsByFilters must be called with the route exercise
+    // pre-selected in the exerciseIds array and no muscle filters.
+    expect(mockUseWorkoutsByFilters).toHaveBeenCalledWith([], [7]);
+  });
+
+  it('shows the drilled-down exercise workouts when an exercise param is present', () => {
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 7, name: 'Bench Press'}}} as any);
+    mockUseWorkoutsByFilters.mockReturnValue([12, 11]);
 
     const {getAllByTestId} = render(<History />);
     const rows = getAllByTestId('workout-row').map((r) => r.props.children);
-    // only the exercise's two workouts, newest-first (id 12 before id 11)
     expect(rows).toEqual([12, 11]);
   });
 
-  it('passes the exercise id from the route param to useWorkoutsByExerciseId', () => {
-    mockUseAllWorkoutIds.mockReturnValue([]);
-    mockUseRoute.mockReturnValue({params: {exercise: {id: 42, name: 'Squat'}}} as any);
-    mockUseWorkoutsByExerciseId.mockReturnValue([]);
+  it('re-syncs chip selection when Dashboard re-navigates with a different exercise param', () => {
+    // Mount with exercise A (id: 7)
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 7, name: 'Bench Press'}}} as any);
+    mockUseWorkoutsByFilters.mockReturnValue([11, 10]);
 
-    render(<History />);
-    expect(mockUseWorkoutsByExerciseId).toHaveBeenCalledWith(42);
+    const {rerender} = render(<History />);
+    expect(mockUseWorkoutsByFilters).toHaveBeenCalledWith([], [7]);
+
+    // Simulate Dashboard re-navigating with exercise B (id: 42)
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 42, name: 'Squat'}}} as any);
+
+    act(() => {
+      rerender(<History />);
+    });
+
+    // Must now filter by exercise B, NOT exercise A
+    expect(mockUseWorkoutsByFilters).toHaveBeenLastCalledWith([], [42]);
+  });
+
+  it('keeps current chip selection when re-navigating without an exercise param', () => {
+    // Mount with exercise A (id: 7) — user has a chip selected
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 7, name: 'Bench Press'}}} as any);
+    mockUseWorkoutsByFilters.mockReturnValue([11, 10]);
+
+    const {rerender} = render(<History />);
+    expect(mockUseWorkoutsByFilters).toHaveBeenCalledWith([], [7]);
+
+    // Simulate arriving via Drawer (no exercise param) — chips must not be cleared
+    mockUseRoute.mockReturnValue({params: undefined} as any);
+
+    act(() => {
+      rerender(<History />);
+    });
+
+    // Chip selection must still be [7] (not cleared)
+    expect(mockUseWorkoutsByFilters).toHaveBeenLastCalledWith([], [7]);
+  });
+
+  it('resets muscle filters when Dashboard drill-down arrives with a new exercise', () => {
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 7, name: 'Bench Press'}}} as any);
+    mockUseWorkoutsByFilters.mockReturnValue([11, 10]);
+
+    const {rerender} = render(<History />);
+
+    // Simulate the user setting a muscle filter manually via the picker
+    act(() => {
+      capturedSetMuscle!(['Quadriceps']);
+    });
+
+    expect(mockUseWorkoutsByFilters).toHaveBeenLastCalledWith(['Quadriceps'], [7]);
+
+    // Dashboard navigates to a different exercise — muscles must be cleared
+    mockUseRoute.mockReturnValue({params: {exercise: {id: 42, name: 'Squat'}}} as any);
+    act(() => {
+      rerender(<History />);
+    });
+
+    expect(mockUseWorkoutsByFilters).toHaveBeenLastCalledWith([], [42]);
   });
 });

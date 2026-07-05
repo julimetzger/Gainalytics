@@ -1,0 +1,92 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-345: Dead space in Training home screen / RangeSwiper scroll clamp.
+#
+# Verifies:
+#  1. Training Home: scrolling down settles right after the last plan card, the
+#     add-plan FAB does not cover it.
+#  2. Training eintragen (Train tab, RangeSwiper): a day with few exercises no
+#     longer lets you scroll into a screen-filling dead zone.
+#  3. After swiping to the longer neighbour day, its full content — including
+#     the very last exercise — is reachable by scrolling.
+#  4. Analyse -> Metrics regression: the same RangeSwiper still swipes between
+#     date ranges and the resulting label reflects the new range (not just
+#     element visibility).
+- launchApp:
+    appId: com.powerliftingworkoutplanner
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- tapOn: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "training-home-screen"
+    timeout: 60000
+
+# --- 1. Training Home: scroll to the bottom of the plans list ---
+- scrollUntilVisible:
+    element:
+      text: "Upper lower"
+    direction: DOWN
+    timeout: 20000
+- assertVisible: "Upper lower"
+- takeScreenshot: 01_home_bottom_of_plans
+
+# --- 2. Open "Push pull upper lower" plan -> Train tab (short day, Micro 1) ---
+- tapOn: "Push pull upper lower"
+- extendedWaitUntil:
+    visible: "Micro 1"
+    timeout: 15000
+- tapOn: "Train"
+- assertVisible: "Rear delt db swing"
+- scrollUntilVisible:
+    element:
+      text: "Rear delt cable row pronated"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "Rear delt cable row pronated"
+- takeScreenshot: 02_short_day_scroll_end
+
+# --- 3. Swipe to the neighbour day (Micro 2) — has more exercises ---
+- swipe:
+    direction: LEFT
+- extendedWaitUntil:
+    visible: "Micro 2"
+    timeout: 15000
+- tapOn: "Train"
+- assertVisible: "Deadlift"
+- scrollUntilVisible:
+    element:
+      text: "Biceps cable curl"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "Biceps cable curl"
+- assertVisible: "55 kg"
+- takeScreenshot: 03_long_neighbour_day_full_content
+
+# --- 4. Analyse -> Metrics: RangeSwiper regression (swipe changes the date range) ---
+- tapOn: "tab-analyse"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 10000
+- tapOn: "All Metrics"
+- extendedWaitUntil:
+    visible: "Muscle Overview"
+    timeout: 15000
+- takeScreenshot: 04_metrics_before_swipe
+- swipe:
+    direction: LEFT
+- waitForAnimationToEnd
+# Assert the actual resulting date-range label moved to the following week,
+# not just that some element is still visible (repo Maestro quality rule).
+- assertVisible: "06/07/26"
+- takeScreenshot: 05_metrics_after_swipe

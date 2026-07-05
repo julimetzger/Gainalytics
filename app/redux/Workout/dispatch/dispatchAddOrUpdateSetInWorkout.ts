@@ -29,7 +29,7 @@ export function dispatchRecord(planningMode: boolean, set: WorkoutSet, workout: 
       let previousRecord = previousRecordIndex >= 0 ? exercise?.records?.[Record.ONE_RM]?.[previousRecordIndex]?.value ?? 0 : 0;
       let newWorkoutSets = [set, ...workout.sets.filter((s) => s.index !== set.index)];
 
-      let newOneRm = calculateMetricValue(newWorkoutSets, Metric.ONE_RM);
+      let newOneRm = parseFloat(calculateMetricValue(newWorkoutSets, Metric.ONE_RM).toFixed(2));
       // lower Record below previeous record -> delete record
       if (newOneRm < previousRecord) {
         dispatch({
