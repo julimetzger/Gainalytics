@@ -303,7 +303,9 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
 
   return (
     <View style={{flex: 1}} testID="training-home-screen">
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{paddingBottom: 300}}>
+      {/* paddingBottom just clears the add-plan FAB (size-40 IconButton ≈ 65px + 5px offset)
+          so the last plan card stays tappable without creating dead scroll space. */}
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{paddingBottom: 80}}>
         {/* Dashboard section for active plan */}
         {activePlan && (
           <>
