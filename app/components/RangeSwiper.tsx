@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {LayoutRectangle, useWindowDimensions, View} from 'react-native';
+import {LayoutChangeEvent, LayoutRectangle, useWindowDimensions, View} from 'react-native';
 import Animated, {Easing, ReduceMotion, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming} from 'react-native-reanimated';
 import {Gesture, GestureDetector, GestureHandlerRootView, State} from 'react-native-gesture-handler';
 
@@ -138,6 +138,17 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
 
   useEffect(() => {}, [ignoreSwipe]);
 
+  // The three panes sit side by side in a row, so without a height constraint
+  // the vertical scroll extent equals the TALLEST pane — including the two
+  // off-screen neighbours — leaving dead scroll space below shorter content.
+  // Track each pane's natural height and clamp the row to the active pane.
+  const [paneHeights, setPaneHeights] = useState<{[key in ViewPosition]?: number}>({});
+  const makePaneOnLayout = (pane: ViewPosition) => (event: LayoutChangeEvent) => {
+    const height = event.nativeEvent.layout.height;
+    setPaneHeights((prev) => (prev[pane] === height ? prev : {...prev, [pane]: height}));
+  };
+  const activePaneHeight = paneHeights[fullPosition.activeView];
+
   const zeroPositon = fullPosition.traveledIndex * dimensions.width;
 
   const refa = useRef();
@@ -232,10 +243,19 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
         {notSwipeableContent}
         <GestureDetector gesture={panGesture}>
           <Animated.View
+            testID="range-swiper-row"
             style={[
               animatedStyle,
               {
                 flexDirection: 'row',
+                // Panes keep their natural content height so onLayout measures
+                // them correctly; the row is clamped to the active pane's height
+                // so the scrollable area ends there instead of at the tallest
+                // off-screen neighbour. No flexGrow here — stretching the row to
+                // fill the viewport would recreate the same dead space whenever
+                // a pane's real content is shorter than the screen.
+                alignItems: 'flex-start',
+                height: activePaneHeight,
                 left: -zeroPositon + initialOffset,
               },
             ]}
@@ -245,6 +265,8 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
                 return (
                   <View
                     key={1}
+                    testID="range-swiper-pane-upper"
+                    onLayout={makePaneOnLayout(ViewPosition.UPPER)}
                     style={{
                       width: dimensions.width,
                       top: 0,
@@ -258,6 +280,8 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
                 return (
                   <View
                     key={2}
+                    testID="range-swiper-pane-middle"
+                    onLayout={makePaneOnLayout(ViewPosition.MIDDLE)}
                     style={{
                       width: dimensions.width,
                       top: 0,
@@ -271,6 +295,8 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
                 return (
                   <View
                     key={3}
+                    testID="range-swiper-pane-lower"
+                    onLayout={makePaneOnLayout(ViewPosition.LOWER)}
                     style={{
                       width: dimensions.width,
                       top: 0,
