@@ -829,15 +829,35 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
     if (typeof left !== 'number' || typeof right !== 'number' || right <= left) {
       return;
     }
+    // MPAndroidChart clamps the RENDERED viewport to the x-axis range, but the
+    // left/right values it reports during fling deceleration come from the
+    // unclamped transformation matrix and can overshoot the axis bounds by
+    // several seconds (GH-351). Using them raw shifts both the marker position
+    // and the tap-to-seek mapping relative to the curve that is actually drawn.
+    // Mirror the chart's translation clamping (shift the window, keep the span)
+    // so the stored visible range always matches the rendered one.
+    const axisMaxMs = correctedPlaybackDurationMsRef.current;
+    let visibleMin = left;
+    let visibleMax = right;
+    if (axisMaxMs > 0) {
+      const spanMs = Math.min(visibleMax - visibleMin, axisMaxMs);
+      if (visibleMin < 0) {
+        visibleMin = 0;
+        visibleMax = spanMs;
+      } else if (visibleMax > axisMaxMs) {
+        visibleMax = axisMaxMs;
+        visibleMin = axisMaxMs - spanMs;
+      }
+    }
     if (action === 'chartScaled' || action === 'chartTranslated') {
-      chartVisibleMinSV.value = left; // eslint-disable-line react-hooks/exhaustive-deps
-      chartVisibleMaxSV.value = right; // eslint-disable-line react-hooks/exhaustive-deps
-      chartVisibleMinRef.current = left;
-      chartVisibleMaxRef.current = right;
+      chartVisibleMinSV.value = visibleMin; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMaxSV.value = visibleMax; // eslint-disable-line react-hooks/exhaustive-deps
+      chartVisibleMinRef.current = visibleMin;
+      chartVisibleMaxRef.current = visibleMax;
       chartGestureActiveUntilRef.current = Date.now() + 300;
     }
     if (action === 'chartGestureEnd') {
-      setChartVisibleForLines({min: left, max: right});
+      setChartVisibleForLines({min: visibleMin, max: visibleMax});
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

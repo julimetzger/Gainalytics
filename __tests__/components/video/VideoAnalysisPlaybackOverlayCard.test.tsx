@@ -1619,3 +1619,86 @@ describe('VideoAnalysisPlaybackOverlayCard – per-rep override map (GH-257-A)',
     expect(queryByText(/^VL=\d+%$/)).toBeTruthy();
   });
 });
+
+// GH-351: MPAndroidChart reports UNCLAMPED left/right values from the fling
+// deceleration (they can overshoot the x-axis bounds by seconds) while the
+// rendered viewport is clamped to the axis range. The component must mirror the
+// chart's translation clamping (shift the window, keep the span) so tap-to-seek
+// and the velocity marker stay aligned with the curve that is actually drawn.
+describe('VideoAnalysisPlaybackOverlayCard – zoomed chart overscroll clamping (GH-351)', () => {
+  const CHART_WIDTH = 240; // 36 left padding + 200 drawable + 4 right padding
+
+  const setup = () => {
+    const utils = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+    const player = utils.getByTestId('video-analysis-playback-player');
+    const speedPlot = utils.getByTestId('video-analysis-playback-speed-plot');
+    const speedChart = utils.getByTestId('video-analysis-playback-speed-chart');
+    loadPlayer(player, 3000); // correctedPlaybackDurationMs = 3000
+    act(() => {
+      speedPlot.props.onLayout({nativeEvent: {layout: {width: CHART_WIDTH}}});
+    });
+    return {...utils, player, speedPlot, speedChart};
+  };
+
+  const fireChartChange = (speedPlot: any, action: string, left: number, right: number) => {
+    act(() => {
+      speedPlot.props.onChange({nativeEvent: {action, left, right}});
+    });
+  };
+
+  // Bypass the 300ms tap suppression window that chartScaled/chartTranslated arms.
+  const tapAfterGestureWindow = (speedChart: any, locationX: number) => {
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => new Date(2100, 0, 1).getTime());
+    act(() => {
+      fireEvent(speedChart, 'touchEnd', {nativeEvent: {locationX}});
+    });
+    nowSpy.mockRestore();
+  };
+
+  it('clamps a left-overscrolled fling window and keeps tap-to-seek aligned with the rendered range', () => {
+    const {player, speedPlot, speedChart} = setup();
+
+    // Fling deceleration reports window [-1000, 1000]; the chart renders [0, 2000].
+    fireChartChange(speedPlot, 'chartTranslated', -1000, 1000);
+
+    // Tap the drawable center: progress 0.5 → must map to 0 + 0.5*2000 = 1000ms.
+    // Without clamping it would map to -1000 + 0.5*2000 = 0ms.
+    tapAfterGestureWindow(speedChart, 136);
+    expect(player.props.seekPositionMs).toBe(1000);
+  });
+
+  it('clamps a right-overscrolled fling window and keeps tap-to-seek aligned with the rendered range', () => {
+    const {player, speedPlot, speedChart} = setup();
+
+    // Fling deceleration reports [2000, 4000]; axis max is 3000 → rendered [1000, 3000].
+    fireChartChange(speedPlot, 'chartTranslated', 2000, 4000);
+
+    // Tap the drawable center: progress 0.5 → must map to 1000 + 0.5*2000 = 2000ms.
+    // Without clamping it would map to 2000 + 0.5*2000 = 3000ms.
+    tapAfterGestureWindow(speedChart, 136);
+    expect(player.props.seekPositionMs).toBe(2000);
+  });
+
+  it('keeps the velocity marker at the chart left edge for t=0 after a left-overscrolled fling', () => {
+    const {getByTestId, speedPlot} = setup();
+
+    fireChartChange(speedPlot, 'chartTranslated', -1000, 1000);
+
+    // Playback time is 0. With the clamped window [0, 2000] the marker must sit at
+    // the left padding edge (36). With the raw window [-1000, 1000] it would be
+    // drawn at 36 + 0.5*200 = 136 — one second into the plot (the reported bug).
+    expect(getMarkerTranslateX(getByTestId)).toBe(36);
+  });
+
+  it('does not alter in-range zoom windows', () => {
+    const {player, speedPlot, speedChart} = setup();
+
+    fireChartChange(speedPlot, 'chartScaled', 500, 2500);
+
+    // Tap the drawable center: progress 0.5 → 500 + 0.5*2000 = 1500ms.
+    tapAfterGestureWindow(speedChart, 136);
+    expect(player.props.seekPositionMs).toBe(1500);
+  });
+});
