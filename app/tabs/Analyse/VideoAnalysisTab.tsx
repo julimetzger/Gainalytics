@@ -393,6 +393,10 @@ const VideoAnalysisTab = () => {
       <FlashList
         data={searchFilteredAnalyses}
         renderItem={renderAnalysisItem}
+        // FlashList rows are pure and ignore renderItem identity changes; the
+        // ticking `now` must go through extraData or running-import progress
+        // bars freeze after the first store-driven render (GH-343).
+        extraData={now}
         keyExtractor={(item) => String(item.id)}
         estimatedItemSize={96}
         ListHeaderComponent={renderHeader}
