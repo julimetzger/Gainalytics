@@ -2,6 +2,13 @@ package com.powerliftingworkoutplanner;
 
 import org.junit.Test;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.Assert.assertEquals;
 
 public class VideoAnalysisRepDetectionTest {
@@ -53,6 +60,53 @@ public class VideoAnalysisRepDetectionTest {
         );
 
         assertEquals(2, detectedReps.repSegments.size());
+    }
+
+    @Test
+    public void detectRepSegmentsFindsAllRepsInNoisyRealSquatRecording() throws Exception {
+        // Real device bar path (GH-312, analysis-4): 3-rep squat with plate jitter
+        // during the standing pauses between reps. The jitter produced velocity
+        // flips inside the crossing gap window; dropping them used to leave
+        // consecutive same-type crossings, so the triplet matcher only found rep 1.
+        BarPathFixture fixture = loadBarPathFixture("/gh312/squat-3reps-barpath.csv");
+
+        VideoAnalysisRepDetection.RepDetectionResult detectedReps =
+            VideoAnalysisRepDetection.detectRepData(fixture.timeMs, fixture.yPositions);
+
+        assertEquals(3, detectedReps.repSegments.size());
+    }
+
+    private static BarPathFixture loadBarPathFixture(String resourcePath) throws Exception {
+        List<Integer> times = new ArrayList<>();
+        List<Double> yValues = new ArrayList<>();
+        try (InputStream stream = VideoAnalysisRepDetectionTest.class.getResourceAsStream(resourcePath);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            String line = reader.readLine(); // header
+            while ((line = reader.readLine()) != null) {
+                if (line.isEmpty()) {
+                    continue;
+                }
+                String[] parts = line.split(",");
+                times.add(Integer.parseInt(parts[0]));
+                yValues.add(Double.parseDouble(parts[1]));
+            }
+        }
+        BarPathFixture fixture = new BarPathFixture(times.size());
+        for (int i = 0; i < times.size(); i++) {
+            fixture.timeMs[i] = times.get(i);
+            fixture.yPositions[i] = yValues.get(i);
+        }
+        return fixture;
+    }
+
+    private static final class BarPathFixture {
+        final int[] timeMs;
+        final double[] yPositions;
+
+        BarPathFixture(int size) {
+            timeMs = new int[size];
+            yPositions = new double[size];
+        }
     }
 
     @Test

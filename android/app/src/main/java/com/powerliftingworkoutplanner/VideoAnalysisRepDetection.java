@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class VideoAnalysisRepDetection {
-    static final String REP_DETECTION_VERSION = "velocity-zero-crossing-v3";
+    static final String REP_DETECTION_VERSION = "velocity-zero-crossing-v4";
 
     private static final int MIN_TRACKING_POINTS = 6;
     private static final int SMOOTHING_WINDOW = 5;
@@ -374,13 +374,17 @@ final class VideoAnalysisRepDetection {
             if (!crossings.isEmpty()) {
                 Crossing lastCrossing = crossings.get(crossings.size() - 1);
                 if (timeMs[index] - lastCrossing.timeMs < MIN_CROSSING_GAP_MS) {
-                    if (
-                        lastCrossing.type == nextType &&
-                        Math.abs(velocity[index]) >= Math.abs(velocity[lastCrossing.index])
-                    ) {
-                        crossings.set(crossings.size() - 1, new Crossing(index, timeMs[index], nextType));
+                    if (lastCrossing.type == nextType) {
+                        if (Math.abs(velocity[index]) >= Math.abs(velocity[lastCrossing.index])) {
+                            crossings.set(crossings.size() - 1, new Crossing(index, timeMs[index], nextType));
+                        }
+                        previousDirection = direction;
                     }
-                    previousDirection = direction;
+                    // An opposite-type flip inside the gap window is ignored without
+                    // updating previousDirection: the crossing list must stay strictly
+                    // alternating (TOP/BOTTOM), otherwise the triplet matcher can never
+                    // assemble a rep. A real direction change re-triggers immediately
+                    // after the gap; short jitter never reaches the list.
                     continue;
                 }
             }
