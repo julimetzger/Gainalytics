@@ -102,6 +102,23 @@ describe('TrainingsPlanHeader', () => {
     expect(queryByTestId('header-live-dot')).toBeNull();
   });
 
+  it('two-row layout: date on first line, duration on second line inside stack container when FINISHED', () => {
+    const start = new Date(Date.now() - 5000).toISOString();
+    const end = new Date().toISOString();
+    const {getByTestId} = render(
+      <TrainingsPlanHeader
+        {...BASE_PROPS}
+        trainingState={TrainingsState.FINISHED}
+        trainingStart={start}
+        trainingEnd={end}
+      />,
+    );
+    const stack = getByTestId('header-date-timer-stack');
+    expect(stack.props.style).toMatchObject({flexDirection: 'column', alignItems: 'flex-end'});
+    expect(getByTestId('header-date')).toBeTruthy();
+    expect(getByTestId('header-session-timer')).toBeTruthy();
+  });
+
   it('shows date but no timer for FINISHED when trainingEnd is absent', () => {
     const {getByTestId, queryByTestId} = render(
       <TrainingsPlanHeader

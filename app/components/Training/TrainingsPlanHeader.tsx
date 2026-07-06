@@ -155,7 +155,7 @@ const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, 
             </View>
           )}
           {trainingState === TrainingsState.FINISHED && trainingStart && (
-            <>
+            <View testID="header-date-timer-stack" style={{flexDirection: 'column', alignItems: 'flex-end'}}>
               <Text
                 testID="header-date"
                 style={{
@@ -177,7 +177,7 @@ const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, 
                   {formatDuration(trainingStart, trainingEnd)}
                 </Text>
               )}
-            </>
+            </View>
           )}
           <View testID="header-overflow-button">{overflowButton}</View>
         </View>
