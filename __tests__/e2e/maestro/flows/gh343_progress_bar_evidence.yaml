@@ -1,0 +1,81 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-343 evidence: the import progress bar must keep advancing (it used to
+# freeze at 2-4% because the ticking clock never reached the pure FlashList
+# rows). The waits below assert the ACTUAL rendered percent value climbing
+# through 10% and 30% — on the broken build they time out at ~4%.
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- scrollUntilVisible:
+    element:
+      text: 'Video Analyses'
+    direction: DOWN
+    timeout: 15000
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 30000
+- takeScreenshot: 'gh343_1_list_before_import'
+- tapOn: 'Import Video'
+# Android 13+ photo picker: files pushed to Downloads are invisible here, so
+# select a real on-device lifting video by its accessibility label. Tapping
+# toggles selection; 'Fertig' (German device locale) confirms it.
+- extendedWaitUntil:
+    visible: 'Video vom 04.07.2026 12:49 mit einer Dauer von 00:52'
+    timeout: 30000
+- tapOn: 'Video vom 04.07.2026 12:49 mit einer Dauer von 00:52'
+- tapOn: 'Fertig'
+# The picker copies the ~46MB file before returning it to the app, so the
+# queued entry can take a while to appear.
+- extendedWaitUntil:
+    visible:
+      text: 'Progress \d+%'
+    timeout: 240000
+- assertVisible: 'Queued'
+- takeScreenshot: 'gh343_2_progress_started'
+# Value assertion #1: the rendered percent must reach a two-digit value
+# (>= 10%) — impossible on the broken build, which froze at 2-4%.
+- extendedWaitUntil:
+    visible:
+      text: 'Progress [1-9][0-9]%'
+    timeout: 90000
+- takeScreenshot: 'gh343_3_progress_over_10pct'
+# Value assertion #2: it must KEEP climbing past 30%.
+- extendedWaitUntil:
+    visible:
+      text: 'Progress [3-9][0-9]%'
+    timeout: 120000
+- takeScreenshot: 'gh343_4_progress_over_30pct'
+# Value assertion #3: and past 60%, together with the elapsed/estimated caption.
+- extendedWaitUntil:
+    visible:
+      text: 'Progress [6-9][0-9]%'
+    timeout: 180000
+- assertVisible:
+    text: '.*estimated'
+- takeScreenshot: 'gh343_5_progress_over_60pct'
+# Finally the analysis must finish: progress bar disappears and the entry
+# is no longer queued. (The list may contain older Done entries, so the
+# meaningful signal is that no active 'Progress'/'Queued' row remains.)
+- extendedWaitUntil:
+    notVisible:
+      text: 'Progress \d+%'
+    timeout: 600000
+- extendedWaitUntil:
+    notVisible: 'Queued'
+    timeout: 60000
+- assertVisible: 'Done'
+- takeScreenshot: 'gh343_6_import_done'
