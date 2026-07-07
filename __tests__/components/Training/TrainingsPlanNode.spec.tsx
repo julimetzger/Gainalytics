@@ -263,7 +263,7 @@ describe('TrainingsPlanNode — overflow menu actions', () => {
     expect(getByTestId('overflow-finish')).toBeTruthy();
   });
 
-  it('delete dialog appears when Discard is pressed via overflow', async () => {
+  it('delete dialog appears when Delete is pressed via overflow', async () => {
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
     const {getByTestId, getByText} = render(<TrainingsPlanNode {...defaultProps} overflowVisible={true} />);
     fireEvent.press(getByTestId('overflow-discard'));

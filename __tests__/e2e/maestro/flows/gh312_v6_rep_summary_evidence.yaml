@@ -1,0 +1,61 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-312 (PR #349, review round 2): the bounce-excursion collapse now uses a
+# range-relative displacement bound (rep detection v6) so small-amplitude/far-away
+# recordings cannot lose a real rep. This flow proves the v6 detector still finds
+# exactly 3 reps on the real 3-rep squat recording (Analysis #4): the analysis was
+# stored with an older repDetectionVersion, and opening the detail triggers
+# migrateBarTrackingResultIfNeeded, which re-runs the current detector on the
+# stored barPathSeries before the Rep Summary renders.
+# Prerequisites:
+# - Baseline data imported and Analysis #4 (3-rep squat, status done) on the device.
+# - Do NOT clear app state: the flow verifies against the stored real recording.
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+# Navigate Analyse tab → drawer → Video Analyses
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- scrollUntilVisible:
+    element:
+      text: 'Video Analyses'
+    direction: DOWN
+    timeout: 15000
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 30000
+- takeScreenshot: 'gh312_v6_01_video_analyses_list'
+- tapOn:
+    id: 'video-analysis-row-4'
+- extendedWaitUntil:
+    visible: 'Analysis #4'
+    timeout: 30000
+- takeScreenshot: 'gh312_v6_02_analysis4_detail'
+# Scroll past the playback overlay with percentage edge swipes: center gestures
+# (and scrollUntilVisible) are consumed by the player's GestureHandlerRootView.
+- swipe:
+    start: '97%, 80%'
+    end: '97%, 25%'
+    duration: 1500
+- swipe:
+    start: '97%, 80%'
+    end: '97%, 25%'
+    duration: 1500
+# Assert the actual resulting values: v6 keeps all 3 reps of the real squat
+# recording, with rep 1's total duration unchanged from the accepted v5 baseline.
+- assertVisible:
+    text: 'Rep Summary (3 reps)'
+- assertVisible:
+    text: '3.95s'
+- takeScreenshot: 'gh312_v6_03_rep_summary_3_reps'

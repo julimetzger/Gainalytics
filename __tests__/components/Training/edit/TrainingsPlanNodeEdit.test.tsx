@@ -176,7 +176,7 @@ describe('TrainingsPlanNode - Edit Finished Training (via overflow)', () => {
     });
   });
 
-  it('deletes training after Discard + confirmation in dialog', async () => {
+  it('deletes training after Delete + confirmation in dialog', async () => {
     render(<TrainingsPlanNode {...baseProps} overflowVisible={true} />);
     fireEvent.press(screen.getByTestId('overflow-discard'));
     await waitFor(() => {
