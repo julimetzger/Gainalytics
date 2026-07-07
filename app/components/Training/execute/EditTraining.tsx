@@ -87,7 +87,7 @@ const EditTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: EditTra
           </Card.Content>
         </Card>
       )}
-      <ExecuteTraining training={training} chosenExercise={chosenExercise} onSubmit={onSubmit} onSubmitSet={onSubmitSet} />
+      <ExecuteTraining training={training} chosenExercise={chosenExercise} onSubmit={onSubmit} onSubmitSet={onSubmitSet} editMode={true} />
       <Portal>
         <Dialog visible={dialogVisible} onDismiss={handleDismissTrainingTimesDialog} testID="edit-training-times-dialog">
           <Dialog.Title>Edit Training Times</Dialog.Title>

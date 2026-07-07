@@ -30,7 +30,7 @@ import {
 
 const DEFAULT_REST_SECONDS = 90;
 
-const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onScheduleNotification, onCancelNotification}: Props) => {
+const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onScheduleNotification, onCancelNotification, editMode}: Props) => {
   let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];
   let doneWorkout = useWorkoutById(doneWorkoutId);
   let nextTrainingsId = useNextTrainingsId();
@@ -158,6 +158,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
       )}
       <AddWorkout
         workout={doneWorkout?.end ? doneWorkout : undefined}
+        allowRefinalizeWhenDone={editMode}
         exercise={chosenExercise}
         onSubmit={onSubmit}
         suggest={false}
@@ -257,6 +258,7 @@ interface Props {
   onSubmitSet?: (workoutSet: WorkoutSet) => void;
   onScheduleNotification?: (seconds: number) => void;
   onCancelNotification?: () => void;
+  editMode?: boolean;
 }
 
 export default ExecuteTraining;
