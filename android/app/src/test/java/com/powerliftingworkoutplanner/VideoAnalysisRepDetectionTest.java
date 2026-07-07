@@ -74,6 +74,31 @@ public class VideoAnalysisRepDetectionTest {
             VideoAnalysisRepDetection.detectRepData(fixture.timeMs, fixture.yPositions);
 
         assertEquals(3, detectedReps.repSegments.size());
+        // Lock the exact rep boundaries: the bounce-excursion collapse must not shift a
+        // real rep's start/turnaround/end (a previous iteration extended rep 3's end into
+        // the post-rep standing pause, inflating its concentric time). These match the
+        // boundaries the shipped v4 detector produced for this recording.
+        assertEquals(
+            "[segment(0,4654,6756,8608), segment(1,11560,13562,15564), segment(2,21319,23320,25923)]",
+            describeSegments(detectedReps)
+        );
+    }
+
+    @Test
+    public void detectRepSegmentsFindsAllRepsWhenBottomJitterOutlastsCrossingGap() throws Exception {
+        // GH-312 review (PR #349): a sustained plate bounce / standing-pause wobble that
+        // lasts longer than MIN_CROSSING_GAP_MS used to plant a spurious opposite crossing
+        // at the turnaround on the first sample past the gap window. That extra boundary
+        // became the "previous crossing" for the next rep, and the displacement/asymmetry
+        // gates then discarded a REAL rep — a 3-rep squat came back as 2. This fixture is a
+        // 3-rep squat with ~650ms of bottom jitter at the depth of every rep; all three reps
+        // must survive.
+        BarPathFixture fixture = loadBarPathFixture("/gh312/squat-3reps-bottom-jitter.csv");
+
+        VideoAnalysisRepDetection.RepDetectionResult detectedReps =
+            VideoAnalysisRepDetection.detectRepData(fixture.timeMs, fixture.yPositions);
+
+        assertEquals(3, detectedReps.repSegments.size());
     }
 
     private static BarPathFixture loadBarPathFixture(String resourcePath) throws Exception {
