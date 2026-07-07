@@ -321,6 +321,54 @@ describe('AddWorkout', () => {
     expect(getByTestId('button-Add-Workout')).toBeEnabled();
   });
 
+  it('does NOT re-finalize an already-ended workout when Done is pressed in edit mode (GH-323 P2-b regression)', () => {
+    // Editing a finished historical training: pressing "Done" on an exercise whose
+    // workout.end is already set must be pure navigation. Re-dispatching
+    // FINALIZE_WORKOUT here would overwrite the existing `end` with the current
+    // date, corrupting the workout's completion time/history ordering.
+    const finalizedWorkout: Workout = {
+      id: 77,
+      sets: [{index: 1, reps: 5, rir: 1, weight: 100, date: date}],
+      notes: '',
+      exerciseId: 7,
+      start: new Date('2024-01-01T00:00:00.000Z'),
+      end: new Date('2024-01-01T01:00:00.000Z'),
+    };
+    mockedUseUnfinishedWorkout.mockReturnValue(finalizedWorkout);
+
+    const onSubmit = jest.fn();
+    const {getByTestId} = render(
+      <AddWorkout exercise={exercise} onSubmit={onSubmit} trainingsId={3} date={date} workout={finalizedWorkout} allowRefinalizeWhenDone />,
+    );
+
+    fireEvent.press(getByTestId('button-Add-Workout'));
+
+    expect(mockFinalizeWorkoutSpy).not.toHaveBeenCalled();
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('still finalizes a not-yet-ended workout when Done is pressed in edit mode (GH-323 P2-b, unaffected case)', () => {
+    const unfinishedWorkout: Workout = {
+      id: 88,
+      sets: [{index: 1, reps: 5, rir: 1, weight: 100}],
+      notes: '',
+      exerciseId: 7,
+      start: date,
+    };
+    mockedUseUnfinishedWorkout.mockReturnValue(unfinishedWorkout);
+
+    const onSubmit = jest.fn();
+    const {getByTestId} = render(
+      <AddWorkout exercise={exercise} onSubmit={onSubmit} trainingsId={3} date={date} allowRefinalizeWhenDone />,
+    );
+
+    fireEvent.press(getByTestId('button-Add-Workout'));
+
+    expect(mockFinalizeWorkoutSpy).toHaveBeenCalledTimes(1);
+    expect(mockFinalizeWorkoutSpy).toHaveBeenCalledWith(date, 88);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
   it('handles suggest button enablement and dispatch', () => {
     const onSubmit = jest.fn();
     mockedUseAllLastWorkouts.mockReturnValue([

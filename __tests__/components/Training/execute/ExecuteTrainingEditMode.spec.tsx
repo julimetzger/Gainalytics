@@ -192,4 +192,36 @@ describe('ExecuteTraining – editMode (GH-323 regression)', () => {
     // because the existing condition `doneWorkout?.end ? doneWorkout : undefined` = doneWorkout
     expect(props.workout).toEqual(FINALIZED_WORKOUT);
   });
+
+  it('passes workout=undefined (preserving the suggested-set merge) when editMode=true and doneWorkout is NOT yet finalized (GH-323 P2-a regression)', () => {
+    // A STARTED training put into edit mode after the first set of a suggested
+    // workout has been logged: doneWorkout is defined but `end` is still
+    // undefined. AddWorkout must fall back to workout ?? unfinishedWorkout (the
+    // hook merge with remaining suggestedWorkouts sets), so `workout` itself
+    // must stay undefined here — passing the raw doneWorkout would drop the
+    // remaining suggested sets from the form.
+    const UNFINISHED_DONE_WORKOUT = {
+      id: 42,
+      exerciseId: 10,
+      notes: '',
+      sets: [{index: 1, reps: 5, rir: 1, weight: 100}],
+      start: new Date('2025-01-01'),
+      // no `end` — training is still in progress
+    };
+    mockUseWorkoutById.mockReturnValue(UNFINISHED_DONE_WORKOUT);
+
+    render(
+      <ExecuteTraining
+        training={STARTED_TRAINING as any}
+        chosenExercise={EXERCISE as any}
+        onSubmit={jest.fn()}
+        editMode={true}
+      />,
+    );
+
+    expect(capturedAddWorkoutProps.length).toBeGreaterThan(0);
+    const props = capturedAddWorkoutProps[capturedAddWorkoutProps.length - 1];
+    expect(props.allowRefinalizeWhenDone).toBe(true);
+    expect(props.workout).toBeUndefined();
+  });
 });

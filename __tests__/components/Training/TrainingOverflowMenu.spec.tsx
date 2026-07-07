@@ -13,7 +13,7 @@ jest.mock('react-native-paper', () => {
       {
         Item: ({title, onPress, testID, disabled}: any) => (
           <TouchableOpacity testID={testID} onPress={disabled ? undefined : onPress} disabled={!!disabled}>
-            <Text>{typeof title === 'string' ? title : ''}</Text>
+            {typeof title === 'string' ? <Text>{title}</Text> : title}
           </TouchableOpacity>
         ),
       },
@@ -58,12 +58,23 @@ describe('TrainingOverflowMenu', () => {
     expect(queryByTestId('overflow-start')).toBeNull();
   });
 
-  it('shows Edit and Discard for all states', () => {
+  it('shows Edit and Delete for all states', () => {
     for (const state of [TrainingsState.PLANNED, TrainingsState.STARTED, TrainingsState.FINISHED]) {
       const {getByTestId} = render(<TrainingOverflowMenu {...BASE} activeSubTab="train" trainingState={state} />);
       expect(getByTestId('overflow-edit')).toBeTruthy();
       expect(getByTestId('overflow-discard')).toBeTruthy();
     }
+  });
+
+  it('labels the delete menu item "Delete" (GH-323: renamed from Discard, since it actually deletes the training)', () => {
+    const {getByTestId, getByText} = render(<TrainingOverflowMenu {...BASE} activeSubTab="train" trainingState={TrainingsState.FINISHED} />);
+    expect(getByTestId('overflow-discard')).toBeTruthy();
+    expect(getByText('Delete')).toBeTruthy();
+  });
+
+  it('labels the delete menu item "Delete this training" in the plan-mode menu', () => {
+    const {getByText} = render(<TrainingOverflowMenu {...BASE} activeSubTab="plan" trainingState={TrainingsState.PLANNED} />);
+    expect(getByText('Delete this training')).toBeTruthy();
   });
 
   it('does not show Start/Finish for FINISHED state', () => {
@@ -91,7 +102,7 @@ describe('TrainingOverflowMenu', () => {
     expect(onFinish).toHaveBeenCalled();
   });
 
-  it('calls onDeleteTraining when Discard pressed', () => {
+  it('calls onDeleteTraining when Delete pressed', () => {
     const onDeleteTraining = jest.fn();
     const onDismiss = jest.fn();
     const {getByTestId} = render(<TrainingOverflowMenu {...BASE} onDeleteTraining={onDeleteTraining} onDismiss={onDismiss} trainingState={TrainingsState.FINISHED} />);

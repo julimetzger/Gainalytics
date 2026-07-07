@@ -205,7 +205,12 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
           testID="add-workout-finalize-button"
           disabled={unfinishedWorkout === undefined || unfinishedWorkout.id === undefined}
           onPress={() => {
-            finalizeWorkout(sameDate(date, new Date(Date.now())) ? new Date(Date.now()) : date, unfinishedWorkout?.id!!);
+            // Already-finalized workouts (edit mode, allowRefinalizeWhenDone) must not be
+            // re-finalized: re-dispatching FINALIZE_WORKOUT would overwrite the existing
+            // `end` with the current date/picker value, corrupting history/ordering (GH-323 P2-b).
+            if (workout?.end === undefined) {
+              finalizeWorkout(sameDate(date, new Date(Date.now())) ? new Date(Date.now()) : date, unfinishedWorkout?.id!!);
+            }
             onSubmit();
           }}
         >

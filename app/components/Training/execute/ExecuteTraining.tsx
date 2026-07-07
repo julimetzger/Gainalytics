@@ -157,7 +157,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
         </View>
       )}
       <AddWorkout
-        workout={editMode ? doneWorkout : (doneWorkout?.end ? doneWorkout : undefined)}
+        workout={doneWorkout?.end ? doneWorkout : undefined}
         allowRefinalizeWhenDone={editMode}
         exercise={chosenExercise}
         onSubmit={onSubmit}
