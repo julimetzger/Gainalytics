@@ -280,6 +280,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
         onDismiss={onCloseOverflow}
         trainingState={training?.state}
         activeSubTab={activeSubTab}
+        hasExercises={(training?.exercises?.length ?? 0) > 0}
         onStart={handleStart}
         onFinish={handleFinish}
         onEditPlan={handleEditPlan}

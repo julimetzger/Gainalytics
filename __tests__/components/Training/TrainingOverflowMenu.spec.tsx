@@ -134,4 +134,36 @@ describe('TrainingOverflowMenu', () => {
 
     expect(queryByTestId('overflow-edit-plan')).toBeNull();
   });
+
+  it('shows Start Training on the Plan sub-tab once exercises are planned', () => {
+    const onStart = jest.fn();
+    const onDismiss = jest.fn();
+    const {getByTestId} = render(
+      <TrainingOverflowMenu
+        {...BASE}
+        activeSubTab="plan"
+        trainingState={TrainingsState.PLANNED}
+        hasExercises
+        onStart={onStart}
+        onDismiss={onDismiss}
+      />,
+    );
+    expect(getByTestId('overflow-edit-plan')).toBeTruthy();
+    fireEvent.press(getByTestId('overflow-start'));
+    expect(onDismiss).toHaveBeenCalled();
+    expect(onStart).toHaveBeenCalled();
+  });
+
+  it('hides Start Training on the Plan sub-tab while no exercises are planned', () => {
+    const {getByTestId, queryByTestId} = render(
+      <TrainingOverflowMenu
+        {...BASE}
+        activeSubTab="plan"
+        trainingState={TrainingsState.PLANNED}
+        hasExercises={false}
+      />,
+    );
+    expect(getByTestId('overflow-edit-plan')).toBeTruthy();
+    expect(queryByTestId('overflow-start')).toBeNull();
+  });
 });
