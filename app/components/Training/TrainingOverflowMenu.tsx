@@ -9,6 +9,7 @@ interface TrainingOverflowMenuProps {
   onDismiss: () => void;
   trainingState?: string;
   activeSubTab?: SubTab;
+  hasExercises?: boolean;
   onStart: () => void;
   onFinish: () => void;
   onEditPlan: () => void;
@@ -21,6 +22,7 @@ const TrainingOverflowMenu = ({
   onDismiss,
   trainingState,
   activeSubTab,
+  hasExercises,
   onStart,
   onFinish,
   onEditPlan,
@@ -61,6 +63,16 @@ const TrainingOverflowMenu = ({
                 onEditPlan();
               }}
             />
+            {hasExercises && (
+              <Menu.Item
+                testID="overflow-start"
+                title={<Text style={primaryStyle.label}>Start Training</Text>}
+                onPress={() => {
+                  onDismiss();
+                  onStart();
+                }}
+              />
+            )}
             <Divider />
           </>
         ) : (
