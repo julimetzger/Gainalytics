@@ -101,6 +101,24 @@ public class VideoAnalysisRepDetectionTest {
         assertEquals(3, detectedReps.repSegments.size());
     }
 
+    @Test
+    public void detectRepSegmentsKeepsBothFastRepsInSmallAmplitudeRecording() throws Exception {
+        // GH-312 review round 2 (PR #349): in a far-away/small-scale recording the full bar
+        // travel (30px here) stays above the detector minimum but below the old absolute
+        // bounce bound of 3 * minimumConcentricDisplacement (36px with the 12px floor).
+        // Two fast real reps back to back — 1.5s eccentric / 0.5s concentric, then
+        // 0.5s eccentric / 1.5s concentric — put their same-type BOTTOM→TOP→BOTTOM
+        // turnaround span under 1500ms while both reps still pass the 2000ms rep and
+        // 500ms phase gates. The old absolute bound made collapseBounceExcursions treat
+        // that span as jitter and drop the second rep; the range-relative bound must keep both.
+        BarPathFixture fixture = loadBarPathFixture("/gh312/squat-2reps-small-amplitude.csv");
+
+        VideoAnalysisRepDetection.RepDetectionResult detectedReps =
+            VideoAnalysisRepDetection.detectRepData(fixture.timeMs, fixture.yPositions);
+
+        assertEquals(2, detectedReps.repSegments.size());
+    }
+
     private static BarPathFixture loadBarPathFixture(String resourcePath) throws Exception {
         List<Integer> times = new ArrayList<>();
         List<Double> yValues = new ArrayList<>();

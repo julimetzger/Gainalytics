@@ -7,23 +7,30 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class VideoAnalysisRepDetection {
-    static final String REP_DETECTION_VERSION = "velocity-zero-crossing-v5";
+    static final String REP_DETECTION_VERSION = "velocity-zero-crossing-v6";
 
     private static final int MIN_TRACKING_POINTS = 6;
     private static final int SMOOTHING_WINDOW = 5;
     private static final int MIN_CROSSING_GAP_MS = 350;
-    // A bounce / sustained jitter at a turnaround shows up as a same-type crossing pair
-    // bracketing an opposite-type blip. It is collapsed away when the whole excursion is
-    // both short in time (well under a rep) and small in displacement, so the spurious
-    // boundary never reaches the triplet matcher and cannot make the gates drop a real rep.
-    private static final int MAX_BOUNCE_EXCURSION_MS = 1500;
-    private static final double BOUNCE_EXCURSION_DISPLACEMENT_MULTIPLIER = 3.0;
     private static final int MIN_PHASE_DURATION_MS = 500;
     private static final int MIN_REP_DURATION_MS = 2000;
     private static final double MIN_ZERO_CROSSING_SPEED_PX_PER_S = 12.0;
     private static final double ZERO_CROSSING_SPEED_RATIO = 0.08;
     private static final double MIN_CONCENTRIC_DISPLACEMENT_PX = 12.0;
     private static final double MIN_CONCENTRIC_DISPLACEMENT_RATIO = 0.12;
+    // A bounce / sustained jitter at a turnaround shows up as a same-type crossing pair
+    // bracketing an opposite-type blip. It is collapsed away when the whole excursion is
+    // both short in time (well under a rep) and small in displacement, so the spurious
+    // boundary never reaches the triplet matcher and cannot make the gates drop a real rep.
+    // The displacement bound is RELATIVE to the recording's full bar-travel range, never
+    // an absolute pixel value: in a far-away/small-scale video the whole bar travel can sit
+    // below an absolute bound (e.g. ~30px travel vs a 36px bound), and two fast real reps
+    // (their same-type turnaround pair under MAX_BOUNCE_EXCURSION_MS apart) would then be
+    // collapsed into one. A real rep phase always displaces at least
+    // MIN_CONCENTRIC_DISPLACEMENT_RATIO of the range, while observed pause jitter stays
+    // around 2-5% of it, so the ratio itself is a safe cut between the two.
+    private static final int MAX_BOUNCE_EXCURSION_MS = 1500;
+    private static final double BOUNCE_EXCURSION_DISPLACEMENT_RATIO = MIN_CONCENTRIC_DISPLACEMENT_RATIO;
     private static final double MAX_PHASE_DISPLACEMENT_ASYMMETRY = 0.30;
     private static final double MIN_REP_DISPLACEMENT_VS_MAX = 0.50;
 
@@ -111,7 +118,7 @@ final class VideoAnalysisRepDetection {
         collapseBounceExcursions(
             crossings,
             yPositions,
-            minimumConcentricDisplacement * BOUNCE_EXCURSION_DISPLACEMENT_MULTIPLIER,
+            (maxY - minY) * BOUNCE_EXCURSION_DISPLACEMENT_RATIO,
             MAX_BOUNCE_EXCURSION_MS
         );
         if (crossings.isEmpty()) {
@@ -416,9 +423,13 @@ final class VideoAnalysisRepDetection {
     // pause that keeps wobbling can, on the first sample past the window, plant a spurious
     // opposite crossing at the turnaround. Such an artefact is always a short, small
     // excursion: a same-type pair (a, b) around an opposite blip (m). We collapse it into
-    // the more extreme of the two same-type crossings. A genuine rep spans at least
-    // MIN_REP_DURATION_MS, so its crossings are never both closer than MAX_BOUNCE_EXCURSION_MS
-    // and smaller than the displacement bound — real reps are left untouched.
+    // the more extreme of the two same-type crossings. The duration gate alone cannot
+    // separate jitter from reps: two fast back-to-back reps put their same-type turnaround
+    // crossings under MAX_BOUNCE_EXCURSION_MS apart. What does separate them is relative
+    // displacement — a real rep phase sweeps most of the recording's bar-travel range,
+    // while pause jitter wobbles at a few percent of it. Hence the displacement bound is a
+    // fraction of the full range (no absolute floor), which keeps small-amplitude/far-away
+    // recordings safe: their real reps are small in pixels but still large relative to range.
     private static void collapseBounceExcursions(
         List<Crossing> crossings,
         double[] yPositions,
