@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class VideoAnalysisRepDetection {
-    static final String REP_DETECTION_VERSION = "velocity-zero-crossing-v3";
+    static final String REP_DETECTION_VERSION = "velocity-zero-crossing-v6";
 
     private static final int MIN_TRACKING_POINTS = 6;
     private static final int SMOOTHING_WINDOW = 5;
@@ -18,6 +18,19 @@ final class VideoAnalysisRepDetection {
     private static final double ZERO_CROSSING_SPEED_RATIO = 0.08;
     private static final double MIN_CONCENTRIC_DISPLACEMENT_PX = 12.0;
     private static final double MIN_CONCENTRIC_DISPLACEMENT_RATIO = 0.12;
+    // A bounce / sustained jitter at a turnaround shows up as a same-type crossing pair
+    // bracketing an opposite-type blip. It is collapsed away when the whole excursion is
+    // both short in time (well under a rep) and small in displacement, so the spurious
+    // boundary never reaches the triplet matcher and cannot make the gates drop a real rep.
+    // The displacement bound is RELATIVE to the recording's full bar-travel range, never
+    // an absolute pixel value: in a far-away/small-scale video the whole bar travel can sit
+    // below an absolute bound (e.g. ~30px travel vs a 36px bound), and two fast real reps
+    // (their same-type turnaround pair under MAX_BOUNCE_EXCURSION_MS apart) would then be
+    // collapsed into one. A real rep phase always displaces at least
+    // MIN_CONCENTRIC_DISPLACEMENT_RATIO of the range, while observed pause jitter stays
+    // around 2-5% of it, so the ratio itself is a safe cut between the two.
+    private static final int MAX_BOUNCE_EXCURSION_MS = 1500;
+    private static final double BOUNCE_EXCURSION_DISPLACEMENT_RATIO = MIN_CONCENTRIC_DISPLACEMENT_RATIO;
     private static final double MAX_PHASE_DISPLACEMENT_ASYMMETRY = 0.30;
     private static final double MIN_REP_DISPLACEMENT_VS_MAX = 0.50;
 
@@ -102,6 +115,12 @@ final class VideoAnalysisRepDetection {
         );
 
         List<Crossing> crossings = collectCrossings(timeMs, velocity, zeroCrossingThreshold);
+        collapseBounceExcursions(
+            crossings,
+            yPositions,
+            (maxY - minY) * BOUNCE_EXCURSION_DISPLACEMENT_RATIO,
+            MAX_BOUNCE_EXCURSION_MS
+        );
         if (crossings.isEmpty()) {
             return result;
         }
@@ -374,13 +393,17 @@ final class VideoAnalysisRepDetection {
             if (!crossings.isEmpty()) {
                 Crossing lastCrossing = crossings.get(crossings.size() - 1);
                 if (timeMs[index] - lastCrossing.timeMs < MIN_CROSSING_GAP_MS) {
-                    if (
-                        lastCrossing.type == nextType &&
-                        Math.abs(velocity[index]) >= Math.abs(velocity[lastCrossing.index])
-                    ) {
-                        crossings.set(crossings.size() - 1, new Crossing(index, timeMs[index], nextType));
+                    if (lastCrossing.type == nextType) {
+                        if (Math.abs(velocity[index]) >= Math.abs(velocity[lastCrossing.index])) {
+                            crossings.set(crossings.size() - 1, new Crossing(index, timeMs[index], nextType));
+                        }
+                        previousDirection = direction;
                     }
-                    previousDirection = direction;
+                    // An opposite-type flip inside the gap window is ignored without
+                    // updating previousDirection: the crossing list must stay strictly
+                    // alternating (TOP/BOTTOM), otherwise the triplet matcher can never
+                    // assemble a rep. A real direction change re-triggers immediately
+                    // after the gap; short jitter never reaches the list.
                     continue;
                 }
             }
@@ -390,6 +413,58 @@ final class VideoAnalysisRepDetection {
         }
 
         return crossings;
+    }
+
+    // Removes bounce / sustained-jitter artefacts from the (already alternating) crossing
+    // list. collectCrossings debounces a near opposite flip but deliberately keeps
+    // previousDirection tied to the last committed crossing so a real move that resumes
+    // right after the gap window still registers (this is what lets the noisy squat-3reps
+    // recording detect all three reps). The downside is that a plate bounce or a standing
+    // pause that keeps wobbling can, on the first sample past the window, plant a spurious
+    // opposite crossing at the turnaround. Such an artefact is always a short, small
+    // excursion: a same-type pair (a, b) around an opposite blip (m). We collapse it into
+    // the more extreme of the two same-type crossings. The duration gate alone cannot
+    // separate jitter from reps: two fast back-to-back reps put their same-type turnaround
+    // crossings under MAX_BOUNCE_EXCURSION_MS apart. What does separate them is relative
+    // displacement — a real rep phase sweeps most of the recording's bar-travel range,
+    // while pause jitter wobbles at a few percent of it. Hence the displacement bound is a
+    // fraction of the full range (no absolute floor), which keeps small-amplitude/far-away
+    // recordings safe: their real reps are small in pixels but still large relative to range.
+    private static void collapseBounceExcursions(
+        List<Crossing> crossings,
+        double[] yPositions,
+        double maxExcursionDisplacement,
+        int maxExcursionMs
+    ) {
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (int i = 1; i + 1 < crossings.size(); i++) {
+                Crossing before = crossings.get(i - 1);
+                Crossing middle = crossings.get(i);
+                Crossing after = crossings.get(i + 1);
+                if (before.type != after.type || before.type == middle.type) {
+                    continue;
+                }
+                double leftDisplacement = Math.abs(yPositions[before.index] - yPositions[middle.index]);
+                double rightDisplacement = Math.abs(yPositions[middle.index] - yPositions[after.index]);
+                int excursionMs = after.timeMs - before.timeMs;
+                if (
+                    leftDisplacement < maxExcursionDisplacement &&
+                    rightDisplacement < maxExcursionDisplacement &&
+                    excursionMs < maxExcursionMs
+                ) {
+                    // Keep the earlier outer crossing, drop the blip and the later outer.
+                    // Keeping the earlier one preserves the boundary that a following rep
+                    // (or the end-of-data tail check) relies on, so real rep timings never
+                    // shift — only the spurious blip is removed.
+                    crossings.remove(i + 1);
+                    crossings.remove(i);
+                    changed = true;
+                    break;
+                }
+            }
+        }
     }
 
     private static int toDirection(double velocity, double zeroCrossingThreshold) {

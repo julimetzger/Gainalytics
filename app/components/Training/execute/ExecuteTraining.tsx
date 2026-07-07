@@ -13,6 +13,7 @@ import ExerciseHistory from '../../exercise/show/ExerciseHistory';
 
 import DatePicker from '../../picker/date/DatePicker';
 import Estimated1RmCard from './Estimated1RmCard';
+import ExerciseRecordsModal from './ExerciseRecordsModal';
 import {TrainingsState} from '../../../models/TrainingsState';
 import RestTimerCard from './RestTimerCard';
 import {oneRepMaxForWorkouts} from '../../../utils/AnalyseUtils';
@@ -37,6 +38,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
   let plannedWorkout = useWorkoutById(training.plannedWorkouts[chosenExercise.id!!]);
   let [openPlanned, setOpenPlanned] = useState(false);
   let [openHistory, setOpenHistory] = useState(false);
+  let [openRecords, setOpenRecords] = useState(false);
   let [linkVideoMode, setLinkVideoMode] = useState(false);
 
   const screenHeight = Dimensions.get('window').height;
@@ -198,6 +200,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
         sessionOneRm={sessionOneRm}
         lastTrainingOneRm={lastTrainingOneRm ?? exerciseFallbackOneRm}
         allTimePr={allTimePr}
+        onPressTrophy={() => setOpenRecords(true)}
       />
       <RestTimerCard
         startedAt={activeRest?.startedAt}
@@ -208,6 +211,11 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
         onEditTarget={onEditTarget}
         onAdjustExerciseDefault={handleAdjustExerciseDefault}
         exerciseDefaultSeconds={resolvedRestDefault}
+      />
+      <ExerciseRecordsModal
+        visible={openRecords}
+        onDismiss={() => setOpenRecords(false)}
+        exercise={chosenExercise}
       />
       <Portal>
         <Dialog visible={openPlanned} onDismiss={() => setOpenPlanned(false)}>

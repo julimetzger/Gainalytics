@@ -221,11 +221,12 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
         <View style={styles.actionButtons}>
           {!isPlanningMode && (
             <>
-              {persisted() && !editing && <IconButton icon={'check'} iconColor={determineCheckmarkColor()} />}
+              {persisted() && !editing && <IconButton icon={'check'} iconColor={determineCheckmarkColor()} style={styles.iconButton} />}
               {persisted() && editing && (
                 <IconButton
                   icon={'check-circle'}
                   iconColor={determineCheckmarkColor()}
+                  style={styles.iconButton}
                   onPress={() => {
                     submit();
                     Keyboard.dismiss();
@@ -236,6 +237,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
                 <IconButton
                   icon={'check-circle'}
                   iconColor={determineCheckmarkColor()}
+                  style={styles.iconButton}
                   onPress={() => {
                     submit();
                     Keyboard.dismiss();
@@ -258,7 +260,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
               {'Add'}
             </Button>
           )}
-          {(persisted() || (!persisted() && workoutSet !== undefined)) && onDelete !== undefined && <IconButton icon={'delete'} onPress={() => onDelete(workoutSet!!)} />}
+          {(persisted() || (!persisted() && workoutSet !== undefined)) && onDelete !== undefined && <IconButton icon={'delete'} style={styles.iconButton} onPress={() => onDelete(workoutSet!!)} />}
         </View>
       </View>
     </View>
@@ -310,6 +312,10 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+
+  iconButton: {
+    marginVertical: 0,
   },
 });
 

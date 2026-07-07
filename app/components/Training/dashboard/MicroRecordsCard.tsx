@@ -76,7 +76,7 @@ const MicroRecordsCard = ({plan, currentMicro}: MicroRecordsCardProps) => {
               {r.kind}
             </Text>
             <Text variant="titleSmall" style={{color: theme.colors.primary}}>
-              {r.value} kg
+              {parseFloat(r.value.toFixed(2))} kg
             </Text>
           </View>
         ))}

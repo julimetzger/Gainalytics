@@ -609,6 +609,8 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
 
 // Fixture with a short video (3000ms) and two reps where turnaround starts near 0
 // so that clamping under longpress can be tested.
+// Both reps must classify as eccentric-first (start y < turnaround y) so the
+// calibration overlay renders turnaround+end handles (GH-307 marker window).
 const makeResultNearBoundary = (): BarTrackingResult => ({
   analysisId: 4,
   units: 'px/s',
@@ -617,7 +619,7 @@ const makeResultNearBoundary = (): BarTrackingResult => ({
     {tMs: 500,  x: 110, y: 250},
     {tMs: 1000, x: 120, y: 200},
     {tMs: 2000, x: 130, y: 250},
-    {tMs: 3000, x: 140, y: 200},
+    {tMs: 3000, x: 140, y: 300},
   ],
   confidenceSeries: [],
   repSegments: [
@@ -1013,6 +1015,219 @@ describe('isConcentricFirstRep / getRepPhaseBoundaries / computeRepPhaseTimesMs 
   });
 });
 
+describe('getRepPhaseBoundaries – real deadlift recording from R5CN30HWZFN (GH-307)', () => {
+  const gh307Fixture = require('../../fixtures/gh307/analysis-2-2026-05-18T09-25-32-066Z.json');
+
+  it('labels every rep as concentric-first matching the user-confirmed ground truth', () => {
+    const actual = gh307Fixture.barTrackingResult.repSegments.map((segment: {repIndex: number; startMs: number; turnaroundMs: number; endMs: number}) => {
+      const phases = getRepPhaseBoundaries(
+        gh307Fixture.barTrackingResult.barPathSeries,
+        segment.startMs,
+        segment.turnaroundMs,
+        segment.endMs,
+      );
+      return {repIndex: segment.repIndex, concentricFirst: phases.concentricFirst};
+    });
+
+    expect(actual).toEqual(gh307Fixture.groundTruth.expectedConcentricFirstByRep);
+  });
+
+  it('marks the bar lift (start → turnaround) as the concentric phase for each rep', () => {
+    for (const segment of gh307Fixture.barTrackingResult.repSegments) {
+      const phases = getRepPhaseBoundaries(
+        gh307Fixture.barTrackingResult.barPathSeries,
+        segment.startMs,
+        segment.turnaroundMs,
+        segment.endMs,
+      );
+      // GH-307 user ground truth: the first peak (start → turnaround, bar moving up
+      // off the floor) must fall inside the concentric phase, not the eccentric one.
+      expect(phases.concentricStartMs).toBe(segment.startMs);
+      expect(phases.concentricEndMs).toBe(segment.turnaroundMs);
+      expect(phases.eccentricStartMs).toBe(segment.turnaroundMs);
+      expect(phases.eccentricEndMs).toBe(segment.endMs);
+    }
+  });
+
+  it('renders the calibration marker lines at [startMs, turnaroundMs] for every rep (GH-307 marker-window fix)', () => {
+    const result: BarTrackingResult = gh307Fixture.barTrackingResult;
+    const durationMs = result.barPathSeries[result.barPathSeries.length - 1].tMs;
+    const {getByTestId, queryByTestId} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={result} />,
+    );
+    loadPlayer(getByTestId('video-analysis-playback-player'), durationMs);
+    setSpeedChartWidth(getByTestId, 240);
+    act(() => { fireEvent.press(getByTestId('video-analysis-toggle-calibration')); });
+
+    // Chart geometry: width=240, left padding=36, right padding=4 → drawable 200.
+    const toX = (t: number) => 36 + (t / durationMs) * 200;
+
+    result.repSegments.forEach((segment, i) => {
+      // The markers must frame the upward bar movement (positive velocity peak),
+      // not the drop: for this concentric-first recording that is start → turnaround.
+      const startLine = StyleSheet.flatten(getByTestId(`calibrate-rep-${i}-start-line`).props.style);
+      const turnLine = StyleSheet.flatten(getByTestId(`calibrate-rep-${i}-turnaround-line`).props.style);
+      expect(startLine.left).toBeCloseTo(toX(segment.startMs), 5);
+      expect(turnLine.left).toBeCloseTo(toX(segment.turnaroundMs), 5);
+      // No third line: the end marker (mid-drop) is not part of the window.
+      expect(queryByTestId(`calibrate-rep-${i}-end-line`)).toBeNull();
+    });
+  });
+});
+
+// Render-level verification that the calibration overlay places the two
+// adjustable marker lines around the CONCENTRIC phase of each rep (GH-307):
+// deadlift (concentric-first) → [startMs, turnaroundMs],
+// squat/bench/OHP (eccentric-first) → [turnaroundMs, endMs] as before.
+describe('VideoAnalysisPlaybackOverlayCard – calibration marker window (GH-307)', () => {
+  const makeSingleRepResult = (barPathSeries: BarPathPoint[]): BarTrackingResult => ({
+    analysisId: 7,
+    units: 'px/s',
+    barPathSeries,
+    confidenceSeries: [],
+    repSegments: [{repIndex: 0, startMs: 0, turnaroundMs: 1000, endMs: 2000}],
+    repMetrics: [{repIndex: 0, repTimeMs: 2000, averageConcentricSpeedPxPerS: 50, lowestConcentricSpeedPxPerS: 30}],
+    qualityFlags: [],
+    analysisMeta: {
+      sourceFps: 30, analyzedFps: 30, frameCount: 60, averageConfidence: 0.9,
+      trackingFrameWidthPx: 640, trackingFrameHeightPx: 480,
+    },
+  });
+
+  // Concentric-first (deadlift, GH-211 pattern y=[400,300,200,300,400]).
+  const deadliftSeries: BarPathPoint[] = [
+    {tMs: 0,    x: 100, y: 400},
+    {tMs: 500,  x: 100, y: 300},
+    {tMs: 1000, x: 100, y: 200},
+    {tMs: 1500, x: 100, y: 300},
+    {tMs: 2000, x: 100, y: 400},
+  ];
+
+  // Eccentric-first (squat/bench/OHP): start at top (y=200), turnaround at bottom (y=400).
+  const squatSeries: BarPathPoint[] = [
+    {tMs: 0,    x: 100, y: 200},
+    {tMs: 500,  x: 100, y: 300},
+    {tMs: 1000, x: 100, y: 400},
+    {tMs: 1500, x: 100, y: 300},
+    {tMs: 2000, x: 100, y: 200},
+  ];
+
+  let dispatchMock: jest.Mock;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    dispatchMock = jest.fn();
+    (require('react-redux') as any).useDispatch.mockReturnValue(dispatchMock);
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  // Chart geometry in these tests: width=240, left padding=36, right padding=4
+  // → drawable width 200; duration 2000ms → toX(t) = 36 + (t / 2000) * 200.
+  const openCalibration = (result: BarTrackingResult) => {
+    const utils = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={result} />,
+    );
+    loadPlayer(utils.getByTestId('video-analysis-playback-player'), 2000);
+    setSpeedChartWidth(utils.getByTestId, 240);
+    act(() => { fireEvent.press(utils.getByTestId('video-analysis-toggle-calibration')); });
+    return utils;
+  };
+
+  it('concentric-first rep: marker lines sit at [start, turnaround] with start+turnaround handles, no end line', () => {
+    const {getByTestId, queryByTestId} = openCalibration(makeSingleRepResult(deadliftSeries));
+
+    const startLine = StyleSheet.flatten(getByTestId('calibrate-rep-0-start-line').props.style);
+    const turnLine = StyleSheet.flatten(getByTestId('calibrate-rep-0-turnaround-line').props.style);
+    expect(startLine.left).toBe(36); // toX(startMs=0)
+    expect(turnLine.left).toBe(136); // toX(turnaroundMs=1000)
+
+    expect(getByTestId('calibrate-rep-0-start-left')).toBeTruthy();
+    expect(getByTestId('calibrate-rep-0-start-right')).toBeTruthy();
+    expect(getByTestId('calibrate-rep-0-turnaround-left')).toBeTruthy();
+    expect(getByTestId('calibrate-rep-0-turnaround-right')).toBeTruthy();
+    expect(queryByTestId('calibrate-rep-0-end-line')).toBeNull();
+    expect(queryByTestId('calibrate-rep-0-end-left')).toBeNull();
+    expect(queryByTestId('calibrate-rep-0-end-right')).toBeNull();
+  });
+
+  it('eccentric-first rep: marker lines stay at [turnaround, end] with no start handles', () => {
+    const {getByTestId, queryByTestId} = openCalibration(makeSingleRepResult(squatSeries));
+
+    const turnLine = StyleSheet.flatten(getByTestId('calibrate-rep-0-turnaround-line').props.style);
+    const endLine = StyleSheet.flatten(getByTestId('calibrate-rep-0-end-line').props.style);
+    expect(turnLine.left).toBe(136); // toX(turnaroundMs=1000)
+    expect(endLine.left).toBe(236); // toX(endMs=2000)
+
+    expect(getByTestId('calibrate-rep-0-end-left')).toBeTruthy();
+    expect(getByTestId('calibrate-rep-0-end-right')).toBeTruthy();
+    expect(queryByTestId('calibrate-rep-0-start-line')).toBeNull();
+    expect(queryByTestId('calibrate-rep-0-start-left')).toBeNull();
+  });
+
+  it('adjusting the start handle moves the start line and the saved rep uses the adjusted startMs', () => {
+    const {getByTestId} = openCalibration(makeSingleRepResult(deadliftSeries));
+
+    // One tap on ›: startMs 0 → 20 (STEP_MS)
+    act(() => { fireEvent.press(getByTestId('calibrate-rep-0-start-right')); });
+    const startLine = StyleSheet.flatten(getByTestId('calibrate-rep-0-start-line').props.style);
+    expect(startLine.left).toBe(36 + (20 / 2000) * 200); // line moved to toX(20)
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-save-calibration')); });
+
+    // The saved rep result must carry the adjusted startMs, and the concentric
+    // time (start → turnaround for this deadlift) must shrink accordingly —
+    // this is what updates the Rep Summary after saving.
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SAVE_VIDEO_ANALYSIS_SET_RESULT',
+        setResult: expect.objectContaining({
+          repResults: expect.arrayContaining([
+            expect.objectContaining({
+              repIndex: 0,
+              startMs: 20,
+              concentricTimeMs: 980, // turnaround 1000 - adjusted start 20
+              eccentricTimeMs: 1000, // end 2000 - turnaround 1000 (the drop)
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('longpress start-left clamps at 0 and longpress start-right clamps at the turnaround', () => {
+    const {getByTestId} = openCalibration(makeSingleRepResult(deadliftSeries));
+
+    // start=0, longpress step is 1000ms → must clamp at 0, repeat must not go negative
+    act(() => { fireEvent(getByTestId('calibrate-rep-0-start-left'), 'longPress'); });
+    act(() => { jest.advanceTimersByTime(300); });
+    act(() => { fireEvent(getByTestId('calibrate-rep-0-start-left'), 'pressOut'); });
+
+    // now longpress right twice: 0 → 1000 (turnaround) and repeat must stay there
+    act(() => { fireEvent(getByTestId('calibrate-rep-0-start-right'), 'longPress'); });
+    act(() => { jest.advanceTimersByTime(300); });
+    act(() => { fireEvent(getByTestId('calibrate-rep-0-start-right'), 'pressOut'); });
+
+    act(() => { fireEvent.press(getByTestId('video-analysis-save-calibration')); });
+
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SAVE_VIDEO_ANALYSIS_SET_RESULT',
+        setResult: expect.objectContaining({
+          repResults: expect.arrayContaining([
+            expect.objectContaining({
+              repIndex: 0,
+              startMs: 1000, // clamped at turnaroundMs, never beyond
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+});
+
 describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
   const getSpeedLabelText = (getByTestId: (id: string) => any): string => {
     const children = getByTestId('video-analysis-speed-label').props.children;
@@ -1402,5 +1617,88 @@ describe('VideoAnalysisPlaybackOverlayCard – per-rep override map (GH-257-A)',
     expect(queryByText('VL=0%')).toBeNull();
     // Compute the expected live VL from the fixture — must match the component's calc
     expect(queryByText(/^VL=\d+%$/)).toBeTruthy();
+  });
+});
+
+// GH-351: MPAndroidChart reports UNCLAMPED left/right values from the fling
+// deceleration (they can overshoot the x-axis bounds by seconds) while the
+// rendered viewport is clamped to the axis range. The component must mirror the
+// chart's translation clamping (shift the window, keep the span) so tap-to-seek
+// and the velocity marker stay aligned with the curve that is actually drawn.
+describe('VideoAnalysisPlaybackOverlayCard – zoomed chart overscroll clamping (GH-351)', () => {
+  const CHART_WIDTH = 240; // 36 left padding + 200 drawable + 4 right padding
+
+  const setup = () => {
+    const utils = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+    );
+    const player = utils.getByTestId('video-analysis-playback-player');
+    const speedPlot = utils.getByTestId('video-analysis-playback-speed-plot');
+    const speedChart = utils.getByTestId('video-analysis-playback-speed-chart');
+    loadPlayer(player, 3000); // correctedPlaybackDurationMs = 3000
+    act(() => {
+      speedPlot.props.onLayout({nativeEvent: {layout: {width: CHART_WIDTH}}});
+    });
+    return {...utils, player, speedPlot, speedChart};
+  };
+
+  const fireChartChange = (speedPlot: any, action: string, left: number, right: number) => {
+    act(() => {
+      speedPlot.props.onChange({nativeEvent: {action, left, right}});
+    });
+  };
+
+  // Bypass the 300ms tap suppression window that chartScaled/chartTranslated arms.
+  const tapAfterGestureWindow = (speedChart: any, locationX: number) => {
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => new Date(2100, 0, 1).getTime());
+    act(() => {
+      fireEvent(speedChart, 'touchEnd', {nativeEvent: {locationX}});
+    });
+    nowSpy.mockRestore();
+  };
+
+  it('clamps a left-overscrolled fling window and keeps tap-to-seek aligned with the rendered range', () => {
+    const {player, speedPlot, speedChart} = setup();
+
+    // Fling deceleration reports window [-1000, 1000]; the chart renders [0, 2000].
+    fireChartChange(speedPlot, 'chartTranslated', -1000, 1000);
+
+    // Tap the drawable center: progress 0.5 → must map to 0 + 0.5*2000 = 1000ms.
+    // Without clamping it would map to -1000 + 0.5*2000 = 0ms.
+    tapAfterGestureWindow(speedChart, 136);
+    expect(player.props.seekPositionMs).toBe(1000);
+  });
+
+  it('clamps a right-overscrolled fling window and keeps tap-to-seek aligned with the rendered range', () => {
+    const {player, speedPlot, speedChart} = setup();
+
+    // Fling deceleration reports [2000, 4000]; axis max is 3000 → rendered [1000, 3000].
+    fireChartChange(speedPlot, 'chartTranslated', 2000, 4000);
+
+    // Tap the drawable center: progress 0.5 → must map to 1000 + 0.5*2000 = 2000ms.
+    // Without clamping it would map to 2000 + 0.5*2000 = 3000ms.
+    tapAfterGestureWindow(speedChart, 136);
+    expect(player.props.seekPositionMs).toBe(2000);
+  });
+
+  it('keeps the velocity marker at the chart left edge for t=0 after a left-overscrolled fling', () => {
+    const {getByTestId, speedPlot} = setup();
+
+    fireChartChange(speedPlot, 'chartTranslated', -1000, 1000);
+
+    // Playback time is 0. With the clamped window [0, 2000] the marker must sit at
+    // the left padding edge (36). With the raw window [-1000, 1000] it would be
+    // drawn at 36 + 0.5*200 = 136 — one second into the plot (the reported bug).
+    expect(getMarkerTranslateX(getByTestId)).toBe(36);
+  });
+
+  it('does not alter in-range zoom windows', () => {
+    const {player, speedPlot, speedChart} = setup();
+
+    fireChartChange(speedPlot, 'chartScaled', 500, 2500);
+
+    // Tap the drawable center: progress 0.5 → 500 + 0.5*2000 = 1500ms.
+    tapAfterGestureWindow(speedChart, 136);
+    expect(player.props.seekPositionMs).toBe(1500);
   });
 });

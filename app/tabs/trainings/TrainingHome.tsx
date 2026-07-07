@@ -19,7 +19,6 @@ import {
   getLocalMicro,
   trainingInMicroIndex,
 } from '../../redux/Training/trainingsPlanReducer';
-import {useSettings} from '../../redux/settings/use/useSettings';
 import {TextInput as RNTextInput} from 'react-native';
 import MicroHeroCard from '../../components/Training/dashboard/MicroHeroCard';
 import NextTrainingCard from '../../components/Training/dashboard/NextTrainingCard';
@@ -220,7 +219,6 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
   const [selectedPlanId, setSelectedPlanId] = useState<number | undefined>(undefined);
   const trainingsPlans = useAllTrainingsPlans().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
   const allTrainings = useTrainings();
-  const settings = useSettings();
   const filterInputRef = React.useRef<RNTextInput>(null);
 
   const autoActivePlan = useMemo((): TrainingsPlan | undefined => {
@@ -305,7 +303,9 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
 
   return (
     <View style={{flex: 1}} testID="training-home-screen">
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{paddingBottom: 300}}>
+      {/* paddingBottom just clears the add-plan FAB (size-40 IconButton ≈ 65px + 5px offset)
+          so the last plan card stays tappable without creating dead scroll space. */}
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{paddingBottom: 80}}>
         {/* Dashboard section for active plan */}
         {activePlan && (
           <>
@@ -420,7 +420,7 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
         style={{
           position: 'absolute',
           bottom: 5,
-          [settings.toggles?.showPlusButtonLeft ? 'left' : 'right']: 5,
+          right: 5,
         }}
       />
     </View>

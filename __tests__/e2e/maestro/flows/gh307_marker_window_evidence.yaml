@@ -1,0 +1,106 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-307: Calibration marker-window evidence on the user's deadlift recording.
+# Prerequisites:
+# - The newest VideoAnalysis on the device is a concentric-first deadlift recording
+#   (created from the first video in the device photo gallery) with status done.
+# - Do NOT clear app state: the flow verifies against the user's real data.
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+# Navigate Analyse tab → drawer → Video Analyses
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- scrollUntilVisible:
+    element:
+      text: 'Video Analyses'
+    direction: DOWN
+    timeout: 15000
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 30000
+- assertVisible:
+    text: 'Done'
+    index: 0
+- takeScreenshot: 'gh307_r6_01_video_analyses_list'
+# Open the newest analysis (list is ordered by createdAt descending, so the
+# topmost video-analysis-row-* is the newest import)
+- tapOn:
+    id: 'video-analysis-row-.*'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      text: 'Status: done'
+    timeout: 30000
+# Scroll to the Rep Summary (below the velocity chart). Swipe along the right
+# screen edge: a centered swipe is consumed by the playback overlay's
+# scrubber/chart gestures inside GestureHandlerRootView and the page never moves.
+- swipe:
+    start: 97%, 80%
+    end: 97%, 25%
+    duration: 1500
+- swipe:
+    start: 97%, 80%
+    end: 97%, 25%
+    duration: 1500
+- assertVisible:
+    text: 'Rep Summary.*'
+# GH-307 value assertion #1: for this deadlift the concentric phase must be the
+# LONGER phase (lifting the bar takes longer than dropping it): conc > total/2.
+- copyTextFrom:
+    id: 'video-analysis-rep-time-0'
+- evalScript: |
+    output.total0 = parseFloat(maestro.copiedText);
+- copyTextFrom:
+    id: 'video-analysis-rep-conc-0'
+- evalScript: |
+    output.conc0 = parseFloat(maestro.copiedText);
+    var ecc = output.total0 - output.conc0;
+    if (!(output.conc0 > ecc)) {
+      throw 'GH-307: concentric (' + output.conc0 + 's) must be the LONGER phase, eccentric was ' + ecc + 's (total ' + output.total0 + 's)';
+    }
+- takeScreenshot: 'gh307_r6_02_rep_summary'
+# Open the calibration overlay
+- tapOn:
+    id: 'video-analysis-toggle-calibration'
+- waitForAnimationToEnd:
+    timeout: 5000
+# GH-307 value assertion #2 (the changed UI element): for a concentric-first rep
+# the marker window is [startMs, turnaroundMs] → a START line with handles exists
+# and there is NO end line (the end marker sat mid-drop before the fix).
+- assertVisible:
+    id: 'calibrate-rep-0-start-line'
+- assertVisible:
+    id: 'calibrate-rep-0-turnaround-line'
+- assertNotVisible:
+    id: 'calibrate-rep-0-end-line'
+- takeScreenshot: 'gh307_r6_03_calibration_markers'
+# Adjust the start handle one step (›) and save — the Rep Summary must change.
+- tapOn:
+    id: 'calibrate-rep-0-start-right'
+- takeScreenshot: 'gh307_r6_04_start_handle_adjusted'
+- tapOn:
+    id: 'video-analysis-save-calibration'
+- waitForAnimationToEnd:
+    timeout: 5000
+# GH-307 value assertion #3: the saved concentric time reflects the adjusted
+# start (one 20ms step less than the detected boundary → conc shrinks by 0.02s).
+- copyTextFrom:
+    id: 'video-analysis-rep-conc-0'
+- evalScript: |
+    output.concAfter = parseFloat(maestro.copiedText);
+    if (!(Math.abs(output.concAfter - output.conc0) > 0.001)) {
+      throw 'GH-307: concentric time must change after adjusting the start handle (before=' + output.conc0 + 's, after=' + output.concAfter + 's)';
+    }
+- takeScreenshot: 'gh307_r6_05_rep_summary_after_save'

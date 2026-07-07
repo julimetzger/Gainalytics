@@ -12,7 +12,6 @@ import {dispatchSetFinishTrainingTimer} from '../../../app/redux/settings/dispat
 import {dispatchToggleDisable1RMpreselect} from '../../../app/redux/settings/dispatch/dispatchToggleDisable1RMpreselect';
 import {dispatchToggleShowTimer} from '../../../app/redux/settings/dispatch/dispatchToggleShowTimer';
 import {dispatchToggleShowToasts} from '../../../app/redux/settings/dispatch/dispatchToggleShowToasts';
-import {dispatchToggleShowPlusButtonLeft} from '../../../app/redux/settings/dispatch/dispatchToggleShowPlusButtonLeft';
 import {dispatchToggleMode} from '../../../app/redux/settings/dispatch/dispatchToggleMode';
 import {dispatchSetPalette} from '../../../app/redux/settings/dispatch/dispatchSetPalette';
 import {dispatchSetExactAlarmPermission} from '../../../app/redux/settings/dispatch/dispatchSetExactAlarmPersmission';
@@ -26,7 +25,6 @@ const mockToggleMode = jest.fn();
 const mockToggleDisable1RM = jest.fn();
 const mockToggleShowTimer = jest.fn();
 const mockToggleShowToasts = jest.fn();
-const mockToggleShowPlusButtonLeft = jest.fn();
 const mockSetPalette = jest.fn();
 const mockSetExactAlarmPermission = jest.fn();
 const mockFullImport = jest.fn();
@@ -78,10 +76,6 @@ jest.mock('../../../app/redux/settings/dispatch/dispatchToggleShowTimer', () => 
 
 jest.mock('../../../app/redux/settings/dispatch/dispatchToggleShowToasts', () => ({
   dispatchToggleShowToasts: jest.fn(() => mockToggleShowToasts),
-}));
-
-jest.mock('../../../app/redux/settings/dispatch/dispatchToggleShowPlusButtonLeft', () => ({
-  dispatchToggleShowPlusButtonLeft: jest.fn(() => mockToggleShowPlusButtonLeft),
 }));
 
 jest.mock('../../../app/redux/settings/dispatch/dispatchToggleMode', () => ({
@@ -274,7 +268,6 @@ const mockedDispatchToggleMode = jest.mocked(dispatchToggleMode);
 const mockedDispatchToggleDisable1RM = jest.mocked(dispatchToggleDisable1RMpreselect);
 const mockedDispatchToggleShowTimer = jest.mocked(dispatchToggleShowTimer);
 const mockedDispatchToggleShowToasts = jest.mocked(dispatchToggleShowToasts);
-const mockedDispatchToggleShowPlusButtonLeft = jest.mocked(dispatchToggleShowPlusButtonLeft);
 const mockedDispatchSetPalette = jest.mocked(dispatchSetPalette);
 const mockedDispatchSetExactAlarmPermission = jest.mocked(dispatchSetExactAlarmPermission);
 const mockedDispatchFullImport = jest.mocked(dispatchFullImport);
@@ -294,7 +287,6 @@ describe('SettingsTab', () => {
       palette: 'blue',
       toggles: {
         disable1RMButton: false,
-        showPlusButtonLeft: true,
         disableTimer: false,
         disableToasts: false,
       },
@@ -313,7 +305,6 @@ describe('SettingsTab', () => {
     mockedDispatchToggleDisable1RM.mockClear();
     mockedDispatchToggleShowTimer.mockClear();
     mockedDispatchToggleShowToasts.mockClear();
-    mockedDispatchToggleShowPlusButtonLeft.mockClear();
     mockedDispatchSetPalette.mockClear();
     mockedDispatchSetExactAlarmPermission.mockClear();
     mockedDispatchFullImport.mockClear();
@@ -324,7 +315,6 @@ describe('SettingsTab', () => {
     mockToggleDisable1RM.mockReset();
     mockToggleShowTimer.mockReset();
     mockToggleShowToasts.mockReset();
-    mockToggleShowPlusButtonLeft.mockReset();
     mockSetPalette.mockReset();
     mockSetExactAlarmPermission.mockReset();
     mockFullImport.mockReset();
@@ -363,14 +353,12 @@ describe('SettingsTab', () => {
     fireEvent.press(switches[2]);
     fireEvent.press(switches[3]);
     fireEvent.press(switches[4]);
-    fireEvent.press(switches[5]);
 
     fireEvent.press(getByTestId('radio-green'));
 
     expect(mockToggleMode).toHaveBeenCalledTimes(1);
     expect(mockToggleDisable1RM).toHaveBeenCalledTimes(1);
     expect(Alert.alert).toHaveBeenCalledWith('Nope. This app is not using stupid measuring systems.');
-    expect(mockToggleShowPlusButtonLeft).toHaveBeenCalledTimes(1);
     expect(mockToggleShowTimer).toHaveBeenCalledTimes(1);
     expect(mockToggleShowToasts).toHaveBeenCalledTimes(1);
     expect(mockSetPalette).toHaveBeenCalledWith('green');
