@@ -1,0 +1,64 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-355: Training sub-tabs must read Plan, Train, Analysis from left to right.
+#
+# IMPORTANT — why this flow does not `assertVisible` the tab labels:
+# TrainingModeTabs renders inside TrainingsPlanNode's `NestableScrollContainer`
+# (react-native-draggable-flatlist). On R5CN30HWZFN that whole subtree is absent from the
+# Android accessibility hierarchy: neither `uiautomator dump` nor Maestro can see
+# `subtab-plan` / `subtab-train` / `subtab-analysis`, nor any pane text ("Plan new
+# Training", "Linear progression"). Verified with two Maestro runs and three UI dumps —
+# see checks/ui-plan-screen.xml (74 nodes, inner ScrollView has zero children).
+# An `assertVisible: {text: Train, rightOf: {text: Plan}}` therefore cannot pass, regardless
+# of the tab order, so it would be a vacuous assertion either way.
+#
+# Instead this flow drives the app to the sub-tab screen and captures the tab strip.
+# The ORDER assertion is made by __tests__/e2e/scripts/assert-gh355-tab-order.py, which runs
+# over the screenshots produced below and checks the pixel geometry of the tab strip
+# (active-tab underline slot + per-label blob widths). The unit test
+# `renders tabs left-to-right in the order Plan, Train, Analysis` covers the same invariant
+# at the component level and was verified to FAIL on the old order.
+- launchApp:
+    appId: com.powerliftingworkoutplanner
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible: 'Next Training'
+    timeout: 120000
+- assertVisible:
+    id: 'next-training-start-button'
+
+# Landing on a PLANNED training auto-selects the Plan sub-tab, so the active-tab
+# underline marks the slot that "Plan" occupies.
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-menu-button'
+    timeout: 60000
+# The one value on this screen Maestro *can* read: it proves we really landed on the
+# "Push pull" plan screen (baseline.gains plan id 5) and not somewhere else.
+- assertVisible:
+    text: 'Push pull › Meso 1'
+- waitForAnimationToEnd
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-355/screenshots/maestro_01_plan_tab_active
+
+# Tap the MIDDLE tab slot (x=50%). Under the new order that is "Train"; the pane swaps and
+# the underline moves to the middle slot. Coordinates, because the strip is not in the
+# accessibility tree.
+- tapOn:
+    point: '50%,11%'
+- waitForAnimationToEnd
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-355/screenshots/maestro_02_train_tab_active
+
+# Tap the LEFT tab slot (x=17%) — under the new order that is "Plan", so the Plan pane and
+# its underline must come back to slot 0.
+- tapOn:
+    point: '17%,11%'
+- waitForAnimationToEnd
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-355/screenshots/maestro_03_plan_tab_active_again
