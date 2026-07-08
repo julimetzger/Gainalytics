@@ -1,0 +1,142 @@
+appId: com.powerliftingworkoutplanner
+name: GH-358 Plan quick edit opens the keyboard; OK key and tapping outside both commit
+---
+# GH-358 (PR #362 follow-up): tapping a plan set value must open the soft keyboard
+# on R5CN30HWZFN (Samsung SM-G986B, Android 13), and the typed value must be
+# committed either by the keyboard OK/Enter key OR by simply tapping outside the
+# row. The old "Editing … · Done" accessory bar has been REMOVED — there is no
+# Done button anymore, so this flow asserts the bar is gone and drives the commit
+# through the keyboard OK key and an outside tap instead.
+#
+# NOTE on selectors (agent-memory #206): the Plan pane lives inside a
+# NestableScrollContainer and is INVISIBLE to the accessibility tree — set rows,
+# exercise chips and sub-tabs cannot be selected by text/testID. They are driven
+# by coordinate taps (percentages verified on this device's 720x1600 input space).
+# Because the row text is not in the a11y tree, the committed value is asserted
+# OUT OF BAND against the persisted MMKV store by
+# __tests__/e2e/scripts/assert-gh358-committed-reps.py (see summary.md), e.g.:
+#   python3 assert-gh358-committed-reps.py --serial R5CN30HWZFN --expect 13
+#   python3 assert-gh358-committed-reps.py --serial R5CN30HWZFN --expect 14 --baseline 10
+#   python3 assert-gh358-committed-reps.py --serial R5CN30HWZFN --expect 8
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+
+# ---- navigate to Push pull upper lower > Meso 1 -------------------------------
+- swipe:
+    start: "50%, 75%"
+    end: "50%, 28%"
+    duration: 400
+
+- extendedWaitUntil:
+    visible: "Push pull upper lower"
+    timeout: 20000
+
+- tapOn:
+    text: "Meso 1"
+    below:
+      text: "Push pull upper lower"
+
+- extendedWaitUntil:
+    visible: "Push pull upper lower › Meso 1"
+    timeout: 20000
+
+# Plan sub-tab (coordinate tap — the tab strip is not in the a11y tree)
+- tapOn:
+    point: "17%, 11%"
+
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# ---- BEFORE: read mode -------------------------------------------------------
+- takeScreenshot: gh358-01-before-read-mode
+
+# ---- tap the reps value of Deadlift set 1 ------------------------------------
+- tapOn:
+    point: "18%, 29%"
+
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# (a) The removed accessory bar must NOT appear. Before this change the bar with
+# the "Editing reps · Set 1 · Deadlift" label and a Done button was shown here.
+- assertNotVisible: "Editing reps · Set 1 · Deadlift"
+- assertNotVisible:
+    id: "plan-quick-edit-done"
+
+# This screenshot must show the numeric soft keyboard (with an OK key) over the
+# focused reps field — and NO accessory bar.
+- takeScreenshot: gh358-02-focused-with-keyboard-no-bar
+
+# ---- type 13, then commit with the keyboard OK key ---------------------------
+# backspace clears the existing "8", then digits 1 and 3 are tapped on the IME.
+- tapOn:
+    point: "86%, 68%"   # backspace
+- tapOn:
+    point: "13%, 68%"   # 1
+- tapOn:
+    point: "62%, 68%"   # 3
+
+- takeScreenshot: gh358-03-typed-13
+
+# OK key on the numeric keypad (returnKeyType=done) -> onSubmitEditing commits.
+- tapOn:
+    point: "86%, 75%"   # OK
+
+- waitForAnimationToEnd:
+    timeout: 5000
+
+- assertNotVisible: "Editing reps · Set 1 · Deadlift"
+
+# (b) The set row now reads "13 reps" (asserted out-of-band: reps=13, count 1).
+- takeScreenshot: gh358-04-after-OK-13-reps
+
+# ---- type 14, then commit by tapping OUTSIDE the row -------------------------
+- tapOn:
+    point: "18%, 29%"
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn:
+    point: "86%, 68%"   # backspace
+- tapOn:
+    point: "86%, 68%"   # backspace
+- tapOn:
+    point: "13%, 68%"   # 1
+- tapOn:
+    point: "13%, 75%"   # 4
+
+- takeScreenshot: gh358-05-typed-14
+
+# Tap the app-bar header — outside the OutsidePressHandler-wrapped plan list.
+- tapOn:
+    point: "22%, 7%"
+
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# (c) Tapping outside commits the typed value (asserted out-of-band: reps=14,
+# count 1 — a unique value proving the outside tap, not the earlier OK, wrote it).
+- takeScreenshot: gh358-06-after-outside-tap-14-reps
+
+# ---- restore the user's original value (8 reps) ------------------------------
+- tapOn:
+    point: "18%, 29%"
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn:
+    point: "86%, 68%"   # backspace
+- tapOn:
+    point: "86%, 68%"   # backspace
+- tapOn:
+    point: "37%, 90%"   # 8
+- tapOn:
+    point: "86%, 75%"   # OK
+
+- waitForAnimationToEnd:
+    timeout: 5000
+
+- takeScreenshot: gh358-07-restored-8-reps
