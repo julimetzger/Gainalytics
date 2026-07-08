@@ -76,7 +76,13 @@ const PlanQuickEditSetRow = ({
           style={[styles.input, {color: invalid ? theme.colors.error : theme.colors.primary}]}
           value={draftValue}
           onChangeText={onChangeText}
+          // GH-358: the accessory "Done" bar was removed. The value is already
+          // committed live on every keystroke; the OK/Enter action key just closes
+          // the quick-edit (returnKeyType surfaces a labelled action key on the
+          // numeric keypad). Tapping outside the row commits via the parent's
+          // OutsidePressHandler.
           onSubmitEditing={onSubmitEditing}
+          returnKeyType="done"
           keyboardType="numeric"
           selectionColor={theme.colors.primary}
         />

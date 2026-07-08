@@ -235,13 +235,12 @@ describe('PlanTab', () => {
   });
 
   it('enters quick edit, validates values, and commits valid weight updates immediately', async () => {
-    const {getByTestId, queryByTestId} = render(<PlanTab {...baseProps} />);
+    const {getByTestId} = render(<PlanTab {...baseProps} />);
 
     fireEvent.press(getByTestId('plan-open-weight-cell'));
 
     await waitFor(() => {
       expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
-      expect(getByTestId('plan-quick-edit-done')).toBeTruthy();
     });
 
     fireEvent.press(getByTestId('plan-enter-invalid-value'));
@@ -264,12 +263,27 @@ describe('PlanTab', () => {
       }),
     );
 
-    fireEvent.press(getByTestId('plan-quick-edit-done'));
+    // GH-358: the accessory "Done" bar was removed — pressing OK/Enter on the
+    // keyboard (onQuickEditSubmit) now closes the quick edit and returns to read.
+    fireEvent.press(getByTestId('plan-submit-quick-edit'));
 
     await waitFor(() => {
-      expect(queryByTestId('plan-quick-edit-done')).toBeNull();
       expect(getByTestId('plan-read-mode').props.children).toBe('read');
     });
+  });
+
+  it('does NOT render the "Editing … Done" accessory bar in quick edit mode (GH-358 PR #362)', async () => {
+    const {getByTestId, queryByTestId} = render(<PlanTab {...baseProps} />);
+
+    fireEvent.press(getByTestId('plan-open-weight-cell'));
+
+    await waitFor(() => {
+      expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
+    });
+
+    // The bar and its Done button must be gone: saving happens on keyboard
+    // OK/Enter (onQuickEditSubmit) or on tapping outside the row.
+    expect(queryByTestId('plan-quick-edit-done')).toBeNull();
   });
 
   it('switches the selected exercise when a cell of a different exercise is tapped', async () => {

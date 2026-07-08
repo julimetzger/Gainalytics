@@ -1,7 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Keyboard, LayoutRectangle, StyleSheet, View} from 'react-native';
+import {LayoutRectangle, StyleSheet, View} from 'react-native';
 import {Button, Dialog, Portal, Text, useTheme} from 'react-native-paper';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {shallowEqual, useDispatch, useSelector} from 'react-redux';
 import {Exercise} from '../../../models/entities/Exercise';
 import {Training} from '../../../models/entities/Training';
@@ -13,7 +12,7 @@ import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId
 import {dispatchDeleteSetFromWorkout} from '../../../redux/Workout/dispatch/dispatchDeleteSetFromWorkout';
 import {dispatchReplaceWorkoutSets} from '../../../redux/Workout/dispatch/dispatchReplaceWorkoutSets';
 import {GlobalState} from '../../../redux/rootReducer';
-import {buildWorkoutSetFromDraft, cloneWorkoutSet, formatPlanNumber, getPlanFieldLabel, isPlanFieldValueValid} from './planUtils';
+import {buildWorkoutSetFromDraft, cloneWorkoutSet, formatPlanNumber, isPlanFieldValueValid} from './planUtils';
 import {
   FullEditSnapshot,
   PendingPlanSetByExerciseId,
@@ -69,7 +68,6 @@ const PlanTab = ({
   initialMode,
 }: PlanTabProps) => {
   const theme = useTheme();
-  const safeAreaInsets = useSafeAreaInsets();
   const appSettings = useSettings();
   const selectedExercise = chosenExercise ?? exercises[0];
   const nextTrainingId = useNextTrainingsId();
@@ -90,7 +88,6 @@ const PlanTab = ({
   const [quickEditTarget, setQuickEditTarget] = useState<QuickEditTarget | null>(null);
   const [quickEditDraft, setQuickEditDraft] = useState('');
   const [quickEditOriginal, setQuickEditOriginal] = useState<number | null>(null);
-  const [keyboardInset, setKeyboardInset] = useState(0);
   const [pendingSetByExerciseId, setPendingSetByExerciseId] = useState<PendingPlanSetByExerciseId>({});
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [hasStructuralChanges, setHasStructuralChanges] = useState(false);
@@ -113,15 +110,6 @@ const PlanTab = ({
     return workout?.sets.find((workoutSet) => workoutSet.index === quickEditTarget.setIndex);
   }, [plannedWorkoutsByExerciseId, quickEditTarget]);
   const quickEditInvalid = quickEditTarget !== null && !isPlanFieldValueValid(quickEditTarget.field, quickEditDraft);
-
-  useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardDidShow', (event) => setKeyboardInset(event.endCoordinates.height));
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardInset(0));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   useEffect(() => {
     if (!isActive || selectedExercise === undefined) {
@@ -158,11 +146,6 @@ const PlanTab = ({
       });
     };
   }, [isActive, mode, onChromeChange, stableExitToRead, stableHandleBack]);
-
-  const quickEditExerciseName =
-    quickEditTarget !== null
-      ? exercises.find((exercise) => exercise.id === quickEditTarget.exerciseId)?.name ?? selectedExercise?.name ?? ''
-      : selectedExercise?.name ?? '';
 
   return (
     <View style={styles.container}>
@@ -227,24 +210,6 @@ const PlanTab = ({
         />
       )}
       <Portal>
-        {mode === 'quickEdit' && quickEditTarget !== null && (
-          <View style={[styles.quickEditAccessory, {backgroundColor: theme.colors.elevation.level3, bottom: keyboardInset > 0 ? keyboardInset : safeAreaInsets.bottom}]}>
-            <Text style={[styles.quickEditLabel, {color: theme.colors.onSurfaceVariant}]}>
-              {`Editing ${getPlanFieldLabel(quickEditTarget.field).toLowerCase()} · Set ${quickEditTarget.setIndex} · ${quickEditExerciseName}`}
-            </Text>
-            <Button
-              mode="contained"
-              compact
-              testID="plan-quick-edit-done"
-              disabled={quickEditInvalid}
-              onPress={handleQuickEditDone}
-              style={styles.quickEditDoneButton}
-              labelStyle={styles.quickEditDoneLabel}
-            >
-              Done
-            </Button>
-          </View>
-        )}
         <Dialog visible={showDiscardDialog} onDismiss={() => setShowDiscardDialog(false)}>
           <Dialog.Title>Discard plan changes?</Dialog.Title>
           <Dialog.Content>
@@ -643,29 +608,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 24,
     alignItems: 'center',
-  },
-  quickEditAccessory: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 18,
-  },
-  quickEditLabel: {
-    flex: 1,
-    fontSize: 12,
-    marginRight: 12,
-  },
-  quickEditDoneButton: {
-    borderRadius: 999,
-  },
-  quickEditDoneLabel: {
-    fontSize: 13,
-    fontWeight: '600',
   },
 });
 
