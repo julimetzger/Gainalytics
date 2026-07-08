@@ -10,8 +10,8 @@ interface TrainingModeTabsProps {
 }
 
 const TABS: {id: SubTab; label: string}[] = [
-  {id: 'train', label: 'Train'},
   {id: 'plan', label: 'Plan'},
+  {id: 'train', label: 'Train'},
   {id: 'analysis', label: 'Analysis'},
 ];
 

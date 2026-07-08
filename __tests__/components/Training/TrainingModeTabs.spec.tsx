@@ -36,4 +36,26 @@ describe('TrainingModeTabs', () => {
     expect(getByText('Plan')).toBeTruthy();
     expect(getByText('Analysis')).toBeTruthy();
   });
+
+  it('renders tabs left-to-right in the order Plan, Train, Analysis', () => {
+    const {root, getAllByText} = render(
+      <TrainingModeTabs activeTab="train" onTabChange={jest.fn()} />,
+    );
+
+    // The container is flexDirection: 'row', so tree order == left-to-right order.
+    expect(getAllByText(/^(Plan|Train|Analysis)$/).map((label) => label.props.children)).toEqual([
+      'Plan',
+      'Train',
+      'Analysis',
+    ]);
+
+    // Same order at the testID level. Dedupe: a testID appears on both the
+    // composite and the host node, and Set preserves insertion order.
+    const testIDs = root.findAll((node) => typeof node.props?.testID === 'string');
+    expect([...new Set(testIDs.map((tab) => tab.props.testID))]).toEqual([
+      'subtab-plan',
+      'subtab-train',
+      'subtab-analysis',
+    ]);
+  });
 });

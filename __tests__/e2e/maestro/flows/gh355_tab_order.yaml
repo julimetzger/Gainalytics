@@ -1,0 +1,54 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-355: Training sub-tabs must read Plan, Train, Analysis from left to right.
+#
+# NOTE: This flow has NOT yet been executed against a device. It was authored while
+# R5CN30HWZFN sat at the PIN bouncer (see run_dir status.json -> blocked). Run it once
+# the device is unlocked; treat the first green run as the real acceptance evidence.
+#
+# Order is asserted with relative-position selectors (leftOf / rightOf) rather than mere
+# visibility, per the repo's Maestro quality rules: three assertVisible calls on the tab
+# labels would pass on the OLD order too.
+- launchApp:
+    appId: com.powerliftingworkoutplanner
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- tapOn: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "training-home-screen"
+    timeout: 60000
+
+# Open a plan so the Plan/Train/Analysis sub-tabs render.
+- tapOn: "Push pull upper lower"
+- extendedWaitUntil:
+    visible: "Micro 1"
+    timeout: 15000
+
+# --- The actual assertion: left-to-right order is Plan, Train, Analysis ---
+- assertVisible:
+    text: "Train"
+    rightOf:
+      text: "Plan"
+- assertVisible:
+    text: "Analysis"
+    rightOf:
+      text: "Train"
+# ...and the inverse of the old order must NOT hold.
+- assertVisible:
+    text: "Plan"
+    leftOf:
+      text: "Train"
+- takeScreenshot: gh355_tab_order_plan_train_analysis
+
+# Tapping each tab still activates the right pane (ids are unchanged by the reorder).
+- tapOn: "Train"
+- waitForAnimationToEnd
+- tapOn: "Plan"
+- waitForAnimationToEnd
+- assertVisible: "Plan new Training"
+- takeScreenshot: gh355_plan_tab_active
