@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from 'react';
+import React from 'react';
 import {Pressable, StyleSheet, TextInput as RNTextInput, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
@@ -28,11 +28,6 @@ const PlanQuickEditSetRow = ({
   onRowLongPress,
 }: PlanQuickEditSetRowProps) => {
   const theme = useTheme();
-  const inputRef = useRef<RNTextInput>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, [activeField, workoutSet.index]);
 
   return (
     <Pressable onLongPress={onRowLongPress} style={styles.row}>
@@ -70,7 +65,13 @@ const PlanQuickEditSetRow = ({
       >
         {field === 'rir' && <Text style={[styles.unit, {color: theme.colors.onSurfaceVariant}]}>RIR</Text>}
         <RNTextInput
-          ref={inputRef}
+          // GH-358: this input is mounted by the very tap that selects the cell, so a
+          // JS-side inputRef.focus() runs before the ReactEditText is attached to a
+          // window. Its internal showSoftInput() then returns false and the failure is
+          // discarded, leaving the field focused but the keyboard closed. autoFocus
+          // defers the identical native call to onAttachedToWindow, where it succeeds.
+          // Switching field/set remounts this input, so autoFocus fires again.
+          autoFocus
           testID={PLAN_INPUT_TEST_ID(workoutSet.index ?? 0, field)}
           style={[styles.input, {color: invalid ? theme.colors.error : theme.colors.primary}]}
           value={draftValue}
