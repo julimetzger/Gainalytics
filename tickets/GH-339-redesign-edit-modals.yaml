@@ -1,0 +1,38 @@
+id: GH-339
+title: "Redesign edit modals — standardize all edit pop-ups on the Edit Exercise pattern"
+priority: medium
+description: >
+  Bring all edit/config pop-ups onto one shared visual pattern, using the Edit Exercise
+  screen as the reference template (per @flobstr: "use edit exercise as template").
+  Design direction A (decided): the pop-ups STAY pop-ups/dialogs — do NOT convert them
+  into full-screen sheets. Adopt the visual language of the Edit Exercise screen inside
+  each dialog (header row with cancel/close on the left and the primary action Save/Apply
+  on the right in the same position, sectioned content, the same outlined inputs, button
+  styles, and spacing). Only look & feel and navigation change — all functionality stays.
+
+  Pop-ups to standardize (by where the user meets them):
+  1. Edit rest target (during training)
+  2. Edit training length (analysis)
+  3. Set selection (video analysis)
+  4. Video selection (video analysis)
+  5. Exercise alternatives (during training)
+  6. Metric selection (analysis)
+  7. Exercise records (during training)
+
+acceptanceCriteria:
+  - "All listed edit pop-ups adopt the Edit Exercise header pattern: clear title of what is edited, cancel/close on the left, primary action (Save/Apply) on the right in the same position."
+  - "Consistent spacing, input styling (outlined fields) and button styles across all pop-ups."
+  - "Destructive actions (delete) shown consistently (error color) and behind a confirmation step."
+  - "No functionality lost — every field/action available before is still reachable and works."
+  - "Consistent in light AND dark mode."
+  - "Before/after Maestro screenshots for EACH standardized pop-up."
+
+constraints:
+  - "The Edit Exercise screen is the binding template — align to it, do not invent a new style."
+  - "Pop-ups stay pop-ups/dialogs (design direction A) — no conversion to full-screen sheets."
+  - "Pure UX/UI refactor: no change to data, logic, or stored values."
+  - "Extract a shared scaffold/component instead of styling each dialog individually, so future modals stay consistent automatically."
+  - "Respect app theming (colors, dark mode)."
+
+components:
+  - "Edit pop-ups in training execution, analysis, and video analysis"

@@ -1,0 +1,45 @@
+id: MNT-002
+status: ready
+area: maintenance
+priority: medium
+title: Foreground Service von dataSync auf mediaProcessing migrieren
+source:
+  - Google Play Console Release-Review (Deklaration FOREGROUND_SERVICE_DATA_SYNC, 2026-07-04)
+description: >
+  Die Video-Analyse läuft in einem Foreground Service mit Typ "dataSync".
+  Google verlangt dafür im Play Console eine Deklaration mit Demo-Video und
+  empfiehlt für lokale Medienverarbeitung ab Android 15 den neuen Typ
+  "mediaProcessing" (FOREGROUND_SERVICE_MEDIA_PROCESSING). Da die App bereits
+  targetSdk 35 hat, gilt für dataSync außerdem ein 6-Stunden-Timeout.
+
+  Der Service soll auf den passenden Typ "mediaProcessing" migriert werden.
+  Damit entfällt langfristig die DATA_SYNC-Deklaration im Play Console und
+  die App nutzt den von Google vorgesehenen Typ für On-Device-Videoanalyse.
+
+  Hinweis: mediaProcessing existiert erst ab Android 15 (API 35). Auf älteren
+  Geräten muss der Service weiterhin funktionieren (Fallback auf dataSync
+  oder versionsabhängige Deklaration).
+
+acceptanceCriteria:
+  - >
+    Die Video-Analyse zeigt auf einem Android-15-Gerät/Emulator weiterhin die
+    Fortschritts-Notification und läuft auch weiter, wenn der Nutzer die App
+    während der Analyse verlässt (Home-Button).
+  - >
+    Auf einem Gerät/Emulator mit Android 14 oder älter funktioniert die
+    Video-Analyse unverändert (kein Crash beim Start des Foreground Service).
+  - >
+    Eine lange Video-Analyse läuft ohne Timeout-Abbruch durch.
+  - >
+    Maestro-Flow-Screenshots der Video-Analyse (Start, Notification sichtbar,
+    Ergebnis) liegen als Nachweis vor.
+
+constraints:
+  - >
+    Verhalten aus Nutzersicht darf sich nicht ändern (gleiche Notification,
+    gleicher Ablauf).
+
+nonGoals:
+  - Änderungen an der Analyse-Logik selbst.
+  - iOS-Anpassungen.
+  - Play-Console-Deklaration ausfüllen (macht der Maintainer manuell).

@@ -13,6 +13,11 @@
 - RIR Verlauf/ RIR distribution
 - RIRmax/RIRaverage als metrik aufnehmen
 - Pausenzeit generell und pro muskel/exercise (nur zwischen set im Workout berücksichtigen?? also dl satz 1 pause dl satz 2 pause dl satz 3 fertig -> 2 Pausenzeiten getrackt)
+- [ready] [GH-293](https://github.com/julimetzger/Gainalytics/issues/293) Ai chat history — Verläufe archivieren, fortsetzen und durchsuchen
+  - Chat-Inhalte als Datei auf Platte, Metadaten in Redux
+  - "Clear" und "Ask AI" archivieren statt zu verwerfen; alter Verlauf lässt sich laden und weiterschreiben
+  - Volltextsuche über alle Nachrichten; kein Auto-Cleanup, Löschen nur manuell
+- [ready] [GH-361](https://github.com/julimetzger/Gainalytics/issues/361) AI-Chat ignoriert die Claude-Model-Einstellung (Coach-Insights respektieren sie)
 
 ## Exercises
 
@@ -26,24 +31,32 @@
 
 ## General
 
+- [ready] [GH-339](https://github.com/julimetzger/Gainalytics/issues/339) Redesign edit modals — alle Edit-Pop-ups auf das Edit-Exercise-Muster vereinheitlichen ([tickets/GH-339-redesign-edit-modals.yaml](tickets/GH-339-redesign-edit-modals.yaml))
+  - Design-Richtung A: Pop-ups bleiben Pop-ups, nur visueller Stil des Edit-Exercise-Screens übernehmen (kein Umbau zu Vollbild-Sheets)
+  - 7 Modals: Rest-Ziel, Trainingslänge, Satz-Auswahl, Video-Auswahl, Übungs-Alternativen, Metrik-Auswahl, Übungs-Rekorde
+  - Alle Funktionen bleiben; Vorher/Nachher-Maestro-Screenshots pro Modal
 - Change build.gradle name, namespace and applicationId "PowerliftingWorkoutPlanner" to Gainalytics and refactor Code
 - Performance Optimierung - check rerenders and add memoization
 
 ## Video Analyse Funktion
 
-- [ready] [ANA-004](tickets/ANA-004-rep-detection-from-video-analysis.yaml) Erkennen von reps [VideoAnalysisDetails]
-  - Rep zeit ermitteln anhand nulldurchlauf der Geschwindigkeit. Berechnung der durschnittlichen Geschwindigkeit der Rep.
-    Ausgabe der Repzeiten erstmal nur als Zeiten für dir reps als Werte in der Zusammenfassung.
-  - Anzeige einer Rep im overlay mit grüner Farbe als kurve während der Ausführung einer reptetion
-  - den gesamten bar verlauf als hellgraue linie plotten. Ein bisschen deutlicher als im moment die punkte geplottet
-    werden.
-  - ~~ANA-004-fix~~ (superseded — in ANA-004 nativ integriert)
+- [done] ~~[ANA-004](tickets/done/ANA-004-rep-detection-from-video-analysis.yaml) Erkennen von reps [VideoAnalysisDetails]~~ (umgesetzt: RepDetection.java + nativer Bar-Path-Overlay)
 - [ready] [ANA-003-fix2](tickets/ANA-003-fix2-marker-alignment.yaml) Marker-Linie am Velocity-Plot ausrichten (fängt zu früh an, hört zu spät auf)
-- [ready] [ANA-007](tickets/ANA-007-playback-speed-control.yaml) Player Verbesserungen part 2 — Wiedergabegeschwindigkeit (0.1x–1.0x)
+- [done] ~~[ANA-007](tickets/done/ANA-007-playback-speed-control.yaml) Player Verbesserungen part 2 — Wiedergabegeschwindigkeit (0.1x–1.0x)~~ (umgesetzt: native Prop + Speed-Chips)
 - [ready] [ANA-006](tickets/ANA-006-link-video-analysis-to-set.yaml) Verknüpfung eines Sets mit der Video Analysis (4 UI-Flows)
 - [ready] [ANA-008](tickets/ANA-008-video-analysis-scaling-and-zoom.yaml) Video-Analyse Skalierung & Zoom im Velocity-Plot
-  - Video + Velocity-Plot + Player-Bedienung zusammen auf einen Screen (Video kleiner machen)
-  - Zoom im Velocity-Plot durch Pinch/Swipe wie in den sonstigen Plots
+  - ~~Zoom im Velocity-Plot durch Pinch/Swipe wie in den sonstigen Plots~~ (umgesetzt)
+  - Video + Velocity-Plot + Player-Bedienung zusammen auf einen Screen ohne Scrollen (Video kleiner machen) — noch offen
+- [ready] [GH-360](https://github.com/julimetzger/Gainalytics/issues/360) Compare Analyses: Videos synchronisieren + gemeinsamer Scrubber
+  - Gemeinsamer Scrubber in absoluten ms des längeren Videos, Auto-Ausrichtung auf Rep 1 Lift-off + manueller ±-Versatz
+  - Play-Bar wie im Detail-Screen (Transport-Reihe, Speed-Chips, Rep-Ticks); Analysis B auf tertiary statt rot
+  - Est. 1RM ausdrücklich raus
+- [ready] [GH-363](https://github.com/julimetzger/Gainalytics/issues/363) Compare Analyses: KPI-Vergleichsheader (Mean/Peak Velocity, Δ)
+  - Set-Level-Aggregation + vAvg/vPeak=0-Fallback-Bug; kein Est. 1RM
+- [ready] [GH-321](https://github.com/julimetzger/Gainalytics/issues/321) Videos für Analyse nicht kopieren — direkt aus der Galerie abspielen
+  - Kein Hinweis beim Import; stattdessen pro Analyse ein "Vollimport"-Knopf mit Tooltip, der das Video nachträglich in die App holt
+  - Analyse-Ergebnisse bleiben nutzbar, wenn das Quellvideo aus der Galerie gelöscht wird; Player zeigt "nicht verfügbar"
+  - Playback muss einen App-Neustart überleben
 - performance verbessern
 
 ## Fun
@@ -65,6 +78,7 @@
 - [ready] [MNT-001](tickets/MNT-001-maestro-flow-analyse.yaml) Maestro-Flow Analyse — Startzeit messen & Import-Baseline prüfen
   - Zeit zum starten eines maestro flows nach agent start messen -> dokumentiere alle failures
   - Import baseline flow überprüfen- Vermutung: der funktioniert nicht mehr wenn es andere downloads gibt. Der flow findet dann base.gains nicht mehr weil zu weit unten.
+- [ready] [MNT-002](tickets/MNT-002-fgs-mediaprocessing-migration.yaml) Foreground Service von dataSync auf mediaProcessing migrieren — Play-Console-Deklaration entfällt, targetSdk-35-Timeout vermeiden
   
 
 ## Low Prio Themen
