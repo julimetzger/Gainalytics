@@ -378,6 +378,12 @@ const CompareSyncPlaybackCard = forwardRef<CompareSyncPlaybackHandle, Props>((pr
       timelineTimeSV.value = timelineMs; // eslint-disable-line react-hooks/exhaustive-deps
       setDisplayTimeThrottled(timelineMs, true);
       updateCurrentRepForTime(timelineMs);
+      // Snap both players to the exact timeline position so the paused frames
+      // are aligned even when B had drifted within the correction tolerance.
+      const mapped = mapTimelineToVideoTimes(timelineMs, offsetBRef.current, durationARef.current, durationBRef.current);
+      setSeekAMs(Math.round(mapped.aMs));
+      setSeekBMs(Math.round(mapped.bMs));
+      seekCooldownUntilRef.current = Date.now() + SEEK_COOLDOWN_MS;
     },
     [setDisplayTimeThrottled, updateCurrentRepForTime], // eslint-disable-line react-hooks/exhaustive-deps
   );
@@ -515,7 +521,7 @@ const CompareSyncPlaybackCard = forwardRef<CompareSyncPlaybackHandle, Props>((pr
             onEnd={onEndA}
             style={styles.video}
           />
-          <View style={styles.videoBadgeRow} pointerEvents="none">
+          <View style={styles.videoBadgeRow} pointerEvents="box-none">
             <Text style={[styles.videoCornerLabel, themedStyles.videoCornerLabelA]}>A</Text>
             <Text testID="compare-video-a-time" style={[styles.videoTimeBadge, themedStyles.videoTimeBadge]}>
               {formatTimelineTime(mappedDisplayTimes.aMs)}
@@ -542,7 +548,7 @@ const CompareSyncPlaybackCard = forwardRef<CompareSyncPlaybackHandle, Props>((pr
             onEnd={onEndB}
             style={styles.video}
           />
-          <View style={styles.videoBadgeRow} pointerEvents="none">
+          <View style={styles.videoBadgeRow} pointerEvents="box-none">
             <Text style={[styles.videoCornerLabel, themedStyles.videoCornerLabelB]}>B</Text>
             <Text testID="compare-video-b-time" style={[styles.videoTimeBadge, themedStyles.videoTimeBadge]}>
               {formatTimelineTime(mappedDisplayTimes.bMs)}

@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, View} from 'react-native';
 import {processColor} from 'react-native';
 import Animated, {useAnimatedStyle, useDerivedValue, useSharedValue, SharedValue} from 'react-native-reanimated';
-import {useTheme} from 'react-native-paper';
+import {Text, useTheme} from 'react-native-paper';
 import {LineChart} from 'react-native-charts-wrapper';
 import {BarPathPoint} from '../../models/entities/VideoAnalysis';
 
@@ -225,23 +225,20 @@ const VelocityCompareChart = ({
   );
 
   return (
-    <View
-      testID="velocity-compare-chart"
-      style={[styles.container, {height}]}
-      onLayout={handleLayout}
-      onTouchEnd={onChartTouch}
-    >
-      <LineChart
-        style={styles.chart}
-        data={chartData}
-        legend={{enabled: true, textColor: processColor(theme.colors.onSurface) as number}}
-        viewPortOffsets={{
+    <View testID="velocity-compare-chart" style={styles.container}>
+      <View style={{height}} onLayout={handleLayout} onTouchEnd={onChartTouch}>
+        <LineChart
+          style={styles.chart}
+          data={chartData}
+          legend={{enabled: false}}
+          chartDescription={{text: ''}}
+          viewPortOffsets={{
           left: Math.round(CHART_LEFT_PADDING * PixelRatio.get()),
           top: Math.round(CHART_TOP_PADDING * PixelRatio.get()),
           right: Math.round(CHART_RIGHT_PADDING * PixelRatio.get()),
           bottom: Math.round(CHART_BOTTOM_PADDING * PixelRatio.get()),
-        }}
-        xAxis={{
+          }}
+          xAxis={{
           position: 'BOTTOM',
           drawGridLines: true,
           gridColor: processColor(theme.colors.outlineVariant) as number,
@@ -255,8 +252,8 @@ const VelocityCompareChart = ({
           granularityEnabled: true,
           axisMinimum: 0,
           axisMaximum: xAxisMax,
-        }}
-        yAxis={{
+          }}
+          yAxis={{
           left: {
             axisMaximum: axisMax,
             axisMinimum: -axisMax,
@@ -265,22 +262,29 @@ const VelocityCompareChart = ({
             textColor: processColor(theme.colors.onSurfaceVariant) as number,
           },
           right: {enabled: false},
-        }}
-        animation={{durationX: 0, durationY: 0}}
-        // Chart touch is disabled so the wrapper receives taps for tap-to-seek.
-        touchEnabled={false}
-        dragEnabled={false}
-        scaleEnabled={false}
-        pinchZoom={false}
-        doubleTapToZoomEnabled={false}
-      />
-      {progressSV && (
-        <Animated.View
-          testID="velocity-compare-marker"
-          pointerEvents="none"
-          style={[styles.markerLine, {backgroundColor: theme.colors.primary, height: height - CHART_BOTTOM_PADDING}, markerStyle]}
+          }}
+          animation={{durationX: 0, durationY: 0}}
+          // Chart touch is disabled so the wrapper receives taps for tap-to-seek.
+          touchEnabled={false}
+          dragEnabled={false}
+          scaleEnabled={false}
+          pinchZoom={false}
+          doubleTapToZoomEnabled={false}
         />
-      )}
+        {progressSV && (
+          <Animated.View
+            testID="velocity-compare-marker"
+            pointerEvents="none"
+            style={[styles.markerLine, {backgroundColor: theme.colors.primary, height: height - CHART_BOTTOM_PADDING}, markerStyle]}
+          />
+        )}
+      </View>
+      <View style={styles.legendRow} pointerEvents="none">
+        <View style={[styles.legendDot, {backgroundColor: theme.colors.primary}]} />
+        <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>Analysis A</Text>
+        <View style={[styles.legendDot, styles.legendDotSpacing, {backgroundColor: theme.colors.tertiary}]} />
+        <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>Analysis B</Text>
+      </View>
     </View>
   );
 };
@@ -298,6 +302,21 @@ const styles = StyleSheet.create({
     left: 0,
     width: 2,
     opacity: 0.75,
+  },
+  legendRow: {
+    marginTop: 6,
+    marginLeft: CHART_LEFT_PADDING,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+  },
+  legendDotSpacing: {
+    marginLeft: 10,
   },
 });
 

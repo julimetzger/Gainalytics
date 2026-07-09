@@ -138,7 +138,8 @@ const BarPathCompareView = ({
       <LineChart
         style={styles.chart}
         data={chartData}
-        legend={{enabled: true}}
+        legend={{enabled: true, textColor: processColor(theme.colors.onSurface) as number}}
+        chartDescription={{text: ''}}
         xAxis={{
           drawGridLines: true,
           gridColor: processColor(theme.colors.outlineVariant) as number,
