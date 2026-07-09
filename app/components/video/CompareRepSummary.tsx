@@ -42,9 +42,6 @@ const fmtMsDelta = (a: number | undefined, b: number | undefined): string => {
   return `${sign}${delta.toFixed(2)}s`;
 };
 
-const HEADER_COLOR_A = 'primary';
-const HEADER_COLOR_B = 'error';
-
 const CompareRepSummary = ({repResults1, repResults2, onRepPress, highlightedRepIndex}: Props) => {
   const theme = useTheme();
   const repCount = Math.min(repResults1.length, repResults2.length);
@@ -64,13 +61,13 @@ const CompareRepSummary = ({repResults1, repResults2, onRepPress, highlightedRep
         <View style={[styles.row, styles.headerRow, {backgroundColor: theme.colors.surfaceVariant}]}>
           <Text style={[styles.cell, styles.repCell, styles.headerText]}>Rep</Text>
           <Text style={[styles.cell, styles.headerText, {color: theme.colors.primary}]}>vAvg A</Text>
-          <Text style={[styles.cell, styles.headerText, {color: theme.colors.error}]}>vAvg B</Text>
+          <Text style={[styles.cell, styles.headerText, {color: theme.colors.tertiary}]}>vAvg B</Text>
           <Text style={[styles.cell, styles.headerText]}>ΔvAvg</Text>
           <Text style={[styles.cell, styles.headerText, {color: theme.colors.primary}]}>vPeak A</Text>
-          <Text style={[styles.cell, styles.headerText, {color: theme.colors.error}]}>vPeak B</Text>
+          <Text style={[styles.cell, styles.headerText, {color: theme.colors.tertiary}]}>vPeak B</Text>
           <Text style={[styles.cell, styles.headerText]}>ΔvPeak</Text>
           <Text style={[styles.cell, styles.headerText, {color: theme.colors.primary}]}>Dur A</Text>
-          <Text style={[styles.cell, styles.headerText, {color: theme.colors.error}]}>Dur B</Text>
+          <Text style={[styles.cell, styles.headerText, {color: theme.colors.tertiary}]}>Dur B</Text>
           <Text style={[styles.cell, styles.headerText]}>ΔDur</Text>
         </View>
         {/* Data rows */}

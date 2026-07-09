@@ -87,7 +87,7 @@ const BarPathCompareView = ({
   const theme = useTheme();
 
   const color1 = useMemo(() => processColor(theme.colors.primary), [theme]);
-  const color2 = useMemo(() => processColor(theme.colors.error), [theme]);
+  const color2 = useMemo(() => processColor(theme.colors.tertiary), [theme]);
 
   const smoothed1 = useMemo(() => smoothBarPath(barPathSeries1), [barPathSeries1]);
   const smoothed2 = useMemo(() => smoothBarPath(barPathSeries2), [barPathSeries2]);
