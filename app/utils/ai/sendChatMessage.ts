@@ -4,9 +4,10 @@
  * TODO(cost-warning): consider token limits / summary rollup in a future ticket.
  */
 
+import {DEFAULT_ANTHROPIC_MODEL} from '../llmApi';
+
 const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
-const CHAT_MODEL = 'claude-haiku-4-5-20251001';
 const CHAT_MAX_TOKENS = 1024;
 
 export interface ChatMessage {
@@ -24,6 +25,7 @@ export async function sendChatMessage(
   messages: ChatMessage[],
   apiKey: string,
   systemPrompt?: string,
+  model: string = DEFAULT_ANTHROPIC_MODEL,
 ): Promise<SendChatResult> {
   if (!apiKey || apiKey.trim() === '') {
     return {ok: false, error: 'No API key configured.'};
@@ -39,7 +41,7 @@ export async function sendChatMessage(
 
   try {
     const bodyPayload: Record<string, unknown> = {
-      model: CHAT_MODEL,
+      model,
       max_tokens: CHAT_MAX_TOKENS,
       messages: apiMessages,
     };
@@ -65,6 +67,13 @@ export async function sendChatMessage(
     }
     if (!response.ok) {
       const errorBody = await response.text().catch(() => 'Unknown error');
+      const invalidModelMessage = extractInvalidModelMessage(response.status, errorBody);
+      if (invalidModelMessage) {
+        return {
+          ok: false,
+          error: `Invalid model "${model}": ${invalidModelMessage} Check the Claude Model field in Settings.`,
+        };
+      }
       return {ok: false, error: `API error (${response.status}): ${errorBody}`};
     }
 
@@ -74,4 +83,30 @@ export async function sendChatMessage(
   } catch (e: any) {
     return {ok: false, error: `Network error: ${e?.message ?? 'Unknown'}`};
   }
+}
+
+/**
+ * The Anthropic API rejects an unknown model with a 404 `not_found_error`, and rejects a
+ * malformed model string with a 400 `invalid_request_error` whose message mentions "model".
+ * Returns the API's own message when the error is model-related, otherwise undefined.
+ */
+function extractInvalidModelMessage(status: number, errorBody: string): string | undefined {
+  let parsed: any;
+  try {
+    parsed = JSON.parse(errorBody);
+  } catch {
+    return undefined;
+  }
+
+  const errorType: string | undefined = parsed?.error?.type;
+  const message: string | undefined = parsed?.error?.message;
+  if (!message) return undefined;
+
+  if (status === 404 && errorType === 'not_found_error') {
+    return message;
+  }
+  if (status === 400 && errorType === 'invalid_request_error' && /model/i.test(message)) {
+    return message;
+  }
+  return undefined;
 }

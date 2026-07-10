@@ -27,6 +27,7 @@ import {TrainingsState} from '../../models/TrainingsState';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {getMesoEndMicro, getMesoForMicro, getMicroFromTrainingInMicroIndex} from '../../redux/Training/trainingsPlanReducer';
 import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
+import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
 
 type Preset = '7d' | '28d' | '3M' | 'Meso' | 'Custom';
 
@@ -104,6 +105,7 @@ const AIChatTab = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const chatPrompt = useAIChatPrompt();
+  const model = useAnthropicModel();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
 
@@ -273,7 +275,7 @@ const AIChatTab = () => {
       : chatPrompt;
 
     const history: ChatMessage[] = [...messages, userMsg];
-    const result = await sendChatMessage(history, apiKey, systemPrompt);
+    const result = await sendChatMessage(history, apiKey, systemPrompt, model);
 
     if (result.ok) {
       dispatch(appendMessage({role: 'assistant', content: result.text, hadContext: result.hadContext}));
