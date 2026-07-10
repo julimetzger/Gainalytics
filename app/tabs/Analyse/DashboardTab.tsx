@@ -79,20 +79,6 @@ const DashboardTab = () => {
 
       <TopExercisesCard exerciseMetricMap={exerciseMetricMap} onExercisePress={handleExercisePress} />
 
-      <View style={styles.quickNav}>
-        <Text style={styles.quickNavTitle}>Quick Access</Text>
-        <View style={styles.quickNavRow}>
-          <Button mode="outlined" onPress={() => navigation.navigate('Metrics')} style={styles.navButton} testID="nav-metrics">
-            All Metrics
-          </Button>
-          <Button mode="outlined" onPress={() => navigation.navigate('History', {exercise: {name: ''}, lowerRangeBound: undefined})} style={styles.navButton} testID="nav-history">
-            History
-          </Button>
-          <Button mode="outlined" onPress={() => navigation.navigate('Records')} style={styles.navButton} testID="nav-records">
-            Records
-          </Button>
-        </View>
-      </View>
     </ScrollView>
   );
 };
