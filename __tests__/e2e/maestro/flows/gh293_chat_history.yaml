@@ -1,0 +1,166 @@
+appId: com.powerliftingworkoutplanner
+name: GH-293 chat history — clear archives, full-content search, resume, delete, restart persistence
+---
+# Precondition: an Anthropic API key is stored (a dummy key is fine — user
+# messages are appended before the API call, so chats can be built offline).
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+
+# ── Navigate to AI Chat ────────────────────────────────────────────────────
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- extendedWaitUntil:
+    visible: "AI Chat"
+    timeout: 10000
+- tapOn: "AI Chat"
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 15000
+
+# ── Start from a clean slate: archive whatever chat is active ──────────────
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-empty-state"
+    commands:
+      - tapOn:
+          id: "chat-clear-button"
+- assertVisible:
+    id: "chat-empty-state"
+
+# ── Build a 3-message conversation. "xylophone" only appears in message 2 —
+#    never in the title (message 1) or the snippet (last message). ──────────
+- tapOn:
+    id: "chat-input"
+- inputText: "History test alpha squat question"
+- tapOn:
+    id: "chat-send-button"
+- extendedWaitUntil:
+    notVisible:
+      id: "chat-loading"
+    timeout: 30000
+- tapOn:
+    id: "chat-input"
+- inputText: "Middle marker xylophone bench"
+- tapOn:
+    id: "chat-send-button"
+- extendedWaitUntil:
+    notVisible:
+      id: "chat-loading"
+    timeout: 30000
+- tapOn:
+    id: "chat-input"
+- inputText: "Closing gamma deadlift"
+- tapOn:
+    id: "chat-send-button"
+- extendedWaitUntil:
+    notVisible:
+      id: "chat-loading"
+    timeout: 30000
+- assertVisible: "Closing gamma deadlift"
+
+# ── AC: Clear archives instead of discarding ────────────────────────────────
+- tapOn:
+    id: "chat-clear-button"
+- assertVisible:
+    id: "chat-empty-state"
+- assertNotVisible: "History test alpha squat question"
+
+# ── AC: history overview reachable from the chat; entry shows the title ─────
+# (assistant replies are non-deterministic with a real API key, so assertions
+# only target user-typed content)
+- tapOn:
+    id: "chat-history-button"
+- extendedWaitUntil:
+    visible:
+      id: "chat-history-search"
+    timeout: 15000
+- assertVisible: "History test alpha squat question"
+
+# ── AC: search hits full message contents (term only in a mid-chat message) ─
+- tapOn:
+    id: "chat-history-search"
+- inputText: "xylophone"
+- extendedWaitUntil:
+    visible: "History test alpha squat question"
+    timeout: 10000
+- eraseText
+- inputText: "zzznomatchzzz"
+- extendedWaitUntil:
+    visible: "No chats match your search."
+    timeout: 10000
+- assertNotVisible: "History test alpha squat question"
+- eraseText
+# Dismiss the soft keyboard — it covers the list and would swallow the tap
+- hideKeyboard
+
+# ── AC: open a conversation and continue it ────────────────────────────────
+- tapOn: "History test alpha squat question"
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 15000
+- assertVisible: "History test alpha squat question"
+- assertVisible: "Middle marker xylophone bench"
+- tapOn:
+    id: "chat-input"
+- inputText: "Continuation delta row"
+- tapOn:
+    id: "chat-send-button"
+- extendedWaitUntil:
+    notVisible:
+      id: "chat-loading"
+    timeout: 30000
+- assertVisible: "Continuation delta row"
+
+# ── AC: history + active chat survive an app restart ───────────────────────
+- tapOn:
+    id: "chat-clear-button"
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 30000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- extendedWaitUntil:
+    visible: "Chat History"
+    timeout: 10000
+- tapOn: "Chat History"
+- extendedWaitUntil:
+    visible:
+      id: "chat-history-search"
+    timeout: 15000
+# The archived conversation survived the restart …
+- assertVisible: "History test alpha squat question"
+# … including the message typed AFTER resuming: full-content search finds it.
+- tapOn:
+    id: "chat-history-search"
+- inputText: "Continuation delta row"
+- extendedWaitUntil:
+    visible: "History test alpha squat question"
+    timeout: 10000
+- eraseText
+- hideKeyboard
+
+# ── AC: a single conversation can be deleted ───────────────────────────────
+- tapOn:
+    id: "chat-history-delete-.*"
+- extendedWaitUntil:
+    notVisible: "History test alpha squat question"
+    timeout: 10000

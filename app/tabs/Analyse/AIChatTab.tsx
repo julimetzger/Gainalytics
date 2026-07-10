@@ -5,6 +5,7 @@ import Markdown from 'react-native-markdown-display';
 import {aiChatMarkdownStyles} from './aiChatMarkdownStyles';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useHeaderHeight} from '@react-navigation/elements';
+import {useNavigation} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
 import {
@@ -14,9 +15,11 @@ import {
   setLoading,
   setSeedContextJson,
   setContextRange,
+  setPendingLegacyArchive,
   ContextRange,
 } from '../../redux/AIChat/aiChatSlice';
 import {selectAllFinishedTrainings} from '../../redux/AIChat/selectors';
+import {useArchiveActiveChat} from '../../redux/AIChat/use/useArchiveActiveChat';
 import {sendChatMessage, ChatMessage} from '../../utils/ai/sendChatMessage';
 import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
@@ -104,16 +107,19 @@ export function computeMesoRange(
 const AIChatTab = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const navigation = useNavigation<any>();
   const chatPrompt = useAIChatPrompt();
   const model = useAnthropicModel();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
+  const archiveActiveChat = useArchiveActiveChat();
 
   const messages = useSelector((s: GlobalState) => s.aiChat.messages);
   const isLoading = useSelector((s: GlobalState) => s.aiChat.isLoading);
   const error = useSelector((s: GlobalState) => s.aiChat.error);
   const seedContextJson = useSelector((s: GlobalState) => s.aiChat.seedContextJson);
   const contextRange = useSelector((s: GlobalState) => s.aiChat.contextRange);
+  const pendingLegacyArchive = useSelector((s: GlobalState) => s.aiChat.pendingLegacyArchive);
 
   const trainingsById = useSelector((s: GlobalState) => s.trainings.byId);
   const workoutsById = useSelector((s: GlobalState) => s.workouts.byId) as Record<number, any>;
@@ -214,6 +220,20 @@ const AIChatTab = () => {
     }
   }, [messages.length]);
 
+  // GH-293 one-time migration: the conversation that existed before the history
+  // feature shipped becomes the first history entry. The flag is set by redux
+  // migration 11. It is cleared synchronously before the async archive so the
+  // effect cannot fire twice; if the file write fails, the messages simply stay
+  // in the active chat — nothing is lost.
+  useEffect(() => {
+    if (!pendingLegacyArchive) return;
+    dispatch(setPendingLegacyArchive(false));
+    (async () => {
+      await archiveActiveChat();
+      dispatch(clearChat());
+    })();
+  }, [pendingLegacyArchive, archiveActiveChat, dispatch]);
+
   const applyPreset = (preset: Preset) => {
     setSelectedPreset(preset);
     if (preset === 'Custom') return;
@@ -285,9 +305,20 @@ const AIChatTab = () => {
     }
   };
 
-  const handleClear = () => {
-    dispatch(clearChat());
-    setInputText('');
+  // GH-293: Clear no longer discards the conversation — it is archived into the
+  // chat history first, then a fresh empty chat starts. The ref guards against
+  // a double tap archiving the same conversation twice.
+  const clearingRef = useRef(false);
+  const handleClear = async () => {
+    if (clearingRef.current) return;
+    clearingRef.current = true;
+    try {
+      await archiveActiveChat();
+      dispatch(clearChat());
+      setInputText('');
+    } finally {
+      clearingRef.current = false;
+    }
   };
 
   const contextBadgeLabel = useMemo(() => {
@@ -391,6 +422,13 @@ const AIChatTab = () => {
             {contextBadgeLabel}
           </Text>
         )}
+        <IconButton
+          icon="history"
+          size={20}
+          iconColor={theme.colors.onSurfaceVariant}
+          onPress={() => navigation.navigate('ChatHistory')}
+          testID="chat-history-button"
+        />
         <IconButton
           icon={showFilters ? 'filter-remove-outline' : 'filter-outline'}
           size={20}

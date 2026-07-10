@@ -6,7 +6,12 @@ import reducer, {
   setSeedContextJson,
   setContextRange,
   startChatWithContext,
+  addHistoryEntry,
+  removeHistoryEntry,
+  setActiveMessages,
+  setPendingLegacyArchive,
   AIChatState,
+  ChatHistoryEntry,
   ChatSeedContext,
   ContextRange,
 } from '../../../app/redux/AIChat/aiChatSlice';
@@ -17,7 +22,20 @@ const initial: AIChatState = {
   error: null,
   seedContextJson: null,
   contextRange: null,
+  history: [],
+  pendingLegacyArchive: false,
 };
+
+function makeEntry(id: string, title = `Title ${id}`): ChatHistoryEntry {
+  return {
+    id,
+    title,
+    snippet: `Snippet ${id}`,
+    createdAt: '2026-07-01T10:00:00.000Z',
+    fileName: `${id}.json`,
+    messageCount: 2,
+  };
+}
 
 describe('aiChatSlice', () => {
   it('starts with empty state', () => {
@@ -62,6 +80,7 @@ describe('aiChatSlice', () => {
       endDate: '2024-01-28T00:00:00.000Z',
     };
     const state: AIChatState = {
+      ...initial,
       messages: [{role: 'user', content: 'hi'}, {role: 'assistant', content: 'hello'}],
       isLoading: true,
       error: 'some error',
@@ -78,6 +97,7 @@ describe('aiChatSlice', () => {
 
   it('clearChat with null contextRange equals initial state', () => {
     const state: AIChatState = {
+      ...initial,
       messages: [{role: 'user', content: 'hi'}, {role: 'assistant', content: 'hello'}],
       isLoading: true,
       error: 'some error',
@@ -85,6 +105,17 @@ describe('aiChatSlice', () => {
       contextRange: null,
     };
     expect(reducer(state, clearChat())).toEqual(initial);
+  });
+
+  it('clearChat preserves the history list', () => {
+    const state: AIChatState = {
+      ...initial,
+      messages: [{role: 'user', content: 'hi'}],
+      history: [makeEntry('a'), makeEntry('b')],
+    };
+    const result = reducer(state, clearChat());
+    expect(result.messages).toHaveLength(0);
+    expect(result.history).toHaveLength(2);
   });
 
   it('setSeedContextJson updates seedContextJson', () => {
@@ -144,11 +175,9 @@ describe('aiChatSlice', () => {
 
   it('startChatWithContext clears previous chat before seeding', () => {
     let state: AIChatState = {
+      ...initial,
       messages: [{role: 'user', content: 'old msg'}, {role: 'assistant', content: 'old resp'}],
-      isLoading: false,
-      error: null,
       seedContextJson: 'old-context',
-      contextRange: null,
     };
     state = reducer(state, startChatWithContext({insightText: 'new context', seedContextJson: null}));
     expect(state.messages).toHaveLength(1);
@@ -167,5 +196,70 @@ describe('aiChatSlice', () => {
       startChatWithContext({insightText: 'insight', seedContextJson: null}),
     );
     expect(result.contextRange).toEqual(range);
+  });
+
+  it('startChatWithContext preserves the history list', () => {
+    const state: AIChatState = {...initial, history: [makeEntry('a')]};
+    const result = reducer(
+      state,
+      startChatWithContext({insightText: 'insight', seedContextJson: null}),
+    );
+    expect(result.history).toHaveLength(1);
+  });
+});
+
+describe('aiChatSlice — chat history (GH-293)', () => {
+  it('addHistoryEntry prepends: newest entry comes first', () => {
+    let state = reducer(initial, addHistoryEntry(makeEntry('old')));
+    state = reducer(state, addHistoryEntry(makeEntry('new')));
+    expect(state.history.map(e => e.id)).toEqual(['new', 'old']);
+  });
+
+  it('removeHistoryEntry removes only the matching entry', () => {
+    let state = reducer(initial, addHistoryEntry(makeEntry('a')));
+    state = reducer(state, addHistoryEntry(makeEntry('b')));
+    state = reducer(state, removeHistoryEntry('a'));
+    expect(state.history.map(e => e.id)).toEqual(['b']);
+  });
+
+  it('removeHistoryEntry with unknown id leaves the list unchanged', () => {
+    let state = reducer(initial, addHistoryEntry(makeEntry('a')));
+    state = reducer(state, removeHistoryEntry('missing'));
+    expect(state.history).toHaveLength(1);
+  });
+
+  it('setActiveMessages replaces the conversation and clears loading/error', () => {
+    const state: AIChatState = {
+      ...initial,
+      messages: [{role: 'user', content: 'current'}],
+      isLoading: true,
+      error: 'boom',
+    };
+    const resumed = [
+      {role: 'user' as const, content: 'archived question'},
+      {role: 'assistant' as const, content: 'archived answer'},
+    ];
+    const result = reducer(state, setActiveMessages(resumed));
+    expect(result.messages).toEqual(resumed);
+    expect(result.isLoading).toBe(false);
+    expect(result.error).toBeNull();
+  });
+
+  it('setActiveMessages does not touch history or context', () => {
+    const state: AIChatState = {
+      ...initial,
+      history: [makeEntry('a')],
+      seedContextJson: '{"sessions":[]}',
+    };
+    const result = reducer(state, setActiveMessages([{role: 'user', content: 'x'}]));
+    expect(result.history).toHaveLength(1);
+    expect(result.seedContextJson).toBe('{"sessions":[]}');
+  });
+
+  it('setPendingLegacyArchive toggles the flag', () => {
+    let state = reducer(initial, setPendingLegacyArchive(true));
+    expect(state.pendingLegacyArchive).toBe(true);
+    state = reducer(state, setPendingLegacyArchive(false));
+    expect(state.pendingLegacyArchive).toBe(false);
   });
 });
