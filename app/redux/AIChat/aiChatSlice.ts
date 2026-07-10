@@ -15,6 +15,20 @@ export interface ContextRange {
   endDate: string;
 }
 
+/** Metadata for an archived conversation. The full messages live in a JSON file
+ *  on disk (see chatHistoryStorage); Redux only holds what the list UI needs. */
+export interface ChatHistoryEntry {
+  id: string;
+  title: string;
+  /** Short excerpt of the conversation so the user can recognise it in the list. */
+  snippet: string;
+  /** ISO date string of when the conversation was archived. */
+  createdAt: string;
+  /** File name (not full path) of the chat JSON inside the chat history directory. */
+  fileName: string;
+  messageCount: number;
+}
+
 export interface AIChatState {
   messages: ChatMessage[];
   isLoading: boolean;
@@ -23,6 +37,11 @@ export interface AIChatState {
   seedContextJson: string | null;
   /** Date range controlling which trainings are included in seedContextJson. null = 28d default. */
   contextRange: ContextRange | null;
+  /** Archived conversations, newest first. Full contents live on disk. */
+  history: ChatHistoryEntry[];
+  /** True after the GH-293 migration when a pre-existing chat still has to be
+   *  moved into the history (file write can't happen inside the sync migration). */
+  pendingLegacyArchive: boolean;
 }
 
 const initialState: AIChatState = {
@@ -31,6 +50,8 @@ const initialState: AIChatState = {
   error: null,
   seedContextJson: null,
   contextRange: null,
+  history: [],
+  pendingLegacyArchive: false,
 };
 
 const aiChatSlice = createSlice({
@@ -61,12 +82,30 @@ const aiChatSlice = createSlice({
       state.contextRange = action.payload;
     },
     /** Resets the conversation and seeds it with context. The insightText becomes the first
-     *  assistant message; seedContextJson is stored for use as a system prompt supplement. */
+     *  assistant message; seedContextJson is stored for use as a system prompt supplement.
+     *  Callers must archive the running chat first — this reducer overwrites it. */
     startChatWithContext(state, action: PayloadAction<ChatSeedContext>) {
       state.messages = [{role: 'assistant', content: action.payload.insightText}];
       state.isLoading = false;
       state.error = null;
       state.seedContextJson = action.payload.seedContextJson;
+    },
+    /** Adds an archived conversation to the front of the history list. */
+    addHistoryEntry(state, action: PayloadAction<ChatHistoryEntry>) {
+      state.history.unshift(action.payload);
+    },
+    /** Removes a history entry by id (delete, or un-archive when resuming). */
+    removeHistoryEntry(state, action: PayloadAction<string>) {
+      state.history = state.history.filter(e => e.id !== action.payload);
+    },
+    /** Replaces the active conversation, e.g. when resuming an archived chat. */
+    setActiveMessages(state, action: PayloadAction<ChatMessage[]>) {
+      state.messages = action.payload;
+      state.isLoading = false;
+      state.error = null;
+    },
+    setPendingLegacyArchive(state, action: PayloadAction<boolean>) {
+      state.pendingLegacyArchive = action.payload;
     },
   },
 });
@@ -79,5 +118,9 @@ export const {
   setSeedContextJson,
   setContextRange,
   startChatWithContext,
+  addHistoryEntry,
+  removeHistoryEntry,
+  setActiveMessages,
+  setPendingLegacyArchive,
 } = aiChatSlice.actions;
 export default aiChatSlice.reducer;

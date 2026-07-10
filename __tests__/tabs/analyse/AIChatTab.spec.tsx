@@ -184,6 +184,11 @@ jest.mock('@react-navigation/elements', () => ({
   useHeaderHeight: () => 0,
 }));
 
+// GH-293: AIChatTab now navigates to the chat history screen
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({navigate: jest.fn()}),
+}));
+
 jest.mock('react-redux', () => {
   const actual = jest.requireActual('react-redux');
   return {

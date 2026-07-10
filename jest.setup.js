@@ -114,7 +114,11 @@ jest.mock('react-native-document-picker', () => ({
 jest.mock('react-native-fs', () => ({
   readFile: jest.fn(),
   writeFile: jest.fn(),
+  mkdir: jest.fn().mockResolvedValue(undefined),
+  unlink: jest.fn().mockResolvedValue(undefined),
+  exists: jest.fn().mockResolvedValue(false),
   DownloadDirectoryPath: '/mock/path',
+  DocumentDirectoryPath: '/mock/documents',
 }));
 
 // Mock @notifee/react-native

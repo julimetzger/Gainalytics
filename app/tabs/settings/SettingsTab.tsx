@@ -31,6 +31,7 @@ import {dispatchResetAITrainingPrompt} from '../../redux/settings/dispatch/dispa
 import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
 import {useAITrainingPrompt} from '../../redux/settings/use/useAITrainingPrompt';
 import {DEFAULT_CHAT_PROMPT, DEFAULT_TRAINING_PROMPT} from '../../constants/aiPrompts';
+import {getAppVersion} from '../../utils/appVersion';
 
 const SettingsTab = ({navigation}: Props) => {
   let settings = useSettings();
@@ -49,6 +50,7 @@ const SettingsTab = ({navigation}: Props) => {
   let resetAITrainingPromptDispatch = dispatchResetAITrainingPrompt();
   let currentChatPrompt = useAIChatPrompt();
   let currentTrainingPrompt = useAITrainingPrompt();
+  const appVersion = getAppVersion();
   const FileSaver = require('react-native-fs');
 
   const [importDialog, setImportDialog] = useState(false);
@@ -505,6 +507,11 @@ const SettingsTab = ({navigation}: Props) => {
           Export Data
         </Button>
       </View>
+      <View style={styles.versionFooter}>
+        <Text variant="bodySmall" testID="settings-app-version">
+          Version {appVersion}
+        </Text>
+      </View>
       <Portal>
         <Dialog visible={importDialog} onDismiss={() => setImportDialog(false)}>
           <Dialog.Title>Import full data from backup file?</Dialog.Title>
@@ -545,6 +552,11 @@ const styles = StyleSheet.create({
   },
   button: {
     margin: 5,
+  },
+  versionFooter: {
+    alignItems: 'center',
+    marginBottom: 16,
+    marginTop: 12,
   },
 });
 

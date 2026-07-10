@@ -6,7 +6,7 @@ import createFilter from 'redux-persist-transform-filter';
 import {configureStore} from '@reduxjs/toolkit';
 import logger from 'redux-logger';
 
-const migrations = {
+export const migrations = {
   0: (state) => {
     return {
       ...state,
@@ -125,6 +125,20 @@ const migrations = {
       },
     };
   },
+  11: (state: any) => {
+    // GH-293: chat history. A pre-existing conversation must become the first
+    // history entry, but archiving needs an async file write — so the migration
+    // only sets a flag; AIChatTab performs the actual archival on next open.
+    const aiChat = state?.aiChat ?? {messages: [], isLoading: false, error: null, seedContextJson: null, contextRange: null};
+    return {
+      ...state,
+      aiChat: {
+        ...aiChat,
+        history: aiChat.history ?? [],
+        pendingLegacyArchive: (aiChat.messages?.length ?? 0) > 0,
+      },
+    };
+  },
 };
 
 const storage = new MMKV();
@@ -148,7 +162,7 @@ const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseI
 
 const persistConfig = {
   key: 'root',
-  version: 10,
+  version: 11,
   storage: reduxStorage,
   whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'settings', 'aiChat'],
   stateReconciler: hardSet,

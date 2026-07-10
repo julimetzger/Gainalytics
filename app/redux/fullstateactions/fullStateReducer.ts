@@ -46,6 +46,7 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
       const importedState: GlobalState = {
         ...action.state,
         videoAnalyses: action.state.videoAnalyses ?? state.videoAnalyses,
+        aiChat: action.state.aiChat ?? state.aiChat,
       };
       return sanitizeTrainingWorkoutReferences(importedState);
     }
