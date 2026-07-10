@@ -104,6 +104,23 @@ const videoAnalysisReducer = (state: NormalizedState<VideoAnalysis> = initialSta
         },
       };
     }
+    case 'SET_VIDEO_ANALYSIS_LOCAL_VIDEO_PATH': {
+      const current = state.byId[action.analysisId];
+      if (!current) {
+        return state;
+      }
+
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.analysisId]: {
+            ...current,
+            localVideoPath: action.localVideoPath,
+          },
+        },
+      };
+    }
     case 'SET_VIDEO_ANALYSIS_SEED_PREFLIGHT': {
       const current = state.byId[action.analysisId];
       if (!current) {

@@ -3,7 +3,6 @@ import {StyleSheet, View} from 'react-native';
 import {Button, Card, MD3Theme, Searchbar, Text, useTheme} from 'react-native-paper';
 import {useSelector, useStore} from 'react-redux';
 import {FlashList} from '@shopify/flash-list';
-import DocumentPicker from 'react-native-document-picker';
 import Toast from 'react-native-toast-message';
 import {useNavigation} from '@react-navigation/native';
 import SetSelectionModal from '../../components/video/SetSelectionModal';
@@ -26,6 +25,7 @@ import {dispatchSetVideoAnalysisFiltersExpanded} from '../../redux/settings/disp
 import {dispatchSetVideoAnalysisLearnedRate} from '../../redux/settings/dispatch/dispatchSetVideoAnalysisLearnedRate';
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {importVideoAnalysisFromSource} from '../../utils/video-analysis-import';
+import {pickVideoFromGallery, releaseVideoUriPermission} from '../../utils/videoAnalysisNative';
 import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
 import {calculateAnalysisProgress, DEFAULT_ANALYSIS_SECONDS_PER_VIDEO_SECOND} from '../../utils/videoAnalysisProgress';
 import {buildVideoAnalysisDefaultDateRange, filterVideoAnalyses, filterVideoAnalysesBySearchQuery, isSameRange, RIR_PRESETS, VL_PRESETS} from '../../utils/video-analysis-filters';
@@ -246,32 +246,33 @@ const VideoAnalysisTab = () => {
   const importFromGallery = async () => {
     try {
       setImporting(true);
-      const selectedVideo = await DocumentPicker.pickSingle({
-        type: [DocumentPicker.types.video],
-        copyTo: 'cachesDirectory',
-      });
-      const sourceUri = selectedVideo.fileCopyUri ?? selectedVideo.uri;
-      await importFromSource(sourceUri);
-    } catch (error) {
-      if (!DocumentPicker.isCancel(error)) {
-        showToast({
-          type: 'error',
-          text1: 'Import failed',
-          text2: 'Could not pick a video from the gallery.',
-          position: 'top',
-        });
+      // GH-321: the native picker takes a persistable read grant, so the gallery video
+      // stays playable across app restarts without copying it into the app.
+      const picked = await pickVideoFromGallery();
+      if (!picked) {
+        return;
       }
+      await importFromSource(picked.uri);
+    } catch (_error) {
+      showToast({
+        type: 'error',
+        text1: 'Import failed',
+        text2: 'Could not pick a video from the gallery.',
+        position: 'top',
+      });
     } finally {
       setImporting(false);
     }
   };
 
   const onDelete = useCallback(
-    async (analysisId?: number, resultPath?: string, localVideoPath?: string) => {
+    async (analysisId?: number, resultPath?: string, localVideoPath?: string, sourceUri?: string) => {
       if (analysisId === undefined) {
         return;
       }
       await deleteVideoAnalysisArtifacts({resultPath, localVideoPath, previewPath: getVideoAnalysisPreviewPath(analysisId)});
+      // Stop holding access to the user's gallery video once the analysis is gone.
+      await releaseVideoUriPermission(sourceUri);
       removeVideoAnalysis(analysisId);
     },
     [removeVideoAnalysis],
@@ -366,7 +367,7 @@ const VideoAnalysisTab = () => {
             }
           }}
           onLink={!item.workoutId && item.id !== undefined ? () => setLinkSetForAnalysisId(item.id) : undefined}
-          onDelete={item.id !== undefined ? () => onDelete(item.id, item.resultPath, item.localVideoPath) : undefined}
+          onDelete={item.id !== undefined ? () => onDelete(item.id, item.resultPath, item.localVideoPath, item.sourceUri) : undefined}
           {...progressProps}
         />
       );
