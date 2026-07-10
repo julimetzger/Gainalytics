@@ -216,15 +216,15 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       setLocalVideoPath(analysis.id, localVideoPath);
       Toast.show({
         type: 'info',
-        text1: 'Video gesichert',
-        text2: 'Das Video liegt jetzt in der App und bleibt erhalten.',
+        text1: 'Video secured',
+        text2: 'The video is now stored in the app and will be kept.',
         position: 'top',
       });
     } catch (_error) {
       Toast.show({
         type: 'error',
-        text1: 'Sichern fehlgeschlagen',
-        text2: 'Das Quellvideo konnte nicht in die App kopiert werden.',
+        text1: 'Secure failed',
+        text2: 'The source video could not be copied into the app.',
         position: 'top',
       });
     } finally {
@@ -308,14 +308,14 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
                 onPress={onSecureVideo}
                 style={styles.secureButton}
               >
-                {videoSecured ? 'Video in App gesichert' : 'Video in App sichern'}
+                {videoSecured ? 'Video secured in app' : 'Secure video in app'}
               </Button>
               <Text testID="video-analysis-secure-video-hint" variant="bodySmall" style={styles.secureHint}>
                 {videoSecured
-                  ? 'Dieses Video liegt in der App und bleibt erhalten, auch wenn du es aus der Galerie löschst.'
+                  ? 'This video is stored in the app and will be kept, even if you delete it from the gallery.'
                   : sourceAvailable === false
-                    ? 'Das Quellvideo ist nicht mehr in der Galerie vorhanden und kann nicht mehr in die App übernommen werden.'
-                    : 'Übernimmt das Video in die App. Es bleibt dann erhalten, auch wenn du es aus der Galerie löschst.'}
+                    ? 'The source video is no longer in the gallery and can no longer be imported into the app.'
+                    : 'Saves the video into the app. It will then be kept, even if you delete it from the gallery.'}
               </Text>
             </View>
           )}

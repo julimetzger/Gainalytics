@@ -151,7 +151,7 @@ describe('VideoAnalysisPlaybackOverlayCard – unavailable source video', () => 
     const {getByTestId, queryByTestId, getByText} = await renderAndSettle();
 
     expect(getByTestId('video-analysis-source-unavailable')).toBeTruthy();
-    expect(getByText('Quellvideo nicht mehr verfügbar')).toBeTruthy();
+    expect(getByText('Source video no longer available')).toBeTruthy();
     expect(queryByTestId('video-analysis-playback-player')).toBeNull();
   });
 

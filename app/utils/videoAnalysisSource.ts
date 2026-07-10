@@ -37,3 +37,25 @@ export const resolveVideoPlaybackUri = (
 export const holdsGalleryUriPermission = (analysis?: Pick<VideoAnalysis, 'sourceUri'>) => {
   return !!analysis?.sourceUri && analysis.sourceUri.startsWith('content://');
 };
+
+/**
+ * GH-321: the persistable gallery grant is held per content:// URI for the whole app, not
+ * per analysis. When the user imports the same gallery clip twice, both analyses share one
+ * grant. Deleting one of them must therefore only give the grant back once *no other*
+ * analysis still relies on the same source video — otherwise the surviving analysis would
+ * lose playback and full-import even though it was never deleted.
+ *
+ * Returns true when the grant must be kept because another analysis still uses `sourceUri`.
+ */
+export const isGalleryUriStillInUse = (
+  sourceUri: string | undefined,
+  analyses: ReadonlyArray<Pick<VideoAnalysis, 'id' | 'sourceUri'>>,
+  excludeAnalysisId?: number,
+): boolean => {
+  if (!sourceUri || !sourceUri.startsWith('content://')) {
+    return false;
+  }
+  return analyses.some(
+    (analysis) => analysis.id !== excludeAnalysisId && analysis.sourceUri === sourceUri,
+  );
+};

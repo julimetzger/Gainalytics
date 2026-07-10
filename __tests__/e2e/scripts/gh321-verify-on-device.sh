@@ -3,9 +3,9 @@
 # GH-321 on-device verification.
 #
 # Asserts the resulting states of the gallery-backed video playback change:
-#   * an analysis whose gallery source was deleted shows "Quellvideo nicht mehr verfügbar",
+#   * an analysis whose gallery source was deleted shows "Source video no longer available",
 #     hides the player, and still renders the analysis results
-#   * an analysis secured via the full-import button reports "Video in App gesichert"
+#   * an analysis secured via the full-import button reports "Video secured in app"
 #     and still plays
 #
 # This is the adb-driven equivalent of
@@ -193,12 +193,12 @@ tap_id "video-analysis-row-${GALLERY_ANALYSIS}"; sleep 8
 assert_app_focused; dump
 assert_id_present "video-analysis-source-unavailable"
 assert_id_absent  "video-analysis-playback-player"
-assert_text_present "Quellvideo nicht mehr verfügbar"
-assert_text_present "Das Video wurde aus der Galerie entfernt. Die Analyse-Ergebnisse bleiben erhalten."
+assert_text_present "Source video no longer available"
+assert_text_present "The video was removed from the gallery. The analysis results are still available."
 # The analysis results must remain usable even though the video is gone.
 assert_id_present "video-analysis-playback-speed-plot"
 # A vanished source can no longer be pulled into the app.
-assert_text_present "Das Quellvideo ist nicht mehr in der Galerie vorhanden und kann nicht mehr in die App übernommen werden."
+assert_text_present "The source video is no longer in the gallery and can no longer be imported into the app."
 
 adbs shell input keyevent KEYCODE_BACK; sleep 4; assert_app_focused
 
@@ -209,8 +209,8 @@ tap_id "video-analysis-row-${SECURED_ANALYSIS}"; sleep 8
 assert_app_focused; dump
 assert_id_present "video-analysis-playback-player"
 assert_id_absent  "video-analysis-source-unavailable"
-assert_text_present "Video in App gesichert"
-assert_text_present "Dieses Video liegt in der App und bleibt erhalten, auch wenn du es aus der Galerie löschst."
+assert_text_present "Video secured in app"
+assert_text_present "This video is stored in the app and will be kept, even if you delete it from the gallery."
 
 echo
 if [[ "${FAILURES}" -eq 0 ]]; then

@@ -1161,10 +1161,10 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
         >
           <IconButton icon="video-off-outline" size={32} iconColor={theme.colors.onSurfaceVariant} disabled />
           <Text variant="titleSmall" style={themedStyles.statsText}>
-            Quellvideo nicht mehr verfügbar
+            Source video no longer available
           </Text>
           <Text variant="bodySmall" style={[themedStyles.statsText, styles.sourceUnavailableHint]}>
-            Das Video wurde aus der Galerie entfernt. Die Analyse-Ergebnisse bleiben erhalten.
+            The video was removed from the gallery. The analysis results are still available.
           </Text>
         </View>
       ) : (

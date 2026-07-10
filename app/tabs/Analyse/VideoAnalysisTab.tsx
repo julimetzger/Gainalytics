@@ -26,6 +26,7 @@ import {dispatchSetVideoAnalysisLearnedRate} from '../../redux/settings/dispatch
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {importVideoAnalysisFromSource} from '../../utils/video-analysis-import';
 import {pickVideoFromGallery, releaseVideoUriPermission} from '../../utils/videoAnalysisNative';
+import {isGalleryUriStillInUse} from '../../utils/videoAnalysisSource';
 import {estimateAnalysisTimeMs} from '../../utils/videoAnalysisNotification';
 import {calculateAnalysisProgress, DEFAULT_ANALYSIS_SECONDS_PER_VIDEO_SECOND} from '../../utils/videoAnalysisProgress';
 import {buildVideoAnalysisDefaultDateRange, filterVideoAnalyses, filterVideoAnalysesBySearchQuery, isSameRange, RIR_PRESETS, VL_PRESETS} from '../../utils/video-analysis-filters';
@@ -271,11 +272,15 @@ const VideoAnalysisTab = () => {
         return;
       }
       await deleteVideoAnalysisArtifacts({resultPath, localVideoPath, previewPath: getVideoAnalysisPreviewPath(analysisId)});
-      // Stop holding access to the user's gallery video once the analysis is gone.
-      await releaseVideoUriPermission(sourceUri);
+      // GH-321: the gallery grant is shared per URI, so only give it back once no other
+      // analysis still points at the same source video — otherwise deleting one of two
+      // analyses that reused the same clip would break playback for the survivor.
+      if (!isGalleryUriStillInUse(sourceUri, analyses, analysisId)) {
+        await releaseVideoUriPermission(sourceUri);
+      }
       removeVideoAnalysis(analysisId);
     },
-    [removeVideoAnalysis],
+    [analyses, removeVideoAnalysis],
   );
 
   const onToggleExercise = useCallback((exercise: Exercise) => {
