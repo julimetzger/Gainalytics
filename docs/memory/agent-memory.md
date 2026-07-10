@@ -1773,3 +1773,13 @@ For order, assert the sequence: `getAllByText(/^(Plan|Train|Analysis)$/).map(n =
 **Problem/Symptoms (GH-363):** The GH-360 bar-path overlay fed x/y trajectory points into a `LineChart`. A bar path loops (x oscillates), but MPAndroidChart sorts/renders entries as a function of x — the drawn curve is garbage that happens to look like "one line", which is why the overlay never showed both analyses.
 **Working solution:** Render 2D trajectories with `react-native-svg` `Polyline` (dep already in the app). Normalise each path to ROM space (y over its own vertical span, x scaled by the SAME factor, centred) so two analyses overlay regardless of camera framing. Draw series A wider (5px) UNDER B (2.5px) so nearly identical paths remain distinguishable as an outline; add start dots.
 **Apply when:** Any chart of positional tracking data (bar path, joint path) — reach for SVG, not a line-chart lib.
+
+### 235. Contiguous rep segments: an inclusive forward scan never resolves a seek to rep N+1's lift-off — scan in reverse
+**Problem/Symptoms (GH-363 feedback):** Rep detection writes contiguous segments (rep N `endMs` === rep N+1 `startMs`, verified in the user's real result JSONs). `updateCurrentRepForTime` matched `t >= startMs && t <= endMs` scanning forward, so seeking exactly to rep 2's `startMs` (what "tap a rep to jump" does) matched rep 1 first — currentRepIndex, the rep-table highlight, and anything auto-following the scrubber never registered the jump.
+**Working solution:** Iterate segments in REVERSE with the same inclusive check: boundaries then resolve to the later rep, interior times are unaffected.
+**Apply when:** Mapping a scrubber/seek time to a segment list produced by rep detection (or any contiguous interval list) — don't trust inclusive forward scans at shared boundaries.
+
+### 236. `tr -d '[]'` on uiautomator bounds JOINS adjacent numbers — taps go to absurd y and silently no-op
+**Problem/Symptoms (GH-363 feedback):** A center-of-bounds helper did `grep -o '[…][…]' | tr -d '[]' | tr ',' ' '`. On `"[422,357][485,420]"` deleting the brackets fuses `357][485` into `357485` → awk computed center `(421, 178742)`; `input tap 421 178742` errors nothing and taps nothing. Manual taps at correct coordinates worked, so the script looked haunted: assertions on the pre-tap state passed, every state-changing step failed.
+**Working solution:** Split the pair separator FIRST: `sed 's/\]\[/ /; s/[][]//g; s/,/ /g'` → `422 357 485 420`. Also `rm -f /sdcard/ui.xml` before every `uiautomator dump` and sanity-check computed coordinates against the device resolution (y ≤ 1600 on R5CN30HWZFN's 720x1600 override, entry #197).
+**Apply when:** Writing any adb tap script that parses `bounds="[x1,y1][x2,y2]"` from uiautomator XML.
