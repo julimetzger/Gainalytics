@@ -1,9 +1,9 @@
-import React, {useMemo} from 'react';
-import {StyleSheet, View} from 'react-native';
-import {LineChart, LineValue} from 'react-native-charts-wrapper';
-import {processColor} from 'react-native';
-import {useTheme} from 'react-native-paper';
+import React, {useCallback, useMemo, useState} from 'react';
+import {LayoutChangeEvent, StyleSheet, View} from 'react-native';
+import Svg, {Circle, Polyline} from 'react-native-svg';
+import {Text, useTheme} from 'react-native-paper';
 import {BarPathPoint} from '../../models/entities/VideoAnalysis';
+import {smoothBarPathSeries} from '../../utils/videoAnalysisSetAggregates';
 
 interface Props {
   barPathSeries1: BarPathPoint[];
@@ -15,160 +15,110 @@ interface Props {
   height?: number;
 }
 
-const SMOOTHING_WINDOW = 5;
-
-const smoothNumberSeries = (values: number[], windowSize: number): number[] => {
-  if (values.length === 0 || windowSize <= 1) {
-    return values;
-  }
-  const halfWindow = Math.floor(windowSize / 2);
-  return values.map((_, index) => {
-    const start = Math.max(0, index - halfWindow);
-    const end = Math.min(values.length - 1, index + halfWindow);
-    let sum = 0;
-    let count = 0;
-    for (let cursor = start; cursor <= end; cursor += 1) {
-      sum += values[cursor];
-      count += 1;
-    }
-    return count > 0 ? sum / count : 0;
-  });
-};
-
-const smoothBarPath = (series: BarPathPoint[]): BarPathPoint[] => {
-  if (series.length < 3) {
-    return series;
-  }
-  const sx = smoothNumberSeries(series.map((p) => p.x), SMOOTHING_WINDOW);
-  const sy = smoothNumberSeries(series.map((p) => p.y), SMOOTHING_WINDOW);
-  return series.map((p, i) => ({...p, x: sx[i], y: sy[i]}));
-};
+const PADDING = 12;
 
 /**
- * Normalise bar-path x/y coordinates so both analyses are in comparable coordinate space.
- * If a tracking frame size is provided, normalise to [0, 1] using that.
- * Otherwise normalise relative to each series' own bounds.
+ * Normalise a bar path into ROM space: y ∈ [0, 1] over the bar's own vertical
+ * range, x centred on the path's horizontal midpoint and scaled by the SAME
+ * factor as y so horizontal drift keeps its true proportion to the range of
+ * motion. Both analyses end up overlaid and vertically aligned regardless of
+ * camera distance or framing.
  */
-const normaliseToLineValues = (
-  series: BarPathPoint[],
-  frameW?: number,
-  frameH?: number,
-): LineValue[] => {
+const normaliseToRomSpace = (series: BarPathPoint[]): {x: number; y: number}[] => {
   if (series.length === 0) {
     return [];
   }
-  if (frameW && frameH && frameW > 0 && frameH > 0) {
-    return series.map((p) => ({x: p.x / frameW, y: 1 - p.y / frameH}));
-  }
   const xs = series.map((p) => p.x);
   const ys = series.map((p) => p.y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
   const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const spanX = Math.max(1, maxX - minX);
-  const spanY = Math.max(1, maxY - minY);
-  // Flip Y so up = higher value (screen coords have y increasing downward)
+  const spanY = Math.max(1, Math.max(...ys) - minY);
+  const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+  // Tracking-frame y grows downward, matching SVG coordinates: no flip needed.
   return series.map((p) => ({
-    x: (p.x - minX) / spanX,
-    y: 1 - (p.y - minY) / spanY,
+    x: (p.x - centerX) / spanY,
+    y: (p.y - minY) / spanY,
   }));
 };
 
-const BarPathCompareView = ({
-  barPathSeries1,
-  barPathSeries2,
-  trackingFrameWidth1,
-  trackingFrameHeight1,
-  trackingFrameWidth2,
-  trackingFrameHeight2,
-  height = 220,
-}: Props) => {
+const toSvgPoints = (normalised: {x: number; y: number}[], width: number, height: number): string => {
+  const scale = Math.max(1, height - 2 * PADDING);
+  return normalised
+    .map((p) => `${(width / 2 + p.x * scale).toFixed(1)},${(PADDING + p.y * scale).toFixed(1)}`)
+    .join(' ');
+};
+
+/**
+ * Overlays the bar paths of both analyses as true 2D trajectories. A line
+ * chart cannot draw these (x is not monotonic over a rep), so the paths are
+ * rendered as SVG polylines; the dot marks each path's starting point.
+ */
+const BarPathCompareView = ({barPathSeries1, barPathSeries2, height = 220}: Props) => {
   const theme = useTheme();
+  const [width, setWidth] = useState(0);
 
-  const color1 = useMemo(() => processColor(theme.colors.primary), [theme]);
-  const color2 = useMemo(() => processColor(theme.colors.tertiary), [theme]);
+  const smoothed1 = useMemo(() => smoothBarPathSeries(barPathSeries1), [barPathSeries1]);
+  const smoothed2 = useMemo(() => smoothBarPathSeries(barPathSeries2), [barPathSeries2]);
+  const normalised1 = useMemo(() => normaliseToRomSpace(smoothed1), [smoothed1]);
+  const normalised2 = useMemo(() => normaliseToRomSpace(smoothed2), [smoothed2]);
 
-  const smoothed1 = useMemo(() => smoothBarPath(barPathSeries1), [barPathSeries1]);
-  const smoothed2 = useMemo(() => smoothBarPath(barPathSeries2), [barPathSeries2]);
+  const points1 = useMemo(() => toSvgPoints(normalised1, width, height), [normalised1, width, height]);
+  const points2 = useMemo(() => toSvgPoints(normalised2, width, height), [normalised2, width, height]);
 
-  const lineValues1 = useMemo(
-    () => normaliseToLineValues(smoothed1, trackingFrameWidth1, trackingFrameHeight1),
-    [smoothed1, trackingFrameWidth1, trackingFrameHeight1],
-  );
-  const lineValues2 = useMemo(
-    () => normaliseToLineValues(smoothed2, trackingFrameWidth2, trackingFrameHeight2),
-    [smoothed2, trackingFrameWidth2, trackingFrameHeight2],
-  );
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    setWidth(event.nativeEvent.layout.width);
+  }, []);
 
-  const chartData = useMemo(
-    () => ({
-      dataSets: [
-        {
-          values: lineValues1,
-          label: 'Analysis A',
-          config: {
-            color: color1,
-            drawCircles: false,
-            drawValues: false,
-            lineWidth: 2,
-            mode: 'HORIZONTAL_BEZIER' as const,
-            highlightEnabled: false,
-          },
-        },
-        {
-          values: lineValues2,
-          label: 'Analysis B',
-          config: {
-            color: color2,
-            drawCircles: false,
-            drawValues: false,
-            lineWidth: 2,
-            mode: 'HORIZONTAL_BEZIER' as const,
-            highlightEnabled: false,
-          },
-        },
-      ],
-    }),
-    [lineValues1, lineValues2, color1, color2],
-  );
+  const startDot = (points: string, color: string, testID: string) => {
+    const first = points.split(' ')[0];
+    if (!first) {
+      return null;
+    }
+    const [cx, cy] = first.split(',');
+    return <Circle testID={testID} cx={cx} cy={cy} r={4} fill={color} />;
+  };
 
   return (
-    <View style={[styles.container, {height}]} testID="bar-path-compare-view">
-      <LineChart
-        style={styles.chart}
-        data={chartData}
-        legend={{enabled: true, textColor: processColor(theme.colors.onSurface) as number}}
-        chartDescription={{text: ''}}
-        xAxis={{
-          drawGridLines: true,
-          gridColor: processColor(theme.colors.outlineVariant) as number,
-          axisLineColor: processColor(theme.colors.outline) as number,
-          textColor: processColor(theme.colors.onSurfaceVariant) as number,
-          axisMinimum: 0,
-          axisMaximum: 1,
-          granularity: 0.1,
-          granularityEnabled: true,
-          drawLabels: false,
-        }}
-        yAxis={{
-          left: {
-            axisMinimum: 0,
-            axisMaximum: 1,
-            drawGridLines: true,
-            gridColor: processColor(theme.colors.outlineVariant) as number,
-            textColor: processColor(theme.colors.onSurfaceVariant) as number,
-            drawLabels: false,
-          },
-          right: {enabled: false},
-        }}
-        animation={{durationX: 0, durationY: 0}}
-        touchEnabled={true}
-        dragEnabled={true}
-        scaleEnabled={true}
-        pinchZoom={true}
-        doubleTapToZoomEnabled={false}
-      />
+    <View style={styles.container} testID="bar-path-compare-view">
+      <View style={{height}} onLayout={onLayout}>
+        {width > 0 && (
+          <Svg width={width} height={height}>
+            {points1.length > 0 && (
+              <Polyline
+                testID="bar-path-compare-path-a"
+                points={points1}
+                stroke={theme.colors.primary}
+                // A is drawn wider underneath B so it stays visible as an
+                // outline when both paths (nearly) coincide.
+                strokeWidth={5}
+                strokeOpacity={0.9}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+            {points2.length > 0 && (
+              <Polyline
+                testID="bar-path-compare-path-b"
+                points={points2}
+                stroke={theme.colors.tertiary}
+                strokeWidth={2.5}
+                strokeOpacity={0.9}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+            {startDot(points1, theme.colors.primary, 'bar-path-compare-start-a')}
+            {startDot(points2, theme.colors.tertiary, 'bar-path-compare-start-b')}
+          </Svg>
+        )}
+      </View>
+      <View style={styles.legendRow} pointerEvents="none">
+        <View style={[styles.legendDot, {backgroundColor: theme.colors.primary}]} />
+        <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>Analysis A</Text>
+        <View style={[styles.legendDot, styles.legendDotSpacing, {backgroundColor: theme.colors.tertiary}]} />
+        <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>Analysis B</Text>
+      </View>
     </View>
   );
 };
@@ -177,8 +127,19 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
   },
-  chart: {
-    flex: 1,
+  legendRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+  },
+  legendDotSpacing: {
+    marginLeft: 10,
   },
 });
 
