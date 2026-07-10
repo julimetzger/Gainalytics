@@ -1,5 +1,6 @@
 package com.powerliftingworkoutplanner;
 
+import android.content.res.AssetFileDescriptor;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -32,6 +33,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class VideoAnalysisPlayerView extends FrameLayout {
+    /** JS matches on this prefix to render the "source video no longer available" state. */
+    static final String SOURCE_UNAVAILABLE_PREFIX = "SOURCE_UNAVAILABLE::";
     private static final int PROGRESS_INTERVAL_MS = 50;
     private static final int PROGRESS_EVENT_INTERVAL_MS = 50;
     private static final float BACKGROUND_PATH_STROKE_WIDTH_PX = 4f;
@@ -179,14 +182,24 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         stopProgressLoop();
         postInvalidateOnAnimation();
 
-        String normalizedPath = path.startsWith("file://") ? path.substring(7) : path;
-        File file = new File(normalizedPath);
-        if (!file.exists()) {
-            emitError("Video source not found: " + normalizedPath);
-            return;
+        Uri mediaUri;
+        if (path.startsWith("content://")) {
+            mediaUri = Uri.parse(path);
+            if (!isContentUriReadable(mediaUri)) {
+                emitError(SOURCE_UNAVAILABLE_PREFIX + path);
+                return;
+            }
+        } else {
+            String normalizedPath = path.startsWith("file://") ? path.substring(7) : path;
+            File file = new File(normalizedPath);
+            if (!file.exists()) {
+                emitError(SOURCE_UNAVAILABLE_PREFIX + normalizedPath);
+                return;
+            }
+            mediaUri = Uri.fromFile(file);
         }
 
-        MediaItem mediaItem = MediaItem.fromUri(Uri.fromFile(file));
+        MediaItem mediaItem = MediaItem.fromUri(mediaUri);
         player.setMediaItem(mediaItem);
         player.prepare();
 
@@ -584,6 +597,18 @@ public class VideoAnalysisPlayerView extends FrameLayout {
 
     private void emitEnd() {
         dispatchEvent("onEnd", Arguments.createMap());
+    }
+
+    /**
+     * A gallery-backed video can vanish (user deleted it) or its grant can be revoked.
+     * Probing the descriptor keeps ExoPlayer from surfacing a raw decoder error.
+     */
+    private boolean isContentUriReadable(Uri uri) {
+        try (AssetFileDescriptor descriptor = getContext().getContentResolver().openAssetFileDescriptor(uri, "r")) {
+            return descriptor != null;
+        } catch (Exception error) {
+            return false;
+        }
     }
 
     private void emitError(String message) {

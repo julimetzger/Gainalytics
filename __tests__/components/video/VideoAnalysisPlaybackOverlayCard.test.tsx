@@ -8,6 +8,18 @@ jest.mock('react-native-charts-wrapper', () => ({
   LineChart: 'LineChart',
 }));
 
+jest.mock('../../../app/utils/videoAnalysisNative', () => ({
+  isVideoSourceAvailable: jest.fn(),
+}));
+
+const {isVideoSourceAvailable} = jest.requireMock('../../../app/utils/videoAnalysisNative') as {
+  isVideoSourceAvailable: jest.Mock;
+};
+
+beforeEach(() => {
+  isVideoSourceAvailable.mockResolvedValue(true);
+});
+
 
 const makeResult = (): BarTrackingResult => ({
   analysisId: 1,
@@ -118,10 +130,81 @@ const setSpeedChartWidth = (getByTestId: (testId: string) => any, width: number)
   });
 };
 
+// GH-321: a gallery video can be deleted after the analysis was created.
+describe('VideoAnalysisPlaybackOverlayCard – unavailable source video', () => {
+  const renderAndSettle = async (props: {videoUri?: string} = {}) => {
+    const utils = render(
+      <VideoAnalysisPlaybackOverlayCard
+        analysisId={1}
+        videoUri={props.videoUri ?? 'content://media/42'}
+        result={makeResult()}
+      />,
+    );
+    // Let the async isVideoSourceAvailable probe resolve and commit its state.
+    await act(async () => {});
+    return utils;
+  };
+
+  it('shows the unavailable state instead of the player when the source is gone', async () => {
+    isVideoSourceAvailable.mockResolvedValue(false);
+
+    const {getByTestId, queryByTestId, getByText} = await renderAndSettle();
+
+    expect(getByTestId('video-analysis-source-unavailable')).toBeTruthy();
+    expect(getByText('Source video no longer available')).toBeTruthy();
+    expect(queryByTestId('video-analysis-playback-player')).toBeNull();
+  });
+
+  it('keeps the analysis results usable when the source is gone', async () => {
+    isVideoSourceAvailable.mockResolvedValue(false);
+
+    const {getByTestId} = await renderAndSettle();
+
+    // The velocity plot must still render — the analysis belongs to the app.
+    expect(getByTestId('video-analysis-playback-speed-plot')).toBeTruthy();
+  });
+
+  it('renders the player when the source is available', async () => {
+    isVideoSourceAvailable.mockResolvedValue(true);
+
+    const {getByTestId, queryByTestId} = await renderAndSettle();
+
+    expect(getByTestId('video-analysis-playback-player')).toBeTruthy();
+    expect(queryByTestId('video-analysis-source-unavailable')).toBeNull();
+  });
+
+  it('falls back to the unavailable state when the native player reports the source is gone', async () => {
+    isVideoSourceAvailable.mockResolvedValue(true);
+    const {getByTestId, queryByTestId} = await renderAndSettle();
+
+    await act(async () => {
+      getByTestId('video-analysis-playback-player').props.onError({
+        nativeEvent: {message: 'SOURCE_UNAVAILABLE::content://media/42'},
+      });
+    });
+
+    expect(getByTestId('video-analysis-source-unavailable')).toBeTruthy();
+    expect(queryByTestId('video-analysis-playback-player')).toBeNull();
+  });
+
+  it('ignores unrelated player errors', async () => {
+    isVideoSourceAvailable.mockResolvedValue(true);
+    const {getByTestId, queryByTestId} = await renderAndSettle();
+
+    await act(async () => {
+      getByTestId('video-analysis-playback-player').props.onError({
+        nativeEvent: {message: 'Decoder init failed'},
+      });
+    });
+
+    expect(queryByTestId('video-analysis-source-unavailable')).toBeNull();
+  });
+});
+
 describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
   it('renders four step buttons with correct labels', () => {
     const {getByTestId, getByText} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
 
     expect(getByTestId('video-analysis-step-minus200')).toBeTruthy();
@@ -133,7 +216,7 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
 
   it('+0.2s button seeks forward 200ms from current time', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     const scrubber = getByTestId('video-analysis-playback-scrubber');
@@ -156,7 +239,7 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
 
   it('-0.2s button seeks backward 200ms from current time', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     const scrubber = getByTestId('video-analysis-playback-scrubber');
@@ -174,7 +257,7 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
 
   it('+0.05s button seeks forward 50ms from current time', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     const scrubber = getByTestId('video-analysis-playback-scrubber');
@@ -192,7 +275,7 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
 
   it('-0.05s button seeks backward 50ms from current time', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     const scrubber = getByTestId('video-analysis-playback-scrubber');
@@ -210,7 +293,7 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
 
   it('step button clamps to 0 when seeking before start', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     const scrubber = getByTestId('video-analysis-playback-scrubber');
@@ -228,7 +311,7 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
 
   it('step button clamps to duration when seeking past end', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     const scrubber = getByTestId('video-analysis-playback-scrubber');
@@ -248,7 +331,7 @@ describe('VideoAnalysisPlaybackOverlayCard – step buttons', () => {
 describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
   it('playback time display updates after seek (onPlayerProgress no longer drives time)', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     const scrubber = getByTestId('video-analysis-playback-scrubber');
@@ -262,7 +345,7 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
 
   it('seek via step button updates seekPositionMs', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     const scrubber = getByTestId('video-analysis-playback-scrubber');
@@ -280,7 +363,7 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
 
   it('tapping the speed chart seeks the player and updates the scrubber immediately', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     const scrubber = getByTestId('video-analysis-playback-scrubber');
@@ -309,7 +392,7 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber time update', () => {
 
   it('scrubber drag ignores stale native progress while the user is dragging', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     const scrubber = getByTestId('video-analysis-playback-scrubber');
@@ -357,7 +440,7 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber and marker usable before
 
   it('scrubber reflects seek position even when onPlayerLoad has not yet fired', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const scrubber = getByTestId('video-analysis-playback-scrubber');
 
@@ -373,7 +456,7 @@ describe('VideoAnalysisPlaybackOverlayCard – scrubber and marker usable before
 
   it('velocity marker moves after seek even when onPlayerLoad has not yet fired', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const scrubber = getByTestId('video-analysis-playback-scrubber');
 
@@ -402,7 +485,7 @@ describe('VideoAnalysisPlaybackOverlayCard – speed chart marker alignment', ()
 
   const setupWithOffset = () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultWithOffset()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithOffset()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     const scrubber = getByTestId('video-analysis-playback-scrubber');
@@ -505,7 +588,7 @@ const makeResultWithReps = (): BarTrackingResult => ({
 describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
   it('renders rep summary section when repMetrics is non-empty', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithReps()} />,
     );
 
     expect(getByTestId('video-analysis-rep-summary')).toBeTruthy();
@@ -513,7 +596,7 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
 
   it('rep summary shows correct rep count label', () => {
     const {getByText} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithReps()} />,
     );
 
     expect(getByText('Rep Summary (2 reps)')).toBeTruthy();
@@ -521,7 +604,7 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
 
   it('rep summary shows rep time for each rep', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithReps()} />,
     );
 
     const flatChildren = (el: any): string => [].concat(el.props.children).join('');
@@ -533,7 +616,7 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
 
   it('rep summary shows average concentric speed for each rep', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithReps()} />,
     );
 
     const flatChildren = (el: any): string => [].concat(el.props.children).join('');
@@ -545,7 +628,7 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
 
   it('does not render rep summary section when repMetrics is empty', () => {
     const {queryByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
 
     expect(queryByTestId('video-analysis-rep-summary')).toBeNull();
@@ -554,13 +637,13 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
   it('renders without crash when repSegments is empty (graceful degradation)', () => {
     const result = makeResult();
     expect(() =>
-      render(<VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={result} />),
+      render(<VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={result} />),
     ).not.toThrow();
   });
 
   it('passes repSegments prop to native player', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithReps()} />,
     );
 
     const player = getByTestId('video-analysis-playback-player');
@@ -573,7 +656,7 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
 
   it('passes currentRepIndex and themed native overlay colors to the player', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithReps()} />,
     );
 
     loadPlayer(getByTestId('video-analysis-playback-player'), 3000);
@@ -592,7 +675,7 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
 
   it('renders the playback overlay wrapper used by native overlay capture flows', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
 
     expect(getByTestId('video-analysis-playback-overlay')).toBeTruthy();
@@ -600,7 +683,7 @@ describe('VideoAnalysisPlaybackOverlayCard – rep summary', () => {
 
   it('native player overlay card is rendered with correct testID', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
 
     expect(getByTestId('video-analysis-overlay-card')).toBeTruthy();
@@ -654,7 +737,7 @@ describe('VideoAnalysisPlaybackOverlayCard – calibration clamping (GH-86 P2)',
 
   it('longpress turnaround-left clamps to 0 and repeat does not go negative', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultNearBoundary()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultNearBoundary()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     loadPlayer(player, 3000);
@@ -693,7 +776,7 @@ describe('VideoAnalysisPlaybackOverlayCard – calibration clamping (GH-86 P2)',
 
   it('longpress end-right clamps to correctedPlaybackDurationMs and repeat does not exceed it', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultNearBoundary()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultNearBoundary()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     loadPlayer(player, 3000);
@@ -728,7 +811,7 @@ describe('VideoAnalysisPlaybackOverlayCard – calibration clamping (GH-86 P2)',
   it('longpress turnaround-right repeat does not exceed endMs (marker order)', () => {
     // last rep: turnaround=2800, end=3000 — one step would push to 3800 but must clamp to end=3000
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultNearBoundary()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultNearBoundary()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     loadPlayer(player, 3000);
@@ -764,7 +847,7 @@ describe('VideoAnalysisPlaybackOverlayCard – calibration clamping (GH-86 P2)',
   it('longpress end-left repeat does not go below turnaroundMs (marker order)', () => {
     // last rep: turnaround=2800, end=3000 — one step would push end to 2000 but must clamp to turnaround=2800
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultNearBoundary()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultNearBoundary()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     loadPlayer(player, 3000);
@@ -812,7 +895,7 @@ describe('VideoAnalysisPlaybackOverlayCard – override-clobber guard (GH-86 P2)
   it('late-arriving savedSetResult does not overwrite a manually adjusted turnaround', () => {
     // Render without any savedSetResult → overrides start null
     const {getByTestId, rerender} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultWithReps()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithReps()} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     loadPlayer(player, 3000);
@@ -841,7 +924,7 @@ describe('VideoAnalysisPlaybackOverlayCard – override-clobber guard (GH-86 P2)
     };
     act(() => {
       rerender(
-        <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResultWithReps()} savedSetResult={savedSetResult} />,
+        <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithReps()} savedSetResult={savedSetResult} />,
       );
     });
 
@@ -1053,7 +1136,7 @@ describe('getRepPhaseBoundaries – real deadlift recording from R5CN30HWZFN (GH
     const result: BarTrackingResult = gh307Fixture.barTrackingResult;
     const durationMs = result.barPathSeries[result.barPathSeries.length - 1].tMs;
     const {getByTestId, queryByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={result} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={result} />,
     );
     loadPlayer(getByTestId('video-analysis-playback-player'), durationMs);
     setSpeedChartWidth(getByTestId, 240);
@@ -1128,7 +1211,7 @@ describe('VideoAnalysisPlaybackOverlayCard – calibration marker window (GH-307
   // → drawable width 200; duration 2000ms → toX(t) = 36 + (t / 2000) * 200.
   const openCalibration = (result: BarTrackingResult) => {
     const utils = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={result} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={result} />,
     );
     loadPlayer(utils.getByTestId('video-analysis-playback-player'), 2000);
     setSpeedChartWidth(utils.getByTestId, 240);
@@ -1236,7 +1319,7 @@ describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
 
   it('renders speed control with default 1.0x label', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
 
     expect(getByTestId('video-analysis-speed-control')).toBeTruthy();
@@ -1245,7 +1328,7 @@ describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
 
   it('renders speed buttons for all preset values', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
 
     for (const speed of [0.1, 0.2, 0.3, 0.5, 0.75, 1.0]) {
@@ -1255,7 +1338,7 @@ describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
 
   it('passes default playbackSpeed 1.0 to the native player', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
 
     const player = getByTestId('video-analysis-playback-player');
@@ -1264,7 +1347,7 @@ describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
 
   it('pressing a speed button updates the label and passes new speed to native player', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
 
     act(() => {
@@ -1278,7 +1361,7 @@ describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
   it('speed chart velocity values (px/s) are not affected by speed selection', () => {
     const result = makeResult();
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={result} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={result} />,
     );
     const player = getByTestId('video-analysis-playback-player');
     const barPathBefore = player.props.barPathSeries;
@@ -1295,7 +1378,7 @@ describe('VideoAnalysisPlaybackOverlayCard – speed control', () => {
 
   it('speed label shows 0.75x without rounding to 0.8x', () => {
     const {getByTestId} = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
 
     act(() => {
@@ -1371,7 +1454,7 @@ describe('VideoAnalysisPlaybackOverlayCard – per-rep override map (GH-257-A)',
     const {getByTestId} = render(
       <VideoAnalysisPlaybackOverlayCard
         analysisId={1}
-        localVideoPath="/test/video.mp4"
+        videoUri="/test/video.mp4"
         result={makeResultWith3Reps()}
         savedSetResult={savedSetResult}
       />,
@@ -1405,7 +1488,7 @@ describe('VideoAnalysisPlaybackOverlayCard – per-rep override map (GH-257-A)',
     const {getByTestId} = render(
       <VideoAnalysisPlaybackOverlayCard
         analysisId={1}
-        localVideoPath="/test/video.mp4"
+        videoUri="/test/video.mp4"
         result={makeResultWith3Reps()}
         savedSetResult={savedSetResult}
       />,
@@ -1484,7 +1567,7 @@ describe('VideoAnalysisPlaybackOverlayCard – per-rep override map (GH-257-A)',
     const {getByTestId} = render(
       <VideoAnalysisPlaybackOverlayCard
         analysisId={1}
-        localVideoPath="/test/video.mp4"
+        videoUri="/test/video.mp4"
         result={makeResultWith3RepsNonZeroBased()}
         savedSetResult={savedSetResult}
       />,
@@ -1512,7 +1595,7 @@ describe('VideoAnalysisPlaybackOverlayCard – per-rep override map (GH-257-A)',
     const {getByTestId} = render(
       <VideoAnalysisPlaybackOverlayCard
         analysisId={1}
-        localVideoPath="/test/video.mp4"
+        videoUri="/test/video.mp4"
         result={makeResultWith3RepsNonZeroBased()}
         savedSetResult={savedSetResult}
       />,
@@ -1580,7 +1663,7 @@ describe('VideoAnalysisPlaybackOverlayCard – per-rep override map (GH-257-A)',
     const {getByText} = render(
       <VideoAnalysisPlaybackOverlayCard
         analysisId={1}
-        localVideoPath="/test/video.mp4"
+        videoUri="/test/video.mp4"
         result={makeResultWith2RepsForVLTest()}
       />,
     );
@@ -1607,7 +1690,7 @@ describe('VideoAnalysisPlaybackOverlayCard – per-rep override map (GH-257-A)',
     const {queryByText} = render(
       <VideoAnalysisPlaybackOverlayCard
         analysisId={1}
-        localVideoPath="/test/video.mp4"
+        videoUri="/test/video.mp4"
         result={makeResultWith2RepsForVLTest()}
         savedSetResult={staleSavedSetResult}
       />,
@@ -1630,7 +1713,7 @@ describe('VideoAnalysisPlaybackOverlayCard – zoomed chart overscroll clamping 
 
   const setup = () => {
     const utils = render(
-      <VideoAnalysisPlaybackOverlayCard analysisId={1} localVideoPath="/test/video.mp4" result={makeResult()} />,
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResult()} />,
     );
     const player = utils.getByTestId('video-analysis-playback-player');
     const speedPlot = utils.getByTestId('video-analysis-playback-speed-plot');

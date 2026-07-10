@@ -96,6 +96,62 @@ export const prepareSquatVideoSeed = async (localVideoPath: string, analysisId: 
   return nativePrepare(localVideoPath, analysisId);
 };
 
+export interface PickedVideo {
+  uri: string;
+  /** False when the provider refused a persistable grant (access then ends with the process). */
+  persisted: boolean;
+}
+
+/**
+ * Opens the system document picker and takes a persistable read grant on the result, so the
+ * gallery video stays playable after the app is fully restarted. Resolves null on cancel.
+ */
+export const pickVideoFromGallery = async (): Promise<PickedVideo | null> => {
+  const nativePick = VideoAnalysis?.pickVideoFromGallery as undefined | (() => Promise<PickedVideo | null>);
+  if (!nativePick) {
+    throw new Error('Native pickVideoFromGallery is unavailable');
+  }
+  return nativePick();
+};
+
+/** Gives back the persistable read grant, e.g. when the analysis is deleted. */
+export const releaseVideoUriPermission = async (uri?: string): Promise<boolean> => {
+  const nativeRelease = VideoAnalysis?.releaseVideoUriPermission as undefined | ((uri: string) => Promise<boolean>);
+  if (!nativeRelease || !uri) {
+    return false;
+  }
+  try {
+    return await nativeRelease(uri);
+  } catch {
+    return false;
+  }
+};
+
+/** False when the gallery video was deleted or the grant was revoked. */
+export const isVideoSourceAvailable = async (pathOrUri?: string): Promise<boolean> => {
+  const nativeCheck = VideoAnalysis?.isVideoSourceAvailable as undefined | ((path: string) => Promise<boolean>);
+  if (!pathOrUri) {
+    return false;
+  }
+  if (!nativeCheck) {
+    return true;
+  }
+  try {
+    return await nativeCheck(pathOrUri);
+  } catch {
+    return false;
+  }
+};
+
+/** "Full import": copies the gallery video into app-private storage. Returns the local path. */
+export const copyVideoToAppStorage = async (pathOrUri: string, analysisId: number): Promise<string> => {
+  const nativeCopy = VideoAnalysis?.copyVideoToAppStorage as undefined | ((path: string, id: number) => Promise<string>);
+  if (!nativeCopy) {
+    throw new Error('Native copyVideoToAppStorage is unavailable');
+  }
+  return nativeCopy(pathOrUri, analysisId);
+};
+
 export const startVideoAnalysisForegroundService = () => {
   if (Platform.OS !== 'android') {
     return;

@@ -1,0 +1,65 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-321: videos are read from the gallery instead of being copied into the app.
+#
+# This flow asserts the two resulting states in the analysis detail view:
+#   * a gallery-backed analysis whose source video was deleted shows the
+#     "Source video no longer available" state, while the analysis results stay usable
+#   * an analysis whose video was pulled in via the full-import button reports
+#     "Video secured in app" and still plays
+#
+# NOTE: intentionally does NOT clear state and does NOT import a baseline fixture.
+# It runs against the analyses already present on the device (#6 gallery-backed with a
+# deleted source, #7 secured via full import). Never run this against the full suite,
+# which would overwrite the store.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: 'tab-analyse'
+    timeout: 240000
+- tapOn:
+    id: 'tab-analyse'
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-import-button'
+    timeout: 60000
+
+# --- Analysis #6: gallery-backed, source video deleted from the gallery -----------
+- tapOn:
+    id: 'video-analysis-row-6'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-source-unavailable'
+    timeout: 60000
+# Assert the actual resulting text, not merely that some element exists.
+- assertVisible:
+    text: 'Source video no longer available'
+- assertVisible:
+    text: 'The video was removed from the gallery. The analysis results are still available.'
+# The video player must be gone, but the analysis results must still render.
+- assertNotVisible:
+    id: 'video-analysis-playback-player'
+- assertVisible:
+    id: 'video-analysis-playback-speed-plot'
+# A vanished source cannot be secured any more.
+- assertVisible:
+    text: 'The source video is no longer in the gallery and can no longer be imported into the app.'
+- back
+
+# --- Analysis #7: video secured in the app via the full-import button --------------
+- tapOn:
+    id: 'video-analysis-row-7'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-playback-player'
+    timeout: 60000
+- assertVisible:
+    text: 'Video secured in app'
+- assertVisible:
+    text: 'This video is stored in the app and will be kept, even if you delete it from the gallery.'
+# Playback survives the source video being deleted from the gallery.
+- assertNotVisible:
+    id: 'video-analysis-source-unavailable'

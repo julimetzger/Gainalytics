@@ -6,12 +6,15 @@ import {IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment, VideoAnalysisRepResult, VideoAnalysisSetResult} from '../../models/entities/VideoAnalysis';
 import {dispatchSaveVideoAnalysisSetResult} from '../../redux/VideoAnalysis/dispatch/dispatchSaveVideoAnalysisSetResult';
-import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
+import VideoAnalysisPlayerView, {VideoPlayerErrorEvent, VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
 import {vlToRirEstimate} from '../../utils/velocityLossRir';
+import {isSourceUnavailableError} from '../../utils/videoAnalysisSource';
+import {isVideoSourceAvailable} from '../../utils/videoAnalysisNative';
 
 interface Props {
   analysisId: number;
-  localVideoPath: string;
+  /** Gallery content:// URI, or an app-private path once the video is secured. */
+  videoUri: string;
   result: BarTrackingResult;
   savedSetResult?: VideoAnalysisSetResult;
   /** When set, velocity values are displayed in m/s instead of px/s. */
@@ -392,10 +395,32 @@ const createThemedStyles = (theme: MD3Theme) =>
     },
   });
 
-const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, savedSetResult, metersPerPixel}: Props) => {
+const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSetResult, metersPerPixel}: Props) => {
   const theme = useTheme();
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
   const saveSetResult = dispatchSaveVideoAnalysisSetResult();
+  // A gallery-backed video can disappear between imports. The analysis results below stay
+  // fully usable — only the player area is replaced.
+  const [sourceUnavailable, setSourceUnavailable] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSourceUnavailable(false);
+    isVideoSourceAvailable(videoUri).then((available) => {
+      if (!cancelled && !available) {
+        setSourceUnavailable(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [videoUri]);
+
+  const onPlayerError = useCallback((event: {nativeEvent: VideoPlayerErrorEvent}) => {
+    if (isSourceUnavailableError(event.nativeEvent?.message)) {
+      setSourceUnavailable(true);
+    }
+  }, []);
   const speedChartColors = useMemo(
     () => ({
       line: processColor(theme.colors.primary),
@@ -1125,10 +1150,24 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
       chartVisibleMinRef.current = 0;
       chartVisibleMaxRef.current = correctedPlaybackDurationMs; // eslint-disable-line react-hooks/exhaustive-deps
     }
-  }, [localVideoPath, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx, result.barPathSeries, result.repSegments]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [videoUri, result.analysisMeta.trackingFrameHeightPx, result.analysisMeta.trackingFrameWidthPx, result.barPathSeries, result.repSegments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
+      {sourceUnavailable ? (
+        <View
+          testID="video-analysis-source-unavailable"
+          style={[styles.previewContainer, styles.sourceUnavailableContainer, themedStyles.previewBackground]}
+        >
+          <IconButton icon="video-off-outline" size={32} iconColor={theme.colors.onSurfaceVariant} disabled />
+          <Text variant="titleSmall" style={themedStyles.statsText}>
+            Source video no longer available
+          </Text>
+          <Text variant="bodySmall" style={[themedStyles.statsText, styles.sourceUnavailableHint]}>
+            The video was removed from the gallery. The analysis results are still available.
+          </Text>
+        </View>
+      ) : (
       <View testID="video-analysis-playback-overlay" style={styles.videoRow}>
         <GestureHandlerRootView style={{flex: 1}}>
         <GestureDetector gesture={Gesture.Simultaneous(videoPinchGesture, videoPanGesture)}>
@@ -1137,7 +1176,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
           <VideoAnalysisPlayerView
             testID="video-analysis-playback-player"
             style={styles.previewImage}
-            source={localVideoPath}
+            source={videoUri}
             paused={playbackPaused}
             seekPositionMs={seekPositionMs}
             playbackSpeed={playbackSpeed}
@@ -1151,6 +1190,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
             onLoad={onPlayerLoad}
             onProgress={onPlayerProgress}
             onEnd={onPlayerEnd}
+            onError={onPlayerError}
           />
           </Animated.View>
           <View style={[styles.videoControlsOverlay, themedStyles.videoControlsBackground]} pointerEvents="box-none">
@@ -1172,6 +1212,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, localVideoPath, result, s
           </Text>
         </View>
       </View>
+      )}
 
       <View style={styles.speedPlotSection}>
         <View style={styles.speedPlotWrapper}>
@@ -1561,6 +1602,16 @@ const styles = StyleSheet.create({
   videoRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  sourceUnavailableContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+  },
+  sourceUnavailableHint: {
+    marginTop: 4,
+    textAlign: 'center',
   },
   videoStatsPanel: {
     width: 64,

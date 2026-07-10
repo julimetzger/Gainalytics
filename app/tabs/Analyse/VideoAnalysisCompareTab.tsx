@@ -8,6 +8,7 @@ import {BarTrackingResult, VideoAnalysisStatus} from '../../models/entities/Vide
 import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
 import {readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
 import {migrateBarTrackingResultIfNeeded} from '../../utils/videoAnalysisNative';
+import {resolveVideoPlaybackUri} from '../../utils/videoAnalysisSource';
 import {computeRepPhaseTimesMs} from '../../components/video/VideoAnalysisPlaybackOverlayCard';
 import CompareSyncPlaybackCard, {CompareSyncMode, CompareSyncPlaybackHandle} from '../../components/video/CompareSyncPlaybackCard';
 import {computeAutoOffsetMs} from '../../utils/compareSync';
@@ -166,7 +167,9 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
     );
   }
 
-  const hasVideos = !!(analysis1.localVideoPath && analysis2.localVideoPath);
+  const videoUriA = resolveVideoPlaybackUri(analysis1);
+  const videoUriB = resolveVideoPlaybackUri(analysis2);
+  const hasVideos = !!(videoUriA && videoUriB);
   const hasResults = !!(result1 && result2);
 
   return (
@@ -208,8 +211,8 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
             <Card.Content>
               <CompareSyncPlaybackCard
                 ref={syncCardRef}
-                videoPathA={analysis1.localVideoPath!}
-                videoPathB={analysis2.localVideoPath!}
+                videoPathA={videoUriA!}
+                videoPathB={videoUriB!}
                 resultA={result1!}
                 resultB={result2!}
                 offsetBMs={offsetBMs}

@@ -1,6 +1,5 @@
 import {PermissionsAndroid, Platform} from 'react-native';
 import {VideoAnalysis, VideoAnalysisStatus} from '../models/entities/VideoAnalysis';
-import {copyImportedVideoToLocalStorage} from './videoAnalysisStorage';
 import {
   analyzeSquatVideo,
   getVideoDuration,
@@ -76,7 +75,7 @@ const toManualSeedPayload = (candidate: NonNullable<VideoAnalysis['seedCandidate
 
 const runBackgroundAnalysis = ({
   analysisId,
-  localVideoPath,
+  videoUri,
   manualSeed,
   videoDurationMs,
   importStartedAtMs,
@@ -85,7 +84,8 @@ const runBackgroundAnalysis = ({
   onRateUpdated,
 }: {
   analysisId: number;
-  localVideoPath: string;
+  /** Gallery content:// URI, or an app-private path for pre-GH-321 analyses. */
+  videoUri: string;
   manualSeed: ManualSeedPayload;
   videoDurationMs: number;
   importStartedAtMs: number;
@@ -98,9 +98,10 @@ const runBackgroundAnalysis = ({
     startVideoAnalysisForegroundService();
   }
 
-  analyzeSquatVideo(localVideoPath, analysisId, manualSeed)
+  analyzeSquatVideo(videoUri, analysisId, manualSeed)
     .then((resultPath) => {
-      attachVideoAnalysisResult(analysisId, resultPath, localVideoPath);
+      // No localVideoPath: the video stays in the gallery until the user secures it.
+      attachVideoAnalysisResult(analysisId, resultPath);
       // Only persist a learned rate when we actually measured one. With
       // videoDurationMs <= 0 (metadata read failed) recordCompletedAnalysisRate
       // returns the in-memory default and would clobber the previously
@@ -137,9 +138,7 @@ export const importVideoAnalysisFromSource = async ({
   onRateUpdated,
 }: ImportVideoAnalysisParams): Promise<VideoAnalysisImportOutcome> => {
   const importStartedAtMs = Date.now();
-  let localVideoPath: string | undefined;
   let videoDurationMs = 0;
-  let copyMs = 0;
   let preflightMs = 0;
   let outcome: VideoAnalysisImportOutcome | 'failed' = 'failed';
 
@@ -162,31 +161,19 @@ export const importVideoAnalysisFromSource = async ({
   requestVideoAnalysisNotificationPermission().catch(() => {});
 
   try {
-    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.COPYING);
+    // GH-321: the video is NOT copied into the app. Preflight and analysis read the
+    // gallery URI directly, which also removes the two copies the old flow paid for.
+    // `localVideoPath` stays undefined until the user explicitly secures the video.
+    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PREFLIGHT);
 
-    // Read source duration for early progress estimation.
-    // Non-blocking: we update the card if metadata is available, then proceed with the copy.
     const sourceVideoDurationMs = await getVideoDuration(sourceUri);
     if (sourceVideoDurationMs > 0) {
       videoDurationMs = sourceVideoDurationMs;
       setVideoAnalysisDuration?.(analysisId, sourceVideoDurationMs);
     }
 
-    const copyStartedAtMs = Date.now();
-    localVideoPath = await copyImportedVideoToLocalStorage(sourceUri, analysisId);
-    copyMs = Date.now() - copyStartedAtMs;
-
-    setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PREFLIGHT);
-
-    // Read actual video duration from the local copy (more reliable than source URI metadata).
-    const resolvedVideoDurationMs = await getVideoDuration(localVideoPath);
-    if (resolvedVideoDurationMs > 0 && resolvedVideoDurationMs !== videoDurationMs) {
-      videoDurationMs = resolvedVideoDurationMs;
-      setVideoAnalysisDuration?.(analysisId, videoDurationMs);
-    }
-
     const preflightStartedAtMs = Date.now();
-    const preflight = await prepareSquatVideoSeed(localVideoPath, analysisId);
+    const preflight = await prepareSquatVideoSeed(sourceUri, analysisId);
     preflightMs = Date.now() - preflightStartedAtMs;
     setSeedPreflight(
       analysisId,
@@ -194,12 +181,11 @@ export const importVideoAnalysisFromSource = async ({
       preflight.candidates,
       preflight.frameWidthPx,
       preflight.frameHeightPx,
-      localVideoPath,
     );
 
     const candidates = preflight.candidates ?? [];
     if (candidates.length === 0) {
-      setManualSeedFramePath(analysisId, preflight.previewFramePath, localVideoPath);
+      setManualSeedFramePath(analysisId, preflight.previewFramePath);
       setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.FAILED, 'No outer plate candidate found at t=0');
       outcome = 'failed_no_candidate';
       postVideoAnalysisFailedNotification(analysisId).catch(() => {});
@@ -219,7 +205,7 @@ export const importVideoAnalysisFromSource = async ({
     setVideoAnalysisStatus(analysisId, VideoAnalysisStatus.PROCESSING);
     runBackgroundAnalysis({
       analysisId,
-      localVideoPath,
+      videoUri: sourceUri,
       manualSeed: toManualSeedPayload(candidates[0]),
       videoDurationMs,
       importStartedAtMs,
@@ -240,9 +226,7 @@ export const importVideoAnalysisFromSource = async ({
       JSON.stringify({
         analysisId,
         sourceUri,
-        localVideoPath,
         outcome,
-        copyMs,
         preflightMs,
         totalImportMs: Date.now() - importStartedAtMs,
       }),

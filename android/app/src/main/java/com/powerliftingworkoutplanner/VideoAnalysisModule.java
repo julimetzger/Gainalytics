@@ -1,5 +1,7 @@
 package com.powerliftingworkoutplanner;
 
+import android.app.Activity;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
@@ -19,6 +21,7 @@ import android.os.Build;
 import android.os.SystemClock;
 import android.util.Log;
 
+import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -42,7 +45,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -53,7 +58,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class VideoAnalysisModule extends ReactContextBaseJavaModule {
+public class VideoAnalysisModule extends ReactContextBaseJavaModule implements ActivityEventListener {
 
     static {
         System.loadLibrary("gainalytics_native");
@@ -97,6 +102,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private static final String ERR_VIDEO_ANALYSIS_PREVIEW = "ERR_VIDEO_ANALYSIS_PREVIEW";
     private static final String ERR_VIDEO_ANALYSIS_NEEDS_MANUAL_SEED = "ERR_VIDEO_ANALYSIS_NEEDS_MANUAL_SEED";
     private static final String ERR_VIDEO_ANALYSIS_NO_CANDIDATE = "ERR_VIDEO_ANALYSIS_NO_CANDIDATE";
+    private static final String ERR_VIDEO_PICKER = "ERR_VIDEO_PICKER";
+    private static final String ERR_VIDEO_COPY = "ERR_VIDEO_COPY";
+    private static final int REQUEST_CODE_PICK_VIDEO = 0xA321;
     private static final String MANUAL_SEED_REQUIRED_PREFIX = "MANUAL_SEED_REQUIRED::";
     private static final String LOG_TAG = "VideoAnalysis";
     private static final Paint LETTERBOX_PAINT = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -104,14 +112,188 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     private final Object interpreterLock = new Object();
     private Interpreter interpreter;
     private GpuDelegate gpuDelegate;
+    private Promise pickVideoPromise;
 
     public VideoAnalysisModule(ReactApplicationContext reactContext) {
         super(reactContext);
+        reactContext.addActivityEventListener(this);
     }
 
     @Override
     public String getName() {
         return "VideoAnalysis";
+    }
+
+    private static boolean isUri(String pathOrUri) {
+        return pathOrUri != null && (pathOrUri.startsWith("content://") || pathOrUri.startsWith("file://"));
+    }
+
+    /**
+     * Opens the system document picker (ACTION_OPEN_DOCUMENT) so the returned URI can be
+     * persisted across process death via takePersistableUriPermission.
+     *
+     * ACTION_GET_CONTENT (used by react-native-document-picker) only ever yields a
+     * task-scoped grant, which dies with the process — playback would break after a restart.
+     *
+     * Resolves null when the user cancels.
+     */
+    @ReactMethod
+    public void pickVideoFromGallery(Promise promise) {
+        Activity activity = getCurrentActivity();
+        if (activity == null) {
+            promise.reject(ERR_VIDEO_PICKER, "No foreground activity to launch the picker from");
+            return;
+        }
+        if (pickVideoPromise != null) {
+            promise.reject(ERR_VIDEO_PICKER, "A video picker is already in progress");
+            return;
+        }
+
+        pickVideoPromise = promise;
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("video/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            activity.startActivityForResult(intent, REQUEST_CODE_PICK_VIDEO);
+        } catch (Exception error) {
+            pickVideoPromise = null;
+            promise.reject(ERR_VIDEO_PICKER, error);
+        }
+    }
+
+    @Override
+    public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
+        if (requestCode != REQUEST_CODE_PICK_VIDEO) {
+            return;
+        }
+
+        Promise promise = pickVideoPromise;
+        pickVideoPromise = null;
+        if (promise == null) {
+            return;
+        }
+
+        if (resultCode != Activity.RESULT_OK || data == null || data.getData() == null) {
+            promise.resolve(null);
+            return;
+        }
+
+        Uri uri = data.getData();
+        boolean persisted = false;
+        try {
+            getReactApplicationContext()
+                .getContentResolver()
+                .takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            persisted = true;
+        } catch (Exception error) {
+            // Some providers refuse a persistable grant. Playback still works for this
+            // session; the user can secure the video via the full-import button.
+            Log.w(LOG_TAG, "Could not persist read permission for " + uri, error);
+        }
+
+        WritableMap result = Arguments.createMap();
+        result.putString("uri", uri.toString());
+        result.putBoolean("persisted", persisted);
+        promise.resolve(result);
+    }
+
+    @Override
+    public void onNewIntent(Intent intent) {
+        // No-op.
+    }
+
+    /**
+     * Gives back the persistable read grant for a gallery URI. Called when an analysis is
+     * deleted so the app stops holding access to the user's video.
+     */
+    @ReactMethod
+    public void releaseVideoUriPermission(String uriString, Promise promise) {
+        if (uriString == null || !uriString.startsWith("content://")) {
+            promise.resolve(false);
+            return;
+        }
+
+        try {
+            getReactApplicationContext()
+                .getContentResolver()
+                .releasePersistableUriPermission(Uri.parse(uriString), Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            promise.resolve(true);
+        } catch (Exception error) {
+            // Never held (or already released) — the post-condition still holds.
+            promise.resolve(false);
+        }
+    }
+
+    /** True when the video behind this path/URI can still be opened for reading. */
+    @ReactMethod
+    public void isVideoSourceAvailable(String pathOrUri, Promise promise) {
+        if (pathOrUri == null || pathOrUri.isEmpty()) {
+            promise.resolve(false);
+            return;
+        }
+
+        if (pathOrUri.startsWith("content://")) {
+            ContentResolver resolver = getReactApplicationContext().getContentResolver();
+            try (AssetFileDescriptor descriptor = resolver.openAssetFileDescriptor(Uri.parse(pathOrUri), "r")) {
+                promise.resolve(descriptor != null);
+            } catch (Exception error) {
+                promise.resolve(false);
+            }
+            return;
+        }
+
+        String normalized = pathOrUri.startsWith("file://") ? pathOrUri.substring(7) : pathOrUri;
+        promise.resolve(new File(normalized).exists());
+    }
+
+    /**
+     * Copies a gallery video into app-private storage ("full import"), so playback survives
+     * the source being deleted from the gallery. Returns the absolute local path.
+     */
+    @ReactMethod
+    public void copyVideoToAppStorage(String pathOrUri, int analysisId, Promise promise) {
+        new Thread(() -> {
+            File targetFile = null;
+            try {
+                File rootDir = ensureVideoAnalysisRootDir();
+                File videosDir = new File(rootDir, "videos");
+                if (!videosDir.exists() && !videosDir.mkdirs()) {
+                    promise.reject(ERR_VIDEO_ANALYSIS_DIR, "Could not create video directory");
+                    return;
+                }
+
+                targetFile = new File(videosDir, "analysis-" + analysisId + "-" + System.currentTimeMillis() + ".mp4");
+                try (InputStream input = openVideoInputStream(pathOrUri);
+                     OutputStream output = new FileOutputStream(targetFile)) {
+                    if (input == null) {
+                        promise.reject(ERR_VIDEO_COPY, "Source video is no longer available");
+                        return;
+                    }
+                    byte[] buffer = new byte[64 * 1024];
+                    int read;
+                    while ((read = input.read(buffer)) != -1) {
+                        output.write(buffer, 0, read);
+                    }
+                    output.flush();
+                }
+                promise.resolve(targetFile.getAbsolutePath());
+            } catch (Exception error) {
+                if (targetFile != null && targetFile.exists()) {
+                    // Don't leave a truncated file behind that would look like a secured video.
+                    targetFile.delete();
+                }
+                promise.reject(ERR_VIDEO_COPY, error);
+            }
+        }).start();
+    }
+
+    private InputStream openVideoInputStream(String pathOrUri) throws IOException {
+        if (pathOrUri.startsWith("content://")) {
+            return getReactApplicationContext().getContentResolver().openInputStream(Uri.parse(pathOrUri));
+        }
+        String normalized = pathOrUri.startsWith("file://") ? pathOrUri.substring(7) : pathOrUri;
+        return new FileInputStream(normalized);
     }
 
     @ReactMethod
@@ -584,12 +766,21 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     }
 
     private void setRetrieverDataSource(MediaMetadataRetriever retriever, String videoPath) {
-        if (videoPath.startsWith("content://") || videoPath.startsWith("file://")) {
+        if (isUri(videoPath)) {
             retriever.setDataSource(getReactApplicationContext(), Uri.parse(videoPath));
             return;
         }
 
         retriever.setDataSource(videoPath);
+    }
+
+    private void setExtractorDataSource(MediaExtractor extractor, String videoPath) throws IOException {
+        if (isUri(videoPath)) {
+            extractor.setDataSource(getReactApplicationContext(), Uri.parse(videoPath), null);
+            return;
+        }
+
+        extractor.setDataSource(videoPath);
     }
 
     private double resolveAnalyzedFps(long durationMs, double sourceFps) {
@@ -701,7 +892,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
     ) throws Exception {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {
-            retriever.setDataSource(localVideoPath);
+            setRetrieverDataSource(retriever, localVideoPath);
 
             long trackingStartedAtMs = SystemClock.elapsedRealtime();
             long[] sampleTimesUs = buildSampleTimesUs(durationMs, analyzedFps);
@@ -815,7 +1006,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule {
             performanceMetrics.plannedSampleCount = sampleTimesUs.length;
 
             long decoderSetupStartedAtMs = SystemClock.elapsedRealtime();
-            extractor.setDataSource(localVideoPath);
+            setExtractorDataSource(extractor, localVideoPath);
             int videoTrackIndex = findVideoTrackIndex(extractor);
             if (videoTrackIndex < 0) {
                 throw new IllegalStateException("Could not find video track for sequential decode");

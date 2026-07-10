@@ -2,7 +2,6 @@ import React, {useState} from 'react';
 import {useStore} from 'react-redux';
 import {Dimensions, ScrollView, StyleSheet} from 'react-native';
 import {Button, Card, Dialog, IconButton, Portal, Text, useTheme} from 'react-native-paper';
-import DocumentPicker from 'react-native-document-picker';
 import Toast from 'react-native-toast-message';
 import {GlobalState} from '../../redux/rootReducer';
 import {dispatchAddVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchAddVideoAnalysis';
@@ -14,6 +13,7 @@ import {dispatchSetVideoAnalysisMetersPerPixel} from '../../redux/VideoAnalysis/
 import {dispatchLinkVideoAnalysisToWorkout} from '../../redux/VideoAnalysis/dispatch/dispatchLinkVideoAnalysisToWorkout';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {importVideoAnalysisFromSource} from '../../utils/video-analysis-import';
+import {pickVideoFromGallery} from '../../utils/videoAnalysisNative';
 
 interface Props {
   visible: boolean;
@@ -80,12 +80,13 @@ const VideoSelectionModal = ({visible, onDismiss, workoutId, setIndex, exerciseI
   const importFromGallery = async () => {
     try {
       setImporting(true);
-      const selected = await DocumentPicker.pickSingle({type: [DocumentPicker.types.video], copyTo: 'cachesDirectory'});
-      await importFromSource(selected.fileCopyUri ?? selected.uri);
-    } catch (e) {
-      if (!DocumentPicker.isCancel(e)) {
-        showToast({type: 'error', text1: 'Import failed', text2: 'Could not pick a video from the gallery.', position: 'top'});
+      const picked = await pickVideoFromGallery();
+      if (!picked) {
+        return;
       }
+      await importFromSource(picked.uri);
+    } catch (_e) {
+      showToast({type: 'error', text1: 'Import failed', text2: 'Could not pick a video from the gallery.', position: 'top'});
     } finally {
       setImporting(false);
     }

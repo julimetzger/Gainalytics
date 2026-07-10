@@ -7,10 +7,6 @@ import {
   _resetLastAnalysisSecondsPerVideoSecondForTesting,
 } from '../videoAnalysisProgress';
 
-jest.mock('../videoAnalysisStorage', () => ({
-  copyImportedVideoToLocalStorage: jest.fn(),
-}));
-
 jest.mock('../videoAnalysisNative', () => ({
   prepareSquatVideoSeed: jest.fn(),
   analyzeSquatVideo: jest.fn(),
@@ -24,10 +20,6 @@ jest.mock('../videoAnalysisNotification', () => ({
   postVideoAnalysisCompleteNotification: jest.fn().mockResolvedValue(undefined),
   postVideoAnalysisFailedNotification: jest.fn().mockResolvedValue(undefined),
 }));
-
-const {copyImportedVideoToLocalStorage} = jest.requireMock('../videoAnalysisStorage') as {
-  copyImportedVideoToLocalStorage: jest.Mock;
-};
 
 const {prepareSquatVideoSeed, analyzeSquatVideo, getVideoDuration, startVideoAnalysisForegroundService, stopVideoAnalysisForegroundService} =
   jest.requireMock('../videoAnalysisNative') as {
@@ -75,6 +67,18 @@ const SINGLE_CANDIDATE_PREFLIGHT = {
   ],
 };
 
+/** First Date.now() call returns `startMs` (import start); every later call returns `endMs`. */
+const mockDateNowStartThenEnd = (startMs: number, endMs: number) => {
+  let firstCall = true;
+  return jest.spyOn(Date, 'now').mockImplementation(() => {
+    if (firstCall) {
+      firstCall = false;
+      return startMs;
+    }
+    return endMs;
+  });
+};
+
 const flushBackgroundWork = async () => {
   await Promise.resolve();
   await Promise.resolve();
@@ -99,8 +103,37 @@ describe('importVideoAnalysisFromSource', () => {
     consoleErrorSpy.mockRestore();
   });
 
+  // GH-321: the gallery video must never be copied into the app on import.
+  it('reads the gallery URI directly and never copies the video into the app', async () => {
+    prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
+    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
+
+    const mocks = makeMocks();
+    await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://media/42', ...mocks});
+    await flushBackgroundWork();
+
+    // Preflight, duration probe and analysis all run against the content URI.
+    expect(getVideoDuration).toHaveBeenCalledWith('content://media/42');
+    expect(prepareSquatVideoSeed).toHaveBeenCalledWith('content://media/42', 7);
+    expect(analyzeSquatVideo.mock.calls[0][0]).toBe('content://media/42');
+
+    // No localVideoPath is ever recorded — the video stays in the gallery.
+    expect(mocks.attachVideoAnalysisResult).toHaveBeenCalledWith(7, '/tmp/results/analysis-7.json');
+    expect(mocks.setSeedPreflight.mock.calls[0]).toHaveLength(5);
+  });
+
+  it('never transitions through the COPYING status', async () => {
+    prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
+    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
+
+    const mocks = makeMocks();
+    await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://media/42', ...mocks});
+
+    const statuses = mocks.setVideoAnalysisStatus.mock.calls.map(([, status]) => status);
+    expect(statuses).not.toContain(VideoAnalysisStatus.COPYING);
+  });
+
   it('starts background analysis when exactly one candidate is found', async () => {
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
 
@@ -109,13 +142,12 @@ describe('importVideoAnalysisFromSource', () => {
 
     expect(outcome).toBe('analysis_started');
     expect(mocks.setVideoAnalysisStatus.mock.calls).toEqual([
-      [7, VideoAnalysisStatus.COPYING],
       [7, VideoAnalysisStatus.PREFLIGHT],
       [7, VideoAnalysisStatus.PROCESSING],
     ]);
     expect(analyzeSquatVideo.mock.calls).toEqual([
       [
-        '/tmp/video.mp4',
+        'content://video.mp4',
         7,
         {
           candidateId: 'candidate-1',
@@ -127,12 +159,11 @@ describe('importVideoAnalysisFromSource', () => {
       ],
     ]);
     await flushBackgroundWork();
-    expect(mocks.attachVideoAnalysisResult.mock.calls).toEqual([[7, '/tmp/results/analysis-7.json', '/tmp/video.mp4']]);
+    expect(mocks.attachVideoAnalysisResult.mock.calls).toEqual([[7, '/tmp/results/analysis-7.json']]);
     expect(mocks.setManualSeedFramePath.mock.calls).toEqual([]);
   });
 
   it('should move the analysis to awaiting seed selection when multiple candidates are found', async () => {
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue({
       previewFramePath: '/tmp/preview.jpg',
       frameWidthPx: 1080,
@@ -163,7 +194,6 @@ describe('importVideoAnalysisFromSource', () => {
 
     expect(outcome).toBe('awaiting_seed_selection');
     expect(mocks.setVideoAnalysisStatus.mock.calls).toEqual([
-      [8, VideoAnalysisStatus.COPYING],
       [8, VideoAnalysisStatus.PREFLIGHT],
       [8, VideoAnalysisStatus.AWAITING_SEED_SELECTION],
     ]);
@@ -191,14 +221,12 @@ describe('importVideoAnalysisFromSource', () => {
         ],
         1080,
         1920,
-        '/tmp/video.mp4',
       ],
     ]);
     expect(mocks.attachVideoAnalysisResult.mock.calls).toEqual([]);
   });
 
   it('should fail with a dedicated outcome when no candidate is found at t=0', async () => {
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue({
       previewFramePath: '/tmp/preview.jpg',
       frameWidthPx: 1080,
@@ -212,11 +240,10 @@ describe('importVideoAnalysisFromSource', () => {
 
     expect(outcome).toBe('failed_no_candidate');
     expect(mocks.setVideoAnalysisStatus.mock.calls).toEqual([
-      [9, VideoAnalysisStatus.COPYING],
       [9, VideoAnalysisStatus.PREFLIGHT],
       [9, VideoAnalysisStatus.FAILED, 'No outer plate candidate found at t=0'],
     ]);
-    expect(mocks.setManualSeedFramePath.mock.calls).toEqual([[9, '/tmp/preview.jpg', '/tmp/video.mp4']]);
+    expect(mocks.setManualSeedFramePath.mock.calls).toEqual([[9, '/tmp/preview.jpg']]);
     expect(mocks.attachVideoAnalysisResult.mock.calls).toEqual([]);
   });
 
@@ -225,7 +252,6 @@ describe('importVideoAnalysisFromSource', () => {
   // -------------------------------------------------------------------------
 
   it('requests notification permission before starting analysis', async () => {
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
 
@@ -237,7 +263,6 @@ describe('importVideoAnalysisFromSource', () => {
 
   it('does not throw when requestVideoAnalysisNotificationPermission rejects (permission guard)', async () => {
     requestVideoAnalysisNotificationPermission.mockRejectedValue(new Error('Bridge not initialised'));
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
 
@@ -252,7 +277,6 @@ describe('importVideoAnalysisFromSource', () => {
 
   it('completes analysis even when notification permission is denied', async () => {
     requestVideoAnalysisNotificationPermission.mockResolvedValue(false);
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
 
@@ -265,7 +289,6 @@ describe('importVideoAnalysisFromSource', () => {
   });
 
   it('posts completion notification on success', async () => {
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
 
@@ -277,7 +300,6 @@ describe('importVideoAnalysisFromSource', () => {
   });
 
   it('posts failure notification when no candidate is found', async () => {
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue({
       previewFramePath: '/tmp/preview.jpg',
       frameWidthPx: 1080,
@@ -298,8 +320,7 @@ describe('importVideoAnalysisFromSource', () => {
   // -------------------------------------------------------------------------
 
   it('calls setVideoAnalysisDuration with the actual duration from native', async () => {
-    getVideoDuration.mockResolvedValueOnce(0).mockResolvedValueOnce(8500);
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    getVideoDuration.mockResolvedValueOnce(8500);
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
 
@@ -311,8 +332,7 @@ describe('importVideoAnalysisFromSource', () => {
   });
 
   it('does not call setVideoAnalysisDuration when native returns 0 (unknown)', async () => {
-    getVideoDuration.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    getVideoDuration.mockResolvedValueOnce(0);
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
 
@@ -324,8 +344,7 @@ describe('importVideoAnalysisFromSource', () => {
   });
 
   it('adds card immediately with zero duration then updates from source metadata', async () => {
-    getVideoDuration.mockResolvedValueOnce(45_000).mockResolvedValueOnce(45_000);
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    getVideoDuration.mockResolvedValueOnce(45_000);
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
 
@@ -353,10 +372,10 @@ describe('importVideoAnalysisFromSource', () => {
   });
 
   it('updates the learned analysis rate from the completed run duration and video duration', async () => {
-    const timestamps = [1000, 1000, 5000, 10_000, 15_000, 20_000, 25_000, 46_000, 46_000, 46_000];
-    const dateNowSpy = jest.spyOn(Date, 'now').mockImplementation(() => timestamps.shift() ?? 46_000);
-    getVideoDuration.mockResolvedValueOnce(45_000).mockResolvedValueOnce(45_000);
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    // The rate only depends on the first Date.now() (import start) and the one taken when the
+    // analysis completes. Pinning just those two keeps the test independent of call count.
+    const dateNowSpy = mockDateNowStartThenEnd(1000, 46_000);
+    getVideoDuration.mockResolvedValueOnce(45_000);
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
 
@@ -370,10 +389,8 @@ describe('importVideoAnalysisFromSource', () => {
 
   it('calls onRateUpdated with the learned rate after analysis completes', async () => {
     // 90 s analysis on a 45 s video → rate = 2.0
-    const timestamps = [0, 0, 0, 0, 0, 0, 0, 90_000, 90_000, 90_000];
-    const dateNowSpy = jest.spyOn(Date, 'now').mockImplementation(() => timestamps.shift() ?? 90_000);
-    getVideoDuration.mockResolvedValueOnce(45_000).mockResolvedValueOnce(45_000);
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    const dateNowSpy = mockDateNowStartThenEnd(0, 90_000);
+    getVideoDuration.mockResolvedValueOnce(45_000);
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-8.json');
 
@@ -388,8 +405,7 @@ describe('importVideoAnalysisFromSource', () => {
 
   it('does NOT call onRateUpdated when videoDurationMs is 0 (would clobber persisted rate)', async () => {
     // Both source and local duration reads return 0 → videoDurationMs stays 0.
-    getVideoDuration.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
+    getVideoDuration.mockResolvedValueOnce(0);
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-9.json');
 
@@ -408,7 +424,6 @@ describe('importVideoAnalysisFromSource', () => {
   // -------------------------------------------------------------------------
 
   it('increments active count during background analysis and decrements it on completion', async () => {
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     let resolveAnalysis!: (value: string) => void;
     const analysisDone = new Promise<string>((resolve) => {
@@ -428,7 +443,6 @@ describe('importVideoAnalysisFromSource', () => {
   });
 
   it('decrements active count even when the background analysis throws', async () => {
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     let rejectAnalysis!: (error: Error) => void;
     const analysisFailed = new Promise<string>((_, reject) => {
@@ -450,7 +464,6 @@ describe('importVideoAnalysisFromSource', () => {
   });
 
   it('keeps active count at 1 while a concurrent analysis is still running', async () => {
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
 
     let resolveFirst!: (value: string) => void;
@@ -489,7 +502,6 @@ describe('importVideoAnalysisFromSource', () => {
   // -------------------------------------------------------------------------
 
   it('calls setMetersPerPixel with the correct value when a single candidate is found', async () => {
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
     analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
 
@@ -504,7 +516,6 @@ describe('importVideoAnalysisFromSource', () => {
   });
 
   it('does not call setMetersPerPixel when multiple candidates require manual selection', async () => {
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue({
       previewFramePath: '/tmp/preview.jpg',
       frameWidthPx: 1080,
@@ -551,7 +562,6 @@ describe('calibrateFromSeed', () => {
     const mppManual = calibrateFromSeed(normalizedWidth, frameWidthPx);
 
     // Automatic flow: importVideoAnalysisFromSource calls calibrateFromSeed internally
-    copyImportedVideoToLocalStorage.mockResolvedValue('/tmp/video.mp4');
     prepareSquatVideoSeed.mockResolvedValue({
       previewFramePath: '/tmp/preview.jpg',
       frameWidthPx,

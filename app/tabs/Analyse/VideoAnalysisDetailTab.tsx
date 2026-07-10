@@ -16,8 +16,17 @@ import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
 import {dispatchSetVideoAnalysisManualSeedFramePath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisManualSeedFramePath';
 import {dispatchSetVideoAnalysisMetersPerPixel} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisMetersPerPixel';
-import {ManualSeedPayload, analyzeSquatVideo, migrateBarTrackingResultIfNeeded} from '../../utils/videoAnalysisNative';
+import {dispatchSetVideoAnalysisLocalVideoPath} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisLocalVideoPath';
+import {
+  ManualSeedPayload,
+  analyzeSquatVideo,
+  copyVideoToAppStorage,
+  isVideoSourceAvailable,
+  migrateBarTrackingResultIfNeeded,
+} from '../../utils/videoAnalysisNative';
+import {isVideoSecuredInApp, resolveVideoPlaybackUri} from '../../utils/videoAnalysisSource';
 import {calibrateFromSeed} from '../../utils/video-analysis-import';
+import Toast from 'react-native-toast-message';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
 
@@ -78,10 +87,36 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const setMetersPerPixel = dispatchSetVideoAnalysisMetersPerPixel();
+  const setLocalVideoPath = dispatchSetVideoAnalysisLocalVideoPath();
   const [result, setResult] = useState<BarTrackingResult | undefined>();
   const [previewUri, setPreviewUri] = useState<string | undefined>();
   const [previewDimensions, setPreviewDimensions] = useState<PreviewDimensions>(DEFAULT_PREVIEW_DIMENSIONS);
   const [manualSeedRunning, setManualSeedRunning] = useState(false);
+  const [securingVideo, setSecuringVideo] = useState(false);
+  const playbackUri = resolveVideoPlaybackUri(analysis);
+  const videoSecured = isVideoSecuredInApp(analysis);
+  // Undefined while the probe is in flight — don't disable the button on a guess.
+  const [sourceAvailable, setSourceAvailable] = useState<boolean | undefined>(undefined);
+
+  useEffect(() => {
+    if (!playbackUri) {
+      setSourceAvailable(false);
+      return;
+    }
+    let cancelled = false;
+    setSourceAvailable(undefined);
+    isVideoSourceAvailable(playbackUri).then((available) => {
+      if (!cancelled) {
+        setSourceAvailable(available);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [playbackUri]);
+
+  // A vanished gallery video can no longer be pulled into the app.
+  const canSecureVideo = !videoSecured && sourceAvailable !== false;
 
   useEffect(() => {
     let active = true;
@@ -141,7 +176,9 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
 
   const runManualSeedAnalysis = useCallback(
     async (manualSeed: ManualSeedPayload) => {
-      if (!analysis?.id || !analysis.localVideoPath) {
+      // Gallery-backed analyses have no localVideoPath — re-seed against the source URI.
+      const videoUri = resolveVideoPlaybackUri(analysis);
+      if (!analysis?.id || !videoUri) {
         return;
       }
 
@@ -155,7 +192,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           setMetersPerPixel(analysis.id, mpp);
         }
 
-        const resultPath = await analyzeSquatVideo(analysis.localVideoPath, analysis.id, manualSeed);
+        const resultPath = await analyzeSquatVideo(videoUri, analysis.id, manualSeed);
         attachVideoAnalysisResult(analysis.id, resultPath, analysis.localVideoPath);
         setManualSeedFramePath(analysis.id, undefined);
       } catch (error) {
@@ -164,8 +201,36 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         setManualSeedRunning(false);
       }
     },
-    [analysis?.id, analysis?.localVideoPath, analysis?.seedFrameWidthPx, attachVideoAnalysisResult, setManualSeedFramePath, setMetersPerPixel, setVideoAnalysisStatus],
+    [analysis, attachVideoAnalysisResult, setManualSeedFramePath, setMetersPerPixel, setVideoAnalysisStatus],
   );
+
+  const onSecureVideo = useCallback(async () => {
+    const videoUri = resolveVideoPlaybackUri(analysis);
+    if (!analysis?.id || !videoUri || isVideoSecuredInApp(analysis)) {
+      return;
+    }
+
+    try {
+      setSecuringVideo(true);
+      const localVideoPath = await copyVideoToAppStorage(videoUri, analysis.id);
+      setLocalVideoPath(analysis.id, localVideoPath);
+      Toast.show({
+        type: 'info',
+        text1: 'Video secured',
+        text2: 'The video is now stored in the app and will be kept.',
+        position: 'top',
+      });
+    } catch (_error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Secure failed',
+        text2: 'The source video could not be copied into the app.',
+        position: 'top',
+      });
+    } finally {
+      setSecuringVideo(false);
+    }
+  }, [analysis, setLocalVideoPath]);
 
   if (!analysis) {
     return (
@@ -231,6 +296,29 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           <Text>Source: {analysis.sourceUri}</Text>
           {analysis.localVideoPath && <Text>Local Video: {analysis.localVideoPath}</Text>}
           {analysis.error && <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>}
+
+          {playbackUri && (
+            <View style={styles.secureActionsInner}>
+              <Button
+                testID="video-analysis-secure-video-button"
+                mode={videoSecured ? 'outlined' : 'contained'}
+                icon={videoSecured ? 'check-circle-outline' : 'download'}
+                disabled={!canSecureVideo || securingVideo}
+                loading={securingVideo}
+                onPress={onSecureVideo}
+                style={styles.secureButton}
+              >
+                {videoSecured ? 'Video secured in app' : 'Secure video in app'}
+              </Button>
+              <Text testID="video-analysis-secure-video-hint" variant="bodySmall" style={styles.secureHint}>
+                {videoSecured
+                  ? 'This video is stored in the app and will be kept, even if you delete it from the gallery.'
+                  : sourceAvailable === false
+                    ? 'The source video is no longer in the gallery and can no longer be imported into the app.'
+                    : 'Saves the video into the app. It will then be kept, even if you delete it from the gallery.'}
+              </Text>
+            </View>
+          )}
         </Card.Content>
         {analysis.status === VideoAnalysisStatus.DONE && (
           <Card.Actions>
@@ -250,13 +338,13 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       <Card style={styles.card}>
         <Card.Title title="Playback Overlay" />
         <Card.Content>
-          {!analysis.localVideoPath && <Text>No local video path available yet.</Text>}
-          {analysis.localVideoPath && !result && <Text>No analysis result available yet.</Text>}
-          {analysis.localVideoPath && result && (
+          {!playbackUri && <Text>No video source available yet.</Text>}
+          {playbackUri && !result && <Text>No analysis result available yet.</Text>}
+          {playbackUri && result && (
             <VideoAnalysisPlaybackOverlayCard
-              key={`${analysis.id}-${analysis.localVideoPath}`}
+              key={`${analysis.id}-${playbackUri}`}
               analysisId={analysis.id!}
-              localVideoPath={analysis.localVideoPath}
+              videoUri={playbackUri}
               result={result}
               savedSetResult={analysis.setResult}
               metersPerPixel={analysis.metersPerPixel}
@@ -306,6 +394,15 @@ const styles = StyleSheet.create({
   },
   card: {
     margin: 10,
+  },
+  secureActionsInner: {
+    marginTop: 12,
+  },
+  secureButton: {
+    alignSelf: 'flex-start',
+  },
+  secureHint: {
+    marginTop: 6,
   },
   divider: {
     marginHorizontal: 10,
