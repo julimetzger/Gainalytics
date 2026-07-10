@@ -1,5 +1,5 @@
 import React from 'react';
-import {Alert, Platform} from 'react-native';
+import {Alert, NativeModules, Platform} from 'react-native';
 import {act, fireEvent, render, waitFor} from '@testing-library/react-native';
 import SettingsTab from '../../../app/tabs/settings/SettingsTab';
 import {useSettings} from '../../../app/redux/settings/use/useSettings';
@@ -227,7 +227,7 @@ jest.mock('react-native-paper', () => {
         <Text>{value ? 'on' : 'off'}</Text>
       </TouchableOpacity>
     ),
-    Text: ({children}: {children: React.ReactNode}) => <Text>{children}</Text>,
+    Text: ({children, testID}: {children: React.ReactNode; testID?: string}) => <Text testID={testID}>{children}</Text>,
     HelperText: ({children}: {children: React.ReactNode}) => <Text>{children}</Text>,
     ActivityIndicator: () => <View testID="activity-indicator" />,
     List: {
@@ -276,11 +276,13 @@ const mockedDispatchSetFinishTrainingTimer = jest.mocked(dispatchSetFinishTraini
 const mockedCanScheduleExactAlarms = jest.mocked(canScheduleExactAlarms);
 const mockedOpenExactAlarmSettings = jest.mocked(openExactAlarmSettings);
 const mockedPickSingle = jest.mocked(DocumentPicker.pickSingle);
+const nativeModulesWithAppInfo: {AppInfo?: {versionName?: string}} = NativeModules;
 
 describe('SettingsTab', () => {
   beforeEach(() => {
     Object.defineProperty(Platform, 'OS', {value: 'android', configurable: true});
     Object.defineProperty(Platform, 'Version', {value: 33, configurable: true});
+    nativeModulesWithAppInfo.AppInfo = {versionName: '0.168'};
 
     mockedUseSettings.mockReturnValue({
       mode: 'light',
@@ -394,6 +396,16 @@ describe('SettingsTab', () => {
       position: 'top',
       visibilityTime: 5000,
     });
+  });
+
+  it('renders the app version supplied by the native build', () => {
+    nativeModulesWithAppInfo.AppInfo = {versionName: '9.8.7'};
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+
+    expect(getByTestId('settings-app-version')).toHaveTextContent('Version 9.8.7');
   });
 
   it('exports data into file system and shows exported path', () => {
