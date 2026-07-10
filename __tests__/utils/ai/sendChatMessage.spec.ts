@@ -1,4 +1,5 @@
 import {sendChatMessage, ChatMessage} from '../../../app/utils/ai/sendChatMessage';
+import {DEFAULT_ANTHROPIC_MODEL} from '../../../app/utils/llmApi';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch as any;
@@ -119,6 +120,55 @@ describe('sendChatMessage', () => {
     const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Network error');
+  });
+
+  it('defaults to DEFAULT_ANTHROPIC_MODEL when no model is supplied (GH-361)', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('ok'));
+    await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.model).toBe(DEFAULT_ANTHROPIC_MODEL);
+  });
+
+  it('sends the caller-supplied model in the request body (GH-361)', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('ok'));
+    await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key', 'You are a coach.', 'claude-opus-4-7');
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.model).toBe('claude-opus-4-7');
+  });
+
+  it('returns a clear invalid-model error on a 404 not_found_error (GH-361)', async () => {
+    mockFetch.mockReturnValue(
+      makeErrorResponse(404, JSON.stringify({type: 'error', error: {type: 'not_found_error', message: 'model: bogus-model-xyz'}})),
+    );
+
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key', undefined, 'bogus-model-xyz');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('Invalid model "bogus-model-xyz"');
+      expect(result.error).toContain('Settings');
+    }
+  });
+
+  it('returns a clear invalid-model error on a 400 invalid_request_error mentioning model (GH-361)', async () => {
+    mockFetch.mockReturnValue(
+      makeErrorResponse(
+        400,
+        JSON.stringify({type: 'error', error: {type: 'invalid_request_error', message: 'model: too-many-parts is not supported'}}),
+      ),
+    );
+
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key', undefined, 'too-many-parts');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('Invalid model "too-many-parts"');
+    }
+  });
+
+  it('falls back to the generic API error message for a non-model 400 error (GH-361)', async () => {
+    mockFetch.mockReturnValue(makeErrorResponse(400, 'not json'));
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('API error (400)');
   });
 
   it('system prompt includes seedContextJson when composed by caller', async () => {
