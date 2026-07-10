@@ -185,7 +185,19 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
     fetchInsight(key, apiKey, finishedTrainings, model, trainingPrompt);
   };
 
+  // Guards against a double tap archiving the running chat twice.
+  const askingAIRef = useRef(false);
   const handleAskAI = async (insightText: string) => {
+    if (askingAIRef.current) return;
+    askingAIRef.current = true;
+    try {
+      await doAskAI(insightText);
+    } finally {
+      askingAIRef.current = false;
+    }
+  };
+
+  const doAskAI = async (insightText: string) => {
     const seedContextJson = serializeTrainingsForChat(
       finishedTrainings,
       workoutsById,

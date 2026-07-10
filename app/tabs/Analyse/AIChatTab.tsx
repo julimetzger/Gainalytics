@@ -15,6 +15,7 @@ import {
   setLoading,
   setSeedContextJson,
   setContextRange,
+  setPendingLegacyArchive,
   ContextRange,
 } from '../../redux/AIChat/aiChatSlice';
 import {selectAllFinishedTrainings} from '../../redux/AIChat/selectors';
@@ -219,10 +220,12 @@ const AIChatTab = () => {
 
   // GH-293 one-time migration: the conversation that existed before the history
   // feature shipped becomes the first history entry. The flag is set by redux
-  // migration 11 and cleared by any archive (the flag flips to false, so this
-  // effect runs the archival at most once).
+  // migration 11. It is cleared synchronously before the async archive so the
+  // effect cannot fire twice; if the file write fails, the messages simply stay
+  // in the active chat — nothing is lost.
   useEffect(() => {
     if (!pendingLegacyArchive) return;
+    dispatch(setPendingLegacyArchive(false));
     (async () => {
       await archiveActiveChat();
       dispatch(clearChat());
@@ -301,11 +304,19 @@ const AIChatTab = () => {
   };
 
   // GH-293: Clear no longer discards the conversation — it is archived into the
-  // chat history first, then a fresh empty chat starts.
+  // chat history first, then a fresh empty chat starts. The ref guards against
+  // a double tap archiving the same conversation twice.
+  const clearingRef = useRef(false);
   const handleClear = async () => {
-    await archiveActiveChat();
-    dispatch(clearChat());
-    setInputText('');
+    if (clearingRef.current) return;
+    clearingRef.current = true;
+    try {
+      await archiveActiveChat();
+      dispatch(clearChat());
+      setInputText('');
+    } finally {
+      clearingRef.current = false;
+    }
   };
 
   const contextBadgeLabel = useMemo(() => {
