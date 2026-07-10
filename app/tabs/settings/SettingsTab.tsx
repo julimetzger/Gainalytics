@@ -324,9 +324,11 @@ const SettingsTab = ({navigation}: Props) => {
               <Text style={{marginBottom: 4}}>Exact Alarm Permission</Text>
               <Text style={{fontSize: 12, color: 'gray'}}>{exactAlarmStatus ? 'Enabled - Notifications will be precise' : 'Disabled - Notifications may be delayed'}</Text>
             </View>
-            <Button mode="outlined" onPress={handleExactAlarmSettings} disabled={exactAlarmStatus === null}>
-              {exactAlarmStatus ? 'Enabled' : 'Enable'}
-            </Button>
+            <Switch
+              value={Boolean(exactAlarmStatus)}
+              onValueChange={() => handleExactAlarmSettings()}
+              disabled={exactAlarmStatus === null}
+            />
           </View>
           <View style={styles.divider}>
             <Divider />
