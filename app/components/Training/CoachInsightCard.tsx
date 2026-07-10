@@ -15,6 +15,7 @@ import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage
 import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
 import {useAITrainingPrompt} from '../../redux/settings/use/useAITrainingPrompt';
 import {startChatWithContext, setContextRange} from '../../redux/AIChat/aiChatSlice';
+import {useArchiveActiveChat} from '../../redux/AIChat/use/useArchiveActiveChat';
 import {serializeTrainingsForChat} from '../../utils/ai/serializeTrainingsForChat';
 
 interface Props {
@@ -44,6 +45,7 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
   const navigation = useNavigation<any>();
   const [state, setState] = useState<State>({status: 'idle'});
   const trainingPrompt = useAITrainingPrompt();
+  const archiveActiveChat = useArchiveActiveChat();
 
   // Reactive API key: update when user saves / removes the key in Settings.
   const [apiKey, setApiKey] = useState<string | undefined>(() => {
@@ -183,13 +185,16 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
     fetchInsight(key, apiKey, finishedTrainings, model, trainingPrompt);
   };
 
-  const handleAskAI = (insightText: string) => {
+  const handleAskAI = async (insightText: string) => {
     const seedContextJson = serializeTrainingsForChat(
       finishedTrainings,
       workoutsById,
       exercisesById,
       videoAnalysesById,
     );
+    // GH-293: a running conversation is archived into the chat history before
+    // the insight seeds a fresh one — it must never be silently overwritten.
+    await archiveActiveChat();
     // Reset to 28d default so the insight-context pairing stays consistent
     const end = new Date();
     const start = new Date(end.getTime() - 28 * 24 * 3600 * 1000);
