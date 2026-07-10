@@ -214,16 +214,19 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
         </>
       )}
 
-      {/* Bar path overlay */}
+      {/* Bar path overlay: one rep of A over the same rep of B, following the scrubber */}
       {hasResults && (
         <>
           <Divider style={styles.divider} />
           <Card style={styles.card}>
-            <Card.Title title="Bar Path Overlay" />
+            <Card.Title title="Bar Path Overlay" subtitle="one rep, A vs B" />
             <Card.Content>
               <BarPathCompareView
                 barPathSeries1={result1!.barPathSeries}
                 barPathSeries2={result2!.barPathSeries}
+                repSegments1={result1!.repSegments}
+                repSegments2={result2!.repSegments}
+                currentRepIndex={currentRepIndex}
                 height={220}
               />
             </Card.Content>

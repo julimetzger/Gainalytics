@@ -9,6 +9,7 @@ import {
   getRepPhaseWindow,
   isConcentricFirstRep,
   resolveCompareRepResults,
+  sliceBarPathForSegment,
   velocityUnitFor,
 } from '../../app/utils/videoAnalysisSetAggregates';
 import {BarPathPoint, BarTrackingResult, VideoAnalysisRepResult} from '../../app/models/entities/VideoAnalysis';
@@ -87,6 +88,36 @@ describe('isConcentricFirstRep / getRepPhaseWindow', () => {
     const window = getRepPhaseWindow(series, 0, 1000, 2000);
     expect(window.concentricStartMs).toBe(0);
     expect(window.concentricEndMs).toBe(1000);
+  });
+});
+
+describe('sliceBarPathForSegment', () => {
+  it('returns only the samples inside the segment time window (bounds inclusive)', () => {
+    const series = makeEccentricFirstRepSeries(3);
+    const segments = makeTrackingResult(3).repSegments;
+    const rep2 = sliceBarPathForSegment(series, segments[1]);
+    expect(rep2.length).toBeGreaterThan(0);
+    expect(rep2.every((p) => p.tMs >= 2000 && p.tMs <= 4000)).toBe(true);
+    expect(rep2[0].tMs).toBe(2000);
+    expect(rep2[rep2.length - 1].tMs).toBe(4000);
+    // Samples of reps 1 and 3 are excluded.
+    expect(rep2.length).toBeLessThan(series.length / 2);
+  });
+
+  it('slices different reps to different windows', () => {
+    const series = makeEccentricFirstRepSeries(2);
+    const segments = makeTrackingResult(2).repSegments;
+    const rep1 = sliceBarPathForSegment(series, segments[0]);
+    const rep2 = sliceBarPathForSegment(series, segments[1]);
+    expect(rep1[0].tMs).toBe(0);
+    expect(rep2[0].tMs).toBe(2000);
+    // Only the shared boundary sample (tMs=2000) appears in both.
+    const overlap = rep1.filter((p) => rep2.some((q) => q.tMs === p.tMs));
+    expect(overlap.map((p) => p.tMs)).toEqual([2000]);
+  });
+
+  it('returns an empty array without a segment', () => {
+    expect(sliceBarPathForSegment(makeEccentricFirstRepSeries(), undefined)).toEqual([]);
   });
 });
 

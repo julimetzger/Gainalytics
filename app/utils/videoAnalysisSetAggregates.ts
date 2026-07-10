@@ -1,4 +1,4 @@
-import {BarPathPoint, BarTrackingResult, VideoAnalysisRepResult, VideoAnalysisSetResult} from '../models/entities/VideoAnalysis';
+import {BarPathPoint, BarTrackingResult, RepSegment, VideoAnalysisRepResult, VideoAnalysisSetResult} from '../models/entities/VideoAnalysis';
 
 /**
  * Pure, reusable set/rep velocity aggregation for video analyses.
@@ -38,6 +38,20 @@ export const smoothBarPathSeries = (barPathSeries: BarPathPoint[]): BarPathPoint
   const smoothedX = smoothNumberSeries(barPathSeries.map((point) => point.x), BAR_PATH_SMOOTHING_WINDOW);
   const smoothedY = smoothNumberSeries(barPathSeries.map((point) => point.y), BAR_PATH_SMOOTHING_WINDOW);
   return barPathSeries.map((point, index) => ({...point, x: smoothedX[index], y: smoothedY[index]}));
+};
+
+/**
+ * The bar-path samples belonging to one rep, by the segment's time window in
+ * the analysis' own video time.
+ */
+export const sliceBarPathForSegment = (
+  barPathSeries: BarPathPoint[],
+  segment: Pick<RepSegment, 'startMs' | 'endMs'> | undefined,
+): BarPathPoint[] => {
+  if (!segment) {
+    return [];
+  }
+  return barPathSeries.filter((point) => point.tMs >= segment.startMs && point.tMs <= segment.endMs);
 };
 
 /**

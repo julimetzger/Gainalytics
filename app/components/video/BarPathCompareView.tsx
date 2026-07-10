@@ -1,17 +1,17 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {LayoutChangeEvent, StyleSheet, View} from 'react-native';
 import Svg, {Circle, Polyline} from 'react-native-svg';
-import {Text, useTheme} from 'react-native-paper';
-import {BarPathPoint} from '../../models/entities/VideoAnalysis';
-import {smoothBarPathSeries} from '../../utils/videoAnalysisSetAggregates';
+import {IconButton, Text, useTheme} from 'react-native-paper';
+import {BarPathPoint, RepSegment} from '../../models/entities/VideoAnalysis';
+import {sliceBarPathForSegment, smoothBarPathSeries} from '../../utils/videoAnalysisSetAggregates';
 
 interface Props {
   barPathSeries1: BarPathPoint[];
   barPathSeries2: BarPathPoint[];
-  trackingFrameWidth1?: number;
-  trackingFrameHeight1?: number;
-  trackingFrameWidth2?: number;
-  trackingFrameHeight2?: number;
+  repSegments1: RepSegment[];
+  repSegments2: RepSegment[];
+  /** Rep at the shared scrubber position; the overlay follows it automatically. */
+  currentRepIndex?: number;
   height?: number;
 }
 
@@ -48,16 +48,57 @@ const toSvgPoints = (normalised: {x: number; y: number}[], width: number, height
 };
 
 /**
- * Overlays the bar paths of both analyses as true 2D trajectories. A line
- * chart cannot draw these (x is not monotonic over a rep), so the paths are
- * rendered as SVG polylines; the dot marks each path's starting point.
+ * Overlays the bar path of ONE rep of analysis A over the same rep of
+ * analysis B — all reps at once are an unreadable tangle. The displayed rep
+ * follows the shared scrubber automatically and can be switched manually via
+ * the prev/next buttons. A line chart cannot draw these (x is not monotonic
+ * over a rep), so the paths are rendered as SVG polylines; the dot marks each
+ * path's starting point.
  */
-const BarPathCompareView = ({barPathSeries1, barPathSeries2, height = 220}: Props) => {
+const BarPathCompareView = ({
+  barPathSeries1,
+  barPathSeries2,
+  repSegments1,
+  repSegments2,
+  currentRepIndex,
+  height = 220,
+}: Props) => {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
 
-  const smoothed1 = useMemo(() => smoothBarPathSeries(barPathSeries1), [barPathSeries1]);
-  const smoothed2 = useMemo(() => smoothBarPathSeries(barPathSeries2), [barPathSeries2]);
+  const repCount = Math.max(repSegments1.length, repSegments2.length);
+  const [displayedRepIndex, setDisplayedRepIndex] = useState(0);
+
+  // Auto-follow: when the shared scrubber enters another rep, switch the
+  // overlay with it (overriding any manual prev/next selection).
+  useEffect(() => {
+    if (currentRepIndex !== undefined && repCount > 0) {
+      setDisplayedRepIndex(Math.max(0, Math.min(currentRepIndex, repCount - 1)));
+    }
+  }, [currentRepIndex, repCount]);
+
+  const segment1 = useMemo(
+    () => repSegments1.find((s) => s.repIndex === displayedRepIndex) ?? repSegments1[displayedRepIndex],
+    [repSegments1, displayedRepIndex],
+  );
+  const segment2 = useMemo(
+    () => repSegments2.find((s) => s.repIndex === displayedRepIndex) ?? repSegments2[displayedRepIndex],
+    [repSegments2, displayedRepIndex],
+  );
+
+  // Fallback: without any detected reps there is nothing to slice — show the
+  // whole path (and no rep switcher).
+  const repSeries1 = useMemo(
+    () => (repCount === 0 ? barPathSeries1 : sliceBarPathForSegment(barPathSeries1, segment1)),
+    [barPathSeries1, segment1, repCount],
+  );
+  const repSeries2 = useMemo(
+    () => (repCount === 0 ? barPathSeries2 : sliceBarPathForSegment(barPathSeries2, segment2)),
+    [barPathSeries2, segment2, repCount],
+  );
+
+  const smoothed1 = useMemo(() => smoothBarPathSeries(repSeries1), [repSeries1]);
+  const smoothed2 = useMemo(() => smoothBarPathSeries(repSeries2), [repSeries2]);
   const normalised1 = useMemo(() => normaliseToRomSpace(smoothed1), [smoothed1]);
   const normalised2 = useMemo(() => normaliseToRomSpace(smoothed2), [smoothed2]);
 
@@ -67,6 +108,13 @@ const BarPathCompareView = ({barPathSeries1, barPathSeries2, height = 220}: Prop
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     setWidth(event.nativeEvent.layout.width);
   }, []);
+
+  const goPrev = useCallback(() => {
+    setDisplayedRepIndex((index) => Math.max(0, index - 1));
+  }, []);
+  const goNext = useCallback(() => {
+    setDisplayedRepIndex((index) => Math.min(repCount - 1, index + 1));
+  }, [repCount]);
 
   const startDot = (points: string, color: string, testID: string) => {
     const first = points.split(' ')[0];
@@ -79,6 +127,27 @@ const BarPathCompareView = ({barPathSeries1, barPathSeries2, height = 220}: Prop
 
   return (
     <View style={styles.container} testID="bar-path-compare-view">
+      {repCount > 0 && (
+        <View style={styles.repSwitcherRow}>
+          <IconButton
+            testID="bar-path-rep-prev"
+            icon="chevron-left"
+            size={20}
+            onPress={goPrev}
+            disabled={displayedRepIndex <= 0}
+          />
+          <Text testID="bar-path-rep-label" variant="labelLarge">
+            {`Rep ${displayedRepIndex + 1} / ${repCount}`}
+          </Text>
+          <IconButton
+            testID="bar-path-rep-next"
+            icon="chevron-right"
+            size={20}
+            onPress={goNext}
+            disabled={displayedRepIndex >= repCount - 1}
+          />
+        </View>
+      )}
       <View style={{height}} onLayout={onLayout}>
         {width > 0 && (
           <Svg width={width} height={height}>
@@ -126,6 +195,11 @@ const BarPathCompareView = ({barPathSeries1, barPathSeries2, height = 220}: Prop
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+  },
+  repSwitcherRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   legendRow: {
     marginTop: 6,
