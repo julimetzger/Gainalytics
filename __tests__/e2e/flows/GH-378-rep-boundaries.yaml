@@ -1,0 +1,98 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-378: Rep Beginn wird zu früh angesetzt
+#
+# The v6 rep detector anchored rep N's start and rep N-1's end at the same
+# y-extremum of the between-crossings window, so the standing pause between
+# reps was absorbed into the rep phases (rep totals of 7-10s for ~3s reps,
+# concentric times of 5-10s at absurdly low average speeds).
+#
+# This flow opens the real 5-rep bench recording (analysis-4) on the device.
+# Opening the detail screen triggers migrateBarTrackingResultIfNeeded, which
+# re-runs the v7 detector on the stored barPathSeries. The flow then asserts
+# the ACTUAL resulting rep-time values of the changed UI (not just element
+# visibility): rep 1 total must be 5.41s (v6: 5.96s) and rep 5 total must be
+# 3.46s (v6: 9.76s — it used to absorb a >6s standing pause).
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 60000
+
+- tapOn: 'tab-analyse'
+
+- extendedWaitUntil:
+    visible: 'Analyse'
+    timeout: 10000
+
+# Open the Analyse drawer and go to the Video Analyses list
+- tapOn:
+    id: 'analyse-drawer-toggle'
+
+- extendedWaitUntil:
+    visible:
+      text: 'Video Analyses'
+    timeout: 5000
+
+- tapOn: 'Video Analyses'
+
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 10000
+
+# Open the 5-rep bench recording (analysis-4)
+- scrollUntilVisible:
+    element:
+      id: 'video-analysis-row-4'
+    direction: DOWN
+    timeout: 15000
+
+- tapOn:
+    id: 'video-analysis-row-4'
+
+# Detail screen: wait for playback overlay + migration + rep summary render
+- extendedWaitUntil:
+    visible:
+      text: 'Video Analysis Detail'
+    timeout: 20000
+
+# Scroll down to the Rep Summary. The playback overlay (scrubber/chart) eats
+# centered gestures, so use edge swipes that the outer ScrollView wins.
+- swipe:
+    start: '97%, 80%'
+    end: '97%, 25%'
+    duration: 1500
+
+- swipe:
+    start: '97%, 80%'
+    end: '97%, 25%'
+    duration: 1500
+
+- extendedWaitUntil:
+    visible:
+      text: 'Rep Summary (5 reps)'
+    timeout: 15000
+
+# Assert the actual resulting values of the changed UI element.
+# Rep 1 total: v7 = 5.41s (segment 7811..13218). v6 was 5.96s.
+- copyTextFrom:
+    id: 'video-analysis-rep-time-0'
+
+- evalScript: |
+    if (maestro.copiedText !== '5.41s') {
+      throw 'rep 1 total expected 5.41s but was ' + maestro.copiedText;
+    }
+
+# Rep 5 total: v7 = 3.46s (segment 39605..43060). v6 was 9.76s because the
+# rep start swallowed the multi-second standing pause before the rep.
+- copyTextFrom:
+    id: 'video-analysis-rep-time-4'
+
+- evalScript: |
+    if (maestro.copiedText !== '3.46s') {
+      throw 'rep 5 total expected 3.46s but was ' + maestro.copiedText;
+    }
+
+- takeScreenshot: gh378-rep-summary-after
