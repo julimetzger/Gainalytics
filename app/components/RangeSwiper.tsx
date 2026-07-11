@@ -149,6 +149,17 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
   };
   const activePaneHeight = paneHeights[fullPosition.activeView];
 
+  // GH-324: clamp only the two OFF-SCREEN panes, never the active one and
+  // never the row. Clamping the row (previous approach) deadlocked the layout:
+  // once the row was fixed to the active pane's measured height, the pane
+  // could never re-measure taller, so content that grows after the first
+  // measure (e.g. the plan full-edit list) was clipped forever.
+  const paneStyle = (pane: ViewPosition) => ({
+    width: dimensions.width,
+    top: 0,
+    ...(pane !== fullPosition.activeView && activePaneHeight !== undefined ? {height: activePaneHeight, overflow: 'hidden' as const} : {}),
+  });
+
   const zeroPositon = fullPosition.traveledIndex * dimensions.width;
 
   const refa = useRef();
@@ -248,14 +259,13 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
               animatedStyle,
               {
                 flexDirection: 'row',
-                // Panes keep their natural content height so onLayout measures
-                // them correctly; the row is clamped to the active pane's height
-                // so the scrollable area ends there instead of at the tallest
-                // off-screen neighbour. No flexGrow here — stretching the row to
-                // fill the viewport would recreate the same dead space whenever
-                // a pane's real content is shorter than the screen.
+                // GH-324: the row keeps its natural (auto) height and follows
+                // the ACTIVE pane, which is never height-clamped. Only the two
+                // off-screen neighbour panes are clamped (see paneStyle), so
+                // the scrollable area still ends at the active pane instead of
+                // the tallest neighbour (GH-356) without freezing the layout
+                // at the first measured height.
                 alignItems: 'flex-start',
-                height: activePaneHeight,
                 left: -zeroPositon + initialOffset,
               },
             ]}
@@ -267,10 +277,7 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
                     key={1}
                     testID="range-swiper-pane-upper"
                     onLayout={makePaneOnLayout(ViewPosition.UPPER)}
-                    style={{
-                      width: dimensions.width,
-                      top: 0,
-                    }}
+                    style={paneStyle(ViewPosition.UPPER)}
                   >
                     {nodeFunction(fullPosition.Upper.range, setRange)}
                   </View>
@@ -282,10 +289,7 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
                     key={2}
                     testID="range-swiper-pane-middle"
                     onLayout={makePaneOnLayout(ViewPosition.MIDDLE)}
-                    style={{
-                      width: dimensions.width,
-                      top: 0,
-                    }}
+                    style={paneStyle(ViewPosition.MIDDLE)}
                   >
                     {nodeFunction(fullPosition.Middle.range, setRange)}
                   </View>
@@ -297,10 +301,7 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
                     key={3}
                     testID="range-swiper-pane-lower"
                     onLayout={makePaneOnLayout(ViewPosition.LOWER)}
-                    style={{
-                      width: dimensions.width,
-                      top: 0,
-                    }}
+                    style={paneStyle(ViewPosition.LOWER)}
                   >
                     {nodeFunction(fullPosition.Lower.range, setRange)}
                   </View>

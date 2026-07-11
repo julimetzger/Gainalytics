@@ -1,0 +1,440 @@
+diff --git a/node_modules/react-native-draggable-flatlist/lib/commonjs/index.js b/node_modules/react-native-draggable-flatlist/lib/commonjs/index.js
+index 3b315c1..ea7aad7 100644
+--- a/node_modules/react-native-draggable-flatlist/lib/commonjs/index.js
++++ b/node_modules/react-native-draggable-flatlist/lib/commonjs/index.js
+@@ -1,2 +1,2 @@
+ var _interopRequireDefault=require("@babel/runtime/helpers/interopRequireDefault");Object.defineProperty(exports,"__esModule",{value:true});var _exportNames={};exports.default=void 0;var _DraggableFlatList=_interopRequireDefault(require("./components/DraggableFlatList"));var _CellDecorators=require("./components/CellDecorators");Object.keys(_CellDecorators).forEach(function(key){if(key==="default"||key==="__esModule")return;if(Object.prototype.hasOwnProperty.call(_exportNames,key))return;if(key in exports&&exports[key]===_CellDecorators[key])return;Object.defineProperty(exports,key,{enumerable:true,get:function get(){return _CellDecorators[key];}});});var _NestableDraggableFlatList=require("./components/NestableDraggableFlatList");Object.keys(_NestableDraggableFlatList).forEach(function(key){if(key==="default"||key==="__esModule")return;if(Object.prototype.hasOwnProperty.call(_exportNames,key))return;if(key in exports&&exports[key]===_NestableDraggableFlatList[key])return;Object.defineProperty(exports,key,{enumerable:true,get:function get(){return _NestableDraggableFlatList[key];}});});var _NestableScrollContainer=require("./components/NestableScrollContainer");Object.keys(_NestableScrollContainer).forEach(function(key){if(key==="default"||key==="__esModule")return;if(Object.prototype.hasOwnProperty.call(_exportNames,key))return;if(key in exports&&exports[key]===_NestableScrollContainer[key])return;Object.defineProperty(exports,key,{enumerable:true,get:function get(){return _NestableScrollContainer[key];}});});var _types=require("./types");Object.keys(_types).forEach(function(key){if(key==="default"||key==="__esModule")return;if(Object.prototype.hasOwnProperty.call(_exportNames,key))return;if(key in exports&&exports[key]===_types[key])return;Object.defineProperty(exports,key,{enumerable:true,get:function get(){return _types[key];}});});var _default=_DraggableFlatList.default;exports.default=_default;
+-//# sourceMappingURL=index.js.map
+\ No newline at end of file
++//# sourceMappingURL=index.js.mapvar _nestableScrollContainerContext=require("./context/nestableScrollContainerContext");Object.keys(_nestableScrollContainerContext).forEach(function(key){if(key==="default"||key==="__esModule")return;if(key in exports)return;Object.defineProperty(exports,key,{enumerable:true,get:function get(){return _nestableScrollContainerContext[key];}});});
+diff --git a/node_modules/react-native-draggable-flatlist/lib/module/index.js b/node_modules/react-native-draggable-flatlist/lib/module/index.js
+index aed2b34..3e8f50c 100644
+--- a/node_modules/react-native-draggable-flatlist/lib/module/index.js
++++ b/node_modules/react-native-draggable-flatlist/lib/module/index.js
+@@ -4,4 +4,4 @@ export * from "./components/NestableDraggableFlatList";
+ export * from "./components/NestableScrollContainer";
+ export * from "./types";
+ export default DraggableFlatList;
+-//# sourceMappingURL=index.js.map
+\ No newline at end of file
++//# sourceMappingURL=index.js.mapexport * from "./context/nestableScrollContainerContext";
+diff --git a/node_modules/react-native-draggable-flatlist/lib/typescript/index.d.ts b/node_modules/react-native-draggable-flatlist/lib/typescript/index.d.ts
+index 16cd51e..4794b93 100644
+--- a/node_modules/react-native-draggable-flatlist/lib/typescript/index.d.ts
++++ b/node_modules/react-native-draggable-flatlist/lib/typescript/index.d.ts
+@@ -4,3 +4,4 @@ export * from "./components/NestableDraggableFlatList";
+ export * from "./components/NestableScrollContainer";
+ export * from "./types";
+ export default DraggableFlatList;
++export * from "./context/nestableScrollContainerContext";
+diff --git a/node_modules/react-native-draggable-flatlist/src/components/CellRendererComponent.tsx b/node_modules/react-native-draggable-flatlist/src/components/CellRendererComponent.tsx
+index e4e861a..7f71b4b 100644
+--- a/node_modules/react-native-draggable-flatlist/src/components/CellRendererComponent.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/components/CellRendererComponent.tsx
+@@ -78,8 +78,12 @@ function CellRendererComponent<T>(props: Props<T>) {
+         measurements: { size: cellSize, offset: cellOffset },
+       });
+ 
+-      size.value = cellSize;
+-      offset.value = cellOffset;
++      // PATCH (Gainalytics GH-324): JS-thread shared-value writes are dropped
++      // on reanimated v4 — write via runOnUI or the spacer math sees -1 sizes.
++      runOnUI(() => {
++        size.value = cellSize;
++        offset.value = cellOffset;
++      })();
+     };
+ 
+     const onFail = () => {
+@@ -99,7 +103,9 @@ function CellRendererComponent<T>(props: Props<T>) {
+   });
+ 
+   const onCellLayout = useStableCallback((e?: LayoutChangeEvent) => {
+-    heldTanslate.value = 0;
++    runOnUI(() => {
++      heldTanslate.value = 0;
++    })();
+     updateCellMeasurements();
+     if (onLayout && e) onLayout(e);
+   });
+diff --git a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
+index 7c88afc..8be5a3e 100644
+--- a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
+@@ -19,6 +19,7 @@ import {
+ } from "react-native-gesture-handler";
+ import Animated, {
+   runOnJS,
++  runOnUI,
+   useAnimatedReaction,
+   useAnimatedScrollHandler,
+   useSharedValue,
+@@ -84,12 +85,19 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+     disabled,
+   } = useAnimatedValues();
+ 
++  // PATCH (Gainalytics GH-324): on reanimated v4 / react-native-worklets,
++  // shared-value writes from the JS thread are silently dropped — they never
++  // reach the UI runtime. Every JS-side ".value =" in this lib must go
++  // through runOnUI, otherwise drag state (activeIndexAnim etc.) stays stale
++  // in the gesture worklets and drops/reorders never happen.
+   const reset = useStableCallback(() => {
+-    activeIndexAnim.value = -1;
+-    spacerIndexAnim.value = -1;
+-    touchTranslate.value = 0;
+-    activeCellSize.value = -1;
+-    activeCellOffset.value = -1;
++    runOnUI(() => {
++      activeIndexAnim.value = -1;
++      spacerIndexAnim.value = -1;
++      touchTranslate.value = 0;
++      activeCellSize.value = -1;
++      activeCellOffset.value = -1;
++    })();
+     setActiveKey(null);
+   });
+ 
+@@ -148,15 +156,19 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+     if (disabled.value) return;
+     const index = keyToIndexRef.current.get(activeKey);
+     const cellData = cellDataRef.current.get(activeKey);
+-    if (cellData) {
+-      activeCellOffset.value = cellData.measurements.offset;
+-      activeCellSize.value = cellData.measurements.size;
+-    }
+ 
+     const { onDragBegin } = propsRef.current;
+     if (index !== undefined) {
+-      spacerIndexAnim.value = index;
+-      activeIndexAnim.value = index;
++      const measurements = cellData?.measurements;
++      runOnUI(() => {
++        if (measurements) {
++          activeCellOffset.value = measurements.offset;
++          activeCellSize.value = measurements.size;
++        }
++        spacerIndexAnim.value = index;
++        activeIndexAnim.value = index;
++      })();
++      console.log("[GH324-P] drag()", activeKey, index);
+       setActiveKey(activeKey);
+       onDragBegin?.(index);
+     }
+@@ -166,24 +178,34 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+     nativeEvent: { layout },
+   }: LayoutChangeEvent) => {
+     const { width, height } = layout;
+-    containerSize.value = props.horizontal ? width : height;
++    const nextContainerSize = props.horizontal ? width : height;
++    runOnUI(() => {
++      containerSize.value = nextContainerSize;
++    })();
+     props.onContainerLayout?.({ layout, containerRef });
+   };
+ 
+   const onListContentSizeChange = (w: number, h: number) => {
+-    scrollViewSize.value = props.horizontal ? w : h;
++    const nextScrollViewSize = props.horizontal ? w : h;
++    runOnUI(() => {
++      scrollViewSize.value = nextScrollViewSize;
++    })();
+     props.onContentSizeChange?.(w, h);
+   };
+ 
+   const onContainerTouchStart = () => {
+-    if (!disabled.value) {
+-      isTouchActiveNative.value = true;
+-    }
++    runOnUI(() => {
++      if (!disabled.value) {
++        isTouchActiveNative.value = true;
++      }
++    })();
+     return false;
+   };
+ 
+   const onContainerTouchEnd = () => {
+-    isTouchActiveNative.value = false;
++    runOnUI(() => {
++      isTouchActiveNative.value = false;
++    })();
+   };
+ 
+   const extraData = useMemo(
+@@ -220,6 +242,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+ 
+   const onDragEnd = useStableCallback(
+     ({ from, to }: { from: number; to: number }) => {
++      console.log("[GH324-P] onDragEnd JS", from, to);
+       const { onDragEnd, data } = props;
+ 
+       const newData = [...data];
+@@ -273,12 +296,26 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+   const gestureDisabled = useSharedValue(false);
+ 
+   const panGesture = Gesture.Pan()
++    // PATCH (Gainalytics GH-324): two nested DraggableFlatLists (exercise
++    // sections + set rows) race for the same vertical pan — the outer list's
++    // pan can activate first and cancel the inner one that actually owns the
++    // drag. Manual activation gates each pan on ITS OWN active drag
++    // (activeIndexAnim is set via drag()/runOnUI when a handle is pressed),
++    // so only the owning list's pan ever activates and plain scrolling is
++    // never claimed.
++    .manualActivation(true)
++    .onTouchesMove((_evt, state) => {
++      if (activeIndexAnim.value >= 0 && !disabled.value) {
++        state.activate();
++      }
++    })
+     .onBegin((evt) => {
+       gestureDisabled.value = disabled.value;
+       if (gestureDisabled.value) return;
+       panGestureState.value = evt.state;
+     })
+     .onUpdate((evt) => {
++      console.log("[GH324-P] pan onUpdate", evt.translationY);
+       if (gestureDisabled.value) return;
+       panGestureState.value = evt.state;
+       const translation = horizontalAnim.value
+@@ -287,6 +324,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+       touchTranslate.value = translation;
+     })
+     .onEnd((evt) => {
++      console.log("[GH324-P] pan onEnd, gestureDisabled:", gestureDisabled.value, "activeIndex:", activeIndexAnim.value, "spacer:", spacerIndexAnim.value);
+       if (gestureDisabled.value) return;
+       // Set touch val to current translate val
+       isTouchActiveNative.value = false;
+@@ -302,27 +340,38 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+       disabled.value = true;
+       runOnJS(onRelease)(activeIndexAnim.value);
+       const springTo = placeholderOffset.value - activeCellOffset.value;
+-      touchTranslate.value = withSpring(
+-        springTo,
+-        animationConfigRef.value,
+-        () => {
+-          runOnJS(onDragEnd)({
+-            from: activeIndexAnim.value,
+-            to: spacerIndexAnim.value,
+-          });
+-          disabled.value = false;
+-        }
+-      );
++      // PATCH (Gainalytics GH-324): on reanimated v4 / Fabric the withSpring
++      // completion callback never fires, so onDragEnd was never called — the
++      // drop was lost and the row stayed stuck in its active state. Fire
++      // onDragEnd directly on gesture end instead of from the spring callback.
++      touchTranslate.value = withSpring(springTo, animationConfigRef.value);
++      runOnJS(onDragEnd)({
++        from: activeIndexAnim.value,
++        to: spacerIndexAnim.value,
++      });
++      disabled.value = false;
+     })
+     .onTouchesDown(() => {
+       runOnJS(onContainerTouchStart)();
+     })
++    .onFinalize((evt, success) => {
++      console.log("[GH324-P] pan onFinalize success:", success, "state:", evt.state);
++    })
+     .onTouchesUp(() => {
+       // Turning this into a worklet causes timing issues. We want it to run
+       // just after the finger lifts.
+       runOnJS(onContainerTouchEnd)();
+     });
+ 
++  // PATCH (Gainalytics GH-324): inside a NestableScrollContainer the outer
++  // RNGH ScrollView natively intercepts the vertical move ~100ms in and the
++  // orchestrator CANCELS this pan before it can activate. Marking the pan
++  // simultaneous with the outer scrollable keeps it alive; the outer scroll
++  // is disabled via onDragBegin while a real drag is running.
++  const outerScrollableRef = (props as any).outerScrollableRef;
++  if (outerScrollableRef) {
++    panGesture.simultaneousWithExternalGesture(outerScrollableRef);
++  }
+   if (dragHitSlop) panGesture.hitSlop(dragHitSlop);
+   if (activationDistanceProp) {
+     const activeOffset = [-activationDistanceProp, activationDistanceProp];
+@@ -361,11 +410,19 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+ 
+     const min = Math.min(...viewableIndices);
+     const max = Math.max(...viewableIndices);
+-    viewableIndexMin.value = min;
+-    viewableIndexMax.value = max;
++    runOnUI(() => {
++      viewableIndexMin.value = min;
++      viewableIndexMax.value = max;
++    })();
+     props.onViewableItemsChanged?.(info);
+   });
+ 
++  // PATCH (Gainalytics GH-324): outerScrollableRef is consumed by the pan
++  // gesture relation above — it must NOT leak onto the native FlatList via
++  // the props spread (Fabric crashes mounting a host-object prop).
++  const flatListPassthroughProps = { ...props } as any;
++  delete flatListPassthroughProps.outerScrollableRef;
++
+   return (
+     <DraggableFlatListProvider
+       activeKey={activeKey}
+@@ -383,7 +440,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+             <PlaceholderItem renderPlaceholder={props.renderPlaceholder} />
+           )}
+           <AnimatedFlatList
+-            {...props}
++            {...flatListPassthroughProps}
+             data={props.data}
+             onViewableItemsChanged={onViewableItemsChanged}
+             CellRendererComponent={CellRendererComponent}
+diff --git a/node_modules/react-native-draggable-flatlist/src/components/NestableDraggableFlatList.tsx b/node_modules/react-native-draggable-flatlist/src/components/NestableDraggableFlatList.tsx
+index 1559352..c58db4a 100644
+--- a/node_modules/react-native-draggable-flatlist/src/components/NestableDraggableFlatList.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/components/NestableDraggableFlatList.tsx
+@@ -1,6 +1,7 @@
+ import React, { useRef, useState } from "react";
+ import { findNodeHandle, LogBox } from "react-native";
+ import Animated, {
++  runOnUI,
+   useDerivedValue,
+   useSharedValue,
+ } from "react-native-reanimated";
+@@ -51,7 +52,11 @@ function NestableDraggableFlatListInner<T>(
+     const nodeHandle = findNodeHandle(scrollableRef.current);
+ 
+     const onSuccess = (_x: number, y: number) => {
+-      listVerticalOffset.value = y;
++      // PATCH (Gainalytics GH-324): JS-thread shared-value writes are dropped
++      // on reanimated v4 — write via runOnUI.
++      runOnUI(() => {
++        listVerticalOffset.value = y;
++      })();
+     };
+     const onFail = () => {
+       console.log("## nested draggable list measure fail");
+@@ -88,6 +93,7 @@ function NestableDraggableFlatListInner<T>(
+   return (
+     <DraggableFlatList
+       ref={ref}
++      {...({ outerScrollableRef: scrollableRef } as any)}
+       onContainerLayout={onListContainerLayout}
+       activationDistance={props.activationDistance || 20}
+       scrollEnabled={false}
+diff --git a/node_modules/react-native-draggable-flatlist/src/components/NestableScrollContainer.tsx b/node_modules/react-native-draggable-flatlist/src/components/NestableScrollContainer.tsx
+index 61054a7..44e11eb 100644
+--- a/node_modules/react-native-draggable-flatlist/src/components/NestableScrollContainer.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/components/NestableScrollContainer.tsx
+@@ -1,7 +1,7 @@
+ import React from "react";
+ import { LayoutChangeEvent, ScrollViewProps } from "react-native";
+ import { ScrollView } from "react-native-gesture-handler";
+-import Animated, { useAnimatedScrollHandler } from "react-native-reanimated";
++import Animated, { runOnUI, useAnimatedScrollHandler } from "react-native-reanimated";
+ import {
+   NestableScrollContainerProvider,
+   useSafeNestableScrollContainerContext,
+@@ -29,11 +29,18 @@ function NestableScrollContainerInner(props: ScrollViewProps) {
+     const {
+       nativeEvent: { layout },
+     } = event;
+-    containerSize.value = layout.height;
++    const h = layout.height;
++    // PATCH (Gainalytics GH-324): JS-thread shared-value writes are dropped
++    // on reanimated v4 — write via runOnUI.
++    runOnUI(() => {
++      containerSize.value = h;
++    })();
+   });
+ 
+   const onContentSizeChange = useStableCallback((w: number, h: number) => {
+-    scrollViewSize.value = h;
++    runOnUI(() => {
++      scrollViewSize.value = h;
++    })();
+     props.onContentSizeChange?.(w, h);
+   });
+ 
+diff --git a/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx b/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
+index c62360d..99fd960 100644
+--- a/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
+@@ -1,5 +1,6 @@
+ import React, { useMemo, useEffect, useCallback, useContext } from "react";
+ import {
++  runOnUI,
+   useAnimatedReaction,
+   useDerivedValue,
+   useSharedValue,
+@@ -155,8 +156,12 @@ function useSetupAnimatedValues<T>() {
+ 
+   // Note: this could use a refactor as it combines touch state + cell animation
+   const resetTouchedCell = useCallback(() => {
+-    activeCellOffset.value = 0;
+-    hasMoved.value = 0;
++    // PATCH (Gainalytics GH-324): JS-thread shared-value writes are dropped
++    // on reanimated v4 — write via runOnUI.
++    runOnUI(() => {
++      activeCellOffset.value = 0;
++      hasMoved.value = 0;
++    })();
+   }, []);
+ 
+   const value = useMemo(
+diff --git a/node_modules/react-native-draggable-flatlist/src/context/refContext.tsx b/node_modules/react-native-draggable-flatlist/src/context/refContext.tsx
+index 49bee06..47ce250 100644
+--- a/node_modules/react-native-draggable-flatlist/src/context/refContext.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/context/refContext.tsx
+@@ -1,7 +1,7 @@
+ import React, { useContext, useEffect } from "react";
+ import { useMemo, useRef } from "react";
+ import { FlatList } from "react-native-gesture-handler";
+-import Animated, { type SharedValue, useSharedValue, WithSpringConfig } from "react-native-reanimated";
++import Animated, { runOnUI, type SharedValue, useSharedValue, WithSpringConfig } from "react-native-reanimated";
+ import { DEFAULT_PROPS } from "../constants";
+ import { useProps } from "./propsContext";
+ import { CellData, DraggableFlatListProps } from "../types";
+@@ -60,7 +60,11 @@ function useSetupRefs<T>({
+ 
+   const animationConfigRef = useSharedValue(animConfig);
+   useEffect(() => {
+-    animationConfigRef.value = animConfig;
++    // PATCH (Gainalytics GH-324): JS-thread shared-value writes are dropped
++    // on reanimated v4 — write via runOnUI.
++    runOnUI(() => {
++      animationConfigRef.value = animConfig;
++    })();
+   }, [animConfig]);
+ 
+   const cellDataRef = useRef(new Map<string, CellData>());
+diff --git a/node_modules/react-native-draggable-flatlist/src/hooks/useCellTranslate.tsx b/node_modules/react-native-draggable-flatlist/src/hooks/useCellTranslate.tsx
+index efea240..1c65a44 100644
+--- a/node_modules/react-native-draggable-flatlist/src/hooks/useCellTranslate.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/hooks/useCellTranslate.tsx
+@@ -53,7 +53,11 @@ export function useCellTranslate({ cellIndex, cellSize, cellOffset }: Params) {
+         result = cellIndex - 1;
+       } else if (
+         hoverPlusActiveSize >= offsetPlusHalfSize &&
+-        hoverPlusActiveSize < offsetPlusSize
++        // PATCH (Gainalytics GH-324): must be inclusive — when the active cell
++        // is dragged to the clamped end of the list, hoverPlusActiveSize equals
++        // offsetPlusSize exactly and the strict "<" left the spacer index
++        // untouched, so dropping on the last position never reordered.
++        hoverPlusActiveSize <= offsetPlusSize
+       ) {
+         // bottom edge of active cell overlaps bottom half of current cell
+         result = cellIndex;
+@@ -74,6 +78,7 @@ export function useCellTranslate({ cellIndex, cellSize, cellOffset }: Params) {
+       }
+     }
+ 
++    console.log("[GH324-P] cell", cellIndex, "hover:", Math.round(hoverOffset.value), "cellOff:", Math.round(cellOffset.value), "cellSz:", Math.round(cellSize.value), "activeSz:", Math.round(activeCellSize.value), "result:", result);
+     if (result !== -1 && result !== spacerIndexAnim.value) {
+       spacerIndexAnim.value = result;
+     }
+diff --git a/node_modules/react-native-draggable-flatlist/src/index.tsx b/node_modules/react-native-draggable-flatlist/src/index.tsx
+index 16cd51e..4794b93 100644
+--- a/node_modules/react-native-draggable-flatlist/src/index.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/index.tsx
+@@ -4,3 +4,4 @@ export * from "./components/NestableDraggableFlatList";
+ export * from "./components/NestableScrollContainer";
+ export * from "./types";
+ export default DraggableFlatList;
++export * from "./context/nestableScrollContainerContext";

@@ -1,6 +1,6 @@
 import {Exercise} from '../../models/entities/Exercise';
-import {LayoutRectangle, View} from 'react-native';
-import {NestableScrollContainer} from 'react-native-draggable-flatlist';
+import {LayoutRectangle, ScrollView, View} from 'react-native';
+import {NestableScrollContainerProvider, useNestableScrollContainerContext} from 'react-native-draggable-flatlist';
 import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
 import {TrainingsState} from '../../models/TrainingsState';
@@ -58,6 +58,21 @@ export const defaultSubTab = (state?: string): SubTab => {
   if (state === TrainingsState.STARTED) return 'train';
   if (state === TrainingsState.FINISHED) return 'analysis';
   return 'plan'; // no training → Plan tab shows TrainingsBase (add/suggest)
+};
+
+// GH-324: plain react-native ScrollView instead of the library's
+// NestableScrollContainer (a reanimated AnimatedScrollView). On Fabric the
+// animated scroll view clipped its content at a stale height — everything in
+// plan full-edit below ~490dp was laid out but never drawn. The provider stays
+// so PlanEditList's pan-drags can freeze this scroll while a drag is in
+// flight (scrollEnabled comes from the same context the library used).
+const PlanNodeScrollContainer = ({children}: {children: React.ReactNode}) => {
+  const nestableScrollContext = useNestableScrollContainerContext();
+  return (
+    <ScrollView keyboardShouldPersistTaps={'handled'} scrollEnabled={nestableScrollContext?.outerScrollEnabled ?? true}>
+      {children}
+    </ScrollView>
+  );
 };
 
 const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange, microSortMode, onMicroSortModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange}: TrainingsPlanNodeProps) => {
@@ -287,7 +302,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
         onEditTraining={handleEditTraining}
         onDeleteTraining={handleDeleteTraining}
       />
-      <NestableScrollContainer keyboardShouldPersistTaps={'handled'}>
+      <NestableScrollContainerProvider>
+        <PlanNodeScrollContainer>
         <View>
           {showDone ? (
             <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} viewMode={effectiveViewMode} onViewModeChange={effectiveSetViewMode} sortMode={effectiveSortMode} onSortModeChange={effectiveSetSortMode} />
@@ -454,7 +470,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
             </View>
           )}
         </View>
-      </NestableScrollContainer>
+        </PlanNodeScrollContainer>
+      </NestableScrollContainerProvider>
       <Portal>
         <Dialog visible={showDeleteDialog} onDismiss={() => setShowDeleteDialog(false)}>
           <Dialog.Title>Delete Training</Dialog.Title>

@@ -120,7 +120,7 @@ jest.mock('react-native-draggable-flatlist', () => {
       ))}
     </View>
   );
-  return {__esModule: true, default: Component, NestableDraggableFlatList: Component, ScaleDecorator};
+  return {__esModule: true, default: Component, NestableDraggableFlatList: Component, ScaleDecorator, useNestableScrollContainerContext: () => undefined};
 });
 
 jest.mock('../../../../app/components/shared/DashedAddButton', () => {
@@ -209,6 +209,47 @@ describe('PlanEditSetRow — save on blur (GH-303 Item 1)', () => {
       expect(lastSet.index).toBe(1);
       expect(lastSet.weight).toBe(70);
     });
+  });
+
+  // GH-324: "immer speichern beim Verlassen des Feldes" also covers leaving the
+  // whole edit mode while an input is still focused — the row unmounts without
+  // a blur event, so the changed draft must be committed on unmount.
+  it('commits an un-blurred, changed draft when the row unmounts (e.g. Done pressed while typing)', async () => {
+    const {getByTestId, unmount} = renderInFullEdit();
+    await waitFor(() => expect(getByTestId('plan-set-1-weight-input')).toBeTruthy());
+
+    const dispatchesBefore = upsertDispatchCount();
+    fireEvent.changeText(getByTestId('plan-set-1-weight-input'), '75');
+    expect(upsertDispatchCount()).toBe(dispatchesBefore);
+
+    unmount();
+
+    const upserts = mockDispatch.mock.calls.filter(([action]) => action?.type === 'ADD_OR_UPDATE_SET_IN_WORKOUT');
+    expect(upserts.length).toBe(dispatchesBefore + 1);
+    expect(upserts[upserts.length - 1][0].set).toEqual(expect.objectContaining({index: 1, weight: 75}));
+  });
+
+  it('does NOT dispatch on unmount when the draft is unchanged', async () => {
+    const {getByTestId, unmount} = renderInFullEdit();
+    await waitFor(() => expect(getByTestId('plan-set-1-weight-input')).toBeTruthy());
+
+    const dispatchesBefore = upsertDispatchCount();
+    unmount();
+    expect(upsertDispatchCount()).toBe(dispatchesBefore);
+  });
+
+  // GH-324: the 1RM suggestion button is always visible on saved rows too.
+  it('renders the 1RM toggle on saved set rows', async () => {
+    const {getByTestId} = renderInFullEdit();
+    await waitFor(() => expect(getByTestId('plan-set-1-1rm-toggle')).toBeTruthy());
+  });
+
+  it('does not auto-change the weight draft when typing reps while the 1RM toggle is off (saved-row default)', async () => {
+    const {getByTestId} = renderInFullEdit();
+    await waitFor(() => expect(getByTestId('plan-set-1-weight-input')).toBeTruthy());
+
+    fireEvent.changeText(getByTestId('plan-set-1-reps-input'), '9');
+    expect(getByTestId('plan-set-1-weight-input').props.value).toBe('60');
   });
 
   it('blurring without value change does not dispatch a redundant upsert with an invalid value', async () => {
