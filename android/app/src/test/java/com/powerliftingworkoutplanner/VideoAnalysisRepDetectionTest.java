@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class VideoAnalysisRepDetectionTest {
 
@@ -20,12 +21,15 @@ public class VideoAnalysisRepDetectionTest {
             new double[] {100, 180, 260, 300, 260, 180, 100, 100, 180, 260, 300, 260, 180, 100, 100, 180, 260}
         );
 
+        // Rep 2's start snaps from 3000 to 3500: the bar rests at the top for two
+        // samples (3000 and 3500) and only leaves its resting band after 3500, so the
+        // rep begins at the movement onset, not at the extremum of the pause (GH-378).
         assertEquals(
-            "[segment(0,0,1500,3000), segment(1,3000,5000,6500)]",
+            "[segment(0,0,1500,3000), segment(1,3500,5000,6500)]",
             describeSegments(detectedReps)
         );
         assertEquals(
-            "[metric(0,3000,133.333,24.0), metric(1,3500,133.333,24.0)]",
+            "[metric(0,3000,133.333,24.0), metric(1,3000,133.333,24.0)]",
             describeMetrics(detectedReps)
         );
     }
@@ -40,7 +44,7 @@ public class VideoAnalysisRepDetectionTest {
         );
 
         assertEquals(
-            "[segment(0,0,1500,3000), segment(1,3000,5000,6500)]",
+            "[segment(0,0,1500,3000), segment(1,3500,5000,6500)]",
             describeSegments(detectedReps)
         );
         // Concentric phase is start→turnaround (first phase) for deadlift
@@ -75,11 +79,12 @@ public class VideoAnalysisRepDetectionTest {
 
         assertEquals(3, detectedReps.repSegments.size());
         // Lock the exact rep boundaries: the bounce-excursion collapse must not shift a
-        // real rep's start/turnaround/end (a previous iteration extended rep 3's end into
-        // the post-rep standing pause, inflating its concentric time). These match the
-        // boundaries the shipped v4 detector produced for this recording.
+        // real rep's start/turnaround/end. Relative to the v6 boundaries every start is
+        // ~450-550ms later and every end ~100-150ms earlier: the v7 rest-tolerance snap
+        // (GH-378) trims the portion of the standing pause that the extremum search used
+        // to absorb, while the turnarounds are unchanged.
         assertEquals(
-            "[segment(0,4654,6756,8608), segment(1,11560,13562,15564), segment(2,21319,23320,25923)]",
+            "[segment(0,5104,6756,8507), segment(1,12111,13562,15464), segment(2,21819,23320,25773)]",
             describeSegments(detectedReps)
         );
     }
@@ -117,6 +122,61 @@ public class VideoAnalysisRepDetectionTest {
             VideoAnalysisRepDetection.detectRepData(fixture.timeMs, fixture.yPositions);
 
         assertEquals(2, detectedReps.repSegments.size());
+    }
+
+    @Test
+    public void detectRepSegmentsExcludesStandingPausesFromRepBoundaries() throws Exception {
+        // GH-378 ("Rep Beginn wird zu früh angesetzt"): real bench recording from the
+        // user's device (analysis-4, 5 reps with multi-second standing pauses between
+        // reps). v6 anchored rep N's start and rep N-1's end at the SAME y-extremum of
+        // the between-crossings window, so consecutive reps chained (start == previous
+        // end) and each standing pause was absorbed into the rep — first phases of up
+        // to 7.4s. v7 snaps the boundaries to the actual movement onset/stop.
+        BarPathFixture fixture = loadBarPathFixture("/gh378/bench-5reps-standing-pauses.csv");
+
+        VideoAnalysisRepDetection.RepDetectionResult detectedReps =
+            VideoAnalysisRepDetection.detectRepData(fixture.timeMs, fixture.yPositions);
+
+        assertEquals(
+            "[segment(0,7811,11917,13218), segment(1,15021,16223,17725), "
+                + "segment(2,21830,23082,24885), segment(3,30342,31644,33347), "
+                + "segment(4,39605,40857,43060)]",
+            describeSegments(detectedReps)
+        );
+        // Reps must no longer chain: every rep starts strictly after the previous rep
+        // ended, leaving the standing pause outside both reps.
+        for (int i = 1; i < detectedReps.repSegments.size(); i++) {
+            VideoAnalysisRepDetection.RepSegmentData previous = detectedReps.repSegments.get(i - 1);
+            VideoAnalysisRepDetection.RepSegmentData current = detectedReps.repSegments.get(i);
+            assertTrue(
+                "rep " + i + " start " + current.startMs + " must be after previous end " + previous.endMs,
+                current.startMs > previous.endMs
+            );
+        }
+    }
+
+    @Test
+    public void detectRepSegmentsReportsRealisticConcentricTimesDespitePauses() throws Exception {
+        // GH-378 companion recording (analysis-5, 4-rep bench): v6 reported rep 3 with
+        // a 5656ms concentric at 79 px/s average because the rep's end extremum landed
+        // late in the post-rep standing pause. With movement-snapped boundaries every
+        // concentric on this recording is a realistic 1.2-2.0s.
+        BarPathFixture fixture = loadBarPathFixture("/gh378/bench-4reps-standing-pauses.csv");
+
+        VideoAnalysisRepDetection.RepDetectionResult detectedReps =
+            VideoAnalysisRepDetection.detectRepData(fixture.timeMs, fixture.yPositions);
+
+        assertEquals(
+            "[segment(0,22374,23876,25278), segment(1,27130,28331,29833), "
+                + "segment(2,32435,33687,35389), segment(3,39793,41045,43397)]",
+            describeSegments(detectedReps)
+        );
+        for (VideoAnalysisRepDetection.RepMetricData metric : detectedReps.repMetrics) {
+            assertTrue(
+                "rep " + metric.repIndex + " concentric " + metric.concentricTimeMs + "ms must be under 3s",
+                metric.concentricTimeMs < 3000
+            );
+        }
     }
 
     private static BarPathFixture loadBarPathFixture(String resourcePath) throws Exception {
