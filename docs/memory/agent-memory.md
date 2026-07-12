@@ -1779,3 +1779,23 @@ For order, assert the sequence: `getAllByText(/^(Plan|Train|Analysis)$/).map(n =
 **Problem/Symptoms (GH-378):** The on-device verify script found and tapped every navigation element (all dumps matched), yet the target screen never appeared — twice. The phone (auto-rotate on, lying sideways) was rendering the app in landscape 1600x720, so hardcoded portrait swipe/tap coords (y up to 1300) were off-screen and the layout differed. The failure symptom ("element never appeared within 60s") is indistinguishable from a data or bundling problem, and `uiautomator` bounds like `[800,580][1158,720]` that exceed the 720px override width are the only dump-level hint.
 **Working solution:** Before any coordinate-driven flow on a real device, screencap and check dimensions (`720x1600` expected; `1600x720` = landscape). Force portrait with `settings put system accelerometer_rotation 0` + `user_rotation 0`, run, then RESTORE `accelerometer_rotation 1` (it is a user setting).
 **Apply when:** Start of any adb/uiautomator-driven verification on a physical phone, and whenever taps "land" but navigation doesn't happen.
+
+### 236. Analyse drawer lists ALL router screens — param-dependent tabs crash when opened without params
+**Problem/Symptoms (GH-363):** The Analyse drawer offers "Compare Analyses" (and "Video Analysis Detail") as plain entries that navigate WITHOUT route params. `VideoAnalysisCompareTab` destructured `route.params` directly → red-screen `Cannot read property 'analysisId' of undefined`. Worse: after dismissing the RN error overlay the navigator stayed on a blank white screen; only `am force-stop` + relaunch recovered.
+**Working solution:** In any Analyse-stack tab that expects params, destructure from `route.params ?? ({} as Partial<RootStackParamList['X']>)` and render the existing "not found" fallback. Test the drawer entry path explicitly.
+**Apply when:** Adding or polishing any Analyse-stack screen with required route params.
+
+### 237. A bar path is NOT plottable with react-native-charts-wrapper — LineChart needs monotonic x; use SVG polylines
+**Problem/Symptoms (GH-363):** The GH-360 bar-path overlay fed x/y trajectory points into a `LineChart`. A bar path loops (x oscillates), but MPAndroidChart sorts/renders entries as a function of x — the drawn curve is garbage that happens to look like "one line", which is why the overlay never showed both analyses.
+**Working solution:** Render 2D trajectories with `react-native-svg` `Polyline` (dep already in the app). Normalise each path to ROM space (y over its own vertical span, x scaled by the SAME factor, centred) so two analyses overlay regardless of camera framing. Draw series A wider (5px) UNDER B (2.5px) so nearly identical paths remain distinguishable as an outline; add start dots.
+**Apply when:** Any chart of positional tracking data (bar path, joint path) — reach for SVG, not a line-chart lib.
+
+### 238. Contiguous rep segments: an inclusive forward scan never resolves a seek to rep N+1's lift-off — scan in reverse
+**Problem/Symptoms (GH-363 feedback):** Rep detection writes contiguous segments (rep N `endMs` === rep N+1 `startMs`, verified in the user's real result JSONs). `updateCurrentRepForTime` matched `t >= startMs && t <= endMs` scanning forward, so seeking exactly to rep 2's `startMs` (what "tap a rep to jump" does) matched rep 1 first — currentRepIndex, the rep-table highlight, and anything auto-following the scrubber never registered the jump.
+**Working solution:** Iterate segments in REVERSE with the same inclusive check: boundaries then resolve to the later rep, interior times are unaffected.
+**Apply when:** Mapping a scrubber/seek time to a segment list produced by rep detection (or any contiguous interval list) — don't trust inclusive forward scans at shared boundaries.
+
+### 239. `tr -d '[]'` on uiautomator bounds JOINS adjacent numbers — taps go to absurd y and silently no-op
+**Problem/Symptoms (GH-363 feedback):** A center-of-bounds helper did `grep -o '[…][…]' | tr -d '[]' | tr ',' ' '`. On `"[422,357][485,420]"` deleting the brackets fuses `357][485` into `357485` → awk computed center `(421, 178742)`; `input tap 421 178742` errors nothing and taps nothing. Manual taps at correct coordinates worked, so the script looked haunted: assertions on the pre-tap state passed, every state-changing step failed.
+**Working solution:** Split the pair separator FIRST: `sed 's/\]\[/ /; s/[][]//g; s/,/ /g'` → `422 357 485 420`. Also `rm -f /sdcard/ui.xml` before every `uiautomator dump` and sanity-check computed coordinates against the device resolution (y ≤ 1600 on R5CN30HWZFN's 720x1600 override, entry #197).
+**Apply when:** Writing any adb tap script that parses `bounds="[x1,y1][x2,y2]"` from uiautomator XML.

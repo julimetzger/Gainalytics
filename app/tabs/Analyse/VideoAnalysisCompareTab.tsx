@@ -9,9 +9,10 @@ import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
 import {readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
 import {migrateBarTrackingResultIfNeeded} from '../../utils/videoAnalysisNative';
 import {resolveVideoPlaybackUri} from '../../utils/videoAnalysisSource';
-import {computeRepPhaseTimesMs} from '../../components/video/VideoAnalysisPlaybackOverlayCard';
+import {aggregateSetVelocity, resolveCompareRepResults} from '../../utils/videoAnalysisSetAggregates';
 import CompareSyncPlaybackCard, {CompareSyncMode, CompareSyncPlaybackHandle} from '../../components/video/CompareSyncPlaybackCard';
 import {computeAutoOffsetMs} from '../../utils/compareSync';
+import CompareHeaderCard from '../../components/video/CompareHeaderCard';
 import VelocityCompareChart from '../../components/video/VelocityCompareChart';
 import BarPathCompareView from '../../components/video/BarPathCompareView';
 import CompareRepSummary from '../../components/video/CompareRepSummary';
@@ -23,18 +24,14 @@ const createThemedStyles = (theme: MD3Theme) =>
     background: {
       backgroundColor: theme.colors.background,
     },
-    labelA: {
-      color: theme.colors.primary,
-    },
-    labelB: {
-      color: theme.colors.tertiary,
-    },
   });
 
 const VideoAnalysisCompareTab = ({route}: Props) => {
   const theme = useTheme();
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
-  const {analysisId, compareAnalysisId} = route.params;
+  // The screen can be opened from the Analyse drawer without params; fall
+  // through to the "not found" message instead of crashing on undefined.
+  const {analysisId, compareAnalysisId} = route.params ?? ({} as Partial<RootStackParamList['VideoAnalysisCompare']>);
 
   const analysis1 = useVideoAnalysis(analysisId);
   const analysis2 = useVideoAnalysis(compareAnalysisId);
@@ -129,35 +126,16 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
     [result1, seekTimeline],
   );
 
-  const repResults1 = result1 ? (analysis1?.setResult?.repResults ?? result1.repSegments.map((seg, i) => {
-    const phaseTimes = computeRepPhaseTimesMs(result1.barPathSeries, seg.startMs, seg.turnaroundMs, seg.endMs);
-    return {
-      repIndex: i,
-      startMs: seg.startMs,
-      turnaroundMs: seg.turnaroundMs,
-      endMs: seg.endMs,
-      totalTimeMs: seg.endMs - seg.startMs,
-      eccentricTimeMs: phaseTimes.eccentricTimeMs,
-      concentricTimeMs: phaseTimes.concentricTimeMs,
-      vAvg: 0,
-      vPeak: 0,
-    };
-  })) : [];
+  // Per-rep velocities: prefer the calibrated saved setResult, otherwise
+  // compute real values from the tracking data — never all-zero rows.
+  const repResults1 = useMemo(() => resolveCompareRepResults(result1, analysis1?.setResult), [result1, analysis1?.setResult]);
+  const repResults2 = useMemo(() => resolveCompareRepResults(result2, analysis2?.setResult), [result2, analysis2?.setResult]);
 
-  const repResults2 = result2 ? (analysis2?.setResult?.repResults ?? result2.repSegments.map((seg, i) => {
-    const phaseTimes = computeRepPhaseTimesMs(result2.barPathSeries, seg.startMs, seg.turnaroundMs, seg.endMs);
-    return {
-      repIndex: i,
-      startMs: seg.startMs,
-      turnaroundMs: seg.turnaroundMs,
-      endMs: seg.endMs,
-      totalTimeMs: seg.endMs - seg.startMs,
-      eccentricTimeMs: phaseTimes.eccentricTimeMs,
-      concentricTimeMs: phaseTimes.concentricTimeMs,
-      vAvg: 0,
-      vPeak: 0,
-    };
-  })) : [];
+  const aggregate1 = useMemo(() => aggregateSetVelocity(repResults1), [repResults1]);
+  const aggregate2 = useMemo(() => aggregateSetVelocity(repResults2), [repResults2]);
+
+  const metersPerPixel1 = analysis1?.metersPerPixel ?? result1?.analysisMeta.metersPerPixel;
+  const metersPerPixel2 = analysis2?.metersPerPixel ?? result2?.analysisMeta.metersPerPixel;
 
   if (!analysis1 || !analysis2) {
     return (
@@ -178,29 +156,15 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
       contentInsetAdjustmentBehavior="automatic"
       testID="video-analysis-compare-screen"
     >
-      {/* Analysis info cards */}
-      <View style={styles.twoColumnRow}>
-        <Card style={[styles.halfCard]}>
-          <Card.Title
-            title={`Analysis A #${analysis1.id}`}
-            titleStyle={themedStyles.labelA}
-            subtitle={new Date(analysis1.createdAt).toLocaleString()}
-          />
-          <Card.Content>
-            <Text style={styles.statusText}>Status: {analysis1.status}</Text>
-          </Card.Content>
-        </Card>
-        <Card style={[styles.halfCard]}>
-          <Card.Title
-            title={`Analysis B #${analysis2.id}`}
-            titleStyle={themedStyles.labelB}
-            subtitle={new Date(analysis2.createdAt).toLocaleString()}
-          />
-          <Card.Content>
-            <Text style={styles.statusText}>Status: {analysis2.status}</Text>
-          </Card.Content>
-        </Card>
-      </View>
+      {/* KPI header: exercise, load × reps, date, set-aggregated Mean/Peak velocity + Δ */}
+      <CompareHeaderCard
+        analysisA={analysis1}
+        analysisB={analysis2}
+        aggregateA={aggregate1}
+        aggregateB={aggregate2}
+        metersPerPixelA={metersPerPixel1}
+        metersPerPixelB={metersPerPixel2}
+      />
 
       {/* Synchronized playback: shared scrubber + transport for both videos */}
       {hasVideos && hasResults && (
@@ -250,20 +214,19 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
         </>
       )}
 
-      {/* Bar path overlay */}
+      {/* Bar path overlay: one rep of A over the same rep of B, following the scrubber */}
       {hasResults && (
         <>
           <Divider style={styles.divider} />
           <Card style={styles.card}>
-            <Card.Title title="Bar Path Overlay" />
+            <Card.Title title="Bar Path Overlay" subtitle="one rep, A vs B" />
             <Card.Content>
               <BarPathCompareView
                 barPathSeries1={result1!.barPathSeries}
                 barPathSeries2={result2!.barPathSeries}
-                trackingFrameWidth1={result1!.analysisMeta.trackingFrameWidthPx}
-                trackingFrameHeight1={result1!.analysisMeta.trackingFrameHeightPx}
-                trackingFrameWidth2={result2!.analysisMeta.trackingFrameWidthPx}
-                trackingFrameHeight2={result2!.analysisMeta.trackingFrameHeightPx}
+                repSegments1={result1!.repSegments}
+                repSegments2={result2!.repSegments}
+                currentRepIndex={currentRepIndex}
                 height={220}
               />
             </Card.Content>
@@ -281,6 +244,8 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
               <CompareRepSummary
                 repResults1={repResults1}
                 repResults2={repResults2}
+                metersPerPixel1={metersPerPixel1}
+                metersPerPixel2={metersPerPixel2}
                 onRepPress={handleRepPress}
                 highlightedRepIndex={currentRepIndex}
               />
@@ -319,21 +284,9 @@ const styles = StyleSheet.create({
   card: {
     margin: 10,
   },
-  halfCard: {
-    flex: 1,
-    margin: 4,
-  },
   divider: {
     marginHorizontal: 10,
     marginVertical: 4,
-  },
-  twoColumnRow: {
-    flexDirection: 'row',
-    marginHorizontal: 6,
-    marginTop: 10,
-  },
-  statusText: {
-    fontSize: 12,
   },
   bottomSpacer: {
     height: 24,
