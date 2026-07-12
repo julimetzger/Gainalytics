@@ -37,9 +37,19 @@ interface RangeSwiperProps<T> {
   onUpdateCurrentIndex?: (index: number) => void;
   enabled?: boolean;
   ignoreSwipe?: LayoutRectangle[];
+  /**
+   * Set when every pane contains its own vertical scroller (e.g. a
+   * NestableScrollContainer). Pins the row to the viewport height so the
+   * pane's scroller owns vertical scrolling. The default active-pane-height
+   * clamp must not be used in that case: a ScrollView pane always fills
+   * whatever height the row gives it, so onLayout can only ever re-measure
+   * the clamp itself — the row height gets stuck while the pane content
+   * changes underneath it, cutting off or voiding the scroll range (GH-382).
+   */
+  fillViewport?: boolean;
 }
 
-const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determineValueByIndex, startValue, onUpdateCurrentIndex, ignoreSwipe, enabled = true}: RangeSwiperProps<T>) => {
+const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determineValueByIndex, startValue, onUpdateCurrentIndex, ignoreSwipe, enabled = true, fillViewport = false}: RangeSwiperProps<T>) => {
   const [fullPosition, setFullPosition] = useState({
     Upper: {position: -1, range: determineValueByIndex(-1, startValue)},
     Middle: {position: 0, range: determineValueByIndex(0, startValue)},
@@ -147,7 +157,8 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
     const height = event.nativeEvent.layout.height;
     setPaneHeights((prev) => (prev[pane] === height ? prev : {...prev, [pane]: height}));
   };
-  const activePaneHeight = paneHeights[fullPosition.activeView];
+  const activePaneHeight = fillViewport ? undefined : paneHeights[fullPosition.activeView];
+  const paneOnLayout = (pane: ViewPosition) => (fillViewport ? undefined : makePaneOnLayout(pane));
 
   const zeroPositon = fullPosition.traveledIndex * dimensions.width;
 
@@ -237,9 +248,22 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
     },
   });
 
+  // In fillViewport mode there is no outer vertical ScrollView at all: the
+  // panes scroll internally, so the row just fills the screen. Inside a
+  // ScrollView's unbounded content a flex/height pin cannot work — the row
+  // would grow to the tallest pane again.
+  const Container: React.ComponentType<any> = fillViewport ? View : Animated.ScrollView;
+  const containerProps = fillViewport
+    ? {style: {flex: 1}}
+    : {
+        keyboardShouldPersistTaps: 'always',
+        onScroll,
+        onScrollEndDrag: () => setIsPanEnabled(true),
+      };
+
   return (
-    <GestureHandlerRootView>
-      <Animated.ScrollView keyboardShouldPersistTaps={'always'} onScroll={onScroll} onScrollEndDrag={() => setIsPanEnabled(true)}>
+    <GestureHandlerRootView style={fillViewport ? {flex: 1} : undefined}>
+      <Container {...containerProps}>
         {notSwipeableContent}
         <GestureDetector gesture={panGesture}>
           <Animated.View
@@ -248,16 +272,23 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
               animatedStyle,
               {
                 flexDirection: 'row',
-                // Panes keep their natural content height so onLayout measures
-                // them correctly; the row is clamped to the active pane's height
-                // so the scrollable area ends there instead of at the tallest
-                // off-screen neighbour. No flexGrow here — stretching the row to
-                // fill the viewport would recreate the same dead space whenever
-                // a pane's real content is shorter than the screen.
-                alignItems: 'flex-start',
-                height: activePaneHeight,
                 left: -zeroPositon + initialOffset,
               },
+              fillViewport
+                ? // Panes scroll internally: pin the row (and thus every pane)
+                  // to the bounded container so the pane's own scroller gets a
+                  // bounded height and owns vertical scrolling.
+                  {flex: 1}
+                : {
+                    // Panes keep their natural content height so onLayout measures
+                    // them correctly; the row is clamped to the active pane's height
+                    // so the scrollable area ends there instead of at the tallest
+                    // off-screen neighbour. No flexGrow here — stretching the row to
+                    // fill the viewport would recreate the same dead space whenever
+                    // a pane's real content is shorter than the screen.
+                    alignItems: 'flex-start',
+                    height: activePaneHeight,
+                  },
             ]}
           >
             {[-1, 0, 1].map((value) => {
@@ -266,7 +297,7 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
                   <View
                     key={1}
                     testID="range-swiper-pane-upper"
-                    onLayout={makePaneOnLayout(ViewPosition.UPPER)}
+                    onLayout={paneOnLayout(ViewPosition.UPPER)}
                     style={{
                       width: dimensions.width,
                       top: 0,
@@ -281,7 +312,7 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
                   <View
                     key={2}
                     testID="range-swiper-pane-middle"
-                    onLayout={makePaneOnLayout(ViewPosition.MIDDLE)}
+                    onLayout={paneOnLayout(ViewPosition.MIDDLE)}
                     style={{
                       width: dimensions.width,
                       top: 0,
@@ -296,7 +327,7 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
                   <View
                     key={3}
                     testID="range-swiper-pane-lower"
-                    onLayout={makePaneOnLayout(ViewPosition.LOWER)}
+                    onLayout={paneOnLayout(ViewPosition.LOWER)}
                     style={{
                       width: dimensions.width,
                       top: 0,
@@ -309,7 +340,7 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
             })}
           </Animated.View>
         </GestureDetector>
-      </Animated.ScrollView>
+      </Container>
     </GestureHandlerRootView>
   );
 };
