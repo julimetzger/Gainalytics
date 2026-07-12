@@ -1,5 +1,5 @@
 import React from 'react';
-import {ScrollView, View} from 'react-native';
+import {View} from 'react-native';
 import {useAllTrainingsInMicro} from '../../../redux/Training/use/useAllTrainingsInMicro';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
@@ -49,8 +49,11 @@ const MicroOverview = ({trainingsPlan, micro, isActive = true}: TrainingsBasePro
     lastWorkoutSets: previousWorkouts.flatMap((workout: Workout) => workout.sets),
   });
 
+  // No inner ScrollView here: this renders inside TrainingsPlanNode's
+  // NestableScrollContainer; a nested same-direction ScrollView clips the
+  // content and blocks scrolling (GH-382).
   return (
-    <ScrollView>
+    <View>
       <View style={{display: 'flex', flexDirection: 'row', flex: 1}}>
         <Card style={{margin: 5, flex: 1}}>
           <Card.Title title={<Text>Duration</Text>}></Card.Title>
@@ -94,7 +97,7 @@ const MicroOverview = ({trainingsPlan, micro, isActive = true}: TrainingsBasePro
       )}
       <CoachInsightCard trainings={trainings} isActive={isActive} />
       <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
-    </ScrollView>
+    </View>
   );
 };
 

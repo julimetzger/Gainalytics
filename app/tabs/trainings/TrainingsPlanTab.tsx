@@ -207,6 +207,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
         <RangeSwiper
           key={rerender}
           ignoreSwipe={ignoreSwipeLocations}
+          fillViewport
           nodeFunction={(value, setRange) => (
             <TrainingsPlanNode
               trainingsPlan={trainingsPlan}

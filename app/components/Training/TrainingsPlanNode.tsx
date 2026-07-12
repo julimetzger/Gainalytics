@@ -287,7 +287,10 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
         onEditTraining={handleEditTraining}
         onDeleteTraining={handleDeleteTraining}
       />
-      <NestableScrollContainer keyboardShouldPersistTaps={'handled'}>
+      {/* flex:1 bounds the container to the swiper pane (which RangeSwiper
+          pins to the viewport via fillViewport) so it scrolls internally;
+          unbounded it grows to its content and nothing scrolls (GH-382). */}
+      <NestableScrollContainer style={{flex: 1}} keyboardShouldPersistTaps={'handled'}>
         <View>
           {showDone ? (
             <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} viewMode={effectiveViewMode} onViewModeChange={effectiveSetViewMode} sortMode={effectiveSortMode} onSortModeChange={effectiveSetSortMode} />
