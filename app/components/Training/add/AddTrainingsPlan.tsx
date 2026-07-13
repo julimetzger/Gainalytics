@@ -1,4 +1,4 @@
-import {Button, Dialog, IconButton, Portal, Text, TextInput, useTheme} from 'react-native-paper';
+import {IconButton, TextInput, useTheme} from 'react-native-paper';
 import {Alert, View} from 'react-native';
 import React, {useState} from 'react';
 import {useStore} from 'react-redux';
@@ -13,16 +13,16 @@ import {useDispatchImportTrainingsPlan} from '../../../redux/fullstateactions/di
 import {exportTrainingsPlanToFile} from '../../../utils/exportTrainingsPlan';
 import Toast from 'react-native-toast-message';
 import {GlobalState} from '../../../redux/rootReducer';
+import EditDialogScaffold from '../../common/EditDialogScaffold';
 
-interface AddExerciseProperties {
+interface AddTrainingsPlanProperties {
   style?: any;
   trainingsId?: number;
 }
 
-const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
+const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
   const [visible, setVisible] = React.useState(false);
   const [TrainingName, setTrainingName] = useState('');
-  const [deleteOverlay, setDeleteOverlay] = useState(false);
   let addTrainingsPlan = dispatchAddTrainingsPlan();
   let trainingsPlan = trainingsId ? useTrainingsPlan(trainingsId) : undefined;
   let editTrainingsPlan = dispatchEditTrainingsPlan();
@@ -31,10 +31,12 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
   let importTrainingsPlan = useDispatchImportTrainingsPlan();
   const store = useStore<GlobalState>();
 
-  const showDialog = () => setVisible(true);
+  const showDialog = () => {
+    setTrainingName(trainingsPlan?.name ?? '');
+    setVisible(true);
+  };
   const hideDialog = () => {
     setVisible(false);
-    setDeleteOverlay(false);
   };
 
   const handleImport = async () => {
@@ -97,48 +99,44 @@ const AddTrainingsPlan = ({style, trainingsId}: AddExerciseProperties) => {
           testID="add-trainings-plan"
         ></IconButton>
       )}
-      <Portal>
-        <Dialog visible={visible} onDismiss={hideDialog} theme={theme}>
-          {!deleteOverlay && trainingsId && <Dialog.Title> {'Edit ' + trainingsPlan?.name}</Dialog.Title>}
-          {!deleteOverlay && !trainingsId && <Dialog.Title>Add new Training Plan</Dialog.Title>}
-          {deleteOverlay && <Dialog.Title>{'Delete ' + trainingsPlan?.name}</Dialog.Title>}
-          <Dialog.Content>
-            {deleteOverlay ? (
-              <Text>
-                This action will delete the training. The workouts done in this training will not be deleted and are still available in the history. Are you sure you want to delete this training?
-              </Text>
-            ) : (
-              <TextInput testID="plan-name-input" defaultValue={trainingsPlan?.name} label={'Name of the Training Plan'} maxLength={30} onChangeText={(text) => setTrainingName(text)} />
-            )}
-          </Dialog.Content>
-          {!deleteOverlay && !trainingsId && (
-            <Dialog.Actions style={{justifyContent: 'flex-start'}}>
-              <Button icon="import" onPress={handleImport}>
-                Import Plan
-              </Button>
-            </Dialog.Actions>
-          )}
-          {!deleteOverlay && trainingsId && (
-            <Dialog.Actions style={{justifyContent: 'flex-start'}}>
-              <Button onPress={handleExport}>Export</Button>
-            </Dialog.Actions>
-          )}
-          <Dialog.Actions style={{justifyContent: 'space-between'}}>
-            <Button onPress={hideDialog}>Cancel</Button>
-            {trainingsId && (
-              <Button
-                textColor={theme.colors.tertiary}
-                onPress={() => {
-                  deleteOverlay ? deleteTrainingsPlan(trainingsId) : setDeleteOverlay(true);
-                }}
-              >
-                Delete
-              </Button>
-            )}
-            {!deleteOverlay && <Button testID="confirm-trainings-plan" onPress={confirmDialog}>Done</Button>}
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      <EditDialogScaffold
+        visible={visible}
+        onDismiss={hideDialog}
+        title={trainingsId ? `Edit ${trainingsPlan?.name}` : 'Add new Training Plan'}
+        testID="trainings-plan-dialog"
+        dismissTestID="trainings-plan-cancel"
+        primaryAction={{label: 'Save', onPress: confirmDialog, testID: 'confirm-trainings-plan'}}
+        secondaryActions={
+          trainingsId
+            ? [{label: 'Export', icon: 'export', onPress: handleExport}]
+            : [{label: 'Import Plan', icon: 'import', onPress: handleImport}]
+        }
+        destructiveAction={
+          trainingsId
+            ? {
+                label: 'Delete plan',
+                onConfirm: () => deleteTrainingsPlan(trainingsId),
+                confirmTitle: `Delete ${trainingsPlan?.name}`,
+                confirmMessage:
+                  'This action will delete the training. The workouts done in this training will not be deleted and are still available in the history. Are you sure you want to delete this training?',
+                confirmLabel: 'Delete',
+                testID: 'trainings-plan-delete',
+                confirmTestID: 'trainings-plan-delete-confirm',
+                cancelTestID: 'trainings-plan-delete-cancel',
+                dialogTestID: 'trainings-plan-delete-dialog',
+              }
+            : undefined
+        }
+      >
+        <TextInput
+          testID="plan-name-input"
+          mode="outlined"
+          value={TrainingName}
+          label={'Name of the Training Plan'}
+          maxLength={30}
+          onChangeText={(text) => setTrainingName(text)}
+        />
+      </EditDialogScaffold>
     </View>
   );
 };
