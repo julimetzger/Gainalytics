@@ -15,8 +15,12 @@ appId: com.powerliftingworkoutplanner
     id: "weekly-summary-card"
 - assertVisible:
     id: "muscle-heatmap-card"
-- assertVisible:
-    id: "nav-records"
+# Muscle Groups / Muscle Map / Metriken collapsible sections (GH-367) push Quick
+# Access further down, so scroll to reach it instead of asserting immediate visibility.
+- scrollUntilVisible:
+    element:
+      id: "nav-records"
+    direction: DOWN
 # Verify navigation to Records works
 - tapOn:
     id: "nav-records"

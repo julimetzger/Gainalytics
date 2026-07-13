@@ -6,6 +6,8 @@ export interface MetricOverviewSettings {
   exercises?: Metric[];
 }
 
+export type AnalysisSectionId = 'muscleGroups' | 'muscleMap' | 'metrics';
+
 export type MuscleMapMetric = 'sets' | 'volume';
 export type MuscleMapCompare =
   | 'none'
@@ -70,6 +72,8 @@ export interface AppSettings {
   muscleMapCompareSelectionPlan?: MuscleMapCompare;
   /** Persisted compare selection for the Analyse (Done) -View muscle map. */
   muscleMapCompareSelectionAnalyse?: MuscleMapCompare;
+  /** Persisted collapsed/expanded state of the Muscle Groups / Muscle Map / Metrics analysis sections. */
+  analysisSectionsCollapsed?: {[K in AnalysisSectionId]?: boolean};
 }
 
 const initialState = {
@@ -323,6 +327,15 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       return {
         ...settings,
         videoAnalysisLearnedRateSecondsPerVideoSecond: action.rate,
+      };
+    }
+    case 'SET_ANALYSIS_SECTION_COLLAPSED': {
+      return {
+        ...settings,
+        analysisSectionsCollapsed: {
+          ...settings.analysisSectionsCollapsed,
+          [action.section as AnalysisSectionId]: !!action.collapsed,
+        },
       };
     }
     case 'SET_METRIC_OVERVIEW_SLOT': {

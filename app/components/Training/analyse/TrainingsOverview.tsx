@@ -13,6 +13,9 @@ import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import VelocityLossInsightCard from '../VelocityLossInsightCard';
 import {useVelocityLossInsights} from '../useVelocityLossInsights';
 import MuscleInvolvementCard from '../plan/MuscleInvolvementCard';
+import {TrainingsState} from '../../../models/TrainingsState';
+import CollapsibleSection from '../../analyse/CollapsibleSection';
+import TrainingMuscleGroupsCard from './TrainingMuscleGroupsCard';
 
 interface TrainingsOverviewProps {
   training: Training;
@@ -34,7 +37,9 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
   let fallbackPreviousWorkouts = useLastFinishedWorkoutsByExerciseIds(training.exercises, currentWorkoutIds);
   let previousWorkouts = previousTraining !== undefined ? previousWorkoutsFromTraining : fallbackPreviousWorkouts;
 
-  const trainingDate = new Date(new Date(training.end!!).getTime() - new Date(training.start!!).getTime());
+  const isLive = training.state === TrainingsState.STARTED;
+  const trainingEnd = training.end ?? new Date();
+  const trainingDate = new Date(new Date(trainingEnd).getTime() - new Date(training.start!!).getTime());
   const previousTrainingTime = previousTraining?.end ? new Date(new Date(previousTraining.end!!).getTime() - new Date(previousTraining.start!!).getTime()) : undefined;
   let formattedDifference;
   if (previousTrainingTime) {
@@ -55,7 +60,7 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
         <View style={{display: 'flex', flexDirection: 'row', flex: 1}}>
           <View style={{flex: 1}} testID="trainings-overview-duration-card" accessible accessibilityLabel="trainings-overview-duration-card">
             <Card style={{margin: 5, flex: 1}}>
-              <Card.Title title={<Text>Duration</Text>}></Card.Title>
+              <Card.Title title={<Text>{isLive ? 'Duration (live)' : 'Duration'}</Text>}></Card.Title>
               <Card.Content>
                 {formattedDifference && <Text>{formattedDifference}</Text>}
                 <Text testID="trainings-overview-duration-value" accessible accessibilityLabel={`duration-${trainingDate.toISOString().substring(11, 19)}`}>
@@ -101,16 +106,24 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
             ))}
           </View>
         )}
-        <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
+        <CollapsibleSection id="muscleGroups" title="Muscle Groups">
+          <TrainingMuscleGroupsCard trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
+        </CollapsibleSection>
         {trainingsPlan.id !== undefined && (
-          <MuscleInvolvementCard
-            trainingsPlanId={trainingsPlan.id}
-            micro={currentMicro}
-            trainingInMicro={trainingInMicro}
-            view="analyse"
-            showDismiss={false}
-          />
+          <CollapsibleSection id="muscleMap" title="Muscle Map">
+            <MuscleInvolvementCard
+              trainingsPlanId={trainingsPlan.id}
+              micro={currentMicro}
+              trainingInMicro={trainingInMicro}
+              view="analyse"
+              showDismiss={false}
+              isLive={isLive}
+            />
+          </CollapsibleSection>
         )}
+        <CollapsibleSection id="metrics" title="Metriken">
+          <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
+        </CollapsibleSection>
       </View>
     </ScrollView>
   );

@@ -11,10 +11,13 @@ import {calculateMetricComparisons, calculateMetricComparisonsForMuscle, Workout
 import {Muscles} from '../../models/Muscles';
 import WeeklySummaryCard from './dashboard/WeeklySummaryCard';
 import MuscleHeatmap from './dashboard/MuscleHeatmap';
+import WeeklyMuscleMapCard from './dashboard/WeeklyMuscleMapCard';
 import TopExercisesCard from './dashboard/TopExercisesCard';
 import FocusExercisesCard from './dashboard/FocusExercisesCard';
 import RecordsBadge from './dashboard/RecordsBadge';
 import {Exercise} from '../../models/entities/Exercise';
+import CollapsibleSection from '../../components/analyse/CollapsibleSection';
+import MetricsOverviewForWorkouts from '../../components/analyse/MetricsOverviewForWorkouts';
 
 const DashboardTab = () => {
   const navigation = useNavigation<any>();
@@ -73,7 +76,17 @@ const DashboardTab = () => {
 
       <RecordsBadge currentWorkouts={currentWorkouts} exercises={exercises} />
 
-      <MuscleHeatmap muscleMetricMap={muscleMetricMap} onMusclePress={handleMusclePress} />
+      <CollapsibleSection id="muscleGroups" title="Muscle Groups">
+        <MuscleHeatmap muscleMetricMap={muscleMetricMap} onMusclePress={handleMusclePress} />
+      </CollapsibleSection>
+
+      <CollapsibleSection id="muscleMap" title="Muscle Map">
+        <WeeklyMuscleMapCard muscleMetricMap={muscleMetricMap} />
+      </CollapsibleSection>
+
+      <CollapsibleSection id="metrics" title="Metriken">
+        <MetricsOverviewForWorkouts trainingsWorkouts={currentWorkouts} previousWorkouts={previousWorkouts} />
+      </CollapsibleSection>
 
       <FocusExercisesCard exerciseMetricMap={exerciseMetricMap} onExercisePress={handleExercisePress} />
 

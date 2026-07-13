@@ -36,6 +36,8 @@ jest.mock('../../../../app/components/Training/VelocityLossInsightCard', () => {
 
 jest.mock('../../../../app/components/Training/plan/MuscleInvolvementCard', () => () => null);
 
+jest.mock('../../../../app/components/Training/analyse/TrainingMuscleGroupsCard', () => () => null);
+
 const mockedUseVelocityLossInsights = require('../../../../app/components/Training/useVelocityLossInsights').useVelocityLossInsights as jest.Mock;
 const mockedUseLastFinishedWorkoutsByExerciseIds = require('../../../../app/redux/Workout/use/useLastFinishedWorkoutsByExerciseIds').useLastFinishedWorkoutsByExerciseIds as jest.Mock;
 
@@ -129,6 +131,35 @@ describe('TrainingsOverview', () => {
       TRAINING_WITH_EXERCISES.exercises,
       Object.values(TRAINING_WITH_EXERCISES.doneWorkoutIds),
     );
+  });
+
+  it('shows "Duration (live)" and live-updating duration for a STARTED training (GH-367)', () => {
+    mockedUseVelocityLossInsights.mockReturnValue([]);
+
+    const liveTraining = {
+      ...TRAINING,
+      start: new Date(Date.now() - 60000).toISOString(),
+      end: undefined,
+      state: TrainingsState.STARTED,
+    };
+
+    const {getByText, queryByText} = render(
+      <TrainingsOverview training={liveTraining as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} trainingInMicro={0} />,
+    );
+
+    expect(getByText('Duration (live)')).toBeTruthy();
+    expect(queryByText('Duration')).toBeNull();
+  });
+
+  it('shows plain "Duration" (not live) for a FINISHED training', () => {
+    mockedUseVelocityLossInsights.mockReturnValue([]);
+
+    const {getByText, queryByText} = render(
+      <TrainingsOverview training={TRAINING as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} trainingInMicro={0} />,
+    );
+
+    expect(getByText('Duration')).toBeTruthy();
+    expect(queryByText('Duration (live)')).toBeNull();
   });
 
   it('still calls useLastFinishedWorkoutsByExerciseIds when previousTraining is provided (hooks are unconditional)', () => {
