@@ -70,8 +70,9 @@ jest.mock('../../../../app/redux/settings/use/useSettings', () => ({
   useSettings: jest.fn(() => ({restTimer: {}})),
 }));
 
+const mockStartRestTimer = jest.fn();
 jest.mock('../../../../app/redux/settings/dispatch/dispatchRestTimer', () => ({
-  dispatchStartRestTimer: jest.fn(() => jest.fn()),
+  dispatchStartRestTimer: jest.fn(() => mockStartRestTimer),
   dispatchResetRestTimer: jest.fn(() => jest.fn()),
   dispatchUpdateRestTimerTarget: jest.fn(() => jest.fn()),
   dispatchDismissRestTimer: jest.fn(() => jest.fn()),
@@ -141,6 +142,7 @@ const FINALIZED_WORKOUT = {
 describe('ExecuteTraining – editMode (GH-323 regression)', () => {
   beforeEach(() => {
     capturedAddWorkoutProps.length = 0;
+    mockStartRestTimer.mockClear();
     mockUseWorkoutById.mockReturnValue(FINALIZED_WORKOUT);
   });
 
@@ -250,5 +252,43 @@ describe('ExecuteTraining – editMode (GH-323 regression)', () => {
     const props = capturedAddWorkoutProps[capturedAddWorkoutProps.length - 1];
     expect(props.allowRefinalizeWhenDone).toBe(true);
     expect(props.workout).toBeUndefined();
+  });
+
+  it('does NOT start a Rest Timer when a set is added/changed in edit mode (GH-323 P2 regression)', () => {
+    const onScheduleNotification = jest.fn();
+    render(
+      <ExecuteTraining
+        training={STARTED_TRAINING as any}
+        chosenExercise={EXERCISE as any}
+        onSubmit={jest.fn()}
+        onScheduleNotification={onScheduleNotification}
+        editMode={true}
+      />,
+    );
+
+    const props = capturedAddWorkoutProps[capturedAddWorkoutProps.length - 1];
+    props.onSubmitSet({index: 1, reps: 5, rir: 1, weight: 100});
+
+    expect(mockStartRestTimer).not.toHaveBeenCalled();
+    expect(onScheduleNotification).not.toHaveBeenCalled();
+  });
+
+  it('still starts a Rest Timer when a set is added in normal (non-edit) mode', () => {
+    const onScheduleNotification = jest.fn();
+    render(
+      <ExecuteTraining
+        training={STARTED_TRAINING as any}
+        chosenExercise={EXERCISE as any}
+        onSubmit={jest.fn()}
+        onScheduleNotification={onScheduleNotification}
+        editMode={false}
+      />,
+    );
+
+    const props = capturedAddWorkoutProps[capturedAddWorkoutProps.length - 1];
+    props.onSubmitSet({index: 1, reps: 5, rir: 1, weight: 100});
+
+    expect(mockStartRestTimer).toHaveBeenCalledTimes(1);
+    expect(onScheduleNotification).toHaveBeenCalledTimes(1);
   });
 });

@@ -104,6 +104,12 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
 
   const handleSubmitSet = (workoutSet: WorkoutSet) => {
     onSubmitSet?.(workoutSet);
+    // GH-323: adding/editing a set in edit mode must not start a rest timer
+    // or schedule a rest notification - the Rest Timer card is hidden here,
+    // so there is no UI to reset/skip a timer that starts in the background.
+    if (editMode) {
+      return;
+    }
     startRestTimer({
       targetSeconds: resolvedRestDefault,
       exerciseId: chosenExercise.id,
