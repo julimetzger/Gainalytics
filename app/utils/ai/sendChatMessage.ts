@@ -8,7 +8,8 @@ import {DEFAULT_ANTHROPIC_MODEL} from '../llmApi';
 
 const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
-const CHAT_MAX_TOKENS = 1024;
+// GH-376: 1024 truncated typical multi-paragraph coaching answers mid-sentence.
+const CHAT_MAX_TOKENS = 4096;
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -78,7 +79,12 @@ export async function sendChatMessage(
     }
 
     const data = await response.json();
-    const text: string = data?.content?.[0]?.text ?? '';
+    let text: string = data?.content?.[0]?.text ?? '';
+    // GH-376: if the model still hit the token cap, say so instead of silently
+    // ending mid-sentence with no indication anything is missing.
+    if (data?.stop_reason === 'max_tokens') {
+      text += '\n\n_(Response was cut off because it reached the length limit.)_';
+    }
     return {ok: true, text, hadContext};
   } catch (e: any) {
     return {ok: false, error: `Network error: ${e?.message ?? 'Unknown'}`};
