@@ -202,16 +202,18 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
         allTimePr={allTimePr}
         onPressTrophy={() => setOpenRecords(true)}
       />
-      <RestTimerCard
-        startedAt={activeRest?.startedAt}
-        targetSeconds={activeRest?.targetSeconds}
-        exerciseId={activeRest?.exerciseId}
-        onReset={onResetRest}
-        onSkip={onSkipRest}
-        onEditTarget={onEditTarget}
-        onAdjustExerciseDefault={handleAdjustExerciseDefault}
-        exerciseDefaultSeconds={resolvedRestDefault}
-      />
+      {!editMode && (
+        <RestTimerCard
+          startedAt={activeRest?.startedAt}
+          targetSeconds={activeRest?.targetSeconds}
+          exerciseId={activeRest?.exerciseId}
+          onReset={onResetRest}
+          onSkip={onSkipRest}
+          onEditTarget={onEditTarget}
+          onAdjustExerciseDefault={handleAdjustExerciseDefault}
+          exerciseDefaultSeconds={resolvedRestDefault}
+        />
+      )}
       <ExerciseRecordsModal
         visible={openRecords}
         onDismiss={() => setOpenRecords(false)}
