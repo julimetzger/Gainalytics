@@ -1,0 +1,96 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-341: Records page redesign — heatmap + by-muscle views, KPI row, record list.
+#
+# PRECONDITION (set up by __tests__/e2e/scripts/run-gh341-records-flow.sh):
+#   - baseline fixture imported (00_import_baseline.yaml or hydrated store)
+#   - app is foregrounded on Analyse → Records
+#   - date range set to 01/11/2025 – 28/02/2026 via adb text input
+#
+# The flow deliberately has NO launchApp: the range must be pre-set with adb
+# because Maestro's inputText races the DatePickerInput date mask and corrupts
+# the value (e.g. "11012025" ends up as "15/2").
+#
+# Fixture expectations for the range:
+#   total records = 56, best week = 9, best month = 18 (Dec),
+#   best day = 4, plan "Push pull": best micro = 7, default meso row "Meso 1".
+
+# ── Default view: heatmap, by week ──
+- assertVisible: 'Records over time'
+- assertVisible: 'by week'
+# 0 PRs in the current calendar week (fixture data ends Feb 2026)
+- assertVisible: 'No PRs this week yet'
+# KPI values: 56 records in range, best week 9
+- assertVisible:
+    id: 'records-kpi-total'
+    text: '56'
+- assertVisible:
+    id: 'records-kpi-best'
+    text: '9'
+- assertVisible: 'best week'
+- assertVisible:
+    id: 'records-heatmap'
+# Record list is immediately visible with the top PR highlighted
+- assertVisible: 'Records in this range'
+- assertVisible: '56 shown'
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-341/screenshots/maestro-01-heatmap-week
+
+# ── By muscle view ──
+- tapOn: 'By muscle'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'records-muscle-lanes'
+- assertVisible: 'Legs'
+- assertVisible: 'Chest'
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-341/screenshots/maestro-02-by-muscle
+- tapOn: 'Heatmap'
+
+# ── Accumulation → Month: layout + KPI follow the filter mode ──
+- tapOn: 'Select Exercises, Metrics, Accumulation Mode'
+- extendedWaitUntil:
+    visible: 'Adductor'
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: 'Month'
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 10
+- tapOn: 'Month'
+- tapOn:
+    point: '93%,13%'
+- waitForAnimationToEnd
+- assertVisible: 'by month'
+- assertVisible: 'best month'
+- assertVisible:
+    id: 'records-kpi-best'
+    text: '18'
+# Month tiles carry month sublabels
+- assertVisible: 'Dec'
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-341/screenshots/maestro-03-heatmap-month
+
+# ── Accumulation → Day: weekday calendar, Monday first ──
+- tapOn: 'Select Exercises, Metrics, Accumulation Mode'
+- extendedWaitUntil:
+    visible: 'Adductor'
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: 'Day'
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 10
+- tapOn: 'Day'
+- tapOn:
+    point: '93%,13%'
+- waitForAnimationToEnd
+- assertVisible: 'by day'
+- assertVisible: 'best day'
+# Best day in the fixture range is 4 records (Dec 6 2025)
+- assertVisible:
+    id: 'records-kpi-best'
+    text: '4'
+# Weekday rows, Monday first
+- assertVisible: 'Mon'
+- assertVisible: 'Sun'
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-341/screenshots/maestro-04-heatmap-day
