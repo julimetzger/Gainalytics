@@ -4,7 +4,8 @@ import {NestableScrollContainer} from 'react-native-draggable-flatlist';
 import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
 import {TrainingsState} from '../../models/TrainingsState';
-import {Button, Dialog, Portal, Text} from 'react-native-paper';
+import {Button, Text} from 'react-native-paper';
+import {ConfirmDialog} from '../common/EditDialogScaffold';
 import DraggableExercise from './DraggableExercise';
 import TrainingsBase from './TrainingsBase';
 import PlanTab, {PlanChromeState, PlanMode} from './plan/PlanTab';
@@ -458,18 +459,16 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
           )}
         </View>
       </NestableScrollContainer>
-      <Portal>
-        <Dialog visible={showDeleteDialog} onDismiss={() => setShowDeleteDialog(false)}>
-          <Dialog.Title>Delete Training</Dialog.Title>
-          <Dialog.Content>
-            <Text>This will delete this training and all connected planned and done workouts. This action cannot be undone.</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowDeleteDialog(false)}>Cancel</Button>
-            <Button onPress={onDeleteTraining}>Delete</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      <ConfirmDialog
+        visible={showDeleteDialog}
+        title="Delete Training"
+        message="This will delete this training and all connected planned and done workouts. This action cannot be undone."
+        onConfirm={onDeleteTraining}
+        onCancel={() => setShowDeleteDialog(false)}
+        testID="training-delete-dialog"
+        confirmTestID="training-delete-confirm"
+        cancelTestID="training-delete-cancel"
+      />
     </View>
   );
 };

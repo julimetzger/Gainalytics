@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
-import {Dimensions, ScrollView, StyleSheet, View} from 'react-native';
-import {Card, Dialog, IconButton, Portal, Text, useTheme} from 'react-native-paper';
+import {StyleSheet, View} from 'react-native';
+import {Card, IconButton, Text, useTheme} from 'react-native-paper';
+import EditDialogScaffold from '../common/EditDialogScaffold';
 import DropDown from 'react-native-paper-dropdown';
 import {useSelector} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
@@ -20,7 +21,6 @@ interface Props {
 const SetSelectionModal = ({visible, onDismiss, analysisId, onLinked}: Props) => {
   const linkVideoAnalysis = dispatchLinkVideoAnalysisToWorkout();
   const theme = useTheme();
-  const screenHeight = Dimensions.get('window').height;
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<number | undefined>(undefined);
 
@@ -52,63 +52,65 @@ const SetSelectionModal = ({visible, onDismiss, analysisId, onLinked}: Props) =>
     exercises.find(e => e.id === exerciseId)?.name ?? `Exercise ${exerciseId}`;
 
   return (
-    <Portal>
-      <Dialog style={{maxHeight: screenHeight * 0.9}} visible={visible} onDismiss={onDismiss} testID="set-selection-modal">
-        <Dialog.Title>Select a Set</Dialog.Title>
-        <Dialog.Content>
-          <DropDown
-            label="Filter by Exercise"
-            mode="outlined"
-            visible={dropdownVisible}
-            onDismiss={() => setDropdownVisible(false)}
-            showDropDown={() => setDropdownVisible(true)}
-            value={selectedExerciseId?.toString() ?? ''}
-            setValue={val => setSelectedExerciseId(val ? parseInt(val) : undefined)}
-            list={[{label: 'All Exercises', value: ''}, ...exerciseList]}
-            activeColor={theme.colors.primary}
-          />
-          <ScrollView style={{maxHeight: screenHeight * 0.65, marginTop: 10}}>
-            {filteredWorkouts.length === 0 && (
-              <Text style={styles.emptyText}>No workouts found.</Text>
-            )}
-            {filteredWorkouts.map(workout => (
-              <Card key={workout.id} style={styles.workoutCard}>
-                <Card.Title
-                  title={getExerciseName(workout.exerciseId)}
-                  subtitle={workout.start ? getDateStringFromDate(new Date(workout.start)) : `Workout #${workout.id}`}
-                />
-                <Card.Content>
-                  {workout.sets.map(set => (
-                    <View
-                      key={set.index}
-                      style={styles.setRow}
-                      testID={`set-selection-set-${workout.id}-${set.index}`}
-                    >
-                      <Text style={styles.setText}>
-                        {set.reps} reps × {set.weight} kg @ {set.rir} RIR
-                      </Text>
-                      <IconButton
-                        icon="link"
-                        size={18}
-                        testID={`set-selection-link-${workout.id}-${set.index}`}
-                        onPress={() => onSelectSet(workout, set)}
-                      />
-                    </View>
-                  ))}
-                </Card.Content>
-              </Card>
-            ))}
-          </ScrollView>
-        </Dialog.Content>
-        <Dialog.Actions>
-          <IconButton icon="close" onPress={onDismiss} />
-        </Dialog.Actions>
-      </Dialog>
-    </Portal>
+    <EditDialogScaffold
+      visible={visible}
+      onDismiss={onDismiss}
+      title="Select a Set"
+      testID="set-selection-modal"
+      dismissTestID="set-selection-close"
+      scrollable
+    >
+      <DropDown
+        label="Filter by Exercise"
+        mode="outlined"
+        visible={dropdownVisible}
+        onDismiss={() => setDropdownVisible(false)}
+        showDropDown={() => setDropdownVisible(true)}
+        value={selectedExerciseId?.toString() ?? ''}
+        setValue={val => setSelectedExerciseId(val ? parseInt(val) : undefined)}
+        list={[{label: 'All Exercises', value: ''}, ...exerciseList]}
+        activeColor={theme.colors.primary}
+      />
+      <View style={styles.listContainer}>
+        {filteredWorkouts.length === 0 && (
+          <Text style={styles.emptyText}>No workouts found.</Text>
+        )}
+        {filteredWorkouts.map(workout => (
+          <Card key={workout.id} style={styles.workoutCard}>
+            <Card.Title
+              title={getExerciseName(workout.exerciseId)}
+              subtitle={workout.start ? getDateStringFromDate(new Date(workout.start)) : `Workout #${workout.id}`}
+            />
+            <Card.Content>
+              {workout.sets.map(set => (
+                <View
+                  key={set.index}
+                  style={styles.setRow}
+                  testID={`set-selection-set-${workout.id}-${set.index}`}
+                >
+                  <Text style={styles.setText}>
+                    {set.reps} reps × {set.weight} kg @ {set.rir} RIR
+                  </Text>
+                  <IconButton
+                    icon="link"
+                    size={18}
+                    testID={`set-selection-link-${workout.id}-${set.index}`}
+                    onPress={() => onSelectSet(workout, set)}
+                  />
+                </View>
+              ))}
+            </Card.Content>
+          </Card>
+        ))}
+      </View>
+    </EditDialogScaffold>
   );
 };
 
 const styles = StyleSheet.create({
+  listContainer: {
+    marginTop: 10,
+  },
   workoutCard: {
     marginBottom: 8,
   },

@@ -18,7 +18,7 @@ appId: com.powerliftingworkoutplanner
     id: "add-trainings-plan"
 
 - extendedWaitUntil:
-    visible: "Add new Training Plan"
+    visible: "Add New Training Plan"
     timeout: 10000
 
 - tapOn:

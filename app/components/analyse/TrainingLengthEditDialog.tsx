@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {ScrollView, StyleSheet} from 'react-native';
-import {Button, Card, Dialog, Portal, Text, useTheme} from 'react-native-paper';
+import {StyleSheet} from 'react-native';
+import {Card, Text, useTheme} from 'react-native-paper';
+import EditDialogScaffold from '../common/EditDialogScaffold';
 import {TrainingLengthBucket, formatTrainingLength, getTrainingLengthBucketLabel} from '../../utils/training-length-analysis';
 import {dispatchEditTrainingTimes} from '../../redux/Training/dispatch/general/dispatchEditTrainingTimes';
 import {getTrainingDurationMinutes} from '../../utils/training-times';
@@ -129,59 +130,48 @@ const TrainingLengthEditDialog = ({accumulationMode, bucket, onDismiss, training
   }, []);
 
   return (
-    <Portal>
-      <Dialog visible={bucket !== null} onDismiss={onDismiss} style={styles.dialog} testID="training-length-edit-dialog">
-        <Dialog.Title>Edit Training Times</Dialog.Title>
-        <Dialog.Content>
-          {bucket && (
-            <Text style={[styles.bucketLabel, {color: theme.colors.onSurfaceVariant}]} testID="training-length-edit-bucket-label">
-              {getTrainingLengthBucketLabel(bucket.startDate, accumulationMode)}
-            </Text>
-          )}
-          <Text style={[styles.summary, {color: theme.colors.onSurfaceVariant}]} testID="training-length-edit-average-duration">
-            Live average duration: {averageDurationLabel}
-          </Text>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
-            {draftTrainings.map((training) => (
-              <Card key={training.key} mode="outlined" style={styles.card}>
-                <Card.Content>
-                  <TrainingTimesFields
-                    title={training.name}
-                    start={training.start}
-                    end={training.end}
-                    onStartChange={(value) => updateTrainingField(training.key, 'start', value)}
-                    onEndChange={(value) => updateTrainingField(training.key, 'end', value)}
-                    testIDPrefix={`training-length-edit-${training.trainingId ?? training.key}`}
-                    onValidationChange={(error) => handleValidationChange(training.key, error)}
-                  />
-                </Card.Content>
-              </Card>
-            ))}
-          </ScrollView>
-        </Dialog.Content>
-        <Dialog.Actions>
-          <Button onPress={onDismiss}>Cancel</Button>
-          <Button onPress={handleSave} disabled={!hasChanges || hasValidationError} testID="training-length-edit-save">
-            Save
-          </Button>
-        </Dialog.Actions>
-      </Dialog>
-    </Portal>
+    <EditDialogScaffold
+      visible={bucket !== null}
+      onDismiss={onDismiss}
+      title="Edit Training Times"
+      testID="training-length-edit-dialog"
+      dismissTestID="training-length-edit-cancel"
+      primaryAction={{label: 'Save', onPress: handleSave, disabled: !hasChanges || hasValidationError, testID: 'training-length-edit-save'}}
+      scrollable
+    >
+      {bucket && (
+        <Text style={[styles.bucketLabel, {color: theme.colors.onSurfaceVariant}]} testID="training-length-edit-bucket-label">
+          {getTrainingLengthBucketLabel(bucket.startDate, accumulationMode)}
+        </Text>
+      )}
+      <Text style={[styles.summary, {color: theme.colors.onSurfaceVariant}]} testID="training-length-edit-average-duration">
+        Live average duration: {averageDurationLabel}
+      </Text>
+      {draftTrainings.map((training) => (
+        <Card key={training.key} mode="outlined" style={styles.card}>
+          <Card.Content>
+            <TrainingTimesFields
+              title={training.name}
+              start={training.start}
+              end={training.end}
+              onStartChange={(value) => updateTrainingField(training.key, 'start', value)}
+              onEndChange={(value) => updateTrainingField(training.key, 'end', value)}
+              testIDPrefix={`training-length-edit-${training.trainingId ?? training.key}`}
+              onValidationChange={(error) => handleValidationChange(training.key, error)}
+            />
+          </Card.Content>
+        </Card>
+      ))}
+    </EditDialogScaffold>
   );
 };
 
 const styles = StyleSheet.create({
-  dialog: {
-    maxHeight: '90%',
-  },
   summary: {
     marginBottom: 8,
   },
   bucketLabel: {
     marginBottom: 12,
-  },
-  scrollContent: {
-    paddingBottom: 8,
   },
   card: {
     marginBottom: 12,
