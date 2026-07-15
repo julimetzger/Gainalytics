@@ -4,11 +4,11 @@ import {DEFAULT_ANTHROPIC_MODEL} from '../../../app/utils/llmApi';
 const mockFetch = jest.fn();
 global.fetch = mockFetch as any;
 
-function makeOkResponse(text: string) {
+function makeOkResponse(text: string, stopReason: string = 'end_turn') {
   return Promise.resolve({
     ok: true,
     status: 200,
-    json: () => Promise.resolve({content: [{type: 'text', text}]}),
+    json: () => Promise.resolve({content: [{type: 'text', text}], stop_reason: stopReason}),
     text: () => Promise.resolve(''),
   } as Response);
 }
@@ -113,6 +113,30 @@ describe('sendChatMessage', () => {
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.messages).toHaveLength(7);
     expect(body.messages[6]).toEqual(newMsg);
+  });
+
+  it('sends a max_tokens well above the old 1024 cap that truncated long answers (GH-376)', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('ok'));
+    await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.max_tokens).toBeGreaterThanOrEqual(4096);
+  });
+
+  it('appends a cut-off notice when the API stops due to max_tokens (GH-376)', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('Für Hypertrophie ist eine gestreckte Fly-', 'max_tokens'));
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.text).toContain('Für Hypertrophie ist eine gestreckte Fly-');
+      expect(result.text).toContain('cut off');
+    }
+  });
+
+  it('does not append a cut-off notice on a normal end_turn completion (GH-376)', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('Complete answer.', 'end_turn'));
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.text).toBe('Complete answer.');
   });
 
   it('returns network error on fetch throw', async () => {
