@@ -1,23 +1,23 @@
 diff --git a/node_modules/react-native-draggable-flatlist/lib/commonjs/index.js b/node_modules/react-native-draggable-flatlist/lib/commonjs/index.js
-index 3b315c1..ea7aad7 100644
+index 3b315c1..2e2a3dd 100644
 --- a/node_modules/react-native-draggable-flatlist/lib/commonjs/index.js
 +++ b/node_modules/react-native-draggable-flatlist/lib/commonjs/index.js
-@@ -1,2 +1,2 @@
+@@ -1,2 +1,3 @@
  var _interopRequireDefault=require("@babel/runtime/helpers/interopRequireDefault");Object.defineProperty(exports,"__esModule",{value:true});var _exportNames={};exports.default=void 0;var _DraggableFlatList=_interopRequireDefault(require("./components/DraggableFlatList"));var _CellDecorators=require("./components/CellDecorators");Object.keys(_CellDecorators).forEach(function(key){if(key==="default"||key==="__esModule")return;if(Object.prototype.hasOwnProperty.call(_exportNames,key))return;if(key in exports&&exports[key]===_CellDecorators[key])return;Object.defineProperty(exports,key,{enumerable:true,get:function get(){return _CellDecorators[key];}});});var _NestableDraggableFlatList=require("./components/NestableDraggableFlatList");Object.keys(_NestableDraggableFlatList).forEach(function(key){if(key==="default"||key==="__esModule")return;if(Object.prototype.hasOwnProperty.call(_exportNames,key))return;if(key in exports&&exports[key]===_NestableDraggableFlatList[key])return;Object.defineProperty(exports,key,{enumerable:true,get:function get(){return _NestableDraggableFlatList[key];}});});var _NestableScrollContainer=require("./components/NestableScrollContainer");Object.keys(_NestableScrollContainer).forEach(function(key){if(key==="default"||key==="__esModule")return;if(Object.prototype.hasOwnProperty.call(_exportNames,key))return;if(key in exports&&exports[key]===_NestableScrollContainer[key])return;Object.defineProperty(exports,key,{enumerable:true,get:function get(){return _NestableScrollContainer[key];}});});var _types=require("./types");Object.keys(_types).forEach(function(key){if(key==="default"||key==="__esModule")return;if(Object.prototype.hasOwnProperty.call(_exportNames,key))return;if(key in exports&&exports[key]===_types[key])return;Object.defineProperty(exports,key,{enumerable:true,get:function get(){return _types[key];}});});var _default=_DraggableFlatList.default;exports.default=_default;
--//# sourceMappingURL=index.js.map
++var _nestableScrollContainerContext=require("./context/nestableScrollContainerContext");Object.keys(_nestableScrollContainerContext).forEach(function(key){if(key==="default"||key==="__esModule")return;if(key in exports)return;Object.defineProperty(exports,key,{enumerable:true,get:function get(){return _nestableScrollContainerContext[key];}});});
+ //# sourceMappingURL=index.js.map
 \ No newline at end of file
-+//# sourceMappingURL=index.js.mapvar _nestableScrollContainerContext=require("./context/nestableScrollContainerContext");Object.keys(_nestableScrollContainerContext).forEach(function(key){if(key==="default"||key==="__esModule")return;if(key in exports)return;Object.defineProperty(exports,key,{enumerable:true,get:function get(){return _nestableScrollContainerContext[key];}});});
 diff --git a/node_modules/react-native-draggable-flatlist/lib/module/index.js b/node_modules/react-native-draggable-flatlist/lib/module/index.js
-index aed2b34..3e8f50c 100644
+index aed2b34..c0df547 100644
 --- a/node_modules/react-native-draggable-flatlist/lib/module/index.js
 +++ b/node_modules/react-native-draggable-flatlist/lib/module/index.js
-@@ -4,4 +4,4 @@ export * from "./components/NestableDraggableFlatList";
+@@ -4,4 +4,5 @@ export * from "./components/NestableDraggableFlatList";
  export * from "./components/NestableScrollContainer";
  export * from "./types";
  export default DraggableFlatList;
--//# sourceMappingURL=index.js.map
++export * from "./context/nestableScrollContainerContext";
+ //# sourceMappingURL=index.js.map
 \ No newline at end of file
-+//# sourceMappingURL=index.js.mapexport * from "./context/nestableScrollContainerContext";
 diff --git a/node_modules/react-native-draggable-flatlist/lib/typescript/index.d.ts b/node_modules/react-native-draggable-flatlist/lib/typescript/index.d.ts
 index 16cd51e..4794b93 100644
 --- a/node_modules/react-native-draggable-flatlist/lib/typescript/index.d.ts

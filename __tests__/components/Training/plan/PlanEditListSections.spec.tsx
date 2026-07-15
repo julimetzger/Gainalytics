@@ -99,6 +99,7 @@ const renderList = () =>
         1: {id: 101, exerciseId: 1, sets: [{index: 1, reps: 5, rir: 0, weight: 100, date: new Date(0)}], notes: ''},
       }}
       pendingSetByExerciseId={{}}
+      commitRowDraftsOnUnmountRef={{current: false}}
       onSelectExercise={jest.fn()}
       onAddSet={jest.fn()}
       onPendingSetChange={jest.fn()}

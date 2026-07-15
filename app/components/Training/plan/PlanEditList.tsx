@@ -19,6 +19,7 @@ interface PlanEditListProps {
   selectedExerciseId?: number;
   plannedWorkoutsByExerciseId: Record<number, Workout | undefined>;
   pendingSetByExerciseId: PendingPlanSetByExerciseId;
+  commitRowDraftsOnUnmountRef: React.MutableRefObject<boolean>;
   onSelectExercise: (exercise: Exercise) => void;
   onAddSet: (exerciseId: number) => void;
   onPendingSetChange: (exerciseId: number, field: PlanField, value: string) => void;
@@ -127,6 +128,7 @@ const PlanEditList = ({
   selectedExerciseId,
   plannedWorkoutsByExerciseId,
   pendingSetByExerciseId,
+  commitRowDraftsOnUnmountRef,
   onSelectExercise,
   onAddSet,
   onPendingSetChange,
@@ -210,6 +212,7 @@ const PlanEditList = ({
                 pendingSet={pendingSetByExerciseId[exerciseId] ?? null}
                 onSelect={() => onSelectExercise(item.exercise)}
                 dragGesture={dragGesture}
+                commitRowDraftsOnUnmountRef={commitRowDraftsOnUnmountRef}
                 onAddSet={() => onAddSet(exerciseId)}
                 onPendingSetChange={(field, value) => onPendingSetChange(exerciseId, field, value)}
                 onPendingSetDelete={() => onPendingSetDelete(exerciseId)}
@@ -236,6 +239,7 @@ interface SectionProps {
   pendingSet: PendingPlanSet | null;
   onSelect: () => void;
   dragGesture: PanGesture;
+  commitRowDraftsOnUnmountRef: React.MutableRefObject<boolean>;
   onAddSet: () => void;
   onPendingSetChange: (field: PlanField, value: string) => void;
   onPendingSetDelete: () => void;
@@ -255,6 +259,7 @@ const PlanEditExerciseSection = ({
   pendingSet,
   onSelect,
   dragGesture,
+  commitRowDraftsOnUnmountRef,
   onAddSet,
   onPendingSetChange,
   onPendingSetDelete,
@@ -389,6 +394,7 @@ const PlanEditExerciseSection = ({
               oneRepMax={oneRepMax > 0 ? oneRepMax : undefined}
               onDelete={() => onDeleteSet(item.workoutSet)}
               dragGesture={rowDragGesture}
+              commitRowDraftsOnUnmountRef={commitRowDraftsOnUnmountRef}
               onUpsert={onUpsertSet}
               active={rowIndex === activeRowIndex}
             />
@@ -448,11 +454,20 @@ interface PlanEditSetRowProps {
   oneRepMax?: number;
   onDelete: () => void;
   dragGesture: PanGesture;
+  commitRowDraftsOnUnmountRef: React.MutableRefObject<boolean>;
   onUpsert: (workoutSet: WorkoutSet) => void;
   active: boolean;
 }
 
-const PlanEditSetRow = ({workoutSet, oneRepMax, onDelete, dragGesture, onUpsert, active}: PlanEditSetRowProps) => {
+const PlanEditSetRow = ({
+  workoutSet,
+  oneRepMax,
+  onDelete,
+  dragGesture,
+  commitRowDraftsOnUnmountRef,
+  onUpsert,
+  active,
+}: PlanEditSetRowProps) => {
   const theme = useTheme();
   const [draft, setDraft] = useState(() => getPlanSetDraft(workoutSet));
   const draftRef = useRef(draft);
@@ -471,18 +486,22 @@ const PlanEditSetRow = ({workoutSet, oneRepMax, onDelete, dragGesture, onUpsert,
     draftRef.current = next;
   }, [workoutSet.index, workoutSet.reps, workoutSet.rir, workoutSet.weight]);
 
-  // GH-324: "always save when leaving the field" also covers leaving via Done
-  // while an input is still focused — the row unmounts without a blur event, so
-  // commit a valid, actually-changed draft on unmount.
+  // GH-324: when the user leaves full edit via Done/back while an input is
+  // still focused, the row unmounts without blur. Only that full-edit exit
+  // path should commit on unmount — reorder/delete unmount rows too and must
+  // NOT write a stale draft back onto the old index.
   useEffect(
     () => () => {
+      if (!commitRowDraftsOnUnmountRef.current) {
+        return;
+      }
       const current = workoutSetRef.current;
       const built = buildWorkoutSetFromDraft(draftRef.current, current);
       if (built !== null && (built.reps !== current.reps || built.rir !== current.rir || built.weight !== current.weight)) {
         onUpsertRef.current(built);
       }
     },
-    [],
+    [commitRowDraftsOnUnmountRef],
   );
 
   function updateField(field: PlanField, value: string) {

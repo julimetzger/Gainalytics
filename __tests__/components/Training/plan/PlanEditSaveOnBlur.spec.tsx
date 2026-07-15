@@ -1,6 +1,6 @@
 import React from 'react';
-import {fireEvent, render, waitFor} from '@testing-library/react-native';
-import PlanTab from '../../../../app/components/Training/plan/PlanTab';
+import {act, fireEvent, render, waitFor} from '@testing-library/react-native';
+import PlanTab, {PlanChromeState} from '../../../../app/components/Training/plan/PlanTab';
 import {TrainingsState} from '../../../../app/models/TrainingsState';
 import {Training} from '../../../../app/models/entities/Training';
 import {Exercise} from '../../../../app/models/entities/Exercise';
@@ -16,6 +16,7 @@ const mockDeleteSetFromWorkout = jest.fn();
 const mockReplaceWorkoutSets = jest.fn();
 const mockDispatch = jest.fn();
 let mockPlannedSetsByWorkoutId: Record<number, Workout> = {};
+let latestChromeState: PlanChromeState | null = null;
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({bottom: 0}),
@@ -143,26 +144,74 @@ const baseTraining: Training = {
   plannedWorkouts: {1: 101},
 };
 
+const buildFullEditProps = () => ({
+  training: baseTraining,
+  trainingsPlanId: 55,
+  micro: 6,
+  trainingInMicro: 1,
+  exercises,
+  chosenExercise: exercises[0],
+  chooseExercise: jest.fn(),
+  onExerciseDoublePress: jest.fn(),
+  setExercises: jest.fn(),
+  doneExerciseIds: [],
+  setAbsolutePosition: jest.fn(),
+  pickerVisible: false,
+  onTogglePicker: jest.fn(),
+  isActive: true,
+  onChromeChange: (state: PlanChromeState) => {
+    latestChromeState = state;
+  },
+});
+
 const renderInFullEdit = () => {
-  const props = {
-    training: baseTraining,
-    trainingsPlanId: 55,
-    micro: 6,
-    trainingInMicro: 1,
-    exercises,
-    chosenExercise: exercises[0],
-    chooseExercise: jest.fn(),
-    onExerciseDoublePress: jest.fn(),
-    setExercises: jest.fn(),
-    doneExerciseIds: [],
-    setAbsolutePosition: jest.fn(),
-    pickerVisible: false,
-    onTogglePicker: jest.fn(),
-    isActive: true,
-  };
+  const props = buildFullEditProps();
+  latestChromeState = null;
   const utils = render(<PlanTab {...props} editPlanRequestId={0} />);
   utils.rerender(<PlanTab {...props} editPlanRequestId={1} />);
-  return utils;
+  return {...utils, props};
+};
+
+const exitFullEdit = () => {
+  act(() => {
+    latestChromeState?.exitToRead();
+  });
+};
+
+const upsertActions = () =>
+  mockDispatch.mock.calls
+    .filter(([action]) => action?.type === 'ADD_OR_UPDATE_SET_IN_WORKOUT')
+    .map(([action]) => action);
+
+const renderInFullEditWithTwoSets = () => {
+  mockPlannedSetsByWorkoutId = {
+    101: {
+      id: 101,
+      exerciseId: 1,
+      sets: [
+        {index: 1, reps: 5, rir: 0, weight: 60},
+        {index: 2, reps: 8, rir: 1, weight: 80},
+      ],
+      notes: '',
+    },
+  };
+  return renderInFullEdit();
+};
+
+const rerenderFullEditWithSets = (
+  rerender: ReturnType<typeof render>['rerender'],
+  props: ReturnType<typeof buildFullEditProps>,
+  sets: Workout['sets'],
+) => {
+  mockPlannedSetsByWorkoutId = {
+    101: {
+      id: 101,
+      exerciseId: 1,
+      sets,
+      notes: '',
+    },
+  };
+  rerender(<PlanTab {...props} editPlanRequestId={1} />);
 };
 
 const upsertDispatchCount = () =>
@@ -171,6 +220,7 @@ const upsertDispatchCount = () =>
 describe('PlanEditSetRow — save on blur (GH-303 Item 1)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    latestChromeState = null;
     mockPlannedSetsByWorkoutId = {
       101: {id: 101, exerciseId: 1, sets: [{index: 1, reps: 5, rir: 0, weight: 60}], notes: ''},
     };
@@ -214,28 +264,69 @@ describe('PlanEditSetRow — save on blur (GH-303 Item 1)', () => {
   // GH-324: "immer speichern beim Verlassen des Feldes" also covers leaving the
   // whole edit mode while an input is still focused — the row unmounts without
   // a blur event, so the changed draft must be committed on unmount.
-  it('commits an un-blurred, changed draft when the row unmounts (e.g. Done pressed while typing)', async () => {
-    const {getByTestId, unmount} = renderInFullEdit();
+  it('commits an un-blurred, changed draft when full edit exits (e.g. Done pressed while typing)', async () => {
+    const {getByTestId} = renderInFullEdit();
     await waitFor(() => expect(getByTestId('plan-set-1-weight-input')).toBeTruthy());
+    await waitFor(() => expect(latestChromeState?.mode).toBe('fullEdit'));
 
     const dispatchesBefore = upsertDispatchCount();
     fireEvent.changeText(getByTestId('plan-set-1-weight-input'), '75');
     expect(upsertDispatchCount()).toBe(dispatchesBefore);
 
-    unmount();
+    exitFullEdit();
 
-    const upserts = mockDispatch.mock.calls.filter(([action]) => action?.type === 'ADD_OR_UPDATE_SET_IN_WORKOUT');
-    expect(upserts.length).toBe(dispatchesBefore + 1);
-    expect(upserts[upserts.length - 1][0].set).toEqual(expect.objectContaining({index: 1, weight: 75}));
+    expect(upsertActions()).toEqual([
+      {
+        set: {
+          index: 1,
+          reps: 5,
+          rir: 0,
+          weight: 75,
+        },
+        type: 'ADD_OR_UPDATE_SET_IN_WORKOUT',
+        workoutId: 101,
+      },
+    ]);
   });
 
-  it('does NOT dispatch on unmount when the draft is unchanged', async () => {
-    const {getByTestId, unmount} = renderInFullEdit();
+  it('does NOT dispatch on full-edit exit when the draft is unchanged', async () => {
+    const {getByTestId} = renderInFullEdit();
     await waitFor(() => expect(getByTestId('plan-set-1-weight-input')).toBeTruthy());
+    await waitFor(() => expect(latestChromeState?.mode).toBe('fullEdit'));
 
     const dispatchesBefore = upsertDispatchCount();
-    unmount();
+    exitFullEdit();
     expect(upsertDispatchCount()).toBe(dispatchesBefore);
+  });
+
+  it('does NOT dispatch a stale upsert when an edited row unmounts during reorder', async () => {
+    const {getByTestId, rerender, props} = renderInFullEditWithTwoSets();
+    await waitFor(() => expect(getByTestId('plan-set-2-weight-input')).toBeTruthy());
+
+    fireEvent.changeText(getByTestId('plan-set-1-weight-input'), '75');
+    expect(upsertActions()).toEqual([]);
+
+    rerenderFullEditWithSets(rerender, props, [
+      {index: 1, reps: 8, rir: 1, weight: 80},
+      {index: 2, reps: 5, rir: 0, weight: 60},
+    ]);
+
+    await waitFor(() => expect(getByTestId('plan-set-1-weight-input').props.value).toBe('80'));
+    expect(upsertActions()).toEqual([]);
+  });
+
+  it('does NOT dispatch a stale upsert when an edited row unmounts during delete', async () => {
+    const {getByTestId, queryByTestId, rerender, props} = renderInFullEditWithTwoSets();
+    await waitFor(() => expect(getByTestId('plan-set-2-weight-input')).toBeTruthy());
+
+    fireEvent.changeText(getByTestId('plan-set-1-weight-input'), '75');
+    expect(upsertActions()).toEqual([]);
+
+    rerenderFullEditWithSets(rerender, props, [{index: 2, reps: 8, rir: 1, weight: 80}]);
+
+    await waitFor(() => expect(queryByTestId('plan-set-1-weight-input')).toBeNull());
+    expect(getByTestId('plan-set-2-weight-input').props.value).toBe('80');
+    expect(upsertActions()).toEqual([]);
   });
 
   // GH-324: the 1RM suggestion button is always visible on saved rows too.

@@ -91,6 +91,7 @@ const PlanTab = ({
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [hasStructuralChanges, setHasStructuralChanges] = useState(false);
   const fullEditSnapshotRef = useRef<FullEditSnapshot | null>(null);
+  const commitRowDraftsOnUnmountRef = useRef(false);
   const lastEditPlanRequestIdRef = useRef(editPlanRequestId);
   const exitToReadRef = useRef<() => void>(() => undefined);
   const handleBackRef = useRef<() => boolean>(() => false);
@@ -183,6 +184,7 @@ const PlanTab = ({
           selectedExerciseId={selectedExercise.id}
           plannedWorkoutsByExerciseId={plannedWorkoutsByExerciseId}
           pendingSetByExerciseId={pendingSetByExerciseId}
+          commitRowDraftsOnUnmountRef={commitRowDraftsOnUnmountRef}
           onSelectExercise={chooseExercise}
           onAddSet={handleAddSet}
           onPendingSetChange={handlePendingSetChange}
@@ -230,6 +232,7 @@ const PlanTab = ({
   // valid pending set drafts are committed here instead of being auto-committed
   // on every keystroke while typing.
   function exitToRead() {
+    commitRowDraftsOnUnmountRef.current = true;
     commitValidPendingSets();
     resetPlanEditState();
   }
@@ -310,6 +313,7 @@ const PlanTab = ({
     }
 
     captureFullEditSnapshot();
+    commitRowDraftsOnUnmountRef.current = false;
     setPendingSetByExerciseId({});
     setHasStructuralChanges(false);
     setMode('fullEdit');
@@ -362,6 +366,7 @@ const PlanTab = ({
       chooseExercise(restoredExercise);
     }
     // Discard must NOT commit pending drafts — reset the edit state directly.
+    commitRowDraftsOnUnmountRef.current = false;
     resetPlanEditState();
   }
 
