@@ -177,7 +177,7 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
 
       {metricSelector && selectedMetric && (
         <MetricSelectionDialog
-          title={`Select ${metricSelector.section === 'muscles' ? 'muscle' : 'exercise'} metric`}
+          title={`Select ${metricSelector.section === 'muscles' ? 'Muscle' : 'Exercise'} Metric`}
           visible={metricSelector !== undefined}
           selectedMetric={selectedMetric}
           onDismiss={() => setMetricSelector(undefined)}

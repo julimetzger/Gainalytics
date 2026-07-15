@@ -47,7 +47,7 @@ const RestTargetEditDialog = ({visible, initialSeconds, onCancel, onSave, mode =
     <EditDialogScaffold
       visible={visible}
       onDismiss={onCancel}
-      title={isExerciseDefaultMode ? 'Adjust default rest' : 'Edit rest target'}
+      title={isExerciseDefaultMode ? 'Adjust Default Rest' : 'Edit Rest Target'}
       testID="rest-target-edit-dialog"
       dismissTestID="rest-target-cancel"
       primaryAction={{label: 'Save', onPress: onSubmit, testID: 'rest-target-save'}}

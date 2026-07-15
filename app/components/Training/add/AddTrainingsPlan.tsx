@@ -102,7 +102,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
       <EditDialogScaffold
         visible={visible}
         onDismiss={hideDialog}
-        title={trainingsId ? `Edit ${trainingsPlan?.name}` : 'Add new Training Plan'}
+        title={trainingsId ? `Edit ${trainingsPlan?.name}` : 'Add New Training Plan'}
         testID="trainings-plan-dialog"
         dismissTestID="trainings-plan-cancel"
         primaryAction={{label: 'Save', onPress: confirmDialog, testID: 'confirm-trainings-plan'}}
