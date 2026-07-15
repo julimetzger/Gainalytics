@@ -1,7 +1,8 @@
 import React, {useState} from 'react';
 import {useStore} from 'react-redux';
-import {Dimensions, ScrollView, StyleSheet} from 'react-native';
-import {Button, Card, Dialog, IconButton, Portal, Text, useTheme} from 'react-native-paper';
+import {StyleSheet} from 'react-native';
+import {Button, Card, Text, useTheme} from 'react-native-paper';
+import EditDialogScaffold from '../common/EditDialogScaffold';
 import Toast from 'react-native-toast-message';
 import {GlobalState} from '../../redux/rootReducer';
 import {dispatchAddVideoAnalysis} from '../../redux/VideoAnalysis/dispatch/dispatchAddVideoAnalysis';
@@ -42,7 +43,6 @@ const VideoSelectionModal = ({visible, onDismiss, workoutId, setIndex, exerciseI
       Toast.show(params);
     }
   };
-  const screenHeight = Dimensions.get('window').height;
 
   const nextAnalysisId = analyses.length > 0 ? Math.max(...analyses.map(a => a.id ?? 0)) + 1 : 1;
 
@@ -93,50 +93,47 @@ const VideoSelectionModal = ({visible, onDismiss, workoutId, setIndex, exerciseI
   };
 
   return (
-    <Portal>
-      <Dialog style={{maxHeight: screenHeight * 0.9}} visible={visible} onDismiss={onDismiss} testID="video-selection-modal">
-        <Dialog.Title>Select Video</Dialog.Title>
-        <Dialog.Content>
-          <Button
-            mode="contained"
-            onPress={importFromGallery}
-            loading={importing}
-            disabled={importing}
-            style={styles.importButton}
-            testID="video-selection-import-gallery"
-          >
-            Import Video
-          </Button>
-          <ScrollView style={{maxHeight: screenHeight * 0.55}}>
-            {displayAnalyses.length === 0 && (
-              <Text style={styles.emptyText}>No videos available. Import a training video.</Text>
+    <EditDialogScaffold
+      visible={visible}
+      onDismiss={onDismiss}
+      title="Select Video"
+      testID="video-selection-modal"
+      dismissTestID="video-selection-close"
+      scrollable
+    >
+      <Button
+        mode="contained"
+        onPress={importFromGallery}
+        loading={importing}
+        disabled={importing}
+        style={styles.importButton}
+        testID="video-selection-import-gallery"
+      >
+        Import Video
+      </Button>
+      {displayAnalyses.length === 0 && (
+        <Text style={styles.emptyText}>No videos available. Import a training video.</Text>
+      )}
+      {displayAnalyses.map(analysis => {
+        const isLinked = !!analysis.workoutId;
+        return (
+          <Card key={analysis.id} style={styles.card} testID={`video-selection-card-${analysis.id}`}>
+            <Card.Title title={`Analysis #${analysis.id}`} subtitle={new Date(analysis.createdAt).toLocaleString()} />
+            <Card.Content>
+              <Text testID={`video-selection-status-${analysis.id}`}>Status: {analysis.status}</Text>
+              {isLinked && <Text style={{color: theme.colors.secondary}}>Linked to workout {analysis.workoutId}, set {analysis.setIndex ?? '-'}</Text>}
+            </Card.Content>
+            {!isLinked && (
+              <Card.Actions>
+                <Button testID={`video-selection-link-${analysis.id}`} onPress={() => doLink(analysis.id!)}>
+                  Link
+                </Button>
+              </Card.Actions>
             )}
-            {displayAnalyses.map(analysis => {
-              const isLinked = !!analysis.workoutId;
-              return (
-                <Card key={analysis.id} style={styles.card} testID={`video-selection-card-${analysis.id}`}>
-                  <Card.Title title={`Analysis #${analysis.id}`} subtitle={new Date(analysis.createdAt).toLocaleString()} />
-                  <Card.Content>
-                    <Text testID={`video-selection-status-${analysis.id}`}>Status: {analysis.status}</Text>
-                    {isLinked && <Text style={{color: theme.colors.secondary}}>Linked to workout {analysis.workoutId}, set {analysis.setIndex ?? '-'}</Text>}
-                  </Card.Content>
-                  {!isLinked && (
-                    <Card.Actions>
-                      <Button testID={`video-selection-link-${analysis.id}`} onPress={() => doLink(analysis.id!)}>
-                        Link
-                      </Button>
-                    </Card.Actions>
-                  )}
-                </Card>
-              );
-            })}
-          </ScrollView>
-        </Dialog.Content>
-        <Dialog.Actions>
-          <IconButton icon="close" onPress={onDismiss} />
-        </Dialog.Actions>
-      </Dialog>
-    </Portal>
+          </Card>
+        );
+      })}
+    </EditDialogScaffold>
   );
 };
 

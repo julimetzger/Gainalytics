@@ -62,7 +62,8 @@ appId: com.powerliftingworkoutplanner
     timeout: 8000
 - assertVisible: 'Start'
 - assertVisible: 'End'
-- tapOn: 'Cancel'
+- tapOn:
+    id: 'edit-training-times-cancel'
 - extendedWaitUntil:
     visible:
       id: 'edit-training-open-times-modal'
@@ -115,7 +116,8 @@ appId: com.powerliftingworkoutplanner
     visible: 'Edit Training Times'
     timeout: 8000
 - assertVisible: 'Live average duration:'
-- tapOn: 'Cancel'
+- tapOn:
+    id: 'training-length-edit-cancel'
 - extendedWaitUntil:
     visible:
       id: 'training-length-selected-bucket'
