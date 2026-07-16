@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Button, Card, Dialog, Portal, Text} from 'react-native-paper';
+import {Button, Card, Text} from 'react-native-paper';
+import EditDialogScaffold from '../../common/EditDialogScaffold';
 import {Training} from '../../../models/entities/Training';
 import {Exercise} from '../../../models/entities/Exercise';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
@@ -88,28 +89,29 @@ const EditTraining = ({training, chosenExercise, onSubmit, onSubmitSet}: EditTra
         </Card>
       )}
       <ExecuteTraining training={training} chosenExercise={chosenExercise} onSubmit={onSubmit} onSubmitSet={onSubmitSet} editMode={true} />
-      <Portal>
-        <Dialog visible={dialogVisible} onDismiss={handleDismissTrainingTimesDialog} testID="edit-training-times-dialog">
-          <Dialog.Title>Edit Training Times</Dialog.Title>
-          <Dialog.Content>
-            <TrainingTimesFields
-              title="Completed Training"
-              start={draftStart}
-              end={draftEnd}
-              onStartChange={setDraftStart}
-              onEndChange={setDraftEnd}
-              testIDPrefix="edit-training-times"
-              onValidationChange={setTrainingTimesError}
-            />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={handleDismissTrainingTimesDialog}>Cancel</Button>
-            <Button onPress={handleSaveTrainingTimes} disabled={!training.id || !hasChanges || !!trainingTimesError} testID="edit-training-times-save">
-              Save
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      <EditDialogScaffold
+        visible={dialogVisible}
+        onDismiss={handleDismissTrainingTimesDialog}
+        title="Edit Training Times"
+        testID="edit-training-times-dialog"
+        dismissTestID="edit-training-times-cancel"
+        primaryAction={{
+          label: 'Save',
+          onPress: handleSaveTrainingTimes,
+          disabled: !training.id || !hasChanges || !!trainingTimesError,
+          testID: 'edit-training-times-save',
+        }}
+      >
+        <TrainingTimesFields
+          title="Completed Training"
+          start={draftStart}
+          end={draftEnd}
+          onStartChange={setDraftStart}
+          onEndChange={setDraftEnd}
+          testIDPrefix="edit-training-times"
+          onValidationChange={setTrainingTimesError}
+        />
+      </EditDialogScaffold>
     </View>
   );
 };

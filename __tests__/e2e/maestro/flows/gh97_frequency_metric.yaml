@@ -64,7 +64,7 @@ appId: com.powerliftingworkoutplanner
     point: "47%,29%"
 - runFlow:
     when:
-      visible: 'Select muscle metric'
+      visible: 'Select Muscle Metric'
     commands:
       # Take screenshot first to capture the dialog state
       - takeScreenshot: gh97-frequency-in-muscle-dropdown

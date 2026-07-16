@@ -20,7 +20,7 @@ appId: com.powerliftingworkoutplanner
 
 # Wait for dialog to appear
 - extendedWaitUntil:
-    visible: "Add new Training Plan"
+    visible: "Add New Training Plan"
     timeout: 5000
 
 # Tap the plan name input to focus it, then type
@@ -35,7 +35,7 @@ appId: com.powerliftingworkoutplanner
 
 # Wait for the dialog to close and the plan card to appear
 - extendedWaitUntil:
-    notVisible: "Add new Training Plan"
+    notVisible: "Add New Training Plan"
     timeout: 10000
 
 - extendedWaitUntil:
