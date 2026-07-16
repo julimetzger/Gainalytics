@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Button, Checkbox, Dialog, Portal, Text, TextInput} from 'react-native-paper';
+import {Checkbox, Text, TextInput} from 'react-native-paper';
+import EditDialogScaffold from '../../common/EditDialogScaffold';
 
 interface RestTargetEditDialogProps {
   visible: boolean;
@@ -43,52 +44,50 @@ const RestTargetEditDialog = ({visible, initialSeconds, onCancel, onSave, mode =
   };
 
   return (
-    <Portal>
-      <Dialog visible={visible} onDismiss={onCancel} testID="rest-target-edit-dialog">
-        <Dialog.Title>{isExerciseDefaultMode ? 'Adjust default rest' : 'Edit rest target'}</Dialog.Title>
-        <Dialog.Content>
-          <View style={styles.inputRow}>
-            <TextInput
-              testID="rest-target-minutes"
-              label="min"
-              mode="outlined"
-              keyboardType="numeric"
-              value={minutes}
-              onChangeText={(v) => setMinutes(v.replace(/[^0-9]/g, '').slice(0, 2))}
-              style={styles.input}
-            />
-            <Text style={styles.separator}>:</Text>
-            <TextInput
-              testID="rest-target-seconds"
-              label="sec"
-              mode="outlined"
-              keyboardType="numeric"
-              value={seconds}
-              onChangeText={(v) => setSeconds(v.replace(/[^0-9]/g, '').slice(0, 2))}
-              style={styles.input}
-            />
-          </View>
-          {isExerciseDefaultMode ? (
-            <Text testID="rest-target-exercise-default-hint" style={styles.hintLabel}>
-              Saved as default for this exercise.
-            </Text>
-          ) : (
-            <View style={styles.checkRow}>
-              <Checkbox
-                testID="rest-target-save-default"
-                status={saveAsDefault ? 'checked' : 'unchecked'}
-                onPress={() => setSaveAsDefault((v) => !v)}
-              />
-              <Text style={styles.checkLabel}>Save as default for this exercise</Text>
-            </View>
-          )}
-        </Dialog.Content>
-        <Dialog.Actions>
-          <Button onPress={onCancel} testID="rest-target-cancel">Cancel</Button>
-          <Button onPress={onSubmit} testID="rest-target-save">Save</Button>
-        </Dialog.Actions>
-      </Dialog>
-    </Portal>
+    <EditDialogScaffold
+      visible={visible}
+      onDismiss={onCancel}
+      title={isExerciseDefaultMode ? 'Adjust Default Rest' : 'Edit Rest Target'}
+      testID="rest-target-edit-dialog"
+      dismissTestID="rest-target-cancel"
+      primaryAction={{label: 'Save', onPress: onSubmit, testID: 'rest-target-save'}}
+    >
+      <View style={styles.inputRow}>
+        <TextInput
+          testID="rest-target-minutes"
+          label="min"
+          mode="outlined"
+          keyboardType="numeric"
+          value={minutes}
+          onChangeText={(v) => setMinutes(v.replace(/[^0-9]/g, '').slice(0, 2))}
+          style={styles.input}
+        />
+        <Text style={styles.separator}>:</Text>
+        <TextInput
+          testID="rest-target-seconds"
+          label="sec"
+          mode="outlined"
+          keyboardType="numeric"
+          value={seconds}
+          onChangeText={(v) => setSeconds(v.replace(/[^0-9]/g, '').slice(0, 2))}
+          style={styles.input}
+        />
+      </View>
+      {isExerciseDefaultMode ? (
+        <Text testID="rest-target-exercise-default-hint" style={styles.hintLabel}>
+          Saved as default for this exercise.
+        </Text>
+      ) : (
+        <View style={styles.checkRow}>
+          <Checkbox
+            testID="rest-target-save-default"
+            status={saveAsDefault ? 'checked' : 'unchecked'}
+            onPress={() => setSaveAsDefault((v) => !v)}
+          />
+          <Text style={styles.checkLabel}>Save as default for this exercise</Text>
+        </View>
+      )}
+    </EditDialogScaffold>
   );
 };
 

@@ -5,6 +5,12 @@ import RestTargetEditDialog from '../../../../app/components/Training/execute/Re
 jest.mock('react-native-paper', () => {
   const {Text, TextInput, TouchableOpacity, View} = require('react-native');
   return {
+    useTheme: () => ({colors: {error: 'red', onSurface: '#000', onSurfaceVariant: '#666'}}),
+    IconButton: ({icon, onPress, testID}: any) => (
+      <TouchableOpacity testID={testID} onPress={onPress}>
+        <Text>{icon}</Text>
+      </TouchableOpacity>
+    ),
     Portal: ({children}: any) => <View>{children}</View>,
     Dialog: Object.assign(
       ({children, visible}: any) => (visible ? <View testID="dialog">{children}</View> : null),
