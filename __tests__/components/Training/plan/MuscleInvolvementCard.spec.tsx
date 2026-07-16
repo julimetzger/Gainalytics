@@ -121,3 +121,27 @@ describe('MuscleInvolvementCard — effectiveSelectedCompare fallback (GH-300 P2
     expect(compareChipCall![0].value).toBe('current_total_plan');
   });
 });
+
+describe('MuscleInvolvementCard — analyse header label (GH-367 live training)', () => {
+  beforeEach(() => {
+    useSettings.mockReturnValue({});
+    useLastMatchingTrainingMicro.mockReturnValue(undefined);
+  });
+
+  it('shows "THIS DONE TRAINING" for a finished training (isLive=false)', () => {
+    const {getByText} = render(
+      <MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" showDismiss={false} />,
+    );
+
+    expect(getByText('THIS DONE TRAINING')).toBeTruthy();
+  });
+
+  it('shows "THIS TRAINING (LIVE)" for a training still in progress (isLive=true)', () => {
+    const {getByText, queryByText} = render(
+      <MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" showDismiss={false} isLive />,
+    );
+
+    expect(getByText('THIS TRAINING (LIVE)')).toBeTruthy();
+    expect(queryByText('THIS DONE TRAINING')).toBeNull();
+  });
+});
