@@ -169,18 +169,29 @@ const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => 
   const deltaPct = prevValue > 0 ? Math.round(((currentValue - prevValue) / prevValue) * 100) : null;
   const isPositive = (deltaAbs ?? 0) >= 0;
 
-  const formatValue = (val: number): string => {
-    if (metric === 'volume') return `${val.toLocaleString()} kg`;
+  const formatBarValue = (val: number): string => {
+    if (metric === 'volume') return val.toLocaleString();
     if (metric === 'sets') return `${val}`;
     const h = Math.floor(val / 60);
     const m = val % 60;
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
 
+  const formatValue = (val: number): string =>
+    metric === 'volume' ? `${formatBarValue(val)} kg` : formatBarValue(val);
+
   const barValues = useMemo(
     () => mesoData.map(d => ({y: getValue(d), marker: `M${d.localMicro}`})),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [mesoData, metric],
+  );
+
+  // Array form -> native IndexValueFormatter, which (unlike 'labelByXValue')
+  // implements getBarLabel and therefore works for bar value labels.
+  const barValueLabels = useMemo(
+    () => barValues.map(v => formatBarValue(v.y)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [barValues, metric],
   );
 
   const barColors = useMemo(
@@ -198,14 +209,16 @@ const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => 
             highlightEnabled: false,
             colors: barColors,
             valueTextColor: processColor(theme.colors.onSurface),
-            drawValues: false,
+            valueTextSize: 10,
+            drawValues: true,
+            valueFormatter: barValueLabels,
           },
           values: barValues,
         },
       ],
       config: {barWidth: 0.7},
     }),
-    [barValues, barColors, theme.colors.onSurface],
+    [barValues, barValueLabels, barColors, theme.colors.onSurface],
   );
 
   const xAxisConfig = useMemo(
@@ -281,12 +294,18 @@ const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => 
             data={chartData}
             xAxis={xAxisConfig}
             yAxis={{
-              left: {drawGridLines: false, textColor: processColor(theme.colors.onSurface), enabled: false},
+              left: {
+                drawGridLines: false,
+                textColor: processColor(theme.colors.onSurface),
+                enabled: false,
+                axisMinimum: 0,
+                spaceTop: 25,
+              },
               right: {enabled: false},
             }}
             chartDescription={{text: ''}}
             legend={{enabled: false}}
-            drawValueAboveBar={false}
+            drawValueAboveBar={true}
             animation={{durationX: 300}}
           />
         )}
