@@ -129,7 +129,7 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
             />
           </CollapsibleSection>
         )}
-        <CollapsibleSection id="metrics" title="Metriken">
+        <CollapsibleSection id="metrics" title="Metrics">
           <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
         </CollapsibleSection>
       </View>

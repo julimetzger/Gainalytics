@@ -23,7 +23,7 @@ appId: com.powerliftingworkoutplanner
     id: "analysis-section-muscleMap"
 - assertNotVisible:
     id: "analysis-section-metrics"
-- assertNotVisible: "Metriken"
+- assertNotVisible: "Metrics"
 # NOTE: the old Quick Access row (nav-metrics/nav-history/nav-records) was removed from
 # the dashboard by master's "Dashboard cleanup" commit (b95bc8c4), so this flow no
 # longer asserts or taps nav-records.

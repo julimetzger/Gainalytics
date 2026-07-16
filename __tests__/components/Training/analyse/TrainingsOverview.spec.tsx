@@ -176,7 +176,7 @@ describe('TrainingsOverview', () => {
     }
   });
 
-  it('shows Muscle Map and Metriken sections but no Muscle Groups section (GH-367)', () => {
+  it('shows Muscle Map and Metrics sections but no Muscle Groups section (GH-367)', () => {
     mockedUseVelocityLossInsights.mockReturnValue([]);
 
     const liveTraining = {

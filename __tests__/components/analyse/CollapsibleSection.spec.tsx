@@ -27,7 +27,7 @@ describe('CollapsibleSection — real redux toggle (GH-367)', () => {
 
     const {getByTestId, queryByTestId} = render(
       <Provider store={store}>
-        <CollapsibleSection id="metrics" title="Metriken">
+        <CollapsibleSection id="metrics" title="Metrics">
           <Text testID="section-child">content</Text>
         </CollapsibleSection>
       </Provider>,
@@ -69,7 +69,7 @@ describe('CollapsibleSection — real redux toggle (GH-367)', () => {
           <CollapsibleSection id="muscleMap" title="Muscle Map">
             <Text testID="groups-child">map</Text>
           </CollapsibleSection>
-          <CollapsibleSection id="metrics" title="Metriken">
+          <CollapsibleSection id="metrics" title="Metrics">
             <Text testID="metrics-child">metrics</Text>
           </CollapsibleSection>
         </>

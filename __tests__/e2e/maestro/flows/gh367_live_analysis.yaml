@@ -12,7 +12,7 @@ appId: com.powerliftingworkoutplanner
 #     logged during the live training -> live values propagate (value assertion)
 #   - header: "Micro 7 Push squat" proves the navigation target; the header timer is
 #     copied twice 4s apart and MUST differ -> time advances live on the screen
-#   - screenshots document: live sections (Muscle Map + Metriken, no Muscle Groups),
+#   - screenshots document: live sections (Muscle Map + Metrics, no Muscle Groups),
 #     the card's "Duration (live)" ticking (t0 vs t1), collapse on tap, and the
 #     collapsed state surviving an app restart.
 # Precondition: baseline fixture imported AND plan 5 "Push pull" micro 7 "Push squat"
@@ -112,7 +112,7 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd:
     timeout: 3000
 # live analysis, expanded sections + live values (screenshot t0) — shows Muscle Map +
-# Metriken (no Muscle Groups), Volume 1750.00 / Sets 2.00, Duration (live).
+# Metrics (no Muscle Groups), Volume 1750.00 / Sets 2.00, Duration (live).
 # The two screenshots are bracketed by header-timer reads: if the UI were frozen (stale
 # frames), the timer values would match and the flow fails instead of shipping bogus
 # evidence.
@@ -131,7 +131,7 @@ appId: com.powerliftingworkoutplanner
       throw 'UI frozen between screenshots: header timer still ' + maestro.copiedText;
     }
 # (b) collapse both sections via their header rows (position taps):
-# Metriken header sits at ~62% while Muscle Map is expanded; Muscle Map header at ~33%.
+# Metrics header sits at ~62% while Muscle Map is expanded; Muscle Map header at ~33%.
 # retryTapIfNoChange MUST be false here: the pane is invisible to the accessibility
 # tree, so Maestro never sees a hierarchy change, retries the tap, and the second tap
 # re-expands the section (net zero — this produced bogus "collapsed" screenshots).
@@ -174,8 +174,8 @@ appId: com.powerliftingworkoutplanner
 # both sections must still be collapsed (persisted) — documented by screenshot
 - takeScreenshot: gh367_collapsed_persisted_after_restart
 # re-expand both sections so the app is left ready for manual review:
-# collapsed headers sit at ~33% (Muscle Map) and ~39% (Metriken); expanding Muscle Map
-# pushes the Metriken header down to ~62% (retryTapIfNoChange: false — see above)
+# collapsed headers sit at ~33% (Muscle Map) and ~39% (Metrics); expanding Muscle Map
+# pushes the Metrics header down to ~62% (retryTapIfNoChange: false — see above)
 - tapOn:
     point: '91%,33%'
     retryTapIfNoChange: false
@@ -187,7 +187,7 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: gh367_sections_reexpanded
-# (a) Metriken content is fully reachable: scroll down and document the live table
+# (a) Metrics content is fully reachable: scroll down and document the live table
 - swipe:
     start: '50%,75%'
     end: '50%,30%'
