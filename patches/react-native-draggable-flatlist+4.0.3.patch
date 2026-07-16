@@ -58,7 +58,7 @@ index e4e861a..7f71b4b 100644
      if (onLayout && e) onLayout(e);
    });
 diff --git a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
-index 7c88afc..8be5a3e 100644
+index 7c88afc..ec00591 100644
 --- a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
 +++ b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
 @@ -19,6 +19,7 @@ import {
@@ -94,7 +94,7 @@ index 7c88afc..8be5a3e 100644
      setActiveKey(null);
    });
  
-@@ -148,15 +156,19 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -148,15 +156,18 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
      if (disabled.value) return;
      const index = keyToIndexRef.current.get(activeKey);
      const cellData = cellDataRef.current.get(activeKey);
@@ -116,11 +116,10 @@ index 7c88afc..8be5a3e 100644
 +        spacerIndexAnim.value = index;
 +        activeIndexAnim.value = index;
 +      })();
-+      console.log("[GH324-P] drag()", activeKey, index);
        setActiveKey(activeKey);
        onDragBegin?.(index);
      }
-@@ -166,24 +178,34 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -166,24 +177,34 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
      nativeEvent: { layout },
    }: LayoutChangeEvent) => {
      const { width, height } = layout;
@@ -161,15 +160,7 @@ index 7c88afc..8be5a3e 100644
    };
  
    const extraData = useMemo(
-@@ -220,6 +242,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
- 
-   const onDragEnd = useStableCallback(
-     ({ from, to }: { from: number; to: number }) => {
-+      console.log("[GH324-P] onDragEnd JS", from, to);
-       const { onDragEnd, data } = props;
- 
-       const newData = [...data];
-@@ -273,12 +296,26 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -273,6 +294,19 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
    const gestureDisabled = useSharedValue(false);
  
    const panGesture = Gesture.Pan()
@@ -189,22 +180,7 @@ index 7c88afc..8be5a3e 100644
      .onBegin((evt) => {
        gestureDisabled.value = disabled.value;
        if (gestureDisabled.value) return;
-       panGestureState.value = evt.state;
-     })
-     .onUpdate((evt) => {
-+      console.log("[GH324-P] pan onUpdate", evt.translationY);
-       if (gestureDisabled.value) return;
-       panGestureState.value = evt.state;
-       const translation = horizontalAnim.value
-@@ -287,6 +324,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
-       touchTranslate.value = translation;
-     })
-     .onEnd((evt) => {
-+      console.log("[GH324-P] pan onEnd, gestureDisabled:", gestureDisabled.value, "activeIndex:", activeIndexAnim.value, "spacer:", spacerIndexAnim.value);
-       if (gestureDisabled.value) return;
-       // Set touch val to current translate val
-       isTouchActiveNative.value = false;
-@@ -302,27 +340,38 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -302,27 +336,37 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
        disabled.value = true;
        runOnJS(onRelease)(activeIndexAnim.value);
        const springTo = placeholderOffset.value - activeCellOffset.value;
@@ -234,7 +210,6 @@ index 7c88afc..8be5a3e 100644
        runOnJS(onContainerTouchStart)();
      })
 +    .onFinalize((evt, success) => {
-+      console.log("[GH324-P] pan onFinalize success:", success, "state:", evt.state);
 +    })
      .onTouchesUp(() => {
        // Turning this into a worklet causes timing issues. We want it to run
@@ -254,7 +229,7 @@ index 7c88afc..8be5a3e 100644
    if (dragHitSlop) panGesture.hitSlop(dragHitSlop);
    if (activationDistanceProp) {
      const activeOffset = [-activationDistanceProp, activationDistanceProp];
-@@ -361,11 +410,19 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -361,11 +405,19 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
  
      const min = Math.min(...viewableIndices);
      const max = Math.max(...viewableIndices);
@@ -276,7 +251,7 @@ index 7c88afc..8be5a3e 100644
    return (
      <DraggableFlatListProvider
        activeKey={activeKey}
-@@ -383,7 +440,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -383,7 +435,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
              <PlaceholderItem renderPlaceholder={props.renderPlaceholder} />
            )}
            <AnimatedFlatList
@@ -405,7 +380,7 @@ index 49bee06..47ce250 100644
  
    const cellDataRef = useRef(new Map<string, CellData>());
 diff --git a/node_modules/react-native-draggable-flatlist/src/hooks/useCellTranslate.tsx b/node_modules/react-native-draggable-flatlist/src/hooks/useCellTranslate.tsx
-index efea240..1c65a44 100644
+index efea240..1055e98 100644
 --- a/node_modules/react-native-draggable-flatlist/src/hooks/useCellTranslate.tsx
 +++ b/node_modules/react-native-draggable-flatlist/src/hooks/useCellTranslate.tsx
 @@ -53,7 +53,11 @@ export function useCellTranslate({ cellIndex, cellSize, cellOffset }: Params) {
@@ -421,14 +396,6 @@ index efea240..1c65a44 100644
        ) {
          // bottom edge of active cell overlaps bottom half of current cell
          result = cellIndex;
-@@ -74,6 +78,7 @@ export function useCellTranslate({ cellIndex, cellSize, cellOffset }: Params) {
-       }
-     }
- 
-+    console.log("[GH324-P] cell", cellIndex, "hover:", Math.round(hoverOffset.value), "cellOff:", Math.round(cellOffset.value), "cellSz:", Math.round(cellSize.value), "activeSz:", Math.round(activeCellSize.value), "result:", result);
-     if (result !== -1 && result !== spacerIndexAnim.value) {
-       spacerIndexAnim.value = result;
-     }
 diff --git a/node_modules/react-native-draggable-flatlist/src/index.tsx b/node_modules/react-native-draggable-flatlist/src/index.tsx
 index 16cd51e..4794b93 100644
 --- a/node_modules/react-native-draggable-flatlist/src/index.tsx
