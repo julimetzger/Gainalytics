@@ -13,18 +13,18 @@ appId: com.powerliftingworkoutplanner
     id: "dashboard-scroll"
 - assertVisible:
     id: "weekly-summary-card"
+- assertVisible: "Your Week at a Glance"
 - assertVisible:
     id: "muscle-heatmap-card"
-# Muscle Groups / Muscle Map / Metriken collapsible sections (GH-367) push Quick
-# Access further down, so scroll to reach it instead of asserting immediate visibility.
-- scrollUntilVisible:
-    element:
-      id: "nav-records"
-    direction: DOWN
-# Verify navigation to Records works
-- tapOn:
-    id: "nav-records"
-- extendedWaitUntil:
-    visible: "Records"
-    timeout: 10000
-- assertVisible: "Records"
+- assertVisible: "Muscle Groups"
+# GH-367 scope guard: the in-training collapsible analysis sections must NOT appear on
+# the global dashboard — its content stays exactly as it was before GH-367.
+- assertNotVisible:
+    id: "analysis-section-muscleMap"
+- assertNotVisible:
+    id: "analysis-section-metrics"
+- assertNotVisible: "Metriken"
+# NOTE: the old Quick Access row (nav-metrics/nav-history/nav-records) was removed from
+# the dashboard by master's "Dashboard cleanup" commit (b95bc8c4), so this flow no
+# longer asserts or taps nav-records.
+- takeScreenshot: gh77_dashboard_unchanged

@@ -27,7 +27,7 @@ describe('CollapsibleSection — real redux toggle (GH-367)', () => {
 
     const {getByTestId, queryByTestId} = render(
       <Provider store={store}>
-        <CollapsibleSection id="muscleGroups" title="Muscle Groups">
+        <CollapsibleSection id="metrics" title="Metriken">
           <Text testID="section-child">content</Text>
         </CollapsibleSection>
       </Provider>,
@@ -35,13 +35,13 @@ describe('CollapsibleSection — real redux toggle (GH-367)', () => {
 
     expect(queryByTestId('section-child')).toBeTruthy();
 
-    fireEvent.press(getByTestId('analysis-section-muscleGroups-header'));
+    fireEvent.press(getByTestId('analysis-section-metrics-header'));
     expect(queryByTestId('section-child')).toBeNull();
-    expect(store.getState().settings.analysisSectionsCollapsed?.muscleGroups).toBe(true);
+    expect(store.getState().settings.analysisSectionsCollapsed?.metrics).toBe(true);
 
-    fireEvent.press(getByTestId('analysis-section-muscleGroups-header'));
+    fireEvent.press(getByTestId('analysis-section-metrics-header'));
     expect(queryByTestId('section-child')).toBeTruthy();
-    expect(store.getState().settings.analysisSectionsCollapsed?.muscleGroups).toBe(false);
+    expect(store.getState().settings.analysisSectionsCollapsed?.metrics).toBe(false);
   });
 
   it('tapping the chevron button toggles the same persisted state as the header row', () => {
@@ -66,8 +66,8 @@ describe('CollapsibleSection — real redux toggle (GH-367)', () => {
     const {getByTestId, queryByTestId} = render(
       <Provider store={store}>
         <>
-          <CollapsibleSection id="muscleGroups" title="Muscle Groups">
-            <Text testID="groups-child">groups</Text>
+          <CollapsibleSection id="muscleMap" title="Muscle Map">
+            <Text testID="groups-child">map</Text>
           </CollapsibleSection>
           <CollapsibleSection id="metrics" title="Metriken">
             <Text testID="metrics-child">metrics</Text>
@@ -76,7 +76,7 @@ describe('CollapsibleSection — real redux toggle (GH-367)', () => {
       </Provider>,
     );
 
-    fireEvent.press(getByTestId('analysis-section-muscleGroups-header'));
+    fireEvent.press(getByTestId('analysis-section-muscleMap-header'));
     expect(queryByTestId('groups-child')).toBeNull();
     expect(queryByTestId('metrics-child')).toBeTruthy();
   });

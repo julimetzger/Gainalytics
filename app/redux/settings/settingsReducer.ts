@@ -6,7 +6,7 @@ export interface MetricOverviewSettings {
   exercises?: Metric[];
 }
 
-export type AnalysisSectionId = 'muscleGroups' | 'muscleMap' | 'metrics';
+export type AnalysisSectionId = 'muscleMap' | 'metrics';
 
 export type MuscleMapMetric = 'sets' | 'volume';
 export type MuscleMapCompare =
@@ -72,7 +72,7 @@ export interface AppSettings {
   muscleMapCompareSelectionPlan?: MuscleMapCompare;
   /** Persisted compare selection for the Analyse (Done) -View muscle map. */
   muscleMapCompareSelectionAnalyse?: MuscleMapCompare;
-  /** Persisted collapsed/expanded state of the Muscle Groups / Muscle Map / Metrics analysis sections. */
+  /** Persisted collapsed/expanded state of the in-training Muscle Map / Metrics analysis sections. */
   analysisSectionsCollapsed?: {[K in AnalysisSectionId]?: boolean};
 }
 

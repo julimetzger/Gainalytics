@@ -12,9 +12,8 @@ interface CollapsibleSectionProps {
 }
 
 /**
- * Shared collapsible wrapper for the Muscle Groups / Muscle Map / Metrics analysis
- * sections, used by both the in-training analysis tab and the global Analyse tab so the
- * two views stay structurally in sync (GH-367). Collapsed state persists via settings.
+ * Collapsible wrapper for the Muscle Map / Metrics sections of the in-training
+ * analysis tab (GH-367). Collapsed state persists via settings.
  */
 const CollapsibleSection = ({id, title, children}: CollapsibleSectionProps) => {
   const [collapsed, toggle] = useAnalysisSectionCollapsed(id);

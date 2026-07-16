@@ -2,7 +2,7 @@ import {useSettings} from './useSettings';
 import {dispatchSetAnalysisSectionCollapsed} from '../dispatch/dispatchSetAnalysisSectionCollapsed';
 import {AnalysisSectionId} from '../settingsReducer';
 
-/** Persisted collapsed/expanded state for a Muscle Groups / Muscle Map / Metrics analysis section. */
+/** Persisted collapsed/expanded state for an in-training Muscle Map / Metrics analysis section. */
 export const useAnalysisSectionCollapsed = (section: AnalysisSectionId): [boolean, () => void] => {
   const settings = useSettings();
   const setCollapsed = dispatchSetAnalysisSectionCollapsed();

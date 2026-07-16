@@ -1,6 +1,6 @@
 import {ScrollView, View} from 'react-native';
 import {Card, Text} from 'react-native-paper';
-import React, {useMemo} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {useLastFinishedWorkoutsByExerciseIds} from '../../../redux/Workout/use/useLastFinishedWorkoutsByExerciseIds';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
@@ -15,7 +15,6 @@ import {useVelocityLossInsights} from '../useVelocityLossInsights';
 import MuscleInvolvementCard from '../plan/MuscleInvolvementCard';
 import {TrainingsState} from '../../../models/TrainingsState';
 import CollapsibleSection from '../../analyse/CollapsibleSection';
-import TrainingMuscleGroupsCard from './TrainingMuscleGroupsCard';
 
 interface TrainingsOverviewProps {
   training: Training;
@@ -38,7 +37,17 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
   let previousWorkouts = previousTraining !== undefined ? previousWorkoutsFromTraining : fallbackPreviousWorkouts;
 
   const isLive = training.state === TrainingsState.STARTED;
-  const trainingEnd = training.end ?? new Date();
+  // While the training is live the duration has no end timestamp yet, so tick a local
+  // "now" every second to keep the displayed duration counting up between renders.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isLive) {
+      return;
+    }
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [isLive]);
+  const trainingEnd = training.end ?? new Date(now);
   const trainingDate = new Date(new Date(trainingEnd).getTime() - new Date(training.start!!).getTime());
   const previousTrainingTime = previousTraining?.end ? new Date(new Date(previousTraining.end!!).getTime() - new Date(previousTraining.start!!).getTime()) : undefined;
   let formattedDifference;
@@ -55,10 +64,12 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
     lastWorkoutSets: prviousWorkoutSets,
   });
   return (
-    <ScrollView testID="trainings-overview" accessible accessibilityLabel="trainings-overview">
-      <View testID="trainings-overview-root" accessible accessibilityLabel="trainings-overview-root">
+    // Containers must not be `accessible`: that merges the whole subtree into one
+    // accessibility node, hiding every value from screen readers and UI tests.
+    <ScrollView testID="trainings-overview">
+      <View testID="trainings-overview-root">
         <View style={{display: 'flex', flexDirection: 'row', flex: 1}}>
-          <View style={{flex: 1}} testID="trainings-overview-duration-card" accessible accessibilityLabel="trainings-overview-duration-card">
+          <View style={{flex: 1}} testID="trainings-overview-duration-card">
             <Card style={{margin: 5, flex: 1}}>
               <Card.Title title={<Text>{isLive ? 'Duration (live)' : 'Duration'}</Text>}></Card.Title>
               <Card.Content>
@@ -69,7 +80,7 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
               </Card.Content>
             </Card>
           </View>
-          <View style={{flex: 1}} testID="trainings-overview-volume-card" accessible accessibilityLabel="trainings-overview-volume-card">
+          <View style={{flex: 1}} testID="trainings-overview-volume-card">
             <Card style={{margin: 5, flex: 1}}>
               <Card.Title title={<Text>Volume</Text>} />
               <Card.Content>
@@ -79,7 +90,7 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
               </Card.Content>
             </Card>
           </View>
-          <View style={{flex: 1}} testID="trainings-overview-sets-card" accessible accessibilityLabel="trainings-overview-sets-card">
+          <View style={{flex: 1}} testID="trainings-overview-sets-card">
             <Card style={{margin: 5, flex: 1}}>
               <Card.Title title={<Text>Sets</Text>} />
               <Card.Content>
@@ -106,9 +117,6 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
             ))}
           </View>
         )}
-        <CollapsibleSection id="muscleGroups" title="Muscle Groups">
-          <TrainingMuscleGroupsCard trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
-        </CollapsibleSection>
         {trainingsPlan.id !== undefined && (
           <CollapsibleSection id="muscleMap" title="Muscle Map">
             <MuscleInvolvementCard
