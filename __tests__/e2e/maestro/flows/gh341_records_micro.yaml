@@ -1,0 +1,19 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-341 (part 2): micro heatmap assertions.
+#
+# PRECONDITION (set by __tests__/e2e/scripts/run-gh341-records-flow.sh):
+#   - part 1 flow (gh341_records_redesign.yaml) has run
+#   - accumulation switched to the plan "Push pull" via adb (the dropdown's
+#     long list defeats scrollUntilVisible for entries deep in the list)
+#
+# Fixture expectation: plan "Push pull" holds records in micros 1-6,
+# best micro = 7 records (micro 2); plan has no explicit mesos → "Meso 1" row.
+
+- assertVisible: 'by micro'
+- assertVisible: 'best micro'
+- assertVisible:
+    id: 'records-kpi-best'
+    text: '7'
+- assertVisible: 'Meso 1'
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-341/screenshots/maestro-05-heatmap-micro
