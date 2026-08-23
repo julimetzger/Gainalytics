@@ -1,0 +1,134 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-393: the compare picker and the analysis detail header identify an analysis
+# by the set it was filmed on (exercise, set number, load, RIR) instead of by its
+# running "Analysis #NN" number.
+#
+# Data prerequisite: __tests__/e2e/maestro/fixtures/gh393-compare-labels.gains
+# pushed to /sdcard/Download/. It holds three DONE squat analyses:
+#   * #2 linked to workout 5565 set 1 (175 kg × 5 @ RIR 2)  <- screen under test
+#   * #3 linked to workout 5565 set 2 (155 kg × 9 @ RIR 2)  <- compare target WITH a set
+#   * #1 with no workout/set link                           <- compare target WITHOUT a set
+#
+# Value assertions:
+#  1. The detail header reads the set identity, not "Analysis #2".
+#  2. Every compare row carries the set identity; the fallback row stays meaningful.
+#  3. No "Analysis #NN" text is left on either screen.
+#  4. Date/time and the "N reps | VL x%" metrics line survive.
+#  5. Tapping a row starts the comparison with exactly that analysis (load column B).
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+# --- Import the GH-393 fixture -------------------------------------------------
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-import-data-button'
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: 'settings-import-data-button'
+- extendedWaitUntil:
+    visible: 'Import full data from backup file?'
+    timeout: 10000
+- tapOn: 'Import'
+- runFlow:
+    when:
+      visible: 'Use without an account'
+    commands:
+      - tapOn: 'Use without an account'
+- runFlow:
+    when:
+      visible: 'No thanks'
+    commands:
+      - tapOn: 'No thanks'
+- scrollUntilVisible:
+    element:
+      text: 'gh393-compare-labels.gains'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: 'gh393-compare-labels.gains'
+- extendedWaitUntil:
+    visible: 'Export Data'
+    timeout: 120000
+# --- Open the analysis that was filmed on set 1 --------------------------------
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- scrollUntilVisible:
+    element:
+      text: 'Video Analyses'
+    direction: DOWN
+    timeout: 15000
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 30000
+- tapOn:
+    id: 'video-analysis-row-2'
+- extendedWaitUntil:
+    visible: 'Compare'
+    timeout: 30000
+# --- 1. The detail header identifies the set, not the running number
+- assertVisible:
+    text: 'Squat · Set 1 · 175 kg @ 2 RIR'
+- assertNotVisible:
+    text: 'Analysis #[0-9]+'
+- takeScreenshot: 'gh393_01_detail_header'
+# --- 2./3./4. The compare picker rows carry the set identity
+- tapOn: 'Compare'
+- extendedWaitUntil:
+    visible: 'Select analysis to compare'
+    timeout: 15000
+- copyTextFrom:
+    id: 'compare-picker-item-title-3'
+- evalScript: |
+    output.linkedRowOk = maestro.copiedText === 'Squat · Set 2 · 155 kg @ 2 RIR';
+    if (!output.linkedRowOk) { throw 'Unexpected linked compare row title: ' + maestro.copiedText; }
+- assertTrue: ${output.linkedRowOk}
+# The fallback row: analysis #1 hangs on no set at all and must still read sensibly
+- copyTextFrom:
+    id: 'compare-picker-item-title-1'
+- evalScript: |
+    var title = maestro.copiedText;
+    output.fallbackRowOk = title === 'Squat · No linked set';
+    if (/undefined|NaN|Analysis #/.test(title) || title.trim().length === 0) {
+      throw 'Fallback compare row title is not meaningful: ' + title;
+    }
+    if (!output.fallbackRowOk) { throw 'Unexpected fallback compare row title: ' + title; }
+- assertTrue: ${output.fallbackRowOk}
+- assertNotVisible:
+    text: 'Analysis #[0-9]+'
+# Date/time line and the existing metrics line are untouched
+- assertVisible:
+    text: '.*2026.*'
+- assertVisible:
+    text: '2 reps \| VL 32%'
+- takeScreenshot: 'gh393_02_compare_picker'
+# --- 5. Selecting a row compares exactly that analysis
+- tapOn:
+    id: 'compare-picker-item-3'
+- extendedWaitUntil:
+    visible: 'Synchronized Playback'
+    timeout: 60000
+- copyTextFrom:
+    id: 'compare-header-load-a'
+- evalScript: |
+    output.loadA = maestro.copiedText;
+- copyTextFrom:
+    id: 'compare-header-load-b'
+- evalScript: |
+    output.selectionOk = output.loadA === '175 kg × 5' && maestro.copiedText === '155 kg × 9';
+    if (!output.selectionOk) { throw 'Compare opened with the wrong analyses: A=' + output.loadA + ' B=' + maestro.copiedText; }
+- assertTrue: ${output.selectionOk}
+- takeScreenshot: 'gh393_03_compare_screen'
