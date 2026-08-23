@@ -1,0 +1,65 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-396 — targetSdk 35 -> 36 (Android 16), part 1 of the video-analysis regression.
+#
+# Drives the app into "video analysis running": open Video Analyses, import
+# squat-3reps.mp4 through the system picker (this is the gallery/media-file access
+# check) and wait until the progress bar proves the analysis actually started.
+#
+# It deliberately stops there. The interesting part — does the analysis survive the
+# user pressing Home — is asserted right after this flow by
+# `__tests__/e2e/scripts/gh396-verify-on-device.sh --mode fgs-background`, which reads
+# the foreground-service and notification state back from the platform.
+#
+# Prerequisite: squat-3reps.mp4 pushed to /sdcard/Download (bootstrap mode does this).
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 60000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- scrollUntilVisible:
+    element:
+      text: 'Video Analyses'
+    direction: DOWN
+    timeout: 15000
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 60000
+- takeScreenshot: 'gh396_06_video_analysis_list'
+
+# --- Import a video through the system picker ------------------------------------
+- tapOn: 'Import Video'
+- runFlow:
+    when:
+      notVisible: 'squat-3reps.mp4'
+    commands:
+      - tapOn:
+          point: '7%,6%'
+      - tapOn:
+          text: 'Downloads'
+          optional: true
+- extendedWaitUntil:
+    visible: 'squat-3reps.mp4'
+    timeout: 30000
+- tapOn: 'squat-3reps.mp4'
+
+# The flow deliberately ENDS here, right after handing the video to the app.
+#
+# The fixture clip is short enough that the analysis can be over within seconds, so
+# asserting on the in-flight progress bar is a race this emulator loses. Instead
+# `gh396-verify-on-device.sh --mode fgs-background` runs CONCURRENTLY with this flow: it
+# polls for VideoAnalysisForegroundService, presses Home the moment the analysis starts,
+# and asserts that the service and its ongoing notification survive being backgrounded.
+# The completed result is then asserted by gh396_api36_video_resume.yaml.

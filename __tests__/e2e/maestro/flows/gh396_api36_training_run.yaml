@@ -1,0 +1,121 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-396 — targetSdk 35 -> 36 (Android 16).
+#
+# A target-SDK bump changes no app code, so the meaningful test is a regression run of
+# the flows Android 16 could break. This one covers the first half of the training
+# run-through: reach a PLANNED training through the plan list and the micro drawer, and
+# start it.
+#
+# The second half (log a set, finish the training, land on TrainingsOverview) lives in
+# `__tests__/e2e/scripts/gh396-verify-on-device.sh --mode training-set` — see the note
+# at the bottom of this file for why it cannot be driven from Maestro.
+#
+# Every step asserts the resulting value (the session timer, the plan name), never just
+# "a screen changed". Toasts are deliberately not used as assertions: they disappear
+# after 5s and this emulator is slow enough to miss them.
+#
+# Prerequisite: baseline.gains imported (run gh396_api36_file_access.yaml first).
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- takeScreenshot: 'gh396_01_cold_start_api36'
+
+# --- Open training 282 (plan "Push pull upper lower", micro 69, "Push") -----------
+# It is PLANNED and already carries 11 planned exercises, so it can be started.
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+# The Plans section sits at the bottom of the dashboard. `scrollUntilVisible` is not
+# reliable here: on this emulator the driver regularly reads a stale view hierarchy
+# mid-scroll and gives up while the card is plainly on screen. Scrolling in fixed steps
+# and then polling with extendedWaitUntil retries the hierarchy read until it settles.
+- scroll
+- scroll
+- scroll
+- scroll
+- scroll
+- waitForAnimationToEnd:
+    timeout: 10000
+- extendedWaitUntil:
+    visible: 'Push pull upper lower'
+    timeout: 60000
+# The plan card's Pressable wraps the name, so tapping the name navigates into the plan.
+# Match the full name: the fixture also holds a plan literally called "Push pull".
+- tapOn:
+    text: 'Push pull upper lower'
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-menu-button'
+    timeout: 30000
+- tapOn:
+    id: 'drawer-menu-button'
+- extendedWaitUntil:
+    visible:
+      text: 'Micro 69'
+    timeout: 20000
+- tapOn:
+    text: 'Micro 69'
+# Anchor the day name: an unanchored 'Push' also matches the "Push pull upper lower"
+# breadcrumb in the header.
+- tapOn:
+    text: '^Push$'
+# Picking the day selects the training but leaves the drawer open, covering the whole
+# Train sub-tab. Toggle it shut via the hamburger, which stays uncovered in the header.
+- waitForAnimationToEnd:
+    timeout: 5000
+- runFlow:
+    when:
+      visible: 'Mesos:'
+    commands:
+      - tapOn:
+          id: 'drawer-menu-button'
+      - waitForAnimationToEnd:
+          timeout: 5000
+- extendedWaitUntil:
+    notVisible: 'Mesos:'
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: 'header-overflow-icon'
+    timeout: 30000
+
+# --- Start the training ----------------------------------------------------------
+- tapOn:
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-start'
+    timeout: 10000
+- tapOn:
+    id: 'overflow-start'
+# The session timer only renders while the training is STARTED, so its presence is the
+# durable proof that the start actually took effect.
+- extendedWaitUntil:
+    visible:
+      id: 'header-session-timer'
+    timeout: 30000
+- assertVisible:
+    id: 'header-session-timer'
+- takeScreenshot: 'gh396_03_training_started'
+
+# --- Log a set and finish the training -------------------------------------------
+# NOT driven from Maestro. The Train sub-tab's pane is invisible to the Maestro/
+# UiAutomator hierarchy on this build (see docs/memory/agent-memory.md #246, and
+# `uiautomator dump` on the same screen fails with "could not get idle state" because
+# the session timer re-renders every second). Every selector inside the pane — testIDs
+# and plain text like "Add Workout" alike — resolves to "not visible" while the header,
+# the drawer and the plan list all read fine.
+#
+# The remaining two steps of the run-through are therefore driven and asserted by
+# `__tests__/e2e/scripts/gh396-verify-on-device.sh --mode training-set`, which types the
+# set through adb and verifies the committed values from the Redux-backed UI.

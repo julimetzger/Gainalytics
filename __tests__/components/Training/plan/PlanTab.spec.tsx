@@ -234,7 +234,10 @@ describe('PlanTab', () => {
     expect(getByTestId('plan-read-selected').props.children).toBe('1');
   });
 
-  it('enters quick edit, validates values, and commits valid weight updates immediately', async () => {
+  // GH-324: quick edit must NOT write to the store while the user is typing.
+  // The value is committed once when the field is left (keyboard OK/Enter,
+  // outside press, or switching to another cell).
+  it('enters quick edit, holds keystrokes in the draft, and commits once on submit', async () => {
     const {getByTestId} = render(<PlanTab {...baseProps} />);
 
     fireEvent.press(getByTestId('plan-open-weight-cell'));
@@ -255,6 +258,20 @@ describe('PlanTab', () => {
       expect(getByTestId('plan-read-invalid').props.children).toBe('false');
     });
 
+    // Typing a valid value must NOT dispatch yet — the store is only written
+    // when the user leaves the field.
+    expect(mockDispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({type: 'ADD_OR_UPDATE_SET_IN_WORKOUT'}),
+    );
+
+    // GH-358: the accessory "Done" bar was removed — pressing OK/Enter on the
+    // keyboard (onQuickEditSubmit) closes the quick edit and commits the draft.
+    fireEvent.press(getByTestId('plan-submit-quick-edit'));
+
+    await waitFor(() => {
+      expect(getByTestId('plan-read-mode').props.children).toBe('read');
+    });
+
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'ADD_OR_UPDATE_SET_IN_WORKOUT',
@@ -262,14 +279,29 @@ describe('PlanTab', () => {
         set: expect.objectContaining({index: 2, weight: 97.5}),
       }),
     );
+    const upserts = mockDispatch.mock.calls.filter(([action]) => action?.type === 'ADD_OR_UPDATE_SET_IN_WORKOUT');
+    expect(upserts.length).toBe(1);
+  });
 
-    // GH-358: the accessory "Done" bar was removed — pressing OK/Enter on the
-    // keyboard (onQuickEditSubmit) now closes the quick edit and returns to read.
-    fireEvent.press(getByTestId('plan-submit-quick-edit'));
+  it('discards the quick-edit draft on submit when it is invalid (store untouched)', async () => {
+    const {getByTestId} = render(<PlanTab {...baseProps} />);
 
+    fireEvent.press(getByTestId('plan-open-weight-cell'));
     await waitFor(() => {
-      expect(getByTestId('plan-read-mode').props.children).toBe('read');
+      expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
     });
+
+    fireEvent.press(getByTestId('plan-enter-invalid-value'));
+    await waitFor(() => {
+      expect(getByTestId('plan-read-invalid').props.children).toBe('true');
+    });
+
+    // Submit with an invalid draft keeps the quick edit open and never writes.
+    fireEvent.press(getByTestId('plan-submit-quick-edit'));
+    expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
+    expect(mockDispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({type: 'ADD_OR_UPDATE_SET_IN_WORKOUT'}),
+    );
   });
 
   it('does NOT render the "Editing … Done" accessory bar in quick edit mode (GH-358 PR #362)', async () => {

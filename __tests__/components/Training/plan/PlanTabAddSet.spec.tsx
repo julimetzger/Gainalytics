@@ -1,5 +1,5 @@
 import React from 'react';
-import {fireEvent, render, waitFor} from '@testing-library/react-native';
+import {act, fireEvent, render, waitFor} from '@testing-library/react-native';
 import PlanTab from '../../../../app/components/Training/plan/PlanTab';
 import {TrainingsState} from '../../../../app/models/TrainingsState';
 import {Training} from '../../../../app/models/entities/Training';
@@ -97,10 +97,16 @@ jest.mock('react-native-paper', () => {
     TextInput: ({label, value, onChangeText, testID}: {label?: string; value?: string; onChangeText?: (value: string) => void; testID?: string}) => (
       <TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} testID={testID} />
     ),
+    ToggleButton: ({onPress, testID, disabled}: {onPress?: () => void; testID?: string; disabled?: boolean}) => (
+      <TouchableOpacity testID={testID} onPress={disabled ? undefined : onPress} disabled={disabled}>
+        <Text>1RM</Text>
+      </TouchableOpacity>
+    ),
     useTheme: () => ({
       colors: {
         elevation: {level3: '#222'},
         onSurfaceVariant: '#888',
+        onSurfaceDisabled: '#555',
         primary: '#3f51b5',
         secondaryContainer: '#222',
         error: '#b00020',
@@ -122,7 +128,7 @@ jest.mock('react-native-draggable-flatlist', () => {
       ))}
     </View>
   );
-  return {__esModule: true, default: Component, NestableDraggableFlatList: Component, ScaleDecorator};
+  return {__esModule: true, default: Component, NestableDraggableFlatList: Component, ScaleDecorator, useNestableScrollContainerContext: () => undefined};
 });
 
 jest.mock('../../../../app/components/shared/DashedAddButton', () => {
@@ -145,7 +151,7 @@ const baseTraining = {
   plannedWorkouts: {},
 } satisfies Training;
 
-const renderPlanTab = (training: Training = baseTraining) => {
+const renderPlanTab = (training: Training = baseTraining, onChromeChange?: (state: {exitToRead: () => void}) => void) => {
   const props = {
     training,
     trainingsPlanId: 55,
@@ -161,6 +167,7 @@ const renderPlanTab = (training: Training = baseTraining) => {
     pickerVisible: false,
     onTogglePicker: jest.fn(),
     isActive: true,
+    onChromeChange,
   };
   const utils = render(<PlanTab {...props} editPlanRequestId={0} />);
   // The fullEdit-entry effect only fires when editPlanRequestId changes.
@@ -207,20 +214,46 @@ describe('PlanTab — Full Edit Add-Set (GH-240 Bug 2)', () => {
     await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
   });
 
-  it('after the auto-commit clears the pending row, clicking Add set creates a NEW pending row for the next index (no silent no-op)', async () => {
+  // GH-324: typing valid values must NOT auto-commit the pending row anymore —
+  // that converted the row mid-typing and threw the user out of the field. The
+  // pending commits when the user leaves the flow: "Add set" again or Done.
+  it('typing valid values keeps the pending row pending (no auto-commit per keystroke)', async () => {
     const trainingWithFirstSet: Training = {...baseTraining, plannedWorkouts: {1: 101}};
     mockPlannedSetsByWorkoutId = {
       101: {id: 101, exerciseId: 1, sets: [{index: 1, reps: 5, rir: 0, weight: 60}], notes: ''},
     };
-    const {getByTestId, queryByTestId} = renderPlanTab(trainingWithFirstSet);
+    const {getByTestId} = renderPlanTab(trainingWithFirstSet);
 
     // Open pending row for index 2.
     fireEvent.press(getByTestId('plan-add-set-button-1'));
     await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
 
-    // Fill in valid values — the auto-commit useEffect commits & clears pending.
+    // Fill in valid values — the draft is complete, but nothing may be written.
     fireEvent.changeText(getByTestId('plan-pending-set-weight-input'), '70');
     fireEvent.changeText(getByTestId('plan-pending-set-reps-input'), '8');
+
+    expect(
+      mockDispatch.mock.calls.filter(([action]) => action?.type === 'ADD_OR_UPDATE_SET_IN_WORKOUT').length,
+    ).toBe(0);
+    // The pending row is still there — the user keeps typing undisturbed.
+    expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy();
+  });
+
+  it('clicking Add set AGAIN commits the valid pending and creates a fresh pending for the next index', async () => {
+    const trainingWithFirstSet: Training = {...baseTraining, plannedWorkouts: {1: 101}};
+    mockPlannedSetsByWorkoutId = {
+      101: {id: 101, exerciseId: 1, sets: [{index: 1, reps: 5, rir: 0, weight: 60}], notes: ''},
+    };
+    const {getByTestId} = renderPlanTab(trainingWithFirstSet);
+
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+    await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+
+    fireEvent.changeText(getByTestId('plan-pending-set-weight-input'), '70');
+    fireEvent.changeText(getByTestId('plan-pending-set-reps-input'), '8');
+
+    // Second Add set press: commits the valid pending (index 2) …
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
 
     await waitFor(() => {
       const indices = mockDispatch.mock.calls
@@ -228,12 +261,48 @@ describe('PlanTab — Full Edit Add-Set (GH-240 Bug 2)', () => {
         .map(([action]) => action.set?.index);
       expect(indices).toEqual(expect.arrayContaining([2]));
     });
-    // Pending row should be cleared after commit.
-    await waitFor(() => expect(queryByTestId('plan-pending-set-reps-input')).toBeNull());
+    // … and a fresh pending row exists for the next set.
+    await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+  });
 
-    // Now click Add set AGAIN — must create a fresh pending for the next index.
+  it('leaving full edit (Done) commits the valid pending draft exactly once', async () => {
+    const trainingWithFirstSet: Training = {...baseTraining, plannedWorkouts: {1: 101}};
+    mockPlannedSetsByWorkoutId = {
+      101: {id: 101, exerciseId: 1, sets: [{index: 1, reps: 5, rir: 0, weight: 60}], notes: ''},
+    };
+    let chrome: {exitToRead: () => void} | undefined;
+    const {getByTestId} = renderPlanTab(trainingWithFirstSet, (state) => {
+      chrome = state;
+    });
+
     fireEvent.press(getByTestId('plan-add-set-button-1'));
     await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+
+    fireEvent.changeText(getByTestId('plan-pending-set-weight-input'), '70');
+    fireEvent.changeText(getByTestId('plan-pending-set-reps-input'), '8');
+    expect(
+      mockDispatch.mock.calls.filter(([action]) => action?.type === 'ADD_OR_UPDATE_SET_IN_WORKOUT').length,
+    ).toBe(0);
+
+    // Simulate the header Done button (chrome exitToRead).
+    act(() => {
+      chrome?.exitToRead();
+    });
+
+    await waitFor(() => {
+      const upserts = mockDispatch.mock.calls.filter(([action]) => action?.type === 'ADD_OR_UPDATE_SET_IN_WORKOUT');
+      expect(upserts.length).toBe(1);
+      expect(upserts[0][0].set).toEqual(expect.objectContaining({index: 2, reps: 8, weight: 70}));
+    });
+  });
+
+  it('always renders the 1RM toggle on the pending row, even when the exercise has no recorded 1RM (GH-324)', async () => {
+    const {getByTestId} = renderPlanTab();
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+    await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+
+    // No workout history in this state → no 1RM — the toggle must still render.
+    expect(getByTestId('plan-pending-set-1rm-toggle')).toBeTruthy();
   });
 
   it('clicking Add set with an INVALID pending leaves the pending in place and does not silently swallow the click', async () => {
