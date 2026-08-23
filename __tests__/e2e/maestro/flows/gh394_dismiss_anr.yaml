@@ -1,0 +1,21 @@
+appId: com.powerliftingworkoutplanner
+---
+# Shared guard for gh394_rest_timer_caption: this emulator regularly raises a
+# "System UI isn't responding" ANR dialog that covers the app and hides the whole
+# hierarchy from Maestro. Tapping "Wait" keeps System UI alive and restores the
+# app underneath. Also dismisses the RN dev-error overlay.
+- runFlow:
+    when:
+      visible: "System UI isn't responding"
+    commands:
+      - tapOn: 'Wait'
+- runFlow:
+    when:
+      visible: "isn't responding"
+    commands:
+      - tapOn: 'Wait'
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'

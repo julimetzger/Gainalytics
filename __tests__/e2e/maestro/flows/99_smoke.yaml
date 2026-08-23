@@ -1,6 +1,13 @@
 appId: com.powerliftingworkoutplanner
 ---
 - launchApp
+# A cold start has to fetch the JS bundle and hydrate the whole store, which
+# takes minutes on a loaded emulator - assertVisible's default timeout is far
+# too short for that, so wait for the home screen first.
+- extendedWaitUntil:
+    visible:
+      id: "training-home-screen"
+    timeout: 240000
 - assertVisible: "Training"
 - tapOn: "tab-settings"
 - scrollUntilVisible:
