@@ -33,7 +33,7 @@ const RecordsBadge = ({currentWorkouts, exercises}: RecordsBadgeProps) => {
   return (
     <Card style={[styles.card, {backgroundColor: theme.colors.secondaryContainer}]} testID="records-badge-card">
       <Card.Title
-        title={`🏆 ${recordEntries.length} neue Record${recordEntries.length > 1 ? 's' : ''} diese Woche!`}
+        title={`🏆 ${recordEntries.length} new Record${recordEntries.length > 1 ? 's' : ''} this Week!`}
         titleStyle={[styles.title, {color: theme.colors.onSecondaryContainer}]}
       />
       <Card.Content>

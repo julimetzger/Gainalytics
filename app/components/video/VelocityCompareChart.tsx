@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, View} from 'react-native';
 import {processColor} from 'react-native';
 import Animated, {useAnimatedStyle, useDerivedValue, useSharedValue, SharedValue} from 'react-native-reanimated';
@@ -90,6 +90,17 @@ const VelocityCompareChart = ({
   const [chartWidth, setChartWidth] = useState(0);
   const chartWidthSV = useSharedValue(0);
   const axisMaxSV = useSharedValue(1);
+  // Visible x-range under pinch-zoom/pan; full axis when not zoomed. Kept in
+  // refs (tap mapping) and SharedValues (marker worklet) like the detail
+  // screen's speed plot.
+  const visibleMinSV = useSharedValue(0);
+  const visibleMaxSV = useSharedValue(0);
+  const visibleMinRef = useRef(0);
+  const visibleMaxRef = useRef(0);
+  const xAxisMaxRef = useRef(1);
+  // Suppress tap-to-seek shortly after a zoom/pan gesture so lifting the
+  // fingers does not also trigger a seek.
+  const gestureActiveUntilRef = useRef(0);
 
   const color1 = useMemo(() => processColor(theme.colors.primary), [theme]);
   // Analysis B is rendered in tertiary (not error-red) so it reads as a
@@ -189,10 +200,47 @@ const VelocityCompareChart = ({
     [onLayout], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  // Keep the marker mapping in sync with the axis on the UI thread.
+  // Keep the marker mapping in sync with the axis on the UI thread and reset
+  // the visible window to the full axis whenever the timeline length changes.
   useEffect(() => {
     axisMaxSV.value = xAxisMax; // eslint-disable-line react-hooks/exhaustive-deps
+    xAxisMaxRef.current = xAxisMax;
+    visibleMinSV.value = 0; // eslint-disable-line react-hooks/exhaustive-deps
+    visibleMaxSV.value = xAxisMax; // eslint-disable-line react-hooks/exhaustive-deps
+    visibleMinRef.current = 0;
+    visibleMaxRef.current = xAxisMax;
   }, [xAxisMax]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Native chart zoom/pan callback. MPAndroidChart reports UNCLAMPED
+  // left/right during fling deceleration (can overshoot the axis by seconds),
+  // so mirror the chart's translation clamping — shift the window, keep the
+  // span — before storing the visible range (same fix as the detail screen).
+  const onChartChange = useCallback((event: any) => {
+    const {left, right, action} = event.nativeEvent ?? {};
+    if (typeof left !== 'number' || typeof right !== 'number' || right <= left) {
+      return;
+    }
+    const axisMaxMs = xAxisMaxRef.current;
+    let visibleMin = left;
+    let visibleMax = right;
+    if (axisMaxMs > 0) {
+      const spanMs = Math.min(visibleMax - visibleMin, axisMaxMs);
+      if (visibleMin < 0) {
+        visibleMin = 0;
+        visibleMax = spanMs;
+      } else if (visibleMax > axisMaxMs) {
+        visibleMax = axisMaxMs;
+        visibleMin = axisMaxMs - spanMs;
+      }
+    }
+    if (action === 'chartScaled' || action === 'chartTranslated') {
+      visibleMinSV.value = visibleMin; // eslint-disable-line react-hooks/exhaustive-deps
+      visibleMaxSV.value = visibleMax; // eslint-disable-line react-hooks/exhaustive-deps
+      visibleMinRef.current = visibleMin;
+      visibleMaxRef.current = visibleMax;
+      gestureActiveUntilRef.current = Date.now() + 300;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const markerLeft = useDerivedValue(() => {
     'worklet';
@@ -200,7 +248,9 @@ const VelocityCompareChart = ({
       return CHART_LEFT_PADDING;
     }
     const drawableWidth = Math.max(0, chartWidthSV.value - CHART_LEFT_PADDING - CHART_RIGHT_PADDING);
-    const progress = Math.min(1, Math.max(0, progressSV.value / axisMaxSV.value));
+    const rangeMin = visibleMinSV.value;
+    const rangeMax = visibleMaxSV.value > rangeMin ? visibleMaxSV.value : axisMaxSV.value;
+    const progress = Math.min(1, Math.max(0, (progressSV.value - rangeMin) / Math.max(1, rangeMax - rangeMin)));
     return CHART_LEFT_PADDING + progress * drawableWidth;
   });
 
@@ -208,9 +258,11 @@ const VelocityCompareChart = ({
     transform: [{translateX: markerLeft.value}],
   }));
 
+  // Tap-to-seek maps the tap into the VISIBLE time range, so it stays correct
+  // while zoomed. Skipped during/right after a zoom or pan gesture.
   const onChartTouch = useCallback(
     (event: GestureResponderEvent) => {
-      if (!onSeekTimeline || chartWidth <= 0 || xAxisMax <= 0) {
+      if (!onSeekTimeline || chartWidth <= 0 || xAxisMax <= 0 || Date.now() < gestureActiveUntilRef.current) {
         return;
       }
       const drawableWidth = Math.max(0, chartWidth - CHART_LEFT_PADDING - CHART_RIGHT_PADDING);
@@ -219,7 +271,9 @@ const VelocityCompareChart = ({
       }
       const x = event.nativeEvent.locationX - CHART_LEFT_PADDING;
       const progress = clamp(x / drawableWidth, 0, 1);
-      onSeekTimeline(Math.round(progress * xAxisMax));
+      const rangeMin = visibleMinRef.current;
+      const rangeMax = visibleMaxRef.current > rangeMin ? visibleMaxRef.current : xAxisMax;
+      onSeekTimeline(Math.round(rangeMin + progress * (rangeMax - rangeMin)));
     },
     [onSeekTimeline, chartWidth, xAxisMax],
   );
@@ -264,12 +318,16 @@ const VelocityCompareChart = ({
           right: {enabled: false},
           }}
           animation={{durationX: 0, durationY: 0}}
-          // Chart touch is disabled so the wrapper receives taps for tap-to-seek.
-          touchEnabled={false}
-          dragEnabled={false}
-          scaleEnabled={false}
-          pinchZoom={false}
+          // Pinch-zoom/pan on the x-axis; plain taps still bubble to the
+          // wrapper's onTouchEnd for tap-to-seek (same setup as the detail
+          // screen's speed plot).
+          touchEnabled={true}
+          dragEnabled={true}
+          scaleXEnabled={true}
+          scaleYEnabled={false}
+          pinchZoom={true}
           doubleTapToZoomEnabled={false}
+          onChange={onChartChange}
         />
         {progressSV && (
           <Animated.View

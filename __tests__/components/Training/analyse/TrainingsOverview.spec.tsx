@@ -1,5 +1,5 @@
 import React from 'react';
-import {render} from '@testing-library/react-native';
+import {act, render} from '@testing-library/react-native';
 import TrainingsOverview from '../../../../app/components/Training/analyse/TrainingsOverview';
 import {TrainingsState} from '../../../../app/models/TrainingsState';
 
@@ -129,6 +129,81 @@ describe('TrainingsOverview', () => {
       TRAINING_WITH_EXERCISES.exercises,
       Object.values(TRAINING_WITH_EXERCISES.doneWorkoutIds),
     );
+  });
+
+  it('shows "Duration (live)" and live-updating duration for a STARTED training (GH-367)', () => {
+    mockedUseVelocityLossInsights.mockReturnValue([]);
+
+    const liveTraining = {
+      ...TRAINING,
+      start: new Date(Date.now() - 60000).toISOString(),
+      end: undefined,
+      state: TrainingsState.STARTED,
+    };
+
+    const {getByText, queryByText} = render(
+      <TrainingsOverview training={liveTraining as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} trainingInMicro={0} />,
+    );
+
+    expect(getByText('Duration (live)')).toBeTruthy();
+    expect(queryByText('Duration')).toBeNull();
+  });
+
+  it('ticks the live duration up by itself while the training is running (GH-367)', () => {
+    mockedUseVelocityLossInsights.mockReturnValue([]);
+    jest.useFakeTimers();
+    try {
+      const liveTraining = {
+        ...TRAINING,
+        start: new Date(Date.now() - 60000).toISOString(),
+        end: undefined,
+        state: TrainingsState.STARTED,
+      };
+
+      const {getByText} = render(
+        <TrainingsOverview training={liveTraining as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} trainingInMicro={0} />,
+      );
+
+      expect(getByText('00:01:00')).toBeTruthy();
+
+      act(() => {
+        jest.advanceTimersByTime(3000);
+      });
+
+      expect(getByText('00:01:03')).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('shows Muscle Map and Metrics sections but no Muscle Groups section (GH-367)', () => {
+    mockedUseVelocityLossInsights.mockReturnValue([]);
+
+    const liveTraining = {
+      ...TRAINING,
+      end: undefined,
+      state: TrainingsState.STARTED,
+    };
+
+    const {getByTestId, queryByText, queryByTestId} = render(
+      <TrainingsOverview training={liveTraining as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} trainingInMicro={0} />,
+    );
+
+    expect(getByTestId('analysis-section-muscleMap')).toBeTruthy();
+    expect(getByTestId('analysis-section-metrics')).toBeTruthy();
+    expect(queryByText('Muscle Groups')).toBeNull();
+    expect(queryByTestId('analysis-section-muscleGroups')).toBeNull();
+  });
+
+  it('shows plain "Duration" (not live) for a FINISHED training', () => {
+    mockedUseVelocityLossInsights.mockReturnValue([]);
+
+    const {getByText, queryByText} = render(
+      <TrainingsOverview training={TRAINING as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} trainingInMicro={0} />,
+    );
+
+    expect(getByText('Duration')).toBeTruthy();
+    expect(queryByText('Duration (live)')).toBeNull();
   });
 
   it('still calls useLastFinishedWorkoutsByExerciseIds when previousTraining is provided (hooks are unconditional)', () => {

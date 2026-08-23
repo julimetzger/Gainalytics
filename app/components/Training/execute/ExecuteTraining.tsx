@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {Dimensions, View} from 'react-native';
+import {View} from 'react-native';
 import AddWorkout from '../../Workout/add/AddWorkout';
 import {useWorkoutById} from '../../../redux/Workout/use/useWorkoutById';
 import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId';
@@ -7,7 +7,8 @@ import {useUnfinishedWorkout} from '../../../redux/Workout/use/useUnfinishedWork
 import {Training} from '../../../models/entities/Training';
 import {Exercise} from '../../../models/entities/Exercise';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
-import {Dialog, IconButton, Portal, Text, Tooltip} from 'react-native-paper';
+import {IconButton, Text, Tooltip} from 'react-native-paper';
+import EditDialogScaffold from '../../common/EditDialogScaffold';
 import WorkoutSetView from '../../Workout/show/WorkoutSetView';
 import ExerciseHistory from '../../exercise/show/ExerciseHistory';
 
@@ -41,7 +42,6 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
   let [openRecords, setOpenRecords] = useState(false);
   let [linkVideoMode, setLinkVideoMode] = useState(false);
 
-  const screenHeight = Dimensions.get('window').height;
   const [date, setDate] = useState(new Date(Date.now()));
   const [liveInput, setLiveInput] = useState({reps: 0, rir: 0, weight: 0});
   const [lastTrainingOneRm, setLastTrainingOneRm] = useState<number | undefined>(undefined);
@@ -104,6 +104,12 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
 
   const handleSubmitSet = (workoutSet: WorkoutSet) => {
     onSubmitSet?.(workoutSet);
+    // GH-323: adding/editing a set in edit mode must not start a rest timer
+    // or schedule a rest notification - the Rest Timer card is hidden here,
+    // so there is no UI to reset/skip a timer that starts in the background.
+    if (editMode) {
+      return;
+    }
     startRestTimer({
       targetSeconds: resolvedRestDefault,
       exerciseId: chosenExercise.id,
@@ -202,51 +208,48 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
         allTimePr={allTimePr}
         onPressTrophy={() => setOpenRecords(true)}
       />
-      <RestTimerCard
-        startedAt={activeRest?.startedAt}
-        targetSeconds={activeRest?.targetSeconds}
-        exerciseId={activeRest?.exerciseId}
-        onReset={onResetRest}
-        onSkip={onSkipRest}
-        onEditTarget={onEditTarget}
-        onAdjustExerciseDefault={handleAdjustExerciseDefault}
-        exerciseDefaultSeconds={resolvedRestDefault}
-      />
+      {!editMode && (
+        <RestTimerCard
+          startedAt={activeRest?.startedAt}
+          targetSeconds={activeRest?.targetSeconds}
+          exerciseId={activeRest?.exerciseId}
+          onReset={onResetRest}
+          onSkip={onSkipRest}
+          onEditTarget={onEditTarget}
+          onAdjustExerciseDefault={handleAdjustExerciseDefault}
+          exerciseDefaultSeconds={resolvedRestDefault}
+        />
+      )}
       <ExerciseRecordsModal
         visible={openRecords}
         onDismiss={() => setOpenRecords(false)}
         exercise={chosenExercise}
       />
-      <Portal>
-        <Dialog visible={openPlanned} onDismiss={() => setOpenPlanned(false)}>
-          <Dialog.Title>Planned Workout for {chosenExercise.name}</Dialog.Title>
-          <Dialog.Content>
-            <View>
-              {(plannedWorkout?.sets ?? []).length > 0 ? (
-                <WorkoutSetView sets={plannedWorkout?.sets ?? []} editable={false} />
-              ) : (
-                <Text style={{textAlign: 'center', padding: 20}}>No workout planned for {chosenExercise.name}</Text>
-              )}
-            </View>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <IconButton icon={'close'} onPress={() => setOpenPlanned(false)}></IconButton>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-      <Portal>
-        <Dialog style={{maxHeight: screenHeight * 0.95}} visible={openHistory} onDismiss={() => setOpenHistory(false)}>
-          <Dialog.Title numberOfLines={1}>History for {chosenExercise.name}</Dialog.Title>
-          <Dialog.Content style={{marginHorizontal: -20}}>
-            <View style={{maxHeight: screenHeight * 0.75}}>
-              <ExerciseHistory exercise={chosenExercise} editable={false} />
-            </View>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <IconButton icon={'close'} onPress={() => setOpenHistory(false)}></IconButton>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      <EditDialogScaffold
+        visible={openPlanned}
+        onDismiss={() => setOpenPlanned(false)}
+        title={`Planned Workout for ${chosenExercise.name}`}
+        testID="planned-workout-dialog"
+        dismissTestID="planned-workout-close"
+        scrollable
+      >
+        {(plannedWorkout?.sets ?? []).length > 0 ? (
+          <WorkoutSetView sets={plannedWorkout?.sets ?? []} editable={false} />
+        ) : (
+          <Text style={{textAlign: 'center', padding: 20}}>No workout planned for {chosenExercise.name}</Text>
+        )}
+      </EditDialogScaffold>
+      <EditDialogScaffold
+        visible={openHistory}
+        onDismiss={() => setOpenHistory(false)}
+        title={`History for ${chosenExercise.name}`}
+        testID="exercise-history-dialog"
+        dismissTestID="exercise-history-close"
+        scrollable
+        maxHeightRatio={0.95}
+      >
+        <ExerciseHistory exercise={chosenExercise} editable={false} />
+      </EditDialogScaffold>
     </View>
   );
 };

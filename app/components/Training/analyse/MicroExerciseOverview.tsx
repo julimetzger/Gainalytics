@@ -1,5 +1,5 @@
 import React, {useMemo, useState} from 'react';
-import {View, ScrollView} from 'react-native';
+import {View} from 'react-native';
 import {Card, DataTable, IconButton, Text} from 'react-native-paper';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {TrainingsState} from '../../../models/TrainingsState';
@@ -154,8 +154,11 @@ const MicroExerciseOverview = ({trainingsPlan, micro, sortMode: sortModeProp, on
     );
   }
 
+  // No inner ScrollView and no flex:1 here: this renders inside
+  // TrainingsPlanNode's NestableScrollContainer; a nested same-direction
+  // ScrollView clips the content and blocks scrolling (GH-382).
   return (
-    <View style={{flex: 1}}>
+    <View>
       <View style={{flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 4}}>
         <IconButton
           testID="exercise-sort-toggle"
@@ -164,7 +167,7 @@ const MicroExerciseOverview = ({trainingsPlan, micro, sortMode: sortModeProp, on
           onPress={() => setSortMode((prev) => (prev === 'plan' ? 'date' : 'plan'))}
         />
       </View>
-      <ScrollView>
+      <View>
         {executedTrainings.map((training) => (
           <TrainingExerciseCard
             key={training.id}
@@ -173,7 +176,7 @@ const MicroExerciseOverview = ({trainingsPlan, micro, sortMode: sortModeProp, on
             sortMode={sortMode}
           />
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 };

@@ -1,6 +1,7 @@
 import React, {useMemo, useState} from 'react';
 import {StyleSheet} from 'react-native';
-import {Card, DataTable, Dialog, Portal, Text} from 'react-native-paper';
+import {Card, DataTable, Text} from 'react-native-paper';
+import EditDialogScaffold from '../common/EditDialogScaffold';
 import {calculateMetricComparisons, calculateMetricComparisonsForMuscle, calculateMetricValue, WorkoutSetMap} from '../../utils/AnalyseUtils';
 import {useExerciseByIds} from '../../redux/Exercises/use/useExerciseByIds';
 import MetricView from './MetricComparison';
@@ -123,11 +124,15 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
         <ExerciseMetricOverview exerciseMetricMap={exerciseMetricMap} metrics={exerciseMetrics} onMetricHeaderPress={(slotIndex) => setMetricSelector({section: 'exercises', slotIndex})} />
       )}
 
-      <Portal>
-        <Dialog visible={selectedMuscle !== undefined} onDismiss={() => setSelectedMuscle(undefined)}>
-          <Dialog.Title>{selectedMuscle ? `${selectedMuscle.muscle} ${selectedMuscle.metric} Contribution` : ''}</Dialog.Title>
-          <Dialog.Content>
-            <DataTable>
+      <EditDialogScaffold
+        visible={selectedMuscle !== undefined}
+        onDismiss={() => setSelectedMuscle(undefined)}
+        title={selectedMuscle ? `${selectedMuscle.muscle} ${selectedMuscle.metric} Contribution` : ''}
+        testID="muscle-contribution-dialog"
+        dismissTestID="muscle-contribution-close"
+        scrollable
+      >
+        <DataTable>
               <DataTable.Header>
                 <DataTable.Title style={styles.flexL}>Exercise</DataTable.Title>
                 <DataTable.Title style={styles.flexM} numeric>
@@ -168,13 +173,11 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
                 );
               })}
             </DataTable>
-          </Dialog.Content>
-        </Dialog>
-      </Portal>
+      </EditDialogScaffold>
 
       {metricSelector && selectedMetric && (
         <MetricSelectionDialog
-          title={`Select ${metricSelector.section === 'muscles' ? 'muscle' : 'exercise'} metric`}
+          title={`Select ${metricSelector.section === 'muscles' ? 'Muscle' : 'Exercise'} Metric`}
           visible={metricSelector !== undefined}
           selectedMetric={selectedMetric}
           onDismiss={() => setMetricSelector(undefined)}

@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class VideoAnalysisRepDetection {
-    static final String REP_DETECTION_VERSION = "velocity-zero-crossing-v6";
+    static final String REP_DETECTION_VERSION = "velocity-zero-crossing-v7";
 
     private static final int MIN_TRACKING_POINTS = 6;
     private static final int SMOOTHING_WINDOW = 5;
@@ -33,6 +33,20 @@ final class VideoAnalysisRepDetection {
     private static final double BOUNCE_EXCURSION_DISPLACEMENT_RATIO = MIN_CONCENTRIC_DISPLACEMENT_RATIO;
     private static final double MAX_PHASE_DISPLACEMENT_ASYMMETRY = 0.30;
     private static final double MIN_REP_DISPLACEMENT_VS_MAX = 0.50;
+    // Rep boundaries are anchored at the y-extremum of the window between velocity
+    // crossings, but that window also spans the standing pause between reps: rep N's
+    // start and rep N-1's end share the same extremum, so a 5s standing pause used to
+    // be counted into the rep phases (GH-378: "rep start set too early", concentric
+    // times of 5-10s at absurdly low average speeds). The reported boundaries are
+    // therefore snapped to the actual movement onset/stop: the start moves forward to
+    // the last sample still resting within this tolerance of the start extremum, the
+    // end moves back to the first sample that has settled within it. Like every other
+    // displacement bound in this detector the tolerance is RELATIVE to the recording's
+    // bar-travel range (observed pause jitter/drift stays around 2-5% of range, real
+    // movement sweeps ≥12%), never an absolute pixel value. The accept/reject gates
+    // still run on the raw extremum boundaries so snapping can never change WHICH reps
+    // are detected — only where their boundaries are reported.
+    private static final double REST_DISPLACEMENT_TOLERANCE_RATIO = 0.05;
 
     private VideoAnalysisRepDetection() {
     }
@@ -113,6 +127,7 @@ final class VideoAnalysisRepDetection {
             MIN_CONCENTRIC_DISPLACEMENT_PX,
             (maxY - minY) * MIN_CONCENTRIC_DISPLACEMENT_RATIO
         );
+        double restDisplacementTolerance = (maxY - minY) * REST_DISPLACEMENT_TOLERANCE_RATIO;
 
         List<Crossing> crossings = collectCrossings(timeMs, velocity, zeroCrossingThreshold);
         collapseBounceExcursions(
@@ -201,46 +216,22 @@ final class VideoAnalysisRepDetection {
                 secondPhaseDisplacement >= minimumConcentricDisplacement &&
                 displacementAsymmetry <= MAX_PHASE_DISPLACEMENT_ASYMMETRY
             ) {
-                result.repSegments.add(new RepSegmentData(repIndex, repStartMs, turnaroundMs, repEndMs));
-
-                // Concentric phase: the phase where the bar moves upward (y decreases)
-                int concentricStartIdx;
-                int concentricEndIdx;
-                double concentricDurationMs;
-                if (eccentricFirst) {
-                    // Squat: concentric = turnaround → end
-                    concentricStartIdx = turnaroundIdx;
-                    concentricEndIdx = endIdx;
-                    concentricDurationMs = secondPhaseDurationMs;
-                } else {
-                    // Deadlift: concentric = start → turnaround
-                    concentricStartIdx = startIdx;
-                    concentricEndIdx = turnaroundIdx;
-                    concentricDurationMs = firstPhaseDurationMs;
-                }
-
-                double concentricTimeSeconds = Math.max(0.001, concentricDurationMs / 1000.0);
-                double concentricDisplacementPx = Math.abs(
-                    yPositions[concentricStartIdx] - yPositions[concentricEndIdx]
+                recordRep(
+                    result,
+                    repDisplacements,
+                    repIndex,
+                    timeMs,
+                    yPositions,
+                    velocity,
+                    zeroCrossingThreshold,
+                    restDisplacementTolerance,
+                    eccentricFirst,
+                    startIdx,
+                    turnaroundIdx,
+                    endIdx,
+                    second.index,
+                    maxDisplacement
                 );
-                double averageConcentricSpeedPxPerS = concentricDisplacementPx / concentricTimeSeconds;
-                double lowestConcentricSpeedPxPerS = 0.0;
-                double minimumObservedSpeed = Double.MAX_VALUE;
-                for (int si = concentricStartIdx; si <= concentricEndIdx; si++) {
-                    double absoluteVelocity = Math.abs(velocity[si]);
-                    if (absoluteVelocity < zeroCrossingThreshold) {
-                        continue;
-                    }
-                    minimumObservedSpeed = Math.min(minimumObservedSpeed, absoluteVelocity);
-                }
-                if (minimumObservedSpeed != Double.MAX_VALUE) {
-                    lowestConcentricSpeedPxPerS = minimumObservedSpeed;
-                }
-
-                result.repMetrics.add(
-                    new RepMetricData(repIndex, repDurationMs, (int) concentricDurationMs, averageConcentricSpeedPxPerS, lowestConcentricSpeedPxPerS)
-                );
-                repDisplacements.add(maxDisplacement);
                 repIndex += 1;
                 ci += 2;
             } else {
@@ -299,43 +290,22 @@ final class VideoAnalysisRepDetection {
                     secondPhaseDisplacement >= minimumConcentricDisplacement &&
                     displacementAsymmetry <= MAX_PHASE_DISPLACEMENT_ASYMMETRY
                 ) {
-                    result.repSegments.add(new RepSegmentData(repIndex, repStartMs, turnaroundMs, repEndMs));
-
-                    int concentricStartIdx;
-                    int concentricEndIdx;
-                    double concentricDurationMs;
-                    if (eccentricFirst) {
-                        concentricStartIdx = turnaroundIdx;
-                        concentricEndIdx = endIdx;
-                        concentricDurationMs = secondPhaseDurationMs;
-                    } else {
-                        concentricStartIdx = startIdx;
-                        concentricEndIdx = turnaroundIdx;
-                        concentricDurationMs = firstPhaseDurationMs;
-                    }
-
-                    double concentricTimeSeconds = Math.max(0.001, concentricDurationMs / 1000.0);
-                    double concentricDisplacementPx = Math.abs(
-                        yPositions[concentricStartIdx] - yPositions[concentricEndIdx]
+                    recordRep(
+                        result,
+                        repDisplacements,
+                        repIndex,
+                        timeMs,
+                        yPositions,
+                        velocity,
+                        zeroCrossingThreshold,
+                        restDisplacementTolerance,
+                        eccentricFirst,
+                        startIdx,
+                        turnaroundIdx,
+                        endIdx,
+                        second.index,
+                        maxDisplacement
                     );
-                    double averageConcentricSpeedPxPerS = concentricDisplacementPx / concentricTimeSeconds;
-                    double lowestConcentricSpeedPxPerS = 0.0;
-                    double minimumObservedSpeed = Double.MAX_VALUE;
-                    for (int si = concentricStartIdx; si <= concentricEndIdx; si++) {
-                        double absoluteVelocity = Math.abs(velocity[si]);
-                        if (absoluteVelocity < zeroCrossingThreshold) {
-                            continue;
-                        }
-                        minimumObservedSpeed = Math.min(minimumObservedSpeed, absoluteVelocity);
-                    }
-                    if (minimumObservedSpeed != Double.MAX_VALUE) {
-                        lowestConcentricSpeedPxPerS = minimumObservedSpeed;
-                    }
-
-                    result.repMetrics.add(
-                        new RepMetricData(repIndex, repDurationMs, (int) concentricDurationMs, averageConcentricSpeedPxPerS, lowestConcentricSpeedPxPerS)
-                    );
-                    repDisplacements.add(maxDisplacement);
                     repIndex += 1;
                 }
             }
@@ -368,6 +338,122 @@ final class VideoAnalysisRepDetection {
         }
 
         return result;
+    }
+
+    // Emits an accepted rep with its boundaries snapped to movement onset/stop (see
+    // REST_DISPLACEMENT_TOLERANCE_RATIO). The gates have already accepted the rep on
+    // the raw extremum boundaries when this runs, so snapping only refines the
+    // reported times and metrics — it can never change which reps are detected.
+    private static void recordRep(
+        RepDetectionResult result,
+        List<Double> repDisplacements,
+        int repIndex,
+        int[] timeMs,
+        double[] yPositions,
+        double[] velocity,
+        double zeroCrossingThreshold,
+        double restDisplacementTolerance,
+        boolean eccentricFirst,
+        int startIdx,
+        int turnaroundIdx,
+        int endIdx,
+        int endWindowStartIdx,
+        double maxDisplacement
+    ) {
+        int snappedStartIdx = snapStartToMovementOnset(
+            yPositions, startIdx, turnaroundIdx, restDisplacementTolerance
+        );
+        int snappedEndIdx = snapEndToMovementStop(
+            yPositions, endWindowStartIdx, turnaroundIdx, endIdx, restDisplacementTolerance
+        );
+
+        int repStartMs = timeMs[snappedStartIdx];
+        int turnaroundMs = timeMs[turnaroundIdx];
+        int repEndMs = timeMs[snappedEndIdx];
+        result.repSegments.add(new RepSegmentData(repIndex, repStartMs, turnaroundMs, repEndMs));
+
+        // Concentric phase: the phase where the bar moves upward (y decreases)
+        int concentricStartIdx;
+        int concentricEndIdx;
+        int concentricDurationMs;
+        if (eccentricFirst) {
+            // Squat/Bench: concentric = turnaround → end
+            concentricStartIdx = turnaroundIdx;
+            concentricEndIdx = snappedEndIdx;
+            concentricDurationMs = repEndMs - turnaroundMs;
+        } else {
+            // Deadlift: concentric = start → turnaround
+            concentricStartIdx = snappedStartIdx;
+            concentricEndIdx = turnaroundIdx;
+            concentricDurationMs = turnaroundMs - repStartMs;
+        }
+
+        double concentricTimeSeconds = Math.max(0.001, concentricDurationMs / 1000.0);
+        double concentricDisplacementPx = Math.abs(
+            yPositions[concentricStartIdx] - yPositions[concentricEndIdx]
+        );
+        double averageConcentricSpeedPxPerS = concentricDisplacementPx / concentricTimeSeconds;
+        double lowestConcentricSpeedPxPerS = 0.0;
+        double minimumObservedSpeed = Double.MAX_VALUE;
+        for (int si = concentricStartIdx; si <= concentricEndIdx; si++) {
+            double absoluteVelocity = Math.abs(velocity[si]);
+            if (absoluteVelocity < zeroCrossingThreshold) {
+                continue;
+            }
+            minimumObservedSpeed = Math.min(minimumObservedSpeed, absoluteVelocity);
+        }
+        if (minimumObservedSpeed != Double.MAX_VALUE) {
+            lowestConcentricSpeedPxPerS = minimumObservedSpeed;
+        }
+
+        result.repMetrics.add(
+            new RepMetricData(
+                repIndex,
+                repEndMs - repStartMs,
+                concentricDurationMs,
+                averageConcentricSpeedPxPerS,
+                lowestConcentricSpeedPxPerS
+            )
+        );
+        repDisplacements.add(maxDisplacement);
+    }
+
+    // Last sample before the turnaround that still rests within tolerance of the
+    // start extremum — i.e. the actual movement onset. A jitter spike that leaves
+    // the band early only makes the snap conservative (closer to the raw extremum).
+    private static int snapStartToMovementOnset(
+        double[] yPositions,
+        int startIdx,
+        int turnaroundIdx,
+        double tolerance
+    ) {
+        double restY = yPositions[startIdx];
+        int snapped = startIdx;
+        for (int index = startIdx + 1; index < turnaroundIdx; index++) {
+            if (Math.abs(yPositions[index] - restY) > tolerance) {
+                break;
+            }
+            snapped = index;
+        }
+        return snapped;
+    }
+
+    // First sample after the turnaround that has settled within tolerance of the end
+    // extremum — i.e. where the movement actually stops, before the post-rep pause.
+    private static int snapEndToMovementStop(
+        double[] yPositions,
+        int endWindowStartIdx,
+        int turnaroundIdx,
+        int endIdx,
+        double tolerance
+    ) {
+        double restY = yPositions[endIdx];
+        for (int index = Math.max(endWindowStartIdx, turnaroundIdx + 1); index < endIdx; index++) {
+            if (Math.abs(yPositions[index] - restY) <= tolerance) {
+                return index;
+            }
+        }
+        return endIdx;
     }
 
     private static List<Crossing> collectCrossings(int[] timeMs, double[] velocity, double zeroCrossingThreshold) {

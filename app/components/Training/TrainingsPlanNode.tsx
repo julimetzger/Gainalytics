@@ -4,7 +4,8 @@ import {NestableScrollContainerProvider, useNestableScrollContainerContext} from
 import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
 import {TrainingsState} from '../../models/TrainingsState';
-import {Button, Dialog, Portal, Text} from 'react-native-paper';
+import {Button, Text} from 'react-native-paper';
+import {ConfirmDialog} from '../common/EditDialogScaffold';
 import DraggableExercise from './DraggableExercise';
 import TrainingsBase from './TrainingsBase';
 import PlanTab, {PlanChromeState, PlanMode} from './plan/PlanTab';
@@ -66,10 +67,14 @@ export const defaultSubTab = (state?: string): SubTab => {
 // plan full-edit below ~490dp was laid out but never drawn. The provider stays
 // so PlanEditList's pan-drags can freeze this scroll while a drag is in
 // flight (scrollEnabled comes from the same context the library used).
+//
+// GH-382: flex:1 bounds the scroller to the swiper pane (RangeSwiper pins it to
+// the viewport via fillViewport) so it scrolls internally; unbounded it grows to
+// its content and nothing scrolls.
 const PlanNodeScrollContainer = ({children}: {children: React.ReactNode}) => {
   const nestableScrollContext = useNestableScrollContainerContext();
   return (
-    <ScrollView keyboardShouldPersistTaps={'handled'} scrollEnabled={nestableScrollContext?.outerScrollEnabled ?? true}>
+    <ScrollView style={{flex: 1}} keyboardShouldPersistTaps={'handled'} scrollEnabled={nestableScrollContext?.outerScrollEnabled ?? true}>
       {children}
     </ScrollView>
   );
@@ -458,7 +463,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
               {/* Analysis Tab */}
               {activeSubTab === 'analysis' && (
                 <View>
-                  {training?.state === TrainingsState.FINISHED ? (
+                  {training?.state === TrainingsState.FINISHED || training?.state === TrainingsState.STARTED ? (
                     <TrainingsOverview training={training} previousTraining={lastTraining} trainingsPlan={trainingsPlan} currentMicro={micro} trainingInMicro={trainingInMicro} />
                   ) : (
                     <View style={{padding: 24, alignItems: 'center'}}>
@@ -472,18 +477,16 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
         </View>
         </PlanNodeScrollContainer>
       </NestableScrollContainerProvider>
-      <Portal>
-        <Dialog visible={showDeleteDialog} onDismiss={() => setShowDeleteDialog(false)}>
-          <Dialog.Title>Delete Training</Dialog.Title>
-          <Dialog.Content>
-            <Text>This will delete this training and all connected planned and done workouts. This action cannot be undone.</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowDeleteDialog(false)}>Cancel</Button>
-            <Button onPress={onDeleteTraining}>Delete</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      <ConfirmDialog
+        visible={showDeleteDialog}
+        title="Delete Training"
+        message="This will delete this training and all connected planned and done workouts. This action cannot be undone."
+        onConfirm={onDeleteTraining}
+        onCancel={() => setShowDeleteDialog(false)}
+        testID="training-delete-dialog"
+        confirmTestID="training-delete-confirm"
+        cancelTestID="training-delete-cancel"
+      />
     </View>
   );
 };

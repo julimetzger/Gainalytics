@@ -121,9 +121,18 @@ index bb8462d..53be749 100644
       * Set the dropdown default value(array of string or number). Aslo, can be used in redux-form or formik
       */
 diff --git a/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx b/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx
-index d3a9c87..1a67fcd 100644
+index d3a9c87..b0b22d9 100644
 --- a/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx
 +++ b/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx
+@@ -9,7 +9,7 @@ import {
+   Chip,
+   Text,
+   Avatar,
+-  Provider as PaperProvider,
++  ThemeProvider,
+   useTheme,
+ } from 'react-native-paper';
+ import {
 @@ -115,6 +115,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
      itemSelectIconSize,
      multiline = false,
@@ -165,7 +174,25 @@ index d3a9c87..1a67fcd 100644
    useEffect(() => {
      if (isVisible && listRef) {
        listRef.current.flashScrollIndicators();
-@@ -402,6 +412,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -306,7 +316,16 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+   };
+ 
+   return (
+-    <PaperProvider theme={paperTheme}>
++    // PATCH (Gainalytics GH-375): use ThemeProvider instead of the full Paper
++    // Provider. Provider also mounts SafeAreaProviderCompat, whose root View is
++    // styled `flex: 1` — fine for a full-screen app root, but when this component
++    // is embedded in a shrink-to-fit wrapper (no fixed/flex height of its own),
++    // that nested flex:1 collapses to 0 height (a long-standing Yoga limitation
++    // with nested flex in an auto-sized ancestor). The anchor/label then renders
++    // outside its collapsed 0-height box, overlapping whatever follows it in the
++    // parent (e.g. History's FlashList). The app already wraps everything in its
++    // own root PaperProvider, so only the theme needs to be supplied here.
++    <ThemeProvider theme={paperTheme}>
+       <View>
+         <PressableTouch
+           onPress={onTextInputFocus}
+@@ -402,6 +421,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
          <Modal
            isVisible={isVisible}
            onBackdropPress={onModalBlur}
@@ -173,6 +200,15 @@ index d3a9c87..1a67fcd 100644
            backdropColor={floating ? 'rgba(0,0,0,0.1)' : 'transparent'}
            style={styles.modalStyle}
            animationIn={animationIn}
+@@ -551,7 +571,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+           </View>
+         </Modal>
+       </View>
+-    </PaperProvider>
++    </ThemeProvider>
+   );
+ };
+ 
 diff --git a/node_modules/sharingan-rn-modal-dropdown/src/types.ts b/node_modules/sharingan-rn-modal-dropdown/src/types.ts
 index 8d5dba7..3cd7669 100644
 --- a/node_modules/sharingan-rn-modal-dropdown/src/types.ts

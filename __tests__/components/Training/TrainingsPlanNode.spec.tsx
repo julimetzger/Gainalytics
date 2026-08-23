@@ -240,11 +240,12 @@ describe('TrainingsPlanNode — body content per tab/state', () => {
     expect(mockStartTraining).toHaveBeenCalled();
   });
 
-  it('Analysis tab for STARTED shows placeholder text', () => {
+  it('Analysis tab for STARTED shows live TrainingsOverview, not the placeholder (GH-367)', () => {
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
-    const {getByTestId, getByText} = render(<TrainingsPlanNode {...defaultProps} />);
+    const {getByTestId, queryByText} = render(<TrainingsPlanNode {...defaultProps} />);
     fireEvent.press(getByTestId('subtab-analysis'));
-    expect(getByText('Analysis available after the training is finished')).toBeTruthy();
+    expect(getByTestId('trainings-overview')).toBeTruthy();
+    expect(queryByText('Analysis available after the training is finished')).toBeNull();
   });
 
   it('showDone=true shows MicroOverviewTraining regardless of tab', () => {

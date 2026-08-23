@@ -211,7 +211,11 @@ const CompareSyncPlaybackCard = forwardRef<CompareSyncPlaybackHandle, Props>((pr
   const updateCurrentRepForTime = useCallback(
     (timelineMs: number) => {
       let nextRepIndex: number | undefined;
-      for (const segment of repSegmentsA) {
+      // Reverse scan: segments are contiguous (rep N endMs === rep N+1
+      // startMs), so a seek to a rep's lift-off must resolve to THAT rep,
+      // not to the previous one ending at the same millisecond.
+      for (let i = repSegmentsA.length - 1; i >= 0; i -= 1) {
+        const segment = repSegmentsA[i];
         if (timelineMs >= segment.startMs && timelineMs <= segment.endMs) {
           nextRepIndex = segment.repIndex;
           break;

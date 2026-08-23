@@ -1,5 +1,5 @@
 import React, {useMemo} from 'react';
-import {ScrollView, View} from 'react-native';
+import {View} from 'react-native';
 import {SegmentedButtons, Text} from 'react-native-paper';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {TrainingsState} from '../../models/TrainingsState';
@@ -65,8 +65,11 @@ const MuscleView = ({trainingsPlan, micro}: Props) => {
     );
   }
 
+  // No inner ScrollView here: this renders inside TrainingsPlanNode's
+  // NestableScrollContainer; a nested same-direction ScrollView clips the
+  // content and blocks scrolling (GH-382).
   return (
-    <ScrollView>
+    <View>
       {executedTrainings.map((training) => (
         <TrainingMuscleCard
           key={training.id}
@@ -74,13 +77,15 @@ const MuscleView = ({trainingsPlan, micro}: Props) => {
           trainingName={trainingNameMap.get(training.id!!) ?? 'Training'}
         />
       ))}
-    </ScrollView>
+    </View>
   );
 };
 
 const MicroOverviewTraining = ({trainingsPlan, micro, isActive = true, viewMode, onViewModeChange, sortMode, onSortModeChange}: Props) => {
+  // No flex:1 on the root: inside the NestableScrollContainer's unbounded
+  // content a flex:1 height collapses and clips the overview (GH-382).
   return (
-    <View style={{flex: 1}}>
+    <View>
       <SegmentedButtons
         value={viewMode}
         onValueChange={(v) => onViewModeChange(v as ViewMode)}

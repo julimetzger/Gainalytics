@@ -1,0 +1,196 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-367 — Live analysis during training (feedback round).
+#
+# CONSTRAINT: the training screen's content pane (RangeSwiper) is not exposed to the
+# Android accessibility tree at all (pre-existing; confirmed with both `maestro
+# hierarchy` and `uiautomator dump` — only the header, drawer, and bottom nav are
+# queryable). Element assertions inside the Plan/Train/Analysis pane are therefore
+# impossible; the pane is driven by position taps and documented with screenshots,
+# while every assertion runs against queryable UI:
+#   - home screen: the current micro's Volume "1,750 kg" and "2" sets include the sets
+#     logged during the live training -> live values propagate (value assertion)
+#   - header: "Micro 7 Push squat" proves the navigation target; the header timer is
+#     copied twice 4s apart and MUST differ -> time advances live on the screen
+#   - screenshots document: live sections (Muscle Map + Metrics, no Muscle Groups),
+#     the card's "Duration (live)" ticking (t0 vs t1), collapse on tap, and the
+#     collapsed state surviving an app restart.
+# Precondition: baseline fixture imported AND plan 5 "Push pull" micro 7 "Push squat"
+# STARTED with logged sets (adductor 10x100 + squat 5x150 -> micro volume 1,750 kg).
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+# value assertion: current-micro Volume includes the live training's logged sets
+- assertVisible: '1,750 kg'
+- takeScreenshot: gh367_home_live_volume
+# Open plan 5 ("Push pull") via its meso chip; after launchApp it opens on Micro 1.
+- scrollUntilVisible:
+    element:
+      id: 'meso-card-5-1'
+    direction: DOWN
+- tapOn:
+    id: 'meso-card-5-1'
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-menu-button'
+    timeout: 15000
+# micro 1 is FINISHED: header shows its fixed duration (fixture value)
+- assertVisible: 'Micro 1'
+- assertVisible: '03:09:04'
+# Page the micro drawer from Micro 1 to Micro 7 (the STARTED training) via the right
+# pager button (by position; pager text matching goes stale after the first page).
+# Self-healing loop: the drawer sometimes closes on a page transition and single taps
+# can be dropped, so each iteration reopens the drawer if needed and only taps the
+# pager while the Micro 7 pager labels ("Micro 8" on the right) are not there yet.
+- repeat:
+    times: 10
+    commands:
+      - runFlow:
+          when:
+            notVisible: 'Enable Planning Mode'
+          commands:
+            - tapOn:
+                id: 'drawer-menu-button'
+            - waitForAnimationToEnd:
+                timeout: 2000
+      - runFlow:
+          when:
+            notVisible: 'Micro 8'
+          commands:
+            - tapOn:
+                point: '65%,83%'
+            - waitForAnimationToEnd:
+                timeout: 2000
+# on Micro 7 the pager shows "Micro 6" (left) and "Micro 8" (right)
+- assertVisible: 'Micro 6'
+- assertVisible: 'Micro 8'
+# close the drawer without changing the selected day
+- tapOn:
+    point: '95%,30%'
+- extendedWaitUntil:
+    visible: 'Micro 7'
+    timeout: 10000
+# (d) time advances live on the STARTED training: copy the header timer, wait 4s with
+# no interaction, copy again — values must differ. Assertions live inside evalScript
+# (throw) because `assertTrue: ${output.x}` is unreliable in this CLI (agent-memory #191).
+- copyTextFrom:
+    text: '\d+:\d{2}:\d{2}'
+- evalScript: |
+    output.t0 = maestro.copiedText;
+    if (!/^\d+:\d{2}:\d{2}$/.test(output.t0)) {
+      throw 'header timer t0 is not a H:MM:SS value: ' + output.t0;
+    }
+    var start = Date.now();
+    while (Date.now() - start < 4000) { /* passive wait, no UI interaction */ }
+- copyTextFrom:
+    text: '\d+:\d{2}:\d{2}'
+- evalScript: |
+    var t1 = maestro.copiedText;
+    if (t1 === output.t0) {
+      throw 'live training timer did not advance: still ' + t1 + ' after 4s idle';
+    }
+# open the Analysis sub-tab by position (pane content is not queryable, see header note);
+# the second tap is idempotent and covers a first tap swallowed by a busy JS thread
+- tapOn:
+    point: '83%,14%'
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    point: '83%,14%'
+- waitForAnimationToEnd:
+    timeout: 3000
+# live analysis, expanded sections + live values (screenshot t0) — shows Muscle Map +
+# Metrics (no Muscle Groups), Volume 1750.00 / Sets 2.00, Duration (live).
+# The two screenshots are bracketed by header-timer reads: if the UI were frozen (stale
+# frames), the timer values would match and the flow fails instead of shipping bogus
+# evidence.
+- copyTextFrom:
+    text: '\d+:\d{2}:\d{2}'
+- evalScript: ${output.s0 = maestro.copiedText}
+- takeScreenshot: gh367_live_analysis_t0
+- evalScript: |
+    var start = Date.now();
+    while (Date.now() - start < 5000) { /* passive wait, no UI interaction */ }
+- takeScreenshot: gh367_live_analysis_t1_duration_ticked
+- copyTextFrom:
+    text: '\d+:\d{2}:\d{2}'
+- evalScript: |
+    if (maestro.copiedText === output.s0) {
+      throw 'UI frozen between screenshots: header timer still ' + maestro.copiedText;
+    }
+# (b) collapse both sections via their header rows (position taps):
+# Metrics header sits at ~62% while Muscle Map is expanded; Muscle Map header at ~33%.
+# retryTapIfNoChange MUST be false here: the pane is invisible to the accessibility
+# tree, so Maestro never sees a hierarchy change, retries the tap, and the second tap
+# re-expands the section (net zero — this produced bogus "collapsed" screenshots).
+- tapOn:
+    point: '91%,62%'
+    retryTapIfNoChange: false
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    point: '91%,33%'
+    retryTapIfNoChange: false
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: gh367_sections_collapsed
+# (c) the collapsed state survives an app restart
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'meso-card-5-1'
+    direction: DOWN
+- tapOn:
+    id: 'meso-card-5-1'
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-menu-button'
+    timeout: 15000
+- assertVisible: 'Micro 1'
+- waitForAnimationToEnd:
+    timeout: 3000
+# both sections must still be collapsed (persisted) — documented by screenshot
+- takeScreenshot: gh367_collapsed_persisted_after_restart
+# re-expand both sections so the app is left ready for manual review:
+# collapsed headers sit at ~33% (Muscle Map) and ~39% (Metrics); expanding Muscle Map
+# pushes the Metrics header down to ~62% (retryTapIfNoChange: false — see above)
+- tapOn:
+    point: '91%,33%'
+    retryTapIfNoChange: false
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    point: '91%,62%'
+    retryTapIfNoChange: false
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: gh367_sections_reexpanded
+# (a) Metrics content is fully reachable: scroll down and document the live table
+- swipe:
+    start: '50%,75%'
+    end: '50%,30%'
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: gh367_metriken_content_reachable
