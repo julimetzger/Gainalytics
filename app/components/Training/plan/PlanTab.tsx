@@ -87,11 +87,11 @@ const PlanTab = ({
   const [mode, setMode] = useState<PlanMode>(initialMode ?? 'read');
   const [quickEditTarget, setQuickEditTarget] = useState<QuickEditTarget | null>(null);
   const [quickEditDraft, setQuickEditDraft] = useState('');
-  const [quickEditOriginal, setQuickEditOriginal] = useState<number | null>(null);
   const [pendingSetByExerciseId, setPendingSetByExerciseId] = useState<PendingPlanSetByExerciseId>({});
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [hasStructuralChanges, setHasStructuralChanges] = useState(false);
   const fullEditSnapshotRef = useRef<FullEditSnapshot | null>(null);
+  const commitRowDraftsOnUnmountRef = useRef(false);
   const lastEditPlanRequestIdRef = useRef(editPlanRequestId);
   const exitToReadRef = useRef<() => void>(() => undefined);
   const handleBackRef = useRef<() => boolean>(() => false);
@@ -184,6 +184,7 @@ const PlanTab = ({
           selectedExerciseId={selectedExercise.id}
           plannedWorkoutsByExerciseId={plannedWorkoutsByExerciseId}
           pendingSetByExerciseId={pendingSetByExerciseId}
+          commitRowDraftsOnUnmountRef={commitRowDraftsOnUnmountRef}
           onSelectExercise={chooseExercise}
           onAddSet={handleAddSet}
           onPendingSetChange={handlePendingSetChange}
@@ -191,6 +192,7 @@ const PlanTab = ({
           onDeleteSet={handleDeleteSet}
           onUpsertSet={handleFullEditUpsertSet}
           onReorderSets={handleReorderSets}
+          onReorderExercises={handleSetExercises}
           onRemoveExercise={handleRemoveExercise}
         />
       ) : (
@@ -226,14 +228,40 @@ const PlanTab = ({
     </View>
   );
 
+  // GH-324: leaving full edit via Done/back must SAVE what the user typed —
+  // valid pending set drafts are committed here instead of being auto-committed
+  // on every keystroke while typing.
   function exitToRead() {
+    commitRowDraftsOnUnmountRef.current = true;
+    commitValidPendingSets();
+    resetPlanEditState();
+  }
+
+  function commitValidPendingSets() {
+    Object.entries(pendingSetByExerciseId).forEach(([exerciseIdKey, pending]) => {
+      if (pending === undefined) {
+        return;
+      }
+      const built = buildWorkoutSetFromDraft(pending, {
+        index: pending.index,
+        date: new Date(),
+        reps: 0,
+        rir: 0,
+        weight: 0,
+      });
+      if (built !== null) {
+        upsertSetInPlan(Number(exerciseIdKey), built);
+      }
+    });
+  }
+
+  function resetPlanEditState() {
     if (pickerVisible) {
       onTogglePicker();
     }
     setMode('read');
     setQuickEditTarget(null);
     setQuickEditDraft('');
-    setQuickEditOriginal(null);
     setPendingSetByExerciseId({});
     setShowDiscardDialog(false);
     setHasStructuralChanges(false);
@@ -277,15 +305,15 @@ const PlanTab = ({
 
   function enterFullEdit() {
     if (mode === 'quickEdit') {
-      if (quickEditInvalid) {
-        restoreQuickEditOriginal();
+      if (!quickEditInvalid) {
+        commitQuickEditDraft();
       }
       setQuickEditTarget(null);
       setQuickEditDraft('');
-      setQuickEditOriginal(null);
     }
 
     captureFullEditSnapshot();
+    commitRowDraftsOnUnmountRef.current = false;
     setPendingSetByExerciseId({});
     setHasStructuralChanges(false);
     setMode('fullEdit');
@@ -337,7 +365,9 @@ const PlanTab = ({
     if (restoredExercise !== undefined) {
       chooseExercise(restoredExercise);
     }
-    exitToRead();
+    // Discard must NOT commit pending drafts — reset the edit state directly.
+    commitRowDraftsOnUnmountRef.current = false;
+    resetPlanEditState();
   }
 
   function handleSetExercises(nextExercises: Exercise[], markStructuralChange = mode === 'fullEdit') {
@@ -380,8 +410,10 @@ const PlanTab = ({
       return;
     }
 
-    if (mode === 'quickEdit' && quickEditInvalid) {
-      restoreQuickEditOriginal();
+    // GH-324: switching to another cell counts as leaving the field — commit a
+    // valid draft for the previous cell before targeting the new one.
+    if (mode === 'quickEdit' && !quickEditInvalid) {
+      commitQuickEditDraft();
     }
 
     setMode('quickEdit');
@@ -391,60 +423,57 @@ const PlanTab = ({
       field,
     });
     setQuickEditDraft(formatPlanNumber(workoutSet[field]));
-    setQuickEditOriginal(workoutSet[field]);
   }
 
+  // GH-324: typing only updates the local draft. The store write happens when
+  // the user leaves the field (done key, outside press, cell switch, exercise
+  // switch, or entering full edit) — never per keystroke, so the field keeps
+  // focus and half-typed values are never persisted.
   function handleQuickEditChange(value: string) {
+    if (quickEditTarget === null) {
+      return;
+    }
+    setQuickEditDraft(value.replace(',', '.'));
+  }
+
+  function commitQuickEditDraft() {
     const target = quickEditTarget;
     if (target === null || activeQuickEditSet === undefined) {
       return;
     }
-
-    const nextDraft = value.replace(',', '.');
-    setQuickEditDraft(nextDraft);
-
-    if (!isPlanFieldValueValid(target.field, nextDraft)) {
+    if (!isPlanFieldValueValid(target.field, quickEditDraft)) {
       return;
     }
-
-    const parsedValue = Number.parseFloat(nextDraft);
+    const parsedValue = Number.parseFloat(quickEditDraft);
     if (!Number.isFinite(parsedValue)) {
       return;
     }
-
     const normalizedValue = target.field === 'weight' ? Math.round(parsedValue * 100) / 100 : Math.round(parsedValue);
+    if (normalizedValue === activeQuickEditSet[target.field]) {
+      return;
+    }
     upsertSetInPlan(target.exerciseId, {
       ...activeQuickEditSet,
       [target.field]: normalizedValue,
     });
   }
 
-  function restoreQuickEditOriginal() {
-    if (quickEditTarget === null || quickEditOriginal === null || activeQuickEditSet === undefined) {
-      return;
-    }
-    upsertSetInPlan(quickEditTarget.exerciseId, {
-      ...activeQuickEditSet,
-      [quickEditTarget.field]: quickEditOriginal,
-    });
-  }
-
   function cancelQuickEdit() {
-    restoreQuickEditOriginal();
+    // The store was never touched while typing, so cancelling is just
+    // dropping the local draft.
     setMode('read');
     setQuickEditTarget(null);
     setQuickEditDraft('');
-    setQuickEditOriginal(null);
   }
 
   function handleQuickEditDone() {
     if (quickEditInvalid) {
       return;
     }
+    commitQuickEditDraft();
     setMode('read');
     setQuickEditTarget(null);
     setQuickEditDraft('');
-    setQuickEditOriginal(null);
   }
 
   function handleQuickEditOutsidePress() {

@@ -70,7 +70,9 @@ jest.mock('react-native-draggable-flatlist', () => {
     default: ListComponent,
     NestableDraggableFlatList: ListComponent,
     NestableScrollContainer,
+    NestableScrollContainerProvider: ({children}) => children,
     ScaleDecorator,
+    useNestableScrollContainerContext: () => undefined,
   };
 });
 
