@@ -1,4 +1,4 @@
-import {formatRestDisplay, formatElapsedSecondary, formatTarget} from '../../app/utils/restTimer';
+import {formatRestDisplay, formatTarget} from '../../app/utils/restTimer';
 
 describe('restTimer formatters', () => {
   describe('formatRestDisplay', () => {
@@ -40,15 +40,6 @@ describe('restTimer formatters', () => {
         elapsedSeconds: 0,
         remainingSeconds: 0,
       });
-    });
-  });
-
-  describe('formatElapsedSecondary', () => {
-    it('shows -mm:ss while counting down', () => {
-      expect(formatElapsedSecondary(90, 18)).toBe('-01:12');
-    });
-    it('shows +mm:ss while overrunning', () => {
-      expect(formatElapsedSecondary(90, 98)).toBe('+00:08');
     });
   });
 

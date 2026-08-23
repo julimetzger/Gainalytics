@@ -1,0 +1,104 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-394 — the rest-timer card must show the running time only ONCE (inside the
+# progress ring). The old caption line "target 01:30 · elapsed -01:12" repeated
+# the very value the ring already displays; it is reduced to "target 01:30".
+#
+# CONSTRAINT (same as gh367/gh195_r4): everything inside the training screen's
+# RangeSwiper pane — including RestTimerCard — is NOT exposed to the Android
+# accessibility tree. Only the header, the micro drawer and the bottom nav are
+# queryable. The pane is therefore driven by position taps
+# (retryTapIfNoChange: false, memory #261) and documented with screenshots,
+# while every assertion runs against queryable UI. The caption's literal text is
+# asserted in __tests__/components/Training/execute/RestTimerCard.spec.tsx.
+#
+# PRECONDITION: baseline.gains imported. gh394_goto_micro69_push.yaml then opens
+# plan "Push pull upper lower" micro 69 "Push" (training 282) and starts it if it
+# is not running yet.
+#
+# STATUS: the navigation subflow is NOT green on emulator-5556 yet — the micro
+# drawer's pager label and the screen header share the same "Micro NN" strings,
+# so the paging loop cannot tell "on micro 69" from "on micro 68" and overshoots.
+# See gh394_goto_micro69_push.yaml for the full selector analysis. The GH-394
+# evidence in the PR was therefore captured with adb screencap along exactly this
+# path; the caption's literal text is asserted in the unit test
+# __tests__/components/Training/execute/RestTimerCard.spec.tsx.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+# The app needs minutes for its first render here (Metro bundle + a large store)
+# and the emulator throws "System UI isn't responding" while it waits, which
+# hides the whole hierarchy — retry the dismissal until the home screen shows.
+- repeat:
+    times: 12
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: 'training-home-screen'
+          commands:
+            - runFlow: gh394_dismiss_anr.yaml
+            - waitForAnimationToEnd:
+                timeout: 15000
+- runFlow: gh394_dismiss_anr.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+
+# --- open the live training -------------------------------------------------
+- runFlow: gh394_goto_micro69_push.yaml
+- takeScreenshot: gh394_01_train_tab
+
+# Log one set: Reps / RIR / Weight / Add on the input row. Percentages of the
+# 1080x2400 screen; the input row is always the FIRST row under the exercise
+# tabs, so its y does not move as sets accumulate.
+- tapOn:
+    point: '14%,32%'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '8'
+- tapOn:
+    point: '38%,32%'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '2'
+- tapOn:
+    point: '62%,32%'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '95'
+- hideKeyboard
+- takeScreenshot: gh394_02_set_typed
+- tapOn:
+    point: '90%,32%'
+    retryTapIfNoChange: false
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# The rest timer auto-starts on set submit. Evidence screenshots: the ring is
+# the ONLY place the running time appears, and it keeps ticking between t0/t1
+# (real wall time passes between Maestro commands — memory #261: evalScript
+# busy-waits do NOT wait, waitForAnimationToEnd does).
+- takeScreenshot: gh394_03_rest_timer_t0
+- waitForAnimationToEnd:
+    timeout: 5000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: gh394_04_rest_timer_t1
+
+# --- leave and re-enter: the time must still be right ------------------------
+- tapOn: 'tab-exercises'
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- runFlow: gh394_goto_micro69_push.yaml
+- takeScreenshot: gh394_05_rest_timer_after_reentry
