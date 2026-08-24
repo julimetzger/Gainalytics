@@ -2087,3 +2087,21 @@ require.extensions['.ts'] = (m, f) => m._compile(
 ```
 Only works for modules with no React Native imports — keep colour/format/pure-logic helpers free of RN imports and they stay scriptable.
 **Apply when:** you want a one-off artifact (contact sheet, fixture, report) from repo logic without wiring a jest test around it.
+
+### 298. Capture true "before" screenshots by detaching the worktree to the pre-change commit — Metro re-serves it
+**Observation (GH-405):** the ticket demanded before/after screenshots proving the built-in themes were untouched. There is no need for a second worktree, a stash, or a rebuild: with a DEBUGGABLE APK loading from Metro, `git switch --detach <pre-change-sha>` → force-stop → relaunch makes the device render the OLD code in ~40 s, and `git switch <branch>` brings the new one back. Metro's watcher picks up the whole checkout without a cache reset.
+**Critical:** assert a *UI marker* that only exists on one side (here the new "Custom colour" row: `grep -c` on the uiautomator dump, expect 0 before / 1 after). Without that check a stale bundle would silently produce two identical "before" and "after" sets — which would look like a perfect pass.
+**Apply when:** an AC says "looks exactly like before" or "unchanged", and only for JS-only changes.
+
+### 299. Prove "pixel-identical" with an actual pixel diff, not by eye — mask the status bar
+**Observation (GH-405):** six before/after pairs were compared with PIL (`ImageChops.difference`) after cropping the top 4 % (live clock) and the bottom 4.5 % (OS nav bar): **0 differing pixels** in all six. Eyeballing two screenshots of the same blue screen proves nothing and a reviewer cannot re-check it; a table of differing-pixel counts is verifiable evidence, costs ~20 lines of Python, and catches sub-perceptual regressions. Without the status-bar mask the diff is never zero — the clock changes between the two capture runs.
+**Apply when:** any "must look exactly as before" criterion; also good for theme/layout refactors that claim to be visual no-ops.
+
+### 300. Paper's `RadioButton` label is a decorative `<Text>` sibling — tapping the text does nothing, and can make an assertion pass vacuously
+**Problem (GH-405):** the flow tapped `text: "Green"` / `"Purple"` to switch palettes. In `SettingsTab` those are plain `<Text>Green</Text>` nodes *next to* `<RadioButton value="green" />`, not a `RadioButton.Item`, so the label carries no touch target and the taps did nothing at all. The run still got as far as Purple before failing, because the "Green" assertion had passed — the app already sat on Green from an earlier step. A tap that does nothing plus an assertion on a value that is already set = a green step proving nothing.
+**Working solution:** give the radios a `testID` (surfaces as `resource-id`, no visual change) and tap by id. Then, after every switch, also `assertNotVisible` the PREVIOUS value — that is what makes the assertion prove a transition instead of a state.
+**Apply when:** any Maestro flow that switches a setting; check the markup for `RadioButton.Item` vs bare `RadioButton` before addressing anything by its label text.
+
+### 301. When a UI element "looks low-contrast" in a downscaled contact sheet, measure it from the full-size PNG
+**Observation (GH-405):** in the 3×2 extreme-colour contact sheet the FAB glyph looked washed out enough to threaten the "text readable everywhere" criterion. Sampling the FAB's bounding box in the full-size screenshots — dominant colour = fill, the colour furthest from it in luminance = glyph — and applying the WCAG formula gave 5.06:1 … 5.63:1 across all 8 screens, i.e. comfortably above the 3:1 icon threshold. The faintness was purely a LANCZOS-downscale artefact.
+**Apply when:** a readability/contrast AC is in play — a measured ratio from device pixels is stronger evidence than a screenshot, and it stops you from "fixing" a non-bug.
