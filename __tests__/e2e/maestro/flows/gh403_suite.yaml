@@ -1,0 +1,7 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-403 evidence suite: import the baseline .gains fixture first so the plan
+# screen under test is reached from a known store state, then run the picker
+# flow.
+- runFlow: 00_import_baseline.yaml
+- runFlow: gh403_picker_opens_directly.yaml

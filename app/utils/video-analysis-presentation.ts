@@ -118,6 +118,43 @@ export function formatVideoAnalysisWeightLabel(weight?: number, reps?: number, i
   return `${weight} kg × ${reps}`;
 }
 
+export interface VideoAnalysisSetIdentity {
+  exerciseName?: string;
+  setNumber?: number;
+  weight?: number;
+  rir?: number;
+}
+
+export const UNLINKED_VIDEO_ANALYSIS_LABEL = 'Unlinked analysis';
+export const NO_LINKED_SET_LABEL = 'No linked set';
+
+const isDisplayableNumber = (value?: number): value is number => value !== undefined && value !== null && Number.isFinite(value);
+
+/**
+ * Identifies an analysis by the set it was filmed on — exercise, set number,
+ * load and RIR — instead of by its running id. Falls back to whatever is known
+ * so a row is never empty and never renders `undefined`/`NaN`.
+ */
+export function formatVideoAnalysisSetIdentity({exerciseName, setNumber, weight, rir}: VideoAnalysisSetIdentity): string {
+  const trimmedExerciseName = exerciseName?.trim();
+  const setParts = [
+    isDisplayableNumber(setNumber) ? `Set ${setNumber}` : null,
+    isDisplayableNumber(weight) && isDisplayableNumber(rir)
+      ? `${weight} kg @ ${rir} RIR`
+      : isDisplayableNumber(weight)
+        ? `${weight} kg`
+        : isDisplayableNumber(rir)
+          ? `${rir} RIR`
+          : null,
+  ].filter((value): value is string => value !== null);
+
+  if (setParts.length === 0) {
+    return trimmedExerciseName ? `${trimmedExerciseName} · ${NO_LINKED_SET_LABEL}` : UNLINKED_VIDEO_ANALYSIS_LABEL;
+  }
+
+  return [trimmedExerciseName, ...setParts].filter((value): value is string => !!value).join(' · ');
+}
+
 export function formatVideoAnalysisMetrics(setResult?: VideoAnalysisSetResult): string | null {
   if (!setResult) {
     return null;
