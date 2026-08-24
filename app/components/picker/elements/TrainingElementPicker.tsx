@@ -25,6 +25,7 @@ const TrainingElementPicker = ({
   dropdownLabel = 'Select Exercises, Metrics, Accumulation Mode',
   onToggle,
   hideIconButton = false,
+  openListOnShow = false,
 }: ExercisePickerProps) => {
   const [show, setShow] = useState(visible);
   let allExercises = useAlleExercises();
@@ -139,6 +140,7 @@ const TrainingElementPicker = ({
       <View style={show ? null : {display: 'none'}}>
         <MultiselectDropdown
           open={show}
+          {...(openListOnShow ? {autoOpen: show, selectionHeader: true, onBlur: closeList} : {})}
           label={dropdownLabel}
           enableSearch
           value={selectedValues}
@@ -169,6 +171,21 @@ const TrainingElementPicker = ({
       )}
     </View>
   );
+
+  // GH-403: with `openListOnShow` the list IS the picker — dismissing the list
+  // (backdrop or hardware back) has to retract the picker as well, otherwise the
+  // anchor row would stay behind as the very "tap me to continue" step this
+  // ticket removes.
+  function closeList() {
+    if (!show) {
+      return;
+    }
+    if (onToggle) {
+      onToggle();
+    } else {
+      setShow(false);
+    }
+  }
 
   function setExerciseDumb(value: string[]) {
     let newMetric = value.filter((value: string) => Object.values(Metric).includes(value as Metric));
@@ -238,6 +255,14 @@ interface ExercisePickerProps {
   dropdownLabel?: string;
   onToggle?: () => void;
   hideIconButton?: boolean;
+  /**
+   * GH-403: open the exercise list as soon as the picker becomes visible, and
+   * show the "x selected" counter as the list's header row. Used where the
+   * picker is toggled by an explicit "+" tile, so a single tap gets the user
+   * all the way to the list. Off by default — the Analyse screens mount their
+   * picker visible and must keep the tap-to-open anchor.
+   */
+  openListOnShow?: boolean;
 }
 
 export default TrainingElementPicker;
