@@ -2035,3 +2035,18 @@ For order, assert the sequence: `getAllByText(/^(Plan|Train|Analysis)$/).map(n =
  * **Zero** present rows (the ADB Interface still exists with `Status=Unknown`) ⇒ **physical**: cable/port/phone. No adb, PnP (needs admin) or server restart can fix it; write `blocked` instead of burning an hour.
 **Also:** WSL adb 36.0.2 talking to a Windows server 30.0.5 is a version mismatch that makes clients kill/respawn the server — prefer the SDK `platform-tools/adb.exe` (34.0.5) over the older `AppData/Local/adb` one.
 **Apply when:** a physical device goes offline/absent mid-run.
+
+### 287. A failed `uiautomator dump` leaves the PREVIOUS run's XML in place — you read stale UI and misdiagnose
+**Problem (GH-399):** on R5CN30HWZFN `uiautomator dump /sdcard/ui.xml` printed **nothing**, exited non-zero and wrote **no file** — but `/sdcard/ui.xml` from an earlier run was still there. `adb shell cat /sdcard/ui.xml` therefore returned a SAF-picker hierarchy while `screencap` showed the app. That looks exactly like memory #285 (stacked `PickActivity`) and nearly cost an hour of "clear the picker stack" work — the picker was long gone (`dumpsys … grep -c PickActivity` = 0, `mCurrentFocus` = MainActivity).
+**Working solution:** always `adb shell rm -f <path>` FIRST, then dump, then assert the file exists before reading it. If dump yields neither file nor error on three tries, uiautomator is dead on that device: drive by coordinates read off a screenshot (`scale = device_width / screenshot_width`) instead — for a UX audit that is arguably more faithful anyway, since you tap visible targets.
+**Apply when:** screencap and uiautomator disagree, or any adb-driven run that reuses a fixed dump path.
+
+### 288. Rising `transport_id` in `adb devices -l` is the tell for a re-enumerating device — check it before blaming Maestro
+**Problem (GH-399):** Maestro failed twice with `Command failed (host:transport:<serial>): device '<serial>' not found` and then burned 2×120 s on `DEADLINE_EXCEEDED` gRPC screenshot calls, while plain `adb -s <serial> shell` worked every single time. The tell was in `adb devices -l`: `transport_id` climbed 4 → 18 → 24 across the run, i.e. the device kept re-attaching. Short adb commands slip through between re-enumerations; Maestro holds a long-lived transport and dies.
+**Working solution:** sample before re-running — `for i in $(seq 1 24); do adb devices | awk '$1==S{print $2}'; sleep 2; done` plus a transport_id check. Constant transport_id + 24/24 `device` = stable; then rerun. After it settled, the identical flow passed in **17 s**. Do NOT restart the adb server to "fix" this (it rips routing from workers on other devices) and do not conclude the harness is broken.
+**Apply when:** Maestro/gRPC fails but manual adb works.
+
+### 289. The workers' adb filter proxy on `127.0.0.1:5037` filters only the device LIST — it does not block transports
+**Problem (GH-399):** `adb -H 127.0.0.1 -P 5037 devices` showed ONLY `emulator-5554` (another run's `adb_filter_proxy.py --serial emulator-5554`), which looked like the obvious cause of Maestro's `device '<serial>' not found`. It was not.
+**Working solution:** probe it — `adb -H 127.0.0.1 -P 5037 -s <other-serial> shell echo hi` returns `hi`. The proxy rewrites `host:devices` but forwards `host:transport:<serial>` to the upstream Windows server unchanged, so any serial still works through it. Rule it out with that one-liner instead of theorising, and never kill the proxy — it belongs to a concurrent worker.
+**Apply when:** a device is missing from `adb devices` on WSL localhost but you can still reach it.
