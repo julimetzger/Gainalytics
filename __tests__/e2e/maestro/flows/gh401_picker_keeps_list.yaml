@@ -17,8 +17,12 @@ appId: com.powerliftingworkoutplanner
 #
 # Prerequisite: baseline.gains freshly imported, so the plan's next slot
 # ("Push squat", Micro 7 / D1) still has no training at all.
+# `stopApp: false`: this debug build fetches its JS from Metro, and a cold bundle
+# on this multi-emulator host costs minutes. Nothing here needs a fresh process,
+# so the flow attaches to the running app.
 - launchApp:
     clearState: false
+    stopApp: false
 - runFlow:
     when:
       visible: 'Dismiss'
@@ -27,7 +31,7 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible:
       id: 'training-home-screen'
-    timeout: 120000
+    timeout: 420000
 
 # Card -> Train tab of the unplanned slot -> Plan tab -> full plan edit.
 - scrollUntilVisible:
@@ -40,7 +44,7 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible:
       id: 'header-plan-meso-name'
-    timeout: 60000
+    timeout: 120000
 # "Plan this Training" — the Train tab's way out of the old dead end.
 - tapOn:
     point: '50%,24%'

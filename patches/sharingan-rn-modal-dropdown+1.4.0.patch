@@ -1,5 +1,5 @@
 diff --git a/node_modules/sharingan-rn-modal-dropdown/lib/commonjs/MultiselectDropdown/index.js b/node_modules/sharingan-rn-modal-dropdown/lib/commonjs/MultiselectDropdown/index.js
-index e42fbfe..698c287 100644
+index e42fbfe..ae87113 100644
 --- a/node_modules/sharingan-rn-modal-dropdown/lib/commonjs/MultiselectDropdown/index.js
 +++ b/node_modules/sharingan-rn-modal-dropdown/lib/commonjs/MultiselectDropdown/index.js
 @@ -70,7 +70,9 @@ const MultiselectDropdown = props => {
@@ -13,17 +13,19 @@ index e42fbfe..698c287 100644
      rippleColor,
      helperText,
      errorColor,
-@@ -111,7 +113,8 @@ const MultiselectDropdown = props => {
+@@ -111,7 +113,10 @@ const MultiselectDropdown = props => {
      itemSelectIcon,
      itemSelectIconSize,
      multiline = false,
 -    searchInputTheme
 +    searchInputTheme,
-+    open
++    open,
++    autoOpen,
++    selectionHeader
    } = props;
    const {
      colors
-@@ -120,7 +123,9 @@ const MultiselectDropdown = props => {
+@@ -120,7 +125,9 @@ const MultiselectDropdown = props => {
    const [labelv, setLabelV] = (0, _react.useState)('');
    const [isVisible, setIsVisible] = (0, _react.useState)(false);
    const [iconColor, setIconColor] = (0, _react.useState)('grey');
@@ -34,7 +36,7 @@ index e42fbfe..698c287 100644
    const [hasError, setError] = (0, _react.useState)(false);
    const [contMeasure, setConMeasure] = (0, _react.useState)({
      vx: 0,
-@@ -136,7 +141,7 @@ const MultiselectDropdown = props => {
+@@ -136,7 +143,7 @@ const MultiselectDropdown = props => {
    const pViewRef = (0, _react.useRef)();
    const listRef = (0, _react.useRef)();
    (0, _react.useEffect)(() => {
@@ -43,7 +45,7 @@ index e42fbfe..698c287 100644
        setIsVisible(false);
  
        const {
-@@ -152,7 +157,7 @@ const MultiselectDropdown = props => {
+@@ -152,7 +159,7 @@ const MultiselectDropdown = props => {
      });
  
      return () => {
@@ -52,7 +54,7 @@ index e42fbfe..698c287 100644
      };
    }, []);
    (0, _react.useEffect)(() => {
-@@ -172,14 +177,23 @@ const MultiselectDropdown = props => {
+@@ -172,14 +179,23 @@ const MultiselectDropdown = props => {
        setIconColor('lightgrey');
      }
    }, [disabled]);
@@ -79,7 +81,22 @@ index e42fbfe..698c287 100644
    (0, _react.useEffect)(() => {
      if (required && error) {
        setError(true);
-@@ -260,7 +274,9 @@ const MultiselectDropdown = props => {
+@@ -245,6 +261,14 @@ const MultiselectDropdown = props => {
+     }
+   };
+ 
++  // PATCH (Gainalytics GH-403): parent-controlled OPEN, counterpart of the
++  // GH-324 force-close above. Opt-in prop so existing `open={visible}` call
++  // sites keep their tap-to-open behaviour.
++  (0, _react.useEffect)(() => {
++    if (autoOpen === true) {
++      onTextInputFocus();
++    }
++  }, [autoOpen]);
+   const onModalBlur = () => {
+     setIsVisible(false);
+ 
+@@ -260,7 +284,9 @@ const MultiselectDropdown = props => {
    const handleOptionSelect = v => {
      if (onChange && typeof onChange === 'function') {
        if (value.includes(v)) {
@@ -90,7 +107,7 @@ index e42fbfe..698c287 100644
        } else {
          onChange([...value, v]);
        }
-@@ -273,29 +289,16 @@ const MultiselectDropdown = props => {
+@@ -273,29 +299,16 @@ const MultiselectDropdown = props => {
      }
  
      setSearchQuery('');
@@ -121,7 +138,7 @@ index e42fbfe..698c287 100644
        }
      }
    };
-@@ -385,6 +388,7 @@ const MultiselectDropdown = props => {
+@@ -385,6 +398,7 @@ const MultiselectDropdown = props => {
    }), /*#__PURE__*/_react.default.createElement(_reactNativeModal.default, {
      isVisible: isVisible,
      onBackdropPress: onModalBlur,
@@ -129,8 +146,25 @@ index e42fbfe..698c287 100644
      backdropColor: floating ? 'rgba(0,0,0,0.1)' : 'transparent',
      style: _styles.default.modalStyle,
      animationIn: animationIn,
+@@ -416,7 +430,15 @@ const MultiselectDropdown = props => {
+   }, /*#__PURE__*/_react.default.createElement(_reactNative.ActivityIndicator, {
+     size: "small",
+     color: activityIndicatorColor
+-  })) : null, /*#__PURE__*/_react.default.createElement(_reactNative.View, null, !hideChip && /*#__PURE__*/_react.default.createElement(_reactNative.FlatList, {
++  })) : null, /*#__PURE__*/_react.default.createElement(_reactNative.View, null,
++  // PATCH (Gainalytics GH-403): keep the "N selected" counter visible as the
++  // first row of the list — the anchor row that normally shows it is covered
++  // by this modal.
++  selectionHeader && /*#__PURE__*/_react.default.createElement(_reactNative.View, {
++    style: _styles.default.headerView
++  }, /*#__PURE__*/_react.default.createElement(_reactNativePaper.Text, {
++    style: _styles.default.headerText
++  }, labelv)), !hideChip && /*#__PURE__*/_react.default.createElement(_reactNative.FlatList, {
+     data: selectedItems,
+     style: _styles.default.chipScrollView,
+     horizontal: true,
 diff --git a/node_modules/sharingan-rn-modal-dropdown/lib/module/MultiselectDropdown/index.js b/node_modules/sharingan-rn-modal-dropdown/lib/module/MultiselectDropdown/index.js
-index 05854eb..110f2cf 100644
+index 05854eb..7d88e3c 100644
 --- a/node_modules/sharingan-rn-modal-dropdown/lib/module/MultiselectDropdown/index.js
 +++ b/node_modules/sharingan-rn-modal-dropdown/lib/module/MultiselectDropdown/index.js
 @@ -1,4 +1,4 @@
@@ -150,17 +184,19 @@ index 05854eb..110f2cf 100644
      rippleColor,
      helperText,
      errorColor,
-@@ -88,7 +90,8 @@ const MultiselectDropdown = props => {
+@@ -88,7 +90,10 @@ const MultiselectDropdown = props => {
      itemSelectIcon,
      itemSelectIconSize,
      multiline = false,
 -    searchInputTheme
 +    searchInputTheme,
-+    open
++    open,
++    autoOpen,
++    selectionHeader
    } = props;
    const {
      colors
-@@ -97,7 +100,9 @@ const MultiselectDropdown = props => {
+@@ -97,7 +102,9 @@ const MultiselectDropdown = props => {
    const [labelv, setLabelV] = useState('');
    const [isVisible, setIsVisible] = useState(false);
    const [iconColor, setIconColor] = useState('grey');
@@ -171,7 +207,7 @@ index 05854eb..110f2cf 100644
    const [hasError, setError] = useState(false);
    const [contMeasure, setConMeasure] = useState({
      vx: 0,
-@@ -113,7 +118,7 @@ const MultiselectDropdown = props => {
+@@ -113,7 +120,7 @@ const MultiselectDropdown = props => {
    const pViewRef = useRef();
    const listRef = useRef();
    useEffect(() => {
@@ -180,7 +216,7 @@ index 05854eb..110f2cf 100644
        setIsVisible(false);
        const {
          width,
-@@ -126,7 +131,7 @@ const MultiselectDropdown = props => {
+@@ -126,7 +133,7 @@ const MultiselectDropdown = props => {
        setIconColor('grey');
      });
      return () => {
@@ -189,7 +225,7 @@ index 05854eb..110f2cf 100644
      };
    }, []);
    useEffect(() => {
-@@ -146,14 +151,23 @@ const MultiselectDropdown = props => {
+@@ -146,14 +153,23 @@ const MultiselectDropdown = props => {
        setIconColor('lightgrey');
      }
    }, [disabled]);
@@ -216,7 +252,22 @@ index 05854eb..110f2cf 100644
    useEffect(() => {
      if (required && error) {
        setError(true);
-@@ -234,7 +248,9 @@ const MultiselectDropdown = props => {
+@@ -219,6 +235,14 @@ const MultiselectDropdown = props => {
+     }
+   };
+ 
++  // PATCH (Gainalytics GH-403): parent-controlled OPEN, counterpart of the
++  // GH-324 force-close above. Opt-in prop so existing `open={visible}` call
++  // sites keep their tap-to-open behaviour.
++  useEffect(() => {
++    if (autoOpen === true) {
++      onTextInputFocus();
++    }
++  }, [autoOpen]);
+   const onModalBlur = () => {
+     setIsVisible(false);
+ 
+@@ -234,7 +258,9 @@ const MultiselectDropdown = props => {
    const handleOptionSelect = v => {
      if (onChange && typeof onChange === 'function') {
        if (value.includes(v)) {
@@ -227,7 +278,7 @@ index 05854eb..110f2cf 100644
        } else {
          onChange([...value, v]);
        }
-@@ -247,29 +263,16 @@ const MultiselectDropdown = props => {
+@@ -247,29 +273,16 @@ const MultiselectDropdown = props => {
      }
  
      setSearchQuery('');
@@ -258,7 +309,7 @@ index 05854eb..110f2cf 100644
        }
      }
    };
-@@ -359,6 +362,7 @@ const MultiselectDropdown = props => {
+@@ -359,6 +372,7 @@ const MultiselectDropdown = props => {
    }), /*#__PURE__*/React.createElement(Modal, {
      isVisible: isVisible,
      onBackdropPress: onModalBlur,
@@ -266,11 +317,28 @@ index 05854eb..110f2cf 100644
      backdropColor: floating ? 'rgba(0,0,0,0.1)' : 'transparent',
      style: styles.modalStyle,
      animationIn: animationIn,
+@@ -390,7 +404,15 @@ const MultiselectDropdown = props => {
+   }, /*#__PURE__*/React.createElement(ActivityIndicator, {
+     size: "small",
+     color: activityIndicatorColor
+-  })) : null, /*#__PURE__*/React.createElement(View, null, !hideChip && /*#__PURE__*/React.createElement(FlatList, {
++  })) : null, /*#__PURE__*/React.createElement(View, null,
++  // PATCH (Gainalytics GH-403): keep the "N selected" counter visible as the
++  // first row of the list — the anchor row that normally shows it is covered
++  // by this modal.
++  selectionHeader && /*#__PURE__*/React.createElement(View, {
++    style: styles.headerView
++  }, /*#__PURE__*/React.createElement(Text, {
++    style: styles.headerText
++  }, labelv)), !hideChip && /*#__PURE__*/React.createElement(FlatList, {
+     data: selectedItems,
+     style: styles.chipScrollView,
+     horizontal: true,
 diff --git a/node_modules/sharingan-rn-modal-dropdown/lib/typescript/types.d.ts b/node_modules/sharingan-rn-modal-dropdown/lib/typescript/types.d.ts
-index bb8462d..53be749 100644
+index bb8462d..bee4255 100644
 --- a/node_modules/sharingan-rn-modal-dropdown/lib/typescript/types.d.ts
 +++ b/node_modules/sharingan-rn-modal-dropdown/lib/typescript/types.d.ts
-@@ -327,6 +327,11 @@ export interface IDropdownProps extends IDropdownDefault, IDefaultValue {
+@@ -327,6 +327,20 @@ export interface IDropdownProps extends IDropdownDefault, IDefaultValue {
      defaultSortOrder?: SortOrder;
  }
  export interface IMultiselectDropdownProps extends IDropdownDefault {
@@ -279,28 +347,20 @@ index bb8462d..53be749 100644
 +     * false the internal modal is dismissed.
 +     */
 +    open?: boolean;
++    /**
++     * PATCH (Gainalytics GH-403): parent-controlled open.
++     */
++    autoOpen?: boolean;
++    /**
++     * PATCH (Gainalytics GH-403): render the "N selected" counter as the first
++     * row of the option list inside the modal.
++     */
++    selectionHeader?: boolean;
      /**
       * Set the dropdown default value(array of string or number). Aslo, can be used in redux-form or formik
       */
-diff --git a/node_modules/sharingan-rn-modal-dropdown/src/Components/PressableTouch.tsx b/node_modules/sharingan-rn-modal-dropdown/src/Components/PressableTouch.tsx
-index df968ba..85e7023 100644
---- a/node_modules/sharingan-rn-modal-dropdown/src/Components/PressableTouch.tsx
-+++ b/node_modules/sharingan-rn-modal-dropdown/src/Components/PressableTouch.tsx
-@@ -11,10 +11,11 @@ interface PressableTouchProps {
- 
- const PressableTouch: React.FC<PressableTouchProps> = props => {
-   const { rippleColor, disabled, onPress, children } = props;
-+  const logPress = () => { console.log('[GH324-DEBUG] row onPress, disabled:', disabled); onPress(); };
- 
-   return (
-     <Pressable
--      onPress={onPress}
-+      onPress={logPress}
-       disabled={disabled}
-       style={({ pressed }) => [
-         {
 diff --git a/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx b/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx
-index d3a9c87..241e263 100644
+index d3a9c87..d8e4dff 100644
 --- a/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx
 +++ b/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx
 @@ -1,4 +1,4 @@
@@ -330,15 +390,17 @@ index d3a9c87..241e263 100644
      rippleColor,
      helperText,
      errorColor,
-@@ -115,6 +118,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -115,6 +118,9 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
      itemSelectIconSize,
      multiline = false,
      searchInputTheme,
 +    open,
++    autoOpen,
++    selectionHeader,
    } = props;
    const { colors } = useTheme();
  
-@@ -122,7 +126,12 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -122,7 +128,12 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
    const [labelv, setLabelV] = useState<string>('');
    const [isVisible, setIsVisible] = useState<boolean>(false);
    const [iconColor, setIconColor] = useState<string | undefined>('grey');
@@ -352,7 +414,7 @@ index d3a9c87..241e263 100644
    const [hasError, setError] = useState<boolean>(false);
    const [contMeasure, setConMeasure] = useState({
      vx: 0,
-@@ -139,14 +148,14 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -139,14 +150,14 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
    const listRef = useRef<FlatList | any>();
  
    useEffect(() => {
@@ -369,7 +431,7 @@ index d3a9c87..241e263 100644
      };
    }, []);
  
-@@ -170,17 +179,36 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -170,17 +181,36 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
      }
    }, [disabled]);
  
@@ -411,19 +473,28 @@ index d3a9c87..241e263 100644
  
    useEffect(() => {
      if (required && error) {
-@@ -234,6 +262,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -233,6 +263,19 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+     }
    };
  
++  // PATCH (Gainalytics GH-403): parent-controlled OPEN. The counterpart of the
++  // GH-324 force-close above: when `autoOpen` flips to true the modal opens
++  // itself, so the caller does not need the user to tap the anchor row first.
++  // Deliberately a separate opt-in prop instead of reusing `open` — every other
++  // call site already passes `open={visible}`, and those must keep their
++  // tap-to-open behaviour.
++  useEffect(() => {
++    if (autoOpen === true) {
++      onTextInputFocus();
++    }
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [autoOpen]);
++
    const onModalBlur = () => {
-+    console.log('[GH324-DEBUG] onModalBlur');
      setIsVisible(false);
      if (hasError) {
-       setIconColor('red');
-@@ -245,9 +274,13 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
-   };
- 
+@@ -247,7 +290,10 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
    const handleOptionSelect = (v: string | number) => {
-+    console.log('[GH324-DEBUG] handleOptionSelect', v);
      if (onChange && typeof onChange === 'function') {
        if (value.includes(v)) {
 -        onChange(Lo.remove(value, s => s !== v));
@@ -434,7 +505,7 @@ index d3a9c87..241e263 100644
        } else {
          onChange([...value, v]);
        }
-@@ -258,35 +291,16 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -258,35 +304,16 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
        }
      }
      setSearchQuery('');
@@ -471,7 +542,7 @@ index d3a9c87..241e263 100644
        }
      }
    };
-@@ -306,7 +320,16 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -306,7 +333,16 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
    };
  
    return (
@@ -489,7 +560,7 @@ index d3a9c87..241e263 100644
        <View>
          <PressableTouch
            onPress={onTextInputFocus}
-@@ -402,6 +425,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -402,6 +438,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
          <Modal
            isVisible={isVisible}
            onBackdropPress={onModalBlur}
@@ -497,7 +568,24 @@ index d3a9c87..241e263 100644
            backdropColor={floating ? 'rgba(0,0,0,0.1)' : 'transparent'}
            style={styles.modalStyle}
            animationIn={animationIn}
-@@ -551,7 +575,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -438,6 +475,16 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+                 </View>
+               ) : null}
+               <View>
++                {/* PATCH (Gainalytics GH-403): the anchor row that normally shows
++                    "N selected" sits underneath this modal, and while the modal is
++                    open it is neither visible nor part of the accessibility tree.
++                    Opt in with `selectionHeader` to keep the counter as the first
++                    row of the list itself. */}
++                {selectionHeader && (
++                  <View style={styles.headerView}>
++                    <Text style={styles.headerText}>{labelv}</Text>
++                  </View>
++                )}
+                 {!hideChip && (
+                   <FlatList
+                     data={selectedItems}
+@@ -551,7 +598,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
            </View>
          </Modal>
        </View>
@@ -507,10 +595,10 @@ index d3a9c87..241e263 100644
  };
  
 diff --git a/node_modules/sharingan-rn-modal-dropdown/src/types.ts b/node_modules/sharingan-rn-modal-dropdown/src/types.ts
-index 8d5dba7..3cd7669 100644
+index 8d5dba7..99a4593 100644
 --- a/node_modules/sharingan-rn-modal-dropdown/src/types.ts
 +++ b/node_modules/sharingan-rn-modal-dropdown/src/types.ts
-@@ -366,6 +366,12 @@ export interface IDropdownProps extends IDropdownDefault, IDefaultValue {
+@@ -366,6 +366,26 @@ export interface IDropdownProps extends IDropdownDefault, IDefaultValue {
  }
  
  export interface IMultiselectDropdownProps extends IDropdownDefault {
@@ -519,6 +607,20 @@ index 8d5dba7..3cd7669 100644
 +   * false the internal modal is dismissed.
 +   */
 +  open?: boolean;
++
++  /**
++   * PATCH (Gainalytics GH-403): parent-controlled open. When this flips to
++   * true the internal modal opens itself, so the user does not have to tap
++   * the anchor row first.
++   */
++  autoOpen?: boolean;
++
++  /**
++   * PATCH (Gainalytics GH-403): render the "N selected" counter as the first
++   * row of the option list inside the modal. Needed whenever the modal covers
++   * its own anchor row.
++   */
++  selectionHeader?: boolean;
 +
    /**
     * Set the dropdown default value(array of string or number). Aslo, can be used in redux-form or formik

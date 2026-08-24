@@ -308,6 +308,60 @@ describe('TrainingsPlanNode — GH-401 Train tab is the single start/finish cont
     expect(queryByTestId('training-history')).toBeNull();
   });
 
+  it('keeps a consumed sub-tab request consumed while the pane is inactive (swipe away and back)', () => {
+    // RangeSwiper passes `requestedSubTab` only to the pane it considers active,
+    // so swiping away drops the prop to undefined and swiping back restores it.
+    // The request must not fire a second time on the way back.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    expect(getByTestId('execute-workout')).toBeTruthy();
+
+    // The user moves to the Plan tab by hand.
+    fireEvent.press(getByTestId('subtab-plan'));
+    expect(getByTestId('plan-workout')).toBeTruthy();
+
+    // Swipe away: this pane goes inactive, so the request disappears...
+    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab={undefined} />);
+    // ...and back: the same request is handed to the pane again.
+    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    expect(getByTestId('plan-workout')).toBeTruthy();
+    expect(queryByTestId('execute-workout')).toBeNull();
+  });
+
+  it('keeps the Analysis pre-selection after finishing when the pane is swiped away and back', () => {
+    // The concrete regression: land on Train via the card, finish the training
+    // (handleFinish pre-selects Analysis), swipe away and back. The stale
+    // "train" request used to drag the user off the analysis they just earned.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    fireEvent.press(getByTestId('train-tab-finish-button'));
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    expect(getByTestId('trainings-overview')).toBeTruthy();
+
+    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab={undefined} />);
+    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    expect(getByTestId('trainings-overview')).toBeTruthy();
+    expect(queryByTestId('training-history')).toBeNull();
+  });
+
+  it('still applies a fresh request after the user swipes to a different slot', () => {
+    // Consuming a request must be scoped to its slot, otherwise navigating from
+    // the card to a *different* training would land on the state default.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    expect(getByTestId('train-tab-start-button')).toBeTruthy();
+
+    fireEvent.press(getByTestId('subtab-plan'));
+    expect(getByTestId('plan-workout')).toBeTruthy();
+
+    rerender(<TrainingsPlanNode {...defaultProps} micro={2} requestedSubTab="train" />);
+    expect(getByTestId('train-tab-start-button')).toBeTruthy();
+  });
+
   it('shows the Start Training button for a training whose state was never persisted', () => {
     useTrainingInTrainingsPlan.mockReturnValue({...mkTraining(TrainingsState.PLANNED), state: undefined});
     const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);

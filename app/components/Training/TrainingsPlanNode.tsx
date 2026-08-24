@@ -133,14 +133,32 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
   // A requested sub-tab must win exactly once per slot — otherwise every later
   // state change (e.g. PLANNED → STARTED) would drag the user back to it.
   // Slot-keyed because RangeSwiper reuses pane instances across micro slots.
-  const appliedSubTabRequestRef = useRef<string | null>(null);
+  //
+  // The consumed keys have to be remembered as a SET, not as a single "last
+  // applied" key: RangeSwiper hands the navigation request only to the pane it
+  // considers active, so swiping away sets requestedSubTab back to undefined.
+  // A single ref would be cleared by that, and swiping back would make the very
+  // same request look unconsumed again — re-applying it on top of whatever tab
+  // the user (or handleFinish's Analysis pre-selection) had chosen since.
+  const consumedSubTabRequestsRef = useRef<Set<string>>(new Set());
+  // What the last state-default reset was keyed on. Guards the reset below so a
+  // requestedSubTab that merely appears or disappears (pane going in/out of
+  // focus) never counts as a reason to reset the tab.
+  const subTabResetKeyRef = useRef<string | null>(null);
 
   // Reset sub-tab when micro/trainingInMicro changes OR when training state changes (e.g. async load → PLANNED)
   useEffect(() => {
     const requestKey = requestedSubTab !== undefined ? `${micro}:${trainingInMicro}:${requestedSubTab}` : null;
-    const pendingRequest = requestKey !== null && appliedSubTabRequestRef.current !== requestKey ? requestedSubTab : undefined;
-    appliedSubTabRequestRef.current = requestKey;
-    setActiveSubTab(defaultSubTab(training?.state, pendingRequest));
+    if (requestKey !== null && !consumedSubTabRequestsRef.current.has(requestKey)) {
+      consumedSubTabRequestsRef.current.add(requestKey);
+      subTabResetKeyRef.current = `${micro}:${trainingInMicro}:${training?.state}`;
+      setActiveSubTab(requestedSubTab!!);
+      return;
+    }
+    const resetKey = `${micro}:${trainingInMicro}:${training?.state}`;
+    if (subTabResetKeyRef.current === resetKey) return;
+    subTabResetKeyRef.current = resetKey;
+    setActiveSubTab(defaultSubTab(training?.state));
   }, [micro, trainingInMicro, training?.state, requestedSubTab]);
 
   // GH-401 (H3): editing UI state resets only when the user moves to a DIFFERENT
