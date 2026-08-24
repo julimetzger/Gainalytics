@@ -1,0 +1,67 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-396 — targetSdk 35 -> 36 (Android 16): document/file access still works.
+#
+# Importing baseline.gains goes out to the system document picker (SAF) and reads the
+# returned content:// URI, so a successful import is the end-to-end proof that file
+# access survived the target bump. It doubles as the baseline-data bootstrap for
+# gh396_api36_training_run.yaml.
+#
+# Prerequisite: baseline.gains pushed to /sdcard/Download (bootstrap mode does this).
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-import-data-button'
+    direction: DOWN
+- tapOn:
+    id: 'settings-import-data-button'
+- tapOn:
+    id: 'settings-import-confirm-button'
+    optional: true
+
+# --- System document picker ------------------------------------------------------
+# The picker may open on "Recent", where the pushed fixture is not listed. Switch to
+# the Downloads root through the roots drawer when that happens.
+- runFlow:
+    when:
+      notVisible: 'baseline.gains'
+    commands:
+      - tapOn:
+          point: '7%,6%'
+      - tapOn:
+          text: 'Downloads'
+          optional: true
+# DocumentsUI animates the root switch and populates asynchronously; on a loaded
+# emulator the hierarchy is briefly empty, which reads as "element not found".
+- waitForAnimationToEnd:
+    timeout: 10000
+- extendedWaitUntil:
+    visible: 'baseline.gains'
+    timeout: 60000
+- takeScreenshot: 'gh396_02a_system_file_picker'
+- tapOn:
+    text: 'baseline.gains'
+
+# --- Assert the imported payload, not the transient toast -------------------------
+# "Import successful!" is only on screen for 5s, which this emulator can miss. The
+# fixture's plan appearing on the Training tab is the durable resulting value.
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 120000
+- extendedWaitUntil:
+    visible: 'Push pull'
+    timeout: 60000
+- assertVisible: 'Push pull'
+- takeScreenshot: 'gh396_02b_import_successful'

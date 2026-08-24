@@ -132,9 +132,13 @@ const TrainingElementPicker = ({
   return (
     <View style={style}>
       {/* Keep MultiselectDropdown always mounted to prevent crashing when react-native-modal
-          unmounts while its internal modal is still open. Use display:none to hide instead. */}
+          unmounts while its internal modal is still open. Use display:none to hide instead.
+          GH-324: `open` (patched-in prop) force-closes the internal modal when the picker is
+          hidden — without it the modal stayed stuck open over the screen with no way to
+          dismiss it after the anchor went display:none. */}
       <View style={show ? null : {display: 'none'}}>
         <MultiselectDropdown
+          open={show}
           label={dropdownLabel}
           enableSearch
           value={selectedValues}

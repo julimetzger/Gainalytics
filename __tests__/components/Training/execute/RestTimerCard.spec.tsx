@@ -13,7 +13,6 @@ jest.mock('react-native-svg', () => {
 });
 
 jest.mock('../../../../app/utils/restTimer', () => ({
-  formatElapsedSecondary: jest.fn(() => '-00:30'),
   formatTarget: jest.fn(() => '01:30'),
   useRestTimer: jest.fn(() => ({display: '01:00', state: 'counting', elapsedSeconds: 30})),
   useVibrationOnRestEvents: jest.fn(),
@@ -58,6 +57,35 @@ jest.mock('react-native-paper', () => {
       <TextInput testID={testID} accessibilityLabel={label} onChangeText={onChangeText} value={value} />
     ),
   };
+});
+
+describe('RestTimerCard caption (GH-394)', () => {
+  const renderCard = () =>
+    render(
+      <RestTimerCard
+        startedAt={Date.now()}
+        targetSeconds={90}
+        exerciseId={7}
+        onReset={jest.fn()}
+        onSkip={jest.fn()}
+        onEditTarget={jest.fn()}
+      />,
+    );
+
+  it('shows only the target, never a second elapsed/remaining readout', () => {
+    const {getByTestId, queryByTestId} = renderCard();
+
+    expect(getByTestId('rest-timer-target').props.children).toBe('target 01:30');
+    // The old duplicate line is gone; the running time lives in the ring only.
+    expect(queryByTestId('rest-timer-elapsed')).toBeNull();
+  });
+
+  it('still renders the live time inside the progress ring', () => {
+    const {getByTestId} = renderCard();
+
+    // useRestTimer is mocked to a counting snapshot with display '01:00'.
+    expect(getByTestId('rest-progress-ring-text').props.children).toBe('01:00');
+  });
 });
 
 describe('RestTimerCard "Adjust default for this exercise" (GH-195 P2)', () => {

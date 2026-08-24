@@ -1,7 +1,7 @@
 import React, {useCallback, useState} from 'react';
 import {StyleSheet, TouchableOpacity, Vibration, View} from 'react-native';
 import {IconButton, Menu, Text, useTheme} from 'react-native-paper';
-import {formatElapsedSecondary, formatTarget, useRestTimer, useVibrationOnRestEvents} from '../../../utils/restTimer';
+import {formatTarget, useRestTimer, useVibrationOnRestEvents} from '../../../utils/restTimer';
 import RestTargetEditDialog from './RestTargetEditDialog';
 import RestProgressRing from './RestProgressRing';
 
@@ -46,8 +46,9 @@ const RestTimerCard = ({
   const surfaceHigh = colors.surfaceContainerHigh ?? colors.surfaceVariant ?? colors.surface;
   const {onSurface, onSurfaceVariant, primary, error} = theme.colors;
 
-  const elapsedStr = formatElapsedSecondary(targetSeconds!, snapshot.elapsedSeconds);
-  const caption = `target ${formatTarget(targetSeconds!)} · elapsed ${elapsedStr}`;
+  // The running time is already shown inside the progress ring, so the caption
+  // only carries the target (GH-394).
+  const caption = `target ${formatTarget(targetSeconds!)}`;
 
   return (
     <>
@@ -73,7 +74,7 @@ const RestTimerCard = ({
           {/* MIDDLE: Rest label + caption */}
           <View style={styles.middle}>
             <Text style={[styles.restLabel, {color: onSurface}]}>Rest</Text>
-            <Text style={[styles.captionLine, {color: onSurfaceVariant}]} testID="rest-timer-elapsed">
+            <Text style={[styles.captionLine, {color: onSurfaceVariant}]} testID="rest-timer-target">
               {caption}
             </Text>
           </View>

@@ -36,20 +36,6 @@ export const formatRestDisplay = (targetSeconds: number, elapsedSeconds: number)
   };
 };
 
-export const formatElapsedSecondary = (targetSeconds: number, elapsedSeconds: number): string => {
-  if (targetSeconds <= 0) return '00:00';
-  const remaining = targetSeconds - elapsedSeconds;
-  if (remaining > 0) {
-    const m = Math.floor(remaining / 60);
-    const s = remaining % 60;
-    return `-${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-  const overshoot = elapsedSeconds - targetSeconds;
-  const m = Math.floor(overshoot / 60);
-  const s = overshoot % 60;
-  return `+${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-};
-
 export const formatTarget = (targetSeconds: number): string => {
   const safe = Math.max(0, Math.floor(targetSeconds));
   const m = Math.floor(safe / 60);

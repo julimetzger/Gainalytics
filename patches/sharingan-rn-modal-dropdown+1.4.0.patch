@@ -120,23 +120,6 @@ index bb8462d..53be749 100644
      /**
       * Set the dropdown default value(array of string or number). Aslo, can be used in redux-form or formik
       */
-diff --git a/node_modules/sharingan-rn-modal-dropdown/src/Components/PressableTouch.tsx b/node_modules/sharingan-rn-modal-dropdown/src/Components/PressableTouch.tsx
-index df968ba..85e7023 100644
---- a/node_modules/sharingan-rn-modal-dropdown/src/Components/PressableTouch.tsx
-+++ b/node_modules/sharingan-rn-modal-dropdown/src/Components/PressableTouch.tsx
-@@ -11,10 +11,11 @@ interface PressableTouchProps {
- 
- const PressableTouch: React.FC<PressableTouchProps> = props => {
-   const { rippleColor, disabled, onPress, children } = props;
-+  const logPress = () => { console.log('[GH324-DEBUG] row onPress, disabled:', disabled); onPress(); };
- 
-   return (
-     <Pressable
--      onPress={onPress}
-+      onPress={logPress}
-       disabled={disabled}
-       style={({ pressed }) => [
-         {
 diff --git a/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx b/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx
 index d3a9c87..b0b22d9 100644
 --- a/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx
@@ -191,23 +174,7 @@ index d3a9c87..b0b22d9 100644
    useEffect(() => {
      if (isVisible && listRef) {
        listRef.current.flashScrollIndicators();
-@@ -234,6 +244,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
-   };
- 
-   const onModalBlur = () => {
-+    console.log('[GH324-DEBUG] onModalBlur');
-     setIsVisible(false);
-     if (hasError) {
-       setIconColor('red');
-@@ -245,6 +256,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
-   };
- 
-   const handleOptionSelect = (v: string | number) => {
-+    console.log('[GH324-DEBUG] handleOptionSelect', v);
-     if (onChange && typeof onChange === 'function') {
-       if (value.includes(v)) {
-         onChange(Lo.remove(value, s => s !== v));
-@@ -306,7 +318,16 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -306,7 +316,16 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
    };
  
    return (
@@ -225,7 +192,7 @@ index d3a9c87..b0b22d9 100644
        <View>
          <PressableTouch
            onPress={onTextInputFocus}
-@@ -402,6 +423,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -402,6 +421,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
          <Modal
            isVisible={isVisible}
            onBackdropPress={onModalBlur}
@@ -233,7 +200,7 @@ index d3a9c87..b0b22d9 100644
            backdropColor={floating ? 'rgba(0,0,0,0.1)' : 'transparent'}
            style={styles.modalStyle}
            animationIn={animationIn}
-@@ -551,7 +573,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -551,7 +571,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
            </View>
          </Modal>
        </View>

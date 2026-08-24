@@ -72,7 +72,7 @@ const RestProgressRing = ({
         />
       </Svg>
       <View style={styles.textOverlay} pointerEvents="none">
-        <Text style={[styles.timerText, {color: textColor, fontFamily: mono}]}>
+        <Text testID="rest-progress-ring-text" style={[styles.timerText, {color: textColor, fontFamily: mono}]}>
           {display}
         </Text>
       </View>
