@@ -88,8 +88,18 @@ jest.mock('../../../app/components/Training/analyse/TrainingHistory', () => {
 });
 jest.mock('../../../app/components/Training/TrainingsBase', () => 'TrainingsBase');
 jest.mock('../../../app/components/Training/plan/PlanTab', () => {
-  const {Text} = require('react-native');
-  return () => <Text testID="plan-workout">PlanWorkout</Text>;
+  const {Text, TouchableOpacity, View} = require('react-native');
+  // Surfaces the picker wiring so a test can open the picker and observe whether
+  // the parent keeps it open (GH-401 H3).
+  return ({pickerVisible, onTogglePicker}: any) => (
+    <View>
+      <Text testID="plan-workout">PlanWorkout</Text>
+      <Text testID="plan-workout-picker-visible">{String(pickerVisible)}</Text>
+      <TouchableOpacity testID="plan-workout-toggle-picker" onPress={onTogglePicker}>
+        <Text>toggle</Text>
+      </TouchableOpacity>
+    </View>
+  );
 });
 jest.mock('../../../app/components/Training/plan/PlanningOverview', () => {
   const {Text} = require('react-native');
@@ -329,6 +339,38 @@ describe('TrainingsPlanNode — GH-401 Train tab is the single start/finish cont
     const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} overflowVisible={true} />);
     fireEvent.press(getByTestId('overflow-edit'));
     expect(queryByTestId('train-tab-finish-button')).toBeNull();
+  });
+
+  it('keeps the exercise picker open when the first pick creates the training (H3 root cause)', () => {
+    // Before the fix the reset effect also depended on training.state. Picking the
+    // first exercise creates the training (undefined -> PLANNED), so the effect ran
+    // mid-selection and closed the picker. The dropdown is a separate native window,
+    // so the user was left staring at its empty shell — a search field over a blank
+    // area — and only closing and re-opening the picker brought the list back.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} />);
+
+    fireEvent.press(getByTestId('plan-workout-toggle-picker'));
+    expect(getByTestId('plan-workout-picker-visible').props.children).toBe('true');
+
+    // The training's state changes underneath the user; the slot does not.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    rerender(<TrainingsPlanNode {...defaultProps} />);
+    fireEvent.press(getByTestId('subtab-plan'));
+
+    expect(getByTestId('plan-workout-picker-visible').props.children).toBe('true');
+  });
+
+  it('still closes the picker when the user swipes to a different training slot', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} />);
+
+    fireEvent.press(getByTestId('plan-workout-toggle-picker'));
+    expect(getByTestId('plan-workout-picker-visible').props.children).toBe('true');
+
+    rerender(<TrainingsPlanNode {...defaultProps} micro={2} />);
+
+    expect(getByTestId('plan-workout-picker-visible').props.children).toBe('false');
   });
 
   it('no longer offers Start Training in the overflow menu (AC2: one place only)', () => {

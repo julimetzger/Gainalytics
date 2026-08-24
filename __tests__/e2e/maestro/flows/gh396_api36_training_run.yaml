@@ -90,14 +90,15 @@ appId: com.powerliftingworkoutplanner
     timeout: 30000
 
 # --- Start the training ----------------------------------------------------------
+# GH-401: the start control moved out of the kebab into the Train sub-tab, which
+# is the only place "Start Training" exists now.
 - tapOn:
-    id: 'header-overflow-icon'
+    point: '50%,14%'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
-    visible:
-      id: 'overflow-start'
-    timeout: 10000
-- tapOn:
-    id: 'overflow-start'
+    visible: 'Start Training'
+    timeout: 15000
+- tapOn: 'Start Training'
 # The session timer only renders while the training is STARTED, so its presence is the
 # durable proof that the start actually took effect.
 - extendedWaitUntil:

@@ -141,11 +141,21 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     const pendingRequest = requestKey !== null && appliedSubTabRequestRef.current !== requestKey ? requestedSubTab : undefined;
     appliedSubTabRequestRef.current = requestKey;
     setActiveSubTab(defaultSubTab(training?.state, pendingRequest));
+  }, [micro, trainingInMicro, training?.state, requestedSubTab]);
+
+  // GH-401 (H3): editing UI state resets only when the user moves to a DIFFERENT
+  // slot. It used to reset on `training?.state` as well, which is the root cause of
+  // the audit's blank exercise picker: picking the very first exercise creates the
+  // training, flipping state undefined → PLANNED, so this effect ran mid-selection
+  // and closed the picker. The modal is a separate native window, so what the user
+  // saw was its empty shell — a search field over a blank area — and only closing
+  // and re-opening the picker brought the list back.
+  useEffect(() => {
     setIsEditing(false);
     setShowPicker(false);
     setPlanEntryRequested(false);
     setNextPlanMode('read');
-  }, [micro, trainingInMicro, training?.state, requestedSubTab]);
+  }, [micro, trainingInMicro]);
 
   // GH-263 Item 1: once the user has picked at least one exercise after tapping
   // "Plan new Training", clear the entry-requested flag so PlanTab takes over the
