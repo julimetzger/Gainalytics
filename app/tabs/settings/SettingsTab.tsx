@@ -276,15 +276,17 @@ const SettingsTab = ({navigation}: Props) => {
           <View style={{flexDirection: 'row', alignItems: 'center'}}>
             <View style={{flexDirection: 'row', alignItems: 'center', marginRight: 10}}>
               <Text>Blue</Text>
-              <RadioButton value="blue" />
+              {/* The label next to it is decorative — only the radio itself is a
+                  touch target, so e2e flows have to address these by testID. */}
+              <RadioButton value="blue" testID="settings-palette-blue" />
             </View>
             <View style={{flexDirection: 'row', alignItems: 'center', marginRight: 10}}>
               <Text>Green</Text>
-              <RadioButton value="green" />
+              <RadioButton value="green" testID="settings-palette-green" />
             </View>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
               <Text>Purple</Text>
-              <RadioButton value="purple" />
+              <RadioButton value="purple" testID="settings-palette-purple" />
             </View>
           </View>
         </RadioButton.Group>

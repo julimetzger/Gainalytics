@@ -6,6 +6,12 @@ name: GH-405 theme colour wheel
 #  * the colour wheel dialog opens from Settings
 #  * a freely picked colour is applied and reflected immediately
 #  * the picked colour survives an app restart
+#
+# The palette radios are addressed by testID: the "Blue"/"Green"/"Purple" labels
+# beside them are decorative Text nodes, not touch targets, so tapping the text
+# silently does nothing. Every switch also asserts that the PREVIOUS value is gone,
+# otherwise an assertion would pass vacuously when the app already sat on that
+# palette before the flow started.
 - launchApp:
     clearState: false
 - extendedWaitUntil:
@@ -18,22 +24,37 @@ name: GH-405 theme colour wheel
     visible:
       id: "settings-custom-theme-color-button"
     timeout: 30000
-- takeScreenshot: gh405-01-settings-before
 
 # --- built-in palettes stay one tap away -------------------------------------
+# Start from a known palette so the switches below are real transitions.
 - tapOn:
-    text: "Green"
-- assertVisible:
-    text: "Theme colour Green"
-- takeScreenshot: gh405-02-builtin-green
-- tapOn:
-    text: "Purple"
-- assertVisible:
-    text: "Theme colour Purple"
-- tapOn:
-    text: "Blue"
+    id: "settings-palette-blue"
 - assertVisible:
     text: "Theme colour Blue"
+- takeScreenshot: gh405-01-builtin-blue
+
+- tapOn:
+    id: "settings-palette-green"
+- assertVisible:
+    text: "Theme colour Green"
+- assertNotVisible:
+    text: "Theme colour Blue"
+- takeScreenshot: gh405-02-builtin-green
+
+- tapOn:
+    id: "settings-palette-purple"
+- assertVisible:
+    text: "Theme colour Purple"
+- assertNotVisible:
+    text: "Theme colour Green"
+- takeScreenshot: gh405-03-builtin-purple
+
+- tapOn:
+    id: "settings-palette-blue"
+- assertVisible:
+    text: "Theme colour Blue"
+- assertNotVisible:
+    text: "Theme colour Purple"
 
 # --- the colour wheel dialog --------------------------------------------------
 - tapOn:
@@ -45,7 +66,7 @@ name: GH-405 theme colour wheel
     id: "theme-color-wheel"
 - assertVisible:
     id: "theme-color-brightness-slider"
-- takeScreenshot: gh405-03-wheel-dialog
+- takeScreenshot: gh405-04-wheel-dialog
 
 # --- pick a specific colour and verify the resulting value ---------------------
 - tapOn:
@@ -56,7 +77,7 @@ name: GH-405 theme colour wheel
 - assertVisible:
     id: "theme-color-preview-hex"
     text: "#E91E63"
-- takeScreenshot: gh405-04-wheel-picked-E91E63
+- takeScreenshot: gh405-05-wheel-picked-E91E63
 - tapOn:
     id: "theme-color-apply-button"
 
@@ -64,7 +85,9 @@ name: GH-405 theme colour wheel
 - assertNotVisible: "Pick a theme colour"
 - assertVisible:
     text: "Theme colour #E91E63"
-- takeScreenshot: gh405-05-applied-E91E63
+- assertNotVisible:
+    text: "Theme colour Blue"
+- takeScreenshot: gh405-06-applied-E91E63
 
 # --- the picked colour survives an app restart --------------------------------
 - launchApp:
@@ -81,4 +104,4 @@ name: GH-405 theme colour wheel
     timeout: 30000
 - assertVisible:
     text: "Theme colour #E91E63"
-- takeScreenshot: gh405-06-after-restart-E91E63
+- takeScreenshot: gh405-07-after-restart-E91E63
