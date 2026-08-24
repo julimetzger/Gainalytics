@@ -171,6 +171,7 @@ const PlanTab = ({
         visible={pickerVisible}
         onToggle={onTogglePicker}
         hideIconButton={true}
+        openListOnShow={true}
       />
       {selectedExercise === undefined ? (
         <View style={styles.emptyState}>

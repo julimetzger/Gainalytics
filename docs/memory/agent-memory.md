@@ -2022,3 +2022,53 @@ For order, assert the sequence: `getAllByText(/^(Plan|Train|Analysis)$/).map(n =
 **Problem (GH-394):** the orchestrator-provided Metro on port 8083 exited (not hung — the process was gone) with an uncaught `FSWatcher` ENOENT on a transient gradle output dir under the SHARED `/node_modules` that the worktree metro config lists in `watchFolders`. Any concurrent `./gradlew assembleDebug` in another worktree deletes those dirs and kills every Metro watching them.
 **Working solution:** treat "device stuck on Loading from …" as a reason to `curl -m 5 http://127.0.0.1:$E2E_METRO_PORT/status` first; if it is dead, restart with the run-dir config: `npx react-native start --config <run_dir>/metro.worktree.config.cjs --host 0.0.0.0 --port $E2E_METRO_PORT`, then force-stop + relaunch the app.
 **Apply when:** JS edits stop reaching the device, or the app hangs on the RN loading banner.
+
+### 285. Regenerating a patch-package patch from the SHARED node_modules silently swallows other worktrees' unmerged patches
+**Problem (GH-403):** `npx patch-package sharingan-rn-modal-dropdown` produced a 446-line diff for a ~40-line change — the shared `/node_modules` also carried GH-401's *unmerged* edits to the same package, and patch-package diffs the whole package against pristine, so their work landed inside my patch file (and would have been re-attributed / double-applied on merge).
+**Working solution:** rebuild the package state before diffing. `cp -a` the current package to a backup, stage a copy, reverse your own edits, `git apply -R <other-branch's patch>` → pristine, `git apply <master's patch>` → master, replay your edits, swap that into `node_modules`, run patch-package, then restore the backup so the other worker keeps their changes. Keep your edits in a replayable `--reverse`-capable python script (`run_dir/apply_*_edits.py`) — hand-editing node_modules twice is what makes this unrecoverable. Verify with `git diff patches/ | grep <other ticket id>` (must be empty).
+**Also:** do NOT rebuild "pristine" with `npm pack`/`npm install` of the version — this repo pins `github:julianMMetzger/sharingan-rn-modal-dropdown`, whose `lib/typescript/` is FLAT while the npm tarball nests it under `src/`, so master's patch does not even apply.
+**Apply when:** any ticket that touches `patches/` while other worktrees are live.
+
+### 286. Patched library props must ALSO be added to the repo-local ambient `.d.ts`, or they never typecheck
+**Observation (GH-403):** `sharingan-rn-modal-dropdown.d.ts` at the repo root declares the module and therefore SHADOWS the package's own `lib/typescript/types.d.ts`. It listed only 13 props, so the GH-324 `open` prop had been failing `tsc` since it was introduced (buried in the 161-error baseline). Patching `src/types.ts` + `lib/typescript/types.d.ts` is not enough — add the prop to the root `.d.ts` too.
+**Apply when:** adding a prop via patch-package to a package that has a repo-local `declare module` file.
+
+### 287. The sharingan modal covers its own anchor row, and the anchor is not in the a11y tree while it is open
+**Observation (GH-403):** with `floating: false` the modal renders at `top = anchor.y + anchor.height`, but on-device it lands high enough to hide the anchor's VALUE line — the "N selected" text disappears the moment the list opens (only the small floating label survives). Worse, `uiautomator dump` while the list is open returns ONLY the modal's window: the anchor row, the "+" tile and the whole screen behind it are absent, so no Maestro assertion can reach them.
+**Apply when:** you need to assert or show anything that lives on the anchor while the list is open — render it INSIDE the modal (patch a header row into the Surface) instead.
+
+### 288. `adb install -r` of a large APK through the WSL→Windows adb server can corrupt the stream — use `--no-streaming`
+**Problem (GH-403):** installing the 236 MB debug APK failed with `INSTALL_PARSE_FAILED_NO_CERTIFICATES: … SHA-256 digest of contents did not verify`, which reads like a signing problem but is not: the same file installed fine with `adb install -r --no-streaming <apk>` (push install), and `md5sum` confirmed the local file was intact.
+**Apply when:** a fresh debug APK "fails to verify" on install — retry with `--no-streaming` before rebuilding or re-signing anything.
+
+### 289. Another worker's adb filter proxy on 127.0.0.1:5037 makes YOUR device invisible to Maestro — and this maestro build has no `--host`
+**Problem (GH-403):** every flow died with `IOException: Command failed (host:transport:R5CN30HWZFN): device 'R5CN30HWZFN' not found` while plain `adb -s R5CN30HWZFN` worked. `maestro --help` on the bundled 2.0.9-ports build lists NO `--host` option, so `run-maestro-from-wsl.sh`'s `--host <resolv-ip>` is inert and dadb always talks to `localhost:5037` — which was a *finished* worker's proxy (`--serial emulator-5554`), filtering our serial out of `host:devices`.
+**Working solution:** `ss -ltnp | grep 5037` + `ps -p <pid> -o cmd` identifies the owning run dir. Confirm the owner is done (`status.json` + a stale `worker.stdout.log`) and that no maestro/java process is live, then replace it with your own proxy for your serial. Expect to have to do this every run on a multi-worker host.
+**Apply when:** maestro reports "device not found" for a serial that `adb -s` reaches fine.
+
+### 290. A physical device vanishing from `adb devices` can be a dead USB link — check Windows PnP before touching the adb server
+**Problem (GH-403):** R5CN30HWZFN disappeared from the Windows adb server mid-run and never came back. Before restarting the shared adb server (which would have disrupted two other workers' emulators for nothing), `powershell.exe -Command "Get-PnpDevice -PresentOnly | Where-Object { \$_.InstanceId -like 'USB*' }"` showed `Error  USB  Unbekanntes USB-Gerät (Fehler beim Anfordern einer Gerätebeschreibung.)` — the phone is still plugged in but its USB descriptor request failed. No adb-level action fixes that; it needs a physical re-plug (or an elevated `Disable-PnpDevice`/`Enable-PnpDevice`, and the WSL interop shell is NOT elevated).
+**Apply when:** an assigned REAL device drops off the bus — this check tells you in ~30 s whether a server restart could possibly help, and gives the user an actionable "please re-plug the phone" instead of a vague block.
+
+### 291. Nothing inside `RangeSwiper` reaches the Android a11y tree — the whole training-detail screen is invisible to Maestro
+**Problem (GH-403):** on the training-detail screen `uiautomator dump` returns ONLY the header and the bottom navigation — no `Plan`/`Train`/`Analysis` tab bar, no `training-plan-mode-button`, no "Plan new Training", no "+" tile, no exercise cards. Maestro sees exactly the same, so `assertVisible`/`tapOn` by id or text fail there even though the elements are plainly on screen. The tab content is NOT hidden by any a11y prop (there is not a single `importantForAccessibility` / `accessibilityElementsHidden` in `app/`); it sits under `RangeSwiper`'s `Animated.View` row, which is laid out at a large negative `left` and dragged back into view by a reanimated `translateX` — the dump prunes it as out-of-bounds. The same dump on the Training HOME screen (no RangeSwiper) is complete.
+**Working solution:** address those elements with `tapOn: point: 'X%,Y%'`. The dropdown/modal itself is an RN `Modal`, i.e. its own window, and IS fully dumpable — put every value assertion there.
+**Apply when:** a flow fails with "element not found" on the training-detail screen. Dump first; if you only see header + bottom nav, stop hunting for testIDs.
+
+### 292. `tapOn` on a TextInput's PLACEHOLDER text reaches the element but never focuses it — `inputText` is then silently dropped
+**Problem (GH-403):** `- tapOn: 'Search'` + `- inputText: 'Butter'` both reported COMPLETED, yet the field stayed empty and the list unfiltered; `uiautomator` showed the EditText with `focused="false"`. A plain `adb shell input tap <same centre>` DID focus it, so it is not a coordinate problem.
+**Working solution:** address the input by id (`- tapOn: {id: 'search-bar'}`). Verify with `grep -o '<node[^>]*resource-id="<id>"[^>]*>' dump.xml | grep -o 'focused="[^"]*"'` before blaming the keyboard.
+**Apply when:** a Maestro `inputText` produces no text and every step still says COMPLETED.
+
+### 293. Maestro anchors its text regex — seeded names with a trailing space never match
+**Observation (GH-403):** `assertVisible: 'Butterfly'` fails against the seeded exercise, because `baseline.gains` stores it as `"Butterfly "` WITH a trailing space (same for `"Reverse butterfly "`, `"Cable row close pronated "`). Maestro matches the FULL string as a regex, so use `'Butterfly.*'` — which, being anchored at the start, still does not collide with `"Reverse butterfly "`.
+**Apply when:** an assertion fails on a name you can literally read in the screenshot — check the dump for trailing whitespace first.
+
+### 294. `00_import_baseline.yaml` could never pass: it ends on Settings and then waits for the text "Training"
+**Problem (GH-403):** the shared import flow finishes on the Settings tab, and the bottom bar renders a label ONLY for the ACTIVE tab — so the closing `extendedWaitUntil: visible: 'Training'` waits out its full 120 s and fails, even though the import itself worked (verifiable: the Training tab then shows "… D1 · 0 exercises" instead of the previous state). Any suite that `runFlow`s it inherits the failure.
+**Working solution:** wait for `'Import Data'` (still on Settings), then `tapOn: 'tab-training'`, then wait for real imported content (`'Push pull'`). Fixed in this PR for everyone.
+**Apply when:** a suite fails on "Training is visible" right after an import — the import is fine, the assertion is not.
+
+### 295. A JS-only change needs no rebuild — prove it from the Metro bundle instead
+**Observation (GH-403):** the resume round asked for a rebuild + reinstall, but the change was pure JS plus a patch-package patch, and the installed debug APK loads its bundle from Metro over `adb reverse`. `curl -s "http://127.0.0.1:$E2E_METRO_PORT/index.bundle?platform=android&dev=true&minify=false" -o /tmp/b.js` then `grep -c <your new identifier> /tmp/b.js` proves in ~30 s that the running app really serves the change — cheaper and more direct than an 11-minute `assembleDebug`. Note RN resolves this package via `"react-native": "src/index"`, so the patch must land in `src/`, not just `lib/`.
+**Apply when:** you are told to rebuild for a change that touches no native code.

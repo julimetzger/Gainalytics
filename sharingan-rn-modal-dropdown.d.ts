@@ -21,6 +21,13 @@ declare module 'sharingan-rn-modal-dropdown' {
     enableAvatar?: boolean;
     multiline?: boolean;
     hideChip?: boolean;
+    onBlur?: () => void;
+    /** patches/: parent-controlled close (GH-324). */
+    open?: boolean;
+    /** patches/: parent-controlled open (GH-403). */
+    autoOpen?: boolean;
+    /** patches/: render the "x selected" counter as the list's header row (GH-403). */
+    selectionHeader?: boolean;
   }
 
   export const MultiselectDropdown: React.ComponentType<MultiselectDropdownProps>;
