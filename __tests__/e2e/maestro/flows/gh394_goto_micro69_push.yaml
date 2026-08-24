@@ -94,8 +94,8 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: '.*Push pull upper lower.*'
 
 # Switch to the "Train" sub-tab (inside the pane -> position tap).
-# GH-401: the sub-tab carries the only "Start Training" control; it is absent
-# once the training is already running, so both branches are still covered.
+# GH-401: the sub-tab carries the only "Start Training" control now. The guard
+# below keys off the session timer, so an already-running training is skipped.
 - tapOn:
     point: '50%,14%'
     retryTapIfNoChange: false
@@ -103,11 +103,17 @@ appId: com.powerliftingworkoutplanner
     timeout: 5000
 - runFlow:
     when:
-      visible: 'Start Training'
+      notVisible:
+        id: 'header-session-timer'
     commands:
-      - tapOn: 'Start Training'
+      # The Start button is inside the a11y-invisible pane (agent-memory #206),
+      # so it is tapped by position; the session timer proves it worked.
+      - tapOn:
+          point: '50%,21%'
+          retryTapIfNoChange: false
       - extendedWaitUntil:
-          visible: 'Training started!'
+          visible:
+            id: 'header-session-timer'
           timeout: 30000
 - tapOn:
     point: '50%,14%'

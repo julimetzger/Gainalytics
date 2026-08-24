@@ -103,18 +103,27 @@ appId: com.powerliftingworkoutplanner
 - assertNotVisible: 'Start Training'
 - takeScreenshot: gh340_plan_kebab_no_duplicate_start
 # Close the kebab and start the training from the Train tab, which is where the
-# one real start control now lives.
+# one real start control now lives. The training pane is not exposed to the
+# accessibility tree (agent-memory #206), so the sub-tab strip and the Start
+# button are driven by position; the proof is the session timer in the header,
+# which only exists while the training is STARTED and IS readable.
 - tapOn:
     id: 'overflow-scrim'
+- waitForAnimationToEnd:
+    timeout: 5000
 - tapOn:
     point: '50%,14%'
     retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible: 'Start Training'
-    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 5000
 - takeScreenshot: gh340_train_tab_start_training_visible
-- tapOn: 'Start Training'
+- tapOn:
+    point: '50%,21%'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
-    visible: 'Training started!'
-    timeout: 15000
+    visible:
+      id: 'header-session-timer'
+    timeout: 30000
+- assertVisible:
+    id: 'header-session-timer'
 - takeScreenshot: gh340_start_training_tapped
