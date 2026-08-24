@@ -1,0 +1,84 @@
+appId: com.powerliftingworkoutplanner
+name: GH-405 theme colour wheel
+---
+# Proves, in order:
+#  * the three built-in palettes are still one tap away and the applied value changes
+#  * the colour wheel dialog opens from Settings
+#  * a freely picked colour is applied and reflected immediately
+#  * the picked colour survives an app restart
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      text: "tab-settings"
+    timeout: 120000
+- tapOn:
+    text: "tab-settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-custom-theme-color-button"
+    timeout: 30000
+- takeScreenshot: gh405-01-settings-before
+
+# --- built-in palettes stay one tap away -------------------------------------
+- tapOn:
+    text: "Green"
+- assertVisible:
+    text: "Theme colour Green"
+- takeScreenshot: gh405-02-builtin-green
+- tapOn:
+    text: "Purple"
+- assertVisible:
+    text: "Theme colour Purple"
+- tapOn:
+    text: "Blue"
+- assertVisible:
+    text: "Theme colour Blue"
+
+# --- the colour wheel dialog --------------------------------------------------
+- tapOn:
+    id: "settings-custom-theme-color-button"
+- extendedWaitUntil:
+    visible: "Pick a theme colour"
+    timeout: 15000
+- assertVisible:
+    id: "theme-color-wheel"
+- assertVisible:
+    id: "theme-color-brightness-slider"
+- takeScreenshot: gh405-03-wheel-dialog
+
+# --- pick a specific colour and verify the resulting value ---------------------
+- tapOn:
+    id: "theme-color-hex-input"
+- eraseText
+- inputText: "#E91E63"
+- hideKeyboard
+- assertVisible:
+    id: "theme-color-preview-hex"
+    text: "#E91E63"
+- takeScreenshot: gh405-04-wheel-picked-E91E63
+- tapOn:
+    id: "theme-color-apply-button"
+
+# The applied colour is reflected immediately, without a restart.
+- assertNotVisible: "Pick a theme colour"
+- assertVisible:
+    text: "Theme colour #E91E63"
+- takeScreenshot: gh405-05-applied-E91E63
+
+# --- the picked colour survives an app restart --------------------------------
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      text: "tab-settings"
+    timeout: 120000
+- tapOn:
+    text: "tab-settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-custom-theme-color-button"
+    timeout: 30000
+- assertVisible:
+    text: "Theme colour #E91E63"
+- takeScreenshot: gh405-06-after-restart-E91E63

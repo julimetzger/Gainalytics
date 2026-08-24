@@ -9,6 +9,26 @@ describe('settingsReducer', () => {
     });
   });
 
+  it('stores a built-in palette name', () => {
+    const initialState = {mode: 'dark', palette: 'blue'} satisfies AppSettings;
+
+    expect(settingsReducer(initialState, {type: 'SET_PALETTE', palette: 'green'}).palette).toBe('green');
+  });
+
+  it('stores a custom colour picked from the wheel', () => {
+    const initialState = {mode: 'dark', palette: 'blue'} satisfies AppSettings;
+
+    expect(settingsReducer(initialState, {type: 'SET_PALETTE', palette: '#E91E63'}).palette).toBe('#E91E63');
+  });
+
+  it('leaves an existing user\'s palette untouched for unrelated actions', () => {
+    const existingUser = {mode: 'light', palette: 'green'} satisfies AppSettings;
+
+    const next = settingsReducer(existingUser, {type: 'TOGGLE_MODE'});
+
+    expect(next.palette).toBe('green');
+  });
+
   it('persists the video analysis filter expansion state', () => {
     const initialState = {
       mode: 'dark',

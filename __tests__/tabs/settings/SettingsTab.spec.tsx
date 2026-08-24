@@ -198,6 +198,20 @@ jest.mock('react-native-paper', () => {
   };
 
   return {
+    useTheme: () => ({
+      dark: false,
+      colors: {
+        primary: '#415F91',
+        onPrimary: '#FFFFFF',
+        primaryContainer: '#D6E3FF',
+        onPrimaryContainer: '#284777',
+        surface: '#F9F9FF',
+        onSurface: '#191C20',
+        surfaceVariant: '#E0E2EC',
+        onSurfaceVariant: '#44474E',
+        outline: '#74777F',
+      },
+    }),
     Button: ({children, onPress, disabled}: {children: React.ReactNode; onPress?: () => void; disabled?: boolean}) => (
       <TouchableOpacity
         testID={`button-${String(children).replace(/\s+/g, '-')}`}
@@ -364,6 +378,50 @@ describe('SettingsTab', () => {
     expect(mockToggleShowTimer).toHaveBeenCalledTimes(1);
     expect(mockToggleShowToasts).toHaveBeenCalledTimes(1);
     expect(mockSetPalette).toHaveBeenCalledWith('green');
+  });
+
+  it('keeps the three built-in palettes one tap away', () => {
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+
+    for (const palette of ['blue', 'green', 'purple']) {
+      fireEvent.press(getByTestId(`radio-${palette}`));
+      expect(mockSetPalette).toHaveBeenCalledWith(palette);
+    }
+  });
+
+  it('applies a custom colour picked from the wheel dialog', () => {
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId, queryByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+
+    // The button is labelled with the current palette, so it shows "Blue" here.
+    expect(queryByTestId('theme-color-hex-input')).toBeNull();
+    fireEvent.press(getByTestId('button-Blue'));
+
+    fireEvent.changeText(getByTestId('theme-color-hex-input'), '#E91E63');
+    fireEvent.press(getByTestId('button-Apply'));
+
+    expect(mockSetPalette).toHaveBeenCalledWith('#E91E63');
+  });
+
+  it('labels the custom colour button with the applied hex', () => {
+    mockedUseSettings.mockReturnValue({
+      mode: 'light',
+      palette: '#e91e63',
+      toggles: {},
+      localNotification: {},
+    });
+
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+
+    expect(getByTestId('button-#E91E63')).toBeTruthy();
   });
 
   it('imports data through the dialog and dispatches full import', async () => {
