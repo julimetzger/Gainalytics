@@ -38,8 +38,11 @@ appId: com.powerliftingworkoutplanner
 - takeScreenshot: 'gh312_v6_01_video_analyses_list'
 - tapOn:
     id: 'video-analysis-row-4'
+# The detail header now identifies the set instead of the running number (GH-393),
+# so wait on the status line, which is stable for any analysis.
 - extendedWaitUntil:
-    visible: 'Analysis #4'
+    visible:
+      id: 'video-analysis-detail-status'
     timeout: 30000
 - takeScreenshot: 'gh312_v6_02_analysis4_detail'
 # Scroll past the playback overlay with percentage edge swipes: center gestures
