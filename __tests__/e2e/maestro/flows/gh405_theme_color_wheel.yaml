@@ -66,7 +66,45 @@ name: GH-405 theme colour wheel
     id: "theme-color-wheel"
 - assertVisible:
     id: "theme-color-brightness-slider"
+- assertVisible:
+    id: "theme-color-scroll"
 - takeScreenshot: gh405-04-wheel-dialog
+
+# --- an unparseable hex must not be silently applied ---------------------------
+# Typing an incomplete value leaves the wheel on the last VALID colour. Applying
+# then would confirm a colour the field no longer shows, so Apply goes disabled.
+# Remember the colour the dialog opened on, so the check below compares the real
+# resulting value rather than a hard-coded hex (it differs in light vs dark).
+- copyTextFrom:
+    id: "theme-color-preview-hex"
+- evalScript: ${output.lastValidHex = maestro.copiedText}
+
+- tapOn:
+    id: "theme-color-hex-input"
+- eraseText
+- inputText: "#00FF"
+- hideKeyboard
+- assertVisible:
+    id: "theme-color-hex-error"
+    text: "Not a valid colour.*"
+- assertVisible:
+    id: "theme-color-apply-button"
+    enabled: false
+- takeScreenshot: gh405-04b-invalid-hex-apply-disabled
+
+# the preview did NOT follow the invalid text — it still holds the last valid colour
+- copyTextFrom:
+    id: "theme-color-preview-hex"
+- evalScript: ${output.stillLastValid = maestro.copiedText === output.lastValidHex}
+- assertTrue: ${output.stillLastValid}
+
+# pressing Apply changes nothing: the dialog is still open afterwards
+- tapOn:
+    id: "theme-color-apply-button"
+- assertVisible: "Pick a theme colour"
+- assertVisible:
+    id: "theme-color-hex-error"
+    text: "Not a valid colour.*"
 
 # --- pick a specific colour and verify the resulting value ---------------------
 - tapOn:
