@@ -2049,3 +2049,26 @@ For order, assert the sequence: `getAllByText(/^(Plan|Train|Analysis)$/).map(n =
 ### 290. A physical device vanishing from `adb devices` can be a dead USB link — check Windows PnP before touching the adb server
 **Problem (GH-403):** R5CN30HWZFN disappeared from the Windows adb server mid-run and never came back. Before restarting the shared adb server (which would have disrupted two other workers' emulators for nothing), `powershell.exe -Command "Get-PnpDevice -PresentOnly | Where-Object { \$_.InstanceId -like 'USB*' }"` showed `Error  USB  Unbekanntes USB-Gerät (Fehler beim Anfordern einer Gerätebeschreibung.)` — the phone is still plugged in but its USB descriptor request failed. No adb-level action fixes that; it needs a physical re-plug (or an elevated `Disable-PnpDevice`/`Enable-PnpDevice`, and the WSL interop shell is NOT elevated).
 **Apply when:** an assigned REAL device drops off the bus — this check tells you in ~30 s whether a server restart could possibly help, and gives the user an actionable "please re-plug the phone" instead of a vague block.
+
+### 291. Nothing inside `RangeSwiper` reaches the Android a11y tree — the whole training-detail screen is invisible to Maestro
+**Problem (GH-403):** on the training-detail screen `uiautomator dump` returns ONLY the header and the bottom navigation — no `Plan`/`Train`/`Analysis` tab bar, no `training-plan-mode-button`, no "Plan new Training", no "+" tile, no exercise cards. Maestro sees exactly the same, so `assertVisible`/`tapOn` by id or text fail there even though the elements are plainly on screen. The tab content is NOT hidden by any a11y prop (there is not a single `importantForAccessibility` / `accessibilityElementsHidden` in `app/`); it sits under `RangeSwiper`'s `Animated.View` row, which is laid out at a large negative `left` and dragged back into view by a reanimated `translateX` — the dump prunes it as out-of-bounds. The same dump on the Training HOME screen (no RangeSwiper) is complete.
+**Working solution:** address those elements with `tapOn: point: 'X%,Y%'`. The dropdown/modal itself is an RN `Modal`, i.e. its own window, and IS fully dumpable — put every value assertion there.
+**Apply when:** a flow fails with "element not found" on the training-detail screen. Dump first; if you only see header + bottom nav, stop hunting for testIDs.
+
+### 292. `tapOn` on a TextInput's PLACEHOLDER text reaches the element but never focuses it — `inputText` is then silently dropped
+**Problem (GH-403):** `- tapOn: 'Search'` + `- inputText: 'Butter'` both reported COMPLETED, yet the field stayed empty and the list unfiltered; `uiautomator` showed the EditText with `focused="false"`. A plain `adb shell input tap <same centre>` DID focus it, so it is not a coordinate problem.
+**Working solution:** address the input by id (`- tapOn: {id: 'search-bar'}`). Verify with `grep -o '<node[^>]*resource-id="<id>"[^>]*>' dump.xml | grep -o 'focused="[^"]*"'` before blaming the keyboard.
+**Apply when:** a Maestro `inputText` produces no text and every step still says COMPLETED.
+
+### 293. Maestro anchors its text regex — seeded names with a trailing space never match
+**Observation (GH-403):** `assertVisible: 'Butterfly'` fails against the seeded exercise, because `baseline.gains` stores it as `"Butterfly "` WITH a trailing space (same for `"Reverse butterfly "`, `"Cable row close pronated "`). Maestro matches the FULL string as a regex, so use `'Butterfly.*'` — which, being anchored at the start, still does not collide with `"Reverse butterfly "`.
+**Apply when:** an assertion fails on a name you can literally read in the screenshot — check the dump for trailing whitespace first.
+
+### 294. `00_import_baseline.yaml` could never pass: it ends on Settings and then waits for the text "Training"
+**Problem (GH-403):** the shared import flow finishes on the Settings tab, and the bottom bar renders a label ONLY for the ACTIVE tab — so the closing `extendedWaitUntil: visible: 'Training'` waits out its full 120 s and fails, even though the import itself worked (verifiable: the Training tab then shows "… D1 · 0 exercises" instead of the previous state). Any suite that `runFlow`s it inherits the failure.
+**Working solution:** wait for `'Import Data'` (still on Settings), then `tapOn: 'tab-training'`, then wait for real imported content (`'Push pull'`). Fixed in this PR for everyone.
+**Apply when:** a suite fails on "Training is visible" right after an import — the import is fine, the assertion is not.
+
+### 295. A JS-only change needs no rebuild — prove it from the Metro bundle instead
+**Observation (GH-403):** the resume round asked for a rebuild + reinstall, but the change was pure JS plus a patch-package patch, and the installed debug APK loads its bundle from Metro over `adb reverse`. `curl -s "http://127.0.0.1:$E2E_METRO_PORT/index.bundle?platform=android&dev=true&minify=false" -o /tmp/b.js` then `grep -c <your new identifier> /tmp/b.js` proves in ~30 s that the running app really serves the change — cheaper and more direct than an 11-minute `assembleDebug`. Note RN resolves this package via `"react-native": "src/index"`, so the patch must land in `src/`, not just `lib/`.
+**Apply when:** you are told to rebuild for a change that touches no native code.
