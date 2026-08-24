@@ -179,6 +179,7 @@ jest.mock('react-native-paper', () => {
   const Dialog = ({children, visible}: {children: React.ReactNode; visible: boolean}) => (visible ? <View>{children}</View> : null);
   Dialog.Title = ({children}: {children: React.ReactNode}) => <Text>{children}</Text>;
   Dialog.Content = ({children}: {children: React.ReactNode}) => <View>{children}</View>;
+  Dialog.ScrollArea = ({children}: {children: React.ReactNode}) => <View>{children}</View>;
   Dialog.Actions = ({children}: {children: React.ReactNode}) => <View>{children}</View>;
 
   const RadioButton = ({value}: {value: string}) => (
@@ -406,6 +407,21 @@ describe('SettingsTab', () => {
     fireEvent.press(getByTestId('button-Apply'));
 
     expect(mockSetPalette).toHaveBeenCalledWith('#E91E63');
+  });
+
+  it('does not apply a palette when the hex field holds an invalid value', () => {
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+    fireEvent.press(getByTestId('button-Blue'));
+
+    // Applying here would have silently confirmed the last valid colour instead
+    // of the one the field shows.
+    fireEvent.changeText(getByTestId('theme-color-hex-input'), '#00FF');
+    fireEvent.press(getByTestId('button-Apply'));
+
+    expect(mockSetPalette).not.toHaveBeenCalled();
   });
 
   it('labels the custom colour button with the applied hex', () => {
