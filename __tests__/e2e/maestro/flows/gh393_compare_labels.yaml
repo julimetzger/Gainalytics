@@ -90,24 +90,20 @@ appId: com.powerliftingworkoutplanner
     timeout: 15000
 - tapOn: 'Video Analyses'
 - waitForAnimationToEnd:
-    timeout: 5000
-# The drawer routinely stays up over the list after the navigation. Tapping a row
-# while it is still there only hits the scrim and silently does nothing, so close
-# it first. The toggle sits underneath the drawer and tapping the uncovered strip
-# on the right does not dismiss it either — the back button does.
-- repeat:
-    while:
-      visible: 'Metrics Overview'
-    commands:
-      - back
-      - waitForAnimationToEnd:
-          timeout: 5000
-- extendedWaitUntil:
-    notVisible: 'Metrics Overview'
-    timeout: 20000
+    timeout: 10000
 - extendedWaitUntil:
     visible: 'Import Video'
     timeout: 30000
+# The Analyse drawer stays up over the list for several seconds after this
+# navigation, and while it is up the rows are not in the view hierarchy AT ALL —
+# a tap on a row then fails with "element not found". Do NOT press back to
+# dismiss the drawer: with the list already mounted, back pops the whole screen
+# instead of closing the drawer. Waiting for the row itself is what makes this
+# deterministic — the drawer clears on its own within a few seconds.
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-2'
+    timeout: 60000
 - tapOn:
     id: 'video-analysis-row-2'
 - extendedWaitUntil:
@@ -177,13 +173,10 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: 'Import Video'
     timeout: 30000
-- repeat:
-    while:
-      visible: 'Metrics Overview'
-    commands:
-      - back
-      - waitForAnimationToEnd:
-          timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-1'
+    timeout: 60000
 - tapOn:
     id: 'video-analysis-row-1'
 - extendedWaitUntil:

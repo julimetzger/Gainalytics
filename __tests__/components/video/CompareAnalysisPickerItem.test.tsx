@@ -15,11 +15,16 @@ jest.mock('../../../app/redux/Workout/use/useWorkoutById', () => ({
 
 jest.mock('react-native-paper', () => {
   const React = require('react');
-  const {Text} = require('react-native');
+  const {Text, TouchableOpacity} = require('react-native');
 
   return {
     Text: ({children, testID}: {children: React.ReactNode; testID?: string}) => <Text testID={testID}>{children}</Text>,
-    useTheme: () => ({colors: {outlineVariant: '#343845'}}),
+    TouchableRipple: ({children, testID, onPress}: {children: React.ReactNode; testID?: string; onPress?: () => void}) => (
+      <TouchableOpacity testID={testID} onPress={onPress}>
+        {children}
+      </TouchableOpacity>
+    ),
+    useTheme: () => ({colors: {outlineVariant: '#343845', onSurfaceVariant: '#c9ccd6'}}),
   };
 });
 
