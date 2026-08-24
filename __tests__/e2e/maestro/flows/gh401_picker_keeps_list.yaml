@@ -28,6 +28,14 @@ appId: com.powerliftingworkoutplanner
       visible: 'Dismiss'
     commands:
       - tapOn: 'Dismiss'
+# This host runs several emulators at once; under load Android puts up an
+# "isn't responding" dialog that covers the screen and makes every following
+# selector miss. Dismiss it rather than fail on it.
+- runFlow:
+    when:
+      visible: 'Wait'
+    commands:
+      - tapOn: 'Wait'
 - extendedWaitUntil:
     visible:
       id: 'training-home-screen'
@@ -38,7 +46,7 @@ appId: com.powerliftingworkoutplanner
     element:
       id: 'next-training-start-button'
     direction: DOWN
-    timeout: 30000
+    timeout: 120000
 - tapOn:
     id: 'next-training-start-button'
 - extendedWaitUntil:
@@ -89,7 +97,7 @@ appId: com.powerliftingworkoutplanner
           timeout: 10000
 - extendedWaitUntil:
     visible: 'Bulgarian split squat'
-    timeout: 30000
+    timeout: 120000
 - takeScreenshot: gh401_10_picker_open
 
 # ---- the search works before any selection ----

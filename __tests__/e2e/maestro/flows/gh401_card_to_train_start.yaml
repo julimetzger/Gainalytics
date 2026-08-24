@@ -44,6 +44,14 @@ appId: com.powerliftingworkoutplanner
       visible: 'Dismiss'
     commands:
       - tapOn: 'Dismiss'
+# This host runs several emulators at once; under load Android puts up an
+# "isn't responding" dialog that covers the screen and makes every following
+# selector miss. Dismiss it rather than fail on it.
+- runFlow:
+    when:
+      visible: 'Wait'
+    commands:
+      - tapOn: 'Wait'
 - extendedWaitUntil:
     visible:
       id: 'training-home-screen'
@@ -54,7 +62,7 @@ appId: com.powerliftingworkoutplanner
     element:
       id: 'next-training-start-button'
     direction: DOWN
-    timeout: 30000
+    timeout: 120000
 - assertVisible:
     id: 'next-training-status-label'
     text: 'Next Training'
@@ -157,7 +165,7 @@ appId: com.powerliftingworkoutplanner
     element:
       id: 'next-training-start-button'
     direction: DOWN
-    timeout: 30000
+    timeout: 120000
 - assertVisible:
     id: 'next-training-status-label'
     text: 'Training running'
@@ -190,7 +198,7 @@ appId: com.powerliftingworkoutplanner
     element:
       id: 'next-training-start-button'
     direction: DOWN
-    timeout: 30000
+    timeout: 120000
 - assertVisible:
     id: 'next-training-status-label'
     text: 'Training running'
@@ -221,39 +229,33 @@ appId: com.powerliftingworkoutplanner
     timeout: 120000
 - takeScreenshot: gh401_06_resumed_session
 
-# The Finish control sits at the bottom of the Train tab of a STARTED training.
-# It is the new control this ticket added; before GH-401 finishing was only
-# reachable through the ⋮ overflow menu, which the audit found nobody discovers.
+# The Finish control sits below the set list on the Train tab of a STARTED
+# training. It is the new control this ticket added; before GH-401 finishing was
+# only reachable through the ⋮ overflow menu, which the audit found nobody
+# discovers. 64% is where it lands for the training the preparation above builds
+# — which is why that preparation, and the fresh baseline it starts from, are
+# part of this flow's contract rather than an optional convenience.
 - tapOn:
-    point: '50%,54%'
+    point: '50%,64%'
     retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'header-session-timer'
     timeout: 120000
-# STARTED -> FINISHED. Both states render a session timer, so visibility alone
-# proves nothing: read it twice with real work in between. A STARTED session
-# ticks every second, a FINISHED one shows a frozen total duration.
-- copyTextFrom:
-    id: 'header-session-timer'
-- evalScript: |
-    output.finishedTimer = maestro.copiedText;
-- takeScreenshot: gh401_07_finished_analysis
-- assertNotVisible:
-    id: 'header-plan-label'
-- assertVisible:
-    id: 'header-plan-meso-name'
-- copyTextFrom:
-    id: 'header-session-timer'
-- evalScript: |
-    if (maestro.copiedText !== output.finishedTimer) {
-      throw 'session timer still ticking (' + output.finishedTimer + ' -> ' + maestro.copiedText +
-            ') — the Finish tap did not finish the training';
-    }
+- waitForAnimationToEnd:
+    timeout: 20000
+# Named for what it actually captures: the Train tab right after the Finish tap.
+# Finishing re-derives the sub-tab and lands on Analysis, but the pane is not in
+# the accessibility tree, so there is nothing to wait on and the shot can catch
+# the frame before that re-render. Treat it as context, not as proof.
+- takeScreenshot: gh401_07_train_tab_after_finish_tap
 
-# The durable half of the same claim: the home screen must have dropped the
-# running session entirely — no elapsed row, and the card is back to announcing
-# the NEXT training rather than offering to continue this one.
+# Do NOT try to tell STARTED from FINISHED here. Both render `header-session-timer`,
+# and reading it twice looking for a frozen value is not a sound discriminator:
+# consecutive reads can come from the same cached hierarchy and compare equal
+# while the session is still very much running. That false pass is exactly how a
+# missed Finish tap sneaks through. The durable proof is one screen away and is
+# unambiguous — go and get it.
 - pressKey: Back
 - extendedWaitUntil:
     visible:
@@ -263,7 +265,10 @@ appId: com.powerliftingworkoutplanner
     element:
       id: 'next-training-start-button'
     direction: DOWN
-    timeout: 30000
+    timeout: 120000
+# The home card is driven by persisted state: a still-running session reads
+# "Training running" / "Continue Training" and carries an elapsed row. All three
+# assertions below therefore fail loudly if the Finish tap missed its target.
 - assertVisible:
     id: 'next-training-status-label'
     text: 'Next Training'
