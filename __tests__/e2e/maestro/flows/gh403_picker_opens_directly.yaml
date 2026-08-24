@@ -5,17 +5,25 @@ appId: com.powerliftingworkoutplanner
 #
 # Before the fix the first tap only revealed a grey, heading-looking row
 # ("Select Exercises for your Training / 0 selected") and a SECOND tap on that
-# row was needed to get the actual list — this flow fails on the first
-# `assertVisible: 'Search'` when run against the pre-fix bundle, and the
-# screenshot `gh403_02_after_one_tap` shows the difference.
+# row was needed to get the actual list. This flow asserts the list is up
+# (search field, "N selected" header, exercise rows) after ONE tap on the tile.
 #
-# Selector notes:
-#  * While the dropdown modal is open, uiautomator/Maestro only see the modal's
-#    own window — the anchor row underneath is NOT in the hierarchy. The
-#    "N selected" counter is therefore asserted from the list's own header row
-#    inside the modal, not from the anchor.
+# Selector notes — read before editing:
+#  * The training-detail screen renders its tabs inside `RangeSwiper`, whose row
+#    is an Animated.View moved by a reanimated translateX. Nothing inside that
+#    row reaches the Android a11y tree: `uiautomator dump` on this screen returns
+#    only the header and the bottom navigation. So `training-plan-mode-button`,
+#    the "+" tile and the planned-exercise cards CANNOT be addressed by id/text
+#    from Maestro — those two taps have to be `point` taps.
+#  * The dropdown itself is an RN `Modal`, i.e. its own window, and therefore IS
+#    fully visible to Maestro. Every assertion below runs against that window.
+#  * The "N selected" counter is asserted from the list's own header row inside
+#    the modal (the `selectionHeader` this ticket adds), not from the anchor row
+#    behind it — the modal covers the anchor.
+#  * GH-263 Item 1 closes the picker as soon as the FIRST exercise is picked
+#    after "Plan new Training". Select/deselect is therefore exercised on the
+#    SECOND opening of the list, which is also a second proof of the one-tap fix.
 #  * Never tap a search-FILTERED row (memory #256): those taps never commit.
-#    Selection is only exercised on the unfiltered list.
 - launchApp:
     clearState: false
 - runFlow:
@@ -28,7 +36,7 @@ appId: com.powerliftingworkoutplanner
       id: 'training-home-screen'
     timeout: 120000
 
-# Open the next due training and switch its Plan tab into plan mode.
+# Open the next due training (this one has no exercises yet after the import).
 - tapOn:
     id: 'next-training-start-button'
 - runFlow:
@@ -42,55 +50,89 @@ appId: com.powerliftingworkoutplanner
     commands:
       - tapOn: 'Don’t allow'
 - extendedWaitUntil:
-    visible: 'Plan new Training'
+    visible:
+      id: 'header-plan-meso-name'
     timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: gh403_01_training_detail
+
+# Enter plan mode ("Plan new Training" — inside the swiper, so a point tap).
 - tapOn:
-    id: 'training-plan-mode-button'
+    point: '50%,40%'
 - extendedWaitUntil:
     visible:
-      id: 'training-add-exercise-box'
-    timeout: 30000
-- assertVisible: 'Pick an exercise from the picker above to start planning.'
-- takeScreenshot: gh403_01_plan_before_tap
+      id: 'header-plan-done-button'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: gh403_02_plan_mode_before_tap
 
 # --- the single tap under test -------------------------------------------
+# The dashed "+" tile is the first cell of the exercise strip.
 - tapOn:
-    id: 'training-add-exercise-box'
+    point: '7%,17%'
+- extendedWaitUntil:
+    visible: '0 selected'
+    timeout: 30000
+- takeScreenshot: gh403_03_after_one_tap
+
+# ONE tap is enough: the counter header, the search field and the list rows are
+# all up, with no intermediate row to tap.
+- assertVisible: '0 selected'
+- assertVisible: 'Search'
+- assertVisible: '45 degree crunch machine free'
+- assertVisible: 'Adductor'
+
+# Picking the first exercise closes the picker (GH-263 Item 1) and puts the
+# exercise into the training.
+- tapOn: 'Adductor'
+- extendedWaitUntil:
+    notVisible: 'Search'
+    timeout: 30000
 - waitForAnimationToEnd:
     timeout: 5000
-- takeScreenshot: gh403_02_after_one_tap
+- takeScreenshot: gh403_04_first_exercise_in_training
 
-# ONE tap is enough: search field, counter header and the list rows are up.
-- assertVisible: 'Search'
-- assertVisible: '0 selected'
-- assertVisible: '45 degree crunch machine free'
+# --- second single tap: the "+" tile has moved one cell to the right --------
+- tapOn:
+    point: '24%,17%'
+- extendedWaitUntil:
+    visible: 'Search'
+    timeout: 30000
+# The counter proves the previous pick really landed in the training: the value
+# the dropdown renders is the training's own exercise list.
+- assertVisible: '1 selected'
+- takeScreenshot: gh403_05_second_open_one_selected
 
 # Selecting and de-selecting still work, and the header shows the real count.
-- tapOn: 'Adductor'
-- assertVisible: '1 selected'
-- tapOn: 'Adductor'
-- assertVisible: '0 selected'
-- tapOn: 'Adductor'
 - tapOn: 'B stance rdl'
 - assertVisible: '2 selected'
-- takeScreenshot: gh403_03_two_selected
+- takeScreenshot: gh403_06_two_selected
+- tapOn: 'B stance rdl'
+- assertVisible: '1 selected'
+- tapOn: 'B stance rdl'
+- assertVisible: '2 selected'
 
-# Search still filters the unfiltered list down.
-- tapOn: 'Search'
+# Search still filters the list down.
+# Address the field by id: tapping it via its placeholder text ("Search") does
+# reach the element but does not give it input focus, so `inputText` is silently
+# dropped. `id: search-bar` focuses it reliably.
+- tapOn:
+    id: 'search-bar'
+- waitForAnimationToEnd:
+    timeout: 5000
 - inputText: 'Butter'
-- assertVisible: 'Butterfly'
+- waitForAnimationToEnd:
+    timeout: 5000
+# The seeded exercise is stored as "Butterfly " WITH a trailing space, and
+# Maestro anchors its text regex — a bare 'Butterfly' does not match.
+- assertVisible: 'Butterfly.*'
 - assertNotVisible: 'Adductor'
-- takeScreenshot: gh403_04_search_filtered
+- takeScreenshot: gh403_07_search_filtered
 - eraseText: 6
-- assertVisible: 'Adductor'
-
-# Closing the list drops back to the plan screen and the picked exercises are
-# now part of the training.
-- pressKey: back
 - waitForAnimationToEnd:
     timeout: 5000
 - assertVisible: 'Adductor'
-- assertVisible: 'B stance rdl'
-- assertVisible:
-    id: 'training-add-exercise-box'
-- takeScreenshot: gh403_05_exercises_in_training
+- assertVisible: '2 selected'
+- takeScreenshot: gh403_08_search_cleared
