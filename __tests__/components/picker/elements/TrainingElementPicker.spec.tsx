@@ -25,10 +25,26 @@ jest.mock('sharingan-rn-modal-dropdown', () => {
   const {Text, TouchableOpacity, View} = require('react-native');
 
   return {
-    MultiselectDropdown: ({label, value, onChange}: {label: string; value: string[]; onChange: (value: string[]) => void}) => (
+    MultiselectDropdown: ({
+      label,
+      value,
+      onChange,
+      autoOpen,
+      selectionHeader,
+      onBlur,
+    }: {
+      label: string;
+      value: string[];
+      onChange: (value: string[]) => void;
+      autoOpen?: boolean;
+      selectionHeader?: boolean;
+      onBlur?: () => void;
+    }) => (
       <View>
         <Text testID="dropdown-label">{label}</Text>
         <Text testID="dropdown-value">{JSON.stringify(value)}</Text>
+        <Text testID="dropdown-auto-open">{String(autoOpen)}</Text>
+        <Text testID="dropdown-selection-header">{String(selectionHeader)}</Text>
         <TouchableOpacity
           testID="dropdown-change"
           onPress={() => {
@@ -36,6 +52,9 @@ jest.mock('sharingan-rn-modal-dropdown', () => {
           }}
         >
           <Text>Apply Dropdown Change</Text>
+        </TouchableOpacity>
+        <TouchableOpacity testID="dropdown-blur" onPress={() => onBlur?.()}>
+          <Text>Dismiss Dropdown</Text>
         </TouchableOpacity>
       </View>
     ),
@@ -167,6 +186,53 @@ describe('TrainingElementPicker', () => {
 
     fireEvent.press(getByTestId('toggle-picker'));
     expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  // GH-403 (UX audit M7): with openListOnShow the "+" tile must land the user
+  // straight in the list — no second tap on the anchor row.
+  describe('openListOnShow', () => {
+    it('asks the dropdown to open itself as soon as the picker becomes visible', () => {
+      const setExercise = jest.fn();
+
+      const {getByTestId, rerender} = render(
+        <TrainingElementPicker exercise={[]} setExercise={setExercise} visible={false} openListOnShow />,
+      );
+
+      // The dropdown stays mounted behind display:none while hidden, so this
+      // query has to look past RNTL's default visibility filter.
+      expect(getByTestId('dropdown-auto-open', {includeHiddenElements: true}).props.children).toBe('false');
+
+      rerender(<TrainingElementPicker exercise={[]} setExercise={setExercise} visible openListOnShow />);
+
+      expect(getByTestId('dropdown-auto-open').props.children).toBe('true');
+      expect(getByTestId('dropdown-selection-header').props.children).toBe('true');
+    });
+
+    it('retracts the picker when the list is dismissed, so no anchor row is left behind', () => {
+      const setExercise = jest.fn();
+      const onToggle = jest.fn();
+
+      const {getByTestId} = render(
+        <TrainingElementPicker exercise={[]} setExercise={setExercise} visible onToggle={onToggle} openListOnShow />,
+      );
+
+      fireEvent.press(getByTestId('dropdown-blur'));
+
+      expect(onToggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves every other call site on the untouched tap-to-open anchor', () => {
+      const setExercise = jest.fn();
+
+      const {getByTestId} = render(<TrainingElementPicker exercise={[]} setExercise={setExercise} visible />);
+
+      expect(getByTestId('dropdown-auto-open').props.children).toBe('undefined');
+      expect(getByTestId('dropdown-selection-header').props.children).toBe('undefined');
+
+      // A dismissed list must not toggle anything away either.
+      fireEvent.press(getByTestId('dropdown-blur'));
+      expect(getByTestId('dropdown-label')).toBeTruthy();
+    });
   });
 
   // Regression test for GH-127: infinite render loop caused by non-memoized selectors

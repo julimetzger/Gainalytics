@@ -37,6 +37,13 @@ appId: com.powerliftingworkoutplanner
     direction: DOWN
     timeout: 30000
 - tapOn: 'baseline.gains'
+# The import leaves the app on the Settings tab, and the bottom bar only renders a
+# label for the ACTIVE tab — so waiting for the text "Training" here never resolves.
+# Go back to the Training tab first, then wait for real imported content.
 - extendedWaitUntil:
-    visible: 'Training'
+    visible: 'Import Data'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible: 'Push pull'
     timeout: 120000
