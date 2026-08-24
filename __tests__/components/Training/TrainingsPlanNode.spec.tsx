@@ -271,3 +271,71 @@ describe('TrainingsPlanNode — overflow menu actions', () => {
     await waitFor(() => expect(getByText('Delete Training')).toBeTruthy());
   });
 });
+
+// ── GH-401 ───────────────────────────────────────────────────────────────────
+
+describe('TrainingsPlanNode — GH-401 Train tab is the single start/finish control', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('honours a requested sub-tab instead of the state default (card → Train tab)', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    // Without the request a PLANNED training would open on the Plan tab.
+    expect(queryByTestId('plan-workout')).toBeNull();
+    expect(getByTestId('train-tab-start-button')).toBeTruthy();
+  });
+
+  it('applies the requested sub-tab once and lets the state default win afterwards', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    expect(getByTestId('train-tab-start-button')).toBeTruthy();
+
+    // Finishing flips the state; FINISHED defaults to Analysis. If the request
+    // re-applied on every state change the user would be yanked back to Train.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    expect(getByTestId('trainings-overview')).toBeTruthy();
+    expect(queryByTestId('training-history')).toBeNull();
+  });
+
+  it('shows the Start Training button for a training whose state was never persisted', () => {
+    useTrainingInTrainingsPlan.mockReturnValue({...mkTraining(TrainingsState.PLANNED), state: undefined});
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    expect(getByTestId('train-tab-start-button')).toBeTruthy();
+  });
+
+  it('replaces the old "Start training to begin" dead end with a way into the Plan tab', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(undefined);
+    const {getByTestId, queryByText} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    expect(queryByText('Start training to begin')).toBeNull();
+    expect(getByTestId('train-tab-no-training-hint')).toBeTruthy();
+
+    fireEvent.press(getByTestId('train-tab-go-to-plan-button'));
+    expect(getByTestId('plan-workout')).toBeTruthy();
+  });
+
+  it('offers Finish Training on the Train tab of a STARTED training, so ⋮ is never needed', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
+    expect(getByTestId('execute-workout')).toBeTruthy();
+
+    fireEvent.press(getByTestId('train-tab-finish-button'));
+    expect(mockFinishTraining).toHaveBeenCalledWith(10, 1);
+  });
+
+  it('does not offer Finish Training while editing a started training', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} overflowVisible={true} />);
+    fireEvent.press(getByTestId('overflow-edit'));
+    expect(queryByTestId('train-tab-finish-button')).toBeNull();
+  });
+
+  it('no longer offers Start Training in the overflow menu (AC2: one place only)', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {queryByTestId, getAllByText} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" overflowVisible={true} />);
+    expect(queryByTestId('overflow-start')).toBeNull();
+    // Exactly one "Start Training" label on screen: the Train tab's button.
+    expect(getAllByText('Start Training')).toHaveLength(1);
+  });
+});

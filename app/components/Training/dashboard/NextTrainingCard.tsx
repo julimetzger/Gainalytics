@@ -1,7 +1,8 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Button, Card, Text, useTheme} from 'react-native-paper';
 import {useSelector} from 'react-redux';
+import {TrainingsState} from '../../../models/TrainingsState';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {
   getLocalMicro,
@@ -56,6 +57,36 @@ const useTopSetForExerciseInMicro = (
     return undefined;
   });
 
+/** "1:07:04" once past an hour, "07:04" below it. */
+export const formatElapsed = (elapsedMs: number): string => {
+  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const mm = String(minutes).padStart(2, '0');
+  const ss = String(seconds).padStart(2, '0');
+  return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
+};
+
+/**
+ * GH-401 (H4): a session that is already STARTED must read as running — the app
+ * knows the state, it just never showed it. Ticks once a second while mounted.
+ */
+const useElapsedSince = (start: Date | string | undefined, active: boolean): string | undefined => {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!active) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [active]);
+
+  if (!active || start === undefined) return undefined;
+  const startedAt = new Date(start).getTime();
+  if (Number.isNaN(startedAt)) return undefined;
+  return formatElapsed(now - startedAt);
+};
+
 const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigation}: NextTrainingCardProps) => {
   const theme = useTheme();
 
@@ -84,6 +115,11 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigat
   const prevTopSet1 = useTopSetForExerciseInMicro(plan, exerciseId1, nextTrainingNum ?? 0, nextMicro);
   const prevTopSet2 = useTopSetForExerciseInMicro(plan, exerciseId2, nextTrainingNum ?? 0, nextMicro);
 
+  const isRunning = training?.state === TrainingsState.STARTED;
+  const elapsed = useElapsedSince(training?.start, isRunning);
+
+  // GH-401 (H1): this button navigates, it never starts a training. It is named
+  // after where it takes you; the real start control lives in the Train tab.
   const handleStart = () => {
     if (isComplete || nextMicro === undefined || nextTrainingNum === undefined) {
       // Plan complete: route to first slot to allow restart / new meso
@@ -102,7 +138,7 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigat
     }
     navigation.navigate({
       name: 'TrainingPlan',
-      params: {trainingsPlan: plan, micro: nextMicro, training: nextTrainingNum},
+      params: {trainingsPlan: plan, micro: nextMicro, training: nextTrainingNum, subTab: 'train'},
     });
   };
 
@@ -171,13 +207,20 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigat
   const prevMicroLabel = prevLocalMicro >= 1 ? `M${prevLocalMicro}` : 'prev';
 
   return (
-    <Card style={[styles.card, {borderLeftWidth: 4, borderLeftColor: theme.colors.primary}]} testID="next-training-card">
+    <Card style={[styles.card, {borderLeftWidth: 4, borderLeftColor: isRunning ? theme.colors.tertiary ?? theme.colors.primary : theme.colors.primary}]} testID="next-training-card">
       <Card.Content>
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
-              Next Training
-            </Text>
+            <View style={styles.statusRow}>
+              <Text variant="labelSmall" style={{color: isRunning ? theme.colors.tertiary ?? theme.colors.primary : theme.colors.onSurfaceVariant, fontWeight: isRunning ? '700' : 'normal'}} testID="next-training-status-label">
+                {isRunning ? 'Training running' : 'Next Training'}
+              </Text>
+              {isRunning && elapsed !== undefined && (
+                <Text variant="labelSmall" style={{color: theme.colors.tertiary ?? theme.colors.primary, fontWeight: '700'}} testID="next-training-elapsed">
+                  {elapsed}
+                </Text>
+              )}
+            </View>
             <Text variant="titleMedium">{trainingName}</Text>
             <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>
               {mesoLabel}M{localMicro} · D{nextTrainingNum} · {exerciseCount} exercises
@@ -221,7 +264,7 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigat
         )}
 
         <Button mode="contained" onPress={handleStart} style={styles.startButton} testID="next-training-start-button">
-          Start Training
+          {isRunning ? 'Continue Training' : 'Next Training'}
         </Button>
       </Card.Content>
     </Card>
@@ -232,6 +275,7 @@ const styles = StyleSheet.create({
   card: {marginHorizontal: 8, marginBottom: 8},
   headerRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8},
   headerLeft: {flex: 1},
+  statusRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8},
   focusBlock: {marginBottom: 12},
   focusRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4, gap: 12},
   focusLeft: {flex: 1},

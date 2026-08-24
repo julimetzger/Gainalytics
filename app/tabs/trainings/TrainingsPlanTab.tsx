@@ -226,6 +226,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
               overflowVisible={overflowVisible && value === micro}
               onCloseOverflow={() => setOverflowVisible(false)}
               onPlanChromeChange={value === micro ? setPlanChromeState : undefined}
+              requestedSubTab={value === micro ? route.params.subTab : undefined}
             />
           )}
           determineValueByIndex={(index, currentMicro) => {

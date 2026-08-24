@@ -1,8 +1,19 @@
 diff --git a/node_modules/sharingan-rn-modal-dropdown/lib/commonjs/MultiselectDropdown/index.js b/node_modules/sharingan-rn-modal-dropdown/lib/commonjs/MultiselectDropdown/index.js
-index e42fbfe..dc28d7e 100644
+index e42fbfe..698c287 100644
 --- a/node_modules/sharingan-rn-modal-dropdown/lib/commonjs/MultiselectDropdown/index.js
 +++ b/node_modules/sharingan-rn-modal-dropdown/lib/commonjs/MultiselectDropdown/index.js
-@@ -111,7 +111,8 @@ const MultiselectDropdown = props => {
+@@ -70,7 +70,9 @@ const MultiselectDropdown = props => {
+     elevation,
+     borderRadius,
+     activityIndicatorColor,
+-    searchPlaceholder,
++    // PATCH (Gainalytics GH-401): React 19 ignores `defaultProps` on function
++    // components, so defaultDropdownProps.searchPlaceholder stopped applying.
++    searchPlaceholder = 'Search',
+     rippleColor,
+     helperText,
+     errorColor,
+@@ -111,7 +113,8 @@ const MultiselectDropdown = props => {
      itemSelectIcon,
      itemSelectIconSize,
      multiline = false,
@@ -12,7 +23,18 @@ index e42fbfe..dc28d7e 100644
    } = props;
    const {
      colors
-@@ -136,7 +137,7 @@ const MultiselectDropdown = props => {
+@@ -120,7 +123,9 @@ const MultiselectDropdown = props => {
+   const [labelv, setLabelV] = (0, _react.useState)('');
+   const [isVisible, setIsVisible] = (0, _react.useState)(false);
+   const [iconColor, setIconColor] = (0, _react.useState)('grey');
+-  const [options, setOptions] = (0, _react.useState)([]);
++  // PATCH (Gainalytics GH-401): the visible option list is DERIVED (see below)
++  // instead of a second copy in state that three code paths had to keep in
++  // sync; a missed update left an empty list that no search could recover.
+   const [hasError, setError] = (0, _react.useState)(false);
+   const [contMeasure, setConMeasure] = (0, _react.useState)({
+     vx: 0,
+@@ -136,7 +141,7 @@ const MultiselectDropdown = props => {
    const pViewRef = (0, _react.useRef)();
    const listRef = (0, _react.useRef)();
    (0, _react.useEffect)(() => {
@@ -21,7 +43,7 @@ index e42fbfe..dc28d7e 100644
        setIsVisible(false);
  
        const {
-@@ -152,7 +153,7 @@ const MultiselectDropdown = props => {
+@@ -152,7 +157,7 @@ const MultiselectDropdown = props => {
      });
  
      return () => {
@@ -30,7 +52,7 @@ index e42fbfe..dc28d7e 100644
      };
    }, []);
    (0, _react.useEffect)(() => {
-@@ -172,6 +173,12 @@ const MultiselectDropdown = props => {
+@@ -172,14 +177,23 @@ const MultiselectDropdown = props => {
        setIconColor('lightgrey');
      }
    }, [disabled]);
@@ -43,7 +65,63 @@ index e42fbfe..dc28d7e 100644
    (0, _react.useEffect)(() => {
      if (isVisible && listRef) {
        listRef.current.flashScrollIndicators();
-@@ -385,6 +392,7 @@ const MultiselectDropdown = props => {
+     }
+   }, [isVisible]);
+-  (0, _react.useEffect)(() => {
+-    if (!disableSort) setOptions(_lodash.default.orderBy(data, ['label'], [defaultSortOrder]));else setOptions(data);
+-  }, [data, disableSort, defaultSortOrder]);
++  const sortedOptions = (0, _react.useMemo)(() => disableSort ? data ?? [] : _lodash.default.orderBy(data ?? [], ['label'], [defaultSortOrder]), [data, disableSort, defaultSortOrder]);
++  const options = (0, _react.useMemo)(() => {
++    const query = searchQuery.toString().toLowerCase().trim();
++    if (!query) return sortedOptions;
++    return sortedOptions.filter(opt => opt.label.toString().toLowerCase().trim().includes(query));
++  }, [sortedOptions, searchQuery]);
+   (0, _react.useEffect)(() => {
+     if (required && error) {
+       setError(true);
+@@ -260,7 +274,9 @@ const MultiselectDropdown = props => {
+   const handleOptionSelect = v => {
+     if (onChange && typeof onChange === 'function') {
+       if (value.includes(v)) {
+-        onChange(_lodash.default.remove(value, s => s !== v));
++        // PATCH (Gainalytics GH-401): lodash `remove` mutates the array it is
++        // given, and `value` is owned by the caller (a useMemo result here).
++        onChange(value.filter(s => s !== v));
+       } else {
+         onChange([...value, v]);
+       }
+@@ -273,29 +289,16 @@ const MultiselectDropdown = props => {
+     }
+ 
+     setSearchQuery('');
+-    if (!disableSort) setOptions(_lodash.default.orderBy(data, ['label'], [defaultSortOrder]));else setOptions(data);
+   };
+ 
+   const onChangeSearch = query => {
+     setSearchQuery(query);
+-
+-    if (!_lodash.default.isEmpty(data) && query) {
+-      const lFilter = data.filter(opt => opt.label.toString().toLowerCase().trim().includes(query.toString().toLowerCase()));
+-
+-      if (lFilter.length === 0) {
+-        setOptions([]);
+-      } else {
+-        setOptions(lFilter);
+-      }
+-    } else if (!_lodash.default.isEmpty(data) && !query && !disableSort) {
+-      setOptions(_lodash.default.sortBy(data, 'label'));
+-    } else setOptions(data);
+   };
+ 
+   const removeChip = rmV => {
+     if (!showLoader) {
+       if (onChange && typeof onChange === 'function') {
+-        onChange(_lodash.default.remove(value, s => s !== rmV));
++        onChange(value.filter(s => s !== rmV));
+       }
+     }
+   };
+@@ -385,6 +388,7 @@ const MultiselectDropdown = props => {
    }), /*#__PURE__*/_react.default.createElement(_reactNativeModal.default, {
      isVisible: isVisible,
      onBackdropPress: onModalBlur,
@@ -52,10 +130,27 @@ index e42fbfe..dc28d7e 100644
      style: _styles.default.modalStyle,
      animationIn: animationIn,
 diff --git a/node_modules/sharingan-rn-modal-dropdown/lib/module/MultiselectDropdown/index.js b/node_modules/sharingan-rn-modal-dropdown/lib/module/MultiselectDropdown/index.js
-index 05854eb..6e55197 100644
+index 05854eb..110f2cf 100644
 --- a/node_modules/sharingan-rn-modal-dropdown/lib/module/MultiselectDropdown/index.js
 +++ b/node_modules/sharingan-rn-modal-dropdown/lib/module/MultiselectDropdown/index.js
-@@ -88,7 +88,8 @@ const MultiselectDropdown = props => {
+@@ -1,4 +1,4 @@
+-import React, { useState, useRef, useEffect } from 'react';
++import React, { useState, useRef, useEffect, useMemo } from 'react';
+ import { TextInput, Surface, Divider, HelperText, Searchbar, Caption, Chip, Text, Avatar, Provider as PaperProvider, useTheme } from 'react-native-paper';
+ import { View, Dimensions, Platform, FlatList, ActivityIndicator // ScrollView,
+ } from 'react-native';
+@@ -47,7 +47,9 @@ const MultiselectDropdown = props => {
+     elevation,
+     borderRadius,
+     activityIndicatorColor,
+-    searchPlaceholder,
++    // PATCH (Gainalytics GH-401): React 19 ignores `defaultProps` on function
++    // components, so defaultDropdownProps.searchPlaceholder stopped applying.
++    searchPlaceholder = 'Search',
+     rippleColor,
+     helperText,
+     errorColor,
+@@ -88,7 +90,8 @@ const MultiselectDropdown = props => {
      itemSelectIcon,
      itemSelectIconSize,
      multiline = false,
@@ -65,7 +160,18 @@ index 05854eb..6e55197 100644
    } = props;
    const {
      colors
-@@ -113,7 +114,7 @@ const MultiselectDropdown = props => {
+@@ -97,7 +100,9 @@ const MultiselectDropdown = props => {
+   const [labelv, setLabelV] = useState('');
+   const [isVisible, setIsVisible] = useState(false);
+   const [iconColor, setIconColor] = useState('grey');
+-  const [options, setOptions] = useState([]);
++  // PATCH (Gainalytics GH-401): the visible option list is DERIVED (see below)
++  // instead of a second copy in state that three code paths had to keep in
++  // sync; a missed update left an empty list that no search could recover.
+   const [hasError, setError] = useState(false);
+   const [contMeasure, setConMeasure] = useState({
+     vx: 0,
+@@ -113,7 +118,7 @@ const MultiselectDropdown = props => {
    const pViewRef = useRef();
    const listRef = useRef();
    useEffect(() => {
@@ -74,7 +180,7 @@ index 05854eb..6e55197 100644
        setIsVisible(false);
        const {
          width,
-@@ -126,7 +127,7 @@ const MultiselectDropdown = props => {
+@@ -126,7 +131,7 @@ const MultiselectDropdown = props => {
        setIconColor('grey');
      });
      return () => {
@@ -83,7 +189,7 @@ index 05854eb..6e55197 100644
      };
    }, []);
    useEffect(() => {
-@@ -146,6 +147,12 @@ const MultiselectDropdown = props => {
+@@ -146,14 +151,23 @@ const MultiselectDropdown = props => {
        setIconColor('lightgrey');
      }
    }, [disabled]);
@@ -96,7 +202,63 @@ index 05854eb..6e55197 100644
    useEffect(() => {
      if (isVisible && listRef) {
        listRef.current.flashScrollIndicators();
-@@ -359,6 +366,7 @@ const MultiselectDropdown = props => {
+     }
+   }, [isVisible]);
+-  useEffect(() => {
+-    if (!disableSort) setOptions(Lo.orderBy(data, ['label'], [defaultSortOrder]));else setOptions(data);
+-  }, [data, disableSort, defaultSortOrder]);
++  const sortedOptions = useMemo(() => disableSort ? data ?? [] : Lo.orderBy(data ?? [], ['label'], [defaultSortOrder]), [data, disableSort, defaultSortOrder]);
++  const options = useMemo(() => {
++    const query = searchQuery.toString().toLowerCase().trim();
++    if (!query) return sortedOptions;
++    return sortedOptions.filter(opt => opt.label.toString().toLowerCase().trim().includes(query));
++  }, [sortedOptions, searchQuery]);
+   useEffect(() => {
+     if (required && error) {
+       setError(true);
+@@ -234,7 +248,9 @@ const MultiselectDropdown = props => {
+   const handleOptionSelect = v => {
+     if (onChange && typeof onChange === 'function') {
+       if (value.includes(v)) {
+-        onChange(Lo.remove(value, s => s !== v));
++        // PATCH (Gainalytics GH-401): lodash `remove` mutates the array it is
++        // given, and `value` is owned by the caller (a useMemo result here).
++        onChange(value.filter(s => s !== v));
+       } else {
+         onChange([...value, v]);
+       }
+@@ -247,29 +263,16 @@ const MultiselectDropdown = props => {
+     }
+ 
+     setSearchQuery('');
+-    if (!disableSort) setOptions(Lo.orderBy(data, ['label'], [defaultSortOrder]));else setOptions(data);
+   };
+ 
+   const onChangeSearch = query => {
+     setSearchQuery(query);
+-
+-    if (!Lo.isEmpty(data) && query) {
+-      const lFilter = data.filter(opt => opt.label.toString().toLowerCase().trim().includes(query.toString().toLowerCase()));
+-
+-      if (lFilter.length === 0) {
+-        setOptions([]);
+-      } else {
+-        setOptions(lFilter);
+-      }
+-    } else if (!Lo.isEmpty(data) && !query && !disableSort) {
+-      setOptions(Lo.sortBy(data, 'label'));
+-    } else setOptions(data);
+   };
+ 
+   const removeChip = rmV => {
+     if (!showLoader) {
+       if (onChange && typeof onChange === 'function') {
+-        onChange(Lo.remove(value, s => s !== rmV));
++        onChange(value.filter(s => s !== rmV));
+       }
+     }
+   };
+@@ -359,6 +362,7 @@ const MultiselectDropdown = props => {
    }), /*#__PURE__*/React.createElement(Modal, {
      isVisible: isVisible,
      onBackdropPress: onModalBlur,
@@ -120,10 +282,33 @@ index bb8462d..53be749 100644
      /**
       * Set the dropdown default value(array of string or number). Aslo, can be used in redux-form or formik
       */
+diff --git a/node_modules/sharingan-rn-modal-dropdown/src/Components/PressableTouch.tsx b/node_modules/sharingan-rn-modal-dropdown/src/Components/PressableTouch.tsx
+index df968ba..85e7023 100644
+--- a/node_modules/sharingan-rn-modal-dropdown/src/Components/PressableTouch.tsx
++++ b/node_modules/sharingan-rn-modal-dropdown/src/Components/PressableTouch.tsx
+@@ -11,10 +11,11 @@ interface PressableTouchProps {
+ 
+ const PressableTouch: React.FC<PressableTouchProps> = props => {
+   const { rippleColor, disabled, onPress, children } = props;
++  const logPress = () => { console.log('[GH324-DEBUG] row onPress, disabled:', disabled); onPress(); };
+ 
+   return (
+     <Pressable
+-      onPress={onPress}
++      onPress={logPress}
+       disabled={disabled}
+       style={({ pressed }) => [
+         {
 diff --git a/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx b/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx
-index d3a9c87..b0b22d9 100644
+index d3a9c87..241e263 100644
 --- a/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx
 +++ b/node_modules/sharingan-rn-modal-dropdown/src/MultiselectDropdown/index.tsx
+@@ -1,4 +1,4 @@
+-import React, { useState, useRef, useEffect } from 'react';
++import React, { useState, useRef, useEffect, useMemo } from 'react';
+ import {
+   TextInput,
+   Surface,
 @@ -9,7 +9,7 @@ import {
    Chip,
    Text,
@@ -133,7 +318,19 @@ index d3a9c87..b0b22d9 100644
    useTheme,
  } from 'react-native-paper';
  import {
-@@ -115,6 +115,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -73,7 +73,10 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+     elevation,
+     borderRadius,
+     activityIndicatorColor,
+-    searchPlaceholder,
++    // PATCH (Gainalytics GH-401): React 19 ignores `defaultProps` on function
++    // components, so `defaultDropdownProps.searchPlaceholder` silently stopped
++    // applying and the search field rendered with no placeholder at all.
++    searchPlaceholder = 'Search',
+     rippleColor,
+     helperText,
+     errorColor,
+@@ -115,6 +118,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
      itemSelectIconSize,
      multiline = false,
      searchInputTheme,
@@ -141,7 +338,21 @@ index d3a9c87..b0b22d9 100644
    } = props;
    const { colors } = useTheme();
  
-@@ -139,14 +140,14 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -122,7 +126,12 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+   const [labelv, setLabelV] = useState<string>('');
+   const [isVisible, setIsVisible] = useState<boolean>(false);
+   const [iconColor, setIconColor] = useState<string | undefined>('grey');
+-  const [options, setOptions] = useState<IDropdownData[]>([]);
++  // PATCH (Gainalytics GH-401): the visible option list is DERIVED from `data` and
++  // the search query. It used to be a second copy in component state that three
++  // separate code paths had to keep in sync (a `data` effect, handleOptionSelect,
++  // onChangeSearch); any missed update left the dropdown showing an empty list
++  // that a later search could not repopulate, and only closing and re-opening the
++  // picker recovered it. Derived state cannot go stale.
+   const [hasError, setError] = useState<boolean>(false);
+   const [contMeasure, setConMeasure] = useState({
+     vx: 0,
+@@ -139,14 +148,14 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
    const listRef = useRef<FlatList | any>();
  
    useEffect(() => {
@@ -158,7 +369,7 @@ index d3a9c87..b0b22d9 100644
      };
    }, []);
  
-@@ -170,6 +171,15 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -170,17 +179,36 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
      }
    }, [disabled]);
  
@@ -174,7 +385,93 @@ index d3a9c87..b0b22d9 100644
    useEffect(() => {
      if (isVisible && listRef) {
        listRef.current.flashScrollIndicators();
-@@ -306,7 +316,16 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+     }
+   }, [isVisible]);
+ 
+-  useEffect(() => {
+-    if (!disableSort)
+-      setOptions(Lo.orderBy(data, ['label'], [defaultSortOrder]));
+-    else setOptions(data);
+-  }, [data, disableSort, defaultSortOrder]);
++  const sortedOptions = useMemo<IDropdownData[]>(
++    () =>
++      disableSort
++        ? data ?? []
++        : Lo.orderBy(data ?? [], ['label'], [defaultSortOrder]),
++    [data, disableSort, defaultSortOrder]
++  );
++
++  const options = useMemo<IDropdownData[]>(() => {
++    const query = searchQuery.toString().toLowerCase().trim();
++    if (!query) return sortedOptions;
++    return sortedOptions.filter(opt =>
++      opt.label.toString().toLowerCase().trim().includes(query)
++    );
++  }, [sortedOptions, searchQuery]);
+ 
+   useEffect(() => {
+     if (required && error) {
+@@ -234,6 +262,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+   };
+ 
+   const onModalBlur = () => {
++    console.log('[GH324-DEBUG] onModalBlur');
+     setIsVisible(false);
+     if (hasError) {
+       setIconColor('red');
+@@ -245,9 +274,13 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+   };
+ 
+   const handleOptionSelect = (v: string | number) => {
++    console.log('[GH324-DEBUG] handleOptionSelect', v);
+     if (onChange && typeof onChange === 'function') {
+       if (value.includes(v)) {
+-        onChange(Lo.remove(value, s => s !== v));
++        // PATCH (Gainalytics GH-401): `Lo.remove` mutates the array it is given.
++        // `value` is owned by the caller (and in this app it is a useMemo result),
++        // so removing in place corrupted the parent's memoized selection.
++        onChange(value.filter(s => s !== v));
+       } else {
+         onChange([...value, v]);
+       }
+@@ -258,35 +291,16 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+       }
+     }
+     setSearchQuery('');
+-    if (!disableSort)
+-      setOptions(Lo.orderBy(data, ['label'], [defaultSortOrder]));
+-    else setOptions(data);
+   };
+ 
+   const onChangeSearch = (query: string) => {
+     setSearchQuery(query);
+-    if (!Lo.isEmpty(data) && query) {
+-      const lFilter = data.filter(opt =>
+-        opt.label
+-          .toString()
+-          .toLowerCase()
+-          .trim()
+-          .includes(query.toString().toLowerCase())
+-      );
+-      if (lFilter.length === 0) {
+-        setOptions([]);
+-      } else {
+-        setOptions(lFilter);
+-      }
+-    } else if (!Lo.isEmpty(data) && !query && !disableSort) {
+-      setOptions(Lo.sortBy(data, 'label'));
+-    } else setOptions(data);
+   };
+ 
+   const removeChip = (rmV: string | number) => {
+     if (!showLoader) {
+       if (onChange && typeof onChange === 'function') {
+-        onChange(Lo.remove(value, s => s !== rmV));
++        onChange(value.filter(s => s !== rmV));
+       }
+     }
+   };
+@@ -306,7 +320,16 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
    };
  
    return (
@@ -192,7 +489,7 @@ index d3a9c87..b0b22d9 100644
        <View>
          <PressableTouch
            onPress={onTextInputFocus}
-@@ -402,6 +421,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -402,6 +425,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
          <Modal
            isVisible={isVisible}
            onBackdropPress={onModalBlur}
@@ -200,7 +497,7 @@ index d3a9c87..b0b22d9 100644
            backdropColor={floating ? 'rgba(0,0,0,0.1)' : 'transparent'}
            style={styles.modalStyle}
            animationIn={animationIn}
-@@ -551,7 +571,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
+@@ -551,7 +575,7 @@ const MultiselectDropdown: React.FC<IMultiselectDropdownProps> = props => {
            </View>
          </Modal>
        </View>
