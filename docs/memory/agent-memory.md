@@ -2072,3 +2072,18 @@ For order, assert the sequence: `getAllByText(/^(Plan|Train|Analysis)$/).map(n =
 ### 295. A JS-only change needs no rebuild — prove it from the Metro bundle instead
 **Observation (GH-403):** the resume round asked for a rebuild + reinstall, but the change was pure JS plus a patch-package patch, and the installed debug APK loads its bundle from Metro over `adb reverse`. `curl -s "http://127.0.0.1:$E2E_METRO_PORT/index.bundle?platform=android&dev=true&minify=false" -o /tmp/b.js` then `grep -c <your new identifier> /tmp/b.js` proves in ~30 s that the running app really serves the change — cheaper and more direct than an 11-minute `assembleDebug`. Note RN resolves this package via `"react-native": "src/index"`, so the patch must land in `src/`, not just `lib/`.
 **Apply when:** you are told to rebuild for a change that touches no native code.
+
+### 296. `Get-PnpDevice` without `-PresentOnly` lists an UNPLUGGED phone as Status `Unknown` — only `-PresentOnly` proves it is attached
+**Problem (GH-405):** the assigned device `R5CN30HWZFN` never appeared in `adb devices` for the whole run (only the two emulators did). `Get-PnpDevice | Where FriendlyName -match 'Samsung'` happily printed four entries — "SAMSUNG Android ADB Interface", "SAMSUNG Mobile USB Composite Device", … — all with Status `Unknown`, which reads like "present but confused". It is not: `Unknown` means Windows has the driver registered from an earlier connection but the device is absent.
+**Working solution:** `Get-PnpDevice -PresentOnly -Class AndroidUsbDeviceClass` — if it errors with "keine übereinstimmenden Win32_PnPEntity-Objekte gefunden", the phone is physically unplugged and nothing on the WSL/adb side can bring it back. Check this ONCE at the start of the run, before implementing anything, so the whole implementation isn't finished into a dead end (compare #290, where the device died mid-run).
+**Apply when:** the assigned real device is missing from `adb devices` — distinguish "unplugged" from "adb server confused" in one command instead of restarting the shared adb server (which would disrupt other workers' emulators).
+
+### 297. This repo has no ts-node/@babel/register — load its TS modules in plain Node with a 10-line `require.extensions` hook
+**Observation (GH-405):** to render offline evidence from `app/theme/*.ts` I needed to run repo TypeScript outside jest. `require('@babel/register')` fails (not a dependency), but `@babel/core`, `@babel/preset-env` and `@babel/preset-typescript` are all present:
+```js
+require.extensions['.ts'] = (m, f) => m._compile(
+  require('@babel/core').transformFileSync(f, {filename: f, babelrc: false, configFile: false,
+    presets: [['@babel/preset-env', {targets: {node: 'current'}}], '@babel/preset-typescript']}).code, f);
+```
+Only works for modules with no React Native imports — keep colour/format/pure-logic helpers free of RN imports and they stay scriptable.
+**Apply when:** you want a one-off artifact (contact sheet, fixture, report) from repo logic without wiring a jest test around it.
