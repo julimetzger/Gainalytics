@@ -124,7 +124,7 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
     // Special rendering for the add exercise box
     if (item.key === -1) {
       return (
-        <TouchableOpacity onPress={() => onPress(item)} style={styles.addExerciseBox}>
+        <TouchableOpacity onPress={() => onPress(item)} style={styles.addExerciseBox} testID="training-add-exercise-box">
           <Text style={styles.addExerciseText}>{pickerVisible ? '-' : '+'}</Text>
         </TouchableOpacity>
       );

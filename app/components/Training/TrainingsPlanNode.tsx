@@ -410,6 +410,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                             visible={showPicker}
                             onToggle={() => setShowPicker(!showPicker)}
                             hideIconButton={true}
+                            openListOnShow={true}
                           />
                         </View>
                       )}
@@ -443,6 +444,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                             visible={showPicker}
                             onToggle={() => setShowPicker(!showPicker)}
                             hideIconButton={true}
+                            openListOnShow={true}
                           />
                         </View>
                       )}
