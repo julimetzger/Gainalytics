@@ -45,10 +45,14 @@ appId: com.powerliftingworkoutplanner
     visible: 'Compare'
     timeout: 30000
 - tapOn: 'Compare'
+# Compare rows are labelled by set identity since GH-393 — address analysis 3 by
+# its stable testID instead of the removed "Analysis #3" text.
 - extendedWaitUntil:
-    visible: 'Analysis #3'
+    visible:
+      id: 'compare-picker-item-3'
     timeout: 15000
-- tapOn: 'Analysis #3'
+- tapOn:
+    id: 'compare-picker-item-3'
 - extendedWaitUntil:
     visible: 'Synchronized Playback'
     timeout: 30000

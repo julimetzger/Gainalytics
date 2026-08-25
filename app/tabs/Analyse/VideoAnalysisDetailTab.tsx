@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {Modal, ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
+import {Modal, ScrollView, StyleSheet, View} from 'react-native';
 import RNFS from 'react-native-fs';
 import {Button, Card, Divider, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -8,7 +8,9 @@ import {RootStackParamList} from '../../routing/AnalyseRouter';
 import {BarTrackingResult, VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
+import {useVideoAnalysisSetIdentity} from '../../redux/VideoAnalysis/use/useVideoAnalysisSetIdentity';
 import {getVideoAnalysisPreviewPath, readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
+import CompareAnalysisPickerItem from '../../components/video/CompareAnalysisPickerItem';
 import VideoAnalysisPlaybackOverlayCard from '../../components/video/VideoAnalysisPlaybackOverlayCard';
 import VideoAnalysisManualSeedCard from '../../components/video/VideoAnalysisManualSeedCard';
 import VelocityLossBarChart from '../../components/video/VelocityLossBarChart';
@@ -53,6 +55,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const navigation = useNavigation<any>();
   const analysis = useVideoAnalysis(route.params.analysisId);
   const allAnalyses = useAllVideoAnalyses();
+  const analysisIdentity = useVideoAnalysisSetIdentity(analysis);
   const [showComparePicker, setShowComparePicker] = useState(false);
 
   const compareTargets = useMemo(() => {
@@ -261,20 +264,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
                 <Text style={styles.modalEmpty}>No other completed analyses available.</Text>
               )}
               {compareTargets.map((a) => (
-                <TouchableOpacity
-                  key={a.id}
-                  testID={`compare-picker-item-${a.id}`}
-                  style={[styles.modalItem, {borderBottomColor: theme.colors.outlineVariant}]}
-                  onPress={() => onSelectCompare(a.id!)}
-                >
-                  <Text style={styles.modalItemTitle}>{`Analysis #${a.id}`}</Text>
-                  <Text style={styles.modalItemSubtitle}>{new Date(a.createdAt).toLocaleString()}</Text>
-                  {a.setResult && (
-                    <Text style={styles.modalItemMeta}>
-                      {`${a.setResult.repResults.length} reps${a.setResult.velocityLossPercent !== null ? ` | VL ${a.setResult.velocityLossPercent}%` : ''}`}
-                    </Text>
-                  )}
-                </TouchableOpacity>
+                <CompareAnalysisPickerItem key={a.id} analysis={a} onPress={() => onSelectCompare(a.id!)} />
               ))}
             </ScrollView>
             <Button
@@ -290,7 +280,11 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
       </Modal>
 
       <Card style={styles.card}>
-        <Card.Title title={`Analysis #${analysis.id}`} subtitle={new Date(analysis.createdAt).toLocaleString()} />
+        <Card.Title
+          title={analysisIdentity}
+          titleNumberOfLines={2}
+          subtitle={new Date(analysis.createdAt).toLocaleString()}
+        />
         <Card.Content>
           <Text testID="video-analysis-detail-status">Status: {analysis.status}</Text>
           <Text>Source: {analysis.sourceUri}</Text>
@@ -431,24 +425,6 @@ const styles = StyleSheet.create({
     marginVertical: 20,
     textAlign: 'center',
     opacity: 0.6,
-  },
-  modalItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  modalItemTitle: {
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  modalItemSubtitle: {
-    fontSize: 12,
-    opacity: 0.7,
-    marginTop: 2,
-  },
-  modalItemMeta: {
-    fontSize: 12,
-    opacity: 0.6,
-    marginTop: 2,
   },
   modalCancel: {
     marginTop: 12,

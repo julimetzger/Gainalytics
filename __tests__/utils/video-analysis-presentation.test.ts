@@ -3,6 +3,7 @@ import {
   buildVideoAnalysisFilterSummary,
   buildVideoAnalysisRangeFromPreset,
   formatVideoAnalysisRelativeDateTime,
+  formatVideoAnalysisSetIdentity,
   formatVideoAnalysisWeightLabel,
   inferVideoAnalysisMovement,
 } from '../../app/utils/video-analysis-presentation';
@@ -33,6 +34,25 @@ describe('video-analysis-presentation', () => {
 
     expect(range).toEqual(new Range(new Date(2026, 3, 23, 0, 0, 0, 0), new Date(2026, 3, 29, 23, 59, 59, 999)));
     expect(formatVideoAnalysisWeightLabel(165, 5)).toEqual('165 kg × 5');
+  });
+
+  it('identifies an analysis by exercise, set number, load and RIR', () => {
+    expect(formatVideoAnalysisSetIdentity({exerciseName: 'Squat', setNumber: 2, weight: 155, rir: 2})).toEqual('Squat · Set 2 · 155 kg @ 2 RIR');
+  });
+
+  it('keeps a meaningful title for analyses without a linked set', () => {
+    expect(formatVideoAnalysisSetIdentity({exerciseName: 'Squat'})).toEqual('Squat · No linked set');
+    expect(formatVideoAnalysisSetIdentity({})).toEqual('Unlinked analysis');
+    expect(formatVideoAnalysisSetIdentity({exerciseName: '  '})).toEqual('Unlinked analysis');
+  });
+
+  it('never renders undefined or NaN for partially known set data', () => {
+    expect(formatVideoAnalysisSetIdentity({exerciseName: 'Squat', setNumber: 1, weight: 155})).toEqual('Squat · Set 1 · 155 kg');
+    expect(formatVideoAnalysisSetIdentity({exerciseName: 'Squat', setNumber: 1, rir: 0})).toEqual('Squat · Set 1 · 0 RIR');
+    expect(formatVideoAnalysisSetIdentity({setNumber: 3, weight: 100, rir: 1})).toEqual('Set 3 · 100 kg @ 1 RIR');
+    expect(formatVideoAnalysisSetIdentity({exerciseName: 'Squat', setNumber: Number.NaN, weight: Number.NaN, rir: Number.NaN})).toEqual(
+      'Squat · No linked set',
+    );
   });
 
   it('maps common exercise names to placeholder movement silhouettes', () => {
