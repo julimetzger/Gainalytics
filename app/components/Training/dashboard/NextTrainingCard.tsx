@@ -221,8 +221,13 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigat
                 </Text>
               )}
             </View>
-            <Text variant="titleMedium">{trainingName}</Text>
-            <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>
+            {/* GH-401 (review 2): the name and the slot line identify WHICH session the
+                card is about. They carry testIDs so a flow can prove the card follows the
+                running session instead of the next one in plan order. */}
+            <Text variant="titleMedium" testID="next-training-name">
+              {trainingName}
+            </Text>
+            <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}} testID="next-training-slot">
               {mesoLabel}M{localMicro} · D{nextTrainingNum} · {exerciseCount} exercises
             </Text>
           </View>

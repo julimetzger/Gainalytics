@@ -78,6 +78,22 @@ function nextSessionFor(
     .filter(n => !Number.isNaN(n))
     .sort((a, b) => a - b);
 
+  // GH-401 (review 2): a session that is actually running owns the card, wherever it
+  // sits in the plan. Starting out of order (day 3 while day 1 is still open) used to
+  // leave the card on day 1 — so the card said "Next Training", its button led to the
+  // untouched slot, and the running session was unreachable from the dashboard.
+  const runningKey = keys.find(k => {
+    const running = trainingsById[plan.trainings[k]];
+    return running?.state === TrainingsState.STARTED && !running.end;
+  });
+  if (runningKey) {
+    return {
+      isComplete: false,
+      micro: getMicroFromTrainingInMicroIndex(runningKey),
+      training: getTrainingFromTrainingInMicroIndex(runningKey),
+    };
+  }
+
   // Find the first undone slot that comes AFTER the lastDone position.
   // Slots at or before lastDone belong to already-completed micros or were skipped
   // in a previous meso; returning them would show the wrong meso as "next".

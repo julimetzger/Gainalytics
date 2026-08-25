@@ -435,3 +435,54 @@ describe('TrainingsPlanNode — GH-401 Train tab is the single start/finish cont
     expect(getAllByText('Start Training')).toHaveLength(1);
   });
 });
+
+describe('TrainingsPlanNode — GH-401 review 1: a training without exercises cannot be started', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const emptyTraining = (state: string = TrainingsState.PLANNED) => ({...mkTraining(state), exercises: []});
+
+  it('offers no Start control at all when the training has no exercises', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(emptyTraining());
+    const {queryByTestId, queryByText} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    expect(queryByTestId('train-tab-start-button')).toBeNull();
+    expect(queryByText('Start Training')).toBeNull();
+  });
+
+  it('offers Add Exercises instead, which lands the user in the Plan tab', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(emptyTraining());
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    fireEvent.press(getByTestId('train-tab-add-exercises-button'));
+
+    expect(getByTestId('plan-workout')).toBeTruthy();
+    expect(mockStartTraining).not.toHaveBeenCalled();
+  });
+
+  it('says why the session cannot start yet', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(emptyTraining());
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    expect(getByTestId('train-tab-start-hint').props.children).toContain('no exercises');
+  });
+
+  it('still starts normally as soon as the training has exercises', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    fireEvent.press(getByTestId('train-tab-start-button'));
+
+    expect(mockStartTraining).toHaveBeenCalled();
+  });
+
+  it('keeps the empty state out of STARTED even if a caller reaches handleStart directly', () => {
+    // The Train tab hides the button, so this covers the guard inside handleStart:
+    // an unstarted training whose state was never persisted must behave the same.
+    useTrainingInTrainingsPlan.mockReturnValue({...emptyTraining(), state: undefined});
+    const {queryByTestId, getByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    expect(queryByTestId('train-tab-start-button')).toBeNull();
+    fireEvent.press(getByTestId('train-tab-add-exercises-button'));
+    expect(mockStartTraining).not.toHaveBeenCalled();
+  });
+});

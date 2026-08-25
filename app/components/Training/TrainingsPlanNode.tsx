@@ -221,7 +221,23 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     modifyExercisesInTraining(exercises, trainingsPlan.id!!, micro, trainingInMicro, training?.id);
   }
 
+  // GH-401 (review 1): an empty training must never reach STARTED. The Train tab
+  // already hides the start control in that case; this guard keeps the invariant
+  // if any other caller ever wires itself up to handleStart.
+  const canStart = (training?.exercises?.length ?? 0) > 0;
+
+  /** Opens the Plan tab in plan mode — the one place where exercises get added. */
+  function handleAddExercises() {
+    setNextPlanMode('fullEdit');
+    setPlanEntryRequested(true);
+    setActiveSubTab('plan');
+  }
+
   function handleStart() {
+    if (!canStart) {
+      handleAddExercises();
+      return;
+    }
     startTraining();
     if (!appSettings.toggles?.disableToasts) {
       Toast.show({
@@ -416,12 +432,32 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                       not leave the user on a dead end either. */}
                   {training !== undefined && training.state !== TrainingsState.STARTED && training.state !== TrainingsState.FINISHED && (
                     <View style={{padding: 24, alignItems: 'center', gap: 8}}>
-                      <Button testID="train-tab-start-button" mode="contained" onPress={handleStart}>
-                        Start Training
-                      </Button>
-                      <Text testID="train-tab-start-hint" variant="bodySmall">
-                        {(training.exercises?.length ?? 0) > 0 ? 'Starts the session timer and opens set logging.' : 'Add exercises in the Plan tab first.'}
-                      </Text>
+                      {/* GH-401 (review 1): a training with no exercises has nothing to log,
+                          so it must not be startable — an empty session could be finished and
+                          would then count as the plan's last training, advancing the dashboard
+                          progress for a workout that never happened. Instead of a disabled
+                          button next to a hint nobody reads, the start control is replaced by
+                          the action that unblocks the user: it opens the Plan tab straight in
+                          plan mode, where exercises are picked. */}
+                      {(training.exercises?.length ?? 0) > 0 ? (
+                        <>
+                          <Button testID="train-tab-start-button" mode="contained" onPress={handleStart}>
+                            Start Training
+                          </Button>
+                          <Text testID="train-tab-start-hint" variant="bodySmall">
+                            Starts the session timer and opens set logging.
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Button testID="train-tab-add-exercises-button" mode="contained" onPress={handleAddExercises}>
+                            Add Exercises
+                          </Button>
+                          <Text testID="train-tab-start-hint" variant="bodySmall">
+                            This training has no exercises yet — add some before you can start it.
+                          </Text>
+                        </>
+                      )}
                     </View>
                   )}
                   {training?.state === TrainingsState.STARTED && (

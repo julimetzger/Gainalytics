@@ -156,6 +156,16 @@ describe('NextTrainingCard — GH-401 H1: the card navigates, it never starts', 
     const {queryByTestId} = renderCard();
     expect(queryByTestId('next-training-elapsed')).toBeNull();
   });
+
+  // GH-401 (review 2): a Maestro flow has to be able to prove WHICH session the card
+  // is about — "Training running" alone would also pass if the card pointed at the
+  // wrong day. Name and slot line therefore carry testIDs.
+  it('names the session it points at and spells out its slot', () => {
+    const {getByTestId} = renderCard();
+
+    expect(getByTestId('next-training-name').props.children).toBe('Day A');
+    expect(getByTestId('next-training-slot').props.children.join('')).toBe('M1 \u00b7 D1 \u00b7 3 exercises');
+  });
 });
 
 describe('NextTrainingCard — GH-401 H4: a running session reads as running', () => {
