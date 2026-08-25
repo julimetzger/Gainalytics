@@ -2156,3 +2156,23 @@ Only works for modules with no React Native imports — keep colour/format/pure-
 ### 312. `input swipe`/`input tap` use the **override** display size, not the physical one
 **Problem (GH-405):** `wm size` on R5CN30HWZFN reports `Physical size: 1440x3200` and `Override size: 720x1600`. Swiping `720 2400 → 720 900` to dismiss the lock screen did nothing at all — both points are off-screen in the 720×1600 input space — which looked exactly like "the swipe is not unlocking the device" and cost a diagnosis cycle. Read **Override size** when present and derive coordinates from that; the existing capture scripts' taps (`630 1421` etc.) were already in that space.
 **Apply when:** writing any `adb shell input` coordinates for a real device; never assume the screenshot's pixel size is the input space.
+
+### 313. `adb shell input text '#RRGGBB'` loses everything from the `#` — the DEVICE shell treats it as a comment
+**Problem (GH-405):** `a shell input text '#00FF'` failed with `IllegalArgumentException: Argument expected after "text"`. The WSL-side quotes are consumed locally; what reaches the device shell is `input text #00FF`, where `#` opens a comment, so `input text` arrives with no argument at all.
+**Working solution:** quote for the remote shell as well — `a shell "input text '#00FF'"`. The same applies to any `input text` payload containing `#`, `;`, `&`, `<`, `>` or spaces.
+**Apply when:** driving a hex/colour/tag field over `adb shell input text`.
+
+### 314. Paper's floating TextInput label carries the SAME testID as the input — a first-match `grep` taps the label and the field never focuses
+**Problem (GH-405):** a helper that resolved a testID to tap coordinates via `grep -m1` picked the node at `[93,880][173,904]` (the floating "Hex" label) instead of the `EditText` at `[88,894][633,964]`. The tap registered, nothing focused, and the following `input text` was silently dropped — the field kept its old value and the assertion failed as if the app were broken.
+**Working solution:** match the class too — `grep 'theme-color-hex-input" class="android.widget.EditText'` — then poll the dump for `focused="true"` on that id and retap until it holds.
+**Apply when:** resolving a Paper `TextInput` by testID from a uiautomator dump. Related: #311, and the older "tapping the placeholder never focuses" entry.
+
+### 315. Do not send an unconditional `KEYCODE_BACK` to dismiss the IME — when the keyboard is not up it closes the DIALOG instead
+**Problem (GH-405):** a capture script typed into a dialog and then sent BACK "to drop the IME". `input text` injects events directly and frequently never raises the keyboard, so BACK went to the dialog and dismissed it — the state being photographed disappeared, and a later dump still showed the dialog (a Portal leaves the screen behind it in the tree), which made the failure read like a stale-dump problem.
+**Working solution:** gate it — `adb shell dumpsys input_method | grep -q 'mInputShown=true'` before sending BACK.
+**Apply when:** any scripted text entry inside a modal.
+
+### 316. A per-character `inputText` walks through VALID intermediate values — never assert "the value is unchanged since we started"
+**Problem (GH-405):** a flow asserted that typing the unparseable `#00FF` left the preview on the colour the dialog opened with. It never held: Maestro types character by character and `#00F` is a valid three-digit shorthand that `parseColor` expands, so the preview legitimately moved to `#0000FF` one keystroke before the value became invalid. The block had been authored but never executed, so the wrong assumption shipped as a green-looking flow.
+**Working solution:** assert the concrete resulting value (`#0000FF`). It still proves the field's invalid text was ignored, and it is deterministic.
+**Apply when:** asserting fallback/last-valid behaviour around a live-validated text field.
