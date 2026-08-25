@@ -1,5 +1,6 @@
 import {AnyAction} from '@reduxjs/toolkit';
 import {Metric, MetricOverviewSection, resolveMetricOverviewSlots} from '../../models/Metric';
+import {PaletteSelection} from '../../theme/palette';
 
 export interface MetricOverviewSettings {
   muscles?: Metric[];
@@ -45,7 +46,12 @@ export interface RestTimerSettings {
 
 export interface AppSettings {
   mode: 'light' | 'dark';
-  palette?: 'blue' | 'green' | 'purple';
+  /**
+   * `'blue' | 'green' | 'purple'` for the built-in palettes, or a `#RRGGBB`
+   * source colour picked from the colour wheel. Older installs only ever hold
+   * one of the three names, so their theme survives the update unchanged.
+   */
+  palette?: PaletteSelection;
   videoAnalysisFiltersExpanded?: boolean;
   videoAnalysisLearnedRateSecondsPerVideoSecond?: number;
   localNotification?: {

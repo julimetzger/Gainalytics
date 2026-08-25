@@ -9,6 +9,48 @@ describe('settingsReducer', () => {
     });
   });
 
+  it('stores a built-in palette name without dropping the other settings', () => {
+    const initialState = {
+      mode: 'light',
+      palette: 'blue',
+      videoAnalysisFiltersExpanded: true,
+    } satisfies AppSettings;
+
+    expect(settingsReducer(initialState, {type: 'SET_PALETTE', palette: 'green'})).toEqual({
+      mode: 'light',
+      palette: 'green',
+      videoAnalysisFiltersExpanded: true,
+    });
+  });
+
+  it('stores a custom colour picked from the wheel without dropping the other settings', () => {
+    const initialState = {
+      mode: 'light',
+      palette: 'blue',
+      videoAnalysisFiltersExpanded: true,
+    } satisfies AppSettings;
+
+    expect(settingsReducer(initialState, {type: 'SET_PALETTE', palette: '#E91E63'})).toEqual({
+      mode: 'light',
+      palette: '#E91E63',
+      videoAnalysisFiltersExpanded: true,
+    });
+  });
+
+  it("leaves an existing user's palette untouched for unrelated actions", () => {
+    const existingUser = {
+      mode: 'light',
+      palette: 'green',
+      videoAnalysisFiltersExpanded: false,
+    } satisfies AppSettings;
+
+    expect(settingsReducer(existingUser, {type: 'TOGGLE_MODE'})).toEqual({
+      mode: 'dark',
+      palette: 'green',
+      videoAnalysisFiltersExpanded: false,
+    });
+  });
+
   it('persists the video analysis filter expansion state', () => {
     const initialState = {
       mode: 'dark',

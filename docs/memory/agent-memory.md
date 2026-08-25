@@ -2107,3 +2107,72 @@ For order, assert the sequence: `getAllByText(/^(Plan|Train|Analysis)$/).map(n =
 **Problem/Symptoms (GH-393):** #298 recommends guarding a row tap with `repeat: {while: {visible: 'Metrics Overview'}, commands: [- back]}`. That is actively harmful. A `uiautomator dump` taken while the drawer covers the Video Analyses list contains **zero** `video-analysis-*` ids — the list is excluded from the a11y tree, so the failure is "element not found", not a swallowed tap. And once the list is mounted, `back` closes the *screen*, not the drawer, so the guard navigates away and later steps fail on something unrelated.
 **Working solution:** drop the back guard and simply wait for the row itself — `extendedWaitUntil: {visible: {id: 'video-analysis-row-N'}, timeout: 60000}` before `tapOn`. The drawer clears on its own within a few seconds (measured: absent at 3 s, present at 8-10 s). With this the flow passed on the FIRST attempt instead of needing the runner's retry.
 **Apply when:** any flow that navigates via the Analyse drawer and then taps a row.
+### 303. `Get-PnpDevice` without `-PresentOnly` lists an UNPLUGGED phone as Status `Unknown` — only `-PresentOnly` proves it is attached
+**Problem (GH-405):** the assigned device `R5CN30HWZFN` never appeared in `adb devices` for the whole run (only the two emulators did). `Get-PnpDevice | Where FriendlyName -match 'Samsung'` happily printed four entries — "SAMSUNG Android ADB Interface", "SAMSUNG Mobile USB Composite Device", … — all with Status `Unknown`, which reads like "present but confused". It is not: `Unknown` means Windows has the driver registered from an earlier connection but the device is absent.
+**Working solution:** `Get-PnpDevice -PresentOnly -Class AndroidUsbDeviceClass` — if it errors with "keine übereinstimmenden Win32_PnPEntity-Objekte gefunden", the phone is physically unplugged and nothing on the WSL/adb side can bring it back. Check this ONCE at the start of the run, before implementing anything, so the whole implementation isn't finished into a dead end (compare #290, where the device died mid-run).
+**Apply when:** the assigned real device is missing from `adb devices` — distinguish "unplugged" from "adb server confused" in one command instead of restarting the shared adb server (which would disrupt other workers' emulators).
+
+### 304. This repo has no ts-node/@babel/register — load its TS modules in plain Node with a 10-line `require.extensions` hook
+**Observation (GH-405):** to render offline evidence from `app/theme/*.ts` I needed to run repo TypeScript outside jest. `require('@babel/register')` fails (not a dependency), but `@babel/core`, `@babel/preset-env` and `@babel/preset-typescript` are all present:
+```js
+require.extensions['.ts'] = (m, f) => m._compile(
+  require('@babel/core').transformFileSync(f, {filename: f, babelrc: false, configFile: false,
+    presets: [['@babel/preset-env', {targets: {node: 'current'}}], '@babel/preset-typescript']}).code, f);
+```
+Only works for modules with no React Native imports — keep colour/format/pure-logic helpers free of RN imports and they stay scriptable.
+**Apply when:** you want a one-off artifact (contact sheet, fixture, report) from repo logic without wiring a jest test around it.
+
+### 305. Capture true "before" screenshots by detaching the worktree to the pre-change commit — Metro re-serves it
+**Observation (GH-405):** the ticket demanded before/after screenshots proving the built-in themes were untouched. There is no need for a second worktree, a stash, or a rebuild: with a DEBUGGABLE APK loading from Metro, `git switch --detach <pre-change-sha>` → force-stop → relaunch makes the device render the OLD code in ~40 s, and `git switch <branch>` brings the new one back. Metro's watcher picks up the whole checkout without a cache reset.
+**Critical:** assert a *UI marker* that only exists on one side (here the new "Custom colour" row: `grep -c` on the uiautomator dump, expect 0 before / 1 after). Without that check a stale bundle would silently produce two identical "before" and "after" sets — which would look like a perfect pass.
+**Apply when:** an AC says "looks exactly like before" or "unchanged", and only for JS-only changes.
+
+### 306. Prove "pixel-identical" with an actual pixel diff, not by eye — mask the status bar
+**Observation (GH-405):** six before/after pairs were compared with PIL (`ImageChops.difference`) after cropping the top 4 % (live clock) and the bottom 4.5 % (OS nav bar): **0 differing pixels** in all six. Eyeballing two screenshots of the same blue screen proves nothing and a reviewer cannot re-check it; a table of differing-pixel counts is verifiable evidence, costs ~20 lines of Python, and catches sub-perceptual regressions. Without the status-bar mask the diff is never zero — the clock changes between the two capture runs.
+**Apply when:** any "must look exactly as before" criterion; also good for theme/layout refactors that claim to be visual no-ops.
+
+### 307. Paper's `RadioButton` label is a decorative `<Text>` sibling — tapping the text does nothing, and can make an assertion pass vacuously
+**Problem (GH-405):** the flow tapped `text: "Green"` / `"Purple"` to switch palettes. In `SettingsTab` those are plain `<Text>Green</Text>` nodes *next to* `<RadioButton value="green" />`, not a `RadioButton.Item`, so the label carries no touch target and the taps did nothing at all. The run still got as far as Purple before failing, because the "Green" assertion had passed — the app already sat on Green from an earlier step. A tap that does nothing plus an assertion on a value that is already set = a green step proving nothing.
+**Working solution:** give the radios a `testID` (surfaces as `resource-id`, no visual change) and tap by id. Then, after every switch, also `assertNotVisible` the PREVIOUS value — that is what makes the assertion prove a transition instead of a state.
+**Apply when:** any Maestro flow that switches a setting; check the markup for `RadioButton.Item` vs bare `RadioButton` before addressing anything by its label text.
+
+### 308. When a UI element "looks low-contrast" in a downscaled contact sheet, measure it from the full-size PNG
+**Observation (GH-405):** in the 3×2 extreme-colour contact sheet the FAB glyph looked washed out enough to threaten the "text readable everywhere" criterion. Sampling the FAB's bounding box in the full-size screenshots — dominant colour = fill, the colour furthest from it in luminance = glyph — and applying the WCAG formula gave 5.06:1 … 5.63:1 across all 8 screens, i.e. comfortably above the 3:1 icon threshold. The faintness was purely a LANCZOS-downscale artefact.
+**Apply when:** a readability/contrast AC is in play — a measured ratio from device pixels is stronger evidence than a screenshot, and it stops you from "fixing" a non-bug.
+
+### 309. Paper's `Dialog.Content` never scrolls — cap the dialog and use `Dialog.ScrollArea` for any tall dialog
+**Problem (GH-405):** a dialog with a fixed 240dp colour wheel plus slider, text field and previews overflows in landscape (SM-G986B is 1066×480 dp rotated), and `Dialog.Content` is a plain `View`. Paper's dialog surface has `marginVertical: 44` and `justifyContent: 'flex-start'` but **no** `maxHeight`, so the content simply grows past the screen and `Dialog.Actions` — Apply/Cancel — becomes unreachable. Orientation changes are enabled in `AndroidManifest.xml`, so this is reachable by any user.
+**Working solution:** `style={{maxHeight: windowHeight - 88}}` on `<Dialog>` (it wins, Paper appends the prop style last) + `<Dialog.ScrollArea>` wrapping a `<ScrollView>`. `Dialog.ScrollArea` already has `flexGrow/flexShrink: 1`, so it takes the leftover space once the surface is capped. Keep `Dialog.Actions` *outside* the scroll area so it is always visible. Set `paddingHorizontal: 0` on the ScrollArea and move the 24dp padding to the ScrollView's `contentContainerStyle`, otherwise the padding scrolls away with the content.
+**Apply when:** any Paper dialog taller than ~2 controls; check it in landscape, not just portrait.
+
+### 310. Scale an SVG picker with `viewBox`, and scale the touch coordinates back — geometry stays in one fixed space
+**Observation (GH-405):** making the colour wheel responsive by recomputing every wedge path from a dynamic size would have touched all the polar maths. Instead keep the drawing space fixed (`viewBox="0 0 240 240"`), render at `width={wheelSize} height={wheelSize}`, and in the `PanResponder` handler multiply `locationX/locationY` by `240 / wheelSize` before the polar conversion. Wedges, marker and hit-testing then all live in the same fixed coordinates at any rendered size.
+**Test that catches the missing scale factor:** mock `Dimensions.get` to a short window, tap the wheel's right edge, assert the resulting hex is `#FF0000`. Without the scale factor the same tap lands at s≈0.5 and returns a pale red, so the test fails loudly instead of silently drifting.
+
+### 311. A `HelperText` hidden via its `visible` prop is still a node in the native tree — render it conditionally for e2e
+**Observation (GH-405):** Paper's `HelperText visible={false}` only animates `opacity` to 0; the view stays mounted, so a Maestro `assertVisible`/`assertNotVisible` on it can match the *hidden* state and pass vacuously. `{!isValid && <HelperText …>}` makes the accessibility tree tell the truth. Same trap applies to anything that hides by opacity, `transform`, or zero height rather than by unmounting.
+**Apply when:** an error/hint element is the thing an e2e flow asserts on.
+
+### 312. `input swipe`/`input tap` use the **override** display size, not the physical one
+**Problem (GH-405):** `wm size` on R5CN30HWZFN reports `Physical size: 1440x3200` and `Override size: 720x1600`. Swiping `720 2400 → 720 900` to dismiss the lock screen did nothing at all — both points are off-screen in the 720×1600 input space — which looked exactly like "the swipe is not unlocking the device" and cost a diagnosis cycle. Read **Override size** when present and derive coordinates from that; the existing capture scripts' taps (`630 1421` etc.) were already in that space.
+**Apply when:** writing any `adb shell input` coordinates for a real device; never assume the screenshot's pixel size is the input space.
+
+### 313. `adb shell input text '#RRGGBB'` loses everything from the `#` — the DEVICE shell treats it as a comment
+**Problem (GH-405):** `a shell input text '#00FF'` failed with `IllegalArgumentException: Argument expected after "text"`. The WSL-side quotes are consumed locally; what reaches the device shell is `input text #00FF`, where `#` opens a comment, so `input text` arrives with no argument at all.
+**Working solution:** quote for the remote shell as well — `a shell "input text '#00FF'"`. The same applies to any `input text` payload containing `#`, `;`, `&`, `<`, `>` or spaces.
+**Apply when:** driving a hex/colour/tag field over `adb shell input text`.
+
+### 314. Paper's floating TextInput label carries the SAME testID as the input — a first-match `grep` taps the label and the field never focuses
+**Problem (GH-405):** a helper that resolved a testID to tap coordinates via `grep -m1` picked the node at `[93,880][173,904]` (the floating "Hex" label) instead of the `EditText` at `[88,894][633,964]`. The tap registered, nothing focused, and the following `input text` was silently dropped — the field kept its old value and the assertion failed as if the app were broken.
+**Working solution:** match the class too — `grep 'theme-color-hex-input" class="android.widget.EditText'` — then poll the dump for `focused="true"` on that id and retap until it holds.
+**Apply when:** resolving a Paper `TextInput` by testID from a uiautomator dump. Related: #311, and the older "tapping the placeholder never focuses" entry.
+
+### 315. Do not send an unconditional `KEYCODE_BACK` to dismiss the IME — when the keyboard is not up it closes the DIALOG instead
+**Problem (GH-405):** a capture script typed into a dialog and then sent BACK "to drop the IME". `input text` injects events directly and frequently never raises the keyboard, so BACK went to the dialog and dismissed it — the state being photographed disappeared, and a later dump still showed the dialog (a Portal leaves the screen behind it in the tree), which made the failure read like a stale-dump problem.
+**Working solution:** gate it — `adb shell dumpsys input_method | grep -q 'mInputShown=true'` before sending BACK.
+**Apply when:** any scripted text entry inside a modal.
+
+### 316. A per-character `inputText` walks through VALID intermediate values — never assert "the value is unchanged since we started"
+**Problem (GH-405):** a flow asserted that typing the unparseable `#00FF` left the preview on the colour the dialog opened with. It never held: Maestro types character by character and `#00F` is a valid three-digit shorthand that `parseColor` expands, so the preview legitimately moved to `#0000FF` one keystroke before the value became invalid. The block had been authored but never executed, so the wrong assumption shipped as a green-looking flow.
+**Working solution:** assert the concrete resulting value (`#0000FF`). It still proves the field's invalid text was ignored, and it is deterministic.
+**Apply when:** asserting fallback/last-valid behaviour around a live-validated text field.
