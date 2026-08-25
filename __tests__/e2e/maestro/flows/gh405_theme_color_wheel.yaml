@@ -73,12 +73,6 @@ name: GH-405 theme colour wheel
 # --- an unparseable hex must not be silently applied ---------------------------
 # Typing an incomplete value leaves the wheel on the last VALID colour. Applying
 # then would confirm a colour the field no longer shows, so Apply goes disabled.
-# Remember the colour the dialog opened on, so the check below compares the real
-# resulting value rather than a hard-coded hex (it differs in light vs dark).
-- copyTextFrom:
-    id: "theme-color-preview-hex"
-- evalScript: ${output.lastValidHex = maestro.copiedText}
-
 - tapOn:
     id: "theme-color-hex-input"
 - eraseText
@@ -92,11 +86,15 @@ name: GH-405 theme colour wheel
     enabled: false
 - takeScreenshot: gh405-04b-invalid-hex-apply-disabled
 
-# the preview did NOT follow the invalid text — it still holds the last valid colour
-- copyTextFrom:
+# The preview did NOT follow the invalid text: it holds the last value that still
+# parsed. `inputText` types character by character, and `#00F` IS a valid 3-digit
+# shorthand (parseColor expands it), so the wheel legitimately stops on #0000FF
+# one keystroke before the field became unparseable. Asserting the concrete
+# resulting value proves the fallback; comparing against the colour the dialog
+# opened on would not, because that comparison is broken by the shorthand step.
+- assertVisible:
     id: "theme-color-preview-hex"
-- evalScript: ${output.stillLastValid = maestro.copiedText === output.lastValidHex}
-- assertTrue: ${output.stillLastValid}
+    text: "#0000FF"
 
 # pressing Apply changes nothing: the dialog is still open afterwards
 - tapOn:
