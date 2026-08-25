@@ -4,6 +4,7 @@ This document tracks how much time workers spend on infrastructure vs. feature w
 which problems recur, and which workers are affected. Use this to identify systemic
 issues and prevent agents from re-discovering known solutions.
 
+Last updated: 2026-08-25 (GH-316)
 Last updated: 2026-08-24 (GH-405, round 3)
 Last updated: 2026-08-23 (GH-396)
 Last updated: 2026-04-12 (GH-71-fb7)
@@ -81,6 +82,7 @@ Last updated: 2026-07-16 (GH-324 r4 finalize round)
 
 | Ticket | Device | Driver-Port | gRPC Crash | Wrong Device | ADB Reverse | Metro | Red Screen | Build | Screenshot | Feedback Rounds | Final Status |
 |--------|--------|-------------|------------|-------------|-------------|-------|------------|-------|------------|----------------|-------------|
+| GH-316 | real | 0 | 0 | 1 | 1 | 0 | 0 | 1 | 0 | 0 | ready_for_review — VL reference (Eichung). **Setup was near-clean.** Three small frictions, all pre-empted from memory rather than discovered the hard way: (1) `JAVA_TOOL_OPTIONS=-Duser.home=<run_dir>/checks/maestro-java-home` is exported for Maestro and gradle inherits it, which would have relocated `~/.gradle` — ran the build as `env -u JAVA_TOOL_OPTIONS`; cold `assembleDebug` then took 9m33s in this fresh worktree (memory #320). (2) `127.0.0.1:5037` was squatted by another worker's adb filter proxy (memory #300) — bound my own on `127.0.0.16:5037` filtered to R5CN30HWZFN instead of killing theirs; `adb -H 127.0.0.16 devices` showed only my serial. (3) `debuggableVariants = []` (memory #299) makes the rebuild mandatory for a JS-only change — budgeted for it up front instead of chasing a "Metro looks healthy but the app is stale" ghost. **Zero rework:** the GH-316 flow and the smoke flow each passed on the FIRST attempt, `--driver-host-port 7050` came up fine on the real device (contradicting memory #280's emulator note). Long-command handling: `setsid nohup` + in-turn polling with `perl select` (memory #321) so neither the 600s tool cap nor a turn boundary could reap the build. |
 | ANA-001 | emu | 34 | 0 | 7 | 15 | 4 | 14 | 16 | 0 | 10 | closed |
 | ANA-002 | emu | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | closed |
 | ANA-003 | emu | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | closed |
