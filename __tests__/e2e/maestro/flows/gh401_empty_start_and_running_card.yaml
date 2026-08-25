@@ -132,7 +132,7 @@ appId: com.powerliftingworkoutplanner
     timeout: 60000
 # Picking the first exercise is what CREATES the training object.
 # The row's pressable is an untagged ViewGroup, so a tap on it commits only about
-# one time in ten (agent-memory #306) — retry until the counter actually moves.
+# one time in ten (agent-memory #320) — retry until the counter actually moves.
 # The guard is the assertion: the loop cannot "pass" without a committed pick.
 - repeat:
     times: 8

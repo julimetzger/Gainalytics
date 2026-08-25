@@ -38,7 +38,7 @@ appId: com.powerliftingworkoutplanner
 #    the modal (the `selectionHeader` this ticket adds), not from the anchor row
 #    behind it — the modal covers the anchor.
 #  * Never tap a search-FILTERED row (memory #256): those taps never commit.
-#  * Row taps drop often on this emulator (memory #306), so every tap whose
+#  * Row taps drop often on this emulator (memory #320), so every tap whose
 #    effect is a counter change is wrapped in a guarded `repeat` rather than
 #    trusted once. The assertion after the loop is what actually decides.
 #
@@ -124,7 +124,7 @@ appId: com.powerliftingworkoutplanner
 # --- the single tap under test -------------------------------------------
 # The dashed "+" tile is the first cell of the exercise strip. ONE tap has to
 # be enough — no intermediate grey row to tap a second time. The tap itself
-# drops now and then on this emulator (memory #306), so it is retried; what the
+# drops now and then on this emulator (memory #320), so it is retried; what the
 # retry can never paper over is a SECOND tap being *required*, because the loop
 # stops the moment the counter header is up.
 - repeat:
@@ -162,7 +162,7 @@ appId: com.powerliftingworkoutplanner
 # selector (Maestro taps the label node at the far left) nor a point tap on the
 # row centre reaches the library's onPress — measured this run: 3 x 3 attempts,
 # zero commits, while `adb shell input tap` on the very same coordinates
-# commits every time. That is agent-memory #306, and inventing a "tapped the row
+# commits every time. That is agent-memory #320, and inventing a "tapped the row
 # and carried on" assertion here would be a false pass.
 #
 # The commit path is covered where it can be asserted honestly:
