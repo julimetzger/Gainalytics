@@ -56,10 +56,28 @@ appId: com.powerliftingworkoutplanner
       visible: 'Wait'
     commands:
       - tapOn: 'Wait'
+# "Training" (bottom tab label / dashboard title) is the first text that exists once
+# the bundle has rendered — waiting for it separates "still loading" from "loaded on
+# some other screen". The runner force-stops the app, so a first attempt lands on the
+# dashboard; a RETRY (the runner re-runs a failed flow once) resumes whatever screen
+# the previous attempt left behind, and would otherwise burn the full 7-minute
+# timeout waiting for a dashboard it is one Back press away from.
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 420000
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'training-home-screen'
+    commands:
+      - pressKey: Back
+      - waitForAnimationToEnd:
+          timeout: 15000
 - extendedWaitUntil:
     visible:
       id: 'training-home-screen'
-    timeout: 420000
+    timeout: 120000
 
 # ═══ Part 1 — a training without exercises cannot be started ═══════════════════
 
@@ -91,8 +109,11 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: '.*Push squat.*'
 
 # --- build the state the review found: a PLANNED training with zero exercises ---
-# The card lands on the Train tab. Go to the Plan tab (50%,14% is the sub-tab strip)
-# and from its suggestion screen into full edit mode via "Plan new Training".
+# The card lands on the Train tab. Go to the Plan tab and from its suggestion screen
+# into full edit mode via "Plan new Training".
+# The sub-tab strip sits at y=14%, but its three tabs split the width: Plan is at
+# x=17%, Train at 50%, Analysis at 83%. Tapping the strip's centre lands on Train,
+# which is why this loop used to spin without ever reaching plan mode.
 # Both taps live in one guarded loop: this emulator drops single taps under load
 # (agent-memory #183/#247) and the pane is invisible, so a missed FIRST tap would
 # leave every following one hitting nothing. Re-tapping the Plan sub-tab is
@@ -104,12 +125,12 @@ appId: com.powerliftingworkoutplanner
         id: 'header-plan-editing-kicker'
     commands:
       - tapOn:
-          point: '50%,14%'
+          point: '17%,14%'
           retryTapIfNoChange: false
       - waitForAnimationToEnd:
           timeout: 15000
       - tapOn:
-          point: '50%,42%'
+          point: '50%,43%'
           retryTapIfNoChange: false
       - waitForAnimationToEnd:
           timeout: 20000
@@ -134,27 +155,75 @@ appId: com.powerliftingworkoutplanner
 # The row's pressable is an untagged ViewGroup, so a tap on it commits only about
 # one time in ten (agent-memory #320) — retry until the counter actually moves.
 # The guard is the assertion: the loop cannot "pass" without a committed pick.
+# Two things make the retry safe. The tap only fires while a row is actually there,
+# so the loop cannot die on "Element not found" when the modal closes under it. And
+# each iteration WAITS for the counter instead of just letting the animation settle:
+# the counter needs a moment after a committed pick, and re-tapping in that window
+# un-picks what was just picked — which read as "the tap never committed" and burned
+# the whole loop toggling the same row.
 - repeat:
     times: 8
     while:
       notVisible: '1 selected'
     commands:
-      - tapOn: 'Adductor'
-      - waitForAnimationToEnd:
+      - runFlow:
+          when:
+            visible: 'Adductor'
+          commands:
+            - tapOn:
+                text: 'Adductor'
+                optional: true
+      - extendedWaitUntil:
+          visible: '1 selected'
           timeout: 10000
+          optional: true
 - assertVisible: '1 selected'
 # Un-picking it again leaves the training behind with an empty exercise list — the
-# state the review reported. The picker closes with the last de-selection, and the
-# header's "Plan" label is the proof that a PLANNED training now exists here.
+# state the review reported (the reducer keeps the training and just empties its
+# exercise list, agent-memory #335).
+# The loop guard reads the picker's OWN counter, not the header: while the modal is
+# up it is its own native window and everything behind it drops out of the hierarchy,
+# so a guard on `header-plan-label` never becomes true, spins through all 8 taps and
+# leaves the selection on an arbitrary parity. `1 selected` disappearing is the exact
+# signal that the last exercise is gone — the picker closes with it.
+# The tap is `optional` because of the race that closing creates: the loop condition
+# is evaluated while the counter is still up, and by the time the tap runs the modal
+# can already be animating away — a mandatory tap then fails with "Element not found:
+# Adductor" on a flow that has in fact just done exactly what it was supposed to.
 - repeat:
     times: 8
     while:
-      notVisible:
-        id: 'header-plan-label'
+      visible: '1 selected'
     commands:
-      - tapOn: 'Adductor'
-      - waitForAnimationToEnd:
+      - runFlow:
+          when:
+            visible: 'Adductor'
+          commands:
+            - tapOn:
+                text: 'Adductor'
+                optional: true
+      - extendedWaitUntil:
+          notVisible: '1 selected'
           timeout: 10000
+          optional: true
+# Safety net for the timing where the modal lingers: the "+" tile that opened the
+# picker sits above it and stays tappable, and toggling it closes the picker. Only
+# once the modal is really gone does the header become readable again, and its "Plan"
+# label is the proof that an empty PLANNED training now exists here.
+- repeat:
+    times: 4
+    while:
+      visible: '0 selected'
+    commands:
+      - tapOn:
+          point: '7%,19%'
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd:
+          timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-label'
+    timeout: 60000
 - runFlow:
     when:
       visible: 'Dismiss'
@@ -187,13 +256,21 @@ appId: com.powerliftingworkoutplanner
 # 50%,21% is where the Start button sat — and still sits for a training that HAS
 # exercises (gh401_card_to_train_start.yaml starts its session from this very
 # point). On an empty training that position now carries "Add Exercises".
-- tapOn:
-    point: '50%,21%'
-    retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible:
-      id: 'header-plan-editing-kicker'
-    timeout: 60000
+# The tap is retried because this emulator drops single taps under load, and the pane
+# gives no feedback that could be waited on; the retry is safe precisely because of
+# what is being proven — the position no longer starts anything. If it ever did, the
+# `header-session-timer` assertion below fails no matter how often it was tapped.
+- repeat:
+    times: 5
+    while:
+      notVisible:
+        id: 'header-plan-editing-kicker'
+    commands:
+      - tapOn:
+          point: '50%,21%'
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd:
+          timeout: 15000
 # Nothing was started: no session timer, and the training is still PLANNED. Before
 # the fix this tap produced `header-session-timer` and an empty running session.
 - runFlow:
@@ -216,31 +293,71 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd:
     timeout: 15000
 
-# Drawer -> "Pull dl" (D2). The drawer's training list is not in the accessibility
-# tree either, hence the point tap.
-- tapOn:
-    id: 'drawer-menu-button'
-- waitForAnimationToEnd:
-    timeout: 15000
+# Drawer -> "Pull dl" (D2). The drawer IS in the accessibility tree — "Enable
+# Planning Mode" is one of its buttons and serves as the open/closed signal — but its
+# training rows carry no id, hence the point tap.
+# Selecting a training sometimes closes the drawer and sometimes leaves it up, so
+# neither "drawer gone" nor "drawer still there" can be used as the signal that the
+# row tap landed: the row is tapped twice (re-selecting the same training is a no-op)
+# and the drawer is then closed explicitly with the same button that opened it. Do NOT
+# close it with Back — Back pops the whole screen back to the dashboard.
+# Only with the drawer closed does `.*Pull dl.*` mean the HEADER: while it is open its
+# own row list carries that text and the assertion would pass on the wrong screen.
+- repeat:
+    times: 4
+    while:
+      notVisible: 'Enable Planning Mode'
+    commands:
+      - tapOn:
+          id: 'drawer-menu-button'
+      - waitForAnimationToEnd:
+          timeout: 15000
 - tapOn:
     point: '18%,40%'
     retryTapIfNoChange: false
-- extendedWaitUntil:
-    visible: '.*Pull dl.*'
-    timeout: 120000
-
-# Plan D2 from the previous micro's session, then start it.
-- tapOn:
-    point: '50%,24%'
-    retryTapIfNoChange: false
 - waitForAnimationToEnd:
-    timeout: 15000
+    timeout: 20000
+- runFlow:
+    when:
+      visible: 'Enable Planning Mode'
+    commands:
+      - tapOn:
+          point: '18%,40%'
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd:
+          timeout: 20000
 - repeat:
     times: 4
+    while:
+      visible: 'Enable Planning Mode'
+    commands:
+      - tapOn:
+          id: 'drawer-menu-button'
+      - waitForAnimationToEnd:
+          timeout: 15000
+- assertVisible: '.*Pull dl.*'
+
+# Plan D2 from the previous micro's session, then start it.
+# Both taps sit in one loop because nothing inside the pane can be read between them:
+# 50%,24% is "Plan this Training" on the Train tab, 50%,29% is "Suggest based on last
+# Training" on the Plan tab that follows. If the first tap is dropped the second hits
+# empty space and the next iteration repeats the pair; if the pane is ALREADY on the
+# Plan tab, 24% lands in the "RIR delta" field, which only pops the keyboard — and the
+# keyboard covers the bottom half, while the suggestion sits at 29%, so the next tap
+# lands anyway. Do NOT "clean up" with `hideKeyboard` here: on Android it is a plain
+# Back press, so on the iterations where no keyboard is up it pops the screen and,
+# after a few rounds, drops the app to the launcher (agent-memory #315).
+- repeat:
+    times: 5
     while:
       notVisible:
         id: 'header-plan-label'
     commands:
+      - tapOn:
+          point: '50%,24%'
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd:
+          timeout: 15000
       - tapOn:
           point: '50%,29%'
           retryTapIfNoChange: false
@@ -249,15 +366,26 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'header-plan-label'
     text: 'Plan'
-# Creating the training re-derives the sub-tab to Plan; go back to Train.
-- tapOn:
-    point: '50%,14%'
-    retryTapIfNoChange: false
-- waitForAnimationToEnd:
-    timeout: 15000
-- tapOn:
-    point: '50%,21%'
-    retryTapIfNoChange: false
+# Creating the training re-derives the sub-tab to Plan; go back to Train (50% of the
+# strip is the Train tab; Plan sits at 17%) and start the session from the same 21%
+# position that carried "Add Exercises" on the empty training. Dropped taps are
+# retried; the session timer appearing is the only signal either tap produced.
+- repeat:
+    times: 5
+    while:
+      notVisible:
+        id: 'header-session-timer'
+    commands:
+      - tapOn:
+          point: '50%,14%'
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd:
+          timeout: 15000
+      - tapOn:
+          point: '50%,21%'
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd:
+          timeout: 20000
 - extendedWaitUntil:
     visible:
       id: 'header-session-timer'
@@ -288,9 +416,12 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'next-training-status-label'
     text: 'Training running'
+# The fixture's D2 is literally named "Pull dl " — with a trailing space, as the
+# drawer row's text node shows too. Maestro matches a selector's text against the
+# WHOLE node text, so the bare name never matches; the `.*` is the trailing space.
 - assertVisible:
     id: 'next-training-name'
-    text: 'Pull dl'
+    text: 'Pull dl.*'
 - assertVisible:
     id: 'next-training-slot'
     text: 'Meso 1 · M7 · D2 · 9 exercises'
