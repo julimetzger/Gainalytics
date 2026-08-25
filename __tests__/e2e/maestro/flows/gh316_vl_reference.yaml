@@ -1,0 +1,204 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-316: VL loss calibration against a set with a confirmed RIR ("VL reference").
+#
+# Proves on device, on the SAME exercise and the SAME analysed set:
+#   1. before  — Squat, 14.3% VL, global curve  → RIR 3-4
+#   2. after   — anchored at RIR 1              → RIR 1-2  (visibly different)
+#   3. restart — the reference survives a cold app start
+#   4. removed — back to RIR 3-4, i.e. today's behaviour
+#
+# The baseline fixture ships exactly one DONE analysis (id 1, Squat, VL 14.29%),
+# so `video-analysis-row-1` is deterministic here.
+
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+
+# --- import the baseline so the store holds the Squat analysis ------------------
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-import-data-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-import-data-button'
+- extendedWaitUntil:
+    visible: 'Import full data from backup file?'
+    timeout: 10000
+# Anchored so this never matches the "Import Data" button behind the dialog.
+- tapOn:
+    text: '^Import$'
+- runFlow:
+    when:
+      visible: 'Use without an account'
+    commands:
+      - tapOn: 'Use without an account'
+- runFlow:
+    when:
+      visible: 'No thanks'
+    commands:
+      - tapOn: 'No thanks'
+- scrollUntilVisible:
+    element:
+      text: 'baseline.gains'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'baseline.gains'
+- extendedWaitUntil:
+    visible: 'Import Data'
+    timeout: 120000
+
+# --- navigate to the analysed Squat set ----------------------------------------
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible: 'Push pull'
+    timeout: 120000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- scrollUntilVisible:
+    element:
+      text: 'Video Analyses'
+    direction: DOWN
+    timeout: 15000
+- tapOn: 'Video Analyses'
+# The drawer clears on its own; wait for the row itself rather than tapping blind.
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-1'
+    timeout: 60000
+- tapOn:
+    id: 'video-analysis-row-1'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-detail-screen'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'vl-reference-card'
+    direction: DOWN
+    timeout: 30000
+
+# --- 1. BEFORE: the global curve -----------------------------------------------
+- assertVisible:
+    id: 'vl-reference-vl-percent'
+    text: '14.3% VL'
+- assertVisible:
+    id: 'vl-reference-rir-estimate'
+    text: 'RIR 3-4'
+- assertVisible:
+    id: 'vl-reference-global-hint'
+    text: 'Squat uses the global VL curve.'
+- assertNotVisible:
+    id: 'vl-reference-badge'
+- takeScreenshot: gh316_1_before_global_curve
+
+# --- 2. AFTER: anchored at RIR 1 -----------------------------------------------
+- tapOn:
+    id: 'vl-reference-set-button'
+- extendedWaitUntil:
+    visible:
+      id: 'vl-reference-dialog-confirm'
+    timeout: 15000
+# Only RIR 0-3 are offered as anchors — RIR 4 is not selectable at all.
+- assertVisible:
+    id: 'vl-reference-rir-option-0'
+- assertVisible:
+    id: 'vl-reference-rir-option-3'
+- assertNotVisible:
+    id: 'vl-reference-rir-option-4'
+- takeScreenshot: gh316_2_dialog_rir_0_to_3
+- tapOn:
+    id: 'vl-reference-rir-option-1'
+- tapOn:
+    id: 'vl-reference-dialog-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'vl-reference-badge'
+    timeout: 15000
+
+# Same set, same 14.3% VL — the estimate itself moved because of the calibration.
+- assertVisible:
+    id: 'vl-reference-vl-percent'
+    text: '14.3% VL'
+- assertVisible:
+    id: 'vl-reference-rir-estimate'
+    text: 'RIR 1-2'
+# The badge names the anchor RIR and the calibration date.
+- assertVisible:
+    id: 'vl-reference-badge'
+    text: 'VL reference · RIR 1 · .*'
+- assertNotVisible:
+    id: 'vl-reference-global-hint'
+- takeScreenshot: gh316_3_after_referenced_rir1
+
+# --- 3. survives a cold restart ------------------------------------------------
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- scrollUntilVisible:
+    element:
+      text: 'Video Analyses'
+    direction: DOWN
+    timeout: 15000
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-1'
+    timeout: 60000
+- tapOn:
+    id: 'video-analysis-row-1'
+- scrollUntilVisible:
+    element:
+      id: 'vl-reference-card'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: 'vl-reference-rir-estimate'
+    text: 'RIR 1-2'
+- assertVisible:
+    id: 'vl-reference-badge'
+    text: 'VL reference · RIR 1 · .*'
+- takeScreenshot: gh316_4_after_restart
+
+# --- 4. removing it restores today's behaviour ---------------------------------
+- tapOn:
+    id: 'vl-reference-remove-button'
+- extendedWaitUntil:
+    visible:
+      id: 'vl-reference-global-hint'
+    timeout: 15000
+- assertVisible:
+    id: 'vl-reference-rir-estimate'
+    text: 'RIR 3-4'
+- assertVisible:
+    id: 'vl-reference-global-hint'
+    text: 'Squat uses the global VL curve.'
+- assertNotVisible:
+    id: 'vl-reference-badge'
+- takeScreenshot: gh316_5_after_remove_global_again

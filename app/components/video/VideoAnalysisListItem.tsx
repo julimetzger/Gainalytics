@@ -34,7 +34,7 @@ const VideoAnalysisListItem = ({analysis, onPress, onDelete, onLink, elapsedMs, 
   const exerciseName = exercise?.name ?? 'Unknown Exercise';
   const weightLabel = formatVideoAnalysisWeightLabel(linkedSet?.weight, linkedSet?.reps, analysis.status !== VideoAnalysisStatus.FAILED);
   const contextLabel = `${formatVideoAnalysisRelativeDateTime(analysis.createdAt)} · ${trainingMetadata?.trainingName ?? 'Unlinked workout'}`;
-  const metricsLabel = formatVideoAnalysisMetrics(analysis.setResult);
+  const metricsLabel = formatVideoAnalysisMetrics(analysis.setResult, exercise?.vlReference);
   const errorLabel = analysis.error ? analysis.error.replace(/^Error:\s*/i, '') : null;
   const movement = inferVideoAnalysisMovement(exerciseName);
 
