@@ -25,6 +25,10 @@ export interface PlanSetDraft {
 
 export interface PendingPlanSet extends PlanSetDraft {
   index: number;
+  // GH-406: true when the row was prefilled from the previous set of the same
+  // exercise. Such a weight is a deliberate plan value, so the row starts with
+  // the 1RM auto-suggestion switched off instead of overwriting it.
+  prefilledFromPreviousSet?: boolean;
 }
 
 export type PendingPlanSetByExerciseId = Record<number, PendingPlanSet | undefined>;
