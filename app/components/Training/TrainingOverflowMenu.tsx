@@ -4,13 +4,14 @@ import {Divider, Menu, Portal, Text, useTheme} from 'react-native-paper';
 import {TrainingsState} from '../../models/TrainingsState';
 import {SubTab} from './TrainingModeTabs';
 
+// GH-401 (H1/AC2): the menu no longer offers "Start Training". That label used to
+// exist three times in one flow (dashboard card, Train tab, this menu) with two
+// different meanings. The single real start control now lives in the Train tab.
 interface TrainingOverflowMenuProps {
   visible: boolean;
   onDismiss: () => void;
   trainingState?: string;
   activeSubTab?: SubTab;
-  hasExercises?: boolean;
-  onStart: () => void;
   onFinish: () => void;
   onEditPlan: () => void;
   onEditTraining: () => void;
@@ -22,8 +23,6 @@ const TrainingOverflowMenu = ({
   onDismiss,
   trainingState,
   activeSubTab,
-  hasExercises,
-  onStart,
   onFinish,
   onEditPlan,
   onEditTraining,
@@ -63,30 +62,10 @@ const TrainingOverflowMenu = ({
                 onEditPlan();
               }}
             />
-            {hasExercises && (
-              <Menu.Item
-                testID="overflow-start"
-                title={<Text style={primaryStyle.label}>Start Training</Text>}
-                onPress={() => {
-                  onDismiss();
-                  onStart();
-                }}
-              />
-            )}
             <Divider />
           </>
         ) : (
           <>
-            {trainingState === TrainingsState.PLANNED && (
-              <Menu.Item
-                testID="overflow-start"
-                title={<Text style={primaryStyle.label}>Start Training</Text>}
-                onPress={() => {
-                  onDismiss();
-                  onStart();
-                }}
-              />
-            )}
             {trainingState === TrainingsState.STARTED && (
               <Menu.Item
                 testID="overflow-finish"

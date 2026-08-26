@@ -1,9 +1,14 @@
 appId: com.powerliftingworkoutplanner
 ---
-# GH-340 — Plan-mode kebab (overflow) menu should offer "Start Training" as
-# soon as the training has planned exercises. Uses baseline.gains training id
+# GH-340 — Plan-mode kebab (overflow) menu. Uses baseline.gains training id
 # 282 (plan "Push pull upper lower", micro 69, "Push" day) which is PLANNED
 # and already has 11 exercises added.
+#
+# GH-401 changed the contract this flow guards: the kebab used to carry a second
+# "Start Training" entry duplicating the dashboard card's label. There is now
+# exactly one start control, the Train tab's button, so this flow asserts the
+# kebab offers "Edit plan" WITHOUT a duplicate start, and then starts the
+# training the way a user now does.
 - launchApp:
     clearState: false
 - runFlow:
@@ -69,7 +74,7 @@ appId: com.powerliftingworkoutplanner
 # so the exact "Micro 69" text uniquely targets the button). Then pick the
 # "Push" day, which selects training 282 (PLANNED, 11 planned exercises) and
 # closes the drawer. Landing on a PLANNED training auto-selects the Plan
-# sub-tab, so the kebab must offer both "Edit plan" and "Start Training".
+# sub-tab, so the kebab must offer "Edit plan".
 - tapOn:
     id: 'drawer-menu-button'
 - extendedWaitUntil:
@@ -92,13 +97,33 @@ appId: com.powerliftingworkoutplanner
     timeout: 5000
 - assertVisible:
     id: 'overflow-edit-plan'
-- assertVisible:
+# GH-401 AC2: no duplicate start control in the menu any more.
+- assertNotVisible:
     id: 'overflow-start'
-- assertVisible: 'Start Training'
-- takeScreenshot: gh340_plan_kebab_start_training_visible
+- assertNotVisible: 'Start Training'
+- takeScreenshot: gh340_plan_kebab_no_duplicate_start
+# Close the kebab and start the training from the Train tab, which is where the
+# one real start control now lives. The training pane is not exposed to the
+# accessibility tree (agent-memory #206), so the sub-tab strip and the Start
+# button are driven by position; the proof is the session timer in the header,
+# which only exists while the training is STARTED and IS readable.
 - tapOn:
-    id: 'overflow-start'
+    id: 'overflow-scrim'
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn:
+    point: '50%,14%'
+    retryTapIfNoChange: false
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: gh340_train_tab_start_training_visible
+- tapOn:
+    point: '50%,21%'
+    retryTapIfNoChange: false
 - extendedWaitUntil:
-    visible: 'Training started!'
-    timeout: 10000
+    visible:
+      id: 'header-session-timer'
+    timeout: 30000
+- assertVisible:
+    id: 'header-session-timer'
 - takeScreenshot: gh340_start_training_tapped
