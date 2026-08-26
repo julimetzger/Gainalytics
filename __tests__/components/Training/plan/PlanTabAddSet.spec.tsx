@@ -16,6 +16,9 @@ const mockDeleteSetFromWorkout = jest.fn();
 const mockReplaceWorkoutSets = jest.fn();
 const mockDispatch = jest.fn();
 let mockPlannedSetsByWorkoutId: Record<number, Workout> = {};
+// GH-406: useAllTimeOneRepMax reads workouts.byExerciseId — the 1RM tests below
+// seed a FINISHED workout here so the suggestion logic is actually reachable.
+let mockWorkoutIdsByExerciseId: Record<number, number[]> = {};
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({bottom: 0}),
@@ -26,7 +29,7 @@ jest.mock('react-redux', () => ({
   useDispatch: () => mockDispatch,
   useSelector: (selector: (state: unknown) => unknown) =>
     selector({
-      workouts: {byId: mockPlannedSetsByWorkoutId},
+      workouts: {byId: mockPlannedSetsByWorkoutId, byExerciseId: mockWorkoutIdsByExerciseId},
       settings: {},
     }),
 }));
@@ -179,6 +182,7 @@ describe('PlanTab — Full Edit Add-Set (GH-240 Bug 2)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPlannedSetsByWorkoutId = {};
+    mockWorkoutIdsByExerciseId = {};
   });
 
   it('renders the Add set button after entering full edit', async () => {
@@ -323,6 +327,231 @@ describe('PlanTab — Full Edit Add-Set (GH-240 Bug 2)', () => {
     // Allow zero successful commits, but never a commit with weight=0/reps=undefined etc.
     commitCalls.forEach(([action]) => {
       expect(action.set?.reps).not.toBe(0);
+    });
+  });
+});
+
+// GH-406 (UX-Audit finding M5): "Add set" used to produce an entirely empty row
+// (reps '', weight '', RIR '0') even when the set above already held 8 / 0 / 118.
+// A new set now carries over reps, RIR and weight from the previous set of the
+// SAME exercise, so the common case (straight sets) needs no typing at all.
+describe('PlanTab — Add set carries the previous set over (GH-406)', () => {
+  const upsertedSets = () =>
+    mockDispatch.mock.calls
+      .filter(([action]) => action?.type === 'ADD_OR_UPDATE_SET_IN_WORKOUT')
+      .map(([action]) => action.set);
+
+  const workoutWithSets = (sets: Workout['sets']): Workout => ({id: 101, exerciseId: 1, sets, notes: ''});
+
+  const trainingWithWorkout: Training = {...baseTraining, plannedWorkouts: {1: 101}};
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPlannedSetsByWorkoutId = {};
+    mockWorkoutIdsByExerciseId = {};
+  });
+
+  it('prefills reps, RIR and weight from the previous saved set of the same exercise', async () => {
+    mockPlannedSetsByWorkoutId = {101: workoutWithSets([{index: 1, reps: 8, rir: 2, weight: 118}])};
+    const {getByTestId} = renderPlanTab(trainingWithWorkout);
+
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+    await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+
+    expect(getByTestId('plan-pending-set-reps-input').props.value).toBe('8');
+    expect(getByTestId('plan-pending-set-rir-input').props.value).toBe('2');
+    expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('118');
+  });
+
+  it('carries over a decimal weight verbatim', async () => {
+    mockPlannedSetsByWorkoutId = {101: workoutWithSets([{index: 1, reps: 5, rir: 1, weight: 62.5}])};
+    const {getByTestId} = renderPlanTab(trainingWithWorkout);
+
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+    await waitFor(() => expect(getByTestId('plan-pending-set-weight-input')).toBeTruthy());
+
+    expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('62.5');
+  });
+
+  it('takes the HIGHEST-index set as the predecessor, not the array order', async () => {
+    mockPlannedSetsByWorkoutId = {
+      101: workoutWithSets([
+        {index: 2, reps: 6, rir: 1, weight: 130},
+        {index: 1, reps: 8, rir: 2, weight: 118},
+      ]),
+    };
+    const {getByTestId} = renderPlanTab(trainingWithWorkout);
+
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+    await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+
+    expect(getByTestId('plan-pending-set-reps-input').props.value).toBe('6');
+    expect(getByTestId('plan-pending-set-rir-input').props.value).toBe('1');
+    expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('130');
+  });
+
+  // AC: the FIRST set of an exercise has no predecessor and must behave exactly
+  // as before — empty reps/weight and RIR '0', never 'undefined'/'NaN'/'0' kg.
+  it('leaves the FIRST set of an exercise at the unchanged empty default', async () => {
+    const {getByTestId} = renderPlanTab();
+
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+    await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+
+    expect(getByTestId('plan-pending-set-reps-input').props.value).toBe('');
+    expect(getByTestId('plan-pending-set-rir-input').props.value).toBe('0');
+    expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('');
+  });
+
+  it('keeps the carried-over values editable — nothing is locked', async () => {
+    mockPlannedSetsByWorkoutId = {101: workoutWithSets([{index: 1, reps: 8, rir: 2, weight: 118}])};
+    const {getByTestId} = renderPlanTab(trainingWithWorkout);
+
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+    await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+
+    fireEvent.changeText(getByTestId('plan-pending-set-reps-input'), '5');
+    fireEvent.changeText(getByTestId('plan-pending-set-weight-input'), '125');
+
+    expect(getByTestId('plan-pending-set-reps-input').props.value).toBe('5');
+    expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('125');
+    // The untouched field keeps the carried-over value.
+    expect(getByTestId('plan-pending-set-rir-input').props.value).toBe('2');
+  });
+
+  // The interaction-count claim of the ticket, mechanised: with set 1 in place,
+  // sets 2 and 3 of a 3x8 are produced by two "Add set" taps and the Done exit —
+  // zero text entries — and all three sets carry identical values.
+  it('completes a 3x8 with two taps and no typing once set 1 exists', async () => {
+    mockPlannedSetsByWorkoutId = {101: workoutWithSets([{index: 1, reps: 8, rir: 0, weight: 100}])};
+    let chrome: {exitToRead: () => void} | undefined;
+    const {getByTestId} = renderPlanTab(trainingWithWorkout, (state) => {
+      chrome = state;
+    });
+
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+    await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+    await waitFor(() => expect(upsertedSets().length).toBe(1));
+
+    act(() => {
+      chrome?.exitToRead();
+    });
+
+    await waitFor(() => expect(upsertedSets().length).toBe(2));
+    expect(upsertedSets()).toEqual([
+      expect.objectContaining({index: 2, reps: 8, rir: 0, weight: 100}),
+      expect.objectContaining({index: 3, reps: 8, rir: 0, weight: 100}),
+    ]);
+  });
+
+  it('carries over from the pending row that the same tap just committed', async () => {
+    mockPlannedSetsByWorkoutId = {101: workoutWithSets([{index: 1, reps: 8, rir: 0, weight: 100}])};
+    const {getByTestId} = renderPlanTab(trainingWithWorkout);
+
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+    await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+
+    // The user deviates on set 2 …
+    fireEvent.changeText(getByTestId('plan-pending-set-reps-input'), '6');
+    fireEvent.changeText(getByTestId('plan-pending-set-weight-input'), '110');
+
+    // … and set 3 must follow set 2, not the stale set 1 from the store.
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+    await waitFor(() => expect(upsertedSets().length).toBe(1));
+
+    expect(getByTestId('plan-pending-set-reps-input').props.value).toBe('6');
+    expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('110');
+  });
+
+  it('keeps an invalid pending row untouched instead of carrying it over', async () => {
+    mockPlannedSetsByWorkoutId = {101: workoutWithSets([{index: 1, reps: 8, rir: 0, weight: 100}])};
+    const {getByTestId} = renderPlanTab(trainingWithWorkout);
+
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+    await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+
+    // Blank the carried-over weight — the draft is now invalid.
+    fireEvent.changeText(getByTestId('plan-pending-set-weight-input'), '');
+    fireEvent.press(getByTestId('plan-add-set-button-1'));
+
+    expect(upsertedSets()).toEqual([]);
+    expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('');
+    expect(getByTestId('plan-pending-set-reps-input').props.value).toBe('8');
+  });
+
+  describe('1RM weight suggestion (unchanged, must not collide with the carry-over)', () => {
+    // A FINISHED workout at 100 kg x 1 @ RIR 0 gives an all-time 1RM of 100.
+    const seedOneRepMax = () => {
+      mockWorkoutIdsByExerciseId = {1: [900]};
+      mockPlannedSetsByWorkoutId = {
+        ...mockPlannedSetsByWorkoutId,
+        900: {
+          id: 900,
+          exerciseId: 1,
+          sets: [{index: 1, reps: 1, rir: 0, weight: 100}],
+          notes: '',
+          end: new Date('2026-01-01'),
+        } as Workout,
+      };
+    };
+
+    it('still auto-suggests the weight from the 1RM on the FIRST set', async () => {
+      seedOneRepMax();
+      const {getByTestId} = renderPlanTab();
+
+      fireEvent.press(getByTestId('plan-add-set-button-1'));
+      await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+
+      fireEvent.changeText(getByTestId('plan-pending-set-reps-input'), '8');
+
+      // 100 / (1 + 8/30) = 78.9 -> "79"
+      await waitFor(() => expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('79'));
+    });
+
+    it('does NOT let the 1RM suggestion overwrite a carried-over weight', async () => {
+      mockPlannedSetsByWorkoutId = {101: workoutWithSets([{index: 1, reps: 8, rir: 0, weight: 118}])};
+      seedOneRepMax();
+      const {getByTestId} = renderPlanTab(trainingWithWorkout);
+
+      fireEvent.press(getByTestId('plan-add-set-button-1'));
+      await waitFor(() => expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('118'));
+
+      // Editing reps on a carried-over row must keep the planned weight.
+      fireEvent.changeText(getByTestId('plan-pending-set-reps-input'), '6');
+
+      expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('118');
+    });
+
+    it('recomputes the weight from the 1RM when the user opts back in via the toggle', async () => {
+      mockPlannedSetsByWorkoutId = {101: workoutWithSets([{index: 1, reps: 8, rir: 0, weight: 118}])};
+      seedOneRepMax();
+      const {getByTestId} = renderPlanTab(trainingWithWorkout);
+
+      fireEvent.press(getByTestId('plan-add-set-button-1'));
+      await waitFor(() => expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('118'));
+
+      fireEvent.press(getByTestId('plan-pending-set-1rm-toggle'));
+
+      await waitFor(() => expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('79'));
+    });
+
+    it('re-arms the 1RM suggestion for each new pending row', async () => {
+      seedOneRepMax();
+      const {getByTestId} = renderPlanTab();
+
+      // Set 1: no predecessor -> suggestion active.
+      fireEvent.press(getByTestId('plan-add-set-button-1'));
+      await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+      fireEvent.changeText(getByTestId('plan-pending-set-reps-input'), '8');
+      await waitFor(() => expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('79'));
+
+      // Set 2 carries 8 / 0 / 79 over; editing reps must NOT re-suggest now.
+      fireEvent.press(getByTestId('plan-add-set-button-1'));
+      await waitFor(() => expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('79'));
+      fireEvent.changeText(getByTestId('plan-pending-set-reps-input'), '3');
+
+      expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('79');
     });
   });
 });

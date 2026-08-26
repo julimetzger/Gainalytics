@@ -1,0 +1,101 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-406 (UX audit finding M5): "Add set" must prefill the new set with the
+# previous set's reps, RIR and weight.
+#
+# Evidence flow. It navigates to the PLANNED training "Micro 71 Pull" of the
+# "Push pull upper lower" plan, enters full plan edit and taps "Add set" on the
+# Deadlift section, whose last set is 7 reps / RIR 0 / 180 kg.
+#
+# Run it once on the pre-change commit and once on the fix to produce the
+# before/after pair:
+#   before -> the new row 10 is empty (reps '', weight '', RIR 0)
+#   after  -> the new row 10 reads 7 / 0 / 180
+#
+# NOTE ON ASSERTIONS: everything TrainingsPlanNode renders below the header is
+# missing from the Android accessibility tree on this build (a `uiautomator
+# dump` on this screen returns the header and the bottom bar only). That is a
+# pre-existing limitation — the same one the comments in
+# gh323_edit_mode_done_button.yaml and trn005_edit_training_times.yaml describe
+# — so the set rows cannot be addressed or asserted by id or by text, and the
+# taps inside the plan body have to be points. The values themselves are
+# asserted in __tests__/components/Training/plan/PlanTabAddSet.spec.tsx; the
+# screenshots below are the on-device evidence.
+- launchApp:
+    clearState: false
+- tapOn:
+    text: 'Dismiss'
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 90000
+- scrollUntilVisible:
+    element:
+      id: 'plan-meta-1'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'plan-meta-1'
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-menu-button'
+    timeout: 30000
+# Switch to the planned micro 71 via the plan drawer (the drawer is a Portal
+# and IS exposed, unlike the plan body).
+- tapOn:
+    id: 'drawer-menu-button'
+- extendedWaitUntil:
+    visible: 'Trainings:'
+    timeout: 15000
+- tapOn: 'Micro 71'
+- waitForAnimationToEnd
+- tapOn: 'Pull'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'header-overflow-icon'
+    timeout: 30000
+# The subtab row sits directly under the fixed header, so its position is stable.
+- tapOn:
+    point: '17%,11%'
+- waitForAnimationToEnd
+- takeScreenshot: gh406_01_plan_read
+# "Edit plan" is only offered for a PLANNED training on the Plan subtab, so the
+# menu entry appearing at all proves the Plan subtab is the active one.
+- tapOn:
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-edit-plan'
+    timeout: 10000
+# The menu is a Portal: pressing it while it is still animating in swallows the
+# press, and the flow would sail on and screenshot the still-open menu.
+- waitForAnimationToEnd
+- tapOn:
+    id: 'overflow-edit-plan'
+- extendedWaitUntil:
+    notVisible:
+      id: 'overflow-edit-plan'
+    timeout: 10000
+# Full edit is active. Both header markers are exposed, unlike the plan body.
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-editing-kicker'
+    timeout: 15000
+- assertVisible: 'EDITING PLAN'
+- assertVisible:
+    id: 'header-plan-done-button'
+# Deadlift is the first section and carries sets 8 (5/0/200) and 9 (7/0/180).
+- takeScreenshot: gh406_02_full_edit_before_add
+# Tap the dashed "Add set" button of the Deadlift section.
+- tapOn:
+    point: '52%,46%'
+- waitForAnimationToEnd
+# Guard against a stray tap that navigated away instead of adding a row: the
+# screen must still be the plan in full edit when the evidence is captured.
+- assertVisible:
+    id: 'header-plan-editing-kicker'
+- assertVisible:
+    id: 'header-plan-done-button'
+- takeScreenshot: gh406_03_after_add_set

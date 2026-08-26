@@ -12,7 +12,7 @@ import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId
 import {dispatchDeleteSetFromWorkout} from '../../../redux/Workout/dispatch/dispatchDeleteSetFromWorkout';
 import {dispatchReplaceWorkoutSets} from '../../../redux/Workout/dispatch/dispatchReplaceWorkoutSets';
 import {GlobalState} from '../../../redux/rootReducer';
-import {buildWorkoutSetFromDraft, cloneWorkoutSet, formatPlanNumber, isPlanFieldValueValid} from './planUtils';
+import {buildWorkoutSetFromDraft, cloneWorkoutSet, formatPlanNumber, getPlanSetDraft, isPlanFieldValueValid} from './planUtils';
 import {
   FullEditSnapshot,
   PendingPlanSetByExerciseId,
@@ -491,6 +491,7 @@ const PlanTab = ({
     // has invalid values we leave it untouched — the user can finish or delete it,
     // but we don't drop their click.
     let pending = pendingSetByExerciseId[exerciseId];
+    let committedFromPending: WorkoutSet | undefined;
     if (pending !== undefined) {
       const built = buildWorkoutSetFromDraft(pending, {
         index: pending.index,
@@ -505,18 +506,29 @@ const PlanTab = ({
         return;
       }
       upsertSetInPlan(exerciseId, built);
+      committedFromPending = built;
     }
     const sets = plannedWorkoutsByExerciseId[exerciseId]?.sets ?? [];
-    const lastSavedIndex = sets.map((workoutSet) => workoutSet.index ?? 0).sort((left, right) => left - right).pop() ?? 0;
+    const lastSavedSet = sets.reduce<WorkoutSet | undefined>(
+      (highest, workoutSet) => ((workoutSet.index ?? 0) > (highest?.index ?? 0) ? workoutSet : highest),
+      undefined,
+    );
+    const lastSavedIndex = lastSavedSet?.index ?? 0;
     const lastPendingIndex = pending?.index ?? 0;
     const nextIndex = Math.max(lastSavedIndex, lastPendingIndex) + 1;
+    // GH-406 (UX audit M5): a new set starts as a copy of the previous set of the
+    // same exercise, so straight sets (3x8 @ 118) need no typing at all. The row
+    // we just committed above is the newer predecessor — the store has not caught
+    // up with it yet in this render, so prefer it over the saved sets.
+    // getPlanSetDraft falls back to reps '', rir '0', weight '' for the very first
+    // set of an exercise, which is exactly the previous behaviour.
+    const previousSet = committedFromPending ?? lastSavedSet;
     setPendingSetByExerciseId((current) => ({
       ...current,
       [exerciseId]: {
         index: nextIndex,
-        reps: '',
-        rir: '0',
-        weight: '',
+        ...getPlanSetDraft(previousSet),
+        prefilledFromPreviousSet: previousSet !== undefined,
       },
     }));
     setHasStructuralChanges(true);
