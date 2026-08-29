@@ -16,7 +16,7 @@ import TrainingsOverview from './analyse/TrainingsOverview';
 import TrainingHistory from './analyse/TrainingHistory';
 import TrainingModeTabs, {SubTab} from './TrainingModeTabs';
 import TrainingOverflowMenu from './TrainingOverflowMenu';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {ViewMode} from '../../tabs/trainings/MicroOverviewTraining';
 import {ExerciseSortMode} from './analyse/MicroExerciseOverview';
 import {dispatchStartTraining} from '../../redux/Training/dispatch/plan/dispatchStartTraining';
@@ -52,9 +52,12 @@ interface TrainingsPlanNodeProps {
   overflowVisible: boolean;
   onCloseOverflow: () => void;
   onPlanChromeChange?: (state: PlanChromeState) => void;
+  /** Sub-tab explicitly requested by the caller (navigation param), overrides the state default. */
+  requestedSubTab?: SubTab;
 }
 
-export const defaultSubTab = (state?: string): SubTab => {
+export const defaultSubTab = (state?: string, requestedSubTab?: SubTab): SubTab => {
+  if (requestedSubTab !== undefined) return requestedSubTab;
   if (state === TrainingsState.PLANNED) return 'plan';
   if (state === TrainingsState.STARTED) return 'train';
   if (state === TrainingsState.FINISHED) return 'analysis';
@@ -80,7 +83,7 @@ const PlanNodeScrollContainer = ({children}: {children: React.ReactNode}) => {
   );
 };
 
-const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange, microSortMode, onMicroSortModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange}: TrainingsPlanNodeProps) => {
+const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange, microSortMode, onMicroSortModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange, requestedSubTab}: TrainingsPlanNodeProps) => {
   const [localViewMode, setLocalViewMode] = useState<ViewMode>('gesamt');
   const effectiveViewMode = microViewMode ?? localViewMode;
   const effectiveSetViewMode = onMicroViewModeChange ?? setLocalViewMode;
@@ -124,26 +127,64 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     .filter((exercise) => exercise !== undefined)
     .filter((exercise) => exercise.id !== undefined && exercise.id !== chosenExercise?.id && !(training?.exercises ?? []).includes(exercise.id)) as Exercise[];
 
-  const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultSubTab(training?.state));
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultSubTab(training?.state, requestedSubTab));
   const [isEditing, setIsEditing] = useState(false);
   const [planEditRequestId, setPlanEditRequestId] = useState(0);
+  // A requested sub-tab must win exactly once per slot — otherwise every later
+  // state change (e.g. PLANNED → STARTED) would drag the user back to it.
+  // Slot-keyed because RangeSwiper reuses pane instances across micro slots.
+  //
+  // The consumed keys have to be remembered as a SET, not as a single "last
+  // applied" key: RangeSwiper hands the navigation request only to the pane it
+  // considers active, so swiping away sets requestedSubTab back to undefined.
+  // A single ref would be cleared by that, and swiping back would make the very
+  // same request look unconsumed again — re-applying it on top of whatever tab
+  // the user (or handleFinish's Analysis pre-selection) had chosen since.
+  const consumedSubTabRequestsRef = useRef<Set<string>>(new Set());
+  // What the last state-default reset was keyed on. Guards the reset below so a
+  // requestedSubTab that merely appears or disappears (pane going in/out of
+  // focus) never counts as a reason to reset the tab.
+  const subTabResetKeyRef = useRef<string | null>(null);
 
   // Reset sub-tab when micro/trainingInMicro changes OR when training state changes (e.g. async load → PLANNED)
   useEffect(() => {
+    const requestKey = requestedSubTab !== undefined ? `${micro}:${trainingInMicro}:${requestedSubTab}` : null;
+    if (requestKey !== null && !consumedSubTabRequestsRef.current.has(requestKey)) {
+      consumedSubTabRequestsRef.current.add(requestKey);
+      subTabResetKeyRef.current = `${micro}:${trainingInMicro}:${training?.state}`;
+      setActiveSubTab(requestedSubTab!!);
+      return;
+    }
+    const resetKey = `${micro}:${trainingInMicro}:${training?.state}`;
+    if (subTabResetKeyRef.current === resetKey) return;
+    subTabResetKeyRef.current = resetKey;
     setActiveSubTab(defaultSubTab(training?.state));
+  }, [micro, trainingInMicro, training?.state, requestedSubTab]);
+
+  // GH-401 (H3): editing UI state resets only when the user moves to a DIFFERENT
+  // slot. It used to reset on `training?.state` as well, which is the root cause of
+  // the audit's blank exercise picker: picking the very first exercise creates the
+  // training, flipping state undefined → PLANNED, so this effect ran mid-selection
+  // and closed the picker. The modal is a separate native window, so what the user
+  // saw was its empty shell — a search field over a blank area — and only closing
+  // and re-opening the picker brought the list back.
+  useEffect(() => {
     setIsEditing(false);
     setShowPicker(false);
     setPlanEntryRequested(false);
     setNextPlanMode('read');
-  }, [micro, trainingInMicro, training?.state]);
+  }, [micro, trainingInMicro]);
 
   // GH-263 Item 1: once the user has picked at least one exercise after tapping
-  // "Plan new Training", clear the entry-requested flag and the picker so PlanTab
-  // takes over the normal rendering path.
+  // "Plan new Training", clear the entry-requested flag so PlanTab takes over the
+  // normal rendering path.
+  // GH-401 (H3): the picker deliberately stays open here. Closing it on the first
+  // pick made a multi-exercise selection impossible in one pass — the user had to
+  // re-open the picker for every additional exercise, and the re-open is exactly
+  // the interaction the UX audit found people don't discover.
   useEffect(() => {
     if (planEntryRequested && exercises.length > 0) {
       setPlanEntryRequested(false);
-      setShowPicker(false);
     }
   }, [planEntryRequested, exercises.length]);
 
@@ -180,7 +221,23 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
     modifyExercisesInTraining(exercises, trainingsPlan.id!!, micro, trainingInMicro, training?.id);
   }
 
+  // GH-401 (review 1): an empty training must never reach STARTED. The Train tab
+  // already hides the start control in that case; this guard keeps the invariant
+  // if any other caller ever wires itself up to handleStart.
+  const canStart = (training?.exercises?.length ?? 0) > 0;
+
+  /** Opens the Plan tab in plan mode — the one place where exercises get added. */
+  function handleAddExercises() {
+    setNextPlanMode('fullEdit');
+    setPlanEntryRequested(true);
+    setActiveSubTab('plan');
+  }
+
   function handleStart() {
+    if (!canStart) {
+      handleAddExercises();
+      return;
+    }
     startTraining();
     if (!appSettings.toggles?.disableToasts) {
       Toast.show({
@@ -300,8 +357,6 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
         onDismiss={onCloseOverflow}
         trainingState={training?.state}
         activeSubTab={activeSubTab}
-        hasExercises={(training?.exercises?.length ?? 0) > 0}
-        onStart={handleStart}
         onFinish={handleFinish}
         onEditPlan={handleEditPlan}
         onEditTraining={handleEditTraining}
@@ -371,11 +426,38 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
               {/* Train Tab */}
               {activeSubTab === 'train' && (
                 <View>
-                  {training?.state === TrainingsState.PLANNED && (
-                    <View style={{padding: 24, alignItems: 'center'}}>
-                      <Button testID="train-tab-start-button" mode="contained" onPress={handleStart}>
-                        Start Training
-                      </Button>
+                  {/* GH-401 (H2): the Train tab of a not-yet-started training carries the
+                      one real "Start Training" control. Any non-STARTED/non-FINISHED
+                      training qualifies — a training whose state never got persisted must
+                      not leave the user on a dead end either. */}
+                  {training !== undefined && training.state !== TrainingsState.STARTED && training.state !== TrainingsState.FINISHED && (
+                    <View style={{padding: 24, alignItems: 'center', gap: 8}}>
+                      {/* GH-401 (review 1): a training with no exercises has nothing to log,
+                          so it must not be startable — an empty session could be finished and
+                          would then count as the plan's last training, advancing the dashboard
+                          progress for a workout that never happened. Instead of a disabled
+                          button next to a hint nobody reads, the start control is replaced by
+                          the action that unblocks the user: it opens the Plan tab straight in
+                          plan mode, where exercises are picked. */}
+                      {(training.exercises?.length ?? 0) > 0 ? (
+                        <>
+                          <Button testID="train-tab-start-button" mode="contained" onPress={handleStart}>
+                            Start Training
+                          </Button>
+                          <Text testID="train-tab-start-hint" variant="bodySmall">
+                            Starts the session timer and opens set logging.
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Button testID="train-tab-add-exercises-button" mode="contained" onPress={handleAddExercises}>
+                            Add Exercises
+                          </Button>
+                          <Text testID="train-tab-start-hint" variant="bodySmall">
+                            This training has no exercises yet — add some before you can start it.
+                          </Text>
+                        </>
+                      )}
                     </View>
                   )}
                   {training?.state === TrainingsState.STARTED && (
@@ -417,6 +499,15 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                       {chosenExercise && (
                         <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} onScheduleNotification={(secs) => schedulePauseDoneNotification(secs)} onCancelNotification={resetPauseNotification} editMode={isEditing} />
                       )}
+                      {/* GH-401 (AC6): finishing must not require the ⋮ menu — the whole
+                          Card → Train → Start → log sets → Finish path stays on this tab. */}
+                      {!isEditing && (
+                        <View style={{padding: 16, alignItems: 'center'}}>
+                          <Button testID="train-tab-finish-button" mode="contained" onPress={handleFinish}>
+                            Finish Training
+                          </Button>
+                        </View>
+                      )}
                     </View>
                   )}
                   {training?.state === TrainingsState.FINISHED && (
@@ -454,9 +545,15 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                       {!isEditing && <TrainingHistory training={training} />}
                     </View>
                   )}
+                  {/* GH-401 (H2): there is nothing to start until the session exists, so
+                      point at the action that creates it instead of asking for one that
+                      has no control on this screen. */}
                   {training === undefined && (
-                    <View style={{padding: 24, alignItems: 'center'}}>
-                      <Text>Start training to begin</Text>
+                    <View style={{padding: 24, alignItems: 'center', gap: 8}}>
+                      <Text testID="train-tab-no-training-hint">Nothing planned for this day yet.</Text>
+                      <Button testID="train-tab-go-to-plan-button" mode="contained" onPress={() => setActiveSubTab('plan')}>
+                        Plan this Training
+                      </Button>
                     </View>
                   )}
                 </View>

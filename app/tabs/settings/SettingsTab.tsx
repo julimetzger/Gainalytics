@@ -62,7 +62,7 @@ const SettingsTab = ({navigation}: Props) => {
 
   const theme = useTheme();
   const currentCustomColor = customPaletteHex(settings.palette);
-  // The wheel opens on the applied custom colour, or on the current palette's
+  // The wheel opens on the applied custom color, or on the current palette's
   // primary when one of the built-in palettes is active.
   const pickerStartColor =
     currentCustomColor ?? normalizeHex(theme.colors.primary) ?? '#0061A4';
@@ -292,7 +292,7 @@ const SettingsTab = ({navigation}: Props) => {
         </RadioButton.Group>
       </View>
       <View style={styles.row}>
-        <Text style={{alignSelf: 'center'}}>Custom colour</Text>
+        <Text style={{alignSelf: 'center'}}>Custom Color</Text>
         <Button
           mode="outlined"
           testID="settings-custom-theme-color-button"

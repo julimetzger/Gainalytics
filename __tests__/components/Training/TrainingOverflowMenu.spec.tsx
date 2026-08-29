@@ -29,7 +29,6 @@ jest.mock('react-native-paper', () => {
 const BASE = {
   visible: true,
   onDismiss: jest.fn(),
-  onStart: jest.fn(),
   onFinish: jest.fn(),
   onEditPlan: jest.fn(),
   onEditTraining: jest.fn(),
@@ -44,9 +43,12 @@ describe('TrainingOverflowMenu', () => {
     expect(queryByTestId('overflow-finish')).toBeNull();
   });
 
-  it('shows Start Training for PLANNED state', () => {
-    const {getByTestId, queryByTestId} = render(<TrainingOverflowMenu {...BASE} trainingState={TrainingsState.PLANNED} />);
-    expect(getByTestId('overflow-start')).toBeTruthy();
+  // GH-401 (AC2): "Start Training" must exist exactly once in this flow, as the
+  // real start control in the Train tab. The menu duplicate is gone for good.
+  it('does not offer Start Training for PLANNED state', () => {
+    const {queryByTestId, queryByText} = render(<TrainingOverflowMenu {...BASE} trainingState={TrainingsState.PLANNED} />);
+    expect(queryByTestId('overflow-start')).toBeNull();
+    expect(queryByText('Start Training')).toBeNull();
     expect(queryByTestId('overflow-finish')).toBeNull();
     expect(queryByTestId('overflow-pause')).toBeNull();
   });
@@ -77,20 +79,11 @@ describe('TrainingOverflowMenu', () => {
     expect(getByText('Delete this training')).toBeTruthy();
   });
 
-  it('does not show Start/Finish for FINISHED state', () => {
+  it('does not show Finish for FINISHED state', () => {
     const {queryByTestId} = render(<TrainingOverflowMenu {...BASE} trainingState={TrainingsState.FINISHED} />);
     expect(queryByTestId('overflow-start')).toBeNull();
     expect(queryByTestId('overflow-finish')).toBeNull();
     expect(queryByTestId('overflow-pause')).toBeNull();
-  });
-
-  it('calls onStart and onDismiss when Start Training pressed', () => {
-    const onStart = jest.fn();
-    const onDismiss = jest.fn();
-    const {getByTestId} = render(<TrainingOverflowMenu {...BASE} onStart={onStart} onDismiss={onDismiss} trainingState={TrainingsState.PLANNED} />);
-    fireEvent.press(getByTestId('overflow-start'));
-    expect(onDismiss).toHaveBeenCalled();
-    expect(onStart).toHaveBeenCalled();
   });
 
   it('calls onFinish and onDismiss when Finish Training pressed', () => {
@@ -146,35 +139,16 @@ describe('TrainingOverflowMenu', () => {
     expect(queryByTestId('overflow-edit-plan')).toBeNull();
   });
 
-  it('shows Start Training on the Plan sub-tab once exercises are planned', () => {
-    const onStart = jest.fn();
-    const onDismiss = jest.fn();
-    const {getByTestId} = render(
+  it('does not offer Start Training on the Plan sub-tab either', () => {
+    const {getByTestId, queryByTestId, queryByText} = render(
       <TrainingOverflowMenu
         {...BASE}
         activeSubTab="plan"
         trainingState={TrainingsState.PLANNED}
-        hasExercises
-        onStart={onStart}
-        onDismiss={onDismiss}
-      />,
-    );
-    expect(getByTestId('overflow-edit-plan')).toBeTruthy();
-    fireEvent.press(getByTestId('overflow-start'));
-    expect(onDismiss).toHaveBeenCalled();
-    expect(onStart).toHaveBeenCalled();
-  });
-
-  it('hides Start Training on the Plan sub-tab while no exercises are planned', () => {
-    const {getByTestId, queryByTestId} = render(
-      <TrainingOverflowMenu
-        {...BASE}
-        activeSubTab="plan"
-        trainingState={TrainingsState.PLANNED}
-        hasExercises={false}
       />,
     );
     expect(getByTestId('overflow-edit-plan')).toBeTruthy();
     expect(queryByTestId('overflow-start')).toBeNull();
+    expect(queryByText('Start Training')).toBeNull();
   });
 });

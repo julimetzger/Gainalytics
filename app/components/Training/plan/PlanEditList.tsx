@@ -403,6 +403,10 @@ const PlanEditExerciseSection = ({
       ))}
       {pendingSet !== null && (
         <PendingPlanEditSetRow
+          // GH-406: each pending row is its own instance, so the 1RM suggestion
+          // state and the "last suggested weight" ref start clean for each new
+          // set instead of leaking from the row that was just committed.
+          key={pendingSet.index}
           pendingSet={pendingSet}
           oneRepMax={oneRepMax > 0 ? oneRepMax : undefined}
           onChange={onPendingSetChange}
@@ -628,11 +632,21 @@ interface PendingPlanEditSetRowProps {
 // always rendered (disabled when the exercise has no recorded 1RM).
 const PendingPlanEditSetRow = ({pendingSet, oneRepMax, onChange, onDelete}: PendingPlanEditSetRowProps) => {
   const theme = useTheme();
-  const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(false);
+  // GH-406: a row prefilled from the previous set carries a weight the user
+  // planned deliberately — the same reasoning that makes saved rows default to
+  // "no auto-suggestion" above. Without this, the first keystroke in Reps would
+  // immediately overwrite the carried weight with the 1RM suggestion. The toggle
+  // stays available, and re-enabling it recomputes the suggestion as before.
+  const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(
+    () => pendingSet.prefilledFromPreviousSet === true,
+  );
   const lastSuggestedWeightRef = useRef<string | null>(null);
 
-  const setWeightSuggestionFromReps = (repsValue: string, rirValue: string) => {
-    if (oneRepMax === undefined || disable1RMWeightCalculation) {
+  // `ignoreDisabled` is for the toggle: it recomputes while the state update
+  // that re-enables the suggestion is still in flight, so the captured
+  // disable1RMWeightCalculation is necessarily the stale `true`.
+  const setWeightSuggestionFromReps = (repsValue: string, rirValue: string, ignoreDisabled = false) => {
+    if (oneRepMax === undefined || (disable1RMWeightCalculation && !ignoreDisabled)) {
       return;
     }
     const repsNum = Number.parseFloat(repsValue);
@@ -668,14 +682,12 @@ const PendingPlanEditSetRow = ({pendingSet, oneRepMax, onChange, onDelete}: Pend
   };
 
   const handleToggle1RM = () => {
-    setDisable1RMWeightCalculation((prev) => {
-      const nextDisabled = !prev;
-      if (!nextDisabled) {
-        // Re-enabling — recompute the suggestion from the current reps/rir.
-        setWeightSuggestionFromReps(pendingSet.reps, pendingSet.rir);
-      }
-      return nextDisabled;
-    });
+    const nextDisabled = !disable1RMWeightCalculation;
+    setDisable1RMWeightCalculation(nextDisabled);
+    if (!nextDisabled) {
+      // Re-enabling — recompute the suggestion from the current reps/rir.
+      setWeightSuggestionFromReps(pendingSet.reps, pendingSet.rir, true);
+    }
   };
 
   // Show weight highlight whenever the suggestion is active and not overridden.

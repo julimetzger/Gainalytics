@@ -1,7 +1,8 @@
 import React from 'react';
-import {render} from '@testing-library/react-native';
+import {act, fireEvent, render} from '@testing-library/react-native';
 import {PaperProvider} from 'react-native-paper';
-import NextTrainingCard from '../../../../app/components/Training/dashboard/NextTrainingCard';
+import NextTrainingCard, {formatElapsed} from '../../../../app/components/Training/dashboard/NextTrainingCard';
+import {TrainingsState} from '../../../../app/models/TrainingsState';
 import {TrainingsPlan} from '../../../../app/models/entities/TrainingsPlan';
 
 // ---------------------------------------------------------------------------
@@ -25,12 +26,15 @@ jest.mock('react-redux', () => ({
 
 // Training with exercises [2, 3, 1] — focus exercise (1) is last in array.
 // After prioritisation it must appear as exercise1.
-const MOCK_TRAINING = {
+const BASE_TRAINING = {
   id: 10,
   exercises: [2, 3, 1],
   doneWorkoutIds: {},
   plannedWorkouts: {},
 };
+
+// Mutable so individual tests can switch the training's state (GH-401).
+let MOCK_TRAINING: Record<string, unknown> = {...BASE_TRAINING};
 
 jest.mock('../../../../app/redux/Training/use/useTraining', () => ({
   useTraining: () => MOCK_TRAINING,
@@ -83,6 +87,11 @@ const renderCard = (props?: Partial<Parameters<typeof NextTrainingCard>[0]>) =>
     </PaperProvider>,
   );
 
+beforeEach(() => {
+  MOCK_TRAINING = {...BASE_TRAINING};
+  jest.mocked(mockNavigation.navigate).mockClear();
+});
+
 describe('NextTrainingCard — focus exercise prioritisation', () => {
   it('shows the isFocus exercise as the first listed exercise', () => {
     const {getByTestId, queryByTestId} = renderCard();
@@ -107,5 +116,97 @@ describe('NextTrainingCard — focus exercise prioritisation', () => {
     expect(queryAllByText('Deadlift')).toHaveLength(0);
     expect(getAllByText('Focus Squat').length).toBeGreaterThan(0);
     expect(getAllByText('Bench Press').length).toBeGreaterThan(0);
+  });
+});
+
+// ── GH-401 ───────────────────────────────────────────────────────────────────
+
+describe('formatElapsed', () => {
+  it('renders MM:SS below an hour and H:MM:SS above it', () => {
+    expect(formatElapsed(0)).toBe('00:00');
+    expect(formatElapsed(64_000)).toBe('01:04');
+    expect(formatElapsed(3_784_000)).toBe('1:03:04');
+  });
+
+  it('clamps a start timestamp in the future to zero instead of rendering a negative time', () => {
+    expect(formatElapsed(-5_000)).toBe('00:00');
+  });
+});
+
+describe('NextTrainingCard — GH-401 H1: the card navigates, it never starts', () => {
+  it('labels the button "Next Training" and opens the Train tab of that training', () => {
+    const {getByTestId, getAllByText, queryByText} = renderCard();
+
+    expect(getByTestId('next-training-status-label').props.children).toBe('Next Training');
+    // The audit's core complaint: the app's most prominent button said
+    // "Start Training" and did not start a training.
+    expect(queryByText('Start Training')).toBeNull();
+    // status label + button
+    expect(getAllByText('Next Training')).toHaveLength(2);
+
+    fireEvent.press(getByTestId('next-training-start-button'));
+
+    expect(mockNavigation.navigate).toHaveBeenCalledWith({
+      name: 'TrainingPlan',
+      params: {trainingsPlan: MOCK_PLAN, micro: 1, training: 1, subTab: 'train'},
+    });
+  });
+
+  it('shows no elapsed time while the training has not been started', () => {
+    const {queryByTestId} = renderCard();
+    expect(queryByTestId('next-training-elapsed')).toBeNull();
+  });
+
+  // GH-401 (review 2): a Maestro flow has to be able to prove WHICH session the card
+  // is about — "Training running" alone would also pass if the card pointed at the
+  // wrong day. Name and slot line therefore carry testIDs.
+  it('names the session it points at and spells out its slot', () => {
+    const {getByTestId} = renderCard();
+
+    expect(getByTestId('next-training-name').props.children).toBe('Day A');
+    expect(getByTestId('next-training-slot').props.children.join('')).toBe('M1 \u00b7 D1 \u00b7 3 exercises');
+  });
+});
+
+describe('NextTrainingCard — GH-401 H4: a running session reads as running', () => {
+  const START = new Date('2026-08-24T10:00:00.000Z');
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(START.getTime() + 3 * 60_000 + 4_000));
+    MOCK_TRAINING = {...BASE_TRAINING, state: TrainingsState.STARTED, start: START.toISOString()};
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('labels the session running, shows the elapsed time and offers "Continue Training"', () => {
+    const {getByTestId, queryByText} = renderCard();
+
+    expect(getByTestId('next-training-status-label').props.children).toBe('Training running');
+    expect(getByTestId('next-training-elapsed').props.children).toBe('03:04');
+    expect(queryByText('Continue Training')).toBeTruthy();
+    expect(queryByText('Next Training')).toBeNull();
+  });
+
+  it('keeps the elapsed time ticking', () => {
+    const {getByTestId} = renderCard();
+    expect(getByTestId('next-training-elapsed').props.children).toBe('03:04');
+
+    act(() => {
+      jest.advanceTimersByTime(2_000);
+    });
+
+    expect(getByTestId('next-training-elapsed').props.children).toBe('03:06');
+  });
+
+  it('still only navigates — continuing must not restart the session', () => {
+    const {getByTestId} = renderCard();
+    fireEvent.press(getByTestId('next-training-start-button'));
+    expect(mockNavigation.navigate).toHaveBeenCalledWith({
+      name: 'TrainingPlan',
+      params: {trainingsPlan: MOCK_PLAN, micro: 1, training: 1, subTab: 'train'},
+    });
   });
 });

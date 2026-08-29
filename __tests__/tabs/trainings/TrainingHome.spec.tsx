@@ -41,10 +41,16 @@ jest.mock('../../../app/components/Training/dashboard/MicroHeroCard', () => {
   return () => React.createElement(View, {testID: 'micro-hero-card'});
 });
 
+// Surfaces the slot the dashboard picked, so a test can assert WHICH session the
+// card points at (GH-401 review 2: a running session must win over plan order).
 jest.mock('../../../app/components/Training/dashboard/NextTrainingCard', () => {
   const React = require('react');
-  const {View} = require('react-native');
-  return () => React.createElement(View, {testID: 'next-training-card'});
+  const {Text, View} = require('react-native');
+  return ({nextMicro, nextTrainingNum, isComplete}: any) =>
+    React.createElement(View, {testID: 'next-training-card'}, [
+      React.createElement(Text, {key: 'slot', testID: 'next-training-slot'}, `${nextMicro}:${nextTrainingNum}`),
+      React.createElement(Text, {key: 'complete', testID: 'next-training-complete'}, String(isComplete)),
+    ]);
 });
 
 jest.mock('../../../app/components/Training/dashboard/MicroRecordsCard', () => {
@@ -196,5 +202,76 @@ describe('TrainingHome', () => {
 
     const meta = getByTestId('plan-meta-2');
     expect(meta.props.children).toContain('1/4');
+  });
+});
+
+describe('TrainingHome — GH-401 review 2: the card follows the session that is actually running', () => {
+  const threeDayPlan: TrainingsPlan = {
+    id: 3,
+    name: 'PPL',
+    trainingNames: {'1': 'Push', '2': 'Pull', '3': 'Legs'},
+    trainings: {'1,1': 31, '1,2': 32, '1,3': 33},
+  };
+
+  const slot = (id: number, state: TrainingsState, extra: object = {}) => ({
+    id,
+    state,
+    plannedWorkouts: {},
+    doneWorkoutIds: {},
+    exercises: [1],
+    ...extra,
+  });
+
+  // The dashboard only appears for an "active" plan — one with a running session or a
+  // finished last training. This variant supplies the latter, so the no-running cases
+  // still render a card to assert on.
+  const planWithDoneDay1: TrainingsPlan = {...threeDayPlan, lastTraining: 31};
+
+  const renderHome = (plan: TrainingsPlan = threeDayPlan) => {
+    mockedUseAllTrainingsPlans.mockReturnValue([plan]);
+    mockState.trainingsPlan.byId = {3: plan};
+    return render(
+      <TrainingHome navigation={{setOptions: jest.fn(), navigate: jest.fn()} as any} route={{params: {}} as any} />,
+    );
+  };
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString();
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('points at day 3 while it runs, even though day 1 is still open', () => {
+    mockedUseTrainings.mockReturnValue([
+      slot(31, TrainingsState.PLANNED),
+      slot(32, TrainingsState.PLANNED),
+      slot(33, TrainingsState.STARTED, {start: new Date(Date.now() - 60000).toISOString()}),
+    ]);
+
+    const {getByTestId} = renderHome();
+
+    expect(getByTestId('next-training-slot').props.children).toBe('1:3');
+  });
+
+  it('falls back to the first undone slot once nothing is running', () => {
+    mockedUseTrainings.mockReturnValue([
+      slot(31, TrainingsState.FINISHED, {start: yesterday, end: yesterday}),
+      slot(32, TrainingsState.PLANNED),
+      slot(33, TrainingsState.PLANNED),
+    ]);
+
+    const {getByTestId} = renderHome(planWithDoneDay1);
+
+    expect(getByTestId('next-training-slot').props.children).toBe('1:2');
+  });
+
+  it('ignores a STARTED slot that already ended, so a stale state cannot pin the card', () => {
+    mockedUseTrainings.mockReturnValue([
+      slot(31, TrainingsState.FINISHED, {start: yesterday, end: yesterday}),
+      slot(32, TrainingsState.PLANNED),
+      slot(33, TrainingsState.STARTED, {start: yesterday, end: yesterday}),
+    ]);
+
+    const {getByTestId} = renderHome(planWithDoneDay1);
+
+    expect(getByTestId('next-training-slot').props.children).toBe('1:2');
   });
 });

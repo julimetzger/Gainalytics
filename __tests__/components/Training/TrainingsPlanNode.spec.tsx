@@ -88,8 +88,18 @@ jest.mock('../../../app/components/Training/analyse/TrainingHistory', () => {
 });
 jest.mock('../../../app/components/Training/TrainingsBase', () => 'TrainingsBase');
 jest.mock('../../../app/components/Training/plan/PlanTab', () => {
-  const {Text} = require('react-native');
-  return () => <Text testID="plan-workout">PlanWorkout</Text>;
+  const {Text, TouchableOpacity, View} = require('react-native');
+  // Surfaces the picker wiring so a test can open the picker and observe whether
+  // the parent keeps it open (GH-401 H3).
+  return ({pickerVisible, onTogglePicker}: any) => (
+    <View>
+      <Text testID="plan-workout">PlanWorkout</Text>
+      <Text testID="plan-workout-picker-visible">{String(pickerVisible)}</Text>
+      <TouchableOpacity testID="plan-workout-toggle-picker" onPress={onTogglePicker}>
+        <Text>toggle</Text>
+      </TouchableOpacity>
+    </View>
+  );
 });
 jest.mock('../../../app/components/Training/plan/PlanningOverview', () => {
   const {Text} = require('react-native');
@@ -269,5 +279,210 @@ describe('TrainingsPlanNode — overflow menu actions', () => {
     const {getByTestId, getByText} = render(<TrainingsPlanNode {...defaultProps} overflowVisible={true} />);
     fireEvent.press(getByTestId('overflow-discard'));
     await waitFor(() => expect(getByText('Delete Training')).toBeTruthy());
+  });
+});
+
+// ── GH-401 ───────────────────────────────────────────────────────────────────
+
+describe('TrainingsPlanNode — GH-401 Train tab is the single start/finish control', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('honours a requested sub-tab instead of the state default (card → Train tab)', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    // Without the request a PLANNED training would open on the Plan tab.
+    expect(queryByTestId('plan-workout')).toBeNull();
+    expect(getByTestId('train-tab-start-button')).toBeTruthy();
+  });
+
+  it('applies the requested sub-tab once and lets the state default win afterwards', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    expect(getByTestId('train-tab-start-button')).toBeTruthy();
+
+    // Finishing flips the state; FINISHED defaults to Analysis. If the request
+    // re-applied on every state change the user would be yanked back to Train.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    expect(getByTestId('trainings-overview')).toBeTruthy();
+    expect(queryByTestId('training-history')).toBeNull();
+  });
+
+  it('keeps a consumed sub-tab request consumed while the pane is inactive (swipe away and back)', () => {
+    // RangeSwiper passes `requestedSubTab` only to the pane it considers active,
+    // so swiping away drops the prop to undefined and swiping back restores it.
+    // The request must not fire a second time on the way back.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    expect(getByTestId('execute-workout')).toBeTruthy();
+
+    // The user moves to the Plan tab by hand.
+    fireEvent.press(getByTestId('subtab-plan'));
+    expect(getByTestId('plan-workout')).toBeTruthy();
+
+    // Swipe away: this pane goes inactive, so the request disappears...
+    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab={undefined} />);
+    // ...and back: the same request is handed to the pane again.
+    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    expect(getByTestId('plan-workout')).toBeTruthy();
+    expect(queryByTestId('execute-workout')).toBeNull();
+  });
+
+  it('keeps the Analysis pre-selection after finishing when the pane is swiped away and back', () => {
+    // The concrete regression: land on Train via the card, finish the training
+    // (handleFinish pre-selects Analysis), swipe away and back. The stale
+    // "train" request used to drag the user off the analysis they just earned.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    fireEvent.press(getByTestId('train-tab-finish-button'));
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    expect(getByTestId('trainings-overview')).toBeTruthy();
+
+    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab={undefined} />);
+    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    expect(getByTestId('trainings-overview')).toBeTruthy();
+    expect(queryByTestId('training-history')).toBeNull();
+  });
+
+  it('still applies a fresh request after the user swipes to a different slot', () => {
+    // Consuming a request must be scoped to its slot, otherwise navigating from
+    // the card to a *different* training would land on the state default.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    expect(getByTestId('train-tab-start-button')).toBeTruthy();
+
+    fireEvent.press(getByTestId('subtab-plan'));
+    expect(getByTestId('plan-workout')).toBeTruthy();
+
+    rerender(<TrainingsPlanNode {...defaultProps} micro={2} requestedSubTab="train" />);
+    expect(getByTestId('train-tab-start-button')).toBeTruthy();
+  });
+
+  it('shows the Start Training button for a training whose state was never persisted', () => {
+    useTrainingInTrainingsPlan.mockReturnValue({...mkTraining(TrainingsState.PLANNED), state: undefined});
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    expect(getByTestId('train-tab-start-button')).toBeTruthy();
+  });
+
+  it('replaces the old "Start training to begin" dead end with a way into the Plan tab', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(undefined);
+    const {getByTestId, queryByText} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    expect(queryByText('Start training to begin')).toBeNull();
+    expect(getByTestId('train-tab-no-training-hint')).toBeTruthy();
+
+    fireEvent.press(getByTestId('train-tab-go-to-plan-button'));
+    expect(getByTestId('plan-workout')).toBeTruthy();
+  });
+
+  it('offers Finish Training on the Train tab of a STARTED training, so ⋮ is never needed', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
+    expect(getByTestId('execute-workout')).toBeTruthy();
+
+    fireEvent.press(getByTestId('train-tab-finish-button'));
+    expect(mockFinishTraining).toHaveBeenCalledWith(10, 1);
+  });
+
+  it('does not offer Finish Training while editing a started training', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} overflowVisible={true} />);
+    fireEvent.press(getByTestId('overflow-edit'));
+    expect(queryByTestId('train-tab-finish-button')).toBeNull();
+  });
+
+  it('keeps the exercise picker open when the first pick creates the training (H3 root cause)', () => {
+    // Before the fix the reset effect also depended on training.state. Picking the
+    // first exercise creates the training (undefined -> PLANNED), so the effect ran
+    // mid-selection and closed the picker. The dropdown is a separate native window,
+    // so the user was left staring at its empty shell — a search field over a blank
+    // area — and only closing and re-opening the picker brought the list back.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} />);
+
+    fireEvent.press(getByTestId('plan-workout-toggle-picker'));
+    expect(getByTestId('plan-workout-picker-visible').props.children).toBe('true');
+
+    // The training's state changes underneath the user; the slot does not.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    rerender(<TrainingsPlanNode {...defaultProps} />);
+    fireEvent.press(getByTestId('subtab-plan'));
+
+    expect(getByTestId('plan-workout-picker-visible').props.children).toBe('true');
+  });
+
+  it('still closes the picker when the user swipes to a different training slot', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} />);
+
+    fireEvent.press(getByTestId('plan-workout-toggle-picker'));
+    expect(getByTestId('plan-workout-picker-visible').props.children).toBe('true');
+
+    rerender(<TrainingsPlanNode {...defaultProps} micro={2} />);
+
+    expect(getByTestId('plan-workout-picker-visible').props.children).toBe('false');
+  });
+
+  it('no longer offers Start Training in the overflow menu (AC2: one place only)', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {queryByTestId, getAllByText} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" overflowVisible={true} />);
+    expect(queryByTestId('overflow-start')).toBeNull();
+    // Exactly one "Start Training" label on screen: the Train tab's button.
+    expect(getAllByText('Start Training')).toHaveLength(1);
+  });
+});
+
+describe('TrainingsPlanNode — GH-401 review 1: a training without exercises cannot be started', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const emptyTraining = (state: string = TrainingsState.PLANNED) => ({...mkTraining(state), exercises: []});
+
+  it('offers no Start control at all when the training has no exercises', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(emptyTraining());
+    const {queryByTestId, queryByText} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    expect(queryByTestId('train-tab-start-button')).toBeNull();
+    expect(queryByText('Start Training')).toBeNull();
+  });
+
+  it('offers Add Exercises instead, which lands the user in the Plan tab', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(emptyTraining());
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    fireEvent.press(getByTestId('train-tab-add-exercises-button'));
+
+    expect(getByTestId('plan-workout')).toBeTruthy();
+    expect(mockStartTraining).not.toHaveBeenCalled();
+  });
+
+  it('says why the session cannot start yet', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(emptyTraining());
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    expect(getByTestId('train-tab-start-hint').props.children).toContain('no exercises');
+  });
+
+  it('still starts normally as soon as the training has exercises', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    fireEvent.press(getByTestId('train-tab-start-button'));
+
+    expect(mockStartTraining).toHaveBeenCalled();
+  });
+
+  it('keeps the empty state out of STARTED even if a caller reaches handleStart directly', () => {
+    // The Train tab hides the button, so this covers the guard inside handleStart:
+    // an unstarted training whose state was never persisted must behave the same.
+    useTrainingInTrainingsPlan.mockReturnValue({...emptyTraining(), state: undefined});
+    const {queryByTestId, getByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    expect(queryByTestId('train-tab-start-button')).toBeNull();
+    fireEvent.press(getByTestId('train-tab-add-exercises-button'));
+    expect(mockStartTraining).not.toHaveBeenCalled();
   });
 });

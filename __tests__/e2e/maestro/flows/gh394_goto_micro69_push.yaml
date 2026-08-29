@@ -93,32 +93,28 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: ' Push'
 - assertVisible: '.*Push pull upper lower.*'
 
-# Start the training when it is not running yet (the kebab only offers
-# "Start Training" for a PLANNED training).
+# Switch to the "Train" sub-tab (inside the pane -> position tap).
+# GH-401: the sub-tab carries the only "Start Training" control now. The guard
+# below keys off the session timer, so an already-running training is skipped.
 - tapOn:
-    id: 'header-overflow-icon'
+    point: '50%,14%'
+    retryTapIfNoChange: false
 - waitForAnimationToEnd:
     timeout: 5000
 - runFlow:
     when:
-      visible:
-        id: 'overflow-start'
-    commands:
-      - tapOn:
-          id: 'overflow-start'
-      - extendedWaitUntil:
-          visible: 'Training started!'
-          timeout: 30000
-- runFlow:
-    when:
       notVisible:
-        id: 'overflow-start'
+        id: 'header-session-timer'
     commands:
-      # already running - close the kebab by tapping empty space in the pane
+      # The Start button is inside the a11y-invisible pane (agent-memory #206),
+      # so it is tapped by position; the session timer proves it worked.
       - tapOn:
-          point: '10%,60%'
+          point: '50%,21%'
           retryTapIfNoChange: false
-# Switch to the "Train" sub-tab (inside the pane -> position tap).
+      - extendedWaitUntil:
+          visible:
+            id: 'header-session-timer'
+          timeout: 30000
 - tapOn:
     point: '50%,14%'
     retryTapIfNoChange: false
