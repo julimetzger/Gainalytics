@@ -289,7 +289,18 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
                 ? // Panes scroll internally: pin the row (and thus every pane)
                   // to the bounded container so the pane's own scroller gets a
                   // bounded height and owns vertical scrolling.
-                  {flex: 1}
+                  //
+                  // GH-414: the row must also be as WIDE as the panes it holds.
+                  // With only the container's width it ends after the first pane,
+                  // so the visible pane (the row is shifted left by one viewport)
+                  // lies outside its parent's box. React Native's own touch target
+                  // search still finds it, which is why taps kept working — but
+                  // Android's ViewGroup touch dispatch clips to the parent bounds,
+                  // so the pane's ScrollView never saw the drag and nothing
+                  // scrolled. Only fillViewport is affected: without it the
+                  // vertical scroller is RangeSwiper's own ScrollView, which sits
+                  // ABOVE the row and is never clipped.
+                  {flex: 1, width: dimensions.width * PANE_COUNT}
                 : {
                     // GH-324: the row keeps its natural (auto) height and follows the
                     // ACTIVE pane, which is never height-clamped. Only the two off-screen
@@ -348,5 +359,7 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
   );
 };
 const SNAP_POINT = 3;
+/** Upper, Middle and Lower — the row always renders exactly these three panes. */
+export const PANE_COUNT = 3;
 
 export default RangeSwiper;
