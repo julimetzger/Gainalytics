@@ -146,7 +146,6 @@ describe('TrainingsPlanNode - Edit Finished Training (via overflow)', () => {
     micro: 1,
     trainingInMicro: 0,
     showDone: false,
-    showPlanned: false,
     setIgnoreSwipe: jest.fn(),
     overflowVisible: false,
     onCloseOverflow: jest.fn(),

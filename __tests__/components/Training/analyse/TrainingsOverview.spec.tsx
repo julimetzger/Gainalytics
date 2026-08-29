@@ -38,6 +38,7 @@ jest.mock('../../../../app/components/Training/plan/MuscleInvolvementCard', () =
 
 const mockedUseVelocityLossInsights = require('../../../../app/components/Training/useVelocityLossInsights').useVelocityLossInsights as jest.Mock;
 const mockedUseLastFinishedWorkoutsByExerciseIds = require('../../../../app/redux/Workout/use/useLastFinishedWorkoutsByExerciseIds').useLastFinishedWorkoutsByExerciseIds as jest.Mock;
+const mockedUseWorkoutsByIds = require('../../../../app/redux/Workout/use/useWorkoutsByIds').useWorkoutsByIds as jest.Mock;
 
 const TRAINING = {
   id: 1,
@@ -231,5 +232,28 @@ describe('TrainingsOverview', () => {
 
     // Hook is always called (React hooks can't be conditional); result is only used when no previousTraining
     expect(mockedUseLastFinishedWorkoutsByExerciseIds).toHaveBeenCalled();
+  });
+
+  // GH-417 AC4: the Train position states the total of the sets it is showing.
+  it('shows the total number of logged sets', () => {
+    mockedUseVelocityLossInsights.mockReturnValue([]);
+    mockedUseWorkoutsByIds.mockReturnValue([
+      {id: 1, sets: [{weight: 100, reps: 5}, {weight: 100, reps: 5}]},
+      {id: 2, sets: [{weight: 60, reps: 8}]},
+    ]);
+
+    const {getByTestId} = render(<TrainingsOverview training={TRAINING as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} trainingInMicro={0} />);
+
+    expect(getByTestId('analysis-total-sets').props.children).toBe('Total Sets: 3 (done)');
+    mockedUseWorkoutsByIds.mockReturnValue([]);
+  });
+
+  it('reports zero sets for a training without logged workouts', () => {
+    mockedUseVelocityLossInsights.mockReturnValue([]);
+    mockedUseWorkoutsByIds.mockReturnValue([]);
+
+    const {getByTestId} = render(<TrainingsOverview training={TRAINING as any} trainingsPlan={TRAININGS_PLAN as any} currentMicro={1} trainingInMicro={0} />);
+
+    expect(getByTestId('analysis-total-sets').props.children).toBe('Total Sets: 0 (done)');
   });
 });

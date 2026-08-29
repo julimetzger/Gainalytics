@@ -22,6 +22,7 @@ import dispatchEditMeso from '../../redux/Training/dispatch/general/dispatchEdit
 import dispatchDeleteMeso from '../../redux/Training/dispatch/general/dispatchDeleteMeso';
 import {TrainingsState} from '../../models/TrainingsState';
 import {PlanChromeState} from '../../components/Training/plan/PlanTab';
+import {AnalysisDataMode} from '../../components/Training/analyse/AnalysisDataToggle';
 
 const createDefaultPlanChromeState = (): PlanChromeState => ({
   mode: 'read',
@@ -36,12 +37,14 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   const [trainingInMicro, setTrainingInMicro] = useState(route.params.training ?? 1);
   const training = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);
   const [rerender, setRerender] = useState(Math.random());
-  let [showPlanned, setShowPlanned] = useState(false);
   let [showDone, setShowDone] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [ignoreSwipeLocations, setIgnoreSwipeLocations] = useState<LayoutRectangle[]>([]);
   const [microViewMode, setMicroViewMode] = useState<ViewMode>('exercise');
   const [microSortMode, setMicroSortMode] = useState<ExerciseSortMode>('plan');
+  // GH-417: owned here, not in the swiper panes — those are remounted on every
+  // micro change (RangeSwiper `key`), which would reset the choice.
+  const [analysisDataMode, setAnalysisDataMode] = useState<AnalysisDataMode>('train');
   const handleSetShowDone = useCallback((value: boolean | ((prev: boolean) => boolean)) => {
     const next = typeof value === 'function' ? value(false) : value;
     setShowDone(next);
@@ -166,8 +169,6 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
           changeTrainingsName={changeTrainingsName}
           theme={theme}
           handleValueChange={handleValueChange}
-          setShowPlanned={setShowPlanned}
-          showPlanned={showPlanned}
           setTrainingInMicro={setTrainingInMicro}
           setMicro={(m) => {
             setMicro(m);
@@ -212,7 +213,6 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
             <TrainingsPlanNode
               trainingsPlan={trainingsPlan}
               micro={value}
-              showPlanned={showPlanned}
               showDone={showDone}
               trainingInMicro={trainingInMicro}
               isActive={value === micro}
@@ -223,6 +223,8 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
               onMicroViewModeChange={setMicroViewMode}
               microSortMode={microSortMode}
               onMicroSortModeChange={setMicroSortMode}
+              analysisDataMode={analysisDataMode}
+              onAnalysisDataModeChange={setAnalysisDataMode}
               overflowVisible={overflowVisible && value === micro}
               onCloseOverflow={() => setOverflowVisible(false)}
               onPlanChromeChange={value === micro ? setPlanChromeState : undefined}

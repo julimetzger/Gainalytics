@@ -137,7 +137,6 @@ const defaultProps = {
   trainingInMicro: 0,
   micro: 0,
   showDone: false,
-  showPlanned: false,
   overflowVisible: false,
   onCloseOverflow: jest.fn(),
   setIgnoreSwipe: jest.fn(),

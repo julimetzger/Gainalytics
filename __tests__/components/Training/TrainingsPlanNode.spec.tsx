@@ -101,9 +101,9 @@ jest.mock('../../../app/components/Training/plan/PlanTab', () => {
     </View>
   );
 });
-jest.mock('../../../app/components/Training/plan/PlanningOverview', () => {
+jest.mock('../../../app/components/Training/analyse/MicroPlanOverview', () => {
   const {Text} = require('react-native');
-  return () => <Text testID="planning-overview">PlanningOverview</Text>;
+  return ({micro}: any) => <Text testID="micro-plan-overview">{`micro-plan:${micro}`}</Text>;
 });
 
 jest.mock('react-native-paper', () => {
@@ -165,7 +165,6 @@ const defaultProps = {
   micro: 1,
   trainingInMicro: 1,
   showDone: false,
-  showPlanned: false,
   setIgnoreSwipe: jest.fn(),
   overflowVisible: false,
   onCloseOverflow: jest.fn(),
@@ -484,5 +483,76 @@ describe('TrainingsPlanNode — GH-401 review 1: a training without exercises ca
     expect(queryByTestId('train-tab-start-button')).toBeNull();
     fireEvent.press(getByTestId('train-tab-add-exercises-button'));
     expect(mockStartTraining).not.toHaveBeenCalled();
+  });
+});
+
+// ── GH-417: Plan | Train data toggle inside the analysis view ────────────────
+
+describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('shows the toggle on the Analysis tab and starts on Train (AC1)', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
+
+    expect(getByTestId('analysis-data-toggle')).toBeTruthy();
+    expect(getByTestId('analysis-data-train').props.accessibilityState).toEqual({selected: true});
+    // AC3: Train is the unchanged actual-values view
+    expect(getByTestId('trainings-overview')).toBeTruthy();
+    expect(queryByTestId('micro-plan-overview')).toBeNull();
+  });
+
+  it('shows the planned micro overview in the Plan position (AC2)', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
+
+    fireEvent.press(getByTestId('analysis-data-plan'));
+
+    expect(getByTestId('micro-plan-overview').props.children).toBe('micro-plan:1');
+    expect(queryByTestId('trainings-overview')).toBeNull();
+    expect(getByTestId('analysis-data-plan').props.accessibilityState).toEqual({selected: true});
+  });
+
+  it('keeps the selection across a sub-tab round trip (AC7)', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
+
+    fireEvent.press(getByTestId('analysis-data-plan'));
+    expect(getByTestId('micro-plan-overview')).toBeTruthy();
+
+    fireEvent.press(getByTestId('subtab-train'));
+    expect(queryByTestId('micro-plan-overview')).toBeNull();
+
+    fireEvent.press(getByTestId('subtab-analysis'));
+    expect(getByTestId('micro-plan-overview')).toBeTruthy();
+    expect(getByTestId('analysis-data-plan').props.accessibilityState).toEqual({selected: true});
+  });
+
+  it('offers the planned values for a training that is only PLANNED, where Train has nothing to show', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, getByText} = render(<TrainingsPlanNode {...defaultProps} />);
+
+    fireEvent.press(getByTestId('subtab-analysis'));
+    expect(getByText('Analysis available after the training is finished')).toBeTruthy();
+    // AC4: the total is shown in the Train position even when there is nothing logged yet
+    expect(getByTestId('analysis-total-sets').props.children).toBe('Total Sets: 0 (done)');
+
+    fireEvent.press(getByTestId('analysis-data-plan'));
+    expect(getByTestId('micro-plan-overview')).toBeTruthy();
+  });
+
+  it('hands the choice to the owner when the screen controls it, so a micro swipe cannot reset it', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    const onAnalysisDataModeChange = jest.fn();
+    const controlled = {...defaultProps, analysisDataMode: 'train' as const, onAnalysisDataModeChange};
+    const {getByTestId, rerender} = render(<TrainingsPlanNode {...controlled} />);
+
+    fireEvent.press(getByTestId('analysis-data-plan'));
+    expect(onAnalysisDataModeChange).toHaveBeenCalledWith('plan');
+    // the owner's value still wins until it actually changes
+    expect(getByTestId('trainings-overview')).toBeTruthy();
+
+    rerender(<TrainingsPlanNode {...controlled} analysisDataMode="plan" micro={2} />);
+    expect(getByTestId('micro-plan-overview').props.children).toBe('micro-plan:2');
   });
 });

@@ -1,6 +1,6 @@
 import React, {useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {IconButton, Text, useTheme} from 'react-native-paper';
+import {Text, useTheme} from 'react-native-paper';
 import DropdownChip, {DropdownChipOption} from '../../shared/DropdownChip';
 import {useLastMatchingTrainingMicro, useMuscleInvolvement} from '../../../redux/Training/use/useMuscleInvolvement';
 import {useSettings} from '../../../redux/settings/use/useSettings';
@@ -8,7 +8,6 @@ import {useTrainingsPlan} from '../../../redux/Training/use/useTrainingsPlan';
 import {
   dispatchSetAnalyseMuscleMapCompare,
   dispatchSetPlanMuscleMapCompare,
-  dispatchSetPlanMuscleMapEnabled,
   dispatchSetPlanMuscleMapMetric,
 } from '../../../redux/settings/dispatch/dispatchSetPlanMuscleMap';
 import {MuscleMapCompare, MuscleMapMetric, MuscleMapView} from '../../../utils/MuscleInvolvementUtils';
@@ -20,9 +19,6 @@ interface MuscleInvolvementCardProps {
   trainingInMicro: number;
   /** 'plan' (default) — today subject is the planned workouts; 'analyse' — today subject is the done workouts. */
   view?: MuscleMapView;
-  /** Hide the dismiss (close) button. Set this on the Done-View where the card is permanent. */
-  showDismiss?: boolean;
-  onDismiss?: () => void;
   /** Training is still in progress (GH-367) — swaps the 'analyse' header label from "done" to "live". */
   isLive?: boolean;
 }
@@ -69,11 +65,10 @@ const compareLabel = (
   return '';
 };
 
-const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 'plan', showDismiss = true, onDismiss, isLive = false}: MuscleInvolvementCardProps) => {
+const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 'plan', isLive = false}: MuscleInvolvementCardProps) => {
   const theme = useTheme();
   const settings = useSettings();
   const plan = useTrainingsPlan(trainingsPlanId);
-  const setEnabled = dispatchSetPlanMuscleMapEnabled();
   const setMetric = dispatchSetPlanMuscleMapMetric();
   const setPlanCompare = dispatchSetPlanMuscleMapCompare();
   const setAnalyseCompare = dispatchSetAnalyseMuscleMapCompare();
@@ -124,11 +119,6 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 
 
   const data = useMuscleInvolvement({trainingsPlanId, micro, trainingInMicro, metric, compare: effectiveSelectedCompare, view});
 
-  const handleDismiss = () => {
-    setEnabled(false);
-    onDismiss?.();
-  };
-
   const surfaceContainer = (theme.colors as unknown as {surfaceContainer?: string}).surfaceContainer ?? theme.colors.elevation?.level1 ?? theme.colors.surfaceVariant;
   const onSurfaceVariant = theme.colors.onSurfaceVariant;
 
@@ -156,15 +146,6 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 
             onChange={setCompare}
           />
         </View>
-        {showDismiss && (
-          <IconButton
-            testID="muscle-map-dismiss"
-            icon="close"
-            size={20}
-            onPress={handleDismiss}
-            accessibilityLabel="Dismiss muscle map"
-          />
-        )}
       </View>
 
       <Text testID="muscle-map-compare-label" style={[styles.compareLabel, {color: onSurfaceVariant}]}>

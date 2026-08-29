@@ -1,12 +1,10 @@
-import {Button, Divider, IconButton, SegmentedButtons, Text, TextInput, ThemeBase, Tooltip, TouchableRipple} from 'react-native-paper';
+import {Divider, IconButton, SegmentedButtons, Text, TextInput, ThemeBase, Tooltip, TouchableRipple} from 'react-native-paper';
 import {MD3Colors, MD3Typescale} from 'react-native-paper/lib/typescript/types';
 import {Action} from 'redux';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {View, Keyboard, ScrollView} from 'react-native';
 import React, {useState, useRef, useEffect} from 'react';
 import {getLocalMicro, getMesoEndMicro, getMesoForMicro, getSortedMesos} from '../../redux/Training/trainingsPlanReducer';
-import {useSettings} from '../../redux/settings/use/useSettings';
-import {dispatchSetPlanMuscleMapEnabled} from '../../redux/settings/dispatch/dispatchSetPlanMuscleMap';
 
 interface TrainingsPlanDrawerProps {
   theme: ThemeBase & {
@@ -20,8 +18,6 @@ interface TrainingsPlanDrawerProps {
   setTrainingInMicro: (value: ((prevState: number) => number) | number) => void;
   setMicro: (micro: number) => void;
   setOpen: (value: ((prevState: boolean) => boolean) | boolean) => void;
-  showPlanned: boolean;
-  setShowPlanned: (value: ((prevState: boolean) => boolean) | boolean) => void;
   showDone: boolean;
   setShowDone: (value: ((prevState: boolean) => boolean) | boolean) => void;
   setShowHistory: (value: ((prevState: boolean) => boolean) | boolean) => void;
@@ -39,8 +35,6 @@ const TrainingsPlanDrawer = ({
   setTrainingInMicro,
   setMicro,
   setOpen,
-  showPlanned,
-  setShowPlanned,
   setShowDone,
   setShowHistory,
   handleValueChange,
@@ -58,9 +52,6 @@ const TrainingsPlanDrawer = ({
   const [mesoName, setMesoName] = useState('');
   const [longPressMesoId, setLongPressMesoId] = useState<number | undefined>(undefined);
   const mesoInputRef = useRef(null);
-  const settings = useSettings();
-  const setMuscleMapEnabled = dispatchSetPlanMuscleMapEnabled();
-  const muscleMapEnabled = !!settings.plan?.muscleMap?.enabled;
 
   useEffect(() => {
     if (!trainingsPlan.trainingNames || Object.keys(trainingsPlan.trainingNames).length === 0) {
@@ -286,25 +277,9 @@ const TrainingsPlanDrawer = ({
           </Text>
         </Tooltip>
       </TouchableRipple>
+      {/* GH-417: the "Enable Planning Mode" and "Show muscle map" switches used to
+          sit here. Both moved into the analysis view's Plan | Train toggle. */}
       <Divider style={{marginVertical: 5}} />
-      <Tooltip title="Displays the planned workout statistics for this Micro">
-        <Button mode={showPlanned ? 'contained' : 'outlined'} onPress={() => setShowPlanned(!showPlanned)}>
-          Enable Planning Mode
-        </Button>
-      </Tooltip>
-      <Tooltip title="Show how this training distributes load across muscle groups">
-        <Button
-          testID="muscle-map-toggle"
-          style={{marginTop: 5}}
-          mode={muscleMapEnabled ? 'contained' : 'outlined'}
-          onPress={() => {
-            setMuscleMapEnabled(!muscleMapEnabled);
-            setOpen(false);
-          }}
-        >
-          {muscleMapEnabled ? 'Hide muscle map' : 'Show muscle map'}
-        </Button>
-      </Tooltip>
       <SegmentedButtons
         style={{marginTop: 5}}
         value={''}

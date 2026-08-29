@@ -25,8 +25,6 @@ import PlanEditList from './PlanEditList';
 import PlanReadList from './PlanReadList';
 import DraggableExercise from '../DraggableExercise';
 import TrainingElementPicker from '../../picker/elements/TrainingElementPicker';
-import MuscleInvolvementCard from './MuscleInvolvementCard';
-import {useSettings} from '../../../redux/settings/use/useSettings';
 
 interface PlanTabProps {
   training?: Training;
@@ -68,7 +66,6 @@ const PlanTab = ({
   initialMode,
 }: PlanTabProps) => {
   const theme = useTheme();
-  const appSettings = useSettings();
   const selectedExercise = chosenExercise ?? exercises[0];
   const nextTrainingId = useNextTrainingsId();
   const addPlannedWorkout = dispatchAddPlanedTrainingWorkout();
@@ -149,9 +146,8 @@ const PlanTab = ({
 
   return (
     <View style={styles.container}>
-      {appSettings.plan?.muscleMap?.enabled && selectedExercise !== undefined && (
-        <MuscleInvolvementCard trainingsPlanId={trainingsPlanId} micro={micro} trainingInMicro={trainingInMicro} />
-      )}
+      {/* GH-417: the muscle map moved to the analysis view's Plan position, where
+          it is reachable without a drawer switch. */}
       <DraggableExercise
         exercises={exercises}
         chosenExercise={selectedExercise}
