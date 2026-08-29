@@ -5,6 +5,7 @@ import {VideoAnalysis, VideoAnalysisStatus} from '../../models/entities/VideoAna
 import {useExercise} from '../../redux/Exercises/use/useExercise';
 import {useTrainingMetadataByWorkoutId} from '../../redux/Workout/use/useTrainingMetadataByWorkoutId';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
+import {useVideoAnalysisExerciseId} from '../../redux/VideoAnalysis/use/useVideoAnalysisExerciseId';
 import {
   formatVideoAnalysisMetrics,
   formatVideoAnalysisRelativeDateTime,
@@ -28,7 +29,8 @@ interface Props {
 const VideoAnalysisListItem = ({analysis, onPress, onDelete, onLink, elapsedMs, estimatedTotalMs, progress}: Props) => {
   const theme = useTheme();
   const workout = useWorkoutById(analysis.workoutId);
-  const exercise = useExercise(analysis.exerciseId ?? workout?.exerciseId);
+  const exerciseId = useVideoAnalysisExerciseId(analysis);
+  const exercise = useExercise(exerciseId);
   const trainingMetadata = useTrainingMetadataByWorkoutId(analysis.workoutId);
   const linkedSet = workout?.sets.find((set) => set.index === analysis.setIndex);
   const exerciseName = exercise?.name ?? 'Unknown Exercise';

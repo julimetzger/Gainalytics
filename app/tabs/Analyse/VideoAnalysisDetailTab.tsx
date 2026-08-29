@@ -9,6 +9,7 @@ import {BarTrackingResult, VideoAnalysisStatus} from '../../models/entities/Vide
 import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {useVideoAnalysisSetIdentity} from '../../redux/VideoAnalysis/use/useVideoAnalysisSetIdentity';
+import {useVideoAnalysisExerciseId} from '../../redux/VideoAnalysis/use/useVideoAnalysisExerciseId';
 import {useExerciseVlReference} from '../../redux/Exercises/use/useExerciseVlReference';
 import {getVideoAnalysisPreviewPath, readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
 import CompareAnalysisPickerItem from '../../components/video/CompareAnalysisPickerItem';
@@ -58,7 +59,8 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const analysis = useVideoAnalysis(route.params.analysisId);
   const allAnalyses = useAllVideoAnalyses();
   const analysisIdentity = useVideoAnalysisSetIdentity(analysis);
-  const vlReference = useExerciseVlReference(analysis?.exerciseId);
+  const exerciseId = useVideoAnalysisExerciseId(analysis);
+  const vlReference = useExerciseVlReference(exerciseId);
   const [showComparePicker, setShowComparePicker] = useState(false);
 
   const compareTargets = useMemo(() => {

@@ -4,6 +4,7 @@ import {Button, Card, Text, useTheme} from 'react-native-paper';
 import {VideoAnalysis} from '../../models/entities/VideoAnalysis';
 import {useExercise} from '../../redux/Exercises/use/useExercise';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
+import {useVideoAnalysisExerciseId} from '../../redux/VideoAnalysis/use/useVideoAnalysisExerciseId';
 import {dispatchSetExerciseVlReference} from '../../redux/Exercises/dispatch/dispatchSetExerciseVlReference';
 import {dispatchClearExerciseVlReference} from '../../redux/Exercises/dispatch/dispatchClearExerciseVlReference';
 import {
@@ -28,7 +29,7 @@ interface Props {
 const VlReferenceCard = ({analysis}: Props) => {
   const theme = useTheme();
   const workout = useWorkoutById(analysis.workoutId);
-  const exerciseId = analysis.exerciseId ?? workout?.exerciseId;
+  const exerciseId = useVideoAnalysisExerciseId(analysis);
   const exercise = useExercise(exerciseId);
   const setVlReference = dispatchSetExerciseVlReference();
   const clearVlReference = dispatchClearExerciseVlReference();

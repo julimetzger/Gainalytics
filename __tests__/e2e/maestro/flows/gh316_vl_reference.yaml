@@ -66,13 +66,32 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: 'Dashboard'
     timeout: 30000
+# `tapOn: id: analyse-drawer-toggle` reports success on emulator-5556 but never opens the
+# drawer, and a scroll gesture lands outside the modal and closes it again — so tap the
+# hamburger's pixel, and retry until the drawer is actually up (GH-415).
+- waitForAnimationToEnd:
+    timeout: 5000
 - tapOn:
-    id: 'analyse-drawer-toggle'
-- scrollUntilVisible:
-    element:
-      text: 'Video Analyses'
-    direction: DOWN
-    timeout: 15000
+    point: '6%,9%'
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      notVisible: 'Video Analyses'
+    commands:
+      - tapOn:
+          point: '6%,9%'
+      - waitForAnimationToEnd:
+          timeout: 3000
+- runFlow:
+    when:
+      notVisible: 'Video Analyses'
+    commands:
+      - tapOn:
+          point: '6%,9%'
+      - waitForAnimationToEnd:
+          timeout: 3000
+- assertVisible: 'Video Analyses'
 - tapOn: 'Video Analyses'
 # The drawer clears on its own; wait for the row itself rather than tapping blind.
 - extendedWaitUntil:
@@ -159,13 +178,32 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: 'Dashboard'
     timeout: 30000
+# `tapOn: id: analyse-drawer-toggle` reports success on emulator-5556 but never opens the
+# drawer, and a scroll gesture lands outside the modal and closes it again — so tap the
+# hamburger's pixel, and retry until the drawer is actually up (GH-415).
+- waitForAnimationToEnd:
+    timeout: 5000
 - tapOn:
-    id: 'analyse-drawer-toggle'
-- scrollUntilVisible:
-    element:
-      text: 'Video Analyses'
-    direction: DOWN
-    timeout: 15000
+    point: '6%,9%'
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      notVisible: 'Video Analyses'
+    commands:
+      - tapOn:
+          point: '6%,9%'
+      - waitForAnimationToEnd:
+          timeout: 3000
+- runFlow:
+    when:
+      notVisible: 'Video Analyses'
+    commands:
+      - tapOn:
+          point: '6%,9%'
+      - waitForAnimationToEnd:
+          timeout: 3000
+- assertVisible: 'Video Analyses'
 - tapOn: 'Video Analyses'
 - extendedWaitUntil:
     visible:

@@ -1,0 +1,235 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-415 (review finding on PR #411): an analysis that is linked only through its WORKOUT
+# carries no exerciseId of its own. The list row and the VL reference card resolved the
+# exercise through the workout; the analysis detail screen did not, so the same analysis
+# showed the calibrated RIR on the card and the global one in the playback overlay.
+#
+# Proves on device, on ONE analysis (id 2, Bankdrücken, workout 2, set 1, VL 14.29%):
+#   1. before — no reference: list row, card and overlay all read RIR 3-4
+#   2. after  — anchored at RIR 1 from the card: list row, card and overlay all read RIR 1-2
+#   3. the Squat analysis (id 1) is a different exercise and keeps the global curve
+#
+# Prerequisites — pass the fixture to the runner and stage the bar-tracking result the
+# analysis points at, otherwise the playback overlay renders "No analysis result available
+# yet" and nothing below it can be asserted:
+#   --fixture __tests__/e2e/maestro/fixtures/gh415-workout-linked-analysis.gains
+#   adb -s <serial> push __tests__/e2e/maestro/fixtures/gh415-result.json /data/local/tmp/gh415-result.json
+#   adb -s <serial> shell "run-as com.powerliftingworkoutplanner sh -c 'cat /data/local/tmp/gh415-result.json > /data/data/com.powerliftingworkoutplanner/files/gh415-result.json'"
+# It has to land in app-private storage: RNFS cannot read a file under /sdcard/Download
+# (scoped storage), and `adb push` cannot create one there either.
+
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+
+# --- import the fixture ---------------------------------------------------------
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-import-data-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-import-data-button'
+- extendedWaitUntil:
+    visible: 'Import full data from backup file?'
+    timeout: 10000
+# Anchored so this never matches the "Import Data" button behind the dialog.
+- tapOn:
+    text: '^Import$'
+- runFlow:
+    when:
+      visible: 'Use without an account'
+    commands:
+      - tapOn: 'Use without an account'
+- runFlow:
+    when:
+      visible: 'No thanks'
+    commands:
+      - tapOn: 'No thanks'
+- scrollUntilVisible:
+    element:
+      text: 'baseline.gains'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'baseline.gains'
+- extendedWaitUntil:
+    visible: 'Import Data'
+    timeout: 120000
+
+# The baseline data really is in the store before anything is asserted.
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible: 'Push pull'
+    timeout: 120000
+
+# --- open the Video Analyses list -----------------------------------------------
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 30000
+# `tapOn: id: analyse-drawer-toggle` reports success on this emulator but never opens the
+# drawer; a tap on the same pixel does. The hamburger sits at the top left of the header.
+# Right after the import the first tap is swallowed as well, so tap until the drawer is up
+# rather than once — and never with a scroll, which lands outside the modal and closes it.
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn:
+    point: '6%,9%'
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      notVisible: 'Video Analyses'
+    commands:
+      - tapOn:
+          point: '6%,9%'
+      - waitForAnimationToEnd:
+          timeout: 3000
+- runFlow:
+    when:
+      notVisible: 'Video Analyses'
+    commands:
+      - tapOn:
+          point: '6%,9%'
+      - waitForAnimationToEnd:
+          timeout: 3000
+- assertVisible: 'Video Analyses'
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-2'
+    timeout: 60000
+
+# --- 1. BEFORE: the workout-linked row reads the global curve --------------------
+# The row already resolves the exercise through the workout — it names Bankdrücken
+# even though the analysis itself has no exerciseId.
+- assertVisible: 'Bankdrücken'
+- assertVisible: 'VL 14.3% · RIR 3-4'
+# The Squat analysis has no saved RIR estimate at all, so its row shows the bare VL.
+- assertVisible: '^VL 14\.3%$'
+- takeScreenshot: gh415_1_list_before_global_curve
+
+- tapOn:
+    id: 'video-analysis-row-2'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-detail-screen'
+    timeout: 30000
+
+# The card resolves the exercise through the workout and starts on the global curve.
+- assertVisible:
+    id: 'vl-reference-vl-percent'
+    text: '14.3% VL'
+- assertVisible:
+    id: 'vl-reference-rir-estimate'
+    text: 'RIR 3-4'
+- assertVisible:
+    id: 'vl-reference-global-hint'
+    text: 'Bankdrücken uses the global VL curve.'
+- assertNotVisible:
+    id: 'vl-reference-badge'
+- takeScreenshot: gh415_2_card_before_global_curve
+
+# Scroll down to the overlay's Velocity Loss block. A centred swipe is swallowed by the
+# video surface and the speed chart, so drive the ScrollView along the left edge.
+- repeat:
+    times: 6
+    commands:
+      - swipe:
+          start: 6%, 79%
+          end: 6%, 25%
+- assertVisible:
+    id: 'video-analysis-rir-estimate'
+    text: 'RIR=3-4'
+- assertNotVisible:
+    id: 'video-analysis-vl-reference-label'
+- takeScreenshot: gh415_3_overlay_before_global_curve
+
+# --- 2. AFTER: anchor this set at RIR 1 ------------------------------------------
+- repeat:
+    times: 6
+    commands:
+      - swipe:
+          start: 6%, 25%
+          end: 6%, 79%
+- tapOn:
+    id: 'vl-reference-set-button'
+- extendedWaitUntil:
+    visible:
+      id: 'vl-reference-dialog-confirm'
+    timeout: 15000
+- tapOn:
+    id: 'vl-reference-rir-option-1'
+- tapOn:
+    id: 'vl-reference-dialog-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'vl-reference-badge'
+    timeout: 15000
+
+# The card is calibrated — this already worked before the fix.
+- assertVisible:
+    id: 'vl-reference-vl-percent'
+    text: '14.3% VL'
+- assertVisible:
+    id: 'vl-reference-rir-estimate'
+    text: 'RIR 1-2'
+- assertVisible:
+    id: 'vl-reference-badge'
+    text: 'VL reference · RIR 1 · .*'
+- takeScreenshot: gh415_4_card_after_referenced_rir1
+
+# THE FIX: the overlay on the same screen now resolves the exercise through the workout
+# too, so it computes against the very same reference instead of the global curve.
+# Before the fix this still read RIR=3-4 with no reference label underneath it.
+- repeat:
+    times: 6
+    commands:
+      - swipe:
+          start: 6%, 79%
+          end: 6%, 25%
+- assertVisible:
+    id: 'video-analysis-rir-estimate'
+    text: 'RIR=1-2'
+- assertVisible:
+    id: 'video-analysis-vl-reference-label'
+    text: 'VL reference · RIR 1 · .*'
+- takeScreenshot: gh415_5_overlay_after_referenced_rir1
+
+# --- 3. back in the list: the same calibrated value ------------------------------
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-2'
+    timeout: 30000
+- assertVisible: 'VL 14.3% · RIR 1-2'
+- assertNotVisible: 'VL 14.3% · RIR 3-4'
+# The Squat analysis belongs to another exercise and is untouched by the calibration.
+- assertVisible: '^VL 14\.3%$'
+- takeScreenshot: gh415_6_list_after_referenced_rir1
+
+# --- 4. an analysis on a different exercise stays on the global curve -------------
+- tapOn:
+    id: 'video-analysis-row-1'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-detail-screen'
+    timeout: 30000
+- assertVisible:
+    id: 'vl-reference-global-hint'
+    text: 'Squat uses the global VL curve.'
+- assertVisible:
+    id: 'vl-reference-rir-estimate'
+    text: 'RIR 3-4'
+- assertNotVisible:
+    id: 'vl-reference-badge'
+- takeScreenshot: gh415_7_other_exercise_still_global

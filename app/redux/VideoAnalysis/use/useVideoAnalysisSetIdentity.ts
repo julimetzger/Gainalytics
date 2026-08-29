@@ -2,6 +2,7 @@ import {VideoAnalysis} from '../../../models/entities/VideoAnalysis';
 import {formatVideoAnalysisSetIdentity} from '../../../utils/video-analysis-presentation';
 import {useExercise} from '../../Exercises/use/useExercise';
 import {useWorkoutById} from '../../Workout/use/useWorkoutById';
+import {useVideoAnalysisExerciseId} from './useVideoAnalysisExerciseId';
 
 /**
  * Human readable identity of an analysis — the set it was filmed on rather than
@@ -9,7 +10,8 @@ import {useWorkoutById} from '../../Workout/use/useWorkoutById';
  */
 export const useVideoAnalysisSetIdentity = (analysis?: VideoAnalysis): string => {
   const workout = useWorkoutById(analysis?.workoutId);
-  const exercise = useExercise(analysis?.exerciseId ?? workout?.exerciseId);
+  const exerciseId = useVideoAnalysisExerciseId(analysis);
+  const exercise = useExercise(exerciseId);
   // setIndex holds the user facing (1-based) set number, not an array position.
   const linkedSet = analysis?.setIndex !== undefined ? workout?.sets.find((set) => set.index === analysis.setIndex) : undefined;
 
