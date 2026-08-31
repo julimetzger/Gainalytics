@@ -1,6 +1,6 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
-import {Card, Chip, IconButton, Text, TextInput, useTheme} from 'react-native-paper';
+import {Card, Chip, IconButton, Searchbar, Text, useTheme} from 'react-native-paper';
 import {useAllTrainingsPlans} from '../../redux/Training/use/useAllTrainingsPlans';
 import {RootStackParamList} from '../../routing/TrainingRouter';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -19,7 +19,6 @@ import {
   getLocalMicro,
   trainingInMicroIndex,
 } from '../../redux/Training/trainingsPlanReducer';
-import {TextInput as RNTextInput} from 'react-native';
 import MicroHeroCard from '../../components/Training/dashboard/MicroHeroCard';
 import NextTrainingCard from '../../components/Training/dashboard/NextTrainingCard';
 import MicroRecordsCard from '../../components/Training/dashboard/MicroRecordsCard';
@@ -235,7 +234,6 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
   const [selectedPlanId, setSelectedPlanId] = useState<number | undefined>(undefined);
   const trainingsPlans = useAllTrainingsPlans().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
   const allTrainings = useTrainings();
-  const filterInputRef = React.useRef<RNTextInput>(null);
 
   const autoActivePlan = useMemo((): TrainingsPlan | undefined => {
     if (trainingsPlans.length === 0) return undefined;
@@ -302,19 +300,6 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
     return map;
   }, [trainingsPlans, allTrainings]);
 
-  useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <IconButton
-          icon="magnify"
-          onPress={() => {
-            filterInputRef.current?.focus();
-          }}
-        />
-      ),
-    });
-  }, [navigation]);
-
   const filteredPlans = trainingsPlans.filter((p: TrainingsPlan) => p.name.toLowerCase().includes(filter.toLowerCase()));
 
   return (
@@ -344,23 +329,22 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
           </>
         )}
 
-        {/* Plans list with visible search + status dots */}
+        {/* Plans list with visible search + status dots.
+            GH-412: the search uses the same full-width Paper <Searchbar> as the
+            Exercises tab, so both tabs share one look (filled pill, no outline,
+            leading magnify icon) instead of the old dense outlined field. */}
         <View style={styles.plansHeader}>
           <Text variant="titleMedium" style={styles.plansTitle}>
             Plans
           </Text>
-          <TextInput
-            mode="outlined"
-            dense
-            placeholder="Search plans"
-            value={filter}
-            onChangeText={setFilter}
-            ref={filterInputRef}
-            style={styles.searchField}
-            left={<TextInput.Icon icon="magnify" />}
-            testID="plans-search-field"
-          />
         </View>
+        <Searchbar
+          placeholder="Search plans"
+          value={filter}
+          onChangeText={setFilter}
+          style={styles.searchbar}
+          testID="plans-search-field"
+        />
 
         {filteredPlans.map((trainingsPlan: TrainingsPlan) => {
           const meta = trainingsPlan.id !== undefined ? planMetas[trainingsPlan.id] : undefined;
@@ -448,12 +432,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   plansTitle: {fontWeight: '700'},
-  searchField: {flex: 1, height: 40},
+  // Same insets as the Exercises tab searchbar so both fields align identically.
+  searchbar: {margin: 8},
   planCard: {marginHorizontal: 8, marginVertical: 4},
   planCardActive: {opacity: 0.95},
   planHeader: {

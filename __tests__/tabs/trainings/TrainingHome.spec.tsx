@@ -67,7 +67,7 @@ jest.mock('../../../app/components/Training/dashboard/LastTrainingCard', () => {
 
 jest.mock('react-native-paper', () => {
   const React = require('react');
-  const {Text, TouchableOpacity, View} = require('react-native');
+  const {Text, TextInput: RNTextInput, TouchableOpacity, View} = require('react-native');
   const Dialog = ({children, visible}: any) => (visible ? <View>{children}</View> : null);
   Dialog.Title = ({children}: any) => <Text>{children}</Text>;
   Dialog.Content = ({children}: any) => <View>{children}</View>;
@@ -75,6 +75,11 @@ jest.mock('react-native-paper', () => {
   const TextInputComponent = ({value}: any) => <Text>{value}</Text>;
   (TextInputComponent as any).Icon = () => null;
   return {
+    // GH-412: the plans search is a Searchbar now — keep it editable in the mock
+    // so a test can type into it and assert the list actually filters.
+    Searchbar: ({value, onChangeText, placeholder, testID, style}: any) => (
+      <RNTextInput testID={testID} placeholder={placeholder} value={value} onChangeText={onChangeText} style={style} />
+    ),
     Button: ({children, onPress, testID, mode}: any) => (
       <TouchableOpacity testID={testID || (typeof children === 'string' ? children : undefined)} onPress={onPress}>
         <Text>{children}</Text>
@@ -273,5 +278,56 @@ describe('TrainingHome — GH-401 review 2: the card follows the session that is
     const {getByTestId} = renderHome(planWithDoneDay1);
 
     expect(getByTestId('next-training-slot').props.children).toBe('1:2');
+  });
+});
+
+// GH-412: one search entry point only — the header magnifier is gone and the
+// remaining field is the Exercises-tab Searchbar, with unchanged filter behaviour.
+describe('TrainingHome — GH-412 plans search', () => {
+  const push: TrainingsPlan = {id: 41, name: 'Push pull', trainings: {}, trainingNames: {}};
+  const upper: TrainingsPlan = {id: 42, name: 'Upper lower', trainings: {}, trainingNames: {}};
+
+  const renderHome = () => {
+    mockedUseAllTrainingsPlans.mockReturnValue([push, upper]);
+    mockedUseTrainings.mockReturnValue([]);
+    mockState.trainingsPlan.byId = {41: push, 42: upper};
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    return {navigation, ...render(<TrainingHome navigation={navigation as any} route={{params: {}} as any} />)};
+  };
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('never installs a headerRight search icon', () => {
+    const {navigation} = renderHome();
+
+    for (const [options] of navigation.setOptions.mock.calls) {
+      expect(options).not.toHaveProperty('headerRight');
+    }
+  });
+
+  it('keeps the "Search plans" placeholder on the search field', () => {
+    const {getByTestId} = renderHome();
+
+    expect(getByTestId('plans-search-field').props.placeholder).toBe('Search plans');
+  });
+
+  it('filters the plan list on match, on no match, and again after clearing', () => {
+    const {getByTestId, queryByText} = renderHome();
+    const field = getByTestId('plans-search-field');
+
+    expect(queryByText('Push pull')).not.toBeNull();
+    expect(queryByText('Upper lower')).not.toBeNull();
+
+    fireEvent.changeText(field, 'upper');
+    expect(queryByText('Push pull')).toBeNull();
+    expect(queryByText('Upper lower')).not.toBeNull();
+
+    fireEvent.changeText(field, 'zzz');
+    expect(queryByText('Push pull')).toBeNull();
+    expect(queryByText('Upper lower')).toBeNull();
+
+    fireEvent.changeText(field, '');
+    expect(queryByText('Push pull')).not.toBeNull();
+    expect(queryByText('Upper lower')).not.toBeNull();
   });
 });
