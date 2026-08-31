@@ -123,7 +123,7 @@ const ExerciseGraphTab = ({exercise}: Props) => {
         caption={frequencyCaption}
         cardTestID={`graph-card-${Metric.FREQUENCY}`}
         captionTestID="graph-frequency-latest"
-        integerYAxis
+        countSeries
       />
       <View style={styles.bottomSpacer} />
     </ScrollView>

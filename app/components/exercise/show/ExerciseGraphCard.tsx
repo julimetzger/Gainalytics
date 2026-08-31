@@ -11,15 +11,19 @@ interface Props {
   caption?: string;
   cardTestID: string;
   captionTestID?: string;
-  /** Frequency is a count — keep the y axis on whole numbers starting at zero. */
-  integerYAxis?: boolean;
+  /**
+   * The series is a whole-number count (Frequency). Keeps the y axis on whole numbers
+   * starting at zero and draws straight segments — bezier smoothing would overshoot
+   * between two weeks and suggest counts that were never trained.
+   */
+  countSeries?: boolean;
 }
 
-const ExerciseGraphCard = ({title, subtitle, points, caption, cardTestID, captionTestID, integerYAxis}: Props) => {
+const ExerciseGraphCard = ({title, subtitle, points, caption, cardTestID, captionTestID, countSeries}: Props) => {
   const theme = useTheme();
   const yAxisConfig = {
     textColor: processColor(theme.colors.onBackground),
-    ...(integerYAxis ? {granularity: 1, granularityEnabled: true, axisMinimum: 0} : {}),
+    ...(countSeries ? {granularity: 1, granularityEnabled: true, axisMinimum: 0} : {}),
   };
 
   return (
@@ -49,7 +53,7 @@ const ExerciseGraphCard = ({title, subtitle, points, caption, cardTestID, captio
                       drawCircleHole: false,
                       highlightColor: processColor(theme.colors.secondary),
                       circleRadius: 3,
-                      mode: 'HORIZONTAL_BEZIER',
+                      mode: countSeries ? 'LINEAR' : 'HORIZONTAL_BEZIER',
                       drawValues: false,
                     },
                     values: points,

@@ -4,6 +4,7 @@ import ExerciseGraphTab from '../../../../app/components/exercise/show/ExerciseG
 import {Workout} from '../../../../app/models/entities/Workout';
 import {useWorkoutsIn} from '../../../../app/redux/Workout/use/useWorkoutsIn';
 
+const mockChartProps: {current: any[]} = {current: []};
 const mockChartValues: {current: any[][]} = {current: []};
 
 jest.mock('../../../../app/redux/Workout/use/useWorkoutsIn', () => ({
@@ -15,6 +16,7 @@ jest.mock('react-native-charts-wrapper', () => {
   const {View} = require('react-native');
   return {
     LineChart: (props: any) => {
+      mockChartProps.current.push(props);
       mockChartValues.current.push(props.data.dataSets[0].values);
       return ReactLocal.createElement(View, {testID: 'line-chart'});
     },
@@ -68,6 +70,7 @@ const threeTrainingsOverThreeWeeks = [
 
 describe('ExerciseGraphTab', () => {
   beforeEach(() => {
+    mockChartProps.current = [];
     mockChartValues.current = [];
   });
 
@@ -119,6 +122,24 @@ describe('ExerciseGraphTab', () => {
       new Date(2024, 0, 4).getTime(),
       new Date(2024, 0, 17).getTime(),
     ]);
+  });
+
+  it('draws the count series with straight segments and whole-number axes, leaving the existing graphs bezier-smoothed', () => {
+    mockedUseWorkoutsIn.mockReturnValue(threeTrainingsOverThreeWeeks);
+
+    render(<ExerciseGraphTab exercise={{id: 7, name: 'Deadlift'}} />);
+
+    const oneRm = mockChartProps.current[0];
+    const frequency = mockChartProps.current[mockChartProps.current.length - 1];
+
+    expect(oneRm.data.dataSets[0].config.mode).toEqual('HORIZONTAL_BEZIER');
+    expect(oneRm.yAxis).toEqual({left: {textColor: expect.anything()}, right: {textColor: expect.anything()}});
+
+    expect(frequency.data.dataSets[0].config.mode).toEqual('LINEAR');
+    expect(frequency.yAxis).toEqual({
+      left: {textColor: expect.anything(), granularity: 1, granularityEnabled: true, axisMinimum: 0},
+      right: {textColor: expect.anything(), granularity: 1, granularityEnabled: true, axisMinimum: 0},
+    });
   });
 
   it('shows the empty state instead of crashing for an exercise without training history', () => {
