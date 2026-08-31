@@ -2,7 +2,12 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!--
+      No READ_MEDIA_VIDEO / READ_MEDIA_IMAGES on purpose (GH-421): videos are picked via
+      ACTION_OPEN_DOCUMENT and kept alive with takePersistableUriPermission, which is the
+      system picker the Play "Photo and Video Permissions" policy requires. A broad media
+      permission would be a policy violation and buys the app nothing.
+    -->
     <!-- Precise alarms (Android 12+) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Runtime notifications permission (Android 13+) -->
