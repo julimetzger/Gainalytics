@@ -2373,24 +2373,43 @@ Only works for modules with no React Native imports — keep colour/format/pure-
 **Observation (GH-415):** the finding was "the detail screen resolves the exercise differently from the card". Screenshotting the uncalibrated screen proves nothing, because both paths agree while there is no reference to disagree about. The conclusive pair is: set the reference, screenshot the overlay (`RIR=1-2`), then `git checkout HEAD -- <the one file>`, let Metro reload, screenshot the same scroll position (`RIR=3-4`, reference label gone), then copy the file back. Same store, same set, same scroll — only the resolution rule differs. Expect a `Render Error / EnsureSingleNavigator` red screen when Fast Refresh swaps a screen component; force-stop and relaunch, it is not a real fault.
 **Apply when:** proving a fix for "two views of the same data disagree".
 
-### 356. Maestro `text:` is a full REGEX — literal parentheses in a UI label are a capture group and never match
+### 356. A Maestro `id:` is a partial regex — a Paper `Searchbar`'s testID also matches its own sibling nodes
+**Problem (GH-412):** `tapOn: {id: "plans-search-field"}` on a Paper `<Searchbar testID="plans-search-field">` kept focusing nothing, and every following `inputText` was silently dropped — the flow then failed several steps later with "the list did not filter". The Searchbar explodes one testID into a whole family of resource-ids: `-container`, `-icon-container`, `-icon`, `-clear-icon`, `-clear-icon-container`, and the bare id on the actual `EditText`. Maestro's `idRegex` is not anchored, so it matched the leading `-icon` first — a Button with `enabled="false"`.
+**Working solution:** anchor it: `id: "^plans-search-field$"`. Confirm the family with `uiautomator dump` before writing the flow; the same applies to any wrapper component that decorates a testID.
+**Apply when:** any Maestro interaction with a Paper `Searchbar`/`TextInput`, or whenever a tap "works" but the following input vanishes.
+
+### 357. Assert an input's own text only AFTER `hideKeyboard` — the keyboard scrolls the field out of the hierarchy
+**Problem (GH-412):** `inputText` → `assertVisible: {id: ..., text: "upper"}` failed although the keystrokes had landed. With `adjustResize` the open keyboard shrinks the ScrollView, and a field near the bottom of the page is pushed behind it, so it is simply not in the visible hierarchy. The failure screenshot shows the keyboard, not the field — easy to misread as "the input did not work".
+**Working solution:** `inputText` → `hideKeyboard` → `waitForAnimationToEnd` → assert the field's text → assert the list. Keep the text assertion (it is what turns a swallowed keystroke into a failure at the cause), just order it after the keyboard is gone. Note `hideKeyboard` also drops focus, so re-tap the field before the next `eraseText`/`inputText`.
+**Apply when:** any flow that types into a field and then asserts on it.
+
+### 358. `scrollUntilVisible` stops at the viewport edge — anchor on the LAST element you need, not the first
+**Problem (GH-412):** `scrollUntilVisible: {element: {id: search-field}}` returned as soon as the field entered the viewport from the bottom, leaving all four list rows below the fold; the next `assertVisible: "Test"` then failed. Maestro reports this as `Assertion is false: "Test" is visible`, which reads like a `assertNotVisible` failing and sends you debugging the filter instead of the scroll.
+**Working solution:** scroll to the last element the assertions need (here the final plan card) so the whole block is on screen at once. After a filter shrinks and later restores a list, scroll again — the restored rows are below the fold a second time.
+**Apply when:** a flow asserts on several elements after one scroll, and for reading Maestro's assertion wording: the message states the *predicate*, not which command failed.
+
+### 359. An absolutely positioned FAB eats taps on controls that scroll underneath it
+**Observation (GH-412):** `TrainingHome`'s add-plan FAB (`position: absolute, bottom: 5, right: 5`) sits on top of whatever the ScrollView happens to place there. When the new Searchbar is scrolled to the very bottom of the viewport, the FAB covers its clear (X) button and swallows the tap — the field keeps its text and the flow fails with no visible cause. Nothing renders wrong; only the hit target is stolen.
+**Apply when:** a tap on a scrollable control near the bottom-right does nothing. Drive it another way (tap the field + `eraseText`), and check for an absolutely positioned sibling before suspecting the component.
+
+### 360. Maestro `text:` is a full REGEX — literal parentheses in a UI label are a capture group and never match
 **Problem (GH-413):** `assertVisible: 'Trainings per week (Mon–Sun)'` failed against a `<Text>` whose dumped `text=` is exactly that string. Maestro compiles the value as a regex, so `(Mon–Sun)` becomes a group and the literal brackets are never required — the pattern reduces to `Trainings per week Mon–Sun`. The failure message quotes your string back verbatim, which reads like "the element is not there".
 **Working solution:** escape the metacharacters (`\(`, `\)`) or, simpler and more robust across copy tweaks, assert a prefix plus `.*`: `'Trainings per week.*'`. Extends #293 (trailing whitespace) — the same trap, different cause. Check any label containing `( ) [ ] + * ? | { } $ ^` before putting it in a selector.
 **Apply when:** an `assertVisible`/`extendedWaitUntil` fails on text you can literally read in the `uiautomator dump`.
 
-### 357. `react-native-paper` `Card.Title` swallows its testID, but a plain `<Text testID>` inside `Card.Content` surfaces as a resource-id
+### 361. `react-native-paper` `Card.Title` swallows its testID, but a plain `<Text testID>` inside `Card.Content` surfaces as a resource-id
 **Observation (GH-413):** `<Card.Title title={metric} testID="graph-card-1RM" />` produces NO `resource-id` in the dump — only the title's own text node. A sibling `<Text testID="graph-frequency-latest">` in the card body does appear with `resource-id="graph-frequency-latest"`. Practical consequence for the "assert the actual value, not visibility" rule: put the value you want to assert in a plain `<Text testID>`, then `assertVisible: {id: ..., text: 'expected value'}`; address the cards themselves by their title text.
 **Apply when:** writing a flow against any Paper `Card`-based list, or deciding where to hang a testID so a value assertion is possible at all.
 
-### 358. `workouts.byId` in the shipped `.gains` fixtures has twice the entries of `workouts.allIds` — recompute expected values via `allIds`
+### 362. `workouts.byId` in the shipped `.gains` fixtures has twice the entries of `workouts.allIds` — recompute expected values via `allIds`
 **Problem (GH-413):** to prove a computed graph value against the raw data I iterated `baseline.gains`'s `workouts.byId` (5707 entries, incl. an `"undefined"` key) and got 153 workouts for one exercise with a weekly maximum of 4 — while the device drew a maximum of 2. `findWorkoutsIn` does `allIds.map(id => byId[id])`, and `allIds` lists only 2883; the extra `byId` entries are orphans the app never reads. Walking `allIds` gives 144 workouts, max 2, and matches the device exactly.
 **Apply when:** any offline recomputation of an expected value from a `.gains` fixture, or any assertion derived from one. Mirror the selector's traversal, not the JSON's shape — and if your computed expectation disagrees with the screen, suspect this before suspecting the code.
 
-### 359. On emulator-5556 the app DID load from Metro via `debug_http_host=127.0.0.1:8081` + `adb reverse` — check before budgeting a rebuild
+### 363. On emulator-5556 the app DID load from Metro via `debug_http_host=127.0.0.1:8081` + `adb reverse` — check before budgeting a rebuild
 **Observation (GH-413):** the prefs file already held `debug_http_host` `127.0.0.1:8081`; re-pointing `adb reverse tcp:8081 tcp:$E2E_METRO_PORT` (it was left aimed at another worktree's Metro), force-stopping and relaunching gave `isMetroRunning(): Async result = true` and served the branch's JS — no socat (#333), no `10.0.2.2` pref rewrite (#340), no `assembleDebug`. `debuggableVariants = []` (#299) only means the APK *also* embeds a bundle; it is the fallback, not the only source.
 **Apply when:** starting a device round on an emulator. Cost of checking: one relaunch plus a logcat grep. Verify the served code with `curl <metro>/index.bundle | grep <new identifier>` (#295) before concluding anything about staleness.
 
-### 360. Bezier-smoothed line charts lie about integer count series — use `mode: 'LINEAR'` + `granularity: 1` + `axisMinimum: 0`
+### 364. Bezier-smoothed line charts lie about integer count series — use `mode: 'LINEAR'` + `granularity: 1` + `axisMinimum: 0`
 **Problem (GH-413):** a new "trainings per week" graph inherited `mode: 'HORIZONTAL_BEZIER'` from the existing graphs. On values that only ever take 0/1/2 the spline overshoots between points, so the rendered curve dips visibly below 0 and bulges above the real count — the picture shows counts that were never trained. The fractional y-axis labels compound it.
 **Working solution:** for any whole-number count series pass `mode: 'LINEAR'` and `yAxis: {granularity: 1, granularityEnabled: true, axisMinimum: 0}` on both sides. Keep bezier for continuous measurements (1RM, volume, intensity) so the existing graphs are untouched.
 **Apply when:** adding any counting metric to a `react-native-charts-wrapper` `LineChart`. Look at the rendered chart, not just the data — the defect only exists in the drawing.
