@@ -2392,31 +2392,53 @@ Only works for modules with no React Native imports — keep colour/format/pure-
 **Observation (GH-412):** `TrainingHome`'s add-plan FAB (`position: absolute, bottom: 5, right: 5`) sits on top of whatever the ScrollView happens to place there. When the new Searchbar is scrolled to the very bottom of the viewport, the FAB covers its clear (X) button and swallows the tap — the field keeps its text and the flow fails with no visible cause. Nothing renders wrong; only the hit target is stolen.
 **Apply when:** a tap on a scrollable control near the bottom-right does nothing. Drive it another way (tap the field + `eraseText`), and check for an absolutely positioned sibling before suspecting the component.
 
-### 360. `--mode bootstrap` only PUSHES the fixture — it never imports it
+### 360. Maestro `text:` is a full REGEX — literal parentheses in a UI label are a capture group and never match
+**Problem (GH-413):** `assertVisible: 'Trainings per week (Mon–Sun)'` failed against a `<Text>` whose dumped `text=` is exactly that string. Maestro compiles the value as a regex, so `(Mon–Sun)` becomes a group and the literal brackets are never required — the pattern reduces to `Trainings per week Mon–Sun`. The failure message quotes your string back verbatim, which reads like "the element is not there".
+**Working solution:** escape the metacharacters (`\(`, `\)`) or, simpler and more robust across copy tweaks, assert a prefix plus `.*`: `'Trainings per week.*'`. Extends #293 (trailing whitespace) — the same trap, different cause. Check any label containing `( ) [ ] + * ? | { } $ ^` before putting it in a selector.
+**Apply when:** an `assertVisible`/`extendedWaitUntil` fails on text you can literally read in the `uiautomator dump`.
+
+### 361. `react-native-paper` `Card.Title` swallows its testID, but a plain `<Text testID>` inside `Card.Content` surfaces as a resource-id
+**Observation (GH-413):** `<Card.Title title={metric} testID="graph-card-1RM" />` produces NO `resource-id` in the dump — only the title's own text node. A sibling `<Text testID="graph-frequency-latest">` in the card body does appear with `resource-id="graph-frequency-latest"`. Practical consequence for the "assert the actual value, not visibility" rule: put the value you want to assert in a plain `<Text testID>`, then `assertVisible: {id: ..., text: 'expected value'}`; address the cards themselves by their title text.
+**Apply when:** writing a flow against any Paper `Card`-based list, or deciding where to hang a testID so a value assertion is possible at all.
+
+### 362. `workouts.byId` in the shipped `.gains` fixtures has twice the entries of `workouts.allIds` — recompute expected values via `allIds`
+**Problem (GH-413):** to prove a computed graph value against the raw data I iterated `baseline.gains`'s `workouts.byId` (5707 entries, incl. an `"undefined"` key) and got 153 workouts for one exercise with a weekly maximum of 4 — while the device drew a maximum of 2. `findWorkoutsIn` does `allIds.map(id => byId[id])`, and `allIds` lists only 2883; the extra `byId` entries are orphans the app never reads. Walking `allIds` gives 144 workouts, max 2, and matches the device exactly.
+**Apply when:** any offline recomputation of an expected value from a `.gains` fixture, or any assertion derived from one. Mirror the selector's traversal, not the JSON's shape — and if your computed expectation disagrees with the screen, suspect this before suspecting the code.
+
+### 363. On emulator-5556 the app DID load from Metro via `debug_http_host=127.0.0.1:8081` + `adb reverse` — check before budgeting a rebuild
+**Observation (GH-413):** the prefs file already held `debug_http_host` `127.0.0.1:8081`; re-pointing `adb reverse tcp:8081 tcp:$E2E_METRO_PORT` (it was left aimed at another worktree's Metro), force-stopping and relaunching gave `isMetroRunning(): Async result = true` and served the branch's JS — no socat (#333), no `10.0.2.2` pref rewrite (#340), no `assembleDebug`. `debuggableVariants = []` (#299) only means the APK *also* embeds a bundle; it is the fallback, not the only source.
+**Apply when:** starting a device round on an emulator. Cost of checking: one relaunch plus a logcat grep. Verify the served code with `curl <metro>/index.bundle | grep <new identifier>` (#295) before concluding anything about staleness.
+
+### 364. Bezier-smoothed line charts lie about integer count series — use `mode: 'LINEAR'` + `granularity: 1` + `axisMinimum: 0`
+**Problem (GH-413):** a new "trainings per week" graph inherited `mode: 'HORIZONTAL_BEZIER'` from the existing graphs. On values that only ever take 0/1/2 the spline overshoots between points, so the rendered curve dips visibly below 0 and bulges above the real count — the picture shows counts that were never trained. The fractional y-axis labels compound it.
+**Working solution:** for any whole-number count series pass `mode: 'LINEAR'` and `yAxis: {granularity: 1, granularityEnabled: true, axisMinimum: 0}` on both sides. Keep bezier for continuous measurements (1RM, volume, intensity) so the existing graphs are untouched.
+**Apply when:** adding any counting metric to a `react-native-charts-wrapper` `LineChart`. Look at the rendered chart, not just the data — the defect only exists in the drawing.
+
+### 365. `--mode bootstrap` only PUSHES the fixture — it never imports it
 **Problem (GH-417):** the feature SKILL's baseline recipe is `run-maestro-from-wsl.sh --mode bootstrap`, and it exits 0 after three `adb push` lines. Reading the script: bootstrap pushes `baseline.gains` + the two mp4s, sets the metro reverse, force-stops the app and `exit 0` — the import itself lives in the flow `00_import_baseline.yaml`, which bootstrap never runs. A store "hydrated" that way is still empty, and the `grep -q "Push pull"` verification step in the skill is what would have caught it.
 **Working solution:** always run the import as a FLOW: a two-line suite `- runFlow: 00_import_baseline.yaml` / `- runFlow: <your flow>.yaml`, then `--mode smoke --suite <that suite>`. That is also what `gh403_suite.yaml` and `gh417_suite.yaml` do.
 **Apply when:** any ticket whose evidence needs fixture data.
 
-### 361. Maestro's "device ... is not connected" is a NEIGHBOUR problem, not your device
+### 366. Maestro's "device ... is not connected" is a NEIGHBOUR problem, not your device
 **Problem (GH-417):** maestro aborted with `Device R5CN30HWZFN was requested, but it is not connected.` while `adb -H 172.18.240.1 devices` listed it as `device` the whole time. It failed on every attempt for ~2 min, starting exactly when a sibling worker launched its own maestro against `emulator-5556`, and passed again the moment that run ended. Binding an own relay (`socat`+`--host 127.0.0.17`) did NOT help — the contention is on the shared Windows adb server, not on the loopback proxy.
 **Working solution:** treat it as transient. Wrap the run in a retry loop (`for i in $(seq 1 6); do <run> && break; done`) in the FOREGROUND. The script's own single retry hides it early — a log where the first attempt printed the message and the flow then passed is the same bug, not a different one.
 **Apply when:** two workers share one adb server; don't go debugging your device, and never `adb kill-server`.
 
-### 362. Paper's `SegmentedButtons` IS testable and Maestro-tappable — mock breakage is not a reason to hand-roll a control
+### 367. Paper's `SegmentedButtons` IS testable and Maestro-tappable — mock breakage is not a reason to hand-roll a control
 **Problem (GH-417, corrected in review round 2):** a `SegmentedButtons` toggle blew up three specs (`TrainingsPlanNode.spec`, `TrainingsPlanNodeEdit.test`, `FinishTrainingNotificationGuard.test`) because they mock `react-native-paper` with a handful of components, so the new one was `undefined`. That was read as "the control is untestable" and replaced with raw `Pressable`s — which review rejected: `AGENTS.md` mandates Paper components. #320 does NOT apply here; that entry is about `sharingan-rn-modal-dropdown`'s `MultiselectItem`, which has no testID at all.
 **Working solution:** pass `testID` per item in `buttons: [{value, label, testID, accessibilityLabel}]`. Paper puts it on the `TouchableRipple` (label gets `${testID}-label`), so `tapOn: id:` works on a real device and `getByTestId` works in jest — but the a11y state is `{disabled, checked}`, not `{selected}`. For the wholesale-mocking specs add one shared stub (`__tests__/helpers/paperMocks.tsx`) rather than hand-rolling the component.
 **Apply when:** a mandated library component "breaks the tests" — fix the mock, don't reimplement the component.
 
-### 363. `MuscleInvolvementCard`'s subject is ONE training's plan — useless on a finished one
+### 368. `MuscleInvolvementCard`'s subject is ONE training's plan — useless on a finished one
 **Problem (GH-417):** the Plan position was first built with `MuscleInvolvementCard view="plan"`. On the fixture's FINISHED training it rendered "No muscle data for this training yet": the card's subject is `training.plannedWorkouts`, and a finished training has none. The compare layer (`current_total_plan`) *is* micro-wide, which makes it look like the card covers the micro — it does not.
 **Working solution:** for a micro-wide map, compose the exported pieces yourself — `aggregatePlannedAcrossMicro` (subject and reference) → `buildRows` → `computeGlobalMax` → `<MuscleMapBarList>`. Note `buildRows` only emits rows for muscles present in the SUBJECT, so a muscle that exists only in the reference has no row at all.
 **Apply when:** reusing the muscle map outside a single-training context.
 
-### 364. The baseline `.gains` import also restores the fixture's THEME — toggle light mode after the import, never before
+### 369. The baseline `.gains` import also restores the fixture's THEME — toggle light mode after the import, never before
 **Problem (GH-417 round 2):** evidence for both light and dark theme was needed. Switching "Enable Dark Mode" off in Settings and then running `gh417_suite.yaml` produced dark screenshots again: the suite starts with `00_import_baseline.yaml`, and the fixture carries `settings.mode = 'dark'`, so the import silently overwrote the choice.
 **Working solution:** run the import suite once (dark evidence), then toggle the theme, then run ONLY the assertion flow (`--suite <flow>.yaml`, no import) for the light evidence — the store survives `launchApp: {clearState: false}`. The Settings switch has no testID, so drive it with `uiautomator dump` + `input tap` on the `checked=... clickable="true"` node next to "Enable Dark Mode"; re-dump afterwards to confirm `checked` actually flipped.
 **Apply when:** a ticket needs evidence in both themes, or any screenshot whose appearance depends on a setting the fixture also carries.
 
-### 365. Assert a theme-driven colour against TWO themes, or the test also passes for a hardcoded value
+### 370. Assert a theme-driven colour against TWO themes, or the test also passes for a hardcoded value
 **Observation (GH-417 round 2):** "takes its colour from the theme" is trivially satisfiable by a literal that happens to match. The assertion that actually bites renders the component twice — `MD3LightTheme` and `MD3DarkTheme` — asserts each resolved colour against that theme's token, and then asserts the two differ. Read it with `StyleSheet.flatten(node.props.style).color`; `props.style.flat().at(-1)` is fragile because the colour is not always in the last entry.
 **Apply when:** a review finding says a control should follow the theme. Pair it with a structural assertion on a testID only the real library component emits (Paper: `${testID}-label`), so the spec fails against the hand-rolled predecessor (#204).
