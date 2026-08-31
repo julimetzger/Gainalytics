@@ -91,6 +91,7 @@ const MicroOverview = ({trainingsPlan, micro, isActive = true}: TrainingsBasePro
               reportedRir={insight.reportedRir}
               microHistory={insight.microHistory}
               currentMicro={micro}
+              vlReference={insight.vlReference}
             />
           ))}
         </View>

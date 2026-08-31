@@ -51,13 +51,13 @@ export const buildTrainingsPlanExportPayload = (trainingsPlan: TrainingsPlan, st
     training.exercises.forEach((exerciseId) => exerciseIds.add(exerciseId));
   });
 
+  // A VL reference is calibrated from the owner's own filmed set, so it says nothing about
+  // whoever imports the plan — drop it here (issue #316). The full `.gains` backup exports the
+  // raw redux state and therefore keeps it.
   const exercises = Array.from(exerciseIds)
     .map((exerciseId) => state.exercises.byId[exerciseId])
     .filter((exercise): exercise is Exercise => exercise !== undefined)
-    .map((exercise) => ({
-      ...exercise,
-      records: undefined,
-    }));
+    .map(({records: _records, vlReference: _vlReference, ...exercise}) => exercise);
 
   return {
     trainingsPlan: exportTrainingsPlan,

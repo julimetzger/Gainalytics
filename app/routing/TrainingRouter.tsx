@@ -3,7 +3,6 @@ import TrainingHomeTab from '../tabs/trainings/TrainingHome';
 import TrainingsPlanTab from '../tabs/trainings/TrainingsPlanTab';
 import {TrainingsPlan} from '../models/entities/TrainingsPlan';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import {IconButton} from 'react-native-paper';
 import {SubTab} from '../components/Training/TrainingModeTabs';
 
 export type RootStackParamList = {
@@ -22,10 +21,11 @@ const TrainingRouter = () => {
       <Stack.Screen
         name="TrainingHome"
         component={TrainingHomeTab}
-        options={({navigation}) => ({
+        // GH-412: no headerRight search icon — the plans list has its own
+        // always-visible Searchbar, so a second entry point is redundant.
+        options={{
           title: 'Training',
-          headerRight: () => <IconButton icon="magnify" onPress={() => navigation.setParams({toggleFilter: true})}></IconButton>,
-        })}
+        }}
       />
       <Stack.Screen
         name="TrainingPlan"

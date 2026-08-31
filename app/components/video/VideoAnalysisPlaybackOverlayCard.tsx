@@ -7,7 +7,8 @@ import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment, VideoAnalysisRepResult, VideoAnalysisSetResult} from '../../models/entities/VideoAnalysis';
 import {dispatchSaveVideoAnalysisSetResult} from '../../redux/VideoAnalysis/dispatch/dispatchSaveVideoAnalysisSetResult';
 import VideoAnalysisPlayerView, {VideoPlayerErrorEvent, VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
-import {vlToRirEstimate} from '../../utils/velocityLossRir';
+import {formatVlReferenceLabel, vlToRirEstimate} from '../../utils/velocityLossRir';
+import {VelocityLossReference} from '../../models/entities/Exercise';
 import {isSourceUnavailableError} from '../../utils/videoAnalysisSource';
 import {isVideoSourceAvailable} from '../../utils/videoAnalysisNative';
 
@@ -19,6 +20,8 @@ interface Props {
   savedSetResult?: VideoAnalysisSetResult;
   /** When set, velocity values are displayed in m/s instead of px/s. */
   metersPerPixel?: number;
+  /** Active VL reference of this analysis' exercise — scales the RIR estimate shown below. */
+  vlReference?: VelocityLossReference;
 }
 
 interface TimeRange {
@@ -395,7 +398,7 @@ const createThemedStyles = (theme: MD3Theme) =>
     },
   });
 
-const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSetResult, metersPerPixel}: Props) => {
+const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSetResult, metersPerPixel, vlReference}: Props) => {
   const theme = useTheme();
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
   const saveSetResult = dispatchSaveVideoAnalysisSetResult();
@@ -578,13 +581,26 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
     return Math.round(vl * 100);
   }, [firstRepIntervalMetrics, lastRepIntervalMetrics]);
 
-  // RIR estimate based on velocity loss (heuristic v1 from issue #66) — uses shared vlToRirEstimate utility
+  // RIR estimate based on velocity loss (heuristic v1 from issue #66) — uses shared vlToRirEstimate
+  // utility, scaled by the exercise's VL reference when it has one (issue #316).
   const rirEstimate = useMemo(() => {
     if (velocityLoss === null) {
       return null;
     }
-    return vlToRirEstimate(velocityLoss);
-  }, [velocityLoss]);
+    return vlToRirEstimate(velocityLoss, vlReference);
+  }, [velocityLoss, vlReference]);
+
+  // The RIR stored inside savedSetResult was derived from the global curve at save time.
+  // Re-derive it from the stored VL so a referenced exercise shows its own thresholds here too.
+  const savedRirEstimate = useMemo(() => {
+    const savedVl = savedSetResult?.velocityLossPercent;
+    if (savedVl == null) {
+      return savedSetResult?.rirEstimate ?? null;
+    }
+    return vlToRirEstimate(savedVl, vlReference);
+  }, [savedSetResult?.velocityLossPercent, savedSetResult?.rirEstimate, vlReference]);
+
+  const vlReferenceLabel = useMemo(() => formatVlReferenceLabel(vlReference), [vlReference]);
 
   const timeRange = useMemo(() => getTimeRange(smoothedBarPathSeries), [smoothedBarPathSeries]);
   const correctedPlaybackDurationMs = useMemo(() => {
@@ -1562,10 +1578,15 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
             {/* with user-moved boundaries before save, and avoids stale 0 from older */}
             {/* buggy saves. Falls back to saved value only when the live calc is null. */}
             <Text variant="bodySmall">VL={velocityLoss ?? savedSetResult?.velocityLossPercent}%</Text>
-            {(rirEstimate ?? savedSetResult?.rirEstimate) && (
-              <Text variant="bodySmall">RIR={rirEstimate ?? savedSetResult?.rirEstimate}</Text>
+            {(rirEstimate ?? savedRirEstimate) && (
+              <Text testID="video-analysis-rir-estimate" variant="bodySmall">RIR={rirEstimate ?? savedRirEstimate}</Text>
             )}
           </View>
+          {vlReferenceLabel !== null && (
+            <Text testID="video-analysis-vl-reference-label" variant="labelSmall" style={themedStyles.statsText}>
+              {vlReferenceLabel}
+            </Text>
+          )}
         </View>
       )}
       {(savedSetResult?.mean_path_deviation != null || savedSetResult?.path_deviation_slope != null) && (

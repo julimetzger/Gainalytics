@@ -1,4 +1,3 @@
-import {PermissionsAndroid, Platform} from 'react-native';
 import {VideoAnalysis, VideoAnalysisStatus} from '../models/entities/VideoAnalysis';
 import {
   analyzeSquatVideo,
@@ -20,8 +19,6 @@ import {
   recordCompletedAnalysisRate,
   shouldStopForegroundService,
 } from './videoAnalysisProgress';
-
-export const EMULATOR_SQUAT_VIDEO_PATH = '/sdcard/Android/data/com.powerliftingworkoutplanner/cache/squat_test.mp4';
 
 /** Known plate diameter in metres (outer plate, 45 kg / standard Olympic plate). */
 export const PLATE_DIAMETER_M = 0.45;
@@ -232,25 +229,4 @@ export const importVideoAnalysisFromSource = async ({
       }),
     );
   }
-};
-
-export const requestVideoReadPermission = async () => {
-  if (Platform.OS !== 'android') {
-    return true;
-  }
-
-  const sdkVersion = typeof Platform.Version === 'number' ? Platform.Version : Number(Platform.Version);
-  const permission =
-    sdkVersion >= 33 ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
-  if (!permission) {
-    return true;
-  }
-
-  const hasPermission = await PermissionsAndroid.check(permission);
-  if (hasPermission) {
-    return true;
-  }
-
-  const status = await PermissionsAndroid.request(permission);
-  return status === PermissionsAndroid.RESULTS.GRANTED;
 };

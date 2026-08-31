@@ -9,10 +9,13 @@ import {BarTrackingResult, VideoAnalysisStatus} from '../../models/entities/Vide
 import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
 import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnalyses';
 import {useVideoAnalysisSetIdentity} from '../../redux/VideoAnalysis/use/useVideoAnalysisSetIdentity';
+import {useVideoAnalysisExerciseId} from '../../redux/VideoAnalysis/use/useVideoAnalysisExerciseId';
+import {useExerciseVlReference} from '../../redux/Exercises/use/useExerciseVlReference';
 import {getVideoAnalysisPreviewPath, readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
 import CompareAnalysisPickerItem from '../../components/video/CompareAnalysisPickerItem';
 import VideoAnalysisPlaybackOverlayCard from '../../components/video/VideoAnalysisPlaybackOverlayCard';
 import VideoAnalysisManualSeedCard from '../../components/video/VideoAnalysisManualSeedCard';
+import VlReferenceCard from '../../components/video/VlReferenceCard';
 import VelocityLossBarChart from '../../components/video/VelocityLossBarChart';
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
@@ -56,6 +59,8 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const analysis = useVideoAnalysis(route.params.analysisId);
   const allAnalyses = useAllVideoAnalyses();
   const analysisIdentity = useVideoAnalysisSetIdentity(analysis);
+  const exerciseId = useVideoAnalysisExerciseId(analysis);
+  const vlReference = useExerciseVlReference(exerciseId);
   const [showComparePicker, setShowComparePicker] = useState(false);
 
   const compareTargets = useMemo(() => {
@@ -329,6 +334,8 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
 
       <Divider style={styles.divider} />
 
+      {analysis.status === VideoAnalysisStatus.DONE && <VlReferenceCard analysis={analysis} />}
+
       <Card style={styles.card}>
         <Card.Title title="Playback Overlay" />
         <Card.Content>
@@ -342,6 +349,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
               result={result}
               savedSetResult={analysis.setResult}
               metersPerPixel={analysis.metersPerPixel}
+              vlReference={vlReference}
             />
           )}
         </Card.Content>

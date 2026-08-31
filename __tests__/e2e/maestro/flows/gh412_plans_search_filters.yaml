@@ -1,0 +1,115 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-412: the Training Home plans search is now the same Paper <Searchbar> the Exercises
+# tab uses, and the header magnifier is gone. This flow proves the *filtering* still
+# works by asserting on the plan names actually rendered in the list — not on the
+# visibility of the field.
+#
+# Pre-condition: baseline.gains is imported (plans "Push pull", "Push pull upper lower",
+# "Test", "Upper lower"). Run 00_import_baseline.yaml first, or --mode bootstrap.
+#
+# Two things that cost a round here, worth keeping in mind when editing:
+#  * `id: "plans-search-field"` also matches the Searchbar's own sibling nodes
+#    (`plans-search-field-icon`, `-container`, `-clear-icon`). The leading icon is a
+#    disabled Button, so a tap on it focuses nothing and every later inputText is
+#    silently dropped. The id must be anchored with ^...$ to hit the EditText.
+#  * `hideKeyboard` drops the focus, so the field has to be tapped again before the
+#    next eraseText/inputText. After each inputText the field's own text is asserted,
+#    so a swallowed keystroke fails here instead of surfacing as a confusing
+#    "the list did not filter" further down.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible:
+      id: "training-home-screen"
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: "^plans-search-field$"
+    direction: DOWN
+    timeout: 30000
+# The scroll above stops the moment the field enters the viewport, which leaves the
+# plan cards below the fold. Scroll on to the last plan of the fixture so the field
+# and all four plans are on screen together — the assertions below need both.
+- scrollUntilVisible:
+    element:
+      text: "Upper lower"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "^plans-search-field$"
+
+# Unfiltered baseline — all four plans of the fixture are on screen.
+- assertVisible: "Push pull"
+- assertVisible: "Push pull upper lower"
+- assertVisible: "Test"
+- assertVisible: "Upper lower"
+- takeScreenshot: gh412_a_plans_unfiltered
+
+# --- filtering with hits -----------------------------------------------------
+# "upper" matches exactly two plans and excludes "Test", so the run needs both a
+# positive and a negative content assertion to pass.
+- tapOn:
+    id: "^plans-search-field$"
+- waitForAnimationToEnd
+- inputText: "upper"
+- hideKeyboard
+- waitForAnimationToEnd
+- assertVisible:
+    id: "^plans-search-field$"
+    text: "upper"
+# The two plans whose name contains "upper" are still rendered ...
+- assertVisible: "Push pull upper lower"
+- assertVisible: "Upper lower"
+# ... and the one that does not is gone. "Test" appears nowhere else on this screen,
+# so its absence is unambiguous proof the list itself was filtered.
+- assertNotVisible: "Test"
+- takeScreenshot: gh412_b_plans_filtered_upper
+
+# --- filtering without hits --------------------------------------------------
+- tapOn:
+    id: "^plans-search-field$"
+- waitForAnimationToEnd
+- eraseText
+- inputText: "zzzz"
+- hideKeyboard
+- waitForAnimationToEnd
+- assertVisible:
+    id: "^plans-search-field$"
+    text: "zzzz"
+- assertNotVisible: "Push pull upper lower"
+- assertNotVisible: "Upper lower"
+- assertNotVisible: "Test"
+- takeScreenshot: gh412_c_plans_filtered_no_hits
+
+# --- clearing the field restores the full list -------------------------------
+# Not via the Searchbar's own clear (X) button: when the field is scrolled to the very
+# bottom of the screen, the absolutely positioned add-plan FAB sits on top of that icon
+# and swallows the tap. Erasing from the focused field is the reliable route.
+- tapOn:
+    id: "^plans-search-field$"
+- waitForAnimationToEnd
+- eraseText
+- hideKeyboard
+- waitForAnimationToEnd
+# Empty field — the EditText falls back to rendering its placeholder as `text`.
+- assertVisible:
+    id: "^plans-search-field$"
+    text: "Search plans"
+# The restored cards grow the page again, so scroll back down to them — same anchor
+# as at the start of the flow.
+- scrollUntilVisible:
+    element:
+      text: "Upper lower"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "Push pull"
+- assertVisible: "Push pull upper lower"
+- assertVisible: "Test"
+- assertVisible: "Upper lower"
+- takeScreenshot: gh412_d_plans_cleared

@@ -5,6 +5,7 @@ import {VideoAnalysis, VideoAnalysisStatus} from '../../models/entities/VideoAna
 import {useExercise} from '../../redux/Exercises/use/useExercise';
 import {useTrainingMetadataByWorkoutId} from '../../redux/Workout/use/useTrainingMetadataByWorkoutId';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
+import {useVideoAnalysisExerciseId} from '../../redux/VideoAnalysis/use/useVideoAnalysisExerciseId';
 import {
   formatVideoAnalysisMetrics,
   formatVideoAnalysisRelativeDateTime,
@@ -28,13 +29,14 @@ interface Props {
 const VideoAnalysisListItem = ({analysis, onPress, onDelete, onLink, elapsedMs, estimatedTotalMs, progress}: Props) => {
   const theme = useTheme();
   const workout = useWorkoutById(analysis.workoutId);
-  const exercise = useExercise(analysis.exerciseId ?? workout?.exerciseId);
+  const exerciseId = useVideoAnalysisExerciseId(analysis);
+  const exercise = useExercise(exerciseId);
   const trainingMetadata = useTrainingMetadataByWorkoutId(analysis.workoutId);
   const linkedSet = workout?.sets.find((set) => set.index === analysis.setIndex);
   const exerciseName = exercise?.name ?? 'Unknown Exercise';
   const weightLabel = formatVideoAnalysisWeightLabel(linkedSet?.weight, linkedSet?.reps, analysis.status !== VideoAnalysisStatus.FAILED);
   const contextLabel = `${formatVideoAnalysisRelativeDateTime(analysis.createdAt)} · ${trainingMetadata?.trainingName ?? 'Unlinked workout'}`;
-  const metricsLabel = formatVideoAnalysisMetrics(analysis.setResult);
+  const metricsLabel = formatVideoAnalysisMetrics(analysis.setResult, exercise?.vlReference);
   const errorLabel = analysis.error ? analysis.error.replace(/^Error:\s*/i, '') : null;
   const movement = inferVideoAnalysisMovement(exerciseName);
 
