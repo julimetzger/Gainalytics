@@ -113,6 +113,7 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
                 reportedRir={insight.reportedRir}
                 microHistory={insight.microHistory}
                 currentMicro={currentMicro}
+                vlReference={insight.vlReference}
               />
             ))}
           </View>

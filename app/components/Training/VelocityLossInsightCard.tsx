@@ -1,7 +1,8 @@
 import React from 'react';
 import {View} from 'react-native';
 import {Card, Text, useTheme} from 'react-native-paper';
-import {hasRirDiscrepancy} from '../../utils/velocityLossRir';
+import {formatVlReferenceLabel, hasRirDiscrepancy} from '../../utils/velocityLossRir';
+import {VelocityLossReference} from '../../models/entities/Exercise';
 
 export interface MicroVLDataPoint {
   micro: number;
@@ -16,6 +17,8 @@ interface Props {
   reportedRir: number;
   microHistory: MicroVLDataPoint[];
   currentMicro: number;
+  /** When set, this exercise's thresholds are scaled and the card says so. */
+  vlReference?: VelocityLossReference;
 }
 
 const SPARKLINE_HEIGHT = 32;
@@ -63,9 +66,11 @@ const VlSparkline = ({data, currentMicro}: {data: MicroVLDataPoint[]; currentMic
   );
 };
 
-const VelocityLossInsightCard = ({exerciseName, heaviestWeightKg, currentVlPercent, vlRirEstimate, reportedRir, microHistory, currentMicro}: Props) => {
+const VelocityLossInsightCard = ({exerciseName, heaviestWeightKg, currentVlPercent, vlRirEstimate, reportedRir, microHistory, currentMicro, vlReference}: Props) => {
   const theme = useTheme();
-  const discrepancy = hasRirDiscrepancy(reportedRir, currentVlPercent);
+  // A referenced exercise is warned against its own scaled thresholds, not the global curve.
+  const discrepancy = hasRirDiscrepancy(reportedRir, currentVlPercent, vlReference);
+  const referenceLabel = formatVlReferenceLabel(vlReference);
 
   return (
     <Card
@@ -92,6 +97,16 @@ const VelocityLossInsightCard = ({exerciseName, heaviestWeightKg, currentVlPerce
             </Text>
           </View>
         </View>
+
+        {referenceLabel !== null && (
+          <Text
+            variant="labelSmall"
+            style={{marginTop: 4, color: theme.colors.onSurfaceVariant}}
+            testID={`vl-reference-badge-${exerciseName}`}
+          >
+            {referenceLabel}
+          </Text>
+        )}
 
         {discrepancy && (
           <View

@@ -1,4 +1,5 @@
-import {Exercise} from '../models/entities/Exercise';
+import {Exercise, VelocityLossReference} from '../models/entities/Exercise';
+import {isVlReferenceActive, vlToRirEstimate} from './velocityLossRir';
 import {VideoAnalysisSetResult, VideoAnalysisStatus} from '../models/entities/VideoAnalysis';
 import {Range} from '../components/picker/date/DateRangePicker';
 
@@ -155,14 +156,23 @@ export function formatVideoAnalysisSetIdentity({exerciseName, setNumber, weight,
   return [trimmedExerciseName, ...setParts].filter((value): value is string => !!value).join(' · ');
 }
 
-export function formatVideoAnalysisMetrics(setResult?: VideoAnalysisSetResult): string | null {
+/**
+ * "VL x% · RIR y" for a list row. The stored `rirEstimate` was derived from the global
+ * curve at save time, so it is re-derived from the stored VL whenever the exercise
+ * carries a VL reference (issue #316). Without a reference the value is unchanged.
+ */
+export function formatVideoAnalysisMetrics(setResult?: VideoAnalysisSetResult, vlReference?: VelocityLossReference): string | null {
   if (!setResult) {
     return null;
   }
 
+  const velocityLossPercent = setResult.velocityLossPercent;
+  const rirEstimate =
+    velocityLossPercent !== null && isVlReferenceActive(vlReference) ? vlToRirEstimate(velocityLossPercent, vlReference) : setResult.rirEstimate;
+
   const parts = [
-    setResult.velocityLossPercent !== null ? `VL ${setResult.velocityLossPercent.toFixed(1)}%` : null,
-    setResult.rirEstimate ? `RIR ${setResult.rirEstimate}` : null,
+    velocityLossPercent !== null ? `VL ${velocityLossPercent.toFixed(1)}%` : null,
+    rirEstimate ? `RIR ${rirEstimate}` : null,
   ].filter((value): value is string => value !== null);
 
   return parts.length > 0 ? parts.join(' · ') : null;
