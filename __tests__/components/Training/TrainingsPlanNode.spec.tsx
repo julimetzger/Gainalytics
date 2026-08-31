@@ -135,6 +135,7 @@ jest.mock('react-native-paper', () => {
       },
     ),
     Divider: () => <View />,
+    SegmentedButtons: require('../../helpers/paperMocks').SegmentedButtonsMock,
     useTheme: () => ({
       colors: {background: '#fff', onSurfaceVariant: '#888', primary: '#6200ee'},
       fonts: {},
@@ -496,7 +497,7 @@ describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
     const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
 
     expect(getByTestId('analysis-data-toggle')).toBeTruthy();
-    expect(getByTestId('analysis-data-train').props.accessibilityState).toEqual({selected: true});
+    expect(getByTestId('analysis-data-train').props.accessibilityState).toEqual({checked: true, disabled: false});
     // AC3: Train is the unchanged actual-values view
     expect(getByTestId('trainings-overview')).toBeTruthy();
     expect(queryByTestId('micro-plan-overview')).toBeNull();
@@ -510,7 +511,7 @@ describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
 
     expect(getByTestId('micro-plan-overview').props.children).toBe('micro-plan:1');
     expect(queryByTestId('trainings-overview')).toBeNull();
-    expect(getByTestId('analysis-data-plan').props.accessibilityState).toEqual({selected: true});
+    expect(getByTestId('analysis-data-plan').props.accessibilityState).toEqual({checked: true, disabled: false});
   });
 
   it('keeps the selection across a sub-tab round trip (AC7)', () => {
@@ -525,7 +526,7 @@ describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
 
     fireEvent.press(getByTestId('subtab-analysis'));
     expect(getByTestId('micro-plan-overview')).toBeTruthy();
-    expect(getByTestId('analysis-data-plan').props.accessibilityState).toEqual({selected: true});
+    expect(getByTestId('analysis-data-plan').props.accessibilityState).toEqual({checked: true, disabled: false});
   });
 
   it('offers the planned values for a training that is only PLANNED, where Train has nothing to show', () => {
