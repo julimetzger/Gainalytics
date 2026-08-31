@@ -2442,3 +2442,28 @@ Only works for modules with no React Native imports — keep colour/format/pure-
 ### 370. Assert a theme-driven colour against TWO themes, or the test also passes for a hardcoded value
 **Observation (GH-417 round 2):** "takes its colour from the theme" is trivially satisfiable by a literal that happens to match. The assertion that actually bites renders the component twice — `MD3LightTheme` and `MD3DarkTheme` — asserts each resolved colour against that theme's token, and then asserts the two differ. Read it with `StyleSheet.flatten(node.props.style).color`; `props.style.flat().at(-1)` is fragile because the colour is not always in the last entry.
 **Apply when:** a review finding says a control should follow the theme. Pair it with a structural assertion on a testID only the real library component emits (Paper: `${testID}-label`), so the spec fails against the hand-rolled predecessor (#204).
+
+### 371. A wedged Windows adb server still shows a LISTEN socket — health-check by connecting, never by `netstat`
+**Problem (GH-426):** `adb` died mid-run with `Connection refused` on `172.18.240.1:5037`, yet `netstat -ano` showed `0.0.0.0:5037 ABHÖREN <pid>`. The process was alive but no longer accepting (CLOSE_WAIT pile-up; even Windows-local clients sat in SYN_SENT). A watchdog that trusted that LISTEN line concluded "healthy" and never recovered.
+**Working solution:** make the health check a real connection — `adb -H 172.18.240.1 -P 5037 devices | grep -q <serial>` — and on failure `taskkill /IM adb.exe /F`, then rebind. Run it as a `setsid` watchdog loop; sibling workers call `adb kill-server` repeatedly, so one recovery is not enough.
+**Apply when:** any long device run while other workers are active. Do not debug your device first (#366 is the *other* failure mode).
+
+### 372. Killing the adb server starts a race: a client respawns a 127.0.0.1-only server that blocks the `-a` bind
+**Problem (GH-426):** after `taskkill`, `adb.exe -a -P 5037 nodaemon server` failed with `cannot bind to 0.0.0.0:5037 … (10048)` five times running. A Windows-side adb *client* auto-spawns a server bound to `127.0.0.1` only within ~2 s; loopback-only ownership blocks the `0.0.0.0` bind, and WSL can never reach it.
+**Working solution:** hammer the bind instead of racing it once — background a loop that retries `adb.exe -a -P 5037 nodaemon server` every 0.2 s, *then* kill the squatter; the loop wins the gap. Verify with `netstat -ano | grep :5037` showing `0.0.0.0:5037`, not `127.0.0.1:5037`.
+**Apply when:** WSL gets `Connection refused` while Windows-local adb works — that asymmetry *is* this bug.
+
+### 373. `uiautomator dump` is unusable during a running training — use `maestro hierarchy` instead
+**Problem (GH-426):** every dump inside a started training returned `ERROR: could not get idle state` (rc=0, no file). The session's second-timer never lets the UI go idle, so uiautomator's idle wait times out. Separately, a leftover `dev.mobile.maestro` process makes a standalone dump die with **rc=137 (Killed)** — it holds the UiAutomation connection (the inverse of #337); `am force-stop dev.mobile.maestro` fixes that one.
+**Working solution:** for a continuously-animating screen use `maestro --host <gw> --device <serial> --driver-host-port <free> hierarchy > out.json` — it goes through the driver and needs no idle state. It also carries `bounds`, so it is the way to measure touch targets on a live screen.
+**Apply when:** any evidence or measurement on a screen with a running timer.
+
+### 374. `uiautomator dump` silently returns the PREVIOUS screen — always `rm` the file first
+**Problem (GH-426):** right after a tap that opened a modal, the dump showed only the screen underneath, which looked exactly like "the dialog is missing from the a11y tree" — a plausible but wrong accessibility finding. The dump had simply raced the animation and/or reused the stale `/sdcard/ui.xml`.
+**Working solution:** `adb shell rm -f /sdcard/ui.xml` before every dump, wait ~2 s after the interaction, and cross-check against a screenshot taken at the same moment before concluding anything about the tree.
+**Apply when:** any claim of the form "element X is not in the hierarchy". Screenshot first, tree second.
+
+### 375. A stale `[::1]` listener on the Maestro driver port makes the run fail as "Unknown error" after ~4.5 min
+**Problem (GH-426):** three import runs failed after 2m35s–4m39s with junit `<failure>Unknown error</failure>`; only the raw log named it — `java.util.concurrent.TimeoutException at dadb.forwarding.TcpForwarder.waitFor … AndroidDriver.allocateForwarder`. The assigned `--driver-host-port 7058` was held on the Windows side by `[::1]:7058` from an earlier run (and by a WSL listener).
+**Working solution:** pick the port by checking BOTH sides — Windows `NETSTAT.EXE -ano | grep :70` and WSL `ss -ltn` — and pass a port free in both (7060 here); the same suite then passed in 37 s. Do not trust the orchestrator's assigned port to still be free.
+**Apply when:** a Maestro run burns minutes and reports only "Unknown error"; grep the log for `TcpForwarder` before suspecting the flow.
