@@ -42,7 +42,13 @@ const buildState = (): GlobalState =>
     },
     exercises: {
       byId: {
-        10: {id: 10, name: 'Bench', muscles: [], records: {'1RM': [{value: 12, workoutId: 100}]}},
+        10: {
+          id: 10,
+          name: 'Bench',
+          muscles: [],
+          records: {'1RM': [{value: 12, workoutId: 100}]},
+          vlReference: {rir: 1, velocityLossPercent: 28, referencedAt: '2026-03-15T10:00:00.000Z', analysisId: 7, workoutId: 100, setIndex: 1},
+        },
         11: {id: 11, name: 'Squat', muscles: []},
         12: {id: 12, name: 'Deadlift', muscles: []},
         13: {id: 13, name: 'Deadlift', muscles: []},
@@ -126,6 +132,40 @@ describe('buildTrainingsPlanExportPayload', () => {
     };
 
     expect(payload).toEqual(expectedPayload);
+  });
+
+  // GH-316: the VL reference is calibrated from the owner's own filmed set. Sharing a plan
+  // must not hand that anchor to the recipient — their curve would be scaled by someone
+  // else's bar speed.
+  it('strips the VL reference from every exported exercise, in the object and in the written JSON', () => {
+    const plan: TrainingsPlan = {
+      id: 99,
+      name: 'Strength',
+      trainings: {'1:1': 1},
+      trainingNames: {},
+    };
+
+    const state = buildState();
+    expect(state.exercises.byId[10].vlReference).toBeDefined();
+
+    const payload = buildTrainingsPlanExportPayload(plan, state);
+
+    const bench = payload.exercises.find((exercise) => exercise.id === 10);
+    expect(bench).toBeDefined();
+    expect(Object.keys(bench!)).not.toContain('vlReference');
+    expect(JSON.parse(JSON.stringify(payload))).not.toHaveProperty('exercises.0.vlReference');
+    expect(JSON.stringify(payload)).not.toContain('vlReference');
+
+    // The reference stays on the exercise in the store — only the shared copy loses it,
+    // so the full `.gains` backup (which serialises the raw state) still restores it.
+    expect(state.exercises.byId[10].vlReference).toEqual({
+      rir: 1,
+      velocityLossPercent: 28,
+      referencedAt: '2026-03-15T10:00:00.000Z',
+      analysisId: 7,
+      workoutId: 100,
+      setIndex: 1,
+    });
   });
 
   it('does not mutate the provided trainings plan object while removing lastTraining in export payload', () => {

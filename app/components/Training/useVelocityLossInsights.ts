@@ -4,6 +4,7 @@ import {GlobalState} from '../../redux/rootReducer';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import {vlToRirEstimate} from '../../utils/velocityLossRir';
+import {VelocityLossReference} from '../../models/entities/Exercise';
 import {MicroVLDataPoint} from './VelocityLossInsightCard';
 
 export interface VLInsightData {
@@ -14,6 +15,8 @@ export interface VLInsightData {
   vlRirEstimate: string;
   reportedRir: number;
   microHistory: MicroVLDataPoint[];
+  /** Active VL reference of this exercise, or undefined while it uses the global curve. */
+  vlReference?: VelocityLossReference;
 }
 
 /**
@@ -140,9 +143,10 @@ export function useVelocityLossInsights(
         exerciseName: exercise.name,
         heaviestWeightKg: analyzedSetWeight,
         currentVlPercent,
-        vlRirEstimate: vlToRirEstimate(currentVlPercent),
+        vlRirEstimate: vlToRirEstimate(currentVlPercent, exercise.vlReference),
         reportedRir,
         microHistory,
+        vlReference: exercise.vlReference,
       });
     }
 

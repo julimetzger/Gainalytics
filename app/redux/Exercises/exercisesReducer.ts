@@ -1,7 +1,7 @@
 import {AnyAction} from '@reduxjs/toolkit';
 import {NormalizedState} from '../normalizedState';
 import {Muscles} from '../../models/Muscles';
-import {Exercise, ExerciseRecord} from '../../models/entities/Exercise';
+import {Exercise, ExerciseRecord, VelocityLossReference} from '../../models/entities/Exercise';
 import {Workout} from '../../models/entities/Workout';
 
 const initialState = {
@@ -338,6 +338,33 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
         allIds: [...exercises.allIds],
       };
       return upsertBidirectionalAlternatives(nextState, action.exerciseId, action.alternativeIds, exercises.byId[action.exerciseId]?.alternativeIds);
+    }
+    case 'SET_EXERCISE_VL_REFERENCE': {
+      const exercise = exercises.byId[action.exerciseId];
+      if (exercise === undefined) return exercises;
+      // One active reference per exercise — assigning simply replaces the previous one.
+      return {
+        ...exercises,
+        byId: {
+          ...exercises.byId,
+          [action.exerciseId]: {
+            ...exercise,
+            vlReference: action.vlReference as VelocityLossReference,
+          },
+        },
+      };
+    }
+    case 'CLEAR_EXERCISE_VL_REFERENCE': {
+      const exercise = exercises.byId[action.exerciseId];
+      if (exercise === undefined || exercise.vlReference === undefined) return exercises;
+      const {vlReference: _removed, ...withoutReference} = exercise;
+      return {
+        ...exercises,
+        byId: {
+          ...exercises.byId,
+          [action.exerciseId]: withoutReference,
+        },
+      };
     }
     case 'TOGGLE_FOCUS_EXERCISE': {
       const exercise = exercises.byId[action.exerciseId];

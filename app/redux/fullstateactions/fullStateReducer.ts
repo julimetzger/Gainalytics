@@ -65,7 +65,10 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
           exerciseIdMap[importedEx.id!!] = existingEx.id!!;
         } else {
           maxExerciseId++;
-          const newEx: Exercise = {...importedEx, id: maxExerciseId};
+          // A shared plan must never install the sender's VL reference here (issue #316).
+          // New exports already drop it; strip it again so older plan files cannot leak one.
+          const {vlReference: _senderReference, ...importedExercise} = importedEx;
+          const newEx: Exercise = {...importedExercise, id: maxExerciseId};
           newExercises[maxExerciseId] = newEx;
           newExerciseIds.push(maxExerciseId);
           exerciseIdMap[importedEx.id!!] = maxExerciseId;

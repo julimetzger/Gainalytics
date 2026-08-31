@@ -1,0 +1,43 @@
+{
+ "analysisId": 2,
+ "units": "px/s",
+ "barPathSeries": [
+  {
+   "tMs": 0,
+   "x": 100,
+   "y": 200
+  },
+  {
+   "tMs": 500,
+   "x": 110,
+   "y": 210
+  },
+  {
+   "tMs": 1000,
+   "x": 120,
+   "y": 220
+  },
+  {
+   "tMs": 1500,
+   "x": 130,
+   "y": 230
+  },
+  {
+   "tMs": 2000,
+   "x": 140,
+   "y": 240
+  }
+ ],
+ "confidenceSeries": [],
+ "repSegments": [],
+ "repMetrics": [],
+ "qualityFlags": [],
+ "analysisMeta": {
+  "sourceFps": 30,
+  "analyzedFps": 30,
+  "frameCount": 60,
+  "averageConfidence": 0.9,
+  "trackingFrameWidthPx": 640,
+  "trackingFrameHeightPx": 480
+ }
+}
