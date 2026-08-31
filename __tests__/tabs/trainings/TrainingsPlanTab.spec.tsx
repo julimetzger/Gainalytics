@@ -102,9 +102,19 @@ jest.mock('../../../app/components/Training/TrainingsPlanDrawer', () => {
 
 jest.mock('../../../app/components/Training/TrainingsPlanNode', () => {
   const React = require('react');
-  const {Text} = require('react-native');
+  const {Text, TouchableOpacity, View} = require('react-native');
 
-  return ({micro}: {micro: number; overflowVisible?: boolean; onCloseOverflow?: () => void}) => <Text testID="node-micro">{String(micro)}</Text>;
+  // Surfaces the GH-417 analysis-data wiring so a test can flip the toggle and
+  // check that the screen — not the swiper pane — owns the choice.
+  return ({micro, analysisDataMode, onAnalysisDataModeChange}: any) => (
+    <View>
+      <Text testID="node-micro">{String(micro)}</Text>
+      <Text testID="node-analysis-data-mode">{String(analysisDataMode)}</Text>
+      <TouchableOpacity testID="node-select-plan" onPress={() => onAnalysisDataModeChange('plan')}>
+        <Text>plan</Text>
+      </TouchableOpacity>
+    </View>
+  );
 });
 
 jest.mock('../../../app/components/RangeSwiper', () => {
@@ -230,5 +240,35 @@ describe('TrainingsPlanTab', () => {
     await waitFor(() => {
       expect(getByTestId('node-micro').props.children).toBe('1');
     });
+  });
+
+  // GH-417 AC7: swiping to another micro remounts the swiper panes, so the
+  // Plan | Train choice has to live on the screen to survive it.
+  it('keeps the analysis data choice across a micro change', async () => {
+    const navigation = {setOptions: jest.fn(), addListener: jest.fn(() => jest.fn())} as any;
+    const route = {params: {trainingsPlan: {id: 50, name: 'Power Plan'}, micro: 2, training: 1}} as any;
+
+    const {getByTestId} = render(<TrainingsPlanTab navigation={navigation} route={route} />);
+
+    expect(getByTestId('node-analysis-data-mode').props.children).toBe('train');
+
+    fireEvent.press(getByTestId('node-select-plan'));
+    await waitFor(() => {
+      expect(getByTestId('node-analysis-data-mode').props.children).toBe('plan');
+    });
+
+    fireEvent.press(getByTestId('swiper-next'));
+    await waitFor(() => {
+      expect(getByTestId('node-micro').props.children).toBe('3');
+    });
+    expect(getByTestId('node-analysis-data-mode').props.children).toBe('plan');
+
+    fireEvent.press(getByTestId('drawer-micro-plus'));
+    await waitFor(() => {
+      expect(getByTestId('node-micro').props.children).toBe('4');
+    });
+    expect(getByTestId('node-analysis-data-mode').props.children).toBe('plan');
+
+    await act(async () => undefined);
   });
 });

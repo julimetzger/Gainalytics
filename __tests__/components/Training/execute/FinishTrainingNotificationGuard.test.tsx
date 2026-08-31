@@ -91,6 +91,7 @@ jest.mock('react-native-paper', () => {
       ({visible, children}: any) => (visible ? <>{children}</> : null),
       {Item: ({title, onPress, testID}: any) => <TouchableOpacity testID={testID} onPress={onPress}><Text>{typeof title === 'string' ? title : null}</Text></TouchableOpacity>},
     ),
+    SegmentedButtons: require('../../../helpers/paperMocks').SegmentedButtonsMock,
     useTheme: () => ({colors: {primary: '#000', onSurfaceVariant: '#888'}}),
   };
 });
@@ -137,7 +138,6 @@ const defaultProps = {
   trainingInMicro: 0,
   micro: 0,
   showDone: false,
-  showPlanned: false,
   overflowVisible: false,
   onCloseOverflow: jest.fn(),
   setIgnoreSwipe: jest.fn(),

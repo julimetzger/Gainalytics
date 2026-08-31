@@ -9,11 +9,13 @@ import {ConfirmDialog} from '../common/EditDialogScaffold';
 import DraggableExercise from './DraggableExercise';
 import TrainingsBase from './TrainingsBase';
 import PlanTab, {PlanChromeState, PlanMode} from './plan/PlanTab';
-import PlanningOverview from './plan/PlanningOverview';
 import ExecuteWorkoutInTraining from './execute/ExecuteTraining';
 import EditTraining from './execute/EditTraining';
 import TrainingsOverview from './analyse/TrainingsOverview';
 import TrainingHistory from './analyse/TrainingHistory';
+import AnalysisDataToggle, {AnalysisDataMode} from './analyse/AnalysisDataToggle';
+import AnalysisTotalSets from './analyse/AnalysisTotalSets';
+import MicroPlanOverview from './analyse/MicroPlanOverview';
 import TrainingModeTabs, {SubTab} from './TrainingModeTabs';
 import TrainingOverflowMenu from './TrainingOverflowMenu';
 import React, {useEffect, useRef, useState} from 'react';
@@ -41,7 +43,6 @@ interface TrainingsPlanNodeProps {
   trainingInMicro: number;
   micro: number;
   showDone: boolean;
-  showPlanned: boolean;
   setIgnoreSwipe: (ignoreSwipe: LayoutRectangle[]) => void;
   /** Pass false when this node is an off-screen swiper pane to suppress AI API calls. */
   isActive?: boolean;
@@ -49,6 +50,10 @@ interface TrainingsPlanNodeProps {
   onMicroViewModeChange?: (mode: ViewMode) => void;
   microSortMode?: ExerciseSortMode;
   onMicroSortModeChange?: (mode: ExerciseSortMode) => void;
+  /** GH-417: planned vs. actual data in the Analysis tab. Owned by the screen so
+   *  the choice survives micro swipes and sub-tab changes. */
+  analysisDataMode?: AnalysisDataMode;
+  onAnalysisDataModeChange?: (mode: AnalysisDataMode) => void;
   overflowVisible: boolean;
   onCloseOverflow: () => void;
   onPlanChromeChange?: (state: PlanChromeState) => void;
@@ -83,13 +88,17 @@ const PlanNodeScrollContainer = ({children}: {children: React.ReactNode}) => {
   );
 };
 
-const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, showDone, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange, microSortMode, onMicroSortModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange, requestedSubTab}: TrainingsPlanNodeProps) => {
+const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange, microSortMode, onMicroSortModeChange, analysisDataMode, onAnalysisDataModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange, requestedSubTab}: TrainingsPlanNodeProps) => {
   const [localViewMode, setLocalViewMode] = useState<ViewMode>('gesamt');
   const effectiveViewMode = microViewMode ?? localViewMode;
   const effectiveSetViewMode = onMicroViewModeChange ?? setLocalViewMode;
   const [localSortMode, setLocalSortMode] = useState<ExerciseSortMode>('plan');
   const effectiveSortMode = microSortMode ?? localSortMode;
   const effectiveSetSortMode = onMicroSortModeChange ?? setLocalSortMode;
+  // AC1: start position is Train, i.e. exactly what the analysis view showed before.
+  const [localAnalysisDataMode, setLocalAnalysisDataMode] = useState<AnalysisDataMode>('train');
+  const effectiveAnalysisDataMode = analysisDataMode ?? localAnalysisDataMode;
+  const effectiveSetAnalysisDataMode = onAnalysisDataModeChange ?? setLocalAnalysisDataMode;
   const training = useTrainingInTrainingsPlan(trainingsPlan.id!!, micro, trainingInMicro);
   const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
   const lastTrainingInSameMeso = useTrainingInTrainingsPlan(trainingsPlan.id!!, previousMicro ?? -1, trainingInMicro);
@@ -419,7 +428,6 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
                       )}
                     </View>
                   )}
-                  {showPlanned && <PlanningOverview trainingsPlan={trainingsPlan} micro={micro} />}
                 </View>
               )}
 
@@ -561,11 +569,18 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showPlanned, 
 
               {/* Analysis Tab */}
               {activeSubTab === 'analysis' && (
-                <View>
-                  {training?.state === TrainingsState.FINISHED || training?.state === TrainingsState.STARTED ? (
+                <View testID="analysis-tab">
+                  {/* GH-417: planned vs. actual numbers. Rendered in every training
+                      state — the Plan position is what makes the planned metrics and
+                      the muscle map reachable while a training is still being planned. */}
+                  <AnalysisDataToggle value={effectiveAnalysisDataMode} onChange={effectiveSetAnalysisDataMode} />
+                  {effectiveAnalysisDataMode === 'plan' ? (
+                    <MicroPlanOverview trainingsPlan={trainingsPlan} micro={micro} />
+                  ) : training?.state === TrainingsState.FINISHED || training?.state === TrainingsState.STARTED ? (
                     <TrainingsOverview training={training} previousTraining={lastTraining} trainingsPlan={trainingsPlan} currentMicro={micro} trainingInMicro={trainingInMicro} />
                   ) : (
                     <View style={{padding: 24, alignItems: 'center'}}>
+                      <AnalysisTotalSets totalSets={0} scope="done" />
                       <Text>Analysis available after the training is finished</Text>
                     </View>
                   )}

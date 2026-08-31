@@ -51,7 +51,7 @@ const collectDoneExerciseWorkouts = (state: GlobalState, training: Training | un
  * micro. Both compare modes ('last_plan' for previousMicro, 'current_total_plan' for
  * currentMicro) reference planned data only — never completed/done.
  */
-const aggregatePlannedAcrossMicro = (state: GlobalState, plan: GlobalState['trainingsPlan']['byId'][number] | undefined, targetMicro: number, metric: MuscleMapMetric): Map<Muscles, number> => {
+export const aggregatePlannedAcrossMicro = (state: GlobalState, plan: GlobalState['trainingsPlan']['byId'][number] | undefined, targetMicro: number, metric: MuscleMapMetric): Map<Muscles, number> => {
   const acc = new Map<Muscles, number>();
   const trainingsMap = plan?.trainings ?? {};
   const trainingIdsInMicro = Object.entries(trainingsMap)
@@ -195,6 +195,32 @@ export const computeMuscleInvolvement = (state: GlobalState, args: SelectArgs): 
 };
 
 export const useMuscleInvolvement = (args: SelectArgs): MuscleInvolvementData => useSelector((state: GlobalState) => computeMuscleInvolvement(state, args));
+
+/**
+ * GH-417 — the same muscle map, but for a whole micro's PLANNED load instead of a
+ * single training's. Subject and reference are the existing micro aggregation
+ * (`aggregatePlannedAcrossMicro`, also what the 'current_total_plan' /
+ * 'last_plan' compares use); the reference is the previous micro's plan, which
+ * is the only comparison that stays inside the "planned" world.
+ */
+export const computeMicroPlannedMuscleInvolvement = (state: GlobalState, trainingsPlanId: number, micro: number, metric: MuscleMapMetric): MuscleInvolvementData => {
+  const plan = state.trainingsPlan.byId[trainingsPlanId];
+  const todayTotals = aggregatePlannedAcrossMicro(state, plan, micro, metric);
+  const previousMicro = micro - 1;
+  const referenceTotals = previousMicro >= 1 ? aggregatePlannedAcrossMicro(state, plan, previousMicro, metric) : new Map<Muscles, number>();
+  const referenceUnavailable = referenceTotals.size === 0;
+
+  const rows = buildRows(todayTotals, referenceUnavailable ? new Map<Muscles, number>() : referenceTotals);
+  return {
+    rows,
+    globalMax: computeGlobalMax(rows),
+    referenceUnavailable,
+    effectiveCompare: referenceUnavailable ? 'none' : 'last_plan',
+  };
+};
+
+export const useMicroPlannedMuscleInvolvement = (trainingsPlanId: number, micro: number, metric: MuscleMapMetric): MuscleInvolvementData =>
+  useSelector((state: GlobalState) => computeMicroPlannedMuscleInvolvement(state, trainingsPlanId, micro, metric));
 
 /**
  * Selector hook returning the micro number of the most-recent training that shares the

@@ -207,7 +207,7 @@ const baseProps = {
 
 interface MockState {
   workouts: {byId: Record<number, Workout>};
-  settings: {plan?: {muscleMap?: {enabled?: boolean}}};
+  settings: Record<string, unknown>;
 }
 
 const buildMockState = (settings: MockState['settings'] = {}): MockState => ({
@@ -349,61 +349,40 @@ describe('PlanTab', () => {
     );
   });
 
-  describe('MuscleInvolvementCard mount (GH-192)', () => {
-    it('does NOT render the card when muscle map is disabled in settings', () => {
-      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) => selector(buildMockState({})));
+  describe('muscle map placement (GH-417)', () => {
+    // GH-192 mounted the card inside the Plan tab behind a drawer switch. GH-417
+    // moved it into the analysis view's Plan position, so the Plan tab must not
+    // render it any more — in any mode, and regardless of leftover settings.
+    it('does not render the muscle map in read mode', () => {
+      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) => selector(buildMockState()));
 
-      const {queryByTestId} = render(<PlanTab {...baseProps} />);
+      const {getByTestId, queryByTestId} = render(<PlanTab {...baseProps} />);
+      expect(getByTestId('plan-read-mode').props.children).toBe('read');
       expect(queryByTestId('muscle-involvement-card-mock')).toBeNull();
     });
 
-    it('renders the card in read mode when muscle map is enabled', () => {
-      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) =>
-        selector(buildMockState({plan: {muscleMap: {enabled: true}}})),
-      );
+    it('does not render the muscle map in quickEdit mode', async () => {
+      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) => selector(buildMockState()));
 
-      const {getByTestId} = render(<PlanTab {...baseProps} />);
-      expect(getByTestId('plan-read-mode').props.children).toBe('read');
-      expect(getByTestId('muscle-involvement-card-mock')).toBeTruthy();
-    });
-
-    it('renders the card in quickEdit mode when muscle map is enabled', async () => {
-      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) =>
-        selector(buildMockState({plan: {muscleMap: {enabled: true}}})),
-      );
-
-      const {getByTestId} = render(<PlanTab {...baseProps} />);
+      const {getByTestId, queryByTestId} = render(<PlanTab {...baseProps} />);
       fireEvent.press(getByTestId('plan-open-weight-cell'));
 
       await waitFor(() => {
         expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
       });
-      expect(getByTestId('muscle-involvement-card-mock')).toBeTruthy();
+      expect(queryByTestId('muscle-involvement-card-mock')).toBeNull();
     });
 
-    it('renders the card in fullEdit mode when muscle map is enabled', async () => {
-      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) =>
-        selector(buildMockState({plan: {muscleMap: {enabled: true}}})),
-      );
+    it('does not render the muscle map in fullEdit mode', async () => {
+      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) => selector(buildMockState()));
 
-      const {getByTestId, rerender} = render(<PlanTab {...baseProps} />);
+      const {getByTestId, queryByTestId, rerender} = render(<PlanTab {...baseProps} />);
       rerender(<PlanTab {...baseProps} editPlanRequestId={1} />);
 
       await waitFor(() => {
         expect(getByTestId('plan-full-edit-list')).toBeTruthy();
       });
-      expect(getByTestId('muscle-involvement-card-mock')).toBeTruthy();
-    });
-
-    it('passes through trainingsPlanId / micro / trainingInMicro to the card', () => {
-      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) =>
-        selector(buildMockState({plan: {muscleMap: {enabled: true}}})),
-      );
-
-      const {getByTestId} = render(<PlanTab {...baseProps} />);
-      const card = getByTestId('muscle-involvement-card-mock');
-      // Mock renders `muscle-card:${trainingsPlanId}/${micro}/${trainingInMicro}`
-      expect(card.children[0].props.children).toBe('muscle-card:55/6/1');
+      expect(queryByTestId('muscle-involvement-card-mock')).toBeNull();
     });
   });
 });

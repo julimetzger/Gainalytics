@@ -15,6 +15,7 @@ import {useVelocityLossInsights} from '../useVelocityLossInsights';
 import MuscleInvolvementCard from '../plan/MuscleInvolvementCard';
 import {TrainingsState} from '../../../models/TrainingsState';
 import CollapsibleSection from '../../analyse/CollapsibleSection';
+import AnalysisTotalSets from './AnalysisTotalSets';
 
 interface TrainingsOverviewProps {
   training: Training;
@@ -68,6 +69,8 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
     // accessibility node, hiding every value from screen readers and UI tests.
     <ScrollView testID="trainings-overview">
       <View testID="trainings-overview-root">
+        {/* GH-417 AC4: the total set count of the data shown in this position. */}
+        <AnalysisTotalSets totalSets={workoutSets.length} scope="done" />
         <View style={{display: 'flex', flexDirection: 'row', flex: 1}}>
           <View style={{flex: 1}} testID="trainings-overview-duration-card">
             <Card style={{margin: 5, flex: 1}}>
@@ -125,7 +128,6 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
               micro={currentMicro}
               trainingInMicro={trainingInMicro}
               view="analyse"
-              showDismiss={false}
               isLive={isLive}
             />
           </CollapsibleSection>
