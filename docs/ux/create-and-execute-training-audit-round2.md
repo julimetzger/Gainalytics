@@ -34,7 +34,7 @@ Ergebnis der Einheit laut App: **Duration 00:10:56, Total Sets 4 (done), Volume 
 Zusätzlich geprüft: Anlegen mit leerem Namen, deaktivierte „Suggest"-Aktionen,
 1RM-Umschalter, Löschen eines Satzes, Löschen eines Plans, Zurück-Navigation.
 
-Alle 69 dokumentierten Zustände liegen unter [`screenshots/gh426/`](screenshots/gh426/).
+Alle 70 dokumentierten Zustände liegen unter [`screenshots/gh426/`](screenshots/gh426/).
 
 ---
 
