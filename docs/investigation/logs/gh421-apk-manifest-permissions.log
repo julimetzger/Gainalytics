@@ -1,0 +1,57 @@
+=== GH-421: permissions in the BUILT artifact ===
+UTC 2026-08-31 12:02:11
+APK: android/app/build/outputs/apk/debug/app-debug.apk
+-rw-r--r-- 1 jmetzger jmetzger 132980421 Aug 31 14:01 android/app/build/outputs/apk/debug/app-debug.apk
+sha256: 84a35521db09cbe89adc748d092b49f1afcf6b0a9a5c01ceef7671a7d8b3a33b
+
+--- aapt dump permissions ---
+package: com.powerliftingworkoutplanner
+uses-permission: name='android.permission.SYSTEM_ALERT_WINDOW'
+uses-permission: name='android.permission.INTERNET'
+uses-permission: name='android.permission.READ_EXTERNAL_STORAGE' maxSdkVersion='32'
+uses-permission: name='android.permission.SCHEDULE_EXACT_ALARM'
+uses-permission: name='android.permission.POST_NOTIFICATIONS'
+uses-permission: name='android.permission.FOREGROUND_SERVICE'
+uses-permission: name='android.permission.FOREGROUND_SERVICE_DATA_SYNC'
+uses-permission: name='android.permission.USE_BIOMETRIC'
+uses-permission: name='android.permission.USE_FINGERPRINT'
+uses-permission: name='android.permission.WRITE_EXTERNAL_STORAGE'
+uses-permission: name='android.permission.WAKE_LOCK'
+uses-permission: name='android.permission.ACCESS_NETWORK_STATE'
+uses-permission: name='android.permission.RECEIVE_BOOT_COMPLETED'
+permission: com.powerliftingworkoutplanner.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+uses-permission: name='com.powerliftingworkoutplanner.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
+uses-permission: name='android.permission.READ_PHONE_STATE'
+uses-permission: name='android.permission.VIBRATE'
+uses-permission: name='android.permission.USE_FULL_SCREEN_INTENT'
+uses-permission: name='android.permission.BROADCAST_CLOSE_SYSTEM_DIALOGS' maxSdkVersion='30'
+uses-permission: name='android.permission.ACCESS_NOTIFICATION_POLICY'
+
+--- all uses-permission entries in the merged manifest ---
+android.permission.ACCESS_NETWORK_STATE
+android.permission.ACCESS_NOTIFICATION_POLICY
+android.permission.BROADCAST_CLOSE_SYSTEM_DIALOGS
+android.permission.FOREGROUND_SERVICE
+android.permission.FOREGROUND_SERVICE_DATA_SYNC
+android.permission.INTERNET
+android.permission.POST_NOTIFICATIONS
+android.permission.READ_EXTERNAL_STORAGE
+android.permission.READ_PHONE_STATE
+android.permission.RECEIVE_BOOT_COMPLETED
+android.permission.SCHEDULE_EXACT_ALARM
+android.permission.SYSTEM_ALERT_WINDOW
+android.permission.USE_BIOMETRIC
+android.permission.USE_FINGERPRINT
+android.permission.USE_FULL_SCREEN_INTENT
+android.permission.VIBRATE
+android.permission.WAKE_LOCK
+android.permission.WRITE_EXTERNAL_STORAGE
+
+--- media-permission grep (expect NO hits) ---
+RESULT: PASS - no READ_MEDIA_VIDEO, no READ_MEDIA_IMAGES, no READ_MEDIA_VISUAL_USER_SELECTED in the built APK
+=== all app manifests in the repo ===
+android/app/src/debug/AndroidManifest.xml
+android/app/src/main/AndroidManifest.xml
+--- media permission in any of them (expect none) ---
+android/app/src/main/AndroidManifest.xml:6:      No READ_MEDIA_VIDEO / READ_MEDIA_IMAGES on purpose (GH-421): videos are picked via
+(none)
