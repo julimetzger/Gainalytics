@@ -2413,3 +2413,23 @@ Only works for modules with no React Native imports — keep colour/format/pure-
 **Problem (GH-413):** a new "trainings per week" graph inherited `mode: 'HORIZONTAL_BEZIER'` from the existing graphs. On values that only ever take 0/1/2 the spline overshoots between points, so the rendered curve dips visibly below 0 and bulges above the real count — the picture shows counts that were never trained. The fractional y-axis labels compound it.
 **Working solution:** for any whole-number count series pass `mode: 'LINEAR'` and `yAxis: {granularity: 1, granularityEnabled: true, axisMinimum: 0}` on both sides. Keep bezier for continuous measurements (1RM, volume, intensity) so the existing graphs are untouched.
 **Apply when:** adding any counting metric to a `react-native-charts-wrapper` `LineChart`. Look at the rendered chart, not just the data — the defect only exists in the drawing.
+
+### 365. `run-maestro-from-wsl.sh` silently overrides your adb filter proxy unless you pass `--adb-host`
+**Problem (GH-413 r2):** the script derives its adb host from `/etc/resolv.conf` whenever `--adb-host`/`--host` are missing, i.e. it talks to the raw Windows adb server that sees ALL devices — the orchestrator's `adb_filter_proxy.py` on `127.0.0.3:5037` is bypassed even though it is running. Maestro printed `Selected device emulator-5556` and still drove a foreign 720x1600 phone; the `ANDROID_SERIAL` export and `-s` on the surrounding `adb` calls do not protect the Maestro session.
+**Working solution:** always pass both, e.g. `--host 127.0.0.3 --adb-host 127.0.0.3` (whatever loopback address your proxy binds, see #300/#307).
+**Detection in 5 seconds:** `grep 'Got device info' <debug-output>/.maestro/tests/*/maestro.log` and compare `widthPixels` with `adb -s $ANDROID_SERIAL shell wm size`. A mismatch means you were on someone else's device — the failure screenshot's theme and clock confirm it.
+
+### 366. `jest.useFakeTimers()` deadlocks @testing-library/react-native's cleanup — fake only the clock
+**Problem (GH-413 r2):** a component that computes its date range from `new Date()` needs a frozen clock. Plain `jest.useFakeTimers()` made every test after the first fail with `Exceeded timeout of 5000 ms for a hook`, pointing at the `import {render}` line — RNTL's `afterEach` cleanup awaits real timers.
+**Working solution:** `jest.useFakeTimers({doNotFake: ['setTimeout','clearTimeout','setInterval','clearInterval','setImmediate','clearImmediate','nextTick','queueMicrotask','requestAnimationFrame','cancelAnimationFrame','requestIdleCallback','cancelIdleCallback','performance','hrtime']})` + `jest.setSystemTime(...)` in `beforeAll`, `jest.useRealTimers()` in `afterAll`. `Date` stays faked, the timer functions stay real.
+**Apply when:** any spec that renders a component whose output depends on "today".
+
+### 367. On the exercise detail screen a swipe must START below the sticky header, or it scrolls nothing
+**Problem (GH-413 r2):** `swipe: {start: '97%, 25%', end: '97%, 80%'}` to scroll a tab back to the top did nothing, eight times in a row, so the range chips were never reachable — while the mirrored downward swipe from 80% worked. y=25% is inside the fixed 1RM/Last-workout header + Log/Stats/History/Graph tab bar, which is not part of the tab's ScrollView.
+**Working solution:** start upward swipes below ~40% of the screen: `{start: '97%, 45%', end: '97%, 92%'}`. Keep x at the edge (97%) so a `LineChart`'s own gesture handler does not swallow the drag.
+**Apply when:** scrolling any screen with a sticky header in Maestro — the direction that works one way does not automatically work the other way.
+
+### 368. JS `setMonth(getMonth() - n)` rolls invalid days into the next month — range boundaries are not the date you expect
+**Problem (GH-413 r2):** picking evidence for a "range starts mid-week" edge case, the 6M range from Mon 31/08/26 was assumed to be 28/02/26. `new Date(2026,7,31).setMonth(1)` is 31 Feb, which JS rolls to **03/03/26** — a week with no fixture data at all, so the chosen screenshot would have proven nothing.
+**Working solution:** compute the actual boundary (`node -e` or a python model of the same rollover) before choosing which range/exercise demonstrates a boundary case, and state the resulting date in the evidence log.
+**Apply when:** reasoning about `1M/3M/6M/1Y` ranges — only ranges landing on a day <= 28 are rollover-free.
