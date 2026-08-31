@@ -1,7 +1,7 @@
 import React, {useMemo, useState} from 'react';
-import {processColor, ScrollView, StyleSheet, View} from 'react-native';
-import {LineChart, LineValue} from 'react-native-charts-wrapper';
-import {Card, Chip, Text, useTheme} from 'react-native-paper';
+import {ScrollView, StyleSheet, View} from 'react-native';
+import {LineValue} from 'react-native-charts-wrapper';
+import {Chip, useTheme} from 'react-native-paper';
 import {Exercise} from '../../../models/entities/Exercise';
 import {Workout} from '../../../models/entities/Workout';
 import {Metric} from '../../../models/Metric';
@@ -9,9 +9,10 @@ import {AccumulationMode} from '../../../models/AccumulationMode';
 import {Accumulation} from '../../picker/elements/TrainingElementPicker';
 import {handleAccumulationModeBatching} from '../../../utils/HandleAccumulationModeBatching';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
-import {generateTrend} from '../../../utils/generateTrend';
+import {buildFrequencySeries, formatFrequencyCaption, FREQUENCY_ACCUMULATION_MODE, FREQUENCY_PERIOD_LABEL} from '../../../utils/FrequencySeries';
 import {useWorkoutsIn} from '../../../redux/Workout/use/useWorkoutsIn';
 import {Range} from '../../picker/date/DateRangePicker';
+import ExerciseGraphCard from './ExerciseGraphCard';
 
 interface Props {
   exercise: Exercise;
@@ -76,6 +77,15 @@ const ExerciseGraphTab = ({exercise}: Props) => {
     return out;
   }, [exerciseWorkouts, accumulation]);
 
+  // Frequency is meaningless per day (it would be 1 on every training day), so it gets
+  // its own weekly accumulation. The four existing graphs keep their daily summary.
+  const frequencyAccumulation = useMemo(() => new Accumulation(FREQUENCY_ACCUMULATION_MODE), []);
+  const frequencyPoints = useMemo(
+    () => buildFrequencySeries(exerciseWorkouts, frequencyAccumulation),
+    [exerciseWorkouts, frequencyAccumulation],
+  );
+  const frequencyCaption = useMemo(() => formatFrequencyCaption(frequencyPoints), [frequencyPoints]);
+
   return (
     <ScrollView
       style={[styles.container, {backgroundColor: theme.colors.background}]}
@@ -102,70 +112,19 @@ const ExerciseGraphTab = ({exercise}: Props) => {
         ))}
       </ScrollView>
 
-      {METRICS.map((metric) => {
-        const points = seriesByMetric[metric] ?? [];
-        return (
-          <Card style={styles.chartCard} key={metric}>
-            <Card.Title title={metric} testID={`graph-card-${metric}`} />
-            <Card.Content>
-              {points.length === 0 ? (
-                <Text style={styles.emptyText}>No data in this range.</Text>
-              ) : (
-                <LineChart
-                  style={[styles.chart, {backgroundColor: theme.colors.background}]}
-                  marker={{
-                    enabled: true,
-                    markerColor: processColor(theme.colors.backdrop),
-                    textSize: 13,
-                    textColor: processColor(theme.colors.secondary),
-                  }}
-                  data={{
-                    dataSets: [
-                      {
-                        config: {
-                          color: processColor(theme.colors.primary),
-                          circleColor: processColor(theme.colors.primary),
-                          highlightEnabled: true,
-                          lineWidth: 2,
-                          drawCircleHole: false,
-                          highlightColor: processColor(theme.colors.secondary),
-                          circleRadius: 3,
-                          mode: 'HORIZONTAL_BEZIER',
-                          drawValues: false,
-                        },
-                        values: points,
-                      },
-                      {
-                        config: {
-                          color: processColor(theme.colors.tertiary),
-                          drawCircles: false,
-                          lineWidth: 1,
-                          dashedLine: {lineLength: 12, spaceLength: 8},
-                          mode: 'LINEAR',
-                          drawValues: false,
-                        },
-                        values: generateTrend(points),
-                      },
-                    ],
-                  }}
-                  legend={{enabled: false}}
-                  xAxis={{
-                    valueFormatter: 'date',
-                    valueFormatterPattern: 'dd MMM',
-                    position: 'BOTTOM',
-                    textColor: processColor(theme.colors.onBackground),
-                  }}
-                  yAxis={{
-                    left: {textColor: processColor(theme.colors.onBackground)},
-                    right: {textColor: processColor(theme.colors.onBackground)},
-                  }}
-                  chartDescription={{text: ''}}
-                />
-              )}
-            </Card.Content>
-          </Card>
-        );
-      })}
+      {METRICS.map((metric) => (
+        <ExerciseGraphCard key={metric} title={metric} points={seriesByMetric[metric] ?? []} cardTestID={`graph-card-${metric}`} />
+      ))}
+
+      <ExerciseGraphCard
+        title={Metric.FREQUENCY}
+        subtitle={FREQUENCY_PERIOD_LABEL}
+        points={frequencyPoints}
+        caption={frequencyCaption}
+        cardTestID={`graph-card-${Metric.FREQUENCY}`}
+        captionTestID="graph-frequency-latest"
+        integerYAxis
+      />
       <View style={styles.bottomSpacer} />
     </ScrollView>
   );
@@ -182,18 +141,6 @@ const styles = StyleSheet.create({
   },
   rangeChip: {
     marginRight: 6,
-  },
-  chartCard: {
-    marginHorizontal: 8,
-    marginBottom: 12,
-  },
-  chart: {
-    height: 220,
-  },
-  emptyText: {
-    fontStyle: 'italic',
-    paddingVertical: 12,
-    textAlign: 'center',
   },
   bottomSpacer: {
     height: 12,
