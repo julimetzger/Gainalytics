@@ -3,20 +3,22 @@ appId: com.powerliftingworkoutplanner
 # GH-413: the exercise Graph tab shows a fifth graph, "Frequency", accumulated per week.
 #
 # Data: __tests__/e2e/maestro/fixtures/baseline.gains (pushed by run-maestro-from-wsl.sh
-# and imported by 00_import_baseline.yaml).
-#   - "Adductor" (exercise id 32) is the most-trained exercise in that fixture. Its last
-#     week with data is the week of Mon 23/02/26, in which it was trained twice — hence
-#     the exact caption asserted below. Recomputed from the raw fixture in summary.md.
-#   - "Mmkv" (exercise id 28) is the only exercise in the fixture with no workouts.
+# and imported by 00_import_baseline.yaml). The fixture's last training is on Sat
+# 28/02/26; the device clock is Mon 31/08/26, so every exercise in it has been untrained
+# for about half a year. Recomputed from the raw fixture in checks/frequency-from-fixture.log:
+#   - "Adductor" (id 32): 144 workouts, last trained in the week of Mon 23/02/26 (2x).
+#     "All" plots 138 weeks, of which the last 27 are zero.
+#     "1Y" starts on Sun 31/08/25 — in the middle of the week of Mon 25/08/25 — and that
+#     week is plotted whole, so the series starts at Mon 25/08/25, not at the range start.
+#   - "Mmkv" (id 28) is the only exercise in the fixture with no workouts at all.
 #
 # Selector notes:
 #   - react-native-paper's Card.Title does NOT expose its testID to the Android a11y
 #     tree, so the five graph cards are addressed by their title text.
-#   - the caption is a plain <Text testID="graph-frequency-latest"> and DOES surface as a
-#     resource-id, so the actual displayed VALUE can be asserted (id + text).
-#   - Maestro matches `text:` as a full REGEX, so the subtitle is asserted as a prefix
-#     plus `.*` — the literal parentheses in "(Mon-Sun)" would otherwise be a capture
-#     group and never match.
+#   - the captions are plain <Text testID="graph-frequency-span|-latest"> and DO surface as
+#     a resource-id, so the actual displayed VALUES can be asserted (id + text).
+#   - Maestro matches `text:` as a full REGEX, so literal parentheses have to be escaped;
+#     an unescaped "(2 trainings)" would be a capture group and match without the braces.
 #   - the Graph tab's ScrollView is swiped along the right edge (97%): a centred swipe is
 #     swallowed by the LineChart's own gesture handling.
 #   - off-screen React Native views are pruned from the a11y tree, so the Frequency card
@@ -63,7 +65,7 @@ appId: com.powerliftingworkoutplanner
       id: 'exercise-graph-tab'
     timeout: 30000
 
-# All five cards are on screen at once in the default 3M range (Adductor's last
+# All five cards are on screen at once in the default 3M range (the fixture's last
 # training is ~6 months old, so every card is in its empty state). This is both the
 # "existing four graphs are unchanged and keep their order" check and the "empty range
 # renders an empty state instead of crashing" check.
@@ -73,18 +75,16 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: 'Frequency'
 - assertVisible: 'No data in this range.'
 
-# Widen the range so the graphs actually have data.
+# Widen the range so the graph actually has data.
 - tapOn:
     id: 'graph-range-All'
 - waitForAnimationToEnd
 
 # Scroll to the bottom of the tab; the Frequency card is the last one.
-- swipe: {start: '97%, 80%', end: '97%, 25%', duration: 1000}
-- swipe: {start: '97%, 80%', end: '97%, 25%', duration: 1000}
-- swipe: {start: '97%, 80%', end: '97%, 25%', duration: 1000}
-- swipe: {start: '97%, 80%', end: '97%, 25%', duration: 1000}
-- swipe: {start: '97%, 80%', end: '97%, 25%', duration: 1000}
-- swipe: {start: '97%, 80%', end: '97%, 25%', duration: 1000}
+- repeat:
+    times: 6
+    commands:
+      - swipe: {start: '97%, 80%', end: '97%, 25%', duration: 1000}
 - waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
@@ -93,14 +93,57 @@ appId: com.powerliftingworkoutplanner
 
 # The period the graph uses is visible to the user …
 - assertVisible: 'Trainings per week.*'
-# … and so is the value it draws: Adductor was trained twice in the week of Mon 23/02/26.
+# … and so is the span it covers: it runs to the current week (Mon 31/08/26), not to the
+# last training. Finding 1 of the review.
+- assertVisible:
+    id: 'graph-frequency-span'
+    text: 'Weeks from Mon, 15/01/24 to Mon, 31/08/26'
+# … and so is the value it draws: nothing this week, last trained in the week of Mon
+# 23/02/26, which had 2 trainings.
 - assertVisible:
     id: 'graph-frequency-latest'
-    text: 'Week of Mon, 23/02/26: 2 trainings'
+    text: 'Week of Mon, 31/08/26: 0 trainings so far, last trained Mon, 23/02/26 \(2 trainings\)'
 - takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-413/screenshots/maestro_01_frequency_long_history
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Part 2 — exercise without any training history (Mmkv)
+# Part 2 — a range that starts in the middle of a week (finding 2)
+# The "1Y" range starts on Sun 31/08/25. The graph starts one week earlier, at Mon
+# 25/08/25, and counts that week completely instead of showing it short.
+# ─────────────────────────────────────────────────────────────────────────────
+# Scrolling back up has to START below the sticky exercise header (1RM / Log-Stats-
+# History-Graph, roughly the top 30%): a swipe that starts there is not on the tab's
+# ScrollView and scrolls nothing.
+- repeat:
+    times: 8
+    commands:
+      - swipe: {start: '97%, 45%', end: '97%, 92%', duration: 1000}
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'graph-range-1Y'
+    timeout: 30000
+- tapOn:
+    id: 'graph-range-1Y'
+- waitForAnimationToEnd
+- repeat:
+    times: 6
+    commands:
+      - swipe: {start: '97%, 80%', end: '97%, 25%', duration: 1000}
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'graph-frequency-span'
+    timeout: 30000
+- assertVisible:
+    id: 'graph-frequency-span'
+    text: 'Weeks from Mon, 25/08/25 to Mon, 31/08/26'
+- assertVisible:
+    id: 'graph-frequency-latest'
+    text: 'Week of Mon, 31/08/26: 0 trainings so far, last trained Mon, 23/02/26 \(2 trainings\)'
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-413/screenshots/maestro_02_frequency_week_boundary
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Part 3 — exercise without any training history (Mmkv)
 # ─────────────────────────────────────────────────────────────────────────────
 - back
 - extendedWaitUntil:
@@ -131,8 +174,10 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'graph-range-All'
 - waitForAnimationToEnd
-- swipe: {start: '97%, 80%', end: '97%, 40%', duration: 1000}
-- swipe: {start: '97%, 80%', end: '97%, 40%', duration: 1000}
+- repeat:
+    times: 2
+    commands:
+      - swipe: {start: '97%, 80%', end: '97%, 40%', duration: 1000}
 - waitForAnimationToEnd
 
 # No history: the Frequency card is rendered with the same empty state as the other
@@ -142,4 +187,6 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: 'No data in this range.'
 - assertNotVisible:
     id: 'graph-frequency-latest'
-- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-413/screenshots/maestro_02_frequency_no_history
+- assertNotVisible:
+    id: 'graph-frequency-span'
+- takeScreenshot: /home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/GH-413/screenshots/maestro_03_frequency_no_history
