@@ -2,6 +2,7 @@
 
 ## Trainings
 
+- [ready] [GH-437](https://github.com/julimetzger/Gainalytics/issues/437) Finish-Training-Knopf in der Sekundärfarbe statt der Primärfarbe
 - [ready] [GH-431](https://github.com/julimetzger/Gainalytics/issues/431) UX-Audit R2 Follow-up (M6/M9/M12) — Suchtreffer-Rangfolge, stabiler EDITING-PLAN-Modus, Satzfortschritt gegen den Plan
   - Quelle: `docs/ux/create-and-execute-training-audit-round2.md` aus #426
   - Erst nach dem Merge von PR #429 starten — M12 baut auf der dort korrigierten Satznummer auf
