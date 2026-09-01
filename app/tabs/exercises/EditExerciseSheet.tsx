@@ -70,7 +70,7 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: isEdit ? `Edit ${existing?.name ?? ''}` : 'New exercise',
+      title: isEdit ? `Edit ${existing?.name ?? ''}` : 'New Exercise',
       headerRight: () => (
         <Button
           mode="text"

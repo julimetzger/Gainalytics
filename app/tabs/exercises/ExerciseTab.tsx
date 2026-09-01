@@ -122,7 +122,7 @@ const ExerciseTab = ({navigation}: Props) => {
 
       <FAB
         icon="plus"
-        label="New exercise"
+        label="New Exercise"
         style={styles.fab}
         onPress={() =>
           navigation.navigate({
