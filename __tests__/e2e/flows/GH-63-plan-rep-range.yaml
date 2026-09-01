@@ -13,6 +13,14 @@ name: GH-63 Plan a rep range and verify the target actually shown in the trainin
 #
 # The flow deletes the training it worked on at the end, so the slot is empty
 # again and the flow can be run repeatedly.
+#
+# ASSERTION STYLE — read before editing this file. On this Maestro build
+# (2.0.9-ports) an `evalScript` that `throw`s is reported COMPLETED and the run
+# still exits 0, and `${output.foo}` never resolves. The only form that both
+# passes when true and fails when false is an INLINE expression:
+#   - copyTextFrom: {id: ...}
+#   - assertTrue: ${maestro.copiedText === 'Target · Set 8'}
+# Every value assertion below uses it.
 
 - launchApp:
     clearState: false
@@ -53,12 +61,39 @@ name: GH-63 Plan a rep range and verify the target actually shown in the trainin
 - tapOn:
     id: "subtab-plan"
 
-# Materialise a planned training in the slot when it is still empty.
+# Always start from a freshly suggested training: a leftover from another flow
+# would carry different numbers than the ones asserted below.
 - runFlow:
     when:
-      visible: "Suggest based on last planned Training"
+      notVisible: "Suggest based on last planned Training"
     commands:
-      - tapOn: "Suggest based on last planned Training"
+      - tapOn:
+          id: "header-overflow-icon"
+      - extendedWaitUntil:
+          visible:
+            id: "overflow-discard"
+          timeout: 10000
+      - tapOn:
+          id: "overflow-discard"
+      # Discarding a STARTED training asks for confirmation first, discarding a
+      # merely PLANNED one does not — poll instead of assuming either.
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - repeat:
+          times: 5
+          commands:
+            - runFlow:
+                when:
+                  visible: "Delete Training"
+                commands:
+                  - tapOn: "Delete"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+      - extendedWaitUntil:
+          visible: "Suggest based on last planned Training"
+          timeout: 20000
+
+- tapOn: "Suggest based on last planned Training"
 
 - extendedWaitUntil:
     visible:
@@ -116,12 +151,22 @@ name: GH-63 Plan a rep range and verify the target actually shown in the trainin
 
 - hideKeyboard
 
+# Read the field back before leaving it: a keystroke that lands in a neighbouring
+# row would otherwise change the numbers every assertion below depends on.
+- copyTextFrom:
+    id: "plan-set-8-reps-max-input"
+- assertTrue: ${maestro.copiedText.trim() === '9'}
+
 - tapOn: "Done"
 
 # ---- the plan list now shows the range instead of the fixed value ----------
 - extendedWaitUntil:
     visible: "6-9"
     timeout: 20000
+
+- copyTextFrom:
+    id: "plan-set-8-reps-cell"
+- assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === '6-9reps'}
 
 - takeScreenshot: gh63-02-plan-read-with-range
 
@@ -153,26 +198,17 @@ name: GH-63 Plan a rep range and verify the target actually shown in the trainin
 - copyTextFrom:
     id: "planned-set-target-value"
 
-- evalScript: |
-    if (maestro.copiedText !== '6-9 reps · RIR 0 · 200 kg') {
-      throw 'planned target expected "6-9 reps · RIR 0 · 200 kg" but was "' + maestro.copiedText + '"';
-    }
+- assertTrue: ${maestro.copiedText === '6-9 reps · RIR 0 · 200 kg'}
 
 - copyTextFrom:
     id: "planned-set-target-label"
 
-- evalScript: |
-    if (maestro.copiedText !== 'Target · Set 8') {
-      throw 'target label expected "Target · Set 8" but was "' + maestro.copiedText + '"';
-    }
+- assertTrue: ${maestro.copiedText === 'Target · Set 8'}
 
 - copyTextFrom:
     id: "add-workout-set-number"
 
-- evalScript: |
-    if (maestro.copiedText.trim() !== 'Set 8') {
-      throw 'set label expected "Set 8" but was "' + maestro.copiedText + '"';
-    }
+- assertTrue: ${maestro.copiedText.trim() === 'Set 8'}
 
 - takeScreenshot: gh63-03-training-target-with-range
 
@@ -200,26 +236,17 @@ name: GH-63 Plan a rep range and verify the target actually shown in the trainin
 - copyTextFrom:
     id: "planned-set-target-value"
 
-- evalScript: |
-    if (maestro.copiedText !== '8 reps · RIR 1 · 180 kg') {
-      throw 'after set 8 the target expected "8 reps · RIR 1 · 180 kg" but was "' + maestro.copiedText + '"';
-    }
+- assertTrue: ${maestro.copiedText === '8 reps · RIR 1 · 180 kg'}
 
 - copyTextFrom:
     id: "planned-set-target-label"
 
-- evalScript: |
-    if (maestro.copiedText !== 'Target · Set 9') {
-      throw 'after set 8 the target label expected "Target · Set 9" but was "' + maestro.copiedText + '"';
-    }
+- assertTrue: ${maestro.copiedText === 'Target · Set 9'}
 
 - copyTextFrom:
     id: "add-workout-set-number"
 
-- evalScript: |
-    if (maestro.copiedText.trim() !== 'Set 9') {
-      throw 'after set 8 the set label expected "Set 9" but was "' + maestro.copiedText + '"';
-    }
+- assertTrue: ${maestro.copiedText.trim() === 'Set 9'}
 
 - takeScreenshot: gh63-04-training-target-after-first-set
 
@@ -247,18 +274,12 @@ name: GH-63 Plan a rep range and verify the target actually shown in the trainin
 - copyTextFrom:
     id: "planned-set-target-value"
 
-- evalScript: |
-    if (maestro.copiedText !== 'All 2 planned sets logged') {
-      throw 'after the last planned set the target expected "All 2 planned sets logged" but was "' + maestro.copiedText + '"';
-    }
+- assertTrue: ${maestro.copiedText === 'All 2 planned sets logged'}
 
 - copyTextFrom:
     id: "add-workout-set-number"
 
-- evalScript: |
-    if (maestro.copiedText.trim() !== 'Set 10') {
-      throw 'after the last planned set the set label expected "Set 10" but was "' + maestro.copiedText + '"';
-    }
+- assertTrue: ${maestro.copiedText.trim() === 'Set 10'}
 
 - takeScreenshot: gh63-05-training-target-after-last-planned-set
 
@@ -274,8 +295,20 @@ name: GH-63 Plan a rep range and verify the target actually shown in the trainin
 - tapOn:
     id: "overflow-discard"
 
-- runFlow:
-    when:
-      visible: "Delete"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+- repeat:
+    times: 5
     commands:
-      - tapOn: "Delete"
+      - runFlow:
+          when:
+            visible: "Delete Training"
+          commands:
+            - tapOn: "Delete"
+            - waitForAnimationToEnd:
+                timeout: 3000
+
+- extendedWaitUntil:
+    visible: "Suggest based on last planned Training"
+    timeout: 20000
