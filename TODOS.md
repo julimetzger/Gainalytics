@@ -2,6 +2,11 @@
 
 ## Trainings
 
+- [ready] [GH-428](https://github.com/julimetzger/Gainalytics/issues/428) UX-Audit R2 Follow-up (H1/H2/H4) — namenloser Plan, Tastatur verdeckt Eingabe beim Planen, falsche Werte nach Übungswechsel
+  - Quelle: `docs/ux/create-and-execute-training-audit-round2.md` aus #426
+  - H2 (Tastatur) überschneidet sich mit [GH-418](https://github.com/julimetzger/Gainalytics/issues/418)
+- [ready] [GH-63](https://github.com/julimetzger/Gainalytics/issues/63) Rep Ranges for planning mode — Bereiche für Wiederholungen, Gewicht und RIR beim Planen
+  - Bereich zählt in allen Auswertungen mit seiner Untergrenze; abwärtskompatibel ohne Migration
 - [ready] [TRN-001](tickets/TRN-001-training-overview-record-comparison.yaml) Records in Training Overview - micro vergleich anzeigen
   - Im TrainingsNode für status Done und Overview
   - es gibt eine Kachel die anzeigt wieviele Records in diesem Micro waren im Vergleich zum vorherigen
