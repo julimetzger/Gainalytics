@@ -153,3 +153,29 @@ describe('MicroHeroCard bar value labels (GH-342)', () => {
     expect(mockChartProps.current.data.dataSets[0].values.map((v: any) => v.y)).toEqual([2000, 1200]);
   });
 });
+
+/**
+ * GH-428 (H1), PR #430 review round 3, point 1: this card is the header of the
+ * ACTIVE plan on the training home screen. For a plan created before the name
+ * validation existed it rendered an empty title, while the row further down the
+ * same screen already showed the fallback label — two names for one plan.
+ */
+describe('MicroHeroCard — nameless legacy plan', () => {
+  const namelessPlan = {...plan, name: ''} as TrainingsPlan;
+
+  beforeEach(() => {
+    mockChartProps.current = null;
+  });
+
+  it('shows the fallback label when the plan has no name', () => {
+    const {getByTestId} = render(<MicroHeroCard plan={namelessPlan} currentMicro={2} navigation={navigation} />);
+
+    expect(getByTestId('micro-hero-plan-name').props.children).toBe('Unnamed plan');
+  });
+
+  it('still shows a real plan name unchanged', () => {
+    const {getByTestId} = renderCard();
+
+    expect(getByTestId('micro-hero-plan-name').props.children).toBe('Strength Plan');
+  });
+});

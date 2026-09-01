@@ -44,6 +44,34 @@ const otherFakeFocusedInput = {
   },
 };
 
+/**
+ * A third input that answers its measurements only when the test says so.
+ *
+ * On the device a measurement is a round trip to native, and the user keeps
+ * acting while it is in flight — closing the keyboard, tapping the next field.
+ * The synchronous fakes above cannot express that gap, so this one queues its
+ * callbacks and `releaseMeasurements()` runs them at the chosen moment.
+ */
+let deferredMeasurements: (() => void)[] = [];
+
+const deferredFakeFocusedInput = {
+  measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => {
+    deferredMeasurements.push(() => callback(0, focusedInputRect.screenY, 200, focusedInputRect.height));
+  },
+  measureLayout: (_relativeTo: unknown, onSuccess: (x: number, y: number, w: number, h: number) => void) => {
+    deferredMeasurements.push(() => onSuccess(0, focusedInputRect.contentY, 200, focusedInputRect.height));
+  },
+};
+
+/** Lets native "answer" — including the follow-up steps a released step queues. */
+const releaseMeasurements = () => {
+  act(() => {
+    while (deferredMeasurements.length > 0) {
+      (deferredMeasurements.shift() as () => void)();
+    }
+  });
+};
+
 let mockFocusedInput: typeof fakeFocusedInput | null = fakeFocusedInput;
 
 jest.mock('react-native/Libraries/Components/TextInput/TextInputState', () => ({
@@ -120,6 +148,7 @@ describe('KeyboardAwareScrollView — GH-428 (H2)', () => {
     mockFocusedInput = fakeFocusedInput;
     focusedInputRect = {screenY: 0, height: 60, contentY: 0};
     otherInputRect = {screenY: 0, height: 60, contentY: 0};
+    deferredMeasurements = [];
   });
 
   afterEach(() => {
@@ -279,6 +308,59 @@ describe('KeyboardAwareScrollView — GH-428 (H2)', () => {
       const {scrollTo, getByTestId} = renderScroller();
 
       tapInsideScroller(getByTestId);
+
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * PR #430 review round 3, point 2: cancelling the pending timers on hide is not
+   * enough. A measurement that already started cannot be cancelled, and when its
+   * native callbacks come back the situation may have moved on — the keyboard is
+   * closed again, or the focus is on the next field. Scrolling on those numbers
+   * is the late jump / snap-back the user sees.
+   */
+  describe('a measurement that is still in flight', () => {
+    it('answers with the geometry the chain started with', () => {
+      // Control: released while the keyboard is still open and the focus
+      // unchanged, the deferred input scrolls exactly like the direct one.
+      focusedInputRect = {screenY: 1081, height: 60, contentY: 1581};
+      mockFocusedInput = deferredFakeFocusedInput;
+      const {scrollTo} = renderScroller();
+
+      openKeyboard();
+      expect(scrollTo).not.toHaveBeenCalled();
+
+      releaseMeasurements();
+
+      expect(scrollTo).toHaveBeenCalledWith({y: 759, animated: true});
+    });
+
+    it('does not scroll when the keyboard closed before the measurement came back', () => {
+      focusedInputRect = {screenY: 1081, height: 60, contentY: 1581};
+      mockFocusedInput = deferredFakeFocusedInput;
+      const {scrollTo} = renderScroller();
+
+      openKeyboard();
+      // The user dismisses the keyboard right after tapping the field.
+      emitKeyboard('keyboardDidHide', 1600);
+
+      releaseMeasurements();
+
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+
+    it('does not scroll for a field the focus has already left', () => {
+      focusedInputRect = {screenY: 1081, height: 60, contentY: 1581};
+      mockFocusedInput = deferredFakeFocusedInput;
+      const {scrollTo} = renderScroller();
+
+      openKeyboard();
+      // Fast tap on the next field: the focus moved on while the first
+      // measurement was still running.
+      mockFocusedInput = otherFakeFocusedInput;
+
+      releaseMeasurements();
 
       expect(scrollTo).not.toHaveBeenCalled();
     });

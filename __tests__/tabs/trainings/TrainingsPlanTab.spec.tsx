@@ -272,3 +272,44 @@ describe('TrainingsPlanTab', () => {
     await act(async () => undefined);
   });
 });
+
+/**
+ * GH-428 (H1), PR #430 review round 3, point 1: the plan list already shows a
+ * fallback label for plans created before the name validation existed. Opening
+ * such a plan must show the SAME label — a header reading just " › Meso 1"
+ * leaves the user without any hint which plan they are in.
+ */
+describe('TrainingsPlanTab — nameless legacy plan', () => {
+  const renderHeader = () => {
+    const navigation = {setOptions: jest.fn(), addListener: jest.fn(() => jest.fn())} as any;
+    const route = {params: {trainingsPlan: {id: 50, name: ''}, micro: 2, training: 1}} as any;
+
+    render(<TrainingsPlanTab navigation={navigation} route={route} />);
+
+    const header = navigation.setOptions.mock.calls[0][0].header;
+    return render(header({}));
+  };
+
+  beforeEach(() => {
+    mockedUseTrainingsPlan.mockReturnValue({
+      id: 50,
+      name: '',
+      trainings: {'2,1': 100},
+      trainingNames: {1: 'Upper Day'},
+      mesos: [{id: 1, name: 'Meso 1', order: 1, startMicro: 1}],
+    });
+    mockedUseTrainingInTrainingsPlan.mockReturnValue({
+      id: 100,
+      state: TrainingsState.STARTED,
+      exercises: [],
+      doneWorkoutIds: {},
+      plannedWorkouts: {},
+    });
+  });
+
+  it('shows the same fallback label in the header as the plan list does', () => {
+    const {getByTestId} = renderHeader();
+
+    expect(getByTestId('header-plan-name').props.children).toBe('Unnamed plan');
+  });
+});

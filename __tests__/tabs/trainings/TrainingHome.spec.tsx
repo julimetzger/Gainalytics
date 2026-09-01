@@ -365,6 +365,29 @@ describe('TrainingHome — GH-428 nameless legacy plans', () => {
     expect(getByTestId('plan-name-52').props.children).toBe('Upper lower');
   });
 
+  /**
+   * PR #430 review round 3, point 1: the row shows "Unnamed plan", so searching
+   * for exactly that has to find it. Filtering on the raw (empty) name matched
+   * every plan on any input and made the row itself unreachable by its label.
+   */
+  it('finds the nameless plan when searching for the label the row shows', () => {
+    const {getByTestId, queryByTestId} = renderHome();
+
+    fireEvent.changeText(getByTestId('plans-search-field'), 'unnamed');
+
+    expect(queryByTestId('plan-name-51')).not.toBeNull();
+    expect(queryByTestId('plan-name-52')).toBeNull();
+  });
+
+  it('hides the nameless plan for a search that matches neither name', () => {
+    const {getByTestId, queryByTestId} = renderHome();
+
+    fireEvent.changeText(getByTestId('plans-search-field'), 'zzz');
+
+    expect(queryByTestId('plan-name-51')).toBeNull();
+    expect(queryByTestId('plan-name-52')).toBeNull();
+  });
+
   it('keeps the nameless plan renamable and deletable', () => {
     const {getByTestId, getByText} = renderHome();
 
