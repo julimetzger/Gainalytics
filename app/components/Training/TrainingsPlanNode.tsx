@@ -38,6 +38,7 @@ import {useLastTrainingOfPreviousMeso} from '../../redux/Training/use/useLastTra
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
 import {dispatchReplaceExerciseInTraining} from '../../redux/Training/dispatch/general/dispatchReplaceExerciseInTraining';
 import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
+import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
 
 interface TrainingsPlanNodeProps {
   trainingsPlan: TrainingsPlan;
@@ -258,7 +259,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
       Toast.show({
         type: 'info',
         text1: 'Training started!',
-        text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+        text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlanDisplayName(trainingsPlan.name)}`,
         position: 'top',
         visibilityTime: 5000,
       });
@@ -276,7 +277,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
       Toast.show({
         type: 'info',
         text1: 'Training finished!',
-        text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+        text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlanDisplayName(trainingsPlan.name)}`,
         position: 'top',
         visibilityTime: 5000,
       });

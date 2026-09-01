@@ -19,6 +19,7 @@ import CompletionRing from './CompletionRing';
 import DayStrip, {DayStatus, DayStripDay} from './DayStrip';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../../routing/TrainingRouter';
+import {trainingsPlanDisplayName} from '../../../utils/trainings-plan-name';
 
 type MetricKey = 'volume' | 'sets' | 'time';
 
@@ -248,8 +249,8 @@ const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => 
             <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
               Current micro
             </Text>
-            <Text variant="titleMedium" numberOfLines={1}>
-              {plan.name}
+            <Text variant="titleMedium" numberOfLines={1} testID="micro-hero-plan-name">
+              {trainingsPlanDisplayName(plan.name)}
             </Text>
             <Text variant="bodySmall" style={{color: theme.colors.primary}}>
               {mesoLabel}M{localMicro}

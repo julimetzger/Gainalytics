@@ -94,8 +94,7 @@ const KeyboardAwareScrollView = ({children, onLayout, onTouchStart, ...scrollVie
   const ensureFocusedInputVisible = useCallback(() => {
     const scrollView = scrollRef.current;
     const focusedInput = TextInput.State.currentlyFocusedInput();
-    const keyboardTop = keyboardTopRef.current;
-    if (scrollView === null || focusedInput === null || focusedInput === undefined || keyboardTop === null) {
+    if (scrollView === null || focusedInput === null || focusedInput === undefined || keyboardTopRef.current === null) {
       return;
     }
     // Recorded before the measurement, not after: this input is now the one the
@@ -110,12 +109,28 @@ const KeyboardAwareScrollView = ({children, onLayout, onTouchStart, ...scrollVie
       return;
     }
 
+    /**
+     * A measurement is not one step but a chain of native callbacks, and the user
+     * keeps acting while it runs: they close the keyboard again, or tap the next
+     * field. Scrolling on numbers gathered before that would move the view after
+     * the keyboard is gone, or briefly snap back to the field they just left.
+     * Cancelling the pending timers on hide is not enough — a chain that already
+     * started cannot be cancelled, so every step re-checks instead.
+     */
+    const measurementIsStale = () => keyboardTopRef.current === null || TextInput.State.currentlyFocusedInput() !== focusedInput;
+
     scrollNode.measureInWindow((_scrollX: number, scrollY: number, _scrollWidth: number, scrollHeight: number) => {
-      if (!Number.isFinite(scrollY) || !Number.isFinite(scrollHeight) || scrollHeight <= 0) {
+      if (!Number.isFinite(scrollY) || !Number.isFinite(scrollHeight) || scrollHeight <= 0 || measurementIsStale()) {
         return;
       }
       focusedInput.measureInWindow((_screenX: number, inputScreenY: number, _screenWidth: number, inputHeight: number) => {
-        if (!Number.isFinite(inputScreenY) || !Number.isFinite(inputHeight) || inputHeight <= 0) {
+        if (!Number.isFinite(inputScreenY) || !Number.isFinite(inputHeight) || inputHeight <= 0 || measurementIsStale()) {
+          return;
+        }
+        // Read after the staleness check, so the geometry is the keyboard's
+        // current one rather than the one this chain started with.
+        const keyboardTop = keyboardTopRef.current;
+        if (keyboardTop === null) {
           return;
         }
         // How much of the scroller is actually on screen: its own height, cut
@@ -135,7 +150,7 @@ const KeyboardAwareScrollView = ({children, onLayout, onTouchStart, ...scrollVie
         focusedInput.measureLayout(
           innerNode as never,
           (_contentX: number, contentY: number) => {
-            if (!Number.isFinite(contentY)) {
+            if (!Number.isFinite(contentY) || measurementIsStale()) {
               return;
             }
             // The same view measured in two spaces gives the scroller's TRUE

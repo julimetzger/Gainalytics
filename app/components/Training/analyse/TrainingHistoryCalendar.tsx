@@ -16,6 +16,7 @@ import {calculateMetricComparisons} from '../../../utils/AnalyseUtils';
 import MetricView from '../../analyse/MetricComparison';
 import {Metric} from '../../../models/Metric';
 import {Workout} from '../../../models/entities/Workout';
+import {trainingsPlanDisplayName} from '../../../utils/trainings-plan-name';
 
 // ─── date helpers ────────────────────────────────────────────────────────────
 
@@ -110,7 +111,7 @@ const TrainingDetailPanel = ({selected, onNavigate}: DetailPanelProps) => {
           {training.end ? '  –  ' + getDateTimeStringFromDate(training.end) : ''}
         </Text>
         <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>
-          {plan.name}  ·  Micro {getMicroLabel(plan.mesos, selected.micro)}
+          {trainingsPlanDisplayName(plan.name)}  ·  Micro {getMicroLabel(plan.mesos, selected.micro)}
         </Text>
       </View>
       <View style={styles.cardRow}>
@@ -380,7 +381,7 @@ const TrainingHistoryCalendar = ({currentPlan, onNavigateToTraining}: TrainingHi
       if (allFinishedTimes.length > 0) {
         const mesoStartDate = new Date(Math.min(...allFinishedTimes));
         const mesoDateStr = getYYYYMMDDFormat(mesoStartDate);
-        setMark(mesoDateStr, {isMesoStart: true, mesoName: plan.name});
+        setMark(mesoDateStr, {isMesoStart: true, mesoName: trainingsPlanDisplayName(plan.name)});
       }
     });
 

@@ -301,7 +301,10 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
     return map;
   }, [trainingsPlans, allTrainings]);
 
-  const filteredPlans = trainingsPlans.filter((p: TrainingsPlan) => p.name.toLowerCase().includes(filter.toLowerCase()));
+  // GH-428 (H1): searching has to match what the row actually shows. A legacy
+  // plan without a name displays the fallback label, so typing that label must
+  // find it — filtering on the raw name would hide the very row the user reads.
+  const filteredPlans = trainingsPlans.filter((p: TrainingsPlan) => trainingsPlanDisplayName(p.name).toLowerCase().includes(filter.toLowerCase()));
 
   return (
     <View style={{flex: 1}} testID="training-home-screen">
