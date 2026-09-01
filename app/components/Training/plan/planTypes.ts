@@ -1,9 +1,13 @@
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {Exercise} from '../../../models/entities/Exercise';
+import {PlanRangeMaxField} from '../../../utils/planRange';
 
 export type PlanMode = 'read' | 'quickEdit' | 'fullEdit';
 
 export type PlanField = 'reps' | 'rir' | 'weight';
+
+// GH-63: the full-edit rows also drive the optional upper bound of each field.
+export type PlanDraftField = PlanField | PlanRangeMaxField;
 
 export interface QuickEditTarget {
   exerciseId: number;
@@ -21,6 +25,10 @@ export interface PlanSetDraft {
   reps: string;
   rir: string;
   weight: string;
+  // GH-63: empty string means "no range" — the field stays a fixed value.
+  repsMax: string;
+  rirMax: string;
+  weightMax: string;
 }
 
 export interface PendingPlanSet extends PlanSetDraft {

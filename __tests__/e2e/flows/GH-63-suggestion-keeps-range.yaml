@@ -1,0 +1,351 @@
+appId: com.powerliftingworkoutplanner
+name: GH-63 Suggesting the next training keeps the planned range on both bounds
+---
+# GH-63 round 3 (PR #429 review, finding 1): "Suggest based on last planned
+# Training" progressed only the LOWER bound of a planned range. The upper bound
+# stayed on the old value, so a weight range silently narrowed (and vanished
+# entirely once the new lower bound reached the old upper one) while an RIR range
+# grew wider. Both bounds must move together.
+#
+# Baseline fixture data this flow relies on:
+#   plan "Push pull upper lower" (plan-meta-1) opens on Micro 71 "Pull".
+#   Emptying that slot and re-filling it with "Suggest based on last planned
+#   Training" reproduces the Deadlift (exercise 3) plan with two sets, numbered
+#   8 and 9 (a plan carries the indices of the workout it was created from):
+#     set 8: 6 reps · RIR 0 · 200 kg
+#     set 9: 8 reps · RIR 1 · 180 kg
+#
+# The flow plans   set 8 = 6 reps · RIR 1-3 · 200-210 kg   in Micro 71 and then
+# suggests Micro 72 "Pull" from it with the screen's default progression profile
+# (RIR delta 1, weight increase 0 %). Hand-computed expectation, both bounds
+# through the same 1RM formula (1RM = w * (1 + (reps+rir)/30)):
+#   lower: 1RM = 200 * (1+7/30) = 246.67 → RIR 1-1 = 0 → 246.67 / (1+6/30) = 206
+#   upper: 1RM = 210 * (1+9/30) = 273.00 → RIR 3-1 = 2 → 273.00 / (1+8/30) = 216
+#   → set 8 must be suggested as   6 reps · RIR 0-2 · 206-216 kg
+# Set 9 carries no range and is the counter-check: 180 kg → 185 kg, RIR 1 → 0,
+# and it must stay a plain fixed value with no dash anywhere in the row.
+#
+# ASSERTION STYLE — read before editing this file. On this Maestro build
+# (2.0.9-ports) an `evalScript` that `throw`s is reported COMPLETED and the run
+# still exits 0, and `${output.foo}` never resolves (it is always `undefined`, so
+# `assertTrue: ${output.ok}` fails even when the value is true). The only form
+# that both passes when true and fails when false is an INLINE expression:
+#   - copyTextFrom: {id: ...}
+#   - assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === 'RIR1-3'}
+# Every value assertion below uses it. Whitespace and commas are stripped because
+# a plan cell renders the value and its unit as two sibling Texts.
+#
+# The flow empties both slots before it uses them, so it is repeatable. It leaves
+# the suggested Micro 72 training in place for screenshot evidence.
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+
+# The training home only scrolls along its RIGHT edge — the micro hero card in
+# the middle carries a horizontal swiper that swallows a centred vertical drag.
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "plan-meta-1"
+          commands:
+            - swipe:
+                start: "83%, 80%"
+                end: "83%, 25%"
+                duration: 500
+
+- extendedWaitUntil:
+    visible:
+      id: "plan-meta-1"
+    timeout: 15000
+
+- tapOn:
+    id: "plan-meta-1"
+
+- extendedWaitUntil:
+    visible:
+      id: "subtab-plan"
+    timeout: 30000
+
+# Fail loudly instead of silently planning in some other slot. The header renders
+# the micro and the training name as separate nodes, so match the micro alone.
+- assertVisible: "Micro 71"
+
+- tapOn:
+    id: "subtab-plan"
+
+# ---- prepare: Micro 71 "Pull" holds a FRESH planned training ----------------
+# Always start from the suggestion, never from whatever a previous run left
+# behind — the numbers asserted below depend on it.
+- runFlow:
+    when:
+      notVisible: "Suggest based on last planned Training"
+    commands:
+      - tapOn:
+          id: "header-overflow-icon"
+      - extendedWaitUntil:
+          visible:
+            id: "overflow-discard"
+          timeout: 10000
+      - tapOn:
+          id: "overflow-discard"
+      # Discarding a STARTED training asks for confirmation first, discarding a
+      # merely PLANNED one does not — poll instead of assuming either.
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - repeat:
+          times: 5
+          commands:
+            - runFlow:
+                when:
+                  visible: "Delete Training"
+                commands:
+                  - tapOn: "Delete"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+      - extendedWaitUntil:
+          visible: "Suggest based on last planned Training"
+          timeout: 20000
+
+- tapOn: "Suggest based on last planned Training"
+
+- extendedWaitUntil:
+    visible:
+      id: "plan-read-exercise-section-3"
+    timeout: 30000
+
+# The starting point: set 8 is a fixed value, no range anywhere on the row.
+- copyTextFrom:
+    id: "plan-set-8-rir-cell"
+- assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === 'RIR0'}
+
+- copyTextFrom:
+    id: "plan-set-8-weight-cell"
+- assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === '200kg'}
+
+# ---- plan a weight AND an RIR range on set 8 --------------------------------
+- tapOn:
+    id: "header-overflow-icon"
+
+- extendedWaitUntil:
+    visible:
+      id: "overflow-edit-plan"
+    timeout: 10000
+
+- tapOn:
+    id: "overflow-edit-plan"
+
+- extendedWaitUntil:
+    visible:
+      id: "plan-exercise-ranges-toggle-3"
+    timeout: 20000
+
+- tapOn:
+    id: "plan-exercise-ranges-toggle-3"
+
+- extendedWaitUntil:
+    visible:
+      id: "plan-set-8-rir-max-input"
+    timeout: 10000
+
+# The fixture's set 8 has RIR 0, and a workout containing an RIR 0 set is skipped
+# by the linear progression entirely — lift it to 1 so the progression runs.
+#
+# Every field is dismissed with `hideKeyboard` and then READ BACK before the next
+# one is touched. Without that, taps land a row low: the "to" inputs of set 8 sit
+# directly above the value inputs of set 9, the soft keyboard scrolls the list
+# between the hierarchy snapshot and the tap, and a run once typed the weight
+# bound into set 9's reps field — silently changing the very numbers the
+# assertions below are built on.
+- tapOn:
+    id: "plan-set-8-rir-input"
+- eraseText
+- inputText: "1"
+- hideKeyboard
+
+- copyTextFrom:
+    id: "plan-set-8-rir-input"
+- assertTrue: ${maestro.copiedText.trim() === '1'}
+
+- tapOn:
+    id: "plan-set-8-rir-max-input"
+- inputText: "3"
+- hideKeyboard
+
+- copyTextFrom:
+    id: "plan-set-8-rir-max-input"
+- assertTrue: ${maestro.copiedText.trim() === '3'}
+
+- tapOn:
+    id: "plan-set-8-weight-max-input"
+- inputText: "210"
+- hideKeyboard
+
+- copyTextFrom:
+    id: "plan-set-8-weight-max-input"
+- assertTrue: ${maestro.copiedText.trim() === '210'}
+
+# The whole row once more, plus the untouched neighbour row: nothing may have
+# been typed anywhere else.
+- copyTextFrom:
+    id: "plan-set-8-reps-input"
+- assertTrue: ${maestro.copiedText.trim() === '6'}
+
+- copyTextFrom:
+    id: "plan-set-8-weight-input"
+- assertTrue: ${maestro.copiedText.trim() === '200'}
+
+- copyTextFrom:
+    id: "plan-set-9-reps-input"
+- assertTrue: ${maestro.copiedText.trim() === '8'}
+
+- copyTextFrom:
+    id: "plan-set-9-rir-input"
+- assertTrue: ${maestro.copiedText.trim() === '1'}
+
+- copyTextFrom:
+    id: "plan-set-9-weight-input"
+- assertTrue: ${maestro.copiedText.trim() === '180'}
+
+- hideKeyboard
+
+- tapOn: "Done"
+
+# ---- the planned set now reads as a range ----------------------------------
+- extendedWaitUntil:
+    visible:
+      id: "plan-read-exercise-section-3"
+    timeout: 20000
+
+- copyTextFrom:
+    id: "plan-set-8-rir-cell"
+- assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === 'RIR1-3'}
+
+- copyTextFrom:
+    id: "plan-set-8-weight-cell"
+- assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === '200-210kg'}
+
+- takeScreenshot: gh63-r3-01-planned-range-micro71
+
+# ---- suggest the NEXT training from it --------------------------------------
+# The drawer's micro stepper switches the micro while keeping the training slot,
+# and the hamburger toggles the drawer shut again. `back` is not an option here —
+# it leaves the plan entirely instead of closing the drawer.
+# The hamburger is a toggle, and a tap right after leaving full edit is
+# occasionally swallowed while the screen settles — tap until the drawer is
+# actually open, then assert it.
+- repeat:
+    times: 5
+    commands:
+      - runFlow:
+          when:
+            notVisible: "Trainings:"
+          commands:
+            - tapOn:
+                id: "drawer-menu-button"
+            - waitForAnimationToEnd:
+                timeout: 3000
+
+- extendedWaitUntil:
+    visible: "Trainings:"
+    timeout: 10000
+
+- tapOn: "Micro 72"
+
+- repeat:
+    times: 5
+    commands:
+      - runFlow:
+          when:
+            visible: "Trainings:"
+          commands:
+            - tapOn:
+                id: "drawer-menu-button"
+            - waitForAnimationToEnd:
+                timeout: 3000
+
+- extendedWaitUntil:
+    notVisible: "Trainings:"
+    timeout: 10000
+
+- assertVisible: "Micro 72"
+
+- tapOn:
+    id: "subtab-plan"
+
+- runFlow:
+    when:
+      notVisible: "Suggest based on last planned Training"
+    commands:
+      - tapOn:
+          id: "header-overflow-icon"
+      - extendedWaitUntil:
+          visible:
+            id: "overflow-discard"
+          timeout: 10000
+      - tapOn:
+          id: "overflow-discard"
+      # Discarding a STARTED training asks for confirmation first, discarding a
+      # merely PLANNED one does not — poll instead of assuming either.
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - repeat:
+          times: 5
+          commands:
+            - runFlow:
+                when:
+                  visible: "Delete Training"
+                commands:
+                  - tapOn: "Delete"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+      - extendedWaitUntil:
+          visible: "Suggest based on last planned Training"
+          timeout: 20000
+
+- tapOn: "Suggest based on last planned Training"
+
+- extendedWaitUntil:
+    visible:
+      id: "plan-read-exercise-section-3"
+    timeout: 30000
+
+# ---- THE assertions: both bounds were progressed ---------------------------
+# Reps carry no range and the progression does not touch reps at all.
+- copyTextFrom:
+    id: "plan-set-8-reps-cell"
+- assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === '6reps'}
+
+# RIR 1-3 with delta 1 → 0-2. Before the fix the lower bound dropped to 0 while
+# the upper one stayed at 3, so the span silently grew from 2 to 3.
+- copyTextFrom:
+    id: "plan-set-8-rir-cell"
+- assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === 'RIR0-2'}
+
+# 200-210 kg → 206-216 kg. Before the fix the upper bound stayed at 210, so the
+# range narrowed to 206-210 — and any plan whose new lower bound reached the old
+# upper one lost its range altogether, without a word to the user.
+- copyTextFrom:
+    id: "plan-set-8-weight-cell"
+- assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === '206-216kg'}
+
+# ---- counter-check: the set WITHOUT a range is suggested as it always was ---
+- copyTextFrom:
+    id: "plan-set-9-reps-cell"
+- assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === '8reps'}
+
+- copyTextFrom:
+    id: "plan-set-9-rir-cell"
+- assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === 'RIR0'}
+
+- copyTextFrom:
+    id: "plan-set-9-weight-cell"
+- assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === '185kg'}
+
+- takeScreenshot: gh63-r3-02-suggested-range-micro72

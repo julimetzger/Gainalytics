@@ -68,7 +68,9 @@ jest.mock('../../../../app/components/Workout/add/AddWorkoutSet', () => {
       <TouchableOpacity
         testID={workoutSet ? `submit-existing-set-${workoutSet.index}` : 'submit-new-set'}
         onPress={() => {
-          onSubmit(mockNewSetPayload);
+          // Mirrors AddWorkoutSet: an existing row submits with its own index,
+          // the new-set input submits without one.
+          onSubmit(workoutSet ? {...mockNewSetPayload, index: workoutSet.index} : mockNewSetPayload);
         }}
       >
         <Text>{workoutSet ? 'Submit Existing Set' : 'Submit New Set'}</Text>
@@ -111,7 +113,7 @@ jest.mock('react-native-paper', () => {
         <Text>{children}</Text>
       </TouchableOpacity>
     ),
-    Text: ({children}: {children: React.ReactNode}) => <Text>{children}</Text>,
+    Text: ({children, testID}: {children: React.ReactNode; testID?: string}) => <Text testID={testID}>{children}</Text>,
     useTheme: () => ({colors: {primary: '#000000', onPrimary: '#ffffff'}}),
   };
 });
@@ -392,5 +394,97 @@ describe('AddWorkout', () => {
     rerender(<AddWorkout exercise={exercise} onSubmit={onSubmit} trainingsId={3} date={date} suggest />);
 
     expect(getByTestId('button-Suggest-Workout')).toBeDisabled();
+  });
+
+  // GH-63 round 2 (PR #429 review): during a planned training the merged
+  // unfinished workout contains the planned-but-unlogged sets as pending rows.
+  // Counting them made the header announce a set the user has not reached yet
+  // ("Set 3" with 2 planned and 0 logged).
+  describe('nextSetIndex', () => {
+    const setNumberOf = (element: any) => element.props.children as string;
+
+    it('counts sets in play when the caller knows no better (unchanged behaviour)', () => {
+      mockedUseUnfinishedWorkout.mockReturnValue({
+        sets: [
+          {index: 1, reps: 4, rir: 1, weight: 90},
+          {index: 2, reps: 4, rir: 1, weight: 90},
+        ],
+        notes: '',
+        exerciseId: 7,
+        start: date,
+      });
+
+      const {getByTestId} = render(<AddWorkout exercise={exercise} onSubmit={jest.fn()} trainingsId={3} date={date} />);
+
+      expect(setNumberOf(getByTestId('add-workout-set-number'))).toEqual(' Set 3');
+    });
+
+    it('announces the set number the caller passed instead', () => {
+      mockedUseUnfinishedWorkout.mockReturnValue({
+        sets: [
+          {index: 1, reps: 4, rir: 1, weight: 90},
+          {index: 2, reps: 4, rir: 1, weight: 90},
+        ],
+        notes: '',
+        exerciseId: 7,
+        start: date,
+      });
+
+      const {getByTestId} = render(<AddWorkout exercise={exercise} onSubmit={jest.fn()} trainingsId={3} date={date} nextSetIndex={1} />);
+
+      expect(setNumberOf(getByTestId('add-workout-set-number'))).toEqual(' Set 1');
+    });
+
+    it('stamps the announced number on the set that is created, so the logged set IS the announced one', () => {
+      const unfinishedWorkout: Workout = {
+        sets: [
+          {index: 1, reps: 4, rir: 1, weight: 90},
+          {index: 2, reps: 4, rir: 1, weight: 90},
+        ],
+        notes: '',
+        exerciseId: 7,
+        trainingsId: 3,
+        start: date,
+      };
+      mockedUseUnfinishedWorkout.mockReturnValue(unfinishedWorkout);
+
+      const onSubmitSet = jest.fn();
+      const {getByTestId} = render(
+        <AddWorkout exercise={exercise} onSubmit={jest.fn()} onSubmitSet={onSubmitSet} trainingsId={3} date={date} nextSetIndex={1} />,
+      );
+
+      fireEvent.press(getByTestId('submit-new-set'));
+
+      // Without the stamp the reducer fallback would have produced index 3.
+      expect(mockAddWorkoutSpy).toHaveBeenCalledWith(
+        {
+          sets: [{...mockNewSetPayload, index: 1}],
+          notes: '',
+          exerciseId: 7,
+          trainingsId: 3,
+          start: date,
+        },
+        3,
+      );
+      expect(onSubmitSet).toHaveBeenCalledWith({...mockNewSetPayload, index: 1});
+    });
+
+    it('never overrides the index of an existing row that is submitted', () => {
+      const unfinishedWorkout: Workout = {
+        id: 99,
+        sets: [{index: 2, reps: 4, rir: 1, weight: 90}],
+        notes: '',
+        exerciseId: 7,
+        trainingsId: 3,
+        start: date,
+      };
+      mockedUseUnfinishedWorkout.mockReturnValue(unfinishedWorkout);
+
+      const {getByTestId} = render(<AddWorkout exercise={exercise} onSubmit={jest.fn()} trainingsId={3} date={date} nextSetIndex={5} />);
+
+      fireEvent.press(getByTestId('submit-existing-set-2'));
+
+      expect(mockAddOrUpdateSetSpy).toHaveBeenCalledWith({...mockNewSetPayload, index: 2}, unfinishedWorkout);
+    });
   });
 });
