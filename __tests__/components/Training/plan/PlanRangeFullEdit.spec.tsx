@@ -268,6 +268,47 @@ describe('PlanTab full edit — planning a range (GH-63)', () => {
     ]);
   });
 
+  it('keeps the upper bound being typed when the store echoes the previous field back', () => {
+    // Reproduces what the device does: leaving a field commits it, Redux echoes
+    // the new set back into this row, and the row must not re-derive its draft
+    // from that echo — the user is already typing the next bound. Planning a
+    // range means filling the lower and the upper input back to back, so this
+    // path silently dropped the upper bound whenever the lower one had just
+    // been edited (GH-63 round 3).
+    const props = buildFullEditProps();
+    mockPlannedSetsByWorkoutId = {101: {id: 101, exerciseId: 1, sets: [{index: 1, reps: 8, rir: 1, weight: 100}], notes: ''}};
+    const {getByTestId, rerender} = render(<PlanTab {...props} editPlanRequestId={0} />);
+    rerender(<PlanTab {...props} editPlanRequestId={1} />);
+
+    act(() => {
+      fireEvent.press(getByTestId('plan-exercise-ranges-toggle-1'));
+    });
+    act(() => {
+      fireEvent.changeText(getByTestId('plan-set-1-rir-input'), '2');
+      fireEvent(getByTestId('plan-set-1-rir-input'), 'blur');
+    });
+    act(() => {
+      fireEvent.changeText(getByTestId('plan-set-1-rir-max-input'), '4');
+      mockPlannedSetsByWorkoutId = {101: {id: 101, exerciseId: 1, sets: [{index: 1, reps: 8, rir: 2, weight: 100}], notes: ''}};
+      rerender(<PlanTab {...props} editPlanRequestId={1} />);
+    });
+    act(() => {
+      fireEvent(getByTestId('plan-set-1-rir-max-input'), 'blur');
+    });
+
+    expect({
+      stillShown: getByTestId('plan-set-1-rir-max-input').props.value,
+      stored: upsertActions()[upsertActions().length - 1],
+    }).toEqual({
+      stillShown: '4',
+      stored: {
+        type: 'ADD_OR_UPDATE_SET_IN_WORKOUT',
+        workoutId: 101,
+        set: {index: 1, reps: 8, rir: 2, weight: 100, rirMax: 4},
+      },
+    });
+  });
+
   it('refuses an upper bound below the lower bound and explains why', () => {
     const {getByTestId} = withSets([{index: 1, reps: 8, rir: 1, weight: 100}]);
 

@@ -13,7 +13,7 @@ import {hasAnyPlanRange} from '../../../utils/planRange';
 import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMax';
 import DashedAddButton from '../../shared/DashedAddButton';
 import {PendingPlanSet, PendingPlanSetByExerciseId, PlanDraftField, PlanField, PlanSetDraft} from './planTypes';
-import {buildWorkoutSetFromDraft, getPlanDraftRangeError, getPlanRangeError, getPlanSetDraft} from './planUtils';
+import {buildWorkoutSetFromDraft, getPlanDraftRangeError, getPlanRangeError, getPlanSetDraft, planSetsEqual} from './planUtils';
 
 interface PlanEditListProps {
   exercises: Exercise[];
@@ -347,7 +347,11 @@ const PlanEditExerciseSection = ({
   const data = useMemo<RowItem[]>(
     () =>
       sets.map((workoutSet) => ({
-        key: `${workoutSet.index}-${workoutSet.weight}-${workoutSet.reps}-${workoutSet.rir}`,
+        // Keyed by the set's identity only. A key that also carried the values
+        // remounted the whole row on every commit, so the row's draft was rebuilt
+        // from the store and anything typed into the next field since was lost —
+        // exactly the two-fields-in-a-row rhythm of planning a range (GH-63).
+        key: `plan-edit-set-${workoutSet.index}`,
         workoutSet,
       })),
     [sets],
@@ -581,8 +585,20 @@ const PlanEditSetRow = ({
   workoutSetRef.current = workoutSet;
   const onUpsertRef = useRef(onUpsert);
   onUpsertRef.current = onUpsert;
+  // The last set this row wrote to the store. The store echoes it back one
+  // render later — see the effect below.
+  const lastCommittedRef = useRef<WorkoutSet | null>(null);
 
   useEffect(() => {
+    // GH-63: leaving a field commits it, and the store echoes the new set back
+    // into this prop. Re-deriving the draft from that echo would throw away
+    // whatever the user has typed into the NEXT field in the meantime — the
+    // upper bound of a range is the field this bites, because planning one means
+    // filling the lower and the upper input back to back. Skip our own echo; a
+    // change from anywhere else (undo, reorder, another editor) still wins.
+    if (planSetsEqual(lastCommittedRef.current, workoutSet)) {
+      return;
+    }
     const next = getPlanSetDraft(workoutSet);
     setDraft(next);
     draftRef.current = next;
@@ -665,8 +681,9 @@ const PlanEditSetRow = ({
   }
 
   function commitDraft() {
-    const nextSet = buildWorkoutSetFromDraft(draftRef.current, workoutSet);
+    const nextSet = buildWorkoutSetFromDraft(draftRef.current, workoutSetRef.current);
     if (nextSet !== null) {
+      lastCommittedRef.current = nextSet;
       onUpsert(nextSet);
     }
   }

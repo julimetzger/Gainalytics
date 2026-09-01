@@ -15,6 +15,26 @@ export const PLAN_CELL_TEST_ID = (setIndex: number, field: PlanField) => `plan-s
 
 export const PLAN_INPUT_TEST_ID = (setIndex: number, field: PlanField) => `plan-set-${setIndex}-${field}-input`;
 
+/**
+ * Do two sets carry the same planned numbers? Compares the index and all six
+ * planned fields — the lower bounds and, since GH-63, their optional upper
+ * bounds. Ignores everything the plan editor never touches (date, records).
+ */
+export function planSetsEqual(left: WorkoutSet | undefined | null, right: WorkoutSet | undefined | null): boolean {
+  if (left === null || left === undefined || right === null || right === undefined) {
+    return false;
+  }
+  return (
+    left.index === right.index &&
+    left.reps === right.reps &&
+    left.rir === right.rir &&
+    left.weight === right.weight &&
+    left.repsMax === right.repsMax &&
+    left.rirMax === right.rirMax &&
+    left.weightMax === right.weightMax
+  );
+}
+
 export function cloneWorkoutSet(workoutSet: WorkoutSet): WorkoutSet {
   return {
     ...workoutSet,
