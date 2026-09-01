@@ -24,7 +24,7 @@ import NextTrainingCard from '../../components/Training/dashboard/NextTrainingCa
 import MicroRecordsCard from '../../components/Training/dashboard/MicroRecordsCard';
 import LastTrainingCard from '../../components/Training/dashboard/LastTrainingCard';
 import {Training} from '../../models/entities/Training';
-import {trainingsPlanDisplayName} from '../../utils/trainingsPlanName';
+import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainingHome'>;
 

@@ -14,7 +14,7 @@ import {exportTrainingsPlanToFile} from '../../../utils/exportTrainingsPlan';
 import Toast from 'react-native-toast-message';
 import {GlobalState} from '../../../redux/rootReducer';
 import EditDialogScaffold from '../../common/EditDialogScaffold';
-import {isValidTrainingsPlanName, trainingsPlanDisplayName} from '../../../utils/trainingsPlanName';
+import {isValidTrainingsPlanName, trainingsPlanDisplayName} from '../../../utils/trainings-plan-name';
 
 interface AddTrainingsPlanProperties {
   style?: any;

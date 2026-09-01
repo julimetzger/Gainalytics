@@ -112,7 +112,12 @@ appId: com.powerliftingworkoutplanner
     index: 0
 - eraseText
 - inputText: '63'
-- hideKeyboard
+# Deliberately no `hideKeyboard` here. On this device it lands as a BACK press that
+# the IME does not always swallow, and the two screens of this flow are one BACK
+# apart from leaving the app entirely — the run then continues against the launcher,
+# where every assertion about the input row fails for the wrong reason. Nothing below
+# needs the keyboard closed: the input row and the "Add" button both sit above it,
+# and submitting the set dismisses the keyboard from inside the app anyway.
 
 # The VALUE is really in the row — not merely "a weight field exists".
 # copyTextFrom is deliberately NOT used on these fields: on a Paper TextInput it

@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef} from 'react';
-import {Keyboard, LayoutChangeEvent, ScrollView, ScrollViewProps, TextInput} from 'react-native';
+import {GestureResponderEvent, Keyboard, LayoutChangeEvent, ScrollView, ScrollViewProps, TextInput} from 'react-native';
 
 /**
  * GH-428 (H2): a ScrollView that keeps the focused text input above the
@@ -42,6 +42,27 @@ const SETTLE_DELAY_MS = 260;
 /** Upper bound on re-checks per keyboard opening, so a chain can never run away. */
 const MAX_CORRECTIONS = 4;
 
+/**
+ * Interval between the checks that watch for a focus change after a tap.
+ *
+ * With the keyboard already open, tapping another field fires no keyboard event
+ * and no layout pass — the only signal is the touch itself, and native reports
+ * the new focus a moment later.
+ */
+const FOCUS_SWITCH_DELAY_MS = 120;
+
+/**
+ * How often to re-ask which input holds the focus after a tap, before giving up.
+ *
+ * A tapped cell does not simply move the focus: it MOUNTS its text input and lets
+ * `autoFocus` take the focus once the native view is attached to the window (see
+ * PlanQuickEditSetRow). On the audit device that lands a few hundred ms after the
+ * touch, and until then `currentlyFocusedInput()` still reports the previous input
+ * or none at all — a single early check sees "nothing changed" and does nothing.
+ * Eight attempts cover roughly a second and stop as soon as the focus moved.
+ */
+const FOCUS_SWITCH_ATTEMPTS = 8;
+
 interface KeyboardAwareScrollViewProps extends ScrollViewProps {
   children: React.ReactNode;
 }
@@ -55,7 +76,7 @@ interface MeasurableScrollView extends ScrollView {
   getInnerViewRef: () => object | null | undefined;
 }
 
-const KeyboardAwareScrollView = ({children, onLayout, ...scrollViewProps}: KeyboardAwareScrollViewProps) => {
+const KeyboardAwareScrollView = ({children, onLayout, onTouchStart, ...scrollViewProps}: KeyboardAwareScrollViewProps) => {
   const scrollRef = useRef<MeasurableScrollView>(null);
   /** Screen Y of the keyboard's top edge, or null while the keyboard is closed. */
   const keyboardTopRef = useRef<number | null>(null);
@@ -63,6 +84,12 @@ const KeyboardAwareScrollView = ({children, onLayout, ...scrollViewProps}: Keybo
   const correctionsLeftRef = useRef(0);
   /** Breaks the cycle between measuring and re-scheduling the next measurement. */
   const scheduleCorrectionRef = useRef<(delay: number) => void>(() => {});
+  /** The input the last correction was measured for — how a focus CHANGE is recognised. */
+  const alignedInputRef = useRef<object | null>(null);
+  const focusCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusAttemptsLeftRef = useRef(0);
+  /** Same self-reference trick as above, for the focus check re-arming itself. */
+  const scheduleFocusCheckRef = useRef<() => void>(() => {});
 
   const ensureFocusedInputVisible = useCallback(() => {
     const scrollView = scrollRef.current;
@@ -71,6 +98,9 @@ const KeyboardAwareScrollView = ({children, onLayout, ...scrollViewProps}: Keybo
     if (scrollView === null || focusedInput === null || focusedInput === undefined || keyboardTop === null) {
       return;
     }
+    // Recorded before the measurement, not after: this input is now the one the
+    // component is aligning for, whether or not it ends up having to move.
+    alignedInputRef.current = focusedInput;
     // The scroller's own screen box has to come from the native view; the
     // ScrollView wrapper does not expose measure methods itself.
     const scrollNode = scrollView.getNativeScrollRef();
@@ -152,7 +182,36 @@ const KeyboardAwareScrollView = ({children, onLayout, ...scrollViewProps}: Keybo
   );
   scheduleCorrectionRef.current = scheduleCorrection;
 
+  /**
+   * Watches for the focus moving to another input, and corrects for the new one.
+   * Re-arms itself until the focus changed or the attempts are used up, because the
+   * tapped cell mounts its input first and only then takes the focus.
+   */
+  const scheduleFocusCheck = useCallback(() => {
+    if (focusCheckRef.current !== null) {
+      clearTimeout(focusCheckRef.current);
+    }
+    focusCheckRef.current = setTimeout(() => {
+      focusCheckRef.current = null;
+      const focusedInput = TextInput.State.currentlyFocusedInput();
+      if (focusedInput !== null && focusedInput !== undefined && focusedInput !== alignedInputRef.current) {
+        correctionsLeftRef.current = MAX_CORRECTIONS;
+        scheduleCorrection(0);
+        return;
+      }
+      focusAttemptsLeftRef.current -= 1;
+      if (focusAttemptsLeftRef.current > 0) {
+        scheduleFocusCheckRef.current();
+      }
+    }, FOCUS_SWITCH_DELAY_MS);
+  }, [scheduleCorrection]);
+  scheduleFocusCheckRef.current = scheduleFocusCheck;
+
   useEffect(() => {
+    // `screenY` is available on every supported Android version: below API 30 RN
+    // derives the keyboard from the window's visible display frame, which is
+    // exactly what `adjustResize` (this app's softInputMode) shrinks — only
+    // `adjustNothing` would leave that frame untouched.
     const showSubscription = Keyboard.addListener('keyboardDidShow', (event) => {
       keyboardTopRef.current = event.endCoordinates.screenY;
       correctionsLeftRef.current = MAX_CORRECTIONS;
@@ -161,9 +220,15 @@ const KeyboardAwareScrollView = ({children, onLayout, ...scrollViewProps}: Keybo
     const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
       keyboardTopRef.current = null;
       correctionsLeftRef.current = 0;
+      alignedInputRef.current = null;
+      focusAttemptsLeftRef.current = 0;
       if (pendingCorrectionRef.current !== null) {
         clearTimeout(pendingCorrectionRef.current);
         pendingCorrectionRef.current = null;
+      }
+      if (focusCheckRef.current !== null) {
+        clearTimeout(focusCheckRef.current);
+        focusCheckRef.current = null;
       }
     });
     return () => {
@@ -172,6 +237,10 @@ const KeyboardAwareScrollView = ({children, onLayout, ...scrollViewProps}: Keybo
       if (pendingCorrectionRef.current !== null) {
         clearTimeout(pendingCorrectionRef.current);
         pendingCorrectionRef.current = null;
+      }
+      if (focusCheckRef.current !== null) {
+        clearTimeout(focusCheckRef.current);
+        focusCheckRef.current = null;
       }
     };
   }, [scheduleCorrection]);
@@ -185,8 +254,32 @@ const KeyboardAwareScrollView = ({children, onLayout, ...scrollViewProps}: Keybo
     }
   };
 
+  /**
+   * The second trigger, next to `keyboardDidShow` and the resize layout: moving
+   * the focus while the keyboard is ALREADY open — reps → weight, or a field in
+   * another exercise card. That fires no keyboard event and no layout pass, so
+   * without this the newly focused field stays behind the keyboard.
+   *
+   * A touch alone is not enough of a reason to scroll: dragging the list with the
+   * keyboard open must not snap back to the focused field. Hence the comparison
+   * against the input the last correction was measured for — only a real focus
+   * CHANGE triggers a new one.
+   *
+   * `onTouchStart` rather than the responder-capture hook: ScrollView installs its
+   * own `onStartShouldSetResponderCapture` and would drop a prop of that name,
+   * while it explicitly forwards `onTouchStart`.
+   */
+  const handleTouchStart = (event: GestureResponderEvent) => {
+    onTouchStart?.(event);
+    if (keyboardTopRef.current === null) {
+      return;
+    }
+    focusAttemptsLeftRef.current = FOCUS_SWITCH_ATTEMPTS;
+    scheduleFocusCheck();
+  };
+
   return (
-    <ScrollView {...scrollViewProps} ref={scrollRef} onLayout={handleLayout}>
+    <ScrollView {...scrollViewProps} ref={scrollRef} onLayout={handleLayout} onTouchStart={handleTouchStart}>
       {children}
     </ScrollView>
   );

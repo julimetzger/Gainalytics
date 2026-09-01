@@ -1,6 +1,6 @@
 import React from 'react';
 import {Keyboard, ScrollView, Text} from 'react-native';
-import {act, render} from '@testing-library/react-native';
+import {act, fireEvent, render} from '@testing-library/react-native';
 import KeyboardAwareScrollView from '../../../app/components/common/KeyboardAwareScrollView';
 
 /**
@@ -29,6 +29,21 @@ const fakeFocusedInput = {
   },
 };
 
+/**
+ * A second, independent input — needed for the "keyboard already open, user taps
+ * another field" case, where what matters is that the focused input CHANGED.
+ */
+let otherInputRect = {screenY: 0, height: 60, contentY: 0};
+
+const otherFakeFocusedInput = {
+  measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => {
+    callback(0, otherInputRect.screenY, 200, otherInputRect.height);
+  },
+  measureLayout: (_relativeTo: unknown, onSuccess: (x: number, y: number, w: number, h: number) => void) => {
+    onSuccess(0, otherInputRect.contentY, 200, otherInputRect.height);
+  },
+};
+
 let mockFocusedInput: typeof fakeFocusedInput | null = fakeFocusedInput;
 
 jest.mock('react-native/Libraries/Components/TextInput/TextInputState', () => ({
@@ -37,9 +52,11 @@ jest.mock('react-native/Libraries/Components/TextInput/TextInputState', () => ({
 
 const keyboardListeners: Record<string, ((event: any) => void)[]> = {};
 
+const SCROLLER_TEST_ID = 'keyboard-aware-scroller';
+
 const renderScroller = () => {
   const utils = render(
-    <KeyboardAwareScrollView>
+    <KeyboardAwareScrollView testID={SCROLLER_TEST_ID}>
       <Text>content</Text>
     </KeyboardAwareScrollView>,
   );
@@ -73,6 +90,21 @@ const emitKeyboard = (event: 'keyboardDidShow' | 'keyboardDidHide', screenY: num
 
 const openKeyboard = () => emitKeyboard('keyboardDidShow', KEYBOARD_TOP);
 
+/** Runs the timer chain the tap handler drives: focus checks, then the measurement. */
+const flushTimers = (cycles: number) => {
+  for (let cycle = 0; cycle < cycles; cycle += 1) {
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+  }
+};
+
+/** A tap inside the scroller, followed by the full focus-check window. */
+const tapInsideScroller = (getByTestId: (testID: string) => any) => {
+  fireEvent(getByTestId(SCROLLER_TEST_ID), 'touchStart', {nativeEvent: {}});
+  flushTimers(12);
+};
+
 describe('KeyboardAwareScrollView — GH-428 (H2)', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -87,6 +119,7 @@ describe('KeyboardAwareScrollView — GH-428 (H2)', () => {
     });
     mockFocusedInput = fakeFocusedInput;
     focusedInputRect = {screenY: 0, height: 60, contentY: 0};
+    otherInputRect = {screenY: 0, height: 60, contentY: 0};
   });
 
   afterEach(() => {
@@ -162,6 +195,93 @@ describe('KeyboardAwareScrollView — GH-428 (H2)', () => {
     openKeyboard();
 
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  /**
+   * PR #430 review, point 1: with the keyboard already open there is no
+   * keyboardDidShow and no layout pass. Tapping a second, partly covered field
+   * (reps → weight, or a field in another exercise card) has to lift that field
+   * too — and dragging the list must still not snap back to the focused one.
+   */
+  describe('focus change while the keyboard is already open', () => {
+    it('lifts a second field that is tapped while the keyboard stays open', () => {
+      // First field is visible, so opening the keyboard moves nothing.
+      focusedInputRect = {screenY: 300, height: 60, contentY: 300};
+      // The tapped one sits behind the keyboard at 1081..1141, content y 1581.
+      otherInputRect = {screenY: 1081, height: 60, contentY: 1581};
+      const {scrollTo, getByTestId} = renderScroller();
+
+      openKeyboard();
+      expect(scrollTo).not.toHaveBeenCalled();
+
+      mockFocusedInput = otherFakeFocusedInput;
+      tapInsideScroller(getByTestId);
+
+      // hidden below by 1141 - (930 - 48) = 259; current offset 1581 - 1081 = 500.
+      expect(scrollTo).toHaveBeenCalledWith({y: 759, animated: true});
+    });
+
+    it('waits for a focus that only arrives once the tapped cell mounted its input', () => {
+      focusedInputRect = {screenY: 300, height: 60, contentY: 300};
+      otherInputRect = {screenY: 1081, height: 60, contentY: 1581};
+      const {scrollTo, getByTestId} = renderScroller();
+
+      openKeyboard();
+
+      // The tapped cell replaces the read-only cell with a text input, so for a
+      // moment nothing is focused at all — the old input is already gone and the
+      // new one has not been attached to the window yet.
+      mockFocusedInput = null;
+      fireEvent(getByTestId(SCROLLER_TEST_ID), 'touchStart', {nativeEvent: {}});
+      flushTimers(3);
+      expect(scrollTo).not.toHaveBeenCalled();
+
+      mockFocusedInput = otherFakeFocusedInput;
+      flushTimers(3);
+
+      expect(scrollTo).toHaveBeenCalledWith({y: 759, animated: true});
+    });
+
+    it('gives up when no focus change follows the touch', () => {
+      focusedInputRect = {screenY: 300, height: 60, contentY: 300};
+      otherInputRect = {screenY: 1081, height: 60, contentY: 1581};
+      const {scrollTo, getByTestId} = renderScroller();
+
+      openKeyboard();
+
+      // Nothing is focused for the whole watch window — the checks must stop
+      // instead of waiting forever for a focus that is not coming.
+      mockFocusedInput = null;
+      tapInsideScroller(getByTestId);
+
+      mockFocusedInput = otherFakeFocusedInput;
+      flushTimers(4);
+
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+
+    it('does not move when a touch leaves the focus where it was', () => {
+      focusedInputRect = {screenY: 300, height: 60, contentY: 300};
+      const {scrollTo, getByTestId} = renderScroller();
+
+      openKeyboard();
+      // The user drags the list with the keyboard open until the focused field
+      // is off screen. Snapping back to it here would fight that deliberate scroll.
+      focusedInputRect = {screenY: 1081, height: 60, contentY: 1581};
+
+      tapInsideScroller(getByTestId);
+
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+
+    it('ignores a touch while the keyboard is closed', () => {
+      focusedInputRect = {screenY: 1081, height: 60, contentY: 1581};
+      const {scrollTo, getByTestId} = renderScroller();
+
+      tapInsideScroller(getByTestId);
+
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
   });
 
   it('does nothing after the keyboard closed again', () => {

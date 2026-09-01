@@ -3,6 +3,7 @@ import {Keyboard} from 'react-native';
 import {fireEvent, render} from '@testing-library/react-native';
 import AddWorkout from '../../../../app/components/Workout/add/AddWorkout';
 import {Exercise} from '../../../../app/models/entities/Exercise';
+import {Workout} from '../../../../app/models/entities/Workout';
 
 /**
  * GH-428 (H4): switching the exercise inside a running training used to leave the
@@ -89,21 +90,34 @@ jest.mock('react-native-paper', () => {
   };
 });
 
-const bench: Exercise = {id: 1, name: 'Bankdrücken'} as Exercise;
-const squat: Exercise = {id: 2, name: 'Squat'} as Exercise;
+const bench = {id: 1, name: 'Bankdrücken'} satisfies Exercise;
+const squat = {id: 2, name: 'Squat'} satisfies Exercise;
+
+/** The training date is fixed so the written set can be asserted as a whole object. */
+const WORKOUT_DATE = new Date('2026-03-01T10:00:00.000Z');
+const TRAININGS_ID = 5;
+
+/**
+ * The complete workout the audit's "Bankdrücken 8 × 60 kg" is expected to write.
+ * Asserted as a whole — a regression in `rir`, `index`, `trainingsId`, `notes` or
+ * the set's timestamp has to fail the test, not slip past a partial match.
+ */
+const benchWorkoutOf8x60 = {
+  sets: [{index: 1, rir: 0, reps: 8, weight: 60, date: WORKOUT_DATE}],
+  notes: '',
+  exerciseId: bench.id,
+  trainingsId: TRAININGS_ID,
+  start: WORKOUT_DATE,
+} satisfies Workout;
 
 const renderFor = (exercise: Exercise) => {
   const onSubmitSet = jest.fn();
-  const utils = render(
-    <AddWorkout exercise={exercise} onSubmit={jest.fn()} date={new Date('2026-03-01T10:00:00.000Z')} trainingsId={5} onSubmitSet={onSubmitSet} />,
-  );
+  const utils = render(<AddWorkout exercise={exercise} onSubmit={jest.fn()} date={WORKOUT_DATE} trainingsId={TRAININGS_ID} onSubmitSet={onSubmitSet} />);
   return {...utils, onSubmitSet};
 };
 
 const rerenderFor = (rerender: (ui: React.ReactElement) => void, exercise: Exercise, onSubmitSet: jest.Mock) => {
-  rerender(
-    <AddWorkout exercise={exercise} onSubmit={jest.fn()} date={new Date('2026-03-01T10:00:00.000Z')} trainingsId={5} onSubmitSet={onSubmitSet} />,
-  );
+  rerender(<AddWorkout exercise={exercise} onSubmit={jest.fn()} date={WORKOUT_DATE} trainingsId={TRAININGS_ID} onSubmitSet={onSubmitSet} />);
 };
 
 describe('AddWorkout — GH-428 (H4) exercise switch clears the input row', () => {
@@ -121,10 +135,7 @@ describe('AddWorkout — GH-428 (H4) exercise switch clears the input row', () =
     fireEvent.changeText(getByTestId('add-workout-set-weight-input'), '60');
     fireEvent.press(getByTestId('add-workout-set-submit-button'));
 
-    expect(mockAddWorkoutSpy).toHaveBeenCalledWith(
-      expect.objectContaining({exerciseId: 1, sets: [expect.objectContaining({reps: 8, weight: 60})]}),
-      5,
-    );
+    expect(mockAddWorkoutSpy).toHaveBeenCalledWith(benchWorkoutOf8x60, TRAININGS_ID);
 
     rerenderFor(rerender, squat, onSubmitSet);
 
