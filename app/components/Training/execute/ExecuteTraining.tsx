@@ -14,6 +14,7 @@ import ExerciseHistory from '../../exercise/show/ExerciseHistory';
 
 import DatePicker from '../../picker/date/DatePicker';
 import Estimated1RmCard from './Estimated1RmCard';
+import PlannedSetTarget from './PlannedSetTarget';
 import ExerciseRecordsModal from './ExerciseRecordsModal';
 import {TrainingsState} from '../../../models/TrainingsState';
 import RestTimerCard from './RestTimerCard';
@@ -162,6 +163,9 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
           <DatePicker date={date} setDate={setDate} />
         </View>
       )}
+      {/* GH-63: the planned set as a readable target, ranges included. Display
+          only — the actual set input below stays untouched. */}
+      <PlannedSetTarget plannedWorkout={plannedWorkout} nextSetIndex={(doneWorkout?.sets?.length ?? 0) + 1} />
       <AddWorkout
         workout={doneWorkout?.end ? doneWorkout : undefined}
         allowRefinalizeWhenDone={editMode}

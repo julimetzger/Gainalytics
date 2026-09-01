@@ -3,14 +3,16 @@ import {Pressable, StyleSheet, TextInput as RNTextInput, View} from 'react-nativ
 import {Text, useTheme} from 'react-native-paper';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {withAlpha} from '../../../utils/colorUtils';
+import {formatPlanFieldValue, formatPlanNumber, getPlanRangeMax} from '../../../utils/planRange';
 import {PlanField} from './planTypes';
-import {formatPlanNumber, PLAN_CELL_TEST_ID, PLAN_INPUT_TEST_ID} from './planUtils';
+import {PLAN_CELL_TEST_ID, PLAN_INPUT_TEST_ID} from './planUtils';
 
 interface PlanQuickEditSetRowProps {
   workoutSet: WorkoutSet;
   activeField: PlanField;
   draftValue: string;
   invalid: boolean;
+  errorMessage?: string;
   onCellPress: (field: PlanField) => void;
   onChangeText: (value: string) => void;
   onSubmitEditing: () => void;
@@ -22,6 +24,7 @@ const PlanQuickEditSetRow = ({
   activeField,
   draftValue,
   invalid,
+  errorMessage,
   onCellPress,
   onChangeText,
   onSubmitEditing,
@@ -30,23 +33,38 @@ const PlanQuickEditSetRow = ({
   const theme = useTheme();
 
   return (
-    <Pressable onLongPress={onRowLongPress} style={styles.row}>
-      <Text style={[styles.setIndex, {color: withAlpha(theme.colors.onSurfaceVariant, 0.7)}]}>{workoutSet.index}</Text>
-      {renderCell('reps', formatPlanNumber(workoutSet.reps), 'reps')}
-      <Text style={[styles.dot, {color: theme.colors.onSurfaceVariant}]}>·</Text>
-      {renderCell('rir', formatPlanNumber(workoutSet.rir), 'RIR')}
-      {renderCell('weight', formatPlanNumber(workoutSet.weight), 'kg', true)}
-    </Pressable>
+    <View>
+      <Pressable onLongPress={onRowLongPress} style={styles.row}>
+        <Text style={[styles.setIndex, {color: withAlpha(theme.colors.onSurfaceVariant, 0.7)}]}>{workoutSet.index}</Text>
+        {renderCell('reps', 'reps')}
+        <Text style={[styles.dot, {color: theme.colors.onSurfaceVariant}]}>·</Text>
+        {renderCell('rir', 'RIR')}
+        {renderCell('weight', 'kg', true)}
+      </Pressable>
+      {/* GH-63: the red outline alone does not say why a value was refused —
+          e.g. typing 14 into the lower bound of an 8-12 rep range. */}
+      {invalid && errorMessage !== undefined && (
+        <Text testID={`plan-set-${workoutSet.index}-quick-edit-error`} style={[styles.error, {color: theme.colors.error}]}>
+          {errorMessage}
+        </Text>
+      )}
+    </View>
   );
 
-  function renderCell(field: PlanField, fallbackValue: string, accessoryLabel: string, alignRight = false) {
+  function renderCell(field: PlanField, accessoryLabel: string, alignRight = false) {
     const selected = field === activeField;
+    // GH-63: while the lower bound of a ranged field is edited the upper bound
+    // stays visible next to the input, so the range never disappears mid-edit.
+    const rangeMax = getPlanRangeMax(workoutSet, field);
+    const rangeSuffix = rangeMax === undefined ? null : (
+      <Text style={[styles.value, {color: theme.colors.onSurfaceVariant}]}>{`-${formatPlanNumber(rangeMax)}`}</Text>
+    );
 
     if (!selected) {
       return (
         <Pressable testID={PLAN_CELL_TEST_ID(workoutSet.index ?? 0, field)} onPress={() => onCellPress(field)} style={[styles.inlineCell, alignRight && styles.weightCell]}>
           {field === 'rir' && <Text style={[styles.unit, {color: theme.colors.onSurfaceVariant}]}>RIR</Text>}
-          <Text style={[styles.value, {color: theme.colors.onSurface}]}>{fallbackValue}</Text>
+          <Text style={[styles.value, {color: theme.colors.onSurface}]}>{formatPlanFieldValue(workoutSet, field)}</Text>
           {field !== 'rir' && <Text style={[styles.unit, {color: theme.colors.onSurfaceVariant}]}>{accessoryLabel}</Text>}
         </Pressable>
       );
@@ -86,6 +104,7 @@ const PlanQuickEditSetRow = ({
           keyboardType="numeric"
           selectionColor={theme.colors.primary}
         />
+        {rangeSuffix}
         {field !== 'rir' && <Text style={[styles.unit, {color: theme.colors.onSurfaceVariant}]}>{accessoryLabel}</Text>}
       </View>
     );
@@ -144,6 +163,11 @@ const styles = StyleSheet.create({
   },
   weightCell: {
     marginLeft: 'auto',
+  },
+  error: {
+    paddingLeft: 28,
+    paddingBottom: 6,
+    fontSize: 12,
   },
 });
 

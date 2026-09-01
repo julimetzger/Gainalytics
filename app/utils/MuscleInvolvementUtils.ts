@@ -1,6 +1,7 @@
 import {Muscles} from '../models/Muscles';
 import {Exercise} from '../models/entities/Exercise';
 import {Workout} from '../models/entities/Workout';
+import {evaluationReps, evaluationWeight} from './planRange';
 
 export type MuscleMapMetric = 'sets' | 'volume';
 export type MuscleMapCompare =
@@ -61,9 +62,10 @@ export const accumulateForExercise = (
     if (metric === 'sets') {
       contribution = workout.sets.length * factor;
     } else {
-      // tonnes: reps * weight_kg / 1000, weighted by muscle factor
+      // tonnes: reps * weight_kg / 1000, weighted by muscle factor.
+      // GH-63: a planned range counts with its lower bound (see planRange).
       for (const set of workout.sets) {
-        contribution += (set.reps * set.weight * factor) / 1000;
+        contribution += (evaluationReps(set) * evaluationWeight(set) * factor) / 1000;
       }
     }
     acc.set(pair.muscle, (acc.get(pair.muscle) ?? 0) + contribution);

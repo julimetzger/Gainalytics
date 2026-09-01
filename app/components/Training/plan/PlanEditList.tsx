@@ -3,16 +3,17 @@ import {Animated as RNAnimated, Pressable, StyleSheet, View} from 'react-native'
 import {useNestableScrollContainerContext} from 'react-native-draggable-flatlist';
 import {Gesture, GestureDetector} from 'react-native-gesture-handler';
 import type {PanGesture} from 'react-native-gesture-handler';
-import {Chip, Icon, IconButton, Menu, Text, TextInput, ToggleButton, useTheme} from 'react-native-paper';
+import {Chip, HelperText, Icon, IconButton, Menu, Text, TextInput, ToggleButton, useTheme} from 'react-native-paper';
 import {Exercise} from '../../../models/entities/Exercise';
 import {Workout} from '../../../models/entities/Workout';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {withAlpha} from '../../../utils/colorUtils';
 import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
+import {hasAnyPlanRange} from '../../../utils/planRange';
 import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMax';
 import DashedAddButton from '../../shared/DashedAddButton';
-import {PendingPlanSet, PendingPlanSetByExerciseId, PlanField} from './planTypes';
-import {buildWorkoutSetFromDraft, getPlanSetDraft} from './planUtils';
+import {PendingPlanSet, PendingPlanSetByExerciseId, PlanDraftField, PlanField, PlanSetDraft} from './planTypes';
+import {buildWorkoutSetFromDraft, getPlanDraftRangeError, getPlanRangeError, getPlanSetDraft} from './planUtils';
 
 interface PlanEditListProps {
   exercises: Exercise[];
@@ -22,7 +23,7 @@ interface PlanEditListProps {
   commitRowDraftsOnUnmountRef: React.MutableRefObject<boolean>;
   onSelectExercise: (exercise: Exercise) => void;
   onAddSet: (exerciseId: number) => void;
-  onPendingSetChange: (exerciseId: number, field: PlanField, value: string) => void;
+  onPendingSetChange: (exerciseId: number, field: PlanDraftField, value: string) => void;
   onPendingSetDelete: (exerciseId: number) => void;
   onDeleteSet: (exerciseId: number, workoutSet: WorkoutSet) => void;
   onUpsertSet: (exerciseId: number, workoutSet: WorkoutSet) => void;
@@ -42,6 +43,76 @@ type SectionItem = {
 };
 
 const sortSets = (sets: WorkoutSet[]) => [...sets].sort((left, right) => (left.index ?? 0) - (right.index ?? 0));
+
+// GH-63: a pending (not yet saved) row carries its range in the draft strings.
+const hasPendingRange = (draft: PlanSetDraft) =>
+  draft.repsMax.trim().length > 0 || draft.rirMax.trim().length > 0 || draft.weightMax.trim().length > 0;
+
+interface PlanFieldColumnProps {
+  field: PlanField;
+  label: string;
+  testIDPrefix: string;
+  value: string;
+  maxValue: string;
+  showRange: boolean;
+  invalid: boolean;
+  rangeInvalid: boolean;
+  textColor?: string;
+  outlineColor?: string;
+  onChangeValue: (value: string) => void;
+  onChangeMaxValue: (value: string) => void;
+  onBlur?: () => void;
+}
+
+// GH-63: one planned field. Without a range this renders exactly the single
+// input the row always had; with a range a second "to" input appears directly
+// underneath, so the two bounds stay visually attached to their field.
+const PlanFieldColumn = ({
+  field,
+  label,
+  testIDPrefix,
+  value,
+  maxValue,
+  showRange,
+  invalid,
+  rangeInvalid,
+  textColor,
+  outlineColor,
+  onChangeValue,
+  onChangeMaxValue,
+  onBlur,
+}: PlanFieldColumnProps) => (
+  <View style={styles.fieldColumn}>
+    <TextInput
+      mode="outlined"
+      dense
+      keyboardType="numeric"
+      testID={`${testIDPrefix}-${field}-input`}
+      label={label}
+      value={value}
+      error={invalid}
+      onChangeText={onChangeValue}
+      onBlur={onBlur}
+      textColor={textColor}
+      outlineColor={outlineColor}
+    />
+    {showRange && (
+      <TextInput
+        mode="outlined"
+        dense
+        keyboardType="numeric"
+        testID={`${testIDPrefix}-${field}-max-input`}
+        label="to"
+        placeholder="—"
+        value={maxValue}
+        error={rangeInvalid}
+        style={styles.maxInput}
+        onChangeText={onChangeMaxValue}
+        onBlur={onBlur}
+      />
+    )}
+  </View>
+);
 
 // GH-324: given the drop displacement of a dragged section, find the index it
 // should land on. Walks neighbouring section heights until less than half of
@@ -241,7 +312,7 @@ interface SectionProps {
   dragGesture: PanGesture;
   commitRowDraftsOnUnmountRef: React.MutableRefObject<boolean>;
   onAddSet: () => void;
-  onPendingSetChange: (field: PlanField, value: string) => void;
+  onPendingSetChange: (field: PlanDraftField, value: string) => void;
   onPendingSetDelete: () => void;
   onDeleteSet: (workoutSet: WorkoutSet) => void;
   onUpsertSet: (workoutSet: WorkoutSet) => void;
@@ -281,6 +352,14 @@ const PlanEditExerciseSection = ({
       })),
     [sets],
   );
+
+  // GH-63: the second value of each field ("8 to 12 reps") is opt-in per
+  // exercise so a plan without ranges keeps the exact row it always had. The
+  // extra inputs are forced open whenever a set already carries a range, so an
+  // existing range is never hidden behind a collapsed toggle.
+  const [rangesRequested, setRangesRequested] = useState(false);
+  const someSetHasRange = sets.some(hasAnyPlanRange);
+  const showRanges = rangesRequested || someSetHasRange;
 
   const visibleCount = sets.length + (pendingSet ? 1 : 0);
 
@@ -352,6 +431,21 @@ const PlanEditExerciseSection = ({
           <Chip compact style={styles.chip}>
             {`${visibleCount} ${visibleCount === 1 ? 'set' : 'sets'}`}
           </Chip>
+          <ToggleButton
+            testID={`plan-exercise-ranges-toggle-${exercise.id}`}
+            accessibilityLabel="Plan a range instead of a fixed value"
+            icon={() => (
+              <Icon
+                source="arrow-expand-horizontal"
+                size={16}
+                color={showRanges ? theme.colors.primary : theme.colors.onSurfaceVariant}
+              />
+            )}
+            status={showRanges ? 'checked' : 'unchecked'}
+            onPress={() => setRangesRequested((previous) => !previous)}
+            style={styles.rangeToggle}
+            size={28}
+          />
         </View>
         <Menu
           visible={menuVisible}
@@ -392,6 +486,7 @@ const PlanEditExerciseSection = ({
             <PlanEditSetRow
               workoutSet={item.workoutSet}
               oneRepMax={oneRepMax > 0 ? oneRepMax : undefined}
+              showRanges={showRanges}
               onDelete={() => onDeleteSet(item.workoutSet)}
               dragGesture={rowDragGesture}
               commitRowDraftsOnUnmountRef={commitRowDraftsOnUnmountRef}
@@ -409,6 +504,7 @@ const PlanEditExerciseSection = ({
           key={pendingSet.index}
           pendingSet={pendingSet}
           oneRepMax={oneRepMax > 0 ? oneRepMax : undefined}
+          showRanges={showRanges || hasPendingRange(pendingSet)}
           onChange={onPendingSetChange}
           onDelete={onPendingSetDelete}
         />
@@ -456,6 +552,7 @@ const OneRmToggle = ({oneRepMax, disabled1Rm, onToggle, testID}: OneRmToggleProp
 interface PlanEditSetRowProps {
   workoutSet: WorkoutSet;
   oneRepMax?: number;
+  showRanges: boolean;
   onDelete: () => void;
   dragGesture: PanGesture;
   commitRowDraftsOnUnmountRef: React.MutableRefObject<boolean>;
@@ -466,6 +563,7 @@ interface PlanEditSetRowProps {
 const PlanEditSetRow = ({
   workoutSet,
   oneRepMax,
+  showRanges,
   onDelete,
   dragGesture,
   commitRowDraftsOnUnmountRef,
@@ -488,7 +586,15 @@ const PlanEditSetRow = ({
     const next = getPlanSetDraft(workoutSet);
     setDraft(next);
     draftRef.current = next;
-  }, [workoutSet.index, workoutSet.reps, workoutSet.rir, workoutSet.weight]);
+  }, [
+    workoutSet.index,
+    workoutSet.reps,
+    workoutSet.rir,
+    workoutSet.weight,
+    workoutSet.repsMax,
+    workoutSet.rirMax,
+    workoutSet.weightMax,
+  ]);
 
   // GH-324: when the user leaves full edit via Done/back while an input is
   // still focused, the row unmounts without blur. Only that full-edit exit
@@ -501,14 +607,22 @@ const PlanEditSetRow = ({
       }
       const current = workoutSetRef.current;
       const built = buildWorkoutSetFromDraft(draftRef.current, current);
-      if (built !== null && (built.reps !== current.reps || built.rir !== current.rir || built.weight !== current.weight)) {
+      if (
+        built !== null &&
+        (built.reps !== current.reps ||
+          built.rir !== current.rir ||
+          built.weight !== current.weight ||
+          built.repsMax !== current.repsMax ||
+          built.rirMax !== current.rirMax ||
+          built.weightMax !== current.weightMax)
+      ) {
         onUpsertRef.current(built);
       }
     },
     [commitRowDraftsOnUnmountRef],
   );
 
-  function updateField(field: PlanField, value: string) {
+  function updateField(field: PlanDraftField, value: string) {
     let nextDraft = {
       ...draftRef.current,
       [field]: value.replace(',', '.'),
@@ -518,7 +632,7 @@ const PlanEditSetRow = ({
       if (lastSuggestedWeightRef.current !== null && nextDraft.weight !== lastSuggestedWeightRef.current) {
         setDisable1RMWeightCalculation(true);
       }
-    } else if (oneRepMax !== undefined && !disable1RMWeightCalculation) {
+    } else if ((field === 'reps' || field === 'rir') && oneRepMax !== undefined && !disable1RMWeightCalculation) {
       const repsNum = Number.parseFloat(nextDraft.reps);
       const rirNum = Number.parseFloat(nextDraft.rir);
       if (Number.isFinite(repsNum) && Number.isFinite(rirNum) && repsNum > 0) {
@@ -561,59 +675,77 @@ const PlanEditSetRow = ({
   const showHighlight = !disable1RMWeightCalculation && oneRepMax !== undefined && weightIsStillSuggested;
   const highlightColor = showHighlight ? theme.colors.primary : undefined;
 
+  const testIDPrefix = `plan-set-${workoutSet.index}`;
+  const showRange = showRanges || hasAnyPlanRange(workoutSet) || hasPendingRange(draft);
+  const rangeError = getPlanDraftRangeError(draft);
+  // Unchanged pre-GH-63 semantics: the three value inputs flag an invalid fixed
+  // value. A broken range is reported by its own "to" input plus the message
+  // below the row, so it never turns the untouched value inputs red.
+  const valueInvalid = buildWorkoutSetFromDraft({...draft, repsMax: '', rirMax: '', weightMax: ''}, workoutSet) === null;
+
   return (
-    <View style={[styles.row, active && {backgroundColor: theme.colors.secondaryContainer}]}>
-      <GestureDetector gesture={dragGesture}>
-        <View testID={`plan-set-${workoutSet.index}-drag`} style={styles.dragHandle} hitSlop={8}>
-          <Icon source="drag-horizontal-variant" size={18} color={withAlpha(theme.colors.onSurfaceVariant, 0.6)} />
-        </View>
-      </GestureDetector>
-      <Text style={[styles.setIndex, {color: withAlpha(theme.colors.onSurfaceVariant, 0.7)}]}>{workoutSet.index}</Text>
-      <TextInput
-        mode="outlined"
-        dense
-        keyboardType="numeric"
-        testID={`plan-set-${workoutSet.index}-reps-input`}
-        label="Reps"
-        value={draft.reps}
-        error={draft.reps.length > 0 && buildWorkoutSetFromDraft({...draft, reps: draft.reps}, workoutSet) === null}
-        style={styles.input}
-        onChangeText={(value) => updateField('reps', value)}
-        onBlur={commitDraft}
-      />
-      <TextInput
-        mode="outlined"
-        dense
-        keyboardType="numeric"
-        testID={`plan-set-${workoutSet.index}-rir-input`}
-        label="RIR"
-        value={draft.rir}
-        error={draft.rir.length > 0 && buildWorkoutSetFromDraft({...draft, rir: draft.rir}, workoutSet) === null}
-        style={styles.input}
-        onChangeText={(value) => updateField('rir', value)}
-        onBlur={commitDraft}
-      />
-      <TextInput
-        mode="outlined"
-        dense
-        keyboardType="numeric"
-        testID={`plan-set-${workoutSet.index}-weight-input`}
-        label="Weight"
-        value={draft.weight}
-        error={draft.weight.length > 0 && buildWorkoutSetFromDraft({...draft, weight: draft.weight}, workoutSet) === null}
-        style={styles.input}
-        textColor={highlightColor}
-        outlineColor={highlightColor}
-        onChangeText={(value) => updateField('weight', value)}
-        onBlur={commitDraft}
-      />
-      <OneRmToggle
-        testID={`plan-set-${workoutSet.index}-1rm-toggle`}
-        oneRepMax={oneRepMax}
-        disabled1Rm={disable1RMWeightCalculation}
-        onToggle={handleToggle1RM}
-      />
-      <IconButton testID={`plan-set-${workoutSet.index}-delete`} icon="delete-outline" iconColor={theme.colors.error} onPress={onDelete} />
+    <View>
+      <View style={[styles.row, active && {backgroundColor: theme.colors.secondaryContainer}]}>
+        <GestureDetector gesture={dragGesture}>
+          <View testID={`${testIDPrefix}-drag`} style={styles.dragHandle} hitSlop={8}>
+            <Icon source="drag-horizontal-variant" size={18} color={withAlpha(theme.colors.onSurfaceVariant, 0.6)} />
+          </View>
+        </GestureDetector>
+        <Text style={[styles.setIndex, {color: withAlpha(theme.colors.onSurfaceVariant, 0.7)}]}>{workoutSet.index}</Text>
+        <PlanFieldColumn
+          field="reps"
+          label="Reps"
+          testIDPrefix={testIDPrefix}
+          value={draft.reps}
+          maxValue={draft.repsMax}
+          showRange={showRange}
+          invalid={draft.reps.length > 0 && valueInvalid}
+          rangeInvalid={getPlanRangeError('reps', draft.reps, draft.repsMax) !== undefined}
+          onChangeValue={(value) => updateField('reps', value)}
+          onChangeMaxValue={(value) => updateField('repsMax', value)}
+          onBlur={commitDraft}
+        />
+        <PlanFieldColumn
+          field="rir"
+          label="RIR"
+          testIDPrefix={testIDPrefix}
+          value={draft.rir}
+          maxValue={draft.rirMax}
+          showRange={showRange}
+          invalid={draft.rir.length > 0 && valueInvalid}
+          rangeInvalid={getPlanRangeError('rir', draft.rir, draft.rirMax) !== undefined}
+          onChangeValue={(value) => updateField('rir', value)}
+          onChangeMaxValue={(value) => updateField('rirMax', value)}
+          onBlur={commitDraft}
+        />
+        <PlanFieldColumn
+          field="weight"
+          label="Weight"
+          testIDPrefix={testIDPrefix}
+          value={draft.weight}
+          maxValue={draft.weightMax}
+          showRange={showRange}
+          invalid={draft.weight.length > 0 && valueInvalid}
+          rangeInvalid={getPlanRangeError('weight', draft.weight, draft.weightMax) !== undefined}
+          textColor={highlightColor}
+          outlineColor={highlightColor}
+          onChangeValue={(value) => updateField('weight', value)}
+          onChangeMaxValue={(value) => updateField('weightMax', value)}
+          onBlur={commitDraft}
+        />
+        <OneRmToggle
+          testID={`${testIDPrefix}-1rm-toggle`}
+          oneRepMax={oneRepMax}
+          disabled1Rm={disable1RMWeightCalculation}
+          onToggle={handleToggle1RM}
+        />
+        <IconButton testID={`${testIDPrefix}-delete`} icon="delete-outline" iconColor={theme.colors.error} onPress={onDelete} />
+      </View>
+      {rangeError !== undefined && (
+        <HelperText type="error" visible testID={`${testIDPrefix}-range-error`} style={styles.rangeError}>
+          {rangeError}
+        </HelperText>
+      )}
     </View>
   );
 };
@@ -621,7 +753,8 @@ const PlanEditSetRow = ({
 interface PendingPlanEditSetRowProps {
   pendingSet: PendingPlanSet;
   oneRepMax?: number;
-  onChange: (field: PlanField, value: string) => void;
+  showRanges: boolean;
+  onChange: (field: PlanDraftField, value: string) => void;
   onDelete: () => void;
 }
 
@@ -630,7 +763,7 @@ interface PendingPlanEditSetRowProps {
 // stays pending until the user leaves the edit flow ("Add set" again or Done),
 // so typing never converts the row under the user's finger. The 1RM toggle is
 // always rendered (disabled when the exercise has no recorded 1RM).
-const PendingPlanEditSetRow = ({pendingSet, oneRepMax, onChange, onDelete}: PendingPlanEditSetRowProps) => {
+const PendingPlanEditSetRow = ({pendingSet, oneRepMax, showRanges, onChange, onDelete}: PendingPlanEditSetRowProps) => {
   const theme = useTheme();
   // GH-406: a row prefilled from the previous set carries a weight the user
   // planned deliberately — the same reasoning that makes saved rows default to
@@ -696,51 +829,67 @@ const PendingPlanEditSetRow = ({pendingSet, oneRepMax, onChange, onDelete}: Pend
   const showHighlight = !disable1RMWeightCalculation && oneRepMax !== undefined && weightIsStillSuggested;
   const highlightColor = showHighlight ? theme.colors.primary : undefined;
 
+  const showRange = showRanges || hasPendingRange(pendingSet);
+  const rangeError = getPlanDraftRangeError(pendingSet);
+
   return (
-    <View style={[styles.row, {backgroundColor: withAlpha(theme.colors.primary, 0.04)}]}>
-      <View style={styles.dragHandle}>
-        <Icon source="drag-horizontal-variant" size={18} color={withAlpha(theme.colors.onSurfaceVariant, 0.6)} />
+    <View>
+      <View style={[styles.row, {backgroundColor: withAlpha(theme.colors.primary, 0.04)}]}>
+        <View style={styles.dragHandle}>
+          <Icon source="drag-horizontal-variant" size={18} color={withAlpha(theme.colors.onSurfaceVariant, 0.6)} />
+        </View>
+        <Text style={[styles.setIndex, {color: withAlpha(theme.colors.onSurfaceVariant, 0.7)}]}>{pendingSet.index}</Text>
+        <PlanFieldColumn
+          field="reps"
+          label="Reps"
+          testIDPrefix="plan-pending-set"
+          value={pendingSet.reps}
+          maxValue={pendingSet.repsMax}
+          showRange={showRange}
+          invalid={false}
+          rangeInvalid={getPlanRangeError('reps', pendingSet.reps, pendingSet.repsMax) !== undefined}
+          onChangeValue={handleRepsChange}
+          onChangeMaxValue={(value) => onChange('repsMax', value.replace(',', '.'))}
+        />
+        <PlanFieldColumn
+          field="rir"
+          label="RIR"
+          testIDPrefix="plan-pending-set"
+          value={pendingSet.rir}
+          maxValue={pendingSet.rirMax}
+          showRange={showRange}
+          invalid={false}
+          rangeInvalid={getPlanRangeError('rir', pendingSet.rir, pendingSet.rirMax) !== undefined}
+          onChangeValue={handleRirChange}
+          onChangeMaxValue={(value) => onChange('rirMax', value.replace(',', '.'))}
+        />
+        <PlanFieldColumn
+          field="weight"
+          label="Weight"
+          testIDPrefix="plan-pending-set"
+          value={pendingSet.weight}
+          maxValue={pendingSet.weightMax}
+          showRange={showRange}
+          invalid={false}
+          rangeInvalid={getPlanRangeError('weight', pendingSet.weight, pendingSet.weightMax) !== undefined}
+          textColor={highlightColor}
+          outlineColor={highlightColor}
+          onChangeValue={handleWeightChange}
+          onChangeMaxValue={(value) => onChange('weightMax', value.replace(',', '.'))}
+        />
+        <OneRmToggle
+          testID="plan-pending-set-1rm-toggle"
+          oneRepMax={oneRepMax}
+          disabled1Rm={disable1RMWeightCalculation}
+          onToggle={handleToggle1RM}
+        />
+        <IconButton testID="plan-pending-set-delete" icon="delete-outline" iconColor={theme.colors.error} onPress={onDelete} />
       </View>
-      <Text style={[styles.setIndex, {color: withAlpha(theme.colors.onSurfaceVariant, 0.7)}]}>{pendingSet.index}</Text>
-      <TextInput
-        testID="plan-pending-set-reps-input"
-        mode="outlined"
-        dense
-        keyboardType="numeric"
-        label="Reps"
-        value={pendingSet.reps}
-        style={styles.input}
-        onChangeText={handleRepsChange}
-      />
-      <TextInput
-        testID="plan-pending-set-rir-input"
-        mode="outlined"
-        dense
-        keyboardType="numeric"
-        label="RIR"
-        value={pendingSet.rir}
-        style={styles.input}
-        onChangeText={handleRirChange}
-      />
-      <TextInput
-        testID="plan-pending-set-weight-input"
-        mode="outlined"
-        dense
-        keyboardType="numeric"
-        label="Weight"
-        value={pendingSet.weight}
-        style={styles.input}
-        textColor={highlightColor}
-        outlineColor={highlightColor}
-        onChangeText={handleWeightChange}
-      />
-      <OneRmToggle
-        testID="plan-pending-set-1rm-toggle"
-        oneRepMax={oneRepMax}
-        disabled1Rm={disable1RMWeightCalculation}
-        onToggle={handleToggle1RM}
-      />
-      <IconButton testID="plan-pending-set-delete" icon="delete-outline" iconColor={theme.colors.error} onPress={onDelete} />
+      {rangeError !== undefined && (
+        <HelperText type="error" visible testID="plan-pending-set-range-error" style={styles.rangeError}>
+          {rangeError}
+        </HelperText>
+      )}
     </View>
   );
 };
@@ -797,9 +946,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginRight: 6,
   },
-  input: {
+  fieldColumn: {
     flex: 1,
     marginHorizontal: 2,
+  },
+  maxInput: {
+    marginTop: 4,
+  },
+  rangeError: {
+    paddingLeft: 50,
+  },
+  rangeToggle: {
+    height: 30,
+    width: 34,
   },
   oneRmToggle: {
     marginHorizontal: 2,
