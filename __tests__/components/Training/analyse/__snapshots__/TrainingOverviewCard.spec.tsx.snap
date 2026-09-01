@@ -92,11 +92,15 @@ exports[`TrainingOverviewCard renders record count in overview row 1`] = `
               {
                 "writingDirection": "ltr",
               },
-              {
-                "color": "#666",
-                "fontSize": 11,
-                "marginBottom": 2,
-              },
+              [
+                {
+                  "fontSize": 11,
+                  "marginBottom": 2,
+                },
+                {
+                  "color": "rgba(73, 69, 79, 1)",
+                },
+              ],
             ]
           }
         >
@@ -151,11 +155,15 @@ exports[`TrainingOverviewCard renders record count in overview row 1`] = `
               {
                 "writingDirection": "ltr",
               },
-              {
-                "color": "#666",
-                "fontSize": 11,
-                "marginBottom": 2,
-              },
+              [
+                {
+                  "fontSize": 11,
+                  "marginBottom": 2,
+                },
+                {
+                  "color": "rgba(73, 69, 79, 1)",
+                },
+              ],
             ]
           }
         >
@@ -211,11 +219,15 @@ exports[`TrainingOverviewCard renders record count in overview row 1`] = `
               {
                 "writingDirection": "ltr",
               },
-              {
-                "color": "#666",
-                "fontSize": 11,
-                "marginBottom": 2,
-              },
+              [
+                {
+                  "fontSize": 11,
+                  "marginBottom": 2,
+                },
+                {
+                  "color": "rgba(73, 69, 79, 1)",
+                },
+              ],
             ]
           }
         >
@@ -272,11 +284,15 @@ exports[`TrainingOverviewCard renders record count in overview row 1`] = `
               {
                 "writingDirection": "ltr",
               },
-              {
-                "color": "#666",
-                "fontSize": 11,
-                "marginBottom": 2,
-              },
+              [
+                {
+                  "fontSize": 11,
+                  "marginBottom": 2,
+                },
+                {
+                  "color": "rgba(73, 69, 79, 1)",
+                },
+              ],
             ]
           }
         >
@@ -307,10 +323,14 @@ exports[`TrainingOverviewCard renders record count in overview row 1`] = `
             {
               "writingDirection": "ltr",
             },
-            {
-              "color": "#666",
-              "fontSize": 11,
-            },
+            [
+              {
+                "fontSize": 11,
+              },
+              {
+                "color": "rgba(73, 69, 79, 1)",
+              },
+            ],
           ]
         }
       >
