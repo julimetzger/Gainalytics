@@ -1,0 +1,63 @@
+appId: com.powerliftingworkoutplanner
+name: GH-404 six-screen evidence
+---
+# Walks the six screens named in GH-404 and screenshots each one, so the light
+# and dark passes are captured from exactly the same navigation and the same
+# fixture state. It asserts nothing — `gh404_theme_mode.yaml` carries the
+# assertions; this flow exists to make the visual evidence reproducible.
+#
+# Precondition: baseline fixture imported, and the theme already set to the
+# mode being documented.
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      text: "tab-training"
+    timeout: 120000
+- tapOn:
+    text: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "training-home-screen"
+    timeout: 60000
+- takeScreenshot: gh404-screen-1-training-home
+
+# The fixture's last training (Micro 1 "Push squat", 14 logged sets) is the one
+# training with real content, so both training panes are captured on it.
+- scrollUntilVisible:
+    element:
+      id: "^last-training-card$"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "^last-training-card-pressable$"
+- extendedWaitUntil:
+    visible:
+      id: "^subtab-plan$"
+    timeout: 30000
+- tapOn:
+    id: "^subtab-plan$"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: gh404-screen-2-training-plan
+- tapOn:
+    id: "^subtab-train$"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: gh404-screen-3-training-active
+
+- tapOn:
+    text: "tab-analyse"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: gh404-screen-4-analyse
+- tapOn:
+    text: "tab-exercises"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: gh404-screen-5-exercises
+- tapOn:
+    text: "tab-settings"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: gh404-screen-6-settings

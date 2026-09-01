@@ -23,6 +23,7 @@ const ThemeModeSelector = () => {
       // ToggleButton.Row reports `null` when the already-selected button is
       // pressed again. A theme always has to be set, so ignore that.
       if (value === null || value === undefined) return;
+      setHelp(null);
       setThemeMode(value as ThemeModeSetting);
     },
     [setThemeMode],
@@ -64,7 +65,11 @@ const ThemeModeSelector = () => {
         <Snackbar
           visible={help !== null}
           onDismiss={() => setHelp(null)}
-          duration={4000}
+          // The help stays until it is dismissed rather than timing out: it was
+          // asked for explicitly, and a sentence should not vanish while it is
+          // being read. Picking a mode closes it too.
+          duration={Number.POSITIVE_INFINITY}
+          action={{label: 'Got it', onPress: () => setHelp(null)}}
           testID="settings-theme-mode-help"
         >
           {help ?? ''}

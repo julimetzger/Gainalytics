@@ -120,6 +120,33 @@ describe('ThemeModeSelector', () => {
     ).toBeTruthy();
   });
 
+  it('keeps the help up until it is dismissed', () => {
+    renderSelector();
+
+    act(() => {
+      fireEvent(screen.getByTestId('settings-theme-mode-system'), 'longPress');
+    });
+    expect(screen.getByText(/follows your device display setting/)).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Got it'));
+
+    expect(screen.queryByText(/follows your device display setting/)).toBeNull();
+  });
+
+  it('closes the help when a mode is picked', () => {
+    renderSelector();
+
+    act(() => {
+      fireEvent(screen.getByTestId('settings-theme-mode-system'), 'longPress');
+    });
+    expect(screen.getByText(/follows your device display setting/)).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('settings-theme-mode-light'));
+
+    expect(screen.queryByText(/follows your device display setting/)).toBeNull();
+    expect(mockSetThemeMode).toHaveBeenCalledWith('light');
+  });
+
   it('reports the scheme actually in effect for an explicit choice', () => {
     mockedUseSettings.mockReturnValue({mode: 'light', themeMode: 'light', palette: 'blue'});
     mockedUseColorScheme.mockReturnValue('dark');
