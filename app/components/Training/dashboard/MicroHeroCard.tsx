@@ -14,6 +14,7 @@ import {
   getTrainingFromTrainingInMicroIndex,
 } from '../../../redux/Training/trainingsPlanReducer';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
+import {withAlpha} from '../../../utils/colorUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import CompletionRing from './CompletionRing';
 import DayStrip, {DayStatus, DayStripDay} from './DayStrip';
@@ -194,9 +195,13 @@ const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => 
     [barValues, metric],
   );
 
+  // GH-404: the history bars used `primaryContainer`, which is a near-white
+  // fill in the light schemes — the whole chart was invisible on the card. A
+  // dimmed `primary` keeps the palette's hue and the "latest micro stands out"
+  // hierarchy while staying legible against `surface` in both schemes.
   const barColors = useMemo(
-    () => mesoData.map((_, i) => processColor(i === mesoData.length - 1 ? theme.colors.primary : theme.colors.primaryContainer)),
-    [mesoData, theme.colors.primary, theme.colors.primaryContainer],
+    () => mesoData.map((_, i) => processColor(i === mesoData.length - 1 ? theme.colors.primary : withAlpha(theme.colors.primary, 0.7))),
+    [mesoData, theme.colors.primary],
   );
 
   const chartData = useMemo(

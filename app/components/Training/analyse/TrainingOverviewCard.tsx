@@ -112,19 +112,19 @@ const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCar
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{totalSets}</Text>
-            <Text style={styles.statLabel}>Sets</Text>
+            <Text style={[styles.statLabel, {color: theme.colors.onSurfaceVariant}]}>Sets</Text>
             {previousTotalSets > 0 && <ComparisonIndicator current={totalSets} previous={previousTotalSets} />}
           </View>
 
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{formatTime(totalTimeMinutes)}</Text>
-            <Text style={styles.statLabel}>Time</Text>
+            <Text style={[styles.statLabel, {color: theme.colors.onSurfaceVariant}]}>Time</Text>
             {totalTimePreviousMinutes > 0 && <ComparisonIndicator current={totalTimeMinutes} previous={totalTimePreviousMinutes} unit=" min" />}
           </View>
 
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{totalVolume} kg</Text>
-            <Text style={styles.statLabel}>Volume</Text>
+            <Text style={[styles.statLabel, {color: theme.colors.onSurfaceVariant}]}>Volume</Text>
             {previousTotalVolume > 0 && <ComparisonIndicator current={totalVolume} previous={previousTotalVolume} unit=" kg" />}
           </View>
 
@@ -132,15 +132,15 @@ const TrainingOverviewCard = ({trainingsPlan, currentMicro}: TrainingOverviewCar
             <Text style={styles.statValue}>
               {completedTrainings}/{totalPlannedTrainings}
             </Text>
-            <Text style={styles.statLabel}>Done</Text>
+            <Text style={[styles.statLabel, {color: theme.colors.onSurfaceVariant}]}>Done</Text>
           </View>
         </View>
 
         <View style={styles.progressContainer}>
-          <Text style={styles.progressText}>
+          <Text style={[styles.progressText, {color: theme.colors.onSurfaceVariant}]}>
             {trainings.length} trainings • {totalReps} reps • {recordExercises} records
           </Text>
-          {lastCompletedTraining && <Text style={styles.lastTrainingText}>Last: {formatDate(new Date(lastCompletedTraining.end!))}</Text>}
+          {lastCompletedTraining && <Text style={[styles.lastTrainingText, {color: theme.colors.onSurfaceVariant}]}>Last: {formatDate(new Date(lastCompletedTraining.end!))}</Text>}
         </View>
       </View>
     </View>
@@ -170,7 +170,6 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 11,
-    color: '#666',
     marginBottom: 2,
   },
   comparisonText: {
@@ -183,11 +182,9 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 11,
-    color: '#666',
   },
   lastTrainingText: {
     fontSize: 11,
-    color: '#666',
     marginTop: 2,
   },
 });
