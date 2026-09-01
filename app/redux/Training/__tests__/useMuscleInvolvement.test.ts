@@ -1,4 +1,4 @@
-import {computeMuscleInvolvement, findLastMatchingTraining} from '../use/useMuscleInvolvement';
+import {computeMicroPlannedMuscleInvolvement, computeMuscleInvolvement, findLastMatchingTraining} from '../use/useMuscleInvolvement';
 import {GlobalState} from '../../rootReducer';
 import {Muscles} from '../../../models/Muscles';
 import {TrainingsState} from '../../../models/TrainingsState';
@@ -355,5 +355,48 @@ describe('computeMuscleInvolvement — last_training_plan / last_training_done (
     });
     expect(data.referenceUnavailable).toBe(true);
     expect(data.effectiveCompare).toBe('none');
+  });
+});
+
+// GH-417 — the analysis view's Plan position maps the WHOLE micro's planned load,
+// not just the current training's.
+describe('computeMicroPlannedMuscleInvolvement', () => {
+  it('sums the planned sets of every training in the micro as the subject', () => {
+    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 2, 'sets');
+
+    // micro 2 plans bench (3 sets) + squat (4 sets)
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.today).toBeCloseTo(3, 5);
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.QUADS)?.today).toBeCloseTo(4, 5);
+    // and the single-training map would have shown neither squat nor its glutes
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.GLUTES)?.today).toBeCloseTo(2, 5);
+  });
+
+  it('references the previous micro plan', () => {
+    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 2, 'sets');
+
+    expect(data.referenceUnavailable).toBe(false);
+    expect(data.effectiveCompare).toBe('last_plan');
+    // micro 1 plans bench (4 sets) + row (3 sets)
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.reference).toBeCloseTo(4, 5);
+    // BACK is only in the reference micro — buildRows tracks the subject's muscles,
+    // so it must not appear as a row with today = 0.
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.BACK)).toBeUndefined();
+  });
+
+  it('drops the reference layer for the first micro, without losing the subject', () => {
+    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 1, 'sets');
+
+    expect(data.referenceUnavailable).toBe(true);
+    expect(data.effectiveCompare).toBe('none');
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.today).toBeCloseTo(4, 5);
+    expect(data.rows.every((r) => r.reference === 0)).toBe(true);
+  });
+
+  it('returns an empty, non-throwing result for a micro with nothing planned', () => {
+    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 9, 'sets');
+
+    expect(data.rows).toEqual([]);
+    expect(data.globalMax).toBe(0);
+    expect(data.referenceUnavailable).toBe(true);
   });
 });

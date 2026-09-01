@@ -85,6 +85,7 @@ jest.mock('react-native-paper', () => {
         ),
       },
     ),
+    SegmentedButtons: require('../../../helpers/paperMocks').SegmentedButtonsMock,
     useTheme: () => ({
       colors: {background: '#fff', primary: '#6200ee', onSurfaceVariant: '#888'},
       fonts: {bodyMedium: {fontSize: 14}, labelSmall: {fontSize: 11}},
@@ -146,7 +147,6 @@ describe('TrainingsPlanNode - Edit Finished Training (via overflow)', () => {
     micro: 1,
     trainingInMicro: 0,
     showDone: false,
-    showPlanned: false,
     setIgnoreSwipe: jest.fn(),
     overflowVisible: false,
     onCloseOverflow: jest.fn(),

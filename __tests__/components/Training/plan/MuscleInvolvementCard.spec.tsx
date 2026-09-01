@@ -18,7 +18,6 @@ jest.mock('../../../../app/redux/Training/use/useTrainingsPlan', () => ({
 }));
 
 jest.mock('../../../../app/redux/settings/dispatch/dispatchSetPlanMuscleMap', () => ({
-  dispatchSetPlanMuscleMapEnabled: () => jest.fn(),
   dispatchSetPlanMuscleMapMetric: () => jest.fn(),
   dispatchSetPlanMuscleMapCompare: () => jest.fn(),
   dispatchSetAnalyseMuscleMapCompare: () => jest.fn(),
@@ -75,7 +74,7 @@ describe('MuscleInvolvementCard — effectiveSelectedCompare fallback (GH-300 P2
     );
 
     render(
-      <MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" showDismiss={false} />,
+      <MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />,
     );
 
     // Find the compare DropdownChip call (testID = muscle-map-compare-chip-analyse)
@@ -96,7 +95,7 @@ describe('MuscleInvolvementCard — effectiveSelectedCompare fallback (GH-300 P2
     useLastMatchingTrainingMicro.mockReturnValue(2);
 
     render(
-      <MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" showDismiss={false} />,
+      <MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />,
     );
 
     const compareChipCall = mockDropdownChip.mock.calls.find((args) => args[0]?.testID === 'muscle-map-compare-chip-analyse');
@@ -130,7 +129,7 @@ describe('MuscleInvolvementCard — analyse header label (GH-367 live training)'
 
   it('shows "THIS DONE TRAINING" for a finished training (isLive=false)', () => {
     const {getByText} = render(
-      <MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" showDismiss={false} />,
+      <MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />,
     );
 
     expect(getByText('THIS DONE TRAINING')).toBeTruthy();
@@ -138,7 +137,7 @@ describe('MuscleInvolvementCard — analyse header label (GH-367 live training)'
 
   it('shows "THIS TRAINING (LIVE)" for a training still in progress (isLive=true)', () => {
     const {getByText, queryByText} = render(
-      <MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" showDismiss={false} isLive />,
+      <MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" isLive />,
     );
 
     expect(getByText('THIS TRAINING (LIVE)')).toBeTruthy();

@@ -24,7 +24,8 @@ export const muscleMapCompareSelectionAnalyseKey = 'muscleMapCompareSelectionAna
 
 export interface PlanSettings {
   muscleMap?: {
-    enabled?: boolean;
+    // GH-417: the `enabled` flag is gone — the muscle map is no longer toggled
+    // from the drawer, it is a fixed part of the analysis view's Plan position.
     metric?: MuscleMapMetric;
     /** @deprecated kept for migration only — read muscleMapCompareSelectionPlan instead. */
     compare?: MuscleMapCompare;
@@ -205,18 +206,6 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       return {
         ...settings,
         aiTrainingPrompt: undefined,
-      };
-    }
-    case 'SET_PLAN_MUSCLE_MAP_ENABLED': {
-      return {
-        ...settings,
-        plan: {
-          ...settings.plan,
-          muscleMap: {
-            ...settings.plan?.muscleMap,
-            enabled: !!action.enabled,
-          },
-        },
       };
     }
     case 'SET_PLAN_MUSCLE_MAP_METRIC': {
