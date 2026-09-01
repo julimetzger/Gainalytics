@@ -8,6 +8,7 @@ import {
   getPlanRangeMax,
   hasAnyPlanRange,
   hasPlanRange,
+  mapPlannedSetBounds,
   planRangeMaxField,
   toEvaluationSet,
   withPlanRangeMax,
@@ -134,5 +135,48 @@ describe('withPlanRangeMax', () => {
 
   it('keeps the same reference when there is nothing to remove', () => {
     expect(withPlanRangeMax(fixedSet, 'reps', undefined)).toBe(fixedSet);
+  });
+});
+
+describe('mapPlannedSetBounds', () => {
+  // A transformation that only understands fixed values: +10 kg, -1 RIR.
+  const bumpBounds = (bounds: WorkoutSet): WorkoutSet => ({...bounds, weight: bounds.weight + 10, rir: Math.max(bounds.rir - 1, 0)});
+
+  it('runs the transformation over both bounds of every range', () => {
+    expect(mapPlannedSetBounds(rangedSet, bumpBounds)).toEqual({
+      index: 1,
+      reps: 8,
+      rir: 0,
+      weight: 110,
+      repsMax: 12,
+      rirMax: 2,
+      weightMax: 120,
+    });
+  });
+
+  it('leaves a set without any range exactly as the transformation produced it', () => {
+    expect(mapPlannedSetBounds(fixedSet, bumpBounds)).toEqual({index: 1, reps: 8, rir: 1, weight: 110});
+  });
+
+  it('keeps the span instead of collapsing a range whose bounds meet after a clamp', () => {
+    // RIR 1-2 with a -2 transformation: both bounds clamp to 0, which would make
+    // the range vanish. The original span of 1 is re-applied instead.
+    const clampBounds = (bounds: WorkoutSet): WorkoutSet => ({...bounds, rir: Math.max(bounds.rir - 2, 0)});
+
+    expect(mapPlannedSetBounds({index: 1, reps: 5, rir: 1, weight: 100, rirMax: 2}, clampBounds)).toEqual({
+      index: 1,
+      reps: 5,
+      rir: 0,
+      weight: 100,
+      rirMax: 1,
+    });
+  });
+
+  it('drops an inverted upper bound that slipped in, instead of carrying it forward', () => {
+    const inverted: WorkoutSet = {index: 1, reps: 8, rir: 1, weight: 100, weightMax: 90, rirMax: 3};
+    const mapped = mapPlannedSetBounds(inverted, bumpBounds);
+
+    expect(Object.prototype.hasOwnProperty.call(mapped, 'weightMax')).toEqual(false);
+    expect(mapped).toEqual({index: 1, reps: 8, rir: 0, weight: 110, rirMax: 2});
   });
 });

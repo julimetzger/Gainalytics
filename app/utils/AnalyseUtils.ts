@@ -5,7 +5,7 @@ import {Exercise} from '../models/entities/Exercise';
 import {WorkoutSet} from '../models/entities/WorkoutSet';
 import {Workout} from '../models/entities/Workout';
 import {Metric} from '../models/Metric';
-import {evaluationReps, evaluationRir, evaluationWeight} from './planRange';
+import {evaluationReps, evaluationRir, evaluationWeight, mapPlannedSetBounds} from './planRange';
 
 export interface SuggestionProgressionProfile {
   rirDelta: number;
@@ -51,6 +51,12 @@ export const calculateLinearProgressionWeight = (workoutSet: WorkoutSet, progres
   return Math.round(weightWithIncrease);
 };
 
+const progressSingleValueSet = (workoutSet: WorkoutSet, progressionProfile: SuggestionProgressionProfile): WorkoutSet => ({
+  ...workoutSet,
+  rir: Math.max(workoutSet.rir - progressionProfile.rirDelta, 0),
+  weight: calculateLinearProgressionWeight(workoutSet, progressionProfile),
+});
+
 export const applyLinearProgressionToWorkout = (workout: Workout, progressionProfile: SuggestionProgressionProfile): Workout => {
   if (workout.sets.some((set) => set.rir === 0)) {
     return {
@@ -61,14 +67,10 @@ export const applyLinearProgressionToWorkout = (workout: Workout, progressionPro
 
   return {
     ...workout,
-    sets: workout.sets.map((set) => {
-      const adjustedRir = Math.max(set.rir - progressionProfile.rirDelta, 0);
-      return {
-        ...set,
-        rir: adjustedRir,
-        weight: calculateLinearProgressionWeight(set, progressionProfile),
-      };
-    }),
+    // GH-63: a planned range must survive the suggestion. mapPlannedSetBounds runs
+    // the identical progression over the upper bound too, so weight and RIR ranges
+    // move as a whole; a set without a range takes the plain single-value path.
+    sets: workout.sets.map((set) => mapPlannedSetBounds(set, (bounds) => progressSingleValueSet(bounds, progressionProfile))),
   };
 };
 

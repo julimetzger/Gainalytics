@@ -133,3 +133,50 @@ export const withPlanRangeMax = (workoutSet: WorkoutSet, field: PlanRangeField, 
   }
   return {...workoutSet, [maxField]: max};
 };
+
+/**
+ * The upper-bound twin of a planned set: every ranged field replaced by its own
+ * upper bound, every fixed field left alone. Only meaningful as the second input
+ * of {@link mapPlannedSetBounds}.
+ */
+const upperBoundSet = (workoutSet: WorkoutSet): WorkoutSet =>
+  PLAN_RANGE_FIELDS.reduce((bounds, field) => {
+    const max = getPlanRangeMax(workoutSet, field);
+    return max === undefined ? bounds : {...bounds, [field]: max};
+  }, workoutSet);
+
+/**
+ * Carry a planned set through a transformation that only understands fixed
+ * values — the suggestion's linear progression is the one caller today — without
+ * losing its ranges.
+ *
+ * The transformation is run TWICE with identical code: once on the set as
+ * stored (its lower bounds) and once on its upper-bound twin. That keeps both
+ * ends of a range moving together, instead of progressing the lower bound and
+ * leaving the upper one behind.
+ *
+ * Two guarantees:
+ *  - A set without any range takes the untouched single-value path and comes
+ *    back exactly as the transformation produced it — byte-identical to the
+ *    behaviour before GH-63.
+ *  - A range stays a range. If the transformed upper bound no longer clears the
+ *    new lower bound (rounding, or a clamp such as RIR bottoming out at 0), the
+ *    original span is re-applied rather than letting the range silently collapse
+ *    into a fixed value the user never asked for.
+ */
+export const mapPlannedSetBounds = (workoutSet: WorkoutSet, transform: (bounds: WorkoutSet) => WorkoutSet): WorkoutSet => {
+  const lower = transform(workoutSet);
+  if (!hasAnyPlanRange(workoutSet)) {
+    return lower;
+  }
+  const upper = transform(upperBoundSet(workoutSet));
+  return PLAN_RANGE_FIELDS.reduce((next, field) => {
+    const previousMax = getPlanRangeMax(workoutSet, field);
+    if (previousMax === undefined) {
+      return withPlanRangeMax(next, field, undefined);
+    }
+    const span = previousMax - workoutSet[field];
+    const transformedMax = upper[field];
+    return withPlanRangeMax(next, field, transformedMax > next[field] ? transformedMax : next[field] + span);
+  }, lower);
+};
