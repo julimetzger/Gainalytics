@@ -18,6 +18,7 @@ interface PlanReadListProps {
   quickEditTarget: QuickEditTarget | null;
   quickEditDraft: string;
   quickEditInvalid: boolean;
+  quickEditError?: string;
   onCellPress: (exerciseId: number, setIndex: number, field: PlanField) => void;
   onQuickEditChange: (value: string) => void;
   onQuickEditSubmit: () => void;
@@ -35,6 +36,7 @@ const PlanReadList = ({
   quickEditTarget,
   quickEditDraft,
   quickEditInvalid,
+  quickEditError,
   onCellPress,
   onQuickEditChange,
   onQuickEditSubmit,
@@ -101,6 +103,7 @@ const PlanReadList = ({
                       activeField={quickEditTarget.field}
                       draftValue={quickEditDraft}
                       invalid={quickEditInvalid}
+                      errorMessage={quickEditError}
                       onCellPress={(field) => onCellPress(exercise.id as number, workoutSet.index ?? 0, field)}
                       onChangeText={onQuickEditChange}
                       onSubmitEditing={onQuickEditSubmit}
