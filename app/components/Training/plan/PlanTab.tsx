@@ -12,11 +12,12 @@ import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId
 import {dispatchDeleteSetFromWorkout} from '../../../redux/Workout/dispatch/dispatchDeleteSetFromWorkout';
 import {dispatchReplaceWorkoutSets} from '../../../redux/Workout/dispatch/dispatchReplaceWorkoutSets';
 import {GlobalState} from '../../../redux/rootReducer';
-import {buildWorkoutSetFromDraft, cloneWorkoutSet, formatPlanNumber, getPlanSetDraft, isPlanFieldValueValid} from './planUtils';
+import {buildWorkoutSetFromDraft, cloneWorkoutSet, formatPlanNumber, getPlanSetDraft, getQuickEditError} from './planUtils';
 import {
   FullEditSnapshot,
   PendingPlanSetByExerciseId,
   PlanChromeState,
+  PlanDraftField,
   PlanField,
   PlanMode,
   QuickEditTarget,
@@ -106,7 +107,12 @@ const PlanTab = ({
     const workout = plannedWorkoutsByExerciseId[quickEditTarget.exerciseId];
     return workout?.sets.find((workoutSet) => workoutSet.index === quickEditTarget.setIndex);
   }, [plannedWorkoutsByExerciseId, quickEditTarget]);
-  const quickEditInvalid = quickEditTarget !== null && !isPlanFieldValueValid(quickEditTarget.field, quickEditDraft);
+  // GH-63: quick edit changes the lower bound in place, so it must also reject a
+  // value that would push past an existing upper bound. The message is what the
+  // user gets to see — the red outline alone would not explain the rejection.
+  const quickEditError =
+    quickEditTarget === null ? undefined : getQuickEditError(activeQuickEditSet, quickEditTarget.field, quickEditDraft);
+  const quickEditInvalid = quickEditError !== undefined;
 
   useEffect(() => {
     if (!isActive || selectedExercise === undefined) {
@@ -201,6 +207,7 @@ const PlanTab = ({
           quickEditTarget={quickEditTarget}
           quickEditDraft={quickEditDraft}
           quickEditInvalid={quickEditInvalid}
+          quickEditError={quickEditError}
           onCellPress={handleReadCellPress}
           onQuickEditChange={handleQuickEditChange}
           onQuickEditSubmit={handleQuickEditDone}
@@ -438,7 +445,7 @@ const PlanTab = ({
     if (target === null || activeQuickEditSet === undefined) {
       return;
     }
-    if (!isPlanFieldValueValid(target.field, quickEditDraft)) {
+    if (getQuickEditError(activeQuickEditSet, target.field, quickEditDraft) !== undefined) {
       return;
     }
     const parsedValue = Number.parseFloat(quickEditDraft);
@@ -530,7 +537,7 @@ const PlanTab = ({
     setHasStructuralChanges(true);
   }
 
-  function handlePendingSetChange(exerciseId: number, field: PlanField, value: string) {
+  function handlePendingSetChange(exerciseId: number, field: PlanDraftField, value: string) {
     setPendingSetByExerciseId((current) => {
       const existing = current[exerciseId];
       if (existing === undefined) {

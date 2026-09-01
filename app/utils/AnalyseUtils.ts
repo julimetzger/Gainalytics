@@ -5,6 +5,7 @@ import {Exercise} from '../models/entities/Exercise';
 import {WorkoutSet} from '../models/entities/WorkoutSet';
 import {Workout} from '../models/entities/Workout';
 import {Metric} from '../models/Metric';
+import {evaluationReps, evaluationRir, evaluationWeight, mapPlannedSetBounds} from './planRange';
 
 export interface SuggestionProgressionProfile {
   rirDelta: number;
@@ -17,7 +18,9 @@ export const DEFAULT_SUGGESTION_PROGRESSION_PROFILE = {
 } satisfies SuggestionProgressionProfile;
 
 export const repetitionMax = (...workoutSet: WorkoutSet[]) => {
-  let number = Math.max(...workoutSet.map((value) => value.weight * repsCoefficient(value.reps + value.rir)));
+  // GH-63: planned ranges count with their lower bound — read through planRange
+  // so the rule lives in exactly one place.
+  let number = Math.max(...workoutSet.map((value) => evaluationWeight(value) * repsCoefficient(evaluationReps(value) + evaluationRir(value))));
   return number !== -Infinity ? number : 0;
 };
 
@@ -42,11 +45,17 @@ export const repetitionWeightByOneRm = (reps: number, rir: number, oneRm: number
 
 export const calculateLinearProgressionWeight = (workoutSet: WorkoutSet, progressionProfile: SuggestionProgressionProfile) => {
   const sourceOneRm = repetitionMax(workoutSet);
-  const adjustedRir = Math.max(workoutSet.rir - progressionProfile.rirDelta, 0);
-  const suggestedWeight = repetitionWeightByOneRm(workoutSet.reps, adjustedRir, sourceOneRm);
+  const adjustedRir = Math.max(evaluationRir(workoutSet) - progressionProfile.rirDelta, 0);
+  const suggestedWeight = repetitionWeightByOneRm(evaluationReps(workoutSet), adjustedRir, sourceOneRm);
   const weightWithIncrease = suggestedWeight * (1 + progressionProfile.weightIncreasePercent / 100);
   return Math.round(weightWithIncrease);
 };
+
+const progressSingleValueSet = (workoutSet: WorkoutSet, progressionProfile: SuggestionProgressionProfile): WorkoutSet => ({
+  ...workoutSet,
+  rir: Math.max(workoutSet.rir - progressionProfile.rirDelta, 0),
+  weight: calculateLinearProgressionWeight(workoutSet, progressionProfile),
+});
 
 export const applyLinearProgressionToWorkout = (workout: Workout, progressionProfile: SuggestionProgressionProfile): Workout => {
   if (workout.sets.some((set) => set.rir === 0)) {
@@ -58,14 +67,10 @@ export const applyLinearProgressionToWorkout = (workout: Workout, progressionPro
 
   return {
     ...workout,
-    sets: workout.sets.map((set) => {
-      const adjustedRir = Math.max(set.rir - progressionProfile.rirDelta, 0);
-      return {
-        ...set,
-        rir: adjustedRir,
-        weight: calculateLinearProgressionWeight(set, progressionProfile),
-      };
-    }),
+    // GH-63: a planned range must survive the suggestion. mapPlannedSetBounds runs
+    // the identical progression over the upper bound too, so weight and RIR ranges
+    // move as a whole; a set without a range takes the plain single-value path.
+    sets: workout.sets.map((set) => mapPlannedSetBounds(set, (bounds) => progressSingleValueSet(bounds, progressionProfile))),
   };
 };
 
@@ -75,15 +80,15 @@ export function calculateMetricValue(sets: WorkoutSet[], metric: Metric, workout
     case Metric.ONE_RM:
       return oneRm;
     case Metric.VOLUME:
-      return sumBy(sets, (value) => value.weight * value.reps);
+      return sumBy(sets, (value) => evaluationWeight(value) * evaluationReps(value));
     case Metric.MAX_INTENSITY:
-      return oneRm ? Math.max(...sets.map((value) => value.weight / oneRm)) * 100 : 100;
+      return oneRm ? Math.max(...sets.map((value) => evaluationWeight(value) / oneRm)) * 100 : 100;
     case Metric.AVERAGE_INTENSITY:
-      return oneRm ? (sumBy(sets, (value) => value.weight) / sets.length / oneRm) * 100 : 100;
+      return oneRm ? (sumBy(sets, (value) => evaluationWeight(value)) / sets.length / oneRm) * 100 : 100;
     case Metric.SETS:
       return sets.length;
     case Metric.REPS:
-      return sumBy(sets, (value) => value.reps);
+      return sumBy(sets, (value) => evaluationReps(value));
     case Metric.FREQUENCY:
       // workoutsCount is required for a meaningful result, but we return 0 when
       // called from highlight-mode paths that lack a per-period count (GH-169).
@@ -100,20 +105,20 @@ export function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise,
     case Metric.VOLUME:
       let collection = Array.from(exerxiseWorkoutMap.entries()).map(([exercise, workoutSets]) =>
         sumBy(workoutSets, (value) => {
-          return (value.weight * value.reps * (exercise.muscles?.find((m) => m.muscle === muscle)?.percent ?? 0)) / 100;
+          return (evaluationWeight(value) * evaluationReps(value) * (exercise.muscles?.find((m) => m.muscle === muscle)?.percent ?? 0)) / 100;
         }),
       );
       return sum(collection);
     case Metric.MAX_INTENSITY:
-      return oneRm ? Math.max(...sets.map((value) => value.weight / oneRm)) * 100 : 100;
+      return oneRm ? Math.max(...sets.map((value) => evaluationWeight(value) / oneRm)) * 100 : 100;
     case Metric.AVERAGE_INTENSITY:
-      return oneRm ? (sumBy(sets, (value) => value.weight) / sets.length / oneRm) * 100 : 100;
+      return oneRm ? (sumBy(sets, (value) => evaluationWeight(value)) / sets.length / oneRm) * 100 : 100;
     case Metric.SETS:
       return sum(Array.from(exerxiseWorkoutMap.entries()).map(([exercise, workoutSets]) => sumBy(workoutSets, (value) => exercise.muscles?.find((m) => m.muscle === muscle)?.percent ?? 0) / 100));
     case Metric.REPS:
       return sum(
         Array.from(exerxiseWorkoutMap.entries()).map(([exercise, workoutSets]) =>
-          sumBy(workoutSets, (value) => ((exercise.muscles?.find((m) => m.muscle === muscle)?.percent ?? 0) / 100) * value.reps),
+          sumBy(workoutSets, (value) => ((exercise.muscles?.find((m) => m.muscle === muscle)?.percent ?? 0) / 100) * evaluationReps(value)),
         ),
       );
     case Metric.FREQUENCY:
