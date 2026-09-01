@@ -1,6 +1,8 @@
 import React from 'react';
 import {render} from '@testing-library/react-native';
 import {TrainingsState} from '../../../../app/models/TrainingsState';
+import {Exercise} from '../../../../app/models/entities/Exercise';
+import {Training} from '../../../../app/models/entities/Training';
 import {Workout} from '../../../../app/models/entities/Workout';
 
 /**
@@ -132,17 +134,17 @@ const mockedUseUnfinishedWorkout = require('../../../../app/redux/Workout/use/us
 const mockedUsePersistedUnfinishedWorkout = require('../../../../app/redux/Workout/use/useUnfinishedWorkout')
   .usePersistedUnfinishedWorkout as jest.Mock;
 
-const EXERCISE = {id: 10, name: 'Squat'};
+const EXERCISE = {id: 10, name: 'Squat'} satisfies Exercise;
 const TRAINING = {
   id: 1,
   doneWorkoutIds: {},
   plannedWorkouts: {10: 77},
   exercises: [10],
   state: TrainingsState.STARTED,
-};
+} satisfies Training;
 
-const planned = (sets: Array<{index: number; reps: number; rir: number; weight: number; repsMax?: number}>): Workout =>
-  ({id: 77, exerciseId: 10, sets} as Workout);
+const planned = (sets: Array<{index: number; reps: number; rir: number; weight: number; repsMax?: number}>) =>
+  ({id: 77, exerciseId: 10, sets}) satisfies Workout;
 
 const PLANNED_THREE = planned([
   {index: 1, reps: 8, rir: 2, weight: 100, repsMax: 12},
@@ -158,7 +160,7 @@ const PLANNED_THREE = planned([
 const renderWithLogged = (plannedWorkout: Workout, loggedIndices: number[]) => {
   const loggedSets = loggedIndices.map((index) => ({index, reps: 5, rir: 1, weight: 100, date: new Date('2026-01-01')}));
   const pendingSets = plannedWorkout.sets.filter((set) => !loggedIndices.includes(set.index!));
-  const persisted = loggedSets.length > 0 ? ({id: 900, exerciseId: 10, sets: loggedSets} as Workout) : undefined;
+  const persisted: Workout | undefined = loggedSets.length > 0 ? {id: 900, exerciseId: 10, sets: loggedSets} : undefined;
 
   mockedUseWorkoutById.mockImplementation((id?: number) => (id === 77 ? plannedWorkout : undefined));
   mockedUsePersistedUnfinishedWorkout.mockReturnValue(persisted);
@@ -166,10 +168,10 @@ const renderWithLogged = (plannedWorkout: Workout, loggedIndices: number[]) => {
     id: persisted?.id,
     exerciseId: 10,
     sets: [...loggedSets, ...pendingSets].sort((left, right) => left.index! - right.index!),
-  } as Workout);
+  } satisfies Workout);
 
   const {getByTestId, queryByTestId} = render(
-    <ExecuteTraining training={TRAINING as any} chosenExercise={EXERCISE as any} onSubmit={jest.fn()} />,
+    <ExecuteTraining training={TRAINING} chosenExercise={EXERCISE} onSubmit={jest.fn()} />,
   );
   return {
     label: queryByTestId('planned-set-target-label')?.props.children,
@@ -265,10 +267,10 @@ describe('ExecuteTraining – planned set target and set number', () => {
       id: 900,
       exerciseId: 10,
       sets: [{index: 1, reps: 5, rir: 1, weight: 100}],
-    } as Workout);
+    } satisfies Workout);
 
     const {queryByTestId, getByTestId} = render(
-      <ExecuteTraining training={{...TRAINING, plannedWorkouts: {}} as any} chosenExercise={EXERCISE as any} onSubmit={jest.fn()} />,
+      <ExecuteTraining training={{...TRAINING, plannedWorkouts: {}} satisfies Training} chosenExercise={EXERCISE} onSubmit={jest.fn()} />,
     );
 
     // No banner, and AddWorkout keeps its own counter (nextSetIndex undefined).

@@ -23,46 +23,54 @@ const plan: TrainingsPlan = {
   trainingNames: {'1': 'Pull'},
 };
 
-const buildState = (sets: WorkoutSet[]): GlobalState =>
-  ({
-    trainingsPlan: {byId: {1: plan}, allIds: [1]},
-    trainings: {
-      byId: {
-        1: {
-          id: 1,
-          state: TrainingsState.PLANNED,
-          plannedWorkouts: {10: 100},
-          doneWorkoutIds: {},
-          exercises: [10],
-        },
-      },
-      allIds: [1],
-    },
-    exercises: {
-      byId: {10: {id: 10, name: 'Bench', muscles: []}},
-      allIds: [10],
-    },
-    workouts: {
-      byId: {100: {id: 100, sets, exerciseId: 10}},
-      allIds: [100],
-      byExerciseId: {},
-      plannedWorkouts: [],
-    },
-    videoAnalyses: {byId: {}, allIds: []},
-    settings: {mode: 'dark'},
-    effects: {},
-  }) as unknown as GlobalState;
+// A complete, empty store. Spelling every slice out keeps the fixtures plain
+// `GlobalState` values — no `as` anywhere — so a shape change in any reducer
+// shows up here as a type error instead of being cast away.
+const emptyTargetState = (): GlobalState => ({
+  trainingsPlan: {byId: {}, allIds: []},
+  trainings: {byId: {}, allIds: []},
+  exercises: {byId: {}, allIds: []},
+  workouts: {byId: {}, allIds: [], byExerciseId: {}, plannedWorkouts: []},
+  videoAnalyses: {byId: {}, allIds: []},
+  settings: {mode: 'dark'},
+  effects: {},
+  aiChat: {
+    messages: [],
+    isLoading: false,
+    error: null,
+    seedContextJson: null,
+    contextRange: null,
+    history: [],
+    pendingLegacyArchive: false,
+  },
+});
 
-const emptyTargetState = (): GlobalState =>
-  ({
-    trainingsPlan: {byId: {}, allIds: []},
-    trainings: {byId: {}, allIds: []},
-    exercises: {byId: {}, allIds: []},
-    workouts: {byId: {}, allIds: [], byExerciseId: {}, plannedWorkouts: []},
-    videoAnalyses: {byId: {}, allIds: []},
-    settings: {mode: 'dark'},
-    effects: {},
-  }) as unknown as GlobalState;
+const buildState = (sets: WorkoutSet[]): GlobalState => ({
+  ...emptyTargetState(),
+  trainingsPlan: {byId: {1: plan}, allIds: [1]},
+  trainings: {
+    byId: {
+      1: {
+        id: 1,
+        state: TrainingsState.PLANNED,
+        plannedWorkouts: {10: 100},
+        doneWorkoutIds: {},
+        exercises: [10],
+      },
+    },
+    allIds: [1],
+  },
+  exercises: {
+    byId: {10: {id: 10, name: 'Bench', muscles: []}},
+    allIds: [10],
+  },
+  workouts: {
+    byId: {100: {id: 100, sets, exerciseId: 10}},
+    allIds: [100],
+    byExerciseId: {},
+    plannedWorkouts: [],
+  },
+});
 
 const roundTrip = (payload: TrainingsPlanExportPayload) => {
   const serialized: TrainingsPlanExportPayload = JSON.parse(JSON.stringify(payload));

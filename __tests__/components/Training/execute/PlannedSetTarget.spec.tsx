@@ -32,7 +32,7 @@ const sets: WorkoutSet[] = [
   {index: 2, reps: 6, rir: 2, weight: 120},
 ];
 
-const plannedWorkout = {id: 5, exerciseId: 1, sets} as Workout;
+const plannedWorkout = {id: 5, exerciseId: 1, sets} satisfies Workout;
 
 const banner = (workout: Workout | undefined, loggedSetIndices: number[]) => {
   const {getByTestId} = render(<PlannedSetTarget plannedWorkout={workout} loggedSetIndices={loggedSetIndices} />);
@@ -134,16 +134,20 @@ describe('PlannedSetTarget', () => {
   });
 
   it('stays on the first planned set when the plan starts above 1', () => {
-    const shifted = {id: 6, exerciseId: 1, sets: [
-      {index: 8, reps: 8, rir: 1, weight: 100, repsMax: 12},
-      {index: 9, reps: 6, rir: 2, weight: 120},
-    ]} as Workout;
+    const shifted = {
+      id: 6,
+      exerciseId: 1,
+      sets: [
+        {index: 8, reps: 8, rir: 1, weight: 100, repsMax: 12},
+        {index: 9, reps: 6, rir: 2, weight: 120},
+      ],
+    } satisfies Workout;
     expect(banner(shifted, [])).toEqual({label: 'Target · Set 8', value: '8-12 reps · RIR 1 · 100 kg'});
     expect(banner(shifted, [8])).toEqual({label: 'Target · Set 9', value: '6 reps · RIR 2 · 120 kg'});
   });
 
   it('renders a fixed target exactly as before, without any range notation', () => {
-    const fixedOnly = {id: 7, exerciseId: 1, sets: [{index: 1, reps: 6, rir: 2, weight: 120}]} as Workout;
+    const fixedOnly = {id: 7, exerciseId: 1, sets: [{index: 1, reps: 6, rir: 2, weight: 120}]} satisfies Workout;
     expect(banner(fixedOnly, [])).toEqual({label: 'Target · Set 1', value: '6 reps · RIR 2 · 120 kg'});
   });
 
@@ -153,7 +157,7 @@ describe('PlannedSetTarget', () => {
   });
 
   it('renders nothing when the planned workout has no sets', () => {
-    const {queryByTestId} = render(<PlannedSetTarget plannedWorkout={{id: 8, exerciseId: 1, sets: []} as Workout} loggedSetIndices={[]} />);
+    const {queryByTestId} = render(<PlannedSetTarget plannedWorkout={{id: 8, exerciseId: 1, sets: []} satisfies Workout} loggedSetIndices={[]} />);
     expect(queryByTestId('planned-set-target')).toEqual(null);
   });
 });
