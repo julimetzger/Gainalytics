@@ -9,7 +9,14 @@ import {AccumulationMode} from '../../../models/AccumulationMode';
 import {Accumulation} from '../../picker/elements/TrainingElementPicker';
 import {handleAccumulationModeBatching} from '../../../utils/HandleAccumulationModeBatching';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
-import {buildFrequencySeries, formatFrequencyCaption, FREQUENCY_ACCUMULATION_MODE, FREQUENCY_PERIOD_LABEL} from '../../../utils/FrequencySeries';
+import {
+  buildFrequencySeries,
+  formatFrequencyCaption,
+  formatFrequencySpan,
+  frequencyQueryRange,
+  FREQUENCY_ACCUMULATION_MODE,
+  FREQUENCY_PERIOD_LABEL,
+} from '../../../utils/FrequencySeries';
 import {useWorkoutsIn} from '../../../redux/Workout/use/useWorkoutsIn';
 import {Range} from '../../picker/date/DateRangePicker';
 import ExerciseGraphCard from './ExerciseGraphCard';
@@ -80,11 +87,34 @@ const ExerciseGraphTab = ({exercise}: Props) => {
   // Frequency is meaningless per day (it would be 1 on every training day), so it gets
   // its own weekly accumulation. The four existing graphs keep their daily summary.
   const frequencyAccumulation = useMemo(() => new Accumulation(FREQUENCY_ACCUMULATION_MODE), []);
-  const frequencyPoints = useMemo(
-    () => buildFrequencySeries(exerciseWorkouts, frequencyAccumulation),
-    [exerciseWorkouts, frequencyAccumulation],
+  // The series covers the whole selected range, not just the weeks with data, so weeks
+  // without a training are visible as zero. "All" starts at a sentinel date far before
+  // any training, so there the series starts at the first week that has data.
+  const frequencyWindow = useMemo(
+    () => ({start: rangeKey === 'All' ? undefined : range.startDate, end: range.endDate}),
+    [rangeKey, range],
   );
-  const frequencyCaption = useMemo(() => formatFrequencyCaption(frequencyPoints), [frequencyPoints]);
+  // A range that starts in the middle of a week would cut that week short. The workouts of
+  // the Frequency graph are therefore loaded from the Monday of that week on, so its first
+  // point is a whole week.
+  const frequencyRange = useMemo(() => frequencyQueryRange(range), [range]);
+  const frequencyWorkoutsInRange = useWorkoutsIn(frequencyRange);
+  const frequencyWorkouts = useMemo(
+    () => frequencyWorkoutsInRange.filter((w: Workout) => w.exerciseId === exercise.id && w.sets.length > 0),
+    [frequencyWorkoutsInRange, exercise.id],
+  );
+  const frequencyPoints = useMemo(
+    () => buildFrequencySeries(frequencyWorkouts, frequencyAccumulation, frequencyWindow),
+    [frequencyWorkouts, frequencyAccumulation, frequencyWindow],
+  );
+  const frequencyCaptions = useMemo(() => {
+    const span = formatFrequencySpan(frequencyPoints);
+    const latest = formatFrequencyCaption(frequencyPoints, range.endDate);
+    return [
+      ...(span === undefined ? [] : [{text: span, testID: 'graph-frequency-span'}]),
+      ...(latest === undefined ? [] : [{text: latest, testID: 'graph-frequency-latest'}]),
+    ];
+  }, [frequencyPoints, range]);
 
   return (
     <ScrollView
@@ -120,9 +150,8 @@ const ExerciseGraphTab = ({exercise}: Props) => {
         title={Metric.FREQUENCY}
         subtitle={FREQUENCY_PERIOD_LABEL}
         points={frequencyPoints}
-        caption={frequencyCaption}
+        captions={frequencyCaptions}
         cardTestID={`graph-card-${Metric.FREQUENCY}`}
-        captionTestID="graph-frequency-latest"
         countSeries
       />
       <View style={styles.bottomSpacer} />

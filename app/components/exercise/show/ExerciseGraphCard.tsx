@@ -4,13 +4,18 @@ import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {Card, Text, useTheme} from 'react-native-paper';
 import {generateTrend} from '../../../utils/generateTrend';
 
+export interface GraphCaption {
+  text: string;
+  testID?: string;
+}
+
 interface Props {
   title: string;
   subtitle?: string;
   points: LineValue[];
-  caption?: string;
+  /** Lines rendered under the chart. Only the Frequency card uses them. */
+  captions?: GraphCaption[];
   cardTestID: string;
-  captionTestID?: string;
   /**
    * The series is a whole-number count (Frequency). Keeps the y axis on whole numbers
    * starting at zero and draws straight segments — bezier smoothing would overshoot
@@ -19,7 +24,7 @@ interface Props {
   countSeries?: boolean;
 }
 
-const ExerciseGraphCard = ({title, subtitle, points, caption, cardTestID, captionTestID, countSeries}: Props) => {
+const ExerciseGraphCard = ({title, subtitle, points, captions, cardTestID, countSeries}: Props) => {
   const theme = useTheme();
   const yAxisConfig = {
     textColor: processColor(theme.colors.onBackground),
@@ -84,11 +89,11 @@ const ExerciseGraphCard = ({title, subtitle, points, caption, cardTestID, captio
               }}
               chartDescription={{text: ''}}
             />
-            {caption !== undefined && (
-              <Text style={[styles.caption, {color: theme.colors.onSurfaceVariant}]} testID={captionTestID}>
-                {caption}
+            {captions?.map((caption) => (
+              <Text key={caption.testID ?? caption.text} style={[styles.caption, {color: theme.colors.onSurfaceVariant}]} testID={caption.testID}>
+                {caption.text}
               </Text>
-            )}
+            ))}
           </>
         )}
       </Card.Content>
