@@ -2,6 +2,9 @@
 
 ## Trainings
 
+- [ready] [GH-431](https://github.com/julimetzger/Gainalytics/issues/431) UX-Audit R2 Follow-up (M6/M9/M12) — Suchtreffer-Rangfolge, stabiler EDITING-PLAN-Modus, Satzfortschritt gegen den Plan
+  - Quelle: `docs/ux/create-and-execute-training-audit-round2.md` aus #426
+  - Erst nach dem Merge von PR #429 starten — M12 baut auf der dort korrigierten Satznummer auf
 - [ready] [GH-428](https://github.com/julimetzger/Gainalytics/issues/428) UX-Audit R2 Follow-up (H1/H2/H4) — namenloser Plan, Tastatur verdeckt Eingabe beim Planen, falsche Werte nach Übungswechsel
   - Quelle: `docs/ux/create-and-execute-training-audit-round2.md` aus #426
   - H2 (Tastatur) überschneidet sich mit [GH-418](https://github.com/julimetzger/Gainalytics/issues/418)
