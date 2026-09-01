@@ -4,7 +4,7 @@ import {NestableScrollContainerProvider, useNestableScrollContainerContext} from
 import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
 import {TrainingsState} from '../../models/TrainingsState';
-import {Button, Text} from 'react-native-paper';
+import {Button, Text, useTheme} from 'react-native-paper';
 import {ConfirmDialog} from '../common/EditDialogScaffold';
 import DraggableExercise from './DraggableExercise';
 import TrainingsBase from './TrainingsBase';
@@ -123,6 +123,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   let [schedulePauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
   let [scheduleFinisTraining, resetFinishTraining] = FinishTrainingNotification();
   let appSettings = useSettings();
+  const theme = useTheme();
   const [showPicker, setShowPicker] = useState(false);
   const [nextPlanMode, setNextPlanMode] = useState<PlanMode>('read');
   const [planEntryRequested, setPlanEntryRequested] = useState(false);
@@ -511,7 +512,11 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                           Card → Train → Start → log sets → Finish path stays on this tab. */}
                       {!isEditing && (
                         <View style={{padding: 16, alignItems: 'center'}}>
-                          <Button testID="train-tab-finish-button" mode="contained" onPress={handleFinish}>
+                          {/* GH-437: the finish button carries the theme's secondary
+                              colour, not the primary one. Both the fill and the label
+                              come from the active scheme so every palette stays legible
+                              in light and dark. */}
+                          <Button testID="train-tab-finish-button" mode="contained" buttonColor={theme.colors.secondary} textColor={theme.colors.onSecondary} onPress={handleFinish}>
                             Finish Training
                           </Button>
                         </View>
