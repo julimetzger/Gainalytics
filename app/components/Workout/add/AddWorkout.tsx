@@ -153,7 +153,15 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
         {info && info}
       </View>
       <View style={styles.contentContainer}>
-        <AddWorkoutSet onSubmit={submitWorkoutSet} oneRepMax={oneRepMax} date={date} onLiveInputChange={onLiveInputChange} />
+        {/*
+          GH-428 (H4): the input row keeps reps/rir/weight in local state. Switching
+          the exercise inside a running training re-renders this component with a new
+          `exercise` but reconciles onto the same element, so the previous exercise's
+          numbers stayed in the fields — and the one-tap "Add" the user is trained to
+          press logged them against the new exercise. Keying by exercise remounts the
+          row, which is what clears the draft.
+        */}
+        <AddWorkoutSet key={`add-workout-set-${exercise.id}`} onSubmit={submitWorkoutSet} oneRepMax={oneRepMax} date={date} onLiveInputChange={onLiveInputChange} />
         {unfinishedWorkout &&
           unfinishedWorkout.sets.map((workoutSet) => (
             <SetRow
