@@ -29,3 +29,16 @@ export const useUnfinishedWorkout = (exerciseId: number) => {
   const selectUnfinishedWorkout = useMemo(makeSelectUnfinishedWorkout, []);
   return useSelector((state: GlobalState) => selectUnfinishedWorkout(state, exerciseId));
 };
+
+/**
+ * The persisted in-progress workout only — never merged with the suggested one.
+ *
+ * `useUnfinishedWorkout` deliberately joins the suggested workout (on
+ * START_TRAINING the planned workout is copied into `suggestedWorkouts`) so the
+ * plan shows up as pending rows. Anything that has to know what the user has
+ * ACTUALLY logged must not see those pending rows — GH-63's target banner and
+ * "Set N" counter both did, which made them count planned-but-unlogged sets as
+ * done.
+ */
+export const usePersistedUnfinishedWorkout = (exerciseId: number) =>
+  useSelector((state: GlobalState) => selectUnfinishedWorkoutByExercise(state, exerciseId));

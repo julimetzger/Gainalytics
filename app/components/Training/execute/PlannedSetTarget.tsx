@@ -8,27 +8,39 @@ import {describePlannedSet} from '../../../utils/planRange';
 
 interface PlannedSetTargetProps {
   plannedWorkout?: Workout;
-  /** 1-based index of the set the user is about to log. */
-  nextSetIndex: number;
+  /** Indices of the sets the user has actually logged so far. */
+  loggedSetIndices: number[];
 }
 
-export const resolvePlannedSetForIndex = (sets: WorkoutSet[], nextSetIndex: number): WorkoutSet | undefined => {
-  if (sets.length === 0) {
-    return undefined;
+const byIndex = (left: WorkoutSet, right: WorkoutSet) => (left.index ?? 0) - (right.index ?? 0);
+
+/**
+ * The first planned set the user has not logged yet.
+ *
+ * Selection is driven purely by which planned indices are already logged, so it
+ * survives plans whose sets do not start at 1 (a plan carries the indices of
+ * the workout it was created from) and plans with holes in the numbering (the
+ * middle set was deleted). Returns `undefined` once every planned set is done.
+ */
+export const resolveNextPlannedSet = (sets: WorkoutSet[], loggedSetIndices: number[]): WorkoutSet | undefined => {
+  const logged = new Set(loggedSetIndices);
+  return [...sets].sort(byIndex).find((workoutSet) => !logged.has(workoutSet.index ?? 0));
+};
+
+/**
+ * The set number the training screen must show above the input — the same
+ * number the target banner names, and the index the submitted set will carry.
+ *
+ * While planned sets are open that is the next open planned index. Once the
+ * plan is worked off, extra sets continue after the highest number in play.
+ */
+export const resolveNextSetNumber = (sets: WorkoutSet[], loggedSetIndices: number[]): number => {
+  const nextPlanned = resolveNextPlannedSet(sets, loggedSetIndices);
+  if (nextPlanned?.index !== undefined) {
+    return nextPlanned.index;
   }
-  const sorted = [...sets].sort((left, right) => (left.index ?? 0) - (right.index ?? 0));
-  const exact = sorted.find((workoutSet) => (workoutSet.index ?? 0) === nextSetIndex);
-  if (exact !== undefined) {
-    return exact;
-  }
-  // Planned indices do not always start at 1 (real plans carry indices from the
-  // workout they were created in). Outside the planned range the target clamps
-  // to the nearest end instead of vanishing — extra sets are still worked
-  // against the last prescription.
-  if (nextSetIndex < (sorted[0].index ?? 0)) {
-    return sorted[0];
-  }
-  return sorted[sorted.length - 1];
+  const highest = [...loggedSetIndices, ...sets.map((workoutSet) => workoutSet.index ?? 0)].reduce((max, value) => Math.max(max, value), 0);
+  return highest + 1;
 };
 
 /**
@@ -36,22 +48,25 @@ export const resolvePlannedSetForIndex = (sets: WorkoutSet[], nextSetIndex: numb
  * including a range when the plan defines one. Display only — it never prefills
  * the actual set input and never warns about a deviation.
  */
-const PlannedSetTarget = ({plannedWorkout, nextSetIndex}: PlannedSetTargetProps) => {
+const PlannedSetTarget = ({plannedWorkout, loggedSetIndices}: PlannedSetTargetProps) => {
   const theme = useTheme();
-  const plannedSet = resolvePlannedSetForIndex(plannedWorkout?.sets ?? [], nextSetIndex);
+  const plannedSets = plannedWorkout?.sets ?? [];
+  const plannedSet = resolveNextPlannedSet(plannedSets, loggedSetIndices);
 
-  if (plannedSet === undefined) {
+  if (plannedSets.length === 0) {
     return null;
   }
+
+  const done = plannedSet === undefined;
 
   return (
     <View
       testID="planned-set-target"
       style={[styles.container, {backgroundColor: withAlpha(theme.colors.primary, 0.08)}]}
     >
-      <Icon source="target" size={16} color={theme.colors.primary} />
+      <Icon source={done ? 'check-circle-outline' : 'target'} size={16} color={theme.colors.primary} />
       <Text testID="planned-set-target-label" variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}}>
-        {`Target · Set ${plannedSet.index ?? nextSetIndex}`}
+        {done ? 'Target' : `Target · Set ${resolveNextSetNumber(plannedSets, loggedSetIndices)}`}
       </Text>
       <Text
         testID="planned-set-target-value"
@@ -59,7 +74,7 @@ const PlannedSetTarget = ({plannedWorkout, nextSetIndex}: PlannedSetTargetProps)
         style={[styles.value, {color: theme.colors.onSurface}]}
         numberOfLines={1}
       >
-        {describePlannedSet(plannedSet)}
+        {done ? `All ${plannedSets.length} planned sets logged` : describePlannedSet(plannedSet!)}
       </Text>
     </View>
   );

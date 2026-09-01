@@ -63,6 +63,7 @@ jest.mock('../../../../app/redux/Training/use/useNextTrainingsId', () => ({
 
 jest.mock('../../../../app/redux/Workout/use/useUnfinishedWorkout', () => ({
   useUnfinishedWorkout: jest.fn(() => undefined),
+  usePersistedUnfinishedWorkout: jest.fn(() => undefined),
 }));
 
 jest.mock('../../../../app/redux/Workout/use/useAllTimeOneRepMax', () => ({

@@ -3,7 +3,7 @@ import {View} from 'react-native';
 import AddWorkout from '../../Workout/add/AddWorkout';
 import {useWorkoutById} from '../../../redux/Workout/use/useWorkoutById';
 import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId';
-import {useUnfinishedWorkout} from '../../../redux/Workout/use/useUnfinishedWorkout';
+import {usePersistedUnfinishedWorkout, useUnfinishedWorkout} from '../../../redux/Workout/use/useUnfinishedWorkout';
 import {Training} from '../../../models/entities/Training';
 import {Exercise} from '../../../models/entities/Exercise';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
@@ -14,7 +14,7 @@ import ExerciseHistory from '../../exercise/show/ExerciseHistory';
 
 import DatePicker from '../../picker/date/DatePicker';
 import Estimated1RmCard from './Estimated1RmCard';
-import PlannedSetTarget from './PlannedSetTarget';
+import PlannedSetTarget, {resolveNextSetNumber} from './PlannedSetTarget';
 import ExerciseRecordsModal from './ExerciseRecordsModal';
 import {TrainingsState} from '../../../models/TrainingsState';
 import RestTimerCard from './RestTimerCard';
@@ -37,6 +37,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
   let doneWorkout = useWorkoutById(doneWorkoutId);
   let nextTrainingsId = useNextTrainingsId();
   const unfinishedWorkout = useUnfinishedWorkout(chosenExercise.id!);
+  const persistedWorkout = usePersistedUnfinishedWorkout(chosenExercise.id!);
   let plannedWorkout = useWorkoutById(training.plannedWorkouts[chosenExercise.id!!]);
   let [openPlanned, setOpenPlanned] = useState(false);
   let [openHistory, setOpenHistory] = useState(false);
@@ -156,9 +157,20 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
   // be historical and the user may still need to change it.
   const showDatePicker = training.state !== TrainingsState.STARTED;
 
-  // GH-63: same source AddWorkout counts its "Set N" label from — the finalized
-  // workout when there is one, otherwise the session's unfinished workout.
-  const loggedSetCount = ((doneWorkout?.end ? doneWorkout : undefined) ?? unfinishedWorkout)?.sets?.length ?? 0;
+  // GH-63: what the user has ACTUALLY logged. Deliberately NOT
+  // `useUnfinishedWorkout` — that one merges in the suggested workout, i.e. the
+  // planned-but-unlogged sets START_TRAINING copies over. Counting those as done
+  // is what made the target banner jump straight to the last planned set.
+  const loggedSetIndices = useMemo(() => {
+    const loggedWorkout = (doneWorkout?.end ? doneWorkout : undefined) ?? persistedWorkout;
+    return (loggedWorkout?.sets ?? []).map((workoutSet) => workoutSet.index).filter((index): index is number => index !== undefined);
+  }, [doneWorkout, persistedWorkout]);
+
+  // The number of the set about to be logged: the next open planned set while
+  // the plan is not worked off yet. `undefined` for an exercise without a plan,
+  // so an unplanned training keeps AddWorkout's original counter untouched.
+  const plannedSets = plannedWorkout?.sets ?? [];
+  const nextSetIndex = plannedSets.length > 0 ? resolveNextSetNumber(plannedSets, loggedSetIndices) : undefined;
 
   return (
     <View>
@@ -168,11 +180,12 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
         </View>
       )}
       {/* GH-63: the planned set as a readable target, ranges included. Display
-          only — the actual set input below stays untouched. The index mirrors
-          the "Set N" counter AddWorkout renders from the very same workout, so
-          the target always names the set the user is about to log. */}
-      <PlannedSetTarget plannedWorkout={plannedWorkout} nextSetIndex={loggedSetCount + 1} />
+          only — the actual set input below stays untouched. Banner and the
+          "Set N" label below it are fed from the same resolver, so they always
+          name the same, next open planned set. */}
+      <PlannedSetTarget plannedWorkout={plannedWorkout} loggedSetIndices={loggedSetIndices} />
       <AddWorkout
+        nextSetIndex={nextSetIndex}
         workout={doneWorkout?.end ? doneWorkout : undefined}
         allowRefinalizeWhenDone={editMode}
         exercise={chosenExercise}

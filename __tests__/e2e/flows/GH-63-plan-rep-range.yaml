@@ -21,11 +21,26 @@ name: GH-63 Plan a rep range and verify the target actually shown in the trainin
     visible: "Training"
     timeout: 60000
 
-- scrollUntilVisible:
-    element:
+# The training home has to be scrolled along its RIGHT edge: the micro hero
+# card in the middle carries a horizontal swiper that swallows a centred
+# vertical drag, so a plain scrollUntilVisible never moves the list.
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "plan-meta-1"
+          commands:
+            - swipe:
+                start: "83%, 80%"
+                end: "83%, 25%"
+                duration: 500
+
+- extendedWaitUntil:
+    visible:
       id: "plan-meta-1"
-    direction: DOWN
-    timeout: 20000
+    timeout: 15000
 
 - tapOn:
     id: "plan-meta-1"
@@ -129,6 +144,12 @@ name: GH-63 Plan a rep range and verify the target actually shown in the trainin
 
 # The assertion that matters: the target renders the planned RANGE for reps,
 # with the untouched RIR and weight still rendered as fixed values.
+#
+# The fixture's Deadlift plan has TWO sets, numbered 8 and 9 (a plan carries the
+# indices of the workout it was created from). Before anything is logged the
+# target must name the FIRST of them, and the "Set N" label above the input must
+# name the very same set — the regression this flow guards is that both used to
+# count the planned-but-unlogged sets as done and jumped to the end.
 - copyTextFrom:
     id: "planned-set-target-value"
 
@@ -137,7 +158,109 @@ name: GH-63 Plan a rep range and verify the target actually shown in the trainin
       throw 'planned target expected "6-9 reps · RIR 0 · 200 kg" but was "' + maestro.copiedText + '"';
     }
 
+- copyTextFrom:
+    id: "planned-set-target-label"
+
+- evalScript: |
+    if (maestro.copiedText !== 'Target · Set 8') {
+      throw 'target label expected "Target · Set 8" but was "' + maestro.copiedText + '"';
+    }
+
+- copyTextFrom:
+    id: "add-workout-set-number"
+
+- evalScript: |
+    if (maestro.copiedText.trim() !== 'Set 8') {
+      throw 'set label expected "Set 8" but was "' + maestro.copiedText + '"';
+    }
+
 - takeScreenshot: gh63-03-training-target-with-range
+
+# ---- log the first planned set: the target must move to the SECOND one ------
+- tapOn:
+    id: "add-workout-set-reps-input"
+- eraseText
+- inputText: "7"
+
+- tapOn:
+    id: "add-workout-set-weight-input"
+- eraseText
+- inputText: "200"
+
+- hideKeyboard
+
+- tapOn:
+    id: "add-workout-set-submit-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "planned-set-target-value"
+    timeout: 20000
+
+- copyTextFrom:
+    id: "planned-set-target-value"
+
+- evalScript: |
+    if (maestro.copiedText !== '8 reps · RIR 1 · 180 kg') {
+      throw 'after set 8 the target expected "8 reps · RIR 1 · 180 kg" but was "' + maestro.copiedText + '"';
+    }
+
+- copyTextFrom:
+    id: "planned-set-target-label"
+
+- evalScript: |
+    if (maestro.copiedText !== 'Target · Set 9') {
+      throw 'after set 8 the target label expected "Target · Set 9" but was "' + maestro.copiedText + '"';
+    }
+
+- copyTextFrom:
+    id: "add-workout-set-number"
+
+- evalScript: |
+    if (maestro.copiedText.trim() !== 'Set 9') {
+      throw 'after set 8 the set label expected "Set 9" but was "' + maestro.copiedText + '"';
+    }
+
+- takeScreenshot: gh63-04-training-target-after-first-set
+
+# ---- log the last planned set: the plan is worked off ----------------------
+- tapOn:
+    id: "add-workout-set-reps-input"
+- eraseText
+- inputText: "5"
+
+- tapOn:
+    id: "add-workout-set-weight-input"
+- eraseText
+- inputText: "200"
+
+- hideKeyboard
+
+- tapOn:
+    id: "add-workout-set-submit-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "planned-set-target-value"
+    timeout: 20000
+
+- copyTextFrom:
+    id: "planned-set-target-value"
+
+- evalScript: |
+    if (maestro.copiedText !== 'All 2 planned sets logged') {
+      throw 'after the last planned set the target expected "All 2 planned sets logged" but was "' + maestro.copiedText + '"';
+    }
+
+- copyTextFrom:
+    id: "add-workout-set-number"
+
+- evalScript: |
+    if (maestro.copiedText.trim() !== 'Set 10') {
+      throw 'after the last planned set the set label expected "Set 10" but was "' + maestro.copiedText + '"';
+    }
+
+- takeScreenshot: gh63-05-training-target-after-last-planned-set
 
 # ---- clean up so the slot is empty again and the flow stays repeatable -----
 - tapOn:
