@@ -4,6 +4,7 @@ import React, {useState, useEffect} from 'react';
 import {Alert, ScrollView, View, StyleSheet, Platform} from 'react-native';
 import {Button, Dialog, Divider, HelperText, List, Portal, RadioButton, Switch, Text, TextInput, useTheme} from 'react-native-paper';
 import ThemeColorPickerDialog from '../../components/settings/ThemeColorPickerDialog';
+import ThemeModeSelector from '../../components/settings/ThemeModeSelector';
 import {customPaletteHex, paletteLabel} from '../../theme/palette';
 import {normalizeHex} from '../../theme/colorScience';
 import {secureStorage} from '../../utils/secureStorage';
@@ -20,7 +21,6 @@ import {dispatchSetFinishTrainingTimer} from '../../redux/settings/dispatch/disp
 import {dispatchToggleDisable1RMpreselect} from '../../redux/settings/dispatch/dispatchToggleDisable1RMpreselect';
 import {dispatchToggleShowTimer} from '../../redux/settings/dispatch/dispatchToggleShowTimer';
 import {dispatchToggleShowToasts} from '../../redux/settings/dispatch/dispatchToggleShowToasts';
-import {dispatchToggleMode} from '../../redux/settings/dispatch/dispatchToggleMode';
 import {dispatchSetPalette} from '../../redux/settings/dispatch/dispatchSetPalette';
 import {canScheduleExactAlarms, openExactAlarmSettings} from '../../utils/NotificationUtils';
 import {dispatchSetExactAlarmPermission} from '../../redux/settings/dispatch/dispatchSetExactAlarmPersmission';
@@ -38,7 +38,6 @@ import {getAppVersion} from '../../utils/appVersion';
 
 const SettingsTab = ({navigation}: Props) => {
   let settings = useSettings();
-  let dispatchToggleMode1 = dispatchToggleMode();
   let toggleDisable1RMpreselect = dispatchToggleDisable1RMpreselect();
   let toggleShowTimer = dispatchToggleShowTimer();
   let toggleShowToasts = dispatchToggleShowToasts();
@@ -261,17 +260,9 @@ const SettingsTab = ({navigation}: Props) => {
 
   return (
     <ScrollView>
-      <View style={styles.row}>
-        <Text style={{alignSelf: 'center'}}>Enable Dark Mode</Text>
-        <Switch
-          onValueChange={(_) => {
-            dispatchToggleMode1();
-          }}
-          value={settings.mode === 'dark'}
-        />
-      </View>
+      <ThemeModeSelector />
       <View style={{marginHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
-        <Text style={{marginRight: 10}}>Theme</Text>
+        <Text style={{marginRight: 10}}>Color Palette</Text>
         <RadioButton.Group onValueChange={(value) => setPalette(value as any)} value={settings.palette ?? 'blue'}>
           <View style={{flexDirection: 'row', alignItems: 'center'}}>
             <View style={{flexDirection: 'row', alignItems: 'center', marginRight: 10}}>
@@ -355,7 +346,7 @@ const SettingsTab = ({navigation}: Props) => {
           <View style={styles.row}>
             <View style={{flex: 1, marginRight: 10}}>
               <Text style={{marginBottom: 4}}>Exact Alarm Permission</Text>
-              <Text style={{fontSize: 12, color: 'gray'}}>{exactAlarmStatus ? 'Enabled - Notifications will be precise' : 'Disabled - Notifications may be delayed'}</Text>
+              <Text style={{fontSize: 12, color: theme.colors.onSurfaceVariant}}>{exactAlarmStatus ? 'Enabled - Notifications will be precise' : 'Disabled - Notifications may be delayed'}</Text>
             </View>
             <Switch
               value={Boolean(exactAlarmStatus)}
@@ -388,7 +379,7 @@ const SettingsTab = ({navigation}: Props) => {
         testID="settings-ai-config-accordion"
       >
         <View style={{marginHorizontal: 15, marginBottom: 8}}>
-          <Text variant="bodySmall" style={{color: 'gray', marginBottom: 8}}>
+          <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant, marginBottom: 8}}>
             Your API key is stored encrypted on this device only. It is never sent to any server other
             than Anthropic. You need an Anthropic account to use this feature.
           </Text>

@@ -139,6 +139,19 @@ export const migrations = {
       },
     };
   },
+  12: (state: any) => {
+    // GH-404: the "Enable Dark Mode" switch became a three-way Theme selector.
+    // An existing choice must land on the matching explicit mode — never on
+    // 'system', which would silently change how the app looks after an update.
+    const legacyMode = state?.settings?.mode;
+    return {
+      ...state,
+      settings: {
+        ...(state?.settings ?? {}),
+        themeMode: state?.settings?.themeMode ?? (legacyMode === 'light' ? 'light' : 'dark'),
+      },
+    };
+  },
 };
 
 const storage = new MMKV();
@@ -162,7 +175,7 @@ const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseI
 
 const persistConfig = {
   key: 'root',
-  version: 11,
+  version: 12,
   storage: reduxStorage,
   whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'settings', 'aiChat'],
   stateReconciler: hardSet,
