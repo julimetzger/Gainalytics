@@ -1,0 +1,158 @@
+appId: com.powerliftingworkoutplanner
+name: GH-63 Plan a rep range and verify the target actually shown in the training screen
+---
+# GH-63: a planned set may express reps/RIR/weight as a range instead of a fixed
+# value. This flow plans a rep range and then asserts the ACTUAL target string
+# the training screen renders — not merely that the target element exists.
+#
+# Baseline fixture data it relies on: opening `plan-meta-1` ("Push pull upper
+# lower") lands on the Micro 71 "Pull" slot. When that slot is empty the flow
+# fills it with "Suggest based on last planned Training", which reproduces
+# Deadlift (exercise 3) set 8 = 6 reps / RIR 0 / 200 kg. The flow then plans
+# 6-9 reps on that set.
+#
+# The flow deletes the training it worked on at the end, so the slot is empty
+# again and the flow can be run repeatedly.
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+
+- scrollUntilVisible:
+    element:
+      id: "plan-meta-1"
+    direction: DOWN
+    timeout: 20000
+
+- tapOn:
+    id: "plan-meta-1"
+
+- extendedWaitUntil:
+    visible:
+      id: "subtab-plan"
+    timeout: 30000
+
+- tapOn:
+    id: "subtab-plan"
+
+# Materialise a planned training in the slot when it is still empty.
+- runFlow:
+    when:
+      visible: "Suggest based on last planned Training"
+    commands:
+      - tapOn: "Suggest based on last planned Training"
+
+- extendedWaitUntil:
+    visible:
+      id: "plan-read-exercise-section-3"
+    timeout: 30000
+
+# The set starts out as a fixed value — no range anywhere on the row.
+- assertVisible: "6"
+- assertNotVisible: "6-9"
+
+# ---- enter full edit and switch the exercise to range input -----------------
+- tapOn:
+    id: "header-overflow-icon"
+
+- extendedWaitUntil:
+    visible:
+      id: "overflow-edit-plan"
+    timeout: 10000
+
+- tapOn:
+    id: "overflow-edit-plan"
+
+- extendedWaitUntil:
+    visible:
+      id: "plan-exercise-ranges-toggle-3"
+    timeout: 20000
+
+- tapOn:
+    id: "plan-exercise-ranges-toggle-3"
+
+- extendedWaitUntil:
+    visible:
+      id: "plan-set-8-reps-max-input"
+    timeout: 10000
+
+# ---- an upper bound below the lower bound is refused, with a reason ---------
+- tapOn:
+    id: "plan-set-8-reps-max-input"
+# A previous (failed) run may have left a value behind — start from empty.
+- eraseText
+- inputText: "4"
+
+- extendedWaitUntil:
+    visible: "Reps range: the second value must be greater than 6."
+    timeout: 10000
+
+- takeScreenshot: gh63-01-range-validation-error
+
+- eraseText
+
+# ---- plan the real range ----------------------------------------------------
+- inputText: "9"
+
+- assertNotVisible: "Reps range: the second value must be greater than 6."
+
+- hideKeyboard
+
+- tapOn: "Done"
+
+# ---- the plan list now shows the range instead of the fixed value ----------
+- extendedWaitUntil:
+    visible: "6-9"
+    timeout: 20000
+
+- takeScreenshot: gh63-02-plan-read-with-range
+
+# ---- the training screen shows the planned set as a readable target --------
+- tapOn:
+    id: "subtab-train"
+
+- extendedWaitUntil:
+    visible:
+      id: "train-tab-start-button"
+    timeout: 20000
+
+- tapOn:
+    id: "train-tab-start-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "planned-set-target-value"
+    timeout: 30000
+
+# The assertion that matters: the target renders the planned RANGE for reps,
+# with the untouched RIR and weight still rendered as fixed values.
+- copyTextFrom:
+    id: "planned-set-target-value"
+
+- evalScript: |
+    if (maestro.copiedText !== '6-9 reps · RIR 0 · 200 kg') {
+      throw 'planned target expected "6-9 reps · RIR 0 · 200 kg" but was "' + maestro.copiedText + '"';
+    }
+
+- takeScreenshot: gh63-03-training-target-with-range
+
+# ---- clean up so the slot is empty again and the flow stays repeatable -----
+- tapOn:
+    id: "header-overflow-icon"
+
+- extendedWaitUntil:
+    visible:
+      id: "overflow-discard"
+    timeout: 10000
+
+- tapOn:
+    id: "overflow-discard"
+
+- runFlow:
+    when:
+      visible: "Delete"
+    commands:
+      - tapOn: "Delete"

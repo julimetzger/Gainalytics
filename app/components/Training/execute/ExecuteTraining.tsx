@@ -156,6 +156,10 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
   // be historical and the user may still need to change it.
   const showDatePicker = training.state !== TrainingsState.STARTED;
 
+  // GH-63: same source AddWorkout counts its "Set N" label from — the finalized
+  // workout when there is one, otherwise the session's unfinished workout.
+  const loggedSetCount = ((doneWorkout?.end ? doneWorkout : undefined) ?? unfinishedWorkout)?.sets?.length ?? 0;
+
   return (
     <View>
       {showDatePicker && (
@@ -164,8 +168,10 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
         </View>
       )}
       {/* GH-63: the planned set as a readable target, ranges included. Display
-          only — the actual set input below stays untouched. */}
-      <PlannedSetTarget plannedWorkout={plannedWorkout} nextSetIndex={(doneWorkout?.sets?.length ?? 0) + 1} />
+          only — the actual set input below stays untouched. The index mirrors
+          the "Set N" counter AddWorkout renders from the very same workout, so
+          the target always names the set the user is about to log. */}
+      <PlannedSetTarget plannedWorkout={plannedWorkout} nextSetIndex={loggedSetCount + 1} />
       <AddWorkout
         workout={doneWorkout?.end ? doneWorkout : undefined}
         allowRefinalizeWhenDone={editMode}

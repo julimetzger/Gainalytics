@@ -38,6 +38,14 @@ describe('resolvePlannedSetForIndex', () => {
     expect(resolvePlannedSetForIndex(sets, 7)).toEqual(sets[1]);
   });
 
+  it('clamps to the first planned set when the plan indices start above 1', () => {
+    const shifted: WorkoutSet[] = [
+      {index: 8, reps: 8, rir: 1, weight: 100, repsMax: 12},
+      {index: 9, reps: 6, rir: 2, weight: 120},
+    ];
+    expect(resolvePlannedSetForIndex(shifted, 1)).toEqual(shifted[0]);
+  });
+
   it('returns nothing when no set is planned', () => {
     expect(resolvePlannedSetForIndex([], 1)).toEqual(undefined);
   });

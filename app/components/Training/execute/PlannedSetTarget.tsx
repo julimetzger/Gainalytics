@@ -17,9 +17,18 @@ export const resolvePlannedSetForIndex = (sets: WorkoutSet[], nextSetIndex: numb
     return undefined;
   }
   const sorted = [...sets].sort((left, right) => (left.index ?? 0) - (right.index ?? 0));
-  // Past the last planned set the target stays on that set instead of vanishing —
-  // extra sets are still worked against the same prescription.
-  return sorted.find((workoutSet) => (workoutSet.index ?? 0) === nextSetIndex) ?? sorted[sorted.length - 1];
+  const exact = sorted.find((workoutSet) => (workoutSet.index ?? 0) === nextSetIndex);
+  if (exact !== undefined) {
+    return exact;
+  }
+  // Planned indices do not always start at 1 (real plans carry indices from the
+  // workout they were created in). Outside the planned range the target clamps
+  // to the nearest end instead of vanishing — extra sets are still worked
+  // against the last prescription.
+  if (nextSetIndex < (sorted[0].index ?? 0)) {
+    return sorted[0];
+  }
+  return sorted[sorted.length - 1];
 };
 
 /**
