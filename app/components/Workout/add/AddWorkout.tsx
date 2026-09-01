@@ -149,7 +149,12 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
       )}
       <View style={[styles.header, info ? styles.headerWithInfo : null]}>
         {info && <View></View>}
-        <Text style={styles.setText}> Set {unfinishedWorkout?.sets ? unfinishedWorkout.sets.length + 1 : 1}</Text>
+        {/* GH-428: the counter is the readable proof of how many sets are logged —
+            an e2e flow asserts it is unchanged after an "Add" that must write nothing. */}
+        <Text style={styles.setText} testID="add-workout-set-counter">
+          {' '}
+          Set {unfinishedWorkout?.sets ? unfinishedWorkout.sets.length + 1 : 1}
+        </Text>
         {info && info}
       </View>
       <View style={styles.contentContainer}>
