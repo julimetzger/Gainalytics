@@ -2508,3 +2508,27 @@ Only works for modules with no React Native imports — keep colour/format/pure-
 **Problem (GH-63 round 2):** `scrollUntilVisible` for `plan-meta-1` and centred `adb shell input swipe` both did nothing on `TrainingHome` — the micro hero card's horizontal `RangeSwiper` chart swallows a vertical drag started anywhere near the middle.
 **Working solution:** swipe at ~83 % of the width (right of the chart, left of the `add-trainings-plan` FAB at 84-97 %): `- swipe: {start: "83%, 80%", end: "83%, 25%", duration: 500}` in a `repeat` + `runFlow when notVisible` loop, or `adb shell input swipe 896 1920 896 600 500`.
 **Apply when:** any flow or script that has to reach the Plans list on the training home.
+
+### 381. A Maestro `evalScript` that `throw`s never fails the flow on this build — those assertions are no-ops
+**Problem (GH-63 round 3):** two flows "asserted" their values with `copyTextFrom` + `evalScript` `if (...) throw '...'` (the pattern #371 recommends). A deliberate one-line flow whose only command is `throw 'x'` is reported **COMPLETED** and the run exits **0** — `throw new Error('x')` too. Both flows had been passing for two review rounds while one of them compared against a stale expected value, and a run that typed into the wrong field stayed green.
+**Working solution:** the only form that passes when true AND fails when false is an INLINE expression: `copyTextFrom` → `assertTrue: ${maestro.copiedText === 'Target · Set 8'}`. Verified matrix: `assertTrue: ${1 === 2}` fails, `${1 === 1}` passes, `${output.valid}` fails **even after `output.valid = true`** (#371's `${output.*}` gap applies to `assertTrue`, not just selectors). Strip whitespace/commas (`.replace(/[\s,]/g, '')`) when the element renders value and unit as sibling Texts.
+**Apply when:** writing or reviewing ANY Maestro assertion. Supersedes the throw pattern in #371.
+
+### 382. A React key carrying the row's VALUES remounts the row on every commit — the field typed before the last one is lost
+**Problem (GH-63 round 3):** planning `RIR 1-3` and `200-210 kg` in one visit to the plan editor stored only the weight bound; the RIR bound vanished without a word. `PlanEditList` keyed its set rows `${index}-${weight}-${reps}-${rir}`, so committing the RIR lower bound on blur changed the key, React unmounted the row, and the remounted row rebuilt its draft from the store — discarding the upper bound typed since. A second path did the same without a remount: the draft-sync effect re-derives from the prop, and the store echoes each commit back.
+**Working solution:** key rows by identity only (`plan-edit-set-${index}`) AND have the sync effect skip the echo of the row's own commit (`lastCommittedRef` + a field-wise compare). Both are needed — with either one alone the value is still lost, which a jest test that echoes the commit back into the mocked store proves.
+**Apply when:** any form row that commits on blur into a store that feeds the same value back as a prop.
+
+### 383. Maestro taps land a row low in a dense form — read every typed field back before touching the next one
+**Problem (GH-63 round 3):** the plan editor puts a set's "to" inputs directly above the next set's value inputs. With the soft keyboard open the list scrolls between Maestro's hierarchy snapshot and the tap, so `inputText: "210"` meant for set 8's weight bound landed in set 9's **reps** field (`8` → `8210`), silently changing the very numbers the later assertions were built on.
+**Working solution:** `hideKeyboard` after every `inputText`, then `copyTextFrom` + `assertTrue` on the field just typed — and once more on the whole row plus the untouched neighbour row before leaving the form. Cheap, and it turns a silent data corruption into a failing step.
+**Apply when:** any flow that types into more than one input on the same screen.
+**Related cost:** a bare `eraseText` clears up to 50 characters, i.e. 50 key events. On the
+running-training screen — whose session timer never lets the hierarchy idle (#376) — each of
+those waits, and a single `eraseText` took 2-10 minutes; the same flow that ran in 8 min in
+round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length.
+
+### 384. A killed maestro run leaves a JVM holding `--driver-host-port`; the next run dies in its first swipe
+**Problem (GH-63 round 3):** the 600 s tool cap killed a run mid-flow. The next invocation aborted during the opening swipe with `java.util.concurrent.TimeoutException` and an empty debug directory — no hint at the cause. `ss -tlnp | grep :7059` showed the old java process still listening.
+**Working solution:** `kill <pid>` it (the driver port is per-worker, so this cannot disturb a sibling — unlike `adb kill-server`, see #372) and re-run. Related: backgrounding maestro with a trailing `&` inside the agent's Bash tool orphans it — the wrapper returns as soon as the `echo` finishes and the JVM is reaped mid-flow. Run it as the sole foreground command of a background task instead.
+**Apply when:** any maestro run was interrupted, or a run fails inexplicably early.
