@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Button, Card, Text, useTheme} from 'react-native-paper';
 import {useSelector} from 'react-redux';
+import {evaluationReps, evaluationWeight, formatPlanFieldValue} from '../../../utils/planRange';
 import {TrainingsState} from '../../../models/TrainingsState';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {
@@ -170,7 +171,8 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigat
   const formatTarget = (workout: ReturnType<typeof usePlannedWorkoutInTraining>): string => {
     if (!workout?.sets?.length) return '';
     const set = workout.sets[0];
-    return `${set.weight} × ${set.reps}`;
+    // GH-63: a planned target may be a range ("100-110 × 8-12").
+    return `${formatPlanFieldValue(set, 'weight')} × ${formatPlanFieldValue(set, 'reps')}`;
   };
 
   const renderDelta = (
@@ -180,8 +182,9 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigat
   ) => {
     if (!plannedWorkout?.sets?.length || !prev) return null;
     const planned = plannedWorkout.sets[0];
-    const deltaKg = planned.weight - prev.weight;
-    const deltaReps = planned.reps - prev.reps;
+    // GH-63: a range counts with its lower bound, like every other evaluation.
+    const deltaKg = evaluationWeight(planned) - prev.weight;
+    const deltaReps = evaluationReps(planned) - prev.reps;
     const positive = deltaKg > 0 || (deltaKg === 0 && deltaReps > 0);
     const negative = deltaKg < 0 || (deltaKg === 0 && deltaReps < 0);
     if (deltaKg === 0 && deltaReps === 0) {

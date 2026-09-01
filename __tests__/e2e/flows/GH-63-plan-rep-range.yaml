@@ -1,0 +1,314 @@
+appId: com.powerliftingworkoutplanner
+name: GH-63 Plan a rep range and verify the target actually shown in the training screen
+---
+# GH-63: a planned set may express reps/RIR/weight as a range instead of a fixed
+# value. This flow plans a rep range and then asserts the ACTUAL target string
+# the training screen renders — not merely that the target element exists.
+#
+# Baseline fixture data it relies on: opening `plan-meta-1` ("Push pull upper
+# lower") lands on the Micro 71 "Pull" slot. When that slot is empty the flow
+# fills it with "Suggest based on last planned Training", which reproduces
+# Deadlift (exercise 3) set 8 = 6 reps / RIR 0 / 200 kg. The flow then plans
+# 6-9 reps on that set.
+#
+# The flow deletes the training it worked on at the end, so the slot is empty
+# again and the flow can be run repeatedly.
+#
+# ASSERTION STYLE — read before editing this file. On this Maestro build
+# (2.0.9-ports) an `evalScript` that `throw`s is reported COMPLETED and the run
+# still exits 0, and `${output.foo}` never resolves. The only form that both
+# passes when true and fails when false is an INLINE expression:
+#   - copyTextFrom: {id: ...}
+#   - assertTrue: ${maestro.copiedText === 'Target · Set 8'}
+# Every value assertion below uses it.
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Training"
+    timeout: 60000
+
+# The training home has to be scrolled along its RIGHT edge: the micro hero
+# card in the middle carries a horizontal swiper that swallows a centred
+# vertical drag, so a plain scrollUntilVisible never moves the list.
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "plan-meta-1"
+          commands:
+            - swipe:
+                start: "83%, 80%"
+                end: "83%, 25%"
+                duration: 500
+
+- extendedWaitUntil:
+    visible:
+      id: "plan-meta-1"
+    timeout: 15000
+
+- tapOn:
+    id: "plan-meta-1"
+
+- extendedWaitUntil:
+    visible:
+      id: "subtab-plan"
+    timeout: 30000
+
+- tapOn:
+    id: "subtab-plan"
+
+# Always start from a freshly suggested training: a leftover from another flow
+# would carry different numbers than the ones asserted below.
+- runFlow:
+    when:
+      notVisible: "Suggest based on last planned Training"
+    commands:
+      - tapOn:
+          id: "header-overflow-icon"
+      - extendedWaitUntil:
+          visible:
+            id: "overflow-discard"
+          timeout: 10000
+      - tapOn:
+          id: "overflow-discard"
+      # Discarding a STARTED training asks for confirmation first, discarding a
+      # merely PLANNED one does not — poll instead of assuming either.
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - repeat:
+          times: 5
+          commands:
+            - runFlow:
+                when:
+                  visible: "Delete Training"
+                commands:
+                  - tapOn: "Delete"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+      - extendedWaitUntil:
+          visible: "Suggest based on last planned Training"
+          timeout: 20000
+
+- tapOn: "Suggest based on last planned Training"
+
+- extendedWaitUntil:
+    visible:
+      id: "plan-read-exercise-section-3"
+    timeout: 30000
+
+# The set starts out as a fixed value — no range anywhere on the row.
+- assertVisible: "6"
+- assertNotVisible: "6-9"
+
+# ---- enter full edit and switch the exercise to range input -----------------
+- tapOn:
+    id: "header-overflow-icon"
+
+- extendedWaitUntil:
+    visible:
+      id: "overflow-edit-plan"
+    timeout: 10000
+
+- tapOn:
+    id: "overflow-edit-plan"
+
+- extendedWaitUntil:
+    visible:
+      id: "plan-exercise-ranges-toggle-3"
+    timeout: 20000
+
+- tapOn:
+    id: "plan-exercise-ranges-toggle-3"
+
+- extendedWaitUntil:
+    visible:
+      id: "plan-set-8-reps-max-input"
+    timeout: 10000
+
+# ---- an upper bound below the lower bound is refused, with a reason ---------
+- tapOn:
+    id: "plan-set-8-reps-max-input"
+# A previous (failed) run may have left a value behind — start from empty.
+- eraseText
+- inputText: "4"
+
+- extendedWaitUntil:
+    visible: "Reps range: the second value must be greater than 6."
+    timeout: 10000
+
+- takeScreenshot: gh63-01-range-validation-error
+
+- eraseText
+
+# ---- plan the real range ----------------------------------------------------
+- inputText: "9"
+
+- assertNotVisible: "Reps range: the second value must be greater than 6."
+
+- hideKeyboard
+
+# Read the field back before leaving it: a keystroke that lands in a neighbouring
+# row would otherwise change the numbers every assertion below depends on.
+- copyTextFrom:
+    id: "plan-set-8-reps-max-input"
+- assertTrue: ${maestro.copiedText.trim() === '9'}
+
+- tapOn: "Done"
+
+# ---- the plan list now shows the range instead of the fixed value ----------
+- extendedWaitUntil:
+    visible: "6-9"
+    timeout: 20000
+
+- copyTextFrom:
+    id: "plan-set-8-reps-cell"
+- assertTrue: ${maestro.copiedText.replace(/[\s,]/g, '') === '6-9reps'}
+
+- takeScreenshot: gh63-02-plan-read-with-range
+
+# ---- the training screen shows the planned set as a readable target --------
+- tapOn:
+    id: "subtab-train"
+
+- extendedWaitUntil:
+    visible:
+      id: "train-tab-start-button"
+    timeout: 20000
+
+- tapOn:
+    id: "train-tab-start-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "planned-set-target-value"
+    timeout: 30000
+
+# The assertion that matters: the target renders the planned RANGE for reps,
+# with the untouched RIR and weight still rendered as fixed values.
+#
+# The fixture's Deadlift plan has TWO sets, numbered 8 and 9 (a plan carries the
+# indices of the workout it was created from). Before anything is logged the
+# target must name the FIRST of them, and the "Set N" label above the input must
+# name the very same set — the regression this flow guards is that both used to
+# count the planned-but-unlogged sets as done and jumped to the end.
+- copyTextFrom:
+    id: "planned-set-target-value"
+
+- assertTrue: ${maestro.copiedText === '6-9 reps · RIR 0 · 200 kg'}
+
+- copyTextFrom:
+    id: "planned-set-target-label"
+
+- assertTrue: ${maestro.copiedText === 'Target · Set 8'}
+
+- copyTextFrom:
+    id: "add-workout-set-number"
+
+- assertTrue: ${maestro.copiedText.trim() === 'Set 8'}
+
+- takeScreenshot: gh63-03-training-target-with-range
+
+# ---- log the first planned set: the target must move to the SECOND one ------
+- tapOn:
+    id: "add-workout-set-reps-input"
+- eraseText
+- inputText: "7"
+
+- tapOn:
+    id: "add-workout-set-weight-input"
+- eraseText
+- inputText: "200"
+
+- hideKeyboard
+
+- tapOn:
+    id: "add-workout-set-submit-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "planned-set-target-value"
+    timeout: 20000
+
+- copyTextFrom:
+    id: "planned-set-target-value"
+
+- assertTrue: ${maestro.copiedText === '8 reps · RIR 1 · 180 kg'}
+
+- copyTextFrom:
+    id: "planned-set-target-label"
+
+- assertTrue: ${maestro.copiedText === 'Target · Set 9'}
+
+- copyTextFrom:
+    id: "add-workout-set-number"
+
+- assertTrue: ${maestro.copiedText.trim() === 'Set 9'}
+
+- takeScreenshot: gh63-04-training-target-after-first-set
+
+# ---- log the last planned set: the plan is worked off ----------------------
+- tapOn:
+    id: "add-workout-set-reps-input"
+- eraseText
+- inputText: "5"
+
+- tapOn:
+    id: "add-workout-set-weight-input"
+- eraseText
+- inputText: "200"
+
+- hideKeyboard
+
+- tapOn:
+    id: "add-workout-set-submit-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "planned-set-target-value"
+    timeout: 20000
+
+- copyTextFrom:
+    id: "planned-set-target-value"
+
+- assertTrue: ${maestro.copiedText === 'All 2 planned sets logged'}
+
+- copyTextFrom:
+    id: "add-workout-set-number"
+
+- assertTrue: ${maestro.copiedText.trim() === 'Set 10'}
+
+- takeScreenshot: gh63-05-training-target-after-last-planned-set
+
+# ---- clean up so the slot is empty again and the flow stays repeatable -----
+- tapOn:
+    id: "header-overflow-icon"
+
+- extendedWaitUntil:
+    visible:
+      id: "overflow-discard"
+    timeout: 10000
+
+- tapOn:
+    id: "overflow-discard"
+
+- waitForAnimationToEnd:
+    timeout: 3000
+
+- repeat:
+    times: 5
+    commands:
+      - runFlow:
+          when:
+            visible: "Delete Training"
+          commands:
+            - tapOn: "Delete"
+            - waitForAnimationToEnd:
+                timeout: 3000
+
+- extendedWaitUntil:
+    visible: "Suggest based on last planned Training"
+    timeout: 20000

@@ -34,9 +34,18 @@ interface Props {
   onLiveInputChange?: (input: {reps: number; rir: number; weight: number}) => void;
   oneRepMaxRef?: (oneRm: number) => void;
   allowRefinalizeWhenDone?: boolean;
+  /**
+   * GH-63: the number of the set that is about to be logged, when the caller
+   * knows it better than this component can. During a planned training that is
+   * the next OPEN planned set — the fallback below would instead count the
+   * planned-but-unlogged sets that are merged in as pending rows and show a
+   * number the user has not reached yet. Left `undefined` (every other caller)
+   * the original counter is used unchanged.
+   */
+  nextSetIndex?: number;
 }
 
-const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info, linkVideoMode, onDisableLinkVideoMode, onLiveInputChange, oneRepMaxRef, allowRefinalizeWhenDone}: Props) => {
+const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info, linkVideoMode, onDisableLinkVideoMode, onLiveInputChange, oneRepMaxRef, allowRefinalizeWhenDone, nextSetIndex}: Props) => {
   let unfinishedWorkout = useUnfinishedWorkout(exercise.id!!);
   unfinishedWorkout = workout ?? unfinishedWorkout;
   let workouts = useAllLastWorkouts(exercise, 1);
@@ -59,6 +68,7 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
   const exerciseIdRef = React.useRef(exercise.id);
   const trainingsIdRef = React.useRef(trainingsId);
   const onSubmitSetRef = React.useRef(onSubmitSet);
+  const nextSetIndexRef = React.useRef(nextSetIndex);
   const addWorkoutRef = React.useRef(addWorkout);
   const addOrUpdateSetInWorkoutRef = React.useRef(addOrUpdateSetInWorkout);
   const deleteSetFromWorkoutRef = React.useRef(deleteSetFromWorkout);
@@ -68,6 +78,7 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
   exerciseIdRef.current = exercise.id;
   trainingsIdRef.current = trainingsId;
   onSubmitSetRef.current = onSubmitSet;
+  nextSetIndexRef.current = nextSetIndex;
   addWorkoutRef.current = addWorkout;
   addOrUpdateSetInWorkoutRef.current = addOrUpdateSetInWorkout;
   deleteSetFromWorkoutRef.current = deleteSetFromWorkout;
@@ -83,7 +94,13 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
     shallowEqual,
   );
 
-  const submitWorkoutSet = React.useCallback((workoutSet: WorkoutSet) => {
+  const submitWorkoutSet = React.useCallback((incomingSet: WorkoutSet) => {
+    // The new-set input submits without an index and lets the reducer pick the
+    // next one. During a planned training that guess is wrong: the reducer would
+    // continue after the planned rows instead of filling the planned set the
+    // header just announced. Stamp the announced number so the set that is
+    // created is the set the user was told they were logging (GH-63).
+    const workoutSet = incomingSet.index === undefined && nextSetIndexRef.current !== undefined ? {...incomingSet, index: nextSetIndexRef.current} : incomingSet;
     onSubmitSetRef.current?.(workoutSet);
     const currentWorkout = unfinishedWorkoutRef.current;
     const exerciseId = exerciseIdRef.current;
@@ -149,12 +166,9 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
       )}
       <View style={[styles.header, info ? styles.headerWithInfo : null]}>
         {info && <View></View>}
-        {/* GH-428: the counter is the readable proof of how many sets are logged —
+        {/* GH-428: the counter is also the readable proof of how many sets are logged —
             an e2e flow asserts it is unchanged after an "Add" that must write nothing. */}
-        <Text style={styles.setText} testID="add-workout-set-counter">
-          {' '}
-          Set {unfinishedWorkout?.sets ? unfinishedWorkout.sets.length + 1 : 1}
-        </Text>
+        <Text testID="add-workout-set-number" style={styles.setText}>{` Set ${nextSetIndex ?? (unfinishedWorkout?.sets ? unfinishedWorkout.sets.length + 1 : 1)}`}</Text>
         {info && info}
       </View>
       <View style={styles.contentContainer}>

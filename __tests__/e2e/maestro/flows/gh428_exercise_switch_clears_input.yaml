@@ -132,7 +132,7 @@ appId: com.powerliftingworkoutplanner
 
 # The counter is the readable proof of how many sets this exercise has logged.
 - copyTextFrom:
-    id: 'add-workout-set-counter'
+    id: 'add-workout-set-number'
 - evalScript: |
     var m = /Set\s+(\d+)/.exec(maestro.copiedText);
     if (!m) {
@@ -168,7 +168,7 @@ appId: com.powerliftingworkoutplanner
 
 # ---- an "Add" tap straight after the switch must write nothing ----
 - copyTextFrom:
-    id: 'add-workout-set-counter'
+    id: 'add-workout-set-number'
 - evalScript: |
     var m = /Set\s+(\d+)/.exec(maestro.copiedText);
     if (!m) {
@@ -180,7 +180,7 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd:
     timeout: 10000
 - copyTextFrom:
-    id: 'add-workout-set-counter'
+    id: 'add-workout-set-number'
 - evalScript: |
     var m = /Set\s+(\d+)/.exec(maestro.copiedText);
     if (!m) {

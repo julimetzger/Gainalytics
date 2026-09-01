@@ -176,4 +176,41 @@ describe('WorkoutSetView', () => {
       expect(queryByTestId('set-metrics-divider-1')).toBeNull();
     });
   });
+
+  // GH-63: planned sets can carry a range. This is the list behind the "Planned
+  // Workout" button in the training screen, so the target must read as a range.
+  describe('planned ranges (GH-63)', () => {
+    const rangedSet: WorkoutSet = {index: 1, reps: 8, rir: 1, weight: 100, repsMax: 12, rirMax: 3, weightMax: 110};
+
+    // The mocked DataTable.Cell renders bare strings, which getByText cannot
+    // reach — collect the rendered text leaves instead.
+    const collectStrings = (node: any, out: string[] = []): string[] => {
+      if (typeof node === 'string') {
+        out.push(node);
+      } else if (Array.isArray(node)) {
+        node.forEach((child) => collectStrings(child, out));
+      } else if (node?.children) {
+        collectStrings(node.children, out);
+      }
+      return out;
+    };
+
+    const valueCells = (sets: WorkoutSet[]) => {
+      const rendered = render(<WorkoutSetView sets={sets} editable={false} />).toJSON();
+      const [reps, rir, weight] = collectStrings(rendered);
+      return {reps, rir, weight};
+    };
+
+    it('renders a ranged planned set as "from-to"', () => {
+      expect(valueCells([rangedSet])).toEqual({reps: '8-12 reps', rir: '1-3 RIR', weight: '100-110 kg'});
+    });
+
+    it('renders a done set without any range exactly as before', () => {
+      expect(valueCells([{index: 1, reps: 8, rir: 1, weight: 100}])).toEqual({
+        reps: '8 reps',
+        rir: '1 RIR',
+        weight: '100 kg',
+      });
+    });
+  });
 });

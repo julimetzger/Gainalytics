@@ -5,6 +5,7 @@ import AddWorkoutSet from '../add/AddWorkoutSet';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {Metric} from "../../../models/Metric";
+import {formatPlanFieldValue} from '../../../utils/planRange';
 
 const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMode, onLinkVideo, linkedAnalyses, onVideoPress}: WorkoutSetViewProps) => {
   const theme = useTheme();
@@ -27,7 +28,15 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
     const hasVl = linkedEntry?.vlPercent != null;
     const hasDrift = linkedEntry?.drift != null;
     const hasMetrics = hasVl || hasDrift;
-    const rowKey = set.index!! + set.reps + set.rir + set.weight + (set.date ? new Date(set.date).getTime().toString() : '');
+    const rowKey =
+      set.index!! +
+      set.reps +
+      set.rir +
+      set.weight +
+      // GH-63: a planned set's range must be part of the key, otherwise editing
+      // only the upper bound leaves the row rendering the previous target.
+      `-${set.repsMax ?? ''}-${set.rirMax ?? ''}-${set.weightMax ?? ''}` +
+      (set.date ? new Date(set.date).getTime().toString() : '');
     return (
       <React.Fragment key={rowKey}>
         {/* Fix 1: suppress the row's own bottom border when metrics follow; Divider renders after metrics instead */}
@@ -39,9 +48,10 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
             }
           }}
         >
-          <DataTable.Cell style={{flex: 6}}>{set.reps + ' reps'}</DataTable.Cell>
-          <DataTable.Cell style={{flex: 6}}>{set.rir + ' RIR'}</DataTable.Cell>
-          <DataTable.Cell style={{flex: 6}}>{set.weight + ' kg'}</DataTable.Cell>
+          {/* GH-63: a planned set may carry a range ("8-12 reps"); a done set never does. */}
+          <DataTable.Cell style={{flex: 6}}>{formatPlanFieldValue(set, 'reps') + ' reps'}</DataTable.Cell>
+          <DataTable.Cell style={{flex: 6}}>{formatPlanFieldValue(set, 'rir') + ' RIR'}</DataTable.Cell>
+          <DataTable.Cell style={{flex: 6}}>{formatPlanFieldValue(set, 'weight') + ' kg'}</DataTable.Cell>
           <DataTable.Cell style={{flex: 1}}>
             {highLightMode && (highLightMode === Metric.MAX_INTENSITY || highLightMode === Metric.ONE_RM) && highlightValue === calculateMetricValue([set], highLightMode) ? (
               <Icon size={15} source={'trophy'} color={theme.colors.primary} />

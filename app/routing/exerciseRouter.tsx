@@ -36,7 +36,7 @@ const ExerciseRouter = () => {
         name="EditExerciseSheet"
         component={EditExerciseSheet}
         options={{
-          title: 'New exercise',
+          title: 'New Exercise',
           presentation: 'fullScreenModal',
         }}
       />

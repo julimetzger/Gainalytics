@@ -95,12 +95,12 @@ jest.mock('../../../../app/components/Training/dashboard/DayStrip', () => {
   return () => React.createElement(View, {testID: 'day-strip'});
 });
 
-const plan: TrainingsPlan = {
+const plan = {
   id: 1,
   name: 'Strength Plan',
   trainings: {'1,1': 10, '2,1': 11},
   trainingNames: {},
-} as TrainingsPlan;
+} satisfies TrainingsPlan;
 
 const navigation = {navigate: jest.fn()} as any;
 
@@ -161,7 +161,7 @@ describe('MicroHeroCard bar value labels (GH-342)', () => {
  * same screen already showed the fallback label — two names for one plan.
  */
 describe('MicroHeroCard — nameless legacy plan', () => {
-  const namelessPlan = {...plan, name: ''} as TrainingsPlan;
+  const namelessPlan = {...plan, name: ''} satisfies TrainingsPlan;
 
   beforeEach(() => {
     mockChartProps.current = null;
