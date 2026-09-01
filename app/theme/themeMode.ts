@@ -75,10 +75,14 @@ export const resolveThemeModeSetting = (settings?: ThemeModeSettingsSlice | null
 };
 
 /**
- * `system` follows the device. React Native reports `null` while the OS value
- * is still unknown — treat that as light, which is Android's own default.
+ * `system` follows the device. React Native reports `'unspecified'` — and on
+ * Android sometimes `null` — while the OS value is unknown; both are treated as
+ * light, which is Android's own default.
  */
-export const resolveColorScheme = (setting: ThemeModeSetting, systemScheme: ColorSchemeName): ColorScheme => {
+export const resolveColorScheme = (
+  setting: ThemeModeSetting,
+  systemScheme: ColorSchemeName | null | undefined,
+): ColorScheme => {
   if (setting === 'light' || setting === 'dark') return setting;
   return systemScheme === 'dark' ? 'dark' : 'light';
 };
