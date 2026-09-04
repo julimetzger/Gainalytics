@@ -23,6 +23,7 @@ import dispatchDeleteMeso from '../../redux/Training/dispatch/general/dispatchDe
 import {TrainingsState} from '../../models/TrainingsState';
 import {PlanChromeState} from '../../components/Training/plan/PlanTab';
 import {AnalysisDataMode} from '../../components/Training/analyse/AnalysisDataToggle';
+import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
 
 const createDefaultPlanChromeState = (): PlanChromeState => ({
   mode: 'read',
@@ -99,7 +100,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     navigation.setOptions({
       header: (props) => (
         <TrainingsPlanHeader
-          trainingsPlanName={trainingsPlan.name}
+          trainingsPlanName={trainingsPlanDisplayName(trainingsPlan.name)}
           mesoName={showHistory ? undefined : currentMeso?.name}
           trainingName={showHistory ? 'History' : showDone ? 'Overview' : trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
           micro={showHistory ? undefined : micro}

@@ -92,6 +92,8 @@ jest.mock('react-native-paper', () => {
       </TouchableOpacity>
     ),
     Dialog,
+    // GH-428: the plan dialog renders an inline validation message.
+    HelperText: ({children, visible, testID}: any) => (visible ? <Text testID={testID}>{children}</Text> : null),
     Portal: ({children}: any) => <View>{children}</View>,
     IconButton: ({onPress, testID}: any) => (
       <TouchableOpacity onPress={onPress} testID={testID}>
@@ -329,5 +331,69 @@ describe('TrainingHome — GH-412 plans search', () => {
     fireEvent.changeText(field, '');
     expect(queryByText('Push pull')).not.toBeNull();
     expect(queryByText('Upper lower')).not.toBeNull();
+  });
+});
+
+// GH-428 (H1): plans created before the name validation existed keep an empty
+// name — no migration cleans them up. They must stay readable, identifiable for
+// a screenreader, and reachable for rename/delete.
+describe('TrainingHome — GH-428 nameless legacy plans', () => {
+  const nameless: TrainingsPlan = {id: 51, name: '', trainings: {}, trainingNames: {}};
+  const named: TrainingsPlan = {id: 52, name: 'Upper lower', trainings: {}, trainingNames: {}};
+
+  const renderHome = () => {
+    mockedUseAllTrainingsPlans.mockReturnValue([nameless, named]);
+    mockedUseTrainings.mockReturnValue([]);
+    mockState.trainingsPlan.byId = {51: nameless, 52: named};
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    return {navigation, ...render(<TrainingHome navigation={navigation as any} route={{params: {}} as any} />)};
+  };
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('announces every row with its plan name, falling back to "Unnamed plan"', () => {
+    const {getByTestId} = renderHome();
+
+    expect(getByTestId('plan-row-51').props.accessibilityLabel).toBe('Unnamed plan, Draft · no trainings yet');
+    expect(getByTestId('plan-row-52').props.accessibilityLabel).toBe('Upper lower, Draft · no trainings yet');
+  });
+
+  it('shows the fallback label instead of an empty title', () => {
+    const {getByTestId} = renderHome();
+
+    expect(getByTestId('plan-name-51').props.children).toBe('Unnamed plan');
+    expect(getByTestId('plan-name-52').props.children).toBe('Upper lower');
+  });
+
+  /**
+   * PR #430 review round 3, point 1: the row shows "Unnamed plan", so searching
+   * for exactly that has to find it. Filtering on the raw (empty) name matched
+   * every plan on any input and made the row itself unreachable by its label.
+   */
+  it('finds the nameless plan when searching for the label the row shows', () => {
+    const {getByTestId, queryByTestId} = renderHome();
+
+    fireEvent.changeText(getByTestId('plans-search-field'), 'unnamed');
+
+    expect(queryByTestId('plan-name-51')).not.toBeNull();
+    expect(queryByTestId('plan-name-52')).toBeNull();
+  });
+
+  it('hides the nameless plan for a search that matches neither name', () => {
+    const {getByTestId, queryByTestId} = renderHome();
+
+    fireEvent.changeText(getByTestId('plans-search-field'), 'zzz');
+
+    expect(queryByTestId('plan-name-51')).toBeNull();
+    expect(queryByTestId('plan-name-52')).toBeNull();
+  });
+
+  it('keeps the nameless plan renamable and deletable', () => {
+    const {getByTestId, getByText} = renderHome();
+
+    fireEvent.press(getByTestId('edit-trainings-plan-51'));
+
+    expect(getByText('Edit Unnamed plan')).toBeTruthy();
+    expect(getByTestId('trainings-plan-delete')).toBeTruthy();
   });
 });
