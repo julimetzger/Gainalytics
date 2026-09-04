@@ -24,6 +24,7 @@ import NextTrainingCard from '../../components/Training/dashboard/NextTrainingCa
 import MicroRecordsCard from '../../components/Training/dashboard/MicroRecordsCard';
 import LastTrainingCard from '../../components/Training/dashboard/LastTrainingCard';
 import {Training} from '../../models/entities/Training';
+import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainingHome'>;
 
@@ -300,7 +301,10 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
     return map;
   }, [trainingsPlans, allTrainings]);
 
-  const filteredPlans = trainingsPlans.filter((p: TrainingsPlan) => p.name.toLowerCase().includes(filter.toLowerCase()));
+  // GH-428 (H1): searching has to match what the row actually shows. A legacy
+  // plan without a name displays the fallback label, so typing that label must
+  // find it — filtering on the raw name would hide the very row the user reads.
+  const filteredPlans = trainingsPlans.filter((p: TrainingsPlan) => trainingsPlanDisplayName(p.name).toLowerCase().includes(filter.toLowerCase()));
 
   return (
     <View style={{flex: 1}} testID="training-home-screen">
@@ -353,12 +357,20 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
           const sortedMesos = getSortedMesos(trainingsPlan.mesos);
           const isActive = activePlan?.id === trainingsPlan.id;
           const status = meta?.status ?? 'draft';
+          // GH-428 (H1): without an explicit label the row announces only its
+          // meta line, so a plan created before the name validation existed is
+          // indistinguishable from every other draft for screenreader users.
+          const displayName = trainingsPlanDisplayName(trainingsPlan.name);
+          const rowAccessibilityLabel = `${displayName}, ${meta?.metaText ?? 'Draft'}`;
           const dotColor =
             status === 'active' ? theme.colors.primary : status === 'paused' ? theme.colors.tertiary ?? theme.colors.error : theme.colors.onSurfaceVariant;
 
           return (
             <Card style={[styles.planCard, isActive && styles.planCardActive]} key={trainingsPlan.id}>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={rowAccessibilityLabel}
+                testID={`plan-row-${trainingsPlan.id}`}
                 onPress={() =>
                   navigation.navigate({
                     name: 'TrainingPlan',
@@ -375,8 +387,8 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
                     style={[styles.statusDot, {backgroundColor: dotColor}]}
                   />
                   <View style={styles.planTitleBlock}>
-                    <Text style={styles.planName} numberOfLines={1}>
-                      {trainingsPlan.name}
+                    <Text style={styles.planName} numberOfLines={1} testID={`plan-name-${trainingsPlan.id}`}>
+                      {displayName}
                     </Text>
                     <Text variant="bodySmall" style={[styles.planMeta, {color: theme.colors.onSurfaceVariant}]} testID={`plan-meta-${trainingsPlan.id}`}>
                       {meta?.metaText ?? 'Draft'}

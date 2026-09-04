@@ -4,6 +4,7 @@ import TrainingsPlanTab from '../tabs/trainings/TrainingsPlanTab';
 import {TrainingsPlan} from '../models/entities/TrainingsPlan';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {SubTab} from '../components/Training/TrainingModeTabs';
+import {trainingsPlanDisplayName} from '../utils/trainings-plan-name';
 
 export type RootStackParamList = {
   TrainingHome: undefined;
@@ -31,7 +32,10 @@ const TrainingRouter = () => {
         name="TrainingPlan"
         component={TrainingsPlanTab}
         options={({route}) => ({
-          title: route.params.trainingsPlan.name,
+          // GH-428 (H1): the stack title is what shows until TrainingsPlanTab
+          // installs its own header, so a legacy plan without a name would flash
+          // an empty heading before the fallback label appears.
+          title: trainingsPlanDisplayName(route.params.trainingsPlan.name),
         })}
       />
     </Stack.Navigator>

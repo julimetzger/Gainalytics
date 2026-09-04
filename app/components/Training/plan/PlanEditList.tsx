@@ -62,6 +62,8 @@ interface PlanFieldColumnProps {
   onChangeValue: (value: string) => void;
   onChangeMaxValue: (value: string) => void;
   onBlur?: () => void;
+  /** Select the whole value on focus so typing replaces it (GH-436: suggested weights). */
+  selectTextOnFocus?: boolean;
 }
 
 // GH-63: one planned field. Without a range this renders exactly the single
@@ -81,6 +83,7 @@ const PlanFieldColumn = ({
   onChangeValue,
   onChangeMaxValue,
   onBlur,
+  selectTextOnFocus,
 }: PlanFieldColumnProps) => (
   <View style={styles.fieldColumn}>
     <TextInput
@@ -95,6 +98,7 @@ const PlanFieldColumn = ({
       onBlur={onBlur}
       textColor={textColor}
       outlineColor={outlineColor}
+      selectTextOnFocus={selectTextOnFocus}
     />
     {showRange && (
       <TextInput
@@ -891,6 +895,11 @@ const PendingPlanEditSetRow = ({pendingSet, oneRepMax, showRanges, onChange, onD
           rangeInvalid={getPlanRangeError('weight', pendingSet.weight, pendingSet.weightMax) !== undefined}
           textColor={highlightColor}
           outlineColor={highlightColor}
+          // GH-436 usability walk: the 1RM suggestion lands in the field while the
+          // user is still typing reps; tapping the field then put the caret at the
+          // end, so "60" over a suggested "118" became "11860". Selecting the
+          // suggestion on focus makes the first keystroke replace it.
+          selectTextOnFocus={showHighlight}
           onChangeValue={handleWeightChange}
           onChangeMaxValue={(value) => onChange('weightMax', value.replace(',', '.'))}
         />

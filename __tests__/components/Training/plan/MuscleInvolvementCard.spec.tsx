@@ -56,7 +56,7 @@ jest.mock('react-native-paper', () => {
 });
 
 const useSettings = require('../../../../app/redux/settings/use/useSettings').useSettings as jest.Mock;
-const {useLastMatchingTrainingMicro} = require('../../../../app/redux/Training/use/useMuscleInvolvement');
+const {useLastMatchingTrainingMicro, useMuscleInvolvement} = require('../../../../app/redux/Training/use/useMuscleInvolvement');
 
 describe('MuscleInvolvementCard — effectiveSelectedCompare fallback (GH-300 P2)', () => {
   beforeEach(() => {
@@ -142,5 +142,46 @@ describe('MuscleInvolvementCard — analyse header label (GH-367 live training)'
 
     expect(getByText('THIS TRAINING (LIVE)')).toBeTruthy();
     expect(queryByText('THIS DONE TRAINING')).toBeNull();
+  });
+});
+
+// GH-436: the analysis compares against the micro's total plan without the user
+// having to pick it; a persisted choice still wins.
+describe('MuscleInvolvementCard — default compare (GH-436)', () => {
+  beforeEach(() => {
+    mockDropdownChip.mockClear();
+    useLastMatchingTrainingMicro.mockReturnValue(2);
+  });
+
+  const compareChipValue = (testID: string) => {
+    const call = mockDropdownChip.mock.calls.find((args: any[]) => args[0]?.testID === testID) as any[] | undefined;
+    return call?.[0]?.value;
+  };
+
+  it('analyse view: falls back to current_total_plan when nothing is persisted, even if a done match exists', () => {
+    useSettings.mockReturnValue({});
+
+    render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />);
+
+    expect(compareChipValue('muscle-map-compare-chip-analyse')).toBe('current_total_plan');
+  });
+
+  it('analyse view: a persisted selection survives and is not overridden by the default', () => {
+    useSettings.mockReturnValue({muscleMapCompareSelectionAnalyse: 'none'});
+
+    render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />);
+
+    expect(compareChipValue('muscle-map-compare-chip-analyse')).toBe('none');
+  });
+
+  it('plan view: falls back to current_total_plan and names both the subject and the reference', () => {
+    useSettings.mockReturnValue({});
+    useMuscleInvolvement.mockReturnValueOnce({rows: [], globalMax: 0, effectiveCompare: 'current_total_plan', referenceUnavailable: false});
+
+    const {getByText, getByTestId} = render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="plan" />);
+
+    expect(compareChipValue('muscle-map-compare-chip')).toBe('current_total_plan');
+    expect(getByText('THIS TRAINING (PLANNED)')).toBeTruthy();
+    expect(getByTestId('muscle-map-compare-label').props.children).toBe('Current micro plan');
   });
 });

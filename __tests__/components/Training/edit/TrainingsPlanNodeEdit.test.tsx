@@ -128,7 +128,6 @@ jest.mock('../../../../app/components/Training/plan/PlanTraining', () => {
   const {Text} = require('react-native');
   return () => <Text testID="plan-workout">PlanWorkout</Text>;
 });
-jest.mock('../../../../app/components/Training/plan/PlanningOverview', () => 'PlanningOverview');
 jest.mock('react-native-toast-message', () => ({
   show: jest.fn(),
   default: {show: jest.fn()},

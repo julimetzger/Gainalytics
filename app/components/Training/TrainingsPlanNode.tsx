@@ -1,5 +1,6 @@
 import {Exercise} from '../../models/entities/Exercise';
-import {LayoutRectangle, ScrollView, View} from 'react-native';
+import {LayoutRectangle, View} from 'react-native';
+import KeyboardAwareScrollView from '../common/KeyboardAwareScrollView';
 import {NestableScrollContainerProvider, useNestableScrollContainerContext} from 'react-native-draggable-flatlist';
 import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
@@ -15,7 +16,7 @@ import TrainingsOverview from './analyse/TrainingsOverview';
 import TrainingHistory from './analyse/TrainingHistory';
 import AnalysisDataToggle, {AnalysisDataMode} from './analyse/AnalysisDataToggle';
 import AnalysisTotalSets from './analyse/AnalysisTotalSets';
-import MicroPlanOverview from './analyse/MicroPlanOverview';
+import TrainingPlanOverview from './analyse/TrainingPlanOverview';
 import TrainingModeTabs, {SubTab} from './TrainingModeTabs';
 import TrainingOverflowMenu from './TrainingOverflowMenu';
 import React, {useEffect, useRef, useState} from 'react';
@@ -37,6 +38,7 @@ import {useLastTrainingOfPreviousMeso} from '../../redux/Training/use/useLastTra
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
 import {dispatchReplaceExerciseInTraining} from '../../redux/Training/dispatch/general/dispatchReplaceExerciseInTraining';
 import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
+import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
 
 interface TrainingsPlanNodeProps {
   trainingsPlan: TrainingsPlan;
@@ -79,12 +81,17 @@ export const defaultSubTab = (state?: string, requestedSubTab?: SubTab): SubTab 
 // GH-382: flex:1 bounds the scroller to the swiper pane (RangeSwiper pins it to
 // the viewport via fillViewport) so it scrolls internally; unbounded it grows to
 // its content and nothing scrolls.
+//
+// GH-428 (H2): KeyboardAwareScrollView is a plain ScrollView that additionally
+// scrolls the focused input clear of the keyboard. Everything below the keyboard
+// was reachable before, but only by scrolling by hand — so planning a set in the
+// lower half meant typing into a field hidden behind the keyboard.
 const PlanNodeScrollContainer = ({children}: {children: React.ReactNode}) => {
   const nestableScrollContext = useNestableScrollContainerContext();
   return (
-    <ScrollView style={{flex: 1}} keyboardShouldPersistTaps={'handled'} scrollEnabled={nestableScrollContext?.outerScrollEnabled ?? true}>
+    <KeyboardAwareScrollView style={{flex: 1}} keyboardShouldPersistTaps={'handled'} scrollEnabled={nestableScrollContext?.outerScrollEnabled ?? true}>
       {children}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 };
 
@@ -253,7 +260,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
       Toast.show({
         type: 'info',
         text1: 'Training started!',
-        text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+        text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlanDisplayName(trainingsPlan.name)}`,
         position: 'top',
         visibilityTime: 5000,
       });
@@ -271,7 +278,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
       Toast.show({
         type: 'info',
         text1: 'Training finished!',
-        text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+        text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlanDisplayName(trainingsPlan.name)}`,
         position: 'top',
         visibilityTime: 5000,
       });
@@ -577,16 +584,18 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                 <View testID="analysis-tab">
                   {/* GH-417: planned vs. actual numbers. Rendered in every training
                       state — the Plan position is what makes the planned metrics and
-                      the muscle map reachable while a training is still being planned. */}
+                      the muscle map reachable while a training is still being planned.
+                      GH-436: both positions refer to THIS training only; the
+                      micro-wide plan lives in the Overview's Plan position. */}
                   <AnalysisDataToggle value={effectiveAnalysisDataMode} onChange={effectiveSetAnalysisDataMode} />
                   {effectiveAnalysisDataMode === 'plan' ? (
-                    <MicroPlanOverview trainingsPlan={trainingsPlan} micro={micro} />
+                    <TrainingPlanOverview training={training} trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro} />
                   ) : training?.state === TrainingsState.FINISHED || training?.state === TrainingsState.STARTED ? (
                     <TrainingsOverview training={training} previousTraining={lastTraining} trainingsPlan={trainingsPlan} currentMicro={micro} trainingInMicro={trainingInMicro} />
                   ) : (
                     <View style={{padding: 24, alignItems: 'center'}}>
                       <AnalysisTotalSets totalSets={0} scope="done" />
-                      <Text>Analysis available after the training is finished</Text>
+                      <Text testID="analysis-train-empty">No sets logged yet — start the training on the Train tab. Switch to Plan to see what is planned.</Text>
                     </View>
                   )}
                 </View>

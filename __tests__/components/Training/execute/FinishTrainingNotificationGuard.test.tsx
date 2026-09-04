@@ -115,7 +115,6 @@ jest.mock('../../../../app/components/Training/analyse/MicroOverview', () => 'Mi
 jest.mock('../../../../app/components/Training/analyse/TrainingHistory', () => 'TrainingHistory');
 jest.mock('../../../../app/components/Training/TrainingsBase', () => 'TrainingsBase');
 jest.mock('../../../../app/components/Training/plan/PlanTraining', () => 'PlanWorkoutInTraining');
-jest.mock('../../../../app/components/Training/plan/PlanningOverview', () => 'PlanningOverview');
 
 jest.mock('react-native-toast-message', () => ({
   show: jest.fn(),

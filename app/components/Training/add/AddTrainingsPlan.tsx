@@ -1,5 +1,5 @@
-import {IconButton, TextInput, useTheme} from 'react-native-paper';
-import {Alert, View} from 'react-native';
+import {HelperText, IconButton, TextInput, useTheme} from 'react-native-paper';
+import {Alert, Keyboard, View} from 'react-native';
 import React, {useState} from 'react';
 import {useStore} from 'react-redux';
 import {dispatchAddTrainingsPlan} from '../../../redux/Training/dispatch/general/dispatchAddTrainingsPlan';
@@ -14,6 +14,7 @@ import {exportTrainingsPlanToFile} from '../../../utils/exportTrainingsPlan';
 import Toast from 'react-native-toast-message';
 import {GlobalState} from '../../../redux/rootReducer';
 import EditDialogScaffold from '../../common/EditDialogScaffold';
+import {isValidTrainingsPlanName, trainingsPlanDisplayName} from '../../../utils/trainings-plan-name';
 
 interface AddTrainingsPlanProperties {
   style?: any;
@@ -23,6 +24,7 @@ interface AddTrainingsPlanProperties {
 const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
   const [visible, setVisible] = React.useState(false);
   const [TrainingName, setTrainingName] = useState('');
+  const [nameError, setNameError] = useState(false);
   let addTrainingsPlan = dispatchAddTrainingsPlan();
   let trainingsPlan = trainingsId ? useTrainingsPlan(trainingsId) : undefined;
   let editTrainingsPlan = dispatchEditTrainingsPlan();
@@ -33,9 +35,11 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
 
   const showDialog = () => {
     setTrainingName(trainingsPlan?.name ?? '');
+    setNameError(false);
     setVisible(true);
   };
   const hideDialog = () => {
+    setNameError(false);
     setVisible(false);
   };
 
@@ -57,9 +61,23 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
     }
   };
 
+  // GH-428 (H1): "Save" used to close the dialog and persist whatever was in the
+  // field — including nothing at all, which produced a plan the user could not
+  // tell apart from any other draft. The dialog now stays open and explains why.
   const confirmDialog = () => {
+    if (!isValidTrainingsPlanName(TrainingName)) {
+      setNameError(true);
+      // The keyboard stays up on purpose: the dialog remains open and the user
+      // needs to keep typing the missing name right away.
+      return;
+    }
+    const name = TrainingName.trim();
+    setNameError(false);
+    // GH-436 usability walk: the dialog closed but the keyboard stayed up over the
+    // plan list, hiding the freshly created plan. Only dismiss it once we really save.
+    Keyboard.dismiss();
     setVisible(false);
-    trainingsId ? editTrainingsPlan(trainingsId, TrainingName) : addTrainingsPlan({name: TrainingName} as TrainingsPlan);
+    trainingsId ? editTrainingsPlan(trainingsId, name) : addTrainingsPlan({name} as TrainingsPlan);
   };
 
   const handleExport = () => {
@@ -88,7 +106,13 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
   return (
     <View style={style}>
       {trainingsId ? (
-        <IconButton icon={'dots-vertical'} onPress={() => showDialog()} theme={theme} testID={`edit-trainings-plan-${trainingsId}`} />
+        <IconButton
+          icon={'dots-vertical'}
+          onPress={() => showDialog()}
+          theme={theme}
+          testID={`edit-trainings-plan-${trainingsId}`}
+          accessibilityLabel={`Edit ${trainingsPlanDisplayName(trainingsPlan?.name)}`}
+        />
       ) : (
         <IconButton
           icon="plus-circle"
@@ -105,7 +129,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
       <EditDialogScaffold
         visible={visible}
         onDismiss={hideDialog}
-        title={trainingsId ? `Edit ${trainingsPlan?.name}` : 'Add New Training Plan'}
+        title={trainingsId ? `Edit ${trainingsPlanDisplayName(trainingsPlan?.name)}` : 'Add New Training Plan'}
         testID="trainings-plan-dialog"
         dismissTestID="trainings-plan-cancel"
         primaryAction={{label: 'Save', onPress: confirmDialog, testID: 'confirm-trainings-plan'}}
@@ -119,7 +143,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
             ? {
                 label: 'Delete plan',
                 onConfirm: () => deleteTrainingsPlan(trainingsId),
-                confirmTitle: `Delete ${trainingsPlan?.name}`,
+                confirmTitle: `Delete ${trainingsPlanDisplayName(trainingsPlan?.name)}`,
                 confirmMessage:
                   'This action will delete the training. The workouts done in this training will not be deleted and are still available in the history. Are you sure you want to delete this training?',
                 confirmLabel: 'Delete',
@@ -137,8 +161,17 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
           value={TrainingName}
           label={'Name of the Training Plan'}
           maxLength={30}
-          onChangeText={(text) => setTrainingName(text)}
+          error={nameError}
+          onChangeText={(text) => {
+            if (nameError) {
+              setNameError(false);
+            }
+            setTrainingName(text);
+          }}
         />
+        <HelperText type="error" visible={nameError} testID="plan-name-error">
+          Please enter a name for the training plan.
+        </HelperText>
       </EditDialogScaffold>
     </View>
   );

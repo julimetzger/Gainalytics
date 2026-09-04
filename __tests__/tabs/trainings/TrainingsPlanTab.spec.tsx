@@ -106,12 +106,16 @@ jest.mock('../../../app/components/Training/TrainingsPlanNode', () => {
 
   // Surfaces the GH-417 analysis-data wiring so a test can flip the toggle and
   // check that the screen — not the swiper pane — owns the choice.
-  return ({micro, analysisDataMode, onAnalysisDataModeChange}: any) => (
+  return ({micro, analysisDataMode, onAnalysisDataModeChange, microViewMode, onMicroViewModeChange}: any) => (
     <View>
       <Text testID="node-micro">{String(micro)}</Text>
       <Text testID="node-analysis-data-mode">{String(analysisDataMode)}</Text>
+      <Text testID="node-micro-view-mode">{String(microViewMode)}</Text>
       <TouchableOpacity testID="node-select-plan" onPress={() => onAnalysisDataModeChange('plan')}>
         <Text>plan</Text>
+      </TouchableOpacity>
+      <TouchableOpacity testID="node-select-overview-plan" onPress={() => onMicroViewModeChange('plan')}>
+        <Text>overview plan</Text>
       </TouchableOpacity>
     </View>
   );
@@ -270,5 +274,70 @@ describe('TrainingsPlanTab', () => {
     expect(getByTestId('node-analysis-data-mode').props.children).toBe('plan');
 
     await act(async () => undefined);
+  });
+
+  // GH-436 AC8: the Overview's new Plan position is remembered exactly like the
+  // existing ones — the choice lives on the screen, not in the swiper pane.
+  it('keeps the Overview Plan position across a micro change', async () => {
+    const navigation = {setOptions: jest.fn(), addListener: jest.fn(() => jest.fn())} as any;
+    const route = {params: {trainingsPlan: {id: 50, name: 'Power Plan'}, micro: 2, training: 1}} as any;
+
+    const {getByTestId} = render(<TrainingsPlanTab navigation={navigation} route={route} />);
+
+    expect(getByTestId('node-micro-view-mode').props.children).toBe('exercise');
+
+    fireEvent.press(getByTestId('node-select-overview-plan'));
+    await waitFor(() => {
+      expect(getByTestId('node-micro-view-mode').props.children).toBe('plan');
+    });
+
+    fireEvent.press(getByTestId('swiper-next'));
+    await waitFor(() => {
+      expect(getByTestId('node-micro').props.children).toBe('3');
+    });
+    expect(getByTestId('node-micro-view-mode').props.children).toBe('plan');
+
+    await act(async () => undefined);
+  });
+});
+
+/**
+ * GH-428 (H1), PR #430 review round 3, point 1: the plan list already shows a
+ * fallback label for plans created before the name validation existed. Opening
+ * such a plan must show the SAME label — a header reading just " › Meso 1"
+ * leaves the user without any hint which plan they are in.
+ */
+describe('TrainingsPlanTab — nameless legacy plan', () => {
+  const renderHeader = () => {
+    const navigation = {setOptions: jest.fn(), addListener: jest.fn(() => jest.fn())} as any;
+    const route = {params: {trainingsPlan: {id: 50, name: ''}, micro: 2, training: 1}} as any;
+
+    render(<TrainingsPlanTab navigation={navigation} route={route} />);
+
+    const header = navigation.setOptions.mock.calls[0][0].header;
+    return render(header({}));
+  };
+
+  beforeEach(() => {
+    mockedUseTrainingsPlan.mockReturnValue({
+      id: 50,
+      name: '',
+      trainings: {'2,1': 100},
+      trainingNames: {1: 'Upper Day'},
+      mesos: [{id: 1, name: 'Meso 1', order: 1, startMicro: 1}],
+    });
+    mockedUseTrainingInTrainingsPlan.mockReturnValue({
+      id: 100,
+      state: TrainingsState.STARTED,
+      exercises: [],
+      doneWorkoutIds: {},
+      plannedWorkouts: {},
+    });
+  });
+
+  it('shows the same fallback label in the header as the plan list does', () => {
+    const {getByTestId} = renderHeader();
+
+    expect(getByTestId('header-plan-name').props.children).toBe('Unnamed plan');
   });
 });

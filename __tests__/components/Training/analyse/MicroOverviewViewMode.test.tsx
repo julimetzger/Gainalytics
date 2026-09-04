@@ -12,6 +12,11 @@ jest.mock('../../../../app/redux/Workout/use/useWorkoutsByIds', () => ({
 jest.mock('../../../../app/components/Training/analyse/MicroOverview', () => 'MicroOverview');
 jest.mock('../../../../app/components/Training/analyse/MicroExerciseOverview', () => 'MicroExerciseOverview');
 jest.mock('../../../../app/components/analyse/MetricsOverviewForWorkouts', () => 'MetricsOverviewForWorkouts');
+jest.mock('../../../../app/components/Training/analyse/MicroPlanOverview', () => {
+  const React = require('react');
+  const {Text} = require('react-native');
+  return ({micro}: any) => <Text testID="micro-plan-overview">{`micro-plan:${micro}`}</Text>;
+});
 
 jest.mock('react-native-paper', () => {
   const React = require('react');
@@ -104,5 +109,47 @@ describe('MicroOverviewTraining – viewMode prop control', () => {
       />,
     );
     expect(screen.getByTestId('seg-btn-gesamt').props.accessibilityState.selected).toBe(true);
+  });
+
+  // GH-436: the micro-wide planned overview moved here from a training's analysis.
+  it('offers Plan as a fourth position and renders the micro plan overview there', () => {
+    const onViewModeChange = jest.fn();
+    const {rerender} = render(
+      <MicroOverviewTraining
+        trainingsPlan={mockPlan}
+        micro={3}
+        viewMode="gesamt"
+        onViewModeChange={onViewModeChange}
+      />,
+    );
+    expect(screen.getByText('Plan')).toBeTruthy();
+    expect(screen.queryByTestId('micro-plan-overview')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('seg-btn-plan'));
+    expect(onViewModeChange).toHaveBeenCalledWith('plan');
+
+    rerender(
+      <MicroOverviewTraining
+        trainingsPlan={mockPlan}
+        micro={3}
+        viewMode="plan"
+        onViewModeChange={onViewModeChange}
+      />,
+    );
+    expect(screen.getByTestId('seg-btn-plan').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByTestId('micro-plan-overview').props.children).toBe('micro-plan:3');
+  });
+
+  it('lists the positions in the order Gesamt, Exercise, Muscle, Plan', () => {
+    render(
+      <MicroOverviewTraining
+        trainingsPlan={mockPlan}
+        micro={1}
+        viewMode="gesamt"
+        onViewModeChange={jest.fn()}
+      />,
+    );
+    const ids = screen.root.findAll((node) => typeof node.props?.testID === 'string' && node.props.testID.startsWith('seg-btn-')).map((node) => node.props.testID);
+    expect([...new Set(ids)]).toEqual(['seg-btn-gesamt', 'seg-btn-exercise', 'seg-btn-muscle', 'seg-btn-plan']);
   });
 });
