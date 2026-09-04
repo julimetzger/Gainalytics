@@ -4,6 +4,7 @@ describe('settingsReducer', () => {
   it('defaults video analysis filters to collapsed', () => {
     expect(settingsReducer(undefined, {type: '@@INIT'})).toEqual({
       mode: 'dark',
+      themeMode: 'dark',
       palette: 'blue',
       videoAnalysisFiltersExpanded: false,
     });
@@ -46,6 +47,7 @@ describe('settingsReducer', () => {
 
     expect(settingsReducer(existingUser, {type: 'TOGGLE_MODE'})).toEqual({
       mode: 'dark',
+      themeMode: 'dark',
       palette: 'green',
       videoAnalysisFiltersExpanded: false,
     });

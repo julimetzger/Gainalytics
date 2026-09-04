@@ -156,7 +156,9 @@ const TrainingsPlanDrawer = ({
           icon="plus-circle"
           onPress={onAddMeso}
           theme={theme}
-          iconColor={theme.colors.tertiaryContainer}
+          // GH-404: `tertiaryContainer` is a near-white fill in the light
+          // schemes, so these "+" icons were invisible on the drawer surface.
+          iconColor={theme.colors.tertiary}
           size={40}
         />
       </View>
@@ -245,7 +247,9 @@ const TrainingsPlanDrawer = ({
             changeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1);
           }}
           theme={theme}
-          iconColor={theme.colors.tertiaryContainer}
+          // GH-404: `tertiaryContainer` is a near-white fill in the light
+          // schemes, so these "+" icons were invisible on the drawer surface.
+          iconColor={theme.colors.tertiary}
           size={40}
         ></IconButton>
       </View>

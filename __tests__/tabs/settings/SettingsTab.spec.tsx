@@ -12,7 +12,6 @@ import {dispatchSetFinishTrainingTimer} from '../../../app/redux/settings/dispat
 import {dispatchToggleDisable1RMpreselect} from '../../../app/redux/settings/dispatch/dispatchToggleDisable1RMpreselect';
 import {dispatchToggleShowTimer} from '../../../app/redux/settings/dispatch/dispatchToggleShowTimer';
 import {dispatchToggleShowToasts} from '../../../app/redux/settings/dispatch/dispatchToggleShowToasts';
-import {dispatchToggleMode} from '../../../app/redux/settings/dispatch/dispatchToggleMode';
 import {dispatchSetPalette} from '../../../app/redux/settings/dispatch/dispatchSetPalette';
 import {dispatchSetExactAlarmPermission} from '../../../app/redux/settings/dispatch/dispatchSetExactAlarmPersmission';
 import {canScheduleExactAlarms, openExactAlarmSettings} from '../../../app/utils/NotificationUtils';
@@ -21,7 +20,6 @@ import {useAnthropicModel} from '../../../app/redux/settings/use/useAnthropicMod
 import {DEFAULT_ANTHROPIC_MODEL} from '../../../app/utils/llmApi';
 
 const mockSetAnthropicModel = jest.fn();
-const mockToggleMode = jest.fn();
 const mockToggleDisable1RM = jest.fn();
 const mockToggleShowTimer = jest.fn();
 const mockToggleShowToasts = jest.fn();
@@ -78,9 +76,22 @@ jest.mock('../../../app/redux/settings/dispatch/dispatchToggleShowToasts', () =>
   dispatchToggleShowToasts: jest.fn(() => mockToggleShowToasts),
 }));
 
-jest.mock('../../../app/redux/settings/dispatch/dispatchToggleMode', () => ({
-  dispatchToggleMode: jest.fn(() => mockToggleMode),
-}));
+// GH-404: the dark-mode switch became its own component with its own spec.
+// This suite mocks react-native-paper away wholesale, so the real control
+// cannot render here — stub it and assert only that the row is wired in.
+jest.mock('../../../app/components/settings/ThemeModeSelector', () => {
+  const React = require('react');
+  const {Text, View} = require('react-native');
+
+  return {
+    __esModule: true,
+    default: () => (
+      <View testID="settings-theme-mode-row">
+        <Text>Theme</Text>
+      </View>
+    ),
+  };
+});
 
 jest.mock('../../../app/redux/settings/dispatch/dispatchSetPalette', () => ({
   dispatchSetPalette: jest.fn(() => mockSetPalette),
@@ -279,7 +290,6 @@ const fileSaver = require('react-native-fs');
 
 const mockedUseSettings = jest.mocked(useSettings);
 const mockedUseStore = jest.mocked(useStore);
-const mockedDispatchToggleMode = jest.mocked(dispatchToggleMode);
 const mockedDispatchToggleDisable1RM = jest.mocked(dispatchToggleDisable1RMpreselect);
 const mockedDispatchToggleShowTimer = jest.mocked(dispatchToggleShowTimer);
 const mockedDispatchToggleShowToasts = jest.mocked(dispatchToggleShowToasts);
@@ -318,7 +328,6 @@ describe('SettingsTab', () => {
       getState: mockStoreGetState,
     });
 
-    mockedDispatchToggleMode.mockClear();
     mockedDispatchToggleDisable1RM.mockClear();
     mockedDispatchToggleShowTimer.mockClear();
     mockedDispatchToggleShowToasts.mockClear();
@@ -328,7 +337,6 @@ describe('SettingsTab', () => {
     mockedDispatchSetPauseTimer.mockClear();
     mockedDispatchSetFinishTrainingTimer.mockClear();
 
-    mockToggleMode.mockReset();
     mockToggleDisable1RM.mockReset();
     mockToggleShowTimer.mockReset();
     mockToggleShowToasts.mockReset();
@@ -369,16 +377,27 @@ describe('SettingsTab', () => {
     fireEvent.press(switches[1]);
     fireEvent.press(switches[2]);
     fireEvent.press(switches[3]);
-    fireEvent.press(switches[4]);
 
     fireEvent.press(getByTestId('radio-green'));
 
-    expect(mockToggleMode).toHaveBeenCalledTimes(1);
     expect(mockToggleDisable1RM).toHaveBeenCalledTimes(1);
     expect(Alert.alert).toHaveBeenCalledWith('Nope. This app is not using stupid measuring systems.');
     expect(mockToggleShowTimer).toHaveBeenCalledTimes(1);
     expect(mockToggleShowToasts).toHaveBeenCalledTimes(1);
     expect(mockSetPalette).toHaveBeenCalledWith('green');
+  });
+
+  it('shows the Theme row and the colour palette row as two distinct settings', () => {
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId, getByText, queryByText} = render(<SettingsTab navigation={navigation} route={route} />);
+
+    // GH-404: "Theme" now names the light/dark/system row; the palette row was
+    // renamed so the two can be told apart, and the old switch is gone.
+    expect(getByTestId('settings-theme-mode-row')).toBeTruthy();
+    expect(getByText('Color Palette')).toBeTruthy();
+    expect(queryByText('Enable Dark Mode')).toBeNull();
   });
 
   it('keeps the three built-in palettes one tap away', () => {
@@ -561,13 +580,16 @@ describe('SettingsTab', () => {
     const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
     const route = {params: {}};
 
-    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+    const {getAllByTestId, getByText} = render(<SettingsTab navigation={navigation} route={route} />);
 
     await waitFor(() => {
-      expect(getByTestId('button-Enable')).toBeEnabled();
+      expect(getByText('Disabled - Notifications may be delayed')).toBeTruthy();
     });
 
-    fireEvent.press(getByTestId('button-Enable'));
+    // The permission row is driven by a Switch, not a button; it is the last
+    // one on the screen (1RM, imperial units, timer, toasts, exact alarm).
+    const switches = getAllByTestId('settings-switch');
+    fireEvent.press(switches[switches.length - 1]);
 
     await waitFor(() => {
       expect(mockedOpenExactAlarmSettings).toHaveBeenCalledTimes(1);
