@@ -1,5 +1,5 @@
 import {HelperText, IconButton, TextInput, useTheme} from 'react-native-paper';
-import {Alert, View} from 'react-native';
+import {Alert, Keyboard, View} from 'react-native';
 import React, {useState} from 'react';
 import {useStore} from 'react-redux';
 import {dispatchAddTrainingsPlan} from '../../../redux/Training/dispatch/general/dispatchAddTrainingsPlan';
@@ -67,10 +67,15 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
   const confirmDialog = () => {
     if (!isValidTrainingsPlanName(TrainingName)) {
       setNameError(true);
+      // The keyboard stays up on purpose: the dialog remains open and the user
+      // needs to keep typing the missing name right away.
       return;
     }
     const name = TrainingName.trim();
     setNameError(false);
+    // GH-436 usability walk: the dialog closed but the keyboard stayed up over the
+    // plan list, hiding the freshly created plan. Only dismiss it once we really save.
+    Keyboard.dismiss();
     setVisible(false);
     trainingsId ? editTrainingsPlan(trainingsId, name) : addTrainingsPlan({name} as TrainingsPlan);
   };

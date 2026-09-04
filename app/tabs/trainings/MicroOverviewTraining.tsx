@@ -7,10 +7,12 @@ import {useAllTrainingsInMicro} from '../../redux/Training/use/useAllTrainingsIn
 import {useWorkoutsByIds} from '../../redux/Workout/use/useWorkoutsByIds';
 import MicroOverview from '../../components/Training/analyse/MicroOverview';
 import MicroExerciseOverview, {ExerciseSortMode} from '../../components/Training/analyse/MicroExerciseOverview';
+import MicroPlanOverview from '../../components/Training/analyse/MicroPlanOverview';
 import MetricsOverviewForWorkouts from '../../components/analyse/MetricsOverviewForWorkouts';
 import {Training} from '../../models/entities/Training';
 
-export type ViewMode = 'gesamt' | 'exercise' | 'muscle';
+/** GH-436: 'plan' is the micro-wide planned overview that used to sit in a training's analysis. */
+export type ViewMode = 'gesamt' | 'exercise' | 'muscle' | 'plan';
 
 interface Props {
   trainingsPlan: TrainingsPlan;
@@ -41,7 +43,7 @@ const TrainingMuscleCard = ({training, trainingName}: TrainingMuscleCardProps) =
   );
 };
 
-const MuscleView = ({trainingsPlan, micro}: Props) => {
+const MuscleView = ({trainingsPlan, micro}: Pick<Props, 'trainingsPlan' | 'micro'>) => {
   const trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
   const executedTrainings = useMemo(() => trainings.filter((t) => t.state === TrainingsState.FINISHED), [trainings]);
 
@@ -81,6 +83,13 @@ const MuscleView = ({trainingsPlan, micro}: Props) => {
   );
 };
 
+const VIEW_MODE_BUTTONS: {value: ViewMode; label: string; testID: string}[] = [
+  {value: 'gesamt', label: 'Gesamt', testID: 'overview-view-gesamt'},
+  {value: 'exercise', label: 'Exercise', testID: 'overview-view-exercise'},
+  {value: 'muscle', label: 'Muscle', testID: 'overview-view-muscle'},
+  {value: 'plan', label: 'Plan', testID: 'overview-view-plan'},
+];
+
 const MicroOverviewTraining = ({trainingsPlan, micro, isActive = true, viewMode, onViewModeChange, sortMode, onSortModeChange}: Props) => {
   // No flex:1 on the root: inside the NestableScrollContainer's unbounded
   // content a flex:1 height collapses and clips the overview (GH-382).
@@ -90,15 +99,13 @@ const MicroOverviewTraining = ({trainingsPlan, micro, isActive = true, viewMode,
         value={viewMode}
         onValueChange={(v) => onViewModeChange(v as ViewMode)}
         style={{margin: 8}}
-        buttons={[
-          {value: 'gesamt', label: 'Gesamt'},
-          {value: 'exercise', label: 'Exercise'},
-          {value: 'muscle', label: 'Muscle'},
-        ]}
+        density="small"
+        buttons={VIEW_MODE_BUTTONS}
       />
       {viewMode === 'gesamt' && <MicroOverview trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} />}
       {viewMode === 'exercise' && <MicroExerciseOverview trainingsPlan={trainingsPlan} micro={micro} sortMode={sortMode} onSortModeChange={onSortModeChange} />}
       {viewMode === 'muscle' && <MuscleView trainingsPlan={trainingsPlan} micro={micro} />}
+      {viewMode === 'plan' && <MicroPlanOverview trainingsPlan={trainingsPlan} micro={micro} />}
     </View>
   );
 };

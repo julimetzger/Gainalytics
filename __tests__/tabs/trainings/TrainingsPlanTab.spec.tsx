@@ -106,12 +106,16 @@ jest.mock('../../../app/components/Training/TrainingsPlanNode', () => {
 
   // Surfaces the GH-417 analysis-data wiring so a test can flip the toggle and
   // check that the screen — not the swiper pane — owns the choice.
-  return ({micro, analysisDataMode, onAnalysisDataModeChange}: any) => (
+  return ({micro, analysisDataMode, onAnalysisDataModeChange, microViewMode, onMicroViewModeChange}: any) => (
     <View>
       <Text testID="node-micro">{String(micro)}</Text>
       <Text testID="node-analysis-data-mode">{String(analysisDataMode)}</Text>
+      <Text testID="node-micro-view-mode">{String(microViewMode)}</Text>
       <TouchableOpacity testID="node-select-plan" onPress={() => onAnalysisDataModeChange('plan')}>
         <Text>plan</Text>
+      </TouchableOpacity>
+      <TouchableOpacity testID="node-select-overview-plan" onPress={() => onMicroViewModeChange('plan')}>
+        <Text>overview plan</Text>
       </TouchableOpacity>
     </View>
   );
@@ -268,6 +272,30 @@ describe('TrainingsPlanTab', () => {
       expect(getByTestId('node-micro').props.children).toBe('4');
     });
     expect(getByTestId('node-analysis-data-mode').props.children).toBe('plan');
+
+    await act(async () => undefined);
+  });
+
+  // GH-436 AC8: the Overview's new Plan position is remembered exactly like the
+  // existing ones — the choice lives on the screen, not in the swiper pane.
+  it('keeps the Overview Plan position across a micro change', async () => {
+    const navigation = {setOptions: jest.fn(), addListener: jest.fn(() => jest.fn())} as any;
+    const route = {params: {trainingsPlan: {id: 50, name: 'Power Plan'}, micro: 2, training: 1}} as any;
+
+    const {getByTestId} = render(<TrainingsPlanTab navigation={navigation} route={route} />);
+
+    expect(getByTestId('node-micro-view-mode').props.children).toBe('exercise');
+
+    fireEvent.press(getByTestId('node-select-overview-plan'));
+    await waitFor(() => {
+      expect(getByTestId('node-micro-view-mode').props.children).toBe('plan');
+    });
+
+    fireEvent.press(getByTestId('swiper-next'));
+    await waitFor(() => {
+      expect(getByTestId('node-micro').props.children).toBe('3');
+    });
+    expect(getByTestId('node-micro-view-mode').props.children).toBe('plan');
 
     await act(async () => undefined);
   });

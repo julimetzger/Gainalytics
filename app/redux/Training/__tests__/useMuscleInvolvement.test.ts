@@ -358,8 +358,8 @@ describe('computeMuscleInvolvement — last_training_plan / last_training_done (
   });
 });
 
-// GH-417 — the analysis view's Plan position maps the WHOLE micro's planned load,
-// not just the current training's.
+// GH-417 / GH-436 — the Overview's Plan position maps the WHOLE micro's planned
+// load, not just one training's.
 describe('computeMicroPlannedMuscleInvolvement', () => {
   it('sums the planned sets of every training in the micro as the subject', () => {
     const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 2, 'sets');
@@ -371,8 +371,8 @@ describe('computeMicroPlannedMuscleInvolvement', () => {
     expect(data.rows.find((r) => r.muscleGroupId === Muscles.GLUTES)?.today).toBeCloseTo(2, 5);
   });
 
-  it('references the previous micro plan', () => {
-    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 2, 'sets');
+  it('references the previous micro plan when asked to', () => {
+    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 2, 'sets', 'last_plan');
 
     expect(data.referenceUnavailable).toBe(false);
     expect(data.effectiveCompare).toBe('last_plan');
@@ -384,7 +384,7 @@ describe('computeMicroPlannedMuscleInvolvement', () => {
   });
 
   it('drops the reference layer for the first micro, without losing the subject', () => {
-    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 1, 'sets');
+    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 1, 'sets', 'last_plan');
 
     expect(data.referenceUnavailable).toBe(true);
     expect(data.effectiveCompare).toBe('none');
@@ -398,5 +398,50 @@ describe('computeMicroPlannedMuscleInvolvement', () => {
     expect(data.rows).toEqual([]);
     expect(data.globalMax).toBe(0);
     expect(data.referenceUnavailable).toBe(true);
+  });
+});
+
+// GH-436 — the Overview's Plan position puts the micro's plan next to what was
+// actually trained in the same micro. That is the default reference now.
+describe('computeMicroPlannedMuscleInvolvement — done reference (GH-436)', () => {
+  const withDoneWorkouts = () => {
+    const state = fixture();
+    // micro 2, training 1 (bench) logged 2 sets; training 2 (squat) logged 1 set
+    state.workouts.byId[600] = {id: 600, exerciseId: 1, sets: [{reps: 10, weight: 100, rir: 2}, {reps: 10, weight: 100, rir: 2}]} as any;
+    state.workouts.byId[601] = {id: 601, exerciseId: 2, sets: [{reps: 5, weight: 150, rir: 2}]} as any;
+    state.trainings.byId[200] = {...state.trainings.byId[200], doneWorkoutIds: {1: 600}} as any;
+    state.trainings.byId[201] = {...state.trainings.byId[201], doneWorkoutIds: {2: 601}} as any;
+    return state;
+  };
+
+  it('defaults to the micro\'s done load as the reference', () => {
+    const data = computeMicroPlannedMuscleInvolvement(withDoneWorkouts(), 1, 2, 'sets');
+
+    expect(data.referenceUnavailable).toBe(false);
+    expect(data.effectiveCompare).not.toBe('none');
+    // subject stays the planned load: bench 3 + squat 4
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.today).toBeCloseTo(3, 5);
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.QUADS)?.today).toBeCloseTo(4, 5);
+    // reference is what was trained in the SAME micro, not the previous micro's plan (which had 4 bench sets)
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.reference).toBeCloseTo(2, 5);
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.QUADS)?.reference).toBeCloseTo(1, 5);
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.GLUTES)?.reference).toBeCloseTo(0.5, 5);
+  });
+
+  it('reports the reference as unavailable when nothing was trained yet, keeping the planned subject', () => {
+    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 2, 'sets');
+
+    expect(data.referenceUnavailable).toBe(true);
+    expect(data.effectiveCompare).toBe('none');
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.today).toBeCloseTo(3, 5);
+    expect(data.rows.every((r) => r.reference === 0)).toBe(true);
+  });
+
+  it('renders no reference layer for compare = none even when done data exists', () => {
+    const data = computeMicroPlannedMuscleInvolvement(withDoneWorkouts(), 1, 2, 'sets', 'none');
+
+    expect(data.referenceUnavailable).toBe(false);
+    expect(data.effectiveCompare).toBe('none');
+    expect(data.rows.every((r) => r.reference === 0)).toBe(true);
   });
 });

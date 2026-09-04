@@ -1,5 +1,6 @@
 import React from 'react';
-import {fireEvent, render} from '@testing-library/react-native';
+import {Keyboard} from 'react-native';
+import {act, fireEvent, render} from '@testing-library/react-native';
 import {Provider as PaperProvider} from 'react-native-paper';
 import AddTrainingsPlan from '../../../../app/components/Training/add/AddTrainingsPlan';
 import {TrainingsPlan} from '../../../../app/models/entities/TrainingsPlan';
@@ -168,5 +169,83 @@ describe('AddTrainingsPlan — GH-428 (H1) plan name is required', () => {
     fireEvent.press(getByTestId('trainings-plan-delete-confirm'));
 
     expect(mockDeleteTrainingsPlan).toHaveBeenCalledWith(9);
+  });
+});
+
+describe('AddTrainingsPlan — saving a new plan (GH-436 usability walk)', () => {
+  let dismiss: jest.SpyInstance;
+
+  beforeEach(() => {
+    mockTrainingsPlan = undefined;
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    dismiss = jest.spyOn(Keyboard, 'dismiss').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    dismiss.mockRestore();
+    jest.useRealTimers();
+  });
+
+  // Paper's Dialog unmounts its children only when its exit animation ends, so
+  // "the dialog closed" has to be observed after that animation is driven to
+  // completion. Real timers make this a race that loses under a loaded suite.
+  const settleExitAnimation = () => act(() => {
+    jest.advanceTimersByTime(2000);
+  });
+
+  it('closes the keyboard together with the dialog so the plan list is visible again', () => {
+    const {getByTestId, queryByTestId} = renderAdd();
+
+    fireEvent.press(getByTestId('add-trainings-plan'));
+    fireEvent.changeText(getByTestId('plan-name-input'), 'UX436');
+    fireEvent.press(getByTestId('confirm-trainings-plan'));
+
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    expect(mockAddTrainingsPlan).toHaveBeenCalledWith({name: 'UX436'});
+    settleExitAnimation();
+    expect(queryByTestId('plan-name-input')).toBeNull();
+  });
+
+  // The two fixes meet here: GH-428 keeps the dialog open when the name is
+  // missing, GH-436 dismisses the keyboard on save. Dismissing in the error case
+  // too would push the keyboard away from a dialog the user still has to finish.
+  it('keeps the keyboard up when the name is missing so the user can keep typing', () => {
+    const {getByTestId, queryByText} = renderAdd();
+
+    fireEvent.press(getByTestId('add-trainings-plan'));
+    fireEvent.press(getByTestId('confirm-trainings-plan'));
+
+    expect(dismiss).not.toHaveBeenCalled();
+    expect(mockAddTrainingsPlan).not.toHaveBeenCalled();
+    expect(queryByText(ERROR_TEXT)).not.toBeNull();
+    expect(getByTestId('plan-name-input')).toBeTruthy();
+  });
+
+  it('keeps the keyboard up for a whitespace-only name as well', () => {
+    const {getByTestId} = renderAdd();
+
+    fireEvent.press(getByTestId('add-trainings-plan'));
+    fireEvent.changeText(getByTestId('plan-name-input'), '   ');
+    fireEvent.press(getByTestId('confirm-trainings-plan'));
+
+    expect(dismiss).not.toHaveBeenCalled();
+    expect(getByTestId('plan-name-input')).toBeTruthy();
+  });
+
+  it('dismisses the keyboard only after a rejected name is corrected', () => {
+    const {getByTestId, queryByTestId} = renderAdd();
+
+    fireEvent.press(getByTestId('add-trainings-plan'));
+    fireEvent.press(getByTestId('confirm-trainings-plan'));
+    expect(dismiss).not.toHaveBeenCalled();
+
+    fireEvent.changeText(getByTestId('plan-name-input'), 'Second try');
+    fireEvent.press(getByTestId('confirm-trainings-plan'));
+
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    expect(mockAddTrainingsPlan).toHaveBeenCalledWith({name: 'Second try'});
+    settleExitAnimation();
+    expect(queryByTestId('plan-name-input')).toBeNull();
   });
 });
