@@ -97,8 +97,8 @@ jest.mock('react-native-paper', () => {
     ),
     Portal: ({children}: {children: React.ReactNode}) => <>{children}</>,
     Text: ({children, testID}: {children: React.ReactNode; testID?: string}) => <Text testID={testID}>{children}</Text>,
-    TextInput: ({label, value, onChangeText, testID}: {label?: string; value?: string; onChangeText?: (value: string) => void; testID?: string}) => (
-      <TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} testID={testID} />
+    TextInput: ({label, value, onChangeText, testID, selectTextOnFocus}: {label?: string; value?: string; onChangeText?: (value: string) => void; testID?: string; selectTextOnFocus?: boolean}) => (
+      <TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} testID={testID} selectTextOnFocus={selectTextOnFocus} />
     ),
     ToggleButton: ({onPress, testID, disabled}: {onPress?: () => void; testID?: string; disabled?: boolean}) => (
       <TouchableOpacity testID={testID} onPress={disabled ? undefined : onPress} disabled={disabled}>
@@ -507,6 +507,26 @@ describe('PlanTab — Add set carries the previous set over (GH-406)', () => {
 
       // 100 / (1 + 8/30) = 78.9 -> "79"
       await waitFor(() => expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('79'));
+    });
+
+    // GH-436 usability walk: the suggestion lands in the field while the user is
+    // still typing reps; a tap then appended to it ("60" over "118" -> "11860").
+    it('selects the suggested weight on focus so typing replaces it, and stops once the user typed their own', async () => {
+      seedOneRepMax();
+      const {getByTestId} = renderPlanTab();
+
+      fireEvent.press(getByTestId('plan-add-set-button-1'));
+      await waitFor(() => expect(getByTestId('plan-pending-set-reps-input')).toBeTruthy());
+      // nothing suggested yet → nothing to select
+      expect(getByTestId('plan-pending-set-weight-input').props.selectTextOnFocus).toBeFalsy();
+
+      fireEvent.changeText(getByTestId('plan-pending-set-reps-input'), '8');
+      await waitFor(() => expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('79'));
+      expect(getByTestId('plan-pending-set-weight-input').props.selectTextOnFocus).toBe(true);
+
+      fireEvent.changeText(getByTestId('plan-pending-set-weight-input'), '60');
+      expect(getByTestId('plan-pending-set-weight-input').props.value).toBe('60');
+      expect(getByTestId('plan-pending-set-weight-input').props.selectTextOnFocus).toBe(false);
     });
 
     it('does NOT let the 1RM suggestion overwrite a carried-over weight', async () => {

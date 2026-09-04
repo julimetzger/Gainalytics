@@ -1,5 +1,5 @@
 import {IconButton, TextInput, useTheme} from 'react-native-paper';
-import {Alert, View} from 'react-native';
+import {Alert, Keyboard, View} from 'react-native';
 import React, {useState} from 'react';
 import {useStore} from 'react-redux';
 import {dispatchAddTrainingsPlan} from '../../../redux/Training/dispatch/general/dispatchAddTrainingsPlan';
@@ -58,6 +58,9 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
   };
 
   const confirmDialog = () => {
+    // GH-436 usability walk: the dialog closed but the keyboard stayed up over the
+    // plan list, hiding the freshly created plan.
+    Keyboard.dismiss();
     setVisible(false);
     trainingsId ? editTrainingsPlan(trainingsId, TrainingName) : addTrainingsPlan({name: TrainingName} as TrainingsPlan);
   };
