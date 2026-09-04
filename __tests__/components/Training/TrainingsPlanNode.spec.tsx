@@ -101,9 +101,10 @@ jest.mock('../../../app/components/Training/plan/PlanTab', () => {
     </View>
   );
 });
-jest.mock('../../../app/components/Training/analyse/MicroPlanOverview', () => {
+jest.mock('../../../app/components/Training/analyse/TrainingPlanOverview', () => {
   const {Text} = require('react-native');
-  return ({micro}: any) => <Text testID="micro-plan-overview">{`micro-plan:${micro}`}</Text>;
+  // GH-436: the Plan position gets the slot's own training, not the micro.
+  return ({training, micro, trainingInMicro}: any) => <Text testID="training-plan-overview">{`training-plan:${micro}/${trainingInMicro}/${training?.id ?? 'none'}`}</Text>;
 });
 
 jest.mock('react-native-paper', () => {
@@ -487,7 +488,7 @@ describe('TrainingsPlanNode — GH-401 review 1: a training without exercises ca
   });
 });
 
-// ── GH-417: Plan | Train data toggle inside the analysis view ────────────────
+// ── GH-417 / GH-436: Plan | Train data toggle inside the analysis view ──────
 
 describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -500,16 +501,17 @@ describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
     expect(getByTestId('analysis-data-train').props.accessibilityState).toEqual({checked: true, disabled: false});
     // AC3: Train is the unchanged actual-values view
     expect(getByTestId('trainings-overview')).toBeTruthy();
-    expect(queryByTestId('micro-plan-overview')).toBeNull();
+    expect(queryByTestId('training-plan-overview')).toBeNull();
   });
 
-  it('shows the planned micro overview in the Plan position (AC2)', () => {
+  it('shows THIS training\'s planned overview in the Plan position — not the micro\'s (GH-436)', () => {
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
     const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
 
     fireEvent.press(getByTestId('analysis-data-plan'));
 
-    expect(getByTestId('micro-plan-overview').props.children).toBe('micro-plan:1');
+    expect(getByTestId('training-plan-overview').props.children).toBe('training-plan:1/1/10');
+    expect(queryByTestId('micro-plan-overview')).toBeNull();
     expect(queryByTestId('trainings-overview')).toBeNull();
     expect(getByTestId('analysis-data-plan').props.accessibilityState).toEqual({checked: true, disabled: false});
   });
@@ -519,27 +521,29 @@ describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
     const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
 
     fireEvent.press(getByTestId('analysis-data-plan'));
-    expect(getByTestId('micro-plan-overview')).toBeTruthy();
+    expect(getByTestId('training-plan-overview')).toBeTruthy();
 
     fireEvent.press(getByTestId('subtab-train'));
-    expect(queryByTestId('micro-plan-overview')).toBeNull();
+    expect(queryByTestId('training-plan-overview')).toBeNull();
 
     fireEvent.press(getByTestId('subtab-analysis'));
-    expect(getByTestId('micro-plan-overview')).toBeTruthy();
+    expect(getByTestId('training-plan-overview')).toBeTruthy();
     expect(getByTestId('analysis-data-plan').props.accessibilityState).toEqual({checked: true, disabled: false});
   });
 
-  it('offers the planned values for a training that is only PLANNED, where Train has nothing to show', () => {
+  it('shows the planned numbers of a PLANNED training in the Plan position instead of a hint (GH-436 AC3)', () => {
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
-    const {getByTestId, getByText} = render(<TrainingsPlanNode {...defaultProps} />);
+    const {getByTestId, queryByTestId, queryByText} = render(<TrainingsPlanNode {...defaultProps} />);
 
     fireEvent.press(getByTestId('subtab-analysis'));
-    expect(getByText('Analysis available after the training is finished')).toBeTruthy();
-    // AC4: the total is shown in the Train position even when there is nothing logged yet
+    // Train has nothing logged yet: the total still says so, with a hint that points at the Plan position
+    expect(getByTestId('analysis-train-empty')).toBeTruthy();
     expect(getByTestId('analysis-total-sets').props.children).toBe('Total Sets: 0 (done)');
 
     fireEvent.press(getByTestId('analysis-data-plan'));
-    expect(getByTestId('micro-plan-overview')).toBeTruthy();
+    expect(getByTestId('training-plan-overview').props.children).toBe('training-plan:1/1/10');
+    expect(queryByTestId('analysis-train-empty')).toBeNull();
+    expect(queryByText(/Analysis available after/)).toBeNull();
   });
 
   it('hands the choice to the owner when the screen controls it, so a micro swipe cannot reset it', () => {
@@ -554,6 +558,6 @@ describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
     expect(getByTestId('trainings-overview')).toBeTruthy();
 
     rerender(<TrainingsPlanNode {...controlled} analysisDataMode="plan" micro={2} />);
-    expect(getByTestId('micro-plan-overview').props.children).toBe('micro-plan:2');
+    expect(getByTestId('training-plan-overview').props.children).toBe('training-plan:2/1/10');
   });
 });

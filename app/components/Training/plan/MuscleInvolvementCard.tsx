@@ -75,7 +75,10 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 
 
   const metric: MuscleMapMetric = settings.plan?.muscleMap?.metric === 'volume' ? 'volume' : 'sets';
 
-  const fallbackCompare: MuscleMapCompare = view === 'analyse' ? 'last_training_done' : 'current_total_plan';
+  // GH-436: both positions of the analysis view compare against the micro's total
+  // plan unless the user picked something else — the choice is persisted per view
+  // (plan / analyse), so it survives toggling positions, sub-tabs and micros.
+  const fallbackCompare: MuscleMapCompare = 'current_total_plan';
   const persistedCompare = view === 'analyse' ? settings.muscleMapCompareSelectionAnalyse : settings.muscleMapCompareSelectionPlan ?? settings.plan?.muscleMap?.compare;
   const setCompare = view === 'analyse' ? setAnalyseCompare : setPlanCompare;
   const compare: MuscleMapCompare = normalizeCompare(persistedCompare, fallbackCompare);
@@ -124,7 +127,9 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 
 
   const showReferenceLayer = data.effectiveCompare !== 'none';
 
-  const headerLabel = view === 'analyse' ? (isLive ? 'THIS TRAINING (LIVE)' : 'THIS DONE TRAINING') : 'THIS TRAINING';
+  // GH-436: the header names the subject's scope so the card can never be read as
+  // a micro-wide map (the Overview's MicroMuscleMapCard says "THIS MICRO").
+  const headerLabel = view === 'analyse' ? (isLive ? 'THIS TRAINING (LIVE)' : 'THIS DONE TRAINING') : 'THIS TRAINING (PLANNED)';
 
   return (
     <View testID={view === 'analyse' ? 'muscle-involvement-card-analyse' : 'muscle-involvement-card'} style={[styles.card, {backgroundColor: surfaceContainer}]}>

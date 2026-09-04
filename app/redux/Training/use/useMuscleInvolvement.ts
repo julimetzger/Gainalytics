@@ -197,17 +197,65 @@ export const computeMuscleInvolvement = (state: GlobalState, args: SelectArgs): 
 export const useMuscleInvolvement = (args: SelectArgs): MuscleInvolvementData => useSelector((state: GlobalState) => computeMuscleInvolvement(state, args));
 
 /**
- * GH-417 — the same muscle map, but for a whole micro's PLANNED load instead of a
- * single training's. Subject and reference are the existing micro aggregation
- * (`aggregatePlannedAcrossMicro`, also what the 'current_total_plan' /
- * 'last_plan' compares use); the reference is the previous micro's plan, which
- * is the only comparison that stays inside the "planned" world.
+ * GH-436 — sum DONE-workout muscle aggregates across every training assigned to
+ * the given micro. The done-side twin of `aggregatePlannedAcrossMicro`: same
+ * walk, same accumulation, only the workout source differs.
  */
-export const computeMicroPlannedMuscleInvolvement = (state: GlobalState, trainingsPlanId: number, micro: number, metric: MuscleMapMetric): MuscleInvolvementData => {
+export const aggregateDoneAcrossMicro = (state: GlobalState, plan: GlobalState['trainingsPlan']['byId'][number] | undefined, targetMicro: number, metric: MuscleMapMetric): Map<Muscles, number> => {
+  const acc = new Map<Muscles, number>();
+  const trainingsMap = plan?.trainings ?? {};
+  const trainingIdsInMicro = Object.entries(trainingsMap)
+    .filter(([key]) => getMicroFromTrainingInMicroIndex(key) === targetMicro)
+    .map(([, id]) => id);
+  for (const id of trainingIdsInMicro) {
+    const t = state.trainings.byId[id];
+    if (!t) continue;
+    const partial = accumulateForTraining(collectDoneExerciseWorkouts(state, t), metric);
+    for (const [muscle, value] of partial.entries()) {
+      acc.set(muscle, (acc.get(muscle) ?? 0) + value);
+    }
+  }
+  return acc;
+};
+
+/**
+ * What the micro-wide planned muscle map is compared against (GH-436):
+ * - 'done'      — what was actually trained in the same micro (default; the
+ *                 Overview's Plan position puts plan and reality side by side)
+ * - 'last_plan' — the previous micro's plan (the GH-417 comparison)
+ * - 'none'      — no reference layer
+ */
+export type MicroPlanCompare = 'done' | 'last_plan' | 'none';
+
+/**
+ * GH-417 — the same muscle map, but for a whole micro's PLANNED load instead of a
+ * single training's. Subject is the existing micro aggregation
+ * (`aggregatePlannedAcrossMicro`, also what the 'current_total_plan' /
+ * 'last_plan' compares use). GH-436 moved this map into the Overview and made
+ * the reference selectable, defaulting to the micro's DONE load.
+ */
+export const computeMicroPlannedMuscleInvolvement = (
+  state: GlobalState,
+  trainingsPlanId: number,
+  micro: number,
+  metric: MuscleMapMetric,
+  compare: MicroPlanCompare = 'done',
+): MuscleInvolvementData => {
   const plan = state.trainingsPlan.byId[trainingsPlanId];
   const todayTotals = aggregatePlannedAcrossMicro(state, plan, micro, metric);
-  const previousMicro = micro - 1;
-  const referenceTotals = previousMicro >= 1 ? aggregatePlannedAcrossMicro(state, plan, previousMicro, metric) : new Map<Muscles, number>();
+
+  if (compare === 'none') {
+    const rows = buildRows(todayTotals, new Map<Muscles, number>());
+    return {rows, globalMax: computeGlobalMax(rows), referenceUnavailable: false, effectiveCompare: 'none'};
+  }
+
+  let referenceTotals = new Map<Muscles, number>();
+  if (compare === 'done') {
+    referenceTotals = aggregateDoneAcrossMicro(state, plan, micro, metric);
+  } else {
+    const previousMicro = micro - 1;
+    referenceTotals = previousMicro >= 1 ? aggregatePlannedAcrossMicro(state, plan, previousMicro, metric) : new Map<Muscles, number>();
+  }
   const referenceUnavailable = referenceTotals.size === 0;
 
   const rows = buildRows(todayTotals, referenceUnavailable ? new Map<Muscles, number>() : referenceTotals);
@@ -215,12 +263,14 @@ export const computeMicroPlannedMuscleInvolvement = (state: GlobalState, trainin
     rows,
     globalMax: computeGlobalMax(rows),
     referenceUnavailable,
-    effectiveCompare: referenceUnavailable ? 'none' : 'last_plan',
+    // 'done' has no MuscleMapCompare twin; callers key their labels on the
+    // requested compare, this field only says whether a reference layer exists.
+    effectiveCompare: referenceUnavailable ? 'none' : compare === 'done' ? 'last_training_done' : 'last_plan',
   };
 };
 
-export const useMicroPlannedMuscleInvolvement = (trainingsPlanId: number, micro: number, metric: MuscleMapMetric): MuscleInvolvementData =>
-  useSelector((state: GlobalState) => computeMicroPlannedMuscleInvolvement(state, trainingsPlanId, micro, metric));
+export const useMicroPlannedMuscleInvolvement = (trainingsPlanId: number, micro: number, metric: MuscleMapMetric, compare: MicroPlanCompare = 'done'): MuscleInvolvementData =>
+  useSelector((state: GlobalState) => computeMicroPlannedMuscleInvolvement(state, trainingsPlanId, micro, metric, compare));
 
 /**
  * Selector hook returning the micro number of the most-recent training that shares the

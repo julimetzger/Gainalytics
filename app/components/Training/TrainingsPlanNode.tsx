@@ -15,7 +15,7 @@ import TrainingsOverview from './analyse/TrainingsOverview';
 import TrainingHistory from './analyse/TrainingHistory';
 import AnalysisDataToggle, {AnalysisDataMode} from './analyse/AnalysisDataToggle';
 import AnalysisTotalSets from './analyse/AnalysisTotalSets';
-import MicroPlanOverview from './analyse/MicroPlanOverview';
+import TrainingPlanOverview from './analyse/TrainingPlanOverview';
 import TrainingModeTabs, {SubTab} from './TrainingModeTabs';
 import TrainingOverflowMenu from './TrainingOverflowMenu';
 import React, {useEffect, useRef, useState} from 'react';
@@ -572,16 +572,18 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                 <View testID="analysis-tab">
                   {/* GH-417: planned vs. actual numbers. Rendered in every training
                       state — the Plan position is what makes the planned metrics and
-                      the muscle map reachable while a training is still being planned. */}
+                      the muscle map reachable while a training is still being planned.
+                      GH-436: both positions refer to THIS training only; the
+                      micro-wide plan lives in the Overview's Plan position. */}
                   <AnalysisDataToggle value={effectiveAnalysisDataMode} onChange={effectiveSetAnalysisDataMode} />
                   {effectiveAnalysisDataMode === 'plan' ? (
-                    <MicroPlanOverview trainingsPlan={trainingsPlan} micro={micro} />
+                    <TrainingPlanOverview training={training} trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro} />
                   ) : training?.state === TrainingsState.FINISHED || training?.state === TrainingsState.STARTED ? (
                     <TrainingsOverview training={training} previousTraining={lastTraining} trainingsPlan={trainingsPlan} currentMicro={micro} trainingInMicro={trainingInMicro} />
                   ) : (
                     <View style={{padding: 24, alignItems: 'center'}}>
                       <AnalysisTotalSets totalSets={0} scope="done" />
-                      <Text>Analysis available after the training is finished</Text>
+                      <Text testID="analysis-train-empty">No sets logged yet — start the training on the Train tab. Switch to Plan to see what is planned.</Text>
                     </View>
                   )}
                 </View>
