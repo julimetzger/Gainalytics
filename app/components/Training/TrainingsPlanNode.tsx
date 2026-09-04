@@ -1,5 +1,6 @@
 import {Exercise} from '../../models/entities/Exercise';
-import {LayoutRectangle, ScrollView, View} from 'react-native';
+import {LayoutRectangle, View} from 'react-native';
+import KeyboardAwareScrollView from '../common/KeyboardAwareScrollView';
 import {NestableScrollContainerProvider, useNestableScrollContainerContext} from 'react-native-draggable-flatlist';
 import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
@@ -37,6 +38,7 @@ import {useLastTrainingOfPreviousMeso} from '../../redux/Training/use/useLastTra
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
 import {dispatchReplaceExerciseInTraining} from '../../redux/Training/dispatch/general/dispatchReplaceExerciseInTraining';
 import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
+import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
 
 interface TrainingsPlanNodeProps {
   trainingsPlan: TrainingsPlan;
@@ -79,12 +81,17 @@ export const defaultSubTab = (state?: string, requestedSubTab?: SubTab): SubTab 
 // GH-382: flex:1 bounds the scroller to the swiper pane (RangeSwiper pins it to
 // the viewport via fillViewport) so it scrolls internally; unbounded it grows to
 // its content and nothing scrolls.
+//
+// GH-428 (H2): KeyboardAwareScrollView is a plain ScrollView that additionally
+// scrolls the focused input clear of the keyboard. Everything below the keyboard
+// was reachable before, but only by scrolling by hand — so planning a set in the
+// lower half meant typing into a field hidden behind the keyboard.
 const PlanNodeScrollContainer = ({children}: {children: React.ReactNode}) => {
   const nestableScrollContext = useNestableScrollContainerContext();
   return (
-    <ScrollView style={{flex: 1}} keyboardShouldPersistTaps={'handled'} scrollEnabled={nestableScrollContext?.outerScrollEnabled ?? true}>
+    <KeyboardAwareScrollView style={{flex: 1}} keyboardShouldPersistTaps={'handled'} scrollEnabled={nestableScrollContext?.outerScrollEnabled ?? true}>
       {children}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 };
 
@@ -252,7 +259,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
       Toast.show({
         type: 'info',
         text1: 'Training started!',
-        text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+        text2: `You started ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlanDisplayName(trainingsPlan.name)}`,
         position: 'top',
         visibilityTime: 5000,
       });
@@ -270,7 +277,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
       Toast.show({
         type: 'info',
         text1: 'Training finished!',
-        text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlan.name}`,
+        text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlanDisplayName(trainingsPlan.name)}`,
         position: 'top',
         visibilityTime: 5000,
       });
