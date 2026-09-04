@@ -2646,3 +2646,39 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 ### 402. Verify a "known pre-existing failure" instead of inheriting it — master may have fixed it
 **Observation (GH-428 merge round):** the brief carried forward a long-standing note that `SettingsTab.spec.tsx` fails on master and is not this ticket's problem — a claim repeated across ~8 tickets' infra rows. After merging current master the suite was 1521/1521 green: the GH-404 theme work had rewritten that spec and removed the failure. Reporting "green except the known failure" would have been wrong and would have kept a dead caveat alive for the next worker.
 **Apply when:** any inherited "expected failure". Re-run it; a stale caveat is cheaper to disprove than to propagate.
+
+### 403. Maestro's driver SEES the training pane even where `uiautomator dump` sees nothing — the two are not interchangeable (refines #206/#275/#291)
+**Observation (GH-443, emulator-5556/API 36):** on the running training's Train sub-tab, `adb shell uiautomator dump` returns NOTHING at all (3 attempts, empty stdout, and the stale `/sdcard/ui.xml` from an earlier screen is what you then pull — an easy way to "prove" the wrong thing). Maestro on the same screen resolved every testID under `RangeSwiper`: `subtab-train`, `train-tab-start-button`, `add-workout-set-reps-input`, `add-workout-set-submit-button`, `rest-timer-card`, `rest-timer-reset`, `rest-timer-target`, `rest-progress-ring-text`, and `copyTextFrom` on the last one returned the live value.
+**Apply when:** any flow on the training-detail screen. Do NOT conclude from a failed/empty `uiautomator dump` that Maestro is blind there — probe with a throwaway Maestro flow of bare `assertVisible: id:` lines first. Coordinate taps are still needed for the micro DRAWER pager rows, which carry no testIDs.
+
+### 404. `maestro.copiedText` is not a JS variable inside `evalScript` — interpolate it into the script text
+**Problem (GH-443):** `evalScript: | output.a = maestro.copiedText;` left `output.a` undefined, so the following `assertTrue` failed with no hint why, even though the `copyTextFrom` step itself was COMPLETED.
+**Working solution:** interpolate instead — `evalScript: | var shown = '${maestro.copiedText}';`. `${maestro.copiedText}` also works directly inside `assertTrue`. Debugging trick: `assertVisible: text: "${maestro.copiedText}"` fails with the copied value quoted in the message (`Assertion is false: "+09:37" is visible`), which is the only way to print a copied value on this CLI build.
+**Apply when:** any flow that reads a value with `copyTextFrom` and compares it in script.
+
+### 405. The Windows adb server wedges under multi-worker load: it keeps LISTENING but stops accepting
+**Problem (GH-443):** every WSL `adb` call hung for minutes and then returned `Connection refused` for `tcp:172.18.240.1:5037`, while `netstat -ano` still showed a process ABHÖREN on `0.0.0.0:5037` and `tasklist` showed ~97 `adb.exe` clients piled up. `adb.exe -H 127.0.0.1 -P 5037 devices` from the Windows side was refused too, so it is the server, not the WSL↔Windows hop.
+**Working solution:** `taskkill /F /PID <pid listening on 0.0.0.0:5037>` (find it with `netstat -ano | awk '$2 ~ /:5037$/ && $3 ~ /^0\.0\.0\.0:0$/ {print $5}'` — do NOT grep for the localized state string "ABHÖREN", the console encoding mangles it), then restart it. Never `adb kill-server` from WSL. Recurred ~4× in one round; keep it in a script.
+**Apply when:** `adb devices` times out from WSL. Emulators keep running throughout — only the server needs restarting, and the client pile-up dies with it.
+
+### 406. A Windows `adb.exe` server started from a Bash tool call dies with that call — use `setsid`
+**Problem (GH-443):** `nohup ./adb.exe -a -P 5037 nodaemon server &` worked (the very next `adb devices` in the same call listed both emulators) and was gone by the next tool call, leaving a zombie listening socket that refused connections. `cmd.exe /c start /min ...` did not produce a running server either.
+**Working solution:** `cd <platform-tools> && setsid nohup ./adb.exe -a -P 5037 nodaemon server > /tmp/adbserver.out 2>&1 < /dev/null & disown`, then poll `adb devices` until it answers. Read `/tmp/adbserver.out` on failure — `cannot bind to 0.0.0.0:5037` means some tool auto-started a loopback-only server that has to be killed first.
+**Apply when:** restarting the shared adb server from WSL.
+
+### 407. A finished Maestro run can keep holding `--driver-host-port`; the next run dies in `TcpForwarder.waitFor`
+**Problem (GH-443):** two consecutive runs failed with a bare `java.util.concurrent.TimeoutException at dadb.forwarding.TcpForwarder.waitFor` / `Maestro Android driver did not start up in time … dadb.open( tcp:7064 )`. Nothing was wrong with the device or the flow.
+**Working solution:** `ss -ltnp | grep :7064` — a leftover `maestro.cli.AppKt` java process still owned the port. Kill it (or wait for it) before rerunning, and set `MAESTRO_DRIVER_STARTUP_TIMEOUT=300000` under host load (#272/#280). Also `adb -s <serial> forward --remove-all` between runs.
+**Apply when:** the driver "did not start up in time" but the emulator is healthy.
+
+### 408. `run-maestro-from-wsl.sh --mode <anything else>` skips the force-stop/push preamble — the way to probe the app as it stands
+**Observation (GH-443):** the script's setup block only runs for `bootstrap|full|smoke`; any other `--mode` value (e.g. `--mode flow`) goes straight to `run_maestro_test`. That leaves the app on the exact screen and state it is in, which is what a throwaway selector-probe flow needs — `--mode full` would force-stop the app and destroy the state you are probing. `--mode bootstrap` only PUSHES the fixture (#398), it does not import it.
+**Apply when:** iterating on selectors, or asserting against a hand-driven device state.
+
+### 409. Every AddWorkout row answered to the same `add-workout-set-*-input` testID
+**Observation (GH-443):** `AddWorkoutSet` renders both the new-set input row and every logged/planned set row, so `add-workout-set-reps-input` matched N elements and Maestro silently took the first (the input row). A flow that has to edit set 3 could only address it by match order. Rows now carry their set number (`add-workout-set-reps-input-3`, `add-workout-set-confirm-3`, `add-workout-set-logged-3`, `add-workout-set-delete-3`); the input row keeps the bare ids, so existing flows are unaffected and now match exactly one node.
+**Apply when:** writing a flow that edits an existing set, or adding testIDs to a component that is rendered once as a form and N times as rows.
+
+### 410. "Is this set new?" must be asked of the PERSISTED workout, not the merged one
+**Observation (GH-443):** `useUnfinishedWorkout` joins the SUGGESTED workout (START_TRAINING copies the plan there) into `sets`, so a planned-but-unlogged row is present in it. Deciding "this index already exists ⇒ it is an edit" against that merged list would classify the first logging of a planned set as an edit and skip the rest-timer start. `usePersistedUnfinishedWorkout` (plus the `workout` prop for a finished workout) is the list of what the user has ACTUALLY logged — same distinction GH-63 needed for the target banner.
+**Apply when:** any feature that has to tell "user logged something new" from "user changed something existing" on the training screen.

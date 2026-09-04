@@ -87,6 +87,13 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
     }
   }
 
+  // GH-443: the new-set input and every set row render this same component, so
+  // all of them used to answer to `add-workout-set-reps-input`. An e2e flow that
+  // wants to CORRECT set 3 could then only address it by match order. Rows carry
+  // their set number; the input row (no `workoutSet`) keeps the bare testIDs the
+  // existing flows use.
+  const rowSuffix = workoutSet?.index !== undefined ? `-${workoutSet.index}` : '';
+
   function persisted() {
     return workoutSet?.date !== undefined;
   }
@@ -149,7 +156,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
           mode="outlined"
           label="Reps"
           value={reps.toString()}
-          testID="add-workout-set-reps-input"
+          testID={`add-workout-set-reps-input${rowSuffix}`}
           style={[styles.textInput, styles.inputField]}
           onChangeText={setRepsOnChange}
           keyboardType="numeric"
@@ -168,7 +175,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
           mode="outlined"
           label="RIR"
           value={rir.toString()}
-          testID="add-workout-set-rir-input"
+          testID={`add-workout-set-rir-input${rowSuffix}`}
           style={[styles.textInput, styles.inputField]}
           onChangeText={setRIROnChange}
           keyboardType="numeric"
@@ -187,7 +194,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
           mode="outlined"
           label="Weight"
           value={weight.toString()}
-          testID="add-workout-set-weight-input"
+          testID={`add-workout-set-weight-input${rowSuffix}`}
           style={[styles.textInput, styles.inputField]}
           onChangeText={setWeightOnChange}
           keyboardType="numeric"
@@ -221,9 +228,12 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
         <View style={styles.actionButtons}>
           {!isPlanningMode && (
             <>
-              {persisted() && !editing && <IconButton icon={'check'} iconColor={determineCheckmarkColor()} style={styles.iconButton} />}
+              {persisted() && !editing && (
+                <IconButton testID={`add-workout-set-logged${rowSuffix}`} icon={'check'} iconColor={determineCheckmarkColor()} style={styles.iconButton} />
+              )}
               {persisted() && editing && (
                 <IconButton
+                  testID={`add-workout-set-confirm${rowSuffix}`}
                   icon={'check-circle'}
                   iconColor={determineCheckmarkColor()}
                   style={styles.iconButton}
@@ -235,6 +245,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
               )}
               {!persisted() && workoutSet !== undefined && (
                 <IconButton
+                  testID={`add-workout-set-confirm${rowSuffix}`}
                   icon={'check-circle'}
                   iconColor={determineCheckmarkColor()}
                   style={styles.iconButton}
@@ -260,7 +271,9 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
               {'Add'}
             </Button>
           )}
-          {(persisted() || (!persisted() && workoutSet !== undefined)) && onDelete !== undefined && <IconButton icon={'delete'} style={styles.iconButton} onPress={() => onDelete(workoutSet!!)} />}
+          {(persisted() || (!persisted() && workoutSet !== undefined)) && onDelete !== undefined && (
+            <IconButton testID={`add-workout-set-delete${rowSuffix}`} icon={'delete'} style={styles.iconButton} onPress={() => onDelete(workoutSet!!)} />
+          )}
         </View>
       </View>
     </View>

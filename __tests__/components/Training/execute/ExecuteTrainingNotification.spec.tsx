@@ -9,7 +9,7 @@ import {TrainingsState} from '../../../../app/models/TrainingsState';
 // ── heavy component mocks ────────────────────────────────────────────────────
 
 // Capture the latest onSubmitSet callback so tests can trigger it directly.
-let capturedOnSubmitSet: ((ws: any) => void) | undefined;
+let capturedOnSubmitSet: ((ws: any, context?: {isExistingSet: boolean}) => void) | undefined;
 jest.mock('../../../../app/components/Workout/add/AddWorkout', () => {
   const {View} = require('react-native');
   return (props: any) => {
@@ -220,5 +220,95 @@ describe('ExecuteTraining — notification scheduling (GH-252)', () => {
     });
     // exerciseDefaultRest for id=10 is 60 → wins over userDefaultSeconds=90
     expect(onScheduleNotification).toHaveBeenCalledWith(60);
+  });
+});
+
+/**
+ * GH-443: the rest is the time since the last set was LOGGED. Correcting a set
+ * that is already in the log goes through the very same submit path (an edited
+ * row auto-submits on blur), and used to restart the clock and the pause
+ * notification — so a 40 s rest jumped back to the full target.
+ */
+describe('ExecuteTraining — correcting a logged set must not restart the rest (GH-443)', () => {
+  beforeEach(() => {
+    capturedOnSubmitSet = undefined;
+    mockStartRestTimer.mockClear();
+    mockResetRestTimer.mockClear();
+    mockDismissRestTimer.mockClear();
+  });
+
+  const renderScreen = (onScheduleNotification = jest.fn()) => {
+    render(
+      <ExecuteTraining
+        training={TRAINING as any}
+        chosenExercise={EXERCISE as any}
+        onSubmit={jest.fn()}
+        onScheduleNotification={onScheduleNotification}
+      />,
+    );
+    return onScheduleNotification;
+  };
+
+  it('does not restart the timer or reschedule the notification when an existing set is corrected', () => {
+    const onScheduleNotification = renderScreen();
+
+    act(() => {
+      capturedOnSubmitSet?.({index: 2, reps: 5, rir: 1, weight: 105}, {isExistingSet: true});
+    });
+
+    expect(mockStartRestTimer).not.toHaveBeenCalled();
+    expect(onScheduleNotification).not.toHaveBeenCalled();
+  });
+
+  it('still starts the timer from scratch when a new set is added', () => {
+    const onScheduleNotification = renderScreen();
+
+    act(() => {
+      capturedOnSubmitSet?.({index: 3, reps: 5, rir: 1, weight: 100}, {isExistingSet: false});
+    });
+
+    expect(mockStartRestTimer).toHaveBeenCalledTimes(1);
+    expect(mockStartRestTimer).toHaveBeenCalledWith(
+      expect.objectContaining({targetSeconds: 90, exerciseId: 10, setIndex: 3}),
+    );
+    expect(onScheduleNotification).toHaveBeenCalledWith(90);
+  });
+
+  it('correcting the LAST logged set is treated the same as any other correction', () => {
+    const onScheduleNotification = renderScreen();
+
+    act(() => {
+      capturedOnSubmitSet?.({index: 3, reps: 5, rir: 1, weight: 100}, {isExistingSet: false});
+    });
+    mockStartRestTimer.mockClear();
+    onScheduleNotification.mockClear();
+
+    // …the user immediately fixes the weight of that very set.
+    act(() => {
+      capturedOnSubmitSet?.({index: 3, reps: 5, rir: 1, weight: 102.5}, {isExistingSet: true});
+    });
+
+    expect(mockStartRestTimer).not.toHaveBeenCalled();
+    expect(onScheduleNotification).not.toHaveBeenCalled();
+  });
+
+  it('the explicit Reset button still restarts the timer', () => {
+    const onCancelNotification = jest.fn();
+    const {getByTestId} = render(
+      <ExecuteTraining
+        training={TRAINING as any}
+        chosenExercise={EXERCISE as any}
+        onSubmit={jest.fn()}
+        onCancelNotification={onCancelNotification}
+      />,
+    );
+
+    act(() => {
+      capturedOnSubmitSet?.({index: 1, reps: 5, rir: 1, weight: 100}, {isExistingSet: true});
+    });
+    expect(mockResetRestTimer).not.toHaveBeenCalled();
+
+    fireEvent.press(getByTestId('mock-reset'));
+    expect(mockResetRestTimer).toHaveBeenCalledTimes(1);
   });
 });
