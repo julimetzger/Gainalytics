@@ -38,7 +38,11 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
               <Chip
                 key={muscle}
                 style={[styles.chip, hasData && chipColor ? {backgroundColor: withAlpha(chipColor, 0.2)} : undefined]}
-                textStyle={hasData && chipColor ? {color: chipColor} : {opacity: 0.5}}
+                // GH-404: the no-data label used a flat `opacity: 0.5`, which
+                // washed out to unreadable on the light scheme's pale chip.
+                // `onSurfaceVariant` is the token meant for de-emphasised text
+                // and keeps its contrast in both schemes.
+                textStyle={hasData && chipColor ? {color: chipColor} : {color: theme.colors.onSurfaceVariant}}
                 onPress={() => onMusclePress(muscle)}
                 testID={`muscle-chip-${muscle}`}
               >
@@ -47,7 +51,7 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
             );
           })}
         </View>
-        <Text style={styles.hint}>Tap a muscle group for details</Text>
+        <Text style={[styles.hint, {color: theme.colors.onSurfaceVariant}]}>Tap a muscle group for details</Text>
       </Card.Content>
     </Card>
   );
@@ -67,7 +71,6 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 11,
-    opacity: 0.5,
     marginTop: 8,
   },
 });

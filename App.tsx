@@ -8,6 +8,7 @@ import {BottomTabs} from './app/routing/bottomNavigator';
 import {EventProvider} from 'react-native-outside-press';
 import {registerTranslation} from 'react-native-paper-dates';
 import {useSettings} from './app/redux/settings/use/useSettings';
+import {useThemeMode} from './app/redux/settings/use/useThemeMode';
 import {buildThemes} from './app/theme/buildThemes';
 import Toast from 'react-native-toast-message';
 import {AppState, LogBox, StatusBar} from 'react-native';
@@ -64,8 +65,9 @@ const {store, persistor} = configureStore();
 
 const AppWithPersist = () => {
   let appSettings = useSettings();
+  const {scheme} = useThemeMode();
   const {DarkTheme, LightThemeCombined} = buildThemes(appSettings?.palette);
-  let paperThemes = appSettings?.mode === 'light' ? LightThemeCombined : DarkTheme;
+  let paperThemes = scheme === 'light' ? LightThemeCombined : DarkTheme;
 
   // Register foreground event handler for notification taps while the app is active.
   useEffect(() => {
@@ -102,7 +104,7 @@ const AppWithPersist = () => {
         <PaperProvider theme={paperThemes}>
           <SafeAreaProvider>
             <EventProvider>
-              <StatusBar backgroundColor={paperThemes.colors.background} barStyle={appSettings?.mode === 'light' ? 'dark-content' : 'light-content'} />
+              <StatusBar backgroundColor={paperThemes.colors.background} barStyle={scheme === 'light' ? 'dark-content' : 'light-content'} />
               <NavigationContainer
                 ref={navigationRef}
                 theme={paperThemes}

@@ -980,7 +980,9 @@ export function buildThemes(palette?: PaletteSelection) {
       primary: lightBase.colors.primary,
       background: lightBase.colors.background,
       card: lightBase.colors.background,
-      border: darkBase.colors.surface,
+      // GH-404: this used to be the DARK theme's surface, i.e. a near-black
+      // divider drawn on a near-white navigation bar and header.
+      border: lightBase.colors.outlineVariant,
       text: lightBase.colors.onSecondaryContainer,
       notification: lightBase.colors.primary,
     },

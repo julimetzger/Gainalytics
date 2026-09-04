@@ -1,6 +1,7 @@
 import {AnyAction} from '@reduxjs/toolkit';
 import {Metric, MetricOverviewSection, resolveMetricOverviewSlots} from '../../models/Metric';
 import {PaletteSelection} from '../../theme/palette';
+import {ThemeModeSetting} from '../../theme/themeMode';
 
 export interface MetricOverviewSettings {
   muscles?: Metric[];
@@ -46,7 +47,16 @@ export interface RestTimerSettings {
 }
 
 export interface AppSettings {
+  /**
+   * @deprecated GH-404 — kept in sync so a downgrade still finds a usable value.
+   * Read the effective mode through `resolveThemeModeSetting` instead.
+   */
   mode: 'light' | 'dark';
+  /**
+   * `'system' | 'light' | 'dark'`. Absent on installs from before GH-404;
+   * `resolveThemeModeSetting` then falls back to `mode`.
+   */
+  themeMode?: ThemeModeSetting;
   /**
    * `'blue' | 'green' | 'purple'` for the built-in palettes, or a `#RRGGBB`
    * source colour picked from the colour wheel. Older installs only ever hold
@@ -85,6 +95,9 @@ export interface AppSettings {
 
 const initialState = {
   mode: 'dark',
+  // A fresh install keeps the app's long-standing dark default; nobody is
+  // pushed onto 'system' without choosing it (GH-404).
+  themeMode: 'dark',
   palette: 'blue',
   videoAnalysisFiltersExpanded: false,
 } as AppSettings;
@@ -92,9 +105,22 @@ const initialState = {
 const settingsReducer = (settings: AppSettings = initialState, action: AnyAction): AppSettings => {
   switch (action.type) {
     case 'TOGGLE_MODE': {
+      const next = settings?.mode === 'dark' ? 'light' : 'dark';
       return {
         ...settings,
-        mode: settings?.mode === 'dark' ? 'light' : 'dark',
+        mode: next,
+        themeMode: next,
+      } as AppSettings;
+    }
+    case 'SET_THEME_MODE': {
+      const themeMode = action.themeMode as ThemeModeSetting;
+      return {
+        ...settings,
+        themeMode,
+        // Keep the legacy flag pointing at the same scheme for the explicit
+        // choices, so anything still reading `mode` stays consistent. 'system'
+        // has no legacy equivalent, so the last explicit value is left alone.
+        mode: themeMode === 'system' ? settings.mode : themeMode,
       } as AppSettings;
     }
     case 'SET_PALETTE': {

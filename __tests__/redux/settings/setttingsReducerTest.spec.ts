@@ -9,8 +9,32 @@ describe('settingsReducer', () => {
     const action = {
       type: 'TOGGLE_MODE',
     };
+    // GH-404: the legacy flag and the new three-way selection are kept in sync,
+    // so nothing can end up reading two different modes.
     const expectedState = {
       mode: 'light',
+      themeMode: 'light',
+    };
+    expect(settingsReducer(initialState, action)).toEqual(expectedState);
+  });
+
+  it.each([
+    {themeMode: 'system', expectedMode: 'dark'},
+    {themeMode: 'light', expectedMode: 'light'},
+    {themeMode: 'dark', expectedMode: 'dark'},
+  ])('should set the theme mode to $themeMode', ({themeMode, expectedMode}) => {
+    const initialState = {
+      mode: 'dark',
+      themeMode: 'dark',
+    } satisfies AppSettings;
+    const action = {
+      type: 'SET_THEME_MODE',
+      themeMode,
+    };
+    // 'system' has no legacy equivalent, so `mode` keeps the last explicit value.
+    const expectedState = {
+      mode: expectedMode,
+      themeMode,
     };
     expect(settingsReducer(initialState, action)).toEqual(expectedState);
   });

@@ -94,7 +94,10 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
           icon="plus-circle"
           onPress={() => showDialog()}
           theme={theme}
-          iconColor={theme.colors.tertiaryContainer}
+          // GH-404: `tertiaryContainer` is a near-white fill in the light
+          // schemes, so the add-plan "+" was invisible against the page.
+          // `tertiary` is the readable accent in both schemes.
+          iconColor={theme.colors.tertiary}
           size={40}
           testID="add-trainings-plan"
         ></IconButton>
