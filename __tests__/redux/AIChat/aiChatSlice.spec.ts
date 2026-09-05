@@ -5,6 +5,8 @@ import reducer, {
   setLoading,
   setSeedContextJson,
   setContextRange,
+  setIncludePlannedTrainings,
+  setSelectedTrainingId,
   startChatWithContext,
   addHistoryEntry,
   removeHistoryEntry,
@@ -22,6 +24,8 @@ const initial: AIChatState = {
   error: null,
   seedContextJson: null,
   contextRange: null,
+  includePlannedTrainings: true,
+  selectedTrainingId: null,
   history: [],
   pendingLegacyArchive: false,
 };
@@ -261,5 +265,39 @@ describe('aiChatSlice — chat history (GH-293)', () => {
     expect(state.pendingLegacyArchive).toBe(true);
     state = reducer(state, setPendingLegacyArchive(false));
     expect(state.pendingLegacyArchive).toBe(false);
+  });
+
+  // ── GH-391: planning context + single-training subject ────────────────────
+
+  it('planning is part of the context by default', () => {
+    expect(initial.includePlannedTrainings).toBe(true);
+    expect(initial.selectedTrainingId).toBeNull();
+  });
+
+  it('setIncludePlannedTrainings switches the planning half off and on again', () => {
+    let state = reducer(initial, setIncludePlannedTrainings(false));
+    expect(state.includePlannedTrainings).toBe(false);
+    state = reducer(state, setIncludePlannedTrainings(true));
+    expect(state.includePlannedTrainings).toBe(true);
+  });
+
+  it('setSelectedTrainingId selects and deselects a training', () => {
+    let state = reducer(initial, setSelectedTrainingId(42));
+    expect(state.selectedTrainingId).toBe(42);
+    state = reducer(state, setSelectedTrainingId(null));
+    expect(state.selectedTrainingId).toBeNull();
+  });
+
+  it('clearChat drops the subject but keeps the planning switch', () => {
+    const state: AIChatState = {...initial, selectedTrainingId: 42, includePlannedTrainings: false};
+    const result = reducer(state, clearChat());
+    expect(result.selectedTrainingId).toBeNull();
+    expect(result.includePlannedTrainings).toBe(false);
+  });
+
+  it('startChatWithContext drops a stale subject', () => {
+    const state: AIChatState = {...initial, selectedTrainingId: 42};
+    const result = reducer(state, startChatWithContext({insightText: 'insight', seedContextJson: null}));
+    expect(result.selectedTrainingId).toBeNull();
   });
 });

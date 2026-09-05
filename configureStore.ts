@@ -152,6 +152,21 @@ export const migrations = {
       },
     };
   },
+  13: (state: any) => {
+    // GH-391: the chat context gained a planning half and a single-training
+    // subject. `hardSet` replaces the persisted aiChat slice wholesale, so the
+    // new keys have to be written here or an existing install comes up with
+    // `includePlannedTrainings === undefined` (planning silently off).
+    const aiChat = state?.aiChat ?? {};
+    return {
+      ...state,
+      aiChat: {
+        ...aiChat,
+        includePlannedTrainings: aiChat.includePlannedTrainings ?? true,
+        selectedTrainingId: aiChat.selectedTrainingId ?? null,
+      },
+    };
+  },
 };
 
 const storage = new MMKV();
@@ -175,7 +190,7 @@ const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseI
 
 const persistConfig = {
   key: 'root',
-  version: 12,
+  version: 13,
   storage: reduxStorage,
   whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'settings', 'aiChat'],
   stateReconciler: hardSet,
