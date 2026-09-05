@@ -2704,3 +2704,37 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 **Problem (GH-436):** twice during the walk `mCurrentFocus` became `com.google.android.gms/…OctarineActivity` (a sign-in confirmation for the user's account from a Windows machine). Every scripted tap after that would have landed on the prompt's Yes/No buttons. One BACK returned to the app, but the prompt came straight back.
 **Working solution:** never answer it. `adb shell am start -n com.powerliftingworkoutplanner/.MainActivity` brings the app's task to the front without restarting it (the "Activity not started, its current task has been brought to the front" warning is the success case); guard every tap sequence with a `mCurrentFocus` check that aborts when the package is not ours (#212), and mention the unanswered prompt in `summary.md`.
 **Apply when:** any unattended tap sequence on R5CN30HWZFN.
+
+### 408. `uiautomator dump /dev/tty` prints nothing on R5CN30HWZFN — dump to a file and `cat` it
+**Problem (ANA-438-439):** the usual one-liner `adb shell uiautomator dump /dev/tty` returns an empty string on this phone, so every parser built on it silently reports "element not found". `dump /sdcard/u.xml` + `adb shell cat /sdcard/u.xml` works.
+**Also:** the dump intermittently dies with a Binder `IllegalStateException`. Always loop until the id you need is actually in the output, and abort loudly if it never is — a helper that taps the centre of a *missing* node taps (0,0) or nothing.
+**Apply when:** scripting any adb-driven navigation on the real device.
+
+### 409. `uiautomator dump` lags a whole screen behind — never derive a tap coordinate from it without confirming with a screencap
+**Problem (ANA-438-439):** a "find the node, tap its centre" helper drifted across four screens in a row: each dump described the *previous* screen (#390), so every tap landed somewhere unintended. On the real device with the user's own store this has consequences — one stray tap opened Settings' data-import picker and produced "Import failed successfully! Data could not be imported from 90.mp4".
+**Working solution:** navigate with Maestro (it resolves selectors against the live hierarchy), and use raw `adb input tap` only once the screen is confirmed stable — re-reading the bounds immediately before the tap, because the scroll position of the detail screen is not identical between two Maestro runs.
+**Apply when:** any multi-step adb navigation, especially on a device holding real user data.
+
+### 410. To prove a background job is protected, read `oom_score_adj` and use `am kill` — not `force-stop`
+**Observation (ANA-438-439):** `adb shell cat /proc/<pid>/oom_score_adj` plus `dumpsys activity services <pkg> | grep -c <ServiceName>` tells you exactly how safe a phase is. Measured: with the video-analysis foreground service up, `adj` was 50→200 and the process survived 90 s backgrounded; during the pre-service phase it was 700 with 0 service records. `am kill` ("kill background") refuses processes holding a foreground service, so it is a *discriminating* reproduction of the low-memory killer, whereas `force-stop` kills anything and proves nothing.
+**Apply when:** any ticket about work that must survive the user leaving the app.
+
+### 411. `Choreographer: Skipped N frames` is also logged for the time the app was NOT in the foreground
+**Problem (ANA-438-439):** `Skipped 373 frames!` (~6 s) looked like a hard UI freeze during a video import — until the timestamp was compared with the moment the system file picker handed control back. The stall was the app sitting behind the picker, not blocked work.
+**Working solution:** convert the logcat timestamp into your own timeline (the device clock ran ~1.8 s ahead of the WSL host here — measure it, do not assume) and discard any skip window that overlaps a period where another activity was on top. Corroborate with `dumpsys gfxinfo <pkg>` around a real gesture instead.
+**Apply when:** claiming a freeze from logs.
+
+### 412. Measuring "the app does not respond" needs a null measurement, or the method's own latency becomes the finding
+**Problem (ANA-438-439):** sending a real tap from a second adb connection and polling `screencap` in a loop gave 0.6–1.0 s "unresponsiveness" during an import — which would have been reported as the bug. The same measurement with nothing running gave 0.32 s: the poll interval (~0.3 s) plus tap round-trip is the floor, so sub-second results carry no signal.
+**Working solution:** always run the identical probe once with the feature idle and quote both numbers; only differences well above the sampling interval are evidence.
+**Apply when:** any "app freezes / is slow" investigation.
+
+### 413. Sampling a value during video playback: `screencap` (~0.3 s) works, `uiautomator dump` (2–11 s) does not
+**Problem (ANA-438-439):** the playing video never lets the window go idle, so each `uiautomator dump` took 2–11 s — far too coarse to follow a label that changes every rep, and the first samples were spaced 10 s apart.
+**Working solution:** poll `exec-out screencap`, then crop the label region with `ffmpeg -vf crop=W:H:X:Y` and `hstack` the crops into one strip — 8 readings from one continuous playback fit in a single 1900 px image that is directly readable as evidence. Bounds for the crop come from one `uiautomator dump` taken while paused.
+**Apply when:** proving a value does or does not change while media plays.
+
+### 414. Need a long analysis that is guaranteed to start? Concatenate the repo fixture, don't hunt for a real clip
+**Problem (ANA-438-439):** two real gym videos from the phone's gallery were needed to exercise a long video analysis, but one ended in "Failed — No outer plate candidate found at t=0" after 1.4 s, so the analysis phase was never reached at all.
+**Working solution:** `ffmpeg -f concat -safe 0 -i list.txt -c copy long.mp4` over N copies of `__tests__/e2e/maestro/fixtures/squat-3reps.mp4` gives an 80 s clip whose *first frame is byte-identical* to the fixture, so the seed preflight always succeeds. Push it to `/sdcard/DCIM/Camera` + `MEDIA_SCANNER_SCAN_FILE` and it is a genuine gallery item for the picker. Keep one real-video run as well — that the real clip fails is itself a finding.
+**Apply when:** you need a long-running video analysis on demand.
