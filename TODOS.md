@@ -6,9 +6,17 @@
 - [ready] [GH-431](https://github.com/julimetzger/Gainalytics/issues/431) UX-Audit R2 Follow-up (M6/M9/M12) — Suchtreffer-Rangfolge, stabiler EDITING-PLAN-Modus, Satzfortschritt gegen den Plan
   - Quelle: `docs/ux/create-and-execute-training-audit-round2.md` aus #426
   - Erst nach dem Merge von PR #429 starten — M12 baut auf der dort korrigierten Satznummer auf
-- [ready] [GH-428](https://github.com/julimetzger/Gainalytics/issues/428) UX-Audit R2 Follow-up (H1/H2/H4) — namenloser Plan, Tastatur verdeckt Eingabe beim Planen, falsche Werte nach Übungswechsel
-  - Quelle: `docs/ux/create-and-execute-training-audit-round2.md` aus #426
-  - H2 (Tastatur) überschneidet sich mit [GH-418](https://github.com/julimetzger/Gainalytics/issues/418)
+- [done] ~~[GH-428](https://github.com/julimetzger/Gainalytics/issues/428) UX-Audit R2 Follow-up (H1/H2/H4) — namenloser Plan, Tastatur verdeckt Eingabe beim Planen, falsche Werte nach Übungswechsel~~ (PR #430 gemerged)
+  - H2 (Tastatur) ist damit auch für [GH-418](https://github.com/julimetzger/Gainalytics/issues/418) erledigt — dort nicht noch einmal umbauen
+- [ready] [GH-443](https://github.com/julimetzger/Gainalytics/issues/443) Korrigieren eines bereits protokollierten Satzes setzt den Rest-Timer zurück
+  - Nur ein NEU hinzugefügter Satz startet die Pause; Ändern und Löschen lassen den Timer unberührt
+- [ready] [GH-444](https://github.com/julimetzger/Gainalytics/issues/444) Vergleich Muscle Map erweitern — Analyse gegen den Plan genau dieses Trainings
+  - Zusätzliche Vergleichsauswahl neben „Current micro plan"; bestehende Auswahlmöglichkeiten bleiben
+  - Ohne Planung für dieses Training ist die Auswahl ausgegraut statt Nullwerte zu zeigen
+- [ready] [GH-436](https://github.com/julimetzger/Gainalytics/issues/436) Analyse eines Trainings zeigt nur dieses Training — Micro-Planübersicht wandert in die Overview
+  - Korrektur an [GH-417](https://github.com/julimetzger/Gainalytics/issues/417): micro-weite Planzahlen stehen heute in der Analyse eines einzelnen Trainings
+  - Muscle Map der Analyse vergleicht künftig gegen den Gesamtplan des Micros; Overview bekommt eine vierte Position "Plan"
+  - Enthält einen Usability-Durchgang über "Plan anlegen → planen → trainieren → auswerten"
 - [ready] [GH-63](https://github.com/julimetzger/Gainalytics/issues/63) Rep Ranges for planning mode — Bereiche für Wiederholungen, Gewicht und RIR beim Planen
   - Bereich zählt in allen Auswertungen mit seiner Untergrenze; abwärtskompatibel ohne Migration
 - [ready] [TRN-001](tickets/TRN-001-training-overview-record-comparison.yaml) Records in Training Overview - micro vergleich anzeigen
