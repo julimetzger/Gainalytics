@@ -34,6 +34,9 @@
   - Chat-Inhalte als Datei auf Platte, Metadaten in Redux
   - "Clear" und "Ask AI" archivieren statt zu verwerfen; alter Verlauf lässt sich laden und weiterschreiben
   - Volltextsuche über alle Nachrichten; kein Auto-Cleanup, Löschen nur manuell
+- [ready] [GH-391](https://github.com/julimetzger/Gainalytics/issues/391) AI-Chat Hilfe bei der Trainingsplanung — Zugriff auf die geplanten Trainings
+  - Wichtigster Teil: der Chat kennt die geplanten Trainings (Übungen, geplante Sätze inkl. Bereichen), heute sieht er nur abgeschlossene
+  - Zweiter Teil: ein einzelnes Training (geplant oder absolviert) als Gesprächsgegenstand auswählbar
 - [ready] [GH-361](https://github.com/julimetzger/Gainalytics/issues/361) AI-Chat ignoriert die Claude-Model-Einstellung (Coach-Insights respektieren sie)
 
 ## Exercises
