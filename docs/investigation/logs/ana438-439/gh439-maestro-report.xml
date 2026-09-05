@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" tests="1" failures="0" time="134.0">
+    <testcase id="ana439_playback_velocity_stale" name="ana439_playback_velocity_stale" classname="ana439_playback_velocity_stale" time="134.0" status="SUCCESS"/>
+  </testsuite>
+</testsuites>

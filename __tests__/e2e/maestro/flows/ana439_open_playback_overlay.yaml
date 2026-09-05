@@ -1,0 +1,52 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-438-439 (GH-439), navigation helper.
+#
+# Opens the Playback Overlay of a completed video analysis and leaves the app sitting
+# on that screen, paused at t=0. The actual measurement — reading the rep number and
+# the velocity value out of the stats row at many points during ONE continuous
+# playback — is done afterwards by
+# `.codex-orchestrator/runs/ANA-438-439/checks/probe-playback.sh`, because Maestro
+# cannot sample a value repeatedly while the video keeps running.
+#
+# Prerequisite: analysis id 5 on the assigned device is a completed analysis of the
+# 46.9 s gym video imported in this run (see the report for how it was created).
+- launchApp:
+    stopApp: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 120000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 60000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Video Analyses'
+    timeout: 20000
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 60000
+- takeScreenshot: 'ana439_01_video_analysis_list'
+- tapOn:
+    id: 'video-analysis-row-5'
+- extendedWaitUntil:
+    visible: 'Playback Overlay'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'video-analysis-playback-toggle'
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- assertVisible:
+    id: 'video-analysis-playback-toggle'
+- takeScreenshot: 'ana439_02_player_ready'

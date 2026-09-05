@@ -1,0 +1,64 @@
+appId: com.powerliftingworkoutplanner
+---
+# ANA-438-439 / GH-439 — evidence flow.
+#
+# What it proves, on the actual displayed values:
+#   1. Paused at t=0 the stats row under the player reads "-" / "0.372 m/s".
+#   2. After ~10 s of continuous playback the rep label has moved on to a real rep
+#      ("Rep <n>"), while the velocity label STILL reads "0.372 m/s" — the value from
+#      t=0. That is the bug: the rep number follows the video, the velocity does not.
+#   3. A single manual frame step (+50 ms) makes the velocity leave 0.372 m/s
+#      immediately — the frozen value only refreshes on a manual jump.
+#
+# Prerequisite: analysis id 4 on the assigned device is the completed analysis of the
+# 80 s squat clip imported during this investigation (23 detected reps). Its stored
+# result gives 0.372 m/s at t=0; see checks/analysis-4.json in the run directory.
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 120000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 60000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Video Analyses'
+    timeout: 20000
+- tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 60000
+- tapOn:
+    id: 'video-analysis-row-4'
+- extendedWaitUntil:
+    visible: 'Playback Overlay'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'video-analysis-playback-toggle'
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+
+# 1 — paused at t=0
+- assertVisible: '0.372 m/s'
+- takeScreenshot: 'ana439_10_paused_t0'
+
+# 2 — play, then read both labels again
+- tapOn:
+    id: 'video-analysis-playback-toggle'
+- waitForAnimationToEnd:
+    timeout: 10000
+- assertVisible: 'Rep \d+'
+- assertVisible: '0.372 m/s'
+- takeScreenshot: 'ana439_11_playing_velocity_stale'
+
+# 3 — one manual frame step refreshes the frozen value
+- tapOn:
+    id: 'video-analysis-step-plus50'
+- assertNotVisible: '0.372 m/s'
+- takeScreenshot: 'ana439_12_after_manual_step'

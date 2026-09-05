@@ -1,0 +1,9 @@
+1788615034.760500602 STATE before pid=19925 fgs_records=0 oom_score_adj=700
+1788615034.804498666 T_PICK
+1788615035.244139848 PRESS_HOME t_rel=.444055965
+1788615036.337523349 STATE right-after-home pid=19925 fgs_records=0 oom_score_adj=700
+1788615036.789304491 SNAP after-home
+1788615036.830001260 AM_KILL_SENT t_rel=2.029191235
+1788615039.923056266 STATE after-am-kill pid= fgs_records=0 oom_score_adj=
+1788615066.888102728 SNAP after-cold-start
+1788615066.975980354 STATE after-cold-start pid= fgs_records=0 oom_score_adj=
