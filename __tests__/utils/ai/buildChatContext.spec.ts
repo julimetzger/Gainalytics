@@ -43,11 +43,11 @@ describe('buildChatContext', () => {
     expect(prompt).not.toContain('{"b":2}');
   });
 
-  it('puts the selected training first, so the subject is the first thing read', () => {
+  it('puts the subject first and the long finished history last', () => {
     const sections = chatContextSections(
       parts({finishedJson: '{"a":1}', plannedJson: '{"b":2}', selectedJson: '{"c":3}'}),
     );
-    expect(sections.map(s => s.key)).toEqual(['selected', 'finished', 'planned']);
+    expect(sections.map(s => s.key)).toEqual(['selected', 'planned', 'finished']);
   });
 
   it('reports the size of exactly what is sent', () => {

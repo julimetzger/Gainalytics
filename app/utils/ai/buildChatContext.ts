@@ -33,9 +33,13 @@ export function chatContextSections(parts: ChatContextParts): ChatContextSection
   const push = (key: ChatContextSectionKey, json: string | null) => {
     if (json) sections.push({key, title: SECTION_TITLES[key], json});
   };
+  // Subject first, then the plan, then the history: the two small, question-
+  // shaped blocks come before the long one — for the model, and for the user
+  // who opens the preview and would otherwise have to scroll past ~10 kB of
+  // finished sessions to see whether the planning is attached at all.
   push('selected', parts.selectedJson);
-  push('finished', parts.finishedJson);
   push('planned', parts.plannedJson);
+  push('finished', parts.finishedJson);
   return sections;
 }
 

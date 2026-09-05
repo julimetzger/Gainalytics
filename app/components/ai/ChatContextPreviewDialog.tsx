@@ -3,6 +3,20 @@ import {ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Dialog, Portal, Text, useTheme} from 'react-native-paper';
 import {ChatContextSection} from '../../utils/ai/buildChatContext';
 
+/**
+ * A single Text node of ~10 000 characters breaks the enclosing ScrollView's
+ * content height on Android — the scroll simply stops inside it and everything
+ * below becomes unreachable. Each section is therefore shown up to this many
+ * characters; the full text is still what gets sent, and the header states the
+ * real size.
+ */
+const PREVIEW_CHARS = 4000;
+
+const previewOf = (json: string): string =>
+  json.length <= PREVIEW_CHARS
+    ? json
+    : `${json.slice(0, PREVIEW_CHARS)}\n… (+${json.length - PREVIEW_CHARS} more characters — all of it is sent)`;
+
 interface ChatContextPreviewDialogProps {
   visible: boolean;
   onDismiss: () => void;
@@ -48,7 +62,7 @@ const ChatContextPreviewDialog = ({visible, onDismiss, sections, size}: ChatCont
               </Text>
             ) : (
               sections.map(section => (
-                <View key={section.title} style={styles.section}>
+                <View key={section.key} style={styles.section}>
                   <Text
                     variant="labelMedium"
                     style={{color: theme.colors.primary}}
@@ -62,7 +76,7 @@ const ChatContextPreviewDialog = ({visible, onDismiss, sections, size}: ChatCont
                     testID={`chat-context-preview-${section.key}`}
                     selectable
                   >
-                    {section.json}
+                    {previewOf(section.json)}
                   </Text>
                 </View>
               ))

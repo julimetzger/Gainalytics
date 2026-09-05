@@ -316,18 +316,20 @@ export function buildPlannedTrainingsContext(
     const exercises = plannedExercisesOf(training, workoutsById, exercisesById);
     if (exercises.length === 0) continue;
 
+    // Placement first, exercises last — the model (and anyone reading the
+    // context preview) should see WHERE a session sits before its contents.
     const session: PlannedSession = {
       micro: slot.micro,
       micro_in_meso: getLocalMicro(mesos, slot.micro),
+      meso_name: getMesoForMicro(mesos, slot.micro)?.name,
       position: slot.position,
       name: trainingName(plan, slot.position),
       state: training.state === TrainingsState.STARTED ? 'started' : 'planned',
+      date: isoDay(training.start),
       exercises,
     };
-    const mesoName = getMesoForMicro(mesos, slot.micro)?.name;
-    if (mesoName) session.meso_name = mesoName;
-    const date = isoDay(training.start);
-    if (date) session.date = date;
+    if (session.meso_name === undefined) delete session.meso_name;
+    if (session.date === undefined) delete session.date;
     sessions.push(session);
   }
 

@@ -1,0 +1,87 @@
+appId: com.powerliftingworkoutplanner
+name: GH-391 the AI chat knows the plan, can drop it, and can talk about one training
+---
+# Prerequisite state (see summary.md): __tests__/testdata/gh391_planned_fixture.gains
+# imported via 00_import_baseline.yaml, and a dummy API key stored via
+# gh391_set_dummy_api_key.yaml. The fixture's active plan "Push pull" has micro 7
+# planned: "Push squat" (whose first exercise carries GH-63 rep/RIR ranges) and
+# "Pull dl ".
+#
+# Every assertion below reads the context preview, which renders the very strings
+# the system prompt is built from — so "not in the preview" means "not in the
+# prompt". No request is ever sent; this flow never touches the key.
+
+# NO `launchApp` and no navigation on purpose. The training home and the analyse
+# dashboard animate continuously on this emulator, so every Maestro screenshot
+# and hierarchy fetch on the way to the chat times out (DEADLINE_EXCEEDED after
+# 120 s). The chat screen itself is perfectly addressable, so the flow starts
+# there. Open Analyse -> drawer -> AI Chat before running it:
+#   adb -s $S shell 'am start -n com.powerliftingworkoutplanner/.MainActivity; \
+#     sleep 30; input tap 674 2175; sleep 8; input tap 68 222; sleep 6; \
+#     input tap 300 1538; sleep 10'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 60000
+
+# ── 1. The plan is visibly part of the context ────────────────────────────
+# The chip states the actual number of planned sessions, not just "on".
+- assertVisible:
+    id: 'chat-planned-toggle'
+- assertVisible: 'Plan: 2 sessions'
+- takeScreenshot: gh391-01-chat-planning-on
+
+# ── 2. The planned sessions really are in the context, ranges included ────
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-planned'
+    timeout: 15000
+- copyTextFrom:
+    id: 'chat-context-preview-planned'
+# the planned session of micro 7 with its name, its exercise and its planned sets
+- assertTrue: "${maestro.copiedText.indexOf('Push squat') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('Pull dl') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('current_micro') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('meso_name') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('weight_kg') >= 0}"
+# a planned RANGE, not its lower bound: reps 5-8 and RIR 3-5 on Bankdrücken
+- assertTrue: "${maestro.copiedText.indexOf('5-8') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('3-5') >= 0}"
+- takeScreenshot: gh391-02-context-with-plan
+
+# ── 3. Switching the planning off removes it from the context ─────────────
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-planned-toggle'
+- assertVisible: 'Plan: off'
+- assertNotVisible: 'Plan: 2 sessions'
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-size'
+    timeout: 15000
+- assertNotVisible:
+    id: 'chat-context-preview-planned'
+# the finished-training half is untouched by the switch — it is still there,
+# with its performed sets, and only the planning disappeared
+- assertVisible:
+    id: 'chat-context-preview-finished'
+- copyTextFrom:
+    id: 'chat-context-preview-finished'
+- assertTrue: "${maestro.copiedText.indexOf('sessions') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('weight_kg') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('current_micro') < 0}"
+- takeScreenshot: gh391-03-context-without-plan
+
+# ── 4. Switch it back on ──────────────────────────────────────────────────
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-planned-toggle'
+- assertVisible: 'Plan: 2 sessions'
