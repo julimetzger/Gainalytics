@@ -2750,3 +2750,13 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 ### 416. Render the prompt's context into a dialog and `copyTextFrom` it — that is how "what the model receives" becomes assertable
 **Observation (GH-391):** the ticket demanded proof of the *assembled* context with no API key on the device. Building the system prompt and an in-app preview from one shared function (`buildChatContext`) makes the preview a faithful mirror, and `copyTextFrom: {id: 'chat-context-preview-planned'}` + `assertTrue "${maestro.copiedText.indexOf('5-8') >= 0}"` then asserts the real payload — including that a switched-off section is *absent* (`assertNotVisible` on its testID). A screenshot of the chat surface alone proves none of this.
 **Apply when:** any ticket whose acceptance is about what is sent to a model or an API rather than about what is rendered.
+
+### 417. A ~10 000-character Text node silently caps the ScrollView it sits in — everything below becomes unreachable
+**Problem (GH-391):** a dialog rendered two JSON sections in two `<Text>` nodes. Scrolling ran to the end of the *first* (9 700 chars) and stopped; the second section existed in the tree, was counted in the header ("2 sections"), and could not be scrolled to on the device. It reads exactly like a missing render, not a layout bug, and neither the unit test (which reads `props.children`) nor `copyTextFrom` notices — only a human scrolling the real screen does.
+**Working solution:** cap what is *rendered* per section (`json.slice(0, 4000)` plus an explicit `… (+N more characters)` marker) and order sections so the short, important ones come first. The payload itself stays complete.
+**Apply when:** rendering any long generated text (a prompt, a log, a JSON dump) inside a `Dialog.ScrollArea` or `ScrollView`.
+
+### 418. Never `cd` into `.codex-orchestrator/runs/<id>` and then run `git add -A`
+**Problem (GH-391):** a heredoc written after `cd <run_dir>` failed (the relative path no longer resolved), but the `git add -A && git commit` chained behind it did not — it ran inside the MAIN checkout on `master` and committed `android/app/src/main/assets/index.android.bundle` plus `__pycache__` build artefacts. `git reset --mixed HEAD~1` in the main repo undid it cleanly (the files return to untracked), but only because it had not been pushed.
+**Working solution:** always `cd` back to the worktree before any git command, or use absolute paths for both the file writes and `git -C <worktree>`. `git branch --show-current` right after an unexpected commit tells you immediately which checkout you were in.
+**Apply when:** any command block that mixes run-dir file writes with git.
