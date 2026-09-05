@@ -34,6 +34,9 @@
   - Chat-Inhalte als Datei auf Platte, Metadaten in Redux
   - "Clear" und "Ask AI" archivieren statt zu verwerfen; alter Verlauf lässt sich laden und weiterschreiben
   - Volltextsuche über alle Nachrichten; kein Auto-Cleanup, Löschen nur manuell
+- [ready] [GH-447](https://github.com/julimetzger/Gainalytics/issues/447) Bug: AI-Chat antwortet mit größerem Modell nie — Ladezustand läuft endlos, kein Fehler, kein Abbruch
+  - Gemeldet mit `claude-opus-5`; Standardmodell antwortet normal
+  - Es gibt heute weder Timeout noch Abbruch für die Chat-Anfrage — deshalb kommt auch keine Fehlermeldung
 - [ready] [GH-391](https://github.com/julimetzger/Gainalytics/issues/391) AI-Chat Hilfe bei der Trainingsplanung — Zugriff auf die geplanten Trainings
   - Wichtigster Teil: der Chat kennt die geplanten Trainings (Übungen, geplante Sätze inkl. Bereichen), heute sieht er nur abgeschlossene
   - Zweiter Teil: ein einzelnes Training (geplant oder absolviert) als Gesprächsgegenstand auswählbar
