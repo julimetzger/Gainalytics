@@ -9,7 +9,10 @@ export type MuscleMapCompare =
   | 'last_plan'
   | 'current_total_plan'
   | 'last_training_plan'
-  | 'last_training_done';
+  | 'last_training_done'
+  // GH-444: what THIS training was planned to be — the reference is the planned
+  // workouts of the very same training the analysis is showing.
+  | 'this_training_plan';
 export type MuscleMapView = 'plan' | 'analyse';
 
 export interface MuscleInvolvementRow {

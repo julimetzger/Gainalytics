@@ -1,4 +1,4 @@
-import {computeMicroPlannedMuscleInvolvement, computeMuscleInvolvement, findLastMatchingTraining} from '../use/useMuscleInvolvement';
+import {computeMicroPlannedMuscleInvolvement, computeMuscleInvolvement, findLastMatchingTraining, hasThisTrainingPlannedInvolvement} from '../use/useMuscleInvolvement';
 import {GlobalState} from '../../rootReducer';
 import {Muscles} from '../../../models/Muscles';
 import {TrainingsState} from '../../../models/TrainingsState';
@@ -443,5 +443,142 @@ describe('computeMicroPlannedMuscleInvolvement — done reference (GH-436)', () 
     expect(data.referenceUnavailable).toBe(false);
     expect(data.effectiveCompare).toBe('none');
     expect(data.rows.every((r) => r.reference === 0)).toBe(true);
+  });
+});
+
+// GH-444 — the analysis of ONE training can be compared against the plan of that
+// very training: subject = its done workouts, reference = its planned workouts.
+describe('computeMuscleInvolvement — this_training_plan (GH-444)', () => {
+  /**
+   * Builds on the shared fixture: plan 1, micro 2, trainingInMicro 1 is training 200,
+   * planned as 3 bench sets (workout 500). Here it also gets 5 logged bench sets, so
+   * done and planned are two clearly different numbers for the same training.
+   */
+  const withDoneToday = () => {
+    const state = fixture();
+    state.workouts.byId[700] = {
+      id: 700,
+      exerciseId: 1,
+      sets: [
+        {reps: 10, weight: 100, rir: 1},
+        {reps: 10, weight: 100, rir: 1},
+        {reps: 10, weight: 100, rir: 1},
+        {reps: 10, weight: 100, rir: 1},
+        {reps: 10, weight: 100, rir: 1},
+      ],
+    } as any;
+    state.trainings.byId[200] = {
+      ...state.trainings.byId[200],
+      doneWorkoutIds: {1: 700},
+      state: TrainingsState.FINISHED,
+      end: new Date('2026-01-22'),
+    } as any;
+    return state;
+  };
+
+  const analyse = (state: GlobalState, metric: 'sets' | 'volume' = 'sets') =>
+    computeMuscleInvolvement(state, {
+      trainingsPlanId: 1,
+      micro: 2,
+      trainingInMicro: 1,
+      metric,
+      compare: 'this_training_plan',
+      view: 'analyse',
+    });
+
+  it('compares the logged sets against the planned sets of the same training', () => {
+    const data = analyse(withDoneToday());
+
+    expect(data.referenceUnavailable).toBe(false);
+    expect(data.effectiveCompare).toBe('this_training_plan');
+    const chest = data.rows.find((r) => r.muscleGroupId === Muscles.CHEST);
+    // done 5 bench sets vs planned 3 bench sets — both of THIS training
+    expect(chest?.today).toBeCloseTo(5, 5);
+    expect(chest?.reference).toBeCloseTo(3, 5);
+    // the 50% secondary muscle is weighted the same on both sides
+    const triceps = data.rows.find((r) => r.muscleGroupId === Muscles.TRICEPS);
+    expect(triceps?.today).toBeCloseTo(2.5, 5);
+    expect(triceps?.reference).toBeCloseTo(1.5, 5);
+  });
+
+  it('compares the same training under the volume metric', () => {
+    const data = analyse(withDoneToday(), 'volume');
+
+    expect(data.referenceUnavailable).toBe(false);
+    expect(data.effectiveCompare).toBe('this_training_plan');
+    const chest = data.rows.find((r) => r.muscleGroupId === Muscles.CHEST);
+    // 10 reps x 100 kg = 1 t per set: 5 t done vs 3 t planned
+    expect(chest?.today).toBeCloseTo(5, 5);
+    expect(chest?.reference).toBeCloseTo(3, 5);
+    const triceps = data.rows.find((r) => r.muscleGroupId === Muscles.TRICEPS);
+    expect(triceps?.today).toBeCloseTo(2.5, 5);
+    expect(triceps?.reference).toBeCloseTo(1.5, 5);
+  });
+
+  it('references this training only — not the whole micro and not the previous micro', () => {
+    const data = analyse(withDoneToday());
+
+    const chest = data.rows.find((r) => r.muscleGroupId === Muscles.CHEST);
+    // the previous micro plans 4 bench sets, the current micro's total plan also
+    // covers the sibling squat — neither may leak into the reference
+    expect(chest?.reference).not.toBeCloseTo(4, 5);
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.QUADS)).toBeUndefined();
+  });
+
+  it('marks the reference unavailable when nothing was planned for this training', () => {
+    const state = withDoneToday();
+    state.trainings.byId[200] = {...state.trainings.byId[200], plannedWorkouts: {}} as any;
+
+    const data = analyse(state);
+
+    expect(data.referenceUnavailable).toBe(true);
+    expect(data.effectiveCompare).toBe('none');
+    // the subject survives — the card still shows what was trained
+    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.today).toBeCloseTo(5, 5);
+    expect(data.rows.every((r) => r.reference === 0)).toBe(true);
+  });
+
+  it('treats a planned workout whose exercise has no muscle taxonomy as nothing planned', () => {
+    const state = withDoneToday();
+    // mirrors the baseline fixture: a planned "Adductor" set on an exercise that
+    // carries no muscles at all aggregates to an empty muscle map
+    state.exercises.byId[42] = {id: 42, name: 'Adductor'} as any;
+    state.workouts.byId[701] = {id: 701, exerciseId: 42, sets: [{reps: 12, weight: 105, rir: 0}]} as any;
+    state.trainings.byId[200] = {
+      ...state.trainings.byId[200],
+      exercises: [1, 42],
+      plannedWorkouts: {42: 701},
+    } as any;
+
+    const data = analyse(state);
+
+    expect(data.referenceUnavailable).toBe(true);
+    expect(data.effectiveCompare).toBe('none');
+  });
+});
+
+describe('hasThisTrainingPlannedInvolvement (GH-444)', () => {
+  it('is true for a training with a planned muscle load', () => {
+    expect(hasThisTrainingPlannedInvolvement(fixture(), 1, 2, 1, 'sets')).toBe(true);
+    expect(hasThisTrainingPlannedInvolvement(fixture(), 1, 2, 1, 'volume')).toBe(true);
+  });
+
+  it('is false for a training without planned workouts', () => {
+    const state = fixture();
+    state.trainings.byId[200] = {...state.trainings.byId[200], plannedWorkouts: {}} as any;
+
+    expect(hasThisTrainingPlannedInvolvement(state, 1, 2, 1, 'sets')).toBe(false);
+  });
+
+  it('is false for a micro/position that has no training at all', () => {
+    expect(hasThisTrainingPlannedInvolvement(fixture(), 1, 9, 1, 'sets')).toBe(false);
+  });
+
+  it('is false under the volume metric when every planned set has zero weight', () => {
+    const state = fixture();
+    state.workouts.byId[500] = {id: 500, exerciseId: 1, sets: [{reps: 10, weight: 0, rir: 2}]} as any;
+
+    expect(hasThisTrainingPlannedInvolvement(state, 1, 2, 1, 'sets')).toBe(true);
+    expect(hasThisTrainingPlannedInvolvement(state, 1, 2, 1, 'volume')).toBe(false);
   });
 });
