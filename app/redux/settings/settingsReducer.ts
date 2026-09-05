@@ -16,7 +16,9 @@ export type MuscleMapCompare =
   | 'last_plan'
   | 'current_total_plan'
   | 'last_training_plan'
-  | 'last_training_done';
+  | 'last_training_done'
+  /** GH-444 — the plan of this very training (analysis view only). */
+  | 'this_training_plan';
 
 /** Persisted compare selection for the Plan-View card. */
 export const muscleMapCompareSelectionPlanKey = 'muscleMapCompareSelectionPlan';
