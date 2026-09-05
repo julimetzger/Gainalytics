@@ -26,6 +26,18 @@ appId: com.powerliftingworkoutplanner
     text: 'Wait'
     optional: true
 
+# Wait for the app to be UP before the walk-back loop below. A cold start costs
+# minutes here (Metro bundle + a large store), and while it loads neither
+# `training-home-screen` nor 'Trainings:' is visible — so the loop would take its
+# `back` branch eight times and walk the app off to the launcher, after which
+# every later selector fails for a reason that has nothing to do with the app.
+# The bottom nav is the earliest anchor that proves the JS side is rendering; it
+# exposes 'tab-training' as an ACCESSIBILITY LABEL, not as a resource-id, so
+# `id: 'tab-training'` never matches and the bare selector is required.
+- extendedWaitUntil:
+    visible: 'tab-training'
+    timeout: 300000
+
 # `launchApp: {stopApp: false}` attaches to the app WHERE IT IS — after a
 # previous run that is the training-detail screen, possibly with the drawer
 # open. Walk back to the Training tab root instead of paying for a cold restart
@@ -62,20 +74,28 @@ appId: com.powerliftingworkoutplanner
     timeout: 180000
 
 # The training-home list is a NestableScrollContainer, which scrollUntilVisible
-# cannot drive (memory #206) — swipe by coordinates. The plan list is the last
-# section, so over-swiping is harmless.
+# cannot drive (memory #206) — swipe by coordinates. How many swipes it takes
+# depends on how tall the dashboard above the plan list renders (it grows once a
+# plan is active), so swipe UNTIL the row is there rather than a fixed count.
 - repeat:
-    times: 6
+    times: 12
     commands:
-      - swipe:
-          start: '50%, 80%'
-          end: '50%, 25%'
+      - runFlow:
+          when:
+            notVisible:
+              id: 'plan-row-1'
+          commands:
+            - swipe:
+                start: '50%, 80%'
+                end: '50%, 25%'
+            - waitForAnimationToEnd:
+                timeout: 3000
 - extendedWaitUntil:
     visible:
-      id: 'plan-meta-1'
+      id: 'plan-row-1'
     timeout: 60000
 - tapOn:
-    id: 'plan-meta-1'
+    id: 'plan-row-1'
 - extendedWaitUntil:
     visible:
       id: 'drawer-menu-button'

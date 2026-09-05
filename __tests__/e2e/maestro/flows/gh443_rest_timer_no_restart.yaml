@@ -19,17 +19,26 @@ appId: com.powerliftingworkoutplanner
 # number (`add-workout-set-reps-input-3`) — GH-443 gave every row instance a
 # suffixed testID; the new-set input keeps the bare ids.
 #
+# SET NUMBERING — verified on the device, do not re-derive it from the fixture:
+# micro 69 "Push" is training 282 of plan "Push pull upper lower", and its first
+# exercise "Adductor" shows two planned rows (13x100, 12x100) as indices 1 and 2.
+# `PlannedSetTarget` does NOT render here (`planned-set-target-label` is absent),
+# so ExecuteTraining passes `nextSetIndex: undefined` and AddWorkout falls back
+# to its own counter — merged sets + 1. The banner therefore announces " Set 3"
+# and the first set this flow logs becomes set 3, the second one set 4. The
+# banner Text itself (`add-workout-set-number`) is NOT reachable for Maestro on
+# this build — only the TextInputs and touchables of the pane are — so the row
+# testIDs below are what pins the numbering down.
+#
 # Precondition: baseline.gains imported (run gh443_suite.yaml, which chains the
-# import). gh443_goto_running_push.yaml then opens micro 69 "Push" of
-# "Push pull upper lower" and starts it. Its first exercise "Adductor" carries
-# two planned-but-unlogged rows (1 and 2), so the set this flow logs becomes 3.
+# import).
 - runFlow: gh443_goto_running_push.yaml
 
-# The rest target this flow's expected values are derived from. If the fixture
-# ever changes it, fail here rather than silently compare against the wrong
-# numbers.
 - assertVisible:
     id: 'add-workout-set-reps-input'
+# Photograph the untouched screen first: it carries the "Set N" banner, so if the
+# row assertions below ever disagree with N this screenshot says why.
+- takeScreenshot: gh443_00_train_screen_before
 
 # ── 1. a NEW set starts the rest from the target ────────────────────────────
 - tapOn:
@@ -54,10 +63,15 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'rest-timer-target'
     text: 'target 01:30'
-# The set really is logged, and it is set 3 (the green, non-editing checkmark
-# only renders for a persisted row).
-- assertVisible:
-    id: 'add-workout-set-logged-3'
+# The set really is logged, and it is set 3: a third row appeared and it carries
+# the values just typed. Asserted on the row's TextInput rather than on its
+# checkmark IconButton — on this build only the pane's TextInputs and touchables
+# are exposed to the driver, plain Texts and passive icons are not.
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-reps-input-3'
+      text: '8'
+    timeout: 20000
 # A brand new set starts at the full target — the ring shows 01:30 / 01:2x.
 - extendedWaitUntil:
     visible:
@@ -67,8 +81,8 @@ appId: com.powerliftingworkoutplanner
 - takeScreenshot: gh443_01_new_set_starts_rest
 
 # ── 2. let it run down to an unmistakable value ─────────────────────────────
-# This is an assertion, not a sleep: the ring must really reach 01:10, i.e. it
-# counted 20 s down from the target.
+# This is an assertion, not a sleep: the ring must really reach ~01:10, i.e. it
+# counted ~20 s down from the target.
 - extendedWaitUntil:
     visible:
       id: 'rest-progress-ring-text'
@@ -86,7 +100,7 @@ appId: com.powerliftingworkoutplanner
     output.beforeElapsed = over ? 90 + value : 90 - value;
 - takeScreenshot: gh443_02_timer_before_correction
 
-# ── 3. correct the already logged set 3 ─────────────────────────────────────
+# ── 3. correct the already logged set 3 (it is also the LAST logged set) ────
 - tapOn:
     id: 'add-workout-set-reps-input-3'
 - eraseText
@@ -95,14 +109,12 @@ appId: com.powerliftingworkoutplanner
 # check-circle while the row is being edited) instead of relying on a blur.
 - tapOn:
     id: 'add-workout-set-confirm-3'
+# The correction landed: the row now reads 7 reps.
 - extendedWaitUntil:
     visible:
-      id: 'add-workout-set-logged-3'
+      id: 'add-workout-set-reps-input-3'
+      text: '7'
     timeout: 20000
-# The correction landed: the row now reads 7 reps.
-- assertVisible:
-    id: 'add-workout-set-reps-input-3'
-    text: '7'
 - takeScreenshot: gh443_03_correction_committed
 
 # ── 4. the timer did NOT jump back ──────────────────────────────────────────
@@ -116,7 +128,7 @@ appId: com.powerliftingworkoutplanner
     var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
     output.afterShown = shown;
     output.afterElapsed = over ? 90 + value : 90 - value;
-    // Time only moves forward, and the rest that was already 20 s old must
+    // Time only moves forward, and the rest that was already ~20 s old must
     // still be at least that old. A restart would put afterElapsed back at ~0.
     output.verdict =
       output.afterElapsed >= output.beforeElapsed && output.afterElapsed >= 18
@@ -129,47 +141,10 @@ appId: com.powerliftingworkoutplanner
     id: 'rest-progress-ring-text'
     text: '01:(2[0-9]|30)'
 - takeScreenshot: gh443_04_timer_after_correction
-# …and it keeps counting from where it was, rather than from the target.
-- extendedWaitUntil:
-    visible:
-      id: 'rest-progress-ring-text'
-      text: '0[01]:[0-5][0-9]'
-    timeout: 30000
 
-# ── 5. deleting a logged set does not reset the timer either ────────────────
-- copyTextFrom:
-    id: 'rest-progress-ring-text'
-- evalScript: |
-    var shown = '${maestro.copiedText}';
-    var over = shown.charAt(0) === '+';
-    var body = over ? shown.substring(1) : shown;
-    var parts = body.split(':');
-    var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-    output.beforeDeleteElapsed = over ? 90 + value : 90 - value;
-- tapOn:
-    id: 'add-workout-set-delete-3'
-- extendedWaitUntil:
-    notVisible:
-      id: 'add-workout-set-logged-3'
-    timeout: 20000
-- copyTextFrom:
-    id: 'rest-progress-ring-text'
-- evalScript: |
-    var shown = '${maestro.copiedText}';
-    var over = shown.charAt(0) === '+';
-    var body = over ? shown.substring(1) : shown;
-    var parts = body.split(':');
-    var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-    output.afterDeleteShown = shown;
-    output.afterDeleteElapsed = over ? 90 + value : 90 - value;
-    output.deleteVerdict =
-      output.afterDeleteElapsed >= output.beforeDeleteElapsed
-        ? 'PASS'
-        : 'FAIL after delete=' + output.afterDeleteShown;
-- assertTrue: ${output.deleteVerdict == 'PASS'}
-- takeScreenshot: gh443_05_timer_after_delete
-
-# ── 6. a NEW set still restarts the rest from the target ────────────────────
+# ── 5. a NEW set still restarts the rest from the target ────────────────────
+# This is the "unchanged behaviour" criterion, and it also gives us a second
+# logged row so the next correction targets a set that is NOT the last one.
 - tapOn:
     id: 'add-workout-set-reps-input'
 - eraseText
@@ -187,17 +162,95 @@ appId: com.powerliftingworkoutplanner
     id: 'add-workout-set-submit-button'
 - extendedWaitUntil:
     visible:
-      id: 'rest-progress-ring-text'
-      text: '01:(2[0-9]|30)'
-    timeout: 30000
-- takeScreenshot: gh443_06_new_set_restarts_rest
-
-# ── 7. Reset and the target are untouched ──────────────────────────────────
+      id: 'add-workout-set-reps-input-4'
+      text: '6'
+    timeout: 20000
 - extendedWaitUntil:
     visible:
       id: 'rest-progress-ring-text'
-      text: '01:1[0-9]'
-    timeout: 40000
+      text: '01:(2[0-9]|30)'
+    timeout: 30000
+- takeScreenshot: gh443_05_new_set_restarts_rest
+
+# ── 6. correcting set 3 — NOT the last logged set — also leaves the rest alone
+- extendedWaitUntil:
+    visible:
+      id: 'rest-progress-ring-text'
+      text: '01:1[0-2]'
+    timeout: 60000
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: |
+    var shown = '${maestro.copiedText}';
+    var over = shown.charAt(0) === '+';
+    var body = over ? shown.substring(1) : shown;
+    var parts = body.split(':');
+    var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    output.beforeMidShown = shown;
+    output.beforeMidElapsed = over ? 90 + value : 90 - value;
+- tapOn:
+    id: 'add-workout-set-reps-input-3'
+- eraseText
+- inputText: '9'
+- tapOn:
+    id: 'add-workout-set-confirm-3'
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-reps-input-3'
+      text: '9'
+    timeout: 20000
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: |
+    var shown = '${maestro.copiedText}';
+    var over = shown.charAt(0) === '+';
+    var body = over ? shown.substring(1) : shown;
+    var parts = body.split(':');
+    var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    output.afterMidShown = shown;
+    output.afterMidElapsed = over ? 90 + value : 90 - value;
+    output.midVerdict =
+      output.afterMidElapsed >= output.beforeMidElapsed && output.afterMidElapsed >= 18
+        ? 'PASS'
+        : 'FAIL before=' + output.beforeMidShown + ' after=' + output.afterMidShown;
+- assertTrue: ${output.midVerdict == 'PASS'}
+- takeScreenshot: gh443_06_timer_after_correcting_earlier_set
+
+# ── 7. deleting a logged set does not reset the timer either ────────────────
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: |
+    var shown = '${maestro.copiedText}';
+    var over = shown.charAt(0) === '+';
+    var body = over ? shown.substring(1) : shown;
+    var parts = body.split(':');
+    var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    output.beforeDeleteShown = shown;
+    output.beforeDeleteElapsed = over ? 90 + value : 90 - value;
+- tapOn:
+    id: 'add-workout-set-delete-3'
+- extendedWaitUntil:
+    notVisible:
+      id: 'add-workout-set-reps-input-3'
+    timeout: 20000
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: |
+    var shown = '${maestro.copiedText}';
+    var over = shown.charAt(0) === '+';
+    var body = over ? shown.substring(1) : shown;
+    var parts = body.split(':');
+    var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    output.afterDeleteShown = shown;
+    output.afterDeleteElapsed = over ? 90 + value : 90 - value;
+    output.deleteVerdict =
+      output.afterDeleteElapsed >= output.beforeDeleteElapsed
+        ? 'PASS'
+        : 'FAIL before=' + output.beforeDeleteShown + ' after=' + output.afterDeleteShown;
+- assertTrue: ${output.deleteVerdict == 'PASS'}
+- takeScreenshot: gh443_07_timer_after_delete
+
+# ── 8. Reset and the target are untouched ──────────────────────────────────
 - tapOn:
     id: 'rest-timer-reset'
 - extendedWaitUntil:
@@ -208,4 +261,4 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'rest-timer-target'
     text: 'target 01:30'
-- takeScreenshot: gh443_07_reset_restores_target
+- takeScreenshot: gh443_08_reset_restores_target

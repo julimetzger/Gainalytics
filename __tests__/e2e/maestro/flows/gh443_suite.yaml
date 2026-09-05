@@ -1,8 +1,10 @@
 appId: com.powerliftingworkoutplanner
 ---
 # GH-443 end-to-end suite: import the baseline fixture, then run the rest-timer
-# flow against it. The import is what makes the set numbers in
-# gh443_rest_timer_no_restart.yaml deterministic (micro 69 "Push" → "Adductor"
-# has planned rows 1 and 2, so the set the flow logs becomes 3).
-- runFlow: 00_import_baseline.yaml
+# flow against it. The import is a FULL restore, so it also resets whatever a
+# previous (possibly failed) run logged — which is what makes the set numbers in
+# gh443_rest_timer_no_restart.yaml deterministic: micro 69 "Push" is training 282
+# and its first exercise "Adductor" shows two planned, unlogged rows (1 and 2),
+# so the first set the flow logs is announced and stamped as set 3.
+- runFlow: gh443_import_baseline.yaml
 - runFlow: gh443_rest_timer_no_restart.yaml
