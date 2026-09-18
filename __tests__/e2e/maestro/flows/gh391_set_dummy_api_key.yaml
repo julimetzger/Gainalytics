@@ -1,0 +1,43 @@
+appId: com.powerliftingworkoutplanner
+name: GH-391 store a dummy Anthropic key so the AI Chat screen renders
+---
+# The AI Chat tab renders a "add your key in Settings" placeholder until a key
+# exists. GH-391 is about the CONTEXT the chat assembles, not about a model
+# answer, so a dummy key is all this evidence run needs — no request is ever
+# sent, and the key never leaves the device.
+- launchApp:
+    clearState: false
+- tapOn:
+    text: 'Dismiss'
+    optional: true
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn: 'tab-settings'
+# The key input lives inside the collapsed "AI Configuration" accordion — it is
+# not in the hierarchy at all until the accordion is expanded.
+- scrollUntilVisible:
+    element:
+      id: 'settings-ai-config-accordion'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-ai-config-accordion'
+- scrollUntilVisible:
+    element:
+      id: 'settings-anthropic-api-key-input'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- inputText: 'sk-ant-dummy-not-a-real-key'
+- hideKeyboard
+# With the keyboard gone the buttons below the input can still sit off-screen.
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-api-key-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-save-api-key-button'
+- waitForAnimationToEnd

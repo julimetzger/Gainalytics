@@ -1,0 +1,110 @@
+appId: com.powerliftingworkoutplanner
+name: GH-391 the conversation subject does not travel into a resumed chat
+---
+# Prerequisite state (see summary.md): gh391_newplan_fixture.gains imported and a
+# dummy API key stored, the app sitting on the AI Chat screen with an empty
+# conversation and no subject (gh391_new_plan_context.yaml leaves it that way).
+#
+# The reported misbehaviour: pick a training as the subject, archive the chat,
+# continue an older conversation — and the subject of the archived chat stayed
+# attached, invisible, and went into the next request. A message is sent here
+# only to produce an archivable conversation; the dummy key makes the request
+# fail, which is expected and irrelevant to what is asserted.
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 60000
+
+# ── 1. An older conversation, archived ────────────────────────────────────
+- tapOn:
+    id: 'chat-input'
+- inputText: 'older conversation about squats'
+- hideKeyboard
+- tapOn:
+    id: 'chat-send-button'
+- extendedWaitUntil:
+    visible: 'older conversation about squats'
+    timeout: 30000
+- tapOn:
+    id: 'chat-clear-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-empty-state'
+    timeout: 30000
+- assertNotVisible: 'older conversation about squats'
+
+# ── 2. A new conversation WITH a subject ──────────────────────────────────
+- tapOn:
+    id: 'chat-subject-chip'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-training-picker'
+    timeout: 15000
+- tapOn:
+    id: 'chat-training-option-382'
+- waitForAnimationToEnd
+- assertVisible: 'Micro 1 · Squat day'
+- tapOn:
+    id: 'chat-input'
+- inputText: 'current conversation about deadlifts'
+- hideKeyboard
+- tapOn:
+    id: 'chat-send-button'
+- extendedWaitUntil:
+    visible: 'current conversation about deadlifts'
+    timeout: 30000
+# the subject really is part of what would be sent
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-selected'
+    timeout: 15000
+- copyTextFrom:
+    id: 'chat-context-preview-selected'
+- assertTrue: "${maestro.copiedText.indexOf('Squat day') >= 0}"
+- takeScreenshot: gh391-14-subject-before-resume
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+
+# ── 3. Continue the older conversation ────────────────────────────────────
+- tapOn:
+    id: 'chat-history-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-history-list'
+    timeout: 30000
+- tapOn: 'older conversation about squats'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 30000
+# we really are in the other conversation now
+- assertVisible: 'older conversation about squats'
+- assertNotVisible: 'current conversation about deadlifts'
+
+# ── 4. …and it carries no subject from the chat that was left ─────────────
+- assertVisible:
+    id: 'chat-subject-chip'
+- assertVisible: 'Training: none'
+- assertNotVisible: 'Micro 1 · Squat day'
+- takeScreenshot: gh391-15-subject-after-resume
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-size'
+    timeout: 15000
+- assertNotVisible:
+    id: 'chat-context-preview-selected'
+# the rest of the context is untouched by the switch of conversation
+- assertVisible:
+    id: 'chat-context-preview-planned'
+- copyTextFrom:
+    id: 'chat-context-preview-planned'
+- assertTrue: "${maestro.copiedText.indexOf('New block 2026') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('Squat day') >= 0}"
+- takeScreenshot: gh391-16-context-after-resume
+- tapOn:
+    id: 'chat-context-preview-close'

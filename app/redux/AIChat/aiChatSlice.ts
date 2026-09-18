@@ -37,6 +37,10 @@ export interface AIChatState {
   seedContextJson: string | null;
   /** Date range controlling which trainings are included in seedContextJson. null = 28d default. */
   contextRange: ContextRange | null;
+  /** GH-391: whether the planned sessions of the current/next micro travel with the prompt. */
+  includePlannedTrainings: boolean;
+  /** GH-391: id of the single training the conversation is about, or null. */
+  selectedTrainingId: number | null;
   /** Archived conversations, newest first. Full contents live on disk. */
   history: ChatHistoryEntry[];
   /** True after the GH-293 migration when a pre-existing chat still has to be
@@ -50,6 +54,8 @@ const initialState: AIChatState = {
   error: null,
   seedContextJson: null,
   contextRange: null,
+  includePlannedTrainings: true,
+  selectedTrainingId: null,
   history: [],
   pendingLegacyArchive: false,
 };
@@ -73,13 +79,24 @@ const aiChatSlice = createSlice({
       state.isLoading = false;
       state.error = null;
       state.seedContextJson = null;
-      // contextRange is intentionally preserved — user's deliberate range choice survives chat clears
+      // GH-391: the subject belongs to the conversation that just ended.
+      state.selectedTrainingId = null;
+      // contextRange and includePlannedTrainings are intentionally preserved —
+      // both are deliberate settings and survive chat clears
     },
     setSeedContextJson(state, action: PayloadAction<string | null>) {
       state.seedContextJson = action.payload;
     },
     setContextRange(state, action: PayloadAction<ContextRange | null>) {
       state.contextRange = action.payload;
+    },
+    /** GH-391: switch the planning half of the context on or off. */
+    setIncludePlannedTrainings(state, action: PayloadAction<boolean>) {
+      state.includePlannedTrainings = action.payload;
+    },
+    /** GH-391: pick (or with null clear) the single training the chat is about. */
+    setSelectedTrainingId(state, action: PayloadAction<number | null>) {
+      state.selectedTrainingId = action.payload;
     },
     /** Resets the conversation and seeds it with context. The insightText becomes the first
      *  assistant message; seedContextJson is stored for use as a system prompt supplement.
@@ -89,6 +106,8 @@ const aiChatSlice = createSlice({
       state.isLoading = false;
       state.error = null;
       state.seedContextJson = action.payload.seedContextJson;
+      // GH-391: a fresh insight-seeded conversation carries no leftover subject.
+      state.selectedTrainingId = null;
     },
     /** Adds an archived conversation to the front of the history list. */
     addHistoryEntry(state, action: PayloadAction<ChatHistoryEntry>) {
@@ -103,6 +122,11 @@ const aiChatSlice = createSlice({
       state.messages = action.payload;
       state.isLoading = false;
       state.error = null;
+      // GH-391 review (misbehaviour 2): the subject belongs to the conversation
+      // it was picked in. A resumed conversation therefore starts without one —
+      // never with the training of the chat that was just archived, which would
+      // otherwise travel invisibly into the next request.
+      state.selectedTrainingId = null;
     },
     setPendingLegacyArchive(state, action: PayloadAction<boolean>) {
       state.pendingLegacyArchive = action.payload;
@@ -117,6 +141,8 @@ export const {
   clearChat,
   setSeedContextJson,
   setContextRange,
+  setIncludePlannedTrainings,
+  setSelectedTrainingId,
   startChatWithContext,
   addHistoryEntry,
   removeHistoryEntry,

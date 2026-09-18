@@ -15,6 +15,8 @@ import {
   setLoading,
   setSeedContextJson,
   setContextRange,
+  setIncludePlannedTrainings,
+  setSelectedTrainingId,
   setPendingLegacyArchive,
   ContextRange,
 } from '../../redux/AIChat/aiChatSlice';
@@ -29,6 +31,20 @@ import {Training} from '../../models/entities/Training';
 import {TrainingsState} from '../../models/TrainingsState';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {getMesoEndMicro, getMesoForMicro, getMicroFromTrainingInMicroIndex} from '../../redux/Training/trainingsPlanReducer';
+import {
+  buildPlannedTrainingsContext,
+  buildSelectedTrainingContext,
+  buildTrainingLocators,
+  listChatSelectableTrainings,
+} from '../../utils/ai/chatPlanningContext';
+import {
+  buildChatSystemPrompt,
+  chatContextSections,
+  chatContextSize,
+  ChatContextParts,
+} from '../../utils/ai/buildChatContext';
+import ChatContextPreviewDialog from '../../components/ai/ChatContextPreviewDialog';
+import ChatTrainingPickerDialog from '../../components/ai/ChatTrainingPickerDialog';
 import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
 import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
 
@@ -120,6 +136,9 @@ const AIChatTab = () => {
   const seedContextJson = useSelector((s: GlobalState) => s.aiChat.seedContextJson);
   const contextRange = useSelector((s: GlobalState) => s.aiChat.contextRange);
   const pendingLegacyArchive = useSelector((s: GlobalState) => s.aiChat.pendingLegacyArchive);
+  // GH-391 — undefined only until migration 13 has run on a very old store.
+  const includePlanned = useSelector((s: GlobalState) => s.aiChat.includePlannedTrainings ?? true);
+  const selectedTrainingId = useSelector((s: GlobalState) => s.aiChat.selectedTrainingId ?? null);
 
   const trainingsById = useSelector((s: GlobalState) => s.trainings.byId);
   const workoutsById = useSelector((s: GlobalState) => s.workouts.byId) as Record<number, any>;
@@ -132,6 +151,8 @@ const AIChatTab = () => {
   const [inputText, setInputText] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<Preset>('28d');
   const [showFilters, setShowFilters] = useState(false);
+  const [showContextPreview, setShowContextPreview] = useState(false);
+  const [showTrainingPicker, setShowTrainingPicker] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const textInputRef = useRef<any>(null);
 
@@ -214,6 +235,61 @@ const AIChatTab = () => {
     [allFinishedTrainings, effectiveRange],
   );
 
+  // GH-391 — the planning half of the context. Null whenever there is genuinely
+  // nothing planned, so no empty placeholder session can reach the prompt.
+  const plannedContext = useMemo(
+    () =>
+      buildPlannedTrainingsContext(
+        allPlans,
+        trainingsById as Record<number, Training>,
+        workoutsById,
+        exercisesById,
+      ),
+    [allPlans, trainingsById, workoutsById, exercisesById],
+  );
+
+  const selectableTrainings = useMemo(
+    () => listChatSelectableTrainings(allPlans, trainingsById as Record<number, Training>),
+    [allPlans, trainingsById],
+  );
+
+  const selectedContext = useMemo(() => {
+    if (selectedTrainingId == null) return null;
+    return buildSelectedTrainingContext(
+      selectedTrainingId,
+      trainingsById as Record<number, Training>,
+      workoutsById,
+      exercisesById,
+      videoAnalysesById,
+      buildTrainingLocators(allPlans, trainingsById as Record<number, Training>),
+    );
+  }, [selectedTrainingId, allPlans, trainingsById, workoutsById, exercisesById, videoAnalysesById]);
+
+  const contextParts: ChatContextParts = useMemo(
+    () => ({
+      finishedJson: seedContextJson,
+      // Switched off means switched off — the planning JSON is not built into the prompt at all.
+      plannedJson: includePlanned && plannedContext ? JSON.stringify(plannedContext) : null,
+      selectedJson: selectedContext ? JSON.stringify(selectedContext) : null,
+    }),
+    [seedContextJson, includePlanned, plannedContext, selectedContext],
+  );
+
+  const contextSections = useMemo(() => chatContextSections(contextParts), [contextParts]);
+  const contextSize = useMemo(() => chatContextSize(contextParts), [contextParts]);
+
+  const plannedSessionCount = plannedContext?.sessions.length ?? 0;
+  const selectedTrainingLabel = useMemo(() => {
+    if (selectedTrainingId == null) return undefined;
+    const fromPicker = selectableTrainings.find(t => t.id === selectedTrainingId)?.label;
+    if (fromPicker) return fromPicker;
+    // A subject the picker no longer offers (an older session, a plan that is not
+    // the active one) still travels with the prompt — so it has to stay readable
+    // in the chip instead of silently reading "none". When even the context is
+    // gone (training deleted) there is nothing attached and "none" is correct.
+    return selectedContext ? `${selectedContext.name} (${selectedContext.state})` : undefined;
+  }, [selectableTrainings, selectedTrainingId, selectedContext]);
+
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => flatListRef.current?.scrollToEnd({animated: true}), 100);
@@ -279,9 +355,14 @@ const AIChatTab = () => {
       }
     }
 
-    const hadContext = Boolean(contextJson);
+    // GH-391: the prompt is assembled from the same parts the context preview
+    // renders, so what the user inspects is exactly what the model receives.
+    const partsForSend: ChatContextParts = {...contextParts, finishedJson: contextJson};
     console.log(
-      `[AIChatTab] handleSend: seedContextJson=${hadContext ? `present (${contextJson!.length} bytes)` : 'null'} finishedTrainings=${allFinishedTrainings.length}`,
+      `[AIChatTab] handleSend: finished=${contextJson ? `${contextJson.length}c` : 'null'} ` +
+        `planned=${partsForSend.plannedJson ? `${partsForSend.plannedJson.length}c` : 'off/none'} ` +
+        `selected=${partsForSend.selectedJson ? `${partsForSend.selectedJson.length}c` : 'none'} ` +
+        `finishedTrainings=${allFinishedTrainings.length}`,
     );
 
     const userMsg: ChatMessage = {role: 'user', content: text};
@@ -290,9 +371,7 @@ const AIChatTab = () => {
     dispatch(setLoading(true));
     dispatch(setError(null));
 
-    const systemPrompt = contextJson
-      ? `${chatPrompt}\n\nAnalysis context (finished trainings as JSON):\n\n${contextJson}`
-      : chatPrompt;
+    const systemPrompt = buildChatSystemPrompt(chatPrompt, partsForSend);
 
     const history: ChatMessage[] = [...messages, userMsg];
     const result = await sendChatMessage(history, apiKey, systemPrompt, model);
@@ -446,6 +525,49 @@ const AIChatTab = () => {
         />
       </View>
 
+      {/* GH-391 context bar — always visible, so the planning half of the context
+          and the current conversation subject are never hidden behind a filter. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.contextBarRow}
+        contentContainerStyle={styles.contextBarContent}
+        testID="chat-context-bar"
+      >
+        <Chip
+          icon={includePlanned ? 'calendar-check' : 'calendar-remove'}
+          selected={includePlanned}
+          showSelectedCheck={false}
+          onPress={() => dispatch(setIncludePlannedTrainings(!includePlanned))}
+          style={styles.chip}
+          testID="chat-planned-toggle"
+        >
+          {includePlanned
+            ? `Plan: ${plannedSessionCount} session${plannedSessionCount !== 1 ? 's' : ''}`
+            : 'Plan: off'}
+        </Chip>
+        <Chip
+          icon={selectedTrainingId != null ? 'target' : 'target-variant'}
+          selected={selectedTrainingId != null}
+          showSelectedCheck={false}
+          onPress={() => setShowTrainingPicker(true)}
+          onClose={selectedTrainingId != null ? () => dispatch(setSelectedTrainingId(null)) : undefined}
+          closeIconAccessibilityLabel="Clear selected training"
+          style={styles.chip}
+          testID="chat-subject-chip"
+        >
+          {selectedTrainingLabel ?? 'Training: none'}
+        </Chip>
+        <Chip
+          icon="text-box-search-outline"
+          onPress={() => setShowContextPreview(true)}
+          style={styles.chip}
+          testID="chat-context-inspect"
+        >
+          {`View context (${contextSize})`}
+        </Chip>
+      </ScrollView>
+
       {/* Collapsible filter section */}
       {showFilters && (
         <View testID="chat-filter-section">
@@ -500,6 +622,21 @@ const AIChatTab = () => {
             testID="chat-context-info"
           >
             {`AI has access to ${filteredCount} training${filteredCount !== 1 ? 's' : ''} (${formatDateISO(effectiveRange.startDate)} – ${formatDateISO(effectiveRange.endDate)})`}
+          </Text>
+
+          {/* GH-391: the planning half is independent of the date range above. */}
+          <Text
+            variant="bodySmall"
+            style={[styles.infoLine, {color: theme.colors.onSurfaceVariant}]}
+            testID="chat-planned-info"
+          >
+            {!includePlanned
+              ? 'Plan not attached'
+              : plannedContext
+                ? // The plan name is part of the line because more than one plan can
+                  // exist: the user has to be able to see WHICH plan the chat knows.
+                  `Plan attached: ${plannedSessionCount} planned session${plannedSessionCount !== 1 ? 's' : ''} from "${plannedContext.plan_name}" (${plannedContext.scope})`
+                : 'Plan attached: nothing planned'}
           </Text>
         </View>
       )}
@@ -586,6 +723,23 @@ const AIChatTab = () => {
         />
       </View>
       <View style={{height: insets.bottom}} />
+
+      <ChatContextPreviewDialog
+        visible={showContextPreview}
+        onDismiss={() => setShowContextPreview(false)}
+        sections={contextSections}
+        size={contextSize}
+      />
+      <ChatTrainingPickerDialog
+        visible={showTrainingPicker}
+        onDismiss={() => setShowTrainingPicker(false)}
+        trainings={selectableTrainings}
+        selectedId={selectedTrainingId}
+        onSelect={id => {
+          dispatch(setSelectedTrainingId(id));
+          setShowTrainingPicker(false);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -614,6 +768,16 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 0,
     paddingHorizontal: 12,
+  },
+  contextBarRow: {
+    flexGrow: 0,
+    flexShrink: 0,
+    paddingHorizontal: 12,
+  },
+  contextBarContent: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 6,
   },
   chipsContent: {
     flexDirection: 'row',

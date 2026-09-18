@@ -2803,3 +2803,83 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 **Problem (GH-444):** three flow runs with an unchanged command line (`--host 172.18.240.1 --device emulator-5556`) suddenly drove a foreign 720x1600 phone that had been plugged in meanwhile; the earlier runs on the very same command line were correct. The failures read as code bugs (`Element not found: muscle-row-Core-readout` — that testID only exists in *this* branch's build). #300/#365 describe the remedy but assume you evaluate the risk once, at the start.
 **Working solution:** `adb -H 172.18.240.1 -P 5037 devices` before EVERY flow, and check the resulting screenshot's resolution against `adb -s $ANDROID_SERIAL shell wm size` (`ffprobe -show_entries stream=width,height`) — one number tells you which device you were on. Note the run dir does not always ship `adb_filter_proxy.py`; when it is missing, copy one from another run dir (or write the ~100-line equivalent) instead of trusting `--device`, which is ignored whenever `--host` points at a remote adb server.
 **Apply when:** a flow that passed earlier in the same session starts failing on elements you know are rendered.
+
+### 412. The Windows adb server binds `127.0.0.1` only unless it is started with `-a` — and it auto-restarts that way after every crash
+**Problem (GH-391):** the run-dir adb filter proxy died with `ConnectionRefusedError` to its upstream `172.18.240.1:5037`, and every `adb -H 127.0.0.7` after that returned `protocol fault (couldn't read status): Success`. The Windows server was *running* — but a client had auto-spawned it, and an auto-spawned server listens on `127.0.0.1` only, which WSL cannot reach through the gateway IP. Killing it just lets the next client spawn another loopback-only one, so `taskkill` alone never fixes it and the proxy stays dead for every worker sharing that upstream.
+**Working solution:** kill the listener and start a *detached* server in the same command, with the WSL adb env stripped so the Windows binary does not treat the gateway as a remote host:
+`PID=$(cmd.exe /c "netstat -ano" | grep -a :5037 | grep -ai abh | awk '{print $5}'); cmd.exe /c "taskkill /F /PID $PID"; env -u ADB_SERVER_SOCKET -u ANDROID_ADB_SERVER_ADDRESS ./adb.exe -a -P 5037 start-server`
+`start-server` (not `nodaemon server`) is what survives — `nodaemon` runs in the foreground and dies with the Bash tool call that launched it, even under `setsid`.
+**Apply when:** the proxy log shows `Connection refused` to the upstream, or `adb devices` through the proxy reports a protocol fault.
+
+### 413. That adb server saturates at ~150 connections — batch a whole tap sequence into ONE `adb shell`
+**Problem (GH-391):** `netstat` on Windows showed 150-190 ESTABLISHED sockets on :5037 (all from Windows `127.0.0.1`, only 2 from WSL) and the server then refused every new connection. It re-saturated within minutes of each restart, so a script of ~10 separate `adb shell input tap` calls reliably died halfway. Killing a Maestro JVM mid-run makes it worse — its connections linger.
+**Working solution:** one connection per step, not one per command:
+`adb -s $S shell 'input tap 943 2175; sleep 6; input tap 270 1922; sleep 5; echo STEP_DONE'` — the sleeps run on the device. Screenshot only between such batches, and never kill a Maestro run you can let time out.
+**Apply when:** `adb` starts timing out mid-sequence, or any adb-driven navigation longer than a few taps.
+
+### 414. A `reverse` keep-alive watchdog KILLS Maestro on the filter proxy (the opposite of #403)
+**Problem (GH-391):** following #403 literally — `while true; do adb reverse tcp:8081 tcp:8085; sleep 3; done` alongside the run — made the flow die on its third command with `UNAVAILABLE: Network closed for unknown reason` from the Maestro gRPC driver plus a `dadb TcpForwarder` `EOFException`. The filter proxy listens with backlog 5; a watchdog reconnecting every 3 s starves Maestro's own driver connections.
+**Working solution:** no watchdog when the run goes through the run-dir proxy. #403's advice was written for a direct adb host; there the tunnel is the fragile part, here the connection budget is.
+**Apply when:** a Maestro flow fails early with a gRPC `UNAVAILABLE` rather than an assertion error.
+
+### 415. This project's debug APK DOES embed a JS bundle — so a rebuild, not Metro, is what puts your code on the device
+**Observation (GH-391):** `unzip -l app-debug.apk | grep index.android.bundle` finds a 5.3 MB `assets/index.android.bundle` in a freshly built debug APK. The app therefore renders the *build-time* JS and never requests Metro (zero `BUNDLE` lines in the packager log, even with `debug_http_host=localhost:8081` and a working `adb reverse`). That is the mechanism behind #389 — and it cuts both ways: an edit made after `assembleDebug` is simply not on the device until you build again.
+**Apply when:** deciding whether a Metro problem blocks a round. It does not: `./gradlew assembleDebug` (≈1 min incremental once the native side is built) + `install -r` is the deterministic path, and `unzip -l` on the APK proves which one you are testing.
+
+### 416. Metro dies with `ENOSPC` when several workers watch the shared `node_modules` — block the native build output
+**Problem (GH-391):** `react-native start` crashed instantly with `ENOSPC: System limit for number of file watchers reached, watch '…/node_modules/react-native-charts-wrapper/android/build/.transforms/…'`, with `max_user_watches` at 524288 and six sibling packagers running. Native gradle output inside the shared `node_modules` is the bulk of the watch surface and is irrelevant to the JS bundle.
+**Working solution:** a run-dir metro config with `resolver.blockList` for `/node_modules/[^/]+/android/build/.*`, `/android/app/build/.*`, `/android/.cxx/.*`, `/.gradle/.*`, `/.git/.*`. Metro then starts and stays up. (Also check the repo's committed `metro.worktree.config.cjs` — it is generated per worktree and was still pointing at a deleted `feature-GH-97` directory.)
+**Apply when:** Metro exits immediately with ENOSPC, or its config's `projectRoot` is not your worktree.
+
+### 417. Evidence data has to be *dated* into the window under test, not just present
+**Problem (GH-391):** the baseline fixture's newest session is from February. The AI chat's 7d/28d/3M range therefore selected zero finished trainings, the finished half of the context was `null`, and the acceptance criterion "the existing time-range selection still works" could not be shown on the device at all — the control was present but every preset read "0 trainings".
+**Working solution:** shift every timestamp in the derived fixture by one offset so the newest session lands yesterday — walk the store and add the delta to every numeric `start`/`end`/`date`/`createdAt` above `1e12`. Relative order, and therefore which micro counts as "current", is preserved. Also note `workouts.byId` in the baseline contains a literal `"undefined"` key, so `Math.max(...Object.keys(...).map(Number))` is `NaN`: filter with `Number.isFinite` or every new id and reference silently becomes `null`.
+**Apply when:** building a `.gains` fixture for anything that filters by a recent date window.
+
+### 418. `jest.setup.js` stubs `useSelector` globally — a suite that drives a real store must undo it
+**Problem (GH-391):** rendering `AIChatTab` inside a real `Provider`+`configureStore` failed with `stored.trim is not a function`. `jest.setup.js` has `jest.mock('react-redux', {... useSelector: jest.fn(() => [])})`, so every selector returned `[]` no matter what the store held — and the error points at the innocent hook, not at the mock.
+**Working solution:** `jest.mock('react-redux', () => jest.requireActual('react-redux'))` at the top of the spec. Also needed for a tab-level render: `useNavigation`, `@react-navigation/elements`' `useHeaderHeight`, `react-native-markdown-display`, and a stub for `DateRangePicker` (react-native-paper-dates does not mount under the RN test renderer).
+**Apply when:** a component test that supplies its own store sees empty/garbage state.
+
+### 419. Paper's `Chip` puts the testID on the touchable and its label on a *child* Text — a combined `{id, text}` assertion cannot match
+**Observation (GH-391):** `Chip` renders `testID={testID}` on the `TouchableRipple` and `${testID}-container` on the surface; the label lives in an unlabelled child `Text` (unlike `Button`, which exposes `${testID}-text`, #386). A Maestro `assertVisible: {id: 'chat-planned-toggle', text: 'Plan: 2 sessions'}` therefore matches nothing.
+**Working solution:** split it — `assertVisible: {id: 'chat-planned-toggle'}` for the element and a separate bare `assertVisible: 'Plan: 2 sessions'` for the value. Both still assert the real resulting value; only the element/value pairing has to be dropped.
+**Apply when:** asserting the label of any Paper `Chip`.
+
+### 420. Render the prompt's context into a dialog and `copyTextFrom` it — that is how "what the model receives" becomes assertable
+**Observation (GH-391):** the ticket demanded proof of the *assembled* context with no API key on the device. Building the system prompt and an in-app preview from one shared function (`buildChatContext`) makes the preview a faithful mirror, and `copyTextFrom: {id: 'chat-context-preview-planned'}` + `assertTrue "${maestro.copiedText.indexOf('5-8') >= 0}"` then asserts the real payload — including that a switched-off section is *absent* (`assertNotVisible` on its testID). A screenshot of the chat surface alone proves none of this.
+**Apply when:** any ticket whose acceptance is about what is sent to a model or an API rather than about what is rendered.
+
+### 421. A ~10 000-character Text node silently caps the ScrollView it sits in — everything below becomes unreachable
+**Problem (GH-391):** a dialog rendered two JSON sections in two `<Text>` nodes. Scrolling ran to the end of the *first* (9 700 chars) and stopped; the second section existed in the tree, was counted in the header ("2 sections"), and could not be scrolled to on the device. It reads exactly like a missing render, not a layout bug, and neither the unit test (which reads `props.children`) nor `copyTextFrom` notices — only a human scrolling the real screen does.
+**Working solution:** cap what is *rendered* per section (`json.slice(0, 4000)` plus an explicit `… (+N more characters)` marker) and order sections so the short, important ones come first. The payload itself stays complete.
+**Apply when:** rendering any long generated text (a prompt, a log, a JSON dump) inside a `Dialog.ScrollArea` or `ScrollView`.
+
+### 422. Never `cd` into `.codex-orchestrator/runs/<id>` and then run `git add -A`
+**Problem (GH-391):** a heredoc written after `cd <run_dir>` failed (the relative path no longer resolved), but the `git add -A && git commit` chained behind it did not — it ran inside the MAIN checkout on `master` and committed `android/app/src/main/assets/index.android.bundle` plus `__pycache__` build artefacts. `git reset --mixed HEAD~1` in the main repo undid it cleanly (the files return to untracked), but only because it had not been pushed.
+**Working solution:** always `cd` back to the worktree before any git command, or use absolute paths for both the file writes and `git -C <worktree>`. `git branch --show-current` right after an unexpected commit tells you immediately which checkout you were in.
+**Apply when:** any command block that mixes run-dir file writes with git.
+
+### 423. A wedged SystemUI ANR loop makes every Maestro flow fail on its first assertion — only a reboot clears it
+**Problem (GH-391 fix round):** after a 9-minute gradle build the emulator kept raising `System UI isn't responding`. Tapping "Wait" dismissed it, but it came back within 30 s **without any app interaction**, and while it was up `mCurrentFocus` was the ANR window, so Maestro's hierarchy never contained the app: `00_import_baseline` failed twice with `Assertion is false: "Training" is visible` — which reads exactly like a broken flow. `adb root` is refused on these production emulator images and `am force-stop com.android.systemui` returns rc=0 and changes nothing.
+**Working solution:** `adb -s $S reboot`, then poll `getprop sys.boot_completed`. The guest was back in ~45 s and the same flow passed in 45 s. Rebooting the guest does not touch the adb server or the run-dir proxy, so it is safe for siblings.
+**Apply when:** a Maestro flow fails on its very first `extendedWaitUntil` right after a heavy host-side build.
+
+### 424. The debug APK carries four ABIs (~242 MB) — build `-PreactNativeArchitectures=x86_64` when /data is tight
+**Problem (GH-391 fix round):** `adb install -r` died with `INSTALL_FAILED_INSUFFICIENT_STORAGE: Failed to override installation location` at 455 MB free. `unzip -l` showed 204 MB of `lib/` for arm64-v8a, armeabi-v7a, x86 and x86_64 — three of them useless on an emulator.
+**Working solution:** `./gradlew assembleDebug -PreactNativeArchitectures=x86_64` repackages in ~15 s (the native libs are already built) and produces a 132 MB APK that installs fine. Uninstalling the old copy first freed only ~22 MB, so that alone is not the fix.
+**Apply when:** installing on a device whose data partition is >90 % full.
+
+### 425. `run-maestro-from-wsl.sh` force-stops the app in `--mode smoke/full` — a flow that starts on an open screen must be run by `maestro` directly
+**Problem (GH-391 fix round):** the GH-391 flows deliberately have no `launchApp` (the animated dashboards time out on the way to the chat, #417/#421 era note), so they expect the app already sitting on the chat screen. Run through the wrapper they failed on `id: chat-input is visible` — the wrapper pushes the fixture and then runs `am force-stop` before handing over to Maestro.
+**Working solution:** a 6-line run-dir script that `cd`s into the screenshot dir (#400) and calls `maestro --host 127.0.0.8 --device $S --driver-host-port $P test <abs path>` with `HOME=$E2E_MAESTRO_HOME`. Pass the flow as an ABSOLUTE path — after the `cd` a repo-relative one resolves against the screenshot dir.
+**Apply when:** any flow whose first command is not `launchApp`.
+
+### 426. A fixture that shifts its timestamps to "yesterday" expires — regenerate it before every evidence run
+**Problem (GH-391 fix round):** the committed `gh391_planned_fixture.gains` was generated 13 days earlier, so its newest session was 14 days old and the chat's 7d preset legitimately reported `AI has access to 0 trainings`. The flow failed on `assertTrue` with the useless message `Assertion is false: false is true`, which looks like a code regression in the range picker.
+**Working solution:** re-run the fixture generator (it re-derives the shift from `Date.now()`) right before the device run, and read the failing `assertTrue` out of `checks/maestro-debug-*/.maestro/tests/*/commands-*.json` — `metadata.status == FAILED` names the exact script condition, which the console output does not.
+**Apply when:** any evidence run against a date-shifted `.gains` fixture, and whenever an `assertTrue` fails without a readable reason.
+
+### 427. "Most recently active" is the wrong way to pick the thing a feature about the FUTURE should talk about
+**Observation (GH-391 review):** the chat picked the plan whose last finished session was the most recent — copied from the training home. A user who finishes a block and creates a new one then sees nothing: the finished plan keeps winning, and it has no planning left to send. The fix is to filter candidates by "still has work ahead" FIRST and only then rank them (running session > trained within the last four weeks > newest plan). Same shape of bug in redux: `selectedTrainingId` lived next to `messages` but was only cleared in `clearChat`, so resuming an archived conversation inherited the subject of the one just left — state that belongs to a conversation has to be reset in the very reducer that replaces the conversation (`setActiveMessages`), not in each caller.
+**Apply when:** any "which X is the current one" selector, and any per-conversation/per-document state in a slice that can be swapped wholesale.

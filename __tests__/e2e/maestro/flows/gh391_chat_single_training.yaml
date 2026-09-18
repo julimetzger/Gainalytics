@@ -1,0 +1,127 @@
+appId: com.powerliftingworkoutplanner
+name: GH-391 one single training as the subject of the conversation
+---
+# Second half of the GH-391 evidence, split off so each Maestro run stays short
+# on this emulator. Same prerequisite state as gh391_chat_planning_context.yaml
+# (see summary.md): gh391_planned_fixture.gains imported, a dummy API key stored.
+# Training 382 is the PLANNED "Push squat" of micro 7, training 381 the FINISHED
+# "Pull" of micro 6.
+
+# NO `launchApp` and no navigation on purpose. The training home and the analyse
+# dashboard animate continuously on this emulator, so every Maestro screenshot
+# and hierarchy fetch on the way to the chat times out (DEADLINE_EXCEEDED after
+# 120 s). The chat screen itself is perfectly addressable, so the flow starts
+# there. Open Analyse -> drawer -> AI Chat before running it:
+#   adb -s $S shell 'am start -n com.powerliftingworkoutplanner/.MainActivity; \
+#     sleep 30; input tap 674 2175; sleep 8; input tap 68 222; sleep 6; \
+#     input tap 300 1538; sleep 10'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 60000
+
+# ── 5. Pick a PLANNED training as the subject ─────────────────────────────
+- assertVisible:
+    id: 'chat-subject-chip'
+- assertVisible: 'Training: none'
+- tapOn:
+    id: 'chat-subject-chip'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-training-picker'
+    timeout: 15000
+- tapOn:
+    id: 'chat-training-option-382'
+- waitForAnimationToEnd
+- assertVisible: 'Micro 7 · Push squat'
+- takeScreenshot: gh391-04-subject-planned-training
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-selected'
+    timeout: 15000
+- copyTextFrom:
+    id: 'chat-context-preview-selected'
+- assertTrue: "${maestro.copiedText.indexOf('Push squat') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('planned') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('5-8') >= 0}"
+- takeScreenshot: gh391-05-context-selected-planned
+
+# ── 6. Pick a FINISHED training: plan AND what was actually done ──────────
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-subject-chip'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-training-picker'
+    timeout: 15000
+- tapOn:
+    id: 'chat-training-option-381'
+- waitForAnimationToEnd
+- assertVisible: 'Micro 6 · Pull'
+- assertNotVisible: 'Micro 7 · Push squat'
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-selected'
+    timeout: 15000
+- copyTextFrom:
+    id: 'chat-context-preview-selected'
+- assertTrue: "${maestro.copiedText.indexOf('finished') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('planned') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('performed') >= 0}"
+- takeScreenshot: gh391-06-context-selected-finished
+
+# ── 7. Drop the subject again ─────────────────────────────────────────────
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-subject-chip'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-training-picker'
+    timeout: 15000
+- tapOn:
+    id: 'chat-training-option-none'
+- waitForAnimationToEnd
+- assertVisible: 'Training: none'
+- assertNotVisible: 'Micro 6 · Pull'
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-size'
+    timeout: 15000
+- assertNotVisible:
+    id: 'chat-context-preview-selected'
+- takeScreenshot: gh391-07-subject-cleared
+- tapOn:
+    id: 'chat-context-preview-close'
+
+# ── 8. The pre-existing time-range selection still works ──────────────────
+- tapOn:
+    id: 'chat-filter-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-filter-section'
+    timeout: 15000
+- assertVisible:
+    id: 'chat-preset-7d'
+- tapOn:
+    id: 'chat-preset-7d'
+- waitForAnimationToEnd
+- copyTextFrom:
+    id: 'chat-context-info'
+- assertTrue: "${maestro.copiedText.indexOf('AI has access to') >= 0}"
+# the range really selects finished trainings — it is not an empty control
+- assertTrue: "${maestro.copiedText.indexOf('AI has access to 0 training') < 0}"
+- copyTextFrom:
+    id: 'chat-planned-info'
+- assertTrue: "${maestro.copiedText.indexOf('Plan attached: 2 planned sessions') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('current micro 7 and next micro 8') >= 0}"
+- takeScreenshot: gh391-08-range-picker-unchanged
