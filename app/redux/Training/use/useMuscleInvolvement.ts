@@ -133,6 +133,18 @@ export const findLastMatchingTraining = (
   return undefined;
 };
 
+/**
+ * A reference layer is only meaningful when at least one muscle carries load.
+ * A planned workout can exist and still aggregate to nothing — e.g. its exercise
+ * has no muscle taxonomy, or a planned set has weight 0 under the volume metric.
+ */
+const hasPositiveValue = (totals: Map<Muscles, number>): boolean => {
+  for (const value of totals.values()) {
+    if (value > 0) return true;
+  }
+  return false;
+};
+
 const aggregateTraining = (
   state: GlobalState,
   training: Training | undefined,
@@ -174,6 +186,12 @@ export const computeMuscleInvolvement = (state: GlobalState, args: SelectArgs): 
       referenceTotals = aggregatePlannedAcrossMicro(state, plan, previousMicro, metric);
       if (referenceTotals.size === 0) referenceUnavailable = true;
     }
+  } else if (compare === 'this_training_plan') {
+    // GH-444 — the reference is what THIS training was planned to be. No lookup of
+    // sibling or previous trainings at all; the subject and the reference are two
+    // sides (done / planned) of the same training.
+    referenceTotals = aggregateTraining(state, training, metric, false);
+    if (!hasPositiveValue(referenceTotals)) referenceUnavailable = true;
   } else if (compare === 'last_training_plan' || compare === 'last_training_done') {
     const requireDone = compare === 'last_training_done';
     const match = findLastMatchingTraining(state, plan, trainingInMicro, micro, requireDone);
@@ -195,6 +213,34 @@ export const computeMuscleInvolvement = (state: GlobalState, args: SelectArgs): 
 };
 
 export const useMuscleInvolvement = (args: SelectArgs): MuscleInvolvementData => useSelector((state: GlobalState) => computeMuscleInvolvement(state, args));
+
+/**
+ * GH-444 — is there anything to compare against for the 'this_training_plan' mode?
+ * True exactly when the planned workouts of this training aggregate to at least one
+ * muscle with load, which is the same condition `computeMuscleInvolvement` uses to
+ * decide `referenceUnavailable`. The picker keys the option's `disabled` state on
+ * this, so a training without planning offers a visibly dead option instead of a
+ * reference layer full of zeros.
+ */
+export const hasThisTrainingPlannedInvolvement = (
+  state: GlobalState,
+  trainingsPlanId: number,
+  micro: number,
+  trainingInMicro: number,
+  metric: MuscleMapMetric,
+): boolean => {
+  const plan = state.trainingsPlan.byId[trainingsPlanId];
+  const trainingId = plan?.trainings?.[trainingInMicroIndex(micro, trainingInMicro)];
+  const training = trainingId !== undefined ? state.trainings.byId[trainingId] : undefined;
+  return hasPositiveValue(aggregateTraining(state, training, metric, false));
+};
+
+export const useThisTrainingPlannedAvailable = (
+  trainingsPlanId: number,
+  micro: number,
+  trainingInMicro: number,
+  metric: MuscleMapMetric,
+): boolean => useSelector((state: GlobalState) => hasThisTrainingPlannedInvolvement(state, trainingsPlanId, micro, trainingInMicro, metric));
 
 /**
  * GH-436 — sum DONE-workout muscle aggregates across every training assigned to
