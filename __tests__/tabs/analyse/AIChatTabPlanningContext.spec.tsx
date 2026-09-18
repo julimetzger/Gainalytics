@@ -7,11 +7,12 @@
  */
 
 import React from 'react';
-import {fireEvent, render, screen} from '@testing-library/react-native';
+import {act, fireEvent, render, screen} from '@testing-library/react-native';
 import {Provider as PaperProvider} from 'react-native-paper';
 import {Provider as ReduxProvider} from 'react-redux';
 import {configureStore} from '@reduxjs/toolkit';
 import rootReducer, {GlobalState} from '../../../app/redux/rootReducer';
+import {setActiveMessages} from '../../../app/redux/AIChat/aiChatSlice';
 import {Training} from '../../../app/models/entities/Training';
 import {Workout} from '../../../app/models/entities/Workout';
 import {WorkoutSet} from '../../../app/models/entities/WorkoutSet';
@@ -280,6 +281,132 @@ describe('GH-391 a single training as the subject of the conversation', () => {
     expect(screen.getByTestId('chat-subject-chip')).toHaveTextContent('Training: none');
     openPreview();
     expect(screen.queryByTestId('chat-context-preview-selected')).toBeNull();
+  });
+});
+
+/**
+ * GH-391 review, misbehaviour 1 — the user has finished an old plan and created a
+ * new one without training a single session from it. Before the fix the old plan
+ * won on recency and the chat saw no planning at all.
+ */
+describe('GH-391 a newly created plan reaches the chat before it is trained', () => {
+  const oldAndNewPlan = () =>
+    buildState({
+      trainings: {
+        1: {
+          id: 1,
+          state: TrainingsState.FINISHED,
+          start: new Date('2026-09-01T17:00:00.000Z'),
+          end: new Date('2026-09-01T18:00:00.000Z'),
+          exercises: [10],
+          doneWorkoutIds: {10: 100},
+          plannedWorkouts: {10: 101},
+        },
+        2: {
+          id: 2,
+          state: TrainingsState.PLANNED,
+          exercises: [10, 11],
+          doneWorkoutIds: {},
+          plannedWorkouts: {10: 200, 11: 201},
+        },
+      },
+      plans: [
+        // fully trained — nothing of it is still ahead of the user
+        {id: 1, name: 'Old block', trainings: {'1,1': 1}, trainingNames: {1: 'Push'}},
+        // brand new, never touched
+        {id: 2, name: 'New block', trainings: {'1,1': 2}, trainingNames: {1: 'Squat day'}},
+      ],
+    });
+
+  it('puts the untouched plan’s sessions into the context', () => {
+    renderTab(oldAndNewPlan());
+
+    expect(screen.getByTestId('chat-planned-toggle')).toHaveTextContent('Plan: 1 session');
+    openPreview();
+    const planned = JSON.parse(screen.getByTestId('chat-context-preview-planned').props.children);
+    expect(planned.plan_name).toBe('New block');
+    expect(planned.sessions[0]).toMatchObject({micro: 1, name: 'Squat day', state: 'planned'});
+    expect(planned.sessions[0].exercises[0].sets[0]).toEqual({reps: '8-12', weight_kg: 110, rir: '1-3'});
+  });
+
+  it('names the plan the chat knows, so the user can see which one it is', () => {
+    renderTab(oldAndNewPlan());
+    fireEvent.press(screen.getByTestId('chat-filter-toggle'));
+    expect(screen.getByTestId('chat-planned-info')).toHaveTextContent('New block');
+  });
+
+  it('offers the untouched plan’s training as a subject', () => {
+    renderTab(oldAndNewPlan());
+
+    fireEvent.press(screen.getByTestId('chat-subject-chip'));
+    fireEvent.press(screen.getByTestId('chat-training-option-2'));
+
+    expect(screen.getByTestId('chat-subject-chip')).toHaveTextContent('Micro 1 · Squat day');
+    openPreview();
+    const selected = JSON.parse(screen.getByTestId('chat-context-preview-selected').props.children);
+    expect(selected).toMatchObject({training_id: 2, plan_name: 'New block', state: 'planned'});
+  });
+
+  it('still keeps the finished sessions of the old plan selectable', () => {
+    renderTab(oldAndNewPlan());
+    fireEvent.press(screen.getByTestId('chat-subject-chip'));
+    expect(screen.getByTestId('chat-training-option-1')).toBeTruthy();
+  });
+});
+
+/**
+ * GH-391 review, misbehaviour 2 — the subject belongs to the conversation it was
+ * picked in. Resuming an archived conversation must never inherit it.
+ */
+describe('GH-391 the subject does not travel between conversations', () => {
+  it('drops the subject when another conversation is resumed', () => {
+    const store = renderTab(buildState());
+
+    fireEvent.press(screen.getByTestId('chat-subject-chip'));
+    fireEvent.press(screen.getByTestId('chat-training-option-2'));
+    expect(screen.getByTestId('chat-subject-chip')).toHaveTextContent('Micro 2 · Push');
+    openPreview();
+    expect(screen.getByTestId('chat-context-preview-selected')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('chat-context-preview-close'));
+
+    // what ChatHistoryTab does when the user continues an archived conversation
+    act(() => {
+      store.dispatch(setActiveMessages([{role: 'user', content: 'an older conversation'}]));
+    });
+
+    expect(store.getState().aiChat.selectedTrainingId).toBeNull();
+    expect(screen.getByTestId('chat-subject-chip')).toHaveTextContent('Training: none');
+    openPreview();
+    expect(screen.queryByTestId('chat-context-preview-selected')).toBeNull();
+  });
+
+  it('shows a subject the picker no longer offers instead of reading "none"', () => {
+    const base = buildState();
+    // Training 3 is planned but sits in no plan, so the picker does not list it.
+    // It is still in the context — and a subject that is sent must be readable.
+    const state = buildState({
+      trainings: {
+        ...(base.trainings.byId as Record<number, Training>),
+        3: {
+          id: 3,
+          state: TrainingsState.PLANNED,
+          exercises: [11],
+          doneWorkoutIds: {},
+          plannedWorkouts: {11: 201},
+        },
+      },
+    });
+    renderTab({...state, aiChat: {...state.aiChat, selectedTrainingId: 3}} as GlobalState);
+
+    fireEvent.press(screen.getByTestId('chat-subject-chip'));
+    expect(screen.getByTestId('chat-training-option-2')).toBeTruthy();
+    expect(screen.queryByTestId('chat-training-option-3')).toBeNull();
+    fireEvent.press(screen.getByTestId('chat-training-picker-close'));
+
+    expect(screen.getByTestId('chat-subject-chip')).toHaveTextContent('Training 3 (planned)');
+    openPreview();
+    const selected = JSON.parse(screen.getByTestId('chat-context-preview-selected').props.children);
+    expect(selected.training_id).toBe(3);
   });
 });
 

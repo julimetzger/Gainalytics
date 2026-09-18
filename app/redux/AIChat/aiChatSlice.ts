@@ -122,6 +122,11 @@ const aiChatSlice = createSlice({
       state.messages = action.payload;
       state.isLoading = false;
       state.error = null;
+      // GH-391 review (misbehaviour 2): the subject belongs to the conversation
+      // it was picked in. A resumed conversation therefore starts without one —
+      // never with the training of the chat that was just archived, which would
+      // otherwise travel invisibly into the next request.
+      state.selectedTrainingId = null;
     },
     setPendingLegacyArchive(state, action: PayloadAction<boolean>) {
       state.pendingLegacyArchive = action.payload;

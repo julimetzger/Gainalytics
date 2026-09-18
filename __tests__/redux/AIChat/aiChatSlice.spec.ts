@@ -260,6 +260,31 @@ describe('aiChatSlice — chat history (GH-293)', () => {
     expect(result.seedContextJson).toBe('{"sessions":[]}');
   });
 
+  // GH-391 review, misbehaviour 2: picking a training, archiving the chat and
+  // resuming an older one left the subject of the archived conversation attached
+  // to the resumed one, where it was invisible and still went into the prompt.
+  it('setActiveMessages drops the subject of the conversation that was left', () => {
+    const state: AIChatState = {
+      ...initial,
+      messages: [{role: 'user', content: 'about training 382'}],
+      selectedTrainingId: 382,
+    };
+    const result = reducer(state, setActiveMessages([{role: 'user', content: 'an older conversation'}]));
+    expect(result.selectedTrainingId).toBeNull();
+  });
+
+  it('setActiveMessages keeps the range and the planning switch, which are settings', () => {
+    const state: AIChatState = {
+      ...initial,
+      selectedTrainingId: 382,
+      includePlannedTrainings: false,
+      contextRange: {startDate: '2026-03-01', endDate: '2026-03-28'},
+    };
+    const result = reducer(state, setActiveMessages([{role: 'user', content: 'x'}]));
+    expect(result.includePlannedTrainings).toBe(false);
+    expect(result.contextRange).toEqual({startDate: '2026-03-01', endDate: '2026-03-28'});
+  });
+
   it('setPendingLegacyArchive toggles the flag', () => {
     let state = reducer(initial, setPendingLegacyArchive(true));
     expect(state.pendingLegacyArchive).toBe(true);

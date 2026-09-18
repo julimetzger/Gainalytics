@@ -279,10 +279,16 @@ const AIChatTab = () => {
   const contextSize = useMemo(() => chatContextSize(contextParts), [contextParts]);
 
   const plannedSessionCount = plannedContext?.sessions.length ?? 0;
-  const selectedTrainingLabel = useMemo(
-    () => selectableTrainings.find(t => t.id === selectedTrainingId)?.label,
-    [selectableTrainings, selectedTrainingId],
-  );
+  const selectedTrainingLabel = useMemo(() => {
+    if (selectedTrainingId == null) return undefined;
+    const fromPicker = selectableTrainings.find(t => t.id === selectedTrainingId)?.label;
+    if (fromPicker) return fromPicker;
+    // A subject the picker no longer offers (an older session, a plan that is not
+    // the active one) still travels with the prompt — so it has to stay readable
+    // in the chip instead of silently reading "none". When even the context is
+    // gone (training deleted) there is nothing attached and "none" is correct.
+    return selectedContext ? `${selectedContext.name} (${selectedContext.state})` : undefined;
+  }, [selectableTrainings, selectedTrainingId, selectedContext]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -627,7 +633,9 @@ const AIChatTab = () => {
             {!includePlanned
               ? 'Plan not attached'
               : plannedContext
-                ? `Plan attached: ${plannedSessionCount} planned session${plannedSessionCount !== 1 ? 's' : ''} (${plannedContext.scope})`
+                ? // The plan name is part of the line because more than one plan can
+                  // exist: the user has to be able to see WHICH plan the chat knows.
+                  `Plan attached: ${plannedSessionCount} planned session${plannedSessionCount !== 1 ? 's' : ''} from "${plannedContext.plan_name}" (${plannedContext.scope})`
                 : 'Plan attached: nothing planned'}
           </Text>
         </View>

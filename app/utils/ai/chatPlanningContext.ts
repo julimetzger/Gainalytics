@@ -227,35 +227,80 @@ function sortedSlots(plan: TrainingsPlan, trainingsById: Record<number, Training
 }
 
 /**
- * The plan the user is currently training in — the same rule the training home
- * uses: a plan with a running session wins, otherwise the plan whose last
- * finished training is the most recent one.
+ * How long a plan stays "the one I am training in" after its last session. Inside
+ * this window a plan keeps precedence over a newer one; outside it, the newer
+ * plan is assumed to be where the athlete went.
+ */
+const RECENTLY_TRAINED_DAYS = 28;
+
+/** Is there still work ahead in this plan — a running session or a planned slot? */
+function hasUpcomingWork(plan: TrainingsPlan, trainingsById: Record<number, Training>): boolean {
+  return Object.values(plan.trainings ?? {}).some(id => {
+    const training = trainingsById?.[id as number];
+    if (!training || training.state === TrainingsState.FINISHED) return false;
+    return training.state === TrainingsState.STARTED || Object.keys(training.plannedWorkouts ?? {}).length > 0;
+  });
+}
+
+/** Timestamp of the plan's most recent finished session, `-Infinity` if it has none. */
+function lastTrainedAt(plan: TrainingsPlan, trainingsById: Record<number, Training>): number {
+  let latest = -Infinity;
+  for (const id of Object.values(plan.trainings ?? {})) {
+    const training = trainingsById?.[id as number];
+    if (training?.state !== TrainingsState.FINISHED || !training.end) continue;
+    latest = Math.max(latest, new Date(training.end).getTime());
+  }
+  return latest;
+}
+
+/**
+ * The plan whose planning the chat should know.
+ *
+ * Only a plan that still has something ahead of it can win — a fully trained plan
+ * has no planning left to send. That filter is what makes a freshly created plan
+ * reachable: before it existed, any older plan with finished sessions beat the new
+ * one on recency and the new plan's sessions never reached the chat at all
+ * (GH-391 review, misbehaviour 1).
+ *
+ * Among the remaining candidates:
+ *  1. a plan with a running session — that is where the athlete is right now;
+ *  2. the most recently trained plan, as long as it was trained within the last
+ *     four weeks — a plan in progress keeps precedence over a draft next to it;
+ *  3. otherwise the newest plan, because creating a plan is the explicit statement
+ *     of what comes next.
  */
 export function selectActivePlan(
   plans: TrainingsPlan[],
   trainingsById: Record<number, Training>,
+  now: number = Date.now(),
 ): TrainingsPlan | undefined {
-  const withStarted = plans.find(plan =>
+  const candidates = (plans ?? []).filter(plan => hasUpcomingWork(plan, trainingsById));
+  if (candidates.length === 0) return undefined;
+
+  const withStarted = candidates.find(plan =>
     Object.values(plan.trainings ?? {}).some(id => trainingsById?.[id as number]?.state === TrainingsState.STARTED),
   );
   if (withStarted) return withStarted;
 
-  let best: TrainingsPlan | undefined;
-  let bestTime = -Infinity;
-  for (const plan of plans) {
-    for (const id of Object.values(plan.trainings ?? {})) {
-      const training = trainingsById?.[id as number];
-      if (training?.state !== TrainingsState.FINISHED || !training.end) continue;
-      const time = new Date(training.end).getTime();
-      if (time > bestTime) {
-        bestTime = time;
-        best = plan;
-      }
+  const recentCutoff = now - RECENTLY_TRAINED_DAYS * 24 * 60 * 60 * 1000;
+  let recent: TrainingsPlan | undefined;
+  let recentTime = -Infinity;
+  let newest: TrainingsPlan | undefined;
+  let newestId = -Infinity;
+  for (const plan of candidates) {
+    const trainedAt = lastTrainedAt(plan, trainingsById);
+    if (trainedAt >= recentCutoff && trainedAt > recentTime) {
+      recentTime = trainedAt;
+      recent = plan;
+    }
+    const id = plan.id ?? -1;
+    if (id > newestId) {
+      newestId = id;
+      newest = plan;
     }
   }
-  // A plan that has never been trained is still a plan the chat should know
-  // about — otherwise the very first micro a user plans stays invisible.
-  return best ?? plans.find(plan => Object.keys(plan.trainings ?? {}).length > 0);
+
+  return recent ?? newest ?? candidates[0];
 }
 
 /**
@@ -297,8 +342,9 @@ export function buildPlannedTrainingsContext(
   trainingsById: Record<number, Training>,
   workoutsById: Record<number, Workout>,
   exercisesById: Record<number, Exercise>,
+  now: number = Date.now(),
 ): PlannedTrainingsContext | null {
-  const plan = selectActivePlan(plans ?? [], trainingsById);
+  const plan = selectActivePlan(plans ?? [], trainingsById, now);
   if (!plan) return null;
 
   const currentMicro = currentMicroOf(plan, trainingsById);
@@ -415,9 +461,10 @@ export function listChatSelectableTrainings(
   plans: TrainingsPlan[],
   trainingsById: Record<number, Training>,
   finishedLimit = 15,
+  now: number = Date.now(),
 ): SelectableTraining[] {
   const locators = buildTrainingLocators(plans ?? [], trainingsById);
-  const activePlan = selectActivePlan(plans ?? [], trainingsById);
+  const activePlan = selectActivePlan(plans ?? [], trainingsById, now);
   const currentMicro = activePlan ? currentMicroOf(activePlan, trainingsById) : undefined;
 
   const describe = (id: number, training: Training): SelectableTraining => {

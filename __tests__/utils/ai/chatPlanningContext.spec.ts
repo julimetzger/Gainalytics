@@ -156,6 +156,131 @@ describe('selectActivePlan / currentMicroOf', () => {
   });
 });
 
+/**
+ * GH-391 review, misbehaviour 1: a user who creates a new plan and has not
+ * trained a single session from it saw no planned trainings in the chat at all,
+ * because any older plan with finished sessions won on recency.
+ */
+describe('selectActivePlan with an old and a newly created plan', () => {
+  const NOW = new Date('2026-04-01T12:00:00.000Z').getTime();
+  const daysBeforeNow = (days: number) => new Date(NOW - days * 24 * 60 * 60 * 1000);
+
+  /**
+   * "Old block" (id 1) has been trained; "New block" (id 2) has never been
+   * touched. `oldPlanLeftovers` decides whether the old plan is fully trained or
+   * still has an untrained slot, `oldPlanLastTrainedDaysAgo` how long ago the
+   * user last trained in it.
+   */
+  function twoPlans(options: {oldPlanLeftovers: boolean; oldPlanLastTrainedDaysAgo: number}) {
+    const exercisesById: Record<number, Exercise> = {
+      10: exercise(10, 'Squat'),
+      11: exercise(11, 'Deadlift'),
+      12: exercise(12, 'Bench Press'),
+    };
+    const workoutsById: Record<number, Workout> = {
+      // old plan — only ever Bench Press, so its content is recognisable
+      500: workout(500, 12, [set(5, 60, 2)]),
+      501: workout(501, 12, [set(5, 62.5, 2)]),
+      // new plan — micro 1 with a planned range, micro 2 with fixed values
+      600: workout(600, 11, [set(3, 140, 1, {repsMax: 5})]),
+      601: workout(601, 10, [set(8, 90, 2)]),
+    };
+    const lastEnd = daysBeforeNow(options.oldPlanLastTrainedDaysAgo);
+    const trainingsById: Record<number, Training> = {
+      50: training(50, TrainingsState.FINISHED, {
+        end: lastEnd,
+        start: lastEnd,
+        doneWorkoutIds: {12: 500},
+        plannedWorkouts: {12: 500},
+      }),
+      51: options.oldPlanLeftovers
+        ? training(51, TrainingsState.PLANNED, {plannedWorkouts: {12: 501}})
+        : training(51, TrainingsState.FINISHED, {
+            end: lastEnd,
+            start: lastEnd,
+            doneWorkoutIds: {12: 501},
+            plannedWorkouts: {12: 501},
+          }),
+      60: training(60, TrainingsState.PLANNED, {plannedWorkouts: {11: 600}}),
+      61: training(61, TrainingsState.PLANNED, {plannedWorkouts: {10: 601}}),
+    };
+    const oldPlan: TrainingsPlan = {
+      id: 1,
+      name: 'Old block',
+      trainings: {'1,1': 50, '1,2': 51},
+      trainingNames: {1: 'Bench day', 2: 'Bench day 2'},
+    };
+    const newPlan: TrainingsPlan = {
+      id: 2,
+      name: 'New block',
+      trainings: {'1,1': 60, '2,1': 61},
+      trainingNames: {1: 'Deadlift day'},
+    };
+    return {plans: [oldPlan, newPlan], oldPlan, newPlan, trainingsById, workoutsById, exercisesById};
+  }
+
+  it('picks the untouched new plan over a fully trained old one', () => {
+    const {plans, trainingsById} = twoPlans({oldPlanLeftovers: false, oldPlanLastTrainedDaysAgo: 1});
+    expect(selectActivePlan(plans, trainingsById, NOW)?.name).toBe('New block');
+  });
+
+  it('puts the new plan’s sessions into the context, with their ranges', () => {
+    const {plans, trainingsById, workoutsById, exercisesById} = twoPlans({
+      oldPlanLeftovers: false,
+      oldPlanLastTrainedDaysAgo: 1,
+    });
+    const context = buildPlannedTrainingsContext(plans, trainingsById, workoutsById, exercisesById, NOW)!;
+
+    expect(context.plan_name).toBe('New block');
+    expect(context.current_micro).toBe(1);
+    // current micro and the next one, both from the plan that was never trained
+    expect(context.sessions.map(s => s.micro)).toEqual([1, 2]);
+    expect(context.sessions[0].name).toBe('Deadlift day');
+    expect(context.sessions[0].exercises[0]).toEqual({
+      name: 'Deadlift',
+      sets: [{reps: '3-5', weight_kg: 140, rir: 1}],
+    });
+    // the old plan is done — nothing of it may show up as "planned"
+    expect(JSON.stringify(context)).not.toContain('Bench Press');
+  });
+
+  it('offers the new plan’s trainings in the picker', () => {
+    const {plans, trainingsById} = twoPlans({oldPlanLeftovers: false, oldPlanLastTrainedDaysAgo: 1});
+    const selectable = listChatSelectableTrainings(plans, trainingsById, 15, NOW);
+
+    expect(selectable.filter(t => t.state === 'planned').map(t => t.id)).toEqual([60, 61]);
+    // the finished sessions of the old plan stay selectable as before
+    expect(selectable.filter(t => t.state === 'finished').map(t => t.id).sort()).toEqual([50, 51]);
+  });
+
+  it('keeps a plan the user is still training in ahead of a fresh draft', () => {
+    const {plans, trainingsById, workoutsById, exercisesById} = twoPlans({
+      oldPlanLeftovers: true,
+      oldPlanLastTrainedDaysAgo: 3,
+    });
+    expect(selectActivePlan(plans, trainingsById, NOW)?.name).toBe('Old block');
+    const context = buildPlannedTrainingsContext(plans, trainingsById, workoutsById, exercisesById, NOW)!;
+    expect(context.plan_name).toBe('Old block');
+    expect(context.sessions[0].exercises[0].name).toBe('Bench Press');
+  });
+
+  it('moves on to the newer plan once the old one has gone stale', () => {
+    const {plans, trainingsById} = twoPlans({oldPlanLeftovers: true, oldPlanLastTrainedDaysAgo: 120});
+    expect(selectActivePlan(plans, trainingsById, NOW)?.name).toBe('New block');
+  });
+
+  it('a running session wins over everything, even in the older plan', () => {
+    const {plans, trainingsById} = twoPlans({oldPlanLeftovers: true, oldPlanLastTrainedDaysAgo: 120});
+    const withRunning = {...trainingsById, 51: training(51, TrainingsState.STARTED, {plannedWorkouts: {12: 501}})};
+    expect(selectActivePlan(plans, withRunning, NOW)?.name).toBe('Old block');
+  });
+
+  it('has no active plan when every plan is fully trained', () => {
+    const {oldPlan, trainingsById} = twoPlans({oldPlanLeftovers: false, oldPlanLastTrainedDaysAgo: 1});
+    expect(selectActivePlan([oldPlan], trainingsById, NOW)).toBeUndefined();
+  });
+});
+
 describe('buildPlannedTrainingsContext', () => {
   it('carries meso, micro, position, name, exercises and planned sets', () => {
     const {plans, trainingsById, workoutsById, exercisesById} = makeFixture();
