@@ -122,21 +122,26 @@ describe('sendChatMessage', () => {
     expect(body.max_tokens).toBeGreaterThanOrEqual(4096);
   });
 
-  it('appends a cut-off notice when the API stops due to max_tokens (GH-376)', async () => {
+  it('flags a max_tokens stop, drops the half-written word and appends a notice (GH-376/GH-449)', async () => {
     mockFetch.mockReturnValue(makeOkResponse('Für Hypertrophie ist eine gestreckte Fly-', 'max_tokens'));
     const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.text).toContain('Für Hypertrophie ist eine gestreckte Fly-');
-      expect(result.text).toContain('cut off');
-    }
+    expect(result).toEqual({
+      ok: true,
+      hadContext: false,
+      truncated: true,
+      text: 'Für Hypertrophie ist eine gestreckte…\n\n_(Shortened — the answer hit the length limit.)_',
+    });
   });
 
   it('does not append a cut-off notice on a normal end_turn completion (GH-376)', async () => {
     mockFetch.mockReturnValue(makeOkResponse('Complete answer.', 'end_turn'));
     const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.text).toBe('Complete answer.');
+    expect(result).toEqual({
+      ok: true,
+      hadContext: false,
+      truncated: false,
+      text: 'Complete answer.',
+    });
   });
 
   it('returns network error on fetch throw', async () => {
@@ -257,5 +262,140 @@ describe('sendChatMessage – hadContext tracking (GH-168)', () => {
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.messages[1]).toEqual({role: 'assistant', content: 'r'});
     expect(body.messages[1].hadContext).toBeUndefined();
+  });
+});
+
+/**
+ * GH-447: with a larger model the request could hang forever — RN's Android networking has no
+ * read timeout, so the promise never settled and the chat stayed in `isLoading` with no error
+ * and no way out. Every case below must settle into a result the UI can render.
+ */
+describe('sendChatMessage — a reply that never arrives (GH-447)', () => {
+  /** Mimics a stalled request: it settles only when the request is aborted, exactly as fetch does. */
+  function makeHangingResponse() {
+    return (_url: string, init: {signal: AbortSignal}) =>
+      new Promise((_resolve, reject) => {
+        init.signal.addEventListener('abort', () => {
+          const error = new Error('Aborted');
+          error.name = 'AbortError';
+          reject(error);
+        });
+      });
+  }
+
+  it('passes an abort signal to fetch so the request is always cancellable', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('ok'));
+    await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
+    expect(mockFetch.mock.calls[0][1].signal).toBeDefined();
+    expect(mockFetch.mock.calls[0][1].signal.aborted).toBe(false);
+  });
+
+  it('gives up instead of hanging forever', async () => {
+    mockFetch.mockImplementation(makeHangingResponse());
+    const result = await sendChatMessage(
+      [{role: 'user', content: 'hi'}],
+      'sk-key',
+      undefined,
+      'claude-opus-5',
+      {timeoutMs: 30},
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe('timeout');
+      expect(result.error).toContain('did not answer');
+    }
+  });
+
+  it('names the bound it gave up at, and points at the model setting', async () => {
+    jest.useFakeTimers();
+    mockFetch.mockImplementation(makeHangingResponse());
+    const pending = sendChatMessage(
+      [{role: 'user', content: 'hi'}],
+      'sk-key',
+      undefined,
+      'claude-opus-5',
+      {timeoutMs: 120_000},
+    );
+    jest.advanceTimersByTime(120_000);
+    const result = await pending;
+    jest.useRealTimers();
+
+    expect(result).toEqual({
+      ok: false,
+      kind: 'timeout',
+      error:
+        'The model did not answer within 120s. Check your connection, or try a faster model in Settings.',
+    });
+  });
+
+  it('reports a user cancel as "aborted", not as a timeout or a network error', async () => {
+    mockFetch.mockImplementation(makeHangingResponse());
+    const controller = new AbortController();
+    const pending = sendChatMessage(
+      [{role: 'user', content: 'hi'}],
+      'sk-key',
+      undefined,
+      'claude-opus-5',
+      {signal: controller.signal, timeoutMs: 60_000},
+    );
+    controller.abort();
+    await expect(pending).resolves.toEqual({
+      ok: false,
+      kind: 'aborted',
+      error: 'Request cancelled.',
+    });
+  });
+
+  it('aborting really cancels the in-flight request', async () => {
+    mockFetch.mockImplementation(makeHangingResponse());
+    const controller = new AbortController();
+    const pending = sendChatMessage(
+      [{role: 'user', content: 'hi'}],
+      'sk-key',
+      undefined,
+      'claude-opus-5',
+      {signal: controller.signal, timeoutMs: 60_000},
+    );
+    controller.abort();
+    await pending;
+    expect(mockFetch.mock.calls[0][1].signal.aborted).toBe(true);
+  });
+
+  it('classifies a genuine network failure as "error", keeping it distinct from a cancel', async () => {
+    mockFetch.mockRejectedValue(new Error('Network request failed'));
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
+    expect(result).toEqual({
+      ok: false,
+      kind: 'error',
+      error: 'Network error: Network request failed',
+    });
+  });
+
+  it('classifies an API error as "error" and surfaces the status', async () => {
+    mockFetch.mockReturnValue(makeErrorResponse(500, 'upstream exploded'));
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
+    expect(result).toEqual({
+      ok: false,
+      kind: 'error',
+      error: 'API error (500): upstream exploded',
+    });
+  });
+
+  it('classifies a missing key as "no_key"', async () => {
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], '  ');
+    expect(result).toEqual({ok: false, kind: 'no_key', error: 'No API key configured.'});
+  });
+
+  it('leaves the default model on its unchanged, un-timed-out path', async () => {
+    mockFetch.mockReturnValue(makeOkResponse('Still fine.'));
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.model).toBe(DEFAULT_ANTHROPIC_MODEL);
+    expect(result).toEqual({
+      ok: true,
+      hadContext: false,
+      truncated: false,
+      text: 'Still fine.',
+    });
   });
 });

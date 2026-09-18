@@ -54,7 +54,7 @@ describe('callAnthropicClaude', () => {
   it('returns ok with text on success', async () => {
     mockFetch.mockReturnValueOnce(makeOkResponse('Keep pushing!'));
     const result = await callAnthropicClaude('sk-key', 'sys', 'msg', DEFAULT_ANTHROPIC_MODEL);
-    expect(result).toEqual({ok: true, text: 'Keep pushing!'});
+    expect(result).toEqual({ok: true, text: 'Keep pushing!', truncated: false});
   });
 
   it('cold-start: persisted custom model reaches the API body — Settings tab never opened', async () => {
@@ -77,5 +77,103 @@ describe('validateAnthropicApiKey', () => {
     await validateAnthropicApiKey('sk-key');
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.model).toBe(DEFAULT_ANTHROPIC_MODEL);
+  });
+});
+
+/**
+ * GH-449: the coach insight was capped at 200 output tokens, so a normal three-sentence answer
+ * ran out of budget and stopped at whatever token came next — on screen, a word broken in half.
+ */
+describe('callAnthropicClaude — truncation (GH-449)', () => {
+  function makeStopReasonResponse(text: string, stopReason: string) {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({content: [{text}], stop_reason: stopReason}),
+      text: () => Promise.resolve(text),
+    });
+  }
+
+  it('asks for a budget big enough for the three-sentence insight the prompt requests', async () => {
+    mockFetch.mockReturnValueOnce(makeOkResponse('ok'));
+    await callAnthropicClaude('sk-key', 'sys', 'msg', DEFAULT_ANTHROPIC_MODEL);
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    // The 200-token cap was the root cause; anything at that level truncates again.
+    expect(body.max_tokens).toBeGreaterThanOrEqual(1024);
+  });
+
+  it('flags a max_tokens stop and ends the text on a whole word', async () => {
+    mockFetch.mockReturnValueOnce(
+      makeStopReasonResponse('Your quads are progressing while hamst', 'max_tokens'),
+    );
+    const result = await callAnthropicClaude('sk-key', 'sys', 'msg', 'claude-opus-5');
+    expect(result).toEqual({
+      ok: true,
+      text: 'Your quads are progressing while…',
+      truncated: true,
+    });
+  });
+
+  it('leaves a complete answer untouched and unflagged', async () => {
+    mockFetch.mockReturnValueOnce(
+      makeStopReasonResponse('Squat volume stalled. Add a set.', 'end_turn'),
+    );
+    const result = await callAnthropicClaude('sk-key', 'sys', 'msg', DEFAULT_ANTHROPIC_MODEL);
+    expect(result).toEqual({
+      ok: true,
+      text: 'Squat volume stalled. Add a set.',
+      truncated: false,
+    });
+  });
+});
+
+/**
+ * GH-447: the coach insight shares the chat's failure mode — an unanswered call left the card
+ * spinning on "Generating insight…" indefinitely.
+ */
+describe('callAnthropicClaude — a call that never returns (GH-447)', () => {
+  function makeHangingResponse() {
+    return (_url: string, init: {signal: AbortSignal}) =>
+      new Promise((_resolve, reject) => {
+        init.signal.addEventListener('abort', () => {
+          const error = new Error('Aborted');
+          error.name = 'AbortError';
+          reject(error);
+        });
+      });
+  }
+
+  it('passes an abort signal to fetch', async () => {
+    mockFetch.mockReturnValueOnce(makeOkResponse('ok'));
+    await callAnthropicClaude('sk-key', 'sys', 'msg', DEFAULT_ANTHROPIC_MODEL);
+    expect(mockFetch.mock.calls[0][1].signal).toBeDefined();
+  });
+
+  it('resolves to a timeout error carrying the bound it gave up at', async () => {
+    mockFetch.mockImplementation(makeHangingResponse());
+    const result = await callAnthropicClaude('sk-key', 'sys', 'msg', 'claude-opus-5', {
+      timeoutMs: 30,
+    });
+    expect(result).toEqual({ok: false, error: {type: 'timeout', timeoutMs: 30}});
+  });
+
+  it('reports a caller cancel as "aborted" rather than as a network error', async () => {
+    mockFetch.mockImplementation(makeHangingResponse());
+    const controller = new AbortController();
+    const pending = callAnthropicClaude('sk-key', 'sys', 'msg', 'claude-opus-5', {
+      signal: controller.signal,
+      timeoutMs: 60_000,
+    });
+    controller.abort();
+    await expect(pending).resolves.toEqual({ok: false, error: {type: 'aborted'}});
+  });
+
+  it('still reports a genuine network failure as a network error', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('Network request failed'));
+    const result = await callAnthropicClaude('sk-key', 'sys', 'msg', DEFAULT_ANTHROPIC_MODEL);
+    expect(result).toEqual({
+      ok: false,
+      error: {type: 'network', message: 'Network request failed'},
+    });
   });
 });

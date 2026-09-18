@@ -16,6 +16,7 @@ import {
   setSeedContextJson,
   setContextRange,
   setPendingLegacyArchive,
+  rollbackPendingUserMessage,
   ContextRange,
 } from '../../redux/AIChat/aiChatSlice';
 import {selectAllFinishedTrainings} from '../../redux/AIChat/selectors';
@@ -134,6 +135,9 @@ const AIChatTab = () => {
   const [showFilters, setShowFilters] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const textInputRef = useRef<any>(null);
+  // GH-447: lets the user cancel the request that is currently in flight.
+  const abortRef = useRef<AbortController | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const [hasApiKey, setHasApiKey] = useState(() => {
     try {
@@ -220,6 +224,25 @@ const AIChatTab = () => {
     }
   }, [messages.length]);
 
+  // GH-447: a bare spinner looks identical whether the model is still working or the request
+  // died silently. A ticking counter shows the app is still waiting on a live request.
+  useEffect(() => {
+    if (!isLoading) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const startedAt = Date.now();
+    setElapsedSeconds(0);
+    const interval = setInterval(
+      () => setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000)),
+      1000,
+    );
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
+  // Leaving the screen must not leave a request running against a store nobody is watching.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   // GH-293 one-time migration: the conversation that existed before the history
   // feature shipped becomes the first history entry. The flag is set by redux
   // migration 11. It is cleared synchronously before the async archive so the
@@ -287,22 +310,41 @@ const AIChatTab = () => {
     const userMsg: ChatMessage = {role: 'user', content: text};
     dispatch(appendMessage(userMsg));
     setInputText('');
-    dispatch(setLoading(true));
+    // GH-447: `setError` also clears `isLoading`, so clearing the previous error has to happen
+    // BEFORE the request is marked as running — the other order switched the spinner straight
+    // back off, leaving the send with no visible progress at all.
     dispatch(setError(null));
+    dispatch(setLoading(true));
 
     const systemPrompt = contextJson
       ? `${chatPrompt}\n\nAnalysis context (finished trainings as JSON):\n\n${contextJson}`
       : chatPrompt;
 
     const history: ChatMessage[] = [...messages, userMsg];
-    const result = await sendChatMessage(history, apiKey, systemPrompt, model);
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const result = await sendChatMessage(history, apiKey, systemPrompt, model, {
+      signal: controller.signal,
+    });
+    abortRef.current = null;
 
     if (result.ok) {
       dispatch(appendMessage({role: 'assistant', content: result.text, hadContext: result.hadContext}));
       dispatch(setLoading(false));
-    } else {
-      dispatch(setError(result.error));
+      return;
     }
+
+    // GH-447: no reply arrived, so the conversation goes back to how it looked before Send —
+    // the unanswered user message is rolled back and its text returns to the input box, ready
+    // to resend. This holds for a cancel, a timeout and an API error alike.
+    dispatch(rollbackPendingUserMessage());
+    setInputText(current => (current.trim() === '' ? text : current));
+    dispatch(setError(result.error));
+  };
+
+  const handleStop = () => {
+    abortRef.current?.abort();
   };
 
   // GH-293: Clear no longer discards the conversation — it is archived into the
@@ -534,9 +576,20 @@ const AIChatTab = () => {
           testID="chat-loading"
         >
           <ActivityIndicator size="small" color={theme.colors.primary} />
-          <Text variant="bodySmall" style={{marginLeft: 8, color: theme.colors.onSurfaceVariant}}>
-            AI is thinking…
+          <Text
+            variant="bodySmall"
+            style={{marginLeft: 8, flex: 1, color: theme.colors.onSurfaceVariant}}
+            testID="chat-loading-elapsed"
+          >
+            {`AI is thinking… ${elapsedSeconds}s`}
           </Text>
+          <IconButton
+            icon="stop-circle-outline"
+            size={20}
+            iconColor={theme.colors.error}
+            onPress={handleStop}
+            testID="chat-stop-button"
+          />
         </View>
       )}
 

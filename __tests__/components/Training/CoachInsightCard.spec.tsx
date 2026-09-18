@@ -340,3 +340,137 @@ describe('CoachInsightCard — GH-241 per-micro cache keys', () => {
     expect(queriedKey).not.toBe(oldMesoKey);
   });
 });
+
+/**
+ * GH-447 / GH-449 — what the card does with a reply that never comes, or comes cut in half.
+ */
+describe('CoachInsightCard — a call that never answers (GH-447)', () => {
+  it('shows a readable message instead of spinning forever on a timeout', async () => {
+    mockCallAnthropicClaude.mockResolvedValue({
+      ok: false,
+      error: {type: 'timeout', timeoutMs: 120_000},
+    });
+
+    const {queryByTestId, getByTestId} = render(
+      <CoachInsightCard trainings={[makeFinishedTraining(1)]} />,
+    );
+
+    await waitFor(() => expect(getByTestId('coach-insight-error')).toBeTruthy());
+    expect(getByTestId('coach-insight-error').props.children).toBe(
+      'The insight took longer than 120s. Tap refresh to try again.',
+    );
+    // The spinner must be gone — an endless "Generating insight…" is the bug being fixed.
+    expect(queryByTestId('coach-insight-loading')).toBeNull();
+  });
+
+  it('leaves the loading state after a timeout so refresh is usable again', async () => {
+    mockCallAnthropicClaude.mockResolvedValue({
+      ok: false,
+      error: {type: 'timeout', timeoutMs: 120_000},
+    });
+
+    const {getByTestId} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} />);
+    await waitFor(() => expect(getByTestId('coach-insight-error')).toBeTruthy());
+
+    expect(getByTestId('coach-insight-refresh').props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('passes an abort signal so a superseded or unmounted request can be cancelled', async () => {
+    const {getByTestId} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} />);
+    await waitFor(() => expect(getByTestId('coach-insight-text')).toBeTruthy());
+
+    const options = mockCallAnthropicClaude.mock.calls[0][4];
+    expect(options.signal).toBeDefined();
+    expect(options.signal.aborted).toBe(false);
+  });
+
+  it('does not render a stale insight after the card unmounted', async () => {
+    mockCallAnthropicClaude.mockResolvedValue({ok: true, text: 'Late answer.', truncated: false});
+    const {unmount} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} />);
+    unmount();
+
+    const options = mockCallAnthropicClaude.mock.calls[0][4];
+    expect(options.signal.aborted).toBe(true);
+    // A response arriving after the abort must not reach the cache either.
+    await act(async () => {});
+    expect(mockInsightCacheSet).not.toHaveBeenCalled();
+  });
+});
+
+describe('CoachInsightCard — a cut-off insight (GH-449)', () => {
+  it('tells the user the advice was shortened', async () => {
+    mockCallAnthropicClaude.mockResolvedValue({
+      ok: true,
+      text: 'Your quads are progressing while…',
+      truncated: true,
+    });
+
+    const {getByTestId} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} />);
+
+    await waitFor(() => expect(getByTestId('coach-insight-text')).toBeTruthy());
+    expect(getByTestId('coach-insight-truncated').props.children).toBe(
+      'Shortened — the answer hit the length limit.',
+    );
+    // The reader must still see a timestamp, and the text must not end mid-word.
+    expect(getByTestId('coach-insight-timestamp')).toBeTruthy();
+    expect(getByTestId('coach-insight-text').props.children).toBe(
+      'Your quads are progressing while…',
+    );
+  });
+
+  it('shows no shortened-notice on a complete insight', async () => {
+    mockCallAnthropicClaude.mockResolvedValue({
+      ok: true,
+      text: 'Squat volume stalled. Add a set.',
+      truncated: false,
+    });
+
+    const {getByTestId, queryByTestId} = render(
+      <CoachInsightCard trainings={[makeFinishedTraining(1)]} />,
+    );
+
+    await waitFor(() => expect(getByTestId('coach-insight-text')).toBeTruthy());
+    expect(queryByTestId('coach-insight-truncated')).toBeNull();
+  });
+
+  it('remembers the shortened flag through the cache, so a re-render keeps the notice', async () => {
+    mockInsightCacheGet.mockReturnValue({
+      text: 'Your quads are progressing while…',
+      generatedAt: Date.now(),
+      truncated: true,
+    });
+
+    const {getByTestId} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} />);
+
+    await waitFor(() => expect(getByTestId('coach-insight-truncated')).toBeTruthy());
+    expect(mockCallAnthropicClaude).not.toHaveBeenCalled();
+  });
+
+  it('treats a cache entry written before this fix as not shortened', async () => {
+    mockInsightCacheGet.mockReturnValue({text: 'Old cached insight.', generatedAt: Date.now()});
+
+    const {getByTestId, queryByTestId} = render(
+      <CoachInsightCard trainings={[makeFinishedTraining(1)]} />,
+    );
+
+    await waitFor(() => expect(getByTestId('coach-insight-text')).toBeTruthy());
+    expect(queryByTestId('coach-insight-truncated')).toBeNull();
+  });
+
+  it('stores the shortened flag alongside the text when caching a fresh insight', async () => {
+    mockCallAnthropicClaude.mockResolvedValue({
+      ok: true,
+      text: 'Your quads are progressing while…',
+      truncated: true,
+    });
+
+    const {getByTestId} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} />);
+    await waitFor(() => expect(getByTestId('coach-insight-text')).toBeTruthy());
+
+    expect(mockInsightCacheSet.mock.calls[0][1]).toEqual({
+      text: 'Your quads are progressing while…',
+      generatedAt: expect.any(Number),
+      truncated: true,
+    });
+  });
+});
