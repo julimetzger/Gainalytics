@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {useAllLastWorkouts} from '../../../redux/Workout/use/useAllLastWorkouts';
 import {useLastFinishedWorkout} from '../../../redux/Workout/use/useLastFinishedWorkout';
-import {useUnfinishedWorkout} from '../../../redux/Workout/use/useUnfinishedWorkout';
+import {usePersistedUnfinishedWorkout, useUnfinishedWorkout} from '../../../redux/Workout/use/useUnfinishedWorkout';
 import {Button, Icon, Text, useTheme} from 'react-native-paper';
 import {dispatchAddWorkout} from '../../../redux/Workout/dispatch/dispatchAddWorkout';
 import {dispatchAddOrUpdateSetInWorkout} from '../../../redux/Workout/dispatch/dispatchAddOrUpdateSetInWorkout';
@@ -20,13 +20,24 @@ import {GlobalState} from '../../../redux/rootReducer';
 import VideoSelectionModal from '../../video/VideoSelectionModal';
 import SetRow from './SetRow';
 
+/**
+ * GH-443: what the submit actually did to the log. The same handler serves the
+ * new-set input and every already-logged row (a row re-submits itself on blur),
+ * so a caller that only sees the set cannot tell a freshly logged set from a
+ * correction of one that was already there.
+ */
+export interface SubmitSetContext {
+  /** true when a set with this index was already persisted before this submit. */
+  isExistingSet: boolean;
+}
+
 interface Props {
   exercise: Exercise;
   onSubmit: () => void;
   suggest?: boolean;
   trainingsId?: number;
   workout?: Workout;
-  onSubmitSet?: (workoutSet: WorkoutSet) => void;
+  onSubmitSet?: (workoutSet: WorkoutSet, context: SubmitSetContext) => void;
   date: Date;
   info?: React.ReactNode;
   linkVideoMode?: boolean;
@@ -47,6 +58,13 @@ interface Props {
 
 const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info, linkVideoMode, onDisableLinkVideoMode, onLiveInputChange, oneRepMaxRef, allowRefinalizeWhenDone, nextSetIndex}: Props) => {
   let unfinishedWorkout = useUnfinishedWorkout(exercise.id!!);
+  // GH-443: the merged workout above also carries the planned-but-unlogged sets
+  // (START_TRAINING copies the plan into `suggestedWorkouts`). Logging one of
+  // those rows for the first time IS a new set, so "already logged" has to be
+  // decided against the persisted workout only — same source the target banner
+  // uses (GH-63).
+  const persistedWorkout = usePersistedUnfinishedWorkout(exercise.id!!);
+  const loggedWorkout = workout ?? persistedWorkout;
   unfinishedWorkout = workout ?? unfinishedWorkout;
   let workouts = useAllLastWorkouts(exercise, 1);
   // 1RM baseline must come from the most recent FINISHED workout, never the
@@ -68,6 +86,7 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
   const exerciseIdRef = React.useRef(exercise.id);
   const trainingsIdRef = React.useRef(trainingsId);
   const onSubmitSetRef = React.useRef(onSubmitSet);
+  const loggedSetIndicesRef = React.useRef<number[]>([]);
   const nextSetIndexRef = React.useRef(nextSetIndex);
   const addWorkoutRef = React.useRef(addWorkout);
   const addOrUpdateSetInWorkoutRef = React.useRef(addOrUpdateSetInWorkout);
@@ -78,6 +97,7 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
   exerciseIdRef.current = exercise.id;
   trainingsIdRef.current = trainingsId;
   onSubmitSetRef.current = onSubmitSet;
+  loggedSetIndicesRef.current = (loggedWorkout?.sets ?? []).map((it) => it.index).filter((index): index is number => index !== undefined);
   nextSetIndexRef.current = nextSetIndex;
   addWorkoutRef.current = addWorkout;
   addOrUpdateSetInWorkoutRef.current = addOrUpdateSetInWorkout;
@@ -101,7 +121,9 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
     // header just announced. Stamp the announced number so the set that is
     // created is the set the user was told they were logging (GH-63).
     const workoutSet = incomingSet.index === undefined && nextSetIndexRef.current !== undefined ? {...incomingSet, index: nextSetIndexRef.current} : incomingSet;
-    onSubmitSetRef.current?.(workoutSet);
+    // Read BEFORE the dispatch below writes the set — afterwards every set looks logged.
+    const isExistingSet = workoutSet.index !== undefined && loggedSetIndicesRef.current.includes(workoutSet.index);
+    onSubmitSetRef.current?.(workoutSet, {isExistingSet});
     const currentWorkout = unfinishedWorkoutRef.current;
     const exerciseId = exerciseIdRef.current;
     if (exerciseId === undefined) {

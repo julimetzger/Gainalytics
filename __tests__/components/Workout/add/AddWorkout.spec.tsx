@@ -2,7 +2,7 @@ import React from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
 import {fireEvent, render} from '@testing-library/react-native';
 import AddWorkout from '../../../../app/components/Workout/add/AddWorkout';
-import {useUnfinishedWorkout} from '../../../../app/redux/Workout/use/useUnfinishedWorkout';
+import {usePersistedUnfinishedWorkout, useUnfinishedWorkout} from '../../../../app/redux/Workout/use/useUnfinishedWorkout';
 import {useAllLastWorkouts} from '../../../../app/redux/Workout/use/useAllLastWorkouts';
 import {useLastFinishedWorkout} from '../../../../app/redux/Workout/use/useLastFinishedWorkout';
 import {dispatchAddWorkout} from '../../../../app/redux/Workout/dispatch/dispatchAddWorkout';
@@ -29,6 +29,7 @@ const mockNewSetPayload: WorkoutSet = {
 
 jest.mock('../../../../app/redux/Workout/use/useUnfinishedWorkout', () => ({
   useUnfinishedWorkout: jest.fn(),
+  usePersistedUnfinishedWorkout: jest.fn(),
 }));
 
 jest.mock('../../../../app/redux/Workout/use/useAllLastWorkouts', () => ({
@@ -119,6 +120,7 @@ jest.mock('react-native-paper', () => {
 });
 
 const mockedUseUnfinishedWorkout = jest.mocked(useUnfinishedWorkout);
+const mockedUsePersistedUnfinishedWorkout = jest.mocked(usePersistedUnfinishedWorkout);
 const mockedUseAllLastWorkouts = jest.mocked(useAllLastWorkouts);
 const mockedUseLastFinishedWorkout = jest.mocked(useLastFinishedWorkout);
 const mockedDispatchAddWorkout = jest.mocked(dispatchAddWorkout);
@@ -135,6 +137,7 @@ describe('AddWorkout', () => {
     mockedUseAllLastWorkouts.mockReturnValue([]);
     mockedUseLastFinishedWorkout.mockReturnValue(undefined);
     mockedUseUnfinishedWorkout.mockReturnValue(undefined);
+    mockedUsePersistedUnfinishedWorkout.mockReturnValue(undefined);
     mockedDispatchAddWorkout.mockClear();
     mockedDispatchAddOrUpdateSetInWorkout.mockClear();
     mockedDispatchFinalizeWorkout.mockClear();
@@ -466,7 +469,7 @@ describe('AddWorkout', () => {
         },
         3,
       );
-      expect(onSubmitSet).toHaveBeenCalledWith({...mockNewSetPayload, index: 1});
+      expect(onSubmitSet).toHaveBeenCalledWith({...mockNewSetPayload, index: 1}, {isExistingSet: false});
     });
 
     it('never overrides the index of an existing row that is submitted', () => {
@@ -485,6 +488,111 @@ describe('AddWorkout', () => {
       fireEvent.press(getByTestId('submit-existing-set-2'));
 
       expect(mockAddOrUpdateSetSpy).toHaveBeenCalledWith({...mockNewSetPayload, index: 2}, unfinishedWorkout);
+    });
+  });
+
+  // GH-443: the rest timer restarts on every onSubmitSet. An already logged row
+  // re-submits itself (a blur is enough), so the callback has to say whether the
+  // submit added a set or only corrected one that was already there.
+  describe('submit context (GH-443)', () => {
+    const persistedWorkout: Workout = {
+      id: 99,
+      sets: [
+        {index: 1, reps: 4, rir: 1, weight: 90, date},
+        {index: 2, reps: 4, rir: 1, weight: 90, date},
+      ],
+      notes: '',
+      exerciseId: 7,
+      trainingsId: 3,
+      start: date,
+    };
+
+    it('reports isExistingSet: true when an already logged set is corrected', () => {
+      mockedUseUnfinishedWorkout.mockReturnValue(persistedWorkout);
+      mockedUsePersistedUnfinishedWorkout.mockReturnValue(persistedWorkout);
+
+      const onSubmitSet = jest.fn();
+      const {getByTestId} = render(
+        <AddWorkout exercise={exercise} onSubmit={jest.fn()} onSubmitSet={onSubmitSet} trainingsId={3} date={date} />,
+      );
+
+      fireEvent.press(getByTestId('submit-existing-set-2'));
+
+      expect(onSubmitSet).toHaveBeenCalledWith({...mockNewSetPayload, index: 2}, {isExistingSet: true});
+    });
+
+    it('reports isExistingSet: false when a brand new set is added next to logged ones', () => {
+      mockedUseUnfinishedWorkout.mockReturnValue(persistedWorkout);
+      mockedUsePersistedUnfinishedWorkout.mockReturnValue(persistedWorkout);
+
+      const onSubmitSet = jest.fn();
+      const {getByTestId} = render(
+        <AddWorkout exercise={exercise} onSubmit={jest.fn()} onSubmitSet={onSubmitSet} trainingsId={3} date={date} nextSetIndex={3} />,
+      );
+
+      fireEvent.press(getByTestId('submit-new-set'));
+
+      expect(onSubmitSet).toHaveBeenCalledWith({...mockNewSetPayload, index: 3}, {isExistingSet: false});
+    });
+
+    it('reports isExistingSet: false for a planned-but-unlogged row that is logged for the first time', () => {
+      // What the screen shows is the persisted sets JOINED with the planned ones
+      // START_TRAINING copied over. Set 3 is only a pending plan row here, so
+      // submitting it logs a new set — the rest has to start.
+      mockedUseUnfinishedWorkout.mockReturnValue({
+        ...persistedWorkout,
+        sets: [...persistedWorkout.sets, {index: 3, reps: 4, rir: 1, weight: 90}],
+      });
+      mockedUsePersistedUnfinishedWorkout.mockReturnValue(persistedWorkout);
+
+      const onSubmitSet = jest.fn();
+      const {getByTestId} = render(
+        <AddWorkout exercise={exercise} onSubmit={jest.fn()} onSubmitSet={onSubmitSet} trainingsId={3} date={date} />,
+      );
+
+      fireEvent.press(getByTestId('submit-existing-set-3'));
+
+      expect(onSubmitSet).toHaveBeenCalledWith({...mockNewSetPayload, index: 3}, {isExistingSet: false});
+    });
+
+    it('treats sets of a finished workout passed in via the workout prop as existing', () => {
+      // Edit/refinalize flows feed the done workout in directly; the persisted
+      // unfinished selector is empty then.
+      mockedUseUnfinishedWorkout.mockReturnValue(undefined);
+      mockedUsePersistedUnfinishedWorkout.mockReturnValue(undefined);
+
+      const doneWorkout: Workout = {...persistedWorkout, end: date};
+      const onSubmitSet = jest.fn();
+      const {getByTestId} = render(
+        <AddWorkout
+          exercise={exercise}
+          onSubmit={jest.fn()}
+          onSubmitSet={onSubmitSet}
+          workout={doneWorkout}
+          allowRefinalizeWhenDone
+          trainingsId={3}
+          date={date}
+        />,
+      );
+
+      fireEvent.press(getByTestId('submit-existing-set-1'));
+
+      expect(onSubmitSet).toHaveBeenCalledWith({...mockNewSetPayload, index: 1}, {isExistingSet: true});
+    });
+
+    it('does not report a submit at all when a logged set is deleted', () => {
+      mockedUseUnfinishedWorkout.mockReturnValue(persistedWorkout);
+      mockedUsePersistedUnfinishedWorkout.mockReturnValue(persistedWorkout);
+
+      const onSubmitSet = jest.fn();
+      const {getByTestId} = render(
+        <AddWorkout exercise={exercise} onSubmit={jest.fn()} onSubmitSet={onSubmitSet} trainingsId={3} date={date} />,
+      );
+
+      fireEvent.press(getByTestId('delete-existing-set-2'));
+
+      expect(mockDeleteSetSpy).toHaveBeenCalledTimes(1);
+      expect(onSubmitSet).not.toHaveBeenCalled();
     });
   });
 });

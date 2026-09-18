@@ -1,0 +1,249 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-443 — correcting an ALREADY LOGGED set must not restart the rest timer.
+#
+# The whole ticket is about a number that must NOT jump, so every check below
+# reads the value the ring actually displays (`rest-progress-ring-text`) and
+# compares it; "the timer is visible" would prove nothing here.
+#
+# Two ways of reading are used on purpose:
+#   * `extendedWaitUntil: visible: {text: '01:10'}` — waits for and asserts one
+#     exact displayed value. It doubles as the only honest way to let real time
+#     pass (memory #261: evalScript busy-waits do not wait).
+#   * `copyTextFrom` + `evalScript` — takes the displayed string before and after
+#     the correction and compares the two as elapsed seconds.
+#
+# Selector note: Maestro's driver DOES see the training pane on this build even
+# though `uiautomator dump` returns nothing there, so the AddWorkout and
+# RestTimerCard testIDs are all addressable. Rows are addressed by their set
+# number (`add-workout-set-reps-input-1`) — GH-443 gave every row instance a
+# suffixed testID; the new-set input keeps the bare ids.
+#
+# SET NUMBERING — read off the device, never derived from the fixture file:
+# micro 69 "Push" is the baseline's planned Push day and its first exercise
+# "Adductor" starts with NOTHING logged but with two PLANNED rows (13x100 and
+# 12x100). Planned rows render through the same component as logged ones, so
+# they already occupy the row testIDs `...-1` and `...-2` — their presence is
+# NOT proof that anything is logged. `PlannedSetTarget` renders here
+# ("Target · Set 1"), so ExecuteTraining passes a defined `nextSetIndex`: the
+# first set this flow logs is stamped as set 1 (taking over row `-1`), the
+# second one as set 2. Logging the first set drops the suggestion rows, so from
+# then on only the sets this flow logged carry a numbered row.
+#
+# The precondition below is what pins the starting point down: row 1 must still
+# show the PLANNED 13 reps. If a previous run left its own sets behind (it types
+# 8/7/9/6), the flow fails HERE with a readable reason instead of much later on
+# a row number that silently shifted.
+#
+# Precondition: baseline.gains imported (run gh443_suite.yaml, which chains the
+# import). The import is a full restore, so it also clears a previous run's sets.
+- runFlow: gh443_goto_running_push.yaml
+
+- assertVisible:
+    id: 'add-workout-set-reps-input'
+- assertVisible:
+    id: 'add-workout-set-reps-input-1'
+    text: '13'
+# Photograph the untouched screen first: it carries the "Set N" banner, so if the
+# row assertions below ever disagree with N this screenshot says why.
+- takeScreenshot: gh443_00_train_screen_before
+
+# ── 1. a NEW set starts the rest from the target ────────────────────────────
+- tapOn:
+    id: 'add-workout-set-reps-input'
+- eraseText
+- inputText: '8'
+- tapOn:
+    id: 'add-workout-set-rir-input'
+- eraseText
+- inputText: '2'
+- tapOn:
+    id: 'add-workout-set-weight-input'
+- eraseText
+- inputText: '95'
+- hideKeyboard
+- tapOn:
+    id: 'add-workout-set-submit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'rest-timer-card'
+    timeout: 30000
+- assertVisible:
+    id: 'rest-timer-target'
+    text: 'target 01:30'
+# The set really is logged, and it is set 1: a row appeared and it carries
+# the values just typed. Asserted on the row's TextInput rather than on its
+# checkmark IconButton — on this build only the pane's TextInputs and touchables
+# are exposed to the driver, plain Texts and passive icons are not.
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-reps-input-1'
+      text: '8'
+    timeout: 20000
+# A brand new set starts the rest at the full target. The window is 01:05–01:30
+# rather than "01:2x or 01:30": the ring starts counting the moment the set is
+# logged, and the two assertions above cost ~20 s of real time on this emulator,
+# so a fresh rest is regularly already at 01:0x when we get to look at it. The
+# rigorous proof that a new set RESTARTS the clock is in section 5, which
+# compares the displayed value across the add instead of trusting a window.
+- extendedWaitUntil:
+    visible:
+      id: 'rest-progress-ring-text'
+      text: '01:(0[5-9]|[1-2][0-9]|30)'
+    timeout: 20000
+- takeScreenshot: gh443_01_new_set_starts_rest
+
+# ── 2. let it run down to an unmistakable value ─────────────────────────────
+# This is an assertion, not a sleep: the ring must really reach ~01:10, i.e. it
+# counted ~20 s down from the target.
+- extendedWaitUntil:
+    visible:
+      id: 'rest-progress-ring-text'
+      text: '01:1[0-2]'
+    timeout: 60000
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); output.beforeShown = shown; output.beforeElapsed = over ? 90 + value : 90 - value}"
+- takeScreenshot: gh443_02_timer_before_correction
+
+# ── 3. correct the already logged set 1 (it is also the LAST logged set) ────
+- tapOn:
+    id: 'add-workout-set-reps-input-1'
+- eraseText
+- inputText: '7'
+# Committing through the row's own checkmark (it turns into a tappable
+# check-circle while the row is being edited) instead of relying on a blur.
+- tapOn:
+    id: 'add-workout-set-confirm-1'
+# Editing a row raises the numeric keyboard, and it covers the whole rest timer
+# card: `copyTextFrom` then comes back empty and the comparison in section 4
+# fails for a reason that has nothing to do with the timer. Put the keyboard
+# away before reading the clock — and before photographing the evidence, so the
+# screenshot shows the corrected row AND the still-running rest.
+- hideKeyboard
+- waitForAnimationToEnd:
+    timeout: 5000
+# The correction landed: the row now reads 7 reps.
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-reps-input-1'
+      text: '7'
+    timeout: 20000
+- takeScreenshot: gh443_03_correction_committed
+
+# ── 4. the timer did NOT jump back ──────────────────────────────────────────
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+# Time only moves forward, and the rest that was already ~20 s old must
+# still be at least that old. A restart would put afterElapsed back at ~0.
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); output.afterShown = shown; output.afterElapsed = over ? 90 + value : 90 - value; output.verdict = output.afterElapsed >= output.beforeElapsed && output.afterElapsed >= 18 ? 'PASS' : 'FAIL before=' + output.beforeShown + ' after=' + output.afterShown}"
+- assertTrue: ${output.verdict == 'PASS'}
+# Stated the other way round, on the displayed string itself: the ring is not
+# back at the target.
+- assertNotVisible:
+    id: 'rest-progress-ring-text'
+    text: '01:(2[0-9]|30)'
+- takeScreenshot: gh443_04_timer_after_correction
+
+# ── 5. a NEW set still restarts the rest from the target ────────────────────
+# This is the "unchanged behaviour" criterion, and it also gives us a second
+# logged row so the next correction targets a set that is NOT the last one.
+# Read the running rest FIRST: the proof below is that this value jumps back up
+# when a new set is logged — the exact opposite of what section 4 proved for a
+# correction. A fixed window would not distinguish "restarted" from "was young".
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); output.beforeNewShown = shown; output.beforeNewElapsed = over ? 90 + value : 90 - value}"
+- tapOn:
+    id: 'add-workout-set-reps-input'
+- eraseText
+- inputText: '6'
+- tapOn:
+    id: 'add-workout-set-rir-input'
+- eraseText
+- inputText: '1'
+- tapOn:
+    id: 'add-workout-set-weight-input'
+- eraseText
+- inputText: '90'
+- hideKeyboard
+- tapOn:
+    id: 'add-workout-set-submit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-reps-input-2'
+      text: '6'
+    timeout: 20000
+# The rest was already running when this set was logged, so a restart shows up
+# as the displayed value JUMPING BACK UP — i.e. the elapsed rest collapsing to
+# near zero. Anything else (unchanged, or merely counting on) would mean the new
+# set stopped restarting the pause, which this ticket must not cause. The 40 s
+# cap is the driver's round-trip budget, not a tolerance on the restart: the
+# rest being compared against is 80 s old by then.
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); output.afterNewShown = shown; output.afterNewElapsed = over ? 90 + value : 90 - value; output.newVerdict = output.afterNewElapsed < output.beforeNewElapsed && output.afterNewElapsed <= 40 ? 'PASS' : 'FAIL before=' + output.beforeNewShown + ' after=' + output.afterNewShown}"
+- assertTrue: ${output.newVerdict == 'PASS'}
+- takeScreenshot: gh443_05_new_set_restarts_rest
+
+# ── 6. correcting set 1 — NOT the last logged set — also leaves the rest alone
+- extendedWaitUntil:
+    visible:
+      id: 'rest-progress-ring-text'
+      text: '01:1[0-2]'
+    timeout: 60000
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); output.beforeMidShown = shown; output.beforeMidElapsed = over ? 90 + value : 90 - value}"
+- tapOn:
+    id: 'add-workout-set-reps-input-1'
+- eraseText
+- inputText: '9'
+- tapOn:
+    id: 'add-workout-set-confirm-1'
+# Same keyboard trap as in section 3 — it hides the ring we are about to read.
+- hideKeyboard
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-reps-input-1'
+      text: '9'
+    timeout: 20000
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); output.afterMidShown = shown; output.afterMidElapsed = over ? 90 + value : 90 - value; output.midVerdict = output.afterMidElapsed >= output.beforeMidElapsed && output.afterMidElapsed >= 18 ? 'PASS' : 'FAIL before=' + output.beforeMidShown + ' after=' + output.afterMidShown}"
+- assertTrue: ${output.midVerdict == 'PASS'}
+- takeScreenshot: gh443_06_timer_after_correcting_earlier_set
+
+# ── 7. deleting a logged set does not reset the timer either ────────────────
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); output.beforeDeleteShown = shown; output.beforeDeleteElapsed = over ? 90 + value : 90 - value}"
+- tapOn:
+    id: 'add-workout-set-delete-1'
+- extendedWaitUntil:
+    notVisible:
+      id: 'add-workout-set-reps-input-1'
+    timeout: 20000
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); output.afterDeleteShown = shown; output.afterDeleteElapsed = over ? 90 + value : 90 - value; output.deleteVerdict = output.afterDeleteElapsed >= output.beforeDeleteElapsed ? 'PASS' : 'FAIL before=' + output.beforeDeleteShown + ' after=' + output.afterDeleteShown}"
+- assertTrue: ${output.deleteVerdict == 'PASS'}
+- takeScreenshot: gh443_07_timer_after_delete
+
+# ── 8. Reset and the target are untouched ──────────────────────────────────
+# Reset must put the ring back at the top — the rest here was minutes old, so
+# any value in the last 10 s below the target proves it restarted rather than
+# kept counting. The band absorbs the driver round-trip, not a real drift.
+- tapOn:
+    id: 'rest-timer-reset'
+- extendedWaitUntil:
+    visible:
+      id: 'rest-progress-ring-text'
+      text: '01:(2[0-9]|30)'
+    timeout: 20000
+- assertVisible:
+    id: 'rest-timer-target'
+    text: 'target 01:30'
+- takeScreenshot: gh443_08_reset_restores_target
