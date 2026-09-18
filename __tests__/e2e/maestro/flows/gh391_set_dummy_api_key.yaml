@@ -14,6 +14,15 @@ name: GH-391 store a dummy Anthropic key so the AI Chat screen renders
     visible: 'Training'
     timeout: 120000
 - tapOn: 'tab-settings'
+# The key input lives inside the collapsed "AI Configuration" accordion — it is
+# not in the hierarchy at all until the accordion is expanded.
+- scrollUntilVisible:
+    element:
+      id: 'settings-ai-config-accordion'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-ai-config-accordion'
 - scrollUntilVisible:
     element:
       id: 'settings-anthropic-api-key-input'
@@ -23,6 +32,12 @@ name: GH-391 store a dummy Anthropic key so the AI Chat screen renders
     id: 'settings-anthropic-api-key-input'
 - inputText: 'sk-ant-dummy-not-a-real-key'
 - hideKeyboard
+# With the keyboard gone the buttons below the input can still sit off-screen.
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-api-key-button'
+    direction: DOWN
+    timeout: 30000
 - tapOn:
     id: 'settings-save-api-key-button'
 - waitForAnimationToEnd
