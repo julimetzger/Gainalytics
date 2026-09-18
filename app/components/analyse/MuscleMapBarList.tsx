@@ -99,7 +99,9 @@ const MuscleMapBarList = ({rows, globalMax, metric, showReferenceLayer}: MuscleM
               />
             </View>
             <View style={styles.readoutContainer}>
-              <Text style={[styles.readout, {color: theme.colors.onSurface}]} numberOfLines={1}>
+              {/* GH-444: the readout carries the actual/target pair, so a UI test can
+                  read the two numbers of one muscle instead of matching the screen. */}
+              <Text testID={`muscle-row-${row.muscleGroupId}-readout`} style={[styles.readout, {color: theme.colors.onSurface}]} numberOfLines={1}>
                 {readout}
               </Text>
             </View>

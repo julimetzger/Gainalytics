@@ -2,16 +2,19 @@ appId: com.powerliftingworkoutplanner
 ---
 # GH-417 — the analysis view's Plan | Train toggle.
 #
+# GH-436 rescoped the Plan position to the single training (the micro-wide plan
+# now lives in the Overview), so the planned totals below are the training's,
+# not the micro's. gh436_analysis_training_scope.yaml covers the new Overview
+# position; this flow keeps guarding the toggle itself and the drawer.
+#
 # Precondition: baseline fixture imported (plan 5 "Push pull", Meso 1). Micro 1
 # training 1 "Push squat" is FINISHED, so the screen opens on the Analysis
 # sub-tab with the toggle in its start position, Train.
 #
 # Fixture values asserted below (all deterministic for this .gains file):
-#   Micro 1 · Train  → 14 logged sets, duration 03:09:04
-#   Micro 1 · Plan   → 45 planned sets, no previous micro to compare against,
-#                      planned Back 12 sets, planned Chest 0.8 sets
-#   Micro 2 · Plan   → 58 planned sets, compared against the Micro 1 plan
-#                      (Back 10/12, Chest 3.8/0.8)
+#   Micro 1 · training 1 · Train → 14 logged sets, duration 03:09:04
+#   Micro 1 · training 1 · Plan  → 1 planned set
+#   Micro 2 · training 1 · Plan  → 14 planned sets
 - launchApp:
     clearState: false
 - runFlow:
@@ -61,55 +64,23 @@ appId: com.powerliftingworkoutplanner
     id: 'trainings-overview-duration-value'
     text: '03:09:04'
 - assertNotVisible:
-    id: 'micro-plan-overview'
+    id: 'training-plan-overview'
 - takeScreenshot: gh417_analysis_train
 
-# --- AC2 + AC4: Plan shows the micro's planned overview, muscle map, total ---
+# --- AC2 + AC4: Plan shows this training's planned overview and total --------
 - tapOn:
     id: 'analysis-data-plan'
 - extendedWaitUntil:
     visible:
-      id: 'micro-plan-overview'
+      id: 'training-plan-overview'
     timeout: 30000
 - assertVisible:
     id: 'analysis-total-sets'
-    text: 'Total Sets: 45 \(planned\)'
-- assertVisible:
-    id: 'micro-muscle-map-card'
-- assertVisible: 'THIS MICRO \(PLANNED\)'
-# micro 1 is the first micro, so there is no earlier plan to compare against
-- assertVisible:
-    id: 'micro-muscle-map-compare-label'
-    text: 'NO PREVIOUS PLAN'
-# value assertions on the muscle map rows themselves
-- assertVisible:
-    id: 'muscle-row-BACK'
-- assertVisible: '12'
-- assertVisible: '0.8'
+    text: 'Total Sets: 1 \(planned\)'
 # the Train values must be gone
 - assertNotVisible:
     id: 'trainings-overview'
 - takeScreenshot: gh417_analysis_plan
-
-# --- AC8: the view still scrolls in the Plan position (GH-414 regression) ----
-- assertNotVisible: '5810.20'
-- scrollUntilVisible:
-    element:
-      text: '5810.20'
-    direction: DOWN
-    timeout: 40000
-- assertVisible: '5810.20'
-- assertNotVisible:
-    id: 'analysis-data-toggle'
-- takeScreenshot: gh417_plan_scrolled
-- scrollUntilVisible:
-    element:
-      id: 'analysis-data-toggle'
-    direction: UP
-    timeout: 40000
-- assertVisible:
-    id: 'analysis-total-sets'
-    text: 'Total Sets: 45 \(planned\)'
 
 # --- AC7: switching sub-tabs does not break the choice -----------------------
 - tapOn:
@@ -124,11 +95,11 @@ appId: com.powerliftingworkoutplanner
     id: 'subtab-analysis'
 - extendedWaitUntil:
     visible:
-      id: 'micro-plan-overview'
+      id: 'training-plan-overview'
     timeout: 30000
 - assertVisible:
     id: 'analysis-total-sets'
-    text: 'Total Sets: 45 \(planned\)'
+    text: 'Total Sets: 1 \(planned\)'
 
 # --- AC5: the two drawer entries are gone ------------------------------------
 - tapOn:
@@ -152,18 +123,13 @@ appId: com.powerliftingworkoutplanner
     id: 'drawer-menu-button'
 - extendedWaitUntil:
     visible:
-      id: 'micro-plan-overview'
+      id: 'training-plan-overview'
     timeout: 30000
 - assertVisible: 'Micro 2'
-# the planned total follows the micro, and the muscle map now has a reference
+# the planned total follows the training in the new micro
 - assertVisible:
     id: 'analysis-total-sets'
-    text: 'Total Sets: 58 \(planned\)'
-- assertVisible:
-    id: 'micro-muscle-map-compare-label'
-    text: 'MICRO 1 PLAN'
-- assertVisible: '10/12'
-- assertVisible: '3.8/0.8'
+    text: 'Total Sets: 14 \(planned\)'
 - takeScreenshot: gh417_plan_after_micro_change
 
 # --- AC3 + AC8: back to Train, still the actual values, still scrollable ------

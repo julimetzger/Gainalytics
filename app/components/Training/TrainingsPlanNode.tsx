@@ -5,7 +5,7 @@ import {NestableScrollContainerProvider, useNestableScrollContainerContext} from
 import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
 import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
 import {TrainingsState} from '../../models/TrainingsState';
-import {Button, Text} from 'react-native-paper';
+import {Button, Text, useTheme} from 'react-native-paper';
 import {ConfirmDialog} from '../common/EditDialogScaffold';
 import DraggableExercise from './DraggableExercise';
 import TrainingsBase from './TrainingsBase';
@@ -16,7 +16,7 @@ import TrainingsOverview from './analyse/TrainingsOverview';
 import TrainingHistory from './analyse/TrainingHistory';
 import AnalysisDataToggle, {AnalysisDataMode} from './analyse/AnalysisDataToggle';
 import AnalysisTotalSets from './analyse/AnalysisTotalSets';
-import MicroPlanOverview from './analyse/MicroPlanOverview';
+import TrainingPlanOverview from './analyse/TrainingPlanOverview';
 import TrainingModeTabs, {SubTab} from './TrainingModeTabs';
 import TrainingOverflowMenu from './TrainingOverflowMenu';
 import React, {useEffect, useRef, useState} from 'react';
@@ -130,6 +130,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   let [schedulePauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
   let [scheduleFinisTraining, resetFinishTraining] = FinishTrainingNotification();
   let appSettings = useSettings();
+  const theme = useTheme();
   const [showPicker, setShowPicker] = useState(false);
   const [nextPlanMode, setNextPlanMode] = useState<PlanMode>('read');
   const [planEntryRequested, setPlanEntryRequested] = useState(false);
@@ -518,7 +519,11 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                           Card → Train → Start → log sets → Finish path stays on this tab. */}
                       {!isEditing && (
                         <View style={{padding: 16, alignItems: 'center'}}>
-                          <Button testID="train-tab-finish-button" mode="contained" onPress={handleFinish}>
+                          {/* GH-437: the finish button carries the theme's secondary
+                              colour, not the primary one. Both the fill and the label
+                              come from the active scheme so every palette stays legible
+                              in light and dark. */}
+                          <Button testID="train-tab-finish-button" mode="contained" buttonColor={theme.colors.secondary} textColor={theme.colors.onSecondary} onPress={handleFinish}>
                             Finish Training
                           </Button>
                         </View>
@@ -579,16 +584,18 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                 <View testID="analysis-tab">
                   {/* GH-417: planned vs. actual numbers. Rendered in every training
                       state — the Plan position is what makes the planned metrics and
-                      the muscle map reachable while a training is still being planned. */}
+                      the muscle map reachable while a training is still being planned.
+                      GH-436: both positions refer to THIS training only; the
+                      micro-wide plan lives in the Overview's Plan position. */}
                   <AnalysisDataToggle value={effectiveAnalysisDataMode} onChange={effectiveSetAnalysisDataMode} />
                   {effectiveAnalysisDataMode === 'plan' ? (
-                    <MicroPlanOverview trainingsPlan={trainingsPlan} micro={micro} />
+                    <TrainingPlanOverview training={training} trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro} />
                   ) : training?.state === TrainingsState.FINISHED || training?.state === TrainingsState.STARTED ? (
                     <TrainingsOverview training={training} previousTraining={lastTraining} trainingsPlan={trainingsPlan} currentMicro={micro} trainingInMicro={trainingInMicro} />
                   ) : (
                     <View style={{padding: 24, alignItems: 'center'}}>
                       <AnalysisTotalSets totalSets={0} scope="done" />
-                      <Text>Analysis available after the training is finished</Text>
+                      <Text testID="analysis-train-empty">No sets logged yet — start the training on the Train tab. Switch to Plan to see what is planned.</Text>
                     </View>
                   )}
                 </View>

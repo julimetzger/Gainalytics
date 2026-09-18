@@ -31,6 +31,7 @@ jest.mock('../../../../app/redux/Training/use/useMuscleInvolvement', () => ({
     referenceUnavailable: false,
   })),
   useLastMatchingTrainingMicro: jest.fn(),
+  useThisTrainingPlannedAvailable: jest.fn(() => true),
 }));
 
 jest.mock('react-native-paper', () => {
@@ -56,7 +57,7 @@ jest.mock('react-native-paper', () => {
 });
 
 const useSettings = require('../../../../app/redux/settings/use/useSettings').useSettings as jest.Mock;
-const {useLastMatchingTrainingMicro} = require('../../../../app/redux/Training/use/useMuscleInvolvement');
+const {useLastMatchingTrainingMicro, useMuscleInvolvement, useThisTrainingPlannedAvailable} = require('../../../../app/redux/Training/use/useMuscleInvolvement');
 
 describe('MuscleInvolvementCard — effectiveSelectedCompare fallback (GH-300 P2)', () => {
   beforeEach(() => {
@@ -142,5 +143,150 @@ describe('MuscleInvolvementCard — analyse header label (GH-367 live training)'
 
     expect(getByText('THIS TRAINING (LIVE)')).toBeTruthy();
     expect(queryByText('THIS DONE TRAINING')).toBeNull();
+  });
+});
+
+// GH-436: the analysis compares against the micro's total plan without the user
+// having to pick it; a persisted choice still wins.
+describe('MuscleInvolvementCard — default compare (GH-436)', () => {
+  beforeEach(() => {
+    mockDropdownChip.mockClear();
+    useLastMatchingTrainingMicro.mockReturnValue(2);
+  });
+
+  const compareChipValue = (testID: string) => {
+    const call = mockDropdownChip.mock.calls.find((args: any[]) => args[0]?.testID === testID) as any[] | undefined;
+    return call?.[0]?.value;
+  };
+
+  it('analyse view: falls back to current_total_plan when nothing is persisted, even if a done match exists', () => {
+    useSettings.mockReturnValue({});
+
+    render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />);
+
+    expect(compareChipValue('muscle-map-compare-chip-analyse')).toBe('current_total_plan');
+  });
+
+  it('analyse view: a persisted selection survives and is not overridden by the default', () => {
+    useSettings.mockReturnValue({muscleMapCompareSelectionAnalyse: 'none'});
+
+    render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />);
+
+    expect(compareChipValue('muscle-map-compare-chip-analyse')).toBe('none');
+  });
+
+  it('plan view: falls back to current_total_plan and names both the subject and the reference', () => {
+    useSettings.mockReturnValue({});
+    useMuscleInvolvement.mockReturnValueOnce({rows: [], globalMax: 0, effectiveCompare: 'current_total_plan', referenceUnavailable: false});
+
+    const {getByText, getByTestId} = render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="plan" />);
+
+    expect(compareChipValue('muscle-map-compare-chip')).toBe('current_total_plan');
+    expect(getByText('THIS TRAINING (PLANNED)')).toBeTruthy();
+    expect(getByTestId('muscle-map-compare-label').props.children).toBe('Current micro plan');
+  });
+});
+
+// GH-444: the analysis of a training can be compared against the plan of that very
+// training. The option is analysis-only (in the plan view the subject IS that plan)
+// and dead when nothing was planned, instead of drawing a reference full of zeros.
+describe('MuscleInvolvementCard — this training\'s plan (GH-444)', () => {
+  beforeEach(() => {
+    mockDropdownChip.mockClear();
+    useLastMatchingTrainingMicro.mockReturnValue(2);
+    useThisTrainingPlannedAvailable.mockReturnValue(true);
+    useMuscleInvolvement.mockReturnValue({rows: [], globalMax: 0, effectiveCompare: 'none', referenceUnavailable: false});
+  });
+
+  const compareChipProps = (testID: string) => {
+    const call = mockDropdownChip.mock.calls.find((args: any[]) => args[0]?.testID === testID) as any[] | undefined;
+    return call?.[0];
+  };
+
+  const optionFor = (testID: string, value: string) =>
+    compareChipProps(testID)?.options?.find((o: any) => o.value === value);
+
+  it('offers the new reference in the analyse view', () => {
+    useSettings.mockReturnValue({});
+
+    render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />);
+
+    const option = optionFor('muscle-map-compare-chip-analyse', 'this_training_plan');
+    expect(option).toBeDefined();
+    expect(option.label).toBe("This training's plan");
+    expect(option.disabled).toBe(false);
+  });
+
+  it('keeps every previously available reference in the analyse view', () => {
+    useSettings.mockReturnValue({});
+
+    render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />);
+
+    const values = compareChipProps('muscle-map-compare-chip-analyse').options.map((o: any) => o.value);
+    expect(values).toEqual(expect.arrayContaining(['none', 'current_total_plan', 'last_plan', 'last_training_plan', 'last_training_done']));
+  });
+
+  it('does not offer it in the plan view, where the subject already is that plan', () => {
+    useSettings.mockReturnValue({});
+
+    render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="plan" />);
+
+    expect(optionFor('muscle-map-compare-chip', 'this_training_plan')).toBeUndefined();
+    const values = compareChipProps('muscle-map-compare-chip').options.map((o: any) => o.value);
+    expect(values).toEqual(['none', 'current_total_plan', 'last_plan', 'last_training_plan', 'last_training_done']);
+  });
+
+  it('shows the option as disabled when nothing was planned for this training', () => {
+    useSettings.mockReturnValue({});
+    useThisTrainingPlannedAvailable.mockReturnValue(false);
+
+    render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />);
+
+    const option = optionFor('muscle-map-compare-chip-analyse', 'this_training_plan');
+    expect(option).toBeDefined();
+    expect(option.disabled).toBe(true);
+  });
+
+  it('keeps a persisted this_training_plan selection when re-entering the screen', () => {
+    useSettings.mockReturnValue({muscleMapCompareSelectionAnalyse: 'this_training_plan'});
+
+    render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />);
+
+    expect(compareChipProps('muscle-map-compare-chip-analyse').value).toBe('this_training_plan');
+  });
+
+  it('passes the new compare down to the involvement selector', () => {
+    useSettings.mockReturnValue({muscleMapCompareSelectionAnalyse: 'this_training_plan'});
+
+    render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />);
+
+    expect(useMuscleInvolvement).toHaveBeenCalledWith(expect.objectContaining({compare: 'this_training_plan', view: 'analyse'}));
+  });
+
+  it('names the reference in the label when it is the active comparison', () => {
+    useSettings.mockReturnValue({muscleMapCompareSelectionAnalyse: 'this_training_plan'});
+    useMuscleInvolvement.mockReturnValue({rows: [], globalMax: 0, effectiveCompare: 'this_training_plan', referenceUnavailable: false});
+
+    const {getByTestId} = render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />);
+
+    expect(getByTestId('muscle-map-compare-label').props.children).toBe("This training's plan");
+  });
+
+  it('falls back to a working reference when the persisted choice is not selectable here', () => {
+    useSettings.mockReturnValue({muscleMapCompareSelectionAnalyse: 'this_training_plan'});
+    useThisTrainingPlannedAvailable.mockReturnValue(false);
+
+    render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="analyse" />);
+
+    // never hand the chip a value it renders as a dead selection
+    expect(compareChipProps('muscle-map-compare-chip-analyse').value).toBe('current_total_plan');
+  });
+
+  it('falls back in the plan view, where the option does not exist at all', () => {
+    useSettings.mockReturnValue({muscleMapCompareSelectionPlan: 'this_training_plan'});
+
+    render(<MuscleInvolvementCard trainingsPlanId={1} micro={4} trainingInMicro={0} view="plan" />);
+
+    expect(compareChipProps('muscle-map-compare-chip').value).toBe('current_total_plan');
   });
 });

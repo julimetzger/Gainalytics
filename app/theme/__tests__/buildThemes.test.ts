@@ -1,6 +1,6 @@
 import {MD3DarkTheme, MD3LightTheme} from 'react-native-paper';
 import {buildThemes} from '../buildThemes';
-import {toneOf} from '../colorScience';
+import {contrastRatio, toneOf} from '../colorScience';
 
 /**
  * GH-405 regression guard.
@@ -81,4 +81,38 @@ describe('buildThemes — custom source colours', () => {
     expect(custom.level0).toBe('transparent');
     expect(custom.level3).not.toBe(MD3DarkTheme.colors.elevation.level3);
   });
+});
+
+/**
+ * GH-437: the "Finish Training" button is filled with `secondary` and labelled
+ * with `onSecondary`. Every palette must therefore offer a secondary surface
+ * that is both readable and visibly distinct from the primary one — otherwise
+ * the recolour would be either illegible or invisible in some palette.
+ */
+describe('buildThemes — secondary is usable as a filled button surface', () => {
+  const palettes = ['blue', 'green', 'purple'] as const;
+  const modes = ['light', 'dark'] as const;
+
+  const schemeFor = (palette: (typeof palettes)[number], mode: (typeof modes)[number]) => {
+    const {LightThemeCombined, DarkTheme} = buildThemes(palette);
+    return (mode === 'light' ? LightThemeCombined : DarkTheme).colors as Record<string, string>;
+  };
+
+  it.each(palettes.flatMap((p) => modes.map((m) => [p, m] as const)))(
+    '%s/%s labels the secondary fill with at least WCAG AA contrast',
+    (palette, mode) => {
+      const colors = schemeFor(palette, mode);
+      expect(colors.secondary).toBeTruthy();
+      expect(colors.onSecondary).toBeTruthy();
+      expect(contrastRatio(colors.onSecondary, colors.secondary)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it.each(palettes.flatMap((p) => modes.map((m) => [p, m] as const)))(
+    '%s/%s keeps secondary distinguishable from primary',
+    (palette, mode) => {
+      const colors = schemeFor(palette, mode);
+      expect(colors.secondary).not.toBe(colors.primary);
+    },
+  );
 });

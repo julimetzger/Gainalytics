@@ -1,0 +1,117 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-437 — the "Finish Training" button carries the theme's SECONDARY colour.
+#
+# Colour is not readable from the accessibility tree, so this flow proves what
+# Maestro CAN see: the button exists on the Train tab of a STARTED training,
+# its label is unchanged, and tapping it still ends the session. The colour
+# itself is verified per palette by checks/pixel_check.py against the device
+# screencaps, and by the jest specs in TrainingsPlanNode.spec.
+#
+# Navigation goes through the training home's next/continue card, NOT the plan
+# drawer. `next-training-start-button` navigates straight to the chosen
+# training with `subTab: 'train'` (NextTrainingCard.handleStart), so the drawer
+# never opens. The drawer route is unusable here: it stays over the sub-tab
+# strip while being invisible to Maestro's hierarchy, and the repo's own
+# gh340_plan_kebab_start_training.yaml fails the same way on unmodified master.
+#
+# Prerequisite: baseline.gains imported — run through gh437_suite.yaml.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+# The card sits below the hero card; its button reads "Next Training" for a
+# PLANNED session and "Continue Training" for one already running. Only the
+# testID is stable, so scroll to that.
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'next-training-start-button'
+# `drawer-menu-button` is the landing probe, not `header-session-timer`: the
+# session timer only renders once a training is RUNNING, so waiting on it here
+# deadlocks on a fresh fixture.
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-menu-button'
+    timeout: 30000
+# In the pristine baseline.gains the next day (M7 D1) has 0 exercises, so the
+# Train tab offers "Plan this Training" instead of Start. Populate it from the
+# previous session first. Anchor the regex — "Suggest based on last planned
+# Training" is a second, different button on the same screen.
+- runFlow:
+    when:
+      visible: '^Plan this Training$'
+    commands:
+      - tapOn: '^Plan this Training$'
+      - extendedWaitUntil:
+          visible: '^Suggest based on last Training$'
+          timeout: 15000
+      - tapOn: '^Suggest based on last Training$'
+      - waitForAnimationToEnd:
+          timeout: 8000
+      - tapOn:
+          id: 'subtab-train'
+      - waitForAnimationToEnd:
+          timeout: 5000
+# With the day planned the Train tab offers Start. If a previous run already
+# started it, this is skipped and the Finish button is there straight away.
+- runFlow:
+    when:
+      visible:
+        id: 'train-tab-start-button'
+    commands:
+      - tapOn:
+          id: 'train-tab-start-button'
+      - extendedWaitUntil:
+          visible:
+            id: 'header-session-timer'
+          timeout: 30000
+# AC5: label and position unchanged. A literal id+text selector, not a bare
+# visibility check — this fails if the recolour ever changed the wording.
+# Paper renders the label on `${testID}-text`, so the value really is asserted.
+# evalScript/assertTrue are avoided on purpose: on this Maestro build they are
+# no-ops (agent-memory #371, #381).
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-finish-button'
+    timeout: 20000
+- assertVisible:
+    id: 'train-tab-finish-button-text'
+    text: '^Finish Training$'
+# AC4 scope guard: the neighbouring controls on this screen are untouched and
+# still carry their own labels.
+- assertVisible:
+    text: '^Add Workout$'
+- takeScreenshot: gh437_finish_button_started
+# AC5: the recolour must not touch behaviour. Tapping still ends the session —
+# the app lands on the Analysis sub-tab, whose TrainingsOverview only renders
+# for a FINISHED training, and the finish control is gone.
+#
+# Note: `header-session-timer` is NOT a valid "still running" probe — the header
+# reuses that testID to show a finished training's total duration, so it stays
+# visible after the tap.
+- tapOn:
+    id: 'train-tab-finish-button'
+- extendedWaitUntil:
+    visible:
+      id: 'trainings-overview'
+    timeout: 30000
+- assertNotVisible:
+    id: 'train-tab-finish-button'
+- assertVisible:
+    id: 'trainings-overview-sets-value'
+- takeScreenshot: gh437_after_finish_analysis

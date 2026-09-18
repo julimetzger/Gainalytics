@@ -2,7 +2,7 @@ import React, {useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
 import DropdownChip, {DropdownChipOption} from '../../shared/DropdownChip';
-import {useLastMatchingTrainingMicro, useMuscleInvolvement} from '../../../redux/Training/use/useMuscleInvolvement';
+import {useLastMatchingTrainingMicro, useMuscleInvolvement, useThisTrainingPlannedAvailable} from '../../../redux/Training/use/useMuscleInvolvement';
 import {useSettings} from '../../../redux/settings/use/useSettings';
 import {useTrainingsPlan} from '../../../redux/Training/use/useTrainingsPlan';
 import {
@@ -28,7 +28,10 @@ const METRIC_OPTIONS: DropdownChipOption<MuscleMapMetric>[] = [
   {value: 'volume', label: 'Volume'},
 ];
 
-const VALID_COMPARES: MuscleMapCompare[] = ['none', 'last_plan', 'current_total_plan', 'last_training_plan', 'last_training_done'];
+const VALID_COMPARES: MuscleMapCompare[] = ['none', 'last_plan', 'current_total_plan', 'last_training_plan', 'last_training_done', 'this_training_plan'];
+
+/** GH-444 — label of the new reference, kept in one place for card and tests. */
+export const THIS_TRAINING_PLAN_LABEL = "This training's plan";
 
 const normalizeCompare = (raw: unknown, fallback: MuscleMapCompare): MuscleMapCompare => {
   if (typeof raw === 'string' && (VALID_COMPARES as string[]).includes(raw)) return raw as MuscleMapCompare;
@@ -49,6 +52,7 @@ const compareLabel = (
   lastDoneMicro: number | undefined,
 ): string => {
   if (compare === 'none') return 'None';
+  if (compare === 'this_training_plan') return THIS_TRAINING_PLAN_LABEL;
   if (compare === 'current_total_plan') return 'Current micro plan';
   if (compare === 'last_plan') {
     const previous = Math.max(1, micro - 1);
@@ -75,7 +79,10 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 
 
   const metric: MuscleMapMetric = settings.plan?.muscleMap?.metric === 'volume' ? 'volume' : 'sets';
 
-  const fallbackCompare: MuscleMapCompare = view === 'analyse' ? 'last_training_done' : 'current_total_plan';
+  // GH-436: both positions of the analysis view compare against the micro's total
+  // plan unless the user picked something else — the choice is persisted per view
+  // (plan / analyse), so it survives toggling positions, sub-tabs and micros.
+  const fallbackCompare: MuscleMapCompare = 'current_total_plan';
   const persistedCompare = view === 'analyse' ? settings.muscleMapCompareSelectionAnalyse : settings.muscleMapCompareSelectionPlan ?? settings.plan?.muscleMap?.compare;
   const setCompare = view === 'analyse' ? setAnalyseCompare : setPlanCompare;
   const compare: MuscleMapCompare = normalizeCompare(persistedCompare, fallbackCompare);
@@ -86,9 +93,25 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 
   const lastPlannedMicro = useLastMatchingTrainingMicro(trainingsPlanId, trainingInMicro, micro, false);
   const lastDoneMicro = useLastMatchingTrainingMicro(trainingsPlanId, trainingInMicro, micro, true);
 
+  // GH-444: comparing the done load against this training's own plan only makes
+  // sense in the analysis view — in the plan view the subject already IS that plan.
+  const thisTrainingPlanOffered = view === 'analyse';
+  const thisTrainingPlanAvailable = useThisTrainingPlannedAvailable(trainingsPlanId, micro, trainingInMicro, metric);
+
   const compareOptions = useMemo<DropdownChipOption<MuscleMapCompare>[]>(() => {
     const options: DropdownChipOption<MuscleMapCompare>[] = [
       {value: 'none', label: 'None'},
+      ...(thisTrainingPlanOffered
+        ? [
+            {
+              value: 'this_training_plan' as MuscleMapCompare,
+              label: THIS_TRAINING_PLAN_LABEL,
+              // Nothing was planned for this training — the option stays visible
+              // but dead, instead of drawing a reference layer of zeros.
+              disabled: !thisTrainingPlanAvailable,
+            },
+          ]
+        : []),
       {value: 'current_total_plan', label: 'Current micro plan'},
       {
         value: 'last_plan',
@@ -108,14 +131,20 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 
       });
     }
     return options;
-  }, [micro, previousMicroAvailable, lastPlannedMicro, lastDoneMicro, trainingName]);
+  }, [micro, previousMicroAvailable, lastPlannedMicro, lastDoneMicro, trainingName, thisTrainingPlanOffered, thisTrainingPlanAvailable]);
 
   // If the persisted compare is 'last_training_done' but no done match exists in the
   // current context, fall back to 'current_total_plan' which is always in compareOptions.
   // Using fallbackCompare here was wrong: in analyse view fallbackCompare itself is
   // 'last_training_done', which is NOT added to compareOptions when lastDoneMicro is
   // undefined — causing the DropdownChip to receive a value outside its options list.
-  const effectiveSelectedCompare: MuscleMapCompare = compare === 'last_training_done' && lastDoneMicro === undefined ? 'current_total_plan' : compare;
+  // GH-444 adds the same rule for the persisted 'this_training_plan': it is only an
+  // option in the analysis view, and only while this training actually has a plan.
+  const thisTrainingPlanSelectable = thisTrainingPlanOffered && thisTrainingPlanAvailable;
+  const effectiveSelectedCompare: MuscleMapCompare =
+    (compare === 'last_training_done' && lastDoneMicro === undefined) || (compare === 'this_training_plan' && !thisTrainingPlanSelectable)
+      ? 'current_total_plan'
+      : compare;
 
   const data = useMuscleInvolvement({trainingsPlanId, micro, trainingInMicro, metric, compare: effectiveSelectedCompare, view});
 
@@ -124,7 +153,9 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 
 
   const showReferenceLayer = data.effectiveCompare !== 'none';
 
-  const headerLabel = view === 'analyse' ? (isLive ? 'THIS TRAINING (LIVE)' : 'THIS DONE TRAINING') : 'THIS TRAINING';
+  // GH-436: the header names the subject's scope so the card can never be read as
+  // a micro-wide map (the Overview's MicroMuscleMapCard says "THIS MICRO").
+  const headerLabel = view === 'analyse' ? (isLive ? 'THIS TRAINING (LIVE)' : 'THIS DONE TRAINING') : 'THIS TRAINING (PLANNED)';
 
   return (
     <View testID={view === 'analyse' ? 'muscle-involvement-card-analyse' : 'muscle-involvement-card'} style={[styles.card, {backgroundColor: surfaceContainer}]}>

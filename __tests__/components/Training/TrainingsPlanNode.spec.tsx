@@ -1,4 +1,5 @@
 import React from 'react';
+import {StyleSheet} from 'react-native';
 import {render, fireEvent, waitFor} from '@testing-library/react-native';
 import TrainingsPlanNode from '../../../app/components/Training/TrainingsPlanNode';
 import {TrainingsState} from '../../../app/models/TrainingsState';
@@ -101,10 +102,20 @@ jest.mock('../../../app/components/Training/plan/PlanTab', () => {
     </View>
   );
 });
-jest.mock('../../../app/components/Training/analyse/MicroPlanOverview', () => {
+jest.mock('../../../app/components/Training/analyse/TrainingPlanOverview', () => {
   const {Text} = require('react-native');
-  return ({micro}: any) => <Text testID="micro-plan-overview">{`micro-plan:${micro}`}</Text>;
+  // GH-436: the Plan position gets the slot's own training, not the micro.
+  return ({training, micro, trainingInMicro}: any) => <Text testID="training-plan-overview">{`training-plan:${micro}/${trainingInMicro}/${training?.id ?? 'none'}`}</Text>;
 });
+
+// GH-437: the colour assertions have to run against two different schemes,
+// otherwise "reads the colour off the theme" is also satisfied by a literal
+// that happens to match. These are the real Blue palette values.
+const mockSchemes = {
+  light: {background: '#fff', onSurfaceVariant: '#888', primary: '#415F91', secondary: '#565F71', onSecondary: '#FFFFFF'},
+  dark: {background: '#111318', onSurfaceVariant: '#888', primary: '#AAC7FF', secondary: '#BEC6DC', onSecondary: '#283141'},
+};
+let mockSchemeMode: 'light' | 'dark' = 'light';
 
 jest.mock('react-native-paper', () => {
   const React = require('react');
@@ -116,9 +127,13 @@ jest.mock('react-native-paper', () => {
   DialogBase.Actions = ({children}: any) => <>{children}</>;
 
   return {
-    Button: ({children, onPress, testID}: any) => (
-      <TouchableOpacity testID={testID} onPress={onPress}>
-        <Text>{children}</Text>
+    // buttonColor/textColor are surfaced as styles so a test can assert which
+    // theme colour a button was wired to (GH-437).
+    Button: ({children, onPress, testID, buttonColor, textColor}: any) => (
+      <TouchableOpacity testID={testID} onPress={onPress} style={{backgroundColor: buttonColor}}>
+        <Text testID={testID ? `${testID}-text` : undefined} style={{color: textColor}}>
+          {children}
+        </Text>
       </TouchableOpacity>
     ),
     Dialog: DialogBase,
@@ -136,10 +151,7 @@ jest.mock('react-native-paper', () => {
     ),
     Divider: () => <View />,
     SegmentedButtons: require('../../helpers/paperMocks').SegmentedButtonsMock,
-    useTheme: () => ({
-      colors: {background: '#fff', onSurfaceVariant: '#888', primary: '#6200ee'},
-      fonts: {},
-    }),
+    useTheme: () => ({colors: mockSchemes[mockSchemeMode], fonts: {}}),
   };
 });
 
@@ -151,6 +163,10 @@ const PLAN: TrainingsPlan = {
   trainings: {},
   trainingNames: {1: 'Pull'},
 } as any;
+
+beforeEach(() => {
+  mockSchemeMode = 'light';
+});
 
 const mkTraining = (state: string) => ({
   id: 10,
@@ -388,6 +404,44 @@ describe('TrainingsPlanNode — GH-401 Train tab is the single start/finish cont
     expect(mockFinishTraining).toHaveBeenCalledWith(10, 1);
   });
 
+  it('fills the Finish Training button with the theme secondary colour, not the primary one (GH-437)', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+
+    const finishColours = () => {
+      const view = render(<TrainingsPlanNode {...defaultProps} />);
+      const fill = StyleSheet.flatten(view.getByTestId('train-tab-finish-button').props.style).backgroundColor;
+      const label = StyleSheet.flatten(view.getByTestId('train-tab-finish-button-text').props.style).color;
+      view.unmount();
+      return {fill, label};
+    };
+
+    mockSchemeMode = 'light';
+    const light = finishColours();
+    expect(light.fill).toBe(mockSchemes.light.secondary);
+    expect(light.fill).not.toBe(mockSchemes.light.primary);
+    expect(light.label).toBe(mockSchemes.light.onSecondary);
+
+    // Rendering the same button under a second scheme is what rules out a
+    // literal that merely happens to match the light palette.
+    mockSchemeMode = 'dark';
+    const dark = finishColours();
+    expect(dark.fill).toBe(mockSchemes.dark.secondary);
+    expect(dark.fill).not.toBe(mockSchemes.dark.primary);
+    expect(dark.label).toBe(mockSchemes.dark.onSecondary);
+
+    expect(light.fill).not.toBe(dark.fill);
+    expect(light.label).not.toBe(dark.label);
+  });
+
+  it('leaves the neighbouring Start Training button on the theme default (GH-437)', () => {
+    // Scope guard: only the finish button carries an explicit colour.
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+
+    const start = getByTestId('train-tab-start-button');
+    expect(StyleSheet.flatten(start.props.style)?.backgroundColor).toBeUndefined();
+  });
+
   it('does not offer Finish Training while editing a started training', () => {
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
     const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} overflowVisible={true} />);
@@ -487,7 +541,7 @@ describe('TrainingsPlanNode — GH-401 review 1: a training without exercises ca
   });
 });
 
-// ── GH-417: Plan | Train data toggle inside the analysis view ────────────────
+// ── GH-417 / GH-436: Plan | Train data toggle inside the analysis view ──────
 
 describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -500,16 +554,17 @@ describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
     expect(getByTestId('analysis-data-train').props.accessibilityState).toEqual({checked: true, disabled: false});
     // AC3: Train is the unchanged actual-values view
     expect(getByTestId('trainings-overview')).toBeTruthy();
-    expect(queryByTestId('micro-plan-overview')).toBeNull();
+    expect(queryByTestId('training-plan-overview')).toBeNull();
   });
 
-  it('shows the planned micro overview in the Plan position (AC2)', () => {
+  it('shows THIS training\'s planned overview in the Plan position — not the micro\'s (GH-436)', () => {
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
     const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
 
     fireEvent.press(getByTestId('analysis-data-plan'));
 
-    expect(getByTestId('micro-plan-overview').props.children).toBe('micro-plan:1');
+    expect(getByTestId('training-plan-overview').props.children).toBe('training-plan:1/1/10');
+    expect(queryByTestId('micro-plan-overview')).toBeNull();
     expect(queryByTestId('trainings-overview')).toBeNull();
     expect(getByTestId('analysis-data-plan').props.accessibilityState).toEqual({checked: true, disabled: false});
   });
@@ -519,27 +574,29 @@ describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
     const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
 
     fireEvent.press(getByTestId('analysis-data-plan'));
-    expect(getByTestId('micro-plan-overview')).toBeTruthy();
+    expect(getByTestId('training-plan-overview')).toBeTruthy();
 
     fireEvent.press(getByTestId('subtab-train'));
-    expect(queryByTestId('micro-plan-overview')).toBeNull();
+    expect(queryByTestId('training-plan-overview')).toBeNull();
 
     fireEvent.press(getByTestId('subtab-analysis'));
-    expect(getByTestId('micro-plan-overview')).toBeTruthy();
+    expect(getByTestId('training-plan-overview')).toBeTruthy();
     expect(getByTestId('analysis-data-plan').props.accessibilityState).toEqual({checked: true, disabled: false});
   });
 
-  it('offers the planned values for a training that is only PLANNED, where Train has nothing to show', () => {
+  it('shows the planned numbers of a PLANNED training in the Plan position instead of a hint (GH-436 AC3)', () => {
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
-    const {getByTestId, getByText} = render(<TrainingsPlanNode {...defaultProps} />);
+    const {getByTestId, queryByTestId, queryByText} = render(<TrainingsPlanNode {...defaultProps} />);
 
     fireEvent.press(getByTestId('subtab-analysis'));
-    expect(getByText('Analysis available after the training is finished')).toBeTruthy();
-    // AC4: the total is shown in the Train position even when there is nothing logged yet
+    // Train has nothing logged yet: the total still says so, with a hint that points at the Plan position
+    expect(getByTestId('analysis-train-empty')).toBeTruthy();
     expect(getByTestId('analysis-total-sets').props.children).toBe('Total Sets: 0 (done)');
 
     fireEvent.press(getByTestId('analysis-data-plan'));
-    expect(getByTestId('micro-plan-overview')).toBeTruthy();
+    expect(getByTestId('training-plan-overview').props.children).toBe('training-plan:1/1/10');
+    expect(queryByTestId('analysis-train-empty')).toBeNull();
+    expect(queryByText(/Analysis available after/)).toBeNull();
   });
 
   it('hands the choice to the owner when the screen controls it, so a micro swipe cannot reset it', () => {
@@ -554,6 +611,6 @@ describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
     expect(getByTestId('trainings-overview')).toBeTruthy();
 
     rerender(<TrainingsPlanNode {...controlled} analysisDataMode="plan" micro={2} />);
-    expect(getByTestId('micro-plan-overview').props.children).toBe('micro-plan:2');
+    expect(getByTestId('training-plan-overview').props.children).toBe('training-plan:2/1/10');
   });
 });
