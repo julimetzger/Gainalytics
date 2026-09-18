@@ -2780,3 +2780,27 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 **Problem (GH-391):** a heredoc written after `cd <run_dir>` failed (the relative path no longer resolved), but the `git add -A && git commit` chained behind it did not — it ran inside the MAIN checkout on `master` and committed `android/app/src/main/assets/index.android.bundle` plus `__pycache__` build artefacts. `git reset --mixed HEAD~1` in the main repo undid it cleanly (the files return to untracked), but only because it had not been pushed.
 **Working solution:** always `cd` back to the worktree before any git command, or use absolute paths for both the file writes and `git -C <worktree>`. `git branch --show-current` right after an unexpected commit tells you immediately which checkout you were in.
 **Apply when:** any command block that mixes run-dir file writes with git.
+
+### 423. A wedged SystemUI ANR loop makes every Maestro flow fail on its first assertion — only a reboot clears it
+**Problem (GH-391 fix round):** after a 9-minute gradle build the emulator kept raising `System UI isn't responding`. Tapping "Wait" dismissed it, but it came back within 30 s **without any app interaction**, and while it was up `mCurrentFocus` was the ANR window, so Maestro's hierarchy never contained the app: `00_import_baseline` failed twice with `Assertion is false: "Training" is visible` — which reads exactly like a broken flow. `adb root` is refused on these production emulator images and `am force-stop com.android.systemui` returns rc=0 and changes nothing.
+**Working solution:** `adb -s $S reboot`, then poll `getprop sys.boot_completed`. The guest was back in ~45 s and the same flow passed in 45 s. Rebooting the guest does not touch the adb server or the run-dir proxy, so it is safe for siblings.
+**Apply when:** a Maestro flow fails on its very first `extendedWaitUntil` right after a heavy host-side build.
+
+### 424. The debug APK carries four ABIs (~242 MB) — build `-PreactNativeArchitectures=x86_64` when /data is tight
+**Problem (GH-391 fix round):** `adb install -r` died with `INSTALL_FAILED_INSUFFICIENT_STORAGE: Failed to override installation location` at 455 MB free. `unzip -l` showed 204 MB of `lib/` for arm64-v8a, armeabi-v7a, x86 and x86_64 — three of them useless on an emulator.
+**Working solution:** `./gradlew assembleDebug -PreactNativeArchitectures=x86_64` repackages in ~15 s (the native libs are already built) and produces a 132 MB APK that installs fine. Uninstalling the old copy first freed only ~22 MB, so that alone is not the fix.
+**Apply when:** installing on a device whose data partition is >90 % full.
+
+### 425. `run-maestro-from-wsl.sh` force-stops the app in `--mode smoke/full` — a flow that starts on an open screen must be run by `maestro` directly
+**Problem (GH-391 fix round):** the GH-391 flows deliberately have no `launchApp` (the animated dashboards time out on the way to the chat, #417/#421 era note), so they expect the app already sitting on the chat screen. Run through the wrapper they failed on `id: chat-input is visible` — the wrapper pushes the fixture and then runs `am force-stop` before handing over to Maestro.
+**Working solution:** a 6-line run-dir script that `cd`s into the screenshot dir (#400) and calls `maestro --host 127.0.0.8 --device $S --driver-host-port $P test <abs path>` with `HOME=$E2E_MAESTRO_HOME`. Pass the flow as an ABSOLUTE path — after the `cd` a repo-relative one resolves against the screenshot dir.
+**Apply when:** any flow whose first command is not `launchApp`.
+
+### 426. A fixture that shifts its timestamps to "yesterday" expires — regenerate it before every evidence run
+**Problem (GH-391 fix round):** the committed `gh391_planned_fixture.gains` was generated 13 days earlier, so its newest session was 14 days old and the chat's 7d preset legitimately reported `AI has access to 0 trainings`. The flow failed on `assertTrue` with the useless message `Assertion is false: false is true`, which looks like a code regression in the range picker.
+**Working solution:** re-run the fixture generator (it re-derives the shift from `Date.now()`) right before the device run, and read the failing `assertTrue` out of `checks/maestro-debug-*/.maestro/tests/*/commands-*.json` — `metadata.status == FAILED` names the exact script condition, which the console output does not.
+**Apply when:** any evidence run against a date-shifted `.gains` fixture, and whenever an `assertTrue` fails without a readable reason.
+
+### 427. "Most recently active" is the wrong way to pick the thing a feature about the FUTURE should talk about
+**Observation (GH-391 review):** the chat picked the plan whose last finished session was the most recent — copied from the training home. A user who finishes a block and creates a new one then sees nothing: the finished plan keeps winning, and it has no planning left to send. The fix is to filter candidates by "still has work ahead" FIRST and only then rank them (running session > trained within the last four weeks > newest plan). Same shape of bug in redux: `selectedTrainingId` lived next to `messages` but was only cleared in `clearChat`, so resuming an archived conversation inherited the subject of the one just left — state that belongs to a conversation has to be reset in the very reducer that replaces the conversation (`setActiveMessages`), not in each caller.
+**Apply when:** any "which X is the current one" selector, and any per-conversation/per-document state in a slice that can be swapped wholesale.
