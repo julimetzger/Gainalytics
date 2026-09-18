@@ -1,4 +1,8 @@
-import {sendChatMessage, ChatMessage} from '../../../app/utils/ai/sendChatMessage';
+import {
+  CHAT_REQUEST_TIMEOUT_MS,
+  sendChatMessage,
+  ChatMessage,
+} from '../../../app/utils/ai/sendChatMessage';
 import {DEFAULT_ANTHROPIC_MODEL} from '../../../app/utils/llmApi';
 
 const mockFetch = jest.fn();
@@ -283,6 +287,12 @@ describe('sendChatMessage — a reply that never arrives (GH-447)', () => {
       });
   }
 
+  it('bounds a chat request generously enough for a full-length answer, but finitely', () => {
+    // A 4096-token answer from a large model must not be cut off by our own deadline.
+    expect(CHAT_REQUEST_TIMEOUT_MS).toBeGreaterThanOrEqual(120_000);
+    expect(Number.isFinite(CHAT_REQUEST_TIMEOUT_MS)).toBe(true);
+  });
+
   it('passes an abort signal to fetch so the request is always cancellable', async () => {
     mockFetch.mockReturnValue(makeOkResponse('ok'));
     await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
@@ -378,6 +388,31 @@ describe('sendChatMessage — a reply that never arrives (GH-447)', () => {
       ok: false,
       kind: 'error',
       error: 'API error (500): upstream exploded',
+    });
+  });
+
+  it('returns the answer even when the model reasons first (GH-449)', async () => {
+    mockFetch.mockReturnValue(
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            content: [
+              {type: 'thinking', thinking: 'Let me look at the volume trend…'},
+              {type: 'text', text: 'Your bench stalled for three weeks.'},
+            ],
+            stop_reason: 'end_turn',
+          }),
+        text: () => Promise.resolve(''),
+      }) as any,
+    );
+    const result = await sendChatMessage([{role: 'user', content: 'hi'}], 'sk-key');
+    expect(result).toEqual({
+      ok: true,
+      hadContext: false,
+      truncated: false,
+      text: 'Your bench stalled for three weeks.',
     });
   });
 

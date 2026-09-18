@@ -7,9 +7,6 @@
  * A larger model simply makes the stall window big enough to hit in normal use.
  */
 
-/** Upper bound for a single chat/insight request. Long enough for a slow model to answer. */
-export const DEFAULT_LLM_TIMEOUT_MS = 120_000;
-
 /** Who aborted the request — the deadline, or the caller (user pressed Stop). */
 export type AbortCause = 'timeout' | 'caller';
 

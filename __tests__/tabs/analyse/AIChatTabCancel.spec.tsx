@@ -10,7 +10,7 @@ import {act, fireEvent, render, waitFor} from '@testing-library/react-native';
 import {Provider} from 'react-redux';
 import {combineReducers, createStore} from 'redux';
 import AIChatTab from '../../../app/tabs/Analyse/AIChatTab';
-import aiChatReducer from '../../../app/redux/AIChat/aiChatSlice';
+import aiChatReducer, {AIChatState} from '../../../app/redux/AIChat/aiChatSlice';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -162,6 +162,11 @@ function makeStore() {
   );
 }
 
+/** The combined test reducer is untyped, so read the slice under test through one helper. */
+function chatState(store: {getState: () => any}): AIChatState {
+  return store.getState().aiChat;
+}
+
 function renderChat() {
   const store = makeStore();
   const utils = render(
@@ -233,7 +238,7 @@ describe('AIChatTab — cancelling a running request (GH-447)', () => {
     const {getByTestId, store} = renderChat();
     await send(getByTestId, 'How is my squat?');
 
-    expect(store.getState().aiChat.messages).toEqual([
+    expect(chatState(store).messages).toEqual([
       {role: 'user', content: 'How is my squat?'},
     ]);
 
@@ -241,9 +246,9 @@ describe('AIChatTab — cancelling a running request (GH-447)', () => {
       fireEvent.press(getByTestId('chat-stop-button'));
     });
 
-    await waitFor(() => expect(store.getState().aiChat.isLoading).toBe(false));
+    await waitFor(() => expect(chatState(store).isLoading).toBe(false));
     // The unanswered turn is rolled back and its text is back in the input box.
-    expect(store.getState().aiChat.messages).toEqual([]);
+    expect(chatState(store).messages).toEqual([]);
     expect(getByTestId('chat-input').props.value).toBe('How is my squat?');
     expect(getByTestId('chat-send-button').props.accessibilityState.disabled).toBe(false);
   });
@@ -255,7 +260,7 @@ describe('AIChatTab — cancelling a running request (GH-447)', () => {
     await act(async () => {
       fireEvent.press(getByTestId('chat-stop-button'));
     });
-    await waitFor(() => expect(store.getState().aiChat.isLoading).toBe(false));
+    await waitFor(() => expect(chatState(store).isLoading).toBe(false));
 
     mockSendChatMessage.mockResolvedValue({
       ok: true,
@@ -268,12 +273,12 @@ describe('AIChatTab — cancelling a running request (GH-447)', () => {
     });
 
     await waitFor(() =>
-      expect(store.getState().aiChat.messages).toEqual([
+      expect(chatState(store).messages).toEqual([
         {role: 'user', content: 'How is my squat?'},
         {role: 'assistant', content: 'Solid progress.', hadContext: false},
       ]),
     );
-    expect(store.getState().aiChat.error).toBeNull();
+    expect(chatState(store).error).toBeNull();
   });
 });
 
@@ -290,9 +295,9 @@ describe('AIChatTab — a request that fails or times out (GH-447)', () => {
 
     await waitFor(() => expect(getByTestId('chat-error')).toBeTruthy());
     expect(queryByTestId('chat-loading')).toBeNull();
-    expect(store.getState().aiChat.error).toContain('did not answer within 120s');
+    expect(chatState(store).error).toContain('did not answer within 120s');
     // Nothing half-finished is left in the conversation.
-    expect(store.getState().aiChat.messages).toEqual([]);
+    expect(chatState(store).messages).toEqual([]);
     expect(getByTestId('chat-input').props.value).toBe('Analyse my last block');
   });
 
@@ -308,8 +313,8 @@ describe('AIChatTab — a request that fails or times out (GH-447)', () => {
 
     await waitFor(() => expect(getByTestId('chat-error')).toBeTruthy());
     expect(queryByTestId('chat-loading')).toBeNull();
-    expect(store.getState().aiChat.messages).toEqual([]);
-    expect(store.getState().aiChat.error).toBe('API error (500): upstream exploded');
+    expect(chatState(store).messages).toEqual([]);
+    expect(chatState(store).error).toBe('API error (500): upstream exploded');
   });
 
   it('does not overwrite text the user already retyped while waiting', async () => {
@@ -322,7 +327,7 @@ describe('AIChatTab — a request that fails or times out (GH-447)', () => {
       fireEvent.press(getByTestId('chat-stop-button'));
     });
 
-    await waitFor(() => expect(store.getState().aiChat.isLoading).toBe(false));
+    await waitFor(() => expect(chatState(store).isLoading).toBe(false));
     expect(getByTestId('chat-input').props.value).toBe('A different question');
   });
 });
@@ -336,7 +341,7 @@ describe('AIChatTab — showing that the app is still working (GH-447)', () => {
 
     // Regression guard: clearing the previous error used to run after setLoading(true), and
     // setError also clears isLoading — which switched the spinner straight back off.
-    expect(store.getState().aiChat.isLoading).toBe(true);
+    expect(chatState(store).isLoading).toBe(true);
     expect(getByTestId('chat-loading')).toBeTruthy();
     expect(getByTestId('chat-send-button').props.accessibilityState.disabled).toBe(true);
   });
@@ -349,12 +354,12 @@ describe('AIChatTab — showing that the app is still working (GH-447)', () => {
     });
     const {getByTestId, queryByTestId, store} = renderChat();
     await send(getByTestId, 'first');
-    await waitFor(() => expect(store.getState().aiChat.error).toBe('API error (500): boom'));
+    await waitFor(() => expect(chatState(store).error).toBe('API error (500): boom'));
 
     mockSendChatMessage.mockImplementation(hangUntilAborted());
     await send(getByTestId, 'second');
 
-    expect(store.getState().aiChat.error).toBeNull();
+    expect(chatState(store).error).toBeNull();
     expect(queryByTestId('chat-error')).toBeNull();
     expect(getByTestId('chat-loading')).toBeTruthy();
   });

@@ -15,9 +15,10 @@ name: AI-447 A running request can be cancelled and the message resent
     visible: 'Training'
     timeout: 120000
 
-- tapOn: 'Analyse'
+- tapOn: 'tab-analyse'
 - extendedWaitUntil:
-    visible: 'Dashboard'
+    visible:
+      id: 'analyse-drawer-toggle'
     timeout: 30000
 - tapOn:
     id: 'analyse-drawer-toggle'
@@ -30,6 +31,17 @@ name: AI-447 A running request can be cancelled and the message resent
       id: 'chat-input'
     timeout: 20000
 
+# Start from an empty conversation and the smallest context window, so the request that gets
+# cancelled carries a short prompt rather than the whole history plus 28 days of training data.
+- tapOn:
+    id: 'chat-clear-button'
+- tapOn:
+    id: 'chat-filter-toggle'
+- tapOn:
+    id: 'chat-preset-7d'
+- tapOn:
+    id: 'chat-filter-toggle'
+
 # A question with a value unique on this screen, so the restore assertion cannot match
 # some other label by accident.
 - tapOn:
@@ -39,14 +51,10 @@ name: AI-447 A running request can be cancelled and the message resent
 - tapOn:
     id: 'chat-send-button'
 
-# The request is running and a cancel is offered.
-- assertVisible:
-    id: 'chat-loading'
-- assertVisible:
-    id: 'chat-stop-button'
-- takeScreenshot: ai447-cancel-before
-
 # ── Cancel ───────────────────────────────────────────────────────────────────
+# Tap Stop straight away: anything in between (assertions, screenshots) gives the model time
+# to finish, which both defeats the test and spends tokens on an answer nobody wanted.
+# That the Stop button is even there is proven by the tap itself resolving it.
 - tapOn:
     id: 'chat-stop-button'
 

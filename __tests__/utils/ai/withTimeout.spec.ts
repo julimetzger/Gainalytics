@@ -1,4 +1,4 @@
-import {DEFAULT_LLM_TIMEOUT_MS, withTimeout} from '../../../app/utils/ai/withTimeout';
+import {withTimeout} from '../../../app/utils/ai/withTimeout';
 
 /** Resolves once the signal has aborted, so the tests never race the timer. */
 function onAbort(signal: AbortSignal): Promise<void> {
@@ -68,10 +68,5 @@ describe('withTimeout', () => {
     await new Promise(resolve => setTimeout(resolve, 20));
     expect(handle.signal.aborted).toBe(false);
     expect(handle.getCause()).toBeNull();
-  });
-
-  it('defaults to a bound that is generous but finite', () => {
-    expect(DEFAULT_LLM_TIMEOUT_MS).toBeGreaterThanOrEqual(30_000);
-    expect(Number.isFinite(DEFAULT_LLM_TIMEOUT_MS)).toBe(true);
   });
 });

@@ -5,13 +5,20 @@
  */
 
 import {DEFAULT_ANTHROPIC_MODEL} from '../llmApi';
-import {DEFAULT_LLM_TIMEOUT_MS, withTimeout} from './withTimeout';
+import {withTimeout} from './withTimeout';
 import {TRUNCATION_NOTICE, isTruncatedStopReason, trimToCompleteText} from './truncatedText';
+import {extractResponseText} from './extractResponseText';
 
 const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 // GH-376: 1024 truncated typical multi-paragraph coaching answers mid-sentence.
 const CHAT_MAX_TOKENS = 4096;
+/**
+ * GH-447: generous enough that a large model writing a full 4096-token answer is not cut off
+ * by our own deadline, but finite. The user is not made to wait blindly for it — the chat shows
+ * an elapsed counter and a Stop button for the whole duration.
+ */
+export const CHAT_REQUEST_TIMEOUT_MS = 180_000;
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -33,7 +40,7 @@ export type SendChatResult =
 export interface SendChatOptions {
   /** Aborts the request when the user presses Stop. */
   signal?: AbortSignal;
-  /** Upper bound for the request. Defaults to DEFAULT_LLM_TIMEOUT_MS. */
+  /** Upper bound for the request. Defaults to CHAT_REQUEST_TIMEOUT_MS. */
   timeoutMs?: number;
 }
 
@@ -56,7 +63,7 @@ export async function sendChatMessage(
     `[sendChatMessage] context_in_request=${hadContext} system_len=${systemPrompt?.length ?? 0} msg_count=${apiMessages.length}`,
   );
 
-  const timeoutMs = options.timeoutMs ?? DEFAULT_LLM_TIMEOUT_MS;
+  const timeoutMs = options.timeoutMs ?? CHAT_REQUEST_TIMEOUT_MS;
   const deadline = withTimeout(timeoutMs, options.signal);
 
   try {
@@ -100,7 +107,7 @@ export async function sendChatMessage(
     }
 
     const data = await response.json();
-    const rawText: string = data?.content?.[0]?.text ?? '';
+    const rawText = extractResponseText(data);
     // GH-376/GH-449: if the model hit the token cap, end on a complete sentence and say so
     // instead of silently breaking off mid-word with no indication anything is missing.
     const truncated = isTruncatedStopReason(data?.stop_reason);

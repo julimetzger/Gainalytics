@@ -1,0 +1,64 @@
+appId: com.powerliftingworkoutplanner
+name: AI-447 A failed request leaves the chat consistent and resendable
+---
+# GH-447: whatever goes wrong, the chat must not be left in "AI is thinking…" — and whatever
+# the user typed must still be there to send again. This flow forces the failure with airplane
+# mode, so it proves the recovery path without spending a single real model request.
+#
+# Prerequisite: the Anthropic API key is stored in Settings → AI Configuration.
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'AI Chat'
+    timeout: 10000
+- tapOn: 'AI Chat'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 20000
+
+- tapOn:
+    id: 'chat-clear-button'
+
+# ── Take the network away, then send ────────────────────────────────────────
+- setAirplaneMode: enabled
+- tapOn:
+    id: 'chat-input'
+- inputText: 'Summarise micro 4711 in detail'
+- hideKeyboard
+- tapOn:
+    id: 'chat-send-button'
+
+# The request cannot succeed. It must end in a readable message, never an endless spinner.
+- extendedWaitUntil:
+    visible:
+      id: 'chat-error'
+    timeout: 60000
+- assertNotVisible:
+    id: 'chat-loading'
+- assertNotVisible:
+    id: 'chat-stop-button'
+- takeScreenshot: ai447-failure-message
+
+# The conversation is back to its pre-send state: the unanswered question is NOT left behind
+# as a sent bubble, and its exact text is back in the input box ready to resend.
+- assertNotVisible:
+    id: 'chat-bubble-user-text'
+- assertVisible:
+    text: 'Summarise micro 4711 in detail'
+- takeScreenshot: ai447-failure-message-restored
+
+# ── Give the network back and resend the very same message ──────────────────
+- setAirplaneMode: disabled

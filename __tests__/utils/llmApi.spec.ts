@@ -1,4 +1,9 @@
-import {DEFAULT_ANTHROPIC_MODEL, callAnthropicClaude, validateAnthropicApiKey} from '../../app/utils/llmApi';
+import {
+  DEFAULT_ANTHROPIC_MODEL,
+  INSIGHT_REQUEST_TIMEOUT_MS,
+  callAnthropicClaude,
+  validateAnthropicApiKey,
+} from '../../app/utils/llmApi';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch as any;
@@ -114,6 +119,31 @@ describe('callAnthropicClaude — truncation (GH-449)', () => {
     });
   });
 
+  it('returns the answer even when the model reasons first (GH-449, seen on claude-opus-5)', async () => {
+    mockFetch.mockReturnValueOnce(
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            content: [
+              {type: 'thinking', thinking: 'Chest was trained twice this micro…'},
+              {type: 'text', text: 'Chest frequency doubled while back stalled.'},
+            ],
+            stop_reason: 'end_turn',
+          }),
+        text: () => Promise.resolve(''),
+      }),
+    );
+    const result = await callAnthropicClaude('sk-key', 'sys', 'msg', 'claude-opus-5');
+    // Reading content[0].text here produced an insight card with no advice under it.
+    expect(result).toEqual({
+      ok: true,
+      text: 'Chest frequency doubled while back stalled.',
+      truncated: false,
+    });
+  });
+
   it('leaves a complete answer untouched and unflagged', async () => {
     mockFetch.mockReturnValueOnce(
       makeStopReasonResponse('Squat volume stalled. Add a set.', 'end_turn'),
@@ -142,6 +172,11 @@ describe('callAnthropicClaude — a call that never returns (GH-447)', () => {
         });
       });
   }
+
+  it('bounds an insight request finitely', () => {
+    expect(INSIGHT_REQUEST_TIMEOUT_MS).toBeGreaterThanOrEqual(30_000);
+    expect(Number.isFinite(INSIGHT_REQUEST_TIMEOUT_MS)).toBe(true);
+  });
 
   it('passes an abort signal to fetch', async () => {
     mockFetch.mockReturnValueOnce(makeOkResponse('ok'));
