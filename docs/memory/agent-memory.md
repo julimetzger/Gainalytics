@@ -2705,3 +2705,24 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 ### 415. The dashboard's "next training" is not a shortcut to a plannable training
 **Observation (GH-443):** `next-training-start-button` looked like a cheap replacement for the micro-drawer navigation (no scrolling, GH-401 H1 navigates straight to `{micro, training, subTab:'train'}`). On the baseline fixture it leads to M70 "Upper", whose kebab offers only "Edit training"/"Delete" — an already finished training that renders the all-exercises summary, not the ExecuteTraining swiper with the rest-timer card. With the auto-active plan ("Push pull") it points at a training with 0 exercises.
 **Apply when:** tempted to skip the drawer. The route is real but lands wherever the plan's cursor is; a flow that needs a STARTABLE training still has to pick the micro and day explicitly.
+
+### 416. `evalScript: |` blocks do NOTHING on this Maestro build — the script must be a quoted `"${...}"` (corrects #404)
+**Problem (GH-443):** every `output.*` set inside a `- evalScript: |` block came back `undefined`, so `assertTrue: ${output.verdict == 'PASS'}` compared undefined to a string and failed as the unhelpful `Assertion is false: false is true`. The flow could never have passed, no matter how the app behaved — and a whole round's "the fix is verified" rested on it. #404's advice (interpolate `${maestro.copiedText}`) does not fix this and its block-form example is wrong.
+**Working solution:** one quoted interpolation per step, statements separated by `;`:
+`- evalScript: "${var s = maestro.copiedText; var p = s.split(':'); output.elapsed = 90 - (parseInt(p[0],10)*60 + parseInt(p[1],10))}"`.
+`maestro` IS a live object inside it (`maestro.copiedText` reads directly — no interpolation), `${output.x}` then resolves in later steps, and `${output.x == 'PASS'}` evaluates. Nesting `${...}` INSIDE the expression makes the step fail in ~4 s with no message; unquoted `${...}` fails YAML parsing ("Parsing Failed").
+**Apply when:** any flow that computes or compares a value. Probe the mechanism once with `- assertVisible: text: "v=${output.x}"` — the failure message prints the resolved value, which is the only way to see it.
+
+### 417. An assertion that can only pass on a state nobody re-checked is worse than no assertion
+**Observation (GH-443 round 4):** the flow addressed logged rows as `add-workout-set-reps-input-3` because a previous round had derived "the first logged set is set 3" from the fixture (#413). The fixture on master had changed since: `PlannedSetTarget` now renders for that exercise, so the first logged set is set **1**. The flow failed on a selector, not on behaviour, and the failure said nothing about why. Planned rows also render through the same component, so `...-1`/`...-2` exist BEFORE anything is logged — "a numbered row is visible" does not mean "a set is logged".
+**Working solution:** open the flow with a precondition that pins the starting state in the flow's own language — here `assertVisible: {id: 'add-workout-set-reps-input-1', text: '13'}`, the PLANNED reps. A stale state or a changed fixture then fails on the first assertion with a readable reason instead of deep inside the run.
+**Apply when:** any flow whose selectors encode a number derived from fixture data.
+
+### 418. The numeric keyboard covers the rest timer card — reads after a row edit come back empty
+**Problem (GH-443):** after committing a set correction via `add-workout-set-confirm-N`, the keyboard stays up and hides the whole RestTimerCard. `copyTextFrom: {id: 'rest-progress-ring-text'}` then yields an empty string, the elapsed-seconds arithmetic becomes NaN, and every comparison against it is false — indistinguishable from "the timer jumped back". The evidence screenshot taken there shows a keyboard, not a timer.
+**Working solution:** `hideKeyboard` + `waitForAnimationToEnd` after the confirm tap, before reading or photographing the ring. The new-set path already did this before submitting; the correction path needs it too.
+**Apply when:** reading or screenshotting anything below the set rows right after a row edit.
+
+### 419. A JS-only fix needs no Gradle build — the installed debug APK plus the worktree's Metro is the current code
+**Observation (GH-443 round 4):** the round-3 row budgeted ~11 min for `assembleDebug`. Nothing in this ticket touches native code, and the debug APK loads its bundle from Metro at runtime, so the APK installed two weeks earlier plus this worktree's own Metro (reverse `tcp:8081` → host `8084`) already ran the branch's code — confirmed by the new suffixed row testIDs resolving on the device. Zero build time all round.
+**Apply when:** the diff is limited to `app/**` TS/TSX. Rebuild only for native/manifest/dependency changes, and prove the JS is current with a testID or string that only the new code renders.
