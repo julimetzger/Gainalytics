@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {View} from 'react-native';
-import AddWorkout from '../../Workout/add/AddWorkout';
+import AddWorkout, {SubmitSetContext} from '../../Workout/add/AddWorkout';
 import {useWorkoutById} from '../../../redux/Workout/use/useWorkoutById';
 import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId';
 import {usePersistedUnfinishedWorkout, useUnfinishedWorkout} from '../../../redux/Workout/use/useUnfinishedWorkout';
@@ -104,12 +104,20 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
     setLastTrainingOneRm(value > 0 ? value : undefined);
   }, []);
 
-  const handleSubmitSet = (workoutSet: WorkoutSet) => {
+  const handleSubmitSet = (workoutSet: WorkoutSet, context?: SubmitSetContext) => {
     onSubmitSet?.(workoutSet);
     // GH-323: adding/editing a set in edit mode must not start a rest timer
     // or schedule a rest notification - the Rest Timer card is hidden here,
     // so there is no UI to reset/skip a timer that starts in the background.
     if (editMode) {
+      return;
+    }
+    // GH-443: the rest starts when a set is LOGGED. Correcting a set that was
+    // already logged re-submits it through this same handler (an edited row
+    // even auto-submits on blur), which used to restart the running rest and
+    // throw away the time the user had already rested. Only a genuinely new
+    // set restarts the clock — and its notification.
+    if (context?.isExistingSet) {
       return;
     }
     startRestTimer({

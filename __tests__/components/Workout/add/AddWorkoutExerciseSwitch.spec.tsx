@@ -20,6 +20,7 @@ const mockAddOrUpdateSetSpy = jest.fn();
 
 jest.mock('../../../../app/redux/Workout/use/useUnfinishedWorkout', () => ({
   useUnfinishedWorkout: jest.fn(() => undefined),
+  usePersistedUnfinishedWorkout: jest.fn(() => undefined),
 }));
 
 jest.mock('../../../../app/redux/Workout/use/useAllLastWorkouts', () => ({

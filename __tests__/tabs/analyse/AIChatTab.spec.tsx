@@ -226,6 +226,20 @@ jest.mock('react-native-paper', () => {
       ({testID, ...props}: any) => React.createElement(View, {testID}),
       {Icon: () => null},
     ),
+    // GH-391 added two Portal dialogs to the tab; they are covered by their own
+    // suite, here they only have to mount.
+    Portal: ({children}: any) => React.createElement(View, null, children),
+    Button: ({children, onPress, testID}: any) => React.createElement(Text, {onPress, testID}, children),
+    List: {
+      Item: ({title, testID, onPress}: any) => React.createElement(Text, {testID, onPress}, title),
+      Icon: () => null,
+    },
+    Dialog: Object.assign(({children, visible}: any) => (visible ? React.createElement(View, null, children) : null), {
+      Title: ({children}: any) => React.createElement(View, null, children),
+      Content: ({children}: any) => React.createElement(View, null, children),
+      ScrollArea: ({children}: any) => React.createElement(View, null, children),
+      Actions: ({children}: any) => React.createElement(View, null, children),
+    }),
   };
 });
 
