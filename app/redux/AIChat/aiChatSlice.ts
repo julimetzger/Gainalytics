@@ -74,6 +74,16 @@ const aiChatSlice = createSlice({
       state.error = action.payload;
       state.isLoading = false;
     },
+    /** GH-447: after a cancel, timeout or error the request produced no reply, so the user
+     *  message that triggered it is rolled back. The conversation returns to exactly its
+     *  pre-send state and the UI can put the text back in the input box to resend. */
+    rollbackPendingUserMessage(state) {
+      const last = state.messages[state.messages.length - 1];
+      if (last?.role === 'user') {
+        state.messages.pop();
+      }
+      state.isLoading = false;
+    },
     clearChat(state) {
       state.messages = [];
       state.isLoading = false;
@@ -138,6 +148,7 @@ export const {
   appendMessage,
   setLoading,
   setError,
+  rollbackPendingUserMessage,
   clearChat,
   setSeedContextJson,
   setContextRange,

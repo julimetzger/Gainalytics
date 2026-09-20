@@ -5,11 +5,20 @@
  */
 
 import {DEFAULT_ANTHROPIC_MODEL} from '../llmApi';
+import {withTimeout} from './withTimeout';
+import {TRUNCATION_NOTICE, isTruncatedStopReason, trimToCompleteText} from './truncatedText';
+import {extractResponseText} from './extractResponseText';
 
 const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 // GH-376: 1024 truncated typical multi-paragraph coaching answers mid-sentence.
 const CHAT_MAX_TOKENS = 4096;
+/**
+ * GH-447: generous enough that a large model writing a full 4096-token answer is not cut off
+ * by our own deadline, but finite. The user is not made to wait blindly for it — the chat shows
+ * an elapsed counter and a Stop button for the whole duration.
+ */
+export const CHAT_REQUEST_TIMEOUT_MS = 180_000;
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -18,18 +27,32 @@ export interface ChatMessage {
   hadContext?: boolean;
 }
 
+/**
+ * GH-447: the chat has to react differently to a user cancel than to a failure, so the
+ * failure carries its kind rather than only a message.
+ */
+export type SendChatFailureKind = 'no_key' | 'aborted' | 'timeout' | 'error';
+
 export type SendChatResult =
-  | {ok: true; text: string; hadContext: boolean}
-  | {ok: false; error: string};
+  | {ok: true; text: string; hadContext: boolean; truncated: boolean}
+  | {ok: false; kind: SendChatFailureKind; error: string};
+
+export interface SendChatOptions {
+  /** Aborts the request when the user presses Stop. */
+  signal?: AbortSignal;
+  /** Upper bound for the request. Defaults to CHAT_REQUEST_TIMEOUT_MS. */
+  timeoutMs?: number;
+}
 
 export async function sendChatMessage(
   messages: ChatMessage[],
   apiKey: string,
   systemPrompt?: string,
   model: string = DEFAULT_ANTHROPIC_MODEL,
+  options: SendChatOptions = {},
 ): Promise<SendChatResult> {
   if (!apiKey || apiKey.trim() === '') {
-    return {ok: false, error: 'No API key configured.'};
+    return {ok: false, kind: 'no_key', error: 'No API key configured.'};
   }
 
   const hadContext = Boolean(systemPrompt && systemPrompt.includes('Analysis context'));
@@ -39,6 +62,9 @@ export async function sendChatMessage(
   console.log(
     `[sendChatMessage] context_in_request=${hadContext} system_len=${systemPrompt?.length ?? 0} msg_count=${apiMessages.length}`,
   );
+
+  const timeoutMs = options.timeoutMs ?? CHAT_REQUEST_TIMEOUT_MS;
+  const deadline = withTimeout(timeoutMs, options.signal);
 
   try {
     const bodyPayload: Record<string, unknown> = {
@@ -58,13 +84,14 @@ export async function sendChatMessage(
         'anthropic-version': ANTHROPIC_VERSION,
       },
       body: JSON.stringify(bodyPayload),
+      signal: deadline.signal,
     });
 
     if (response.status === 401) {
-      return {ok: false, error: 'Invalid API key. Check your settings.'};
+      return {ok: false, kind: 'error', error: 'Invalid API key. Check your settings.'};
     }
     if (response.status === 429) {
-      return {ok: false, error: 'API rate limit reached. Try again later.'};
+      return {ok: false, kind: 'error', error: 'API rate limit reached. Try again later.'};
     }
     if (!response.ok) {
       const errorBody = await response.text().catch(() => 'Unknown error');
@@ -72,22 +99,37 @@ export async function sendChatMessage(
       if (invalidModelMessage) {
         return {
           ok: false,
+          kind: 'error',
           error: `Invalid model "${model}": ${invalidModelMessage} Check the Claude Model field in Settings.`,
         };
       }
-      return {ok: false, error: `API error (${response.status}): ${errorBody}`};
+      return {ok: false, kind: 'error', error: `API error (${response.status}): ${errorBody}`};
     }
 
     const data = await response.json();
-    let text: string = data?.content?.[0]?.text ?? '';
-    // GH-376: if the model still hit the token cap, say so instead of silently
-    // ending mid-sentence with no indication anything is missing.
-    if (data?.stop_reason === 'max_tokens') {
-      text += '\n\n_(Response was cut off because it reached the length limit.)_';
-    }
-    return {ok: true, text, hadContext};
+    const rawText = extractResponseText(data);
+    // GH-376/GH-449: if the model hit the token cap, end on a complete sentence and say so
+    // instead of silently breaking off mid-word with no indication anything is missing.
+    const truncated = isTruncatedStopReason(data?.stop_reason);
+    const text = truncated
+      ? `${trimToCompleteText(rawText)}\n\n_(${TRUNCATION_NOTICE})_`
+      : rawText;
+    return {ok: true, text, hadContext, truncated};
   } catch (e: any) {
-    return {ok: false, error: `Network error: ${e?.message ?? 'Unknown'}`};
+    const cause = deadline.getCause();
+    if (cause === 'caller') {
+      return {ok: false, kind: 'aborted', error: 'Request cancelled.'};
+    }
+    if (cause === 'timeout') {
+      return {
+        ok: false,
+        kind: 'timeout',
+        error: `The model did not answer within ${Math.round(timeoutMs / 1000)}s. Check your connection, or try a faster model in Settings.`,
+      };
+    }
+    return {ok: false, kind: 'error', error: `Network error: ${e?.message ?? 'Unknown'}`};
+  } finally {
+    deadline.cleanup();
   }
 }
 

@@ -11,6 +11,8 @@ const key = (cacheKey: string | number) => `insight_${cacheKey}`;
 export interface CachedInsight {
   text: string;
   generatedAt: number; // Unix ms
+  /** GH-449: true when the model hit its token cap, so the card can say the advice is short. */
+  truncated?: boolean;
 }
 
 /**

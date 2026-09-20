@@ -3,6 +3,7 @@ import reducer, {
   clearChat,
   setError,
   setLoading,
+  rollbackPendingUserMessage,
   setSeedContextJson,
   setContextRange,
   setIncludePlannedTrainings,
@@ -324,5 +325,85 @@ describe('aiChatSlice — chat history (GH-293)', () => {
     const state: AIChatState = {...initial, selectedTrainingId: 42};
     const result = reducer(state, startChatWithContext({insightText: 'insight', seedContextJson: null}));
     expect(result.selectedTrainingId).toBeNull();
+  });
+});
+
+/**
+ * GH-447: a cancel, a timeout or an error all mean "no reply arrived". The conversation must
+ * go back to exactly what it looked like before Send, so the message can simply be sent again.
+ */
+describe('aiChatSlice — rollbackPendingUserMessage (GH-447)', () => {
+  it('removes the unanswered user message and clears loading', () => {
+    const sending: AIChatState = {
+      ...initial,
+      messages: [
+        {role: 'user', content: 'How is my squat?'},
+        {role: 'assistant', content: 'Progressing well.'},
+        {role: 'user', content: 'And my bench?'},
+      ],
+      isLoading: true,
+    };
+
+    expect(reducer(sending, rollbackPendingUserMessage())).toEqual({
+      ...initial,
+      messages: [
+        {role: 'user', content: 'How is my squat?'},
+        {role: 'assistant', content: 'Progressing well.'},
+      ],
+      isLoading: false,
+    });
+  });
+
+  it('restores an empty chat when the very first message went unanswered', () => {
+    const sending: AIChatState = {
+      ...initial,
+      messages: [{role: 'user', content: 'Hi'}],
+      isLoading: true,
+    };
+
+    expect(reducer(sending, rollbackPendingUserMessage())).toEqual({...initial, messages: []});
+  });
+
+  it('keeps a trailing assistant message — only an unanswered user turn is rolled back', () => {
+    const answered: AIChatState = {
+      ...initial,
+      messages: [
+        {role: 'user', content: 'Hi'},
+        {role: 'assistant', content: 'Hello!'},
+      ],
+      isLoading: true,
+    };
+
+    expect(reducer(answered, rollbackPendingUserMessage())).toEqual({
+      ...initial,
+      messages: [
+        {role: 'user', content: 'Hi'},
+        {role: 'assistant', content: 'Hello!'},
+      ],
+      isLoading: false,
+    });
+  });
+
+  it('is a no-op on an empty conversation', () => {
+    expect(reducer({...initial, isLoading: true}, rollbackPendingUserMessage())).toEqual(initial);
+  });
+
+  it('leaves the seeded context and the chosen range alone', () => {
+    const seeded: AIChatState = {
+      ...initial,
+      messages: [
+        {role: 'assistant', content: 'Insight'},
+        {role: 'user', content: 'Explain that'},
+      ],
+      isLoading: true,
+      seedContextJson: '{"trainings":[]}',
+      contextRange: {startDate: '2026-01-01T00:00:00.000Z', endDate: '2026-01-28T00:00:00.000Z'},
+    };
+
+    expect(reducer(seeded, rollbackPendingUserMessage())).toEqual({
+      ...seeded,
+      messages: [{role: 'assistant', content: 'Insight'}],
+      isLoading: false,
+    });
   });
 });

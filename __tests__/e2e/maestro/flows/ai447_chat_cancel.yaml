@@ -1,0 +1,79 @@
+appId: com.powerliftingworkoutplanner
+name: AI-447 A running request can be cancelled and the message resent
+---
+# GH-447: a running request had no cancel at all. This flow proves the Stop button ends the
+# request immediately, and that the chat comes back to its pre-send state — the unanswered
+# question is back in the input box, ready to send again.
+#
+# Prerequisite: the Anthropic API key is stored in Settings.
+# Cost note: the request is cancelled within a second, so it produces almost no output tokens.
+# It runs against whatever model is configured; the default model is enough to prove cancelling.
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'AI Chat'
+    timeout: 10000
+- tapOn: 'AI Chat'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 20000
+
+# Start from an empty conversation and the smallest context window, so the request that gets
+# cancelled carries a short prompt rather than the whole history plus 28 days of training data.
+- tapOn:
+    id: 'chat-clear-button'
+- tapOn:
+    id: 'chat-filter-toggle'
+- tapOn:
+    id: 'chat-preset-7d'
+- tapOn:
+    id: 'chat-filter-toggle'
+
+# A question with a value unique on this screen, so the restore assertion cannot match
+# some other label by accident.
+- tapOn:
+    id: 'chat-input'
+- inputText: 'Summarise micro 4711 in detail'
+- hideKeyboard
+- tapOn:
+    id: 'chat-send-button'
+
+# ── Cancel ───────────────────────────────────────────────────────────────────
+# Tap Stop straight away: anything in between (assertions, screenshots) gives the model time
+# to finish, which both defeats the test and spends tokens on an answer nobody wanted.
+# That the Stop button is even there is proven by the tap itself resolving it.
+- tapOn:
+    id: 'chat-stop-button'
+
+# The chat is immediately usable again: no spinner, no elapsed counter, no Stop button.
+- extendedWaitUntil:
+    notVisible:
+      id: 'chat-loading'
+    timeout: 15000
+- assertNotVisible:
+    id: 'chat-loading-elapsed'
+- assertNotVisible:
+    id: 'chat-stop-button'
+
+# The conversation is consistent again and the message can be resent — assert the actual
+# restored value. `copyTextFrom` on a Paper TextInput reads the wrapper and silently yields ""
+# (agent-memory #385), so match the restored string on screen instead.
+- assertVisible:
+    text: 'Summarise micro 4711 in detail'
+# The rolled-back question must be in the input box, not left behind as a sent bubble.
+- assertNotVisible:
+    id: 'chat-bubble-user-text'
+- takeScreenshot: ai447-cancel-after-restored

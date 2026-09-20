@@ -1,0 +1,94 @@
+appId: com.powerliftingworkoutplanner
+name: AI-447 Chat leaves the loading state with the reported large model
+---
+# GH-447: with a larger model entered in Settings the chat used to sit in "AI is thinking…"
+# forever — no text, no error, no way to cancel. This flow proves that with exactly the
+# reported model (claude-opus-5) the chat shows live progress and then leaves the loading
+# state with a real answer.
+#
+# Prerequisites on the device:
+#   - the Anthropic API key is stored in Settings → AI Configuration
+#   - the Claude Model field is set to claude-opus-5
+#   - baseline.gains has been imported (00_import_baseline.yaml)
+#
+# Cost: ONE real request to the large model. The conversation is cleared and the context
+# window is narrowed to 7 days first, so both the prompt and the answer stay small.
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+
+# ── Confirm the reported model is the one configured ─────────────────────────
+# The value is a precondition of the run (see header) rather than something this flow types:
+# Maestro's `eraseText` clears only backwards from where the tap put the cursor, which silently
+# leaves a tail of the previous model id behind (observed: "claude-opus-551001").
+- tapOn: 'tab-settings'
+- extendedWaitUntil:
+    visible: 'AI Configuration'
+    timeout: 20000
+- tapOn: 'AI Configuration'
+- scrollUntilVisible:
+    element:
+      id: 'settings-anthropic-model-input'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    text: 'claude-opus-5'
+- takeScreenshot: ai447-settings-model-opus5
+
+# ── Open the AI Chat ─────────────────────────────────────────────────────────
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'AI Chat'
+    timeout: 10000
+- tapOn: 'AI Chat'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 20000
+
+# Start from an empty conversation and the smallest context window, so this run sends a
+# short prompt rather than the whole history plus 28 days of training data.
+- tapOn:
+    id: 'chat-clear-button'
+- tapOn:
+    id: 'chat-filter-toggle'
+- tapOn:
+    id: 'chat-preset-7d'
+- tapOn:
+    id: 'chat-filter-toggle'
+
+- tapOn:
+    id: 'chat-input'
+- inputText: 'Answer with the single word READY'
+- hideKeyboard
+- tapOn:
+    id: 'chat-send-button'
+
+# While the request runs the app must visibly be working: an elapsed counter and a Stop button.
+- assertVisible:
+    id: 'chat-stop-button'
+- assertVisible:
+    text: 'AI is thinking….*'
+- takeScreenshot: ai447-chat-loading-with-elapsed
+
+# ── The core assertion: the chat leaves the loading state ────────────────────
+- extendedWaitUntil:
+    notVisible:
+      id: 'chat-loading'
+    timeout: 190000
+- assertNotVisible:
+    id: 'chat-stop-button'
+
+# An answer actually arrived — assert its value, not just that a bubble exists.
+- assertVisible:
+    text: '.*READY.*'
+- takeScreenshot: ai447-chat-answer-arrived
