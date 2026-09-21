@@ -8,6 +8,7 @@ import {Muscles} from '../../models/Muscles';
 import RangeSwiper from '../../components/RangeSwiper';
 import {firstDayOfWeek, lastDayOfWeek} from '../../utils/DateHelper';
 import MetricsNode from '../../components/analyse/MetricsNode';
+import MetricsActiveFilterLabel from '../../components/analyse/MetricsActiveFilterLabel';
 
 interface MetricsTabContentProps {
   initialMuscle?: Muscles;
@@ -20,7 +21,12 @@ const MetricsTabContent = ({initialMuscle, initialRange}: MetricsTabContentProps
 
   return (
     <RangeSwiper
-      notSwipeableContent={<TrainingElementPicker exercise={exercise} setExercise={setExercise} muscle={muscle} setMuscle={setMuscle} />}
+      notSwipeableContent={
+        <>
+          <TrainingElementPicker exercise={exercise} setExercise={setExercise} muscle={muscle} setMuscle={setMuscle} />
+          <MetricsActiveFilterLabel muscle={muscle} exercise={exercise} />
+        </>
+      }
       nodeFunction={(range: Range, setRange: (range: Range) => void) => <MetricsNode range={range} setRange={setRange} exercise={exercise} muscle={muscle} />}
       determineValueByIndex={(index: number, range: Range) => {
         if (index === 0) {

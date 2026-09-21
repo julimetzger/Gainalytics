@@ -6,8 +6,6 @@ import MetricsOverviewForWorkouts from './MetricsOverviewForWorkouts';
 import {Muscles} from '../../models/Muscles';
 import {Exercise} from '../../models/entities/Exercise';
 import React from 'react';
-import {StyleSheet} from 'react-native';
-import {Text} from 'react-native-paper';
 import AnalyseEmptyState from './AnalyseEmptyState';
 import AnalyseStaleRangeBanner from './AnalyseStaleRangeBanner';
 import {ANALYSE_EXTENDED_RANGE_MONTHS, describeRange, rangeEndingToday} from '../../utils/analyse-range';
@@ -36,17 +34,10 @@ const MetricsNode = ({range, setRange, muscle, exercise}: MetricNodeProps) => {
   let uniqueWorkouts = getUniquewRokoutsIn(range);
   let previousUniqueWorkouts = getUniquewRokoutsIn(range.minusRange());
 
-  // GH-458 (H4): the dashboard drill-down preselects a muscle here. Spelling the
-  // active filter out gives the user — and an e2e assertion — the actual value
-  // the screen is showing, instead of the picker's opaque "1 selected".
   const selectedNames = [...muscle.map(String), ...exercise.map((it) => it.name)];
-  const filterLabel = selectedNames.length > 0 ? `Showing: ${selectedNames.join(', ')}` : 'Showing: all exercises';
 
   return (
     <>
-      <Text style={styles.filterLabel} testID="metrics-active-filter">
-        {filterLabel}
-      </Text>
       <DateRangePicker range={range} setRange={setRange} />
       <AnalyseStaleRangeBanner range={range} isEmpty={uniqueWorkouts.length === 0} onApplyRange={setRange} testID="metrics-stale-range-banner" />
       <MetricsOverviewForWorkouts
@@ -71,12 +62,5 @@ const MetricsNode = ({range, setRange, muscle, exercise}: MetricNodeProps) => {
     </>
   );
 };
-
-const styles = StyleSheet.create({
-  filterLabel: {
-    marginHorizontal: 12,
-    marginTop: 8,
-  },
-});
 
 export default MetricsNode;

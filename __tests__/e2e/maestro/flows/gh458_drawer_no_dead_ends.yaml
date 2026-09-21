@@ -1,0 +1,176 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-458 H1/H2: every Analyse drawer entry must be safe to open with no prior
+# selection.
+#
+# Before: "Video Analysis Detail" threw `Cannot read property 'analysisId' of
+# undefined` and left a white screen with no drawer and no header — the app had
+# to be killed from the task switcher. "Compare Analyses" showed the bare
+# sentence "One or both analyses not found." with no cause and no way forward.
+# `analyse_date_range_picker.yaml` documents that crash as the reason it avoids
+# the drawer entirely.
+#
+# Both are detail screens of the Video Analyses list, so the drawer no longer
+# offers them. This flow asserts they are gone, then opens EVERY remaining entry
+# with no prior selection and proves the drawer toggle survives each one.
+
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+
+# The emulator raises "System UI isn't responding" under load; while that
+# window holds focus Maestro's hierarchy never contains the app, and every
+# assertion fails for a reason that has nothing to do with the app.
+- runFlow:
+    when:
+      visible: 'Wait'
+    commands:
+      - tapOn: 'Wait'
+      - waitForAnimationToEnd
+
+# The emulator raises "System UI isn't responding" under load; while that
+# window holds focus Maestro's hierarchy never contains the app, and every
+# assertion fails for a reason that has nothing to do with the app.
+- runFlow:
+    when:
+      visible: 'Wait'
+    commands:
+      - tapOn: 'Wait'
+      - waitForAnimationToEnd
+
+# A cold start after a device reboot needs well over the default timeout
+# before the tab bar exists.
+# `tab-analyse` resolves as accessibility TEXT on this build, not as a
+# resource-id, so the bare-string form is the one that matches.
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 90000
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 30000
+
+# ---------------------------------------------------------------- the drawer
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: 'Training Length'
+    timeout: 15000
+- takeScreenshot: gh458_01_drawer
+
+# The two entries that led into the crash and the dead end are gone …
+- assertNotVisible: 'Video Analysis Detail'
+- assertNotVisible: 'Compare Analyses'
+# … while the list they belong to is still offered.
+- assertVisible: 'Video Analyses'
+
+# ------------------------------------------------- open every remaining entry
+# Each block: open the drawer, tap the entry, wait for the screen, prove the
+# navigation chrome is still there, and photograph the result.
+
+- tapOn: 'Metrics Overview'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 20000
+- assertVisible:
+    id: 'metrics-active-filter'
+- takeScreenshot: gh458_02_metrics
+
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Training Length'
+    timeout: 15000
+- tapOn: 'Training Length'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'training-length-screen'
+    timeout: 20000
+- assertVisible:
+    id: 'analyse-drawer-toggle'
+- takeScreenshot: gh458_03_training_length
+
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Records'
+    timeout: 15000
+- tapOn: 'Records'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 20000
+- takeScreenshot: gh458_04_records
+
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'History'
+    timeout: 15000
+- tapOn: 'History'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 20000
+- takeScreenshot: gh458_05_history
+
+# Video Analyses is the list that owns the two removed detail screens. Opening
+# it from the drawer is safe, and it is still the way to reach them.
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Video Analyses'
+    timeout: 15000
+- tapOn: 'Video Analyses'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 20000
+- takeScreenshot: gh458_06_video_analyses
+
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Chat History'
+    timeout: 15000
+- tapOn: 'Chat History'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 20000
+- takeScreenshot: gh458_07_chat_history
+
+# Back to the Dashboard: a full cycle through the drawer with the navigation
+# still intact is the proof that no entry stranded the user.
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 15000
+- tapOn: 'Dashboard'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'dashboard-scroll'
+    timeout: 20000
+- assertVisible:
+    id: 'analyse-drawer-toggle'
+- takeScreenshot: gh458_08_back_on_dashboard

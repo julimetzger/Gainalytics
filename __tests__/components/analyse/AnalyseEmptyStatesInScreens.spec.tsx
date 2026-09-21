@@ -5,6 +5,7 @@ import {Provider} from 'react-redux';
 import {AnyAction, createStore} from 'redux';
 import DashboardTab from '../../../app/tabs/Analyse/DashboardTab';
 import MetricsNode from '../../../app/components/analyse/MetricsNode';
+import MetricsActiveFilterLabel from '../../../app/components/analyse/MetricsActiveFilterLabel';
 import {Range} from '../../../app/components/picker/date/DateRangePicker';
 import rootReducer, {GlobalState} from '../../../app/redux/rootReducer';
 import {Workout} from '../../../app/models/entities/Workout';
@@ -114,14 +115,19 @@ describe('Metrics Overview on an empty period (GH-458 H3/H4)', () => {
     expect(getByTestId('metrics-empty-extend-range')).toBeTruthy();
   });
 
+  /**
+   * The label lives next to the picker rather than inside the RangeSwiper pane:
+   * content in that pane is not exposed to the Android accessibility tree, so a
+   * label placed there is invisible to a screen reader and to an e2e assertion.
+   */
   it('spells out the active filter, so a drill-down is visible as such', () => {
-    const {getByTestId} = renderNode(makeState([]), [Muscles.QUADS]);
+    const {getByTestId} = renderWithStore(makeState([]), <MetricsActiveFilterLabel muscle={[Muscles.QUADS]} exercise={[]} />);
 
     expect(getByTestId('metrics-active-filter').props.children).toBe('Showing: Quads');
   });
 
   it('says "all exercises" when nothing is filtered', () => {
-    const {getByTestId} = renderNode(makeState([]));
+    const {getByTestId} = renderWithStore(makeState([]), <MetricsActiveFilterLabel muscle={[]} exercise={[]} />);
 
     expect(getByTestId('metrics-active-filter').props.children).toBe('Showing: all exercises');
   });
