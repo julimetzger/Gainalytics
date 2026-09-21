@@ -318,7 +318,7 @@ const VideoAnalysisTab = () => {
     () => (
       <View style={styles.header}>
         <Searchbar
-          placeholder="Search by exercise or RIR (e.g. Bank 1)"
+          placeholder="Search by exercise or RIR (e.g. Bench 1)"
           value={searchQuery}
           onChangeText={setSearchQuery}
           testID="video-analysis-search-bar"

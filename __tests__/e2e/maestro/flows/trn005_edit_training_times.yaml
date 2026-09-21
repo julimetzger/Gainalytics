@@ -96,7 +96,7 @@ appId: com.powerliftingworkoutplanner
     timeout: 30000
 - tapOn: 'tab-analyse'
 - extendedWaitUntil:
-    visible: 'Analyse'
+    visible: 'Analysis'
     timeout: 30000
 - tapOn:
     id: 'analyse-drawer-toggle'

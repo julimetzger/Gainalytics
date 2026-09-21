@@ -10,7 +10,7 @@ appId: com.powerliftingworkoutplanner
     timeout: 60000
 
 # Navigate to Analyse tab
-- tapOn: "Analyse"
+- tapOn: "Analysis"
 
 # Wait for Dashboard to load
 - extendedWaitUntil:

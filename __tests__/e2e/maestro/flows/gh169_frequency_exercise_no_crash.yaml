@@ -32,9 +32,9 @@ appId: com.powerliftingworkoutplanner
       - tapOn:
           id: 'analyse-drawer-toggle'
       - extendedWaitUntil:
-          visible: 'Analyse'
+          visible: 'Analysis'
           timeout: 10000
-      - tapOn: 'Analyse'
+      - tapOn: 'Analysis'
 - runFlow:
     when:
       visible: 'Alle Metriken'
@@ -42,9 +42,9 @@ appId: com.powerliftingworkoutplanner
       - tapOn:
           id: 'analyse-drawer-toggle'
       - extendedWaitUntil:
-          visible: 'Analyse'
+          visible: 'Analysis'
           timeout: 10000
-      - tapOn: 'Analyse'
+      - tapOn: 'Analysis'
 - extendedWaitUntil:
     visible: 'Select Exercises, Metrics, Accumulation Mode'
     timeout: 20000
