@@ -15,6 +15,9 @@ import TopExercisesCard from './dashboard/TopExercisesCard';
 import FocusExercisesCard from './dashboard/FocusExercisesCard';
 import RecordsBadge from './dashboard/RecordsBadge';
 import {Exercise} from '../../models/entities/Exercise';
+import {useLastWorkoutDate} from '../../redux/Workout/use/useLastWorkoutDate';
+import AnalyseStaleRangeBanner from '../../components/analyse/AnalyseStaleRangeBanner';
+import {rangeEndingAt} from '../../utils/analyse-range';
 
 const DashboardTab = () => {
   const navigation = useNavigation<any>();
@@ -26,6 +29,7 @@ const DashboardTab = () => {
   const previousWorkouts = useWorkoutsIn(previousWeekRange);
   const currentTrainings = useCompletedTrainingsIn(currentWeekRange);
   const previousTrainings = useCompletedTrainingsIn(previousWeekRange);
+  const lastWorkoutDate = useLastWorkoutDate();
 
   const exerciseIds = useMemo(
     () => [...new Set([...currentWorkouts, ...previousWorkouts].map((w) => w.exerciseId))],
@@ -54,8 +58,23 @@ const DashboardTab = () => {
 
   const muscleMetricMap = useMemo(() => calculateMetricComparisonsForMuscle(exerciseWorkoutMap), [exerciseWorkoutMap]);
 
+  // GH-458 (H4): the chip used to navigate to Metrics with no muscle and no
+  // range, so the "details" the label promises were an empty, unfiltered table.
+  // Hand over the muscle, plus a range that actually contains sets: this week
+  // when the user trained this week, otherwise the three months up to their last
+  // logged workout.
+  const drilldownRange = useMemo(
+    () => (currentWorkouts.length > 0 || lastWorkoutDate === undefined ? currentWeekRange : rangeEndingAt(lastWorkoutDate)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentWorkouts.length, lastWorkoutDate?.getTime()],
+  );
+
   const handleMusclePress = (muscle: Muscles) => {
-    navigation.navigate('Metrics');
+    navigation.navigate('Metrics', {
+      muscle,
+      rangeStartMs: drilldownRange.startDate.getTime(),
+      rangeEndMs: drilldownRange.endDate.getTime(),
+    });
   };
 
   const handleExercisePress = (exercise: Exercise) => {
@@ -64,6 +83,23 @@ const DashboardTab = () => {
 
   return (
     <ScrollView style={styles.container} testID="dashboard-scroll">
+      {/* GH-458 (H5): the Dashboard is the entry point of the Analyse area and
+          always shows the current week. For a returning user that week is
+          empty and, before this, looked exactly like an empty account. The
+          banner names the last training date and opens the Metrics Overview on
+          a period that holds data. */}
+      <AnalyseStaleRangeBanner
+        range={currentWeekRange}
+        isEmpty={currentWorkouts.length === 0}
+        actionLabel="Show that period"
+        onApplyRange={(suggestedRange) =>
+          navigation.navigate('Metrics', {
+            rangeStartMs: suggestedRange.startDate.getTime(),
+            rangeEndMs: suggestedRange.endDate.getTime(),
+          })
+        }
+      />
+
       <WeeklySummaryCard
         currentTrainings={currentTrainings}
         previousTrainings={previousTrainings}

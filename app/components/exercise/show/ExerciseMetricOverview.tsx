@@ -5,24 +5,27 @@ import MetricView from '../../analyse/MetricComparison';
 import {Comparison} from '../../analyse/MetricsOverviewForWorkouts';
 import {Metric} from '../../../models/Metric';
 import {Exercise} from '../../../models/entities/Exercise';
+import {describeComparisonPeriod, getMetricHeaderLabel} from '../../../utils/metric-format';
 
 interface ExerciseMetricOverviewProps {
   exerciseMetricMap: Map<Exercise, Map<Metric, Comparison>>;
   metrics: Metric[];
   onMetricHeaderPress: (slotIndex: number) => void;
+  /** GH-458 (H7): names the period every delta in this table compares against. */
+  comparisonRangeLabel?: string;
 }
 
-const ExerciseMetricOverview = ({exerciseMetricMap, metrics, onMetricHeaderPress}: ExerciseMetricOverviewProps) => {
+const ExerciseMetricOverview = ({exerciseMetricMap, metrics, onMetricHeaderPress, comparisonRangeLabel}: ExerciseMetricOverviewProps) => {
   return (
     <Card style={styles.card}>
-      <Card.Title title="Exercise Overview" />
+      <Card.Title title="Exercise Overview" subtitle={comparisonRangeLabel ? describeComparisonPeriod(comparisonRangeLabel) : undefined} subtitleNumberOfLines={2} />
       <Card.Content>
         <DataTable>
           <DataTable.Header>
             <DataTable.Title style={styles.flexL}>Exercise</DataTable.Title>
             {metrics.map((metric, index) => (
               <DataTable.Title key={`${metric}-${index}`} style={getMetricColumnStyle(index)} numeric numberOfLines={2} accessibilityLabel={metric} accessible={true} onPress={() => onMetricHeaderPress(index)} testID={`metrics-exercises-header-${index}`}>
-                {metric}
+                {getMetricHeaderLabel(metric, 'exercises')}
               </DataTable.Title>
             ))}
           </DataTable.Header>
@@ -35,7 +38,7 @@ const ExerciseMetricOverview = ({exerciseMetricMap, metrics, onMetricHeaderPress
                 </DataTable.Cell>
                 {metrics.map((metric, index) => (
                   <DataTable.Cell key={`${exercise.id}-${metric}-${index}`} style={getMetricColumnStyle(index)} numeric>
-                    <MetricView comparison={workout.get(metric)!!} />
+                    <MetricView comparison={workout.get(metric)!!} metric={metric} testID={`metrics-exercise-${exercise.id}-${index}`} />
                   </DataTable.Cell>
                 ))}
               </DataTable.Row>

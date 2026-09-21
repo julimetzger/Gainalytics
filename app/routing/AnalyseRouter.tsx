@@ -1,6 +1,7 @@
 import React from 'react';
 import History from '../tabs/Analyse/History';
 import {Exercise} from '../models/entities/Exercise';
+import {Muscles} from '../models/Muscles';
 import {createDrawerNavigator} from '@react-navigation/drawer';
 import AnalyseGraphics from '../tabs/Analyse/AnalyseGraphics';
 import RecordsTab from '../tabs/Analyse/Records';
@@ -20,7 +21,10 @@ export type RootStackParamList = {
   History: {exercise: Exercise; lowerRangeBound: Date | undefined};
   AnalyseHome: {exercise: {name: string}};
   Records: undefined;
-  Metrics: undefined;
+  // GH-458 (H4): the dashboard's muscle chips drill down into this screen. The
+  // muscle and the range travel as params — navigation params must stay
+  // serializable, so the range is passed as two epoch-millisecond numbers.
+  Metrics: {muscle?: Muscles; rangeStartMs?: number; rangeEndMs?: number} | undefined;
   TrainingLength: undefined;
   VideoAnalyses: undefined;
   VideoAnalysisDetail: {analysisId: number};

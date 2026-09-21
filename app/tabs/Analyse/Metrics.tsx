@@ -9,10 +9,14 @@ import RangeSwiper from '../../components/RangeSwiper';
 import {firstDayOfWeek, lastDayOfWeek} from '../../utils/DateHelper';
 import MetricsNode from '../../components/analyse/MetricsNode';
 
-const MetricsTab = () => {
+interface MetricsTabContentProps {
+  initialMuscle?: Muscles;
+  initialRange: Range;
+}
+
+const MetricsTabContent = ({initialMuscle, initialRange}: MetricsTabContentProps) => {
   const [exercise, setExercise] = useState<Exercise[]>([]);
-  const [muscle, setMuscle] = useState<Muscles[]>([]);
-  const now = new Date();
+  const [muscle, setMuscle] = useState<Muscles[]>(initialMuscle ? [initialMuscle] : []);
 
   return (
     <RangeSwiper
@@ -30,9 +34,28 @@ const MetricsTab = () => {
         }
         return range;
       }}
-      startValue={new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0))}
+      startValue={initialRange}
     />
   );
+};
+
+export const buildMetricsDrilldownKey = (params: RootStackParamList['Metrics']) => `${params?.muscle ?? 'all'}-${params?.rangeStartMs ?? 'default'}-${params?.rangeEndMs ?? 'default'}`;
+
+const MetricsTab = ({route}: Props) => {
+  const params = route?.params;
+  const now = new Date();
+  const currentWeekRange = new Range(firstDayOfWeek(now, 1), lastDayOfWeek(now, 0));
+  const drilldownRange = params?.rangeStartMs !== undefined && params?.rangeEndMs !== undefined ? new Range(new Date(params.rangeStartMs), new Date(params.rangeEndMs)) : undefined;
+
+  // GH-458 (H4): "Tap a muscle group for details" used to land here with
+  // `0 selected` and the range reset to the current week — the promised detail
+  // view was an empty, unfiltered table. The muscle and a range that holds data
+  // now arrive as params.
+  //
+  // The drawer keeps this screen mounted, and both the muscle selection and the
+  // RangeSwiper's start value are seeded into state on mount only. Remounting
+  // the content on a new drill-down is what makes a SECOND tap take effect too.
+  return <MetricsTabContent key={buildMetricsDrilldownKey(params)} initialMuscle={params?.muscle} initialRange={drilldownRange ?? currentWeekRange} />;
 };
 
 export default MetricsTab;
