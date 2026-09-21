@@ -27,6 +27,13 @@
 
 ## Analyse
 
+- [ready] [GH-455](https://github.com/julimetzger/Gainalytics/issues/455) UX-Audit (read-only): Analyse-Bereich — sind die Auswertungen auf dem Gerät nutzbar und interpretierbar?
+  - Gleiche Machart wie [GH-399](https://github.com/julimetzger/Gainalytics/issues/399)/[GH-426](https://github.com/julimetzger/Gainalytics/issues/426), auf dem echten Gerät, ohne AI-Chat
+  - Report nach `docs/ux/analysis-audit.md`; keine App-Code-Änderung
+- [ready] [GH-458](https://github.com/julimetzger/Gainalytics/issues/458) UX-Audit Analyse: alle 7 Hoch-Findings — Drawer-Absturz, Sackgasse, stumme Leerzustände, Muskel-Drilldown, Default-Zeitraum, Training-Length-Ausreißer, Metrics-Einheiten
+  - Quelle: `docs/ux/analysis-audit.md` aus [GH-455](https://github.com/julimetzger/Gainalytics/issues/455) (bis zum Merge auf PR #456)
+  - H1/H2 sind Bugs (weisser Screen ohne Rückweg, Sackgasse), H3–H7 Darstellung und Navigation
+  - Medium-Findings (M1–M12) bewusst nicht enthalten — eigenes Ticket
 - RIR Verlauf/ RIR distribution
 - RIRmax/RIRaverage als metrik aufnehmen
 - Pausenzeit generell und pro muskel/exercise (nur zwischen set im Workout berücksichtigen?? also dl satz 1 pause dl satz 2 pause dl satz 3 fertig -> 2 Pausenzeiten getrackt)
@@ -37,6 +44,11 @@
 - [ready] [GH-447](https://github.com/julimetzger/Gainalytics/issues/447) Bug: AI-Chat antwortet mit größerem Modell nie — Ladezustand läuft endlos, kein Fehler, kein Abbruch
   - Gemeldet mit `claude-opus-5`; Standardmodell antwortet normal
   - Es gibt heute weder Timeout noch Abbruch für die Chat-Anfrage — deshalb kommt auch keine Fehlermeldung
+  - Wird zusammen mit [GH-449](https://github.com/julimetzger/Gainalytics/issues/449) in einem Lauf bearbeitet: [tickets/AI-447-449-chat-hangs-and-truncated-insight.yaml](tickets/AI-447-449-chat-hangs-and-truncated-insight.yaml)
+- [ready] [GH-449](https://github.com/julimetzger/Gainalytics/issues/449) Bug: Coach Insight bricht mitten im Wort ab („Ai chat abgeschnitten")
+  - Trotz des Titels geht es um die Coach Insight auf der Micro-Overview, nicht um den Chat
+  - Der Rat endet mitten im Satz, direkt darunter steht „Generated just now" — kein Hinweis auf die Kürzung
+  - Gemeinsamer Lauf mit GH-447, siehe [tickets/AI-447-449-chat-hangs-and-truncated-insight.yaml](tickets/AI-447-449-chat-hangs-and-truncated-insight.yaml)
 - [ready] [GH-391](https://github.com/julimetzger/Gainalytics/issues/391) AI-Chat Hilfe bei der Trainingsplanung — Zugriff auf die geplanten Trainings
   - Wichtigster Teil: der Chat kennt die geplanten Trainings (Übungen, geplante Sätze inkl. Bereichen), heute sieht er nur abgeschlossene
   - Zweiter Teil: ein einzelnes Training (geplant oder absolviert) als Gesprächsgegenstand auswählbar
@@ -57,6 +69,9 @@
 
 ## General
 
+- [ready] [GH-450](https://github.com/julimetzger/Gainalytics/issues/450) Ui auf deutsch — restliche deutsche Beschriftungen in der englischen Oberfläche
+  - Gemeldet an der Micro-Overview: die Umschaltung heißt „Gesamt" neben „Exercise" und „Muscle"
+  - Kein Einzelfix: vollständiger Durchgang durch die App, inklusive Fehler-, Dialog- und Leerzustände
 - [ready] [GH-339](https://github.com/julimetzger/Gainalytics/issues/339) Redesign edit modals — alle Edit-Pop-ups auf das Edit-Exercise-Muster vereinheitlichen ([tickets/GH-339-redesign-edit-modals.yaml](tickets/GH-339-redesign-edit-modals.yaml))
   - Design-Richtung A: Pop-ups bleiben Pop-ups, nur visueller Stil des Edit-Exercise-Screens übernehmen (kein Umbau zu Vollbild-Sheets)
   - 7 Modals: Rest-Ziel, Trainingslänge, Satz-Auswahl, Video-Auswahl, Übungs-Alternativen, Metrik-Auswahl, Übungs-Rekorde
