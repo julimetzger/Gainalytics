@@ -31,6 +31,7 @@ import {
 } from '../../utils/videoAnalysisNative';
 import {isVideoSecuredInApp, resolveVideoPlaybackUri} from '../../utils/videoAnalysisSource';
 import {calibrateFromSeed} from '../../utils/video-analysis-import';
+import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
 import Toast from 'react-native-toast-message';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
@@ -56,7 +57,12 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const navigation = useNavigation<any>();
-  const analysis = useVideoAnalysis(route.params.analysisId);
+  // GH-458 (H1): this screen used to read `route.params.analysisId` directly.
+  // Opened without params it threw "Cannot read property 'analysisId' of
+  // undefined" and took the whole navigation tree with it. Fall through to the
+  // empty state instead.
+  const {analysisId} = route.params ?? ({} as Partial<RootStackParamList['VideoAnalysisDetail']>);
+  const analysis = useVideoAnalysis(analysisId);
   const allAnalyses = useAllVideoAnalyses();
   const analysisIdentity = useVideoAnalysisSetIdentity(analysis);
   const exerciseId = useVideoAnalysisExerciseId(analysis);
@@ -243,7 +249,18 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   if (!analysis) {
     return (
       <View style={[styles.centered, themedStyles.background]} testID="video-analysis-detail-not-found">
-        <Text>Video analysis not found.</Text>
+        <AnalyseEmptyState
+          testID="video-analysis-detail-empty-state"
+          title="No video analysis selected"
+          description="This screen shows one recorded set. Open a recording from the Video Analyses list to see its bar path and velocity."
+          actions={[
+            {
+              label: 'Go to Video Analyses',
+              testID: 'video-analysis-detail-empty-goto-list',
+              onPress: () => navigation.navigate('VideoAnalyses'),
+            },
+          ]}
+        />
       </View>
     );
   }

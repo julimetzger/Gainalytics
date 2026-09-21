@@ -13,6 +13,7 @@ import TrainingLengthTab from '../tabs/Analyse/TrainingLengthTab';
 import DashboardTab from '../tabs/Analyse/DashboardTab';
 import AIChatTab from '../tabs/Analyse/AIChatTab';
 import ChatHistoryTab from '../tabs/Analyse/ChatHistoryTab';
+import {withAnalyseErrorBoundary} from '../components/analyse/AnalyseErrorBoundary';
 
 export type RootStackParamList = {
   Dashboard: undefined;
@@ -27,6 +28,32 @@ export type RootStackParamList = {
   AIChat: undefined;
   ChatHistory: undefined;
 };
+
+// GH-458 (H1): every Analyse screen renders behind its own error boundary, so a
+// render error degrades to a card inside the screen instead of unmounting the
+// navigator. Built once at module level — building them inside the component
+// would hand React a new component type on every render and remount each screen.
+const DashboardScreen = withAnalyseErrorBoundary(DashboardTab, 'Dashboard');
+const AnalyseGraphicsScreen = withAnalyseErrorBoundary(AnalyseGraphics, 'Analyse');
+const TrainingLengthScreen = withAnalyseErrorBoundary(TrainingLengthTab, 'Training Length');
+const HistoryScreen = withAnalyseErrorBoundary(History, 'History');
+const MetricsScreen = withAnalyseErrorBoundary(MetricsTab, 'Metrics Overview');
+const RecordsScreen = withAnalyseErrorBoundary(RecordsTab, 'Records');
+const VideoAnalysesScreen = withAnalyseErrorBoundary(VideoAnalysisTab, 'Video Analyses');
+const VideoAnalysisDetailScreen = withAnalyseErrorBoundary(VideoAnalysisDetailTab, 'Video Analysis Detail');
+const VideoAnalysisCompareScreen = withAnalyseErrorBoundary(VideoAnalysisCompareTab, 'Compare Analyses');
+const AIChatScreen = withAnalyseErrorBoundary(AIChatTab, 'AI Chat');
+const ChatHistoryScreen = withAnalyseErrorBoundary(ChatHistoryTab, 'Chat History');
+
+// GH-458 (H1/H2): "Video Analysis Detail" and "Compare Analyses" are detail
+// screens that need a selection made in the Video Analyses list. Offering them
+// as standalone drawer entries put every user one tap away from a white screen
+// (Detail) or a dead end (Compare). The routes stay registered and reachable
+// from the list; only the drawer entries are hidden.
+export const ANALYSE_DRAWER_HIDDEN_ROUTES = ['VideoAnalysisDetail', 'VideoAnalysisCompare'] satisfies (keyof RootStackParamList)[];
+
+export const getAnalyseDrawerItemOptions = (routeName: keyof RootStackParamList) =>
+  ANALYSE_DRAWER_HIDDEN_ROUTES.some((hiddenRoute) => hiddenRoute === routeName) ? {drawerItemStyle: {display: 'none' as const}} : {};
 
 const AnalyseRouter = () => {
   const Stack = createDrawerNavigator<RootStackParamList>();
@@ -50,70 +77,72 @@ const AnalyseRouter = () => {
     >
       <Stack.Screen
         name="Dashboard"
-        component={DashboardTab}
+        component={DashboardScreen}
         options={() => ({
           title: 'Dashboard',
         })}
       />
       <Stack.Screen
         name="AnalyseHome"
-        component={AnalyseGraphics}
+        component={AnalyseGraphicsScreen}
         options={({route}) => ({
           title: route.params?.exercise?.name ?? 'Analyse',
         })}
       />
       <Stack.Screen
         name="TrainingLength"
-        component={TrainingLengthTab}
+        component={TrainingLengthScreen}
         options={() => ({
           title: 'Training Length',
         })}
       />
       <Stack.Screen
         name="History"
-        component={History}
+        component={HistoryScreen}
         options={({route}) => ({
           title: route.params?.exercise?.name ?? 'History',
         })}
       />
       <Stack.Screen
         name="Metrics"
-        component={MetricsTab}
+        component={MetricsScreen}
         options={() => ({
           title: 'Metrics Overview',
         })}
       />
       <Stack.Screen
         name="Records"
-        component={RecordsTab}
+        component={RecordsScreen}
         options={() => ({
           title: 'Records',
         })}
       />
       <Stack.Screen
         name="VideoAnalyses"
-        component={VideoAnalysisTab}
+        component={VideoAnalysesScreen}
         options={() => ({
           title: 'Video Analyses',
         })}
       />
       <Stack.Screen
         name="VideoAnalysisDetail"
-        component={VideoAnalysisDetailTab}
+        component={VideoAnalysisDetailScreen}
         options={() => ({
           title: 'Video Analysis Detail',
+          ...getAnalyseDrawerItemOptions('VideoAnalysisDetail'),
         })}
       />
       <Stack.Screen
         name="VideoAnalysisCompare"
-        component={VideoAnalysisCompareTab}
+        component={VideoAnalysisCompareScreen}
         options={() => ({
           title: 'Compare Analyses',
+          ...getAnalyseDrawerItemOptions('VideoAnalysisCompare'),
         })}
       />
       <Stack.Screen
         name="AIChat"
-        component={AIChatTab}
+        component={AIChatScreen}
         options={() => ({
           title: 'AI Chat',
           drawerIcon: ({color, size}: {color: string; size: number}) => (
@@ -123,7 +152,7 @@ const AnalyseRouter = () => {
       />
       <Stack.Screen
         name="ChatHistory"
-        component={ChatHistoryTab}
+        component={ChatHistoryScreen}
         options={() => ({
           title: 'Chat History',
           drawerIcon: ({color, size}: {color: string; size: number}) => (
