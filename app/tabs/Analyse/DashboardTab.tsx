@@ -18,6 +18,7 @@ import {Exercise} from '../../models/entities/Exercise';
 import {useLastWorkoutDate} from '../../redux/Workout/use/useLastWorkoutDate';
 import AnalyseStaleRangeBanner from '../../components/analyse/AnalyseStaleRangeBanner';
 import {rangeEndingAt} from '../../utils/analyse-range';
+import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
 
 const DashboardTab = () => {
   const navigation = useNavigation<any>();
@@ -80,6 +81,25 @@ const DashboardTab = () => {
   const handleExercisePress = (exercise: Exercise) => {
     navigation.navigate('History', {exercise, lowerRangeBound: undefined});
   };
+
+  // GH-458 (H3): a brand-new account's Dashboard was pixel-identical to a
+  // returning user's — `0 / 0.0t / 0min` with no explanation and no way in.
+  // An empty store is a different situation from an empty week and says so.
+  if (lastWorkoutDate === undefined) {
+    return (
+      <ScrollView style={styles.container} testID="dashboard-scroll">
+        <AnalyseEmptyState
+          testID="dashboard-empty-store"
+          title="No training data yet"
+          description="Nothing has been logged on this device, so there is nothing to analyse yet. Import an existing history or log your first training."
+          actions={[
+            {label: 'Import data in Settings', testID: 'dashboard-empty-goto-settings', onPress: () => navigation.navigate('Settings')},
+            {label: 'Go to Training', testID: 'dashboard-empty-goto-training', onPress: () => navigation.navigate('Training')},
+          ]}
+        />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} testID="dashboard-scroll">

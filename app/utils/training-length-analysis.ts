@@ -52,11 +52,52 @@ const toCompletedTrainingLength = (training: Training): CompletedTrainingLength 
   };
 };
 
-export const aggregateTrainingLengths = (trainings: Training[], accumulationMode: AccumulationMode): TrainingLengthBucket[] => {
+/**
+ * GH-458 (H6): a training that was never finished properly counts 44 h 27 min.
+ * That single value scales the Y axis to 2500 minutes and squashes every real
+ * session (~60–90 min) into an unreadable strip along the bottom; in the month
+ * view it drags the averages up (January ≈ 350 min). The screen exists to
+ * answer "how long do I train?" and could not.
+ *
+ * Sessions longer than this are treated as implausible and left out of the
+ * scaling and the averages by default. They are never hidden from the user:
+ * their count is stated and they can be shown or corrected.
+ */
+export const IMPLAUSIBLE_TRAINING_DURATION_MINUTES = 4 * 60;
+
+export const isImplausibleTrainingLength = (durationMinutes: number) => durationMinutes > IMPLAUSIBLE_TRAINING_DURATION_MINUTES;
+
+export interface TrainingLengthAggregation {
+  buckets: TrainingLengthBucket[];
+  /** The implausible sessions that were left out of `buckets`. */
+  excludedTrainings: CompletedTrainingLength[];
+}
+
+/**
+ * Splits the completed trainings of a range into the plausible ones and the
+ * implausible outliers, without touching stored data — a 44 h training stays
+ * stored exactly as it is and is only presented differently.
+ */
+export const partitionTrainingLengths = (trainings: Training[]) => {
   const completedTrainings = trainings.flatMap((training) => {
     const completedTraining = toCompletedTrainingLength(training);
     return completedTraining ? [completedTraining] : [];
   });
+
+  return {
+    allTrainings: completedTrainings,
+    plausibleTrainings: completedTrainings.filter((training) => !isImplausibleTrainingLength(training.durationMinutes)),
+    implausibleTrainings: completedTrainings.filter((training) => isImplausibleTrainingLength(training.durationMinutes)),
+  };
+};
+
+/**
+ * `excludeOutliers` defaults to `false` so existing callers keep the behaviour
+ * they had; the Training Length screen opts in and offers the toggle.
+ */
+export const aggregateTrainingLengths = (trainings: Training[], accumulationMode: AccumulationMode, excludeOutliers = false): TrainingLengthBucket[] => {
+  const {allTrainings, plausibleTrainings} = partitionTrainingLengths(trainings);
+  const completedTrainings = excludeOutliers ? plausibleTrainings : allTrainings;
   const groupedTrainings = completedTrainings.reduce(
     handleAccumulationModeBatching(completedTrainings, new Accumulation(accumulationMode)),
     new Map<string, CompletedTrainingLength[]>(),

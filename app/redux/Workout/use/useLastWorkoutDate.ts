@@ -31,8 +31,47 @@ export const findLastWorkoutDate = (workouts: NormalizedState<Workout>): Date | 
   return newestTimestamp === undefined ? undefined : new Date(newestTimestamp);
 };
 
+/**
+ * GH-458 (H3): the newest logged workout for a given set of exercises.
+ *
+ * The Analyse chart rendered the same blank box for "the range holds nothing",
+ * "this exercise was never trained" and "something broke". Knowing whether the
+ * selection has any history at all is what tells those cases apart, and the
+ * date is what a "jump to the last training" action needs.
+ */
+export const findLastWorkoutDateForExercises = (workouts: NormalizedState<Workout>, exerciseIds: number[]): Date | undefined => {
+  if (exerciseIds.length === 0) {
+    return undefined;
+  }
+
+  const wantedIds = new Set(exerciseIds);
+  const newestTimestamp = workouts.allIds.reduce<number | undefined>((newest, workoutId) => {
+    const workout = workouts.byId[workoutId];
+    if (!workout || !wantedIds.has(workout.exerciseId)) {
+      return newest;
+    }
+
+    const timestamp = new Date(workout.end ?? workout.start ?? NaN).getTime();
+    if (!Number.isFinite(timestamp)) {
+      return newest;
+    }
+
+    return newest === undefined || timestamp > newest ? timestamp : newest;
+  }, undefined);
+
+  return newestTimestamp === undefined ? undefined : new Date(newestTimestamp);
+};
+
 const selectWorkouts = (state: GlobalState) => state.workouts;
 
 const selector = createSelector(selectWorkouts, findLastWorkoutDate);
 
 export const useLastWorkoutDate = () => useSelector(selector);
+
+export const useLastWorkoutDateForExercises = (exerciseIds: number[]) =>
+  useSelector(
+    (state: GlobalState) => findLastWorkoutDateForExercises(state.workouts, exerciseIds),
+    // The caller derives the id list on every render, so the selector result is
+    // a fresh Date each time. Compare by value to keep the screen from looping.
+    (left, right) => left?.getTime() === right?.getTime(),
+  );

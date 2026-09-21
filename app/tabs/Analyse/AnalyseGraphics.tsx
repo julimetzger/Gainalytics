@@ -20,6 +20,11 @@ import {handleAccumulationModeBatching} from '../../utils/HandleAccumulationMode
 import {generateTrend} from '../../utils/generateTrend';
 import {Metric} from "../../models/Metric";
 import {AccumulationMode} from '../../models/AccumulationMode';
+import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
+import AnalyseStaleRangeBanner from '../../components/analyse/AnalyseStaleRangeBanner';
+import {useLastWorkoutDateForExercises} from '../../redux/Workout/use/useLastWorkoutDate';
+import {ANALYSE_EXTENDED_RANGE_MONTHS, describeRange, rangeEndingAt, rangeEndingToday} from '../../utils/analyse-range';
+import {getDateStringFromDate} from '../../utils/DateHelper';
 
 const AnalyseGraphics = ({}: Props) => {
   function handleDataPointSelect(value: ChartSelectEvent) {
@@ -114,6 +119,23 @@ const AnalyseGraphics = ({}: Props) => {
     })
     .sort((a, b) => a.x!! - b.x!!);
 
+  // GH-458 (H3): the chart used to render an empty outlined rectangle whenever
+  // `map` came back empty — no axes, no text. The same blank box stood for
+  // "the range holds nothing", "this exercise was never trained" and "something
+  // broke", and with no loading indicator anywhere it was not even
+  // distinguishable from "still calculating". Below, each of those cases gets
+  // its own named cause and at least one action that leads to a result.
+  const hasSelection = exercise.length > 0 || muscle.length > 0;
+  const isConfigured = hasSelection && !!metric && !!accumulation;
+  const selectionLabel = [...exercise.map((it) => it.name), ...muscle.map(String)].join(', ');
+  const selectionExerciseIds = uniqueExercises.map((it) => it.id).filter((id): id is number => id !== undefined);
+  const lastWorkoutForSelection = useLastWorkoutDateForExercises(selectionExerciseIds);
+
+  const clearSelection = () => {
+    setExercise([]);
+    setMuscle([]);
+  };
+
   return (
     <ScrollView
       style={{
@@ -134,7 +156,9 @@ const AnalyseGraphics = ({}: Props) => {
       />
       <DateRangePicker range={range} setRange={setRange} />
 
-      {(exercise.length > 0 || muscle.length > 0) && metric && accumulation && (
+      <AnalyseStaleRangeBanner range={range} onApplyRange={setRange} testID="analyse-chart-stale-range-banner" />
+
+      {isConfigured && map.length > 0 && (
         <LineChart
           style={{
             backgroundColor: theme.colors.background,
@@ -190,7 +214,44 @@ const AnalyseGraphics = ({}: Props) => {
           onSelect={(value) => handleDataPointSelect(value)}
         />
       )}
-      {selectedWorkout && (exercise.length > 0 || muscle.length > 0) && <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric !== Metric.FREQUENCY ? metric : undefined} editable={false}></WorkoutView>}
+      {!isConfigured && (
+        <AnalyseEmptyState
+          testID="analyse-chart-no-selection"
+          title="Nothing to chart yet"
+          description={`${errorMessage ?? 'Please select: Exercise or Muscle.'} Open the selector above and pick what you want to see.`}
+        />
+      )}
+
+      {isConfigured && map.length === 0 && lastWorkoutForSelection === undefined && (
+        <AnalyseEmptyState
+          testID="analyse-chart-never-trained"
+          title={`${selectionLabel} has never been trained`}
+          description={`There is not a single logged set for ${selectionLabel}, so there is nothing to chart — no date range will change that.`}
+          actions={[{label: 'Choose something else', testID: 'analyse-chart-clear-selection', onPress: clearSelection}]}
+        />
+      )}
+
+      {isConfigured && map.length === 0 && lastWorkoutForSelection !== undefined && (
+        <AnalyseEmptyState
+          testID="analyse-chart-empty-range"
+          title={`No sets for ${selectionLabel} in this period`}
+          description={`${selectionLabel} has no logged sets between ${describeRange(range)}. The last one was on ${getDateStringFromDate(lastWorkoutForSelection)}.`}
+          actions={[
+            {
+              label: `Extend to last ${ANALYSE_EXTENDED_RANGE_MONTHS} months`,
+              testID: 'analyse-chart-extend-range',
+              onPress: () => setRange(rangeEndingToday(ANALYSE_EXTENDED_RANGE_MONTHS)),
+            },
+            {
+              label: `Jump to ${getDateStringFromDate(lastWorkoutForSelection)}`,
+              testID: 'analyse-chart-jump-to-last',
+              onPress: () => setRange(rangeEndingAt(lastWorkoutForSelection)),
+            },
+          ]}
+        />
+      )}
+
+      {selectedWorkout && isConfigured && <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric !== Metric.FREQUENCY ? metric : undefined} editable={false}></WorkoutView>}
       <HelperText type="error" visible={!!errorMessage}>
         {errorMessage}
       </HelperText>

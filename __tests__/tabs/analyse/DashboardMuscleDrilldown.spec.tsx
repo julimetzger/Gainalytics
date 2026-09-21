@@ -94,15 +94,16 @@ describe('Dashboard muscle drill-down (GH-458 H4)', () => {
     expect(params.rangeEndMs).toBeGreaterThanOrEqual(LAST_WORKOUT_END.getTime());
   });
 
-  it('still passes a range on an empty store, so the target screen has a defined period', () => {
-    const {getByTestId} = renderDashboard(makeState([]));
+  /**
+   * On an empty store the Dashboard shows the onboarding empty state (H3), so
+   * there is no muscle chip to tap — a drill-down into a table that cannot hold
+   * anything would just be the old bug in a new place.
+   */
+  it('offers no drill-down at all on an empty store', () => {
+    const {queryByTestId, getByTestId} = renderDashboard(makeState([]));
 
-    fireEvent.press(getByTestId(`muscle-chip-${Muscles.QUADS}`));
-
-    const [, params] = mockNavigate.mock.calls[0];
-    expect(params.muscle).toBe(Muscles.QUADS);
-    expect(typeof params.rangeStartMs).toBe('number');
-    expect(typeof params.rangeEndMs).toBe('number');
+    expect(queryByTestId(`muscle-chip-${Muscles.QUADS}`)).toBeNull();
+    expect(getByTestId('dashboard-empty-store')).toBeTruthy();
   });
 
   /**

@@ -1,7 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, Pressable, processColor, ScrollView, StyleSheet, View} from 'react-native';
 import {BarChart, BarData, BarValue} from 'react-native-charts-wrapper';
-import {Card, SegmentedButtons, Text, useTheme} from 'react-native-paper';
+import {Button, Card, SegmentedButtons, Text, useTheme} from 'react-native-paper';
 import TrainingLengthBucketDetails from '../../components/analyse/TrainingLengthBucketDetails';
 import TrainingLengthEditDialog from '../../components/analyse/TrainingLengthEditDialog';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
@@ -10,7 +10,18 @@ import {getTrainingFromTrainingInMicroIndex} from '../../redux/Training/training
 import {useAllTrainingsPlans} from '../../redux/Training/use/useAllTrainingsPlans';
 import {useCompletedTrainingsIn} from '../../redux/Training/use/useCompletedTrainingsIn';
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
-import {aggregateTrainingLengths, findBucketByX, formatTrainingLength, getTrainingLengthAxisPattern, getTrainingLengthBarWidth} from '../../utils/training-length-analysis';
+import {
+  CompletedTrainingLength,
+  IMPLAUSIBLE_TRAINING_DURATION_MINUTES,
+  aggregateTrainingLengths,
+  findBucketByX,
+  formatTrainingLength,
+  getTrainingLengthAxisPattern,
+  getTrainingLengthBarWidth,
+  partitionTrainingLengths,
+} from '../../utils/training-length-analysis';
+import AnalyseStaleRangeBanner from '../../components/analyse/AnalyseStaleRangeBanner';
+import {formatTrainingLengthDate} from '../../utils/training-length-analysis';
 
 interface AccumulationButtonConfig {
   label: string;
@@ -68,6 +79,9 @@ const TrainingLengthTab = () => {
   const [selectedBucketKey, setSelectedBucketKey] = useState<string | null>(null);
   const [bucketForEdit, setBucketForEdit] = useState<ReturnType<typeof findBucketByX>>(null);
   const [chartWidth, setChartWidth] = useState(DEFAULT_CHART_WIDTH);
+  // GH-458 (H6): implausible sessions are out of the scaling by default. The
+  // user can put them back — the data itself is never changed.
+  const [includeOutliers, setIncludeOutliers] = useState(false);
   const skipNextPressRef = useRef(false);
   const trainingsPlans = useAllTrainingsPlans();
   const trainings = useCompletedTrainingsIn(range);
@@ -88,7 +102,8 @@ const TrainingLengthTab = () => {
     [trainingsPlans],
   );
 
-  const buckets = useMemo(() => aggregateTrainingLengths(trainings, accumulationMode), [accumulationMode, trainings]);
+  const buckets = useMemo(() => aggregateTrainingLengths(trainings, accumulationMode, !includeOutliers), [accumulationMode, includeOutliers, trainings]);
+  const implausibleTrainings = useMemo(() => partitionTrainingLengths(trainings).implausibleTrainings, [trainings]);
   const chartDomain = useMemo(() => getChartDomain(buckets, accumulationMode), [accumulationMode, buckets]);
 
   const barValues = useMemo(
@@ -133,7 +148,25 @@ const TrainingLengthTab = () => {
     setSelectedBucketKey(null);
     setBucketForEdit(null);
     skipNextPressRef.current = false;
-  }, [accumulationMode, range]);
+  }, [accumulationMode, range, includeOutliers]);
+
+  // GH-458 (H6): correcting an implausible training used to require a long
+  // press on its bar — an invisible gesture on a bar that a normal tap did
+  // nothing to. The notice below carries a real button straight to the editor.
+  const handleCorrectOutlier = useCallback(
+    (outlier: CompletedTrainingLength) => {
+      setBucketForEdit({
+        key: outlier.key,
+        startDate: outlier.start,
+        x: 0,
+        averageDurationMinutes: outlier.durationMinutes,
+        totalDurationMinutes: outlier.durationMinutes,
+        trainingCount: 1,
+        trainings: [outlier],
+      });
+    },
+    [],
+  );
 
   const handleAccumulationModeChange = useCallback((value: string) => {
     const selectedMode = accumulationButtons.find((button) => button.value === value)?.value;
@@ -199,6 +232,36 @@ const TrainingLengthTab = () => {
       </Card>
 
       <DateRangePicker range={range} setRange={setRange} />
+
+      <AnalyseStaleRangeBanner range={range} isEmpty={trainings.length === 0} onApplyRange={setRange} testID="training-length-stale-range-banner" />
+
+      {/* GH-458 (H6): the outliers are never silently dropped — their count is
+          stated, they can be brought back into the scaling, and each one has a
+          visible route to the editor instead of a hidden long press. */}
+      {implausibleTrainings.length > 0 && (
+        <Card style={styles.outlierCard} testID="training-length-outlier-notice">
+          <Card.Content>
+            <Text testID="training-length-outlier-count">
+              {`${implausibleTrainings.length} training${implausibleTrainings.length === 1 ? '' : 's'} over ${formatTrainingLength(IMPLAUSIBLE_TRAINING_DURATION_MINUTES)} ${
+                includeOutliers ? 'included' : 'hidden'
+              }`}
+            </Text>
+            <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}} testID="training-length-outlier-explanation">
+              A session that was never finished keeps counting, which distorts the scale and the averages.
+            </Text>
+            <View style={styles.outlierActions}>
+              <Button mode="outlined" onPress={() => setIncludeOutliers((current) => !current)} testID="training-length-outlier-toggle">
+                {includeOutliers ? 'Hide again' : 'Show anyway'}
+              </Button>
+              {implausibleTrainings.map((outlier) => (
+                <Button key={outlier.key} mode="contained-tonal" icon="pencil" onPress={() => handleCorrectOutlier(outlier)} testID={`training-length-outlier-correct-${outlier.trainingId ?? outlier.key}`}>
+                  {`Correct ${formatTrainingLengthDate(outlier.start)} (${formatTrainingLength(outlier.durationMinutes)})`}
+                </Button>
+              ))}
+            </View>
+          </Card.Content>
+        </Card>
+      )}
 
       {buckets.length === 0 ? (
         <Card style={styles.emptyStateCard} testID="training-length-empty-state">
@@ -275,6 +338,15 @@ const styles = StyleSheet.create({
   emptyStateCard: {
     marginHorizontal: 12,
     marginTop: 8,
+  },
+  outlierCard: {
+    marginHorizontal: 12,
+    marginTop: 8,
+  },
+  outlierActions: {
+    marginTop: 12,
+    gap: 8,
+    alignItems: 'flex-start',
   },
   chartCard: {
     marginHorizontal: 12,
