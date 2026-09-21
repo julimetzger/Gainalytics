@@ -79,6 +79,6 @@ appId: com.powerliftingworkoutplanner
 # workoutsCount and used to crash the same way.
 - tapOn: 'tab-analyse'
 - extendedWaitUntil:
-    visible: 'Analyse'
+    visible: 'Analysis'
     timeout: 30000
 - takeScreenshot: gh119-analyse-tab-no-crash

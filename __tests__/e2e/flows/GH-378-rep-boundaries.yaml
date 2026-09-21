@@ -24,7 +24,7 @@ appId: com.powerliftingworkoutplanner
 - tapOn: 'tab-analyse'
 
 - extendedWaitUntil:
-    visible: 'Analyse'
+    visible: 'Analysis'
     timeout: 10000
 
 # Open the Analyse drawer and go to the Video Analyses list

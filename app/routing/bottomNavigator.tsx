@@ -68,6 +68,7 @@ export const BottomTabs = () => {
         name="Analyse"
         component={AnalyseRouter}
         options={{
+          tabBarLabel: 'Analysis',
           tabBarIcon: 'trending-up',
           tabBarAccessibilityLabel: 'tab-analyse',
           tabBarTestID: 'tab-analyse',

@@ -84,7 +84,7 @@ const MuscleView = ({trainingsPlan, micro}: Pick<Props, 'trainingsPlan' | 'micro
 };
 
 const VIEW_MODE_BUTTONS: {value: ViewMode; label: string; testID: string}[] = [
-  {value: 'gesamt', label: 'Gesamt', testID: 'overview-view-gesamt'},
+  {value: 'gesamt', label: 'Total', testID: 'overview-view-gesamt'},
   {value: 'exercise', label: 'Exercise', testID: 'overview-view-exercise'},
   {value: 'muscle', label: 'Muscle', testID: 'overview-view-muscle'},
   {value: 'plan', label: 'Plan', testID: 'overview-view-plan'},
