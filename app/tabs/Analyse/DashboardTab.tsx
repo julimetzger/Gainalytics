@@ -15,10 +15,11 @@ import TopExercisesCard from './dashboard/TopExercisesCard';
 import FocusExercisesCard from './dashboard/FocusExercisesCard';
 import RecordsBadge from './dashboard/RecordsBadge';
 import {Exercise} from '../../models/entities/Exercise';
-import {useLastWorkoutDate} from '../../redux/Workout/use/useLastWorkoutDate';
+import {useLastWorkoutDate, useLastWorkoutDateByMuscle} from '../../redux/Workout/use/useLastWorkoutDate';
 import AnalyseStaleRangeBanner from '../../components/analyse/AnalyseStaleRangeBanner';
 import {rangeEndingAt} from '../../utils/analyse-range';
 import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
+import {Metric} from '../../models/Metric';
 
 const DashboardTab = () => {
   const navigation = useNavigation<any>();
@@ -31,6 +32,7 @@ const DashboardTab = () => {
   const currentTrainings = useCompletedTrainingsIn(currentWeekRange);
   const previousTrainings = useCompletedTrainingsIn(previousWeekRange);
   const lastWorkoutDate = useLastWorkoutDate();
+  const lastWorkoutDateByMuscle = useLastWorkoutDateByMuscle();
 
   const exerciseIds = useMemo(
     () => [...new Set([...currentWorkouts, ...previousWorkouts].map((w) => w.exerciseId))],
@@ -61,20 +63,30 @@ const DashboardTab = () => {
 
   // GH-458 (H4): the chip used to navigate to Metrics with no muscle and no
   // range, so the "details" the label promises were an empty, unfiltered table.
-  // Hand over the muscle, plus a range that actually contains sets: this week
-  // when the user trained this week, otherwise the three months up to their last
-  // logged workout.
+  // Fall back range for a muscle with no dated history of its own at all: this
+  // week when the user trained this week, otherwise the three months up to
+  // their last logged workout (any muscle).
   const drilldownRange = useMemo(
     () => (currentWorkouts.length > 0 || lastWorkoutDate === undefined ? currentWeekRange : rangeEndingAt(lastWorkoutDate)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentWorkouts.length, lastWorkoutDate?.getTime()],
   );
 
+  // GH-458 round 2 (review #2): the range above only asked "did ANY muscle
+  // get trained this week" — a chip for a muscle that was skipped this week
+  // (while others were trained) still opened on the current week and landed
+  // on an empty table for exactly that muscle. Pick the range for the tapped
+  // muscle specifically: this week if THIS muscle has sets in it, otherwise
+  // the period ending on this muscle's own last workout.
   const handleMusclePress = (muscle: Muscles) => {
+    const trainedThisWeek = (muscleMetricMap.get(muscle)?.get(Metric.VOLUME)?.value ?? 0) > 0;
+    const lastWorkoutForMuscle = lastWorkoutDateByMuscle.get(muscle);
+    const range = trainedThisWeek ? currentWeekRange : lastWorkoutForMuscle !== undefined ? rangeEndingAt(lastWorkoutForMuscle) : drilldownRange;
+
     navigation.navigate('Metrics', {
       muscle,
-      rangeStartMs: drilldownRange.startDate.getTime(),
-      rangeEndMs: drilldownRange.endDate.getTime(),
+      rangeStartMs: range.startDate.getTime(),
+      rangeEndMs: range.endDate.getTime(),
     });
   };
 

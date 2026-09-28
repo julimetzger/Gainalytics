@@ -1,6 +1,8 @@
 import {createSelector} from '@reduxjs/toolkit';
 import {useSelector} from 'react-redux';
 import {Workout} from '../../../models/entities/Workout';
+import {Exercise} from '../../../models/entities/Exercise';
+import {Muscles} from '../../../models/Muscles';
 import {NormalizedState} from '../../normalizedState';
 import {GlobalState} from '../../rootReducer';
 
@@ -62,7 +64,48 @@ export const findLastWorkoutDateForExercises = (workouts: NormalizedState<Workou
   return newestTimestamp === undefined ? undefined : new Date(newestTimestamp);
 };
 
+/**
+ * GH-458 round 2 (review #2): the muscle-chip drill-down used to open every
+ * muscle on the current-week range, so tapping a muscle that was not trained
+ * this week (while others were) landed on an empty table for exactly that
+ * muscle. This resolves, per muscle, the newest workout of any exercise that
+ * targets it — the Dashboard picks the current week when that is non-empty
+ * and this date otherwise.
+ */
+export const findLastWorkoutDateForMuscle = (workouts: NormalizedState<Workout>, exercises: NormalizedState<Exercise>, muscle: Muscles): Date | undefined => {
+  const exerciseIds = exercises.allIds.filter((id) => exercises.byId[id]?.muscles?.some((pair) => pair.muscle === muscle));
+  return findLastWorkoutDateForExercises(workouts, exerciseIds);
+};
+
+export const findLastWorkoutDateByMuscle = (workouts: NormalizedState<Workout>, exercises: NormalizedState<Exercise>): Map<Muscles, Date | undefined> =>
+  new Map(Object.values(Muscles).map((muscle) => [muscle, findLastWorkoutDateForMuscle(workouts, exercises, muscle)]));
+
+/**
+ * GH-458 round 2 (issue #461): "Nothing to chart yet" used to leave the user
+ * with no next step beyond re-opening the picker themselves. The newest
+ * logged workout's exercise is a reasonable one-tap suggestion.
+ */
+export const findLastTrainedExerciseId = (workouts: NormalizedState<Workout>): number | undefined => {
+  let newestTimestamp: number | undefined;
+  let newestExerciseId: number | undefined;
+
+  workouts.allIds.forEach((workoutId) => {
+    const workout = workouts.byId[workoutId];
+    const timestamp = new Date(workout?.end ?? workout?.start ?? NaN).getTime();
+    if (!workout || !Number.isFinite(timestamp)) {
+      return;
+    }
+    if (newestTimestamp === undefined || timestamp > newestTimestamp) {
+      newestTimestamp = timestamp;
+      newestExerciseId = workout.exerciseId;
+    }
+  });
+
+  return newestExerciseId;
+};
+
 const selectWorkouts = (state: GlobalState) => state.workouts;
+const selectExercises = (state: GlobalState) => state.exercises;
 
 const selector = createSelector(selectWorkouts, findLastWorkoutDate);
 
@@ -75,3 +118,11 @@ export const useLastWorkoutDateForExercises = (exerciseIds: number[]) =>
     // a fresh Date each time. Compare by value to keep the screen from looping.
     (left, right) => left?.getTime() === right?.getTime(),
   );
+
+const byMuscleSelector = createSelector(selectWorkouts, selectExercises, findLastWorkoutDateByMuscle);
+
+export const useLastWorkoutDateByMuscle = () => useSelector(byMuscleSelector);
+
+const lastTrainedExerciseIdSelector = createSelector(selectWorkouts, findLastTrainedExerciseId);
+
+export const useLastTrainedExerciseId = () => useSelector(lastTrainedExerciseIdSelector);

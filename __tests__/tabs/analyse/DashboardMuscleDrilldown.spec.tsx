@@ -121,3 +121,68 @@ describe('Dashboard muscle drill-down (GH-458 H4)', () => {
     expect(buildMetricsDrilldownKey(undefined)).toBe('all-default-default');
   });
 });
+
+/**
+ * GH-458 round 2 (PR #459 review comment #2): tapping a muscle chip that was
+ * NOT trained this week — while another muscle WAS — used to land on the
+ * current week anyway, because the drill-down range only checked "did ANY
+ * muscle train this week", not the tapped muscle specifically. Both workouts
+ * live in the SAME real store here, driven through the real selectors (no
+ * hook mocking), so this exercises the exact condition the review reported.
+ */
+describe('Dashboard muscle drill-down range is per-muscle (GH-458 round 2, review #2)', () => {
+  const chestPress = {id: 2, name: 'Chest press', muscles: [{muscle: Muscles.CHEST, percent: 100}]} as unknown as Exercise;
+  const now = new Date();
+
+  const chestWorkoutToday = {
+    id: 2,
+    exerciseId: 2,
+    start: now,
+    end: now,
+    sets: [{reps: 8, weight: 40, rir: 2}],
+  } as unknown as Workout;
+
+  const makeMixedState = () =>
+    ({
+      exercises: {byId: {1: squat, 2: chestPress}, allIds: [1, 2]},
+      workouts: {
+        byId: {1: lastWorkout, 2: chestWorkoutToday},
+        allIds: [1, 2],
+        byExerciseId: {},
+        plannedWorkouts: [],
+      },
+      trainingsPlan: {byId: {}, allIds: []},
+      trainings: {byId: {}, allIds: []},
+      videoAnalyses: {byId: {}, allIds: []},
+      settings: {mode: 'dark'},
+      effects: {},
+      aiChat: {messages: [], isLoading: false, error: null, seedContextJson: null, contextRange: null},
+    } as unknown as GlobalState);
+
+  it('sends the muscle trained THIS week to the current week', () => {
+    const {getByTestId} = renderDashboard(makeMixedState());
+
+    fireEvent.press(getByTestId(`muscle-chip-${Muscles.CHEST}`));
+
+    const [, params] = mockNavigate.mock.calls[0];
+    expect(params.muscle).toBe(Muscles.CHEST);
+    expect(params.rangeStartMs).toBeLessThanOrEqual(now.getTime());
+    expect(params.rangeEndMs).toBeGreaterThanOrEqual(now.getTime());
+    // The current week is a few days wide, not months — distinguishes this
+    // from the Feb drill-down range below.
+    expect(params.rangeEndMs - params.rangeStartMs).toBeLessThan(8 * 24 * 60 * 60 * 1000);
+  });
+
+  it('sends a muscle NOT trained this week to its OWN last-workout period, even though Chest was trained today', () => {
+    const {getByTestId} = renderDashboard(makeMixedState());
+
+    fireEvent.press(getByTestId(`muscle-chip-${Muscles.QUADS}`));
+
+    const [, params] = mockNavigate.mock.calls[0];
+    expect(params.muscle).toBe(Muscles.QUADS);
+    // Must NOT be the current week — must cover Quads' own last workout (Feb).
+    expect(params.rangeEndMs).toBeLessThan(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    expect(params.rangeStartMs).toBeLessThanOrEqual(LAST_WORKOUT_START.getTime());
+    expect(params.rangeEndMs).toBeGreaterThanOrEqual(LAST_WORKOUT_END.getTime());
+  });
+});
