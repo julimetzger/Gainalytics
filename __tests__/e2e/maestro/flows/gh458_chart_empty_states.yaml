@@ -68,13 +68,19 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd
 
 # -------------------------------------------------- case 0: nothing selected
+# GH-458 round 2 (issue #461): this used to be a small red "Please select:
+# Exercise or Muscle." line over an otherwise blank page. It is now a normal
+# empty state (not styled as an error) that offers the last-trained exercise
+# as a one-tap suggestion — see gh458_round2_review_fixes.yaml for the full
+# before/after of the suggestion actually applying the exercise.
 - extendedWaitUntil:
     visible:
       id: 'analyse-chart-no-selection'
     timeout: 20000
+- assertNotVisible: 'Please select: Exercise or Muscle.'
 - assertVisible:
     id: 'analyse-chart-no-selection-description'
-    text: 'Please select: Exercise or Muscle. Open the selector above and pick what you want to see.'
+    text: '.*Pick an exercise or a muscle group above.*'
 - takeScreenshot: gh458_30_chart_no_selection
 
 # ------------------------------------- case 1: an exercise never trained once

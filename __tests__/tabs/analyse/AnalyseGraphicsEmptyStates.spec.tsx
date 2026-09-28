@@ -3,7 +3,8 @@ import {fireEvent, render} from '@testing-library/react-native';
 import {PaperProvider} from 'react-native-paper';
 import AnalyseGraphics from '../../../app/tabs/Analyse/AnalyseGraphics';
 import {useWorkoutsIn} from '../../../app/redux/Workout/use/useWorkoutsIn';
-import {useLastWorkoutDateForExercises} from '../../../app/redux/Workout/use/useLastWorkoutDate';
+import {useLastTrainedExerciseId, useLastWorkoutDateForExercises} from '../../../app/redux/Workout/use/useLastWorkoutDate';
+import {useAlleExercises} from '../../../app/redux/Exercises/use/useAllExercises';
 import {Exercise} from '../../../app/models/entities/Exercise';
 import {Workout} from '../../../app/models/entities/Workout';
 
@@ -13,9 +14,11 @@ const NEVER_TRAINED = {id: 2, name: 'Mmkv', muscles: []} as unknown as Exercise;
 jest.mock('../../../app/redux/Workout/use/useWorkoutsIn', () => ({useWorkoutsIn: jest.fn(() => [])}));
 jest.mock('../../../app/redux/Workout/use/useWorkoutsByIds', () => ({useWorkoutsByIds: jest.fn(() => [])}));
 jest.mock('../../../app/redux/Exercises/use/useExercisesForMuscles', () => ({useExercisesForMuscles: jest.fn(() => [])}));
+jest.mock('../../../app/redux/Exercises/use/useAllExercises', () => ({useAlleExercises: jest.fn(() => [])}));
 jest.mock('../../../app/redux/Workout/use/useLastWorkoutDate', () => ({
   useLastWorkoutDate: jest.fn(() => undefined),
   useLastWorkoutDateForExercises: jest.fn(() => undefined),
+  useLastTrainedExerciseId: jest.fn(() => undefined),
 }));
 
 jest.mock('../../../app/components/Workout/show/WorkoutDoneList', () => {
@@ -79,6 +82,8 @@ const renderScreen = () =>
 beforeEach(() => {
   (useWorkoutsIn as jest.Mock).mockReturnValue([]);
   (useLastWorkoutDateForExercises as jest.Mock).mockReturnValue(undefined);
+  (useAlleExercises as jest.Mock).mockReturnValue([SQUAT, NEVER_TRAINED]);
+  (useLastTrainedExerciseId as jest.Mock).mockReturnValue(undefined);
 });
 
 /**
@@ -94,7 +99,42 @@ describe('Analyse chart empty states (GH-458 H3)', () => {
 
     expect(getByTestId('analyse-chart-no-selection')).toBeTruthy();
     expect(queryByTestId('analyse-line-chart')).toBeNull();
-    expect(getByTestId('analyse-chart-no-selection-description').props.children).toContain('Please select: Exercise or Muscle.');
+    expect(getByTestId('analyse-chart-no-selection-description').props.children).toContain('Pick an exercise or a muscle group above');
+  });
+
+  /**
+   * GH-458 round 2 (issue #461): the "nothing selected" starting state used to
+   * share a red HelperText with genuine misconfiguration and offered no direct
+   * next step. It must now read as a normal empty state, not an error, and
+   * offer the last-trained exercise as a one-tap suggestion when there is one.
+   */
+  it('issue #461: is not styled or worded as an error when nothing is selected yet', () => {
+    const {queryByText} = renderScreen();
+
+    expect(queryByText('Please select: Exercise or Muscle.')).toBeNull();
+  });
+
+  it('issue #461: suggests the last-trained exercise as a one-tap starting point', () => {
+    (useAlleExercises as jest.Mock).mockReturnValue([SQUAT, NEVER_TRAINED]);
+    (useLastTrainedExerciseId as jest.Mock).mockReturnValue(1);
+    const {getByTestId} = renderScreen();
+
+    expect(getByTestId('analyse-chart-no-selection-description').props.children).toContain('Squat');
+
+    fireEvent.press(getByTestId('analyse-chart-select-suggested'));
+
+    // Squat becomes the selection; with no last-workout date mocked for it,
+    // that reads as "never trained" — proving the tap actually applied the
+    // suggested exercise, not just closed the empty state.
+    expect(getByTestId('analyse-chart-never-trained')).toBeTruthy();
+  });
+
+  it('issue #461: offers no suggestion action on a completely empty store', () => {
+    (useAlleExercises as jest.Mock).mockReturnValue([]);
+    (useLastTrainedExerciseId as jest.Mock).mockReturnValue(undefined);
+    const {queryByTestId} = renderScreen();
+
+    expect(queryByTestId('analyse-chart-select-suggested')).toBeNull();
   });
 
   it('says so when the chosen exercise was never trained at all', () => {

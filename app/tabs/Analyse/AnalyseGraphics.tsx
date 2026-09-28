@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {processColor, ScrollView, StyleSheet} from 'react-native';
-import {useTheme, HelperText} from 'react-native-paper';
+import {useTheme} from 'react-native-paper';
 import {useWorkoutsIn} from '../../redux/Workout/use/useWorkoutsIn';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
@@ -22,9 +22,10 @@ import {Metric} from "../../models/Metric";
 import {AccumulationMode} from '../../models/AccumulationMode';
 import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
 import AnalyseStaleRangeBanner from '../../components/analyse/AnalyseStaleRangeBanner';
-import {useLastWorkoutDateForExercises} from '../../redux/Workout/use/useLastWorkoutDate';
+import {useLastTrainedExerciseId, useLastWorkoutDateForExercises} from '../../redux/Workout/use/useLastWorkoutDate';
 import {ANALYSE_EXTENDED_RANGE_MONTHS, describeRange, rangeEndingAt, rangeEndingToday} from '../../utils/analyse-range';
 import {getDateStringFromDate} from '../../utils/DateHelper';
+import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 
 const AnalyseGraphics = ({}: Props) => {
   function handleDataPointSelect(value: ChartSelectEvent) {
@@ -58,11 +59,14 @@ const AnalyseGraphics = ({}: Props) => {
     validateSelections();
   }, [exercise, metric, accumulation, muscle]);
 
+  // GH-458 round 2 (issue #461): "no exercise or muscle chosen yet" is the
+  // normal starting state of this screen, not an error — it used to share this
+  // same red HelperText with genuine misconfiguration (metric/accumulation
+  // cleared), so a first-time visitor saw a red error line over a blank page.
+  // That case now gets its own empty state below; this only flags the
+  // remaining, real misconfiguration.
   const validateSelections = () => {
     let errors: string[] = [];
-    if (exercise.length === 0 && muscle.length === 0) {
-      errors.push('Exercise or Muscle');
-    }
     if (!metric) {
       errors.push('Metric');
     }
@@ -131,9 +135,24 @@ const AnalyseGraphics = ({}: Props) => {
   const selectionExerciseIds = uniqueExercises.map((it) => it.id).filter((id): id is number => id !== undefined);
   const lastWorkoutForSelection = useLastWorkoutDateForExercises(selectionExerciseIds);
 
+  // GH-458 round 2 (issue #461): a normal, unconfigured screen used to show
+  // only a small red "Please select: Exercise or Muscle." line above an
+  // otherwise blank page — it read as an error rather than a starting state.
+  // Offer a direct, one-tap suggestion instead: the exercise most recently
+  // logged, if there is one.
+  const allExercises = useAlleExercises();
+  const lastTrainedExerciseId = useLastTrainedExerciseId();
+  const suggestedExercise = allExercises.find((it) => it.id === lastTrainedExerciseId);
+
   const clearSelection = () => {
     setExercise([]);
     setMuscle([]);
+  };
+
+  const selectSuggestedExercise = () => {
+    if (suggestedExercise) {
+      setExercise([suggestedExercise]);
+    }
   };
 
   return (
@@ -214,12 +233,29 @@ const AnalyseGraphics = ({}: Props) => {
           onSelect={(value) => handleDataPointSelect(value)}
         />
       )}
-      {!isConfigured && (
+      {/* GH-458 round 2 (issue #461): a normal, first-time state, not an
+          error — this replaces the red "Please select: Exercise or Muscle."
+          line the audit flagged, and offers the last-trained exercise as a
+          one-tap starting point instead of only pointing back at the picker. */}
+      {!isConfigured && !hasSelection && (
         <AnalyseEmptyState
           testID="analyse-chart-no-selection"
-          title="Nothing to chart yet"
-          description={`${errorMessage ?? 'Please select: Exercise or Muscle.'} Open the selector above and pick what you want to see.`}
+          title="Choose what to analyse"
+          description={
+            suggestedExercise
+              ? `Pick an exercise or a muscle group above, or start with ${suggestedExercise.name} — the last thing you trained.`
+              : 'Pick an exercise or a muscle group above to see its progress over time.'
+          }
+          actions={
+            suggestedExercise
+              ? [{label: `Select ${suggestedExercise.name}`, testID: 'analyse-chart-select-suggested', onPress: selectSuggestedExercise}]
+              : []
+          }
         />
+      )}
+
+      {!isConfigured && hasSelection && (
+        <AnalyseEmptyState testID="analyse-chart-misconfigured" title="Nothing to chart yet" description={`${errorMessage} Open the selector above and pick what you want to see.`} />
       )}
 
       {isConfigured && map.length === 0 && lastWorkoutForSelection === undefined && (
@@ -252,9 +288,6 @@ const AnalyseGraphics = ({}: Props) => {
       )}
 
       {selectedWorkout && isConfigured && <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric !== Metric.FREQUENCY ? metric : undefined} editable={false}></WorkoutView>}
-      <HelperText type="error" visible={!!errorMessage}>
-        {errorMessage}
-      </HelperText>
     </ScrollView>
   );
 };
