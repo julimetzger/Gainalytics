@@ -21,7 +21,12 @@ const MetricView = ({comparison, metric, testID}: MetricComparisonProps) => {
   const theme = useTheme();
   const difference = comparison?.difference;
   const greater = (difference ?? 0) >= 0;
-  const deltaColor = difference === 0 ? theme.colors.onSurfaceVariant : greater ? '#558b2f' /* green */ : theme.colors.error;
+  // GH-458 round 2 (review #3): a hardcoded '#558b2f' stayed the same green in
+  // dark theme and any custom palette, where it can read as low-contrast or
+  // clash outright. `theme.colors.primary` already carries the "positive"
+  // meaning elsewhere in this ticket (MuscleHeatmap's chip colouring) and is
+  // tuned for both schemes by construction.
+  const deltaColor = difference === 0 ? theme.colors.onSurfaceVariant : greater ? theme.colors.primary : theme.colors.error;
 
   const value = metric !== undefined ? formatMetricValue(metric, comparison?.value) : comparison?.value?.toFixed(2);
   const delta = difference === undefined ? undefined : metric !== undefined ? formatMetricDelta(metric, difference) : (greater ? '+' : '') + difference.toFixed(2);
@@ -44,7 +49,7 @@ const MetricView = ({comparison, metric, testID}: MetricComparisonProps) => {
 
   return (
     <View style={styles.container}>
-      {delta !== undefined && <Text style={{color: difference === 0 ? theme.colors.onSurface : greater ? '#558b2f' : theme.colors.error}}>{delta}</Text>}
+      {delta !== undefined && <Text style={{color: difference === 0 ? theme.colors.onSurface : greater ? theme.colors.primary : theme.colors.error}}>{delta}</Text>}
       <Text>{value}</Text>
     </View>
   );
