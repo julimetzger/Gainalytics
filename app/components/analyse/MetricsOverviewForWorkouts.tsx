@@ -80,9 +80,18 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
   const selectedMetric = metricSelector ? activeMetricSlots[metricSelector.slotIndex] : undefined;
   const comparisonSubtitle = comparisonRangeLabel ? describeComparisonPeriod(comparisonRangeLabel) : undefined;
 
+  // GH-458 round 2 (review #1): this used to gate on `muscleMetricMap`/
+  // `exerciseMetricMap`, which are built from trainingsWorkouts AND
+  // previousWorkouts combined — so a selected period with zero sets still
+  // rendered a full table of zeros whenever the COMPARISON period had data.
+  // Whether the empty state shows must depend only on the selected period's
+  // own sets. A workout with no sets logged (e.g. an unfinished session) is
+  // "no sets" too, not "no workouts".
+  const hasCurrentPeriodSets = useMemo(() => trainingsWorkouts.some((workout) => workout.sets.length > 0), [trainingsWorkouts]);
+
   // GH-458 (H3): the Metrics Overview used to render bare table headers and no
   // rows when the range held nothing — indistinguishable from "still loading".
-  if (emptyState && muscleMetricMap.size === 0 && exerciseMetricMap.size === 0) {
+  if (emptyState && !hasCurrentPeriodSets) {
     return <>{emptyState}</>;
   }
 
