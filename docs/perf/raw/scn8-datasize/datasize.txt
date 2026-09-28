@@ -1,0 +1,17 @@
+diskstats App Sizes         236956160 bytes =  237.0 MB
+diskstats App Data Sizes     35201024 bytes =   35.2 MB
+diskstats Cache Sizes          487424 bytes =    0.5 MB
+NOTE: diskstats sizes are a cached snapshot from the last system storage scan, not live.
+export (full redux state JSON) bytes: 1492351
+  persisted slice workouts         1349615 bytes
+  persisted slice trainings         112290 bytes
+  persisted slice exercises          24695 bytes
+  persisted slice trainingsPlan       4449 bytes
+  persisted slice videoAnalyses        668 bytes
+  persisted slice settings             293 bytes
+  persisted slice aiChat               188 bytes
+finished trainings: 364, from 2024-02-15 to 2026-02-28
+workouts byId 5707 (allIds 2883), sets 11461
+exercises 82, plans 4, videoAnalyses 1, aiChat messages 0, chat history 0
+redux-persist root value (double-encoded, as written to MMKV key persist:root): 1736076 chars (see scn2-save/serialize-estimate-node.txt)
+MMKV file files/mmkv/mmkv.default in pre-install backup: 16777216 bytes (MMKV pre-allocated/append-log file, 16 MiB)

@@ -1,0 +1,25 @@
+# PERF-001 read-only post-measurement check on the user's real device.
+# NO clearState, NO import: launches the installed release build and asserts that the user's
+# real, latest history entry (Sat 28/02/26, first card "Hyperextension") is still present.
+appId: com.powerliftingworkoutplanner
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- extendedWaitUntil:
+    visible: "Current micro"
+    timeout: 20000
+- assertVisible: "Push pull"
+- assertVisible: "Next Training"
+- tapOn: "tab-analyse"
+- extendedWaitUntil:
+    visible: "Your Week at a Glance"
+    timeout: 15000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- tapOn: "History"
+- extendedWaitUntil:
+    visible: "Sat, 28/02/26"
+    timeout: 15000
+- assertVisible: "Hyperextension.*"
+- takeScreenshot: ${OUT_DIR}/maestro-history-after

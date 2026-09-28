@@ -1,0 +1,2 @@
+perfetto pid=10788
+/data/misc/perfetto-traces/scn4a.pftrace: 1 file pulled, 0 skipped. 37.8 MB/s (34677396 bytes in 0.875s)

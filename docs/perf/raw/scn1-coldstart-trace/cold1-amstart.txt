@@ -1,0 +1,7 @@
+Starting: Intent { cmp=com.powerliftingworkoutplanner/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.powerliftingworkoutplanner/.MainActivity
+TotalTime: 197
+WaitTime: 200
+Complete

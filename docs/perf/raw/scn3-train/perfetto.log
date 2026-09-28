@@ -1,0 +1,2 @@
+perfetto pid=8543
+/data/misc/perfetto-traces/scn3-train.pftrace: 1 file pulled, 0 skipped. 38.6 MB/s (39993891 bytes in 0.988s)

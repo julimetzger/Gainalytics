@@ -1,0 +1,18 @@
+# Hermes/release verification 2026-09-28T21:24:05+02:00
+## local APK
+d08b2db4f7fdd4f04670886693aaae445225259dbf64be0381d2419931ba3860  android/app/build/outputs/apk/release/app-release.apk
+   138680  1981-01-01 01:01   lib/arm64-v8a/libhermestooling.so
+  2460728  1981-01-01 01:01   lib/arm64-v8a/libhermesvm.so
+  5321600  1981-01-01 01:01   assets/index.android.bundle
+bundle magic (Hermes HBC = c61fbc03c103191f):
+c61fbc03c103191f
+## device
+/data/app/~~_4_aWKYi2UV0h_v8kKOMGQ==/com.powerliftingworkoutplanner-9wvkECCTWAwkzDJpFdTWuQ==/base.apk
+d08b2db4f7fdd4f04670886693aaae445225259dbf64be0381d2419931ba3860  /data/app/~~_4_aWKYi2UV0h_v8kKOMGQ==/com.powerliftingworkoutplanner-9wvkECCTWAwkzDJpFdTWuQ==/base.apk
+    versionCode=7 minSdk=24 targetSdk=36
+    versionName=0.172
+    flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
+    lastUpdateTime=2026-09-28 21:10:26
+    pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
+## run-as (must fail on non-debuggable)
+run-as: package not debuggable: com.powerliftingworkoutplanner

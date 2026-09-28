@@ -1,0 +1,2 @@
+perfetto pid=18461
+/data/misc/perfetto-traces/scn2-save.pftrace: 1 file pulled, 0 skipped. 37.7 MB/s (31356570 bytes in 0.792s)

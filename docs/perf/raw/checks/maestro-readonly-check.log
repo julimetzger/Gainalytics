@@ -1,0 +1,10 @@
+Picked up JAVA_TOOL_OPTIONS: -Duser.home=/home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/PERF-001/checks/maestro-java-home
+Picked up JAVA_TOOL_OPTIONS: -Duser.home=/home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/PERF-001/checks/maestro-java-home
+[31m
+Warning: Failed to parse current version[m
+
+Waiting for flows to complete...
+[Passed] perf001-readonly-check (22s)
+
+1/1 Flow Passed in 22s
+

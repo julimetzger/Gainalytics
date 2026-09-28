@@ -1,0 +1,25 @@
+{
+ "exercises": 82,
+ "trainings": 381,
+ "trainings_byId": 381,
+ "trainings_by_state": {
+  "F": 364,
+  "P": 17
+ },
+ "workouts_allIds": 2883,
+ "workouts_byId": 5707,
+ "sets_total": 11461,
+ "trainingsPlans": 4,
+ "videoAnalyses": 1,
+ "max_training_id": 381,
+ "fp_trainings_byId": "7fb78eda601d2fda",
+ "fp_workouts_byId": "3d01f9d379385c84",
+ "fp_trainingsPlan_byId": "6c6ee25b97ea5b84",
+ "fp_exercises_byId": "e12dd60df36c90bb",
+ "fp_workouts_byExerciseId": "7e415d73b165fe80",
+ "fp_workouts_allIds": "d3bd89b00fc78a3e",
+ "fp_workouts_plannedWorkouts": "b21a0d7784f22116",
+ "fp_trainings_allIds": "0a91c00f43014e8d",
+ "fp_videoAnalyses": "de00d88c8c0c5744",
+ "fp_settings": "4e2689bcd489d964"
+}

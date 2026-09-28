@@ -1,0 +1,37 @@
+== A: am start -W only, cold x12
+cold 1: LaunchState: COLD TotalTime: 198 WaitTime: 200 
+cold 2: LaunchState: COLD TotalTime: 189 WaitTime: 195 
+cold 3: LaunchState: COLD TotalTime: 191 WaitTime: 198 
+cold 4: LaunchState: COLD TotalTime: 189 WaitTime: 191 
+cold 5: LaunchState: COLD TotalTime: 188 WaitTime: 190 
+cold 6: LaunchState: COLD TotalTime: 190 WaitTime: 193 
+cold 7: LaunchState: COLD TotalTime: 209 WaitTime: 212 
+cold 8: LaunchState: COLD TotalTime: 194 WaitTime: 201 
+cold 9: LaunchState: COLD TotalTime: 183 WaitTime: 189 
+cold 10: LaunchState: COLD TotalTime: 189 WaitTime: 191 
+cold 11: LaunchState: COLD TotalTime: 199 WaitTime: 203 
+cold 12: LaunchState: COLD TotalTime: 211 WaitTime: 213 
+== B: warm (HOME then am start -W) x12
+warm 1: LaunchState: HOT TotalTime: 68 WaitTime: 71 
+warm 2: LaunchState: HOT TotalTime: 61 WaitTime: 64 
+warm 3: LaunchState: HOT TotalTime: 65 WaitTime: 69 
+warm 4: LaunchState: HOT TotalTime: 73 WaitTime: 75 
+warm 5: LaunchState: HOT TotalTime: 73 WaitTime: 76 
+warm 6: LaunchState: HOT TotalTime: 56 WaitTime: 65 
+warm 7: LaunchState: HOT TotalTime: 66 WaitTime: 70 
+warm 8: LaunchState: HOT TotalTime: 59 WaitTime: 62 
+warm 9: LaunchState: HOT TotalTime: 58 WaitTime: 60 
+warm 10: LaunchState: HOT TotalTime: 61 WaitTime: 65 
+warm 11: LaunchState: HOT TotalTime: 74 WaitTime: 76 
+warm 12: LaunchState: HOT TotalTime: 73 WaitTime: 76 
+== C: cold, time to first tab content (uiautomator poll each ~0.6s, so +0..0.6s) x10
+cold-content 1: TotalTime: 204  content_ms=2780
+cold-content 2: TotalTime: 184  content_ms=2760
+cold-content 3: TotalTime: 198  content_ms=2710
+cold-content 4: TotalTime: 201  content_ms=2840
+cold-content 5: TotalTime: 199  content_ms=2750
+cold-content 6: TotalTime: 203  content_ms=2830
+cold-content 7: TotalTime: 182  content_ms=2750
+cold-content 8: TotalTime: 190  content_ms=2720
+cold-content 9: TotalTime: 200  content_ms=2800
+cold-content 10: TotalTime: 191  content_ms=2730

@@ -1,0 +1,13 @@
+01-start 227989 native=126532 java=10632 gfx=10992 views=273
+02-plan-next-training 296216 native=183036 java=13576 gfx=15048 views=448
+03-plan-micro4 365780 native=233072 java=21872 gfx=15068 views=1275
+04-exercises 387631 native=244324 java=26404 gfx=16864 views=1939
+05-dashboard 390651 native=251108 java=22064 gfx=17376 views=2046
+06-history-open 406008 native=261276 java=28432 gfx=16096 views=2548
+07-history-5flings 478996 native=311840 java=36164 gfx=16096 views=2524
+08-history-15flings 498347 native=323980 java=33128 gfx=20012 views=2564
+09-analysis 475958 native=312384 java=26264 gfx=16104 views=2620
+10-metrics 479932 native=314620 java=27988 gfx=16104 views=2762
+11-dashboard 476072 native=314492 java=24440 gfx=16104 views=2756
+12-settings 492619 native=329812 java=25624 gfx=16128 views=2847
+13-training 486463 native=324844 java=24420 gfx=16128 views=2847

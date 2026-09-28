@@ -1,0 +1,1 @@
+node/V8 serialize (all slices + outer): median 13.6 ms min 13.1 max 13.9 len 1736076 bytes; parse (rehydrate)  10.9 ms
