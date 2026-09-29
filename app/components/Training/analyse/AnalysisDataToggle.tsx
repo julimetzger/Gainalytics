@@ -1,6 +1,7 @@
 import React, {useCallback, useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {SegmentedButtons, Text, useTheme} from 'react-native-paper';
+import {Text, useTheme} from 'react-native-paper';
+import InstantSegmentedButtons from '../../common/InstantSegmentedButtons';
 
 /**
  * Which data the analysis view renders. 'train' is the historical behaviour and
@@ -53,7 +54,7 @@ const AnalysisDataToggle = ({value, onChange}: AnalysisDataToggleProps) => {
       <Text variant="labelMedium" style={{color: theme.colors.onSurfaceVariant}}>
         Show
       </Text>
-      <SegmentedButtons style={styles.group} density="small" value={value} onValueChange={handleValueChange} buttons={buttons} />
+      <InstantSegmentedButtons style={styles.group} density="small" value={value} onValueChange={handleValueChange} buttons={buttons} />
     </View>
   );
 };

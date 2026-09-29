@@ -1,6 +1,8 @@
 import React, {useMemo} from 'react';
 import {View} from 'react-native';
-import {SegmentedButtons, Text} from 'react-native-paper';
+import {Text} from 'react-native-paper';
+import InstantSegmentedButtons from '../../components/common/InstantSegmentedButtons';
+import {ProgressiveMount, useProgressiveLimit} from '../../components/common/ProgressiveMount';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {TrainingsState} from '../../models/TrainingsState';
 import {useAllTrainingsInMicro} from '../../redux/Training/use/useAllTrainingsInMicro';
@@ -46,6 +48,8 @@ const TrainingMuscleCard = ({training, trainingName}: TrainingMuscleCardProps) =
 const MuscleView = ({trainingsPlan, micro}: Pick<Props, 'trainingsPlan' | 'micro'>) => {
   const trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
   const executedTrainings = useMemo(() => trainings.filter((t) => t.state === TrainingsState.FINISHED), [trainings]);
+  // PERF-003: inside a ProgressiveMount the trainings' cards arrive one per commit (Infinity elsewhere).
+  const cardLimit = useProgressiveLimit(1);
 
   const trainingNameMap = useMemo(() => {
     const map = new Map<number, string>();
@@ -72,7 +76,7 @@ const MuscleView = ({trainingsPlan, micro}: Pick<Props, 'trainingsPlan' | 'micro
   // content and blocks scrolling (GH-382).
   return (
     <View>
-      {executedTrainings.map((training) => (
+      {executedTrainings.slice(0, cardLimit).map((training) => (
         <TrainingMuscleCard
           key={training.id}
           training={training}
@@ -95,17 +99,21 @@ const MicroOverviewTraining = ({trainingsPlan, micro, isActive = true, viewMode,
   // content a flex:1 height collapses and clips the overview (GH-382).
   return (
     <View>
-      <SegmentedButtons
+      <InstantSegmentedButtons
         value={viewMode}
         onValueChange={(v) => onViewModeChange(v as ViewMode)}
         style={{margin: 8}}
         density="small"
         buttons={VIEW_MODE_BUTTONS}
       />
-      {viewMode === 'gesamt' && <MicroOverview trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} />}
-      {viewMode === 'exercise' && <MicroExerciseOverview trainingsPlan={trainingsPlan} micro={micro} sortMode={sortMode} onSortModeChange={onSortModeChange} />}
-      {viewMode === 'muscle' && <MuscleView trainingsPlan={trainingsPlan} micro={micro} />}
-      {viewMode === 'plan' && <MicroPlanOverview trainingsPlan={trainingsPlan} micro={micro} />}
+      {/* PERF-003: each view is built over a few commits (see ProgressiveMount), so switching the
+          view — or landing here after a swipe — never mounts 700+ native views in one frame. */}
+      <ProgressiveMount key={viewMode}>
+        {viewMode === 'gesamt' && <MicroOverview trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} />}
+        {viewMode === 'exercise' && <MicroExerciseOverview trainingsPlan={trainingsPlan} micro={micro} sortMode={sortMode} onSortModeChange={onSortModeChange} />}
+        {viewMode === 'muscle' && <MuscleView trainingsPlan={trainingsPlan} micro={micro} />}
+        {viewMode === 'plan' && <MicroPlanOverview trainingsPlan={trainingsPlan} micro={micro} />}
+      </ProgressiveMount>
     </View>
   );
 };

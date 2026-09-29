@@ -153,3 +153,24 @@ describe('MicroOverviewTraining – viewMode prop control', () => {
     expect([...new Set(ids)]).toEqual(['seg-btn-gesamt', 'seg-btn-exercise', 'seg-btn-muscle', 'seg-btn-plan']);
   });
 });
+
+describe('MicroOverviewTraining – PERF-003 the tapped view is marked selected at once', () => {
+  const Owner = () => {
+    const [mode, setMode] = React.useState<ViewMode>('gesamt');
+    return <MicroOverviewTraining trainingsPlan={mockPlan} micro={1} viewMode={mode} onViewModeChange={setMode} />;
+  };
+
+  it('moves the selection to the tapped segment and keeps it once the owner has taken the value', () => {
+    render(<Owner />);
+    expect(screen.getByTestId('seg-btn-gesamt').props.accessibilityState.selected).toBe(true);
+    fireEvent.press(screen.getByTestId('seg-btn-muscle'));
+    expect(screen.getByTestId('seg-btn-muscle').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByTestId('seg-btn-gesamt').props.accessibilityState.selected).toBe(false);
+  });
+
+  it('falls back to the owner value when the owner does not take the tapped one', () => {
+    render(<MicroOverviewTraining trainingsPlan={mockPlan} micro={1} viewMode="gesamt" onViewModeChange={jest.fn()} />);
+    fireEvent.press(screen.getByTestId('seg-btn-muscle'));
+    expect(screen.getByTestId('seg-btn-gesamt').props.accessibilityState.selected).toBe(true);
+  });
+});

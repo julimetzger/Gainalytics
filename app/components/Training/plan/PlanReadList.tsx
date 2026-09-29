@@ -9,6 +9,7 @@ import {withAlpha} from '../../../utils/colorUtils';
 import {PlanField, QuickEditTarget} from './planTypes';
 import PlanReadSetRow from './PlanReadSetRow';
 import PlanQuickEditSetRow from './PlanQuickEditSetRow';
+import {useProgressiveLimit} from '../../common/ProgressiveMount';
 
 interface PlanReadListProps {
   exercises: Exercise[];
@@ -44,10 +45,12 @@ const PlanReadList = ({
   onSelectExercise,
 }: PlanReadListProps) => {
   const theme = useTheme();
+  // PERF-003: inside a ProgressiveMount the exercise sections arrive a few per commit (Infinity elsewhere).
+  const sectionLimit = useProgressiveLimit(2);
 
   const content = (
     <View style={styles.list}>
-      {exercises.map((exercise) => {
+      {exercises.slice(0, sectionLimit).map((exercise) => {
         if (exercise.id === undefined) {
           return null;
         }

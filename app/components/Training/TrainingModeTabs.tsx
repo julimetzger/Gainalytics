@@ -1,6 +1,7 @@
 import React from 'react';
 import {Pressable, StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
+import {useInstantSelection} from '../../utils/useInstantSelection';
 
 export type SubTab = 'train' | 'plan' | 'analysis';
 
@@ -17,17 +18,19 @@ const TABS: {id: SubTab; label: string}[] = [
 
 const TrainingModeTabs = ({activeTab, onTabChange}: TrainingModeTabsProps) => {
   const theme = useTheme();
+  // PERF-003: the tapped tab is marked at once; the sub-tab's content follows.
+  const [shownTab, selectTab] = useInstantSelection(activeTab, onTabChange);
 
   return (
     <View style={styles.container}>
       {TABS.map((tab) => {
-        const isActive = tab.id === activeTab;
+        const isActive = tab.id === shownTab;
         return (
           <Pressable
             key={tab.id}
             testID={`subtab-${tab.id}`}
             style={styles.tab}
-            onPress={() => onTabChange(tab.id)}
+            onPress={() => selectTab(tab.id)}
           >
             <Text
               style={[

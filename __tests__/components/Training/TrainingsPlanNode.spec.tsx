@@ -18,6 +18,8 @@ const {useTrainingInTrainingsPlan} = require('../../../app/redux/Training/use/us
 
 jest.mock('../../../app/redux/Training/trainingsPlanReducer', () => ({
   getPreviousMicroInMeso: jest.fn(() => null),
+  getLocalMicro: jest.fn(() => 4),
+  getMesoForMicro: jest.fn(() => ({name: 'Meso 1'})),
 }));
 
 jest.mock('../../../app/redux/Training/use/useLastTrainingOfPreviousMeso', () => ({
@@ -319,7 +321,9 @@ describe('TrainingsPlanNode — GH-401 Train tab is the single start/finish cont
     // Finishing flips the state; FINISHED defaults to Analysis. If the request
     // re-applied on every state change the user would be yanked back to Train.
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
-    rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    // The node is memoised (PERF-003) and the hook is mocked here, so nothing would re-render it on its own —
+    // in the app the store subscription does. A fresh callback prop stands in for that update.
+    rerender(<TrainingsPlanNode {...defaultProps} setIgnoreSwipe={jest.fn()} requestedSubTab="train" />);
     expect(getByTestId('trainings-overview')).toBeTruthy();
     expect(queryByTestId('training-history')).toBeNull();
   });
@@ -612,5 +616,76 @@ describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
 
     rerender(<TrainingsPlanNode {...controlled} analysisDataMode="plan" micro={2} />);
     expect(getByTestId('training-plan-overview').props.children).toBe('training-plan:2/1/10');
+  });
+});
+
+describe('TrainingsPlanNode — PERF-003 neighbour panes render a placeholder instead of the content', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('names the micro that is coming and builds none of the heavy content', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    const {getByTestId, queryByTestId, getByText, getAllByText} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} />);
+    expect(getByTestId('micro-pane-placeholder')).toBeTruthy();
+    expect(getAllByText('Micro 4').length).toBeGreaterThan(0);
+    expect(getAllByText('Pull').length).toBeGreaterThan(0);
+    expect(getByText('Finished')).toBeTruthy();
+    expect(queryByTestId('trainings-overview')).toBeNull();
+    expect(queryByTestId('analysis-tab')).toBeNull();
+  });
+
+  it('keeps the sub-tab bar in the placeholder, on the tab the pane will open with', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} />);
+    expect(getByTestId('subtab-train')).toBeTruthy();
+    expect(queryByTestId('execute-workout')).toBeNull();
+  });
+
+  it('mounts the full content as soon as renderContent turns true, on the same sub-tab', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} />);
+    expect(queryByTestId('trainings-overview')).toBeNull();
+    rerender(<TrainingsPlanNode {...defaultProps} renderContent />);
+    expect(getByTestId('trainings-overview')).toBeTruthy();
+    expect(queryByTestId('micro-pane-placeholder')).toBeNull();
+  });
+
+  it('remembers the sub-tab picked in the placeholder when the content arrives', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} />);
+    fireEvent.press(getByTestId('subtab-plan'));
+    rerender(<TrainingsPlanNode {...defaultProps} renderContent />);
+    expect(getByTestId('plan-workout')).toBeTruthy();
+    expect(queryByTestId('trainings-overview')).toBeNull();
+  });
+
+  it('renders the content by default (renderContent is optional)', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
+    expect(getByTestId('trainings-overview')).toBeTruthy();
+    expect(queryByTestId('micro-pane-placeholder')).toBeNull();
+  });
+});
+
+describe('TrainingsPlanNode — PERF-003 placeholder title for a swipe in progress', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('names the coming micro at both edges of the pane, so it is readable whichever side the pane enters from', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} />);
+    expect(getByTestId('micro-pane-placeholder-micro').props.children).toBe('Micro 4');
+    expect(getByTestId('micro-pane-placeholder-micro-mirror', {includeHiddenElements: true}).props.children).toBe('Micro 4');
+    expect(getByTestId('micro-pane-placeholder-title').props.children).toBe('Pull');
+    expect(getByTestId('micro-pane-placeholder-title-mirror', {includeHiddenElements: true}).props.children).toBe('Pull');
+  });
+
+  it('keeps the second copy out of accessibility and out of touch handling', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} />);
+    let mirrorWrapper: any = getByTestId('micro-pane-placeholder-micro-mirror', {includeHiddenElements: true});
+    while (mirrorWrapper && mirrorWrapper.props.importantForAccessibility !== 'no-hide-descendants') {
+      mirrorWrapper = mirrorWrapper.parent;
+    }
+    expect(mirrorWrapper).toBeTruthy();
+    expect(mirrorWrapper.props.pointerEvents).toBe('none');
   });
 });

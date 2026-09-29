@@ -1,3 +1,4 @@
+import {useProgressiveLimit} from '../../common/ProgressiveMount';
 import React, {useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
@@ -152,6 +153,8 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 
   const onSurfaceVariant = theme.colors.onSurfaceVariant;
 
   const showReferenceLayer = data.effectiveCompare !== 'none';
+  // PERF-003: inside a ProgressiveMount the bars arrive in two commits (Infinity elsewhere).
+  const barLimit = useProgressiveLimit(4, 100, 1);
 
   // GH-436: the header names the subject's scope so the card can never be read as
   // a micro-wide map (the Overview's MicroMuscleMapCard says "THIS MICRO").
@@ -194,7 +197,7 @@ const MuscleInvolvementCard = ({trainingsPlanId, micro, trainingInMicro, view = 
           No muscle data for this training yet.
         </Text>
       ) : (
-        <MuscleMapBarList rows={data.rows} globalMax={data.globalMax} metric={metric} showReferenceLayer={showReferenceLayer} />
+        <MuscleMapBarList rows={data.rows.slice(0, barLimit)} globalMax={data.globalMax} metric={metric} showReferenceLayer={showReferenceLayer} />
       )}
     </View>
   );
