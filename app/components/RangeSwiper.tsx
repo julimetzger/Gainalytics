@@ -30,7 +30,12 @@ const userConfig = {
 };
 
 interface RangeSwiperProps<T> {
-  nodeFunction: (range: T, setRange: (range: T) => void) => React.ReactNode;
+  /**
+   * `isActivePane` tells which of the three panes is the one the user is on.
+   * Comparing ranges is not enough: at the edge of the range the neighbour
+   * pane shows the same value as the active one (PERF-003).
+   */
+  nodeFunction: (range: T, setRange: (range: T) => void, isActivePane: boolean) => React.ReactNode;
   notSwipeableContent?: React.ReactNode;
   determineValueByIndex: (index: number, range: T) => T;
   startValue: T;
@@ -314,44 +319,25 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
                   },
             ]}
           >
-            {[-1, 0, 1].map((value) => {
-              if (value === fullPosition.Upper.position) {
-                return (
-                  <View
-                    key={1}
-                    testID="range-swiper-pane-upper"
-                    onLayout={paneOnLayout(ViewPosition.UPPER)}
-                    style={paneStyle(ViewPosition.UPPER)}
-                  >
-                    {nodeFunction(fullPosition.Upper.range, setRange)}
-                  </View>
-                );
-              }
-              if (value === fullPosition.Middle.position) {
-                return (
-                  <View
-                    key={2}
-                    testID="range-swiper-pane-middle"
-                    onLayout={paneOnLayout(ViewPosition.MIDDLE)}
-                    style={paneStyle(ViewPosition.MIDDLE)}
-                  >
-                    {nodeFunction(fullPosition.Middle.range, setRange)}
-                  </View>
-                );
-              }
-              if (value === fullPosition.Lower.position) {
-                return (
-                  <View
-                    key={3}
-                    testID="range-swiper-pane-lower"
-                    onLayout={paneOnLayout(ViewPosition.LOWER)}
-                    style={paneStyle(ViewPosition.LOWER)}
-                  >
-                    {nodeFunction(fullPosition.Lower.range, setRange)}
-                  </View>
-                );
-              }
-            })}
+            {/* PERF-003: the panes are rendered in a FIXED order and moved into their slot with a translation.
+                Ordering them by position (as before) made React move the pane views inside the row on every
+                swipe — Android then detaches and re-attaches them and has to re-record the whole content of the
+                pane, a ~20 ms frame for a pane with a full training on it. */}
+            {[
+              {key: 1, testID: 'range-swiper-pane-upper', view: ViewPosition.UPPER, pane: fullPosition.Upper},
+              {key: 2, testID: 'range-swiper-pane-middle', view: ViewPosition.MIDDLE, pane: fullPosition.Middle},
+              {key: 3, testID: 'range-swiper-pane-lower', view: ViewPosition.LOWER, pane: fullPosition.Lower},
+            ].map(({key, testID, view, pane}, domIndex) => (
+              <View
+                key={key}
+                testID={testID}
+                onLayout={paneOnLayout(view)}
+                // slot = position + 1 (-1 -> leftmost); the view naturally sits in slot `domIndex`
+                style={[paneStyle(view), {transform: [{translateX: (pane.position + 1 - domIndex) * dimensions.width}]}]}
+              >
+                {nodeFunction(pane.range, setRange, fullPosition.activeView === view)}
+              </View>
+            ))}
           </Animated.View>
         </GestureDetector>
       </Container>
@@ -359,6 +345,13 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
   );
 };
 const SNAP_POINT = 3;
+/**
+ * When a screen that keeps its heavy content out of the neighbour panes should mount it after a swipe:
+ * 90 % into the snap animation (`userConfig.duration`). The animation is an ease-in-out, so at that point
+ * it has covered ~98 % of the way and only creeps the last few dp — the staged mount then finishes shortly
+ * after the pane has come to rest instead of after a further half second of an empty pane.
+ */
+export const SWIPE_SETTLE_MS = Math.round(userConfig.duration * 0.9);
 /** Upper, Middle and Lower — the row always renders exactly these three panes. */
 export const PANE_COUNT = 3;
 

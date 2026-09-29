@@ -16,6 +16,7 @@ import MuscleInvolvementCard from '../plan/MuscleInvolvementCard';
 import {TrainingsState} from '../../../models/TrainingsState';
 import CollapsibleSection from '../../analyse/CollapsibleSection';
 import AnalysisTotalSets from './AnalysisTotalSets';
+import {Stage} from '../../common/ProgressiveMount';
 
 interface TrainingsOverviewProps {
   training: Training;
@@ -104,6 +105,9 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
             </Card>
           </View>
         </View>
+        {/* PERF-003: the sections below the summary cards arrive in later stages when the screen
+            builds progressively (see ProgressiveMount); everywhere else all stages are on at once. */}
+        <Stage at={1}>
         {vlInsights.length > 0 && (
           <View style={{marginTop: 4}}>
             {vlInsights.map((insight) => (
@@ -132,9 +136,12 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
             />
           </CollapsibleSection>
         )}
-        <CollapsibleSection id="metrics" title="Metrics">
-          <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
-        </CollapsibleSection>
+        </Stage>
+        <Stage at={3}>
+          <CollapsibleSection id="metrics" title="Metrics">
+            <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
+          </CollapsibleSection>
+        </Stage>
       </View>
     </ScrollView>
   );

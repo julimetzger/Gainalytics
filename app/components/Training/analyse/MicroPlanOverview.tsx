@@ -1,3 +1,4 @@
+import {Stage} from '../../common/ProgressiveMount';
 import React, {useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
@@ -54,11 +55,15 @@ const MicroPlanOverview = ({trainingsPlan, micro}: MicroPlanOverviewProps) => {
         </View>
       ) : (
         <View>
-          {trainingsPlan.id !== undefined && <MicroMuscleMapCard trainingsPlanId={trainingsPlan.id} micro={micro} />}
-          <Text testID="micro-plan-overview-caption" variant="bodySmall" style={[styles.caption, {color: theme.colors.onSurfaceVariant}]}>
-            Planned values for this micro, differences against what was trained.
-          </Text>
-          <MetricsOverviewForWorkouts trainingsWorkouts={plannedWorkouts} previousWorkouts={doneWorkouts} showExercises={false} />
+          <Stage at={1}>
+            {trainingsPlan.id !== undefined && <MicroMuscleMapCard trainingsPlanId={trainingsPlan.id} micro={micro} />}
+            <Text testID="micro-plan-overview-caption" variant="bodySmall" style={[styles.caption, {color: theme.colors.onSurfaceVariant}]}>
+              Planned values for this micro, differences against what was trained.
+            </Text>
+          </Stage>
+          <Stage at={3}>
+            <MetricsOverviewForWorkouts trainingsWorkouts={plannedWorkouts} previousWorkouts={doneWorkouts} showExercises={false} />
+          </Stage>
         </View>
       )}
     </View>

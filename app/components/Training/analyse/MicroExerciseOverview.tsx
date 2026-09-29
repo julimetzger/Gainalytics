@@ -10,6 +10,8 @@ import {Training} from '../../../models/entities/Training';
 import {Workout} from '../../../models/entities/Workout';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {formatPlanNumber} from '../plan/planUtils';
+import {useInstantSelection} from '../../../utils/useInstantSelection';
+import {useProgressiveLimit} from '../../common/ProgressiveMount';
 
 export type ExerciseSortMode = 'plan' | 'date';
 
@@ -127,12 +129,30 @@ const TrainingExerciseCard = ({training, trainingName, sortMode}: TrainingExerci
   );
 };
 
+/**
+ * PERF-003: the sort toggle in a component of its own, so the icon flips at once (see
+ * useInstantSelection) without dragging the whole card list through an extra render.
+ */
+const SortToggle = ({sortMode, onSortModeChange}: {sortMode: ExerciseSortMode; onSortModeChange: (mode: ExerciseSortMode) => void}) => {
+  const [shownMode, selectMode] = useInstantSelection(sortMode, onSortModeChange);
+  return (
+    <IconButton
+      testID="exercise-sort-toggle"
+      accessibilityLabel={shownMode === 'plan' ? 'Sorted by training order' : 'Sorted by date'}
+      icon={shownMode === 'plan' ? 'sort-variant' : 'sort-clock-ascending-outline'}
+      onPress={() => selectMode(shownMode === 'plan' ? 'date' : 'plan')}
+    />
+  );
+};
+
 const MicroExerciseOverview = ({trainingsPlan, micro, sortMode: sortModeProp, onSortModeChange}: Props) => {
   const [localSortMode, setLocalSortMode] = useState<ExerciseSortMode>('plan');
   const sortMode = sortModeProp ?? localSortMode;
   const setSortMode = onSortModeChange ?? setLocalSortMode;
   const trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
   const executedTrainings = useMemo(() => trainings.filter((t) => t.state === TrainingsState.FINISHED), [trainings]);
+  // PERF-003: inside a ProgressiveMount the trainings' cards arrive one per commit (Infinity elsewhere).
+  const cardLimit = useProgressiveLimit(1);
 
   const trainingNameMap = useMemo(() => {
     const map = new Map<number, string>();
@@ -160,15 +180,10 @@ const MicroExerciseOverview = ({trainingsPlan, micro, sortMode: sortModeProp, on
   return (
     <View>
       <View style={{flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 4}}>
-        <IconButton
-          testID="exercise-sort-toggle"
-          accessibilityLabel={sortMode === 'plan' ? 'Sorted by training order' : 'Sorted by date'}
-          icon={sortMode === 'plan' ? 'sort-variant' : 'sort-clock-ascending-outline'}
-          onPress={() => setSortMode((prev) => (prev === 'plan' ? 'date' : 'plan'))}
-        />
+        <SortToggle sortMode={sortMode} onSortModeChange={setSortMode as (mode: ExerciseSortMode) => void} />
       </View>
       <View>
-        {executedTrainings.map((training) => (
+        {executedTrainings.slice(0, cardLimit).map((training) => (
           <TrainingExerciseCard
             key={training.id}
             training={training}

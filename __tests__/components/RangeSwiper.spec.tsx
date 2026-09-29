@@ -58,3 +58,52 @@ describe('RangeSwiper pane row geometry', () => {
     expect(rowStyle.alignItems).toBe('flex-start');
   });
 });
+
+describe('RangeSwiper — which pane is the active one (PERF-003)', () => {
+  it('tells nodeFunction that only the pane the user is on is active', () => {
+    const calls: {[range: number]: boolean} = {};
+    render(
+      <RangeSwiper<number>
+        fillViewport
+        startValue={5}
+        determineValueByIndex={(index, range) => range + index}
+        nodeFunction={(range, _setRange, isActivePane) => {
+          calls[range] = isActivePane;
+          return <Text>{`pane ${range}`}</Text>;
+        }}
+      />,
+    );
+    expect(calls).toEqual({4: false, 5: true, 6: false});
+  });
+
+  it('marks exactly one pane active even when a neighbour shows the same value (edge of the range)', () => {
+    const active: boolean[] = [];
+    render(
+      <RangeSwiper<number>
+        fillViewport
+        startValue={1}
+        // clamped like a meso edge: the previous neighbour of 1 is 1 again
+        determineValueByIndex={(index, range) => Math.max(1, range + index)}
+        nodeFunction={(_range, _setRange, isActivePane) => {
+          active.push(isActivePane);
+          return <Text>pane</Text>;
+        }}
+      />,
+    );
+    expect(active.filter(Boolean)).toHaveLength(1);
+  });
+});
+
+describe('RangeSwiper — panes keep their place in the row (PERF-003)', () => {
+  it('renders upper, middle, lower in that fixed order, each in its own slot (no translation before any swipe)', () => {
+    const {getByTestId, toJSON} = renderSwiper(true);
+    const row = getByTestId('range-swiper-row');
+    const order = (row.children as any[]).map((child) => child.props.testID);
+    expect(order).toEqual(PANE_TEST_IDS);
+    PANE_TEST_IDS.forEach((testID) => {
+      const translate = flat(getByTestId(testID).props.style).transform;
+      expect(translate).toEqual([{translateX: 0}]);
+    });
+    expect(toJSON()).toBeTruthy();
+  });
+});
