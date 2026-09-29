@@ -85,6 +85,12 @@ jest.mock('react-native-paper', () => {
         <Text>{children}</Text>
       </TouchableOpacity>
     ),
+    // GH-460: the new-plan button is an extended FAB with a label
+    FAB: ({label, onPress, testID}: any) => (
+      <TouchableOpacity testID={testID} onPress={onPress}>
+        <Text>{label}</Text>
+      </TouchableOpacity>
+    ),
     Card: ({children}: any) => <View>{children}</View>,
     Chip: ({children, onPress, testID}: any) => (
       <TouchableOpacity testID={testID} onPress={onPress}>
@@ -137,6 +143,16 @@ describe('TrainingHome', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('GH-460: shows a labelled "New Training" button that opens the add-plan dialog', () => {
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const {getByText, getByTestId, queryByText} = render(<TrainingHome navigation={navigation as any} route={{params: {}} as any} />);
+
+    expect(getByText('New Training')).toBeTruthy();
+    expect(queryByText('Add New Training Plan')).toBeNull();
+    fireEvent.press(getByTestId('add-trainings-plan'));
+    expect(getByText('Add New Training Plan')).toBeTruthy();
   });
 
   it('exports a trainings plan from the export dialog', async () => {
