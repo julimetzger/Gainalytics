@@ -58,16 +58,17 @@ try {
     .\gradlew.bat bundleRelease
     if ($LASTEXITCODE -ne 0) { throw "bundleRelease failed" }
 
-    git add -f app/build/outputs/apk/release/app-release.apk
-    git add -f app/build/outputs/bundle/release/app-release.aab
+    # The APK/AAB stay local (app/build/outputs/...) — they exceed GitHub's 100 MB limit.
     git add app/build.gradle
-    git commit -m "release android version $newVersion with bundle and apk"
+    git commit -m "release android version $newVersion"
+    if ($LASTEXITCODE -ne 0) { throw "git commit failed" }
     git tag $newVersion
-    git push origin $newVersion
-    git rm --cached app/build/outputs/apk/release/app-release.apk
-    git rm --cached app/build/outputs/bundle/release/app-release.aab
-    git commit --amend -m "release android version $newVersion"
     git push origin master
+    if ($LASTEXITCODE -ne 0) { throw "git push master failed" }
+    git push origin $newVersion
+    if ($LASTEXITCODE -ne 0) { throw "git push tag failed" }
+    Write-Host "apk: android/app/build/outputs/apk/release/app-release.apk"
+    Write-Host "aab: android/app/build/outputs/bundle/release/app-release.aab"
 }
 finally {
     Pop-Location
