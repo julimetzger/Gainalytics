@@ -118,7 +118,13 @@ describe('Dashboard muscle drill-down (GH-458 H4)', () => {
 
     expect(first).not.toBe(second);
     expect(first).not.toBe(sameMuscleOtherRange);
-    expect(buildMetricsDrilldownKey(undefined)).toBe('all-default-default');
+    expect(buildMetricsDrilldownKey(undefined)).toBe('all-default-default-0');
+  });
+
+  it('remounts on a repeated identical drill-down thanks to the nonce', () => {
+    const params = {muscle: Muscles.QUADS, rangeStartMs: 1, rangeEndMs: 2};
+
+    expect(buildMetricsDrilldownKey({...params, drilldownNonce: 1})).not.toBe(buildMetricsDrilldownKey({...params, drilldownNonce: 2}));
   });
 });
 

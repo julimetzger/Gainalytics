@@ -29,6 +29,12 @@ interface AnalyseStaleRangeBannerProps {
    * unfiltered screen.
    */
   selectionExerciseIds?: number[];
+  /**
+   * Overrides where "your last training" comes from, for screens whose content
+   * is not workouts — Training Length lists finished trainings. `null` means
+   * "there is none".
+   */
+  lastDateOverride?: Date | null;
   testID?: string;
 }
 
@@ -43,12 +49,12 @@ interface AnalyseStaleRangeBannerProps {
  * exists outside it, and it corrects the range in one tap. On a genuinely empty
  * account it stays hidden — there the screens' own empty states apply.
  */
-const AnalyseStaleRangeBanner = ({range, onApplyRange, actionLabel, isEmpty, selectionExerciseIds, testID = 'analyse-stale-range-banner'}: AnalyseStaleRangeBannerProps) => {
+const AnalyseStaleRangeBanner = ({range, onApplyRange, actionLabel, isEmpty, selectionExerciseIds, lastDateOverride, testID = 'analyse-stale-range-banner'}: AnalyseStaleRangeBannerProps) => {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const globalLastWorkoutDate = useLastWorkoutDate();
   const selectionLastWorkoutDate = useLastWorkoutDateForExercises(selectionExerciseIds ?? []);
-  const lastWorkoutDate = selectionExerciseIds ? selectionLastWorkoutDate : globalLastWorkoutDate;
+  const lastWorkoutDate = lastDateOverride !== undefined ? lastDateOverride ?? undefined : selectionExerciseIds ? selectionLastWorkoutDate : globalLastWorkoutDate;
   const workoutsInRange = useWorkoutsIn(range);
   const rangeIsEmpty = isEmpty ?? workoutsInRange.length === 0;
 

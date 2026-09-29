@@ -175,7 +175,7 @@ const AnalyseGraphics = ({}: Props) => {
       />
       <DateRangePicker range={range} setRange={setRange} />
 
-      <AnalyseStaleRangeBanner range={range} onApplyRange={setRange} testID="analyse-chart-stale-range-banner" />
+      <AnalyseStaleRangeBanner range={range} isEmpty={isConfigured ? map.length === 0 : undefined} selectionExerciseIds={hasSelection ? selectionExerciseIds : undefined} onApplyRange={setRange} testID="analyse-chart-stale-range-banner" />
 
       {isConfigured && map.length > 0 && (
         <LineChart

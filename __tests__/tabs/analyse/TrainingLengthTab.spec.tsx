@@ -11,6 +11,7 @@ jest.mock('../../../app/redux/Training/use/useCompletedTrainingsIn', () => ({
   useCompletedTrainingsIn: jest.fn(),
 }));
 
+jest.mock('../../../app/redux/Training/use/useLastCompletedTrainingDate', () => ({useLastCompletedTrainingDate: jest.fn(() => undefined)}));
 jest.mock('../../../app/redux/Training/use/useAllTrainingsPlans', () => ({
   useAllTrainingsPlans: jest.fn(),
 }));

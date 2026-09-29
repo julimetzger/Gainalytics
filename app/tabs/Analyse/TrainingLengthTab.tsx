@@ -20,6 +20,7 @@ import {
   getTrainingLengthBarWidth,
   partitionTrainingLengths,
 } from '../../utils/training-length-analysis';
+import {useLastCompletedTrainingDate} from '../../redux/Training/use/useLastCompletedTrainingDate';
 import AnalyseStaleRangeBanner from '../../components/analyse/AnalyseStaleRangeBanner';
 import {formatTrainingLengthDate} from '../../utils/training-length-analysis';
 
@@ -86,6 +87,7 @@ const TrainingLengthTab = () => {
   const skipNextPressRef = useRef(false);
   const trainingsPlans = useAllTrainingsPlans();
   const trainings = useCompletedTrainingsIn(range);
+  const lastCompletedTrainingDate = useLastCompletedTrainingDate();
   const trainingNameById = useMemo(
     () =>
       trainingsPlans.reduce<Record<number, string>>((accumulator, trainingsPlan) => {
@@ -235,7 +237,7 @@ const TrainingLengthTab = () => {
 
       <DateRangePicker range={range} setRange={setRange} />
 
-      <AnalyseStaleRangeBanner range={range} isEmpty={trainings.length === 0} onApplyRange={setRange} testID="training-length-stale-range-banner" />
+      <AnalyseStaleRangeBanner range={range} isEmpty={trainings.length === 0} lastDateOverride={lastCompletedTrainingDate ?? null} onApplyRange={setRange} testID="training-length-stale-range-banner" />
 
       {/* GH-458 (H6): the outliers are never silently dropped — their count is
           stated, they can be brought back into the scaling, and each one has a

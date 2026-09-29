@@ -24,7 +24,7 @@ export type RootStackParamList = {
   // GH-458 (H4): the dashboard's muscle chips drill down into this screen. The
   // muscle and the range travel as params — navigation params must stay
   // serializable, so the range is passed as two epoch-millisecond numbers.
-  Metrics: {muscle?: Muscles; rangeStartMs?: number; rangeEndMs?: number} | undefined;
+  Metrics: {muscle?: Muscles; rangeStartMs?: number; rangeEndMs?: number; drilldownNonce?: number} | undefined;
   TrainingLength: undefined;
   VideoAnalyses: undefined;
   VideoAnalysisDetail: {analysisId: number};

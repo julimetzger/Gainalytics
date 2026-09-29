@@ -39,7 +39,7 @@ const MetricsTabContent = ({initialMuscle, initialRange}: MetricsTabContentProps
   );
 };
 
-export const buildMetricsDrilldownKey = (params: RootStackParamList['Metrics']) => `${params?.muscle ?? 'all'}-${params?.rangeStartMs ?? 'default'}-${params?.rangeEndMs ?? 'default'}`;
+export const buildMetricsDrilldownKey = (params: RootStackParamList['Metrics']) => `${params?.muscle ?? 'all'}-${params?.rangeStartMs ?? 'default'}-${params?.rangeEndMs ?? 'default'}-${params?.drilldownNonce ?? 0}`;
 
 const MetricsTab = ({route}: Props) => {
   const params = route?.params;

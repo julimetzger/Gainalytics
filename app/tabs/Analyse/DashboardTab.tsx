@@ -87,6 +87,8 @@ const DashboardTab = () => {
       muscle,
       rangeStartMs: range.startDate.getTime(),
       rangeEndMs: range.endDate.getTime(),
+      // Same muscle + same range twice in a row must still reset the screen.
+      drilldownNonce: Date.now(),
     });
   };
 

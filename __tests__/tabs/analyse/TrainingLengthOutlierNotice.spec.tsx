@@ -3,11 +3,14 @@ import {fireEvent, render} from '@testing-library/react-native';
 import {PaperProvider} from 'react-native-paper';
 import TrainingLengthTab from '../../../app/tabs/Analyse/TrainingLengthTab';
 import {useCompletedTrainingsIn} from '../../../app/redux/Training/use/useCompletedTrainingsIn';
+import {useLastCompletedTrainingDate} from '../../../app/redux/Training/use/useLastCompletedTrainingDate';
+import {useLastWorkoutDate} from '../../../app/redux/Workout/use/useLastWorkoutDate';
 import {useAllTrainingsPlans} from '../../../app/redux/Training/use/useAllTrainingsPlans';
 import {Training} from '../../../app/models/entities/Training';
 import {TrainingsState} from '../../../app/models/TrainingsState';
 
 jest.mock('../../../app/redux/Training/use/useCompletedTrainingsIn', () => ({useCompletedTrainingsIn: jest.fn()}));
+jest.mock('../../../app/redux/Training/use/useLastCompletedTrainingDate', () => ({useLastCompletedTrainingDate: jest.fn(() => undefined)}));
 jest.mock('../../../app/redux/Training/use/useAllTrainingsPlans', () => ({useAllTrainingsPlans: jest.fn()}));
 jest.mock('../../../app/redux/Workout/use/useLastWorkoutDate', () => ({
   useLastWorkoutDate: jest.fn(() => undefined),
@@ -161,6 +164,35 @@ describe('Training Length with only hidden outliers (GH-458 round 3)', () => {
 
     expect(getByTestId('training-length-empty-state')).toBeTruthy();
     expect(queryByTestId('training-length-only-outliers-state')).toBeNull();
+  });
+});
+
+/**
+ * GH-458 round 3 (review): the screen charts finished trainings, so its stale
+ * banner must name the newest finished training — not the newest workout, which
+ * can be a later, unfinished session the chart never shows.
+ */
+describe('Training Length stale banner source (GH-458 round 3)', () => {
+  afterEach(() => {
+    (useLastCompletedTrainingDate as jest.Mock).mockReturnValue(undefined);
+    (useLastWorkoutDate as jest.Mock).mockReturnValue(undefined);
+  });
+
+  it('points at the last finished training, not the last workout', () => {
+    (useLastCompletedTrainingDate as jest.Mock).mockReturnValue(new Date(2026, 1, 27, 21, 0));
+    (useLastWorkoutDate as jest.Mock).mockReturnValue(new Date(2026, 2, 20, 17, 0));
+
+    const {getByTestId} = renderTab([]);
+
+    expect(getByTestId('training-length-stale-range-banner-text').props.children).toContain('27/02/26');
+  });
+
+  it('stays hidden when there is no finished training at all', () => {
+    (useLastWorkoutDate as jest.Mock).mockReturnValue(new Date(2026, 2, 20, 17, 0));
+
+    const {queryByTestId} = renderTab([]);
+
+    expect(queryByTestId('training-length-stale-range-banner')).toBeNull();
   });
 });
 
