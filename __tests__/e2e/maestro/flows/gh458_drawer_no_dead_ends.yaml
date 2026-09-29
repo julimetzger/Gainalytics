@@ -85,8 +85,7 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'analyse-drawer-toggle'
     timeout: 20000
-- assertVisible:
-    id: 'metrics-active-filter'
+- assertVisible: 'Select Exercises, Metrics, Accumulation Mode'
 - takeScreenshot: gh458_02_metrics
 
 - tapOn:

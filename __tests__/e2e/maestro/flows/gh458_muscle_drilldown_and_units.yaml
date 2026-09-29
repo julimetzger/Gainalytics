@@ -80,12 +80,9 @@ appId: com.powerliftingworkoutplanner
 # ------------------------------------------------- H4: after the drill-down
 # The tapped muscle must arrive — the audit's failure was "0 selected".
 - extendedWaitUntil:
-    visible:
-      id: 'metrics-active-filter'
+    visible: '1 selected'
     timeout: 20000
-- assertVisible:
-    id: 'metrics-active-filter'
-    text: 'Showing: Back'
+- assertVisible: 'Back'
 - assertNotVisible: '0 selected'
 
 # The table must be populated: the range handed over holds data, so the

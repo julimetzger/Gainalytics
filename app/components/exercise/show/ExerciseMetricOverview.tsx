@@ -24,7 +24,7 @@ const ExerciseMetricOverview = ({exerciseMetricMap, metrics, onMetricHeaderPress
           <DataTable.Header>
             <DataTable.Title style={styles.flexL}>Exercise</DataTable.Title>
             {metrics.map((metric, index) => (
-              <DataTable.Title key={`${metric}-${index}`} style={getMetricColumnStyle(index)} numeric numberOfLines={2} accessibilityLabel={getMetricHeaderLabel(metric, 'exercises')} accessible={true} onPress={() => onMetricHeaderPress(index)} testID={`metrics-exercises-header-${index}`}>
+              <DataTable.Title key={`${metric}-${index}`} style={getMetricColumnStyle(index)} numeric numberOfLines={3} accessibilityLabel={getMetricHeaderLabel(metric, 'exercises')} accessible={true} onPress={() => onMetricHeaderPress(index)} testID={`metrics-exercises-header-${index}`}>
                 {getMetricHeaderLabel(metric, 'exercises')}
               </DataTable.Title>
             ))}

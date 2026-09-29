@@ -108,7 +108,7 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
                   key={`${metric}-${index}`}
                   style={getMetricColumnStyle(index)}
                   numeric
-                  numberOfLines={2}
+                  numberOfLines={3}
                   accessibilityLabel={getMetricHeaderLabel(metric, 'muscles')}
                   accessible={true}
                   onPress={() => setMetricSelector({section: 'muscles', slotIndex: index})}

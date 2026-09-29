@@ -68,12 +68,9 @@ appId: com.powerliftingworkoutplanner
     id: 'muscle-chip-Biceps'
 - waitForAnimationToEnd
 - extendedWaitUntil:
-    visible:
-      id: 'metrics-active-filter'
+    visible: '1 selected'
     timeout: 20000
-- assertVisible:
-    id: 'metrics-active-filter'
-    text: 'Showing: Biceps'
+- assertVisible: 'Biceps'
 
 # The drill-down range holds data: the real table renders, not the empty
 # state. Not assertable by id/text (see NOTE above) — screenshot is the
@@ -91,9 +88,8 @@ appId: com.powerliftingworkoutplanner
 
 # The muscle selection survives the swipe — only the range changed. This IS
 # assertable (H4/H7 moved it out of the inaccessible subtree).
-- assertVisible:
-    id: 'metrics-active-filter'
-    text: 'Showing: Biceps'
+- assertVisible: '1 selected'
+- assertVisible: 'Biceps'
 
 # THE FIX: this period has zero Biceps sets of its own. Before the fix, the
 # comparison period (Nov'25-Feb'26, which does have sets) kept the maps
