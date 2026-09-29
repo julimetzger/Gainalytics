@@ -1,6 +1,6 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Button, Card, Text, useTheme} from 'react-native-paper';
+import {Button, Card, MD3Theme, Text, useTheme} from 'react-native-paper';
 
 export interface AnalyseEmptyStateAction {
   label: string;
@@ -27,12 +27,13 @@ interface AnalyseEmptyStateProps {
  */
 const AnalyseEmptyState = ({title, description, actions = [], testID}: AnalyseEmptyStateProps) => {
   const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   return (
     <Card style={styles.card} testID={testID}>
       <Card.Title title={title} titleNumberOfLines={3} />
       <Card.Content>
-        <Text style={{color: theme.colors.onSurfaceVariant}} testID={`${testID}-description`}>
+        <Text style={styles.description} testID={`${testID}-description`}>
           {description}
         </Text>
         {actions.length > 0 && (
@@ -49,18 +50,22 @@ const AnalyseEmptyState = ({title, description, actions = [], testID}: AnalyseEm
   );
 };
 
-const styles = StyleSheet.create({
-  card: {
-    marginHorizontal: 12,
-    marginTop: 8,
-  },
-  actions: {
-    marginTop: 12,
-    gap: 8,
-  },
-  action: {
-    alignSelf: 'flex-start',
-  },
-});
+const createStyles = (theme: MD3Theme) =>
+  StyleSheet.create({
+    card: {
+      marginHorizontal: 12,
+      marginTop: 8,
+    },
+    description: {
+      color: theme.colors.onSurfaceVariant,
+    },
+    actions: {
+      marginTop: 12,
+      gap: 8,
+    },
+    action: {
+      alignSelf: 'flex-start',
+    },
+  });
 
 export default AnalyseEmptyState;

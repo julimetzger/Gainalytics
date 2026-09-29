@@ -5,7 +5,6 @@ import {Provider} from 'react-redux';
 import {AnyAction, createStore} from 'redux';
 import DashboardTab from '../../../app/tabs/Analyse/DashboardTab';
 import MetricsNode from '../../../app/components/analyse/MetricsNode';
-import MetricsActiveFilterLabel from '../../../app/components/analyse/MetricsActiveFilterLabel';
 import {Range} from '../../../app/components/picker/date/DateRangePicker';
 import rootReducer, {GlobalState} from '../../../app/redux/rootReducer';
 import {Workout} from '../../../app/models/entities/Workout';
@@ -114,21 +113,52 @@ describe('Metrics Overview on an empty period (GH-458 H3/H4)', () => {
     expect(getByTestId('metrics-empty-state-description').props.children).toContain('logged no sets between');
     expect(getByTestId('metrics-empty-extend-range')).toBeTruthy();
   });
+});
 
-  /**
-   * The label lives next to the picker rather than inside the RangeSwiper pane:
-   * content in that pane is not exposed to the Android accessibility tree, so a
-   * label placed there is invisible to a screen reader and to an e2e assertion.
-   */
-  it('spells out the active filter, so a drill-down is visible as such', () => {
-    const {getByTestId} = renderWithStore(makeState([]), <MetricsActiveFilterLabel muscle={[Muscles.QUADS]} exercise={[]} />);
+/**
+ * GH-458 round 3 (review #7): with an exercise or muscle selected, "your last
+ * training" is the last training OF THAT SELECTION, both for whether the banner
+ * shows and for where its action jumps.
+ */
+describe('Metrics stale-range banner respects the selection (GH-458 round 3)', () => {
+  const curl = {id: 2, name: 'Curl', muscles: [{muscle: Muscles.BICEPS, percent: 100}]} as unknown as Exercise;
+  const staleRange = new Range(new Date(2026, 5, 14), new Date(2026, 8, 20));
+  const recentSquat = {id: 1, exerciseId: 1, start: new Date(2026, 8, 25), end: new Date(2026, 8, 25), sets: [{}]} as unknown as Workout;
+  const oldCurl = {id: 2, exerciseId: 2, start: new Date(2026, 2, 3), end: new Date(2026, 2, 3), sets: [{}]} as unknown as Workout;
 
-    expect(getByTestId('metrics-active-filter').props.children).toBe('Showing: Quads');
+  const state = () => {
+    const base = makeState([recentSquat, oldCurl]);
+    return {...base, exercises: {byId: {1: squat, 2: curl}, allIds: [1, 2]}} as GlobalState;
+  };
+
+  it('jumps to the last training of the filtered exercise, not the global newest', () => {
+    const setRange = jest.fn();
+    const {getByTestId} = renderWithStore(state(), <MetricsNode range={staleRange} setRange={setRange} muscle={[]} exercise={[curl]} />);
+
+    expect(getByTestId('metrics-stale-range-banner-text').props.children).toContain('03/03/26');
+    fireEvent.press(getByTestId('metrics-stale-range-banner-action'));
+
+    const applied = setRange.mock.calls[0][0] as Range;
+    expect(applied.endDate.getFullYear()).toBe(2026);
+    expect(applied.endDate.getMonth()).toBe(2);
   });
 
-  it('says "all exercises" when nothing is filtered', () => {
-    const {getByTestId} = renderWithStore(makeState([]), <MetricsActiveFilterLabel muscle={[]} exercise={[]} />);
+  it('follows a muscle filter as well', () => {
+    const {getByTestId} = renderWithStore(state(), <MetricsNode range={staleRange} setRange={jest.fn()} muscle={[Muscles.BICEPS]} exercise={[]} />);
 
-    expect(getByTestId('metrics-active-filter').props.children).toBe('Showing: all exercises');
+    expect(getByTestId('metrics-stale-range-banner-text').props.children).toContain('03/03/26');
+  });
+
+  it('stays hidden when the filtered selection has no training before the range', () => {
+    const {queryByTestId} = renderWithStore(makeState([recentSquat]), <MetricsNode range={staleRange} setRange={jest.fn()} muscle={[]} exercise={[curl]} />);
+
+    expect(queryByTestId('metrics-stale-range-banner')).toBeNull();
+  });
+
+  it('keeps the global behaviour when nothing is filtered', () => {
+    const {getByTestId} = renderWithStore(state(), <MetricsNode range={staleRange} setRange={jest.fn()} muscle={[]} exercise={[]} />);
+
+    expect(getByTestId('metrics-stale-range-banner-text').props.children).toContain('25/09/26');
   });
 });
+

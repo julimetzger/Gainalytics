@@ -1,7 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, Pressable, processColor, ScrollView, StyleSheet, View} from 'react-native';
 import {BarChart, BarData, BarValue} from 'react-native-charts-wrapper';
-import {Button, Card, SegmentedButtons, Text, useTheme} from 'react-native-paper';
+import {Button, Card, MD3Theme, SegmentedButtons, Text, useTheme} from 'react-native-paper';
 import TrainingLengthBucketDetails from '../../components/analyse/TrainingLengthBucketDetails';
 import TrainingLengthEditDialog from '../../components/analyse/TrainingLengthEditDialog';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
@@ -74,6 +74,7 @@ const findBucketForTouch = (buckets: ReturnType<typeof aggregateTrainingLengths>
 
 const TrainingLengthTab = () => {
   const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [range, setRange] = useState(createDefaultRange);
   const [accumulationMode, setAccumulationMode] = useState(AccumulationMode.SINGLE_DAY);
   const [selectedBucketKey, setSelectedBucketKey] = useState<string | null>(null);
@@ -104,6 +105,7 @@ const TrainingLengthTab = () => {
 
   const buckets = useMemo(() => aggregateTrainingLengths(trainings, accumulationMode, !includeOutliers), [accumulationMode, includeOutliers, trainings]);
   const implausibleTrainings = useMemo(() => partitionTrainingLengths(trainings).implausibleTrainings, [trainings]);
+  const onlyOutliersInRange = buckets.length === 0 && implausibleTrainings.length > 0;
   const chartDomain = useMemo(() => getChartDomain(buckets, accumulationMode), [accumulationMode, buckets]);
 
   const barValues = useMemo(
@@ -220,11 +222,11 @@ const TrainingLengthTab = () => {
   );
 
   return (
-    <ScrollView style={[styles.container, {backgroundColor: theme.colors.background}]} contentContainerStyle={styles.content} testID="training-length-screen">
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} testID="training-length-screen">
       <Card style={styles.filterCard}>
         <Card.Content>
           <Text variant="titleMedium">Training Length</Text>
-          <Text variant="bodyMedium" style={[styles.modeLabel, {color: theme.colors.onSurfaceVariant}]} testID="training-length-mode-label">
+          <Text variant="bodyMedium" style={styles.modeLabel} testID="training-length-mode-label">
             Grouped by {accumulationMode}
           </Text>
           <SegmentedButtons value={accumulationMode} onValueChange={handleAccumulationModeChange} buttons={accumulationButtons.map((button) => ({...button}))} />
@@ -246,7 +248,7 @@ const TrainingLengthTab = () => {
                 includeOutliers ? 'included' : 'hidden'
               }`}
             </Text>
-            <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}} testID="training-length-outlier-explanation">
+            <Text variant="bodySmall" style={styles.mutedText} testID="training-length-outlier-explanation">
               A session that was never finished keeps counting, which distorts the scale and the averages.
             </Text>
             <View style={styles.outlierActions}>
@@ -264,17 +266,31 @@ const TrainingLengthTab = () => {
       )}
 
       {buckets.length === 0 ? (
-        <Card style={styles.emptyStateCard} testID="training-length-empty-state">
-          <Card.Title title="No completed trainings in this range" />
-          <Card.Content>
-            <Text style={{color: theme.colors.onSurfaceVariant}}>Pick a different date range to compare average completed training duration.</Text>
-          </Card.Content>
-        </Card>
+        onlyOutliersInRange ? (
+          // GH-458 round 3 (review #5): every completed training in the range is a
+          // hidden outlier — "No completed trainings" would be wrong and hide the way out.
+          <Card style={styles.emptyStateCard} testID="training-length-only-outliers-state">
+            <Card.Title title="Only hidden outliers in this range" titleNumberOfLines={2} />
+            <Card.Content>
+              <Text style={styles.mutedText}>{`The only trainings here are over ${formatTrainingLength(IMPLAUSIBLE_TRAINING_DURATION_MINUTES)} and hidden from the chart.`}</Text>
+              <Button mode="outlined" style={styles.emptyStateAction} onPress={() => setIncludeOutliers(true)} testID="training-length-only-outliers-show">
+                Show hidden outliers
+              </Button>
+            </Card.Content>
+          </Card>
+        ) : (
+          <Card style={styles.emptyStateCard} testID="training-length-empty-state">
+            <Card.Title title="No completed trainings in this range" />
+            <Card.Content>
+              <Text style={styles.mutedText}>Pick a different date range to compare average completed training duration.</Text>
+            </Card.Content>
+          </Card>
+        )
       ) : (
         <>
           <Card style={styles.chartCard}>
             <Card.Content>
-              <Text style={[styles.chartDescription, {color: theme.colors.onSurfaceVariant}]}>Average completed training duration in minutes for each selected time bucket.</Text>
+              <Text style={styles.chartDescription}>Average completed training duration in minutes for each selected time bucket.</Text>
               <View style={styles.chartContainer} onLayout={handleChartLayout}>
                 <BarChart
                   style={styles.chart}
@@ -319,51 +335,61 @@ const TrainingLengthTab = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    paddingBottom: 24,
-  },
-  filterCard: {
-    marginHorizontal: 12,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  modeLabel: {
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  emptyStateCard: {
-    marginHorizontal: 12,
-    marginTop: 8,
-  },
-  outlierCard: {
-    marginHorizontal: 12,
-    marginTop: 8,
-  },
-  outlierActions: {
-    marginTop: 12,
-    gap: 8,
-    alignItems: 'flex-start',
-  },
-  chartCard: {
-    marginHorizontal: 12,
-    marginTop: 8,
-  },
-  chartDescription: {
-    marginBottom: 12,
-  },
-  chartContainer: {
-    height: 320,
-  },
-  chart: {
-    height: 320,
-  },
-  chartTouchTarget: {
-    ...StyleSheet.absoluteFillObject,
-  },
-});
+const createStyles = (theme: MD3Theme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    content: {
+      paddingBottom: 24,
+    },
+    filterCard: {
+      marginHorizontal: 12,
+      marginTop: 12,
+      marginBottom: 8,
+    },
+    modeLabel: {
+      marginTop: 4,
+      marginBottom: 12,
+    },
+    emptyStateCard: {
+      marginHorizontal: 12,
+      marginTop: 8,
+    },
+    outlierCard: {
+      marginHorizontal: 12,
+      marginTop: 8,
+    },
+    outlierActions: {
+      marginTop: 12,
+      gap: 8,
+      alignItems: 'flex-start',
+    },
+    chartCard: {
+      marginHorizontal: 12,
+      marginTop: 8,
+    },
+    chartDescription: {
+      marginBottom: 12,
+      color: theme.colors.onSurfaceVariant,
+    },
+    chartContainer: {
+      height: 320,
+    },
+    chart: {
+      height: 320,
+    },
+    chartTouchTarget: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    mutedText: {
+      color: theme.colors.onSurfaceVariant,
+    },
+    emptyStateAction: {
+      marginTop: 12,
+      alignSelf: 'flex-start',
+    },
+  });
 
 export default TrainingLengthTab;

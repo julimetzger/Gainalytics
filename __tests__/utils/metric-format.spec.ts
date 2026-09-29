@@ -7,20 +7,39 @@ import {describeComparisonPeriod, formatMetricDelta, formatMetricValue, getMetri
  * `90937.50` for Volume while the Dashboard reports the same quantity as `0.0t`.
  */
 describe('metric formatting (GH-458 H7)', () => {
-  describe('counts are whole numbers', () => {
+  describe('exercise counts are whole numbers', () => {
     it.each([
       [Metric.SETS, 104.4, '104'],
       [Metric.SETS, 104.6, '105'],
       [Metric.REPS, 1078.55, '1079'],
       [Metric.FREQUENCY, 12.4, '12'],
     ])('rounds %s %s to %s', (metric, value, expected) => {
-      expect(formatMetricValue(metric, value)).toBe(expected);
+      expect(formatMetricValue(metric, value, 'exercises')).toBe(expected);
+    });
+  });
+
+  /**
+   * GH-458 round 3 (review #4): in the muscle table Sets/Reps/Frequency are
+   * weighted shares. Rounding them made two half sets read as two whole ones and
+   * let small shares vanish.
+   */
+  describe('muscle counts are weighted and keep their decimals', () => {
+    it.each([
+      [Metric.SETS, 0.5, '0.50'],
+      [Metric.SETS, 104.4, '104.40'],
+      [Metric.REPS, 1078.55, '1078.55'],
+      [Metric.FREQUENCY, 0.04, '0.04'],
+    ])('renders %s %s as %s', (metric, value, expected) => {
+      expect(formatMetricValue(metric, value, 'muscles')).toBe(expected);
     });
 
-    it('never renders a fractional set or rep', () => {
-      [Metric.SETS, Metric.REPS, Metric.FREQUENCY].forEach((metric) => {
-        expect(formatMetricValue(metric, 104.4)).not.toContain('.');
-      });
+    it('does not let two half sets turn into two whole ones', () => {
+      expect(formatMetricValue(Metric.SETS, 0.5, 'muscles')).not.toBe(formatMetricValue(Metric.SETS, 1, 'muscles'));
+    });
+
+    it('does not falsify a delta by rounding it', () => {
+      expect(formatMetricDelta(Metric.SETS, 0.4, 'muscles')).toBe('+0.40');
+      expect(formatMetricDelta(Metric.SETS, -0.4, 'muscles')).toBe('−0.40');
     });
   });
 
@@ -38,28 +57,23 @@ describe('metric formatting (GH-458 H7)', () => {
     });
   });
 
-  describe('every column carries a unit', () => {
+  describe('headers stay short', () => {
     it.each([
       [Metric.VOLUME, 'Volume (t)'],
       [Metric.ONE_RM, '1RM (kg)'],
-      [Metric.SETS, 'Sets (sets)'],
-      [Metric.REPS, 'Reps (reps)'],
-      [Metric.MAX_INTENSITY, 'Max Intensity (%)'],
-      [Metric.AVERAGE_INTENSITY, 'Average Intensity (%)'],
-      [Metric.FREQUENCY, 'Frequency (workouts)'],
-    ])('labels the exercise column for %s as %s', (metric, expected) => {
+      [Metric.SETS, 'Sets'],
+      [Metric.REPS, 'Reps'],
+      [Metric.MAX_INTENSITY, 'Max Intensity (%1RM)'],
+      [Metric.AVERAGE_INTENSITY, 'Average Intensity (%1RM)'],
+      [Metric.FREQUENCY, 'Frequency'],
+    ])('labels the column for %s as %s in both tables', (metric, expected) => {
       expect(getMetricHeaderLabel(metric, 'exercises')).toBe(expected);
+      expect(getMetricHeaderLabel(metric, 'muscles')).toBe(expected);
     });
 
-    it('marks the proportionally split muscle counts as weighted', () => {
-      expect(getMetricUnit(Metric.SETS, 'muscles')).toBe('sets, wtd.');
-      expect(getMetricUnit(Metric.REPS, 'muscles')).toBe('reps, wtd.');
-      expect(getMetricUnit(Metric.FREQUENCY, 'muscles')).toBe('workouts, wtd.');
-    });
-
-    it('leaves the per-exercise counts unmarked, because they are exact', () => {
-      expect(getMetricUnit(Metric.SETS, 'exercises')).toBe('sets');
-      expect(getMetricUnit(Metric.REPS, 'exercises')).toBe('reps');
+    it('gives Sets and Reps no unit at all', () => {
+      expect(getMetricUnit(Metric.SETS)).toBeUndefined();
+      expect(getMetricUnit(Metric.REPS)).toBeUndefined();
     });
   });
 

@@ -13,7 +13,7 @@ import {Metric, MetricOverviewSection} from '../../models/Metric';
 import {useMetricOverviewSlots} from '../../redux/settings/use/useMetricOverviewSlots';
 import {dispatchSetMetricOverviewSlot} from '../../redux/settings/dispatch/dispatchSetMetricOverviewSlot';
 import MetricSelectionDialog from './MetricSelectionDialog';
-import {describeComparisonPeriod, formatMetricValue, getMetricHeaderLabel, getMetricUnit} from '../../utils/metric-format';
+import {describeComparisonPeriod, formatMetricValue, getMetricHeaderLabel} from '../../utils/metric-format';
 
 export interface Comparison {
   value: number;
@@ -135,7 +135,7 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
                         })
                       }
                     >
-                      <MetricView comparison={workout.get(metric)!!} metric={metric} testID={`metrics-muscle-${muscle}-${index}`} />
+                      <MetricView comparison={workout.get(metric)!!} metric={metric} section="muscles" testID={`metrics-muscle-${muscle}-${index}`} />
                     </DataTable.Cell>
                   ))}
                 </DataTable.Row>
@@ -165,13 +165,13 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
               <DataTable.Header>
                 <DataTable.Title style={styles.flexL}>Exercise</DataTable.Title>
                 <DataTable.Title style={styles.flexM} numeric numberOfLines={2}>
-                  {selectedMuscle ? `Value (${getMetricUnit(selectedMuscle.metric, 'exercises')})` : 'Value'}
+                  {selectedMuscle ? getMetricHeaderLabel(selectedMuscle.metric, 'exercises').replace(selectedMuscle.metric, 'Value') : 'Value'}
                 </DataTable.Title>
                 <DataTable.Title style={styles.flexS} numeric>
                   Factor (%)
                 </DataTable.Title>
                 <DataTable.Title style={styles.flexS} numeric numberOfLines={2}>
-                  {selectedMuscle ? `Result (${getMetricUnit(selectedMuscle.metric, 'muscles')})` : 'Result'}
+                  {selectedMuscle ? getMetricHeaderLabel(selectedMuscle.metric, 'muscles').replace(selectedMuscle.metric, 'Result') : 'Result'}
                 </DataTable.Title>
               </DataTable.Header>
               {Array.from(exerciseWorkoutMap).map(([exercise, workout]) => {
@@ -196,7 +196,7 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
                       {percent}
                     </DataTable.Cell>
                     <DataTable.Cell style={styles.flexS} numeric>
-                      {formatMetricValue(selectedMuscle.metric, (unmodifiedMetricValue * percent) / 100)}
+                      {formatMetricValue(selectedMuscle.metric, (unmodifiedMetricValue * percent) / 100, 'muscles')}
                     </DataTable.Cell>
                   </DataTable.Row>
                 );

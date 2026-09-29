@@ -133,3 +133,34 @@ describe('Training Length outlier handling (GH-458 H6)', () => {
     expect(queryByTestId('training-length-outlier-notice')).toBeNull();
   });
 });
+
+/**
+ * GH-458 round 3 (review #5): a range whose only trainings are hidden outliers
+ * used to read "No completed trainings in this range" — untrue, and it hid the
+ * way to see them.
+ */
+describe('Training Length with only hidden outliers (GH-458 round 3)', () => {
+  it('says only outliers exist instead of "No completed trainings"', () => {
+    const {getByTestId, queryByTestId} = renderTab([OUTLIER]);
+
+    expect(getByTestId('training-length-only-outliers-state')).toBeTruthy();
+    expect(queryByTestId('training-length-empty-state')).toBeNull();
+  });
+
+  it('offers to show them, which puts the bar back on the chart', () => {
+    const {getByTestId, queryByTestId} = renderTab([OUTLIER]);
+
+    fireEvent.press(getByTestId('training-length-only-outliers-show'));
+
+    expect(queryByTestId('training-length-only-outliers-state')).toBeNull();
+    expect(getByTestId('mock-bar-chart-count').props.children).toBe('Bars: 1');
+  });
+
+  it('keeps the plain empty state for a range with no trainings at all', () => {
+    const {getByTestId, queryByTestId} = renderTab([]);
+
+    expect(getByTestId('training-length-empty-state')).toBeTruthy();
+    expect(queryByTestId('training-length-only-outliers-state')).toBeNull();
+  });
+});
+

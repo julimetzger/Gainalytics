@@ -1,8 +1,8 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import {StyleSheet} from 'react-native';
-import {Button, Card, Text, useTheme} from 'react-native-paper';
+import {Button, Card, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {Range} from '../picker/date/DateRangePicker';
-import {useLastWorkoutDate} from '../../redux/Workout/use/useLastWorkoutDate';
+import {useLastWorkoutDate, useLastWorkoutDateForExercises} from '../../redux/Workout/use/useLastWorkoutDate';
 import {useWorkoutsIn} from '../../redux/Workout/use/useWorkoutsIn';
 import {getDateStringFromDate} from '../../utils/DateHelper';
 import {rangeEndingAt} from '../../utils/analyse-range';
@@ -22,6 +22,13 @@ interface AnalyseStaleRangeBannerProps {
    * range" — Training Length counts completed trainings, not workouts.
    */
   isEmpty?: boolean;
+  /**
+   * GH-458 round 3 (review #7): when the screen is filtered to an exercise or
+   * muscle, "your last training" means the last training OF THAT SELECTION —
+   * both whether the banner shows and where its action jumps to. Omit for an
+   * unfiltered screen.
+   */
+  selectionExerciseIds?: number[];
   testID?: string;
 }
 
@@ -36,9 +43,12 @@ interface AnalyseStaleRangeBannerProps {
  * exists outside it, and it corrects the range in one tap. On a genuinely empty
  * account it stays hidden — there the screens' own empty states apply.
  */
-const AnalyseStaleRangeBanner = ({range, onApplyRange, actionLabel, isEmpty, testID = 'analyse-stale-range-banner'}: AnalyseStaleRangeBannerProps) => {
+const AnalyseStaleRangeBanner = ({range, onApplyRange, actionLabel, isEmpty, selectionExerciseIds, testID = 'analyse-stale-range-banner'}: AnalyseStaleRangeBannerProps) => {
   const theme = useTheme();
-  const lastWorkoutDate = useLastWorkoutDate();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const globalLastWorkoutDate = useLastWorkoutDate();
+  const selectionLastWorkoutDate = useLastWorkoutDateForExercises(selectionExerciseIds ?? []);
+  const lastWorkoutDate = selectionExerciseIds ? selectionLastWorkoutDate : globalLastWorkoutDate;
   const workoutsInRange = useWorkoutsIn(range);
   const rangeIsEmpty = isEmpty ?? workoutsInRange.length === 0;
 
@@ -56,7 +66,7 @@ const AnalyseStaleRangeBanner = ({range, onApplyRange, actionLabel, isEmpty, tes
   return (
     <Card style={styles.card} testID={testID}>
       <Card.Content>
-        <Text style={{color: theme.colors.onSurfaceVariant}} testID={`${testID}-text`}>
+        <Text style={styles.text} testID={`${testID}-text`}>
           {`No trainings in this period. Your last training was on ${lastWorkoutLabel}.`}
         </Text>
         <Button mode="contained-tonal" style={styles.action} onPress={() => onApplyRange(rangeEndingAt(lastWorkoutDate))} testID={`${testID}-action`}>
@@ -67,15 +77,19 @@ const AnalyseStaleRangeBanner = ({range, onApplyRange, actionLabel, isEmpty, tes
   );
 };
 
-const styles = StyleSheet.create({
-  card: {
-    marginHorizontal: 12,
-    marginTop: 8,
-  },
-  action: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
-  },
-});
+const createStyles = (theme: MD3Theme) =>
+  StyleSheet.create({
+    card: {
+      marginHorizontal: 12,
+      marginTop: 8,
+    },
+    text: {
+      color: theme.colors.onSurfaceVariant,
+    },
+    action: {
+      marginTop: 12,
+      alignSelf: 'flex-start',
+    },
+  });
 
 export default AnalyseStaleRangeBanner;

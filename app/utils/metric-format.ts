@@ -5,19 +5,20 @@ import {Metric, MetricOverviewSection} from '../models/Metric';
  * bare `90937.50` for Volume — derived numbers with no unit, while the Dashboard
  * reports the same quantity in tonnes (`0.0t`).
  *
- * Counts are whole things in the user's world, so they are rounded. Every value
- * carries its unit through the column header. Volume is reported in tonnes
- * everywhere in the Analyse area, matching the Dashboard.
+ * Column headers stay short: Sets, Reps and Frequency are self-explanatory and
+ * carry no unit; Volume is `(t)`, intensity `(%1RM)`, 1RM `(kg)`. Volume is
+ * reported in tonnes everywhere in the Analyse area, matching the Dashboard.
  *
  * `Sets`, `Reps` and `Frequency` are split proportionally across the muscles an
- * exercise trains, so in the muscle table they are *weighted* counts, not raw
- * ones. That is what the `(wtd.)` marker says; per exercise the same metrics are
- * plain counts and carry no marker.
+ * exercise trains, so in the muscle table they are *weighted* and legitimately
+ * fractional — rounding them would turn two half sets into two whole ones and
+ * make small shares vanish. Only the per-exercise counts, which are real counts,
+ * are whole numbers.
  */
 
 const VOLUME_KILOGRAMS_PER_TONNE = 1000;
 
-export const getMetricUnit = (metric: Metric, section: MetricOverviewSection): string => {
+export const getMetricUnit = (metric: Metric): string | undefined => {
   switch (metric) {
     case Metric.VOLUME:
       return 't';
@@ -25,21 +26,22 @@ export const getMetricUnit = (metric: Metric, section: MetricOverviewSection): s
       return 'kg';
     case Metric.MAX_INTENSITY:
     case Metric.AVERAGE_INTENSITY:
-      return '%';
+      return '%1RM';
     case Metric.SETS:
-      return section === 'muscles' ? 'sets, wtd.' : 'sets';
     case Metric.REPS:
-      return section === 'muscles' ? 'reps, wtd.' : 'reps';
     case Metric.FREQUENCY:
-      return section === 'muscles' ? 'workouts, wtd.' : 'workouts';
+      return undefined;
   }
 };
 
-/** "Volume (t)" — the column header carries the unit for every value below it. */
-export const getMetricHeaderLabel = (metric: Metric, section: MetricOverviewSection) => `${metric} (${getMetricUnit(metric, section)})`;
+/** "Volume (t)" — the column header carries the unit; counts have none. */
+export const getMetricHeaderLabel = (metric: Metric, section: MetricOverviewSection) => {
+  const unit = getMetricUnit(metric);
+  return unit ? `${metric} (${unit})` : metric;
+};
 
 /** Formats a metric value in the unit its header announces. */
-export const formatMetricValue = (metric: Metric, value: number): string => {
+export const formatMetricValue = (metric: Metric, value: number, section: MetricOverviewSection = 'exercises'): string => {
   if (!Number.isFinite(value)) {
     return '–';
   }
@@ -55,14 +57,15 @@ export const formatMetricValue = (metric: Metric, value: number): string => {
     case Metric.SETS:
     case Metric.REPS:
     case Metric.FREQUENCY:
-      // A count of 104.40 sets does not exist in the user's reality.
-      return Math.round(value).toString();
+      // Per exercise these are real counts. Per muscle they are weighted shares
+      // and keep their decimals (two half sets are 1.00, not 2 x "1").
+      return section === 'muscles' ? value.toFixed(2) : Math.round(value).toString();
   }
 };
 
 /** Same scale as the value, with an explicit sign so a gain reads as a gain. */
-export const formatMetricDelta = (metric: Metric, difference: number): string => {
-  const formatted = formatMetricValue(metric, Math.abs(difference));
+export const formatMetricDelta = (metric: Metric, difference: number, section: MetricOverviewSection = 'exercises'): string => {
+  const formatted = formatMetricValue(metric, Math.abs(difference), section);
   return `${difference >= 0 ? '+' : '−'}${formatted}`;
 };
 

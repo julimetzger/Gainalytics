@@ -34,12 +34,14 @@ const MetricsNode = ({range, setRange, muscle, exercise}: MetricNodeProps) => {
   let uniqueWorkouts = getUniquewRokoutsIn(range);
   let previousUniqueWorkouts = getUniquewRokoutsIn(range.minusRange());
 
+  const hasSelection = muscle.length > 0 || exercise.length > 0;
+  const selectionExerciseIds = [...new Set([...exerciseIDs, ...exercisesForMusclesIds])].filter((id): id is number => id !== undefined);
   const selectedNames = [...muscle.map(String), ...exercise.map((it) => it.name)];
 
   return (
     <>
       <DateRangePicker range={range} setRange={setRange} />
-      <AnalyseStaleRangeBanner range={range} isEmpty={uniqueWorkouts.length === 0} onApplyRange={setRange} testID="metrics-stale-range-banner" />
+      <AnalyseStaleRangeBanner range={range} isEmpty={!uniqueWorkouts.some((workout) => workout.sets.length > 0)} selectionExerciseIds={hasSelection ? selectionExerciseIds : undefined} onApplyRange={setRange} testID="metrics-stale-range-banner" />
       <MetricsOverviewForWorkouts
         trainingsWorkouts={uniqueWorkouts}
         previousWorkouts={previousUniqueWorkouts}

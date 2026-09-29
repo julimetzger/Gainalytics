@@ -38,7 +38,7 @@ const ExerciseMetricOverview = ({exerciseMetricMap, metrics, onMetricHeaderPress
                 </DataTable.Cell>
                 {metrics.map((metric, index) => (
                   <DataTable.Cell key={`${exercise.id}-${metric}-${index}`} style={getMetricColumnStyle(index)} numeric>
-                    <MetricView comparison={workout.get(metric)!!} metric={metric} testID={`metrics-exercise-${exercise.id}-${index}`} />
+                    <MetricView comparison={workout.get(metric)!!} metric={metric} section="exercises" testID={`metrics-exercise-${exercise.id}-${index}`} />
                   </DataTable.Cell>
                 ))}
               </DataTable.Row>

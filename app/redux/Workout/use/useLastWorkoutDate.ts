@@ -49,7 +49,10 @@ export const findLastWorkoutDateForExercises = (workouts: NormalizedState<Workou
   const wantedIds = new Set(exerciseIds);
   const newestTimestamp = workouts.allIds.reduce<number | undefined>((newest, workoutId) => {
     const workout = workouts.byId[workoutId];
-    if (!workout || !wantedIds.has(workout.exerciseId)) {
+    // GH-458 round 3 (review #6): a workout without a single logged set (an
+    // unfinished or abandoned session) is not "trained" — it must not become
+    // the date the empty state names or the jump action targets.
+    if (!workout || !wantedIds.has(workout.exerciseId) || !workout.sets?.length) {
       return newest;
     }
 
@@ -92,7 +95,7 @@ export const findLastTrainedExerciseId = (workouts: NormalizedState<Workout>): n
   workouts.allIds.forEach((workoutId) => {
     const workout = workouts.byId[workoutId];
     const timestamp = new Date(workout?.end ?? workout?.start ?? NaN).getTime();
-    if (!workout || !Number.isFinite(timestamp)) {
+    if (!workout || !workout.sets?.length || !Number.isFinite(timestamp)) {
       return;
     }
     if (newestTimestamp === undefined || timestamp > newestTimestamp) {
