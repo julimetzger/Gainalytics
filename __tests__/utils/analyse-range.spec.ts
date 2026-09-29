@@ -13,7 +13,7 @@ import {NormalizedState} from '../../app/redux/normalizedState';
 const LAST_WORKOUT = new Date(2026, 1, 28, 19, 30); // 28 Feb 2026
 const TODAY = new Date(2026, 8, 20, 12, 0); // 20 Sep 2026
 
-const makeWorkout = (id: number, start: Date, end: Date) => ({id, exerciseId: 1, start, end, sets: []} as unknown as Workout);
+const makeWorkout = (id: number, start: Date, end: Date) => ({id, exerciseId: 1, start, end, sets: [{}]} as unknown as Workout);
 
 const makeState = (workouts: Workout[], extraById: Record<string, unknown> = {}, extraIds: unknown[] = []): NormalizedState<Workout> =>
   ({
@@ -47,7 +47,7 @@ describe('findLastWorkoutDate (GH-458 H5)', () => {
   });
 
   it('falls back to the start date when a workout has no end', () => {
-    const state = makeState([{id: 1, exerciseId: 1, start: LAST_WORKOUT, sets: []} as unknown as Workout]);
+    const state = makeState([{id: 1, exerciseId: 1, start: LAST_WORKOUT, sets: [{}]} as unknown as Workout]);
 
     expect(findLastWorkoutDate(state)).toEqual(LAST_WORKOUT);
   });
