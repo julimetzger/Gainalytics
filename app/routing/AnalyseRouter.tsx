@@ -90,7 +90,7 @@ const AnalyseRouter = () => {
         name="AnalyseHome"
         component={AnalyseGraphicsScreen}
         options={({route}) => ({
-          title: route.params?.exercise?.name ?? 'Analyse',
+          title: route.params?.exercise?.name ?? 'Analysis',
         })}
       />
       <Stack.Screen

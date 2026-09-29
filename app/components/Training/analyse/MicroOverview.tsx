@@ -14,6 +14,7 @@ import {Metric} from "../../../models/Metric";
 import VelocityLossInsightCard from '../VelocityLossInsightCard';
 import {useVelocityLossInsights} from '../useVelocityLossInsights';
 import CoachInsightCard from '../CoachInsightCard';
+import {Stage} from '../../common/ProgressiveMount';
 
 interface TrainingsBaseProps {
   trainingsPlan: TrainingsPlan;
@@ -79,6 +80,9 @@ const MicroOverview = ({trainingsPlan, micro, isActive = true}: TrainingsBasePro
           </Card.Content>
         </Card>
       </View>
+      {/* PERF-003: the sections below the summary cards arrive in later stages when the view builds
+          progressively (see ProgressiveMount); everywhere else all stages are on at once. */}
+      <Stage at={1}>
       {vlInsights.length > 0 && (
         <View style={{marginTop: 4}}>
           {vlInsights.map((insight) => (
@@ -97,7 +101,10 @@ const MicroOverview = ({trainingsPlan, micro, isActive = true}: TrainingsBasePro
         </View>
       )}
       <CoachInsightCard trainings={trainings} isActive={isActive} />
-      <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
+      </Stage>
+      <Stage at={3}>
+        <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
+      </Stage>
     </View>
   );
 };

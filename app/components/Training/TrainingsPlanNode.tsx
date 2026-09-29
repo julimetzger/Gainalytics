@@ -19,7 +19,7 @@ import AnalysisTotalSets from './analyse/AnalysisTotalSets';
 import TrainingPlanOverview from './analyse/TrainingPlanOverview';
 import TrainingModeTabs, {SubTab} from './TrainingModeTabs';
 import TrainingOverflowMenu from './TrainingOverflowMenu';
-import React, {useEffect, useRef, useState} from 'react';
+import React, {memo, useEffect, useRef, useState} from 'react';
 import {ViewMode} from '../../tabs/trainings/MicroOverviewTraining';
 import {ExerciseSortMode} from './analyse/MicroExerciseOverview';
 import {dispatchStartTraining} from '../../redux/Training/dispatch/plan/dispatchStartTraining';
@@ -33,12 +33,14 @@ import {PauseDoneNotification} from './execute/PauseDoneNotification';
 import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
-import {getPreviousMicroInMeso} from '../../redux/Training/trainingsPlanReducer';
+import {getLocalMicro, getMesoForMicro, getPreviousMicroInMeso} from '../../redux/Training/trainingsPlanReducer';
 import {useLastTrainingOfPreviousMeso} from '../../redux/Training/use/useLastTrainingOfPreviousMeso';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
 import {dispatchReplaceExerciseInTraining} from '../../redux/Training/dispatch/general/dispatchReplaceExerciseInTraining';
 import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
 import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
+import MicroPanePlaceholder from './MicroPanePlaceholder';
+import {ProgressiveMount} from '../common/ProgressiveMount';
 
 interface TrainingsPlanNodeProps {
   trainingsPlan: TrainingsPlan;
@@ -48,6 +50,12 @@ interface TrainingsPlanNodeProps {
   setIgnoreSwipe: (ignoreSwipe: LayoutRectangle[]) => void;
   /** Pass false when this node is an off-screen swiper pane to suppress AI API calls. */
   isActive?: boolean;
+  /**
+   * PERF-003: false renders a light placeholder (title + sub-tab bar) instead of the
+   * micro's content. The node itself stays mounted, so its state (sub-tab, chosen
+   * exercise, ...) is kept; only the heavy view tree is not built.
+   */
+  renderContent?: boolean;
   microViewMode?: ViewMode;
   onMicroViewModeChange?: (mode: ViewMode) => void;
   microSortMode?: ExerciseSortMode;
@@ -95,7 +103,7 @@ const PlanNodeScrollContainer = ({children}: {children: React.ReactNode}) => {
   );
 };
 
-const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, setIgnoreSwipe, isActive = true, microViewMode, onMicroViewModeChange, microSortMode, onMicroSortModeChange, analysisDataMode, onAnalysisDataModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange, requestedSubTab}: TrainingsPlanNodeProps) => {
+const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, setIgnoreSwipe, isActive = true, renderContent = true, microViewMode, onMicroViewModeChange, microSortMode, onMicroSortModeChange, analysisDataMode, onAnalysisDataModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange, requestedSubTab}: TrainingsPlanNodeProps) => {
   const [localViewMode, setLocalViewMode] = useState<ViewMode>('gesamt');
   const effectiveViewMode = microViewMode ?? localViewMode;
   const effectiveSetViewMode = onMicroViewModeChange ?? setLocalViewMode;
@@ -379,6 +387,17 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
         onEditTraining={handleEditTraining}
         onDeleteTraining={handleDeleteTraining}
       />
+      {!renderContent ? (
+        <MicroPanePlaceholder
+          trainingName={trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro}
+          mesoName={getMesoForMicro(trainingsPlan.mesos, micro)?.name}
+          localMicro={getLocalMicro(trainingsPlan.mesos, micro)}
+          trainingState={showDone ? undefined : training?.state}
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          showTabs={!showDone}
+        />
+      ) : (
       <NestableScrollContainerProvider>
         <PlanNodeScrollContainer>
         <View>
@@ -387,6 +406,10 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
           ) : (
             <View>
               <TrainingModeTabs activeTab={activeSubTab} onTabChange={setActiveSubTab} />
+
+              {/* PERF-003: a sub-tab is built over a few commits (see ProgressiveMount), so mounting it —
+                  after a swipe or a tap on the tab bar — never costs one big frame. */}
+              <ProgressiveMount key={activeSubTab}>
 
               {/* Plan Tab — shown in all states */}
               {activeSubTab === 'plan' && (
@@ -600,11 +623,13 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                   )}
                 </View>
               )}
+              </ProgressiveMount>
             </View>
           )}
         </View>
         </PlanNodeScrollContainer>
       </NestableScrollContainerProvider>
+      )}
       <ConfirmDialog
         visible={showDeleteDialog}
         title="Delete Training"
@@ -619,4 +644,5 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   );
 };
 
-export default TrainingsPlanNode;
+// PERF-003: a swiper pane whose props did not change must not re-render when its siblings do.
+export default memo(TrainingsPlanNode);

@@ -1,4 +1,4 @@
-import React, {useState, useCallback, useLayoutEffect} from 'react';
+import React, {useState, useCallback, useEffect, useLayoutEffect, useRef} from 'react';
 import {ViewMode} from './MicroOverviewTraining';
 import {ExerciseSortMode} from '../../components/Training/analyse/MicroExerciseOverview';
 import {BackHandler} from 'react-native';
@@ -13,7 +13,7 @@ import dispatchChangeTrainingsName from '../../redux/Training/dispatch/general/d
 import TrainingsPlanHeader from '../../components/Training/TrainingsPlanHeader';
 import TrainingsPlanDrawer from '../../components/Training/TrainingsPlanDrawer';
 import TrainingsPlanNode from '../../components/Training/TrainingsPlanNode';
-import RangeSwiper from '../../components/RangeSwiper';
+import RangeSwiper, {SWIPE_SETTLE_MS} from '../../components/RangeSwiper';
 import TrainingHistoryCalendar from '../../components/Training/analyse/TrainingHistoryCalendar';
 import {LayoutRectangle} from 'react-native';
 import {clampMicroToMeso, getLocalMicro, getMesoForMicro, getSortedMesos} from '../../redux/Training/trainingsPlanReducer';
@@ -38,6 +38,25 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   const [trainingInMicro, setTrainingInMicro] = useState(route.params.training ?? 1);
   const training = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);
   const [rerender, setRerender] = useState(Math.random());
+  // PERF-003: only the micro the user is on — and the one it just came from — carries its full content;
+  // every other pane shows a light placeholder (title + sub-tab bar). The pane the user leaves keeps its
+  // content (so swiping back is instant and its state — scroll position, typed values — survives), the
+  // arriving pane gets its content once the snap animation is over. `bodies` lists the micros allowed to
+  // render their content; it belongs to one swiper key, a new key (drawer / history navigation) starts over.
+  const [bodyState, setBodyState] = useState<{key: number; micros: number[]}>(() => ({key: rerender, micros: [micro]}));
+  const bodies = bodyState.key === rerender ? bodyState.micros : [micro];
+  const swipeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const microRef = useRef(micro);
+  microRef.current = micro;
+  const rerenderRef = useRef(rerender);
+  rerenderRef.current = rerender;
+  const clearSwipeTimer = () => {
+    if (swipeTimerRef.current !== null) clearTimeout(swipeTimerRef.current);
+    swipeTimerRef.current = null;
+  };
+  useEffect(() => clearSwipeTimer, []);
+  // a new swiper key rebuilds the panes from scratch: a swipe transition still in flight no longer applies
+  useEffect(clearSwipeTimer, [rerender]);
   let [showDone, setShowDone] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [ignoreSwipeLocations, setIgnoreSwipeLocations] = useState<LayoutRectangle[]>([]);
@@ -52,6 +71,12 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     if (next) setMicroViewMode('exercise');
   }, []);
   const [overflowVisible, setOverflowVisible] = useState(false);
+
+  // stable identities: the panes are memoised, a new closure per render would re-render all of them
+  const handleSetIgnoreSwipe = useCallback((locations: LayoutRectangle[]) => {
+    locations && locations.length > 0 && setIgnoreSwipeLocations(locations);
+  }, []);
+  const handleCloseOverflow = useCallback(() => setOverflowVisible(false), []);
   const [planChromeState, setPlanChromeState] = useState<PlanChromeState>(createDefaultPlanChromeState);
 
   let changeTrainingsName = dispatchChangeTrainingsName();
@@ -210,34 +235,63 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
           key={rerender}
           ignoreSwipe={ignoreSwipeLocations}
           fillViewport
-          nodeFunction={(value, setRange) => (
-            <TrainingsPlanNode
-              trainingsPlan={trainingsPlan}
-              micro={value}
-              showDone={showDone}
-              trainingInMicro={trainingInMicro}
-              isActive={value === micro}
-              setIgnoreSwipe={(locations) => {
-                locations && locations.length > 0 && setIgnoreSwipeLocations(locations);
-              }}
-              microViewMode={microViewMode}
-              onMicroViewModeChange={setMicroViewMode}
-              microSortMode={microSortMode}
-              onMicroSortModeChange={setMicroSortMode}
-              analysisDataMode={analysisDataMode}
-              onAnalysisDataModeChange={setAnalysisDataMode}
-              overflowVisible={overflowVisible && value === micro}
-              onCloseOverflow={() => setOverflowVisible(false)}
-              onPlanChromeChange={value === micro ? setPlanChromeState : undefined}
-              requestedSubTab={value === micro ? route.params.subTab : undefined}
-            />
-          )}
+          nodeFunction={(value, setRange, isActivePane) => {
+            const renderContent = bodies.includes(value) && (value !== micro || isActivePane);
+            return (
+              <TrainingsPlanNode
+                trainingsPlan={trainingsPlan}
+                micro={value}
+                renderContent={renderContent}
+                showDone={showDone}
+                trainingInMicro={trainingInMicro}
+                // a pane that carries content counts as active: the flag then never flips when the user swipes back and
+                // forth between two micros, so neither pane re-renders its content for it
+                isActive={renderContent}
+                setIgnoreSwipe={handleSetIgnoreSwipe}
+                microViewMode={microViewMode}
+                onMicroViewModeChange={setMicroViewMode}
+                microSortMode={microSortMode}
+                onMicroSortModeChange={setMicroSortMode}
+                analysisDataMode={analysisDataMode}
+                onAnalysisDataModeChange={setAnalysisDataMode}
+                overflowVisible={overflowVisible && value === micro}
+                onCloseOverflow={handleCloseOverflow}
+                onPlanChromeChange={setPlanChromeState}
+                requestedSubTab={value === micro ? route.params.subTab : undefined}
+              />
+            );
+          }}
           determineValueByIndex={(index, currentMicro) => {
             return getBoundedMicro(currentMicro + index);
           }}
           startValue={micro}
           onUpdateCurrentIndex={(index) => {
-            setMicro((currentMicro) => getBoundedMicro(currentMicro + index));
+            const left = microRef.current;
+            const target = getBoundedMicro(left + index);
+            // The pane the user leaves keeps its content; the arriving one keeps it only if it already had
+            // it (swiping back), otherwise it gets it after the snap animation. Older panes lose theirs.
+            setBodyState((prev) => {
+              const before = prev.key === rerenderRef.current ? prev.micros : [left];
+              return {key: rerenderRef.current, micros: before.includes(target) ? [left, target] : [left]};
+            });
+            // Leaving a pane that is being edited ends the editing there: the header belongs to the micro the
+            // user swipes to, and a pane kept in the background must not stay in a mode nobody shows.
+            if (planChromeState.mode !== 'read') {
+              planChromeState.exitToRead();
+              setPlanChromeState(createDefaultPlanChromeState());
+            }
+            setMicro(target);
+            clearSwipeTimer();
+            swipeTimerRef.current = setTimeout(() => {
+              swipeTimerRef.current = null;
+              setBodyState((prev) => {
+                const arrived = microRef.current;
+                const micros = [arrived, ...prev.micros.filter((m) => m !== arrived)].slice(0, 2);
+                // swiping back to a pane that kept its content changes nothing: no state change, no render
+                const unchanged = prev.key === rerenderRef.current && micros.length === prev.micros.length && micros.every((m) => prev.micros.includes(m));
+                return unchanged ? prev : {key: rerenderRef.current, micros};
+              });
+            }, SWIPE_SETTLE_MS);
           }}
         />
       )}

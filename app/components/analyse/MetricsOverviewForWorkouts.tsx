@@ -1,3 +1,4 @@
+import {Stage, useProgressiveLimit} from '../common/ProgressiveMount';
 import React, {useMemo, useState} from 'react';
 import {StyleSheet} from 'react-native';
 import {Card, DataTable, Text} from 'react-native-paper';
@@ -89,6 +90,10 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
   // "no sets" too, not "no workouts".
   const hasCurrentPeriodSets = useMemo(() => trainingsWorkouts.some((workout) => workout.sets.length > 0), [trainingsWorkouts]);
 
+  // PERF-003: inside a ProgressiveMount (this component sits in stage 3) the first muscle rows come first,
+  // the remaining rows and the exercise table one stage later (Infinity / all at once elsewhere).
+  const muscleRowLimit = useProgressiveLimit(6, 100, 3);
+
   // GH-458 (H3): the Metrics Overview used to render bare table headers and no
   // rows when the range held nothing — indistinguishable from "still loading".
   if (emptyState && !hasCurrentPeriodSets) {
@@ -120,6 +125,7 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
             </DataTable.Header>
             {Array.from(muscleMetricMap)
               .sort(([muscleA], [muscleB]) => muscleA.localeCompare(muscleB))
+              .slice(0, muscleRowLimit)
               .map(([muscle, workout]) => (
                 <DataTable.Row key={muscle}>
                   <DataTable.Cell style={styles.flexL}>{muscle}</DataTable.Cell>
@@ -145,12 +151,14 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
       </Card>
 
       {showExercises && (
-        <ExerciseMetricOverview
-          exerciseMetricMap={exerciseMetricMap}
-          metrics={exerciseMetrics}
-          comparisonRangeLabel={comparisonRangeLabel}
-          onMetricHeaderPress={(slotIndex) => setMetricSelector({section: 'exercises', slotIndex})}
-        />
+        <Stage at={4}>
+          <ExerciseMetricOverview
+            exerciseMetricMap={exerciseMetricMap}
+            metrics={exerciseMetrics}
+            comparisonRangeLabel={comparisonRangeLabel}
+            onMetricHeaderPress={(slotIndex) => setMetricSelector({section: 'exercises', slotIndex})}
+          />
+        </Stage>
       )}
 
       <EditDialogScaffold

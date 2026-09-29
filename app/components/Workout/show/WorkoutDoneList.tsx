@@ -7,6 +7,7 @@ import {getDateStringFromDate} from '../../../utils/DateHelper';
 import {useDateWorkoutMapByIds} from '../../../redux/Workout/use/useDateWorkoutMapByIds';
 import {useHighlightWorkout} from '../../../redux/Workout/use/useHighlightWorkout';
 import {Metric} from "../../../models/Metric";
+import {useProgressiveLimit} from '../../common/ProgressiveMount';
 
 interface WorkoutViewProps {
   workoutIds: number[];
@@ -19,11 +20,13 @@ const WorkoutDoneList = ({workoutIds, highlightMode, editable = true, onEndReach
   const theme = useTheme();
   const dateWorkoutMap = useDateWorkoutMapByIds(workoutIds);
   const highlightWorkout = useHighlightWorkout(workoutIds, highlightMode);
+  // PERF-003: inside a ProgressiveMount the tiles of a day arrive a few per commit (Infinity elsewhere).
+  const tileLimit = useProgressiveLimit(2);
 
   const renderWorkoutItem = ({item: [date, workouts]}: {item: [string, number[]]}) => (
     <Card mode="elevated" style={styles.dateCard} key={new Date(date).getTime()}>
       <Text style={[styles.dateText, {fontSize: theme.fonts.titleLarge.fontSize}]}>{getDateStringFromDate(new Date(date))}</Text>
-      {workouts.map((workout) => (
+      {workouts.slice(0, tileLimit).map((workout) => (
         <WorkoutViewTile key={workout} workoutId={workout} highlightMode={highlightWorkout.includes(workout) ? highlightMode : undefined} editable={editable} />
       ))}
     </Card>
@@ -35,6 +38,7 @@ const WorkoutDoneList = ({workoutIds, highlightMode, editable = true, onEndReach
         data={Array.from(dateWorkoutMap.entries())}
         renderItem={renderWorkoutItem}
         estimatedItemSize={250}
+        extraData={tileLimit}
         onEndReached={onEndReached}
         scrollEnabled={false}
         keyboardShouldPersistTaps="always"
