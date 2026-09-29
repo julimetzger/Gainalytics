@@ -28,6 +28,8 @@ const DashboardTab = () => {
   const previousWeekRange = currentWeekRange.minusRange();
 
   const currentWorkouts = useWorkoutsIn(currentWeekRange);
+  // A session with no logged set is not a training this week (GH-458 round 3).
+  const hasCurrentWeekSets = useMemo(() => currentWorkouts.some((workout) => workout.sets.length > 0), [currentWorkouts]);
   const previousWorkouts = useWorkoutsIn(previousWeekRange);
   const currentTrainings = useCompletedTrainingsIn(currentWeekRange);
   const previousTrainings = useCompletedTrainingsIn(previousWeekRange);
@@ -67,9 +69,9 @@ const DashboardTab = () => {
   // week when the user trained this week, otherwise the three months up to
   // their last logged workout (any muscle).
   const drilldownRange = useMemo(
-    () => (currentWorkouts.length > 0 || lastWorkoutDate === undefined ? currentWeekRange : rangeEndingAt(lastWorkoutDate)),
+    () => (hasCurrentWeekSets || lastWorkoutDate === undefined ? currentWeekRange : rangeEndingAt(lastWorkoutDate)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentWorkouts.length, lastWorkoutDate?.getTime()],
+    [hasCurrentWeekSets, lastWorkoutDate?.getTime()],
   );
 
   // GH-458 round 2 (review #2): the range above only asked "did ANY muscle
@@ -124,7 +126,7 @@ const DashboardTab = () => {
           a period that holds data. */}
       <AnalyseStaleRangeBanner
         range={currentWeekRange}
-        isEmpty={currentWorkouts.length === 0}
+        isEmpty={!hasCurrentWeekSets}
         actionLabel="Show that period"
         onApplyRange={(suggestedRange) =>
           navigation.navigate('Metrics', {

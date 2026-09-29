@@ -192,3 +192,24 @@ describe('Dashboard muscle drill-down range is per-muscle (GH-458 round 2, revie
     expect(params.rangeEndMs).toBeGreaterThanOrEqual(LAST_WORKOUT_END.getTime());
   });
 });
+
+/**
+ * GH-458 round 3 (review): a set-less session this week must not make the
+ * Dashboard think the week was trained — the drill-down would open on a week
+ * that holds no sets for the muscle.
+ */
+describe('Dashboard drill-down ignores a set-less session this week (GH-458 round 3)', () => {
+  it('still hands over the range of the last real workout', () => {
+    const now = new Date();
+    const emptySessionThisWeek = {id: 2, exerciseId: 1, start: now, end: now, sets: []} as unknown as Workout;
+    const {getByTestId, queryByTestId} = renderDashboard(makeState([lastWorkout, emptySessionThisWeek]));
+
+    expect(getByTestId('analyse-stale-range-banner')).toBeTruthy();
+    fireEvent.press(getByTestId(`muscle-chip-${Muscles.QUADS}`));
+
+    const [, params] = mockNavigate.mock.calls[0];
+    expect(params.rangeStartMs).toBeLessThanOrEqual(LAST_WORKOUT_START.getTime());
+    expect(params.rangeEndMs).toBeGreaterThanOrEqual(LAST_WORKOUT_END.getTime());
+    expect(queryByTestId('dashboard-empty-store')).toBeNull();
+  });
+});
