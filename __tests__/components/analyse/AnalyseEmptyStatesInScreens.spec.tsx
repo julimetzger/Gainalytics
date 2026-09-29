@@ -92,7 +92,7 @@ describe('Dashboard on an empty store (GH-458 H3)', () => {
   });
 
   it('shows the normal dashboard as soon as anything has been logged', () => {
-    const workout = {id: 1, exerciseId: 1, start: new Date(2026, 1, 28, 18, 0), end: new Date(2026, 1, 28, 19, 0), sets: []} as unknown as Workout;
+    const workout = {id: 1, exerciseId: 1, start: new Date(2026, 1, 28, 18, 0), end: new Date(2026, 1, 28, 19, 0), sets: [{}]} as unknown as Workout;
     const {getByTestId, queryByTestId} = renderWithStore(makeState([workout]), <DashboardTab />);
 
     expect(queryByTestId('dashboard-empty-store')).toBeNull();

@@ -15,7 +15,7 @@ import {GlobalState} from '../../rootReducer';
  * everywhere and nothing tells them that data exists — just earlier. Knowing the
  * last training date is what lets a screen say so and offer a one-tap fix.
  *
- * Ids that do not resolve to a dated workout are skipped: the exported `.gains`
+ * Sessions with no logged set are skipped, as are ids that do not resolve to a dated workout: the exported `.gains`
  * fixtures carry a literal "undefined" key in `byId`, so a plain Math.max over
  * the ids yields NaN.
  */
@@ -23,7 +23,8 @@ export const findLastWorkoutDate = (workouts: NormalizedState<Workout>): Date | 
   const newestTimestamp = workouts.allIds.reduce<number | undefined>((newest, workoutId) => {
     const workout = workouts.byId[workoutId];
     const timestamp = new Date(workout?.end ?? workout?.start ?? NaN).getTime();
-    if (!Number.isFinite(timestamp)) {
+    // GH-458 round 3 (review #6): a session without a logged set is not a training.
+    if (!workout?.sets?.length || !Number.isFinite(timestamp)) {
       return newest;
     }
 

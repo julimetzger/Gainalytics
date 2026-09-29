@@ -1,0 +1,77 @@
+appId: com.powerliftingworkoutplanner
+---
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- runFlow:
+    when:
+      visible: 'Wait'
+    commands:
+      - tapOn: 'Wait'
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 90000
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Training Length'
+    timeout: 15000
+- tapOn: 'Training Length'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'training-length-screen'
+    timeout: 20000
+- tapOn:
+    id: 'date-range-picker-button'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'date-range-start-input'
+- eraseText: 20
+- inputText: '01/11/2026'
+- tapOn:
+    id: 'date-range-end-input'
+- eraseText: 20
+- inputText: '01/14/2026'
+- hideKeyboard
+- tapOn:
+    point: '83%, 15%'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'training-length-outlier-count'
+    timeout: 20000
+# 01/11/2026 - 01/14/2026 holds exactly one training: the 44 h 27 min outlier.
+- assertVisible:
+    id: 'training-length-outlier-count'
+    text: '1 training over 4 h hidden'
+- assertVisible: 'Only hidden outliers in this range'
+- assertNotVisible: 'No completed trainings in this range'
+- assertVisible:
+    id: 'training-length-only-outliers-show'
+- takeScreenshot: gh458_r3_10_training_length_only_outliers
+
+- tapOn:
+    id: 'training-length-only-outliers-show'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'training-length-outlier-count'
+    text: '1 training over 4 h included'
+- assertNotVisible: 'Only hidden outliers in this range'
+- takeScreenshot: gh458_r3_11_training_length_outlier_shown

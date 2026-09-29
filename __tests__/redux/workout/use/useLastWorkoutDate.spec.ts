@@ -3,7 +3,7 @@
  * "select the last-trained exercise" suggestion both need to resolve the right
  * exercise/date out of the raw store shape, independent of any component.
  */
-import {findLastTrainedExerciseId, findLastWorkoutDateByMuscle, findLastWorkoutDateForExercises, findLastWorkoutDateForMuscle} from '../../../../app/redux/Workout/use/useLastWorkoutDate';
+import {findLastTrainedExerciseId, findLastWorkoutDate, findLastWorkoutDateByMuscle, findLastWorkoutDateForExercises, findLastWorkoutDateForMuscle} from '../../../../app/redux/Workout/use/useLastWorkoutDate';
 import {Workout} from '../../../../app/models/entities/Workout';
 import {Exercise} from '../../../../app/models/entities/Exercise';
 import {Muscles} from '../../../../app/models/Muscles';
@@ -111,5 +111,15 @@ describe('workouts without any set do not count as trained (GH-458 round 3)', ()
     const otherReal = {id: 11, exerciseId: 2, start: new Date(2026, 6, 1), end: new Date(2026, 6, 1), sets: [{}]} as unknown as Workout;
 
     expect(findLastTrainedExerciseId(makeWorkouts([emptySession, realSession, otherReal]))).toBe(2);
+  });
+});
+
+describe('findLastWorkoutDate skips empty sessions (GH-458 round 3)', () => {
+  it('ignores a newer workout with no sets', () => {
+    const real = {id: 10, exerciseId: 1, start: new Date(2026, 1, 27), end: new Date(2026, 1, 27), sets: [{}]} as unknown as Workout;
+    const empty = {id: 12, exerciseId: 1, start: new Date(2026, 2, 20), end: new Date(2026, 2, 20), sets: []} as unknown as Workout;
+
+    expect(findLastWorkoutDate(makeWorkouts([real, empty]))?.getTime()).toBe(new Date(2026, 1, 27).getTime());
+    expect(findLastWorkoutDate(makeWorkouts([empty]))).toBeUndefined();
   });
 });

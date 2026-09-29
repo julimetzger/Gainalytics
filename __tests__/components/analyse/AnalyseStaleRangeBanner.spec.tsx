@@ -14,7 +14,7 @@ jest.mock('react-redux', () => jest.requireActual('react-redux'));
 
 const LAST_WORKOUT_END = new Date(2026, 1, 28, 19, 30); // 28 Feb 2026
 
-const makeWorkout = (id: number, start: Date, end: Date) => ({id, exerciseId: 1, start, end, sets: []} as unknown as Workout);
+const makeWorkout = (id: number, start: Date, end: Date) => ({id, exerciseId: 1, start, end, sets: [{}]} as unknown as Workout);
 
 const baseState = {
   exercises: {byId: {}, allIds: []},
