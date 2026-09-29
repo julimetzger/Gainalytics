@@ -1,0 +1,45 @@
+id: AI-447-449
+title: "AI-Chat bleibt mit größerem Modell im Ladezustand (GH-447) und die Coach Insight bricht mitten im Satz ab (GH-449)"
+priority: high
+area: ai
+source:
+  - https://github.com/julimetzger/Gainalytics/issues/447
+  - https://github.com/julimetzger/Gainalytics/issues/449
+description: |
+  Zwei Fehler aus dem echten Gebrauch, beide daran, wie eine Modellantwort beim Nutzer ankommt.
+  Sie werden zusammen bearbeitet, weil sie denselben Weg betreffen.
+
+  GH-447 — Trägt der Nutzer in den Einstellungen ein größeres Claude-Modell ein (gemeldet mit
+  claude-opus-5) und schickt im AI-Chat eine Nachricht ab, kommt nie eine Antwort. Der Ladezustand
+  bleibt dauerhaft stehen: kein Text, keine Fehlermeldung, kein Hinweis, dass etwas schiefgelaufen
+  ist, und die Anfrage lässt sich nicht abbrechen. Mit dem Standardmodell antwortet der Chat normal.
+
+  GH-449 — Die Coach Insight auf der Micro-Overview endet mitten im Wort ("... while hamst") und
+  darunter steht sofort "Generated just now". Der Nutzer bekommt also einen abgeschnittenen Rat,
+  ohne dass ihm irgendetwas sagt, dass da noch mehr gewesen wäre. Der Screenshot des Nutzers liegt
+  am Issue GH-449.
+acceptanceCriteria:
+  - "Mit dem gemeldeten Modell kommt im Chat entweder eine Antwort an oder eine verständliche Meldung — nie ein stiller Dauer-Ladezustand"
+  - "Eine laufende Anfrage kann der Nutzer abbrechen; danach ist der Chat sofort wieder bedienbar"
+  - "Nach Abbruch, Zeitüberschreitung oder Fehler bleibt der Verlauf konsistent und die Nachricht lässt sich erneut senden"
+  - "Während einer langen Antwort ist erkennbar, dass die App noch arbeitet"
+  - "Das Standardmodell verhält sich unverändert wie bisher"
+  - "Dieselbe Absicherung gilt für die Coach-Insights: auch dort darf ein ausbleibender Aufruf nicht in einem endlosen Ladezustand enden"
+  - "Die Coach Insight endet nicht mehr mitten im Wort: der Nutzer bekommt entweder den vollständigen Rat oder einen erkennbar abgeschlossenen Text mit einem Hinweis, dass er gekürzt wurde"
+  - "Belegt ist, woran der abgeschnittene Text lag, und dass der Rat nach der Änderung beim selben Anlass vollständig ankommt"
+  - "Automatisierte Tests für die Fälle: Antwort bleibt aus, Nutzer bricht ab, Fehler kommt zurück, Antwort wird gekürzt"
+  - "Beleg auf dem zugewiesenen echten Gerät mit genau dem Modell, das heute hängt: der Chat kommt sichtbar aus dem Ladezustand heraus"
+constraints:
+  - |
+    SPARSAM MIT ECHTEN MODELLAUFRUFEN. Der hinterlegte API-Key des Nutzers hat nur noch rund 3 Euro
+    Guthaben. Höchstens fünf echte Aufrufe an das große Modell in der gesamten Runde, jeweils mit
+    kurzem Kontext und kurzer Frage. Alles, was ohne echten Aufruf belegbar ist (Abbruch, Zeit-
+    überschreitung, Fehlerfall, Verlaufszustand, Tests), wird ohne echten Aufruf belegt. Plane die
+    echten Aufrufe vorher und schreibe in summary.md, wie viele es tatsächlich waren und wofür.
+  - "Der API-Key darf weder geloggt noch in Screenshots, Logs oder Evidence-Dateien sichtbar sein. Prüfe jeden Screenshot vor dem Committen darauf."
+  - "Die Modell-Einstellung selbst bleibt unverändert (freies Textfeld, gleiche Bedeutung)."
+  - "Kein Umbau des Chat-Verlaufs oder der Kontext-Auswahl."
+  - "Die Untersuchung und der Beleg laufen ausschliesslich auf dem zugewiesenen physischen Gerät."
+components:
+  - "AI-Chat im Analyse-Bereich"
+  - "Coach Insight auf der Micro-Overview"

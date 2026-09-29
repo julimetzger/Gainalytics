@@ -1,0 +1,30 @@
+id: GH-460
+title: "Change New Training button — Knopf im Stil von 'New exercise'"
+priority: low
+area: training
+description: |
+  GitHub-Issue #460: https://github.com/julimetzger/Gainalytics/issues/460
+
+  Heute: Im Training-Tab (Training Home) sitzt zum Anlegen eines neuen Trainings unten rechts nur ein
+  kleiner runder "+"-Knopf. Er überlappt dabei die Karte "Training running" und fällt kaum auf.
+
+  Im Exercises-Tab gibt es für dieselbe Art Aktion den Knopf "+ New exercise": ein breiter,
+  abgerundeter Knopf unten rechts mit Plus-Symbol UND Beschriftung, in der Primärfarbe, schwebend
+  über der Liste.
+
+  Ziel: Der Knopf zum Anlegen eines neuen Trainings sieht genauso aus wie "+ New exercise"
+  (gleiche Form, Größe, Farbe, Schrift, Position, Schatten), mit der Beschriftung "New training".
+  Die Funktion bleibt unverändert: Ein Tap startet denselben Ablauf wie bisher.
+
+  Referenz-Screenshots aus dem Issue (Exercises-Tab mit "New exercise" / Training Home mit dem
+  heutigen "+") liegen im Issue.
+acceptanceCriteria:
+  - "Training Home zeigt statt des runden '+' einen Knopf '+ New training', der optisch dem Knopf '+ New exercise' im Exercises-Tab entspricht (Form, Größe, Farbe, Schrift, Position)"
+  - "Ein Tap auf 'New training' startet denselben Ablauf wie vorher der '+'-Knopf"
+  - "Der Knopf verdeckt keine bedienbaren Elemente von Training Home (auch nicht die Karte 'Training running', wenn ein Training läuft) — ggf. Abstand am Listenende"
+  - "Screenshots: Training Home vorher und nachher (ohne und mit laufendem Training), Exercises-Tab zum Vergleich, sowie der Screen nach dem Tap auf 'New training'"
+  - "Bestehende Tests grün (npm test), betroffene Snapshot-/Komponententests angepasst"
+constraints:
+  - "KEIN Maestro-Flow nötig (ausdrückliche Vorgabe des Nutzers). Nachweis per Screenshot vom Emulator (adb exec-out screencap), bedienen per adb input/uiautomator ist ok. Als e2e-Nachweis genügt ein kurzes Log der adb-Schritte mit den Screenshot-Pfaden (Check-Name z. B. 'e2e-manual-screenshots')."
+  - "Nur den Knopf ändern — kein Umbau anderer Bereiche von Training Home."
+  - "Screenshots vor dem Ansehen auf max. 800 px verkleinern (ffmpeg -vf scale=-1:800)."

@@ -2,6 +2,7 @@
 
 ## Trainings
 
+- [done] ~~[GH-460](https://github.com/julimetzger/Gainalytics/issues/460) Change New Training button — Knopf im Stil von „New exercise"~~ (PR #464 gemerged)
 - [ready] [GH-437](https://github.com/julimetzger/Gainalytics/issues/437) Finish-Training-Knopf in der Sekundärfarbe statt der Primärfarbe
 - [ready] [GH-431](https://github.com/julimetzger/Gainalytics/issues/431) UX-Audit R2 Follow-up (M6/M9/M12) — Suchtreffer-Rangfolge, stabiler EDITING-PLAN-Modus, Satzfortschritt gegen den Plan
   - Quelle: `docs/ux/create-and-execute-training-audit-round2.md` aus #426
@@ -30,10 +31,11 @@
 - [ready] [GH-455](https://github.com/julimetzger/Gainalytics/issues/455) UX-Audit (read-only): Analyse-Bereich — sind die Auswertungen auf dem Gerät nutzbar und interpretierbar?
   - Gleiche Machart wie [GH-399](https://github.com/julimetzger/Gainalytics/issues/399)/[GH-426](https://github.com/julimetzger/Gainalytics/issues/426), auf dem echten Gerät, ohne AI-Chat
   - Report nach `docs/ux/analysis-audit.md`; keine App-Code-Änderung
-- [ready] [GH-458](https://github.com/julimetzger/Gainalytics/issues/458) UX-Audit Analyse: alle 7 Hoch-Findings — Drawer-Absturz, Sackgasse, stumme Leerzustände, Muskel-Drilldown, Default-Zeitraum, Training-Length-Ausreißer, Metrics-Einheiten
+- [done] ~~[GH-458](https://github.com/julimetzger/Gainalytics/issues/458) UX-Audit Analyse: alle 7 Hoch-Findings — Drawer-Absturz, Sackgasse, stumme Leerzustände, Muskel-Drilldown, Default-Zeitraum, Training-Length-Ausreißer, Metrics-Einheiten~~ (PR #459 gemerged)
   - Quelle: `docs/ux/analysis-audit.md` aus [GH-455](https://github.com/julimetzger/Gainalytics/issues/455) (bis zum Merge auf PR #456)
   - H1/H2 sind Bugs (weisser Screen ohne Rückweg, Sackgasse), H3–H7 Darstellung und Navigation
   - Medium-Findings (M1–M12) bewusst nicht enthalten — eigenes Ticket
+  - Runde 2 (PR #459): 3 Codex-Anmerkungen + [GH-461](https://github.com/julimetzger/Gainalytics/issues/461) Analyse ohne Übung/Muskel zeigt nur rote Zeile statt Leerzustand
 - RIR Verlauf/ RIR distribution
 - RIRmax/RIRaverage als metrik aufnehmen
 - Pausenzeit generell und pro muskel/exercise (nur zwischen set im Workout berücksichtigen?? also dl satz 1 pause dl satz 2 pause dl satz 3 fertig -> 2 Pausenzeiten getrackt)
@@ -166,6 +168,16 @@
 - ~~direkter klick möglich bei offenem keyboard überall~~ nochmal testen - funktioniert nur im ExerciseTab
 
 ## Performance-Optimierung
+
+- [review] PERF-001 (PR #463) Performance-Messung am echten Gerät (Release-Build): Start, Satz-Loggen, Scrollen, Speicher — `tickets/PERF-001-device-performance-measurement.yaml`
+  - Grundlage: statischer Code-Audit vom 28.09.2026 (Theme-Rebuild bei jedem Satz, Persist schreibt kompletten State, Selektoren ohne Memo, 3 Plan-Tage gleichzeitig gerendert, Exercises-Liste nicht virtualisiert)
+  - Ergebnis: `docs/perf/device-measurement.md` → daraus Fix-Tickets ableiten
+- [ready] [PERF-002](tickets/PERF-002-set-save-cost-breakdown.yaml) Satz speichern: Wohin gehen die ~340 ms? Aufschlüsselung Rendern vs. Datenspeicherung (Release-Build, read-only)
+  - Frühere Analysen GH-279/GH-288/GH-297 haben nur Persist-Aktionen gezählt, nicht die Schreibkosten; ~150 ms sind unzugeordnet
+  - Entscheidet, ob ein Persist-Umbau oder ein Umbau der Satzliste/Eingabezeile als Nächstes kommt
+- [done] ~~[PERF-003](tickets/PERF-003-plan-swipe-smooth.yaml) Trainings-Tab flüssiger: Wischen zwischen den Micros und Klicks auf die Knopfleisten (v. a. Overview)~~ (PR #465 gemerged; Report `docs/perf/training-tab-fixes.md`)
+  - PERF-001: 180–270 ms + ~55-ms-Frame pro Wisch, +138 MB beim Öffnen des Plans
+  - Knopfleisten (Volume/Sets/Time, Gesamt/Exercise/Muscle, Train/Plan/Analysis) reagieren laut Nutzer teils verzögert — erst messen, dann fixen
 
 - Memoization erweitern: Obwohl bereits einige Komponenten memo() verwenden, gibt es noch viele Stellen ohne Optimierung
 - useCallback/useMemo: Event-Handler und teure Berechnungen sollten mit useCallback/useMemo optimiert werden

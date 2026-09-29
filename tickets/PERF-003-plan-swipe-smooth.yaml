@@ -1,0 +1,56 @@
+id: PERF-003
+title: "Trainings-Tab flüssiger: Wischen zwischen den Micros und Klicks auf die Knopfleisten (v. a. Overview)"
+priority: medium
+area: performance
+description: |
+  Beim Wischen zwischen den Micros eines Trainingstags (z. B. "Push squat" Micro 3 ↔ Micro 4) im
+  Trainings-Tab ruckelt die App bei jedem Wechsel sichtbar. PERF-001 (docs/perf/device-measurement.md,
+  PR #463) hat im Release-Build gemessen:
+  - Train-Reiter: 182 ms beschäftigt pro Wisch, Plan-/Analysis-Reiter: ~265 ms
+  - bei jedem Wechsel ein Frame von ~55 ms (2–3 verworfene Frames), Ausreißer bis 0,6 s beim ersten Wisch
+  - Öffnen des Plans und Wechsel auf ein anderes Micro kosten zusammen ~138 MB Speicher und ~1 000 native Views
+  - die Kosten hängen kaum vom aktiven Unterreiter ab → es wird deutlich mehr aufgebaut als sichtbar ist
+
+  Ziel: Der Wisch fühlt sich flüssig an, und die App hält nicht mehr Inhalte vor als nötig.
+
+  Verhalten nach der Umsetzung:
+  - Wischen zwischen den Micros funktioniert wie bisher (gleiche Richtung, gleiche Reihenfolge,
+    gleiche Unterreiter Train/Plan/Analysis, gleicher Inhalt nach dem Wechsel).
+  - Während der Wischbewegung ist beim Nachbar-Micro mindestens erkennbar, welches Micro kommt
+    (Kopfzeile/Titel); spätestens direkt nach dem Einrasten steht der vollständige Inhalt da.
+  - Es gibt keinen sichtbaren Ruckler beim Wechsel.
+  - Eingaben und Zustände auf dem aktuellen Micro (z. B. geöffnete Bereiche, Scrollposition, sofern
+    heute erhalten) gehen durch den Umbau nicht verloren.
+
+  Zweiter Teil — Klicks auf die Knopfleisten:
+  Der Nutzer berichtet, dass Taps auf die Umschalt-Knopfleisten im Trainings-Tab teilweise spürbar
+  verzögert reagieren, vor allem in der Overview (z. B. Volume / Sets / Time auf Training Home und
+  die Umschalter in der Micro-Overview wie Gesamt / Exercise / Muscle, außerdem Train / Plan / Analysis).
+  PERF-001 hat das nicht gemessen.
+  - Zuerst messen: für jede Knopfleiste im Trainings-Tab die Zeit vom Tap bis der neue Zustand
+    sichtbar ist (und wie lange die App beschäftigt ist), mehrere Durchläufe.
+  - Dann die langsamen beheben: Der gewählte Knopf muss sofort als ausgewählt erscheinen; der
+    Inhalt darunter soll so schnell wie möglich folgen.
+  - Verhalten und Inhalte nach dem Umschalten bleiben gleich.
+
+  Messmethode und Skripte aus PERF-001 liegen auf dem Branch feature/PERF-001 (PR #463) unter
+  docs/perf/ (Report device-measurement.md, Skripte in docs/perf/raw/tools/) und können übernommen werden.
+acceptanceCriteria:
+  - "Messung vorher/nachher im Release-Build auf R5CN30HWZFN mit der Methode aus PERF-001 Szenario 3 (je Reiter Train/Plan/Analysis, mind. 20 Wischer Micro 3 ↔ 4): Beschäftigt-Dauer pro Wisch und längster Frame, Median + min/max"
+  - "Nachher: kein Frame > 33 ms beim Wechsel im Median, Beschäftigt-Dauer pro Wisch mindestens halbiert gegenüber PERF-001"
+  - "Nachher: Speicher (PSS) und Anzahl Views nach 'Plan öffnen + auf anderes Micro wechseln' gemessen und dem PERF-001-Wert (+138 MB / ~1 000 Views) gegenübergestellt"
+  - "Maestro-Flow mit Screenshots: Micro 3 → wischen → Micro 4 → zurück, jeweils in Train, Plan und Analysis; Inhalt nach dem Wechsel stimmt mit dem Verhalten vor dem Umbau überein"
+  - "Screenshot mitten im Wisch zeigt, dass das Nachbar-Micro erkennbar ist"
+  - "Knopfleisten: Liste aller Umschalt-Knopfleisten im Trainings-Tab mit Tap-bis-sichtbar-Zeit und Beschäftigt-Dauer vorher/nachher (Median, min/max, mind. 10 Taps je Leiste)"
+  - "Knopfleisten: nachher erscheint der gewählte Knopf im Median innerhalb von 100 ms als ausgewählt; jede Leiste, die vorher > 150 ms brauchte, ist deutlich schneller oder der Report begründet, warum nicht"
+  - "Report docs/perf/training-tab-fixes.md mit allen Vorher/Nachher-Werten beider Teile"
+  - "Bestehende Tests grün, neue Tests für das geänderte Verhalten"
+constraints:
+  - |
+    NUTZERDATEN SIND ECHT UND UNERSETZLICH. Niemals die App deinstallieren, niemals `pm clear`,
+    niemals Daten importieren/überschreiben. Auf dem Gerät ist ein Release-Build mit dem Debug-Key
+    installiert; neue Builds mit demselben Key signieren und per `adb install -r` darüberlegen.
+    Vor jeder Installation Daten per In-App-Export sichern. Scheitert die Installation wegen der
+    Signatur: STOPPEN und needs_input melden, nicht deinstallieren.
+  - "Nur das echte Gerät R5CN30HWZFN verwenden (Messungen im Release-Build). Keine Emulatoren — die sind von anderen Workern belegt."
+  - "Alle zu Messzwecken angelegten Trainings/Sätze am Ende rückstandslos entfernen und per Export-Vergleich vorher/nachher belegen. Am Ende bleibt ein normaler Release-Build mit den Änderungen installiert."
