@@ -36,7 +36,7 @@ const TitleBlock = ({trainingName, mesoName, localMicro, stateLabel, align, mirr
   const suffix = mirror ? '-mirror' : '';
   const textAlign = align === 'flex-end' ? 'right' : 'left';
   return (
-    <View style={[styles.block, {alignItems: align}]}>
+    <View style={[styles.block, mirror ? styles.fill : styles.half, {alignItems: align}]}>
       {mesoName !== undefined && (
         <Text variant="labelMedium" style={{color: theme.colors.onSurfaceVariant, textAlign}}>
           {mesoName}
@@ -87,8 +87,11 @@ const MicroPanePlaceholder = ({trainingName, mesoName, localMicro, trainingState
 const styles = StyleSheet.create({
   container: {flex: 1},
   body: {padding: 24, flexDirection: 'row', justifyContent: 'space-between'},
-  block: {gap: 4, maxWidth: '48%'},
-  mirror: {maxWidth: '48%'},
+  // explicit widths: with only a maxWidth the two copies squeezed each other to a few characters per line
+  block: {gap: 4},
+  half: {width: '46%'},
+  fill: {width: '100%'},
+  mirror: {width: '46%'},
 });
 
 export default MicroPanePlaceholder;
