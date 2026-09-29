@@ -1,4 +1,4 @@
-import {HelperText, IconButton, TextInput, useTheme} from 'react-native-paper';
+import {FAB, HelperText, IconButton, TextInput, useTheme} from 'react-native-paper';
 import {Alert, Keyboard, View} from 'react-native';
 import React, {useState} from 'react';
 import {useStore} from 'react-redux';
@@ -114,17 +114,8 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
           accessibilityLabel={`Edit ${trainingsPlanDisplayName(trainingsPlan?.name)}`}
         />
       ) : (
-        <IconButton
-          icon="plus-circle"
-          onPress={() => showDialog()}
-          theme={theme}
-          // GH-404: `tertiaryContainer` is a near-white fill in the light
-          // schemes, so the add-plan "+" was invisible against the page.
-          // `tertiary` is the readable accent in both schemes.
-          iconColor={theme.colors.tertiary}
-          size={40}
-          testID="add-trainings-plan"
-        ></IconButton>
+        // GH-460: same floating extended FAB as "New Exercise" in the Exercises tab.
+        <FAB icon="plus" label="New Training" onPress={() => showDialog()} testID="add-trainings-plan" />
       )}
       <EditDialogScaffold
         visible={visible}

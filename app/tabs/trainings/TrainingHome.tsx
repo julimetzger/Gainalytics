@@ -308,9 +308,9 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
 
   return (
     <View style={{flex: 1}} testID="training-home-screen">
-      {/* paddingBottom just clears the add-plan FAB (size-40 IconButton ≈ 65px + 5px offset)
+      {/* paddingBottom clears the "New Training" FAB (56px + 16px offset, same as the Exercises tab)
           so the last plan card stays tappable without creating dead scroll space. */}
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{paddingBottom: 80}}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{paddingBottom: 96}}>
         {/* Dashboard section for active plan */}
         {activePlan && (
           <>
@@ -431,8 +431,8 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
       <AddTrainingsPlan
         style={{
           position: 'absolute',
-          bottom: 5,
-          right: 5,
+          bottom: 16,
+          right: 16,
         }}
       />
     </View>

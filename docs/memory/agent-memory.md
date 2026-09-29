@@ -2930,3 +2930,8 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 ### 431. `INSTALL_FAILED_VERSION_DOWNGRADE` after rebasing a feature branch onto a newer `origin/master`
 **Observation (GH-450 fix round):** after cherry-picking onto `origin/master` (see #430) the app's `versionCode` was higher than what was installed from the pre-rebase build, and `adb install -r` failed with `Update version code 7 is older than current 9` — despite `-r` normally allowing same-signature reinstalls, it still enforces monotonic versionCode. `adb uninstall` + fresh `install` (losing app data, so the baseline `.gains` fixture had to be re-imported) was the only way forward.
 **Apply when:** rebuilding after a rebase/cherry-pick onto a newer base branch and `adb install -r` rejects the new APK.
+
+### 432. Debug app ignores `adb reverse` unless `debug_http_host` is set; falls back to the embedded (old) bundle silently
+**Problem (GH-460):** with Metro up and `adb reverse` set, the app kept showing the OLD UI — it asked `10.0.2.2:8081`, got no answer and loaded the bundle embedded in the APK. Also the reverse target is the *Windows* host port, not WSL localhost, and Metro started via a bare `Metro.runServer` needs a `/status` -> `packager-status:running` handler or the app deems it not running.
+**Working solution:** `run-as <pkg>` write `shared_prefs/<pkg>_preferences.xml` with `debug_http_host=localhost:8081`; use a free Metro port and `adb reverse tcp:8081 tcp:<port>`; if inotify is exhausted (ENOSPC) run Metro with `watch:false`. Check logcat for "packager does not seem to be running".
+**Apply when:** UI on device doesn't reflect the code change.
