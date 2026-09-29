@@ -56,8 +56,6 @@ interface TrainingsPlanNodeProps {
    * exercise, ...) is kept; only the heavy view tree is not built.
    */
   renderContent?: boolean;
-  /** Placeholder only: which side of the active pane this one sits on (see MicroPanePlaceholder). */
-  placeholderSide?: 'left' | 'right';
   microViewMode?: ViewMode;
   onMicroViewModeChange?: (mode: ViewMode) => void;
   microSortMode?: ExerciseSortMode;
@@ -105,7 +103,7 @@ const PlanNodeScrollContainer = ({children}: {children: React.ReactNode}) => {
   );
 };
 
-const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, setIgnoreSwipe, isActive = true, renderContent = true, placeholderSide, microViewMode, onMicroViewModeChange, microSortMode, onMicroSortModeChange, analysisDataMode, onAnalysisDataModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange, requestedSubTab}: TrainingsPlanNodeProps) => {
+const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, setIgnoreSwipe, isActive = true, renderContent = true, microViewMode, onMicroViewModeChange, microSortMode, onMicroSortModeChange, analysisDataMode, onAnalysisDataModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange, requestedSubTab}: TrainingsPlanNodeProps) => {
   const [localViewMode, setLocalViewMode] = useState<ViewMode>('gesamt');
   const effectiveViewMode = microViewMode ?? localViewMode;
   const effectiveSetViewMode = onMicroViewModeChange ?? setLocalViewMode;
@@ -398,7 +396,6 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
           activeTab={activeSubTab}
           onTabChange={setActiveSubTab}
           showTabs={!showDone}
-          side={placeholderSide}
         />
       ) : (
       <NestableScrollContainerProvider>

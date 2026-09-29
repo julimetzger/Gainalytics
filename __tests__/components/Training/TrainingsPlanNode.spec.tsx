@@ -624,10 +624,10 @@ describe('TrainingsPlanNode — PERF-003 neighbour panes render a placeholder in
 
   it('names the micro that is coming and builds none of the heavy content', () => {
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
-    const {getByTestId, queryByTestId, getByText} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} />);
+    const {getByTestId, queryByTestId, getByText, getAllByText} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} />);
     expect(getByTestId('micro-pane-placeholder')).toBeTruthy();
-    expect(getByText('Micro 4')).toBeTruthy();
-    expect(getByText('Pull')).toBeTruthy();
+    expect(getAllByText('Micro 4').length).toBeGreaterThan(0);
+    expect(getAllByText('Pull').length).toBeGreaterThan(0);
     expect(getByText('Finished')).toBeTruthy();
     expect(queryByTestId('trainings-overview')).toBeNull();
     expect(queryByTestId('analysis-tab')).toBeNull();
@@ -666,18 +666,26 @@ describe('TrainingsPlanNode — PERF-003 neighbour panes render a placeholder in
   });
 });
 
-describe('TrainingsPlanNode — PERF-003 placeholder side', () => {
+describe('TrainingsPlanNode — PERF-003 placeholder title for a swipe in progress', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  const titleAlignment = (getByTestId: any): string | undefined => StyleSheet.flatten(getByTestId('micro-pane-placeholder-body').props.style).alignItems;
-
-  it.each([
-    ['left', 'flex-end'],
-    ['right', 'flex-start'],
-    [undefined, 'center'],
-  ] as const)('side=%s puts the title at %s, so it is readable from the first pixels of a swipe', (side, alignItems) => {
+  it('names the coming micro at both edges of the pane, so it is readable whichever side the pane enters from', () => {
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
-    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} placeholderSide={side} />);
-    expect(titleAlignment(getByTestId)).toBe(alignItems);
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} />);
+    expect(getByTestId('micro-pane-placeholder-micro').props.children).toBe('Micro 4');
+    expect(getByTestId('micro-pane-placeholder-micro-mirror', {includeHiddenElements: true}).props.children).toBe('Micro 4');
+    expect(getByTestId('micro-pane-placeholder-title').props.children).toBe('Pull');
+    expect(getByTestId('micro-pane-placeholder-title-mirror', {includeHiddenElements: true}).props.children).toBe('Pull');
+  });
+
+  it('keeps the second copy out of accessibility and out of touch handling', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} />);
+    let mirrorWrapper: any = getByTestId('micro-pane-placeholder-micro-mirror', {includeHiddenElements: true});
+    while (mirrorWrapper && mirrorWrapper.props.importantForAccessibility !== 'no-hide-descendants') {
+      mirrorWrapper = mirrorWrapper.parent;
+    }
+    expect(mirrorWrapper).toBeTruthy();
+    expect(mirrorWrapper.props.pointerEvents).toBe('none');
   });
 });

@@ -14,17 +14,49 @@ interface MicroPanePlaceholderProps {
   activeTab: SubTab;
   onTabChange: (tab: SubTab) => void;
   showTabs: boolean;
-  /**
-   * Which side of the active pane this one waits on: the title hugs the edge that comes into view first, so it is
-   * readable from the first pixels of a swipe. Centered when unknown.
-   */
-  side?: 'left' | 'right';
 }
 
 const STATE_LABEL: {[state: string]: string} = {
   [TrainingsState.PLANNED]: 'Planned',
   [TrainingsState.STARTED]: 'Running',
   [TrainingsState.FINISHED]: 'Finished',
+};
+
+interface TitleBlockProps {
+  trainingName: string;
+  mesoName?: string;
+  localMicro?: number;
+  stateLabel?: string;
+  align: 'flex-start' | 'flex-end';
+  mirror?: boolean;
+}
+
+const TitleBlock = ({trainingName, mesoName, localMicro, stateLabel, align, mirror = false}: TitleBlockProps) => {
+  const theme = useTheme();
+  const suffix = mirror ? '-mirror' : '';
+  const textAlign = align === 'flex-end' ? 'right' : 'left';
+  return (
+    <View style={[styles.block, {alignItems: align}]}>
+      {mesoName !== undefined && (
+        <Text variant="labelMedium" style={{color: theme.colors.onSurfaceVariant, textAlign}}>
+          {mesoName}
+        </Text>
+      )}
+      {localMicro !== undefined && (
+        <Text testID={`micro-pane-placeholder-micro${suffix}`} variant="headlineMedium" style={{color: theme.colors.onSurface, textAlign}}>
+          {`Micro ${localMicro}`}
+        </Text>
+      )}
+      <Text testID={`micro-pane-placeholder-title${suffix}`} variant="headlineSmall" style={{color: theme.colors.onSurface, textAlign}}>
+        {trainingName}
+      </Text>
+      {stateLabel !== undefined && (
+        <Text variant="bodyMedium" style={{color: theme.colors.onSurfaceVariant, textAlign}}>
+          {stateLabel}
+        </Text>
+      )}
+    </View>
+  );
 };
 
 /**
@@ -34,31 +66,19 @@ const STATE_LABEL: {[state: string]: string} = {
  * once the pane has snapped in. That keeps one micro's worth of views in memory instead
  * of three and keeps the swipe itself free of layout work.
  */
-const MicroPanePlaceholder = ({trainingName, mesoName, localMicro, trainingState, activeTab, onTabChange, showTabs, side}: MicroPanePlaceholderProps) => {
-  const theme = useTheme();
+const MicroPanePlaceholder = ({trainingName, mesoName, localMicro, trainingState, activeTab, onTabChange, showTabs}: MicroPanePlaceholderProps) => {
   const stateLabel = trainingState !== undefined ? STATE_LABEL[trainingState] : undefined;
   return (
     <View style={styles.container} testID="micro-pane-placeholder">
       {showTabs && <TrainingModeTabs activeTab={activeTab} onTabChange={onTabChange} />}
-      <View testID="micro-pane-placeholder-body" style={[styles.body, side === 'left' && styles.bodyLeft, side === 'right' && styles.bodyRight]}>
-        {mesoName !== undefined && (
-          <Text variant="labelMedium" style={{color: theme.colors.onSurfaceVariant}}>
-            {mesoName}
-          </Text>
-        )}
-        {localMicro !== undefined && (
-          <Text testID="micro-pane-placeholder-micro" variant="headlineMedium" style={{color: theme.colors.onSurface}}>
-            {`Micro ${localMicro}`}
-          </Text>
-        )}
-        <Text testID="micro-pane-placeholder-title" variant="headlineSmall" style={{color: theme.colors.onSurface}}>
-          {trainingName}
-        </Text>
-        {stateLabel !== undefined && (
-          <Text variant="bodyMedium" style={{color: theme.colors.onSurfaceVariant}}>
-            {stateLabel}
-          </Text>
-        )}
+      {/* The title is there twice — hugging the left edge and the right edge of the pane. A neighbour pane enters
+          from one side or the other, so one of the two is readable from the first pixels of a swipe. The copy is
+          hidden from accessibility and from touches. */}
+      <View testID="micro-pane-placeholder-body" style={styles.body}>
+        <TitleBlock align="flex-start" {...{trainingName, mesoName, localMicro, stateLabel}} />
+        <View style={styles.mirror} pointerEvents="none" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+          <TitleBlock align="flex-end" mirror {...{trainingName, mesoName, localMicro, stateLabel}} />
+        </View>
       </View>
     </View>
   );
@@ -66,10 +86,9 @@ const MicroPanePlaceholder = ({trainingName, mesoName, localMicro, trainingState
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  body: {padding: 24, gap: 4, alignItems: 'center'},
-  // the pane on the left is entered from its right edge, the one on the right from its left edge
-  bodyLeft: {alignItems: 'flex-end'},
-  bodyRight: {alignItems: 'flex-start'},
+  body: {padding: 24, flexDirection: 'row', justifyContent: 'space-between'},
+  block: {gap: 4, maxWidth: '48%'},
+  mirror: {maxWidth: '48%'},
 });
 
 export default MicroPanePlaceholder;
