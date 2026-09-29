@@ -3,6 +3,7 @@ import {ScrollView, StyleSheet, View} from 'react-native';
 import {Card, Divider, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {useSharedValue} from 'react-native-reanimated';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import {useNavigation} from '@react-navigation/native';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
 import {BarTrackingResult, VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
 import {useVideoAnalysis} from '../../redux/VideoAnalysis/use/useVideoAnalysis';
@@ -16,6 +17,7 @@ import CompareHeaderCard from '../../components/video/CompareHeaderCard';
 import VelocityCompareChart from '../../components/video/VelocityCompareChart';
 import BarPathCompareView from '../../components/video/BarPathCompareView';
 import CompareRepSummary from '../../components/video/CompareRepSummary';
+import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
 
 interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisCompare'> {}
 
@@ -28,6 +30,7 @@ const createThemedStyles = (theme: MD3Theme) =>
 
 const VideoAnalysisCompareTab = ({route}: Props) => {
   const theme = useTheme();
+  const navigation = useNavigation<any>();
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
   // The screen can be opened from the Analyse drawer without params; fall
   // through to the "not found" message instead of crashing on undefined.
@@ -138,9 +141,23 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
   const metersPerPixel2 = analysis2?.metersPerPixel ?? result2?.analysisMeta.metersPerPixel;
 
   if (!analysis1 || !analysis2) {
+    // GH-458 (H2): "One or both analyses not found." was a dead end — system
+    // language, no cause, no way forward. Name the prerequisite and offer the
+    // screen that satisfies it.
     return (
-      <View style={[styles.centered, themedStyles.background]}>
-        <Text>One or both analyses not found.</Text>
+      <View style={[styles.centered, themedStyles.background]} testID="video-analysis-compare-not-found">
+        <AnalyseEmptyState
+          testID="video-analysis-compare-empty-state"
+          title="Nothing to compare yet"
+          description="Comparing needs two recordings. Open a recording in Video Analyses and tap Compare to pick the second one."
+          actions={[
+            {
+              label: 'Go to Video Analyses',
+              testID: 'video-analysis-compare-empty-goto-list',
+              onPress: () => navigation.navigate('VideoAnalyses'),
+            },
+          ]}
+        />
       </View>
     );
   }

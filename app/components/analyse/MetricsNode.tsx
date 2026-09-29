@@ -6,6 +6,9 @@ import MetricsOverviewForWorkouts from './MetricsOverviewForWorkouts';
 import {Muscles} from '../../models/Muscles';
 import {Exercise} from '../../models/entities/Exercise';
 import React from 'react';
+import AnalyseEmptyState from './AnalyseEmptyState';
+import AnalyseStaleRangeBanner from './AnalyseStaleRangeBanner';
+import {ANALYSE_EXTENDED_RANGE_MONTHS, describeRange, rangeEndingToday} from '../../utils/analyse-range';
 
 interface MetricNodeProps {
   range: Range;
@@ -31,10 +34,33 @@ const MetricsNode = ({range, setRange, muscle, exercise}: MetricNodeProps) => {
   let uniqueWorkouts = getUniquewRokoutsIn(range);
   let previousUniqueWorkouts = getUniquewRokoutsIn(range.minusRange());
 
+  const hasSelection = muscle.length > 0 || exercise.length > 0;
+  const selectionExerciseIds = [...new Set([...exerciseIDs, ...exercisesForMusclesIds])].filter((id): id is number => id !== undefined);
+  const selectedNames = [...muscle.map(String), ...exercise.map((it) => it.name)];
+
   return (
     <>
       <DateRangePicker range={range} setRange={setRange} />
-      <MetricsOverviewForWorkouts trainingsWorkouts={uniqueWorkouts} previousWorkouts={previousUniqueWorkouts} />
+      <AnalyseStaleRangeBanner range={range} isEmpty={!uniqueWorkouts.some((workout) => workout.sets.length > 0)} selectionExerciseIds={hasSelection ? selectionExerciseIds : undefined} onApplyRange={setRange} testID="metrics-stale-range-banner" />
+      <MetricsOverviewForWorkouts
+        trainingsWorkouts={uniqueWorkouts}
+        previousWorkouts={previousUniqueWorkouts}
+        comparisonRangeLabel={describeRange(range.minusRange())}
+        emptyState={
+          <AnalyseEmptyState
+            testID="metrics-empty-state"
+            title="No sets in this period"
+            description={`${selectedNames.length > 0 ? selectedNames.join(', ') : 'Your exercises'} logged no sets between ${describeRange(range)}.`}
+            actions={[
+              {
+                label: `Extend to last ${ANALYSE_EXTENDED_RANGE_MONTHS} months`,
+                testID: 'metrics-empty-extend-range',
+                onPress: () => setRange(rangeEndingToday(ANALYSE_EXTENDED_RANGE_MONTHS)),
+              },
+            ]}
+          />
+        }
+      />
     </>
   );
 };

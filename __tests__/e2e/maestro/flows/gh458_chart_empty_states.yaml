@@ -1,0 +1,195 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-458 H3: with an exercise, a metric and a mode chosen but nothing to plot,
+# the Analyse chart rendered an empty outlined rectangle — no axes, no text.
+# The same blank box stood for three different situations, and because the area
+# has no loading indicator it was not even distinguishable from "still
+# calculating".
+#
+# This flow walks the two cases the audit called pixel-identical (screenshots 06
+# and 30) and asserts that they now READ differently:
+#   * `Mmkv` — the only exercise in the fixture without a single logged set
+#   * `Front squat` — 20 sets, none inside the default range
+# and that the one-tap correction actually produces a chart.
+
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+
+# The emulator raises "System UI isn't responding" under load; while that
+# window holds focus Maestro's hierarchy never contains the app, and every
+# assertion fails for a reason that has nothing to do with the app.
+- runFlow:
+    when:
+      visible: 'Wait'
+    commands:
+      - tapOn: 'Wait'
+      - waitForAnimationToEnd
+
+# The emulator raises "System UI isn't responding" under load; while that
+# window holds focus Maestro's hierarchy never contains the app, and every
+# assertion fails for a reason that has nothing to do with the app.
+- runFlow:
+    when:
+      visible: 'Wait'
+    commands:
+      - tapOn: 'Wait'
+      - waitForAnimationToEnd
+
+# A cold start after a device reboot needs well over the default timeout
+# before the tab bar exists.
+# `tab-analyse` resolves as accessibility TEXT on this build, not as a
+# resource-id, so the bare-string form is the one that matches.
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 90000
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Analyse'
+    timeout: 15000
+- tapOn: 'Analyse'
+- waitForAnimationToEnd
+
+# -------------------------------------------------- case 0: nothing selected
+# GH-458 round 2 (issue #461): this used to be a small red "Please select:
+# Exercise or Muscle." line over an otherwise blank page. It is now a normal
+# empty state (not styled as an error) that offers the last-trained exercise
+# as a one-tap suggestion — see gh458_round2_review_fixes.yaml for the full
+# before/after of the suggestion actually applying the exercise.
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-chart-no-selection'
+    timeout: 20000
+- assertNotVisible: 'Please select: Exercise or Muscle.'
+- assertVisible:
+    id: 'analyse-chart-no-selection-description'
+    text: '.*Pick an exercise or a muscle group above.*'
+- takeScreenshot: gh458_30_chart_no_selection
+
+# ------------------------------------- case 1: an exercise never trained once
+- tapOn: 'Select Exercises, Metrics, Accumulation Mode'
+- waitForAnimationToEnd
+# The list opens with the search field unfocused, and "Search" is a
+# placeholder: tapping that text node does not reach the TextInput, so the
+# typing goes nowhere. Tap the field by position instead (same technique as
+# analyse_date_range_picker.yaml uses for the calendar).
+- tapOn:
+    point: '50%, 21%'
+- waitForAnimationToEnd
+- inputText: 'Mmkv'
+- waitForAnimationToEnd
+# Two traps here, both confirmed by hand on the device:
+#  * `tapOn: 'Mmkv'` matches the SEARCH FIELD first — its value is also "Mmkv" —
+#    so a text tap never reaches the result row. The first row sits directly
+#    under the search field, so tap it by position.
+#  * `inputText` leaves the soft keyboard up, and the audit's M8 finding is that
+#    the first tap on a result is consumed dismissing it. A blind second tap
+#    would toggle the row back off, so re-tap only if the selection did NOT
+#    take — the empty state behind the list is the signal.
+- tapOn:
+    point: '30%, 26%'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: 'Choose something else'
+    commands:
+      - tapOn:
+          point: '30%, 26%'
+      - waitForAnimationToEnd
+# BACK closes the dropdown modal. (`hideKeyboard` is itself a BACK press and
+# would be spent on whichever of the two is on top, so use one explicit BACK.)
+- back
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-chart-never-trained'
+    timeout: 20000
+- assertVisible:
+    id: 'analyse-chart-never-trained-description'
+    text: 'There is not a single logged set for Mmkv, so there is nothing to chart — no date range will change that.'
+# This case is NOT about the range, so the range actions must not be offered.
+- assertNotVisible:
+    id: 'analyse-chart-empty-range'
+- takeScreenshot: gh458_31_chart_never_trained
+
+# The way out of a dead selection.
+- tapOn:
+    id: 'analyse-chart-clear-selection'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-chart-no-selection'
+    timeout: 15000
+
+# -------------------------- case 2: trained plenty, just not in this period
+- tapOn: 'Select Exercises, Metrics, Accumulation Mode'
+- waitForAnimationToEnd
+- tapOn:
+    point: '50%, 21%'
+- waitForAnimationToEnd
+# "Front squat" is the only catalogue entry containing that string, so the
+# filtered list has exactly one row — unlike "Squat", which also matches
+# "Paused Squats". It has 20 logged sets, none of them in the default range.
+- inputText: 'Front squat'
+- waitForAnimationToEnd
+- tapOn:
+    point: '30%, 26%'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: '.*The last one was on.*'
+    commands:
+      - tapOn:
+          point: '30%, 26%'
+      - waitForAnimationToEnd
+- back
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-chart-empty-range'
+    timeout: 20000
+# The cause is the PERIOD, and the message says which one and when the exercise
+# was last trained — the two facts the blank box withheld.
+# Asserted in two parts: the range in the middle of the sentence is relative
+# to today and would rot, while the exercise name and the last-training date
+# are the two facts the blank box withheld.
+# A bare Maestro string is a FULL-text regex, not a substring match, hence the
+# explicit wildcards.
+- assertVisible: 'Front squat has no logged sets between.*'
+- assertVisible: '.*The last one was on Fri, 27/02/26\.'
+- assertNotVisible:
+    id: 'analyse-chart-never-trained'
+- takeScreenshot: gh458_32_chart_empty_range
+
+# ------------------------------------------- the one-tap correction delivers
+- tapOn:
+    id: 'analyse-chart-jump-to-last'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    notVisible:
+      id: 'analyse-chart-empty-range'
+    timeout: 20000
+- assertNotVisible:
+    id: 'analyse-chart-never-trained'
+- assertNotVisible:
+    id: 'analyse-chart-no-selection'
+- takeScreenshot: gh458_33_chart_populated_after_jump

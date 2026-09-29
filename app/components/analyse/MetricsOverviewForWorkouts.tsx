@@ -14,6 +14,7 @@ import {Metric, MetricOverviewSection} from '../../models/Metric';
 import {useMetricOverviewSlots} from '../../redux/settings/use/useMetricOverviewSlots';
 import {dispatchSetMetricOverviewSlot} from '../../redux/settings/dispatch/dispatchSetMetricOverviewSlot';
 import MetricSelectionDialog from './MetricSelectionDialog';
+import {describeComparisonPeriod, formatMetricValue, getMetricHeaderLabel} from '../../utils/metric-format';
 
 export interface Comparison {
   value: number;
@@ -24,6 +25,13 @@ interface WorkoutSetOverviewProps {
   trainingsWorkouts: Workout[];
   previousWorkouts?: Workout[];
   showExercises?: boolean;
+  /**
+   * GH-458 (H7): names the period every delta in this table is measured
+   * against. Without it a red `-176680.58` says nothing about what it compares.
+   */
+  comparisonRangeLabel?: string;
+  /** GH-458 (H3): rendered instead of the empty tables when there is nothing to show. */
+  emptyState?: React.ReactNode;
 }
 
 interface MuscleDetails {
@@ -36,7 +44,7 @@ interface MetricSelectorState {
   slotIndex: number;
 }
 
-const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], showExercises = true}: WorkoutSetOverviewProps) => {
+const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], showExercises = true, comparisonRangeLabel, emptyState}: WorkoutSetOverviewProps) => {
   const exerciseIds = useMemo(() => [...new Set([...trainingsWorkouts, ...previousWorkouts].map((workout) => workout.exerciseId))], [previousWorkouts, trainingsWorkouts]);
   const exercises = useExerciseByIds(exerciseIds);
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleDetails | undefined>(undefined);
@@ -71,14 +79,31 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
 
   const activeMetricSlots = metricSelector?.section === 'muscles' ? muscleMetrics : exerciseMetrics;
   const selectedMetric = metricSelector ? activeMetricSlots[metricSelector.slotIndex] : undefined;
+  const comparisonSubtitle = comparisonRangeLabel ? describeComparisonPeriod(comparisonRangeLabel) : undefined;
+
+  // GH-458 round 2 (review #1): this used to gate on `muscleMetricMap`/
+  // `exerciseMetricMap`, which are built from trainingsWorkouts AND
+  // previousWorkouts combined — so a selected period with zero sets still
+  // rendered a full table of zeros whenever the COMPARISON period had data.
+  // Whether the empty state shows must depend only on the selected period's
+  // own sets. A workout with no sets logged (e.g. an unfinished session) is
+  // "no sets" too, not "no workouts".
+  const hasCurrentPeriodSets = useMemo(() => trainingsWorkouts.some((workout) => workout.sets.length > 0), [trainingsWorkouts]);
+
   // PERF-003: inside a ProgressiveMount (this component sits in stage 3) the first muscle rows come first,
   // the remaining rows and the exercise table one stage later (Infinity / all at once elsewhere).
   const muscleRowLimit = useProgressiveLimit(6, 100, 3);
 
+  // GH-458 (H3): the Metrics Overview used to render bare table headers and no
+  // rows when the range held nothing — indistinguishable from "still loading".
+  if (emptyState && !hasCurrentPeriodSets) {
+    return <>{emptyState}</>;
+  }
+
   return (
     <>
       <Card style={styles.card}>
-        <Card.Title title="Muscle Overview" />
+        <Card.Title title="Muscle Overview" subtitle={comparisonSubtitle} subtitleNumberOfLines={2} />
         <Card.Content>
           <DataTable>
             <DataTable.Header>
@@ -88,13 +113,13 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
                   key={`${metric}-${index}`}
                   style={getMetricColumnStyle(index)}
                   numeric
-                  numberOfLines={2}
-                  accessibilityLabel={metric}
+                  numberOfLines={3}
+                  accessibilityLabel={getMetricHeaderLabel(metric, 'muscles')}
                   accessible={true}
                   onPress={() => setMetricSelector({section: 'muscles', slotIndex: index})}
                   testID={`metrics-muscles-header-${index}`}
                 >
-                  {metric}
+                  {getMetricHeaderLabel(metric, 'muscles')}
                 </DataTable.Title>
               ))}
             </DataTable.Header>
@@ -116,7 +141,7 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
                         })
                       }
                     >
-                      <MetricView comparison={workout.get(metric)!!} />
+                      <MetricView comparison={workout.get(metric)!!} metric={metric} section="muscles" testID={`metrics-muscle-${muscle}-${index}`} />
                     </DataTable.Cell>
                   ))}
                 </DataTable.Row>
@@ -127,7 +152,12 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
 
       {showExercises && (
         <Stage at={4}>
-          <ExerciseMetricOverview exerciseMetricMap={exerciseMetricMap} metrics={exerciseMetrics} onMetricHeaderPress={(slotIndex) => setMetricSelector({section: 'exercises', slotIndex})} />
+          <ExerciseMetricOverview
+            exerciseMetricMap={exerciseMetricMap}
+            metrics={exerciseMetrics}
+            comparisonRangeLabel={comparisonRangeLabel}
+            onMetricHeaderPress={(slotIndex) => setMetricSelector({section: 'exercises', slotIndex})}
+          />
         </Stage>
       )}
 
@@ -142,14 +172,14 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
         <DataTable>
               <DataTable.Header>
                 <DataTable.Title style={styles.flexL}>Exercise</DataTable.Title>
-                <DataTable.Title style={styles.flexM} numeric>
-                  Value
+                <DataTable.Title style={styles.flexM} numeric numberOfLines={2}>
+                  {selectedMuscle ? getMetricHeaderLabel(selectedMuscle.metric, 'exercises').replace(selectedMuscle.metric, 'Value') : 'Value'}
                 </DataTable.Title>
                 <DataTable.Title style={styles.flexS} numeric>
-                  Factor
+                  Factor (%)
                 </DataTable.Title>
-                <DataTable.Title style={styles.flexS} numeric>
-                  Result
+                <DataTable.Title style={styles.flexS} numeric numberOfLines={2}>
+                  {selectedMuscle ? getMetricHeaderLabel(selectedMuscle.metric, 'muscles').replace(selectedMuscle.metric, 'Result') : 'Result'}
                 </DataTable.Title>
               </DataTable.Header>
               {Array.from(exerciseWorkoutMap).map(([exercise, workout]) => {
@@ -168,13 +198,13 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
                       <Text>{exercise.name}</Text>
                     </DataTable.Cell>
                     <DataTable.Cell style={styles.flexM} numeric>
-                      {unmodifiedMetricValue}
+                      {formatMetricValue(selectedMuscle.metric, unmodifiedMetricValue)}
                     </DataTable.Cell>
                     <DataTable.Cell style={styles.flexS} numeric>
                       {percent}
                     </DataTable.Cell>
                     <DataTable.Cell style={styles.flexS} numeric>
-                      {(unmodifiedMetricValue * percent) / 100}
+                      {formatMetricValue(selectedMuscle.metric, (unmodifiedMetricValue * percent) / 100, 'muscles')}
                     </DataTable.Cell>
                   </DataTable.Row>
                 );

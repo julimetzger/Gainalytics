@@ -11,8 +11,17 @@ jest.mock('../../../app/redux/Training/use/useCompletedTrainingsIn', () => ({
   useCompletedTrainingsIn: jest.fn(),
 }));
 
+jest.mock('../../../app/redux/Training/use/useLastCompletedTrainingDate', () => ({useLastCompletedTrainingDate: jest.fn(() => undefined)}));
 jest.mock('../../../app/redux/Training/use/useAllTrainingsPlans', () => ({
   useAllTrainingsPlans: jest.fn(),
+}));
+
+// GH-458: the screen now carries the shared stale-range banner. jest.setup.js
+// stubs useSelector globally to () => [], which would hand the banner an array
+// where it expects a Date, so the store-backed hooks are mocked explicitly.
+jest.mock('../../../app/redux/Workout/use/useLastWorkoutDate', () => ({
+  useLastWorkoutDate: jest.fn(() => undefined),
+  useLastWorkoutDateForExercises: jest.fn(() => undefined),
 }));
 
 jest.mock('../../../app/components/analyse/TrainingLengthEditDialog', () => {
