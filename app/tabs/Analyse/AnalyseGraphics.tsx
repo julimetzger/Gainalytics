@@ -1,14 +1,12 @@
 import React, {useEffect, useState} from 'react';
-import {processColor, ScrollView, StyleSheet} from 'react-native';
-import {useTheme} from 'react-native-paper';
+import {processColor, ScrollView, StyleSheet, View} from 'react-native';
+import {Chip, Text, useTheme} from 'react-native-paper';
 import {useWorkoutsIn} from '../../redux/Workout/use/useWorkoutsIn';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
-import {calculateMetricValue, calculateMetricValueForMuscles} from '../../utils/AnalyseUtils';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
-import {sum} from 'lodash';
 import TrainingElementPicker, {Accumulation} from '../../components/picker/elements/TrainingElementPicker';
 import {useWorkoutsByIds} from '../../redux/Workout/use/useWorkoutsByIds';
 import WorkoutView from '../../components/Workout/show/WorkoutDoneList';
@@ -16,16 +14,15 @@ import {Muscles} from '../../models/Muscles';
 import {useExercisesForMuscles} from '../../redux/Exercises/use/useExercisesForMuscles';
 import {Exercise} from '../../models/entities/Exercise';
 import {Workout} from '../../models/entities/Workout';
-import {handleAccumulationModeBatching} from '../../utils/HandleAccumulationModeBatching';
 import {generateTrend} from '../../utils/generateTrend';
-import {Metric} from "../../models/Metric";
+import {ALL_METRICS, Metric} from '../../models/Metric';
+import {buildMetricSeries} from '../../utils/AnalyseSeries';
 import {AccumulationMode} from '../../models/AccumulationMode';
 import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
 import AnalyseStaleRangeBanner from '../../components/analyse/AnalyseStaleRangeBanner';
-import {useLastTrainedExerciseId, useLastWorkoutDateForExercises} from '../../redux/Workout/use/useLastWorkoutDate';
+import {useLastWorkoutDate, useLastWorkoutDateForExercises} from '../../redux/Workout/use/useLastWorkoutDate';
 import {ANALYSE_EXTENDED_RANGE_MONTHS, describeRange, rangeEndingAt, rangeEndingToday} from '../../utils/analyse-range';
 import {getDateStringFromDate} from '../../utils/DateHelper';
-import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 
 const AnalyseGraphics = ({}: Props) => {
   function handleDataPointSelect(value: ChartSelectEvent) {
@@ -39,36 +36,26 @@ const AnalyseGraphics = ({}: Props) => {
   let now = new Date(Date.now());
   const [range, setRange] = useState(new Range(subtractMonths(3, firstDayOfWeek(now, 1)), lastDayOfWeek(now, 0)));
   const [selectedWorkoutIds, setSelectedWorkoutIds] = useState<number[]>([]);
-  const [metric, setMetric] = useState(Metric.ONE_RM);
+  const [metrics, setMetrics] = useState<Metric[]>([...ALL_METRICS]);
   const [accumulation, setAccumulation] = useState<Accumulation | undefined>(new Accumulation(AccumulationMode.SINGLE_DAY));
   const [exercise, setExercise] = useState<Exercise[]>([]);
   const [muscle, setMuscle] = useState<Muscles[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   let exercisesForMuscles = useExercisesForMuscles(muscle);
-  let exerciseIDs = exercise.map((it) => it.id);
-  let exercisesForMusclesIds = exercisesForMuscles.map((it) => it.id);
   let allWorkouts = useWorkoutsIn(range);
-  let workoutsForExercise = allWorkouts.reverse().filter((workout: Workout) => (exercise.length > 0 ? exerciseIDs.includes(workout.exerciseId) : false)) as Workout[];
-  let workoutsForMuscles = allWorkouts.reverse().filter((workout: Workout) => (exercisesForMusclesIds.length > 0 ? exercisesForMusclesIds.includes(workout.exerciseId) : false)) as Workout[];
   const theme = useTheme();
   let selectedWorkout = useWorkoutsByIds(selectedWorkoutIds);
 
   useEffect(() => {
     setSelectedWorkoutIds([]);
     validateSelections();
-  }, [exercise, metric, accumulation, muscle]);
+  }, [exercise, metrics, accumulation, muscle]);
 
-  // GH-458 round 2 (issue #461): "no exercise or muscle chosen yet" is the
-  // normal starting state of this screen, not an error — it used to share this
-  // same red HelperText with genuine misconfiguration (metric/accumulation
-  // cleared), so a first-time visitor saw a red error line over a blank page.
-  // That case now gets its own empty state below; this only flags the
-  // remaining, real misconfiguration.
   const validateSelections = () => {
     let errors: string[] = [];
-    if (!metric) {
-      errors.push('Metric');
+    if (metrics.length === 0) {
+      errors.push('at least one Metric');
     }
     if (!accumulation) {
       errors.push('Accumulation Mode');
@@ -76,83 +63,30 @@ const AnalyseGraphics = ({}: Props) => {
     setErrorMessage(errors.length > 0 ? `Please select: ${errors.join(', ')}.` : null);
   };
 
-  let combinedWorkouts = [...workoutsForExercise, ...workoutsForMuscles];
-  let uniqueWorkouts = Array.from(new Set(combinedWorkouts.map((workout) => workout.id))).map((id) => combinedWorkouts.find((workout) => workout.id === id)!!);
-  let combinedExercises = [...exercise, ...exercisesForMuscles];
-  let uniqueExercises = Array.from(new Set(combinedExercises.map((ex) => ex.id))).map((id) => combinedExercises.find((ex) => ex.id === id)!!);
-
-  // @ts-ignore
-  let map = Array.from(uniqueWorkouts.filter((workout: Workout) => workout.sets.length > 0).reduce(handleAccumulationModeBatching(uniqueWorkouts, accumulation), new Map<string, Workout[]>()))
-    .map((value) => value as [string, Workout[]])
-    .map(([value, workouts]) => {
-      let exerciseWorkoutMap = new Map<Exercise, Workout[]>();
-      workouts.forEach((workout) => {
-        let exercise = uniqueExercises.find((exercise: Exercise) => exercise.id === workout.exerciseId);
-        if (workout && exercise) {
-          if (exerciseWorkoutMap.get(exercise)) {
-            exerciseWorkoutMap.get(exercise)?.push(workout);
-          } else {
-            exerciseWorkoutMap.set(exercise, [workout]);
-          }
-        }
-      });
-      return [value, exerciseWorkoutMap] as [string, Map<Exercise, Workout[]>];
-    })
-    .flatMap(([value, workouts]) => {
-      const allWorkouts = Array.from(workouts.values()).flat() as Workout[];
-      let exerciseSetMap = new Map(Array.from(workouts.entries()).map(([exercise, workout]) => [exercise, workout.flatMap((w) => w.sets)]));
-      let workoutSetForExercises = exercise.flatMap((ex: Exercise) => {
-        return workouts.get(ex)?.flatMap((workout) => workout.sets) ?? [];
-      });
-      let workoutsCountForExercises = exercise.reduce((total: number, ex: Exercise) => total + (workouts.get(ex)?.length ?? 0), 0);
-      let workoutsCountMap = new Map(Array.from(workouts.entries()).map(([ex, ws]) => [ex, ws.length]));
-      let muscleSum = sum(muscle.map((mus) => calculateMetricValueForMuscles(exerciseSetMap, metric, mus, workoutsCountMap)));
-      let exerciseSum = calculateMetricValue(workoutSetForExercises, metric, workoutsCountForExercises) ?? 0;
-      let metricValue;
-      if (metric === Metric.ONE_RM || metric === Metric.MAX_INTENSITY || metric === Metric.AVERAGE_INTENSITY) {
-        metricValue = Math.max(exerciseSum, muscleSum);
-      } else metricValue = exerciseSum + muscleSum;
-      return [
-        {
-          id: allWorkouts.reduce((acc: string, workout: Workout) => acc + ',' + workout.id!!, ''),
-          x: new Date(value).getTime(),
-          y: exerciseSum + muscleSum,
-          marker: metricValue.toFixed(2),
-        } as LineValue,
-      ];
-    })
-    .sort((a, b) => a.x!! - b.x!!);
-
-  // GH-458 (H3): the chart used to render an empty outlined rectangle whenever
-  // `map` came back empty — no axes, no text. The same blank box stood for
-  // "the range holds nothing", "this exercise was never trained" and "something
-  // broke", and with no loading indicator anywhere it was not even
-  // distinguishable from "still calculating". Below, each of those cases gets
-  // its own named cause and at least one action that leads to a result.
+  // GH-468: exercise / muscle are only a filter on the data basis. Without any
+  // selection every logged set in the range is evaluated.
   const hasSelection = exercise.length > 0 || muscle.length > 0;
-  const isConfigured = hasSelection && !!metric && !!accumulation;
-  const selectionLabel = [...exercise.map((it) => it.name), ...muscle.map(String)].join(', ');
-  const selectionExerciseIds = uniqueExercises.map((it) => it.id).filter((id): id is number => id !== undefined);
-  const lastWorkoutForSelection = useLastWorkoutDateForExercises(selectionExerciseIds);
+  const selectedExerciseIds = new Set([...exercise, ...exercisesForMuscles].map((it) => it.id));
+  const includedWorkouts = hasSelection ? allWorkouts.filter((workout: Workout) => selectedExerciseIds.has(workout.exerciseId)) : allWorkouts;
 
-  // GH-458 round 2 (issue #461): a normal, unconfigured screen used to show
-  // only a small red "Please select: Exercise or Muscle." line above an
-  // otherwise blank page — it read as an error rather than a starting state.
-  // Offer a direct, one-tap suggestion instead: the exercise most recently
-  // logged, if there is one.
-  const allExercises = useAlleExercises();
-  const lastTrainedExerciseId = useLastTrainedExerciseId();
-  const suggestedExercise = allExercises.find((it) => it.id === lastTrainedExerciseId);
+  const seriesByMetric = metrics.map((it) => ({metric: it, values: buildMetricSeries(includedWorkouts, it, accumulation)}));
+  const hasData = seriesByMetric.length > 0 && seriesByMetric[0].values.length > 0;
+
+  // GH-458 (H3): each empty case gets its own named cause and a way forward.
+  const isConfigured = metrics.length > 0 && !!accumulation;
+  const selectionLabel = hasSelection ? [...exercise.map((it) => it.name), ...muscle.map(String)].join(', ') : 'any exercise';
+  const selectionExerciseIds = Array.from(selectedExerciseIds).filter((id): id is number => id !== undefined);
+  const lastWorkoutForSelection = useLastWorkoutDateForExercises(selectionExerciseIds);
+  const lastWorkoutOverall = useLastWorkoutDate();
+  const lastWorkout = hasSelection ? lastWorkoutForSelection : lastWorkoutOverall;
 
   const clearSelection = () => {
     setExercise([]);
     setMuscle([]);
   };
 
-  const selectSuggestedExercise = () => {
-    if (suggestedExercise) {
-      setExercise([suggestedExercise]);
-    }
+  const toggleMetric = (toggled: Metric) => {
+    setMetrics(metrics.includes(toggled) ? metrics.filter((it) => it !== toggled) : ALL_METRICS.filter((it) => it === toggled || metrics.includes(it)));
   };
 
   return (
@@ -166,112 +100,117 @@ const AnalyseGraphics = ({}: Props) => {
       <TrainingElementPicker
         exercise={exercise}
         setExercise={setExercise}
-        metric={metric}
-        setMetric={setMetric}
         accumulation={accumulation}
         setAccumulation={setAccumulation}
         muscle={muscle}
         setMuscle={setMuscle}
+        dropdownLabel="Select Exercises, Muscles, Accumulation Mode"
       />
+      {/* GH-468: every metric is shown by default; the chips double as legend
+          (colour = line colour of the metric's own chart) and as the filter. */}
+      <View style={styles.chipRow} testID="analyse-metric-chips">
+        {ALL_METRICS.map((it) => (
+          <Chip key={it} testID={`analyse-metric-chip-${it}`} style={styles.chip} selected={metrics.includes(it)} showSelectedOverlay onPress={() => toggleMetric(it)}>
+            {it}
+          </Chip>
+        ))}
+      </View>
       <DateRangePicker range={range} setRange={setRange} />
 
-      <AnalyseStaleRangeBanner range={range} isEmpty={isConfigured ? map.length === 0 : undefined} selectionExerciseIds={hasSelection ? selectionExerciseIds : undefined} onApplyRange={setRange} testID="analyse-chart-stale-range-banner" />
+      <AnalyseStaleRangeBanner
+        range={range}
+        isEmpty={isConfigured ? !hasData : undefined}
+        selectionExerciseIds={hasSelection ? selectionExerciseIds : undefined}
+        onApplyRange={setRange}
+        testID="analyse-chart-stale-range-banner"
+      />
 
-      {isConfigured && map.length > 0 && (
-        <LineChart
-          style={{
-            backgroundColor: theme.colors.background,
-            ...styles.chart,
-          }}
-          marker={{
-            enabled: true,
-            markerColor: processColor(theme.colors.backdrop),
-            textSize: 15,
-            textColor: processColor(theme.colors.secondary),
-          }}
-          data={{
-            dataSets: [
-              {
-                config: {
-                  color: processColor(theme.colors.primary),
-                  circleColor: processColor(theme.colors.primary),
-                  highlightEnabled: true,
-                  lineWidth: 2,
-                  drawCircleHole: false,
-                  highlightColor: processColor(theme.colors.secondary),
-                  circleRadius: 4,
-                  mode: 'HORIZONTAL_BEZIER',
-                  drawValues: false,
-                },
-                values: map,
-              },
-              {
-                config: {
-                  color: processColor(theme.colors.tertiary),
-                  drawCircles: false,
-                  lineWidth: 1,
-                  dashedLine: {lineLength: 15, spaceLength: 10},
-                  mode: 'LINEAR',
-                  drawValues: false,
-                },
-                values: generateTrend(map),
-              },
-            ],
-          }}
-          legend={{enabled: false}}
-          xAxis={{
-            valueFormatter: 'date',
-            valueFormatterPattern: 'dd MMM',
-            position: 'BOTTOM',
-            textColor: processColor(theme.colors.onBackground),
-          }}
-          yAxis={{
-            left: {textColor: processColor(theme.colors.onBackground)},
-            right: {textColor: processColor(theme.colors.onBackground)},
-          }}
-          chartDescription={{text: ''}}
-          onSelect={(value) => handleDataPointSelect(value)}
-        />
-      )}
-      {/* GH-458 round 2 (issue #461): a normal, first-time state, not an
-          error — this replaces the red "Please select: Exercise or Muscle."
-          line the audit flagged, and offers the last-trained exercise as a
-          one-tap starting point instead of only pointing back at the picker. */}
-      {!isConfigured && !hasSelection && (
-        <AnalyseEmptyState
-          testID="analyse-chart-no-selection"
-          title="Choose what to analyse"
-          description={
-            suggestedExercise
-              ? `Pick an exercise or a muscle group above, or start with ${suggestedExercise.name} — the last thing you trained.`
-              : 'Pick an exercise or a muscle group above to see its progress over time.'
-          }
-          actions={
-            suggestedExercise
-              ? [{label: `Select ${suggestedExercise.name}`, testID: 'analyse-chart-select-suggested', onPress: selectSuggestedExercise}]
-              : []
-          }
-        />
-      )}
+      {isConfigured &&
+        hasData &&
+        seriesByMetric.map(({metric: seriesMetric, values}) => {
+          const color = processColor(METRIC_COLORS[seriesMetric]);
+          return (
+            <View key={seriesMetric} testID={`analyse-chart-${seriesMetric}`}>
+              <View style={styles.chartTitleRow}>
+                <View style={[styles.colorDot, {backgroundColor: METRIC_COLORS[seriesMetric]}]} />
+                <Text variant="titleSmall">{`${seriesMetric} (${METRIC_AGGREGATION_LABEL[seriesMetric]})`}</Text>
+              </View>
+              <LineChart
+                style={{
+                  backgroundColor: theme.colors.background,
+                  ...(seriesByMetric.length > 1 ? styles.chartSmall : styles.chart),
+                }}
+                marker={{
+                  enabled: true,
+                  markerColor: processColor(theme.colors.backdrop),
+                  textSize: 15,
+                  textColor: processColor(theme.colors.secondary),
+                }}
+                data={{
+                  dataSets: [
+                    {
+                      config: {
+                        color,
+                        circleColor: color,
+                        highlightEnabled: true,
+                        lineWidth: 2,
+                        drawCircleHole: false,
+                        highlightColor: processColor(theme.colors.secondary),
+                        circleRadius: 4,
+                        mode: 'HORIZONTAL_BEZIER',
+                        drawValues: false,
+                      },
+                      values,
+                    },
+                    {
+                      config: {
+                        color: processColor(theme.colors.tertiary),
+                        drawCircles: false,
+                        lineWidth: 1,
+                        dashedLine: {lineLength: 15, spaceLength: 10},
+                        mode: 'LINEAR',
+                        drawValues: false,
+                      },
+                      values: generateTrend(values),
+                    },
+                  ],
+                }}
+                legend={{enabled: false}}
+                xAxis={{
+                  valueFormatter: 'date',
+                  valueFormatterPattern: 'dd MMM',
+                  position: 'BOTTOM',
+                  textColor: processColor(theme.colors.onBackground),
+                }}
+                yAxis={{
+                  left: {textColor: processColor(theme.colors.onBackground)},
+                  right: {textColor: processColor(theme.colors.onBackground)},
+                }}
+                chartDescription={{text: ''}}
+                onSelect={(value) => handleDataPointSelect(value)}
+              />
+            </View>
+          );
+        })}
 
-      {!isConfigured && hasSelection && (
+      {!isConfigured && (
         <AnalyseEmptyState testID="analyse-chart-misconfigured" title="Nothing to chart yet" description={`${errorMessage} Open the selector above and pick what you want to see.`} />
       )}
 
-      {isConfigured && map.length === 0 && lastWorkoutForSelection === undefined && (
+      {isConfigured && !hasData && lastWorkout === undefined && (
         <AnalyseEmptyState
           testID="analyse-chart-never-trained"
-          title={`${selectionLabel} has never been trained`}
+          title={hasSelection ? `${selectionLabel} has never been trained` : 'Nothing trained yet'}
           description={`There is not a single logged set for ${selectionLabel}, so there is nothing to chart — no date range will change that.`}
-          actions={[{label: 'Choose something else', testID: 'analyse-chart-clear-selection', onPress: clearSelection}]}
+          actions={hasSelection ? [{label: 'Choose something else', testID: 'analyse-chart-clear-selection', onPress: clearSelection}] : []}
         />
       )}
 
-      {isConfigured && map.length === 0 && lastWorkoutForSelection !== undefined && (
+      {isConfigured && !hasData && lastWorkout !== undefined && (
         <AnalyseEmptyState
           testID="analyse-chart-empty-range"
           title={`No sets for ${selectionLabel} in this period`}
-          description={`${selectionLabel} has no logged sets between ${describeRange(range)}. The last one was on ${getDateStringFromDate(lastWorkoutForSelection)}.`}
+          description={`${selectionLabel} has no logged sets between ${describeRange(range)}. The last one was on ${getDateStringFromDate(lastWorkout)}.`}
           actions={[
             {
               label: `Extend to last ${ANALYSE_EXTENDED_RANGE_MONTHS} months`,
@@ -279,22 +218,73 @@ const AnalyseGraphics = ({}: Props) => {
               onPress: () => setRange(rangeEndingToday(ANALYSE_EXTENDED_RANGE_MONTHS)),
             },
             {
-              label: `Jump to ${getDateStringFromDate(lastWorkoutForSelection)}`,
+              label: `Jump to ${getDateStringFromDate(lastWorkout)}`,
               testID: 'analyse-chart-jump-to-last',
-              onPress: () => setRange(rangeEndingAt(lastWorkoutForSelection)),
+              onPress: () => setRange(rangeEndingAt(lastWorkout)),
             },
           ]}
         />
       )}
 
-      {selectedWorkout && isConfigured && <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metric !== Metric.FREQUENCY ? metric : undefined} editable={false}></WorkoutView>}
+      {selectedWorkout && isConfigured && (
+        <WorkoutView
+          workoutIds={selectedWorkoutIds}
+          highlightMode={metrics.length === 1 && metrics[0] !== Metric.FREQUENCY ? metrics[0] : undefined}
+          editable={false}
+        ></WorkoutView>
+      )}
     </ScrollView>
   );
+};
+
+// One fixed colour per metric, so a metric keeps its colour whichever others are toggled.
+const METRIC_COLORS: Record<Metric, string> = {
+  [Metric.VOLUME]: '#1E88E5',
+  [Metric.ONE_RM]: '#E53935',
+  [Metric.SETS]: '#43A047',
+  [Metric.REPS]: '#FB8C00',
+  [Metric.MAX_INTENSITY]: '#8E24AA',
+  [Metric.AVERAGE_INTENSITY]: '#00ACC1',
+  [Metric.FREQUENCY]: '#6D4C41',
+};
+
+const METRIC_AGGREGATION_LABEL: Record<Metric, string> = {
+  [Metric.VOLUME]: 'sum',
+  [Metric.ONE_RM]: 'max',
+  [Metric.SETS]: 'sum',
+  [Metric.REPS]: 'sum',
+  [Metric.MAX_INTENSITY]: 'max %',
+  [Metric.AVERAGE_INTENSITY]: 'average %',
+  [Metric.FREQUENCY]: 'training days',
 };
 
 const styles = StyleSheet.create({
   chart: {
     height: 350,
+  },
+  chartSmall: {
+    height: 220,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 8,
+    gap: 6,
+  },
+  chip: {
+    marginVertical: 2,
+  },
+  chartTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    gap: 8,
+  },
+  colorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
 });
 

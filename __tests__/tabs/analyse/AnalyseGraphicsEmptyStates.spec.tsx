@@ -3,7 +3,7 @@ import {fireEvent, render} from '@testing-library/react-native';
 import {PaperProvider} from 'react-native-paper';
 import AnalyseGraphics from '../../../app/tabs/Analyse/AnalyseGraphics';
 import {useWorkoutsIn} from '../../../app/redux/Workout/use/useWorkoutsIn';
-import {useLastTrainedExerciseId, useLastWorkoutDateForExercises} from '../../../app/redux/Workout/use/useLastWorkoutDate';
+import {useLastWorkoutDate, useLastWorkoutDateForExercises} from '../../../app/redux/Workout/use/useLastWorkoutDate';
 import {useAlleExercises} from '../../../app/redux/Exercises/use/useAllExercises';
 import {Exercise} from '../../../app/models/entities/Exercise';
 import {Workout} from '../../../app/models/entities/Workout';
@@ -18,7 +18,6 @@ jest.mock('../../../app/redux/Exercises/use/useAllExercises', () => ({useAlleExe
 jest.mock('../../../app/redux/Workout/use/useLastWorkoutDate', () => ({
   useLastWorkoutDate: jest.fn(() => undefined),
   useLastWorkoutDateForExercises: jest.fn(() => undefined),
-  useLastTrainedExerciseId: jest.fn(() => undefined),
 }));
 
 jest.mock('../../../app/components/Workout/show/WorkoutDoneList', () => {
@@ -83,7 +82,7 @@ beforeEach(() => {
   (useWorkoutsIn as jest.Mock).mockReturnValue([]);
   (useLastWorkoutDateForExercises as jest.Mock).mockReturnValue(undefined);
   (useAlleExercises as jest.Mock).mockReturnValue([SQUAT, NEVER_TRAINED]);
-  (useLastTrainedExerciseId as jest.Mock).mockReturnValue(undefined);
+  (useLastWorkoutDate as jest.Mock).mockReturnValue(undefined);
 });
 
 /**
@@ -94,47 +93,36 @@ beforeEach(() => {
  * distinguishable from "still calculating".
  */
 describe('Analyse chart empty states (GH-458 H3)', () => {
-  it('asks for a selection instead of showing a blank box', () => {
+  // GH-468: no mandatory selection any more — without one every set is charted.
+  it('charts all trained sets when nothing is selected', () => {
+    (useWorkoutsIn as jest.Mock).mockReturnValue([makeWorkout(10, 1, new Date(2026, 1, 20, 18, 0)), makeWorkout(11, 2, new Date(2026, 1, 21, 18, 0))]);
+    const {getAllByTestId, queryByTestId} = renderScreen();
+
+    expect(getAllByTestId('analyse-line-chart')).toHaveLength(7);
+    expect(queryByTestId('analyse-chart-no-selection')).toBeNull();
+  });
+
+  it('shows one chart per selected metric and lets the user deselect metrics', () => {
+    (useWorkoutsIn as jest.Mock).mockReturnValue([makeWorkout(10, 1, new Date(2026, 1, 20, 18, 0))]);
+    const {getAllByTestId, getByTestId, queryByTestId} = renderScreen();
+
+    fireEvent.press(getByTestId('analyse-metric-chip-Volume'));
+    fireEvent.press(getByTestId('analyse-metric-chip-Frequency'));
+
+    expect(getAllByTestId('analyse-line-chart')).toHaveLength(5);
+    expect(queryByTestId('analyse-chart-Volume')).toBeNull();
+    expect(getByTestId('analyse-chart-1RM')).toBeTruthy();
+  });
+
+  it('only evaluates the workouts of the selected exercise', () => {
+    (useWorkoutsIn as jest.Mock).mockReturnValue([makeWorkout(10, 2, new Date(2026, 1, 20, 18, 0))]);
+    (useLastWorkoutDateForExercises as jest.Mock).mockReturnValue(new Date(2026, 1, 20, 18, 0));
     const {getByTestId, queryByTestId} = renderScreen();
 
-    expect(getByTestId('analyse-chart-no-selection')).toBeTruthy();
+    fireEvent.press(getByTestId('pick-squat'));
+
     expect(queryByTestId('analyse-line-chart')).toBeNull();
-    expect(getByTestId('analyse-chart-no-selection-description').props.children).toContain('Pick an exercise or a muscle group above');
-  });
-
-  /**
-   * GH-458 round 2 (issue #461): the "nothing selected" starting state used to
-   * share a red HelperText with genuine misconfiguration and offered no direct
-   * next step. It must now read as a normal empty state, not an error, and
-   * offer the last-trained exercise as a one-tap suggestion when there is one.
-   */
-  it('issue #461: is not styled or worded as an error when nothing is selected yet', () => {
-    const {queryByText} = renderScreen();
-
-    expect(queryByText('Please select: Exercise or Muscle.')).toBeNull();
-  });
-
-  it('issue #461: suggests the last-trained exercise as a one-tap starting point', () => {
-    (useAlleExercises as jest.Mock).mockReturnValue([SQUAT, NEVER_TRAINED]);
-    (useLastTrainedExerciseId as jest.Mock).mockReturnValue(1);
-    const {getByTestId} = renderScreen();
-
-    expect(getByTestId('analyse-chart-no-selection-description').props.children).toContain('Squat');
-
-    fireEvent.press(getByTestId('analyse-chart-select-suggested'));
-
-    // Squat becomes the selection; with no last-workout date mocked for it,
-    // that reads as "never trained" — proving the tap actually applied the
-    // suggested exercise, not just closed the empty state.
-    expect(getByTestId('analyse-chart-never-trained')).toBeTruthy();
-  });
-
-  it('issue #461: offers no suggestion action on a completely empty store', () => {
-    (useAlleExercises as jest.Mock).mockReturnValue([]);
-    (useLastTrainedExerciseId as jest.Mock).mockReturnValue(undefined);
-    const {queryByTestId} = renderScreen();
-
-    expect(queryByTestId('analyse-chart-select-suggested')).toBeNull();
+    expect(getByTestId('analyse-chart-empty-range')).toBeTruthy();
   });
 
   it('says so when the chosen exercise was never trained at all', () => {
@@ -153,8 +141,9 @@ describe('Analyse chart empty states (GH-458 H3)', () => {
     fireEvent.press(getByTestId('pick-never-trained'));
     fireEvent.press(getByTestId('analyse-chart-clear-selection'));
 
-    expect(getByTestId('analyse-chart-no-selection')).toBeTruthy();
-    expect(queryByTestId('analyse-chart-never-trained')).toBeNull();
+    // the selection is gone: the screen now evaluates everything, and says the store has no sets at all
+    expect(queryByTestId('analyse-chart-clear-selection')).toBeNull();
+    expect(getByTestId('analyse-chart-never-trained-description').props.children).toContain('logged set for any exercise');
   });
 
   /**
@@ -203,11 +192,11 @@ describe('Analyse chart empty states (GH-458 H3)', () => {
   it('renders the chart and no empty state once the period holds sets', () => {
     (useWorkoutsIn as jest.Mock).mockReturnValue([makeWorkout(10, 1, new Date(2026, 1, 20, 18, 0))]);
     (useLastWorkoutDateForExercises as jest.Mock).mockReturnValue(new Date(2026, 1, 20, 18, 0));
-    const {getByTestId, queryByTestId} = renderScreen();
+    const {getAllByTestId, getByTestId, queryByTestId} = renderScreen();
 
     fireEvent.press(getByTestId('pick-squat'));
 
-    expect(getByTestId('analyse-line-chart')).toBeTruthy();
+    expect(getAllByTestId('analyse-line-chart').length).toBeGreaterThan(0);
     expect(queryByTestId('analyse-chart-empty-range')).toBeNull();
     expect(queryByTestId('analyse-chart-never-trained')).toBeNull();
     expect(queryByTestId('analyse-chart-no-selection')).toBeNull();
