@@ -1,7 +1,7 @@
 import React from 'react';
 import {StyleSheet} from 'react-native';
 import {render, fireEvent, waitFor} from '@testing-library/react-native';
-import TrainingsPlanNode from '../../../app/components/Training/TrainingsPlanNode';
+import TrainingsPlanNode, {resolveSubTab} from '../../../app/components/Training/TrainingsPlanNode';
 import {TrainingsState} from '../../../app/models/TrainingsState';
 import {TrainingsPlan} from '../../../app/models/entities/TrainingsPlan';
 
@@ -687,5 +687,64 @@ describe('TrainingsPlanNode — PERF-003 placeholder title for a swipe in progre
     }
     expect(mirrorWrapper).toBeTruthy();
     expect(mirrorWrapper.props.pointerEvents).toBe('none');
+  });
+});
+
+describe('TrainingsPlanNode — GH-467 sub-tab survives a swipe to another micro', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('opens a pane that moves to another micro on the carried-over tab, not on the state default', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} stickySubTab="analysis" />);
+    expect(getByTestId('analysis-tab')).toBeTruthy();
+    rerender(<TrainingsPlanNode {...defaultProps} micro={2} stickySubTab="analysis" />);
+    expect(getByTestId('analysis-tab')).toBeTruthy();
+    expect(queryByTestId('plan-workout')).toBeNull();
+  });
+
+  it('keeps the carried-over tab when the neighbour training finishes loading (state undefined → STARTED)', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(undefined);
+    const {getByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} stickySubTab="plan" />);
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    rerender(<TrainingsPlanNode {...defaultProps} stickySubTab="plan" />);
+    expect(getByTestId('subtab-train')).toBeTruthy();
+    expect(getByTestId('plan-workout')).toBeTruthy();
+  });
+
+  it('reports a tab picked on the current pane so the screen can carry it along', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const onSubTabChange = jest.fn();
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} onSubTabChange={onSubTabChange} />);
+    fireEvent.press(getByTestId('subtab-analysis'));
+    expect(onSubTabChange).toHaveBeenCalledWith('analysis');
+  });
+
+  it('does not report from a neighbour pane', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const onSubTabChange = jest.fn();
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} isCurrent={false} onSubTabChange={onSubTabChange} />);
+    fireEvent.press(getByTestId('subtab-analysis'));
+    expect(onSubTabChange).not.toHaveBeenCalled();
+  });
+
+  it('a pane kept in the background follows the tab picked meanwhile once it becomes current again', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} isCurrent={false} stickySubTab="plan" />);
+    rerender(<TrainingsPlanNode {...defaultProps} isCurrent={false} stickySubTab="analysis" />);
+    rerender(<TrainingsPlanNode {...defaultProps} isCurrent stickySubTab="analysis" />);
+    expect(getByTestId('analysis-tab')).toBeTruthy();
+  });
+
+  it('starting the training still jumps to Train even with a different carried-over tab', () => {
+    expect(resolveSubTab(undefined, TrainingsState.STARTED)).toBe('train');
+    expect(resolveSubTab('analysis', TrainingsState.PLANNED)).toBe('analysis');
+    expect(resolveSubTab('nope' as any, TrainingsState.FINISHED)).toBe('analysis');
+  });
+
+  it('shows a skeleton in the layout of the carried-over tab while the neighbour is a placeholder', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} renderContent={false} isCurrent={false} stickySubTab="analysis" />);
+    expect(getByTestId('micro-pane-skeleton-analysis')).toBeTruthy();
+    expect(queryByTestId('micro-pane-skeleton-plan')).toBeNull();
   });
 });

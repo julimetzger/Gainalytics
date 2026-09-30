@@ -12,6 +12,7 @@ import {useTrainingInTrainingsPlan} from '../../redux/Training/use/useTrainingIn
 import dispatchChangeTrainingsName from '../../redux/Training/dispatch/general/dispatchChangeTrainingsName';
 import TrainingsPlanHeader from '../../components/Training/TrainingsPlanHeader';
 import TrainingsPlanDrawer from '../../components/Training/TrainingsPlanDrawer';
+import {SubTab} from '../../components/Training/TrainingModeTabs';
 import TrainingsPlanNode from '../../components/Training/TrainingsPlanNode';
 import RangeSwiper, {SWIPE_SETTLE_MS} from '../../components/RangeSwiper';
 import TrainingHistoryCalendar from '../../components/Training/analyse/TrainingHistoryCalendar';
@@ -71,6 +72,8 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
     if (next) setMicroViewMode('exercise');
   }, []);
   const [overflowVisible, setOverflowVisible] = useState(false);
+  // GH-467: the sub-tab (Train / Plan / Analysis) the user is on; carried along when swiping to another micro.
+  const [swipeSubTab, setSwipeSubTab] = useState<SubTab | undefined>(undefined);
 
   // stable identities: the panes are memoised, a new closure per render would re-render all of them
   const handleSetIgnoreSwipe = useCallback((locations: LayoutRectangle[]) => {
@@ -257,6 +260,9 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                 overflowVisible={overflowVisible && value === micro}
                 onCloseOverflow={handleCloseOverflow}
                 onPlanChromeChange={setPlanChromeState}
+                stickySubTab={swipeSubTab}
+                onSubTabChange={setSwipeSubTab}
+                isCurrent={value === micro}
                 requestedSubTab={value === micro ? route.params.subTab : undefined}
               />
             );

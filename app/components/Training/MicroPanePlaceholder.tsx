@@ -59,6 +59,55 @@ const TitleBlock = ({trainingName, mesoName, localMicro, stateLabel, align, mirr
   );
 };
 
+const Bar = ({width, height = 14, testID}: {width: number | `${number}%`; height?: number; testID?: string}) => {
+  const theme = useTheme();
+  return <View testID={testID} style={{width, height, borderRadius: 6, backgroundColor: theme.colors.onSurfaceVariant, opacity: 0.12}} />;
+};
+
+const Block = ({height, testID}: {height: number; testID?: string}) => {
+  const theme = useTheme();
+  return <View testID={testID} style={[styles.skeletonBlock, {height, backgroundColor: theme.colors.onSurfaceVariant}]} />;
+};
+
+/**
+ * GH-467: grey blocks in the layout of the tab the pane will open on — exercise cards for Plan, an exercise
+ * strip with set rows for Train, a data toggle with metric cards for Analysis — so the content arriving
+ * does not change the page structure. Static on purpose: no animation work during a swipe.
+ */
+const SkeletonBody = ({activeTab}: {activeTab: SubTab}) => (
+  <View testID={`micro-pane-skeleton-${activeTab}`} style={styles.skeleton} pointerEvents="none">
+    {activeTab === 'plan' && (
+      <>
+        <Block height={56} />
+        <Block height={56} />
+        <Block height={56} />
+        <Block height={56} />
+      </>
+    )}
+    {activeTab === 'train' && (
+      <>
+        <View style={styles.row}>
+          <Bar width={84} height={32} />
+          <Bar width={84} height={32} />
+          <Bar width={84} height={32} />
+        </View>
+        <Block height={72} />
+        <Block height={48} />
+        <Block height={48} />
+        <Block height={48} />
+      </>
+    )}
+    {activeTab === 'analysis' && (
+      <>
+        <Bar width="100%" height={40} />
+        <Block height={120} />
+        <Block height={160} />
+        <Block height={88} />
+      </>
+    )}
+  </View>
+);
+
 /**
  * PERF-003: stand-in for the full micro content in a swiper pane the user is not on.
  * It names the micro that is coming (title, meso, state) and keeps the sub-tab bar in
@@ -80,12 +129,16 @@ const MicroPanePlaceholder = ({trainingName, mesoName, localMicro, trainingState
           <TitleBlock align="flex-end" mirror {...{trainingName, mesoName, localMicro, stateLabel}} />
         </View>
       </View>
+      <SkeletonBody activeTab={activeTab} />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {flex: 1},
+  skeleton: {paddingHorizontal: 16, gap: 12},
+  skeletonBlock: {width: '100%', borderRadius: 12, opacity: 0.12},
+  row: {flexDirection: 'row', gap: 8},
   body: {padding: 24, flexDirection: 'row', justifyContent: 'space-between'},
   // explicit widths: with only a maxWidth the two copies squeezed each other to a few characters per line
   block: {gap: 4},
