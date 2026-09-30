@@ -6,6 +6,7 @@ import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {useSettings} from '../../../redux/settings/use/useSettings';
 import {convertToNumber, ensureFormat} from '../../../utils/numberInput';
+import {parseRirInput, RIR_RULE_TOAST} from '../../../utils/rirInput';
 
 interface AddWorkoutProps {
   onSubmit: (arg: WorkoutSet) => void;
@@ -125,13 +126,20 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
       rir === undefined && setRirEmpty(true);
       return;
     }
+    // GH-466: fractional RIR (1.5 / 1,5) is fine; out-of-range or non-numeric is rejected.
+    const rirNumber = parseRirInput(rir);
+    if (rirNumber === null) {
+      setRirEmpty(true);
+      Toast.show({type: 'error', text1: RIR_RULE_TOAST.title, text2: RIR_RULE_TOAST.hint});
+      return;
+    }
     const repsNumber = convertToNumber(reps);
     onSubmit({
       index: workoutSet?.index,
       date: date ?? new Date(Date.now()),
       weight: convertToNumber(weight),
       reps: repsNumber,
-      rir: Number.isNaN(convertToNumber(rir)) ? 0 : convertToNumber(rir),
+      rir: rirNumber,
     } as WorkoutSet);
     if (repsNumber > 20 && !appSettings.toggles?.disableToasts) {
       Toast.show({

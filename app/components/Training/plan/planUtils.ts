@@ -7,6 +7,7 @@ import {
   planRangeMaxField,
   withPlanRangeMax,
 } from '../../../utils/planRange';
+import {parseRirInput, RIR_RULE_MESSAGE} from '../../../utils/rirInput';
 import {PlanField, PlanSetDraft} from './planTypes';
 
 export {formatPlanNumber};
@@ -77,11 +78,15 @@ const PLAN_FIELD_TITLE: Record<PlanField, string> = {
 
 const PLAN_FIELD_RULE: Record<PlanField, string> = {
   reps: 'Reps must be a whole number from 1 to 99.',
-  rir: 'RIR must be a whole number from 0 to 10.',
+  rir: RIR_RULE_MESSAGE,
   weight: 'Weight must be between 0 and 999.9 kg in 0.25 steps.',
 };
 
 export function parsePlanFieldValue(field: PlanField, rawValue: string): number | null {
+  if (field === 'rir') {
+    return parseRirInput(rawValue);
+  }
+
   const value = Number.parseFloat(ensureFormat(rawValue));
 
   if (!Number.isFinite(value)) {
@@ -92,14 +97,14 @@ export function parsePlanFieldValue(field: PlanField, rawValue: string): number 
     return Math.round(value);
   }
 
-  if (field === 'rir') {
-    return Math.round(value);
-  }
-
   return Math.round(value * 100) / 100;
 }
 
 export function isPlanFieldValueValid(field: PlanField, rawValue: string): boolean {
+  if (field === 'rir') {
+    return parseRirInput(rawValue) !== null;
+  }
+
   const normalized = ensureFormat(rawValue).trim();
 
   if (normalized.length === 0) {
@@ -113,10 +118,6 @@ export function isPlanFieldValueValid(field: PlanField, rawValue: string): boole
 
   if (field === 'reps') {
     return Number.isInteger(value) && value >= 1 && value <= 99;
-  }
-
-  if (field === 'rir') {
-    return Number.isInteger(value) && value >= 0 && value <= 10;
   }
 
   if (value < 0 || value > 999.9) {

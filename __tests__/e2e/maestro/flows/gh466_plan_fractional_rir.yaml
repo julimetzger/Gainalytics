@@ -1,0 +1,77 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-466 — a fractional RIR (1.5, and 1,5 with a comma) is accepted when planning
+# a set in the Plan tab. Precondition: baseline.gains imported. Micro 69 "Push"
+# is PLANNED with planned sets on its first exercise (set 1 exists).
+- runFlow: gh466_goto_push.yaml
+- tapOn:
+    id: 'subtab-plan'
+- waitForAnimationToEnd:
+    timeout: 8000
+- extendedWaitUntil:
+    visible:
+      id: 'plan-set-1-rir-cell'
+    timeout: 60000
+- takeScreenshot: gh466_01_plan_before
+
+# 1. point separator
+- tapOn:
+    id: 'plan-set-1-rir-cell'
+- extendedWaitUntil:
+    visible:
+      id: 'plan-set-1-rir-input'
+    timeout: 10000
+- eraseText
+- inputText: '1.5'
+- takeScreenshot: gh466_02_plan_typing_1_5
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 5000
+# No validation error, the cell shows exactly what was typed.
+- assertNotVisible: '.*whole number.*'
+- assertNotVisible:
+    id: 'plan-set-1-quick-edit-error'
+- assertVisible:
+    id: 'plan-set-1-rir-cell'
+    text: '.*1\.5.*'
+- takeScreenshot: gh466_03_plan_saved_1_5
+
+# 2. comma separator
+- tapOn:
+    id: 'plan-set-1-rir-cell'
+- extendedWaitUntil:
+    visible:
+      id: 'plan-set-1-rir-input'
+    timeout: 10000
+- eraseText
+- inputText: '2,5'
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 5000
+- assertNotVisible:
+    id: 'plan-set-1-quick-edit-error'
+- assertVisible:
+    id: 'plan-set-1-rir-cell'
+    text: '.*2\.5.*'
+- takeScreenshot: gh466_04_plan_saved_comma_2_5
+
+# 3. out of range is still rejected, with a message that allows decimals
+- tapOn:
+    id: 'plan-set-1-rir-cell'
+- extendedWaitUntil:
+    visible:
+      id: 'plan-set-1-rir-input'
+    timeout: 10000
+- eraseText
+- inputText: '10.5'
+- assertVisible:
+    id: 'plan-set-1-quick-edit-error'
+    text: '.*decimals like 1.5 are allowed.*'
+- takeScreenshot: gh466_05_plan_rejected_10_5
+# restore a sane value
+- eraseText
+- inputText: '1.5'
+- pressKey: Enter
+- assertVisible:
+    id: 'plan-set-1-rir-cell'
+    text: '.*1\.5.*'
