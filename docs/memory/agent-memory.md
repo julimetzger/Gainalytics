@@ -3029,3 +3029,17 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 ### 453. A hung emulator after `adb reboot` shows `offline` forever — kill both Windows processes and relaunch with an explicit `-port`
 **Problem (GH-458 round 3):** after a reboot to clear ANR-style Maestro failures the device stayed `offline` for 20+ min. `powershell.exe Stop-Process` on `emulator.exe` + `qemu-system-x86_64.exe`, then `Start-Process emulator.exe -avd Pixel_7 -port 5556 -no-snapshot-load -no-window -no-audio` brought it back within ~2 min with app data intact; `adb reverse tcp:8081 tcp:8082` has to be redone. Also: Metro under `CI=true` (needed when inotify is exhausted, `ENOSPC`) does not watch files — restart it after every JS edit, killing by the PID from `ss -ltnp`, never `pkill -f` (it matches your own shell).
 **Apply when:** `adb devices` shows the assigned emulator `offline`, or Metro dies with ENOSPC.
+
+### 454. Train rows are prefilled from the plan — an assertion on `add-workout-set-rir-input-1` can pass on the PLANNED value
+**Problem (GH-466):** the Train tab renders planned sets as unconfirmed rows with the planned numbers, and a Plan flow that ran earlier had set set 1's RIR to 1.5. So `extendedWaitUntil: {id: add-workout-set-rir-input-1, text: '1.5'}` right after tapping Add passed at once. It was the planned prefill, not the logged set (the screenshot still showed the typed input row and row 1 = planned 13 reps).
+**Working solution:** log values that differ from the plan in a field you wait on first (reps `8` vs planned `13`), then assert the changed field (RIR) and `add-workout-set-logged-1`. Use a different RIR in Train (0,5) than the plan flow left behind (1.5).
+**Apply when:** a Train-tab flow asserts a logged set's values on a training that has planned sets.
+
+### 455. `react-native-toast-message` cuts text2 to one line, and Maestro may not see the toast at all — keep lines short, assert the non-saved state
+**Problem (GH-466):** a validation toast with a long `text2` showed on the device as "…(decimals like 1.5 are allo…". `extendedWaitUntil: visible: '.*decimals like 1\.5 are allowed.*'` never matched, although a screencap 0.8 s after the tap showed the toast.
+**Working solution:** split the message into a short `text1` (rule) and a short `text2` (hint) that each fit one line. In Maestro, `takeScreenshot` right after the tap for evidence, and assert the effect instead: the set was not logged (neighbour row unchanged, input keeps the invalid value).
+**Apply when:** you add a Toast message or want to prove one in Maestro.
+
+### 456. `run-maestro-from-wsl.sh` re-runs the WHOLE suite after a failure, and fails at once if the `--report` directory is missing
+**Observation (GH-466):** after a failed run the script retries the full suite (baseline import included, +8 min on a real device). Killing it mid-import left the "Import full data?" dialog open on the device. Also, `rm -rf` of the report dir before a run made the script die at `cd` with `EXIT=1` and no Maestro output.
+**Apply when:** iterating on a flow. Once "Flow Failed" appears, kill the retry by PID (`ps -eo pid,args | grep 'maestro.*<suite>'`), then check the device for leftover dialogs. Always `mkdir -p` the report dir before starting.
