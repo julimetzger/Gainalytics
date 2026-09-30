@@ -74,6 +74,10 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   const [overflowVisible, setOverflowVisible] = useState(false);
   // GH-467: the sub-tab (Train / Plan / Analysis) the user is on; carried along when swiping to another micro.
   const [swipeSubTab, setSwipeSubTab] = useState<SubTab | undefined>(undefined);
+  // The navigation param's sub-tab is a one-off request for the micro the screen opened on. Once the user has
+  // swiped it must not be handed to whichever pane becomes current next — it would override the carried-over tab.
+  const [dismissedParams, setDismissedParams] = useState<object | null>(null);
+  const requestedSubTab = dismissedParams === route.params ? undefined : route.params.subTab;
 
   // stable identities: the panes are memoised, a new closure per render would re-render all of them
   const handleSetIgnoreSwipe = useCallback((locations: LayoutRectangle[]) => {
@@ -263,7 +267,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
                 stickySubTab={swipeSubTab}
                 onSubTabChange={setSwipeSubTab}
                 isCurrent={value === micro}
-                requestedSubTab={value === micro ? route.params.subTab : undefined}
+                requestedSubTab={value === micro ? requestedSubTab : undefined}
               />
             );
           }}
@@ -286,6 +290,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
               planChromeState.exitToRead();
               setPlanChromeState(createDefaultPlanChromeState());
             }
+            setDismissedParams(route.params);
             setMicro(target);
             clearSwipeTimer();
             swipeTimerRef.current = setTimeout(() => {
