@@ -105,7 +105,7 @@ def main() -> None:
     if args.runner == "claude":
         cmd = [
             "claude",
-            "--model", "sonnet",
+            "--model", "opus",
             "--allowedTools", "Bash,Read,Glob,Grep",
             "--output-format", "stream-json",
             "--verbose",
