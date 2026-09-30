@@ -46,31 +46,24 @@ appId: com.powerliftingworkoutplanner
           timeout: 10000
       - tapOn: 'Analysis'
 - extendedWaitUntil:
-    visible: 'Select Exercises, Metrics, Accumulation Mode'
+    visible: 'Select Exercises, Muscles, Accumulation Mode'
     timeout: 20000
 - takeScreenshot: C:\tmp\gh169-screenshots\gh169-analyse-loaded
 
 # ─────────────────────────────────────────────────────────
 # Open picker: clear all previous selections first by tapping the X on any existing chips,
-# then select Frequency + Bench Press.
-# The picker opens already showing the full list starting from 1RM.
+# then select Bench Press.
 # scrollUntilVisible within a modal — works when list starts at top.
 # ─────────────────────────────────────────────────────────
-- tapOn: 'Select Exercises, Metrics, Accumulation Mode'
+- tapOn: 'Select Exercises, Muscles, Accumulation Mode'
 - extendedWaitUntil:
-    visible: '1RM'
+    visible:
+      id: 'search-bar'
     timeout: 15000
 
-# Select Frequency (scroll DOWN from 1RM — F comes after 1RM alphabetically)
-- scrollUntilVisible:
-    element:
-      text: 'Frequency'
-    direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 10
-- tapOn: 'Frequency'
-
-# Select Bench Press (scroll UP from Frequency — B comes before F)
+# GH-468: metrics are chips below the picker now and Frequency is on by
+# default, so only the exercise and the accumulation mode are picked here.
+# Select Bench Press
 - scrollUntilVisible:
     element:
       text: 'Bench Press'
@@ -97,19 +90,20 @@ appId: com.powerliftingworkoutplanner
     commands:
       - tapOn: 'Dismiss'
 - extendedWaitUntil:
-    visible: 'Select Exercises, Metrics, Accumulation Mode'
+    visible: 'Select Exercises, Muscles, Accumulation Mode'
     timeout: 15000
 
 # KEY ASSERTION: app must not have crashed.
-- assertVisible: 'Select Exercises, Metrics, Accumulation Mode'
+- assertVisible: 'Select Exercises, Muscles, Accumulation Mode'
 - takeScreenshot: C:\tmp\gh169-screenshots\gh169-frequency-exercise-day-no-crash
 
 # ─────────────────────────────────────────────────────────
 # Part 2: Add Back muscle (tests Frequency + Muscle path, GH-119 regression guard)
 # ─────────────────────────────────────────────────────────
-- tapOn: 'Select Exercises, Metrics, Accumulation Mode'
+- tapOn: 'Select Exercises, Muscles, Accumulation Mode'
 - extendedWaitUntil:
-    visible: '1RM'
+    visible:
+      id: 'search-bar'
     timeout: 10000
 
 # Scroll UP to top, then DOWN to Back
@@ -129,7 +123,7 @@ appId: com.powerliftingworkoutplanner
     commands:
       - tapOn: 'Dismiss'
 - extendedWaitUntil:
-    visible: 'Select Exercises, Metrics, Accumulation Mode'
+    visible: 'Select Exercises, Muscles, Accumulation Mode'
     timeout: 10000
-- assertVisible: 'Select Exercises, Metrics, Accumulation Mode'
+- assertVisible: 'Select Exercises, Muscles, Accumulation Mode'
 - takeScreenshot: C:\tmp\gh169-screenshots\gh169-frequency-muscle-no-crash

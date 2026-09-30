@@ -209,8 +209,8 @@ const AnalyseGraphics = ({}: Props) => {
       {isConfigured && !hasData && lastWorkout !== undefined && (
         <AnalyseEmptyState
           testID="analyse-chart-empty-range"
-          title={`No sets for ${selectionLabel} in this period`}
-          description={`${selectionLabel} has no logged sets between ${describeRange(range)}. The last one was on ${getDateStringFromDate(lastWorkout)}.`}
+          title={hasSelection ? `No sets for ${selectionLabel} in this period` : 'No sets in this period'}
+          description={`${hasSelection ? `${selectionLabel} has` : 'There are'} no logged sets between ${describeRange(range)}. The last one was on ${getDateStringFromDate(lastWorkout)}.`}
           actions={[
             {
               label: `Extend to last ${ANALYSE_EXTENDED_RANGE_MONTHS} months`,

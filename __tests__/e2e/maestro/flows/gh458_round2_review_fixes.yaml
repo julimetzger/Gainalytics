@@ -101,31 +101,20 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'analyse-drawer-toggle'
 - extendedWaitUntil:
-    visible: 'Analyse'
+    visible: 'Analysis'
     timeout: 15000
-- tapOn: 'Analyse'
+- tapOn: 'Analysis'
 - waitForAnimationToEnd
 
+# GH-468 superseded issue #461: exercise/muscle are only a filter now, so
+# there is no "nothing selected" state any more. Without a selection the
+# default (empty) period names the gap for all trainings instead.
 - extendedWaitUntil:
     visible:
-      id: 'analyse-chart-no-selection'
+      id: 'analyse-chart-empty-range'
     timeout: 20000
-# This replaces the small red "Please select: Exercise or Muscle." line — it
-# must read as a normal starting state, offering a direct suggestion.
 - assertNotVisible: 'Please select: Exercise or Muscle.'
 - assertVisible:
-    id: 'analyse-chart-no-selection-description'
-    text: '.*start with Hyperextension.*'
-- assertVisible:
-    id: 'analyse-chart-select-suggested'
+    id: 'analyse-chart-empty-range-description'
+    text: 'There are no logged sets between.*'
 - takeScreenshot: gh458_r2_03_no_selection_not_an_error
-
-- tapOn:
-    id: 'analyse-chart-select-suggested'
-- waitForAnimationToEnd
-# The one-tap suggestion actually applied the exercise — proven by landing on
-# a state that names it (Hyperextension, in the screenshot below), not just
-# by the empty state disappearing.
-- assertNotVisible:
-    id: 'analyse-chart-no-selection'
-- takeScreenshot: gh458_r2_04_suggested_exercise_applied

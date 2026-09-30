@@ -163,6 +163,15 @@ describe('Analyse chart empty states (GH-458 H3)', () => {
     expect(description).toContain('The last one was on Sat, 28/02/26.');
   });
 
+  it('words the empty period without a selection as a plain sentence', () => {
+    (useLastWorkoutDate as jest.Mock).mockReturnValue(new Date(2026, 1, 28, 19, 30));
+    const {getByTestId} = renderScreen();
+
+    const description = getByTestId('analyse-chart-empty-range-description').props.children;
+    expect(description).toContain('There are no logged sets between');
+    expect(description).not.toContain('any exercise');
+  });
+
   it('jumps the range to the last training of that exercise in one tap', () => {
     const lastTraining = new Date(2026, 1, 28, 19, 30);
     (useLastWorkoutDateForExercises as jest.Mock).mockReturnValue(lastTraining);

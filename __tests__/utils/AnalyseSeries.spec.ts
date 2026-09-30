@@ -69,7 +69,8 @@ describe('buildMetricSeries (GH-468)', () => {
   });
 
   it('lists the workout ids behind a point so tapping it shows the trainings', () => {
-    const [first] = buildMetricSeries(all, Metric.VOLUME, week);
+    // `id` is read back by the chart's onSelect, but is not part of the LineValue typing
+    const [first] = buildMetricSeries(all, Metric.VOLUME, week) as {id?: string}[];
     expect(first.id?.split(',').filter(Boolean).map(Number).sort()).toEqual([1, 2, 3]);
   });
 
