@@ -21,6 +21,7 @@
 - [ready] [GH-63](https://github.com/julimetzger/Gainalytics/issues/63) Rep Ranges for planning mode — Bereiche für Wiederholungen, Gewicht und RIR beim Planen
   - Bereich zählt in allen Auswertungen mit seiner Untergrenze; abwärtskompatibel ohne Migration
 - [ready] [GH-467](https://github.com/julimetzger/Gainalytics/issues/467) Swipen sollte den State behalten — gleicher Tab beim Wischen zum nächsten/vorherigen Micro, Skelett statt Platzhalter
+- [ready] [GH-466](https://github.com/julimetzger/Gainalytics/issues/466) RIR Nachkommastellen explizit erlaubt — z.B. 1.5 beim Planen, Trainieren und Bearbeiten, Punkt und Komma
 - [ready] [TRN-001](tickets/TRN-001-training-overview-record-comparison.yaml) Records in Training Overview - micro vergleich anzeigen
   - Im TrainingsNode für status Done und Overview
   - es gibt eine Kachel die anzeigt wieviele Records in diesem Micro waren im Vergleich zum vorherigen
