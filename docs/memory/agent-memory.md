@@ -3061,3 +3061,12 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 **Problem (GH-439):** after the #405 wedge, `taskkill` + `./adb.exe -a -P 5037 start-server` produced a server on `127.0.0.1:5037` three times; its command line was `adb -L tcp:5037 fork-server server` — `start-server` dropped `-a`. `-L tcp:0.0.0.0:5037 start-server` fails (`0.0.0.0` is not a valid client address).
 **Working solution:** in one Bash call: find the listener PID (`netstat -ano | grep ':5037 ' | grep ABH`), `taskkill /F /PID`, then `(env -u ADB_SERVER_SOCKET -u ANDROID_SERIAL setsid nohup ./adb.exe -a -P 5037 nodaemon server >/tmp/adbserver.out 2>&1 </dev/null & disown)` and re-check that netstat shows `0.0.0.0:5037`. It survived all later tool calls (contrary to #412).
 **Apply when:** netstat shows the restarted adb server on `127.0.0.1:5037` and WSL gets `Connection refused` via the gateway.
+
+### 457. Exercise tabs in the training header carry a trailing space in their label — tap them by `training-exercise-<exerciseId>`
+**Problem (GH-330):** `tapOn: 'Hyperextension'` → `Element not found: Text matching regex: Hyperextension`; the dump shows `text="Hyperextension "` (trailing space) and Maestro matches the full text (#442, same root cause as #293's seeded names). Other exercises had no trailing space, so the selector looks fine on most tabs.
+**Working solution:** `tapOn: {id: 'training-exercise-78'}` — the tab's resource-id carries the exercise id; read it from one `uiautomator dump`.
+**Apply when:** switching exercises in the Train/edit view from a flow.
+
+### 458. Read-only 1RM/delta evidence on a real-data device: Last Training → overflow → Edit training
+**Observation (GH-330):** the "no logging on real data" constraint does not require a test training. Home's `last-training-card-pressable` → `header-overflow-icon` → `overflow-edit` renders `ExecuteTraining` (incl. the Estimated 1RM card with real session/last/PR values) as pure UI state — nothing is written unless an input is touched. Cycling the exercise tabs of one finished training gave a positive, a negative and a zero delta. In this edit view `estimated-1rm-*` Texts and `training-exercise-*` tabs ARE in the uiautomator tree (unlike the STARTED execute view in #405), so value assertions work.
+**Apply when:** a ticket needs execute-view evidence on R5CN30HWZFN without logging sets. Probe the card values with adb taps first, then pin them in the flow.
