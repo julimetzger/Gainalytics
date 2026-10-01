@@ -37,14 +37,13 @@ const Estimated1RmCard = ({sessionOneRm, lastTrainingOneRm, allTimePr, onPressTr
 
   const primaryContainer = colors.primaryContainer ?? colors.primary;
   const onPrimaryContainer = colors.onPrimaryContainer ?? colors.onPrimary ?? '#fff';
-  const tertiary = colors.tertiary ?? colors.primary;
   const surfaceLow = colors.surfaceContainerLow ?? colors.surfaceVariant ?? colors.surface;
-  const success = colors.success ?? colors.tertiary ?? theme.colors.primary;
   const {onSurface, onSurfaceVariant, primary, error} = theme.colors;
 
+  // Gains (PR line, positive delta) use the app colour; red is reserved for regressions.
   const deltaTint =
     delta === undefined ? onSurfaceVariant
-    : delta > 0 ? success
+    : delta > 0 ? primary
     : delta < 0 ? error
     : onSurfaceVariant;
 
@@ -80,7 +79,7 @@ const Estimated1RmCard = ({sessionOneRm, lastTrainingOneRm, allTimePr, onPressTr
             <Animated.View style={{transform: [{scale}]}}>
               <Text
                 testID="estimated-1rm-pr"
-                style={[styles.prLine, {color: isNewPr ? primary : tertiary}]}>
+                style={[styles.prLine, {color: primary}]}>
                 {isNewPr ? '🏆 NEW PR' : `PR ${fmt(allTimePr!)}`}
               </Text>
             </Animated.View>
