@@ -3041,3 +3041,13 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 ### 456. `run-maestro-from-wsl.sh` dies at `adb push … /sdcard/Download/baseline.gains: Permission denied` — when the data is already on the device, call `maestro` directly
 **Problem (GH-468):** the runner pushes the fixture in every non-build mode and aborts on the push, so no flow ever ran (log shows only the adb error). **Working solution:** if `uiautomator dump` already shows the baseline (e.g. "Push pull"), run `HOME=$E2E_MAESTRO_HOME maestro --host <proxy> --device $ANDROID_SERIAL --driver-host-port <p> test <flow> --format junit --output … --test-output-dir <run_dir>/screenshots/raw`. A SystemUI ANR that survived an `adb reboot` went away for good with *Close app* (not *Wait*) once the post-boot load settled.
 **Apply when:** the runner log is a single adb error line.
+
+### 457. Picker picks without point taps: `tapOn: {text: X, below: {id: 'search-bar'}}` + `eraseText` before every `inputText`
+**Problem (GH-468 round 3):** the `'50%, 26%'` point tap from #454 assumes the chip row is one line; with 3+ chips it wraps and the first row moves. On a second run the sharingan search kept the previous term, so `inputText` produced `VolumeVolume` and no row matched.
+**Working solution:** `tapOn: {id: 'search-bar'}`, `eraseText: 30`, `inputText: X`, then `tapOn: {text: X, below: {id: 'search-bar'}}` (skips the search field and the chip with the same text), with #454's `runFlow when notVisible {id: chip, text: X}` re-tap. Deselect = same block with `when: visible`. Close with ONE conditional `back`; a second manual BACK leaves the screen and loses its state (range!).
+**Apply when:** any `TrainingElementPicker` flow, especially on a device whose resolution differs from the emulator.
+
+### 458. Real-device evidence without the fixture: read the store read-only from MMKV to pick a value you can recompute
+**Observation (GH-468 round 3, R5CN30HWZFN):** no clearState/import allowed, but the reviewer wanted a "recompute this value" check. `adb exec-out run-as com.powerliftingworkoutplanner cat files/mmkv/mmkv.default > copy.bin` (read-only). In it, key `persist:root` is followed by varint length → varint length → JSON whose slices (`exercises`, `workouts`, …) are JSON strings again. Parse it in Python, find a day with simple numbers (e.g. 80 %/50 % shares), assert that day in Maestro and recompute it in summary.md. Delete the copy afterwards (user data).
+Also: R5CN30HWZFN has `wm size` override 720x1600, so `adb input tap` uses 720-wide coordinates, while screencap is 1440 wide.
+**Apply when:** evidence on the user's real device must prove a computed value.
