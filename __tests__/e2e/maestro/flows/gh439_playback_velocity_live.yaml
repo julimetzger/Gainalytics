@@ -1,0 +1,106 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-439 — rep speed must follow continuous video playback.
+#
+# Runs on R5CN30HWZFN against the user's existing store (no clearState, no import).
+# Analysis 2 on that device is the 80 s squat clip (8 x __tests__/e2e/maestro/fixtures/
+# squat-3reps.mp4) analysed on the device; at t=0 its readout is "-" / "0.372 m/s".
+#
+# Before the fix the velocity stayed on "0.372 m/s" for the whole playback while the
+# rep label advanced (see ANA-438-439). The flow samples rep + velocity three times
+# during playback (>4 s apart, i.e. more than one rep of this clip) and
+# asserts that at every sample both the rep AND the velocity text have changed — a
+# frozen velocity next to an advancing rep fails. Then it pauses, steps back and
+# resumes, asserting the rep label never falls back to "-" (the old
+# step-from-stale-position bug) and the velocity keeps moving after resume.
+#
+# Why sampling instead of `extendedWaitUntil: Rep 2`: while the video plays the
+# hierarchy never goes idle and one read takes several seconds, so a single rep
+# (~3.5 s) is usually skipped. Rep and velocity are read in two consecutive reads, so
+# they are not compared to each other here. Taps use `waitToSettleTimeoutMs`: without
+# it Maestro waits 25-30 s for the never-settling UI after every tap and the 80 s clip
+# is over before the pause/rewind part runs — that pairing is covered by the unit
+# tests and the screencap strips in the run directory.
+- runFlow:
+    file: gh439_open_playback_overlay.yaml
+    env:
+      ANALYSIS_ID: '2'
+
+# 1 — paused at t=0
+- assertVisible:
+    id: 'video-analysis-playback-current-velocity'
+    text: '0.372 m/s'
+- assertVisible:
+    id: 'video-analysis-playback-current-rep'
+    text: '-'
+- takeScreenshot: 'gh439_10_paused_t0'
+
+# 2 — play; sample rep + velocity twice during the same continuous playback
+- tapOn:
+    id: 'video-analysis-playback-toggle'
+    waitToSettleTimeoutMs: 500
+- waitForAnimationToEnd:
+    timeout: 4000
+- copyTextFrom:
+    id: 'video-analysis-playback-current-rep'
+- evalScript: "${output.r1 = maestro.copiedText}"
+- copyTextFrom:
+    id: 'video-analysis-playback-current-velocity'
+- evalScript: "${output.v1 = maestro.copiedText}"
+- takeScreenshot: 'gh439_11_playing_sample1'
+- assertTrue: "${/^Rep [0-9]+$/.test(output.r1) && /^-?[0-9]+[.][0-9][0-9][0-9] m.s$/.test(output.v1) && output.v1 != '0.372 m/s'}"
+- waitForAnimationToEnd:
+    timeout: 4000
+- copyTextFrom:
+    id: 'video-analysis-playback-current-rep'
+- evalScript: "${output.r2 = maestro.copiedText}"
+- copyTextFrom:
+    id: 'video-analysis-playback-current-velocity'
+- evalScript: "${output.v2 = maestro.copiedText}"
+- takeScreenshot: 'gh439_12_playing_sample2'
+- assertTrue: "${/^Rep [0-9]+$/.test(output.r2) && /^-?[0-9]+[.][0-9][0-9][0-9] m.s$/.test(output.v2) && output.v2 != '0.372 m/s' && output.r2 != output.r1 && output.v2 != output.v1}"
+
+# 3 — pause: still on a real rep, with a real velocity
+- tapOn:
+    id: 'video-analysis-playback-toggle'
+    waitToSettleTimeoutMs: 500
+- copyTextFrom:
+    id: 'video-analysis-playback-current-rep'
+- evalScript: "${output.rPaused = maestro.copiedText}"
+- copyTextFrom:
+    id: 'video-analysis-playback-current-velocity'
+- evalScript: "${output.vPaused = maestro.copiedText}"
+- assertTrue: "${/^Rep [0-9]+$/.test(output.rPaused) && /^-?[0-9]+[.][0-9][0-9][0-9] m.s$/.test(output.vPaused)}"
+- takeScreenshot: 'gh439_14_paused'
+
+# 4 — rewind 0.2 s from the paused position: lands in the same or the previous rep
+#     (before the fix it jumped back from the stale t=0 position)
+- tapOn:
+    id: 'video-analysis-step-minus200'
+    waitToSettleTimeoutMs: 500
+- copyTextFrom:
+    id: 'video-analysis-playback-current-rep'
+- evalScript: "${output.rRewound = maestro.copiedText}"
+- copyTextFrom:
+    id: 'video-analysis-playback-current-velocity'
+- evalScript: "${output.vRewound = maestro.copiedText}"
+- assertTrue: "${/^Rep [0-9]+$/.test(output.rRewound) && /^-?[0-9]+[.][0-9][0-9][0-9] m.s$/.test(output.vRewound) && output.vRewound != output.vPaused && parseInt(output.rRewound.slice(4)) <= parseInt(output.rPaused.slice(4)) && parseInt(output.rRewound.slice(4)) >= parseInt(output.rPaused.slice(4)) - 1}"
+- takeScreenshot: 'gh439_15_rewound'
+
+# 5 — resume: rep and velocity keep following playback (third sample)
+- tapOn:
+    id: 'video-analysis-playback-toggle'
+    waitToSettleTimeoutMs: 500
+- waitForAnimationToEnd:
+    timeout: 4000
+- copyTextFrom:
+    id: 'video-analysis-playback-current-rep'
+- evalScript: "${output.r3 = maestro.copiedText}"
+- copyTextFrom:
+    id: 'video-analysis-playback-current-velocity'
+- evalScript: "${output.v3 = maestro.copiedText}"
+- takeScreenshot: 'gh439_16_resumed_sample3'
+- assertTrue: "${/^Rep [0-9]+$/.test(output.r3) && /^-?[0-9]+[.][0-9][0-9][0-9] m.s$/.test(output.v3) && output.v3 != '0.372 m/s' && parseInt(output.r3.slice(4)) > parseInt(output.rRewound.slice(4)) && output.v3 != output.vRewound}"
+- tapOn:
+    id: 'video-analysis-playback-toggle'
+    waitToSettleTimeoutMs: 500
