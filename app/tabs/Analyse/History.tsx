@@ -130,6 +130,7 @@ const History = () => {
           the list fills the screen and this button overlaps only the top-right corner. */}
       <IconButton
         icon={pickerOpen ? 'chevron-up' : 'chevron-down'}
+        testID="history-picker-toggle"
         onPress={() => setPickerOpen((open) => !open)}
         style={styles.pickerToggle}
       />

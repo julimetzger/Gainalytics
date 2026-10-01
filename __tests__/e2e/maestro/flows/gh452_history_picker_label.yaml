@@ -1,0 +1,94 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-452: the History filter picker was labelled
+# "Select Exercises, Metrics, Accumulation Mode" although it only offers
+# exercises and muscles. It now reads "Select Exercises, Muscles".
+#
+# Proves:
+#   1. History's expanded picker shows the new label, not the old one
+#   2. Selecting an entry still works and the "N selected" count still updates
+#   3. The Analyse (graphs) picker, which does offer metrics and accumulation
+#      modes, keeps "Select Exercises, Metrics, Accumulation Mode"
+#
+# Prerequisite: store hydrated from the baseline .gains fixture ("Push pull").
+
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- runFlow:
+    when:
+      visible: 'Wait'
+    commands:
+      - tapOn: 'Wait'
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 90000
+
+# --- Prerequisite: baseline data loaded ---
+- assertVisible: 'Push pull'
+
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+
+# ------------------------------------------------------------ History picker
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'History'
+    timeout: 15000
+- tapOn: 'History'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'history-list-container'
+    timeout: 20000
+
+- tapOn:
+    id: 'history-picker-toggle'
+- waitForAnimationToEnd
+
+- assertVisible: 'Select Exercises, Muscles'
+- assertNotVisible: 'Select Exercises, Metrics, Accumulation Mode'
+# The anchor's value is the library's "N selected" counter.
+- assertVisible: '0 selected'
+- takeScreenshot: gh452_01_history_picker_label
+
+# Selection still works: open the list, pick a muscle; the chip shows it and,
+# once the list is closed, the counter reads "1 selected".
+- tapOn: 'Select Exercises, Muscles'
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: 'Chest'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Chest'
+- waitForAnimationToEnd
+- takeScreenshot: gh452_02_history_picker_selected
+- back
+- waitForAnimationToEnd
+- assertVisible: '1 selected'
+- assertVisible: 'Select Exercises, Muscles'
+- takeScreenshot: gh452_03_history_picker_after_select
+
+# --------------------------------------- Analysis (graphs) picker unchanged
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Analysis'
+    timeout: 15000
+- tapOn: 'Analysis'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: 'Select Exercises, Metrics, Accumulation Mode'
+    timeout: 20000
+- assertNotVisible: 'Select Exercises, Muscles'
+- takeScreenshot: gh452_04_analyse_picker_label_unchanged
