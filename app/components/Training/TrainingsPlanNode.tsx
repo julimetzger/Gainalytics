@@ -41,6 +41,8 @@ import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
 import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
 import MicroPanePlaceholder from './MicroPanePlaceholder';
 import {ProgressiveMount} from '../common/ProgressiveMount';
+import {dispatchClearPlannedTraining} from '../../redux/Training/dispatch/plan/dispatchClearPlannedTraining';
+import {canClearPlannedTraining} from '../../utils/last-planned-training';
 
 interface TrainingsPlanNodeProps {
   trainingsPlan: TrainingsPlan;
@@ -143,8 +145,11 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   const [nextPlanMode, setNextPlanMode] = useState<PlanMode>('read');
   const [planEntryRequested, setPlanEntryRequested] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showClearPlanDialog, setShowClearPlanDialog] = useState(false);
   const [showAlternativesDialog, setShowAlternativesDialog] = useState(false);
   const deleteTraining = dispatchDeleteTraining();
+  const clearPlannedTraining = dispatchClearPlannedTraining();
+  const canClearPlan = canClearPlannedTraining(trainingsPlan, training);
   const replaceExerciseInTraining = dispatchReplaceExerciseInTraining();
   const plannedWorkout = useWorkoutById(chosenExercise?.id !== undefined ? training?.plannedWorkouts?.[chosenExercise.id] : undefined);
   const doneWorkout = useWorkoutById(chosenExercise?.id !== undefined ? training?.doneWorkoutIds?.[chosenExercise.id] : undefined);
@@ -352,6 +357,21 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
     setIsEditing(false);
   }
 
+  // GH-442: the training and its slot stay; only the planned exercises and their
+  // workouts go, so the Plan tab falls back to the plan/suggest entry point.
+  function onClearPlannedTraining() {
+    setShowClearPlanDialog(false);
+    if (!canClearPlan || training?.id === undefined) return;
+    clearPlannedTraining({
+      trainingsId: training.id,
+      workoutIds: Object.values(training.plannedWorkouts ?? {}),
+    });
+    setchosenExercise(undefined);
+    setShowPicker(false);
+    setPlanEntryRequested(false);
+    setNextPlanMode('read');
+  }
+
   function onExerciseDoublePress(exercise: Exercise) {
     if (training?.state === TrainingsState.FINISHED) {
       return;
@@ -386,6 +406,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
         onEditPlan={handleEditPlan}
         onEditTraining={handleEditTraining}
         onDeleteTraining={handleDeleteTraining}
+        canClearPlan={canClearPlan}
+        onClearPlan={() => setShowClearPlanDialog(true)}
       />
       {!renderContent ? (
         <MicroPanePlaceholder
@@ -639,6 +661,17 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
         testID="training-delete-dialog"
         confirmTestID="training-delete-confirm"
         cancelTestID="training-delete-cancel"
+      />
+      <ConfirmDialog
+        visible={showClearPlanDialog}
+        title="Clear planned training"
+        message="This removes all planned exercises and sets from this training. The training itself stays, so you can plan it again from scratch."
+        confirmLabel="Clear"
+        onConfirm={onClearPlannedTraining}
+        onCancel={() => setShowClearPlanDialog(false)}
+        testID="training-clear-plan-dialog"
+        confirmTestID="training-clear-plan-confirm"
+        cancelTestID="training-clear-plan-cancel"
       />
     </View>
   );
