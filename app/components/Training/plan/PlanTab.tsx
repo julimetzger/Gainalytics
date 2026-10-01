@@ -12,7 +12,7 @@ import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId
 import {dispatchDeleteSetFromWorkout} from '../../../redux/Workout/dispatch/dispatchDeleteSetFromWorkout';
 import {dispatchReplaceWorkoutSets} from '../../../redux/Workout/dispatch/dispatchReplaceWorkoutSets';
 import {GlobalState} from '../../../redux/rootReducer';
-import {buildWorkoutSetFromDraft, cloneWorkoutSet, formatPlanNumber, getPlanSetDraft, getQuickEditError} from './planUtils';
+import {buildWorkoutSetFromDraft, cloneWorkoutSet, formatPlanNumber, getPlanSetDraft, getQuickEditError, parsePlanFieldValue} from './planUtils';
 import {
   FullEditSnapshot,
   PendingPlanSetByExerciseId,
@@ -448,11 +448,10 @@ const PlanTab = ({
     if (getQuickEditError(activeQuickEditSet, target.field, quickEditDraft) !== undefined) {
       return;
     }
-    const parsedValue = Number.parseFloat(quickEditDraft);
-    if (!Number.isFinite(parsedValue)) {
+    const normalizedValue = parsePlanFieldValue(target.field, quickEditDraft);
+    if (normalizedValue === null) {
       return;
     }
-    const normalizedValue = target.field === 'weight' ? Math.round(parsedValue * 100) / 100 : Math.round(parsedValue);
     if (normalizedValue === activeQuickEditSet[target.field]) {
       return;
     }
