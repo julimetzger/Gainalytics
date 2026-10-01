@@ -3034,3 +3034,17 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 **Problem (GH-452):** `extendedWaitUntil: visible: 'Analyse'` after opening `analyse-drawer-toggle` failed with the drawer plainly open. GH-450's German→English sweep renamed the drawer item (and tab label) to "Analysis". Bare strings are full-text regexes (#442), so 'Analyse' no longer matches anything in the drawer. Older flows such as `gh458_chart_empty_states.yaml` still use the old text.
 **Working solution:** `tapOn: 'Analysis'`. Screenshot the open drawer before you trust a label taken from an older flow.
 **Apply when:** reusing Analyse-drawer navigation from an existing flow.
+### 454. A Maestro sub-flow's header `env:` default OVERRIDES what the caller passes — the wrong row is tapped silently
+**Problem (GH-439):** `gh439_open_playback_overlay.yaml` had `env: ANALYSIS_ID: '1'` in its header as a "default". Every run — with `-e ANALYSIS_ID=2` and with `runFlow: {file, env: {ANALYSIS_ID: '2'}}` — tapped `video-analysis-row-1`; the commands JSON showed `defineVariablesCommand {'ANALYSIS_ID': '1'}` executed AFTER the caller's value. The flow failed two steps later on an unrelated selector, which looked like a hierarchy/scroll problem.
+**Working solution:** no `env:` defaults in flows that are meant to be parametrised; pass the value explicitly. Check `defineVariablesCommand` entries in `~/.maestro/tests/<run>/commands-*.json` when a parametrised selector misbehaves.
+**Apply when:** writing a reusable sub-flow that takes a variable.
+
+### 455. On a playing video every Maestro `tapOn` waits 25–30 s for the UI to settle — add `waitToSettleTimeoutMs`
+**Problem (GH-439):** the play tap took 31.6 s and the pause tap 24 s (per-command `duration` in `commands-*.json`), so an 80 s clip was over before the pause/rewind assertions ran — they then passed against the END state and proved nothing. Each `copyTextFrom` during playback also costs ~2 s, so waiting for a specific short state (`extendedWaitUntil: 'Rep 2'`, ~3.5 s window) is skipped entirely.
+**Working solution:** `tapOn: {id: ..., waitToSettleTimeoutMs: 500}` on every tap while media plays; sample at intervals (`waitForAnimationToEnd: {timeout: 4000}` + `copyTextFrom` + `evalScript: "${output.x = maestro.copiedText}"`) and assert "changed since the previous sample" instead of waiting for an exact value. Always look at the screenshots — a green run can be green for the wrong state.
+**Apply when:** any Maestro flow that interacts with live/animating UI (video, timers, charts).
+
+### 456. `adb.exe -a start-server` can still come up loopback-only — `setsid nohup adb.exe -a -P 5037 nodaemon server` in the SAME command as the kill does work (refines #406/#412)
+**Problem (GH-439):** after the #405 wedge, `taskkill` + `./adb.exe -a -P 5037 start-server` produced a server on `127.0.0.1:5037` three times; its command line was `adb -L tcp:5037 fork-server server` — `start-server` dropped `-a`. `-L tcp:0.0.0.0:5037 start-server` fails (`0.0.0.0` is not a valid client address).
+**Working solution:** in one Bash call: find the listener PID (`netstat -ano | grep ':5037 ' | grep ABH`), `taskkill /F /PID`, then `(env -u ADB_SERVER_SOCKET -u ANDROID_SERIAL setsid nohup ./adb.exe -a -P 5037 nodaemon server >/tmp/adbserver.out 2>&1 </dev/null & disown)` and re-check that netstat shows `0.0.0.0:5037`. It survived all later tool calls (contrary to #412).
+**Apply when:** netstat shows the restarted adb server on `127.0.0.1:5037` and WSL gets `Connection refused` via the gateway.

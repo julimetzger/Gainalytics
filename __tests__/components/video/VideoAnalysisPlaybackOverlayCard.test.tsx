@@ -1785,3 +1785,122 @@ describe('VideoAnalysisPlaybackOverlayCard – zoomed chart overscroll clamping 
     expect(player.props.seekPositionMs).toBe(1500);
   });
 });
+
+// GH-439: during continuous playback the rep number followed the video, but the
+// velocity readout stayed frozen on the value of the last pause/seek.
+describe('VideoAnalysisPlaybackOverlayCard – rep and velocity readout during playback', () => {
+  let nowMs = 1_000_000;
+  let nowSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    nowMs = 1_000_000;
+    nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => nowMs);
+  });
+
+  afterEach(() => {
+    nowSpy.mockRestore();
+  });
+
+  const readout = (getByTestId: (testId: string) => any) => ({
+    rep: getByTestId('video-analysis-playback-current-rep').props.children,
+    velocity: getByTestId('video-analysis-playback-current-velocity').props.children,
+  });
+
+  // The readout a user sees after manually seeking to `timeMs` while paused — the
+  // path that was already correct before the fix and serves as the reference.
+  const pausedReadoutAt = (timeMs: number) => {
+    const {getByTestId, unmount} = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+    loadPlayer(getByTestId('video-analysis-playback-player'), 3000);
+    const scrubber = getByTestId('video-analysis-playback-scrubber');
+    setScrubberWidth(scrubber, 3000);
+    seekViaScrubbingTo(scrubber, timeMs, 3000, 3000);
+    const value = readout(getByTestId);
+    unmount();
+    return value;
+  };
+
+  const renderPlaying = () => {
+    const utils = render(
+      <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithReps()} />,
+    );
+    const player = utils.getByTestId('video-analysis-playback-player');
+    loadPlayer(player, 3000);
+    act(() => {
+      fireEvent.press(utils.getByTestId('video-analysis-playback-toggle'));
+    });
+    return {...utils, player};
+  };
+
+  const playTo = (player: any, timeMs: number, elapsedWallMs = 250) => {
+    nowMs += elapsedWallMs;
+    progressPlayer(player, timeMs, 3000);
+  };
+
+  it('updates the velocity together with the rep while the video plays', () => {
+    const sampleTimesMs = [250, 750, 1250, 1750, 2250, 2750];
+    const expected = sampleTimesMs.map(pausedReadoutAt);
+    const {getByTestId, player} = renderPlaying();
+
+    const seen = sampleTimesMs.map((timeMs) => {
+      playTo(player, timeMs);
+      return readout(getByTestId);
+    });
+
+    expect(seen).toEqual(expected);
+    // Sanity: the samples cover both reps and several distinct velocities, so a
+    // frozen readout could not pass.
+    expect(new Set(seen.map((s) => s.rep))).toEqual(new Set(['Rep 1', 'Rep 2']));
+    expect(new Set(seen.map((s) => s.velocity)).size).toBeGreaterThan(2);
+  });
+
+  it('throttles readout re-renders within a rep but switches rep and velocity together', () => {
+    const [at1500, at2250] = [1500, 2250].map(pausedReadoutAt);
+    const {getByTestId, player} = renderPlaying();
+
+    playTo(player, 1500);
+    const atRep1 = readout(getByTestId);
+    expect(atRep1).toEqual(at1500);
+
+    // 50 ms later, same rep: readout is held (no re-render per progress event).
+    playTo(player, 1550, 50);
+    expect(readout(getByTestId)).toEqual(atRep1);
+
+    // 50 ms later, but the rep changes: both values switch at once.
+    playTo(player, 2250, 50);
+    expect(readout(getByTestId)).toEqual(at2250);
+  });
+
+  it('keeps rep and velocity consistent across pause, resume and rewind', () => {
+    const [at2500, at2300, at1250] = [2500, 2300, 1250].map(pausedReadoutAt);
+    const {getByTestId, player} = renderPlaying();
+
+    playTo(player, 2500);
+    expect(readout(getByTestId)).toEqual(at2500);
+
+    // Rewind while playing jumps back from the CURRENT position, not from the
+    // position of the last pause/seek.
+    act(() => {
+      fireEvent.press(getByTestId('video-analysis-step-minus200'));
+    });
+    expect(getByTestId('video-analysis-playback-player').props.seekPositionMs).toBe(2300);
+    expect(readout(getByTestId)).toEqual(at2300);
+
+    // A stale progress event from before the seek must not undo it.
+    nowMs += 100;
+    progressPlayer(player, 2500, 3000);
+    expect(readout(getByTestId)).toEqual(at2300);
+
+    // Pause and resume keep the readout aligned; playback continues to update it.
+    act(() => {
+      fireEvent.press(getByTestId('video-analysis-playback-toggle'));
+    });
+    expect(readout(getByTestId)).toEqual(at2300);
+    act(() => {
+      fireEvent.press(getByTestId('video-analysis-playback-toggle'));
+    });
+    playTo(player, 1250, 400);
+    expect(readout(getByTestId)).toEqual(at1250);
+  });
+});
