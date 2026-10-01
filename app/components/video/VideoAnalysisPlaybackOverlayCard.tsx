@@ -44,6 +44,11 @@ const SPEED_CHART_BOTTOM_PADDING = 22;
 const SPEED_CHART_TOP_PADDING = 8;
 const BAR_PATH_SMOOTHING_WINDOW = 5;
 const SPEED_SMOOTHING_WINDOW = 5;
+// While the video plays, the rep/velocity readout below the player follows the
+// native progress events, but re-renders at most this often (unless the rep
+// changes) — a value flickering at the 50 ms event rate is unreadable anyway,
+// and re-rendering the whole card that often costs frames.
+const PLAYBACK_READOUT_INTERVAL_MS = 200;
 
 const formatDuration = (timeMs: number) => {
   const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
@@ -503,6 +508,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
   const currentRepIndexRef = useRef<number | undefined>(undefined);
   const isScrubbingRef = useRef(false);
   const seekCooldownUntilRef = useRef(0);
+  const lastReadoutUpdateAtRef = useRef(0);
   const chartVisibleMinRef = useRef(-1);
   const chartVisibleMaxRef = useRef(-1);
   const [chartVisibleForLines, setChartVisibleForLines] = useState<{min: number; max: number} | null>(null);
@@ -723,24 +729,25 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
     }),
     [verticalVelocityLineValues, zeroVelocityLineValues, speedChartColors.line, speedChartColors.zeroLine],
   );
+  const getRepIndexForPlaybackTime = useCallback(
+    (playbackTimeMsToMatch: number): number | undefined => {
+      if (repSegments.length === 0) {
+        return undefined;
+      }
+      const analysisTimeMs = clamp(playbackTimeMsToMatch, timeRange.minTimeMs, timeRange.maxTimeMs);
+      return findRepIndexForTimeMs(repSegments, analysisTimeMs);
+    },
+    [repSegments, timeRange.maxTimeMs, timeRange.minTimeMs],
+  );
   const updateCurrentRepForPlaybackTime = useCallback(
     (nextPlaybackTimeMs: number) => {
-      if (repSegments.length === 0) {
-        if (currentRepIndexRef.current !== undefined) {
-          currentRepIndexRef.current = undefined;
-          setCurrentRepIndex(undefined);
-        }
-        return;
-      }
-
-      const analysisTimeMs = clamp(nextPlaybackTimeMs, timeRange.minTimeMs, timeRange.maxTimeMs);
-      const nextRepIndex = findRepIndexForTimeMs(repSegments, analysisTimeMs);
+      const nextRepIndex = getRepIndexForPlaybackTime(nextPlaybackTimeMs);
       if (nextRepIndex !== currentRepIndexRef.current) {
         currentRepIndexRef.current = nextRepIndex;
         setCurrentRepIndex(nextRepIndex);
       }
     },
-    [repSegments, timeRange.maxTimeMs, timeRange.minTimeMs],
+    [getRepIndexForPlaybackTime],
   );
 
   const onPlayerLoad = useCallback((event: {nativeEvent?: VideoPlayerLoadEvent}) => {
@@ -779,18 +786,34 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
           setPlaybackDurationMs(nextDuration);
         }
       }
-      updateCurrentRepForPlaybackTime(nativeEvent.currentTimeMs);
+      // While the user drags the scrubber, or right after a seek, progress events
+      // can still report the old position — the seek already set marker and readout.
+      const now = Date.now();
+      if (isScrubbingRef.current || now <= seekCooldownUntilRef.current) {
+        return;
+      }
+      const currentTimeMs = nativeEvent.currentTimeMs;
+      playbackTimeRef.current = currentTimeMs;
 
-      if (!playbackPausedRef.current && !isScrubbingRef.current
-          && Date.now() > seekCooldownUntilRef.current) {
+      // Rep number and velocity are both derived from the same player time, so
+      // they are always updated together and never show different moments (GH-439).
+      const repChanged = getRepIndexForPlaybackTime(currentTimeMs) !== currentRepIndexRef.current;
+      if (playbackPausedRef.current || repChanged
+          || now - lastReadoutUpdateAtRef.current >= PLAYBACK_READOUT_INTERVAL_MS) {
+        lastReadoutUpdateAtRef.current = now;
+        setPlaybackTimeMs(currentTimeMs);
+        updateCurrentRepForPlaybackTime(currentTimeMs);
+      }
+
+      if (!playbackPausedRef.current) {
         // Re-anchor marker interpolation to the native player's reported time.
         // uiNowMsSV is set every frame by the worklet from frameInfo.timestamp,
         // so it matches the monotonic clock the frame callback uses below.
-        playerAnchorTimeMsSV.value = nativeEvent.currentTimeMs; // eslint-disable-line react-hooks/exhaustive-deps
+        playerAnchorTimeMsSV.value = currentTimeMs; // eslint-disable-line react-hooks/exhaustive-deps
         playerAnchorRecvAtMsSV.value = uiNowMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
       }
     },
-    [updateCurrentRepForPlaybackTime],
+    [getRepIndexForPlaybackTime, updateCurrentRepForPlaybackTime],
   );
 
   // Drives the playback marker on the UI thread at the device refresh rate (~60fps).
@@ -966,10 +989,6 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
       playerAnchorRecvAtMsSV.value = uiNowMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
     }
   }, [updateCurrentRepForPlaybackTime]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    playbackTimeRef.current = playbackTimeMs;
-  }, [playbackTimeMs]);
 
   useEffect(() => {
     return () => {
@@ -1220,10 +1239,10 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
         </GestureDetector>
         </GestureHandlerRootView>
         <View style={styles.videoStatsPanel}>
-          <Text variant="labelSmall" style={themedStyles.statsText}>
+          <Text testID="video-analysis-playback-current-rep" variant="labelSmall" style={themedStyles.statsText}>
             {currentRepIndex !== undefined ? `Rep ${currentRepIndex + 1}` : '-'}
           </Text>
-          <Text variant="labelSmall" style={themedStyles.statsText}>
+          <Text testID="video-analysis-playback-current-velocity" variant="labelSmall" style={themedStyles.statsText}>
             {currentBarVerticalVelocityPxPerSecond !== undefined ? formatVelocity(currentBarVerticalVelocityPxPerSecond, metersPerPixel) : '-'}
           </Text>
         </View>
