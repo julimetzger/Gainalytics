@@ -81,7 +81,7 @@ appId: com.powerliftingworkoutplanner
 - takeScreenshot: gh458_30_chart_no_selection
 
 # ------------------------------------- case 1: an exercise never trained once
-- tapOn: 'Select Exercises, Muscles, Accumulation Mode'
+- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
 - waitForAnimationToEnd
 # The list opens with the search field unfocused, and "Search" is a
 # placeholder: tapping that text node does not reach the TextInput, so the
@@ -138,7 +138,7 @@ appId: com.powerliftingworkoutplanner
     timeout: 15000
 
 # -------------------------- case 2: trained plenty, just not in this period
-- tapOn: 'Select Exercises, Muscles, Accumulation Mode'
+- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
 - waitForAnimationToEnd
 - tapOn:
     point: '50%, 21%'

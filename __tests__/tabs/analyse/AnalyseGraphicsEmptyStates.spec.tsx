@@ -8,8 +8,8 @@ import {useAlleExercises} from '../../../app/redux/Exercises/use/useAllExercises
 import {Exercise} from '../../../app/models/entities/Exercise';
 import {Workout} from '../../../app/models/entities/Workout';
 
-const SQUAT = {id: 1, name: 'Squat', muscles: []} as unknown as Exercise;
-const NEVER_TRAINED = {id: 2, name: 'Mmkv', muscles: []} as unknown as Exercise;
+const SQUAT = {id: 1, name: 'Squat', muscles: []} satisfies Exercise;
+const NEVER_TRAINED = {id: 2, name: 'Mmkv', muscles: []} satisfies Exercise;
 
 jest.mock('../../../app/redux/Workout/use/useWorkoutsIn', () => ({useWorkoutsIn: jest.fn(() => [])}));
 jest.mock('../../../app/redux/Workout/use/useWorkoutsByIds', () => ({useWorkoutsByIds: jest.fn(() => [])}));
@@ -37,7 +37,7 @@ jest.mock('../../../app/components/picker/date/DateRangePicker', () => {
   };
 });
 
-// The picker is the only way to make a selection; expose it as two buttons.
+// The picker is the only way to make a selection; expose it as buttons.
 jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () => {
   const ReactLocal = require('react');
   const {Text, TouchableOpacity, View} = require('react-native');
@@ -45,8 +45,14 @@ jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () =>
 
   return {
     __esModule: true,
-    default: ({setExercise}: {setExercise: (exercises: unknown[]) => void}) => (
+    default: ({setExercise, setMetrics}: {setExercise: (exercises: unknown[]) => void; setMetrics: (metrics: string[]) => void}) => (
       <View>
+        <TouchableOpacity testID="pick-volume-and-frequency" onPress={() => setMetrics(['Frequency', 'Volume'])}>
+          <Text>pick volume and frequency</Text>
+        </TouchableOpacity>
+        <TouchableOpacity testID="clear-metrics" onPress={() => setMetrics([])}>
+          <Text>clear metrics</Text>
+        </TouchableOpacity>
         <TouchableOpacity testID="pick-squat" onPress={() => setExercise([{id: 1, name: 'Squat', muscles: []}])}>
           <Text>pick squat</Text>
         </TouchableOpacity>
@@ -68,8 +74,7 @@ jest.mock('react-native-charts-wrapper', () => {
   };
 });
 
-const makeWorkout = (id: number, exerciseId: number, start: Date) =>
-  ({id, exerciseId, start, end: start, sets: [{reps: 5, weight: 100, rir: 1}]} as unknown as Workout);
+const makeWorkout = (id: number, exerciseId: number, start: Date) => ({id, exerciseId, start, end: start, sets: [{reps: 5, weight: 100, rir: 1}]}) satisfies Workout;
 
 const renderScreen = () =>
   render(
@@ -102,16 +107,21 @@ describe('Analyse chart empty states (GH-458 H3)', () => {
     expect(queryByTestId('analyse-chart-no-selection')).toBeNull();
   });
 
-  it('shows one chart per selected metric and lets the user deselect metrics', () => {
+  // GH-468 round 3: metrics are filtered in the picker; an empty filter shows all of them.
+  it('shows only the metrics picked in the selector, and all of them again when none is picked', () => {
     (useWorkoutsIn as jest.Mock).mockReturnValue([makeWorkout(10, 1, new Date(2026, 1, 20, 18, 0))]);
     const {getAllByTestId, getByTestId, queryByTestId} = renderScreen();
 
-    fireEvent.press(getByTestId('analyse-metric-chip-Volume'));
-    fireEvent.press(getByTestId('analyse-metric-chip-Frequency'));
+    fireEvent.press(getByTestId('pick-volume-and-frequency'));
 
-    expect(getAllByTestId('analyse-line-chart')).toHaveLength(5);
-    expect(queryByTestId('analyse-chart-Volume')).toBeNull();
-    expect(getByTestId('analyse-chart-1RM')).toBeTruthy();
+    expect(getAllByTestId('analyse-line-chart')).toHaveLength(2);
+    expect(getByTestId('analyse-chart-Volume')).toBeTruthy();
+    expect(getByTestId('analyse-chart-Frequency')).toBeTruthy();
+    expect(queryByTestId('analyse-chart-1RM')).toBeNull();
+
+    fireEvent.press(getByTestId('clear-metrics'));
+
+    expect(getAllByTestId('analyse-line-chart')).toHaveLength(7);
   });
 
   it('only evaluates the workouts of the selected exercise', () => {

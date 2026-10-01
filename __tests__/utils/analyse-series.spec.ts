@@ -1,11 +1,13 @@
-import {aggregateMetric, buildMetricSeries} from '../../app/utils/AnalyseSeries';
+import {aggregateMetric, buildMetricSeries, selectionWeight} from '../../app/utils/analyse-series';
 import {Metric} from '../../app/models/Metric';
 import {Workout} from '../../app/models/entities/Workout';
 import {Accumulation} from '../../app/components/picker/elements/TrainingElementPicker';
 import {AccumulationMode} from '../../app/models/AccumulationMode';
+import {Exercise} from '../../app/models/entities/Exercise';
+import {Muscles} from '../../app/models/Muscles';
 
 const workout = (id: number, exerciseId: number, start: Date, sets: {reps: number; weight: number}[]) =>
-  ({id, exerciseId, start, end: start, sets: sets.map((s) => ({...s, rir: 0}))}) as unknown as Workout;
+  ({id, exerciseId, start, end: start, sets: sets.map((s) => ({...s, rir: 0}))} satisfies Workout);
 
 // Monday + Tuesday of one week, exercise 1 and 2
 const monSquat = workout(1, 1, new Date(2026, 1, 16, 18), [
@@ -34,7 +36,7 @@ describe('aggregateMetric (GH-468)', () => {
 
   it('takes the maximum for max intensity', () => {
     // one exercise, top set is the 1RM basis -> 100 %
-    expect(aggregateMetric([monSquat], Metric.MAX_INTENSITY)).toBeCloseTo(100 * (100 / (100 * (1 + 5 / 30))) );
+    expect(aggregateMetric([monSquat], Metric.MAX_INTENSITY)).toBeCloseTo(100 * (100 / (100 * (1 + 5 / 30))));
     // single-rep set is its own 1RM
     expect(aggregateMetric([nextWeek], Metric.MAX_INTENSITY)).toBe(100);
   });
@@ -81,5 +83,72 @@ describe('buildMetricSeries (GH-468)', () => {
 
   it('returns an empty series without workouts', () => {
     expect(buildMetricSeries([], Metric.VOLUME, week)).toEqual([]);
+  });
+});
+
+// exercise 1 (squat): 60 % quads, 30 % glutes; exercise 2 (bench): 20 % triceps
+const squat = {
+  id: 1,
+  name: 'Squat',
+  muscles: [
+    {muscle: Muscles.QUADS, percent: 60},
+    {muscle: Muscles.GLUTES, percent: 30},
+  ],
+} satisfies Exercise;
+const bench = {
+  id: 2,
+  name: 'Bench',
+  muscles: [
+    {muscle: Muscles.CHEST, percent: 70},
+    {muscle: Muscles.TRICEPS, percent: 20},
+  ],
+} satisfies Exercise;
+
+describe('muscle shares (GH-468 round 3)', () => {
+  it('counts every workout fully without a selection', () => {
+    const weightOf = selectionWeight([], [], []);
+    expect(aggregateMetric([monSquat, monBench], Metric.VOLUME, weightOf)).toBe(1400);
+  });
+
+  it('weights volume, reps and sets by the selected muscle share', () => {
+    const weightOf = selectionWeight([], [Muscles.TRICEPS], [bench]);
+    // bench 10 x 50 = 500 volume, 10 reps, 1 set -> 20 % of each; squat is not a triceps exercise
+    expect(aggregateMetric([monSquat, monBench], Metric.VOLUME, weightOf)).toBeCloseTo(100);
+    expect(aggregateMetric([monSquat, monBench], Metric.REPS, weightOf)).toBeCloseTo(2);
+    expect(aggregateMetric([monSquat, monBench], Metric.SETS, weightOf)).toBeCloseTo(0.2);
+  });
+
+  it('adds the shares of several selected muscles of one exercise', () => {
+    const weightOf = selectionWeight([], [Muscles.QUADS, Muscles.GLUTES], [squat]);
+    expect(aggregateMetric([monSquat], Metric.VOLUME, weightOf)).toBeCloseTo(900 * 0.9);
+  });
+
+  it('counts an explicitly selected exercise fully, even if a selected muscle covers it too', () => {
+    const weightOf = selectionWeight([bench], [Muscles.TRICEPS, Muscles.QUADS], [squat, bench]);
+    expect(aggregateMetric([monSquat, monBench], Metric.VOLUME, weightOf)).toBeCloseTo(900 * 0.6 + 500);
+  });
+
+  it('keeps 1RM, max intensity and frequency unweighted for a muscle selection', () => {
+    const weightOf = selectionWeight([], [Muscles.TRICEPS], [bench]);
+    expect(aggregateMetric([monSquat, monBench], Metric.ONE_RM, weightOf)).toBeCloseTo(50 * (1 + 10 / 30));
+    // the bench set is measured against its own (estimated) 1RM: 50 / 66.67 -> 75 %, not 20 % of it
+    expect(aggregateMetric([monSquat, monBench], Metric.MAX_INTENSITY, weightOf)).toBeCloseTo(75);
+    expect(aggregateMetric([monSquat, monBench], Metric.FREQUENCY, weightOf)).toBe(1);
+  });
+
+  it('weights the average intensity by share', () => {
+    const weightOf = selectionWeight([], [Muscles.QUADS, Muscles.TRICEPS], [squat, bench]);
+    const squatOneRm = 100 * (1 + 5 / 30);
+    const benchOneRm = 50 * (1 + 10 / 30);
+    const expected = ((100 / squatOneRm) * 100 * 0.6 + (80 / squatOneRm) * 100 * 0.6 + (50 / benchOneRm) * 100 * 0.2) / (0.6 + 0.6 + 0.2);
+    expect(aggregateMetric([monSquat, monBench], Metric.AVERAGE_INTENSITY, weightOf)).toBeCloseTo(expected);
+  });
+
+  it('applies the shares inside each accumulation bucket and drops exercises without share', () => {
+    const weightOf = selectionWeight([], [Muscles.QUADS], [squat]);
+    const series = buildMetricSeries(all, Metric.VOLUME, week, weightOf);
+    expect(series.map((p) => p.y)).toEqual([(500 + 400 + 360) * 0.6, 50 * 0.6].map((v) => expect.closeTo(v)));
+    const [first] = series as {id?: string}[];
+    expect(first.id?.split(',').filter(Boolean).map(Number).sort()).toEqual([1, 3]);
   });
 });

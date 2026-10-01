@@ -1,7 +1,7 @@
 appId: com.powerliftingworkoutplanner
 ---
 # GH-468: the Analyse graph needs no exercise/muscle any more, aggregates per
-# metric, and shows several metrics at once. Needs the baseline fixture.
+# metric, and shows every metric at once. Needs the baseline fixture.
 - launchApp:
     clearState: false
 - runFlow:
@@ -72,7 +72,7 @@ appId: com.powerliftingworkoutplanner
 # Each pick: search, tap the first row once, and re-tap only if the chip for
 # that pick did not appear — the open keyboard often eats the first tap
 # (agent-memory #443). `hideKeyboard` is no option: its BACK closes the dropdown.
-- tapOn: 'Select Exercises, Muscles, Accumulation Mode'
+- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
 - extendedWaitUntil:
     visible:
       id: 'search-bar'
@@ -188,51 +188,5 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: '11 reps'
 - takeScreenshot: gh468_b_week_point_trainings
 
-# ------------------------------------------- (c) several metrics at once
-- repeat:
-    while:
-      notVisible:
-        id: 'analyse-metric-chip-Volume'
-    times: 8
-    commands:
-      - swipe:
-          start: '50%, 20%'
-          end: '50%, 80%'
-          duration: 600
-      - waitForAnimationToEnd
-# All seven are on by default; narrow down to a custom set of three.
-- tapOn:
-    id: 'analyse-metric-chip-Sets'
-- tapOn:
-    id: 'analyse-metric-chip-Reps'
-- tapOn:
-    id: 'analyse-metric-chip-Max Intensity'
-- tapOn:
-    id: 'analyse-metric-chip-Average Intensity'
-- waitForAnimationToEnd
-- assertVisible:
-    id: 'analyse-chart-Volume'
-- assertVisible:
-    id: 'analyse-chart-1RM'
-- assertNotVisible:
-    id: 'analyse-chart-Sets'
-- assertNotVisible:
-    id: 'analyse-chart-Reps'
-- assertNotVisible:
-    id: 'analyse-chart-Average Intensity'
-- assertVisible: 'Volume \(sum\)'
-- assertVisible: '1RM \(max\)'
-- takeScreenshot: gh468_c_three_metrics
-- repeat:
-    while:
-      notVisible: 'Frequency \(training days\)'
-    times: 6
-    commands:
-      - swipe:
-          start: '50%, 80%'
-          end: '50%, 30%'
-          duration: 600
-      - waitForAnimationToEnd
-- assertVisible:
-    id: 'analyse-chart-Frequency'
-- takeScreenshot: gh468_c_frequency_chart
+# (c) several metrics at once: since round 3 metrics are filtered in the
+# picker only — see gh468_r3_metric_filter_muscle_share.yaml.

@@ -46,7 +46,7 @@ appId: com.powerliftingworkoutplanner
           timeout: 10000
       - tapOn: 'Analysis'
 - extendedWaitUntil:
-    visible: 'Select Exercises, Muscles, Accumulation Mode'
+    visible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
     timeout: 20000
 - takeScreenshot: C:\tmp\gh169-screenshots\gh169-analyse-loaded
 
@@ -55,7 +55,7 @@ appId: com.powerliftingworkoutplanner
 # then select Bench Press.
 # scrollUntilVisible within a modal — works when list starts at top.
 # ─────────────────────────────────────────────────────────
-- tapOn: 'Select Exercises, Muscles, Accumulation Mode'
+- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
 - extendedWaitUntil:
     visible:
       id: 'search-bar'
@@ -90,17 +90,17 @@ appId: com.powerliftingworkoutplanner
     commands:
       - tapOn: 'Dismiss'
 - extendedWaitUntil:
-    visible: 'Select Exercises, Muscles, Accumulation Mode'
+    visible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
     timeout: 15000
 
 # KEY ASSERTION: app must not have crashed.
-- assertVisible: 'Select Exercises, Muscles, Accumulation Mode'
+- assertVisible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
 - takeScreenshot: C:\tmp\gh169-screenshots\gh169-frequency-exercise-day-no-crash
 
 # ─────────────────────────────────────────────────────────
 # Part 2: Add Back muscle (tests Frequency + Muscle path, GH-119 regression guard)
 # ─────────────────────────────────────────────────────────
-- tapOn: 'Select Exercises, Muscles, Accumulation Mode'
+- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
 - extendedWaitUntil:
     visible:
       id: 'search-bar'
@@ -123,7 +123,7 @@ appId: com.powerliftingworkoutplanner
     commands:
       - tapOn: 'Dismiss'
 - extendedWaitUntil:
-    visible: 'Select Exercises, Muscles, Accumulation Mode'
+    visible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
     timeout: 10000
-- assertVisible: 'Select Exercises, Muscles, Accumulation Mode'
+- assertVisible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
 - takeScreenshot: C:\tmp\gh169-screenshots\gh169-frequency-muscle-no-crash

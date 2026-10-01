@@ -1,0 +1,32 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-468 round 3: continues where gh468_r3_metric_filter_muscle_share.yaml
+# stops (Day + Sets + Biceps, range 01/02/2026 – 01/03/2026, real data).
+# Taps the last point (28/02/26, expected 2.80 = 0.8 + 2 x 0.5 + 2 x 0.5) and
+# checks that the trainings behind it are listed — only the Biceps exercises.
+- assertVisible: '3 selected'
+- assertVisible:
+    id: 'chip'
+    text: 'Biceps'
+- assertVisible: 'Sets \(sum\)'
+- tapOn:
+    point: '94%, 49%'
+- waitForAnimationToEnd
+- takeScreenshot: gh468_r3_c_biceps_point_marker
+- repeat:
+    while:
+      notVisible: 'Chest supported row'
+    times: 8
+    commands:
+      - swipe:
+          start: '50%, 80%'
+          end: '50%, 30%'
+          duration: 600
+      - waitForAnimationToEnd
+- assertVisible: 'Pull up'
+- assertVisible: 'Iso lateral front lat pulldown hs'
+- assertVisible: 'Chest supported row'
+# same day, but no Biceps share -> not part of the point
+- assertNotVisible: 'B stance rdl'
+- assertNotVisible: 'Leg curl lying'
+- takeScreenshot: gh468_r3_c_biceps_point_trainings
