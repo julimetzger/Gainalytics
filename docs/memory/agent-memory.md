@@ -3029,3 +3029,8 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 ### 453. A hung emulator after `adb reboot` shows `offline` forever — kill both Windows processes and relaunch with an explicit `-port`
 **Problem (GH-458 round 3):** after a reboot to clear ANR-style Maestro failures the device stayed `offline` for 20+ min. `powershell.exe Stop-Process` on `emulator.exe` + `qemu-system-x86_64.exe`, then `Start-Process emulator.exe -avd Pixel_7 -port 5556 -no-snapshot-load -no-window -no-audio` brought it back within ~2 min with app data intact; `adb reverse tcp:8081 tcp:8082` has to be redone. Also: Metro under `CI=true` (needed when inotify is exhausted, `ENOSPC`) does not watch files — restart it after every JS edit, killing by the PID from `ss -ltnp`, never `pkill -f` (it matches your own shell).
 **Apply when:** `adb devices` shows the assigned emulator `offline`, or Metro dies with ENOSPC.
+
+### 454. The Analyse drawer's graph entry is now "Analysis" — flows that `tapOn: 'Analyse'` time out on the drawer
+**Problem (GH-452):** `extendedWaitUntil: visible: 'Analyse'` after opening `analyse-drawer-toggle` failed with the drawer plainly open. GH-450's German→English sweep renamed the drawer item (and tab label) to "Analysis". Bare strings are full-text regexes (#442), so 'Analyse' no longer matches anything in the drawer. Older flows such as `gh458_chart_empty_states.yaml` still use the old text.
+**Working solution:** `tapOn: 'Analysis'`. Screenshot the open drawer before you trust a label taken from an older flow.
+**Apply when:** reusing Analyse-drawer navigation from an existing flow.
