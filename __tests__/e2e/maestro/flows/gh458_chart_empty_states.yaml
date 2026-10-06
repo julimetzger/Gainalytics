@@ -62,29 +62,26 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'analyse-drawer-toggle'
 - extendedWaitUntil:
-    visible: 'Analyse'
+    visible: 'Analysis'
     timeout: 15000
-- tapOn: 'Analyse'
+- tapOn: 'Analysis'
 - waitForAnimationToEnd
 
 # -------------------------------------------------- case 0: nothing selected
-# GH-458 round 2 (issue #461): this used to be a small red "Please select:
-# Exercise or Muscle." line over an otherwise blank page. It is now a normal
-# empty state (not styled as an error) that offers the last-trained exercise
-# as a one-tap suggestion — see gh458_round2_review_fixes.yaml for the full
-# before/after of the suggestion actually applying the exercise.
+# GH-468: exercise/muscle are only a filter now. Without a selection every
+# training counts, so an empty default period names the gap for all of them.
 - extendedWaitUntil:
     visible:
-      id: 'analyse-chart-no-selection'
+      id: 'analyse-chart-empty-range'
     timeout: 20000
 - assertNotVisible: 'Please select: Exercise or Muscle.'
 - assertVisible:
-    id: 'analyse-chart-no-selection-description'
-    text: '.*Pick an exercise or a muscle group above.*'
+    id: 'analyse-chart-empty-range-description'
+    text: 'There are no logged sets between.*'
 - takeScreenshot: gh458_30_chart_no_selection
 
 # ------------------------------------- case 1: an exercise never trained once
-- tapOn: 'Select Exercises, Metrics, Accumulation Mode'
+- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
 - waitForAnimationToEnd
 # The list opens with the search field unfocused, and "Search" is a
 # placeholder: tapping that text node does not reach the TextInput, so the
@@ -136,11 +133,12 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
-      id: 'analyse-chart-no-selection'
+      id: 'analyse-chart-empty-range-description'
+      text: 'There are no logged sets between.*'
     timeout: 15000
 
 # -------------------------- case 2: trained plenty, just not in this period
-- tapOn: 'Select Exercises, Metrics, Accumulation Mode'
+- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
 - waitForAnimationToEnd
 - tapOn:
     point: '50%, 21%'
@@ -190,6 +188,4 @@ appId: com.powerliftingworkoutplanner
     timeout: 20000
 - assertNotVisible:
     id: 'analyse-chart-never-trained'
-- assertNotVisible:
-    id: 'analyse-chart-no-selection'
 - takeScreenshot: gh458_33_chart_populated_after_jump

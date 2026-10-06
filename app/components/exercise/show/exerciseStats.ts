@@ -1,4 +1,6 @@
 import {Exercise, Record} from '../../../models/entities/Exercise';
+import {Workout} from '../../../models/entities/Workout';
+import {oneRepMaxForWorkouts} from '../../../utils/AnalyseUtils';
 
 export const toFiniteNumber = (v: unknown): number | undefined => {
   if (v === null || v === undefined || v === '') return undefined;
@@ -19,6 +21,20 @@ export function oneRmHistoryValues(exercise: Exercise | undefined, max = 12): nu
     .slice(-max)
     .map((r) => toFiniteNumber(r?.value))
     .filter((n): n is number => n !== undefined);
+}
+
+// GH-477: best estimated 1RM of every FINISHED workout, oldest first, capped to
+// the last `max` sessions. Unlike `oneRmHistoryValues` (which only holds new
+// records and therefore can only rise) this shows weaker sessions too.
+export function oneRmPerWorkoutValues(workouts: Workout[] | undefined, max = 12): number[] {
+  if (!workouts || workouts.length === 0) return [];
+  return workouts
+    .filter((w) => w?.end !== undefined && w.end !== null)
+    .map((w) => ({time: new Date(w.end!).getTime(), oneRm: oneRepMaxForWorkouts(w)}))
+    .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.oneRm) && p.oneRm > 0)
+    .sort((a, b) => a.time - b.time)
+    .slice(-max)
+    .map((p) => p.oneRm);
 }
 
 export function bestOneRm(exercise: Exercise | undefined): number | undefined {

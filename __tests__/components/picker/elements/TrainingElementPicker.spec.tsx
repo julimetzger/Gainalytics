@@ -105,10 +105,10 @@ describe('TrainingElementPicker', () => {
     mockNextDropdownSelection.value = [];
   });
 
-  it('parses selected values into exercises, muscles, metric, and accumulation', () => {
+  it('parses selected values into exercises, muscles, metrics, and accumulation', () => {
     const setExercise = jest.fn();
     const setMuscle = jest.fn();
-    const setMetric = jest.fn();
+    const setMetrics = jest.fn();
     const setAccumulation = jest.fn();
 
     mockNextDropdownSelection.value = ['1', Muscles.BACK, Metric.REPS, 'accumulationPlan A'];
@@ -119,7 +119,7 @@ describe('TrainingElementPicker', () => {
         setExercise={setExercise}
         muscle={[]}
         setMuscle={setMuscle}
-        setMetric={setMetric}
+        setMetrics={setMetrics}
         setAccumulation={setAccumulation}
       />,
     );
@@ -129,22 +129,22 @@ describe('TrainingElementPicker', () => {
     expect(setExercise).toHaveBeenCalledTimes(1);
     expect(setExercise).toHaveBeenCalledWith([{id: 1, name: 'Squat'}]);
     expect(setMuscle).toHaveBeenCalledWith([Muscles.BACK]);
-    expect(setMetric).toHaveBeenCalledWith(Metric.REPS);
+    expect(setMetrics).toHaveBeenCalledWith([Metric.REPS]);
     expect(setAccumulation).toHaveBeenCalledWith(new Accumulation(AccumulationMode.TRAINING_MICROCYCLE, trainingsPlan[0]));
   });
 
-  it('keeps only one metric when multiple metrics are selected', () => {
+  it('keeps every selected metric (GH-468: metrics are a multi-select filter)', () => {
     const setExercise = jest.fn();
-    const setMetric = jest.fn();
+    const setMetrics = jest.fn();
 
     mockNextDropdownSelection.value = [Metric.VOLUME, Metric.REPS];
 
-    const {getByTestId} = render(<TrainingElementPicker exercise={[]} setExercise={setExercise} metric={Metric.VOLUME} setMetric={setMetric} />);
+    const {getByTestId} = render(<TrainingElementPicker exercise={[]} setExercise={setExercise} metrics={[Metric.VOLUME]} setMetrics={setMetrics} />);
 
     fireEvent.press(getByTestId('dropdown-change'));
 
-    expect(setMetric).toHaveBeenCalledTimes(1);
-    expect(setMetric).toHaveBeenCalledWith(Metric.REPS);
+    expect(setMetrics).toHaveBeenCalledTimes(1);
+    expect(setMetrics).toHaveBeenCalledWith([Metric.VOLUME, Metric.REPS]);
   });
 
   it('keeps only one accumulation when multiple accumulations are selected', () => {

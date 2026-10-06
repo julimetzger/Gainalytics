@@ -7,9 +7,10 @@ import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 import {Exercise} from '../../models/entities/Exercise';
 import {Muscles} from '../../models/Muscles';
 import Sparkline from '../../components/exercise/show/Sparkline';
-import {lastOneRm, oneRmHistoryValues, oneRmIncreaseDelta} from '../../components/exercise/show/exerciseStats';
+import {lastOneRm, oneRmIncreaseDelta} from '../../components/exercise/show/exerciseStats';
 import {exerciseMatchesGroup, MUSCLE_GROUPS, MuscleGroupKey, primaryMuscleTag} from '../../components/exercise/show/MuscleGroupFilters';
 import {useExerciseWorkoutSummary} from '../../redux/Workout/use/useExerciseWorkoutSummary';
+import {useOneRmSessionHistory} from '../../redux/Workout/use/useOneRmSessionHistory';
 import {formatTimeAgo} from '../../components/exercise/show/formatTimeAgo';
 
 const ExerciseTab = ({navigation}: Props) => {
@@ -273,7 +274,7 @@ const FocusCard = ({exercise, onPress, primaryColor}: FocusCardProps) => {
   const theme = useTheme();
   const oneRm = lastOneRm(exercise);
   const delta = oneRmIncreaseDelta(exercise);
-  const history = oneRmHistoryValues(exercise);
+  const history = useOneRmSessionHistory(exercise.id);
   const oneRmText = typeof oneRm === 'number' && Number.isFinite(oneRm) ? `${oneRm.toFixed(1)} kg` : '— kg';
   const showDelta = typeof delta === 'number' && Number.isFinite(delta) && delta !== 0;
   return (
@@ -300,7 +301,7 @@ const FocusCard = ({exercise, onPress, primaryColor}: FocusCardProps) => {
             )}
           </View>
           <View style={styles.sparklineWrap}>
-            <Sparkline values={Array.isArray(history) ? history : []} width={140} height={36} color={primaryColor} />
+            <Sparkline values={Array.isArray(history) ? history : []} width={140} height={36} color={primaryColor} testID={`focus-card-sparkline-${exercise.id}`} />
           </View>
         </Card.Content>
       </Card>
@@ -322,7 +323,7 @@ const ExerciseRow = ({exercise, onPress, outlineColor, surfaceVariantColor, onSu
   const muscleList = (exercise.muscles ?? []).map((m) => m.muscle).filter((m): m is Muscles => m != null);
   const tag = primaryMuscleTag(muscleList);
   const oneRm = lastOneRm(exercise);
-  const history = oneRmHistoryValues(exercise);
+  const history = useOneRmSessionHistory(exercise.id);
   const summary = useExerciseWorkoutSummary(exercise.id);
   const lastDoneText =
     summary.lastWorkoutEnd instanceof Date && !Number.isNaN(summary.lastWorkoutEnd.getTime())
@@ -363,7 +364,7 @@ const ExerciseRow = ({exercise, onPress, outlineColor, surfaceVariantColor, onSu
       <Text style={[styles.rowOneRm, {color: onSurfaceColor}]}>
         {typeof oneRm === 'number' && Number.isFinite(oneRm) ? `${oneRm.toFixed(0)} kg` : '—'}
       </Text>
-      <Sparkline values={history} width={56} height={20} color={primaryColor} />
+      <Sparkline values={history} width={56} height={20} color={primaryColor} testID={`exercise-row-sparkline-${exercise.id}`} />
     </Pressable>
   );
 };

@@ -16,6 +16,9 @@ interface TrainingOverflowMenuProps {
   onEditPlan: () => void;
   onEditTraining: () => void;
   onDeleteTraining: () => void;
+  /** GH-442: true only for the plan's most recently planned, not-yet-started training. */
+  canClearPlan?: boolean;
+  onClearPlan?: () => void;
 }
 
 const TrainingOverflowMenu = ({
@@ -27,6 +30,8 @@ const TrainingOverflowMenu = ({
   onEditPlan,
   onEditTraining,
   onDeleteTraining,
+  canClearPlan = false,
+  onClearPlan,
 }: TrainingOverflowMenuProps) => {
   const theme = useTheme();
   const screenWidth = Dimensions.get('window').width;
@@ -62,6 +67,17 @@ const TrainingOverflowMenu = ({
                 onEditPlan();
               }}
             />
+            {canClearPlan && onClearPlan && (
+              <Menu.Item
+                testID="overflow-clear-plan"
+                leadingIcon="broom"
+                title="Clear planned training"
+                onPress={() => {
+                  onDismiss();
+                  onClearPlan();
+                }}
+              />
+            )}
             <Divider />
           </>
         ) : (

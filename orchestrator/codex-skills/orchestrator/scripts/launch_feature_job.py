@@ -355,7 +355,7 @@ def main() -> None:
         default=None,
         help=(
             "Model override. For --runner claude: passed via 'claude --model <value>' "
-            "(default when omitted: sonnet). For --runner codex: passed via "
+            "(default when omitted: opus). For --runner codex: passed via "
             "'codex exec -c model=\"<value>\"' (default when omitted: codex CLI's "
             "config.toml default)."
         ),
@@ -426,7 +426,7 @@ def main() -> None:
     if args.runner == "claude":
         cmd = [
             "claude",
-            "--model", args.model or "sonnet",
+            "--model", args.model or "opus",
             "--allowedTools", "Bash,Read,Write,Edit,Glob,Grep",
             "--output-format", "stream-json",
             "--verbose",

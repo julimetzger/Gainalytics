@@ -4,9 +4,11 @@ import {Portal, Snackbar, Text, ToggleButton, useTheme} from 'react-native-paper
 import {useThemeMode} from '../../redux/settings/use/useThemeMode';
 import {dispatchSetThemeMode} from '../../redux/settings/dispatch/dispatchSetThemeMode';
 import {describeActiveScheme, THEME_MODE_OPTIONS, ThemeModeSetting} from '../../theme/themeMode';
+import {pillSegmentIconColor, pillSegmentStyle} from './pillSegmentStyle';
 
 /**
- * The "Theme" settings row: System / Light / Dark as an icon group.
+ * The "Theme" settings row: System / Light / Dark as one pill-shaped,
+ * icon-only segmented control.
  *
  * A tap switches the mode immediately — the store is the only state, so the
  * whole tree re-themes on the next render. Because the buttons carry icons and
@@ -32,9 +34,10 @@ const ThemeModeSelector = () => {
   return (
     <View testID="settings-theme-mode-row">
       <View style={styles.row}>
-        <Text style={styles.label}>Theme</Text>
+        <Text style={styles.label}>Mode</Text>
         <ToggleButton.Row onValueChange={handleChange} value={setting}>
-          {THEME_MODE_OPTIONS.map((option) => {
+          {THEME_MODE_OPTIONS.map((option, index) => {
+            const selected = option.value === setting;
             // ToggleButton forwards everything it does not destructure to
             // IconButton and on to TouchableRipple, but its published Props
             // type stops at the handful it names. Spreading keeps the working
@@ -45,9 +48,11 @@ const ThemeModeSelector = () => {
               <ToggleButton
                 key={option.value}
                 icon={option.icon}
+                iconColor={pillSegmentIconColor(theme, selected)}
                 value={option.value}
                 testID={option.testID}
                 accessibilityLabel={option.label}
+                style={pillSegmentStyle(theme, index, THEME_MODE_OPTIONS.length, selected)}
                 {...longPress}
               />
             );
@@ -85,13 +90,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginVertical: 5,
-    marginHorizontal: 15,
   },
   label: {
     alignSelf: 'center',
   },
   activeMode: {
-    marginHorizontal: 15,
     marginBottom: 5,
   },
 });
