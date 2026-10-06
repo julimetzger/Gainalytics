@@ -71,7 +71,18 @@ interface TrainingsPlanNodeProps {
   onPlanChromeChange?: (state: PlanChromeState) => void;
   /** Sub-tab explicitly requested by the caller (navigation param), overrides the state default. */
   requestedSubTab?: SubTab;
+  /** GH-467: the tab the user is on, owned by the screen. A pane that moves to another micro opens on it. */
+  stickySubTab?: SubTab;
+  onSubTabChange?: (tab: SubTab) => void;
+  /** GH-467: this pane is the micro the user is on (not a neighbour). */
+  isCurrent?: boolean;
 }
+
+const SUB_TABS: SubTab[] = ['train', 'plan', 'analysis'];
+
+/** GH-467: the carried-over tab if this training can show it, else the state default. Every tab renders in every state. */
+export const resolveSubTab = (sticky: SubTab | undefined, state?: string): SubTab =>
+  sticky !== undefined && SUB_TABS.includes(sticky) ? sticky : defaultSubTab(state);
 
 export const defaultSubTab = (state?: string, requestedSubTab?: SubTab): SubTab => {
   if (requestedSubTab !== undefined) return requestedSubTab;
@@ -105,7 +116,7 @@ const PlanNodeScrollContainer = ({children}: {children: React.ReactNode}) => {
   );
 };
 
-const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, setIgnoreSwipe, isActive = true, renderContent = true, microViewMode, onMicroViewModeChange, microSortMode, onMicroSortModeChange, analysisDataMode, onAnalysisDataModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange, requestedSubTab}: TrainingsPlanNodeProps) => {
+const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, setIgnoreSwipe, isActive = true, renderContent = true, microViewMode, onMicroViewModeChange, microSortMode, onMicroSortModeChange, analysisDataMode, onAnalysisDataModeChange, overflowVisible, onCloseOverflow, onPlanChromeChange, requestedSubTab, stickySubTab, onSubTabChange, isCurrent = true}: TrainingsPlanNodeProps) => {
   const [localViewMode, setLocalViewMode] = useState<ViewMode>('gesamt');
   const effectiveViewMode = microViewMode ?? localViewMode;
   const effectiveSetViewMode = onMicroViewModeChange ?? setLocalViewMode;
@@ -157,7 +168,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
     .filter((exercise) => exercise !== undefined)
     .filter((exercise) => exercise.id !== undefined && exercise.id !== chosenExercise?.id && !(training?.exercises ?? []).includes(exercise.id)) as Exercise[];
 
-  const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultSubTab(training?.state, requestedSubTab));
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>(requestedSubTab ?? resolveSubTab(stickySubTab, training?.state));
   const [isEditing, setIsEditing] = useState(false);
   const [planEditRequestId, setPlanEditRequestId] = useState(0);
   // A requested sub-tab must win exactly once per slot — otherwise every later
@@ -176,20 +187,45 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   // focus) never counts as a reason to reset the tab.
   const subTabResetKeyRef = useRef<string | null>(null);
 
+  // GH-467: set once the user (or a handler) picked a tab on this slot. Until then a state change
+  // (async load → PLANNED) keeps the carried-over tab instead of falling back to the state default.
+  const subTabTouchedRef = useRef(false);
+  const slotKeyRef = useRef(`${micro}:${trainingInMicro}`);
+  const changeSubTab = (tab: SubTab) => {
+    subTabTouchedRef.current = true;
+    setActiveSubTab(tab);
+    if (isCurrent) onSubTabChange?.(tab);
+  };
+
   // Reset sub-tab when micro/trainingInMicro changes OR when training state changes (e.g. async load → PLANNED)
   useEffect(() => {
+    const slotKey = `${micro}:${trainingInMicro}`;
+    if (slotKeyRef.current !== slotKey) {
+      slotKeyRef.current = slotKey;
+      subTabTouchedRef.current = false;
+    }
     const requestKey = requestedSubTab !== undefined ? `${micro}:${trainingInMicro}:${requestedSubTab}` : null;
     if (requestKey !== null && !consumedSubTabRequestsRef.current.has(requestKey)) {
       consumedSubTabRequestsRef.current.add(requestKey);
       subTabResetKeyRef.current = `${micro}:${trainingInMicro}:${training?.state}`;
       setActiveSubTab(requestedSubTab!!);
+      if (isCurrent) onSubTabChange?.(requestedSubTab!!);
       return;
     }
     const resetKey = `${micro}:${trainingInMicro}:${training?.state}`;
     if (subTabResetKeyRef.current === resetKey) return;
     subTabResetKeyRef.current = resetKey;
-    setActiveSubTab(defaultSubTab(training?.state));
+    const next = subTabTouchedRef.current ? defaultSubTab(training?.state) : resolveSubTab(stickySubTab, training?.state);
+    setActiveSubTab(next);
+    if (isCurrent && stickySubTab === undefined) onSubTabChange?.(next);
   }, [micro, trainingInMicro, training?.state, requestedSubTab]);
+
+  // GH-467: a pane kept in the background (swiping back to it) may hold an older tab than the one the user
+  // has picked since; it follows the carried-over tab the moment it becomes the current pane.
+  useEffect(() => {
+    if (!isCurrent || stickySubTab === undefined || requestedSubTab !== undefined) return;
+    if (stickySubTab !== activeSubTab) setActiveSubTab(resolveSubTab(stickySubTab, training?.state));
+  }, [isCurrent, stickySubTab]);
 
   // GH-401 (H3): editing UI state resets only when the user moves to a DIFFERENT
   // slot. It used to reset on `training?.state` as well, which is the root cause of
@@ -260,7 +296,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   function handleAddExercises() {
     setNextPlanMode('fullEdit');
     setPlanEntryRequested(true);
-    setActiveSubTab('plan');
+    changeSubTab('plan');
   }
 
   function handleStart() {
@@ -278,7 +314,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
         visibilityTime: 5000,
       });
     }
-    setActiveSubTab('train');
+    changeSubTab('train');
     setTimeInWorkout(new Date(Date.now()));
   }
 
@@ -296,14 +332,14 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
         visibilityTime: 5000,
       });
     }
-    setActiveSubTab('analysis');
+    changeSubTab('analysis');
     setTimeInWorkout(new Date(Date.now()));
   }
 
   function handleEditTraining() {
     if (chosenExercise === undefined && exercises?.length > 0) setchosenExercise(exercises[0].id);
     setIsEditing(true);
-    setActiveSubTab('train');
+    changeSubTab('train');
   }
 
   function handleDeleteTraining() {
@@ -311,7 +347,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   }
 
   function handleEditPlan() {
-    setActiveSubTab('plan');
+    changeSubTab('plan');
     setPlanEditRequestId((currentRequestId) => currentRequestId + 1);
   }
 
@@ -320,7 +356,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
     if (number >= exercises.length) {
       if (isEditing) {
         setIsEditing(false);
-        setActiveSubTab('analysis');
+        changeSubTab('analysis');
       }
       return;
     }
@@ -355,6 +391,9 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
     });
     setShowDeleteDialog(false);
     setIsEditing(false);
+    // GH-467: without a training only the Plan tab is useful (add/suggest a new one). Without this an Analysis
+    // tab that was carried over (or the FINISHED default) would stay open on an empty screen.
+    changeSubTab('plan');
   }
 
   // GH-442: the training and its slot stay; only the planned exercises and their
@@ -415,8 +454,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
           mesoName={getMesoForMicro(trainingsPlan.mesos, micro)?.name}
           localMicro={getLocalMicro(trainingsPlan.mesos, micro)}
           trainingState={showDone ? undefined : training?.state}
-          activeTab={activeSubTab}
-          onTabChange={setActiveSubTab}
+          activeTab={!isCurrent && stickySubTab !== undefined ? stickySubTab : activeSubTab}
+          onTabChange={changeSubTab}
           showTabs={!showDone}
         />
       ) : (
@@ -427,7 +466,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
             <MicroOverviewTraining trainingsPlan={trainingsPlan} micro={micro} isActive={isActive} viewMode={effectiveViewMode} onViewModeChange={effectiveSetViewMode} sortMode={effectiveSortMode} onSortModeChange={effectiveSetSortMode} />
           ) : (
             <View>
-              <TrainingModeTabs activeTab={activeSubTab} onTabChange={setActiveSubTab} />
+              <TrainingModeTabs activeTab={activeSubTab} onTabChange={changeSubTab} />
 
               {/* PERF-003: a sub-tab is built over a few commits (see ProgressiveMount), so mounting it —
                   after a swipe or a tap on the tab bar — never costs one big frame. */}
@@ -616,7 +655,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                   {training === undefined && (
                     <View style={{padding: 24, alignItems: 'center', gap: 8}}>
                       <Text testID="train-tab-no-training-hint">Nothing planned for this day yet.</Text>
-                      <Button testID="train-tab-go-to-plan-button" mode="contained" onPress={() => setActiveSubTab('plan')}>
+                      <Button testID="train-tab-go-to-plan-button" mode="contained" onPress={() => changeSubTab('plan')}>
                         Plan this Training
                       </Button>
                     </View>

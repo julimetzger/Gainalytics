@@ -124,7 +124,7 @@ jest.mock('../../../../app/components/Training/analyse/TrainingHistory', () => {
   return () => <Text testID="training-history">TrainingHistory</Text>;
 });
 jest.mock('../../../../app/components/Training/TrainingsBase', () => 'TrainingsBase');
-jest.mock('../../../../app/components/Training/plan/PlanTraining', () => {
+jest.mock('../../../../app/components/Training/plan/PlanTab', () => {
   const {Text} = require('react-native');
   return () => <Text testID="plan-workout">PlanWorkout</Text>;
 });
@@ -189,5 +189,7 @@ describe('TrainingsPlanNode - Edit Finished Training (via overflow)', () => {
       trainingInMicro: 0,
       workoutIds: expect.any(Array),
     });
+    // GH-467: without a training the Plan tab (add/suggest) is the useful one, not an empty Analysis.
+    expect(screen.getByTestId('plan-workout')).toBeTruthy();
   });
 });
