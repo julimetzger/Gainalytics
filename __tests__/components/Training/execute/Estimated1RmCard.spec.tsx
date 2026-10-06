@@ -1,4 +1,5 @@
 import React from 'react';
+import {StyleSheet} from 'react-native';
 import {render, fireEvent} from '@testing-library/react-native';
 import Estimated1RmCard from '../../../../app/components/Training/execute/Estimated1RmCard';
 
@@ -15,6 +16,9 @@ jest.mock('react-native-paper', () => {
       colors: {
         primary: '#0066ff',
         error: '#ff0000',
+        // Red-ish tertiary/success, as in the default theme — must NOT be used for gains (GH-330).
+        tertiary: '#805158',
+        success: '#aa3344',
         onSurface: '#000',
         onSurfaceVariant: '#666',
         surface: '#fff',
@@ -78,6 +82,47 @@ describe('Estimated1RmCard (r6 layout)', () => {
       <Estimated1RmCard sessionOneRm={100} lastTrainingOneRm={120} allTimePr={130} />,
     );
     expect(getByTestId('estimated-1rm-delta').props.children).toBe('-20.0 kg');
+  });
+
+  describe('colours (GH-330)', () => {
+    const colorOf = (el: any) => StyleSheet.flatten(el.props.style).color;
+
+    it('shows the PR line in the app colour, not the error colour', () => {
+      const {getByTestId} = render(
+        <Estimated1RmCard sessionOneRm={127} lastTrainingOneRm={119} allTimePr={147.3} />,
+      );
+      expect(getByTestId('estimated-1rm-pr').props.children).toBe('PR 147.3 kg');
+      expect(colorOf(getByTestId('estimated-1rm-pr'))).toBe('#0066ff');
+    });
+
+    it('shows the NEW PR badge in the app colour', () => {
+      const {getByTestId} = render(
+        <Estimated1RmCard sessionOneRm={140} lastTrainingOneRm={120} allTimePr={130} />,
+      );
+      expect(colorOf(getByTestId('estimated-1rm-pr'))).toBe('#0066ff');
+    });
+
+    it('shows a positive delta in the app colour', () => {
+      const {getByTestId} = render(
+        <Estimated1RmCard sessionOneRm={124.5} lastTrainingOneRm={120} allTimePr={147.3} />,
+      );
+      expect(getByTestId('estimated-1rm-delta').props.children).toBe('+4.5 kg');
+      expect(colorOf(getByTestId('estimated-1rm-delta'))).toBe('#0066ff');
+    });
+
+    it('keeps a negative delta in the error colour', () => {
+      const {getByTestId} = render(
+        <Estimated1RmCard sessionOneRm={100} lastTrainingOneRm={120} allTimePr={130} />,
+      );
+      expect(colorOf(getByTestId('estimated-1rm-delta'))).toBe('#ff0000');
+    });
+
+    it('keeps a zero delta neutral', () => {
+      const {getByTestId} = render(
+        <Estimated1RmCard sessionOneRm={120} lastTrainingOneRm={120} allTimePr={130} />,
+      );
+      expect(colorOf(getByTestId('estimated-1rm-delta'))).toBe('#666');
+    });
   });
 
   it('calls onPressTrophy when the trophy avatar is tapped', () => {
