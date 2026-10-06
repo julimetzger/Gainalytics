@@ -48,9 +48,31 @@ interface PlanRowMeta {
   navigationMicro?: number;
 }
 
-function lastDoneFor(plan: TrainingsPlan): LastDone | undefined {
-  if (!plan.lastTraining) return undefined;
-  const entry = Object.entries(plan.trainings).find(([, v]) => v === plan.lastTraining);
+/**
+ * GH-467: `plan.lastTraining` is only written on finish and never cleared, so deleting the last finished training
+ * leaves it pointing at nothing — the plan then lost its "Last Training" card and its claim to be the active plan.
+ * Fall back to the plan's most recently finished training that still exists.
+ */
+function lastTrainingIdFor(plan: TrainingsPlan, trainingsById: {[id: number]: Training}): number | undefined {
+  if (plan.lastTraining === undefined || trainingsById[plan.lastTraining] !== undefined) return plan.lastTraining;
+  let latestId: number | undefined;
+  let latestEnd = 0;
+  for (const tId of Object.values(plan.trainings)) {
+    const end = trainingsById[tId]?.end;
+    if (trainingsById[tId]?.state !== TrainingsState.FINISHED || !end) continue;
+    const ts = new Date(end).getTime();
+    if (ts > latestEnd) {
+      latestEnd = ts;
+      latestId = tId;
+    }
+  }
+  return latestId;
+}
+
+function lastDoneFor(plan: TrainingsPlan, trainingsById: {[id: number]: Training}): LastDone | undefined {
+  const lastTraining = lastTrainingIdFor(plan, trainingsById);
+  if (lastTraining === undefined) return undefined;
+  const entry = Object.entries(plan.trainings).find(([, v]) => v === lastTraining);
   if (!entry) return undefined;
   return {
     micro: getMicroFromTrainingInMicroIndex(entry[0]),
@@ -236,6 +258,14 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
   const trainingsPlans = useAllTrainingsPlans().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
   const allTrainings = useTrainings();
 
+  const trainingsById = useMemo(() => {
+    const m: {[id: number]: Training} = {};
+    for (const t of allTrainings) {
+      if (t.id !== undefined) m[t.id] = t;
+    }
+    return m;
+  }, [allTrainings]);
+
   const autoActivePlan = useMemo((): TrainingsPlan | undefined => {
     if (trainingsPlans.length === 0) return undefined;
 
@@ -250,8 +280,8 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
     let bestPlan: TrainingsPlan | undefined;
     let bestTime = 0;
     for (const plan of trainingsPlans) {
-      if (!plan.lastTraining) continue;
-      const t = allTrainings.find((tr: Training) => tr.id === plan.lastTraining);
+      const lastTraining = lastTrainingIdFor(plan, trainingsById);
+      const t = lastTraining !== undefined ? trainingsById[lastTraining] : undefined;
       if (t?.end) {
         const ts = new Date(t.end).getTime();
         if (ts > bestTime) {
@@ -261,7 +291,7 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
       }
     }
     return bestPlan;
-  }, [trainingsPlans, allTrainings]);
+  }, [trainingsPlans, allTrainings, trainingsById]);
 
   const activePlan = useMemo((): TrainingsPlan | undefined => {
     if (selectedPlanId !== undefined) {
@@ -271,14 +301,7 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
     return autoActivePlan;
   }, [selectedPlanId, trainingsPlans, autoActivePlan]);
 
-  const activePlanLastDone = useMemo(() => (activePlan ? lastDoneFor(activePlan) : undefined), [activePlan]);
-  const trainingsById = useMemo(() => {
-    const m: {[id: number]: Training} = {};
-    for (const t of allTrainings) {
-      if (t.id !== undefined) m[t.id] = t;
-    }
-    return m;
-  }, [allTrainings]);
+  const activePlanLastDone = useMemo(() => (activePlan ? lastDoneFor(activePlan, trainingsById) : undefined), [activePlan, trainingsById]);
   const activePlanNext = useMemo<NextSession | undefined>(
     () => (activePlan ? nextSessionFor(activePlan, activePlanLastDone, trainingsById) : undefined),
     [activePlan, activePlanLastDone, trainingsById],
@@ -352,7 +375,7 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
 
         {filteredPlans.map((trainingsPlan: TrainingsPlan) => {
           const meta = trainingsPlan.id !== undefined ? planMetas[trainingsPlan.id] : undefined;
-          const lastDone = lastDoneFor(trainingsPlan);
+          const lastDone = lastDoneFor(trainingsPlan, trainingsById);
           const currentMeso = meta?.currentMeso ?? (lastDone ? getMesoForMicro(trainingsPlan.mesos, lastDone.micro) : undefined);
           const sortedMesos = getSortedMesos(trainingsPlan.mesos);
           const isActive = activePlan?.id === trainingsPlan.id;

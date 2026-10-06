@@ -297,6 +297,28 @@ describe('TrainingHome — GH-401 review 2: the card follows the session that is
 
     expect(getByTestId('next-training-slot').props.children).toBe('1:2');
   });
+
+  // GH-467: deleting the last finished training leaves plan.lastTraining pointing at a training that no longer exists.
+  it('falls back to the latest finished training when the last training was deleted', () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString();
+    mockedUseTrainings.mockReturnValue([
+      slot(31, TrainingsState.FINISHED, {start: twoDaysAgo, end: twoDaysAgo}),
+      slot(32, TrainingsState.FINISHED, {start: yesterday, end: yesterday}),
+    ]);
+
+    const {getByTestId} = renderHome({...threeDayPlan, trainings: {'1,1': 31, '1,2': 32}, lastTraining: 33});
+
+    expect(getByTestId('last-training-card')).toBeTruthy();
+    expect(getByTestId('next-training-slot').props.children).toBe('1:3');
+  });
+
+  it('shows no last training when the deleted one was the only finished training', () => {
+    mockedUseTrainings.mockReturnValue([slot(32, TrainingsState.PLANNED)]);
+
+    const {queryByTestId} = renderHome({...threeDayPlan, trainings: {'1,2': 32}, lastTraining: 33});
+
+    expect(queryByTestId('last-training-card')).toBeNull();
+  });
 });
 
 // GH-412: one search entry point only — the header magnifier is gone and the

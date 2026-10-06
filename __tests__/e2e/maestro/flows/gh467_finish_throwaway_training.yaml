@@ -1,0 +1,41 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-467 (round 2) setup for gh467_delete_lands_on_plan.yaml: plans the slot "Next Training" points at from the
+# last training, starts and finishes it, so there is a FINISHED training the test owns and may delete.
+# Refuses to touch anything unless that slot is still empty ("Plan this Training"), so existing data stays as is.
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: 'next-training-start-button'
+    timeout: 60000
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-go-to-plan-button'
+    timeout: 20000
+- assertVisible: 'Nothing planned for this day yet.'
+- tapOn:
+    id: 'train-tab-go-to-plan-button'
+- tapOn:
+    id: 'training-suggest-last-training-button'
+- extendedWaitUntil:
+    visible:
+      id: 'header-overflow-button'
+    timeout: 10000
+- tapOn:
+    id: 'subtab-train'
+- tapOn:
+    id: 'train-tab-start-button'
+- tapOn:
+    id: 'header-overflow-button'
+- tapOn:
+    id: 'overflow-finish'
+# handleFinish pre-selects Analysis
+- extendedWaitUntil:
+    visible:
+      id: 'analysis-tab'
+    timeout: 10000
+- assertVisible: 'Total Sets: 0 \(done\)'
+- takeScreenshot: ${OUT}/10_throwaway_training_finished
