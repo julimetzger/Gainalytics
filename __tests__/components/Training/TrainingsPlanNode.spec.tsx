@@ -2,6 +2,7 @@ import React from 'react';
 import {StyleSheet} from 'react-native';
 import {render, fireEvent, waitFor} from '@testing-library/react-native';
 import TrainingsPlanNode, {resolveSubTab} from '../../../app/components/Training/TrainingsPlanNode';
+import {SubTab} from '../../../app/components/Training/TrainingModeTabs';
 import {TrainingsState} from '../../../app/models/TrainingsState';
 import {TrainingsPlan} from '../../../app/models/entities/TrainingsPlan';
 
@@ -10,6 +11,7 @@ import {TrainingsPlan} from '../../../app/models/entities/TrainingsPlan';
 const mockDeleteTraining = jest.fn();
 const mockFinishTraining = jest.fn();
 const mockStartTraining = jest.fn();
+const mockClearPlannedTraining = jest.fn();
 
 jest.mock('../../../app/redux/Training/use/useTrainingInTrainingsPlan', () => ({
   useTrainingInTrainingsPlan: jest.fn(),
@@ -53,6 +55,9 @@ jest.mock('../../../app/redux/Training/dispatch/execute/dispatchFinishTraining',
 }));
 jest.mock('../../../app/redux/Training/dispatch/general/dispatchDeleteTraining', () => ({
   dispatchDeleteTraining: () => mockDeleteTraining,
+}));
+jest.mock('../../../app/redux/Training/dispatch/plan/dispatchClearPlannedTraining', () => ({
+  dispatchClearPlannedTraining: () => mockClearPlannedTraining,
 }));
 jest.mock('../../../app/redux/Training/dispatch/general/dispatchReplaceExerciseInTraining', () => ({
   dispatchReplaceExerciseInTraining: () => jest.fn(),
@@ -738,7 +743,42 @@ describe('TrainingsPlanNode — GH-467 sub-tab survives a swipe to another micro
   it('starting the training still jumps to Train even with a different carried-over tab', () => {
     expect(resolveSubTab(undefined, TrainingsState.STARTED)).toBe('train');
     expect(resolveSubTab('analysis', TrainingsState.PLANNED)).toBe('analysis');
-    expect(resolveSubTab('nope' as any, TrainingsState.FINISHED)).toBe('analysis');
+  });
+
+  it('falls back to the state default when nothing is carried over', () => {
+    expect(resolveSubTab(undefined, TrainingsState.FINISHED)).toBe('analysis');
+    expect(resolveSubTab(undefined, undefined)).toBe('plan');
+  });
+
+  // Wires the carried-over tab the way TrainingsPlanTab does, so a default reported by the pane comes back as stickySubTab.
+  const ScreenHarness = ({initialSticky, overflowVisible}: {initialSticky?: SubTab; overflowVisible: boolean}) => {
+    const [sticky, setSticky] = React.useState<SubTab | undefined>(initialSticky);
+    return <TrainingsPlanNode {...defaultProps} overflowVisible={overflowVisible} stickySubTab={sticky} onSubTabChange={setSticky} />;
+  };
+
+  const deleteViaOverflow = async (initialSticky: SubTab | undefined) => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
+    const utils = render(<ScreenHarness initialSticky={initialSticky} overflowVisible={true} />);
+    expect(utils.getByTestId('analysis-tab')).toBeTruthy();
+    fireEvent.press(utils.getByTestId('overflow-discard'));
+    await waitFor(() => expect(utils.getByTestId('training-delete-confirm')).toBeTruthy());
+    fireEvent.press(utils.getByTestId('training-delete-confirm'));
+    expect(mockDeleteTraining).toHaveBeenCalledTimes(1);
+    useTrainingInTrainingsPlan.mockReturnValue(undefined);
+    utils.rerender(<ScreenHarness initialSticky={initialSticky} overflowVisible={false} />);
+    return utils;
+  };
+
+  it('deleting a finished training opened on its default Analysis tab lands on Plan', async () => {
+    const {queryByTestId, getByTestId} = await deleteViaOverflow(undefined);
+    expect(queryByTestId('analysis-tab')).toBeNull();
+    expect(getByTestId('plan-workout')).toBeTruthy();
+  });
+
+  it('deleting a training lands on Plan even when Analysis was carried over from another micro', async () => {
+    const {queryByTestId, getByTestId} = await deleteViaOverflow('analysis');
+    expect(queryByTestId('analysis-tab')).toBeNull();
+    expect(getByTestId('plan-workout')).toBeTruthy();
   });
 
   it('shows a skeleton in the layout of the carried-over tab while the neighbour is a placeholder', () => {
@@ -748,3 +788,71 @@ describe('TrainingsPlanNode — GH-467 sub-tab survives a swipe to another micro
     expect(queryByTestId('micro-pane-skeleton-plan')).toBeNull();
   });
 });
+
+// ── GH-442 ───────────────────────────────────────────────────────────────────
+
+describe('TrainingsPlanNode — GH-442 Clear planned training', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  // Training 10 sits in slot 1,1; the plan's highest training id decides which one is the latest.
+  const planWithLatest = (latestId: number) => ({...PLAN, trainings: {'0,1': 9, '1,1': 10, '2,1': latestId}}) as any;
+  const plannedWithSets = () => ({...mkTraining(TrainingsState.PLANNED), plannedWorkouts: {1: 201, 2: 202}});
+
+  it('offers the option for the most recently planned training and asks for confirmation first', async () => {
+    useTrainingInTrainingsPlan.mockReturnValue(plannedWithSets());
+    const {getByTestId, getByText, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} trainingsPlan={planWithLatest(10)} overflowVisible={true} />);
+
+    expect(queryByTestId('training-clear-plan-dialog')).toBeNull();
+    fireEvent.press(getByTestId('overflow-clear-plan'));
+    await waitFor(() => expect(getByText('This removes all planned exercises and sets from this training. The training itself stays, so you can plan it again from scratch.')).toBeTruthy());
+    expect(mockClearPlannedTraining).not.toHaveBeenCalled();
+    expect(mockDeleteTraining).not.toHaveBeenCalled();
+  });
+
+  it('cancelling the confirmation changes nothing', async () => {
+    useTrainingInTrainingsPlan.mockReturnValue(plannedWithSets());
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} trainingsPlan={planWithLatest(10)} overflowVisible={true} />);
+
+    fireEvent.press(getByTestId('overflow-clear-plan'));
+    await waitFor(() => expect(getByTestId('training-clear-plan-cancel')).toBeTruthy());
+    fireEvent.press(getByTestId('training-clear-plan-cancel'));
+
+    expect(queryByTestId('training-clear-plan-cancel')).toBeNull();
+    expect(mockClearPlannedTraining).not.toHaveBeenCalled();
+    expect(mockDeleteTraining).not.toHaveBeenCalled();
+    expect(getByTestId('plan-workout')).toBeTruthy();
+  });
+
+  it('confirming clears exactly this training and its planned workouts', async () => {
+    useTrainingInTrainingsPlan.mockReturnValue(plannedWithSets());
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} trainingsPlan={planWithLatest(10)} overflowVisible={true} />);
+
+    fireEvent.press(getByTestId('overflow-clear-plan'));
+    await waitFor(() => expect(getByTestId('training-clear-plan-confirm')).toBeTruthy());
+    fireEvent.press(getByTestId('training-clear-plan-confirm'));
+
+    expect(mockClearPlannedTraining).toHaveBeenCalledTimes(1);
+    expect(mockClearPlannedTraining).toHaveBeenCalledWith({trainingsId: 10, workoutIds: [201, 202]});
+    expect(mockDeleteTraining).not.toHaveBeenCalled();
+  });
+
+  it('is not offered for an older planned training', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(plannedWithSets());
+    const {queryByTestId, getByTestId} = render(<TrainingsPlanNode {...defaultProps} trainingsPlan={planWithLatest(11)} overflowVisible={true} />);
+    expect(getByTestId('overflow-edit-plan')).toBeTruthy();
+    expect(queryByTestId('overflow-clear-plan')).toBeNull();
+  });
+
+  it('is not offered once the latest training is started or finished', () => {
+    for (const state of [TrainingsState.STARTED, TrainingsState.FINISHED]) {
+      useTrainingInTrainingsPlan.mockReturnValue({...plannedWithSets(), state});
+      const {queryByTestId, getByTestId, unmount} = render(
+        <TrainingsPlanNode {...defaultProps} trainingsPlan={planWithLatest(10)} requestedSubTab="plan" overflowVisible={true} />,
+      );
+      expect(getByTestId('overflow-discard')).toBeTruthy();
+      expect(queryByTestId('overflow-clear-plan')).toBeNull();
+      unmount();
+    }
+  });
+});
+

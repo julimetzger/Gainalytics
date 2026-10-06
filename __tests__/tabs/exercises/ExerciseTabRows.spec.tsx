@@ -4,6 +4,7 @@ import ExerciseTab from '../../../app/tabs/exercises/ExerciseTab';
 import {Record} from '../../../app/models/entities/Exercise';
 import {useAlleExercises} from '../../../app/redux/Exercises/use/useAllExercises';
 import {useExerciseWorkoutSummary} from '../../../app/redux/Workout/use/useExerciseWorkoutSummary';
+import {useOneRmSessionHistory} from '../../../app/redux/Workout/use/useOneRmSessionHistory';
 
 jest.mock('../../../app/redux/Exercises/use/useAllExercises', () => ({
   useAlleExercises: jest.fn(),
@@ -11,7 +12,14 @@ jest.mock('../../../app/redux/Exercises/use/useAllExercises', () => ({
 jest.mock('../../../app/redux/Workout/use/useExerciseWorkoutSummary', () => ({
   useExerciseWorkoutSummary: jest.fn(),
 }));
-jest.mock('../../../app/components/exercise/show/Sparkline', () => () => null);
+jest.mock('../../../app/redux/Workout/use/useOneRmSessionHistory', () => ({
+  useOneRmSessionHistory: jest.fn(() => []),
+}));
+const mockSparklineValues: number[][] = [];
+jest.mock('../../../app/components/exercise/show/Sparkline', () => ({values}: {values: number[]}) => {
+  mockSparklineValues.push(values);
+  return null;
+});
 
 jest.mock('react-native-paper', () => {
   const React = require('react');
@@ -42,6 +50,7 @@ jest.mock('react-native-paper', () => {
 
 const mockedAll = jest.mocked(useAlleExercises);
 const mockedSummary = jest.mocked(useExerciseWorkoutSummary);
+const mockedSessionHistory = jest.mocked(useOneRmSessionHistory);
 
 describe('ExerciseTab rows + focus carousel', () => {
   beforeEach(() => {
@@ -96,5 +105,32 @@ describe('ExerciseTab rows + focus carousel', () => {
     ]);
     const {queryByTestId} = render(<ExerciseTab navigation={navigation} route={{} as any} />);
     expect(queryByTestId('focus-card-delta-7')).toBeNull();
+  });
+
+  // GH-477: the sparklines plot the e1RM of every session, not only the record
+  // list — a weaker session after a record must show up as a drop.
+  it('feeds the per-session e1RM history (not the records) into row and focus-card sparklines', () => {
+    mockSparklineValues.length = 0;
+    mockedSessionHistory.mockImplementation((exerciseId) => (exerciseId === 6 ? [100, 120, 90] : []));
+    mockedAll.mockReturnValue([
+      {
+        id: 6,
+        name: 'Bench',
+        isFocus: true,
+        records: {
+          [Record.ONE_RM]: [
+            {value: 100, workoutId: 1},
+            {value: 120, workoutId: 2},
+          ],
+        },
+      },
+    ]);
+    render(<ExerciseTab navigation={navigation} route={{} as any} />);
+    expect(mockedSessionHistory).toHaveBeenCalledWith(6);
+    // one focus card + one list row
+    expect(mockSparklineValues).toEqual([
+      [100, 120, 90],
+      [100, 120, 90],
+    ]);
   });
 });

@@ -50,6 +50,15 @@ describe('filterVideoAnalysesBySearchQuery', () => {
       const getSetRir = (_w: number, s: number): number | null => (s === 0 ? 0 : 1);
       expect(filterVideoAnalysesBySearchQuery([rir0, rir1], '0', () => undefined, getSetRir)).toEqual([rir0]);
     });
+
+    it('matches a fractional RIR typed with point or comma (GH-466)', () => {
+      const rir15 = makeAnalysis({id: 1, workoutId: 10, setIndex: 0});
+      const rir2 = makeAnalysis({id: 2, workoutId: 10, setIndex: 1});
+      const getSetRir = (_w: number, s: number): number | null => (s === 0 ? 1.5 : 2);
+      expect(filterVideoAnalysesBySearchQuery([rir15, rir2], '1.5', () => undefined, getSetRir)).toEqual([rir15]);
+      expect(filterVideoAnalysesBySearchQuery([rir15, rir2], '1,5', () => undefined, getSetRir)).toEqual([rir15]);
+      expect(filterVideoAnalysesBySearchQuery([rir15, rir2], '1', () => undefined, getSetRir)).toEqual([]);
+    });
   });
 
   describe('string token — exercise name filtering', () => {

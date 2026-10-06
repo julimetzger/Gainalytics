@@ -175,6 +175,63 @@ describe('AddWorkoutSet', () => {
     expect(onSubmit).toHaveBeenCalledWith(expected);
   });
 
+  // GH-466: RIR may be fractional, typed with point or comma.
+  it.each([
+    ['1.5', 1.5],
+    ['1,5', 1.5],
+    ['0.25', 0.25],
+  ])('logs a fractional RIR %s as %s without rounding', (typed, stored) => {
+    const onSubmit = jest.fn();
+
+    const {getByLabelText, getByTestId} = render(<AddWorkoutSet onSubmit={onSubmit} />);
+
+    fireEvent.changeText(getByLabelText('Reps'), '8');
+    fireEvent.changeText(getByLabelText('RIR'), typed);
+    fireEvent.changeText(getByLabelText('Weight'), '100');
+    fireEvent.press(getByTestId('button-Add'));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({rir: stored}));
+    expect(Toast.show).not.toHaveBeenCalled();
+  });
+
+  it('corrects a logged set to a fractional RIR on blur', () => {
+    const onSubmit = jest.fn();
+    const workoutSet: WorkoutSet = {index: 1, date: new Date('2024-01-01T10:00:00.000Z'), reps: 5, rir: 1, weight: 120};
+
+    const {getByLabelText} = render(<AddWorkoutSet onSubmit={onSubmit} workoutSet={workoutSet} />);
+
+    const rirInput = getByLabelText('RIR');
+    fireEvent.changeText(rirInput, '2,5');
+    fireEvent(rirInput, 'blur');
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({index: 1, rir: 2.5}));
+  });
+
+  it('shows a persisted fractional RIR as typed', () => {
+    const workoutSet: WorkoutSet = {index: 1, date: new Date('2024-01-01T10:00:00.000Z'), reps: 5, rir: 1.5, weight: 120};
+
+    const {getByLabelText} = render(<AddWorkoutSet onSubmit={jest.fn()} workoutSet={workoutSet} />);
+
+    expect(getByLabelText('RIR').props.value).toBe('1.5');
+  });
+
+  it.each(['10.5', '-1', 'abc', '1.5x'])('rejects RIR %s with a message that allows decimals', (typed) => {
+    const onSubmit = jest.fn();
+
+    const {getByLabelText, getByTestId} = render(<AddWorkoutSet onSubmit={onSubmit} />);
+
+    fireEvent.changeText(getByLabelText('Reps'), '8');
+    fireEvent.changeText(getByLabelText('RIR'), typed);
+    fireEvent.changeText(getByLabelText('Weight'), '100');
+    fireEvent.press(getByTestId('button-Add'));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(getByLabelText('RIR').props.error).toBe(true);
+    expect(Toast.show).toHaveBeenCalledWith(
+      expect.objectContaining({text1: 'RIR must be 0 to 10', text2: 'Decimals like 1.5 are allowed.'}),
+    );
+  });
+
   it('calculates 1RM suggested weight and toggles 1RM button state', () => {
     const onSubmit = jest.fn();
 

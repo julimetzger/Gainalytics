@@ -151,4 +151,62 @@ describe('TrainingOverflowMenu', () => {
     expect(queryByTestId('overflow-start')).toBeNull();
     expect(queryByText('Start Training')).toBeNull();
   });
+
+  // GH-442
+  describe('Clear planned training', () => {
+    it('is offered in the plan-mode menu when the training can be cleared', () => {
+      const {getByTestId, getByText} = render(
+        <TrainingOverflowMenu {...BASE} activeSubTab="plan" trainingState={TrainingsState.PLANNED} canClearPlan onClearPlan={jest.fn()} />,
+      );
+      expect(getByTestId('overflow-clear-plan')).toBeTruthy();
+      expect(getByText('Clear planned training')).toBeTruthy();
+      // Edit plan and Delete this training stay unchanged next to it.
+      expect(getByTestId('overflow-edit-plan')).toBeTruthy();
+      expect(getByText('Delete this training')).toBeTruthy();
+    });
+
+    it('is not offered for an older (not most recently planned) training', () => {
+      const {queryByTestId} = render(
+        <TrainingOverflowMenu {...BASE} activeSubTab="plan" trainingState={TrainingsState.PLANNED} canClearPlan={false} onClearPlan={jest.fn()} />,
+      );
+      expect(queryByTestId('overflow-clear-plan')).toBeNull();
+      expect(queryByTestId('overflow-edit-plan')).toBeTruthy();
+    });
+
+    it('is not offered for started or finished trainings, nor outside the Plan sub-tab', () => {
+      for (const [subTab, state] of [
+        ['plan', TrainingsState.STARTED],
+        ['plan', TrainingsState.FINISHED],
+        ['train', TrainingsState.STARTED],
+        ['train', TrainingsState.PLANNED],
+      ] as const) {
+        const {queryByTestId, unmount} = render(
+          <TrainingOverflowMenu {...BASE} activeSubTab={subTab} trainingState={state} canClearPlan onClearPlan={jest.fn()} />,
+        );
+        expect(queryByTestId('overflow-clear-plan')).toBeNull();
+        unmount();
+      }
+    });
+
+    it('closes the menu and asks the parent to clear when pressed', () => {
+      const onClearPlan = jest.fn();
+      const onDismiss = jest.fn();
+      const onDeleteTraining = jest.fn();
+      const {getByTestId} = render(
+        <TrainingOverflowMenu
+          {...BASE}
+          activeSubTab="plan"
+          trainingState={TrainingsState.PLANNED}
+          canClearPlan
+          onClearPlan={onClearPlan}
+          onDismiss={onDismiss}
+          onDeleteTraining={onDeleteTraining}
+        />,
+      );
+      fireEvent.press(getByTestId('overflow-clear-plan'));
+      expect(onDismiss).toHaveBeenCalled();
+      expect(onClearPlan).toHaveBeenCalledTimes(1);
+      expect(onDeleteTraining).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -3030,11 +3030,110 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 **Problem (GH-458 round 3):** after a reboot to clear ANR-style Maestro failures the device stayed `offline` for 20+ min. `powershell.exe Stop-Process` on `emulator.exe` + `qemu-system-x86_64.exe`, then `Start-Process emulator.exe -avd Pixel_7 -port 5556 -no-snapshot-load -no-window -no-audio` brought it back within ~2 min with app data intact; `adb reverse tcp:8081 tcp:8082` has to be redone. Also: Metro under `CI=true` (needed when inotify is exhausted, `ENOSPC`) does not watch files — restart it after every JS edit, killing by the PID from `ss -ltnp`, never `pkill -f` (it matches your own shell).
 **Apply when:** `adb devices` shows the assigned emulator `offline`, or Metro dies with ENOSPC.
 
-### 454. A navigation param like `subTab` keeps being handed to whichever swiper pane becomes current — a swipe re-applies it over the user's tab
+### 454. A STALE running training on the device makes the FIRST Maestro command time out — it looks exactly like an adb/driver crash
+**Problem (GH-477):** three suite runs died at `Run flow when "Dismiss" is visible` with `DEADLINE_EXCEEDED … 119.99s` / `Timeout while fetching view hierarchy`. At about the same time the shared Windows adb server wedged, so this looked like infra. The real cause was a training a previous worker had left STARTED on emulator-5556. Its `117:01:28` timer ticks on the Training HOME dashboard card, so the screen Maestro lands on after `launchApp` never goes idle (`uiautomator dump` → `ERROR: could not get idle state`, file not rewritten). #376 only says this for the Train tab.
+**Working solution:** `adb shell pm clear com.powerliftingworkoutplanner` before the baseline import. The dump then answered in 3 s and the import + flow passed first try (2m31s).
+**Apply when:** Maestro times out on its very first visibility check after launch, and a screencap shows "Training running" on the dashboard.
+
+### 455. Make a chart assertable by putting its plotted values into the SVG wrapper's `accessibilityLabel`
+**Observation (GH-477):** a `react-native-svg` sparkline has no text, so Maestro can only prove that it exists. Wrapping the `<Svg>` in `<View testID accessible accessibilityLabel="Trend <values, comma-joined>">` lets `assertVisible: {id: 'exercise-row-sparkline-2', text: 'Trend 210, 205, …, 204'}` match the exact series. Combined id+text works here because the label sits on the same view (contrast #419). Compute the expected series from the fixture with the same formula the app uses. Check that no value rounds at .5 (Python `round` ≠ JS `toFixed`).
+**Apply when:** a ticket changes what a chart or sparkline plots.
+
+### 456. The orchestrator's "host Metro" port can be a SIBLING worktree's packager — prove the bundle's source path before any flow
+**Problem (GH-462):** the prompt said "host Metro on 8082 for this worktree", `/status` answered `running`, logcat showed `isMetroRunning(): Async result = true` — and every flow still saw the OLD Settings UI. The run dir's own Metro log ended in a watcher crash; port 8082 belonged to `feature-GH-468`'s `react-native start` (`readlink /proc/<pid>/cwd`).
+**Working solution:** before the first device check, `curl <metro>/index.bundle?platform=android&dev=true | grep -o '"/home[^"]*<AnyChangedFile>.tsx"'` must show YOUR worktree path. If not, start your own packager on a free port with a run-dir config that blocklists `android/(build|.cxx|.gradle)` (#416), `adb reverse tcp:8081 tcp:<port>`, and pass `--metro-port <port>` to `run-maestro-from-wsl.sh` — otherwise the runner resets the reverse to `E2E_METRO_PORT`.
+**Apply when:** the app runs from Metro but doesn't show your change.
+
+### 457. An emulator reboot can put a foreign phone FIRST in the adb list — and a Maestro import then overwrites ITS data
+**Problem (GH-462):** after `adb reboot` to clear a SystemUI ANR (#423), `R5CN30HWZFN` reappeared on the shared server listed before `emulator-5558`. The very next `run-maestro-from-wsl.sh --device emulator-5558` (no proxy) ran the whole `gh443_import_baseline` on the PHONE — the failure screenshot had Samsung nav buttons and version 0.178. That is a destructive import into another session's device, not just a wrong screenshot.
+**Working solution:** start your own filter proxy (`.codex-orchestrator/proxies/adb_filter_proxy.py --serial $ANDROID_SERIAL --listen 127.0.0.<n>:5037`) BEFORE the first Maestro call, every round, and pass `--host/--adb-host 127.0.0.<n>`. Check `grep -oh "Width: [0-9]*" <debug>/maestro.log` after every run (#378/#441 explain why `--device` alone isn't enough).
+**Apply when:** always, but especially right after a reboot or when `adb devices` lists more than your device.
+
+### 458. `ToggleButton.Row` can be restyled into an M3 pill — child `style` is applied after the row's first/middle/last styles
+**Observation (GH-462):** Paper's row only squares the inner corners (`first`/`middle`/`last`) and then appends `child.props.style`, so per-button `{width, height, borderWidth: 1, backgroundColor: selected ? secondaryContainer : 'transparent'}` plus `borderTopLeft/BottomLeftRadius: h/2` on the first and the right-side radii on the last button give the segmented pill while keeping `onLongPress` (#371). `icon` also accepts a render function, e.g. a palette swatch View. In jest the testID sits on the ripple, not on the styled surface: walk `node.parent` until `StyleSheet.flatten(style).backgroundColor` is defined.
+**Apply when:** a design calls for a segmented control but you need per-item long press or custom icon content.
+
+### 459. In the sharingan `MultiselectDropdown`, Maestro `hideKeyboard` CLOSES the dropdown — guard picks with `{id: 'chip', text: …}` instead
+**Problem (GH-468):** to dodge #443's "first row tap eaten by the keyboard", the flow ran `hideKeyboard` after `inputText`. Its BACK closed the whole dropdown modal, and the following point tap hit the chart behind it. **Working solution:** `tapOn: {id: 'search-bar'}`, `inputText`, one point tap on the first row (`'50%, 26%'` on 1080×2400), then `runFlow: {when: {notVisible: {id: 'chip', text: '<pick>'}}, commands: [same tap]}`. Unlike Paper's Chip (#419), the dropdown's selected chip carries its label as content-desc on the `chip` node, so the combined selector matches. Close with `back` only `when: visible: {id: 'search-bar'}`.
+**Apply when:** selecting exercises/muscles/accumulation in the Analyse picker (or any `TrainingElementPicker`).
+
+### 460. `scrollUntilVisible` below full-width charts goes nowhere — use a `repeat` of long `swipe`s with `duration: 600`
+**Problem (GH-468):** on the Analysis screen (stacked `LineChart`s spanning the full width) `scrollUntilVisible` to the workout list below timed out, although the text was only ~1.5 screens down. The chart takes the short scroll gestures. **Working solution:** `repeat: {while: {notVisible: '<target>'}, times: 8, commands: [swipe: {start: '50%, 80%', end: '50%, 20%', duration: 600}]}`. Also: `maestro --driver-host-port N` is a GLOBAL option and must come BEFORE `test`, otherwise picocli just prints the usage and exits 2.
+**Apply when:** scrolling any screen whose middle is a chart.
+
+### 461. `run-maestro-from-wsl.sh` dies at `adb push … /sdcard/Download/baseline.gains: Permission denied` — when the data is already on the device, call `maestro` directly
+**Problem (GH-468):** the runner pushes the fixture in every non-build mode and aborts on the push, so no flow ever ran (log shows only the adb error). **Working solution:** if `uiautomator dump` already shows the baseline (e.g. "Push pull"), run `HOME=$E2E_MAESTRO_HOME maestro --host <proxy> --device $ANDROID_SERIAL --driver-host-port <p> test <flow> --format junit --output … --test-output-dir <run_dir>/screenshots/raw`. A SystemUI ANR that survived an `adb reboot` went away for good with *Close app* (not *Wait*) once the post-boot load settled.
+**Apply when:** the runner log is a single adb error line.
+
+### 462. Picker picks without point taps: `tapOn: {text: X, below: {id: 'search-bar'}}` + `eraseText` before every `inputText`
+**Problem (GH-468 round 3):** the `'50%, 26%'` point tap from #459 assumes the chip row is one line; with 3+ chips it wraps and the first row moves. On a second run the sharingan search kept the previous term, so `inputText` produced `VolumeVolume` and no row matched.
+**Working solution:** `tapOn: {id: 'search-bar'}`, `eraseText: 30`, `inputText: X`, then `tapOn: {text: X, below: {id: 'search-bar'}}` (skips the search field and the chip with the same text), with #459's `runFlow when notVisible {id: chip, text: X}` re-tap. Deselect = same block with `when: visible`. Close with ONE conditional `back`; a second manual BACK leaves the screen and loses its state (range!).
+**Apply when:** any `TrainingElementPicker` flow, especially on a device whose resolution differs from the emulator.
+
+### 463. Real-device evidence without the fixture: read the store read-only from MMKV to pick a value you can recompute
+**Observation (GH-468 round 3, R5CN30HWZFN):** no clearState/import allowed, but the reviewer wanted a "recompute this value" check. `adb exec-out run-as com.powerliftingworkoutplanner cat files/mmkv/mmkv.default > copy.bin` (read-only). In it, key `persist:root` is followed by varint length → varint length → JSON whose slices (`exercises`, `workouts`, …) are JSON strings again. Parse it in Python, find a day with simple numbers (e.g. 80 %/50 % shares), assert that day in Maestro and recompute it in summary.md. Delete the copy afterwards (user data).
+Also: R5CN30HWZFN has `wm size` override 720x1600, so `adb input tap` uses 720-wide coordinates, while screencap is 1440 wide.
+**Apply when:** evidence on the user's real device must prove a computed value.
+
+### 464. MPAndroidChart: a scroll swipe across a chart re-selects a point, and a tap can hit the trend dataset
+**Problem (GH-468 r4):** after `tapOn: point` on a weekly Volume point, the flow's `swipe 50%,80% → 50%,20%` started on the Frequency chart below it. The drag highlighted another week (`onSelect`), so the list showed 12/01–18/01 instead of 23/02. Separately, a tap near the dashed trend line highlighted the *trend* point, which has no `id`, so no list appeared (the marker showed the trend value 43451 rather than the data value 45324.50).
+**Working solution:** start scroll swipes below the charts (`50%,92%`), and set `highlightEnabled: false` on helper datasets (trend). To diagnose, compare the marker value with the circle's y and check the date headers via a uiautomator dump.
+**Apply when:** a Maestro flow taps chart points and then scrolls to read the details list.
+
+### 465. Metro with a blockList config can keep serving a stale module after an edit — curl the bundle before blaming the code
+**Problem (GH-468 r4):** Metro (run-dir config with `blockList` and `watcher.watchman.deferStates: []`) logged a new `BUNDLE` after an edit, but the served `index.bundle` still contained the old dataset config. On the device it looked as if `highlightEnabled: false` "did nothing".
+**Working solution:** `curl -s "http://127.0.0.1:$PORT/index.bundle?platform=android&dev=true&minify=false" | grep -n '<new code>'`. If the new code is missing, restart Metro with `--reset-cache`, then force-stop and relaunch the app.
+**Apply when:** a JS edit has no visible effect on the device although Metro logged a rebuild.
+
+### 466. Train rows are prefilled from the plan — an assertion on `add-workout-set-rir-input-1` can pass on the PLANNED value
+**Problem (GH-466):** the Train tab renders planned sets as unconfirmed rows with the planned numbers, and a Plan flow that ran earlier had set set 1's RIR to 1.5. So `extendedWaitUntil: {id: add-workout-set-rir-input-1, text: '1.5'}` right after tapping Add passed at once. It was the planned prefill, not the logged set (the screenshot still showed the typed input row and row 1 = planned 13 reps).
+**Working solution:** log values that differ from the plan in a field you wait on first (reps `8` vs planned `13`), then assert the changed field (RIR) and `add-workout-set-logged-1`. Use a different RIR in Train (0,5) than the plan flow left behind (1.5).
+**Apply when:** a Train-tab flow asserts a logged set's values on a training that has planned sets.
+
+### 467. `react-native-toast-message` cuts text2 to one line, and Maestro may not see the toast at all — keep lines short, assert the non-saved state
+**Problem (GH-466):** a validation toast with a long `text2` showed on the device as "…(decimals like 1.5 are allo…". `extendedWaitUntil: visible: '.*decimals like 1\.5 are allowed.*'` never matched, although a screencap 0.8 s after the tap showed the toast.
+**Working solution:** split the message into a short `text1` (rule) and a short `text2` (hint) that each fit one line. In Maestro, `takeScreenshot` right after the tap for evidence, and assert the effect instead: the set was not logged (neighbour row unchanged, input keeps the invalid value).
+**Apply when:** you add a Toast message or want to prove one in Maestro.
+
+### 468. `run-maestro-from-wsl.sh` re-runs the WHOLE suite after a failure, and fails at once if the `--report` directory is missing
+**Observation (GH-466):** after a failed run the script retries the full suite (baseline import included, +8 min on a real device). Killing it mid-import left the "Import full data?" dialog open on the device. Also, `rm -rf` of the report dir before a run made the script die at `cd` with `EXIT=1` and no Maestro output.
+**Apply when:** iterating on a flow. Once "Flow Failed" appears, kill the retry by PID (`ps -eo pid,args | grep 'maestro.*<suite>'`), then check the device for leftover dialogs. Always `mkdir -p` the report dir before starting.
+
+### 469. The Analyse drawer's graph entry is now "Analysis" — flows that `tapOn: 'Analyse'` time out on the drawer
+**Problem (GH-452):** `extendedWaitUntil: visible: 'Analyse'` after opening `analyse-drawer-toggle` failed with the drawer plainly open. GH-450's German→English sweep renamed the drawer item (and tab label) to "Analysis". Bare strings are full-text regexes (#442), so 'Analyse' no longer matches anything in the drawer. Older flows such as `gh458_chart_empty_states.yaml` still use the old text.
+**Working solution:** `tapOn: 'Analysis'`. Screenshot the open drawer before you trust a label taken from an older flow.
+**Apply when:** reusing Analyse-drawer navigation from an existing flow.
+
+### 470. A Maestro sub-flow's header `env:` default OVERRIDES what the caller passes — the wrong row is tapped silently
+**Problem (GH-439):** `gh439_open_playback_overlay.yaml` had `env: ANALYSIS_ID: '1'` in its header as a "default". Every run — with `-e ANALYSIS_ID=2` and with `runFlow: {file, env: {ANALYSIS_ID: '2'}}` — tapped `video-analysis-row-1`; the commands JSON showed `defineVariablesCommand {'ANALYSIS_ID': '1'}` executed AFTER the caller's value. The flow failed two steps later on an unrelated selector, which looked like a hierarchy/scroll problem.
+**Working solution:** no `env:` defaults in flows that are meant to be parametrised; pass the value explicitly. Check `defineVariablesCommand` entries in `~/.maestro/tests/<run>/commands-*.json` when a parametrised selector misbehaves.
+**Apply when:** writing a reusable sub-flow that takes a variable.
+
+### 471. On a playing video every Maestro `tapOn` waits 25–30 s for the UI to settle — add `waitToSettleTimeoutMs`
+**Problem (GH-439):** the play tap took 31.6 s and the pause tap 24 s (per-command `duration` in `commands-*.json`), so an 80 s clip was over before the pause/rewind assertions ran — they then passed against the END state and proved nothing. Each `copyTextFrom` during playback also costs ~2 s, so waiting for a specific short state (`extendedWaitUntil: 'Rep 2'`, ~3.5 s window) is skipped entirely.
+**Working solution:** `tapOn: {id: ..., waitToSettleTimeoutMs: 500}` on every tap while media plays; sample at intervals (`waitForAnimationToEnd: {timeout: 4000}` + `copyTextFrom` + `evalScript: "${output.x = maestro.copiedText}"`) and assert "changed since the previous sample" instead of waiting for an exact value. Always look at the screenshots — a green run can be green for the wrong state.
+**Apply when:** any Maestro flow that interacts with live/animating UI (video, timers, charts).
+
+### 472. `adb.exe -a start-server` can still come up loopback-only — `setsid nohup adb.exe -a -P 5037 nodaemon server` in the SAME command as the kill does work (refines #406/#412)
+**Problem (GH-439):** after the #405 wedge, `taskkill` + `./adb.exe -a -P 5037 start-server` produced a server on `127.0.0.1:5037` three times; its command line was `adb -L tcp:5037 fork-server server` — `start-server` dropped `-a`. `-L tcp:0.0.0.0:5037 start-server` fails (`0.0.0.0` is not a valid client address).
+**Working solution:** in one Bash call: find the listener PID (`netstat -ano | grep ':5037 ' | grep ABH`), `taskkill /F /PID`, then `(env -u ADB_SERVER_SOCKET -u ANDROID_SERIAL setsid nohup ./adb.exe -a -P 5037 nodaemon server >/tmp/adbserver.out 2>&1 </dev/null & disown)` and re-check that netstat shows `0.0.0.0:5037`. It survived all later tool calls (contrary to #412).
+**Apply when:** netstat shows the restarted adb server on `127.0.0.1:5037` and WSL gets `Connection refused` via the gateway.
+
+### 473. `run-maestro-from-wsl.sh --host <gateway> --device <serial>` can run the whole flow on a SIBLING's device — check `Got device info` in `maestro.log`
+**Problem (GH-442):** with the documented `--host 172.18.240.1 --device emulator-5556`, `maestro.log` said "Selected device emulator-5556", but the baseline import and two flow attempts ran on R5CN30HWZFN, which another worker was using. The "planned training" screenshot was from that phone; the only reliable tell was `DeviceInfo(widthPixels=720, heightPixels=1600)` (the emulator is 1080x2400). #411/#441 describe the cause; this shows that the wrapper's normal command line is affected too.
+**Working solution:** before the first flow, start your own `adb-filter-proxy.py` (copy one from a sibling run dir, set `LISTEN=("127.0.0.<free>",5037)` and `KEEP=b"<your serial>"`) and pass **`--host 127.0.0.<free>`** to the wrapper, which then routes its own adb pushes through the proxy too. After every run, `grep "Got device info" maestro.log` and compare against `adb -s $SERIAL shell wm size`.
+**Apply when:** always, whenever more than one device is attached. A flow failing on an element that should be there can mean the flow ran on another device.
+
+### 474. When Metro cannot watch even the project root (ENOSPC), serve a prebuilt dev bundle instead
+**Problem (GH-442):** host Metro died with `ENOSPC … watch '<worktree>'`. A run-dir config with `blockList` plus `watch: false` crashed the same way, because the RN CLI watches regardless. The native build was not a way out either: reanimated's codegen `.cpp` files were missing in the shared `node_modules`.
+**Working solution:** `npx react-native bundle --platform android --dev true --entry-file index.tsx --bundle-output <run_dir>/bundle/index.bundle --config <run_dir>/metro.worktree.config.cjs` (the entry is `index.tsx`, NOT `index.js`). Serve it with a ~20-line python `http.server` that answers `/status` → `packager-status:running` and any `*.bundle` path with the file, on the host Metro port. Then set `debug_http_host=localhost:8081` (#432) and `adb reverse`. Logcat `isMetroRunning(): Async result = true` plus a grep for a new testID in the bundle proves the app is running the branch code. Rebuild the bundle after every JS edit. `CI=true npm start` (#453) is the cheaper first thing to try.
+**Apply when:** Metro will not stay up and the change is JS-only.
+
+### 475. A navigation param like `subTab` keeps being handed to whichever swiper pane becomes current — a swipe re-applies it over the user's tab
 **Problem (GH-467):** `TrainingsPlanTab` passed `route.params.subTab` to the pane of the *current* micro. After a swipe the newly current pane saw an unconsumed request (`micro:training:subTab` key is per pane instance, and RangeSwiper reuses/renames panes), so the tab jumped back to the one the screen was opened with. The Maestro flow only caught it because the tab had been switched to Plan first; `assertNotVisible: analysis-tab` alone passed vacuously while Train was shown.
 **Working solution:** treat the param as a one-off for the opening micro — dismiss it (state keyed on the `route.params` object) on the first swipe. Carry the user's tab in screen state (`stickySubTab`) and hand it to panes.
 **Apply when:** any per-pane state must survive a swipe: check what else is injected from route params, and back every `assertNotVisible` with a positive assertion on what should be there.
 
-### 455. The installed app on a shared device can be a release build — Metro does nothing until `assembleDebug` is installed (same signature, `install -r` keeps data)
+### 476. The installed app on a shared device can be a release build — Metro does nothing until `assembleDebug` is installed (same signature, `install -r` keeps data)
 **Problem (GH-467):** `pm dump` showed no `DEBUGGABLE` flag; the JS bundle comes from the APK. A cold `assembleDebug` took 14 min here. `adb install -r app-debug.apk` over the release build worked without uninstalling, so the user's data stayed. The home screen then has no plan list ("Push pull" text is the hero card): open a plan by tapping `next-training-start-button`. Device screens are 720 px wide — scale screenshot coordinates accordingly. Metro started with `CI=true` does not watch files; restart it after every JS edit.
 **Apply when:** a real device is assigned and the installed APK predates the worktree.

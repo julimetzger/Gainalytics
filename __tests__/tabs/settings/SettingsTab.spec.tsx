@@ -93,6 +93,38 @@ jest.mock('../../../app/components/settings/ThemeModeSelector', () => {
   };
 });
 
+// GH-462: the palette presets, the custom colour row and the section wrapper
+// have their own specs against the real react-native-paper; here they are
+// stubbed like the mode selector above.
+jest.mock('../../../app/components/settings/ThemePaletteSelector', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+
+  return {__esModule: true, default: () => <View testID="settings-theme-palette-row" />};
+});
+
+jest.mock('../../../app/components/settings/CustomThemeColorRow', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+
+  return {__esModule: true, default: () => <View testID="settings-custom-theme-color-button" />};
+});
+
+jest.mock('../../../app/components/settings/SettingsSection', () => {
+  const React = require('react');
+  const {Text, View} = require('react-native');
+
+  return {
+    __esModule: true,
+    default: ({title, testID, children}: {title: string; testID: string; children: React.ReactNode}) => (
+      <View testID={testID}>
+        <Text testID={`${testID}-title`}>{title}</Text>
+        {children}
+      </View>
+    ),
+  };
+});
+
 jest.mock('../../../app/redux/settings/dispatch/dispatchSetPalette', () => ({
   dispatchSetPalette: jest.fn(() => mockSetPalette),
 }));
@@ -362,7 +394,7 @@ describe('SettingsTab', () => {
     jest.useRealTimers();
   });
 
-  it('dispatches switch toggles and palette changes', async () => {
+  it('dispatches switch toggles', async () => {
     const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
     const route = {params: {}};
 
@@ -378,85 +410,27 @@ describe('SettingsTab', () => {
     fireEvent.press(switches[2]);
     fireEvent.press(switches[3]);
 
-    fireEvent.press(getByTestId('radio-green'));
-
     expect(mockToggleDisable1RM).toHaveBeenCalledTimes(1);
     expect(Alert.alert).toHaveBeenCalledWith('Nope. This app is not using stupid measuring systems.');
     expect(mockToggleShowTimer).toHaveBeenCalledTimes(1);
     expect(mockToggleShowToasts).toHaveBeenCalledTimes(1);
-    expect(mockSetPalette).toHaveBeenCalledWith('green');
   });
 
-  it('shows the Theme row and the colour palette row as two distinct settings', () => {
+  it('groups the settings into titled sections, theme first', () => {
     const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
     const route = {params: {}};
 
-    const {getByTestId, getByText, queryByText} = render(<SettingsTab navigation={navigation} route={route} />);
+    const {getAllByTestId, getByTestId, queryByText} = render(<SettingsTab navigation={navigation} route={route} />);
 
-    // GH-404: "Theme" now names the light/dark/system row; the palette row was
-    // renamed so the two can be told apart, and the old switch is gone.
-    expect(getByTestId('settings-theme-mode-row')).toBeTruthy();
-    expect(getByText('Color Palette')).toBeTruthy();
+    const titles = getAllByTestId(/^settings-section-[a-z-]+-title$/).map((node) => node.props.children);
+    expect(titles).toEqual(['Theme', 'Theme Color', 'Custom Color', 'General', 'Timers & Notifications', 'AI Coach', 'Data']);
+
+    // GH-462: each theme control lives in its own section.
+    expect(getByTestId('settings-section-theme')).toContainElement(getByTestId('settings-theme-mode-row'));
+    expect(getByTestId('settings-section-theme-color')).toContainElement(getByTestId('settings-theme-palette-row'));
+    expect(getByTestId('settings-section-custom-color')).toContainElement(getByTestId('settings-custom-theme-color-button'));
+    expect(queryByText('Color Palette')).toBeNull();
     expect(queryByText('Enable Dark Mode')).toBeNull();
-  });
-
-  it('keeps the three built-in palettes one tap away', () => {
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
-
-    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
-
-    for (const palette of ['blue', 'green', 'purple']) {
-      fireEvent.press(getByTestId(`radio-${palette}`));
-      expect(mockSetPalette).toHaveBeenCalledWith(palette);
-    }
-  });
-
-  it('applies a custom colour picked from the wheel dialog', () => {
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
-
-    const {getByTestId, queryByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
-
-    // The button is labelled with the current palette, so it shows "Blue" here.
-    expect(queryByTestId('theme-color-hex-input')).toBeNull();
-    fireEvent.press(getByTestId('button-Blue'));
-
-    fireEvent.changeText(getByTestId('theme-color-hex-input'), '#E91E63');
-    fireEvent.press(getByTestId('button-Apply'));
-
-    expect(mockSetPalette).toHaveBeenCalledWith('#E91E63');
-  });
-
-  it('does not apply a palette when the hex field holds an invalid value', () => {
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
-
-    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
-    fireEvent.press(getByTestId('button-Blue'));
-
-    // Applying here would have silently confirmed the last valid colour instead
-    // of the one the field shows.
-    fireEvent.changeText(getByTestId('theme-color-hex-input'), '#00FF');
-    fireEvent.press(getByTestId('button-Apply'));
-
-    expect(mockSetPalette).not.toHaveBeenCalled();
-  });
-
-  it('labels the custom colour button with the applied hex', () => {
-    mockedUseSettings.mockReturnValue({
-      mode: 'light',
-      palette: '#e91e63',
-      toggles: {},
-      localNotification: {},
-    });
-
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
-
-    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
-
-    expect(getByTestId('button-#E91E63')).toBeTruthy();
   });
 
   it('imports data through the dialog and dispatches full import', async () => {
