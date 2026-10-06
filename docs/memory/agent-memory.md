@@ -3051,3 +3051,13 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 **Observation (GH-468 round 3, R5CN30HWZFN):** no clearState/import allowed, but the reviewer wanted a "recompute this value" check. `adb exec-out run-as com.powerliftingworkoutplanner cat files/mmkv/mmkv.default > copy.bin` (read-only). In it, key `persist:root` is followed by varint length → varint length → JSON whose slices (`exercises`, `workouts`, …) are JSON strings again. Parse it in Python, find a day with simple numbers (e.g. 80 %/50 % shares), assert that day in Maestro and recompute it in summary.md. Delete the copy afterwards (user data).
 Also: R5CN30HWZFN has `wm size` override 720x1600, so `adb input tap` uses 720-wide coordinates, while screencap is 1440 wide.
 **Apply when:** evidence on the user's real device must prove a computed value.
+
+### 459. MPAndroidChart: a scroll swipe across a chart re-selects a point, and a tap can hit the trend dataset
+**Problem (GH-468 r4):** after `tapOn: point` on a weekly Volume point, the flow's `swipe 50%,80% → 50%,20%` started on the Frequency chart below it. The drag highlighted another week (`onSelect`), so the list showed 12/01–18/01 instead of 23/02. Separately, a tap near the dashed trend line highlighted the *trend* point, which has no `id`, so no list appeared (the marker showed the trend value 43451 rather than the data value 45324.50).
+**Working solution:** start scroll swipes below the charts (`50%,92%`), and set `highlightEnabled: false` on helper datasets (trend). To diagnose, compare the marker value with the circle's y and check the date headers via a uiautomator dump.
+**Apply when:** a Maestro flow taps chart points and then scrolls to read the details list.
+
+### 460. Metro with a blockList config can keep serving a stale module after an edit — curl the bundle before blaming the code
+**Problem (GH-468 r4):** Metro (run-dir config with `blockList` and `watcher.watchman.deferStates: []`) logged a new `BUNDLE` after an edit, but the served `index.bundle` still contained the old dataset config. On the device it looked as if `highlightEnabled: false` "did nothing".
+**Working solution:** `curl -s "http://127.0.0.1:$PORT/index.bundle?platform=android&dev=true&minify=false" | grep -n '<new code>'`. If the new code is missing, restart Metro with `--reset-cache`, then force-stop and relaunch the app.
+**Apply when:** a JS edit has no visible effect on the device although Metro logged a rebuild.
