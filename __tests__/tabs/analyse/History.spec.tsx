@@ -79,9 +79,15 @@ jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () =>
   const {View} = require('react-native');
   return {
     __esModule: true,
-    default: ({exercise, setExercise, muscle, setMuscle}: any) => {
+    default: ({exercise, setExercise, muscle, setMuscle, setMetric, setAccumulation, dropdownLabel}: any) => {
       capturedSetMuscle = setMuscle;
-      return <View testID="training-element-picker" />;
+      return (
+        <View
+          testID="training-element-picker"
+          accessibilityLabel={dropdownLabel}
+          accessibilityHint={[setMetric && 'metric', setAccumulation && 'accumulation'].filter(Boolean).join(',')}
+        />
+      );
     },
   };
 });
@@ -236,6 +242,18 @@ describe('History tab', () => {
     mockUseWorkoutsByFilters.mockReturnValue([1, 2]);
     const {getByTestId} = render(<History />);
     expect(getByTestId('training-element-picker')).toBeTruthy();
+  });
+
+  // GH-452: the History picker only offers exercises and muscles — its label must
+  // say exactly that instead of inheriting the "Metrics, Accumulation Mode" default.
+  it('labels the picker with only the selectable options (exercises and muscles)', () => {
+    mockUseWorkoutsByFilters.mockReturnValue([1, 2]);
+    const {getByTestId} = render(<History />);
+    const picker = getByTestId('training-element-picker');
+    expect(picker.props.accessibilityLabel).toBe('Select Exercises, Muscles');
+    expect(picker.props.accessibilityLabel).not.toMatch(/Metric|Accumulation/);
+    // No metric / accumulation options are wired into the History picker.
+    expect(picker.props.accessibilityHint).toBe('');
   });
 
   it('shows no-match message when filters are active but no workouts match', () => {

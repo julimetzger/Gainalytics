@@ -462,6 +462,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
       };
     }
     case 'DELETE_TRAINING':
+    case 'CLEAR_PLANNED_TRAINING':
       return deleteTrainingWorkouts(workoutState, action.workoutIds ?? []);
     default:
       return workoutState;

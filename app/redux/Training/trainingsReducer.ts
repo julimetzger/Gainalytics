@@ -215,6 +215,23 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
         allIds: state.allIds.filter((id) => id !== action.trainingsId),
       };
     }
+    case 'CLEAR_PLANNED_TRAINING': {
+      // GH-442: only a not-yet-started training may be emptied; the training and its
+      // plan slot stay, only the planned exercises and their workouts go.
+      const existingTraining = state.byId[action.trainingsId];
+      if (existingTraining === undefined || existingTraining.state !== TrainingsState.PLANNED) return state;
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.trainingsId]: {
+            ...existingTraining,
+            exercises: [],
+            plannedWorkouts: {},
+          },
+        },
+      };
+    }
     default:
       return state;
   }

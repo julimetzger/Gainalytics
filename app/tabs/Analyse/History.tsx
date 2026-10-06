@@ -115,18 +115,22 @@ const History = () => {
       {/* Wrapper is height:0/overflow:hidden when closed so the picker takes no vertical space.
           The component stays mounted (not unmounted) to avoid react-native-modal crash. */}
       <View style={pickerOpen ? undefined : styles.pickerWhenClosed}>
+        {/* GH-452: History only offers exercises and muscles, so the label must not
+            promise metrics or an accumulation mode like the shared default does. */}
         <TrainingElementPicker
           exercise={selectedExercises}
           setExercise={setSelectedExercises}
           muscle={selectedMuscles}
           setMuscle={setSelectedMuscles}
           hideIconButton={true}
+          dropdownLabel="Select Exercises, Muscles"
         />
       </View>
       {/* Chevron floats top-right always. When picker is closed the wrapper has 0 height so
           the list fills the screen and this button overlaps only the top-right corner. */}
       <IconButton
         icon={pickerOpen ? 'chevron-up' : 'chevron-down'}
+        testID="history-picker-toggle"
         onPress={() => setPickerOpen((open) => !open)}
         style={styles.pickerToggle}
       />

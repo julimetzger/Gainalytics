@@ -1,0 +1,64 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-439 navigation helper (real device, existing user data — no clearState, no import).
+#
+# Opens the Playback Overlay of the completed video analysis ANALYSIS_ID (pass it with
+# `-e ANALYSIS_ID=<n>` or via runFlow `env:`) and leaves the player paused at t=0.
+# Deliberately no `env:` default in this header: a header default OVERRIDES the value a
+# calling flow passes in, and the row tap then silently opens the wrong analysis. Used to set up the
+# before/after sampling of the rep/velocity readout during continuous playback.
+# Restart (no clearState — the store is kept): reopening the same analysis on a
+# retained detail screen keeps the old playback position, so t=0 is only guaranteed
+# after a fresh start.
+- launchApp:
+    stopApp: true
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+# Left on a detail screen by an earlier run: go back to the list first. The drawer
+# keeps the list mounted behind the detail, so the "Import Video" check below would
+# otherwise pass and the row tap would land on the detail screen.
+- runFlow:
+    when:
+      visible: 'Video Analysis Detail'
+    commands:
+      - back
+# Already on the Video Analyses list (e.g. right after an import): opening the
+# drawer from there and tapping "Video Analyses" lands on the Dashboard instead.
+- runFlow:
+    when:
+      notVisible: 'Import Video'
+    commands:
+      - extendedWaitUntil:
+          visible: 'tab-analyse'
+          timeout: 120000
+      - tapOn: 'tab-analyse'
+      - extendedWaitUntil:
+          visible:
+            id: 'analyse-drawer-toggle'
+          timeout: 60000
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - extendedWaitUntil:
+          visible: 'Video Analyses'
+          timeout: 20000
+      - tapOn: 'Video Analyses'
+- extendedWaitUntil:
+    visible: 'Import Video'
+    timeout: 60000
+- tapOn:
+    id: 'video-analysis-row-${ANALYSIS_ID}'
+- extendedWaitUntil:
+    visible: 'Playback Overlay'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'video-analysis-playback-toggle'
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- assertVisible:
+    id: 'video-analysis-playback-toggle'
+- takeScreenshot: 'gh439_00_player_ready'
