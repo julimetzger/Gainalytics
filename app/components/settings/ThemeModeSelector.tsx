@@ -34,7 +34,7 @@ const ThemeModeSelector = () => {
   return (
     <View testID="settings-theme-mode-row">
       <View style={styles.row}>
-        <Text style={styles.label}>Theme</Text>
+        <Text style={styles.label}>Mode</Text>
         <ToggleButton.Row onValueChange={handleChange} value={setting}>
           {THEME_MODE_OPTIONS.map((option, index) => {
             const selected = option.value === setting;

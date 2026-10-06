@@ -49,7 +49,7 @@ describe('ThemeModeSelector', () => {
   it('offers System, Light and Dark as a labelled icon group', () => {
     renderSelector();
 
-    expect(screen.getByText('Theme')).toBeTruthy();
+    expect(screen.getByText('Mode')).toBeTruthy();
     expect(screen.getByTestId('settings-theme-mode-system')).toBeTruthy();
     expect(screen.getByTestId('settings-theme-mode-light')).toBeTruthy();
     expect(screen.getByTestId('settings-theme-mode-dark')).toBeTruthy();
