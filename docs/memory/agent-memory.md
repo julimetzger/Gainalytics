@@ -3061,3 +3061,34 @@ Also: R5CN30HWZFN has `wm size` override 720x1600, so `adb input tap` uses 720-w
 **Problem (GH-468 r4):** Metro (run-dir config with `blockList` and `watcher.watchman.deferStates: []`) logged a new `BUNDLE` after an edit, but the served `index.bundle` still contained the old dataset config. On the device it looked as if `highlightEnabled: false` "did nothing".
 **Working solution:** `curl -s "http://127.0.0.1:$PORT/index.bundle?platform=android&dev=true&minify=false" | grep -n '<new code>'`. If the new code is missing, restart Metro with `--reset-cache`, then force-stop and relaunch the app.
 **Apply when:** a JS edit has no visible effect on the device although Metro logged a rebuild.
+### 454. Train rows are prefilled from the plan — an assertion on `add-workout-set-rir-input-1` can pass on the PLANNED value
+**Problem (GH-466):** the Train tab renders planned sets as unconfirmed rows with the planned numbers, and a Plan flow that ran earlier had set set 1's RIR to 1.5. So `extendedWaitUntil: {id: add-workout-set-rir-input-1, text: '1.5'}` right after tapping Add passed at once. It was the planned prefill, not the logged set (the screenshot still showed the typed input row and row 1 = planned 13 reps).
+**Working solution:** log values that differ from the plan in a field you wait on first (reps `8` vs planned `13`), then assert the changed field (RIR) and `add-workout-set-logged-1`. Use a different RIR in Train (0,5) than the plan flow left behind (1.5).
+**Apply when:** a Train-tab flow asserts a logged set's values on a training that has planned sets.
+
+### 455. `react-native-toast-message` cuts text2 to one line, and Maestro may not see the toast at all — keep lines short, assert the non-saved state
+**Problem (GH-466):** a validation toast with a long `text2` showed on the device as "…(decimals like 1.5 are allo…". `extendedWaitUntil: visible: '.*decimals like 1\.5 are allowed.*'` never matched, although a screencap 0.8 s after the tap showed the toast.
+**Working solution:** split the message into a short `text1` (rule) and a short `text2` (hint) that each fit one line. In Maestro, `takeScreenshot` right after the tap for evidence, and assert the effect instead: the set was not logged (neighbour row unchanged, input keeps the invalid value).
+**Apply when:** you add a Toast message or want to prove one in Maestro.
+
+### 456. `run-maestro-from-wsl.sh` re-runs the WHOLE suite after a failure, and fails at once if the `--report` directory is missing
+**Observation (GH-466):** after a failed run the script retries the full suite (baseline import included, +8 min on a real device). Killing it mid-import left the "Import full data?" dialog open on the device. Also, `rm -rf` of the report dir before a run made the script die at `cd` with `EXIT=1` and no Maestro output.
+**Apply when:** iterating on a flow. Once "Flow Failed" appears, kill the retry by PID (`ps -eo pid,args | grep 'maestro.*<suite>'`), then check the device for leftover dialogs. Always `mkdir -p` the report dir before starting.
+### 454. The Analyse drawer's graph entry is now "Analysis" — flows that `tapOn: 'Analyse'` time out on the drawer
+**Problem (GH-452):** `extendedWaitUntil: visible: 'Analyse'` after opening `analyse-drawer-toggle` failed with the drawer plainly open. GH-450's German→English sweep renamed the drawer item (and tab label) to "Analysis". Bare strings are full-text regexes (#442), so 'Analyse' no longer matches anything in the drawer. Older flows such as `gh458_chart_empty_states.yaml` still use the old text.
+**Working solution:** `tapOn: 'Analysis'`. Screenshot the open drawer before you trust a label taken from an older flow.
+**Apply when:** reusing Analyse-drawer navigation from an existing flow.
+### 454. A Maestro sub-flow's header `env:` default OVERRIDES what the caller passes — the wrong row is tapped silently
+**Problem (GH-439):** `gh439_open_playback_overlay.yaml` had `env: ANALYSIS_ID: '1'` in its header as a "default". Every run — with `-e ANALYSIS_ID=2` and with `runFlow: {file, env: {ANALYSIS_ID: '2'}}` — tapped `video-analysis-row-1`; the commands JSON showed `defineVariablesCommand {'ANALYSIS_ID': '1'}` executed AFTER the caller's value. The flow failed two steps later on an unrelated selector, which looked like a hierarchy/scroll problem.
+**Working solution:** no `env:` defaults in flows that are meant to be parametrised; pass the value explicitly. Check `defineVariablesCommand` entries in `~/.maestro/tests/<run>/commands-*.json` when a parametrised selector misbehaves.
+**Apply when:** writing a reusable sub-flow that takes a variable.
+
+### 455. On a playing video every Maestro `tapOn` waits 25–30 s for the UI to settle — add `waitToSettleTimeoutMs`
+**Problem (GH-439):** the play tap took 31.6 s and the pause tap 24 s (per-command `duration` in `commands-*.json`), so an 80 s clip was over before the pause/rewind assertions ran — they then passed against the END state and proved nothing. Each `copyTextFrom` during playback also costs ~2 s, so waiting for a specific short state (`extendedWaitUntil: 'Rep 2'`, ~3.5 s window) is skipped entirely.
+**Working solution:** `tapOn: {id: ..., waitToSettleTimeoutMs: 500}` on every tap while media plays; sample at intervals (`waitForAnimationToEnd: {timeout: 4000}` + `copyTextFrom` + `evalScript: "${output.x = maestro.copiedText}"`) and assert "changed since the previous sample" instead of waiting for an exact value. Always look at the screenshots — a green run can be green for the wrong state.
+**Apply when:** any Maestro flow that interacts with live/animating UI (video, timers, charts).
+
+### 456. `adb.exe -a start-server` can still come up loopback-only — `setsid nohup adb.exe -a -P 5037 nodaemon server` in the SAME command as the kill does work (refines #406/#412)
+**Problem (GH-439):** after the #405 wedge, `taskkill` + `./adb.exe -a -P 5037 start-server` produced a server on `127.0.0.1:5037` three times; its command line was `adb -L tcp:5037 fork-server server` — `start-server` dropped `-a`. `-L tcp:0.0.0.0:5037 start-server` fails (`0.0.0.0` is not a valid client address).
+**Working solution:** in one Bash call: find the listener PID (`netstat -ano | grep ':5037 ' | grep ABH`), `taskkill /F /PID`, then `(env -u ADB_SERVER_SOCKET -u ANDROID_SERIAL setsid nohup ./adb.exe -a -P 5037 nodaemon server >/tmp/adbserver.out 2>&1 </dev/null & disown)` and re-check that netstat shows `0.0.0.0:5037`. It survived all later tool calls (contrary to #412).
+**Apply when:** netstat shows the restarted adb server on `127.0.0.1:5037` and WSL gets `Connection refused` via the gateway.

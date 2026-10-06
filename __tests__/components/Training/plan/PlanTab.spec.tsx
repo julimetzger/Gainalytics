@@ -109,6 +109,12 @@ jest.mock('../../../../app/components/Training/plan/PlanReadList', () => {
       <TouchableOpacity testID="plan-open-other-exercise-cell" onPress={() => onCellPress(2, 1, 'reps')}>
         <Text>Open other exercise cell</Text>
       </TouchableOpacity>
+      <TouchableOpacity testID="plan-open-rir-cell" onPress={() => onCellPress(1, 2, 'rir')}>
+        <Text>Open rir cell</Text>
+      </TouchableOpacity>
+      <TouchableOpacity testID="plan-enter-fractional-rir" onPress={() => onQuickEditChange('1,5')}>
+        <Text>Enter fractional rir</Text>
+      </TouchableOpacity>
       <TouchableOpacity testID="plan-enter-invalid-value" onPress={() => onQuickEditChange('1000.1')}>
         <Text>Enter invalid</Text>
       </TouchableOpacity>
@@ -281,6 +287,31 @@ describe('PlanTab', () => {
     );
     const upserts = mockDispatch.mock.calls.filter(([action]) => action?.type === 'ADD_OR_UPDATE_SET_IN_WORKOUT');
     expect(upserts.length).toBe(1);
+  });
+
+  // GH-466: RIR may be fractional — quick edit must store 1.5, not round it to 2.
+  it('commits a fractional RIR typed with a comma without rounding it', async () => {
+    const {getByTestId} = render(<PlanTab {...baseProps} />);
+
+    fireEvent.press(getByTestId('plan-open-rir-cell'));
+    await waitFor(() => {
+      expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
+    });
+
+    fireEvent.press(getByTestId('plan-enter-fractional-rir'));
+    await waitFor(() => {
+      expect(getByTestId('plan-read-invalid').props.children).toBe('false');
+    });
+    fireEvent.press(getByTestId('plan-submit-quick-edit'));
+
+    await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'ADD_OR_UPDATE_SET_IN_WORKOUT',
+          set: expect.objectContaining({index: 2, rir: 1.5}),
+        }),
+      );
+    });
   });
 
   it('discards the quick-edit draft on submit when it is invalid (store untouched)', async () => {
