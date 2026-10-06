@@ -1,0 +1,51 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-477: the exercise sparklines plot the best e1RM of EVERY finished session,
+# not only the 1RM records. Run after 00_import_baseline.yaml.
+# Squat (id 2) in baseline.gains: its last 12 sessions are
+#   210, 205, 205, 205, 210, 216, 219, 219, 215, 216, 213, 204
+# — the curve drops (219 -> 215, 216 -> 213 -> 204). The old record-based
+# sparkline could only rise.
+- launchApp:
+    stopApp: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- tapOn: 'tab-exercises'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-searchbar'
+    timeout: 30000
+- tapOn:
+    id: 'exercise-searchbar'
+- inputText: 'Squat'
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-row-2'
+    timeout: 10000
+- assertVisible:
+    id: 'exercise-row-sparkline-2'
+    text: 'Trend 210, 205, 205, 205, 210, 216, 219, 219, 215, 216, 213, 204'
+- takeScreenshot: gh477_01_list_row_sparkline
+
+# Mark Squat as a focus exercise so the focus card renders the same series.
+- tapOn:
+    id: 'exercise-row-2'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-focus-toggle'
+    timeout: 20000
+- tapOn:
+    id: 'exercise-detail-focus-toggle'
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'focus-card-2'
+    timeout: 20000
+- assertVisible:
+    id: 'focus-card-sparkline-2'
+    text: 'Trend 210, 205, 205, 205, 210, 216, 219, 219, 215, 216, 213, 204'
+- takeScreenshot: gh477_02_focus_card_sparkline
