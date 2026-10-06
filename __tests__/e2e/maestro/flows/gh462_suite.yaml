@@ -1,0 +1,7 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-462 evidence suite: hydrate the store from the baseline .gains fixture
+# first (the gh443 variant also steers the file picker back to Downloads),
+# then exercise the theme sections.
+- runFlow: gh443_import_baseline.yaml
+- runFlow: gh462_theme_settings.yaml

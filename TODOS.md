@@ -20,6 +20,8 @@
   - Enthält einen Usability-Durchgang über "Plan anlegen → planen → trainieren → auswerten"
 - [ready] [GH-63](https://github.com/julimetzger/Gainalytics/issues/63) Rep Ranges for planning mode — Bereiche für Wiederholungen, Gewicht und RIR beim Planen
   - Bereich zählt in allen Auswertungen mit seiner Untergrenze; abwärtskompatibel ohne Migration
+- [ready] [GH-467](https://github.com/julimetzger/Gainalytics/issues/467) Swipen sollte den State behalten — gleicher Tab beim Wischen zum nächsten/vorherigen Micro, Skelett statt Platzhalter
+- [ready] [GH-466](https://github.com/julimetzger/Gainalytics/issues/466) RIR Nachkommastellen explizit erlaubt — z.B. 1.5 beim Planen, Trainieren und Bearbeiten, Punkt und Komma
 - [ready] [TRN-001](tickets/TRN-001-training-overview-record-comparison.yaml) Records in Training Overview - micro vergleich anzeigen
   - Im TrainingsNode für status Done und Overview
   - es gibt eine Kachel die anzeigt wieviele Records in diesem Micro waren im Vergleich zum vorherigen
@@ -36,6 +38,8 @@
   - H1/H2 sind Bugs (weisser Screen ohne Rückweg, Sackgasse), H3–H7 Darstellung und Navigation
   - Medium-Findings (M1–M12) bewusst nicht enthalten — eigenes Ticket
   - Runde 2 (PR #459): 3 Codex-Anmerkungen + [GH-461](https://github.com/julimetzger/Gainalytics/issues/461) Analyse ohne Übung/Muskel zeigt nur rote Zeile statt Leerzustand
+- [ready] [GH-468](https://github.com/julimetzger/Gainalytics/issues/468) Analyse accumulation + Metrik ausreichend — Graph ohne Pflicht-Übung/Muskel, Aggregation je Metrik, mehrere Metriken gleichzeitig
+  - Volume/Reps/Sets Summe, 1RM/Max Intensity Max, Avg Intensity Durchschnitt, Frequency = distinct Trainingstage
 - RIR Verlauf/ RIR distribution
 - RIRmax/RIRaverage als metrik aufnehmen
 - Pausenzeit generell und pro muskel/exercise (nur zwischen set im Workout berücksichtigen?? also dl satz 1 pause dl satz 2 pause dl satz 3 fertig -> 2 Pausenzeiten getrackt)
