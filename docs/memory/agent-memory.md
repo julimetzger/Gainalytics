@@ -3030,6 +3030,37 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 **Problem (GH-458 round 3):** after a reboot to clear ANR-style Maestro failures the device stayed `offline` for 20+ min. `powershell.exe Stop-Process` on `emulator.exe` + `qemu-system-x86_64.exe`, then `Start-Process emulator.exe -avd Pixel_7 -port 5556 -no-snapshot-load -no-window -no-audio` brought it back within ~2 min with app data intact; `adb reverse tcp:8081 tcp:8082` has to be redone. Also: Metro under `CI=true` (needed when inotify is exhausted, `ENOSPC`) does not watch files — restart it after every JS edit, killing by the PID from `ss -ltnp`, never `pkill -f` (it matches your own shell).
 **Apply when:** `adb devices` shows the assigned emulator `offline`, or Metro dies with ENOSPC.
 
+### 454. In the sharingan `MultiselectDropdown`, Maestro `hideKeyboard` CLOSES the dropdown — guard picks with `{id: 'chip', text: …}` instead
+**Problem (GH-468):** to dodge #443's "first row tap eaten by the keyboard", the flow ran `hideKeyboard` after `inputText`. Its BACK closed the whole dropdown modal, and the following point tap hit the chart behind it. **Working solution:** `tapOn: {id: 'search-bar'}`, `inputText`, one point tap on the first row (`'50%, 26%'` on 1080×2400), then `runFlow: {when: {notVisible: {id: 'chip', text: '<pick>'}}, commands: [same tap]}`. Unlike Paper's Chip (#419), the dropdown's selected chip carries its label as content-desc on the `chip` node, so the combined selector matches. Close with `back` only `when: visible: {id: 'search-bar'}`.
+**Apply when:** selecting exercises/muscles/accumulation in the Analyse picker (or any `TrainingElementPicker`).
+
+### 455. `scrollUntilVisible` below full-width charts goes nowhere — use a `repeat` of long `swipe`s with `duration: 600`
+**Problem (GH-468):** on the Analysis screen (stacked `LineChart`s spanning the full width) `scrollUntilVisible` to the workout list below timed out, although the text was only ~1.5 screens down. The chart takes the short scroll gestures. **Working solution:** `repeat: {while: {notVisible: '<target>'}, times: 8, commands: [swipe: {start: '50%, 80%', end: '50%, 20%', duration: 600}]}`. Also: `maestro --driver-host-port N` is a GLOBAL option and must come BEFORE `test`, otherwise picocli just prints the usage and exits 2.
+**Apply when:** scrolling any screen whose middle is a chart.
+
+### 456. `run-maestro-from-wsl.sh` dies at `adb push … /sdcard/Download/baseline.gains: Permission denied` — when the data is already on the device, call `maestro` directly
+**Problem (GH-468):** the runner pushes the fixture in every non-build mode and aborts on the push, so no flow ever ran (log shows only the adb error). **Working solution:** if `uiautomator dump` already shows the baseline (e.g. "Push pull"), run `HOME=$E2E_MAESTRO_HOME maestro --host <proxy> --device $ANDROID_SERIAL --driver-host-port <p> test <flow> --format junit --output … --test-output-dir <run_dir>/screenshots/raw`. A SystemUI ANR that survived an `adb reboot` went away for good with *Close app* (not *Wait*) once the post-boot load settled.
+**Apply when:** the runner log is a single adb error line.
+
+### 457. Picker picks without point taps: `tapOn: {text: X, below: {id: 'search-bar'}}` + `eraseText` before every `inputText`
+**Problem (GH-468 round 3):** the `'50%, 26%'` point tap from #454 assumes the chip row is one line; with 3+ chips it wraps and the first row moves. On a second run the sharingan search kept the previous term, so `inputText` produced `VolumeVolume` and no row matched.
+**Working solution:** `tapOn: {id: 'search-bar'}`, `eraseText: 30`, `inputText: X`, then `tapOn: {text: X, below: {id: 'search-bar'}}` (skips the search field and the chip with the same text), with #454's `runFlow when notVisible {id: chip, text: X}` re-tap. Deselect = same block with `when: visible`. Close with ONE conditional `back`; a second manual BACK leaves the screen and loses its state (range!).
+**Apply when:** any `TrainingElementPicker` flow, especially on a device whose resolution differs from the emulator.
+
+### 458. Real-device evidence without the fixture: read the store read-only from MMKV to pick a value you can recompute
+**Observation (GH-468 round 3, R5CN30HWZFN):** no clearState/import allowed, but the reviewer wanted a "recompute this value" check. `adb exec-out run-as com.powerliftingworkoutplanner cat files/mmkv/mmkv.default > copy.bin` (read-only). In it, key `persist:root` is followed by varint length → varint length → JSON whose slices (`exercises`, `workouts`, …) are JSON strings again. Parse it in Python, find a day with simple numbers (e.g. 80 %/50 % shares), assert that day in Maestro and recompute it in summary.md. Delete the copy afterwards (user data).
+Also: R5CN30HWZFN has `wm size` override 720x1600, so `adb input tap` uses 720-wide coordinates, while screencap is 1440 wide.
+**Apply when:** evidence on the user's real device must prove a computed value.
+
+### 459. MPAndroidChart: a scroll swipe across a chart re-selects a point, and a tap can hit the trend dataset
+**Problem (GH-468 r4):** after `tapOn: point` on a weekly Volume point, the flow's `swipe 50%,80% → 50%,20%` started on the Frequency chart below it. The drag highlighted another week (`onSelect`), so the list showed 12/01–18/01 instead of 23/02. Separately, a tap near the dashed trend line highlighted the *trend* point, which has no `id`, so no list appeared (the marker showed the trend value 43451 rather than the data value 45324.50).
+**Working solution:** start scroll swipes below the charts (`50%,92%`), and set `highlightEnabled: false` on helper datasets (trend). To diagnose, compare the marker value with the circle's y and check the date headers via a uiautomator dump.
+**Apply when:** a Maestro flow taps chart points and then scrolls to read the details list.
+
+### 460. Metro with a blockList config can keep serving a stale module after an edit — curl the bundle before blaming the code
+**Problem (GH-468 r4):** Metro (run-dir config with `blockList` and `watcher.watchman.deferStates: []`) logged a new `BUNDLE` after an edit, but the served `index.bundle` still contained the old dataset config. On the device it looked as if `highlightEnabled: false` "did nothing".
+**Working solution:** `curl -s "http://127.0.0.1:$PORT/index.bundle?platform=android&dev=true&minify=false" | grep -n '<new code>'`. If the new code is missing, restart Metro with `--reset-cache`, then force-stop and relaunch the app.
+**Apply when:** a JS edit has no visible effect on the device although Metro logged a rebuild.
 ### 454. Train rows are prefilled from the plan — an assertion on `add-workout-set-rir-input-1` can pass on the PLANNED value
 **Problem (GH-466):** the Train tab renders planned sets as unconfirmed rows with the planned numbers, and a Plan flow that ran earlier had set set 1's RIR to 1.5. So `extendedWaitUntil: {id: add-workout-set-rir-input-1, text: '1.5'}` right after tapping Add passed at once. It was the planned prefill, not the logged set (the screenshot still showed the typed input row and row 1 = planned 13 reps).
 **Working solution:** log values that differ from the plan in a field you wait on first (reps `8` vs planned `13`), then assert the changed field (RIR) and `add-workout-set-logged-1`. Use a different RIR in Train (0,5) than the plan flow left behind (1.5).

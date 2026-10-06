@@ -1,0 +1,340 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-468 round 3: metrics are filtered only in the existing picker (no chips),
+# every chart uses the theme's primary colour, and a muscle pulls in only its
+# share of an exercise.
+#
+# Runs against real data, so it does NOT launch/clear the app. Prerequisite
+# state (set up via adb, see summary.md): Analysis screen open, nothing picked
+# but the default "Day" accumulation, range 01/02/2026 – 01/03/2026.
+# The muscle check needs 28/02/2026 to hold exactly these Biceps sets:
+#   Pull up (Biceps 80 %) 1 set, Iso lateral front lat pulldown hs (50 %) 2 sets,
+#   Chest supported row (50 %) 2 sets  ->  Sets = 0.8 + 1 + 1 = 2.80
+
+- assertVisible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+- assertVisible: '1 selected'
+
+# ----------------------------------------- (1) no metric filter -> all metrics
+- assertVisible: 'Volume \(sum\)'
+- assertVisible:
+    id: 'analyse-chart-1RM'
+# the metric chips of round 2 are gone
+- assertNotVisible:
+    id: 'analyse-metric-chips'
+- assertNotVisible:
+    id: 'analyse-metric-chip-Volume'
+- takeScreenshot: gh468_r3_a_all_metrics_primary
+- repeat:
+    while:
+      notVisible: 'Frequency \(training days\)'
+    times: 10
+    commands:
+      - swipe:
+          start: '50%, 80%'
+          end: '50%, 30%'
+          duration: 600
+      - waitForAnimationToEnd
+- assertVisible:
+    id: 'analyse-chart-Frequency'
+- assertVisible: 'Average Intensity \(average %\)'
+- takeScreenshot: gh468_r3_a_all_metrics_bottom
+- repeat:
+    while:
+      notVisible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+    times: 10
+    commands:
+      - swipe:
+          start: '50%, 25%'
+          end: '50%, 85%'
+          duration: 600
+      - waitForAnimationToEnd
+
+# ------------------------- (2) pick Volume + Frequency + Week in the picker
+# Every pick re-taps once if its chip did not flip — the open keyboard often
+# eats the first row tap (agent-memory #443/#454).
+- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+- extendedWaitUntil:
+    visible:
+      id: 'search-bar'
+    timeout: 20000
+
+- tapOn:
+    id: 'search-bar'
+- eraseText: 30
+- inputText: 'Volume'
+- waitForAnimationToEnd
+- tapOn:
+    text: 'Volume'
+    below:
+      id: 'search-bar'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'chip'
+        text: 'Volume'
+    commands:
+      - tapOn:
+          text: 'Volume'
+          below:
+            id: 'search-bar'
+      - waitForAnimationToEnd
+- assertVisible:
+    id: 'chip'
+    text: 'Volume'
+
+- tapOn:
+    id: 'search-bar-clear-icon'
+    optional: true
+- tapOn:
+    id: 'search-bar'
+- eraseText: 30
+- inputText: 'Frequency'
+- waitForAnimationToEnd
+- tapOn:
+    text: 'Frequency'
+    below:
+      id: 'search-bar'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'chip'
+        text: 'Frequency'
+    commands:
+      - tapOn:
+          text: 'Frequency'
+          below:
+            id: 'search-bar'
+      - waitForAnimationToEnd
+- assertVisible:
+    id: 'chip'
+    text: 'Frequency'
+
+- tapOn:
+    id: 'search-bar-clear-icon'
+    optional: true
+- tapOn:
+    id: 'search-bar'
+- eraseText: 30
+- inputText: 'Week'
+- waitForAnimationToEnd
+- tapOn:
+    text: 'Week'
+    below:
+      id: 'search-bar'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'chip'
+        text: 'Week'
+    commands:
+      - tapOn:
+          text: 'Week'
+          below:
+            id: 'search-bar'
+      - waitForAnimationToEnd
+- assertVisible:
+    id: 'chip'
+    text: 'Week'
+# several metrics stay selected side by side; Week replaced Day
+- assertVisible:
+    id: 'chip'
+    text: 'Volume'
+- assertNotVisible:
+    id: 'chip'
+    text: 'Day'
+- tapOn:
+    id: 'search-bar-clear-icon'
+    optional: true
+- takeScreenshot: gh468_r3_b_picker_two_metrics
+
+- runFlow:
+    when:
+      visible:
+        id: 'search-bar'
+    commands:
+      - back
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible:
+        id: 'search-bar'
+    commands:
+      - back
+- waitForAnimationToEnd
+- assertVisible: '3 selected'
+- assertVisible:
+    id: 'analyse-chart-Volume'
+- assertVisible: 'Frequency \(training days\)'
+- assertNotVisible:
+    id: 'analyse-chart-1RM'
+- assertNotVisible:
+    id: 'analyse-chart-Sets'
+- assertNotVisible:
+    id: 'analyse-chart-Reps'
+- assertNotVisible:
+    id: 'analyse-chart-Max Intensity'
+- assertNotVisible:
+    id: 'analyse-chart-Average Intensity'
+- takeScreenshot: gh468_r3_b_filtered_volume_frequency_week
+
+# ----------------- (3) Biceps, Sets only, per day: a muscle counts its share
+- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+- extendedWaitUntil:
+    visible:
+      id: 'search-bar'
+    timeout: 20000
+# drop Volume and Frequency again by tapping their rows a second time
+- tapOn:
+    id: 'search-bar'
+- eraseText: 30
+- inputText: 'Volume'
+- waitForAnimationToEnd
+- tapOn:
+    text: 'Volume'
+    below:
+      id: 'search-bar'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible:
+        id: 'chip'
+        text: 'Volume'
+    commands:
+      - tapOn:
+          text: 'Volume'
+          below:
+            id: 'search-bar'
+      - waitForAnimationToEnd
+- assertNotVisible:
+    id: 'chip'
+    text: 'Volume'
+- tapOn:
+    id: 'search-bar-clear-icon'
+    optional: true
+- tapOn:
+    id: 'search-bar'
+- eraseText: 30
+- inputText: 'Frequency'
+- waitForAnimationToEnd
+- tapOn:
+    text: 'Frequency'
+    below:
+      id: 'search-bar'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible:
+        id: 'chip'
+        text: 'Frequency'
+    commands:
+      - tapOn:
+          text: 'Frequency'
+          below:
+            id: 'search-bar'
+      - waitForAnimationToEnd
+- assertNotVisible:
+    id: 'chip'
+    text: 'Frequency'
+- tapOn:
+    id: 'search-bar-clear-icon'
+    optional: true
+- tapOn:
+    id: 'search-bar'
+- eraseText: 30
+- inputText: 'Sets'
+- waitForAnimationToEnd
+- tapOn:
+    text: 'Sets'
+    below:
+      id: 'search-bar'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'chip'
+        text: 'Sets'
+    commands:
+      - tapOn:
+          text: 'Sets'
+          below:
+            id: 'search-bar'
+      - waitForAnimationToEnd
+- assertVisible:
+    id: 'chip'
+    text: 'Sets'
+- tapOn:
+    id: 'search-bar-clear-icon'
+    optional: true
+- tapOn:
+    id: 'search-bar'
+- eraseText: 30
+- inputText: 'Biceps'
+- waitForAnimationToEnd
+- tapOn:
+    text: 'Biceps'
+    below:
+      id: 'search-bar'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'chip'
+        text: 'Biceps'
+    commands:
+      - tapOn:
+          text: 'Biceps'
+          below:
+            id: 'search-bar'
+      - waitForAnimationToEnd
+- assertVisible:
+    id: 'chip'
+    text: 'Biceps'
+- tapOn:
+    id: 'search-bar-clear-icon'
+    optional: true
+- tapOn:
+    id: 'search-bar'
+- eraseText: 30
+- inputText: 'Day'
+- waitForAnimationToEnd
+- tapOn:
+    text: 'Day'
+    below:
+      id: 'search-bar'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'chip'
+        text: 'Day'
+    commands:
+      - tapOn:
+          text: 'Day'
+          below:
+            id: 'search-bar'
+      - waitForAnimationToEnd
+- assertVisible:
+    id: 'chip'
+    text: 'Day'
+- runFlow:
+    when:
+      visible:
+        id: 'search-bar'
+    commands:
+      - back
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible:
+        id: 'search-bar'
+    commands:
+      - back
+- waitForAnimationToEnd
+- assertVisible: '3 selected'
+- assertVisible: 'Sets \(sum\)'
+- assertNotVisible:
+    id: 'analyse-chart-Volume'
+- takeScreenshot: gh468_r3_c_biceps_sets_day
