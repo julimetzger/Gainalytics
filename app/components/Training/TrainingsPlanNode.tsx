@@ -391,6 +391,9 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
     });
     setShowDeleteDialog(false);
     setIsEditing(false);
+    // GH-467: without a training only the Plan tab is useful (add/suggest a new one). Without this an Analysis
+    // tab that was carried over (or the FINISHED default) would stay open on an empty screen.
+    changeSubTab('plan');
   }
 
   // GH-442: the training and its slot stay; only the planned exercises and their
