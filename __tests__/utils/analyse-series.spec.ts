@@ -1,4 +1,4 @@
-import {aggregateMetric, buildMetricSeries, selectionWeight} from '../../app/utils/analyse-series';
+import {aggregateMetric, buildMetricSeries, MetricPoint, selectionWeight} from '../../app/utils/analyse-series';
 import {Metric} from '../../app/models/Metric';
 import {Workout} from '../../app/models/entities/Workout';
 import {Accumulation} from '../../app/components/picker/elements/TrainingElementPicker';
@@ -60,25 +60,35 @@ describe('aggregateMetric (GH-468)', () => {
   });
 });
 
+// Full chart point: `id` lists the workouts behind it in bucket order, `x` is the bucket start.
+const point = (workoutIds: number[], bucketStart: Date, y: number): MetricPoint => ({
+  id: workoutIds.map((it) => ',' + it).join(''),
+  x: bucketStart.getTime(),
+  y,
+  marker: y.toFixed(2),
+});
+const week1 = new Date(2026, 1, 16);
+const week2 = new Date(2026, 1, 23);
+
 describe('buildMetricSeries (GH-468)', () => {
-  it('accumulates per week across exercises', () => {
-    const volume = buildMetricSeries(all, Metric.VOLUME, week);
-    expect(volume.map((p) => p.y)).toEqual([500 + 400 + 500 + 360, 50]);
-    const frequency = buildMetricSeries(all, Metric.FREQUENCY, week);
-    expect(frequency.map((p) => p.y)).toEqual([2, 1]);
-    const sets = buildMetricSeries(all, Metric.SETS, week);
-    expect(sets.map((p) => p.y)).toEqual([4, 1]);
+  it('sums volume per week across exercises', () => {
+    expect(buildMetricSeries(all, Metric.VOLUME, week)).toEqual([point([1, 2, 3], week1, 500 + 400 + 500 + 360), point([4], week2, 50)]);
   });
 
-  it('lists the workout ids behind a point so tapping it shows the trainings', () => {
-    // `id` is read back by the chart's onSelect, but is not part of the LineValue typing
-    const [first] = buildMetricSeries(all, Metric.VOLUME, week) as {id?: string}[];
-    expect(first.id?.split(',').filter(Boolean).map(Number).sort()).toEqual([1, 2, 3]);
+  it('counts distinct training days per week for frequency', () => {
+    expect(buildMetricSeries(all, Metric.FREQUENCY, week)).toEqual([point([1, 2, 3], week1, 2), point([4], week2, 1)]);
+  });
+
+  it('sums sets per week', () => {
+    expect(buildMetricSeries(all, Metric.SETS, week)).toEqual([point([1, 2, 3], week1, 4), point([4], week2, 1)]);
   });
 
   it('stays one point per day in day mode, with frequency 1 per trained day', () => {
-    const series = buildMetricSeries(all, Metric.FREQUENCY, new Accumulation(AccumulationMode.SINGLE_DAY));
-    expect(series.map((p) => p.y)).toEqual([1, 1, 1]);
+    expect(buildMetricSeries(all, Metric.FREQUENCY, new Accumulation(AccumulationMode.SINGLE_DAY))).toEqual([
+      point([1, 2], new Date(2026, 1, 16), 1),
+      point([3], new Date(2026, 1, 17), 1),
+      point([4], new Date(2026, 1, 23), 1),
+    ]);
   });
 
   it('returns an empty series without workouts', () => {
@@ -146,9 +156,10 @@ describe('muscle shares (GH-468 round 3)', () => {
 
   it('applies the shares inside each accumulation bucket and drops exercises without share', () => {
     const weightOf = selectionWeight([], [Muscles.QUADS], [squat]);
-    const series = buildMetricSeries(all, Metric.VOLUME, week, weightOf);
-    expect(series.map((p) => p.y)).toEqual([(500 + 400 + 360) * 0.6, 50 * 0.6].map((v) => expect.closeTo(v)));
-    const [first] = series as {id?: string}[];
-    expect(first.id?.split(',').filter(Boolean).map(Number).sort()).toEqual([1, 3]);
+    // bench (workout 2) has no quads share and is not part of the point
+    expect(buildMetricSeries(all, Metric.VOLUME, week, weightOf)).toEqual([
+      {...point([1, 3], week1, 756), y: expect.closeTo((500 + 400 + 360) * 0.6)},
+      {...point([4], week2, 30), y: expect.closeTo(50 * 0.6)},
+    ]);
   });
 });

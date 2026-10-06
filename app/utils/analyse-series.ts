@@ -89,19 +89,22 @@ export function aggregateMetric(workouts: Workout[], metric: Metric, weightOf: W
   }
 }
 
-/** One point per accumulation period, oldest first. `id` lists the workouts behind the point. */
-export function buildMetricSeries(workouts: Workout[], metric: Metric, accumulation?: Accumulation, weightOf: WorkoutWeight = fullWeight): LineValue[] {
+/** A chart point; `id` lists the workouts behind it (comma separated) and is read back on tap. */
+export type MetricPoint = LineValue & {id: string; x: number; y: number; marker: string};
+
+/** One point per accumulation period, oldest first. */
+export function buildMetricSeries(workouts: Workout[], metric: Metric, accumulation?: Accumulation, weightOf: WorkoutWeight = fullWeight): MetricPoint[] {
   const included = workouts.filter((workout) => workout.sets.length > 0 && weightOf(workout) > 0);
   const buckets = included.reduce(handleAccumulationModeBatching(included, accumulation), new Map<string, Workout[]>());
   return Array.from(buckets)
-    .map(([bucketStart, bucketWorkouts]) => {
+    .map(([bucketStart, bucketWorkouts]): MetricPoint => {
       const value = aggregateMetric(bucketWorkouts, metric, weightOf);
       return {
         id: bucketWorkouts.reduce((acc: string, workout: Workout) => acc + ',' + workout.id!!, ''),
         x: new Date(bucketStart).getTime(),
         y: value,
         marker: value.toFixed(2),
-      } satisfies LineValue & {id: string};
+      };
     })
     .sort((a, b) => a.x - b.x);
 }

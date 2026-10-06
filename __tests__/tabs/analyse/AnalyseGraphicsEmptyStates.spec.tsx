@@ -1,5 +1,5 @@
 import React from 'react';
-import {fireEvent, render} from '@testing-library/react-native';
+import {act, fireEvent, render} from '@testing-library/react-native';
 import {PaperProvider} from 'react-native-paper';
 import AnalyseGraphics from '../../../app/tabs/Analyse/AnalyseGraphics';
 import {useWorkoutsIn} from '../../../app/redux/Workout/use/useWorkoutsIn';
@@ -13,7 +13,9 @@ const NEVER_TRAINED = {id: 2, name: 'Mmkv', muscles: []} satisfies Exercise;
 
 jest.mock('../../../app/redux/Workout/use/useWorkoutsIn', () => ({useWorkoutsIn: jest.fn(() => [])}));
 jest.mock('../../../app/redux/Workout/use/useWorkoutsByIds', () => ({useWorkoutsByIds: jest.fn(() => [])}));
-jest.mock('../../../app/redux/Exercises/use/useExercisesForMuscles', () => ({useExercisesForMuscles: jest.fn(() => [])}));
+// the real hook keeps its result reference stable (shallowEqual); mirror that here
+const mockNoExercises: Exercise[] = [];
+jest.mock('../../../app/redux/Exercises/use/useExercisesForMuscles', () => ({useExercisesForMuscles: jest.fn(() => mockNoExercises)}));
 jest.mock('../../../app/redux/Exercises/use/useAllExercises', () => ({useAlleExercises: jest.fn(() => [])}));
 jest.mock('../../../app/redux/Workout/use/useLastWorkoutDate', () => ({
   useLastWorkoutDate: jest.fn(() => undefined),
@@ -21,8 +23,8 @@ jest.mock('../../../app/redux/Workout/use/useLastWorkoutDate', () => ({
 }));
 
 jest.mock('../../../app/components/Workout/show/WorkoutDoneList', () => {
-  const {View} = require('react-native');
-  return () => <View testID="workout-done-list" />;
+  const {Text} = require('react-native');
+  return ({workoutIds}: {workoutIds: number[]}) => <Text testID="workout-done-list">{workoutIds.join(',')}</Text>;
 });
 
 jest.mock('../../../app/components/picker/date/DateRangePicker', () => {
@@ -65,16 +67,21 @@ jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () =>
   };
 });
 
+type MockChartProps = {onSelect: (event: {nativeEvent: {data: {id: string}}}) => void};
+const mockChartRenders: MockChartProps[] = [];
 jest.mock('react-native-charts-wrapper', () => {
   const ReactLocal = require('react');
   const {View} = require('react-native');
   return {
-    LineChart: () => <View testID="analyse-line-chart" />,
+    LineChart: (props: MockChartProps) => {
+      mockChartRenders.push(props);
+      return <View testID="analyse-line-chart" />;
+    },
     processColor: (color: string) => color,
   };
 });
 
-const makeWorkout = (id: number, exerciseId: number, start: Date) => ({id, exerciseId, start, end: start, sets: [{reps: 5, weight: 100, rir: 1}]}) satisfies Workout;
+const makeWorkout = (id: number, exerciseId: number, start: Date) => ({id, exerciseId, start, end: start, sets: [{reps: 5, weight: 100, rir: 1}]} satisfies Workout);
 
 const renderScreen = () =>
   render(
@@ -84,6 +91,7 @@ const renderScreen = () =>
   );
 
 beforeEach(() => {
+  mockChartRenders.length = 0;
   (useWorkoutsIn as jest.Mock).mockReturnValue([]);
   (useLastWorkoutDateForExercises as jest.Mock).mockReturnValue(undefined);
   (useAlleExercises as jest.Mock).mockReturnValue([SQUAT, NEVER_TRAINED]);
@@ -219,5 +227,20 @@ describe('Analyse chart empty states (GH-458 H3)', () => {
     expect(queryByTestId('analyse-chart-empty-range')).toBeNull();
     expect(queryByTestId('analyse-chart-never-trained')).toBeNull();
     expect(queryByTestId('analyse-chart-no-selection')).toBeNull();
+  });
+});
+
+// GH-468 round 4: selecting a point must not recompute or re-render the metric charts.
+describe('Analyse chart point selection (GH-468)', () => {
+  it("shows the tapped point's workouts without re-rendering the charts", () => {
+    (useWorkoutsIn as jest.Mock).mockReturnValue([makeWorkout(10, 1, new Date(2026, 1, 20, 18, 0)), makeWorkout(11, 1, new Date(2026, 1, 21, 18, 0))]);
+    const {getByTestId} = renderScreen();
+    const rendersBeforeTap = mockChartRenders.length;
+    expect(rendersBeforeTap).toBeGreaterThanOrEqual(7);
+
+    act(() => mockChartRenders[0].onSelect({nativeEvent: {data: {id: ',11'}}}));
+
+    expect(getByTestId('workout-done-list').props.children).toBe('11');
+    expect(mockChartRenders).toHaveLength(rendersBeforeTap);
   });
 });

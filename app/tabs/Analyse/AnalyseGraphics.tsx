@@ -1,11 +1,11 @@
-import React, {useEffect, useState} from 'react';
+import React, {memo, useCallback, useEffect, useMemo, useState} from 'react';
 import {processColor, ScrollView, StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
 import {useWorkoutsIn} from '../../redux/Workout/use/useWorkoutsIn';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {ChartSelectEvent, LineChart, LineValue} from 'react-native-charts-wrapper';
+import {ChartSelectEvent, LineChart} from 'react-native-charts-wrapper';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
 import TrainingElementPicker, {Accumulation} from '../../components/picker/elements/TrainingElementPicker';
 import {useWorkoutsByIds} from '../../redux/Workout/use/useWorkoutsByIds';
@@ -15,7 +15,7 @@ import {useExercisesForMuscles} from '../../redux/Exercises/use/useExercisesForM
 import {Exercise} from '../../models/entities/Exercise';
 import {generateTrend} from '../../utils/generateTrend';
 import {ALL_METRICS, Metric} from '../../models/Metric';
-import {buildMetricSeries, selectionWeight} from '../../utils/analyse-series';
+import {buildMetricSeries, MetricPoint, selectionWeight} from '../../utils/analyse-series';
 import {AccumulationMode} from '../../models/AccumulationMode';
 import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
 import AnalyseStaleRangeBanner from '../../components/analyse/AnalyseStaleRangeBanner';
@@ -24,14 +24,6 @@ import {ANALYSE_EXTENDED_RANGE_MONTHS, describeRange, rangeEndingAt, rangeEnding
 import {getDateStringFromDate} from '../../utils/DateHelper';
 
 const AnalyseGraphics = ({}: Props) => {
-  function handleDataPointSelect(value: ChartSelectEvent) {
-    let ids = value.nativeEvent?.data?.id
-      ?.split(',')
-      .filter((value: string) => value !== '')
-      ?.map((value: string) => parseInt(value));
-    setSelectedWorkoutIds(ids ?? []);
-  }
-
   let now = new Date(Date.now());
   const [range, setRange] = useState(new Range(subtractMonths(3, firstDayOfWeek(now, 1)), lastDayOfWeek(now, 0)));
   const [selectedWorkoutIds, setSelectedWorkoutIds] = useState<number[]>([]);
@@ -47,12 +39,20 @@ const AnalyseGraphics = ({}: Props) => {
   const theme = useTheme();
   let selectedWorkout = useWorkoutsByIds(selectedWorkoutIds);
 
+  const handleDataPointSelect = useCallback((value: ChartSelectEvent) => {
+    let ids = value.nativeEvent?.data?.id
+      ?.split(',')
+      .filter((id: string) => id !== '')
+      ?.map((id: string) => parseInt(id));
+    setSelectedWorkoutIds(ids ?? []);
+  }, []);
+
   useEffect(() => {
     setSelectedWorkoutIds([]);
     validateSelections();
   }, [exercise, metricFilter, accumulation, muscle]);
 
-  const metrics = metricFilter.length > 0 ? ALL_METRICS.filter((it) => metricFilter.includes(it)) : ALL_METRICS;
+  const metrics = useMemo(() => (metricFilter.length > 0 ? ALL_METRICS.filter((it) => metricFilter.includes(it)) : ALL_METRICS), [metricFilter]);
 
   const validateSelections = () => {
     let errors: string[] = [];
@@ -66,16 +66,20 @@ const AnalyseGraphics = ({}: Props) => {
   // selection every logged set in the range is evaluated. A muscle only pulls in
   // an exercise's share of it (20 % biceps -> 20 % of its volume, reps, sets).
   const hasSelection = exercise.length > 0 || muscle.length > 0;
-  const selectedExerciseIds = new Set([...exercise, ...exercisesForMuscles].map((it) => it.id));
-  const weightOf = selectionWeight(exercise, muscle, exercisesForMuscles);
+  const weightOf = useMemo(() => selectionWeight(exercise, muscle, exercisesForMuscles), [exercise, muscle, exercisesForMuscles]);
 
-  const seriesByMetric = metrics.map((it) => ({metric: it, values: buildMetricSeries(allWorkouts, it, accumulation, weightOf)}));
+  // Tapping a point only changes selectedWorkoutIds; the series (and the memoized
+  // charts below) are rebuilt only when data or filters change.
+  const seriesByMetric = useMemo(() => metrics.map((it) => ({metric: it, values: buildMetricSeries(allWorkouts, it, accumulation, weightOf)})), [metrics, allWorkouts, accumulation, weightOf]);
   const hasData = seriesByMetric.length > 0 && seriesByMetric[0].values.length > 0;
 
   // GH-458 (H3): each empty case gets its own named cause and a way forward.
   const isConfigured = !!accumulation;
   const selectionLabel = hasSelection ? [...exercise.map((it) => it.name), ...muscle.map(String)].join(', ') : 'any exercise';
-  const selectionExerciseIds = Array.from(selectedExerciseIds).filter((id): id is number => id !== undefined);
+  const selectionExerciseIds = useMemo(
+    () => Array.from(new Set([...exercise, ...exercisesForMuscles].map((it) => it.id))).filter((id): id is number => id !== undefined),
+    [exercise, exercisesForMuscles],
+  );
   const lastWorkoutForSelection = useLastWorkoutDateForExercises(selectionExerciseIds);
   const lastWorkoutOverall = useLastWorkoutDate();
   const lastWorkout = hasSelection ? lastWorkoutForSelection : lastWorkoutOverall;
@@ -116,72 +120,11 @@ const AnalyseGraphics = ({}: Props) => {
 
       {isConfigured &&
         hasData &&
-        seriesByMetric.map(({metric: seriesMetric, values}) => {
-          const color = processColor(theme.colors.primary);
-          return (
-            <View key={seriesMetric} testID={`analyse-chart-${seriesMetric}`}>
-              <Text variant="titleSmall" style={styles.chartTitle}>{`${seriesMetric} (${METRIC_AGGREGATION_LABEL[seriesMetric]})`}</Text>
-              <LineChart
-                style={{
-                  backgroundColor: theme.colors.background,
-                  ...(seriesByMetric.length > 1 ? styles.chartSmall : styles.chart),
-                }}
-                marker={{
-                  enabled: true,
-                  markerColor: processColor(theme.colors.backdrop),
-                  textSize: 15,
-                  textColor: processColor(theme.colors.secondary),
-                }}
-                data={{
-                  dataSets: [
-                    {
-                      config: {
-                        color,
-                        circleColor: color,
-                        highlightEnabled: true,
-                        lineWidth: 2,
-                        drawCircleHole: false,
-                        highlightColor: processColor(theme.colors.secondary),
-                        circleRadius: 4,
-                        mode: 'HORIZONTAL_BEZIER',
-                        drawValues: false,
-                      },
-                      values,
-                    },
-                    {
-                      config: {
-                        color,
-                        drawCircles: false,
-                        lineWidth: 1,
-                        dashedLine: {lineLength: 15, spaceLength: 10},
-                        mode: 'LINEAR',
-                        drawValues: false,
-                      },
-                      values: generateTrend(values),
-                    },
-                  ],
-                }}
-                legend={{enabled: false}}
-                xAxis={{
-                  valueFormatter: 'date',
-                  valueFormatterPattern: 'dd MMM',
-                  position: 'BOTTOM',
-                  textColor: processColor(theme.colors.onBackground),
-                }}
-                yAxis={{
-                  left: {textColor: processColor(theme.colors.onBackground)},
-                  right: {textColor: processColor(theme.colors.onBackground)},
-                }}
-                chartDescription={{text: ''}}
-                onSelect={(value) => handleDataPointSelect(value)}
-              />
-            </View>
-          );
-        })}
+        seriesByMetric.map(({metric: seriesMetric, values}) => (
+          <MetricChart key={seriesMetric} metric={seriesMetric} values={values} compact={seriesByMetric.length > 1} onSelect={handleDataPointSelect} />
+        ))}
 
-      {!isConfigured && (
-        <AnalyseEmptyState testID="analyse-chart-misconfigured" title="Nothing to chart yet" description={`${errorMessage} Open the selector above and pick what you want to see.`} />
-      )}
+      {!isConfigured && <AnalyseEmptyState testID="analyse-chart-misconfigured" title="Nothing to chart yet" description={`${errorMessage} Open the selector above and pick what you want to see.`} />}
 
       {isConfigured && !hasData && lastWorkout === undefined && (
         <AnalyseEmptyState
@@ -213,15 +156,85 @@ const AnalyseGraphics = ({}: Props) => {
       )}
 
       {selectedWorkout && isConfigured && (
-        <WorkoutView
-          workoutIds={selectedWorkoutIds}
-          highlightMode={metrics.length === 1 && metrics[0] !== Metric.FREQUENCY ? metrics[0] : undefined}
-          editable={false}
-        ></WorkoutView>
+        <WorkoutView workoutIds={selectedWorkoutIds} highlightMode={metrics.length === 1 && metrics[0] !== Metric.FREQUENCY ? metrics[0] : undefined} editable={false}></WorkoutView>
       )}
     </ScrollView>
   );
 };
+
+type MetricChartProps = {
+  metric: Metric;
+  values: MetricPoint[];
+  compact: boolean;
+  onSelect: (event: ChartSelectEvent) => void;
+};
+
+const MetricChart = memo(({metric, values, compact, onSelect}: MetricChartProps) => {
+  const theme = useTheme();
+  const trend = useMemo(() => generateTrend(values), [values]);
+  const color = processColor(theme.colors.primary);
+  return (
+    <View testID={`analyse-chart-${metric}`}>
+      <Text variant="titleSmall" style={styles.chartTitle}>{`${metric} (${METRIC_AGGREGATION_LABEL[metric]})`}</Text>
+      <LineChart
+        style={{
+          backgroundColor: theme.colors.background,
+          ...(compact ? styles.chartSmall : styles.chart),
+        }}
+        marker={{
+          enabled: true,
+          markerColor: processColor(theme.colors.backdrop),
+          textSize: 15,
+          textColor: processColor(theme.colors.secondary),
+        }}
+        data={{
+          dataSets: [
+            {
+              config: {
+                color,
+                circleColor: color,
+                highlightEnabled: true,
+                lineWidth: 2,
+                drawCircleHole: false,
+                highlightColor: processColor(theme.colors.secondary),
+                circleRadius: 4,
+                mode: 'HORIZONTAL_BEZIER',
+                drawValues: false,
+              },
+              values,
+            },
+            {
+              config: {
+                color,
+                drawCircles: false,
+                // trend points carry no workouts: a tap must always land on a data point
+                highlightEnabled: false,
+                lineWidth: 1,
+                dashedLine: {lineLength: 15, spaceLength: 10},
+                mode: 'LINEAR',
+                drawValues: false,
+              },
+              values: trend,
+            },
+          ],
+        }}
+        legend={{enabled: false}}
+        xAxis={{
+          valueFormatter: 'date',
+          valueFormatterPattern: 'dd MMM',
+          position: 'BOTTOM',
+          textColor: processColor(theme.colors.onBackground),
+        }}
+        yAxis={{
+          left: {textColor: processColor(theme.colors.onBackground)},
+          right: {textColor: processColor(theme.colors.onBackground)},
+        }}
+        chartDescription={{text: ''}}
+        onSelect={onSelect}
+      />
+    </View>
+  );
+});
 
 const METRIC_AGGREGATION_LABEL: Record<Metric, string> = {
   [Metric.VOLUME]: 'sum',
