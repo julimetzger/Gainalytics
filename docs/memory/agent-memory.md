@@ -3146,3 +3146,12 @@ Also: R5CN30HWZFN has `wm size` override 720x1600, so `adb input tap` uses 720-w
 ### 478. The installed app on a shared device can be a release build — Metro does nothing until `assembleDebug` is installed (same signature, `install -r` keeps data)
 **Problem (GH-467):** `pm dump` showed no `DEBUGGABLE` flag; the JS bundle comes from the APK. A cold `assembleDebug` took 14 min here. `adb install -r app-debug.apk` over the release build worked without uninstalling, so the user's data stayed. The home screen then has no plan list ("Push pull" text is the hero card): open a plan by tapping `next-training-start-button`. Device screens are 720 px wide — scale screenshot coordinates accordingly. Metro started with `CI=true` does not watch files; restart it after every JS edit.
 **Apply when:** a real device is assigned and the installed APK predates the worktree.
+
+### 479. Deleting a plan's most recent finished training leaves `plan.lastTraining` dangling — the dashboard then switches plans
+**Problem (GH-467 r2, R5CN30HWZFN):** finishing a throwaway training and deleting it again looked side-effect-free, but Home afterwards showed another plan as "Current micro" and the "Last Training" card was gone. `FINISH_TRAINING` writes `plan.lastTraining`; `DELETE_TRAINING` never resets it, and `TrainingHome` picked the active plan only via that pointer.
+**Working solution:** TrainingHome now falls back to the plan's latest finished training when the pointer resolves to nothing (read-only, no data rewrite). On a real-data device, screenshot Home before and after any create/delete test and compare.
+**Apply when:** a flow creates and deletes trainings on the user's device, or Home shows an unexpected plan after a delete.
+
+### 480. To open a training on its STATE-DEFAULT sub-tab, use Home's "Last Training" card — "Next Training" forces Train
+**Observation (GH-467 r2):** `NextTrainingCard` navigates with `subTab: 'train'`; `last-training-card-pressable` passes no sub-tab, so a FINISHED training opens on its default Analysis. Its content-desc (`Last Training, <name>, Meso 1 · M7 · D1 · today, Sets, 0, …`) works as a guard (`assertVisible: {id, text}`) before a destructive step, so a flow only deletes the training it created itself.
+**Apply when:** a flow needs the default tab, or must make sure it acts on its own test training.
