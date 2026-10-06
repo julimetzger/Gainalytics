@@ -6,7 +6,7 @@
  * ToggleButton emits them, so a hand-rolled replacement would fail here.
  */
 import React from 'react';
-import {useColorScheme} from 'react-native';
+import {StyleSheet, useColorScheme} from 'react-native';
 import {MD3DarkTheme, MD3LightTheme, Provider as PaperProvider} from 'react-native-paper';
 import {act, fireEvent, render, screen} from '@testing-library/react-native';
 import ThemeModeSelector from '../../../app/components/settings/ThemeModeSelector';
@@ -174,6 +174,36 @@ describe('ThemeModeSelector', () => {
     expect(screen.getByTestId('settings-theme-active-mode').props.children).toEqual(
       'Active: Light, following system',
     );
+  });
+
+  it('draws one pill: rounded outer ends, square inner joins, accent fill on the selection', () => {
+    // GH-462: the three icons form a single segmented control.
+    mockedUseSettings.mockReturnValue({mode: 'light', themeMode: 'system', palette: 'blue'});
+    renderSelector();
+
+    const styleOf = (testID: string) => {
+      let node: {props: {style?: unknown}; parent: unknown} | null = screen.getByTestId(testID);
+      while (node) {
+        const style = StyleSheet.flatten(node.props.style);
+        if (style?.backgroundColor !== undefined) return style;
+        node = node.parent as typeof node;
+      }
+      return undefined;
+    };
+    const shape = (testID: string) => {
+      const style = styleOf(testID);
+      return {
+        backgroundColor: style?.backgroundColor,
+        borderTopLeftRadius: style?.borderTopLeftRadius,
+        borderTopRightRadius: style?.borderTopRightRadius,
+      };
+    };
+
+    expect([shape('settings-theme-mode-system'), shape('settings-theme-mode-light'), shape('settings-theme-mode-dark')]).toEqual([
+      {backgroundColor: MD3LightTheme.colors.secondaryContainer, borderTopLeftRadius: 20, borderTopRightRadius: 0},
+      {backgroundColor: 'transparent', borderTopLeftRadius: undefined, borderTopRightRadius: undefined},
+      {backgroundColor: 'transparent', borderTopLeftRadius: 0, borderTopRightRadius: 20},
+    ]);
   });
 
   it('takes the caption colour from the theme rather than a literal', () => {
