@@ -55,7 +55,7 @@ describe('getPlanRangeError', () => {
       weight: getPlanRangeError('weight', '100', 'abc'),
     }).toEqual({
       reps: 'Reps must be a whole number from 1 to 99.',
-      rir: 'RIR must be a whole number from 0 to 10.',
+      rir: 'RIR must be a number from 0 to 10 (decimals like 1.5 are allowed).',
       weight: 'Weight must be between 0 and 999.9 kg in 0.25 steps.',
     });
   });

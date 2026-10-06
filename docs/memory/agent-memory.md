@@ -3043,3 +3043,65 @@ round 2 took ~50 min. Bound it (`eraseText: 4`) when you know the field's length
 ### 456. `ToggleButton.Row` can be restyled into an M3 pill — child `style` is applied after the row's first/middle/last styles
 **Observation (GH-462):** Paper's row only squares the inner corners (`first`/`middle`/`last`) and then appends `child.props.style`, so per-button `{width, height, borderWidth: 1, backgroundColor: selected ? secondaryContainer : 'transparent'}` plus `borderTopLeft/BottomLeftRadius: h/2` on the first and the right-side radii on the last button give the segmented pill while keeping `onLongPress` (#371). `icon` also accepts a render function, e.g. a palette swatch View. In jest the testID sits on the ripple, not on the styled surface: walk `node.parent` until `StyleSheet.flatten(style).backgroundColor` is defined.
 **Apply when:** a design calls for a segmented control but you need per-item long press or custom icon content.
+### 454. In the sharingan `MultiselectDropdown`, Maestro `hideKeyboard` CLOSES the dropdown — guard picks with `{id: 'chip', text: …}` instead
+**Problem (GH-468):** to dodge #443's "first row tap eaten by the keyboard", the flow ran `hideKeyboard` after `inputText`. Its BACK closed the whole dropdown modal, and the following point tap hit the chart behind it. **Working solution:** `tapOn: {id: 'search-bar'}`, `inputText`, one point tap on the first row (`'50%, 26%'` on 1080×2400), then `runFlow: {when: {notVisible: {id: 'chip', text: '<pick>'}}, commands: [same tap]}`. Unlike Paper's Chip (#419), the dropdown's selected chip carries its label as content-desc on the `chip` node, so the combined selector matches. Close with `back` only `when: visible: {id: 'search-bar'}`.
+**Apply when:** selecting exercises/muscles/accumulation in the Analyse picker (or any `TrainingElementPicker`).
+
+### 455. `scrollUntilVisible` below full-width charts goes nowhere — use a `repeat` of long `swipe`s with `duration: 600`
+**Problem (GH-468):** on the Analysis screen (stacked `LineChart`s spanning the full width) `scrollUntilVisible` to the workout list below timed out, although the text was only ~1.5 screens down. The chart takes the short scroll gestures. **Working solution:** `repeat: {while: {notVisible: '<target>'}, times: 8, commands: [swipe: {start: '50%, 80%', end: '50%, 20%', duration: 600}]}`. Also: `maestro --driver-host-port N` is a GLOBAL option and must come BEFORE `test`, otherwise picocli just prints the usage and exits 2.
+**Apply when:** scrolling any screen whose middle is a chart.
+
+### 456. `run-maestro-from-wsl.sh` dies at `adb push … /sdcard/Download/baseline.gains: Permission denied` — when the data is already on the device, call `maestro` directly
+**Problem (GH-468):** the runner pushes the fixture in every non-build mode and aborts on the push, so no flow ever ran (log shows only the adb error). **Working solution:** if `uiautomator dump` already shows the baseline (e.g. "Push pull"), run `HOME=$E2E_MAESTRO_HOME maestro --host <proxy> --device $ANDROID_SERIAL --driver-host-port <p> test <flow> --format junit --output … --test-output-dir <run_dir>/screenshots/raw`. A SystemUI ANR that survived an `adb reboot` went away for good with *Close app* (not *Wait*) once the post-boot load settled.
+**Apply when:** the runner log is a single adb error line.
+
+### 457. Picker picks without point taps: `tapOn: {text: X, below: {id: 'search-bar'}}` + `eraseText` before every `inputText`
+**Problem (GH-468 round 3):** the `'50%, 26%'` point tap from #454 assumes the chip row is one line; with 3+ chips it wraps and the first row moves. On a second run the sharingan search kept the previous term, so `inputText` produced `VolumeVolume` and no row matched.
+**Working solution:** `tapOn: {id: 'search-bar'}`, `eraseText: 30`, `inputText: X`, then `tapOn: {text: X, below: {id: 'search-bar'}}` (skips the search field and the chip with the same text), with #454's `runFlow when notVisible {id: chip, text: X}` re-tap. Deselect = same block with `when: visible`. Close with ONE conditional `back`; a second manual BACK leaves the screen and loses its state (range!).
+**Apply when:** any `TrainingElementPicker` flow, especially on a device whose resolution differs from the emulator.
+
+### 458. Real-device evidence without the fixture: read the store read-only from MMKV to pick a value you can recompute
+**Observation (GH-468 round 3, R5CN30HWZFN):** no clearState/import allowed, but the reviewer wanted a "recompute this value" check. `adb exec-out run-as com.powerliftingworkoutplanner cat files/mmkv/mmkv.default > copy.bin` (read-only). In it, key `persist:root` is followed by varint length → varint length → JSON whose slices (`exercises`, `workouts`, …) are JSON strings again. Parse it in Python, find a day with simple numbers (e.g. 80 %/50 % shares), assert that day in Maestro and recompute it in summary.md. Delete the copy afterwards (user data).
+Also: R5CN30HWZFN has `wm size` override 720x1600, so `adb input tap` uses 720-wide coordinates, while screencap is 1440 wide.
+**Apply when:** evidence on the user's real device must prove a computed value.
+
+### 459. MPAndroidChart: a scroll swipe across a chart re-selects a point, and a tap can hit the trend dataset
+**Problem (GH-468 r4):** after `tapOn: point` on a weekly Volume point, the flow's `swipe 50%,80% → 50%,20%` started on the Frequency chart below it. The drag highlighted another week (`onSelect`), so the list showed 12/01–18/01 instead of 23/02. Separately, a tap near the dashed trend line highlighted the *trend* point, which has no `id`, so no list appeared (the marker showed the trend value 43451 rather than the data value 45324.50).
+**Working solution:** start scroll swipes below the charts (`50%,92%`), and set `highlightEnabled: false` on helper datasets (trend). To diagnose, compare the marker value with the circle's y and check the date headers via a uiautomator dump.
+**Apply when:** a Maestro flow taps chart points and then scrolls to read the details list.
+
+### 460. Metro with a blockList config can keep serving a stale module after an edit — curl the bundle before blaming the code
+**Problem (GH-468 r4):** Metro (run-dir config with `blockList` and `watcher.watchman.deferStates: []`) logged a new `BUNDLE` after an edit, but the served `index.bundle` still contained the old dataset config. On the device it looked as if `highlightEnabled: false` "did nothing".
+**Working solution:** `curl -s "http://127.0.0.1:$PORT/index.bundle?platform=android&dev=true&minify=false" | grep -n '<new code>'`. If the new code is missing, restart Metro with `--reset-cache`, then force-stop and relaunch the app.
+**Apply when:** a JS edit has no visible effect on the device although Metro logged a rebuild.
+### 454. Train rows are prefilled from the plan — an assertion on `add-workout-set-rir-input-1` can pass on the PLANNED value
+**Problem (GH-466):** the Train tab renders planned sets as unconfirmed rows with the planned numbers, and a Plan flow that ran earlier had set set 1's RIR to 1.5. So `extendedWaitUntil: {id: add-workout-set-rir-input-1, text: '1.5'}` right after tapping Add passed at once. It was the planned prefill, not the logged set (the screenshot still showed the typed input row and row 1 = planned 13 reps).
+**Working solution:** log values that differ from the plan in a field you wait on first (reps `8` vs planned `13`), then assert the changed field (RIR) and `add-workout-set-logged-1`. Use a different RIR in Train (0,5) than the plan flow left behind (1.5).
+**Apply when:** a Train-tab flow asserts a logged set's values on a training that has planned sets.
+
+### 455. `react-native-toast-message` cuts text2 to one line, and Maestro may not see the toast at all — keep lines short, assert the non-saved state
+**Problem (GH-466):** a validation toast with a long `text2` showed on the device as "…(decimals like 1.5 are allo…". `extendedWaitUntil: visible: '.*decimals like 1\.5 are allowed.*'` never matched, although a screencap 0.8 s after the tap showed the toast.
+**Working solution:** split the message into a short `text1` (rule) and a short `text2` (hint) that each fit one line. In Maestro, `takeScreenshot` right after the tap for evidence, and assert the effect instead: the set was not logged (neighbour row unchanged, input keeps the invalid value).
+**Apply when:** you add a Toast message or want to prove one in Maestro.
+
+### 456. `run-maestro-from-wsl.sh` re-runs the WHOLE suite after a failure, and fails at once if the `--report` directory is missing
+**Observation (GH-466):** after a failed run the script retries the full suite (baseline import included, +8 min on a real device). Killing it mid-import left the "Import full data?" dialog open on the device. Also, `rm -rf` of the report dir before a run made the script die at `cd` with `EXIT=1` and no Maestro output.
+**Apply when:** iterating on a flow. Once "Flow Failed" appears, kill the retry by PID (`ps -eo pid,args | grep 'maestro.*<suite>'`), then check the device for leftover dialogs. Always `mkdir -p` the report dir before starting.
+### 454. The Analyse drawer's graph entry is now "Analysis" — flows that `tapOn: 'Analyse'` time out on the drawer
+**Problem (GH-452):** `extendedWaitUntil: visible: 'Analyse'` after opening `analyse-drawer-toggle` failed with the drawer plainly open. GH-450's German→English sweep renamed the drawer item (and tab label) to "Analysis". Bare strings are full-text regexes (#442), so 'Analyse' no longer matches anything in the drawer. Older flows such as `gh458_chart_empty_states.yaml` still use the old text.
+**Working solution:** `tapOn: 'Analysis'`. Screenshot the open drawer before you trust a label taken from an older flow.
+**Apply when:** reusing Analyse-drawer navigation from an existing flow.
+### 454. A Maestro sub-flow's header `env:` default OVERRIDES what the caller passes — the wrong row is tapped silently
+**Problem (GH-439):** `gh439_open_playback_overlay.yaml` had `env: ANALYSIS_ID: '1'` in its header as a "default". Every run — with `-e ANALYSIS_ID=2` and with `runFlow: {file, env: {ANALYSIS_ID: '2'}}` — tapped `video-analysis-row-1`; the commands JSON showed `defineVariablesCommand {'ANALYSIS_ID': '1'}` executed AFTER the caller's value. The flow failed two steps later on an unrelated selector, which looked like a hierarchy/scroll problem.
+**Working solution:** no `env:` defaults in flows that are meant to be parametrised; pass the value explicitly. Check `defineVariablesCommand` entries in `~/.maestro/tests/<run>/commands-*.json` when a parametrised selector misbehaves.
+**Apply when:** writing a reusable sub-flow that takes a variable.
+
+### 455. On a playing video every Maestro `tapOn` waits 25–30 s for the UI to settle — add `waitToSettleTimeoutMs`
+**Problem (GH-439):** the play tap took 31.6 s and the pause tap 24 s (per-command `duration` in `commands-*.json`), so an 80 s clip was over before the pause/rewind assertions ran — they then passed against the END state and proved nothing. Each `copyTextFrom` during playback also costs ~2 s, so waiting for a specific short state (`extendedWaitUntil: 'Rep 2'`, ~3.5 s window) is skipped entirely.
+**Working solution:** `tapOn: {id: ..., waitToSettleTimeoutMs: 500}` on every tap while media plays; sample at intervals (`waitForAnimationToEnd: {timeout: 4000}` + `copyTextFrom` + `evalScript: "${output.x = maestro.copiedText}"`) and assert "changed since the previous sample" instead of waiting for an exact value. Always look at the screenshots — a green run can be green for the wrong state.
+**Apply when:** any Maestro flow that interacts with live/animating UI (video, timers, charts).
+
+### 456. `adb.exe -a start-server` can still come up loopback-only — `setsid nohup adb.exe -a -P 5037 nodaemon server` in the SAME command as the kill does work (refines #406/#412)
+**Problem (GH-439):** after the #405 wedge, `taskkill` + `./adb.exe -a -P 5037 start-server` produced a server on `127.0.0.1:5037` three times; its command line was `adb -L tcp:5037 fork-server server` — `start-server` dropped `-a`. `-L tcp:0.0.0.0:5037 start-server` fails (`0.0.0.0` is not a valid client address).
+**Working solution:** in one Bash call: find the listener PID (`netstat -ano | grep ':5037 ' | grep ABH`), `taskkill /F /PID`, then `(env -u ADB_SERVER_SOCKET -u ANDROID_SERIAL setsid nohup ./adb.exe -a -P 5037 nodaemon server >/tmp/adbserver.out 2>&1 </dev/null & disown)` and re-check that netstat shows `0.0.0.0:5037`. It survived all later tool calls (contrary to #412).
+**Apply when:** netstat shows the restarted adb server on `127.0.0.1:5037` and WSL gets `Connection refused` via the gateway.

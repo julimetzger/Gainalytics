@@ -1,5 +1,6 @@
 import {Range} from '../components/picker/date/DateRangePicker';
 import {VideoAnalysis} from '../models/entities/VideoAnalysis';
+import {ensureFormat} from './numberInput';
 
 export const VL_PRESETS = ['<10%', '10-20%', '20-30%', '>30%'] as const;
 export const RIR_PRESETS = ['0', '1', '2', '3', '4', '4+'] as const;
@@ -95,12 +96,9 @@ export function matchesRirPreset(rirStr: string | null, preset: RirPreset): bool
     return val >= 4;
   }
 
-  if (!Number.isInteger(val)) {
-    return false;
-  }
-
+  // Fractional RIR (GH-466, e.g. 1.5) sits between two chips and matches both.
   const chipValue = Number.parseInt(preset, 10);
-  return val === chipValue;
+  return chipValue >= Math.floor(val) && chipValue <= Math.ceil(val);
 }
 
 export function buildVideoAnalysisDefaultDateRange(analyses: VideoAnalysis[], now = new Date()): Range {
@@ -122,7 +120,7 @@ export function isSameRange(left: Range, right: Range): boolean {
 /**
  * Filters analyses by a free-text search query.
  * Tokens are split by whitespace. Each token is matched against:
- * - RIR (if the token is a pure integer)
+ * - RIR (if the token is a number — decimals like 1.5 or 1,5 included, GH-466)
  * - exercise name (case-insensitive substring, otherwise)
  * All tokens must match (AND semantics). Empty query passes everything.
  */
@@ -139,9 +137,9 @@ export function filterVideoAnalysesBySearchQuery(
   const tokens = trimmed.split(/\s+/);
   return analyses.filter((analysis) =>
     tokens.every((token) => {
-      const isInteger = /^\d+$/.test(token);
-      if (isInteger) {
-        const rirTarget = parseInt(token, 10);
+      const isNumber = /^\d+([.,]\d+)?$/.test(token);
+      if (isNumber) {
+        const rirTarget = Number(ensureFormat(token));
         const {workoutId, setIndex} = analysis;
         if (workoutId === undefined || setIndex === undefined) {
           return false;

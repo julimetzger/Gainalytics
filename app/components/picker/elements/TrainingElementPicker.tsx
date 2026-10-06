@@ -16,8 +16,8 @@ const TrainingElementPicker = ({
   muscle,
   setMuscle,
   style,
-  metric,
-  setMetric,
+  metrics,
+  setMetrics,
   setAccumulation,
   accumulation,
   visible = true,
@@ -55,7 +55,7 @@ const TrainingElementPicker = ({
   // the *content* changes, not whenever the parent creates new array references.
   const exerciseIdsKey = exercise.map((ex: Exercise) => ex.id ?? 0).join(',');
   const muscleKey = (muscle ?? []).join(',');
-  const metricKey = metric ?? '';
+  const metricKey = (metrics ?? []).join(',');
   const accKey = accumulation?.getId() ?? '';
 
   const allAccumalations = useMemo<Accumulation[]>(() => {
@@ -80,7 +80,7 @@ const TrainingElementPicker = ({
         avatarComponent: <Icon source="book-open-variant" size={20} />,
       });
     });
-    if (setMetric) {
+    if (setMetrics) {
       Object.values(Metric).forEach((value: string) => {
         structure.push({
           label: value,
@@ -99,7 +99,7 @@ const TrainingElementPicker = ({
       });
     }
     return structure;
-  }, [allExercises, allAccumalations, setMetric, hasMuscle]);
+  }, [allExercises, allAccumalations, setMetrics, hasMuscle]);
 
   // Memoize selectedValues so its reference is stable when content hasn't changed.
   // The library's internal useEffect depends on the `value` prop reference — a new
@@ -111,7 +111,7 @@ const TrainingElementPicker = ({
       values.push(...muscleKey.split(','));
     }
     if (metricKey) {
-      values.push(metricKey);
+      values.push(...metricKey.split(','));
     }
     if (accKey) {
       values.push(accKey);
@@ -188,10 +188,8 @@ const TrainingElementPicker = ({
   }
 
   function setExerciseDumb(value: string[]) {
-    let newMetric = value.filter((value: string) => Object.values(Metric).includes(value as Metric));
-    if (newMetric.length > 1) {
-      newMetric = newMetric.filter((value: string) => value !== metric);
-    }
+    // GH-468: metrics are a multi-select filter, like exercises and muscles.
+    let newMetrics = value.filter((value: string) => Object.values(Metric).includes(value as Metric)).map((value: string) => value as Metric);
     let accumulationNames = value.filter((value: string) => allAccumalations.map((value: Accumulation) => value.getId()).includes(value));
     if (accumulationNames.length > 1) {
       accumulationNames = accumulationNames.filter((value: string) => value !== accumulation?.getId());
@@ -203,7 +201,7 @@ const TrainingElementPicker = ({
     // let allExercisesByMuscle = allExercises.filter((ex: Exercise) => ex.muscles?.some(s => muscles.includes(s.muscle)))
     setMuscle ? setMuscle(muscles) : 0;
     setExercise([...find]);
-    setMetric ? setMetric(newMetric[0] as Metric) : 0;
+    setMetrics ? setMetrics(newMetrics) : 0;
     setAccumulation ? setAccumulation(allAccumalations.find((accumulation) => accumulation?.getId() === accumulationNames[0])) : undefined;
   }
 };
@@ -247,8 +245,8 @@ interface ExercisePickerProps {
   setMuscle?: (arg: Muscles[]) => void;
   style?: StyleProp<ViewStyle>;
   visible?: boolean;
-  metric?: Metric;
-  setMetric?: (arg: Metric) => void;
+  metrics?: Metric[];
+  setMetrics?: (arg: Metric[]) => void;
   accumulation?: Accumulation;
   setAccumulation?: (arg: Accumulation | undefined) => void;
   hideChip?: boolean;

@@ -1,0 +1,192 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-468: the Analyse graph needs no exercise/muscle any more, aggregates per
+# metric, and shows every metric at once. Needs the baseline fixture.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+
+# The emulator raises "System UI isn't responding" under load; while that
+# window holds focus Maestro's hierarchy never contains the app.
+- runFlow:
+    when:
+      visible: 'Wait'
+    commands:
+      - tapOn: 'Wait'
+      - waitForAnimationToEnd
+
+# A cold start after a device reboot needs well over the default timeout
+# before the tab bar exists.
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 90000
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Analysis'
+    timeout: 15000
+- tapOn: 'Analysis'
+- waitForAnimationToEnd
+
+# ------------------------------------------ (a) no exercise / muscle selected
+# Default range (last 3 months) holds nothing in the fixture: jump to the data.
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-chart-jump-to-last'
+    timeout: 20000
+- tapOn:
+    id: 'analyse-chart-jump-to-last'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-chart-Volume'
+    timeout: 20000
+# nothing was picked: only the default accumulation mode is selected, and
+# every metric is on by default
+- assertVisible: '1 selected'
+- assertVisible: 'Volume \(sum\)'
+- assertVisible:
+    id: 'analyse-chart-1RM'
+- assertNotVisible:
+    id: 'analyse-chart-empty-range'
+- assertNotVisible:
+    id: 'analyse-chart-misconfigured'
+- takeScreenshot: gh468_a_no_selection_all_metrics
+
+# ------------------------------- (b) two exercises accumulated per week
+# Each pick: search, tap the first row once, and re-tap only if the chip for
+# that pick did not appear — the open keyboard often eats the first tap
+# (agent-memory #443). `hideKeyboard` is no option: its BACK closes the dropdown.
+- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+- extendedWaitUntil:
+    visible:
+      id: 'search-bar'
+    timeout: 20000
+
+- tapOn:
+    id: 'search-bar'
+- inputText: 'Front squat'
+- waitForAnimationToEnd
+- tapOn:
+    point: '50%, 26%'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'chip'
+        text: 'Front squat'
+    commands:
+      - tapOn:
+          point: '50%, 26%'
+      - waitForAnimationToEnd
+- assertVisible:
+    id: 'chip'
+    text: 'Front squat'
+
+- tapOn:
+    id: 'search-bar-clear-icon'
+    optional: true
+- tapOn:
+    id: 'search-bar'
+- inputText: 'Bankdr'
+- waitForAnimationToEnd
+- tapOn:
+    point: '50%, 26%'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'chip'
+        text: 'Bankdrücken'
+    commands:
+      - tapOn:
+          point: '50%, 26%'
+      - waitForAnimationToEnd
+- assertVisible:
+    id: 'chip'
+    text: 'Bankdrücken'
+
+- tapOn:
+    id: 'search-bar-clear-icon'
+    optional: true
+- tapOn:
+    id: 'search-bar'
+- inputText: 'Week'
+- waitForAnimationToEnd
+- tapOn:
+    point: '50%, 26%'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'chip'
+        text: 'Week'
+    commands:
+      - tapOn:
+          point: '50%, 26%'
+      - waitForAnimationToEnd
+# Week replaces Day (one accumulation mode at a time)
+- assertVisible:
+    id: 'chip'
+    text: 'Week'
+- assertNotVisible:
+    id: 'chip'
+    text: 'Day'
+
+# close the dropdown
+- runFlow:
+    when:
+      visible:
+        id: 'search-bar'
+    commands:
+      - back
+- waitForAnimationToEnd
+- assertVisible: '3 selected'
+- assertVisible:
+    id: 'analyse-chart-Volume'
+- assertNotVisible:
+    id: 'analyse-chart-empty-range'
+
+# Tap the last weekly Volume point (week of 23/02/26). Its trainings must be
+# exactly the two selected lifts of that week — nothing else was included.
+- tapOn:
+    point: '89%, 49%'
+- waitForAnimationToEnd
+- takeScreenshot: gh468_b_two_exercises_week
+# scrollUntilVisible's short swipes are swallowed by the charts; long swipes
+# scroll the page.
+- repeat:
+    while:
+      notVisible: '11 reps'
+    times: 8
+    commands:
+      - swipe:
+          start: '50%, 80%'
+          end: '50%, 20%'
+          duration: 600
+      - waitForAnimationToEnd
+- assertVisible: 'Mon, 23/02/26'
+- assertVisible: 'Bankdrücken'
+- assertVisible: 'Fri, 27/02/26'
+- assertVisible: 'Front squat'
+- assertVisible: '6 reps'
+- assertVisible: '11 reps'
+- takeScreenshot: gh468_b_week_point_trainings
+
+# (c) several metrics at once: since round 3 metrics are filtered in the
+# picker only — see gh468_r3_metric_filter_muscle_share.yaml.
