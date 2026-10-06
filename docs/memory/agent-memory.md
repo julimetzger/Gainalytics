@@ -3119,21 +3119,30 @@ Also: R5CN30HWZFN has `wm size` override 720x1600, so `adb input tap` uses 720-w
 **Working solution:** in one Bash call: find the listener PID (`netstat -ano | grep ':5037 ' | grep ABH`), `taskkill /F /PID`, then `(env -u ADB_SERVER_SOCKET -u ANDROID_SERIAL setsid nohup ./adb.exe -a -P 5037 nodaemon server >/tmp/adbserver.out 2>&1 </dev/null & disown)` and re-check that netstat shows `0.0.0.0:5037`. It survived all later tool calls (contrary to #412).
 **Apply when:** netstat shows the restarted adb server on `127.0.0.1:5037` and WSL gets `Connection refused` via the gateway.
 
-### 473. `run-maestro-from-wsl.sh --host <gateway> --device <serial>` can run the whole flow on a SIBLING's device — check `Got device info` in `maestro.log`
+### 473. Exercise tabs in the training header carry a trailing space in their label — tap them by `training-exercise-<exerciseId>`
+**Problem (GH-330):** `tapOn: 'Hyperextension'` → `Element not found: Text matching regex: Hyperextension`; the dump shows `text="Hyperextension "` (trailing space) and Maestro matches the full text (#442, same root cause as #293's seeded names). Other exercises had no trailing space, so the selector looks fine on most tabs.
+**Working solution:** `tapOn: {id: 'training-exercise-78'}` — the tab's resource-id carries the exercise id; read it from one `uiautomator dump`.
+**Apply when:** switching exercises in the Train/edit view from a flow.
+
+### 474. Read-only 1RM/delta evidence on a real-data device: Last Training → overflow → Edit training
+**Observation (GH-330):** the "no logging on real data" constraint does not require a test training. Home's `last-training-card-pressable` → `header-overflow-icon` → `overflow-edit` renders `ExecuteTraining` (incl. the Estimated 1RM card with real session/last/PR values) as pure UI state — nothing is written unless an input is touched. Cycling the exercise tabs of one finished training gave a positive, a negative and a zero delta. In this edit view `estimated-1rm-*` Texts and `training-exercise-*` tabs ARE in the uiautomator tree (unlike the STARTED execute view in #405), so value assertions work.
+**Apply when:** a ticket needs execute-view evidence on R5CN30HWZFN without logging sets. Probe the card values with adb taps first, then pin them in the flow.
+
+### 475. `run-maestro-from-wsl.sh --host <gateway> --device <serial>` can run the whole flow on a SIBLING's device — check `Got device info` in `maestro.log`
 **Problem (GH-442):** with the documented `--host 172.18.240.1 --device emulator-5556`, `maestro.log` said "Selected device emulator-5556", but the baseline import and two flow attempts ran on R5CN30HWZFN, which another worker was using. The "planned training" screenshot was from that phone; the only reliable tell was `DeviceInfo(widthPixels=720, heightPixels=1600)` (the emulator is 1080x2400). #411/#441 describe the cause; this shows that the wrapper's normal command line is affected too.
 **Working solution:** before the first flow, start your own `adb-filter-proxy.py` (copy one from a sibling run dir, set `LISTEN=("127.0.0.<free>",5037)` and `KEEP=b"<your serial>"`) and pass **`--host 127.0.0.<free>`** to the wrapper, which then routes its own adb pushes through the proxy too. After every run, `grep "Got device info" maestro.log` and compare against `adb -s $SERIAL shell wm size`.
 **Apply when:** always, whenever more than one device is attached. A flow failing on an element that should be there can mean the flow ran on another device.
 
-### 474. When Metro cannot watch even the project root (ENOSPC), serve a prebuilt dev bundle instead
+### 476. When Metro cannot watch even the project root (ENOSPC), serve a prebuilt dev bundle instead
 **Problem (GH-442):** host Metro died with `ENOSPC … watch '<worktree>'`. A run-dir config with `blockList` plus `watch: false` crashed the same way, because the RN CLI watches regardless. The native build was not a way out either: reanimated's codegen `.cpp` files were missing in the shared `node_modules`.
 **Working solution:** `npx react-native bundle --platform android --dev true --entry-file index.tsx --bundle-output <run_dir>/bundle/index.bundle --config <run_dir>/metro.worktree.config.cjs` (the entry is `index.tsx`, NOT `index.js`). Serve it with a ~20-line python `http.server` that answers `/status` → `packager-status:running` and any `*.bundle` path with the file, on the host Metro port. Then set `debug_http_host=localhost:8081` (#432) and `adb reverse`. Logcat `isMetroRunning(): Async result = true` plus a grep for a new testID in the bundle proves the app is running the branch code. Rebuild the bundle after every JS edit. `CI=true npm start` (#453) is the cheaper first thing to try.
 **Apply when:** Metro will not stay up and the change is JS-only.
 
-### 475. A navigation param like `subTab` keeps being handed to whichever swiper pane becomes current — a swipe re-applies it over the user's tab
+### 477. A navigation param like `subTab` keeps being handed to whichever swiper pane becomes current — a swipe re-applies it over the user's tab
 **Problem (GH-467):** `TrainingsPlanTab` passed `route.params.subTab` to the pane of the *current* micro. After a swipe the newly current pane saw an unconsumed request (`micro:training:subTab` key is per pane instance, and RangeSwiper reuses/renames panes), so the tab jumped back to the one the screen was opened with. The Maestro flow only caught it because the tab had been switched to Plan first; `assertNotVisible: analysis-tab` alone passed vacuously while Train was shown.
 **Working solution:** treat the param as a one-off for the opening micro — dismiss it (state keyed on the `route.params` object) on the first swipe. Carry the user's tab in screen state (`stickySubTab`) and hand it to panes.
 **Apply when:** any per-pane state must survive a swipe: check what else is injected from route params, and back every `assertNotVisible` with a positive assertion on what should be there.
 
-### 476. The installed app on a shared device can be a release build — Metro does nothing until `assembleDebug` is installed (same signature, `install -r` keeps data)
+### 478. The installed app on a shared device can be a release build — Metro does nothing until `assembleDebug` is installed (same signature, `install -r` keeps data)
 **Problem (GH-467):** `pm dump` showed no `DEBUGGABLE` flag; the JS bundle comes from the APK. A cold `assembleDebug` took 14 min here. `adb install -r app-debug.apk` over the release build worked without uninstalling, so the user's data stayed. The home screen then has no plan list ("Push pull" text is the hero card): open a plan by tapping `next-training-start-button`. Device screens are 720 px wide — scale screenshot coordinates accordingly. Metro started with `CI=true` does not watch files; restart it after every JS edit.
 **Apply when:** a real device is assigned and the installed APK predates the worktree.

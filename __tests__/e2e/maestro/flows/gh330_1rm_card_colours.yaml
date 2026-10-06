@@ -1,0 +1,73 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-330: the Estimated 1RM card shows the PR line and a positive
+# "vs last training" delta in the app colour (theme primary); a negative
+# delta stays in the error colour.
+#
+# READ-ONLY on purpose: this runs on a device with real user data. It opens
+# the most recent finished training via "Last Training" and views it in edit
+# mode (pure UI state) — no set is typed, logged or deleted.
+#
+# Data prerequisite (R5CN30HWZFN, 2026-10-01): last training is
+# "Push pull › Meso 1 · Micro 6 Pull" with
+#   Hyperextension      session 64.5 / last 63.0 / PR 64.5  -> +1.5 kg
+#   Chest supported row session 76.0 / last 76.7 / PR 86.7  -> -0.7 kg
+# Colours themselves are not assertable in Maestro; the screenshots carry
+# them, and Estimated1RmCard.spec.tsx asserts the colour choice.
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'last-training-card-pressable'
+    direction: DOWN
+- tapOn:
+    id: 'last-training-card-pressable'
+- extendedWaitUntil:
+    visible:
+      id: 'header-overflow-icon'
+    timeout: 30000
+- assertVisible:
+    id: 'header-plan-meso-name'
+    text: 'Push pull › Meso 1'
+- tapOn:
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-edit'
+    timeout: 5000
+- tapOn:
+    id: 'overflow-edit'
+
+# PR + positive delta -> app colour
+- tapOn:
+    id: 'training-exercise-78'   # label carries a trailing space
+- extendedWaitUntil:
+    visible:
+      id: 'estimated-1rm-card'
+    timeout: 15000
+- assertVisible:
+    id: 'estimated-1rm-pr'
+    text: 'PR 64\.5 kg'
+- assertVisible:
+    id: 'estimated-1rm-delta'
+    text: '\+1\.5 kg'
+- takeScreenshot: gh330_pr_and_positive_delta_app_colour
+
+# Negative delta -> error colour
+- tapOn:
+    id: 'training-exercise-47'
+- assertVisible:
+    id: 'estimated-1rm-delta'
+    text: '-0\.7 kg'
+- assertVisible:
+    id: 'estimated-1rm-pr'
+    text: 'PR 86\.7 kg'
+- takeScreenshot: gh330_negative_delta_error_colour

@@ -116,3 +116,37 @@ describe('buildThemes — secondary is usable as a filled button surface', () =>
     },
   );
 });
+
+/**
+ * GH-330: the Estimated 1RM card draws its PR line and positive deltas in
+ * `primary` and negative deltas in `error`, as small text on the card's
+ * `surfaceContainerLow` background. Every palette — built-in and custom —
+ * must keep that text readable and keep "gain" visibly different from "loss".
+ */
+describe('buildThemes — primary text on the 1RM card stays readable', () => {
+  const palettes = ['blue', 'green', 'purple', '#E91E63', '#FFC107', '#00FF00'];
+  const modes = ['light', 'dark'] as const;
+  const cases = palettes.flatMap((p) => modes.map((m) => [p, m] as const));
+
+  const schemeFor = (palette: string, mode: (typeof modes)[number]) => {
+    const {LightThemeCombined, DarkTheme} = buildThemes(palette);
+    return (mode === 'light' ? LightThemeCombined : DarkTheme).colors as Record<string, string>;
+  };
+  const cardBackground = (colors: Record<string, string>) =>
+    colors.surfaceContainerLow ?? colors.surfaceVariant ?? colors.surface;
+
+  it.each(cases)('%s/%s: primary reaches WCAG AA on the card background', (palette, mode) => {
+    const colors = schemeFor(palette, mode);
+    expect(contrastRatio(colors.primary, cardBackground(colors))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(cases)('%s/%s: error reaches WCAG AA on the card background', (palette, mode) => {
+    const colors = schemeFor(palette, mode);
+    expect(contrastRatio(colors.error, cardBackground(colors))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(cases)('%s/%s: primary is not the error colour', (palette, mode) => {
+    const colors = schemeFor(palette, mode);
+    expect(colors.primary.toLowerCase()).not.toBe(colors.error.toLowerCase());
+  });
+});
