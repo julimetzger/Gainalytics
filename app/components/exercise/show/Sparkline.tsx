@@ -8,11 +8,12 @@ interface SparklineProps {
   height: number;
   color: string;
   strokeWidth?: number;
+  testID?: string;
 }
 
-const Sparkline = ({values, width, height, color, strokeWidth = 1.5}: SparklineProps) => {
+const Sparkline = ({values, width, height, color, strokeWidth = 1.5, testID}: SparklineProps) => {
   if (values.length < 2) {
-    return <View style={{width, height}} />;
+    return <View style={{width, height}} testID={testID} />;
   }
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -24,10 +25,14 @@ const Sparkline = ({values, width, height, color, strokeWidth = 1.5}: SparklineP
     return `${x.toFixed(2)},${y.toFixed(2)}`;
   });
   const d = `M${points.join(' L')}`;
+  // The plotted values double as the accessibility label, so screen readers
+  // (and e2e flows) can read the trend the line draws.
   return (
-    <Svg width={width} height={height}>
-      <Path d={d} stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
+    <View testID={testID} accessible accessibilityLabel={`Trend ${values.map((v) => v.toFixed(0)).join(', ')}`}>
+      <Svg width={width} height={height}>
+        <Path d={d} stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    </View>
   );
 };
 
