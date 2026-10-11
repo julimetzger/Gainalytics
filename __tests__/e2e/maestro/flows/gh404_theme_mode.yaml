@@ -1,6 +1,10 @@
 appId: com.powerliftingworkoutplanner
 name: GH-404 Theme mode selector
 ---
+# SUPERSEDED by gh478_theme_color_row.yaml: GH-478 replaced the "Active: …"
+# captions, the Green preset and the separate Theme Color / Custom Color rows
+# this flow asserts with one "Custom Color" row (Blue / Purple / Custom). Kept
+# as the record of the earlier behaviour; it fails against the GH-478 UI.
 # Precondition: the device's own display setting is LIGHT
 # (`adb shell cmd uimode night no`). The System assertions below name the
 # scheme that is actually in effect, so they have to know what the device asks
