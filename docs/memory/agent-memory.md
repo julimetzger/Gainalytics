@@ -3155,3 +3155,12 @@ Also: R5CN30HWZFN has `wm size` override 720x1600, so `adb input tap` uses 720-w
 ### 480. To open a training on its STATE-DEFAULT sub-tab, use Home's "Last Training" card — "Next Training" forces Train
 **Observation (GH-467 r2):** `NextTrainingCard` navigates with `subTab: 'train'`; `last-training-card-pressable` passes no sub-tab, so a FINISHED training opens on its default Analysis. Its content-desc (`Last Training, <name>, Meso 1 · M7 · D1 · today, Sets, 0, …`) works as a guard (`assertVisible: {id, text}`) before a destructive step, so a flow only deletes the training it created itself.
 **Apply when:** a flow needs the default tab, or must make sure it acts on its own test training.
+
+### 481. Drawer headers render regular, native-stack headers medium — Paper's MD3 theme has no `fonts.medium`
+**Problem (GH-484):** "Make the Dashboard headline match the other tabs": all Analysis headers (drawer navigator, JS header from `@react-navigation/elements`) were regular weight, the Training/Exercises/Settings headers (native-stack, native toolbar) medium. Both libraries ask for `fonts.medium` of the navigation theme, but the app passes the Paper MD3 theme, whose `fonts` is the MD3 typescale (`titleMedium`, …) without `regular/medium/bold` — the JS header silently falls back to the default Text weight, the native toolbar to its own medium face.
+**Working solution:** `headerTitleStyle: {fontFamily: theme.fonts.titleMedium.fontFamily, fontWeight: theme.fonts.titleMedium.fontWeight}` in the drawer's `screenOptions` (size stays the header's own 20). Compare header crops of different tabs side by side (`ffmpeg crop` + `vstack`) — weight differences are invisible in a single full screenshot.
+**Apply when:** a JS-rendered header/title (drawer, bottom-tab or JS stack header) looks lighter than the native-stack ones.
+
+### 482. When the ticket asks for something that is already true, re-read the user's ORIGINAL words in the issue
+**Observation (GH-484):** the rewritten ticket said "Dashboard heading like the other *Analysis pages*" — on device it already was identical to them. The issue's quoted original said "match the other *tabs*", and that difference (bottom tabs Training/Exercises/Settings) was real. Fixing it for all Analysis headers satisfied both readings; documented the interpretation in summary + PR.
+**Apply when:** a "before" screenshot shows no defect — check `gh issue view` for the user's original text and attached screenshot (with auth) before concluding nothing needs changing.

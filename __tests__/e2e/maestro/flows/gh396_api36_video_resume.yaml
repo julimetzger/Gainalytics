@@ -13,7 +13,7 @@ appId: com.powerliftingworkoutplanner
 # analysis to FAILED ("App was closed while import or analysis was running"). A flow that
 # restarts the app therefore CAUSES the failure it is meant to rule out. Resuming the
 # existing task is also what a user tapping the launcher icon actually does — and it
-# brings the app back exactly where it was left, on the Video Analyses list.
+# brings the app back exactly where it was left, on the Video Analysis list.
 - launchApp:
     clearState: false
     stopApp: false

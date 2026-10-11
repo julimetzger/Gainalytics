@@ -6,7 +6,7 @@ import {createDrawerNavigator} from '@react-navigation/drawer';
 import AnalyseGraphics from '../tabs/Analyse/AnalyseGraphics';
 import RecordsTab from '../tabs/Analyse/Records';
 import MetricsTab from '../tabs/Analyse/Metrics';
-import {IconButton, useTheme} from 'react-native-paper';
+import {IconButton, MD3Theme, useTheme} from 'react-native-paper';
 import VideoAnalysisTab from '../tabs/Analyse/VideoAnalysisTab';
 import VideoAnalysisDetailTab from '../tabs/Analyse/VideoAnalysisDetailTab';
 import VideoAnalysisCompareTab from '../tabs/Analyse/VideoAnalysisCompareTab';
@@ -43,14 +43,14 @@ const TrainingLengthScreen = withAnalyseErrorBoundary(TrainingLengthTab, 'Traini
 const HistoryScreen = withAnalyseErrorBoundary(History, 'History');
 const MetricsScreen = withAnalyseErrorBoundary(MetricsTab, 'Metrics Overview');
 const RecordsScreen = withAnalyseErrorBoundary(RecordsTab, 'Records');
-const VideoAnalysesScreen = withAnalyseErrorBoundary(VideoAnalysisTab, 'Video Analyses');
+const VideoAnalysesScreen = withAnalyseErrorBoundary(VideoAnalysisTab, 'Video Analysis');
 const VideoAnalysisDetailScreen = withAnalyseErrorBoundary(VideoAnalysisDetailTab, 'Video Analysis Detail');
 const VideoAnalysisCompareScreen = withAnalyseErrorBoundary(VideoAnalysisCompareTab, 'Compare Analyses');
 const AIChatScreen = withAnalyseErrorBoundary(AIChatTab, 'AI Chat');
 const ChatHistoryScreen = withAnalyseErrorBoundary(ChatHistoryTab, 'Chat History');
 
 // GH-458 (H1/H2): "Video Analysis Detail" and "Compare Analyses" are detail
-// screens that need a selection made in the Video Analyses list. Offering them
+// screens that need a selection made in the Video Analysis list. Offering them
 // as standalone drawer entries put every user one tap away from a white screen
 // (Detail) or a dead end (Compare). The routes stay registered and reachable
 // from the list; only the drawer entries are hidden.
@@ -58,6 +58,16 @@ export const ANALYSE_DRAWER_HIDDEN_ROUTES = ['VideoAnalysisDetail', 'VideoAnalys
 
 export const getAnalyseDrawerItemOptions = (routeName: keyof RootStackParamList) =>
   ANALYSE_DRAWER_HIDDEN_ROUTES.some((hiddenRoute) => hiddenRoute === routeName) ? {drawerItemStyle: {display: 'none' as const}} : {};
+
+// GH-484: the drawer's JS header reads `fonts.medium` from the navigation theme,
+// which the Paper MD3 theme does not have — so every Analyse title (Dashboard
+// first) rendered in regular weight, while the native-stack headers of
+// Training, Exercises and Settings use the platform's medium title font. Pin the
+// Analyse titles to the same medium face; the header keeps its own font size.
+export const getAnalyseHeaderTitleStyle = (fonts: MD3Theme['fonts']) => ({
+  fontFamily: fonts.titleMedium.fontFamily,
+  fontWeight: fonts.titleMedium.fontWeight,
+});
 
 const AnalyseRouter = () => {
   const Stack = createDrawerNavigator<RootStackParamList>();
@@ -69,6 +79,7 @@ const AnalyseRouter = () => {
       backBehavior="history"
       screenOptions={({navigation}) => ({
         headerTintColor: theme.colors.onSecondaryContainer,
+        headerTitleStyle: getAnalyseHeaderTitleStyle(theme.fonts),
         headerLeft: () => <IconButton icon="menu" testID="analyse-drawer-toggle" onPress={() => navigation.toggleDrawer()} />,
         // GH-313 background-render guard. The drawer keeps every screen mounted, so
         // unfocused screens (Dashboard, Records, History, Metrics, TrainingLength, …)
@@ -125,7 +136,7 @@ const AnalyseRouter = () => {
         name="VideoAnalyses"
         component={VideoAnalysesScreen}
         options={() => ({
-          title: 'Video Analyses',
+          title: 'Video Analysis',
         })}
       />
       <Stack.Screen
@@ -149,9 +160,6 @@ const AnalyseRouter = () => {
         component={AIChatScreen}
         options={() => ({
           title: 'AI Chat',
-          drawerIcon: ({color, size}: {color: string; size: number}) => (
-            <IconButton icon="chat-processing-outline" iconColor={color} size={size} />
-          ),
         })}
       />
       <Stack.Screen
@@ -159,9 +167,6 @@ const AnalyseRouter = () => {
         component={ChatHistoryScreen}
         options={() => ({
           title: 'Chat History',
-          drawerIcon: ({color, size}: {color: string; size: number}) => (
-            <IconButton icon="history" iconColor={color} size={size} />
-          ),
         })}
       />
     </Stack.Navigator>
