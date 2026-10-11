@@ -38,6 +38,7 @@ interface PlanTabProps {
   onExerciseDoublePress?: (exercise: Exercise) => void;
   setExercises: (exercises: Exercise[]) => void;
   doneExerciseIds: number[];
+  loggedSetCounts?: Record<number, number>;
   setAbsolutePosition: (layout: LayoutRectangle) => void;
   pickerVisible: boolean;
   onTogglePicker: () => void;
@@ -58,6 +59,7 @@ const PlanTab = ({
   onExerciseDoublePress,
   setExercises,
   doneExerciseIds,
+  loggedSetCounts,
   setAbsolutePosition,
   pickerVisible,
   onTogglePicker,
@@ -160,6 +162,7 @@ const PlanTab = ({
         chooseExercise={handleChooseExercise}
         onExerciseDoublePress={onExerciseDoublePress}
         doneExerciseIds={doneExerciseIds}
+        loggedSetCounts={loggedSetCounts}
         setExercises={handleSetExercises}
         setAbsolutePosition={setAbsolutePosition}
         onTogglePicker={onTogglePicker}
