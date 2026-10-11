@@ -299,7 +299,12 @@ const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => 
         </View>
 
         {mesoData.length > 0 && (
-          <View testID="micro-hero-chart" accessible accessibilityLabel={chartAccessibilityLabel} onLayout={e => setChartWidth(e.nativeEvent.layout.width)}>
+          <View
+            testID="micro-hero-chart"
+            style={styles.chartContainer}
+            accessible
+            accessibilityLabel={chartAccessibilityLabel}
+            onLayout={e => setChartWidth(e.nativeEvent.layout.width)}>
             <BarChart
               style={styles.chart}
               data={chartData}
@@ -396,6 +401,8 @@ const styles = StyleSheet.create({
   deltaBlock: {alignItems: 'flex-start', paddingBottom: 8},
   deltaText: {fontSize: 16, fontWeight: '600'},
   deltaSubText: {fontSize: 12},
+  // GH-482: the micro labels now sit under the bars; keep them clear of the day strip.
+  chartContainer: {marginBottom: 8},
   chart: {height: 160},
   kpiRow: {
     flexDirection: 'row',
