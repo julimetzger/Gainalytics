@@ -313,3 +313,17 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-483):** a 5 s undo snackbar expired between "Remove" and `tapOn undo` (Maestro settles ~3 s per tap; an adb `uiautomator dump` in between is slower still) and the Undo tap hit the tab bar under it.
 **Fix / Rule:** undo duration 8 s; in flows only `assertVisible` + `takeScreenshot` between removal and `tapOn undo`; in adb scripts chain both taps in ONE `adb shell "…; sleep 1.2; input tap …"` and use screencap, not dump.
 **Apply when:** any transient snackbar/toast action in a flow.
+
+### Reproduce gesture-navigation reports on the test phone via the navbar overlay
+**Problem (GH-420):** the user's screenshot showed gesture navigation (pill, no 3-button bar); the test phone runs 3-button nav, so edge-swipe/back behaviour differed.
+**Fix / Rule:** `adb -s $S shell cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.gestural` (back: `…navbar.threebutton`; check `settings get secure navigation_mode` 2/0). The switch recreates the activity: ~15 s white screen, the bottom tab bar moves (y 1376→1434 on 720x1600), and once Samsung's Galaxy Finder popped up in front, so run a foreground check afterwards. Restore 3-button nav before finishing. Animations off (`settings put global animator_duration_scale/transition_animation_scale/window_animation_scale 0`, restart app) emulates Reanimated reduced motion; restore to 1.
+**Apply when:** a bug report's screenshot shows a different nav mode or the bug may depend on gestures/animations.
+
+### Prove a drawer is closed by tapping a control INSIDE its area
+**Observation (GH-420):** `Close drawer` (overlay content-desc) vanishing and underlying text in the a11y tree prove nothing (the Analyse drawer content stays in the tree while open). Strong check: after closing, tap a control of the screen behind whose bounds lie within the drawer's width (Records `records-view-muscle` / `records-view-heatmap`) and assert the switched view (`records-muscle-lanes.*` / `records-heatmap.*`). If the drawer were still open, the tap would hit a drawer entry. Since GH-420 the Analyse drawer starts below the header, and tapping `analyse-drawer-toggle` while it is open closes it (it used to select "Dashboard").
+**Apply when:** any drawer/overlay open-close evidence.
+
+### `pgrep -f`/`kill` with a pattern from the same Bash call kills your own shell
+**Problem (GH-420):** `for p in $(pgrep -f "maestro.*--driver-host-port 7055"); do kill $p; done` matched the tool's own bash (its cmdline contains the pattern) → exit 144, rest of the command never ran.
+**Fix / Rule:** take PIDs from `ps -eo pid,cmd | grep … | grep -v grep` and check them before killing, or kill the PID you captured with `$!` at launch.
+**Apply when:** cleaning up Maestro/adb/wrapper processes after a failed run.
