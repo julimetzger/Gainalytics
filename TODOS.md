@@ -79,6 +79,8 @@
 
 ## General
 
+- [ready] [GH-492](https://github.com/julimetzger/Gainalytics/issues/492) Marktanalyse & USP — Wettbewerber, Feature-Matrix, Alleinstellungsmerkmal, priorisierte Verbesserungen
+  - Read-only, Report nach `docs/strategy/market-analysis.md`; keine App-Code-Änderung
 - [ready] [GH-450](https://github.com/julimetzger/Gainalytics/issues/450) Ui auf deutsch — restliche deutsche Beschriftungen in der englischen Oberfläche
   - Gemeldet an der Micro-Overview: die Umschaltung heißt „Gesamt" neben „Exercise" und „Muscle"
   - Kein Einzelfix: vollständiger Durchgang durch die App, inklusive Fehler-, Dialog- und Leerzustände
