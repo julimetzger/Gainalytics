@@ -95,11 +95,20 @@ jest.mock('../../../app/components/Training/analyse/TrainingHistory', () => {
   return () => <Text testID="training-history">TrainingHistory</Text>;
 });
 jest.mock('../../../app/components/Training/TrainingsBase', () => 'TrainingsBase');
+// GH-483: mounts and the chosen exercise per render, so a test can see the tab being torn down.
+let mockPlanTabMounts = 0;
+let mockPlanTabChosenIds: (number | undefined)[] = [];
 jest.mock('../../../app/components/Training/plan/PlanTab', () => {
+  const React = require('react');
   const {Text, TouchableOpacity, View} = require('react-native');
   // Surfaces the picker wiring so a test can open the picker and observe whether
   // the parent keeps it open (GH-401 H3).
-  return ({pickerVisible, onTogglePicker}: any) => (
+  return ({pickerVisible, onTogglePicker, chosenExercise}: any) => {
+    React.useEffect(() => {
+      mockPlanTabMounts++;
+    }, []);
+    mockPlanTabChosenIds.push(chosenExercise?.id);
+    return (
     <View>
       <Text testID="plan-workout">PlanWorkout</Text>
       <Text testID="plan-workout-picker-visible">{String(pickerVisible)}</Text>
@@ -107,7 +116,8 @@ jest.mock('../../../app/components/Training/plan/PlanTab', () => {
         <Text>toggle</Text>
       </TouchableOpacity>
     </View>
-  );
+    );
+  };
 });
 jest.mock('../../../app/components/Training/analyse/TrainingPlanOverview', () => {
   const {Text} = require('react-native');
@@ -856,3 +866,57 @@ describe('TrainingsPlanNode — GH-442 Clear planned training', () => {
   });
 });
 
+
+describe('TrainingsPlanNode — GH-483 removing the selected exercise from the carousel', () => {
+  const {useExerciseByIds} = require('../../../app/redux/Exercises/use/useExerciseByIds');
+  const SQUAT = {id: 1, name: 'Squat', alternativeIds: []};
+  const BENCH = {id: 2, name: 'Bench', alternativeIds: []};
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPlanTabMounts = 0;
+    mockPlanTabChosenIds = [];
+  });
+  // The node is memoized and reads the store through mocked hooks — a fresh callback prop
+  // stands in for the store update that re-renders it in the app.
+  afterEach(() => {
+    useExerciseByIds.mockImplementation(() => [SQUAT, BENCH]);
+  });
+
+  it('keeps the Plan tab (its undo snackbar and edit state) mounted and hands over the next exercise at once', () => {
+    useExerciseByIds.mockImplementation(() => [SQUAT, BENCH]);
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.PLANNED));
+    const {getByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} />);
+    expect(mockPlanTabMounts).toBe(1);
+    expect(mockPlanTabChosenIds[mockPlanTabChosenIds.length - 1]).toBe(1);
+
+    // Squat — the selected exercise — is pulled off the carousel.
+    mockPlanTabChosenIds = [];
+    useExerciseByIds.mockImplementation(() => [BENCH]);
+    useTrainingInTrainingsPlan.mockReturnValue({...mkTraining(TrainingsState.PLANNED), exercises: [2]});
+    rerender(<TrainingsPlanNode {...defaultProps} setIgnoreSwipe={jest.fn()} />);
+
+    expect(getByTestId('plan-workout')).toBeTruthy();
+    expect(mockPlanTabMounts).toBe(1);
+    expect(mockPlanTabChosenIds).not.toContain(undefined);
+    expect(mockPlanTabChosenIds[mockPlanTabChosenIds.length - 1]).toBe(2);
+  });
+
+  it('keeps the Plan tab mounted when undo brings the removed exercise back', () => {
+    useExerciseByIds.mockImplementation(() => [SQUAT, BENCH]);
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} />);
+    fireEvent.press(getByTestId('subtab-plan'));
+    const mountsBefore = mockPlanTabMounts;
+
+    useExerciseByIds.mockImplementation(() => [BENCH]);
+    useTrainingInTrainingsPlan.mockReturnValue({...mkTraining(TrainingsState.STARTED), exercises: [2]});
+    rerender(<TrainingsPlanNode {...defaultProps} setIgnoreSwipe={jest.fn()} />);
+    useExerciseByIds.mockImplementation(() => [SQUAT, BENCH]);
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    rerender(<TrainingsPlanNode {...defaultProps} setIgnoreSwipe={jest.fn()} />);
+
+    expect(getByTestId('plan-workout')).toBeTruthy();
+    expect(mockPlanTabMounts).toBe(mountsBefore);
+  });
+});

@@ -139,7 +139,10 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   const [refresHeky, setRefresHeky] = useState(Math.random());
   let exercises = useExerciseByIds(training?.exercises ?? []);
   const [chosenExercises, setchosenExercise] = useState(exercises[0]?.id);
-  let chosenExercise = exercises.find((exercise) => exercise.id === chosenExercises);
+  // GH-483: when the selected exercise leaves the training (swipe-remove), fall back to the first one in
+  // the same render. A render without any chosen exercise unmounts the Plan tab — and with it the undo
+  // snackbar and any unsaved edit state — before the effect below catches up.
+  let chosenExercise = exercises.find((exercise) => exercise.id === chosenExercises) ?? exercises[0];
 
   // exercises arrive after Redux REHYDRATE — re-initialize if still unset
   useEffect(() => {

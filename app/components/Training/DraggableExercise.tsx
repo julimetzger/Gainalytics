@@ -39,6 +39,9 @@ type RemovedExercise = {
 const DOUBLE_PRESS_DELAY_MS = 700;
 // Long enough to read a long exercise name and reach the action (Material allows 4–10 s).
 const UNDO_DURATION_MS = 8000;
+// The snackbar lives in the root Portal, which also covers Paper's MD3 bottom tab bar (80 dp above the
+// bottom inset, which both add on their own) — lift it so it never hides the tabs.
+const BOTTOM_TAB_BAR_HEIGHT = 80;
 
 const DraggableExercise = ({
   exercises,
@@ -409,6 +412,7 @@ const DraggableExercise = ({
           visible={undoVisible}
           onDismiss={() => setUndoVisible(false)}
           duration={UNDO_DURATION_MS}
+          wrapperStyle={{bottom: BOTTOM_TAB_BAR_HEIGHT}}
           action={{label: 'Undo', onPress: undoRemoval, testID: 'training-exercise-undo'}}
           testID="training-exercise-removed-snackbar"
         >
