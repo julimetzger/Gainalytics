@@ -1,5 +1,6 @@
 import React from 'react';
-import {fireEvent, render} from '@testing-library/react-native';
+import {act, fireEvent, render} from '@testing-library/react-native';
+import {ScrollView} from 'react-native';
 import EditExerciseSheet from '../../../app/tabs/exercises/EditExerciseSheet';
 import {Muscles} from '../../../app/models/Muscles';
 
@@ -34,7 +35,11 @@ jest.mock('../../../app/redux/Exercises/use/useExerciseUsage', () => ({
   useExerciseUsage: () => mockUseExerciseUsage(),
 }));
 
-jest.mock('../../../app/components/exercise/add/ExerciseAlternativesField', () => () => null);
+let mockAlternativesProps: any;
+jest.mock('../../../app/components/exercise/add/ExerciseAlternativesField', () => (props: any) => {
+  mockAlternativesProps = props;
+  return null;
+});
 
 // Render the inline MuscleInvolvementEditor as a simple stub so tests can drive
 // it via testIDs without going through the real chips/progress-bar layout.
@@ -183,6 +188,33 @@ describe('EditExerciseSheet', () => {
     fireEvent.press(getByTestId('edit-exercise-delete-confirm'));
     expect(mockDeleteExercise).toHaveBeenCalledWith(7);
     expect(goBackMock).toHaveBeenCalled();
+  });
+
+  it('GH-487: focusing the alternatives search adds a viewport-high spacer so the search can be pinned above the keyboard', () => {
+    const {nav} = makeNavigation();
+    const {getByTestId, queryByTestId} = render(<EditExerciseSheet navigation={nav as any} route={{params: {}} as any} />);
+    fireEvent(getByTestId('edit-exercise-sheet'), 'layout', {nativeEvent: {layout: {height: 640}}});
+    expect(queryByTestId('edit-exercise-search-spacer')).toBeNull();
+
+    act(() => mockAlternativesProps.onSearchFocus(120));
+    expect(getByTestId('edit-exercise-search-spacer').props.style).toEqual({height: 640});
+
+    act(() => mockAlternativesProps.onSearchBlur());
+    expect(queryByTestId('edit-exercise-search-spacer')).toBeNull();
+  });
+
+  it('GH-487: re-pins the search to the top when it moves down while focused (chips wrapping into new rows)', () => {
+    const scrollTo = jest.spyOn(ScrollView.prototype as any, 'scrollTo').mockImplementation(() => {});
+    const {nav} = makeNavigation();
+    const {getByTestId} = render(<EditExerciseSheet navigation={nav as any} route={{params: {}} as any} />);
+    fireEvent(getByTestId('edit-exercise-sheet'), 'layout', {nativeEvent: {layout: {height: 640}}});
+
+    act(() => mockAlternativesProps.onSearchFocus(120));
+    expect(scrollTo).toHaveBeenLastCalledWith({y: 112, animated: true});
+
+    act(() => mockAlternativesProps.onSearchFocus(216)); // two more chip rows above the search
+    expect(scrollTo).toHaveBeenLastCalledWith({y: 208, animated: true});
+    scrollTo.mockRestore();
   });
 
   // GH-486: the user learns what the delete takes with it before confirming.

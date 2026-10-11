@@ -1,0 +1,184 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-487: alternatives picker is sorted, searchable, taller, keeps selections while
+# filtering, and saves them. Requires the baseline fixture (82 exercises, Squat = id 2).
+- runFlow: open_squat_edit.yaml
+
+# --- Sorted list, >= 10 rows at once (before: 5) ---------------------------------
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-alternatives-search'
+    timeout: 10000
+# Scroll the sheet on the left label column (the muscle sliders react to touches),
+# so the search field ends up near the top and the whole list area is on screen.
+- swipe:
+    start: '8%, 44%'
+    end: '8%, 8%'
+    duration: 800
+- assertVisible:
+    id: 'exercise-alternative-row-52'   # 45 degree crunch machine free
+- assertVisible:
+    id: 'exercise-alternative-row-32'   # Adductor
+    below:
+      id: 'exercise-alternative-row-52'
+- assertVisible:
+    id: 'exercise-alternative-row-79'   # B stance rdl
+    below:
+      id: 'exercise-alternative-row-32'
+- assertVisible:
+    id: 'exercise-alternative-row-1'    # Bankdrücken
+    below:
+      id: 'exercise-alternative-row-79'
+- assertVisible:
+    id: 'exercise-alternative-row-35'   # Biceps cable curl
+    below:
+      id: 'exercise-alternative-row-1'
+- assertVisible:
+    id: 'exercise-alternative-row-13'   # Bulgarian split squat
+    below:
+      id: 'exercise-alternative-row-35'
+- assertVisible:
+    id: 'exercise-alternative-row-74'   # Butterfly
+    below:
+      id: 'exercise-alternative-row-13'
+- assertVisible:
+    id: 'exercise-alternative-row-81'   # Cable crunches
+    below:
+      id: 'exercise-alternative-row-74'
+- assertVisible:
+    id: 'exercise-alternative-row-27'   # Cable lateral raise
+    below:
+      id: 'exercise-alternative-row-81'
+- assertVisible:
+    id: 'exercise-alternative-row-56'   # Cable row close pronated (10th row)
+    below:
+      id: 'exercise-alternative-row-27'
+- assertNotVisible:
+    id: 'exercise-alternative-row-2'    # Squat itself is never offered
+- takeScreenshot: 02_sorted_list_10plus_rows
+
+# --- Search: live, case-insensitive ---------------------------------------------
+- tapOn:
+    id: 'exercise-alternatives-search'
+- eraseText: 30
+- inputText: 'SQUAT'
+- assertVisible: 'SQUAT'
+- assertVisible:
+    id: 'exercise-alternative-row-83'   # Front squat
+- assertVisible:
+    id: 'exercise-alternative-row-13'   # Bulgarian split squat
+- assertVisible:
+    id: 'exercise-alternative-row-83'
+    below:
+      id: 'exercise-alternative-row-13'
+- assertNotVisible:
+    id: 'exercise-alternative-row-1'    # Bankdrücken filtered out
+- assertNotVisible:
+    id: 'exercise-alternative-row-2'    # Squat itself still excluded
+- takeScreenshot: 03_search_squat_keyboard_open
+
+# --- Select in filtered list ------------------------------------------------------
+- runFlow:
+    when:
+      notVisible:
+        id: 'exercise-alternative-row-83'
+        checked: true
+    commands:
+      - tapOn:
+          id: 'exercise-alternative-row-83'
+- runFlow:
+    when:
+      notVisible:
+        id: 'exercise-alternative-row-83'
+        checked: true
+    commands:
+      - tapOn:
+          id: 'exercise-alternative-row-83'
+- assertVisible:
+    id: 'exercise-alternative-row-83'
+    checked: true
+- assertVisible:
+    id: 'exercise-alternative-chip-83'
+
+# --- Change search, select a second one -------------------------------------------
+- tapOn:
+    id: 'exercise-alternatives-search'
+- eraseText: 30
+- inputText: 'bar row'
+- assertVisible:
+    id: 'exercise-alternative-row-75'   # T bar row free
+- assertNotVisible:
+    id: 'exercise-alternative-row-83'
+- runFlow:
+    when:
+      notVisible:
+        id: 'exercise-alternative-row-75'
+        checked: true
+    commands:
+      - tapOn:
+          id: 'exercise-alternative-row-75'
+- runFlow:
+    when:
+      notVisible:
+        id: 'exercise-alternative-row-75'
+        checked: true
+    commands:
+      - tapOn:
+          id: 'exercise-alternative-row-75'
+- assertVisible:
+    id: 'exercise-alternative-row-75'
+    checked: true
+- assertVisible:
+    id: 'exercise-alternative-chip-83'
+- assertVisible:
+    id: 'exercise-alternative-chip-75'
+- takeScreenshot: 04_second_pick_in_filtered_list
+
+# --- Clear search: all rows back, both picks still checked -------------------------
+- tapOn:
+    id: 'exercise-alternatives-search'
+- eraseText: 30
+- assertVisible:
+    id: 'exercise-alternative-row-52'
+- assertVisible:
+    id: 'exercise-alternative-row-1'
+- inputText: 'front'
+- assertVisible:
+    id: 'exercise-alternative-row-83'
+    checked: true
+- eraseText: 30
+- inputText: 't bar'
+- assertVisible:
+    id: 'exercise-alternative-row-75'
+    checked: true
+- eraseText: 30
+- assertVisible:
+    id: 'exercise-alternative-row-52'
+- takeScreenshot: 05_search_cleared_selection_kept
+
+# --- Save and reopen ----------------------------------------------------------------
+# No hideKeyboard here: it is a BACK press and could leave the sheet unsaved.
+- tapOn:
+    id: 'edit-exercise-save'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-edit-button'
+    timeout: 20000
+- tapOn:
+    id: 'exercise-detail-edit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-exercise-sheet'
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: 'exercise-alternative-chip-75'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'exercise-alternative-chip-83'
+- assertVisible:
+    id: 'exercise-alternative-chip-75'
+- assertVisible: 'Front squat'
+- assertVisible: 'T bar row free'
+- takeScreenshot: 06_saved_alternatives_after_reopen

@@ -1,0 +1,9 @@
+appId: com.powerliftingworkoutplanner
+---
+- runFlow: open_squat_edit.yaml
+- scrollUntilVisible:
+    element:
+      text: 'Bankdrücken'
+    direction: DOWN
+    centerElement: true
+- takeScreenshot: before_alternatives_list
