@@ -35,6 +35,7 @@
 
 ## Analyse
 
+- [ready] [GH-420](https://github.com/julimetzger/Gainalytics/issues/420) Drawer lässt sich nicht mehr schließen — Analyse-Drawer schließt über Menü-Symbol, Tap daneben und Wischen; auf echtem Gerät reproduzieren
 - [ready] [GH-455](https://github.com/julimetzger/Gainalytics/issues/455) UX-Audit (read-only): Analyse-Bereich — sind die Auswertungen auf dem Gerät nutzbar und interpretierbar?
   - Gleiche Machart wie [GH-399](https://github.com/julimetzger/Gainalytics/issues/399)/[GH-426](https://github.com/julimetzger/Gainalytics/issues/426), auf dem echten Gerät, ohne AI-Chat
   - Report nach `docs/ux/analysis-audit.md`; keine App-Code-Änderung
