@@ -21,6 +21,7 @@ appId: com.powerliftingworkoutplanner
       visible: 'Dismiss'
     commands:
       - tapOn: 'Dismiss'
+- tapOn: 'tab-training'
 - extendedWaitUntil:
     visible:
       id: 'micro-hero-card'
