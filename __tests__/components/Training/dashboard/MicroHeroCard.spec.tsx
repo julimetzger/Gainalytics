@@ -155,6 +155,67 @@ describe('MicroHeroCard bar value labels (GH-342)', () => {
 });
 
 /**
+ * GH-482: the micro labels (M1, M2, ...) were drawn on the x axis at the TOP of the
+ * chart — the same spot as the value labels above the bars — so "M1" and "9.355"
+ * were printed on top of each other, and a single bar had no headroom at all.
+ */
+describe('MicroHeroCard — micro labels and bar values do not overlap (GH-482)', () => {
+  beforeEach(() => {
+    mockChartProps.current = null;
+  });
+
+  it('draws the micro labels below the bars, values above them', () => {
+    renderCard();
+    expect(mockChartProps.current.xAxis.position).toBe('BOTTOM');
+    expect(mockChartProps.current.xAxis.valueFormatter).toEqual(['M1', 'M2']);
+    expect(mockChartProps.current.drawValueAboveBar).toBe(true);
+  });
+
+  it.each(['volume', 'sets', 'time'])('keeps headroom above the highest bar for its label (%s)', metric => {
+    const {getByTestId} = renderCard(1);
+    fireEvent.press(getByTestId(`metric-${metric}`));
+    const [single] = mockChartProps.current.data.dataSets[0].values.map((v: any) => v.y);
+    expect(mockChartProps.current.yAxis.left.axisMaximum).toBeGreaterThanOrEqual(single * 1.25);
+  });
+
+  it('exposes every bar as "<micro> <value>" on the chart for assistive tech and e2e', () => {
+    const {getByTestId} = renderCard();
+    expect(getByTestId('micro-hero-chart').props.accessibilityLabel).toBe(`M1 ${(2000).toLocaleString()}, M2 ${(1200).toLocaleString()}`);
+    fireEvent.press(getByTestId('metric-time'));
+    expect(getByTestId('micro-hero-chart').props.accessibilityLabel).toBe('M1 1h 0m, M2 1h 30m');
+  });
+});
+
+describe('barValueLabels (GH-482)', () => {
+  const {barValueLabels, barAxisMaximum} = jest.requireActual('../../../../app/components/Training/dashboard/microBarLabels');
+
+  it('keeps the full value when it fits the bar slot, even six-digit volumes', () => {
+    expect(barValueLabels('volume', [851040, 927960, 149930], 360)).toEqual([(851040).toLocaleString(), (927960).toLocaleString(), (149930).toLocaleString()]);
+    expect(barValueLabels('time', [2958], 360)).toEqual(['49h 18m']);
+  });
+
+  it('switches to a compact form when full values would run into the neighbouring bar', () => {
+    const values = Array.from({length: 9}, () => 927960);
+    expect(barValueLabels('volume', values, 360)).toEqual(Array(9).fill('928k'));
+    expect(barValueLabels('time', Array(9).fill(2958), 360)).toEqual(Array(9).fill('49h'));
+  });
+
+  it('labels only the current micro when even compact values would collide', () => {
+    const labels = barValueLabels('volume', Array(70).fill(42552), 360);
+    expect(labels.slice(0, -1).every((l: string) => l === '')).toBe(true);
+    expect(labels[69]).toBe('43k');
+  });
+
+  it('never compacts set counts that fit', () => {
+    expect(barValueLabels('sets', [15, 31, 32, 30, 33, 32, 0], 360)).toEqual(['15', '31', '32', '30', '33', '32', '0']);
+  });
+
+  it('gives a chart of zeros a positive axis so the 0 labels have room', () => {
+    expect(barAxisMaximum([0, 0])).toBeGreaterThan(0);
+  });
+});
+
+/**
  * GH-428 (H1), PR #430 review round 3, point 1: this card is the header of the
  * ACTIVE plan on the training home screen. For a plan created before the name
  * validation existed it rendered an empty title, while the row further down the

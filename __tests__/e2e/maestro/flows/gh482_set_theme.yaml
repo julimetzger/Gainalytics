@@ -1,0 +1,23 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-482 helper: switch the app theme (env MODE = light | dark, LABEL = Light | Dark)
+# and return to the Training tab. The baseline fixture imports with dark mode.
+- launchApp:
+    stopApp: false
+- tapOn: 'tab-settings'
+# Settings keeps its scroll position (e.g. at "Import Data" after an import).
+- scrollUntilVisible:
+    element:
+      id: 'settings-theme-mode-${MODE}'
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: 'settings-theme-mode-${MODE}'
+- assertVisible:
+    id: 'settings-theme-active-mode'
+    text: 'Active: ${LABEL}'
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'micro-hero-card'
+    timeout: 30000

@@ -255,6 +255,18 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-484):** the rewritten ticket said "Dashboard heading like the other *Analysis pages*" — on device it already was identical to them. The issue's quoted original said "match the other *tabs*", and that difference (bottom tabs Training/Exercises/Settings) was real. Fixing it for all Analysis headers satisfied both readings; documented the interpretation in summary + PR.
 **Apply when:** a "before" screenshot shows no defect — check `gh issue view` for the user's original text and attached screenshot (with auth) before concluding nothing needs changing.
 
+### MPAndroidChart: x axis defaults to TOP and `spaceTop` is 0 for a single bar
+**Problem (GH-482):** `react-native-charts-wrapper` BarCharts without `xAxis.position` draw the category labels at the TOP, in the same strip as the value labels (`drawValueAboveBar`), so they overlap. MPAndroidChart 3.1 computes `spaceTop` as a percentage of `dataMax - dataMin`, not of `axisMax - axisMinimum`. With one bar (or equal bars) the spread is 0, so the bar and its label touch the top edge despite `spaceTop: 25`.
+**Fix / Rule:** `xAxis: {position: 'BOTTOM' as const}` (the type needs the literal). Set the headroom explicitly: `yAxis.left.axisMaximum = Math.max(...values, 1) * 1.3`. Check label fit against the slot width (`onLayout` width / bar count, ~0.6 × textSize per char).
+**Apply when:** any bar chart with value labels, especially single-bar or equal-height datasets.
+
+### Don't run `npx prettier`/`npx eslint` on a file. They resolve global newer versions and reformat the whole file
+**Problem (GH-482):** `npx prettier --write` changed `x =>` to `(x) =>` and re-wrapped imports across all of `MicroHeroCard.tsx` (60+ lines of noise), and `npx eslint` is v10 and can't find a flat config. Revert with `git checkout <file>` and reapply the edits by hand, matching the surrounding style.
+**Apply when:** formatting a changed file. Format by hand, or use the repo's own `npm run lint`.
+
+### A Maestro flow can be reused for before/after/themes via `-e` + `when: true: ${X == 'true'}`
+**Observation (GH-482):** `maestro … test -e TAG=… -e VOL=… -e CHECK_CHART=true flow.yaml` with `runFlow: {when: {true: ${CHECK_CHART == 'true'}}, commands: [...]}` ran the same flow on the old code (no new testID yet) and on the fix (extra assertions). `takeScreenshot: gh482_${TAG}_volume` names the files per run. Derived fixtures (weights ×20, a meso split moving the current micro to "Meso 2 · M1") gave the big-value and single-bar states. Push them with `--fixture` + the `00_import_baseline.yaml` suite.
+**Apply when:** a ticket asks for before/after × several data states × light/dark.
 ### Gboard's "Show on-screen keyboard" on the emulator is FLOATING — it never docks and never resizes the window
 **Problem (GH-487):** the toolbar's ≡ menu → "Show on-screen keyboard" gives a full QWERTY, but as a floating panel over the content; dragging it into the dock markers does not dock it, and `settings put secure show_ime_with_hard_keyboard 1` changes nothing. `adjustResize` never kicks in, so a screenshot of it proves nothing about keyboard avoidance.
 **Fix / Rule:** don't rely on window resizing. Pin the focused field to the top of the ScrollView yourself (viewport-high spacer at the end while focused + `scrollTo` in `onContentSizeChange`) and prove "field at top after focus" with a unit test plus a screenshot.
