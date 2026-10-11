@@ -268,3 +268,23 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-487 round 2):** Maestro has no position assertion, so "search stays pinned while chips wrap" passes `assertVisible` even when the field slid down by a row.
 **Fix / Rule:** part 1 flow ends in the state before the change (search focused + filtered), then `uiautomator dump` + grep `resource-id="<id>"…bounds`; part 2 (no `launchApp`, run with `--mode flow`) does the picks; dump again and require identical bounds. Focus and IME survive between the two Maestro runs (`dumpsys input_method | grep mInputShown`). Note that off-screen chips are missing from the dump; a short `input swipe` afterwards shows them for the screenshot.
 **Apply when:** an AC says something must not move/scroll away after an interaction (seen in GH-487).
+
+### A pull-down gesture inside the plan screen's plain ScrollView must activate BELOW the 8 dp touch slop
+**Problem (GH-483):** an RNGH `Pan` with `activeOffsetY(12)` on the carousel tiles worked on the short edit view but never fired on the Plan tab (`onBegin` → `onTouchesCancelled`). The page's RN ScrollView starts dragging at Android's touch slop (~8 dp) and calls `requestDisallowInterceptTouchEvent`, which makes `RNGestureHandlerRootHelper` cancel every handler.
+**Working solution:** `activeOffsetY(7)` (down-only) + `failOffsetX([-6, 6])`: whoever recognizes first wins. Upward drags still scroll the page.
+**Apply when:** any vertical RNGH gesture inside `PlanNodeScrollContainer` or another plain RN ScrollView — always test on a page tall enough to scroll.
+
+### `overflow: 'visible'` on the horizontal `DraggableFlatList` blanks every cell on Fabric
+**Problem (GH-483):** to let a carousel tile translate below its 60 dp row, `overflow:'visible'` on the list made all exercise cells vanish (only "+" stayed).
+**Working solution:** give each cell `paddingBottom` = travel, take it back with `marginBottom: -travel` on the list wrapper, and raise `zIndex` on the wrapper (and its parent in `TrainingsPlanNode`) only WHILE a tile is out of place — at rest the overlapping strip would swallow taps below.
+**Apply when:** anything in the training carousel must draw outside its row.
+
+### Paper `Portal`s stack in MOUNT order — a later tap-outside overlay covers an earlier-mounted Dialog/Snackbar
+**Problem (GH-483):** an always-mounted `ConfirmDialog` plus a dismiss overlay mounted when a tile opened: taps on Cancel/Remove hit the overlay and the dialog stayed open.
+**Fix / Rule:** don't render the overlay while a dialog is pending; mount snackbars after (or outside) such overlays.
+**Apply when:** combining a full-screen Portal overlay with dialogs/snackbars.
+
+### Undo snackbar + scripted taps: keep nothing slow between the action and the Undo tap
+**Problem (GH-483):** a 5 s undo snackbar expired between "Remove" and `tapOn undo` (Maestro settles ~3 s per tap; an adb `uiautomator dump` in between is slower still) and the Undo tap hit the tab bar under it.
+**Fix / Rule:** undo duration 8 s; in flows only `assertVisible` + `takeScreenshot` between removal and `tapOn undo`; in adb scripts chain both taps in ONE `adb shell "…; sleep 1.2; input tap …"` and use screencap, not dump.
+**Apply when:** any transient snackbar/toast action in a flow.
