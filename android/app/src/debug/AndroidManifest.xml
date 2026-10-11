@@ -9,6 +9,8 @@
 
     <!-- GH-502 PoC: Health Connect permissions, debug builds only. -->
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <!-- Only for the PoC's stand-in test weight (no external weight source on the test device). -->
+    <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
 

@@ -1,0 +1,5 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-502: import the baseline, then open the hidden Health Connect PoC screen.
+- runFlow: 00_import_baseline.yaml
+- runFlow: gh502_open_health_connect_poc.yaml

@@ -12,6 +12,7 @@ import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import androidx.health.connect.client.units.Mass
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -49,7 +50,11 @@ class HealthConnectPocModule(reactContext: ReactApplicationContext) :
     super.invalidate()
   }
 
-  private fun client(): HealthConnectClient = HealthConnectClient.getOrCreate(reactApplicationContext)
+  private fun client(): HealthConnectClient {
+    // The client library needs API 26 while the app still supports 24 (manifest overrideLibrary).
+    check(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { "Health Connect needs Android 8.0+" }
+    return HealthConnectClient.getOrCreate(reactApplicationContext)
+  }
 
   @ReactMethod
   fun getSdkStatus(promise: Promise) {
@@ -178,6 +183,29 @@ class HealthConnectPocModule(reactContext: ReactApplicationContext) :
     }
   }
 
+  /**
+   * Writes a body weight measurement. Only a stand-in data source for the PoC: on the Android 13
+   * test device no external weight source (Samsung Health, Garmin, Withings) could be connected.
+   */
+  @ReactMethod
+  fun writeTestWeight(kg: Double, promise: Promise) {
+    scope.launch {
+      try {
+        val now = Instant.now()
+        val record =
+            WeightRecord(
+                time = now,
+                zoneOffset = ZoneId.systemDefault().rules.getOffset(now),
+                weight = Mass.kilograms(kg),
+                metadata = Metadata.manualEntry())
+        val response = client().insertRecords(listOf(record))
+        promise.resolve(Arguments.fromList(response.recordIdsList))
+      } catch (e: Exception) {
+        promise.reject("E_HEALTH_CONNECT", e.message, e)
+      }
+    }
+  }
+
   /** Reads the exercise sessions of the last [days] days (all apps), newest first. */
   @ReactMethod
   fun readExerciseSessions(days: Double, promise: Promise) {
@@ -236,6 +264,7 @@ class HealthConnectPocModule(reactContext: ReactApplicationContext) :
     val PERMISSIONS =
         setOf(
             HealthPermission.getReadPermission(WeightRecord::class),
+            HealthPermission.getWritePermission(WeightRecord::class),
             HealthPermission.getReadPermission(ExerciseSessionRecord::class),
             HealthPermission.getWritePermission(ExerciseSessionRecord::class),
         )

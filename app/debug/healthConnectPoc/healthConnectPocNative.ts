@@ -34,6 +34,7 @@ interface HealthConnectPocNativeModule {
   getGrantedPermissions(): Promise<string[]>;
   requestPermissions(): Promise<string[]>;
   readWeights(days: number): Promise<HealthConnectWeight[]>;
+  writeTestWeight(kg: number): Promise<string[]>;
   writeStrengthSession(session: Omit<HealthConnectSessionInput, 'segments'> & {segments: object[]}): Promise<string[]>;
   readExerciseSessions(days: number): Promise<HealthConnectSessionSummary[]>;
   openHealthConnect(): Promise<boolean>;

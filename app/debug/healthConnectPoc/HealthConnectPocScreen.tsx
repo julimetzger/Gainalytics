@@ -23,6 +23,8 @@ const formatDateTime = (ms: number) => {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+const TEST_WEIGHT_KG = 82.5;
+
 const shortPermission = (permission: string) => permission.replace('android.permission.health.', '');
 
 /** The finished training with the latest end date. */
@@ -118,6 +120,19 @@ const HealthConnectPocScreen = () => {
             }
           >
             Read body weight
+          </Button>
+          {/* Stand-in source: no external weight source could be connected on the Android 13 test device. */}
+          <Button
+            mode="text"
+            testID="hc-poc-write-test-weight"
+            onPress={() =>
+              run(async () => {
+                await poc.writeTestWeight(TEST_WEIGHT_KG);
+                setWeights(await poc.readWeights(30));
+              })
+            }
+          >
+            Write test weight ({TEST_WEIGHT_KG.toFixed(1)} kg)
           </Button>
           {weights !== null && (
             <Text variant="titleMedium" style={styles.result} testID="hc-poc-weight">
