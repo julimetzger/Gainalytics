@@ -28,6 +28,12 @@ jest.mock('../../../app/redux/Workout/use/useWorkoutsByExerciseId', () => ({
   useWorkoutsByExerciseId: () => [{id: 1}, {id: 2}, {id: 3}],
 }));
 
+const NO_USAGE = {inRunningTraining: false, runningTrainingSets: 0, plannedTrainings: 0, loggedWorkouts: 3, loggedSets: 9};
+const mockUseExerciseUsage = jest.fn(() => NO_USAGE);
+jest.mock('../../../app/redux/Exercises/use/useExerciseUsage', () => ({
+  useExerciseUsage: () => mockUseExerciseUsage(),
+}));
+
 jest.mock('../../../app/components/exercise/add/ExerciseAlternativesField', () => () => null);
 
 // Render the inline MuscleInvolvementEditor as a simple stub so tests can drive
@@ -80,7 +86,7 @@ jest.mock('react-native-paper', () => {
     ),
     Portal: ({children}: any) => <View>{children}</View>,
     Switch,
-    Text: ({children}: any) => <Text>{children}</Text>,
+    Text: ({children, testID}: any) => <Text testID={testID}>{children}</Text>,
     TextInput: ({value, onChangeText, label, testID, placeholder}: any) => (
       <TextInput testID={testID} value={value} onChangeText={onChangeText} placeholder={placeholder ?? label} />
     ),
@@ -102,6 +108,7 @@ describe('EditExerciseSheet', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseExerciseFn.mockReturnValue(undefined as any);
+    mockUseExerciseUsage.mockReturnValue(NO_USAGE);
   });
 
   const lastHeaderRight = (setOptionsMock: jest.Mock) => {
@@ -176,5 +183,42 @@ describe('EditExerciseSheet', () => {
     fireEvent.press(getByTestId('edit-exercise-delete-confirm'));
     expect(mockDeleteExercise).toHaveBeenCalledWith(7);
     expect(goBackMock).toHaveBeenCalled();
+  });
+
+  // GH-486: the user learns what the delete takes with it before confirming.
+  const openDeleteDialog = () => {
+    mockUseExerciseFn.mockReturnValue({id: 7, name: 'Bench', muscles: [], alternativeIds: [], isFocus: false} as any);
+    const {nav} = makeNavigation();
+    const screen = render(<EditExerciseSheet navigation={nav as any} route={{params: {exerciseId: 7}} as any} />);
+    fireEvent.press(screen.getByTestId('edit-exercise-delete'));
+    return screen;
+  };
+
+  it('warns that the exercise is in the running training and names the logged sets that go with it', () => {
+    mockUseExerciseUsage.mockReturnValue({inRunningTraining: true, runningTrainingSets: 2, plannedTrainings: 3, loggedWorkouts: 3, loggedSets: 9});
+    const {getByTestId} = openDeleteDialog();
+    expect(getByTestId('edit-exercise-delete-running').props.children).toBe(
+      'It is part of your running training. It will be removed from it, together with the 2 sets you logged there.',
+    );
+    expect(getByTestId('edit-exercise-delete-planned').props.children.join('')).toBe('It will be removed from 3 planned trainings.');
+    expect(getByTestId('edit-exercise-delete-history').props.children.join('')).toBe(
+      'This will also delete 3 workouts (9 sets) from your history. This action cannot be undone.',
+    );
+  });
+
+  it('says so when no set was logged for the exercise in the running training yet', () => {
+    mockUseExerciseUsage.mockReturnValue({inRunningTraining: true, runningTrainingSets: 0, plannedTrainings: 0, loggedWorkouts: 0, loggedSets: 0});
+    const {getByTestId, queryByTestId} = openDeleteDialog();
+    expect(getByTestId('edit-exercise-delete-running').props.children).toBe(
+      'It is part of your running training and will be removed from it. No sets were logged for it there yet.',
+    );
+    expect(queryByTestId('edit-exercise-delete-planned')).toBeNull();
+  });
+
+  it('shows no training warning for an exercise no training uses', () => {
+    const {queryByTestId, getByTestId} = openDeleteDialog();
+    expect(queryByTestId('edit-exercise-delete-running')).toBeNull();
+    expect(queryByTestId('edit-exercise-delete-planned')).toBeNull();
+    expect(getByTestId('edit-exercise-delete-history')).toBeTruthy();
   });
 });
