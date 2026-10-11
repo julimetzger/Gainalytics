@@ -1,0 +1,19 @@
+appId: com.powerliftingworkoutplanner
+---
+# Switches the app theme. env: MODE = light | dark
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- tapOn: 'tab-settings'
+- extendedWaitUntil:
+    visible:
+      id: 'settings-theme-mode-${MODE}'
+    timeout: 15000
+- tapOn:
+    id: 'settings-theme-mode-${MODE}'
+- assertVisible:
+    id: 'settings-theme-active-mode'
+    text: 'Active: ${MODE == "light" ? "Light" : "Dark"}'
+- tapOn: 'tab-training'

@@ -1,10 +1,12 @@
-import React, {useRef, useState} from 'react';
-import {Dimensions, LayoutRectangle, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
-import DraggableFlatList, {RenderItemParams, ScaleDecorator} from 'react-native-draggable-flatlist';
-import {IconButton, useTheme} from 'react-native-paper';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {Dimensions, LayoutRectangle, Pressable, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import DraggableFlatList, {RenderItemParams, ScaleDecorator, useNestableScrollContainerContext} from 'react-native-draggable-flatlist';
+import {Portal, Snackbar, useTheme} from 'react-native-paper';
+import {Gesture, GestureDetector} from 'react-native-gesture-handler';
 import {Exercise} from '../../models/entities/Exercise';
-import SwipeView from 'react-native-vertical-swipe-view';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import SwipeDeleteTile, {SWIPE_DELETE_ACTIVE_OFFSET_Y, SWIPE_DELETE_FAIL_OFFSET_X, SWIPE_DELETE_OPEN_OFFSET} from './SwipeDeleteTile';
+import {ConfirmDialog} from '../common/EditDialogScaffold';
 
 type Item = {
   key: number;
@@ -18,15 +20,42 @@ interface Props {
   onExerciseDoublePress?: (exercise: Exercise) => void;
   setExercises: (exercises: Exercise[]) => void;
   doneExerciseIds: number[];
+  /** GH-483: logged sets per exercise — removing one that has any asks first. */
+  loggedSetCounts?: Record<number, number>;
   setAbsolutePosition: (layout: LayoutRectangle) => void;
+  /** GH-483: true while a tile hangs below the carousel — the parent must then draw the strip above what follows. */
+  onRaisedChange?: (raised: boolean) => void;
   onTogglePicker?: () => void;
   pickerVisible?: boolean;
 }
 
-const DOUBLE_PRESS_DELAY_MS = 700;
-const SwipeViewContainer = SwipeView as any;
+/** What the undo snackbar needs to put a removed exercise back where it was. */
+type RemovedExercise = {
+  exercise: Exercise;
+  index: number;
+  wasChosen: boolean;
+};
 
-const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExercise, onExerciseDoublePress, doneExerciseIds, setAbsolutePosition, onTogglePicker, pickerVisible}: Props) => {
+const DOUBLE_PRESS_DELAY_MS = 700;
+// Long enough to read a long exercise name and reach the action (Material allows 4–10 s).
+const UNDO_DURATION_MS = 8000;
+// The snackbar lives in the root Portal, which also covers Paper's MD3 bottom tab bar (80 dp above the
+// bottom inset, which both add on their own) — lift it so it never hides the tabs.
+const BOTTOM_TAB_BAR_HEIGHT = 80;
+
+const DraggableExercise = ({
+  exercises,
+  setExercises,
+  chosenExercise,
+  chooseExercise,
+  onExerciseDoublePress,
+  doneExerciseIds,
+  loggedSetCounts,
+  setAbsolutePosition,
+  onRaisedChange,
+  onTogglePicker,
+  pickerVisible,
+}: Props) => {
   let theme = useTheme();
   let exerciseData = exercises.map((exercise) => {
     return {
@@ -43,8 +72,51 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
 
   let edgeInsets = useSafeAreaInsets();
   const textRef = useRef<View>(null);
+  const overlayRef = useRef<View>(null);
   const lastPressedExercise = useRef<{exerciseId: number; timestamp: number} | undefined>(undefined);
   const [positionInternal, setPositionInternal] = useState<LayoutRectangle>();
+  const nestableScrollContext = useNestableScrollContainerContext();
+
+  // GH-483: at most one tile is pulled open at a time.
+  const [openKey, setOpenKey] = useState<number | null>(null);
+  // A pulled or open tile reaches into the room below the carousel (see the list's negative
+  // margin), so while any tile is out of place the strip has to draw above the next content.
+  // At rest it must not: that room overlaps the content below and would swallow its touches.
+  const [raised, setRaised] = useState(false);
+  const openKeyRef = useRef(openKey);
+  openKeyRef.current = openKey;
+  const swipingRef = useRef(false);
+  useEffect(() => {
+    onRaisedChange?.(raised);
+  }, [raised]);
+  // Closing normally lowers the strip once the tile has sprung back (onRest). A removed tile
+  // unmounts before it can report that, so lower it after the spring's time as well.
+  useEffect(() => {
+    if (openKey !== null) {
+      return;
+    }
+    const timeout = setTimeout(() => {
+      if (openKeyRef.current === null && !swipingRef.current) {
+        setRaised(false);
+      }
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [openKey]);
+  // Where the carousel sits inside the tap-outside overlay — taps there go to the tiles.
+  const [carouselHole, setCarouselHole] = useState<LayoutRectangle>();
+  const [pendingRemoval, setPendingRemoval] = useState<{exercise: Exercise; setCount: number}>();
+  const [lastRemoved, setLastRemoved] = useState<RemovedExercise>();
+  const [undoVisible, setUndoVisible] = useState(false);
+  // Undo runs after the store has already dropped the exercise — it must splice into the latest list.
+  const exercisesRef = useRef(exercises);
+  exercisesRef.current = exercises;
+
+  // A removed or replaced exercise cannot stay "open".
+  useEffect(() => {
+    if (openKey !== null && !exercises.some((exercise) => exercise.id === openKey)) {
+      setOpenKey(null);
+    }
+  }, [exercises, openKey]);
 
   const screenWidth = Dimensions.get('window').width;
 
@@ -71,9 +143,12 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
       maxWidth: spreadMax(exercises.length),
       color: theme.colors.onSecondaryContainer,
       fontSize: theme.fonts.bodyMedium.fontSize,
-      marginTop: -4,
       fontWeight: 'bold',
       textAlign: 'center',
+    },
+    // Room below every tile for the pulled-down position — given back by the list's negative margin.
+    tileCell: {
+      paddingBottom: SWIPE_DELETE_OPEN_OFFSET,
     },
     addExerciseBox: {
       height: 60,
@@ -92,7 +167,24 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
     },
   });
 
+  const closeOpenTile = () => setOpenKey(null);
+
+  // The "+" tile has nothing to remove. A pull down on it is claimed by this inert pan so it
+  // neither moves nor ends up as a tap that opens the picker.
+  const inertVerticalPan = useMemo(() => Gesture.Pan().runOnJS(true).activeOffsetY(SWIPE_DELETE_ACTIVE_OFFSET_Y).failOffsetX([-SWIPE_DELETE_FAIL_OFFSET_X, SWIPE_DELETE_FAIL_OFFSET_X]), []);
+
+  // The overlay lives in the Portal host, the carousel somewhere inside the screen — both
+  // are measured in window coordinates so the hole lines up whatever sits above them.
+  const measureCarouselHole = () => {
+    textRef.current?.measureInWindow((x, y, width, height) => {
+      overlayRef.current?.measureInWindow((overlayX, overlayY) => {
+        setCarouselHole({x: x - overlayX, y: y - overlayY, width, height});
+      });
+    });
+  };
+
   const onPress = (item: Item) => {
+    closeOpenTile();
     if (item.key === -1) {
       // This is the add exercise box
       onTogglePicker?.();
@@ -118,78 +210,129 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
     }
   };
 
-  const renderItem = ({item, drag, isActive}: RenderItemParams<Item>) => {
-    const [interactive, setInteractive] = useState(false);
+  const removeExercise = (exercise: Exercise) => {
+    const index = exercises.findIndex((candidate) => candidate.id === exercise.id);
+    if (index < 0) {
+      return;
+    }
+    setOpenKey(null);
+    setLastRemoved({exercise, index, wasChosen: chosenExercise?.id === exercise.id});
+    setUndoVisible(true);
+    setExercises(exercises.filter((candidate) => candidate.id !== exercise.id));
+  };
 
-    // Special rendering for the add exercise box
+  const requestRemoval = (key: number) => {
+    const exercise = exercises.find((candidate) => candidate.id === key);
+    if (exercise === undefined) {
+      return;
+    }
+    const setCount = loggedSetCounts?.[key] ?? 0;
+    if (setCount > 0) {
+      setPendingRemoval({exercise, setCount});
+      return;
+    }
+    removeExercise(exercise);
+  };
+
+  const undoRemoval = () => {
+    setUndoVisible(false);
+    if (lastRemoved === undefined) {
+      return;
+    }
+    const current = exercisesRef.current;
+    // Re-added through the picker in the meantime — nothing to restore.
+    if (current.some((exercise) => exercise.id === lastRemoved.exercise.id)) {
+      return;
+    }
+    const restored = [...current];
+    restored.splice(Math.min(lastRemoved.index, restored.length), 0, lastRemoved.exercise);
+    setExercises(restored);
+    if (lastRemoved.wasChosen) {
+      chooseExercise(lastRemoved.exercise);
+    }
+  };
+
+  const renderItem = ({item, drag, isActive}: RenderItemParams<Item>) => {
+    // Special rendering for the add exercise box — it has nothing to remove, so no swipe.
     if (item.key === -1) {
       return (
-        <TouchableOpacity onPress={() => onPress(item)} style={styles.addExerciseBox} testID="training-add-exercise-box">
-          <Text style={styles.addExerciseText}>{pickerVisible ? '-' : '+'}</Text>
-        </TouchableOpacity>
+        <GestureDetector gesture={inertVerticalPan}>
+          <TouchableOpacity onPress={() => onPress(item)} style={styles.addExerciseBox} testID="training-add-exercise-box">
+            <Text style={styles.addExerciseText}>{pickerVisible ? '-' : '+'}</Text>
+          </TouchableOpacity>
+        </GestureDetector>
       );
     }
 
     return (
-      <ScaleDecorator>
-        <TouchableOpacity
-          onLongPress={drag}
-          disabled={isActive}
-          onPress={() => onPress(item)}
-          testID={`training-exercise-${item.key}`}
-          style={[
-            styles.rowItem,
-            {
-              backgroundColor: isActive ? theme.colors.tertiaryContainer : doneExerciseIds.includes(item.key) ? theme.colors.primaryContainer : theme.colors.secondaryContainer,
-              borderColor: item.key === chosenExercise?.id ? theme.colors.onPrimaryContainer : 'transparent',
-              borderWidth: item.key === chosenExercise?.id ? 2 : 2,
-            },
-          ]}
-        >
-          <SwipeViewContainer
-            position="top"
-            style={{marginTop: -20}}
-            maxHeight={30}
-            headerStyle={{
-              backgroundColor: 'transparent',
-              height: 25,
-              minWidth: spreadEvenly(exercises.length),
-              maxWidth: spreadMax(exercises.length),
+      <View style={styles.tileCell} pointerEvents="box-none">
+        <ScaleDecorator>
+          <SwipeDeleteTile
+            isOpen={openKey === item.key}
+            disabled={isActive}
+            onSwipeStart={() => {
+              swipingRef.current = true;
+              setRaised(true);
+              // Pulling another tile closes the open one.
+              if (openKey !== item.key) {
+                closeOpenTile();
+              }
+              nestableScrollContext?.setOuterScrollEnabled(false);
             }}
-            renderHeader={() => <View style={{flex: 1}} />}
-            onRequestShow={() => setInteractive(true)}
-            onRequestClose={() => setInteractive(false)}
+            onSwipeEnd={() => {
+              swipingRef.current = false;
+              nestableScrollContext?.setOuterScrollEnabled(true);
+            }}
+            onRest={(open) => {
+              if (!open && openKeyRef.current === null && !swipingRef.current) {
+                setRaised(false);
+              }
+            }}
+            onOpen={() => setOpenKey(item.key)}
+            onClose={() => {
+              if (openKey === item.key) {
+                closeOpenTile();
+              }
+            }}
+            onDelete={() => requestRemoval(item.key)}
+            deleteTestID={`training-exercise-delete-${item.key}`}
+            deleteAccessibilityLabel={`Remove ${item.label}`}
           >
-            {interactive && (
-              <IconButton
-                style={{marginTop: 15}}
-                icon={'delete'}
-                iconColor={theme.colors.onSecondaryContainer}
-                onPress={() => {
-                  setExercises(exercises.filter((exercise) => exercise.id !== item.key));
-                }}
-              />
-            )}
-          </SwipeViewContainer>
-          <Text
-            numberOfLines={3}
-            style={[
-              styles.text,
-              {
-                color: isActive
-                  ? theme.colors.onTertiaryContainer
-                  : item.key === chosenExercise?.id
-                  ? theme.colors.onPrimaryContainer
-                  : doneExerciseIds.includes(item.key)
-                  ? theme.colors.onPrimaryContainer
-                  : theme.colors.onSecondaryContainer,
-              },
-            ]}
-          >
-            {item.label}
-          </Text>
-        </TouchableOpacity>
-      </ScaleDecorator>
+            <TouchableOpacity
+              onLongPress={drag}
+              disabled={isActive}
+              onPress={() => onPress(item)}
+              testID={`training-exercise-${item.key}`}
+              style={[
+                styles.rowItem,
+                {
+                  backgroundColor: isActive ? theme.colors.tertiaryContainer : doneExerciseIds.includes(item.key) ? theme.colors.primaryContainer : theme.colors.secondaryContainer,
+                  borderColor: item.key === chosenExercise?.id ? theme.colors.onPrimaryContainer : 'transparent',
+                  borderWidth: item.key === chosenExercise?.id ? 2 : 2,
+                },
+              ]}
+            >
+              <Text
+                numberOfLines={3}
+                style={[
+                  styles.text,
+                  {
+                    color: isActive
+                      ? theme.colors.onTertiaryContainer
+                      : item.key === chosenExercise?.id
+                      ? theme.colors.onPrimaryContainer
+                      : doneExerciseIds.includes(item.key)
+                      ? theme.colors.onPrimaryContainer
+                      : theme.colors.onSecondaryContainer,
+                  },
+                ]}
+              >
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          </SwipeDeleteTile>
+        </ScaleDecorator>
+      </View>
     );
   };
 
@@ -208,12 +351,15 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
   const allData = [...exerciseData, addExerciseItem];
 
   return (
-    <View ref={textRef} collapsable={false} onLayout={() => setPosition()}>
+    // GH-483: an open tile hangs below the carousel — it has to draw over the content that follows.
+    <View ref={textRef} collapsable={false} onLayout={() => setPosition()} style={{marginBottom: -SWIPE_DELETE_OPEN_OFFSET, zIndex: raised ? 1 : 0}}>
       {allData.length > 0 && (
         <DraggableFlatList
           keyboardShouldPersistTaps={'always'}
           horizontal
           data={allData}
+          onScrollBeginDrag={closeOpenTile}
+          onDragBegin={closeOpenTile}
           onDragEnd={(items) => {
             // Filter out the add exercise box and update exercises
             const exerciseItems = items.data.filter((item) => item.key !== -1);
@@ -223,6 +369,56 @@ const DraggableExercise = ({exercises, setExercises, chosenExercise, chooseExerc
           renderItem={renderItem}
         />
       )}
+      {/* Not while the removal is being confirmed: portals stack in mount order, so this
+          later one would sit on top of the dialog and swallow its buttons. */}
+      {openKey !== null && pendingRemoval === undefined && (
+        <Portal>
+          {/* Tap anywhere outside the carousel closes the open tile. The carousel itself
+              stays reachable: the ✕, other tiles and the horizontal scroll keep working. */}
+          <View ref={overlayRef} collapsable={false} pointerEvents="box-none" style={StyleSheet.absoluteFill} onLayout={measureCarouselHole}>
+            {carouselHole !== undefined && (
+              <>
+                <Pressable onPressIn={closeOpenTile} style={{position: 'absolute', left: 0, right: 0, top: 0, height: Math.max(carouselHole.y, 0)}} />
+                <Pressable onPressIn={closeOpenTile} style={{position: 'absolute', left: 0, right: 0, top: carouselHole.y + carouselHole.height - SWIPE_DELETE_OPEN_OFFSET, bottom: 0}} />
+              </>
+            )}
+          </View>
+        </Portal>
+      )}
+      <ConfirmDialog
+        visible={pendingRemoval !== undefined}
+        title={`Remove ${pendingRemoval?.exercise.name ?? 'exercise'}?`}
+        message={`It already has ${pendingRemoval?.setCount ?? 0} logged ${
+          pendingRemoval?.setCount === 1 ? 'set' : 'sets'
+        }. They leave the training with the exercise — Undo right after brings both back.`}
+        confirmLabel="Remove"
+        onConfirm={() => {
+          const exercise = pendingRemoval?.exercise;
+          setPendingRemoval(undefined);
+          if (exercise !== undefined) {
+            removeExercise(exercise);
+          }
+        }}
+        onCancel={() => {
+          setPendingRemoval(undefined);
+          closeOpenTile();
+        }}
+        testID="training-exercise-remove-dialog"
+        confirmTestID="training-exercise-remove-confirm"
+        cancelTestID="training-exercise-remove-cancel"
+      />
+      <Portal>
+        <Snackbar
+          visible={undoVisible}
+          onDismiss={() => setUndoVisible(false)}
+          duration={UNDO_DURATION_MS}
+          wrapperStyle={{bottom: BOTTOM_TAB_BAR_HEIGHT}}
+          action={{label: 'Undo', onPress: undoRemoval, testID: 'training-exercise-undo'}}
+          testID="training-exercise-removed-snackbar"
+        >
+          {lastRemoved !== undefined ? `${lastRemoved.exercise.name} removed` : 'Exercise removed'}
+        </Snackbar>
+      </Portal>
     </View>
   );
 };

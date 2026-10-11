@@ -36,6 +36,8 @@ import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/disp
 import {getLocalMicro, getMesoForMicro, getPreviousMicroInMeso} from '../../redux/Training/trainingsPlanReducer';
 import {useLastTrainingOfPreviousMeso} from '../../redux/Training/use/useLastTrainingOfPreviousMeso';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
+import {shallowEqual, useSelector} from 'react-redux';
+import {GlobalState} from '../../redux/rootReducer';
 import {dispatchReplaceExerciseInTraining} from '../../redux/Training/dispatch/general/dispatchReplaceExerciseInTraining';
 import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
 import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
@@ -137,7 +139,10 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   const [refresHeky, setRefresHeky] = useState(Math.random());
   let exercises = useExerciseByIds(training?.exercises ?? []);
   const [chosenExercises, setchosenExercise] = useState(exercises[0]?.id);
-  let chosenExercise = exercises.find((exercise) => exercise.id === chosenExercises);
+  // GH-483: when the selected exercise leaves the training (swipe-remove), fall back to the first one in
+  // the same render. A render without any chosen exercise unmounts the Plan tab — and with it the undo
+  // snackbar and any unsaved edit state — before the effect below catches up.
+  let chosenExercise = exercises.find((exercise) => exercise.id === chosenExercises) ?? exercises[0];
 
   // exercises arrive after Redux REHYDRATE — re-initialize if still unset
   useEffect(() => {
@@ -146,6 +151,14 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
     }
   }, [exercises?.length]);
   let doneExerciseIds = training?.doneWorkoutIds ? Object.keys(training.doneWorkoutIds).map((key) => parseInt(key)) : [];
+  // GH-483: removing an exercise that already has logged sets asks first.
+  const loggedSetCounts = useSelector((state: GlobalState) => {
+    const counts: Record<number, number> = {};
+    Object.entries(training?.doneWorkoutIds ?? {}).forEach(([exerciseId, workoutId]) => {
+      counts[Number(exerciseId)] = state.workouts?.byId?.[workoutId]?.sets?.length ?? 0;
+    });
+    return counts;
+  }, shallowEqual);
   let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
   let finishTraining = dispatchFinishTraining();
   let [schedulePauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
@@ -153,6 +166,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   let appSettings = useSettings();
   const theme = useTheme();
   const [showPicker, setShowPicker] = useState(false);
+  // GH-483: a pulled-down carousel tile has to draw over the execute/edit view below it.
+  const [exerciseStripRaised, setExerciseStripRaised] = useState(false);
   const [nextPlanMode, setNextPlanMode] = useState<PlanMode>('read');
   const [planEntryRequested, setPlanEntryRequested] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -501,6 +516,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                         onExerciseDoublePress={onExerciseDoublePress}
                         setExercises={setExerciseWithSideEffects}
                         doneExerciseIds={doneExerciseIds}
+                        loggedSetCounts={loggedSetCounts}
                         setAbsolutePosition={(layout) => setIgnoreSwipe([layout])}
                         pickerVisible={showPicker}
                         onTogglePicker={() => setShowPicker(!showPicker)}
@@ -563,7 +579,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                   {training?.state === TrainingsState.STARTED && (
                     <View>
                       {showExerciseSelector && (
-                        <View pointerEvents={'box-none'}>
+                        <View pointerEvents={'box-none'} style={{zIndex: exerciseStripRaised ? 1 : 0}}>
                           <DraggableExercise
                             exercises={exercises}
                             setExercises={setExerciseWithSideEffects}
@@ -573,6 +589,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                             }}
                             onExerciseDoublePress={onExerciseDoublePress}
                             doneExerciseIds={doneExerciseIds}
+                            loggedSetCounts={loggedSetCounts}
+                            onRaisedChange={setExerciseStripRaised}
                             setAbsolutePosition={(layout) => setIgnoreSwipe([layout])}
                             onTogglePicker={() => setShowPicker(!showPicker)}
                             pickerVisible={showPicker}
@@ -617,7 +635,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                   {training?.state === TrainingsState.FINISHED && (
                     <View>
                       {isEditing && (
-                        <View pointerEvents={'box-none'}>
+                        <View pointerEvents={'box-none'} style={{zIndex: exerciseStripRaised ? 1 : 0}}>
                           <DraggableExercise
                             exercises={exercises}
                             setExercises={setExerciseWithSideEffects}
@@ -627,6 +645,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                             }}
                             onExerciseDoublePress={onExerciseDoublePress}
                             doneExerciseIds={doneExerciseIds}
+                            loggedSetCounts={loggedSetCounts}
+                            onRaisedChange={setExerciseStripRaised}
                             setAbsolutePosition={(layout) => setIgnoreSwipe([layout])}
                             onTogglePicker={() => setShowPicker(!showPicker)}
                             pickerVisible={showPicker}
