@@ -24,6 +24,7 @@
 - [ready] [GH-466](https://github.com/julimetzger/Gainalytics/issues/466) RIR Nachkommastellen explizit erlaubt — z.B. 1.5 beim Planen, Trainieren und Bearbeiten, Punkt und Komma
 - [ready] [GH-486](https://github.com/julimetzger/Gainalytics/issues/486) App crasht beim Löschen einer Übung aus aktivem Training — Training danach nicht mehr öffenbar
 - [ready] [GH-484](https://github.com/julimetzger/Gainalytics/issues/484) Analysis-Sidebar aufräumen — keine Icons bei AI Chat/Chat History, "Video Analysis", Dashboard-Überschrift wie andere Tabs
+- [ready] [GH-483](https://github.com/julimetzger/Gainalytics/issues/483) Exercise carousel delete by swipe — Übungskachel im Training nach unten ziehen, ✕ zum Entfernen, Rückgängig-Snackbar
 - [ready] [TRN-001](tickets/TRN-001-training-overview-record-comparison.yaml) Records in Training Overview - micro vergleich anzeigen
   - Im TrainingsNode für status Done und Overview
   - es gibt eine Kachel die anzeigt wieviele Records in diesem Micro waren im Vergleich zum vorherigen
