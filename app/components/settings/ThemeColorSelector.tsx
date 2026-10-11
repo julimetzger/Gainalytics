@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {StyleSheet} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import {Icon, SegmentedButtons, useTheme} from 'react-native-paper';
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {useThemeMode} from '../../redux/settings/use/useThemeMode';
@@ -36,11 +36,17 @@ const ThemeColorSelector = () => {
   const previewOf = (palette: PaletteSelection | null, testID: string) => {
     if (!palette) {
       return ({size, color}: {size: number; color: string}) => (
-        <Icon source="palette-outline" size={size} color={color} testID={`${testID}-preview`} />
+        <View style={styles.preview} testID={`${testID}-preview`}>
+          <Icon source="palette-outline" size={size} color={color} />
+        </View>
       );
     }
     const colors = palettePreviewColors(palette, scheme);
-    return ({size}: {size: number}) => <PaletteSwatch colors={colors} size={size} testID={`${testID}-preview`} />;
+    return ({size}: {size: number}) => (
+      <View style={styles.preview}>
+        <PaletteSwatch colors={colors} size={size} testID={`${testID}-preview`} />
+      </View>
+    );
   };
 
   const buttons = THEME_COLOR_CHOICE_OPTIONS.map((option) => {
@@ -85,10 +91,13 @@ const ThemeColorSelector = () => {
 
 const styles = StyleSheet.create({
   // Paper pads every segment by 16 on each side, which leaves "Purple" and
-  // "Custom" next to their swatch too little room in a third of the row. The
-  // label may run into that padding instead of being cut off.
+  // "Custom" next to their swatch too little room in a third of the row.
+  // Swatch and label may run halfway into that padding instead of being cut off.
+  preview: {
+    marginLeft: -8,
+  },
   label: {
-    marginHorizontal: -8,
+    marginRight: -8,
   },
 });
 

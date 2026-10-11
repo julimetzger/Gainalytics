@@ -1,5 +1,4 @@
 import {
-  describeActiveScheme,
   resolveColorScheme,
   resolveThemeModeSetting,
   THEME_MODE_OPTIONS,
@@ -48,37 +47,28 @@ describe('resolveColorScheme', () => {
   });
 });
 
-describe('describeActiveScheme', () => {
-  it('names the scheme actually in effect, and says when it came from the device', () => {
-    expect(describeActiveScheme('system', 'dark')).toEqual('Active: Dark, following system');
-    expect(describeActiveScheme('system', 'light')).toEqual('Active: Light, following system');
-    expect(describeActiveScheme('light', 'light')).toEqual('Active: Light');
-    expect(describeActiveScheme('dark', 'dark')).toEqual('Active: Dark');
-  });
-});
-
 describe('THEME_MODE_OPTIONS', () => {
-  it('offers system, light and dark, each with an icon and a help text', () => {
+  it('offers system, light and dark, each with an icon and a tooltip', () => {
     expect(THEME_MODE_OPTIONS).toEqual([
       {
         value: 'system',
         icon: 'brightness-auto',
         label: 'System',
-        help: 'System: follows your device display setting and switches with it.',
+        help: 'System: follows your device',
         testID: 'settings-theme-mode-system',
       },
       {
         value: 'light',
         icon: 'white-balance-sunny',
         label: 'Light',
-        help: 'Light: always use the light colours, whatever the device is set to.',
+        help: 'Light: always light',
         testID: 'settings-theme-mode-light',
       },
       {
         value: 'dark',
         icon: 'weather-night',
         label: 'Dark',
-        help: 'Dark: always use the dark colours, whatever the device is set to.',
+        help: 'Dark: always dark',
         testID: 'settings-theme-mode-dark',
       },
     ]);

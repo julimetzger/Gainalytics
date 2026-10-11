@@ -34,8 +34,17 @@ describe('settingsReducer', () => {
     expect(settingsReducer(initialState, {type: 'SET_PALETTE', palette: '#E91E63'})).toEqual({
       mode: 'light',
       palette: '#E91E63',
+      customPalette: '#E91E63',
       videoAnalysisFiltersExpanded: true,
     });
+  });
+
+  it('remembers the picked colour when a built-in palette is applied afterwards (GH-478)', () => {
+    const custom = settingsReducer({mode: 'dark', palette: 'blue'} as AppSettings, {type: 'SET_PALETTE', palette: '#e91e63'});
+    const blue = settingsReducer(custom, {type: 'SET_PALETTE', palette: 'purple'});
+
+    expect(blue.palette).toEqual('purple');
+    expect(blue.customPalette).toEqual('#E91E63');
   });
 
   it("leaves an existing user's palette untouched for unrelated actions", () => {
