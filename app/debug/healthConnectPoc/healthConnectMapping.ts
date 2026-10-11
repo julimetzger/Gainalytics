@@ -87,7 +87,9 @@ export const segmentTypeForExercise = (name: string | undefined): HealthConnectS
   return rule ? rule[1] : 'WEIGHTLIFTING';
 };
 
-const toMs = (value: Date | string | number | undefined): number | undefined => {
+const MIN_SEGMENT_MS = 1000;
+
+const toMs =(value: Date | string | number | undefined): number | undefined => {
   if (value === undefined || value === null) return undefined;
   const ms = new Date(value as any).getTime();
   return Number.isFinite(ms) ? ms : undefined;
@@ -133,18 +135,21 @@ export const mapTrainingToHealthConnectSession = (
     .filter(entry => entry.workout && entry.sets.length > 0);
   if (done.length === 0) return null;
 
-  // Use the workout's own time span when it lies inside the training; otherwise split the
-  // training evenly. Segments must not overlap and must stay inside the session.
-  const slot = (endMs - startMs) / done.length;
+  // Segments must not overlap and must stay inside the session. Use the workout's own time span
+  // where it fits after the previous segment; otherwise split the remaining time evenly. Every
+  // exercise keeps at least MIN_SEGMENT_MS, so overlapping or out-of-order workouts (supersets)
+  // are squeezed instead of silently dropped.
   let cursor = startMs;
   const segments: HealthConnectSegmentInput[] = [];
   done.forEach((entry, index) => {
+    const remaining = done.length - index;
+    const latestEnd = endMs - (remaining - 1) * MIN_SEGMENT_MS;
     const ownStart = toMs(entry.workout?.start);
     const ownEnd = toMs(entry.workout?.end);
-    const hasOwnSpan =
-      ownStart !== undefined && ownEnd !== undefined && ownStart >= startMs && ownEnd <= endMs && ownEnd > ownStart;
-    const segStart = Math.max(cursor, hasOwnSpan ? ownStart! : startMs + index * slot);
-    const segEnd = Math.min(endMs, hasOwnSpan ? ownEnd! : startMs + (index + 1) * slot);
+    const ownSpanFits = ownStart !== undefined && ownEnd !== undefined && ownEnd > ownStart && ownEnd > cursor;
+    const segStart = Math.min(ownSpanFits ? Math.max(cursor, ownStart!) : cursor, latestEnd - MIN_SEGMENT_MS);
+    const wantedEnd = ownSpanFits ? ownEnd! : cursor + (endMs - cursor) / remaining;
+    const segEnd = Math.min(Math.max(wantedEnd, segStart + MIN_SEGMENT_MS), latestEnd);
     if (segEnd <= segStart) return;
     segments.push({
       startMs: Math.round(segStart),

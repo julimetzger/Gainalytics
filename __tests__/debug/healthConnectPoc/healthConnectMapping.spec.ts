@@ -100,6 +100,25 @@ describe('GH-502 Health Connect mapping', () => {
     });
   });
 
+  it('keeps one segment per exercise when workouts overlap or are out of order (superset)', () => {
+    const at = (min: number) => new Date(START + min * 60000).toISOString() as any;
+    const superset: {[id: number]: Workout} = {
+      10: {...workoutsById[10], start: at(0), end: at(60)} as Workout,
+      // Done in between the squat sets: ends before the squat segment does.
+      20: {...workoutsById[20], start: at(10), end: at(50)} as Workout,
+      30: {id: 30, exerciseId: 3, start: at(85), end: at(120), sets: [{reps: 10, weight: 60, rir: 2}]} as Workout,
+    };
+    const session = mapTrainingToHealthConnectSession(training(), superset, exercisesById)!;
+
+    expect(session.segments.map(s => s.exerciseName)).toEqual(['Low bar squat', 'Bench press competition', 'Barbell row']);
+    session.segments.forEach((segment, i) => {
+      expect(segment.startMs).toBeGreaterThanOrEqual(session.startMs);
+      expect(segment.endMs).toBeLessThanOrEqual(session.endMs);
+      expect(segment.endMs).toBeGreaterThan(segment.startMs);
+      if (i > 0) expect(segment.startMs).toBeGreaterThanOrEqual(session.segments[i - 1].endMs);
+    });
+  });
+
   it('returns null for trainings that cannot be written', () => {
     expect(mapTrainingToHealthConnectSession(training({state: TrainingsState.STARTED}), workoutsById, exercisesById)).toBeNull();
     expect(mapTrainingToHealthConnectSession(training({end: undefined}), workoutsById, exercisesById)).toBeNull();

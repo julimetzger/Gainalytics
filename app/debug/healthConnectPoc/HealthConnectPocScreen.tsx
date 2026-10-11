@@ -94,7 +94,9 @@ const HealthConnectPocScreen = () => {
               testID="hc-poc-request-permissions"
               onPress={() =>
                 run(async () => {
-                  setGranted(await poc.requestPermissions());
+                  await poc.requestPermissions();
+                  // The dialog only returns what was granted in THIS request; re-read the full set.
+                  setGranted(await poc.getGrantedPermissions());
                 })
               }
             >
