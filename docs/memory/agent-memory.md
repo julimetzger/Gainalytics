@@ -313,3 +313,26 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-483):** a 5 s undo snackbar expired between "Remove" and `tapOn undo` (Maestro settles ~3 s per tap; an adb `uiautomator dump` in between is slower still) and the Undo tap hit the tab bar under it.
 **Fix / Rule:** undo duration 8 s; in flows only `assertVisible` + `takeScreenshot` between removal and `tapOn undo`; in adb scripts chain both taps in ONE `adb shell "…; sleep 1.2; input tap …"` and use screencap, not dump.
 **Apply when:** any transient snackbar/toast action in a flow.
+
+### An empty store now opens the first-start onboarding OVER the tabs — empty-store flows must skip it
+**Problem (GH-497):** after `pm clear`/`clearState` (no plans, trainings or logged workouts) a full-screen onboarding (`onboarding-screen`) covers the tab bar. `tab-training`/`training-home-screen` are still in the hierarchy underneath, so waits pass but taps hit the overlay (the Settings scroll in `smoke.yaml` failed with "No visible element found").
+**Fix / Rule:** `runFlow: gh497_dismiss_onboarding.yaml` (waits for `tab-training`, then taps `onboarding-skip` if visible). `00_import_baseline.yaml` and `smoke.yaml` already call it. A `when: visible: {id: onboarding-skip}` checked right after `launchApp` runs before the JS has rendered and is silently SKIPPED. Reopen it on purpose via Settings › Help `settings-show-onboarding-button`.
+**Apply when:** writing or reviving any flow that starts from an empty store (seen in GH-497).
+
+### `navigate('Settings', {screen: 'Settings', params})` from the container ref is swallowed by the focused Settings stack
+**Problem (GH-497):** the Settings tab and its stack screen share the name "Settings". While that tab is focused, the inner stack handles the action itself and the screen receives `route.params = {screen: 'Settings', params: {…}}` — the one-shot param never arrives (seen via a `console.log` of `route.params` in logcat `ReactNativeJS`).
+**Fix / Rule:** address the tab navigator: `navigationRef.dispatch({...CommonActions.navigate(tab, {screen, params, initial}), target: navigationRef.getRootState().key})` (see `OnboardingGate.navigateInTab`). Training is safe (tab "Training", screens "TrainingHome"/"TrainingPlan").
+**Apply when:** navigating into a tab's stack from outside the navigators (notification handlers, overlays) (seen in GH-497).
+
+### From a running training back to Training home: `tapOn: 'tab-training'`, not `hideKeyboard`/`back`
+**Observation (GH-497):** on the emulator no soft keyboard is up after `add-workout-set-confirm-N`, so `hideKeyboard` is a BACK that already lands on home. A following guarded `back` (`when: notVisible: training-home-screen`, evaluated during the transition) then left the app. Tapping the focused Training tab pops the native stack to `training-home-screen` deterministically; the dashboard is assertable there (`micro-hero-value` "360 kg", `next-training-status-label` "Training running").
+**Apply when:** a flow logs sets and then asserts the home dashboard (seen in GH-497).
+
+### Real baseline state in jest: `rootReducer(undefined, {type: '@@INIT'})` + `FULL_IMPORT` of the fixture read with `fs`
+**Observation (GH-497):** `require('../testdata/x.gains')` fails ("Jest encountered an unexpected token"), but `JSON.parse(fs.readFileSync(path.join(__dirname, '…/baseline.gains'), 'utf8'))` works. Reducing `FULL_IMPORT` onto the fresh-install state gives the exact device store, so selectors (e.g. `selectAllTimeOneRepMax`: Squat id 2 = 225 kg) can be computed and then asserted as concrete values in Maestro. Delete the throwaway spec afterwards.
+**Apply when:** a Maestro assertion needs a value derived from the fixture (seen in GH-497).
+
+### Imported plans stored planned workouts as LOGGED ones (fixed in GH-497)
+**Observation (GH-497):** before GH-497, `IMPORT_TRAININGS_PLAN` pushed the plan's workouts into `workouts.allIds` (the logged list read by history/last-workout-date), not `plannedWorkouts`. It now uses `plannedWorkouts`; templates use the same path. Plans imported before the fix may still have such ids in `allIds`.
+**Apply when:** debugging phantom "logged" workouts without a date after a plan import.
+
