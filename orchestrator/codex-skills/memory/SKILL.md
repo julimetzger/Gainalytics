@@ -14,14 +14,16 @@ documented. Do not paraphrase the existing entries — read them first.
 ## Which File To Write To
 
 - If running as **orchestrator** → write to `docs/memory/orchestrator-memory.md`
-- If running as **feature worker** → write to `docs/memory/agent-memory.md`
+- If running as **feature worker** → write to the `## Inbox (new entries)` section at the end of `docs/memory/agent-memory.md`
 - If unsure or the learning applies to both → write to both
 
 `docs/memory/orchestrator-memory.md` covers: worker lifecycle, review gating, validator
 behavior, rate-limit handling, script fixes, and orchestrator process learnings.
 
 `docs/memory/agent-memory.md` covers: infrastructure inside the worker sandbox (adb, Metro,
-Maestro), React Native code patterns, test quality, and feature agent behavior.
+Maestro), React Native code patterns, test quality, and feature agent behavior. It is an
+index (top rules + table of contents); the entries themselves live in topic files under
+`docs/memory/agent/`.
 
 ## When To Run
 
@@ -35,7 +37,7 @@ Maestro), React Native code patterns, test quality, and feature agent behavior.
 Read as much of the following as is available:
 
 - `docs/memory/orchestrator-memory.md` — orchestrator learnings (read before writing if running as orchestrator)
-- `docs/memory/agent-memory.md` — feature worker learnings (read before writing if running as feature worker)
+- `docs/memory/agent-memory.md` + the relevant `docs/memory/agent/*.md` topic files — feature worker learnings (read the table of contents and the matching topic file before writing if running as feature worker)
 - `.codex-orchestrator/runs/<ticket-id>/status.json` — what succeeded, what failed, what was blocked
 - `.codex-orchestrator/runs/<ticket-id>/summary.md` — implementation notes and caveats
 - `.codex-orchestrator/state.json` — ticket history and feedback rounds
@@ -67,7 +69,14 @@ Do NOT capture:
 
 ## How To Write An Entry
 
-Append new entries to the numbered list in the appropriate memory file.
+**Feature worker (`agent-memory.md`):** append to the `## Inbox (new entries)` section only,
+without a running number: `### Short descriptive title`, then **Problem / Symptom**,
+**Fix / Rule**, **Apply when** (or **Observation** / **Apply when**), max ~10 lines, with the
+concrete commands/testIDs and a `(seen in <ticket-id>)` hint. If an existing topic-file entry
+is wrong or outdated, correct it in place instead. The inbox is sorted into
+`docs/memory/agent/*.md` at the next consolidation.
+
+**Orchestrator (`orchestrator-memory.md`):** append new entries to the numbered list.
 Follow the existing format exactly:
 
 ```markdown
@@ -113,7 +122,7 @@ with one-line action bullets when the learning translates to a clear rule.
 3. Only write entries that are genuinely new.
 4. If nothing new was learned this session, write nothing (do not append empty or
    redundant content).
-5. After writing, confirm the entry number is correct (increment from the last entry).
+5. After writing, confirm the entry number is correct (increment from the last entry) — orchestrator memory only; agent-memory inbox entries carry no number.
 
 ## Example Learnings Worth Capturing
 
