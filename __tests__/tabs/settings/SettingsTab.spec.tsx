@@ -474,6 +474,32 @@ describe('SettingsTab', () => {
     expect(getByTestId('settings-app-version')).toHaveTextContent('Version 9.8.7');
   });
 
+  it('GH-502: long-pressing the version does nothing without the debug-only Health Connect PoC module', () => {
+    delete (NativeModules as any).HealthConnectPoc;
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+    fireEvent(getByTestId('settings-app-version'), 'longPress');
+
+    expect(navigation.navigate).not.toHaveBeenCalled();
+  });
+
+  it('GH-502: long-pressing the version opens the Health Connect PoC when the debug module exists', () => {
+    (NativeModules as any).HealthConnectPoc = {};
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    try {
+      const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent(getByTestId('settings-app-version'), 'longPress');
+
+      expect(navigation.navigate).toHaveBeenCalledWith('HealthConnectPoc');
+    } finally {
+      delete (NativeModules as any).HealthConnectPoc;
+    }
+  });
+
   it('exports data into file system and shows exported path', () => {
     const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
     const route = {params: {}};

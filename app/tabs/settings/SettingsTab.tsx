@@ -33,6 +33,7 @@ import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
 import {useAITrainingPrompt} from '../../redux/settings/use/useAITrainingPrompt';
 import {DEFAULT_CHAT_PROMPT, DEFAULT_TRAINING_PROMPT} from '../../constants/aiPrompts';
 import {getAppVersion} from '../../utils/appVersion';
+import {isHealthConnectPocAvailable} from '../../debug/healthConnectPoc/healthConnectPocNative';
 
 const SettingsTab = ({navigation}: Props) => {
   let settings = useSettings();
@@ -472,7 +473,12 @@ const SettingsTab = ({navigation}: Props) => {
         </View>
       </SettingsSection>
       <View style={styles.versionFooter}>
-        <Text variant="bodySmall" testID="settings-app-version">
+        <Text
+          variant="bodySmall"
+          testID="settings-app-version"
+          // GH-502: hidden developer entry; the route only exists in debug builds with the PoC module.
+          onLongPress={isHealthConnectPocAvailable() ? () => navigation.navigate('HealthConnectPoc' as never) : undefined}
+        >
           Version {appVersion}
         </Text>
       </View>
