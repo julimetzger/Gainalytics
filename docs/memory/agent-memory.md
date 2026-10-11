@@ -3155,3 +3155,31 @@ Also: R5CN30HWZFN has `wm size` override 720x1600, so `adb input tap` uses 720-w
 ### 480. To open a training on its STATE-DEFAULT sub-tab, use Home's "Last Training" card — "Next Training" forces Train
 **Observation (GH-467 r2):** `NextTrainingCard` navigates with `subTab: 'train'`; `last-training-card-pressable` passes no sub-tab, so a FINISHED training opens on its default Analysis. Its content-desc (`Last Training, <name>, Meso 1 · M7 · D1 · today, Sets, 0, …`) works as a guard (`assertVisible: {id, text}`) before a destructive step, so a flow only deletes the training it created itself.
 **Apply when:** a flow needs the default tab, or must make sure it acts on its own test training.
+
+### 481. A pull-down gesture inside the plan screen's plain ScrollView must activate BELOW the 8 dp touch slop — or it never fires on long pages
+**Problem (GH-483):** an RNGH `Pan` with `activeOffsetY(12)` on the carousel tiles worked on the short edit view but did nothing on the Plan tab (`onBegin` → `onTouchesCancelled` → `onFinalize(false)`, captured via CDP). The page's react-native ScrollView starts its drag at Android's touch slop (~8 dp) and calls `requestDisallowInterceptTouchEvent`, which makes `RNGestureHandlerRootHelper` cancel every handler.
+**Working solution:** `activeOffsetY(7)` (down-only) + `failOffsetX([-6, 6])`. Whoever recognizes first wins: once the RNGH pan is active the root intercepts and the ScrollView gets ACTION_CANCEL. Upward drags still scroll the page.
+**Apply when:** any vertical RNGH gesture inside `PlanNodeScrollContainer` (or another plain RN ScrollView). Always test it on a page tall enough to scroll.
+
+### 482. `overflow: 'visible'` on the horizontal `DraggableFlatList` blanks every cell on Fabric — reserve room with padding + negative margin instead
+**Problem (GH-483):** to let a tile translate below the 60 dp carousel, `style={{overflow:'visible'}}` on the list made all exercise cells vanish from the native tree (only "+" stayed). Without it, the horizontal ScrollView clips the moved tile.
+**Working solution:** give each cell `paddingBottom` = travel distance, pull it back with `marginBottom: -travel` on the list's wrapper, and set `zIndex: 1` on the wrapper (and on its parent wrapper in `TrainingsPlanNode`) only WHILE a tile is out of place. At rest zIndex 0 keeps the overlapping strip from swallowing taps/scrolls on the content below.
+**Apply when:** anything in the training carousel must draw outside its row.
+
+### 483. Paper `Portal`s stack in MOUNT order — a later tap-outside overlay sits on top of an earlier-mounted Dialog and eats its buttons
+**Problem (GH-483):** an always-mounted `ConfirmDialog` (Portal) plus a dismiss overlay mounted when a tile opened: taps on Cancel/Remove hit the overlay (closing the tile) and the dialog stayed open.
+**Working solution:** don't render the overlay while the dialog is pending. Same reason a Snackbar in a Portal mounted early is covered by later portals.
+**Apply when:** combining a full-screen Portal overlay with dialogs/snackbars.
+
+### 484. Snackbar undo + Maestro: `tapOn` waits ~3 s for the UI to settle — a 5 s snackbar is gone before the next tap; adb `dump` between steps is even slower
+**Problem (GH-483):** the remove→Undo step passed in dark and failed in light (undo tap landed ~5.5 s after the removal). With adb, a `uiautomator dump` between "Remove" and "Undo" let the snackbar expire and the Undo tap hit the Settings TAB under it — the removal on the user's real training stuck.
+**Working solution:** snackbar duration 8 s (Material allows 4–10 s); in flows put only `assertVisible text` + `takeScreenshot` between the removal and `tapOn undo`; in adb scripts chain remove+undo in ONE `adb shell "…; sleep 1.2; input tap …"` and screencap (fast) instead of dumping.
+**Apply when:** any transient snackbar/toast action in a flow.
+
+### 485. Real-device data safety net: back up `files/mmkv/mmkv.default` + `.crc` first, restore byte-for-byte with the app stopped
+**Observation (GH-483, R5CN30HWZFN):** `adb exec-out run-as <pkg> cat files/mmkv/mmkv.default > backup` (+ `.crc`). Restore: `am force-stop`, `adb push` both to `/data/local/tmp`, `run-as <pkg> sh -c 'cat /data/local/tmp/x > files/mmkv/mmkv.default'` (same for .crc), delete the tmp copies, verify with `cmp`. The app boots on the restored store. This turned destructive flows (remove/undo, picker adds, theme switch) into safe ones on the user's phone; restore before every run and once at the end.
+**Apply when:** a feature needs write actions on a real-data device where import/clearState is forbidden.
+
+### 486. A sibling worker's `maestro --host 172.18.240.1 --device emulator-XXXX` (no proxy) ran its `00_import_baseline` ON R5CN30HWZFN mid-run
+**Observation (GH-483):** my app suddenly jumped to Settings / "Edit Squat"; `ps` showed GH-487's maestro without a filter proxy and `dev.mobile.maestro` running on MY phone; my `uiautomator dump` returned nothing while its driver held it. Its import failed only because `baseline.gains` had been pushed to its emulator. Killed that maestro by PID (not `pkill -f`, see #feedback), `am force-stop dev.mobile.maestro` on my device, verified the store against my MMKV backup (`cmp`: only header counter bytes).
+**Apply when:** the real device's UI changes on its own or dumps come back empty — check `ps` for proxy-less maestro runs of other workers first.
