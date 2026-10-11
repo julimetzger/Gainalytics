@@ -68,7 +68,7 @@ const OnboardingFlow = ({onSkip, onCreateFromTemplate, onEmptyPlan, onImport}: O
         <Button onPress={back} disabled={step === 0} testID="onboarding-back" style={step === 0 && styles.hidden}>
           Back
         </Button>
-        <View style={styles.dots}>
+        <View style={styles.dots} pointerEvents="none">
           {Array.from({length: STEP_COUNT}, (_, i) => (
             <View
               key={i}
@@ -98,7 +98,8 @@ const styles = StyleSheet.create({
   content: {paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24},
   footer: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12},
   hidden: {opacity: 0},
-  dots: {flexDirection: 'row', gap: 8},
+  // Centred on the screen, independent of the buttons left and right of it.
+  dots: {...StyleSheet.absoluteFillObject, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8},
   dot: {width: 8, height: 8, borderRadius: 4},
   footerSpacer: {width: 88},
 });

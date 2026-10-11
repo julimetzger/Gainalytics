@@ -1,0 +1,19 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-497 helper: Settings › Help › Show Introduction → step 3 ("How do you want to start?").
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-show-onboarding-button'
+    direction: DOWN
+- tapOn:
+    id: 'settings-show-onboarding-button'
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-step-welcome'
+    timeout: 10000
+- tapOn:
+    id: 'onboarding-next'
+- tapOn:
+    id: 'onboarding-next'
+- assertVisible: 'Step 3 of 3'

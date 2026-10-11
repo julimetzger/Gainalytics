@@ -1,0 +1,15 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-497: on an empty store (fresh install, clearState) the onboarding covers the tabs.
+# Shared step for flows that start from an empty store: skip it if it is there.
+- runFlow:
+    when:
+      visible:
+        id: 'onboarding-skip'
+    commands:
+      - tapOn:
+          id: 'onboarding-skip'
+      - extendedWaitUntil:
+          notVisible:
+            id: 'onboarding-screen'
+          timeout: 10000
