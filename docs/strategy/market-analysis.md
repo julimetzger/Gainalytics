@@ -16,7 +16,7 @@ Stand: 2026-10-11 · App-Stand: master `34b00257`, Android-Debug-APK 0.179 · Re
 
 ## 1. Funktionsinventar Gainalytics (Nutzersicht)
 
-Grundlage: Code-Analyse von master (Stand oben) plus Durchlauf auf dem Testgerät (Samsung SM-G986B, Android 13) mit importierten Baseline-Testdaten (`__tests__/testdata/1772318214222.gains`). Screenshots liegen unter [`screenshots/GH-492/`](../../screenshots/GH-492/).
+Grundlage: Code-Analyse von master (Stand oben) plus Durchlauf auf dem Testgerät (Samsung SM-G986B, Android 13, installierte APK 0.178 mit dem JS-Bundle von master über Metro) mit importierten Baseline-Testdaten (`__tests__/testdata/1772318214222.gains`). Die Screenshots liegen unter [`screenshots/GH-492/`](../../screenshots/GH-492/) und sind am Ende dieses Abschnitts eingebettet.
 
 ### Grundprinzip
 - **Android-first, offline-first, kein Konto, keine Cloud-Synchronisation, keine Paywall.** Die Daten liegen lokal (Redux-persist auf MMKV).
@@ -30,9 +30,31 @@ Grundlage: Code-Analyse von master (Stand oben) plus Durchlauf auf dem Testgerä
 | **Planung / Periodisierung** | Pläne mit Mesos, Micros und Trainings anlegen. Mesos benennen, umsortieren und löschen. Pro Training gibt es die Modi Plan / Train / Analysis, zwischen Micros wird gewischt. Geplante Sätze haben Reps, RIR und Gewicht. Lineare Progression (RIR −N oder Gewicht +%), Gewichtsvorschlag aus dem e1RM, „Suggest based on …“ aus Vorgänger-Micros, Übungsalternativen, Plan-Export/-Import | Screenshot `01-planung.png` |
 | **Logging** | Reps, RIR und Gewicht pro Satz loggen, mit Plan-vs-Ist-Ziel je Satz. Satz kopieren, Pausentimer mit Ring und Benachrichtigung, Session-Timer, Live-e1RM-Karte, Rekord-Hinweis („New Record!“), Notizen | Screenshot `02-training.png` |
 | **Analyse** | e1RM nach RIR-adjustiertem Epley `Gewicht × (1 + (Reps + RIR)/30)`. Metriken Volumen, 1RM, Sätze, Reps, Max-/Ø-Intensität und Frequenz, pro Übung oder Muskel, nach Tag/Woche/Monat/Micro. Dashboard mit Muskel-Heatmap, Micro-vs-Micro-Vergleich, Rekorde, History, Trainingsdauer | Screenshot `03-analyse.png` |
-| **Videoanalyse (on-device)** | Video importieren, Hantelscheibe per YOLO-Modell (TFLite, GPU) **auf dem Gerät** erkennen, Bar-Path-Overlay, Geschwindigkeitskurve, automatische Rep-Erkennung, Zeit und Speed je Rep, Velocity-Loss-Chart. Dazu Zeitlupe 0,1–1,0× mit Einzelbild-Schritt, Verknüpfung mit Workout/Satz, Vergleich zweier Analysen und Velocity-Loss → RIR-Insights (je Übung kalibrierbar) | Screenshot `04-video-ki.png` |
-| **KI (optional)** | AI-Chat mit der Trainingshistorie als Kontext (mit Vorschau, welcher Kontext gesendet wird), Coach-Insight-Karte je Micro, eigenes Modell und System-Prompt einstellbar | Screenshot `04-video-ki.png` |
-| **Daten / Einstellungen** | Vollexport/-import als `.gains` (JSON, ersetzt alles), Themes (Hell/Dunkel, Paletten, eigene Farben), Timer-Standardwerte, KI-Key/-Modell | Screenshot `05-einstellungen.png` |
+| **Videoanalyse (on-device)** | Video importieren, Hantelscheibe per YOLO-Modell (TFLite, GPU) **auf dem Gerät** erkennen, Bar-Path-Overlay, Geschwindigkeitskurve, automatische Rep-Erkennung, Zeit und Speed je Rep, Velocity-Loss-Chart. Dazu Zeitlupe 0,1–1,0× mit Einzelbild-Schritt, Verknüpfung mit Workout/Satz, Vergleich zweier Analysen und Velocity-Loss → RIR-Insights (je Übung kalibrierbar) | Screenshot `04-videoanalyse.png` |
+| **KI (optional)** | AI-Chat mit der Trainingshistorie als Kontext (mit Vorschau, welcher Kontext gesendet wird), Coach-Insight-Karte je Micro, eigenes Modell und System-Prompt einstellbar | Screenshot `05-ki-daten.png` |
+| **Daten / Einstellungen** | Vollexport/-import als `.gains` (JSON, ersetzt alles), Themes (Hell/Dunkel, Paletten, eigene Farben), Timer-Standardwerte, KI-Key/-Modell | Screenshot `05-ki-daten.png` |
+
+### Geräte-Screenshots
+
+**Planung** – Home-Dashboard mit dem aktuellen Micro (Volumen je Micro M1–M7), Plan-Tab eines leeren Trainings mit linearer Progression und „Suggest based on …“, Ergebnis „Suggest based on last Training“ mit Reps · RIR · kg je Satz:
+
+![Planung](../../screenshots/GH-492/01-planung.png)
+
+**Logging** – laufendes Training mit Ziel-Zeile, vorbelegten Sätzen und Live-e1RM gegen das letzte Training, nach dem Bestätigen eines Satzes mit Pausentimer-Ring, Analyse eines beendeten Trainings mit Muscle Map „done vs. Micro-Plan“:
+
+![Training](../../screenshots/GH-492/02-training.png)
+
+**Analyse** – e1RM- und Volumen-Verlauf einer Übung über die gesamte Historie mit Trendlinie, Rep-Schätzungen aus dem aktuellen 1RM, Wochen-Dashboard:
+
+![Analyse](../../screenshots/GH-492/03-analyse.png)
+
+**Videoanalyse (on-device)** – Import mit Fortschritt der Hintergrundanalyse, Playback-Overlay mit erkannter Scheibe, Bar-Path und Geschwindigkeitskurve, Rep-Summary (exzentrisch/konzentrisch, vPeak/vAvg) mit Velocity-Loss → „RIR=4+“ und Zeitlupen-Stufen. Hinweis: Der Test-Clip `squat-3reps.mp4` ist synthetisch (Scheiben-Grafik auf Sinusbahn), deshalb die gleichmäßige Kurve.
+
+![Videoanalyse](../../screenshots/GH-492/04-videoanalyse.png)
+
+**KI und Daten** – AI-Chat ohne hinterlegten Schlüssel (die BYOK-Hürde), KI-Konfiguration mit eigenem Anthropic-Key, Modell und System-Prompts, Datenbereich mit Vollimport/-export:
+
+![KI und Daten](../../screenshots/GH-492/05-ki-daten.png)
 
 ### Was (noch) fehlt – aus Nutzersicht
 - Kein iOS (der Ordner existiert, wird aber nicht gebaut), keine Wearables und kein Health Connect.
@@ -288,7 +310,7 @@ Wirkung (W) und Aufwand (A) jeweils hoch/mittel/niedrig. Sortiert nach W/A-Verh�
 **Empfehlung zur Reihenfolge:** zuerst 1, 2, 7 (schnell, senken das Risiko), dann 3–5 (machen die App für Powerlifter vollständig), dann 6 und 8/9 (schärfen den USP), parallel 13 vorbereiten.
 
 ### Monetarisierung (optional, Entscheidung beim Produkt-Owner)
-Die App ist heute kostenlos. Sollte sie monetarisiert werden, passt zum Leitbild am ehesten ein **Einmalkauf bzw. Lifetime-Pro**, wie es WL Analysis, Qwik VBT, Hevy und Liftosaur anbieten. Ein Abo hätte die Marktdaten (RevenueCat: Jahresabo dominiert, Lifetime hat niedrigeren Umsatz pro Installation) auf seiner Seite, widerspricht aber dem „ohne Abo“-Teil des USP. Die KI bleibt per BYOK kostenneutral.
+Die App ist heute kostenlos. Sollte sie monetarisiert werden, passt zum Leitbild am ehesten ein **Lifetime-Pro**, wie es Hevy und Liftosaur anbieten, oder eine In-App-Freischaltung wie bei WL Analysis und Qwik VBT. Ein Abo hätte die Marktdaten (RevenueCat: Jahresabo dominiert, Lifetime hat niedrigeren Umsatz pro Installation) auf seiner Seite, widerspricht aber dem „ohne Abo“-Teil des USP. Die KI bleibt per BYOK kostenneutral.
 
 ---
 
