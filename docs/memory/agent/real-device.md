@@ -1,15 +1,15 @@
-# Real device & the user's data
+# Real device (test phone)
 
-The physical phone (a Samsung Galaxy S20+, SM-G986B, Android 13) is the user's PERSONAL device with real training data. Its serial appears in older notes — still only ever use your assigned `$ANDROID_SERIAL`.
+The physical phone (a Samsung Galaxy S20+, SM-G986B, Android 13) is a dedicated TEST device, not the user's personal phone (confirmed by the user 2026-10-11; older entries and run logs that call it "the user's phone" are wrong). Its store holds realistic training data. Its serial appears in older notes — still only ever use your assigned `$ANDROID_SERIAL`.
 Back to the [index](../agent-memory.md).
 
-### Never mutate the user's data
-- No `clearState`, no `pm clear`, no baseline import, no default suite on the phone: `run-maestro-from-wsl.sh --mode smoke` still runs the full suite (it logged a set on "Bankdrücken" and then left the file picker open). Non-destructive smoke: `--suite __tests__/e2e/maestro/flows/99_smoke.yaml`.
-- Route every Maestro run through your own adb filter proxy — misrouted runs have imported `baseline.gains` over this phone's store (see [wrong device](maestro-running.md#maestro-drives-the-wrong-device-on-a-multi-device-adb-server)).
-- Read-only alternatives exist for most evidence: the "Edit training" view of the last finished training (see [opening a training](app-screens.md#opening-a-specific-training)), and the persisted store read via `run-as … cat` (see [reading the store](state-and-data.md#reading-the-persisted-store-on-device)); delete pulled copies afterwards.
-- If a test training must be created/deleted, screenshot Home before and after and compare (a delete once switched the "current" plan — see [dangling lastTraining](state-and-data.md#deleting-the-latest-finished-training-leaves-plan-lasttraining-dangling)).
+### It is a test device: experimenting is allowed
+- Imports (`baseline.gains` or fixtures), `clearState`/`pm clear`, starting/finishing/deleting trainings and logging sets are all fine here. A STARTED training (notifications) may be tested on the phone too.
+- Its existing store is realistic data and useful for evidence that needs real-looking history; if your ticket benefits from it, back it up first (`run-as … cat` of the MMKV files, see [reading the store](state-and-data.md#reading-the-persisted-store-on-device)) — optional, not required.
+- Still route every Maestro run through your own adb filter proxy — not to protect the phone, but because a misrouted run lands on a SIBLING's device (see [wrong device](maestro-running.md#maestro-drives-the-wrong-device-on-a-multi-device-adb-server)). `run-maestro-from-wsl.sh --mode smoke` runs the full suite; for a short smoke use `--suite __tests__/e2e/maestro/flows/99_smoke.yaml`.
+- The read-only "Edit training" view of the last finished training is still a quick way to get execute-view evidence without logging (see [opening a training](app-screens.md#opening-a-specific-training)).
 - Evidence for "old data still works" must be produced on the old build before any code change (see [legacy data](evidence-and-process.md#legacy-data-and-migration-evidence)).
-(seen in GH-356, GH-401, GH-467, GH-468)
+(seen in GH-356, GH-401, GH-467, GH-468; test-device status confirmed 2026-10-11)
 
 ### Check for a PIN-locked phone at the start of every run
 - `adb shell dumpsys window | grep -i mCurrentFocus` → `Window{… Bouncer}` = PIN-locked (locale-independent; the German UI text varies: "PIN eingeben", "Gerät gesperrt"). `wm dismiss-keyguard` does not help. `adb get-state` still says `device`, pushes work, Maestro fails at the first assertion and its screenshots are black.

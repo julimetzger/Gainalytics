@@ -1,14 +1,14 @@
 # Agent Memory
 
-Reusable learnings for feature workers (Claude Code / Codex) implementing tickets in Gainalytics and verifying them on emulators and the user's phone via adb, Metro and Maestro from WSL2. This file is the entry point: skim the top rules, then open the topic files relevant to your ticket via the table of contents. Details live in `docs/memory/agent/*.md`; orchestrator learnings are in [orchestrator-memory.md](orchestrator-memory.md), the infra deep-dive in [worker-infra-analysis.md](worker-infra-analysis.md). Older references of the form `agent-memory #N` (in flows, docs and run logs) point to the pre-consolidation numbered log: `git show 899bf8ad:docs/memory/agent-memory.md`.
+Reusable learnings for feature workers (Claude Code / Codex) implementing tickets in Gainalytics and verifying them on emulators and a physical test phone via adb, Metro and Maestro from WSL2. This file is the entry point: skim the top rules, then open the topic files relevant to your ticket via the table of contents. Details live in `docs/memory/agent/*.md`; orchestrator learnings are in [orchestrator-memory.md](orchestrator-memory.md), the infra deep-dive in [worker-infra-analysis.md](worker-infra-analysis.md). Older references of the form `agent-memory #N` (in flows, docs and run logs) point to the pre-consolidation numbered log: `git show 899bf8ad:docs/memory/agent-memory.md`.
 
-**CRITICAL — device serials:** never copy device serials from these files into your commands (they name other workers' devices and the user's personal phone). Always use your assigned `$ANDROID_SERIAL` from the orchestrator prompt.
+**CRITICAL — device serials:** never copy device serials from these files into your commands (they name other workers' devices). Always use your assigned `$ANDROID_SERIAL` from the orchestrator prompt.
 
 ## Top rules
 
 1. Route every Maestro run through your own adb filter proxy and check afterwards which device it drove — `--device` alone is ignored on the shared adb server. [proxy](agent/adb-and-emulators.md#use-an-adb-filter-proxy-that-exposes-only-your-device) · [verify device](agent/maestro-running.md#verify-which-device-maestro-actually-drove)
 2. Never `adb kill-server` from WSL and never kill a sibling's proxy; restart a wedged Windows adb server only with the documented recipe. [WSL adb](agent/adb-and-emulators.md#wsl-talks-to-the-shared-windows-adb-server) · [restart](agent/adb-and-emulators.md#restart-a-wedged-or-loopback-only-windows-adb-server)
-3. The phone holds the user's real data: no import, clearState or default suite there; guard taps with a foreground check. [real device](agent/real-device.md#never-mutate-the-users-data) · [foreground guard](agent/real-device.md#guard-every-scripted-tap-with-a-foreground-check)
+3. The physical phone is a dedicated test device — imports, clearState and starting trainings are allowed; still guard taps with a foreground check (system dialogs) and route Maestro through your own proxy. [real device](agent/real-device.md#it-is-a-test-device-experimenting-is-allowed) · [foreground guard](agent/real-device.md#guard-every-scripted-tap-with-a-foreground-check)
 4. Prove which JS the device runs before debugging a fix — the debug APK silently falls back to its embedded bundle. [prove JS](agent/metro-and-bundling.md#prove-which-js-the-device-runs-before-debugging-the-fix) · [embedded bundle](agent/metro-and-bundling.md#debug-apk-embeds-a-js-bundle-metro-is-only-preferred)
 5. Emulators fetch Metro from `10.0.2.2:8081`, bypassing `adb reverse` — set `debug_http_host`, and re-add the reverse before every launch/Maestro run. [10.0.2.2](agent/metro-and-bundling.md#emulator-resolves-metro-at-10022-which-bypasses-adb-reverse) · [reverse wiped](agent/metro-and-bundling.md#adb-reverse-gets-wiped)
 6. JS-only diffs need no Gradle build; reload from Metro. [JS-only](agent/metro-and-bundling.md#js-only-changes-need-no-gradle-rebuild)
@@ -127,9 +127,9 @@ Reusable learnings for feature workers (Claude Code / Codex) implementing ticket
 - [Layout facts from dumpsys and bounds](agent/device-interaction.md#layout-facts-from-dumpsys-and-bounds)
 - [Read device state with dumpsys and pm](agent/device-interaction.md#read-device-state-with-dumpsys-and-pm)
 
-### [Real device & the user's data](agent/real-device.md)
+### [Real device (test phone)](agent/real-device.md)
 
-- [Never mutate the user's data](agent/real-device.md#never-mutate-the-users-data)
+- [It is a test device: experimenting is allowed](agent/real-device.md#it-is-a-test-device-experimenting-is-allowed)
 - [Check for a PIN-locked phone at the start of every run](agent/real-device.md#check-for-a-pin-locked-phone-at-the-start-of-every-run)
 - [Guard every scripted tap with a foreground check](agent/real-device.md#guard-every-scripted-tap-with-a-foreground-check)
 - [Display size override and orientation](agent/real-device.md#display-size-override-and-orientation)
