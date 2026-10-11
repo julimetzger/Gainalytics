@@ -1,0 +1,36 @@
+appId: com.powerliftingworkoutplanner
+---
+# Home -> Last Training -> overflow -> Edit training. Shows the exercise carousel of a
+# FINISHED training whose exercises all carry logged sets (memory #474).
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'last-training-card-pressable'
+    direction: DOWN
+- tapOn:
+    id: 'last-training-card-pressable'
+- extendedWaitUntil:
+    visible:
+      id: 'header-overflow-icon'
+    timeout: 30000
+- tapOn:
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-edit'
+    timeout: 5000
+- tapOn:
+    id: 'overflow-edit'
+- extendedWaitUntil:
+    visible:
+      id: 'training-exercise-84'
+    timeout: 15000
