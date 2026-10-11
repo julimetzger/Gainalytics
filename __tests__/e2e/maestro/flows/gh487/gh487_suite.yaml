@@ -1,0 +1,5 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-487 suite: fresh baseline (Squat has no alternatives), then the picker flow.
+- runFlow: ../gh443_import_baseline.yaml
+- runFlow: gh487_alternatives_search.yaml
