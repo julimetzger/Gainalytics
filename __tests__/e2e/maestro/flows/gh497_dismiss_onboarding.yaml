@@ -2,6 +2,11 @@ appId: com.powerliftingworkoutplanner
 ---
 # GH-497: on an empty store (fresh install, clearState) the onboarding covers the tabs.
 # Shared step for flows that start from an empty store: skip it if it is there.
+# Wait for the tab bar first — the onboarding renders in the same commit, so checking
+# earlier (app still loading) would wrongly skip the dismissal.
+- extendedWaitUntil:
+    visible: 'tab-training'
+    timeout: 300000
 - runFlow:
     when:
       visible:
