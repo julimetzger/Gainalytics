@@ -4,7 +4,11 @@ name: GH-502 write the last training to Health Connect and read data back
 ---
 - assertVisible:
     id: "hc-poc-permissions"
-    text: "Granted: .*WRITE_EXERCISE.*WRITE_WEIGHT.*"
+    text: "Granted: .*READ_HEALTH_DATA_HISTORY.*WRITE_EXERCISE.*WRITE_WEIGHT.*"
+- scrollUntilVisible:
+    element:
+      id: "hc-poc-read-sessions"
+    direction: DOWN
 - tapOn:
     id: "hc-poc-write-training"
 - extendedWaitUntil:
@@ -13,10 +17,6 @@ name: GH-502 write the last training to Health Connect and read data back
     timeout: 15000
 - assertNotVisible:
     id: "hc-poc-error"
-- scrollUntilVisible:
-    element:
-      id: "hc-poc-read-sessions"
-    direction: DOWN
 - tapOn:
     id: "hc-poc-read-sessions"
 - extendedWaitUntil:
