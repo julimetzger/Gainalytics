@@ -318,3 +318,13 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-492 r1):** in a `claude -p` worker, every WebSearch/WebFetch call (also in subagents) failed with "Claude requested permissions to use WebSearch, but you haven't granted it yet", because the launcher had not granted them.
 **Fix / Rule:** the launcher now has `--extra-allowed-tools` (e.g. `WebSearch,WebFetch`) for research tickets. If the tools are still denied: do not write the report from memory and do not use `curl` instead. Set `needs_input` with the exact error and save code-side groundwork under `run_dir/research/`.
 **Apply when:** a ticket needs web research. Make one test WebSearch call before fanning out research subagents.
+
+### Research tickets: parallel subagents with a strict source rule, App Store as the price source
+**Observation (GH-492 r2):** three background research subagents (logger apps / periodization apps / VBT apps + market data) with the rule "a URL for every claim, `nicht verifiziert` instead of guessing, name conflicting sources" returned usable results in about 2–3 min each. With WebFetch, the Hevy and Fitbod help centres returned 403 and Google Play pages came back empty; US App Store listings and the vendors' own pricing pages worked.
+**Fix / Rule:** take prices from App Store listings or pricing pages and give the storefront (US) and the date. Spot-check 2–3 central figures yourself with WebFetch before writing them into the report. Mark vendor claims (users, ratings) as self-reported.
+**Apply when:** market or competitor research.
+
+### Evidence from old fixture data: exercise detail → Graph → "All"
+**Observation (GH-492):** with the baseline fixture, Records, Metrics Overview and Analyse show almost nothing (the default ranges only cover the last weeks/months). Exercise tab → an exercise (e.g. `Paused bench press`, 62 workouts) → `exercise-tab-graph` → "All" shows the full e1RM/volume history with a trend line. On the phone, "Import Video" in the Video Analysis list opened the SAF picker (`documentsui` Downloads) with the pushed `squat-3reps.mp4`. The analysis finished in ~20 s and showed the overlay plus rep summary.
+**Apply when:** screenshots of analysis or video features with the baseline fixture.
+
