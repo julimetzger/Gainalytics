@@ -1,5 +1,5 @@
 import React, {useMemo, useState} from 'react';
-import {processColor, StyleSheet, View} from 'react-native';
+import {Dimensions, processColor, StyleSheet, View} from 'react-native';
 import {Card, SegmentedButtons, Text, useTheme} from 'react-native-paper';
 import {BarChart} from 'react-native-charts-wrapper';
 import {useSelector} from 'react-redux';
@@ -21,8 +21,7 @@ import DayStrip, {DayStatus, DayStripDay} from './DayStrip';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../../routing/TrainingRouter';
 import {trainingsPlanDisplayName} from '../../../utils/trainings-plan-name';
-
-type MetricKey = 'volume' | 'sets' | 'time';
+import {BAR_VALUE_TEXT_SIZE, barAxisMaximum, barValueLabels, formatBarValue, MetricKey} from './microBarLabels';
 
 interface MicroBarDatum {
   localMicro: number;
@@ -147,6 +146,8 @@ interface MicroHeroCardProps {
 const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => {
   const theme = useTheme();
   const [metric, setMetric] = useState<MetricKey>('volume');
+  // Card margin (8) + Card.Content padding (16) on each side until the chart reports its width.
+  const [chartWidth, setChartWidth] = useState(() => Dimensions.get('window').width - 48);
 
   const mesoData = useMesoBarData(plan, currentMicro);
   const dayStripDays = useThisWeekDays(plan);
@@ -171,16 +172,7 @@ const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => 
   const deltaPct = prevValue > 0 ? Math.round(((currentValue - prevValue) / prevValue) * 100) : null;
   const isPositive = (deltaAbs ?? 0) >= 0;
 
-  const formatBarValue = (val: number): string => {
-    if (metric === 'volume') return val.toLocaleString();
-    if (metric === 'sets') return `${val}`;
-    const h = Math.floor(val / 60);
-    const m = val % 60;
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
-  };
-
-  const formatValue = (val: number): string =>
-    metric === 'volume' ? `${formatBarValue(val)} kg` : formatBarValue(val);
+  const formatValue = (val: number): string => (metric === 'volume' ? `${formatBarValue(metric, val)} kg` : formatBarValue(metric, val));
 
   const barValues = useMemo(
     () => mesoData.map(d => ({y: getValue(d), marker: `M${d.localMicro}`})),
@@ -190,11 +182,19 @@ const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => 
 
   // Array form -> native IndexValueFormatter, which (unlike 'labelByXValue')
   // implements getBarLabel and therefore works for bar value labels.
-  const barValueLabels = useMemo(
-    () => barValues.map(v => formatBarValue(v.y)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [barValues, metric],
+  const barLabels = useMemo(
+    () =>
+      barValueLabels(
+        metric,
+        barValues.map(v => v.y),
+        chartWidth,
+      ),
+    [barValues, metric, chartWidth],
   );
+
+  // GH-482: lists every bar as "<micro> <value>" so Maestro/TalkBack can read what
+  // the native chart canvas draws.
+  const chartAccessibilityLabel = barValues.map(v => `${v.marker} ${formatBarValue(metric, v.y)}`).join(', ');
 
   // GH-404: the history bars used `primaryContainer`, which is a near-white
   // fill in the light schemes — the whole chart was invisible on the card. A
@@ -215,21 +215,25 @@ const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => 
             highlightEnabled: false,
             colors: barColors,
             valueTextColor: processColor(theme.colors.onSurface),
-            valueTextSize: 10,
+            valueTextSize: BAR_VALUE_TEXT_SIZE,
             drawValues: true,
-            valueFormatter: barValueLabels,
+            valueFormatter: barLabels,
           },
           values: barValues,
         },
       ],
       config: {barWidth: 0.7},
     }),
-    [barValues, barValueLabels, barColors, theme.colors.onSurface],
+    [barValues, barLabels, barColors, theme.colors.onSurface],
   );
 
   const xAxisConfig = useMemo(
     () => ({
       valueFormatter: mesoData.map(d => `M${d.localMicro}`),
+      // GH-482: MPAndroidChart puts the x axis on TOP by default, where the micro
+      // labels collided with the value labels above the bars. Below the bars they
+      // read as the bars' axis labels and the top stays free for the values.
+      position: 'BOTTOM' as const,
       drawGridLines: false,
       granularityEnabled: true,
       granularity: 1,
@@ -295,25 +299,27 @@ const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => 
         </View>
 
         {mesoData.length > 0 && (
-          <BarChart
-            style={styles.chart}
-            data={chartData}
-            xAxis={xAxisConfig}
-            yAxis={{
-              left: {
-                drawGridLines: false,
-                textColor: processColor(theme.colors.onSurface),
-                enabled: false,
-                axisMinimum: 0,
-                spaceTop: 25,
-              },
-              right: {enabled: false},
-            }}
-            chartDescription={{text: ''}}
-            legend={{enabled: false}}
-            drawValueAboveBar={true}
-            animation={{durationX: 300}}
-          />
+          <View testID="micro-hero-chart" accessible accessibilityLabel={chartAccessibilityLabel} onLayout={e => setChartWidth(e.nativeEvent.layout.width)}>
+            <BarChart
+              style={styles.chart}
+              data={chartData}
+              xAxis={xAxisConfig}
+              yAxis={{
+                left: {
+                  drawGridLines: false,
+                  textColor: processColor(theme.colors.onSurface),
+                  enabled: false,
+                  axisMinimum: 0,
+                  axisMaximum: barAxisMaximum(barValues.map(v => v.y)),
+                },
+                right: {enabled: false},
+              }}
+              chartDescription={{text: ''}}
+              legend={{enabled: false}}
+              drawValueAboveBar={true}
+              animation={{durationX: 300}}
+            />
+          </View>
         )}
 
         <DayStrip
