@@ -27,16 +27,16 @@ appId: com.powerliftingworkoutplanner
     visible: 'Analysis'
     timeout: 10000
 
-# Open the Analyse drawer and go to the Video Analyses list
+# Open the Analyse drawer and go to the Video Analysis list
 - tapOn:
     id: 'analyse-drawer-toggle'
 
 - extendedWaitUntil:
     visible:
-      text: 'Video Analyses'
+      text: 'Video Analysis'
     timeout: 5000
 
-- tapOn: 'Video Analyses'
+- tapOn: 'Video Analysis'
 
 - extendedWaitUntil:
     visible: 'Import Video'

@@ -304,7 +304,8 @@ function moveWorkoutRecords(exercises: NormalizedState<Exercise>, fromExerciseId
 const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, action: AnyAction) => {
   switch (action.type) {
     case 'ADD_EXERCISE': {
-      const newId = Math.max(...exercises.allIds) + 1;
+      // GH-486: the last exercise can be deleted; an empty list must not yield -Infinity.
+      const newId = Math.max(0, ...exercises.allIds) + 1;
       const nextState = {
         byId: {
           ...exercises.byId,

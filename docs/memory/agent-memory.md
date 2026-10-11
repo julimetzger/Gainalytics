@@ -216,3 +216,41 @@ Reusable learnings for feature workers (Claude Code / Codex) implementing ticket
 
 Workers append NEW learnings here (and only here), after checking the table of contents above for an existing entry — if one exists and is wrong or outdated, correct it in place in its topic file instead. Format: `### Short descriptive title` (no number), then **Problem / Symptom**, **Fix / Rule**, **Apply when**, max ~10 lines, concrete commands/testIDs, a `(seen in GH-xxx)` hint. Entries are sorted into the topic files at the next consolidation.
 
+### In the running training's exercise picker, selecting a row CLEARS the search — a blind re-tap toggles an unrelated exercise
+**Problem (GH-486):** `TrainingElementPicker` (Train tab, `training-add-exercise-box`) resets the search as soon as a row is picked, so the unfiltered list (A–Z) takes its place. The "first tap eaten by the keyboard" re-tap from #443 then lands on the alphabetically first row (`45 degree crunch machine free`) and DESELECTS it. The training silently loses an exercise, and the "N selected" counter looks plausible. A guard on `notVisible: 'N selected'` alone raced with the re-render.
+**Working solution:** `waitForAnimationToEnd`, then `runFlow: {when: {notVisible: 'N selected', visible: {text: '<name>', below: {id: 'search-bar'}}}, commands: [tapOn: {text: '<name>', below: {id: 'search-bar'}, optional: true}]}`. Prove the result on Home: `next-training-slot` reads `Meso 1 · M7 · D1 · <count> exercises` and is assertable while the training pane is not (#206).
+**Apply when:** adding exercises to a training from a flow or via adb taps.
+
+### `pm clear` also revokes POST_NOTIFICATIONS — the first training open then SIGABRTs natively ("Can request only one set of permissions at a time")
+**Problem (GH-486):** after `pm clear` + baseline import, tapping `next-training-start-button` killed the app. There was no JS error and no RN redbox. `logcat` showed `W Activity: Can request only one set of permissions at a time` followed by `F libc: Fatal signal 6 (SIGABRT)` in `libreactnative.so` (`CxxCallbackImpl.invoke`). Maestro only reported the next assertion failing on the launcher. `pm clear` also deletes the `debug_http_host` pref (#432), so the app falls back to the embedded bundle.
+**Working solution:** after every `pm clear`: `adb shell pm grant com.powerliftingworkoutplanner android.permission.POST_NOTIFICATIONS` and rewrite `shared_prefs/com.powerliftingworkoutplanner_preferences.xml` via `run-as`. This is a real fresh-install bug (concurrent permission requests), not a flow problem.
+**Apply when:** the app vanishes right after opening a training on a freshly cleared device: grep logcat for `SIGABRT|permissions at a time`.
+
+### Reproduce a "legacy broken store" for real: commit the fix, point Metro at the old code with `git checkout HEAD~1 -- app App.tsx`, then restore
+**Observation (GH-486):** "users whose data is already broken can open their training after the update" can't be faked with a `.gains` file, because `FULL_IMPORT` sanitizes references. Working route: commit the fix first. Then `git checkout HEAD~1 -- app App.tsx` (Metro picks it up; curl the bundle to confirm the new action name is GONE), drive the old app into the broken state and screenshot the crash. Then `git checkout HEAD -- app App.tsx`, cold-start, and the same persisted store is now opened by the fix. Files the fix ADDED stay on disk but are unreferenced by the old code. `git status` must be clean afterwards.
+**Apply when:** a ticket requires migrating/repairing data that only an older version can produce.
+
+### `ADD_EXERCISE` uses `max(allIds)+1` — deleting the newest exercise hands its id to the next one created
+**Observation (GH-486):** that is why "create an exercise with the same name" was the users' workaround for the crash: the new exercise inherited the deleted id, and every dangling training reference resolved again. It also makes Maestro ids deterministic on the baseline (highest id 84 → new exercises are 85, 86 on every run after a re-import). Keep it in mind for any feature that keeps references to deleted exercises, because a later exercise silently inherits them.
+**Apply when:** writing flows that create exercises, or anything that stores exercise ids outside the exercises slice.
+
+### "Empty slice" is not "not loaded" — a `length === 0` guard silently skips the last-item case
+**Problem (GH-486 round 2):** the dangling-reference repair returned early on `Object.keys(exercises.byId).length === 0` to "not prune against missing data". Deleting the only exercise produced exactly that state, so the running training stayed broken. Codex review caught it.
+**Working solution:** guard only on `byId === undefined/null`. Write one test each for an empty slice (must clean) and a missing slice (must return the same object). Also check `Math.max(...ids) + 1` style id generators: on `[]` they give `-Infinity`.
+**Apply when:** any cleanup or migration has a "skip if no data" guard.
+
+### Edge-case device states: derive a small fixture with a node script + a parametrized import subflow
+**Observation (GH-486 round 2):** a one-exercise store was needed. `__tests__/testdata/scripts/make_gh486_fixture.js` strips `baseline.gains` to one exercise (≈85 KB instead of 1.7 MB) and keeps all references consistent. `gh486_import_fixture.yaml` is `00_import_baseline` with `tapOn: '${FIXTURE}'`, called via `runFlow: {file: …, env: {FIXTURE: x.gains}}` after `adb push x.gains /sdcard/Download/`. The SAF picker listed the pushed files without a media scan.
+**Apply when:** a ticket needs a store state that is tedious to click together.
+
+### Maestro's console log can end after the first step even on a green run — read `commands-(<flow>).json` in `--debug-output`
+**Observation (GH-486 round 2):** with stdout redirected to a file, the ANSI live view left only "Launch app… Run flow when Dismiss…" in the log, although the exit code was 0. The authoritative record is `<debug-output>/<timestamp>/commands-(<flow>.yaml).json`; count `metadata.status` (here 122 COMPLETED, 9 SKIPPED, 0 FAILED). Quote that count in the summary.
+
+### Drawer headers render regular, native-stack headers medium — Paper's MD3 theme has no `fonts.medium`
+**Problem (GH-484):** "Make the Dashboard headline match the other tabs": all Analysis headers (drawer navigator, JS header from `@react-navigation/elements`) were regular weight, the Training/Exercises/Settings headers (native-stack, native toolbar) medium. Both libraries ask for `fonts.medium` of the navigation theme, but the app passes the Paper MD3 theme, whose `fonts` is the MD3 typescale (`titleMedium`, …) without `regular/medium/bold` — the JS header silently falls back to the default Text weight, the native toolbar to its own medium face.
+**Working solution:** `headerTitleStyle: {fontFamily: theme.fonts.titleMedium.fontFamily, fontWeight: theme.fonts.titleMedium.fontWeight}` in the drawer's `screenOptions` (size stays the header's own 20). Compare header crops of different tabs side by side (`ffmpeg crop` + `vstack`) — weight differences are invisible in a single full screenshot.
+**Apply when:** a JS-rendered header/title (drawer, bottom-tab or JS stack header) looks lighter than the native-stack ones.
+
+### When the ticket asks for something that is already true, re-read the user's ORIGINAL words in the issue
+**Observation (GH-484):** the rewritten ticket said "Dashboard heading like the other *Analysis pages*" — on device it already was identical to them. The issue's quoted original said "match the other *tabs*", and that difference (bottom tabs Training/Exercises/Settings) was real. Fixing it for all Analysis headers satisfied both readings; documented the interpretation in summary + PR.
+**Apply when:** a "before" screenshot shows no defect — check `gh issue view` for the user's original text and attached screenshot (with auth) before concluding nothing needs changing.

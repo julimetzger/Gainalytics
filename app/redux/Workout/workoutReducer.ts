@@ -346,18 +346,20 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
       };
     }
     case 'DELETE_EXERCISE': {
-      let allWorkoutsForExercise = workoutState.byExerciseId[action.exerciseId];
-      if (allWorkoutsForExercise !== undefined) {
-        workoutState.allIds = workoutState.allIds.filter((value) => !allWorkoutsForExercise.includes(value));
-        for (let id of allWorkoutsForExercise) {
-          delete workoutState.byId[id];
-        }
-      }
-      delete workoutState.byExerciseId[action.exerciseId];
-      if (workoutState.suggestedWorkouts !== undefined && workoutState.suggestedWorkouts[action.exerciseId] !== undefined) delete workoutState.suggestedWorkouts[action.exerciseId];
-      if (workoutState.notFinishedWorkouts !== undefined && workoutState.notFinishedWorkouts[action.exerciseId] !== undefined) delete workoutState.notFinishedWorkouts[action.exerciseId];
+      // GH-486: logged AND planned workouts of the exercise go (planned ones are not listed in
+      // byExerciseId); trainings are cleaned up afterwards by fullStateReducer.
+      const workoutIds = Object.values(workoutState.byId)
+        .filter((workout) => workout?.exerciseId === action.exerciseId && workout.id !== undefined)
+        .map((workout) => workout.id!!);
+      const withoutWorkouts = deleteTrainingWorkouts(workoutState, [...new Set([...(workoutState.byExerciseId[action.exerciseId] ?? []), ...workoutIds])]);
+      const {[action.exerciseId]: _workoutIds, ...byExerciseId} = withoutWorkouts.byExerciseId;
+      const {[action.exerciseId]: _suggested, ...suggestedWorkouts} = withoutWorkouts.suggestedWorkouts ?? {};
+      const {[action.exerciseId]: _notFinished, ...notFinishedWorkouts} = withoutWorkouts.notFinishedWorkouts ?? {};
       return {
-        ...workoutState,
+        ...withoutWorkouts,
+        byExerciseId,
+        suggestedWorkouts,
+        notFinishedWorkouts,
       } as NormalizedWorkoutState<Workout>;
     }
     case 'ADD_PLANED_TRAINING_WORKOUT': {

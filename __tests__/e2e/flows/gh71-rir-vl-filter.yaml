@@ -20,15 +20,15 @@ appId: com.powerliftingworkoutplanner
 
 - extendedWaitUntil:
     visible:
-      text: 'Video Analyses'
+      text: 'Video Analysis'
     timeout: 5000
 
 - scrollUntilVisible:
     element:
-      text: 'Video Analyses'
+      text: 'Video Analysis'
     direction: DOWN
 
-- tapOn: 'Video Analyses'
+- tapOn: 'Video Analysis'
 
 - extendedWaitUntil:
     visible: 'Import Video'

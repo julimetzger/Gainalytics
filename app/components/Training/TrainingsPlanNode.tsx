@@ -703,7 +703,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
       />
       <ConfirmDialog
         visible={showClearPlanDialog}
-        title="Clear planned training"
+        title="Clear Planned Training"
         message="This removes all planned exercises and sets from this training. The training itself stays, so you can plan it again from scratch."
         confirmLabel="Clear"
         onConfirm={onClearPlannedTraining}

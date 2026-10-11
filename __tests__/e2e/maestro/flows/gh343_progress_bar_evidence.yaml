@@ -21,10 +21,10 @@ appId: com.powerliftingworkoutplanner
     id: 'analyse-drawer-toggle'
 - scrollUntilVisible:
     element:
-      text: 'Video Analyses'
+      text: 'Video Analysis'
     direction: DOWN
     timeout: 15000
-- tapOn: 'Video Analyses'
+- tapOn: 'Video Analysis'
 - extendedWaitUntil:
     visible: 'Import Video'
     timeout: 30000

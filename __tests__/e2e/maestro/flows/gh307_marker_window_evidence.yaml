@@ -14,7 +14,7 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: 'Training'
     timeout: 120000
-# Navigate Analyse tab → drawer → Video Analyses
+# Navigate Analyse tab → drawer → Video Analysis
 - tapOn: 'tab-analyse'
 - extendedWaitUntil:
     visible: 'Dashboard'
@@ -23,10 +23,10 @@ appId: com.powerliftingworkoutplanner
     id: 'analyse-drawer-toggle'
 - scrollUntilVisible:
     element:
-      text: 'Video Analyses'
+      text: 'Video Analysis'
     direction: DOWN
     timeout: 15000
-- tapOn: 'Video Analyses'
+- tapOn: 'Video Analysis'
 - extendedWaitUntil:
     visible: 'Import Video'
     timeout: 30000
