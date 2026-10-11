@@ -1,6 +1,6 @@
 import {AnyAction} from '@reduxjs/toolkit';
 import {Metric, MetricOverviewSection, resolveMetricOverviewSlots} from '../../models/Metric';
-import {PaletteSelection} from '../../theme/palette';
+import {customPaletteHex, PaletteSelection} from '../../theme/palette';
 import {ThemeModeSetting} from '../../theme/themeMode';
 
 export interface MetricOverviewSettings {
@@ -65,6 +65,12 @@ export interface AppSettings {
    * one of the three names, so their theme survives the update unchanged.
    */
   palette?: PaletteSelection;
+  /**
+   * The last `#RRGGBB` colour applied from the colour wheel, kept while a
+   * built-in palette is active so the Settings "Custom" segment can still
+   * preview it (GH-478). Absent until a colour is picked.
+   */
+  customPalette?: string;
   videoAnalysisFiltersExpanded?: boolean;
   videoAnalysisLearnedRateSecondsPerVideoSecond?: number;
   localNotification?: {
@@ -126,9 +132,15 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       } as AppSettings;
     }
     case 'SET_PALETTE': {
+      // Remember the custom colour for the Settings "Custom" preview: the one
+      // being applied, else the one being left (a pre-GH-478 store only ever
+      // held it in `palette`), else the one remembered before.
+      const customPalette =
+        customPaletteHex(action.palette) ?? customPaletteHex(settings.palette) ?? settings.customPalette;
       return {
         ...settings,
         palette: action.palette,
+        ...(customPalette ? {customPalette} : {}),
       } as AppSettings;
     }
     case 'SET_VIDEO_ANALYSIS_FILTERS_EXPANDED': {

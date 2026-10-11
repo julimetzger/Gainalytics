@@ -93,21 +93,20 @@ jest.mock('../../../app/components/settings/ThemeModeSelector', () => {
   };
 });
 
-// GH-462: the palette presets, the custom colour row and the section wrapper
-// have their own specs against the real react-native-paper; here they are
-// stubbed like the mode selector above.
-jest.mock('../../../app/components/settings/ThemePaletteSelector', () => {
+// GH-478: the colour row and the section wrapper have their own specs against
+// the real react-native-paper; here they are stubbed like the mode selector above.
+jest.mock('../../../app/components/settings/ThemeColorSelector', () => {
   const React = require('react');
-  const {View} = require('react-native');
+  const {Text, View} = require('react-native');
 
-  return {__esModule: true, default: () => <View testID="settings-theme-palette-row" />};
-});
-
-jest.mock('../../../app/components/settings/CustomThemeColorRow', () => {
-  const React = require('react');
-  const {View} = require('react-native');
-
-  return {__esModule: true, default: () => <View testID="settings-custom-theme-color-button" />};
+  return {
+    __esModule: true,
+    default: () => (
+      <View testID="settings-theme-palette-row">
+        <Text>Custom Color</Text>
+      </View>
+    ),
+  };
 });
 
 jest.mock('../../../app/components/settings/SettingsSection', () => {
@@ -423,13 +422,13 @@ describe('SettingsTab', () => {
     const {getAllByTestId, getByTestId, queryByText} = render(<SettingsTab navigation={navigation} route={route} />);
 
     const titles = getAllByTestId(/^settings-section-[a-z-]+-title$/).map((node) => node.props.children);
-    expect(titles).toEqual(['Theme', 'Theme Color', 'Custom Color', 'General', 'Timers & Notifications', 'AI Coach', 'Data']);
+    expect(titles).toEqual(['Appearance', 'General', 'Timers & Notifications', 'AI Coach', 'Data']);
 
-    // GH-462: each theme control lives in its own section.
+    // GH-478: the Theme row and the single "Custom Color" row share one section.
     expect(getByTestId('settings-section-theme')).toContainElement(getByTestId('settings-theme-mode-row'));
-    expect(getByTestId('settings-section-theme-color')).toContainElement(getByTestId('settings-theme-palette-row'));
-    expect(getByTestId('settings-section-custom-color')).toContainElement(getByTestId('settings-custom-theme-color-button'));
+    expect(getByTestId('settings-section-theme')).toContainElement(getByTestId('settings-theme-palette-row'));
     expect(queryByText('Color Palette')).toBeNull();
+    expect(queryByText('Theme Color')).toBeNull();
     expect(queryByText('Enable Dark Mode')).toBeNull();
   });
 

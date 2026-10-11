@@ -34,8 +34,34 @@ describe('settingsReducer', () => {
     expect(settingsReducer(initialState, {type: 'SET_PALETTE', palette: '#E91E63'})).toEqual({
       mode: 'light',
       palette: '#E91E63',
+      customPalette: '#E91E63',
       videoAnalysisFiltersExpanded: true,
     });
+  });
+
+  it('remembers the picked colour when a built-in palette is applied afterwards (GH-478)', () => {
+    const custom = settingsReducer({mode: 'dark', palette: 'blue'} as AppSettings, {type: 'SET_PALETTE', palette: '#e91e63'});
+    const blue = settingsReducer(custom, {type: 'SET_PALETTE', palette: 'purple'});
+
+    expect(blue.palette).toEqual('purple');
+    expect(blue.customPalette).toEqual('#E91E63');
+  });
+
+  it('remembers a custom colour stored before GH-478 once a built-in palette replaces it', () => {
+    // Older versions kept the picked colour only in `palette`.
+    const legacy = {mode: 'dark', palette: '#3f51b5'} as AppSettings;
+
+    const blue = settingsReducer(legacy, {type: 'SET_PALETTE', palette: 'blue'});
+    const purple = settingsReducer(blue, {type: 'SET_PALETTE', palette: 'purple'});
+
+    expect(blue.customPalette).toEqual('#3F51B5');
+    expect(purple.customPalette).toEqual('#3F51B5');
+  });
+
+  it('does not invent a custom colour when only presets were ever used', () => {
+    const next = settingsReducer({mode: 'dark', palette: 'green'} as AppSettings, {type: 'SET_PALETTE', palette: 'blue'});
+
+    expect(next).not.toHaveProperty('customPalette');
   });
 
   it("leaves an existing user's palette untouched for unrelated actions", () => {

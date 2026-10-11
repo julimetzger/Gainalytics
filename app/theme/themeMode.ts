@@ -19,9 +19,9 @@ export interface ThemeModeOption {
   value: ThemeModeSetting;
   /** MaterialCommunityIcons name, matching the icons in the ticket mockup. */
   icon: string;
-  /** Spoken/short name — used for the accessibility label and the help text. */
+  /** Spoken/short name — used for the accessibility label. */
   label: string;
-  /** Shown on a long press so the icon-only control stays understandable. */
+  /** Tooltip on a long press, so the icon-only control stays understandable. */
   help: string;
   testID: string;
 }
@@ -31,21 +31,21 @@ export const THEME_MODE_OPTIONS: ThemeModeOption[] = [
     value: 'system',
     icon: 'brightness-auto',
     label: 'System',
-    help: 'System: follows your device display setting and switches with it.',
+    help: 'System: follows your device',
     testID: 'settings-theme-mode-system',
   },
   {
     value: 'light',
     icon: 'white-balance-sunny',
     label: 'Light',
-    help: 'Light: always use the light colours, whatever the device is set to.',
+    help: 'Light: always light',
     testID: 'settings-theme-mode-light',
   },
   {
     value: 'dark',
     icon: 'weather-night',
     label: 'Dark',
-    help: 'Dark: always use the dark colours, whatever the device is set to.',
+    help: 'Dark: always dark',
     testID: 'settings-theme-mode-dark',
   },
 ];
@@ -85,14 +85,4 @@ export const resolveColorScheme = (
 ): ColorScheme => {
   if (setting === 'light' || setting === 'dark') return setting;
   return systemScheme === 'dark' ? 'dark' : 'light';
-};
-
-/**
- * The caption under the selector. It is the only place in the UI that names the
- * scheme actually in effect, which is what makes "System" comprehensible — and
- * what an e2e flow asserts instead of merely checking that a button is visible.
- */
-export const describeActiveScheme = (setting: ThemeModeSetting, scheme: ColorScheme): string => {
-  const name = scheme === 'dark' ? 'Dark' : 'Light';
-  return setting === 'system' ? `Active: ${name}, following system` : `Active: ${name}`;
 };

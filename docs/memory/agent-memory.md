@@ -255,6 +255,18 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-484):** the rewritten ticket said "Dashboard heading like the other *Analysis pages*" — on device it already was identical to them. The issue's quoted original said "match the other *tabs*", and that difference (bottom tabs Training/Exercises/Settings) was real. Fixing it for all Analysis headers satisfied both readings; documented the interpretation in summary + PR.
 **Apply when:** a "before" screenshot shows no defect — check `gh issue view` for the user's original text and attached screenshot (with auth) before concluding nothing needs changing.
 
+### MPAndroidChart: x axis defaults to TOP and `spaceTop` is 0 for a single bar
+**Problem (GH-482):** `react-native-charts-wrapper` BarCharts without `xAxis.position` draw the category labels at the TOP, in the same strip as the value labels (`drawValueAboveBar`), so they overlap. MPAndroidChart 3.1 computes `spaceTop` as a percentage of `dataMax - dataMin`, not of `axisMax - axisMinimum`. With one bar (or equal bars) the spread is 0, so the bar and its label touch the top edge despite `spaceTop: 25`.
+**Fix / Rule:** `xAxis: {position: 'BOTTOM' as const}` (the type needs the literal). Set the headroom explicitly: `yAxis.left.axisMaximum = Math.max(...values, 1) * 1.3`. Check label fit against the slot width (`onLayout` width / bar count, ~0.6 × textSize per char).
+**Apply when:** any bar chart with value labels, especially single-bar or equal-height datasets.
+
+### Don't run `npx prettier`/`npx eslint` on a file. They resolve global newer versions and reformat the whole file
+**Problem (GH-482):** `npx prettier --write` changed `x =>` to `(x) =>` and re-wrapped imports across all of `MicroHeroCard.tsx` (60+ lines of noise), and `npx eslint` is v10 and can't find a flat config. Revert with `git checkout <file>` and reapply the edits by hand, matching the surrounding style.
+**Apply when:** formatting a changed file. Format by hand, or use the repo's own `npm run lint`.
+
+### A Maestro flow can be reused for before/after/themes via `-e` + `when: true: ${X == 'true'}`
+**Observation (GH-482):** `maestro … test -e TAG=… -e VOL=… -e CHECK_CHART=true flow.yaml` with `runFlow: {when: {true: ${CHECK_CHART == 'true'}}, commands: [...]}` ran the same flow on the old code (no new testID yet) and on the fix (extra assertions). `takeScreenshot: gh482_${TAG}_volume` names the files per run. Derived fixtures (weights ×20, a meso split moving the current micro to "Meso 2 · M1") gave the big-value and single-bar states. Push them with `--fixture` + the `00_import_baseline.yaml` suite.
+**Apply when:** a ticket asks for before/after × several data states × light/dark.
 ### Gboard's "Show on-screen keyboard" on the emulator is FLOATING — it never docks and never resizes the window
 **Problem (GH-487):** the toolbar's ≡ menu → "Show on-screen keyboard" gives a full QWERTY, but as a floating panel over the content; dragging it into the dock markers does not dock it, and `settings put secure show_ime_with_hard_keyboard 1` changes nothing. `adjustResize` never kicks in, so a screenshot of it proves nothing about keyboard avoidance.
 **Fix / Rule:** don't rely on window resizing. Pin the focused field to the top of the ScrollView yourself (viewport-high spacer at the end while focused + `scrollTo` in `onContentSizeChange`) and prove "field at top after focus" with a unit test plus a screenshot.
@@ -269,6 +281,19 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Fix / Rule:** part 1 flow ends in the state before the change (search focused + filtered), then `uiautomator dump` + grep `resource-id="<id>"…bounds`; part 2 (no `launchApp`, run with `--mode flow`) does the picks; dump again and require identical bounds. Focus and IME survive between the two Maestro runs (`dumpsys input_method | grep mInputShown`). Note that off-screen chips are missing from the dump; a short `input swipe` afterwards shows them for the screenshot.
 **Apply when:** an AC says something must not move/scroll away after an interaction (seen in GH-487).
 
+### Paper `Tooltip` on `SegmentedButtons` segments: overlay a row of Tooltip-wrapped ripples
+**Problem (GH-478):** "standard info on long press" means Paper's `Tooltip`, which clones its child and needs it to take `onLongPress`. `SegmentedButtons` has neither `onLongPress` nor a child per segment, and wrapping the whole control gives one tooltip. A nested touchable inside the icon would steal taps.
+**Fix / Rule:** `app/components/common/TooltipSegmentedButtons.tsx` renders `SegmentedButtons` normally and lays an `absoluteFill` row (`flex: 1` cells, outer radii `5 × roundness`, `overflow: hidden`) of `<Tooltip><TouchableRipple onPress={select} style={{height}}/></Tooltip>` on top, with `importantForAccessibility="no-hide-descendants"`. Maestro still taps and asserts Paper's own ids and `checked:`. `longPressOn` followed by `assertVisible: '<tooltip text>'` passes within Paper's 1.5 s `leaveTouchDelay`. RNTL hides the overlay, so query it with `getByTestId(id, {includeHiddenElements: true})`. Tooltip text is one line, so keep it short.
+**Apply when:** a SegmentedButtons control needs per-segment long-press info (seen in GH-478).
+
+### `SegmentedButtons` icon + label truncates in a third of a narrow row — the 16 dp content padding is fixed
+**Problem (GH-478):** Paper pads each segment's content by 16 dp horizontally, and neither `style` nor `density` changes that. At about 93 dp per segment, "Purple"/"Custom" plus an 18 dp swatch were cut off.
+**Fix / Rule:** give the icon render function a wrapper with `marginLeft: -8` and pass `labelStyle: {marginRight: -8}`. Content may then run halfway into the padding, and the gap between icon and label stays. If you put a negative margin on the label's LEFT instead, the label overlaps the icon. `icon` accepts a render function (`({size, color}) => <PaletteSwatch …/>`) for colour previews.
+**Apply when:** labelled + iconed SegmentedButtons share a row with a label (seen in GH-478).
+
+### Old-code ↔ new-code swap: `git checkout <base> -- app`, back with `git restore --source=HEAD --staged --worktree app`
+**Observation (GH-478):** `git checkout <base> -- app` restores files the branch deleted and stages them. `git checkout HEAD -- app` then leaves them behind as staged additions. `git restore --source=HEAD --staged --worktree app` removes them as well, and `git status` is clean afterwards. With the shared Metro, `curl` the bundle and count one old and one new component name (e.g. 6/0, then 0/6). Then force-stop the app and delete `files/BridgelessReactNativeDevBundle.js` before relaunching. Also: with an overridden `HOME`, `--debug-output <dir>` writes `commands-*.json` under `<dir>/.maestro/tests/<ts>/`.
+**Apply when:** proving "settings stored by the old version survive the update" (seen in GH-478).
 ### A pull-down gesture inside the plan screen's plain ScrollView must activate BELOW the 8 dp touch slop
 **Problem (GH-483):** an RNGH `Pan` with `activeOffsetY(12)` on the carousel tiles worked on the short edit view but never fired on the Plan tab (`onBegin` → `onTouchesCancelled`). The page's RN ScrollView starts dragging at Android's touch slop (~8 dp) and calls `requestDisallowInterceptTouchEvent`, which makes `RNGestureHandlerRootHelper` cancel every handler.
 **Working solution:** `activeOffsetY(7)` (down-only) + `failOffsetX([-6, 6])`: whoever recognizes first wins. Upward drags still scroll the page.

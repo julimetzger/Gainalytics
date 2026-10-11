@@ -113,6 +113,7 @@ If any required field is missing, ask the user once before launching a worker.
      - use `scripts/create_worktree.py --worktree-mode fresh` only when the user explicitly asks for a clean or fresh start
    - create or reuse the run directory
    - launch one external worker via `scripts/launch_feature_job.py` (pass `--runner claude` when running as Claude Code, omit or pass `--runner codex` for Codex)
+     - research tickets that need the web (market analysis, competitor research): add `--extra-allowed-tools WebSearch,WebFetch` (claude runner only; without it the worker can't search and stops with needs_input)
    - record `job_id`, branch, worktree, emulator, and status `running`
 7. Summarize:
    - newly started tickets

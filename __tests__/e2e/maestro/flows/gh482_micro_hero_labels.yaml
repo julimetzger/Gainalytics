@@ -1,0 +1,75 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-482: micro labels (M1, M2, ...) and bar values on the "Current micro" chart
+# must not overlap. Run on an already-imported store (no import here) so the same
+# flow captures the baseline fixture, the derived big-value fixtures and both themes.
+#
+# Env (pass with -e):
+#   TAG          screenshot name prefix, e.g. after_multi_dark
+#   VOL/SETS/TIME expected headline (testID micro-hero-value) per metric — proves the
+#                chart shows the selected metric of the expected data set
+#   CHECK_CHART  'true' -> also assert the chart's accessibility label, which lists every
+#                bar as "<micro label> <bar value>" in the order the chart draws them
+#   BARS_VOL/BARS_SETS/BARS_TIME expected chart label per metric (only with CHECK_CHART)
+#
+# The labels themselves are drawn on the native MPAndroidChart canvas; the
+# screenshots are the visual proof that they no longer collide.
+- launchApp:
+    stopApp: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'micro-hero-card'
+    timeout: 60000
+
+- tapOn: '^Volume$'
+- assertVisible:
+    id: 'micro-hero-value'
+    text: '${VOL}'
+- runFlow:
+    when:
+      true: ${CHECK_CHART == 'true'}
+    commands:
+      - assertVisible:
+          id: 'micro-hero-chart'
+          text: '${BARS_VOL}'
+- takeScreenshot: gh482_${TAG}_volume
+
+# index 0 = the segmented button (the KPI row below repeats Sets/Time)
+- tapOn:
+    text: '^Sets$'
+    index: 0
+- assertVisible:
+    id: 'micro-hero-value'
+    text: '${SETS}'
+- runFlow:
+    when:
+      true: ${CHECK_CHART == 'true'}
+    commands:
+      - assertVisible:
+          id: 'micro-hero-chart'
+          text: '${BARS_SETS}'
+- takeScreenshot: gh482_${TAG}_sets
+
+- tapOn:
+    text: '^Time$'
+    index: 0
+- assertVisible:
+    id: 'micro-hero-value'
+    text: '${TIME}'
+- runFlow:
+    when:
+      true: ${CHECK_CHART == 'true'}
+    commands:
+      - assertVisible:
+          id: 'micro-hero-chart'
+          text: '${BARS_TIME}'
+- takeScreenshot: gh482_${TAG}_time
+
+# Leave the default metric selected again.
+- tapOn: '^Volume$'
