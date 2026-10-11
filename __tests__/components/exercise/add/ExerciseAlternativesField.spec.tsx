@@ -30,8 +30,8 @@ jest.mock('react-native-paper', () => {
         <TouchableOpacity testID={`${testID}-close`} onPress={onClose} />
       </View>
     ),
-    Searchbar: ({value, onChangeText, onFocus, testID, placeholder}: any) => (
-      <TextInput testID={testID} value={value} onChangeText={onChangeText} onFocus={onFocus} placeholder={placeholder} />
+    Searchbar: ({value, onChangeText, onFocus, onBlur, testID, placeholder}: any) => (
+      <TextInput testID={testID} value={value} onChangeText={onChangeText} onFocus={onFocus} onBlur={onBlur} placeholder={placeholder} />
     ),
     Text: ({children, testID}: any) => <Text testID={testID}>{children}</Text>,
     useTheme: () => ({colors: {onSurfaceVariant: '#666'}}),
@@ -136,5 +136,33 @@ describe('ExerciseAlternativesField (GH-487)', () => {
 
     expect(screen.getByTestId('exercise-alternatives-search').props.value).toBe('');
     expect(rowLabels(screen)).toHaveLength(5);
+  });
+
+  it('re-reports the search position while focused when picked chips wrap and push the search down', () => {
+    const onSearchFocus = jest.fn();
+    const onSearchBlur = jest.fn();
+    const screen = render(
+      <ExerciseAlternativesField exerciseId={1} alternativeIds={[]} onChange={jest.fn()} onSearchFocus={onSearchFocus} onSearchBlur={onSearchBlur} />,
+    );
+    fireEvent.press(screen.getByTestId('exercise-alternatives-open-button'));
+    const layoutAt = (y: number) =>
+      fireEvent(screen.getByTestId('exercise-alternatives-search-wrap'), 'layout', {nativeEvent: {layout: {y}}});
+
+    layoutAt(80);
+    expect(onSearchFocus).not.toHaveBeenCalled(); // not focused yet
+
+    fireEvent(screen.getByTestId('exercise-alternatives-search'), 'focus');
+    expect(onSearchFocus).toHaveBeenLastCalledWith(80);
+
+    layoutAt(128); // second chip row
+    expect(onSearchFocus).toHaveBeenLastCalledWith(128);
+    layoutAt(176); // third chip row
+    expect(onSearchFocus).toHaveBeenLastCalledWith(176);
+    expect(onSearchFocus).toHaveBeenCalledTimes(3);
+
+    fireEvent(screen.getByTestId('exercise-alternatives-search'), 'blur');
+    expect(onSearchBlur).toHaveBeenCalledTimes(1);
+    layoutAt(80);
+    expect(onSearchFocus).toHaveBeenCalledTimes(3);
   });
 });

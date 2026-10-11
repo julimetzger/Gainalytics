@@ -1,5 +1,6 @@
 import React from 'react';
 import {act, fireEvent, render} from '@testing-library/react-native';
+import {ScrollView} from 'react-native';
 import EditExerciseSheet from '../../../app/tabs/exercises/EditExerciseSheet';
 import {Muscles} from '../../../app/models/Muscles';
 
@@ -200,6 +201,20 @@ describe('EditExerciseSheet', () => {
 
     act(() => mockAlternativesProps.onSearchBlur());
     expect(queryByTestId('edit-exercise-search-spacer')).toBeNull();
+  });
+
+  it('GH-487: re-pins the search to the top when it moves down while focused (chips wrapping into new rows)', () => {
+    const scrollTo = jest.spyOn(ScrollView.prototype as any, 'scrollTo').mockImplementation(() => {});
+    const {nav} = makeNavigation();
+    const {getByTestId} = render(<EditExerciseSheet navigation={nav as any} route={{params: {}} as any} />);
+    fireEvent(getByTestId('edit-exercise-sheet'), 'layout', {nativeEvent: {layout: {height: 640}}});
+
+    act(() => mockAlternativesProps.onSearchFocus(120));
+    expect(scrollTo).toHaveBeenLastCalledWith({y: 112, animated: true});
+
+    act(() => mockAlternativesProps.onSearchFocus(216)); // two more chip rows above the search
+    expect(scrollTo).toHaveBeenLastCalledWith({y: 208, animated: true});
+    scrollTo.mockRestore();
   });
 
   // GH-486: the user learns what the delete takes with it before confirming.

@@ -44,6 +44,10 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
     setSearchScrollY(Math.max(0, alternativesY.current + searchY - 8));
   }, []);
   const handleSearchBlur = useCallback(() => setSearchScrollY(undefined), []);
+  // Re-pin when the target moves while focused (picked chips wrapping into new rows push the search down).
+  useEffect(() => {
+    if (searchScrollY !== undefined) scrollRef.current?.scrollTo({y: searchScrollY, animated: true});
+  }, [searchScrollY]);
 
   const addExercise = useDispatchAddExercise();
   const editExercise = dispatchEditExercise();

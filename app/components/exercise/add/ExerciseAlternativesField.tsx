@@ -1,5 +1,5 @@
-import React, {useMemo, useState} from 'react';
-import {ScrollView, StyleSheet, View} from 'react-native';
+import React, {useMemo, useRef, useState} from 'react';
+import {LayoutChangeEvent, ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Checkbox, Chip, Searchbar, Text, useTheme} from 'react-native-paper';
 import {useAlleExercises} from '../../../redux/Exercises/use/useAllExercises';
 import {Exercise} from '../../../models/entities/Exercise';
@@ -8,7 +8,10 @@ interface Props {
   exerciseId?: number;
   alternativeIds: number[];
   onChange: (alternativeIds: number[]) => void;
-  /** Called with the search field's y offset inside this component when it gains focus. */
+  /**
+   * Called with the search field's y offset inside this component when it gains focus, and again
+   * whenever the field moves while focused (e.g. picked chips wrap into another row above it).
+   */
   onSearchFocus?: (searchY: number) => void;
   onSearchBlur?: () => void;
 }
@@ -21,7 +24,8 @@ const ExerciseAlternativesField = ({exerciseId, alternativeIds, onChange, onSear
   const allExercises = useAlleExercises();
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
-  const [searchY, setSearchY] = useState(0);
+  const searchY = useRef(0);
+  const searchFocused = useRef(false);
 
   const availableExercises = useMemo(
     () => allExercises.filter((exercise) => exercise.id !== undefined && exercise.id !== exerciseId).sort(byName),
@@ -47,8 +51,26 @@ const ExerciseAlternativesField = ({exerciseId, alternativeIds, onChange, onSear
     }
   };
 
+  const handleSearchLayout = (e: LayoutChangeEvent) => {
+    const y = e.nativeEvent.layout.y;
+    if (y === searchY.current) return;
+    searchY.current = y;
+    if (searchFocused.current) onSearchFocus?.(y);
+  };
+  const handleSearchFocus = () => {
+    searchFocused.current = true;
+    onSearchFocus?.(searchY.current);
+  };
+  const handleSearchBlur = () => {
+    searchFocused.current = false;
+    onSearchBlur?.();
+  };
+
   const toggleVisible = () => {
-    if (visible) setQuery('');
+    if (visible) {
+      setQuery('');
+      if (searchFocused.current) handleSearchBlur();
+    }
     setVisible(!visible);
   };
 
@@ -79,13 +101,13 @@ const ExerciseAlternativesField = ({exerciseId, alternativeIds, onChange, onSear
       </View>
       {visible && (
         <>
-          <View onLayout={(e) => setSearchY(e.nativeEvent.layout.y)}>
+          <View onLayout={handleSearchLayout} testID="exercise-alternatives-search-wrap">
             <Searchbar
               placeholder="Search exercises"
               value={query}
               onChangeText={setQuery}
-              onFocus={() => onSearchFocus?.(searchY)}
-              onBlur={onSearchBlur}
+              onFocus={handleSearchFocus}
+              onBlur={handleSearchBlur}
               testID="exercise-alternatives-search"
             />
           </View>
