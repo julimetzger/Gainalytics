@@ -1,0 +1,40 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-483 review P1, read mode: on the Plan tab of the RUNNING training, swipe away the
+# currently selected exercise; the Plan tab must stay mounted, so the snackbar and its
+# Undo survive. Prerequisite: gh483_running_training.yaml ran (training running,
+# carousel 32 | 73 | 9 | 2 | 25 ...). env: SUFFIX.
+- tapOn:
+    id: 'subtab-plan'
+- tapOn:
+    id: 'training-exercise-2'
+- extendedWaitUntil:
+    visible:
+      id: 'plan-read-exercise-header-2'
+    timeout: 10000
+- swipe:
+    from:
+      id: 'training-exercise-2'
+    direction: DOWN
+- tapOn:
+    id: 'training-exercise-delete-2'
+    waitToSettleTimeoutMs: 500
+- assertVisible:
+    text: 'Squat removed'
+    above:
+      text: 'tab-training'
+- assertNotVisible:
+    id: 'training-exercise-2'
+- takeScreenshot: gh483_r3_07_plan_read_selected_removed${SUFFIX}
+- tapOn:
+    id: 'training-exercise-undo'
+    waitToSettleTimeoutMs: 500
+- assertVisible:
+    id: 'training-exercise-2'
+    rightOf:
+      id: 'training-exercise-9'
+- assertVisible:
+    id: 'plan-read-exercise-header-2'
+- assertVisible:
+    id: 'header-session-timer'
+- takeScreenshot: gh483_r3_08_plan_read_selected_undo${SUFFIX}

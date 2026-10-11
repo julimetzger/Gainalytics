@@ -1,0 +1,153 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-483 in a STARTED (running) training, Train tab.
+#
+# Prerequisite: baseline.gains imported, gh483/prepare_planned_training.yaml and
+# gh483/start_training.yaml ran: "Micro 7 Push squat" is running (the flow selects Adductor 32),
+# carousel 32 Adductor | 73 Stationary lunges | 9 Leg curl | 2 Squat | 25 ...
+# Adductor has planned sets 2 and 3 (prefilled rows); the flow logs set 2 if not yet logged.
+# env: SUFFIX — screenshot suffix (_dark / _light).
+#
+# The ticking session/rest timers keep the screen from ever settling: a plain tapOn waits
+# ~25 s for it, longer than the 8 s snackbar lives -> taps around the snackbar use
+# waitToSettleTimeoutMs.
+# Plain <Text> is invisible to Maestro on a running training; inputs/touchables and the
+# Portal content (dialog, snackbar) are not. The held half pull is captured by the adb
+# script next to this flow (Maestro swipes always release).
+# From the home screen the running training opens via "Continue Training".
+- runFlow:
+    when:
+      visible:
+        id: 'training-home-screen'
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: 'next-training-start-button'
+          direction: DOWN
+      - tapOn:
+          id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'header-session-timer'
+    timeout: 30000
+- assertVisible:
+    id: 'training-exercise-73'
+    rightOf:
+      id: 'training-exercise-32'
+- tapOn:
+    id: 'training-exercise-32'
+
+# Log Adductor set 2 -> Adductor has exactly 1 logged set. (No hideKeyboard: without an
+# open keyboard it presses BACK and leaves the training.)
+- runFlow:
+    when:
+      notVisible:
+        id: 'add-workout-set-logged-2'
+    commands:
+      - tapOn:
+          id: 'add-workout-set-confirm-2'
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-logged-2'
+    timeout: 10000
+- assertNotVisible:
+    id: 'add-workout-set-logged-3'
+- takeScreenshot: gh483_r3_01_running_logged${SUFFIX}
+
+# Pulled far enough the tile stays open with the ✕.
+- swipe:
+    from:
+      id: 'training-exercise-9'
+    direction: DOWN
+- assertVisible:
+    id: 'training-exercise-delete-9'
+- takeScreenshot: gh483_r3_02_running_open${SUFFIX}
+# Pushing it back up closes it again.
+- swipe:
+    from:
+      id: 'training-exercise-9'
+    direction: UP
+- assertNotVisible:
+    id: 'training-exercise-delete-9'
+
+# Exercise with a logged set asks first; Cancel changes nothing.
+- swipe:
+    from:
+      id: 'training-exercise-32'
+    direction: DOWN
+- tapOn:
+    id: 'training-exercise-delete-32'
+- assertVisible:
+    id: 'training-exercise-remove-dialog'
+- assertVisible: 'Remove Adductor\?'
+- assertVisible: 'It already has 1 logged set\..*'
+- takeScreenshot: gh483_r3_03_running_confirm${SUFFIX}
+- tapOn:
+    id: 'training-exercise-remove-cancel'
+- assertNotVisible:
+    id: 'training-exercise-remove-dialog'
+- assertNotVisible: 'Adductor removed'
+- assertVisible:
+    id: 'training-exercise-32'
+    leftOf:
+      id: 'training-exercise-73'
+- assertVisible:
+    id: 'add-workout-set-logged-2'
+
+# No logged sets -> removed at once, snackbar above the tab bar; Undo puts it back in place.
+- swipe:
+    from:
+      id: 'training-exercise-9'
+    direction: DOWN
+- tapOn:
+    id: 'training-exercise-delete-9'
+    waitToSettleTimeoutMs: 500
+- assertVisible:
+    text: 'Leg curl removed'
+    above:
+      text: 'tab-training'
+- assertNotVisible:
+    id: 'training-exercise-9'
+- takeScreenshot: gh483_r3_04_running_removed_snackbar${SUFFIX}
+- tapOn:
+    id: 'training-exercise-undo'
+    waitToSettleTimeoutMs: 500
+- assertVisible:
+    id: 'training-exercise-9'
+    rightOf:
+      id: 'training-exercise-73'
+    leftOf:
+      id: 'training-exercise-2'
+- takeScreenshot: gh483_r3_05_running_after_undo${SUFFIX}
+
+# Selected exercise WITH its logged set: confirm -> removed -> Undo restores position + set.
+- swipe:
+    from:
+      id: 'training-exercise-32'
+    direction: DOWN
+- tapOn:
+    id: 'training-exercise-delete-32'
+- tapOn:
+    id: 'training-exercise-remove-confirm'
+    waitToSettleTimeoutMs: 500
+- assertVisible:
+    text: 'Adductor removed'
+    above:
+      text: 'tab-training'
+- tapOn:
+    id: 'training-exercise-undo'
+    waitToSettleTimeoutMs: 500
+- assertVisible:
+    id: 'training-exercise-32'
+    leftOf:
+      id: 'training-exercise-73'
+- assertNotVisible: 'Adductor removed'
+- tapOn:
+    id: 'training-exercise-32'
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-logged-2'
+    timeout: 10000
+- assertVisible:
+    id: 'header-session-timer'
+- takeScreenshot: gh483_r3_06_running_undo_with_set${SUFFIX}

@@ -1,0 +1,13 @@
+appId: com.powerliftingworkoutplanner
+---
+# PLANNED training on screen (gh483/prepare_planned_training.yaml) -> Train tab -> Start.
+- tapOn:
+    id: 'subtab-train'
+- tapOn:
+    id: 'train-tab-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'header-session-timer'
+    timeout: 30000
+- assertNotVisible:
+    id: 'header-plan-label'

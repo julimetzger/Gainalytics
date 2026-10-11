@@ -1,0 +1,75 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-483 review P1: swiping away the CURRENTLY SELECTED exercise on the Plan tab in edit
+# mode must not unmount the Plan tab. Before the fix the snackbar (and its Undo) vanished
+# at once and the unsaved edit draft was lost.
+#
+# Prerequisite: baseline.gains imported, gh483/prepare_planned_training.yaml ran (PLANNED
+# "Micro 7 Push squat": 32 Adductor | 73 Stationary lunges | 9 Leg curl | 2 Squat | 25 ...),
+# Plan tab on screen.
+# env: SUFFIX — screenshot suffix; REPS — draft value typed into Adductor set 3 (must
+#      differ from what is stored, so a lost draft is detectable).
+- runFlow:
+    when:
+      notVisible:
+        id: 'header-plan-editing-kicker'
+    commands:
+      - tapOn:
+          id: 'header-overflow-icon'
+      - tapOn:
+          id: 'overflow-edit-plan'
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-editing-kicker'
+    timeout: 10000
+
+# An unsaved edit in another exercise.
+- assertNotVisible:
+    id: 'plan-set-3-reps-input'
+    text: '${REPS}'
+- tapOn:
+    id: 'plan-set-3-reps-input'
+- eraseText: 4
+- inputText: '${REPS}'
+- hideKeyboard
+- assertVisible:
+    id: 'plan-set-3-reps-input'
+    text: '${REPS}'
+
+# Select Squat, then pull exactly that tile down and remove it.
+- tapOn:
+    id: 'training-exercise-2'
+- swipe:
+    from:
+      id: 'training-exercise-2'
+    direction: DOWN
+- tapOn:
+    id: 'training-exercise-delete-2'
+# Steps are slow on the phone (0.5-5 s each) and the snackbar lives 8 s: keep the checks
+# between remove and Undo minimal. The full 8 s lifetime is measured by
+# checks/r3-snackbar-timing.log (adb script), not here.
+# Snackbar sits above the bottom tab bar (tab buttons expose their testID as content-desc).
+- assertVisible:
+    text: 'Squat removed'
+    above:
+      text: 'tab-training'
+- assertVisible:
+    id: 'header-plan-editing-kicker'
+    text: 'EDITING PLAN'
+- takeScreenshot: gh483_11_selected_removed_edit${SUFFIX}
+- tapOn:
+    id: 'training-exercise-undo'
+
+# Undo: Squat back in its slot (right of Stationary lunges), edit mode and the draft kept.
+- assertVisible:
+    id: 'training-exercise-2'
+    rightOf:
+      id: 'training-exercise-73'
+- assertNotVisible: 'Squat removed'
+- assertVisible:
+    id: 'header-plan-editing-kicker'
+    text: 'EDITING PLAN'
+- assertVisible:
+    id: 'plan-set-3-reps-input'
+    text: '${REPS}'
+- takeScreenshot: gh483_12_selected_undo_edit${SUFFIX}
