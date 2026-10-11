@@ -1,4 +1,4 @@
-import React, {useEffect, useLayoutEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Dialog, Icon, IconButton, Portal, Switch, Text, TextInput, useTheme} from 'react-native-paper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -24,6 +24,22 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
   const [muscles, setMuscles] = useState<MusclePercentPair[]>(existing?.muscles ?? []);
   const [alternativeIds, setAlternativeIds] = useState<number[]>(existing?.alternativeIds ?? []);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const alternativesY = useRef(0);
+
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [searchScrollY, setSearchScrollY] = useState<number | undefined>(undefined);
+
+  // GH-487: while the alternatives search is focused, pin it to the top of the sheet so the keyboard
+  // covers neither the field nor the hits below it. A viewport-high spacer guarantees the offset is
+  // reachable even when the list is short or the keyboard does not resize the window.
+  const scrollToSearch = () => {
+    if (searchScrollY !== undefined) scrollRef.current?.scrollTo({y: searchScrollY, animated: true});
+  };
+  const handleSearchFocus = useCallback((searchY: number) => {
+    setSearchScrollY(Math.max(0, alternativesY.current + searchY - 8));
+  }, []);
+  const handleSearchBlur = useCallback(() => setSearchScrollY(undefined), []);
 
   const addExercise = useDispatchAddExercise();
   const editExercise = dispatchEditExercise();
@@ -89,6 +105,9 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
 
   return (
     <ScrollView
+      ref={scrollRef}
+      onLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
+      onContentSizeChange={scrollToSearch}
       style={[styles.root, {backgroundColor: theme.colors.background}]}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
@@ -123,7 +142,15 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
       </Text>
       <MuscleInvolvementEditor pairs={muscles} onChange={setMuscles} />
 
-      <ExerciseAlternativesField exerciseId={exerciseId} alternativeIds={alternativeIds} onChange={setAlternativeIds} />
+      <View onLayout={(e) => (alternativesY.current = e.nativeEvent.layout.y)}>
+        <ExerciseAlternativesField
+          exerciseId={exerciseId}
+          alternativeIds={alternativeIds}
+          onChange={setAlternativeIds}
+          onSearchFocus={handleSearchFocus}
+          onSearchBlur={handleSearchBlur}
+        />
+      </View>
 
       {isEdit && (
         <Button
@@ -136,6 +163,8 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
           Delete exercise
         </Button>
       )}
+
+      {searchScrollY !== undefined && <View style={{height: viewportHeight}} testID="edit-exercise-search-spacer" />}
 
       <Portal>
         <Dialog

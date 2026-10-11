@@ -1,5 +1,5 @@
 import React from 'react';
-import {fireEvent, render} from '@testing-library/react-native';
+import {act, fireEvent, render} from '@testing-library/react-native';
 import EditExerciseSheet from '../../../app/tabs/exercises/EditExerciseSheet';
 import {Muscles} from '../../../app/models/Muscles';
 
@@ -28,7 +28,11 @@ jest.mock('../../../app/redux/Workout/use/useWorkoutsByExerciseId', () => ({
   useWorkoutsByExerciseId: () => [{id: 1}, {id: 2}, {id: 3}],
 }));
 
-jest.mock('../../../app/components/exercise/add/ExerciseAlternativesField', () => () => null);
+let mockAlternativesProps: any;
+jest.mock('../../../app/components/exercise/add/ExerciseAlternativesField', () => (props: any) => {
+  mockAlternativesProps = props;
+  return null;
+});
 
 // Render the inline MuscleInvolvementEditor as a simple stub so tests can drive
 // it via testIDs without going through the real chips/progress-bar layout.
@@ -176,5 +180,18 @@ describe('EditExerciseSheet', () => {
     fireEvent.press(getByTestId('edit-exercise-delete-confirm'));
     expect(mockDeleteExercise).toHaveBeenCalledWith(7);
     expect(goBackMock).toHaveBeenCalled();
+  });
+
+  it('GH-487: focusing the alternatives search adds a viewport-high spacer so the search can be pinned above the keyboard', () => {
+    const {nav} = makeNavigation();
+    const {getByTestId, queryByTestId} = render(<EditExerciseSheet navigation={nav as any} route={{params: {}} as any} />);
+    fireEvent(getByTestId('edit-exercise-sheet'), 'layout', {nativeEvent: {layout: {height: 640}}});
+    expect(queryByTestId('edit-exercise-search-spacer')).toBeNull();
+
+    act(() => mockAlternativesProps.onSearchFocus(120));
+    expect(getByTestId('edit-exercise-search-spacer').props.style).toEqual({height: 640});
+
+    act(() => mockAlternativesProps.onSearchBlur());
+    expect(queryByTestId('edit-exercise-search-spacer')).toBeNull();
   });
 });
