@@ -1,0 +1,41 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-487 round 2, part 2: with the search still focused, pick four more alternatives.
+# Their chips wrap into additional rows ABOVE the search. The search and the hits must
+# stay where they were (pinned to the top), which the runner script checks via bounds.
+- runFlow:
+    when:
+      notVisible: {id: 'exercise-alternative-row-35', checked: true}
+    commands:
+      - tapOn: {id: 'exercise-alternative-row-35'}   # Biceps cable curl
+- runFlow:
+    when:
+      notVisible: {id: 'exercise-alternative-row-35', checked: true}
+    commands:
+      - tapOn: {id: 'exercise-alternative-row-35'}
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: {id: 'exercise-alternative-row-81', checked: true}
+    commands:
+      - tapOn: {id: 'exercise-alternative-row-81'}   # Cable crunches
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: {id: 'exercise-alternative-row-27', checked: true}
+    commands:
+      - tapOn: {id: 'exercise-alternative-row-27'}   # Cable lateral raise
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: {id: 'exercise-alternative-row-56', checked: true}
+    commands:
+      - tapOn: {id: 'exercise-alternative-row-56'}   # Cable row close pronated
+- waitForAnimationToEnd
+- assertVisible: {id: 'exercise-alternative-row-35', checked: true}
+- assertVisible: {id: 'exercise-alternative-row-81', checked: true}
+- assertVisible: {id: 'exercise-alternative-row-27', checked: true}
+- assertVisible: {id: 'exercise-alternative-row-56', checked: true}
+- assertVisible:
+    id: 'exercise-alternatives-search'
+    text: 'cable'
