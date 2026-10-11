@@ -2,6 +2,8 @@
 
 ## Trainings
 
+- [ready] [GH-498](https://github.com/julimetzger/Gainalytics/issues/498) UX-Audit Runde 3 (read-only): Trainingsplan anlegen + erstes Training planen — Status aller alten Findings (GH-399/426/436) plus neue, leere App und Baseline-Daten
+  - Report nach `docs/ux/plan-creation-audit-round3.md`; keine App-Code-Änderung
 - [done] ~~[GH-460](https://github.com/julimetzger/Gainalytics/issues/460) Change New Training button — Knopf im Stil von „New exercise"~~ (PR #464 gemerged)
 - [ready] [GH-437](https://github.com/julimetzger/Gainalytics/issues/437) Finish-Training-Knopf in der Sekundärfarbe statt der Primärfarbe
 - [ready] [GH-431](https://github.com/julimetzger/Gainalytics/issues/431) UX-Audit R2 Follow-up (M6/M9/M12) — Suchtreffer-Rangfolge, stabiler EDITING-PLAN-Modus, Satzfortschritt gegen den Plan
