@@ -47,6 +47,23 @@ describe('settingsReducer', () => {
     expect(blue.customPalette).toEqual('#E91E63');
   });
 
+  it('remembers a custom colour stored before GH-478 once a built-in palette replaces it', () => {
+    // Older versions kept the picked colour only in `palette`.
+    const legacy = {mode: 'dark', palette: '#3f51b5'} as AppSettings;
+
+    const blue = settingsReducer(legacy, {type: 'SET_PALETTE', palette: 'blue'});
+    const purple = settingsReducer(blue, {type: 'SET_PALETTE', palette: 'purple'});
+
+    expect(blue.customPalette).toEqual('#3F51B5');
+    expect(purple.customPalette).toEqual('#3F51B5');
+  });
+
+  it('does not invent a custom colour when only presets were ever used', () => {
+    const next = settingsReducer({mode: 'dark', palette: 'green'} as AppSettings, {type: 'SET_PALETTE', palette: 'blue'});
+
+    expect(next).not.toHaveProperty('customPalette');
+  });
+
   it("leaves an existing user's palette untouched for unrelated actions", () => {
     const existingUser = {
       mode: 'light',

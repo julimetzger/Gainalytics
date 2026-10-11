@@ -132,11 +132,15 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       } as AppSettings;
     }
     case 'SET_PALETTE': {
-      const custom = customPaletteHex(action.palette);
+      // Remember the custom colour for the Settings "Custom" preview: the one
+      // being applied, else the one being left (a pre-GH-478 store only ever
+      // held it in `palette`), else the one remembered before.
+      const customPalette =
+        customPaletteHex(action.palette) ?? customPaletteHex(settings.palette) ?? settings.customPalette;
       return {
         ...settings,
         palette: action.palette,
-        ...(custom ? {customPalette: custom} : {}),
+        ...(customPalette ? {customPalette} : {}),
       } as AppSettings;
     }
     case 'SET_VIDEO_ANALYSIS_FILTERS_EXPANDED': {
