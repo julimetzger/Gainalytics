@@ -137,7 +137,7 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
           style={styles.deleteButton}
           testID="edit-exercise-delete"
         >
-          Delete exercise
+          Delete Exercise
         </Button>
       )}
 

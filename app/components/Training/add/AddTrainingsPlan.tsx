@@ -132,7 +132,7 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
         destructiveAction={
           trainingsId
             ? {
-                label: 'Delete plan',
+                label: 'Delete Plan',
                 onConfirm: () => deleteTrainingsPlan(trainingsId),
                 confirmTitle: `Delete ${trainingsPlanDisplayName(trainingsPlan?.name)}`,
                 confirmMessage:
