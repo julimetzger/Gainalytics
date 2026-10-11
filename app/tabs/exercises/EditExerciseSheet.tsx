@@ -11,6 +11,9 @@ import {MusclePercentPair} from '../../models/entities/Exercise';
 import MuscleInvolvementEditor from '../../components/exercise/add/MuscleInvolvementEditor';
 import ExerciseAlternativesField from '../../components/exercise/add/ExerciseAlternativesField';
 import {useWorkoutsByExerciseId} from '../../redux/Workout/use/useWorkoutsByExerciseId';
+import {useExerciseUsage} from '../../redux/Exercises/use/useExerciseUsage';
+
+const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
 const EditExerciseSheet = ({navigation, route}: Props) => {
   const theme = useTheme();
@@ -18,6 +21,7 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
   const existing = useExercise(exerciseId);
   const isEdit = exerciseId !== undefined && existing !== undefined;
   const linkedWorkouts = useWorkoutsByExerciseId(exerciseId);
+  const usage = useExerciseUsage(exerciseId);
 
   const [name, setName] = useState(existing?.name ?? '');
   const [isFocus, setIsFocus] = useState<boolean>(existing?.isFocus ?? false);
@@ -160,7 +164,7 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
           style={styles.deleteButton}
           testID="edit-exercise-delete"
         >
-          Delete exercise
+          Delete Exercise
         </Button>
       )}
 
@@ -173,10 +177,20 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
           testID="edit-exercise-delete-dialog"
         >
           <Dialog.Title>Delete {existing?.name ?? 'exercise'}?</Dialog.Title>
-          <Dialog.Content>
-            <Text>
-              This will also delete {linkedWorkouts.length} workout
-              {linkedWorkouts.length === 1 ? '' : 's'}. This action cannot be undone.
+          <Dialog.Content style={styles.dialogContent}>
+            {usage.inRunningTraining && (
+              <Text testID="edit-exercise-delete-running" style={{color: theme.colors.error}}>
+                {usage.runningTrainingSets > 0
+                  ? `It is part of your running training. It will be removed from it, together with the ${plural(usage.runningTrainingSets, 'set')} you logged there.`
+                  : 'It is part of your running training and will be removed from it. No sets were logged for it there yet.'}
+              </Text>
+            )}
+            {usage.plannedTrainings > 0 && (
+              <Text testID="edit-exercise-delete-planned">It will be removed from {plural(usage.plannedTrainings, 'planned training')}.</Text>
+            )}
+            <Text testID="edit-exercise-delete-history">
+              This will also delete {plural(linkedWorkouts.length, 'workout')}
+              {usage.loggedSets > 0 ? ` (${plural(usage.loggedSets, 'set')})` : ''} from your history. This action cannot be undone.
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
@@ -230,6 +244,9 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     marginTop: 16,
+  },
+  dialogContent: {
+    gap: 8,
   },
 });
 

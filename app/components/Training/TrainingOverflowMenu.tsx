@@ -115,7 +115,7 @@ const TrainingOverflowMenu = ({
         {(trainingState === TrainingsState.PLANNED || trainingState === TrainingsState.STARTED || trainingState === TrainingsState.FINISHED) && (
           <Menu.Item
             testID="overflow-discard"
-            title={<Text style={primaryStyle.errorLabel}>{planMenu ? 'Delete this training' : 'Delete'}</Text>}
+            title={<Text style={primaryStyle.errorLabel}>{planMenu ? 'Delete this Training' : 'Delete'}</Text>}
             onPress={() => {
               onDismiss();
               onDeleteTraining();

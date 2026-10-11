@@ -252,10 +252,10 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         <AnalyseEmptyState
           testID="video-analysis-detail-empty-state"
           title="No video analysis selected"
-          description="This screen shows one recorded set. Open a recording from the Video Analyses list to see its bar path and velocity."
+          description="This screen shows one recorded set. Open a recording from the Video Analysis list to see its bar path and velocity."
           actions={[
             {
-              label: 'Go to Video Analyses',
+              label: 'Go to Video Analysis',
               testID: 'video-analysis-detail-empty-goto-list',
               onPress: () => navigation.navigate('VideoAnalyses'),
             },

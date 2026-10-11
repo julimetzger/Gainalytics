@@ -99,7 +99,7 @@ const AppWithPersist = () => {
   };
 
   return (
-    <PersistGate loading={null} persistor={persistor} onBeforeLift={() => { store.dispatch({type: 'RECOVER_STALE_VIDEO_ANALYSES'}); }}>
+    <PersistGate loading={null} persistor={persistor} onBeforeLift={() => { store.dispatch({type: 'RECOVER_STALE_VIDEO_ANALYSES'}); store.dispatch({type: 'REPAIR_DANGLING_EXERCISE_REFERENCES'}); }}>
       <GestureHandlerRootView style={{flex: 1}}>
         <PaperProvider theme={paperThemes}>
           <SafeAreaProvider>

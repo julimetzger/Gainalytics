@@ -6,6 +6,7 @@ import {Workout} from '../../models/entities/Workout';
 import {Training} from '../../models/entities/Training';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {determineNewWorkoutId} from '../normalizedWorkoutState';
+import {removeDanglingExerciseReferences} from './removeDanglingExerciseReferences';
 
 const sanitizeTrainingWorkoutReferences = (fullImportedState: GlobalState): GlobalState => {
   const validWorkoutIds = new Set(Object.keys(fullImportedState.workouts.byId).map((workoutId) => Number(workoutId)));
@@ -166,6 +167,11 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
         },
       };
     }
+    // GH-486: the slice reducers have already removed the exercise and its logged workouts;
+    // trainings (incl. a running one) and planned workouts must not keep pointing at it.
+    case 'DELETE_EXERCISE':
+    case 'REPAIR_DANGLING_EXERCISE_REFERENCES':
+      return removeDanglingExerciseReferences(state);
     default:
       return state;
   }
