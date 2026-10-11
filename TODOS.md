@@ -75,6 +75,7 @@
 
 ## Settings
 
+- [ready] [GH-478](https://github.com/julimetzger/Gainalytics/issues/478) Settings Theme Color adjustments — Segmented-Buttons für Theme, eine Zeile „Custom Color“ (Blue/Purple/Custom mit Vorschau), Standard-Info bei Long-Press
 - [ready] [GH-404](https://github.com/julimetzger/Gainalytics/issues/404) Bright and dark mode — Theme-Zeile mit System/Hell/Dunkel, Langdruck-Erklärung, heller Modus aufgeräumt
   - Palettenzeile heißt heute ebenfalls „Theme" und muss umbenannt werden
 

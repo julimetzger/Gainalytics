@@ -267,3 +267,16 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### A Maestro flow can be reused for before/after/themes via `-e` + `when: true: ${X == 'true'}`
 **Observation (GH-482):** `maestro … test -e TAG=… -e VOL=… -e CHECK_CHART=true flow.yaml` with `runFlow: {when: {true: ${CHECK_CHART == 'true'}}, commands: [...]}` ran the same flow on the old code (no new testID yet) and on the fix (extra assertions). `takeScreenshot: gh482_${TAG}_volume` names the files per run. Derived fixtures (weights ×20, a meso split moving the current micro to "Meso 2 · M1") gave the big-value and single-bar states. Push them with `--fixture` + the `00_import_baseline.yaml` suite.
 **Apply when:** a ticket asks for before/after × several data states × light/dark.
+### Gboard's "Show on-screen keyboard" on the emulator is FLOATING — it never docks and never resizes the window
+**Problem (GH-487):** the toolbar's ≡ menu → "Show on-screen keyboard" gives a full QWERTY, but as a floating panel over the content; dragging it into the dock markers does not dock it, and `settings put secure show_ime_with_hard_keyboard 1` changes nothing. `adjustResize` never kicks in, so a screenshot of it proves nothing about keyboard avoidance.
+**Fix / Rule:** don't rely on window resizing. Pin the focused field to the top of the ScrollView yourself (viewport-high spacer at the end while focused + `scrollTo` in `onContentSizeChange`) and prove "field at top after focus" with a unit test plus a screenshot.
+**Apply when:** an AC says "keyboard must not cover X" and the evidence device is an emulator (seen in GH-487).
+
+### Maestro `checked: true` works on Paper `Checkbox.Item` — use it as the idempotent guard for picks in a filtered list
+**Observation (GH-487):** `assertVisible: {id: 'exercise-alternative-row-83', checked: true}` matches a checked `Checkbox.Item` (testID on the row). As a `runFlow when notVisible {id, checked: true}` guard it makes taps idempotent (fresh store or re-run with a saved pick) and absorbs the swallowed first tap after `inputText`.
+**Apply when:** asserting or toggling any Paper checkbox row in Maestro (seen in GH-487).
+
+### "Element stays in place" ACs: split the Maestro flow and diff uiautomator bounds between the parts
+**Problem (GH-487 round 2):** Maestro has no position assertion, so "search stays pinned while chips wrap" passes `assertVisible` even when the field slid down by a row.
+**Fix / Rule:** part 1 flow ends in the state before the change (search focused + filtered), then `uiautomator dump` + grep `resource-id="<id>"…bounds`; part 2 (no `launchApp`, run with `--mode flow`) does the picks; dump again and require identical bounds. Focus and IME survive between the two Maestro runs (`dumpsys input_method | grep mInputShown`). Note that off-screen chips are missing from the dump; a short `input swipe` afterwards shows them for the screenshot.
+**Apply when:** an AC says something must not move/scroll away after an interaction (seen in GH-487).
