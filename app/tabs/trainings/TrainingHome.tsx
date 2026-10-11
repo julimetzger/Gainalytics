@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useCallback, useMemo, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Card, Chip, IconButton, Searchbar, Text, useTheme} from 'react-native-paper';
 import {useAllTrainingsPlans} from '../../redux/Training/use/useAllTrainingsPlans';
@@ -290,8 +290,18 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
         }
       }
     }
-    return bestPlan;
+    if (bestPlan) return bestPlan;
+
+    // GH-497: nothing trained yet (e.g. a plan just created from a template) — the
+    // newest plan with planned trainings drives the dashboard, so its first
+    // training is one tap away instead of an empty home screen.
+    return trainingsPlans
+      .filter(plan => Object.keys(plan.trainings ?? {}).length > 0)
+      .reduce<TrainingsPlan | undefined>((newest, plan) => (newest === undefined || (plan.id ?? 0) > (newest.id ?? 0) ? plan : newest), undefined);
   }, [trainingsPlans, allTrainings, trainingsById]);
+
+  const openNewPlanRequested = route.params?.openNewPlan === true;
+  const handleNewPlanRequestHandled = useCallback(() => navigation.setParams({openNewPlan: undefined}), [navigation]);
 
   const activePlan = useMemo((): TrainingsPlan | undefined => {
     if (selectedPlanId !== undefined) {
@@ -457,6 +467,8 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
           bottom: 16,
           right: 16,
         }}
+        openRequested={openNewPlanRequested}
+        onOpenRequestHandled={handleNewPlanRequestHandled}
       />
     </View>
   );

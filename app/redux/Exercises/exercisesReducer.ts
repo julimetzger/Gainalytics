@@ -171,6 +171,9 @@ const initialState = {
   allIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
 } as NormalizedState<Exercise>;
 
+/** The exercises a fresh install starts with — program templates (GH-497) reuse their muscle mapping. */
+export const DEFAULT_EXERCISES: Exercise[] = initialState.allIds.map((id) => initialState.byId[id]);
+
 function sanitizeAlternativeIds(exercises: NormalizedState<Exercise>, exerciseId: number, alternativeIds?: number[]) {
   const seen = new Set<number>();
   return (alternativeIds ?? []).filter((alternativeId) => {

@@ -99,6 +99,10 @@ export interface AppSettings {
   muscleMapCompareSelectionAnalyse?: MuscleMapCompare;
   /** Persisted collapsed/expanded state of the in-training Muscle Map / Metrics analysis sections. */
   analysisSectionsCollapsed?: {[K in AnalysisSectionId]?: boolean};
+  /** GH-497: the first-start onboarding was finished or skipped — it never opens on its own again. */
+  onboardingCompleted?: boolean;
+  /** GH-497: reopened from the Settings; shown regardless of existing data until finished. */
+  onboardingRequested?: boolean;
 }
 
 const initialState = {
@@ -371,6 +375,19 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
           ...settings.analysisSectionsCollapsed,
           [action.section as AnalysisSectionId]: !!action.collapsed,
         },
+      };
+    }
+    case 'COMPLETE_ONBOARDING': {
+      return {
+        ...settings,
+        onboardingCompleted: true,
+        onboardingRequested: false,
+      };
+    }
+    case 'SHOW_ONBOARDING': {
+      return {
+        ...settings,
+        onboardingRequested: true,
       };
     }
     case 'SET_METRIC_OVERVIEW_SLOT': {
