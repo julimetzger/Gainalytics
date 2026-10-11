@@ -351,6 +351,14 @@ def main() -> None:
         help="Which AI CLI to use for the worker process (default: codex).",
     )
     parser.add_argument(
+        "--extra-allowed-tools",
+        default="",
+        help=(
+            "Comma-separated tools added to the claude runner's --allowedTools, "
+            "e.g. 'WebSearch,WebFetch' for research tickets. Ignored for codex."
+        ),
+    )
+    parser.add_argument(
         "--model",
         default=None,
         help=(
@@ -427,7 +435,10 @@ def main() -> None:
         cmd = [
             "claude",
             "--model", args.model or "opus",
-            "--allowedTools", "Bash,Read,Write,Edit,Glob,Grep",
+            "--allowedTools", ",".join(
+                ["Bash", "Read", "Write", "Edit", "Glob", "Grep"]
+                + [t.strip() for t in args.extra_allowed_tools.split(",") if t.strip()]
+            ),
             "--output-format", "stream-json",
             "--verbose",
             "-p", prompt,
