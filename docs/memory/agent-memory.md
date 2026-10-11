@@ -3173,3 +3173,15 @@ Also: R5CN30HWZFN has `wm size` override 720x1600, so `adb input tap` uses 720-w
 ### 484. `ADD_EXERCISE` uses `max(allIds)+1` — deleting the newest exercise hands its id to the next one created
 **Observation (GH-486):** that is why "create an exercise with the same name" was the users' workaround for the crash: the new exercise inherited the deleted id, and every dangling training reference resolved again. It also makes Maestro ids deterministic on the baseline (highest id 84 → new exercises are 85, 86 on every run after a re-import). Keep it in mind for any feature that keeps references to deleted exercises, because a later exercise silently inherits them.
 **Apply when:** writing flows that create exercises, or anything that stores exercise ids outside the exercises slice.
+
+### 485. "Empty slice" is not "not loaded" — a `length === 0` guard silently skips the last-item case
+**Problem (GH-486 round 2):** the dangling-reference repair returned early on `Object.keys(exercises.byId).length === 0` to "not prune against missing data". Deleting the only exercise produced exactly that state, so the running training stayed broken. Codex review caught it.
+**Working solution:** guard only on `byId === undefined/null`. Write one test each for an empty slice (must clean) and a missing slice (must return the same object). Also check `Math.max(...ids) + 1` style id generators: on `[]` they give `-Infinity`.
+**Apply when:** any cleanup or migration has a "skip if no data" guard.
+
+### 486. Edge-case device states: derive a small fixture with a node script + a parametrized import subflow
+**Observation (GH-486 round 2):** a one-exercise store was needed. `__tests__/testdata/scripts/make_gh486_fixture.js` strips `baseline.gains` to one exercise (≈85 KB instead of 1.7 MB) and keeps all references consistent. `gh486_import_fixture.yaml` is `00_import_baseline` with `tapOn: '${FIXTURE}'`, called via `runFlow: {file: …, env: {FIXTURE: x.gains}}` after `adb push x.gains /sdcard/Download/`. The SAF picker listed the pushed files without a media scan.
+**Apply when:** a ticket needs a store state that is tedious to click together.
+
+### 487. Maestro's console log can end after the first step even on a green run — read `commands-(<flow>).json` in `--debug-output`
+**Observation (GH-486 round 2):** with stdout redirected to a file, the ANSI live view left only "Launch app… Run flow when Dismiss…" in the log, although the exit code was 0. The authoritative record is `<debug-output>/<timestamp>/commands-(<flow>.yaml).json`; count `metadata.status` (here 122 COMPLETED, 9 SKIPPED, 0 FAILED). Quote that count in the summary.
