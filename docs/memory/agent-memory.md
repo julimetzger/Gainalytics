@@ -313,3 +313,21 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-483):** a 5 s undo snackbar expired between "Remove" and `tapOn undo` (Maestro settles ~3 s per tap; an adb `uiautomator dump` in between is slower still) and the Undo tap hit the tab bar under it.
 **Fix / Rule:** undo duration 8 s; in flows only `assertVisible` + `takeScreenshot` between removal and `tapOn undo`; in adb scripts chain both taps in ONE `adb shell "…; sleep 1.2; input tap …"` and use screencap, not dump.
 **Apply when:** any transient snackbar/toast action in a flow.
+
+### Health Connect on Android 13 (Play-Store provider): what bites a PoC
+**Observation (GH-502):** Health Connect is not preinstalled on Android 13; `market://details?id=com.google.android.apps.healthdata` + tap "Installieren" works with the existing Google account. The first permission request shows a one-time onboarding ("Jetzt starten") before the dialog. `createRequestPermissionResultContract()` returns ONLY the permissions granted in that dialog, so re-read `getGrantedPermissions()` afterwards. Reading the app's OWN records older than 30 days before the first grant silently returns an empty list (no error) until `READ_HEALTH_DATA_HISTORY` is granted (separate dialog; check `FEATURE_READ_HEALTH_DATA_HISTORY`). In connect-client 1.1.0 the constants are `ExerciseSegment.EXERCISE_SEGMENT_TYPE_*` and `HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS`.
+**Apply when:** touching Health Connect on the test phone or in code.
+
+### Debug-only native feature: put it in `android/app/src/debug` and register it by reflection
+**Observation (GH-502):** `debugImplementation` deps + `src/debug/java/...` classes + debug `AndroidManifest.xml` (permissions, activities) never reach release. `MainApplication` adds the package only via `if (BuildConfig.DEBUG) Class.forName(...)`, and JS registers the route only when `NativeModules.X` exists. Verify with `./gradlew :app:compileReleaseKotlin :app:processReleaseMainManifest` (~1.5 min) and grep the merged release manifest.
+**Apply when:** a ticket asks for a hidden PoC/debug-only feature with native code.
+
+### Is a third-party app Health-Connect-capable on this Android version? Ask the package manager
+**Observation (GH-502):** `dumpsys package <pkg> | grep -o "android.permission.health\.[A-Z_]*"` lists its declared HC types (Garmin Connect 5.30.1: only `WRITE_*`). `cmd package query-activities --brief -a androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE <pkg>` — "No activities found" means the HC app on Android ≤13 will not list it at all (Garmin only has the Android-14 `VIEW_PERMISSION_USAGE` alias).
+**Apply when:** checking whether a vendor app can feed data through Health Connect without logging into it.
+
+### `am start` of the Health Connect settings brings the OLD task screen to the front — never tap blind
+**Problem (GH-502):** after earlier navigation, `am start -a androidx.health.ACTION_HEALTH_CONNECT_SETTINGS` returned "brought to the front" on the App-Berechtigungen page; a tap computed for the home screen hit "Zugriff für alle Apps entfernen" (dialog cancelled in time). Health Connect's own data browser is Daten und Zugriff → Aktivität → Sport → Alle Einträge ansehen → date picker (8× "previous month" taps for 7 months back).
+**Fix / Rule:** `uiautomator dump` + grep bounds before every tap in system/third-party apps.
+**Apply when:** driving Health Connect or other system settings with adb.
+
