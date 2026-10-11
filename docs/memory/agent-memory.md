@@ -313,3 +313,8 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-483):** a 5 s undo snackbar expired between "Remove" and `tapOn undo` (Maestro settles ~3 s per tap; an adb `uiautomator dump` in between is slower still) and the Undo tap hit the tab bar under it.
 **Fix / Rule:** undo duration 8 s; in flows only `assertVisible` + `takeScreenshot` between removal and `tapOn undo`; in adb scripts chain both taps in ONE `adb shell "…; sleep 1.2; input tap …"` and use screencap, not dump.
 **Apply when:** any transient snackbar/toast action in a flow.
+
+### Research tickets: check web tools first, never write unsourced reports
+**Problem (GH-492 r1):** in a `claude -p` worker, every WebSearch/WebFetch call (also in subagents) failed with "Claude requested permissions to use WebSearch, but you haven't granted it yet", because the launcher had not granted them.
+**Fix / Rule:** the launcher now has `--extra-allowed-tools` (e.g. `WebSearch,WebFetch`) for research tickets. If the tools are still denied: do not write the report from memory and do not use `curl` instead. Set `needs_input` with the exact error and save code-side groundwork under `run_dir/research/`.
+**Apply when:** a ticket needs web research. Make one test WebSearch call before fanning out research subagents.
