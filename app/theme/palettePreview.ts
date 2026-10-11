@@ -1,5 +1,5 @@
 import {buildThemes} from './buildThemes';
-import {BUILT_IN_PALETTES, BuiltInPaletteName, paletteLabel} from './palette';
+import {PaletteSelection, ThemeColorChoice} from './palette';
 import type {ColorScheme} from './themeMode';
 
 export interface PalettePreviewColors {
@@ -8,24 +8,25 @@ export interface PalettePreviewColors {
   tertiary: string;
 }
 
-export interface PalettePresetOption {
-  value: BuiltInPaletteName;
+export interface ThemeColorChoiceOption {
+  value: ThemeColorChoice;
   label: string;
   testID: string;
 }
 
-export const PALETTE_PRESET_OPTIONS: PalettePresetOption[] = BUILT_IN_PALETTES.map((value) => ({
-  value,
-  label: paletteLabel(value),
-  testID: `settings-palette-${value}`,
-}));
+/** The segments of the Settings "Custom Color" row, in display order. */
+export const THEME_COLOR_CHOICE_OPTIONS: ThemeColorChoiceOption[] = [
+  {value: 'blue', label: 'Blue', testID: 'settings-palette-blue'},
+  {value: 'purple', label: 'Purple', testID: 'settings-palette-purple'},
+  {value: 'custom', label: 'Custom', testID: 'settings-palette-custom'},
+];
 
 /**
- * The key colours a preset button previews. They come from the same
- * `buildThemes` the app renders with, in the scheme currently in effect, so the
- * swatch shows exactly what tapping the preset will look like.
+ * The key colours a segment previews. They come from the same `buildThemes`
+ * the app renders with, in the scheme currently in effect, so the swatch shows
+ * exactly what the palette will look like.
  */
-export const palettePreviewColors = (palette: BuiltInPaletteName, scheme: ColorScheme): PalettePreviewColors => {
+export const palettePreviewColors = (palette: PaletteSelection, scheme: ColorScheme): PalettePreviewColors => {
   const {DarkTheme, LightThemeCombined} = buildThemes(palette);
   const {primary, secondary, tertiary} = (scheme === 'dark' ? DarkTheme : LightThemeCombined).colors;
   return {primary, secondary, tertiary};

@@ -3,10 +3,9 @@ import {RootStackParamList} from '../../routing/exerciseRouter';
 import React, {useState, useEffect} from 'react';
 import {Alert, ScrollView, View, StyleSheet, Platform} from 'react-native';
 import {Button, Dialog, Divider, HelperText, List, Portal, Switch, Text, TextInput, useTheme} from 'react-native-paper';
-import CustomThemeColorRow from '../../components/settings/CustomThemeColorRow';
 import SettingsSection from '../../components/settings/SettingsSection';
 import ThemeModeSelector from '../../components/settings/ThemeModeSelector';
-import ThemePaletteSelector from '../../components/settings/ThemePaletteSelector';
+import ThemeColorSelector from '../../components/settings/ThemeColorSelector';
 import {secureStorage} from '../../utils/secureStorage';
 import {validateAnthropicApiKey} from '../../utils/llmApi';
 import {useSettings} from '../../redux/settings/use/useSettings';
@@ -252,14 +251,9 @@ const SettingsTab = ({navigation}: Props) => {
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
-      <SettingsSection title="Theme" testID="settings-section-theme">
+      <SettingsSection title="Appearance" testID="settings-section-theme">
         <ThemeModeSelector />
-      </SettingsSection>
-      <SettingsSection title="Theme Color" testID="settings-section-theme-color">
-        <ThemePaletteSelector />
-      </SettingsSection>
-      <SettingsSection title="Custom Color" testID="settings-section-custom-color">
-        <CustomThemeColorRow />
+        <ThemeColorSelector />
       </SettingsSection>
       <SettingsSection title="General" testID="settings-section-general">
         <View style={styles.row}>

@@ -37,3 +37,26 @@ export function paletteLabel(palette?: string): string {
   const name = isBuiltInPalette(palette) ? palette : DEFAULT_PALETTE;
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
+
+/**
+ * The three segments of the Settings "Custom Color" row (GH-478). Blue and
+ * Purple apply their built-in palette; Custom stands for every other stored
+ * value — a picked colour, or the retired Green preset, which keeps rendering
+ * exactly as before.
+ */
+export type ThemeColorChoice = 'blue' | 'purple' | 'custom';
+
+/** Which segment a stored palette belongs to. */
+export function themeColorChoice(palette?: string): ThemeColorChoice {
+  const name = palette ?? DEFAULT_PALETTE;
+  return name === 'blue' || name === 'purple' ? name : 'custom';
+}
+
+/**
+ * What the Custom segment previews: the active palette while it is a custom
+ * one, otherwise the colour last picked from the wheel (`null` if there is none).
+ */
+export function customChoicePalette(palette?: string, lastCustomColor?: string): PaletteSelection | null {
+  if (themeColorChoice(palette) === 'custom') return palette!;
+  return customPaletteHex(lastCustomColor);
+}
