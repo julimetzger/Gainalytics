@@ -71,7 +71,7 @@ appId: com.powerliftingworkoutplanner
     visible: 'Push pull'
     timeout: 120000
 
-# --- open the Video Analyses list -----------------------------------------------
+# --- open the Video Analysis list -----------------------------------------------
 - tapOn: 'tab-analyse'
 - extendedWaitUntil:
     visible: 'Dashboard'
@@ -88,7 +88,7 @@ appId: com.powerliftingworkoutplanner
     timeout: 3000
 - runFlow:
     when:
-      notVisible: 'Video Analyses'
+      notVisible: 'Video Analysis'
     commands:
       - tapOn:
           point: '6%,9%'
@@ -96,14 +96,14 @@ appId: com.powerliftingworkoutplanner
           timeout: 3000
 - runFlow:
     when:
-      notVisible: 'Video Analyses'
+      notVisible: 'Video Analysis'
     commands:
       - tapOn:
           point: '6%,9%'
       - waitForAnimationToEnd:
           timeout: 3000
-- assertVisible: 'Video Analyses'
-- tapOn: 'Video Analyses'
+- assertVisible: 'Video Analysis'
+- tapOn: 'Video Analysis'
 - extendedWaitUntil:
     visible:
       id: 'video-analysis-row-2'

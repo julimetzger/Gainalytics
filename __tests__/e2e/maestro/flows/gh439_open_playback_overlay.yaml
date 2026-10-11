@@ -25,8 +25,8 @@ appId: com.powerliftingworkoutplanner
       visible: 'Video Analysis Detail'
     commands:
       - back
-# Already on the Video Analyses list (e.g. right after an import): opening the
-# drawer from there and tapping "Video Analyses" lands on the Dashboard instead.
+# Already on the Video Analysis list (e.g. right after an import): opening the
+# drawer from there and tapping "Video Analysis" lands on the Dashboard instead.
 - runFlow:
     when:
       notVisible: 'Import Video'
@@ -42,9 +42,9 @@ appId: com.powerliftingworkoutplanner
       - tapOn:
           id: 'analyse-drawer-toggle'
       - extendedWaitUntil:
-          visible: 'Video Analyses'
+          visible: 'Video Analysis'
           timeout: 20000
-      - tapOn: 'Video Analyses'
+      - tapOn: 'Video Analysis'
 - extendedWaitUntil:
     visible: 'Import Video'
     timeout: 60000

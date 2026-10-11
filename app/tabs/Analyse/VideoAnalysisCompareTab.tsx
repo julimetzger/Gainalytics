@@ -149,10 +149,10 @@ const VideoAnalysisCompareTab = ({route}: Props) => {
         <AnalyseEmptyState
           testID="video-analysis-compare-empty-state"
           title="Nothing to compare yet"
-          description="Comparing needs two recordings. Open a recording in Video Analyses and tap Compare to pick the second one."
+          description="Comparing needs two recordings. Open a recording in Video Analysis and tap Compare to pick the second one."
           actions={[
             {
-              label: 'Go to Video Analyses',
+              label: 'Go to Video Analysis',
               testID: 'video-analysis-compare-empty-goto-list',
               onPress: () => navigation.navigate('VideoAnalyses'),
             },

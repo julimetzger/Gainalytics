@@ -77,7 +77,7 @@ appId: com.powerliftingworkoutplanner
     timeout: 3000
 - runFlow:
     when:
-      notVisible: 'Video Analyses'
+      notVisible: 'Video Analysis'
     commands:
       - tapOn:
           point: '6%,9%'
@@ -85,14 +85,14 @@ appId: com.powerliftingworkoutplanner
           timeout: 3000
 - runFlow:
     when:
-      notVisible: 'Video Analyses'
+      notVisible: 'Video Analysis'
     commands:
       - tapOn:
           point: '6%,9%'
       - waitForAnimationToEnd:
           timeout: 3000
-- assertVisible: 'Video Analyses'
-- tapOn: 'Video Analyses'
+- assertVisible: 'Video Analysis'
+- tapOn: 'Video Analysis'
 # The drawer clears on its own; wait for the row itself rather than tapping blind.
 - extendedWaitUntil:
     visible:
@@ -189,7 +189,7 @@ appId: com.powerliftingworkoutplanner
     timeout: 3000
 - runFlow:
     when:
-      notVisible: 'Video Analyses'
+      notVisible: 'Video Analysis'
     commands:
       - tapOn:
           point: '6%,9%'
@@ -197,14 +197,14 @@ appId: com.powerliftingworkoutplanner
           timeout: 3000
 - runFlow:
     when:
-      notVisible: 'Video Analyses'
+      notVisible: 'Video Analysis'
     commands:
       - tapOn:
           point: '6%,9%'
       - waitForAnimationToEnd:
           timeout: 3000
-- assertVisible: 'Video Analyses'
-- tapOn: 'Video Analyses'
+- assertVisible: 'Video Analysis'
+- tapOn: 'Video Analysis'
 - extendedWaitUntil:
     visible:
       id: 'video-analysis-row-1'

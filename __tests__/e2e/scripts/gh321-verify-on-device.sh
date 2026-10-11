@@ -164,14 +164,14 @@ xml = open(sys.argv[1], encoding='utf-8').read()
 for node in re.finditer(r'<node[^>]*>', xml):
     s = node.group(0)
     box = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', s)
-    if 'text="Video Analyses"' in s and box:
+    if 'text="Video Analysis"' in s and box:
         x1, y1, x2, y2 = map(int, box.groups())
         print((x1 + x2) // 2, (y1 + y2) // 2)
         break
 PY
 )"
   if [[ -z "${coords}" ]]; then
-    echo "FAIL: 'Video Analyses' drawer entry not found" >&2
+    echo "FAIL: 'Video Analysis' drawer entry not found" >&2
     exit 1
   fi
   assert_app_focused
