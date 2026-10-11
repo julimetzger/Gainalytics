@@ -287,4 +287,19 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Undo snackbar + scripted taps: keep nothing slow between the action and the Undo tap
 **Problem (GH-483):** a 5 s undo snackbar expired between "Remove" and `tapOn undo` (Maestro settles ~3 s per tap; an adb `uiautomator dump` in between is slower still) and the Undo tap hit the tab bar under it.
 **Fix / Rule:** undo duration 8 s; in flows only `assertVisible` + `takeScreenshot` between removal and `tapOn undo`; in adb scripts chain both taps in ONE `adb shell "…; sleep 1.2; input tap …"` and use screencap, not dump.
+**Round 3:** on a RUNNING training (session/rest timer ticking) every `tapOn`/`swipe` waits 12–25 s to settle, so `waitToSettleTimeoutMs: 500` on the ✕/Undo taps is mandatory. `uiautomator dump` even omitted a snackbar that was visible on screen. Time it via screencap pixels (inverse-surface strip at override (30,1320): light in dark theme, dark in light).
 **Apply when:** any transient snackbar/toast action in a flow.
+
+### A worktree with its OWN `node_modules` can be unpatched — device Render Error while Jest stays green
+**Problem (GH-483 round 3):** after a round-2 `npm install` inside the worktree, its local `node_modules/react-native-draggable-flatlist` had no patch applied. On device, opening a training showed the redbox "Element type is invalid … Check the render method of `TrainingsPlanNode`" (`NestableScrollContainerProvider` undefined); the Jest suites still passed. The worktree Metro (started before the reinstall) first even failed with `UnableToResolveError …/CellDecorators`.
+**Fix / Rule:** `diff -rq <worktree>/node_modules/<pkg> <root>/node_modules/<pkg>`; if they differ, run `npx patch-package` in the worktree, then restart THAT Metro by PID with `--reset-cache` (same port/config) and curl the bundle for the export.
+**Apply when:** a redbox names an undefined component from a patched package, or after any `npm install` in a worktree.
+
+### Maestro has no sleep — an optional `extendedWaitUntil` on a missing id returns at once
+**Observation (GH-483 round 3):** `extendedWaitUntil: {visible: {id: never-rendered}, timeout: 5000, optional: true}` finished WARNED after ~0 s, so "still visible 5 s later" was not proven. Measure durations outside Maestro (adb screencap loop with timestamps).
+**Apply when:** an AC is about how LONG something stays (snackbar, toast, timer).
+
+### Relative position against the bottom tab bar: tab buttons are content-desc → `above: {text: 'tab-training'}`
+**Observation (GH-483 round 3):** `above: {id: 'tab-training'}` never matches (the tab testIDs surface as content-desc). `assertVisible: {text: 'X removed', above: {text: 'tab-training'}}` works and fails if the snackbar overlaps the bar.
+**Apply when:** asserting that an overlay/snackbar sits above the bottom navigation.
+
