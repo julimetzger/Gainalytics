@@ -82,6 +82,8 @@
 
 ## General
 
+- [ready] [GH-496](https://github.com/julimetzger/Gainalytics/issues/496) CSV-Export der Trainingsdaten — eine Zeile pro Satz, Teilen-Menü, Excel/Sheets-tauglich (aus Marktanalyse GH-492 #2)
+- [ready] [GH-497](https://github.com/julimetzger/Gainalytics/issues/497) Onboarding beim ersten Start + Programmvorlagen — überspringbar, 2–3 eigene Vorlagen (aus Marktanalyse GH-492 #5)
 - [ready] [GH-492](https://github.com/julimetzger/Gainalytics/issues/492) Marktanalyse & USP — Wettbewerber, Feature-Matrix, Alleinstellungsmerkmal, priorisierte Verbesserungen
   - Read-only, Report nach `docs/strategy/market-analysis.md`; keine App-Code-Änderung
 - [ready] [GH-450](https://github.com/julimetzger/Gainalytics/issues/450) Ui auf deutsch — restliche deutsche Beschriftungen in der englischen Oberfläche
@@ -170,7 +172,7 @@
 - Hide/show "kg"
 - Default DatePicker range
 - Backup-Automatisierung mit Zeitplan hinzufügen
-- Tutorial/Onboarding-System implementieren
+- ~~Tutorial/Onboarding-System implementieren~~ → [GH-497](https://github.com/julimetzger/Gainalytics/issues/497)
 - Feedback-System einbauen
 - Weitere Statistiken hinzufügen (z.B. durchschnittliche Trainingsdauer, Lieblingsübungen)
 
