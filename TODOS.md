@@ -23,6 +23,7 @@
 - [ready] [GH-467](https://github.com/julimetzger/Gainalytics/issues/467) Swipen sollte den State behalten — gleicher Tab beim Wischen zum nächsten/vorherigen Micro, Skelett statt Platzhalter
 - [ready] [GH-466](https://github.com/julimetzger/Gainalytics/issues/466) RIR Nachkommastellen explizit erlaubt — z.B. 1.5 beim Planen, Trainieren und Bearbeiten, Punkt und Komma
 - [ready] [GH-486](https://github.com/julimetzger/Gainalytics/issues/486) App crasht beim Löschen einer Übung aus aktivem Training — Training danach nicht mehr öffenbar
+- [ready] [GH-487](https://github.com/julimetzger/Gainalytics/issues/487) Alternativen besser auswählbar — Suchfeld, alphabetisch sortiert, Liste mind. doppelt so hoch
 - [ready] [GH-484](https://github.com/julimetzger/Gainalytics/issues/484) Analysis-Sidebar aufräumen — keine Icons bei AI Chat/Chat History, "Video Analysis", Dashboard-Überschrift wie andere Tabs
 - [ready] [GH-483](https://github.com/julimetzger/Gainalytics/issues/483) Exercise carousel delete by swipe — Übungskachel im Training nach unten ziehen, ✕ zum Entfernen, Rückgängig-Snackbar
 - [ready] [TRN-001](tickets/TRN-001-training-overview-record-comparison.yaml) Records in Training Overview - micro vergleich anzeigen
@@ -78,6 +79,8 @@
 
 ## General
 
+- [ready] [GH-492](https://github.com/julimetzger/Gainalytics/issues/492) Marktanalyse & USP — Wettbewerber, Feature-Matrix, Alleinstellungsmerkmal, priorisierte Verbesserungen
+  - Read-only, Report nach `docs/strategy/market-analysis.md`; keine App-Code-Änderung
 - [ready] [GH-450](https://github.com/julimetzger/Gainalytics/issues/450) Ui auf deutsch — restliche deutsche Beschriftungen in der englischen Oberfläche
   - Gemeldet an der Micro-Overview: die Umschaltung heißt „Gesamt" neben „Exercise" und „Muscle"
   - Kein Einzelfix: vollständiger Durchgang durch die App, inklusive Fehler-, Dialog- und Leerzustände

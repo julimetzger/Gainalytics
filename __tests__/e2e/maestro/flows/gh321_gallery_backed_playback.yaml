@@ -21,7 +21,7 @@ appId: com.powerliftingworkoutplanner
     id: 'tab-analyse'
 - tapOn:
     id: 'analyse-drawer-toggle'
-- tapOn: 'Video Analyses'
+- tapOn: 'Video Analysis'
 - extendedWaitUntil:
     visible:
       id: 'video-analysis-import-button'

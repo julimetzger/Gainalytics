@@ -10,7 +10,7 @@ appId: com.powerliftingworkoutplanner
 # `analyse_date_range_picker.yaml` documents that crash as the reason it avoids
 # the drawer entirely.
 #
-# Both are detail screens of the Video Analyses list, so the drawer no longer
+# Both are detail screens of the Video Analysis list, so the drawer no longer
 # offers them. This flow asserts they are gone, then opens EVERY remaining entry
 # with no prior selection and proves the drawer toggle survives each one.
 
@@ -73,7 +73,7 @@ appId: com.powerliftingworkoutplanner
 - assertNotVisible: 'Video Analysis Detail'
 - assertNotVisible: 'Compare Analyses'
 # … while the list they belong to is still offered.
-- assertVisible: 'Video Analyses'
+- assertVisible: 'Video Analysis'
 
 # ------------------------------------------------- open every remaining entry
 # Each block: open the drawer, tap the entry, wait for the screen, prove the
@@ -129,14 +129,14 @@ appId: com.powerliftingworkoutplanner
     timeout: 20000
 - takeScreenshot: gh458_05_history
 
-# Video Analyses is the list that owns the two removed detail screens. Opening
+# Video Analysis is the list that owns the two removed detail screens. Opening
 # it from the drawer is safe, and it is still the way to reach them.
 - tapOn:
     id: 'analyse-drawer-toggle'
 - extendedWaitUntil:
-    visible: 'Video Analyses'
+    visible: 'Video Analysis'
     timeout: 15000
-- tapOn: 'Video Analyses'
+- tapOn: 'Video Analysis'
 - waitForAnimationToEnd
 - extendedWaitUntil:
     visible:

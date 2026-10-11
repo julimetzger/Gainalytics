@@ -1,6 +1,6 @@
 appId: com.powerliftingworkoutplanner
 ---
-# GH-200 (warm): Verify the Video Analyses tab UI elements after a fresh
+# GH-200 (warm): Verify the Video Analysis tab UI elements after a fresh
 # import of the baseline `.gains` fixture.
 #
 # GH-225 changes:
@@ -69,10 +69,10 @@ appId: com.powerliftingworkoutplanner
     id: 'analyse-drawer-toggle'
 - scrollUntilVisible:
     element:
-      text: 'Video Analyses'
+      text: 'Video Analysis'
     direction: DOWN
     timeout: 15000
-- tapOn: 'Video Analyses'
+- tapOn: 'Video Analysis'
 - extendedWaitUntil:
     visible: 'Import Video'
     timeout: 30000

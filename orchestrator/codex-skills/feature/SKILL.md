@@ -36,7 +36,7 @@ If any of these are missing, write `needs_input` instead of guessing.
 - Export `ANDROID_SERIAL` for the assigned device serial, but do not rely on adb default device selection.
 - In every direct adb command, pass `-s "$ANDROID_SERIAL"` explicitly.
 - In every direct Maestro command, pass `--device "$ANDROID_SERIAL"` explicitly.
-- Never target a different Android device than the one assigned by the orchestrator. The agent-memory.md file mentions other device serials (e.g. R5CN30HWZFN, emulator-5554) as context — NEVER copy those into your commands. Always use your assigned device_serial.
+- Never target a different Android device than the one assigned by the orchestrator. The agent memory files (`docs/memory/agent-memory.md`, `docs/memory/agent/*.md`) mention other device serials (e.g. R5CN30HWZFN, emulator-5554) as context — NEVER copy those into your commands. Always use your assigned device_serial.
 - Reuse existing adb host or socket environment when it is already configured by the orchestrator.
 - If the orchestrator already provided a host Metro process or `E2E_METRO_PORT`, reuse it and do not start another packager.
 - Before running Metro-dependent app or Maestro checks, ensure Metro is reachable. Only if no host Metro was provided should you start `npm start -- --host 0.0.0.0 --port 8081`.
@@ -61,7 +61,7 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
 
 1. Confirm the branch and worktree state.
 2. If prior review feedback is present, immediately write `status.json` with `"status": "feedback_round"` to clear the stale status from the previous round.
-3. Read `docs/memory/agent-memory.md` to learn from previous agent runs.
+3. Read `docs/memory/agent-memory.md` (top rules + table of contents), then the topic files in `docs/memory/agent/` relevant to your ticket, to learn from previous agent runs.
 4. Read the ticket, current code, relevant app screenshots, and any prior feedback.
 5. Implement the feature directly in the assigned worktree.
 6. Run the smallest relevant checks while iterating.
@@ -120,7 +120,7 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
     (`![description](screenshots/<ticket_id>/filename.png)`). If no screenshots are
     embedded in the PR body, the PR is incomplete and will be rejected.
 13. Write `status.json` (with `ready_for_review`) and `summary.md`.
-14. Append new learnings to `docs/memory/agent-memory.md` (see Memory section), then exit.
+14. Append new learnings to the `## Inbox (new entries)` section of `docs/memory/agent-memory.md` (see Memory section), then exit.
 
 ## App Deployment
 
@@ -348,11 +348,14 @@ Rules:
 
 ## Memory
 
-Before starting implementation, read `docs/memory/agent-memory.md` to avoid repeating
-known pitfalls (adb, Metro, Maestro, React Native patterns, test quality).
+Before starting implementation, read `docs/memory/agent-memory.md` (the entry point:
+top rules + table of contents) and then the topic files in `docs/memory/agent/` that are
+relevant to your ticket, to avoid repeating known pitfalls (adb, Metro, Maestro, React
+Native patterns, test quality).
 
 After writing `status.json` and `summary.md`, review what you learned during this run
-and append new entries directly to `docs/memory/agent-memory.md`. Focus on:
+and append new entries to the `## Inbox (new entries)` section at the end of
+`docs/memory/agent-memory.md`. Focus on:
 
 - Infrastructure issues (adb, Metro, Maestro, emulator, WSL, port problems)
 - Code patterns that caused bugs or were non-obvious
@@ -361,13 +364,14 @@ and append new entries directly to `docs/memory/agent-memory.md`. Focus on:
 
 Rules for writing memory entries:
 
-1. Read `docs/memory/agent-memory.md` first — do NOT duplicate existing entries.
+1. Check the table of contents in `docs/memory/agent-memory.md` and the matching topic file first — do NOT duplicate existing entries.
 2. Only write entries that are genuinely new and non-obvious.
-3. Follow the existing format (numbered `### N. Title`, with Problem/Symptoms/Working solution or Observation/Apply when sections).
-4. Increment the entry number from the last existing entry.
-5. If nothing new was learned, do not write anything.
-6. Keep entries concise (max 10 lines per entry).
-7. Do NOT use `$memory` — write directly to the file.
+3. Append new entries ONLY to the `## Inbox (new entries)` section; never add them to the topic files directly (they are sorted in at the next consolidation).
+4. Format: `### Short descriptive title` (no running number), then **Problem / Symptom**, **Fix / Rule**, **Apply when** (or **Observation** / **Apply when**), with the concrete commands/testIDs and a `(seen in <ticket-id>)` hint.
+5. If an existing entry in a topic file is wrong or outdated, correct it in place instead of adding a contradicting entry.
+6. If nothing new was learned, do not write anything.
+7. Keep entries concise (max 10 lines per entry).
+8. Do NOT use `$memory` — write directly to the file.
 
 ## Infrastructure Analysis
 
