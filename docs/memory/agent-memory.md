@@ -3155,3 +3155,12 @@ Also: R5CN30HWZFN has `wm size` override 720x1600, so `adb input tap` uses 720-w
 ### 480. To open a training on its STATE-DEFAULT sub-tab, use Home's "Last Training" card — "Next Training" forces Train
 **Observation (GH-467 r2):** `NextTrainingCard` navigates with `subTab: 'train'`; `last-training-card-pressable` passes no sub-tab, so a FINISHED training opens on its default Analysis. Its content-desc (`Last Training, <name>, Meso 1 · M7 · D1 · today, Sets, 0, …`) works as a guard (`assertVisible: {id, text}`) before a destructive step, so a flow only deletes the training it created itself.
 **Apply when:** a flow needs the default tab, or must make sure it acts on its own test training.
+
+### 481. Gboard's "Show on-screen keyboard" on the emulator is FLOATING — it never docks, never resizes the window (extends #91)
+**Observation (GH-487):** the toolbar's ≡ menu → "Show on-screen keyboard" brings up a full QWERTY, but as a floating panel placed over the content. Dragging its handle into the bottom dock markers did not dock it. `settings put secure show_ime_with_hard_keyboard 1` changes nothing. `adjustResize` therefore never kicks in, and a screenshot of it proves nothing about keyboard avoidance.
+**Working solution:** don't make keyboard avoidance depend on the window resizing. Pin the focused field to the top of the ScrollView yourself. While it has focus, add a viewport-high spacer at the end so the offset can be reached even with short content, and `scrollTo` in `onContentSizeChange`. Then prove it with "field at top after focus" plus a unit test.
+**Apply when:** an AC says "keyboard must not cover X" and the evidence device is an emulator.
+
+### 482. Maestro's `checked: true` selector works on Paper `Checkbox.Item` — use it as the guard for picks in a filtered list
+**Observation (GH-487):** `assertVisible: {id: 'exercise-alternative-row-83', checked: true}` matches a checked `Checkbox.Item` (testID on the row). As a `runFlow when notVisible {id, checked: true}` guard it makes taps idempotent: the flow passes on a fresh store and on a re-run where the pick was already saved, and it handles #443's swallowed first tap after `inputText`.
+**Apply when:** asserting or toggling any Paper checkbox row in Maestro.
