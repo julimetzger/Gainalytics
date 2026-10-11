@@ -16,8 +16,9 @@ import {Workout} from '../../models/entities/Workout';
  */
 export const removeDanglingExerciseReferences = (state: GlobalState): GlobalState => {
   const exercisesById = state.exercises?.byId;
-  // Never prune against an exercise slice that is not there at all.
-  if (exercisesById === undefined || Object.keys(exercisesById).length === 0) return state;
+  // Never prune against an exercise slice that is not there at all. An empty but present
+  // slice is real data (the last exercise was deleted) and must be pruned like any other.
+  if (exercisesById === undefined || exercisesById === null) return state;
   const exists = (exerciseId: number | string) => exercisesById[Number(exerciseId)] !== undefined;
 
   const trainings = repairTrainings(state, exists);

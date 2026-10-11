@@ -1,6 +1,7 @@
 import rootReducer, {GlobalState} from '../../rootReducer';
 import {TrainingsState} from '../../../models/TrainingsState';
 import {selectExerciseUsage} from '../../Exercises/use/useExerciseUsage';
+import {removeDanglingExerciseReferences} from '../removeDanglingExerciseReferences';
 
 // GH-486: deleting an exercise that a (running) training uses crashed the app,
 // and the training could not be opened afterwards.
@@ -107,10 +108,63 @@ describe('REPAIR_DANGLING_EXERCISE_REFERENCES (GH-486, stores broken by older ve
     expect(rootReducer(state as any, {type: 'REPAIR_DANGLING_EXERCISE_REFERENCES'}).workouts).toBe(state.workouts);
   });
 
-  it('leaves the store alone when the exercise slice is empty', () => {
+  it('repairs a legacy store whose only exercise was deleted (empty exercise slice)', () => {
     const state = {...legacyState(), exercises: {byId: {}, allIds: []}} as GlobalState;
     const next = rootReducer(state as any, {type: 'REPAIR_DANGLING_EXERCISE_REFERENCES'}) as GlobalState;
-    expect(next.trainings).toBe(state.trainings);
+    Object.values(next.trainings.byId).forEach((training) => {
+      expect(training.exercises).toEqual([]);
+      expect(training.doneWorkoutIds).toEqual({});
+      expect(training.plannedWorkouts).toEqual({});
+    });
+    expect(next.workouts.byId).toEqual({});
+    expect(next.workouts.allIds).toEqual([]);
+    expect(next.workouts.plannedWorkouts).toEqual([]);
+    expect(next.workouts.notFinishedWorkouts).toEqual({});
+  });
+
+  it('cleans every reference when the deleted exercise was the last one', () => {
+    const base = buildState();
+    const state = {
+      ...base,
+      exercises: {byId: {5: base.exercises.byId[5]}, allIds: [5]},
+      workouts: {
+        ...base.workouts,
+        byId: {10: base.workouts.byId[10], 12: base.workouts.byId[12], 20: base.workouts.byId[20]},
+        allIds: [10, 12],
+        byExerciseId: {5: [10, 12]},
+        notFinishedWorkouts: {5: 12},
+        plannedWorkouts: [20],
+      },
+      trainings: {
+        byId: {
+          100: {id: 100, state: TrainingsState.STARTED, exercises: [5], doneWorkoutIds: {5: 12}, plannedWorkouts: {5: 20}},
+          101: {id: 101, state: TrainingsState.PLANNED, exercises: [5], doneWorkoutIds: {}, plannedWorkouts: {5: 20}},
+        },
+        allIds: [100, 101],
+      },
+    } as any as GlobalState;
+    const next = rootReducer(state as any, {type: 'DELETE_EXERCISE', exerciseId: 5}) as GlobalState;
+    expect(next.exercises.allIds).toEqual([]);
+    expect(next.trainings.byId[100]).toEqual(
+      expect.objectContaining({state: TrainingsState.STARTED, exercises: [], doneWorkoutIds: {}, plannedWorkouts: {}}),
+    );
+    expect(next.trainings.byId[101].exercises).toEqual([]);
+    expect(next.workouts.byId).toEqual({});
+    expect(next.workouts.plannedWorkouts).toEqual([]);
+  });
+
+  it('gives the next exercise a valid id once the last one is gone', () => {
+    const state = {...buildState(), exercises: {byId: {}, allIds: []}} as any as GlobalState;
+    const next = rootReducer(state as any, {type: 'ADD_EXERCISE', nameOfExercise: 'Bench', muscles: []}) as GlobalState;
+    expect(next.exercises.allIds).toEqual([1]);
+    expect(next.exercises.byId[1]).toEqual(expect.objectContaining({id: 1, name: 'Bench'}));
+  });
+
+  it('leaves the store alone when the exercise data is missing entirely (not loaded)', () => {
+    const state = {...legacyState(), exercises: undefined} as any as GlobalState;
+    expect(removeDanglingExerciseReferences(state)).toBe(state);
+    const noById = {...legacyState(), exercises: {allIds: []}} as any as GlobalState;
+    expect(removeDanglingExerciseReferences(noById)).toBe(noById);
   });
 });
 
