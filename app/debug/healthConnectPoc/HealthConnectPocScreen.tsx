@@ -38,6 +38,7 @@ const HealthConnectPocScreen = () => {
   const store = useStore<GlobalState>();
   const [sdkStatus, setSdkStatus] = useState<HealthConnectSdkStatus | 'UNKNOWN'>('UNKNOWN');
   const [granted, setGranted] = useState<string[]>([]);
+  const [historyRead, setHistoryRead] = useState<boolean | null>(null);
   const [weights, setWeights] = useState<HealthConnectWeight[] | null>(null);
   const [sessions, setSessions] = useState<HealthConnectSessionSummary[] | null>(null);
   const [writeResult, setWriteResult] = useState<string | null>(null);
@@ -64,7 +65,9 @@ const HealthConnectPocScreen = () => {
         if (!poc) return;
         const status = await poc.getSdkStatus();
         setSdkStatus(status);
-        if (status === 'AVAILABLE') setGranted(await poc.getGrantedPermissions());
+        if (status !== 'AVAILABLE') return;
+        setGranted(await poc.getGrantedPermissions());
+        setHistoryRead(await poc.isHistoryReadAvailable());
       }),
     [poc, run],
   );
@@ -85,6 +88,9 @@ const HealthConnectPocScreen = () => {
         <Card.Title title="Health Connect" subtitle="GH-502 proof of concept (debug builds only)" />
         <Card.Content>
           <Text testID="hc-poc-sdk-status">SDK status: {sdkStatus}</Text>
+          <Text testID="hc-poc-history-read">
+            History read (&gt; 30 days): {historyRead === null ? '?' : historyRead ? 'available' : 'not available'}
+          </Text>
           <Text testID="hc-poc-permissions">
             Granted: {granted.length === 0 ? 'none' : granted.map(shortPermission).join(', ')}
           </Text>

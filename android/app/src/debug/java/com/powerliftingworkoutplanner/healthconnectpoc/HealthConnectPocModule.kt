@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.HealthConnectFeatures
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSegment
@@ -101,13 +102,34 @@ class HealthConnectPocModule(reactContext: ReactApplicationContext) :
                 promise.resolve(Arguments.fromList(granted.sorted()))
               }
       try {
-        launcher.launch(PERMISSIONS)
+        launcher.launch(requestedPermissions())
       } catch (e: Exception) {
         launcher.unregister()
         promise.reject("E_HEALTH_CONNECT", e.message, e)
       }
     }
   }
+
+  /**
+   * Without READ_HEALTH_DATA_HISTORY an app reads only data from up to 30 days before its first
+   * grant, even data it wrote itself. The history permission exists only on newer providers.
+   */
+  @ReactMethod
+  fun isHistoryReadAvailable(promise: Promise) {
+    try {
+      promise.resolve(historyReadAvailable())
+    } catch (e: Exception) {
+      promise.reject("E_HEALTH_CONNECT", e.message, e)
+    }
+  }
+
+  private fun historyReadAvailable(): Boolean =
+      client().features.getFeatureStatus(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY) ==
+          HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
+
+  private fun requestedPermissions(): Set<String> =
+      if (historyReadAvailable()) PERMISSIONS + HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY
+      else PERMISSIONS
 
   /** Reads the body weight records of the last [days] days, newest first. */
   @ReactMethod
