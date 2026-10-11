@@ -263,3 +263,8 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Maestro `checked: true` works on Paper `Checkbox.Item` — use it as the idempotent guard for picks in a filtered list
 **Observation (GH-487):** `assertVisible: {id: 'exercise-alternative-row-83', checked: true}` matches a checked `Checkbox.Item` (testID on the row). As a `runFlow when notVisible {id, checked: true}` guard it makes taps idempotent (fresh store or re-run with a saved pick) and absorbs the swallowed first tap after `inputText`.
 **Apply when:** asserting or toggling any Paper checkbox row in Maestro (seen in GH-487).
+
+### "Element stays in place" ACs: split the Maestro flow and diff uiautomator bounds between the parts
+**Problem (GH-487 round 2):** Maestro has no position assertion, so "search stays pinned while chips wrap" passes `assertVisible` even when the field slid down by a row.
+**Fix / Rule:** part 1 flow ends in the state before the change (search focused + filtered), then `uiautomator dump` + grep `resource-id="<id>"…bounds`; part 2 (no `launchApp`, run with `--mode flow`) does the picks; dump again and require identical bounds. Focus and IME survive between the two Maestro runs (`dumpsys input_method | grep mInputShown`). Note that off-screen chips are missing from the dump; a short `input swipe` afterwards shows them for the screenshot.
+**Apply when:** an AC says something must not move/scroll away after an interaction (seen in GH-487).
