@@ -23,6 +23,7 @@
 - [ready] [GH-467](https://github.com/julimetzger/Gainalytics/issues/467) Swipen sollte den State behalten — gleicher Tab beim Wischen zum nächsten/vorherigen Micro, Skelett statt Platzhalter
 - [ready] [GH-466](https://github.com/julimetzger/Gainalytics/issues/466) RIR Nachkommastellen explizit erlaubt — z.B. 1.5 beim Planen, Trainieren und Bearbeiten, Punkt und Komma
 - [ready] [GH-486](https://github.com/julimetzger/Gainalytics/issues/486) App crasht beim Löschen einer Übung aus aktivem Training — Training danach nicht mehr öffenbar
+- [ready] [GH-482](https://github.com/julimetzger/Gainalytics/issues/482) Overlapping graphics description — Micro-Label und Balkenwert im Home-Diagramm überlappen (Volume/Sets/Time)
 - [ready] [GH-487](https://github.com/julimetzger/Gainalytics/issues/487) Alternativen besser auswählbar — Suchfeld, alphabetisch sortiert, Liste mind. doppelt so hoch
 - [ready] [GH-484](https://github.com/julimetzger/Gainalytics/issues/484) Analysis-Sidebar aufräumen — keine Icons bei AI Chat/Chat History, "Video Analysis", Dashboard-Überschrift wie andere Tabs
 - [ready] [GH-483](https://github.com/julimetzger/Gainalytics/issues/483) Exercise carousel delete by swipe — Übungskachel im Training nach unten ziehen, ✕ zum Entfernen, Rückgängig-Snackbar
