@@ -186,7 +186,7 @@ jest.mock('@react-navigation/elements', () => ({
 
 // GH-293: AIChatTab now navigates to the chat history screen
 jest.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({navigate: jest.fn()}),
+  useNavigation: () => ({navigate: jest.fn(), setOptions: jest.fn()}),
 }));
 
 jest.mock('react-redux', () => {
