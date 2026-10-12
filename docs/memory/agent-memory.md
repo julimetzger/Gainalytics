@@ -313,3 +313,23 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-483):** a 5 s undo snackbar expired between "Remove" and `tapOn undo` (Maestro settles ~3 s per tap; an adb `uiautomator dump` in between is slower still) and the Undo tap hit the tab bar under it.
 **Fix / Rule:** undo duration 8 s; in flows only `assertVisible` + `takeScreenshot` between removal and `tapOn undo`; in adb scripts chain both taps in ONE `adb shell "…; sleep 1.2; input tap …"` and use screencap, not dump.
 **Apply when:** any transient snackbar/toast action in a flow.
+
+### Debug APK without LogBox: switch "JS Dev Mode" off in the dev menu — Metro then serves `dev=false`
+**Observation (GH-485):** screenshots/recordings for marketing or release-like checks must not show LogBox warnings, and a release build costs a cold native build in the shared `node_modules`. `adb shell input keyevent 82` → Settings → "JS Dev Mode" (prefs key `js_dev_mode_debug` in `shared_prefs/<pkg>_preferences.xml`, readable via `run-as … cat`) makes the debug APK fetch `index.bundle?dev=false` from Metro: `__DEV__=false`, no LogBox, faster UI. Force-stop + delete `files/BridgelessReactNativeDevBundle.js` + relaunch; the first bytes of that file must read `__DEV__=false`. Switch it back afterwards (siblings expect dev mode); `docs/marketing/scripts/capture.py` does both.
+**Apply when:** evidence must look like production, or LogBox toasts cover the UI under test.
+
+### While a training is STARTED, `uiautomator dump` fails on EVERY tab and silently returns the previous file
+**Problem (GH-485):** not only the Train tab: with a running session the hidden training screen (and the home card) keep ticking, so dumps on Analyse/AI Chat/Settings fail too ("could not get idle state"). `uiautomator dump` then leaves the OLD `/sdcard/*.xml`, and a pull shows a stale screen. Always `rm -f` the dump file first and treat a missing file as a failure. Measure every position you need BEFORE pressing Start (tabs, set-row ✓ at x 520 / y 604, 682 on the 720x1600 phone) and finish the session before steps that need dumps. "Finished" = a dump succeeds again and contains `Total Sets: N (done)`.
+**Apply when:** scripting anything on the device while a training runs.
+
+### Synthetic lift clips the plate detector accepts: copy `squat-3reps.mp4`'s plate exactly
+**Observation (GH-485):** a numpy-rendered clip (720x1280, 30 fps, bg grey 18, plate radii 30/60/100 px with greys 167/214 like the fixture) moving with eased eccentric/concentric phases was analysed fine: 5 reps, vAvg 0.88 → 0.49 m/s, VL 41 %, RIR 0-1 (concentric durations 0.95 → 1.52 s create the velocity loss). Script: `docs/marketing/scripts/make_demo_lift_clip.py`. The SAF picker lists adb-pushed clips in Downloads without a media scan.
+**Apply when:** a ticket needs a video analysis with realistic multi-rep data and no real person on camera.
+
+### Video-analysis player is blank after a theme switch; seek with the scrubber instead of play
+**Problem (GH-485):** after switching light/dark and returning to the detail, the video surface stays empty at the end position, and play shows nothing. A tap on `video-analysis-playback-scrubber` re-renders the frame and sets the readout (`video-analysis-playback-current-rep` = `Rep 3`). A tap issued within ~1 s after a scroll only stops the scroll: wait 1.5 s and verify that `…-scrubber-thumb` moved.
+**Apply when:** screenshots or flows of the playback overlay after a theme change or re-entry.
+
+### Samsung SystemUI demo mode: icons yes, clock no — and screenrecord files carry an extra data stream
+**Observation (GH-485):** `settings put global sysui_demo_allowed 1` + `am broadcast -a com.android.systemui.demo -e command notifications -e visible false` hides notification icons on the S20+, but `clock -e hhmm` is ignored (One UI), so repaint the 49 px status bar in post if the clock matters. `screenrecord` output has a second (data) stream that makes `format.duration` longer than the video; re-encode with `-vsync passthrough` (ffmpeg 4.4 has no `-fps_mode`) to keep the VFR timestamps (~10x smaller at crf 25).
+**Apply when:** producing clean device screenshots/recordings or re-encoding recordings whose timing matters.
