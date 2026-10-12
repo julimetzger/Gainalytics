@@ -1,0 +1,6 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-504: manual-only — needs a signed-in ChatGPT account on the device. Does NOT import the
+# baseline fixture (its clearState would delete the sign-in); import it beforehand if needed.
+- runFlow: gh504_chatgpt_provider.yaml
+- runFlow: gh504_chatgpt_coach_insight.yaml

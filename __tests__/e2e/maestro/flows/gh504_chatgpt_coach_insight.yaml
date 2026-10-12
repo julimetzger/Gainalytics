@@ -1,0 +1,70 @@
+appId: com.powerliftingworkoutplanner
+name: GH-504 Coach Insight answered by the ChatGPT plan
+---
+# Manual-only: needs a signed-in ChatGPT account with "ChatGPT (Sign in)" selected, and training
+# data finished within the last 28 days (the insight's window). The baseline fixture is months
+# old — import a copy whose dates are shifted to the present (see the GH-504 summary) through
+# Settings → Import Data, which keeps the sign-in.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'meso-card-5-1'
+    direction: DOWN
+- tapOn:
+    id: 'meso-card-5-1'
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-menu-button'
+    timeout: 30000
+- tapOn:
+    id: 'drawer-menu-button'
+- extendedWaitUntil:
+    visible: 'Mesos:'
+    timeout: 20000
+- tapOn: 'Overview'
+- extendedWaitUntil:
+    visible:
+      id: 'overview-view-gesamt'
+    timeout: 30000
+- tapOn:
+    id: 'overview-view-gesamt'
+# Micro 1 → Micro 5, the last micro with finished trainings inside the 28-day window.
+- repeat:
+    times: 4
+    commands:
+      - swipe:
+          direction: LEFT
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'coach-insight-card'
+    timeout: 30000
+# Force a fresh request instead of the cached insight.
+- tapOn:
+    id: 'coach-insight-refresh'
+- extendedWaitUntil:
+    visible:
+      id: 'coach-insight-timestamp'
+      text: 'Generated just now'
+    timeout: 120000
+- assertNotVisible:
+    id: 'coach-insight-error'
+- assertNotVisible:
+    id: 'coach-insight-truncated'
+- assertVisible:
+    id: 'coach-insight-ask-ai'
+- takeScreenshot: gh504_r3_coach_insight_chatgpt

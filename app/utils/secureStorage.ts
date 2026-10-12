@@ -72,6 +72,11 @@ function getStore(): MMKV {
   return _store;
 }
 
+/** Encrypted store for other sensitive values (GH-504 ChatGPT PoC session). */
+export function getSecureStore(): MMKV {
+  return getStore();
+}
+
 /** Allow tests to inject a pre-built MMKV instance without Keychain. */
 export function setStoreForTesting(store: MMKV): void {
   _store = store;
