@@ -1,0 +1,6 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-509 evidence suite: hydrate the store from the baseline .gains fixture
+# first — "Meso 2" / "Training 5" in the flow are fixture-derived values.
+- runFlow: 00_import_baseline.yaml
+- runFlow: gh509_sidebar_add_buttons.yaml
