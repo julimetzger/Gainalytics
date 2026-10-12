@@ -18,6 +18,7 @@ import {canScheduleExactAlarms, openExactAlarmSettings} from '../../../app/utils
 import {dispatchSetAnthropicModel} from '../../../app/redux/settings/dispatch/dispatchSetAnthropicModel';
 import {useAnthropicModel} from '../../../app/redux/settings/use/useAnthropicModel';
 import {DEFAULT_ANTHROPIC_MODEL} from '../../../app/utils/llmApi';
+import rootReducer from '../../../app/redux/rootReducer';
 
 const mockSetAnthropicModel = jest.fn();
 const mockToggleDisable1RM = jest.fn();
@@ -30,6 +31,7 @@ const mockSetPauseTimer = jest.fn();
 const mockSetFinishTrainingTimer = jest.fn();
 const mockStoreGetState = jest.fn();
 const mockShowOnboarding = jest.fn();
+const mockStrongImport = jest.fn();
 
 jest.mock('react-redux', () => ({
   useStore: jest.fn(),
@@ -71,6 +73,10 @@ jest.mock('../../../app/redux/settings/use/useSettings', () => ({
 
 jest.mock('../../../app/redux/fullstateactions/dispatchFullImport', () => ({
   dispatchFullImport: jest.fn(() => mockFullImport),
+}));
+
+jest.mock('../../../app/redux/fullstateactions/dispatchStrongImport', () => ({
+  dispatchStrongImport: () => mockStrongImport,
 }));
 
 jest.mock('../../../app/redux/settings/dispatch/dispatchOnboarding', () => ({
@@ -290,6 +296,15 @@ jest.mock('react-native-paper', () => {
       </TouchableOpacity>
     ),
     Dialog,
+    SegmentedButtons: ({buttons, onValueChange}: {buttons: {value: string; testID: string}[]; onValueChange: (value: string) => void}) => (
+      <View>
+        {buttons.map((b) => (
+          <TouchableOpacity key={b.value} testID={b.testID} onPress={() => onValueChange(b.value)}>
+            <Text>{b.value}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    ),
     Divider: () => <View testID="divider" />,
     Portal: ({children}: {children: React.ReactNode}) => <View>{children}</View>,
     RadioButton,
@@ -306,7 +321,7 @@ jest.mock('react-native-paper', () => {
       </TouchableOpacity>
     ),
     Text: ({children, testID}: {children: React.ReactNode; testID?: string}) => <Text testID={testID}>{children}</Text>,
-    HelperText: ({children}: {children: React.ReactNode}) => <Text>{children}</Text>,
+    HelperText: ({children, testID}: {children: React.ReactNode; testID?: string}) => <Text testID={testID}>{children}</Text>,
     ActivityIndicator: () => <View testID="activity-indicator" />,
     List: {
       Accordion: ({children, title, expanded, onPress, testID}: {children: React.ReactNode; title: string; expanded?: boolean; onPress?: () => void; testID?: string}) => (
@@ -525,6 +540,86 @@ describe('SettingsTab', () => {
 
     expect(fileSaver.writeFile).toHaveBeenCalledWith('/mock/path/1234.gains', '{"training":"state"}');
     expect(Alert.alert).toHaveBeenCalledWith('exported to /mock/path/1234.gains');
+  });
+
+  describe('Strong CSV (GH-496)', () => {
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+    const emptyState = () => rootReducer(undefined as any, {type: '@@INIT'});
+    const stateWithOneSet = () => {
+      const state: any = emptyState();
+      state.workouts = {
+        ...state.workouts,
+        byId: {1: {id: 1, exerciseId: 2, start: '2024-01-01T17:00:00.000Z', end: '2024-01-01T18:00:00.000Z', sets: [{index: 1, weight: 100, reps: 5, rir: 2}]}},
+        allIds: [1],
+        byExerciseId: {2: [1]},
+      };
+      return state;
+    };
+    const nativeModulesWithShare: {FileShare?: {shareFile: jest.Mock}} = NativeModules;
+    const strongCsv =
+      '"Workout #";"Date";"Workout Name";"Duration (sec)";"Exercise Name";"Set Order";"Weight (kg)";"Reps";"RPE";"Distance (meters)";"Seconds";"Notes";"Workout Notes"\n' +
+      '"1";"2024-01-01 18:00:00";"Push";"3600";"Bench Press";"1";"100.0";"5";"8";"";"";"";""\n' +
+      '"2";"2024-01-03 18:00:00";"Pull";"3600";"Deadlift";"1";"180.0";"3";"";"";"";"";""\n';
+
+    afterEach(() => {
+      delete nativeModulesWithShare.FileShare;
+    });
+
+    it('shows both entries next to the .gains buttons', () => {
+      const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+      expect(getByTestId('button-Export-as-CSV-(Strong-format)')).toBeTruthy();
+      expect(getByTestId('button-Import-from-Strong-CSV')).toBeTruthy();
+      expect(getByTestId('button-Import-Data')).toBeTruthy();
+      expect(getByTestId('button-Export-Data')).toBeTruthy();
+    });
+
+    it('shows a hint instead of a file when there are no logged sets', async () => {
+      mockStoreGetState.mockReturnValue(emptyState());
+      nativeModulesWithShare.FileShare = {shareFile: jest.fn()};
+      const {getByTestId, findByText} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent.press(getByTestId('button-Export-as-CSV-(Strong-format)'));
+      expect(await findByText('Nothing to export')).toBeTruthy();
+      expect(fileSaver.writeFile).not.toHaveBeenCalled();
+      expect(nativeModulesWithShare.FileShare.shareFile).not.toHaveBeenCalled();
+    });
+
+    it('writes the CSV and opens the share sheet', async () => {
+      mockStoreGetState.mockReturnValue(stateWithOneSet());
+      nativeModulesWithShare.FileShare = {shareFile: jest.fn().mockResolvedValue(true)};
+      const {getByTestId, findByText} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent.press(getByTestId('button-Export-as-CSV-(Strong-format)'));
+      expect(await findByText('Exported 1 sets from 1 workouts')).toBeTruthy();
+      const [path, csv] = fileSaver.writeFile.mock.calls[0];
+      expect(path).toMatch(/\/exports\/gainalytics_strong_\d{4}-\d{2}-\d{2}\.csv$/);
+      expect(csv.split('\n')[1]).toContain('"Squat";"1";"100.0";"5";"8"');
+      expect(nativeModulesWithShare.FileShare.shareFile).toHaveBeenCalledWith(path, 'text/csv', 'Export as CSV (Strong format)');
+    });
+
+    it('rejects an invalid file without importing anything', async () => {
+      mockStoreGetState.mockReturnValue(emptyState());
+      mockedPickSingle.mockResolvedValue({uri: '/tmp/bad.csv', name: 'bad.csv', type: null, fileCopyUri: null, size: null});
+      fileSaver.readFile.mockResolvedValue('name,value\nfoo,1\n');
+      const {getByTestId, findByText, getByText} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent.press(getByTestId('button-Import-from-Strong-CSV'));
+      expect(await findByText('Import failed')).toBeTruthy();
+      expect(getByText(/bad\.csv: This is not a Strong CSV export .*Nothing was imported\./)).toBeTruthy();
+      expect(mockStrongImport).not.toHaveBeenCalled();
+    });
+
+    it('shows a summary and imports on confirm', async () => {
+      mockStoreGetState.mockReturnValue(emptyState());
+      mockedPickSingle.mockResolvedValue({uri: '/tmp/strong.csv', name: 'strong.csv', type: null, fileCopyUri: null, size: null});
+      fileSaver.readFile.mockResolvedValue(strongCsv);
+      const {getByTestId, findByText, getByText} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent.press(getByTestId('button-Import-from-Strong-CSV'));
+      expect(await findByText('2 trainings in 1 weeks')).toBeTruthy();
+      expect(getByText(/New plan "Strong Import", trainings named by workout name: Push, Pull/)).toBeTruthy();
+      expect(mockStrongImport).not.toHaveBeenCalled();
+      fireEvent.press(getByTestId('button-Import'));
+      expect(mockStrongImport).toHaveBeenCalledWith(expect.objectContaining({setCount: 2}), {assumedWeightUnit: 'kg'});
+      expect(Toast.show).toHaveBeenCalledWith(expect.objectContaining({text1: 'Strong import finished', text2: 'Plan "Strong Import": 2 trainings, 2 sets'}));
+    });
   });
 
   it('renders model input with correct testID', async () => {
