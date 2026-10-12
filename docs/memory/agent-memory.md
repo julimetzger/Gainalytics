@@ -313,3 +313,17 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-483):** a 5 s undo snackbar expired between "Remove" and `tapOn undo` (Maestro settles ~3 s per tap; an adb `uiautomator dump` in between is slower still) and the Undo tap hit the tab bar under it.
 **Fix / Rule:** undo duration 8 s; in flows only `assertVisible` + `takeScreenshot` between removal and `tapOn undo`; in adb scripts chain both taps in ONE `adb shell "…; sleep 1.2; input tap …"` and use screencap, not dump.
 **Apply when:** any transient snackbar/toast action in a flow.
+
+### First `Linking.openURL` on an emulator lands in Chrome's first-run screens, not on your page
+**Problem:** a fresh emulator opens `com.android.chrome/…firstrun.FirstRunActivity` ("Make Chrome your own") and then a "Chrome notifications make things easier" sheet over the target page.
+**Fix / Rule:** tap "Stay signed out" (never "Add account to device") and "No thanks"; check `dumpsys activity activities | grep topResumedActivity` → `ChromeTabbedActivity`. In Maestro, wait for a regex alternative such as `.*(auth\.openai\.com|Welcome back|Stay signed out|No thanks).*` instead of the final page text.
+**Apply when:** a flow opens an external URL/OAuth page in the browser. (seen in GH-504)
+
+### Collapse Settings → "AI Configuration" again before scrolling further down
+**Problem:** with the accordion expanded, `scrollUntilVisible` towards `settings-app-version` fails — swipes start on the multiline Chat/Training prompt editors, which scroll internally (the wrapper's retry then passed by chance).
+**Fix / Rule:** after asserting inside it, `scrollUntilVisible {text: "AI Configuration", direction: UP}` + `tapOn` to collapse, then scroll down.
+**Apply when:** a Settings flow needs the API-key field AND anything below the AI section. (seen in GH-504)
+
+### OAuth loopback redirects work on Android — and can be simulated without an account
+**Observation:** an app-owned `ServerSocket` bound to `127.0.0.1:<port>` receives Chrome's redirect (`ss -tln | grep <port>` on the device shows it). Simulate the provider's redirect with `adb -s $S shell "am start -a android.intent.action.VIEW -p com.android.chrome -d 'http://127.0.0.1:1455/auth/callback?code=fake&state=<state shown in app>'"` — exercises state check + real token endpoint (`invalid_grant`).
+**Apply when:** verifying an OAuth/PKCE flow whose real login needs credentials the worker must not create. (seen in GH-504)
