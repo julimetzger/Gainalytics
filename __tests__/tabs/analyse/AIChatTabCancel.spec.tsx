@@ -28,7 +28,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 jest.mock('@react-navigation/elements', () => ({useHeaderHeight: () => 0}));
-jest.mock('@react-navigation/native', () => ({useNavigation: () => ({navigate: jest.fn()})}));
+jest.mock('@react-navigation/native', () => ({useNavigation: () => ({navigate: jest.fn(), setOptions: jest.fn()})}));
 
 jest.mock('../../../app/utils/secureStorage', () => ({
   secureStorage: {
@@ -127,6 +127,25 @@ jest.mock('react-native-paper', () => {
         React.createElement(Text, null, testID),
       ),
     TextInput,
+    // The context-preview and training-picker dialogs (GH-391) are always mounted;
+    // they only need to render without crashing here.
+    Portal: ({children}: any) => React.createElement(React.Fragment, null, children),
+    Dialog: Object.assign(
+      ({visible, children}: any) => (visible ? React.createElement(View, null, children) : null),
+      {
+        Title: ({children}: any) => React.createElement(Text, null, children),
+        Content: ({children}: any) => React.createElement(View, null, children),
+        ScrollArea: ({children}: any) => React.createElement(View, null, children),
+        Actions: ({children}: any) => React.createElement(View, null, children),
+      },
+    ),
+    Button: ({children, onPress, testID}: any) =>
+      React.createElement(TouchableOpacity, {testID, onPress}, React.createElement(Text, null, children)),
+    List: {
+      Item: ({title, onPress, testID}: any) =>
+        React.createElement(TouchableOpacity, {testID, onPress}, React.createElement(Text, null, title)),
+      Icon: () => null,
+    },
   };
 });
 
