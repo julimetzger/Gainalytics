@@ -329,7 +329,9 @@ class Capture:
         d.mark('chart')
         time.sleep(3)
         self.stop('video_analysis')
+        self.video_analysis_shots()
 
+    def video_analysis_shots(self):
         self.va_shot('dark')
         self.set_theme('light')
         self.tab('analyse', settle=2)
@@ -337,8 +339,12 @@ class Capture:
         self.set_theme('dark')
         self.tab('analyse', settle=2)
 
-    def scroll_player_into_view(self):
+    def scroll_player_into_view(self, from_top=False):
         d = self.d
+        if from_top:
+            for _ in range(5):
+                d.swipe(700, 450, 700, 1250, 300, 0.4)
+            time.sleep(1)
         for _ in range(8):
             node = d.find(rid='video-analysis-playback-overlay', timeout=0, required=False)
             if node and node.y1 < 1000:
@@ -350,11 +356,31 @@ class Capture:
         raise CaptureError('playback overlay not found')
 
     def va_shot(self, theme):
+        """Paused frame in rep 3: seek with the scrubber (playing after a theme switch
+        leaves the video surface blank until the next seek)."""
         d = self.d
-        self.scroll_player_into_view()
-        d.tap_el(rid='video-analysis-playback-toggle', settle=0.1)
-        time.sleep(3.6)
-        d.tap_el(rid='video-analysis-playback-toggle', settle=1)
+        self.scroll_player_into_view(from_top=True)
+        swiped = 0
+        for _ in range(6):
+            bar = d.find(rid='video-analysis-playback-scrubber', timeout=2, required=False)
+            if bar and 300 < bar.center[1] < 1250:
+                break
+            d.swipe(700, 1000, 700, 700, 1500, 1.5)
+            swiped += 1
+        log(f'    seek: scrubber at y={bar.center[1]} after {swiped} swipes')
+        for _ in range(3):  # a tap right after a scroll only stops the scroll
+            time.sleep(1.5)
+            d.tap(bar.x1 + 0.485 * bar.width, bar.center[1])
+            time.sleep(1.5)
+            thumb = d.find(rid='video-analysis-playback-scrubber-thumb')
+            if thumb.x1 > bar.x1 + 0.3 * bar.width:
+                break
+        else:
+            raise CaptureError(f'seek did not move the scrubber: {thumb}')
+        for _ in range(swiped):
+            d.swipe(700, 700, 700, 1000, 1500, 1.2)
+        time.sleep(1)
+        d.find(rid='video-analysis-playback-current-rep', text='Rep \\d')
         self.shot('video_analysis', theme)
 
     def customize(self):
