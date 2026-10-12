@@ -327,3 +327,20 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### OAuth loopback redirects work on Android — and can be simulated without an account
 **Observation:** an app-owned `ServerSocket` bound to `127.0.0.1:<port>` receives Chrome's redirect (`ss -tln | grep <port>` on the device shows it). Simulate the provider's redirect with `adb -s $S shell "am start -a android.intent.action.VIEW -p com.android.chrome -d 'http://127.0.0.1:1455/auth/callback?code=fake&state=<state shown in app>'"` — exercises state check + real token endpoint (`invalid_grant`).
 **Apply when:** verifying an OAuth/PKCE flow whose real login needs credentials the worker must not create. (seen in GH-504)
+
+### A backgrounded app is FROZEN after ~10 s: a loopback/socket listener started before opening the browser never answers
+**Problem (GH-504):** the browser OAuth redirect to `http://127.0.0.1:1455/…` hung forever (Chrome spinner). `adb shell ss -tn` showed the connection ESTABLISHED with unread bytes in Recv-Q, and every app thread sat in `do_freezer_trap`. No root is needed to check: `adb shell "run-as com.powerliftingworkoutplanner sh -c 'for t in /proc/<pid>/task/*; do cat \$t/comm \$t/wchan; echo; done'"` (`debuggerd -j` needs root on these images). Freezer settings: `dumpsys activity | grep -A3 'Freezer settings'`.
+**Fix / Rule:** foreground-ing the app thaws it and the pending request is processed (this rescues a stuck login without re-login). Durable fix: run a foreground service (start it while the app is still TOP) for the whole background phase, and stop it only after the follow-up network work is done.
+**Apply when:** any feature waits in the background for a browser/other app (OAuth, payment redirects, share flows).
+
+### RN `fetch` never resolves while the app is in the background: JS timers are paused
+**Observation (GH-504):** even with a foreground service (process not frozen), the token-exchange `fetch` only finished after returning to the app. `JavaTimerManager.onHostPause` pauses timers (unless a HeadlessJS task runs), and whatwg-fetch resolves via `setTimeout(…, 0)`. Native promises and XHR events still arrive.
+**Apply when:** JS must finish network work while another app is in front. Do it natively, use raw `XMLHttpRequest`, or run a HeadlessJS task.
+
+### `intent://…;action=MAIN;category=LAUNCHER;end` links from Chrome open the Play Store, not the app
+**Problem (GH-504):** Chrome adds `CATEGORY_BROWSABLE`, and the launcher intent-filter doesn't have it, so Chrome falls back to the market page. Fix: a VIEW + DEFAULT + BROWSABLE filter with its own scheme (here debug-only via `src/debug/AndroidManifest.xml` merging into `.MainActivity`), and link to `<scheme>://<host>`.
+**Apply when:** a web page or loopback page should hand the user back to the app.
+
+### Flows with `00_import_baseline` destroy owner-provided state: write a separate no-clearState flow
+**Observation (GH-504 r2):** the owner had signed in on the emulator. The ticket's suite starts with the baseline import (clearState) and would have wiped the session. I wrote a manual-only flow (`launchApp: clearState: false`, no sign-out) that asserts the real values instead, and documented why the suite was not re-run.
+**Apply when:** the feedback says "keep the owner's login / data" and the existing suite imports or clears.
