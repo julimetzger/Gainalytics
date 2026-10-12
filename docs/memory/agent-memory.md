@@ -422,3 +422,22 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-420):** `for p in $(pgrep -f "maestro.*--driver-host-port 7055"); do kill $p; done` matched the tool's own bash (its cmdline contains the pattern) → exit 144, rest of the command never ran.
 **Fix / Rule:** take PIDs from `ps -eo pid,cmd | grep … | grep -v grep` and check them before killing, or kill the PID you captured with `$!` at launch.
 **Apply when:** cleaning up Maestro/adb/wrapper processes after a failed run.
+
+### Make "save via the share sheet" testable on an account-less emulator: a ChooserAction "Save to Downloads"
+**Problem (GH-496):** the AC said "the file can be saved through the share menu", but the emulator's share targets (Drive, Gmail, Quick Share) all need an account, and DocumentsUI is not an `ACTION_SEND` target.
+**Fix / Rule:** on Android 14+ put `Intent.EXTRA_CHOOSER_CUSTOM_ACTIONS` = `ChooserAction("Save to Downloads", PendingIntent.getBroadcast(<own non-exported receiver>, FLAG_IMMUTABLE))` on the chooser. The receiver copies the cache file into `MediaStore.Downloads` (no permission needed). Maestro sees and taps the `'Save to Downloads'` text, and `adb pull /sdcard/Download/<name>` gets the file back. A second save is auto-renamed `<name> (1).csv`; nothing is overwritten. See `FileShareModule.kt` / `SaveToDownloadsReceiver.kt`.
+**Apply when:** a ticket exports or shares a file and needs device evidence of the saved file.
+
+### Analyse → Metrics Overview tables are not in the accessibility tree
+**Observation (GH-496):** after "Show that period" only the header ("Metrics Overview", "Select Exercises, Metrics, Accumulation Mode", "0 selected") is in `uiautomator dump`/Maestro. The date-range button and the Muscle/Exercise Overview rows (e.g. "Bench Press (Barbell) 76.7") are invisible to it, so `extendedWaitUntil` on the range text times out although it is on screen.
+**Fix / Rule:** assert a value that IS accessible (the Dashboard text "Your last training was on Thu, 20/08/26." is) and show the table values with an `adb exec-out screencap` after a right-edge swipe.
+**Apply when:** a flow needs to prove numbers on the Metrics Overview.
+
+### Idempotent imports: dedupe keys must survive your own merge step, so re-import the real export on the device
+**Problem (GH-496):** the Strong import skips sessions whose start second already exists, and merges two sessions of one day into one training. The merged session's own start was stored nowhere, so re-importing the same file brought back 12 "new" trainings. The unit test for "no double import" only used files without same-day sessions; the device round trip (baseline export → import → same import again) caught it.
+**Fix / Rule:** persist every source key that a merge folds away (`Training.mergedSessionStarts`). Test idempotency with the REAL round-trip file (export of `baseline.gains` → import → `buildStrongImport(...).summary.trainingCount === 0`), not only with hand-written mini files.
+**Apply when:** any importer that groups or merges input records and also claims "no double import".
+
+### Format-verification ACs: real sample files are findable with `gh api search/code`
+**Observation (GH-496):** "check against a real Strong export" was solvable without the app: `gh api -X GET search/code -f q='"Workout Notes" "Set Order" extension:csv'` listed ~100 real Strong exports in public repos (both the old `,` format and the current `;` "Workout #" format). Fetch them raw with `gh api repos/<o>/<r>/contents/<path> -H 'Accept: application/vnd.github.raw'` into a `/tmp` dir and run the parser over all of them. One of them became a device fixture (`fixtures/gh496/strong_sample_export.csv`). The web search alone only returned prose and outdated column lists.
+**Apply when:** an AC asks to verify a third-party file format.
