@@ -333,3 +333,21 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Samsung SystemUI demo mode: icons yes, clock no — and screenrecord files carry an extra data stream
 **Observation (GH-485):** `settings put global sysui_demo_allowed 1` + `am broadcast -a com.android.systemui.demo -e command notifications -e visible false` hides notification icons on the S20+, but `clock -e hhmm` is ignored (One UI), so repaint the 49 px status bar in post if the clock matters. `screenrecord` output has a second (data) stream that makes `format.duration` longer than the video; re-encode with `-vsync passthrough` (ffmpeg 4.4 has no `-fps_mode`) to keep the VFR timestamps (~10x smaller at crf 25).
 **Apply when:** producing clean device screenshots/recordings or re-encoding recordings whose timing matters.
+
+### A focused TextInput keeps uiautomator from dumping; tap the list to blur it
+**Problem (GH-485):** after typing into the AI chat input or the Settings API-key field, `uiautomator dump` failed again and again (cursor blink = never idle). The back key hides the keyboard but KEEPS the focus. Scripts then failed in the following steps (a key-restore step even toggled the settings accordion shut).
+**Fix / Rule:** read field values BEFORE focusing them. To blur, tap the FlatList/ScrollView while the keyboard is still up (default `keyboardShouldPersistTaps='never'` → `Keyboard.dismiss()` blurs). Wrap secret cleanup steps in retries that fail loudly.
+**Apply when:** scripting text entry with adb + uiautomator (chat, settings fields).
+
+### "Killed" from uiautomator dump = a foreign Maestro driver holds the device
+**Observation (GH-485):** dumps on the real phone returned `Killed` while a sibling's Maestro (assigned an emulator, no filter proxy) had `dev.mobile.maestro.test … instrument` running ON this phone (`adb -s $ANDROID_SERIAL shell 'ps -A -o PID,ARGS | grep maestro'`). Don't kill it; wait for its host process to exit (`ps -ef | grep run-maestro`), then retry.
+**Apply when:** uiautomator dumps fail on a device you think nobody else uses.
+
+### Picking a real lift clip that the analysis detects cleanly
+**Observation (GH-485):** of 15 gallery deadlift clips on the test phone, landscape clips that start with a walk-in fail (`No outer plate candidate found at t=0`). Portrait clips with a lockout pause between reps get the pause counted as concentric (VL 65–80 %), and two 5-rep clips gave 4 reps. `DCIM/Camera/Deadlift200-3reps@7.mp4` gives exactly 3 reps, VL 22 %, RIR 2–3. Test candidates in the app (import → Done takes 40–100 s) and compare with the rep count in the file name.
+**Apply when:** a ticket needs a realistic video analysis from real footage.
+
+### SAF picker: find a gallery video by name; the roots drawer shows account emails
+**Observation (GH-485):** in `documentsui` (Import Video), open the roots drawer (`desc='Root-Verzeichnis anzeigen'`) → `Videos` → `desc='Suchen'` → `input text <name without .mp4>` + ENTER lists the gallery file. The drawer shows cloud accounts (OneDrive email) and Downloads shows third-party folders, so black out the picker part of any committed screen recording (`docs/marketing/scripts/capture.py stop(blank=…)`).
+**Apply when:** scripting video imports from the gallery or committing screen recordings.
+
