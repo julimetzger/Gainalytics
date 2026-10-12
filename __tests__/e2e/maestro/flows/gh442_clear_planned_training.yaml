@@ -9,12 +9,12 @@ appId: com.powerliftingworkoutplanner
 #
 # Proof points (each asserts a value, not just that something exists):
 #   - the menu of that PLANNED training offers "Clear planned training" next to the
-#     unchanged "Edit plan" / "Delete this training";
+#     unchanged "Edit plan" / "Delete this Training";
 #   - the confirmation dialog appears, and Cancel leaves the planned exercises in
 #     place (the suggestion entry point stays hidden, the card keeps its count);
 #   - Confirm empties the training but keeps it: the Train tab offers "Add Exercises"
 #     (a training without exercises) and NOT "Plan this Training" (no training at
-#     all, which is what "Delete this training" would leave behind);
+#     all, which is what "Delete this Training" would leave behind);
 #   - the state survives an app restart and can be planned again right away;
 #   - a STARTED training does not offer the option.
 - launchApp:
@@ -85,7 +85,7 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: 'Clear planned training'
 - assertVisible:
     id: 'overflow-edit-plan'
-- assertVisible: 'Delete this training'
+- assertVisible: 'Delete this Training'
 - takeScreenshot: gh442_02_menu_with_clear_option
 - tapOn:
     id: 'overflow-clear-plan'
