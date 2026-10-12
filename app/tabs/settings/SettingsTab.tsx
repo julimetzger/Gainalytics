@@ -33,6 +33,9 @@ import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
 import {useAITrainingPrompt} from '../../redux/settings/use/useAITrainingPrompt';
 import {DEFAULT_CHAT_PROMPT, DEFAULT_TRAINING_PROMPT} from '../../constants/aiPrompts';
 import {getAppVersion} from '../../utils/appVersion';
+import AiProviderSelector from '../../components/settings/AiProviderSelector';
+import ChatGptAccountSection from '../../components/settings/ChatGptAccountSection';
+import {useAiProvider} from '../../redux/settings/use/useAiProvider';
 import {dispatchShowOnboarding} from '../../redux/settings/dispatch/dispatchOnboarding';
 
 const SettingsTab = ({navigation, route}: Props) => {
@@ -43,6 +46,7 @@ const SettingsTab = ({navigation, route}: Props) => {
   let setExactAlarmPermission = dispatchSetExactAlarmPermission();
   let setAnthropicModelDispatch = dispatchSetAnthropicModel();
   let currentModel = useAnthropicModel();
+  const aiProvider = useAiProvider();
   let store = useStore();
   let setAIChatPromptDispatch = dispatchSetAIChatPrompt();
   let resetAIChatPromptDispatch = dispatchResetAIChatPrompt();
@@ -327,6 +331,11 @@ const SettingsTab = ({navigation, route}: Props) => {
           testID="settings-ai-config-accordion"
         >
           <View style={{marginBottom: 8}}>
+            <AiProviderSelector />
+            {aiProvider === 'chatgpt' ? (
+              <ChatGptAccountSection />
+            ) : (
+            <>
             <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant, marginBottom: 8}}>
               Your API key is stored encrypted on this device only. It is never sent to any server other
               than Anthropic. You need an Anthropic account to use this feature.
@@ -392,6 +401,8 @@ const SettingsTab = ({navigation, route}: Props) => {
             >
               Save Model
             </Button>
+            </>
+            )}
             <Divider style={{marginVertical: 12}} />
             <Text variant="labelMedium" style={{marginBottom: 4}}>AI Chat Prompt</Text>
             <TextInput

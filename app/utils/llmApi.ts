@@ -1,7 +1,7 @@
 /**
- * LLM API abstraction — Phase 1: Anthropic Claude only.
- * Calls the Anthropic Messages API directly from the device.
- * No server required; the user supplies their own API key.
+ * LLM API abstraction — Anthropic Claude with the user's own API key.
+ * Calls the Anthropic Messages API directly from the device; no server required.
+ * GH-504: the ChatGPT-plan provider lives in utils/ai/chatgpt and returns the same LlmResult.
  */
 
 import {withTimeout} from './ai/withTimeout';
@@ -28,7 +28,9 @@ export type LlmError =
   | {type: 'timeout'; timeoutMs: number}
   | {type: 'aborted'}
   | {type: 'network'; message: string}
-  | {type: 'api_error'; status: number; message: string};
+  | {type: 'api_error'; status: number; message: string}
+  /** GH-504: a ChatGPT-plan failure, already worded for the user (see chatgptErrors.ts). */
+  | {type: 'provider_error'; message: string};
 
 export type LlmResult =
   | {ok: true; text: string; truncated: boolean}

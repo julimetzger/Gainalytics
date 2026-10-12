@@ -105,6 +105,20 @@ jest.mock('react-native-paper', () => {
   };
 });
 
+// GH-504: provider choice — Claude unless a test switches to ChatGPT.
+const mockUseAiProvider = jest.fn(() => 'claude');
+jest.mock('../../../app/redux/settings/use/useAiProvider', () => ({
+  useAiProvider: () => mockUseAiProvider(),
+}));
+const mockChatGptSignedIn = jest.fn(() => false);
+jest.mock('../../../app/utils/ai/useAiCredentials', () => ({
+  useAiCredentials: () => mockChatGptSignedIn(),
+}));
+const mockCallChatGpt = jest.fn();
+jest.mock('../../../app/utils/ai/chatgpt/chatgptChat', () => ({
+  callChatGpt: (...args: any[]) => mockCallChatGpt(...args),
+}));
+
 const mockDispatch = jest.fn();
 // useSelector returns empty objects by default; override per-test when needed.
 jest.mock('react-redux', () => ({
@@ -472,5 +486,81 @@ describe('CoachInsightCard — a cut-off insight (GH-449)', () => {
       generatedAt: expect.any(Number),
       truncated: true,
     });
+  });
+});
+
+describe('CoachInsightCard — GH-504 ChatGPT provider', () => {
+  beforeEach(() => mockUseAiProvider.mockReturnValue('chatgpt'));
+  afterEach(() => {
+    mockUseAiProvider.mockReturnValue('claude');
+    mockChatGptSignedIn.mockReturnValue(false);
+  });
+
+  it('asks ChatGPT instead of Claude when signed in, and shows the answer', async () => {
+    mockChatGptSignedIn.mockReturnValue(true);
+    mockCallChatGpt.mockResolvedValue({ok: true, text: 'Deload next week.', truncated: false});
+
+    const {getByTestId} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} isActive={true} />);
+
+    await waitFor(() => expect(getByTestId('coach-insight-text')).toHaveTextContent('Deload next week.'));
+    expect(mockCallChatGpt).toHaveBeenCalledWith('sys', 'user', undefined, {signal: expect.any(AbortSignal)});
+    expect(mockCallAnthropicClaude).not.toHaveBeenCalled();
+  });
+
+  it('stays hidden when not signed in to ChatGPT, even with a Claude key stored', async () => {
+    const {queryByTestId} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} isActive={true} />);
+    await act(async () => {});
+
+    expect(queryByTestId('coach-insight-card')).toBeNull();
+    expect(mockCallChatGpt).not.toHaveBeenCalled();
+    expect(mockCallAnthropicClaude).not.toHaveBeenCalled();
+  });
+
+  it('does not show the cached Claude insight after switching to ChatGPT', async () => {
+    const cache = new Map<string, object>([['1', {text: 'Claude says squat more.', generatedAt: Date.now()}]]);
+    mockInsightCacheGet.mockImplementation((k: string) => cache.get(k));
+    mockInsightCacheSet.mockImplementation((k: string, v: object) => cache.set(k, v));
+    mockUseAiProvider.mockReturnValue('claude');
+    const trainings = [makeFinishedTraining(1)];
+
+    const {getByTestId, rerender} = render(<CoachInsightCard trainings={trainings} isActive={true} />);
+    await waitFor(() => expect(getByTestId('coach-insight-text')).toHaveTextContent('Claude says squat more.'));
+
+    mockUseAiProvider.mockReturnValue('chatgpt');
+    mockChatGptSignedIn.mockReturnValue(true);
+    mockCallChatGpt.mockResolvedValue({ok: true, text: 'Deload next week.', truncated: false});
+    rerender(<CoachInsightCard trainings={trainings} isActive={true} />);
+
+    await waitFor(() => expect(getByTestId('coach-insight-text')).toHaveTextContent('Deload next week.'));
+    expect(mockCallChatGpt).toHaveBeenCalledTimes(1);
+    expect(cache.get('chatgpt:1')).toMatchObject({text: 'Deload next week.'});
+    expect(cache.get('1')).toMatchObject({text: 'Claude says squat more.'});
+  });
+
+  it('hides a cached ChatGPT insight once the user signed out', async () => {
+    const cache = new Map<string, object>([['chatgpt:1', {text: 'Deload next week.', generatedAt: Date.now()}]]);
+    mockInsightCacheGet.mockImplementation((k: string) => cache.get(k));
+    mockChatGptSignedIn.mockReturnValue(true);
+    const trainings = [makeFinishedTraining(1)];
+
+    const {getByTestId, queryByTestId, rerender} = render(<CoachInsightCard trainings={trainings} isActive={true} />);
+    await waitFor(() => expect(getByTestId('coach-insight-text')).toHaveTextContent('Deload next week.'));
+
+    mockChatGptSignedIn.mockReturnValue(false);
+    rerender(<CoachInsightCard trainings={trainings} isActive={true} />);
+
+    await waitFor(() => expect(queryByTestId('coach-insight-card')).toBeNull());
+    expect(mockCallChatGpt).not.toHaveBeenCalled();
+  });
+
+  it('shows the worded ChatGPT failure, e.g. a reached usage limit', async () => {
+    mockChatGptSignedIn.mockReturnValue(true);
+    mockCallChatGpt.mockResolvedValue({ok: false, error: {type: 'provider_error', message: 'Your ChatGPT usage limit for Gainalytics is reached.'}});
+
+    const {getByTestId} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} isActive={true} />);
+
+    await waitFor(() =>
+      expect(getByTestId('coach-insight-error')).toHaveTextContent('Your ChatGPT usage limit for Gainalytics is reached.'),
+    );
   });
 });

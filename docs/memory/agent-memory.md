@@ -314,6 +314,69 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Fix / Rule:** undo duration 8 s; in flows only `assertVisible` + `takeScreenshot` between removal and `tapOn undo`; in adb scripts chain both taps in ONE `adb shell "…; sleep 1.2; input tap …"` and use screencap, not dump.
 **Apply when:** any transient snackbar/toast action in a flow.
 
+### First `Linking.openURL` on an emulator lands in Chrome's first-run screens, not on your page
+**Problem:** a fresh emulator opens `com.android.chrome/…firstrun.FirstRunActivity` ("Make Chrome your own") and then a "Chrome notifications make things easier" sheet over the target page.
+**Fix / Rule:** tap "Stay signed out" (never "Add account to device") and "No thanks"; check `dumpsys activity activities | grep topResumedActivity` → `ChromeTabbedActivity`. In Maestro, wait for a regex alternative such as `.*(auth\.openai\.com|Welcome back|Stay signed out|No thanks).*` instead of the final page text.
+**Apply when:** a flow opens an external URL/OAuth page in the browser. (seen in GH-504)
+
+### Collapse Settings → "AI Configuration" again before scrolling further down
+**Problem:** with the accordion expanded, `scrollUntilVisible` towards `settings-app-version` fails — swipes start on the multiline Chat/Training prompt editors, which scroll internally (the wrapper's retry then passed by chance).
+**Fix / Rule:** after asserting inside it, `scrollUntilVisible {text: "AI Configuration", direction: UP}` + `tapOn` to collapse, then scroll down.
+**Apply when:** a Settings flow needs the API-key field AND anything below the AI section. (seen in GH-504)
+
+### OAuth loopback redirects work on Android — and can be simulated without an account
+**Observation:** an app-owned `ServerSocket` bound to `127.0.0.1:<port>` receives Chrome's redirect (`ss -tln | grep <port>` on the device shows it). Simulate the provider's redirect with `adb -s $S shell "am start -a android.intent.action.VIEW -p com.android.chrome -d 'http://127.0.0.1:1455/auth/callback?code=fake&state=<state shown in app>'"` — exercises state check + real token endpoint (`invalid_grant`).
+**Apply when:** verifying an OAuth/PKCE flow whose real login needs credentials the worker must not create. (seen in GH-504)
+
+### A backgrounded app is FROZEN after ~10 s: a loopback/socket listener started before opening the browser never answers
+**Problem (GH-504):** the browser OAuth redirect to `http://127.0.0.1:1455/…` hung forever (Chrome spinner). `adb shell ss -tn` showed the connection ESTABLISHED with unread bytes in Recv-Q, and every app thread sat in `do_freezer_trap`. No root is needed to check: `adb shell "run-as com.powerliftingworkoutplanner sh -c 'for t in /proc/<pid>/task/*; do cat \$t/comm \$t/wchan; echo; done'"` (`debuggerd -j` needs root on these images). Freezer settings: `dumpsys activity | grep -A3 'Freezer settings'`.
+**Fix / Rule:** foreground-ing the app thaws it and the pending request is processed (this rescues a stuck login without re-login). Durable fix: run a foreground service (start it while the app is still TOP) for the whole background phase, and stop it only after the follow-up network work is done.
+**Apply when:** any feature waits in the background for a browser/other app (OAuth, payment redirects, share flows).
+
+### RN `fetch` never resolves while the app is in the background: JS timers are paused
+**Observation (GH-504):** even with a foreground service (process not frozen), the token-exchange `fetch` only finished after returning to the app. `JavaTimerManager.onHostPause` pauses timers (unless a HeadlessJS task runs), and whatwg-fetch resolves via `setTimeout(…, 0)`. Native promises and XHR events still arrive.
+**Apply when:** JS must finish network work while another app is in front. Do it natively, use raw `XMLHttpRequest`, or run a HeadlessJS task.
+
+### `intent://…;action=MAIN;category=LAUNCHER;end` links from Chrome open the Play Store, not the app
+**Problem (GH-504):** Chrome adds `CATEGORY_BROWSABLE`, and the launcher intent-filter doesn't have it, so Chrome falls back to the market page. Fix: a VIEW + DEFAULT + BROWSABLE filter with its own scheme (here debug-only via `src/debug/AndroidManifest.xml` merging into `.MainActivity`), and link to `<scheme>://<host>`.
+**Apply when:** a web page or loopback page should hand the user back to the app.
+
+### Flows with `00_import_baseline` destroy owner-provided state: write a separate no-clearState flow
+**Observation (GH-504 r2):** the owner had signed in on the emulator. The ticket's suite starts with the baseline import (clearState) and would have wiped the session. I wrote a manual-only flow (`launchApp: clearState: false`, no sign-out) that asserts the real values instead, and documented why the suite was not re-run.
+**Apply when:** the feedback says "keep the owner's login / data" and the existing suite imports or clears.
+
+### Coach Insight on the baseline fixture always says "Not enough data" — import a date-shifted copy via Settings → Import Data
+**Problem (GH-504):** `CoachInsightCard` only looks at trainings finished in the last 28 days; the `.gains` fixture's last training is months old, so every micro shows "Not enough data for an insight yet." and no request is made.
+**Fix / Rule:** shift every epoch-ms number (1.5e12–1.8e12) and ISO date string by `now − 1 day − max(training.end)` with a small node script (GH-504 run dir `checks/r3/fixture/shift_dates.js`). Push it to `/sdcard/Download/` and import it with a copy of `00_import_baseline.yaml` (`tapOn: '<file>.gains'`). The import keeps the secure store (API key / ChatGPT sign-in) but replaces Redux settings. Micro 5 of plan 5 then gets a real insight.
+**Apply when:** any ticket needs Coach Insight / recency-window evidence.
+
+### Standalone release APK for the owner: temporary debug signing + per-ABI split by zip
+**Observation (GH-504):** `assembleRelease` needs `ANDROID_RELEASE_PASSWORD` + the release keystore (not on WSL). Temporarily switch `buildTypes.release.signingConfig` to `signingConfigs.debug`, build both ABIs at once (`-PreactNativeArchitectures=x86_64,arm64-v8a`), then `git checkout android/app/build.gradle`. Derive per-device APKs with `zip -d app-release.apk "lib/<other-abi>/*"` + `zipalign -f -p 4` + `apksigner sign --ks android/app/debug.keystore`. Being debug-signed, it installs with `adb install -r` OVER the debug app and keeps all data (Keystore-encrypted MMKV included). Check `pkgFlags` lose `DEBUGGABLE`.
+**Apply when:** a ticket asks for an installable APK without Metro.
+
+### Maestro can't see the drawer/native-stack header title — assert screen content instead
+**Problem (GH-504):** `extendedWaitUntil: visible: 'Micro 5 Overview'` (also as `(?s).*…*` regex) failed while the title was clearly on screen in the Analysis drawer header.
+**Fix / Rule:** don't wait on header titles. Rely on deterministic navigation (N × `swipe: LEFT` + `waitForAnimationToEnd`) and assert an element inside the screen (`coach-insight-card`).
+**Apply when:** a flow needs to prove which micro/screen it is on.
+
+### Prove a feature that needs the owner's OAuth sign-in without signing them out: add a "Reconnect" path
+**Observation (GH-504):** the AC demanded "login works in the release build", but signing out would have lost the owner's ChatGPT session. A "Reconnect" button (re-run the browser flow; replace the stored session only on success) let the login be verified end to end with zero risk: if the browser had asked for a password, backing out would have left the old session intact. Also: PoC→feature storage-key changes need a one-time migration, or the update silently signs the owner out.
+**Apply when:** verifying any account-linking flow on a device where an existing login must survive.
+
+
+### Without the adb proxy, "the assigned device shows Chrome" is the symptom of Maestro on a foreign device
+**Problem / Symptom:** `run-maestro-from-wsl.sh` (no `--host`) force-stopped the app on the CORRECT device via `adb -s`, so the previous task (Chrome) came to the front there. Meanwhile Maestro ran the flow on the first device of the adb server (a phone), and the flow got far ("tab-settings" was tapped). It looked like `launchApp` was failing and the app was "jumping to Chrome".
+**Fix / Rule:** if the assigned device never shows the app during a run, add `takeScreenshot` steps and look at them (foreign nav bar or data = wrong device). Always pass `--host <proxy> --adb-host <proxy>`. A proxy from an earlier round may still be listening: check with `ss -ltnp | grep 5037` and `adb -H <ip> -P 5037 devices`.
+**Apply when:** any Maestro run in a feedback round, before the first flow. (seen in GH-504)
+
+### Maestro `tapOn` hangs forever on a screen with a running seconds counter
+**Problem / Symptom:** the AI Chat's "AI is thinking… Ns" counter changes every second, so `tapOn: {id: chat-stop-button}` never saw the screen settle and hung for more than 5 min. `uiautomator dump` also silently left the stale previous `/sdcard/ui.xml` in place during that time.
+**Fix / Rule:** add `waitToSettleTimeoutMs: 500` to taps on screens with live counters or spinners. While debugging, find coordinates from a resized screencap instead of a dump.
+**Apply when:** tapping Stop/Cancel during a running request. (seen in GH-504)
+
+### Async token refresh vs. sign-out: guard the write with a session generation
+**Observation:** a refresh started before sign-out wrote rotated tokens back after `clearTokens()`, so the account returned after a restart. Fix: bump a module-level `sessionGeneration` on sign-in, sign-out and terminal refresh errors. The refresh captures it at the start; if it changed, the refresh does not write, returns null and revokes the new refresh token. Clear the tokens before the remote revoke. Test it by holding the refresh `fetch` in a manual promise, signing out, then resolving the refresh.
+**Apply when:** any persisted credential that can be written by a background refresh. (seen in GH-504)
 ### An empty store now opens the first-start onboarding OVER the tabs — empty-store flows must skip it
 **Problem (GH-497):** after `pm clear`/`clearState` (no plans, trainings or logged workouts) a full-screen onboarding (`onboarding-screen`) covers the tab bar. `tab-training`/`training-home-screen` are still in the hierarchy underneath, so waits pass but taps hit the overlay (the Settings scroll in `smoke.yaml` failed with "No visible element found").
 **Fix / Rule:** `runFlow: gh497_dismiss_onboarding.yaml` (waits for `tab-training`, then taps `onboarding-skip` if visible). `00_import_baseline.yaml` and `smoke.yaml` already call it. A `when: visible: {id: onboarding-skip}` checked right after `launchApp` runs before the JS has rendered and is silently SKIPPED. Reopen it on purpose via Settings › Help `settings-show-onboarding-button`.

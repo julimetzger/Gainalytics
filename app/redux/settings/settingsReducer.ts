@@ -2,6 +2,7 @@ import {AnyAction} from '@reduxjs/toolkit';
 import {Metric, MetricOverviewSection, resolveMetricOverviewSlots} from '../../models/Metric';
 import {customPaletteHex, PaletteSelection} from '../../theme/palette';
 import {ThemeModeSetting} from '../../theme/themeMode';
+import {AiProvider} from '../../models/AiProvider';
 
 export interface MetricOverviewSettings {
   muscles?: Metric[];
@@ -86,6 +87,10 @@ export interface AppSettings {
   };
   metricOverview?: MetricOverviewSettings;
   anthropicModel?: string;
+  /** GH-504: AI provider for chat and coach insights. Absent → Claude (existing users). */
+  aiProvider?: AiProvider;
+  /** GH-504: ChatGPT model slug. Absent → the first model the user's plan lists. */
+  chatgptModel?: string;
   aiChatPrompt?: string;
   aiTrainingPrompt?: string;
   plan?: PlanSettings;
@@ -224,6 +229,18 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       return {
         ...settings,
         anthropicModel: trimmed || undefined,
+      };
+    }
+    case 'SET_AI_PROVIDER':
+      return {
+        ...settings,
+        aiProvider: action.provider === 'chatgpt' ? 'chatgpt' : 'claude',
+      };
+    case 'SET_CHATGPT_MODEL': {
+      const trimmed = ((action.model as string) ?? '').trim();
+      return {
+        ...settings,
+        chatgptModel: trimmed || undefined,
       };
     }
     case 'SET_AI_CHAT_PROMPT': {

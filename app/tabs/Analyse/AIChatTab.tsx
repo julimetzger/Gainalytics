@@ -24,7 +24,9 @@ import {
 import {selectAllFinishedTrainings} from '../../redux/AIChat/selectors';
 import {useArchiveActiveChat} from '../../redux/AIChat/use/useArchiveActiveChat';
 import {sendChatMessage, ChatMessage} from '../../utils/ai/sendChatMessage';
-import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
+import {secureStorage} from '../../utils/secureStorage';
+import {sendChatGptMessage} from '../../utils/ai/chatgpt/chatgptChat';
+import {useAiCredentials} from '../../utils/ai/useAiCredentials';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
 import {serializeTrainingsForChat} from '../../utils/ai/serializeTrainingsForChat';
 import {filterTrainingsByDateRange} from '../../utils/ai/filterTrainingsByDateRange';
@@ -48,6 +50,8 @@ import ChatContextPreviewDialog from '../../components/ai/ChatContextPreviewDial
 import ChatTrainingPickerDialog from '../../components/ai/ChatTrainingPickerDialog';
 import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
 import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
+import {useAiProvider} from '../../redux/settings/use/useAiProvider';
+import {useChatGptModel} from '../../redux/settings/use/useChatGptModel';
 
 type Preset = '7d' | '28d' | '3M' | 'Meso' | 'Custom';
 
@@ -127,6 +131,8 @@ const AIChatTab = () => {
   const navigation = useNavigation<any>();
   const chatPrompt = useAIChatPrompt();
   const model = useAnthropicModel();
+  const provider = useAiProvider();
+  const chatgptModel = useChatGptModel();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const archiveActiveChat = useArchiveActiveChat();
@@ -160,24 +166,8 @@ const AIChatTab = () => {
   const abortRef = useRef<AbortController | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const [hasApiKey, setHasApiKey] = useState(() => {
-    try {
-      return secureStorage.hasAnthropicApiKey();
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    const unsub = subscribeToApiKeyChanges(() => {
-      try {
-        setHasApiKey(secureStorage.hasAnthropicApiKey());
-      } catch {
-        setHasApiKey(false);
-      }
-    });
-    return unsub;
-  }, []);
+  // GH-504: an API key for Claude, a stored sign-in for ChatGPT.
+  const hasCredentials = useAiCredentials(provider);
 
   const allPlans = useMemo(
     () =>
@@ -360,8 +350,8 @@ const AIChatTab = () => {
     const text = inputText.trim();
     if (!text || isLoading) return;
 
-    const apiKey = secureStorage.getAnthropicApiKey();
-    if (!apiKey) {
+    const apiKey = provider === 'claude' ? secureStorage.getAnthropicApiKey() : undefined;
+    if (provider === 'claude' && !apiKey) {
       dispatch(setError('No API key configured. Add your Anthropic API key in Settings.'));
       return;
     }
@@ -403,9 +393,10 @@ const AIChatTab = () => {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const result = await sendChatMessage(history, apiKey, systemPrompt, model, {
-      signal: controller.signal,
-    });
+    const result =
+      provider === 'chatgpt'
+        ? await sendChatGptMessage(history, systemPrompt, chatgptModel, {signal: controller.signal})
+        : await sendChatMessage(history, apiKey!, systemPrompt, model, {signal: controller.signal});
     abortRef.current = null;
 
     if (result.ok) {
@@ -503,7 +494,7 @@ const AIChatTab = () => {
     );
   };
 
-  if (!hasApiKey) {
+  if (!hasCredentials) {
     return (
       <View style={[styles.centeredContainer, {backgroundColor: theme.colors.background, paddingBottom: insets.bottom}]}>
         <Text variant="headlineSmall" style={{color: theme.colors.onSurface, marginBottom: 8}}>
@@ -514,7 +505,9 @@ const AIChatTab = () => {
           style={{color: theme.colors.onSurfaceVariant, textAlign: 'center', paddingHorizontal: 32}}
           testID="chat-no-key-message"
         >
-          Please add your Anthropic API key in Settings to use AI Chat.
+          {provider === 'chatgpt'
+            ? 'Please sign in with ChatGPT in Settings to use AI Chat.'
+            : 'Please add your Anthropic API key in Settings to use AI Chat.'}
         </Text>
       </View>
     );
