@@ -363,3 +363,17 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-504):** the AC demanded "login works in the release build", but signing out would have lost the owner's ChatGPT session. A "Reconnect" button (re-run the browser flow; replace the stored session only on success) let the login be verified end to end with zero risk: if the browser had asked for a password, backing out would have left the old session intact. Also: PoC→feature storage-key changes need a one-time migration, or the update silently signs the owner out.
 **Apply when:** verifying any account-linking flow on a device where an existing login must survive.
 
+
+### Without the adb proxy, "the assigned device shows Chrome" is the symptom of Maestro on a foreign device
+**Problem / Symptom:** `run-maestro-from-wsl.sh` (no `--host`) force-stopped the app on the CORRECT device via `adb -s`, so the previous task (Chrome) came to the front there. Meanwhile Maestro ran the flow on the first device of the adb server (a phone), and the flow got far ("tab-settings" was tapped). It looked like `launchApp` was failing and the app was "jumping to Chrome".
+**Fix / Rule:** if the assigned device never shows the app during a run, add `takeScreenshot` steps and look at them (foreign nav bar or data = wrong device). Always pass `--host <proxy> --adb-host <proxy>`. A proxy from an earlier round may still be listening: check with `ss -ltnp | grep 5037` and `adb -H <ip> -P 5037 devices`.
+**Apply when:** any Maestro run in a feedback round, before the first flow. (seen in GH-504)
+
+### Maestro `tapOn` hangs forever on a screen with a running seconds counter
+**Problem / Symptom:** the AI Chat's "AI is thinking… Ns" counter changes every second, so `tapOn: {id: chat-stop-button}` never saw the screen settle and hung for more than 5 min. `uiautomator dump` also silently left the stale previous `/sdcard/ui.xml` in place during that time.
+**Fix / Rule:** add `waitToSettleTimeoutMs: 500` to taps on screens with live counters or spinners. While debugging, find coordinates from a resized screencap instead of a dump.
+**Apply when:** tapping Stop/Cancel during a running request. (seen in GH-504)
+
+### Async token refresh vs. sign-out: guard the write with a session generation
+**Observation:** a refresh started before sign-out wrote rotated tokens back after `clearTokens()`, so the account returned after a restart. Fix: bump a module-level `sessionGeneration` on sign-in, sign-out and terminal refresh errors. The refresh captures it at the start; if it changed, the refresh does not write, returns null and revokes the new refresh token. Clear the tokens before the remote revoke. Test it by holding the refresh `fetch` in a manual promise, signing out, then resolving the refresh.
+**Apply when:** any persisted credential that can be written by a background refresh. (seen in GH-504)
