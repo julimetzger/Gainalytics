@@ -1,0 +1,5 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-504 evidence suite: hydrate the store from the baseline .gains fixture first.
+- runFlow: 00_import_baseline.yaml
+- runFlow: gh504_chatgpt_poc_entry.yaml
