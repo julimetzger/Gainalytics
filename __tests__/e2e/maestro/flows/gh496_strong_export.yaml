@@ -1,0 +1,43 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-496: Settings → Data → "Export as CSV (Strong format)" on the baseline store.
+# Run after 00_import_baseline.yaml (5768 logged sets in 387 workouts, computed with
+# buildStrongExport on baseline.gains). Saves the file via the share sheet's
+# "Save to Downloads" action (Android 14+), so the worker can adb-pull it afterwards.
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'tab-settings'
+    timeout: 120000
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-import-strong-csv-button'
+    direction: DOWN
+- assertVisible: 'Export as CSV \(Strong format\)'
+- assertVisible: 'Import from Strong CSV'
+# The .gains backup buttons stay next to them.
+- assertVisible:
+    id: 'settings-import-data-button'
+- assertVisible:
+    id: 'settings-export-data-button'
+- takeScreenshot: gh496_01_settings_data
+- tapOn:
+    id: 'settings-export-strong-csv-button'
+# Android share sheet with the file and our "Save to Downloads" action
+- extendedWaitUntil:
+    visible: 'Save to Downloads'
+    timeout: 30000
+- assertVisible: '.*gainalytics_strong_.*\.csv.*'
+- takeScreenshot: gh496_02_share_sheet
+- tapOn: 'Save to Downloads'
+- extendedWaitUntil:
+    visible:
+      id: 'settings-strong-export-result'
+    timeout: 30000
+- assertVisible: 'Exported 5768 sets from 387 workouts'
+- scrollUntilVisible:
+    element:
+      id: 'settings-app-version'
+    direction: DOWN
+- takeScreenshot: gh496_03_export_done

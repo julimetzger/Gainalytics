@@ -1,8 +1,8 @@
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/SettingsRouter';
-import React, {useState, useEffect} from 'react';
-import {Alert, ScrollView, View, StyleSheet, Platform} from 'react-native';
-import {Button, Dialog, Divider, HelperText, List, Portal, Switch, Text, TextInput, useTheme} from 'react-native-paper';
+import React, {useState, useEffect, useMemo} from 'react';
+import {Alert, NativeModules, ScrollView, View, StyleSheet, Platform} from 'react-native';
+import {Button, Dialog, Divider, HelperText, List, Portal, SegmentedButtons, Switch, Text, TextInput, useTheme} from 'react-native-paper';
 import SettingsSection from '../../components/settings/SettingsSection';
 import ThemeModeSelector from '../../components/settings/ThemeModeSelector';
 import ThemeColorSelector from '../../components/settings/ThemeColorSelector';
@@ -37,6 +37,13 @@ import AiProviderSelector from '../../components/settings/AiProviderSelector';
 import ChatGptAccountSection from '../../components/settings/ChatGptAccountSection';
 import {useAiProvider} from '../../redux/settings/use/useAiProvider';
 import {dispatchShowOnboarding} from '../../redux/settings/dispatch/dispatchOnboarding';
+import {dispatchStrongImport} from '../../redux/fullstateactions/dispatchStrongImport';
+import {buildStrongExport, countLoggedSets, strongExportFileName} from '../../utils/strongCsv/strongExport';
+import {isStrongCsvShareAvailable} from '../../utils/strongCsv/strongCsvShare';
+import {useStrongCsvState} from '../../redux/fullstateactions/use/useStrongCsvState';
+import {buildStrongImport, ParsedStrongFile, parseStrongCsv, StrongCsvError, WeightUnit} from '../../utils/strongCsv/strongImport';
+
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 const SettingsTab = ({navigation, route}: Props) => {
   let settings = useSettings();
@@ -72,6 +79,21 @@ const SettingsTab = ({navigation, route}: Props) => {
   const [trainingPromptInput, setTrainingPromptInput] = useState(currentTrainingPrompt);
 
   let fullImport = dispatchFullImport();
+  const strongImport = dispatchStrongImport();
+
+  // GH-496: Strong CSV export/import
+  const [strongFile, setStrongFile] = useState<{parsed: ParsedStrongFile; fileName: string} | null>(null);
+  const [assumedWeightUnit, setAssumedWeightUnit] = useState<WeightUnit>('kg');
+  const [strongNotice, setStrongNotice] = useState<{title: string; text: string} | null>(null);
+  const [strongExportResult, setStrongExportResult] = useState<string | null>(null);
+  // The preview is derived from the same subscribed data the reducer imports into, so it stays current.
+  const strongCsvState = useStrongCsvState();
+  const strongSummary = useMemo(
+    () => (strongFile ? buildStrongImport(strongCsvState, strongFile.parsed, {assumedWeightUnit}).summary : null),
+    [strongFile, assumedWeightUnit, strongCsvState],
+  );
+  // iOS has no native share module yet: the export would only land in the app's cache.
+  const strongCsvShareAvailable = isStrongCsvShareAvailable();
   let showOnboarding = dispatchShowOnboarding();
 
   // GH-497: the onboarding's "Import data" lands here with the confirmation open.
@@ -152,6 +174,60 @@ const SettingsTab = ({navigation, route}: Props) => {
     FileSaver.writeFile(path, JSON.stringify(state));
     Alert.alert('exported to ' + FileSaver.DownloadDirectoryPath + '/' + number + '.gains');
   }
+
+  const handleStrongExport = async () => {
+    if (countLoggedSets(strongCsvState) === 0) {
+      setStrongNotice({title: 'Nothing to export', text: 'There are no logged sets yet. Finish a training first, then export it as CSV.'});
+      return;
+    }
+    try {
+      const exported = buildStrongExport(strongCsvState);
+      const directory = FileSaver.CachesDirectoryPath + '/exports';
+      await FileSaver.mkdir(directory);
+      const path = directory + '/' + strongExportFileName();
+      await FileSaver.writeFile(path, exported.csv, 'utf8');
+      await NativeModules.FileShare.shareFile(path, 'text/csv', 'Export as CSV (Strong format)');
+      setStrongExportResult(`Exported ${plural(exported.setCount, 'set')} from ${plural(exported.workoutCount, 'workout')}`);
+    } catch (error: any) {
+      setStrongNotice({title: 'Export failed', text: String(error?.message ?? error)});
+    }
+  };
+
+  const handleStrongImportPick = async () => {
+    let picked: DocumentPickerResponse;
+    try {
+      picked = await DocumentPicker.pickSingle({type: [DocumentPicker.types.allFiles]});
+    } catch (error) {
+      if (!DocumentPicker.isCancel(error)) setStrongNotice({title: 'Import failed', text: 'The file could not be opened.'});
+      return;
+    }
+    const fileName = picked.name ?? 'the selected file';
+    try {
+      const parsed = parseStrongCsv(await FileSaver.readFile(picked.uri, 'utf8'));
+      setAssumedWeightUnit('kg');
+      setStrongFile({parsed, fileName});
+    } catch (error) {
+      setStrongNotice({
+        title: 'Import failed',
+        text: error instanceof StrongCsvError ? `${fileName}: ${error.message} Nothing was imported.` : `${fileName} could not be read. Nothing was imported.`,
+      });
+    }
+  };
+
+  const confirmStrongImport = () => {
+    if (!strongFile || !strongSummary) return;
+    strongImport(strongFile.parsed, {assumedWeightUnit});
+    setStrongFile(null);
+    if (!settings?.toggles?.disableToasts) {
+      Toast.show({
+        type: 'success',
+        text1: 'Strong import finished',
+        text2: `Plan "${strongSummary.planName}": ${plural(strongSummary.trainingCount, 'training')}, ${plural(strongSummary.setCount, 'set')}`,
+        position: 'top',
+        visibilityTime: 5000,
+      });
+    }
+  };
 
   const showAlert = () => {
     Alert.alert('Nope. This app is not using stupid measuring systems.');
@@ -490,6 +566,7 @@ const SettingsTab = ({navigation, route}: Props) => {
           <Button
             mode="elevated"
             style={{flex: 1, margin: 5}}
+            testID="settings-export-data-button"
             onPress={() => {
               dumbFullStateToFile();
             }}
@@ -497,6 +574,29 @@ const SettingsTab = ({navigation, route}: Props) => {
             Export Data
           </Button>
         </View>
+        <Button
+          mode="elevated"
+          icon="file-delimited-outline"
+          style={{margin: 5}}
+          testID="settings-export-strong-csv-button"
+          disabled={!strongCsvShareAvailable}
+          onPress={handleStrongExport}
+        >
+          Export as CSV (Strong format)
+        </Button>
+        {!strongCsvShareAvailable && (
+          <HelperText type="info" testID="settings-strong-export-unavailable">
+            Export as CSV is only available on Android for now.
+          </HelperText>
+        )}
+        <Button mode="elevated" icon="file-import-outline" style={{margin: 5}} testID="settings-import-strong-csv-button" onPress={handleStrongImportPick}>
+          Import from Strong CSV
+        </Button>
+        {strongExportResult !== null && (
+          <HelperText type="info" testID="settings-strong-export-result">
+            {strongExportResult}
+          </HelperText>
+        )}
       </SettingsSection>
       <View style={styles.versionFooter}>
         <Text variant="bodySmall" testID="settings-app-version">
@@ -523,6 +623,83 @@ const SettingsTab = ({navigation, route}: Props) => {
               </Button>
             </Dialog.Actions>
           </View>
+        </Dialog>
+        <Dialog visible={strongFile !== null} onDismiss={() => setStrongFile(null)} testID="strong-import-summary-dialog">
+          <Dialog.Title>Import from Strong CSV</Dialog.Title>
+          {strongSummary && strongFile && (
+            <Dialog.Content style={{gap: 6}}>
+              <Text testID="strong-import-summary-file">File: {strongFile.fileName}</Text>
+              {strongSummary.trainingCount === 0 ? (
+                <Text testID="strong-import-summary-nothing-new">
+                  Nothing new to import: all {plural(strongSummary.duplicateSessionCount, 'workout')} of this file are already in Gainalytics.
+                </Text>
+              ) : (
+                <>
+                  <Text testID="strong-import-summary-trainings">
+                    {plural(strongSummary.trainingCount, 'training')} in {plural(strongSummary.weekCount, 'week')}
+                  </Text>
+                  <Text testID="strong-import-summary-sets">
+                    {plural(strongSummary.setCount, 'set')} · {plural(strongSummary.exerciseCount, 'exercise')} ({strongSummary.newExerciseCount} new)
+                  </Text>
+                  <Text testID="strong-import-summary-plan">
+                    New plan "{strongSummary.planName}", trainings named by {strongSummary.namedBy === 'names' ? 'workout name' : 'weekday'}: {strongSummary.trainingNames.join(', ')}
+                  </Text>
+                  {strongSummary.mergedSessionCount > 0 && (
+                    <Text testID="strong-import-summary-merged">
+                      {plural(strongSummary.mergedSessionCount, 'workout')} on the same day as another {strongSummary.mergedSessionCount === 1 ? 'was' : 'were'} combined
+                    </Text>
+                  )}
+                  {strongSummary.duplicateSessionCount + strongSummary.skippedCardioRows + strongSummary.skippedOtherRows > 0 && (
+                    <Text testID="strong-import-summary-skipped">
+                      Skipped: {plural(strongSummary.duplicateSessionCount, 'already imported workout')}, {plural(strongSummary.skippedCardioRows, 'cardio row')},{' '}
+                      {plural(strongSummary.skippedOtherRows, 'rest timer/note row')}
+                    </Text>
+                  )}
+                  {strongSummary.skippedFailedSets > 0 && (
+                    <Text testID="strong-import-summary-failed">
+                      Skipped {plural(strongSummary.skippedFailedSets, 'failed attempt')} (0 reps), so {strongSummary.skippedFailedSets === 1 ? 'it does' : 'they do'} not count as a record
+                    </Text>
+                  )}
+                  {strongSummary.weightUnitFromFile ? (
+                    <Text testID="strong-import-summary-unit">Weights: {strongSummary.weightUnit} (from file)</Text>
+                  ) : (
+                    <>
+                      <Text testID="strong-import-summary-unit">The file does not say the weight unit. Weights are in:</Text>
+                      <SegmentedButtons
+                        value={assumedWeightUnit}
+                        onValueChange={(value) => setAssumedWeightUnit(value as WeightUnit)}
+                        buttons={[
+                          {value: 'kg', label: 'kg', testID: 'strong-import-unit-kg'},
+                          {value: 'lb', label: 'lb', testID: 'strong-import-unit-lb'},
+                        ]}
+                      />
+                    </>
+                  )}
+                </>
+              )}
+            </Dialog.Content>
+          )}
+          <Dialog.Actions>
+            <Button onPress={() => setStrongFile(null)} testID="strong-import-cancel-button">
+              {strongSummary?.trainingCount === 0 ? 'Close' : 'Cancel'}
+            </Button>
+            {strongSummary !== null && strongSummary.trainingCount > 0 && (
+              <Button onPress={confirmStrongImport} testID="strong-import-confirm-button">
+                Import
+              </Button>
+            )}
+          </Dialog.Actions>
+        </Dialog>
+        <Dialog visible={strongNotice !== null} onDismiss={() => setStrongNotice(null)} testID="strong-csv-notice-dialog">
+          <Dialog.Title testID="strong-csv-notice-title">{strongNotice?.title}</Dialog.Title>
+          <Dialog.Content>
+            <Text testID="strong-csv-notice-text">{strongNotice?.text}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setStrongNotice(null)} testID="strong-csv-notice-ok-button">
+              OK
+            </Button>
+          </Dialog.Actions>
         </Dialog>
       </Portal>
     </ScrollView>

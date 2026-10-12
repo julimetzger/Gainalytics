@@ -8,6 +8,7 @@ import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {determineNewWorkoutId} from '../normalizedWorkoutState';
 import {removeDanglingExerciseReferences} from './removeDanglingExerciseReferences';
 import {normalizeExerciseName} from '../../utils/program-templates';
+import {buildStrongImport} from '../../utils/strongCsv/strongImport';
 
 const sanitizeTrainingWorkoutReferences = (fullImportedState: GlobalState): GlobalState => {
   const validWorkoutIds = new Set(Object.keys(fullImportedState.workouts.byId).map((workoutId) => Number(workoutId)));
@@ -57,6 +58,9 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
       };
       return sanitizeTrainingWorkoutReferences(importedState);
     }
+    // GH-496: one dispatch applies the whole Strong CSV import, so a file is imported completely or not at all.
+    case 'STRONG_IMPORT':
+      return buildStrongImport(state, action.parsed, action.options).state;
     case 'IMPORT_TRAININGS_PLAN': {
       const payload = action.payload as TrainingsPlanExportPayload;
 

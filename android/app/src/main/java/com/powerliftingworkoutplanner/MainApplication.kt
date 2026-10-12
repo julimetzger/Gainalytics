@@ -20,6 +20,7 @@ class MainApplication : Application(), ReactApplication {
               add(ExactAlarmPackage())
               add(VideoAnalysisPackage())
               add(ChatGptLoopbackPackage())
+              add(FileSharePackage())
             }
 
         override fun getJSMainModuleName(): String = "index"
