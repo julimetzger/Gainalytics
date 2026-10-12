@@ -443,7 +443,7 @@ const AIChatTab = () => {
   const clearDisabled = messages.length === 0 && !error;
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: hasApiKey
+      headerRight: hasCredentials
         ? () => (
             <View style={styles.headerActions} testID="chat-header-actions">
               <IconButton
@@ -475,7 +475,7 @@ const AIChatTab = () => {
           )
         : undefined,
     });
-  }, [navigation, hasApiKey, showFilters, clearDisabled, theme]);
+  }, [navigation, hasCredentials, showFilters, clearDisabled, theme]);
 
   const contextBadgeLabel = useMemo(() => {
     if (selectedPreset === 'Meso' && mesoRange) return `Meso: ${mesoRange.name}`;

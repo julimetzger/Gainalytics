@@ -1,0 +1,98 @@
+appId: com.powerliftingworkoutplanner
+name: GH-515 an invalid key shows an error, then the key is removed
+---
+# Overwrites whatever key is stored with a dummy (so a real key is gone right
+# away), sends once to see the error, then deletes the key entirely.
+- launchApp:
+    clearState: false
+    stopApp: false
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-ai-config-accordion'
+    direction: DOWN
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible:
+        id: 'settings-ai-provider'
+    commands:
+      - tapOn:
+          id: 'settings-ai-config-accordion'
+- scrollUntilVisible:
+    element:
+      id: 'settings-anthropic-api-key-input'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- eraseText: 200
+- inputText: 'sk-ant-dummy-not-a-real-key'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-api-key-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-save-api-key-button'
+- extendedWaitUntil:
+    visible: 'API key saved'
+    timeout: 5000
+
+# ── Error message in the chat ───────────────────────────────────────────────
+- runFlow: gh515_open_ai_chat.yaml
+- tapOn:
+    id: 'chat-input'
+- inputText: 'GH515 error check'
+- hideKeyboard
+- tapOn:
+    id: 'chat-send-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-error'
+    timeout: 30000
+- assertVisible: 'Invalid API key\. Check your settings\.'
+- copyTextFrom:
+    id: 'chat-input'
+- assertTrue: "${maestro.copiedText === 'GH515 error check'}"
+- assertNotVisible:
+    id: 'chat-loading'
+- takeScreenshot: 'gh515_07_error_invalid_key'
+- tapOn:
+    id: 'chat-input'
+- eraseText: 50
+- hideKeyboard
+
+# ── Remove the key: saving an empty field deletes it ────────────────────────
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-anthropic-api-key-input'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- eraseText: 200
+# A tap can drop the cursor mid-text, leaving the first half undeleted; the
+# second tap lands past the shorter remainder, so this erase empties the field.
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- eraseText: 200
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-api-key-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-save-api-key-button'
+- extendedWaitUntil:
+    visible: 'API key removed'
+    timeout: 5000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-no-key-message'
+    timeout: 15000
+- takeScreenshot: 'gh515_08_key_removed'

@@ -451,3 +451,22 @@ Workers append NEW learnings here (and only here), after checking the table of c
 
 ### `settings-theme-active-mode` is gone, so `gh482_set_theme.yaml` fails at its assertion
 **Fix / Rule:** assert the segment itself: `assertVisible: {id: '^settings-theme-mode-${MODE}$', checked: true}`. For palette + custom HEX in one helper, use `gh509_set_appearance.yaml` (env MODE / PALETTE / HEX). (seen in GH-509)
+
+### Two PRs that rename and use the same variable merge cleanly into a ReferenceError — grep tsc for the touched files
+**Problem (GH-514):** GH-504 renamed `hasApiKey`→`hasCredentials` in `AIChatTab.tsx`, and GH-508 added new lines using `hasApiKey`. Git merged both without a conflict, so 0.180 threw on every render ("AI Chat could not be displayed"). `tsc` reported `TS2304 Cannot find name 'hasApiKey'`, but nobody saw it among ~229 existing errors. The 30 red AIChat jest tests got dismissed as "pre-existing failures" by later workers.
+**Rule:** after a rebase/merge, run `npx tsc --noEmit | grep -E '<changed files>'` and look for TS2304/TS2552 in particular. Do not record a red suite as "pre-existing" without reading its first error message (`ReferenceError` = real bug).
+**Apply when:** your branch touches a file that another recently merged PR also changed, or you see red suites on master.
+
+### A dev RedBox hides the Analyse error-boundary card — negative assertions on the boundary pass on the broken build
+**Observation (GH-514):** with the Metro dev bundle, a render error opens the RedBox over the screen. `assertNotVisible: {id: analyse-error-boundary}` then passes although the screen is broken. The flow only failed on the positive `assertVisible: {id: 'chat-input|chat-no-key-message'}`. In release builds there is no RedBox.
+**Rule:** every "screen opens" flow needs a positive assertion on the real screen content, not just the absence of the fallback.
+**Apply when:** writing regression flows for crashes/error boundaries.
+
+### Startup red screen "Cannot read property 'BottomTabs' of undefined" + SoLoader `libworklets.so` = stale APK from another branch
+**Symptom (GH-514):** the phone had a debug APK (0.179) left by another worker. Loading the current Metro bundle failed with `Cannot read property 'BottomTabs' of undefined` (App.tsx:117); Log 2/3 showed `couldn't find DSO to load: libworklets.so`. The JS code is fine.
+**Fix:** `assembleDebug -PreactNativeArchitectures=arm64-v8a` from your own worktree (~3 min incremental) + `adb install -r`. Check first with `dumpsys package <pkg> | grep -E 'versionName|lastUpdateTime'` whether the APK comes from your branch.
+**Apply when:** the first app launch of a run red-screens in `App.tsx` before any feature code runs.
+
+### AI chat context bar on the 720dp phone: last chips off-screen, subject + period persist across runs
+**Observation (GH-514):** `chat-context-bar` scrolls horizontally. On R5CN-width screens, `chat-context-inspect` ("View context (N)") and the subject chip's close icon ("Clear selected training") are not in the hierarchy until you `swipe: {from: {id: 'chat-context-bar'}, direction: LEFT}`. The chosen subject and period (Meso/28d) survive `chat-clear-button` and new runs, so reset them at the start of the flow (`chat-filter-toggle` → `chat-preset-28d`; `when notVisible 'Training: none'` → clear).
+**Apply when:** writing/reusing AI chat flows (`gh515_chat_device.yaml`).

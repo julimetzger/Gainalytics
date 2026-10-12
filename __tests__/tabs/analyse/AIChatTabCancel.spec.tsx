@@ -10,6 +10,7 @@ import {act, fireEvent, render, waitFor} from '@testing-library/react-native';
 import {Provider} from 'react-redux';
 import {combineReducers, createStore} from 'redux';
 import AIChatTab from '../../../app/tabs/Analyse/AIChatTab';
+import {withAnalyseErrorBoundary} from '../../../app/components/analyse/AnalyseErrorBoundary';
 import aiChatReducer, {AIChatState} from '../../../app/redux/AIChat/aiChatSlice';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
@@ -28,11 +29,13 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 jest.mock('@react-navigation/elements', () => ({useHeaderHeight: () => 0}));
-jest.mock('@react-navigation/native', () => ({useNavigation: () => ({navigate: jest.fn(), setOptions: jest.fn()})}));
+const mockSetOptions = jest.fn();
+jest.mock('@react-navigation/native', () => ({useNavigation: () => ({navigate: jest.fn(), setOptions: mockSetOptions})}));
 
+let mockHasKey = true;
 jest.mock('../../../app/utils/secureStorage', () => ({
   secureStorage: {
-    hasAnthropicApiKey: () => true,
+    hasAnthropicApiKey: () => mockHasKey,
     getAnthropicApiKey: () => 'sk-test-key',
   },
   subscribeToApiKeyChanges: () => () => {},
@@ -117,6 +120,11 @@ jest.mock('react-native-paper', () => {
     Text: ({children, testID, ...rest}: any) =>
       React.createElement(Text, {testID, ...rest}, children),
     Surface: ({children, ...rest}: any) => React.createElement(View, rest, children),
+    // Only the Analyse error boundary's fallback card (GH-514) uses Card.
+    Card: Object.assign(({children}: any) => React.createElement(View, null, children), {
+      Title: ({title}: any) => React.createElement(Text, null, title),
+      Content: ({children}: any) => React.createElement(View, null, children),
+    }),
     ActivityIndicator: () => null,
     Chip: ({children, onPress, testID}: any) =>
       React.createElement(Text, {onPress, testID}, children),
@@ -215,6 +223,7 @@ async function send(getByTestId: any, text: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockHasKey = true;
 });
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -406,5 +415,53 @@ describe('AIChatTab — showing that the app is still working (GH-447)', () => {
     expect(getByTestId('chat-loading-elapsed').props.children).toBe('AI is thinking… 10s');
 
     jest.useRealTimers();
+  });
+});
+
+// GH-514: release 0.180 showed "AI Chat could not be displayed" instead of the chat, because the
+// header code referenced a variable that a parallel PR had renamed. Mount the screen exactly as the
+// Analyse drawer does — inside its error boundary — so a render error fails here, not on a phone.
+describe('AIChatTab — the screen opens from the Analyse drawer (GH-514)', () => {
+  const AIChatScreen = withAnalyseErrorBoundary(AIChatTab, 'AI Chat');
+
+  function renderScreen() {
+    return render(
+      <Provider store={makeStore()}>
+        <AIChatScreen />
+      </Provider>,
+    );
+  }
+
+  it('shows the chat, not the "could not be displayed" card, when a key is set', () => {
+    const {getByTestId, queryByTestId, queryByText} = renderScreen();
+
+    expect(queryByText('AI Chat could not be displayed')).toBeNull();
+    expect(queryByTestId('analyse-error-boundary')).toBeNull();
+    expect(getByTestId('chat-input')).toBeTruthy();
+    expect(getByTestId('chat-send-button')).toBeTruthy();
+  });
+
+  it('puts the chat actions into the header when a key is set', () => {
+    renderScreen();
+
+    const {headerRight} = mockSetOptions.mock.calls[mockSetOptions.mock.calls.length - 1][0];
+    expect(headerRight).toEqual(expect.any(Function));
+    const header = render(headerRight());
+    expect(header.getByTestId('chat-header-actions')).toBeTruthy();
+    expect(header.getByTestId('chat-history-button')).toBeTruthy();
+    expect(header.getByTestId('chat-filter-toggle')).toBeTruthy();
+    expect(header.getByTestId('chat-clear-button')).toBeTruthy();
+  });
+
+  it('shows the add-a-key hint, not the "could not be displayed" card, without a key', () => {
+    mockHasKey = false;
+    const {getByTestId, queryByTestId} = renderScreen();
+
+    expect(queryByTestId('analyse-error-boundary')).toBeNull();
+    expect(getByTestId('chat-no-key-message').props.children).toBe(
+      'Please add your Anthropic API key in Settings to use AI Chat.',
+    );
+    const {headerRight} = mockSetOptions.mock.calls[mockSetOptions.mock.calls.length - 1][0];
+    expect(headerRight).toBeUndefined();
   });
 });

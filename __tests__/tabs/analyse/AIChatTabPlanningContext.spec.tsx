@@ -88,6 +88,12 @@ const set = (reps: number, weight: number, rir: number, extra: Partial<WorkoutSe
   ...extra,
 });
 
+// The screen's default context period is the last 28 days, so the finished
+// training has to stay inside it — a fixed date silently drops out of the
+// context a few weeks after the test was written.
+const FINISHED_START = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+const FINISHED_END = new Date(FINISHED_START.getTime() + 60 * 60 * 1000);
+
 const exercises: Record<number, Exercise> = {
   10: {id: 10, name: 'Squat'},
   11: {id: 11, name: 'Bench Press'},
@@ -109,8 +115,8 @@ function buildState(over: {trainings?: Record<number, Training>; plans?: Trainin
     1: {
       id: 1,
       state: TrainingsState.FINISHED,
-      start: new Date('2026-09-01T17:00:00.000Z'),
-      end: new Date('2026-09-01T18:00:00.000Z'),
+      start: FINISHED_START,
+      end: FINISHED_END,
       exercises: [10],
       doneWorkoutIds: {10: 100},
       plannedWorkouts: {10: 101},
@@ -236,8 +242,8 @@ describe('GH-391 planned trainings reach the chat context', () => {
         1: {
           id: 1,
           state: TrainingsState.FINISHED,
-          start: new Date('2026-09-01T17:00:00.000Z'),
-          end: new Date('2026-09-01T18:00:00.000Z'),
+          start: FINISHED_START,
+          end: FINISHED_END,
           exercises: [10],
           doneWorkoutIds: {10: 100},
           plannedWorkouts: {},
@@ -313,8 +319,8 @@ describe('GH-391 a newly created plan reaches the chat before it is trained', ()
         1: {
           id: 1,
           state: TrainingsState.FINISHED,
-          start: new Date('2026-09-01T17:00:00.000Z'),
-          end: new Date('2026-09-01T18:00:00.000Z'),
+          start: FINISHED_START,
+          end: FINISHED_END,
           exercises: [10],
           doneWorkoutIds: {10: 100},
           plannedWorkouts: {10: 101},
