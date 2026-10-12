@@ -1,0 +1,62 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-485: checks that the phone shows the demo state the marketing captures were taken
+# from (run it right after docs/marketing/scripts/capture.py; it does not change data).
+#
+# - Training home: today's captured session counts in the current micro (1 of 4 done)
+#   and the next slot moved on to D2.
+# - Dashboard: the week is not empty (the "No trainings in this period" banner is gone).
+# - Video Analysis: the imported demo lift is analysed and linked to the 175 kg x 5 squat.
+# - AI Chat: the coach answer is in the conversation.
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'tab-training'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'micro-hero-card'
+    timeout: 30000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+- assertVisible: '1/4'
+- assertVisible:
+    id: 'next-training-slot'
+    text: 'Meso 1 · M7 · D2 · .*'
+
+- tapOn: 'tab-analyse'
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 10000
+- tapOn: 'Dashboard'
+- extendedWaitUntil:
+    visible: 'Your Week at a Glance'
+    timeout: 15000
+- assertNotVisible:
+    id: 'analyse-stale-range-banner'
+
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- tapOn: 'Video Analysis'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-\d+'
+      text: 'Squat, 175 kg × 5, Today .*, Done'
+    timeout: 30000
+
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- tapOn: 'AI Chat'
+- extendedWaitUntil:
+    visible: '.*Your squat is trending up.*'
+    timeout: 15000
+# The chat opens scrolled to the newest message; the question sits above the answer.
+- scrollUntilVisible:
+    element:
+      text: 'How is my squat progressing and what should I change next week\?'
+    direction: UP
+    timeout: 15000

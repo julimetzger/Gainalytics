@@ -101,6 +101,11 @@ class Capture:
                 self.d.swipe(x, 450, x, 1150, 400, settle)
         return self.d.find(timeout=2, **kw)
 
+    def scroll_top(self):
+        for _ in range(3):
+            self.d.swipe(690, 450, 690, 1250, 250, 0.3)
+        time.sleep(1.5)
+
     def settings_top(self):
         self.tab('settings')
         self.scroll_to(rid='settings-theme-mode-dark', direction='up')
@@ -132,7 +137,7 @@ class Capture:
             d.sh(f'am broadcast -a com.android.systemui.demo -e command {extra}', check=False)
         d.sh(f'pm grant {APP_ID} android.permission.POST_NOTIFICATIONS', check=False)
 
-        subprocess.run([sys.executable, str(MARKETING / 'scripts/make_demo_fixture.py')], check=True)
+        subprocess.run([sys.executable, str(MARKETING / 'scripts/make_demo_fixture.py'), '--days-ago', '0.1'], check=True)
         if not (BUILD / DEMO_CLIP).exists():
             subprocess.run([sys.executable, str(MARKETING / 'scripts/make_demo_lift_clip.py')], check=True)
         d.adb('push', str(BUILD / 'demo.gains'), '/sdcard/Download/baseline.gains')
@@ -151,12 +156,17 @@ class Capture:
         if 'name="js_dev_mode_debug" value="false"' in prefs or self.args.release_build:
             return
         log('  switching JS Dev Mode off (developer menu)')
+        self.toggle_js_dev_mode()
+        self.dev_mode_changed = True
+        (BUILD / 'js_dev_mode_changed').touch()
+        self.restart_app()
+
+    def toggle_js_dev_mode(self):
+        d = self.d
         d.sh('input keyevent 82')
         d.tap_el(text='Settings', settle=1.5)
         d.tap_el(text='JS Dev Mode', settle=1)
         d.back()
-        self.dev_mode_changed = True
-        self.restart_app()
 
     def import_demo_data(self):
         d = self.d
@@ -464,7 +474,7 @@ class Capture:
         d = self.d
         log('analysis: dashboard, records, graphs')
         self.analyse_screen('Dashboard')
-        self.scroll_to(rid='weekly-summary-card', direction='up')
+        self.scroll_top()
         self.record('analysis')
         time.sleep(2.5)
         d.mark('dashboard')
@@ -484,8 +494,7 @@ class Capture:
             if theme == 'light':
                 self.set_theme('light')
             self.analyse_screen('Dashboard')
-            self.scroll_to(rid='weekly-summary-card', direction='up')
-            time.sleep(1)
+            self.scroll_top()
             self.shot('analysis', theme)
             d.tap_el(rid='analyse-drawer-toggle', settle=1.2)
             d.tap_el(text='Records', settle=3)
@@ -546,6 +555,8 @@ class Capture:
             if theme == 'light':
                 self.set_theme('light')
                 self.tab('analyse', settle=2)
+            for _ in range(2):  # show the question above the answer
+                d.swipe(360, 450, 360, 1100, 700, 1.0)
             self.shot('ai_chat', theme)
         self.set_theme('dark')
 
@@ -572,6 +583,10 @@ class Capture:
         d.adb('reverse', '--remove', f'tcp:{MOCK_PORT}', check=False)
         if git_dirty_chat_file():
             raise CaptureError('app/utils/ai/sendChatMessage.ts is still modified - restore it!')
+        if self.dev_mode_changed or (BUILD / 'js_dev_mode_changed').exists():
+            log('  switching JS Dev Mode back on')
+            self.toggle_js_dev_mode()
+            (BUILD / 'js_dev_mode_changed').unlink(missing_ok=True)
         self.restart_app()  # the device must run the unpatched bundle again
 
 

@@ -1,0 +1,59 @@
+{
+  "training": {
+    "home": 2.5,
+    "suggest": 11.77,
+    "plan": 19.49,
+    "train": 33.31,
+    "started": 38.44,
+    "squat": 40.26,
+    "logged": 41.88,
+    "end": 45.89
+  },
+  "video_analysis": {
+    "list": 1.5,
+    "picker": 10.34,
+    "analysing": 13.64,
+    "done": 31.46,
+    "link": 52.61,
+    "linked": 54.93,
+    "detail": 60.55,
+    "player": 71.13,
+    "play": 74.86,
+    "summary": 87.4,
+    "chart": 93.44,
+    "end": 96.44
+  },
+  "custom_settings": {
+    "settings": 2.25,
+    "light": 7.14,
+    "dark": 11.84,
+    "wheel": 19.03,
+    "picked": 23.81,
+    "applied": 29.32,
+    "recolored": 35.27,
+    "end": 40.51
+  },
+  "custom_muscles": {
+    "detail": 1.5,
+    "editor": 6.23,
+    "core": 12.04,
+    "back": 16.95,
+    "hamstrings": 21.67,
+    "end": 24.48
+  },
+  "analysis": {
+    "dashboard": 2.5,
+    "dashboard_scrolled": 6.23,
+    "records": 14.4,
+    "graphs": 25.7,
+    "end": 28.7
+  },
+  "ai_chat": {
+    "empty": 1.5,
+    "typed": 9.07,
+    "sent": 13.44,
+    "reply": 17.75,
+    "reply_scrolled": 23.93,
+    "end": 26.43
+  }
+}
