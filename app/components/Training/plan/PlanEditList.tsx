@@ -518,7 +518,7 @@ const PlanEditExerciseSection = ({
         />
       )}
       <DashedAddButton
-        label="Add set"
+        label="Add Set"
         testID={`plan-add-set-button-${exercise.id}`}
         onPress={onAddSet}
         style={styles.addButton}
@@ -781,7 +781,7 @@ interface PendingPlanEditSetRowProps {
 
 // GH-263 Item 2: inline weight-suggestion pattern ported from AddWorkoutSet.tsx.
 // GH-324: the pending row no longer auto-commits while the user types. The draft
-// stays pending until the user leaves the edit flow ("Add set" again or Done),
+// stays pending until the user leaves the edit flow ("Add Set" again or Done),
 // so typing never converts the row under the user's finger. The 1RM toggle is
 // always rendered (disabled when the exercise has no recorded 1RM).
 const PendingPlanEditSetRow = ({pendingSet, oneRepMax, showRanges, onChange, onDelete}: PendingPlanEditSetRowProps) => {
