@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {View} from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import {ActivityIndicator, Card, IconButton, Text, useTheme} from 'react-native-paper';
@@ -9,7 +9,12 @@ import {GlobalState} from '../../redux/rootReducer';
 import {Training} from '../../models/entities/Training';
 import {TrainingsState} from '../../models/TrainingsState';
 import {buildRawTrainingData, buildCoachPrompt} from '../../utils/coachInsight';
-import {callAnthropicClaude} from '../../utils/llmApi';
+import {LlmRequestOptions, LlmResult, callAnthropicClaude} from '../../utils/llmApi';
+import {callChatGpt} from '../../utils/ai/chatgpt/chatgptChat';
+import {useAiCredentials} from '../../utils/ai/useAiCredentials';
+import {useAiProvider} from '../../redux/settings/use/useAiProvider';
+import {AiProvider} from '../../models/AiProvider';
+import {useChatGptModel} from '../../redux/settings/use/useChatGptModel';
 import {TRUNCATION_NOTICE} from '../../utils/ai/truncatedText';
 import {insightCache, formatGeneratedAt} from '../../utils/insightCache';
 import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
@@ -25,6 +30,9 @@ interface Props {
   isActive?: boolean;
 }
 
+/** Sends one insight prompt to the selected provider. */
+type InsightRequester = (system: string, user: string, options: LlmRequestOptions) => Promise<LlmResult>;
+
 type State =
   | {status: 'idle'}
   | {status: 'loading'}
@@ -32,12 +40,15 @@ type State =
   | {status: 'no_key'}
   | {status: 'error'; message: string};
 
-function cacheKey(trainings: Training[]): string {
-  return trainings
+function cacheKey(trainings: Training[], provider: AiProvider): string {
+  const ids = trainings
     .filter(t => t.id !== undefined)
     .map(t => t.id!)
     .sort((a, b) => a - b)
     .join(',');
+  // GH-504: ChatGPT insights get their own namespace so switching provider never shows the
+  // other provider's answer. Claude keeps the unprefixed keys of existing installs.
+  return ids && provider === 'chatgpt' ? `chatgpt:${ids}` : ids;
 }
 
 const CoachInsightCard = ({trainings, isActive = true}: Props) => {
@@ -69,6 +80,17 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
   }, []);
 
   const model = useAnthropicModel();
+  const provider = useAiProvider();
+  const chatgptModel = useChatGptModel();
+  const chatgptSignedIn = useAiCredentials('chatgpt');
+
+  // GH-504: undefined when the selected provider has no credentials (card stays hidden).
+  const requester = useMemo<InsightRequester | undefined>(() => {
+    if (provider === 'chatgpt') {
+      return chatgptSignedIn ? (system, user, options) => callChatGpt(system, user, chatgptModel, options) : undefined;
+    }
+    return apiKey ? (system, user, options) => callAnthropicClaude(apiKey, system, user, model, options) : undefined;
+  }, [provider, chatgptSignedIn, chatgptModel, apiKey, model]);
 
   const workoutsById = useSelector((s: GlobalState) =>
     s.workouts.byId as Record<number, import('../../models/entities/Workout').Workout>,
@@ -81,7 +103,7 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
   );
 
   const finishedTrainings = trainings.filter(t => t.state === TrainingsState.FINISHED);
-  const key = cacheKey(finishedTrainings);
+  const key = cacheKey(finishedTrainings, provider);
 
   // The insight request currently in flight, so it can be cancelled or superseded.
   const requestRef = useRef<AbortController | null>(null);
@@ -96,9 +118,21 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
   videoAnalysesByIdRef.current = videoAnalysesById;
 
   const fetchInsight = useCallback(
-    (cKey: string, currentApiKey: string | undefined, currentFinished: Training[], currentModel: string, currentPrompt: string) => {
+    (
+      cKey: string,
+      currentRequester: InsightRequester | undefined,
+      currentFinished: Training[],
+      currentPrompt: string,
+      currentProvider: AiProvider,
+    ) => {
       if (currentFinished.length === 0) {
         setState({status: 'idle'});
+        return;
+      }
+
+      // GH-504: signed out of ChatGPT → no insight at all, not even a cached one.
+      if (currentProvider === 'chatgpt' && !currentRequester) {
+        setState({status: 'no_key'});
         return;
       }
 
@@ -113,7 +147,7 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
         return;
       }
 
-      if (!currentApiKey) {
+      if (!currentRequester) {
         setState({status: 'no_key'});
         return;
       }
@@ -150,7 +184,7 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
       const controller = new AbortController();
       requestRef.current = controller;
 
-      callAnthropicClaude(currentApiKey, system, user, currentModel, {
+      currentRequester(system, user, {
         signal: controller.signal,
       }).then(result => {
         if (controller.signal.aborted) return;
@@ -187,6 +221,8 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
           });
         } else if (err.type === 'aborted') {
           setState({status: 'idle'});
+        } else if (err.type === 'provider_error') {
+          setState({status: 'error', message: err.message});
         } else if (err.type === 'network') {
           setState({status: 'error', message: `Network error: ${err.message}`});
         } else {
@@ -212,16 +248,16 @@ const CoachInsightCard = ({trainings, isActive = true}: Props) => {
       return;
     }
 
-    fetchInsight(key, apiKey, finishedTrainings, model, trainingPrompt);
+    fetchInsight(key, requester, finishedTrainings, trainingPrompt, provider);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, apiKey, isActive, workoutCount, exerciseCount, model, trainingPrompt]);
+  }, [key, requester, isActive, workoutCount, exerciseCount, trainingPrompt]);
 
   const handleRefresh = () => {
     if (key) {
       insightCache.delete(key);
     }
     setState({status: 'loading'});
-    fetchInsight(key, apiKey, finishedTrainings, model, trainingPrompt);
+    fetchInsight(key, requester, finishedTrainings, trainingPrompt, provider);
   };
 
   // Guards against a double tap archiving the running chat twice.
