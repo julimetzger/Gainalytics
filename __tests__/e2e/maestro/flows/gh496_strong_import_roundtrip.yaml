@@ -4,7 +4,8 @@ appId: com.powerliftingworkoutplanner
 # saved to Downloads) imported into an EMPTY app. Before this flow: `pm clear` the app
 # (+ restore debug_http_host / POST_NOTIFICATIONS) and push fixtures/gh496/gh496_invalid.csv
 # to /sdcard/Download. Expected values come from buildStrongImport on the baseline export:
-# 387 workouts → 375 trainings (12 same-day merges) in 123 weeks, 5768 sets, 81 exercises.
+# 387 workouts → 375 trainings (12 same-day merges) in 123 weeks, 5768 exported sets, of which
+# 5767 are imported: the baseline's one failed attempt (105 kg × 0) is skipped. 81 exercises.
 - launchApp:
     stopApp: false
 - runFlow: gh497_dismiss_onboarding.yaml
@@ -56,7 +57,8 @@ appId: com.powerliftingworkoutplanner
     visible: '375 trainings in 123 weeks'
     timeout: 60000
 - assertVisible: 'File: gainalytics_strong_2026-10-12\.csv'
-- assertVisible: '5768 sets · 81 exercises \(76 new\)'
+- assertVisible: '5767 sets · 81 exercises \(76 new\)'
+- assertVisible: 'Skipped 1 failed attempt \(0 reps\), so it does not count as a record'
 - assertVisible: 'New plan "Strong Import", trainings named by weekday: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday'
 - assertVisible: '12 workouts on the same day as another were combined'
 - assertVisible: 'Weights: kg \(from file\)'
@@ -64,7 +66,7 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'strong-import-confirm-button'
 - extendedWaitUntil:
-    visible: 'Plan "Strong Import": 375 trainings, 5768 sets'
+    visible: 'Plan "Strong Import": 375 trainings, 5767 sets'
     timeout: 60000
 
 # Importing the same file again adds nothing

@@ -1,0 +1,54 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-496 (review round 2): a Strong import that beats the record of an EXISTING exercise.
+# Before this flow: baseline imported (00_import_baseline.yaml; Squat's best 1RM record is
+# 225.00, set Feb 2026) and fixtures/gh496/gh496_new_record.csv pushed to /sdcard/Download.
+# The file holds Squat 200 kg × 5 @ RPE 9 on 2026-10-05 (1RM 200 × (1 + 6/30) = 240) and a failed
+# 260 kg × 0 attempt. Expected: the failed attempt is skipped, the 240 kg record joins Squat's
+# record history (+15 kg to 225) and is listed under Analyse → Records, whose default range
+# (last 3 months) holds no baseline records.
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'tab-settings'
+    timeout: 120000
+- tapOn: 'tab-settings'
+- runFlow:
+    file: gh496_pick_file.yaml
+    env:
+      FILE: gh496_new_record.csv
+- extendedWaitUntil:
+    visible: '1 training in 1 week'
+    timeout: 60000
+- assertVisible: '1 set · 1 exercise \(0 new\)'
+- assertVisible: 'Skipped 1 failed attempt \(0 reps\), so it does not count as a record'
+- takeScreenshot: gh496_17_new_record_summary
+- tapOn:
+    id: 'strong-import-confirm-button'
+- extendedWaitUntil:
+    visible: 'Plan "Strong Import": 1 training, 1 set'
+    timeout: 60000
+
+# Analyse → Records: the imported set is a new Squat record, the failed 260 kg attempt is not.
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: 'Records'
+    timeout: 30000
+- tapOn: 'Records'
+- extendedWaitUntil:
+    visible: 'Records in this range'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'record-card-0'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: 'records-shown-count'
+    text: '1 shown'
+- assertVisible: 'Squat'
+- assertVisible: '200 kg × 5 @ 1 RIR'
+- assertVisible: '240\.0 kg'
+- assertVisible: '\+15\.0 kg'
+- assertNotVisible: '260.*'
+- takeScreenshot: gh496_18_records_new_record

@@ -620,6 +620,17 @@ describe('SettingsTab', () => {
       expect(mockStrongImport).toHaveBeenCalledWith(expect.objectContaining({setCount: 2}), {assumedWeightUnit: 'kg'});
       expect(Toast.show).toHaveBeenCalledWith(expect.objectContaining({text1: 'Strong import finished', text2: 'Plan "Strong Import": 2 trainings, 2 sets'}));
     });
+
+    it('reports skipped failed attempts in the summary', async () => {
+      mockStoreGetState.mockReturnValue(emptyState());
+      mockedPickSingle.mockResolvedValue({uri: '/tmp/strong.csv', name: 'strong.csv', type: null, fileCopyUri: null, size: null});
+      fileSaver.readFile.mockResolvedValue(strongCsv + '"2";"2024-01-03 18:00:00";"Pull";"3600";"Deadlift";"2";"250.0";"0";"";"";"";"";""\n');
+      const {findByText, getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent.press(getByTestId('button-Import-from-Strong-CSV'));
+      expect(await findByText('Skipped 1 failed attempt (0 reps), so it does not count as a record')).toBeTruthy();
+      fireEvent.press(getByTestId('button-Import'));
+      expect(mockStrongImport).toHaveBeenCalledWith(expect.objectContaining({setCount: 2, skippedFailedSets: 1}), {assumedWeightUnit: 'kg'});
+    });
   });
 
   it('renders model input with correct testID', async () => {

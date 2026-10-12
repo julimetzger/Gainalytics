@@ -101,14 +101,16 @@ describe('Strong import', () => {
     const source = baselineState();
     const exported = buildStrongExport(source);
     const parsed = parseStrongCsv(exported.csv);
-    expect(parsed.setCount).toBe(exported.setCount);
+    // The baseline has one failed attempt (105 kg × 0); it is exported but not imported as a set.
+    expect(parsed.skippedFailedSets).toBe(1);
+    expect(parsed.setCount + parsed.skippedFailedSets).toBe(exported.setCount);
 
     const imported = importStrong(freshState(), exported.csv);
     const plan = planOf(imported);
     expect(plan).toBeDefined();
     const trainingIds = Object.values(plan.trainings);
     const importedSets = trainingIds.reduce((sum, id) => sum + setsOf(imported, id).length, 0);
-    expect(importedSets).toBe(exported.setCount);
+    expect(importedSets).toBe(parsed.setCount);
     trainingIds.forEach((id) => expect(imported.trainings.byId[id].state).toBe(TrainingsState.FINISHED));
 
     // One training per calendar day, one micro per week.
@@ -302,5 +304,81 @@ describe('Strong import', () => {
     const state = importStrong(freshState(), csv);
     const id = state.exercises.allIds.find((i) => state.exercises.byId[i].name === 'Leg Press')!;
     expect(state.exercises.byId[id].records!['1RM']).toHaveLength(2);
+  });
+
+  it('skips failed attempts (0 reps with a weight) so they never become a 1RM record', () => {
+    const csv = strong6(
+      strong6Row(1, '2024-01-01 18:00:00', 'Push', 'Leg Press', '1', '200', '5', '9'),
+      strong6Row(1, '2024-01-01 18:00:00', 'Push', 'Leg Press', '2', '300', '0'),
+      strong6Row(2, '2024-01-08 18:00:00', 'Push', 'Leg Press', '1', '320', '0', '10'),
+    );
+    const parsed = parseStrongCsv(csv);
+    expect(parsed.setCount).toBe(1);
+    expect(parsed.skippedFailedSets).toBe(2);
+    // The second session has only a failed attempt, so it is no workout at all.
+    expect(parsed.sessions).toHaveLength(1);
+    const result = buildStrongImport(freshState(), parsed);
+    expect(result.summary).toEqual(expect.objectContaining({setCount: 1, trainingCount: 1, skippedFailedSets: 2}));
+    const state = importStrong(freshState(), csv);
+    const id = state.exercises.allIds.find((i) => state.exercises.byId[i].name === 'Leg Press')!;
+    const workouts = state.workouts.byExerciseId[id].map((w) => state.workouts.byId[w]);
+    expect(workouts.flatMap((w) => w.sets).map((s) => [s.weight, s.reps])).toEqual([[200, 5]]);
+    // 200 × (1 + (5 + 1) / 30) = 240, not 300/320 from the failed attempts.
+    expect(state.exercises.byId[id].records!['1RM'].map((r) => Number(r.value))).toEqual([240]);
+    expect(workouts[0].records!['1RM']).toBe(240);
+    // A file of failed attempts only has nothing to import.
+    expect(() => parseStrongCsv(strong6(strong6Row(1, '2024-01-01 18:00:00', 'Push', 'Leg Press', '1', '300', '0')))).toThrow(/no strength sets/);
+  });
+
+  it('rebuilds the record history in date order for exercises that already had records', () => {
+    // Existing history: one Leg Press record in February (100 × 5 → 116.67).
+    const existing = importStrong(freshState(), strong6(strong6Row(1, '2024-02-01 18:00:00', 'Push', 'Leg Press', '1', '100', '5')));
+    const id = existing.exercises.allIds.find((i) => existing.exercises.byId[i].name === 'Leg Press')!;
+    const febWorkout = existing.workouts.byExerciseId[id][0];
+    expect(existing.exercises.byId[id].records!['1RM'].map((r) => Number(r.value))).toEqual([116.67]);
+
+    // Import: an older lower set (Jan 1), an older higher set (Jan 15, beats February), a new best (March).
+    const state = importStrong(
+      existing,
+      strong6(
+        strong6Row(1, '2024-01-01 18:00:00', 'Pull', 'Leg Press', '1', '90', '5'),
+        strong6Row(2, '2024-01-15 18:00:00', 'Pull', 'Leg Press', '1', '105', '5'),
+        strong6Row(3, '2024-03-01 18:00:00', 'Pull', 'Leg Press', '1', '120', '5'),
+      ),
+    );
+    const startOf = (workoutId: number) => new Date(state.workouts.byId[workoutId].start!).toISOString().slice(0, 10);
+    const history = state.exercises.byId[id].records!['1RM'];
+    expect(history.map((r) => [startOf(r.workoutId), Number(r.value)])).toEqual([
+      ['2024-01-01', 105],
+      ['2024-01-15', 122.5],
+      ['2024-03-01', 140],
+    ]);
+    // February is no record any more (Jan 15 was heavier) — the Records screen must not list it.
+    expect(state.workouts.byId[febWorkout].records?.['1RM']).toBeUndefined();
+    // The imported new best carries the workout record the Records screen filters for.
+    expect(state.workouts.byId[history[2].workoutId].records!['1RM']).toBe(140);
+  });
+
+  it('adds an imported new best to the baseline record history of an existing exercise', () => {
+    const baseline = baselineState();
+    const squat = baseline.exercises.allIds.find((i) => baseline.exercises.byId[i].name === 'Squat')!;
+    const before = baseline.exercises.byId[squat].records!['1RM'];
+    const best = Math.max(...before.map((r) => Number(r.value)));
+    // 200 kg × 5 @ RPE 9 → 240 > the baseline best (225); the failed 260 kg single must not count.
+    const state = importStrong(
+      baseline,
+      strong6(strong6Row(1, '2026-10-05 18:00:00', 'Legs', 'Squat', '1', '200', '5', '9'), strong6Row(1, '2026-10-05 18:00:00', 'Legs', 'Squat', '2', '260', '0')),
+    );
+    const history = state.exercises.byId[squat].records!['1RM'];
+    const last = history[history.length - 1];
+    expect(best).toBeLessThan(240);
+    expect(Number(last.value)).toBe(240);
+    expect(state.workouts.byId[last.workoutId].records!['1RM']).toBe(240);
+    expect(state.workouts.byId[last.workoutId].trainingsId).toBe(planOf(state).trainings['1,1']);
+    // The rebuilt history is chronological and strictly increasing, and every entry is tagged on its workout.
+    const starts = history.map((r) => new Date(state.workouts.byId[r.workoutId].start!).getTime());
+    expect([...starts].sort((a, b) => a - b)).toEqual(starts);
+    history.slice(1).forEach((r, i) => expect(Number(r.value)).toBeGreaterThan(Number(history[i].value)));
+    history.forEach((r) => expect(state.workouts.byId[r.workoutId].records!['1RM']).toBe(Number(r.value)));
   });
 });

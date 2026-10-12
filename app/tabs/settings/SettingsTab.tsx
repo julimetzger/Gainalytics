@@ -642,6 +642,11 @@ const SettingsTab = ({navigation, route}: Props) => {
                       {plural(strongSummary.skippedOtherRows, 'rest timer/note row')}
                     </Text>
                   )}
+                  {strongSummary.skippedFailedSets > 0 && (
+                    <Text testID="strong-import-summary-failed">
+                      Skipped {plural(strongSummary.skippedFailedSets, 'failed attempt')} (0 reps), so {strongSummary.skippedFailedSets === 1 ? 'it does' : 'they do'} not count as a record
+                    </Text>
+                  )}
                   {strongSummary.weightUnitFromFile ? (
                     <Text testID="strong-import-summary-unit">Weights: {strongSummary.weightUnit} (from file)</Text>
                   ) : (

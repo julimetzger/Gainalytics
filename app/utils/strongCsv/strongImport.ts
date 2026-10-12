@@ -54,6 +54,8 @@ export interface ParsedStrongFile {
   sessions: ParsedStrongSession[];
   setCount: number;
   skippedCardioRows: number;
+  /** Failed attempts (0 reps with a weight): they are no set and must not count toward 1RM/records. */
+  skippedFailedSets: number;
   /** Rest timer, note and empty rows. */
   skippedOtherRows: number;
 }
@@ -108,6 +110,7 @@ export function parseStrongCsv(text: string): ParsedStrongFile {
   const sessions = new Map<string, ParsedStrongSession>();
   let setCount = 0;
   let skippedCardioRows = 0;
+  let skippedFailedSets = 0;
   let skippedOtherRows = 0;
 
   rows.slice(1).forEach((row, index) => {
@@ -126,10 +129,13 @@ export function parseStrongCsv(text: string): ParsedStrongFile {
 
     const reps = parseStrongNumber(cell(repsCol));
     const weight = parseStrongNumber(cell(weightCol));
-    // A 0-rep set with a weight is a failed attempt and stays; no reps and no weight is cardio or empty.
+    // A 0-rep set with a weight is a failed attempt: skipped, otherwise its weight would count as a 1RM.
     const hasReps = reps !== undefined && reps > 0;
-    const isFailedAttempt = reps === 0 && (weight ?? 0) > 0;
-    if (!hasReps && !isFailedAttempt) {
+    if (!hasReps && (weight ?? 0) > 0) {
+      skippedFailedSets++;
+      return;
+    }
+    if (!hasReps) {
       const distance = parseStrongNumber(cell(distanceCol)) ?? 0;
       const seconds = parseStrongNumber(cell(secondsCol)) ?? 0;
       if (distance > 0 || seconds > 0) skippedCardioRows++;
@@ -168,6 +174,7 @@ export function parseStrongCsv(text: string): ParsedStrongFile {
     sessions: Array.from(sessions.values()).sort((a, b) => a.start - b.start),
     setCount,
     skippedCardioRows,
+    skippedFailedSets,
     skippedOtherRows,
   };
 }
@@ -192,6 +199,7 @@ export interface StrongImportSummary {
   /** Sessions skipped because Gainalytics already has a training/workout at that time. */
   duplicateSessionCount: number;
   skippedCardioRows: number;
+  skippedFailedSets: number;
   skippedOtherRows: number;
   weightUnit: WeightUnit;
   weightUnitFromFile: boolean;
@@ -455,23 +463,29 @@ export function buildStrongImport(state: GlobalState, parsed: ParsedStrongFile, 
     );
   });
 
-  // 7. 1RM records for exercises that had none yet (Records/analysis read them).
+  // 7. 1RM record history (Records/analysis read it), rebuilt in start order for every touched
+  //    exercise: imported history can predate, beat or devalue the records the app already had.
   touchedExerciseIds.forEach((exerciseId) => {
     const exercise = exercisesById[exerciseId];
-    if ((exercise.records?.[Record.ONE_RM]?.length ?? 0) > 0) return;
     const records: {value: number; workoutId: number}[] = [];
     let best = 0;
     byExerciseId[exerciseId]
-      .filter((id) => workoutsById[id]?.start !== undefined)
-      .forEach((workoutId) => {
-        const oneRm = repetitionMax(...workoutsById[workoutId].sets);
+      .map((id) => ({id, start: toTime(workoutsById[id]?.start)}))
+      .filter((entry): entry is {id: number; start: number} => entry.start !== undefined)
+      .sort((a, b) => a.start - b.start)
+      .forEach(({id: workoutId}) => {
+        const workout = workoutsById[workoutId];
+        const oneRm = repetitionMax(...workout.sets);
         if (oneRm - best > 0.01) {
           best = oneRm;
           records.push({value: oneRm.toFixed(2) as unknown as number, workoutId});
-          workoutsById[workoutId] = {...workoutsById[workoutId], records: {...workoutsById[workoutId].records, [Record.ONE_RM]: parseFloat(oneRm.toFixed(2))}};
+          workoutsById[workoutId] = {...workout, records: {...workout.records, [Record.ONE_RM]: parseFloat(oneRm.toFixed(2))}};
+        } else if (workout.records?.[Record.ONE_RM] !== undefined) {
+          const {[Record.ONE_RM]: _, ...otherRecords} = workout.records;
+          workoutsById[workoutId] = {...workout, records: otherRecords};
         }
       });
-    if (records.length > 0) exercisesById[exerciseId] = {...exercise, records: {...exercise.records, [Record.ONE_RM]: records}};
+    exercisesById[exerciseId] = {...exercise, records: {...exercise.records, [Record.ONE_RM]: records}};
   });
 
   // 8. The plan.
@@ -500,6 +514,7 @@ export function buildStrongImport(state: GlobalState, parsed: ParsedStrongFile, 
     trainingNames: useNames ? distinctNames : Object.values(trainingNames),
     duplicateSessionCount,
     skippedCardioRows: parsed.skippedCardioRows,
+    skippedFailedSets: parsed.skippedFailedSets,
     skippedOtherRows: parsed.skippedOtherRows,
     weightUnit,
     weightUnitFromFile: parsed.weightUnit !== undefined,
