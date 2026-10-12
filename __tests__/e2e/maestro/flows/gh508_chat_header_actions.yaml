@@ -18,6 +18,14 @@ name: GH-508 AI Chat — one title, actions in the header, context period as a c
 
 # ── Theme ───────────────────────────────────────────────────────────────────
 - tapOn: 'tab-settings'
+# Settings keeps its scroll position (the previous run may have left it at the
+# bottom), so look upwards first.
+- scrollUntilVisible:
+    element:
+      id: '^settings-theme-mode-${THEME}$'
+    direction: UP
+    timeout: 15000
+    optional: true
 - scrollUntilVisible:
     element:
       id: '^settings-theme-mode-${THEME}$'
