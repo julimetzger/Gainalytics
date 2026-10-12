@@ -133,8 +133,10 @@ name: GH-504 ChatGPT provider — Settings choice, sign-in state, multi-turn AI 
 - hideKeyboard
 - tapOn:
     id: 'chat-send-button'
+# The "AI is thinking… Ns" counter never settles; without a short settle timeout the tap hangs.
 - tapOn:
     id: 'chat-stop-button'
+    waitToSettleTimeoutMs: 500
 - extendedWaitUntil:
     notVisible:
       id: 'chat-loading'
