@@ -344,3 +344,22 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Flows with `00_import_baseline` destroy owner-provided state: write a separate no-clearState flow
 **Observation (GH-504 r2):** the owner had signed in on the emulator. The ticket's suite starts with the baseline import (clearState) and would have wiped the session. I wrote a manual-only flow (`launchApp: clearState: false`, no sign-out) that asserts the real values instead, and documented why the suite was not re-run.
 **Apply when:** the feedback says "keep the owner's login / data" and the existing suite imports or clears.
+
+### Coach Insight on the baseline fixture always says "Not enough data" — import a date-shifted copy via Settings → Import Data
+**Problem (GH-504):** `CoachInsightCard` only looks at trainings finished in the last 28 days; the `.gains` fixture's last training is months old, so every micro shows "Not enough data for an insight yet." and no request is made.
+**Fix / Rule:** shift every epoch-ms number (1.5e12–1.8e12) and ISO date string by `now − 1 day − max(training.end)` with a small node script (GH-504 run dir `checks/r3/fixture/shift_dates.js`). Push it to `/sdcard/Download/` and import it with a copy of `00_import_baseline.yaml` (`tapOn: '<file>.gains'`). The import keeps the secure store (API key / ChatGPT sign-in) but replaces Redux settings. Micro 5 of plan 5 then gets a real insight.
+**Apply when:** any ticket needs Coach Insight / recency-window evidence.
+
+### Standalone release APK for the owner: temporary debug signing + per-ABI split by zip
+**Observation (GH-504):** `assembleRelease` needs `ANDROID_RELEASE_PASSWORD` + the release keystore (not on WSL). Temporarily switch `buildTypes.release.signingConfig` to `signingConfigs.debug`, build both ABIs at once (`-PreactNativeArchitectures=x86_64,arm64-v8a`), then `git checkout android/app/build.gradle`. Derive per-device APKs with `zip -d app-release.apk "lib/<other-abi>/*"` + `zipalign -f -p 4` + `apksigner sign --ks android/app/debug.keystore`. Being debug-signed, it installs with `adb install -r` OVER the debug app and keeps all data (Keystore-encrypted MMKV included). Check `pkgFlags` lose `DEBUGGABLE`.
+**Apply when:** a ticket asks for an installable APK without Metro.
+
+### Maestro can't see the drawer/native-stack header title — assert screen content instead
+**Problem (GH-504):** `extendedWaitUntil: visible: 'Micro 5 Overview'` (also as `(?s).*…*` regex) failed while the title was clearly on screen in the Analysis drawer header.
+**Fix / Rule:** don't wait on header titles. Rely on deterministic navigation (N × `swipe: LEFT` + `waitForAnimationToEnd`) and assert an element inside the screen (`coach-insight-card`).
+**Apply when:** a flow needs to prove which micro/screen it is on.
+
+### Prove a feature that needs the owner's OAuth sign-in without signing them out: add a "Reconnect" path
+**Observation (GH-504):** the AC demanded "login works in the release build", but signing out would have lost the owner's ChatGPT session. A "Reconnect" button (re-run the browser flow; replace the stored session only on success) let the login be verified end to end with zero risk: if the browser had asked for a password, backing out would have left the old session intact. Also: PoC→feature storage-key changes need a one-time migration, or the update silently signs the owner out.
+**Apply when:** verifying any account-linking flow on a device where an existing login must survive.
+
