@@ -7,7 +7,7 @@ Ticket: [GH-504](https://github.com/julimetzger/Gainalytics/issues/504) · Stand
 - **Es gibt das wirklich, und offiziell dokumentiert:** „Sign in with ChatGPT“ kann neben dem reinen Login optional **„ChatGPT plan usage“** – die App schickt Anfragen an die normale Responses API (`api.openai.com/v1/responses`) mit einem OAuth-Token des Nutzers, abgerechnet über dessen ChatGPT-Abo. [Q1][Q2]
 - **Darf Gainalytics das heute im Play Store nutzen? → Nein, nicht ohne Freigabe.** Self-Service gibt es nur für **Open-Source-Projekte, lokal laufende Privatprojekte und ausgewählte private Clients**. Für eine „paid or remotely hosted“ App bzw. als kommerzieller Partner verlangt OpenAI das **Interest-Formular / Warteliste**. [Q2][Q3][Q4] Gainalytics ist ein privates Repo ohne Lizenz (also nicht Open Source) und wird an Dritte verteilt. Damit passt es in keine Self-Service-Kategorie (Details in Frage 1).
 - **Technisch geht es ohne eigenen Server.** Es ist ein öffentlicher OAuth-Client mit PKCE, ohne Client-Secret, mit dynamischer Client-Registrierung. Der einzige dokumentierte Redirect ist `http://127.0.0.1:<port>/auth/callback`. Der PoC zeigt, dass das auf Android funktioniert: Die App lauscht selbst auf 127.0.0.1. [Q5]
-- **PoC-Stand:** Auf dem Emulator verifiziert sind der versteckte Einstieg, die Annahme des Authorize-Requests durch OpenAI mit Anzeige des Login-Dialogs, die Rückkehr über den Loopback-Callback in die App sowie State-Prüfung und Aufruf des Token-Endpunkts von OpenAI. **Nicht verifiziert** sind echter Login, verbundener Zustand und echte Antwort, weil laut Ticket kein ChatGPT-Konto angelegt werden durfte. Was dafür fehlt, steht im Abschnitt [PoC](#proof-of-concept).
+- **PoC-Stand: läuft Ende-zu-Ende.** Auf dem Emulator mit dem ChatGPT-Konto des Owners: echter Login mit Zustimmung „Use your ChatGPT plan“, verbundener Zustand („Using ChatGPT plan“), `/v1/models` liefert die Modellliste, und `/v1/responses` liefert eine echte Antwort. Der Login hing zunächst, weil **Android die App im Hintergrund einfriert** (Cached-App-Freezer), während der Browser vorne ist. Behoben im PoC mit einem Foreground-Service während des Logins (Details im Abschnitt [PoC](#proof-of-concept)). Für ein Produkt ist das eine harte Anforderung.
 - **Empfehlung:** Umsetzen, aber gestuft. Zuerst die Freigabe klären: Interest-Formular absenden oder sich für Open Source entscheiden (Entscheidung beim Owner). Parallel schon die Provider-Abstraktion bauen, die sich auch ohne OpenAI lohnt. Erst nach der Freigabe kommen ChatGPT-Login und UI in den Release.
 
 ---
@@ -75,7 +75,7 @@ Es geht also **nicht nur um Login**, sondern tatsächlich um die Nutzung des Abo
 5. Token-Tausch: `POST https://auth.openai.com/api/accounts/oauth/token` (form-encoded) mit `grant_type=authorization_code`, `client_id`, `code`, `code_verifier`, gleicher `redirect_uri` und gleicher `resource`. Es gibt **kein Client-Secret**. [Q5] Laut Discovery-Dokument ist `token_endpoint_auth_methods_supported` u. a. `none`. [Q14]
 6. Das ID-Token prüfen (Signatur gegen JWKS `https://auth.openai.com/.well-known/jwks.json`, `iss`, `aud == client_id`, `exp`, `nonce`) und kontrollieren, ob `chatgpt.tokens.use.direct` in den gewährten Scopes steht. Ein gültiges ID-Token allein erlaubt noch keine Plan-Nutzung. [Q5][Q14]
 
-**Redirect auf Android:** Dokumentiert ist **nur** der HTTP-Loopback auf `127.0.0.1`, ausdrücklich nicht `localhost`. Custom Schemes und App Links erwähnt die Doku nicht. [Q5] Browser und App teilen sich auf Android das Loopback-Interface, also kann die App den Redirect mit einem eigenen `ServerSocket` empfangen. **Das hat der PoC auf dem Emulator nachgewiesen** (Screenshot 05/06). Offene Punkte: Die App muss während des Logins im Hintergrund weiterleben (bei langen Logins kann Android den Prozess beenden). Zurück in die App führt im PoC ein Link `intent://…` auf der Callback-Seite. Für ein Produkt wären Custom Tabs angenehmer.
+**Redirect auf Android:** Dokumentiert ist **nur** der HTTP-Loopback auf `127.0.0.1`, ausdrücklich nicht `localhost`. Custom Schemes und App Links erwähnt die Doku nicht. [Q5] Browser und App teilen sich auf Android das Loopback-Interface, also kann die App den Redirect mit einem eigenen `ServerSocket` empfangen. **Das hat der PoC auf dem Emulator nachgewiesen** (Screenshot 05/06). **Wichtig – im echten Login gefunden:** Android friert eine App ~10 s nach dem Wechsel in den Hintergrund ein (Cached-App-Freezer, `freeze_debounce_timeout=10000`). Der Browser verbindet sich dann zwar mit `127.0.0.1:1455`, aber kein App-Thread liest die Anfrage, und der Browser lädt endlos. Die App muss deshalb während des Logins **und** des Token-Tauschs einen Foreground-Service laufen lassen (der PoC nutzt `dataSync`, für ein Produkt Typ und Play-Richtlinie prüfen). Zurück in die App führt im PoC ein Link mit eigenem Debug-Scheme auf der Callback-Seite. Für ein Produkt wären Custom Tabs angenehmer.
 
 ### Token-Speicherung und -Erneuerung
 
@@ -159,9 +159,8 @@ Es geht also **nicht nur um Login**, sondern tatsächlich um die Nutzung des Abo
 | Prio | Ticket-Vorschlag | Inhalt | Aufwand | Abhängigkeit |
 |---|---|---|---|---|
 | P0 | **Freigabe bei OpenAI klären** (Owner, kein Worker) | Interest-Formular absenden oder Open-Source-Entscheidung treffen. Fragen: Store-Verteilung, mobile App, Loopback-Redirect auf Android, Branding | ~1 h + Wartezeit | – |
-| P1 | **PoC mit echtem Konto zu Ende verifizieren** | Owner loggt sich auf dem Emulator mit dem eigenen Plus/Pro-Konto ein (Eigengebrauch), Worker prüft verbundenen Zustand, `/v1/models` und Antwort | S (½ Tag) | Konto des Owners |
 | P1 | **LLM-Provider-Abstraktion** (reines Refactoring) | Die zwei Anthropic-Pfade hinter `LlmProvider` zusammenführen, `LlmError` erweitern, Settings-Feld `aiProvider` (Default `anthropic`), kein UI-Unterschied | M (1–2 Tage) | – (lohnt sich auch ohne OpenAI) |
-| P2 | **ChatGPT-Provider produktiv** | Session-Store, Refresh mit Serialisierung, Revoke, **JWKS-Signaturprüfung**, Fehler-Mapping, Re-Login-Flow, Loopback-Robustheit (Port-Fallback, Prozess-Tod, Custom Tabs) | M–L (3–4 Tage) | P0-Freigabe, Provider-Abstraktion |
+| P2 | **ChatGPT-Provider produktiv** | Session-Store, Refresh mit Serialisierung, Revoke, **JWKS-Signaturprüfung**, Fehler-Mapping, Re-Login-Flow, Loopback-Robustheit (**Foreground-Service gegen den App-Freezer** inkl. Play-Deklaration, Port-Fallback, Prozess-Tod, Custom Tabs) | M–L (3–4 Tage) | P0-Freigabe, Provider-Abstraktion |
 | P2 | **Settings-UI Anbieterwahl + ChatGPT-Login** | Auswahl Claude/ChatGPT, „Continue with ChatGPT“, Verbunden-als/Abmelden, Modell-Dropdown aus `/v1/models`, Welcome-Modal, „Using ChatGPT plan“ + Manage usage | M (2 Tage) | ChatGPT-Provider |
 | P3 | **Streaming im AI-Chat** | Antworten live per XHR/SSE anzeigen (für ChatGPT Pflicht, für Claude ein Komfortgewinn) | S–M (1 Tag) | Provider-Abstraktion |
 | P3 | **Datenschutzerklärung + Store-Listing** | OpenAI als Empfänger, Datenkategorien, Widerruf; Anthropic-Abschnitt prüfen | S (½ Tag) | vor Release |
@@ -183,7 +182,8 @@ Gesamt nach Freigabe: grob **8–11 Personentage**.
 
 | Datei | Inhalt |
 |---|---|
-| `android/.../ChatGptLoopbackModule.kt` (+ Package, Registrierung in `MainApplication.kt`) | Nativer Loopback-Listener auf `127.0.0.1:1455` (Fallback: freier Port), wartet auf `GET /auth/callback`, antwortet mit einer „Sign-in received“-Seite plus `intent://`-Link zurück in die App; dazu PKCE (S256) und Zufallswerte per `SecureRandom` |
+| `android/.../ChatGptLoopbackModule.kt` (+ Package, Registrierung in `MainApplication.kt`) | Nativer Loopback-Listener auf `127.0.0.1:1455` (Fallback: freier Port), wartet auf `GET /auth/callback` (Lese-Timeout gegen leere Chrome-Preconnects), antwortet mit einer „Sign-in received“-Seite plus Link zurück in die App; dazu PKCE (S256) und Zufallswerte per `SecureRandom` |
+| `android/.../ChatGptSignInService.kt` + `src/debug/AndroidManifest.xml` | Foreground-Service (stille Benachrichtigung) von „Continue with ChatGPT“ bis zum Ende des Token-Tauschs, damit Android die App nicht einfriert; Rücksprung-Scheme `gainalytics-poc://chatgpt-signin`. **Nur im Debug-Manifest deklariert** |
 | `app/utils/ai/chatgptPoc/chatgptAuth.ts` | Authorize-URL (dynamische Registrierung, Scopes, `resource`), Callback-Parsing mit State- und Client-ID-Prüfung, Token-Tausch, Refresh, Revoke, ID-Token-Prüfung (iss/aud/nonce; **ohne** Signaturprüfung, nur PoC) |
 | `app/utils/ai/chatgptPoc/chatgptResponses.ts` | `/v1/models`, Responses-Request (`store:false`, `stream:true`, `instructions`, keine verbotenen Felder), SSE-Parsing inkl. `response.failed`- und Fehlercodes |
 | `app/utils/ai/chatgptPoc/chatgptSession.ts` | Ablauf Login → Callback → Tausch, Session im verschlüsselten Secure Store (getrennter Key), Refresh, Abmelden mit Revoke |
@@ -201,15 +201,23 @@ Gesamt nach Freigabe: grob **8–11 Personentage**.
 | 3 | „Continue with ChatGPT“ startet den Listener (`127.0.0.1:1455 LISTEN`) und öffnet den Authorize-Request; **OpenAI akzeptiert `dynamic_agent_client` und zeigt den Login-Dialog** | ✅ | `03_openai_login_dialog.png` (auth.openai.com/log-in, „Welcome back“), Maestro (Status „Waiting for sign-in in the browser…“) |
 | 4 | Redirect auf `http://127.0.0.1:1455/auth/callback` wird vom Browser an die App zugestellt | ✅ (simuliert: der Callback wurde mit dem echten `state` per Chrome-VIEW-Intent geöffnet) | `05_loopback_callback_page.png` |
 | 5 | State-Prüfung ok, App ruft den echten Token-Endpunkt von OpenAI auf. Der Fake-Code wird korrekt mit `invalid_grant` abgelehnt, also ist der Endpunkt aus der App erreichbar (kein Cloudflare-Block) | ✅ | `06_app_after_simulated_callback.png` |
-| 6 | Echter Login und Zustimmung zur Plan-Nutzung | ❌ nicht verifiziert | kein Konto (Ticket-Constraint) |
-| 7 | Verbundener Zustand (ID-Token, Scope `chatgpt.tokens.use.direct`) | ❌ nicht verifiziert | braucht Schritt 6 |
-| 8 | `/v1/models` und echte Antwort aus `/v1/responses` | ❌ nicht verifiziert (nur Unit-Tests mit Mocks) | braucht Schritt 6 |
+| 6 | Echter Login (Konto des Owners) und Zustimmungsdialog „Connect Gainalytics to ChatGPT – Use your ChatGPT plan“ | ✅ | `screenshots/GH-504/07_consent_dialog.png` |
+| 7 | Verbundener Zustand (ID-Token geprüft, Scope `chatgpt.tokens.use.direct` gewährt → „Using ChatGPT plan“) | ✅ | `screenshots/GH-504/09_connected_models_loaded.png` (Run-Dir: `r2_01_app_after_thaw.png`, `r2_06_connected_after_fix.png`) |
+| 8 | `/v1/models` (7 Modelle, z. B. `gpt-6.1-sol`) und echte Antwort aus `/v1/responses` | ✅ | `screenshots/GH-504/09_connected_models_loaded.png`, `screenshots/GH-504/10_real_chatgpt_answer.png` |
 
-### Was für Schritt 6–8 fehlt
+Die dynamische Registrierung wurde für die App akzeptiert, der Consent-Dialog zeigt aber den Hinweis „OpenAI has not verified this agent or its name“. Ohne Freigabe sehen Nutzer also eine Warnung.
 
-- **Ein ChatGPT-Konto mit Go/Plus/Pro**, mit dem sich der **Owner selbst** auf dem Emulator anmeldet. Keine Weitergabe von Zugangsdaten an den Worker: Einfach in der App Settings → Long-Press „Version“ → „Continue with ChatGPT“ antippen und im Browser einloggen, dann „Load models“ und „Ask ChatGPT“.
-- **Keine Client-ID nötig:** Die dynamische Registrierung vergibt sie beim ersten Login.
-- Unklar bleibt, ob OpenAI die dynamische Registrierung für dieses Konto bzw. diese App auch zulässt (Policy-Check beim Consent). Ein Fehler würde in der App als OAuth-Fehler angezeigt.
+### Runde 2: Login hing nach der Anmeldung – Ursache und Fix
+
+- **Befund auf dem Gerät** (vor jeder Änderung festgehalten): Chrome zeigte den Consent-Dialog mit drehendem Spinner auf „Continue“. Auf dem Gerät gab es eine offene TCP-Verbindung Chrome → `127.0.0.1:1455` mit **932 ungelesenen Bytes** (die Callback-Anfrage) und 2 Verbindungen in der Accept-Queue. **Alle Threads der App standen in `do_freezer_trap`**: Android hatte den App-Prozess eingefroren, weil er im Hintergrund lag (Cached-App-Freezer, Android 14+, 10 s Debounce).
+- **Bestätigung:** Die App nur in den Vordergrund holen taut sie auf. Der Listener las sofort die wartende Anfrage, Chrome bekam die Antwort, und der Token-Tausch lief durch → „Connected“. Damit war der Login des Owners ohne erneute Anmeldung gerettet.
+- **Fix im PoC:**
+  1. Foreground-Service (`ChatGptSignInService`, stille Benachrichtigung) ab „Continue with ChatGPT“ **bis nach dem Token-Tausch** (nicht schon beim Callback stoppen, sonst friert die App mitten im Tausch wieder ein).
+  2. Lese-Timeout auf angenommene Verbindungen, damit ein leerer Chrome-Preconnect den Listener nicht blockiert.
+  3. Rücksprung-Link per eigenem Debug-Scheme. Der alte `intent://`-Link landete im Play Store, weil Chrome `CATEGORY_BROWSABLE` setzt und der Launcher-Filter das nicht akzeptiert.
+  4. „Reconnect“-Knopf im PoC-Screen: Neu-Login ohne Abmelden. Die Session wird erst bei Erfolg ersetzt.
+- **Verifiziert:** Mit dem Fix kam der Callback, während Chrome vorne lag und die App im Hintergrund war, ohne Rückkehr in die App: Chrome zeigte sofort „Sign-in received“ (`screenshots/GH-504/08_callback_received_in_background.png`). Der Service lief (`isForeground=true`), die App-Threads waren nicht eingefroren. „Back to Gainalytics“ öffnet die App, die direkt „Connected“ zeigt (Run-Dir: `r2_06_connected_after_fix.png`).
+- **Restpunkt (für das Produkt-Ticket):** Den Token-Tausch selbst schließt die App erst ab, wenn sie wieder vorne ist (im Test ~2 s nach „Back to Gainalytics“). Grund: React Native pausiert JS-Timer im Hintergrund (`JavaTimerManager.onHostPause`), und RN-`fetch` (whatwg-fetch) löst sein Promise per `setTimeout(…, 0)` auf. Kehrt der Nutzer erst nach Ablauf des Autorisierungscodes zurück, scheitert der Tausch. Produktiv daher den Tausch nativ (OkHttp im Loopback-Modul), per rohem `XMLHttpRequest` oder als Headless-JS-Task ausführen.
 
 ---
 
