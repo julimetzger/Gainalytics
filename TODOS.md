@@ -2,6 +2,7 @@
 
 ## Trainings
 
+- [ready] [GH-509](https://github.com/julimetzger/Gainalytics/issues/509) Change Add button in training sidebar — „Add Meso“/„Add Training“ als gestrichelter Knopf wie „Add set“, volle Breite
 - [ready] [GH-505](https://github.com/julimetzger/Gainalytics/issues/505) Audit trainingsoverview (read-only) — Micro-Overview in allen Zuständen, Zahlen-Stichprobe, priorisierte Findings
   - Report nach `docs/ux/training-overview-audit.md`; keine App-Code-Änderung
 - [ready] [GH-498](https://github.com/julimetzger/Gainalytics/issues/498) UX-Audit Runde 3 (read-only): Trainingsplan anlegen + erstes Training planen — Status aller alten Findings (GH-399/426/436) plus neue, leere App und Baseline-Daten
