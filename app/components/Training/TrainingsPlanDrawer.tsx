@@ -70,7 +70,8 @@ const TrainingsPlanDrawer = ({
   const nextLocalMicroLabel = maxLocalMicro ? Math.min(maxLocalMicro, localMicro + 1) : localMicro + 1;
 
   return (
-    <ScrollView style={{flex: 1}} contentContainerStyle={{flexDirection: 'column'}}>
+    // GH-509: bottom padding so the micro pager isn't clipped at the end of a long list.
+    <ScrollView style={{flex: 1}} contentContainerStyle={{flexDirection: 'column', paddingBottom: 12}}>
       <Divider />
       <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
         <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Mesos:</Text>

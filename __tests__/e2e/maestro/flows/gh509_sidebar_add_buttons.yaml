@@ -11,6 +11,8 @@ appId: com.powerliftingworkoutplanner
 #   TAG        screenshot name prefix (before / after / dark / ...)
 #   CHECK_NEW  'true' → assert the new buttons and create a meso + a training
 #              through them. 'false' → only capture the sidebar (old code run).
+#   LONG_LIST  'true' → (after a CHECK_NEW run) add Training 6–9 through the
+#              button, so the list is long, then scroll to the pager.
 - launchApp:
     clearState: false
 - runFlow:
@@ -71,3 +73,27 @@ appId: com.powerliftingworkoutplanner
       - assertVisible: 'Add Training'
       - waitForAnimationToEnd
       - takeScreenshot: gh509_${TAG}_after_add
+- runFlow:
+    when:
+      true: ${LONG_LIST == 'true'}
+    commands:
+      # AC3: a long list pushes the button down; it keeps working and stays
+      # above Overview/History/the pager.
+      - assertVisible: 'Training 5'
+      - assertNotVisible: 'Training 9'
+      - tapOn: 'Add Training'
+      - tapOn: 'Add Training'
+      - tapOn: 'Add Training'
+      - tapOn: 'Add Training'
+      - extendedWaitUntil:
+          visible: 'Training 9'
+          timeout: 10000
+      - assertNotVisible: 'Training 10'
+      - takeScreenshot: gh509_${TAG}_long_list
+      - scrollUntilVisible:
+          element: 'History'
+          direction: DOWN
+          timeout: 15000
+      - assertVisible: 'Add Training'
+      - waitForAnimationToEnd
+      - takeScreenshot: gh509_${TAG}_long_list_bottom
