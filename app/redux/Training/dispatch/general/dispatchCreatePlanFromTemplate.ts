@@ -1,28 +1,30 @@
-import {useDispatch, useStore} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 import {GlobalState} from '../../../rootReducer';
 import {ProgramTemplate} from '../../../../models/ProgramTemplate';
-import {TrainingsPlan} from '../../../../models/entities/TrainingsPlan';
 import {buildTemplatePlanPayload} from '../../../../utils/program-templates';
-import {selectAllTimeOneRepMax} from '../../../Workout/use/useAllTimeOneRepMax';
+import {determineNewId} from '../../../normalizedState';
+import {selectAllExercises} from '../../../Exercises/use/useAllExercises';
+import {selectAllTimeOneRepMaxLookup} from '../../../Workout/use/useAllTimeOneRepMax';
 
 /**
  * GH-497: creates a normal plan from a program template. It goes through
  * `IMPORT_TRAININGS_PLAN`, which reuses same-named exercises and only creates
- * the missing ones. Returns the created plan.
+ * the missing ones. The plan id is reserved up front and returned, so callers
+ * never have to read the store back.
  */
 export const dispatchCreatePlanFromTemplate = () => {
   const dispatch = useDispatch();
-  const store = useStore<GlobalState>();
+  const existingExercises = useSelector(selectAllExercises);
+  const oneRepMaxFor = useSelector(selectAllTimeOneRepMaxLookup);
+  const nextPlanId = useSelector((state: GlobalState) => determineNewId(state.trainingsPlan));
 
-  return (template: ProgramTemplate, planName?: string): TrainingsPlan | undefined => {
-    const state = store.getState();
+  return (template: ProgramTemplate, planName?: string): number => {
     const payload = buildTemplatePlanPayload(template, {
-      existingExercises: state.exercises.allIds.map((id) => state.exercises.byId[id]).filter((e) => e !== undefined),
-      oneRepMaxFor: (exerciseId) => selectAllTimeOneRepMax(state, exerciseId),
+      existingExercises: existingExercises.filter((e) => e !== undefined),
+      oneRepMaxFor,
       planName,
     });
-    dispatch({type: 'IMPORT_TRAININGS_PLAN', payload});
-    const plans = store.getState().trainingsPlan;
-    return plans.byId[plans.allIds[plans.allIds.length - 1]];
+    dispatch({type: 'IMPORT_TRAININGS_PLAN', payload, planId: nextPlanId});
+    return nextPlanId;
   };
 };

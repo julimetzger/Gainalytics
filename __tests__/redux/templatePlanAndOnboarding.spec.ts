@@ -3,20 +3,21 @@ import path from 'path';
 import rootReducer, {GlobalState} from '../../app/redux/rootReducer';
 import {PROGRAM_TEMPLATES} from '../../app/constants/programTemplates';
 import {buildTemplatePlanPayload, templateStructure} from '../../app/utils/program-templates';
-import {selectAllTimeOneRepMax} from '../../app/redux/Workout/use/useAllTimeOneRepMax';
+import {selectAllTimeOneRepMax, selectAllTimeOneRepMaxLookup} from '../../app/redux/Workout/use/useAllTimeOneRepMax';
+import {selectAllExercises} from '../../app/redux/Exercises/use/useAllExercises';
 import {selectShouldShowOnboarding} from '../../app/redux/settings/use/useShouldShowOnboarding';
 
 const reduce = (state: GlobalState | undefined, action: any): GlobalState => (rootReducer as any)(state, action);
 
 const freshInstall = (): GlobalState => reduce(undefined, {type: '@@INIT'});
 
-const createFromTemplate = (state: GlobalState, templateId: string): GlobalState => {
+const createFromTemplate = (state: GlobalState, templateId: string, planId?: number): GlobalState => {
   const template = PROGRAM_TEMPLATES.find((t) => t.id === templateId)!;
   const payload = buildTemplatePlanPayload(template, {
-    existingExercises: state.exercises.allIds.map((id) => state.exercises.byId[id]),
-    oneRepMaxFor: (exerciseId) => selectAllTimeOneRepMax(state, exerciseId),
+    existingExercises: selectAllExercises(state),
+    oneRepMaxFor: selectAllTimeOneRepMaxLookup(state),
   });
-  return reduce(state, {type: 'IMPORT_TRAININGS_PLAN', payload});
+  return reduce(state, {type: 'IMPORT_TRAININGS_PLAN', payload, planId});
 };
 
 const baseline = (): GlobalState => {
@@ -53,6 +54,15 @@ describe('creating a plan from a template (GH-497)', () => {
     expect(new Set(names).size).toBe(names.length);
     expect(twice.exercises.allIds.length).toBe(once.exercises.allIds.length + 1); // + Incline Dumbbell Press
     expect(twice.trainingsPlan.allIds).toEqual([1, 2, 3]);
+  });
+
+  it('creates the plan under the id reserved by the caller, or the next free one if it is taken', () => {
+    const reserved = createFromTemplate(baseline(), 'strength-block', 42);
+    expect(reserved.trainingsPlan.byId[42]).toEqual(expect.objectContaining({id: 42, name: 'Strength Block'}));
+
+    const taken = createFromTemplate(reserved, 'hypertrophy-block', 42);
+    expect(taken.trainingsPlan.byId[42].name).toBe('Strength Block');
+    expect(taken.trainingsPlan.byId[43]).toEqual(expect.objectContaining({id: 43}));
   });
 
   it('stores the planned sets as planned workouts, never as logged ones', () => {

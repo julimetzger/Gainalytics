@@ -1,6 +1,7 @@
 import React, {useCallback} from 'react';
 import {CommonActions, NavigationContainerRefWithCurrent} from '@react-navigation/native';
 import {ProgramTemplate} from '../../models/ProgramTemplate';
+import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {useShouldShowOnboarding} from '../../redux/settings/use/useShouldShowOnboarding';
 import {dispatchCompleteOnboarding} from '../../redux/settings/dispatch/dispatchOnboarding';
 import {dispatchCreatePlanFromTemplate} from '../../redux/Training/dispatch/general/dispatchCreatePlanFromTemplate';
@@ -35,9 +36,11 @@ const OnboardingGate = ({navigationRef}: OnboardingGateProps) => {
 
   const handleTemplate = useCallback(
     (template: ProgramTemplate) => {
-      const plan = createPlanFromTemplate(template);
+      const planId = createPlanFromTemplate(template);
       completeOnboarding();
-      if (plan) navigateInTab('Training', 'TrainingPlan', {trainingsPlan: plan, micro: 1, training: 1, subTab: 'train'}, false);
+      // The plan screen reads the plan from the store by this id.
+      const trainingsPlan = {id: planId} as TrainingsPlan;
+      navigateInTab('Training', 'TrainingPlan', {trainingsPlan, micro: 1, training: 1, subTab: 'train'}, false);
     },
     [completeOnboarding, createPlanFromTemplate, navigateInTab],
   );

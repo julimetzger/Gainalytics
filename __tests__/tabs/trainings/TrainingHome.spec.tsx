@@ -27,6 +27,10 @@ jest.mock('../../../app/redux/Training/use/useTrainings', () => ({
   useTrainings: jest.fn(),
 }));
 
+jest.mock('../../../app/redux/Training/dispatch/general/dispatchCreatePlanFromTemplate', () => ({
+  dispatchCreatePlanFromTemplate: () => jest.fn(),
+}));
+
 jest.mock('../../../app/utils/exportTrainingsPlan', () => ({
   exportTrainingsPlanToFile: jest.fn(),
 }));

@@ -131,8 +131,11 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
       // 4. Map TrainingsPlan (new ID)
       const newTrainingsPlans = {...state.trainingsPlan.byId};
       const newTrainingsPlanIds = [...state.trainingsPlan.allIds];
-      let maxPlanId = Math.max(0, ...newTrainingsPlanIds);
-      maxPlanId++;
+      // A caller may reserve the id up front (GH-497: it then knows the created plan
+      // without reading the store back); a taken or missing one falls back to the next free id.
+      const requestedPlanId = action.planId as number | undefined;
+      const maxPlanId =
+        requestedPlanId !== undefined && state.trainingsPlan.byId[requestedPlanId] === undefined ? requestedPlanId : Math.max(0, ...newTrainingsPlanIds) + 1;
 
       const newPlanTrainings: Record<string, number> = {};
       Object.entries(payload.trainingsPlan.trainings ?? {}).forEach(([key, tId]) => {
