@@ -56,15 +56,18 @@ class Device:
         self.markers = {}
 
     # ── adb basics ──────────────────────────────────────────────────────────
-    def adb(self, *args, check=True, capture=True, timeout=120):
+    def adb(self, *args, check=True, capture=True, timeout=120, secret=False):
+        """secret=True: the command line (e.g. a typed API key) never ends up in an error."""
         cmd = ['adb', '-s', self.serial, *args]
         res = subprocess.run(cmd, capture_output=capture, timeout=timeout)
         if check and res.returncode != 0:
-            raise CaptureError(f'{" ".join(cmd)} failed: {res.stderr.decode(errors="replace")}')
+            shown = 'adb shell <secret input>' if secret else ' '.join(cmd)
+            stderr = '' if secret else res.stderr.decode(errors='replace')
+            raise CaptureError(f'{shown} failed: {stderr}')
         return res.stdout.decode(errors='replace') if capture else ''
 
-    def sh(self, command, check=True, timeout=120):
-        return self.adb('shell', command, check=check, timeout=timeout)
+    def sh(self, command, check=True, timeout=120, secret=False):
+        return self.adb('shell', command, check=check, timeout=timeout, secret=secret)
 
     def focus(self):
         out = self.sh('dumpsys window | grep -i mCurrentFocus', check=False)
@@ -172,8 +175,12 @@ class Device:
                 cy + r * math.sin(math.radians(a0 + (a1 - a0) * i / n))) for i in range(n + 1)]
         self.drag_path(pts, step_s)
 
-    def text_input(self, text):
-        self.sh("input text '%s'" % text.replace(' ', '%s').replace("'", ''))
+    def text_input(self, text, secret=False):
+        self.sh("input text '%s'" % text.replace(' ', '%s').replace("'", ''), secret=secret)
+
+    def forget_dump(self):
+        """Remove the last hierarchy dump from the phone (it may hold the typed API key)."""
+        self.sh('rm -f /sdcard/gh485.xml', check=False)
 
     def back(self, settle=1.0):
         self.sh('input keyevent 4')

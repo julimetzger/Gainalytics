@@ -8,8 +8,13 @@ training ends `--days-ago` days before now. It also drops the seeded video
 analyses: they have no local video and only render a "no video path" hint. The
 capture script imports a real clip through the app instead.
 
+`--add-set "Deadlift:200x3@3"` adds one finished workout with that set to the
+second-newest training, so the lift in the video clip can be linked to a matching
+set (the link dialog lists only the 30 newest workouts, the baseline's last
+deadlift is older).
+
 Usage:
-    python3 docs/marketing/scripts/make_demo_fixture.py [--out PATH] [--days-ago N]
+    python3 docs/marketing/scripts/make_demo_fixture.py [--out PATH] [--days-ago N] [--add-set EX:WxR@RIR]
 
 Regenerate right before every capture run: a shifted fixture goes stale again
 after a week.
@@ -47,10 +52,37 @@ def shift(node, offset_ms):
     return node
 
 
+def add_set(data, spec):
+    """spec: 'Deadlift:200x3@3' -> one finished workout in the second-newest training."""
+    m = re.fullmatch(r'(.+):([\d.]+)x(\d+)@([\d.]+)', spec)
+    if not m:
+        raise SystemExit(f'--add-set: expected EXERCISE:WEIGHTxREPS@RIR, got {spec!r}')
+    name, weight, reps, rir = m.group(1), float(m.group(2)), int(m.group(3)), float(m.group(4))
+    exercise = next(e for e in data['exercises']['byId'].values() if e.get('name') == name)
+    trainings = sorted((t for t in data['trainings']['byId'].values() if t.get('state') == 'F'),
+                       key=lambda t: t['end'])
+    training = trainings[-2]
+    workouts = data['workouts']
+    workout_id = max(workouts['allIds']) + 1
+    end = dt.datetime.utcfromtimestamp((training['end'] - 15 * 60000) / 1000)
+    iso = lambda d: d.strftime('%Y-%m-%dT%H:%M:%S.') + f'{d.microsecond // 1000:03d}Z'
+    workouts['byId'][str(workout_id)] = {
+        'sets': [{'index': 1, 'date': iso(end), 'weight': int(weight) if weight.is_integer() else weight,
+                  'reps': reps, 'rir': int(rir) if rir.is_integer() else rir}],
+        'notes': '', 'exerciseId': exercise['id'], 'trainingsId': training['id'],
+        'start': iso(end - dt.timedelta(minutes=8)), 'id': workout_id, 'end': iso(end)}
+    workouts['allIds'].append(workout_id)
+    training['doneWorkoutIds'][str(exercise['id'])] = workout_id
+    if exercise['id'] not in training['exercises']:
+        training['exercises'].append(exercise['id'])
+    return f'{name} {spec.split(":")[1]} in training {training["id"]}'
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--out', default=str(REPO / 'docs/marketing/build/demo.gains'))
     parser.add_argument('--days-ago', type=float, default=1.0)
+    parser.add_argument('--add-set', help='EXERCISE:WEIGHTxREPS@RIR, e.g. Deadlift:200x3@3')
     args = parser.parse_args()
 
     data = json.loads(BASELINE.read_text())
@@ -58,12 +90,14 @@ def main():
     offset_ms = int(target - newest_training_end(data))
     data = shift(data, offset_ms)
     data['videoAnalyses'] = {'byId': {}, 'allIds': []}
+    added = add_set(data, args.add_set) if args.add_set else None
 
     out = pathlib.Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(data))
     newest = dt.datetime.fromtimestamp(newest_training_end(data) / 1000)
-    print(f'wrote {out} (shifted {offset_ms / 86400000:.1f} days, newest training ends {newest:%Y-%m-%d %H:%M})')
+    print(f'wrote {out} (shifted {offset_ms / 86400000:.1f} days, newest training ends {newest:%Y-%m-%d %H:%M})'
+          + (f', added {added}' if added else ''))
 
 
 if __name__ == '__main__':

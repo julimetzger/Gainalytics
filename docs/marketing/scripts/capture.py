@@ -36,6 +36,21 @@ CHAT_FILE = REPO / 'app/utils/ai/sendChatMessage.ts'
 CHAT_URL = "const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';"
 MOCK_PORT = 8787
 DEMO_CLIP = 'demo-squat-5reps.mp4'
+DUMMY_KEY = 'sk-ant-demo-local-mock'
+
+# The lift shown in the video analysis scene. A clip from the phone's own gallery
+# is not committed (see README): it is found in the system picker through the
+# "Videos" root and its search, by file name. `add_set` is the matching set that
+# make_demo_fixture.py adds to the demo data, `link` the row it shows in the
+# "Select a Set" dialog. Times are seconds into the clip: playback starts at
+# `play_from` and runs `play_s`, the store screenshots pause at `shot_at`.
+VA_CLIPS = {
+    'Deadlift200-3reps@7.mp4': dict(duration=45.23, add_set='Deadlift:200x3@3', link='3 reps × 200 kg.*',
+                                    play_from=21.0, play_s=10.5, shot_at=23.4, gallery=True),
+    DEMO_CLIP: dict(duration=6.0, add_set=None, link='5 reps × 175 kg.*', play_from=0.0, play_s=9.0,
+                    shot_at=2.9, gallery=False),
+}
+DEFAULT_VA_CLIP = 'Deadlift200-3reps@7.mp4'
 QUESTION = 'How is my squat progressing and what should I change next week?'
 
 # The set rows of the running training are not reachable through uiautomator (the
@@ -57,6 +72,9 @@ class Capture:
         self.d = Device(args.serial, log=log)
         self.markers = json.loads(MARKERS.read_text()) if MARKERS.exists() else {}
         self.dev_mode_changed = False
+        if args.va_clip not in VA_CLIPS:
+            raise CaptureError(f'unknown --va-clip {args.va_clip}: add it to VA_CLIPS ({", ".join(VA_CLIPS)})')
+        self.clip = VA_CLIPS[args.va_clip]
 
     # ── helpers ─────────────────────────────────────────────────────────────
     def shot(self, feature, theme):
@@ -65,8 +83,22 @@ class Capture:
     def record(self, scene):
         self.d.start_record(scene)
 
-    def stop(self, scene):
-        self.markers[scene] = self.d.stop_record(str(VIDEO / f'{scene}.mp4'))
+    def stop(self, scene, blank=None):
+        """blank: (from_marker, to_marker) - that part of the committed recording is
+        painted black (the system file picker shows the phone's own folders and accounts)."""
+        raw = BUILD / f'{scene}.raw.mp4'
+        markers = self.d.stop_record(str(raw))
+        vf = []
+        if blank:
+            a, b = markers[blank[0]] + 0.35, markers[blank[1]]
+            vf = ['-vf', f"drawbox=x=0:y=0:w=iw:h=ih:color=black:t=fill:enable='between(t,{a:.2f},{b:.2f})'"]
+        # Keeps the variable frame timestamps of screenrecord (the markers rely on them),
+        # drops its extra data stream, and makes the file ~10x smaller.
+        subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(raw), '-map', '0:v:0', *vf,
+                        '-vsync', 'passthrough', '-c:v', 'libx264', '-preset', 'medium', '-crf', '25',
+                        '-pix_fmt', 'yuv420p', str(VIDEO / f'{scene}.mp4')], check=True)
+        raw.unlink()
+        self.markers[scene] = markers
         MARKERS.write_text(json.dumps(self.markers, indent=2) + '\n')
 
     def wait_app(self, timeout=300):
@@ -137,11 +169,19 @@ class Capture:
             d.sh(f'am broadcast -a com.android.systemui.demo -e command {extra}', check=False)
         d.sh(f'pm grant {APP_ID} android.permission.POST_NOTIFICATIONS', check=False)
 
-        subprocess.run([sys.executable, str(MARKETING / 'scripts/make_demo_fixture.py'), '--days-ago', '0.1'], check=True)
-        if not (BUILD / DEMO_CLIP).exists():
-            subprocess.run([sys.executable, str(MARKETING / 'scripts/make_demo_lift_clip.py')], check=True)
+        fixture = [sys.executable, str(MARKETING / 'scripts/make_demo_fixture.py'), '--days-ago', '0.1']
+        if self.clip['add_set']:
+            fixture += ['--add-set', self.clip['add_set']]
+        subprocess.run(fixture, check=True)
         d.adb('push', str(BUILD / 'demo.gains'), '/sdcard/Download/baseline.gains')
-        d.adb('push', str(BUILD / DEMO_CLIP), f'/sdcard/Download/{DEMO_CLIP}')
+        if self.clip['gallery']:
+            found = d.sh(f"ls /sdcard/DCIM/Camera/'{self.args.va_clip}'", check=False)
+            if 'No such file' in found or not found.strip():
+                raise CaptureError(f'{self.args.va_clip} is not in DCIM/Camera on the phone (see README)')
+        else:
+            if not (BUILD / DEMO_CLIP).exists():
+                subprocess.run([sys.executable, str(MARKETING / 'scripts/make_demo_lift_clip.py')], check=True)
+            d.adb('push', str(BUILD / DEMO_CLIP), f'/sdcard/Download/{DEMO_CLIP}')
 
         self.restart_app()
         self.production_js()
@@ -285,26 +325,20 @@ class Capture:
         log('video_analysis: import a lift, link it, play the overlay')
         self.analyse_screen('Video Analysis')
         d.find(rid='video-analysis-import-button')
+        button = d.find(rid='video-analysis-import-button')
         self.record('video_analysis')
-        time.sleep(1.5)
+        time.sleep(2.5)
         d.mark('list')
-        d.tap_el(rid='video-analysis-import-button', settle=3)
+        d.tap(*button.center)
+        d.mark('import')
+        time.sleep(3)
         if 'documentsui' not in d.focus():
             raise CaptureError(f'video picker did not open: {d.focus()}')
-        clip = d.find(text=re.escape(DEMO_CLIP), timeout=5, required=False)
-        if clip is None:
-            d.sh('input swipe 15 800 560 800 300')
-            time.sleep(1.5)
-            d.tap(*d.find(text='Downloads').center, guard=False)
-            time.sleep(2)
-            clip = d.find(text=re.escape(DEMO_CLIP))
-        d.mark('picker')
-        time.sleep(1)
-        d.tap(*clip.center, guard=False)
+        self.pick_clip()
         time.sleep(2)
         d.ensure_app_foreground()
         d.mark('analysing')
-        d.find(rid='video-analysis-row-\\d+', desc='Unknown Exercise.*Done', timeout=180)
+        d.find(rid='video-analysis-row-\\d+', desc='Unknown Exercise.*Done', timeout=300)
         d.mark('done')
         time.sleep(1.5)
         row = d.find(rid='video-analysis-row-\\d+', desc='Unknown Exercise.*Done')
@@ -312,13 +346,13 @@ class Capture:
         d.tap_el(rid=f'video-analysis-link-set-{row_id}', settle=2)
         d.find(text='Select a Set')
         target = None
-        for _ in range(5):
-            target = d.find(text='5 reps × 175 kg.*', timeout=1, required=False)
+        for _ in range(8):
+            target = d.find(text=self.clip['link'], timeout=1, required=False)
             if target and target.center[1] < 1250:
                 break
             d.swipe(360, 1150, 360, 650, 700, 1.2)
         nodes = d.dump()
-        target = d.find(text='5 reps × 175 kg.*', nodes=nodes)
+        target = d.find(text=self.clip['link'], nodes=nodes)
         link = min((n for n in nodes if n.rid.startswith('set-selection-link-') and not n.rid.endswith('container')),
                    key=lambda n: abs(n.center[1] - target.center[1]))
         d.mark('link')
@@ -329,17 +363,48 @@ class Capture:
         d.mark('detail')
         self.scroll_player_into_view()
         d.mark('player')
-        d.tap_el(rid='video-analysis-playback-toggle', settle=0.2)
+        if self.clip['play_from']:
+            self.seek(self.clip['play_from'])
+        toggle = d.find(rid='video-analysis-playback-toggle')
+        time.sleep(0.8)
+        d.tap(*toggle.center)
         d.mark('play')
-        time.sleep(9)
+        time.sleep(self.clip['play_s'])
         d.swipe(700, 1250, 700, 300, 1200, 2)
         d.mark('summary')
         time.sleep(2.5)
         d.swipe(700, 1250, 700, 500, 1200, 2)
         d.mark('chart')
         time.sleep(3)
-        self.stop('video_analysis')
+        self.stop('video_analysis', blank=('import', 'analysing'))
         self.video_analysis_shots()
+
+    def pick_clip(self):
+        """In the system picker (not the app): Downloads for the generated clip, the
+        "Videos" root + search by file name for a gallery clip. Never answers a dialog."""
+        d, name = self.d, self.args.va_clip
+        if not self.clip['gallery']:
+            clip = d.find(text=re.escape(name), timeout=5, required=False)
+            if clip is None:
+                d.tap(*d.find(desc='Root-Verzeichnis anzeigen|Show roots').center, guard=False)
+                time.sleep(1.5)
+                d.tap(*d.find(text='Downloads').center, guard=False)
+                time.sleep(2)
+                clip = d.find(text=re.escape(name))
+        else:
+            if not d.find(rid='.*header_title', text='Videos', timeout=3, required=False):
+                d.tap(*d.find(desc='Root-Verzeichnis anzeigen|Show roots').center, guard=False)
+                time.sleep(1.5)
+                d.tap(*d.find(text='Videos').center, guard=False)
+                time.sleep(2)
+            d.tap(*d.find(desc='Suchen|Search').center, guard=False)
+            time.sleep(1.5)
+            d.text_input(name.rsplit('.', 1)[0])
+            d.sh('input keyevent 66')
+            time.sleep(3)
+            clip = d.find(text=re.escape(name))
+        time.sleep(0.5)
+        d.tap(*clip.center, guard=False)
 
     def video_analysis_shots(self):
         self.va_shot('dark')
@@ -366,10 +431,17 @@ class Capture:
         raise CaptureError('playback overlay not found')
 
     def va_shot(self, theme):
-        """Paused frame in rep 3: seek with the scrubber (playing after a theme switch
+        """Paused frame inside a rep: seek with the scrubber (playing after a theme switch
         leaves the video surface blank until the next seek)."""
-        d = self.d
         self.scroll_player_into_view(from_top=True)
+        self.seek(self.clip['shot_at'])
+        self.d.find(rid='video-analysis-playback-current-rep', text='Rep \\d')
+        self.shot('video_analysis', theme)
+
+    def seek(self, clip_s):
+        """Tap the scrubber at clip_s seconds (the player must be in view)."""
+        d = self.d
+        fraction = clip_s / self.clip['duration']
         swiped = 0
         for _ in range(6):
             bar = d.find(rid='video-analysis-playback-scrubber', timeout=2, required=False)
@@ -380,18 +452,16 @@ class Capture:
         log(f'    seek: scrubber at y={bar.center[1]} after {swiped} swipes')
         for _ in range(3):  # a tap right after a scroll only stops the scroll
             time.sleep(1.5)
-            d.tap(bar.x1 + 0.485 * bar.width, bar.center[1])
+            d.tap(bar.x1 + fraction * bar.width, bar.center[1])
             time.sleep(1.5)
             thumb = d.find(rid='video-analysis-playback-scrubber-thumb')
-            if thumb.x1 > bar.x1 + 0.3 * bar.width:
+            if abs(thumb.center[0] - (bar.x1 + fraction * bar.width)) < 0.1 * bar.width:
                 break
         else:
             raise CaptureError(f'seek did not move the scrubber: {thumb}')
         for _ in range(swiped):
             d.swipe(700, 700, 700, 1000, 1500, 1.2)
         time.sleep(1)
-        d.find(rid='video-analysis-playback-current-rep', text='Rep \\d')
-        self.shot('video_analysis', theme)
 
     def customize(self):
         d = self.d
@@ -519,11 +589,12 @@ class Capture:
                 d.adb('reverse', f'tcp:{MOCK_PORT}', f'tcp:{MOCK_PORT}')
                 time.sleep(2)
                 self.restart_app()
-            self.save_api_key(self.args.ai_key or 'sk-ant-demo-local-mock')
+            self.save_api_key(self.args.ai_key or DUMMY_KEY)
             self.analyse_screen('AI Chat')
-            if d.exists(rid='chat-message-list') and d.find(rid='chat-clear-button', timeout=2, required=False):
-                pass
             d.find(rid='chat-input')
+            if d.exists(rid='chat-bubble-user'):  # start from an empty chat (archived, not deleted)
+                d.tap_el(rid='chat-clear-button', settle=1.5)
+                d.find(rid='chat-empty-state')
             self.record('ai_chat')
             time.sleep(1.5)
             d.mark('empty')
@@ -537,7 +608,7 @@ class Capture:
             d.tap_el(rid='chat-send-button', settle=0.3)
             d.mark('sent')
             d.hide_keyboard()
-            d.find(text='.*trending up.*' if not self.args.ai_key else '.{40,}', timeout=120)
+            self.wait_reply()
             d.mark('reply')
             time.sleep(3)
             d.swipe(690, 1100, 690, 700, 1500, 1.5)
@@ -545,6 +616,9 @@ class Capture:
             time.sleep(2.5)
             self.stop('ai_chat')
         finally:
+            if self.args.ai_key:  # never leave the real key on the phone
+                self.save_api_key(DUMMY_KEY)
+                log('  replaced the real API key with the dummy key')
             if patched:
                 CHAT_FILE.write_text(CHAT_FILE.read_text().replace(
                     f"const ANTHROPIC_MESSAGES_URL = 'http://localhost:{MOCK_PORT}/v1/messages';", CHAT_URL))
@@ -560,7 +634,28 @@ class Capture:
             self.shot('ai_chat', theme)
         self.set_theme('dark')
 
+    def wait_reply(self, timeout=180):
+        """Until an assistant bubble is there and the loading row is gone."""
+        d = self.d
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                nodes = d.dump(retries=1)
+            except CaptureError:  # the loading timer can keep the screen from being idle
+                nodes = None
+            if nodes is not None:
+                if d.find(rid='chat-error', nodes=nodes, required=False):
+                    raise CaptureError('the chat answered with an error')
+                if (d.find(rid='chat-bubble-assistant', nodes=nodes, required=False)
+                        and not d.find(rid='chat-loading', nodes=nodes, required=False)):
+                    if self.args.ai_key or d.find(text='.*trending up.*', nodes=nodes, required=False):
+                        return
+            time.sleep(1)
+        raise CaptureError('no chat answer')
+
     def save_api_key(self, key):
+        """The field is masked on screen, but uiautomator dumps contain its text: the
+        key is never printed, and the dump file is removed from the phone afterwards."""
         d = self.d
         self.settings_top()
         accordion = self.scroll_to(rid='settings-ai-config-accordion')
@@ -570,9 +665,18 @@ class Capture:
         field = self.scroll_to(rid='settings-anthropic-api-key-input')
         d.tap(*field.center)
         time.sleep(1)
-        d.text_input(key)
+        for _ in range(3):  # empty the field first, typing appends
+            length = len(d.find(rid='settings-anthropic-api-key-input').text)
+            if not length:
+                break
+            d.sh('input keyevent 123; input keyevent ' + ' '.join(['67'] * (length + 5)), check=False)
+            time.sleep(0.5)
+        else:
+            raise CaptureError('could not empty the API key field')
+        d.text_input(key, secret=True)
         d.hide_keyboard()
         d.tap_el(rid='settings-save-api-key-button', settle=1.5)
+        d.forget_dump()
 
     def teardown(self):
         d = self.d
@@ -581,6 +685,7 @@ class Capture:
         d.sh('cmd notification set_dnd off', check=False)
         d.sh('settings put system accelerometer_rotation 1', check=False)
         d.adb('reverse', '--remove', f'tcp:{MOCK_PORT}', check=False)
+        d.forget_dump()
         if git_dirty_chat_file():
             raise CaptureError('app/utils/ai/sendChatMessage.ts is still modified - restore it!')
         if self.dev_mode_changed or (BUILD / 'js_dev_mode_changed').exists():
@@ -605,9 +710,20 @@ def main():
     parser.add_argument('--metro-port', default=os.environ.get('E2E_METRO_PORT'),
                         help='host Metro port to reverse device port 8081 to (debug builds)')
     parser.add_argument('--release-build', action='store_true', help='app is a release build (no dev menu)')
-    parser.add_argument('--ai-key', default=os.environ.get('GAINALYTICS_DEMO_AI_KEY'),
-                        help='real Anthropic key for a real chat answer (default: local mock server)')
+    parser.add_argument('--ai-key-file', default=os.environ.get('GAINALYTICS_DEMO_AI_KEY_FILE'),
+                        help='file with a real Anthropic key for a real chat answer (default: local mock '
+                             'server). The key is typed into the app for the ai_chat scene only and replaced '
+                             'by a dummy key right after')
+    parser.add_argument('--va-clip', default=DEFAULT_VA_CLIP,
+                        help=f'lift clip for the video analysis scene, one of: {", ".join(VA_CLIPS)}')
     args = parser.parse_args()
+    args.ai_key = None
+    if args.ai_key_file:
+        args.ai_key = pathlib.Path(args.ai_key_file).expanduser().read_text().strip()
+        if not re.fullmatch(r'sk-ant-[A-Za-z0-9_-]{20,}', args.ai_key):
+            raise SystemExit('--ai-key-file does not contain an Anthropic key')
+    elif os.environ.get('GAINALYTICS_DEMO_AI_KEY'):
+        args.ai_key = os.environ['GAINALYTICS_DEMO_AI_KEY'].strip()
     scenes = SCENES if args.scenes == 'all' else args.scenes.split(',')
     for folder in (SCREENS, VIDEO):
         folder.mkdir(parents=True, exist_ok=True)
