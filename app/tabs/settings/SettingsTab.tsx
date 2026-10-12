@@ -1,5 +1,5 @@
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {RootStackParamList} from '../../routing/exerciseRouter';
+import {RootStackParamList} from '../../routing/SettingsRouter';
 import React, {useState, useEffect} from 'react';
 import {Alert, ScrollView, View, StyleSheet, Platform} from 'react-native';
 import {Button, Dialog, Divider, HelperText, List, Portal, Switch, Text, TextInput, useTheme} from 'react-native-paper';
@@ -33,8 +33,9 @@ import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
 import {useAITrainingPrompt} from '../../redux/settings/use/useAITrainingPrompt';
 import {DEFAULT_CHAT_PROMPT, DEFAULT_TRAINING_PROMPT} from '../../constants/aiPrompts';
 import {getAppVersion} from '../../utils/appVersion';
+import {dispatchShowOnboarding} from '../../redux/settings/dispatch/dispatchOnboarding';
 
-const SettingsTab = ({navigation}: Props) => {
+const SettingsTab = ({navigation, route}: Props) => {
   let settings = useSettings();
   let toggleDisable1RMpreselect = dispatchToggleDisable1RMpreselect();
   let toggleShowTimer = dispatchToggleShowTimer();
@@ -67,6 +68,15 @@ const SettingsTab = ({navigation}: Props) => {
   const [trainingPromptInput, setTrainingPromptInput] = useState(currentTrainingPrompt);
 
   let fullImport = dispatchFullImport();
+  let showOnboarding = dispatchShowOnboarding();
+
+  // GH-497: the onboarding's "Import data" lands here with the confirmation open.
+  const openImportRequested = route.params?.openImport === true;
+  useEffect(() => {
+    if (!openImportRequested) return;
+    setImportDialog(true);
+    navigation.setParams({openImport: undefined});
+  }, [openImportRequested, navigation]);
   let setPauseTimer = dispatchSetPauseTimer();
   let setFinishTrainingTimer = dispatchSetFinishTrainingTimer();
 
@@ -446,6 +456,12 @@ const SettingsTab = ({navigation}: Props) => {
             </View>
           </View>
         </List.Accordion>
+      </SettingsSection>
+
+      <SettingsSection title="Help" testID="settings-section-help">
+        <Button mode="elevated" icon="school-outline" style={{margin: 5}} testID="settings-show-onboarding-button" onPress={showOnboarding}>
+          Show Introduction
+        </Button>
       </SettingsSection>
 
       <SettingsSection title="Data" testID="settings-section-data">

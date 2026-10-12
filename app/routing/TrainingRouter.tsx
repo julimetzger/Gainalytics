@@ -7,7 +7,8 @@ import {SubTab} from '../components/Training/TrainingModeTabs';
 import {trainingsPlanDisplayName} from '../utils/trainings-plan-name';
 
 export type RootStackParamList = {
-  TrainingHome: undefined;
+  // GH-497: the onboarding's "Create an empty plan" opens the add-plan dialog.
+  TrainingHome: {openNewPlan?: boolean} | undefined;
   // `subTab` lets a caller land on a specific sub-tab instead of the one derived
   // from the training's state — GH-401: the Next-Training card opens the Train tab
   // so the real "Start Training" control is the first thing the user sees.
