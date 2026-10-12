@@ -96,6 +96,48 @@ class DemoFixture(unittest.TestCase):
             self.assertEqual(len(data['trainings']['allIds']), len(baseline['trainings']['allIds']))
             self.assertEqual(data['exercises'], baseline['exercises'])
 
+    def test_add_set_puts_a_linkable_workout_into_the_second_newest_training(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp) / 'demo.gains'
+            subprocess.run([sys.executable, str(MARKETING / 'scripts/make_demo_fixture.py'), '--out', str(out),
+                            '--add-set', 'Deadlift:200x3@3'], check=True, capture_output=True)
+            data = json.loads(out.read_text())
+            newest_id = max(data['workouts']['allIds'])  # the link dialog lists the newest ids first
+            workout = data['workouts']['byId'][str(newest_id)]
+            self.assertEqual(workout['sets'], [dict(workout['sets'][0], weight=200, reps=3, rir=3)])
+            self.assertEqual(data['exercises']['byId'][str(workout['exerciseId'])]['name'], 'Deadlift')
+            done = sorted((t for t in data['trainings']['byId'].values() if t['state'] == 'F'), key=lambda t: t['end'])
+            self.assertEqual(workout['trainingsId'], done[-2]['id'])
+            self.assertEqual(done[-2]['doneWorkoutIds'][str(workout['exerciseId'])], newest_id)
+            self.assertNotIn(newest_id, done[-1]['doneWorkoutIds'].values(), 'last training (the suggestion) unchanged')
+
+
+class PrivateMaterial(unittest.TestCase):
+    """The owner's gallery clip and the real API key must never be committed."""
+
+    def tracked(self):
+        out = subprocess.run(['git', 'ls-files', '.'], cwd=MARKETING, capture_output=True, text=True,
+                             check=True)
+        return [MARKETING / line for line in out.stdout.splitlines()]  # relative to cwd
+
+    def test_no_gallery_clip_and_no_api_key_in_the_repo(self):
+        import capture
+        for path in self.tracked():
+            for clip in capture.VA_CLIPS:
+                self.assertNotEqual(path.name, clip)
+            if path.suffix in ('.py', '.md', '.json', '.txt'):
+                self.assertNotRegex(path.read_text(errors='ignore'), r'sk-ant-api\d\d-', path.name)
+
+    def test_the_file_picker_is_blacked_out_in_the_committed_recording(self):
+        markers = json.loads((MARKETING / 'captures/markers.json').read_text())['video_analysis']
+        mid = (markers['import'] + 0.35 + markers['analysing']) / 2
+        frame = subprocess.run(['ffmpeg', '-loglevel', 'error', '-ss', f'{mid:.2f}', '-i',
+                                str(MARKETING / 'captures/video/video_analysis.mp4'), '-frames:v', '1',
+                                '-vf', 'scale=36:80', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'],
+                               capture_output=True, check=True).stdout
+        self.assertEqual(len(frame), 36 * 80)
+        self.assertLess(max(frame), 24, 'picker frames must be black')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -6,8 +6,9 @@ appId: com.powerliftingworkoutplanner
 # - Training home: today's captured session counts in the current micro (1 of 4 done)
 #   and the next slot moved on to D2.
 # - Dashboard: the week is not empty (the "No trainings in this period" banner is gone).
-# - Video Analysis: the imported demo lift is analysed and linked to the 175 kg x 5 squat.
-# - AI Chat: the coach answer is in the conversation.
+# - Video Analysis: the gallery deadlift clip is analysed, linked to the 200 kg x 3 deadlift
+#   set of the demo data, and the detail shows exactly 3 detected reps.
+# - AI Chat: the real coach answer (round 2 capture) is in the conversation.
 - launchApp:
     stopApp: false
 - extendedWaitUntil:
@@ -45,14 +46,32 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible:
       id: 'video-analysis-row-\d+'
-      text: 'Squat, 175 kg × 5, Today .*, Done'
+      text: 'Deadlift, 200 kg × 3, Today .*, Done'
     timeout: 30000
+- tapOn:
+    id: 'video-analysis-row-\d+'
+    text: 'Deadlift, 200 kg × 3, .*'
+# Edge swipes: the player and its chart take centred gestures.
+- repeat:
+    times: 8
+    while:
+      notVisible: 'Rep Summary \(\d+ reps\)'
+    commands:
+      - swipe:
+          start: 96%, 80%
+          end: 96%, 35%
+          duration: 900
+- assertVisible: 'Rep Summary \(3 reps\)'
+- assertVisible:
+    id: 'video-analysis-rep-time-2'
+- assertNotVisible:
+    id: 'video-analysis-rep-time-3'
 
 - tapOn:
     id: 'analyse-drawer-toggle'
 - tapOn: 'AI Chat'
 - extendedWaitUntil:
-    visible: '.*Your squat is trending up.*'
+    visible: '.*Bottom line.*'
     timeout: 15000
 # The chat opens scrolled to the newest message; the question sits above the answer.
 - scrollUntilVisible:
@@ -60,3 +79,4 @@ appId: com.powerliftingworkoutplanner
       text: 'How is my squat progressing and what should I change next week\?'
     direction: UP
     timeout: 15000
+- assertVisible: '.*Squat Progress Analysis.*'

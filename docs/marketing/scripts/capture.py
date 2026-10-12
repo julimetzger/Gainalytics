@@ -122,7 +122,7 @@ class Capture:
     def tab(self, name, settle=1.5):
         self.d.tap_el(desc=f'tab-{name}', settle=settle)
 
-    def scroll_to(self, settle=0.6, max_swipes=8, direction='down', x=690, **kw):
+    def scroll_to(self, settle=0.6, max_swipes=8, direction='down', x=690, required=True, **kw):
         for _ in range(max_swipes):
             node = self.d.find(timeout=0, required=False, **kw)
             if node and 200 < node.center[1] < 1300:
@@ -131,7 +131,7 @@ class Capture:
                 self.d.swipe(x, 1150, x, 550, 500, settle)
             else:
                 self.d.swipe(x, 450, x, 1150, 400, settle)
-        return self.d.find(timeout=2, **kw)
+        return self.d.find(timeout=2, required=required, **kw)
 
     def scroll_top(self):
         for _ in range(3):
@@ -591,10 +591,11 @@ class Capture:
                 self.restart_app()
             self.save_api_key(self.args.ai_key or DUMMY_KEY)
             self.analyse_screen('AI Chat')
-            d.find(rid='chat-input')
-            if d.exists(rid='chat-bubble-user'):  # start from an empty chat (archived, not deleted)
+            d.find(rid='chat-input', timeout=45)
+            if not d.exists(rid='chat-empty-state'):  # start from an empty chat (archived, not deleted)
                 d.tap_el(rid='chat-clear-button', settle=1.5)
                 d.find(rid='chat-empty-state')
+            message_list = d.find(rid='chat-message-list')
             self.record('ai_chat')
             time.sleep(1.5)
             d.mark('empty')
@@ -607,7 +608,10 @@ class Capture:
             time.sleep(0.8)
             d.tap_el(rid='chat-send-button', settle=0.3)
             d.mark('sent')
-            d.hide_keyboard()
+            # A tap on the list closes the keyboard AND blurs the input (the back key only
+            # hides the keyboard; a focused input's cursor keeps uiautomator from working).
+            d.tap(message_list.center[0], message_list.y1 + 60)
+            time.sleep(0.5)
             self.wait_reply()
             d.mark('reply')
             time.sleep(3)
@@ -617,27 +621,37 @@ class Capture:
             self.stop('ai_chat')
         finally:
             if self.args.ai_key:  # never leave the real key on the phone
-                self.save_api_key(DUMMY_KEY)
-                log('  replaced the real API key with the dummy key')
+                self.remove_real_key()
             if patched:
                 CHAT_FILE.write_text(CHAT_FILE.read_text().replace(
                     f"const ANTHROPIC_MESSAGES_URL = 'http://localhost:{MOCK_PORT}/v1/messages';", CHAT_URL))
                 log('  reverted the temporary chat URL patch')
             if mock:
                 mock.terminate()
+        self.ai_chat_shots()
+
+    def ai_chat_shots(self):
+        d = self.d
         for theme in ('dark', 'light'):
             if theme == 'light':
                 self.set_theme('light')
-                self.tab('analyse', settle=2)
-            for _ in range(2):  # show the question above the answer
-                d.swipe(360, 450, 360, 1100, 700, 1.0)
+            self.tab('analyse', settle=2)
+            if not d.find(rid='chat-message-list', timeout=3, required=False):
+                self.analyse_screen('AI Chat')
+            d.find(rid='chat-message-list')
+            for _ in range(5):  # top of the conversation: the question above the answer
+                d.swipe(360, 450, 360, 1150, 500, 0.6)
+            time.sleep(1)
+            d.find(rid='chat-bubble-user')
             self.shot('ai_chat', theme)
         self.set_theme('dark')
 
-    def wait_reply(self, timeout=180):
-        """Until an assistant bubble is there and the loading row is gone."""
+    def wait_reply(self, timeout=150):
+        """Until an assistant bubble is there and the loading row is gone (screenrecord
+        stops after 180 s, so a slower answer fails the scene instead of cutting it)."""
         d = self.d
-        deadline = time.time() + timeout
+        t0 = time.time()
+        deadline = t0 + timeout
         while time.time() < deadline:
             try:
                 nodes = d.dump(retries=1)
@@ -649,32 +663,57 @@ class Capture:
                 if (d.find(rid='chat-bubble-assistant', nodes=nodes, required=False)
                         and not d.find(rid='chat-loading', nodes=nodes, required=False)):
                     if self.args.ai_key or d.find(text='.*trending up.*', nodes=nodes, required=False):
+                        log(f'    answer after {time.time() - t0:.0f}s')
                         return
             time.sleep(1)
         raise CaptureError('no chat answer')
+
+    def remove_real_key(self, attempts=4):
+        for attempt in range(attempts):
+            try:
+                self.d.ensure_app_foreground()
+                self.save_api_key(DUMMY_KEY)
+                log('  replaced the real API key with the dummy key')
+                return
+            except CaptureError as error:
+                log(f'  replacing the API key failed ({error}), retrying')
+                self.d.back()
+                time.sleep(3)
+        raise CaptureError('THE REAL API KEY IS STILL ON THE PHONE - replace it in Settings → AI Configuration')
 
     def save_api_key(self, key):
         """The field is masked on screen, but uiautomator dumps contain its text: the
         key is never printed, and the dump file is removed from the phone afterwards."""
         d = self.d
         self.settings_top()
-        accordion = self.scroll_to(rid='settings-ai-config-accordion')
-        if not d.exists(rid='settings-anthropic-api-key-input'):
+        field = None
+        for _ in range(2):  # the accordion keeps its state: only open it if the field is not there
+            accordion = self.scroll_to(rid='settings-ai-config-accordion')
+            field = self.scroll_to(rid='settings-anthropic-api-key-input', max_swipes=3, required=False)
+            if field:
+                break
+            accordion = self.scroll_to(rid='settings-ai-config-accordion')
             d.tap(*accordion.center)
             time.sleep(1.5)
-        field = self.scroll_to(rid='settings-anthropic-api-key-input')
-        d.tap(*field.center)
-        time.sleep(1)
-        for _ in range(3):  # empty the field first, typing appends
-            length = len(d.find(rid='settings-anthropic-api-key-input').text)
-            if not length:
-                break
+        if field is None:
+            field = self.scroll_to(rid='settings-anthropic-api-key-input')
+        # A focused field (blinking cursor) keeps uiautomator from ever seeing an idle
+        # screen, so the field is only read while it is not focused.
+        for _ in range(3):
+            length = len(field.text)  # masked or not, one character per key character
+            d.tap(*field.center)
+            time.sleep(1)
             d.sh('input keyevent 123; input keyevent ' + ' '.join(['67'] * (length + 5)), check=False)
+            d.text_input(key, secret=True)
             time.sleep(0.5)
+            d.hide_keyboard()
+            time.sleep(1)
+            field = d.find(rid='settings-anthropic-api-key-input', timeout=30)
+            if len(field.text) == len(key):
+                break
         else:
-            raise CaptureError('could not empty the API key field')
-        d.text_input(key, secret=True)
-        d.hide_keyboard()
+            d.forget_dump()
+            raise CaptureError('the API key field does not hold the new key')
         d.tap_el(rid='settings-save-api-key-button', settle=1.5)
         d.forget_dump()
 

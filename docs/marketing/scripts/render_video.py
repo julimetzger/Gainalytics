@@ -91,7 +91,8 @@ class Reader:
 
 
 class Footage:
-    """A list of (clip, from_marker_or_seconds, to, speed) segments played back to back."""
+    """A list of (clip, from_marker_or_seconds, to, speed) segments played back to back.
+    speed may also be a target length such as '3s' (e.g. for a wait of unknown length)."""
 
     def __init__(self, markers, segments):
         self.parts = []
@@ -99,6 +100,8 @@ class Footage:
         for clip, a, b, speed in segments:
             src_a = self.resolve(markers, clip, a)
             src_b = self.resolve(markers, clip, b)
+            if isinstance(speed, str):
+                speed = (src_b - src_a) / float(speed.rstrip('s'))
             dur = (src_b - src_a) / speed
             self.parts.append(dict(clip=clip, src_a=src_a, speed=speed, t0=t, t1=t + dur, reader=None))
             t += dur
@@ -201,11 +204,12 @@ class Promo:
         self.small_phone = PhoneFrame(300, 633)
         self.fan_phone = PhoneFrame(316, 667)
 
-        self.va = Footage(markers, [
-            ('video_analysis', 'list+5.0', 'picker-0.6', 2.0),
-            ('video_analysis', 'analysing+0.4', 'done+1.0', 6.0),
-            ('video_analysis', 'play-0.4', 'play+6.0', 1.0),
-            ('video_analysis', 'summary-0.3', 'end', 1.6),
+        self.va = Footage(markers, [  # list, analysing, rep 1 (real time), rep 2 (faster), rep table + chart
+            ('video_analysis', 'list-1.2', 'import+0.3', 1.0),
+            ('video_analysis', 'analysing+0.4', 'done+1.0', '2.6s'),
+            ('video_analysis', 'play-0.3', 'play+4.6', 1.0),
+            ('video_analysis', 'play+4.6', 'play+9.8', 1.7),
+            ('video_analysis', 'summary-0.3', 'end', 1.8),
         ])
         self.custom = Footage(markers, [
             ('custom_settings', 'light-1.2', 'dark+0.9', 2.0),
@@ -276,10 +280,10 @@ class Promo:
         b = [(0.5, 'Import any lift video'),
              (0.6 + parts[1]['t0'] + 0.6, 'Reps and bar path detected automatically'),
              (0.6 + parts[2]['t0'] + 1.0, 'Velocity of every rep, right on the video'),
-             (0.6 + parts[3]['t0'] + 0.3, 'Velocity loss turns into reps in reserve')]
+             (0.6 + parts[4]['t0'] + 0.3, 'Velocity loss turns into reps in reserve')]
         headline_block(layer, t, 'VIDEO ANALYSIS', 'See every rep.', b, BRAND_BLUE)
         ft = t - 0.6
-        zoom_in = ease((ft - parts[2]['t0']) / 0.8) * (1 - ease((ft - parts[3]['t0'] + 0.2) / 0.8))
+        zoom_in = ease((ft - parts[2]['t0']) / 0.8) * (1 - ease((ft - parts[4]['t0'] + 0.2) / 0.8))
         scale = 1.0 + 0.12 * zoom_in
         slide = ease_out(t / 0.8)
         cx, cy = 1390, 540 + (1 - slide) * 700 + zoom_in * 40
@@ -387,8 +391,9 @@ class Promo:
         return {
             '1-intro': 1.8,
             '2-video-analysis-import': va + self.va.parts[1]['t0'] + 1.5,
-            '2-video-analysis-overlay': va + self.va.parts[2]['t0'] + 3.5,
-            '2-video-analysis-velocity-loss': va + self.va.parts[3]['t0'] + 2.5,
+            '2-video-analysis-overlay': va + self.va.parts[2]['t0'] + 3.0,
+            '2-video-analysis-rep-2': va + self.va.parts[3]['t0'] + 1.5,
+            '2-video-analysis-velocity-loss': va + self.va.parts[4]['t0'] + 2.5,
             '3-custom-theme': cu + 1.5,
             '3-custom-colour': cu + self.custom.parts[2]['t0'] + 1.0,
             '3-custom-muscles': cu + self.custom.parts[3]['t0'] + 4.0,
