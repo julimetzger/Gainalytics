@@ -75,7 +75,8 @@ const buildState = (sets: WorkoutSet[]): GlobalState => ({
 const roundTrip = (payload: TrainingsPlanExportPayload) => {
   const serialized: TrainingsPlanExportPayload = JSON.parse(JSON.stringify(payload));
   const imported = fullStateReducer(emptyTargetState(), {type: 'IMPORT_TRAININGS_PLAN', payload: serialized});
-  const workoutId = imported.workouts.allIds[0];
+  // GH-497: imported workouts are planned ones, so they land in `plannedWorkouts`.
+  const workoutId = imported.workouts.plannedWorkouts[0];
   return imported.workouts.byId[workoutId].sets;
 };
 

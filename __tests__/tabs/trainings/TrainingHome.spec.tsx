@@ -27,6 +27,10 @@ jest.mock('../../../app/redux/Training/use/useTrainings', () => ({
   useTrainings: jest.fn(),
 }));
 
+jest.mock('../../../app/redux/Training/dispatch/general/dispatchCreatePlanFromTemplate', () => ({
+  dispatchCreatePlanFromTemplate: () => jest.fn(),
+}));
+
 jest.mock('../../../app/utils/exportTrainingsPlan', () => ({
   exportTrainingsPlanToFile: jest.fn(),
 }));
@@ -433,5 +437,67 @@ describe('TrainingHome — GH-428 nameless legacy plans', () => {
 
     expect(getByText('Edit Unnamed plan')).toBeTruthy();
     expect(getByTestId('trainings-plan-delete')).toBeTruthy();
+  });
+});
+
+describe('TrainingHome — GH-497 a new plan without any training yet', () => {
+  const slot = (id: number, state: TrainingsState, extra: object = {}) => ({
+    id,
+    state,
+    plannedWorkouts: {},
+    doneWorkoutIds: {},
+    exercises: [1],
+    ...extra,
+  });
+  // Micro 3, so its card (3:1 / 4:1) is distinguishable from the new plan's 1:1.
+  const olderPlan: TrainingsPlan = {id: 4, name: 'Older template', trainingNames: {'1': 'A'}, trainings: {'3,1': 41}};
+  const newestPlan: TrainingsPlan = {id: 5, name: 'Strength Block', trainingNames: {'1': 'Squat & Bench', '2': 'Deadlift & Press'}, trainings: {'1,1': 51, '1,2': 52}};
+  const draftPlan: TrainingsPlan = {id: 6, name: 'Empty draft', trainingNames: {}, trainings: {}};
+
+  const renderHome = (plans: TrainingsPlan[], params: object = {}, navigation = {setOptions: jest.fn(), navigate: jest.fn(), setParams: jest.fn()}) => {
+    mockedUseAllTrainingsPlans.mockReturnValue(plans);
+    mockState.trainingsPlan.byId = Object.fromEntries(plans.map((p) => [p.id, p]));
+    return {navigation, ...render(<TrainingHome navigation={navigation as any} route={{params} as any} />)};
+  };
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('puts the newest planned plan on the dashboard so its first training is one tap away', () => {
+    mockedUseTrainings.mockReturnValue([slot(41, TrainingsState.PLANNED), slot(51, TrainingsState.PLANNED), slot(52, TrainingsState.PLANNED)]);
+
+    const {getByTestId} = renderHome([olderPlan, newestPlan, draftPlan]);
+
+    expect(getByTestId('next-training-slot').props.children).toBe('1:1');
+  });
+
+  it('keeps the plan the user actually trains in front of a new template plan', () => {
+    const yesterday = new Date(Date.now() - 86400000).toISOString();
+    mockedUseTrainings.mockReturnValue([
+      slot(41, TrainingsState.FINISHED, {start: yesterday, end: yesterday}),
+      slot(51, TrainingsState.PLANNED),
+      slot(52, TrainingsState.PLANNED),
+    ]);
+
+    const {getByTestId} = renderHome([{...olderPlan, lastTraining: 41}, newestPlan]);
+
+    // The trained plan continues with its next micro (4:1); the template plan would be 1:1.
+    expect(getByTestId('next-training-slot').props.children).toBe('4:1');
+  });
+
+  it('shows no dashboard when only empty drafts exist', () => {
+    mockedUseTrainings.mockReturnValue([]);
+
+    const {queryByTestId} = renderHome([draftPlan]);
+
+    expect(queryByTestId('next-training-card')).toBeNull();
+  });
+
+  it('opens the add-plan dialog once when the onboarding asks for an empty plan', () => {
+    mockedUseTrainings.mockReturnValue([]);
+
+    const {getByText, navigation} = renderHome([], {openNewPlan: true});
+
+    expect(getByText('Add New Training Plan')).toBeTruthy();
+    expect(navigation.setParams).toHaveBeenCalledWith({openNewPlan: undefined});
   });
 });
