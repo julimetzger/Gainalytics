@@ -472,7 +472,13 @@ const SettingsTab = ({navigation}: Props) => {
         </View>
       </SettingsSection>
       <View style={styles.versionFooter}>
-        <Text variant="bodySmall" testID="settings-app-version">
+        <Text
+          variant="bodySmall"
+          testID="settings-app-version"
+          // GH-504 PoC: hidden developer entry, dev builds only. Props are typed against
+          // exerciseRouter's param list, hence the cast.
+          onLongPress={__DEV__ ? () => (navigation as any).navigate('ChatGptPoc') : undefined}
+        >
           Version {appVersion}
         </Text>
       </View>

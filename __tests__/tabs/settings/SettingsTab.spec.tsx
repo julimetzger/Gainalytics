@@ -474,6 +474,18 @@ describe('SettingsTab', () => {
     expect(getByTestId('settings-app-version')).toHaveTextContent('Version 9.8.7');
   });
 
+  it('opens the hidden ChatGPT PoC screen only on long-press of the version in dev builds', () => {
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+
+    fireEvent.press(getByTestId('settings-app-version'));
+    expect(navigation.navigate).not.toHaveBeenCalled();
+    fireEvent(getByTestId('settings-app-version'), 'longPress');
+    expect(navigation.navigate).toHaveBeenCalledWith('ChatGptPoc');
+  });
+
   it('exports data into file system and shows exported path', () => {
     const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
     const route = {params: {}};
