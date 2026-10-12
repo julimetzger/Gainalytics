@@ -336,3 +336,13 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-497):** before GH-497, `IMPORT_TRAININGS_PLAN` pushed the plan's workouts into `workouts.allIds` (the logged list read by history/last-workout-date), not `plannedWorkouts`. It now uses `plannedWorkouts`; templates use the same path. Plans imported before the fix may still have such ids in `allIds`.
 **Apply when:** debugging phantom "logged" workouts without a date after a plan import.
 
+
+### Resumed round: the previous round's adb filter proxy is gone, so its helper scripts drive the phone
+**Problem / Symptom:** In a feedback round the run-dir helper script still hardcoded the round-1 proxy (`--host 127.0.0.88`), which was no longer running. Switching it to the gateway (`--host 172.18.240.1 --device emulator-5556`) made Maestro log "Selected device emulator-5556" while `launchApp` force-stopped and relaunched the app on R5CN30HWZFN (`Got device info … widthPixels=720`). Every assertion failed even though uiautomator on the emulator showed the element.
+**Fix / Rule:** At the start of every round, run `ss -tlnp | grep :5037` and restart your own proxy (`python3 .codex-orchestrator/proxies/adb_filter_proxy.py --serial $ANDROID_SERIAL --listen 127.0.0.<n>:5037 --upstream <gateway>:5037`), then verify with `adb -H 127.0.0.<n> -P 5037 devices`. Put a `widthPixels` check from `maestro.log` into the helper so a wrong device fails loudly.
+**Apply when:** resuming a ticket in a new round, or reusing run-dir scripts. (seen in GH-497)
+
+### Dispatch hooks that need the created entity: reserve the id via a selector, don't read the store back
+**Problem / Symptom:** Review rejected `useStore().getState()` inside a dispatch hook (inputs before the dispatch, the new plan after it).
+**Fix / Rule:** Read inputs with `useSelector` (memoized selectors; for per-id lookups use a `createSelector` that returns a function over the slice), reserve the id with `determineNewId(state.<slice>)`, send it in the action (the reducer honours it if free), and return it. Adding `useSelector` to a hook breaks component specs whose mocked `useSelector(selector(mockState))` state lacks that slice, so mock the hook there.
+**Apply when:** a dispatch must hand the new entity's id to navigation or UI. (seen in GH-497)
