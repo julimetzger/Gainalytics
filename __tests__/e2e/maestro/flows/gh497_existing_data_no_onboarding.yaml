@@ -10,6 +10,10 @@ appId: com.powerliftingworkoutplanner
       visible: 'Dismiss'
     commands:
       - tapOn: 'Dismiss'
+# A cold launch loads the bundle first; the tab bar can take longer than tapOn waits.
+- extendedWaitUntil:
+    visible: 'tab-training'
+    timeout: 120000
 - tapOn: 'tab-training'
 - extendedWaitUntil:
     visible:
