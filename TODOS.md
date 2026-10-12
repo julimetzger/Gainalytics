@@ -86,6 +86,7 @@
 
 ## General
 
+- [ready] [GH-485](https://github.com/julimetzger/Gainalytics/issues/485) Motion graphics promotion video — 16:9, 30–60 s, Schwerpunkt Videoanalyse + Anpassbarkeit; Store-fertige Screenshots (6 Features, Light/Dark, Englisch)
 - [ready] [GH-502](https://github.com/julimetzger/Gainalytics/issues/502) Analyse + PoC: Health Connect (Workouts schreiben, Körpergewicht lesen), Garmin/Withings — Report nach `docs/investigation/health-connect-wearables.md` + Health-Connect-PoC auf dem Gerät (aus Marktanalyse GH-492 #10)
 - [ready] [GH-496](https://github.com/julimetzger/Gainalytics/issues/496) CSV-Export der Trainingsdaten — eine Zeile pro Satz, Teilen-Menü, Excel/Sheets-tauglich (aus Marktanalyse GH-492 #2)
 - [ready] [GH-497](https://github.com/julimetzger/Gainalytics/issues/497) Onboarding beim ersten Start + Programmvorlagen — überspringbar, 2–3 eigene Vorlagen (aus Marktanalyse GH-492 #5)
