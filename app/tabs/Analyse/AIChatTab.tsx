@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {FlatList, KeyboardAvoidingView, ScrollView, StyleSheet, View} from 'react-native';
 import {ActivityIndicator, Chip, IconButton, Surface, Text, TextInput, useTheme} from 'react-native-paper';
 import Markdown from 'react-native-markdown-display';
@@ -433,6 +433,50 @@ const AIChatTab = () => {
     }
   };
 
+  // GH-508: history, filter and clear sit in the navigation header next to its
+  // "AI Chat" title instead of in a second title row inside the screen — that row
+  // repeated the title and cost the message list a full row of height. The ref
+  // keeps the header from being re-set on every render just because handleClear
+  // is a new closure.
+  const handleClearRef = useRef(handleClear);
+  handleClearRef.current = handleClear;
+  const clearDisabled = messages.length === 0 && !error;
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: hasApiKey
+        ? () => (
+            <View style={styles.headerActions} testID="chat-header-actions">
+              <IconButton
+                icon="history"
+                size={20}
+                style={styles.headerAction}
+                iconColor={theme.colors.onSurfaceVariant}
+                onPress={() => navigation.navigate('ChatHistory')}
+                testID="chat-history-button"
+              />
+              <IconButton
+                icon={showFilters ? 'filter-remove-outline' : 'filter-outline'}
+                size={20}
+                style={styles.headerAction}
+                iconColor={theme.colors.onSurfaceVariant}
+                onPress={() => setShowFilters(v => !v)}
+                testID="chat-filter-toggle"
+              />
+              <IconButton
+                icon="delete-outline"
+                size={20}
+                style={styles.headerAction}
+                iconColor={theme.colors.onSurfaceVariant}
+                onPress={() => handleClearRef.current()}
+                testID="chat-clear-button"
+                disabled={clearDisabled}
+              />
+            </View>
+          )
+        : undefined,
+    });
+  }, [navigation, hasApiKey, showFilters, clearDisabled, theme]);
+
   const contextBadgeLabel = useMemo(() => {
     if (selectedPreset === 'Meso' && mesoRange) return `Meso: ${mesoRange.name}`;
     if (selectedPreset === 'Custom') {
@@ -497,9 +541,6 @@ const AIChatTab = () => {
   if (!hasCredentials) {
     return (
       <View style={[styles.centeredContainer, {backgroundColor: theme.colors.background, paddingBottom: insets.bottom}]}>
-        <Text variant="headlineSmall" style={{color: theme.colors.onSurface, marginBottom: 8}}>
-          AI Chat
-        </Text>
         <Text
           variant="bodyMedium"
           style={{color: theme.colors.onSurfaceVariant, textAlign: 'center', paddingHorizontal: 32}}
@@ -513,53 +554,12 @@ const AIChatTab = () => {
     );
   }
 
-  const isEmpty = messages.length === 0;
-
   return (
     <KeyboardAvoidingView
       style={[styles.container, {backgroundColor: theme.colors.background}]}
       behavior="padding"
       keyboardVerticalOffset={headerHeight}
     >
-      {/* Header */}
-      <View style={styles.headerRow}>
-        <Text variant="titleMedium" style={{color: theme.colors.onSurface, flex: 1}}>
-          AI Chat
-        </Text>
-        {!showFilters && (
-          <Text
-            variant="labelSmall"
-            style={[styles.contextBadge, {color: theme.colors.onSurfaceVariant}]}
-            testID="chat-context-badge"
-            numberOfLines={1}
-          >
-            {contextBadgeLabel}
-          </Text>
-        )}
-        <IconButton
-          icon="history"
-          size={20}
-          iconColor={theme.colors.onSurfaceVariant}
-          onPress={() => navigation.navigate('ChatHistory')}
-          testID="chat-history-button"
-        />
-        <IconButton
-          icon={showFilters ? 'filter-remove-outline' : 'filter-outline'}
-          size={20}
-          iconColor={theme.colors.onSurfaceVariant}
-          onPress={() => setShowFilters(v => !v)}
-          testID="chat-filter-toggle"
-        />
-        <IconButton
-          icon="delete-outline"
-          size={20}
-          iconColor={theme.colors.onSurfaceVariant}
-          onPress={handleClear}
-          testID="chat-clear-button"
-          disabled={isEmpty && !error}
-        />
-      </View>
-
       {/* GH-391 context bar — always visible, so the planning half of the context
           and the current conversation subject are never hidden behind a filter. */}
       <ScrollView
@@ -569,6 +569,18 @@ const AIChatTab = () => {
         contentContainerStyle={styles.contextBarContent}
         testID="chat-context-bar"
       >
+        {/* GH-508: the context period lives in the context bar instead of a row of
+            its own; tapping it opens the same filter section as the header icon. */}
+        <Chip
+          icon="calendar-range"
+          selected={showFilters}
+          showSelectedCheck={false}
+          onPress={() => setShowFilters(v => !v)}
+          style={styles.chip}
+          testID="chat-context-badge"
+        >
+          {contextBadgeLabel}
+        </Chip>
         <Chip
           icon={includePlanned ? 'calendar-check' : 'calendar-remove'}
           selected={includePlanned}
@@ -799,16 +811,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerRow: {
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  contextBadge: {
-    flexShrink: 1,
     marginRight: 4,
+  },
+  headerAction: {
+    marginHorizontal: 0,
   },
   chipsRow: {
     flexGrow: 0,
@@ -823,6 +832,7 @@ const styles = StyleSheet.create({
   contextBarContent: {
     flexDirection: 'row',
     gap: 8,
+    paddingTop: 8,
     paddingBottom: 6,
   },
   chipsContent: {
