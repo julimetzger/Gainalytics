@@ -1,6 +1,6 @@
-import {FAB, HelperText, IconButton, TextInput, useTheme} from 'react-native-paper';
-import {Alert, Keyboard, View} from 'react-native';
-import React, {useState} from 'react';
+import {FAB, HelperText, IconButton, SegmentedButtons, TextInput, useTheme} from 'react-native-paper';
+import {Alert, Keyboard, StyleSheet, View} from 'react-native';
+import React, {useEffect, useState} from 'react';
 import {useStore} from 'react-redux';
 import {dispatchAddTrainingsPlan} from '../../../redux/Training/dispatch/general/dispatchAddTrainingsPlan';
 import {dispatchEditTrainingsPlan} from '../../../redux/Training/dispatch/general/dispatchEditTrainingsPlan';
@@ -15,16 +15,28 @@ import Toast from 'react-native-toast-message';
 import {GlobalState} from '../../../redux/rootReducer';
 import EditDialogScaffold from '../../common/EditDialogScaffold';
 import {isValidTrainingsPlanName, trainingsPlanDisplayName} from '../../../utils/trainings-plan-name';
+import {dispatchCreatePlanFromTemplate} from '../../../redux/Training/dispatch/general/dispatchCreatePlanFromTemplate';
+import {ProgramTemplate} from '../../../models/ProgramTemplate';
+import ProgramTemplateList from '../templates/ProgramTemplateList';
+
+type PlanSource = 'empty' | 'template';
 
 interface AddTrainingsPlanProperties {
   style?: any;
   trainingsId?: number;
+  /** GH-497: open the add dialog once (onboarding "Create an empty plan"). */
+  openRequested?: boolean;
+  onOpenRequestHandled?: () => void;
 }
 
-const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
+const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandled}: AddTrainingsPlanProperties) => {
   const [visible, setVisible] = React.useState(false);
   const [TrainingName, setTrainingName] = useState('');
   const [nameError, setNameError] = useState(false);
+  // GH-497: a new plan starts empty or from a program template.
+  const [source, setSource] = useState<PlanSource>('empty');
+  const [template, setTemplate] = useState<ProgramTemplate | undefined>(undefined);
+  const createPlanFromTemplate = dispatchCreatePlanFromTemplate();
   let addTrainingsPlan = dispatchAddTrainingsPlan();
   let trainingsPlan = trainingsId ? useTrainingsPlan(trainingsId) : undefined;
   let editTrainingsPlan = dispatchEditTrainingsPlan();
@@ -36,7 +48,25 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
   const showDialog = () => {
     setTrainingName(trainingsPlan?.name ?? '');
     setNameError(false);
+    setSource('empty');
+    setTemplate(undefined);
     setVisible(true);
+  };
+
+  useEffect(() => {
+    if (!openRequested) return;
+    showDialog();
+    onOpenRequestHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openRequested]);
+
+  const selectTemplate = (selected: ProgramTemplate) => {
+    // The template name is the default plan name until the user types their own.
+    if (TrainingName.trim() === '' || TrainingName === template?.name) {
+      setTrainingName(selected.name);
+      setNameError(false);
+    }
+    setTemplate(selected);
   };
   const hideDialog = () => {
     setNameError(false);
@@ -65,6 +95,8 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
   // field — including nothing at all, which produced a plan the user could not
   // tell apart from any other draft. The dialog now stays open and explains why.
   const confirmDialog = () => {
+    const fromTemplate = !trainingsId && source === 'template';
+    if (fromTemplate && !template) return;
     if (!isValidTrainingsPlanName(TrainingName)) {
       setNameError(true);
       // The keyboard stays up on purpose: the dialog remains open and the user
@@ -77,7 +109,9 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
     // plan list, hiding the freshly created plan. Only dismiss it once we really save.
     Keyboard.dismiss();
     setVisible(false);
-    trainingsId ? editTrainingsPlan(trainingsId, name) : addTrainingsPlan({name} as TrainingsPlan);
+    if (trainingsId) editTrainingsPlan(trainingsId, name);
+    else if (fromTemplate && template) createPlanFromTemplate(template, name);
+    else addTrainingsPlan({name} as TrainingsPlan);
   };
 
   const handleExport = () => {
@@ -123,7 +157,13 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
         title={trainingsId ? `Edit ${trainingsPlanDisplayName(trainingsPlan?.name)}` : 'Add New Training Plan'}
         testID="trainings-plan-dialog"
         dismissTestID="trainings-plan-cancel"
-        primaryAction={{label: 'Save', onPress: confirmDialog, testID: 'confirm-trainings-plan'}}
+        primaryAction={{
+          label: 'Save',
+          onPress: confirmDialog,
+          disabled: !trainingsId && source === 'template' && !template,
+          testID: 'confirm-trainings-plan',
+        }}
+        scrollable={!trainingsId && source === 'template'}
         secondaryActions={
           trainingsId
             ? [{label: 'Export', icon: 'export', onPress: handleExport}]
@@ -146,6 +186,17 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
             : undefined
         }
       >
+        {!trainingsId && (
+          <SegmentedButtons
+            value={source}
+            onValueChange={(value) => setSource(value as PlanSource)}
+            style={styles.sourceSelector}
+            buttons={[
+              {value: 'empty', label: 'Empty', icon: 'file-outline', testID: 'plan-source-empty'},
+              {value: 'template', label: 'From template', icon: 'clipboard-list-outline', testID: 'plan-source-template'},
+            ]}
+          />
+        )}
         <TextInput
           testID="plan-name-input"
           mode="outlined"
@@ -163,9 +214,14 @@ const AddTrainingsPlan = ({style, trainingsId}: AddTrainingsPlanProperties) => {
         <HelperText type="error" visible={nameError} testID="plan-name-error">
           Please enter a name for the training plan.
         </HelperText>
+        {!trainingsId && source === 'template' && <ProgramTemplateList selectedId={template?.id} onSelect={selectTemplate} />}
       </EditDialogScaffold>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  sourceSelector: {marginBottom: 12},
+});
 
 export default AddTrainingsPlan;

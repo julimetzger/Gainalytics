@@ -7,6 +7,7 @@ import {Training} from '../../models/entities/Training';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {determineNewWorkoutId} from '../normalizedWorkoutState';
 import {removeDanglingExerciseReferences} from './removeDanglingExerciseReferences';
+import {normalizeExerciseName} from '../../utils/program-templates';
 
 const sanitizeTrainingWorkoutReferences = (fullImportedState: GlobalState): GlobalState => {
   const validWorkoutIds = new Set(Object.keys(fullImportedState.workouts.byId).map((workoutId) => Number(workoutId)));
@@ -48,6 +49,11 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
         ...action.state,
         videoAnalyses: action.state.videoAnalyses ?? state.videoAnalyses,
         aiChat: action.state.aiChat ?? state.aiChat,
+        // GH-497: a backup from before the onboarding existed must not bring it back.
+        settings:
+          action.state.settings && state.settings?.onboardingCompleted
+            ? {...action.state.settings, onboardingCompleted: true}
+            : action.state.settings,
       };
       return sanitizeTrainingWorkoutReferences(importedState);
     }
@@ -61,7 +67,7 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
       let maxExerciseId = Math.max(0, ...newExerciseIds);
 
       payload.exercises.forEach((importedEx) => {
-        const existingEx = Object.values(newExercises).find((ex) => ex.name.toLowerCase() === importedEx.name.toLowerCase());
+        const existingEx = Object.values(newExercises).find((ex) => normalizeExerciseName(ex.name) === normalizeExerciseName(importedEx.name));
         if (existingEx) {
           exerciseIdMap[importedEx.id!!] = existingEx.id!!;
         } else {
@@ -76,15 +82,13 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
         }
       });
 
-      // 2. Map Workouts (new IDs)
+      // 2. Map Workouts (new IDs). They are planned workouts, so they belong in
+      // `plannedWorkouts` like the ones planned in the app — `allIds` lists logged
+      // workouts, and history / last-workout dates read it (GH-497).
       const workoutIdMap: Record<number, number> = {};
       const newWorkouts = {...state.workouts.byId};
-      const newWorkoutIds = [...state.workouts.allIds];
-      let nextWorkoutId = determineNewWorkoutId({
-        ...state.workouts,
-        byId: newWorkouts,
-        allIds: newWorkoutIds,
-      });
+      const newPlannedWorkoutIds = [...(state.workouts.plannedWorkouts ?? [])];
+      let nextWorkoutId = determineNewWorkoutId(state.workouts);
 
       payload.workouts.forEach((importedWorkout) => {
         const newWorkoutId = nextWorkoutId;
@@ -95,7 +99,7 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
           exerciseId: exerciseIdMap[importedWorkout.exerciseId],
         };
         newWorkouts[newWorkoutId] = newWorkout;
-        newWorkoutIds.push(newWorkoutId);
+        newPlannedWorkoutIds.push(newWorkoutId);
         workoutIdMap[importedWorkout.id!!] = newWorkoutId;
       });
 
@@ -127,8 +131,11 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
       // 4. Map TrainingsPlan (new ID)
       const newTrainingsPlans = {...state.trainingsPlan.byId};
       const newTrainingsPlanIds = [...state.trainingsPlan.allIds];
-      let maxPlanId = Math.max(0, ...newTrainingsPlanIds);
-      maxPlanId++;
+      // A caller may reserve the id up front (GH-497: it then knows the created plan
+      // without reading the store back); a taken or missing one falls back to the next free id.
+      const requestedPlanId = action.planId as number | undefined;
+      const maxPlanId =
+        requestedPlanId !== undefined && state.trainingsPlan.byId[requestedPlanId] === undefined ? requestedPlanId : Math.max(0, ...newTrainingsPlanIds) + 1;
 
       const newPlanTrainings: Record<string, number> = {};
       Object.entries(payload.trainingsPlan.trainings ?? {}).forEach(([key, tId]) => {
@@ -153,7 +160,7 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
         workouts: {
           ...state.workouts,
           byId: newWorkouts,
-          allIds: newWorkoutIds,
+          plannedWorkouts: newPlannedWorkoutIds,
         },
         trainings: {
           ...state.trainings,

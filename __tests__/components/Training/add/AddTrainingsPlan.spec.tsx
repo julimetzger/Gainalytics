@@ -4,11 +4,13 @@ import {act, fireEvent, render} from '@testing-library/react-native';
 import {Provider as PaperProvider} from 'react-native-paper';
 import AddTrainingsPlan from '../../../../app/components/Training/add/AddTrainingsPlan';
 import {TrainingsPlan} from '../../../../app/models/entities/TrainingsPlan';
+import {PROGRAM_TEMPLATES} from '../../../../app/constants/programTemplates';
 
 const mockAddTrainingsPlan = jest.fn();
 const mockEditTrainingsPlan = jest.fn();
 const mockDeleteTrainingsPlan = jest.fn();
 const mockImportTrainingsPlan = jest.fn();
+const mockCreatePlanFromTemplate = jest.fn();
 
 let mockTrainingsPlan: TrainingsPlan | undefined;
 
@@ -32,6 +34,10 @@ jest.mock('../../../../app/redux/Training/dispatch/general/dispatchDeleteTrainin
 
 jest.mock('../../../../app/redux/fullstateactions/dispatchImportTrainingsPlan', () => ({
   useDispatchImportTrainingsPlan: () => mockImportTrainingsPlan,
+}));
+
+jest.mock('../../../../app/redux/Training/dispatch/general/dispatchCreatePlanFromTemplate', () => ({
+  dispatchCreatePlanFromTemplate: () => mockCreatePlanFromTemplate,
 }));
 
 jest.mock('../../../../app/redux/Training/use/useTrainingsPlan', () => ({
@@ -247,5 +253,67 @@ describe('AddTrainingsPlan — saving a new plan (GH-436 usability walk)', () =>
     expect(mockAddTrainingsPlan).toHaveBeenCalledWith({name: 'Second try'});
     settleExitAnimation();
     expect(queryByTestId('plan-name-input')).toBeNull();
+  });
+});
+
+describe('AddTrainingsPlan — GH-497 empty or from template', () => {
+  beforeEach(() => {
+    mockTrainingsPlan = undefined;
+    jest.clearAllMocks();
+  });
+
+  it('creates an empty plan by default', () => {
+    const {getByTestId, queryByTestId} = renderAdd();
+
+    fireEvent.press(getByTestId('add-trainings-plan'));
+    expect(queryByTestId('program-template-strength-block')).toBeNull();
+    fireEvent.changeText(getByTestId('plan-name-input'), 'My plan');
+    fireEvent.press(getByTestId('confirm-trainings-plan'));
+
+    expect(mockAddTrainingsPlan).toHaveBeenCalledWith({name: 'My plan'});
+    expect(mockCreatePlanFromTemplate).not.toHaveBeenCalled();
+  });
+
+  it('creates the plan from the picked template, named after it unless renamed', () => {
+    const {getByTestId} = renderAdd();
+
+    fireEvent.press(getByTestId('add-trainings-plan'));
+    fireEvent.press(getByTestId('plan-source-template'));
+    // Nothing picked yet → nothing is created.
+    fireEvent.press(getByTestId('confirm-trainings-plan'));
+    expect(mockCreatePlanFromTemplate).not.toHaveBeenCalled();
+
+    fireEvent.press(getByTestId('program-template-full-body-starter'));
+    expect(getByTestId('plan-name-input').props.value).toBe('Full Body Starter');
+    fireEvent.press(getByTestId('program-template-strength-block'));
+    expect(getByTestId('plan-name-input').props.value).toBe('Strength Block');
+    fireEvent.press(getByTestId('confirm-trainings-plan'));
+
+    expect(mockCreatePlanFromTemplate).toHaveBeenCalledWith(PROGRAM_TEMPLATES[0], 'Strength Block');
+    expect(mockAddTrainingsPlan).not.toHaveBeenCalled();
+  });
+
+  it('keeps a name the user typed when a template is picked', () => {
+    const {getByTestId} = renderAdd();
+
+    fireEvent.press(getByTestId('add-trainings-plan'));
+    fireEvent.changeText(getByTestId('plan-name-input'), 'Winter block');
+    fireEvent.press(getByTestId('plan-source-template'));
+    fireEvent.press(getByTestId('program-template-hypertrophy-block'));
+    fireEvent.press(getByTestId('confirm-trainings-plan'));
+
+    expect(mockCreatePlanFromTemplate).toHaveBeenCalledWith(PROGRAM_TEMPLATES[1], 'Winter block');
+  });
+
+  it('opens once when the onboarding requests it', () => {
+    const onHandled = jest.fn();
+    const {getByTestId} = render(
+      <PaperProvider>
+        <AddTrainingsPlan openRequested onOpenRequestHandled={onHandled} />
+      </PaperProvider>,
+    );
+
+    expect(getByTestId('plan-name-input')).toBeTruthy();
+    expect(onHandled).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,5 +1,12 @@
-import {ANALYSE_DRAWER_HIDDEN_ROUTES, getAnalyseDrawerItemOptions, getAnalyseHeaderTitleStyle} from '../../app/routing/AnalyseRouter';
+import {
+  ANALYSE_DRAWER_HIDDEN_ROUTES,
+  getAnalyseDrawerItemOptions,
+  getAnalyseDrawerLayoutOptions,
+  getAnalyseHeaderTitleStyle,
+} from '../../app/routing/AnalyseRouter';
 import {MD3DarkTheme, MD3LightTheme} from 'react-native-paper';
+import {getDefaultHeaderHeight} from '@react-navigation/elements';
+import {Platform} from 'react-native';
 
 /**
  * GH-458 (H1/H2): "Video Analysis Detail" and "Compare Analyses" were reachable
@@ -39,5 +46,32 @@ describe('Analyse header title font (GH-484)', () => {
       fontFamily: theme.fonts.titleMedium.fontFamily,
       fontWeight: '500',
     });
+  });
+});
+
+/**
+ * GH-420: the drawer spanned the full screen height and covered the header, so
+ * the menu icon sat underneath the drawer's first entry — tapping it to close
+ * the drawer selected "Dashboard" instead. The drawer must start exactly where
+ * the drawer navigator's header ends, leaving the menu icon under the overlay.
+ */
+describe('Analyse drawer starts below the header (GH-420)', () => {
+  // The app ships on Android only; jest's react-native preset defaults to iOS,
+  // whose header is shorter.
+  const originalOS = Platform.OS;
+  beforeAll(() => {
+    Platform.OS = 'android';
+  });
+  afterAll(() => {
+    Platform.OS = originalOS;
+  });
+
+  it.each([0, 24, 28, 48])('aligns the drawer top with the header bottom for a %i dp status bar', (topInset) => {
+    const portrait = {width: 360, height: 800};
+    expect(getAnalyseDrawerLayoutOptions(topInset).drawerStyle.top).toBe(getDefaultHeaderHeight(portrait, false, topInset));
+  });
+
+  it('drops the status-bar padding from the drawer list', () => {
+    expect(getAnalyseDrawerLayoutOptions(28).drawerContentContainerStyle).toEqual({paddingTop: 12});
   });
 });

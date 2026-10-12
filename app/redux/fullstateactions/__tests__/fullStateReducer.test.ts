@@ -91,11 +91,12 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
           1: {id: 1, exerciseId: 1, sets: []},
           2: {id: 2, exerciseId: 2, sets: []},
         },
-        plannedWorkouts: [],
+        // GH-497: imported planned workouts are planned, not logged.
+        plannedWorkouts: [2],
         byExerciseId: {
           1: [1],
         },
-        allIds: [1, 2],
+        allIds: [1],
       },
       trainings: {
         byId: {
@@ -203,9 +204,9 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
           5: {id: 5, exerciseId: 99, sets: []},
           6: {id: 6, exerciseId: 1, sets: []},
         },
-        plannedWorkouts: [],
+        plannedWorkouts: [6],
         byExerciseId: {},
-        allIds: [6],
+        allIds: [],
       },
       trainings: {
         byId: {
