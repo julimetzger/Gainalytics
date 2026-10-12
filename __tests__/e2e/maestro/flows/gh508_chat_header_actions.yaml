@@ -5,15 +5,19 @@ name: GH-508 AI Chat — one title, actions in the header, context period as a c
 # first message is "GH508 how did my squat develop…" and last is
 # "GH508 last message marker") and an API key stored. THEME = light | dark.
 # The flow ends with the conversation resumed, so it can run once per theme.
+# stopApp: false keeps the Analyse tab on the chat between runs, so a repeat
+# run does not have to go through the drawer again.
 - launchApp:
     clearState: false
+    stopApp: false
 - runFlow:
     when:
       visible: 'Dismiss'
     commands:
       - tapOn: 'Dismiss'
+# The bottom bar labels only the active tab — wait for a tab button instead.
 - extendedWaitUntil:
-    visible: 'Training'
+    visible: 'tab-settings'
     timeout: 120000
 
 # ── Theme ───────────────────────────────────────────────────────────────────
@@ -38,9 +42,7 @@ name: GH-508 AI Chat — one title, actions in the header, context period as a c
 - tapOn: 'tab-analyse'
 - waitForAnimationToEnd
 # The Analyse tab reopens on the screen it was left on. Only go through the
-# drawer when that is not the chat — the closed drawer keeps its entries in the
-# hierarchy, so "Chat History is visible" says nothing about the drawer being
-# open, and the header now also reads "AI Chat".
+# drawer when that is not the chat (the header there also reads "AI Chat").
 - runFlow:
     when:
       notVisible:
@@ -48,7 +50,14 @@ name: GH-508 AI Chat — one title, actions in the header, context period as a c
     commands:
       - tapOn:
           id: 'analyse-drawer-toggle'
-      - waitForAnimationToEnd
+      # Under load the toggle tap lands seconds late; picking an entry while the
+      # drawer is still sliding in can leave it stuck open over the chat (seen
+      # with the old layout too). Wait until it is really open.
+      - extendedWaitUntil:
+          visible: 'Chat History'
+          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 10000
       - tapOn:
           text: 'AI Chat'
           below:
