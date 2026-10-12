@@ -3,7 +3,8 @@ import SettingsTab from '../tabs/settings/SettingsTab';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 export type RootStackParamList = {
-  Settings: undefined;
+  // GH-497: the onboarding's "Import data" opens the import confirmation.
+  Settings: {openImport?: boolean} | undefined;
 };
 
 const SettingsRouter = () => {

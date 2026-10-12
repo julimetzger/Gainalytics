@@ -377,3 +377,48 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Async token refresh vs. sign-out: guard the write with a session generation
 **Observation:** a refresh started before sign-out wrote rotated tokens back after `clearTokens()`, so the account returned after a restart. Fix: bump a module-level `sessionGeneration` on sign-in, sign-out and terminal refresh errors. The refresh captures it at the start; if it changed, the refresh does not write, returns null and revokes the new refresh token. Clear the tokens before the remote revoke. Test it by holding the refresh `fetch` in a manual promise, signing out, then resolving the refresh.
 **Apply when:** any persisted credential that can be written by a background refresh. (seen in GH-504)
+### An empty store now opens the first-start onboarding OVER the tabs — empty-store flows must skip it
+**Problem (GH-497):** after `pm clear`/`clearState` (no plans, trainings or logged workouts) a full-screen onboarding (`onboarding-screen`) covers the tab bar. `tab-training`/`training-home-screen` are still in the hierarchy underneath, so waits pass but taps hit the overlay (the Settings scroll in `smoke.yaml` failed with "No visible element found").
+**Fix / Rule:** `runFlow: gh497_dismiss_onboarding.yaml` (waits for `tab-training`, then taps `onboarding-skip` if visible). `00_import_baseline.yaml` and `smoke.yaml` already call it. A `when: visible: {id: onboarding-skip}` checked right after `launchApp` runs before the JS has rendered and is silently SKIPPED. Reopen it on purpose via Settings › Help `settings-show-onboarding-button`.
+**Apply when:** writing or reviving any flow that starts from an empty store (seen in GH-497).
+
+### `navigate('Settings', {screen: 'Settings', params})` from the container ref is swallowed by the focused Settings stack
+**Problem (GH-497):** the Settings tab and its stack screen share the name "Settings". While that tab is focused, the inner stack handles the action itself and the screen receives `route.params = {screen: 'Settings', params: {…}}` — the one-shot param never arrives (seen via a `console.log` of `route.params` in logcat `ReactNativeJS`).
+**Fix / Rule:** address the tab navigator: `navigationRef.dispatch({...CommonActions.navigate(tab, {screen, params, initial}), target: navigationRef.getRootState().key})` (see `OnboardingGate.navigateInTab`). Training is safe (tab "Training", screens "TrainingHome"/"TrainingPlan").
+**Apply when:** navigating into a tab's stack from outside the navigators (notification handlers, overlays) (seen in GH-497).
+
+### From a running training back to Training home: `tapOn: 'tab-training'`, not `hideKeyboard`/`back`
+**Observation (GH-497):** on the emulator no soft keyboard is up after `add-workout-set-confirm-N`, so `hideKeyboard` is a BACK that already lands on home. A following guarded `back` (`when: notVisible: training-home-screen`, evaluated during the transition) then left the app. Tapping the focused Training tab pops the native stack to `training-home-screen` deterministically; the dashboard is assertable there (`micro-hero-value` "360 kg", `next-training-status-label` "Training running").
+**Apply when:** a flow logs sets and then asserts the home dashboard (seen in GH-497).
+
+### Real baseline state in jest: `rootReducer(undefined, {type: '@@INIT'})` + `FULL_IMPORT` of the fixture read with `fs`
+**Observation (GH-497):** `require('../testdata/x.gains')` fails ("Jest encountered an unexpected token"), but `JSON.parse(fs.readFileSync(path.join(__dirname, '…/baseline.gains'), 'utf8'))` works. Reducing `FULL_IMPORT` onto the fresh-install state gives the exact device store, so selectors (e.g. `selectAllTimeOneRepMax`: Squat id 2 = 225 kg) can be computed and then asserted as concrete values in Maestro. Delete the throwaway spec afterwards.
+**Apply when:** a Maestro assertion needs a value derived from the fixture (seen in GH-497).
+
+### Imported plans stored planned workouts as LOGGED ones (fixed in GH-497)
+**Observation (GH-497):** before GH-497, `IMPORT_TRAININGS_PLAN` pushed the plan's workouts into `workouts.allIds` (the logged list read by history/last-workout-date), not `plannedWorkouts`. It now uses `plannedWorkouts`; templates use the same path. Plans imported before the fix may still have such ids in `allIds`.
+**Apply when:** debugging phantom "logged" workouts without a date after a plan import.
+
+
+### Resumed round: the previous round's adb filter proxy is gone, so its helper scripts drive the phone
+**Problem / Symptom:** In a feedback round the run-dir helper script still hardcoded the round-1 proxy (`--host 127.0.0.88`), which was no longer running. Switching it to the gateway (`--host 172.18.240.1 --device emulator-5556`) made Maestro log "Selected device emulator-5556" while `launchApp` force-stopped and relaunched the app on R5CN30HWZFN (`Got device info … widthPixels=720`). Every assertion failed even though uiautomator on the emulator showed the element.
+**Fix / Rule:** At the start of every round, run `ss -tlnp | grep :5037` and restart your own proxy (`python3 .codex-orchestrator/proxies/adb_filter_proxy.py --serial $ANDROID_SERIAL --listen 127.0.0.<n>:5037 --upstream <gateway>:5037`), then verify with `adb -H 127.0.0.<n> -P 5037 devices`. Put a `widthPixels` check from `maestro.log` into the helper so a wrong device fails loudly.
+**Apply when:** resuming a ticket in a new round, or reusing run-dir scripts. (seen in GH-497)
+
+### Dispatch hooks that need the created entity: reserve the id via a selector, don't read the store back
+**Problem / Symptom:** Review rejected `useStore().getState()` inside a dispatch hook (inputs before the dispatch, the new plan after it).
+**Fix / Rule:** Read inputs with `useSelector` (memoized selectors; for per-id lookups use a `createSelector` that returns a function over the slice), reserve the id with `determineNewId(state.<slice>)`, send it in the action (the reducer honours it if free), and return it. Adding `useSelector` to a hook breaks component specs whose mocked `useSelector(selector(mockState))` state lacks that slice, so mock the hook there.
+**Apply when:** a dispatch must hand the new entity's id to navigation or UI. (seen in GH-497)
+### Reproduce gesture-navigation reports on the test phone via the navbar overlay
+**Problem (GH-420):** the user's screenshot showed gesture navigation (pill, no 3-button bar); the test phone runs 3-button nav, so edge-swipe/back behaviour differed.
+**Fix / Rule:** `adb -s $S shell cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.gestural` (back: `…navbar.threebutton`; check `settings get secure navigation_mode` 2/0). The switch recreates the activity: ~15 s white screen, the bottom tab bar moves (y 1376→1434 on 720x1600), and once Samsung's Galaxy Finder popped up in front, so run a foreground check afterwards. Restore 3-button nav before finishing. Animations off (`settings put global animator_duration_scale/transition_animation_scale/window_animation_scale 0`, restart app) emulates Reanimated reduced motion; restore to 1.
+**Apply when:** a bug report's screenshot shows a different nav mode or the bug may depend on gestures/animations.
+
+### Prove a drawer is closed by tapping a control INSIDE its area
+**Observation (GH-420):** `Close drawer` (overlay content-desc) vanishing and underlying text in the a11y tree prove nothing (the Analyse drawer content stays in the tree while open). Strong check: after closing, tap a control of the screen behind whose bounds lie within the drawer's width (Records `records-view-muscle` / `records-view-heatmap`) and assert the switched view (`records-muscle-lanes.*` / `records-heatmap.*`). If the drawer were still open, the tap would hit a drawer entry. Since GH-420 the Analyse drawer starts below the header, and tapping `analyse-drawer-toggle` while it is open closes it (it used to select "Dashboard").
+**Apply when:** any drawer/overlay open-close evidence.
+
+### `pgrep -f`/`kill` with a pattern from the same Bash call kills your own shell
+**Problem (GH-420):** `for p in $(pgrep -f "maestro.*--driver-host-port 7055"); do kill $p; done` matched the tool's own bash (its cmdline contains the pattern) → exit 144, rest of the command never ran.
+**Fix / Rule:** take PIDs from `ps -eo pid,cmd | grep … | grep -v grep` and check them before killing, or kill the PID you captured with `$!` at launch.
+**Apply when:** cleaning up Maestro/adb/wrapper processes after a failed run.

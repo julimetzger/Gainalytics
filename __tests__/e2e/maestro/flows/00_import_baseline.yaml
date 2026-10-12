@@ -10,6 +10,8 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: 'Training'
     timeout: 120000
+# GH-497: an empty store (fresh install / clearState) opens the onboarding over the tabs.
+- runFlow: gh497_dismiss_onboarding.yaml
 - tapOn: 'tab-settings'
 - scrollUntilVisible:
     element:

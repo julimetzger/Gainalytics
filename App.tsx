@@ -5,6 +5,7 @@ import configureStore from './configureStore';
 import {createNavigationContainerRef, NavigationContainer} from '@react-navigation/native';
 import {Provider as PaperProvider} from 'react-native-paper';
 import {BottomTabs} from './app/routing/bottomNavigator';
+import OnboardingGate from './app/components/onboarding/OnboardingGate';
 import {EventProvider} from 'react-native-outside-press';
 import {registerTranslation} from 'react-native-paper-dates';
 import {useSettings} from './app/redux/settings/use/useSettings';
@@ -115,6 +116,8 @@ const AppWithPersist = () => {
               >
                 <BottomTabs />
               </NavigationContainer>
+              {/* GH-497: covers the tabs on a first start without data. */}
+              <OnboardingGate navigationRef={navigationRef} />
             </EventProvider>
           </SafeAreaProvider>
         </PaperProvider>
