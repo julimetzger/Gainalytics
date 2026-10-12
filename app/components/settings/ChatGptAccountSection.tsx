@@ -20,13 +20,14 @@ const ChatGptAccountSection = () => {
   // Without a choice, requests use the first model the plan lists.
   const selectedModel = chosenModel ?? models?.[0];
 
-  const statusText = session
-    ? `Connected as ${session.email ?? 'ChatGPT account'}`
-    : phase === 'waiting'
+  const statusText =
+    phase === 'waiting'
       ? 'Waiting for sign-in in the browser…'
       : phase === 'exchanging'
         ? 'Finishing sign-in…'
-        : 'Not signed in';
+        : session
+          ? `Connected as ${session.email ?? 'ChatGPT account'}`
+          : 'Not signed in';
 
   return (
     <View testID="settings-chatgpt-section">
@@ -71,13 +72,36 @@ const ChatGptAccountSection = () => {
             </HelperText>
           )}
           <View style={styles.row}>
-            <Button mode="outlined" style={styles.flex} onPress={() => Linking.openURL(CHATGPT_USAGE_URL)}>
-              Usage
+            {/* Signs in again without signing out first; the stored sign-in is only replaced on success. */}
+            <Button
+              mode="outlined"
+              style={styles.flex}
+              onPress={startSignIn}
+              loading={busy}
+              disabled={busy}
+              testID="settings-chatgpt-reconnect-button"
+            >
+              Reconnect
             </Button>
-            <Button mode="outlined" style={styles.flex} onPress={signOut} testID="settings-chatgpt-signout-button">
+            <Button
+              mode="outlined"
+              style={styles.flex}
+              onPress={signOut}
+              disabled={busy}
+              testID="settings-chatgpt-signout-button"
+            >
               Sign out
             </Button>
           </View>
+          {busy ? (
+            <Button onPress={cancelSignIn} testID="settings-chatgpt-cancel-button">
+              Cancel sign-in
+            </Button>
+          ) : (
+            <Button icon="open-in-new" onPress={() => Linking.openURL(CHATGPT_USAGE_URL)}>
+              Check usage on chatgpt.com
+            </Button>
+          )}
         </>
       ) : (
         <View style={styles.row}>

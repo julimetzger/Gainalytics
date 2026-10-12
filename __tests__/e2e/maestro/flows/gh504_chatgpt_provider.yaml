@@ -1,0 +1,144 @@
+appId: com.powerliftingworkoutplanner
+name: GH-504 ChatGPT provider — Settings choice, sign-in state, multi-turn AI Chat and Stop
+---
+# Manual-only: needs a device on which a ChatGPT account is already signed in
+# (Settings → AI Coach → AI Configuration → ChatGPT (Sign in) → Continue with ChatGPT).
+# Never clears state and never signs out, so the stored sign-in survives.
+# Leaves "ChatGPT (Sign in)" selected as the provider.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+
+# ── Settings: provider choice ────────────────────────────────────────────────
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-ai-config-accordion'
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: 'settings-ai-config-accordion'
+- extendedWaitUntil:
+    visible:
+      id: 'settings-ai-provider-claude'
+    timeout: 10000
+
+# Claude: the unchanged API-key fields.
+- tapOn:
+    id: 'settings-ai-provider-claude'
+- assertVisible:
+    id: 'settings-anthropic-api-key-input'
+- assertNotVisible:
+    id: 'settings-chatgpt-section'
+
+# ChatGPT: signed in with plan usage, models of the plan listed.
+- tapOn:
+    id: 'settings-ai-provider-chatgpt'
+- extendedWaitUntil:
+    visible:
+      id: 'settings-chatgpt-status'
+      text: 'Connected as .+@.+'
+    timeout: 10000
+- assertNotVisible:
+    id: 'settings-anthropic-api-key-input'
+- assertNotVisible:
+    id: 'settings-chatgpt-plan-usage-missing'
+- scrollUntilVisible:
+    element:
+      id: 'settings-chatgpt-signout-button'
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- extendedWaitUntil:
+    visible:
+      id: 'settings-chatgpt-model-gpt-.*'
+    timeout: 30000
+- takeScreenshot: gh504_r3_settings_chatgpt_connected
+
+# ── AI Chat with ChatGPT ─────────────────────────────────────────────────────
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'AI Chat'
+    timeout: 10000
+- tapOn: 'AI Chat'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 20000
+- assertNotVisible:
+    id: 'chat-no-key-message'
+- tapOn:
+    id: 'chat-clear-button'
+- tapOn:
+    id: 'chat-filter-toggle'
+# Meso: the baseline fixture's trainings are months old, so 7d/28d would attach no data.
+# The current meso range does, and that context must travel with the prompt as with Claude.
+- tapOn:
+    id: 'chat-preset-Meso'
+- tapOn:
+    id: 'chat-filter-toggle'
+
+# Message 1 — a format only a real model answer can satisfy (digits after "REST=").
+- tapOn:
+    id: 'chat-input'
+- inputText: 'Reply with only REST=<minutes> min: rest between heavy squat sets?'
+- hideKeyboard
+- tapOn:
+    id: 'chat-send-button'
+- extendedWaitUntil:
+    visible: '(?s).*REST=[0-9]+.*'
+    timeout: 120000
+- assertNotVisible:
+    id: 'chat-error'
+- assertNotVisible:
+    id: 'chat-no-context-warning'
+
+# Message 2 — only answerable with the history: "the same format" refers to message 1.
+- tapOn:
+    id: 'chat-input'
+- inputText: 'Same format, but with BENCH= instead of REST=, for bench press.'
+- hideKeyboard
+- tapOn:
+    id: 'chat-send-button'
+- extendedWaitUntil:
+    visible: '(?s).*BENCH=[0-9]+.*'
+    timeout: 120000
+- assertVisible: '(?s).*REST=[0-9]+.*'
+- assertNotVisible:
+    id: 'chat-error'
+- takeScreenshot: gh504_r3_chat_two_answers
+
+# Stop: the running request is cancelled and the question goes back into the input box.
+# A long answer is requested so the request is still running when Stop is tapped.
+- tapOn:
+    id: 'chat-input'
+- inputText: 'Write a 2000 word essay on squat history 4711'
+- hideKeyboard
+- tapOn:
+    id: 'chat-send-button'
+- tapOn:
+    id: 'chat-stop-button'
+- extendedWaitUntil:
+    notVisible:
+      id: 'chat-loading'
+    timeout: 15000
+- assertVisible:
+    text: 'Write a 2000 word essay on squat history 4711'
+- assertVisible: 'Request cancelled\.'
+- assertNotVisible:
+    id: 'chat-stop-button'
+- takeScreenshot: gh504_r3_chat_after_stop
