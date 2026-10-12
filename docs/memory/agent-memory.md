@@ -470,3 +470,15 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Changing font scale or density while the app runs crashes it ("Screen fragments should never be restored")
 **Observation (GH-508):** `settings put system font_scale …` / `wm density …` recreates the activity; react-native-screens throws in `ScreenFragment.<init>` (logcat `-b crash`), the app dies (Application Error dialog or launcher). Set the values first, then cold-start the app and navigate. Restore with `wm density reset` + `font_scale 1.0`.
 **Apply when:** checking narrow screens / large fonts on the device.
+
+### The plan drawer's rows ARE visible to Maestro (positive checks), and the drawer keeps its scroll position
+**Observation (GH-509):** `assertVisible: 'Mesos:'`, `'Add Meso'`, `'Training 5'` and `tapOn: 'Add Training'` inside the open plan drawer all worked on the real phone. So for positive checks the "drawer not in hierarchy" note in app-screens.md is out of date (it still holds for `assertNotVisible` gating). The drawer also stays where it was scrolled: after scrolling to the `Micro N` pager, the next open starts mid-list and `Mesos:` is off-screen. Wait for a lower element, then `scrollUntilVisible {element: 'Mesos:', direction: UP}`.
+**Apply when:** writing flows that open the plan drawer more than once, or the drawer of a plan with a long training list.
+
+### Kebab "Edit plan" (`overflow-edit-plan`) only exists on the Plan sub-tab; the landing sub-tab varies
+**Problem (GH-509):** the gh340 recipe (Micro 69 → Push → kebab → `overflow-edit-plan`) now lands on Train or Analysis, and there the kebab only offers "Edit training" (`overflow-edit`) / "Delete". On the 720x1600 phone the sub-tab strip sits at y≈11 % (`point: '17%,11%'`), not the 14 % from the gh401 emulator flow. At 14 % you hit the Analysis "Show Plan/Train" toggle instead.
+**Fix / Rule:** `repeat while notVisible overflow-edit-plan: [tap 17%,11%; tap header-overflow-icon; when notVisible overflow-edit-plan → tap 50%,60% (dismisses the menu)]` (see `gh509_drawer_in_plan_edit.yaml`). Prove the mode with `header-plan-editing-kicker`.
+**Apply when:** a flow needs "EDITING PLAN" mode.
+
+### `settings-theme-active-mode` is gone, so `gh482_set_theme.yaml` fails at its assertion
+**Fix / Rule:** assert the segment itself: `assertVisible: {id: '^settings-theme-mode-${MODE}$', checked: true}`. For palette + custom HEX in one helper, use `gh509_set_appearance.yaml` (env MODE / PALETTE / HEX). (seen in GH-509)
