@@ -1,0 +1,26 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-496: Settings → "Import from Strong CSV" → pick ${FILE} in the system file picker.
+- scrollUntilVisible:
+    element:
+      id: 'settings-import-strong-csv-button'
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    id: 'settings-import-strong-csv-button'
+- runFlow:
+    when:
+      visible: 'Use without an account'
+    commands:
+      - tapOn: 'Use without an account'
+- runFlow:
+    when:
+      visible: 'No thanks'
+    commands:
+      - tapOn: 'No thanks'
+- scrollUntilVisible:
+    element:
+      text: '${FILE}'
+    direction: DOWN
+    timeout: 30000
+- tapOn: '${FILE}'

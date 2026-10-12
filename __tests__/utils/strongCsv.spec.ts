@@ -262,6 +262,13 @@ describe('Strong import', () => {
     const twice = importStrong(once, csv);
     expect(twice.trainingsPlan.allIds).toEqual(once.trainingsPlan.allIds);
     expect(twice.workouts).toBe(once.workouts);
+    // Sessions merged into another training of the same day are recognised, too.
+    const sameDay = strong6(strong6Row(1, '2024-01-01 08:00:00', 'Push', 'Bench', '1', '100', '5'), strong6Row(2, '2024-01-01 18:00:00', 'Pull', 'Row', '1', '60', '10'));
+    const merged = importStrong(freshState(), sameDay);
+    expect(buildStrongImport(merged, parseStrongCsv(sameDay)).summary).toEqual(expect.objectContaining({trainingCount: 0, duplicateSessionCount: 2}));
+    // The round trip: a Gainalytics export re-imported into the app it was imported into adds nothing.
+    const roundTrip = importStrong(freshState(), buildStrongExport(baselineState()).csv);
+    expect(buildStrongImport(roundTrip, parseStrongCsv(buildStrongExport(baselineState()).csv)).summary.trainingCount).toBe(0);
     // A Gainalytics export imported back into the same app is all duplicates, too.
     const baseline = baselineState();
     expect(buildStrongImport(baseline, parseStrongCsv(buildStrongExport(baseline).csv)).summary.trainingCount).toBe(0);

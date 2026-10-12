@@ -228,6 +228,8 @@ const mondayDayNumber = (time: number) => dayNumber(time) - weekdayIndex(time);
 
 interface MergedSession {
   start: number;
+  /** Starts of the later sessions folded into this one. */
+  mergedStarts: number[];
   end: number;
   name: string;
   notes: string[];
@@ -250,11 +252,13 @@ function mergeSameDaySessions(sessions: ParsedStrongSession[]): MergedSession[] 
           name: session.name.trim(),
           notes: session.notes ? [session.notes] : [],
           exercises: session.exercises.map((e) => ({...e, sets: [...e.sets]})),
+          mergedStarts: [],
           merged: 0,
         });
         return;
       }
       existing.merged++;
+      existing.mergedStarts.push(session.start);
       existing.end = Math.max(existing.end, end);
       if (session.notes && !existing.notes.includes(session.notes)) existing.notes.push(session.notes);
       session.exercises.forEach((exercise) => {
@@ -279,8 +283,10 @@ export function buildStrongImport(state: GlobalState, parsed: ParsedStrongFile, 
   // 1. Skip sessions that already exist (same start second) — no double import.
   const existingStarts = new Set<number>();
   state.trainings.allIds.forEach((id) => {
-    const start = toTime(state.trainings.byId[id]?.start);
+    const training = state.trainings.byId[id];
+    const start = toTime(training?.start);
     if (start !== undefined) existingStarts.add(Math.floor(start / 1000));
+    training?.mergedSessionStarts?.forEach((merged) => existingStarts.add(Math.floor(merged / 1000)));
   });
   state.workouts.allIds.forEach((id) => {
     const start = toTime(state.workouts.byId[id]?.start);
@@ -421,6 +427,7 @@ export function buildStrongImport(state: GlobalState, parsed: ParsedStrongFile, 
       plannedWorkouts: {},
       doneWorkoutIds,
       ...(session.notes.length > 0 ? {notes: session.notes.join('\n')} : {}),
+      ...(session.mergedStarts.length > 0 ? {mergedSessionStarts: session.mergedStarts} : {}),
     };
     trainingsById[trainingId] = training;
     trainingAllIds.push(trainingId);
