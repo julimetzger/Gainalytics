@@ -39,24 +39,9 @@ jest.mock('@react-navigation/native', () => {
   return {
     useFocusEffect: (cb: any) => React.useEffect(cb, []),
     useIsFocused: () => true,
-    // GH-508: the screen hands its history/filter/clear buttons to the navigation
-    // header. The harness below renders whatever headerRight the screen sets.
-    useNavigation: () => ({navigate: jest.fn(), setOptions: (o: any) => mockHeader.set(o.headerRight)}),
+    useNavigation: () => ({navigate: jest.fn()}),
   };
 });
-
-const mockHeader: {set: (h: any) => void} = {set: () => {}};
-
-function HeaderHarness({children}: {children: React.ReactNode}) {
-  const [headerRight, setHeaderRight] = React.useState<any>(undefined);
-  mockHeader.set = (h: any) => setHeaderRight(() => h);
-  return (
-    <>
-      {headerRight ? headerRight() : null}
-      {children}
-    </>
-  );
-}
 
 jest.mock('react-native-markdown-display', () => {
   const {Text} = require('react-native');
@@ -79,6 +64,7 @@ jest.mock('../../../app/components/picker/date/DateRangePicker', () => {
   };
 });
 
+import AIChatHeaderActions from '../../../app/tabs/Analyse/AIChatHeaderActions';
 import AIChatTab from '../../../app/tabs/Analyse/AIChatTab';
 
 const set = (reps: number, weight: number, rir: number, extra: Partial<WorkoutSet> = {}): WorkoutSet => ({
@@ -165,9 +151,9 @@ function renderTab(preloadedState: GlobalState) {
   render(
     <ReduxProvider store={store}>
       <PaperProvider>
-        <HeaderHarness>
-          <AIChatTab />
-        </HeaderHarness>
+        {/* GH-508: the filter toggle lives in the navigation header. */}
+        <AIChatHeaderActions onOpenHistory={() => {}} />
+        <AIChatTab />
       </PaperProvider>
     </ReduxProvider>,
   );
@@ -438,5 +424,31 @@ describe('GH-391 does not disturb what already worked', () => {
 
     fireEvent.press(screen.getByTestId('chat-preset-7d'));
     expect(screen.getByTestId('chat-context-info')).toHaveTextContent('AI has access to');
+  });
+});
+
+describe('GH-508 more room for the chat', () => {
+  it('does not repeat the "AI Chat" title inside the screen', () => {
+    renderTab(buildState());
+    // The navigation header owns the title; the screen itself must not render it.
+    expect(screen.queryByText('AI Chat')).toBeNull();
+  });
+
+  it('opens and closes the range filter from the context-period chip as well', () => {
+    renderTab(buildState());
+    expect(screen.queryByTestId('chat-preset-7d')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('chat-context-badge'));
+    expect(screen.getByTestId('chat-preset-7d')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('chat-preset-7d'));
+    expect(screen.getByTestId('chat-context-badge')).toHaveTextContent('Context: 7d');
+
+    fireEvent.press(screen.getByTestId('chat-context-badge'));
+    expect(screen.queryByTestId('chat-preset-7d')).toBeNull();
+  });
+
+  it('keeps clear disabled in the header until there is something to clear', () => {
+    renderTab(buildState());
+    expect(screen.getByTestId('chat-clear-button')).toBeDisabled();
   });
 });
