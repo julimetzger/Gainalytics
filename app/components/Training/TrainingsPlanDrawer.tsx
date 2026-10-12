@@ -2,8 +2,9 @@ import {Divider, IconButton, SegmentedButtons, Text, TextInput, ThemeBase, Toolt
 import {MD3Colors, MD3Typescale} from 'react-native-paper/lib/typescript/types';
 import {Action} from 'redux';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
-import {View, Keyboard, ScrollView} from 'react-native';
+import {View, Keyboard, ScrollView, StyleSheet} from 'react-native';
 import React, {useState, useRef, useEffect} from 'react';
+import DashedAddButton from '../shared/DashedAddButton';
 import {getLocalMicro, getMesoEndMicro, getMesoForMicro, getSortedMesos} from '../../redux/Training/trainingsPlanReducer';
 
 interface TrainingsPlanDrawerProps {
@@ -150,18 +151,9 @@ const TrainingsPlanDrawer = ({
           </View>
         );
       })}
-      <View>
-        <IconButton
-          testID="icon-plus-circle"
-          icon="plus-circle"
-          onPress={onAddMeso}
-          theme={theme}
-          // GH-404: `tertiaryContainer` is a near-white fill in the light
-          // schemes, so these "+" icons were invisible on the drawer surface.
-          iconColor={theme.colors.tertiary}
-          size={40}
-        />
-      </View>
+      {/* GH-509: full-width dashed button in the "Add set" style instead of a lone "+" icon.
+          The testID is kept so existing flows still find the meso add button. */}
+      <DashedAddButton label="Add Meso" testID="icon-plus-circle" onPress={onAddMeso} style={styles.addButton} />
       <Divider />
       <View style={{display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
         <Text style={{fontSize: theme.fonts.headlineSmall.fontSize, marginLeft: 5}}>Trainings:</Text>
@@ -240,19 +232,14 @@ const TrainingsPlanDrawer = ({
           </View>
         );
       })}
-      <View>
-        <IconButton
-          icon="plus-circle"
-          onPress={() => {
-            changeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1);
-          }}
-          theme={theme}
-          // GH-404: `tertiaryContainer` is a near-white fill in the light
-          // schemes, so these "+" icons were invisible on the drawer surface.
-          iconColor={theme.colors.tertiary}
-          size={40}
-        ></IconButton>
-      </View>
+      <DashedAddButton
+        label="Add Training"
+        testID="drawer-add-training-button"
+        onPress={() => {
+          changeTrainingsName(trainingsPlan.id!!, 'Training ' + (Object.keys(trainingsPlan.trainingNames ?? []).length + 1), Object.keys(trainingsPlan.trainingNames ?? []).length + 1);
+        }}
+        style={styles.addButton}
+      />
       <Divider />
       <TouchableRipple>
         <Tooltip title="Displays workout statistics for this Micro">
@@ -306,5 +293,13 @@ const TrainingsPlanDrawer = ({
     </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  addButton: {
+    marginHorizontal: 8,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+});
 
 export default TrainingsPlanDrawer;
