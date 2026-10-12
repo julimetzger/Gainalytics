@@ -10,3 +10,6 @@ Push both to `/sdcard/Download/` before running `gh496_strong_import_roundtrip.y
   above the baseline Squat record 225) and a failed 260 kg × 0 attempt. Imported on top of the
   baseline by `gh496_strong_new_record.yaml`: the failed attempt is skipped and the 240 kg record
   shows under Analyse → Records with +15 kg to the previous baseline record.
+- `gh496_invalid_weight.csv`: a Bench Press row with reps but a broken weight (`1OO.0`) in line 3 —
+  must be rejected as a whole with the line number, not imported as 0 kg. The empty weight of the
+  reps-only Pull Up (as Strong writes it) is fine on its own.

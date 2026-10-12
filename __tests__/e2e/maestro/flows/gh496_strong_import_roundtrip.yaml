@@ -2,7 +2,8 @@ appId: com.powerliftingworkoutplanner
 ---
 # GH-496 round trip: the Gainalytics export of the baseline store (gh496_strong_export.yaml,
 # saved to Downloads) imported into an EMPTY app. Before this flow: `pm clear` the app
-# (+ restore debug_http_host / POST_NOTIFICATIONS) and push fixtures/gh496/gh496_invalid.csv
+# (+ restore debug_http_host / POST_NOTIFICATIONS) and push fixtures/gh496/gh496_invalid.csv and
+# gh496_invalid_weight.csv
 # to /sdcard/Download. Expected values come from buildStrongImport on the baseline export:
 # 387 workouts → 375 trainings (12 same-day merges) in 123 weeks, 5768 exported sets, of which
 # 5767 are imported: the baseline's one failed attempt (105 kg × 0) is skipped. 81 exercises.
@@ -38,6 +39,19 @@ appId: com.powerliftingworkoutplanner
     timeout: 30000
 - assertVisible: 'gh496_invalid\.csv: Line 3: "2024-13-45 18:00:00" is not a valid date\. Nothing was imported\.'
 - takeScreenshot: gh496_05_invalid_file
+- tapOn:
+    id: 'strong-csv-notice-ok-button'
+
+# A strength row with reps but a broken weight: error with the line number, not a 0 kg set
+- runFlow:
+    file: gh496_pick_file.yaml
+    env:
+      FILE: gh496_invalid_weight.csv
+- extendedWaitUntil:
+    visible: 'Import failed'
+    timeout: 30000
+- assertVisible: 'gh496_invalid_weight\.csv: Line 3: "1OO\.0" is not a valid weight\. Nothing was imported\.'
+- takeScreenshot: gh496_05b_invalid_weight
 - tapOn:
     id: 'strong-csv-notice-ok-button'
 - tapOn: 'tab-training'
