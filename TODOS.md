@@ -79,7 +79,7 @@
 
 ## Settings
 
-- [ready] [GH-504](https://github.com/julimetzger/Gainalytics/issues/504) Analyse + PoC: AI-Chat mit ChatGPT-Abo statt API-Key („Sign in with ChatGPT“) — Report nach `docs/investigation/chatgpt-subscription-login.md` + Login-PoC hinter Debug-Eintrag
+- [done] ~~[GH-504](https://github.com/julimetzger/Gainalytics/issues/504) Analyse + PoC: AI-Chat mit ChatGPT-Abo statt API-Key („Sign in with ChatGPT“) — Report nach `docs/investigation/chatgpt-subscription-login.md` + Login-PoC hinter Debug-Eintrag~~ (PR #506 gemerged)
   - Für Claude nicht möglich (Abo-Login nur für Claude.ai/Claude Code); bei OpenAI laut Berichten Preview, kommerzielle Apps brauchen Freigabe
 - [ready] [GH-478](https://github.com/julimetzger/Gainalytics/issues/478) Settings Theme Color adjustments — Segmented-Buttons für Theme, eine Zeile „Custom Color“ (Blue/Purple/Custom mit Vorschau), Standard-Info bei Long-Press
 - [ready] [GH-404](https://github.com/julimetzger/Gainalytics/issues/404) Bright and dark mode — Theme-Zeile mit System/Hell/Dunkel, Langdruck-Erklärung, heller Modus aufgeräumt
