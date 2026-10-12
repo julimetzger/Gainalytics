@@ -19,6 +19,7 @@ import {dispatchSetAnthropicModel} from '../../../app/redux/settings/dispatch/di
 import {useAnthropicModel} from '../../../app/redux/settings/use/useAnthropicModel';
 import {DEFAULT_ANTHROPIC_MODEL} from '../../../app/utils/llmApi';
 import rootReducer from '../../../app/redux/rootReducer';
+import {buildStrongImport, parseStrongCsv} from '../../../app/utils/strongCsv/strongImport';
 
 const mockSetAnthropicModel = jest.fn();
 const mockToggleDisable1RM = jest.fn();
@@ -32,6 +33,7 @@ const mockSetFinishTrainingTimer = jest.fn();
 const mockStoreGetState = jest.fn();
 const mockShowOnboarding = jest.fn();
 const mockStrongImport = jest.fn();
+const mockStrongCsvState = jest.fn();
 
 jest.mock('react-redux', () => ({
   useStore: jest.fn(),
@@ -77,6 +79,11 @@ jest.mock('../../../app/redux/fullstateactions/dispatchFullImport', () => ({
 
 jest.mock('../../../app/redux/fullstateactions/dispatchStrongImport', () => ({
   dispatchStrongImport: () => mockStrongImport,
+}));
+
+// GH-496: the Strong CSV preview/export read their data through selectors, not the store.
+jest.mock('../../../app/redux/fullstateactions/use/useStrongCsvState', () => ({
+  useStrongCsvState: () => mockStrongCsvState(),
 }));
 
 jest.mock('../../../app/redux/settings/dispatch/dispatchOnboarding', () => ({
@@ -562,6 +569,11 @@ describe('SettingsTab', () => {
       '"1";"2024-01-01 18:00:00";"Push";"3600";"Bench Press";"1";"100.0";"5";"8";"";"";"";""\n' +
       '"2";"2024-01-03 18:00:00";"Pull";"3600";"Deadlift";"1";"180.0";"3";"";"";"";"";""\n';
 
+    beforeEach(() => {
+      nativeModulesWithShare.FileShare = {shareFile: jest.fn().mockResolvedValue(true)};
+      mockStrongCsvState.mockReturnValue(emptyState());
+    });
+
     afterEach(() => {
       delete nativeModulesWithShare.FileShare;
     });
@@ -575,8 +587,7 @@ describe('SettingsTab', () => {
     });
 
     it('shows a hint instead of a file when there are no logged sets', async () => {
-      mockStoreGetState.mockReturnValue(emptyState());
-      nativeModulesWithShare.FileShare = {shareFile: jest.fn()};
+      mockStrongCsvState.mockReturnValue(emptyState());
       const {getByTestId, findByText} = render(<SettingsTab navigation={navigation} route={route} />);
       fireEvent.press(getByTestId('button-Export-as-CSV-(Strong-format)'));
       expect(await findByText('Nothing to export')).toBeTruthy();
@@ -585,8 +596,7 @@ describe('SettingsTab', () => {
     });
 
     it('writes the CSV and opens the share sheet', async () => {
-      mockStoreGetState.mockReturnValue(stateWithOneSet());
-      nativeModulesWithShare.FileShare = {shareFile: jest.fn().mockResolvedValue(true)};
+      mockStrongCsvState.mockReturnValue(stateWithOneSet());
       const {getByTestId, findByText} = render(<SettingsTab navigation={navigation} route={route} />);
       fireEvent.press(getByTestId('button-Export-as-CSV-(Strong-format)'));
       expect(await findByText('Exported 1 set from 1 workout')).toBeTruthy();
@@ -597,7 +607,7 @@ describe('SettingsTab', () => {
     });
 
     it('rejects an invalid file without importing anything', async () => {
-      mockStoreGetState.mockReturnValue(emptyState());
+      mockStrongCsvState.mockReturnValue(emptyState());
       mockedPickSingle.mockResolvedValue({uri: '/tmp/bad.csv', name: 'bad.csv', type: null, fileCopyUri: null, size: null});
       fileSaver.readFile.mockResolvedValue('name,value\nfoo,1\n');
       const {getByTestId, findByText, getByText} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -608,7 +618,7 @@ describe('SettingsTab', () => {
     });
 
     it('shows a summary and imports on confirm', async () => {
-      mockStoreGetState.mockReturnValue(emptyState());
+      mockStrongCsvState.mockReturnValue(emptyState());
       mockedPickSingle.mockResolvedValue({uri: '/tmp/strong.csv', name: 'strong.csv', type: null, fileCopyUri: null, size: null});
       fileSaver.readFile.mockResolvedValue(strongCsv);
       const {getByTestId, findByText, getByText} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -622,7 +632,7 @@ describe('SettingsTab', () => {
     });
 
     it('reports skipped failed attempts in the summary', async () => {
-      mockStoreGetState.mockReturnValue(emptyState());
+      mockStrongCsvState.mockReturnValue(emptyState());
       mockedPickSingle.mockResolvedValue({uri: '/tmp/strong.csv', name: 'strong.csv', type: null, fileCopyUri: null, size: null});
       fileSaver.readFile.mockResolvedValue(strongCsv + '"2";"2024-01-03 18:00:00";"Pull";"3600";"Deadlift";"2";"250.0";"0";"";"";"";"";""\n');
       const {findByText, getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -630,6 +640,42 @@ describe('SettingsTab', () => {
       expect(await findByText('Skipped 1 failed attempt (0 reps), so it does not count as a record')).toBeTruthy();
       fireEvent.press(getByTestId('button-Import'));
       expect(mockStrongImport).toHaveBeenCalledWith(expect.objectContaining({setCount: 2, skippedFailedSets: 1}), {assumedWeightUnit: 'kg'});
+    });
+
+    it('keeps the import preview in sync with the data it will be imported into', async () => {
+      mockedPickSingle.mockResolvedValue({uri: '/tmp/strong.csv', name: 'strong.csv', type: null, fileCopyUri: null, size: null});
+      fileSaver.readFile.mockResolvedValue(strongCsv);
+      const {getByTestId, findByText, getByText, rerender} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent.press(getByTestId('button-Import-from-Strong-CSV'));
+      expect(await findByText(/New plan "Strong Import",/)).toBeTruthy();
+
+      // While the dialog is open, the data changes: the same file was imported meanwhile.
+      const imported = rootReducer(emptyState() as any, {type: 'STRONG_IMPORT', parsed: parseStrongCsv(strongCsv), options: {}} as any);
+      mockStrongCsvState.mockReturnValue(imported);
+      rerender(<SettingsTab navigation={navigation} route={route} />);
+      expect(getByText('Nothing new to import: all 2 workouts of this file are already in Gainalytics.')).toBeTruthy();
+
+      // Another plan named "Strong Import" appears instead: the preview names the plan the reducer will create.
+      const otherPlan = {...emptyState()} as any;
+      otherPlan.trainingsPlan = {...otherPlan.trainingsPlan, byId: {7: {id: 7, name: 'Strong Import', trainings: {}, mesos: []}}, allIds: [7]};
+      mockStrongCsvState.mockReturnValue(otherPlan);
+      rerender(<SettingsTab navigation={navigation} route={route} />);
+      expect(getByText(/New plan "Strong Import 2",/)).toBeTruthy();
+      fireEvent.press(getByTestId('button-Import'));
+      expect(Toast.show).toHaveBeenCalledWith(expect.objectContaining({text2: 'Plan "Strong Import 2": 2 trainings, 2 sets'}));
+      expect(buildStrongImport(otherPlan, parseStrongCsv(strongCsv)).summary.planName).toBe('Strong Import 2');
+    });
+
+    it('disables the CSV export with a hint where no share sheet exists (iOS)', () => {
+      delete nativeModulesWithShare.FileShare;
+      mockStrongCsvState.mockReturnValue(stateWithOneSet());
+      const {getByTestId, getByText} = render(<SettingsTab navigation={navigation} route={route} />);
+      expect(getByText('Export as CSV is only available on Android for now.')).toBeTruthy();
+      fireEvent.press(getByTestId('button-Export-as-CSV-(Strong-format)'));
+      expect(fileSaver.writeFile).not.toHaveBeenCalled();
+      expect(Alert.alert).not.toHaveBeenCalled();
+      // Import stays available.
+      expect(getByTestId('button-Import-from-Strong-CSV')).toBeTruthy();
     });
   });
 

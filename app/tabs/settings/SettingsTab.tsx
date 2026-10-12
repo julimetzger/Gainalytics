@@ -39,6 +39,8 @@ import {useAiProvider} from '../../redux/settings/use/useAiProvider';
 import {dispatchShowOnboarding} from '../../redux/settings/dispatch/dispatchOnboarding';
 import {dispatchStrongImport} from '../../redux/fullstateactions/dispatchStrongImport';
 import {buildStrongExport, countLoggedSets, strongExportFileName} from '../../utils/strongCsv/strongExport';
+import {isStrongCsvShareAvailable} from '../../utils/strongCsv/strongCsvShare';
+import {useStrongCsvState} from '../../redux/fullstateactions/use/useStrongCsvState';
 import {buildStrongImport, ParsedStrongFile, parseStrongCsv, StrongCsvError, WeightUnit} from '../../utils/strongCsv/strongImport';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -84,10 +86,14 @@ const SettingsTab = ({navigation, route}: Props) => {
   const [assumedWeightUnit, setAssumedWeightUnit] = useState<WeightUnit>('kg');
   const [strongNotice, setStrongNotice] = useState<{title: string; text: string} | null>(null);
   const [strongExportResult, setStrongExportResult] = useState<string | null>(null);
+  // The preview is derived from the same subscribed data the reducer imports into, so it stays current.
+  const strongCsvState = useStrongCsvState();
   const strongSummary = useMemo(
-    () => (strongFile ? buildStrongImport(store.getState() as GlobalState, strongFile.parsed, {assumedWeightUnit}).summary : null),
-    [strongFile, assumedWeightUnit, store],
+    () => (strongFile ? buildStrongImport(strongCsvState, strongFile.parsed, {assumedWeightUnit}).summary : null),
+    [strongFile, assumedWeightUnit, strongCsvState],
   );
+  // iOS has no native share module yet: the export would only land in the app's cache.
+  const strongCsvShareAvailable = isStrongCsvShareAvailable();
   let showOnboarding = dispatchShowOnboarding();
 
   // GH-497: the onboarding's "Import data" lands here with the confirmation open.
@@ -170,23 +176,18 @@ const SettingsTab = ({navigation, route}: Props) => {
   }
 
   const handleStrongExport = async () => {
-    const state = store.getState() as GlobalState;
-    if (countLoggedSets(state) === 0) {
+    if (countLoggedSets(strongCsvState) === 0) {
       setStrongNotice({title: 'Nothing to export', text: 'There are no logged sets yet. Finish a training first, then export it as CSV.'});
       return;
     }
     try {
-      const exported = buildStrongExport(state);
+      const exported = buildStrongExport(strongCsvState);
       const directory = FileSaver.CachesDirectoryPath + '/exports';
       await FileSaver.mkdir(directory);
       const path = directory + '/' + strongExportFileName();
       await FileSaver.writeFile(path, exported.csv, 'utf8');
+      await NativeModules.FileShare.shareFile(path, 'text/csv', 'Export as CSV (Strong format)');
       setStrongExportResult(`Exported ${plural(exported.setCount, 'set')} from ${plural(exported.workoutCount, 'workout')}`);
-      if (NativeModules.FileShare?.shareFile) {
-        await NativeModules.FileShare.shareFile(path, 'text/csv', 'Export as CSV (Strong format)');
-      } else {
-        Alert.alert('exported to ' + path);
-      }
     } catch (error: any) {
       setStrongNotice({title: 'Export failed', text: String(error?.message ?? error)});
     }
@@ -217,7 +218,7 @@ const SettingsTab = ({navigation, route}: Props) => {
     if (!strongFile || !strongSummary) return;
     strongImport(strongFile.parsed, {assumedWeightUnit});
     setStrongFile(null);
-    if (!store.getState().settings?.toggles?.disableToasts) {
+    if (!settings?.toggles?.disableToasts) {
       Toast.show({
         type: 'success',
         text1: 'Strong import finished',
@@ -573,9 +574,21 @@ const SettingsTab = ({navigation, route}: Props) => {
             Export Data
           </Button>
         </View>
-        <Button mode="elevated" icon="file-delimited-outline" style={{margin: 5}} testID="settings-export-strong-csv-button" onPress={handleStrongExport}>
+        <Button
+          mode="elevated"
+          icon="file-delimited-outline"
+          style={{margin: 5}}
+          testID="settings-export-strong-csv-button"
+          disabled={!strongCsvShareAvailable}
+          onPress={handleStrongExport}
+        >
           Export as CSV (Strong format)
         </Button>
+        {!strongCsvShareAvailable && (
+          <HelperText type="info" testID="settings-strong-export-unavailable">
+            Export as CSV is only available on Android for now.
+          </HelperText>
+        )}
         <Button mode="elevated" icon="file-import-outline" style={{margin: 5}} testID="settings-import-strong-csv-button" onPress={handleStrongImportPick}>
           Import from Strong CSV
         </Button>

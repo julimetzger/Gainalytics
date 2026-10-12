@@ -216,17 +216,34 @@ describe('Strong import', () => {
     expect(setsOf(perRowState, planOf(perRowState).trainings['1,1']).map((s) => s.weight)).toEqual([99.79, 100]);
   });
 
-  it('maps RPE to RIR = 10 − RPE (missing RPE → RIR 0)', () => {
+  it('maps RPE to RIR = 10 − RPE, keeping decimal RPEs (missing RPE → RIR 0)', () => {
     const csv = strong6(
       strong6Row(1, '2024-01-01 18:00:00', 'Push', 'Bench', '1', '100', '5', '8'),
       strong6Row(1, '2024-01-01 18:00:00', 'Push', 'Bench', '2', '100', '5', '9.5'),
-      strong6Row(1, '2024-01-01 18:00:00', 'Push', 'Bench', '3', '100', '5', ''),
+      strong6Row(1, '2024-01-01 18:00:00', 'Push', 'Bench', '3', '100', '5', '8.7'),
+      strong6Row(1, '2024-01-01 18:00:00', 'Push', 'Bench', '4', '100', '5', ''),
     );
     const state = importStrong(freshState(), csv);
-    expect(setsOf(state, planOf(state).trainings['1,1']).map((s) => s.rir)).toEqual([2, 1, 0]);
-    // …and back: exporting the imported sets writes RPE 8 again.
+    expect(setsOf(state, planOf(state).trainings['1,1']).map((s) => s.rir)).toEqual([2, 0.5, 1.3, 0]);
+    // …and back: exporting the imported sets writes the same RPEs again.
     const rows = parseCsv(buildStrongExport(state).csv, ';');
-    expect(rows[1][8]).toBe('8');
+    expect(rows.slice(1).map((row) => row[8])).toEqual(['8', '9.5', '8.7', '10']);
+  });
+
+  it('rejects malformed weights and reps with the line number, allows empty weights of bodyweight exercises', () => {
+    const bench = (order: string, weight: string, reps = '5') => strong6Row(1, '2024-01-01 18:00:00', 'Push', 'Bench', order, weight, reps);
+    expect(() => parseStrongCsv(strong6(bench('1', '100'), bench('2', 'abc')))).toThrow(new StrongCsvError('Line 3: "abc" is not a valid weight.'));
+    expect(() => parseStrongCsv(strong6(bench('1', '100'), bench('2', '100', 'five')))).toThrow(new StrongCsvError('Line 3: "five" is not a valid number of reps.'));
+    // An empty weight on an exercise that is weighted elsewhere is a damaged row, wherever it is in the file.
+    expect(() => parseStrongCsv(strong6(bench('1', ''), bench('2', '100')))).toThrow(new StrongCsvError('Line 2: the weight is missing.'));
+    // Strong writes reps-only (bodyweight) exercises without a weight: imported as 0 kg.
+    const pullUps = strong6(bench('1', '100'), strong6Row(1, '2024-01-01 18:00:00', 'Push', 'Pull Up', '1', '', '10'), strong6Row(1, '2024-01-01 18:00:00', 'Push', 'Pull Up', '2', '', '8'));
+    const state = importStrong(freshState(), pullUps);
+    expect(setsOf(state, planOf(state).trainings['1,1'])).toEqual([
+      {exercise: 'Bench', weight: 100, reps: 5, rir: 0},
+      {exercise: 'Pull Up', weight: 0, reps: 10, rir: 0},
+      {exercise: 'Pull Up', weight: 0, reps: 8, rir: 0},
+    ]);
   });
 
   it('keeps umlauts, commas and quotes in names', () => {

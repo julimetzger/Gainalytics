@@ -5,6 +5,9 @@ import {getTrainingFromTrainingInMicroIndex} from '../../redux/Training/training
 import {serializeCsv} from './csv';
 import {formatStrongDate, formatStrongNumber, formatStrongWeight, rirToRpe, STRONG_EXPORT_DELIMITER, STRONG_EXPORT_HEADER} from './strongFormat';
 
+/** The slices the Strong CSV export/import read and write — read in components through `useStrongCsvState`. */
+export type StrongCsvState = Pick<GlobalState, 'exercises' | 'workouts' | 'trainings' | 'trainingsPlan'>;
+
 /** Workout Name for sets logged outside a training (from the exercise screen). */
 export const EXERCISE_LOG_WORKOUT_NAME = 'Exercise log';
 
@@ -40,11 +43,11 @@ const isExportable = (workout: Workout | undefined): workout is Workout =>
   workout !== undefined && toTime(workout.start) !== undefined && (workout.sets?.length ?? 0) > 0;
 
 /** Number of logged sets the export would write (0 → nothing to export). */
-export function countLoggedSets(state: GlobalState): number {
+export function countLoggedSets(state: StrongCsvState): number {
   return state.workouts.allIds.map((id) => state.workouts.byId[id]).filter(isExportable).reduce((sum, workout) => sum + workout.sets.length, 0);
 }
 
-function trainingNamesById(state: GlobalState): Map<number, string> {
+function trainingNamesById(state: StrongCsvState): Map<number, string> {
   const names = new Map<number, string>();
   state.trainingsPlan.allIds.forEach((planId) => {
     const plan = state.trainingsPlan.byId[planId];
@@ -60,7 +63,7 @@ function trainingNamesById(state: GlobalState): Map<number, string> {
  * Builds a Strong 6.x CSV of every logged set: one row per set, the training's name
  * as Workout Name, RPE = 10 − RIR, weights in kg.
  */
-export function buildStrongExport(state: GlobalState): StrongExport {
+export function buildStrongExport(state: StrongCsvState): StrongExport {
   const trainingByWorkoutId = new Map<number, number>();
   state.trainings.allIds.forEach((trainingId) => {
     Object.values(state.trainings.byId[trainingId]?.doneWorkoutIds ?? {}).forEach((workoutId) => trainingByWorkoutId.set(workoutId, trainingId));

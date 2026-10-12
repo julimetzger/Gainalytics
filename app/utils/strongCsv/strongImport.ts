@@ -9,7 +9,7 @@ import {trainingInMicroIndex} from '../../redux/Training/trainingsPlanReducer';
 import {DEFAULT_EXERCISES} from '../../redux/Exercises/exercisesReducer';
 import {repetitionMax} from '../AnalyseUtils';
 import {detectDelimiter, parseCsv} from './csv';
-import {EXERCISE_LOG_WORKOUT_NAME} from './strongExport';
+import {EXERCISE_LOG_WORKOUT_NAME, StrongCsvState} from './strongExport';
 import {LB_TO_KG, parseStrongDate, parseStrongDuration, parseStrongNumber, rpeToRir} from './strongFormat';
 
 export type WeightUnit = 'kg' | 'lb';
@@ -112,6 +112,10 @@ export function parseStrongCsv(text: string): ParsedStrongFile {
   let skippedCardioRows = 0;
   let skippedFailedSets = 0;
   let skippedOtherRows = 0;
+  // Strong leaves the weight empty only for reps-only (bodyweight) exercises, which never carry a
+  // weight. An empty weight on an exercise that is weighted elsewhere in the file is a damaged row.
+  const weightedExercises = new Set<string>();
+  const emptyWeightLines = new Map<string, number>();
 
   rows.slice(1).forEach((row, index) => {
     const line = index + 2;
@@ -127,8 +131,13 @@ export function parseStrongCsv(text: string): ParsedStrongFile {
     if (!date) throw new StrongCsvError(`Line ${line}: "${dateText}" is not a valid date.`);
     if (exerciseName === '') throw new StrongCsvError(`Line ${line}: the exercise name is missing.`);
 
-    const reps = parseStrongNumber(cell(repsCol));
-    const weight = parseStrongNumber(cell(weightCol));
+    const repsText = cell(repsCol);
+    const reps = parseStrongNumber(repsText);
+    if (repsText !== '' && reps === undefined) throw new StrongCsvError(`Line ${line}: "${repsText}" is not a valid number of reps.`);
+    const weightText = cell(weightCol);
+    const weight = parseStrongNumber(weightText);
+    if (weightText !== '' && weight === undefined) throw new StrongCsvError(`Line ${line}: "${weightText}" is not a valid weight.`);
+    if ((weight ?? 0) > 0) weightedExercises.add(normalizeName(exerciseName));
     // A 0-rep set with a weight is a failed attempt: skipped, otherwise its weight would count as a 1RM.
     const hasReps = reps !== undefined && reps > 0;
     if (!hasReps && (weight ?? 0) > 0) {
@@ -142,6 +151,8 @@ export function parseStrongCsv(text: string): ParsedStrongFile {
       else skippedOtherRows++;
       return;
     }
+
+    if (weight === undefined && !emptyWeightLines.has(normalizeName(exerciseName))) emptyWeightLines.set(normalizeName(exerciseName), line);
 
     const name = cell(nameCol);
     const key = workoutNumberCol >= 0 && cell(workoutNumberCol) !== '' ? `#${cell(workoutNumberCol)}` : `${dateText}|${name}`;
@@ -168,6 +179,8 @@ export function parseStrongCsv(text: string): ParsedStrongFile {
     setCount++;
   });
 
+  const damagedLine = Math.min(...Array.from(emptyWeightLines).filter(([exercise]) => weightedExercises.has(exercise)).map(([, line]) => line));
+  if (Number.isFinite(damagedLine)) throw new StrongCsvError(`Line ${damagedLine}: the weight is missing.`);
   if (setCount === 0) throw new StrongCsvError('The file contains no strength sets to import.');
   return {
     weightUnit: fileUnit,
@@ -205,8 +218,8 @@ export interface StrongImportSummary {
   weightUnitFromFile: boolean;
 }
 
-export interface StrongImportResult {
-  state: GlobalState;
+export interface StrongImportResult<S extends StrongCsvState = GlobalState> {
+  state: S;
   summary: StrongImportSummary;
 }
 
@@ -285,7 +298,7 @@ function mergeSameDaySessions(sessions: ParsedStrongSession[]): MergedSession[] 
  * automatic "Evening Workout" kind), otherwise the weekdays. Pure: the same input always yields the same state,
  * so the summary shown before importing matches what the reducer applies.
  */
-export function buildStrongImport(state: GlobalState, parsed: ParsedStrongFile, options: StrongImportOptions = {}): StrongImportResult {
+export function buildStrongImport<S extends StrongCsvState>(state: S, parsed: ParsedStrongFile, options: StrongImportOptions = {}): StrongImportResult<S> {
   const weightUnit: WeightUnit = parsed.weightUnit ?? options.assumedWeightUnit ?? 'kg';
 
   // 1. Skip sessions that already exist (same start second) — no double import.
@@ -403,7 +416,8 @@ export function buildStrongImport(state: GlobalState, parsed: ParsedStrongFile, 
       const sets = exercise.sets.map((set) => ({
         weight: toKg(set),
         reps: set.reps,
-        rir: set.rpe !== undefined ? Math.min(10, Math.max(0, Math.round(rpeToRir(set.rpe)))) : 0,
+        // Decimal RPEs (9.5) keep their half rep, so a re-export writes the same RPE again.
+        rir: set.rpe !== undefined ? Math.min(10, Math.max(0, Math.round(rpeToRir(set.rpe) * 100) / 100)) : 0,
         date: startIso as unknown as Date,
       }));
       setCount += sets.length;
