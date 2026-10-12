@@ -268,6 +268,22 @@ Die dynamische Registrierung wurde für die App akzeptiert, der Consent-Dialog z
 
 Hinweis zu den Testdaten: Das Baseline-Fixture ist Monate alt, und Coach Insights werten nur die letzten 28 Tage aus. Für Nr. 5 wurde deshalb eine Kopie mit auf heute verschobenen Datumswerten über Settings → Import Data eingespielt. Dieser Import behält die Anmeldung.
 
+### Nachbesserungen aus dem Review (Runde 4)
+
+| Befund | Lösung | Beleg |
+|---|---|---|
+| Abmelden während einer laufenden Token-Erneuerung konnte die alte Anmeldung zurückbringen | Sitzungs-Generation: Abmelden, neue Anmeldung und endgültige Refresh-Fehler erhöhen sie. Ein Refresh aus einer älteren Generation schreibt nichts zurück und widerruft das neu ausgestellte Refresh-Token. Abmelden löscht die Tokens **vor** dem Widerruf. | `chatgptSession.spec.ts` |
+| 401 auf `/v1/models` scheiterte sofort, obwohl ein gültiges Refresh-Token da war | Einmal erzwungener Refresh und Wiederholung, wie bei `/v1/responses` | `chatgptChat.spec.ts` |
+| Coach Insight zeigte nach Anbieterwechsel oder Abmelden die zwischengespeicherte Insight des anderen Anbieters | ChatGPT-Insights liegen unter eigenem Cache-Schlüssel (`chatgpt:<ids>`), Claude-Schlüssel bleiben unverändert. Bei ChatGPT ohne Anmeldung bleibt die Karte leer, auch mit Cache-Eintrag. | `CoachInsightCard.spec.tsx` |
+| iOS bot ChatGPT an, obwohl es dort kein Login-Modul gibt | Option deaktiviert, mit Hinweis „Sign in with ChatGPT is only available on Android for now.“ | `AiProviderSelector.spec.tsx` |
+
+Danach wurden die Release-APKs neu gebaut und auf `emulator-5554` per Update installiert. Die Anmeldung blieb erhalten. Erneut belegt im Release-Build:
+- verbunden mit den Modellen des Abos
+- Chat mit zwei Antworten und Stop (`16_r4_release_chat_two_answers_then_stop.png`)
+- Coach Insight von ChatGPT (`17_r4_release_coach_insight_chatgpt.png`)
+
+Abmelden wurde nur per Unit-Test geprüft, damit die Anmeldung des Owners auf dem Gerät erhalten bleibt.
+
 ### Bekannte Grenzen
 
 - **Token-Tausch erst nach Rückkehr in die App** (siehe Runde 2): Der Tausch schließt etwa 1–2 s nach „Back to Gainalytics“ ab. Bleibt der Nutzer sehr lange im Browser, kann der Autorisierungscode verfallen; dann erscheint „Sign-in expired before it finished. Try again.“. Abhilfe wäre ein nativer Tausch (Folgeticket).
