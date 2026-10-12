@@ -441,3 +441,16 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Format-verification ACs: real sample files are findable with `gh api search/code`
 **Observation (GH-496):** "check against a real Strong export" was solvable without the app: `gh api -X GET search/code -f q='"Workout Notes" "Set Order" extension:csv'` listed ~100 real Strong exports in public repos (both the old `,` format and the current `;` "Workout #" format). Fetch them raw with `gh api repos/<o>/<r>/contents/<path> -H 'Accept: application/vnd.github.raw'` into a `/tmp` dir and run the parser over all of them. One of them became a device fixture (`fixtures/gh496/strong_sample_export.csv`). The web search alone only returned prose and outdated column lists.
 **Apply when:** an AC asks to verify a third-party file format.
+
+### Imports that add history must rebuild the record history of every touched exercise
+**Problem:** a bulk import computed 1RM records only for exercises without records. An imported set that beat the existing PR never got `workout.records['1RM']`, so it was missing from Analyse → Records (which filters on that field), and older imported bests left later "records" stale. 0-rep sets with a weight scored as a 1RM of their full weight (`repsCoefficient(0) = 1`).
+**Fix / Rule:** after inserting workouts, walk ALL done workouts of each touched exercise in start order. Set `workout.records['1RM']` on each new best, delete it on workouts that are no longer a best, and replace `exercise.records['1RM']`. Drop or flag failed attempts before any `repetitionMax`.
+**Apply when:** any import, merge or backfill that writes workouts with past dates. On the device, prove it with a record dated inside Records' default range (last 3 months), so the card with its "+Δ kg" to the previous record is visible. (seen in GH-496)
+
+### Restored activity after `adb reboot` crashes: "Screen fragments should never be restored"
+**Problem:** after `adb -s $ANDROID_SERIAL reboot`, `am start` brought back the old task, and the app died in `ScreenFragment.<init>` (react-native-screens), leaving a white or black screen. A System UI ANR dialog followed while the emulator was still busy.
+**Fix / Rule:** `am force-stop` the app, then `am start -S -n com.powerliftingworkoutplanner/.MainActivity`, re-add `adb reverse`, and wait with an until-loop for `tab-settings` in a dump before running Maestro. Check `logcat -d -b crash` if the screen stays blank. (seen in GH-496)
+
+### DocumentsUI grid view turns a Maestro tap into a selection on a loaded emulator
+**Problem:** `00_import_baseline` failed with "Import Data is visible": the picker (grid view) showed "1 selected" with `baseline.gains` ticked, because the slow tap had registered as a long press.
+**Fix / Rule:** tap "Select" (top right) to clear the selection, or re-tap the tile with `adb shell input tap`. Re-running the flow on a calmer emulator passed. (seen in GH-496)
