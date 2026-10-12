@@ -1,11 +1,11 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {FlatList, KeyboardAvoidingView, ScrollView, StyleSheet, View} from 'react-native';
 import {ActivityIndicator, Chip, IconButton, Surface, Text, TextInput, useTheme} from 'react-native-paper';
 import Markdown from 'react-native-markdown-display';
 import {aiChatMarkdownStyles} from './aiChatMarkdownStyles';
-import {publishAIChatHeaderState} from './AIChatHeaderActions';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useHeaderHeight} from '@react-navigation/elements';
+import {useNavigation} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
 import {
@@ -124,6 +124,7 @@ export function computeMesoRange(
 const AIChatTab = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const navigation = useNavigation<any>();
   const chatPrompt = useAIChatPrompt();
   const model = useAnthropicModel();
   const insets = useSafeAreaInsets();
@@ -441,22 +442,49 @@ const AIChatTab = () => {
     }
   };
 
-  // GH-508: history, filter and clear live in the navigation header (see
-  // AIChatHeaderActions). The ref keeps the published handler pointing at the
-  // current handleClear without re-publishing on every render.
+  // GH-508: history, filter and clear sit in the navigation header next to its
+  // "AI Chat" title instead of in a second title row inside the screen — that row
+  // repeated the title and cost the message list a full row of height. The ref
+  // keeps the header from being re-set on every render just because handleClear
+  // is a new closure.
   const handleClearRef = useRef(handleClear);
   handleClearRef.current = handleClear;
   const clearDisabled = messages.length === 0 && !error;
-  useEffect(() => {
-    publishAIChatHeaderState({
-      visible: hasApiKey,
-      filtersOpen: showFilters,
-      clearDisabled,
-      onToggleFilters: () => setShowFilters(v => !v),
-      onClear: () => handleClearRef.current(),
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: hasApiKey
+        ? () => (
+            <View style={styles.headerActions} testID="chat-header-actions">
+              <IconButton
+                icon="history"
+                size={20}
+                style={styles.headerAction}
+                iconColor={theme.colors.onSurfaceVariant}
+                onPress={() => navigation.navigate('ChatHistory')}
+                testID="chat-history-button"
+              />
+              <IconButton
+                icon={showFilters ? 'filter-remove-outline' : 'filter-outline'}
+                size={20}
+                style={styles.headerAction}
+                iconColor={theme.colors.onSurfaceVariant}
+                onPress={() => setShowFilters(v => !v)}
+                testID="chat-filter-toggle"
+              />
+              <IconButton
+                icon="delete-outline"
+                size={20}
+                style={styles.headerAction}
+                iconColor={theme.colors.onSurfaceVariant}
+                onPress={() => handleClearRef.current()}
+                testID="chat-clear-button"
+                disabled={clearDisabled}
+              />
+            </View>
+          )
+        : undefined,
     });
-  }, [hasApiKey, showFilters, clearDisabled]);
-  useEffect(() => () => publishAIChatHeaderState(null), []);
+  }, [navigation, hasApiKey, showFilters, clearDisabled, theme]);
 
   const contextBadgeLabel = useMemo(() => {
     if (selectedPreset === 'Meso' && mesoRange) return `Meso: ${mesoRange.name}`;
@@ -789,6 +817,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  headerAction: {
+    marginHorizontal: 0,
   },
   chipsRow: {
     flexGrow: 0,

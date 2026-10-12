@@ -14,7 +14,6 @@ import TrainingLengthTab from '../tabs/Analyse/TrainingLengthTab';
 import DashboardTab from '../tabs/Analyse/DashboardTab';
 import AIChatTab from '../tabs/Analyse/AIChatTab';
 import ChatHistoryTab from '../tabs/Analyse/ChatHistoryTab';
-import AIChatHeaderActions from '../tabs/Analyse/AIChatHeaderActions';
 import {withAnalyseErrorBoundary} from '../components/analyse/AnalyseErrorBoundary';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
@@ -178,10 +177,8 @@ const AnalyseRouter = () => {
       <Stack.Screen
         name="AIChat"
         component={AIChatScreen}
-        options={({navigation}) => ({
+        options={() => ({
           title: 'AI Chat',
-          // GH-508: registered once here, never via setOptions — see AIChatHeaderActions.
-          headerRight: () => <AIChatHeaderActions onOpenHistory={() => navigation.navigate('ChatHistory')} />,
         })}
       />
       <Stack.Screen

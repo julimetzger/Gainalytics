@@ -28,7 +28,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 jest.mock('@react-navigation/elements', () => ({useHeaderHeight: () => 0}));
-jest.mock('@react-navigation/native', () => ({useNavigation: () => ({navigate: jest.fn()})}));
+jest.mock('@react-navigation/native', () => ({useNavigation: () => ({navigate: jest.fn(), setOptions: jest.fn()})}));
 
 jest.mock('../../../app/utils/secureStorage', () => ({
   secureStorage: {

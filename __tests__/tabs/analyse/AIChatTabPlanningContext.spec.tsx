@@ -39,9 +39,24 @@ jest.mock('@react-navigation/native', () => {
   return {
     useFocusEffect: (cb: any) => React.useEffect(cb, []),
     useIsFocused: () => true,
-    useNavigation: () => ({navigate: jest.fn()}),
+    // GH-508: the screen hands its history/filter/clear buttons to the navigation
+    // header. The harness below renders whatever headerRight the screen sets.
+    useNavigation: () => ({navigate: jest.fn(), setOptions: (o: any) => mockHeader.set(o.headerRight)}),
   };
 });
+
+const mockHeader: {set: (h: any) => void} = {set: () => {}};
+
+function HeaderHarness({children}: {children: React.ReactNode}) {
+  const [headerRight, setHeaderRight] = React.useState<any>(undefined);
+  mockHeader.set = (h: any) => setHeaderRight(() => h);
+  return (
+    <>
+      {headerRight ? headerRight() : null}
+      {children}
+    </>
+  );
+}
 
 jest.mock('react-native-markdown-display', () => {
   const {Text} = require('react-native');
@@ -64,7 +79,6 @@ jest.mock('../../../app/components/picker/date/DateRangePicker', () => {
   };
 });
 
-import AIChatHeaderActions from '../../../app/tabs/Analyse/AIChatHeaderActions';
 import AIChatTab from '../../../app/tabs/Analyse/AIChatTab';
 
 const set = (reps: number, weight: number, rir: number, extra: Partial<WorkoutSet> = {}): WorkoutSet => ({
@@ -151,9 +165,9 @@ function renderTab(preloadedState: GlobalState) {
   render(
     <ReduxProvider store={store}>
       <PaperProvider>
-        {/* GH-508: the filter toggle lives in the navigation header. */}
-        <AIChatHeaderActions onOpenHistory={() => {}} />
-        <AIChatTab />
+        <HeaderHarness>
+          <AIChatTab />
+        </HeaderHarness>
       </PaperProvider>
     </ReduxProvider>,
   );
