@@ -450,7 +450,17 @@ const AIChatTab = () => {
   const handleClearRef = useRef(handleClear);
   handleClearRef.current = handleClear;
   const clearDisabled = messages.length === 0 && !error;
+  // freezeOnBlur suspends this screen while another drawer entry is shown, and
+  // React may re-run layout effects when a suspended tree is revealed again —
+  // in the middle of the drawer's close animation. Re-setting unchanged options
+  // there would only re-render the whole navigator, so the header is re-set
+  // only when one of its inputs actually changed.
+  const lastHeaderInputsRef = useRef<unknown[] | null>(null);
   useLayoutEffect(() => {
+    const inputs = [navigation, hasApiKey, showFilters, clearDisabled, theme];
+    const last = lastHeaderInputsRef.current;
+    if (last && inputs.every((value, i) => value === last[i])) return;
+    lastHeaderInputsRef.current = inputs;
     navigation.setOptions({
       headerRight: hasApiKey
         ? () => (

@@ -1,0 +1,140 @@
+appId: com.powerliftingworkoutplanner
+name: GH-508 AI Chat — one title, actions in the header, context period as a chip
+---
+# Precondition: gh508_chat_fixture.gains imported (active conversation whose
+# first message is "GH508 how did my squat develop…" and last is
+# "GH508 last message marker") and an API key stored. THEME = light | dark.
+# The flow ends with the conversation resumed, so it can run once per theme.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+
+# ── Theme ───────────────────────────────────────────────────────────────────
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: '^settings-theme-mode-${THEME}$'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: '^settings-theme-mode-${THEME}$'
+
+# ── Open AI Chat ────────────────────────────────────────────────────────────
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+# The Analyse tab reopens on the screen it was left on. Only go through the
+# drawer when that is not the chat — the closed drawer keeps its entries in the
+# hierarchy, so "Chat History is visible" says nothing about the drawer being
+# open, and the header now also reads "AI Chat".
+- runFlow:
+    when:
+      notVisible:
+        id: 'chat-input'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - waitForAnimationToEnd
+      - tapOn:
+          text: 'AI Chat'
+          below:
+            text: 'Video Analysis'
+      - waitForAnimationToEnd
+# On a loaded emulator the drawer navigation can land seconds late — wait for
+# the chat to be in front and the drawer to be gone before tapping the header.
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: 'Chat History'
+    timeout: 30000
+
+# ── AC1: "AI Chat" exists exactly once (the navigation header title) ────────
+# Maestro cannot count reliably here: the closed drawer can keep its "AI Chat"
+# entry in the hierarchy, and `below:` compares top edges, so the header title
+# itself counts as "below" the menu icon. The title count is checked with a
+# uiautomator dump instead (see the GH-508 run summary); this flow asserts the
+# title sits in the header row together with the actions.
+- assertVisible:
+    text: 'AI Chat'
+    leftOf:
+      id: 'chat-history-button'
+
+# ── Chat with messages; actions sit in the header, period in the chip bar ───
+- assertVisible: 'GH508 last message marker'
+- assertVisible:
+    id: 'chat-header-actions'
+- assertVisible: 'Context: 28d'
+- assertVisible: 'Plan: .*'
+- takeScreenshot: 'gh508_${THEME}_messages'
+
+# ── Filter from the header icon: presets open, a preset changes the chip ────
+- tapOn:
+    id: 'chat-filter-toggle'
+- assertVisible:
+    id: 'chat-preset-7d'
+- tapOn:
+    id: 'chat-preset-7d'
+- assertVisible: 'Context: 7d'
+- assertVisible: 'AI has access to .*'
+- takeScreenshot: 'gh508_${THEME}_filter_open'
+- tapOn:
+    id: 'chat-filter-toggle'
+- assertNotVisible:
+    id: 'chat-preset-7d'
+
+# ── The period chip opens the same filter section ───────────────────────────
+- tapOn: 'Context: 7d'
+- assertVisible:
+    id: 'chat-preset-28d'
+- tapOn:
+    id: 'chat-preset-28d'
+- assertVisible: 'Context: 28d'
+- tapOn: 'Context: 28d'
+- assertNotVisible:
+    id: 'chat-preset-28d'
+
+# ── History from the header ─────────────────────────────────────────────────
+- tapOn:
+    id: 'chat-history-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-history-search'
+    timeout: 15000
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 15000
+- assertVisible: 'GH508 last message marker'
+
+# ── Clear from the header archives the conversation → empty chat ────────────
+- tapOn:
+    id: 'chat-clear-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-empty-state'
+    timeout: 10000
+- assertNotVisible: 'GH508 last message marker'
+- assertVisible: 'Context: 28d'
+- takeScreenshot: 'gh508_${THEME}_empty'
+
+# ── The archived conversation is in the history; resume it ──────────────────
+- tapOn:
+    id: 'chat-history-button'
+- extendedWaitUntil:
+    visible: 'GH508 how did my squat develop over the last block\?'
+    timeout: 15000
+- tapOn: 'GH508 how did my squat develop over the last block\?'
+- extendedWaitUntil:
+    visible: 'GH508 last message marker'
+    timeout: 15000
+- assertVisible:
+    id: 'chat-header-actions'

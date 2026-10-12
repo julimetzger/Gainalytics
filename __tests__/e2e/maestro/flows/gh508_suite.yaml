@@ -1,0 +1,17 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-508 evidence suite. Run with
+#   --fixture __tests__/testdata/gh508_chat_fixture.gains
+# The fixture is the baseline store plus an active five-message AI conversation
+# (a failed send rolls its message back since GH-447, so a conversation cannot be
+# built offline with a dummy key any more).
+- runFlow: 00_import_baseline.yaml
+- runFlow: gh391_set_dummy_api_key.yaml
+- runFlow:
+    file: gh508_chat_header_actions.yaml
+    env:
+      THEME: light
+- runFlow:
+    file: gh508_chat_header_actions.yaml
+    env:
+      THEME: dark
