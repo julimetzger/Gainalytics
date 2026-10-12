@@ -359,3 +359,20 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-420):** `for p in $(pgrep -f "maestro.*--driver-host-port 7055"); do kill $p; done` matched the tool's own bash (its cmdline contains the pattern) → exit 144, rest of the command never ran.
 **Fix / Rule:** take PIDs from `ps -eo pid,cmd | grep … | grep -v grep` and check them before killing, or kill the PID you captured with `$!` at launch.
 **Apply when:** cleaning up Maestro/adb/wrapper processes after a failed run.
+
+### The Analyse drawer can stay painted open after picking an entry — the hierarchy says it is closed
+**Problem (GH-508):** on a loaded emulator, tapping a drawer entry (e.g. "AI Chat") navigates, but the drawer stays visibly open over the screen. Its state is already "closed": the entries drop out of the hierarchy (`assertNotVisible: 'Chat History'` passes), the scrim and the menu icon do nothing, Back pops the drawer HISTORY (lands on Dashboard). Reproduced with the old AI Chat layout too (A/B of the same mini flow) — pre-existing, not caused by header changes.
+**Fix / Rule:** before tapping an entry wait until the drawer is really open (`extendedWaitUntil: visible: '<last entry>'` + `waitForAnimationToEnd`), keep the app running between flows (`launchApp: {clearState: false, stopApp: false}`) so repeats skip the drawer, and only force-stop to recover. Wait until the guest load is < 5 after a reboot before running.
+**Apply when:** a flow navigates through the Analyse drawer and a later tap "does nothing" — screenshot it; assertions can't see this state.
+
+### Maestro `below:`/`above:` compare top edges — a header title counts as "below" the menu icon in the same row
+**Observation (GH-508):** `assertNotVisible: {text: 'AI Chat', below: {id: 'analyse-drawer-toggle'}}` failed on the header title itself (title top 184 > icon top 168). `index: 1` can't count duplicates either while a closing drawer still lists its "AI Chat" entry. Count duplicates with a uiautomator dump (`grep -c ' text="AI Chat"'`) and use `leftOf:`/`rightOf:` for same-row checks.
+**Apply when:** asserting that a label exists only once or sits in a particular row.
+
+### Since GH-447 a dummy API key can't build a chat — seed one through the `.gains` import
+**Observation (GH-508):** a failed send now rolls the user message back, so "type + send with a dummy key" leaves the chat empty (older flows like gh293 relied on it). `FULL_IMPORT` takes `aiChat` verbatim without migrations: add `aiChat: {messages: [...], isLoading: false, error: null, seedContextJson: null, contextRange: null, includePlannedTrainings: true, selectedTrainingId: null, history: [], pendingLegacyArchive: false}` to the baseline JSON (see `__tests__/testdata/gh508_chat_fixture.gains`). Keep `pendingLegacyArchive: false` or the chat is archived on first open.
+**Apply when:** a flow or screenshot needs an AI chat with messages.
+
+### Changing font scale or density while the app runs crashes it ("Screen fragments should never be restored")
+**Observation (GH-508):** `settings put system font_scale …` / `wm density …` recreates the activity; react-native-screens throws in `ScreenFragment.<init>` (logcat `-b crash`), the app dies (Application Error dialog or launcher). Set the values first, then cold-start the app and navigate. Restore with `wm density reset` + `font_scale 1.0`.
+**Apply when:** checking narrow screens / large fonts on the device.
