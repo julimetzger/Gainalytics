@@ -31,17 +31,23 @@ appId: com.powerliftingworkoutplanner
 
 # Analyse → Records: the imported set is a new Squat record, the failed 260 kg attempt is not.
 - tapOn: 'tab-analyse'
+# The dashboard's newest training is the imported 2026-10-05 session.
 - extendedWaitUntil:
-    visible: 'Records'
-    timeout: 30000
+    visible: 'No trainings in this period\. Your last training was on Mon, 05/10/26\.'
+    timeout: 60000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- waitForAnimationToEnd
 - tapOn: 'Records'
 - extendedWaitUntil:
     visible: 'Records in this range'
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: 'record-card-0'
+      text: '\+15\.0 kg'
     direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
     timeout: 30000
 - assertVisible:
     id: 'records-shown-count'
