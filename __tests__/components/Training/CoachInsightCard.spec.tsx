@@ -516,6 +516,43 @@ describe('CoachInsightCard — GH-504 ChatGPT provider', () => {
     expect(mockCallAnthropicClaude).not.toHaveBeenCalled();
   });
 
+  it('does not show the cached Claude insight after switching to ChatGPT', async () => {
+    const cache = new Map<string, object>([['1', {text: 'Claude says squat more.', generatedAt: Date.now()}]]);
+    mockInsightCacheGet.mockImplementation((k: string) => cache.get(k));
+    mockInsightCacheSet.mockImplementation((k: string, v: object) => cache.set(k, v));
+    mockUseAiProvider.mockReturnValue('claude');
+    const trainings = [makeFinishedTraining(1)];
+
+    const {getByTestId, rerender} = render(<CoachInsightCard trainings={trainings} isActive={true} />);
+    await waitFor(() => expect(getByTestId('coach-insight-text')).toHaveTextContent('Claude says squat more.'));
+
+    mockUseAiProvider.mockReturnValue('chatgpt');
+    mockChatGptSignedIn.mockReturnValue(true);
+    mockCallChatGpt.mockResolvedValue({ok: true, text: 'Deload next week.', truncated: false});
+    rerender(<CoachInsightCard trainings={trainings} isActive={true} />);
+
+    await waitFor(() => expect(getByTestId('coach-insight-text')).toHaveTextContent('Deload next week.'));
+    expect(mockCallChatGpt).toHaveBeenCalledTimes(1);
+    expect(cache.get('chatgpt:1')).toMatchObject({text: 'Deload next week.'});
+    expect(cache.get('1')).toMatchObject({text: 'Claude says squat more.'});
+  });
+
+  it('hides a cached ChatGPT insight once the user signed out', async () => {
+    const cache = new Map<string, object>([['chatgpt:1', {text: 'Deload next week.', generatedAt: Date.now()}]]);
+    mockInsightCacheGet.mockImplementation((k: string) => cache.get(k));
+    mockChatGptSignedIn.mockReturnValue(true);
+    const trainings = [makeFinishedTraining(1)];
+
+    const {getByTestId, queryByTestId, rerender} = render(<CoachInsightCard trainings={trainings} isActive={true} />);
+    await waitFor(() => expect(getByTestId('coach-insight-text')).toHaveTextContent('Deload next week.'));
+
+    mockChatGptSignedIn.mockReturnValue(false);
+    rerender(<CoachInsightCard trainings={trainings} isActive={true} />);
+
+    await waitFor(() => expect(queryByTestId('coach-insight-card')).toBeNull());
+    expect(mockCallChatGpt).not.toHaveBeenCalled();
+  });
+
   it('shows the worded ChatGPT failure, e.g. a reached usage limit', async () => {
     mockChatGptSignedIn.mockReturnValue(true);
     mockCallChatGpt.mockResolvedValue({ok: false, error: {type: 'provider_error', message: 'Your ChatGPT usage limit for Gainalytics is reached.'}});

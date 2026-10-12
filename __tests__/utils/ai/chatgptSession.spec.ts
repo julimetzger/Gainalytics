@@ -205,6 +205,33 @@ describe('signOut', () => {
     expect(loadRegistration()).toEqual({clientId: 'oaiapp_x', sub: 'u1', email: 'a@b.c'});
   });
 
+  it('a refresh that finishes after sign-out does not bring the old sign-in back', async () => {
+    storeSession(NOW - 1);
+    let finishRefresh!: () => void;
+    mockFetch.mockImplementation((url: string) =>
+      url.includes('/oauth/token')
+        ? new Promise(resolve => {
+            finishRefresh = () => resolve(jsonResponse(200, {access_token: 'at-new', refresh_token: 'rt-new', expires_in: 3600}));
+          }).then(r => r)
+        : Promise.resolve({ok: true, status: 200}),
+    );
+
+    const refreshing = getFreshSession();
+    await signOut();
+    finishRefresh();
+
+    expect(await refreshing).toBeNull();
+    expect(loadSession()).toBeNull();
+    expect(mockStore.has('chatgpt_tokens')).toBe(false);
+    // The rotated refresh token is revoked as well, not just the one sign-out saw.
+    await Promise.resolve();
+    const revoked = mockFetch.mock.calls.filter(([, init]) => String(init?.body).startsWith('client_id=')).map(([, init]) => init.body);
+    expect(revoked).toEqual([
+      'client_id=oaiapp_x&token=rt-old&token_type_hint=refresh_token',
+      'client_id=oaiapp_x&token=rt-new&token_type_hint=refresh_token',
+    ]);
+  });
+
   it('still signs out locally when revocation fails', async () => {
     storeSession(NOW + 10 * 60_000);
     mockFetch.mockRejectedValue(new TypeError('Network request failed'));

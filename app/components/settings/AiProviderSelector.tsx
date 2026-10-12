@@ -1,19 +1,28 @@
 import React from 'react';
 import {StyleSheet, View} from 'react-native';
-import {SegmentedButtons, Text} from 'react-native-paper';
+import {SegmentedButtons, Text, useTheme} from 'react-native-paper';
 import {resolveAiProvider} from '../../models/AiProvider';
 import {useAiProvider} from '../../redux/settings/use/useAiProvider';
 import {dispatchSetAiProvider} from '../../redux/settings/dispatch/dispatchSetAiProvider';
-
-const PROVIDER_BUTTONS = [
-  {value: 'claude', label: 'Claude (API key)', testID: 'settings-ai-provider-claude'},
-  {value: 'chatgpt', label: 'ChatGPT (Sign in)', testID: 'settings-ai-provider-chatgpt'},
-];
+import {isLoopbackAvailable} from '../../utils/ai/chatgpt/chatgptSession';
 
 /** GH-504: who answers AI Chat and Coach Insights. Unset means Claude. */
 const AiProviderSelector = () => {
+  const theme = useTheme();
   const provider = useAiProvider();
   const setProvider = dispatchSetAiProvider();
+  // The sign-in needs the native loopback listener, which only the Android build has (no iOS module).
+  const chatGptAvailable = isLoopbackAvailable();
+
+  const buttons = [
+    {value: 'claude', label: 'Claude (API key)', testID: 'settings-ai-provider-claude'},
+    {
+      value: 'chatgpt',
+      label: 'ChatGPT (Sign in)',
+      testID: 'settings-ai-provider-chatgpt',
+      disabled: !chatGptAvailable,
+    },
+  ];
 
   return (
     <View style={styles.container} testID="settings-ai-provider">
@@ -23,9 +32,18 @@ const AiProviderSelector = () => {
       <SegmentedButtons
         value={provider}
         onValueChange={value => setProvider(resolveAiProvider(value))}
-        buttons={PROVIDER_BUTTONS}
+        buttons={buttons}
         density="small"
       />
+      {!chatGptAvailable && (
+        <Text
+          variant="bodySmall"
+          style={[styles.hint, {color: theme.colors.onSurfaceVariant}]}
+          testID="settings-ai-provider-chatgpt-unavailable"
+        >
+          Sign in with ChatGPT is only available on Android for now.
+        </Text>
+      )}
     </View>
   );
 };
@@ -33,6 +51,7 @@ const AiProviderSelector = () => {
 const styles = StyleSheet.create({
   container: {marginBottom: 12},
   label: {marginBottom: 4},
+  hint: {marginTop: 4},
 });
 
 export default AiProviderSelector;

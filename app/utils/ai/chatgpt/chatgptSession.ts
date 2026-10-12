@@ -165,7 +165,15 @@ function tokensFromResponse(tokens: TokenResponse, previous?: ChatGptTokens): Ch
   };
 }
 
+// Bumped whenever the stored tokens are replaced or removed outside a refresh (sign-in,
+// sign-out, terminal refresh error). A refresh that started under an older generation must not
+// write its result back — otherwise a sign-out during the refresh would restore the old sign-in.
+let sessionGeneration = 0;
+
 function clearTokens(): void {
+  sessionGeneration++;
+  // A later caller must not join a refresh of the cleared sign-in.
+  refreshInFlight = null;
   getSecureStore().delete(TOKENS_KEY);
   notify();
 }
@@ -264,6 +272,8 @@ async function runSignIn(onProgress: (p: SignInProgress) => void): Promise<ChatG
       nextTokens.scope = cb.scope;
       nextTokens.planUsage = hasPlanUsageScope(cb.scope);
     }
+    sessionGeneration++;
+    refreshInFlight = null;
     writeJson(REGISTRATION_KEY, nextRegistration);
     writeJson(TOKENS_KEY, nextTokens);
     notify();
@@ -280,7 +290,7 @@ export async function cancelSignIn(): Promise<void> {
   await Loopback?.stop();
 }
 
-let refreshInFlight: Promise<ChatGptSession> | null = null;
+let refreshInFlight: Promise<ChatGptSession | null> | null = null;
 
 /**
  * Returns a session whose access token is valid for at least another minute, refreshing it
@@ -288,7 +298,8 @@ let refreshInFlight: Promise<ChatGptSession> | null = null;
  * refresh token rotates and a second request with the old one fails as reused.
  *
  * Throws ChatGptReauthRequiredError (after clearing the tokens) on a terminal refresh error;
- * network and server errors propagate unchanged and keep the sign-in.
+ * network and server errors propagate unchanged and keep the sign-in. Resolves null when the
+ * user signed out while the refresh was running.
  */
 export function getFreshSession(options: {force?: boolean} = {}): Promise<ChatGptSession | null> {
   const session = loadSession();
@@ -300,18 +311,21 @@ export function getFreshSession(options: {force?: boolean} = {}): Promise<ChatGp
     return Promise.reject(new ChatGptReauthRequiredError('missing_refresh_token'));
   }
   if (!refreshInFlight) {
-    refreshInFlight = refreshSession(session).finally(() => {
-      refreshInFlight = null;
+    const running: Promise<ChatGptSession | null> = refreshSession(session).finally(() => {
+      if (refreshInFlight === running) refreshInFlight = null;
     });
+    refreshInFlight = running;
   }
   return refreshInFlight;
 }
 
-async function refreshSession(session: ChatGptSession): Promise<ChatGptSession> {
+async function refreshSession(session: ChatGptSession): Promise<ChatGptSession | null> {
+  const generation = sessionGeneration;
   let tokens: TokenResponse;
   try {
     tokens = await refreshTokens(session.clientId, session.refreshToken!);
   } catch (e) {
+    if (generation !== sessionGeneration) return null;
     if (e instanceof OAuthError && isTerminalRefreshError(e.code)) {
       clearTokens();
       throw new ChatGptReauthRequiredError(e.code);
@@ -320,6 +334,12 @@ async function refreshSession(session: ChatGptSession): Promise<ChatGptSession> 
   }
   const {clientId, sub, email, ...previous} = session;
   const next = tokensFromResponse(tokens, previous);
+  if (generation !== sessionGeneration) {
+    // Signed out (or signed in anew) meanwhile: drop the rotated tokens and revoke them too,
+    // since the sign-out revoked the refresh token this refresh had already replaced.
+    if (next.refreshToken) revokeRefreshToken(clientId, next.refreshToken).catch(() => undefined);
+    return null;
+  }
   writeJson(TOKENS_KEY, next);
   return {clientId, sub, email, ...next};
 }
@@ -330,6 +350,8 @@ async function refreshSession(session: ChatGptSession): Promise<ChatGptSession> 
  */
 export async function signOut(): Promise<{remoteRevoked: boolean}> {
   const session = loadSession();
+  // Clear first, so a refresh that completes during the revocation cannot write its tokens back.
+  clearTokens();
   let remoteRevoked = false;
   if (session?.refreshToken) {
     try {
@@ -339,6 +361,5 @@ export async function signOut(): Promise<{remoteRevoked: boolean}> {
       remoteRevoked = false;
     }
   }
-  clearTokens();
   return {remoteRevoked};
 }

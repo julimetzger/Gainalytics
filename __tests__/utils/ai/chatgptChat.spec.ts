@@ -74,6 +74,28 @@ describe('sendChatGptMessage', () => {
     expect(JSON.parse(mockFetch.mock.calls[1][1].body).model).toBe('gpt-first');
   });
 
+  it('refreshes once when the model list is rejected with 401 and still answers', async () => {
+    mockGetFreshSession
+      .mockResolvedValueOnce(SESSION)
+      .mockResolvedValueOnce(SESSION)
+      .mockResolvedValueOnce({...SESSION, accessToken: 'at-new'});
+    mockFetch
+      .mockReturnValueOnce(textResponse(401, '{"detail":"revoked"}'))
+      .mockReturnValueOnce(Promise.resolve({ok: true, status: 200, json: () => Promise.resolve({data: [{slug: 'gpt-first'}]})}))
+      .mockReturnValueOnce(textResponse(200, OK_STREAM));
+
+    const result = await sendChatGptMessage([{role: 'user', content: 'hi'}], 'sys', undefined);
+
+    expect(result).toEqual({ok: true, text: 'Rest 3 min.', hadContext: false, truncated: false});
+    expect(mockFetch.mock.calls.map(([url]) => url)).toEqual([
+      'https://api.openai.com/v1/models',
+      'https://api.openai.com/v1/models',
+      'https://api.openai.com/v1/responses',
+    ]);
+    expect(mockFetch.mock.calls[1][1].headers.Authorization).toBe('Bearer at-new');
+    expect(mockGetFreshSession.mock.calls).toContainEqual([{force: true}]);
+  });
+
   it('reports a reached usage limit in plain words', async () => {
     mockFetch.mockReturnValue(
       textResponse(429, '{"error":{"code":"subscription_sharing_usage_limit_exceeded","message":"limit"}}'),

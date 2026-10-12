@@ -46,10 +46,21 @@ async function sessionOrFail(force: boolean): Promise<ChatGptSession> {
   return session;
 }
 
-/** Lists the models the signed-in plan offers. */
+function getModels(accessToken: string, signal?: AbortSignal): Promise<Response> {
+  return fetch(MODELS_URL, {headers: {Authorization: `Bearer ${accessToken}`}, signal});
+}
+
+/**
+ * Lists the models the signed-in plan offers. Like the Responses request, a 401 refreshes the
+ * token once and repeats the call — chat and insights without a chosen model depend on it.
+ */
 export async function fetchChatGptModels(signal?: AbortSignal): Promise<ChatGptModel[]> {
-  const session = await sessionOrFail(false);
-  const res = await fetch(MODELS_URL, {headers: {Authorization: `Bearer ${session.accessToken}`}, signal});
+  let session = await sessionOrFail(false);
+  let res = await getModels(session.accessToken, signal);
+  if (res.status === 401) {
+    session = await sessionOrFail(true);
+    res = await getModels(session.accessToken, signal);
+  }
   if (!res.ok) {
     throw new FailureSignal(classifyHttpError(res.status, await res.text(), ''));
   }
