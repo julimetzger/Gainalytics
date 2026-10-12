@@ -4,6 +4,7 @@ Ticket: [GH-504](https://github.com/julimetzger/Gainalytics/issues/504) · Stand
 
 ## TL;DR
 
+- **Update Phase 2 (12.10.2026):** Der Owner hat entschieden, Gainalytics als Open Source zu veröffentlichen. Damit fällt die App unter den Self-Service-Weg von OpenAI („available to all open-source partners“ [Q2]). Der PoC ist zum Feature ausgebaut: Anbieterwahl **Claude (API key) / ChatGPT (Sign in)** in den Settings; AI-Chat und Coach Insights laufen mit beiden Anbietern gleich. Verifiziert im **Release-Build ohne Metro** auf `emulator-5554` (Ist-Stand im Abschnitt [Phase 2](#phase-2--ist-stand-nach-dem-ausbau-12102026)). Die folgenden Punkte beschreiben den Stand **vor** dieser Entscheidung.
 - **Es gibt das wirklich, und offiziell dokumentiert:** „Sign in with ChatGPT“ kann neben dem reinen Login optional **„ChatGPT plan usage“** – die App schickt Anfragen an die normale Responses API (`api.openai.com/v1/responses`) mit einem OAuth-Token des Nutzers, abgerechnet über dessen ChatGPT-Abo. [Q1][Q2]
 - **Darf Gainalytics das heute im Play Store nutzen? → Nein, nicht ohne Freigabe.** Self-Service gibt es nur für **Open-Source-Projekte, lokal laufende Privatprojekte und ausgewählte private Clients**. Für eine „paid or remotely hosted“ App bzw. als kommerzieller Partner verlangt OpenAI das **Interest-Formular / Warteliste**. [Q2][Q3][Q4] Gainalytics ist ein privates Repo ohne Lizenz (also nicht Open Source) und wird an Dritte verteilt. Damit passt es in keine Self-Service-Kategorie (Details in Frage 1).
 - **Technisch geht es ohne eigenen Server.** Es ist ein öffentlicher OAuth-Client mit PKCE, ohne Client-Secret, mit dynamischer Client-Registrierung. Der einzige dokumentierte Redirect ist `http://127.0.0.1:<port>/auth/callback`. Der PoC zeigt, dass das auf Android funktioniert: Die App lauscht selbst auf 127.0.0.1. [Q5]
@@ -38,6 +39,7 @@ Es geht also **nicht nur um Login**, sondern tatsächlich um die Nutzung des Abo
   - Die App läuft zwar lokal ohne Server, wird aber an fremde Nutzer verteilt (Release-Skript für den Store).
   - Unter „personal projects that run locally“ fällt höchstens der **Eigengebrauch des Entwicklers**, also genau dieser PoC auf dem eigenen Emulator.
 - **Klare Aussage: Gainalytics darf „ChatGPT plan usage“ heute nicht im Store-Release anbieten**, solange OpenAI das nicht freigegeben hat. Für den internen PoC bzw. Eigengebrauch ist der Self-Service-Weg nach dem Wortlaut der Doku zulässig.
+- **Nachtrag 12.10.2026 (Owner-Entscheidung):** Gainalytics wird Open Source. Sobald das Repo öffentlich und lizenziert ist, gilt der Self-Service-Weg für Open-Source-Partner [Q2][Q3]. Ein Formular ist dafür nicht nötig. Weiter offen, weil die Doku es nicht regelt: ob eine Store-Verteilung des Open-Source-Builds abgedeckt ist. Eine Rückfrage per Interest-Formular bleibt sinnvoll, bevor das Feature in den Play Store geht.
 
 ### Was genau muss beantragt werden? (nötige Schritte)
 
@@ -180,6 +182,8 @@ Gesamt nach Freigabe: grob **8–11 Personentage**.
 
 ### Was gebaut wurde (Branch `feature/GH-504`)
 
+> Stand Runde 1/2. In Phase 2 wurde der PoC-Screen durch das Feature in den Settings ersetzt, der Long-Press-Einstieg entfernt und `chatgptPoc/` nach `app/utils/ai/chatgpt/` verschoben, siehe [Phase 2](#phase-2--ist-stand-nach-dem-ausbau-12102026).
+
 | Datei | Inhalt |
 |---|---|
 | `android/.../ChatGptLoopbackModule.kt` (+ Package, Registrierung in `MainApplication.kt`) | Nativer Loopback-Listener auf `127.0.0.1:1455` (Fallback: freier Port), wartet auf `GET /auth/callback` (Lese-Timeout gegen leere Chrome-Preconnects), antwortet mit einer „Sign-in received“-Seite plus Link zurück in die App; dazu PKCE (S256) und Zufallswerte per `SecureRandom` |
@@ -218,6 +222,70 @@ Die dynamische Registrierung wurde für die App akzeptiert, der Consent-Dialog z
   4. „Reconnect“-Knopf im PoC-Screen: Neu-Login ohne Abmelden. Die Session wird erst bei Erfolg ersetzt.
 - **Verifiziert:** Mit dem Fix kam der Callback, während Chrome vorne lag und die App im Hintergrund war, ohne Rückkehr in die App: Chrome zeigte sofort „Sign-in received“ (`screenshots/GH-504/08_callback_received_in_background.png`). Der Service lief (`isForeground=true`), die App-Threads waren nicht eingefroren. „Back to Gainalytics“ öffnet die App, die direkt „Connected“ zeigt (Run-Dir: `r2_06_connected_after_fix.png`).
 - **Restpunkt (für das Produkt-Ticket):** Den Token-Tausch selbst schließt die App erst ab, wenn sie wieder vorne ist (im Test ~2 s nach „Back to Gainalytics“). Grund: React Native pausiert JS-Timer im Hintergrund (`JavaTimerManager.onHostPause`), und RN-`fetch` (whatwg-fetch) löst sein Promise per `setTimeout(…, 0)` auf. Kehrt der Nutzer erst nach Ablauf des Autorisierungscodes zurück, scheitert der Tausch. Produktiv daher den Tausch nativ (OkHttp im Loopback-Modul), per rohem `XMLHttpRequest` oder als Headless-JS-Task ausführen.
+
+---
+
+## Phase 2 – Ist-Stand nach dem Ausbau (12.10.2026)
+
+### Was der Nutzer sieht
+
+- **Settings → AI Coach → AI Configuration → „AI Provider“:** Auswahl **Claude (API key)** oder **ChatGPT (Sign in)**.
+  - Ohne Auswahl bleibt jeder bei Claude. Das gilt auch für alle bestehenden Nutzer, denn es gibt keine Migration und keinen Default-Wechsel.
+  - Der Claude-Teil (Key-Feld, Test Key, Claude Model) ist unverändert.
+  - Die Prompts gelten für beide Anbieter.
+- **ChatGPT:**
+  - „Continue with ChatGPT“ öffnet den Consent-Dialog im Browser.
+  - Danach zeigt die App „Connected as …“ und die Modelle des Abos als Auswahl (ohne Auswahl wird das erste Modell genutzt).
+  - Dazu „Reconnect“ (neu anmelden ohne vorher abzumelden), „Sign out“ und „Check usage on chatgpt.com“.
+- **AI-Chat und Coach Insights** nutzen den gewählten Anbieter. Gleich wie bei Claude bleiben:
+  - Kontext (Trainingsdaten, Planung, gewähltes Training)
+  - Lade-Zähler, Stop-Knopf und Timeout (Chat 180 s, Insight 90 s)
+  - Rückrollen der unbeantworteten Nachricht
+  - Insight-Cache und „Ask AI“
+- Der versteckte Debug-Eintrag ist entfernt. Foreground-Service und Rücksprung-Link (`gainalytics://chatgpt-signin`) stehen jetzt im Haupt-Manifest, funktionieren also im Release-Build.
+
+### Technik (Kurzfassung)
+
+| Teil | Datei | Inhalt |
+|---|---|---|
+| Sitzung | `app/utils/ai/chatgpt/chatgptSession.ts` | Registrierung (Client-ID, Konto) und Tokens **getrennt** im verschlüsselten Secure Store. Ablauf: <ul><li>Client-ID wird **vor** dem Code-Tausch gespeichert</li><li>Refresh ist serialisiert (ein laufender Refresh für alle Aufrufer)</li><li>bei endgültigen Refresh-Fehlern werden die Tokens gelöscht → Neu-Anmeldung</li><li>Abmelden löscht nur die Tokens</li><li>Doppeltipp schließt sich der laufenden Anmeldung an</li><li>PoC-Sitzungen werden übernommen</li></ul> [Q8][Q13] |
+| Anfragen | `chatgptChat.ts`, `chatgptResponses.ts` | `/v1/responses` mit `store:false`, `stream:true`, `instructions`; Verlauf als `input` (User `input_text`, Assistant `output_text`). Bei 401 einmal Refresh und Wiederholung. Ohne Modellwahl wird das erste Modell aus `/v1/models` genutzt. [Q11][Q12] |
+| Fehler | `chatgptErrors.ts` | Verständliche Meldungen für: <ul><li>Limit erreicht (`subscription_sharing_usage_limit_exceeded`, 429), mit Hinweis auf ChatGPT → Settings → Usage</li><li>Nutzung nicht prüfbar (503)</li><li>Anmeldung abgelaufen/ungültig</li><li>Plan-Nutzung nicht erlaubt</li><li>nicht angemeldet</li><li>ungültiges Modell</li><li>Netzwerk, Timeout, Abbruch</li></ul> [Q8] |
+| UI | `AiProviderSelector.tsx`, `ChatGptAccountSection.tsx`, `useChatGptAccount.ts` | Anbieterwahl und ChatGPT-Bereich; Redux-Felder `aiProvider`, `chatgptModel` (fehlend = Claude bzw. erstes Modell) |
+| Nativ | `ChatGptLoopbackModule.kt`, `ChatGptSignInService.kt`, `AndroidManifest.xml` | wie im PoC, jetzt für alle Build-Typen |
+
+### Verifiziert (Release-Build ohne Metro, `emulator-5554`, 12.10.2026)
+
+| # | Prüfung | Ergebnis |
+|---|---|---|
+| 1 | Update über die PoC-Debug-App (`adb install -r`, gleiche Signatur): Daten und **ChatGPT-Anmeldung des Owners bleiben erhalten**, Anbieter steht weiter auf Claude | ✅ `11_settings_default_claude.png`, `12_settings_chatgpt_connected.png` |
+| 2 | ChatGPT gewählt: „Connected as …“, 7 Modelle des Abos | ✅ Maestro `gh504_chatgpt_provider.yaml` |
+| 3 | Login im Release-Build über „Reconnect“: <ul><li>Consent „Connect Gainalytics to ChatGPT – Use your ChatGPT plan“</li><li>„Sign-in received“ kommt, während Chrome vorne ist (Foreground-Service aktiv)</li><li>„Back to Gainalytics“ → verbunden, Service beendet</li></ul> | ✅ `13_release_consent_dialog.png` |
+| 4 | AI-Chat mit Meso-Kontext: zwei Nachrichten, die zweite nur mit Verlauf lösbar („REST=5 min“ → „BENCH=4 min“); kein „No context“-Hinweis; Stop bricht ab und stellt die Frage wieder her | ✅ `14_release_chat_two_answers_stop.png`, Maestro |
+| 5 | Coach Insight mit echter ChatGPT-Antwort, kurz und vollständig (kein Kürzungshinweis) | ✅ `15_release_coach_insight_chatgpt.png`, Maestro `gh504_chatgpt_coach_insight.yaml` |
+| 6 | App-Neustart (Maestro `launchApp` stoppt die App) und Neuinstallation: Anmeldung bleibt | ✅ |
+| 7 | Abmelden, abgelaufene Sitzung, Refresh-Fehler, Limit, ungültige Anmeldung, kein Anbieter, Netzwerk | ✅ Unit-Tests (`chatgptSession.spec.ts`, `chatgptChat.spec.ts`, `ChatGptAccountSection.spec.tsx`). Auf dem Gerät **bewusst nicht** abgemeldet, um die Anmeldung des Owners zu erhalten |
+
+Hinweis zu den Testdaten: Das Baseline-Fixture ist Monate alt, und Coach Insights werten nur die letzten 28 Tage aus. Für Nr. 5 wurde deshalb eine Kopie mit auf heute verschobenen Datumswerten über Settings → Import Data eingespielt. Dieser Import behält die Anmeldung.
+
+### Bekannte Grenzen
+
+- **Token-Tausch erst nach Rückkehr in die App** (siehe Runde 2): Der Tausch schließt etwa 1–2 s nach „Back to Gainalytics“ ab. Bleibt der Nutzer sehr lange im Browser, kann der Autorisierungscode verfallen; dann erscheint „Sign-in expired before it finished. Try again.“. Abhilfe wäre ein nativer Tausch (Folgeticket).
+- **Keine Live-Anzeige** der Antwort. Das Feature ist bewusst ohne Streaming umgesetzt (Ticket „Nicht im Umfang“). Die SSE-Antwort wird am Ende komplett gelesen.
+- **ID-Token:** iss/aud/nonce werden geprüft, die JWKS-Signatur nicht. Das Token kommt direkt per TLS vom Token-Endpunkt.
+- Der Consent-Dialog zeigt weiter „OpenAI has not verified this agent or its name“, weil die Registrierung dynamisch erfolgt.
+- Datenschutzerklärung, Store-Listing und die Veröffentlichung des Repos sind nicht im Umfang (Owner).
+
+### Offene Ticket-Vorschläge nach Phase 2
+
+| Prio | Vorschlag | Aufwand |
+|---|---|---|
+| P1 | Repo öffentlich + Lizenz; vor Store-Release Rückfrage bei OpenAI, ob Store-Verteilung abgedeckt ist (Owner) | ~1 h |
+| P2 | Token-Tausch nativ im Loopback-Modul, damit der Login auch ohne Rückkehr in die App abschließt | S (½–1 Tag) |
+| P2 | Datenschutzerklärung/Store-Listing um OpenAI ergänzen | S (½ Tag) |
+| P3 | Streaming im AI-Chat (beide Anbieter) | S–M (1 Tag) |
+| P3 | JWKS-Signaturprüfung des ID-Tokens | S (½ Tag) |
+| P3 | E2E mit lokalem Mock für auth/token/responses, damit der ChatGPT-Pfad ohne echtes Konto in CI läuft | S (1 Tag) |
 
 ---
 
