@@ -1,6 +1,8 @@
 package com.powerliftingworkoutplanner
 
+import android.content.Intent
 import android.util.Base64
+import androidx.core.content.ContextCompat
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -27,6 +29,7 @@ class ChatGptLoopbackModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
   private val random = SecureRandom()
+  private val CLIENT_READ_TIMEOUT_MS = 10_000
   @Volatile private var server: ServerSocket? = null
 
   override fun getName(): String = "ChatGptLoopback"
@@ -91,6 +94,7 @@ class ChatGptLoopbackModule(reactContext: ReactApplicationContext) :
       promise.reject("E_LOOPBACK_NOT_STARTED", "Loopback listener not started")
       return
     }
+    startKeepAlive()
     Thread {
       val deadline = System.currentTimeMillis() + timeoutMs
       try {
@@ -99,8 +103,16 @@ class ChatGptLoopbackModule(reactContext: ReactApplicationContext) :
           if (remaining <= 0) throw SocketTimeoutException("Timed out waiting for OAuth callback")
           socket.soTimeout = remaining.toInt()
           socket.accept().use { client ->
+            // Chrome opens speculative preconnects that never send a request; don't block on them.
+            client.soTimeout = CLIENT_READ_TIMEOUT_MS
             val reader = BufferedReader(InputStreamReader(client.getInputStream(), Charsets.UTF_8))
-            val requestLine = reader.readLine() ?: ""
+            val requestLine =
+                try {
+                  reader.readLine() ?: ""
+                } catch (e: SocketTimeoutException) {
+                  ""
+                }
+            if (requestLine.isEmpty()) return@use
             val target = requestLine.split(" ").getOrNull(1) ?: ""
             val out = client.getOutputStream()
             if (requestLine.startsWith("GET ") && target.substringBefore('?') == path) {
@@ -118,7 +130,8 @@ class ChatGptLoopbackModule(reactContext: ReactApplicationContext) :
       } catch (e: Exception) {
         promise.reject("E_LOOPBACK_FAILED", e.message, e)
       } finally {
-        stopServer()
+        // The keep-alive stays on until JS calls stop() after the token exchange.
+        closeServer()
       }
     }.start()
   }
@@ -130,10 +143,33 @@ class ChatGptLoopbackModule(reactContext: ReactApplicationContext) :
   }
 
   private fun stopServer() {
+    closeServer()
+    stopKeepAlive()
+  }
+
+  private fun closeServer() {
     try {
       server?.close()
     } catch (_: Exception) {}
     server = null
+  }
+
+  /** See [ChatGptSignInService]: without a foreground service the app is frozen in the background. */
+  private fun startKeepAlive() {
+    try {
+      ContextCompat.startForegroundService(
+          reactApplicationContext, Intent(reactApplicationContext, ChatGptSignInService::class.java))
+    } catch (_: Exception) {
+      // Not declared (release) or not allowed: the redirect is then only handled once the app is
+      // back in the foreground.
+    }
+  }
+
+  private fun stopKeepAlive() {
+    try {
+      reactApplicationContext.stopService(
+          Intent(reactApplicationContext, ChatGptSignInService::class.java))
+    } catch (_: Exception) {}
   }
 
   private fun httpResponse(status: String, body: String): String {
@@ -143,12 +179,15 @@ class ChatGptLoopbackModule(reactContext: ReactApplicationContext) :
   }
 
   private fun successPage(): String {
-    val pkg = reactApplicationContext.packageName
     return "<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width\">" +
         "<title>Gainalytics</title></head><body style=\"font-family:sans-serif;padding:24px\">" +
         "<h2>Sign-in received</h2><p>You can return to Gainalytics now.</p>" +
-        "<p><a href=\"intent://#Intent;package=$pkg;action=android.intent.action.MAIN;" +
-        "category=android.intent.category.LAUNCHER;end\">Back to Gainalytics</a></p>" +
+        "<p><a href=\"$RETURN_URL\">Back to Gainalytics</a></p>" +
         "</body></html>"
+  }
+
+  companion object {
+    /** Debug-only VIEW/BROWSABLE filter on MainActivity (src/debug/AndroidManifest.xml). */
+    private const val RETURN_URL = "gainalytics-poc://chatgpt-signin"
   }
 }

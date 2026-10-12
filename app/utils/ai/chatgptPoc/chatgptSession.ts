@@ -102,48 +102,49 @@ export async function signInWithChatGpt(
   });
 
   // Start waiting before the browser opens so the redirect cannot race the listener.
+  // stop() also ends the native keep-alive that prevents Android from freezing the app while the
+  // browser is in front — only after the token exchange, which otherwise stalls in the background.
   const callbackPromise = Loopback.awaitCallback(LOOPBACK_CALLBACK_PATH, SIGN_IN_TIMEOUT_MS);
-  onProgress({step: 'listening', port, authorizeUrl, state});
   try {
+    onProgress({step: 'listening', port, authorizeUrl, state});
     await Linking.openURL(authorizeUrl);
-  } catch (e) {
+
+    const target = await callbackPromise;
+    onProgress({step: 'callback_received'});
+    const cb = parseCallback(target, state, previous?.clientId);
+    if (!cb.ok) {
+      throw new OAuthError(cb.error, cb.description ?? cb.error);
+    }
+    const clientId = cb.clientId ?? previous?.clientId;
+    if (!clientId) throw new OAuthError('missing_client_id', 'Callback did not return an issued client_id');
+
+    onProgress({step: 'exchanging'});
+    const tokens = await exchangeCode({clientId, code: cb.code, codeVerifier: pkce.verifier, redirectUri});
+    let sub: string | undefined;
+    let email: string | undefined;
+    if (tokens.id_token) {
+      const check = checkIdToken(tokens.id_token, clientId, nonce);
+      if (!check.ok) throw new OAuthError('invalid_id_token', check.reason ?? 'ID token rejected');
+      sub = check.sub;
+      email = check.email;
+    }
+    const scope = tokens.scope ?? cb.scope ?? '';
+    const session: ChatGptSession = {
+      clientId,
+      sub,
+      email,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      idToken: tokens.id_token,
+      scope,
+      expiresAt: Date.now() + (tokens.expires_in ?? 3600) * 1000,
+      planUsage: hasPlanUsageScope(scope),
+    };
+    saveSession(session);
+    return session;
+  } finally {
     await Loopback.stop();
-    throw e;
   }
-
-  const target = await callbackPromise;
-  onProgress({step: 'callback_received'});
-  const cb = parseCallback(target, state, previous?.clientId);
-  if (!cb.ok) {
-    throw new OAuthError(cb.error, cb.description ?? cb.error);
-  }
-  const clientId = cb.clientId ?? previous?.clientId;
-  if (!clientId) throw new OAuthError('missing_client_id', 'Callback did not return an issued client_id');
-
-  onProgress({step: 'exchanging'});
-  const tokens = await exchangeCode({clientId, code: cb.code, codeVerifier: pkce.verifier, redirectUri});
-  let sub: string | undefined;
-  let email: string | undefined;
-  if (tokens.id_token) {
-    const check = checkIdToken(tokens.id_token, clientId, nonce);
-    if (!check.ok) throw new OAuthError('invalid_id_token', check.reason ?? 'ID token rejected');
-    sub = check.sub;
-    email = check.email;
-  }
-  const scope = tokens.scope ?? cb.scope ?? '';
-  const session: ChatGptSession = {
-    clientId,
-    sub,
-    email,
-    accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token,
-    idToken: tokens.id_token,
-    scope,
-    expiresAt: Date.now() + (tokens.expires_in ?? 3600) * 1000,
-    planUsage: hasPlanUsageScope(scope),
-  };
-  saveSession(session);
-  return session;
 }
 
 /** Returns a session with a valid access token, refreshing if it expires within 60 s. */

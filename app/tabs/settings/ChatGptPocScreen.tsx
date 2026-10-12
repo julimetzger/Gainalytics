@@ -58,6 +58,7 @@ const ChatGptPocScreen = () => {
       });
       setSession(s);
       setPhase('connected');
+      setDebugInfo('');
     } catch (e: any) {
       setPhase('error');
       setDetail(`${e?.code ? `${e.code}: ` : ''}${e?.message ?? String(e)}`);
@@ -197,6 +198,10 @@ const ChatGptPocScreen = () => {
           ) : null}
           <View style={styles.row}>
             <Button onPress={() => Linking.openURL(MANAGE_USAGE_URL)}>Manage usage</Button>
+            {/* Re-runs the browser flow without signing out; the stored session is only replaced on success. */}
+            <Button onPress={handleSignIn} testID="chatgpt-poc-reconnect-button">
+              Reconnect
+            </Button>
             <Button onPress={handleSignOut} testID="chatgpt-poc-signout-button">
               Sign out
             </Button>

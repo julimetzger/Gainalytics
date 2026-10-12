@@ -1,0 +1,57 @@
+appId: com.powerliftingworkoutplanner
+name: GH-504 ChatGPT PoC connected — models and a real answer via the ChatGPT plan
+---
+# Manual-only: needs a device on which a ChatGPT account has already been connected in the PoC
+# (Settings → long-press "Version" → "Continue with ChatGPT"). Never clears state and never signs
+# out, so the stored session survives. Not part of gh504_suite.yaml (that one imports the fixture
+# with clearState and would wipe the session).
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      text: "tab-settings"
+    timeout: 60000
+- tapOn:
+    text: "tab-settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-app-version"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 100
+    centerElement: true
+- longPressOn:
+    id: "settings-app-version"
+- extendedWaitUntil:
+    visible:
+      id: "chatgpt-poc-screen"
+    timeout: 15000
+
+# Connected state with plan usage granted (scope chatgpt.tokens.use.direct).
+- assertVisible:
+    id: "chatgpt-poc-status"
+    text: "Connected as .+@.+"
+- assertVisible:
+    id: "chatgpt-poc-plan-usage"
+    text: "Using ChatGPT plan"
+
+# GET /v1/models with the plan token.
+- tapOn:
+    id: "chatgpt-poc-load-models-button"
+- extendedWaitUntil:
+    visible:
+      text: "Available: gpt-.*"
+    timeout: 30000
+
+# POST /v1/responses (store:false, stream:true) — a real answer about squat rest times.
+- tapOn:
+    id: "chatgpt-poc-ask-button"
+- extendedWaitUntil:
+    visible:
+      id: "chatgpt-poc-answer"
+    timeout: 90000
+- assertVisible:
+    id: "chatgpt-poc-answer"
+    text: "(?s).*[0-9].*min.*"
+- assertNotVisible:
+    id: "chatgpt-poc-detail"

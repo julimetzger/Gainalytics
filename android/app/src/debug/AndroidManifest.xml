@@ -4,5 +4,20 @@
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
-    <application android:usesCleartextTraffic="true" tools:targetApi="28" tools:ignore="GoogleAppIndexingWarning" />
+    <application android:usesCleartextTraffic="true" tools:targetApi="28" tools:ignore="GoogleAppIndexingWarning">
+        <!-- GH-504 PoC: keeps the process unfrozen while "Sign in with ChatGPT" waits for the browser redirect -->
+        <service
+            android:name=".ChatGptSignInService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <!-- GH-504 PoC: "Back to Gainalytics" link on the loopback callback page -->
+        <activity android:name=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="gainalytics-poc" android:host="chatgpt-signin" />
+            </intent-filter>
+        </activity>
+    </application>
 </manifest>
