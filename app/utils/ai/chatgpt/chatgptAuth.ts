@@ -1,11 +1,10 @@
 /**
- * GH-504 PoC — "Sign in with ChatGPT" with ChatGPT plan usage.
+ * GH-504 — "Sign in with ChatGPT" with ChatGPT plan usage.
  *
  * Follows OpenAI's open-source / locally hosted flow
  * (https://developers.openai.com/siwc/token-sharing-open-source/sign-in):
  * dynamic client registration via `client_id=dynamic_agent_client`, PKCE (S256)
- * and a loopback redirect on 127.0.0.1. Only used by the dev-only PoC screen;
- * the Claude API-key path does not touch this module.
+ * and a loopback redirect on 127.0.0.1. The Claude API-key path does not touch this module.
  */
 
 export const OPENAI_AUTHORIZE_URL = 'https://auth.openai.com/api/accounts/authorize';
@@ -154,6 +153,24 @@ export function exchangeCode(args: {
   });
 }
 
+/**
+ * Refresh errors after which the stored tokens can never work again — the user has to sign in
+ * again (https://developers.openai.com/siwc/token-sharing-open-source/errors-and-recovery).
+ * Anything else (network, 5xx) is transient and must keep the sign-in.
+ */
+const TERMINAL_REFRESH_ERRORS = new Set([
+  'invalid_grant',
+  'invalid_refresh_token',
+  'token_expired',
+  'refresh_token_expired',
+  'refresh_token_invalidated',
+  'refresh_token_reused',
+]);
+
+export function isTerminalRefreshError(code: string): boolean {
+  return TERMINAL_REFRESH_ERRORS.has(code);
+}
+
 export function refreshTokens(clientId: string, refreshToken: string): Promise<TokenResponse> {
   return postForm(OPENAI_TOKEN_URL, {
     grant_type: 'refresh_token',
@@ -196,8 +213,8 @@ function base64UrlDecode(input: string): string {
 }
 
 /**
- * Decodes a JWT payload WITHOUT verifying its signature. PoC only — a production
- * implementation must verify against https://auth.openai.com/.well-known/jwks.json.
+ * Decodes a JWT payload WITHOUT verifying its signature. The ID token arrives directly from
+ * the token endpoint over TLS, so iss/aud/nonce are checked but the JWKS signature is not.
  */
 export function decodeJwtPayload(jwt: string): Record<string, any> | null {
   const parts = jwt.split('.');

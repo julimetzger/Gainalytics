@@ -34,6 +34,22 @@ jest.mock('react-redux', () => ({
   useStore: jest.fn(),
 }));
 
+// GH-504: provider choice. Unset in every existing test → Claude, exactly as before.
+const mockUseAiProvider = jest.fn(() => 'claude');
+jest.mock('../../../app/redux/settings/use/useAiProvider', () => ({
+  useAiProvider: () => mockUseAiProvider(),
+}));
+jest.mock('../../../app/components/settings/AiProviderSelector', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return {__esModule: true, default: () => <View testID="settings-ai-provider" />};
+});
+jest.mock('../../../app/components/settings/ChatGptAccountSection', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return {__esModule: true, default: () => <View testID="settings-chatgpt-section" />};
+});
+
 jest.mock('react-native-document-picker', () => ({
   __esModule: true,
   default: {
@@ -474,18 +490,6 @@ describe('SettingsTab', () => {
     expect(getByTestId('settings-app-version')).toHaveTextContent('Version 9.8.7');
   });
 
-  it('opens the hidden ChatGPT PoC screen only on long-press of the version in dev builds', () => {
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
-
-    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
-
-    fireEvent.press(getByTestId('settings-app-version'));
-    expect(navigation.navigate).not.toHaveBeenCalled();
-    fireEvent(getByTestId('settings-app-version'), 'longPress');
-    expect(navigation.navigate).toHaveBeenCalledWith('ChatGptPoc');
-  });
-
   it('exports data into file system and shows exported path', () => {
     const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
     const route = {params: {}};
@@ -510,6 +514,34 @@ describe('SettingsTab', () => {
     await waitFor(() => {
       expect(getByTestId('settings-anthropic-model-input')).toBeTruthy();
     });
+  });
+
+  it('GH-504: without a provider choice shows the provider selector and the unchanged Claude key fields', () => {
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId, queryByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+    fireEvent.press(getByTestId('settings-ai-config-accordion'));
+
+    expect(getByTestId('settings-ai-provider')).toBeTruthy();
+    expect(getByTestId('settings-anthropic-api-key-input')).toBeTruthy();
+    expect(getByTestId('settings-anthropic-model-input')).toBeTruthy();
+    expect(queryByTestId('settings-chatgpt-section')).toBeNull();
+  });
+
+  it('GH-504: with ChatGPT selected shows the sign-in section instead of the API key, prompts stay', () => {
+    mockUseAiProvider.mockReturnValue('chatgpt');
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByTestId, queryByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+    fireEvent.press(getByTestId('settings-ai-config-accordion'));
+
+    expect(getByTestId('settings-chatgpt-section')).toBeTruthy();
+    expect(queryByTestId('settings-anthropic-api-key-input')).toBeNull();
+    expect(queryByTestId('settings-anthropic-model-input')).toBeNull();
+    expect(getByTestId('settings-ai-chat-prompt-input')).toBeTruthy();
+    mockUseAiProvider.mockReturnValue('claude');
   });
 
   it('saves custom model and shows success toast', async () => {

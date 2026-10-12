@@ -33,6 +33,9 @@ import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
 import {useAITrainingPrompt} from '../../redux/settings/use/useAITrainingPrompt';
 import {DEFAULT_CHAT_PROMPT, DEFAULT_TRAINING_PROMPT} from '../../constants/aiPrompts';
 import {getAppVersion} from '../../utils/appVersion';
+import AiProviderSelector from '../../components/settings/AiProviderSelector';
+import ChatGptAccountSection from '../../components/settings/ChatGptAccountSection';
+import {useAiProvider} from '../../redux/settings/use/useAiProvider';
 
 const SettingsTab = ({navigation}: Props) => {
   let settings = useSettings();
@@ -42,6 +45,7 @@ const SettingsTab = ({navigation}: Props) => {
   let setExactAlarmPermission = dispatchSetExactAlarmPermission();
   let setAnthropicModelDispatch = dispatchSetAnthropicModel();
   let currentModel = useAnthropicModel();
+  const aiProvider = useAiProvider();
   let store = useStore();
   let setAIChatPromptDispatch = dispatchSetAIChatPrompt();
   let resetAIChatPromptDispatch = dispatchResetAIChatPrompt();
@@ -317,6 +321,11 @@ const SettingsTab = ({navigation}: Props) => {
           testID="settings-ai-config-accordion"
         >
           <View style={{marginBottom: 8}}>
+            <AiProviderSelector />
+            {aiProvider === 'chatgpt' ? (
+              <ChatGptAccountSection />
+            ) : (
+            <>
             <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant, marginBottom: 8}}>
               Your API key is stored encrypted on this device only. It is never sent to any server other
               than Anthropic. You need an Anthropic account to use this feature.
@@ -382,6 +391,8 @@ const SettingsTab = ({navigation}: Props) => {
             >
               Save Model
             </Button>
+            </>
+            )}
             <Divider style={{marginVertical: 12}} />
             <Text variant="labelMedium" style={{marginBottom: 4}}>AI Chat Prompt</Text>
             <TextInput
@@ -472,13 +483,7 @@ const SettingsTab = ({navigation}: Props) => {
         </View>
       </SettingsSection>
       <View style={styles.versionFooter}>
-        <Text
-          variant="bodySmall"
-          testID="settings-app-version"
-          // GH-504 PoC: hidden developer entry, dev builds only. Props are typed against
-          // exerciseRouter's param list, hence the cast.
-          onLongPress={__DEV__ ? () => (navigation as any).navigate('ChatGptPoc') : undefined}
-        >
+        <Text variant="bodySmall" testID="settings-app-version">
           Version {appVersion}
         </Text>
       </View>

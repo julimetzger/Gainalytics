@@ -18,12 +18,11 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 
 /**
- * GH-504 PoC: loopback OAuth callback listener for "Sign in with ChatGPT".
+ * GH-504: loopback OAuth callback listener for "Sign in with ChatGPT".
  *
  * OpenAI's open-source plan-usage flow only accepts `http://127.0.0.1:<port>/auth/callback`
  * as redirect URI. On Android the browser and the app share the device loopback interface,
  * so the app can receive the redirect by listening on 127.0.0.1 while the user signs in.
- * Only reachable from the dev-only ChatGPT PoC screen.
  */
 class ChatGptLoopbackModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
@@ -160,8 +159,7 @@ class ChatGptLoopbackModule(reactContext: ReactApplicationContext) :
       ContextCompat.startForegroundService(
           reactApplicationContext, Intent(reactApplicationContext, ChatGptSignInService::class.java))
     } catch (_: Exception) {
-      // Not declared (release) or not allowed: the redirect is then only handled once the app is
-      // back in the foreground.
+      // Not allowed right now: the redirect is then only handled once the app is back in front.
     }
   }
 
@@ -187,7 +185,7 @@ class ChatGptLoopbackModule(reactContext: ReactApplicationContext) :
   }
 
   companion object {
-    /** Debug-only VIEW/BROWSABLE filter on MainActivity (src/debug/AndroidManifest.xml). */
-    private const val RETURN_URL = "gainalytics-poc://chatgpt-signin"
+    /** VIEW/BROWSABLE filter on MainActivity (AndroidManifest.xml). */
+    private const val RETURN_URL = "gainalytics://chatgpt-signin"
   }
 }
