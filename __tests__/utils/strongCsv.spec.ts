@@ -144,6 +144,23 @@ describe('Strong import', () => {
     expect(setsOf(state, plan.trainings['2,1'])).toEqual([{exercise: 'Bench Press (Barbell)', weight: 102.5, reps: 5, rir: 0}]);
   });
 
+  it('gives a name trained twice in a week (A/B/A split) a second slot', () => {
+    const csv = strong6(
+      strong6Row(1, '2024-01-01 18:00:00', 'Full body A', 'Squat', '1', '100', '5'),
+      strong6Row(2, '2024-01-03 18:00:00', 'Full body B', 'Deadlift', '1', '140', '5'),
+      strong6Row(3, '2024-01-05 18:00:00', 'Full body A', 'Squat', '1', '102.5', '5'),
+      strong6Row(4, '2024-01-08 18:00:00', 'Full body B', 'Deadlift', '1', '145', '5'),
+      strong6Row(5, '2024-01-10 18:00:00', 'Full body A', 'Squat', '1', '105', '5'),
+      strong6Row(6, '2024-01-12 18:00:00', 'Full body B', 'Deadlift', '1', '150', '5'),
+    );
+    const state = importStrong(freshState(), csv);
+    const plan = planOf(state);
+    expect(plan.trainingNames).toEqual({1: 'Full body A', 2: 'Full body B', 3: 'Full body A', 4: 'Full body B'});
+    expect(Object.keys(plan.trainings).sort()).toEqual(['1,1', '1,2', '1,3', '2,1', '2,2', '2,4']);
+    expect(setsOf(state, plan.trainings['2,4'])[0].weight).toBe(150);
+    expect(buildStrongImport(freshState(), parseStrongCsv(csv)).summary.trainingNames).toEqual(['Full body A', 'Full body B']);
+  });
+
   it('falls back to weekdays for Strong default names', () => {
     expect(isDefaultWorkoutName('Evening Workout')).toBe(true);
     expect(isDefaultWorkoutName('Push')).toBe(false);

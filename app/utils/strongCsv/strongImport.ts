@@ -269,8 +269,8 @@ function mergeSameDaySessions(sessions: ParsedStrongSession[]): MergedSession[] 
 /**
  * Turns a parsed Strong file into one new plan ("Strong Import"): one micro per
  * calendar week (Monday start), one FINISHED training per day. Training slots use
- * the workout names when they describe a split (≤ 7 meaningful names, none twice in
- * a week), otherwise the weekdays. Pure: the same input always yields the same state,
+ * the workout names when they describe a split (≤ 7 names, none of them Strong's
+ * automatic "Evening Workout" kind), otherwise the weekdays. Pure: the same input always yields the same state,
  * so the summary shown before importing matches what the reducer applies.
  */
 export function buildStrongImport(state: GlobalState, parsed: ParsedStrongFile, options: StrongImportOptions = {}): StrongImportResult {
@@ -299,24 +299,35 @@ export function buildStrongImport(state: GlobalState, parsed: ParsedStrongFile, 
   sessions.forEach((s) => {
     if (!distinctNames.some((n) => normalizeName(n) === normalizeName(s.name))) distinctNames.push(s.name);
   });
-  const nameRepeatsInAWeek = (() => {
-    const seen = new Set<string>();
-    return sessions.some((s) => {
-      const key = `${weekOf(s.start)}|${normalizeName(s.name)}`;
-      if (seen.has(key)) return true;
-      seen.add(key);
-      return false;
+  const useNames = distinctNames.length > 0 && distinctNames.length <= MAX_NAMED_TRAININGS && !distinctNames.some(isDefaultWorkoutName);
+  const nameIndex = (session: MergedSession) => distinctNames.findIndex((n) => normalizeName(n) === normalizeName(session.name));
+
+  // A name trained twice in one week (A/B/A splits) gets a second slot with the same name.
+  const occurrence = new Map<MergedSession, number>();
+  const perWeek = new Map<string, number>();
+  const maxOccurrence = distinctNames.map(() => 1);
+  sessions.forEach((session) => {
+    const key = `${weekOf(session.start)}|${nameIndex(session)}`;
+    const n = (perWeek.get(key) ?? 0) + 1;
+    perWeek.set(key, n);
+    occurrence.set(session, n);
+    maxOccurrence[nameIndex(session)] = Math.max(maxOccurrence[nameIndex(session)], n);
+  });
+  // Slots: every name once in order of first appearance, then the second occurrences, …
+  const nameSlots: {name: number; occurrence: number}[] = [];
+  for (let n = 1; n <= Math.max(1, ...maxOccurrence); n++) {
+    distinctNames.forEach((_, i) => {
+      if (maxOccurrence[i] >= n) nameSlots.push({name: i, occurrence: n});
     });
-  })();
-  const useNames = distinctNames.length > 0 && distinctNames.length <= MAX_NAMED_TRAININGS && !distinctNames.some(isDefaultWorkoutName) && !nameRepeatsInAWeek;
+  }
 
   const usedWeekdays = Array.from(new Set(sessions.map((s) => weekdayIndex(s.start)))).sort((a, b) => a - b);
   const slotOf = (session: MergedSession): number => {
-    if (useNames) return distinctNames.findIndex((n) => normalizeName(n) === normalizeName(session.name)) + 1;
+    if (useNames) return nameSlots.findIndex((slot) => slot.name === nameIndex(session) && slot.occurrence === occurrence.get(session)) + 1;
     return usedWeekdays.indexOf(weekdayIndex(session.start)) + 1;
   };
   const trainingNames: {[slot: string]: string} = {};
-  if (useNames) distinctNames.forEach((name, i) => (trainingNames[i + 1] = name));
+  if (useNames) nameSlots.forEach((slot, i) => (trainingNames[i + 1] = distinctNames[slot.name]));
   else usedWeekdays.forEach((weekday, i) => (trainingNames[i + 1] = WEEKDAY_NAMES[weekday]));
 
   // 4. Exercises: reuse same-named ones, create the rest once.
@@ -479,7 +490,7 @@ export function buildStrongImport(state: GlobalState, parsed: ParsedStrongFile, 
     newExerciseCount,
     weekCount: sessions.length > 0 ? weekOf(sessions[sessions.length - 1].start) : 0,
     namedBy: useNames ? 'names' : 'weekdays',
-    trainingNames: Object.values(trainingNames),
+    trainingNames: useNames ? distinctNames : Object.values(trainingNames),
     duplicateSessionCount,
     skippedCardioRows: parsed.skippedCardioRows,
     skippedOtherRows: parsed.skippedOtherRows,
