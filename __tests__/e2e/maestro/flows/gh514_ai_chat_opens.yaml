@@ -1,0 +1,32 @@
+appId: com.powerliftingworkoutplanner
+name: GH-514 Analyse -> AI Chat opens the chat, not the "could not be displayed" card
+---
+# 0.180 showed "AI Chat could not be displayed" for every user (ReferenceError in the
+# header code). Fails on that code, passes with the fix. Works with and without a key.
+- launchApp:
+    stopApp: false
+# Bottom tabs expose their testID as content-desc, so match them as text.
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 60000
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Chat History'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn:
+    text: 'AI Chat'
+    below:
+      text: 'Video Analysis'
+- waitForAnimationToEnd
+- takeScreenshot: 'gh514_ai_chat_opened'
+- assertNotVisible:
+    id: 'analyse-error-boundary'
+- assertNotVisible: 'AI Chat could not be displayed'
+# Either the chat itself (key set) or the add-a-key hint (no key) — both are the real screen.
+- assertVisible:
+    id: 'chat-input|chat-no-key-message'
