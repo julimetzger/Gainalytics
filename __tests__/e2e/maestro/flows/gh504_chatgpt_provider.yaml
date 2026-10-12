@@ -26,10 +26,13 @@ name: GH-504 ChatGPT provider — Settings choice, sign-in state, multi-turn AI 
     centerElement: true
 - tapOn:
     id: 'settings-ai-config-accordion'
-- extendedWaitUntil:
-    visible:
+# The accordion sits at the bottom of the screen; its content opens below the fold.
+- scrollUntilVisible:
+    element:
       id: 'settings-ai-provider-claude'
+    direction: DOWN
     timeout: 10000
+    centerElement: true
 
 # Claude: the unchanged API-key fields.
 - tapOn:
