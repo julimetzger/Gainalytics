@@ -41,6 +41,8 @@ import {dispatchStrongImport} from '../../redux/fullstateactions/dispatchStrongI
 import {buildStrongExport, countLoggedSets, strongExportFileName} from '../../utils/strongCsv/strongExport';
 import {buildStrongImport, ParsedStrongFile, parseStrongCsv, StrongCsvError, WeightUnit} from '../../utils/strongCsv/strongImport';
 
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
 const SettingsTab = ({navigation, route}: Props) => {
   let settings = useSettings();
   let toggleDisable1RMpreselect = dispatchToggleDisable1RMpreselect();
@@ -179,7 +181,7 @@ const SettingsTab = ({navigation, route}: Props) => {
       await FileSaver.mkdir(directory);
       const path = directory + '/' + strongExportFileName();
       await FileSaver.writeFile(path, exported.csv, 'utf8');
-      setStrongExportResult(`Exported ${exported.setCount} sets from ${exported.workoutCount} workouts`);
+      setStrongExportResult(`Exported ${plural(exported.setCount, 'set')} from ${plural(exported.workoutCount, 'workout')}`);
       if (NativeModules.FileShare?.shareFile) {
         await NativeModules.FileShare.shareFile(path, 'text/csv', 'Export as CSV (Strong format)');
       } else {
@@ -219,7 +221,7 @@ const SettingsTab = ({navigation, route}: Props) => {
       Toast.show({
         type: 'success',
         text1: 'Strong import finished',
-        text2: `Plan "${strongSummary.planName}": ${strongSummary.trainingCount} trainings, ${strongSummary.setCount} sets`,
+        text2: `Plan "${strongSummary.planName}": ${plural(strongSummary.trainingCount, 'training')}, ${plural(strongSummary.setCount, 'set')}`,
         position: 'top',
         visibilityTime: 5000,
       });
@@ -616,25 +618,28 @@ const SettingsTab = ({navigation, route}: Props) => {
               <Text testID="strong-import-summary-file">File: {strongFile.fileName}</Text>
               {strongSummary.trainingCount === 0 ? (
                 <Text testID="strong-import-summary-nothing-new">
-                  Nothing new to import: all {strongSummary.duplicateSessionCount} workouts of this file are already in Gainalytics.
+                  Nothing new to import: all {plural(strongSummary.duplicateSessionCount, 'workout')} of this file are already in Gainalytics.
                 </Text>
               ) : (
                 <>
                   <Text testID="strong-import-summary-trainings">
-                    {strongSummary.trainingCount} trainings in {strongSummary.weekCount} weeks
+                    {plural(strongSummary.trainingCount, 'training')} in {plural(strongSummary.weekCount, 'week')}
                   </Text>
                   <Text testID="strong-import-summary-sets">
-                    {strongSummary.setCount} sets · {strongSummary.exerciseCount} exercises ({strongSummary.newExerciseCount} new)
+                    {plural(strongSummary.setCount, 'set')} · {plural(strongSummary.exerciseCount, 'exercise')} ({strongSummary.newExerciseCount} new)
                   </Text>
                   <Text testID="strong-import-summary-plan">
                     New plan "{strongSummary.planName}", trainings named by {strongSummary.namedBy === 'names' ? 'workout name' : 'weekday'}: {strongSummary.trainingNames.join(', ')}
                   </Text>
                   {strongSummary.mergedSessionCount > 0 && (
-                    <Text testID="strong-import-summary-merged">{strongSummary.mergedSessionCount} workouts on the same day as another were combined</Text>
+                    <Text testID="strong-import-summary-merged">
+                      {plural(strongSummary.mergedSessionCount, 'workout')} on the same day as another {strongSummary.mergedSessionCount === 1 ? 'was' : 'were'} combined
+                    </Text>
                   )}
                   {strongSummary.duplicateSessionCount + strongSummary.skippedCardioRows + strongSummary.skippedOtherRows > 0 && (
                     <Text testID="strong-import-summary-skipped">
-                      Skipped: {strongSummary.duplicateSessionCount} already imported workouts, {strongSummary.skippedCardioRows} cardio rows, {strongSummary.skippedOtherRows} rest timer/note rows
+                      Skipped: {plural(strongSummary.duplicateSessionCount, 'already imported workout')}, {plural(strongSummary.skippedCardioRows, 'cardio row')},{' '}
+                      {plural(strongSummary.skippedOtherRows, 'rest timer/note row')}
                     </Text>
                   )}
                   {strongSummary.weightUnitFromFile ? (

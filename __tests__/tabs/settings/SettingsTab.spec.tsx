@@ -589,7 +589,7 @@ describe('SettingsTab', () => {
       nativeModulesWithShare.FileShare = {shareFile: jest.fn().mockResolvedValue(true)};
       const {getByTestId, findByText} = render(<SettingsTab navigation={navigation} route={route} />);
       fireEvent.press(getByTestId('button-Export-as-CSV-(Strong-format)'));
-      expect(await findByText('Exported 1 sets from 1 workouts')).toBeTruthy();
+      expect(await findByText('Exported 1 set from 1 workout')).toBeTruthy();
       const [path, csv] = fileSaver.writeFile.mock.calls[0];
       expect(path).toMatch(/\/exports\/gainalytics_strong_\d{4}-\d{2}-\d{2}\.csv$/);
       expect(csv.split('\n')[1]).toContain('"Squat";"1";"100.0";"5";"8"');
@@ -613,7 +613,7 @@ describe('SettingsTab', () => {
       fileSaver.readFile.mockResolvedValue(strongCsv);
       const {getByTestId, findByText, getByText} = render(<SettingsTab navigation={navigation} route={route} />);
       fireEvent.press(getByTestId('button-Import-from-Strong-CSV'));
-      expect(await findByText('2 trainings in 1 weeks')).toBeTruthy();
+      expect(await findByText('2 trainings in 1 week')).toBeTruthy();
       expect(getByText(/New plan "Strong Import", trainings named by workout name: Push, Pull/)).toBeTruthy();
       expect(mockStrongImport).not.toHaveBeenCalled();
       fireEvent.press(getByTestId('button-Import'));

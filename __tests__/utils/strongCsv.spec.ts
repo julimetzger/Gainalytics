@@ -13,8 +13,8 @@ const baselineState = (): GlobalState =>
   rootReducer(freshState() as any, {
     type: 'FULL_IMPORT',
     state: JSON.parse(fs.readFileSync(path.join(__dirname, '../e2e/maestro/fixtures/baseline.gains'), 'utf8')),
-  }) as GlobalState;
-const importStrong = (state: GlobalState, csv: string, options = {}) => rootReducer(state as any, {type: 'STRONG_IMPORT', parsed: parseStrongCsv(csv), options}) as GlobalState;
+  } as any) as GlobalState;
+const importStrong = (state: GlobalState, csv: string, options = {}) => rootReducer(state as any, {type: 'STRONG_IMPORT', parsed: parseStrongCsv(csv), options} as any) as GlobalState;
 
 const STRONG6_HEADER = '"Workout #";"Date";"Workout Name";"Duration (sec)";"Exercise Name";"Set Order";"Weight (kg)";"Reps";"RPE";"Distance (meters)";"Seconds";"Notes";"Workout Notes"';
 const strong6Row = (n: number, date: string, name: string, exercise: string, order: string, weight: string, reps: string, rpe = '', distance = '', seconds = '') =>
