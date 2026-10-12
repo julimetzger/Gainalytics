@@ -139,6 +139,7 @@
 - Tabs für Analyse https://www.npmjs.com/package/react-native-paper-tabs
 
 ## Bugs
+- [ready] [GH-515](https://github.com/julimetzger/Gainalytics/issues/515) Bug: AI-Chat-Tests auf master rot nach #506/#510 — 32 statt 13 rote Tests; Ursache klären, master grün, AI-Chat auf dem Gerät prüfen
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
 - [PR #179] [GH-177](https://github.com/julimetzger/Gainalytics/issues/177) Video analysis scrubber und velocity line kein sync
 
