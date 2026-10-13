@@ -1,0 +1,14 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-526 evidence suite — every assertion is a real value of the baseline fixture,
+# so the store is hydrated first. Replaces the GH-417 / GH-436 / GH-444 analysis
+# flows, whose dropdown compare chips and "Total Sets (planned/done)" lines
+# GH-526 removed.
+- runFlow: 00_import_baseline.yaml
+- runFlow: gh526_goto_micro2_push.yaml
+- runFlow: gh526_train_vs_plan.yaml
+- runFlow: gh526_train_vs_last_diff.yaml
+- runFlow: gh526_train_vs_micro_share.yaml
+- runFlow: gh526_plan_position.yaml
+- runFlow: gh526_micro_total.yaml
+- runFlow: gh526_micro_plan.yaml
