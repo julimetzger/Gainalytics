@@ -103,6 +103,8 @@
 
 - [ready] [GH-485](https://github.com/julimetzger/Gainalytics/issues/485) Motion graphics promotion video — 16:9, 30–60 s, Schwerpunkt Videoanalyse + Anpassbarkeit; Store-fertige Screenshots (6 Features, Light/Dark, Englisch)
 - [ready] [GH-502](https://github.com/julimetzger/Gainalytics/issues/502) Analyse + PoC: Health Connect (Workouts schreiben, Körpergewicht lesen), Garmin/Withings — Report nach `docs/investigation/health-connect-wearables.md` + Health-Connect-PoC auf dem Gerät (aus Marktanalyse GH-492 #10)
+- [ready] [GH-528](https://github.com/julimetzger/Gainalytics/issues/528) Health Connect produktiv (T1–T3) — Verbinden in den Einstellungen, beendete Trainings schreiben, Körpergewicht lesen
+  - Baut auf dem PoC aus GH-502 (PR #503) auf; minSdk 26; Datenschutzerklärung braucht Owner-Freigabe; T4 (Play Console) separat
 - [ready] [GH-496](https://github.com/julimetzger/Gainalytics/issues/496) Export/Import im Strong-CSV-Format — De-facto-Standard (Hevy importiert nur Strong); Import als Plan „Strong Import“, ein Micro pro Kalenderwoche (aus Marktanalyse GH-492 #2)
   - Trainingsnamen aus Strong, wenn wiederkehrend und max. 7 verschiedene; sonst Wochentage, Sessions am selben Tag zusammengelegt
 - [ready] [GH-497](https://github.com/julimetzger/Gainalytics/issues/497) Onboarding beim ersten Start + Programmvorlagen — überspringbar, 2–3 eigene Vorlagen (aus Marktanalyse GH-492 #5)
