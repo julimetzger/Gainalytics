@@ -1,5 +1,15 @@
-import React, {useCallback, useEffect, useRef} from 'react';
-import {GestureResponderEvent, Keyboard, LayoutChangeEvent, ScrollView, ScrollViewProps, TextInput} from 'react-native';
+import React, {createContext, useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react';
+import {
+  GestureResponderEvent,
+  Keyboard,
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollView,
+  ScrollViewProps,
+  TextInput,
+  View,
+} from 'react-native';
 
 /**
  * GH-428 (H2): a ScrollView that keeps the focused text input above the
@@ -11,11 +21,24 @@ import {GestureResponderEvent, Keyboard, LayoutChangeEvent, ScrollView, ScrollVi
  * opens over the very row being edited: they type into a field they cannot see,
  * and a follow-up tap on the neighbouring field hits the keyboard instead.
  *
- * Deliberately no extra dependency and no bottom padding: padding would move the
- * content the moment the keyboard opens (a visible layout jump) and would fight
- * with `adjustResize`. Instead this measures the focused input against the
+ * Deliberately no extra dependency. This measures the focused input against the
  * keyboard's top edge and scrolls by exactly the missing amount — if the input
  * is already visible, nothing moves at all.
+ *
+ * GH-418 (regression of the above, UX audit GH-498 F1): since GH-356 the app draws
+ * edge-to-edge, and then Android no longer shrinks the window for the keyboard —
+ * it only draws over it. Two things broke with that:
+ * - A plan that fits the screen cannot scroll at all, so there is nowhere to
+ *   scroll the field to. A long plan scrolled to its end has the same problem
+ *   for its last rows.
+ * - The bottom navigation hides on keyboardDidShow, which makes this scroller
+ *   TALLER. Scrolled to the end, Android then has to clamp the offset, and the
+ *   whole list jumps down — the focused field ends even deeper under the keyboard.
+ * Both are fixed by a spacer of keyboard height at the end of the content while
+ * the keyboard is open. It is set in the same keyboardDidShow event as the
+ * navigation bar hides, so React commits both together and the content grows
+ * before the viewport does: nothing is clamped, and the field can be scrolled up.
+ * A spacer at the END never moves any content that is already on screen.
  */
 
 /**
@@ -63,6 +86,39 @@ const FOCUS_SWITCH_DELAY_MS = 120;
  */
 const FOCUS_SWITCH_ATTEMPTS = 8;
 
+/**
+ * How long the spacer outlives the keyboard when the list has to scroll back first.
+ *
+ * Removing it while the list is scrolled into it would clamp the offset — the same
+ * jump as on opening, in the other direction. So the list scrolls back to the end of
+ * the real content (animated), and only then the spacer goes. Long enough for that
+ * scroll and for the navigation bar, which comes back after its own 100 ms animation.
+ */
+const SPACER_RELEASE_DELAY_MS = 320;
+
+/**
+ * GH-418: what a drag inside the scroller needs to scroll it along — the drag
+ * auto-scrolls the list when the finger reaches the top or bottom edge.
+ */
+export interface ScrollController {
+  /** The scroller's current content offset, as last reported by native. */
+  getOffset: () => number;
+  /** Largest offset the content allows right now. */
+  getMaxOffset: () => number;
+  /**
+   * The visible part of the scroller in window coordinates (the same space as a
+   * gesture's `absoluteY`), cut off by the keyboard while it is open.
+   */
+  getVisibleWindowRect: () => {top: number; bottom: number} | null;
+  /** Jumps to `y` without animation — a drag drives it once per frame. */
+  scrollTo: (y: number) => void;
+}
+
+const ScrollControllerContext = createContext<ScrollController | null>(null);
+
+/** The nearest KeyboardAwareScrollView's controller, or null outside of one. */
+export const useScrollController = () => useContext(ScrollControllerContext);
+
 interface KeyboardAwareScrollViewProps extends ScrollViewProps {
   children: React.ReactNode;
 }
@@ -76,8 +132,28 @@ interface MeasurableScrollView extends ScrollView {
   getInnerViewRef: () => object | null | undefined;
 }
 
-const KeyboardAwareScrollView = ({children, onLayout, onTouchStart, ...scrollViewProps}: KeyboardAwareScrollViewProps) => {
+const KeyboardAwareScrollView = ({
+  children,
+  onLayout,
+  onTouchStart,
+  onScroll,
+  onContentSizeChange,
+  scrollEventThrottle,
+  ...scrollViewProps
+}: KeyboardAwareScrollViewProps) => {
   const scrollRef = useRef<MeasurableScrollView>(null);
+  /** GH-418: height of the spacer at the end of the content, 0 while the keyboard is closed. */
+  const [keyboardSpacer, setKeyboardSpacer] = useState(0);
+  const keyboardSpacerRef = useRef(0);
+  const spacerReleaseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const offsetRef = useRef(0);
+  const contentHeightRef = useRef(0);
+  /** The scroller's own height, as laid out. */
+  const viewportHeightRef = useRef(0);
+  /** Its height while the keyboard is closed — what it returns to once the keyboard is gone. */
+  const restingViewportHeightRef = useRef(0);
+  /** The scroller's top edge in window coordinates. */
+  const windowTopRef = useRef<number | null>(null);
   /** Screen Y of the keyboard's top edge, or null while the keyboard is closed. */
   const keyboardTopRef = useRef<number | null>(null);
   const pendingCorrectionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -229,11 +305,23 @@ const KeyboardAwareScrollView = ({children, onLayout, onTouchStart, ...scrollVie
     // `adjustNothing` would leave that frame untouched.
     const showSubscription = Keyboard.addListener('keyboardDidShow', (event) => {
       keyboardTopRef.current = event.endCoordinates.screenY;
+      if (spacerReleaseRef.current !== null) {
+        clearTimeout(spacerReleaseRef.current);
+        spacerReleaseRef.current = null;
+      }
+      // Synchronously, in this very event: the bottom navigation hides in its own
+      // keyboardDidShow listener, and only a shared commit keeps the scroller from
+      // growing before its content does (see the comment at the top). The keyboard's
+      // full height is at least the part that covers this scroller.
+      const spacer = Math.max(0, Math.round(event.endCoordinates.height));
+      keyboardSpacerRef.current = spacer;
+      setKeyboardSpacer(spacer);
       correctionsLeftRef.current = MAX_CORRECTIONS;
       scheduleCorrection(RESIZE_DELAY_MS);
     });
     const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
       keyboardTopRef.current = null;
+      releaseKeyboardSpacer();
       correctionsLeftRef.current = 0;
       alignedInputRef.current = null;
       focusAttemptsLeftRef.current = 0;
@@ -249,6 +337,10 @@ const KeyboardAwareScrollView = ({children, onLayout, onTouchStart, ...scrollVie
     return () => {
       showSubscription.remove();
       hideSubscription.remove();
+      if (spacerReleaseRef.current !== null) {
+        clearTimeout(spacerReleaseRef.current);
+        spacerReleaseRef.current = null;
+      }
       if (pendingCorrectionRef.current !== null) {
         clearTimeout(pendingCorrectionRef.current);
         pendingCorrectionRef.current = null;
@@ -260,8 +352,76 @@ const KeyboardAwareScrollView = ({children, onLayout, onTouchStart, ...scrollVie
     };
   }, [scheduleCorrection]);
 
+  /**
+   * Takes the spacer away once the keyboard is gone — first scrolling the list back
+   * out of it if it is scrolled into the spacer, so nothing jumps.
+   */
+  function releaseKeyboardSpacer() {
+    const spacer = keyboardSpacerRef.current;
+    if (spacer <= 0) {
+      return;
+    }
+    const maxOffsetWithoutSpacer = Math.max(0, contentHeightRef.current - spacer - restingViewportHeightRef.current);
+    const removeSpacer = () => {
+      spacerReleaseRef.current = null;
+      keyboardSpacerRef.current = 0;
+      setKeyboardSpacer(0);
+    };
+    if (offsetRef.current <= maxOffsetWithoutSpacer + MIN_SCROLL_DELTA) {
+      removeSpacer();
+      return;
+    }
+    scrollRef.current?.scrollTo({y: maxOffsetWithoutSpacer, animated: true});
+    spacerReleaseRef.current = setTimeout(removeSpacer, SPACER_RELEASE_DELAY_MS);
+  }
+
+  const measureWindowTop = () => {
+    const scrollNode = scrollRef.current?.getNativeScrollRef();
+    scrollNode?.measureInWindow((_x: number, y: number) => {
+      if (Number.isFinite(y)) {
+        windowTopRef.current = y;
+      }
+    });
+  };
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    offsetRef.current = event.nativeEvent.contentOffset.y;
+    onScroll?.(event);
+  };
+
+  const handleContentSizeChange = (width: number, height: number) => {
+    contentHeightRef.current = height;
+    onContentSizeChange?.(width, height);
+  };
+
+  const scrollController = useMemo<ScrollController>(
+    () => ({
+      getOffset: () => offsetRef.current,
+      getMaxOffset: () => Math.max(0, contentHeightRef.current - viewportHeightRef.current),
+      getVisibleWindowRect: () => {
+        const top = windowTopRef.current;
+        if (top === null || viewportHeightRef.current <= 0) {
+          return null;
+        }
+        const bottom = top + viewportHeightRef.current;
+        const keyboardTop = keyboardTopRef.current;
+        return {top, bottom: keyboardTop === null ? bottom : Math.max(top, Math.min(bottom, keyboardTop))};
+      },
+      scrollTo: (y: number) => {
+        offsetRef.current = y;
+        scrollRef.current?.scrollTo({y, animated: false});
+      },
+    }),
+    [],
+  );
+
   const handleLayout = (event: LayoutChangeEvent) => {
     onLayout?.(event);
+    viewportHeightRef.current = event.nativeEvent.layout.height;
+    if (keyboardTopRef.current === null) {
+      restingViewportHeightRef.current = event.nativeEvent.layout.height;
+    }
+    measureWindowTop();
     if (keyboardTopRef.current !== null) {
       // The keyboard-driven window resize arrives as a layout pass; re-measure
       // against the new viewport instead of the pre-resize one.
@@ -294,8 +454,17 @@ const KeyboardAwareScrollView = ({children, onLayout, onTouchStart, ...scrollVie
   };
 
   return (
-    <ScrollView {...scrollViewProps} ref={scrollRef} onLayout={handleLayout} onTouchStart={handleTouchStart}>
-      {children}
+    <ScrollView
+      {...scrollViewProps}
+      ref={scrollRef}
+      onLayout={handleLayout}
+      onTouchStart={handleTouchStart}
+      onScroll={handleScroll}
+      onContentSizeChange={handleContentSizeChange}
+      scrollEventThrottle={scrollEventThrottle ?? 16}
+    >
+      <ScrollControllerContext.Provider value={scrollController}>{children}</ScrollControllerContext.Provider>
+      {keyboardSpacer > 0 && <View testID="keyboard-aware-spacer" style={{height: keyboardSpacer}} />}
     </ScrollView>
   );
 };
