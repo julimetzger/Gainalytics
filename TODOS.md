@@ -2,16 +2,18 @@
 
 ## Trainings
 
-- [ready] **Prio hoch** [GH-418](https://github.com/julimetzger/Gainalytics/issues/418) Plan training (2/2): Sätze per Drag & Drop umsortieren, Long-Press zum Bearbeiten, Tastatur verdeckt die Eingabe nicht mehr
+- [ready] [GH-526](https://github.com/julimetzger/Gainalytics/issues/526) Overview rework — jede Ansicht benennt ihren Vergleich, Muscle Map Total/Diff, Chips statt Dropdown in der Trainings-Analyse
+  - Deckt aus `docs/ux/training-overview-audit.md` (#505) H1 (ohne fairen Teilwochen-Vergleich), H3, M4/M7/M8 ab; H2/H4 teilweise
+- [done] ~~[GH-418](https://github.com/julimetzger/Gainalytics/issues/418) Plan training (2/2): Sätze per Drag & Drop umsortieren, Long-Press zum Bearbeiten, Tastatur verdeckt die Eingabe nicht mehr~~ (PR #520 gemerged)
   - Tastatur-Teil zuerst: Regression laut UX-Audit R3 (#498, F1), fokussiertes Satzfeld liegt hinter der Tastatur, langer Plan springt an den Listenanfang
 - [ready] [GH-509](https://github.com/julimetzger/Gainalytics/issues/509) Change Add button in training sidebar — „Add Meso“/„Add Training“ als gestrichelter Knopf wie „Add set“, volle Breite
 - [ready] [GH-505](https://github.com/julimetzger/Gainalytics/issues/505) Audit trainingsoverview (read-only) — Micro-Overview in allen Zuständen, Zahlen-Stichprobe, priorisierte Findings
   - Report nach `docs/ux/training-overview-audit.md`; keine App-Code-Änderung
-- [ready] [GH-517](https://github.com/julimetzger/Gainalytics/issues/517) UX-Audit Overview Follow-up (H1–H3) — Wochenbilanz oben (nicht mitscrollend, gern als Button zur Trainingsliste), Deltas mit Vergleichsbasis, Muscle Map zeigt Untererfüllung
+- [done] ~~[GH-517](https://github.com/julimetzger/Gainalytics/issues/517) UX-Audit Overview Follow-up (H1–H3) — Wochenbilanz oben (nicht mitscrollend, gern als Button zur Trainingsliste), Deltas mit Vergleichsbasis, Muscle Map zeigt Untererfüllung~~ (geschlossen, weitgehend in GH-526 aufgegangen)
   - Quelle: `docs/ux/training-overview-audit.md` aus #505 (PR #511)
 - [ready] [GH-498](https://github.com/julimetzger/Gainalytics/issues/498) UX-Audit Runde 3 (read-only): Trainingsplan anlegen + erstes Training planen — Status aller alten Findings (GH-399/426/436) plus neue, leere App und Baseline-Daten
   - Report nach `docs/ux/plan-creation-audit-round3.md`; keine App-Code-Änderung
-- [ready] [GH-518](https://github.com/julimetzger/Gainalytics/issues/518) UX-Audit R3 Follow-up (F2/F3) — FAB überdeckt Karten, neuer Plan wird nicht aktueller Plan
+- [done] ~~[GH-518](https://github.com/julimetzger/Gainalytics/issues/518) UX-Audit R3 Follow-up (F2/F3) — FAB überdeckt Karten, neuer Plan wird nicht aktueller Plan~~ (PR #519 gemerged)
   - Quelle: `docs/ux/plan-creation-audit-round3.md` aus #498 (PR #500); F1 (Tastatur-Regression) läuft in GH-418
 - [done] ~~[GH-460](https://github.com/julimetzger/Gainalytics/issues/460) Change New Training button — Knopf im Stil von „New exercise"~~ (PR #464 gemerged)
 - [ready] [GH-437](https://github.com/julimetzger/Gainalytics/issues/437) Finish-Training-Knopf in der Sekundärfarbe statt der Primärfarbe
@@ -88,6 +90,7 @@
 
 ## Settings
 
+- [ready] [GH-522](https://github.com/julimetzger/Gainalytics/issues/522) App settings refinement — „Color“ statt „Custom Color“, Vorschau nur Primärfarbe, Löschknopf „Pause Timer“ rechtsbündig
 - [done] ~~[GH-504](https://github.com/julimetzger/Gainalytics/issues/504) Analyse + PoC: AI-Chat mit ChatGPT-Abo statt API-Key („Sign in with ChatGPT“) — Report nach `docs/investigation/chatgpt-subscription-login.md` + Login-PoC hinter Debug-Eintrag~~ (PR #506 gemerged)
   - Für Claude nicht möglich (Abo-Login nur für Claude.ai/Claude Code); bei OpenAI laut Berichten Preview, kommerzielle Apps brauchen Freigabe
 - [ready] [GH-478](https://github.com/julimetzger/Gainalytics/issues/478) Settings Theme Color adjustments — Segmented-Buttons für Theme, eine Zeile „Custom Color“ (Blue/Purple/Custom mit Vorschau), Standard-Info bei Long-Press
