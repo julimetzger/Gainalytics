@@ -15,19 +15,20 @@ interface PlanReadListProps {
   plannedWorkoutsByExerciseId: Record<number, Workout | undefined>;
   /** GH-418: a tapped value opens the full edit mode with that field focused. */
   onCellPress: (exerciseId: number, setIndex: number, field: PlanField) => void;
-  /** GH-418: a long press anywhere on a workout opens its editing. */
-  onExerciseLongPress: (exerciseId: number) => void;
   onSelectExercise: (exercise: Exercise) => void;
 }
 
 const sortSets = (sets: WorkoutSet[]) => [...sets].sort((left, right) => (left.index ?? 0) - (right.index ?? 0));
+
+// TODO: wire the plan-row action sheet here in the follow-up ticket. GH-418: the
+// long press no longer opens the editing — the owner found it unreliable in practice.
+const noRowLongPress = () => {};
 
 const PlanReadList = ({
   exercises,
   selectedExerciseId,
   plannedWorkoutsByExerciseId,
   onCellPress,
-  onExerciseLongPress,
   onSelectExercise,
 }: PlanReadListProps) => {
   const theme = useTheme();
@@ -43,7 +44,6 @@ const PlanReadList = ({
         const sets = sortSets(plannedWorkoutsByExerciseId[exercise.id]?.sets ?? []);
         const selected = exercise.id === selectedExerciseId;
         const exerciseId = exercise.id;
-        const openEditing = () => onExerciseLongPress(exerciseId);
 
         return (
           <View
@@ -61,7 +61,6 @@ const PlanReadList = ({
             <Pressable
               testID={`plan-read-exercise-header-${exercise.id}`}
               onPress={() => onSelectExercise(exercise)}
-              onLongPress={openEditing}
               style={styles.headerRow}
             >
               <Text
@@ -85,7 +84,7 @@ const PlanReadList = ({
                   key={`read-${exercise.id}-${workoutSet.index}`}
                   workoutSet={workoutSet}
                   onCellPress={(field) => onCellPress(exerciseId, workoutSet.index ?? 0, field)}
-                  onRowLongPress={openEditing}
+                  onRowLongPress={noRowLongPress}
                 />
               ))
             )}

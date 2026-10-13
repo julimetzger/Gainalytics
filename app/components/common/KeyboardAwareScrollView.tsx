@@ -111,8 +111,6 @@ export interface ScrollController {
   getVisibleWindowRect: () => {top: number; bottom: number} | null;
   /** Jumps to `y` without animation — a drag drives it once per frame. */
   scrollTo: (y: number) => void;
-  /** Scrolls (animated) so that `view`, a descendant, starts `topMargin` below the scroller's top. */
-  scrollViewIntoView: (view: {measureLayout: (...args: any[]) => void} | null, topMargin: number) => void;
 }
 
 const ScrollControllerContext = createContext<ScrollController | null>(null);
@@ -412,21 +410,6 @@ const KeyboardAwareScrollView = ({
       scrollTo: (y: number) => {
         offsetRef.current = y;
         scrollRef.current?.scrollTo({y, animated: false});
-      },
-      scrollViewIntoView: (view, topMargin) => {
-        const innerNode = scrollRef.current?.getInnerViewRef();
-        if (view === null || innerNode === null || innerNode === undefined) {
-          return;
-        }
-        view.measureLayout(
-          innerNode,
-          (_x: number, contentY: number) => {
-            if (Number.isFinite(contentY)) {
-              scrollRef.current?.scrollTo({y: Math.max(0, contentY - topMargin), animated: true});
-            }
-          },
-          () => {},
-        );
       },
     }),
     [],

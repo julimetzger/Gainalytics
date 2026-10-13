@@ -57,18 +57,6 @@ describe('PlanReadSetRow (GH-63)', () => {
 });
 
 describe('PlanReadSetRow — opening the editing (GH-418)', () => {
-  it('opens the editing on a long press on any value cell, not only on the row gaps', () => {
-    const onRowLongPress = jest.fn();
-    const onCellPress = jest.fn();
-    const {getByTestId} = render(<PlanReadSetRow workoutSet={fixedSet} onCellPress={onCellPress} onRowLongPress={onRowLongPress} />);
-
-    fireEvent(getByTestId(PLAN_CELL_TEST_ID(1, 'reps')), 'longPress');
-    fireEvent(getByTestId(PLAN_CELL_TEST_ID(1, 'weight')), 'longPress');
-
-    expect(onRowLongPress).toHaveBeenCalledTimes(2);
-    expect(onCellPress).not.toHaveBeenCalled();
-  });
-
   it('reports which field was tapped', () => {
     const onCellPress = jest.fn();
     const {getByTestId} = render(<PlanReadSetRow workoutSet={fixedSet} onCellPress={onCellPress} onRowLongPress={jest.fn()} />);

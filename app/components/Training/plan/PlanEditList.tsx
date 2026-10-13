@@ -12,7 +12,6 @@ import {hasAnyPlanRange} from '../../../utils/planRange';
 import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMax';
 import DashedAddButton from '../../shared/DashedAddButton';
 import {PendingPlanSet, PendingPlanSetByExerciseId, PlanCellTarget, PlanDraftField, PlanField, PlanSetDraft} from './planTypes';
-import {useScrollController} from '../../common/KeyboardAwareScrollView';
 import {buildWorkoutSetFromDraft, getPlanDraftRangeError, getPlanRangeError, getPlanSetDraft, getQuickEditError, planSetsEqual} from './planUtils';
 import {DragItemBinding, DragPlaceholder, resolveSectionTargetIndex, useDragReorder} from './useDragReorder';
 
@@ -33,8 +32,6 @@ interface PlanEditListProps {
   onRemoveExercise: (exercise: Exercise) => void;
   /** GH-418: the read-view cell that opened full edit — its input gets the focus. */
   focusTarget?: PlanCellTarget | null;
-  /** GH-418: the workout that was long-pressed to open full edit — scrolled into view. */
-  revealExerciseId?: number | null;
 }
 
 type RowItem = {
@@ -46,9 +43,6 @@ type SectionItem = {
   key: string;
   exercise: Exercise;
 };
-
-/** GH-418: how far below the scroller's top a revealed (long-pressed) workout lands. */
-const REVEAL_TOP_MARGIN = 8;
 
 const PLAN_VALUE_FIELDS: PlanField[] = ['reps', 'rir', 'weight'];
 
@@ -209,7 +203,6 @@ const PlanEditList = ({
   onReorderExercises,
   onRemoveExercise,
   focusTarget = null,
-  revealExerciseId = null,
 }: PlanEditListProps) => {
   const theme = useTheme();
 
@@ -270,7 +263,6 @@ const PlanEditList = ({
                 onReorderSets={(reorderedSets) => onReorderSets(exerciseId, reorderedSets)}
                 onRemoveExercise={() => onRemoveExercise(item.exercise)}
                 focusTarget={focusTarget !== null && focusTarget.exerciseId === exerciseId ? focusTarget : null}
-                reveal={revealExerciseId === exerciseId}
                 outlineColor={withAlpha(theme.colors.primary, 0.18)}
                 primaryColor={theme.colors.primary}
               />
@@ -298,7 +290,6 @@ interface SectionProps {
   onReorderSets: (sets: WorkoutSet[]) => void;
   onRemoveExercise: () => void;
   focusTarget: PlanCellTarget | null;
-  reveal: boolean;
   outlineColor: string;
   primaryColor: string;
 }
@@ -320,25 +311,10 @@ const PlanEditExerciseSection = ({
   onReorderSets,
   onRemoveExercise,
   focusTarget,
-  reveal,
   outlineColor,
   primaryColor,
 }: SectionProps) => {
   const theme = useTheme();
-  const scrollController = useScrollController();
-  const sectionRef = useRef<View>(null);
-  const revealedRef = useRef(false);
-
-  // GH-418: a long-pressed workout is scrolled to once full edit has laid it out —
-  // the edit rows are taller than the read rows, so it would otherwise end up
-  // somewhere below where the user pressed.
-  const handleSectionLayout = () => {
-    if (!reveal || revealedRef.current) {
-      return;
-    }
-    revealedRef.current = true;
-    scrollController?.scrollViewIntoView(sectionRef.current, REVEAL_TOP_MARGIN);
-  };
   const [menuVisible, setMenuVisible] = useState(false);
   const oneRepMax = useAllTimeOneRepMax(exercise.id);
   const data = useMemo<RowItem[]>(
@@ -381,8 +357,6 @@ const PlanEditExerciseSection = ({
 
   return (
     <View
-      ref={sectionRef}
-      onLayout={handleSectionLayout}
       testID={`plan-edit-exercise-section-${exercise.id}`}
       style={[
         styles.section,

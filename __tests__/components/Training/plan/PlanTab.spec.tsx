@@ -69,17 +69,14 @@ jest.mock('../../../../app/components/Training/plan/PlanEditList', () => {
     exercises,
     selectedExerciseId,
     focusTarget,
-    revealExerciseId,
   }: {
     exercises: Array<{id: number; name: string}>;
     selectedExerciseId?: number;
     focusTarget?: {exerciseId: number; setIndex: number; field: string} | null;
-    revealExerciseId?: number | null;
   }) => (
     <View testID="plan-full-edit-list">
       <Text testID="plan-full-edit-selected">{String(selectedExerciseId)}</Text>
       <Text testID="plan-full-edit-focus">{focusTarget ? `${focusTarget.exerciseId}/${focusTarget.setIndex}/${focusTarget.field}` : 'none'}</Text>
-      <Text testID="plan-full-edit-reveal">{String(revealExerciseId ?? 'none')}</Text>
       {exercises.map((exercise) => (
         <Text key={exercise.id} testID={`plan-full-edit-exercise-${exercise.id}`}>
           {exercise.name}
@@ -97,12 +94,10 @@ jest.mock('../../../../app/components/Training/plan/PlanReadList', () => {
     exercises,
     selectedExerciseId,
     onCellPress,
-    onExerciseLongPress,
   }: {
     exercises: Array<{id: number; name: string}>;
     selectedExerciseId?: number;
     onCellPress: (exerciseId: number, setIndex: number, field: 'reps' | 'rir' | 'weight') => void;
-    onExerciseLongPress: (exerciseId: number) => void;
   }) => (
     <View testID="plan-read-list">
       <Text testID="plan-read-selected">{String(selectedExerciseId)}</Text>
@@ -115,9 +110,6 @@ jest.mock('../../../../app/components/Training/plan/PlanReadList', () => {
       </TouchableOpacity>
       <TouchableOpacity testID="plan-open-missing-set-cell" onPress={() => onCellPress(1, 9, 'reps')}>
         <Text>Open a set that does not exist</Text>
-      </TouchableOpacity>
-      <TouchableOpacity testID="plan-long-press-other-exercise" onPress={() => onExerciseLongPress(2)}>
-        <Text>Long press other exercise</Text>
       </TouchableOpacity>
     </View>
   );
@@ -271,22 +263,6 @@ describe('PlanTab', () => {
 
     expect(getByTestId('plan-read-list')).toBeTruthy();
     expect(queryByTestId('plan-full-edit-list')).toBeNull();
-  });
-
-  // GH-418: a long press on a workout opens its editing.
-  it('opens full edit scrolled to the workout that was long-pressed', async () => {
-    baseChooseExercise.mockReset();
-    const {getByTestId} = render(<PlanTab {...baseProps} />);
-
-    fireEvent.press(getByTestId('plan-long-press-other-exercise'));
-
-    await waitFor(() => {
-      expect(getByTestId('plan-full-edit-list')).toBeTruthy();
-    });
-    expect(getByTestId('plan-full-edit-reveal').props.children).toBe('2');
-    expect(getByTestId('plan-full-edit-focus').props.children).toBe('none');
-    expect(baseChooseExercise).toHaveBeenCalledWith(exercises[1]);
-    expect(baseProps.onChromeChange).toHaveBeenLastCalledWith(expect.objectContaining({mode: 'fullEdit'}));
   });
 
   it('leaves full edit through Done (exitToRead) back to the read view', async () => {

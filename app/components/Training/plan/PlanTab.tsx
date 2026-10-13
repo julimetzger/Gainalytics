@@ -77,10 +77,9 @@ const PlanTab = ({
   }, shallowEqual);
 
   const [mode, setMode] = useState<PlanMode>(initialMode ?? 'read');
-  // GH-418: what the user tapped or long-pressed in the read view to get into full
-  // edit — the tapped field gets the focus, a long-pressed workout is scrolled to.
+  // GH-418: the value the user tapped in the read view to get into full edit — its
+  // field gets the focus.
   const [focusTarget, setFocusTarget] = useState<PlanCellTarget | null>(null);
-  const [revealExerciseId, setRevealExerciseId] = useState<number | null>(null);
   const [pendingSetByExerciseId, setPendingSetByExerciseId] = useState<PendingPlanSetByExerciseId>({});
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [hasStructuralChanges, setHasStructuralChanges] = useState(false);
@@ -181,7 +180,6 @@ const PlanTab = ({
           onReorderExercises={handleSetExercises}
           onRemoveExercise={handleRemoveExercise}
           focusTarget={focusTarget}
-          revealExerciseId={revealExerciseId}
         />
       ) : (
         <PlanReadList
@@ -189,7 +187,6 @@ const PlanTab = ({
           selectedExerciseId={selectedExercise.id}
           plannedWorkoutsByExerciseId={plannedWorkoutsByExerciseId}
           onCellPress={handleReadCellPress}
-          onExerciseLongPress={handleReadExerciseLongPress}
           onSelectExercise={chooseExercise}
         />
       )}
@@ -243,7 +240,6 @@ const PlanTab = ({
     }
     setMode('read');
     setFocusTarget(null);
-    setRevealExerciseId(null);
     setPendingSetByExerciseId({});
     setShowDiscardDialog(false);
     setHasStructuralChanges(false);
@@ -363,16 +359,6 @@ const PlanTab = ({
     }
     selectExerciseById(exerciseId);
     setFocusTarget({exerciseId, setIndex, field});
-    setRevealExerciseId(null);
-    enterFullEdit();
-  }
-
-  // GH-418: a long press on a workout (an exercise card in the read view) opens
-  // its editing — the full edit mode, scrolled to that exercise.
-  function handleReadExerciseLongPress(exerciseId: number) {
-    selectExerciseById(exerciseId);
-    setFocusTarget(null);
-    setRevealExerciseId(exerciseId);
     enterFullEdit();
   }
 
