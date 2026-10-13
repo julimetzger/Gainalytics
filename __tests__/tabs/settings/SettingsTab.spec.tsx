@@ -137,7 +137,7 @@ jest.mock('../../../app/components/settings/ThemeColorSelector', () => {
     __esModule: true,
     default: () => (
       <View testID="settings-theme-palette-row">
-        <Text>Custom Color</Text>
+        <Text>Color</Text>
       </View>
     ),
   };
@@ -467,7 +467,7 @@ describe('SettingsTab', () => {
     const titles = getAllByTestId(/^settings-section-[a-z-]+-title$/).map((node) => node.props.children);
     expect(titles).toEqual(['Appearance', 'General', 'Timers & Notifications', 'AI Coach', 'Help', 'Data']);
 
-    // GH-478: the Theme row and the single "Custom Color" row share one section.
+    // GH-478: the Theme row and the single "Color" row share one section.
     expect(getByTestId('settings-section-theme')).toContainElement(getByTestId('settings-theme-mode-row'));
     expect(getByTestId('settings-section-theme')).toContainElement(getByTestId('settings-theme-palette-row'));
     expect(queryByText('Color Palette')).toBeNull();
