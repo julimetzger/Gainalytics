@@ -25,6 +25,8 @@ interface NextTrainingCardProps {
   nextMicro?: number;
   nextTrainingNum?: number;
   isComplete?: boolean;
+  /** GH-518: the plan has no planned training yet. */
+  isEmpty?: boolean;
   navigation: NativeStackNavigationProp<RootStackParamList, 'TrainingHome'>;
 }
 
@@ -88,7 +90,7 @@ const useElapsedSince = (start: Date | string | undefined, active: boolean): str
   return formatElapsed(now - startedAt);
 };
 
-const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigation}: NextTrainingCardProps) => {
+const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, isEmpty, navigation}: NextTrainingCardProps) => {
   const theme = useTheme();
 
   const trainingId =
@@ -122,7 +124,7 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigat
   // GH-401 (H1): this button navigates, it never starts a training. It is named
   // after where it takes you; the real start control lives in the Train tab.
   const handleStart = () => {
-    if (isComplete || nextMicro === undefined || nextTrainingNum === undefined) {
+    if (isComplete || isEmpty || nextMicro === undefined || nextTrainingNum === undefined) {
       // Plan complete: route to first slot to allow restart / new meso
       const firstKey = Object.keys(plan.trainings).sort((a, b) => {
         const ma = getMicroFromTrainingInMicroIndex(a);
@@ -142,6 +144,29 @@ const NextTrainingCard = ({plan, nextMicro, nextTrainingNum, isComplete, navigat
       params: {trainingsPlan: plan, micro: nextMicro, training: nextTrainingNum, subTab: 'train'},
     });
   };
+
+  // GH-518: a freshly created plan is the current plan before it has a training —
+  // point at planning one instead of claiming the plan is complete.
+  if (isEmpty) {
+    return (
+      <Card style={[styles.card, {borderLeftWidth: 4, borderLeftColor: theme.colors.primary}]} testID="next-training-card">
+        <Card.Content>
+          <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}} testID="next-training-status-label">
+            Next Training
+          </Text>
+          <Text variant="titleMedium" style={styles.completeTitle} testID="next-training-name">
+            No training planned yet
+          </Text>
+          <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant, marginBottom: 12}}>
+            Plan the first training of this plan to see it here.
+          </Text>
+          <Button mode="contained" onPress={handleStart} style={styles.startButton} testID="next-training-start-button">
+            Plan first training
+          </Button>
+        </Card.Content>
+      </Card>
+    );
+  }
 
   if (isComplete) {
     return (

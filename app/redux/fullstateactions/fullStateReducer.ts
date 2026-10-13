@@ -176,7 +176,16 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
           byId: newTrainingsPlans,
           allIds: newTrainingsPlanIds,
         },
+        // GH-518: a plan created from a template or a plan file becomes the current plan.
+        settings: {...state.settings, currentTrainingsPlanId: maxPlanId},
       };
+    }
+    // GH-518: a newly created plan becomes the current plan, so the dashboard shows it
+    // right away instead of an older plan. The slice reducer has already appended its id.
+    case 'ADD_TRAININGS_PLAN': {
+      const newPlanId = state.trainingsPlan.allIds[state.trainingsPlan.allIds.length - 1];
+      if (newPlanId === undefined) return state;
+      return {...state, settings: {...state.settings, currentTrainingsPlanId: newPlanId}};
     }
     // GH-486: the slice reducers have already removed the exercise and its logged workouts;
     // trainings (incl. a running one) and planned workouts must not keep pointing at it.

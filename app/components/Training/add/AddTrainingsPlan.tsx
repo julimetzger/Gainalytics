@@ -1,4 +1,4 @@
-import {FAB, HelperText, IconButton, SegmentedButtons, TextInput, useTheme} from 'react-native-paper';
+import {AnimatedFAB, HelperText, IconButton, SegmentedButtons, TextInput, useTheme} from 'react-native-paper';
 import {Alert, Keyboard, StyleSheet, View} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {useStore} from 'react-redux';
@@ -27,9 +27,13 @@ interface AddTrainingsPlanProperties {
   /** GH-497: open the add dialog once (onboarding "Create an empty plan"). */
   openRequested?: boolean;
   onOpenRequestHandled?: () => void;
+  /** GH-518: the "New Training" FAB shows its label only while this is true (collapses while the list scrolls). */
+  extended?: boolean;
+  /** GH-518: a new plan was created (it is now the current plan). */
+  onCreated?: (name: string) => void;
 }
 
-const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandled}: AddTrainingsPlanProperties) => {
+const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandled, extended = true, onCreated}: AddTrainingsPlanProperties) => {
   const [visible, setVisible] = React.useState(false);
   const [TrainingName, setTrainingName] = useState('');
   const [nameError, setNameError] = useState(false);
@@ -82,6 +86,7 @@ const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandl
       const payload = JSON.parse(fileContent);
       importTrainingsPlan(payload);
       hideDialog();
+      onCreated?.(trainingsPlanDisplayName(payload?.trainingsPlan?.name));
     } catch (err) {
       if (DocumentPicker.isCancel(err)) {
         // User cancelled the picker
@@ -109,9 +114,13 @@ const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandl
     // plan list, hiding the freshly created plan. Only dismiss it once we really save.
     Keyboard.dismiss();
     setVisible(false);
-    if (trainingsId) editTrainingsPlan(trainingsId, name);
-    else if (fromTemplate && template) createPlanFromTemplate(template, name);
+    if (trainingsId) {
+      editTrainingsPlan(trainingsId, name);
+      return;
+    }
+    if (fromTemplate && template) createPlanFromTemplate(template, name);
     else addTrainingsPlan({name} as TrainingsPlan);
+    onCreated?.(name);
   };
 
   const handleExport = () => {
@@ -148,8 +157,18 @@ const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandl
           accessibilityLabel={`Edit ${trainingsPlanDisplayName(trainingsPlan?.name)}`}
         />
       ) : (
-        // GH-460: same floating extended FAB as "New Exercise" in the Exercises tab.
-        <FAB icon="plus" label="New Training" onPress={() => showDialog()} testID="add-trainings-plan" />
+        // GH-460: same extended FAB as "New Exercise" in the Exercises tab.
+        // GH-518: it collapses to the icon while the plan list scrolls.
+        <AnimatedFAB
+          icon="plus"
+          label="New Training"
+          extended={extended}
+          animateFrom="right"
+          iconMode="static"
+          onPress={() => showDialog()}
+          style={styles.fab}
+          testID="add-trainings-plan"
+        />
       )}
       <EditDialogScaffold
         visible={visible}
@@ -222,6 +241,7 @@ const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandl
 
 const styles = StyleSheet.create({
   sourceSelector: {marginBottom: 12},
+  fab: {position: 'absolute', right: 16, bottom: 8},
 });
 
 export default AddTrainingsPlan;

@@ -1,6 +1,7 @@
 import React, {useCallback, useMemo, useState} from 'react';
-import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
-import {Card, Chip, IconButton, Searchbar, Text, useTheme} from 'react-native-paper';
+import {NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Card, Chip, IconButton, Searchbar, Snackbar, Text, Tooltip, useTheme} from 'react-native-paper';
+import {useSelector} from 'react-redux';
 import {useAllTrainingsPlans} from '../../redux/Training/use/useAllTrainingsPlans';
 import {RootStackParamList} from '../../routing/TrainingRouter';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -25,6 +26,8 @@ import MicroRecordsCard from '../../components/Training/dashboard/MicroRecordsCa
 import LastTrainingCard from '../../components/Training/dashboard/LastTrainingCard';
 import {Training} from '../../models/entities/Training';
 import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
+import {GlobalState} from '../../redux/rootReducer';
+import {dispatchSetCurrentTrainingsPlan} from '../../redux/settings/dispatch/dispatchSetCurrentTrainingsPlan';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainingHome'>;
 
@@ -35,6 +38,8 @@ interface LastDone {
 
 interface NextSession {
   isComplete: boolean;
+  /** GH-518: the plan has no planned training yet (e.g. it was just created). */
+  isEmpty?: boolean;
   micro?: number;
   training?: number;
 }
@@ -157,6 +162,11 @@ function nextSessionFor(
     return {isComplete: false, micro: 1, training: trainingNumbers[0]};
   }
 
+  // GH-518: a plan without a single planned training is not "complete" — it has not begun.
+  if (keys.length === 0) {
+    return {isComplete: false, isEmpty: true};
+  }
+
   return {isComplete: true};
 }
 
@@ -254,7 +264,15 @@ function statusForPlan(plan: TrainingsPlan, allTrainings: Training[]): PlanRowMe
 const TrainingHomeContent = ({navigation, route}: Props) => {
   const theme = useTheme();
   const [filter, setFilter] = useState((route.params as {filter?: string} | undefined)?.filter || '');
-  const [selectedPlanId, setSelectedPlanId] = useState<number | undefined>(undefined);
+  // GH-518: the current (starred) plan is persisted; it was component state and got lost on every remount.
+  const currentPlanId = useSelector((state: GlobalState) => state.settings?.currentTrainingsPlanId);
+  const setCurrentPlan = dispatchSetCurrentTrainingsPlan();
+  const [snackbar, setSnackbar] = useState<{message: string; undoPlanId?: number | null} | undefined>(undefined);
+  // GH-518: the FAB shows its label only while the list rests at the top.
+  const [fabExtended, setFabExtended] = useState(true);
+  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setFabExtended(e.nativeEvent.contentOffset.y <= 0);
+  }, []);
   const trainingsPlans = useAllTrainingsPlans().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
   const allTrainings = useTrainings();
 
@@ -303,13 +321,21 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
   const openNewPlanRequested = route.params?.openNewPlan === true;
   const handleNewPlanRequestHandled = useCallback(() => navigation.setParams({openNewPlan: undefined}), [navigation]);
 
+  // GH-518: the stored current plan wins. Installs from before GH-518 have none and
+  // keep the automatic choice until a plan is created or starred.
   const activePlan = useMemo((): TrainingsPlan | undefined => {
-    if (selectedPlanId !== undefined) {
-      const manual = trainingsPlans.find(p => p.id === selectedPlanId);
-      if (manual) return manual;
+    if (currentPlanId !== undefined) {
+      const current = trainingsPlans.find(p => p.id === currentPlanId);
+      if (current) return current;
     }
     return autoActivePlan;
-  }, [selectedPlanId, trainingsPlans, autoActivePlan]);
+  }, [currentPlanId, trainingsPlans, autoActivePlan]);
+
+  const handlePlanCreated = useCallback(
+    // `null` = there was no stored current plan; Undo then restores the automatic choice.
+    (name: string) => setSnackbar({message: `${name} is now your current plan`, undoPlanId: currentPlanId ?? null}),
+    [currentPlanId],
+  );
 
   const activePlanLastDone = useMemo(() => (activePlan ? lastDoneFor(activePlan, trainingsById) : undefined), [activePlan, trainingsById]);
   const activePlanNext = useMemo<NextSession | undefined>(
@@ -341,9 +367,16 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
 
   return (
     <View style={{flex: 1}} testID="training-home-screen">
-      {/* paddingBottom clears the "New Training" FAB (56px + 16px offset, same as the Exercises tab)
-          so the last plan card stays tappable without creating dead scroll space. */}
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{paddingBottom: 96}}>
+      {/* GH-518: the list ends above the FAB's own strip (see fabBar), so the FAB never lies over a
+          card — not over the Next Training button, nor the star / menu of the last plan — in any scroll position. */}
+      <ScrollView
+        style={styles.list}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.listContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        testID="training-home-list"
+      >
         {/* Dashboard section for active plan */}
         {activePlan && (
           <>
@@ -354,6 +387,7 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
                 nextMicro={activePlanNext.micro}
                 nextTrainingNum={activePlanNext.training}
                 isComplete={activePlanNext.isComplete}
+                isEmpty={activePlanNext.isEmpty}
                 navigation={navigation}
               />
             )}
@@ -426,14 +460,32 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
                     <Text variant="bodySmall" style={[styles.planMeta, {color: theme.colors.onSurfaceVariant}]} testID={`plan-meta-${trainingsPlan.id}`}>
                       {meta?.metaText ?? 'Draft'}
                     </Text>
+                    {isActive && (
+                      <Text variant="labelSmall" style={[styles.currentLabel, {color: theme.colors.primary}]} testID={`plan-current-label-${trainingsPlan.id}`}>
+                        Current plan
+                      </Text>
+                    )}
                   </View>
-                  <IconButton
-                    icon={isActive ? 'star' : 'star-outline'}
-                    iconColor={isActive ? theme.colors.primary : theme.colors.onSurfaceVariant}
-                    size={20}
-                    testID={`plan-select-${trainingsPlan.id}`}
-                    onPress={() => setSelectedPlanId(isActive ? undefined : trainingsPlan.id)}
-                  />
+                  {/* GH-518: the star means "current plan" — say so (tooltip on long press,
+                      screen-reader label) and confirm a switch instead of changing silently. */}
+                  <Tooltip title={isActive ? 'Current plan' : 'Set as current plan'}>
+                    <IconButton
+                      icon={isActive ? 'star' : 'star-outline'}
+                      iconColor={isActive ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                      size={20}
+                      testID={`plan-select-${trainingsPlan.id}`}
+                      accessibilityLabel={isActive ? `Current plan: ${displayName}` : `Set ${displayName} as current plan`}
+                      accessibilityState={{selected: isActive}}
+                      onPress={() => {
+                        if (isActive) {
+                          setSnackbar({message: `${displayName} is your current plan`});
+                          return;
+                        }
+                        setCurrentPlan(trainingsPlan.id);
+                        setSnackbar({message: `${displayName} is now your current plan`});
+                      }}
+                    />
+                  </Tooltip>
                   <AddTrainingsPlan trainingsId={trainingsPlan.id} />
                 </View>
                 {sortedMesos.length > 0 && (
@@ -462,19 +514,38 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
         })}
       </ScrollView>
       <AddTrainingsPlan
-        style={{
-          position: 'absolute',
-          bottom: 16,
-          right: 16,
-        }}
+        style={styles.fabBar}
+        extended={fabExtended}
         openRequested={openNewPlanRequested}
         onOpenRequestHandled={handleNewPlanRequestHandled}
+        onCreated={handlePlanCreated}
       />
+      <Snackbar
+        visible={snackbar !== undefined}
+        onDismiss={() => setSnackbar(undefined)}
+        duration={3000}
+        testID="current-plan-snackbar"
+        action={
+          snackbar?.undoPlanId !== undefined
+            ? {
+                label: 'Undo',
+                testID: 'current-plan-snackbar-undo',
+                onPress: () => setCurrentPlan(snackbar.undoPlanId ?? undefined),
+              }
+            : undefined
+        }
+      >
+        {snackbar?.message ?? ''}
+      </Snackbar>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  list: {flex: 1},
+  listContent: {paddingBottom: 8},
+  // GH-518: the FAB's own strip below the list: FAB height 56 + 8 above and below.
+  fabBar: {height: 72},
   plansHeader: {
     paddingHorizontal: 12,
     paddingTop: 12,
@@ -503,6 +574,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   planMeta: {marginTop: 2},
+  currentLabel: {marginTop: 2, fontWeight: '700'},
   mesoScroll: {paddingHorizontal: 5, paddingVertical: 4},
   mesoChip: {marginRight: 6},
 });
