@@ -4,6 +4,8 @@
 
 - [ready] [GH-526](https://github.com/julimetzger/Gainalytics/issues/526) Overview rework — jede Ansicht benennt ihren Vergleich, Muscle Map Total/Diff, Chips statt Dropdown in der Trainings-Analyse
   - Deckt aus `docs/ux/training-overview-audit.md` (#505) H1 (ohne fairen Teilwochen-Vergleich), H3, M4/M7/M8 ab; H2/H4 teilweise
+- [ready] [GH-527](https://github.com/julimetzger/Gainalytics/issues/527) UX-Audit Overview Follow-up (H5/H6) — eine Quelle für Planwerte, 1RM/Intensität je Muskel korrekt
+  - Erst nach dem Merge von GH-526 starten (gleiche Muscle Map / Muskel-Tabelle)
 - [done] ~~[GH-418](https://github.com/julimetzger/Gainalytics/issues/418) Plan training (2/2): Sätze per Drag & Drop umsortieren, Long-Press zum Bearbeiten, Tastatur verdeckt die Eingabe nicht mehr~~ (PR #520 gemerged)
   - Tastatur-Teil zuerst: Regression laut UX-Audit R3 (#498, F1), fokussiertes Satzfeld liegt hinter der Tastatur, langer Plan springt an den Listenanfang
 - [ready] [GH-509](https://github.com/julimetzger/Gainalytics/issues/509) Change Add button in training sidebar — „Add Meso“/„Add Training“ als gestrichelter Knopf wie „Add set“, volle Breite
