@@ -1,0 +1,27 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-418 — part 1 of the keyboard check on a LONG plan: open Micro 69 "Push"
+# (baseline, 11 exercises) in the full plan editor and scroll it to its very
+# end, where the audit saw the list jump towards its start on focus.
+# Part 2 is __tests__/e2e/scripts/check-gh418-focused-field-above-keyboard.sh,
+# which taps the last fully visible reps field and measures it against the
+# keyboard (Maestro has no position assertion).
+- runFlow: gh418_open_plan_edit.yaml
+- scrollUntilVisible:
+    element:
+      id: 'plan-add-set-button-38'
+    direction: DOWN
+    timeout: 30000
+# Last exercise of the baseline plan: Triceps cable pushdown, set 3 = 10 reps.
+- assertVisible:
+    id: 'plan-edit-exercise-section-38'
+- assertVisible:
+    id: 'plan-set-3-reps-input'
+    text: '10'
+    below:
+      id: 'plan-exercise-drag-handle-38'
+- swipe:
+    from:
+      id: 'plan-add-set-button-38'
+    direction: UP
+- waitForAnimationToEnd

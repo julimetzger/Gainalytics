@@ -120,7 +120,9 @@ const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, 
           </View>
         </View>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0}}>
-          {trainingState === TrainingsState.PLANNED && (
+          {/* GH-418: in the edit mode only "EDITING PLAN" and Done — the read view's
+              "Plan" label next to Done made it look like a mix of both modes. */}
+          {trainingState === TrainingsState.PLANNED && !fullEditMode && (
             <Text
               testID="header-plan-label"
               style={{

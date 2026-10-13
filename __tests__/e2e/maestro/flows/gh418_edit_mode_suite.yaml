@@ -1,0 +1,5 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-418 edit-mode evidence: baseline import, then the edit-mode flow.
+- runFlow: 00_import_baseline.yaml
+- runFlow: gh418_edit_mode.yaml
