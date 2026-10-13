@@ -14,7 +14,13 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: "training-home-screen"
 
-# Add a new training plan via the FAB (+)
+# Add a new training plan via "New Training"
+# GH-518: "New Training" sits in the Plans header and scrolls with the list.
+- scrollUntilVisible:
+    element:
+      id: "add-trainings-plan"
+    direction: DOWN
+    timeout: 30000
 - tapOn:
     id: "add-trainings-plan"
 

@@ -14,6 +14,12 @@ appId: com.powerliftingworkoutplanner
     id: "training-home-screen"
 
 # Create "TRN004 Test Plan"
+# GH-518: "New Training" sits in the Plans header and scrolls with the list.
+- scrollUntilVisible:
+    element:
+      id: "add-trainings-plan"
+    direction: DOWN
+    timeout: 30000
 - tapOn:
     id: "add-trainings-plan"
 

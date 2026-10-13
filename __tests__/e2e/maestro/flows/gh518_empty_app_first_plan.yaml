@@ -6,6 +6,12 @@ appId: com.powerliftingworkoutplanner
 - runFlow: gh518_home_top.yaml
 - assertNotVisible:
     id: 'micro-hero-card'
+# GH-518: "New Training" sits in the Plans header and scrolls with the list.
+- scrollUntilVisible:
+    element:
+      id: 'add-trainings-plan'
+    direction: DOWN
+    timeout: 30000
 - tapOn:
     id: 'add-trainings-plan'
 - extendedWaitUntil:

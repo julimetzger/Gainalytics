@@ -14,6 +14,12 @@ appId: com.powerliftingworkoutplanner
     text: 'Push squat'
 - takeScreenshot: gh518_b1_before_new_plan
 
+# GH-518: "New Training" sits in the Plans header and scrolls with the list.
+- scrollUntilVisible:
+    element:
+      id: 'add-trainings-plan'
+    direction: DOWN
+    timeout: 30000
 - tapOn:
     id: 'add-trainings-plan'
 - extendedWaitUntil:
@@ -42,7 +48,7 @@ appId: com.powerliftingworkoutplanner
 - assertNotVisible: 'Push squat'
 
 # The star carries its meaning in its label, and switching is confirmed.
-# Let the snackbar go first — it sits right above the FAB strip and can cover a star.
+# Let the snackbar go first — it can cover a star at the bottom of the screen.
 - extendedWaitUntil:
     notVisible: 'Kraftblock is now your current plan'
     timeout: 15000

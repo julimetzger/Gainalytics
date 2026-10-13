@@ -2,7 +2,7 @@ appId: com.powerliftingworkoutplanner
 ---
 # GH-518 (F2): a tap into the lower-right corner of the Next Training button must open the
 # training, never the "Add New Training Plan" dialog. Before GH-518 the floating FAB lay
-# exactly there. TAP ("x,y") is computed from a uiautomator dump by gh518_check_fab_bounds.py;
+# exactly there. TAP ("x,y") is computed from a uiautomator dump by gh518_check_new_training_bounds.py;
 # NAME is the training the card points at.
 - tapOn:
     point: '${TAP}'

@@ -1,6 +1,6 @@
 appId: com.powerliftingworkoutplanner
 ---
-# GH-518 helper: Training home, scrolled to the very top (FAB extended).
+# GH-518 helper: Training home, scrolled to the very top.
 # `stopApp: false`: the debug build is served by Metro; keep the running app and its state.
 - launchApp:
     stopApp: false

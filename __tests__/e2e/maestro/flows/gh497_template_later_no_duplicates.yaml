@@ -17,6 +17,12 @@ appId: com.powerliftingworkoutplanner
     id: 'onboarding-screen'
 
 # First plan from the template
+# GH-518: "New Training" sits in the Plans header and scrolls with the list.
+- scrollUntilVisible:
+    element:
+      id: 'add-trainings-plan'
+    direction: DOWN
+    timeout: 30000
 - tapOn:
     id: 'add-trainings-plan'
 - tapOn:
@@ -73,6 +79,12 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'training-home-screen'
     timeout: 15000
+# GH-518: "New Training" sits in the Plans header and scrolls with the list.
+- scrollUntilVisible:
+    element:
+      id: 'add-trainings-plan'
+    direction: DOWN
+    timeout: 30000
 - tapOn:
     id: 'add-trainings-plan'
 - tapOn:
