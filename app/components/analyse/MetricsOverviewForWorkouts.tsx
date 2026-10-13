@@ -19,7 +19,24 @@ import {describeComparisonPeriod, formatMetricValue, getMetricHeaderLabel} from 
 export interface Comparison {
   value: number;
   difference?: number;
+  /** GH-526: vs the whole micro the delta reads as the value's share of the reference. */
+  share?: number;
 }
+
+/** GH-526 — what the second line of every cell shows: the delta, or the share of the reference. */
+export type DeltaMode = 'diff' | 'share';
+
+/** Shares only add up for counted metrics; an average or a maximum has no "part of the micro". */
+const SHARE_METRICS = [Metric.SETS, Metric.VOLUME, Metric.REPS];
+
+const toShares = (comparisons: Map<Metric, Comparison>): Map<Metric, Comparison> =>
+  new Map(
+    Array.from(comparisons).map(([metric, comparison]) => {
+      const reference = comparison.difference === undefined ? undefined : comparison.value - comparison.difference;
+      const share = SHARE_METRICS.includes(metric) && reference !== undefined && reference > 0 ? comparison.value / reference : undefined;
+      return [metric, {value: comparison.value, share}];
+    }),
+  );
 
 interface WorkoutSetOverviewProps {
   trainingsWorkouts: Workout[];
@@ -32,6 +49,13 @@ interface WorkoutSetOverviewProps {
   comparisonRangeLabel?: string;
   /** GH-458 (H3): rendered instead of the empty tables when there is nothing to show. */
   emptyState?: React.ReactNode;
+  /**
+   * GH-526: names the reference of an overview (`Plan`, `Micro 1`) — the deltas
+   * follow the chip the overview has selected. Shown as `Δ vs <label>`, or
+   * `Share of <label>` with deltaMode 'share'.
+   */
+  referenceLabel?: string;
+  deltaMode?: DeltaMode;
 }
 
 interface MuscleDetails {
@@ -44,7 +68,8 @@ interface MetricSelectorState {
   slotIndex: number;
 }
 
-const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], showExercises = true, comparisonRangeLabel, emptyState}: WorkoutSetOverviewProps) => {
+const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], showExercises = true, comparisonRangeLabel, emptyState, referenceLabel, deltaMode = 'diff'}: WorkoutSetOverviewProps) => {
+  const share = deltaMode === 'share';
   const exerciseIds = useMemo(() => [...new Set([...trainingsWorkouts, ...previousWorkouts].map((workout) => workout.exerciseId))], [previousWorkouts, trainingsWorkouts]);
   const exercises = useExerciseByIds(exerciseIds);
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleDetails | undefined>(undefined);
@@ -72,14 +97,36 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
   }, [exercises, previousWorkouts, trainingsWorkouts]);
 
   const exerciseMetricMap = useMemo(() => {
-    return new Map(Array.from(exerciseWorkoutMap).map(([exercise, workout]) => [exercise, calculateMetricComparisons(workout)]));
-  }, [exerciseWorkoutMap]);
+    // GH-526: a share lists only what the subject itself trains — the rest of the
+    // micro is the denominator, not a row. The muscle totals below still sum every
+    // exercise of the reference, otherwise the share of a muscle would only count
+    // the exercises this training happens to contain.
+    const entries = Array.from(exerciseWorkoutMap).filter(([, workout]) => !share || (workout.currentWorkoutsCount ?? 0) > 0);
+    return new Map(
+      entries.map(([exercise, workout]) => {
+        const comparisons = calculateMetricComparisons(workout);
+        return [exercise, share ? toShares(comparisons) : comparisons];
+      }),
+    );
+  }, [exerciseWorkoutMap, share]);
 
-  const muscleMetricMap = useMemo(() => calculateMetricComparisonsForMuscle(exerciseWorkoutMap), [exerciseWorkoutMap]);
+  const muscleMetricMap = useMemo(() => {
+    const comparisons = calculateMetricComparisonsForMuscle(exerciseWorkoutMap);
+    if (!share) return comparisons;
+    return new Map(
+      Array.from(comparisons)
+        .filter(([, byMetric]) => (byMetric.get(Metric.SETS)?.value ?? 0) > 0)
+        .map(([muscle, byMetric]) => [muscle, toShares(byMetric)]),
+    );
+  }, [exerciseWorkoutMap, share]);
 
   const activeMetricSlots = metricSelector?.section === 'muscles' ? muscleMetrics : exerciseMetrics;
   const selectedMetric = metricSelector ? activeMetricSlots[metricSelector.slotIndex] : undefined;
-  const comparisonSubtitle = comparisonRangeLabel ? describeComparisonPeriod(comparisonRangeLabel) : undefined;
+  const comparisonSubtitle = referenceLabel
+    ? describeReference(referenceLabel, deltaMode)
+    : comparisonRangeLabel
+    ? describeComparisonPeriod(comparisonRangeLabel)
+    : undefined;
 
   // GH-458 round 2 (review #1): this used to gate on `muscleMetricMap`/
   // `exerciseMetricMap`, which are built from trainingsWorkouts AND
@@ -156,6 +203,7 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
             exerciseMetricMap={exerciseMetricMap}
             metrics={exerciseMetrics}
             comparisonRangeLabel={comparisonRangeLabel}
+            subtitle={comparisonSubtitle}
             onMetricHeaderPress={(slotIndex) => setMetricSelector({section: 'exercises', slotIndex})}
           />
         </Stage>
@@ -227,6 +275,8 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
     </>
   );
 };
+
+export const describeReference = (referenceLabel: string, deltaMode: DeltaMode) => (deltaMode === 'share' ? `Share of ${referenceLabel}` : `Δ vs ${referenceLabel}`);
 
 const getMetricColumnStyle = (index: number) => {
   return index === 0 ? styles.flexM : styles.flexS;

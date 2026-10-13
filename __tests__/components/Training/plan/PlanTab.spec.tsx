@@ -40,15 +40,6 @@ jest.mock('../../../../app/redux/Workout/dispatch/dispatchReplaceWorkoutSets', (
 
 jest.mock('../../../../app/components/picker/elements/TrainingElementPicker', () => () => null);
 
-jest.mock('../../../../app/components/Training/plan/MuscleInvolvementCard', () => {
-  const React = require('react');
-  const {Text, View} = require('react-native');
-  return ({trainingsPlanId, micro, trainingInMicro}: {trainingsPlanId: number; micro: number; trainingInMicro: number}) => (
-    <View testID="muscle-involvement-card-mock">
-      <Text>{`muscle-card:${trainingsPlanId}/${micro}/${trainingInMicro}`}</Text>
-    </View>
-  );
-});
 
 jest.mock('../../../../app/components/Training/DraggableExercise', () => {
   const React = require('react');
