@@ -15,7 +15,8 @@ name: GH-522 Settings refinement
 - extendedWaitUntil:
     visible:
       text: "tab-settings"
-    timeout: 60000
+    # A busy emulator loading the dev bundle from Metro needs well over a minute.
+    timeout: 180000
 - tapOn:
     text: "tab-settings"
 - extendedWaitUntil:
