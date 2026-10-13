@@ -522,3 +522,7 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Paper `AnimatedFAB` anchored right puts the icon RIGHT of the label
 **Observation (GH-518):** `animateFrom="right"` (the only sane anchor for a right-aligned FAB) renders "New Training +"; `left` grows off-screen. To collapse an extended FAB on scroll keep the plain `FAB` and pass `label={extended ? '…' : undefined}` plus a constant `accessibilityLabel`, so Maestro text selectors still find it collapsed.
 **Apply when:** an extended FAB must shrink to its icon while scrolling.
+
+### Bounds checks for in-list header controls via uiautomator
+**Observation:** a `testID` on a plain RN `View` (e.g. `plans-header`) shows up in `uiautomator dump` as `android.view.ViewGroup` with that resource-id, and a Paper `Button` with `testID="x"` exposes its label as `x-text` — enough to prove "inside the header", "header height unchanged" (px / (density/160)) and "label not clipped" from bounds. A control moved from a floating FAB into the scroll content needs `scrollUntilVisible` before every `tapOn` in older flows (smoke, trn004, gh497), or they fail on tall dashboards.
+**Apply when:** replacing a FAB/overlay with an in-flow control, or proving layout claims Maestro can't read. Checker: `__tests__/e2e/scripts/gh518_check_new_training_bounds.py`. (seen in GH-518)
