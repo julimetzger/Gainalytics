@@ -210,3 +210,19 @@ describe('NextTrainingCard — GH-401 H4: a running session reads as running', (
     });
   });
 });
+
+describe('NextTrainingCard — GH-518: a new current plan without a planned training', () => {
+  const emptyPlan: TrainingsPlan = {id: 2, name: 'Fresh', trainings: {}, mesos: [], trainingNames: {}};
+
+  it('asks to plan the first training instead of claiming the plan is complete', () => {
+    const {getByTestId, queryByText} = renderCard({plan: emptyPlan, nextMicro: undefined, nextTrainingNum: undefined, isEmpty: true});
+
+    expect(getByTestId('next-training-name').props.children).toBe('No training planned yet');
+    expect(queryByText('Plan complete')).toBeNull();
+    expect(queryByText('Start over')).toBeNull();
+
+    fireEvent.press(getByTestId('next-training-start-button'));
+
+    expect(mockNavigation.navigate).toHaveBeenCalledWith({name: 'TrainingPlan', params: {trainingsPlan: emptyPlan, micro: 1}});
+  });
+});

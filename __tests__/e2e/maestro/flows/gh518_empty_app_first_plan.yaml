@@ -1,0 +1,118 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-518 (F3) on an EMPTY store (`pm clear` before this flow): create the first plan, plan
+# its first training, back to home — dashboard and Next Training card of the new plan show
+# the planned target without touching the star.
+- runFlow: gh518_home_top.yaml
+- assertNotVisible:
+    id: 'micro-hero-card'
+# GH-518: "New Training" sits in the Plans header and scrolls with the list.
+- scrollUntilVisible:
+    element:
+      id: 'add-trainings-plan'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'add-trainings-plan'
+- extendedWaitUntil:
+    visible: 'Add New Training Plan'
+    timeout: 10000
+- tapOn:
+    id: 'plan-name-input'
+- inputText: 'Kraftblock'
+- tapOn:
+    id: 'confirm-trainings-plan'
+- extendedWaitUntil:
+    visible: 'Kraftblock is now your current plan'
+    timeout: 10000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Kraftblock'
+- assertVisible:
+    id: 'next-training-name'
+    text: 'No training planned yet'
+- takeScreenshot: gh518_e1_first_plan_current
+- scrollUntilVisible:
+    element: 'Current plan: Kraftblock'
+    direction: DOWN
+    timeout: 20000
+
+# Plan the first training from the card.
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: UP
+    visibilityPercentage: 100
+    timeout: 20000
+- tapOn:
+    id: 'next-training-start-button'
+- waitForAnimationToEnd:
+    timeout: 10000
+# A dropped Metro connection paints a "Fast Refresh disconnected" banner across the header.
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-meso-name'
+    timeout: 60000
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'header-plan-editing-kicker'
+    commands:
+      - tapOn:
+          text: 'Plan new Training'
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd:
+          timeout: 10000
+- tapOn:
+    id: 'training-add-exercise-box'
+- extendedWaitUntil:
+    visible: 'Bench Press'
+    timeout: 15000
+- tapOn: 'Bench Press'
+- assertVisible: '1 selected'
+# A tap below the picker closes it.
+- tapOn:
+    point: '50%, 85%'
+- extendedWaitUntil:
+    visible: 'Add Set'
+    timeout: 15000
+- tapOn: 'Add Set'
+- tapOn:
+    id: 'plan-pending-set-reps-input'
+- inputText: '5'
+- tapOn:
+    id: 'plan-pending-set-weight-input'
+- eraseText
+- inputText: '100'
+- tapOn:
+    id: 'header-plan-done-button'
+- extendedWaitUntil:
+    notVisible:
+      id: 'header-plan-editing-kicker'
+    timeout: 15000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 20000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Kraftblock'
+- assertVisible:
+    id: 'next-training-name'
+    text: 'Training 1'
+- assertVisible:
+    id: 'next-training-target-1'
+    text: '100 × 5'
+- takeScreenshot: gh518_e2_home_after_planning

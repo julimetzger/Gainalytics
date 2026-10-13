@@ -1,4 +1,4 @@
-import {FAB, HelperText, IconButton, SegmentedButtons, TextInput, useTheme} from 'react-native-paper';
+import {Button, HelperText, IconButton, SegmentedButtons, TextInput, useTheme} from 'react-native-paper';
 import {Alert, Keyboard, StyleSheet, View} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {useStore} from 'react-redux';
@@ -27,9 +27,11 @@ interface AddTrainingsPlanProperties {
   /** GH-497: open the add dialog once (onboarding "Create an empty plan"). */
   openRequested?: boolean;
   onOpenRequestHandled?: () => void;
+  /** GH-518: a new plan was created (it is now the current plan). */
+  onCreated?: (name: string) => void;
 }
 
-const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandled}: AddTrainingsPlanProperties) => {
+const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandled, onCreated}: AddTrainingsPlanProperties) => {
   const [visible, setVisible] = React.useState(false);
   const [TrainingName, setTrainingName] = useState('');
   const [nameError, setNameError] = useState(false);
@@ -82,6 +84,7 @@ const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandl
       const payload = JSON.parse(fileContent);
       importTrainingsPlan(payload);
       hideDialog();
+      onCreated?.(trainingsPlanDisplayName(payload?.trainingsPlan?.name));
     } catch (err) {
       if (DocumentPicker.isCancel(err)) {
         // User cancelled the picker
@@ -109,9 +112,13 @@ const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandl
     // plan list, hiding the freshly created plan. Only dismiss it once we really save.
     Keyboard.dismiss();
     setVisible(false);
-    if (trainingsId) editTrainingsPlan(trainingsId, name);
-    else if (fromTemplate && template) createPlanFromTemplate(template, name);
+    if (trainingsId) {
+      editTrainingsPlan(trainingsId, name);
+      return;
+    }
+    if (fromTemplate && template) createPlanFromTemplate(template, name);
     else addTrainingsPlan({name} as TrainingsPlan);
+    onCreated?.(name);
   };
 
   const handleExport = () => {
@@ -148,8 +155,23 @@ const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandl
           accessibilityLabel={`Edit ${trainingsPlanDisplayName(trainingsPlan?.name)}`}
         />
       ) : (
-        // GH-460: same floating extended FAB as "New Exercise" in the Exercises tab.
-        <FAB icon="plus" label="New Training" onPress={() => showDialog()} testID="add-trainings-plan" />
+        // GH-518: a small text button in the "Plans" header, right above the search. It replaces the
+        // floating FAB, which lay over the Next Training card and the last plan card; at 24 dp it is no
+        // taller than the header's title, so the header keeps its height. hitSlop restores a 48 dp target.
+        <Button
+          compact
+          mode="text"
+          icon="plus"
+          onPress={() => showDialog()}
+          style={styles.newPlanButton}
+          contentStyle={styles.newPlanButtonContent}
+          labelStyle={styles.newPlanButtonLabel}
+          hitSlop={{top: 12, bottom: 12, left: 8, right: 8}}
+          accessibilityLabel="New Training"
+          testID="add-trainings-plan"
+        >
+          New Training
+        </Button>
       )}
       <EditDialogScaffold
         visible={visible}
@@ -222,6 +244,9 @@ const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandl
 
 const styles = StyleSheet.create({
   sourceSelector: {marginBottom: 12},
+  newPlanButton: {marginVertical: 0},
+  newPlanButtonContent: {height: 24},
+  newPlanButtonLabel: {marginVertical: 0, fontSize: 13, lineHeight: 18},
 });
 
 export default AddTrainingsPlan;

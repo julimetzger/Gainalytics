@@ -128,7 +128,8 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
         byId: {},
         allIds: [],
       },
-      settings: {mode: 'dark'},
+      // GH-518: the imported plan becomes the current plan.
+      settings: {mode: 'dark', currentTrainingsPlanId: 2},
       effects: {},
     } satisfies GlobalState;
 
@@ -230,7 +231,8 @@ describe('fullStateReducer - IMPORT_TRAININGS_PLAN', () => {
         byId: {},
         allIds: [],
       },
-      settings: {mode: 'dark'},
+      // GH-518: the imported plan becomes the current plan.
+      settings: {mode: 'dark', currentTrainingsPlanId: 1},
       effects: {},
     } satisfies GlobalState;
 

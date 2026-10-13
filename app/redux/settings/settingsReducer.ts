@@ -108,6 +108,13 @@ export interface AppSettings {
   onboardingCompleted?: boolean;
   /** GH-497: reopened from the Settings; shown regardless of existing data until finished. */
   onboardingRequested?: boolean;
+  /**
+   * GH-518: the plan that drives the Training home dashboard (the starred plan).
+   * Absent on installs from before GH-518 — the dashboard then keeps picking the
+   * plan automatically, so an update changes nothing. Set when a plan is created
+   * and when the user taps a plan's star.
+   */
+  currentTrainingsPlanId?: number;
 }
 
 const initialState = {
@@ -405,6 +412,20 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       return {
         ...settings,
         onboardingRequested: true,
+      };
+    }
+    case 'SET_CURRENT_TRAININGS_PLAN': {
+      return {
+        ...settings,
+        currentTrainingsPlanId: action.trainingsPlanId,
+      };
+    }
+    case 'DELETE_TRAININGS_PLAN': {
+      // GH-518: a deleted current plan hands the dashboard back to the automatic choice.
+      if (settings.currentTrainingsPlanId !== action.trainingsPlanId) return settings;
+      return {
+        ...settings,
+        currentTrainingsPlanId: undefined,
       };
     }
     case 'SET_METRIC_OVERVIEW_SLOT': {
