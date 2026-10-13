@@ -100,10 +100,10 @@ jest.mock('react-native-paper', () => {
       </TouchableOpacity>
     ),
     // GH-460: the new-plan button is an extended FAB with a label;
-    // GH-518: it is animated and collapses (extended=false) while the list scrolls.
-    AnimatedFAB: ({label, onPress, testID, extended}: any) => (
-      <TouchableOpacity testID={testID} onPress={onPress} accessibilityState={{expanded: extended}}>
-        <Text>{label}</Text>
+    // GH-518: it drops the label (icon only) while the list scrolls.
+    FAB: ({label, onPress, testID, accessibilityLabel}: any) => (
+      <TouchableOpacity testID={testID} onPress={onPress} accessibilityLabel={accessibilityLabel}>
+        {label !== undefined && <Text testID={`${testID}-label`}>{label}</Text>}
       </TouchableOpacity>
     ),
     Snackbar: ({children, visible, action, testID}: any) =>
@@ -631,13 +631,15 @@ describe('TrainingHome — GH-518 current plan and the "New Training" FAB', () =
   });
 
   it('collapses the FAB to its icon while the list is scrolled and extends it again at the top', () => {
-    const {getByTestId} = renderHome([trainedPlan, newPlan]);
-    expect(getByTestId('add-trainings-plan').props.accessibilityState).toEqual({expanded: true});
+    const {getByTestId, queryByTestId} = renderHome([trainedPlan, newPlan]);
+    expect(getByTestId('add-trainings-plan-label').props.children).toBe('New Training');
 
     fireEvent.scroll(getByTestId('training-home-list'), {nativeEvent: {contentOffset: {y: 240}}});
-    expect(getByTestId('add-trainings-plan').props.accessibilityState).toEqual({expanded: false});
+    expect(queryByTestId('add-trainings-plan-label')).toBeNull();
+    // Still operable and announced while collapsed.
+    expect(getByTestId('add-trainings-plan').props.accessibilityLabel).toBe('New Training');
 
     fireEvent.scroll(getByTestId('training-home-list'), {nativeEvent: {contentOffset: {y: 0}}});
-    expect(getByTestId('add-trainings-plan').props.accessibilityState).toEqual({expanded: true});
+    expect(getByTestId('add-trainings-plan-label').props.children).toBe('New Training');
   });
 });

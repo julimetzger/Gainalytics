@@ -1,4 +1,4 @@
-import {AnimatedFAB, HelperText, IconButton, SegmentedButtons, TextInput, useTheme} from 'react-native-paper';
+import {FAB, HelperText, IconButton, SegmentedButtons, TextInput, useTheme} from 'react-native-paper';
 import {Alert, Keyboard, StyleSheet, View} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {useStore} from 'react-redux';
@@ -158,13 +158,12 @@ const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandl
         />
       ) : (
         // GH-460: same extended FAB as "New Exercise" in the Exercises tab.
-        // GH-518: it collapses to the icon while the plan list scrolls.
-        <AnimatedFAB
+        // GH-518: it collapses to the icon while the plan list scrolls. (Paper's AnimatedFAB
+        // puts the icon to the right of the label when anchored right, unlike the Exercises tab.)
+        <FAB
           icon="plus"
-          label="New Training"
-          extended={extended}
-          animateFrom="right"
-          iconMode="static"
+          label={extended ? 'New Training' : undefined}
+          accessibilityLabel="New Training"
           onPress={() => showDialog()}
           style={styles.fab}
           testID="add-trainings-plan"

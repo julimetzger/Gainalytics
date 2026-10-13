@@ -524,6 +524,8 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
         visible={snackbar !== undefined}
         onDismiss={() => setSnackbar(undefined)}
         duration={3000}
+        // Above the FAB strip, so the confirmation never hides the FAB.
+        wrapperStyle={styles.snackbar}
         testID="current-plan-snackbar"
         action={
           snackbar?.undoPlanId !== undefined
@@ -546,6 +548,7 @@ const styles = StyleSheet.create({
   listContent: {paddingBottom: 8},
   // GH-518: the FAB's own strip below the list: FAB height 56 + 8 above and below.
   fabBar: {height: 72},
+  snackbar: {bottom: 72},
   plansHeader: {
     paddingHorizontal: 12,
     paddingTop: 12,
