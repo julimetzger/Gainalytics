@@ -42,11 +42,18 @@ appId: com.powerliftingworkoutplanner
 - assertNotVisible: 'Push squat'
 
 # The star carries its meaning in its label, and switching is confirmed.
+# Let the snackbar go first — it sits right above the FAB strip and can cover a star.
+- extendedWaitUntil:
+    notVisible: 'Kraftblock is now your current plan'
+    timeout: 15000
 - scrollUntilVisible:
     element: 'Current plan: Kraftblock'
     direction: DOWN
     timeout: 20000
-- assertVisible: 'Set Push pull as current plan'
+- scrollUntilVisible:
+    element: 'Set Push pull as current plan'
+    direction: DOWN
+    timeout: 20000
 - tapOn: 'Set Push pull as current plan'
 - extendedWaitUntil:
     visible: 'Push pull is now your current plan'
@@ -71,6 +78,9 @@ appId: com.powerliftingworkoutplanner
     text: 'Push squat'
 
 # Back to the new plan, which stays current for the hand-over.
+- extendedWaitUntil:
+    notVisible: 'Push pull is now your current plan'
+    timeout: 15000
 - scrollUntilVisible:
     element: 'Set Kraftblock as current plan'
     direction: DOWN
