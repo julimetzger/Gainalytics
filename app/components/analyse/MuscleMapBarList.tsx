@@ -222,7 +222,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   readout: {
-    width: READOUT_WIDTH,
+    // minWidth, not width: `10.4/10.4` or `14.7t/11.9t` must never be ellipsized — the bar yields instead.
+    minWidth: READOUT_WIDTH,
     textAlign: 'right',
     fontSize: 12,
     fontWeight: '500',

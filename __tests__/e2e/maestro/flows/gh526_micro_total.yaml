@@ -3,7 +3,7 @@ appId: com.powerliftingworkoutplanner
 # GH-526 — Micro 2 Overview, Total tab: chips vs Micro 1 (default) / vs Plan, the
 # line names both sides, the new muscle map follows the chip, and the header
 # shows the micro's date span right of the title.
-# Fixture: 61 sets done vs 58 in Micro 1 / 58 planned; 4 / 4 trainings;
+# Fixture: 7h 28min (sum of seconds, floored); 61 sets done vs 58 in Micro 1 / 58 planned; 4 / 4 trainings;
 # Chest done 6.8 vs 5.8 (Micro 1 done) and vs 5.8 (Micro 2 plan); Core 6.5 vs 4.2.
 - scrollUntilVisible:
     element:
@@ -38,7 +38,7 @@ appId: com.powerliftingworkoutplanner
     text: '\+3 \(\+5%\)'
 - assertVisible:
     id: 'micro-total-duration-value'
-    text: '7h 29min'
+    text: '7h 28min'
 - scrollUntilVisible:
     element:
       id: 'micro-muscle-map-row-Core-readout'
