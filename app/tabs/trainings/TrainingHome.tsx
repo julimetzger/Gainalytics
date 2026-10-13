@@ -1,5 +1,5 @@
 import React, {useCallback, useMemo, useState} from 'react';
-import {NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Card, Chip, IconButton, Searchbar, Snackbar, Text, Tooltip, useTheme} from 'react-native-paper';
 import {useSelector} from 'react-redux';
 import {useAllTrainingsPlans} from '../../redux/Training/use/useAllTrainingsPlans';
@@ -268,11 +268,6 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
   const currentPlanId = useSelector((state: GlobalState) => state.settings?.currentTrainingsPlanId);
   const setCurrentPlan = dispatchSetCurrentTrainingsPlan();
   const [snackbar, setSnackbar] = useState<{message: string; undoPlanId?: number | null} | undefined>(undefined);
-  // GH-518: the FAB shows its label only while the list rests at the top.
-  const [fabExtended, setFabExtended] = useState(true);
-  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setFabExtended(e.nativeEvent.contentOffset.y <= 0);
-  }, []);
   const trainingsPlans = useAllTrainingsPlans().sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
   const allTrainings = useTrainings();
 
@@ -367,14 +362,10 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
 
   return (
     <View style={{flex: 1}} testID="training-home-screen">
-      {/* GH-518: the list ends above the FAB's own strip (see fabBar), so the FAB never lies over a
-          card — not over the Next Training button, nor the star / menu of the last plan — in any scroll position. */}
       <ScrollView
         style={styles.list}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.listContent}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
         testID="training-home-list"
       >
         {/* Dashboard section for active plan */}
@@ -404,10 +395,17 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
             GH-412: the search uses the same full-width Paper <Searchbar> as the
             Exercises tab, so both tabs share one look (filled pill, no outline,
             leading magnify icon) instead of the old dense outlined field. */}
-        <View style={styles.plansHeader}>
+        {/* GH-518: "New Training" sits in the header row, in the flow of the list — nothing floats over
+            a card in any scroll position, and the button is no taller than the title. */}
+        <View style={styles.plansHeader} testID="plans-header">
           <Text variant="titleMedium" style={styles.plansTitle}>
             Plans
           </Text>
+          <AddTrainingsPlan
+            openRequested={openNewPlanRequested}
+            onOpenRequestHandled={handleNewPlanRequestHandled}
+            onCreated={handlePlanCreated}
+          />
         </View>
         <Searchbar
           placeholder="Search plans"
@@ -513,19 +511,10 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
           );
         })}
       </ScrollView>
-      <AddTrainingsPlan
-        style={styles.fabBar}
-        extended={fabExtended}
-        openRequested={openNewPlanRequested}
-        onOpenRequestHandled={handleNewPlanRequestHandled}
-        onCreated={handlePlanCreated}
-      />
       <Snackbar
         visible={snackbar !== undefined}
         onDismiss={() => setSnackbar(undefined)}
         duration={3000}
-        // Above the FAB strip, so the confirmation never hides the FAB.
-        wrapperStyle={styles.snackbar}
         testID="current-plan-snackbar"
         action={
           snackbar?.undoPlanId !== undefined
@@ -546,10 +535,10 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
 const styles = StyleSheet.create({
   list: {flex: 1},
   listContent: {paddingBottom: 8},
-  // GH-518: the FAB's own strip below the list: FAB height 56 + 8 above and below.
-  fabBar: {height: 72},
-  snackbar: {bottom: 72},
   plansHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 4,

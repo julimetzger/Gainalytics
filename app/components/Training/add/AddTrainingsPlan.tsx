@@ -1,4 +1,4 @@
-import {FAB, HelperText, IconButton, SegmentedButtons, TextInput, useTheme} from 'react-native-paper';
+import {Button, HelperText, IconButton, SegmentedButtons, TextInput, useTheme} from 'react-native-paper';
 import {Alert, Keyboard, StyleSheet, View} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {useStore} from 'react-redux';
@@ -27,13 +27,11 @@ interface AddTrainingsPlanProperties {
   /** GH-497: open the add dialog once (onboarding "Create an empty plan"). */
   openRequested?: boolean;
   onOpenRequestHandled?: () => void;
-  /** GH-518: the "New Training" FAB shows its label only while this is true (collapses while the list scrolls). */
-  extended?: boolean;
   /** GH-518: a new plan was created (it is now the current plan). */
   onCreated?: (name: string) => void;
 }
 
-const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandled, extended = true, onCreated}: AddTrainingsPlanProperties) => {
+const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandled, onCreated}: AddTrainingsPlanProperties) => {
   const [visible, setVisible] = React.useState(false);
   const [TrainingName, setTrainingName] = useState('');
   const [nameError, setNameError] = useState(false);
@@ -157,17 +155,23 @@ const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandl
           accessibilityLabel={`Edit ${trainingsPlanDisplayName(trainingsPlan?.name)}`}
         />
       ) : (
-        // GH-460: same extended FAB as "New Exercise" in the Exercises tab.
-        // GH-518: it collapses to the icon while the plan list scrolls. (Paper's AnimatedFAB
-        // puts the icon to the right of the label when anchored right, unlike the Exercises tab.)
-        <FAB
+        // GH-518: a small text button in the "Plans" header, right above the search. It replaces the
+        // floating FAB, which lay over the Next Training card and the last plan card; at 24 dp it is no
+        // taller than the header's title, so the header keeps its height. hitSlop restores a 48 dp target.
+        <Button
+          compact
+          mode="text"
           icon="plus"
-          label={extended ? 'New Training' : undefined}
-          accessibilityLabel="New Training"
           onPress={() => showDialog()}
-          style={styles.fab}
+          style={styles.newPlanButton}
+          contentStyle={styles.newPlanButtonContent}
+          labelStyle={styles.newPlanButtonLabel}
+          hitSlop={{top: 12, bottom: 12, left: 8, right: 8}}
+          accessibilityLabel="New Training"
           testID="add-trainings-plan"
-        />
+        >
+          New Training
+        </Button>
       )}
       <EditDialogScaffold
         visible={visible}
@@ -240,7 +244,9 @@ const AddTrainingsPlan = ({style, trainingsId, openRequested, onOpenRequestHandl
 
 const styles = StyleSheet.create({
   sourceSelector: {marginBottom: 12},
-  fab: {position: 'absolute', right: 16, bottom: 8},
+  newPlanButton: {marginVertical: 0},
+  newPlanButtonContent: {height: 24},
+  newPlanButtonLabel: {marginVertical: 0, fontSize: 13, lineHeight: 18},
 });
 
 export default AddTrainingsPlan;

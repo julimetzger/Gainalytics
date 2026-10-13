@@ -1,5 +1,5 @@
 import React from 'react';
-import {fireEvent, render, waitFor} from '@testing-library/react-native';
+import {fireEvent, render, waitFor, within} from '@testing-library/react-native';
 import TrainingHome from '../../../app/tabs/trainings/TrainingHome';
 import {TrainingsPlan} from '../../../app/models/entities/TrainingsPlan';
 import {TrainingsState} from '../../../app/models/TrainingsState';
@@ -94,16 +94,9 @@ jest.mock('react-native-paper', () => {
     Searchbar: ({value, onChangeText, placeholder, testID, style}: any) => (
       <RNTextInput testID={testID} placeholder={placeholder} value={value} onChangeText={onChangeText} style={style} />
     ),
-    Button: ({children, onPress, testID, mode}: any) => (
-      <TouchableOpacity testID={testID || (typeof children === 'string' ? children : undefined)} onPress={onPress}>
+    Button: ({children, onPress, testID, accessibilityLabel}: any) => (
+      <TouchableOpacity testID={testID || (typeof children === 'string' ? children : undefined)} onPress={onPress} accessibilityLabel={accessibilityLabel}>
         <Text>{children}</Text>
-      </TouchableOpacity>
-    ),
-    // GH-460: the new-plan button is an extended FAB with a label;
-    // GH-518: it drops the label (icon only) while the list scrolls.
-    FAB: ({label, onPress, testID, accessibilityLabel}: any) => (
-      <TouchableOpacity testID={testID} onPress={onPress} accessibilityLabel={accessibilityLabel}>
-        {label !== undefined && <Text testID={`${testID}-label`}>{label}</Text>}
       </TouchableOpacity>
     ),
     Snackbar: ({children, visible, action, testID}: any) =>
@@ -529,7 +522,7 @@ describe('TrainingHome — GH-497 a new plan without any training yet', () => {
   });
 });
 
-describe('TrainingHome — GH-518 current plan and the "New Training" FAB', () => {
+describe('TrainingHome — GH-518 current plan and the "New Training" button', () => {
   const slot = (id: number, state: TrainingsState, extra: object = {}) => ({
     id,
     state,
@@ -630,16 +623,14 @@ describe('TrainingHome — GH-518 current plan and the "New Training" FAB', () =
     expect(mockDispatch).toHaveBeenCalledWith({type: 'SET_CURRENT_TRAININGS_PLAN', trainingsPlanId: 7});
   });
 
-  it('collapses the FAB to its icon while the list is scrolled and extends it again at the top', () => {
-    const {getByTestId, queryByTestId} = renderHome([trainedPlan, newPlan]);
-    expect(getByTestId('add-trainings-plan-label').props.children).toBe('New Training');
+  it('puts "New Training" in the Plans header above the search, in the flow of the list', () => {
+    const {getByTestId} = renderHome([trainedPlan, newPlan]);
 
-    fireEvent.scroll(getByTestId('training-home-list'), {nativeEvent: {contentOffset: {y: 240}}});
-    expect(queryByTestId('add-trainings-plan-label')).toBeNull();
-    // Still operable and announced while collapsed.
-    expect(getByTestId('add-trainings-plan').props.accessibilityLabel).toBe('New Training');
-
-    fireEvent.scroll(getByTestId('training-home-list'), {nativeEvent: {contentOffset: {y: 0}}});
-    expect(getByTestId('add-trainings-plan-label').props.children).toBe('New Training');
+    const header = getByTestId('plans-header');
+    expect(within(header).getByText('Plans')).toBeTruthy();
+    expect(within(header).getByTestId('add-trainings-plan').props.accessibilityLabel).toBe('New Training');
+    expect(within(header).getByText('New Training')).toBeTruthy();
+    // Nothing floats beside the list any more: the button scrolls with the header.
+    expect(within(getByTestId('training-home-list')).getByTestId('add-trainings-plan')).toBeTruthy();
   });
 });
