@@ -81,9 +81,10 @@ jest.mock('react-native-paper', () => {
         </TouchableOpacity>
       ),
     }),
+    HelperText: ({children, testID}: {children: React.ReactNode; testID?: string}) => <Text testID={testID}>{children}</Text>,
     Text: ({children, testID}: {children: React.ReactNode; testID?: string}) => <Text testID={testID}>{children}</Text>,
-    TextInput: ({label, value, onChangeText, onBlur, testID}: {label?: string; value?: string; onChangeText?: (value: string) => void; onBlur?: () => void; testID?: string}) => (
-      <TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} onBlur={onBlur} testID={testID} />
+    TextInput: ({label, value, onChangeText, onBlur, testID, autoFocus, selectTextOnFocus}: {label?: string; value?: string; onChangeText?: (value: string) => void; onBlur?: () => void; testID?: string; autoFocus?: boolean; selectTextOnFocus?: boolean}) => (
+      <TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} onBlur={onBlur} testID={testID} autoFocus={autoFocus} selectTextOnFocus={selectTextOnFocus} />
     ),
     ToggleButton: ({onPress, testID}: {onPress?: () => void; testID?: string}) => (
       <TouchableOpacity testID={testID} onPress={onPress}>
@@ -131,7 +132,7 @@ const set = (index: number, reps: number): WorkoutSet => ({index, reps, rir: 1, 
 const SECTION_HEIGHT = 300;
 const ROW_HEIGHT = 60;
 
-const renderList = () => {
+const renderList = (extraProps: Partial<React.ComponentProps<typeof PlanEditList>> = {}) => {
   const onReorderExercises = jest.fn();
   const onReorderSets = jest.fn();
   const utils = render(
@@ -152,6 +153,7 @@ const renderList = () => {
       onReorderSets={onReorderSets}
       onReorderExercises={onReorderExercises}
       onRemoveExercise={jest.fn()}
+      {...extraProps}
     />,
   );
   exercises.forEach((exercise, index) =>
@@ -258,6 +260,32 @@ describe('PlanEditList — drag & drop (GH-418)', () => {
       jest.advanceTimersByTime(1000);
     });
     expect(queryByTestId('plan-edit-section-drop-placeholder')).toBeNull();
+  });
+});
+
+describe('PlanEditList — opened from a tapped value (GH-418)', () => {
+  it('focuses exactly the tapped field and selects its value', () => {
+    const {getByTestId} = renderList({focusTarget: {exerciseId: 1, setIndex: 2, field: 'weight'}});
+
+    expect(getByTestId('plan-set-2-weight-input').props.autoFocus).toBe(true);
+    expect(getByTestId('plan-set-2-weight-input').props.selectTextOnFocus).toBe(true);
+    expect(getByTestId('plan-set-2-reps-input').props.autoFocus).toBe(false);
+    expect(getByTestId('plan-set-1-weight-input').props.autoFocus).toBe(false);
+  });
+
+  it('explains a refused value right in the row', () => {
+    const {getByTestId, queryByTestId} = renderList();
+    expect(queryByTestId('plan-set-1-value-error')).toBeNull();
+
+    fireEvent.changeText(getByTestId('plan-set-1-rir-input'), '10.5');
+
+    expect(getByTestId('plan-set-1-value-error')).toHaveTextContent(/decimals like 1\.5 are allowed/);
+  });
+
+  it('focuses nothing when full edit was opened another way', () => {
+    const {getAllByTestId} = renderList();
+    const inputs = ['plan-set-1-reps-input', 'plan-set-2-weight-input', 'plan-set-3-rir-input'].flatMap((id) => getAllByTestId(id));
+    expect(inputs.every((input) => input.props.autoFocus !== true)).toBe(true);
   });
 });
 

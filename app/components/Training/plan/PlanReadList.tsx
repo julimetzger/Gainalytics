@@ -1,29 +1,22 @@
 import React from 'react';
 import {Pressable, StyleSheet, View} from 'react-native';
 import {Chip, Text, useTheme} from 'react-native-paper';
-import OutsidePressHandler from 'react-native-outside-press';
 import {Exercise} from '../../../models/entities/Exercise';
 import {Workout} from '../../../models/entities/Workout';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {withAlpha} from '../../../utils/colorUtils';
-import {PlanField, QuickEditTarget} from './planTypes';
+import {PlanField} from './planTypes';
 import PlanReadSetRow from './PlanReadSetRow';
-import PlanQuickEditSetRow from './PlanQuickEditSetRow';
 import {useProgressiveLimit} from '../../common/ProgressiveMount';
 
 interface PlanReadListProps {
   exercises: Exercise[];
   selectedExerciseId?: number;
   plannedWorkoutsByExerciseId: Record<number, Workout | undefined>;
-  mode: 'read' | 'quickEdit';
-  quickEditTarget: QuickEditTarget | null;
-  quickEditDraft: string;
-  quickEditInvalid: boolean;
-  quickEditError?: string;
+  /** GH-418: a tapped value opens the full edit mode with that field focused. */
   onCellPress: (exerciseId: number, setIndex: number, field: PlanField) => void;
-  onQuickEditChange: (value: string) => void;
-  onQuickEditSubmit: () => void;
-  onQuickEditOutsidePress: () => void;
+  /** GH-418: a long press anywhere on a workout opens its editing. */
+  onExerciseLongPress: (exerciseId: number) => void;
   onSelectExercise: (exercise: Exercise) => void;
 }
 
@@ -33,22 +26,15 @@ const PlanReadList = ({
   exercises,
   selectedExerciseId,
   plannedWorkoutsByExerciseId,
-  mode,
-  quickEditTarget,
-  quickEditDraft,
-  quickEditInvalid,
-  quickEditError,
   onCellPress,
-  onQuickEditChange,
-  onQuickEditSubmit,
-  onQuickEditOutsidePress,
+  onExerciseLongPress,
   onSelectExercise,
 }: PlanReadListProps) => {
   const theme = useTheme();
   // PERF-003: inside a ProgressiveMount the exercise sections arrive a few per commit (Infinity elsewhere).
   const sectionLimit = useProgressiveLimit(2);
 
-  const content = (
+  return (
     <View style={styles.list}>
       {exercises.slice(0, sectionLimit).map((exercise) => {
         if (exercise.id === undefined) {
@@ -56,6 +42,8 @@ const PlanReadList = ({
         }
         const sets = sortSets(plannedWorkoutsByExerciseId[exercise.id]?.sets ?? []);
         const selected = exercise.id === selectedExerciseId;
+        const exerciseId = exercise.id;
+        const openEditing = () => onExerciseLongPress(exerciseId);
 
         return (
           <View
@@ -73,6 +61,7 @@ const PlanReadList = ({
             <Pressable
               testID={`plan-read-exercise-header-${exercise.id}`}
               onPress={() => onSelectExercise(exercise)}
+              onLongPress={openEditing}
               style={styles.headerRow}
             >
               <Text
@@ -91,51 +80,20 @@ const PlanReadList = ({
             {sets.length === 0 ? (
               <Text style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>No planned sets yet.</Text>
             ) : (
-              sets.map((workoutSet) => {
-                const active =
-                  quickEditTarget?.exerciseId === exercise.id && quickEditTarget?.setIndex === workoutSet.index;
-                const onRowLongPress = () => {
-                  // TODO: wire the plan-row action sheet here in the follow-up ticket.
-                };
-
-                if (mode === 'quickEdit' && active && quickEditTarget !== null) {
-                  return (
-                    <PlanQuickEditSetRow
-                      key={`quick-${exercise.id}-${workoutSet.index}`}
-                      workoutSet={workoutSet}
-                      activeField={quickEditTarget.field}
-                      draftValue={quickEditDraft}
-                      invalid={quickEditInvalid}
-                      errorMessage={quickEditError}
-                      onCellPress={(field) => onCellPress(exercise.id as number, workoutSet.index ?? 0, field)}
-                      onChangeText={onQuickEditChange}
-                      onSubmitEditing={onQuickEditSubmit}
-                      onRowLongPress={onRowLongPress}
-                    />
-                  );
-                }
-
-                return (
-                  <PlanReadSetRow
-                    key={`read-${exercise.id}-${workoutSet.index}`}
-                    workoutSet={workoutSet}
-                    onCellPress={(field) => onCellPress(exercise.id as number, workoutSet.index ?? 0, field)}
-                    onRowLongPress={onRowLongPress}
-                  />
-                );
-              })
+              sets.map((workoutSet) => (
+                <PlanReadSetRow
+                  key={`read-${exercise.id}-${workoutSet.index}`}
+                  workoutSet={workoutSet}
+                  onCellPress={(field) => onCellPress(exerciseId, workoutSet.index ?? 0, field)}
+                  onRowLongPress={openEditing}
+                />
+              ))
             )}
           </View>
         );
       })}
     </View>
   );
-
-  if (mode === 'quickEdit') {
-    return <OutsidePressHandler onOutsidePress={onQuickEditOutsidePress}>{content}</OutsidePressHandler>;
-  }
-
-  return content;
 };
 
 const styles = StyleSheet.create({

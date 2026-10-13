@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {LayoutRectangle, StyleSheet, View} from 'react-native';
 import {Button, Dialog, Portal, Text, useTheme} from 'react-native-paper';
 import {shallowEqual, useDispatch, useSelector} from 'react-redux';
@@ -12,16 +12,8 @@ import {useNextTrainingsId} from '../../../redux/Training/use/useNextTrainingsId
 import {dispatchDeleteSetFromWorkout} from '../../../redux/Workout/dispatch/dispatchDeleteSetFromWorkout';
 import {dispatchReplaceWorkoutSets} from '../../../redux/Workout/dispatch/dispatchReplaceWorkoutSets';
 import {GlobalState} from '../../../redux/rootReducer';
-import {buildWorkoutSetFromDraft, cloneWorkoutSet, formatPlanNumber, getPlanSetDraft, getQuickEditError, parsePlanFieldValue} from './planUtils';
-import {
-  FullEditSnapshot,
-  PendingPlanSetByExerciseId,
-  PlanChromeState,
-  PlanDraftField,
-  PlanField,
-  PlanMode,
-  QuickEditTarget,
-} from './planTypes';
+import {buildWorkoutSetFromDraft, cloneWorkoutSet, getPlanSetDraft} from './planUtils';
+import {FullEditSnapshot, PendingPlanSetByExerciseId, PlanCellTarget, PlanChromeState, PlanDraftField, PlanField, PlanMode} from './planTypes';
 import PlanEditList from './PlanEditList';
 import PlanReadList from './PlanReadList';
 import DraggableExercise from '../DraggableExercise';
@@ -85,8 +77,10 @@ const PlanTab = ({
   }, shallowEqual);
 
   const [mode, setMode] = useState<PlanMode>(initialMode ?? 'read');
-  const [quickEditTarget, setQuickEditTarget] = useState<QuickEditTarget | null>(null);
-  const [quickEditDraft, setQuickEditDraft] = useState('');
+  // GH-418: what the user tapped or long-pressed in the read view to get into full
+  // edit — the tapped field gets the focus, a long-pressed workout is scrolled to.
+  const [focusTarget, setFocusTarget] = useState<PlanCellTarget | null>(null);
+  const [revealExerciseId, setRevealExerciseId] = useState<number | null>(null);
   const [pendingSetByExerciseId, setPendingSetByExerciseId] = useState<PendingPlanSetByExerciseId>({});
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [hasStructuralChanges, setHasStructuralChanges] = useState(false);
@@ -101,20 +95,6 @@ const PlanTab = ({
   // effect deps stable and prevents an infinite re-render loop with the parent.
   const stableExitToRead = useCallback(() => exitToReadRef.current(), []);
   const stableHandleBack = useCallback(() => handleBackRef.current(), []);
-
-  const activeQuickEditSet = useMemo(() => {
-    if (quickEditTarget === null) {
-      return undefined;
-    }
-    const workout = plannedWorkoutsByExerciseId[quickEditTarget.exerciseId];
-    return workout?.sets.find((workoutSet) => workoutSet.index === quickEditTarget.setIndex);
-  }, [plannedWorkoutsByExerciseId, quickEditTarget]);
-  // GH-63: quick edit changes the lower bound in place, so it must also reject a
-  // value that would push past an existing upper bound. The message is what the
-  // user gets to see — the red outline alone would not explain the rejection.
-  const quickEditError =
-    quickEditTarget === null ? undefined : getQuickEditError(activeQuickEditSet, quickEditTarget.field, quickEditDraft);
-  const quickEditInvalid = quickEditError !== undefined;
 
   useEffect(() => {
     if (!isActive || selectedExercise === undefined) {
@@ -200,21 +180,16 @@ const PlanTab = ({
           onReorderSets={handleReorderSets}
           onReorderExercises={handleSetExercises}
           onRemoveExercise={handleRemoveExercise}
+          focusTarget={focusTarget}
+          revealExerciseId={revealExerciseId}
         />
       ) : (
         <PlanReadList
           exercises={exercises}
           selectedExerciseId={selectedExercise.id}
           plannedWorkoutsByExerciseId={plannedWorkoutsByExerciseId}
-          mode={mode}
-          quickEditTarget={quickEditTarget}
-          quickEditDraft={quickEditDraft}
-          quickEditInvalid={quickEditInvalid}
-          quickEditError={quickEditError}
           onCellPress={handleReadCellPress}
-          onQuickEditChange={handleQuickEditChange}
-          onQuickEditSubmit={handleQuickEditDone}
-          onQuickEditOutsidePress={handleQuickEditOutsidePress}
+          onExerciseLongPress={handleReadExerciseLongPress}
           onSelectExercise={chooseExercise}
         />
       )}
@@ -267,8 +242,8 @@ const PlanTab = ({
       onTogglePicker();
     }
     setMode('read');
-    setQuickEditTarget(null);
-    setQuickEditDraft('');
+    setFocusTarget(null);
+    setRevealExerciseId(null);
     setPendingSetByExerciseId({});
     setShowDiscardDialog(false);
     setHasStructuralChanges(false);
@@ -278,11 +253,6 @@ const PlanTab = ({
   function handleBack() {
     if (showDiscardDialog) {
       setShowDiscardDialog(false);
-      return true;
-    }
-
-    if (mode === 'quickEdit') {
-      cancelQuickEdit();
       return true;
     }
 
@@ -311,14 +281,9 @@ const PlanTab = ({
   }
 
   function enterFullEdit() {
-    if (mode === 'quickEdit') {
-      if (!quickEditInvalid) {
-        commitQuickEditDraft();
-      }
-      setQuickEditTarget(null);
-      setQuickEditDraft('');
+    if (mode === 'fullEdit') {
+      return;
     }
-
     captureFullEditSnapshot();
     commitRowDraftsOnUnmountRef.current = false;
     setPendingSetByExerciseId({});
@@ -385,109 +350,37 @@ const PlanTab = ({
   }
 
   function handleChooseExercise(exercise: Exercise) {
-    if (mode === 'quickEdit') {
-      if (quickEditInvalid) {
-        cancelQuickEdit();
-      } else {
-        handleQuickEditDone();
-      }
-    }
     chooseExercise(exercise);
   }
 
+  // GH-418: tapping a value in the read view opens the full edit mode with exactly
+  // that field focused. It used to open a one-cell "quick edit" inside the read
+  // view — a mixed state with no visible way in or out of editing.
   function handleReadCellPress(exerciseId: number, setIndex: number, field: PlanField) {
     const workout = plannedWorkoutsByExerciseId[exerciseId];
-    const workoutSet = workout?.sets.find((set) => set.index === setIndex);
-    if (workoutSet === undefined) {
+    if (workout?.sets.find((set) => set.index === setIndex) === undefined) {
       return;
     }
+    selectExerciseById(exerciseId);
+    setFocusTarget({exerciseId, setIndex, field});
+    setRevealExerciseId(null);
+    enterFullEdit();
+  }
 
+  // GH-418: a long press on a workout (an exercise card in the read view) opens
+  // its editing — the full edit mode, scrolled to that exercise.
+  function handleReadExerciseLongPress(exerciseId: number) {
+    selectExerciseById(exerciseId);
+    setFocusTarget(null);
+    setRevealExerciseId(exerciseId);
+    enterFullEdit();
+  }
+
+  function selectExerciseById(exerciseId: number) {
     const exercise = exercises.find((current) => current.id === exerciseId);
-    if (exercise !== undefined && exerciseId !== selectedExercise.id) {
+    if (exercise !== undefined && exerciseId !== selectedExercise?.id) {
       chooseExercise(exercise);
     }
-
-    if (
-      mode === 'quickEdit' &&
-      quickEditTarget !== null &&
-      quickEditTarget.exerciseId === exerciseId &&
-      quickEditTarget.setIndex === setIndex &&
-      quickEditTarget.field === field
-    ) {
-      return;
-    }
-
-    // GH-324: switching to another cell counts as leaving the field — commit a
-    // valid draft for the previous cell before targeting the new one.
-    if (mode === 'quickEdit' && !quickEditInvalid) {
-      commitQuickEditDraft();
-    }
-
-    setMode('quickEdit');
-    setQuickEditTarget({
-      exerciseId,
-      setIndex,
-      field,
-    });
-    setQuickEditDraft(formatPlanNumber(workoutSet[field]));
-  }
-
-  // GH-324: typing only updates the local draft. The store write happens when
-  // the user leaves the field (done key, outside press, cell switch, exercise
-  // switch, or entering full edit) — never per keystroke, so the field keeps
-  // focus and half-typed values are never persisted.
-  function handleQuickEditChange(value: string) {
-    if (quickEditTarget === null) {
-      return;
-    }
-    setQuickEditDraft(value.replace(',', '.'));
-  }
-
-  function commitQuickEditDraft() {
-    const target = quickEditTarget;
-    if (target === null || activeQuickEditSet === undefined) {
-      return;
-    }
-    if (getQuickEditError(activeQuickEditSet, target.field, quickEditDraft) !== undefined) {
-      return;
-    }
-    const normalizedValue = parsePlanFieldValue(target.field, quickEditDraft);
-    if (normalizedValue === null) {
-      return;
-    }
-    if (normalizedValue === activeQuickEditSet[target.field]) {
-      return;
-    }
-    upsertSetInPlan(target.exerciseId, {
-      ...activeQuickEditSet,
-      [target.field]: normalizedValue,
-    });
-  }
-
-  function cancelQuickEdit() {
-    // The store was never touched while typing, so cancelling is just
-    // dropping the local draft.
-    setMode('read');
-    setQuickEditTarget(null);
-    setQuickEditDraft('');
-  }
-
-  function handleQuickEditDone() {
-    if (quickEditInvalid) {
-      return;
-    }
-    commitQuickEditDraft();
-    setMode('read');
-    setQuickEditTarget(null);
-    setQuickEditDraft('');
-  }
-
-  function handleQuickEditOutsidePress() {
-    if (quickEditInvalid) {
-      cancelQuickEdit();
-      return;
-    }
-    handleQuickEditDone();
   }
 
   function handleAddSet(exerciseId: number) {

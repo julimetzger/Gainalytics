@@ -11,8 +11,9 @@ import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
 import {hasAnyPlanRange} from '../../../utils/planRange';
 import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMax';
 import DashedAddButton from '../../shared/DashedAddButton';
-import {PendingPlanSet, PendingPlanSetByExerciseId, PlanDraftField, PlanField, PlanSetDraft} from './planTypes';
-import {buildWorkoutSetFromDraft, getPlanDraftRangeError, getPlanRangeError, getPlanSetDraft, planSetsEqual} from './planUtils';
+import {PendingPlanSet, PendingPlanSetByExerciseId, PlanCellTarget, PlanDraftField, PlanField, PlanSetDraft} from './planTypes';
+import {useScrollController} from '../../common/KeyboardAwareScrollView';
+import {buildWorkoutSetFromDraft, getPlanDraftRangeError, getPlanRangeError, getPlanSetDraft, getQuickEditError, planSetsEqual} from './planUtils';
 import {DragItemBinding, DragPlaceholder, resolveSectionTargetIndex, useDragReorder} from './useDragReorder';
 
 interface PlanEditListProps {
@@ -30,6 +31,10 @@ interface PlanEditListProps {
   onReorderSets: (exerciseId: number, sets: WorkoutSet[]) => void;
   onReorderExercises: (exercises: Exercise[]) => void;
   onRemoveExercise: (exercise: Exercise) => void;
+  /** GH-418: the read-view cell that opened full edit — its input gets the focus. */
+  focusTarget?: PlanCellTarget | null;
+  /** GH-418: the workout that was long-pressed to open full edit — scrolled into view. */
+  revealExerciseId?: number | null;
 }
 
 type RowItem = {
@@ -41,6 +46,11 @@ type SectionItem = {
   key: string;
   exercise: Exercise;
 };
+
+/** GH-418: how far below the scroller's top a revealed (long-pressed) workout lands. */
+const REVEAL_TOP_MARGIN = 8;
+
+const PLAN_VALUE_FIELDS: PlanField[] = ['reps', 'rir', 'weight'];
 
 /** Outer margin of an exercise section card. */
 const SECTION_MARGIN = 12;
@@ -67,6 +77,8 @@ interface PlanFieldColumnProps {
   onBlur?: () => void;
   /** Select the whole value on focus so typing replaces it (GH-436: suggested weights). */
   selectTextOnFocus?: boolean;
+  /** GH-418: the field the user tapped in the read view. */
+  autoFocus?: boolean;
 }
 
 // GH-63: one planned field. Without a range this renders exactly the single
@@ -87,6 +99,7 @@ const PlanFieldColumn = ({
   onChangeMaxValue,
   onBlur,
   selectTextOnFocus,
+  autoFocus,
 }: PlanFieldColumnProps) => (
   <View style={styles.fieldColumn}>
     <TextInput
@@ -101,7 +114,11 @@ const PlanFieldColumn = ({
       onBlur={onBlur}
       textColor={textColor}
       outlineColor={outlineColor}
-      selectTextOnFocus={selectTextOnFocus}
+      // GH-418: the row mounts together with full edit, so the focus has to be the
+      // native autoFocus — a focus() call from an effect never opens the keyboard.
+      // Selecting the value makes the first keystroke replace it.
+      autoFocus={autoFocus}
+      selectTextOnFocus={autoFocus === true ? true : selectTextOnFocus}
     />
     {showRange && (
       <TextInput
@@ -191,6 +208,8 @@ const PlanEditList = ({
   onReorderSets,
   onReorderExercises,
   onRemoveExercise,
+  focusTarget = null,
+  revealExerciseId = null,
 }: PlanEditListProps) => {
   const theme = useTheme();
 
@@ -250,6 +269,8 @@ const PlanEditList = ({
                 onUpsertSet={(workoutSet) => onUpsertSet(exerciseId, workoutSet)}
                 onReorderSets={(reorderedSets) => onReorderSets(exerciseId, reorderedSets)}
                 onRemoveExercise={() => onRemoveExercise(item.exercise)}
+                focusTarget={focusTarget !== null && focusTarget.exerciseId === exerciseId ? focusTarget : null}
+                reveal={revealExerciseId === exerciseId}
                 outlineColor={withAlpha(theme.colors.primary, 0.18)}
                 primaryColor={theme.colors.primary}
               />
@@ -276,6 +297,8 @@ interface SectionProps {
   onUpsertSet: (workoutSet: WorkoutSet) => void;
   onReorderSets: (sets: WorkoutSet[]) => void;
   onRemoveExercise: () => void;
+  focusTarget: PlanCellTarget | null;
+  reveal: boolean;
   outlineColor: string;
   primaryColor: string;
 }
@@ -296,10 +319,26 @@ const PlanEditExerciseSection = ({
   onUpsertSet,
   onReorderSets,
   onRemoveExercise,
+  focusTarget,
+  reveal,
   outlineColor,
   primaryColor,
 }: SectionProps) => {
   const theme = useTheme();
+  const scrollController = useScrollController();
+  const sectionRef = useRef<View>(null);
+  const revealedRef = useRef(false);
+
+  // GH-418: a long-pressed workout is scrolled to once full edit has laid it out —
+  // the edit rows are taller than the read rows, so it would otherwise end up
+  // somewhere below where the user pressed.
+  const handleSectionLayout = () => {
+    if (!reveal || revealedRef.current) {
+      return;
+    }
+    revealedRef.current = true;
+    scrollController?.scrollViewIntoView(sectionRef.current, REVEAL_TOP_MARGIN);
+  };
   const [menuVisible, setMenuVisible] = useState(false);
   const oneRepMax = useAllTimeOneRepMax(exercise.id);
   const data = useMemo<RowItem[]>(
@@ -342,6 +381,8 @@ const PlanEditExerciseSection = ({
 
   return (
     <View
+      ref={sectionRef}
+      onLayout={handleSectionLayout}
       testID={`plan-edit-exercise-section-${exercise.id}`}
       style={[
         styles.section,
@@ -428,6 +469,7 @@ const PlanEditExerciseSection = ({
               commitRowDraftsOnUnmountRef={commitRowDraftsOnUnmountRef}
               onUpsert={onUpsertSet}
               active={rowIndex === rowDrag.activeIndex}
+              autoFocusField={focusTarget !== null && focusTarget.setIndex === item.workoutSet.index ? focusTarget.field : undefined}
             />
           </DragItemView>
         );
@@ -494,6 +536,7 @@ interface PlanEditSetRowProps {
   commitRowDraftsOnUnmountRef: React.MutableRefObject<boolean>;
   onUpsert: (workoutSet: WorkoutSet) => void;
   active: boolean;
+  autoFocusField?: PlanField;
 }
 
 const PlanEditSetRow = ({
@@ -505,6 +548,7 @@ const PlanEditSetRow = ({
   commitRowDraftsOnUnmountRef,
   onUpsert,
   active,
+  autoFocusField,
 }: PlanEditSetRowProps) => {
   const theme = useTheme();
   const [draft, setDraft] = useState(() => getPlanSetDraft(workoutSet));
@@ -634,6 +678,12 @@ const PlanEditSetRow = ({
   // value. A broken range is reported by its own "to" input plus the message
   // below the row, so it never turns the untouched value inputs red.
   const valueInvalid = buildWorkoutSetFromDraft({...draft, repsMax: '', rirMax: '', weightMax: ''}, workoutSet) === null;
+  // GH-418: values are edited here only (the read view's one-cell quick edit is
+  // gone), so this row also says WHY a value is refused — the quick edit did, and
+  // a red outline alone does not explain e.g. that RIR allows decimals.
+  const valueError = PLAN_VALUE_FIELDS.map((field) => (draft[field].length > 0 ? getQuickEditError(undefined, field, draft[field]) : undefined)).find(
+    (error) => error !== undefined,
+  );
 
   return (
     <View>
@@ -653,6 +703,7 @@ const PlanEditSetRow = ({
           showRange={showRange}
           invalid={draft.reps.length > 0 && valueInvalid}
           rangeInvalid={getPlanRangeError('reps', draft.reps, draft.repsMax) !== undefined}
+          autoFocus={autoFocusField === 'reps'}
           onChangeValue={(value) => updateField('reps', value)}
           onChangeMaxValue={(value) => updateField('repsMax', value)}
           onBlur={commitDraft}
@@ -666,6 +717,7 @@ const PlanEditSetRow = ({
           showRange={showRange}
           invalid={draft.rir.length > 0 && valueInvalid}
           rangeInvalid={getPlanRangeError('rir', draft.rir, draft.rirMax) !== undefined}
+          autoFocus={autoFocusField === 'rir'}
           onChangeValue={(value) => updateField('rir', value)}
           onChangeMaxValue={(value) => updateField('rirMax', value)}
           onBlur={commitDraft}
@@ -681,6 +733,7 @@ const PlanEditSetRow = ({
           rangeInvalid={getPlanRangeError('weight', draft.weight, draft.weightMax) !== undefined}
           textColor={highlightColor}
           outlineColor={highlightColor}
+          autoFocus={autoFocusField === 'weight'}
           onChangeValue={(value) => updateField('weight', value)}
           onChangeMaxValue={(value) => updateField('weightMax', value)}
           onBlur={commitDraft}
@@ -696,6 +749,11 @@ const PlanEditSetRow = ({
       {rangeError !== undefined && (
         <HelperText type="error" visible testID={`${testIDPrefix}-range-error`} style={styles.rangeError}>
           {rangeError}
+        </HelperText>
+      )}
+      {rangeError === undefined && valueError !== undefined && (
+        <HelperText type="error" visible testID={`${testIDPrefix}-value-error`} style={styles.rangeError}>
+          {valueError}
         </HelperText>
       )}
     </View>

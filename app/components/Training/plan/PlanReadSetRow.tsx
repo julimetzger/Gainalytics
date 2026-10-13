@@ -13,22 +13,24 @@ interface PlanReadSetRowProps {
   onRowLongPress: () => void;
 }
 
+// GH-418: the value cells answer the long press too — they hold the touch, so the
+// row's own onLongPress would never fire on them.
 const PlanReadSetRow = ({workoutSet, onCellPress, onRowLongPress}: PlanReadSetRowProps) => {
   const theme = useTheme();
 
   return (
     <Pressable onLongPress={onRowLongPress} style={styles.row}>
       <Text style={[styles.setIndex, {color: withAlpha(theme.colors.onSurfaceVariant, 0.7)}]}>{workoutSet.index}</Text>
-      <Pressable testID={PLAN_CELL_TEST_ID(workoutSet.index ?? 0, 'reps')} onPress={() => onCellPress('reps')} style={styles.inlineCell}>
+      <Pressable testID={PLAN_CELL_TEST_ID(workoutSet.index ?? 0, 'reps')} onLongPress={onRowLongPress} onPress={() => onCellPress('reps')} style={styles.inlineCell}>
         <Text style={[styles.value, {color: theme.colors.onSurface}]}>{formatPlanFieldValue(workoutSet, 'reps')}</Text>
         <Text style={[styles.unit, {color: theme.colors.onSurfaceVariant}]}>reps</Text>
       </Pressable>
       <Text style={[styles.dot, {color: theme.colors.onSurfaceVariant}]}>·</Text>
-      <Pressable testID={PLAN_CELL_TEST_ID(workoutSet.index ?? 0, 'rir')} onPress={() => onCellPress('rir')} style={styles.inlineCell}>
+      <Pressable testID={PLAN_CELL_TEST_ID(workoutSet.index ?? 0, 'rir')} onLongPress={onRowLongPress} onPress={() => onCellPress('rir')} style={styles.inlineCell}>
         <Text style={[styles.unit, {color: theme.colors.onSurfaceVariant}]}>RIR</Text>
         <Text style={[styles.value, {color: theme.colors.onSurface}]}>{formatPlanFieldValue(workoutSet, 'rir')}</Text>
       </Pressable>
-      <Pressable testID={PLAN_CELL_TEST_ID(workoutSet.index ?? 0, 'weight')} onPress={() => onCellPress('weight')} style={[styles.inlineCell, styles.weightCell]}>
+      <Pressable testID={PLAN_CELL_TEST_ID(workoutSet.index ?? 0, 'weight')} onLongPress={onRowLongPress} onPress={() => onCellPress('weight')} style={[styles.inlineCell, styles.weightCell]}>
         <Text style={[styles.value, {color: theme.colors.onSurface}]}>{formatPlanFieldValue(workoutSet, 'weight')}</Text>
         <Text style={[styles.unit, {color: theme.colors.onSurfaceVariant}]}>kg</Text>
       </Pressable>
