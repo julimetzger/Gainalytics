@@ -1,0 +1,87 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-418 — getting into the full edit mode is obvious: a long press on a workout
+# opens its editing, a tap on a value opens the editor with exactly that field
+# focused, and "Done" is the one way out. Precondition: baseline imported
+# (Micro 69 "Push" is PLANNED; Adductor = exercise 32, set 2 = 12 x 100 kg).
+- runFlow: gh466_goto_push.yaml
+- tapOn:
+    id: 'subtab-plan'
+- extendedWaitUntil:
+    visible:
+      id: 'plan-read-exercise-header-32'
+    timeout: 15000
+# Read view: the "Plan" label, no editing kicker, no Done.
+- assertVisible:
+    id: 'header-plan-label'
+- assertNotVisible:
+    id: 'header-plan-editing-kicker'
+- assertNotVisible:
+    id: 'header-plan-done-button'
+- takeScreenshot: gh418_edit_01_read_view
+
+# 1. Long press on a workout opens its editing.
+- longPressOn:
+    id: 'plan-read-exercise-header-66'
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-editing-kicker'
+    timeout: 10000
+- assertVisible:
+    id: 'header-plan-editing-kicker'
+    text: 'EDITING PLAN'
+- assertVisible:
+    id: 'header-plan-done-button'
+- assertVisible:
+    id: 'plan-edit-exercise-section-66'
+# Only the edit chrome: the read view's "Plan" label is gone.
+- assertNotVisible:
+    id: 'header-plan-label'
+- takeScreenshot: gh418_edit_02_long_press_opened_editing
+- tapOn:
+    id: 'header-plan-done-button'
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-label'
+    timeout: 10000
+- assertNotVisible:
+    id: 'header-plan-editing-kicker'
+# The read view stays where the editor was scrolled to (at workout 66).
+- scrollUntilVisible:
+    element:
+      id: 'plan-read-exercise-header-32'
+    direction: UP
+    timeout: 20000
+
+# 2. A tap on a value opens the editor with that very field focused and selected.
+- tapOn:
+    id: 'plan-set-2-weight-cell'
+    below:
+      id: 'plan-read-exercise-header-32'
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-editing-kicker'
+    timeout: 10000
+- assertVisible:
+    id: 'plan-set-2-weight-input'
+    focused: true
+    text: '100'
+- takeScreenshot: gh418_edit_03_tapped_value_focused
+# The value is selected, so typing replaces it.
+- inputText: '105'
+- assertVisible:
+    id: 'plan-set-2-weight-input'
+    focused: true
+    text: '105'
+- tapOn:
+    id: 'header-plan-done-button'
+- extendedWaitUntil:
+    visible:
+      id: 'plan-read-exercise-header-32'
+    timeout: 10000
+- assertVisible:
+    id: 'plan-set-2-weight-cell'
+    text: '.*105.*'
+    below:
+      id: 'plan-read-exercise-header-32'
+- takeScreenshot: gh418_edit_04_saved_with_done

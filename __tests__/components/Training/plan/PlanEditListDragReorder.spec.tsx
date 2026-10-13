@@ -279,7 +279,7 @@ describe('PlanEditList — opened from a tapped value (GH-418)', () => {
 
     fireEvent.changeText(getByTestId('plan-set-1-rir-input'), '10.5');
 
-    expect(getByTestId('plan-set-1-value-error')).toHaveTextContent(/decimals like 1\.5 are allowed/);
+    expect(String(getByTestId('plan-set-1-value-error').props.children)).toMatch(/decimals like 1\.5 are allowed/);
   });
 
   it('focuses nothing when full edit was opened another way', () => {

@@ -1,0 +1,6 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-418 evidence suite: hydrate the store from the baseline .gains fixture
+# first — Micro 69 "Push" (PLANNED, 11 exercises) is what the flows plan on.
+- runFlow: 00_import_baseline.yaml
+- runFlow: gh418_keyboard_long_plan.yaml

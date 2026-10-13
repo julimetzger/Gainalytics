@@ -1,0 +1,60 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-418 drag & drop, part 3: after the device drags — Adductor's set 2 moved
+# above set 1, and the Adductor section moved from the top to the very bottom of
+# the plan — leave the editor with Done, restart the app and check that both
+# orders survived the reload.
+- launchApp:
+    clearState: false
+    stopApp: false
+- runFlow:
+    when:
+      visible:
+        id: 'header-plan-done-button'
+    commands:
+      - tapOn:
+          id: 'header-plan-done-button'
+      - extendedWaitUntil:
+          visible:
+            id: 'header-plan-label'
+          timeout: 10000
+- stopApp
+- runFlow: gh466_goto_push.yaml
+- tapOn:
+    id: 'subtab-plan'
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-label'
+    timeout: 15000
+# Exercise order: Single leg b stance legpress (66) is first now, Adductor (32)
+# comes after the old last exercise, Triceps cable pushdown (38).
+- assertVisible:
+    id: 'plan-read-exercise-header-66'
+- scrollUntilVisible:
+    element:
+      id: 'plan-read-exercise-header-32'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: 'plan-read-exercise-header-32'
+    below:
+      id: 'plan-read-exercise-header-38'
+# Set order inside Adductor: 12 reps first, then 13, renumbered 1 and 2.
+- scrollUntilVisible:
+    element:
+      id: 'plan-set-2-reps-cell'
+      below:
+        id: 'plan-read-exercise-header-32'
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: 'plan-set-1-reps-cell'
+    text: '.*12.*'
+    below:
+      id: 'plan-read-exercise-header-32'
+- assertVisible:
+    id: 'plan-set-2-reps-cell'
+    text: '.*13.*'
+    below:
+      id: 'plan-read-exercise-header-32'
+- takeScreenshot: gh418_drag_after_reload
