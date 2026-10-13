@@ -8,7 +8,6 @@ import {
   ScrollView,
   ScrollViewProps,
   TextInput,
-  View,
 } from 'react-native';
 
 /**
@@ -141,6 +140,7 @@ const KeyboardAwareScrollView = ({
   onScroll,
   onContentSizeChange,
   scrollEventThrottle,
+  contentContainerStyle,
   ...scrollViewProps
 }: KeyboardAwareScrollViewProps) => {
   const scrollRef = useRef<MeasurableScrollView>(null);
@@ -479,9 +479,14 @@ const KeyboardAwareScrollView = ({
       onScroll={handleScroll}
       onContentSizeChange={handleContentSizeChange}
       scrollEventThrottle={scrollEventThrottle ?? 16}
+      // The spacer is bottom padding of the content container, not an extra child
+      // view: mounting a sibling next to the plan editor while its rows re-render
+      // (a field's blur commits its set) tripped a Fabric/Yoga ownership assertion
+      // (YogaLayoutableShadowNode "YGNodeGetOwner(childYogaNode) == &yogaNode_")
+      // and aborted the app.
+      contentContainerStyle={keyboardSpacer > 0 ? [contentContainerStyle, {paddingBottom: keyboardSpacer}] : contentContainerStyle}
     >
       <ScrollControllerContext.Provider value={scrollController}>{children}</ScrollControllerContext.Provider>
-      {keyboardSpacer > 0 && <View testID="keyboard-aware-spacer" style={{height: keyboardSpacer}} />}
     </ScrollView>
   );
 };

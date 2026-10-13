@@ -380,13 +380,20 @@ describe('KeyboardAwareScrollView — GH-428 (H2)', () => {
       fireEvent(getByTestId(SCROLLER_TEST_ID), 'contentSizeChange', 720, contentHeight);
     };
 
+    /** The spacer is the content container's bottom padding while the keyboard is open. */
+    const spacerOf = (getByTestId: (testID: string) => any): number | undefined => {
+      const style = getByTestId(SCROLLER_TEST_ID).props.contentContainerStyle;
+      const flat = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style ?? {};
+      return flat.paddingBottom;
+    };
+
     const scrollBy = (getByTestId: (testID: string) => any, y: number) => {
       fireEvent.scroll(getByTestId(SCROLLER_TEST_ID), {nativeEvent: {contentOffset: {x: 0, y}}});
     };
 
     it('adds a spacer of keyboard height in the keyboardDidShow event itself', () => {
-      const {queryByTestId} = renderScroller();
-      expect(queryByTestId('keyboard-aware-spacer')).toBeNull();
+      const {getByTestId} = renderScroller();
+      expect(spacerOf(getByTestId)).toBeUndefined();
 
       // No timers run here: the spacer must be part of the very commit in which
       // the navigation bar hides, otherwise the scroller grows first.
@@ -396,24 +403,24 @@ describe('KeyboardAwareScrollView — GH-428 (H2)', () => {
         );
       });
 
-      expect(queryByTestId('keyboard-aware-spacer')).toHaveStyle({height: KEYBOARD_HEIGHT});
+      expect(spacerOf(getByTestId)).toBe(KEYBOARD_HEIGHT);
     });
 
     it('lets a short page scroll its field above the keyboard', () => {
       // A plan that fits the screen: 900 of content in a 1600 scroller, so without
       // the spacer the largest possible offset is 0.
       focusedInputRect = {screenY: 1081, height: 60, contentY: 1081};
-      const {scrollTo, getByTestId, queryByTestId} = renderScroller();
+      const {scrollTo, getByTestId} = renderScroller();
       layoutScroller(getByTestId, SCROLL_HEIGHT, 1200);
 
       openKeyboard();
 
-      expect(queryByTestId('keyboard-aware-spacer')).not.toBeNull();
+      expect(spacerOf(getByTestId)).toBe(KEYBOARD_HEIGHT);
       expect(scrollTo).toHaveBeenCalledWith({y: 259, animated: true});
     });
 
     it('removes the spacer right away when the list is not scrolled into it', () => {
-      const {getByTestId, queryByTestId, scrollTo} = renderScroller();
+      const {getByTestId, scrollTo} = renderScroller();
       layoutScroller(getByTestId, 1300, 3000);
       openKeyboard();
       scrollTo.mockClear();
@@ -421,12 +428,12 @@ describe('KeyboardAwareScrollView — GH-428 (H2)', () => {
       scrollBy(getByTestId, 400);
       emitKeyboard('keyboardDidHide', 1600);
 
-      expect(queryByTestId('keyboard-aware-spacer')).toBeNull();
+      expect(spacerOf(getByTestId)).toBeUndefined();
       expect(scrollTo).not.toHaveBeenCalled();
     });
 
     it('scrolls back to the real end before removing the spacer, so nothing jumps', () => {
-      const {getByTestId, queryByTestId, scrollTo} = renderScroller();
+      const {getByTestId, scrollTo} = renderScroller();
       layoutScroller(getByTestId, 1300, 3000);
       openKeyboard();
       // With the spacer the content is 3000 + 670 high, and the user (or the
@@ -441,16 +448,16 @@ describe('KeyboardAwareScrollView — GH-428 (H2)', () => {
 
       // End of the real content in the resting (keyboard closed) viewport.
       expect(scrollTo).toHaveBeenCalledWith({y: 1700, animated: true});
-      expect(queryByTestId('keyboard-aware-spacer')).not.toBeNull();
+      expect(spacerOf(getByTestId)).toBe(KEYBOARD_HEIGHT);
 
       act(() => {
         jest.runOnlyPendingTimers();
       });
-      expect(queryByTestId('keyboard-aware-spacer')).toBeNull();
+      expect(spacerOf(getByTestId)).toBeUndefined();
     });
 
     it('keeps the spacer when the keyboard comes straight back', () => {
-      const {getByTestId, queryByTestId} = renderScroller();
+      const {getByTestId} = renderScroller();
       layoutScroller(getByTestId, 1300, 3000);
       openKeyboard();
       fireEvent(getByTestId(SCROLLER_TEST_ID), 'contentSizeChange', 720, 3000 + KEYBOARD_HEIGHT);
@@ -461,7 +468,7 @@ describe('KeyboardAwareScrollView — GH-428 (H2)', () => {
       });
       openKeyboard();
 
-      expect(queryByTestId('keyboard-aware-spacer')).toHaveStyle({height: KEYBOARD_HEIGHT});
+      expect(spacerOf(getByTestId)).toBe(KEYBOARD_HEIGHT);
     });
   });
 
