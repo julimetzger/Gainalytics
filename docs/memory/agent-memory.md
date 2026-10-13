@@ -501,3 +501,24 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### AI chat context bar on the 720dp phone: last chips off-screen, subject + period persist across runs
 **Observation (GH-514):** `chat-context-bar` scrolls horizontally. On R5CN-width screens, `chat-context-inspect` ("View context (N)") and the subject chip's close icon ("Clear selected training") are not in the hierarchy until you `swipe: {from: {id: 'chat-context-bar'}, direction: LEFT}`. The chosen subject and period (Meso/28d) survive `chat-clear-button` and new runs, so reset them at the start of the flow (`chat-filter-toggle` → `chat-preset-28d`; `when notVisible 'Training: none'` → clear).
 **Apply when:** writing/reusing AI chat flows (`gh515_chat_device.yaml`).
+
+### Any `settings` dispatch remounted the whole Training stack — navigator was created inside `TrainingRouter`
+**Problem (GH-518):** starring a plan (a settings write) jumped TrainingHome to the top and swallowed its snackbar. App rebuilds the Paper theme from `settings` on every settings change → the tab tree re-renders → `TrainingRouter` called `createNativeStackNavigator()` in its body → new navigator type → full remount (all local state lost).
+**Fix / Rule:** create navigators at module level (fixed for TrainingRouter; `SettingsRouter`/`exerciseRouter` still have the pattern). Symptom to recognise: local screen state "resets" right after a dispatch that touches `settings`.
+**Apply when:** storing UI state in `settings` that a Training screen reacts to, or debugging state loss after theme/settings changes.
+
+### FAB-overlap ACs: prove "never over content" with uiautomator bounds, not Maestro
+**Observation (GH-518):** Maestro can't read bounds on this build. `__tests__/e2e/scripts/gh518_check_fab_bounds.py <dump>` checks list bottom ≤ FAB top and no card control (`plan-select-*`, `edit-trainings-plan-*`, `next-training-start-button`) intersecting `add-trainings-plan`; `--expect collapsed` checks width≈height; `--tap-out` writes a tap point at the button's lower-right corner, passed to a flow via `-e TAP=x,y` (`tapOn: point: '${TAP}'`). Run it against an old-code dump once — it must fail there. Driver pattern: `checks/e2e.sh` in the GH-518 run dir.
+**Apply when:** any "X never covers Y" / layout-overlap acceptance criterion.
+
+### Training home snackbar can render ~8 s after the tap on a loaded emulator — adb burst captures miss it
+**Observation (GH-518):** star tap → re-render took up to ~8 s on emulator-5556; `extendedWaitUntil visible: '<snackbar text>' timeout: 3000` failed while the failure screenshot showed the snackbar. Use ≥10 s waits, and wait `notVisible` for it before tapping a control near the bottom (it sits right above the FAB strip). For an evidence shot use `adb shell "screenrecord --time-limit 10 /sdcard/x.mp4 & sleep 1; input tap X Y; wait"` and extract the last frame with `ffmpeg -sseof -0.3 -i x.mp4 -frames:v 1`.
+**Apply when:** capturing transient UI (snackbars/toasts) as evidence on an emulator.
+
+### Emulator /data refills to 99 % because Play Store re-installs YouTube updates
+**Problem (GH-518):** after `pm uninstall com.google.android.youtube` (+ `…apps.youtube.music`) freed ~200 MB, it was gone again within one Maestro run; redux-persist then logged `Failed to set persist:root!` (state silently not saved). **Fix:** `pm uninstall <pkg>` followed by `pm disable-user --user 0 <pkg>` (disabled apps aren't auto-updated); free space then stayed at ~560 MB. Check `adb shell df /data` before evidence runs and grep logcat for `Failed to set persist`.
+**Apply when:** an emulator's /data is ≥ 95 % full or persisted state "doesn't stick".
+
+### Paper `AnimatedFAB` anchored right puts the icon RIGHT of the label
+**Observation (GH-518):** `animateFrom="right"` (the only sane anchor for a right-aligned FAB) renders "New Training +"; `left` grows off-screen. To collapse an extended FAB on scroll keep the plain `FAB` and pass `label={extended ? '…' : undefined}` plus a constant `accessibilityLabel`, so Maestro text selectors still find it collapsed.
+**Apply when:** an extended FAB must shrink to its icon while scrolling.
