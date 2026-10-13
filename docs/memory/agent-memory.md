@@ -501,3 +501,26 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### AI chat context bar on the 720dp phone: last chips off-screen, subject + period persist across runs
 **Observation (GH-514):** `chat-context-bar` scrolls horizontally. On R5CN-width screens, `chat-context-inspect` ("View context (N)") and the subject chip's close icon ("Clear selected training") are not in the hierarchy until you `swipe: {from: {id: 'chat-context-bar'}, direction: LEFT}`. The chosen subject and period (Meso/28d) survive `chat-clear-button` and new runs, so reset them at the start of the flow (`chat-filter-toggle` → `chat-preset-28d`; `when notVisible 'Training: none'` → clear).
 **Apply when:** writing/reusing AI chat flows (`gh515_chat_device.yaml`).
+
+### Edge-to-edge (GH-356) means `adjustResize` no longer resizes — and the Paper bottom nav hiding on `keyboardDidShow` clamps the scroll
+**Problem (GH-418):** with `edgeToEdgeEnabled=true` the keyboard only draws over the window. A short plan has no scroll range for the focused field, and a list scrolled to its END jumps DOWN on focus: Paper's `BottomNavigationBar` sets `keyboardVisible` (position absolute) in its own `keyboardDidShow` listener, the scroller grows by the tab-bar height and Android clamps the offset (field 1133 → 1357 px on the phone).
+**Fix / Rule:** set keyboard-height `paddingBottom` on the ScrollView's `contentContainerStyle` synchronously inside your own `keyboardDidShow` listener — React batches it into the same commit as the nav bar, so content grows before the viewport. On hide, scroll back out of the padding (animated) before removing it. See `KeyboardAwareScrollView`.
+**Apply when:** anything keyboard-related on Android in this app; never trust `adjustResize`.
+
+### An extra child VIEW appended to a ScrollView's content can abort the app in Fabric/Yoga — use padding instead
+**Problem (GH-418):** `{spacer > 0 && <View style={{height}}/>}` after the children: switching fields (blur → store write → re-render) killed the app with `F ReactNative: YogaLayoutableShadowNode.cpp:709 assertion failed (YGNodeGetOwner(childYogaNode) == &yogaNode_)` + SIGABRT on `mqt_v_js`. Not reproducible on master; bisected over Metro (`git checkout <sha> -- app`, delete `files/BridgelessReactNativeDevBundle.js`, cold start).
+**Fix / Rule:** `contentContainerStyle={[style, {paddingBottom}]}`. Find the message with `adb logcat -d | grep ' F ReactNative'` — the crash buffer only has the native stack.
+**Apply when:** the app vanishes to the launcher after a re-render; grep logcat for `assertion failed`.
+
+### `useProgressiveLimit` capped lists for good at the last ProgressiveMount stage (fixed in GH-418)
+**Observation:** `useProgressiveLimit(2)` stopped at 2 + 4×2 = 10 items, so the plan read view never showed an 11th exercise (baseline Micro 69 "Push" has 11) and `MicroExerciseOverview` stopped at 5 cards. The last stage now provides `Infinity`. If a list "loses" its last items only inside a sub-tab, check stage caps first.
+
+### Keyboard/position checks on a RUNNING training: read `maestro hierarchy`, not uiautomator
+**Observation (GH-418):** `HOME=$E2E_MAESTRO_HOME … maestro --host <proxy> --device $S --driver-host-port <port> hierarchy > h.json` works while `uiautomator dump` fails ("could not get idle state"); JSON nodes carry `resource-id`, `text`, `focused`, `bounds` in input coordinates (~19 s per call). Keyboard top = IME window `frame` top + `mGivenContentInsets` top from `dumpsys window windows`. Script: `__tests__/e2e/scripts/check-gh418-focused-field-above-keyboard.sh --maestro-hierarchy`.
+**Apply when:** asserting positions (field vs keyboard, element moved) on screens with a ticking timer.
+
+### Debug JS on the phone: LogBox is muted (`LogBox.ignoreAllLogs`) and Metro shows no logs — render an on-screen overlay
+**Observation (GH-418):** `console.warn` never appears; Metro 0.84 says "JavaScript logs have moved" (DevTools). A temporary absolutely positioned `<Text>` fed from `globalThis.__dbg` (re-rendered by a 300 ms interval) showed the measurements in a screenshot. Remove it before measuring performance — the interval re-render alone starved `requestAnimationFrame` to ~2 fps. Fast Refresh after such edits twice left a white screen: force-stop + cold start.
+
+### Drag on the phone: `input motionevent` costs ~150 ms per event, and a busy JS thread delivers few rAF frames
+**Observation (GH-418):** a 16-step drag plus 110 hold steps takes ~25 s; the gesture's rAF loop got only a few frames per second on the 11-exercise plan editor. Make per-frame work time-based (dp/s × elapsed), run timed animations with `useNativeDriver: true`, and verify with `screenrecord` + `ffmpeg -vf fps=2,tile=…` rather than single screenshots. Script: `__tests__/e2e/scripts/drag-gh418-plan-item.sh`.
