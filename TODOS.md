@@ -2,6 +2,8 @@
 
 ## Trainings
 
+- [ready] **Prio hoch** [GH-418](https://github.com/julimetzger/Gainalytics/issues/418) Plan training (2/2): Sätze per Drag & Drop umsortieren, Long-Press zum Bearbeiten, Tastatur verdeckt die Eingabe nicht mehr
+  - Tastatur-Teil zuerst: Regression laut UX-Audit R3 (#498, F1), fokussiertes Satzfeld liegt hinter der Tastatur, langer Plan springt an den Listenanfang
 - [ready] [GH-509](https://github.com/julimetzger/Gainalytics/issues/509) Change Add button in training sidebar — „Add Meso“/„Add Training“ als gestrichelter Knopf wie „Add set“, volle Breite
 - [ready] [GH-505](https://github.com/julimetzger/Gainalytics/issues/505) Audit trainingsoverview (read-only) — Micro-Overview in allen Zuständen, Zahlen-Stichprobe, priorisierte Findings
   - Report nach `docs/ux/training-overview-audit.md`; keine App-Code-Änderung
@@ -9,13 +11,15 @@
   - Quelle: `docs/ux/training-overview-audit.md` aus #505 (PR #511)
 - [ready] [GH-498](https://github.com/julimetzger/Gainalytics/issues/498) UX-Audit Runde 3 (read-only): Trainingsplan anlegen + erstes Training planen — Status aller alten Findings (GH-399/426/436) plus neue, leere App und Baseline-Daten
   - Report nach `docs/ux/plan-creation-audit-round3.md`; keine App-Code-Änderung
+- [ready] [GH-518](https://github.com/julimetzger/Gainalytics/issues/518) UX-Audit R3 Follow-up (F2/F3) — FAB überdeckt Karten, neuer Plan wird nicht aktueller Plan
+  - Quelle: `docs/ux/plan-creation-audit-round3.md` aus #498 (PR #500); F1 (Tastatur-Regression) läuft in GH-418
 - [done] ~~[GH-460](https://github.com/julimetzger/Gainalytics/issues/460) Change New Training button — Knopf im Stil von „New exercise"~~ (PR #464 gemerged)
 - [ready] [GH-437](https://github.com/julimetzger/Gainalytics/issues/437) Finish-Training-Knopf in der Sekundärfarbe statt der Primärfarbe
 - [ready] [GH-431](https://github.com/julimetzger/Gainalytics/issues/431) UX-Audit R2 Follow-up (M6/M9/M12) — Suchtreffer-Rangfolge, stabiler EDITING-PLAN-Modus, Satzfortschritt gegen den Plan
   - Quelle: `docs/ux/create-and-execute-training-audit-round2.md` aus #426
   - Erst nach dem Merge von PR #429 starten — M12 baut auf der dort korrigierten Satznummer auf
 - [done] ~~[GH-428](https://github.com/julimetzger/Gainalytics/issues/428) UX-Audit R2 Follow-up (H1/H2/H4) — namenloser Plan, Tastatur verdeckt Eingabe beim Planen, falsche Werte nach Übungswechsel~~ (PR #430 gemerged)
-  - H2 (Tastatur) ist damit auch für [GH-418](https://github.com/julimetzger/Gainalytics/issues/418) erledigt — dort nicht noch einmal umbauen
+  - H2 (Tastatur) laut UX-Audit R3 (#498, F1) auf dem Gerät **regressiert** — wird in [GH-418](https://github.com/julimetzger/Gainalytics/issues/418) mit Priorität hoch behoben
 - [ready] [GH-443](https://github.com/julimetzger/Gainalytics/issues/443) Korrigieren eines bereits protokollierten Satzes setzt den Rest-Timer zurück
   - Nur ein NEU hinzugefügter Satz startet die Pause; Ändern und Löschen lassen den Timer unberührt
 - [ready] [GH-444](https://github.com/julimetzger/Gainalytics/issues/444) Vergleich Muscle Map erweitern — Analyse gegen den Plan genau dieses Trainings
