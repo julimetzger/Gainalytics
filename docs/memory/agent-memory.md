@@ -524,3 +524,8 @@ Workers append NEW learnings here (and only here), after checking the table of c
 
 ### Drag on the phone: `input motionevent` costs ~150 ms per event, and a busy JS thread delivers few rAF frames
 **Observation (GH-418):** a 16-step drag plus 110 hold steps takes ~25 s; the gesture's rAF loop got only a few frames per second on the 11-exercise plan editor. Make per-frame work time-based (dp/s × elapsed), run timed animations with `useNativeDriver: true`, and verify with `screenrecord` + `ffmpeg -vf fps=2,tile=…` rather than single screenshots. Script: `__tests__/e2e/scripts/drag-gh418-plan-item.sh`.
+
+### Jest: Animated timing finishes in one frame, and the native driver fails on its second use
+**Problem / Symptom:** In jest, an `Animated.timing` with `duration: 180` called its `start` callback after about 16 ms of fake time. Advancing 50 ms to land "inside" the animation therefore landed after it, and the race test passed on the buggy code. A value animated twice with `useNativeDriver: true` threw `Unable to find node on an unmounted component` (also on the old code).
+**Fix / Rule:** To test the "during the animation" window, fire the next gesture synchronously right after the release, with no timer advance. When a test animates the same values over several drags, wrap `Animated.timing` with `jest.spyOn(Animated, 'timing')` and force `useNativeDriver: false`.
+**Apply when:** writing jest tests for drag/settle races or for repeated native-driver animations (seen in GH-418 round 2).
