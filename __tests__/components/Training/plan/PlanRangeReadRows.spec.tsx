@@ -1,13 +1,11 @@
 import React from 'react';
-import {render, within} from '@testing-library/react-native';
+import {fireEvent, render, within} from '@testing-library/react-native';
 import PlanReadSetRow from '../../../../app/components/Training/plan/PlanReadSetRow';
-import PlanQuickEditSetRow from '../../../../app/components/Training/plan/PlanQuickEditSetRow';
 import {PLAN_CELL_TEST_ID} from '../../../../app/components/Training/plan/planUtils';
 import {WorkoutSet} from '../../../../app/models/entities/WorkoutSet';
 
 // GH-63: the plan list renders a range as "8-12" and keeps rendering a fixed
-// value exactly as before. Quick edit still edits the lower bound only and says
-// out loud why a value was refused.
+// value exactly as before.
 
 jest.mock('react-native-paper', () => {
   const {Text} = require('react-native');
@@ -58,38 +56,13 @@ describe('PlanReadSetRow (GH-63)', () => {
   });
 });
 
-describe('PlanQuickEditSetRow (GH-63)', () => {
-  const renderQuickEdit = (workoutSet: WorkoutSet, draftValue: string, invalid: boolean, errorMessage?: string) =>
-    render(
-      <PlanQuickEditSetRow
-        workoutSet={workoutSet}
-        activeField="reps"
-        draftValue={draftValue}
-        invalid={invalid}
-        errorMessage={errorMessage}
-        onCellPress={jest.fn()}
-        onChangeText={jest.fn()}
-        onSubmitEditing={jest.fn()}
-        onRowLongPress={jest.fn()}
-      />,
-    );
+describe('PlanReadSetRow — opening the editing (GH-418)', () => {
+  it('reports which field was tapped', () => {
+    const onCellPress = jest.fn();
+    const {getByTestId} = render(<PlanReadSetRow workoutSet={fixedSet} onCellPress={onCellPress} onRowLongPress={jest.fn()} />);
 
-  it('edits the lower bound while the upper bound stays on screen', () => {
-    const {getByTestId} = renderQuickEdit(rangedSet, '10', false);
-    expect({
-      input: getByTestId('plan-set-1-reps-input').props.value,
-      untouchedRir: valueOf(getByTestId, 1, 'rir', 'RIR'),
-    }).toEqual({input: '10', untouchedRir: '1-3'});
-  });
+    fireEvent.press(getByTestId(PLAN_CELL_TEST_ID(1, 'rir')));
 
-  it('shows the reason a refused value was not accepted', () => {
-    const message = 'Reps range: the first value must be less than 12.';
-    const {getByTestId} = renderQuickEdit(rangedSet, '14', true, message);
-    expect(getByTestId('plan-set-1-quick-edit-error').props.children).toEqual(message);
-  });
-
-  it('shows no error row for a valid edit', () => {
-    const {queryByTestId} = renderQuickEdit(rangedSet, '10', false);
-    expect(queryByTestId('plan-set-1-quick-edit-error')).toEqual(null);
+    expect(onCellPress).toHaveBeenCalledWith('rir');
   });
 });

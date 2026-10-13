@@ -366,6 +366,112 @@ describe('KeyboardAwareScrollView — GH-428 (H2)', () => {
     });
   });
 
+  /**
+   * GH-418 (UX audit GH-498 F1): edge-to-edge means the window no longer shrinks
+   * for the keyboard. Content that fits the screen — or a list already scrolled
+   * to its end — had nowhere to scroll the field to, and the bottom navigation
+   * hiding on keyboardDidShow made the scroller taller and clamped the offset.
+   */
+  describe('keyboard spacer at the end of the content (GH-418)', () => {
+    const KEYBOARD_HEIGHT = 1600 - KEYBOARD_TOP;
+
+    const layoutScroller = (getByTestId: (testID: string) => any, height: number, contentHeight: number) => {
+      fireEvent(getByTestId(SCROLLER_TEST_ID), 'layout', {nativeEvent: {layout: {x: 0, y: 0, width: 720, height}}});
+      fireEvent(getByTestId(SCROLLER_TEST_ID), 'contentSizeChange', 720, contentHeight);
+    };
+
+    /** The spacer is the content container's bottom padding while the keyboard is open. */
+    const spacerOf = (getByTestId: (testID: string) => any): number | undefined => {
+      const style = getByTestId(SCROLLER_TEST_ID).props.contentContainerStyle;
+      const flat = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style ?? {};
+      return flat.paddingBottom;
+    };
+
+    const scrollBy = (getByTestId: (testID: string) => any, y: number) => {
+      fireEvent.scroll(getByTestId(SCROLLER_TEST_ID), {nativeEvent: {contentOffset: {x: 0, y}}});
+    };
+
+    it('adds a spacer of keyboard height in the keyboardDidShow event itself', () => {
+      const {getByTestId} = renderScroller();
+      expect(spacerOf(getByTestId)).toBeUndefined();
+
+      // No timers run here: the spacer must be part of the very commit in which
+      // the navigation bar hides, otherwise the scroller grows first.
+      act(() => {
+        (keyboardListeners.keyboardDidShow ?? []).forEach((listener) =>
+          listener({endCoordinates: {screenX: 0, screenY: KEYBOARD_TOP, width: 720, height: KEYBOARD_HEIGHT}, duration: 0, easing: 'keyboard'}),
+        );
+      });
+
+      expect(spacerOf(getByTestId)).toBe(KEYBOARD_HEIGHT);
+    });
+
+    it('lets a short page scroll its field above the keyboard', () => {
+      // A plan that fits the screen: 900 of content in a 1600 scroller, so without
+      // the spacer the largest possible offset is 0.
+      focusedInputRect = {screenY: 1081, height: 60, contentY: 1081};
+      const {scrollTo, getByTestId} = renderScroller();
+      layoutScroller(getByTestId, SCROLL_HEIGHT, 1200);
+
+      openKeyboard();
+
+      expect(spacerOf(getByTestId)).toBe(KEYBOARD_HEIGHT);
+      expect(scrollTo).toHaveBeenCalledWith({y: 259, animated: true});
+    });
+
+    it('removes the spacer right away when the list is not scrolled into it', () => {
+      const {getByTestId, scrollTo} = renderScroller();
+      layoutScroller(getByTestId, 1300, 3000);
+      openKeyboard();
+      scrollTo.mockClear();
+
+      scrollBy(getByTestId, 400);
+      emitKeyboard('keyboardDidHide', 1600);
+
+      expect(spacerOf(getByTestId)).toBeUndefined();
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+
+    it('scrolls back to the real end before removing the spacer, so nothing jumps', () => {
+      const {getByTestId, scrollTo} = renderScroller();
+      layoutScroller(getByTestId, 1300, 3000);
+      openKeyboard();
+      // With the spacer the content is 3000 + 670 high, and the user (or the
+      // correction) scrolled to its end: 3670 - 1300.
+      fireEvent(getByTestId(SCROLLER_TEST_ID), 'contentSizeChange', 720, 3000 + KEYBOARD_HEIGHT);
+      scrollBy(getByTestId, 3000 + KEYBOARD_HEIGHT - 1300);
+      scrollTo.mockClear();
+
+      act(() => {
+        (keyboardListeners.keyboardDidHide ?? []).forEach((listener) => listener({endCoordinates: {screenX: 0, screenY: 1600, width: 720, height: 0}}));
+      });
+
+      // End of the real content in the resting (keyboard closed) viewport.
+      expect(scrollTo).toHaveBeenCalledWith({y: 1700, animated: true});
+      expect(spacerOf(getByTestId)).toBe(KEYBOARD_HEIGHT);
+
+      act(() => {
+        jest.runOnlyPendingTimers();
+      });
+      expect(spacerOf(getByTestId)).toBeUndefined();
+    });
+
+    it('keeps the spacer when the keyboard comes straight back', () => {
+      const {getByTestId} = renderScroller();
+      layoutScroller(getByTestId, 1300, 3000);
+      openKeyboard();
+      fireEvent(getByTestId(SCROLLER_TEST_ID), 'contentSizeChange', 720, 3000 + KEYBOARD_HEIGHT);
+      scrollBy(getByTestId, 3000 + KEYBOARD_HEIGHT - 1300);
+
+      act(() => {
+        (keyboardListeners.keyboardDidHide ?? []).forEach((listener) => listener({endCoordinates: {screenX: 0, screenY: 1600, width: 720, height: 0}}));
+      });
+      openKeyboard();
+
+      expect(spacerOf(getByTestId)).toBe(KEYBOARD_HEIGHT);
+    });
+  });
+
   it('does nothing after the keyboard closed again', () => {
     focusedInputRect = {screenY: 1081, height: 60, contentY: 1581};
     const {scrollTo} = renderScroller();

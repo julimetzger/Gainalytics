@@ -1,5 +1,5 @@
 import React from 'react';
-import {fireEvent, render, waitFor} from '@testing-library/react-native';
+import {act, fireEvent, render, waitFor} from '@testing-library/react-native';
 import PlanTab from '../../../../app/components/Training/plan/PlanTab';
 import {TrainingsState} from '../../../../app/models/TrainingsState';
 import {Training} from '../../../../app/models/entities/Training';
@@ -65,9 +65,18 @@ jest.mock('../../../../app/components/Training/plan/PlanEditList', () => {
   const React = require('react');
   const {Text, View} = require('react-native');
 
-  return ({exercises, selectedExerciseId}: {exercises: Array<{id: number; name: string}>; selectedExerciseId?: number}) => (
+  return ({
+    exercises,
+    selectedExerciseId,
+    focusTarget,
+  }: {
+    exercises: Array<{id: number; name: string}>;
+    selectedExerciseId?: number;
+    focusTarget?: {exerciseId: number; setIndex: number; field: string} | null;
+  }) => (
     <View testID="plan-full-edit-list">
       <Text testID="plan-full-edit-selected">{String(selectedExerciseId)}</Text>
+      <Text testID="plan-full-edit-focus">{focusTarget ? `${focusTarget.exerciseId}/${focusTarget.setIndex}/${focusTarget.field}` : 'none'}</Text>
       {exercises.map((exercise) => (
         <Text key={exercise.id} testID={`plan-full-edit-exercise-${exercise.id}`}>
           {exercise.name}
@@ -84,24 +93,14 @@ jest.mock('../../../../app/components/Training/plan/PlanReadList', () => {
   return ({
     exercises,
     selectedExerciseId,
-    mode,
-    quickEditInvalid,
     onCellPress,
-    onQuickEditChange,
-    onQuickEditSubmit,
   }: {
     exercises: Array<{id: number; name: string}>;
     selectedExerciseId?: number;
-    mode: 'read' | 'quickEdit';
-    quickEditInvalid: boolean;
     onCellPress: (exerciseId: number, setIndex: number, field: 'reps' | 'rir' | 'weight') => void;
-    onQuickEditChange: (value: string) => void;
-    onQuickEditSubmit: () => void;
   }) => (
-    <View>
-      <Text testID="plan-read-mode">{mode}</Text>
+    <View testID="plan-read-list">
       <Text testID="plan-read-selected">{String(selectedExerciseId)}</Text>
-      <Text testID="plan-read-invalid">{String(quickEditInvalid)}</Text>
       <Text testID="plan-read-exercise-count">{String(exercises.length)}</Text>
       <TouchableOpacity testID="plan-open-weight-cell" onPress={() => onCellPress(1, 2, 'weight')}>
         <Text>Open weight cell</Text>
@@ -109,20 +108,8 @@ jest.mock('../../../../app/components/Training/plan/PlanReadList', () => {
       <TouchableOpacity testID="plan-open-other-exercise-cell" onPress={() => onCellPress(2, 1, 'reps')}>
         <Text>Open other exercise cell</Text>
       </TouchableOpacity>
-      <TouchableOpacity testID="plan-open-rir-cell" onPress={() => onCellPress(1, 2, 'rir')}>
-        <Text>Open rir cell</Text>
-      </TouchableOpacity>
-      <TouchableOpacity testID="plan-enter-fractional-rir" onPress={() => onQuickEditChange('1,5')}>
-        <Text>Enter fractional rir</Text>
-      </TouchableOpacity>
-      <TouchableOpacity testID="plan-enter-invalid-value" onPress={() => onQuickEditChange('1000.1')}>
-        <Text>Enter invalid</Text>
-      </TouchableOpacity>
-      <TouchableOpacity testID="plan-enter-valid-value" onPress={() => onQuickEditChange('97.5')}>
-        <Text>Enter valid</Text>
-      </TouchableOpacity>
-      <TouchableOpacity testID="plan-submit-quick-edit" onPress={onQuickEditSubmit}>
-        <Text>Submit</Text>
+      <TouchableOpacity testID="plan-open-missing-set-cell" onPress={() => onCellPress(1, 9, 'reps')}>
+        <Text>Open a set that does not exist</Text>
       </TouchableOpacity>
     </View>
   );
@@ -240,132 +227,68 @@ describe('PlanTab', () => {
     expect(getByTestId('plan-read-selected').props.children).toBe('1');
   });
 
-  // GH-324: quick edit must NOT write to the store while the user is typing.
-  // The value is committed once when the field is left (keyboard OK/Enter,
-  // outside press, or switching to another cell).
-  it('enters quick edit, holds keystrokes in the draft, and commits once on submit', async () => {
-    const {getByTestId} = render(<PlanTab {...baseProps} />);
-
-    fireEvent.press(getByTestId('plan-open-weight-cell'));
-
-    await waitFor(() => {
-      expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
-    });
-
-    fireEvent.press(getByTestId('plan-enter-invalid-value'));
-
-    await waitFor(() => {
-      expect(getByTestId('plan-read-invalid').props.children).toBe('true');
-    });
-
-    fireEvent.press(getByTestId('plan-enter-valid-value'));
-
-    await waitFor(() => {
-      expect(getByTestId('plan-read-invalid').props.children).toBe('false');
-    });
-
-    // Typing a valid value must NOT dispatch yet — the store is only written
-    // when the user leaves the field.
-    expect(mockDispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({type: 'ADD_OR_UPDATE_SET_IN_WORKOUT'}),
-    );
-
-    // GH-358: the accessory "Done" bar was removed — pressing OK/Enter on the
-    // keyboard (onQuickEditSubmit) closes the quick edit and commits the draft.
-    fireEvent.press(getByTestId('plan-submit-quick-edit'));
-
-    await waitFor(() => {
-      expect(getByTestId('plan-read-mode').props.children).toBe('read');
-    });
-
-    expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'ADD_OR_UPDATE_SET_IN_WORKOUT',
-        workoutId: 101,
-        set: expect.objectContaining({index: 2, weight: 97.5}),
-      }),
-    );
-    const upserts = mockDispatch.mock.calls.filter(([action]) => action?.type === 'ADD_OR_UPDATE_SET_IN_WORKOUT');
-    expect(upserts.length).toBe(1);
-  });
-
-  // GH-466: RIR may be fractional — quick edit must store 1.5, not round it to 2.
-  it('commits a fractional RIR typed with a comma without rounding it', async () => {
-    const {getByTestId} = render(<PlanTab {...baseProps} />);
-
-    fireEvent.press(getByTestId('plan-open-rir-cell'));
-    await waitFor(() => {
-      expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
-    });
-
-    fireEvent.press(getByTestId('plan-enter-fractional-rir'));
-    await waitFor(() => {
-      expect(getByTestId('plan-read-invalid').props.children).toBe('false');
-    });
-    fireEvent.press(getByTestId('plan-submit-quick-edit'));
-
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'ADD_OR_UPDATE_SET_IN_WORKOUT',
-          set: expect.objectContaining({index: 2, rir: 1.5}),
-        }),
-      );
-    });
-  });
-
-  it('discards the quick-edit draft on submit when it is invalid (store untouched)', async () => {
-    const {getByTestId} = render(<PlanTab {...baseProps} />);
-
-    fireEvent.press(getByTestId('plan-open-weight-cell'));
-    await waitFor(() => {
-      expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
-    });
-
-    fireEvent.press(getByTestId('plan-enter-invalid-value'));
-    await waitFor(() => {
-      expect(getByTestId('plan-read-invalid').props.children).toBe('true');
-    });
-
-    // Submit with an invalid draft keeps the quick edit open and never writes.
-    fireEvent.press(getByTestId('plan-submit-quick-edit'));
-    expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
-    expect(mockDispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({type: 'ADD_OR_UPDATE_SET_IN_WORKOUT'}),
-    );
-  });
-
-  it('does NOT render the "Editing … Done" accessory bar in quick edit mode (GH-358 PR #362)', async () => {
+  // GH-418: there is no one-cell quick edit inside the read view any more — a tap
+  // on a value opens the full edit mode with exactly that field focused.
+  it('opens full edit with the tapped field focused when a value is tapped', async () => {
     const {getByTestId, queryByTestId} = render(<PlanTab {...baseProps} />);
 
     fireEvent.press(getByTestId('plan-open-weight-cell'));
 
     await waitFor(() => {
-      expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
+      expect(getByTestId('plan-full-edit-list')).toBeTruthy();
     });
-
-    // The bar and its Done button must be gone: saving happens on keyboard
-    // OK/Enter (onQuickEditSubmit) or on tapping outside the row.
-    expect(queryByTestId('plan-quick-edit-done')).toBeNull();
+    expect(queryByTestId('plan-read-list')).toBeNull();
+    expect(getByTestId('plan-full-edit-focus').props.children).toBe('1/2/weight');
+    expect(baseProps.onChromeChange).toHaveBeenLastCalledWith(expect.objectContaining({mode: 'fullEdit'}));
+    // Opening the editor writes nothing.
+    expect(mockDispatch).not.toHaveBeenCalledWith(expect.objectContaining({type: 'ADD_OR_UPDATE_SET_IN_WORKOUT'}));
   });
 
-  it('switches the selected exercise when a cell of a different exercise is tapped', async () => {
+  it('switches the selected exercise when a value of a different exercise is tapped', async () => {
     baseChooseExercise.mockReset();
     const {getByTestId} = render(<PlanTab {...baseProps} />);
 
     fireEvent.press(getByTestId('plan-open-other-exercise-cell'));
 
     await waitFor(() => {
-      expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
+      expect(getByTestId('plan-full-edit-focus').props.children).toBe('2/1/reps');
+    });
+    expect(baseChooseExercise).toHaveBeenCalledWith(exercises[1]);
+  });
+
+  it('stays in the read view for a cell whose set does not exist', () => {
+    const {getByTestId, queryByTestId} = render(<PlanTab {...baseProps} />);
+
+    fireEvent.press(getByTestId('plan-open-missing-set-cell'));
+
+    expect(getByTestId('plan-read-list')).toBeTruthy();
+    expect(queryByTestId('plan-full-edit-list')).toBeNull();
+  });
+
+  it('leaves full edit through Done (exitToRead) back to the read view', async () => {
+    const {getByTestId, queryByTestId} = render(<PlanTab {...baseProps} />);
+
+    fireEvent.press(getByTestId('plan-open-weight-cell'));
+    await waitFor(() => {
+      expect(getByTestId('plan-full-edit-list')).toBeTruthy();
     });
 
-    expect(baseChooseExercise).toHaveBeenCalledWith(exercises[1]);
+    const chrome = (baseProps.onChromeChange as jest.Mock).mock.calls.at(-1)[0];
+    act(() => {
+      chrome.exitToRead();
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('plan-read-list')).toBeTruthy();
+    });
+    expect(queryByTestId('plan-full-edit-list')).toBeNull();
+    expect(baseProps.onChromeChange).toHaveBeenLastCalledWith(expect.objectContaining({mode: 'read'}));
   });
 
   it('enters full edit mode when the parent increments the edit plan request id', async () => {
     const {getByTestId, rerender} = render(<PlanTab {...baseProps} />);
 
-    expect(getByTestId('plan-read-mode').props.children).toBe('read');
+    expect(getByTestId('plan-read-list')).toBeTruthy();
 
     rerender(<PlanTab {...baseProps} editPlanRequestId={1} />);
 
@@ -388,19 +311,7 @@ describe('PlanTab', () => {
       mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) => selector(buildMockState()));
 
       const {getByTestId, queryByTestId} = render(<PlanTab {...baseProps} />);
-      expect(getByTestId('plan-read-mode').props.children).toBe('read');
-      expect(queryByTestId('muscle-involvement-card-mock')).toBeNull();
-    });
-
-    it('does not render the muscle map in quickEdit mode', async () => {
-      mockUseSelector.mockImplementation((selector: (state: MockState) => unknown) => selector(buildMockState()));
-
-      const {getByTestId, queryByTestId} = render(<PlanTab {...baseProps} />);
-      fireEvent.press(getByTestId('plan-open-weight-cell'));
-
-      await waitFor(() => {
-        expect(getByTestId('plan-read-mode').props.children).toBe('quickEdit');
-      });
+      expect(getByTestId('plan-read-list')).toBeTruthy();
       expect(queryByTestId('muscle-involvement-card-mock')).toBeNull();
     });
 

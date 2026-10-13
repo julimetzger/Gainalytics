@@ -60,8 +60,27 @@ describe('ProgressiveMount (PERF-003)', () => {
       jest.advanceTimersByTime(PROGRESSIVE_STAGE_MS);
     });
     expect(queryByTestId('item-5')).toBeTruthy();
+    // GH-418: the last stage is not one more slice — it shows everything. With a
+    // slice per stage this list would have stopped at 6 of its 7 items.
+    expect(queryByTestId('item-6')).toBeTruthy();
     expect(queryByTestId('late')).toBeTruthy();
     // the last stage is reached: no timer left running
     expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('never caps a long list (GH-418: the 11th exercise of a plan)', () => {
+    const {queryByTestId} = render(
+      <ProgressiveMount>
+        <List count={30} />
+      </ProgressiveMount>,
+    );
+    // Each stage's timer is only set after the previous stage rendered.
+    for (let stage = 0; stage < 10; stage += 1) {
+      act(() => {
+        jest.advanceTimersByTime(PROGRESSIVE_STAGE_MS);
+      });
+    }
+    expect(queryByTestId('item-10')).toBeTruthy();
+    expect(queryByTestId('item-29')).toBeTruthy();
   });
 });
