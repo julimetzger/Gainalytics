@@ -1,0 +1,29 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-518 (F2): a tap into the lower-right corner of the Next Training button must open the
+# training, never the "Add New Training Plan" dialog. Before GH-518 the floating FAB lay
+# exactly there. TAP ("x,y") is computed from a uiautomator dump by gh518_check_fab_bounds.py;
+# NAME is the training the card points at.
+- tapOn:
+    point: '${TAP}'
+    retryTapIfNoChange: false
+- waitForAnimationToEnd:
+    timeout: 10000
+# A dropped Metro connection paints a "Fast Refresh disconnected" banner across the header.
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-meso-name'
+    timeout: 60000
+- assertNotVisible: 'Add New Training Plan'
+- assertVisible: '.*${NAME}.*'
+- takeScreenshot: gh518_card_corner_opened_training
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000

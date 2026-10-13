@@ -1,0 +1,17 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-518 helper: scroll until the Next Training button is fully visible (the list has
+# scrolled, so the FAB must now be collapsed to its icon).
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 20000
+- swipe:
+    start: '50%, 60%'
+    end: '50%, 45%'
+- waitForAnimationToEnd:
+    timeout: 5000
+- assertVisible:
+    id: 'next-training-start-button'
