@@ -1,4 +1,5 @@
 import React from 'react';
+import {Animated} from 'react-native';
 import {act, fireEvent, render} from '@testing-library/react-native';
 import PlanEditList from '../../../../app/components/Training/plan/PlanEditList';
 import {autoScrollSpeed, dropOffset, shiftForItem, AUTO_SCROLL_EDGE, AUTO_SCROLL_MAX_SPEED} from '../../../../app/components/Training/plan/useDragReorder';
@@ -260,6 +261,117 @@ describe('PlanEditList — drag & drop (GH-418)', () => {
       jest.advanceTimersByTime(1000);
     });
     expect(queryByTestId('plan-edit-section-drop-placeholder')).toBeNull();
+  });
+});
+
+// GH-418 review: the drop is committed at the end of its settle animation. A drag
+// started inside that window used to run on the old order, and the late commit then
+// reset its offsets and applied a reorder to the wrong item.
+describe('PlanEditList — rapid drags (GH-418)', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // The test renderer cannot hand a value to the native driver a second time
+    // ("Unable to find node on an unmounted component"); these tests animate the
+    // same values over several drags, so they run on the JS driver.
+    const timing = Animated.timing;
+    jest.spyOn(Animated, 'timing').mockImplementation((value, config) => timing(value, {...config, useNativeDriver: false}));
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  // The parent applies every reorder, like PlanTab does through the store.
+  const renderStateful = () => {
+    const onReorderExercises = jest.fn();
+    const Harness = () => {
+      const [order, setOrder] = React.useState<Exercise[]>(exercises);
+      return (
+        <PlanEditList
+          exercises={order}
+          selectedExerciseId={1}
+          plannedWorkoutsByExerciseId={{}}
+          pendingSetByExerciseId={{}}
+          commitRowDraftsOnUnmountRef={{current: false}}
+          onSelectExercise={jest.fn()}
+          onAddSet={jest.fn()}
+          onPendingSetChange={jest.fn()}
+          onPendingSetDelete={jest.fn()}
+          onDeleteSet={jest.fn()}
+          onUpsertSet={jest.fn()}
+          onReorderSets={jest.fn()}
+          onReorderExercises={(next) => {
+            onReorderExercises(next);
+            setOrder(next);
+          }}
+          onRemoveExercise={jest.fn()}
+        />
+      );
+    };
+    const utils = render(<Harness />);
+    exercises.forEach((exercise, index) =>
+      fireEvent(utils.getByTestId(`plan-edit-section-drag-item-${exercise.id}`), 'layout', {
+        nativeEvent: {layout: {x: 0, y: index * SECTION_HEIGHT, width: 360, height: SECTION_HEIGHT}},
+      }),
+    );
+    const renderedOrder = () =>
+      utils.UNSAFE_root.findAll((node: any) => typeof node.props.testID === 'string' && /^plan-edit-section-drag-item-\d+$/.test(node.props.testID) && typeof node.type !== 'string')
+        .map((node: any) => Number(node.props.testID.replace('plan-edit-section-drag-item-', '')))
+        .filter((id: number, index: number, all: number[]) => all.indexOf(id) === index);
+    return {...utils, onReorderExercises, renderedOrder};
+  };
+
+  const release = (handle: any, translationY: number) => {
+    const handlers: PanHandlers = handle.props.__panHandlers;
+    act(() => {
+      handlers.onStart?.({absoluteY: 300, translationY: 0});
+    });
+    act(() => {
+      handlers.onUpdate?.({absoluteY: 300 + translationY, translationY});
+    });
+    act(() => {
+      handlers.onFinalize?.({absoluteY: 300 + translationY, translationY}, true);
+    });
+  };
+
+  it('keeps the right order for two drags in quick succession', () => {
+    const {getByTestId, onReorderExercises, renderedOrder} = renderStateful();
+
+    // Bench press to the bottom …
+    release(getByTestId('plan-exercise-drag-handle-1'), 2 * SECTION_HEIGHT);
+    // … and while it still settles, Deadlift is grabbed and pulled to the top.
+    release(getByTestId('plan-exercise-drag-handle-3'), -2 * SECTION_HEIGHT);
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    // Only the first drop lands; the touch during its settle did not start a drag.
+    expect(onReorderExercises).toHaveBeenCalledTimes(1);
+    expect(renderedOrder()).toEqual([2, 3, 1]);
+
+    // Once it has settled, the next drag works on the new order.
+    release(getByTestId('plan-exercise-drag-handle-3'), -SECTION_HEIGHT);
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(onReorderExercises).toHaveBeenCalledTimes(2);
+    expect(renderedOrder()).toEqual([3, 2, 1]);
+  });
+
+  it('accepts the next drag right after a drop that glided back', () => {
+    const {getByTestId, onReorderExercises, renderedOrder} = renderStateful();
+
+    release(getByTestId('plan-exercise-drag-handle-1'), 10);
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    release(getByTestId('plan-exercise-drag-handle-1'), SECTION_HEIGHT);
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(onReorderExercises).toHaveBeenCalledTimes(1);
+    expect(renderedOrder()).toEqual([2, 1, 3]);
   });
 });
 

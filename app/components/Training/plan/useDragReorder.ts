@@ -183,6 +183,11 @@ export function useDragReorder({count, items, onReorder}: UseDragReorderOptions)
   const topsRef = useRef<Record<number, number>>({});
   const sessionRef = useRef<DragSession | null>(null);
   const awaitingReorderRef = useRef(false);
+  // From the release until the drop is committed (or glided back) no new drag may
+  // start: the settle animation's callback commits the OLD drop, and the parent's
+  // re-render with that order would reset the offsets under a newer drag. Rapid
+  // drags then landed in the wrong order or tore the second drag apart.
+  const dropPendingRef = useRef(false);
   const resetFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gesturesRef = useRef<Map<number, PanGesture>>(new Map());
   const gestureCountRef = useRef(count);
@@ -202,6 +207,7 @@ export function useDragReorder({count, items, onReorder}: UseDragReorderOptions)
       resetFallbackRef.current = null;
     }
     awaitingReorderRef.current = false;
+    dropPendingRef.current = false;
     translateValuesRef.current.forEach((value) => value.setValue(0));
     shiftsRef.current = [];
     setActiveIndex(null);
@@ -293,9 +299,9 @@ export function useDragReorder({count, items, onReorder}: UseDragReorderOptions)
   };
 
   const startDrag = (index: number, absoluteY: number) => {
-    if (resetFallbackRef.current !== null || awaitingReorderRef.current) {
-      // The previous drop has not been committed yet — snap its leftovers away first.
-      resetVisuals();
+    if (dropPendingRef.current) {
+      // The previous drop is still settling — this touch does not start a drag.
+      return;
     }
     sessionRef.current = {
       index,
@@ -324,17 +330,14 @@ export function useDragReorder({count, items, onReorder}: UseDragReorderOptions)
       cancelAnimationFrame(session.frame);
     }
     nestableScrollContextRef.current?.setOuterScrollEnabled(true);
+    dropPendingRef.current = true;
     const target = success ? session.target : session.index;
     if (target === session.index) {
       // Dropped where it came from: everything glides back.
       shiftsRef.current = [];
       Animated.parallel(
         translateValuesRef.current.map((value) => Animated.timing(value, {toValue: 0, duration: DROP_DURATION_MS, useNativeDriver: true})),
-      ).start(() => {
-        if (sessionRef.current === null) {
-          resetVisuals();
-        }
-      });
+      ).start(resetVisuals);
       return;
     }
     Animated.timing(valueAt(session.index), {
