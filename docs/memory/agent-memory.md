@@ -523,6 +523,11 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-518):** `animateFrom="right"` (the only sane anchor for a right-aligned FAB) renders "New Training +"; `left` grows off-screen. To collapse an extended FAB on scroll keep the plain `FAB` and pass `label={extended ? '…' : undefined}` plus a constant `accessibilityLabel`, so Maestro text selectors still find it collapsed.
 **Apply when:** an extended FAB must shrink to its icon while scrolling.
 
+### Owner-phone layout overflow: reproduce with `font_scale 1.3` on the emulator
+**Observation (GH-522):** the owner's Samsung showed the Finish Training Timer delete button pushed right of the Pause one; at font_scale 1.0 the emulator looked fine. `adb -s $S shell settings put system font_scale 1.3` (then cold-start — see the crash entry below) reproduced it: the row overflowed and the icon sat past the card edge.
+**Fix / Rule:** in a `space-between` row, give the text button `flexShrink: 1`. Paper `Button` labels are `numberOfLines={1}`, so very long labels end in an ellipsis. Paper `Surface` moves `flexShrink` onto an unnamed outer layer, so a jest test cannot read it from `<testID>-container`; use `UNSAFE_getByType(Button).props.style`. Prove the alignment from uiautomator bounds (`__tests__/e2e/scripts/gh522_check_timer_delete_alignment.py`).
+**Apply when:** a layout bug from a real phone doesn't reproduce on the emulator.
+
 ### Bounds checks for in-list header controls via uiautomator
 **Observation:** a `testID` on a plain RN `View` (e.g. `plans-header`) shows up in `uiautomator dump` as `android.view.ViewGroup` with that resource-id, and a Paper `Button` with `testID="x"` exposes its label as `x-text` — enough to prove "inside the header", "header height unchanged" (px / (density/160)) and "label not clipped" from bounds. A control moved from a floating FAB into the scroll content needs `scrollUntilVisible` before every `tapOn` in older flows (smoke, trn004, gh497), or they fail on tall dashboards.
 **Apply when:** replacing a FAB/overlay with an in-flow control, or proving layout claims Maestro can't read. Checker: `__tests__/e2e/scripts/gh518_check_new_training_bounds.py`. (seen in GH-518)
