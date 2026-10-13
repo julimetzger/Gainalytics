@@ -556,4 +556,9 @@ Workers append NEW learnings here (and only here), after checking the table of c
 
 ### Compute expected fixture values offline from the `.gains` JSON — useful while the phone is locked
 **Observation (GH-526):** `__tests__/testdata/1772318214222.gains` is plain JSON (`exercises/workouts/trainings/trainingsPlan` with `byId`), so the numbers a value-asserting flow needs (sets per training/micro, muscle sets via `exercises[].muscles[].percent`, start/end) can be derived with a ~60-line `python3 -I` script before touching the device. That filled a PIN-locked wait with useful work and fixed the expected values up front. Plan 5 "Push pull" has **no `mesos`** in the file (migrated in-app), and M1 "Push squat" has 1 planned set whose exercise has no muscle taxonomy → empty planned muscle map. The script is in `.codex-orchestrator/runs/GH-526/checks/gh526_fixture_values.py`.
-**Apply when:** writing Maestro assertions on fixture values, or when the device is unavailable and flows still have to be written.
+**Apply when:** writing Maestro assertions on fixture values, or when the device is unavailable and flows still have to be written Durations: the app sums SECONDS and floors (`7h 28min`), so summing per-training rounded minutes (`7h 29min`) is off by one — compute from the raw timestamps.
+
+### Fixed-width numeric readouts get ellipsized on the Samsung phone — use `minWidth`
+**Problem / Symptom:** the muscle map readout column (`width: 64`, monospace 12sp) showed `10.4/10…` on R5CN30HWZFN. Jest and the design looked fine, and the Maestro `copyTextFrom` still read the full text, so only a screenshot revealed it.
+**Fix / Rule:** give value columns next to a `flex: 1` bar `minWidth`, not `width`, so the bar yields. Always eyeball a screenshot of every new numeric column on the phone (larger font scale than the emulators).
+**Apply when:** row layouts of label | flex bar | numeric readout (seen in GH-526).
