@@ -76,7 +76,8 @@ describe('muscle radar stats (GH-532)', () => {
   it('rounds the scale up to a nice number', () => {
     expect(niceMax(16)).toBe(20);
     expect(niceMax(20)).toBe(20);
-    expect(niceMax(7.9)).toBe(10);
+    expect(niceMax(7.9)).toBe(8);
+    expect(niceMax(11.2)).toBe(15);
     expect(niceMax(15300)).toBe(20000);
     expect(niceMax(2.2)).toBe(2.5);
     expect(niceMax(0)).toBe(1);
@@ -88,6 +89,7 @@ describe('muscle radar stats (GH-532)', () => {
     expect(formatDelta(-2, Metric.SETS)).toBe('-2 sets');
     expect(formatDelta(2, Metric.SETS)).toBe('+2 sets');
     expect(formatDelta(0, Metric.SETS)).toBe('0 sets');
+    expect(formatDelta(1, Metric.SETS)).toBe('+1 set');
     expect(formatDelta(-1700, Metric.VOLUME)).toBe('-1.7t');
   });
 });

@@ -63,11 +63,11 @@ export const buildMuscleWeekValues = (muscleMetricMap: Map<Muscles, Map<Metric, 
 export const currentValue = (values: MuscleWeekValues, metric: RadarMetric) => (metric === Metric.SETS ? values.sets : values.volume);
 export const lastValue = (values: MuscleWeekValues, metric: RadarMetric) => (metric === Metric.SETS ? values.lastSets : values.lastVolume);
 
-/** Smallest "nice" number (1, 2, 2.5, 5 × 10ⁿ) that is ≥ `value`; 1 for an empty chart. */
+/** Smallest "nice" number (1, 1.5, 2, 2.5, 3, 4, 5, 6, 8 × 10ⁿ) that is ≥ `value`; 1 for an empty chart. */
 export const niceMax = (value: number): number => {
   if (!(value > 0)) return 1;
   const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
-  const step = [1, 2, 2.5, 5, 10].find((factor) => factor * magnitude >= value - 1e-9) ?? 10;
+  const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((factor) => factor * magnitude >= value - 1e-9) ?? 10;
   return step * magnitude;
 };
 
@@ -77,6 +77,12 @@ export const formatSets = (sets: number): string => {
   return Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
 };
 
+/** `14 sets`, `1 set`, `4.5 sets` */
+export const formatSetCount = (sets: number): string => {
+  const formatted = formatSets(sets);
+  return `${formatted} ${formatted === '1' ? 'set' : 'sets'}`;
+};
+
 /** kg → `6.2t` */
 export const formatTonnes = (kg: number): string => `${(kg / 1000).toFixed(1)}t`;
 
@@ -84,7 +90,7 @@ export const formatMetricValue = (value: number, metric: RadarMetric): string =>
 
 /** `+2 sets` / `-1.7t` / `0 sets` */
 export const formatDelta = (delta: number, metric: RadarMetric): string => {
-  const formatted = metric === Metric.SETS ? `${formatSets(Math.abs(delta))} sets` : formatTonnes(Math.abs(delta));
+  const formatted = metric === Metric.SETS ? formatSetCount(Math.abs(delta)) : formatTonnes(Math.abs(delta));
   const isZero = formatted === '0 sets' || formatted === '0.0t';
   if (isZero) return formatted;
   return `${delta > 0 ? '+' : '-'}${formatted}`;

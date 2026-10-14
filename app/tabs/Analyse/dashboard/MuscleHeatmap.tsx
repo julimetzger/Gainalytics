@@ -12,6 +12,7 @@ import {
   currentValue,
   formatDelta,
   formatMetricValue,
+  formatSetCount,
   formatSets,
   formatTonnes,
   lastValue,
@@ -153,7 +154,7 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
                 key={value.muscle}
                 testID={`muscle-chip-${value.muscle}`}
                 accessibilityRole="button"
-                accessibilityLabel={`${value.muscle}, ${formatted}${metric === Metric.SETS ? ' sets' : ''}`}
+                accessibilityLabel={`${value.muscle}, ${metric === Metric.SETS ? formatSetCount(currentValue(value, metric)) : formatted}`}
                 accessibilityState={{selected: isSelected}}
                 onPress={() => toggleSelection(value.muscle)}
                 style={[styles.labelTarget, {left: p.x - LABEL_WIDTH / 2, top: p.y - LABEL_HEIGHT / 2}]}
@@ -174,7 +175,7 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
                 {selectedValues.muscle}
               </Text>
               <Text style={[styles.selectionDetail, {color: colors.onSurfaceVariant}]} testID="muscle-radar-selection-detail">
-                {`${formatSets(selectedValues.sets)} sets · ${formatTonnes(selectedValues.volume)} · `}
+                {`${formatSetCount(selectedValues.sets)} · ${formatTonnes(selectedValues.volume)} · `}
                 <Text style={{color: deltaColor}}>{`${deltaText} vs last week`}</Text>
               </Text>
             </View>
@@ -191,20 +192,20 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
             testID="muscle-radar-tile-most-trained"
             title="Most trained"
             value={stats.mostTrained?.muscle ?? '–'}
-            detail={stats.mostTrained ? `${formatSets(stats.mostTrained.sets)} sets` : undefined}
+            detail={stats.mostTrained ? formatSetCount(stats.mostTrained.sets) : undefined}
           />
           <StatTile
             testID="muscle-radar-tile-lagging"
             title="Lagging"
             value={stats.lagging?.muscle ?? '–'}
             valueColor={stats.lagging ? colors.error : undefined}
-            detail={stats.lagging ? `${formatSets(stats.lagging.sets)} sets` : undefined}
+            detail={stats.lagging ? formatSetCount(stats.lagging.sets) : undefined}
           />
           <StatTile
             testID="muscle-radar-tile-push-pull"
             title="Push : Pull"
             value={pushPull ? pushPullRatio : '–'}
-            detail={pushPull ? `${formatSets(pushPull.push)} / ${formatSets(pushPull.pull)} sets` : undefined}
+            detail={pushPull ? `${formatSets(pushPull.push)} / ${formatSetCount(pushPull.pull)}` : undefined}
           />
         </View>
       </Card.Content>
@@ -252,8 +253,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
+  // Paper pads every segment by 16 dp; 92 dp per segment keeps "Volume" on one line.
   toggle: {
-    minWidth: 160,
+    width: 184,
   },
   toggleButton: {
     minWidth: 0,
