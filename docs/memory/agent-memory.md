@@ -567,3 +567,17 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Week-relative dashboard scenarios: generate fixtures in UTC for the current week
 **Observation:** "This week"/"new week" states (day strip, GH-533 micro switch) can't be reached with `adb shell date`. `__tests__/testdata/scripts/make_gh533_micro_fixtures.js <baseline> <outDir>` writes four stores whose plan-5 sessions are dated relative to the current Monday (UTC — the emulators run GMT), incl. a STARTED training. A running training's ticking timer on the home card did NOT block Maestro assertions here.
 **Apply when:** you need trainings "this week" vs "last week"; regenerate on the day of the run (seen in GH-533).
+
+### Run-maestro wrapper `--report` wants a FILE path — a directory crashes Maestro after a passing flow
+**Problem (GH-532):** `--report <existing dir>` → `FileNotFoundException … (Is a directory)` in `TestCommand.saveReport` AFTER "1/1 Flow Passed", so exit 1 and the wrapper re-ran the whole suite (import included).
+**Fix / Rule:** pass `--report <dir>/report.xml` or omit it; judge results by `[Passed]/[Failed]` lines, not only the exit code.
+**Apply when:** using `--report` with `run-maestro-from-wsl.sh`.
+
+### "This week vs last week" dashboard evidence: shift the baseline, anchor to Monday, not to now
+**Observation (GH-532):** `__tests__/testdata/scripts/make_gh532_radar_fixtures.js <baseline> <outDir>` shifts every date so the last logged workout ends on this week's Wednesday 20:00 (Europe/Berlin), plus a `last_week_only` variant (empty current week). Anchoring to Monday keeps per-muscle values identical on every weekday, so Maestro can assert exact numbers (`Back, 9 sets`; strip `9 sets · 5.7t · -2 sets vs last week`). A node preview of per-muscle sets (percent-weighted) matched the app exactly.
+**Apply when:** any Dashboard/weekly comparison needs non-empty current and previous weeks.
+
+### Dashboard muscle radar: tapping `muscle-chip-<Muscle>` only SELECTS since GH-532
+**Rule:** drill-down = tap the label, `scrollUntilVisible muscle-radar-details-button` (strip sits below the 300 dp chart, off-screen on the phone), tap it. The chart wrapper `muscle-radar-svg` has every value in its accessibilityLabel (`Back 9 (last week 11), …`) → assert it with a full-string regex. Labels expose `selected: true` when chosen.
+**Apply when:** writing flows that use the Dashboard's Muscle Groups card.
+
