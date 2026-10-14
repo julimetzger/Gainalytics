@@ -7,7 +7,7 @@ appId: com.powerliftingworkoutplanner
     file: gh533_current_micro.yaml
     env:
       TAG: incomplete_midweek
-      MICRO: 'M6'
+      MICRO: 'Meso 1 · M6'
       DONE: '2/4'
       NEXT_STATUS: 'Next Training'
-      NEXT_SLOT: 'M6 · D2 · .*'
+      NEXT_SLOT: 'Meso 1 · M6 · D2 · .*'

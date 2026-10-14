@@ -7,10 +7,10 @@ appId: com.powerliftingworkoutplanner
 #
 # Env (pass with runFlow env:):
 #   TAG          screenshot name, e.g. incomplete_midweek
-#   MICRO        expected micro label of the hero card, e.g. M6
+#   MICRO        expected micro label of the hero card, e.g. 'Meso 1 · M6' (full-string regex)
 #   DONE         expected completion ring text, e.g. 2/4
 #   NEXT_STATUS  'Next Training' or 'Training running'
-#   NEXT_SLOT    expected slot line of the next-training card (regex), e.g. 'M6 · D2 · .*'
+#   NEXT_SLOT    expected slot line of the next-training card (regex), e.g. 'Meso 1 · M6 · D2 · .*'
 - launchApp:
     stopApp: false
 - runFlow:
