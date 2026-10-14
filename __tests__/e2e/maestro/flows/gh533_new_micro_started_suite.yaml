@@ -1,0 +1,13 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-533 scenario "new_micro_started": import the matching fixture (pushed with
+# --fixture <run_dir>/fixtures/gh533_new_micro_started.gains), then assert the dashboard.
+- runFlow: 00_import_baseline.yaml
+- runFlow:
+    file: gh533_current_micro.yaml
+    env:
+      TAG: new_micro_started
+      MICRO: 'M7'
+      DONE: '0/4'
+      NEXT_STATUS: 'Training running'
+      NEXT_SLOT: 'M7 · D1 · .*'

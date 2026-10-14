@@ -1,0 +1,13 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-533 scenario "complete_new_week": import the matching fixture (pushed with
+# --fixture <run_dir>/fixtures/gh533_complete_new_week.gains), then assert the dashboard.
+- runFlow: 00_import_baseline.yaml
+- runFlow:
+    file: gh533_current_micro.yaml
+    env:
+      TAG: complete_new_week
+      MICRO: 'M7'
+      DONE: '0/4'
+      NEXT_STATUS: 'Next Training'
+      NEXT_SLOT: 'M7 · D1 · .*'
