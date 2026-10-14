@@ -523,6 +523,11 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-518):** `animateFrom="right"` (the only sane anchor for a right-aligned FAB) renders "New Training +"; `left` grows off-screen. To collapse an extended FAB on scroll keep the plain `FAB` and pass `label={extended ? '…' : undefined}` plus a constant `accessibilityLabel`, so Maestro text selectors still find it collapsed.
 **Apply when:** an extended FAB must shrink to its icon while scrolling.
 
+### Owner-phone layout overflow: reproduce with `font_scale 1.3` on the emulator
+**Observation (GH-522):** the owner's Samsung showed the Finish Training Timer delete button pushed right of the Pause one; at font_scale 1.0 the emulator looked fine. `adb -s $S shell settings put system font_scale 1.3` (then cold-start — see the crash entry below) reproduced it: the row overflowed and the icon sat past the card edge.
+**Fix / Rule:** in a `space-between` row, give the text button `flexShrink: 1`. Paper `Button` labels are `numberOfLines={1}`, so very long labels end in an ellipsis. Paper `Surface` moves `flexShrink` onto an unnamed outer layer, so a jest test cannot read it from `<testID>-container`; use `UNSAFE_getByType(Button).props.style`. Prove the alignment from uiautomator bounds (`__tests__/e2e/scripts/gh522_check_timer_delete_alignment.py`).
+**Apply when:** a layout bug from a real phone doesn't reproduce on the emulator.
+
 ### Bounds checks for in-list header controls via uiautomator
 **Observation:** a `testID` on a plain RN `View` (e.g. `plans-header`) shows up in `uiautomator dump` as `android.view.ViewGroup` with that resource-id, and a Paper `Button` with `testID="x"` exposes its label as `x-text` — enough to prove "inside the header", "header height unchanged" (px / (density/160)) and "label not clipped" from bounds. A control moved from a floating FAB into the scroll content needs `scrollUntilVisible` before every `tapOn` in older flows (smoke, trn004, gh497), or they fail on tall dashboards.
 **Apply when:** replacing a FAB/overlay with an in-flow control, or proving layout claims Maestro can't read. Checker: `__tests__/e2e/scripts/gh518_check_new_training_bounds.py`. (seen in GH-518)
@@ -571,3 +576,11 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### `shallowEqual` over trainings is safe; over workouts only for set edits
 **Observation:** `trainingsReducer` clones every training before changing it (`let training = {...state.byId[id]}`), so `useSelector(…, shallowEqual)` on a mapped list of trainings re-renders on every real change. The workout reducer clones on `ADD_SET` but mutates `FINALIZE_WORKOUT`'s `end` in place.
 **Apply when:** you stabilise a mapped selector. For a value that only feeds a header string, select the formatted primitive instead (`useSelector(s => format(select(s)))`): strings compare by value, so this needs no equality fn. (seen in GH-526 r3)
+### Hero micro label carries the meso prefix even for plans without `mesos`
+**Problem / Symptom:** A flow asserting `id: micro-hero-micro-label` with `text: 'M6'` failed although the screen showed M6. On import the app gives meso-less plans (baseline "Push pull") a default `Meso 1`, so the label reads `Meso 1 · M6`, and Maestro `text:` is a full-string regex.
+**Fix / Rule:** Assert `'Meso 1 · M6'` (and `'Meso 1 · M6 · D2 · .*'` for `next-training-slot`). The ring text is `micro-hero-completion-label` (e.g. `2/4`).
+**Apply when:** asserting the Training home hero or next-training card on a baseline-derived fixture (seen in GH-533).
+
+### Week-relative dashboard scenarios: generate fixtures in UTC for the current week
+**Observation:** "This week"/"new week" states (day strip, GH-533 micro switch) can't be reached with `adb shell date`. `__tests__/testdata/scripts/make_gh533_micro_fixtures.js <baseline> <outDir>` writes four stores whose plan-5 sessions are dated relative to the current Monday (UTC — the emulators run GMT), incl. a STARTED training. A running training's ticking timer on the home card did NOT block Maestro assertions here.
+**Apply when:** you need trainings "this week" vs "last week"; regenerate on the day of the run (seen in GH-533).

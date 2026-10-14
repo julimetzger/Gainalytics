@@ -1,0 +1,41 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-533: the dashboard's "Current micro" only moves on when (a) the first training of
+# the new micro has been started, or (b) the old micro is complete AND a new week began.
+# Runs on an already-imported gh533_* fixture (see gh533_*_suite.yaml and
+# __tests__/testdata/scripts/make_gh533_micro_fixtures.js — regenerate it the same week).
+#
+# Env (pass with runFlow env:):
+#   TAG          screenshot name, e.g. incomplete_midweek
+#   MICRO        expected micro label of the hero card, e.g. 'Meso 1 · M6' (full-string regex)
+#   DONE         expected completion ring text, e.g. 2/4
+#   NEXT_STATUS  'Next Training' or 'Training running'
+#   NEXT_SLOT    expected slot line of the next-training card (regex), e.g. 'Meso 1 · M6 · D2 · .*'
+- launchApp:
+    stopApp: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'micro-hero-card'
+    timeout: 60000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+- assertVisible:
+    id: 'micro-hero-micro-label'
+    text: '${MICRO}'
+- assertVisible:
+    id: 'micro-hero-completion-label'
+    text: '${DONE}'
+- assertVisible:
+    id: 'next-training-status-label'
+    text: '${NEXT_STATUS}'
+- assertVisible:
+    id: 'next-training-slot'
+    text: '${NEXT_SLOT}'
+- takeScreenshot: gh533_${TAG}
