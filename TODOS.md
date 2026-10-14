@@ -162,7 +162,14 @@
   - Zeit zum starten eines maestro flows nach agent start messen -> dokumentiere alle failures
   - Import baseline flow überprüfen- Vermutung: der funktioniert nicht mehr wenn es andere downloads gibt. Der flow findet dann base.gains nicht mehr weil zu weit unten.
 - [ready] [MNT-002](tickets/MNT-002-fgs-mediaprocessing-migration.yaml) Foreground Service von dataSync auf mediaProcessing migrieren — Play-Console-Deklaration entfällt, targetSdk-35-Timeout vermeiden
-  
+
+- [in progress] [GH-524](https://github.com/julimetzger/Gainalytics/issues/524) Open Source Everything — Analyse in PR #529; Entscheidung: AGPL-3.0-or-later + §7, frisches öffentliches Repo als Hauptrepo, Internes in privates ops-Repo
+  - [ready] [GH-535](https://github.com/julimetzger/Gainalytics/issues/535) (1/6) Synthetische Testdaten statt echtem Trainingslog
+  - [ready] [GH-536](https://github.com/julimetzger/Gainalytics/issues/536) (2/6) Private Pfade, Geräteserial und IPs aus Code und Flows entfernen
+  - [ready] [GH-537](https://github.com/julimetzger/Gainalytics/issues/537) (3/6) Repo-Trennung — Orchestrator, Memory, Tickets in privates ops-Repo (nur ohne laufende Worker)
+  - [ready] [GH-538](https://github.com/julimetzger/Gainalytics/issues/538) (4/6) LICENSE (AGPL-3.0), README, Build-Anleitung, CONTRIBUTING, SECURITY, Third-Party-Notices
+  - [ready] [GH-539](https://github.com/julimetzger/Gainalytics/issues/539) (5/6) GitHub CI, Dependabot, Templates, Release-Workflow für signiertes APK
+  - [ready] [GH-540](https://github.com/julimetzger/Gainalytics/issues/540) (6/6) Öffentlichen Snapshot zusammenstellen und prüfen (erst nach 1–5)
 
 ## Low Prio Themen
 
