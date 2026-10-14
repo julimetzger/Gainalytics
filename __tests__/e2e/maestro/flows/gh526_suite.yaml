@@ -12,3 +12,4 @@ appId: com.powerliftingworkoutplanner
 - runFlow: gh526_plan_position.yaml
 - runFlow: gh526_micro_total.yaml
 - runFlow: gh526_micro_plan.yaml
+- runFlow: gh526_under_threshold.yaml
