@@ -175,6 +175,35 @@ describe('GH-526 — training analysis, Train position', () => {
     expect(text(getByTestId(`analysis-muscle-map-row-${Muscles.TRICEPS}-readout`))).toBe('+0.5');
   });
 
+  it('tints a value bar below 60 % of its reference and splits Sets bars into one segment per set', () => {
+    const {getByTestId, queryByTestId} = renderTrain();
+    const row = (muscle: string) => `analysis-muscle-map-row-${muscle}`;
+
+    // Chest 4/3 is above the reference, Quads 0/2 and Glutes 0/1 are far below 60 %
+    expect(getByTestId(`${row(Muscles.CHEST)}-value-bar`)).toBeTruthy();
+    expect(getByTestId(`${row(Muscles.QUADS)}-value-bar-under`).props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({backgroundColor: MD3DarkTheme.colors.tertiary})]),
+    );
+    expect(getByTestId(`${row(Muscles.GLUTES)}-value-bar-under`)).toBeTruthy();
+    expect(queryByTestId(`${row(Muscles.CHEST)}-value-bar-under`)).toBeNull();
+    // 4 chest sets → 3 gaps between the segments
+    expect(getByTestId(`${row(Muscles.CHEST)}-set-segments`).props.children).toHaveLength(3);
+
+    fireEvent.press(getByTestId('analysis-muscle-map-metric-volume'));
+    expect(queryByTestId(`${row(Muscles.CHEST)}-set-segments`)).toBeNull();
+    expect(getByTestId(`${row(Muscles.QUADS)}-value-bar-under`)).toBeTruthy();
+  });
+
+  it('names an unnamed training by its one-based position', () => {
+    const state = baseState();
+    (state.trainingsPlan.byId[1] as any).trainingNames = {};
+    const {getByTestId, getByText} = renderTrain(state);
+
+    expect(getByText('vs last Training 1')).toBeTruthy();
+    fireEvent.press(getByTestId('analysis-compare-last_training_done'));
+    expect(text(getByTestId('analysis-comparison-line'))).toBe('Done vs Micro 1 · Training 1 (done) · Tue 06/10/2026');
+  });
+
   it('expands a tapped muscle into Plan M−1, Plan M, Done M−1, Done M', () => {
     const {getByTestId, queryByTestId} = renderTrain();
     const id = `analysis-muscle-map-row-${Muscles.CHEST}`;
@@ -345,5 +374,26 @@ describe('GH-526 — micro Overview, Plan tab', () => {
   it('stays a clean screen for a micro without planned sets', () => {
     const {getByTestId} = renderWith(<MicroPlanOverview trainingsPlan={plan()} micro={9} />);
     expect(getByTestId('micro-plan-overview-empty')).toBeTruthy();
+  });
+});
+
+describe('GH-526 — micro trainings subscription', () => {
+  it('does not re-render a subscriber on a store change that leaves the micro\'s trainings untouched', () => {
+    const {useAllTrainingsInMicro} = require('../../../../app/redux/Training/use/useAllTrainingsInMicro');
+    let renders = 0;
+    const Probe = () => {
+      renders += 1;
+      useAllTrainingsInMicro(1, 2);
+      return null;
+    };
+    const {store} = renderWith(<Probe />);
+    const before = renders;
+
+    act(() => {
+      store.dispatch({type: 'GH526_UNRELATED_ACTION'});
+      store.dispatch({type: 'SET_LAST_USED_EXERCISE_NOOP'});
+    });
+
+    expect(renders).toBe(before);
   });
 });

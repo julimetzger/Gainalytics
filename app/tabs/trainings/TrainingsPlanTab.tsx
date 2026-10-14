@@ -25,7 +25,9 @@ import {TrainingsState} from '../../models/TrainingsState';
 import {PlanChromeState} from '../../components/Training/plan/PlanTab';
 import {AnalysisDataMode} from '../../components/Training/analyse/AnalysisDataToggle';
 import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
-import {useAllTrainingsInMicro} from '../../redux/Training/use/useAllTrainingsInMicro';
+import {selectAllTrainingsInMicro} from '../../redux/Training/use/useAllTrainingsInMicro';
+import {useSelector} from 'react-redux';
+import {GlobalState} from '../../redux/rootReducer';
 import {formatMicroDateRange} from '../../utils/overview-comparison';
 
 const createDefaultPlanChromeState = (): PlanChromeState => ({
@@ -41,8 +43,8 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   const [trainingInMicro, setTrainingInMicro] = useState(route.params.training ?? 1);
   const training = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);
   // GH-526: the Overview header names the span of the micro's trainings right of its title.
-  const microTrainings = useAllTrainingsInMicro(route.params.trainingsPlan.id!!, micro);
-  const microDateRange = formatMicroDateRange(microTrainings);
+  // Selects the formatted string, not the trainings: a set update or any other store change leaves it equal, so the tab does not re-render.
+  const microDateRange = useSelector((state: GlobalState) => formatMicroDateRange(selectAllTrainingsInMicro(state, route.params.trainingsPlan.id!!, micro)));
   const [rerender, setRerender] = useState(Math.random());
   // PERF-003: only the micro the user is on — and the one it just came from — carries its full content;
   // every other pane shows a light placeholder (title + sub-tab bar). The pane the user leaves keeps its

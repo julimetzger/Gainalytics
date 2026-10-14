@@ -28,6 +28,8 @@ interface MuscleMapBarListProps {
 const BAR_HEIGHT = 16;
 const LABEL_WIDTH = 76;
 const READOUT_WIDTH = 64;
+/** Below this share of its reference a muscle's value bar takes the accent colour — too little done (GH-526 feedback, was 50 % before). */
+export const UNDER_REFERENCE_THRESHOLD = 0.6;
 
 const ratio = (value: number, max: number) => `${Math.max(0, Math.min(1, max > 0 ? value / max : 0)) * 100}%` as const;
 
@@ -55,6 +57,8 @@ const MuscleMapBarList = ({rows, metric, view, hasReference, detailLabels, testI
   const colors = theme.colors as typeof theme.colors & {surfaceContainerHighest?: string; surfaceContainerHigh?: string};
   const track = colors.surfaceContainerHighest ?? theme.colors.elevation?.level3 ?? theme.colors.surfaceVariant;
   const cellBackground = colors.surfaceContainerHigh ?? theme.colors.elevation?.level2 ?? theme.colors.surfaceVariant;
+  // the card's own surface — the gaps between the per-set segments of a Sets bar
+  const segmentGap = (theme.colors as typeof theme.colors & {surfaceContainer?: string}).surfaceContainer ?? theme.colors.elevation?.level1 ?? theme.colors.surfaceVariant;
   const [openMuscle, setOpenMuscle] = useState<string | undefined>(undefined);
 
   const sorted = useMemo(() => sortRows(rows, view, hasReference), [rows, view, hasReference]);
@@ -69,6 +73,10 @@ const MuscleMapBarList = ({rows, metric, view, hasReference, detailLabels, testI
         const id = `${testIDPrefix}-${row.muscleGroupId}`;
         const difference = row.value - row.reference;
         const open = openMuscle === row.muscleGroupId;
+        const underReference = hasReference && row.reference > 0 && row.value < row.reference * UNDER_REFERENCE_THRESHOLD;
+        // Sets: one segment per set across the longer of both bars, like the GH-300 map
+        const segmentSpan = Math.max(row.value, hasReference ? row.reference : 0);
+        const segmentCount = metric === 'sets' && maxTotal > 0 ? Math.max(0, Math.ceil(segmentSpan) - 1) : 0;
 
         let readout = formatMetricValue(row.value, metric);
         let readoutColor = theme.colors.onSurface;
@@ -105,9 +113,16 @@ const MuscleMapBarList = ({rows, metric, view, hasReference, detailLabels, testI
                   <>
                     {hasReference && <View testID={`${id}-reference-bar`} style={[styles.fill, {width: ratio(row.reference, maxTotal), backgroundColor: track, borderRadius: 4}]} />}
                     <View
-                      testID={`${id}-value-bar`}
-                      style={[styles.fill, hasReference ? styles.inset : null, {width: ratio(row.value, maxTotal), backgroundColor: theme.colors.primary, borderRadius: 3}]}
+                      testID={underReference ? `${id}-value-bar-under` : `${id}-value-bar`}
+                      style={[styles.fill, hasReference ? styles.inset : null, {width: ratio(row.value, maxTotal), backgroundColor: underReference ? theme.colors.tertiary : theme.colors.primary, borderRadius: 3}]}
                     />
+                    {segmentCount > 0 && (
+                      <View testID={`${id}-set-segments`} pointerEvents="none" style={[styles.fill, {width: ratio(segmentSpan, maxTotal)}]}>
+                        {Array.from({length: segmentCount}).map((_, i) => (
+                          <View key={i} style={[styles.segmentGap, {left: `${((i + 1) / segmentSpan) * 100}%`, backgroundColor: segmentGap}]} />
+                        ))}
+                      </View>
+                    )}
                     {hasReference && row.reference > 0 && <View style={[styles.marker, {left: ratio(row.reference, maxTotal), backgroundColor: theme.colors.onSurfaceVariant}]} />}
                   </>
                 )}
@@ -186,6 +201,13 @@ const styles = StyleSheet.create({
   inset: {
     top: 3,
     bottom: 3,
+  },
+  segmentGap: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 2,
+    marginLeft: -1,
   },
   marker: {
     position: 'absolute',

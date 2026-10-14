@@ -50,7 +50,7 @@ const doneIdsOf = (trainings: (Training | undefined)[]) => trainings.flatMap((tr
 
 export const trainingNameFor = (trainingsPlan: TrainingsPlan, trainingInMicro: number): string => {
   const explicit = trainingsPlan.trainingNames?.[trainingInMicro];
-  return explicit && explicit.trim().length > 0 ? explicit : `Training ${trainingInMicro + 1}`;
+  return explicit && explicit.trim().length > 0 ? explicit : `Training ${trainingInMicro}`;
 };
 
 /**
