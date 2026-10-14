@@ -130,3 +130,86 @@ export const formatMetricValue = (value: number, metric: MuscleMapMetric): strin
   }
   return `${(Math.round(value * 10) / 10).toFixed(1)}t`;
 };
+
+/**
+ * GH-526 — muscle totals straight from a list of workouts. The muscle map and
+ * the Muscle Overview table below it are fed from the same workout lists, so
+ * both always compare against the same reference.
+ */
+export const aggregateWorkouts = (
+  workouts: Workout[],
+  exercisesById: {[id: number]: Exercise | undefined},
+  metric: MuscleMapMetric,
+): Map<Muscles, number> => {
+  const acc = new Map<Muscles, number>();
+  for (const workout of workouts) {
+    accumulateForExercise(acc, exercisesById[workout.exerciseId], workout, metric);
+  }
+  return acc;
+};
+
+/** The four values a tapped muscle expands to (GH-526): plan / done of the reference period and of this one. */
+export interface MuscleMapDetail {
+  planPrev?: number;
+  planCur?: number;
+  donePrev?: number;
+  doneCur?: number;
+}
+
+export interface MuscleMapDetailSources {
+  planPrev?: Map<Muscles, number>;
+  planCur?: Map<Muscles, number>;
+  donePrev?: Map<Muscles, number>;
+  doneCur?: Map<Muscles, number>;
+}
+
+export interface MuscleCompareRow {
+  muscleGroupId: Muscles;
+  label: string;
+  value: number;
+  reference: number;
+  detail: MuscleMapDetail;
+}
+
+/**
+ * GH-526 — rows of the comparison muscle map. Unlike `buildRows` a muscle that
+ * only the reference carries is kept (a planned muscle that was never trained is
+ * the biggest shortfall of all) unless `subjectOnly` is set — the share view
+ * only lists what the subject itself trains. Sorted by value, biggest first.
+ */
+export const buildCompareRows = (
+  subject: Map<Muscles, number>,
+  reference: Map<Muscles, number> | undefined,
+  details: MuscleMapDetailSources = {},
+  subjectOnly = false,
+): MuscleCompareRow[] => {
+  const muscles = new Set<Muscles>([...subject.keys(), ...(reference && !subjectOnly ? reference.keys() : [])]);
+  const rows: MuscleCompareRow[] = [];
+  for (const muscle of muscles) {
+    const value = subject.get(muscle) ?? 0;
+    const ref = reference?.get(muscle) ?? 0;
+    if (value <= 0 && ref <= 0) continue;
+    if (subjectOnly && value <= 0) continue;
+    const pick = (source?: Map<Muscles, number>) => (source ? source.get(muscle) ?? 0 : undefined);
+    rows.push({
+      muscleGroupId: muscle,
+      label: muscleLabel(muscle),
+      value,
+      reference: ref,
+      detail: {planPrev: pick(details.planPrev), planCur: pick(details.planCur), donePrev: pick(details.donePrev), doneCur: pick(details.doneCur)},
+    });
+  }
+  rows.sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
+  return rows;
+};
+
+/** GH-526 Diff readout: only the signed delta — `+2`, `−1.5`, `±0`, volume with its `t`. */
+export const formatMetricDiff = (difference: number, metric: MuscleMapMetric): string => {
+  const rounded = Math.round(difference * 10) / 10;
+  if (rounded === 0) return '±0';
+  const magnitude = formatMetricValue(Math.abs(rounded), metric);
+  return `${rounded > 0 ? '+' : '−'}${magnitude}`;
+};
+
+/** GH-526 Share readout: the subject as a whole-number percentage of the reference. */
+export const formatShare = (value: number, reference: number): string => (reference > 0 ? `${Math.round((value / reference) * 100)}%` : '–');

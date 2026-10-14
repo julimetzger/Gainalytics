@@ -1,7 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-# GH-417 evidence suite: hydrate the store from the baseline .gains fixture
-# first — every assertion in the flow below is a real fixture value, so an
-# empty store would make the run meaningless.
-- runFlow: 00_import_baseline.yaml
-- runFlow: gh417_analysis_plan_train.yaml

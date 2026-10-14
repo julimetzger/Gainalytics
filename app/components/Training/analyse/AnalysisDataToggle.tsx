@@ -1,6 +1,5 @@
 import React, {useCallback, useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Text, useTheme} from 'react-native-paper';
 import InstantSegmentedButtons from '../../common/InstantSegmentedButtons';
 
 /**
@@ -27,8 +26,6 @@ interface AnalysisDataToggleProps {
  * TouchableRipple — that is the node Maestro taps.
  */
 const AnalysisDataToggle = ({value, onChange}: AnalysisDataToggleProps) => {
-  const theme = useTheme();
-
   const buttons = useMemo(
     () => [
       {
@@ -49,11 +46,10 @@ const AnalysisDataToggle = ({value, onChange}: AnalysisDataToggleProps) => {
 
   const handleValueChange = useCallback((next: string) => onChange(next as AnalysisDataMode), [onChange]);
 
+  // GH-526: sits at the start of the compare chip row, so it is compact and
+  // carries no caption — the line below the chips names what is compared.
   return (
     <View style={styles.row} testID="analysis-data-toggle">
-      <Text variant="labelMedium" style={{color: theme.colors.onSurfaceVariant}}>
-        Show
-      </Text>
       <InstantSegmentedButtons style={styles.group} density="small" value={value} onValueChange={handleValueChange} buttons={buttons} />
     </View>
   );
@@ -63,11 +59,9 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    margin: 8,
-    gap: 8,
   },
   group: {
-    flex: 1,
+    width: 156,
   },
 });
 

@@ -3,50 +3,69 @@ import React, {useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
-import {Workout} from '../../../models/entities/Workout';
-import {Metric} from '../../../models/Metric';
-import {calculateMetricValue} from '../../../utils/AnalyseUtils';
+import {Training} from '../../../models/entities/Training';
 import {useAllTrainingsInMicro} from '../../../redux/Training/use/useAllTrainingsInMicro';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
+import {getLocalMicro, getPreviousMicroInMeso} from '../../../redux/Training/trainingsPlanReducer';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
-import MicroMuscleMapCard from './MicroMuscleMapCard';
-import AnalysisTotalSets from './AnalysisTotalSets';
+import ComparisonKpiCards from '../../analyse/ComparisonKpiCards';
+import MuscleMapCard, {MuscleMapDetails} from '../../analyse/MuscleMapCard';
+import {setsKpi, setsOf, volumeKpi} from '../../../utils/overview-comparison';
 
 interface MicroPlanOverviewProps {
   trainingsPlan: TrainingsPlan;
   micro: number;
 }
 
+const plannedIdsOf = (trainings: Training[]) => trainings.flatMap((training) => (training.plannedWorkouts ? (Object.values(training.plannedWorkouts) as number[]) : []));
+const doneIdsOf = (trainings: Training[]) => trainings.flatMap((training) => (training.doneWorkoutIds ? (Object.values(training.doneWorkoutIds) as number[]) : []));
+
 /**
- * GH-417 / GH-436 — the "Plan" position of the micro OVERVIEW: the planned
- * numbers of the whole micro plus the muscle map of the planned load, both put
- * next to what was actually trained in the micro. GH-417 first rendered this
- * inside the analysis of a single training, where micro-wide totals read as
- * that training's numbers; GH-436 moved it here.
+ * The Plan tab of the micro Overview (GH-417 / GH-436). GH-526: one fixed
+ * comparison — this micro's plan vs the previous micro's plan ("did the plan
+ * progress?"). Done vs plan lives in the Total tab, so there is no compare
+ * selection here.
  *
  * No inner ScrollView here: this renders inside TrainingsPlanNode's scroll
  * container and a nested same-direction ScrollView clips the content (GH-382).
  */
 const MicroPlanOverview = ({trainingsPlan, micro}: MicroPlanOverviewProps) => {
   const theme = useTheme();
+  const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
   const trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
-  const plannedWorkoutIds = trainings.flatMap((training) => (training?.plannedWorkouts ? Object.values(training.plannedWorkouts) : []));
-  const doneWorkoutIds = trainings.flatMap((training) => (training?.doneWorkoutIds ? Object.values(training.doneWorkoutIds) : []));
-  const plannedWorkouts = useWorkoutsByIds(plannedWorkoutIds);
-  const doneWorkouts = useWorkoutsByIds(doneWorkoutIds);
-  const totalPlannedSets = useMemo(() => {
-    const sets = plannedWorkouts.flatMap((workout: Workout) => workout.sets ?? []);
-    return calculateMetricValue(sets, Metric.SETS) ?? 0;
-  }, [plannedWorkouts]);
-  const totalDoneSets = useMemo(() => {
-    const sets = doneWorkouts.flatMap((workout: Workout) => workout.sets ?? []);
-    return calculateMetricValue(sets, Metric.SETS) ?? 0;
-  }, [doneWorkouts]);
+  const previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, previousMicro ?? -1);
+  const planCur = useWorkoutsByIds(useMemo(() => plannedIdsOf(trainings), [trainings]));
+  const doneCur = useWorkoutsByIds(useMemo(() => doneIdsOf(trainings), [trainings]));
+  const planPrev = useWorkoutsByIds(useMemo(() => plannedIdsOf(previousTrainings), [previousTrainings]));
+  const donePrev = useWorkoutsByIds(useMemo(() => doneIdsOf(previousTrainings), [previousTrainings]));
+
+  const localMicro = getLocalMicro(trainingsPlan.mesos, micro);
+  const previousLocalMicro = previousMicro !== undefined ? getLocalMicro(trainingsPlan.mesos, previousMicro) : undefined;
+  const hasReference = previousMicro !== undefined && setsOf(planPrev) > 0;
+  const reference = hasReference ? planPrev : undefined;
+  const subjectLabel = `Plan M${localMicro}`;
+  const referenceLabel = hasReference ? `Plan M${previousLocalMicro}` : undefined;
+  const totalPlannedSets = setsOf(planCur);
+
+  const previousShort = previousLocalMicro !== undefined ? `M${previousLocalMicro}` : '–';
+  const details = useMemo<MuscleMapDetails>(
+    () => ({
+      labels: [`Plan ${previousShort}`, `Plan M${localMicro}`, `Done ${previousShort}`, `Done M${localMicro}`],
+      workouts: [previousMicro !== undefined ? planPrev : undefined, planCur, previousMicro !== undefined ? donePrev : undefined, doneCur],
+    }),
+    [previousShort, localMicro, previousMicro, planPrev, planCur, donePrev, doneCur],
+  );
 
   return (
     <View testID="micro-plan-overview">
-      <AnalysisTotalSets totalSets={totalPlannedSets} scope="planned" />
-      <AnalysisTotalSets totalSets={totalDoneSets} scope="done" testID="analysis-total-sets-done" />
+      <Text testID="micro-plan-comparison-line" variant="titleSmall" style={styles.line}>
+        {referenceLabel ? `${subjectLabel} vs ${referenceLabel}` : subjectLabel}
+      </Text>
+      {!hasReference && totalPlannedSets > 0 && (
+        <Text testID="micro-plan-no-reference" variant="bodySmall" style={[styles.hint, {color: theme.colors.onSurfaceVariant}]}>
+          No reference available — there is no plan of a previous micro in this meso.
+        </Text>
+      )}
       {totalPlannedSets === 0 ? (
         // GH-417 AC6: a micro without planned sets must stay a clean, readable
         // screen — not a blank area and not a table of zeroes.
@@ -55,14 +74,20 @@ const MicroPlanOverview = ({trainingsPlan, micro}: MicroPlanOverviewProps) => {
         </View>
       ) : (
         <View>
+          <ComparisonKpiCards kpis={[setsKpi(planCur, reference), volumeKpi(planCur, reference)]} testIDPrefix="micro-plan" />
           <Stage at={1}>
-            {trainingsPlan.id !== undefined && <MicroMuscleMapCard trainingsPlanId={trainingsPlan.id} micro={micro} />}
-            <Text testID="micro-plan-overview-caption" variant="bodySmall" style={[styles.caption, {color: theme.colors.onSurfaceVariant}]}>
-              Planned values for this micro, differences against what was trained.
-            </Text>
+            <MuscleMapCard
+              testID="micro-plan-muscle-map"
+              subject={planCur}
+              reference={reference}
+              subjectLabel={subjectLabel}
+              referenceLabel={referenceLabel}
+              details={details}
+              emptyText="No planned muscle data for this micro yet."
+            />
           </Stage>
           <Stage at={3}>
-            <MetricsOverviewForWorkouts trainingsWorkouts={plannedWorkouts} previousWorkouts={doneWorkouts} showExercises={false} />
+            <MetricsOverviewForWorkouts trainingsWorkouts={planCur} previousWorkouts={reference ?? []} referenceLabel={referenceLabel} showExercises={false} />
           </Stage>
         </View>
       )}
@@ -75,9 +100,13 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
   },
-  caption: {
-    marginHorizontal: 12,
-    marginTop: 4,
+  line: {
+    marginHorizontal: 13,
+    marginTop: 8,
+  },
+  hint: {
+    marginHorizontal: 13,
+    marginTop: 2,
   },
 });
 

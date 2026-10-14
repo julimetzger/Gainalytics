@@ -13,12 +13,14 @@ interface ExerciseMetricOverviewProps {
   onMetricHeaderPress: (slotIndex: number) => void;
   /** GH-458 (H7): names the period every delta in this table compares against. */
   comparisonRangeLabel?: string;
+  /** GH-526: the full subtitle, when the caller already names its reference. */
+  subtitle?: string;
 }
 
-const ExerciseMetricOverview = ({exerciseMetricMap, metrics, onMetricHeaderPress, comparisonRangeLabel}: ExerciseMetricOverviewProps) => {
+const ExerciseMetricOverview = ({exerciseMetricMap, metrics, onMetricHeaderPress, comparisonRangeLabel, subtitle}: ExerciseMetricOverviewProps) => {
   return (
     <Card style={styles.card}>
-      <Card.Title title="Exercise Overview" subtitle={comparisonRangeLabel ? describeComparisonPeriod(comparisonRangeLabel) : undefined} subtitleNumberOfLines={2} />
+      <Card.Title title="Exercise Overview" subtitle={subtitle ?? (comparisonRangeLabel ? describeComparisonPeriod(comparisonRangeLabel) : undefined)} subtitleNumberOfLines={2} />
       <Card.Content>
         <DataTable>
           <DataTable.Header>

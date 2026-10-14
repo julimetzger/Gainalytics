@@ -25,6 +25,10 @@ import {TrainingsState} from '../../models/TrainingsState';
 import {PlanChromeState} from '../../components/Training/plan/PlanTab';
 import {AnalysisDataMode} from '../../components/Training/analyse/AnalysisDataToggle';
 import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
+import {selectAllTrainingsInMicro} from '../../redux/Training/use/useAllTrainingsInMicro';
+import {useSelector} from 'react-redux';
+import {GlobalState} from '../../redux/rootReducer';
+import {formatMicroDateRange} from '../../utils/overview-comparison';
 
 const createDefaultPlanChromeState = (): PlanChromeState => ({
   mode: 'read',
@@ -38,6 +42,9 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
   const [micro, setMicro] = useState(route.params.micro ?? 1);
   const [trainingInMicro, setTrainingInMicro] = useState(route.params.training ?? 1);
   const training = useTrainingInTrainingsPlan(route.params.trainingsPlan.id!!, micro, trainingInMicro);
+  // GH-526: the Overview header names the span of the micro's trainings right of its title.
+  // Selects the formatted string, not the trainings: a set update or any other store change leaves it equal, so the tab does not re-render.
+  const microDateRange = useSelector((state: GlobalState) => formatMicroDateRange(selectAllTrainingsInMicro(state, route.params.trainingsPlan.id!!, micro)));
   const [rerender, setRerender] = useState(Math.random());
   // PERF-003: only the micro the user is on — and the one it just came from — carries its full content;
   // every other pane shows a light placeholder (title + sub-tab bar). The pane the user leaves keeps its
@@ -141,6 +148,7 @@ const TrainingsPlanTab = ({navigation, route}: Props) => {
           trainingStart={training?.start as any}
           trainingEnd={training?.state === TrainingsState.FINISHED ? (training?.end as any) : undefined}
           planMode={showPlanEditingChrome ? planChromeState.mode : 'read'}
+          dateRange={!showHistory && showDone ? microDateRange : undefined}
           drawerMenu={
             showHistory
               ? <IconButton testID="history-back-icon" icon="arrow-left" iconColor={theme.colors.onSecondaryContainer} onPress={() => setShowHistory(false)} />
