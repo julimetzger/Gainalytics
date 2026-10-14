@@ -70,12 +70,23 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: 'Show that period'
 
 # ------------------------------------------------ H4: before the drill-down
-- assertVisible: 'Tap a muscle group for details'
+- scrollUntilVisible:
+    element: 'Tap a muscle group for details'
+    direction: DOWN
 - takeScreenshot: gh458_10_dashboard_before_drilldown
 
+- scrollUntilVisible:
+    element:
+      id: 'muscle-chip-Back'
+    direction: UP
 - tapOn:
     id: 'muscle-chip-Back'
-# GH-532: the radar label only selects the muscle; Details drills down.
+# GH-532: the radar label only selects the muscle; Details (in the selection
+# strip below the 300 dp chart) drills down.
+- scrollUntilVisible:
+    element:
+      id: 'muscle-radar-details-button'
+    direction: DOWN
 - tapOn:
     id: 'muscle-radar-details-button'
 - waitForAnimationToEnd

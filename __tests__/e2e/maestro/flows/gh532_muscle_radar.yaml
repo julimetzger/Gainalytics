@@ -49,10 +49,17 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'muscle-radar-svg'
     text: 'Radar chart of sets per muscle group, this week vs last week\. Back 9 \(last week 11\), .*Quads 4 \(last week 11\.2\).*'
-- assertVisible: 'Tap a muscle group for details'
 - takeScreenshot: gh532_01_radar_sets
+# The hint sits below the 300 dp chart — off-screen on a phone.
+- scrollUntilVisible:
+    element: 'Tap a muscle group for details'
+    direction: DOWN
 
 # -------------------------------------------------------- select a muscle
+- scrollUntilVisible:
+    element:
+      id: 'muscle-chip-Back'
+    direction: UP
 - tapOn:
     id: 'muscle-chip-Back'
 - scrollUntilVisible:

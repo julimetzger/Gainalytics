@@ -1,0 +1,30 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-532 helper: open Analysis › Dashboard and wait for the muscle radar.
+- launchApp:
+    clearState: false
+    stopApp: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 90000
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 15000
+- tapOn: 'Dashboard'
+- extendedWaitUntil:
+    visible:
+      id: 'muscle-chip-Back'
+    timeout: 30000
