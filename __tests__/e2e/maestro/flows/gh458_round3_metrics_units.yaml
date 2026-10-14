@@ -44,6 +44,9 @@ appId: com.powerliftingworkoutplanner
 - takeScreenshot: gh458_r3_20_dashboard_global_stale_banner
 - tapOn:
     id: 'muscle-chip-Quads'
+# GH-532: the radar label only selects the muscle; Details drills down.
+- tapOn:
+    id: 'muscle-radar-details-button'
 - extendedWaitUntil:
     visible: '1 selected'
     timeout: 60000

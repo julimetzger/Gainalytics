@@ -66,6 +66,9 @@ appId: com.powerliftingworkoutplanner
 # --------------------------------------------------------- drill into Biceps
 - tapOn:
     id: 'muscle-chip-Biceps'
+# GH-532: the radar label only selects the muscle; Details drills down.
+- tapOn:
+    id: 'muscle-radar-details-button'
 - waitForAnimationToEnd
 - extendedWaitUntil:
     visible: '1 selected'

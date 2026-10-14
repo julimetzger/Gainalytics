@@ -75,6 +75,9 @@ appId: com.powerliftingworkoutplanner
 
 - tapOn:
     id: 'muscle-chip-Back'
+# GH-532: the radar label only selects the muscle; Details drills down.
+- tapOn:
+    id: 'muscle-radar-details-button'
 - waitForAnimationToEnd
 
 # ------------------------------------------------- H4: after the drill-down
