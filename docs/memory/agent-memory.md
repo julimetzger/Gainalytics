@@ -562,3 +562,12 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem / Symptom:** the muscle map readout column (`width: 64`, monospace 12sp) showed `10.4/10…` on R5CN30HWZFN. Jest and the design looked fine, and the Maestro `copyTextFrom` still read the full text, so only a screenshot revealed it.
 **Fix / Rule:** give value columns next to a `flex: 1` bar `minWidth`, not `width`, so the bar yields. Always eyeball a screenshot of every new numeric column on the phone (larger font scale than the emulators).
 **Apply when:** row layouts of label | flex bar | numeric readout (seen in GH-526).
+
+### The assigned phone can be missing from `adb devices` altogether — not locked, just not attached
+**Problem / Symptom:** `adb devices` (shared Windows server, also `adb.exe` directly) lists only emulators; `adb -s <phone> …` → `device '<serial>' not found`. This is different from the PIN-locked bouncer case, where the phone is still listed.
+**Fix / Rule:** commit and push the code first. Poll `adb devices | grep "^$ANDROID_SERIAL\s*device"` every 15 s for two non-overlapping ~9-min windows (foreground loop with `timeout` ≤ 580000; a background poll plus a foreground poll overlap and count as one window). Then write `blocked` with "device not attached". Never fall back to a listed emulator; those belong to siblings.
+**Apply when:** the run starts with the assigned real device absent. (seen in GH-526 r3)
+
+### `shallowEqual` over trainings is safe; over workouts only for set edits
+**Observation:** `trainingsReducer` clones every training before changing it (`let training = {...state.byId[id]}`), so `useSelector(…, shallowEqual)` on a mapped list of trainings re-renders on every real change. The workout reducer clones on `ADD_SET` but mutates `FINALIZE_WORKOUT`'s `end` in place.
+**Apply when:** you stabilise a mapped selector. For a value that only feeds a header string, select the formatted primitive instead (`useSelector(s => format(select(s)))`): strings compare by value, so this needs no equality fn. (seen in GH-526 r3)
