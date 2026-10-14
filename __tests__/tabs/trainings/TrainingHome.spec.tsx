@@ -345,6 +345,66 @@ describe('TrainingHome — GH-401 review 2: the card follows the session that is
   });
 });
 
+describe('TrainingHome — GH-533 the current micro only moves on when the user does', () => {
+  const fourDayPlan: TrainingsPlan = {
+    id: 5,
+    name: 'Back to power',
+    trainingNames: {'1': 'Squat', '2': 'Bench', '3': 'Deadlift', '4': 'Upper'},
+    trainings: {'1,1': 51, '1,2': 52, '1,3': 53, '1,4': 54, '2,1': 61, '2,2': 62, '2,3': 63, '2,4': 64},
+  };
+  const ids = [51, 52, 53, 54, 61, 62, 63, 64];
+
+  // Minutes ago → always this week; nine days ago → always an earlier week.
+  const thisWeek = new Date(Date.now() - 60000).toISOString();
+  const lastWeek = new Date(Date.now() - 9 * 86400000).toISOString();
+
+  const withTrainings = (overrides: {[id: number]: object}) =>
+    ids.map(id => ({id, state: TrainingsState.PLANNED, plannedWorkouts: {}, doneWorkoutIds: {}, exercises: [1], ...(overrides[id] ?? {})}));
+  const done = (end: string) => ({state: TrainingsState.FINISHED, start: end, end});
+
+  const renderHome = (lastTraining: number, overrides: {[id: number]: object}) => {
+    const plan = {...fourDayPlan, lastTraining};
+    mockedUseAllTrainingsPlans.mockReturnValue([plan]);
+    mockedUseTrainings.mockReturnValue(withTrainings(overrides));
+    mockState.trainingsPlan.byId = {5: plan};
+    return render(<TrainingHome navigation={{setOptions: jest.fn(), navigate: jest.fn()} as any} route={{params: {}} as any} />);
+  };
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('stays in the incomplete micro mid-week, even when its last day was trained first', () => {
+    const {getByTestId} = renderHome(54, {51: done(thisWeek), 54: done(thisWeek)});
+
+    expect(getByTestId('next-training-slot').props.children).toBe('1:2');
+    expect(getByTestId('plan-meta-5').props.children).toBe('Active · M1 · 2/4');
+  });
+
+  it('moves on once the first training of the new micro has been started', () => {
+    const {getByTestId} = renderHome(54, {
+      51: done(thisWeek),
+      54: done(thisWeek),
+      61: {state: TrainingsState.STARTED, start: thisWeek},
+    });
+
+    expect(getByTestId('next-training-slot').props.children).toBe('2:1');
+    expect(getByTestId('plan-meta-5').props.children).toBe('Active · M2 · 0/4');
+  });
+
+  it('moves on when the old micro is complete and a new week has begun', () => {
+    const {getByTestId} = renderHome(54, {51: done(lastWeek), 52: done(lastWeek), 53: done(lastWeek), 54: done(lastWeek)});
+
+    expect(getByTestId('next-training-slot').props.children).toBe('2:1');
+    expect(getByTestId('plan-meta-5').props.children).toBe('Active · M2 · 0/4');
+  });
+
+  it('keeps the complete micro as current within the same week, with the next micro as next training', () => {
+    const {getByTestId} = renderHome(54, {51: done(thisWeek), 52: done(thisWeek), 53: done(thisWeek), 54: done(thisWeek)});
+
+    expect(getByTestId('plan-meta-5').props.children).toBe('Active · M1 · 4/4');
+    expect(getByTestId('next-training-slot').props.children).toBe('2:1');
+  });
+});
+
 // GH-412: one search entry point only — the header magnifier is gone and the
 // remaining field is the Exercises-tab Searchbar, with unchanged filter behaviour.
 describe('TrainingHome — GH-412 plans search', () => {

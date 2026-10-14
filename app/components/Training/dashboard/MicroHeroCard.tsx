@@ -261,7 +261,8 @@ const MicroHeroCard = ({plan, currentMicro, navigation}: MicroHeroCardProps) => 
             <Text variant="titleMedium" numberOfLines={1} testID="micro-hero-plan-name">
               {trainingsPlanDisplayName(plan.name)}
             </Text>
-            <Text variant="bodySmall" style={{color: theme.colors.primary}}>
+            {/* GH-533: testID so a flow can assert which micro the dashboard calls current. */}
+            <Text variant="bodySmall" style={{color: theme.colors.primary}} testID="micro-hero-micro-label">
               {mesoLabel}M{localMicro}
             </Text>
           </View>
