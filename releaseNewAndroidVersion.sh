@@ -1,13 +1,24 @@
 #!/bin/bash
 
-androidBundlePassword=$1
-
-if [ -z "$androidBundlePassword" ]; then
-    echo "Usage: ./releaseNewAndroidVersion.sh <androidReleaseStorePassword>"
+# The keystore password is never taken as an argument (it would end up in the
+# shell history and the process list). Either pre-set ANDROID_RELEASE_PASSWORD
+# in the environment or enter it at the hidden prompt.
+if [ $# -gt 0 ]; then
+    echo "Usage: ./releaseNewAndroidVersion.sh  (the password is prompted for, not passed as an argument)"
     exit 1
 fi
 
-export ANDROID_RELEASE_PASSWORD=$androidBundlePassword
+if [ -z "$ANDROID_RELEASE_PASSWORD" ]; then
+    read -r -s -p "Android release keystore password: " ANDROID_RELEASE_PASSWORD
+    echo
+fi
+
+if [ -z "$ANDROID_RELEASE_PASSWORD" ]; then
+    echo "No password given, aborting."
+    exit 1
+fi
+
+export ANDROID_RELEASE_PASSWORD
 echo 'start release'
 set -e
 git pull --rebase
