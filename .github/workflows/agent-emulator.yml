@@ -214,7 +214,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-${{ env.API_LEVEL }}-${{ env.AVD_TARGET }}-${{ env.AVD_ARCH }}-v1
+          key: avd-${{ env.API_LEVEL }}-${{ env.AVD_TARGET }}-${{ env.AVD_ARCH }}-v2
 
       - name: Create AVD and snapshot (cache miss only)
         if: steps.avd-cache.outputs.cache-hit != 'true'
@@ -223,6 +223,7 @@ jobs:
           api-level: ${{ env.API_LEVEL }}
           target: ${{ env.AVD_TARGET }}
           arch: ${{ env.AVD_ARCH }}
+          profile: pixel_6
           ram-size: 3072M
           disk-size: 6G
           force-avd-creation: false
@@ -237,7 +238,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-${{ env.API_LEVEL }}-${{ env.AVD_TARGET }}-${{ env.AVD_ARCH }}-v1
+          key: avd-${{ env.API_LEVEL }}-${{ env.AVD_TARGET }}-${{ env.AVD_ARCH }}-v2
 
       - name: Mark emulator start
         run: echo "EMULATOR_STEP_START=$(date +%s)" >> "$GITHUB_ENV"
@@ -250,6 +251,7 @@ jobs:
           api-level: ${{ env.API_LEVEL }}
           target: ${{ env.AVD_TARGET }}
           arch: ${{ env.AVD_ARCH }}
+          profile: pixel_6
           ram-size: 3072M
           disk-size: 6G
           force-avd-creation: false
@@ -428,16 +430,23 @@ jobs:
           fi
           branch="agent/emulator-$(echo "${TICKET}" | tr '[:upper:]' '[:lower:]')-${GITHUB_RUN_ID}"
           git push origin "agent-tmp:refs/heads/${branch}"
+          echo "::notice title=agent branch::${branch}"
           title="$(head -1 "$R/pr-title.txt" 2>/dev/null || true)"
           [[ -n "${title}" ]] || title="${TICKET}: emulator agent run ${GITHUB_RUN_ID}"
           body="$(cat "$R/pr-body.md" 2>/dev/null || echo "(agent wrote no PR body)")"
           body="${body//\{\{REPO\}\}/${REPO}}"
           body="${body//\{\{BRANCH\}\}/${branch}}"
           body="$(printf '%s\n\n---\nOpened by the emulator agent workflow ([run](%s)). Evidence artifact: `agent-emulator-evidence`.\n' "${body}" "${RUN_URL}")"
-          url="$(jq -n --arg t "${title}" --arg h "${branch}" --arg b "${BASE_REF}" --arg body "${body}" \
+          compare="${GITHUB_SERVER_URL}/${REPO}/compare/${BASE_REF}...${branch}?expand=1"
+          if ! url="$(jq -n --arg t "${title}" --arg h "${branch}" --arg b "${BASE_REF}" --arg body "${body}" \
             '{title:$t, head:$h, base:$b, body:$body, draft:true}' \
-            | gh api "repos/${REPO}/pulls" --input - --jq .html_url)"
-          echo "Draft PR: ${url}"
+            | gh api "repos/${REPO}/pulls" --input - --jq .html_url 2>"$RUNNER_TEMP/pr.err")"; then
+            err="$(tr '\n' ' ' < "$RUNNER_TEMP/pr.err" | cut -c1-500)"
+            echo "::error title=draft PR not created::Branch ${branch} was pushed, but creating the PR failed: ${err} -- open it manually: ${compare}"
+            echo "Branch pushed: ${branch} -- PR creation failed, open manually: ${compare}" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "::notice title=draft PR::${url}"
           echo "Draft PR: ${url}" >> "$GITHUB_STEP_SUMMARY"
           if [[ -n "${ISSUE}" ]]; then
             gh api "repos/${REPO}/issues/${ISSUE}/comments" -f body="Emulator agent opened draft PR ${url} ([run](${RUN_URL}))." >/dev/null
