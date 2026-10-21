@@ -24,9 +24,6 @@ name: Release
 
 on:
   push:
-    # TEMPORARY (GH-539): proves the signed build with a test keystore before workflow_dispatch is
-    # available on the default branch. Remove before merging.
-    branches: [feature/GH-539]
     tags:
       - '[0-9]+.[0-9]+'
       - '[0-9]+.[0-9]+.[0-9]+'
@@ -50,9 +47,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      # Throw-away key for manual dry runs and for branch pushes (only possible while a temporary
-      # branch trigger is configured above); tags always use the real key from the secrets.
-      USE_TEST_KEYSTORE: ${{ (github.event_name == 'workflow_dispatch' && inputs.test_keystore) || (github.event_name == 'push' && github.ref_type == 'branch') }}
+      # Throw-away key for manual dry runs; tags always use the real key from the secrets.
+      USE_TEST_KEYSTORE: ${{ github.event_name == 'workflow_dispatch' && inputs.test_keystore }}
     outputs:
       publish: ${{ steps.mode.outputs.publish }}
     steps:
