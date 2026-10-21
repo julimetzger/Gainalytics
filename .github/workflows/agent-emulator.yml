@@ -3,7 +3,6 @@
 # Triggers (owner/collaborators only, never from forks):
 #   - workflow_dispatch: issue number and/or free task text, or smoke test only
 #   - label `agent:emulator` on an issue
-#   - TEMPORARY push trigger on feature/GH-545 for testing (see docs/agent-emulator.md)
 #
 # Jobs:
 #   emulator  build debug APK (embedded JS bundle, no Metro needed), boot emulator,
@@ -31,14 +30,6 @@ on:
         default: false
   issues:
     types: [labeled]
-  # TEMPORARY (GH-545 testing): workflow_dispatch only works from the default branch.
-  # Smoke mode by default; a commit message containing [agent-emulator:agent] runs the
-  # built-in dummy agent task. Remove before merge.
-  push:
-    branches: [feature/GH-545]
-    paths:
-      - ".github/workflows/agent-emulator.yml"
-      - ".github/agent-emulator/**"
 
 permissions: {}
 
@@ -86,7 +77,6 @@ jobs:
           IN_SMOKE: ${{ inputs.smoke_only }}
           LABEL_ISSUE: ${{ github.event.issue.number }}
           ISSUE_AUTHOR_ASSOC: ${{ github.event.issue.author_association }}
-          HEAD_MSG: ${{ github.event.head_commit.message }}
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
@@ -103,6 +93,8 @@ jobs:
             workflow_dispatch)
               issue="${IN_ISSUE}"
               if [[ "${IN_SMOKE}" == "true" ]]; then mode="smoke"; fi
+              # Built-in harmless dummy task (.github/agent-emulator/test-task.md) to test the pipeline.
+              if [[ "${IN_TASK}" == "dummy" ]]; then mode="agent-test"; fi
               if [[ "${mode}" == "agent" && -z "${issue}" && -z "${IN_TASK}" ]]; then
                 echo "::error::Give an issue number or a task text (or choose smoke_only)"; exit 1
               fi
@@ -111,10 +103,6 @@ jobs:
               issue="${LABEL_ISSUE}"
               case "${ISSUE_AUTHOR_ASSOC}" in OWNER|MEMBER|COLLABORATOR) ;; *)
                 echo "::error::Issue author is not owner/collaborator (${ISSUE_AUTHOR_ASSOC})"; exit 1 ;; esac
-              ;;
-            push)
-              mode="smoke"
-              if [[ "${HEAD_MSG}" == *"[agent-emulator:agent]"* ]]; then mode="agent-test"; fi
               ;;
           esac
           if [[ -n "${issue}" && ! "${issue}" =~ ^[0-9]+$ ]]; then echo "::error::Invalid issue number"; exit 1; fi
@@ -279,7 +267,7 @@ jobs:
             gh api "repos/${REPO}/issues/${ISSUE}" --jq '"## Issue #\(.number): \(.title)\n\n\(.body // "")"' >> "$f"
             echo -e "\nAdd \`Closes #${ISSUE}\` to the PR body if the issue is fully done." >> "$f"
           fi
-          if [[ -n "${IN_TASK}" ]]; then
+          if [[ -n "${IN_TASK}" && "${MODE}" != "agent-test" ]]; then
             printf '\n## Additional instructions\n\n%s\n' "${IN_TASK}" >> "$f"
           fi
           wc -c "$f"

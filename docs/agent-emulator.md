@@ -19,10 +19,12 @@ Only users with write access (owner/collaborators) can start it; forks never run
 
   Inputs: `issue_number` (optional), `task` (free text, optional — one of the two is required),
   `smoke_only` (emulator + app + Maestro flow, no agent, no secret needed).
-- **Test trigger (temporary):** a push to `feature/GH-545` that touches the workflow or
-  `.github/agent-emulator/` runs smoke mode; a commit message containing `[agent-emulator:agent]`
-  runs the built-in dummy task (`.github/agent-emulator/test-task.md`). Remove the `push:` block
-  before/after merging.
+- **Pipeline test:** dispatch with `task=dummy` runs a harmless built-in task
+  (`.github/agent-emulator/test-task.md`: add one empty-state Maestro flow + screenshot, no app code).
+  The resulting draft PR must not be merged.
+
+During development of GH-545 a temporary `push` trigger on `feature/GH-545` was used (dispatch only works
+from the default branch); it has been removed.
 
 ## Secret and environment
 
@@ -32,6 +34,10 @@ Only users with write access (owner/collaborators) can start it; forks never run
   *Add environment secret* → name `CLAUDE_CODE_OAUTH_TOKEN`. An API key would work too
   (`anthropic_api_key` input of the action, secret `ANTHROPIC_API_KEY`), but is billed per token.
 - Do not add *Required reviewers* to the environment, otherwise every run waits for approval.
+- **Required repo setting for the draft PR:** Settings → Actions → General → Workflow permissions →
+  enable *Allow GitHub Actions to create and approve pull requests*. Without it the publish job still pushes
+  the `agent/emulator-*` branch but fails with `GitHub Actions is not permitted to create or approve pull
+  requests (HTTP 403)`; the error annotation contains a compare link to open the PR by hand.
 - The workflow only logs whether the secret is non-empty, never its value.
 
 ## What happens in a run
@@ -71,18 +77,27 @@ Flows that need imported data cannot run here yet.
 
 ## Runtime and minutes
 
-See the measured numbers in the PR of GH-545 (smoke and agent run). Rough budget per run on the
-standard private runner (2 vCPU, 7 GB, 1× minute multiplier for Linux):
+Measured on the standard private runner (`ubuntu-latest`, 2 vCPU / 7 GB, Linux minute multiplier 1×):
 
-| Phase | Minutes (approx.) |
-|---|---|
-| Setup + `npm ci` | 3–4 |
-| Gradle `assembleDebug` x86_64 (cold / warm cache) | 12–20 / 5–8 |
-| AVD create + snapshot (first run only) | 4–6 |
-| Emulator boot + install + Maestro smoke flow | 4–8 |
-| Agent (depends on task, hard limit 45) | 10–45 |
+| Phase | Run 1 (smoke, cold caches) | Run 2 (agent test) | Run 3 (agent test, pixel_6) |
+|---|---|---|---|
+| Setup + `npm ci` | 1:10 | ~1:30 | ~1:30 |
+| Gradle `assembleDebug` x86_64 | 23:22 | 19:24 | 15:49 |
+| AVD create + snapshot | 2:14 (first run only) | from cache | new cache key, ~2:30 |
+| Emulator start until `boot_completed` | 81 s | 81 s | 44 s |
+| Install + cold start + Maestro `smoke.yaml` | flow 63 s | flow ~60 s | flow 52 s |
+| Second boot for the agent | – | 27 s | 36 s |
+| Claude Code agent (dummy task) | – | 4:45 (24 turns) | 3:21 (22 turns) |
+| **`emulator` job total** | **31 min** | **33 min** | **32 min** |
 
-- Smoke only: ~20–30 min per run. Agent run: ~35–80 min.
-- Private repo, GitHub Free: 2,000 Linux minutes/month included → roughly 25–50 agent runs.
-- Public repo: standard runners are free and have 4 vCPU / 16 GB, so the emulator and Gradle are noticeably faster.
-- Claude usage counts against the subscription's limits (OAuth token), not against GitHub minutes.
+The `publish` job takes < 1 min.
+
+- The Gradle build dominates: even with the Gradle cache warm it recompiles the native (CMake / New Architecture)
+  parts. A real ticket will spend 10–40 min in the agent step, so expect **35–75 min per agent run** and
+  ~30 min per smoke run.
+- Private repo, GitHub Free: 2,000 Linux minutes/month → roughly 25–50 agent runs. GitHub Pro: 3,000.
+- Public repo: standard runners are free and have 4 vCPU / 16 GB; the build should roughly halve.
+- Claude usage counts against the subscription limits (OAuth token), not against GitHub minutes.
+- Hard limits: `emulator` job 110 min (build step 45, smoke 30, agent boot 15, Claude 45), `publish` job 10 min.
+- Ideas to cut minutes: cache `android/app/.cxx` + `android/app/build/intermediates` keyed on native deps,
+  or reuse the APK artifact from CI (#539) when only JS changed and let the agent use Metro.
