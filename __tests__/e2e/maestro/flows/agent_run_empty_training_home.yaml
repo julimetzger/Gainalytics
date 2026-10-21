@@ -1,0 +1,16 @@
+appId: com.powerliftingworkoutplanner
+---
+# AGENT-RUN (GH-545 test run): empty store, Training home shows its empty state.
+- launchApp:
+    appId: com.powerliftingworkoutplanner
+    clearState: false
+- runFlow: gh497_dismiss_onboarding.yaml
+- tapOn: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "training-home-screen"
+    timeout: 60000
+- assertVisible: "New Training"
+- assertVisible: "Search plans"
+- assertVisible:
+    id: "add-trainings-plan"
