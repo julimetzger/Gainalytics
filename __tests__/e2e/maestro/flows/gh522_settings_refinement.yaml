@@ -40,7 +40,7 @@ name: GH-522 Settings refinement
     id: "^settings-palette-purple-preview$"
 - assertVisible:
     id: "^settings-pause-timer-text$"
-    text: "Pause Timer: 0h 3m 0s"
+    text: "Rest Timer: 0h 3m 0s"
 - assertVisible:
     id: "^settings-finish-training-timer-text$"
     text: "Finish Training Timer: 0h 20m 0s"
@@ -65,7 +65,7 @@ name: GH-522 Settings refinement
 - assertNotVisible: "Custom Color"
 - assertVisible:
     id: "^settings-pause-timer-text$"
-    text: "Pause Timer: 0h 3m 0s"
+    text: "Rest Timer: 0h 3m 0s"
 - assertVisible:
     id: "^settings-finish-training-timer-text$"
     text: "Finish Training Timer: 0h 20m 0s"

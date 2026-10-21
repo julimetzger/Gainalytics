@@ -7,7 +7,7 @@ import {canScheduleExactAlarms} from '../../../utils/NotificationUtils';
 function createChannel() {
   return notifee.createChannel({
     id: 'gainalytics_pause_done',
-    name: 'Gainalytics pause done',
+    name: 'Gainalytics rest done',
     importance: AndroidImportance.HIGH,
   });
 }
@@ -40,7 +40,7 @@ export const PauseDoneNotification = () => {
     await notifee.createTriggerNotification(
       {
         id: notificationIdRef.current,
-        title: 'Pause done!',
+        title: 'Rest done!',
         body: 'Time to start the next set!',
         android: {
           channelId,

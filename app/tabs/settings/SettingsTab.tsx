@@ -394,7 +394,7 @@ const SettingsTab = ({navigation, route}: Props) => {
             />
           </View>
         )}
-        <TimeRangePicker setPauseTimer={setPauseTimer} title={'Pause Timer: '} testID="settings-pause-timer" timeRange={settings.restTimer?.userDefaultSeconds ?? settings.localNotification?.pauseTimerInSeconds} />
+        <TimeRangePicker setPauseTimer={setPauseTimer} title={'Rest Timer: '} testID="settings-pause-timer" timeRange={settings.restTimer?.userDefaultSeconds ?? settings.localNotification?.pauseTimerInSeconds} />
         <TimeRangePicker setPauseTimer={setFinishTrainingTimer} title={'Finish Training Timer: '} testID="settings-finish-training-timer" timeRange={settings.localNotification?.finishTrainingTimerInSeconds} />
       </SettingsSection>
 

@@ -475,6 +475,16 @@ describe('SettingsTab', () => {
     expect(queryByText('Enable Dark Mode')).toBeNull();
   });
 
+  it('labels the rest timer setting "Rest Timer", not "Pause Timer" (GH-543)', () => {
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
+    const route = {params: {}};
+
+    const {getByText, queryByText} = render(<SettingsTab navigation={navigation as any} route={route as any} />);
+
+    expect(getByText('Rest Timer: ')).toBeTruthy();
+    expect(queryByText('Pause Timer: ')).toBeNull();
+  });
+
   it('imports data through the dialog and dispatches full import', async () => {
     const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
     const route = {params: {}};
