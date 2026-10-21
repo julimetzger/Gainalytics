@@ -1,0 +1,198 @@
+{
+  "$comment": "Hand-maintained third-party components that npm/Gradle metadata does not describe (bundled assets, vendored native code, proprietary libraries). Read by generate.js. Keep entries factual and point to the upstream source of the license statement.",
+  "components": [
+    {
+      "name": "Plate-tracker detection model (outer_plate_yolo26n_float32.tflite)",
+      "files": ["android/app/src/main/assets/models/outer_plate_yolo26n_float32.tflite", "outer-plate-tracker/best_float32.tflite", "outer-plate-tracker/best_int8.tflite"],
+      "shipped": "Bundled in the APK (float32 variant); the outer-plate-tracker/ copies are kept in the repository only.",
+      "license": "AGPL-3.0",
+      "copyright": "Model architecture and export tooling: Ultralytics (YOLO26n, exported with Ultralytics 8.4.21). Trained weights: Gainalytics contributors.",
+      "source": "https://github.com/ultralytics/ultralytics",
+      "notes": "The embedded metadata.json of the .tflite file declares \"license\": \"AGPL-3.0 License (https://ultralytics.com/license)\". This is the reason Gainalytics as a whole is licensed under AGPL-3.0-or-later. The full AGPL-3.0 text is in LICENSE."
+    },
+    {
+      "name": "MMKV core (vendored by react-native-mmkv)",
+      "files": ["node_modules/react-native-mmkv/MMKV/Core/"],
+      "shipped": "Compiled into the native library of the APK.",
+      "license": "BSD-3-Clause",
+      "copyright": "Copyright (C) 2018 THL A29 Limited, a Tencent company. All rights reserved.",
+      "source": "https://github.com/Tencent/MMKV",
+      "notes": "Contains code under further licenses, listed as separate entries below (OpenSSL AES, zlib CRC32)."
+    },
+    {
+      "name": "OpenSSL AES implementation (inside MMKV core)",
+      "files": ["node_modules/react-native-mmkv/MMKV/Core/aes/openssl/"],
+      "shipped": "Compiled into the native library of the APK.",
+      "license": "OpenSSL",
+      "copyright": "Copyright 1995-2018 The OpenSSL Project Authors. All Rights Reserved.",
+      "source": "https://www.openssl.org/source/license.html",
+      "notes": "This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit (http://www.openssl.org/)."
+    },
+    {
+      "name": "zlib CRC32 (inside MMKV core)",
+      "files": ["node_modules/react-native-mmkv/MMKV/Core/crc32/zlib/"],
+      "shipped": "Compiled into the native library of the APK.",
+      "license": "Zlib",
+      "copyright": "Copyright (C) 1995-2016 Jean-loup Gailly, Mark Adler",
+      "source": "https://zlib.net/"
+    },
+    {
+      "name": "Notifee core (app.notifee:core, prebuilt AAR shipped inside @notifee/react-native)",
+      "files": ["node_modules/@notifee/react-native/android/libs/app/notifee/core/"],
+      "shipped": "Linked into the APK.",
+      "license": "Apache-2.0",
+      "copyright": "Copyright (c) 2016-present Invertase Limited",
+      "source": "https://github.com/invertase/notifee"
+    },
+    {
+      "name": "Google Play services Tasks API (com.google.android.gms:play-services-tasks)",
+      "files": [],
+      "shipped": "Linked into the APK as a transitive dependency of Notifee core.",
+      "license": "LicenseRef-Android-SDK",
+      "copyright": "Copyright Google LLC",
+      "source": "https://developer.android.com/studio/terms",
+      "notes": "Proprietary library distributed under the Android Software Development Kit License Agreement. It is NOT covered by the AGPL; linking it is permitted by the additional permission under AGPL section 7 in LICENSE."
+    }
+  ],
+  "iconFonts": {
+    "$comment": "All 19 TTFs of react-native-vector-icons are copied into the APK because android/app/build.gradle applies fonts.gradle without restricting iconFontNames.",
+    "package": "react-native-vector-icons",
+    "fonts": [
+      {
+        "file": "AntDesign.ttf",
+        "name": "Ant Design Icons",
+        "license": "MIT",
+        "copyright": "Copyright (c) 2018-present Ant UED",
+        "source": "https://github.com/ant-design/ant-design-icons"
+      },
+      {
+        "file": "Entypo.ttf",
+        "name": "Entypo",
+        "license": "CC-BY-SA-4.0",
+        "copyright": "Entypo pictograms by Daniel Bruce (http://www.entypo.com)",
+        "source": "https://github.com/hypermodules/entypo"
+      },
+      {
+        "file": "EvilIcons.ttf",
+        "name": "Evil Icons",
+        "license": "MIT",
+        "copyright": "Copyright (c) 2014 Alexander Madyankin, Roman Shamin",
+        "source": "https://github.com/evil-icons/evil-icons"
+      },
+      {
+        "file": "Feather.ttf",
+        "name": "Feather",
+        "license": "MIT",
+        "copyright": "Copyright (c) 2013-2023 Cole Bemis",
+        "source": "https://github.com/feathericons/feather"
+      },
+      {
+        "file": "FontAwesome.ttf",
+        "name": "Font Awesome 4.7",
+        "license": "OFL-1.1",
+        "copyright": "Copyright Dave Gandy 2016 (Font Awesome by Dave Gandy - http://fontawesome.io)",
+        "source": "https://github.com/FortAwesome/Font-Awesome/tree/v4.7.0"
+      },
+      {
+        "file": "FontAwesome5_Brands.ttf",
+        "name": "Font Awesome 5 Free (Brands)",
+        "license": "OFL-1.1 AND CC-BY-4.0",
+        "copyright": "Copyright (c) Fonticons, Inc. (https://fontawesome.com)",
+        "source": "https://fontawesome.com/license/free"
+      },
+      {
+        "file": "FontAwesome5_Regular.ttf",
+        "name": "Font Awesome 5 Free (Regular)",
+        "license": "OFL-1.1 AND CC-BY-4.0",
+        "copyright": "Copyright (c) Fonticons, Inc. (https://fontawesome.com)",
+        "source": "https://fontawesome.com/license/free"
+      },
+      {
+        "file": "FontAwesome5_Solid.ttf",
+        "name": "Font Awesome 5 Free (Solid)",
+        "license": "OFL-1.1 AND CC-BY-4.0",
+        "copyright": "Copyright (c) Fonticons, Inc. (https://fontawesome.com)",
+        "source": "https://fontawesome.com/license/free"
+      },
+      {
+        "file": "FontAwesome6_Brands.ttf",
+        "name": "Font Awesome 6 Free (Brands)",
+        "license": "OFL-1.1 AND CC-BY-4.0",
+        "copyright": "Copyright (c) Fonticons, Inc. (https://fontawesome.com)",
+        "source": "https://fontawesome.com/license/free"
+      },
+      {
+        "file": "FontAwesome6_Regular.ttf",
+        "name": "Font Awesome 6 Free (Regular)",
+        "license": "OFL-1.1 AND CC-BY-4.0",
+        "copyright": "Copyright (c) Fonticons, Inc. (https://fontawesome.com)",
+        "source": "https://fontawesome.com/license/free"
+      },
+      {
+        "file": "FontAwesome6_Solid.ttf",
+        "name": "Font Awesome 6 Free (Solid)",
+        "license": "OFL-1.1 AND CC-BY-4.0",
+        "copyright": "Copyright (c) Fonticons, Inc. (https://fontawesome.com)",
+        "source": "https://fontawesome.com/license/free"
+      },
+      {
+        "file": "Fontisto.ttf",
+        "name": "Fontisto",
+        "license": "MIT",
+        "copyright": "Copyright (c) 2017 Fontisto (@kenangundogan)",
+        "source": "https://github.com/kenangundogan/fontisto"
+      },
+      {
+        "file": "Foundation.ttf",
+        "name": "Foundation Icon Fonts 3",
+        "license": "MIT",
+        "copyright": "Copyright ZURB, Inc.",
+        "source": "https://zurb.com/playground/foundation-icon-fonts-3",
+        "notes": "Upstream does not ship a license file; MIT is the license stated by ZURB for its Foundation projects. Verify before relying on it, or drop the font via iconFontNames."
+      },
+      {
+        "file": "Ionicons.ttf",
+        "name": "Ionicons",
+        "license": "MIT",
+        "copyright": "Copyright (c) 2015-present Ionic (http://ionic.io/)",
+        "source": "https://github.com/ionic-team/ionicons"
+      },
+      {
+        "file": "MaterialCommunityIcons.ttf",
+        "name": "Material Design Icons (Pictogrammers)",
+        "license": "Apache-2.0",
+        "copyright": "Copyright (c) Pictogrammers (https://pictogrammers.com)",
+        "source": "https://github.com/Templarian/MaterialDesign",
+        "notes": "Pictogrammers Free License: web and desktop fonts are distributed under Apache-2.0."
+      },
+      {
+        "file": "MaterialIcons.ttf",
+        "name": "Material Icons",
+        "license": "Apache-2.0",
+        "copyright": "Copyright 2018 Google, Inc.",
+        "source": "https://github.com/google/material-design-icons"
+      },
+      {
+        "file": "Octicons.ttf",
+        "name": "Octicons",
+        "license": "MIT",
+        "copyright": "Copyright (c) GitHub Inc.",
+        "source": "https://github.com/primer/octicons"
+      },
+      {
+        "file": "SimpleLineIcons.ttf",
+        "name": "Simple Line Icons",
+        "license": "MIT",
+        "copyright": "Copyright (c) 2016 Sabbir Ahmed & All Contributors",
+        "source": "https://github.com/thesabbir/simple-line-icons"
+      },
+      {
+        "file": "Zocial.ttf",
+        "name": "Zocial",
+        "license": "MIT",
+        "copyright": "Copyright (c) 2011-2020 Sam Collins (@smcllns) and contributors",
+        "source": "https://github.com/smcllns/css-social-buttons"
+      }
+    ]
+  }
+}
