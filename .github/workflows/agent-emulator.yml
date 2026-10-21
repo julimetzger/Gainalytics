@@ -133,7 +133,7 @@ jobs:
           TOKEN_PRESENT: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
           MODE: ${{ steps.mode.outputs.mode }}
         run: |
-          echo "CLAUDE_CODE_OAUTH_TOKEN set: ${TOKEN_PRESENT}"
+          echo "::notice title=secret::CLAUDE_CODE_OAUTH_TOKEN set: ${TOKEN_PRESENT}"
           if [[ "${MODE}" != "smoke" && "${TOKEN_PRESENT}" != "true" ]]; then
             echo "::error::Secret CLAUDE_CODE_OAUTH_TOKEN is empty or missing in environment 'gainalytics'"
             exit 1
@@ -333,6 +333,10 @@ jobs:
               jq -r '[.[] | select(.type=="result")] | last | "turns: \(.num_turns // "?"), duration: \((.duration_ms // 0)/1000|floor)s\n\n\(.result // "")"' "${EXEC_FILE}" || true
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "${EXEC_FILE}" && -f "${EXEC_FILE}" ]]; then
+            msg="$(jq -r '[.[] | select(.type=="result")] | last | "conclusion=\(.subtype // "?") turns=\(.num_turns // "?") duration_s=\((.duration_ms // 0)/1000|floor) | \(.result // "" | .[0:600])"' "${EXEC_FILE}" | tr '\n' ' ')"
+            echo "::notice title=agent::${msg}"
+          fi
           .github/agent-emulator/tool.sh screenshot agent-final || true
           .github/agent-emulator/tool.sh logcat agent || true
 
@@ -343,7 +347,7 @@ jobs:
           BASE: ${{ steps.mode.outputs.base_sha }}
         run: |
           n="$(git rev-list --count "${BASE}..HEAD")"
-          echo "agent commits: ${n}"
+          echo "::notice title=agent commits::${n} $(git log --format=%s "${BASE}..HEAD" | tr '\n' ';')"
           git log --oneline "${BASE}..HEAD" || true
           if [[ "${n}" -gt 0 ]]; then
             mkdir -p "$RUNNER_TEMP/agent-result"
@@ -359,6 +363,11 @@ jobs:
         if: always()
         run: |
           [[ -f .agent-run/timings.txt ]] && { echo '### Timings'; echo '```'; cat .agent-run/timings.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY" || true
+          # Annotations are readable through the checks API even where log downloads are not.
+          [[ -f .agent-run/timings.txt ]] && echo "::notice title=timings::$(tr '\n' ' ' < .agent-run/timings.txt)" || true
+          for r in .agent-run/maestro/*/report.xml; do
+            [[ -f "$r" ]] && echo "::notice title=maestro $(basename "$(dirname "$r")")::$(grep -o '<testsuite [^>]*>' "$r" | head -1 | grep -oE '(tests|failures|errors|time)="[^"]*"' | tr '\n' ' ')" || true
+          done
           [[ -f "$RUNNER_TEMP/emulator.log" ]] && tail -50 "$RUNNER_TEMP/emulator.log" > .agent-run/emulator-agent.log || true
 
       - name: Upload evidence
