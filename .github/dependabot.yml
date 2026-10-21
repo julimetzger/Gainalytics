@@ -1,0 +1,70 @@
+# Weekly, grouped dependency updates.
+#
+# patch-package: patches/ contains patches for exact package versions
+# (react-native-document-picker, react-native-draggable-flatlist, react-native-modal,
+# sharingan-rn-modal-dropdown). `npm ci` runs `patch-package` in postinstall and FAILS when a
+# patched package is bumped and the patch no longer applies. Those packages are therefore kept
+# out of the groups below so each bump arrives as its own PR. For such a PR: install it locally,
+# re-apply the change, run `npx patch-package <name>`, delete the old patch file, and commit the
+# new one to the Dependabot branch (or drop the patch if upstream fixed the issue).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels: [dependencies]
+    ignore:
+      # react-native and its tightly coupled packages are upgraded manually
+      # (React Native Upgrade Helper), never by a blind version bump.
+      - dependency-name: react-native
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: '@react-native/*'
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: '@react-native-community/cli*'
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: react
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major, version-update:semver-minor]
+    groups:
+      npm-dev:
+        dependency-type: development
+        update-types: [minor, patch]
+        exclude-patterns:
+          - react-native-document-picker
+          - react-native-draggable-flatlist
+          - react-native-modal
+          - sharingan-rn-modal-dropdown
+      npm-prod:
+        dependency-type: production
+        update-types: [minor, patch]
+        exclude-patterns:
+          - react-native-document-picker
+          - react-native-draggable-flatlist
+          - react-native-modal
+          - sharingan-rn-modal-dropdown
+
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      gradle:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies]
+    groups:
+      github-actions:
+        patterns: ['*']

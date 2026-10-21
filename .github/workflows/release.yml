@@ -1,0 +1,196 @@
+name: Release
+
+# Builds the signed release APK + AAB and publishes them as a GitHub Release.
+#
+# Trigger: pushing a version tag such as `0.183` (the tags created by
+# releaseNewAndroidVersion.sh/.ps1). The tag must match versionName in android/app/build.gradle.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   ANDROID_RELEASE_KEYSTORE_BASE64  base64 of the existing release keystore (`base64 -w0 <file>`)
+#   ANDROID_RELEASE_PASSWORD         keystore (store) password
+# Optional:
+#   ANDROID_RELEASE_KEY_ALIAS        key alias (default: the alias used locally, see build.gradle)
+#   ANDROID_RELEASE_KEY_PASSWORD     key password (default: ANDROID_RELEASE_PASSWORD)
+# Optional repository variable:
+#   ANDROID_RELEASE_CERT_SHA256      expected SHA-256 digest of the signing certificate
+#                                    (`apksigner verify --print-certs`). If set, the job fails when
+#                                    the APK is signed with any other key. Zapstore pins that
+#                                    certificate, so the key must never change.
+#
+# Dry run: `workflow_dispatch` with `test_keystore: true` builds and signs with a throw-away
+# keystore generated inside the job and never creates a release. Without that switch a manual
+# run uses the real secrets but still does not publish (only tag pushes publish).
+# See docs/release.md.
+
+on:
+  push:
+    # TEMPORARY (GH-539): proves the signed build with a test keystore before workflow_dispatch is
+    # available on the default branch. Remove before merging.
+    branches: [feature/GH-539]
+    tags:
+      - '[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      test_keystore:
+        description: 'Sign with a throw-away keystore generated in the job (no release is created)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build signed APK + AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      # Throw-away key for manual dry runs and for branch pushes (only possible while a temporary
+      # branch trigger is configured above); tags always use the real key from the secrets.
+      USE_TEST_KEYSTORE: ${{ (github.event_name == 'workflow_dispatch' && inputs.test_keystore) || (github.event_name == 'push' && github.ref_type == 'branch') }}
+    outputs:
+      publish: ${{ steps.mode.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Determine mode
+        id: mode
+        run: |
+          version_name=$(sed -nE 's/^\s*versionName "([^"]+)".*/\1/p' android/app/build.gradle)
+          echo "versionName=$version_name"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$USE_TEST_KEYSTORE" != "true" ]; then
+            if [ "$GITHUB_REF_NAME" != "$version_name" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match versionName $version_name in android/app/build.gradle"
+              exit 1
+            fi
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          # Never write a cache from a job that has the signing key on disk.
+          cache-read-only: true
+
+      - run: npm ci
+      # Same autolinking input the release scripts generate (see android/settings.gradle).
+      - run: npx react-native config > android/autolinking.source.json
+
+      - name: Prepare signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/release.keystore"
+          if [ "$USE_TEST_KEYSTORE" = "true" ]; then
+            echo "::notice::Dry run: signing with a throw-away keystore generated in this job."
+            STORE_PASSWORD=$(openssl rand -hex 24)
+            echo "::add-mask::$STORE_PASSWORD"
+            KEY_ALIAS=ci-test
+            KEY_PASSWORD=$STORE_PASSWORD
+            keytool -genkeypair -noprompt -storetype PKCS12 -keystore "$keystore" \
+              -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 1 \
+              -dname "CN=Gainalytics CI test key" \
+              -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" > /dev/null 2>&1
+          else
+            if [ -z "$KEYSTORE_BASE64" ] || [ -z "$STORE_PASSWORD" ]; then
+              echo "::error::Secrets ANDROID_RELEASE_KEYSTORE_BASE64 and ANDROID_RELEASE_PASSWORD are required (see docs/release.md)."
+              exit 1
+            fi
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keystore"
+          fi
+          chmod 600 "$keystore"
+          {
+            echo "ANDROID_RELEASE_STORE_FILE=$keystore"
+            echo "ANDROID_RELEASE_PASSWORD=$STORE_PASSWORD"
+            if [ -n "${KEY_ALIAS:-}" ]; then echo "ANDROID_RELEASE_KEY_ALIAS=$KEY_ALIAS"; fi
+            if [ -n "${KEY_PASSWORD:-}" ]; then echo "ANDROID_RELEASE_KEY_PASSWORD=$KEY_PASSWORD"; fi
+          } >> "$GITHUB_ENV"
+
+      - name: assembleRelease + bundleRelease
+        working-directory: android
+        env:
+          ENTRY_FILE: index.tsx
+        run: ./gradlew assembleRelease bundleRelease --stacktrace
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore"
+
+      - name: Verify signature
+        env:
+          EXPECTED_CERT_SHA256: ${{ vars.ANDROID_RELEASE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          aab=android/app/build/outputs/bundle/release/app-release.aab
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
+          "$apksigner" verify --verbose --print-certs "$apk" | tee "$RUNNER_TEMP/apk-certs.txt"
+          jarsigner -verify "$aab" > /dev/null && echo "AAB signature OK"
+          actual=$(sed -nE 's/^Signer #1 certificate SHA-256 digest: ([0-9a-f]+)$/\1/p' "$RUNNER_TEMP/apk-certs.txt")
+          echo "Signing certificate SHA-256: $actual"
+          if [ "$USE_TEST_KEYSTORE" != "true" ] && [ -n "$EXPECTED_CERT_SHA256" ]; then
+            expected=$(echo "$EXPECTED_CERT_SHA256" | tr -d ': ' | tr 'A-F' 'a-f')
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::APK is signed with an unexpected certificate ($actual). The release key must never change."
+              exit 1
+            fi
+            echo "Certificate matches ANDROID_RELEASE_CERT_SHA256."
+          fi
+          (cd "$(dirname "$apk")" && sha256sum app-release.apk) > SHA256SUMS
+          (cd "$(dirname "$aab")" && sha256sum app-release.aab) >> SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ env.USE_TEST_KEYSTORE == 'true' && 'release-test-signed' || 'release' }}
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+            SHA256SUMS
+          retention-days: ${{ env.USE_TEST_KEYSTORE == 'true' && 3 || 14 }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    if: needs.build.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Gainalytics $GITHUB_REF_NAME" \
+            --generate-notes \
+            --verify-tag \
+            android/app/build/outputs/apk/release/app-release.apk \
+            android/app/build/outputs/bundle/release/app-release.aab \
+            SHA256SUMS
