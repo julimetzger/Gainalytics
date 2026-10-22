@@ -301,12 +301,12 @@ jobs:
             Your task is in .agent-run/task.md.
           claude_args: |
             --max-turns 120
-            --allowedTools "Read,Edit,Write,Glob,Grep,TodoWrite"
+            --allowedTools "Read,Edit,Write,Glob,Grep,TodoWrite,WebSearch,WebFetch"
             --allowedTools "Bash(.github/agent-emulator/tool.sh:*),Bash(adb:*),Bash(maestro:*)"
             --allowedTools "Bash(npx jest:*),Bash(npm test:*),Bash(npx tsc:*),Bash(npm run typecheck:*),Bash(npm run lint:*)"
             --allowedTools "Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git rm:*)"
             --allowedTools "Bash(ls:*),Bash(mkdir:*),Bash(cp:*),Bash(mv:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(sleep:*),Bash(ffmpeg:*)"
-            --disallowedTools "WebFetch,WebSearch,Bash(git push:*),Bash(gh:*),Bash(curl:*),Bash(wget:*),Bash(env:*),Bash(printenv:*)"
+            --disallowedTools "Bash(git push:*),Bash(gh:*),Bash(curl:*),Bash(wget:*),Bash(env:*),Bash(printenv:*)"
 
       - name: Agent summary
         if: always() && steps.mode.outputs.mode != 'smoke'

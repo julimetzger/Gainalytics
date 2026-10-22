@@ -50,8 +50,10 @@ from the default branch); it has been removed.
 2. Agent phase (not in smoke mode): the task (issue text + optional text, or the dummy task) is written to
    `.agent-run/task.md`; the emulator is booted again and the APK installed; Claude Code
    (`anthropics/claude-code-action/base-action`) runs with the prompt `.github/agent-emulator/agent-prompt.md`.
-   Allowed tools: file read/edit, `adb`, `maestro`, `tool.sh`, jest/tsc/lint, local git
-   (status/diff/log/add/commit). Denied: `git push`, `gh`, `curl`/`wget`, web tools, `env`/`printenv`.
+   Allowed tools: file read/edit, web search and page fetch (`WebSearch`/`WebFetch`, e.g. for library docs),
+   `adb`, `maestro`, `tool.sh`, jest/tsc/lint, local git (status/diff/log/add/commit).
+   Denied: `git push`, `gh`, `curl`/`wget`, `env`/`printenv` — raw shell network access and reading the
+   environment stay blocked so the OAuth token cannot be exfiltrated via a prompt-injected task.
    For JS changes the agent starts Metro (`tool.sh metro-start`, reached by the emulator via `10.0.2.2:8081`)
    or rebuilds (`tool.sh rebuild`).
 3. `publish` job (only if the agent committed): receives the commits as a git bundle, rejects changes to
