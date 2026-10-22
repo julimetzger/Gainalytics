@@ -22,6 +22,10 @@ setup the skill describes; where they conflict, this file wins.
 | Screenshot resize to 800 px | `tool.sh screenshot <name>` already writes a 540 px copy to `.agent-run/screenshots/small/`. Only read the small copy back. |
 | `npm test`, typecheck, lint | Allowed as in the skill. The runner is small (2 vCPU / 7 GB): never run Gradle or the full Jest suite while Maestro is driving the emulator. |
 
+**Exception — pipeline test:** when `.agent-run/task.md` contains the built-in dummy task
+(`.github/agent-emulator/test-task.md`), follow that task as written: it checks the empty store, so do
+NOT import baseline data, and its empty-state screenshot counts as the evidence.
+
 ## Start: check the environment yourself
 
 No automated smoke test runs before you. The emulator is booted, the APK installed and the app
