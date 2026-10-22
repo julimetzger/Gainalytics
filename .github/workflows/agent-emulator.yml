@@ -297,7 +297,8 @@ jobs:
             cat .github/agent-emulator/test-task.md >> "$f"
           fi
           if [[ -n "${ISSUE}" ]]; then
-            gh api "repos/${REPO}/issues/${ISSUE}" --jq '"## Issue #\(.number): \(.title)\n\n\(.body // "")"' >> "$f"
+            # Body, comments and the issue images (downloaded via signed URLs; the agent has no GitHub access).
+            .github/agent-emulator/fetch-issue.sh "${ISSUE}" "$f"
             echo -e "\nAdd \`Closes #${ISSUE}\` to the PR body if the issue is fully done." >> "$f"
           fi
           if [[ -n "${IN_TASK}" && "${MODE}" != "agent-test" ]]; then
