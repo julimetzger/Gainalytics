@@ -51,7 +51,9 @@ from the default branch); it has been removed.
    `.agent-run/task.md`; the emulator is booted again and the APK installed; Claude Code
    (`anthropics/claude-code-action/base-action`) runs with the prompt `.github/agent-emulator/agent-prompt.md`.
    Allowed tools: file read/edit, web search and page fetch (`WebSearch`/`WebFetch`, e.g. for library docs),
-   `adb`, `maestro`, `tool.sh`, jest/tsc/lint, local git (status/diff/log/add/commit).
+   `npm install`/`npm ci`/`npm uninstall` (adding or removing dependencies), `adb`, `maestro`, `tool.sh`,
+   jest/tsc/lint, local git (status/diff/log/add/commit). Note: `npm install` runs package install scripts,
+   which execute with the agent's environment — review any new dependency in the resulting PR.
    Denied: `git push`, `gh`, `curl`/`wget`, `env`/`printenv` — raw shell network access and reading the
    environment stay blocked so the OAuth token cannot be exfiltrated via a prompt-injected task.
    For JS changes the agent starts Metro (`tool.sh metro-start`, reached by the emulator via `10.0.2.2:8081`)
