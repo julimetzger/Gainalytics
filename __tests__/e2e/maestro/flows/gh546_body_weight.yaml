@@ -5,8 +5,7 @@ appId: com.powerliftingworkoutplanner
 - launchApp:
     stopApp: false
 - extendedWaitUntil:
-    visible:
-      id: "tab-analyse"
+    visible: "tab-analyse"
     timeout: 30000
 - tapOn: "tab-analyse"
 - tapOn:

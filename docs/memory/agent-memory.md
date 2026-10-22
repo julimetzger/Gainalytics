@@ -598,3 +598,12 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Rule:** drill-down = tap the label, `scrollUntilVisible muscle-radar-details-button` (strip sits below the 300 dp chart, off-screen on the phone), tap it. The chart wrapper `muscle-radar-svg` has every value in its accessibilityLabel (`Back 9 (last week 11), …`) → assert it with a full-string regex. Labels expose `selected: true` when chosen.
 **Apply when:** writing flows that use the Dashboard's Muscle Groups card.
 
+### First Metro bundle after `tool.sh launch` takes ~1.5 min — flows fail with "id: tab-analyse is visible"
+**Problem (GH-546):** a flow started right after `metro-start` + `launch` runs against a white "Bundling 75%" screen. `extendedWaitUntil: visible: {id: "tab-analyse"}` also never matched on a loaded app; the string form `visible: "tab-analyse"` (as in `08_training_length.yaml`) did.
+**Fix / Rule:** take a `tool.sh screenshot` after ~90 s and wait for the Training screen before the first flow; use the string form for tab ids.
+**Apply when:** first Maestro run after starting Metro in the CI emulator.
+
+### New top-level Redux slice: four places must change together
+**Rule (GH-546):** `GlobalState` + `combineReducers` (`rootReducer.ts`), `FULL_IMPORT` default (`fullStateReducer.ts`, `slice ?? initial` so old `.gains` files import), whitelist + `version` bump + migration in `configureStore.ts`. Export needs nothing (it stringifies the whole store). Existing specs that build a full `GlobalState` by hand need the new key too.
+**Apply when:** adding persisted state.
+
