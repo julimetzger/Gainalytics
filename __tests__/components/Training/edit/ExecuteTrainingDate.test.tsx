@@ -93,4 +93,21 @@ describe('ExecuteTraining Date Selection', () => {
     fireEvent.press(dateText);
     expect(dateText.props.children).toBe(new Date('2023-01-02T10:00:00Z').toISOString());
   });
+
+  it('hides the inline date picker in edit mode (GH-542)', () => {
+    const { queryByTestId } = render(
+      <ReduxProvider store={mockStore as any}>
+        <PaperProvider>
+          <ExecuteTraining
+            training={mockTraining as any}
+            chosenExercise={mockExercise as any}
+            onSubmit={() => {}}
+            editMode={true}
+          />
+        </PaperProvider>
+      </ReduxProvider>
+    );
+
+    expect(queryByTestId('datepicker-text')).toBeNull();
+  });
 });
