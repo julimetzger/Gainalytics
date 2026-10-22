@@ -13,6 +13,8 @@ TOOL="${ROOT}/.github/agent-emulator/tool.sh"
 STATUS="${OUT}/setup.status"
 TIMINGS="${OUT}/timings.txt"
 mkdir -p "${OUT}"
+# adb/emulator are not on PATH by default on the runner (the emulator action used to add them).
+export PATH="${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator:${PATH}"
 
 status() { echo "$1" > "${STATUS}.tmp" && mv "${STATUS}.tmp" "${STATUS}"; echo "== setup: $1 ($(date +%T))"; }
 fail() { status "failed:$1"; exit 1; }
