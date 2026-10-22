@@ -49,6 +49,11 @@ jest.mock('../../../app/components/settings/AiProviderSelector', () => {
   const {View} = require('react-native');
   return {__esModule: true, default: () => <View testID="settings-ai-provider" />};
 });
+jest.mock('../../../app/components/settings/MuscleListSettings', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return {__esModule: true, default: () => <View testID="settings-muscle-list" />};
+});
 jest.mock('../../../app/components/settings/ChatGptAccountSection', () => {
   const React = require('react');
   const {View} = require('react-native');
@@ -465,7 +470,9 @@ describe('SettingsTab', () => {
     const {getAllByTestId, getByTestId, queryByText} = render(<SettingsTab navigation={navigation} route={route} />);
 
     const titles = getAllByTestId(/^settings-section-[a-z-]+-title$/).map((node) => node.props.children);
-    expect(titles).toEqual(['Appearance', 'General', 'Timers & Notifications', 'AI Coach', 'Help', 'Data']);
+    expect(titles).toEqual(['Appearance', 'General', 'Muscles', 'Timers & Notifications', 'AI Coach', 'Help', 'Data']);
+    // GH-523: the muscle list lives in its own section.
+    expect(getByTestId('settings-section-muscles')).toContainElement(getByTestId('settings-muscle-list'));
 
     // GH-478: the Theme row and the single "Color" row share one section.
     expect(getByTestId('settings-section-theme')).toContainElement(getByTestId('settings-theme-mode-row'));

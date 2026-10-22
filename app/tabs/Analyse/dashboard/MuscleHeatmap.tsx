@@ -6,6 +6,7 @@ import {Muscles} from '../../../models/Muscles';
 import {Comparison} from '../../../components/analyse/MetricsOverviewForWorkouts';
 import {Metric} from '../../../models/Metric';
 import {withAlpha} from '../../../utils/colorUtils';
+import {useOverviewMuscles} from '../../../redux/settings/use/useMuscles';
 import {
   buildMuscleWeekValues,
   calculateMuscleRadarStats,
@@ -33,6 +34,8 @@ const LABEL_RADIUS = 124;
 const LABEL_WIDTH = 84;
 const LABEL_HEIGHT = 44;
 const RINGS = [0.25, 0.5, 0.75, 1];
+/** Fewer axes than this draw a line, not an area. */
+const MIN_RADAR_AXES = 3;
 
 type ExtendedColors = {primaryContainer: string; onPrimaryContainer: string; surfaceContainerHigh?: string; surfaceContainerHighest?: string};
 
@@ -43,7 +46,9 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
   const [selected, setSelected] = useState<Muscles | undefined>(undefined);
   const [width, setWidth] = useState(DESIGN_WIDTH);
 
-  const values = useMemo(() => buildMuscleWeekValues(muscleMetricMap), [muscleMetricMap]);
+  // GH-523: one axis per muscle the user shows in overviews.
+  const overviewMuscles = useOverviewMuscles();
+  const values = useMemo(() => buildMuscleWeekValues(muscleMetricMap, overviewMuscles), [muscleMetricMap, overviewMuscles]);
   const stats = useMemo(() => calculateMuscleRadarStats(values), [values]);
 
   const max = niceMax(Math.max(...values.map((value) => Math.max(currentValue(value, metric), lastValue(value, metric)))));
@@ -110,6 +115,11 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
           </View>
         </View>
 
+        {values.length < MIN_RADAR_AXES ? (
+          <Text style={[styles.hint, {color: colors.onSurfaceVariant}]} testID="muscle-radar-too-few">
+            {`The radar needs at least ${MIN_RADAR_AXES} muscles. Choose them in Settings → Muscles.`}
+          </Text>
+        ) : (
         <View style={styles.chart} onLayout={onLayout} testID="muscle-radar-chart">
           <View style={StyleSheet.absoluteFill} accessible accessibilityLabel={chartLabel} testID="muscle-radar-svg">
             <Svg width={width} height={CHART_HEIGHT}>
@@ -167,6 +177,7 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
             );
           })}
         </View>
+        )}
 
         {selectedValues ? (
           <View style={[styles.selection, {backgroundColor: colors.surfaceContainerHighest ?? colors.surfaceVariant}]} testID="muscle-radar-selection">

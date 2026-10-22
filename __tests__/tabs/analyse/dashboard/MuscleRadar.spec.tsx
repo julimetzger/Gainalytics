@@ -155,3 +155,39 @@ describe('MuscleHeatmap radar card (GH-532)', () => {
     expect(getByTestId('muscle-heatmap-card')).toBeTruthy();
   });
 });
+
+describe('MuscleHeatmap with the user muscle list (GH-523)', () => {
+  const {useSelector} = jest.requireMock('react-redux') as {useSelector: jest.Mock};
+  const withMuscleSettings = (muscles: object) =>
+    useSelector.mockImplementation((selector: (state: object) => unknown) => selector({settings: {muscles}}));
+
+  afterEach(() => useSelector.mockImplementation(() => []));
+
+  it('draws one axis per overview muscle: hidden and removed muscles leave, added ones join', () => {
+    withMuscleSettings({custom: ['Calves'], removed: ['Core'], hiddenInOverviews: ['Biceps']});
+    const map = new Map(DESIGN_WEEK);
+    map.set('Calves', new Map<Metric, Comparison>([[Metric.SETS, {value: 3}], [Metric.VOLUME, {value: 900}]]));
+
+    const {getAllByTestId} = renderCard(map);
+
+    expect(getAllByTestId(/^muscle-chip-/).map((chip) => chip.props.accessibilityLabel)).toEqual([
+      'Back, 14 sets',
+      'Chest, 14 sets',
+      'Glutes, 8 sets',
+      'Hamstrings, 5 sets',
+      'Quads, 10 sets',
+      'Shoulders, 11 sets',
+      'Triceps, 7 sets',
+      'Calves, 3 sets',
+    ]);
+  });
+
+  it('asks for more muscles instead of drawing a radar with fewer than three axes', () => {
+    withMuscleSettings({hiddenInOverviews: ['Biceps', 'Chest', 'Core', 'Glutes', 'Hamstrings', 'Quads', 'Shoulders']});
+
+    const {getByTestId, queryByTestId} = renderCard(DESIGN_WEEK);
+
+    expect(queryByTestId('muscle-radar-chart')).toBeNull();
+    expect(getByTestId('muscle-radar-too-few').props.children).toBe('The radar needs at least 3 muscles. Choose them in Settings → Muscles.');
+  });
+});
