@@ -594,6 +594,11 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-532):** `__tests__/testdata/scripts/make_gh532_radar_fixtures.js <baseline> <outDir>` shifts every date so the last logged workout ends on this week's Wednesday 20:00 (Europe/Berlin), plus a `last_week_only` variant (empty current week). Anchoring to Monday keeps per-muscle values identical on every weekday, so Maestro can assert exact numbers (`Back, 9 sets`; strip `9 sets · 5.7t · -2 sets vs last week`). A node preview of per-muscle sets (percent-weighted) matched the app exactly.
 **Apply when:** any Dashboard/weekly comparison needs non-empty current and previous weeks.
 
+### Empty Training home: assert by text, `plans-header` is only a container
+**Problem / Symptom:** `assertVisible: {id: plans-header, text: "Plans"}` fails on the empty store — the id sits on the wrapper, the text on a child.
+**Fix / Rule:** assert `text: "Plans"` / `"New Training"` / `"Search plans"` and `assertNotVisible: id: next-training-card`. A cold-start flow takes ~25–45 s on the CI emulator (seen in AGENT-RUN).
+**Apply when:** writing empty-store flows.
+
 ### Dashboard muscle radar: tapping `muscle-chip-<Muscle>` only SELECTS since GH-532
 **Rule:** drill-down = tap the label, `scrollUntilVisible muscle-radar-details-button` (strip sits below the 300 dp chart, off-screen on the phone), tap it. The chart wrapper `muscle-radar-svg` has every value in its accessibilityLabel (`Back 9 (last week 11), …`) → assert it with a full-string regex. Labels expose `selected: true` when chosen.
 **Apply when:** writing flows that use the Dashboard's Muscle Groups card.
