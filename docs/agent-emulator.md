@@ -42,7 +42,7 @@ from the default branch); it has been removed.
 
 ## What happens in a run
 
-1. `emulator` job (read-only token, `timeout-minutes: 110`):
+1. `emulator` job (read-only token, `timeout-minutes: 360`):
    checkout → KVM → JDK 17 / Node 22 → `npm ci` → `assembleDebug -PreactNativeArchitectures=x86_64`
    (the debug APK embeds the JS bundle because `debuggableVariants = []`, so no Metro is needed) →
    Maestro CLI (pinned version + SHA-256) → AVD (API 34, google_apis, x86_64, cached snapshot) →
@@ -51,7 +51,9 @@ from the default branch); it has been removed.
    (screenshot, logcat) and reports an environment problem as an open question instead of failing the job;
    an open question without commits is posted as a comment on the issue.
 2. Agent phase (not in smoke mode): the task (issue text + optional text, or the dummy task) is written to
-   `.agent-run/task.md`; the emulator is booted again and the APK installed; Claude Code
+   `.agent-run/task.md` and Claude Code starts right after `npm ci`, while `bg-setup.sh` builds the APK, boots the
+   emulator and installs the app in the background (`.agent-run/setup.status`, `setup.log`); the agent reads
+   ticket and code meanwhile and calls `tool.sh wait-ready` before its first device step. Claude Code
    (`anthropics/claude-code-action/base-action`) runs with the prompt `.github/agent-emulator/agent-prompt.md`,
    which makes the agent follow the local feature-worker skill `orchestrator/codex-skills/feature/SKILL.md`
    and lists only the CI-specific overrides (no run dir/status.json, no push/gh, `tool.sh` instead of WSL scripts).
@@ -109,6 +111,6 @@ The `publish` job takes < 1 min.
 - Private repo, GitHub Free: 2,000 Linux minutes/month → roughly 25–50 agent runs. GitHub Pro: 3,000.
 - Public repo: standard runners are free and have 4 vCPU / 16 GB; the build should roughly halve.
 - Claude usage counts against the subscription limits (OAuth token), not against GitHub minutes.
-- Hard limits: `emulator` job 110 min (build step 45, smoke 30, agent boot 15, Claude 45), `publish` job 10 min.
+- Hard limits: `emulator` job 360 min (GitHub maximum), Claude step 330 min with no turn limit, smoke-only build 45 / smoke 30, `publish` job 10 min.
 - Ideas to cut minutes: cache `android/app/.cxx` + `android/app/build/intermediates` keyed on native deps,
   or reuse the APK artifact from CI (#539) when only JS changed and let the agent use Metro.

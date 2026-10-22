@@ -12,6 +12,10 @@
 #   tool.sh logcat [label]         dump logcat to .agent-run/logcat/<label>.txt
 #   tool.sh metro-start            start Metro on :8081 (the emulator reaches it via 10.0.2.2)
 #   tool.sh rebuild                assembleDebug (x86_64 only) + install
+#   tool.sh setup-status           background setup state (building/booting/installing/ready/failed:*)
+#   tool.sh wait-ready [timeout_s] block until the background setup is ready (APK built, emulator
+#                                  booted, app installed); exit 1 + log tail if it failed, exit 3 if
+#                                  still running after timeout_s (default 540) -> call again
 #   tool.sh import-baseline [file] push a .gains fixture as /sdcard/Download/baseline.gains, import it
 #                                  via 00_import_baseline.yaml and check that "Push pull" is visible
 #                                  (default: __tests__/e2e/maestro/fixtures/baseline.gains). The import
@@ -23,6 +27,10 @@ ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 OUT="${AGENT_RUN_DIR:-${ROOT}/.agent-run}"
 APP_ID="com.powerliftingworkoutplanner"
 APK_DEFAULT="${ROOT}/android/app/build/outputs/apk/debug/app-debug.apk"
+# Background setup builds in a frozen copy; use that APK until the agent rebuilds in the checkout.
+if [[ ! -f "${APK_DEFAULT}" && -f "${RUNNER_TEMP:-/tmp}/build-src/android/app/build/outputs/apk/debug/app-debug.apk" ]]; then
+  APK_DEFAULT="${RUNNER_TEMP:-/tmp}/build-src/android/app/build/outputs/apk/debug/app-debug.apk"
+fi
 
 serial() {
   if [[ -n "${ANDROID_SERIAL:-}" ]]; then
@@ -120,7 +128,35 @@ case "${cmd}" in
     echo "Metro did not come up, see ${OUT}/metro.log" >&2
     exit 1
     ;;
+  setup-status)
+    cat "${OUT}/setup.status" 2>/dev/null || echo "not started"
+    tail -5 "${OUT}/setup.log" 2>/dev/null || true
+    ;;
+  wait-ready)
+    # Default stays below the agent's 10-min Bash limit; exit 3 = not ready yet, call again.
+    timeout_s="${1:-540}"
+    start=$(date +%s)
+    last=""
+    while true; do
+      st="$(cat "${OUT}/setup.status" 2>/dev/null || echo "not started")"
+      [[ "${st}" != "${last}" ]] && { echo "setup: ${st} (+$(( $(date +%s) - start ))s)"; last="${st}"; }
+      case "${st}" in
+        ready) exit 0 ;;
+        failed:*)
+          echo "Background setup failed (${st}). Last log lines:" >&2
+          tail -40 "${OUT}/setup.log" >&2 || true
+          exit 1 ;;
+      esac
+      if (( $(date +%s) - start > timeout_s )); then
+        echo "Not ready yet after ${timeout_s}s (state: ${st}). Run 'tool.sh wait-ready' again in the foreground." >&2
+        exit 3
+      fi
+      sleep 10
+    done
+    ;;
   rebuild)
+    # Never run a second Gradle build next to the background one.
+    "$0" wait-ready 3000
     (cd "${ROOT}/android" && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain && ./gradlew --stop)
     "$0" install
     ;;
@@ -142,7 +178,7 @@ case "${cmd}" in
     echo "Imported $(basename "${fixture}")"
     ;;
   *)
-    sed -n '2,18p' "$0"
+    sed -n '2,21p' "$0"
     exit 2
     ;;
 esac
