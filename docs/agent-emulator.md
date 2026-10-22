@@ -18,7 +18,9 @@ Only users with write access (owner/collaborators) can start it; forks never run
   ```
 
   Inputs: `issue_number` (optional), `task` (free text, optional — one of the two is required),
-  `smoke_only` (emulator + app + Maestro flow, no agent, no secret needed).
+  `smoke_only` (emulator + app + Maestro flow, no agent, no secret needed),
+  `model` (`opus` default, `sonnet`, `haiku`; label-triggered runs use `opus`). The model actually used is
+  shown in the run summary and as the `agent model` annotation.
 - **Pipeline test:** dispatch with `task=dummy` runs a harmless built-in task
   (`.github/agent-emulator/test-task.md`: add one empty-state Maestro flow + screenshot, no app code).
   The resulting draft PR must not be merged.
