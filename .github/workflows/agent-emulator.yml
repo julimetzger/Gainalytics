@@ -28,6 +28,15 @@ on:
         required: false
         type: boolean
         default: false
+      model:
+        description: "Claude model for the agent (latest version of each family)"
+        required: false
+        type: choice
+        options:
+          - opus
+          - sonnet
+          - haiku
+        default: opus
   issues:
     types: [labeled]
 
@@ -311,7 +320,9 @@ jobs:
           prompt: |
             Read .github/agent-emulator/agent-prompt.md and follow it exactly.
             Your task is in .agent-run/task.md.
+          # Label-triggered runs have no inputs and fall back to opus.
           claude_args: |
+            --model ${{ inputs.model || 'opus' }}
             --allowedTools "Read,Edit,Write,Glob,Grep,TodoWrite,WebSearch,WebFetch"
             --allowedTools "Bash(.github/agent-emulator/tool.sh:*),Bash(adb:*),Bash(maestro:*)"
             --allowedTools "Bash(npm install:*),Bash(npm i:*),Bash(npm ci:*),Bash(npm uninstall:*)"
@@ -344,10 +355,13 @@ jobs:
           {
             echo "### Agent (${CONCLUSION:-not run})"
             if [[ -n "${EXEC_FILE}" && -f "${EXEC_FILE}" ]]; then
+              jq -r '[.[] | select(.type=="system" and .subtype=="init")] | first | "model: \(.model // "?")"' "${EXEC_FILE}" || true
               jq -r '[.[] | select(.type=="result")] | last | "turns: \(.num_turns // "?"), duration: \((.duration_ms // 0)/1000|floor)s\n\n\(.result // "")"' "${EXEC_FILE}" || true
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           if [[ -n "${EXEC_FILE}" && -f "${EXEC_FILE}" ]]; then
+            model="$(jq -r '[.[] | select(.type=="system" and .subtype=="init")] | first | .model // "?"' "${EXEC_FILE}" 2>/dev/null || echo "?")"
+            echo "::notice title=agent model::${model}"
             msg="$(jq -r '[.[] | select(.type=="result")] | last | "conclusion=\(.subtype // "?") turns=\(.num_turns // "?") duration_s=\((.duration_ms // 0)/1000|floor) | \(.result // "" | .[0:600])"' "${EXEC_FILE}" | tr '\n' ' ')"
             echo "::notice title=agent::${msg}"
           fi
