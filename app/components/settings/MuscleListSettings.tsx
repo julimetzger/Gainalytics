@@ -80,32 +80,35 @@ const MuscleListSettings = () => {
         onPress={() => setExpanded((value) => !value)}
         testID="settings-muscles-accordion"
       >
-        <Text variant="bodySmall" style={[styles.hint, {color: theme.colors.onSurfaceVariant}]}>
-          The switch decides whether a muscle appears in the overviews (Muscle Map, Muscle Groups radar, Muscle Overview). Removing a muscle also removes it from your exercises.
-        </Text>
-        {sorted.map((muscle) => (
-          <MuscleRow key={muscle} muscle={muscle} inOverviews={overviewSet.has(muscle)} onToggle={setInOverviews} onRemove={setPendingRemoval} />
-        ))}
-        <View style={styles.addRow}>
-          <TextInput
-            mode="outlined"
-            dense
-            label="New muscle"
-            value={name}
-            onChangeText={handleChangeName}
-            onSubmitEditing={handleAdd}
-            maxLength={MAX_MUSCLE_NAME_LENGTH + 8}
-            error={error !== undefined}
-            style={styles.input}
-            testID="settings-muscle-name-input"
-          />
-          <Button mode="contained" icon="plus" onPress={handleAdd} testID="settings-muscle-add-button">
-            Add
-          </Button>
+        {/* One child with its own padding: the accordion would indent only some children. */}
+        <View style={styles.body} testID="settings-muscles-body">
+          <Text variant="bodySmall" style={[styles.hint, {color: theme.colors.onSurfaceVariant}]}>
+            The switch decides whether a muscle appears in the overviews (Muscle Map, Muscle Groups radar, Muscle Overview). Removing a muscle also removes it from your exercises.
+          </Text>
+          {sorted.map((muscle) => (
+            <MuscleRow key={muscle} muscle={muscle} inOverviews={overviewSet.has(muscle)} onToggle={setInOverviews} onRemove={setPendingRemoval} />
+          ))}
+          <View style={styles.addRow}>
+            <TextInput
+              mode="outlined"
+              dense
+              label="New muscle"
+              value={name}
+              onChangeText={handleChangeName}
+              onSubmitEditing={handleAdd}
+              maxLength={MAX_MUSCLE_NAME_LENGTH + 8}
+              error={error !== undefined}
+              style={styles.input}
+              testID="settings-muscle-name-input"
+            />
+            <Button mode="contained" icon="plus" onPress={handleAdd} testID="settings-muscle-add-button">
+              Add
+            </Button>
+          </View>
+          <HelperText type="error" visible={error !== undefined} testID="settings-muscle-error">
+            {error}
+          </HelperText>
         </View>
-        <HelperText type="error" visible={error !== undefined} testID="settings-muscle-error">
-          {error}
-        </HelperText>
       </List.Accordion>
       <ConfirmDialog
         visible={pendingRemoval !== undefined}
@@ -123,6 +126,9 @@ const MuscleListSettings = () => {
 };
 
 const styles = StyleSheet.create({
+  body: {
+    paddingLeft: 0,
+  },
   hint: {
     marginBottom: 4,
   },

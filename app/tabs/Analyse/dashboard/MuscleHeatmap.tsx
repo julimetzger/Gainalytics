@@ -120,63 +120,63 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
             {`The radar needs at least ${MIN_RADAR_AXES} muscles. Choose them in Settings → Muscles.`}
           </Text>
         ) : (
-        <View style={styles.chart} onLayout={onLayout} testID="muscle-radar-chart">
-          <View style={StyleSheet.absoluteFill} accessible accessibilityLabel={chartLabel} testID="muscle-radar-svg">
-            <Svg width={width} height={CHART_HEIGHT}>
-              {RINGS.map((ring) => (
-                <Polygon key={ring} points={toPoints(values.map(() => radius * ring))} fill="none" stroke={colors.outlineVariant} strokeWidth={1} />
-              ))}
-              {values.map((value, index) => {
-                const end = point(index, radius);
-                const isSelected = index === selectedIndex;
-                return (
-                  <Line
-                    key={value.muscle}
-                    x1={cx}
-                    y1={cy}
-                    x2={end.x}
-                    y2={end.y}
-                    stroke={isSelected ? colors.primary : colors.outlineVariant}
-                    strokeWidth={isSelected ? 1.5 : 1}
-                  />
-                );
-              })}
-              <Polygon points={toPoints(lastRadii)} fill="none" stroke={colors.outline} strokeWidth={1.5} strokeDasharray="4 4" />
-              <Polygon
-                points={toPoints(currentRadii)}
-                fill={withAlpha(colors.primary, 0.22)}
-                stroke={colors.primary}
-                strokeWidth={2}
-                strokeLinejoin="round"
-              />
-              {currentRadii.map((r, index) => {
-                const p = point(index, r);
-                return <Circle key={values[index].muscle} cx={p.x} cy={p.y} r={index === selectedIndex ? 6 : 3.5} fill={colors.primary} />;
-              })}
-            </Svg>
+          <View style={styles.chart} onLayout={onLayout} testID="muscle-radar-chart">
+            <View style={StyleSheet.absoluteFill} accessible accessibilityLabel={chartLabel} testID="muscle-radar-svg">
+              <Svg width={width} height={CHART_HEIGHT}>
+                {RINGS.map((ring) => (
+                  <Polygon key={ring} points={toPoints(values.map(() => radius * ring))} fill="none" stroke={colors.outlineVariant} strokeWidth={1} />
+                ))}
+                {values.map((value, index) => {
+                  const end = point(index, radius);
+                  const isSelected = index === selectedIndex;
+                  return (
+                    <Line
+                      key={value.muscle}
+                      x1={cx}
+                      y1={cy}
+                      x2={end.x}
+                      y2={end.y}
+                      stroke={isSelected ? colors.primary : colors.outlineVariant}
+                      strokeWidth={isSelected ? 1.5 : 1}
+                    />
+                  );
+                })}
+                <Polygon points={toPoints(lastRadii)} fill="none" stroke={colors.outline} strokeWidth={1.5} strokeDasharray="4 4" />
+                <Polygon
+                  points={toPoints(currentRadii)}
+                  fill={withAlpha(colors.primary, 0.22)}
+                  stroke={colors.primary}
+                  strokeWidth={2}
+                  strokeLinejoin="round"
+                />
+                {currentRadii.map((r, index) => {
+                  const p = point(index, r);
+                  return <Circle key={values[index].muscle} cx={p.x} cy={p.y} r={index === selectedIndex ? 6 : 3.5} fill={colors.primary} />;
+                })}
+              </Svg>
+            </View>
+            {values.map((value, index) => {
+              const p = point(index, labelRadius);
+              const isSelected = index === selectedIndex;
+              const formatted = formatMetricValue(currentValue(value, metric), metric);
+              return (
+                <Pressable
+                  key={value.muscle}
+                  testID={`muscle-chip-${value.muscle}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${value.muscle}, ${metric === Metric.SETS ? formatSetCount(currentValue(value, metric)) : formatted}`}
+                  accessibilityState={{selected: isSelected}}
+                  onPress={() => toggleSelection(value.muscle)}
+                  style={[styles.labelTarget, {left: p.x - LABEL_WIDTH / 2, top: p.y - LABEL_HEIGHT / 2}]}
+                >
+                  <View style={[styles.label, isSelected && {backgroundColor: colors.primaryContainer}]}>
+                    <Text style={[styles.labelName, {color: isSelected ? colors.onPrimaryContainer : colors.onSurface}]}>{value.muscle}</Text>
+                    <Text style={[styles.labelValue, {color: colors.onSurfaceVariant}]}>{formatted}</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
-          {values.map((value, index) => {
-            const p = point(index, labelRadius);
-            const isSelected = index === selectedIndex;
-            const formatted = formatMetricValue(currentValue(value, metric), metric);
-            return (
-              <Pressable
-                key={value.muscle}
-                testID={`muscle-chip-${value.muscle}`}
-                accessibilityRole="button"
-                accessibilityLabel={`${value.muscle}, ${metric === Metric.SETS ? formatSetCount(currentValue(value, metric)) : formatted}`}
-                accessibilityState={{selected: isSelected}}
-                onPress={() => toggleSelection(value.muscle)}
-                style={[styles.labelTarget, {left: p.x - LABEL_WIDTH / 2, top: p.y - LABEL_HEIGHT / 2}]}
-              >
-                <View style={[styles.label, isSelected && {backgroundColor: colors.primaryContainer}]}>
-                  <Text style={[styles.labelName, {color: isSelected ? colors.onPrimaryContainer : colors.onSurface}]}>{value.muscle}</Text>
-                  <Text style={[styles.labelValue, {color: colors.onSurfaceVariant}]}>{formatted}</Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
         )}
 
         {selectedValues ? (

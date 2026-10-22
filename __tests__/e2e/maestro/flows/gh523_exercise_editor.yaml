@@ -1,0 +1,72 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-523: the exercise editor offers the user's muscles. After gh523_manage_muscles.yaml
+# Squat (id 2, baseline: Quads 100 / Glutes 100 / Hamstrings 50 / Core 30) lost Core,
+# Calves can be assigned, and the hidden Biceps can still be assigned.
+- launchApp:
+    clearState: false
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'tab-exercises'
+    timeout: 90000
+- tapOn: 'tab-exercises'
+- tapOn:
+    id: 'exercise-searchbar'
+- inputText: 'Squat'
+- hideKeyboard
+- tapOn:
+    id: 'exercise-row-2'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-edit-button'
+    timeout: 15000
+- tapOn:
+    id: 'exercise-detail-edit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-exercise-sheet'
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: 'muscle-row-Triceps'
+    direction: DOWN
+- assertVisible:
+    id: 'muscle-row-Calves'
+- assertVisible:
+    id: 'muscle-row-Biceps'
+- assertNotVisible:
+    id: 'muscle-row-Core'
+- assertVisible:
+    id: 'muscle-input-Hamstrings'
+    text: '50'
+# Assign Calves 40 % and save
+- tapOn:
+    id: 'muscle-input-Calves'
+- inputText: '40'
+- hideKeyboard
+- assertVisible:
+    id: 'muscle-input-Calves'
+    text: '40'
+- takeScreenshot: gh523_editor_after
+- scrollUntilVisible:
+    element:
+      id: 'edit-exercise-save'
+    direction: UP
+- tapOn:
+    id: 'edit-exercise-save'
+# Reopen: the saved involvement keeps Calves
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-edit-button'
+    timeout: 15000
+- tapOn:
+    id: 'exercise-detail-edit-button'
+- scrollUntilVisible:
+    element:
+      id: 'muscle-input-Calves'
+    direction: DOWN
+- assertVisible:
+    id: 'muscle-input-Calves'
+    text: '40'
+- assertNotVisible:
+    id: 'muscle-row-Core'
