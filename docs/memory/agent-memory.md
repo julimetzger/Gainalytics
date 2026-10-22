@@ -598,3 +598,8 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Rule:** drill-down = tap the label, `scrollUntilVisible muscle-radar-details-button` (strip sits below the 300 dp chart, off-screen on the phone), tap it. The chart wrapper `muscle-radar-svg` has every value in its accessibilityLabel (`Back 9 (last week 11), …`) → assert it with a full-string regex. Labels expose `selected: true` when chosen.
 **Apply when:** writing flows that use the Dashboard's Muscle Groups card.
 
+### CI emulator: first Metro bundle takes >60 s — a flow started right after `launch` times out on "Bundling 85%"
+**Problem (GH-542):** `tool.sh metro-start` + `launch` + immediately `tool.sh flow` failed at the first `extendedWaitUntil` (screenshot showed "Bundling 85.0%…"); the identical rerun passed.
+**Fix / Rule:** after the first Metro launch rerun the flow once, or give the first wait a ≥120 s timeout.
+**Apply when:** first flow on the CI emulator after switching from the embedded bundle to Metro.
+

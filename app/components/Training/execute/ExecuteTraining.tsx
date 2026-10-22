@@ -161,9 +161,9 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
 
   // GH-195 r6: hide redundant date pill while training is STARTED — the app
   // header already shows today's date during an active session. The pill stays
-  // for FINISHED-and-editing flows (EditTraining) where doneWorkout.start can
-  // be historical and the user may still need to change it.
-  const showDatePicker = training.state !== TrainingsState.STARTED;
+  // GH-542: in edit mode the "Training Times" card (EditTraining) already offers
+  // a date+time picker, so a second date pill would be a duplicate.
+  const showDatePicker = training.state !== TrainingsState.STARTED && !editMode;
 
   // GH-63: what the user has ACTUALLY logged. Deliberately NOT
   // `useUnfinishedWorkout` — that one merges in the suggested workout, i.e. the
