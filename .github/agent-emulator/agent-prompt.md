@@ -34,6 +34,10 @@ You start right after `npm ci`. In the background `bg-setup.sh` builds the debug
 - Read the task, the skill, `AGENTS.md`, the agent memory and the relevant code; plan the change.
 - Implement JS/TS changes and run the relevant Jest tests (`npx jest <path>`) — the runner is small,
   so prefer targeted tests over the full suite while Gradle runs.
+- **This run is non-interactive: when you end your turn, the job ends.** Never start commands in the
+  background and never stop to "wait for a notification". Run `tool.sh wait-ready` in the
+  foreground; it blocks up to 9 minutes and exits with code 3 if the setup is still running — then
+  simply run it again (repeat until it exits 0 or 1).
 - `tool.sh setup-status` shows the current state. Before **any** device step (adb, maestro,
   screenshot, `import-baseline`, `metro-start`, `rebuild`) run `tool.sh wait-ready`; it blocks until the
   app is installed or prints the log if the setup failed.

@@ -14,7 +14,8 @@
 #   tool.sh rebuild                assembleDebug (x86_64 only) + install
 #   tool.sh setup-status           background setup state (building/booting/installing/ready/failed:*)
 #   tool.sh wait-ready [timeout_s] block until the background setup is ready (APK built, emulator
-#                                  booted, app installed); exits 1 with the log tail if it failed
+#                                  booted, app installed); exit 1 + log tail if it failed, exit 3 if
+#                                  still running after timeout_s (default 540) -> call again
 #   tool.sh import-baseline [file] push a .gains fixture as /sdcard/Download/baseline.gains, import it
 #                                  via 00_import_baseline.yaml and check that "Push pull" is visible
 #                                  (default: __tests__/e2e/maestro/fixtures/baseline.gains). The import
@@ -132,7 +133,8 @@ case "${cmd}" in
     tail -5 "${OUT}/setup.log" 2>/dev/null || true
     ;;
   wait-ready)
-    timeout_s="${1:-2400}"
+    # Default stays below the agent's 10-min Bash limit; exit 3 = not ready yet, call again.
+    timeout_s="${1:-540}"
     start=$(date +%s)
     last=""
     while true; do
@@ -146,15 +148,15 @@ case "${cmd}" in
           exit 1 ;;
       esac
       if (( $(date +%s) - start > timeout_s )); then
-        echo "Setup not ready after ${timeout_s}s (state: ${st})" >&2
-        exit 1
+        echo "Not ready yet after ${timeout_s}s (state: ${st}). Run 'tool.sh wait-ready' again in the foreground." >&2
+        exit 3
       fi
       sleep 10
     done
     ;;
   rebuild)
     # Never run a second Gradle build next to the background one.
-    "$0" wait-ready
+    "$0" wait-ready 3000
     (cd "${ROOT}/android" && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain && ./gradlew --stop)
     "$0" install
     ;;
