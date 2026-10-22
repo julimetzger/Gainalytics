@@ -51,8 +51,17 @@ pid_maestro=$!
 ) > "${OUT}/setup-sdk.log" 2>&1 &
 pid_sdk=$!
 
+# Build from a frozen copy of the job-start checkout: the agent edits the main checkout in
+# parallel, and Gradle/Metro bundling must not pick up half-written changes.
+SRC="${RUNNER_TEMP:-/tmp}/build-src"
 t0=$(now)
-(cd "${ROOT}/android" && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain --no-daemon) \
+git -C "${ROOT}" worktree add --detach "${SRC}" HEAD >/dev/null || fail snapshot
+# Hard-link copy of node_modules: fast, and npm replaces files instead of editing them in place,
+# so a later `npm install` by the agent does not change this copy.
+cp -al "${ROOT}/node_modules" "${SRC}/node_modules" || fail snapshot
+echo "snapshot_s=$(( $(now) - t0 ))" >> "${TIMINGS}"
+t0=$(now)
+(cd "${SRC}/android" && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain --no-daemon) \
   || fail gradle
 echo "gradle_build_s=$(( $(now) - t0 ))" >> "${TIMINGS}"
 
@@ -68,7 +77,7 @@ nohup "${ANDROID_HOME}/emulator/emulator" -port 5554 -avd test -no-snapshot-save
 echo "emulator_boot_s=$(( $(now) - t0 ))" >> "${TIMINGS}"
 
 status installing
-"${TOOL}" install || fail install
+"${TOOL}" install "${SRC}/android/app/build/outputs/apk/debug/app-debug.apk" || fail install
 "${TOOL}" launch || fail launch
 sleep 15
 

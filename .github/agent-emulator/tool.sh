@@ -26,6 +26,10 @@ ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 OUT="${AGENT_RUN_DIR:-${ROOT}/.agent-run}"
 APP_ID="com.powerliftingworkoutplanner"
 APK_DEFAULT="${ROOT}/android/app/build/outputs/apk/debug/app-debug.apk"
+# Background setup builds in a frozen copy; use that APK until the agent rebuilds in the checkout.
+if [[ ! -f "${APK_DEFAULT}" && -f "${RUNNER_TEMP:-/tmp}/build-src/android/app/build/outputs/apk/debug/app-debug.apk" ]]; then
+  APK_DEFAULT="${RUNNER_TEMP:-/tmp}/build-src/android/app/build/outputs/apk/debug/app-debug.apk"
+fi
 
 serial() {
   if [[ -n "${ANDROID_SERIAL:-}" ]]; then

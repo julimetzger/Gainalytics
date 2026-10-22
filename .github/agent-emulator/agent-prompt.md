@@ -37,7 +37,8 @@ You start right after `npm ci`. In the background `bg-setup.sh` builds the debug
 - `tool.sh setup-status` shows the current state. Before **any** device step (adb, maestro,
   screenshot, `import-baseline`, `metro-start`, `rebuild`) run `tool.sh wait-ready`; it blocks until the
   app is installed or prints the log if the setup failed.
-- The APK contains the JS bundle of the checkout at job start, so after JS changes you still need
+- The background build uses a frozen copy of the job-start checkout (your edits do not affect it), so the
+  APK contains the job-start JS bundle; after JS changes you still need
   `tool.sh metro-start` + `tool.sh launch` to see them on the device (see below).
 - If the setup failed (`failed:<step>`), report it under `## Open question` with the log lines and stop
   — do not try to repair the build environment.
