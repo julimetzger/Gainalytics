@@ -52,7 +52,8 @@ jobs:
       github.event.repository.fork == false &&
       (github.event_name != 'issues' || github.event.label.name == 'agent:emulator')
     runs-on: ubuntu-latest
-    timeout-minutes: 110
+    # GitHub-hosted runners stop a job after 6 h anyway.
+    timeout-minutes: 360
     environment: gainalytics
     permissions:
       contents: read
@@ -298,8 +299,8 @@ jobs:
       - name: Run Claude Code
         id: claude
         if: steps.mode.outputs.mode != 'smoke'
-        # Includes the time the agent waits for the background setup (~15-20 min Gradle + boot).
-        timeout-minutes: 75
+        # No turn limit; only the time limit (leaves room for the steps before/after within 6 h).
+        timeout-minutes: 330
         env:
           # Lets the agent block on `tool.sh wait-ready` (up to 9 min per call) in the foreground.
           BASH_DEFAULT_TIMEOUT_MS: "600000"
@@ -311,7 +312,6 @@ jobs:
             Read .github/agent-emulator/agent-prompt.md and follow it exactly.
             Your task is in .agent-run/task.md.
           claude_args: |
-            --max-turns 160
             --allowedTools "Read,Edit,Write,Glob,Grep,TodoWrite,WebSearch,WebFetch"
             --allowedTools "Bash(.github/agent-emulator/tool.sh:*),Bash(adb:*),Bash(maestro:*)"
             --allowedTools "Bash(npm install:*),Bash(npm i:*),Bash(npm ci:*),Bash(npm uninstall:*)"

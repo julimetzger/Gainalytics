@@ -84,7 +84,7 @@ the APK installed and the app was just launched. Before working on the device:
 - Never print or write environment variables, tokens or secrets.
 - Do not modify anything under `.github/` and do not modify `.gains` fixtures — the publishing job
   rejects such commits.
-- Time limit about 75 minutes including the ~20 minutes of background setup. Budget for it: implement, verify, collect evidence, commit — a
+- No turn limit; the job stops after about 5.5 hours. Every minute costs Actions minutes, so do not idle: implement, verify, collect evidence, commit — a
   verified small fix beats an unverified large one.
 
 ## Done means (hard, same as the skill)

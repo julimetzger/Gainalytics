@@ -42,7 +42,7 @@ from the default branch); it has been removed.
 
 ## What happens in a run
 
-1. `emulator` job (read-only token, `timeout-minutes: 110`):
+1. `emulator` job (read-only token, `timeout-minutes: 360`):
    checkout → KVM → JDK 17 / Node 22 → `npm ci` → `assembleDebug -PreactNativeArchitectures=x86_64`
    (the debug APK embeds the JS bundle because `debuggableVariants = []`, so no Metro is needed) →
    Maestro CLI (pinned version + SHA-256) → AVD (API 34, google_apis, x86_64, cached snapshot) →
@@ -111,6 +111,6 @@ The `publish` job takes < 1 min.
 - Private repo, GitHub Free: 2,000 Linux minutes/month → roughly 25–50 agent runs. GitHub Pro: 3,000.
 - Public repo: standard runners are free and have 4 vCPU / 16 GB; the build should roughly halve.
 - Claude usage counts against the subscription limits (OAuth token), not against GitHub minutes.
-- Hard limits: `emulator` job 110 min (build step 45, smoke 30, agent boot 15, Claude 45), `publish` job 10 min.
+- Hard limits: `emulator` job 360 min (GitHub maximum), Claude step 330 min with no turn limit, smoke-only build 45 / smoke 30, `publish` job 10 min.
 - Ideas to cut minutes: cache `android/app/.cxx` + `android/app/build/intermediates` keyed on native deps,
   or reuse the APK artifact from CI (#539) when only JS changed and let the agent use Metro.
