@@ -78,8 +78,13 @@ jobs:
           LABEL_ISSUE: ${{ github.event.issue.number }}
           ISSUE_AUTHOR_ASSOC: ${{ github.event.issue.author_association }}
           SHA: ${{ github.sha }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
           set -euo pipefail
+          # The agent's PR targets the triggering ref, so it must be a branch (a dispatch may pick a tag).
+          if [[ "${REF_TYPE}" != "branch" ]]; then
+            echo "::error::Run this workflow from a branch, not a ${REF_TYPE}"; exit 1
+          fi
           if [[ "${ACTOR}" == "${OWNER}" ]]; then
             perm="admin"
           else
@@ -417,7 +422,8 @@ jobs:
           if echo "${changed}" | grep -E '^\.github/|\.gains$|\.keystore$|\.jks$|(^|/)\.env'; then
             echo "::error::Agent commits touch forbidden paths, not publishing"; exit 1
           fi
-          branch="agent/emulator-$(echo "${TICKET}" | tr '[:upper:]' '[:lower:]')-${GITHUB_RUN_ID}"
+          # Run ID stays the same on re-runs; the attempt number keeps each attempt's branch unique.
+          branch="agent/emulator-$(echo "${TICKET}" | tr '[:upper:]' '[:lower:]')-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git push origin "agent-tmp:refs/heads/${branch}"
           echo "::notice title=agent branch::${branch}"
           title="$(head -1 "$R/pr-title.txt" 2>/dev/null || true)"

@@ -59,7 +59,7 @@ from the default branch); it has been removed.
    For JS changes the agent starts Metro (`tool.sh metro-start`, reached by the emulator via `10.0.2.2:8081`)
    or rebuilds (`tool.sh rebuild`).
 3. `publish` job (only if the agent committed): receives the commits as a git bundle, rejects changes to
-   `.github/`, `.gains`, keystores or `.env`, pushes them to a new branch `agent/emulator-<ticket>-<run id>`
+   `.github/`, `.gains`, keystores or `.env`, pushes them to a new branch `agent/emulator-<ticket>-<run id>-<attempt>`
    and opens a **draft** PR against the branch the workflow ran on. It never pushes to `master`, never merges,
    never releases. For issue runs it comments the PR link on the issue.
 
