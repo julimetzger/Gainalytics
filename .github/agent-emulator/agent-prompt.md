@@ -15,7 +15,7 @@ setup the skill describes; where they conflict, this file wins.
 | Inputs from the orchestrator prompt (`ticket_id`, `acceptanceCriteria`, …) | Everything is in `.agent-run/task.md` (issue title, body, optional extra text). `ticket_id` is `GH-<issue number>`, or `AGENT-RUN` without an issue. Derive the acceptance criteria from the issue text and list them in the PR body. |
 | `run_dir`, `status.json`, `summary.md` | Use `.agent-run/` as run dir (screenshots, logs, checks). No `status.json`. The PR text (below) replaces `summary.md`. |
 | `needs_input` / `blocked` | Write the question or blocker to `.agent-run/pr-body.md` under `## Open question` and stop without committing; the workflow posts it as a comment on the issue. |
-| `device_serial`, WSL, `run-maestro-from-wsl.sh`, `npx react-native run-android` | One emulator is attached and the debug APK of this checkout is already installed. Use the helper `.github/agent-emulator/tool.sh` (below) and pass the serial explicitly to every direct `adb -s` / `maestro --device` call. |
+| `device_serial`, WSL, `run-maestro-from-wsl.sh`, `npx react-native run-android` | One emulator is booted and the debug APK of this checkout installed by the background setup — call `tool.sh wait-ready` first. Use the helper `.github/agent-emulator/tool.sh` (below) and pass the serial explicitly to every direct `adb -s` / `maestro --device` call. |
 | Baseline import via `run-maestro-from-wsl.sh --mode bootstrap` | `.github/agent-emulator/tool.sh import-baseline` (pushes `__tests__/e2e/maestro/fixtures/baseline.gains`, runs `00_import_baseline.yaml`, checks for "Push pull"). The store starts empty; import before any evidence screenshot, as the skill requires. Other fixtures under `__tests__/` may be pushed with `adb push` when a ticket needs them. |
 | Metro provided by the orchestrator | The APK contains an embedded JS bundle of the checkout as it was at job start. After a JS change run `tool.sh metro-start`, then `tool.sh launch` (the emulator reaches Metro via `10.0.2.2:8081`), and prove which JS runs (see `docs/memory/agent/metro-and-bundling.md`). Native changes: `tool.sh rebuild` (~15–20 min). |
 | `git push`, `gh pr create`, `gh pr edit` | Not available. Only commit locally; the workflow pushes your commits to `agent/emulator-*` and opens a draft PR from the files below. |
@@ -26,10 +26,26 @@ setup the skill describes; where they conflict, this file wins.
 (`.github/agent-emulator/test-task.md`), follow that task as written: it checks the empty store, so do
 NOT import baseline data, and its empty-state screenshot counts as the evidence.
 
-## Start: check the environment yourself
+## The device is still being prepared when you start
 
-No automated smoke test runs before you. The emulator is booted, the APK installed and the app
-was just launched. Before working on the task:
+You start right after `npm ci`. In the background `bg-setup.sh` builds the debug APK (Gradle,
+~15–20 min), then boots the emulator and installs + launches the app. Use that time:
+
+- Read the task, the skill, `AGENTS.md`, the agent memory and the relevant code; plan the change.
+- Implement JS/TS changes and run the relevant Jest tests (`npx jest <path>`) — the runner is small,
+  so prefer targeted tests over the full suite while Gradle runs.
+- `tool.sh setup-status` shows the current state. Before **any** device step (adb, maestro,
+  screenshot, `import-baseline`, `metro-start`, `rebuild`) run `tool.sh wait-ready`; it blocks until the
+  app is installed or prints the log if the setup failed.
+- The APK contains the JS bundle of the checkout at job start, so after JS changes you still need
+  `tool.sh metro-start` + `tool.sh launch` to see them on the device (see below).
+- If the setup failed (`failed:<step>`), report it under `## Open question` with the log lines and stop
+  — do not try to repair the build environment.
+
+## Then check the environment yourself
+
+No automated smoke test runs before you. Once `tool.sh wait-ready` returns, the emulator is booted,
+the APK installed and the app was just launched. Before working on the device:
 
 1. `tool.sh screenshot env-01-start` and look at the small copy: is the app on screen (onboarding or
    Training home), not a crash dialog, ANR or a red RN error screen?
@@ -43,6 +59,7 @@ was just launched. Before working on the task:
 
 ## Helper `.github/agent-emulator/tool.sh`
 
+- `setup-status` / `wait-ready` — background setup state / block until the device is ready
 - `serial` — emulator serial
 - `launch` — force-stop + cold start the app
 - `import-baseline [file.gains]` — import baseline test data (see above)
@@ -62,7 +79,7 @@ was just launched. Before working on the task:
 - Never print or write environment variables, tokens or secrets.
 - Do not modify anything under `.github/` and do not modify `.gains` fixtures — the publishing job
   rejects such commits.
-- Time limit about 45 minutes. Budget for it: implement, verify, collect evidence, commit — a
+- Time limit about 75 minutes including the ~20 minutes of background setup. Budget for it: implement, verify, collect evidence, commit — a
   verified small fix beats an unverified large one.
 
 ## Done means (hard, same as the skill)

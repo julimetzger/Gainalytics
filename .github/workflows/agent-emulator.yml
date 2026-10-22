@@ -174,7 +174,9 @@ jobs:
           key: gradle-agent-emu-${{ runner.os }}-${{ hashFiles('android/**/*.gradle', 'android/gradle.properties', 'android/gradle/wrapper/gradle-wrapper.properties', 'package-lock.json') }}
           restore-keys: gradle-agent-emu-${{ runner.os }}-
 
+      # Agent runs build in the background (bg-setup.sh) while the agent already works.
       - name: Build debug APK (x86_64, embedded JS bundle)
+        if: steps.mode.outputs.mode == 'smoke'
         timeout-minutes: 45
         working-directory: android
         run: |
@@ -185,6 +187,7 @@ jobs:
           unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E "assets/index.android.bundle|lib/x86_64/libappmodules.so"
 
       - name: Install Maestro
+        if: steps.mode.outputs.mode == 'smoke'
         run: |
           curl -fsSL -o "$RUNNER_TEMP/maestro.zip" \
             "https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
@@ -197,7 +200,7 @@ jobs:
         run: |
           mkdir -p .agent-run
           echo ".agent-run/" >> .git/info/exclude
-          cp "$RUNNER_TEMP/timings.txt" .agent-run/timings.txt
+          cp "$RUNNER_TEMP/timings.txt" .agent-run/timings.txt 2>/dev/null || touch .agent-run/timings.txt
           chmod +x .github/agent-emulator/*.sh
           echo "AGENT_RUN_DIR=$GITHUB_WORKSPACE/.agent-run" >> "$GITHUB_ENV"
 
@@ -233,6 +236,15 @@ jobs:
             ~/.android/avd/*
             ~/.android/adb*
           key: avd-${{ env.API_LEVEL }}-${{ env.AVD_TARGET }}-${{ env.AVD_ARCH }}-v2
+
+      - name: Start background setup (Gradle build, emulator, install)
+        if: steps.mode.outputs.mode != 'smoke'
+        run: |
+          echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
+          nohup .github/agent-emulator/bg-setup.sh > .agent-run/setup.log 2>&1 < /dev/null &
+          git config user.name "claude[bot]"
+          git config user.email "41898282+claude[bot]@users.noreply.github.com"
+          echo "AGENT_START=$(date +%s)" >> "$GITHUB_ENV"
 
       - name: Mark emulator start
         if: steps.mode.outputs.mode == 'smoke'
@@ -281,27 +293,11 @@ jobs:
           fi
           wc -c "$f"
 
-      - name: Start emulator for the agent
-        if: steps.mode.outputs.mode != 'smoke'
-        timeout-minutes: 15
-        run: |
-          start=$(date +%s)
-          nohup "$ANDROID_HOME/emulator/emulator" -port 5554 -avd test -no-snapshot-save -no-window \
-            -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none \
-            > "$RUNNER_TEMP/emulator.log" 2>&1 < /dev/null &
-          .github/agent-emulator/tool.sh wait-boot 600
-          echo "agent_emulator_boot_s=$(( $(date +%s) - start ))" | tee -a .agent-run/timings.txt
-          .github/agent-emulator/tool.sh install
-          .github/agent-emulator/tool.sh launch
-          if ! command -v ffmpeg >/dev/null; then sudo apt-get install -y -qq ffmpeg >/dev/null; fi
-          git config user.name "claude[bot]"
-          git config user.email "41898282+claude[bot]@users.noreply.github.com"
-          echo "AGENT_START=$(date +%s)" >> "$GITHUB_ENV"
-
       - name: Run Claude Code
         id: claude
         if: steps.mode.outputs.mode != 'smoke'
-        timeout-minutes: 45
+        # Includes the time the agent waits for the background setup (~15-20 min Gradle + boot).
+        timeout-minutes: 75
         uses: anthropics/claude-code-action/base-action@a5a423f75c251dcbff8a74e99f83b2cb03c72bfa # v1.0.256
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -309,7 +305,7 @@ jobs:
             Read .github/agent-emulator/agent-prompt.md and follow it exactly.
             Your task is in .agent-run/task.md.
           claude_args: |
-            --max-turns 120
+            --max-turns 160
             --allowedTools "Read,Edit,Write,Glob,Grep,TodoWrite,WebSearch,WebFetch"
             --allowedTools "Bash(.github/agent-emulator/tool.sh:*),Bash(adb:*),Bash(maestro:*)"
             --allowedTools "Bash(npm install:*),Bash(npm i:*),Bash(npm ci:*),Bash(npm uninstall:*)"
@@ -317,6 +313,18 @@ jobs:
             --allowedTools "Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git rm:*)"
             --allowedTools "Bash(ls:*),Bash(mkdir:*),Bash(cp:*),Bash(mv:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(sleep:*),Bash(ffmpeg:*)"
             --disallowedTools "Bash(git push:*),Bash(gh:*),Bash(curl:*),Bash(wget:*),Bash(env:*),Bash(printenv:*)"
+
+      - name: Stop background setup if still running
+        if: always() && steps.mode.outputs.mode != 'smoke'
+        run: |
+          st="$(cat .agent-run/setup.status 2>/dev/null || echo none)"
+          echo "setup status at agent end: ${st}" | tee -a .agent-run/timings.txt
+          if [[ "${st}" != "ready" && "${st}" != failed:* ]]; then
+            # The agent finished without needing the device (e.g. open question): save the minutes.
+            pkill -f bg-setup.sh || true
+            pkill -f GradleWrapperMain || true
+          fi
+          tail -20 .agent-run/setup.log 2>/dev/null || true
 
       - name: Agent summary
         if: always() && steps.mode.outputs.mode != 'smoke'

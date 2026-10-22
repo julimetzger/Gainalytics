@@ -12,6 +12,9 @@
 #   tool.sh logcat [label]         dump logcat to .agent-run/logcat/<label>.txt
 #   tool.sh metro-start            start Metro on :8081 (the emulator reaches it via 10.0.2.2)
 #   tool.sh rebuild                assembleDebug (x86_64 only) + install
+#   tool.sh setup-status           background setup state (building/booting/installing/ready/failed:*)
+#   tool.sh wait-ready [timeout_s] block until the background setup is ready (APK built, emulator
+#                                  booted, app installed); exits 1 with the log tail if it failed
 #   tool.sh import-baseline [file] push a .gains fixture as /sdcard/Download/baseline.gains, import it
 #                                  via 00_import_baseline.yaml and check that "Push pull" is visible
 #                                  (default: __tests__/e2e/maestro/fixtures/baseline.gains). The import
@@ -120,7 +123,34 @@ case "${cmd}" in
     echo "Metro did not come up, see ${OUT}/metro.log" >&2
     exit 1
     ;;
+  setup-status)
+    cat "${OUT}/setup.status" 2>/dev/null || echo "not started"
+    tail -5 "${OUT}/setup.log" 2>/dev/null || true
+    ;;
+  wait-ready)
+    timeout_s="${1:-2400}"
+    start=$(date +%s)
+    last=""
+    while true; do
+      st="$(cat "${OUT}/setup.status" 2>/dev/null || echo "not started")"
+      [[ "${st}" != "${last}" ]] && { echo "setup: ${st} (+$(( $(date +%s) - start ))s)"; last="${st}"; }
+      case "${st}" in
+        ready) exit 0 ;;
+        failed:*)
+          echo "Background setup failed (${st}). Last log lines:" >&2
+          tail -40 "${OUT}/setup.log" >&2 || true
+          exit 1 ;;
+      esac
+      if (( $(date +%s) - start > timeout_s )); then
+        echo "Setup not ready after ${timeout_s}s (state: ${st})" >&2
+        exit 1
+      fi
+      sleep 10
+    done
+    ;;
   rebuild)
+    # Never run a second Gradle build next to the background one.
+    "$0" wait-ready
     (cd "${ROOT}/android" && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain && ./gradlew --stop)
     "$0" install
     ;;
@@ -142,7 +172,7 @@ case "${cmd}" in
     echo "Imported $(basename "${fixture}")"
     ;;
   *)
-    sed -n '2,18p' "$0"
+    sed -n '2,21p' "$0"
     exit 2
     ;;
 esac
