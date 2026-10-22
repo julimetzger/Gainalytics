@@ -91,9 +91,9 @@ appId: com.powerliftingworkoutplanner
 # Open the overflow menu and verify the menu items.
 - tapOn:
     id: "rest-timer-overflow"
-- assertVisible: "Skip rest"
-- assertVisible: "Edit target…"
-- tapOn: "Edit target…"
+- assertVisible: "Skip Rest"
+- assertVisible: "Edit Rest Target…"
+- tapOn: "Edit Rest Target…"
 - assertVisible:
     id: "rest-target-edit-dialog"
 - tapOn:

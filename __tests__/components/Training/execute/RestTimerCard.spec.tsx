@@ -88,7 +88,42 @@ describe('RestTimerCard caption (GH-394)', () => {
   });
 });
 
-describe('RestTimerCard "Adjust default for this exercise" (GH-195 P2)', () => {
+describe('RestTimerCard overflow menu labels (GH-543)', () => {
+  const renderCard = () =>
+    render(
+      <RestTimerCard
+        startedAt={Date.now()}
+        targetSeconds={90}
+        exerciseId={7}
+        onReset={jest.fn()}
+        onSkip={jest.fn()}
+        onEditTarget={jest.fn()}
+        onAdjustExerciseDefault={jest.fn()}
+      />,
+    );
+
+  it('uses Title Case labels that match the dialog titles they open', () => {
+    const {getByTestId, getByText} = renderCard();
+    fireEvent.press(getByTestId('rest-timer-overflow'));
+
+    expect(getByText('Skip Rest')).toBeTruthy();
+    expect(getByText('Edit Rest Target…')).toBeTruthy();
+    expect(getByText('Adjust Default Rest…')).toBeTruthy();
+  });
+
+  it.each([
+    ['rest-timer-edit-target-menu', 'Edit Rest Target'],
+    ['rest-timer-adjust-default', 'Adjust Default Rest'],
+  ])('menu item %s opens the dialog titled "%s"', (itemTestID, dialogTitle) => {
+    const {getByTestId, getByText} = renderCard();
+    fireEvent.press(getByTestId('rest-timer-overflow'));
+    fireEvent.press(getByTestId(itemTestID));
+
+    expect(getByText(dialogTitle)).toBeTruthy();
+  });
+});
+
+describe('RestTimerCard "Adjust Default Rest…" (GH-195 P2)', () => {
   it('opens the dialog pre-populated with exerciseDefaultSeconds and persists via onAdjustExerciseDefault on save', () => {
     const onAdjustExerciseDefault = jest.fn();
     const {getByTestId} = render(
@@ -106,7 +141,7 @@ describe('RestTimerCard "Adjust default for this exercise" (GH-195 P2)', () => {
 
     // Open overflow menu.
     fireEvent.press(getByTestId('rest-timer-overflow'));
-    // Tap "Adjust default for this exercise".
+    // Tap "Adjust Default Rest…".
     fireEvent.press(getByTestId('rest-timer-adjust-default'));
 
     // Dialog opens pre-populated with the current per-exercise default (60s = 1:00).
