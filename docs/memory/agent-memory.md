@@ -598,3 +598,17 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Rule:** drill-down = tap the label, `scrollUntilVisible muscle-radar-details-button` (strip sits below the 300 dp chart, off-screen on the phone), tap it. The chart wrapper `muscle-radar-svg` has every value in its accessibilityLabel (`Back 9 (last week 11), …`) → assert it with a full-string regex. Labels expose `selected: true` when chosen.
 **Apply when:** writing flows that use the Dashboard's Muscle Groups card.
 
+### Maestro `text:` selectors ignore case — prefix `(?-i)` for wording/casing tickets
+**Problem:** `assertVisible: 'Skip Rest'` also matches the old `Skip rest`, so a casing-fix flow passes on the unfixed app.
+**Fix / Rule:** prefix the regex with `(?-i)` (`assertVisible: '(?-i)Skip Rest'`, `assertNotVisible: '(?-i)Skip rest'`). Confirmed: the old bundle failed exactly at the `(?-i)` assertion and the fixed one passed (`gh543_rest_menu_labels.yaml`).
+**Apply when:** asserting labels whose capitalization is the point of the change. (seen in GH-543)
+
+### Rest timer overflow menu: tap the `rest-timer-overflow` id, detect the open menu by text, never by point
+**Observation:** on a running training Maestro resolves `rest-timer-overflow` (while the rest card exists), but NOT the Paper `Menu.Item` testIDs (`rest-timer-skip` stays "not visible" with the menu open). A point-tap fallback on the icon then lands on "Skip rest" in the open menu and silently stops the timer. Route: Home `next-training-start-button` → "Plan this Training" → `^Suggest based on last Training$` → `subtab-train` → `train-tab-start-button` → log one set → `tapOn: {id: rest-timer-overflow}` → `extendedWaitUntil: visible: 'Skip rest'` (see `gh543_open_rest_menu.yaml`).
+**Apply when:** flows touching the rest timer menu/dialogs. (seen in GH-543)
+
+### CI emulator: cold start under Maestro SIGSEGVs in Fabric (`MountingCoordinator::pullTransaction`) — start via adb, then `launchApp: {stopApp: false}`
+**Problem:** with a large imported store, `launchApp` (cold start) in `00_import_baseline.yaml` crashed the app twice (`F libc: Fatal signal 11 … (mqt_v_js)`, frames in `ShadowTree::commit` → `pullTransaction`) while Maestro polled ("Could not detect idle state"); the flow then failed on the launcher.
+**Fix / Rule:** `adb shell am start -n com.powerliftingworkoutplanner/.MainActivity`, let it settle ~45 s, then run an import flow that starts with `launchApp: {stopApp: false}`. The SAF picker also opened on "Recent / No items" — `tapOn: 'Show roots'` → `tapOn: 'Downloads'` → `baseline.gains`.
+**Apply when:** `tool.sh import-baseline` fails with "Training is visible" false and the screenshot shows the launcher. (seen in GH-543)
+
