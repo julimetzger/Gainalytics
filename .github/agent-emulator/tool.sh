@@ -12,6 +12,11 @@
 #   tool.sh logcat [label]         dump logcat to .agent-run/logcat/<label>.txt
 #   tool.sh metro-start            start Metro on :8081 (the emulator reaches it via 10.0.2.2)
 #   tool.sh rebuild                assembleDebug (x86_64 only) + install
+#   tool.sh import-baseline [file] push a .gains fixture as /sdcard/Download/baseline.gains, import it
+#                                  via 00_import_baseline.yaml and check that "Push pull" is visible
+#                                  (default: __tests__/e2e/maestro/fixtures/baseline.gains). The import
+#                                  flow waits for "Push pull", so another fixture only works if it
+#                                  contains that plan; otherwise push it and write a matching import flow.
 set -euo pipefail
 
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
@@ -119,8 +124,25 @@ case "${cmd}" in
     (cd "${ROOT}/android" && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain && ./gradlew --stop)
     "$0" install
     ;;
+  import-baseline)
+    fixture="$(realpath "${1:-${ROOT}/__tests__/e2e/maestro/fixtures/baseline.gains}")"
+    S="$(serial)"
+    # 00_import_baseline.yaml picks the file named baseline.gains in Downloads.
+    adb -s "${S}" shell rm -f /sdcard/Download/baseline.gains >/dev/null 2>&1 || true
+    adb -s "${S}" push "${fixture}" /sdcard/Download/baseline.gains
+    "$0" flow "${ROOT}/__tests__/e2e/maestro/flows/00_import_baseline.yaml"
+    adb -s "${S}" shell uiautomator dump /sdcard/ui-after-import.xml >/dev/null
+    mkdir -p "${OUT}/checks"
+    adb -s "${S}" pull /sdcard/ui-after-import.xml "${OUT}/checks/ui-after-import.xml" >/dev/null
+    if [[ "$(basename "${fixture}")" == "baseline.gains" ]] \
+      && ! grep -q "Push pull" "${OUT}/checks/ui-after-import.xml"; then
+      echo "Baseline data not loaded (\"Push pull\" not visible) — ABORT" >&2
+      exit 1
+    fi
+    echo "Imported $(basename "${fixture}")"
+    ;;
   *)
-    sed -n '2,15p' "$0"
+    sed -n '2,18p' "$0"
     exit 2
     ;;
 esac
