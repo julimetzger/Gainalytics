@@ -46,10 +46,15 @@ from the default branch); it has been removed.
    checkout → KVM → JDK 17 / Node 22 → `npm ci` → `assembleDebug -PreactNativeArchitectures=x86_64`
    (the debug APK embeds the JS bundle because `debuggableVariants = []`, so no Metro is needed) →
    Maestro CLI (pinned version + SHA-256) → AVD (API 34, google_apis, x86_64, cached snapshot) →
-   smoke phase (`smoke.sh`: install, cold start, `__tests__/e2e/maestro/flows/smoke.yaml`, screenshots, logcat).
+   smoke phase (`smoke.sh`: install, cold start, `__tests__/e2e/maestro/flows/smoke.yaml`, screenshots, logcat)
+   — **only in `smoke_only` mode**. Agent runs skip it: the agent checks the app itself at the start
+   (screenshot, logcat) and reports an environment problem as an open question instead of failing the job;
+   an open question without commits is posted as a comment on the issue.
 2. Agent phase (not in smoke mode): the task (issue text + optional text, or the dummy task) is written to
    `.agent-run/task.md`; the emulator is booted again and the APK installed; Claude Code
-   (`anthropics/claude-code-action/base-action`) runs with the prompt `.github/agent-emulator/agent-prompt.md`.
+   (`anthropics/claude-code-action/base-action`) runs with the prompt `.github/agent-emulator/agent-prompt.md`,
+   which makes the agent follow the local feature-worker skill `orchestrator/codex-skills/feature/SKILL.md`
+   and lists only the CI-specific overrides (no run dir/status.json, no push/gh, `tool.sh` instead of WSL scripts).
    Allowed tools: file read/edit, web search and page fetch (`WebSearch`/`WebFetch`, e.g. for library docs),
    `npm install`/`npm ci`/`npm uninstall` (adding or removing dependencies), `adb`, `maestro`, `tool.sh`,
    jest/tsc/lint, local git (status/diff/log/add/commit). Note: `npm install` runs package install scripts,
@@ -67,9 +72,11 @@ The agent therefore never holds a token with write access; only the small publis
 
 ## Data
 
-The emulator starts with an empty store. The `.gains` fixtures contain real training data and are
-neither pushed nor imported; screenshots show only the empty state. Synthetic test data will come with #535.
-Flows that need imported data cannot run here yet.
+The emulator starts with an empty store; the smoke phase runs against that empty store. The agent follows
+the feature skill (`orchestrator/codex-skills/feature/SKILL.md`) and imports the baseline fixture with
+`tool.sh import-baseline` before any evidence screenshot. The current fixtures contain real training data
+(owner-approved while the repo is private), so evidence screenshots in agent PRs and run artifacts show
+those values. Replace them with synthetic data (#535) before the repo goes public.
 
 ## Where results land
 
