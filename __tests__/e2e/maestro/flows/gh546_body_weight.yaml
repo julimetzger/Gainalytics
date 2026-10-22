@@ -1,0 +1,125 @@
+appId: com.powerliftingworkoutplanner
+# GH-546: body weight card in Analyse. Starts from an app whose store was hydrated with the
+# baseline fixture (00_import_baseline.yaml) and has NO body weight entries yet (synthetic values only).
+---
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: "tab-analyse"
+    timeout: 30000
+- tapOn: "tab-analyse"
+- tapOn:
+    id: "analyse-drawer-toggle"
+- tapOn: "Body Weight"
+- extendedWaitUntil:
+    visible:
+      id: "body-weight-screen"
+    timeout: 15000
+# Empty state with a direct entry point
+- assertVisible: "No body weight yet"
+- tapOn:
+    id: "body-weight-empty-add"
+- assertVisible: "Add weight"
+# Validation: an implausible value is rejected and the dialog stays open
+- tapOn:
+    id: "body-weight-weight-input"
+- inputText: "5"
+- tapOn:
+    id: "body-weight-save"
+- assertVisible: "Weight must be between 20 and 500 kg"
+# First entry
+- tapOn:
+    id: "body-weight-date-input"
+- eraseText: 12
+- inputText: "2026-09-20"
+- tapOn:
+    id: "body-weight-weight-input"
+- eraseText: 6
+- inputText: "82.0"
+- tapOn:
+    id: "body-weight-note-input"
+- inputText: "synthetic"
+- hideKeyboard
+- tapOn:
+    id: "body-weight-save"
+- extendedWaitUntil:
+    visible:
+      id: "body-weight-current"
+    timeout: 10000
+- assertVisible:
+    id: "body-weight-current"
+    text: "82.0 kg"
+# Second and third entry
+- tapOn:
+    id: "body-weight-add"
+- tapOn:
+    id: "body-weight-date-input"
+- eraseText: 12
+- inputText: "2026-10-05"
+- tapOn:
+    id: "body-weight-weight-input"
+- inputText: "81.4"
+- hideKeyboard
+- tapOn:
+    id: "body-weight-save"
+- tapOn:
+    id: "body-weight-add"
+- tapOn:
+    id: "body-weight-date-input"
+- eraseText: 12
+- inputText: "2026-10-20"
+- tapOn:
+    id: "body-weight-weight-input"
+- inputText: "80.6"
+- hideKeyboard
+- tapOn:
+    id: "body-weight-save"
+# KPIs: current weight and change over the period (80.6 - 82.0)
+- assertVisible:
+    id: "body-weight-current"
+    text: "80.6 kg"
+- assertVisible:
+    id: "body-weight-change"
+    text: "-1.4 kg"
+- assertVisible:
+    id: "body-weight-chart"
+- takeScreenshot: gh546_chart
+# Edit the newest entry (id 3)
+- scrollUntilVisible:
+    element:
+      id: "body-weight-edit-3"
+    direction: DOWN
+- tapOn:
+    id: "body-weight-edit-3"
+- assertVisible: "Edit weight"
+- tapOn:
+    id: "body-weight-weight-input"
+- eraseText: 6
+- inputText: "80.8"
+- hideKeyboard
+- tapOn:
+    id: "body-weight-save"
+- assertVisible:
+    id: "body-weight-current"
+    text: "80.8 kg"
+- assertVisible:
+    id: "body-weight-change"
+    text: "-1.2 kg"
+# Delete it again
+- scrollUntilVisible:
+    element:
+      id: "body-weight-edit-3"
+    direction: DOWN
+- tapOn:
+    id: "body-weight-edit-3"
+- tapOn:
+    id: "body-weight-delete"
+- tapOn:
+    id: "body-weight-delete-confirm"
+- assertVisible:
+    id: "body-weight-current"
+    text: "81.4 kg"
+- assertVisible:
+    id: "body-weight-change"
+    text: "-0.6 kg"
