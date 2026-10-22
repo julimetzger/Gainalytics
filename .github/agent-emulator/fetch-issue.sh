@@ -28,6 +28,11 @@ html+="$(gh api --paginate -H "Accept: application/vnd.github.html+json" "repos/
 mapfile -t urls < <(printf '%s' "${html}" | grep -oE '<img[^>]+src="[^"]+"' | sed -E 's/.*src="([^"]+)"/\1/' \
   | sed 's/&amp;/\&/g' | grep -E '^https://(private-user-images\.githubusercontent\.com|github\.com/user-attachments|user-images\.githubusercontent\.com)/' || true)
 
+if [[ ${#urls[@]} -gt 0 ]] && ! command -v ffmpeg >/dev/null; then
+  # bg-setup.sh may be installing packages at the same time: wait for the dpkg lock.
+  sudo apt-get -o DPkg::Lock::Timeout=300 install -y -qq ffmpeg >/dev/null
+fi
+
 n=0
 list=""
 for url in "${urls[@]}"; do
@@ -41,11 +46,16 @@ for url in "${urls[@]}"; do
   [[ "${ext}" == */* ]] && ext="bin"
   f="${OUT}/issue-image-${n}.${ext}"
   mv "${raw}" "${f}"
-  # Keep images readable for the agent (large device screenshots exceed image limits).
-  if [[ "${ext}" != "bin" ]] && command -v convert >/dev/null; then
-    convert "${f}" -resize '800x1600>' "${OUT}/issue-image-${n}-small.png" 2>/dev/null \
-      && f="${OUT}/issue-image-${n}-small.png"
+  # Device screenshots are larger than the agent may open (>2000 px crashes the session), so
+  # only small copies are listed; an image that cannot be resized is not offered at all.
+  [[ "${ext}" == "bin" ]] && { echo "::warning title=issue image::image ${n} has an unknown format"; continue; }
+  small="${OUT}/issue-image-${n}-small.png"
+  if ! ffmpeg -loglevel error -y -i "${f}" \
+      -vf "scale=w='min(800,iw)':h='min(1600,ih)':force_original_aspect_ratio=decrease" "${small}"; then
+    echo "::warning title=issue image::could not resize image ${n}; not offered to the agent"
+    continue
   fi
+  f="${small}"
   list+="- \`${f#${GITHUB_WORKSPACE:-$PWD}/}\`"$'\n'
 done
 
