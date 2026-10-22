@@ -14,13 +14,28 @@ setup the skill describes; where they conflict, this file wins.
 |---|---|
 | Inputs from the orchestrator prompt (`ticket_id`, `acceptanceCriteria`, …) | Everything is in `.agent-run/task.md` (issue title, body, optional extra text). `ticket_id` is `GH-<issue number>`, or `AGENT-RUN` without an issue. Derive the acceptance criteria from the issue text and list them in the PR body. |
 | `run_dir`, `status.json`, `summary.md` | Use `.agent-run/` as run dir (screenshots, logs, checks). No `status.json`. The PR text (below) replaces `summary.md`. |
-| `needs_input` / `blocked` | Write the question or blocker to `.agent-run/pr-body.md` under `## Open question` and stop without committing. |
+| `needs_input` / `blocked` | Write the question or blocker to `.agent-run/pr-body.md` under `## Open question` and stop without committing; the workflow posts it as a comment on the issue. |
 | `device_serial`, WSL, `run-maestro-from-wsl.sh`, `npx react-native run-android` | One emulator is attached and the debug APK of this checkout is already installed. Use the helper `.github/agent-emulator/tool.sh` (below) and pass the serial explicitly to every direct `adb -s` / `maestro --device` call. |
 | Baseline import via `run-maestro-from-wsl.sh --mode bootstrap` | `.github/agent-emulator/tool.sh import-baseline` (pushes `__tests__/e2e/maestro/fixtures/baseline.gains`, runs `00_import_baseline.yaml`, checks for "Push pull"). The store starts empty; import before any evidence screenshot, as the skill requires. Other fixtures under `__tests__/` may be pushed with `adb push` when a ticket needs them. |
 | Metro provided by the orchestrator | The APK contains an embedded JS bundle of the checkout as it was at job start. After a JS change run `tool.sh metro-start`, then `tool.sh launch` (the emulator reaches Metro via `10.0.2.2:8081`), and prove which JS runs (see `docs/memory/agent/metro-and-bundling.md`). Native changes: `tool.sh rebuild` (~15–20 min). |
 | `git push`, `gh pr create`, `gh pr edit` | Not available. Only commit locally; the workflow pushes your commits to `agent/emulator-*` and opens a draft PR from the files below. |
 | Screenshot resize to 800 px | `tool.sh screenshot <name>` already writes a 540 px copy to `.agent-run/screenshots/small/`. Only read the small copy back. |
 | `npm test`, typecheck, lint | Allowed as in the skill. The runner is small (2 vCPU / 7 GB): never run Gradle or the full Jest suite while Maestro is driving the emulator. |
+
+## Start: check the environment yourself
+
+No automated smoke test runs before you. The emulator is booted, the APK installed and the app
+was just launched. Before working on the task:
+
+1. `tool.sh screenshot env-01-start` and look at the small copy: is the app on screen (onboarding or
+   Training home), not a crash dialog, ANR or a red RN error screen?
+2. If something looks wrong, `tool.sh logcat env-check`, search it for `FATAL EXCEPTION` / `ANR`, and
+   try once: `tool.sh launch` (cold start) and, for a system dialog, dismiss it via `adb`.
+3. If the app still does not run, do not work around it in app code: write what you saw (screenshot
+   name, logcat lines) under `## Open question` in `.agent-run/pr-body.md` and stop. Also stop this way
+   if `tool.sh import-baseline` fails twice.
+
+`__tests__/e2e/maestro/flows/smoke.yaml` is a quick known-good flow if you want a reference run.
 
 ## Helper `.github/agent-emulator/tool.sh`
 

@@ -46,7 +46,10 @@ from the default branch); it has been removed.
    checkout → KVM → JDK 17 / Node 22 → `npm ci` → `assembleDebug -PreactNativeArchitectures=x86_64`
    (the debug APK embeds the JS bundle because `debuggableVariants = []`, so no Metro is needed) →
    Maestro CLI (pinned version + SHA-256) → AVD (API 34, google_apis, x86_64, cached snapshot) →
-   smoke phase (`smoke.sh`: install, cold start, `__tests__/e2e/maestro/flows/smoke.yaml`, screenshots, logcat).
+   smoke phase (`smoke.sh`: install, cold start, `__tests__/e2e/maestro/flows/smoke.yaml`, screenshots, logcat)
+   — **only in `smoke_only` mode**. Agent runs skip it: the agent checks the app itself at the start
+   (screenshot, logcat) and reports an environment problem as an open question instead of failing the job;
+   an open question without commits is posted as a comment on the issue.
 2. Agent phase (not in smoke mode): the task (issue text + optional text, or the dummy task) is written to
    `.agent-run/task.md`; the emulator is booted again and the APK installed; Claude Code
    (`anthropics/claude-code-action/base-action`) runs with the prompt `.github/agent-emulator/agent-prompt.md`,

@@ -61,6 +61,7 @@ jobs:
       mode: ${{ steps.mode.outputs.mode }}
       base_sha: ${{ steps.mode.outputs.base_sha }}
       has_commits: ${{ steps.collect.outputs.has_commits }}
+      has_question: ${{ steps.collect.outputs.has_question }}
       ticket: ${{ steps.mode.outputs.ticket }}
       issue_number: ${{ steps.mode.outputs.issue_number }}
     steps:
@@ -234,10 +235,13 @@ jobs:
           key: avd-${{ env.API_LEVEL }}-${{ env.AVD_TARGET }}-${{ env.AVD_ARCH }}-v2
 
       - name: Mark emulator start
+        if: steps.mode.outputs.mode == 'smoke'
         run: echo "EMULATOR_STEP_START=$(date +%s)" >> "$GITHUB_ENV"
 
+      # Only in smoke_only mode: agent runs skip it and check the app themselves (agent-prompt.md).
       - name: Smoke test (emulator + app + Maestro)
         id: smoke
+        if: steps.mode.outputs.mode == 'smoke'
         timeout-minutes: 30
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
@@ -345,13 +349,17 @@ jobs:
           n="$(git rev-list --count "${BASE}..HEAD")"
           echo "::notice title=agent commits::${n} $(git log --format=%s "${BASE}..HEAD" | tr '\n' ';')"
           git log --oneline "${BASE}..HEAD" || true
+          mkdir -p "$RUNNER_TEMP/agent-result"
+          cp .agent-run/pr-title.txt .agent-run/pr-body.md "$RUNNER_TEMP/agent-result/" 2>/dev/null || true
           if [[ "${n}" -gt 0 ]]; then
-            mkdir -p "$RUNNER_TEMP/agent-result"
             git bundle create "$RUNNER_TEMP/agent-result/agent.bundle" "${BASE}..HEAD"
-            cp .agent-run/pr-title.txt .agent-run/pr-body.md "$RUNNER_TEMP/agent-result/" 2>/dev/null || true
             echo "has_commits=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_commits=false" >> "$GITHUB_OUTPUT"
+            # No commits but the agent reported a blocker/question: the publish job posts it on the issue.
+            if grep -q '^## Open question' .agent-run/pr-body.md 2>/dev/null; then
+              echo "has_question=true" >> "$GITHUB_OUTPUT"
+            fi
           fi
           git status --short | head -50
 
@@ -377,7 +385,7 @@ jobs:
           retention-days: 14
 
       - name: Upload agent commits
-        if: always() && steps.collect.outputs.has_commits == 'true'
+        if: always() && (steps.collect.outputs.has_commits == 'true' || steps.collect.outputs.has_question == 'true')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: agent-result
@@ -386,7 +394,7 @@ jobs:
 
   publish:
     needs: emulator
-    if: needs.emulator.outputs.has_commits == 'true'
+    if: always() && (needs.emulator.outputs.has_commits == 'true' || needs.emulator.outputs.has_question == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -403,7 +411,26 @@ jobs:
           name: agent-result
           path: ${{ runner.temp }}/agent-result
 
+      - name: Post open question on the issue (no commits)
+        if: needs.emulator.outputs.has_commits != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ needs.emulator.outputs.issue_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          body="$(printf '%s\n\n---\nEmulator agent stopped without changes ([run](%s)). Evidence artifact: `agent-emulator-evidence`.\n' \
+            "$(cat "$RUNNER_TEMP/agent-result/pr-body.md")" "${RUN_URL}")"
+          echo "${body}" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "${ISSUE}" ]]; then
+            gh api "repos/${REPO}/issues/${ISSUE}/comments" -f body="${body}" --jq .html_url
+          else
+            echo "::warning title=agent open question::No issue to comment on; see the run summary."
+          fi
+
       - name: Check, push branch, open draft PR
+        if: needs.emulator.outputs.has_commits == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
