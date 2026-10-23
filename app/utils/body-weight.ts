@@ -1,4 +1,6 @@
 import {BodyWeightEntry} from '../models/entities/BodyWeightEntry';
+import {ensureFormat} from './numberInput';
+import {formatPlanNumber} from './planRange';
 
 /** Plausible human body weights; anything outside is almost certainly a typo. */
 export const MIN_BODY_WEIGHT_KG = 20;
@@ -10,31 +12,9 @@ export const startOfDay = (value: number | Date): number => {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 };
 
-const pad = (value: number) => String(value).padStart(2, '0');
-
-/** `YYYY-MM-DD` in local time — the format of the date input field. */
-export const formatBodyWeightDate = (value: number | Date): string => {
-  const date = new Date(value);
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-};
-
-/** Parses `YYYY-MM-DD` to the local start of that day; `undefined` for anything that is not a real calendar date. */
-export const parseBodyWeightDate = (text: string): number | undefined => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text.trim());
-  if (!match) {
-    return undefined;
-  }
-  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  const date = new Date(year, month - 1, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-    return undefined;
-  }
-  return date.getTime();
-};
-
 /** Accepts `82.5` and `82,5`; `undefined` when the text is not a number. */
 export const parseBodyWeightKg = (text: string): number | undefined => {
-  const normalized = text.trim().replace(',', '.');
+  const normalized = ensureFormat(text.trim());
   if (!/^\d+(\.\d+)?$/.test(normalized)) {
     return undefined;
   }
@@ -42,7 +22,8 @@ export const parseBodyWeightKg = (text: string): number | undefined => {
 };
 
 export interface BodyWeightDraft {
-  date: string;
+  /** Epoch ms of the picked day (any time of that day). */
+  date: number;
   weight: string;
   note: string;
 }
@@ -55,10 +36,7 @@ export interface BodyWeightValidationErrors {
 
 export const validateBodyWeightDraft = (draft: BodyWeightDraft, now: number = Date.now()): BodyWeightValidationErrors => {
   const errors: BodyWeightValidationErrors = {};
-  const date = parseBodyWeightDate(draft.date);
-  if (date === undefined) {
-    errors.date = 'Enter a valid date as YYYY-MM-DD';
-  } else if (date > startOfDay(now)) {
+  if (startOfDay(draft.date) > startOfDay(now)) {
     errors.date = 'The date cannot be in the future';
   }
   const weight = parseBodyWeightKg(draft.weight);
@@ -73,24 +51,27 @@ export const validateBodyWeightDraft = (draft: BodyWeightDraft, now: number = Da
   return errors;
 };
 
+const roundToTenth = (value: number) => Math.round(value * 10) / 10;
+
 /** Builds the entry (without id) for a draft that passed validation. */
 export const draftToBodyWeightEntry = (draft: BodyWeightDraft): Omit<BodyWeightEntry, 'id'> => {
   const note = draft.note.trim();
   return {
-    date: parseBodyWeightDate(draft.date)!,
-    weightKg: Math.round(parseBodyWeightKg(draft.weight)! * 10) / 10,
+    date: startOfDay(draft.date),
+    weightKg: roundToTenth(parseBodyWeightKg(draft.weight)!),
     ...(note ? {note} : {}),
   };
 };
 
-export const formatWeightKg = (weightKg: number): string => `${(Math.round(weightKg * 10) / 10).toFixed(1)} kg`;
+/** `82.5 kg` / `82 kg` — like logged set weights: no trailing zeros, always `.` as decimal separator. */
+export const formatWeightKg = (weightKg: number): string => `${formatPlanNumber(roundToTenth(weightKg))} kg`;
 
 export const formatWeightChangeKg = (changeKg: number): string => {
-  const rounded = Math.round(changeKg * 10) / 10;
+  const rounded = roundToTenth(changeKg);
   if (rounded === 0) {
-    return '0.0 kg';
+    return '0 kg';
   }
-  return `${rounded > 0 ? '+' : '-'}${Math.abs(rounded).toFixed(1)} kg`;
+  return `${rounded > 0 ? '+' : '-'}${formatWeightKg(Math.abs(rounded))}`;
 };
 
 /** Entries whose day lies within [start day, endMs], sorted ascending. */

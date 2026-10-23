@@ -3,7 +3,9 @@ import {StyleSheet} from 'react-native';
 import {HelperText, TextInput} from 'react-native-paper';
 import EditDialogScaffold from '../common/EditDialogScaffold';
 import {BodyWeightEntry} from '../../models/entities/BodyWeightEntry';
-import {BodyWeightDraft, draftToBodyWeightEntry, formatBodyWeightDate, validateBodyWeightDraft} from '../../utils/body-weight';
+import DatePicker from '../picker/date/DatePicker';
+import {BodyWeightDraft, draftToBodyWeightEntry, validateBodyWeightDraft} from '../../utils/body-weight';
+import {ensureFormat} from '../../utils/numberInput';
 
 interface BodyWeightEntryDialogProps {
   visible: boolean;
@@ -15,7 +17,7 @@ interface BodyWeightEntryDialogProps {
 }
 
 const createDraft = (entry?: BodyWeightEntry): BodyWeightDraft => ({
-  date: formatBodyWeightDate(entry?.date ?? Date.now()),
+  date: entry?.date ?? Date.now(),
   weight: entry ? String(entry.weightKg) : '',
   note: entry?.note ?? '',
 });
@@ -64,15 +66,7 @@ const BodyWeightEntryDialog = ({visible, entry, onDismiss, onSave, onDelete}: Bo
       }
       scrollable
     >
-      <TextInput
-        mode="outlined"
-        label="Date (YYYY-MM-DD)"
-        value={draft.date}
-        onChangeText={(date) => setDraft((current) => ({...current, date}))}
-        error={showErrors && !!errors.date}
-        autoCorrect={false}
-        testID="body-weight-date-input"
-      />
+      <DatePicker label="Date" date={draft.date} setDate={(date) => setDraft((current) => ({...current, date: date.getTime()}))} testID="body-weight-date-button" />
       <HelperText type="error" visible={showErrors && !!errors.date} testID="body-weight-date-error">
         {errors.date}
       </HelperText>
@@ -80,7 +74,7 @@ const BodyWeightEntryDialog = ({visible, entry, onDismiss, onSave, onDelete}: Bo
         mode="outlined"
         label="Weight (kg)"
         value={draft.weight}
-        onChangeText={(weight) => setDraft((current) => ({...current, weight}))}
+        onChangeText={(weight) => setDraft((current) => ({...current, weight: ensureFormat(weight)}))}
         keyboardType="decimal-pad"
         error={showErrors && !!errors.weight}
         testID="body-weight-weight-input"

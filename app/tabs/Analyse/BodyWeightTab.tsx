@@ -8,7 +8,7 @@ import DateRangePicker, {Range} from '../../components/picker/date/DateRangePick
 import {BodyWeightEntry} from '../../models/entities/BodyWeightEntry';
 import {dispatchAddBodyWeightEntry, dispatchDeleteBodyWeightEntry, dispatchEditBodyWeightEntry} from '../../redux/BodyWeight/dispatch/dispatchBodyWeight';
 import {useBodyWeightEntries} from '../../redux/BodyWeight/use/useBodyWeightEntries';
-import {computeBodyWeightStats, entriesInRange, formatBodyWeightDate, formatWeightChangeKg, formatWeightKg} from '../../utils/body-weight';
+import {computeBodyWeightStats, entriesInRange, formatWeightChangeKg, formatWeightKg} from '../../utils/body-weight';
 import {firstDayOfWeek, getDateStringFromDate, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
 import {rangeEndingAt} from '../../utils/analyse-range';
 
@@ -163,7 +163,7 @@ const BodyWeightTab = () => {
                   {[...entries].reverse().map((entry) => (
                     <View key={entry.id} style={styles.entryRow} testID={`body-weight-entry-${entry.id}`}>
                       <View style={styles.entryText}>
-                        <Text variant="bodyLarge">{`${formatBodyWeightDate(entry.date)}  ·  ${formatWeightKg(entry.weightKg)}`}</Text>
+                        <Text variant="bodyLarge" testID={`body-weight-entry-text-${entry.id}`}>{`${getDateStringFromDate(entry.date)}  ·  ${formatWeightKg(entry.weightKg)}`}</Text>
                         {!!entry.note && (
                           <Text variant="bodySmall" style={styles.mutedText}>
                             {entry.note}
