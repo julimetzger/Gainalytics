@@ -18,7 +18,9 @@ Only users with write access (owner/collaborators) can start it; forks never run
   ```
 
   Inputs: `issue_number` (optional), `task` (free text, optional — one of the two is required),
-  `smoke_only` (emulator + app + Maestro flow, no agent, no secret needed).
+  `smoke_only` (emulator + app + Maestro flow, no agent, no secret needed),
+  `model` (`opus` default, `sonnet`, `haiku`; label-triggered runs use `opus`). The model actually used is
+  shown in the run summary and as the `agent model` annotation.
 - **Pipeline test:** dispatch with `task=dummy` runs a harmless built-in task
   (`.github/agent-emulator/test-task.md`: add one empty-state Maestro flow + screenshot, no app code).
   The resulting draft PR must not be merged.
@@ -51,7 +53,8 @@ from the default branch); it has been removed.
    (screenshot, logcat) and reports an environment problem as an open question instead of failing the job;
    an open question without commits is posted as a comment on the issue.
 2. Agent phase (not in smoke mode): the task (issue text + optional text, or the dummy task) is written to
-   `.agent-run/task.md` and Claude Code starts right after `npm ci`, while `bg-setup.sh` builds the APK, boots the
+   `.agent-run/task.md` (issue body, comments, and the issue images downloaded to `.agent-run/issue-images/` via the
+   signed URLs of the rendered issue, see `fetch-issue.sh`) and Claude Code starts right after `npm ci`, while `bg-setup.sh` builds the APK, boots the
    emulator and installs the app in the background (`.agent-run/setup.status`, `setup.log`); the agent reads
    ticket and code meanwhile and calls `tool.sh wait-ready` before its first device step. Claude Code
    (`anthropics/claude-code-action/base-action`) runs with the prompt `.github/agent-emulator/agent-prompt.md`,

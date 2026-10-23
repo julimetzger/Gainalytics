@@ -12,7 +12,7 @@ setup the skill describes; where they conflict, this file wins.
 
 | Skill says | Here |
 |---|---|
-| Inputs from the orchestrator prompt (`ticket_id`, `acceptanceCriteria`, …) | Everything is in `.agent-run/task.md` (issue title, body, optional extra text). `ticket_id` is `GH-<issue number>`, or `AGENT-RUN` without an issue. Derive the acceptance criteria from the issue text and list them in the PR body. |
+| Inputs from the orchestrator prompt (`ticket_id`, `acceptanceCriteria`, …) | Everything is in `.agent-run/task.md` (issue title, body, comments, optional extra text). Screenshots attached to the issue are downloaded to `.agent-run/issue-images/` and listed at the end of `task.md` — always look at them with the Read tool before you start; the image links in the issue text are not reachable for you. `ticket_id` is `GH-<issue number>`, or `AGENT-RUN` without an issue. Derive the acceptance criteria from the issue text and list them in the PR body. |
 | `run_dir`, `status.json`, `summary.md` | Use `.agent-run/` as run dir (screenshots, logs, checks). No `status.json`. The PR text (below) replaces `summary.md`. |
 | `needs_input` / `blocked` | Write the question or blocker to `.agent-run/pr-body.md` under `## Open question` and stop without committing; the workflow posts it as a comment on the issue. |
 | `device_serial`, WSL, `run-maestro-from-wsl.sh`, `npx react-native run-android` | One emulator is booted and the debug APK of this checkout installed by the background setup — call `tool.sh wait-ready` first. Use the helper `.github/agent-emulator/tool.sh` (below) and pass the serial explicitly to every direct `adb -s` / `maestro --device` call. |
