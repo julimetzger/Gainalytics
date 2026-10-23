@@ -38,7 +38,7 @@ pid_maestro=$!
 
 (
   set -e
-  command -v ffmpeg >/dev/null || sudo apt-get install -y -qq ffmpeg >/dev/null
+  command -v ffmpeg >/dev/null || sudo apt-get -o DPkg::Lock::Timeout=300 install -y -qq ffmpeg >/dev/null
   img="system-images;android-${API_LEVEL};${AVD_TARGET};${AVD_ARCH}"
   sdk="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
   # The AVD comes from the cache; the system image and emulator binary must exist in the SDK too.
