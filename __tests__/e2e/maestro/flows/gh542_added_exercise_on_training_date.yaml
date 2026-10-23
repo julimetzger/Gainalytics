@@ -6,13 +6,16 @@ appId: com.powerliftingworkoutplanner
 #
 # Flow: create "GH542 Added" (id 85: the baseline's highest exercise id is 84) →
 # open the FINISHED training behind plan-meta-1 (Sun, 03/08/25, 17:27 - 19:22) →
-# Edit training → add the new exercise → log one set → Add Workout → the
-# exercise's History tab must list that set under "Sun, 03/08/25".
+# Edit training → add the new exercise → "Add Workout" on the exercise before it
+# → log one set for the new one → Add Workout → the exercise's History tab must
+# list that set under "Sun, 03/08/25".
 # Before the fix the workout started at Date.now(), i.e. it showed up under today.
 #
 # Prerequisite: baseline.gains freshly imported (00_import_baseline.yaml).
 - launchApp:
     stopApp: false
+# The baseline import leaves the app on the Settings tab.
+- tapOn: 'tab-training'
 - extendedWaitUntil:
     visible:
       id: 'training-home-screen'
@@ -122,7 +125,13 @@ appId: com.powerliftingworkoutplanner
       - waitForAnimationToEnd:
           timeout: 5000
 
-# ---- 4. log one set for it ----
+# ---- 4. reach the new exercise the way a user does: "Add Workout" on the one before ----
+# "Add Workout" moves on to the next exercise and REMOUNTS the edit pane
+# (TrainingsPlanNode key), so the new exercise starts without any carried-over date.
+# (Picking it in the strip keeps the pane mounted and used to hide the bug: the
+# date of the previously shown exercise leaked over.) The exercise before it is
+# "Rear delt row neutral grip" (34), which has no logged sets in this training —
+# log one so its "Add Workout" is enabled.
 - repeat:
     times: 6
     while:
@@ -134,9 +143,37 @@ appId: com.powerliftingworkoutplanner
           end: '10%,20%'
           duration: 300
 - tapOn:
-    id: 'training-exercise-85'
+    id: 'training-exercise-34'
 - waitForAnimationToEnd:
     timeout: 5000
+- tapOn:
+    id: 'add-workout-set-reps-input'
+    index: 0
+- inputText: '10'
+- tapOn:
+    id: 'add-workout-set-weight-input'
+    index: 0
+- inputText: '20'
+- tapOn:
+    id: 'add-workout-set-submit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-logged-1'
+    timeout: 20000
+# Not hideKeyboard: without an open keyboard it presses Back and leaves the screen.
+- tapOn:
+    id: 'add-workout-set-number'
+- tapOn:
+    id: 'add-workout-finalize-button'
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-number'
+      text: ' Set 1'
+    timeout: 20000
+- assertNotVisible:
+    id: 'add-workout-set-logged-1'
+
+# ---- 5. log one set for the new exercise ----
 - tapOn:
     id: 'add-workout-set-reps-input'
     index: 0
@@ -152,16 +189,16 @@ appId: com.powerliftingworkoutplanner
       id: 'add-workout-set-logged-1'
     timeout: 20000
 - takeScreenshot: gh542_01_set_logged_in_edit_mode
-- hideKeyboard
-- scrollUntilVisible:
-    element: 'Add Workout'
-    direction: DOWN
+- tapOn:
+    id: 'add-workout-set-number'
+# Finalizes it; it is the last exercise, so this also leaves the edit mode.
+- tapOn:
+    id: 'add-workout-finalize-button'
+- extendedWaitUntil:
+    notVisible: 'Training Times'
     timeout: 20000
-- tapOn: 'Add Workout'
-- waitForAnimationToEnd:
-    timeout: 5000
 
-# ---- 5. the exercise history lists the set under the training date ----
+# ---- 6. the exercise history lists the set under the training date ----
 - pressKey: Back
 - runFlow:
     when:

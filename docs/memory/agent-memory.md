@@ -603,3 +603,17 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Fix / Rule:** after the first Metro launch rerun the flow once, or give the first wait a ≥120 s timeout.
 **Apply when:** first flow on the CI emulator after switching from the embedded bundle to Metro.
 
+### Edit/Train pane keeps local state across strip picks — only "Add Workout" remounts it
+**Problem (GH-542 r2):** a flow that picked the newly added exercise in the strip (`training-exercise-N`) passed on the OLD code: `ExecuteTraining` is re-rendered, not remounted, so its local `date` leaked over from the previously shown exercise. The `Date.now()` bug only shows on a fresh mount — `goToNextExercise` ("Add Workout", `key={refresHeky}` in TrainingsPlanNode).
+**Fix / Rule:** reach the exercise under test via "Add Workout" on the one before it (log a set first — the button is disabled without one). Run the flow on the embedded job-start bundle before `metro-start`; that gives you the failing "before" run.
+**Apply when:** testing per-exercise local state (date, inputs, flags) in a running or edited training.
+
+### `import-baseline` fails "No visible element found: baseline.gains" — DocumentsUI opened on an empty "Recent"
+**Problem (GH-542 r2):** the 2nd import on the CI emulator showed the picker on "Recent / No items"; a retry failed the same way.
+**Fix / Rule:** while the picker is open: `adb -s <serial> shell input tap 72 126` (drawer) → tap "Downloads" (260 578 at 1080 px) → tap the file (296 900). Every later `tool.sh import-baseline` passed again.
+**Apply when:** `import-baseline` fails at the file pick step.
+
+### `add-workout-finalize-button` IS in the Maestro hierarchy in the edit mode
+**Observation (GH-542 r2):** `maestro --device <serial> hierarchy` listed `add-workout-finalize-button`, `add-workout-set-number` and `training-exercise-N` (with the exercise name as text) on the edit pane; `tapOn: {id: 'add-workout-finalize-button'}` works. The gh323 flow comment saying it is not exposed is outdated.
+**Apply when:** finalizing a workout or moving to the next exercise in a flow.
+

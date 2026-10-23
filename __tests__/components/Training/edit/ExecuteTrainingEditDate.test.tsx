@@ -75,16 +75,20 @@ const squat = {id: 10, name: 'Squat'} satisfies Exercise;
 const newExercise = {id: 20, name: 'Bench Press'} satisfies Exercise;
 
 const renderExecute = (training: Training, exercise: Exercise, editMode: boolean) => {
-  const ui = (t: Training) => (
+  const ui = (t: Training, e: Exercise) => (
     <ReduxProvider store={mockStore as any}>
       <PaperProvider>
-        <ExecuteTraining training={t} chosenExercise={exercise} onSubmit={() => {}} editMode={editMode} />
+        <ExecuteTraining training={t} chosenExercise={e} onSubmit={() => {}} editMode={editMode} />
       </PaperProvider>
     </ReduxProvider>
   );
-  const result = render(ui(training));
+  const result = render(ui(training, exercise));
   const addWorkoutDate = (): Date => result.UNSAFE_getByType('AddWorkout' as any).props.date;
-  return {...result, addWorkoutDate, rerenderWith: (t: Training) => result.rerender(ui(t))};
+  return {
+    ...result,
+    addWorkoutDate,
+    rerenderWith: (t: Training, e: Exercise = exercise) => result.rerender(ui(t, e)),
+  };
 };
 
 describe('ExecuteTraining date in edit mode (GH-542)', () => {
@@ -126,6 +130,15 @@ describe('ExecuteTraining date in edit mode (GH-542)', () => {
     rerenderWith(historicalTraining(new Date('2026-02-11T18:15:00Z').getTime()));
 
     expect(addWorkoutDate()).toEqual(EXISTING_WORKOUT_START);
+  });
+
+  it('does not carry the date of the previously shown exercise over to a newly added one', () => {
+    // Picking another exercise in the strip re-renders the same pane instead of remounting it.
+    const {addWorkoutDate, rerenderWith} = renderExecute(historicalTraining(TRAINING_START), squat, true);
+
+    rerenderWith(historicalTraining(TRAINING_START), newExercise);
+
+    expect(addWorkoutDate()).toEqual(TRAINING_START);
   });
 
   it('still uses today for a new exercise outside edit mode', () => {
