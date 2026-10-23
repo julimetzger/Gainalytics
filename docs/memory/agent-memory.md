@@ -607,3 +607,17 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Rule (GH-546):** `GlobalState` + `combineReducers` (`rootReducer.ts`), `FULL_IMPORT` default (`fullStateReducer.ts`, `slice ?? initial` so old `.gains` files import), whitelist + `version` bump + migration in `configureStore.ts`. Export needs nothing (it stringifies the whole store). Existing specs that build a full `GlobalState` by hand need the new key too.
 **Apply when:** adding persisted state.
 
+### CI emulator job: `tool.sh metro-start` Metro does not see edits made after it started
+**Problem (GH-546 r2):** after editing a file, cold starts (`tool.sh launch`) still served the old module: a temporary visible marker text never appeared, and a second `metro-start` exits with "A dev server is already running". `kill <pid>`, `nohup … &` and `run_in_background` all need approval in this sandbox, so Metro cannot be restarted.
+**Fix / Rule:** finish ALL JS edits before the first `metro-start`. Prove each later edit with a marker text before trusting a device result. If an edit lands after Metro started, `tool.sh rebuild` is the only way, and see the next entry.
+**Apply when:** iterating on JS in the agent-emulator workflow.
+
+### CI emulator job: `tool.sh rebuild` took 26 min and the emulator died during it
+**Problem (GH-546 r2):** the rebuild (552 tasks, clean x86_64) ran past the 10-min tool limit and was moved to the background. Gradle succeeded, but the emulator process died (the runner has 7 GB), and the install step printed "No booted Android device found". The agent cannot restart the emulator (background starts need approval).
+**Rule:** treat `rebuild` as a last resort. Collect every before/after screenshot and run every flow BEFORE starting it.
+**Apply when:** considering a rebuild in the agent-emulator workflow.
+
+### Shared `DatePicker` (date mode) showed a blank calendar: CalendarList nested in a vertical ScrollView
+**Observation (GH-546 r2):** Exercise → Log date button and any `<DatePicker>` modal rendered only the MM/DD/YYYY input; no months were drawn. `uiautomator` showed two nested ScrollViews and no day nodes. `DateRangePicker` renders `DatePickerModal` without a wrapper and works. Fix committed in GH-546 r2 but not yet confirmed on a device: replace the ScrollView with a `flex: 1` View. Calendar days carry accessibility labels like `Monday 5 October 2026` (prefixed `today` for today), which Maestro can target.
+**Apply when:** using the single-date picker in a new screen or flow.
+
