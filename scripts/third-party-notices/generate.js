@@ -187,12 +187,15 @@ function staticGradleScan() {
 }
 
 function parseGradleReport(file) {
-  // Lines look like: "+--- androidx.core:core:1.13.1 -> 1.16.0 (*)" or "\--- project :react-native-mmkv"
+  // Lines look like: "+--- androidx.core:core:1.13.1 -> 1.16.0 (*)",
+  // "+--- com.facebook.react:hermes-android -> 0.84.1" (no requested version, e.g. BOM/plugin-managed)
+  // or "\--- project :react-native-mmkv" (skipped).
   const deps = new Map();
   for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-    const m = line.match(/[+\\]--- ([\w.-]+):([\w.-]+):([^\s]+)(?:\s+->\s+([^\s]+))?/);
+    const m = line.match(/[+\\]--- ([\w.-]+):([\w.-]+)(?::([^\s]+))?(?:\s+->\s+([^\s]+))?/);
     if (!m) continue;
     const [, group, artifact, requested, resolved] = m;
+    if (!requested && !resolved) continue;
     const version = (resolved || requested).replace(/[()*]/g, '');
     const id = `${group}:${artifact}`;
     if (!deps.has(id)) deps.set(id, {group, artifact, version, via: new Set(['gradle report'])});
