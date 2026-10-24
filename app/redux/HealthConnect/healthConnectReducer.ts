@@ -15,6 +15,12 @@ export interface HealthConnectState {
   everConnected: boolean;
   /** trainingId → fingerprint of the session last written for it. */
   written: {[trainingId: number]: string};
+  /**
+   * Part of every Health Connect record id; renewed when the local dataset is replaced (backup
+   * restore) or writing starts from scratch, because training ids are then reused. Unset only for
+   * entries written before namespaces existed (legacy id format).
+   */
+  recordNamespace?: string;
   lastSync?: HealthConnectSyncEvent;
   status?: HealthConnectStatus;
   bodyWeights?: BodyWeightsState;
@@ -49,6 +55,7 @@ export const HEALTH_CONNECT_ACTIONS = {
   // State changes.
   STATUS: 'HEALTH_CONNECT_STATUS',
   SET_WRITE_ENABLED: 'HEALTH_CONNECT_SET_WRITE_ENABLED',
+  NEW_RECORD_NAMESPACE: 'HEALTH_CONNECT_NEW_RECORD_NAMESPACE',
   SYNC_RESULT: 'HEALTH_CONNECT_SYNC_RESULT',
   WEIGHTS_LOADED: 'HEALTH_CONNECT_WEIGHTS_LOADED',
 } as const;
@@ -80,6 +87,8 @@ const healthConnectReducer = (state: HealthConnectState = initialHealthConnectSt
     }
     case HEALTH_CONNECT_ACTIONS.SET_WRITE_ENABLED:
       return {...state, writeEnabled: action.enabled === true};
+    case HEALTH_CONNECT_ACTIONS.NEW_RECORD_NAMESPACE:
+      return {...state, recordNamespace: action.namespace};
     case HEALTH_CONNECT_ACTIONS.SYNC_RESULT: {
       const event: HealthConnectSyncEvent = action.event;
       const written = state.written ?? {};
@@ -90,8 +99,9 @@ const healthConnectReducer = (state: HealthConnectState = initialHealthConnectSt
     case HEALTH_CONNECT_ACTIONS.WEIGHTS_LOADED:
       return {...state, bodyWeights: {weights: action.weights ?? [], error: action.error, loadedAt: action.loadedAt}};
     case 'FULL_IMPORT':
-      // The imported trainings are different ones: forget what was written for the old data.
-      return {...state, written: {}, lastSync: undefined};
+      // The imported trainings are different ones: forget what was written for the old data. Their
+      // ids may repeat ids already used in Health Connect, so the middleware starts a new namespace.
+      return {...state, written: {}, lastSync: undefined, recordNamespace: undefined};
     default:
       return state;
   }

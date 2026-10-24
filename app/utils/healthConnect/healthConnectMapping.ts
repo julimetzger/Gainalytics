@@ -68,7 +68,13 @@ export const segmentTypeForName = (name: string | undefined): HealthConnectSegme
 export const segmentTypeForExercise = (exercise: Pick<Exercise, 'name' | 'healthConnectType'> | undefined): HealthConnectSegmentKey =>
   exercise?.healthConnectType ?? segmentTypeForName(exercise?.name);
 
-export const clientRecordIdForTraining = (trainingId: number) => `gainalytics-training-${trainingId}`;
+/**
+ * Health Connect record id of a training. Training ids restart after a backup restore or a reinstall,
+ * so new data gets a namespace (see healthConnectReducer `recordNamespace`): otherwise a new training
+ * could reuse the id of an older one and overwrite its Health Connect session. Without a namespace the
+ * original format is kept, so entries written before namespaces existed can still be updated/deleted.
+ */
+export const clientRecordIdForTraining = (trainingId: number, namespace?: string) => (namespace ? `gainalytics-${namespace}-training-${trainingId}` : `gainalytics-training-${trainingId}`);
 
 const MIN_SEGMENT_MS = 1000;
 
@@ -101,6 +107,7 @@ export const mapTrainingToHealthConnectSession = (
   workoutsById: {[id: number]: Workout},
   exercisesById: {[id: number]: Exercise},
   now: number = Date.now(),
+  namespace?: string,
 ): HealthConnectSessionInput | null => {
   const startMs = toMs(training.start);
   const endMs = toMs(training.end);
@@ -151,7 +158,7 @@ export const mapTrainingToHealthConnectSession = (
   const trainingNotes = training.notes?.toString().trim();
 
   return {
-    clientRecordId: clientRecordIdForTraining(training.id),
+    clientRecordId: clientRecordIdForTraining(training.id, namespace),
     clientRecordVersion: now,
     title,
     notes: trainingNotes ? `${trainingNotes}\n\n${protocol}` : protocol,

@@ -190,7 +190,7 @@ export const reduxStorage: Storage = {
 const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseId', 'allIds', 'plannedWorkouts']);
 // GH-528: only the opt-in and the sync bookkeeping are persisted; permissions are re-read and
 // body weights (health data) are only held in memory.
-const healthConnectPersistFilter = createFilter('healthConnect', ['writeEnabled', 'everConnected', 'written', 'lastSync']);
+const healthConnectPersistFilter = createFilter('healthConnect', ['writeEnabled', 'everConnected', 'written', 'lastSync', 'recordNamespace']);
 
 const persistConfig = {
   key: 'root',

@@ -19,7 +19,11 @@ export interface HealthConnectMiddlewareDeps {
   getModule: () => HealthConnectModule | undefined;
   notify: (title: string, text: string) => void;
   now: () => number;
+  /** A new, practically unique record-id namespace (see HealthConnectState.recordNamespace). */
+  newNamespace?: () => string;
 }
+
+const defaultNewNamespace = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 /** How far back body weights are read; Health Connect itself cuts this to 30 days without the history permission. */
 export const BODY_WEIGHT_LOOKBACK_MS = 5 * 365 * 24 * 60 * 60 * 1000;
@@ -98,7 +102,12 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
     }
   };
 
-  const runOp = async (op: HealthConnectSyncOp, dispatch: Dispatch) => {
+  const runOp = async (op: HealthConnectSyncOp, dispatch: Dispatch, getState: () => GlobalState) => {
+    // The opt-in may have been switched off while this op waited in the queue.
+    if (!getState().healthConnect?.writeEnabled) {
+      if (pending.get(op.trainingId) === pendingKey(op)) pending.delete(op.trainingId);
+      return;
+    }
     const at = deps.now();
     let event: HealthConnectSyncEvent;
     try {
@@ -155,12 +164,25 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
         return result;
     }
 
-    if (state.healthConnect?.writeEnabled) {
-      planHealthConnectSync(prev, state, action, deps.now()).forEach((op) => {
+    const hcState = state.healthConnect;
+    if (
+      (action.type === HEALTH_CONNECT_ACTIONS.SET_WRITE_ENABLED || action.type === 'FULL_IMPORT') &&
+      hcState?.writeEnabled &&
+      !hcState.recordNamespace &&
+      Object.keys(hcState.written ?? {}).length === 0
+    ) {
+      // Writing starts from scratch: training ids may repeat ids of sessions already in Health Connect
+      // (older install, restored backup), so new records get their own namespace.
+      api.dispatch({type: HEALTH_CONNECT_ACTIONS.NEW_RECORD_NAMESPACE, namespace: (deps.newNamespace ?? defaultNewNamespace)()});
+      return result;
+    }
+
+    if (hcState?.writeEnabled) {
+      planHealthConnectSync(prev, state, action, deps.now(), pending).forEach((op) => {
         const key = pendingKey(op);
         if (pending.get(op.trainingId) === key) return;
         pending.set(op.trainingId, key);
-        enqueue(() => runOp(op, api.dispatch));
+        enqueue(() => runOp(op, api.dispatch, api.getState));
       });
     }
     return result;

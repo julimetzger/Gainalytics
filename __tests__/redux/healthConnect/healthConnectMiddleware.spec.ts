@@ -44,7 +44,8 @@ const setup = (healthConnect: Partial<HealthConnectState>, hc: ReturnType<typeof
     healthConnect: {writeEnabled: true, everConnected: true, written: {}, ...healthConnect},
   };
   const notify = jest.fn();
-  const deps: HealthConnectMiddlewareDeps = {getModule: () => hc ?? undefined, notify, now: () => NOW};
+  let namespaces = 0;
+  const deps: HealthConnectMiddlewareDeps = {getModule: () => hc ?? undefined, notify, now: () => NOW, newNamespace: () => `ns${++namespaces}`};
   const store = createStore(rootReducer, preloaded, applyMiddleware(createHealthConnectMiddleware(deps)));
   return {store, hc, notify};
 };
@@ -171,5 +172,86 @@ describe('GH-528 healthConnectMiddleware', () => {
     await flush();
 
     expect(store.getState().healthConnect?.status).toEqual({sdkStatus: 'NOT_SUPPORTED'});
+  });
+
+  describe('Codex review follow-ups', () => {
+    // A native write that only finishes when the test says so.
+    const slowWrite = (hc: ReturnType<typeof fakeHealthConnect>) => {
+      let finish: () => void = () => {};
+      hc.writeStrengthSession.mockImplementationOnce(() => new Promise<string[]>((resolve) => (finish = () => resolve(['record-1']))));
+      return () => finish();
+    };
+
+    it('drops a queued write when writing is switched off before it runs', async () => {
+      const hc = fakeHealthConnect();
+      const {store} = setup({}, hc);
+      store.dispatch({type: HEALTH_CONNECT_ACTIONS.LOAD_WEIGHTS});
+      store.dispatch(finishTraining);
+      store.dispatch({type: HEALTH_CONNECT_ACTIONS.SET_WRITE_ENABLED, enabled: false});
+      await flush();
+
+      expect(hc.writeStrengthSession.mock.calls).toEqual([]);
+      expect(store.getState().healthConnect?.written).toEqual({});
+      expect(store.getState().healthConnect?.lastSync).toBeUndefined();
+    });
+
+    it('removes a training from Health Connect that was deleted while its first write was still running', async () => {
+      const hc = fakeHealthConnect();
+      const finishWrite = slowWrite(hc);
+      const {store} = setup({}, hc);
+      store.dispatch(finishTraining);
+      await flush();
+      store.dispatch({type: 'DELETE_TRAINING', trainingsId: 1, trainingsPlanId: 1, micro: 1, trainingInMicro: 1, workoutIds: [10]});
+      finishWrite();
+      await flush();
+
+      expect(hc.writeStrengthSession).toHaveBeenCalledTimes(1);
+      expect(hc.deleteStrengthSession.mock.calls).toEqual([['gainalytics-training-1']]);
+      expect(store.getState().healthConnect?.written).toEqual({});
+      expect(store.getState().healthConnect?.lastSync).toEqual({kind: 'deleted', trainingId: 1, at: NOW});
+    });
+
+    it('rewrites a training that was edited while its first write was still running', async () => {
+      const hc = fakeHealthConnect();
+      const finishWrite = slowWrite(hc);
+      const {store} = setup({}, hc);
+      store.dispatch(finishTraining);
+      await flush();
+      store.dispatch({type: 'ADD_OR_UPDATE_SET_IN_WORKOUT', workoutId: 10, set: {index: 1, reps: 5, weight: 110, rir: 2}});
+      finishWrite();
+      await flush();
+
+      const state = store.getState();
+      const session = mapTrainingToHealthConnectSession(state.trainings.byId[1], state.workouts.byId, state.exercises.byId, NOW)!;
+      expect(hc.writeStrengthSession).toHaveBeenCalledTimes(2);
+      expect(hc.writeStrengthSession.mock.calls[1]).toEqual([session]);
+      expect(state.healthConnect?.written).toEqual({1: healthConnectFingerprint(session)});
+    });
+
+    it('starts a record namespace when writing is switched on from scratch, and a new one after restoring a backup', async () => {
+      const hc = fakeHealthConnect();
+      const {store} = setup({writeEnabled: false}, hc);
+      store.dispatch({type: HEALTH_CONNECT_ACTIONS.SET_WRITE_ENABLED, enabled: true});
+      expect(store.getState().healthConnect?.recordNamespace).toBe('ns1');
+
+      store.dispatch(finishTraining);
+      await flush();
+      expect(hc.writeStrengthSession.mock.calls[0][0].clientRecordId).toBe('gainalytics-ns1-training-1');
+
+      const {healthConnect: _hc, ...backup} = store.getState();
+      store.dispatch({type: 'FULL_IMPORT', state: backup});
+      expect(store.getState().healthConnect).toEqual({writeEnabled: true, everConnected: true, written: {}, recordNamespace: 'ns2'});
+    });
+
+    it('keeps the old id format for entries written before namespaces existed', async () => {
+      const hc = fakeHealthConnect();
+      const {store} = setup({written: {7: 'old'}}, hc);
+      store.dispatch({type: HEALTH_CONNECT_ACTIONS.SET_WRITE_ENABLED, enabled: true});
+      store.dispatch(finishTraining);
+      await flush();
+
+      expect(store.getState().healthConnect?.recordNamespace).toBeUndefined();
+      expect(hc.writeStrengthSession.mock.calls[0][0].clientRecordId).toBe('gainalytics-training-1');
+    });
   });
 });
