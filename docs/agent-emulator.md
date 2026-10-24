@@ -88,7 +88,7 @@ those values. Replace them with synthetic data (#535) before the repo goes publi
 The standard runner has 7 GB RAM. Emulator (3 GB), the Gradle daemon, the Kotlin daemon, clang and Claude Code
 together exceed that as soon as the agent runs `tool.sh rebuild`; GH-528's first run lost the runner
 ("The hosted runner lost communication with the server") after ~1h40 with no logs or artifacts. The job therefore
-adds an 8 GB swap file and caps Gradle via `~/.gradle/gradle.properties` (`-Xmx2560m`, 2 workers, Kotlin daemon 1 GB).
+adds swap (8 GB on the temp disk `/mnt`, or 4 GB on `/` when `/mnt` is missing or full; never at the cost of the build's disk space — a swap file on `/` once filled the root disk during the NDK install) and caps Gradle via `~/.gradle/gradle.properties` (`-Xmx2560m`, 2 workers, Kotlin daemon 1 GB).
 `.agent-run/vmstat.log` records memory and swap every 30 s.
 
 ## Where results land
