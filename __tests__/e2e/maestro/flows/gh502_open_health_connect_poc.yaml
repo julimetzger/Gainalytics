@@ -1,0 +1,31 @@
+appId: com.powerliftingworkoutplanner
+name: GH-502 open the hidden Health Connect PoC screen
+---
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: "tab-settings"
+    timeout: 60000
+- tapOn: "tab-settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-app-version"
+    direction: DOWN
+    timeout: 20000
+# The normal Settings screen shows no Health Connect entry (PoC is hidden).
+- assertNotVisible:
+    text: ".*Health Connect.*"
+- takeScreenshot: gh502_settings_no_entry
+- longPressOn:
+    id: "settings-app-version"
+- extendedWaitUntil:
+    visible:
+      id: "hc-poc-screen"
+    timeout: 15000
+- assertVisible:
+    text: "SDK status: AVAILABLE"
+# The mapping of the last finished baseline training is shown.
+- assertVisible:
+    id: "hc-poc-session-title"
+    text: "Gainalytics: .+"
+- takeScreenshot: gh502_poc_screen

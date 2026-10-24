@@ -598,6 +598,23 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Rule:** drill-down = tap the label, `scrollUntilVisible muscle-radar-details-button` (strip sits below the 300 dp chart, off-screen on the phone), tap it. The chart wrapper `muscle-radar-svg` has every value in its accessibilityLabel (`Back 9 (last week 11), …`) → assert it with a full-string regex. Labels expose `selected: true` when chosen.
 **Apply when:** writing flows that use the Dashboard's Muscle Groups card.
 
+### Health Connect on Android 13 (Play-Store provider): what bites a PoC
+**Observation (GH-502):** Health Connect is not preinstalled on Android 13; `market://details?id=com.google.android.apps.healthdata` + tap "Installieren" works with the existing Google account. The first permission request shows a one-time onboarding ("Jetzt starten") before the dialog. `createRequestPermissionResultContract()` returns ONLY the permissions granted in that dialog, so re-read `getGrantedPermissions()` afterwards. Reading the app's OWN records older than 30 days before the first grant silently returns an empty list (no error) until `READ_HEALTH_DATA_HISTORY` is granted (separate dialog; check `FEATURE_READ_HEALTH_DATA_HISTORY`). In connect-client 1.1.0 the constants are `ExerciseSegment.EXERCISE_SEGMENT_TYPE_*` and `HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS`.
+**Apply when:** touching Health Connect on the test phone or in code.
+
+### Debug-only native feature: put it in `android/app/src/debug` and register it by reflection
+**Observation (GH-502):** `debugImplementation` deps + `src/debug/java/...` classes + debug `AndroidManifest.xml` (permissions, activities) never reach release. `MainApplication` adds the package only via `if (BuildConfig.DEBUG) Class.forName(...)`, and JS registers the route only when `NativeModules.X` exists. Verify with `./gradlew :app:compileReleaseKotlin :app:processReleaseMainManifest` (~1.5 min) and grep the merged release manifest.
+**Apply when:** a ticket asks for a hidden PoC/debug-only feature with native code.
+
+### Is a third-party app Health-Connect-capable on this Android version? Ask the package manager
+**Observation (GH-502):** `dumpsys package <pkg> | grep -o "android.permission.health\.[A-Z_]*"` lists its declared HC types (Garmin Connect 5.30.1: only `WRITE_*`). `cmd package query-activities --brief -a androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE <pkg>` — "No activities found" means the HC app on Android ≤13 will not list it at all (Garmin only has the Android-14 `VIEW_PERMISSION_USAGE` alias).
+**Apply when:** checking whether a vendor app can feed data through Health Connect without logging into it.
+
+### `am start` of the Health Connect settings brings the OLD task screen to the front — never tap blind
+**Problem (GH-502):** after earlier navigation, `am start -a androidx.health.ACTION_HEALTH_CONNECT_SETTINGS` returned "brought to the front" on the App-Berechtigungen page; a tap computed for the home screen hit "Zugriff für alle Apps entfernen" (dialog cancelled in time). Health Connect's own data browser is Daten und Zugriff → Aktivität → Sport → Alle Einträge ansehen → date picker (8× "previous month" taps for 7 months back).
+**Fix / Rule:** `uiautomator dump` + grep bounds before every tap in system/third-party apps.
+**Apply when:** driving Health Connect or other system settings with adb.
+
 ### Maestro `text:` selectors ignore case — prefix `(?-i)` for wording/casing tickets
 **Problem:** `assertVisible: 'Skip Rest'` also matches the old `Skip rest`, so a casing-fix flow passes on the unfixed app.
 **Fix / Rule:** prefix the regex with `(?-i)` (`assertVisible: '(?-i)Skip Rest'`, `assertNotVisible: '(?-i)Skip rest'`). Confirmed: the old bundle failed exactly at the `(?-i)` assertion and the fixed one passed (`gh543_rest_menu_labels.yaml`).
