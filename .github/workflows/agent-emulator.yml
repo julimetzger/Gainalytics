@@ -151,8 +151,10 @@ jobs:
         run: |
           df -h / | tail -1
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/node_modules/@angular \
-            /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/share/swift || true
-          df -h / | tail -1
+            /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/share/swift \
+            /usr/local/share/powershell /usr/share/miniconda /opt/az /opt/microsoft || true
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          df -h / /mnt 2>/dev/null || df -h /
 
       - name: Enable KVM
         run: |
@@ -170,11 +172,25 @@ jobs:
       - name: Add swap and cap Gradle memory
         run: |
           sudo swapon --show || true
-          sudo fallocate -l 8G /swapfile-agent
-          sudo chmod 600 /swapfile-agent
-          sudo mkswap -q /swapfile-agent
-          sudo swapon /swapfile-agent
-          free -h
+          # Swap goes on the runner's temp disk (/mnt) when it has room: on / it competed with the
+          # Gradle/NDK install and filled the root disk (run 40108942498: "No space left on device").
+          avail_gb() { df --output=avail -BG "$1" 2>/dev/null | tail -1 | tr -dc '0-9'; }
+          swapfile=""
+          if mountpoint -q /mnt && [[ "$(avail_gb /mnt)" -ge 16 ]]; then
+            swapfile=/mnt/swapfile-agent; size=8G
+          elif [[ "$(avail_gb /)" -ge 24 ]]; then
+            swapfile=/swapfile-agent; size=4G
+          fi
+          if [[ -n "${swapfile}" ]]; then
+            sudo fallocate -l "${size}" "${swapfile}"
+            sudo chmod 600 "${swapfile}"
+            sudo mkswap -q "${swapfile}"
+            sudo swapon "${swapfile}"
+            echo "::notice title=swap::${size} at ${swapfile}"
+          else
+            echo "::warning title=swap::not enough disk for extra swap (/: $(avail_gb /) GB, /mnt: $(avail_gb /mnt) GB)"
+          fi
+          free -h; df -h / /mnt 2>/dev/null || true
           mkdir -p ~/.gradle
           cat >> ~/.gradle/gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx2560m -XX:MaxMetaspaceSize=512m
