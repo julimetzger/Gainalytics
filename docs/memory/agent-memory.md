@@ -629,3 +629,10 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Fix / Rule:** `adb shell am start -n com.powerliftingworkoutplanner/.MainActivity`, let it settle ~45 s, then run an import flow that starts with `launchApp: {stopApp: false}`. The SAF picker also opened on "Recent / No items" — `tapOn: 'Show roots'` → `tapOn: 'Downloads'` → `baseline.gains`.
 **Apply when:** `tool.sh import-baseline` fails with "Training is visible" false and the screenshot shows the launcher. (seen in GH-543)
 
+### Maestro text selectors match the FULL string — a label without "…" cannot pass on the "…" build
+**Observation:** `assertVisible: '(?-i)Edit Rest Target'` failed on the old bundle that showed `Edit Rest Target…` (no substring match), and passed after the fix. To assert an ellipsis is gone use `assertNotVisible: '(?-i)Edit Rest Target(…|\.\.\.)'` (escape the dots). In Jest, `queryByText(/…|\.\.\./)` is a substring regex and catches any leftover ellipsis in the open menu.
+**Apply when:** tickets that remove a suffix/prefix from a label (ellipsis, colon, counter). (seen in GH-543)
+
+### CI emulator: the job-start APK is a free "before" build — run the new flow on it before `metro-start`
+**Observation:** right after `wait-ready` the installed APK still runs the PR's previous JS. Capturing the before screenshot and running the updated Maestro flow there (it must FAIL at the changed assertion) before `tool.sh metro-start` + `tool.sh launch` proves the flow is not vacuous, without any rebuild. (seen in GH-543)
+

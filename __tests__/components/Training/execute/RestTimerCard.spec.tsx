@@ -102,13 +102,15 @@ describe('RestTimerCard overflow menu labels (GH-543)', () => {
       />,
     );
 
-  it('uses Title Case labels that match the dialog titles they open', () => {
-    const {getByTestId, getByText} = renderCard();
+  it('uses Title Case labels without an ellipsis that match the dialog titles they open', () => {
+    const {getByTestId, getByText, queryByText} = renderCard();
     fireEvent.press(getByTestId('rest-timer-overflow'));
 
     expect(getByText('Skip Rest')).toBeTruthy();
-    expect(getByText('Edit Rest Target…')).toBeTruthy();
-    expect(getByText('Adjust Default Rest…')).toBeTruthy();
+    expect(getByText('Edit Rest Target')).toBeTruthy();
+    expect(getByText('Adjust Default Rest')).toBeTruthy();
+    // GH-543 review: no trailing "…" / "..." on any menu label.
+    expect(queryByText(/…|\.\.\./)).toBeNull();
   });
 
   it.each([
@@ -123,7 +125,7 @@ describe('RestTimerCard overflow menu labels (GH-543)', () => {
   });
 });
 
-describe('RestTimerCard "Adjust Default Rest…" (GH-195 P2)', () => {
+describe('RestTimerCard "Adjust Default Rest" (GH-195 P2)', () => {
   it('opens the dialog pre-populated with exerciseDefaultSeconds and persists via onAdjustExerciseDefault on save', () => {
     const onAdjustExerciseDefault = jest.fn();
     const {getByTestId} = render(
@@ -141,7 +143,7 @@ describe('RestTimerCard "Adjust Default Rest…" (GH-195 P2)', () => {
 
     // Open overflow menu.
     fireEvent.press(getByTestId('rest-timer-overflow'));
-    // Tap "Adjust Default Rest…".
+    // Tap "Adjust Default Rest".
     fireEvent.press(getByTestId('rest-timer-adjust-default'));
 
     // Dialog opens pre-populated with the current per-exercise default (60s = 1:00).
