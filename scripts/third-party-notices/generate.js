@@ -478,6 +478,16 @@ function main() {
   const problems = [...npm.problems, ...gradle.problems];
   for (const p of problems) console.warn(`warning: ${p}`);
 
+  // A missing (non-optional) package means node_modules is absent or incomplete: the inventory
+  // would silently shrink, so neither write it nor accept it in --check.
+  const missing = npm.problems.filter(p => p.endsWith('not installed (run npm ci)'));
+  if (missing.length > 0 || npm.packages.length === 0) {
+    console.error(
+      `error: ${missing.length} required npm package(s) are not installed (${npm.packages.length} found). Run npm ci first; nothing was written.`,
+    );
+    process.exit(1);
+  }
+
   if (args.check) {
     const current = fs.existsSync(args.out) ? fs.readFileSync(args.out, 'utf8') : '';
     if (current !== output) {

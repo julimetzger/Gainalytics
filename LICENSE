@@ -24,9 +24,9 @@ distributed by Google (or a modified version of those libraries), containing
 parts covered by the terms of the Android Software Development Kit License
 Agreement or another proprietary license of Google, the licensors of this
 Program grant you additional permission to convey the resulting work.
-Corresponding Source for a non-source form of such a combination shall not
-include the source code for the parts of those libraries used as well as that
-of the covered work.
+Corresponding Source for a non-source form of such a combination need not
+include the source code for the parts of those libraries used; it shall still
+include the complete Corresponding Source of the covered work itself.
 
 Third-party components bundled with or linked into this program are listed,
 with their licenses, in THIRD-PARTY-NOTICES.md.
