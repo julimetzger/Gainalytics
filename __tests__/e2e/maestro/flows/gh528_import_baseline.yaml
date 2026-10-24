@@ -1,0 +1,49 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528: 00_import_baseline.yaml without Maestro's default "grant every permission" on launch.
+# A plain launchApp would also grant the Health Connect permissions, so Gainalytics would come up
+# "Connected" without the user ever connecting. Push the fixture first:
+#   adb push __tests__/e2e/maestro/fixtures/baseline.gains /sdcard/Download/baseline.gains
+- launchApp:
+    permissions:
+      notifications: allow
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- runFlow: gh497_dismiss_onboarding.yaml
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-import-data-button'
+    direction: DOWN
+- tapOn:
+    id: 'settings-import-data-button'
+- extendedWaitUntil:
+    visible: 'Import full data from backup file?'
+    timeout: 10000
+- tapOn: 'Import'
+- runFlow:
+    when:
+      visible: 'Use without an account'
+    commands:
+      - tapOn: 'Use without an account'
+- runFlow:
+    when:
+      visible: 'No thanks'
+    commands:
+      - tapOn: 'No thanks'
+- scrollUntilVisible:
+    element:
+      text: 'baseline.gains'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'baseline.gains'
+- extendedWaitUntil:
+    visible: 'Import Data'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible: 'Push pull'
+    timeout: 120000

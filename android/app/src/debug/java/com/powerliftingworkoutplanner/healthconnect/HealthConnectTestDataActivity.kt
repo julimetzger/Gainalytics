@@ -92,17 +92,16 @@ class HealthConnectTestDataActivity : ComponentActivity() {
     Log.i(TAG, "wrote ${records.size} weights")
   }
 
+  /**
+   * Deletes by time range: Health Connect then removes only records this app wrote, including the
+   * ones older than 30 days that reading (and so deleting by id) cannot reach without the history
+   * permission.
+   */
   private suspend fun clear() {
     val all = TimeRangeFilter.between(Instant.EPOCH, Instant.now().plus(1, ChronoUnit.DAYS))
-    val own = packageName
-    val weights = client().readRecords(ReadRecordsRequest(WeightRecord::class, all, pageSize = 5000))
-    val weightIds = weights.records.filter { it.metadata.dataOrigin.packageName == own }.map { it.metadata.id }
-    if (weightIds.isNotEmpty()) client().deleteRecords(WeightRecord::class, weightIds, emptyList())
-    val sessions =
-        client().readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, all, pageSize = 5000))
-    val sessionIds = sessions.records.filter { it.metadata.dataOrigin.packageName == own }.map { it.metadata.id }
-    if (sessionIds.isNotEmpty()) client().deleteRecords(ExerciseSessionRecord::class, sessionIds, emptyList())
-    Log.i(TAG, "cleared ${weightIds.size} weights, ${sessionIds.size} sessions")
+    client().deleteRecords(WeightRecord::class, all)
+    client().deleteRecords(ExerciseSessionRecord::class, all)
+    Log.i(TAG, "cleared all weights and sessions written by ${packageName}")
   }
 
   private suspend fun dump() {
