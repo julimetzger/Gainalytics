@@ -16,6 +16,7 @@ import reduceReducers from 'reduce-reducers';
 import fullStateReducer from './fullstateactions/fullStateReducer';
 import videoAnalysisReducer from './VideoAnalysis/videoAnalysisReducer';
 import aiChatReducer, {AIChatState} from './AIChat/aiChatSlice';
+import healthConnectReducer, {HealthConnectState} from './HealthConnect/healthConnectReducer';
 
 export interface GlobalState {
   exercises: NormalizedState<Exercise>;
@@ -26,6 +27,8 @@ export interface GlobalState {
   settings: AppSettings;
   effects: Effects;
   aiChat: AIChatState;
+  /** GH-528: optional so states from before Health Connect (backups, test fixtures) stay valid. */
+  healthConnect?: HealthConnectState;
 }
 
 export default reduceReducers(
@@ -38,6 +41,7 @@ export default reduceReducers(
     settings: settingsReducer,
     effects: effectsReducer,
     aiChat: aiChatReducer,
+    healthConnect: healthConnectReducer,
   }),
   fullStateReducer,
 );

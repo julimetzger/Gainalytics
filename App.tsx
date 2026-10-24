@@ -6,6 +6,7 @@ import {createNavigationContainerRef, NavigationContainer} from '@react-navigati
 import {Provider as PaperProvider} from 'react-native-paper';
 import {BottomTabs} from './app/routing/bottomNavigator';
 import OnboardingGate from './app/components/onboarding/OnboardingGate';
+import HealthConnectLifecycle from './app/components/healthConnect/HealthConnectLifecycle';
 import {EventProvider} from 'react-native-outside-press';
 import {registerTranslation} from 'react-native-paper-dates';
 import {useSettings} from './app/redux/settings/use/useSettings';
@@ -116,6 +117,7 @@ const AppWithPersist = () => {
               >
                 <BottomTabs />
               </NavigationContainer>
+              <HealthConnectLifecycle />
               {/* GH-497: covers the tabs on a first start without data. */}
               <OnboardingGate navigationRef={navigationRef} />
             </EventProvider>

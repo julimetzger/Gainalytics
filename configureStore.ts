@@ -5,6 +5,7 @@ import {MMKV} from 'react-native-mmkv';
 import createFilter from 'redux-persist-transform-filter';
 import {configureStore} from '@reduxjs/toolkit';
 import logger from 'redux-logger';
+import {healthConnectMiddleware} from './app/redux/HealthConnect/healthConnectMiddleware';
 
 export const migrations = {
   0: (state) => {
@@ -187,14 +188,17 @@ export const reduxStorage: Storage = {
 };
 
 const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseId', 'allIds', 'plannedWorkouts']);
+// GH-528: only the opt-in and the sync bookkeeping are persisted; permissions are re-read and
+// body weights (health data) are only held in memory.
+const healthConnectPersistFilter = createFilter('healthConnect', ['writeEnabled', 'everConnected', 'written', 'lastSync']);
 
 const persistConfig = {
   key: 'root',
   version: 13,
   storage: reduxStorage,
-  whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'settings', 'aiChat'],
+  whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'settings', 'aiChat', 'healthConnect'],
   stateReconciler: hardSet,
-  transforms: [saveUserLoginSubsetFilter],
+  transforms: [saveUserLoginSubsetFilter, healthConnectPersistFilter],
   migrate: createMigrate(migrations, {debug: true}),
 };
 
@@ -205,7 +209,7 @@ export default () => {
   const store = configureStore({
     reducer: persistedReducer,
     devTools: process?.env?.NODE_ENV === 'development',
-    middleware: process?.env?.NODE_ENV === 'development' ? [logger] : [],
+    middleware: process?.env?.NODE_ENV === 'development' ? [healthConnectMiddleware, logger] : [healthConnectMiddleware],
   });
   let persistor = persistStore(store);
   return {store, persistor};

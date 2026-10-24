@@ -318,6 +318,7 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
             isFocus: action.isFocus ?? false,
             muscles: action.muscles,
             alternativeIds: normalizeAlternativeIds(action.alternativeIds),
+            ...(action.healthConnectType ? {healthConnectType: action.healthConnectType} : {}),
           } as Exercise,
         },
         allIds: [...exercises.allIds, newId],
@@ -328,15 +329,19 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
       return removeExerciseFromAlternatives(exercises, action.exerciseId);
     }
     case 'EDIT_EXERCISE': {
+      const {healthConnectType: previousType, ...existing} = exercises.byId[action.exerciseId] ?? {};
+      // GH-528: callers that don't pass a Health Connect type keep the current one; null resets it to automatic.
+      const healthConnectType = action.healthConnectType === undefined ? previousType : action.healthConnectType ?? undefined;
       const nextState = {
         byId: {
           ...exercises.byId,
           [action.exerciseId]: {
-            ...exercises.byId[action.exerciseId],
+            ...existing,
             name: action.nameOfExercise,
             isFocus: action.isFocus ?? exercises.byId[action.exerciseId]?.isFocus ?? false,
             muscles: action.muscles,
             alternativeIds: normalizeAlternativeIds(action.alternativeIds),
+            ...(healthConnectType !== undefined ? {healthConnectType} : {}),
           },
         },
         allIds: [...exercises.allIds],

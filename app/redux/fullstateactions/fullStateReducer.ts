@@ -50,6 +50,8 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
         ...action.state,
         videoAnalyses: action.state.videoAnalyses ?? state.videoAnalyses,
         aiChat: action.state.aiChat ?? state.aiChat,
+        // GH-528: Health Connect state is device-local and never part of a backup.
+        healthConnect: state.healthConnect,
         // GH-497: a backup from before the onboarding existed must not bring it back.
         settings:
           action.state.settings && state.settings?.onboardingCompleted

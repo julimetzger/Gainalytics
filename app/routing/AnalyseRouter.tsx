@@ -16,6 +16,9 @@ import AIChatTab from '../tabs/Analyse/AIChatTab';
 import ChatHistoryTab from '../tabs/Analyse/ChatHistoryTab';
 import {withAnalyseErrorBoundary} from '../components/analyse/AnalyseErrorBoundary';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import BodyWeightTab from '../tabs/Analyse/BodyWeightTab';
+import {useHealthConnectConnection} from '../redux/HealthConnect/use/useHealthConnect';
+import {canReadBodyWeight} from '../utils/healthConnect/healthConnectStatus';
 
 export type RootStackParamList = {
   Dashboard: undefined;
@@ -32,6 +35,7 @@ export type RootStackParamList = {
   VideoAnalysisCompare: {analysisId: number; compareAnalysisId: number};
   AIChat: undefined;
   ChatHistory: undefined;
+  BodyWeight: undefined;
 };
 
 // GH-458 (H1): every Analyse screen renders behind its own error boundary, so a
@@ -49,6 +53,7 @@ const VideoAnalysisDetailScreen = withAnalyseErrorBoundary(VideoAnalysisDetailTa
 const VideoAnalysisCompareScreen = withAnalyseErrorBoundary(VideoAnalysisCompareTab, 'Compare Analyses');
 const AIChatScreen = withAnalyseErrorBoundary(AIChatTab, 'AI Chat');
 const ChatHistoryScreen = withAnalyseErrorBoundary(ChatHistoryTab, 'Chat History');
+const BodyWeightScreen = withAnalyseErrorBoundary(BodyWeightTab, 'Body Weight');
 
 // GH-458 (H1/H2): "Video Analysis Detail" and "Compare Analyses" are detail
 // screens that need a selection made in the Video Analysis list. Offering them
@@ -90,6 +95,7 @@ const AnalyseRouter = () => {
   const Stack = createDrawerNavigator<RootStackParamList>();
   let theme = useTheme();
   const insets = useSafeAreaInsets();
+  const showBodyWeight = canReadBodyWeight(useHealthConnectConnection());
 
   return (
     <Stack.Navigator
@@ -174,6 +180,16 @@ const AnalyseRouter = () => {
           ...getAnalyseDrawerItemOptions('VideoAnalysisCompare'),
         })}
       />
+      {/* GH-528: only with Health Connect's "Read body weight"; without a connection the drawer looks as before. */}
+      {showBodyWeight && (
+        <Stack.Screen
+          name="BodyWeight"
+          component={BodyWeightScreen}
+          options={() => ({
+            title: 'Body Weight',
+          })}
+        />
+      )}
       <Stack.Screen
         name="AIChat"
         component={AIChatScreen}

@@ -55,6 +55,13 @@ jest.mock('../../../app/components/settings/ChatGptAccountSection', () => {
   return {__esModule: true, default: () => <View testID="settings-chatgpt-section" />};
 });
 
+// GH-528: covered by HealthConnectSection.spec; it needs a real store.
+jest.mock('../../../app/components/settings/HealthConnectSection', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return {__esModule: true, default: () => <View testID="settings-health-connect-section-mock" />};
+});
+
 jest.mock('react-native-document-picker', () => ({
   __esModule: true,
   default: {
@@ -537,8 +544,7 @@ describe('SettingsTab', () => {
     expect(getByTestId('settings-app-version')).toHaveTextContent('Version 9.8.7');
   });
 
-  it('GH-502: long-pressing the version does nothing without the debug-only Health Connect PoC module', () => {
-    delete (NativeModules as any).HealthConnectPoc;
+  it('GH-528: the hidden PoC entry is gone — long-pressing the version navigates nowhere, Health Connect is a regular section', () => {
     const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
     const route = {params: {}};
 
@@ -546,21 +552,18 @@ describe('SettingsTab', () => {
     fireEvent(getByTestId('settings-app-version'), 'longPress');
 
     expect(navigation.navigate).not.toHaveBeenCalled();
+    expect(getByTestId('settings-health-connect-section-mock')).toBeTruthy();
   });
 
-  it('GH-502: long-pressing the version opens the Health Connect PoC when the debug module exists', () => {
-    (NativeModules as any).HealthConnectPoc = {};
+  it('GH-528: the data export leaves Health Connect state (body weights) out of the backup', () => {
+    mockStoreGetState.mockReturnValue({training: 'state', healthConnect: {bodyWeights: {weights: [{kg: 80}]}}});
     const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
     const route = {params: {}};
 
-    try {
-      const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
-      fireEvent(getByTestId('settings-app-version'), 'longPress');
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+    fireEvent.press(getByTestId('button-Export-Data'));
 
-      expect(navigation.navigate).toHaveBeenCalledWith('HealthConnectPoc');
-    } finally {
-      delete (NativeModules as any).HealthConnectPoc;
-    }
+    expect(fileSaver.writeFile).toHaveBeenCalledWith('/mock/path/1234.gains', '{"training":"state"}');
   });
 
   it('exports data into file system and shows exported path', () => {

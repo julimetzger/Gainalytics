@@ -1,5 +1,5 @@
 /**
- * GH-502 proof of concept: maps a finished Gainalytics training onto a Health Connect
+ * GH-528 (from the GH-502 PoC): maps a finished Gainalytics training onto a Health Connect
  * ExerciseSessionRecord (exercise type STRENGTH_TRAINING).
  *
  * Health Connect knows sessions and segments. A segment has a type (e.g. BENCH_PRESS),
@@ -12,30 +12,7 @@ import {Training} from '../../models/entities/Training';
 import {Workout} from '../../models/entities/Workout';
 import {WorkoutSet} from '../../models/entities/WorkoutSet';
 import {TrainingsState} from '../../models/TrainingsState';
-
-/** Segment keys understood by the native PoC module (HealthConnectPocModule.segmentTypeOf). */
-export type HealthConnectSegmentKey =
-  | 'SQUAT'
-  | 'BENCH_PRESS'
-  | 'DEADLIFT'
-  | 'BARBELL_SHOULDER_PRESS'
-  | 'SHOULDER_PRESS'
-  | 'LAT_PULL_DOWN'
-  | 'PULL_UP'
-  | 'DUMBBELL_ROW'
-  | 'LEG_PRESS'
-  | 'LEG_CURL'
-  | 'LEG_EXTENSION'
-  | 'LUNGE'
-  | 'HIP_THRUST'
-  | 'ARM_CURL'
-  | 'LATERAL_RAISE'
-  | 'BACK_EXTENSION'
-  | 'CRUNCH'
-  | 'PLANK'
-  | 'LEG_RAISE'
-  | 'KETTLEBELL_SWING'
-  | 'WEIGHTLIFTING';
+import {HealthConnectSegmentKey} from '../../models/HealthConnectSegmentType';
 
 export interface HealthConnectSegmentInput {
   startMs: number;
@@ -81,17 +58,23 @@ const SEGMENT_RULES: Array<[RegExp, HealthConnectSegmentKey]> = [
 ];
 
 /** Best-effort guess of the Health Connect segment type from a free-text exercise name. */
-export const segmentTypeForExercise = (name: string | undefined): HealthConnectSegmentKey => {
+export const segmentTypeForName = (name: string | undefined): HealthConnectSegmentKey => {
   const normalized = (name ?? '').toLowerCase();
   const rule = SEGMENT_RULES.find(([pattern]) => pattern.test(normalized));
   return rule ? rule[1] : 'WEIGHTLIFTING';
 };
 
+/** The user's choice in the exercise editor wins over the name rule. */
+export const segmentTypeForExercise = (exercise: Pick<Exercise, 'name' | 'healthConnectType'> | undefined): HealthConnectSegmentKey =>
+  exercise?.healthConnectType ?? segmentTypeForName(exercise?.name);
+
+export const clientRecordIdForTraining = (trainingId: number) => `gainalytics-training-${trainingId}`;
+
 const MIN_SEGMENT_MS = 1000;
 
-const toMs =(value: Date | string | number | undefined): number | undefined => {
+const toMs = (value: Date | string | number | undefined): number | undefined => {
   if (value === undefined || value === null) return undefined;
-  const ms = new Date(value as any).getTime();
+  const ms = new Date(value).getTime();
   return Number.isFinite(ms) ? ms : undefined;
 };
 
@@ -100,13 +83,13 @@ const formatSet = (set: WorkoutSet): string => `${set.reps} × ${set.weight} kg 
 /** "3 × (5 × 100 kg @ RIR 2), 1 × (3 × 105 kg @ RIR 1)" — consecutive identical sets are grouped. */
 export const describeSets = (sets: WorkoutSet[]): string => {
   const groups: Array<{text: string; count: number}> = [];
-  sets.forEach(set => {
+  sets.forEach((set) => {
     const text = formatSet(set);
     const last = groups[groups.length - 1];
     if (last && last.text === text) last.count += 1;
     else groups.push({text, count: 1});
   });
-  return groups.map(g => (g.count > 1 ? `${g.count} × (${g.text})` : g.text)).join(', ');
+  return groups.map((g) => (g.count > 1 ? `${g.count} × (${g.text})` : g.text)).join(', ');
 };
 
 /**
@@ -121,18 +104,19 @@ export const mapTrainingToHealthConnectSession = (
 ): HealthConnectSessionInput | null => {
   const startMs = toMs(training.start);
   const endMs = toMs(training.end);
-  if (training.state !== TrainingsState.FINISHED || startMs === undefined || endMs === undefined || endMs <= startMs) {
+  if (training.id === undefined || training.state !== TrainingsState.FINISHED || startMs === undefined || endMs === undefined || endMs <= startMs) {
     return null;
   }
 
   const done = (training.exercises ?? [])
-    .map(exerciseId => {
+    .map((exerciseId) => {
       const workoutId = training.doneWorkoutIds?.[exerciseId];
       const workout = workoutId !== undefined ? workoutsById[workoutId] : undefined;
-      const sets = (workout?.sets ?? []).filter(set => set.reps > 0);
-      return {exerciseId, workout, sets, name: exercisesById[exerciseId]?.name ?? `Exercise ${exerciseId}`};
+      const sets = (workout?.sets ?? []).filter((set) => set.reps > 0);
+      const exercise = exercisesById[exerciseId];
+      return {workout, sets, exercise, name: exercise?.name ?? `Exercise ${exerciseId}`};
     })
-    .filter(entry => entry.workout && entry.sets.length > 0);
+    .filter((entry) => entry.workout && entry.sets.length > 0);
   if (done.length === 0) return null;
 
   // Segments must not overlap and must stay inside the session. Use the workout's own time span
@@ -146,32 +130,39 @@ export const mapTrainingToHealthConnectSession = (
     const latestEnd = endMs - (remaining - 1) * MIN_SEGMENT_MS;
     const ownStart = toMs(entry.workout?.start);
     const ownEnd = toMs(entry.workout?.end);
-    const ownSpanFits = ownStart !== undefined && ownEnd !== undefined && ownEnd > ownStart && ownEnd > cursor;
-    const segStart = Math.min(ownSpanFits ? Math.max(cursor, ownStart!) : cursor, latestEnd - MIN_SEGMENT_MS);
-    const wantedEnd = ownSpanFits ? ownEnd! : cursor + (endMs - cursor) / remaining;
+    const ownSpan = ownStart !== undefined && ownEnd !== undefined && ownEnd > ownStart && ownEnd > cursor ? {start: ownStart, end: ownEnd} : undefined;
+    const segStart = Math.min(ownSpan ? Math.max(cursor, ownSpan.start) : cursor, latestEnd - MIN_SEGMENT_MS);
+    const wantedEnd = ownSpan ? ownSpan.end : cursor + (endMs - cursor) / remaining;
     const segEnd = Math.min(Math.max(wantedEnd, segStart + MIN_SEGMENT_MS), latestEnd);
     if (segEnd <= segStart) return;
     segments.push({
       startMs: Math.round(segStart),
       endMs: Math.round(segEnd),
-      segmentType: segmentTypeForExercise(entry.name),
+      segmentType: segmentTypeForExercise(entry.exercise),
       repetitions: entry.sets.reduce((sum, set) => sum + set.reps, 0),
       exerciseName: entry.name,
     });
     cursor = segEnd;
   });
 
-  const names = done.map(entry => entry.name);
+  const names = done.map((entry) => entry.name);
   const title = `Gainalytics: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` +${names.length - 3}` : ''}`;
-  const notes = done.map(entry => `${entry.name}: ${describeSets(entry.sets)}`).join('\n');
+  const protocol = done.map((entry) => `${entry.name}: ${describeSets(entry.sets)}`).join('\n');
+  const trainingNotes = training.notes?.toString().trim();
 
   return {
-    clientRecordId: `gainalytics-training-${training.id}`,
+    clientRecordId: clientRecordIdForTraining(training.id),
     clientRecordVersion: now,
     title,
-    notes,
+    notes: trainingNotes ? `${trainingNotes}\n\n${protocol}` : protocol,
     startMs,
     endMs,
     segments,
   };
 };
+
+/**
+ * Identifies the written content of a session: equal fingerprints mean Health Connect already
+ * holds exactly this training, so nothing has to be rewritten. The version is excluded on purpose.
+ */
+export const healthConnectFingerprint = ({clientRecordVersion: _version, ...content}: HealthConnectSessionInput): string => JSON.stringify(content);
