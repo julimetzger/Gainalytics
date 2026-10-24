@@ -4,21 +4,29 @@
 # short-lived signed URLs (private-user-images.githubusercontent.com/...?jwt=...) that can be
 # downloaded without a token. Runs in the workflow (GH_TOKEN set), not by the agent.
 #
-#   fetch-issue.sh <issue-number> <task-file>
+#   fetch-issue.sh <issue-number> <task-file> [label]
+#
+# A pull request is an issue too: with label "PR" the PR description and its conversation are
+# written (images get a "pr-" prefix so they do not collide with the issue's).
 set -euo pipefail
 
 ISSUE="${1:?issue number}"
 TASK="${2:?task file}"
+LABEL="${3:-Issue}"
 REPO="${REPO:?REPO}"
 OUT="$(dirname "${TASK}")/issue-images"
+PREFIX="$(echo "${LABEL}" | tr '[:upper:]' '[:lower:]')"
 mkdir -p "${OUT}"
 
-gh api "repos/${REPO}/issues/${ISSUE}" --jq '"## Issue #\(.number): \(.title)\n\n\(.body // "")"' >> "${TASK}"
+# LABEL is "Issue" or "PR" (set by the workflow), so it can go into the jq string as is.
+gh api "repos/${REPO}/issues/${ISSUE}" --jq '"## '"${LABEL}"' #\(.number): \(.title)\n\n\(.body // "")"' >> "${TASK}"
 
 comments="$(gh api --paginate "repos/${REPO}/issues/${ISSUE}/comments" \
-  --jq '.[] | "### Comment by \(.user.login) (\(.created_at[:10]))\n\n\(.body)\n"')"
+  --jq '.[] | select((.body // "") | contains("codex-pull-request-review-summary") | not)
+         | select(.user.login != "github-actions[bot]")
+         | "### Comment by \(.user.login) (\(.created_at[:10]))\n\n\(.body)\n"')"
 if [[ -n "${comments}" ]]; then
-  printf '\n## Comments\n\n%s\n' "${comments}" >> "${TASK}"
+  printf '\n## Comments on %s #%s\n\n%s\n' "${LABEL}" "${ISSUE}" "${comments}" >> "${TASK}"
 fi
 
 # Signed image URLs from the rendered HTML of the body and the human comments.
@@ -37,19 +45,19 @@ n=0
 list=""
 for url in "${urls[@]}"; do
   n=$((n + 1))
-  raw="${OUT}/issue-image-${n}.raw"
+  raw="${OUT}/${PREFIX}-image-${n}.raw"
   if ! curl -fsSL --max-time 60 -o "${raw}" "${url}"; then
-    echo "::warning title=issue image::could not download image ${n} of issue #${ISSUE}"
+    echo "::warning title=issue image::could not download image ${n} of ${LABEL} #${ISSUE}"
     continue
   fi
   ext="$(file -b --mime-type "${raw}" | sed -E 's#image/(jpeg|jpg)#jpg#; s#image/png#png#; s#image/gif#gif#; s#image/webp#webp#')"
   [[ "${ext}" == */* ]] && ext="bin"
-  f="${OUT}/issue-image-${n}.${ext}"
+  f="${OUT}/${PREFIX}-image-${n}.${ext}"
   mv "${raw}" "${f}"
   # Device screenshots are larger than the agent may open (>2000 px crashes the session), so
   # only small copies are listed; an image that cannot be resized is not offered at all.
   [[ "${ext}" == "bin" ]] && { echo "::warning title=issue image::image ${n} has an unknown format"; continue; }
-  small="${OUT}/issue-image-${n}-small.png"
+  small="${OUT}/${PREFIX}-image-${n}-small.png"
   if ! ffmpeg -loglevel error -y -i "${f}" \
       -vf "scale=w='min(800,iw)':h='min(1600,ih)':force_original_aspect_ratio=decrease" "${small}"; then
     echo "::warning title=issue image::could not resize image ${n}; not offered to the agent"
@@ -60,6 +68,6 @@ for url in "${urls[@]}"; do
 done
 
 if [[ -n "${list}" ]]; then
-  printf '\n## Images from the issue\n\nThe issue images were downloaded for you (the links in the text are not reachable). Open them with the Read tool:\n\n%s' "${list}" >> "${TASK}"
+  printf '\n## Images from %s #%s\n\nThe images were downloaded for you (the links in the text are not reachable). Open them with the Read tool:\n\n%s' "${LABEL}" "${ISSUE}" "${list}" >> "${TASK}"
 fi
-echo "issue #${ISSUE}: ${n} image link(s), downloaded: $(printf '%s' "${list}" | grep -c . || true)"
+echo "${LABEL} #${ISSUE}: ${n} image link(s), downloaded: $(printf '%s' "${list}" | grep -c . || true)"
