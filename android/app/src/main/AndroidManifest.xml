@@ -33,12 +33,37 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- GH-504: "Back to Gainalytics" link on the ChatGPT sign-in callback page -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="gainalytics" android:host="chatgpt-signin" />
+        </intent-filter>
       </activity>
       <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" />
       <service
         android:name=".VideoAnalysisForegroundService"
         android:exported="false"
         android:foregroundServiceType="dataSync" />
+      <!-- GH-504: keeps the process unfrozen while "Sign in with ChatGPT" waits for the browser redirect -->
+      <service
+        android:name=".ChatGptSignInService"
+        android:exported="false"
+        android:foregroundServiceType="dataSync" />
+      <!-- GH-496: Strong CSV export → share sheet (+ "Save to Downloads" chooser action) -->
+      <provider
+        android:name="androidx.core.content.FileProvider"
+        android:authorities="${applicationId}.fileshare"
+        android:exported="false"
+        android:grantUriPermissions="true">
+        <meta-data
+          android:name="android.support.FILE_PROVIDER_PATHS"
+          android:resource="@xml/file_share_paths" />
+      </provider>
+      <receiver
+        android:name=".SaveToDownloadsReceiver"
+        android:exported="false" />
     </application>
 
 </manifest>

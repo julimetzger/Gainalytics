@@ -1,42 +1,41 @@
-import {ScrollView, View} from 'react-native';
-import {Card, Text} from 'react-native-paper';
+import {ScrollView, StyleSheet, View} from 'react-native';
+import {Text, useTheme} from 'react-native-paper';
 import React, {useEffect, useMemo, useState} from 'react';
-import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
-import {useLastFinishedWorkoutsByExerciseIds} from '../../../redux/Workout/use/useLastFinishedWorkoutsByExerciseIds';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
-import {calculateMetricComparisons} from '../../../utils/AnalyseUtils';
-import MetricView from '../../analyse/MetricComparison';
 import {Training} from '../../../models/entities/Training';
-import {Workout} from '../../../models/entities/Workout';
-import {Metric} from "../../../models/Metric";
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import VelocityLossInsightCard from '../VelocityLossInsightCard';
 import {useVelocityLossInsights} from '../useVelocityLossInsights';
-import MuscleInvolvementCard from '../plan/MuscleInvolvementCard';
 import {TrainingsState} from '../../../models/TrainingsState';
 import CollapsibleSection from '../../analyse/CollapsibleSection';
-import AnalysisTotalSets from './AnalysisTotalSets';
 import {Stage} from '../../common/ProgressiveMount';
+import CompareChips from '../../analyse/CompareChips';
+import ComparisonKpiCards from '../../analyse/ComparisonKpiCards';
+import MuscleMapCard from '../../analyse/MuscleMapCard';
+import {durationKpi, Kpi, setsKpi, trainingDurationMs, volumeKpi} from '../../../utils/overview-comparison';
+import {useTrainingComparison} from './useTrainingComparison';
 
 interface TrainingsOverviewProps {
   training: Training;
-  previousTraining?: Training;
   trainingsPlan: TrainingsPlan;
   currentMicro: number;
   trainingInMicro: number;
+  /** The Plan | Train toggle — GH-526 puts it at the start of the compare chip row. */
+  toggle?: React.ReactNode;
 }
 
-const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMicro, trainingInMicro}: TrainingsOverviewProps) => {
-  const trainingWorkoutIds = useMemo(
-    () => new Set(Object.values(training.doneWorkoutIds) as number[]),
-    [training.doneWorkoutIds],
-  );
+/**
+ * The "Train" position of a single training's analysis. GH-526: compares the
+ * logged workouts against exactly one reference, picked with the chips next to
+ * the Plan | Train toggle — this training's plan (default), the last matching
+ * training, or the micro's plan (as a share). The line under the chips names
+ * both sides; KPI cards, muscle map and Muscle Overview / Exercises all follow it.
+ */
+const TrainingsOverview = ({training, trainingsPlan, currentMicro, trainingInMicro, toggle}: TrainingsOverviewProps) => {
+  const theme = useTheme();
+  const trainingWorkoutIds = useMemo(() => new Set(Object.values(training.doneWorkoutIds) as number[]), [training.doneWorkoutIds]);
   const vlInsights = useVelocityLossInsights(trainingsPlan, currentMicro, trainingWorkoutIds);
-  let trainingsWorkouts = useWorkoutsByIds(Object.values(training.doneWorkoutIds));
-  const currentWorkoutIds = Object.values(training.doneWorkoutIds);
-  let previousWorkoutsFromTraining = useWorkoutsByIds(previousTraining ? Object.values(previousTraining.doneWorkoutIds) : []);
-  let fallbackPreviousWorkouts = useLastFinishedWorkoutsByExerciseIds(training.exercises, currentWorkoutIds);
-  let previousWorkouts = previousTraining !== undefined ? previousWorkoutsFromTraining : fallbackPreviousWorkouts;
+  const comparison = useTrainingComparison(trainingsPlan, currentMicro, trainingInMicro, 'train', training);
 
   const isLive = training.state === TrainingsState.STARTED;
   // While the training is live the duration has no end timestamp yet, so tick a local
@@ -49,102 +48,82 @@ const TrainingsOverview = ({training, previousTraining, trainingsPlan, currentMi
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, [isLive]);
-  const trainingEnd = training.end ?? new Date(now);
-  const trainingDate = new Date(new Date(trainingEnd).getTime() - new Date(training.start!!).getTime());
-  const previousTrainingTime = previousTraining?.end ? new Date(new Date(previousTraining.end!!).getTime() - new Date(previousTraining.start!!).getTime()) : undefined;
-  let formattedDifference;
-  if (previousTrainingTime) {
-    let difference = trainingDate.getTime() - previousTrainingTime.getTime();
-    let isNegative = difference < 0;
-    let absoluteDifference = Math.abs(difference);
-    formattedDifference = (isNegative ? '-' : '+') + new Date(absoluteDifference).toISOString().substring(11, 19);
+
+  const mode = comparison.share ? 'share' : 'diff';
+  const kpis: Kpi[] = [
+    setsKpi(comparison.subject, comparison.reference, mode, comparison.referenceLabel),
+    volumeKpi(comparison.subject, comparison.reference, mode, comparison.referenceLabel),
+  ];
+  // Duration only against the last done training — no planned duration exists.
+  if (comparison.selected === 'last_training_done' || comparison.selected === undefined) {
+    const reference = comparison.durationReference ? trainingDurationMs(comparison.durationReference) : undefined;
+    kpis.unshift(durationKpi(trainingDurationMs(training, now), reference, isLive ? 'Duration (live)' : 'Duration'));
   }
-  let workoutSets = trainingsWorkouts.flatMap((workout: Workout) => workout.sets);
-  let prviousWorkoutSets = previousWorkouts.flatMap((workout: Workout) => workout.sets);
-  let metricToComparison = calculateMetricComparisons({
-    currentWorkoutSets: workoutSets,
-    lastWorkoutSets: prviousWorkoutSets,
-  });
+
   return (
     // Containers must not be `accessible`: that merges the whole subtree into one
     // accessibility node, hiding every value from screen readers and UI tests.
     <ScrollView testID="trainings-overview">
       <View testID="trainings-overview-root">
-        {/* GH-417 AC4: the total set count of the data shown in this position. */}
-        <AnalysisTotalSets totalSets={workoutSets.length} scope="done" />
-        <View style={{display: 'flex', flexDirection: 'row', flex: 1}}>
-          <View style={{flex: 1}} testID="trainings-overview-duration-card">
-            <Card style={{margin: 5, flex: 1}}>
-              <Card.Title title={<Text>{isLive ? 'Duration (live)' : 'Duration'}</Text>}></Card.Title>
-              <Card.Content>
-                {formattedDifference && <Text>{formattedDifference}</Text>}
-                <Text testID="trainings-overview-duration-value" accessible accessibilityLabel={`duration-${trainingDate.toISOString().substring(11, 19)}`}>
-                  {trainingDate.toISOString().substring(11, 19)}
-                </Text>
-              </Card.Content>
-            </Card>
-          </View>
-          <View style={{flex: 1}} testID="trainings-overview-volume-card">
-            <Card style={{margin: 5, flex: 1}}>
-              <Card.Title title={<Text>Volume</Text>} />
-              <Card.Content>
-                <Text testID="trainings-overview-volume-value" accessible accessibilityLabel="trainings-overview-volume-value">
-                  <MetricView comparison={metricToComparison.get(Metric.VOLUME)!!} />
-                </Text>
-              </Card.Content>
-            </Card>
-          </View>
-          <View style={{flex: 1}} testID="trainings-overview-sets-card">
-            <Card style={{margin: 5, flex: 1}}>
-              <Card.Title title={<Text>Sets</Text>} />
-              <Card.Content>
-                <Text testID="trainings-overview-sets-value" accessible accessibilityLabel="trainings-overview-sets-value">
-                  <MetricView comparison={metricToComparison.get(Metric.SETS)!!} />
-                </Text>
-              </Card.Content>
-            </Card>
-          </View>
-        </View>
+        <CompareChips options={comparison.options} value={comparison.selected} onChange={comparison.select} testIDPrefix="analysis-compare">
+          {toggle}
+        </CompareChips>
+        <Text testID="analysis-comparison-line" variant="bodySmall" style={[styles.line, {color: theme.colors.onSurfaceVariant}]}>
+          {comparison.comparisonLine}
+        </Text>
+        <ComparisonKpiCards kpis={kpis} testIDPrefix="trainings-overview" />
         {/* PERF-003: the sections below the summary cards arrive in later stages when the screen
             builds progressively (see ProgressiveMount); everywhere else all stages are on at once. */}
         <Stage at={1}>
-        {vlInsights.length > 0 && (
-          <View style={{marginTop: 4}}>
-            {vlInsights.map((insight) => (
-              <VelocityLossInsightCard
-                key={insight.exerciseId}
-                exerciseName={insight.exerciseName}
-                heaviestWeightKg={insight.heaviestWeightKg}
-                currentVlPercent={insight.currentVlPercent}
-                vlRirEstimate={insight.vlRirEstimate}
-                reportedRir={insight.reportedRir}
-                microHistory={insight.microHistory}
-                currentMicro={currentMicro}
-                vlReference={insight.vlReference}
-              />
-            ))}
-          </View>
-        )}
-        {trainingsPlan.id !== undefined && (
-          <CollapsibleSection id="muscleMap" title="Muscle Map">
-            <MuscleInvolvementCard
-              trainingsPlanId={trainingsPlan.id}
-              micro={currentMicro}
-              trainingInMicro={trainingInMicro}
-              view="analyse"
-              isLive={isLive}
-            />
-          </CollapsibleSection>
-        )}
+          {vlInsights.length > 0 && (
+            <View style={{marginTop: 4}}>
+              {vlInsights.map((insight) => (
+                <VelocityLossInsightCard
+                  key={insight.exerciseId}
+                  exerciseName={insight.exerciseName}
+                  heaviestWeightKg={insight.heaviestWeightKg}
+                  currentVlPercent={insight.currentVlPercent}
+                  vlRirEstimate={insight.vlRirEstimate}
+                  reportedRir={insight.reportedRir}
+                  microHistory={insight.microHistory}
+                  currentMicro={currentMicro}
+                  vlReference={insight.vlReference}
+                />
+              ))}
+            </View>
+          )}
+          <MuscleMapCard
+            testID="analysis-muscle-map"
+            subject={comparison.subject}
+            reference={comparison.reference}
+            share={comparison.share}
+            subjectLabel={comparison.share ? 'This training' : comparison.subjectLabel}
+            referenceLabel={comparison.referenceLabel}
+            referenceShort={comparison.referenceShort}
+            details={comparison.details}
+            emptyText="No muscle data for this training yet."
+          />
         </Stage>
         <Stage at={3}>
           <CollapsibleSection id="metrics" title="Metrics">
-            <MetricsOverviewForWorkouts trainingsWorkouts={trainingsWorkouts} previousWorkouts={previousWorkouts} />
+            <MetricsOverviewForWorkouts
+              trainingsWorkouts={comparison.subject}
+              previousWorkouts={comparison.reference ?? []}
+              referenceLabel={comparison.referenceLabel}
+              deltaMode={mode}
+            />
           </CollapsibleSection>
         </Stage>
       </View>
     </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  line: {
+    marginHorizontal: 13,
+    marginTop: 6,
+  },
+});
 
 export default TrainingsOverview;

@@ -2,6 +2,7 @@ import {AnyAction} from '@reduxjs/toolkit';
 import {Metric, MetricOverviewSection, resolveMetricOverviewSlots} from '../../models/Metric';
 import {customPaletteHex, PaletteSelection} from '../../theme/palette';
 import {ThemeModeSetting} from '../../theme/themeMode';
+import {AiProvider} from '../../models/AiProvider';
 
 export interface MetricOverviewSettings {
   muscles?: Metric[];
@@ -86,6 +87,10 @@ export interface AppSettings {
   };
   metricOverview?: MetricOverviewSettings;
   anthropicModel?: string;
+  /** GH-504: AI provider for chat and coach insights. Absent → Claude (existing users). */
+  aiProvider?: AiProvider;
+  /** GH-504: ChatGPT model slug. Absent → the first model the user's plan lists. */
+  chatgptModel?: string;
   aiChatPrompt?: string;
   aiTrainingPrompt?: string;
   plan?: PlanSettings;
@@ -99,6 +104,17 @@ export interface AppSettings {
   muscleMapCompareSelectionAnalyse?: MuscleMapCompare;
   /** Persisted collapsed/expanded state of the in-training Muscle Map / Metrics analysis sections. */
   analysisSectionsCollapsed?: {[K in AnalysisSectionId]?: boolean};
+  /** GH-497: the first-start onboarding was finished or skipped — it never opens on its own again. */
+  onboardingCompleted?: boolean;
+  /** GH-497: reopened from the Settings; shown regardless of existing data until finished. */
+  onboardingRequested?: boolean;
+  /**
+   * GH-518: the plan that drives the Training home dashboard (the starred plan).
+   * Absent on installs from before GH-518 — the dashboard then keeps picking the
+   * plan automatically, so an update changes nothing. Set when a plan is created
+   * and when the user taps a plan's star.
+   */
+  currentTrainingsPlanId?: number;
 }
 
 const initialState = {
@@ -220,6 +236,18 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       return {
         ...settings,
         anthropicModel: trimmed || undefined,
+      };
+    }
+    case 'SET_AI_PROVIDER':
+      return {
+        ...settings,
+        aiProvider: action.provider === 'chatgpt' ? 'chatgpt' : 'claude',
+      };
+    case 'SET_CHATGPT_MODEL': {
+      const trimmed = ((action.model as string) ?? '').trim();
+      return {
+        ...settings,
+        chatgptModel: trimmed || undefined,
       };
     }
     case 'SET_AI_CHAT_PROMPT': {
@@ -371,6 +399,33 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
           ...settings.analysisSectionsCollapsed,
           [action.section as AnalysisSectionId]: !!action.collapsed,
         },
+      };
+    }
+    case 'COMPLETE_ONBOARDING': {
+      return {
+        ...settings,
+        onboardingCompleted: true,
+        onboardingRequested: false,
+      };
+    }
+    case 'SHOW_ONBOARDING': {
+      return {
+        ...settings,
+        onboardingRequested: true,
+      };
+    }
+    case 'SET_CURRENT_TRAININGS_PLAN': {
+      return {
+        ...settings,
+        currentTrainingsPlanId: action.trainingsPlanId,
+      };
+    }
+    case 'DELETE_TRAININGS_PLAN': {
+      // GH-518: a deleted current plan hands the dashboard back to the automatic choice.
+      if (settings.currentTrainingsPlanId !== action.trainingsPlanId) return settings;
+      return {
+        ...settings,
+        currentTrainingsPlanId: undefined,
       };
     }
     case 'SET_METRIC_OVERVIEW_SLOT': {

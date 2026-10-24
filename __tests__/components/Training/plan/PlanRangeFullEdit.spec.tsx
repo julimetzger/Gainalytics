@@ -47,7 +47,6 @@ jest.mock('../../../../app/redux/Workout/use/useAllTimeOneRepMax', () => ({
   useAllTimeOneRepMax: () => 0,
 }));
 jest.mock('../../../../app/components/picker/elements/TrainingElementPicker', () => () => null);
-jest.mock('../../../../app/components/Training/plan/MuscleInvolvementCard', () => () => null);
 jest.mock('../../../../app/components/Training/DraggableExercise', () => () => null);
 
 jest.mock('react-native-paper', () => {

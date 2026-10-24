@@ -4,6 +4,7 @@ import {Platform, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {TrainingsState} from '../../models/TrainingsState';
 import {PlanMode} from './plan/planTypes';
+import {formatTimeRange, formatTrainingDate} from '../../utils/overview-comparison';
 
 interface headerProps {
   trainingsPlanName: string;
@@ -17,11 +18,9 @@ interface headerProps {
   drawerMenu: React.ReactNode;
   overflowButton: React.ReactNode;
   planMode?: PlanMode;
+  /** GH-526: the span of the micro's trainings (`06/10 – 12/10/2026`), shown right of the Overview title. */
+  dateRange?: string;
 }
-
-const formatDate = (start: string | number): string => {
-  return new Date(start as any).toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'});
-};
 
 const formatElapsed = (startIso: string | number): string => {
   const elapsed = Math.floor((Date.now() - new Date(startIso as any).getTime()) / 1000);
@@ -32,20 +31,12 @@ const formatElapsed = (startIso: string | number): string => {
   return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 };
 
-const formatDuration = (startIso: string | number, endIso: string | number): string => {
-  const elapsed = Math.floor((new Date(endIso as any).getTime() - new Date(startIso as any).getTime()) / 1000);
-  const h = Math.floor(elapsed / 3600);
-  const m = Math.floor((elapsed % 3600) / 60);
-  const s = elapsed % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
-};
-
-const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, localMicro, trainingState, trainingStart, trainingEnd, drawerMenu, overflowButton, planMode = 'read'}: headerProps) => {
+const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, localMicro, trainingState, trainingStart, trainingEnd, drawerMenu, overflowButton, planMode = 'read', dateRange}: headerProps) => {
   let theme = useTheme();
   const safe = useSafeAreaInsets();
   const isActive = trainingState === TrainingsState.STARTED;
   const fullEditMode = planMode === 'fullEdit';
+  const dateStyle = {fontSize: 12, color: theme.colors.onSurfaceVariant, fontVariant: ['tabular-nums' as const]};
 
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -95,7 +86,7 @@ const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, 
           >
             {trainingsPlanName}{mesoName ? ` › ${mesoName}` : ''}
           </Text>
-          <View style={{display: 'flex', flexDirection: 'row'}}>
+          <View style={{display: 'flex', flexDirection: 'row', alignItems: 'baseline'}}>
             <Text
               numberOfLines={1}
               ellipsizeMode="tail"
@@ -117,64 +108,48 @@ const TrainingsPlanHeader = ({trainingsPlanName, mesoName, trainingName, micro, 
             >
               {localMicro !== undefined ? ' ' + trainingName : trainingName}
             </Text>
+            {dateRange !== undefined && (
+              <Text testID="header-date-range" numberOfLines={1} style={[dateStyle, {flex: 1, textAlign: 'right', marginLeft: 8}]}>
+                {dateRange}
+              </Text>
+            )}
           </View>
         </View>
+        {/* GH-526: the date sits right of the title — the day plus the time span of a
+            finished training, the live timer of a running one, "Planned" before it starts. */}
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0}}>
-          {trainingState === TrainingsState.PLANNED && (
-            <Text
-              testID="header-plan-label"
-              style={{
-                fontSize: theme.fonts.titleMedium.fontSize,
-                color: theme.colors.onSecondaryContainer,
-              }}
-            >
-              Plan
-            </Text>
+          {trainingState === TrainingsState.PLANNED && !fullEditMode && (
+            <View testID="header-date-timer-stack" style={{flexDirection: 'column', alignItems: 'flex-end'}}>
+              {trainingStart !== undefined && (
+                <Text testID="header-date" style={dateStyle}>
+                  {formatTrainingDate(trainingStart)}
+                </Text>
+              )}
+              {/* GH-418: in the edit mode only "EDITING PLAN" and Done — the read view's
+                  "Planned" label next to Done made it look like a mix of both modes. */}
+              <Text testID="header-plan-label" style={dateStyle}>
+                Planned
+              </Text>
+            </View>
           )}
           {trainingState === TrainingsState.STARTED && trainingStart && (
             <View testID="header-date-timer-stack" style={{flexDirection: 'column', alignItems: 'flex-end'}}>
-              <Text
-                testID="header-date"
-                style={{
-                  fontSize: theme.fonts.titleMedium.fontSize,
-                  color: theme.colors.onSecondaryContainer,
-                }}
-              >
-                {formatDate(trainingStart)}
+              <Text testID="header-date" style={dateStyle}>
+                {formatTrainingDate(trainingStart)}
               </Text>
-              <Text
-                testID="header-session-timer"
-                style={{
-                  fontSize: theme.fonts.titleMedium.fontSize,
-                  fontWeight: 'bold',
-                  color: theme.colors.onSecondaryContainer,
-                }}
-              >
+              <Text testID="header-session-timer" style={[dateStyle, {fontWeight: 'bold', color: theme.colors.onSecondaryContainer}]}>
                 {formatElapsed(trainingStart)}
               </Text>
             </View>
           )}
           {trainingState === TrainingsState.FINISHED && trainingStart && (
             <View testID="header-date-timer-stack" style={{flexDirection: 'column', alignItems: 'flex-end'}}>
-              <Text
-                testID="header-date"
-                style={{
-                  fontSize: theme.fonts.titleMedium.fontSize,
-                  color: theme.colors.onSecondaryContainer,
-                }}
-              >
-                {formatDate(trainingStart)}
+              <Text testID="header-date" style={dateStyle}>
+                {formatTrainingDate(trainingStart)}
               </Text>
               {trainingEnd && (
-                <Text
-                  testID="header-session-timer"
-                  style={{
-                    fontSize: theme.fonts.titleMedium.fontSize,
-                    fontWeight: 'bold',
-                    color: theme.colors.onSecondaryContainer,
-                  }}
-                >
-                  {formatDuration(trainingStart, trainingEnd)}
+                <Text testID="header-session-timer" style={dateStyle}>
+                  {formatTimeRange(trainingStart, trainingEnd)}
                 </Text>
               )}
             </View>

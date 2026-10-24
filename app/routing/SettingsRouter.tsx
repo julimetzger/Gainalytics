@@ -5,7 +5,8 @@ import HealthConnectPocScreen from '../debug/healthConnectPoc/HealthConnectPocSc
 import {isHealthConnectPocAvailable} from '../debug/healthConnectPoc/healthConnectPocNative';
 
 export type RootStackParamList = {
-  Settings: undefined;
+  // GH-497: the onboarding's "Import data" opens the import confirmation.
+  Settings: {openImport?: boolean} | undefined;
   HealthConnectPoc: undefined;
 };
 

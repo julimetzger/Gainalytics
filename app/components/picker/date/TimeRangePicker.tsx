@@ -1,15 +1,16 @@
 import {Button, IconButton, Tooltip, useTheme} from 'react-native-paper';
 import {TimerPickerModal} from 'react-native-timer-picker';
 import React, {useState} from 'react';
-import {View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 
 interface TimeRangePickerProps {
   title: string;
   setPauseTimer: (pauseTimerInSeconds?: number) => void;
   timeRange?: number;
+  testID?: string;
 }
 
-const TimeRangePicker = ({title, setPauseTimer, timeRange}: TimeRangePickerProps) => {
+const TimeRangePicker = ({title, setPauseTimer, timeRange, testID}: TimeRangePickerProps) => {
   const [showPicker, setShowPicker] = useState(false);
   let theme = useTheme();
   const getTimeString = (timeInSeconds?: number) => {
@@ -20,9 +21,12 @@ const TimeRangePicker = ({title, setPauseTimer, timeRange}: TimeRangePickerProps
     return `${hours}h ${minutes}m ${seconds}s`;
   };
   return (
-    <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginEnd: 5}}>
+    <View style={styles.row} testID={testID && `${testID}-row`}>
       <Button
         mode="outlined"
+        testID={testID}
+        style={styles.timeButton}
+        labelStyle={styles.timeLabel}
         onPress={() => {
           setShowPicker(true);
         }}
@@ -52,6 +56,7 @@ const TimeRangePicker = ({title, setPauseTimer, timeRange}: TimeRangePickerProps
       <Tooltip title="Resets Timer">
         <IconButton
           icon={'delete'}
+          testID={testID && `${testID}-delete`}
           iconColor={theme.colors.secondary}
           onPress={() => {
             setPauseTimer(undefined);
@@ -61,5 +66,25 @@ const TimeRangePicker = ({title, setPauseTimer, timeRange}: TimeRangePickerProps
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginEnd: 5,
+  },
+  // A long title (or a large system font) must not push the delete button out
+  // of the row: the button gives way, so every delete button keeps the same
+  // right-aligned spot (GH-522).
+  timeButton: {
+    flexShrink: 1,
+  },
+  // Paper's 24 per side leaves "Finish Training Timer: 0h 20m 0s" too little
+  // room with a large system font before it has to be cut off.
+  timeLabel: {
+    marginHorizontal: 16,
+  },
+});
 
 export default TimeRangePicker;

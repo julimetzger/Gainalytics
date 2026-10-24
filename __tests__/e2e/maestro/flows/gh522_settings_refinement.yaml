@@ -1,0 +1,76 @@
+appId: com.powerliftingworkoutplanner
+name: GH-522 Settings refinement
+---
+# Proves, against the hydrated baseline store (palette blue, pause 0h 3m 0s,
+# finish 0h 20m 0s):
+#  * the colour row reads "Color" — "Custom Color" is gone — in Dark and Light
+#  * Blue / Purple / Custom are still there with their previews
+#  * both timer rows carry their value and their own delete button
+# Whether the two delete buttons sit at the same x is checked from the
+# uiautomator bounds after the run (gh522-delete-alignment.sh): Maestro has no
+# position-equality assertion. The primary-only swatch is shown by the
+# screenshots and covered by ThemeColorSelector.spec.tsx.
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      text: "tab-settings"
+    # A busy emulator loading the dev bundle from Metro needs well over a minute.
+    timeout: 180000
+- tapOn:
+    text: "tab-settings"
+- extendedWaitUntil:
+    visible:
+      id: "^settings-section-theme$"
+    timeout: 30000
+
+# --- Dark ----------------------------------------------------------------------
+- tapOn:
+    id: "^settings-theme-mode-dark$"
+- assertVisible:
+    id: "^settings-theme-mode-dark$"
+    checked: true
+- assertVisible:
+    id: "^settings-theme-palette-row-label$"
+    text: "Color"
+- assertNotVisible: "Custom Color"
+- assertVisible:
+    id: "^settings-palette-blue-preview$"
+- assertVisible:
+    id: "^settings-palette-purple-preview$"
+- assertVisible:
+    id: "^settings-pause-timer-text$"
+    text: "Pause Timer: 0h 3m 0s"
+- assertVisible:
+    id: "^settings-finish-training-timer-text$"
+    text: "Finish Training Timer: 0h 20m 0s"
+- assertVisible:
+    id: "^settings-pause-timer-delete$"
+- assertVisible:
+    id: "^settings-finish-training-timer-delete$"
+- takeScreenshot: gh522-01-dark
+
+# --- Light ---------------------------------------------------------------------
+- tapOn:
+    id: "^settings-theme-mode-light$"
+- assertVisible:
+    id: "^settings-theme-mode-light$"
+    checked: true
+- assertVisible:
+    id: "^settings-theme-mode-dark$"
+    checked: false
+- assertVisible:
+    id: "^settings-theme-palette-row-label$"
+    text: "Color"
+- assertNotVisible: "Custom Color"
+- assertVisible:
+    id: "^settings-pause-timer-text$"
+    text: "Pause Timer: 0h 3m 0s"
+- assertVisible:
+    id: "^settings-finish-training-timer-text$"
+    text: "Finish Training Timer: 0h 20m 0s"
+- assertVisible:
+    id: "^settings-pause-timer-delete$"
+- assertVisible:
+    id: "^settings-finish-training-timer-delete$"
+- takeScreenshot: gh522-02-light

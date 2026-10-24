@@ -3,7 +3,6 @@ import {StyleSheet} from 'react-native';
 import {fireEvent, render} from '@testing-library/react-native';
 import {MD3DarkTheme, MD3LightTheme, PaperProvider} from 'react-native-paper';
 import AnalysisDataToggle, {AnalysisDataMode} from '../../../../app/components/Training/analyse/AnalysisDataToggle';
-import AnalysisTotalSets, {formatTotalSets} from '../../../../app/components/Training/analyse/AnalysisTotalSets';
 
 // The toggle is rendered against the REAL react-native-paper: mocking the
 // library away would hide exactly the thing under test here — that the control
@@ -84,22 +83,5 @@ describe('AnalysisDataToggle (GH-417)', () => {
     // the two themes must not resolve to the same colour, otherwise the
     // assertion above would also pass for a hardcoded value
     expect(lightLabelColor).not.toBe(darkLabelColor);
-  });
-});
-
-describe('AnalysisTotalSets (GH-417 AC4)', () => {
-  it('names the scope so the number cannot be read against the wrong data', () => {
-    expect(formatTotalSets(24, 'planned')).toBe('Total Sets: 24 (planned)');
-    expect(formatTotalSets(0, 'done')).toBe('Total Sets: 0 (done)');
-  });
-
-  it('renders the total under a stable testID', () => {
-    const {getByTestId} = render(
-      <PaperProvider theme={MD3LightTheme}>
-        <AnalysisTotalSets totalSets={17} scope="done" />
-      </PaperProvider>,
-    );
-
-    expect(getByTestId('analysis-total-sets').props.children).toBe('Total Sets: 17 (done)');
   });
 });

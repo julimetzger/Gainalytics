@@ -19,6 +19,8 @@ class MainApplication : Application(), ReactApplication {
               add(AppInfoPackage())
               add(ExactAlarmPackage())
               add(VideoAnalysisPackage())
+              add(ChatGptLoopbackPackage())
+              add(FileSharePackage())
               debugOnlyPackage(HEALTH_CONNECT_POC_PACKAGE)?.let { add(it) }
             }
 

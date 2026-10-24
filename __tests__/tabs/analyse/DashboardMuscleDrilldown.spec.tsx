@@ -67,6 +67,13 @@ beforeEach(() => {
   mockNavigate.mockClear();
 });
 
+// GH-532: tapping a radar label only selects the muscle; the selection strip's
+// Details button does the drill-down the chip used to do.
+const drillDown = (getByTestId: ReturnType<typeof render>['getByTestId'], muscle: Muscles) => {
+  fireEvent.press(getByTestId(`muscle-chip-${muscle}`));
+  fireEvent.press(getByTestId('muscle-radar-details-button'));
+};
+
 /**
  * GH-458 (H4): "Tap a muscle group for details" was the Dashboard's only
  * drill-down. It navigated to Metrics with no muscle and no range, so the user
@@ -76,7 +83,7 @@ describe('Dashboard muscle drill-down (GH-458 H4)', () => {
   it('hands the tapped muscle to the Metrics Overview', () => {
     const {getByTestId} = renderDashboard(makeState([lastWorkout]));
 
-    fireEvent.press(getByTestId(`muscle-chip-${Muscles.QUADS}`));
+    drillDown(getByTestId, Muscles.QUADS);
 
     expect(mockNavigate).toHaveBeenCalledTimes(1);
     const [routeName, params] = mockNavigate.mock.calls[0];
@@ -84,10 +91,29 @@ describe('Dashboard muscle drill-down (GH-458 H4)', () => {
     expect(params.muscle).toBe(Muscles.QUADS);
   });
 
+  it('selects the muscle on label tap and only navigates via Details (GH-532)', () => {
+    const {getByTestId, queryByTestId, getByText} = renderDashboard(makeState([lastWorkout]));
+
+    expect(getByText('Tap a muscle group for details')).toBeTruthy();
+    fireEvent.press(getByTestId(`muscle-chip-${Muscles.QUADS}`));
+
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(getByTestId('muscle-radar-selection-name')).toHaveTextContent('Quads');
+
+    fireEvent.press(getByTestId('muscle-radar-details-button'));
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockNavigate.mock.calls[0][1].muscle).toBe(Muscles.QUADS);
+
+    // Tapping the selected label again deselects it.
+    fireEvent.press(getByTestId(`muscle-chip-${Muscles.QUADS}`));
+    expect(queryByTestId('muscle-radar-details-button')).toBeNull();
+    expect(getByText('Tap a muscle group for details')).toBeTruthy();
+  });
+
   it('hands over a range that contains the last logged workout, not the empty current week', () => {
     const {getByTestId} = renderDashboard(makeState([lastWorkout]));
 
-    fireEvent.press(getByTestId(`muscle-chip-${Muscles.QUADS}`));
+    drillDown(getByTestId, Muscles.QUADS);
 
     const [, params] = mockNavigate.mock.calls[0];
     expect(params.rangeStartMs).toBeLessThanOrEqual(LAST_WORKOUT_START.getTime());
@@ -168,7 +194,7 @@ describe('Dashboard muscle drill-down range is per-muscle (GH-458 round 2, revie
   it('sends the muscle trained THIS week to the current week', () => {
     const {getByTestId} = renderDashboard(makeMixedState());
 
-    fireEvent.press(getByTestId(`muscle-chip-${Muscles.CHEST}`));
+    drillDown(getByTestId, Muscles.CHEST);
 
     const [, params] = mockNavigate.mock.calls[0];
     expect(params.muscle).toBe(Muscles.CHEST);
@@ -182,7 +208,7 @@ describe('Dashboard muscle drill-down range is per-muscle (GH-458 round 2, revie
   it('sends a muscle NOT trained this week to its OWN last-workout period, even though Chest was trained today', () => {
     const {getByTestId} = renderDashboard(makeMixedState());
 
-    fireEvent.press(getByTestId(`muscle-chip-${Muscles.QUADS}`));
+    drillDown(getByTestId, Muscles.QUADS);
 
     const [, params] = mockNavigate.mock.calls[0];
     expect(params.muscle).toBe(Muscles.QUADS);
@@ -205,7 +231,7 @@ describe('Dashboard drill-down ignores a set-less session this week (GH-458 roun
     const {getByTestId, queryByTestId} = renderDashboard(makeState([lastWorkout, emptySessionThisWeek]));
 
     expect(getByTestId('analyse-stale-range-banner')).toBeTruthy();
-    fireEvent.press(getByTestId(`muscle-chip-${Muscles.QUADS}`));
+    drillDown(getByTestId, Muscles.QUADS);
 
     const [, params] = mockNavigate.mock.calls[0];
     expect(params.rangeStartMs).toBeLessThanOrEqual(LAST_WORKOUT_START.getTime());

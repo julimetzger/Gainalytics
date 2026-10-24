@@ -1,0 +1,155 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-532: the Dashboard's "Muscle Groups" chip grid became a radar chart
+# (this week vs last week) with a Sets/Volume toggle, a selection strip with a
+# Details drill-down and three stat tiles.
+#
+# Needs the store of `gh532_this_week.gains`
+# (node __tests__/testdata/scripts/make_gh532_radar_fixtures.js <baseline.gains> <outDir>,
+# imported with 00_import_baseline.yaml + --fixture). Its values are anchored to
+# the current Monday, so they are the same on every weekday:
+#   this week  Back 9 sets / 5.7t, Biceps 4.8, Chest 2.8, Core 3, Glutes 1,
+#              Hamstrings 5, Quads 4 / 4.0t, Shoulders 7, Triceps 7.4
+#   last week  Back 11 sets / 8.4t
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 90000
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 15000
+- tapOn: 'Dashboard'
+- extendedWaitUntil:
+    visible:
+      id: 'muscle-chip-Back'
+    timeout: 30000
+
+# ------------------------------------------------------------ radar, Sets
+- assertVisible: 'Muscle Groups'
+- assertVisible:
+    id: 'muscle-radar-metric-sets'
+    checked: true
+- assertVisible: 'Back, 9 sets'
+- assertVisible: 'Glutes, 1 set'
+- assertVisible: 'Triceps, 7.4 sets'
+- assertVisible:
+    id: 'muscle-radar-svg'
+    text: 'Radar chart of sets per muscle group, this week vs last week\. Back 9 \(last week 11\), .*Quads 4 \(last week 11\.2\).*'
+- takeScreenshot: gh532_01_radar_sets
+# The hint sits below the 300 dp chart — off-screen on a phone.
+- scrollUntilVisible:
+    element: 'Tap a muscle group for details'
+    direction: DOWN
+
+# -------------------------------------------------------- select a muscle
+- scrollUntilVisible:
+    element:
+      id: 'muscle-chip-Back'
+    direction: UP
+- tapOn:
+    id: 'muscle-chip-Back'
+- scrollUntilVisible:
+    element:
+      id: 'muscle-radar-details-button'
+    direction: DOWN
+- assertVisible:
+    id: 'muscle-radar-selection-name'
+    text: 'Back'
+- assertVisible:
+    id: 'muscle-radar-selection-detail'
+    text: '9 sets · 5\.7t · -2 sets vs last week'
+- assertNotVisible: 'Tap a muscle group for details'
+
+# ------------------------------------------------------------- stat tiles
+- assertVisible:
+    id: 'muscle-radar-tile-most-trained-value'
+    text: 'Back'
+- assertVisible:
+    id: 'muscle-radar-tile-lagging-value'
+    text: 'Glutes'
+- assertVisible:
+    id: 'muscle-radar-tile-lagging-detail'
+    text: '1 set'
+- assertVisible:
+    id: 'muscle-radar-tile-push-pull-value'
+    text: '1\.2 : 1'
+- assertVisible:
+    id: 'muscle-radar-tile-push-pull-detail'
+    text: '17\.2 / 13\.8 sets'
+- takeScreenshot: gh532_02_selected_sets
+
+# ---------------------------------------------------------- toggle Volume
+- scrollUntilVisible:
+    element:
+      id: 'muscle-radar-metric-volume'
+    direction: UP
+- tapOn:
+    id: 'muscle-radar-metric-volume'
+- assertVisible:
+    id: 'muscle-radar-metric-volume'
+    checked: true
+- assertVisible: 'Back, 5\.7t'
+- assertVisible: 'Quads, 4\.0t'
+- assertVisible:
+    id: 'muscle-radar-svg'
+    text: 'Radar chart of volume per muscle group, this week vs last week\. Back 5\.7t \(last week 8\.4t\), .*'
+- takeScreenshot: gh532_03_radar_volume
+- scrollUntilVisible:
+    element:
+      id: 'muscle-radar-selection-detail'
+    direction: DOWN
+- assertVisible:
+    id: 'muscle-radar-selection-detail'
+    text: '9 sets · 5\.7t · -2\.7t vs last week'
+- takeScreenshot: gh532_04_selected_volume
+
+# ------------------------------------------- tapping the label again deselects
+- scrollUntilVisible:
+    element:
+      id: 'muscle-chip-Back'
+    direction: UP
+- tapOn:
+    id: 'muscle-chip-Back'
+- assertNotVisible:
+    id: 'muscle-radar-details-button'
+- scrollUntilVisible:
+    element: 'Tap a muscle group for details'
+    direction: DOWN
+
+# --------------------------------------------- Details → in-depth analysis
+- scrollUntilVisible:
+    element:
+      id: 'muscle-chip-Biceps'
+    direction: UP
+- tapOn:
+    id: 'muscle-chip-Biceps'
+- scrollUntilVisible:
+    element:
+      id: 'muscle-radar-details-button'
+    direction: DOWN
+- assertVisible:
+    id: 'muscle-radar-selection-name'
+    text: 'Biceps'
+- tapOn:
+    id: 'muscle-radar-details-button'
+- extendedWaitUntil:
+    visible: '1 selected'
+    timeout: 60000
+- assertVisible: 'Biceps'
+- assertNotVisible:
+    id: 'muscle-heatmap-card'
+- takeScreenshot: gh532_05_details_metrics

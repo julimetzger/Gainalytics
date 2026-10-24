@@ -1,0 +1,31 @@
+appId: com.powerliftingworkoutplanner
+name: GH-515 open the AI Chat screen from anywhere in the app
+---
+# Shared step. The Analyse tab reopens on the screen it was left on, so only go
+# through the drawer when the chat is not already in front.
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'chat-input'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - extendedWaitUntil:
+          visible: 'Chat History'
+          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 10000
+      - tapOn:
+          text: 'AI Chat'
+          below:
+            text: 'Video Analysis'
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: 'Chat History'
+    timeout: 30000

@@ -1,0 +1,61 @@
+appId: com.powerliftingworkoutplanner
+name: GH-515 AI provider choice is shown and Claude is the default
+---
+# Run right after 00_import_baseline.yaml: the baseline store predates GH-504 and
+# has no provider set, so whatever is selected here is the default.
+# Ends with the (emptied) Anthropic key input focused, so the runner can type a
+# real key with `adb shell input text` — the key never appears in a flow file,
+# a Maestro log or an env var.
+- launchApp:
+    clearState: false
+    stopApp: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'tab-settings'
+    timeout: 120000
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-ai-config-accordion'
+    direction: DOWN
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible:
+        id: 'settings-ai-provider'
+    commands:
+      - tapOn:
+          id: 'settings-ai-config-accordion'
+- scrollUntilVisible:
+    element:
+      id: 'settings-anthropic-api-key-input'
+    direction: DOWN
+    timeout: 30000
+
+# ── GH-504: both providers offered, Claude selected by default ───────────────
+- assertVisible:
+    id: 'settings-ai-provider'
+- assertVisible:
+    id: 'settings-ai-provider-claude'
+    checked: true
+- assertVisible:
+    id: 'settings-ai-provider-chatgpt'
+    checked: false
+    enabled: true
+- assertVisible: 'Claude \(API key\)'
+- assertVisible: 'ChatGPT \(Sign in\)'
+# The Claude branch of the section (key input) is what is shown, not the
+# ChatGPT account section.
+- assertVisible: 'Anthropic API Key'
+- assertNotVisible:
+    id: 'settings-ai-provider-chatgpt-unavailable'
+- takeScreenshot: 'gh515_01_provider_claude_default'
+
+# Empty the field (it is prefilled with a stored key) and leave it focused.
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- eraseText: 200

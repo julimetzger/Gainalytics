@@ -1,0 +1,59 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-496: import a REAL Strong 6.x export (fixtures/gh496/strong_sample_export.csv, pushed to
+# /sdcard/Download) after gh496_strong_import_roundtrip.yaml. Its workouts are named
+# "Full body A/B", "Upper body A/B" (an A/B split trained up to 3×/week), so the plan keeps
+# those names. Values from buildStrongImport: 52 trainings, 27 weeks, 1153 sets,
+# 854 rest timer + 46 note rows skipped. One of its 18 exercises already exists after the round
+# trip (same name) and is reused, so 17 are new.
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'tab-settings'
+    timeout: 120000
+- tapOn: 'tab-settings'
+- runFlow:
+    file: gh496_pick_file.yaml
+    env:
+      FILE: strong_sample_export.csv
+- extendedWaitUntil:
+    visible: '52 trainings in 27 weeks'
+    timeout: 60000
+- assertVisible: '1153 sets · 18 exercises \(17 new\)'
+- assertVisible: 'New plan "Strong Import 2", trainings named by workout name: Full body B, Full body A, Upper body A, Upper body B'
+- assertVisible: 'Skipped: 0 already imported workouts, 0 cardio rows, 900 rest timer/note rows'
+- assertVisible: 'Weights: kg \(from file\)'
+- takeScreenshot: gh496_09_real_strong_summary
+- tapOn:
+    id: 'strong-import-confirm-button'
+- extendedWaitUntil:
+    visible: 'Plan "Strong Import 2": 52 trainings, 1153 sets'
+    timeout: 60000
+
+# Open the imported plan
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+- swipe:
+    start: '83%, 80%'
+    end: '83%, 25%'
+    duration: 500
+- scrollUntilVisible:
+    element:
+      id: 'plan-meta-2'
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: gh496_10_plan_list
+- tapOn:
+    id: 'plan-meta-2'
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-menu-button'
+    timeout: 30000
+- takeScreenshot: gh496_11_plan_micro
+- tapOn:
+    id: 'drawer-menu-button'
+- waitForAnimationToEnd
+- takeScreenshot: gh496_12_plan_drawer

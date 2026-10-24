@@ -1,4 +1,4 @@
-import {computeMicroPlannedMuscleInvolvement, computeMuscleInvolvement, findLastMatchingTraining, hasThisTrainingPlannedInvolvement} from '../use/useMuscleInvolvement';
+import {computeMuscleInvolvement, findLastMatchingTraining, hasThisTrainingPlannedInvolvement} from '../use/useMuscleInvolvement';
 import {GlobalState} from '../../rootReducer';
 import {Muscles} from '../../../models/Muscles';
 import {TrainingsState} from '../../../models/TrainingsState';
@@ -360,94 +360,6 @@ describe('computeMuscleInvolvement — last_training_plan / last_training_done (
 
 // GH-417 / GH-436 — the Overview's Plan position maps the WHOLE micro's planned
 // load, not just one training's.
-describe('computeMicroPlannedMuscleInvolvement', () => {
-  it('sums the planned sets of every training in the micro as the subject', () => {
-    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 2, 'sets');
-
-    // micro 2 plans bench (3 sets) + squat (4 sets)
-    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.today).toBeCloseTo(3, 5);
-    expect(data.rows.find((r) => r.muscleGroupId === Muscles.QUADS)?.today).toBeCloseTo(4, 5);
-    // and the single-training map would have shown neither squat nor its glutes
-    expect(data.rows.find((r) => r.muscleGroupId === Muscles.GLUTES)?.today).toBeCloseTo(2, 5);
-  });
-
-  it('references the previous micro plan when asked to', () => {
-    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 2, 'sets', 'last_plan');
-
-    expect(data.referenceUnavailable).toBe(false);
-    expect(data.effectiveCompare).toBe('last_plan');
-    // micro 1 plans bench (4 sets) + row (3 sets)
-    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.reference).toBeCloseTo(4, 5);
-    // BACK is only in the reference micro — buildRows tracks the subject's muscles,
-    // so it must not appear as a row with today = 0.
-    expect(data.rows.find((r) => r.muscleGroupId === Muscles.BACK)).toBeUndefined();
-  });
-
-  it('drops the reference layer for the first micro, without losing the subject', () => {
-    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 1, 'sets', 'last_plan');
-
-    expect(data.referenceUnavailable).toBe(true);
-    expect(data.effectiveCompare).toBe('none');
-    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.today).toBeCloseTo(4, 5);
-    expect(data.rows.every((r) => r.reference === 0)).toBe(true);
-  });
-
-  it('returns an empty, non-throwing result for a micro with nothing planned', () => {
-    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 9, 'sets');
-
-    expect(data.rows).toEqual([]);
-    expect(data.globalMax).toBe(0);
-    expect(data.referenceUnavailable).toBe(true);
-  });
-});
-
-// GH-436 — the Overview's Plan position puts the micro's plan next to what was
-// actually trained in the same micro. That is the default reference now.
-describe('computeMicroPlannedMuscleInvolvement — done reference (GH-436)', () => {
-  const withDoneWorkouts = () => {
-    const state = fixture();
-    // micro 2, training 1 (bench) logged 2 sets; training 2 (squat) logged 1 set
-    state.workouts.byId[600] = {id: 600, exerciseId: 1, sets: [{reps: 10, weight: 100, rir: 2}, {reps: 10, weight: 100, rir: 2}]} as any;
-    state.workouts.byId[601] = {id: 601, exerciseId: 2, sets: [{reps: 5, weight: 150, rir: 2}]} as any;
-    state.trainings.byId[200] = {...state.trainings.byId[200], doneWorkoutIds: {1: 600}} as any;
-    state.trainings.byId[201] = {...state.trainings.byId[201], doneWorkoutIds: {2: 601}} as any;
-    return state;
-  };
-
-  it('defaults to the micro\'s done load as the reference', () => {
-    const data = computeMicroPlannedMuscleInvolvement(withDoneWorkouts(), 1, 2, 'sets');
-
-    expect(data.referenceUnavailable).toBe(false);
-    expect(data.effectiveCompare).not.toBe('none');
-    // subject stays the planned load: bench 3 + squat 4
-    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.today).toBeCloseTo(3, 5);
-    expect(data.rows.find((r) => r.muscleGroupId === Muscles.QUADS)?.today).toBeCloseTo(4, 5);
-    // reference is what was trained in the SAME micro, not the previous micro's plan (which had 4 bench sets)
-    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.reference).toBeCloseTo(2, 5);
-    expect(data.rows.find((r) => r.muscleGroupId === Muscles.QUADS)?.reference).toBeCloseTo(1, 5);
-    expect(data.rows.find((r) => r.muscleGroupId === Muscles.GLUTES)?.reference).toBeCloseTo(0.5, 5);
-  });
-
-  it('reports the reference as unavailable when nothing was trained yet, keeping the planned subject', () => {
-    const data = computeMicroPlannedMuscleInvolvement(fixture(), 1, 2, 'sets');
-
-    expect(data.referenceUnavailable).toBe(true);
-    expect(data.effectiveCompare).toBe('none');
-    expect(data.rows.find((r) => r.muscleGroupId === Muscles.CHEST)?.today).toBeCloseTo(3, 5);
-    expect(data.rows.every((r) => r.reference === 0)).toBe(true);
-  });
-
-  it('renders no reference layer for compare = none even when done data exists', () => {
-    const data = computeMicroPlannedMuscleInvolvement(withDoneWorkouts(), 1, 2, 'sets', 'none');
-
-    expect(data.referenceUnavailable).toBe(false);
-    expect(data.effectiveCompare).toBe('none');
-    expect(data.rows.every((r) => r.reference === 0)).toBe(true);
-  });
-});
-
-// GH-444 — the analysis of ONE training can be compared against the plan of that
-// very training: subject = its done workouts, reference = its planned workouts.
 describe('computeMuscleInvolvement — this_training_plan (GH-444)', () => {
   /**
    * Builds on the shared fixture: plan 1, micro 2, trainingInMicro 1 is training 200,

@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {FlatList, KeyboardAvoidingView, ScrollView, StyleSheet, View} from 'react-native';
 import {ActivityIndicator, Chip, IconButton, Surface, Text, TextInput, useTheme} from 'react-native-paper';
 import Markdown from 'react-native-markdown-display';
@@ -24,7 +24,9 @@ import {
 import {selectAllFinishedTrainings} from '../../redux/AIChat/selectors';
 import {useArchiveActiveChat} from '../../redux/AIChat/use/useArchiveActiveChat';
 import {sendChatMessage, ChatMessage} from '../../utils/ai/sendChatMessage';
-import {secureStorage, subscribeToApiKeyChanges} from '../../utils/secureStorage';
+import {secureStorage} from '../../utils/secureStorage';
+import {sendChatGptMessage} from '../../utils/ai/chatgpt/chatgptChat';
+import {useAiCredentials} from '../../utils/ai/useAiCredentials';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
 import {serializeTrainingsForChat} from '../../utils/ai/serializeTrainingsForChat';
 import {filterTrainingsByDateRange} from '../../utils/ai/filterTrainingsByDateRange';
@@ -48,6 +50,8 @@ import ChatContextPreviewDialog from '../../components/ai/ChatContextPreviewDial
 import ChatTrainingPickerDialog from '../../components/ai/ChatTrainingPickerDialog';
 import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
 import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
+import {useAiProvider} from '../../redux/settings/use/useAiProvider';
+import {useChatGptModel} from '../../redux/settings/use/useChatGptModel';
 
 type Preset = '7d' | '28d' | '3M' | 'Meso' | 'Custom';
 
@@ -127,6 +131,8 @@ const AIChatTab = () => {
   const navigation = useNavigation<any>();
   const chatPrompt = useAIChatPrompt();
   const model = useAnthropicModel();
+  const provider = useAiProvider();
+  const chatgptModel = useChatGptModel();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const archiveActiveChat = useArchiveActiveChat();
@@ -160,24 +166,8 @@ const AIChatTab = () => {
   const abortRef = useRef<AbortController | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const [hasApiKey, setHasApiKey] = useState(() => {
-    try {
-      return secureStorage.hasAnthropicApiKey();
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    const unsub = subscribeToApiKeyChanges(() => {
-      try {
-        setHasApiKey(secureStorage.hasAnthropicApiKey());
-      } catch {
-        setHasApiKey(false);
-      }
-    });
-    return unsub;
-  }, []);
+  // GH-504: an API key for Claude, a stored sign-in for ChatGPT.
+  const hasCredentials = useAiCredentials(provider);
 
   const allPlans = useMemo(
     () =>
@@ -360,8 +350,8 @@ const AIChatTab = () => {
     const text = inputText.trim();
     if (!text || isLoading) return;
 
-    const apiKey = secureStorage.getAnthropicApiKey();
-    if (!apiKey) {
+    const apiKey = provider === 'claude' ? secureStorage.getAnthropicApiKey() : undefined;
+    if (provider === 'claude' && !apiKey) {
       dispatch(setError('No API key configured. Add your Anthropic API key in Settings.'));
       return;
     }
@@ -403,9 +393,10 @@ const AIChatTab = () => {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const result = await sendChatMessage(history, apiKey, systemPrompt, model, {
-      signal: controller.signal,
-    });
+    const result =
+      provider === 'chatgpt'
+        ? await sendChatGptMessage(history, systemPrompt, chatgptModel, {signal: controller.signal})
+        : await sendChatMessage(history, apiKey!, systemPrompt, model, {signal: controller.signal});
     abortRef.current = null;
 
     if (result.ok) {
@@ -441,6 +432,50 @@ const AIChatTab = () => {
       clearingRef.current = false;
     }
   };
+
+  // GH-508: history, filter and clear sit in the navigation header next to its
+  // "AI Chat" title instead of in a second title row inside the screen — that row
+  // repeated the title and cost the message list a full row of height. The ref
+  // keeps the header from being re-set on every render just because handleClear
+  // is a new closure.
+  const handleClearRef = useRef(handleClear);
+  handleClearRef.current = handleClear;
+  const clearDisabled = messages.length === 0 && !error;
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: hasCredentials
+        ? () => (
+            <View style={styles.headerActions} testID="chat-header-actions">
+              <IconButton
+                icon="history"
+                size={20}
+                style={styles.headerAction}
+                iconColor={theme.colors.onSurfaceVariant}
+                onPress={() => navigation.navigate('ChatHistory')}
+                testID="chat-history-button"
+              />
+              <IconButton
+                icon={showFilters ? 'filter-remove-outline' : 'filter-outline'}
+                size={20}
+                style={styles.headerAction}
+                iconColor={theme.colors.onSurfaceVariant}
+                onPress={() => setShowFilters(v => !v)}
+                testID="chat-filter-toggle"
+              />
+              <IconButton
+                icon="delete-outline"
+                size={20}
+                style={styles.headerAction}
+                iconColor={theme.colors.onSurfaceVariant}
+                onPress={() => handleClearRef.current()}
+                testID="chat-clear-button"
+                disabled={clearDisabled}
+              />
+            </View>
+          )
+        : undefined,
+    });
+  }, [navigation, hasCredentials, showFilters, clearDisabled, theme]);
 
   const contextBadgeLabel = useMemo(() => {
     if (selectedPreset === 'Meso' && mesoRange) return `Meso: ${mesoRange.name}`;
@@ -503,24 +538,21 @@ const AIChatTab = () => {
     );
   };
 
-  if (!hasApiKey) {
+  if (!hasCredentials) {
     return (
       <View style={[styles.centeredContainer, {backgroundColor: theme.colors.background, paddingBottom: insets.bottom}]}>
-        <Text variant="headlineSmall" style={{color: theme.colors.onSurface, marginBottom: 8}}>
-          AI Chat
-        </Text>
         <Text
           variant="bodyMedium"
           style={{color: theme.colors.onSurfaceVariant, textAlign: 'center', paddingHorizontal: 32}}
           testID="chat-no-key-message"
         >
-          Please add your Anthropic API key in Settings to use AI Chat.
+          {provider === 'chatgpt'
+            ? 'Please sign in with ChatGPT in Settings to use AI Chat.'
+            : 'Please add your Anthropic API key in Settings to use AI Chat.'}
         </Text>
       </View>
     );
   }
-
-  const isEmpty = messages.length === 0;
 
   return (
     <KeyboardAvoidingView
@@ -528,45 +560,6 @@ const AIChatTab = () => {
       behavior="padding"
       keyboardVerticalOffset={headerHeight}
     >
-      {/* Header */}
-      <View style={styles.headerRow}>
-        <Text variant="titleMedium" style={{color: theme.colors.onSurface, flex: 1}}>
-          AI Chat
-        </Text>
-        {!showFilters && (
-          <Text
-            variant="labelSmall"
-            style={[styles.contextBadge, {color: theme.colors.onSurfaceVariant}]}
-            testID="chat-context-badge"
-            numberOfLines={1}
-          >
-            {contextBadgeLabel}
-          </Text>
-        )}
-        <IconButton
-          icon="history"
-          size={20}
-          iconColor={theme.colors.onSurfaceVariant}
-          onPress={() => navigation.navigate('ChatHistory')}
-          testID="chat-history-button"
-        />
-        <IconButton
-          icon={showFilters ? 'filter-remove-outline' : 'filter-outline'}
-          size={20}
-          iconColor={theme.colors.onSurfaceVariant}
-          onPress={() => setShowFilters(v => !v)}
-          testID="chat-filter-toggle"
-        />
-        <IconButton
-          icon="delete-outline"
-          size={20}
-          iconColor={theme.colors.onSurfaceVariant}
-          onPress={handleClear}
-          testID="chat-clear-button"
-          disabled={isEmpty && !error}
-        />
-      </View>
-
       {/* GH-391 context bar — always visible, so the planning half of the context
           and the current conversation subject are never hidden behind a filter. */}
       <ScrollView
@@ -576,6 +569,18 @@ const AIChatTab = () => {
         contentContainerStyle={styles.contextBarContent}
         testID="chat-context-bar"
       >
+        {/* GH-508: the context period lives in the context bar instead of a row of
+            its own; tapping it opens the same filter section as the header icon. */}
+        <Chip
+          icon="calendar-range"
+          selected={showFilters}
+          showSelectedCheck={false}
+          onPress={() => setShowFilters(v => !v)}
+          style={styles.chip}
+          testID="chat-context-badge"
+        >
+          {contextBadgeLabel}
+        </Chip>
         <Chip
           icon={includePlanned ? 'calendar-check' : 'calendar-remove'}
           selected={includePlanned}
@@ -806,16 +811,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerRow: {
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  contextBadge: {
-    flexShrink: 1,
     marginRight: 4,
+  },
+  headerAction: {
+    marginHorizontal: 0,
   },
   chipsRow: {
     flexGrow: 0,
@@ -830,6 +832,7 @@ const styles = StyleSheet.create({
   contextBarContent: {
     flexDirection: 'row',
     gap: 8,
+    paddingTop: 8,
     paddingBottom: 6,
   },
   chipsContent: {

@@ -1,16 +1,15 @@
-import React, {useMemo} from 'react';
+import React from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Text} from 'react-native-paper';
+import {Text, useTheme} from 'react-native-paper';
 import {Training} from '../../../models/entities/Training';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
-import {Workout} from '../../../models/entities/Workout';
-import {Metric} from '../../../models/Metric';
-import {calculateMetricValue} from '../../../utils/AnalyseUtils';
-import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
 import CollapsibleSection from '../../analyse/CollapsibleSection';
-import MuscleInvolvementCard from '../plan/MuscleInvolvementCard';
-import AnalysisTotalSets from './AnalysisTotalSets';
+import CompareChips from '../../analyse/CompareChips';
+import ComparisonKpiCards from '../../analyse/ComparisonKpiCards';
+import MuscleMapCard from '../../analyse/MuscleMapCard';
+import {setsKpi, setsOf, volumeKpi} from '../../../utils/overview-comparison';
+import {useTrainingComparison} from './useTrainingComparison';
 
 interface TrainingPlanOverviewProps {
   /** Undefined when nothing has been planned for this slot yet. */
@@ -18,34 +17,31 @@ interface TrainingPlanOverviewProps {
   trainingsPlan: TrainingsPlan;
   micro: number;
   trainingInMicro: number;
+  /** The Plan | Train toggle — GH-526 puts it at the start of the compare chip row. */
+  toggle?: React.ReactNode;
 }
 
 /**
  * GH-436 — the "Plan" position of a single training's analysis: the planned
- * numbers of THIS training only. GH-417 rendered the whole micro's plan here,
- * which read as if the training had 72 planned sets. The micro-wide view now
- * lives in the Overview (MicroPlanOverview); this one mirrors TrainingsOverview
- * (the "Train" position) with planned instead of logged workouts, so the total
- * set count, the muscle map and the metrics all refer to the same training.
- *
- * The muscle map is the shared single-training card in its 'plan' view, whose
- * default reference is the micro's total plan (`current_total_plan`) — the
- * comparison GH-436 asks for without the user having to pick it.
+ * numbers of THIS training only (the micro-wide view lives in the Overview's
+ * Plan tab). GH-526: compared against the last matching training's plan
+ * (default) or, as a share, against the plan of the whole micro — picked with
+ * the chips next to the Plan | Train toggle and named in the line below them.
  *
  * No inner ScrollView here: this renders inside TrainingsPlanNode's scroll
  * container and a nested same-direction ScrollView clips the content (GH-382).
  */
-const TrainingPlanOverview = ({training, trainingsPlan, micro, trainingInMicro}: TrainingPlanOverviewProps) => {
-  const plannedWorkoutIds = useMemo(() => (training?.plannedWorkouts ? (Object.values(training.plannedWorkouts) as number[]) : []), [training?.plannedWorkouts]);
-  const plannedWorkouts = useWorkoutsByIds(plannedWorkoutIds);
-  const totalPlannedSets = useMemo(() => {
-    const sets = plannedWorkouts.flatMap((workout: Workout) => workout.sets ?? []);
-    return calculateMetricValue(sets, Metric.SETS) ?? 0;
-  }, [plannedWorkouts]);
+const TrainingPlanOverview = ({training, trainingsPlan, micro, trainingInMicro, toggle}: TrainingPlanOverviewProps) => {
+  const theme = useTheme();
+  const comparison = useTrainingComparison(trainingsPlan, micro, trainingInMicro, 'plan', training);
+  const totalPlannedSets = setsOf(comparison.subject);
+  const mode = comparison.share ? 'share' : 'diff';
 
   return (
     <View testID="training-plan-overview">
-      <AnalysisTotalSets totalSets={totalPlannedSets} scope="planned" />
+      <CompareChips options={totalPlannedSets === 0 ? [] : comparison.options} value={comparison.selected} onChange={comparison.select} testIDPrefix="analysis-compare">
+        {toggle}
+      </CompareChips>
       {totalPlannedSets === 0 ? (
         // A training without planned sets stays a clean, readable screen — no
         // blank area and no table of zeroes.
@@ -56,13 +52,33 @@ const TrainingPlanOverview = ({training, trainingsPlan, micro, trainingInMicro}:
         </View>
       ) : (
         <View>
+          <Text testID="analysis-comparison-line" variant="bodySmall" style={[styles.line, {color: theme.colors.onSurfaceVariant}]}>
+            {comparison.comparisonLine}
+          </Text>
+          <ComparisonKpiCards
+            testIDPrefix="training-plan-overview"
+            kpis={[setsKpi(comparison.subject, comparison.reference, mode, comparison.referenceLabel), volumeKpi(comparison.subject, comparison.reference, mode, comparison.referenceLabel)]}
+          />
           {trainingsPlan.id !== undefined && (
-            <CollapsibleSection id="muscleMap" title="Muscle Map">
-              <MuscleInvolvementCard trainingsPlanId={trainingsPlan.id} micro={micro} trainingInMicro={trainingInMicro} view="plan" />
-            </CollapsibleSection>
+            <MuscleMapCard
+              testID="analysis-muscle-map"
+              subject={comparison.subject}
+              reference={comparison.reference}
+              share={comparison.share}
+              subjectLabel={comparison.share ? 'This training' : comparison.subjectLabel}
+              referenceLabel={comparison.referenceLabel}
+              referenceShort={comparison.referenceShort}
+              details={comparison.details}
+              emptyText="No muscle data for this training yet."
+            />
           )}
           <CollapsibleSection id="metrics" title="Metrics">
-            <MetricsOverviewForWorkouts trainingsWorkouts={plannedWorkouts} />
+            <MetricsOverviewForWorkouts
+              trainingsWorkouts={comparison.subject}
+              previousWorkouts={comparison.reference ?? []}
+              referenceLabel={comparison.referenceLabel}
+              deltaMode={mode}
+            />
           </CollapsibleSection>
         </View>
       )}
@@ -74,6 +90,10 @@ const styles = StyleSheet.create({
   emptyBox: {
     padding: 24,
     alignItems: 'center',
+  },
+  line: {
+    marginHorizontal: 13,
+    marginTop: 6,
   },
 });
 

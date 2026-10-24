@@ -1,0 +1,102 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-497: the onboarding's other two ways lead into the existing flows.
+# "Create an empty plan" → the normal add-plan dialog; "Import data" → the Settings
+# import (here with the baseline fixture at /sdcard/Download/baseline.gains).
+# Run after gh497_skip_and_reopen.yaml (onboarding completed, one template plan).
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'tab-training'
+    timeout: 120000
+
+# 1) Create an empty plan
+- runFlow: gh497_reopen_to_step3.yaml
+- tapOn:
+    id: 'onboarding-choice-empty'
+- extendedWaitUntil:
+    visible: 'Add New Training Plan'
+    timeout: 10000
+- assertNotVisible:
+    id: 'onboarding-screen'
+- assertVisible:
+    id: 'plan-source-empty'
+    checked: true
+- assertVisible:
+    id: 'plan-source-template'
+    checked: false
+- tapOn:
+    id: 'plan-name-input'
+- inputText: 'My own plan'
+- takeScreenshot: gh497_routes_01_empty_plan_dialog
+- tapOn:
+    id: 'confirm-trainings-plan'
+- extendedWaitUntil:
+    notVisible: 'Add New Training Plan'
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: 'plan-name-2'
+    direction: DOWN
+- assertVisible:
+    id: 'plan-name-2'
+    text: 'My own plan'
+- assertVisible:
+    id: 'plan-meta-2'
+    text: 'Draft · no trainings yet'
+- takeScreenshot: gh497_routes_02_empty_plan_created
+
+# 2) Import data
+- runFlow: gh497_reopen_to_step3.yaml
+- tapOn:
+    id: 'onboarding-choice-import'
+- extendedWaitUntil:
+    visible: 'Import full data from backup file\?'
+    timeout: 10000
+- assertNotVisible:
+    id: 'onboarding-screen'
+- takeScreenshot: gh497_routes_03_import_dialog
+- tapOn:
+    id: 'settings-import-confirm-button'
+- runFlow:
+    when:
+      visible: 'Use without an account'
+    commands:
+      - tapOn: 'Use without an account'
+- runFlow:
+    when:
+      visible: 'No thanks'
+    commands:
+      - tapOn: 'No thanks'
+- waitForAnimationToEnd:
+    timeout: 8000
+- runFlow:
+    when:
+      notVisible: 'baseline.gains'
+    commands:
+      - swipe:
+          start: '2%, 50%'
+          end: '80%, 50%'
+      - extendedWaitUntil:
+          visible: 'Downloads'
+          timeout: 15000
+      - tapOn: 'Downloads'
+      - waitForAnimationToEnd:
+          timeout: 8000
+- scrollUntilVisible:
+    element:
+      text: 'baseline.gains'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'baseline.gains'
+- extendedWaitUntil:
+    visible: 'Import Data'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible: 'Push pull'
+    timeout: 120000
+# Imported data replaced the store; the onboarding stays closed.
+- assertNotVisible:
+    id: 'onboarding-screen'
+- takeScreenshot: gh497_routes_04_imported

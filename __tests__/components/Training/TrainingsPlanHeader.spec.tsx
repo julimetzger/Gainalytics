@@ -73,7 +73,7 @@ describe('TrainingsPlanHeader', () => {
     expect(queryByTestId('header-session-timer')).toBeNull();
   });
 
-  it('shows "Plan" label for PLANNED state and no live-dot or timer', () => {
+  it('shows "Planned" right of the title for PLANNED state and no live-dot or timer', () => {
     const {getByTestId, queryByTestId} = render(
       <TrainingsPlanHeader
         {...BASE_PROPS}
@@ -151,5 +151,32 @@ describe('TrainingsPlanHeader', () => {
       />,
     );
     expect(getByTestId('header-plan-editing-kicker')).toBeTruthy();
+  });
+
+  describe('GH-526 — the date right of the title', () => {
+    const text = (node: any) => (Array.isArray(node.props.children) ? node.props.children.join('') : String(node.props.children));
+
+    it('shows the day and the time span of a finished training', () => {
+      const {getByTestId} = render(
+        <TrainingsPlanHeader
+          {...BASE_PROPS}
+          trainingState={TrainingsState.FINISHED}
+          trainingStart={new Date(2026, 9, 13, 18, 2).toISOString()}
+          trainingEnd={new Date(2026, 9, 13, 19, 25).toISOString()}
+        />,
+      );
+      expect(text(getByTestId('header-date'))).toBe('Tue 13/10/2026');
+      expect(text(getByTestId('header-session-timer'))).toBe('18:02 – 19:25');
+    });
+
+    it('says "Planned" before a training starts', () => {
+      const {getByTestId} = render(<TrainingsPlanHeader {...BASE_PROPS} trainingState={TrainingsState.PLANNED} />);
+      expect(text(getByTestId('header-plan-label'))).toBe('Planned');
+    });
+
+    it('shows the span of the micro next to the Overview title', () => {
+      const {getByTestId} = render(<TrainingsPlanHeader {...BASE_PROPS} trainingName="Overview" localMicro={2} micro={2} dateRange="06/10 – 12/10/2026" />);
+      expect(text(getByTestId('header-date-range'))).toBe('06/10 – 12/10/2026');
+    });
   });
 });

@@ -26,7 +26,11 @@ export const ProgressiveMount = ({children, stages = 5}: {children: React.ReactN
     const timer = setTimeout(() => setStage((current) => current + 1), PROGRESSIVE_STAGE_MS);
     return () => clearTimeout(timer);
   }, [stage, stages]);
-  return <StageContext.Provider value={stage}>{children}</StageContext.Provider>;
+  // GH-418: the last stage renders EVERYTHING. Handing out the stage number there
+  // capped every progressive list for good — useProgressiveLimit(2) at most
+  // 2 + 4 × 2 = 10 items — so the 11th exercise of a plan never appeared in the
+  // plan's read view (and a reordered exercise moved there seemed to vanish).
+  return <StageContext.Provider value={stage >= stages - 1 ? Infinity : stage}>{children}</StageContext.Provider>;
 };
 
 /** The current stage; Infinity when not inside a {@link ProgressiveMount}. */
