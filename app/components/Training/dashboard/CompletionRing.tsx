@@ -51,7 +51,7 @@ const CompletionRing = ({completed, total, size = 88, testID}: CompletionRingPro
         usePercentValues={false}
       />
       <View style={styles.label} pointerEvents="none">
-        <Text variant="titleMedium" style={{color: theme.colors.primary, fontWeight: '700'}}>
+        <Text variant="titleMedium" style={{color: theme.colors.primary, fontWeight: '700'}} testID={testID ? `${testID}-label` : undefined}>
           {safeCompleted}/{total}
         </Text>
       </View>

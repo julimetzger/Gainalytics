@@ -1,12 +1,20 @@
 #!/usr/bin/env pwsh
-param(
-    [Parameter(Mandatory = $true, Position = 0)]
-    [string]$androidBundlePassword
-)
-
 $ErrorActionPreference = 'Stop'
 
-$env:ANDROID_RELEASE_PASSWORD = $androidBundlePassword
+# The keystore password is never taken as an argument (it would end up in the
+# PSReadLine history and the process list). Either pre-set
+# $env:ANDROID_RELEASE_PASSWORD or enter it at the masked prompt.
+if ($args.Count -gt 0) {
+    throw "Usage: .\releaseNewAndroidVersion.ps1  (the password is prompted for, not passed as an argument)"
+}
+
+$promptedForPassword = -not $env:ANDROID_RELEASE_PASSWORD
+if ($promptedForPassword) {
+    $securePassword = Read-Host -AsSecureString 'Android release keystore password'
+    $env:ANDROID_RELEASE_PASSWORD = [System.Net.NetworkCredential]::new('', $securePassword).Password
+}
+
+if (-not $env:ANDROID_RELEASE_PASSWORD) { throw "No password given, aborting." }
 Write-Host 'start release'
 
 git pull --rebase
@@ -72,4 +80,6 @@ try {
 }
 finally {
     Pop-Location
+    # $env: outlives the script in the calling PowerShell session — don't leave a prompted password behind.
+    if ($promptedForPassword) { Remove-Item Env:ANDROID_RELEASE_PASSWORD -ErrorAction SilentlyContinue }
 }

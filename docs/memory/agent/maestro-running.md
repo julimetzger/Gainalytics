@@ -11,7 +11,7 @@ Back to the [index](../agent-memory.md).
 - `--mode smoke`/`full`/`bootstrap` push + `am force-stop` the app before the run, and `--suite` defaults to `flows/suite.yaml` in EVERY mode — `--mode smoke` alone runs the full, data-mutating suite. Always pass `--suite`.
 - Any other `--mode` value (e.g. `--mode flow`) skips the push/force-stop preamble — use it to probe the app as it stands.
 - On failure the script re-runs the WHOLE suite once (import included). Kill the retry by PID once "Flow Failed" appears, then check the device for leftover dialogs. A first-attempt failure followed by a pass hides real problems.
-- Other flags: `--host`, `--adb-host`, `--adb-port`, `--metro-port`, `--device-metro-port`, `--driver-host-port`, `--report`. The report directory must exist (`mkdir -p`) or the script dies at `cd` with no Maestro output.
+- Other flags: `--host`, `--adb-host`, `--adb-port`, `--metro-port`, `--device-metro-port`, `--driver-host-port`, `--report`. `--report` takes a FILE path (`<dir>/x.xml`) whose directory must exist (`mkdir -p`), or the script dies at `cd` with no Maestro output. Passing a directory instead makes Maestro crash in `TestCommand.saveReport` after the flows ran — the log says `[Passed]` but the exit code is 1 (seen in GH-502).
 - If the push fails (`adb push … Permission denied`) and the data is already on the device, call `maestro` directly (see [direct invocation](#invoke-maestro-directly)).
 (seen in GH-292, GH-356, GH-417, GH-428, GH-443, GH-466, GH-468)
 
@@ -61,7 +61,7 @@ After EVERY run: `grep -oh "Width: [0-9]*" <debug-dir>/maestro.log` or `grep 'Go
 **Rule:** capture evidence with `adb -s "$ANDROID_SERIAL" exec-out screencap -p > raw.png` (resize for viewing, e.g. `ffmpeg -y -i raw.png -vf scale=800:-1 out.png`), READ each image back to confirm it shows the claimed state, and re-shoot after further interaction (`screencap` can also return a stale frame). Maestro flows remain required as regression specs. See [evidence rules](evidence-and-process.md#evidence-must-prove-the-claimed-state).
 
 ### Long Maestro runs and the 600 s tool cap
-**Problem:** a foreground Bash call is killed at 600 s; backgrounding with a trailing `&` inside the Bash tool orphans the JVM; a `run_in_background` task can report "completed" while the job it launched is still alive.
+**Problem:** a foreground Bash call is killed at 600 s; backgrounding with a trailing `&` inside the Bash tool orphans the JVM; a `run_in_background` task can report "completed" while the job it launched is still alive. `run_in_background` itself is also killed after its `timeout` (default 600 000 ms) — pass `timeout: 5400000` (max 7 200 000) for full e2e drivers; a killed driver leaves only its log (GH-518 round 2 lost the last step of a 10-min run).
 **Fix:** `setsid nohup bash <script> > log 2>&1 < /dev/null & disown`, have the script write a done-marker/exit code, then wait in the SAME turn with a background-able poll (`until grep -q <marker> <log>; do sleep 20; done`) or repeated foreground polls (`perl -e 'select(undef,undef,undef,5)'` as sleep where plain `sleep` is blocked). Confirm liveness via `pgrep -af java | grep maestro` and the log's mtime, not via the task notification. For multi-flow sweeps write one JSONL result line per flow and skip already-recorded flows on resume. Same pattern for gradle (see [long builds](builds-and-deps.md#long-builds-inside-the-tool-timeout)). (seen in GH-63, GH-316, GH-428, QA-MAESTRO-001)
 
 ### Where Maestro failures are explained

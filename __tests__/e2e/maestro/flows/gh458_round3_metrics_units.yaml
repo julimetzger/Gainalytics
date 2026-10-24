@@ -39,11 +39,23 @@ appId: com.powerliftingworkoutplanner
 - tapOn: 'Dashboard'
 - extendedWaitUntil:
     visible:
-      id: 'muscle-chip-Quads'
+      id: 'muscle-heatmap-card'
     timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'muscle-chip-Quads'
+    direction: DOWN
 - takeScreenshot: gh458_r3_20_dashboard_global_stale_banner
 - tapOn:
     id: 'muscle-chip-Quads'
+# GH-532: the radar label only selects the muscle; Details (in the selection
+# strip below the 300 dp chart) drills down.
+- scrollUntilVisible:
+    element:
+      id: 'muscle-radar-details-button'
+    direction: DOWN
+- tapOn:
+    id: 'muscle-radar-details-button'
 - extendedWaitUntil:
     visible: '1 selected'
     timeout: 60000

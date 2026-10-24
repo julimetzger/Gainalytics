@@ -8,6 +8,7 @@ import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {determineNewWorkoutId} from '../normalizedWorkoutState';
 import {removeDanglingExerciseReferences} from './removeDanglingExerciseReferences';
 import {normalizeExerciseName} from '../../utils/program-templates';
+import {buildStrongImport} from '../../utils/strongCsv/strongImport';
 
 const sanitizeTrainingWorkoutReferences = (fullImportedState: GlobalState): GlobalState => {
   const validWorkoutIds = new Set(Object.keys(fullImportedState.workouts.byId).map((workoutId) => Number(workoutId)));
@@ -57,6 +58,9 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
       };
       return sanitizeTrainingWorkoutReferences(importedState);
     }
+    // GH-496: one dispatch applies the whole Strong CSV import, so a file is imported completely or not at all.
+    case 'STRONG_IMPORT':
+      return buildStrongImport(state, action.parsed, action.options).state;
     case 'IMPORT_TRAININGS_PLAN': {
       const payload = action.payload as TrainingsPlanExportPayload;
 
@@ -172,7 +176,16 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
           byId: newTrainingsPlans,
           allIds: newTrainingsPlanIds,
         },
+        // GH-518: a plan created from a template or a plan file becomes the current plan.
+        settings: {...state.settings, currentTrainingsPlanId: maxPlanId},
       };
+    }
+    // GH-518: a newly created plan becomes the current plan, so the dashboard shows it
+    // right away instead of an older plan. The slice reducer has already appended its id.
+    case 'ADD_TRAININGS_PLAN': {
+      const newPlanId = state.trainingsPlan.allIds[state.trainingsPlan.allIds.length - 1];
+      if (newPlanId === undefined) return state;
+      return {...state, settings: {...state.settings, currentTrainingsPlanId: newPlanId}};
     }
     // GH-486: the slice reducers have already removed the exercise and its logged workouts;
     // trainings (incl. a running one) and planned workouts must not keep pointing at it.

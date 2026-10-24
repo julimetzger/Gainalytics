@@ -3,7 +3,7 @@ name: GH-478 Theme and Custom Color rows
 ---
 # Proves, against the hydrated baseline store (palette blue, mode dark):
 #  * the Appearance card has exactly two labelled rows, "Theme" and
-#    "Custom Color", made of Paper SegmentedButtons, with no caption text and
+#    "Color" (GH-522 renamed it from "Custom Color"), made of Paper SegmentedButtons, with no caption text and
 #    no "Color Palette"/"Theme Color" row left
 #  * Blue -> Purple -> Custom: each tap moves the checked segment; Custom
 #    opens "Pick a theme colour" and the confirmed colour is applied and named
@@ -36,7 +36,7 @@ name: GH-478 Theme and Custom Color rows
     text: "Theme"
 - assertVisible:
     id: "^settings-theme-palette-row-label$"
-    text: "Custom Color"
+    text: "Color"
 - assertNotVisible: "Color Palette"
 - assertNotVisible: "Theme Color"
 - assertNotVisible: "Active:.*"

@@ -1,5 +1,5 @@
 import React from 'react';
-import {fireEvent, render, waitFor} from '@testing-library/react-native';
+import {fireEvent, render, waitFor, within} from '@testing-library/react-native';
 import TrainingHome from '../../../app/tabs/trainings/TrainingHome';
 import {TrainingsPlan} from '../../../app/models/entities/TrainingsPlan';
 import {TrainingsState} from '../../../app/models/TrainingsState';
@@ -9,13 +9,15 @@ import Toast from 'react-native-toast-message';
 
 const mockState = {
   trainingsPlan: {byId: {} as Record<number, TrainingsPlan>},
+  settings: {} as {currentTrainingsPlanId?: number},
 };
+const mockDispatch = jest.fn();
 
 jest.mock('react-redux', () => ({
   useStore: () => ({
     getState: () => mockState,
   }),
-  useDispatch: () => jest.fn(),
+  useDispatch: () => mockDispatch,
   useSelector: (selector: (state: any) => any) => selector(mockState),
 }));
 
@@ -50,10 +52,12 @@ jest.mock('../../../app/components/Training/dashboard/MicroHeroCard', () => {
 jest.mock('../../../app/components/Training/dashboard/NextTrainingCard', () => {
   const React = require('react');
   const {Text, View} = require('react-native');
-  return ({nextMicro, nextTrainingNum, isComplete}: any) =>
+  return ({plan, nextMicro, nextTrainingNum, isComplete, isEmpty}: any) =>
     React.createElement(View, {testID: 'next-training-card'}, [
+      React.createElement(Text, {key: 'plan', testID: 'next-training-plan'}, plan.name),
       React.createElement(Text, {key: 'slot', testID: 'next-training-slot'}, `${nextMicro}:${nextTrainingNum}`),
       React.createElement(Text, {key: 'complete', testID: 'next-training-complete'}, String(isComplete)),
+      React.createElement(Text, {key: 'empty', testID: 'next-training-empty'}, String(!!isEmpty)),
     ]);
 });
 
@@ -76,7 +80,13 @@ jest.mock('react-native-paper', () => {
   Dialog.Title = ({children}: any) => <Text>{children}</Text>;
   Dialog.Content = ({children}: any) => <View>{children}</View>;
   Dialog.Actions = ({children}: any) => <View>{children}</View>;
-  const TextInputComponent = ({value}: any) => <Text>{value}</Text>;
+  const TextInputComponent = ({value, onChangeText, testID}: any) => (
+    <View>
+      <Text>{value}</Text>
+      {/* GH-518: typeable, so a test can create a plan through the dialog. */}
+      <RNTextInput testID={testID} onChangeText={onChangeText} />
+    </View>
+  );
   (TextInputComponent as any).Icon = () => null;
   return {
     // GH-412: the plans search is a Searchbar now — keep it editable in the mock
@@ -84,16 +94,26 @@ jest.mock('react-native-paper', () => {
     Searchbar: ({value, onChangeText, placeholder, testID, style}: any) => (
       <RNTextInput testID={testID} placeholder={placeholder} value={value} onChangeText={onChangeText} style={style} />
     ),
-    Button: ({children, onPress, testID, mode}: any) => (
-      <TouchableOpacity testID={testID || (typeof children === 'string' ? children : undefined)} onPress={onPress}>
+    Button: ({children, onPress, testID, accessibilityLabel}: any) => (
+      <TouchableOpacity testID={testID || (typeof children === 'string' ? children : undefined)} onPress={onPress} accessibilityLabel={accessibilityLabel}>
         <Text>{children}</Text>
       </TouchableOpacity>
     ),
-    // GH-460: the new-plan button is an extended FAB with a label
-    FAB: ({label, onPress, testID}: any) => (
-      <TouchableOpacity testID={testID} onPress={onPress}>
-        <Text>{label}</Text>
-      </TouchableOpacity>
+    Snackbar: ({children, visible, action, testID}: any) =>
+      visible ? (
+        <View testID={testID}>
+          <Text>{children}</Text>
+          {action && (
+            <TouchableOpacity testID={action.testID} onPress={action.onPress}>
+              <Text>{action.label}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : null,
+    Tooltip: ({children, title}: any) => (
+      <View accessibilityHint={title} testID="tooltip">
+        {children}
+      </View>
     ),
     Card: ({children}: any) => <View>{children}</View>,
     Chip: ({children, onPress, testID}: any) => (
@@ -105,8 +125,8 @@ jest.mock('react-native-paper', () => {
     // GH-428: the plan dialog renders an inline validation message.
     HelperText: ({children, visible, testID}: any) => (visible ? <Text testID={testID}>{children}</Text> : null),
     Portal: ({children}: any) => <View>{children}</View>,
-    IconButton: ({onPress, testID}: any) => (
-      <TouchableOpacity onPress={onPress} testID={testID}>
+    IconButton: ({onPress, testID, accessibilityLabel, accessibilityState}: any) => (
+      <TouchableOpacity onPress={onPress} testID={testID} accessibilityLabel={accessibilityLabel} accessibilityState={accessibilityState}>
         <Text>IconButton</Text>
       </TouchableOpacity>
     ),
@@ -325,6 +345,66 @@ describe('TrainingHome — GH-401 review 2: the card follows the session that is
   });
 });
 
+describe('TrainingHome — GH-533 the current micro only moves on when the user does', () => {
+  const fourDayPlan: TrainingsPlan = {
+    id: 5,
+    name: 'Back to power',
+    trainingNames: {'1': 'Squat', '2': 'Bench', '3': 'Deadlift', '4': 'Upper'},
+    trainings: {'1,1': 51, '1,2': 52, '1,3': 53, '1,4': 54, '2,1': 61, '2,2': 62, '2,3': 63, '2,4': 64},
+  };
+  const ids = [51, 52, 53, 54, 61, 62, 63, 64];
+
+  // Minutes ago → always this week; nine days ago → always an earlier week.
+  const thisWeek = new Date(Date.now() - 60000).toISOString();
+  const lastWeek = new Date(Date.now() - 9 * 86400000).toISOString();
+
+  const withTrainings = (overrides: {[id: number]: object}) =>
+    ids.map(id => ({id, state: TrainingsState.PLANNED, plannedWorkouts: {}, doneWorkoutIds: {}, exercises: [1], ...(overrides[id] ?? {})}));
+  const done = (end: string) => ({state: TrainingsState.FINISHED, start: end, end});
+
+  const renderHome = (lastTraining: number, overrides: {[id: number]: object}) => {
+    const plan = {...fourDayPlan, lastTraining};
+    mockedUseAllTrainingsPlans.mockReturnValue([plan]);
+    mockedUseTrainings.mockReturnValue(withTrainings(overrides));
+    mockState.trainingsPlan.byId = {5: plan};
+    return render(<TrainingHome navigation={{setOptions: jest.fn(), navigate: jest.fn()} as any} route={{params: {}} as any} />);
+  };
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('stays in the incomplete micro mid-week, even when its last day was trained first', () => {
+    const {getByTestId} = renderHome(54, {51: done(thisWeek), 54: done(thisWeek)});
+
+    expect(getByTestId('next-training-slot').props.children).toBe('1:2');
+    expect(getByTestId('plan-meta-5').props.children).toBe('Active · M1 · 2/4');
+  });
+
+  it('moves on once the first training of the new micro has been started', () => {
+    const {getByTestId} = renderHome(54, {
+      51: done(thisWeek),
+      54: done(thisWeek),
+      61: {state: TrainingsState.STARTED, start: thisWeek},
+    });
+
+    expect(getByTestId('next-training-slot').props.children).toBe('2:1');
+    expect(getByTestId('plan-meta-5').props.children).toBe('Active · M2 · 0/4');
+  });
+
+  it('moves on when the old micro is complete and a new week has begun', () => {
+    const {getByTestId} = renderHome(54, {51: done(lastWeek), 52: done(lastWeek), 53: done(lastWeek), 54: done(lastWeek)});
+
+    expect(getByTestId('next-training-slot').props.children).toBe('2:1');
+    expect(getByTestId('plan-meta-5').props.children).toBe('Active · M2 · 0/4');
+  });
+
+  it('keeps the complete micro as current within the same week, with the next micro as next training', () => {
+    const {getByTestId} = renderHome(54, {51: done(thisWeek), 52: done(thisWeek), 53: done(thisWeek), 54: done(thisWeek)});
+
+    expect(getByTestId('plan-meta-5').props.children).toBe('Active · M1 · 4/4');
+    expect(getByTestId('next-training-slot').props.children).toBe('2:1');
+  });
+});
+
 // GH-412: one search entry point only — the header magnifier is gone and the
 // remaining field is the Exercises-tab Searchbar, with unchanged filter behaviour.
 describe('TrainingHome — GH-412 plans search', () => {
@@ -499,5 +579,118 @@ describe('TrainingHome — GH-497 a new plan without any training yet', () => {
 
     expect(getByText('Add New Training Plan')).toBeTruthy();
     expect(navigation.setParams).toHaveBeenCalledWith({openNewPlan: undefined});
+  });
+});
+
+describe('TrainingHome — GH-518 current plan and the "New Training" button', () => {
+  const slot = (id: number, state: TrainingsState, extra: object = {}) => ({
+    id,
+    state,
+    plannedWorkouts: {},
+    doneWorkoutIds: {},
+    exercises: [1],
+    ...extra,
+  });
+  // The plan the user trains in (auto choice) vs. a newer one that has to become current.
+  const trainedPlan: TrainingsPlan = {id: 7, name: 'Push pull', trainingNames: {'1': 'Push'}, trainings: {'2,1': 71}, lastTraining: 71};
+  const newPlan: TrainingsPlan = {id: 8, name: 'Kraftblock', trainingNames: {'1': 'Training 1'}, trainings: {'1,1': 81}};
+  const emptyPlan: TrainingsPlan = {id: 9, name: 'Fresh', trainingNames: {}, trainings: {}};
+  const yesterday = new Date(Date.now() - 86400000).toISOString();
+
+  const renderHome = (plans: TrainingsPlan[], currentTrainingsPlanId?: number) => {
+    mockedUseAllTrainingsPlans.mockReturnValue(plans);
+    mockedUseTrainings.mockReturnValue([slot(71, TrainingsState.FINISHED, {start: yesterday, end: yesterday}), slot(81, TrainingsState.PLANNED)]);
+    mockState.trainingsPlan.byId = Object.fromEntries(plans.map((p) => [p.id, p]));
+    mockState.settings = {currentTrainingsPlanId};
+    const navigation = {setOptions: jest.fn(), navigate: jest.fn(), setParams: jest.fn()};
+    return render(<TrainingHome navigation={navigation as any} route={{params: {}} as any} />);
+  };
+
+  afterEach(() => {
+    mockState.settings = {};
+    jest.clearAllMocks();
+  });
+
+  it('keeps the automatic choice when no current plan is stored (installs from before GH-518)', () => {
+    const {getByTestId, queryByTestId} = renderHome([trainedPlan, newPlan]);
+
+    expect(getByTestId('next-training-plan').props.children).toBe('Push pull');
+    expect(getByTestId('plan-current-label-7')).toBeTruthy();
+    expect(queryByTestId('plan-current-label-8')).toBeNull();
+  });
+
+  it('puts the stored current plan on the dashboard instead of the plan trained last', () => {
+    const {getByTestId, queryByTestId} = renderHome([trainedPlan, newPlan], 8);
+
+    expect(getByTestId('next-training-plan').props.children).toBe('Kraftblock');
+    expect(getByTestId('next-training-slot').props.children).toBe('1:1');
+    expect(getByTestId('plan-current-label-8')).toBeTruthy();
+    expect(queryByTestId('plan-current-label-7')).toBeNull();
+  });
+
+  it('falls back to the automatic choice when the stored plan no longer exists', () => {
+    const {getByTestId} = renderHome([trainedPlan, newPlan], 99);
+
+    expect(getByTestId('next-training-plan').props.children).toBe('Push pull');
+  });
+
+  it('shows an empty current plan as "not planned yet", never as complete and never the old plan', () => {
+    const {getByTestId} = renderHome([trainedPlan, emptyPlan], 9);
+
+    expect(getByTestId('next-training-plan').props.children).toBe('Fresh');
+    expect(getByTestId('next-training-empty').props.children).toBe('true');
+    expect(getByTestId('next-training-complete').props.children).toBe('false');
+  });
+
+  it('labels the star for screen readers and as a tooltip', () => {
+    const {getByTestId, getAllByTestId} = renderHome([trainedPlan, newPlan], 8);
+
+    expect(getByTestId('plan-select-8').props.accessibilityLabel).toBe('Current plan: Kraftblock');
+    expect(getByTestId('plan-select-7').props.accessibilityLabel).toBe('Set Push pull as current plan');
+    expect(getAllByTestId('tooltip').map((t) => t.props.accessibilityHint)).toEqual(['Current plan', 'Set as current plan']); // sorted: Kraftblock, Push pull
+  });
+
+  it('switches the current plan with the star and confirms it in a snackbar', () => {
+    const {getByTestId, getByText, queryByTestId} = renderHome([trainedPlan, newPlan]);
+    expect(queryByTestId('current-plan-snackbar')).toBeNull();
+
+    fireEvent.press(getByTestId('plan-select-8'));
+
+    expect(mockDispatch).toHaveBeenCalledWith({type: 'SET_CURRENT_TRAININGS_PLAN', trainingsPlanId: 8});
+    expect(getByText('Kraftblock is now your current plan')).toBeTruthy();
+  });
+
+  it('does not switch away when the star of the current plan is tapped again', () => {
+    const {getByTestId, getByText} = renderHome([trainedPlan, newPlan], 8);
+
+    fireEvent.press(getByTestId('plan-select-8'));
+
+    expect(mockDispatch).not.toHaveBeenCalledWith(expect.objectContaining({type: 'SET_CURRENT_TRAININGS_PLAN'}));
+    expect(getByText('Kraftblock is your current plan')).toBeTruthy();
+  });
+
+  it('confirms a newly created plan as current and offers Undo back to the previous one', () => {
+    const {getByTestId, getByText} = renderHome([trainedPlan, newPlan], 7);
+
+    fireEvent.press(getByTestId('add-trainings-plan'));
+    fireEvent.changeText(getByTestId('plan-name-input'), 'Hypertrophy');
+    fireEvent.press(getByTestId('confirm-trainings-plan'));
+
+    expect(mockDispatch).toHaveBeenCalledWith({type: 'ADD_TRAININGS_PLAN', trainingsPlan: {name: 'Hypertrophy'}});
+    expect(getByText('Hypertrophy is now your current plan')).toBeTruthy();
+
+    fireEvent.press(getByTestId('current-plan-snackbar-undo'));
+    expect(mockDispatch).toHaveBeenCalledWith({type: 'SET_CURRENT_TRAININGS_PLAN', trainingsPlanId: 7});
+  });
+
+  it('puts "New Training" in the Plans header above the search, in the flow of the list', () => {
+    const {getByTestId} = renderHome([trainedPlan, newPlan]);
+
+    const header = getByTestId('plans-header');
+    expect(within(header).getByText('Plans')).toBeTruthy();
+    expect(within(header).getByTestId('add-trainings-plan').props.accessibilityLabel).toBe('New Training');
+    expect(within(header).getByText('New Training')).toBeTruthy();
+    // Nothing floats beside the list any more: the button scrolls with the header.
+    expect(within(getByTestId('training-home-list')).getByTestId('add-trainings-plan')).toBeTruthy();
   });
 });

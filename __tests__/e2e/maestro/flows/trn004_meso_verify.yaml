@@ -33,6 +33,12 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     text: "Push pull"
 
-# Confirm the FAB to add a new plan is present (proves dashboard rendered fully).
+# Confirm the "New Training" button to add a new plan is present (proves dashboard rendered fully).
+# GH-518: "New Training" sits in the Plans header and scrolls with the list.
+- scrollUntilVisible:
+    element:
+      id: "add-trainings-plan"
+    direction: DOWN
+    timeout: 30000
 - assertVisible:
     id: "add-trainings-plan"

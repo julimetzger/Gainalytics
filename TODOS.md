@@ -2,15 +2,28 @@
 
 ## Trainings
 
+- [ready] [GH-526](https://github.com/julimetzger/Gainalytics/issues/526) Overview rework — jede Ansicht benennt ihren Vergleich, Muscle Map Total/Diff, Chips statt Dropdown in der Trainings-Analyse
+  - Deckt aus `docs/ux/training-overview-audit.md` (#505) H1 (ohne fairen Teilwochen-Vergleich), H3, M4/M7/M8 ab; H2/H4 teilweise
+- [ready] [GH-527](https://github.com/julimetzger/Gainalytics/issues/527) UX-Audit Overview Follow-up (H5/H6) — eine Quelle für Planwerte, 1RM/Intensität je Muskel korrekt
+  - Erst nach dem Merge von GH-526 starten (gleiche Muscle Map / Muskel-Tabelle)
+- [done] ~~[GH-418](https://github.com/julimetzger/Gainalytics/issues/418) Plan training (2/2): Sätze per Drag & Drop umsortieren, Long-Press zum Bearbeiten, Tastatur verdeckt die Eingabe nicht mehr~~ (PR #520 gemerged)
+  - Tastatur-Teil zuerst: Regression laut UX-Audit R3 (#498, F1), fokussiertes Satzfeld liegt hinter der Tastatur, langer Plan springt an den Listenanfang
+- [ready] [GH-509](https://github.com/julimetzger/Gainalytics/issues/509) Change Add button in training sidebar — „Add Meso“/„Add Training“ als gestrichelter Knopf wie „Add set“, volle Breite
+- [ready] [GH-505](https://github.com/julimetzger/Gainalytics/issues/505) Audit trainingsoverview (read-only) — Micro-Overview in allen Zuständen, Zahlen-Stichprobe, priorisierte Findings
+  - Report nach `docs/ux/training-overview-audit.md`; keine App-Code-Änderung
+- [done] ~~[GH-517](https://github.com/julimetzger/Gainalytics/issues/517) UX-Audit Overview Follow-up (H1–H3) — Wochenbilanz oben (nicht mitscrollend, gern als Button zur Trainingsliste), Deltas mit Vergleichsbasis, Muscle Map zeigt Untererfüllung~~ (geschlossen, weitgehend in GH-526 aufgegangen)
+  - Quelle: `docs/ux/training-overview-audit.md` aus #505 (PR #511)
 - [ready] [GH-498](https://github.com/julimetzger/Gainalytics/issues/498) UX-Audit Runde 3 (read-only): Trainingsplan anlegen + erstes Training planen — Status aller alten Findings (GH-399/426/436) plus neue, leere App und Baseline-Daten
   - Report nach `docs/ux/plan-creation-audit-round3.md`; keine App-Code-Änderung
+- [done] ~~[GH-518](https://github.com/julimetzger/Gainalytics/issues/518) UX-Audit R3 Follow-up (F2/F3) — FAB überdeckt Karten, neuer Plan wird nicht aktueller Plan~~ (PR #519 gemerged)
+  - Quelle: `docs/ux/plan-creation-audit-round3.md` aus #498 (PR #500); F1 (Tastatur-Regression) läuft in GH-418
 - [done] ~~[GH-460](https://github.com/julimetzger/Gainalytics/issues/460) Change New Training button — Knopf im Stil von „New exercise"~~ (PR #464 gemerged)
 - [ready] [GH-437](https://github.com/julimetzger/Gainalytics/issues/437) Finish-Training-Knopf in der Sekundärfarbe statt der Primärfarbe
 - [ready] [GH-431](https://github.com/julimetzger/Gainalytics/issues/431) UX-Audit R2 Follow-up (M6/M9/M12) — Suchtreffer-Rangfolge, stabiler EDITING-PLAN-Modus, Satzfortschritt gegen den Plan
   - Quelle: `docs/ux/create-and-execute-training-audit-round2.md` aus #426
   - Erst nach dem Merge von PR #429 starten — M12 baut auf der dort korrigierten Satznummer auf
 - [done] ~~[GH-428](https://github.com/julimetzger/Gainalytics/issues/428) UX-Audit R2 Follow-up (H1/H2/H4) — namenloser Plan, Tastatur verdeckt Eingabe beim Planen, falsche Werte nach Übungswechsel~~ (PR #430 gemerged)
-  - H2 (Tastatur) ist damit auch für [GH-418](https://github.com/julimetzger/Gainalytics/issues/418) erledigt — dort nicht noch einmal umbauen
+  - H2 (Tastatur) laut UX-Audit R3 (#498, F1) auf dem Gerät **regressiert** — wird in [GH-418](https://github.com/julimetzger/Gainalytics/issues/418) mit Priorität hoch behoben
 - [ready] [GH-443](https://github.com/julimetzger/Gainalytics/issues/443) Korrigieren eines bereits protokollierten Satzes setzt den Rest-Timer zurück
   - Nur ein NEU hinzugefügter Satz startet die Pause; Ändern und Löschen lassen den Timer unberührt
 - [ready] [GH-444](https://github.com/julimetzger/Gainalytics/issues/444) Vergleich Muscle Map erweitern — Analyse gegen den Plan genau dieses Trainings
@@ -37,6 +50,7 @@
 
 ## Analyse
 
+- [ready] [GH-508](https://github.com/julimetzger/Gainalytics/issues/508) Ai chat mehr platz — doppelte Überschrift „AI Chat“ weg, Kontext/Verlauf/Filter/Löschen in die Kopfzeile
 - [ready] [GH-420](https://github.com/julimetzger/Gainalytics/issues/420) Drawer lässt sich nicht mehr schließen — Analyse-Drawer schließt über Menü-Symbol, Tap daneben und Wischen; auf echtem Gerät reproduzieren
 - [ready] [GH-455](https://github.com/julimetzger/Gainalytics/issues/455) UX-Audit (read-only): Analyse-Bereich — sind die Auswertungen auf dem Gerät nutzbar und interpretierbar?
   - Gleiche Machart wie [GH-399](https://github.com/julimetzger/Gainalytics/issues/399)/[GH-426](https://github.com/julimetzger/Gainalytics/issues/426), auf dem echten Gerät, ohne AI-Chat
@@ -78,7 +92,8 @@
 
 ## Settings
 
-- [ready] [GH-504](https://github.com/julimetzger/Gainalytics/issues/504) Analyse + PoC: AI-Chat mit ChatGPT-Abo statt API-Key („Sign in with ChatGPT“) — Report nach `docs/investigation/chatgpt-subscription-login.md` + Login-PoC hinter Debug-Eintrag
+- [ready] [GH-522](https://github.com/julimetzger/Gainalytics/issues/522) App settings refinement — „Color“ statt „Custom Color“, Vorschau nur Primärfarbe, Löschknopf „Pause Timer“ rechtsbündig
+- [done] ~~[GH-504](https://github.com/julimetzger/Gainalytics/issues/504) Analyse + PoC: AI-Chat mit ChatGPT-Abo statt API-Key („Sign in with ChatGPT“) — Report nach `docs/investigation/chatgpt-subscription-login.md` + Login-PoC hinter Debug-Eintrag~~ (PR #506 gemerged)
   - Für Claude nicht möglich (Abo-Login nur für Claude.ai/Claude Code); bei OpenAI laut Berichten Preview, kommerzielle Apps brauchen Freigabe
 - [ready] [GH-478](https://github.com/julimetzger/Gainalytics/issues/478) Settings Theme Color adjustments — Segmented-Buttons für Theme, eine Zeile „Custom Color“ (Blue/Purple/Custom mit Vorschau), Standard-Info bei Long-Press
 - [ready] [GH-404](https://github.com/julimetzger/Gainalytics/issues/404) Bright and dark mode — Theme-Zeile mit System/Hell/Dunkel, Langdruck-Erklärung, heller Modus aufgeräumt
@@ -86,8 +101,12 @@
 
 ## General
 
+- [ready] [GH-485](https://github.com/julimetzger/Gainalytics/issues/485) Motion graphics promotion video — 16:9, 30–60 s, Schwerpunkt Videoanalyse + Anpassbarkeit; Store-fertige Screenshots (6 Features, Light/Dark, Englisch)
 - [ready] [GH-502](https://github.com/julimetzger/Gainalytics/issues/502) Analyse + PoC: Health Connect (Workouts schreiben, Körpergewicht lesen), Garmin/Withings — Report nach `docs/investigation/health-connect-wearables.md` + Health-Connect-PoC auf dem Gerät (aus Marktanalyse GH-492 #10)
-- [ready] [GH-496](https://github.com/julimetzger/Gainalytics/issues/496) CSV-Export der Trainingsdaten — eine Zeile pro Satz, Teilen-Menü, Excel/Sheets-tauglich (aus Marktanalyse GH-492 #2)
+- [ready] [GH-528](https://github.com/julimetzger/Gainalytics/issues/528) Health Connect produktiv (T1–T3) — Verbinden in den Einstellungen, beendete Trainings schreiben, Körpergewicht lesen
+  - Baut auf dem PoC aus GH-502 (PR #503) auf; minSdk 26; Datenschutzerklärung braucht Owner-Freigabe; T4 (Play Console) separat
+- [ready] [GH-496](https://github.com/julimetzger/Gainalytics/issues/496) Export/Import im Strong-CSV-Format — De-facto-Standard (Hevy importiert nur Strong); Import als Plan „Strong Import“, ein Micro pro Kalenderwoche (aus Marktanalyse GH-492 #2)
+  - Trainingsnamen aus Strong, wenn wiederkehrend und max. 7 verschiedene; sonst Wochentage, Sessions am selben Tag zusammengelegt
 - [ready] [GH-497](https://github.com/julimetzger/Gainalytics/issues/497) Onboarding beim ersten Start + Programmvorlagen — überspringbar, 2–3 eigene Vorlagen (aus Marktanalyse GH-492 #5)
 - [ready] [GH-492](https://github.com/julimetzger/Gainalytics/issues/492) Marktanalyse & USP — Wettbewerber, Feature-Matrix, Alleinstellungsmerkmal, priorisierte Verbesserungen
   - Read-only, Report nach `docs/strategy/market-analysis.md`; keine App-Code-Änderung
@@ -133,6 +152,7 @@
 - Tabs für Analyse https://www.npmjs.com/package/react-native-paper-tabs
 
 ## Bugs
+- [ready] [GH-514](https://github.com/julimetzger/Gainalytics/issues/514) AI chat does not work at all with 180 — „AI Chat could not be displayed“; dazu 32 rote Tests auf master (Duplikat GH-515 zusammengeführt)
 - Highlighted Values in Analyse sind gleich dargestellt wie Records, das ist verwirrend?
 - [PR #179] [GH-177](https://github.com/julimetzger/Gainalytics/issues/177) Video analysis scrubber und velocity line kein sync
 
@@ -142,7 +162,14 @@
   - Zeit zum starten eines maestro flows nach agent start messen -> dokumentiere alle failures
   - Import baseline flow überprüfen- Vermutung: der funktioniert nicht mehr wenn es andere downloads gibt. Der flow findet dann base.gains nicht mehr weil zu weit unten.
 - [ready] [MNT-002](tickets/MNT-002-fgs-mediaprocessing-migration.yaml) Foreground Service von dataSync auf mediaProcessing migrieren — Play-Console-Deklaration entfällt, targetSdk-35-Timeout vermeiden
-  
+
+- [in progress] [GH-524](https://github.com/julimetzger/Gainalytics/issues/524) Open Source Everything — Analyse in PR #529; Entscheidung: AGPL-3.0-or-later + §7, frisches öffentliches Repo als Hauptrepo, Internes in privates ops-Repo
+  - [ready] [GH-535](https://github.com/julimetzger/Gainalytics/issues/535) (1/6) Synthetische Testdaten statt echtem Trainingslog
+  - [ready] [GH-536](https://github.com/julimetzger/Gainalytics/issues/536) (2/6) Private Pfade, Geräteserial und IPs aus Code und Flows entfernen
+  - [ready] [GH-537](https://github.com/julimetzger/Gainalytics/issues/537) (3/6) Repo-Trennung — Orchestrator, Memory, Tickets in privates ops-Repo (nur ohne laufende Worker)
+  - [ready] [GH-538](https://github.com/julimetzger/Gainalytics/issues/538) (4/6) LICENSE (AGPL-3.0), README, Build-Anleitung, CONTRIBUTING, SECURITY, Third-Party-Notices
+  - [ready] [GH-539](https://github.com/julimetzger/Gainalytics/issues/539) (5/6) GitHub CI, Dependabot, Templates, Release-Workflow für signiertes APK
+  - [ready] [GH-540](https://github.com/julimetzger/Gainalytics/issues/540) (6/6) Öffentlichen Snapshot zusammenstellen und prüfen (erst nach 1–5)
 
 ## Low Prio Themen
 

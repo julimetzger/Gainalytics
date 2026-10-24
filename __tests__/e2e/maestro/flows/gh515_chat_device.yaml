@@ -1,0 +1,214 @@
+appId: com.powerliftingworkoutplanner
+name: GH-515 AI Chat end to end with a real Claude key
+---
+# Precondition: gh515_settings_provider.yaml ran, a REAL Anthropic key was typed
+# into the focused key input (outside Maestro) and gh515_save_api_key.yaml saved
+# it. Sends two real requests: one answered, one cancelled.
+- launchApp:
+    stopApp: false
+- runFlow: gh515_open_ai_chat.yaml
+# GH-508: the chat actions live in the header, not in a second title row.
+- assertVisible:
+    id: 'chat-header-actions'
+- assertVisible:
+    text: 'AI Chat'
+    leftOf:
+      id: 'chat-history-button'
+- tapOn:
+    id: 'chat-clear-button'
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: 'chat-empty-state'
+    timeout: 10000
+
+# A subject left over from an earlier, aborted run survives the clear above.
+- runFlow:
+    when:
+      notVisible: 'Training: none'
+    commands:
+      - swipe:
+          from:
+            id: 'chat-context-bar'
+          direction: LEFT
+      - tapOn: 'Clear selected training'
+      - swipe:
+          from:
+            id: 'chat-context-bar'
+          direction: RIGHT
+
+# The period persists across runs (this flow switches it to Meso below) — start on 28d.
+- tapOn:
+    id: 'chat-filter-toggle'
+- tapOn:
+    id: 'chat-preset-28d'
+- tapOn:
+    id: 'chat-filter-toggle'
+- assertNotVisible:
+    id: 'chat-preset-28d'
+
+# ── Context chips ───────────────────────────────────────────────────────────
+- assertVisible: 'Context: 28d'
+- assertVisible: 'Training: none'
+# Plan chip toggles the planning half of the context off and on again.
+- copyTextFrom:
+    id: 'chat-planned-toggle'
+- assertTrue: "${maestro.copiedText.startsWith('Plan: ') && maestro.copiedText !== 'Plan: off'}"
+- tapOn:
+    id: 'chat-planned-toggle'
+- assertVisible: 'Plan: off'
+- tapOn:
+    id: 'chat-planned-toggle'
+- assertNotVisible: 'Plan: off'
+- assertVisible: 'Plan: \d+ sessions?'
+# Subject chip: pick a training, the chip names it; its close icon clears it.
+- tapOn:
+    id: 'chat-subject-chip'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-training-picker'
+    timeout: 5000
+- tapOn:
+    id: 'chat-training-option-\d+'
+    index: 0
+- waitForAnimationToEnd
+- assertNotVisible:
+    id: 'chat-training-picker'
+- assertNotVisible: 'Training: none'
+- takeScreenshot: 'gh515_02_context_chips_subject'
+# The context bar scrolls horizontally; on a narrow phone the subject chip's
+# close icon and the context-preview chip are off-screen until it is swiped.
+- swipe:
+    from:
+      id: 'chat-context-bar'
+    direction: LEFT
+- tapOn: 'Clear selected training'
+- assertVisible: 'Training: none'
+# Context preview opens from its chip and closes again.
+- assertVisible: 'View context \(\d+\)'
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-dialog'
+    timeout: 5000
+- tapOn:
+    id: 'chat-context-preview-close'
+- assertNotVisible:
+    id: 'chat-context-preview-dialog'
+- swipe:
+    from:
+      id: 'chat-context-bar'
+    direction: RIGHT
+
+# ── Filter from the header: the period chip follows the preset ──────────────
+- tapOn:
+    id: 'chat-filter-toggle'
+- assertVisible:
+    id: 'chat-preset-3M'
+- tapOn:
+    id: 'chat-preset-Meso'
+- assertVisible: 'Meso: .*'
+- tapOn:
+    id: 'chat-filter-toggle'
+- assertNotVisible:
+    id: 'chat-preset-3M'
+
+# ── Ask a question, get a real answer ───────────────────────────────────────
+- tapOn:
+    id: 'chat-input'
+- inputText: 'GH515 check: reply with exactly the single word PONG and nothing else.'
+- hideKeyboard
+- tapOn:
+    id: 'chat-send-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-bubble-assistant'
+    timeout: 120000
+- assertVisible: '.*PONG.*'
+- assertVisible: 'GH515 check: reply with exactly the single word PONG and nothing else\.'
+- assertNotVisible:
+    id: 'chat-error'
+- assertNotVisible:
+    id: 'chat-loading'
+- takeScreenshot: 'gh515_03_answer_received'
+
+# ── Stop a running answer ───────────────────────────────────────────────────
+- tapOn:
+    id: 'chat-input'
+- inputText: 'GH515 stop: write a 3000 word essay on squat technique.'
+- hideKeyboard
+- tapOn:
+    id: 'chat-send-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-stop-button'
+    timeout: 10000
+- assertVisible: 'AI is thinking… \d+s'
+# The ticking counter keeps the screen from settling; without this the tap waited
+# ~13 s and landed after the answer had already arrived.
+- tapOn:
+    id: 'chat-stop-button'
+    waitToSettleTimeoutMs: 300
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    notVisible:
+      id: 'chat-loading'
+    timeout: 15000
+- assertNotVisible:
+    id: 'chat-stop-button'
+# GH-447: the cancelled message is rolled back into the input, ready to resend.
+- assertVisible:
+    id: 'chat-error'
+- assertVisible: 'Request cancelled\.'
+- copyTextFrom:
+    id: 'chat-input'
+- assertTrue: "${maestro.copiedText === 'GH515 stop: write a 3000 word essay on squat technique.'}"
+- assertVisible: '.*PONG.*'
+- takeScreenshot: 'gh515_04_stopped'
+- tapOn:
+    id: 'chat-input'
+- eraseText: 100
+- hideKeyboard
+
+# ── History from the header ─────────────────────────────────────────────────
+- tapOn:
+    id: 'chat-history-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-history-search'
+    timeout: 15000
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 15000
+- assertVisible: '.*PONG.*'
+
+# ── Delete (clear) from the header archives the conversation ────────────────
+- tapOn:
+    id: 'chat-clear-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-empty-state'
+    timeout: 10000
+- assertNotVisible: '.*PONG.*'
+- assertNotVisible:
+    id: 'chat-bubble-user'
+- takeScreenshot: 'gh515_05_cleared'
+
+# ── The archived conversation is in the history and can be resumed ──────────
+- tapOn:
+    id: 'chat-history-button'
+- extendedWaitUntil:
+    visible: '.*GH515 check: reply with exactly.*'
+    timeout: 15000
+- takeScreenshot: 'gh515_06_history'
+- tapOn: '.*GH515 check: reply with exactly.*'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-bubble-assistant'
+    timeout: 15000
+- assertVisible: '.*PONG.*'
+- assertVisible:
+    id: 'chat-header-actions'

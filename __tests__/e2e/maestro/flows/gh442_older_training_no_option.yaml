@@ -20,7 +20,7 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 - waitForAnimationToEnd
 # The plan-view menu of a PLANNED training — unchanged — but without the new option.
-- assertVisible: 'Delete this training'
+- assertVisible: 'Delete this Training'
 - assertNotVisible:
     id: 'overflow-clear-plan'
 - assertNotVisible: 'Clear planned training'

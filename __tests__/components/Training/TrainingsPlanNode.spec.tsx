@@ -83,8 +83,14 @@ jest.mock('../../../app/components/Training/execute/EditTraining', () => {
 jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () => 'TrainingElementPicker');
 jest.mock('../../../app/components/Training/DraggableExercise', () => 'DraggableExercise');
 jest.mock('../../../app/components/Training/analyse/TrainingsOverview', () => {
-  const {Text} = require('react-native');
-  return () => <Text testID="trainings-overview">TrainingsOverview</Text>;
+  const {Text, View} = require('react-native');
+  // GH-526: the Plan | Train toggle is handed in and rendered at the start of the chip row.
+  return ({toggle}: any) => (
+    <View>
+      {toggle}
+      <Text testID="trainings-overview">TrainingsOverview</Text>
+    </View>
+  );
 });
 jest.mock('../../../app/tabs/trainings/MicroOverviewTraining', () => {
   const {Text} = require('react-native');
@@ -122,7 +128,13 @@ jest.mock('../../../app/components/Training/plan/PlanTab', () => {
 jest.mock('../../../app/components/Training/analyse/TrainingPlanOverview', () => {
   const {Text} = require('react-native');
   // GH-436: the Plan position gets the slot's own training, not the micro.
-  return ({training, micro, trainingInMicro}: any) => <Text testID="training-plan-overview">{`training-plan:${micro}/${trainingInMicro}/${training?.id ?? 'none'}`}</Text>;
+  const {View} = require('react-native');
+  return ({training, micro, trainingInMicro, toggle}: any) => (
+    <View>
+      {toggle}
+      <Text testID="training-plan-overview">{`training-plan:${micro}/${trainingInMicro}/${training?.id ?? 'none'}`}</Text>
+    </View>
+  );
 });
 
 // GH-437: the colour assertions have to run against two different schemes,
@@ -608,9 +620,9 @@ describe('TrainingsPlanNode — GH-417 analysis data toggle', () => {
     const {getByTestId, queryByTestId, queryByText} = render(<TrainingsPlanNode {...defaultProps} />);
 
     fireEvent.press(getByTestId('subtab-analysis'));
-    // Train has nothing logged yet: the total still says so, with a hint that points at the Plan position
+    // Train has nothing logged yet: a hint that points at the Plan position, the toggle stays reachable
     expect(getByTestId('analysis-train-empty')).toBeTruthy();
-    expect(getByTestId('analysis-total-sets').props.children).toBe('Total Sets: 0 (done)');
+    expect(getByTestId('analysis-data-toggle')).toBeTruthy();
 
     fireEvent.press(getByTestId('analysis-data-plan'));
     expect(getByTestId('training-plan-overview').props.children).toBe('training-plan:1/1/10');

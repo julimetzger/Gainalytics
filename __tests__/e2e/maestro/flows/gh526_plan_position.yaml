@@ -1,0 +1,37 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-526 — Plan position: only "vs last Push squat" (default) and "vs Micro".
+# Fixture: planned 14 sets vs 1 planned set in Micro 1's Push squat; 14 of 58 → 24 %.
+- scrollUntilVisible:
+    element:
+      id: 'analysis-data-plan'
+    direction: UP
+- tapOn:
+    id: 'analysis-data-plan'
+- extendedWaitUntil:
+    visible:
+      id: 'training-plan-overview'
+    timeout: 30000
+- assertNotVisible:
+    id: 'analysis-compare-this_training_plan'
+- assertNotVisible:
+    id: 'analysis-compare-last_training_done'
+- tapOn:
+    id: 'analysis-compare-current_total_plan'
+- assertVisible:
+    id: 'analysis-comparison-line'
+    text: 'Plan vs plan of all trainings in Micro 2'
+- assertVisible:
+    id: 'training-plan-overview-sets-delta'
+    text: '24% of Micro 2 plan'
+- tapOn:
+    id: 'analysis-compare-last_training_plan'
+- assertVisible:
+    id: 'analysis-comparison-line'
+    text: 'Plan vs Micro 1 · Push squat \(plan\)'
+- copyTextFrom:
+    id: 'training-plan-overview-sets-value'
+- assertTrue: "${maestro.copiedText === '14'}"
+- assertVisible:
+    id: 'training-plan-overview-sets-reference'
+    text: ' / 1'

@@ -1,0 +1,27 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-532: an empty current week still draws the radar — only the dashed
+# last-week polygon — and the stat tiles show dashes instead of crashing.
+# Needs the store of `gh532_last_week_only.gains` (make_gh532_radar_fixtures.js):
+# nothing this week, last week Back 14 sets, Quads 9.6, Glutes 4.4.
+- runFlow: gh532_open_dashboard.yaml
+- assertVisible: 'Back, 0 sets'
+- assertVisible: 'Quads, 0 sets'
+- assertVisible:
+    id: 'muscle-radar-svg'
+    text: 'Radar chart of sets per muscle group, this week vs last week\. Back 0 \(last week 14\), .*Glutes 0 \(last week 4\.4\), .*Quads 0 \(last week 9\.6\).*'
+- takeScreenshot: gh532_10_empty_week_radar
+- scrollUntilVisible:
+    element:
+      id: 'muscle-radar-tile-push-pull'
+    direction: DOWN
+- assertVisible:
+    id: 'muscle-radar-tile-most-trained-value'
+    text: '–'
+- assertVisible:
+    id: 'muscle-radar-tile-lagging-value'
+    text: '–'
+- assertVisible:
+    id: 'muscle-radar-tile-push-pull-value'
+    text: '–'
+- takeScreenshot: gh532_11_empty_week_tiles
