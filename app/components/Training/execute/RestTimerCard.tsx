@@ -112,7 +112,7 @@ const RestTimerCard = ({
                   setMenuVisible(false);
                   setEditVisible(true);
                 }}
-                title="Edit Rest Target…"
+                title="Edit Rest Target"
               />
               {onAdjustExerciseDefault && (
                 <Menu.Item
@@ -121,7 +121,7 @@ const RestTimerCard = ({
                     setMenuVisible(false);
                     setExerciseDefaultDialogVisible(true);
                   }}
-                  title="Adjust Default Rest…"
+                  title="Adjust Default Rest"
                 />
               )}
             </Menu>
