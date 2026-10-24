@@ -615,3 +615,12 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Fix / Rule:** `uiautomator dump` + grep bounds before every tap in system/third-party apps.
 **Apply when:** driving Health Connect or other system settings with adb.
 
+### Maestro `launchApp` grants EVERY declared permission — including Health Connect ones
+**Problem (GH-528):** after `pm revoke … android.permission.health.*` the app still showed "Connected": a plain `launchApp` (also in `00_import_baseline.yaml`) re-grants all runtime permissions, health permissions included (`dumpsys package` → `granted=true`, no `USER_SET`). The CI APK install (`-g`) grants them too.
+**Fix / Rule:** in flows that depend on a permission state use `launchApp: {clearState: false, permissions: {notifications: allow}}` (only the listed ones are touched); import baseline with `gh528_import_baseline.yaml`; set states with `adb shell pm grant|revoke <pkg> android.permission.health.<X>` (works on Android 14 for declared permissions; `READ_HEALTH_DATA_HISTORY` is "Unknown permission" on the API-34 image).
+**Apply when:** testing any runtime-permission state (Health Connect, notifications, exact alarms).
+
+### Health Connect on the API-34 emulator: first-run onboarding backgrounds the app; 30-day rule hits own data
+**Observation (GH-528):** the first permission request shows "Get Started with Health Connect"; after "Get started" → Allow the grant succeeds, but the device lands on the HOME screen (app task closed behind the dialog) — later requests return normally. The dialog's "privacy policy" link is a span inside one text node (tap by point, ~67%,41% on 1080x2400) and opens the app's VIEW_PERMISSION_USAGE activity. Reading the app's OWN weights older than 30 days returns nothing here as well (provider 14-10541443 has no history feature), so deleting test data by record id misses them — delete by `TimeRangeFilter` (only the caller's records are removed; needs the write permission of each type). Debug helper: `.healthconnect.HealthConnectTestDataActivity` (`--es weights "82.5@1"`, `--ez clear true`, `--ez dump true`, logcat tag `GainalyticsHcTestData`); `bash script.sh` and `node script.js` need approval in the CI sandbox — call adb directly.
+**Apply when:** verifying Health Connect features on an emulator.
+
