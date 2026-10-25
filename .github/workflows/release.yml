@@ -99,6 +99,18 @@ jobs:
         with:
           persist-credentials: false
 
+      # A release build compiles native code for all four ABIs (reactNativeArchitectures in
+      # gradle.properties) and runs lint on the library AARs; that overflows the runner's default
+      # free space ("No space left on device" in :react-native-reanimated:bundleReleaseLocalLintAar).
+      - name: Free disk space
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/node_modules/@angular \
+            /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/share/swift \
+            /usr/local/share/powershell /usr/share/miniconda /opt/az /opt/microsoft || true
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          df -h / | tail -1
+
       - name: Determine mode
         id: mode
         run: |
