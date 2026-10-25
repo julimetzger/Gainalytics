@@ -165,7 +165,15 @@ jobs:
               echo "::error::Secrets ANDROID_RELEASE_KEYSTORE_BASE64 and ANDROID_RELEASE_PASSWORD are required (see docs/release.md)."
               exit 1
             fi
-            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keystore"
+            # Tolerate line breaks/CRLF (Windows, wrapped base64) and certutil -encode headers.
+            if ! printf '%s' "$KEYSTORE_BASE64" | tr -d '\r\n\t ' | sed -E 's/-----[A-Z]+-----//g' | base64 -d > "$keystore" 2>/dev/null; then
+              echo "::error::ANDROID_RELEASE_KEYSTORE_BASE64 is not valid base64. Create it from the keystore file, e.g. 'base64 -w0 <file>' or PowerShell '[Convert]::ToBase64String([IO.File]::ReadAllBytes(\"<file>\"))' (see docs/release.md)."
+              exit 1
+            fi
+            if ! keytool -list -keystore "$keystore" -storepass:env STORE_PASSWORD > /dev/null 2>&1; then
+              echo "::error::The decoded ANDROID_RELEASE_KEYSTORE_BASE64 is not a keystore that opens with ANDROID_RELEASE_PASSWORD (wrong file or wrong password)."
+              exit 1
+            fi
           fi
           chmod 600 "$keystore"
           {
