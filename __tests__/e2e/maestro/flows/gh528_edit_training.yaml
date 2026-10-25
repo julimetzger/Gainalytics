@@ -1,0 +1,22 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 (T2/T3): editing the finished training (adds 5 × 150 kg to Adductor, a new 1RM) rewrites its
+# Health Connect entry — same clientRecordId, no duplicate (checked out-of-band, see the PR) — and gives
+# Adductor a 1RM record dated today, inside the 30-day window of readable body weights.
+# Precondition: gh528_write_training.yaml ran; Adductor has the single set 12 × 105 kg.
+- runFlow: gh528_open_last_training_edit.yaml
+- assertVisible:
+    id: 'add-workout-set-weight-input-\d+'
+    text: '105'
+- tapOn:
+    id: '^add-workout-set-reps-input$'
+- inputText: '5'
+- tapOn:
+    id: '^add-workout-set-weight-input$'
+- inputText: '150'
+- tapOn:
+    id: 'add-workout-set-submit-button'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'add-workout-set-weight-input-\d+'
+    text: '150'

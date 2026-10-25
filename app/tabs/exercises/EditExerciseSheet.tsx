@@ -12,6 +12,9 @@ import MuscleInvolvementEditor from '../../components/exercise/add/MuscleInvolve
 import ExerciseAlternativesField from '../../components/exercise/add/ExerciseAlternativesField';
 import {useWorkoutsByExerciseId} from '../../redux/Workout/use/useWorkoutsByExerciseId';
 import {useExerciseUsage} from '../../redux/Exercises/use/useExerciseUsage';
+import HealthConnectTypeField from '../../components/exercise/add/HealthConnectTypeField';
+import {HealthConnectSegmentKey} from '../../models/HealthConnectSegmentType';
+import {useHealthConnectState} from '../../redux/HealthConnect/use/useHealthConnect';
 
 const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
@@ -27,6 +30,9 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
   const [isFocus, setIsFocus] = useState<boolean>(existing?.isFocus ?? false);
   const [muscles, setMuscles] = useState<MusclePercentPair[]>(existing?.muscles ?? []);
   const [alternativeIds, setAlternativeIds] = useState<number[]>(existing?.alternativeIds ?? []);
+  const [healthConnectType, setHealthConnectType] = useState<HealthConnectSegmentKey | undefined>(existing?.healthConnectType);
+  // GH-528: the type only matters (and is only shown) once trainings are written to Health Connect.
+  const showHealthConnectType = useHealthConnectState().writeEnabled || existing?.healthConnectType !== undefined;
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const alternativesY = useRef(0);
@@ -59,6 +65,7 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
       setIsFocus(existing.isFocus ?? false);
       setMuscles(existing.muscles ?? []);
       setAlternativeIds(existing.alternativeIds ?? []);
+      setHealthConnectType(existing.healthConnectType);
     }
   }, [existing]);
 
@@ -73,9 +80,9 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
   const handleSave = () => {
     if (saveDisabled) return;
     if (isEdit && exerciseId !== undefined) {
-      editExercise(exerciseId, trimmedName, muscles, alternativeIds, isFocus);
+      editExercise(exerciseId, trimmedName, muscles, alternativeIds, isFocus, healthConnectType ?? null);
     } else {
-      addExercise(trimmedName, muscles, alternativeIds, isFocus);
+      addExercise(trimmedName, muscles, alternativeIds, isFocus, healthConnectType ?? null);
     }
     navigation.goBack();
   };
@@ -109,7 +116,7 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
         <IconButton icon="close" onPress={() => navigation.goBack()} testID="edit-exercise-cancel" />
       ),
     });
-  }, [navigation, saveDisabled, name, muscles, alternativeIds, isFocus, isEdit, existing?.name]);
+  }, [navigation, saveDisabled, name, muscles, alternativeIds, isFocus, healthConnectType, isEdit, existing?.name]);
 
   return (
     <ScrollView
@@ -159,6 +166,8 @@ const EditExerciseSheet = ({navigation, route}: Props) => {
           onSearchBlur={handleSearchBlur}
         />
       </View>
+
+      {showHealthConnectType && <HealthConnectTypeField name={name} value={healthConnectType} onChange={setHealthConnectType} />}
 
       {isEdit && (
         <Button

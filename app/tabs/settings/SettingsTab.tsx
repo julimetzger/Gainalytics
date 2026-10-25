@@ -43,7 +43,7 @@ import {buildStrongExport, countLoggedSets, strongExportFileName} from '../../ut
 import {isStrongCsvShareAvailable} from '../../utils/strongCsv/strongCsvShare';
 import {useStrongCsvState} from '../../redux/fullstateactions/use/useStrongCsvState';
 import {buildStrongImport, ParsedStrongFile, parseStrongCsv, StrongCsvError, WeightUnit} from '../../utils/strongCsv/strongImport';
-import {isHealthConnectPocAvailable} from '../../debug/healthConnectPoc/healthConnectPocNative';
+import HealthConnectSection from '../../components/settings/HealthConnectSection';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
@@ -56,7 +56,7 @@ const SettingsTab = ({navigation, route}: Props) => {
   let setAnthropicModelDispatch = dispatchSetAnthropicModel();
   let currentModel = useAnthropicModel();
   const aiProvider = useAiProvider();
-  let store = useStore();
+  let store = useStore<GlobalState>();
   let setAIChatPromptDispatch = dispatchSetAIChatPrompt();
   let resetAIChatPromptDispatch = dispatchResetAIChatPrompt();
   let setAITrainingPromptDispatch = dispatchSetAITrainingPrompt();
@@ -170,7 +170,9 @@ const SettingsTab = ({navigation, route}: Props) => {
   };
 
   function dumbFullStateToFile() {
-    const state = store.getState();
+    // GH-528: Health Connect data (body weights) and its sync bookkeeping stay on the device.
+    const state: Partial<GlobalState> = {...store.getState()};
+    delete state.healthConnect;
     let number = Date.now();
     var path = FileSaver.DownloadDirectoryPath + '/' + number + '.gains';
     FileSaver.writeFile(path, JSON.stringify(state));
@@ -551,6 +553,8 @@ const SettingsTab = ({navigation, route}: Props) => {
         </List.Accordion>
       </SettingsSection>
 
+      <HealthConnectSection />
+
       <SettingsSection title="Help" testID="settings-section-help">
         <Button mode="elevated" icon="school-outline" style={{margin: 5}} testID="settings-show-onboarding-button" onPress={showOnboarding}>
           Show Introduction
@@ -605,12 +609,7 @@ const SettingsTab = ({navigation, route}: Props) => {
         )}
       </SettingsSection>
       <View style={styles.versionFooter}>
-        <Text
-          variant="bodySmall"
-          testID="settings-app-version"
-          // GH-502: hidden developer entry; the route only exists in debug builds with the PoC module.
-          onLongPress={isHealthConnectPocAvailable() ? () => navigation.navigate('HealthConnectPoc' as never) : undefined}
-        >
+        <Text variant="bodySmall" testID="settings-app-version">
           Version {appVersion}
         </Text>
       </View>

@@ -27,7 +27,8 @@ const bodyWeightReducer = (state: NormalizedState<BodyWeightEntry> = initialBody
       if (!state.byId[action.entryId]) {
         return state;
       }
-      const {[action.entryId]: _removed, ...byId} = state.byId;
+      const byId = {...state.byId};
+      delete byId[action.entryId];
       return {byId, allIds: state.allIds.filter((id) => id !== action.entryId)};
     }
     default:

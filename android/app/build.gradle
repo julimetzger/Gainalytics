@@ -144,9 +144,9 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
     implementation("org.tensorflow:tensorflow-lite-gpu:2.16.1")
     implementation("org.tensorflow:tensorflow-lite-gpu-api:2.16.1")
-    // GH-502 Health Connect proof of concept: debug builds only (see src/debug/).
-    debugImplementation("androidx.health.connect:connect-client:1.1.0")
-    debugImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    // GH-528 Health Connect (stable client, needs minSdk 26).
+    implementation("androidx.health.connect:connect-client:1.1.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test:runner:1.5.2")

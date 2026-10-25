@@ -1,16 +1,24 @@
 import React, {useCallback, useMemo, useState} from 'react';
-import {processColor, ScrollView, StyleSheet, View} from 'react-native';
+import {processColor, StyleSheet, View} from 'react-native';
+import {FlashList} from '@shopify/flash-list';
+import {useFocusEffect} from '@react-navigation/native';
 import {LineChart} from 'react-native-charts-wrapper';
 import {Button, Card, IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
 import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
 import BodyWeightEntryDialog from '../../components/analyse/BodyWeightEntryDialog';
 import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
 import {BodyWeightEntry} from '../../models/entities/BodyWeightEntry';
-import {dispatchAddBodyWeightEntry, dispatchDeleteBodyWeightEntry, dispatchEditBodyWeightEntry} from '../../redux/BodyWeight/dispatch/dispatchBodyWeight';
+import {useAddBodyWeightEntry, useDeleteBodyWeightEntry, useEditBodyWeightEntry} from '../../redux/BodyWeight/dispatch/dispatchBodyWeight';
 import {useBodyWeightEntries} from '../../redux/BodyWeight/use/useBodyWeightEntries';
 import {computeBodyWeightStats, entriesInRange, formatWeightChangeKg, formatWeightKg} from '../../utils/body-weight';
 import {firstDayOfWeek, getDateStringFromDate, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
 import {rangeEndingAt} from '../../utils/analyse-range';
+import HealthConnectBodyWeightHeader, {HealthConnectWeightRow} from '../../components/analyse/HealthConnectBodyWeightHeader';
+import {useBodyWeights, useHealthConnectActions, useHealthConnectConnection} from '../../redux/HealthConnect/use/useHealthConnect';
+import {canReadBodyWeight} from '../../utils/healthConnect/healthConnectStatus';
+import {HealthConnectWeight} from '../../utils/healthConnect/healthConnectNative';
+
+const NO_WEIGHTS: HealthConnectWeight[] = [];
 
 const createDefaultRange = () => {
   const now = new Date();
@@ -24,9 +32,21 @@ const BodyWeightTab = () => {
   const [dialogVisible, setDialogVisible] = useState(false);
   const [editedEntry, setEditedEntry] = useState<BodyWeightEntry | undefined>(undefined);
   const allEntries = useBodyWeightEntries();
-  const addEntry = dispatchAddBodyWeightEntry();
-  const editEntry = dispatchEditBodyWeightEntry();
-  const deleteEntry = dispatchDeleteBodyWeightEntry();
+  const addEntry = useAddBodyWeightEntry();
+  const editEntry = useEditBodyWeightEntry();
+  const deleteEntry = useDeleteBodyWeightEntry();
+  // GH-528 (T3): with "Read body weight" the weights from Health Connect follow the manual entries.
+  const healthConnectWeights = useBodyWeights();
+  const showHealthConnect = canReadBodyWeight(useHealthConnectConnection());
+  const {loadWeights} = useHealthConnectActions();
+  // Re-read on every visit: the scale app may have written a new value meanwhile. Without the
+  // permission Health Connect is not asked at all.
+  useFocusEffect(
+    useCallback(() => {
+      if (showHealthConnect) loadWeights();
+    }, [showHealthConnect, loadWeights]),
+  );
+  const healthConnectNewestFirst = useMemo(() => (showHealthConnect ? [...healthConnectWeights].reverse() : NO_WEIGHTS), [showHealthConnect, healthConnectWeights]);
 
   const entries = useMemo(() => entriesInRange(allEntries, range.startDate.getTime(), range.endDate.getTime()), [allEntries, range]);
   const stats = useMemo(() => computeBodyWeightStats(entries), [entries]);
@@ -86,14 +106,19 @@ const BodyWeightTab = () => {
     setDialogVisible(false);
   }, [deleteEntry, editedEntry]);
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} testID="body-weight-screen">
+  const manualSection = (
+    <View>
       <Card style={styles.card}>
         <Card.Content>
           <Text variant="titleMedium">Body weight</Text>
           <Text variant="bodyMedium" style={styles.mutedText}>
             Entered manually, stored only on this device.
           </Text>
+          {!showHealthConnect && (
+            <Text variant="bodySmall" style={styles.mutedText} testID="body-weight-not-connected">
+              Connect Health Connect with "Read body weight" in Settings to also see the values of your scale or health app here.
+            </Text>
+          )}
           <Button mode="contained" icon="plus" onPress={openNew} style={styles.addButton} testID="body-weight-add">
             Add weight
           </Button>
@@ -179,9 +204,23 @@ const BodyWeightTab = () => {
           )}
         </>
       )}
+      {showHealthConnect && <HealthConnectBodyWeightHeader weights={healthConnectWeights} />}
+    </View>
+  );
 
+  return (
+    <View style={styles.container} testID="body-weight-screen">
+      <FlashList
+        data={healthConnectNewestFirst}
+        estimatedItemSize={44}
+        ListHeaderComponent={manualSection}
+        keyExtractor={(item: HealthConnectWeight) => `${item.time}-${item.origin}-${item.kg}`}
+        renderItem={({item, index}: {item: HealthConnectWeight; index: number}) => <HealthConnectWeightRow item={item} index={index} />}
+        contentContainerStyle={styles.content}
+        testID="body-weight-list"
+      />
       <BodyWeightEntryDialog visible={dialogVisible} entry={editedEntry} onDismiss={closeDialog} onSave={handleSave} onDelete={handleDelete} />
-    </ScrollView>
+    </View>
   );
 };
 

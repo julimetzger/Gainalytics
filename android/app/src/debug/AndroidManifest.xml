@@ -2,43 +2,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- GH-502 PoC: the Health Connect client needs minSdk 26; the PoC module guards the call sites. -->
-    <uses-sdk tools:overrideLibrary="androidx.health.connect.client" />
-
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
-    <!-- GH-502 PoC: Health Connect permissions, debug builds only. -->
-    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
-    <!-- Only for the PoC's stand-in test weight (no external weight source on the test device). -->
+    <!--
+      GH-528 debug builds only: lets HealthConnectTestDataActivity seed body weights for tests
+      (emulators have no scale app). Release builds never declare WRITE_WEIGHT.
+    -->
     <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
-    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
-    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
-    <!-- Reading data older than 30 days before the first grant (incl. the app's own sessions). -->
-    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
-
-    <queries>
-        <package android:name="com.google.android.apps.healthdata" />
-    </queries>
 
     <application android:usesCleartextTraffic="true" tools:targetApi="28" tools:ignore="GoogleAppIndexingWarning">
-        <!-- Android 13 and lower: Health Connect app opens this to show the privacy rationale. -->
+        <!--
+          GH-528 test helper, started via adb (see __tests__/e2e/scripts/gh528-health-connect.sh).
+          Extras: weights (string "kg@daysAgo,…"), clear (boolean), dump (boolean).
+        -->
         <activity
-            android:name=".healthconnectpoc.HealthConnectRationaleActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
-            </intent-filter>
-        </activity>
-        <!-- Android 14+: Health Connect is part of the system and uses this alias instead. -->
-        <activity-alias
-            android:name=".healthconnectpoc.ViewPermissionUsageActivity"
-            android:exported="true"
-            android:targetActivity=".healthconnectpoc.HealthConnectRationaleActivity"
-            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
-                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
-            </intent-filter>
-        </activity-alias>
+            android:name=".healthconnect.HealthConnectTestDataActivity"
+            android:exported="true" />
     </application>
 </manifest>

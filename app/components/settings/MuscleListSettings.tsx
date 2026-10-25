@@ -3,7 +3,7 @@ import {StyleSheet, View} from 'react-native';
 import {Button, HelperText, IconButton, List, Switch, Text, TextInput, useTheme} from 'react-native-paper';
 import {Muscles} from '../../models/Muscles';
 import {useAvailableMuscles, useOverviewMuscles} from '../../redux/settings/use/useMuscles';
-import {dispatchAddMuscle, dispatchRemoveMuscle, dispatchSetMuscleInOverviews} from '../../redux/settings/dispatch/dispatchMuscles';
+import {useAddMuscle, useRemoveMuscle, useSetMuscleInOverviews} from '../../redux/settings/dispatch/dispatchMuscles';
 import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 import {countExercisesUsingMuscle, MAX_MUSCLE_NAME_LENGTH, normalizeMuscleName, validateMuscleName} from '../../utils/muscle-catalog';
 import {ConfirmDialog} from '../common/EditDialogScaffold';
@@ -34,9 +34,9 @@ const MuscleListSettings = () => {
   const available = useAvailableMuscles();
   const overview = useOverviewMuscles();
   const exercises = useAlleExercises();
-  const addMuscle = dispatchAddMuscle();
-  const removeMuscle = dispatchRemoveMuscle();
-  const setInOverviews = dispatchSetMuscleInOverviews();
+  const addMuscle = useAddMuscle();
+  const removeMuscle = useRemoveMuscle();
+  const setInOverviews = useSetMuscleInOverviews();
 
   const [expanded, setExpanded] = useState(false);
   const [name, setName] = useState('');

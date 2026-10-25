@@ -27,7 +27,7 @@ const renderWithStore = () => {
 const editorMuscles = (getByTestId: (id: string) => any) =>
   within(getByTestId('muscle-involvement-editor'))
     .getAllByTestId(/^muscle-row-/)
-    .map((row: {props: {testID: string}}) => row.props.testID.replace('muscle-row-', ''));
+    .map((row) => String(row.props.testID).replace('muscle-row-', ''));
 
 describe('MuscleListSettings (GH-523)', () => {
   it('lists the built-in muscles alphabetically, all shown in the overviews', () => {
