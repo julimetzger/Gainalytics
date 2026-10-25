@@ -1,0 +1,82 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-485: checks that the phone shows the demo state the marketing captures were taken
+# from (run it right after docs/marketing/scripts/capture.py; it does not change data).
+#
+# - Training home: today's captured session counts in the current micro (1 of 4 done)
+#   and the next slot moved on to D2.
+# - Dashboard: the week is not empty (the "No trainings in this period" banner is gone).
+# - Video Analysis: the gallery deadlift clip is analysed, linked to the 200 kg x 3 deadlift
+#   set of the demo data, and the detail shows exactly 3 detected reps.
+# - AI Chat: the real coach answer (round 2 capture) is in the conversation.
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'tab-training'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'micro-hero-card'
+    timeout: 30000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+- assertVisible: '1/4'
+- assertVisible:
+    id: 'next-training-slot'
+    text: 'Meso 1 · M7 · D2 · .*'
+
+- tapOn: 'tab-analyse'
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Dashboard'
+    timeout: 10000
+- tapOn: 'Dashboard'
+- extendedWaitUntil:
+    visible: 'Your Week at a Glance'
+    timeout: 15000
+- assertNotVisible:
+    id: 'analyse-stale-range-banner'
+
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- tapOn: 'Video Analysis'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-\d+'
+      text: 'Deadlift, 200 kg × 3, Today .*, Done'
+    timeout: 30000
+- tapOn:
+    id: 'video-analysis-row-\d+'
+    text: 'Deadlift, 200 kg × 3, .*'
+# Edge swipes: the player and its chart take centred gestures.
+- repeat:
+    times: 8
+    while:
+      notVisible: 'Rep Summary \(\d+ reps\)'
+    commands:
+      - swipe:
+          start: 96%, 80%
+          end: 96%, 35%
+          duration: 900
+- assertVisible: 'Rep Summary \(3 reps\)'
+- assertVisible:
+    id: 'video-analysis-rep-time-2'
+- assertNotVisible:
+    id: 'video-analysis-rep-time-3'
+
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- tapOn: 'AI Chat'
+- extendedWaitUntil:
+    visible: '.*Bottom line.*'
+    timeout: 15000
+# The chat opens scrolled to the newest message; the question sits above the answer.
+- scrollUntilVisible:
+    element:
+      text: 'How is my squat progressing and what should I change next week\?'
+    direction: UP
+    timeout: 15000
+- assertVisible: '.*Squat Progress Analysis.*'
