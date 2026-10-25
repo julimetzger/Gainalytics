@@ -35,17 +35,25 @@ try {
     git pull --rebase
     if ($LASTEXITCODE -ne 0) { throw "git pull --rebase failed" }
 
-    # Bump versionName
+    git fetch --tags --quiet
+    if ($LASTEXITCODE -ne 0) { throw "git fetch --tags failed" }
+
+    # Releases can also be cut by tag alone (Actions -> Release -> Run workflow), which leaves
+    # versionName in build.gradle behind. Continue from whichever is higher: build.gradle or the latest x.y tag.
     $buildGradle = Get-Content android/app/build.gradle -Raw
     if ($buildGradle -notmatch 'versionName "([0-9]+\.[0-9]+)"') {
         throw "Could not find versionName in android/app/build.gradle"
     }
-    $previousVersion = $matches[1]
+    $gradleVersion = $matches[1]
+    $candidates = @($gradleVersion) + @(git tag -l | Where-Object { $_ -match '^[0-9]+\.[0-9]+$' })
+    $previousVersion = $candidates | Sort-Object { [version]$_ } | Select-Object -Last 1
     $parts = $previousVersion -split '\.'
     $parts[-1] = [int]$parts[-1] + 1
     $newVersion = $parts -join '.'
+    git rev-parse -q --verify "refs/tags/$newVersion" | Out-Null
+    if ($LASTEXITCODE -eq 0) { throw "Tag $newVersion already exists, aborting." }
     Write-Host "update minor version from $previousVersion to $newVersion"
-    $buildGradle = $buildGradle -replace "versionName `"$previousVersion`"", "versionName `"$newVersion`""
+    $buildGradle = $buildGradle -replace "versionName `"$gradleVersion`"", "versionName `"$newVersion`""
     Set-Content -Path android/app/build.gradle -Value $buildGradle -NoNewline
 
     if ($LocalBuild) {
@@ -90,6 +98,7 @@ try {
     git commit -m "release android version $newVersion"
     if ($LASTEXITCODE -ne 0) { throw "git commit failed" }
     git tag $newVersion
+    if ($LASTEXITCODE -ne 0) { throw "git tag failed" }
     git push origin master
     if ($LASTEXITCODE -ne 0) { throw "git push master failed" }
     git push origin $newVersion
