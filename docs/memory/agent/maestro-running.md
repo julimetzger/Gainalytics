@@ -11,7 +11,7 @@ Back to the [index](../agent-memory.md).
 - `--mode smoke`/`full`/`bootstrap` push + `am force-stop` the app before the run, and `--suite` defaults to `flows/suite.yaml` in EVERY mode — `--mode smoke` alone runs the full, data-mutating suite. Always pass `--suite`.
 - Any other `--mode` value (e.g. `--mode flow`) skips the push/force-stop preamble — use it to probe the app as it stands.
 - On failure the script re-runs the WHOLE suite once (import included). Kill the retry by PID once "Flow Failed" appears, then check the device for leftover dialogs. A first-attempt failure followed by a pass hides real problems.
-- Other flags: `--host`, `--adb-host`, `--adb-port`, `--metro-port`, `--device-metro-port`, `--driver-host-port`, `--report`. The report directory must exist (`mkdir -p`) or the script dies at `cd` with no Maestro output.
+- Other flags: `--host`, `--adb-host`, `--adb-port`, `--metro-port`, `--device-metro-port`, `--driver-host-port`, `--report`. `--report` takes a FILE path (`<dir>/x.xml`) whose directory must exist (`mkdir -p`), or the script dies at `cd` with no Maestro output. Passing a directory instead makes Maestro crash in `TestCommand.saveReport` after the flows ran — the log says `[Passed]` but the exit code is 1 (seen in GH-502).
 - If the push fails (`adb push … Permission denied`) and the data is already on the device, call `maestro` directly (see [direct invocation](#invoke-maestro-directly)).
 (seen in GH-292, GH-356, GH-417, GH-428, GH-443, GH-466, GH-468)
 

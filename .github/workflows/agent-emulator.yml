@@ -151,8 +151,10 @@ jobs:
         run: |
           df -h / | tail -1
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/node_modules/@angular \
-            /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/share/swift || true
-          df -h / | tail -1
+            /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/share/swift \
+            /usr/local/share/powershell /usr/share/miniconda /opt/az /opt/microsoft || true
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          df -h / /mnt 2>/dev/null || df -h /
 
       - name: Enable KVM
         run: |
@@ -161,6 +163,41 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           ls -l /dev/kvm
           nproc; free -h | head -2
+
+      # GH-528 run 40084580673 lost the runner ~1h40 into the agent step (no logs, no artifacts):
+      # emulator (3 GB) + Gradle daemon (4 GB heap) + Kotlin daemon + clang + Claude Code do not fit
+      # into 7 GB once the agent runs `tool.sh rebuild`. Extra swap absorbs the peaks instead of the
+      # runner being killed, and the user-home gradle.properties caps the Gradle/Kotlin heaps
+      # (overrides android/gradle.properties for every build in this job, incl. tool.sh rebuild).
+      - name: Add swap and cap Gradle memory
+        run: |
+          sudo swapon --show || true
+          # Swap goes on the runner's temp disk (/mnt) when it has room: on / it competed with the
+          # Gradle/NDK install and filled the root disk (run 40108942498: "No space left on device").
+          avail_gb() { df --output=avail -BG "$1" 2>/dev/null | tail -1 | tr -dc '0-9'; }
+          swapfile=""
+          if mountpoint -q /mnt && [[ "$(avail_gb /mnt)" -ge 16 ]]; then
+            swapfile=/mnt/swapfile-agent; size=8G
+          elif [[ "$(avail_gb /)" -ge 24 ]]; then
+            swapfile=/swapfile-agent; size=4G
+          fi
+          if [[ -n "${swapfile}" ]]; then
+            sudo fallocate -l "${size}" "${swapfile}"
+            sudo chmod 600 "${swapfile}"
+            sudo mkswap -q "${swapfile}"
+            sudo swapon "${swapfile}"
+            echo "::notice title=swap::${size} at ${swapfile}"
+          else
+            echo "::warning title=swap::not enough disk for extra swap (/: $(avail_gb /) GB, /mnt: $(avail_gb /mnt) GB)"
+          fi
+          free -h; df -h / /mnt 2>/dev/null || true
+          mkdir -p ~/.gradle
+          cat >> ~/.gradle/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2560m -XX:MaxMetaspaceSize=512m
+          org.gradle.workers.max=2
+          kotlin.daemon.jvmargs=-Xmx1024m
+          EOF
+          cat ~/.gradle/gradle.properties
 
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
@@ -254,6 +291,8 @@ jobs:
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/emulator" >> "$GITHUB_PATH"
           nohup .github/agent-emulator/bg-setup.sh > .agent-run/setup.log 2>&1 < /dev/null &
+          # Memory/swap every 30 s, so a starved runner shows up in the evidence artifact.
+          nohup vmstat -t -S M 30 > .agent-run/vmstat.log 2>&1 < /dev/null &
           git config user.name "claude[bot]"
           git config user.email "41898282+claude[bot]@users.noreply.github.com"
           echo "AGENT_START=$(date +%s)" >> "$GITHUB_ENV"
