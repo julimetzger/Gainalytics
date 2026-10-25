@@ -47,6 +47,13 @@ themselves. Every file named below must be in `/sdcard/Download` —
 | F13 Editable muscles | `muscles_manage.yaml` | Add/duplicate/hide/remove muscles, radar axes follow | imports baseline |
 | | `muscles_exercise_editor.yaml` | Exercise editor offers the user's muscle list and saves a new involvement | imports baseline |
 
+Emulator status at the end of the GH-584 run (each flow run standalone after the baseline was
+imported once; x86_64 emulator, API 36): 29 of 32 green. Not yet green: `video_list_filters_vl.yaml`
+(never reached the device in the run), `video_compare.yaml` (fixture import + picker fixed, the
+analysis/sync part not reached), `ai_chat_errors_history.yaml` (the chat/history part passed; the
+final key-removal block failed twice, the second time during a system ANR on the emulator).
+`suite.yaml` was not run end-to-end (≈ 2.5 h on this runner).
+
 Not yet consolidated:
 - `gh528_*.yaml` (15 files) — Health Connect (GH-528), not part of the GH-584 run.
 - `gh542_added_exercise_on_training_date.yaml` — decision pending.

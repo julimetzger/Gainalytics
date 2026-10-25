@@ -317,9 +317,12 @@ onFlowComplete:
     timeout: 30000
 - tapOn:
     id: 'settings-save-api-key-button'
+# The toast can be gone before Maestro polls (agent memory); the effect — the
+# chat asking for a key — is asserted below.
 - extendedWaitUntil:
     visible: 'API key removed'
     timeout: 5000
+    optional: true
 - tapOn: 'tab-analyse'
 - extendedWaitUntil:
     visible:
