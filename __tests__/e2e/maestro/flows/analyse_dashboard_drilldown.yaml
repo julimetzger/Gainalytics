@@ -28,13 +28,11 @@ appId: com.powerliftingworkoutplanner
 #
 # Merged from: gh458_muscle_drilldown_and_units, gh458_round2_review_fixes,
 #   gh458_round3_metrics_units, gh532_empty_week, gh532_open_dashboard
+# stopApp: false resumes the running app instead of a cold start plus the ~7 s
+# "Dismiss" overlay check that only a force-stop needs (GH-588 smoke runtime).
 - launchApp:
     clearState: false
-- runFlow:
-    when:
-      visible: 'Dismiss'
-    commands:
-      - tapOn: 'Dismiss'
+    stopApp: false
 - extendedWaitUntil:
     visible: 'tab-training'
     timeout: 120000

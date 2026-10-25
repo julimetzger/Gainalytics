@@ -14,9 +14,13 @@ appId: com.powerliftingworkoutplanner
 #   2. home_dashboard.yaml              read-only: Push pull · Meso 1 · M6 · 7,497 kg · Next Training
 #   3. analyse_dashboard_drilldown.yaml read-only: Analyse dashboard, radar, muscle drill-down
 #   4. train_start_log_finish.yaml      changes data (plans, starts, logs and finishes a training),
-#                                       so it runs last; it re-imports the baseline itself first
-#                                       to stay standalone (~1 min extra).
+#                                       so it runs last. Standalone it imports the baseline
+#                                       first; BASELINE_IMPORTED skips that second import here
+#                                       (2 and 3 do not change the store).
 - runFlow: 00_import_baseline.yaml
 - runFlow: home_dashboard.yaml
 - runFlow: analyse_dashboard_drilldown.yaml
-- runFlow: train_start_log_finish.yaml
+- runFlow:
+    file: train_start_log_finish.yaml
+    env:
+      BASELINE_IMPORTED: 'true'
