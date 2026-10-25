@@ -743,3 +743,17 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Video analysis detail reopens scrolled; compare sync starts at rep-1 lift-off, not 0:00.0
 **Observation (GH-589):** after `back` + opening another row, `video-analysis-detail-screen` kept the previous scroll offset, so the header (`Squat · No linked set`) was off-screen. Scroll up along the left edge (`swipe 6%,25% → 6%,79%`, the video/chart eat centred swipes) before asserting the header. `CompareSyncPlaybackCard` seeks both videos to rep 1 lift-off on load (`squat-3reps.mp4`: `0:01.0`). Assert A == B, not `0:00.0`.
 **Apply when:** writing video detail/compare flows.
+
+### Typing into masked or secure inputs: the tap puts the cursor mid-text, so erase only removes the left part
+**Problem (GH-589):** `tapOn: {id}` hits the field's centre. In the date-range `DatePickerInput` (MM/DD/YYYY mask) `eraseText` + `inputText: '03/01/2026'` ended as "06/2". In the secure API-key field two tap+erase rounds still left "•••", so the key was never removed.
+**Fix / Rule:** date mask: tap the field's right end (`point: '31%, 16%'` for the Records start input), single `pressKey: Backspace` ×12, one `inputText` per digit (the mask adds the slashes), then `assertVisible: '03/01/2026'` (the testID sits on a wrapper, so match by text). Secure field: `scrollUntilVisible … centerElement: true` (above the keyboard) and tap+erase three times. Prove the result downstream.
+**Apply when:** a flow edits a prefilled date, masked or password input.
+
+### Move the emulator clock without root: `cmd alarm set-time`, but import fixtures first
+**Observation (GH-589):** `adb shell settings put global auto_time 0; adb shell cmd alarm set-time <epoch-ms>` works on the CI image (restore with `auto_time 1`). It proves time-dependent assertions ("still green in 2027"). After the jump, the SAF picker showed "Recent / No items" and could no longer find `baseline.gains`. `tool.sh import-baseline` deletes + re-pushes the file without a media scan, so it is also missing from the index: run `content call --method scan_volume --uri content://media --arg external_primary`. Import at the real date, then jump and run only the assertions.
+**Apply when:** a flow or ticket depends on today's date or a "last N months" window.
+
+### Analyse tab and Training home reopen where they were left — flows must navigate, not assume
+**Problem (GH-589):** after deleting a chat in "Chat History", `tapOn: tab-analyse` reopened Chat History, not AI Chat (`chat-no-key-message` never appeared). Back on the Training home after detours, the list sat BELOW the Next Training card, and `scrollUntilVisible DOWN` never found `next-training-start-button`. The Settings muscles accordion opened with its rows below the fold.
+**Fix / Rule:** `runFlow when notVisible <target>` → drawer → entry; scroll UP to `next-training-name` first; `scrollUntilVisible` before asserting rows of an expanded accordion.
+**Apply when:** a flow step follows another flow section that left the tab/screen elsewhere.

@@ -47,12 +47,28 @@ themselves. Every file named below must be in `/sdcard/Download` —
 | F13 Editable muscles | `muscles_manage.yaml` | Add/duplicate/hide/remove muscles, radar axes follow | imports baseline |
 | | `muscles_exercise_editor.yaml` | Exercise editor offers the user's muscle list and saves a new involvement | imports baseline |
 
-Emulator status at the end of the GH-584 run (each flow run standalone after the baseline was
-imported once; x86_64 emulator, API 36): 29 of 32 green. Not yet green: `video_list_filters_vl.yaml`
-(never reached the device in the run), `video_compare.yaml` (fixture import + picker fixed, the
-analysis/sync part not reached), `ai_chat_errors_history.yaml` (the chat/history part passed; the
-final key-removal block failed twice, the second time during a system ANR on the emulator).
-`suite.yaml` was not run end-to-end (≈ 2.5 h on this runner).
+Emulator status after GH-589 (CI agent emulator, x86_64): all 32 flows of `suite.yaml` green, run
+one by one in suite order (≈ 1 h 50 min of flow time). One flake: `train_rest_timer_1rm.yaml` passed
+on its retry (a tap on the running-timer screen took > 30 s, so the "01:20–01:30 after Reset" window
+was missed). GH-589 also fixed two app bugs the suite hit: every date-range screen crashed
+(gesture-handler 3 has no `Swipeable`) and every dev (Metro) bundle died in `configureStore`.
+
+### Nightly shards (GH-589 proposal, durations from that run)
+
+Every flow except the seven read-only Analyse/Home flows imports its own data, so only shard 1
+needs a baseline import first. Every shard needs the fixtures in `/sdcard/Download` and
+`gh415-result.json` in the app's files dir (`run-maestro-from-wsl.sh --mode bootstrap` does both),
+and a fresh emulator/app start against system ANRs at the end of long runs.
+
+| Shard | Flows (in this order) | ≈ min |
+|---|---|---|
+| 1 | `00_import_baseline`, `home_dashboard`, `settings_general`, `training_analysis_compare`, `micro_overview_compare`, `analyse_dashboard_drilldown`, `analyse_graphics_metrics`, `analyse_drawer_screens`, `video_import_playback`, `video_list_filters_vl`, `video_compare` | 27 |
+| 2 | `start_existing_data`, `home_new_plan_current`, `plan_create_meso_template`, `plan_edit_sets`, `plan_overflow_actions`, `train_start_log_finish`, `body_weight` | 27 |
+| 3 | `train_rest_timer_1rm`, `train_delete_exercise_running`, `training_edit_delete`, `exercises_list_detail`, `exercise_edit_alternatives_delete`, `muscles_manage`, `muscles_exercise_editor` | 27 |
+| 4 | `settings_appearance`, `data_strong_export_roundtrip`, `data_strong_import_records`, `ai_settings_provider`, `ai_chat_context`, `ai_chat_errors_history`, `start_onboarding_template` (clearState, last) | 27 |
+
+Per-flow timeout: 15 min (longest green run 7 min; `video_compare` waits up to 2 × 10 min for its
+analyses on a slow emulator).
 
 Not yet consolidated:
 - `gh528_*.yaml` (15 files) — Health Connect (GH-528), not part of the GH-584 run.
