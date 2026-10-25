@@ -5,7 +5,9 @@ name: Release
 # Trigger: pushing a version tag such as `0.183` (the tags created by
 # releaseNewAndroidVersion.sh/.ps1). The tag must match versionName in android/app/build.gradle.
 #
-# Required repository secrets (Settings -> Secrets and variables -> Actions):
+# Required secrets in the GitHub environment `release` (Settings -> Environments -> release), which
+# should only allow version tags (deployment tag rule `[0-9]*`). Only tag pushes use that
+# environment, so no other workflow or manual run can read the signing key:
 #   ANDROID_RELEASE_KEYSTORE_BASE64  base64 of the existing release keystore (`base64 -w0 <file>`)
 #   ANDROID_RELEASE_PASSWORD         keystore (store) password
 # Optional:
@@ -17,9 +19,9 @@ name: Release
 #                                    the APK is signed with any other key. Zapstore pins that
 #                                    certificate, so the key must never change.
 #
-# Dry run: `workflow_dispatch` with `test_keystore: true` builds and signs with a throw-away
-# keystore generated inside the job and never creates a release. Without that switch a manual
-# run uses the real secrets but still does not publish (only tag pushes publish).
+# Dry run: `workflow_dispatch` (with `test_keystore: true`, the default) builds and signs with a
+# throw-away keystore generated inside the job and never creates a release. Manual runs do not get
+# the `release` environment, so they cannot use the real key.
 # See docs/release.md.
 
 on:
@@ -46,6 +48,8 @@ jobs:
     name: Build signed APK + AAB
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    # The real signing secrets live in the `release` environment; only tag pushes enter it.
+    environment: ${{ (github.event_name == 'push' && github.ref_type == 'tag') && 'release' || '' }}
     env:
       # Throw-away key for manual dry runs; tags always use the real key from the secrets.
       USE_TEST_KEYSTORE: ${{ github.event_name == 'workflow_dispatch' && inputs.test_keystore }}
