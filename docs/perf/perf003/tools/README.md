@@ -24,4 +24,6 @@ Environment (nothing machine-specific is hard-coded; see also `__tests__/e2e/REA
 | `ANDROID_SERIAL` | `adb-wrapper.sh` | required |
 | `PERF_ADB_HOST` / `PERF_ADB_PORT` | `adb-wrapper.sh` (e.g. an orchestrator adb filter proxy) | `127.0.0.1` / `5037` |
 | `PERF003_WORKTREE` | glue scripts | the git checkout that contains the script, else `$PWD` |
+
+The glue scripts always run `measure.sh`, `mem3.sh`, `gestures.py` etc. from `$PERF003_WORKTREE/docs/perf/perf003/tools`, even when the glue script itself was copied elsewhere. `regen.sh` writes to a temp file and replaces `gestures.json` only when `gestures.py` succeeded; errors go to stderr.
 | `PERF003_RUN_DIR` | glue scripts | `<main repo>/.codex-orchestrator/runs/PERF-003` |
