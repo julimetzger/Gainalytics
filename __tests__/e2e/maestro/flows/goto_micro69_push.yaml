@@ -28,10 +28,9 @@ appId: com.powerliftingworkoutplanner
     text: 'Dismiss'
     optional: true
 # Several emulators share this host; under load Android puts an
-# "isn't responding" dialog over everything.
-- tapOn:
-    text: 'Wait'
-    optional: true
+# "isn't responding" dialog over everything. Only system ANRs are dismissed;
+# the app's own ANR must fail the flow (GH-589).
+- runFlow: dismiss_system_anr.yaml
 
 # Wait for the app to be UP before the walk-back loop below. A cold start costs
 # minutes here (Metro bundle + a large store), and while it loads neither

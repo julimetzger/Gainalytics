@@ -9,8 +9,9 @@ appId: com.powerliftingworkoutplanner
 #   - Train · "vs last Push squat": line names Micro 1 · Sun 18/01/2026, Duration
 #     2h 18min (−51min), Diff Core +2.3 / Quads ±0, Chest detail Done M2 4 / Done M1 3
 #   - the pane scrolls down to the Metrics section and back (GH-414)
-#   - Train · "vs Micro": 29% of Micro 2 plan, Share Chest 69%
-#   - Plan position: no "vs Plan"/train chips, 24% of Micro 2 plan, vs last: 14 / 1
+#   - Train · "vs Micro": 33% of Micro 2 plan, Share Chest 105% (GH-527: the micro
+#     plan leaves out exercises removed from their trainings)
+#   - Plan position: no "vs Plan"/train chips, 27% of Micro 2 plan, vs last: 14 / 1
 #   - Micro 3 · Push squat "vs Plan": Core 0.9/2.9 is tinted as under the reference
 #     (`-value-bar-under`), Chest 4/4 is not, Sets bars are split into segments
 #
@@ -150,9 +151,11 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'analysis-comparison-line'
     text: 'Done vs plan of all trainings in Micro 2'
+# GH-527: the micro plan leaves out the sets of exercises removed from their
+# trainings — 17 of 52 planned sets (was 17 of 58, 29%)
 - assertVisible:
     id: 'trainings-overview-sets-delta'
-    text: '29% of Micro 2 plan'
+    text: '33% of Micro 2 plan'
 - assertNotVisible:
     id: 'trainings-overview-duration'
 # "vs Micro" turns the muscle map's Diff segment into Share
@@ -165,7 +168,9 @@ appId: com.powerliftingworkoutplanner
     direction: DOWN
 - copyTextFrom:
     id: 'analysis-muscle-map-row-Chest-readout'
-- assertTrue: "${maestro.copiedText === '69%'}"
+# GH-527: Chest 4 of 3.8 planned sets — "Machine chest press" (2 sets, removed from
+# Micro 2 · Push) no longer counts (was 4 of 5.8, 69%)
+- assertTrue: "${maestro.copiedText === '105%'}"
 
 # --- Plan position: only "vs last Push squat" and "vs Micro" ----------------------
 - scrollUntilVisible:
@@ -187,9 +192,10 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'analysis-comparison-line'
     text: 'Plan vs plan of all trainings in Micro 2'
+# GH-527: 14 of 52 planned sets (was 14 of 58, 24%)
 - assertVisible:
     id: 'training-plan-overview-sets-delta'
-    text: '24% of Micro 2 plan'
+    text: '27% of Micro 2 plan'
 - tapOn:
     id: 'analysis-compare-last_training_plan'
 - assertVisible:

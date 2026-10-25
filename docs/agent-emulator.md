@@ -101,7 +101,8 @@ The agent therefore never holds a token with write access; only the small publis
 
 ## Data
 
-The emulator starts with an empty store; the smoke phase runs against that empty store. The agent follows
+The emulator starts with an empty store. The smoke phase pushes `baseline.gains` and `smoke.yaml` imports it
+(GH-588; the same phase runs as the PR check `.github/workflows/maestro-smoke.yml`). The agent follows
 the feature skill (`orchestrator/codex-skills/feature/SKILL.md`) and imports the baseline fixture with
 `tool.sh import-baseline` before any evidence screenshot. The current fixtures contain real training data
 (owner-approved while the repo is private), so evidence screenshots in agent PRs and run artifacts show

@@ -24,9 +24,8 @@ appId: com.powerliftingworkoutplanner
 #     - __tests__/e2e/maestro/fixtures/gh496/strong_sample_export.csv
 #   Order matters: the record check runs BEFORE the real file, whose 2026
 #   workouts would otherwise also be records in the Records range.
-#   TIME LIMIT of the fixture: "1 shown" needs 2026-10-05 inside the Records
-#   default range (last 3 months up to this week), i.e. this assertion holds
-#   until about early January 2027; after that the fixture date must move.
+#   No time limit: the Records range is set to start on 01/03/2026 (after the
+#   baseline's last training), so 2026-10-05 stays inside it on any later date.
 #
 # Merged from: gh496_strong_new_record, gh496_strong_real_file,
 #   gh496_imported_training_and_analyse
@@ -122,6 +121,55 @@ appId: com.powerliftingworkoutplanner
     timeout: 30000
 - extendedWaitUntil:
     notVisible: 'Close drawer'
+    timeout: 15000
+# GH-589: the default range (last 3 months up to this week) drops the CSV's
+# 05/10/26 around January 2027. Start the range on 01/03/2026 instead: after the
+# baseline's last training (28/02/26), so its records stay out, while the end
+# stays at the current week -> the imported record is in range on any later date.
+- tapOn:
+    id: 'date-range-picker-button'
+- extendedWaitUntil:
+    visible: '^Save$'
+    timeout: 15000
+- tapOn:
+    id: 'date-range-start-input'
+# The keyboard must be up before typing, or the first digit is lost.
+- waitForAnimationToEnd:
+    timeout: 5000
+# The masked MM/DD/YYYY input re-formats on every change: the id tap puts the
+# cursor mid-text and a fast multi-character inputText is scrambled ("06/2").
+# Tap the right end of the start field (cursor after the text), then single
+# Backspace presses and one digit per command -> 03/01/2026 (the mask adds the
+# slashes). The testID sits on a wrapper, so the typed value is matched by text
+# (the end input shows another date).
+- repeat:
+    times: 3
+    while:
+      notVisible: '03/01/2026'
+    commands:
+      - tapOn:
+          point: '31%, 16%'
+      - repeat:
+          times: 12
+          commands:
+            - pressKey: Backspace
+      - inputText: '0'
+      - inputText: '3'
+      - inputText: '0'
+      - inputText: '1'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '2'
+      - inputText: '6'
+- assertVisible: '03/01/2026'
+- tapOn: '^Save$'
+- extendedWaitUntil:
+    notVisible: '^Save$'
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: 'date-range-picker-button'
+      text: 'Sun, 01/03/26 to .*'
     timeout: 15000
 - assertVisible:
     id: 'records-kpi-total'

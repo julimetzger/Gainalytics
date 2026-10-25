@@ -7,6 +7,7 @@ name: GH-391 store a dummy Anthropic key so the AI Chat screen renders
 # sent, and the key never leaves the device.
 - launchApp:
     clearState: false
+- runFlow: dismiss_system_anr.yaml
 - tapOn:
     text: 'Dismiss'
     optional: true

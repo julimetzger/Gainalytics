@@ -95,6 +95,15 @@ jest.mock('react-native-gesture-handler', () => {
     usePanGesture: () => ({}),
   };
 });
+// The real ReanimatedSwipeable loads the native gesture-handler TurboModule (DateRangePicker, GH-588).
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const View = require('react-native').View;
+  return {
+    __esModule: true,
+    default: View,
+    SwipeDirection: {LEFT: 'left', RIGHT: 'right'},
+  };
+});
 
 // Mock react-redux hooks globally so component tests do not require a Provider.
 // Tests that need specific selector behaviour mock react-redux themselves.

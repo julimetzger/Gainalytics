@@ -51,7 +51,6 @@
   "app/components/Workout/show/WorkoutView.tsx :: TS2322": 2,
   "app/components/Workout/show/WorkoutView.tsx :: TS2345": 9,
   "app/components/exercise/show/ExerciseOneRmRecordsTable.tsx :: TS2367": 1,
-  "app/components/picker/date/DateRangePicker.tsx :: TS2339": 1,
   "app/components/video/VideoAnalysisPlaybackOverlayCard.tsx :: TS2769": 1,
   "app/redux/VideoAnalysis/videoAnalysisReducer.ts :: TS7015": 2,
   "app/redux/fullstateactions/__tests__/fullStateReducer.test.ts :: TS1360": 5,

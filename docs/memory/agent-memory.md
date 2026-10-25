@@ -722,6 +722,73 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Fix:** assert saved values positively; no `{n}` in inline scripts; `adb shell content call --method scan_volume --uri content://media --arg external_primary` after pushing (now in `run-maestro-from-wsl.sh`), and `import_fixture.yaml` switches the picker to "List view".
 **Apply when:** asserting text inputs, writing inline JS checks, importing pushed fixtures. (seen in GH-584)
 
+### A dependency major bump can remove an export: the screen crashes, and a hand-written jest mock keeps the spec green
+**Problem (GH-589):** gesture-handler 3 no longer exports the legacy `Swipeable`. `DateRangePicker` imported it, so every screen with a date range (AI Chat filter, Records, Analysis, History, Body weight) fell into the Analyse error boundary ("Element type is invalid … got: undefined" in logcat). `DateRangePicker.spec.tsx` mocked `react-native-gesture-handler` with its own `Swipeable`, so it never noticed.
+**Fix / Rule:** `ReanimatedSwipeable` from `react-native-gesture-handler/ReanimatedSwipeable`. Its `onSwipeableOpen` direction is INVERTED vs. legacy (dragging right = `RIGHT`, legacy said `'left'`). Mock the real module path in `jest.setup.js` and never mock exports the library no longer has. After a dependency bump, grep the app's imports against the package's `src/index.ts`.
+**Apply when:** an Analyse screen shows "… could not be displayed", or after a gesture-handler/reanimated/paper bump.
+
+### RTK 2 rejects `middleware: [..]` only in DEV bundles — the embedded APK bundle hides it, Metro shows a red screen
+**Problem (GH-589):** `configureStore({middleware: [healthConnectMiddleware]})` worked in the job-start APK (production-mode embedded bundle). The first Metro bundle died with "[runtime not ready]: Error: `middleware` field must be a callback".
+**Fix / Rule:** `middleware: () => new Tuple(...)`. If the Metro red screen points at `configureStore`, this is the cause, not your feature.
+**Apply when:** the first Metro launch of a run shows a red screen before any of your code runs.
+
+### CI emulator: Metro can't be restarted — point `debug_http_host` at a dead port to use the embedded bundle, then `tool.sh rebuild`
+**Observation (GH-589):** `kill`/`fuser -k`, a second Metro on another port (copied tool.sh) and `bash x.sh` all needed approval, so a stale/broken Metro on :8081 stays up all job. Bridgeless RN has no cached-bundle fallback: Metro or the embedded `assets/index.android.bundle`. Write `<map><string name="debug_http_host">10.0.2.2:9</string></map>` (Write tool → `adb push` → `run-as <pkg> sh -c 'cat /data/local/tmp/prefs.xml > shared_prefs/<pkg>_preferences.xml'`) and cold-start; logcat says `isMetroRunning(): Async result = false`. A `clearState`/`pm clear` deletes the pref, so rewrite it afterwards.
+**Apply when:** you need a JS edit on the device after `metro-start`, or Metro serves a broken bundle.
+
+### Trigger a real "isn't responding" dialog on demand: SIGSTOP the debuggable app via run-as
+**Observation (GH-589):** `adb shell pidof <pkg>`, then `adb shell "run-as <pkg> kill -STOP <pid>"`, two `input tap`s, wait ~12 s → "Gainalytics isn't responding" (Close app / Wait). Maestro sees the dialog. `dismiss_system_anr.yaml` ignores the app's own ANR; `maestro test -e OWN_APP=NotThisApp …` makes it count as foreign and proves the Close path.
+**Apply when:** testing ANR/system-dialog handling in flows.
+
+### Video analysis detail reopens scrolled; compare sync starts at rep-1 lift-off, not 0:00.0
+**Observation (GH-589):** after `back` + opening another row, `video-analysis-detail-screen` kept the previous scroll offset, so the header (`Squat · No linked set`) was off-screen. Scroll up along the left edge (`swipe 6%,25% → 6%,79%`, the video/chart eat centred swipes) before asserting the header. `CompareSyncPlaybackCard` seeks both videos to rep 1 lift-off on load (`squat-3reps.mp4`: `0:01.0`). Assert A == B, not `0:00.0`.
+**Apply when:** writing video detail/compare flows.
+
+### Typing into masked or secure inputs: the tap puts the cursor mid-text, so erase only removes the left part
+**Problem (GH-589):** `tapOn: {id}` hits the field's centre. In the date-range `DatePickerInput` (MM/DD/YYYY mask) `eraseText` + `inputText: '03/01/2026'` ended as "06/2". In the secure API-key field two tap+erase rounds still left "•••", so the key was never removed.
+**Fix / Rule:** date mask: tap the field's right end (`point: '31%, 16%'` for the Records start input), single `pressKey: Backspace` ×12, one `inputText` per digit (the mask adds the slashes), then `assertVisible: '03/01/2026'` (the testID sits on a wrapper, so match by text). Secure field: `scrollUntilVisible … centerElement: true` (above the keyboard) and tap+erase three times. Prove the result downstream.
+**Apply when:** a flow edits a prefilled date, masked or password input.
+
+### Move the emulator clock without root: `cmd alarm set-time`, but import fixtures first
+**Observation (GH-589):** `adb shell settings put global auto_time 0; adb shell cmd alarm set-time <epoch-ms>` works on the CI image (restore with `auto_time 1`). It proves time-dependent assertions ("still green in 2027"). After the jump, the SAF picker showed "Recent / No items" and could no longer find `baseline.gains`. `tool.sh import-baseline` deletes + re-pushes the file without a media scan, so it is also missing from the index: run `content call --method scan_volume --uri content://media --arg external_primary`. Import at the real date, then jump and run only the assertions.
+**Apply when:** a flow or ticket depends on today's date or a "last N months" window.
+
+### Analyse tab and Training home reopen where they were left — flows must navigate, not assume
+**Problem (GH-589):** after deleting a chat in "Chat History", `tapOn: tab-analyse` reopened Chat History, not AI Chat (`chat-no-key-message` never appeared). Back on the Training home after detours, the list sat BELOW the Next Training card, and `scrollUntilVisible DOWN` never found `next-training-start-button`. The Settings muscles accordion opened with its rows below the fold.
+**Fix / Rule:** `runFlow when notVisible <target>` → drawer → entry; scroll UP to `next-training-name` first; `scrollUntilVisible` before asserting rows of an expanded accordion.
+**Apply when:** a flow step follows another flow section that left the tab/screen elsewhere.
+### A clipped node counts as "100 % visible": scrollUntilVisible stops on a sliver
+**Problem (GH-588):** uiautomator reports a node clipped by the ScrollView with its VISIBLE bounds only (a card at the tab-bar edge dumps as `[2124][2127]`, 3 px). `visibilityPercentage: 100` is therefore met by a button whose top edge just peeks out; its label child below the edge is not in the hierarchy. CI failed on `assertVisible {id: next-training-start-button-text, text: 'Continue Training'}` right after `'Training running'` passed (the running card is taller: it lists two exercises). It depends on where the swipe ends, so it fails on slow runners only.
+**Fix:** `centerElement: true` on `scrollUntilVisible` before asserting or tapping children of a card.
+**Apply when:** asserting a child of the scroll target, especially near the bottom tab bar. (seen in GH-588)
+
+### The running rest timer makes every Maestro interaction take 11–23 s
+**Observation (GH-588):** after a set is logged on a running training, the RestTimerCard's animated ring never lets the screen settle. Each `tapOn` took ~22 s and each `eraseText`/`inputText` ~11 s, about 3 min per smoke run (17 min in CI). Skipping the rest (`rest-timer-overflow` → `Skip rest`, both taps with `waitToSettleTimeoutMs: 500`) brings them back to 1–4 s. Correcting a logged row does not restart the rest (GH-443); a NEW logged set does.
+**Apply when:** a flow keeps interacting after logging a set, unless the flow tests the timer itself.
+
+### `launchApp: {stopApp: false}` keeps the previous flow's scroll position
+**Problem (GH-588):** after switching chained flows to `stopApp: false` (saves the cold start and the ~7 s `when: visible: 'Dismiss'` check), `analyse_dashboard_drilldown` failed on `micro-hero-plan-name` 1 run in 2: home_dashboard had left the Training home scrolled to the plan list, and tapping the focused tab did not reliably scroll it back up.
+**Fix:** `scrollUntilVisible … direction: UP` to the hero before the precondition assert. Also: every `when: visible/notVisible` whose answer is "no" costs ~7 s.
+**Apply when:** chaining flows without app restarts. (seen in GH-588)
+
+### Intermittent native crash on cold start (Fabric MountingCoordinator::pull SIGSEGV)
+**Observation (GH-588):** in 1 of ~12 cold launches on the CI emulator the app died 2 s after start with `SIGSEGV (SEGV_ACCERR)` in `facebook::react::MountingCoordinator::pull` on `mqt_v_js`. `00_import_baseline` then fails with `"Training" is visible` while the launcher is on screen. Another launch worked. This is not caused by the flows. Find it in logcat with `grep "Fatal signal"`.
+**Apply when:** an import/launch step fails with the launcher on screen and there is no Java `FATAL EXCEPTION`.
+
+### A "flaky" assertion on an Analyse screen can be the error boundary — look at the failure screenshot first
+**Problem (GH-588 round 2):** smoke failed on `"1 selected" is visible` after the Details tap; it looked like gesture timing. The Maestro debug screenshot showed "Metrics Overview could not be displayed": RNGH 3 (master bump) removed `Swipeable`, `DateRangePicker` imported `undefined` → `Element type is invalid … got: undefined` (logcat `ReactNativeJS`, stack ends at `DateRangePicker`). Deterministic, every screen with a range picker.
+**Rule:** open `debug/…/screenshots/*.png` and grep logcat for `Element type is invalid|failed to render` before hardening a flow. `npm run typecheck` had flagged it (`TS2305 has no exported member 'Swipeable'`); the global RNGH mock in `jest.setup.js` hides missing exports. Migration: `react-native-gesture-handler/ReanimatedSwipeable`; directions are flipped (legacy `'left'` = new `SwipeDirection.RIGHT`), actions are no longer hidden at rest (fade them with the `progress` shared value), `dragOffsetFromRight` must be ≤ 0.
+**Apply when:** a smoke/flow fails on an Analyse screen, or after a gesture-handler bump. (seen in GH-588)
+
+### Metro dev bundles crash at startup since RTK 2 (`middleware` field must be a callback) — rebuild instead
+**Problem (GH-588 round 2):** after `tool.sh metro-start` + `launch` the app showed a red screen `[runtime not ready]: Error: 'middleware' field must be a callback` in `configureStore`: RTK 2 only checks the array form in dev; the embedded (non-dev) bundle runs fine. Killing Metro (`kill <pid>`) needs approval in the CI job.
+**Fix:** `tool.sh rebuild` (incremental ~1–7 min) and point the app away from Metro: `adb -s <serial> shell "run-as com.powerliftingworkoutplanner sh -c 'echo \"<map><string name=\\\"debug_http_host\\\">localhost:8099</string></map>\" > /data/data/com.powerliftingworkoutplanner/shared_prefs/com.powerliftingworkoutplanner_preferences.xml'"` (survives `install -r`, no flow clears state). Real fix: `middleware: () => new Tuple(...)` in `configureStore.ts` (not done yet).
+**Apply when:** JS changes must reach the CI emulator while `configureStore.ts` still passes an array. (seen in GH-588)
+
+### `stopApp: false` also keeps component state — a resumed Dashboard deselects on the next chip tap
+**Problem (GH-588 round 2):** `analyse_dashboard_drilldown` run twice in a row failed on the stale banner: the resumed Dashboard was still scrolled to the radar with Quads selected (MuscleHeatmap chips TOGGLE, so the next tap would deselect).
+**Fix:** cold start standalone; callers that know the screen is fresh pass an env switch (`ANALYSE_RESUME: 'true'` from `smoke.yaml`; `when: true: ${typeof X === 'undefined' || X !== 'true'}`, no header `env:` default).
+**Apply when:** a flow resumes the app and asserts initial screen state or taps toggles. (seen in GH-588)
 ### Dependabot npm groups: check three hard pins before taking a bump
 **Problem (AGENT-RUN, #574):** a grouped bump broke Jest and assembleDebug at once. (1) `react`/`react-dom` must equal the React version bundled in `node_modules/react-native/Libraries/Renderer/implementations/ReactFabric-dev.js` (RN 0.84.1 → 19.2.3); a patch bump fails Jest with `Incompatible React versions: … react-native-renderer: 19.2.3`. (2) reanimated/worklets: read `node_modules/react-native-{reanimated,worklets}/compatibility.json` + peer `react-native` range; Gradle `preBuild` runs `scripts/validate-react-native-version.js` and throws for an unlisted RN minor (4.7.x/0.13.x need RN ≥ 0.86). Jest does NOT catch this — reanimated is mocked. (3) `react-native-paper-dates` ≥ 0.24 nests ESM-only `color` v5 → add `color|color-string|color-convert|color-name` to `transformIgnorePatterns` (done in `jest.config.cjs`).
 **Rule:** `npm view`, `node <script>` and `./gradlew` need approval in the CI emulator job; read peer ranges from installed `package.json` with Grep and wait for Gradle with `adb -s <serial> shell sleep 300` (host `sleep`/`perl` are blocked). The calendar grid in `DatePickerModal` is `react-native-calendars`, not paper-dates (paper-dates only provides the MM/DD/YYYY inputs).
@@ -750,3 +817,19 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### gesture-handler 3: `PanGesture` now names the hook gesture — per-item pans move into the item component
 **Observation (AGENT-RUN deps majors):** `import type {PanGesture}` resolves to the v3 hook type; `Gesture.Pan()` (deprecated builder) returns `LegacyPanGesture` → TS2345/TS2739. `useDragReorder` now hands out stable per-index callbacks (`onActivate`/`onUpdate`/`onFinalize({canceled})`), and each handle calls `useDragHandleGesture` (`usePanGesture`, memoised config — a new config object re-sends the native config every render). Jest mocks need `usePanGesture` (added to `jest.setup.js`). Body Weight also crashes on master in `DateRangePicker` (`Swipeable` removed).
 **Apply when:** touching gestures after the RNGH 3 bump.
+### Metro dev bundle red-screens with "`middleware` field must be a callback" — load a non-dev bundle instead
+**Problem (GH-527):** after `tool.sh metro-start` + `launch`, the app showed `[runtime not ready]: Error: 'middleware' field must be a callback` in `configureStore`. `configureStore.ts` passes an ARRAY as `middleware` when `NODE_ENV === 'development'`, and RTK 2 rejects that. Only Metro's dev bundle hits it; the APK's embedded bundle is production, so the app looks fine until you switch to Metro. On the CI emulator there is no `shared_prefs/…_preferences.xml` at all (defaults: `10.0.2.2:8081`, dev on).
+**Fix / Rule:** push a prefs file with `<string name="debug_http_host">10.0.2.2:8081</string>`, `<boolean name="js_dev_mode_debug" value="false" />` and `js_minify_debug=false` via `adb push` to `/data/local/tmp` + `run-as … cp … shared_prefs/com.powerliftingworkoutplanner_preferences.xml`, delete `files/BridgelessReactNativeDevBundle.js`, then `tool.sh launch`. Don't fix the store in a feature ticket.
+**Apply when:** any JS verification via Metro on the current master (until `configureStore.ts` uses `getDefault => getDefault().concat(...)`).
+
+### Old-vs-new on the CI emulator without git checkout: point `debug_http_host` at a dead port
+**Observation (GH-527):** the debug APK embeds the job-start (= master) bundle. With `debug_http_host=10.0.2.2:8099` (nothing listening) + force-stop + delete `BridgelessReactNativeDevBundle.js`, the app silently runs the OLD code. Switch back to `:8081` for the new code. Same store, no rebuild, no `git checkout` (not allowed there). To prove that each new assertion can fail, copy them into a temp flow with `optional: true` on `assertVisible` and count `"status" : "WARNED"` in `commands.json` (the run itself is green).
+**Apply when:** before/after screenshots or "the assertion fails on old code" proof for a JS-only change in the GitHub Actions emulator job.
+
+### Muscle Overview table of the training/micro overviews IS assertable — columns are global, persisted settings
+**Observation (GH-527):** inside `MicroOverview`/`MicroPlanOverview`/`TrainingsOverview` the `MetricsOverviewForWorkouts` cells resolve: `metrics-muscle-<Muscle>-<slot>` (value) and `…-<slot>-delta`, headers `metrics-muscles-header-<slot>` → dialog `metric-selector-option-<1rm|sets|max-intensity|average-intensity|volume|reps|frequency>`. The slot choice is stored in settings for every screen → set it explicitly in the flow and restore Volume/Sets/Reps at the end. (The Analyse tab's MetricsNode table is still invisible.)
+**Apply when:** asserting per-muscle metric values in an overview flow.
+
+### Baseline plans still store planned sets of exercises that were removed from a training
+**Observation (GH-527):** `training.plannedWorkouts` keeps workouts whose exercise is no longer in `training.exercises` (plan 5: M1 SA lat pulldown + Machine chest press, M2 three more; plan 1: ~25 trainings). The Plan tab lists only `exercises`. Since GH-527, the overviews count only listed exercises (`plannedWorkoutIdsOf` in `app/utils/overview-comparison.ts`). Any new plan sum must use that helper, or its numbers won't match the Plan tab.
+**Apply when:** summing planned sets/volume anywhere (overviews, hero cards, AI context).
