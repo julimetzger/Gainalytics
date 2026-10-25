@@ -2,7 +2,7 @@ import {createSelector} from '@reduxjs/toolkit';
 import {useSelector} from 'react-redux';
 import {Workout} from '../../../models/entities/Workout';
 import {Exercise} from '../../../models/entities/Exercise';
-import {Muscles} from '../../../models/Muscles';
+import {BUILT_IN_MUSCLES, Muscles} from '../../../models/Muscles';
 import {NormalizedState} from '../../normalizedState';
 import {GlobalState} from '../../rootReducer';
 
@@ -81,8 +81,12 @@ export const findLastWorkoutDateForMuscle = (workouts: NormalizedState<Workout>,
   return findLastWorkoutDateForExercises(workouts, exerciseIds);
 };
 
-export const findLastWorkoutDateByMuscle = (workouts: NormalizedState<Workout>, exercises: NormalizedState<Exercise>): Map<Muscles, Date | undefined> =>
-  new Map(Object.values(Muscles).map((muscle) => [muscle, findLastWorkoutDateForMuscle(workouts, exercises, muscle)]));
+export const findLastWorkoutDateByMuscle = (workouts: NormalizedState<Workout>, exercises: NormalizedState<Exercise>): Map<Muscles, Date | undefined> => {
+  // GH-523: user-added muscles only exist on exercises, so collect them there too.
+  const exerciseMuscles = exercises.allIds.flatMap((id) => (exercises.byId[id]?.muscles ?? []).map((pair) => pair.muscle).filter((muscle): muscle is Muscles => !!muscle));
+  const muscles = new Set<Muscles>([...BUILT_IN_MUSCLES, ...exerciseMuscles]);
+  return new Map([...muscles].map((muscle) => [muscle, findLastWorkoutDateForMuscle(workouts, exercises, muscle)]));
+};
 
 /**
  * GH-458 round 2 (issue #461): "Nothing to chart yet" used to leave the user

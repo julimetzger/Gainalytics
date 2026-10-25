@@ -43,7 +43,7 @@ acceptanceCriteria:
 evidenceRequired:
   - Screenshot der Marker-Linie bei Playback-Start (Linie am linken Chart-Rand).
   - Screenshot der Marker-Linie bei Playback-Ende (Linie am rechten Chart-Rand).
-  - Deploy auf das echte Device R5CN30HWZFN.
+  - Deploy auf das echte Device <phone-serial>.
 constraints:
   - Keine neuen Dependencies.
   - Kein nativer Rebuild nötig — nur JS-Änderung.

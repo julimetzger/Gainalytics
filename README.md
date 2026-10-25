@@ -32,6 +32,9 @@ analysis, AI chat. Suggested location: docs/images/readme/.
 - **AI coach and chat (optional)**: ask questions about your training or get coach insights, with
   your own Anthropic API key or your ChatGPT account. Nothing is sent unless you configure it and
   ask.
+- **Health Connect (optional)**: write finished trainings to Android Health Connect as strength
+  sessions and read your body weight from it (e.g. from a scale app) for relative strength. Opt-in,
+  local only.
 - **Your data, your files**: export and import full backups (`.gains`), import from and export to
   the Strong app's CSV format.
 - **Theming**: light and dark mode, with a full Material 3 color scheme generated from one color you pick.
@@ -63,7 +66,7 @@ app/
   utils/                   pure logic: analytics, date helpers, import/export, AI clients
   theme/                   Material 3 theme generation
 android/app/src/main/
-  java/.../                native modules: video analysis (TFLite, MediaCodec, Media3 player), ChatGPT sign-in, file sharing
+  java/.../                native modules: video analysis (TFLite, MediaCodec, Media3 player), Health Connect, ChatGPT sign-in, file sharing
   cpp/                     native YUV-to-RGB conversion for the video pipeline
   assets/models/           TFLite plate-detection model
 __tests__/                 Jest tests and Maestro end-to-end flows

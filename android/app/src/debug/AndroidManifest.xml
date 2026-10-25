@@ -4,5 +4,19 @@
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
-    <application android:usesCleartextTraffic="true" tools:targetApi="28" tools:ignore="GoogleAppIndexingWarning" />
+    <!--
+      GH-528 debug builds only: lets HealthConnectTestDataActivity seed body weights for tests
+      (emulators have no scale app). Release builds never declare WRITE_WEIGHT.
+    -->
+    <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
+
+    <application android:usesCleartextTraffic="true" tools:targetApi="28" tools:ignore="GoogleAppIndexingWarning">
+        <!--
+          GH-528 test helper, started via adb (see __tests__/e2e/scripts/gh528-health-connect.sh).
+          Extras: weights (string "kg@daysAgo,…"), clear (boolean), dump (boolean).
+        -->
+        <activity
+            android:name=".healthconnect.HealthConnectTestDataActivity"
+            android:exported="true" />
+    </application>
 </manifest>

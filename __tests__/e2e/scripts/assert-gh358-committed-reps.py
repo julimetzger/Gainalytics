@@ -7,8 +7,8 @@ MMKV store and assert that the Deadlift set (weight 180, RIR 2) carries the
 expected reps value.
 
 Usage:
-    python3 assert-gh358-committed-reps.py --serial R5CN30HWZFN --expect 13
-    python3 assert-gh358-committed-reps.py --serial R5CN30HWZFN --expect 8
+    python3 assert-gh358-committed-reps.py --serial <phone-serial> --expect 13
+    python3 assert-gh358-committed-reps.py --serial <phone-serial> --expect 8
 
 Exits non-zero when the store does not contain exactly one matching set, so it
 also fails loudly if the flow edited the wrong row.

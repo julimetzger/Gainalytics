@@ -5,6 +5,7 @@ import {Icon, IconButton, useTheme} from 'react-native-paper';
 import {StyleProp, View, ViewStyle} from 'react-native';
 import {useAllTrainingsPlans} from '../../../redux/Training/use/useAllTrainingsPlans';
 import {Muscles} from '../../../models/Muscles';
+import {useAvailableMuscles} from '../../../redux/settings/use/useMuscles';
 import {Exercise} from '../../../models/entities/Exercise';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {Metric} from '../../../models/Metric';
@@ -31,6 +32,10 @@ const TrainingElementPicker = ({
   let allExercises = useAlleExercises();
   let trainingsPlan = useAllTrainingsPlans();
   let theme = useTheme();
+  // GH-523: the user's muscle list. Keyed by content for the same reason as the
+  // selection keys below — the dropdown data must only change when the list does.
+  const availableMuscles = useAvailableMuscles();
+  const availableMusclesKey = availableMuscles.join('\n');
 
   // Sync internal show state with external visible prop
   useEffect(() => {
@@ -89,8 +94,8 @@ const TrainingElementPicker = ({
         });
       });
     }
-    if (hasMuscle) {
-      Object.values(Muscles).forEach((value: string) => {
+    if (hasMuscle && availableMusclesKey) {
+      availableMusclesKey.split('\n').forEach((value: string) => {
         structure.push({
           label: value,
           value: value,
@@ -99,7 +104,7 @@ const TrainingElementPicker = ({
       });
     }
     return structure;
-  }, [allExercises, allAccumalations, setMetrics, hasMuscle]);
+  }, [allExercises, allAccumalations, setMetrics, hasMuscle, availableMusclesKey]);
 
   // Memoize selectedValues so its reference is stable when content hasn't changed.
   // The library's internal useEffect depends on the `value` prop reference — a new
@@ -197,7 +202,7 @@ const TrainingElementPicker = ({
     let allIds = allExercises.map((value: Exercise) => value.id?.toString());
     let exercises = value.filter((value: string) => allIds.includes(value));
     let find = exercises.map((value: string) => allExercises.find((exercise: Exercise) => exercise.id === parseInt(value))).filter((value: Exercise | undefined) => value !== undefined) as Exercise[];
-    let muscles = value.filter((value: string) => Object.values(Muscles).includes(value as Muscles)).map((value: string) => value as Muscles);
+    let muscles: Muscles[] = value.filter((value: string) => availableMuscles.includes(value));
     // let allExercisesByMuscle = allExercises.filter((ex: Exercise) => ex.muscles?.some(s => muscles.includes(s.muscle)))
     setMuscle ? setMuscle(muscles) : 0;
     setExercise([...find]);

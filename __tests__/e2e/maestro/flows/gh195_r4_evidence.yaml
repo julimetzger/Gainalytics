@@ -102,14 +102,14 @@ appId: com.powerliftingworkoutplanner
     point: "88%, 77%"
 
 # The Paper Menu that opens IS in a Portal → accessible to Maestro.
-- assertVisible: "Skip rest"
-- assertVisible: "Edit target…"
-- assertVisible: "Adjust default for this exercise"
+- assertVisible: "Skip Rest"
+- assertVisible: "(?-i)Edit Rest Target"
+- assertVisible: "(?-i)Adjust Default Rest"
 - takeScreenshot: r5_overflow_menu
 
 # Drop the target to 5 s so we can capture the overrun visual quickly.
-# "Edit target…" opens RestTargetEditDialog which is inside a Portal.
-- tapOn: "Edit target…"
+# "Edit Rest Target" opens RestTargetEditDialog which is inside a Portal.
+- tapOn: "(?-i)Edit Rest Target"
 - assertVisible:
     id: "rest-target-edit-dialog"
 - tapOn:

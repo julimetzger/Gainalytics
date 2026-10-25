@@ -115,6 +115,7 @@ including transitive dependencies, regenerate with `--gradle-report` (see the sc
 | `androidx.core:core-ktx` | 1.16.0 | `Apache-2.0` | Copyright The Android Open Source Project | react-native-gesture-handler, react-native-screens, react-native-worklets |
 | `androidx.datastore:datastore-preferences` | 1.1.1 | `Apache-2.0` | Copyright The Android Open Source Project | react-native-keychain |
 | `androidx.fragment:fragment-ktx` | 1.8.6 | `Apache-2.0` | Copyright The Android Open Source Project | react-native-keychain, react-native-screens |
+| `androidx.health.connect:connect-client` | 1.1.0 | `Apache-2.0` | Copyright The Android Open Source Project | app |
 | `androidx.legacy:legacy-support-v4` | 1.0.0 | `Apache-2.0` | Copyright The Android Open Source Project | react-native-keychain |
 | `androidx.lifecycle:lifecycle-process` | 2.3.1 | `Apache-2.0` | Copyright The Android Open Source Project | @notifee/react-native |
 | `androidx.lifecycle:lifecycle-viewmodel` | 2.3.1 | `Apache-2.0` | Copyright The Android Open Source Project | react-native-keychain |
@@ -141,9 +142,10 @@ including transitive dependencies, regenerate with `--gradle-report` (see the sc
 | `org.greenrobot:eventbus` | 3.3.1 | `Apache-2.0` | Copyright (C) 2012-2020 Markus Junginger, greenrobot | @notifee/react-native |
 | `org.jetbrains.kotlin:kotlin-stdlib` | resolved at build time | `Apache-2.0` | Copyright JetBrains s.r.o. and Kotlin Programming Language contributors | react-native-gesture-handler, react-native-keychain, react-native-safe-area-context |
 | `org.jetbrains.kotlin:kotlin-stdlib-jdk7` | resolved at build time | `Apache-2.0` | Copyright JetBrains s.r.o. and Kotlin Programming Language contributors | @shopify/flash-list |
-| `org.tensorflow:tensorflow-lite` | 2.16.1 | `Apache-2.0` | Copyright The TensorFlow Authors | app |
-| `org.tensorflow:tensorflow-lite-gpu` | 2.16.1 | `Apache-2.0` | Copyright The TensorFlow Authors | app |
-| `org.tensorflow:tensorflow-lite-gpu-api` | 2.16.1 | `Apache-2.0` | Copyright The TensorFlow Authors | app |
+| `org.jetbrains.kotlinx:kotlinx-coroutines-android` | 1.11.0 | `Apache-2.0` | Copyright JetBrains s.r.o. and Kotlin Programming Language contributors | app |
+| `org.tensorflow:tensorflow-lite` | 2.17.0 | `Apache-2.0` | Copyright The TensorFlow Authors | app |
+| `org.tensorflow:tensorflow-lite-gpu` | 2.17.0 | `Apache-2.0` | Copyright The TensorFlow Authors | app |
+| `org.tensorflow:tensorflow-lite-gpu-api` | 2.17.0 | `Apache-2.0` | Copyright The TensorFlow Authors | app |
 
 `LicenseRef-Android-SDK`: proprietary, [Android Software Development Kit License Agreement](https://developer.android.com/studio/terms).
 Not covered by the AGPL; see the section 7 additional permission in `LICENSE`.

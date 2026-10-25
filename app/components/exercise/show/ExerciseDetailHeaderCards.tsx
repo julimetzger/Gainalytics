@@ -2,7 +2,10 @@ import React from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Card, Icon, Text, useTheme} from 'react-native-paper';
 import {Exercise} from '../../../models/entities/Exercise';
-import {bestOneRm, oneRmIncreaseDelta} from './exerciseStats';
+import {bestOneRm, bestOneRmRecord, oneRmIncreaseDelta} from './exerciseStats';
+import {useWorkoutById} from '../../../redux/Workout/use/useWorkoutById';
+import {useRelativeStrength} from '../../../redux/HealthConnect/use/useRelativeStrength';
+import {formatRelativeStrength} from '../../../utils/healthConnect/bodyWeight';
 import {useExerciseWorkoutSummary} from '../../../redux/Workout/use/useExerciseWorkoutSummary';
 import {formatTimeAgo} from './formatTimeAgo';
 
@@ -15,6 +18,9 @@ const ExerciseDetailHeaderCards = ({exercise}: Props) => {
   const best = bestOneRm(exercise);
   const delta = oneRmIncreaseDelta(exercise);
   const summary = useExerciseWorkoutSummary(exercise.id);
+  // GH-528: relative strength with the body weight (Health Connect) at the time of the best 1RM.
+  const bestRecordWorkout = useWorkoutById(bestOneRmRecord(exercise)?.workoutId);
+  const relative = useRelativeStrength()(best, bestRecordWorkout?.start ?? bestRecordWorkout?.end);
 
   const oneRmText = best !== undefined ? `${best.toFixed(1)} kg` : '—';
   const lastDoneText = summary.lastWorkoutEnd ? formatTimeAgo(summary.lastWorkoutEnd) : '—';
@@ -30,6 +36,11 @@ const ExerciseDetailHeaderCards = ({exercise}: Props) => {
           <Text style={[styles.value, {color: theme.colors.onSurface}]} numberOfLines={1}>
             {oneRmText}
           </Text>
+          {relative !== undefined && (
+            <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant}} testID="header-card-one-rm-relative">
+              {formatRelativeStrength(relative)}
+            </Text>
+          )}
           {delta !== undefined && delta !== 0 && (
             <View style={styles.deltaRow} testID="header-card-one-rm-delta">
               <Icon

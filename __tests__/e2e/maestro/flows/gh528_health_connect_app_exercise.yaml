@@ -1,0 +1,22 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 evidence helper: opens Health Connect's own data screen for Exercise (Android 14+ system UI)
+# so the entry Gainalytics wrote can be inspected. Started with
+#   adb shell am start -a android.health.connect.action.HEALTH_HOME_SETTINGS
+- extendedWaitUntil:
+    visible: 'Data and access'
+    timeout: 20000
+- tapOn: 'Data and access'
+- extendedWaitUntil:
+    visible: 'Activity'
+    timeout: 20000
+- tapOn: 'Activity'
+- extendedWaitUntil:
+    visible: 'Exercise'
+    timeout: 20000
+- tapOn: 'Exercise'
+- extendedWaitUntil:
+    visible: 'See all entries'
+    timeout: 20000
+- tapOn: 'See all entries'
+- waitForAnimationToEnd

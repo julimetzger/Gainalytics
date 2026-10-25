@@ -1,0 +1,47 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 (T2 error case): writing is on, but the write permission was revoked in Health Connect:
+#   adb shell pm revoke com.powerliftingworkoutplanner android.permission.health.WRITE_EXERCISE
+# Finishing a training still works in Gainalytics; Settings shows the failed attempt and the missing permission.
+# Precondition: the slot "Next Training" points at is empty (e.g. after gh528_delete_training.yaml).
+- runFlow: gh528_start_planned_training.yaml
+- runFlow:
+    when:
+      visible:
+        id: 'add-workout-set-confirm-\d+'
+    commands:
+      - tapOn:
+          id: 'add-workout-set-confirm-\d+'
+          index: 0
+- waitForAnimationToEnd
+- tapOn:
+    id: 'header-overflow-button'
+- tapOn:
+    id: 'overflow-finish'
+- extendedWaitUntil:
+    visible:
+      id: 'analysis-tab'
+    timeout: 20000
+- takeScreenshot: gh528_fail_01_after_finish
+# The training is finished in Gainalytics regardless of Health Connect.
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'last-training-card-pressable'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'last-training-card-pressable'
+    text: '.*Push squat.*today.*'
+- runFlow: gh528_open_health_connect_settings.yaml
+- assertVisible:
+    id: 'health-connect-permissions'
+    text: 'Allowed: Read trainings, Read body weight'
+- assertVisible:
+    id: 'health-connect-last-sync'
+    text: 'Last attempt failed .*: Gainalytics may no longer write trainings to Health Connect.*'
+- takeScreenshot: gh528_fail_02_settings

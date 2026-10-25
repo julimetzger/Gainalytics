@@ -8,6 +8,7 @@ import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {determineNewWorkoutId} from '../normalizedWorkoutState';
 import {removeDanglingExerciseReferences} from './removeDanglingExerciseReferences';
 import {normalizeExerciseName} from '../../utils/program-templates';
+import {initialBodyWeightState} from '../BodyWeight/bodyWeightReducer';
 import {buildStrongImport} from '../../utils/strongCsv/strongImport';
 
 const sanitizeTrainingWorkoutReferences = (fullImportedState: GlobalState): GlobalState => {
@@ -50,6 +51,10 @@ const fullStateReducer = (state: GlobalState, action: AnyAction) => {
         ...action.state,
         videoAnalyses: action.state.videoAnalyses ?? state.videoAnalyses,
         aiChat: action.state.aiChat ?? state.aiChat,
+        // GH-528: Health Connect state is device-local and never part of a backup.
+        healthConnect: state.healthConnect,
+        // GH-546: a backup from before the body weight existed must not leave the slice undefined.
+        bodyWeight: action.state.bodyWeight ?? initialBodyWeightState,
         // GH-497: a backup from before the onboarding existed must not bring it back.
         settings:
           action.state.settings && state.settings?.onboardingCompleted

@@ -68,7 +68,14 @@ def enableProguardInReleaseBuilds = false
  * this variant is about 6MiB larger per architecture than default.
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android-intl:2026004.+'
+// Release signing. Only ANDROID_RELEASE_PASSWORD is required; the other variables let CI
+// (.github/workflows/release.yml) point at a keystore decoded from a secret. Without them the
+// defaults match the local setup used by releaseNewAndroidVersion.sh/.ps1, so the same key keeps
+// signing every release (Zapstore pins the certificate). See docs/release.md.
 def androidReleasePassword = System.getenv("ANDROID_RELEASE_PASSWORD")
+def androidReleaseStoreFile = System.getenv("ANDROID_RELEASE_STORE_FILE") ?: 'your_key_name.keystore'
+def androidReleaseKeyAlias = System.getenv("ANDROID_RELEASE_KEY_ALIAS") ?: 'your_key_alias'
+def androidReleaseKeyPassword = System.getenv("ANDROID_RELEASE_KEY_PASSWORD") ?: androidReleasePassword
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -93,10 +100,10 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file('your_key_name.keystore')
+            storeFile file(androidReleaseStoreFile)
             storePassword androidReleasePassword
-            keyAlias 'your_key_alias'
-            keyPassword androidReleasePassword
+            keyAlias androidReleaseKeyAlias
+            keyPassword androidReleaseKeyPassword
         }
     }
     buildTypes {
@@ -134,9 +141,12 @@ dependencies {
     implementation("com.facebook.react:react-android")
     implementation("androidx.media3:media3-exoplayer:1.2.1")
     implementation("androidx.media3:media3-ui:1.2.1")
-    implementation("org.tensorflow:tensorflow-lite:2.16.1")
-    implementation("org.tensorflow:tensorflow-lite-gpu:2.16.1")
-    implementation("org.tensorflow:tensorflow-lite-gpu-api:2.16.1")
+    implementation("org.tensorflow:tensorflow-lite:2.17.0")
+    implementation("org.tensorflow:tensorflow-lite-gpu:2.17.0")
+    implementation("org.tensorflow:tensorflow-lite-gpu-api:2.17.0")
+    // GH-528 Health Connect (stable client, needs minSdk 26).
+    implementation("androidx.health.connect:connect-client:1.1.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test:runner:1.5.2")

@@ -23,7 +23,7 @@ audit, per the ticket scope.
 
 ## Status legend (post-GH-225 expectation)
 
-- ✅ PASS — verified PASS in r7 (GH-225) on R5CN30HWZFN, OR PASS in r6 with no
+- ✅ PASS — verified PASS in r7 (GH-225) on <phone-serial>, OR PASS in r6 with no
   changes since.
 - 🔄 N/A — flow targets unmerged feature work (gating PR not yet on master).
 - 📦 DATA-DEP — fails on baseline; needs a richer test data fixture or a

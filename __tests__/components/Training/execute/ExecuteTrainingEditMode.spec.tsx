@@ -29,7 +29,7 @@ jest.mock('../../../../app/components/Training/execute/RestTimerCard', () => {
 
 jest.mock('../../../../app/components/picker/date/DatePicker', () => {
   const {View: V} = require('react-native');
-  return () => <V />;
+  return () => <V testID="date-picker-mock" />;
 });
 
 jest.mock('../../../../app/components/exercise/show/ExerciseHistory', () => {
@@ -208,6 +208,31 @@ describe('ExecuteTraining – editMode (GH-323 regression)', () => {
     );
 
     expect(queryByTestId('rest-timer-card-mock')).toBeNull();
+  });
+
+  it('hides the duplicate date picker when editMode=true on a FINISHED training (GH-542)', () => {
+    const {queryByTestId} = render(
+      <ExecuteTraining
+        training={FINISHED_TRAINING as any}
+        chosenExercise={EXERCISE as any}
+        onSubmit={jest.fn()}
+        editMode={true}
+      />,
+    );
+
+    expect(queryByTestId('date-picker-mock')).toBeNull();
+  });
+
+  it('keeps the date picker for a FINISHED training outside edit mode (GH-542)', () => {
+    const {queryByTestId} = render(
+      <ExecuteTraining
+        training={FINISHED_TRAINING as any}
+        chosenExercise={EXERCISE as any}
+        onSubmit={jest.fn()}
+      />,
+    );
+
+    expect(queryByTestId('date-picker-mock')).not.toBeNull();
   });
 
   it('keeps the RestTimerCard visible when editMode is false (normal mode unchanged)', () => {
