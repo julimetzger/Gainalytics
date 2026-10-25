@@ -18,11 +18,25 @@ OUT="$(dirname "${TASK}")/issue-images"
 PREFIX="$(echo "${LABEL}" | tr '[:upper:]' '[:lower:]')"
 mkdir -p "${OUT}"
 
+# Only text written by people with write access (and the Codex review bot) reaches the agent: in a
+# public repo anyone can comment, and a comment is a prompt-injection vector into a run that holds
+# the Claude token. Untrusted bodies/comments are left out (counted in the log, never forwarded).
+# Trust is the author's real repository permission (trusted-logins.sh), not author_association.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+logins="$( { gh api "repos/${REPO}/issues/${ISSUE}" --jq '.user.login // empty'
+             gh api --paginate "repos/${REPO}/issues/${ISSUE}/comments" --jq '.[].user.login // empty'; } )"
+TRUSTED_LOGINS="$(printf '%s\n' "${logins}" | "${HERE}/trusted-logins.sh")"
+TRUSTED="((.user.login // \"\") as \$l | ${TRUSTED_LOGINS} | index(\$l) != null)"
+
 # LABEL is "Issue" or "PR" (set by the workflow), so it can go into the jq string as is.
-gh api "repos/${REPO}/issues/${ISSUE}" --jq '"## '"${LABEL}"' #\(.number): \(.title)\n\n\(.body // "")"' >> "${TASK}"
+gh api "repos/${REPO}/issues/${ISSUE}" --jq "if (${TRUSTED}) then
+    \"## ${LABEL} #\\(.number): \\(.title)\\n\\n\\(.body // \"\")\"
+  else
+    \"## ${LABEL} #\\(.number)\\n\\n(Title and description omitted: written by \\(.user.login), who has no write access to this repository.)\"
+  end" >> "${TASK}"
 
 comments="$(gh api --paginate "repos/${REPO}/issues/${ISSUE}/comments" \
-  --jq '.[] | select((.body // "") | contains("codex-pull-request-review-summary") | not)
+  --jq ".[] | select(${TRUSTED})"' | select((.body // "") | contains("codex-pull-request-review-summary") | not)
          | select(.user.login != "github-actions[bot]")
          | "### Comment by \(.user.login) (\(.created_at[:10]))\n\n\(.body)\n"')"
 if [[ -n "${comments}" ]]; then
@@ -30,9 +44,13 @@ if [[ -n "${comments}" ]]; then
 fi
 
 # Signed image URLs from the rendered HTML of the body and the human comments.
-html="$(gh api -H "Accept: application/vnd.github.html+json" "repos/${REPO}/issues/${ISSUE}" --jq '.body_html // ""')"
+html="$(gh api -H "Accept: application/vnd.github.html+json" "repos/${REPO}/issues/${ISSUE}" \
+  --jq "if (${TRUSTED}) then (.body_html // \"\") else \"\" end")"
 html+="$(gh api --paginate -H "Accept: application/vnd.github.html+json" "repos/${REPO}/issues/${ISSUE}/comments" \
-  --jq '.[] | .body_html // ""')"
+  --jq ".[] | select(${TRUSTED}) | .body_html // \"\"")"
+skipped="$(gh api --paginate "repos/${REPO}/issues/${ISSUE}/comments" --jq "[.[] | select((${TRUSTED}) | not)] | length" \
+  | awk '{s+=$1} END {print s+0}')"
+[[ "${skipped}" == "0" ]] || echo "::notice title=untrusted comments::${skipped} comment(s) on ${LABEL} #${ISSUE} from users without write access were not passed to the agent"
 mapfile -t urls < <(printf '%s' "${html}" | grep -oE '<img[^>]+src="[^"]+"' | sed -E 's/.*src="([^"]+)"/\1/' \
   | sed 's/&amp;/\&/g' | grep -E '^https://(private-user-images\.githubusercontent\.com|github\.com/user-attachments|user-images\.githubusercontent\.com)/' || true)
 
