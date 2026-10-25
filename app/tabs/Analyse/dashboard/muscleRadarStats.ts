@@ -42,7 +42,7 @@ export interface MuscleRadarStats {
 // without one the last-week value is 0.
 const lastWeekValue = (comparison: Comparison | undefined): number => {
   if (!comparison || comparison.difference === undefined) return 0;
-  return Math.max(0, comparison.value - comparison.difference);
+  return Math.max(0, (comparison.value ?? 0) - comparison.difference);
 };
 
 /**

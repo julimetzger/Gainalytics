@@ -118,6 +118,25 @@ const numericKpi = (
   return {key, title, value: format(value), reference: format(reference), delta, sign};
 };
 
+/**
+ * GH-527 (H5) — the planned workouts every overview and analysis compares. A plan
+ * keeps the sets of an exercise that was later removed from the training; they stay
+ * stored, but no longer count: the Plan tab only lists the training's exercises, so
+ * the muscle map, the Muscle Overview and the Sets KPI must not plan more than that.
+ * A legacy training without an exercise list keeps all of its planned workouts.
+ */
+export const plannedWorkoutIdsOf = (trainings: (Training | undefined)[]): number[] =>
+  trainings.flatMap((training) => {
+    if (!training?.plannedWorkouts) return [];
+    const listed = Array.isArray(training.exercises) ? new Set(training.exercises.map(Number)) : undefined;
+    return Object.entries(training.plannedWorkouts)
+      .filter(([exerciseId]) => listed === undefined || listed.has(Number(exerciseId)))
+      .map(([, workoutId]) => workoutId);
+  });
+
+export const doneWorkoutIdsOf = (trainings: (Training | undefined)[]): number[] =>
+  trainings.flatMap((training) => (training?.doneWorkoutIds ? (Object.values(training.doneWorkoutIds) as number[]) : []));
+
 export const setsOf = (workouts: Workout[]) => calculateMetricValue(workouts.flatMap((workout) => workout.sets ?? []), Metric.SETS) ?? 0;
 export const volumeOf = (workouts: Workout[]) => calculateMetricValue(workouts.flatMap((workout) => workout.sets ?? []), Metric.VOLUME) ?? 0;
 
