@@ -1,0 +1,260 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F5 — Training analysis & edit · T5.1 training_analysis_compare
+#
+# Purpose: the Analysis sub-tab of a FINISHED training (Micro 2 · "Push squat" of
+# plan "Push pull") opens without a crash (GH-117/GH-119 regression) and its GH-526
+# compare chips deliver the right values:
+#   - Train · "vs Plan":  sets 17 / 14, +3 (+21%), no Duration card, Chest 4/3, Core 2.9/0.6
+#   - Train · "vs last Push squat": line names Micro 1 · Sun 18/01/2026, Duration
+#     2h 18min (−51min), Diff Core +2.3 / Quads ±0, Chest detail Done M2 4 / Done M1 3
+#   - the pane scrolls down to the Metrics section and back (GH-414)
+#   - Train · "vs Micro": 29% of Micro 2 plan, Share Chest 69%
+#   - Plan position: no "vs Plan"/train chips, 24% of Micro 2 plan, vs last: 14 / 1
+#   - Micro 3 · Push squat "vs Plan": Core 0.9/2.9 is tinted as under the reference
+#     (`-value-bar-under`), Chest 4/4 is not, Sets bars are split into segments
+#
+# Data basis: baseline import (fixtures/baseline.gains), READ-ONLY — assumes the
+# baseline is already imported. Only taps compare chips / toggles (persisted view
+# preferences), every chip is tapped explicitly before its values are asserted.
+#
+# Merged from: gh526_train_vs_plan, gh526_train_vs_last_diff, gh526_train_vs_micro_share,
+# gh526_plan_position, gh526_under_threshold (train part), gh526_suite,
+# GH-117_no_crash_smoke, gh119_training_overview_no_crash, gh414_analysis_scroll,
+# gh367_live_analysis (dropped, see report: needs a STARTED training + coordinate taps).
+
+# --- precondition: baseline imported, "Push pull" is the current plan ---------
+- launchApp:
+    clearState: false
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+
+# --- open Micro 2 · Push squat (FINISHED) on Analysis · Train --------------------
+# GH-117/119: a FINISHED training opens on Analysis and TrainingsOverview renders
+# to completion (the helper waits for `trainings-overview`).
+- runFlow: goto_micro2_push.yaml
+- assertVisible:
+    id: 'analysis-tab'
+- assertVisible:
+    id: 'trainings-overview-sets'
+
+# --- Train · vs Plan -------------------------------------------------------------
+- tapOn:
+    id: 'analysis-compare-this_training_plan'
+- assertVisible:
+    id: 'analysis-comparison-line'
+    text: 'Done vs plan of this training'
+- copyTextFrom:
+    id: 'trainings-overview-sets-value'
+- assertTrue: "${maestro.copiedText === '17'}"
+- assertVisible:
+    id: 'trainings-overview-sets-reference'
+    text: ' / 14'
+- assertVisible:
+    id: 'trainings-overview-sets-delta'
+    text: '\+3 \(\+21%\)'
+# no planned duration exists — the Duration card only appears for "vs last"
+- assertNotVisible:
+    id: 'trainings-overview-duration'
+- scrollUntilVisible:
+    element:
+      id: 'analysis-muscle-map-row-Chest-readout'
+    direction: DOWN
+- tapOn:
+    id: 'analysis-muscle-map-view-total'
+- tapOn:
+    id: 'analysis-muscle-map-metric-sets'
+- copyTextFrom:
+    id: 'analysis-muscle-map-row-Chest-readout'
+- assertTrue: "${maestro.copiedText === '4/3'}"
+- copyTextFrom:
+    id: 'analysis-muscle-map-row-Core-readout'
+- assertTrue: "${maestro.copiedText === '2.9/0.6'}"
+
+# --- Train · vs last Push squat (Micro 1) -----------------------------------------
+- scrollUntilVisible:
+    element:
+      id: 'analysis-compare-last_training_done'
+    direction: UP
+- tapOn:
+    id: 'analysis-compare-last_training_done'
+- assertVisible:
+    id: 'analysis-comparison-line'
+    text: 'Done vs Micro 1 · Push squat \(done\) · Sun 18/01/2026'
+- assertVisible:
+    id: 'trainings-overview-duration-value'
+    text: '2h 18min'
+- assertVisible:
+    id: 'trainings-overview-duration-delta'
+    text: '−51min'
+- assertVisible:
+    id: 'trainings-overview-sets-delta'
+    text: '\+3 \(\+21%\)'
+- tapOn:
+    id: 'analysis-muscle-map-view-diff'
+- scrollUntilVisible:
+    element:
+      id: 'analysis-muscle-map-row-Core-readout'
+    direction: DOWN
+- copyTextFrom:
+    id: 'analysis-muscle-map-row-Core-readout'
+- assertTrue: "${maestro.copiedText === '+2.3'}"
+- copyTextFrom:
+    id: 'analysis-muscle-map-row-Quads-readout'
+- assertTrue: "${maestro.copiedText === '±0'}"
+- tapOn:
+    id: '^analysis-muscle-map-row-Chest$'
+- assertVisible:
+    id: 'analysis-muscle-map-row-Chest-detail'
+- assertVisible: 'Plan M1'
+- assertVisible: 'Done M2'
+# detail cells: [Plan M1, Plan M2, Done M1, Done M2]
+- copyTextFrom:
+    id: 'analysis-muscle-map-row-Chest-detail-3'
+- assertTrue: "${maestro.copiedText === '4'}"
+- copyTextFrom:
+    id: 'analysis-muscle-map-row-Chest-detail-2'
+- assertTrue: "${maestro.copiedText === '3'}"
+
+# --- GH-414: the pane scrolls to its last section and back ------------------------
+- scrollUntilVisible:
+    element:
+      id: 'analysis-section-metrics-header'
+    direction: DOWN
+    timeout: 40000
+- waitForAnimationToEnd
+# (no assertNotVisible on the duration here: on a tall screen the pane is too
+# short to scroll it out of view)
+- scrollUntilVisible:
+    element:
+      id: 'trainings-overview-duration-value'
+    direction: UP
+    timeout: 40000
+- assertVisible:
+    id: 'trainings-overview-duration-value'
+    text: '2h 18min'
+
+# --- Train · vs Micro (share of the micro's plan) ---------------------------------
+- scrollUntilVisible:
+    element:
+      id: 'analysis-compare-current_total_plan'
+    direction: UP
+- tapOn:
+    id: 'analysis-compare-current_total_plan'
+- assertVisible:
+    id: 'analysis-comparison-line'
+    text: 'Done vs plan of all trainings in Micro 2'
+- assertVisible:
+    id: 'trainings-overview-sets-delta'
+    text: '29% of Micro 2 plan'
+- assertNotVisible:
+    id: 'trainings-overview-duration'
+# "vs Micro" turns the muscle map's Diff segment into Share
+- assertVisible: 'Share'
+- tapOn:
+    id: 'analysis-muscle-map-view-diff'
+- scrollUntilVisible:
+    element:
+      id: 'analysis-muscle-map-row-Chest-readout'
+    direction: DOWN
+- copyTextFrom:
+    id: 'analysis-muscle-map-row-Chest-readout'
+- assertTrue: "${maestro.copiedText === '69%'}"
+
+# --- Plan position: only "vs last Push squat" and "vs Micro" ----------------------
+- scrollUntilVisible:
+    element:
+      id: 'analysis-data-plan'
+    direction: UP
+- tapOn:
+    id: 'analysis-data-plan'
+- extendedWaitUntil:
+    visible:
+      id: 'training-plan-overview'
+    timeout: 30000
+- assertNotVisible:
+    id: 'analysis-compare-this_training_plan'
+- assertNotVisible:
+    id: 'analysis-compare-last_training_done'
+- tapOn:
+    id: 'analysis-compare-current_total_plan'
+- assertVisible:
+    id: 'analysis-comparison-line'
+    text: 'Plan vs plan of all trainings in Micro 2'
+- assertVisible:
+    id: 'training-plan-overview-sets-delta'
+    text: '24% of Micro 2 plan'
+- tapOn:
+    id: 'analysis-compare-last_training_plan'
+- assertVisible:
+    id: 'analysis-comparison-line'
+    text: 'Plan vs Micro 1 · Push squat \(plan\)'
+- copyTextFrom:
+    id: 'training-plan-overview-sets-value'
+- assertTrue: "${maestro.copiedText === '14'}"
+- assertVisible:
+    id: 'training-plan-overview-sets-reference'
+    text: ' / 1'
+
+# --- Micro 3 · Push squat: under-threshold tint (GH-526 feedback) -----------------
+- scrollUntilVisible:
+    element:
+      id: 'drawer-menu-button'
+    direction: UP
+- tapOn:
+    id: 'drawer-menu-button'
+- extendedWaitUntil:
+    visible: 'Mesos:'
+    timeout: 20000
+- tapOn: 'Micro 3'
+- tapOn:
+    id: 'drawer-menu-button'
+- extendedWaitUntil:
+    visible:
+      id: 'analysis-data-toggle'
+    timeout: 30000
+- assertVisible: 'Micro 3'
+- assertVisible: ' Push squat'
+- tapOn:
+    id: 'analysis-data-train'
+- extendedWaitUntil:
+    visible:
+      id: 'trainings-overview'
+    timeout: 30000
+- tapOn:
+    id: 'analysis-compare-this_training_plan'
+- assertVisible:
+    id: 'analysis-comparison-line'
+    text: 'Done vs plan of this training'
+- scrollUntilVisible:
+    element:
+      id: 'analysis-muscle-map-metric-sets'
+    direction: DOWN
+- tapOn:
+    id: 'analysis-muscle-map-metric-sets'
+- tapOn:
+    id: 'analysis-muscle-map-view-total'
+- scrollUntilVisible:
+    element:
+      id: 'analysis-muscle-map-row-Core-readout'
+    direction: DOWN
+- copyTextFrom:
+    id: 'analysis-muscle-map-row-Core-readout'
+- assertTrue: "${maestro.copiedText === '0.9/2.9'}"
+- assertVisible:
+    id: '^analysis-muscle-map-row-Core-value-bar-under$'
+- copyTextFrom:
+    id: 'analysis-muscle-map-row-Chest-readout'
+- assertTrue: "${maestro.copiedText === '4/4'}"
+- assertVisible:
+    id: '^analysis-muscle-map-row-Chest-value-bar$'
+- assertNotVisible:
+    id: '^analysis-muscle-map-row-Chest-value-bar-under$'
+- assertVisible:
+    id: '^analysis-muscle-map-row-Chest-set-segments$'

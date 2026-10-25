@@ -128,7 +128,9 @@ Ohne das Behalten des eben verlassenen Micros wäre der Speicher niedriger, daf�
 
 ### 3.5 Verhalten nach dem Umbau – Maestro-Flow mit Screenshots
 
-`__tests__/e2e/maestro/flows/perf003_micro_swipe.yaml` – **rein lesend** (kein `clearState`, kein Import): Training Home → „Next Training“ → auf Micro 4 zurückwischen → je Reiter (Analysis, Train, Plan):
+> Historisch: Der Flow `perf003_micro_swipe.yaml` wurde mit GH-584 ohne Ersatz gelöscht (Perf-Evidence). Dass ein Micro-Swipe den Reiter beibehält, prüft heute `__tests__/e2e/maestro/flows/micro_overview_compare.yaml`.
+
+`perf003_micro_swipe.yaml` (gelöscht) – **rein lesend** (kein `clearState`, kein Import): Training Home → „Next Training“ → auf Micro 4 zurückwischen → je Reiter (Analysis, Train, Plan):
 Micro 4 → wischen → **Micro 3** → wischen → **Micro 4** zurück. Nach jedem Wisch wird der Inhalt des angekommenen Micros **über Werte** geprüft
 (Analysis: `Total Sets: 15 (done)` / `16 (done)`; Train: Datum `16/02/26` / `02/02/26`; Plan: Beinbeuger `95, kg` / `90, kg`) und mit `assertNotVisible` gegen den Wert des anderen Micros abgesichert.
 Der Flow lief **vor und nach dem Umbau** grün (`checks/maestro-swipe-before.log`, `checks/maestro-swipe-after.log`), je 16 Screenshots (`screenshots/maestro-before/`, `screenshots/maestro-after/`).

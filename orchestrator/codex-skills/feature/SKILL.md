@@ -251,30 +251,29 @@ formatted values), verify the content:
     text: "03/15/2026 to"   # start date is known; today is dynamic
 ```
 
-For dynamic values (e.g. today's date) use `evalScript` to compute the expected string
-and then assert against it:
+For dynamic values (e.g. today's date) compute the expected string with a single-line,
+quoted `evalScript` and compare it with `assertTrue` (the block form `evalScript: |` is a
+no-op on Maestro 2.0.9-ports and can never fail — see `docs/memory/agent/maestro-flows.md`):
 
 ```yaml
-- evalScript: |
-    var today = new Date();
-    var mm = String(today.getMonth() + 1).padStart(2, '0');
-    var dd = String(today.getDate()).padStart(2, '0');
-    var yyyy = today.getFullYear();
-    output.todayStr = mm + '/' + dd + '/' + yyyy;
-- assertVisible:
-    text: "03/15/2026 to ${todayStr}"
+- evalScript: "${var t = new Date(); output.todayStr = String(t.getMonth() + 1).padStart(2, '0') + '/' + String(t.getDate()).padStart(2, '0') + '/' + t.getFullYear()}"
+- copyTextFrom:
+    id: "button-text"
+- assertTrue: "${maestro.copiedText === '03/15/2026 to ' + output.todayStr}"
 ```
 
 For numeric state (counters, record counts, list lengths), read the value with
-`copyTextFrom` and assert it with `assertTrue`:
+`copyTextFrom` and assert it with a quoted inline `assertTrue`:
 
 ```yaml
 - copyTextFrom:
     id: "record-count-label"
-- evalScript: |
-    output.valid = output.value === "3 Records";
-- assertTrue: ${valid}
+- assertTrue: "${maestro.copiedText === '3 Records'}"
 ```
+
+**Extend, don't add:** `__tests__/e2e/maestro/FLOW_AUDIT.md` lists the target flows per
+feature (and the shared helpers). Extend the target flow of the affected feature with your
+ticket's assertions instead of adding a new per-ticket flow (`ghNNN_*.yaml`).
 
 **Do not accept a Maestro flow as passing evidence unless it contains at least one
 assertion on the actual resulting value of the changed UI element.**

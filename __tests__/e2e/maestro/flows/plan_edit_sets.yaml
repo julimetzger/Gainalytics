@@ -1,0 +1,244 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F3 Training planning — T3.2 plan_edit_sets
+#
+# Purpose: full plan edit ("Edit plan") of a PLANNED training.
+#   - "Edit plan" opens the edit mode: EDITING PLAN kicker + Done (GH-418).
+#   - "Add Set" prefills the new set with the previous set's reps/RIR/weight and
+#     Done commits it (GH-406).
+#   - A weight is changed 100 -> 105 (GH-418).
+#   - RIR accepts decimals with a comma ("2,5" -> 2.5) and rejects 10.5 with a
+#     message that allows decimals (GH-466).
+#   - A tap on a read-view value opens the editor with exactly that field
+#     focused; typing replaces it (1.5) (GH-418, GH-466).
+#   - ONE tap on the "+" tile opens the exercise list directly, and its search
+#     filters and refills the list (GH-403, GH-401 AC4).
+#
+# Data basis: baseline import (mutates the plan of training 282) -> starts with
+# 00_import_baseline.yaml. Plan 1 "Push pull upper lower", micro 69 "Push"
+# (training 282, PLANNED, 11 exercises). First exercise Adductor (id 32) is
+# planned with set 1 = 13 x 100 kg @ RIR 0 and set 2 = 12 x 100 kg @ RIR 0.
+# Plan set ids (`plan-set-N-*`) repeat in every exercise section, so every set
+# selector is scoped with `childOf` the Adductor section.
+#
+# Merged from: gh418_edit_mode (base), gh466_plan_fractional_rir,
+#   gh403_picker_opens_directly, gh401_picker_keeps_list, gh406_add_set_carryover.
+#   Dropped: gh418 long-press-does-nothing check (negative-only); committing a
+#   pick in the sharingan picker (Maestro row taps do not commit reliably,
+#   agent memory "Exercise picker sharingan dropdown"; covered by
+#   TrainingElementPickerList.spec.tsx) — so "list kept AFTER a pick" is not
+#   asserted here, only "opens directly + search filters/refills".
+
+- runFlow: 00_import_baseline.yaml
+- runFlow:
+    file: goto_micro69_push.yaml
+    env:
+      MODE: edit
+
+# PRECONDITION: micro 69 "Push", full edit open, Adductor with its planned sets.
+- assertVisible: 'Micro 69'
+- assertVisible: ' Push'
+- assertVisible:
+    id: 'header-plan-editing-kicker'
+    text: 'EDITING PLAN'
+- assertVisible:
+    id: 'header-plan-done-button'
+- assertNotVisible:
+    id: 'header-plan-label'
+- extendedWaitUntil:
+    visible:
+      id: 'plan-edit-exercise-section-32'
+    timeout: 15000
+- assertVisible:
+    id: '^plan-set-1-reps-input$'
+    childOf:
+      id: 'plan-edit-exercise-section-32'
+    text: '13'
+- assertVisible:
+    id: '^plan-set-2-weight-input$'
+    childOf:
+      id: 'plan-edit-exercise-section-32'
+    text: '100'
+- assertNotVisible:
+    id: 'plan-pending-set-reps-input'
+
+# ===== Add Set copies the previous set (GH-406) =====
+- tapOn:
+    id: 'plan-add-set-button-32'
+- extendedWaitUntil:
+    visible:
+      id: '^plan-pending-set-reps-input$'
+    timeout: 10000
+- assertVisible:
+    id: '^plan-pending-set-reps-input$'
+    text: '12'
+- assertVisible:
+    id: '^plan-pending-set-rir-input$'
+    text: '0'
+- assertVisible:
+    id: '^plan-pending-set-weight-input$'
+    text: '100'
+
+# ===== weight 100 -> 105 on set 2 (GH-418) =====
+- tapOn:
+    id: '^plan-set-2-weight-input$'
+    childOf:
+      id: 'plan-edit-exercise-section-32'
+- eraseText: 6
+- inputText: '105'
+- assertVisible:
+    id: '^plan-set-2-weight-input$'
+    childOf:
+      id: 'plan-edit-exercise-section-32'
+    text: '105'
+
+# ===== fractional RIR on set 1 (GH-466) =====
+- tapOn:
+    id: '^plan-set-1-rir-input$'
+    childOf:
+      id: 'plan-edit-exercise-section-32'
+- eraseText: 4
+- inputText: '10.5'
+- assertVisible:
+    id: 'plan-set-1-value-error'
+    text: 'RIR must be a number from 0 to 10 \(decimals like 1\.5 are allowed\)\.'
+- eraseText: 6
+- inputText: '2,5'
+- assertNotVisible:
+    id: 'plan-set-1-value-error'
+- assertVisible:
+    id: '^plan-set-1-rir-input$'
+    childOf:
+      id: 'plan-edit-exercise-section-32'
+    text: '2[,.]5'
+
+# Done saves everything (edited rows + the valid pending set 3).
+- tapOn:
+    id: 'header-plan-done-button'
+- extendedWaitUntil:
+    visible:
+      id: 'plan-read-exercise-section-32'
+    timeout: 15000
+- assertNotVisible:
+    id: 'header-plan-editing-kicker'
+- assertVisible:
+    id: 'header-plan-label'
+    text: 'Planned'
+- assertVisible:
+    id: '^plan-set-2-weight-cell$'
+    childOf:
+      id: 'plan-read-exercise-section-32'
+    text: '.*105.*'
+- assertVisible:
+    id: '^plan-set-1-rir-cell$'
+    childOf:
+      id: 'plan-read-exercise-section-32'
+    text: '.*2\.5.*'
+- assertVisible:
+    id: '^plan-set-3-reps-cell$'
+    childOf:
+      id: 'plan-read-exercise-section-32'
+    text: '.*12.*'
+- assertVisible:
+    id: '^plan-set-3-weight-cell$'
+    childOf:
+      id: 'plan-read-exercise-section-32'
+    text: '.*100.*'
+
+# ===== a tapped value opens the editor on that field (GH-418) =====
+- tapOn:
+    id: '^plan-set-1-rir-cell$'
+    childOf:
+      id: 'plan-read-exercise-section-32'
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-editing-kicker'
+    timeout: 10000
+- assertVisible:
+    id: '^plan-set-1-rir-input$'
+    childOf:
+      id: 'plan-edit-exercise-section-32'
+    focused: true
+# The value is selected, so typing replaces it.
+- inputText: '1.5'
+- assertVisible:
+    id: '^plan-set-1-rir-input$'
+    childOf:
+      id: 'plan-edit-exercise-section-32'
+    text: '1\.5'
+- assertNotVisible:
+    id: 'plan-set-1-value-error'
+- tapOn:
+    id: 'header-plan-done-button'
+- extendedWaitUntil:
+    visible:
+      id: 'plan-read-exercise-section-32'
+    timeout: 15000
+- assertVisible:
+    id: '^plan-set-1-rir-cell$'
+    childOf:
+      id: 'plan-read-exercise-section-32'
+    text: '.*1\.5.*'
+
+# ===== ONE tap on "+" opens the exercise list (GH-403 / GH-401) =====
+# The "+" tile is the LAST cell of the horizontal exercise strip (11 chips
+# before it). Neither the strip nor the tile can be scrolled to by selector
+# (scrollUntilVisible only scrolls vertically), so the strip is swiped by
+# position — the y of the strip (20 %) is the one gh403/gh486 used on device.
+- repeat:
+    times: 5
+    while:
+      notVisible:
+        id: 'training-add-exercise-box'
+    commands:
+      - swipe:
+          start: '90%,20%'
+          end: '10%,20%'
+          duration: 300
+      - waitForAnimationToEnd:
+          timeout: 3000
+- tapOn:
+    id: 'training-add-exercise-box'
+- extendedWaitUntil:
+    visible: '11 selected'
+    timeout: 30000
+- assertVisible:
+    id: 'search-bar'
+- assertVisible: 'Adductor'
+- tapOn:
+    id: 'search-bar'
+- eraseText: 30
+- inputText: 'squat'
+- extendedWaitUntil:
+    visible: 'Front squat'
+    timeout: 20000
+- assertVisible: 'Bulgarian split squat'
+- assertVisible: 'Safety bar squat'
+- assertNotVisible: 'Adductor'
+- eraseText: 6
+- extendedWaitUntil:
+    visible: 'Adductor'
+    timeout: 20000
+# The counter is unchanged: the search touched nothing.
+- assertVisible: '11 selected'
+# Close the picker with ONE guarded BACK each (keyboard, then picker); a BACK
+# without the picker would leave the screen.
+- runFlow:
+    when:
+      visible:
+        id: 'search-bar'
+    commands:
+      - back
+      - waitForAnimationToEnd:
+          timeout: 3000
+- runFlow:
+    when:
+      visible:
+        id: 'search-bar'
+    commands:
+      - back
+      - waitForAnimationToEnd:
+          timeout: 3000
+- assertVisible:
+    id: 'header-plan-meso-name'
+    text: 'Push pull upper lower › .*'

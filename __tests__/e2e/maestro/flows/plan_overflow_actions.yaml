@@ -1,0 +1,302 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F3 Training planning — T3.3 plan_overflow_actions
+#
+# Purpose: the ⋮ (overflow) menu of a training per state.
+#   A) The plan's most recently planned training offers "Clear planned training"
+#      next to "Edit plan" / "Delete this Training" and no duplicate
+#      "Start Training" (GH-442, GH-340/GH-401). Cancel keeps the plan; Clear
+#      empties the training but keeps it.
+#   B) A training WITHOUT exercises cannot be started: the Train tab offers
+#      "Add Exercises" instead of "Start Training", and it opens plan mode
+#      without starting a session (GH-401 R1). The dashboard keeps the slot at
+#      "Meso 1 · M7 · D1 · 0 exercises".
+#   C) An OLDER planned training (micro 69 "Push" of plan 1; micro 70 was planned
+#      after it) does not offer "Clear planned training" (GH-442).
+#   D) It is started from the Train tab's "Start Training"; a STARTED training's
+#      menu offers Finish and no Clear option (GH-340, GH-442).
+#
+# Data basis: baseline import (mutates: plans/clears/starts trainings) -> starts
+# with 00_import_baseline.yaml. Current plan "Push pull": next slot Meso 1 · M7 ·
+# D1 "Push squat" has no training object; "Suggest based on last Training"
+# creates it with the 10 exercises of the last D1.
+#
+# Merged from: gh442_clear_planned_training (base), gh442_older_training_no_option,
+#   gh340_plan_kebab_start_training, gh401_empty_start_and_running_card (R1 part).
+#   Dropped: gh442 app-restart persistence check (cold restart costs minutes on
+#   the emulator host; persistence is covered by the other import-based flows);
+#   gh401 R2 out-of-order "card follows the running session" part (coordinate
+#   drawer taps; not part of T3.3).
+
+- runFlow: 00_import_baseline.yaml
+
+# PRECONDITION: baseline imported, next slot of "Push pull" still empty.
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: DOWN
+    timeout: 60000
+- assertVisible:
+    id: 'next-training-name'
+    text: 'Push squat'
+- assertVisible:
+    id: 'next-training-slot'
+    text: 'Meso 1 · M7 · D1 · 0 exercises'
+
+# ===== A) plan the slot, then the menu offers "Clear planned training" =====
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-go-to-plan-button'
+    timeout: 60000
+- assertVisible:
+    id: 'train-tab-no-training-hint'
+    text: 'Nothing planned for this day yet\.'
+- tapOn:
+    id: 'train-tab-go-to-plan-button'
+- extendedWaitUntil:
+    visible:
+      id: 'training-suggest-last-training-button'
+    timeout: 30000
+- tapOn:
+    id: 'training-suggest-last-training-button'
+- extendedWaitUntil:
+    notVisible:
+      id: 'training-suggest-last-training-button'
+    timeout: 30000
+- assertVisible:
+    id: 'header-plan-label'
+    text: 'Planned'
+- runFlow:
+    when:
+      notVisible:
+        id: 'plan-read-exercise-section-32'
+    commands:
+      - tapOn:
+          id: 'subtab-plan'
+      - waitForAnimationToEnd
+- tapOn:
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-clear-plan'
+    timeout: 10000
+- waitForAnimationToEnd
+- assertVisible: 'Clear planned training'
+- assertVisible: 'Edit plan'
+- assertVisible: 'Delete this Training'
+# GH-340/GH-401: no duplicate start control in the menu.
+- assertNotVisible: 'Start Training'
+- tapOn:
+    id: 'overflow-clear-plan'
+- extendedWaitUntil:
+    visible:
+      id: 'training-clear-plan-confirm'
+    timeout: 10000
+- waitForAnimationToEnd
+- assertVisible: 'This removes all planned exercises and sets from this training\. The training itself stays, so you can plan it again from scratch\.'
+# Cancel changes nothing: the training is still planned and startable.
+- tapOn:
+    id: 'training-clear-plan-cancel'
+- extendedWaitUntil:
+    notVisible:
+      id: 'training-clear-plan-confirm'
+    timeout: 10000
+- assertNotVisible:
+    id: 'training-suggest-last-training-button'
+- tapOn:
+    id: 'subtab-train'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-start-button'
+    timeout: 30000
+- assertVisible:
+    id: 'train-tab-start-button-text'
+    text: '^Start Training$'
+# The dashboard sees the 10 planned exercises.
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'next-training-slot'
+    direction: DOWN
+    timeout: 60000
+- assertVisible:
+    id: 'next-training-slot'
+    text: 'Meso 1 · M7 · D1 · 10 exercises'
+
+# Confirm: the training is emptied but stays.
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-start-button'
+    timeout: 60000
+- tapOn:
+    id: 'subtab-plan'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-clear-plan'
+    timeout: 10000
+- waitForAnimationToEnd
+- tapOn:
+    id: 'overflow-clear-plan'
+- extendedWaitUntil:
+    visible:
+      id: 'training-clear-plan-confirm'
+    timeout: 10000
+- waitForAnimationToEnd
+- tapOn:
+    id: 'training-clear-plan-confirm'
+- extendedWaitUntil:
+    notVisible:
+      id: 'training-clear-plan-confirm'
+    timeout: 10000
+# Back at the planning entry point, still a PLANNED training.
+- extendedWaitUntil:
+    visible:
+      id: 'training-suggest-last-training-button'
+    timeout: 30000
+- assertVisible:
+    id: 'header-plan-label'
+    text: 'Planned'
+
+# ===== B) an empty training cannot be started (GH-401 R1) =====
+- tapOn:
+    id: 'subtab-train'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-add-exercises-button'
+    timeout: 30000
+- assertVisible:
+    id: 'train-tab-add-exercises-button-text'
+    text: '^Add Exercises$'
+- assertVisible:
+    id: 'train-tab-start-hint'
+    text: 'This training has no exercises yet — add some before you can start it\.'
+- assertNotVisible:
+    id: 'train-tab-start-button'
+# The training still exists (a deleted one would offer "Plan this Training").
+- assertNotVisible:
+    id: 'train-tab-go-to-plan-button'
+- tapOn:
+    id: 'train-tab-add-exercises-button'
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-editing-kicker'
+    timeout: 15000
+- assertVisible:
+    id: 'header-plan-editing-kicker'
+    text: 'EDITING PLAN'
+# Nothing was started.
+- assertNotVisible:
+    id: 'header-session-timer'
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: 'training-home-screen'
+    commands:
+      - back
+      - waitForAnimationToEnd:
+          timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'next-training-slot'
+    direction: DOWN
+    timeout: 60000
+- assertVisible:
+    id: 'next-training-status-label'
+    text: 'Next Training'
+- assertVisible:
+    id: 'next-training-slot'
+    text: 'Meso 1 · M7 · D1 · 0 exercises'
+- assertNotVisible:
+    id: 'next-training-elapsed'
+
+# ===== C) an older planned training has no "Clear" option (GH-442) =====
+- runFlow:
+    file: goto_micro69_push.yaml
+    env:
+      MODE: planned
+- assertVisible: 'Micro 69'
+- assertVisible: ' Push'
+- tapOn:
+    id: 'subtab-plan'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'header-plan-label'
+    text: 'Planned'
+- tapOn:
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-edit-plan'
+    timeout: 10000
+- waitForAnimationToEnd
+- assertVisible: 'Edit plan'
+- assertVisible: 'Delete this Training'
+- assertNotVisible:
+    id: 'overflow-clear-plan'
+- assertNotVisible: 'Clear planned training'
+- assertNotVisible: 'Start Training'
+- tapOn:
+    id: 'overflow-scrim'
+- extendedWaitUntil:
+    notVisible:
+      id: 'overflow-edit-plan'
+    timeout: 10000
+
+# ===== D) start it from the Train tab; STARTED menu has no Clear =====
+- tapOn:
+    id: 'subtab-train'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-start-button'
+    timeout: 30000
+- assertVisible:
+    id: 'train-tab-start-button-text'
+    text: '^Start Training$'
+- assertNotVisible:
+    id: 'header-session-timer'
+- tapOn:
+    id: 'train-tab-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'header-session-timer'
+    timeout: 60000
+- assertNotVisible:
+    id: 'header-plan-label'
+- tapOn:
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-finish'
+    timeout: 10000
+- waitForAnimationToEnd
+- assertVisible: 'Finish Training'
+- assertVisible:
+    id: 'overflow-discard'
+- assertNotVisible:
+    id: 'overflow-clear-plan'
+- assertNotVisible: 'Clear planned training'
+- tapOn:
+    id: 'overflow-scrim'

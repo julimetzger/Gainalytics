@@ -10,6 +10,20 @@ REPORT_PATH="${REPO_ROOT}/__tests__/reports/maestro.xml"
 FIXTURE_PATH="${REPO_ROOT}/__tests__/e2e/maestro/fixtures/baseline.gains"
 VIDEO1_PATH="${REPO_ROOT}/__tests__/e2e/maestro/fixtures/squat-3reps.mp4"
 VIDEO2_PATH="${REPO_ROOT}/__tests__/e2e/maestro/fixtures/squat-1rep.mp4"
+# Extra files the target flows pick from /sdcard/Download (see FLOW_AUDIT.md):
+# Strong CSVs (data_strong_*), video fixtures (video_compare, video_list_filters_vl)
+# and the AI chat fixtures (ai_chat_context, ai_chat_errors_history).
+EXTRA_DOWNLOAD_FILES=(
+  "${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh496/gh496_invalid.csv"
+  "${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh496/gh496_invalid_weight.csv"
+  "${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh496/gh496_new_record.csv"
+  "${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh496/strong_sample_export.csv"
+  "${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh393-compare-labels.gains"
+  "${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh415-workout-linked-analysis.gains"
+  "${REPO_ROOT}/__tests__/testdata/gh391_planned_fixture.gains"
+  "${REPO_ROOT}/__tests__/testdata/gh391_newplan_fixture.gains"
+  "${REPO_ROOT}/__tests__/testdata/gh508_chat_fixture.gains"
+)
 APP_ID="com.powerliftingworkoutplanner"
 MAESTRO_HOST="${E2E_MAESTRO_HOST:-}"
 ADB_HOST="${E2E_ADB_HOST:-}"
@@ -178,6 +192,11 @@ if [[ "${MODE}" == "bootstrap" || "${MODE}" == "full" || "${MODE}" == "smoke" ]]
   if [[ -f "${VIDEO2_PATH}" ]]; then
     adb_cmd push "${VIDEO2_PATH}" "/sdcard/Download/squat-1rep.mp4"
   fi
+  for extra_file in "${EXTRA_DOWNLOAD_FILES[@]}"; do
+    if [[ -f "${extra_file}" ]]; then
+      adb_cmd push "${extra_file}" "/sdcard/Download/$(basename "${extra_file}")"
+    fi
+  done
   adb_cmd reverse "tcp:${DEVICE_METRO_PORT}" "tcp:${METRO_PORT}" >/dev/null 2>&1 || true
   adb_cmd shell am force-stop "${APP_ID}" >/dev/null 2>&1 || true
 fi

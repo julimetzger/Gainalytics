@@ -157,10 +157,7 @@
 - [PR #179] [GH-177](https://github.com/julimetzger/Gainalytics/issues/177) Video analysis scrubber und velocity line kein sync
 
 ## Maintenance
-- Analyse aller maestro flows
-- [ready] [MNT-001](tickets/MNT-001-maestro-flow-analyse.yaml) Maestro-Flow Analyse — Startzeit messen & Import-Baseline prüfen
-  - Zeit zum starten eines maestro flows nach agent start messen -> dokumentiere alle failures
-  - Import baseline flow überprüfen- Vermutung: der funktioniert nicht mehr wenn es andere downloads gibt. Der flow findet dann base.gains nicht mehr weil zu weit unten.
+- [done] [GH-584](https://github.com/julimetzger/Gainalytics/issues/584) Analyse aller Maestro-Flows und Konsolidierung auf 2–3 Ziel-Flows pro Feature (ersetzt MNT-001; Übersicht: `__tests__/e2e/maestro/FLOW_AUDIT.md`)
 - [ready] [MNT-002](tickets/MNT-002-fgs-mediaprocessing-migration.yaml) Foreground Service von dataSync auf mediaProcessing migrieren — Play-Console-Deklaration entfällt, targetSdk-35-Timeout vermeiden
 
 - [in progress] [GH-524](https://github.com/julimetzger/Gainalytics/issues/524) Open Source Everything — Analyse in PR #529; Entscheidung: AGPL-3.0-or-later + §7, frisches öffentliches Repo als Hauptrepo, Internes in privates ops-Repo

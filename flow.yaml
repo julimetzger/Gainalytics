@@ -1,3 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-- runFlow: __tests__/e2e/maestro/flows/smoke.yaml

@@ -43,7 +43,7 @@
 - JS import flow logs `copyMs`, `preflightMs`, `nativeAnalysisMs`, and `totalImportMs`.
 
 ## Emulator Benchmark Snapshot (March 20, 2026)
-- Benchmark flow: `__tests__/e2e/maestro/flows/04_video_analysis_bar_path_done.yaml`
+- Benchmark flow: `04_video_analysis_bar_path_done.yaml` (historical, since removed; import + analysis is now covered by `__tests__/e2e/maestro/flows/video_import_playback.yaml`)
 - Test video: emulator squat import path, duration `8.001s`, source FPS `30.0`
 - Previous run before adaptive sampling change: Maestro timed out after `4m 47s`
 - Current run after buffer reuse + adaptive sampling: Maestro passed in `2m 16s`

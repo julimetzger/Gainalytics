@@ -1,0 +1,210 @@
+appId: com.powerliftingworkoutplanner
+---
+# F1 Start & Onboarding — T1.1: first start on an EMPTY store.
+# Purpose: onboarding appears on a fresh store; "Skip" creates nothing and stays gone after a
+# relaunch; the empty Analyse dashboard explains itself; Settings › Help › "Show Introduction"
+# reopens the onboarding; the template step lists the three templates with their real
+# structure; "Strength Block" creates a plan that drives the Training home.
+# Data basis: empty store (clearState). Leaves the store with ONE plan "Strength Block" —
+# run a flow that imports the baseline afterwards.
+# Merged from: gh497_onboarding_template, gh497_skip_and_reopen, gh497_reopen_to_step3,
+#              gh458_empty_store_dashboard.
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- runFlow:
+    when:
+      visible: 'Wait'
+    commands:
+      - tapOn: 'Wait'
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-step-welcome'
+    timeout: 120000
+# PRECONDITION: fresh store -> onboarding step 1.
+- assertVisible:
+    id: 'onboarding-step-indicator'
+    text: 'Step 1 of 3'
+- assertVisible: 'Welcome to Gainalytics'
+
+# --- 1) Skip: nothing is created ----------------------------------------------
+- tapOn:
+    id: 'onboarding-skip'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 15000
+- assertNotVisible:
+    id: 'onboarding-screen'
+- assertVisible:
+    id: 'add-trainings-plan'
+    text: 'New Training'
+- assertNotVisible:
+    id: 'micro-hero-card'
+- assertNotVisible:
+    id: 'next-training-card'
+
+# --- 2) Empty-store Analyse dashboard (GH-458) ---------------------------------
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'dashboard-empty-store'
+    timeout: 30000
+- assertVisible:
+    id: 'dashboard-empty-store-description'
+    text: 'Nothing has been logged on this device, so there is nothing to analyse yet. Import an existing history or log your first training.'
+- assertVisible: 'Import data in Settings'
+- assertVisible: 'Go to Training'
+- assertNotVisible:
+    id: 'weekly-summary-card'
+
+# --- 3) Cold relaunch: still no onboarding although the store is empty ---------
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'tab-training'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- assertNotVisible:
+    id: 'onboarding-screen'
+- assertVisible:
+    id: 'add-trainings-plan'
+    text: 'New Training'
+
+# --- 4) Settings › Help › Show Introduction reopens it -------------------------
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-show-onboarding-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-show-onboarding-button'
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-step-welcome'
+    timeout: 10000
+- assertVisible:
+    id: 'onboarding-step-indicator'
+    text: 'Step 1 of 3'
+- assertVisible:
+    id: 'onboarding-level-meso'
+- assertVisible:
+    id: 'onboarding-level-training'
+- tapOn:
+    id: 'onboarding-next'
+- assertVisible:
+    id: 'onboarding-step-indicator'
+    text: 'Step 2 of 3'
+- assertVisible: 'RIR = Reps in Reserve'
+- assertVisible:
+    id: 'onboarding-rir-example'
+    text: '5 reps @ 2 RIR → you stop with two good reps left'
+- tapOn:
+    id: 'onboarding-next'
+- assertVisible:
+    id: 'onboarding-step-indicator'
+    text: 'Step 3 of 3'
+- assertVisible: 'How do you want to start\?'
+- assertVisible:
+    id: 'onboarding-choice-empty'
+- assertVisible:
+    id: 'onboarding-choice-import'
+
+# --- 5) Templates: real structure, radio selection ------------------------------
+- tapOn:
+    id: 'onboarding-choice-template'
+- assertVisible:
+    id: 'onboarding-step-template'
+- assertVisible:
+    id: 'onboarding-step-indicator'
+    text: 'Templates'
+- assertVisible:
+    id: 'program-template-structure-strength-block'
+    text: '2 mesos · 8 micros · 3 trainings per micro'
+- assertVisible:
+    id: 'program-template-structure-hypertrophy-block'
+    text: '1 meso · 5 micros · 4 trainings per micro'
+- assertVisible:
+    id: 'program-template-structure-full-body-starter'
+    text: '1 meso · 4 micros · 3 trainings per micro'
+# Strength Block is preselected; selecting another template moves the check.
+- assertVisible:
+    id: '^program-template-strength-block$'
+    checked: true
+- tapOn:
+    id: '^program-template-full-body-starter$'
+- assertVisible:
+    id: '^program-template-full-body-starter$'
+    checked: true
+- assertVisible:
+    id: '^program-template-strength-block$'
+    checked: false
+- tapOn:
+    id: '^program-template-strength-block$'
+- assertVisible:
+    id: '^program-template-strength-block$'
+    checked: true
+- assertVisible:
+    id: '^program-template-full-body-starter$'
+    checked: false
+
+# --- 6) Create the plan: it opens on its first training, ready to start --------
+- tapOn:
+    id: 'onboarding-create-plan'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-start-button'
+    timeout: 30000
+- assertNotVisible:
+    id: 'onboarding-screen'
+- assertVisible:
+    id: 'header-plan-meso-name'
+    text: 'Strength Block › Volume'
+- assertVisible: '.*Squat & Bench'
+- tapOn:
+    id: 'subtab-plan'
+- extendedWaitUntil:
+    visible: '4 sets'
+    timeout: 10000
+- assertVisible: '10-12'
+
+# --- 7) Home: the template plan drives the dashboard before anything is trained -
+# Tapping the focused Training tab pops the stack back to the home screen.
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 20000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Strength Block'
+- assertVisible:
+    id: 'next-training-status-label'
+    text: 'Next Training'
+- assertVisible:
+    id: 'next-training-name'
+    text: 'Squat & Bench'
+- assertVisible:
+    id: 'next-training-slot'
+    text: 'Volume · M1 · D1 · 4 exercises'
+- assertNotVisible:
+    id: 'onboarding-screen'

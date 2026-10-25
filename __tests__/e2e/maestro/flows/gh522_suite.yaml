@@ -1,6 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-# GH-522 evidence suite: hydrate the store from the baseline .gains fixture,
-# then check the Settings refinements.
-- runFlow: gh443_import_baseline.yaml
-- runFlow: gh522_settings_refinement.yaml

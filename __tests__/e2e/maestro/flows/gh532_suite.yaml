@@ -1,5 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-# GH-532: import gh532_this_week.gains (pushed as baseline.gains via --fixture), then the radar flow.
-- runFlow: 00_import_baseline.yaml
-- runFlow: gh532_muscle_radar.yaml
