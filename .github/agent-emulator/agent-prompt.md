@@ -60,7 +60,9 @@ the APK installed and the app was just launched. Before working on the device:
    name, logcat lines) under `## Open question` in `.agent-run/pr-body.md` and stop. Also stop this way
    if `tool.sh import-baseline` fails twice.
 
-`__tests__/e2e/maestro/flows/smoke.yaml` is a quick known-good flow if you want a reference run.
+`__tests__/e2e/maestro/flows/smoke.yaml` is the known-good reference run (the PR check runs it): it
+imports the baseline itself (needs `tool.sh push-baseline` first, replaces the app data) and takes
+~6–8 min.
 
 ## Helper `.github/agent-emulator/tool.sh`
 
@@ -68,6 +70,7 @@ the APK installed and the app was just launched. Before working on the device:
 - `serial` — emulator serial
 - `launch` — force-stop + cold start the app
 - `import-baseline [file.gains]` — import baseline test data (see above)
+- `push-baseline [file.gains]` — only push it to Downloads (for flows that import it themselves, e.g. `smoke.yaml`)
 - `screenshot <name>` — `.agent-run/screenshots/<name>.png` + small copy
 - `flow <path/to/flow.yaml>` — run one Maestro flow, report under `.agent-run/maestro/<flow>/`
 - `logcat <label>` — dump logcat to `.agent-run/logcat/<label>.txt`
