@@ -404,7 +404,6 @@ const VideoAnalysisTab = () => {
         // bars freeze after the first store-driven render (GH-343).
         extraData={now}
         keyExtractor={(item) => String(item.id)}
-        estimatedItemSize={96}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmptyState}
         contentContainerStyle={styles.listContent}

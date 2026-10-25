@@ -92,6 +92,7 @@ jest.mock('react-native-gesture-handler', () => {
       Pan: chainable,
       Simultaneous: chainable,
     },
+    usePanGesture: () => ({}),
   };
 });
 

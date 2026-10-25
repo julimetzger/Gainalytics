@@ -1,6 +1,6 @@
-import {useCallback, useLayoutEffect, useRef, useState} from 'react';
+import {useCallback, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {Animated, LayoutChangeEvent} from 'react-native';
-import {Gesture} from 'react-native-gesture-handler';
+import {usePanGesture} from 'react-native-gesture-handler';
 import type {PanGesture} from 'react-native-gesture-handler';
 import {useNestableScrollContainerContext} from 'react-native-draggable-flatlist';
 import {ScrollController, useScrollController} from '../../common/KeyboardAwareScrollView';
@@ -126,10 +126,39 @@ export function autoScrollSpeed(fingerY: number, visible: {top: number; bottom: 
   return 0;
 }
 
+/** Pan callbacks of one drag handle; turned into a gesture by useDragHandleGesture. */
+export interface DragHandlers {
+  onActivate: (event: {absoluteY: number}) => void;
+  onUpdate: (event: {translationY: number; absoluteY: number}) => void;
+  onFinalize: (event: {canceled: boolean}) => void;
+}
+
 export interface DragItemBinding {
   translateY: Animated.Value;
-  gesture: PanGesture;
+  drag: DragHandlers;
   onLayout: (event: LayoutChangeEvent) => void;
+}
+
+const DRAG_ACTIVE_OFFSET_Y: [number, number] = [-4, 4];
+
+/**
+ * The pan gesture of a drag handle. Gesture handler 3 creates gestures with hooks
+ * (the `Gesture.Pan()` builder is deprecated), so every handle component calls this
+ * with its binding's handlers. The callbacks run on the JS thread: they drive the
+ * core Animated values and the auto-scroll loop of useDragReorder.
+ */
+export function useDragHandleGesture(drag: DragHandlers): PanGesture {
+  const config = useMemo(
+    () => ({
+      runOnJS: true,
+      activeOffsetY: DRAG_ACTIVE_OFFSET_Y,
+      onActivate: drag.onActivate,
+      onUpdate: drag.onUpdate,
+      onFinalize: drag.onFinalize,
+    }),
+    [drag],
+  );
+  return usePanGesture(config);
 }
 
 export interface DragPlaceholder {
@@ -189,8 +218,8 @@ export function useDragReorder({count, items, onReorder}: UseDragReorderOptions)
   // drags then landed in the wrong order or tore the second drag apart.
   const dropPendingRef = useRef(false);
   const resetFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const gesturesRef = useRef<Map<number, PanGesture>>(new Map());
-  const gestureCountRef = useRef(count);
+  const handlersRef = useRef<Map<number, DragHandlers>>(new Map());
+  const handlersCountRef = useRef(count);
 
   const valueAt = (index: number) => {
     let value = translateValuesRef.current[index];
@@ -351,22 +380,22 @@ export function useDragReorder({count, items, onReorder}: UseDragReorderOptions)
     });
   };
 
-  const gestureFor = (index: number): PanGesture => {
-    if (gestureCountRef.current !== count) {
-      gestureCountRef.current = count;
-      gesturesRef.current = new Map();
+  // Stable per index (until the count changes), so a handle's gesture config is not
+  // rebuilt on every render.
+  const handlersFor = (index: number): DragHandlers => {
+    if (handlersCountRef.current !== count) {
+      handlersCountRef.current = count;
+      handlersRef.current = new Map();
     }
-    const cached = gesturesRef.current.get(index);
+    const cached = handlersRef.current.get(index);
     if (cached !== undefined) {
       return cached;
     }
-    const gesture = Gesture.Pan()
-      .runOnJS(true)
-      .activeOffsetY([-4, 4])
-      .onStart((event) => {
+    const handlers: DragHandlers = {
+      onActivate: (event) => {
         startDrag(index, event.absoluteY);
-      })
-      .onUpdate((event) => {
+      },
+      onUpdate: (event) => {
         const session = sessionRef.current;
         if (session === null || session.index !== index) {
           return;
@@ -374,19 +403,20 @@ export function useDragReorder({count, items, onReorder}: UseDragReorderOptions)
         session.translationY = event.translationY;
         session.absoluteY = event.absoluteY;
         followFinger();
-      })
-      .onFinalize((_event, success) => {
+      },
+      onFinalize: (event) => {
         if (sessionRef.current?.index === index) {
-          endDrag(success);
+          endDrag(!event.canceled);
         }
-      });
-    gesturesRef.current.set(index, gesture);
-    return gesture;
+      },
+    };
+    handlersRef.current.set(index, handlers);
+    return handlers;
   };
 
   const bind = (index: number): DragItemBinding => ({
     translateY: valueAt(index),
-    gesture: gestureFor(index),
+    drag: handlersFor(index),
     onLayout: (event: LayoutChangeEvent) => {
       heightsRef.current[index] = event.nativeEvent.layout.height;
       topsRef.current[index] = event.nativeEvent.layout.y;
