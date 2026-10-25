@@ -75,6 +75,7 @@ instead of a flow with generated fixtures.
 | `pick_file.yaml` | `FILE` (name or regex) | Settings › Import from Strong CSV › picks the file |
 | `set_dummy_api_key.yaml` | – | Stores a dummy Anthropic key so the chat renders (no request is sent) |
 | `open_ai_chat.yaml` | – | Opens Analyse › AI Chat from anywhere |
+| `dismiss_system_anr.yaml` | `OWN_APP` (test only, default `Gainalytics`) | Closes a system "… isn't responding" dialog ("Wait" for `Process system`); leaves the app's own ANR and crash dialogs up so the flow fails. Called by the import helpers, `set_dummy_api_key.yaml` and `ai_chat_errors_history.yaml`. Test the dismiss path: freeze the app (`run-as <pkg> kill -STOP <pid>` + two taps) and run it with `-e OWN_APP=NotThisApp` |
 
 ## Entry points
 

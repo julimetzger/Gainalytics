@@ -3,6 +3,8 @@ appId: com.powerliftingworkoutplanner
 # GH-486 helper: full import of ${FIXTURE} from /sdcard/Download (push it first).
 # Same steps as 00_import_baseline.yaml, but for a named fixture.
 - launchApp
+# GH-589: a system ANR dialog on a loaded emulator (never the app's own).
+- runFlow: dismiss_system_anr.yaml
 - runFlow:
     when:
       visible: 'Dismiss'

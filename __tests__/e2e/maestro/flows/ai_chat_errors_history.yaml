@@ -249,6 +249,7 @@ onFlowComplete:
 - stopApp
 - launchApp:
     clearState: false
+- runFlow: dismiss_system_anr.yaml
 - extendedWaitUntil:
     visible: 'tab-analyse'
     timeout: 60000
@@ -275,6 +276,8 @@ onFlowComplete:
     text: 'No archived chats yet\..*'
 
 # ── GH-515: saving an empty key removes it ───────────────────────────────────
+# GH-584 saw a system ANR dialog here, at the end of a long run (GH-589).
+- runFlow: dismiss_system_anr.yaml
 - tapOn: 'tab-settings'
 - scrollUntilVisible:
     element:

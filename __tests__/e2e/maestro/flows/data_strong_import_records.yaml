@@ -24,9 +24,8 @@ appId: com.powerliftingworkoutplanner
 #     - __tests__/e2e/maestro/fixtures/gh496/strong_sample_export.csv
 #   Order matters: the record check runs BEFORE the real file, whose 2026
 #   workouts would otherwise also be records in the Records range.
-#   TIME LIMIT of the fixture: "1 shown" needs 2026-10-05 inside the Records
-#   default range (last 3 months up to this week), i.e. this assertion holds
-#   until about early January 2027; after that the fixture date must move.
+#   No time limit: the Records range is set to start on 01/03/2026 (after the
+#   baseline's last training), so 2026-10-05 stays inside it on any later date.
 #
 # Merged from: gh496_strong_new_record, gh496_strong_real_file,
 #   gh496_imported_training_and_analyse
@@ -122,6 +121,28 @@ appId: com.powerliftingworkoutplanner
     timeout: 30000
 - extendedWaitUntil:
     notVisible: 'Close drawer'
+    timeout: 15000
+# GH-589: the default range (last 3 months up to this week) drops the CSV's
+# 05/10/26 around January 2027. Start the range on 01/03/2026 instead: after the
+# baseline's last training (28/02/26), so its records stay out, while the end
+# stays at the current week -> the imported record is in range on any later date.
+- tapOn:
+    id: 'date-range-picker-button'
+- extendedWaitUntil:
+    visible: '^Save$'
+    timeout: 15000
+- tapOn:
+    id: 'date-range-start-input'
+- eraseText: 12
+- inputText: '03/01/2026'
+- tapOn: '^Save$'
+- extendedWaitUntil:
+    notVisible: '^Save$'
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: 'date-range-picker-button'
+      text: 'Sun, 01/03/26 to .*'
     timeout: 15000
 - assertVisible:
     id: 'records-kpi-total'

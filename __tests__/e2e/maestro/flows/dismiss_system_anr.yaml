@@ -1,0 +1,27 @@
+appId: com.powerliftingworkoutplanner
+name: GH-589 dismiss a system "isn't responding" dialog (never the app's own)
+---
+# Helper. A loaded CI emulator puts "System UI isn't responding" (or another
+# system app's ANR) over everything, and the next assertion fails for a reason
+# that has nothing to do with the app (seen at the end of the GH-584 run).
+#
+# Only dialogs of OTHER processes are dismissed:
+#   * "Process system isn't responding" -> "Wait" (closing system_server would
+#     restart the whole device);
+#   * any other non-app ANR (System UI, launcher, Play services) -> "Close app"
+#     ("Wait" lets it come straight back, agent memory adb-and-emulators.md).
+# The app's own ANR ("Gainalytics isn't responding") and crash dialogs
+# ("… keeps stopping") are left on screen on purpose, so the calling flow fails
+# on them. OWN_APP is only overridden to test the dismiss path (see FLOW_AUDIT.md).
+- runFlow:
+    when:
+      visible: 'Process system isn.t responding'
+    commands:
+      - tapOn: 'Wait'
+- runFlow:
+    when:
+      visible: '^(?!${OWN_APP || "Gainalytics"} )(?!Process system ).+ isn.t responding$'
+    commands:
+      - tapOn: 'Close app'
+      - waitForAnimationToEnd:
+          timeout: 5000
