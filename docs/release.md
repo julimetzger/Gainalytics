@@ -24,7 +24,8 @@ The release run on the tag
 To rebuild an existing tag (e.g. after a failed run), start *Run workflow* with
 *Use workflow from* → **Tags** → the version; leave `version` empty.
 
-The old scripts still work and additionally commit the bumped `versionName` to `master`:
+The old scripts still work: they continue from the higher of `versionName` and the latest version tag
+and additionally commit the bumped `versionName` to `master`:
 
 ```bash
 ./releaseNewAndroidVersion.sh          # Linux/macOS/WSL

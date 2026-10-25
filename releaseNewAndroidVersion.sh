@@ -38,10 +38,24 @@ echo 'start release'
 set -e
 git pull --rebase
 
-previousVersion=$(grep -oE 'versionName "([0-9]+\.[0-9]+)"' android/app/build.gradle | sed -E 's/versionName "([0-9]+\.[0-9]+)"/\1/')
-newVersion=$(echo $previousVersion | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+git fetch --tags --quiet
+
+# Releases can also be cut by tag alone (Actions -> Release -> Run workflow), which leaves
+# versionName in build.gradle behind. Continue from whichever is higher: build.gradle or the latest x.y tag.
+gradleVersion=$(sed -nE 's/^\s*versionName "([0-9]+\.[0-9]+)".*/\1/p' android/app/build.gradle)
+if [ -z "$gradleVersion" ]; then
+    echo "Could not find versionName in android/app/build.gradle"
+    exit 1
+fi
+latestTag=$(git tag -l | grep -E '^[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+previousVersion=$(printf '%s\n' "$gradleVersion" "$latestTag" | grep . | sort -V | tail -n1)
+newVersion=$(echo "$previousVersion" | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+if git rev-parse -q --verify "refs/tags/$newVersion" > /dev/null; then
+    echo "Tag $newVersion already exists, aborting."
+    exit 1
+fi
 echo "update minor version from $previousVersion to $newVersion"
-sed -i'' -e "s/versionName \"$previousVersion\"/versionName \"$newVersion\"/g" android/app/build.gradle
+sed -i'' -e "s/versionName \"$gradleVersion\"/versionName \"$newVersion\"/" android/app/build.gradle
 
 if [ "$localBuild" = true ]; then
     echo 'building locally'
