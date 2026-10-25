@@ -80,7 +80,8 @@ instead of a flow with generated fixtures.
 
 - `smoke.yaml` — PR smoke (GH-588): imports the baseline itself, then `home_dashboard.yaml`,
   `analyse_dashboard_drilldown.yaml`, `train_start_log_finish.yaml` (last, changes data; called with
-  env `BASELINE_IMPORTED: 'true'` so it skips its standalone import). Needs only
+  env `BASELINE_IMPORTED: 'true'` so it skips its standalone import; `analyse_dashboard_drilldown.yaml`
+  gets `ANALYSE_RESUME: 'true'` and resumes the app instead of its standalone cold start). Needs only
   `baseline.gains` in Downloads. ~5.5–6 min on the agent emulator. Run by the PR check `.github/workflows/maestro-smoke.yml` and the
   agent workflow's smoke mode (both via `.github/agent-emulator/smoke.sh`), `npm run e2e:android:smoke`, orchestrator.
 - `suite.yaml` — the suite run by `npm run e2e:android` / `run-maestro-from-wsl.sh` (default `SUITE_PATH`).

@@ -113,7 +113,12 @@ finish a training (`train_start_log_finish.yaml`, last because it changes data).
 - Keep the smoke fast: on a running training the rest-timer ring animates nonstop and every Maestro
   tap/erase/input then waits 11–23 s for the screen to settle — `train_start_log_finish.yaml` skips
   the rest right after logging the set. `smoke.yaml` passes `BASELINE_IMPORTED: 'true'` so that flow
-  skips its own import.
+  skips its own import, and `ANALYSE_RESUME: 'true'` so the analyse flow resumes the app instead of
+  cold-starting it (standalone it cold-starts: a resumed Dashboard keeps its scroll and radar selection).
+- A smoke failure inside a flow is usually a real app bug: check the failure screenshot first. The
+  first GH-588 "flake" (`"1 selected" is visible`) was the Analyse error boundary — a master
+  dependency bump (react-native-gesture-handler 3) had removed the `Swipeable` that `DateRangePicker`
+  imported, and `npm run typecheck` reported it (`has no exported member 'Swipeable'`).
 - Docs-only changes skip the workflow (`paths-ignore`). A required check whose workflow is skipped
   by a path filter stays *pending*, so docs-only PRs then need an admin bypass of the ruleset (or
   drop the `paths-ignore` before making the check required).
