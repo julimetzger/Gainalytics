@@ -32,11 +32,20 @@ jest.mock('react-native-paper-dates', () => ({
   },
 }));
 
-jest.mock('react-native-gesture-handler', () => {
+const mockSwipeablePropsRef: {current: {onSwipeableOpen?: (direction: string) => void} | undefined} = {current: undefined};
+
+// GH-588: the picker must use ReanimatedSwipeable — react-native-gesture-handler 3 no longer
+// exports the legacy `Swipeable`, which rendered as `undefined` and crashed the screen.
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   const React = require('react');
   const {View} = require('react-native');
   return {
-    Swipeable: ({children}: {children: React.ReactNode}) => <View>{children}</View>,
+    __esModule: true,
+    default: React.forwardRef((props: {children: React.ReactNode; onSwipeableOpen?: (direction: string) => void}, _ref: unknown) => {
+      mockSwipeablePropsRef.current = props;
+      return <View>{props.children}</View>;
+    }),
+    SwipeDirection: {LEFT: 'left', RIGHT: 'right'},
   };
 });
 
@@ -210,5 +219,22 @@ describe('DateRangePicker', () => {
     const calledWith: Range = setRange.mock.calls[0][0];
     expect(calledWith.startDate).toEqual(JAN_5);
     expect(calledWith.endDate).toEqual(JAN_25);
+  });
+
+  it('swiping the range button right shows the previous period, left the next one', () => {
+    jest.useFakeTimers();
+    const setRange = jest.fn();
+    const initialRange = new Range(JAN_10, JAN_20);
+    render(<DateRangePicker range={initialRange} setRange={setRange} />);
+    expect(mockSwipeablePropsRef.current?.onSwipeableOpen).toBeDefined();
+
+    // ReanimatedSwipeable reports the drag direction: RIGHT reveals the left (chevron-left) action.
+    act(() => mockSwipeablePropsRef.current?.onSwipeableOpen?.('right'));
+    act(() => mockSwipeablePropsRef.current?.onSwipeableOpen?.('left'));
+
+    expect(setRange).toHaveBeenCalledTimes(2);
+    expect(setRange.mock.calls[0][0]).toEqual(initialRange.minusRange());
+    expect(setRange.mock.calls[1][0]).toEqual(initialRange.plusOneRange());
+    jest.useRealTimers();
   });
 });
