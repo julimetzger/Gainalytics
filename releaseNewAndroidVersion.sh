@@ -42,7 +42,7 @@ git fetch --tags --quiet
 
 # Releases can also be cut by tag alone (Actions -> Release -> Run workflow), which leaves
 # versionName in build.gradle behind. Continue from whichever is higher: build.gradle or the latest x.y tag.
-gradleVersion=$(sed -nE 's/^\s*versionName "([0-9]+\.[0-9]+)".*/\1/p' android/app/build.gradle)
+gradleVersion=$(sed -nE 's/^[[:space:]]*versionName "([0-9]+\.[0-9]+)".*/\1/p' android/app/build.gradle)
 if [ -z "$gradleVersion" ]; then
     echo "Could not find versionName in android/app/build.gradle"
     exit 1
