@@ -13,6 +13,7 @@ const baseGlobalState = {
   trainingsPlan: {byId: {}, allIds: []},
   trainings: {byId: {}, allIds: []},
   videoAnalyses: {byId: {}, allIds: []},
+  bodyWeight: {byId: {}, allIds: []},
   settings: {mode: 'dark'},
   effects: {},
   aiChat: {messages: [], isLoading: false, error: null, seedContextJson: null, contextRange: null},

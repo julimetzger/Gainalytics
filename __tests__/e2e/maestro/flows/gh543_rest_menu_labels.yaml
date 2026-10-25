@@ -1,0 +1,48 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-543: the rest timer overflow menu uses Title Case labels without a
+# trailing ellipsis that match the dialogs they open.
+# Precondition: baseline.gains imported.
+- runFlow: gh543_open_rest_menu.yaml
+
+# Maestro text selectors are full-string, CASE-INSENSITIVE regexes — "(?-i)"
+# makes them case-sensitive so the old sentence-case labels cannot pass.
+# Full-string matching also means 'Edit Rest Target' does not match
+# 'Edit Rest Target…'.
+- assertVisible: '(?-i)Skip Rest'
+- assertVisible: '(?-i)Edit Rest Target'
+- assertVisible: '(?-i)Adjust Default Rest'
+- assertNotVisible: '(?-i)Skip rest'
+- assertNotVisible: '(?-i)Edit target…'
+- assertNotVisible: '(?-i)Adjust default for this exercise'
+# Review of PR #561: no "…" / "..." on any rest menu label.
+- assertNotVisible: '(?-i)Edit Rest Target(…|\.\.\.)'
+- assertNotVisible: '(?-i)Adjust Default Rest(…|\.\.\.)'
+- assertNotVisible: '(?-i)Skip Rest(…|\.\.\.)'
+
+# Each item opens the dialog whose title it names.
+- tapOn: '(?-i)Edit Rest Target'
+- extendedWaitUntil:
+    visible:
+      id: 'rest-target-edit-dialog'
+    timeout: 5000
+- assertVisible: '(?-i)Edit Rest Target'
+- assertNotVisible: '(?-i)Edit Rest Target(…|\.\.\.)'
+- tapOn:
+    id: 'rest-target-cancel'
+
+- runFlow: gh543_tap_rest_overflow.yaml
+- tapOn: '(?-i)Adjust Default Rest'
+- extendedWaitUntil:
+    visible:
+      id: 'rest-target-edit-dialog'
+    timeout: 5000
+- assertVisible: '(?-i)Adjust Default Rest'
+- assertNotVisible: '(?-i)Adjust Default Rest(…|\.\.\.)'
+- tapOn:
+    id: 'rest-target-cancel'
+
+# Leave the menu open for the evidence screenshot.
+- runFlow: gh543_tap_rest_overflow.yaml
+- assertVisible: '(?-i)Edit Rest Target'
+- assertVisible: '(?-i)Adjust Default Rest'

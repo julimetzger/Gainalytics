@@ -1,3 +1,5 @@
+/// <reference types="@testing-library/jest-native" />
+// The CI typecheck uses the root tsconfig, which does not load the jest-native matcher types.
 import React from 'react';
 import {Linking, NativeModules, Platform} from 'react-native';
 import {act, fireEvent, render, waitFor} from '@testing-library/react-native';
@@ -95,7 +97,9 @@ describe('GH-528 HealthConnectSection', () => {
     const {store, queryByTestId, findByText} = renderSection(fakeModule('AVAILABLE', []));
     expect(await findByText('Available · not connected')).toBeTruthy();
     delete NativeModules.HealthConnect;
-    await act(async () => store.dispatch({type: 'HEALTH_CONNECT_REFRESH', force: true}));
+    await act(async () => {
+      store.dispatch({type: 'HEALTH_CONNECT_REFRESH', force: true});
+    });
 
     await waitFor(() => expect(store.getState().healthConnect?.status).toEqual({sdkStatus: 'NOT_SUPPORTED'}));
     expect(queryByTestId('settings-section-health-connect')).toBeNull();

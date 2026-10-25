@@ -1,4 +1,4 @@
-import React, {useCallback, useState} from 'react';
+import React, {useCallback, useMemo, useState} from 'react';
 import {
   AccessibilityActionEvent,
   GestureResponderEvent,
@@ -9,7 +9,8 @@ import {
 import {Text, TextInput, useTheme} from 'react-native-paper';
 import {Muscles} from '../../../models/Muscles';
 import {MusclePercentPair} from '../../../models/entities/Exercise';
-import {ALL_MUSCLES_SORTED} from './muscle-involvement-utils';
+import {useAvailableMuscles} from '../../../redux/settings/use/useMuscles';
+import {sortMusclesByName} from '../../../utils/muscle-catalog';
 
 interface MuscleInvolvementEditorProps {
   pairs: MusclePercentPair[];
@@ -164,6 +165,9 @@ const MuscleRow = ({
 const MuscleInvolvementEditor = ({pairs, onChange}: MuscleInvolvementEditorProps) => {
   const theme = useTheme();
   const trackColor = theme.colors.surfaceVariant;
+  const available = useAvailableMuscles();
+  // GH-523: the user's muscle list, alphabetical.
+  const muscles = useMemo(() => sortMusclesByName(available), [available]);
 
   const setPercent = useCallback(
     (muscle: Muscles, percent: number) => {
@@ -174,7 +178,7 @@ const MuscleInvolvementEditor = ({pairs, onChange}: MuscleInvolvementEditorProps
 
   return (
     <View style={styles.container} testID="muscle-involvement-editor">
-      {ALL_MUSCLES_SORTED.map((muscle) => (
+      {muscles.map((muscle) => (
         <MuscleRow
           key={muscle}
           muscle={muscle}

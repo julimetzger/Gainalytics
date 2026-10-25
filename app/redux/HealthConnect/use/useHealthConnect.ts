@@ -12,8 +12,8 @@ export const selectHealthConnect = (state: GlobalState): HealthConnectState => s
 export const useHealthConnectState = () => useSelector(selectHealthConnect);
 
 export const useHealthConnectConnection = () => {
-  const state = useHealthConnectState();
-  return useMemo(() => describeHealthConnectConnection(state), [state.status, state.everConnected]);
+  const {status, everConnected} = useHealthConnectState();
+  return useMemo(() => describeHealthConnectConnection({status, everConnected}), [status, everConnected]);
 };
 
 /** Body weights read from Health Connect, oldest first; empty without a connection. */

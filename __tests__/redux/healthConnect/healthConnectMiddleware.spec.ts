@@ -2,7 +2,7 @@ import {applyMiddleware, legacy_createStore as createStore} from 'redux';
 import rootReducer, {GlobalState} from '../../../app/redux/rootReducer';
 import {createHealthConnectMiddleware, HealthConnectMiddlewareDeps, BODY_WEIGHT_LOOKBACK_MS} from '../../../app/redux/HealthConnect/healthConnectMiddleware';
 import {HEALTH_CONNECT_ACTIONS, HealthConnectState} from '../../../app/redux/HealthConnect/healthConnectReducer';
-import {healthConnectFingerprint, mapTrainingToHealthConnectSession} from '../../../app/utils/healthConnect/healthConnectMapping';
+import {HealthConnectSessionInput, healthConnectFingerprint, mapTrainingToHealthConnectSession} from '../../../app/utils/healthConnect/healthConnectMapping';
 import {HC_PERMISSION, HealthConnectSdkStatus} from '../../../app/utils/healthConnect/healthConnectNative';
 import {TrainingsState} from '../../../app/models/TrainingsState';
 import {Training} from '../../../app/models/entities/Training';
@@ -18,7 +18,7 @@ const fakeHealthConnect = (sdkStatus: HealthConnectSdkStatus = 'AVAILABLE', gran
   requestPermissions: jest.fn(async (_permissions: string[]) => [HC_PERMISSION.WRITE_EXERCISE]),
   isHistoryReadAvailable: jest.fn(async () => true),
   readWeights: jest.fn(async (_startMs: number, _endMs: number) => [{kg: 82.5, time: NOW - 1000, origin: 'com.withings.wiscale2', originLabel: 'Withings'}]),
-  writeStrengthSession: jest.fn(async () => ['record-1']),
+  writeStrengthSession: jest.fn(async (_session: HealthConnectSessionInput) => ['record-1']),
   deleteStrengthSession: jest.fn(async (_clientRecordId: string) => true),
   openHealthConnect: jest.fn(async () => true),
   openManagePermissions: jest.fn(async () => true),
@@ -238,7 +238,8 @@ describe('GH-528 healthConnectMiddleware', () => {
       await flush();
       expect(hc.writeStrengthSession.mock.calls[0][0].clientRecordId).toBe('gainalytics-ns1-training-1');
 
-      const {healthConnect: _hc, ...backup} = store.getState();
+      const backup: Partial<GlobalState> = {...store.getState()};
+      delete backup.healthConnect;
       store.dispatch({type: 'FULL_IMPORT', state: backup});
       expect(store.getState().healthConnect).toEqual({writeEnabled: true, everConnected: true, written: {}, recordNamespace: 'ns2'});
     });

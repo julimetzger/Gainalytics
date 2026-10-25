@@ -1,3 +1,5 @@
+/// <reference types="@testing-library/jest-native" />
+// The CI typecheck uses the root tsconfig, which does not load the jest-native matcher types.
 import React from 'react';
 import {act, fireEvent, render} from '@testing-library/react-native';
 import {ScrollView} from 'react-native';

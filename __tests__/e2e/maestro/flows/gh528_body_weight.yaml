@@ -4,7 +4,8 @@ appId: com.powerliftingworkoutplanner
 # from and the history. Preconditions: connected with "Read body weight" and weights seeded with
 #   adb shell am start -n com.powerliftingworkoutplanner/.healthconnect.HealthConnectTestDataActivity \
 #     --es weights "82.5@1,83.4@20,84.0@60,86.0@420"
-# Without the history permission only the two values of the last 30 days are visible.
+# Without the history permission only the two values of the last 30 days are visible. Since GH-546 the
+# screen first shows the manual entries; the Health Connect values follow below (scrollUntilVisible).
 - launchApp:
     clearState: false
     permissions:
@@ -20,9 +21,9 @@ appId: com.powerliftingworkoutplanner
     visible: 'Body Weight'
     timeout: 10000
 - tapOn: 'Body Weight'
-- extendedWaitUntil:
-    visible:
-      id: 'body-weight-current'
+- scrollUntilVisible:
+    element:
+      id: 'body-weight-hc-current'
       text: '82.5 kg'
     timeout: 20000
 - assertVisible:

@@ -6,6 +6,7 @@ import {Muscles} from '../../../models/Muscles';
 import {Comparison} from '../../../components/analyse/MetricsOverviewForWorkouts';
 import {Metric} from '../../../models/Metric';
 import {withAlpha} from '../../../utils/colorUtils';
+import {useOverviewMuscles} from '../../../redux/settings/use/useMuscles';
 import {
   buildMuscleWeekValues,
   calculateMuscleRadarStats,
@@ -33,6 +34,8 @@ const LABEL_RADIUS = 124;
 const LABEL_WIDTH = 84;
 const LABEL_HEIGHT = 44;
 const RINGS = [0.25, 0.5, 0.75, 1];
+/** Fewer axes than this draw a line, not an area. */
+const MIN_RADAR_AXES = 3;
 
 type ExtendedColors = {primaryContainer: string; onPrimaryContainer: string; surfaceContainerHigh?: string; surfaceContainerHighest?: string};
 
@@ -43,7 +46,9 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
   const [selected, setSelected] = useState<Muscles | undefined>(undefined);
   const [width, setWidth] = useState(DESIGN_WIDTH);
 
-  const values = useMemo(() => buildMuscleWeekValues(muscleMetricMap), [muscleMetricMap]);
+  // GH-523: one axis per muscle the user shows in overviews.
+  const overviewMuscles = useOverviewMuscles();
+  const values = useMemo(() => buildMuscleWeekValues(muscleMetricMap, overviewMuscles), [muscleMetricMap, overviewMuscles]);
   const stats = useMemo(() => calculateMuscleRadarStats(values), [values]);
 
   const max = niceMax(Math.max(...values.map((value) => Math.max(currentValue(value, metric), lastValue(value, metric)))));
@@ -110,63 +115,69 @@ const MuscleHeatmap = ({muscleMetricMap, onMusclePress}: MuscleHeatmapProps) => 
           </View>
         </View>
 
-        <View style={styles.chart} onLayout={onLayout} testID="muscle-radar-chart">
-          <View style={StyleSheet.absoluteFill} accessible accessibilityLabel={chartLabel} testID="muscle-radar-svg">
-            <Svg width={width} height={CHART_HEIGHT}>
-              {RINGS.map((ring) => (
-                <Polygon key={ring} points={toPoints(values.map(() => radius * ring))} fill="none" stroke={colors.outlineVariant} strokeWidth={1} />
-              ))}
-              {values.map((value, index) => {
-                const end = point(index, radius);
-                const isSelected = index === selectedIndex;
-                return (
-                  <Line
-                    key={value.muscle}
-                    x1={cx}
-                    y1={cy}
-                    x2={end.x}
-                    y2={end.y}
-                    stroke={isSelected ? colors.primary : colors.outlineVariant}
-                    strokeWidth={isSelected ? 1.5 : 1}
-                  />
-                );
-              })}
-              <Polygon points={toPoints(lastRadii)} fill="none" stroke={colors.outline} strokeWidth={1.5} strokeDasharray="4 4" />
-              <Polygon
-                points={toPoints(currentRadii)}
-                fill={withAlpha(colors.primary, 0.22)}
-                stroke={colors.primary}
-                strokeWidth={2}
-                strokeLinejoin="round"
-              />
-              {currentRadii.map((r, index) => {
-                const p = point(index, r);
-                return <Circle key={values[index].muscle} cx={p.x} cy={p.y} r={index === selectedIndex ? 6 : 3.5} fill={colors.primary} />;
-              })}
-            </Svg>
+        {values.length < MIN_RADAR_AXES ? (
+          <Text style={[styles.hint, {color: colors.onSurfaceVariant}]} testID="muscle-radar-too-few">
+            {`The radar needs at least ${MIN_RADAR_AXES} muscles. Choose them in Settings → Muscles.`}
+          </Text>
+        ) : (
+          <View style={styles.chart} onLayout={onLayout} testID="muscle-radar-chart">
+            <View style={StyleSheet.absoluteFill} accessible accessibilityLabel={chartLabel} testID="muscle-radar-svg">
+              <Svg width={width} height={CHART_HEIGHT}>
+                {RINGS.map((ring) => (
+                  <Polygon key={ring} points={toPoints(values.map(() => radius * ring))} fill="none" stroke={colors.outlineVariant} strokeWidth={1} />
+                ))}
+                {values.map((value, index) => {
+                  const end = point(index, radius);
+                  const isSelected = index === selectedIndex;
+                  return (
+                    <Line
+                      key={value.muscle}
+                      x1={cx}
+                      y1={cy}
+                      x2={end.x}
+                      y2={end.y}
+                      stroke={isSelected ? colors.primary : colors.outlineVariant}
+                      strokeWidth={isSelected ? 1.5 : 1}
+                    />
+                  );
+                })}
+                <Polygon points={toPoints(lastRadii)} fill="none" stroke={colors.outline} strokeWidth={1.5} strokeDasharray="4 4" />
+                <Polygon
+                  points={toPoints(currentRadii)}
+                  fill={withAlpha(colors.primary, 0.22)}
+                  stroke={colors.primary}
+                  strokeWidth={2}
+                  strokeLinejoin="round"
+                />
+                {currentRadii.map((r, index) => {
+                  const p = point(index, r);
+                  return <Circle key={values[index].muscle} cx={p.x} cy={p.y} r={index === selectedIndex ? 6 : 3.5} fill={colors.primary} />;
+                })}
+              </Svg>
+            </View>
+            {values.map((value, index) => {
+              const p = point(index, labelRadius);
+              const isSelected = index === selectedIndex;
+              const formatted = formatMetricValue(currentValue(value, metric), metric);
+              return (
+                <Pressable
+                  key={value.muscle}
+                  testID={`muscle-chip-${value.muscle}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${value.muscle}, ${metric === Metric.SETS ? formatSetCount(currentValue(value, metric)) : formatted}`}
+                  accessibilityState={{selected: isSelected}}
+                  onPress={() => toggleSelection(value.muscle)}
+                  style={[styles.labelTarget, {left: p.x - LABEL_WIDTH / 2, top: p.y - LABEL_HEIGHT / 2}]}
+                >
+                  <View style={[styles.label, isSelected && {backgroundColor: colors.primaryContainer}]}>
+                    <Text style={[styles.labelName, {color: isSelected ? colors.onPrimaryContainer : colors.onSurface}]}>{value.muscle}</Text>
+                    <Text style={[styles.labelValue, {color: colors.onSurfaceVariant}]}>{formatted}</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
-          {values.map((value, index) => {
-            const p = point(index, labelRadius);
-            const isSelected = index === selectedIndex;
-            const formatted = formatMetricValue(currentValue(value, metric), metric);
-            return (
-              <Pressable
-                key={value.muscle}
-                testID={`muscle-chip-${value.muscle}`}
-                accessibilityRole="button"
-                accessibilityLabel={`${value.muscle}, ${metric === Metric.SETS ? formatSetCount(currentValue(value, metric)) : formatted}`}
-                accessibilityState={{selected: isSelected}}
-                onPress={() => toggleSelection(value.muscle)}
-                style={[styles.labelTarget, {left: p.x - LABEL_WIDTH / 2, top: p.y - LABEL_HEIGHT / 2}]}
-              >
-                <View style={[styles.label, isSelected && {backgroundColor: colors.primaryContainer}]}>
-                  <Text style={[styles.labelName, {color: isSelected ? colors.onPrimaryContainer : colors.onSurface}]}>{value.muscle}</Text>
-                  <Text style={[styles.labelValue, {color: colors.onSurfaceVariant}]}>{formatted}</Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
+        )}
 
         {selectedValues ? (
           <View style={[styles.selection, {backgroundColor: colors.surfaceContainerHighest ?? colors.surfaceVariant}]} testID="muscle-radar-selection">
