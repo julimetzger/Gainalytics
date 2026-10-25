@@ -26,7 +26,7 @@ const FocusExercisesCard = ({exerciseMetricMap, onExercisePress}: FocusExercises
       <Card.Content>
         {focusExercises.map(({exercise, metrics}) => {
           const volume = metrics.get(Metric.VOLUME);
-          const oneRm = metrics.get(Metric.ONE_RM);
+          const oneRm = metrics.get(Metric.ONE_RM)?.value;
 
           return (
             <TouchableOpacity
@@ -46,9 +46,9 @@ const FocusExercisesCard = ({exerciseMetricMap, onExercisePress}: FocusExercises
               <View style={styles.metricsCol}>
                 <Text style={styles.metricValue}>{((volume?.value ?? 0) / 1000).toFixed(1)}t</Text>
               </View>
-              {oneRm && oneRm.value > 0 && (
+              {oneRm !== undefined && oneRm > 0 && (
                 <View style={styles.rmCol}>
-                  <Text style={styles.metricValue}>{oneRm.value.toFixed(1)} kg</Text>
+                  <Text style={styles.metricValue}>{oneRm.toFixed(1)} kg</Text>
                   <Text style={styles.metricLabel}>~1RM</Text>
                 </View>
               )}

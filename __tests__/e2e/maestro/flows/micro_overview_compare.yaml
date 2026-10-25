@@ -8,9 +8,15 @@ appId: com.powerliftingworkoutplanner
 #   2. GH-526 Micro 2 Overview · Total (English label "Total", GH-450): header date
 #      span 25/01 – 31/01/2026; "vs Micro 1": Micro 2 (done) vs Micro 1 (done),
 #      sets +3 (+5%), duration 7h 28min, Core 6.5/4.2; "vs Plan": trainings 4 / 4,
-#      no Duration card, Biceps 10.4/11, Diff −0.6.
+#      no Duration card, Biceps 10.4/8.4, Diff +2.
 #   3. GH-526/GH-241 Micro 2 Overview · Plan: Plan M2 vs Plan M1 without compare
-#      chips, sets +13 (+29%), Quads 9.6/5.6.
+#      chips, sets +11 (+27%), Quads 9.6/5.6.
+#   4. GH-527 (H5) Micro 1 · Plan: planned sets of exercises removed from a training
+#      count nowhere — 41 sets, map and Muscle Overview Back 12 / Chest 0.8.
+#   5. GH-527 (H6) Micro 1 · Total vs Plan: 1RM / Max / Average Intensity per muscle
+#      from its own exercises (Back 226.7 +8.0, Chest 180.0 −2.0, Shoulders 139.3);
+#      Micro 4 · Pull (no logged sets): "–" without a delta. Restores the default
+#      Muscle Overview columns (Volume, Sets, Reps) at the end.
 #
 # Data basis: baseline import (fixtures/baseline.gains), READ-ONLY — assumes the
 # baseline is already imported. Only sub-tab / chip / toggle taps.
@@ -140,14 +146,17 @@ appId: com.powerliftingworkoutplanner
     element:
       id: 'micro-muscle-map-row-Biceps-readout'
     direction: DOWN
+# GH-527: the plan no longer counts the 2 stored sets of "Single arm lateral high
+# row" (Biceps 50 %) and the 2 of "SA lat pulldown" (Biceps 80 %), both removed from
+# their trainings: Biceps plan 8.4 (was 11), Diff +2 (was −0.6).
 - copyTextFrom:
     id: 'micro-muscle-map-row-Biceps-readout'
-- assertTrue: "${maestro.copiedText === '10.4/11'}"
+- assertTrue: "${maestro.copiedText === '10.4/8.4'}"
 - tapOn:
     id: 'micro-muscle-map-view-diff'
 - copyTextFrom:
     id: 'micro-muscle-map-row-Biceps-readout'
-- assertTrue: "${maestro.copiedText === '−0.6'}"
+- assertTrue: "${maestro.copiedText === '+2'}"
 
 # --- Plan tab: one fixed comparison, Plan M2 vs Plan M1 --------------------------
 - scrollUntilVisible:
@@ -167,9 +176,10 @@ appId: com.powerliftingworkoutplanner
     id: 'micro-compare-previous'
 - assertNotVisible:
     id: 'micro-compare-plan'
+# GH-527: 52 vs 41 planned sets — without the removed exercises (was 58 vs 45, +13)
 - assertVisible:
     id: 'micro-plan-sets-delta'
-    text: '\+13 \(\+29%\)'
+    text: '\+11 \(\+27%\)'
 - scrollUntilVisible:
     element:
       id: 'micro-plan-muscle-map-row-Quads-readout'
@@ -179,3 +189,230 @@ appId: com.powerliftingworkoutplanner
 - copyTextFrom:
     id: 'micro-plan-muscle-map-row-Quads-readout'
 - assertTrue: "${maestro.copiedText === '9.6/5.6'}"
+
+# --- GH-527 (H5): Micro 1 Plan — map, Muscle Overview and Sets agree ---------------
+# Micro 1 still stores 2 planned sets of "SA lat pulldown" (Back 100 %) and 2 of
+# "Machine chest press" (Chest 100 %), both removed from their trainings. No view
+# counts them any more: 41 sets, Back 12, Chest 0.8 (with them: 45 / 14 / 2.8).
+# The drawer pager lands on the micro's Overview; the drawer stays open.
+- tapOn:
+    id: 'drawer-menu-button'
+- extendedWaitUntil:
+    visible: 'Mesos:'
+    timeout: 20000
+- tapOn: 'Micro 1'
+- tapOn:
+    id: 'drawer-menu-button'
+- extendedWaitUntil:
+    visible:
+      id: 'overview-view-plan'
+    timeout: 20000
+- tapOn:
+    id: 'overview-view-plan'
+- extendedWaitUntil:
+    visible:
+      id: 'micro-plan-overview'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'micro-plan-comparison-line'
+      text: 'Plan M1'
+    timeout: 20000
+- assertVisible:
+    id: 'micro-plan-sets-value'
+    text: '41'
+- tapOn:
+    id: 'micro-plan-muscle-map-metric-sets'
+- copyTextFrom:
+    id: 'micro-plan-muscle-map-row-Back-readout'
+- assertTrue: "${maestro.copiedText === '12'}"
+- scrollUntilVisible:
+    element:
+      id: 'micro-plan-muscle-map-row-Chest-readout'
+    direction: DOWN
+- copyTextFrom:
+    id: 'micro-plan-muscle-map-row-Chest-readout'
+- assertTrue: "${maestro.copiedText === '0.8'}"
+# Muscle Overview, column 2 = Sets (the column metrics are persisted — set them)
+- scrollUntilVisible:
+    element:
+      id: 'metrics-muscles-header-1'
+    direction: DOWN
+- tapOn:
+    id: 'metrics-muscles-header-1'
+- tapOn:
+    id: 'metric-selector-option-sets'
+- scrollUntilVisible:
+    element:
+      id: 'metrics-muscle-Chest-1'
+    direction: DOWN
+- copyTextFrom:
+    id: 'metrics-muscle-Back-1'
+- assertTrue: "${maestro.copiedText === '12.00'}"
+- copyTextFrom:
+    id: 'metrics-muscle-Chest-1'
+- assertTrue: "${maestro.copiedText === '0.80'}"
+- takeScreenshot: gh527_m1_plan_table
+
+# --- GH-527 (H6): Micro 1 Total vs Plan — 1RM / intensity per muscle ----------------
+# Each muscle only from the exercises that train it (each against its own e1RM):
+#   Back  1RM 226.7 (Paused deadlift 170 × 7 @ RIR 3), plan 218.7 → +8.0
+#   Chest 1RM 180.0 (Dips 135 × 10), plan 182.0 (Dips 130 × 12) → −2.0
+#   Shoulders 139.3 (Bankdrücken 110 × 6 @ 2) — before GH-527 every muscle read 226.7
+#   Max Intensity  Back 83 (+4), Chest 79 (+8); Average Intensity Back 76 (+2), Chest 74 (+3)
+- scrollUntilVisible:
+    element:
+      id: 'overview-view-gesamt'
+    direction: UP
+- tapOn:
+    id: 'overview-view-gesamt'
+- extendedWaitUntil:
+    visible:
+      id: 'micro-total-overview'
+    timeout: 30000
+- tapOn:
+    id: 'micro-compare-plan'
+- assertVisible:
+    id: 'micro-comparison-line'
+    text: 'Micro 1 done vs Micro 1 plan'
+- scrollUntilVisible:
+    element:
+      id: 'metrics-muscles-header-0'
+    direction: DOWN
+- tapOn:
+    id: 'metrics-muscles-header-0'
+- tapOn:
+    id: 'metric-selector-option-1rm'
+- tapOn:
+    id: 'metrics-muscles-header-2'
+- tapOn:
+    id: 'metric-selector-option-max-intensity'
+- scrollUntilVisible:
+    element:
+      id: 'metrics-muscle-Chest-0'
+    direction: DOWN
+- copyTextFrom:
+    id: 'metrics-muscle-Back-0'
+- assertTrue: "${maestro.copiedText === '226.7'}"
+- copyTextFrom:
+    id: 'metrics-muscle-Back-0-delta'
+- assertTrue: "${maestro.copiedText === '+8.0'}"
+- copyTextFrom:
+    id: 'metrics-muscle-Chest-0'
+- assertTrue: "${maestro.copiedText === '180.0'}"
+- copyTextFrom:
+    id: 'metrics-muscle-Chest-0-delta'
+- assertTrue: "${maestro.copiedText === '−2.0'}"
+- copyTextFrom:
+    id: 'metrics-muscle-Back-2'
+- assertTrue: "${maestro.copiedText === '83'}"
+- copyTextFrom:
+    id: 'metrics-muscle-Back-2-delta'
+- assertTrue: "${maestro.copiedText === '+4'}"
+- copyTextFrom:
+    id: 'metrics-muscle-Chest-2'
+- assertTrue: "${maestro.copiedText === '79'}"
+- copyTextFrom:
+    id: 'metrics-muscle-Chest-2-delta'
+- assertTrue: "${maestro.copiedText === '+8'}"
+- scrollUntilVisible:
+    element:
+      id: 'metrics-muscle-Shoulders-0'
+    direction: DOWN
+- copyTextFrom:
+    id: 'metrics-muscle-Shoulders-0'
+- assertTrue: "${maestro.copiedText === '139.3'}"
+- takeScreenshot: gh527_m1_total_1rm
+- scrollUntilVisible:
+    element:
+      id: 'metrics-muscles-header-2'
+    direction: UP
+- tapOn:
+    id: 'metrics-muscles-header-2'
+- tapOn:
+    id: 'metric-selector-option-average-intensity'
+- scrollUntilVisible:
+    element:
+      id: 'metrics-muscle-Chest-2'
+    direction: DOWN
+- copyTextFrom:
+    id: 'metrics-muscle-Back-2'
+- assertTrue: "${maestro.copiedText === '76'}"
+- copyTextFrom:
+    id: 'metrics-muscle-Back-2-delta'
+- assertTrue: "${maestro.copiedText === '+2'}"
+- copyTextFrom:
+    id: 'metrics-muscle-Chest-2'
+- assertTrue: "${maestro.copiedText === '74'}"
+- copyTextFrom:
+    id: 'metrics-muscle-Chest-2-delta'
+- assertTrue: "${maestro.copiedText === '+3'}"
+
+# --- GH-527 (H6): a muscle without sets shows "–" and no delta ----------------------
+# Micro 4 · Pull is FINISHED but its only logged workout (Pull up) has no sets: Done
+# vs Plan lists Back etc. with 0 sets — 1RM and intensity read "–" without a delta,
+# Sets keeps its delta (0.00, −8.00).
+- tapOn:
+    id: 'drawer-menu-button'
+- extendedWaitUntil:
+    visible: 'Mesos:'
+    timeout: 20000
+- tapOn: 'Micro 2'
+- tapOn: 'Micro 3'
+- tapOn: 'Micro 4'
+- tapOn: 'Pull'
+# the sub-tab is remembered (Train since the GH-467 part above)
+- extendedWaitUntil:
+    visible:
+      id: 'subtab-analysis'
+    timeout: 30000
+- tapOn:
+    id: 'subtab-analysis'
+- extendedWaitUntil:
+    visible:
+      id: 'analysis-data-toggle'
+    timeout: 30000
+- assertVisible: 'Micro 4'
+- assertVisible: ' Pull'
+- tapOn:
+    id: 'analysis-data-train'
+- extendedWaitUntil:
+    visible:
+      id: 'trainings-overview'
+    timeout: 30000
+- tapOn:
+    id: 'analysis-compare-this_training_plan'
+- assertVisible:
+    id: 'trainings-overview-sets-value'
+    text: '0'
+- scrollUntilVisible:
+    element:
+      id: 'metrics-muscle-Back-1-delta'
+    direction: DOWN
+- copyTextFrom:
+    id: 'metrics-muscle-Back-0'
+- assertTrue: "${maestro.copiedText === '–'}"
+- assertNotVisible:
+    id: 'metrics-muscle-Back-0-delta'
+- copyTextFrom:
+    id: 'metrics-muscle-Back-2'
+- assertTrue: "${maestro.copiedText === '–'}"
+- assertNotVisible:
+    id: 'metrics-muscle-Back-2-delta'
+- copyTextFrom:
+    id: 'metrics-muscle-Back-1-delta'
+- assertTrue: "${maestro.copiedText === '−8.00'}"
+- takeScreenshot: gh527_m4_pull_no_sets
+
+# restore the default Muscle Overview columns (Volume, Sets, Reps) for later flows
+- tapOn:
+    id: 'metrics-muscles-header-0'
+- tapOn:
+    id: 'metric-selector-option-volume'
+- tapOn:
+    id: 'metrics-muscles-header-2'
+- tapOn:
+    id: 'metric-selector-option-reps'
+- assertVisible:
+    id: 'metrics-muscles-header-0'
+    text: 'Volume \(t\)'
