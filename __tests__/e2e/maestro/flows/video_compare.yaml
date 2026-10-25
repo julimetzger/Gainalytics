@@ -159,14 +159,17 @@ appId: com.powerliftingworkoutplanner
       - tapOn: 'No thanks'
 - waitForAnimationToEnd:
     timeout: 8000
-# The SAF picker remembers its last folder -> steer it to Downloads if needed.
+# The SAF picker remembers its last folder -> steer it to Downloads if needed
+# (via "Show roots": an edge swipe is the system BACK gesture).
+- extendedWaitUntil:
+    visible: 'squat-3reps.mp4'
+    timeout: 20000
+    optional: true
 - runFlow:
     when:
       notVisible: 'squat-3reps.mp4'
     commands:
-      - swipe:
-          start: '2%, 50%'
-          end: '80%, 50%'
+      - tapOn: 'Show roots'
       - extendedWaitUntil:
           visible: 'Downloads'
           timeout: 15000

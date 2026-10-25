@@ -6,9 +6,9 @@ appId: com.powerliftingworkoutplanner
 #   planned yet"); planning its first training from the card (Bench Press 100 x 5) shows
 #   "Training 1" with the target 100 × 5 on the home card — without touching the star.
 #  Part B (baseline): a new plan "Kraftblock" replaces Push pull as current, confirmed by
-#   the snackbar "Kraftblock is now your current plan"; Undo restores the automatic choice
-#   Push pull; the labelled star switches Kraftblock / Push pull back and forth, each
-#   switch confirmed.
+#   the snackbar "Kraftblock is now your current plan" (its Undo is not tapped: the 3 s
+#   snackbar is gone before Maestro's tap lands); the labelled star switches
+#   Push pull / Kraftblock / Push pull back and forth, each switch confirmed.
 # Data basis: Part A clearState (empty store); Part B imports baseline.gains (must be in
 # /sdcard/Download). Ends on the baseline + an extra plan "Kraftblock" (id 6), Push pull current.
 # Merged from: gh518_new_plan_current (base), gh518_empty_app_first_plan, gh518_home_top
@@ -53,6 +53,13 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'next-training-name'
     text: 'No training planned yet'
+# The plan rows sit below the hero + next-training cards (out of the 2400 px viewport).
+# Empty store -> the plans reducer gives the first plan id 1.
+- scrollUntilVisible:
+    element:
+      id: '^plan-meta-1$'
+    direction: DOWN
+    timeout: 20000
 - assertVisible:
     id: '^plan-meta-1$'
     text: 'Draft · no trainings yet'
@@ -151,7 +158,7 @@ appId: com.powerliftingworkoutplanner
     id: 'next-training-name'
     text: 'Push squat'
 
-# New plan -> current at once, with Undo in the snackbar.
+# New plan -> current at once, confirmed by the snackbar.
 - scrollUntilVisible:
     element:
       id: 'add-trainings-plan'
@@ -170,11 +177,35 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: 'Kraftblock is now your current plan'
     timeout: 10000
-# The snackbar lasts 3 s — tap Undo right away.
-- tapOn:
-    id: 'current-plan-snackbar-undo'
+# NOT tapping Undo (current-plan-snackbar-undo): the snackbar auto-dismisses after 3 s
+# (TrainingHome duration={3000}) while each Maestro command takes ~5-8 s on the emulator.
+# Observed: the Undo tap landed after the dismiss, fell through onto the plan row beneath
+# and opened a training. Assert the effect of the new plan instead and switch back with
+# the labelled star (deterministic, no timeout).
 - extendedWaitUntil:
     notVisible: 'Kraftblock is now your current plan'
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 20000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Kraftblock'
+- assertVisible:
+    id: 'next-training-name'
+    text: 'No training planned yet'
+- scrollUntilVisible:
+    element: 'Set Push pull as current plan'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'Set Push pull as current plan'
+- extendedWaitUntil:
+    visible: 'Push pull is now your current plan'
+    timeout: 10000
+- extendedWaitUntil:
+    notVisible: 'Push pull is now your current plan'
     timeout: 15000
 - scrollUntilVisible:
     element:
@@ -237,7 +268,11 @@ appId: com.powerliftingworkoutplanner
     element: 'Current plan: Push pull'
     direction: DOWN
     timeout: 20000
-- assertVisible: 'Set Kraftblock as current plan'
+# Plans are sorted by name: the Kraftblock row sits ABOVE Push pull, maybe off-screen.
+- scrollUntilVisible:
+    element: 'Set Kraftblock as current plan'
+    direction: UP
+    timeout: 20000
 - scrollUntilVisible:
     element:
       id: 'micro-hero-plan-name'

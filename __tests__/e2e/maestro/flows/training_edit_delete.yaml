@@ -177,9 +177,22 @@ appId: com.powerliftingworkoutplanner
       id: 'next-training-start-button'
     direction: DOWN
     timeout: 60000
+# The home list can overshoot so the card's name sits above the viewport.
+- scrollUntilVisible:
+    element:
+      id: 'next-training-name'
+    direction: UP
+    timeout: 20000
 - assertVisible:
     id: 'next-training-name'
     text: 'Push squat'
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- waitForAnimationToEnd
 - tapOn:
     id: 'next-training-start-button'
 - extendedWaitUntil:
@@ -284,9 +297,23 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'training-home-screen'
     timeout: 30000
+# The home keeps its scroll position (we left it at the Last Training card);
+# the micro hero sits at the very top -> scroll UP to it first.
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 30000
 - assertVisible:
     id: 'micro-hero-plan-name'
     text: 'Push pull'
+# Bring the Last Training card back into view so the negative check is real
+# (an off-screen card would make assertNotVisible pass trivially).
+- scrollUntilVisible:
+    element:
+      id: 'last-training-card-pressable'
+    direction: DOWN
+    timeout: 30000
 - assertNotVisible:
     id: 'last-training-card-pressable'
     text: 'Last Training, .* · today.*'

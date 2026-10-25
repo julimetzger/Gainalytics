@@ -89,15 +89,18 @@ appId: com.powerliftingworkoutplanner
       - tapOn: 'No thanks'
 - waitForAnimationToEnd:
     timeout: 8000
-# The SAF picker remembers its last folder -> steer it to Downloads via the
-# roots drawer (left-edge swipe), only when the clip is not listed already.
+# The SAF picker remembers its last folder -> steer it to Downloads via
+# "Show roots" (an edge swipe is the system BACK gesture), only when the clip
+# is not listed after the picker had time to load.
+- extendedWaitUntil:
+    visible: 'squat-3reps.mp4'
+    timeout: 20000
+    optional: true
 - runFlow:
     when:
       notVisible: 'squat-3reps.mp4'
     commands:
-      - swipe:
-          start: '2%, 50%'
-          end: '80%, 50%'
+      - tapOn: 'Show roots'
       - extendedWaitUntil:
           visible: 'Downloads'
           timeout: 15000

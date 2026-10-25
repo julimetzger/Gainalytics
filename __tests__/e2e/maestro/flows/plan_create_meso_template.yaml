@@ -9,7 +9,8 @@ appId: com.powerliftingworkoutplanner
 #   B) "New Training" with an empty name: Save keeps the dialog open and says
 #      why (GH-428 H1). Then an EMPTY plan is created (Meso 1 / Micro 1).
 #   C) Plan drawer of that plan: the last meso cannot be deleted; "Add Meso"
-#      creates "Meso 2", "Add Training" creates "Training 1" (GH-509, TRN-004);
+#      creates "Meso 2", "Add Training" adds "Training 2" next to the seeded
+#      default "Training 1" (GH-509, TRN-004);
 #      a second meso CAN be deleted again and Meso 1 stays (TRN-004 r4).
 #   D) "From template" (GH-497): "Strength Block" is created as a draft plan with
 #      1RM-based weights; a second plan from the same template keeps a typed
@@ -199,11 +200,16 @@ appId: com.powerliftingworkoutplanner
       id: 'drawer-meso-name-2'
       text: 'Meso 2'
     timeout: 10000
-- assertNotVisible: 'Training 1'
+# Opening the drawer of a plan without training names seeds the default
+# "Training 1" (TrainingsPlanDrawer useEffect), so "Add Training" adds "Training 2".
+# Training rows have no testID; the anchored text does not match the header's
+# " Training 1" label.
+- assertVisible: '^Training 1$'
+- assertNotVisible: '^Training 2$'
 - tapOn:
     id: 'drawer-add-training-button'
 - extendedWaitUntil:
-    visible: 'Training 1'
+    visible: '^Training 2$'
     timeout: 10000
 # With two mesos the second one can be deleted again; Meso 1 stays.
 - longPressOn:
