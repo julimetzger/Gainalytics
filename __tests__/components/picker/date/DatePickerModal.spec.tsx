@@ -7,12 +7,14 @@ import {Workout} from '../../../../app/models/entities/Workout';
 
 const mockCalendarPropsRef: {current: Record<string, unknown> | undefined} = {current: undefined};
 
-jest.mock('react-native-gesture-handler', () => {
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   const React = require('react');
   const {View} = require('react-native');
 
   return {
-    Swipeable: ({children}: {children: React.ReactNode}) => <View>{children}</View>,
+    __esModule: true,
+    default: ({children}: {children: React.ReactNode}) => <View>{children}</View>,
+    SwipeDirection: {LEFT: 'left', RIGHT: 'right'},
   };
 });
 
