@@ -49,6 +49,13 @@ appId: com.powerliftingworkoutplanner
       - tapOn: 'Downloads'
       - waitForAnimationToEnd:
           timeout: 8000
+# Grid view truncates longer names ("gh391_planned_fi…"), so the full-name
+# match below never hits — switch to list view when the toggle is offered.
+- tapOn:
+    text: 'List view'
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 5000
 - scrollUntilVisible:
     element:
       text: '${FIXTURE}'

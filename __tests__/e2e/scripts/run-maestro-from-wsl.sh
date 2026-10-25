@@ -197,6 +197,9 @@ if [[ "${MODE}" == "bootstrap" || "${MODE}" == "full" || "${MODE}" == "smoke" ]]
       adb_cmd push "${extra_file}" "/sdcard/Download/$(basename "${extra_file}")"
     fi
   done
+  # Index the pushed files: the SAF picker's "Recent" view and file lookup only
+  # see files the media store knows about.
+  adb_cmd shell content call --method scan_volume --uri content://media --arg external_primary >/dev/null 2>&1 || true
   # video_list_filters_vl.yaml reads the analysis result from the app's private
   # files dir (RNFS cannot read /sdcard/Download); debug builds allow run-as.
   GH415_RESULT="${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh415-result.json"

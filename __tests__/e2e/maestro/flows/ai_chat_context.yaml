@@ -99,6 +99,12 @@ appId: com.powerliftingworkoutplanner
     id: 'chat-preset-7d'
 
 # ── The planned sessions really are in the context, ranges included ──────────
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
 - tapOn:
     id: 'chat-context-inspect'
 - extendedWaitUntil:
@@ -120,6 +126,11 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'chat-context-preview-close'
 - waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
 
 # ── Switching the plan off removes it from the context ───────────────────────
 - tapOn:
@@ -127,6 +138,12 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd
 - assertVisible: 'Plan: off'
 - assertNotVisible: 'Plan: 2 sessions'
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
 - tapOn:
     id: 'chat-context-inspect'
 - extendedWaitUntil:
@@ -140,6 +157,11 @@ appId: com.powerliftingworkoutplanner
     text: 'No context attached — the AI answers without training data\.'
 - tapOn:
     id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
 - waitForAnimationToEnd
 - tapOn:
     id: 'chat-planned-toggle'
@@ -159,6 +181,12 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd
 - assertVisible: 'Micro 7 · Push squat'
 - assertNotVisible: 'Training: none'
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
 - tapOn:
     id: 'chat-context-inspect'
 - extendedWaitUntil:
@@ -176,6 +204,11 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'chat-context-preview-close'
 - waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
 
 # ── Subject: a FINISHED training - plan AND what was actually done ───────────
 - tapOn:
@@ -189,6 +222,12 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd
 - assertVisible: 'Micro 6 · Pull'
 - assertNotVisible: 'Micro 7 · Push squat'
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
 - tapOn:
     id: 'chat-context-inspect'
 - extendedWaitUntil:
@@ -205,6 +244,11 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'chat-context-preview-close'
 - waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
 
 # ── Drop the subject again ───────────────────────────────────────────────────
 - tapOn:
@@ -218,6 +262,12 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd
 - assertVisible: 'Training: none'
 - assertNotVisible: 'Micro 6 · Pull'
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
 - tapOn:
     id: 'chat-context-inspect'
 - extendedWaitUntil:
@@ -228,6 +278,11 @@ appId: com.powerliftingworkoutplanner
     id: 'chat-context-preview-selected'
 - tapOn:
     id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
 - waitForAnimationToEnd
 
 # ── Store 2: a new, never trained plan next to a fully trained one ───────────
@@ -254,6 +309,12 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'chat-filter-toggle'
 - waitForAnimationToEnd
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
 - tapOn:
     id: 'chat-context-inspect'
 - extendedWaitUntil:
@@ -271,6 +332,11 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'chat-context-preview-close'
 - waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
 
 # Its sessions can be picked as the subject (382/383 = micro 1, 384 = micro 2).
 - tapOn:
@@ -287,6 +353,12 @@ appId: com.powerliftingworkoutplanner
     id: 'chat-training-option-382'
 - waitForAnimationToEnd
 - assertVisible: 'Micro 1 · Squat day'
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
 - tapOn:
     id: 'chat-context-inspect'
 - extendedWaitUntil:
@@ -301,6 +373,11 @@ appId: com.powerliftingworkoutplanner
 - assertTrue: "${maestro.copiedText.indexOf('\"performed\"') < 0}"
 - tapOn:
     id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
 - waitForAnimationToEnd
 
 # Leave the subject cleared for whatever runs next.

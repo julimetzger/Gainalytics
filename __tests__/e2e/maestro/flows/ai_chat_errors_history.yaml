@@ -303,9 +303,11 @@ onFlowComplete:
     id: 'settings-anthropic-api-key-input'
 - eraseText: 200
 # A tap can drop the cursor mid-text; the second tap lands past the shorter
-# remainder, so this erase empties the field.
+# remainder, so this erase empties the field. With the keyboard up the field
+# can scroll out of the hierarchy; it keeps focus, so the re-tap is optional.
 - tapOn:
     id: 'settings-anthropic-api-key-input'
+    optional: true
 - eraseText: 200
 - hideKeyboard
 - scrollUntilVisible:
