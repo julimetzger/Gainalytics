@@ -7,6 +7,8 @@ import {epley1RM} from '../../../utils/AnalyseUtils';
 import {useExercise} from '../../../redux/Exercises/use/useExercise';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {Workout} from '../../../models/entities/Workout';
+import {useRelativeStrength} from '../../../redux/HealthConnect/use/useRelativeStrength';
+import {formatRelativeStrength} from '../../../utils/healthConnect/bodyWeight';
 
 interface RecordRow {
   value: number;
@@ -14,6 +16,8 @@ interface RecordRow {
   weight: number | undefined;
   reps: number | undefined;
   rir: number | undefined;
+  /** 1RM / body weight at that date (GH-528). */
+  relative: number | undefined;
   key: string;
 }
 
@@ -53,6 +57,8 @@ const ExerciseOneRmRecordsTable = ({exercise, emptyTestID = 'one-rm-records-empt
     return recs.map((r) => r.workoutId);
   }, [live]);
   const workouts = useWorkoutsByIds(workoutIds);
+  // GH-528: 1RM / body weight on the record's date; undefined without Health Connect.
+  const relativeStrengthAt = useRelativeStrength();
 
   const recordRows = useMemo<RecordRow[]>(() => {
     const recs = live?.records?.[Record.ONE_RM] ?? [];
@@ -71,12 +77,13 @@ const ExerciseOneRmRecordsTable = ({exercise, emptyTestID = 'one-rm-records-empt
         weight: producingSet?.weight,
         reps: producingSet?.reps,
         rir: producingSet?.rir,
+        relative: relativeStrengthAt(numericValue, w?.start ?? w?.end),
         key: `${r.workoutId}-${idx}-${numericValue}`,
       });
     }
     out.sort((a, b) => b.value - a.value);
     return out;
-  }, [workouts, live]);
+  }, [workouts, live, relativeStrengthAt]);
 
   if (recordRows.length === 0) {
     return (
@@ -116,11 +123,18 @@ const ExerciseOneRmRecordsTable = ({exercise, emptyTestID = 'one-rm-records-empt
             <Text style={[styles.colRir, {color: theme.colors.onSurface}]}>
               {row.rir !== undefined ? row.rir : '—'}
             </Text>
-            <Text
-              testID={`one-rm-record-value-${idx}`}
-              style={[styles.colValue, {color: theme.colors.onSurface, fontWeight: isTop ? '700' : '500'}]}>
-              {`${row.value.toFixed(1)} kg`}
-            </Text>
+            <View style={styles.colValue}>
+              <Text
+                testID={`one-rm-record-value-${idx}`}
+                style={[styles.valueText, {color: theme.colors.onSurface, fontWeight: isTop ? '700' : '500'}]}>
+                {`${row.value.toFixed(1)} kg`}
+              </Text>
+              {row.relative !== undefined && (
+                <Text testID={`one-rm-record-relative-${idx}`} style={[styles.relativeText, {color: theme.colors.onSurfaceVariant}]}>
+                  {formatRelativeStrength(row.relative)}
+                </Text>
+              )}
+            </View>
           </View>
         );
       })}
@@ -176,8 +190,16 @@ const styles = StyleSheet.create({
   },
   colValue: {
     flex: 1.4,
+    alignItems: 'flex-end',
+  },
+  valueText: {
     textAlign: 'right',
     fontSize: 14,
+    fontVariant: ['tabular-nums'],
+  },
+  relativeText: {
+    textAlign: 'right',
+    fontSize: 11,
     fontVariant: ['tabular-nums'],
   },
 });

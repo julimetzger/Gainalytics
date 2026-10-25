@@ -1,0 +1,116 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F6 Exercises — T6.1: exercise list, focus card and the detail Graph tab.
+#
+# Purpose:
+#   1. GH-477: the list-row and focus-card sparklines plot the best e1RM of EVERY finished
+#      session (not only the 1RM records). Squat (id 2) in baseline.gains, last 12 sessions:
+#        210, 205, 205, 205, 210, 216, 219, 219, 215, 216, 213, 204
+#      (the curve drops — a record-based sparkline could only rise).
+#   2. GH-413: the detail Graph tab has a weekly "Frequency" graph. Adductor (id 32), range
+#      "All": the series starts in the week of Mon 15/01/24; the latest week is 0 trainings,
+#      last trained in the week of Mon 23/02/26 (2 trainings).
+#      The END of the span / the "Week of …" date is the CURRENT week and therefore only
+#      matched as a date pattern (the old flow pinned 31/08/26 — a time bomb).
+#
+# Data basis: baseline.gains (imported here — the flow marks Squat as focus exercise, a store
+# mutation, so it imports first to stay order-independent).
+#
+# Selector notes:
+#   - Sparklines expose their series as accessibilityLabel "Trend …" (Sparkline.tsx).
+#   - ids are unanchored regexes: `exercise-row-2` would also match exercise-row-27 etc.
+#   - the Graph tab is scrolled along the right edge (97%); centred swipes hit the charts.
+#
+# Merged from: gh477_sparkline_session_e1rm.yaml, gh477_suite.yaml, gh413_frequency_graph.yaml
+
+- runFlow: 00_import_baseline.yaml
+
+# PRECONDITION: baseline imported, current plan on the dashboard.
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+
+# ── 1. List row sparkline (GH-477) ─────────────────────────────────────────────
+- tapOn: 'tab-exercises'
+- extendedWaitUntil:
+    visible:
+      id: '^exercise-searchbar$'
+    timeout: 30000
+- tapOn:
+    id: '^exercise-searchbar$'
+- inputText: 'Squat'
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: '^exercise-row-2$'
+    timeout: 10000
+# Baseline has no focus exercises: no focus card yet (transition is asserted below).
+- assertNotVisible:
+    id: '^focus-card-2$'
+- assertVisible:
+    id: '^exercise-row-sparkline-2$'
+    text: 'Trend 210, 205, 205, 205, 210, 216, 219, 219, 215, 216, 213, 204'
+
+# ── 2. Focus card sparkline (same series) ─────────────────────────────────────
+- tapOn:
+    id: '^exercise-row-2$'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-focus-toggle'
+    timeout: 20000
+- tapOn:
+    id: 'exercise-detail-focus-toggle'
+- back
+- extendedWaitUntil:
+    visible:
+      id: '^focus-card-2$'
+    timeout: 20000
+- assertVisible:
+    id: '^focus-card-sparkline-2$'
+    text: 'Trend 210, 205, 205, 205, 210, 216, 219, 219, 215, 216, 213, 204'
+
+# ── 3. Detail Graph tab: Frequency (GH-413), Adductor, range All ───────────────
+- tapOn:
+    id: '^exercise-searchbar$'
+- eraseText: 30
+- inputText: 'Adductor'
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: '^exercise-row-32$'
+    timeout: 20000
+- tapOn:
+    id: '^exercise-row-32$'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-tabbar'
+    timeout: 30000
+- tapOn:
+    id: 'exercise-tab-graph'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-graph-tab'
+    timeout: 30000
+# Default 3M range: the fixture's last training is months old → empty state, no crash.
+- assertVisible: 'No data in this range.'
+- tapOn:
+    id: 'graph-range-All'
+- waitForAnimationToEnd
+# The Frequency card is the last one; scroll it into view (off-screen views are pruned).
+- repeat:
+    times: 6
+    commands:
+      - swipe: {start: '97%, 80%', end: '97%, 25%', duration: 1000}
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'graph-frequency-latest'
+    timeout: 30000
+- assertVisible: 'Trainings per week.*'
+# Start pinned to the fixture; end = current week (dynamic) → date pattern only.
+- assertVisible:
+    id: 'graph-frequency-span'
+    text: 'Weeks from Mon, 15/01/24 to Mon, \d\d/\d\d/\d\d'
+- assertVisible:
+    id: 'graph-frequency-latest'
+    text: 'Week of Mon, \d\d/\d\d/\d\d: 0 trainings so far, last trained Mon, 23/02/26 \(2 trainings\)'

@@ -1,0 +1,46 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 (T2): with "Write trainings to Health Connect" on, finishing a training writes it to Health Connect.
+# Preconditions: connected + writing on (gh528_connect.yaml, gh528_enable_write.yaml) and a STARTED training
+# whose first exercise is Adductor with planned sets (gh528_start_planned_training.yaml on baseline.gains).
+# The Health Connect side is checked out-of-band (HealthConnectTestDataActivity dump, see the PR).
+- runFlow: gh528_open_health_connect_settings.yaml
+- assertVisible:
+    id: 'health-connect-write-switch'
+    checked: true
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'next-training-start-button'
+    timeout: 30000
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'header-overflow-button'
+    timeout: 20000
+# Log the next planned set of Adductor (… × 105 kg @ RIR 0). No hideKeyboard: it is a BACK press.
+- runFlow:
+    when:
+      visible:
+        id: 'add-workout-set-confirm-\d+'
+    commands:
+      - tapOn:
+          id: 'add-workout-set-confirm-\d+'
+          index: 0
+- waitForAnimationToEnd
+- tapOn:
+    id: 'header-overflow-button'
+- tapOn:
+    id: 'overflow-finish'
+- extendedWaitUntil:
+    visible:
+      id: 'analysis-tab'
+    timeout: 20000
+- runFlow: gh528_open_health_connect_settings.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'health-connect-last-sync'
+      text: 'Last written .*: Gainalytics: Adductor'
+    timeout: 20000
+- takeScreenshot: gh528_write_01_settings_last_written

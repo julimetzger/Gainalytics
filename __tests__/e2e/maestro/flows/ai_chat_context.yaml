@@ -1,0 +1,393 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F11 AI coach / chat - T11.1: the AI chat opens, and its context (the
+# plan and a single picked training) is what the preview says it is.
+#
+# Purpose:
+#   - GH-514 (regression 0.180): Analyse -> AI Chat opens the chat itself, not the
+#     "AI Chat could not be displayed" error card.
+#   - GH-391: the planned sessions of the active plan's current and next micro are
+#     part of the context, ranges stay ranges, the plan can be switched off, and
+#     one planned or finished training can be picked as the subject of the chat.
+#   - GH-391 review: a newly created, never trained plan reaches the chat.
+#
+# Offline: no request is ever sent. A dummy key (set_dummy_api_key.yaml) is only
+# needed so the chat screen renders instead of the "add your key" hint.
+#
+# Data basis: NOT the baseline. On baseline.gains the chat attaches NO planning at
+# all ("Plan: 0 sessions"): "Push pull" has no slot in micro 7, so the plan has no
+# open work, and selectActivePlan() falls back to the newest plan with open slots
+# ("Test"), whose current micro 16 has no planned session left. So the context
+# values are pinned to the two GH-391 fixtures instead:
+#   1. __tests__/testdata/gh391_planned_fixture.gains - the baseline plus the
+#      planned micro 7 of "Push pull": training 382 "Push squat" (Bankdruecken
+#      set 1 planned as reps 5-8 / RIR 3-5 / 110 kg) and 383 "Pull dl ".
+#      Training 381 is the finished "Pull" of micro 6 (ended 2026-09-17).
+#   2. __tests__/testdata/gh391_newplan_fixture.gains - "Push pull" fully trained,
+#      plus plan 6 "New block 2026" (meso "Prep"): micro 1 = 382 "Squat day" and
+#      383 "Bench day", micro 2 = 384.
+# Push BOTH to /sdcard/Download under exactly these file names before the run.
+# Both fixtures contain "Push pull", the plan import_fixture.yaml waits for.
+# Neither fixture carries an aiChat slice, so FULL_IMPORT keeps the chat
+# settings of earlier runs; the flow normalises them (plan on, no subject).
+#
+# Merged from: gh391_chat_single_training (base), gh391_chat_planning_context,
+# gh391_new_plan_context, gh391_subject_per_conversation (subject part only),
+# gh514_ai_chat_opens.
+
+# ── Store 1: the planned micro 7 of "Push pull" ───────────────────────────────
+- runFlow:
+    file: import_fixture.yaml
+    env:
+      FIXTURE: gh391_planned_fixture.gains
+# PRECONDITION: the fixture store is loaded.
+- assertVisible: 'Push pull'
+- runFlow: set_dummy_api_key.yaml
+
+# ── GH-514: the chat opens, no error card ─────────────────────────────────────
+- runFlow: open_ai_chat.yaml
+- assertNotVisible:
+    id: 'analyse-error-boundary'
+- assertNotVisible: 'AI Chat could not be displayed'
+- assertVisible:
+    id: 'chat-header-actions'
+
+# Normalise state carried over from earlier runs (aiChat survives FULL_IMPORT).
+- runFlow:
+    when:
+      visible: 'Plan: off'
+    commands:
+      - tapOn:
+          id: 'chat-planned-toggle'
+      - waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: 'Training: none'
+    commands:
+      # closeIconAccessibilityLabel of the subject chip
+      - tapOn: 'Clear selected training'
+      - waitForAnimationToEnd
+- assertVisible: 'Training: none'
+
+# ── The plan chip counts the planned sessions of micro 7 + 8 ─────────────────
+- assertVisible: 'Plan: 2 sessions'
+
+# The filter section names WHICH plan and WHICH micros are attached.
+- tapOn:
+    id: 'chat-filter-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-planned-info'
+    timeout: 15000
+- tapOn:
+    id: 'chat-preset-7d'
+- waitForAnimationToEnd
+- assertVisible: 'Context: 7d'
+- copyTextFrom:
+    id: 'chat-planned-info'
+- assertTrue: "${maestro.copiedText.indexOf('Plan attached: 2 planned sessions from') === 0}"
+- assertTrue: "${maestro.copiedText.indexOf('Push pull') > 0}"
+- assertTrue: "${maestro.copiedText.indexOf('(current micro 7 and next micro 8)') > 0}"
+# The fixture's last finished training is months old: the 7-day window is empty.
+- copyTextFrom:
+    id: 'chat-context-info'
+- assertTrue: "${maestro.copiedText.indexOf('AI has access to 0 trainings (') === 0}"
+- tapOn:
+    id: 'chat-filter-toggle'
+- waitForAnimationToEnd
+- assertNotVisible:
+    id: 'chat-preset-7d'
+
+# ── The planned sessions really are in the context, ranges included ──────────
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-planned'
+    timeout: 15000
+- copyTextFrom:
+    id: 'chat-context-preview-planned'
+- assertTrue: "${maestro.copiedText.indexOf('\"plan_name\":\"Push pull\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"scope\":\"current micro 7 and next micro 8\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"current_micro\":7') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"name\":\"Push squat\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('Pull dl') >= 0}"
+# A planned RANGE, not its lower bound (Bankdruecken set 1 of training 382).
+- assertTrue: "${maestro.copiedText.indexOf('\"reps\":\"5-8\",\"weight_kg\":110,\"rir\":\"3-5\"') >= 0}"
+# No finished training in the 7-day window, so no finished section either.
+- assertNotVisible:
+    id: 'chat-context-preview-finished'
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
+
+# ── Switching the plan off removes it from the context ───────────────────────
+- tapOn:
+    id: 'chat-planned-toggle'
+- waitForAnimationToEnd
+- assertVisible: 'Plan: off'
+- assertNotVisible: 'Plan: 2 sessions'
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-size'
+    timeout: 15000
+- assertNotVisible:
+    id: 'chat-context-preview-planned'
+- assertVisible:
+    id: 'chat-context-preview-empty'
+    text: 'No context attached — the AI answers without training data\.'
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-planned-toggle'
+- waitForAnimationToEnd
+- assertVisible: 'Plan: 2 sessions'
+- assertNotVisible: 'Plan: off'
+
+# ── Subject: a PLANNED training ──────────────────────────────────────────────
+- tapOn:
+    id: 'chat-subject-chip'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-training-picker'
+    timeout: 15000
+- tapOn:
+    id: 'chat-training-option-382'
+- waitForAnimationToEnd
+- assertVisible: 'Micro 7 · Push squat'
+- assertNotVisible: 'Training: none'
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-selected'
+    timeout: 15000
+- copyTextFrom:
+    id: 'chat-context-preview-selected'
+- assertTrue: "${maestro.copiedText.indexOf('\"training_id\":382') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"name\":\"Push squat\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"state\":\"planned\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"reps\":\"5-8\"') >= 0}"
+# never trained: nothing performed to compare against
+- assertTrue: "${maestro.copiedText.indexOf('\"performed\"') < 0}"
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
+
+# ── Subject: a FINISHED training - plan AND what was actually done ───────────
+- tapOn:
+    id: 'chat-subject-chip'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-training-picker'
+    timeout: 15000
+- tapOn:
+    id: 'chat-training-option-381'
+- waitForAnimationToEnd
+- assertVisible: 'Micro 6 · Pull'
+- assertNotVisible: 'Micro 7 · Push squat'
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-selected'
+    timeout: 15000
+- copyTextFrom:
+    id: 'chat-context-preview-selected'
+- assertTrue: "${maestro.copiedText.indexOf('\"training_id\":381') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"state\":\"finished\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"date\":\"2026-09-17\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"planned\":[') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"performed\":[') >= 0}"
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
+
+# ── Drop the subject again ───────────────────────────────────────────────────
+- tapOn:
+    id: 'chat-subject-chip'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-training-picker'
+    timeout: 15000
+- tapOn:
+    id: 'chat-training-option-none'
+- waitForAnimationToEnd
+- assertVisible: 'Training: none'
+- assertNotVisible: 'Micro 6 · Pull'
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-planned'
+    timeout: 15000
+- assertNotVisible:
+    id: 'chat-context-preview-selected'
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
+
+# ── Store 2: a new, never trained plan next to a fully trained one ───────────
+# The key lives in secure storage and survives the import.
+- runFlow:
+    file: import_fixture.yaml
+    env:
+      FIXTURE: gh391_newplan_fixture.gains
+- runFlow: open_ai_chat.yaml
+- assertVisible: 'Training: none'
+# Before the GH-391 fix this read "Plan: 0 sessions".
+- assertVisible: 'Plan: 3 sessions'
+- tapOn:
+    id: 'chat-filter-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-planned-info'
+    timeout: 15000
+- copyTextFrom:
+    id: 'chat-planned-info'
+- assertTrue: "${maestro.copiedText.indexOf('Plan attached: 3 planned sessions from') === 0}"
+- assertTrue: "${maestro.copiedText.indexOf('New block 2026') > 0}"
+- assertTrue: "${maestro.copiedText.indexOf('(current micro 1 and next micro 2)') > 0}"
+- tapOn:
+    id: 'chat-filter-toggle'
+- waitForAnimationToEnd
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-planned'
+    timeout: 15000
+- copyTextFrom:
+    id: 'chat-context-preview-planned'
+- assertTrue: "${maestro.copiedText.indexOf('\"plan_name\":\"New block 2026\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"meso_name\":\"Prep\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"name\":\"Squat day\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"name\":\"Bench day\"') >= 0}"
+# the fully trained plan that used to win contributes nothing
+- assertTrue: "${maestro.copiedText.indexOf('Push squat') < 0}"
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
+
+# Its sessions can be picked as the subject (382/383 = micro 1, 384 = micro 2).
+- tapOn:
+    id: 'chat-subject-chip'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-training-picker'
+    timeout: 15000
+- assertVisible:
+    id: 'chat-training-option-383'
+- assertVisible:
+    id: 'chat-training-option-384'
+- tapOn:
+    id: 'chat-training-option-382'
+- waitForAnimationToEnd
+- assertVisible: 'Micro 1 · Squat day'
+# "View context" is the last chip of the horizontal context bar (y 296-423 =
+# ~15%) and sits off-screen to the right: drag the bar to its end first.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-selected'
+    timeout: 15000
+- copyTextFrom:
+    id: 'chat-context-preview-selected'
+- assertTrue: "${maestro.copiedText.indexOf('\"plan_name\":\"New block 2026\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"name\":\"Squat day\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"state\":\"planned\"') >= 0}"
+- assertTrue: "${maestro.copiedText.indexOf('\"performed\"') < 0}"
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+# Drag the context bar back so the plan and subject chips are fully on screen.
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
+
+# Leave the subject cleared for whatever runs next.
+- tapOn:
+    id: 'chat-subject-chip'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-training-picker'
+    timeout: 15000
+- tapOn:
+    id: 'chat-training-option-none'
+- waitForAnimationToEnd
+- assertVisible: 'Training: none'

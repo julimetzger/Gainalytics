@@ -6,12 +6,12 @@ Back to the [index](../agent-memory.md).
 
 ### The run-maestro-from-wsl.sh modes and flags
 `__tests__/e2e/scripts/run-maestro-from-wsl.sh` (Maestro 2.0.9-ports, run from WSL):
-- `--mode bootstrap` only PUSHES `baseline.gains` + the two mp4s, sets the reverse, force-stops the app and exits 0 — it never imports. Import by running the FLOW `00_import_baseline.yaml` (e.g. a two-line suite `- runFlow: 00_import_baseline.yaml` / `- runFlow: <your flow>.yaml`, as `gh403_suite.yaml`/`gh417_suite.yaml` do).
+- `--mode bootstrap` only PUSHES files to `/sdcard/Download` (`baseline.gains`, the two mp4s, the `gh496/*.csv`, `gh393-compare-labels.gains`, `gh415-workout-linked-analysis.gains` and the AI fixtures `gh391_*_fixture.gains`/`gh508_chat_fixture.gains`), sets the reverse, force-stops the app and exits 0 — it never imports. Import by running the FLOW `00_import_baseline.yaml` (most target flows call it themselves; otherwise use a two-line suite `- runFlow: 00_import_baseline.yaml` / `- runFlow: <your flow>.yaml`).
 - `--fixture <file>` likewise only pushes `<file>` as `/sdcard/Download/baseline.gains`. Import with `--suite __tests__/e2e/maestro/flows/00_import_baseline.yaml --fixture <file>`, then run assertion flows without the flag. `--suite` goes through `realpath` relative to your CWD, NOT the flows dir — a bare `00_import_baseline.yaml` from the worktree root fails with "Flow path does not exist" (seen in GH-504).
 - `--mode smoke`/`full`/`bootstrap` push + `am force-stop` the app before the run, and `--suite` defaults to `flows/suite.yaml` in EVERY mode — `--mode smoke` alone runs the full, data-mutating suite. Always pass `--suite`.
 - Any other `--mode` value (e.g. `--mode flow`) skips the push/force-stop preamble — use it to probe the app as it stands.
 - On failure the script re-runs the WHOLE suite once (import included). Kill the retry by PID once "Flow Failed" appears, then check the device for leftover dialogs. A first-attempt failure followed by a pass hides real problems.
-- Other flags: `--host`, `--adb-host`, `--adb-port`, `--metro-port`, `--device-metro-port`, `--driver-host-port`, `--report`. The report directory must exist (`mkdir -p`) or the script dies at `cd` with no Maestro output.
+- Other flags: `--host`, `--adb-host`, `--adb-port`, `--metro-port`, `--device-metro-port`, `--driver-host-port`, `--report`. `--report` takes a FILE path (`<dir>/x.xml`) whose directory must exist (`mkdir -p`), or the script dies at `cd` with no Maestro output. Passing a directory instead makes Maestro crash in `TestCommand.saveReport` after the flows ran — the log says `[Passed]` but the exit code is 1 (seen in GH-502).
 - If the push fails (`adb push … Permission denied`) and the data is already on the device, call `maestro` directly (see [direct invocation](#invoke-maestro-directly)).
 (seen in GH-292, GH-356, GH-417, GH-428, GH-443, GH-466, GH-468)
 

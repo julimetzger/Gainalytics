@@ -33,6 +33,25 @@ appId: com.powerliftingworkoutplanner
       visible: 'No thanks'
     commands:
       - tapOn: 'No thanks'
+# The SAF picker REMEMBERS its last folder (after a video import it reopens in a
+# video folder where 'baseline.gains' never appears). Give the picker time to
+# list the file; only if it is still missing, steer it to Downloads via its
+# "Show roots" menu (an edge swipe would be the system BACK gesture).
+- extendedWaitUntil:
+    visible: 'baseline.gains'
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      notVisible: 'baseline.gains'
+    commands:
+      - tapOn: 'Show roots'
+      - extendedWaitUntil:
+          visible: 'Downloads'
+          timeout: 15000
+      - tapOn: 'Downloads'
+      - waitForAnimationToEnd:
+          timeout: 8000
 - scrollUntilVisible:
     element:
       text: 'baseline.gains'
@@ -49,3 +68,7 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: 'Push pull'
     timeout: 120000
+# Value check: the imported current plan is the one on the dashboard.
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'

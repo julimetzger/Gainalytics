@@ -19,6 +19,8 @@ module.exports = {
     + '|@react-navigation'
     + '|@shopify/flash-list'
     + '|sharingan-rn-modal-dropdown'
+    // ESM-only deps of react-native-paper-dates >= 0.24 (color v5)
+    + '|color|color-string|color-convert|color-name'
     + ')/)',
   ],
 

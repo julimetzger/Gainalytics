@@ -1,0 +1,153 @@
+appId: com.powerliftingworkoutplanner
+---
+# F10 Settings — T10.1: Appearance card (GH-478, row named "Color" since GH-522).
+# Purpose: the Appearance card has exactly the two labelled rows "Theme" and "Color"
+# (no old "Color Palette"/"Theme Color"/"Active: …" UI, no Green preset);
+# Blue -> Purple -> Custom #E91E63 each move the checked segment and Custom names the
+# applied colour; a long press on a Theme segment shows its tooltip without switching;
+# Light mode works; mode and colour survive a restart; the picked colour stays on the
+# Custom segment after switching back to a built-in palette.
+# Every switch also asserts the PREVIOUS segment is unchecked (no vacuous pass).
+# Data basis: imports baseline.gains first (fixture settings: mode dark, palette blue).
+# Ends by restoring Dark + Blue, the baseline's appearance.
+# Merged from: gh478_theme_color_row (base); uses set_appearance.yaml.
+- runFlow: 00_import_baseline.yaml
+- tapOn: 'tab-settings'
+# Settings keeps its scroll position (it sits at "Import Data" after an import).
+- scrollUntilVisible:
+    element:
+      id: '^settings-section-theme-title$'
+    direction: UP
+    timeout: 30000
+# PRECONDITION: the imported fixture's appearance — Dark + Blue.
+- assertVisible:
+    id: '^settings-theme-mode-dark$'
+    checked: true
+- assertVisible:
+    id: '^settings-palette-blue$'
+    checked: true
+
+# --- structure ------------------------------------------------------------------
+- assertVisible:
+    id: '^settings-section-theme-title$'
+    text: 'Appearance'
+- assertVisible:
+    id: '^settings-theme-mode-row-label$'
+    text: 'Theme'
+- assertVisible:
+    id: '^settings-theme-palette-row-label$'
+    text: 'Color'
+- assertVisible:
+    id: '^settings-palette-purple$'
+- assertVisible:
+    id: '^settings-palette-custom$'
+- assertNotVisible: 'Color Palette'
+- assertNotVisible: 'Theme Color'
+- assertNotVisible: 'Custom Color'
+- assertNotVisible: 'Active:.*'
+# Negative: the Green preset is gone from the UI (stored 'green' still renders, GH-478).
+- assertNotVisible:
+    id: '^settings-palette-green$'
+- assertNotVisible: 'Green'
+
+# --- Blue -> Purple ---------------------------------------------------------------
+- tapOn:
+    id: '^settings-palette-purple$'
+- assertVisible:
+    id: '^settings-palette-purple$'
+    checked: true
+- assertVisible:
+    id: '^settings-palette-blue$'
+    checked: false
+
+# --- Purple -> Custom #E91E63 (colour wheel dialog, via the shared helper) ----------
+- runFlow:
+    file: set_appearance.yaml
+    env:
+      MODE: dark
+      PALETTE: custom
+      HEX: '#E91E63'
+- assertNotVisible: 'Pick a theme colour'
+- assertVisible:
+    id: '^settings-palette-custom$'
+    checked: true
+- assertVisible:
+    id: '^settings-palette-purple$'
+    checked: false
+- assertVisible:
+    id: '^settings-palette-custom$'
+    text: 'Custom #E91E63'
+
+# --- long press on a Theme segment: tooltip, no switch -------------------------------
+- longPressOn:
+    id: '^settings-theme-mode-light$'
+- assertVisible: 'Light: always light'
+- assertVisible:
+    id: '^settings-theme-mode-dark$'
+    checked: true
+- assertVisible:
+    id: '^settings-theme-mode-light$'
+    checked: false
+
+# --- Light mode -----------------------------------------------------------------
+- tapOn:
+    id: '^settings-theme-mode-light$'
+- assertVisible:
+    id: '^settings-theme-mode-light$'
+    checked: true
+- assertVisible:
+    id: '^settings-theme-mode-dark$'
+    checked: false
+- assertVisible:
+    id: '^settings-palette-custom$'
+    text: 'Custom #E91E63'
+
+# --- restart: the selection survives ------------------------------------------------
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'tab-settings'
+    timeout: 120000
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: '^settings-section-theme-title$'
+    direction: UP
+    timeout: 30000
+- assertVisible:
+    id: '^settings-theme-mode-light$'
+    checked: true
+- assertVisible:
+    id: '^settings-palette-custom$'
+    checked: true
+- assertVisible:
+    id: '^settings-palette-custom$'
+    text: 'Custom #E91E63'
+
+# --- back to Purple: the picked colour stays on the Custom segment -----------------
+- tapOn:
+    id: '^settings-palette-purple$'
+- assertVisible:
+    id: '^settings-palette-purple$'
+    checked: true
+- assertVisible:
+    id: '^settings-palette-custom$'
+    checked: false
+- assertVisible:
+    id: '^settings-palette-custom$'
+    text: 'Custom #E91E63'
+
+# --- restore the baseline appearance (Dark + Blue) for later read-only flows -------
+- runFlow:
+    file: set_appearance.yaml
+    env:
+      MODE: dark
+      PALETTE: blue
+- assertVisible:
+    id: '^settings-palette-purple$'
+    checked: false

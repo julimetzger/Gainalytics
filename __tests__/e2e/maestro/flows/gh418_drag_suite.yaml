@@ -1,5 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-# GH-418 drag evidence, part 1 with a fresh baseline import.
-- runFlow: 00_import_baseline.yaml
-- runFlow: gh418_drag_open.yaml

@@ -28,6 +28,7 @@ import {Training} from '../../models/entities/Training';
 import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
 import {GlobalState} from '../../redux/rootReducer';
 import {dispatchSetCurrentTrainingsPlan} from '../../redux/settings/dispatch/dispatchSetCurrentTrainingsPlan';
+import {nextOpenTrainingInMicro, resolveCurrentMicro} from '../../utils/currentMicro';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainingHome'>;
 
@@ -219,11 +220,15 @@ function statusForPlan(plan: TrainingsPlan, allTrainings: Training[]): PlanRowMe
         return !trainingsById[plan.trainings[k]]?.end;
       })
     : undefined;
-  const currentMicro = firstUndoneAfterLast ? getMicroFromTrainingInMicroIndex(firstUndoneAfterLast) : lastDoneMicro;
+  // GH-533: a running session's micro, else the plan order, only proposes the micro; it
+  // becomes current once the switch rule allows it.
+  const runningKey = slotEntries.find(([, tId]) => trainingsById[tId]?.state === TrainingsState.STARTED && !trainingsById[tId]?.end)?.[0];
+  const proposedKey = runningKey ?? firstUndoneAfterLast;
+  const currentMicro = resolveCurrentMicro(plan, trainingsById, proposedKey ? getMicroFromTrainingInMicroIndex(proposedKey) : lastDoneMicro);
 
   const localMicro = getLocalMicro(plan.mesos, currentMicro);
   const currentMeso = getMesoForMicro(plan.mesos, currentMicro);
-  const navMicro = firstUndoneAfterLast ? currentMicro : lastDoneMicro;
+  const navMicro = currentMicro;
 
   const microSlots = Object.keys(plan.trainings).filter(k => getMicroFromTrainingInMicroIndex(k) === currentMicro);
   const microDone = microSlots.filter(k => {
@@ -333,18 +338,26 @@ const TrainingHomeContent = ({navigation, route}: Props) => {
   );
 
   const activePlanLastDone = useMemo(() => (activePlan ? lastDoneFor(activePlan, trainingsById) : undefined), [activePlan, trainingsById]);
-  const activePlanNext = useMemo<NextSession | undefined>(
+  const plannedNext = useMemo<NextSession | undefined>(
     () => (activePlan ? nextSessionFor(activePlan, activePlanLastDone, trainingsById) : undefined),
     [activePlan, activePlanLastDone, trainingsById],
   );
 
-  // Hero current micro: prefer the next session's micro (the one actively being worked on).
-  // Fall back to last done micro only when the plan is complete (no next session).
+  // Hero current micro: the next session's micro (the one actively being worked on), or the
+  // last done micro when the plan is complete — but GH-533: never ahead of the micro the
+  // user is still in (see resolveCurrentMicro for the switch rule).
   const heroCurrentMicro = useMemo(() => {
-    if (activePlanNext?.micro !== undefined) return activePlanNext.micro;
-    if (activePlanLastDone) return activePlanLastDone.micro;
-    return 1;
-  }, [activePlanLastDone, activePlanNext]);
+    const candidate = plannedNext?.micro ?? activePlanLastDone?.micro ?? 1;
+    return activePlan ? resolveCurrentMicro(activePlan, trainingsById, candidate) : candidate;
+  }, [activePlan, trainingsById, activePlanLastDone, plannedNext]);
+
+  // GH-533: while the old micro is still current and has open trainings, "Next Training"
+  // stays in it instead of pointing at day 1 of the next micro.
+  const activePlanNext = useMemo<NextSession | undefined>(() => {
+    if (!activePlan || plannedNext?.micro === undefined || plannedNext.micro <= heroCurrentMicro) return plannedNext;
+    const training = nextOpenTrainingInMicro(activePlan, trainingsById, heroCurrentMicro);
+    return training !== undefined ? {isComplete: false, micro: heroCurrentMicro, training} : plannedNext;
+  }, [activePlan, trainingsById, plannedNext, heroCurrentMicro]);
 
   const planMetas = useMemo(() => {
     const map: {[id: number]: PlanRowMeta} = {};

@@ -1,0 +1,286 @@
+appId: com.powerliftingworkoutplanner
+---
+# F2 Training home — T2.2: a newly created plan becomes the current plan (GH-518).
+# Purpose:
+#  Part A (empty store): the first plan "Kraftblock" is current at once ("No training
+#   planned yet"); planning its first training from the card (Bench Press 100 x 5) shows
+#   "Training 1" with the target 100 × 5 on the home card — without touching the star.
+#  Part B (baseline): a new plan "Kraftblock" replaces Push pull as current, confirmed by
+#   the snackbar "Kraftblock is now your current plan" (its Undo is not tapped: the 3 s
+#   snackbar is gone before Maestro's tap lands); the labelled star switches
+#   Push pull / Kraftblock / Push pull back and forth, each switch confirmed.
+# Data basis: Part A clearState (empty store); Part B imports baseline.gains (must be in
+# /sdcard/Download). Ends on the baseline + an extra plan "Kraftblock" (id 6), Push pull current.
+# Merged from: gh518_new_plan_current (base), gh518_empty_app_first_plan, gh518_home_top
+#              (helper inlined).
+
+# ================= Part A: empty store ===========================================
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- runFlow: gh497_dismiss_onboarding.yaml
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+# PRECONDITION: empty store -> no dashboard, only the plan header.
+- assertNotVisible:
+    id: 'micro-hero-card'
+- assertVisible:
+    id: 'add-trainings-plan'
+    text: 'New Training'
+- tapOn:
+    id: 'add-trainings-plan'
+- extendedWaitUntil:
+    visible: 'Add New Training Plan'
+    timeout: 10000
+- tapOn:
+    id: '^plan-name-input$'
+- inputText: 'Kraftblock'
+- tapOn:
+    id: 'confirm-trainings-plan'
+- extendedWaitUntil:
+    visible: 'Kraftblock is now your current plan'
+    timeout: 10000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Kraftblock'
+- assertVisible:
+    id: 'next-training-name'
+    text: 'No training planned yet'
+# The plan rows sit below the hero + next-training cards (out of the 2400 px viewport).
+# Empty store -> the plans reducer gives the first plan id 1.
+- scrollUntilVisible:
+    element:
+      id: '^plan-meta-1$'
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    id: '^plan-meta-1$'
+    text: 'Draft · no trainings yet'
+
+# Plan the first training from the card.
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: UP
+    visibilityPercentage: 100
+    timeout: 20000
+- tapOn:
+    id: 'next-training-start-button'
+- waitForAnimationToEnd:
+    timeout: 10000
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-meso-name'
+    timeout: 60000
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'header-plan-editing-kicker'
+    commands:
+      - tapOn:
+          text: 'Plan new Training'
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd:
+          timeout: 10000
+- tapOn:
+    id: 'training-add-exercise-box'
+- extendedWaitUntil:
+    visible: 'Bench Press'
+    timeout: 15000
+- tapOn: 'Bench Press'
+- assertVisible: '1 selected'
+# Coordinate tap: the picker (own react-native-modal window) closes on a tap outside the
+# list; it has no close control with an id, and BACK/hideKeyboard can leave the screen.
+- tapOn:
+    point: '50%, 85%'
+- extendedWaitUntil:
+    visible: 'Add Set'
+    timeout: 15000
+- tapOn: 'Add Set'
+- tapOn:
+    id: 'plan-pending-set-reps-input'
+- inputText: '5'
+- tapOn:
+    id: 'plan-pending-set-weight-input'
+- eraseText
+- inputText: '100'
+- tapOn:
+    id: 'header-plan-done-button'
+- extendedWaitUntil:
+    notVisible:
+      id: 'header-plan-editing-kicker'
+    timeout: 15000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 20000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Kraftblock'
+- assertVisible:
+    id: 'next-training-name'
+    text: 'Training 1'
+- assertVisible:
+    id: 'next-training-target-1'
+    text: '100 × 5'
+
+# ================= Part B: baseline ==============================================
+- runFlow: 00_import_baseline.yaml
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 30000
+# PRECONDITION: no stored current plan -> automatic choice Push pull, next "Push squat".
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+- assertVisible:
+    id: 'next-training-name'
+    text: 'Push squat'
+
+# New plan -> current at once, confirmed by the snackbar.
+- scrollUntilVisible:
+    element:
+      id: 'add-trainings-plan'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'add-trainings-plan'
+- extendedWaitUntil:
+    visible: 'Add New Training Plan'
+    timeout: 10000
+- tapOn:
+    id: '^plan-name-input$'
+- inputText: 'Kraftblock'
+- tapOn:
+    id: 'confirm-trainings-plan'
+- extendedWaitUntil:
+    visible: 'Kraftblock is now your current plan'
+    timeout: 10000
+# NOT tapping Undo (current-plan-snackbar-undo): the snackbar auto-dismisses after 3 s
+# (TrainingHome duration={3000}) while each Maestro command takes ~5-8 s on the emulator.
+# Observed: the Undo tap landed after the dismiss, fell through onto the plan row beneath
+# and opened a training. Assert the effect of the new plan instead and switch back with
+# the labelled star (deterministic, no timeout).
+- extendedWaitUntil:
+    notVisible: 'Kraftblock is now your current plan'
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 20000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Kraftblock'
+- assertVisible:
+    id: 'next-training-name'
+    text: 'No training planned yet'
+- scrollUntilVisible:
+    element: 'Set Push pull as current plan'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'Set Push pull as current plan'
+- extendedWaitUntil:
+    visible: 'Push pull is now your current plan'
+    timeout: 10000
+- extendedWaitUntil:
+    notVisible: 'Push pull is now your current plan'
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 20000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+- assertVisible:
+    id: 'next-training-name'
+    text: 'Push squat'
+# The new plan (id 6) exists and is not current.
+- scrollUntilVisible:
+    element: 'Set Kraftblock as current plan'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: '^plan-name-6$'
+    text: 'Kraftblock'
+- assertVisible:
+    id: '^plan-meta-6$'
+    text: 'Draft · no trainings yet'
+
+# The labelled star switches to Kraftblock, confirmed by the snackbar.
+- tapOn: 'Set Kraftblock as current plan'
+- extendedWaitUntil:
+    visible: 'Kraftblock is now your current plan'
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 20000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Kraftblock'
+- assertVisible:
+    id: 'next-training-name'
+    text: 'No training planned yet'
+- assertNotVisible: 'Push squat'
+
+# ... and back to Push pull (let the snackbar go first, it can cover a star).
+- extendedWaitUntil:
+    notVisible: 'Kraftblock is now your current plan'
+    timeout: 15000
+- scrollUntilVisible:
+    element: 'Current plan: Kraftblock'
+    direction: DOWN
+    timeout: 20000
+- scrollUntilVisible:
+    element: 'Set Push pull as current plan'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Set Push pull as current plan'
+- extendedWaitUntil:
+    visible: 'Push pull is now your current plan'
+    timeout: 10000
+- scrollUntilVisible:
+    element: 'Current plan: Push pull'
+    direction: DOWN
+    timeout: 20000
+# Plans are sorted by name: the Kraftblock row sits ABOVE Push pull, maybe off-screen.
+- scrollUntilVisible:
+    element: 'Set Kraftblock as current plan'
+    direction: UP
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 20000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+- assertVisible:
+    id: 'next-training-name'
+    text: 'Push squat'

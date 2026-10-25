@@ -1,9 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-# GH-418: running-training keyboard check, from a fresh import of the short-plan
-# fixture (push /sdcard/Download/gh418_short_plan.gains first).
-- runFlow:
-    file: gh486_import_fixture.yaml
-    env:
-      FIXTURE: gh418_short_plan.gains
-- runFlow: gh418_keyboard_running_training.yaml

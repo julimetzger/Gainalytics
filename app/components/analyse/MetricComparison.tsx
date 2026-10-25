@@ -32,7 +32,15 @@ const MetricView = ({comparison, metric, section, testID}: MetricComparisonProps
   const deltaStyle = difference === 0 ? styles.deltaNeutral : greater ? styles.deltaPositive : styles.deltaNegative;
 
   const value = metric !== undefined ? formatMetricValue(metric, comparison?.value, section) : comparison?.value?.toFixed(2);
-  const delta = difference === undefined ? undefined : metric !== undefined ? formatMetricDelta(metric, difference, section) : (greater ? '+' : '') + difference.toFixed(2);
+  const share = comparison?.share;
+  const delta =
+    share !== undefined
+      ? `${Math.round(share * 100)}%`
+      : difference === undefined
+      ? undefined
+      : metric !== undefined
+      ? formatMetricDelta(metric, difference, section)
+      : (greater ? '+' : '') + difference.toFixed(2);
 
   // GH-458 (H7): the delta used to sit ABOVE the value in full size and in a
   // loud red, so the most eye-catching element of every cell carried the less
@@ -42,7 +50,7 @@ const MetricView = ({comparison, metric, section, testID}: MetricComparisonProps
       <View style={styles.container}>
         <Text testID={testID}>{value}</Text>
         {delta !== undefined && (
-          <Text variant="labelSmall" style={[styles.delta, deltaStyle]} testID={testID ? `${testID}-delta` : undefined}>
+          <Text variant="labelSmall" style={[styles.delta, share !== undefined ? styles.deltaNeutral : deltaStyle]} testID={testID ? `${testID}-delta` : undefined}>
             {delta}
           </Text>
         )}

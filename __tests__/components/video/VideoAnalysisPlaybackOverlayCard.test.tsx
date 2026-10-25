@@ -1098,7 +1098,7 @@ describe('isConcentricFirstRep / getRepPhaseBoundaries / computeRepPhaseTimesMs 
   });
 });
 
-describe('getRepPhaseBoundaries – real deadlift recording from R5CN30HWZFN (GH-307)', () => {
+describe('getRepPhaseBoundaries – real deadlift recording from the physical test phone (GH-307)', () => {
   const gh307Fixture = require('../../fixtures/gh307/analysis-2-2026-05-18T09-25-32-066Z.json');
 
   it('labels every rep as concentric-first matching the user-confirmed ground truth', () => {

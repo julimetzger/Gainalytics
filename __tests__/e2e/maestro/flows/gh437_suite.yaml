@@ -1,8 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-# GH-437 evidence suite: hydrate the store from the baseline .gains fixture
-# first. The Finish Training button only renders for a STARTED training, and
-# the flow below reaches that state through a real fixture plan — an empty
-# store never gets there.
-- runFlow: 00_import_baseline.yaml
-- runFlow: gh437_finish_button_secondary.yaml

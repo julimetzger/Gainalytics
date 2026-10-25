@@ -39,7 +39,7 @@ Real-phone specifics: [real-device.md](real-device.md). Back to the [index](../a
 ### Typing text with adb
 - Clear a field: tap it, `input keyevent 123` (MOVE_END — RN does not put the cursor at the end on focus), then N× `input keyevent 67`. Without clearing, typed text concatenates with prefilled values.
 - Quote for the DEVICE shell too: `adb shell "input text '#00FF'"` — unquoted `#` starts a comment there (`Argument expected after "text"`); same for `; & < >` and spaces.
-- Masked inputs (react-native-paper-dates `MM/DD/YYYY`) drop or re-complete characters under bulk injection: focus, MOVE_END, 12–15 backspaces, type ONE character per `input text` call (~0.1 s apart), verify the `EditText` text in a dump, retry up to 5× (`__tests__/e2e/scripts/run-gh341-records-flow.sh`). Digits only works too (`input text 01022026`); the value normalises on blur.
+- Masked inputs (react-native-paper-dates `MM/DD/YYYY`) drop or re-complete characters under bulk injection: focus, MOVE_END, 12–15 backspaces, type ONE character per `input text` call (~0.1 s apart), verify the `EditText` text in a dump, retry up to 5× (the former GH-341 script `run-gh341-records-flow.sh`, removed in GH-584 — see git history). Digits only works too (`input text 01022026`); the value normalises on blur.
 - `adb shell input text` does not open the IME, unlike Maestro `inputText`.
 - Hide the IME with `input keyevent 4` (BACK) only when `dumpsys input_method | grep -q 'mInputShown=true'` — otherwise BACK closes the dialog/screen. `keyevent 111` (ESCAPE) navigates back here. Re-dump after the IME hides (layout shifts ~50 px).
 - Samsung IME commits typed text twice into some search fields — prefer adb `input text` over typing via the keyboard.

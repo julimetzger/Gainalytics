@@ -3,6 +3,7 @@ import {Metric, MetricOverviewSection, resolveMetricOverviewSlots} from '../../m
 import {customPaletteHex, PaletteSelection} from '../../theme/palette';
 import {ThemeModeSetting} from '../../theme/themeMode';
 import {AiProvider} from '../../models/AiProvider';
+import {addMuscle, removeMuscle, setMuscleInOverviews} from '../../utils/muscle-catalog';
 
 export interface MetricOverviewSettings {
   muscles?: Metric[];
@@ -47,6 +48,19 @@ export interface RestTimerSettings {
   userDefaultSeconds?: number;
   defaultPerExercise?: {[exerciseId: number]: number};
   active?: ActiveRestState | null;
+}
+
+/**
+ * GH-523: the user's changes to the muscle list. Absent on older installs, which
+ * then keep exactly the built-in muscles, all shown in the overviews.
+ */
+export interface MuscleSettings {
+  /** Muscles the user added, in the order they were added. */
+  custom?: string[];
+  /** Built-in muscles the user removed. */
+  removed?: string[];
+  /** Muscles left out of the overviews (muscle map, radar, Muscle Overview). */
+  hiddenInOverviews?: string[];
 }
 
 export interface AppSettings {
@@ -115,6 +129,7 @@ export interface AppSettings {
    * and when the user taps a plan's star.
    */
   currentTrainingsPlanId?: number;
+  muscles?: MuscleSettings;
 }
 
 const initialState = {
@@ -125,6 +140,9 @@ const initialState = {
   palette: 'blue',
   videoAnalysisFiltersExpanded: false,
 } as AppSettings;
+
+// A rejected muscle change returns the same object — keep the settings reference then too.
+const withMuscles = (settings: AppSettings, muscles: MuscleSettings | undefined): AppSettings => (muscles === settings.muscles ? settings : {...settings, muscles});
 
 const settingsReducer = (settings: AppSettings = initialState, action: AnyAction): AppSettings => {
   switch (action.type) {
@@ -428,6 +446,12 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
         currentTrainingsPlanId: undefined,
       };
     }
+    case 'ADD_MUSCLE':
+      return withMuscles(settings, addMuscle(settings.muscles, action.muscle));
+    case 'REMOVE_MUSCLE':
+      return withMuscles(settings, removeMuscle(settings.muscles, action.muscle));
+    case 'SET_MUSCLE_IN_OVERVIEWS':
+      return withMuscles(settings, setMuscleInOverviews(settings.muscles, action.muscle, !!action.visible));
     case 'SET_METRIC_OVERVIEW_SLOT': {
       const slots = resolveMetricOverviewSlots(settings.metricOverview?.[action.section as MetricOverviewSection], action.section as MetricOverviewSection).map((metric, index) =>
         index === action.slotIndex ? action.metric : metric,

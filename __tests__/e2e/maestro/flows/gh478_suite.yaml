@@ -1,7 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-# GH-478 evidence suite: hydrate the store from the baseline .gains fixture
-# first (the gh443 variant also steers the file picker back to Downloads),
-# then exercise the Theme and Custom Color rows.
-- runFlow: gh443_import_baseline.yaml
-- runFlow: gh478_theme_color_row.yaml

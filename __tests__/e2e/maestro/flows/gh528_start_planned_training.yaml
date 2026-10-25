@@ -1,0 +1,33 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 sub-flow: plans the slot "Next Training" points at from the last training and starts it
+# (same path as gh467_finish_throwaway_training.yaml). Refuses to run unless the slot is still empty.
+- launchApp:
+    clearState: false
+    permissions:
+      notifications: allow
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'next-training-start-button'
+    timeout: 60000
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-go-to-plan-button'
+    timeout: 20000
+- assertVisible: 'Nothing planned for this day yet.'
+- tapOn:
+    id: 'train-tab-go-to-plan-button'
+- tapOn:
+    id: 'training-suggest-last-training-button'
+- extendedWaitUntil:
+    visible:
+      id: 'header-overflow-button'
+    timeout: 10000
+- tapOn:
+    id: 'subtab-train'
+- tapOn:
+    id: 'train-tab-start-button'
+- waitForAnimationToEnd

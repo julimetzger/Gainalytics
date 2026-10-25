@@ -1,0 +1,617 @@
+# GH-545: Claude Code agent with an Android emulator on a GitHub-hosted runner.
+#
+# Triggers (owner/collaborators only, never from forks):
+#   - workflow_dispatch: issue number and/or free task text, or smoke test only
+#   - label `agent:emulator` on an issue
+#
+# Jobs:
+#   emulator  build debug APK (embedded JS bundle, no Metro needed), boot emulator,
+#             install, run a Maestro smoke flow, then run Claude Code with the task.
+#             Read-only token; the agent cannot push anything.
+#   publish   takes the agent's commits (git bundle artifact), checks them, pushes them
+#             to agent/emulator-* and opens a draft PR. Never pushes to master.
+#
+# Feedback rounds: run the workflow on the head branch of an open PR (dispatch with that ref).
+# The agent then also gets the PR description, comments and review comments, and the publish
+# job pushes its commits onto that same branch and updates the PR instead of opening a new one.
+name: Agent emulator
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number the agent should work on (optional if task text is given)"
+        required: false
+        type: string
+      task:
+        description: "Free task text (optional, appended to the issue text)"
+        required: false
+        type: string
+      smoke_only:
+        description: "Smoke test only (emulator + app + Maestro flow, no agent)"
+        required: false
+        type: boolean
+        default: false
+      model:
+        description: "Claude model for the agent (latest version of each family)"
+        required: false
+        type: choice
+        options:
+          - opus
+          - sonnet
+          - haiku
+        default: opus
+  issues:
+    types: [labeled]
+
+permissions: {}
+
+concurrency:
+  group: agent-emulator-${{ github.event.issue.number || inputs.issue_number || github.ref }}
+  cancel-in-progress: false
+
+env:
+  API_LEVEL: "34"
+  AVD_TARGET: google_apis
+  AVD_ARCH: x86_64
+  # base-action runs actions/setup-node with env.NODE_VERSION (default 18); keep 22 for RN 0.84.
+  NODE_VERSION: "22"
+  MAESTRO_VERSION: "2.11.0"
+  MAESTRO_SHA256: "5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a"
+
+jobs:
+  emulator:
+    if: >-
+      github.event.repository.fork == false &&
+      (github.event_name != 'issues' || github.event.label.name == 'agent:emulator')
+    runs-on: ubuntu-latest
+    # GitHub-hosted runners stop a job after 6 h anyway.
+    timeout-minutes: 360
+    environment: gainalytics
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+      pr_number: ${{ steps.mode.outputs.pr_number }}
+      base_sha: ${{ steps.mode.outputs.base_sha }}
+      has_commits: ${{ steps.collect.outputs.has_commits }}
+      has_question: ${{ steps.collect.outputs.has_question }}
+      ticket: ${{ steps.mode.outputs.ticket }}
+      issue_number: ${{ steps.mode.outputs.issue_number }}
+    steps:
+      - name: Check actor and decide mode
+        id: mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+          EVENT: ${{ github.event_name }}
+          IN_ISSUE: ${{ inputs.issue_number }}
+          IN_TASK: ${{ inputs.task }}
+          IN_SMOKE: ${{ inputs.smoke_only }}
+          LABEL_ISSUE: ${{ github.event.issue.number }}
+          ISSUE_AUTHOR_ASSOC: ${{ github.event.issue.author_association }}
+          SHA: ${{ github.sha }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          # The agent's PR targets the triggering ref, so it must be a branch (a dispatch may pick a tag).
+          if [[ "${REF_TYPE}" != "branch" ]]; then
+            echo "::error::Run this workflow from a branch, not a ${REF_TYPE}"; exit 1
+          fi
+          if [[ "${ACTOR}" == "${OWNER}" ]]; then
+            perm="admin"
+          else
+            perm="$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" --jq .permission 2>/dev/null || echo none)"
+          fi
+          echo "actor permission: ${perm}"
+          case "${perm}" in admin|maintain|write) ;; *) echo "::error::${ACTOR} is not owner/collaborator with write access"; exit 1 ;; esac
+          issue=""
+          mode="agent"
+          case "${EVENT}" in
+            workflow_dispatch)
+              issue="${IN_ISSUE}"
+              if [[ "${IN_SMOKE}" == "true" ]]; then mode="smoke"; fi
+              # Built-in harmless dummy task (.github/agent-emulator/test-task.md) to test the pipeline.
+              if [[ "${IN_TASK}" == "dummy" ]]; then mode="agent-test"; fi
+              if [[ "${mode}" == "agent" && -z "${issue}" && -z "${IN_TASK}" ]]; then
+                echo "::error::Give an issue number or a task text (or choose smoke_only)"; exit 1
+              fi
+              ;;
+            issues)
+              issue="${LABEL_ISSUE}"
+              case "${ISSUE_AUTHOR_ASSOC}" in OWNER|MEMBER|COLLABORATOR) ;; *)
+                echo "::error::Issue author is not owner/collaborator (${ISSUE_AUTHOR_ASSOC})"; exit 1 ;; esac
+              ;;
+          esac
+          if [[ -n "${issue}" && ! "${issue}" =~ ^[0-9]+$ ]]; then echo "::error::Invalid issue number"; exit 1; fi
+          ticket="AGENT-RUN"
+          if [[ -n "${issue}" ]]; then ticket="GH-${issue}"; fi
+          # Feedback round: an open PR of this repo whose head is the branch the run started on.
+          pr=""
+          if [[ "${REF_NAME}" != "${DEFAULT_BRANCH}" ]]; then
+            pr="$(gh api "repos/${REPO}/pulls?state=open&head=${OWNER}:${REF_NAME}" \
+              --jq "[.[] | select((.head.repo.full_name | ascii_downcase) == (\"${REPO}\" | ascii_downcase))][0].number // empty")"
+          fi
+          {
+            echo "mode=${mode}"
+            echo "issue_number=${issue}"
+            echo "ticket=${ticket}"
+            echo "base_sha=${SHA}"
+            echo "pr_number=${pr}"
+          } >> "$GITHUB_OUTPUT"
+          echo "mode=${mode} ticket=${ticket} pr=${pr:-none}"
+          [[ -z "${pr}" ]] || echo "::notice title=feedback round::updates PR #${pr} on ${REF_NAME}"
+
+      - name: Check Claude token secret (presence only)
+        env:
+          TOKEN_PRESENT: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          MODE: ${{ steps.mode.outputs.mode }}
+        run: |
+          echo "::notice title=secret::CLAUDE_CODE_OAUTH_TOKEN set: ${TOKEN_PRESENT}"
+          if [[ "${MODE}" != "smoke" && "${TOKEN_PRESENT}" != "true" ]]; then
+            echo "::error::Secret CLAUDE_CODE_OAUTH_TOKEN is empty or missing in environment 'gainalytics'"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Free disk space
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/node_modules/@angular \
+            /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/share/swift \
+            /usr/local/share/powershell /usr/share/miniconda /opt/az /opt/microsoft || true
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          df -h / /mnt 2>/dev/null || df -h /
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+          nproc; free -h | head -2
+
+      # GH-528 run 40084580673 lost the runner ~1h40 into the agent step (no logs, no artifacts):
+      # emulator (3 GB) + Gradle daemon (4 GB heap) + Kotlin daemon + clang + Claude Code do not fit
+      # into 7 GB once the agent runs `tool.sh rebuild`. Extra swap absorbs the peaks instead of the
+      # runner being killed, and the user-home gradle.properties caps the Gradle/Kotlin heaps
+      # (overrides android/gradle.properties for every build in this job, incl. tool.sh rebuild).
+      - name: Add swap and cap Gradle memory
+        run: |
+          sudo swapon --show || true
+          # Swap goes on the runner's temp disk (/mnt) when it has room: on / it competed with the
+          # Gradle/NDK install and filled the root disk (run 40108942498: "No space left on device").
+          avail_gb() { df --output=avail -BG "$1" 2>/dev/null | tail -1 | tr -dc '0-9'; }
+          swapfile=""
+          if mountpoint -q /mnt && [[ "$(avail_gb /mnt)" -ge 16 ]]; then
+            swapfile=/mnt/swapfile-agent; size=8G
+          elif [[ "$(avail_gb /)" -ge 24 ]]; then
+            swapfile=/swapfile-agent; size=4G
+          fi
+          if [[ -n "${swapfile}" ]]; then
+            sudo fallocate -l "${size}" "${swapfile}"
+            sudo chmod 600 "${swapfile}"
+            sudo mkswap -q "${swapfile}"
+            sudo swapon "${swapfile}"
+            echo "::notice title=swap::${size} at ${swapfile}"
+          else
+            echo "::warning title=swap::not enough disk for extra swap (/: $(avail_gb /) GB, /mnt: $(avail_gb /mnt) GB)"
+          fi
+          free -h; df -h / /mnt 2>/dev/null || true
+          mkdir -p ~/.gradle
+          cat >> ~/.gradle/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2560m -XX:MaxMetaspaceSize=512m
+          org.gradle.workers.max=2
+          kotlin.daemon.jvmargs=-Xmx1024m
+          EOF
+          cat ~/.gradle/gradle.properties
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: npm ci
+        run: npm ci --no-audit --no-fund
+
+      - name: Gradle cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-agent-emu-${{ runner.os }}-${{ hashFiles('android/**/*.gradle', 'android/gradle.properties', 'android/gradle/wrapper/gradle-wrapper.properties', 'package-lock.json') }}
+          restore-keys: gradle-agent-emu-${{ runner.os }}-
+
+      # Agent runs build in the background (bg-setup.sh) while the agent already works.
+      - name: Build debug APK (x86_64, embedded JS bundle)
+        if: steps.mode.outputs.mode == 'smoke'
+        timeout-minutes: 45
+        working-directory: android
+        run: |
+          start=$(date +%s)
+          ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain --no-daemon
+          echo "gradle_build_s=$(( $(date +%s) - start ))" | tee -a "$RUNNER_TEMP/timings.txt"
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E "assets/index.android.bundle|lib/x86_64/libappmodules.so"
+
+      - name: Install Maestro
+        if: steps.mode.outputs.mode == 'smoke'
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/maestro.zip" \
+            "https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
+          echo "${MAESTRO_SHA256}  $RUNNER_TEMP/maestro.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/maestro.zip" -d "$HOME"
+          echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/maestro/bin/maestro" --version
+
+      - name: Prepare run directory
+        run: |
+          mkdir -p .agent-run
+          echo ".agent-run/" >> .git/info/exclude
+          cp "$RUNNER_TEMP/timings.txt" .agent-run/timings.txt 2>/dev/null || touch .agent-run/timings.txt
+          chmod +x .github/agent-emulator/*.sh
+          echo "AGENT_RUN_DIR=$GITHUB_WORKSPACE/.agent-run" >> "$GITHUB_ENV"
+
+      - name: AVD cache
+        id: avd-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.API_LEVEL }}-${{ env.AVD_TARGET }}-${{ env.AVD_ARCH }}-v2
+
+      - name: Create AVD and snapshot (cache miss only)
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          target: ${{ env.AVD_TARGET }}
+          arch: ${{ env.AVD_ARCH }}
+          profile: pixel_6
+          ram-size: 3072M
+          disk-size: 6G
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Save AVD cache
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.API_LEVEL }}-${{ env.AVD_TARGET }}-${{ env.AVD_ARCH }}-v2
+
+      - name: Start background setup (Gradle build, emulator, install)
+        if: steps.mode.outputs.mode != 'smoke'
+        run: |
+          echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/emulator" >> "$GITHUB_PATH"
+          nohup .github/agent-emulator/bg-setup.sh > .agent-run/setup.log 2>&1 < /dev/null &
+          # Memory/swap every 30 s, so a starved runner shows up in the evidence artifact.
+          nohup vmstat -t -S M 30 > .agent-run/vmstat.log 2>&1 < /dev/null &
+          git config user.name "claude[bot]"
+          git config user.email "41898282+claude[bot]@users.noreply.github.com"
+          echo "AGENT_START=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Mark emulator start
+        if: steps.mode.outputs.mode == 'smoke'
+        run: echo "EMULATOR_STEP_START=$(date +%s)" >> "$GITHUB_ENV"
+
+      # Only in smoke_only mode: agent runs skip it and check the app themselves (agent-prompt.md).
+      - name: Smoke test (emulator + app + Maestro)
+        id: smoke
+        if: steps.mode.outputs.mode == 'smoke'
+        timeout-minutes: 30
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          target: ${{ env.AVD_TARGET }}
+          arch: ${{ env.AVD_ARCH }}
+          profile: pixel_6
+          ram-size: 3072M
+          disk-size: 6G
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: .github/agent-emulator/smoke.sh
+
+      - name: Write agent task
+        if: steps.mode.outputs.mode != 'smoke'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          MODE: ${{ steps.mode.outputs.mode }}
+          ISSUE: ${{ steps.mode.outputs.issue_number }}
+          TICKET: ${{ steps.mode.outputs.ticket }}
+          IN_TASK: ${{ inputs.task }}
+          PR: ${{ steps.mode.outputs.pr_number }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          f=.agent-run/task.md
+          echo "# Task ${TICKET}" > "$f"
+          if [[ -n "${PR}" ]]; then
+            cat >> "$f" <<EOF
+
+          ## Feedback round on PR #${PR}
+
+          This checkout is the head branch of the open PR #${PR} (\`${REF_NAME}\`). Work on top of it: address
+          the feedback in the PR comments and review comments below (the newest ones matter most; earlier
+          rounds may already be done), do not start over. Your commits are pushed onto this branch, and
+          \`.agent-run/pr-body.md\` REPLACES the PR description: write it complete (the whole change, not only
+          this round), with a short "Feedback round" note on what changed now.
+
+          EOF
+          fi
+          if [[ "${MODE}" == "agent-test" ]]; then
+            cat .github/agent-emulator/test-task.md >> "$f"
+          fi
+          if [[ -n "${ISSUE}" ]]; then
+            # Body, comments and the issue images (downloaded via signed URLs; the agent has no GitHub access).
+            .github/agent-emulator/fetch-issue.sh "${ISSUE}" "$f"
+            echo -e "\nAdd \`Closes #${ISSUE}\` to the PR body if the issue is fully done." >> "$f"
+          fi
+          if [[ -n "${PR}" ]]; then
+            echo "" >> "$f"
+            .github/agent-emulator/fetch-issue.sh "${PR}" "$f" PR
+            # Only reviewers with write access (real repo permission) and the Codex bot are forwarded, see trusted-logins.sh.
+            TRUSTED_LOGINS="$( { gh api --paginate "repos/${REPO}/pulls/${PR}/comments" --jq '.[].user.login // empty'
+                                 gh api --paginate "repos/${REPO}/pulls/${PR}/reviews" --jq '.[].user.login // empty'; } \
+              | .github/agent-emulator/trusted-logins.sh)"
+            TRUSTED="((.user.login // \"\") as \$l | ${TRUSTED_LOGINS} | index(\$l) != null)"
+            review="$(gh api --paginate "repos/${REPO}/pulls/${PR}/comments" \
+              --jq ".[] | select(${TRUSTED})"' | "### Review comment by \(.user.login) (\(.created_at[:10])) on `\(.path)`\(if .line then ":\(.line)" else "" end)\(if .in_reply_to_id then " (reply)" else "" end)\n\n\(.body)\n"')"
+            reviews="$(gh api --paginate "repos/${REPO}/pulls/${PR}/reviews" \
+              --jq ".[] | select(${TRUSTED})"' | select((.body // "") != "") | select(.body | contains("codex-review-receipt") | not) | "### Review by \(.user.login) (\(.state), \(.submitted_at[:10]))\n\n\(.body)\n"')"
+            [[ -z "${reviews}" ]] || printf '\n## Reviews on PR #%s\n\n%s\n' "${PR}" "${reviews}" >> "$f"
+            [[ -z "${review}" ]] || printf '\n## Review comments on PR #%s\n\n%s\n' "${PR}" "${review}" >> "$f"
+          fi
+          if [[ -n "${IN_TASK}" && "${MODE}" != "agent-test" ]]; then
+            printf '\n## Additional instructions\n\n%s\n' "${IN_TASK}" >> "$f"
+          fi
+          wc -c "$f"
+
+      - name: Run Claude Code
+        id: claude
+        if: steps.mode.outputs.mode != 'smoke'
+        # No turn limit; only the time limit (leaves room for the steps before/after within 6 h).
+        timeout-minutes: 330
+        env:
+          # Lets the agent block on `tool.sh wait-ready` (up to 9 min per call) in the foreground.
+          BASH_DEFAULT_TIMEOUT_MS: "600000"
+          BASH_MAX_TIMEOUT_MS: "600000"
+        uses: anthropics/claude-code-action/base-action@a5a423f75c251dcbff8a74e99f83b2cb03c72bfa # v1.0.256
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Read .github/agent-emulator/agent-prompt.md and follow it exactly.
+            Your task is in .agent-run/task.md.
+          # Label-triggered runs have no inputs and fall back to opus.
+          claude_args: |
+            --model ${{ inputs.model || 'opus' }}
+            --allowedTools "Read,Edit,Write,Glob,Grep,TodoWrite,WebSearch,WebFetch"
+            --allowedTools "Bash(.github/agent-emulator/tool.sh:*),Bash(adb:*),Bash(maestro:*)"
+            --allowedTools "Bash(npm install:*),Bash(npm i:*),Bash(npm ci:*),Bash(npm uninstall:*)"
+            --allowedTools "Bash(npx jest:*),Bash(npm test:*),Bash(npx tsc:*),Bash(npm run typecheck:*),Bash(npm run lint:*)"
+            --allowedTools "Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git rm:*)"
+            --allowedTools "Bash(ls:*),Bash(mkdir:*),Bash(cp:*),Bash(mv:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(sleep:*),Bash(ffmpeg:*)"
+            --disallowedTools "Bash(git push:*),Bash(gh:*),Bash(curl:*),Bash(wget:*),Bash(env:*),Bash(printenv:*)"
+
+      - name: Stop background setup if still running
+        if: always() && steps.mode.outputs.mode != 'smoke'
+        run: |
+          st="$(cat .agent-run/setup.status 2>/dev/null || echo none)"
+          echo "setup status at agent end: ${st}" | tee -a .agent-run/timings.txt
+          if [[ "${st}" != "ready" && "${st}" != failed:* ]]; then
+            # The agent finished without needing the device (e.g. open question): save the minutes.
+            pkill -f bg-setup.sh || true
+            pkill -f GradleWrapperMain || true
+          fi
+          tail -20 .agent-run/setup.log 2>/dev/null || true
+
+      - name: Agent summary
+        if: always() && steps.mode.outputs.mode != 'smoke'
+        env:
+          EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
+          CONCLUSION: ${{ steps.claude.outputs.conclusion }}
+        run: |
+          if [[ -n "${AGENT_START:-}" ]]; then
+            echo "agent_s=$(( $(date +%s) - AGENT_START ))" | tee -a .agent-run/timings.txt
+          fi
+          {
+            echo "### Agent (${CONCLUSION:-not run})"
+            if [[ -n "${EXEC_FILE}" && -f "${EXEC_FILE}" ]]; then
+              jq -r '[.[] | select(.type=="system" and .subtype=="init")] | first | "model: \(.model // "?")"' "${EXEC_FILE}" || true
+              jq -r '[.[] | select(.type=="result")] | last | "turns: \(.num_turns // "?"), duration: \((.duration_ms // 0)/1000|floor)s\n\n\(.result // "")"' "${EXEC_FILE}" || true
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "${EXEC_FILE}" && -f "${EXEC_FILE}" ]]; then
+            model="$(jq -r '[.[] | select(.type=="system" and .subtype=="init")] | first | .model // "?"' "${EXEC_FILE}" 2>/dev/null || echo "?")"
+            echo "::notice title=agent model::${model}"
+            msg="$(jq -r '[.[] | select(.type=="result")] | last | "conclusion=\(.subtype // "?") turns=\(.num_turns // "?") duration_s=\((.duration_ms // 0)/1000|floor) | \(.result // "" | .[0:600])"' "${EXEC_FILE}" | tr '\n' ' ')"
+            echo "::notice title=agent::${msg}"
+          fi
+          .github/agent-emulator/tool.sh screenshot agent-final || true
+          .github/agent-emulator/tool.sh logcat agent || true
+
+      - name: Collect agent commits
+        id: collect
+        if: always() && steps.mode.outputs.mode != 'smoke'
+        env:
+          BASE: ${{ steps.mode.outputs.base_sha }}
+        run: |
+          n="$(git rev-list --count "${BASE}..HEAD")"
+          echo "::notice title=agent commits::${n} $(git log --format=%s "${BASE}..HEAD" | tr '\n' ';')"
+          git log --oneline "${BASE}..HEAD" || true
+          mkdir -p "$RUNNER_TEMP/agent-result"
+          cp .agent-run/pr-title.txt .agent-run/pr-body.md "$RUNNER_TEMP/agent-result/" 2>/dev/null || true
+          if [[ "${n}" -gt 0 ]]; then
+            git bundle create "$RUNNER_TEMP/agent-result/agent.bundle" "${BASE}..HEAD"
+            echo "has_commits=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_commits=false" >> "$GITHUB_OUTPUT"
+            # No commits but the agent reported a blocker/question: the publish job posts it on the issue.
+            if grep -q '^## Open question' .agent-run/pr-body.md 2>/dev/null; then
+              echo "has_question=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+          git status --short | head -50
+
+      - name: Timings
+        if: always()
+        run: |
+          [[ -f .agent-run/timings.txt ]] && { echo '### Timings'; echo '```'; cat .agent-run/timings.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY" || true
+          # Annotations are readable through the checks API even where log downloads are not.
+          [[ -f .agent-run/timings.txt ]] && echo "::notice title=timings::$(tr '\n' ' ' < .agent-run/timings.txt)" || true
+          for r in .agent-run/maestro/*/report.xml; do
+            [[ -f "$r" ]] && echo "::notice title=maestro $(basename "$(dirname "$r")")::$(grep -o '<testsuite [^>]*>' "$r" | head -1 | grep -oE '(tests|failures|errors|time)="[^"]*"' | tr '\n' ' ')" || true
+          done
+          [[ -f "$RUNNER_TEMP/emulator.log" ]] && tail -50 "$RUNNER_TEMP/emulator.log" > .agent-run/emulator-agent.log || true
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: agent-emulator-evidence
+          path: .agent-run/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload agent commits
+        if: always() && (steps.collect.outputs.has_commits == 'true' || steps.collect.outputs.has_question == 'true')
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: agent-result
+          path: ${{ runner.temp }}/agent-result/
+          retention-days: 7
+
+  publish:
+    needs: emulator
+    if: always() && (needs.emulator.outputs.has_commits == 'true' || needs.emulator.outputs.has_question == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.emulator.outputs.base_sha }}
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: agent-result
+          path: ${{ runner.temp }}/agent-result
+
+      - name: Post open question on the issue (no commits)
+        if: needs.emulator.outputs.has_commits != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ needs.emulator.outputs.issue_number }}
+          PR: ${{ needs.emulator.outputs.pr_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          body="$(printf '%s\n\n---\nEmulator agent stopped without changes ([run](%s)). Evidence artifact: `agent-emulator-evidence`.\n' \
+            "$(cat "$RUNNER_TEMP/agent-result/pr-body.md")" "${RUN_URL}")"
+          echo "${body}" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "${PR}" ]]; then
+            # Feedback round: the question belongs where the feedback was given.
+            gh api "repos/${REPO}/issues/${PR}/comments" -f body="${body}" --jq .html_url
+          elif [[ -n "${ISSUE}" ]]; then
+            gh api "repos/${REPO}/issues/${ISSUE}/comments" -f body="${body}" --jq .html_url
+          else
+            echo "::warning title=agent open question::No issue to comment on; see the run summary."
+          fi
+
+      - name: Check, push branch, open draft PR
+        if: needs.emulator.outputs.has_commits == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE_SHA: ${{ needs.emulator.outputs.base_sha }}
+          BASE_REF: ${{ github.ref_name }}
+          TICKET: ${{ needs.emulator.outputs.ticket }}
+          ISSUE: ${{ needs.emulator.outputs.issue_number }}
+          PR: ${{ needs.emulator.outputs.pr_number }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          R="$RUNNER_TEMP/agent-result"
+          git fetch -q "$R/agent.bundle" HEAD:refs/heads/agent-tmp
+          git merge-base --is-ancestor "${BASE_SHA}" agent-tmp
+          changed="$(git diff --name-only "${BASE_SHA}" agent-tmp)"
+          echo "${changed}"
+          if echo "${changed}" | grep -E '^\.github/|\.gains$|\.keystore$|\.jks$|(^|/)\.env'; then
+            echo "::error::Agent commits touch forbidden paths, not publishing"; exit 1
+          fi
+          n="$(git rev-list --count "${BASE_SHA}..agent-tmp")"
+
+          # Feedback round: push onto the PR's own branch and update that PR, no second PR.
+          if [[ -n "${PR}" && "${BASE_REF}" != "${DEFAULT_BRANCH}" ]]; then
+            pr_head="$(gh api "repos/${REPO}/pulls/${PR}" --jq 'select(.state == "open") | .head.ref')"
+            # Plain push (no force): fails if someone pushed to the branch since the run started.
+            if [[ "${pr_head}" == "${BASE_REF}" ]] && git push origin "agent-tmp:refs/heads/${BASE_REF}"; then
+              body="$(cat "$R/pr-body.md" 2>/dev/null || true)"
+              if [[ -n "${body}" ]]; then
+                body="${body//\{\{REPO\}\}/${REPO}}"
+                body="${body//\{\{BRANCH\}\}/${BASE_REF}}"
+                body="$(printf '%s\n\n---\nLast updated by the emulator agent workflow ([run](%s)). Evidence artifact: `agent-emulator-evidence`.\n' "${body}" "${RUN_URL}")"
+                jq -n --arg body "${body}" '{body:$body}' | gh api -X PATCH "repos/${REPO}/pulls/${PR}" --input - --jq .html_url
+              fi
+              gh api "repos/${REPO}/issues/${PR}/comments" \
+                -f body="Feedback round: emulator agent pushed ${n} commit(s) to \`${BASE_REF}\` and updated the description ([run](${RUN_URL}))." >/dev/null
+              echo "::notice title=feedback round::PR #${PR} updated (${n} commits on ${BASE_REF})"
+              echo "PR #${PR} updated: ${n} commit(s) pushed to ${BASE_REF}" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "::warning title=feedback round::could not update PR #${PR} on ${BASE_REF} (closed, or the branch moved since the run started) -- opening a separate draft PR instead"
+          fi
+          # Run ID stays the same on re-runs; the attempt number keeps each attempt's branch unique.
+          branch="agent/emulator-$(echo "${TICKET}" | tr '[:upper:]' '[:lower:]')-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git push origin "agent-tmp:refs/heads/${branch}"
+          echo "::notice title=agent branch::${branch}"
+          title="$(head -1 "$R/pr-title.txt" 2>/dev/null || true)"
+          [[ -n "${title}" ]] || title="${TICKET}: emulator agent run ${GITHUB_RUN_ID}"
+          body="$(cat "$R/pr-body.md" 2>/dev/null || echo "(agent wrote no PR body)")"
+          body="${body//\{\{REPO\}\}/${REPO}}"
+          body="${body//\{\{BRANCH\}\}/${branch}}"
+          body="$(printf '%s\n\n---\nOpened by the emulator agent workflow ([run](%s)). Evidence artifact: `agent-emulator-evidence`.\n' "${body}" "${RUN_URL}")"
+          compare="${GITHUB_SERVER_URL}/${REPO}/compare/${BASE_REF}...${branch}?expand=1"
+          if ! url="$(jq -n --arg t "${title}" --arg h "${branch}" --arg b "${BASE_REF}" --arg body "${body}" \
+            '{title:$t, head:$h, base:$b, body:$body, draft:true}' \
+            | gh api "repos/${REPO}/pulls" --input - --jq .html_url 2>"$RUNNER_TEMP/pr.err")"; then
+            err="$(tr '\n' ' ' < "$RUNNER_TEMP/pr.err" | cut -c1-500)"
+            echo "::error title=draft PR not created::Branch ${branch} was pushed, but creating the PR failed: ${err} -- open it manually: ${compare}"
+            echo "Branch pushed: ${branch} -- PR creation failed, open manually: ${compare}" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "::notice title=draft PR::${url}"
+          echo "Draft PR: ${url}" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "${ISSUE}" ]]; then
+            gh api "repos/${REPO}/issues/${ISSUE}/comments" -f body="Emulator agent opened draft PR ${url} ([run](${RUN_URL}))." >/dev/null
+          fi

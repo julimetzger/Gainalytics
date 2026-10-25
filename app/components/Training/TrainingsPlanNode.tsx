@@ -15,7 +15,6 @@ import EditTraining from './execute/EditTraining';
 import TrainingsOverview from './analyse/TrainingsOverview';
 import TrainingHistory from './analyse/TrainingHistory';
 import AnalysisDataToggle, {AnalysisDataMode} from './analyse/AnalysisDataToggle';
-import AnalysisTotalSets from './analyse/AnalysisTotalSets';
 import TrainingPlanOverview from './analyse/TrainingPlanOverview';
 import TrainingModeTabs, {SubTab} from './TrainingModeTabs';
 import TrainingOverflowMenu from './TrainingOverflowMenu';
@@ -33,8 +32,7 @@ import {PauseDoneNotification} from './execute/PauseDoneNotification';
 import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
 import {useSettings} from '../../redux/settings/use/useSettings';
 import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
-import {getLocalMicro, getMesoForMicro, getPreviousMicroInMeso} from '../../redux/Training/trainingsPlanReducer';
-import {useLastTrainingOfPreviousMeso} from '../../redux/Training/use/useLastTrainingOfPreviousMeso';
+import {getLocalMicro, getMesoForMicro} from '../../redux/Training/trainingsPlanReducer';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
 import {shallowEqual, useSelector} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
@@ -130,10 +128,6 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   const effectiveAnalysisDataMode = analysisDataMode ?? localAnalysisDataMode;
   const effectiveSetAnalysisDataMode = onAnalysisDataModeChange ?? setLocalAnalysisDataMode;
   const training = useTrainingInTrainingsPlan(trainingsPlan.id!!, micro, trainingInMicro);
-  const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
-  const lastTrainingInSameMeso = useTrainingInTrainingsPlan(trainingsPlan.id!!, previousMicro ?? -1, trainingInMicro);
-  const lastTrainingFromPreviousMeso = useLastTrainingOfPreviousMeso(trainingsPlan.id!!, trainingInMicro, micro);
-  const lastTraining = lastTrainingInSameMeso ?? lastTrainingFromPreviousMeso;
   const startTraining = dispatchStartTraining(training?.id);
   const [timeInWorkout, setTimeInWorkout] = useState(new Date(Date.now()));
   const [refresHeky, setRefresHeky] = useState(Math.random());
@@ -691,15 +685,31 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                       the muscle map reachable while a training is still being planned.
                       GH-436: both positions refer to THIS training only; the
                       micro-wide plan lives in the Overview's Plan position. */}
-                  <AnalysisDataToggle value={effectiveAnalysisDataMode} onChange={effectiveSetAnalysisDataMode} />
+                  {/* GH-526: the toggle sits at the start of the compare chip row of each position. */}
                   {effectiveAnalysisDataMode === 'plan' ? (
-                    <TrainingPlanOverview training={training} trainingsPlan={trainingsPlan} micro={micro} trainingInMicro={trainingInMicro} />
+                    <TrainingPlanOverview
+                      training={training}
+                      trainingsPlan={trainingsPlan}
+                      micro={micro}
+                      trainingInMicro={trainingInMicro}
+                      toggle={<AnalysisDataToggle value={effectiveAnalysisDataMode} onChange={effectiveSetAnalysisDataMode} />}
+                    />
                   ) : training?.state === TrainingsState.FINISHED || training?.state === TrainingsState.STARTED ? (
-                    <TrainingsOverview training={training} previousTraining={lastTraining} trainingsPlan={trainingsPlan} currentMicro={micro} trainingInMicro={trainingInMicro} />
+                    <TrainingsOverview
+                      training={training}
+                      trainingsPlan={trainingsPlan}
+                      currentMicro={micro}
+                      trainingInMicro={trainingInMicro}
+                      toggle={<AnalysisDataToggle value={effectiveAnalysisDataMode} onChange={effectiveSetAnalysisDataMode} />}
+                    />
                   ) : (
-                    <View style={{padding: 24, alignItems: 'center'}}>
-                      <AnalysisTotalSets totalSets={0} scope="done" />
-                      <Text testID="analysis-train-empty">No sets logged yet — start the training on the Train tab. Switch to Plan to see what is planned.</Text>
+                    <View>
+                      <View style={{margin: 8}}>
+                        <AnalysisDataToggle value={effectiveAnalysisDataMode} onChange={effectiveSetAnalysisDataMode} />
+                      </View>
+                      <View style={{padding: 24, alignItems: 'center'}}>
+                        <Text testID="analysis-train-empty">No sets logged yet — start the training on the Train tab. Switch to Plan to see what is planned.</Text>
+                      </View>
                     </View>
                   )}
                 </View>
