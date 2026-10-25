@@ -4,7 +4,7 @@
 Why pixels instead of Maestro selectors:
     TrainingModeTabs renders inside TrainingsPlanNode's `NestableScrollContainer`
     (react-native-draggable-flatlist). That subtree is absent from the Android
-    accessibility hierarchy on R5CN30HWZFN, so neither `uiautomator dump` nor Maestro can
+    accessibility hierarchy on <phone-serial>, so neither `uiautomator dump` nor Maestro can
     see `subtab-plan` / `subtab-train` / `subtab-analysis` or any pane text. An
     `assertVisible: {text: Train, rightOf: {text: Plan}}` cannot pass there — on the old
     order *or* the new one — so it would assert nothing.
@@ -29,7 +29,7 @@ import sys
 import numpy as np
 from PIL import Image
 
-# Tab strip geometry on a 720x1600 capture of R5CN30HWZFN.
+# Tab strip geometry on a 720x1600 capture of <phone-serial>.
 LABEL_BAND = (160, 195)  # y range containing the tab label glyphs
 UNDERLINE_BAND = (195, 215)  # y range containing the active-tab underline
 SCROLLBAR_X = 700  # ignore the right-edge scrollbar artifact

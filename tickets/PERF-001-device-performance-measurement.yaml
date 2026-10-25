@@ -26,7 +26,7 @@ description: |
   rendert mehrere Tage gleichzeitig; die Exercises-Liste ist nicht virtualisiert; der Start wartet auf
   das Einlesen aller gespeicherten Daten. Bitte pro Szenario sagen, ob sich das in den Zahlen zeigt.
 acceptanceCriteria:
-  - "Release-Build (nicht debuggable, Hermes) ist auf R5CN30HWZFN installiert, belegt per dumpsys package"
+  - "Release-Build (nicht debuggable, Hermes) ist auf <phone-serial> installiert, belegt per dumpsys package"
   - "Die Nutzerdaten auf dem Gerät sind vorher gesichert und nach der Messung unverändert vorhanden (Anzahl Trainings/Workouts vorher = nachher, Screenshot der Historie vorher/nachher)"
   - "Für jedes der 8 Szenarien liegen Messwerte vor (Median, min/max, Anzahl Durchläufe) samt Messmethode (z. B. am start -W, dumpsys gfxinfo framestats, Perfetto/systrace, dumpsys meminfo)"
   - "Report docs/perf/device-measurement.md mit Tabelle aller Werte, den Top-5 der spürbarsten Probleme und je Hypothese bestätigt/widerlegt/unklar"
@@ -44,4 +44,4 @@ constraints:
   - "Vor der Installation die App-Daten per `run-as` sichern (solange das installierte Build noch debuggable ist) und die Sicherung ins Run-Verzeichnis kopieren."
   - "Für Szenario 2 ein bereits laufendes oder neu gestartetes Training nutzen; alle zu Messzwecken eingetragenen Sätze/Trainings am Ende wieder entfernen und das belegen."
   - "Nach der Messung bleibt der Release-Build installiert (App muss normal nutzbar sein)."
-  - "Nur echtes Gerät R5CN30HWZFN verwenden, keine Emulatoren."
+  - "Nur echtes Gerät <phone-serial> verwenden, keine Emulatoren."

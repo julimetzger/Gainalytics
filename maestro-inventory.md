@@ -1,9 +1,9 @@
 # Maestro Flow Inventory – GH-123
 
-**Device:** R5CN30HWZFN (Samsung Galaxy S20 FE, 720×1600 px)  
+**Device:** <phone-serial> (Samsung Galaxy S20 FE, 720×1600 px)  
 **APK build:** existing debug APK on device (RN 0.76.9, GH-121)  
 **Baseline data:** `baseline.gains` loaded, training plans confirmed visible  
-**Rounds:** R1 (without `--host`), R2 (fixed port), R3 (fixed `--host 172.18.240.1`)  
+**Rounds:** R1 (without `--host`), R2 (fixed port), R3 (fixed `--host <wsl-gateway-ip>`)  
 **Date:** 2026-04-14
 
 ---
@@ -21,7 +21,7 @@
 
 > **Note on R1/R2 APP-CRASH reclassification:** All R1 "APP-CRASH" results were caused by stale
 > logcat containing repeated `UiAutomationService already registered` FATAL EXCEPTIONs from
-> Maestro driver startup failures (missing `--host 172.18.240.1`). The R1 logcat was never
+> Maestro driver startup failures (missing `--host <wsl-gateway-ip>`). The R1 logcat was never
 > cleared between flows, so every flow's post-flow logcat read picked up the same INFRA errors.
 > After adding `--host` in R3 and clearing logcat before each flow, none of the previously
 > "crashing" flows produced a real FATAL EXCEPTION from the app package.
@@ -181,7 +181,7 @@ Ana flows fail for two reasons:
 
 ## INFRA-FAIL Flows (0)
 
-None. All previously classified INFRA-FAILs were resolved by adding `--host 172.18.240.1` in R3.
+None. All previously classified INFRA-FAILs were resolved by adding `--host <wsl-gateway-ip>` in R3.
 `gh97_import_warm` was reclassified: the flow ran 181s and failed its internal `extendedWaitUntil: 180s`
 (import did not complete navigation to Training tab). Exit code was FLOW-FAIL, not timeout kill.
 
@@ -214,8 +214,8 @@ on the device worktree at run time:
 
 ## Infrastructure Notes
 
-- **WSL→Windows Maestro host:** `--host 172.18.240.1` required (resolv.conf gateway)
-- **ADB device serial:** `R5CN30HWZFN`
+- **WSL→Windows Maestro host:** `--host <wsl-gateway-ip>` required (resolv.conf gateway)
+- **ADB device serial:** `<phone-serial>`
 - **Driver port:** `--driver-host-port 7051`
 - **Metro reverse:** `adb reverse tcp:8081 tcp:8083` (Metro runs on host port 8083)
 - **Device resolution:** 720×1600 physical; some flows written for 1080×2400

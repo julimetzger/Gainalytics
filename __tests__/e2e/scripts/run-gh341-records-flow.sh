@@ -17,7 +17,7 @@ MAESTRO_RUN_HOME="${E2E_MAESTRO_HOME:-${REPO_ROOT}/__tests__/reports/.maestro-ho
 REPORT_PATH="${REPO_ROOT}/__tests__/reports/maestro-gh341.xml"
 MAESTRO_HOST="${E2E_MAESTRO_HOST:-$(awk '/^nameserver / { print $2; exit }' /etc/resolv.conf)}"
 
-# Coordinates assume the device's `wm size` override 720x1600 (R5CN30HWZFN).
+# Coordinates assume the device's `wm size` override 720x1600 (physical test phone).
 tap() { adb -s "$DEVICE" shell input tap "$1" "$2"; sleep "${3:-2}"; }
 
 adb -s "$DEVICE" shell am force-stop com.powerliftingworkoutplanner

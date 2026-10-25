@@ -2,7 +2,7 @@ appId: com.powerliftingworkoutplanner
 name: GH-358 Plan quick edit opens the keyboard; OK key and tapping outside both commit
 ---
 # GH-358 (PR #362 follow-up): tapping a plan set value must open the soft keyboard
-# on R5CN30HWZFN (Samsung SM-G986B, Android 13), and the typed value must be
+# on <phone-serial> (Samsung SM-G986B, Android 13), and the typed value must be
 # committed either by the keyboard OK/Enter key OR by simply tapping outside the
 # row. The old "Editing … · Done" accessory bar has been REMOVED — there is no
 # Done button anymore, so this flow asserts the bar is gone and drives the commit
@@ -15,9 +15,9 @@ name: GH-358 Plan quick edit opens the keyboard; OK key and tapping outside both
 # Because the row text is not in the a11y tree, the committed value is asserted
 # OUT OF BAND against the persisted MMKV store by
 # __tests__/e2e/scripts/assert-gh358-committed-reps.py (see summary.md), e.g.:
-#   python3 assert-gh358-committed-reps.py --serial R5CN30HWZFN --expect 13
-#   python3 assert-gh358-committed-reps.py --serial R5CN30HWZFN --expect 14 --baseline 10
-#   python3 assert-gh358-committed-reps.py --serial R5CN30HWZFN --expect 8
+#   python3 assert-gh358-committed-reps.py --serial <phone-serial> --expect 13
+#   python3 assert-gh358-committed-reps.py --serial <phone-serial> --expect 14 --baseline 10
+#   python3 assert-gh358-committed-reps.py --serial <phone-serial> --expect 8
 
 - launchApp:
     clearState: false

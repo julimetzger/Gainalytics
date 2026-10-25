@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | Datum | 2026-09-04 |
-| Gerät | Samsung SM-G986B (R5CN30HWZFN), Android 13, 720×1600 Override, Dark Theme |
+| Gerät | Samsung SM-G986B (<phone-serial>), Android 13, 720×1600 Override, Dark Theme |
 | Build | Debug-APK 0.172 mit dem GH-436-JS-Bundle über Metro |
 | Datenstand | Baseline-Fixture `__tests__/testdata/1772318214222.gains` importiert, danach ein neuer Plan „UX436“ von Hand angelegt |
 | Weg | Training-Home → „+“ → Plan „UX436“ → Meso 1 → Micro 1 Training 1 → Plan-Tab: „Plan new Training“, 2 Übungen (Bankdrücken, Bulgarian split squat), je 1 Satz → Train-Tab: Start, beide Sätze bestätigen, Finish → Analysis-Tab: Plan- und Train-Position → Drawer → Overview → Plan-Position → Micro 2 (leer) |

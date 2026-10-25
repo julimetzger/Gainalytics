@@ -6,7 +6,6 @@ coverage
 __tests__/coverage
 .expo
 .codex-orchestrator
-*/.env
 .jest/cache
 # Xcode
 #
@@ -59,8 +58,6 @@ static-overlay.png
 # BUCK
 buck-out/
 \.buckd/
-*.keystore
-!debug.keystore
 
 # fastlane
 #
@@ -82,3 +79,14 @@ MuscleInvolvement*.html
 # CocoaPods
 /ios/Pods/
 android/.kotlin/
+
+# Build outputs, heap dumps, signing keys and local secrets (never commit these)
+*.apk
+*.aab
+*.hprof
+*.jks
+*.keystore
+!android/app/debug.keystore
+.env*
+!.env.example
+android/app/src/main/assets/index.android.bundle
