@@ -18,7 +18,8 @@ import MetricSelectionDialog from './MetricSelectionDialog';
 import {describeComparisonPeriod, formatMetricValue, getMetricHeaderLabel} from '../../utils/metric-format';
 
 export interface Comparison {
-  value: number;
+  /** GH-527: undefined when the metric does not exist here — a muscle without any set of its own has no 1RM. */
+  value: number | undefined;
   difference?: number;
   /** GH-526: vs the whole micro the delta reads as the value's share of the reference. */
   share?: number;
@@ -33,8 +34,8 @@ const SHARE_METRICS = [Metric.SETS, Metric.VOLUME, Metric.REPS];
 const toShares = (comparisons: Map<Metric, Comparison>): Map<Metric, Comparison> =>
   new Map(
     Array.from(comparisons).map(([metric, comparison]) => {
-      const reference = comparison.difference === undefined ? undefined : comparison.value - comparison.difference;
-      const share = SHARE_METRICS.includes(metric) && reference !== undefined && reference > 0 ? comparison.value / reference : undefined;
+      const reference = comparison.difference === undefined || comparison.value === undefined ? undefined : comparison.value - comparison.difference;
+      const share = SHARE_METRICS.includes(metric) && comparison.value !== undefined && reference !== undefined && reference > 0 ? comparison.value / reference : undefined;
       return [metric, {value: comparison.value, share}];
     }),
   );
@@ -237,7 +238,8 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
               {Array.from(exerciseWorkoutMap).map(([exercise, workout]) => {
                 const matchedExercise = exercise.muscles?.find((muscle) => muscle.muscle === selectedMuscle?.muscle) as MusclePercentPair | undefined;
 
-                if (!matchedExercise || !selectedMuscle) {
+                // GH-527: only the exercises that train the muscle feed its value, so only they are listed.
+                if (!matchedExercise || (matchedExercise.percent ?? 0) <= 0 || !selectedMuscle) {
                   return null;
                 }
 
