@@ -301,17 +301,25 @@ onFlowComplete:
     element:
       id: 'settings-anthropic-api-key-input'
     direction: DOWN
+    centerElement: true
     timeout: 30000
+# Centred, the field stays above the keyboard: at the bottom edge the keyboard
+# covered it and neither erase reached the key (it stayed saved, GH-589).
+# A tap drops the cursor mid-text and the erase only removes what is left of
+# it; two rounds still left "•••" here, so tap + erase three times (the masked
+# text can't be read back; the chat's add-key hint below proves the removal).
+# With the keyboard up the field can scroll out of the hierarchy; it keeps
+# focus, so the re-taps are optional.
 - tapOn:
     id: 'settings-anthropic-api-key-input'
 - eraseText: 200
-# A tap can drop the cursor mid-text; the second tap lands past the shorter
-# remainder, so this erase empties the field. With the keyboard up the field
-# can scroll out of the hierarchy; it keeps focus, so the re-tap is optional.
-- tapOn:
-    id: 'settings-anthropic-api-key-input'
-    optional: true
-- eraseText: 200
+- repeat:
+    times: 2
+    commands:
+      - tapOn:
+          id: 'settings-anthropic-api-key-input'
+          optional: true
+      - eraseText: 200
 - hideKeyboard
 - scrollUntilVisible:
     element:
@@ -327,6 +335,26 @@ onFlowComplete:
     timeout: 5000
     optional: true
 - tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+# The Analyse tab reopens on its last drawer screen - here "Chat History" (the
+# delete above happened there), so go to AI Chat through the drawer (GH-589).
+# open_ai_chat.yaml can't be used: it waits for the chat input, which needs a key.
+- runFlow:
+    when:
+      notVisible:
+        id: 'chat-no-key-message'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - extendedWaitUntil:
+          visible: 'Close drawer'
+          timeout: 15000
+      - waitForAnimationToEnd:
+          timeout: 10000
+      - tapOn:
+          text: 'AI Chat'
+          below:
+            text: 'Video Analysis'
 - extendedWaitUntil:
     visible:
       id: 'chat-no-key-message'
