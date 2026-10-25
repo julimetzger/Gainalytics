@@ -22,9 +22,32 @@ import rootReducer from '../../../app/redux/rootReducer';
 import {buildStrongImport, parseStrongCsv} from '../../../app/utils/strongCsv/strongImport';
 import type {Props as SettingsTabProps} from '../../../app/tabs/settings/SettingsTab';
 
-// Screen-prop fixtures. Only the navigation methods SettingsTab actually calls are mocked; the
-// route is a complete RouteProp so the typecheck covers its params.
-const mockNavigation = (methods: Partial<SettingsTabProps['navigation']>) => methods as SettingsTabProps['navigation'];
+// Screen-prop fixtures: a complete navigation mock (checked against the screen's navigation prop,
+// fresh jest.fn()s per call) and a complete RouteProp so the typecheck also covers the params.
+const createNavigation = () =>
+  ({
+    dispatch: jest.fn(),
+    navigate: jest.fn(),
+    navigateDeprecated: jest.fn(),
+    preload: jest.fn(),
+    reset: jest.fn(),
+    goBack: jest.fn(),
+    isFocused: jest.fn(() => true),
+    canGoBack: jest.fn(() => false),
+    getId: jest.fn(() => undefined),
+    getParent: jest.fn(),
+    getState: jest.fn(),
+    addListener: jest.fn(() => () => undefined),
+    removeListener: jest.fn(),
+    setParams: jest.fn(),
+    replaceParams: jest.fn(),
+    setOptions: jest.fn(),
+    replace: jest.fn(),
+    push: jest.fn(),
+    pop: jest.fn(),
+    popTo: jest.fn(),
+    popToTop: jest.fn(),
+  }) satisfies SettingsTabProps['navigation'];
 const settingsRoute = (params: SettingsTabProps['route']['params']): SettingsTabProps['route'] => ({
   key: 'Settings-test',
   name: 'Settings',
@@ -447,7 +470,7 @@ describe('SettingsTab', () => {
   });
 
   it('dispatches switch toggles', async () => {
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getAllByTestId, getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -469,7 +492,7 @@ describe('SettingsTab', () => {
   });
 
   it('groups the settings into titled sections, theme first', () => {
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getAllByTestId, getByTestId, queryByText} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -486,7 +509,7 @@ describe('SettingsTab', () => {
   });
 
   it('imports data through the dialog and dispatches full import', async () => {
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getByTestId, getByText, queryByText} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -518,7 +541,7 @@ describe('SettingsTab', () => {
   });
 
   it('reopens the onboarding from the Help section (GH-497)', () => {
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn(), setParams: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -528,7 +551,7 @@ describe('SettingsTab', () => {
   });
 
   it('opens the import confirmation when the onboarding asks for it (GH-497)', () => {
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn(), setParams: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({openImport: true});
 
     const {getByText} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -539,7 +562,7 @@ describe('SettingsTab', () => {
 
   it('renders the app version supplied by the native build', () => {
     nativeModulesWithAppInfo.AppInfo = {versionName: '9.8.7'};
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -549,7 +572,7 @@ describe('SettingsTab', () => {
 
   it('GH-502: long-pressing the version does nothing without the debug-only Health Connect PoC module', () => {
     delete (NativeModules as any).HealthConnectPoc;
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -560,7 +583,7 @@ describe('SettingsTab', () => {
 
   it('GH-502: long-pressing the version opens the Health Connect PoC when the debug module exists', () => {
     (NativeModules as any).HealthConnectPoc = {};
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     try {
@@ -574,7 +597,7 @@ describe('SettingsTab', () => {
   });
 
   it('exports data into file system and shows exported path', () => {
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -586,7 +609,7 @@ describe('SettingsTab', () => {
   });
 
   describe('Strong CSV (GH-496)', () => {
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
     const emptyState = () => rootReducer(undefined as any, {type: '@@INIT'});
     const stateWithOneSet = () => {
@@ -716,7 +739,7 @@ describe('SettingsTab', () => {
   });
 
   it('renders model input with correct testID', async () => {
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -730,7 +753,7 @@ describe('SettingsTab', () => {
   });
 
   it('GH-504: without a provider choice shows the provider selector and the unchanged Claude key fields', () => {
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getByTestId, queryByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -744,7 +767,7 @@ describe('SettingsTab', () => {
 
   it('GH-504: with ChatGPT selected shows the sign-in section instead of the API key, prompts stay', () => {
     mockUseAiProvider.mockReturnValue('chatgpt');
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getByTestId, queryByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -758,7 +781,7 @@ describe('SettingsTab', () => {
   });
 
   it('saves custom model and shows success toast', async () => {
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -781,7 +804,7 @@ describe('SettingsTab', () => {
   });
 
   it('resets to default and shows reset toast when model input is empty on save', async () => {
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
@@ -807,7 +830,7 @@ describe('SettingsTab', () => {
   it('renders exact alarm section and opens platform settings', async () => {
     mockedCanScheduleExactAlarms.mockResolvedValue(false);
 
-    const navigation = mockNavigation({setOptions: jest.fn(), navigate: jest.fn()});
+    const navigation = createNavigation();
     const route = settingsRoute({});
 
     const {getAllByTestId, getByText} = render(<SettingsTab navigation={navigation} route={route} />);
