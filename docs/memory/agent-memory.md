@@ -722,6 +722,41 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Fix:** assert saved values positively; no `{n}` in inline scripts; `adb shell content call --method scan_volume --uri content://media --arg external_primary` after pushing (now in `run-maestro-from-wsl.sh`), and `import_fixture.yaml` switches the picker to "List view".
 **Apply when:** asserting text inputs, writing inline JS checks, importing pushed fixtures. (seen in GH-584)
 
+### A dependency major bump can remove an export: the screen crashes, and a hand-written jest mock keeps the spec green
+**Problem (GH-589):** gesture-handler 3 no longer exports the legacy `Swipeable`. `DateRangePicker` imported it, so every screen with a date range (AI Chat filter, Records, Analysis, History, Body weight) fell into the Analyse error boundary ("Element type is invalid … got: undefined" in logcat). `DateRangePicker.spec.tsx` mocked `react-native-gesture-handler` with its own `Swipeable`, so it never noticed.
+**Fix / Rule:** `ReanimatedSwipeable` from `react-native-gesture-handler/ReanimatedSwipeable`. Its `onSwipeableOpen` direction is INVERTED vs. legacy (dragging right = `RIGHT`, legacy said `'left'`). Mock the real module path in `jest.setup.js` and never mock exports the library no longer has. After a dependency bump, grep the app's imports against the package's `src/index.ts`.
+**Apply when:** an Analyse screen shows "… could not be displayed", or after a gesture-handler/reanimated/paper bump.
+
+### RTK 2 rejects `middleware: [..]` only in DEV bundles — the embedded APK bundle hides it, Metro shows a red screen
+**Problem (GH-589):** `configureStore({middleware: [healthConnectMiddleware]})` worked in the job-start APK (production-mode embedded bundle). The first Metro bundle died with "[runtime not ready]: Error: `middleware` field must be a callback".
+**Fix / Rule:** `middleware: () => new Tuple(...)`. If the Metro red screen points at `configureStore`, this is the cause, not your feature.
+**Apply when:** the first Metro launch of a run shows a red screen before any of your code runs.
+
+### CI emulator: Metro can't be restarted — point `debug_http_host` at a dead port to use the embedded bundle, then `tool.sh rebuild`
+**Observation (GH-589):** `kill`/`fuser -k`, a second Metro on another port (copied tool.sh) and `bash x.sh` all needed approval, so a stale/broken Metro on :8081 stays up all job. Bridgeless RN has no cached-bundle fallback: Metro or the embedded `assets/index.android.bundle`. Write `<map><string name="debug_http_host">10.0.2.2:9</string></map>` (Write tool → `adb push` → `run-as <pkg> sh -c 'cat /data/local/tmp/prefs.xml > shared_prefs/<pkg>_preferences.xml'`) and cold-start; logcat says `isMetroRunning(): Async result = false`. A `clearState`/`pm clear` deletes the pref, so rewrite it afterwards.
+**Apply when:** you need a JS edit on the device after `metro-start`, or Metro serves a broken bundle.
+
+### Trigger a real "isn't responding" dialog on demand: SIGSTOP the debuggable app via run-as
+**Observation (GH-589):** `adb shell pidof <pkg>`, then `adb shell "run-as <pkg> kill -STOP <pid>"`, two `input tap`s, wait ~12 s → "Gainalytics isn't responding" (Close app / Wait). Maestro sees the dialog. `dismiss_system_anr.yaml` ignores the app's own ANR; `maestro test -e OWN_APP=NotThisApp …` makes it count as foreign and proves the Close path.
+**Apply when:** testing ANR/system-dialog handling in flows.
+
+### Video analysis detail reopens scrolled; compare sync starts at rep-1 lift-off, not 0:00.0
+**Observation (GH-589):** after `back` + opening another row, `video-analysis-detail-screen` kept the previous scroll offset, so the header (`Squat · No linked set`) was off-screen. Scroll up along the left edge (`swipe 6%,25% → 6%,79%`, the video/chart eat centred swipes) before asserting the header. `CompareSyncPlaybackCard` seeks both videos to rep 1 lift-off on load (`squat-3reps.mp4`: `0:01.0`). Assert A == B, not `0:00.0`.
+**Apply when:** writing video detail/compare flows.
+
+### Typing into masked or secure inputs: the tap puts the cursor mid-text, so erase only removes the left part
+**Problem (GH-589):** `tapOn: {id}` hits the field's centre. In the date-range `DatePickerInput` (MM/DD/YYYY mask) `eraseText` + `inputText: '03/01/2026'` ended as "06/2". In the secure API-key field two tap+erase rounds still left "•••", so the key was never removed.
+**Fix / Rule:** date mask: tap the field's right end (`point: '31%, 16%'` for the Records start input), single `pressKey: Backspace` ×12, one `inputText` per digit (the mask adds the slashes), then `assertVisible: '03/01/2026'` (the testID sits on a wrapper, so match by text). Secure field: `scrollUntilVisible … centerElement: true` (above the keyboard) and tap+erase three times. Prove the result downstream.
+**Apply when:** a flow edits a prefilled date, masked or password input.
+
+### Move the emulator clock without root: `cmd alarm set-time`, but import fixtures first
+**Observation (GH-589):** `adb shell settings put global auto_time 0; adb shell cmd alarm set-time <epoch-ms>` works on the CI image (restore with `auto_time 1`). It proves time-dependent assertions ("still green in 2027"). After the jump, the SAF picker showed "Recent / No items" and could no longer find `baseline.gains`. `tool.sh import-baseline` deletes + re-pushes the file without a media scan, so it is also missing from the index: run `content call --method scan_volume --uri content://media --arg external_primary`. Import at the real date, then jump and run only the assertions.
+**Apply when:** a flow or ticket depends on today's date or a "last N months" window.
+
+### Analyse tab and Training home reopen where they were left — flows must navigate, not assume
+**Problem (GH-589):** after deleting a chat in "Chat History", `tapOn: tab-analyse` reopened Chat History, not AI Chat (`chat-no-key-message` never appeared). Back on the Training home after detours, the list sat BELOW the Next Training card, and `scrollUntilVisible DOWN` never found `next-training-start-button`. The Settings muscles accordion opened with its rows below the fold.
+**Fix / Rule:** `runFlow when notVisible <target>` → drawer → entry; scroll UP to `next-training-name` first; `scrollUntilVisible` before asserting rows of an expanded accordion.
+**Apply when:** a flow step follows another flow section that left the tab/screen elsewhere.
 ### A clipped node counts as "100 % visible": scrollUntilVisible stops on a sliver
 **Problem (GH-588):** uiautomator reports a node clipped by the ScrollView with its VISIBLE bounds only (a card at the tab-bar edge dumps as `[2124][2127]`, 3 px). `visibilityPercentage: 100` is therefore met by a button whose top edge just peeks out; its label child below the edge is not in the hierarchy. CI failed on `assertVisible {id: next-training-start-button-text, text: 'Continue Training'}` right after `'Training running'` passed (the running card is taller: it lists two exercises). It depends on where the swipe ends, so it fails on slow runners only.
 **Fix:** `centerElement: true` on `scrollUntilVisible` before asserting or tapping children of a card.

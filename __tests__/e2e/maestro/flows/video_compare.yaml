@@ -249,12 +249,15 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'compare-rep-sync-subtitle'
     text: 'Aligned on rep 1 lift-off'
-- assertVisible:
+# Both videos start on rep 1 lift-off (CompareSyncPlaybackCard
+# maybeAlignInitially), i.e. not at 0:00.0 but at the same position.
+- copyTextFrom:
     id: 'compare-video-a-time'
-    text: '0:00\.0'
-- assertVisible:
+- evalScript: "${output.a0 = maestro.copiedText}"
+- copyTextFrom:
     id: 'compare-video-b-time'
-    text: '0:00\.0'
+- evalScript: "${output.b0 = maestro.copiedText}"
+- assertTrue: "${/^0:[0-9][0-9][.][0-9]$/.test(output.a0) && output.a0 == output.b0}"
 
 # GH-360 3. the speed chip acts on the shared playback
 - scrollUntilVisible:
@@ -291,4 +294,4 @@ appId: com.powerliftingworkoutplanner
 - copyTextFrom:
     id: 'compare-video-b-time'
 - evalScript: "${output.b1 = maestro.copiedText}"
-- assertTrue: "${/^0:[0-9][0-9][.][0-9]$/.test(output.a1) && output.a1 != '0:00.0' && output.a1 == output.b1}"
+- assertTrue: "${/^0:[0-9][0-9][.][0-9]$/.test(output.a1) && output.a1 != output.a0 && output.a1 == output.b1}"

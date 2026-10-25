@@ -37,6 +37,12 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'settings-muscle-overview-Biceps'
     checked: false
+# When the accordion stays near the top the list runs below the fold (GH-589).
+- scrollUntilVisible:
+    element:
+      id: 'settings-muscle-remove-Core'
+    direction: DOWN
+    timeout: 20000
 - tapOn:
     id: 'settings-muscle-remove-Core'
 - extendedWaitUntil:

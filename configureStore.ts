@@ -3,7 +3,7 @@ import rootReducer from './app/redux/rootReducer';
 import hardSet from 'redux-persist/lib/stateReconciler/hardSet';
 import {MMKV} from 'react-native-mmkv';
 import createFilter from 'redux-persist-transform-filter';
-import {configureStore} from '@reduxjs/toolkit';
+import {configureStore, Tuple} from '@reduxjs/toolkit';
 import logger from 'redux-logger';
 import {healthConnectMiddleware} from './app/redux/HealthConnect/healthConnectMiddleware';
 
@@ -214,7 +214,9 @@ export default () => {
   const store = configureStore({
     reducer: persistedReducer,
     devTools: process?.env?.NODE_ENV === 'development',
-    middleware: process?.env?.NODE_ENV === 'development' ? [healthConnectMiddleware, logger] : [healthConnectMiddleware],
+    // RTK 2 throws on a plain array in dev builds ("`middleware` field must be a callback"),
+    // so every Metro bundle died at startup (GH-589). Same list as before, no default middleware.
+    middleware: () => (process?.env?.NODE_ENV === 'development' ? new Tuple(healthConnectMiddleware, logger) : new Tuple(healthConnectMiddleware)),
   });
   let persistor = persistStore(store);
   return {store, persistor};
