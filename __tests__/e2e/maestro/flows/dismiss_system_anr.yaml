@@ -1,5 +1,5 @@
 appId: com.powerliftingworkoutplanner
-name: GH-589 dismiss a system "isn't responding" dialog (never the app's own)
+name: GH-589 dismiss a system ANR dialog (never the app's own)
 ---
 # Helper. A loaded CI emulator puts "System UI isn't responding" (or another
 # system app's ANR) over everything, and the next assertion fails for a reason
