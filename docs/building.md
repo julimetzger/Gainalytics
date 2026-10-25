@@ -120,6 +120,8 @@ against an installed debug build:
 # install Maestro: https://docs.maestro.dev/getting-started/installing-maestro
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb reverse tcp:8081 tcp:8081
+# smoke.yaml imports this fixture itself (it replaces the app data on the device)
+adb push __tests__/e2e/maestro/fixtures/baseline.gains /sdcard/Download/baseline.gains
 maestro test __tests__/e2e/maestro/flows/smoke.yaml
 ```
 
