@@ -94,6 +94,15 @@ jest.mock('react-native-gesture-handler', () => {
     },
   };
 });
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const React = require('react');
+  const View = require('react-native').View;
+  return {
+    __esModule: true,
+    SwipeDirection: {LEFT: 'left', RIGHT: 'right'},
+    default: React.forwardRef(({children}, _ref) => React.createElement(View, null, children)),
+  };
+});
 
 // Mock react-redux hooks globally so component tests do not require a Provider.
 // Tests that need specific selector behaviour mock react-redux themselves.

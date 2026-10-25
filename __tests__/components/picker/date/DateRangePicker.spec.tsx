@@ -32,11 +32,20 @@ jest.mock('react-native-paper-dates', () => ({
   },
 }));
 
-jest.mock('react-native-gesture-handler', () => {
+const mockSwipeableRef: {current: {onSwipeableOpen: (direction: 'left' | 'right') => void} | undefined} = {current: undefined};
+
+// Mock the module path the component really imports (GH-589: the old mock provided a
+// `Swipeable` export that gesture-handler 3 no longer has, so the crash never showed here).
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   const React = require('react');
   const {View} = require('react-native');
   return {
-    Swipeable: ({children}: {children: React.ReactNode}) => <View>{children}</View>,
+    __esModule: true,
+    SwipeDirection: {LEFT: 'left', RIGHT: 'right'},
+    default: React.forwardRef((props: {children: React.ReactNode; onSwipeableOpen: (direction: 'left' | 'right') => void}, _ref: unknown) => {
+      mockSwipeableRef.current = props;
+      return <View>{props.children}</View>;
+    }),
   };
 });
 
@@ -194,6 +203,28 @@ describe('DateRangePicker', () => {
     // calendar's extracted() can respond to day taps.
     // After the text-input edits the uncompleteRange must remain a NullableRange.
     expect(mockDatePickerModalRef.current?.date).toBeInstanceOf(NullableRange);
+  });
+
+  it('imports the swipeable from a module path gesture-handler still ships', () => {
+    expect(() => require.resolve('react-native-gesture-handler/ReanimatedSwipeable')).not.toThrow();
+  });
+
+  it('swiping right shows the previous range, swiping left the next one', () => {
+    const setRange = jest.fn();
+    setup(setRange);
+
+    act(() => {
+      mockSwipeableRef.current?.onSwipeableOpen('right');
+    });
+    act(() => {
+      mockSwipeableRef.current?.onSwipeableOpen('left');
+    });
+
+    expect(setRange).toHaveBeenCalledTimes(2);
+    const previous: Range = setRange.mock.calls[0][0];
+    const next: Range = setRange.mock.calls[1][0];
+    expect(previous.endDate.getTime()).toBeLessThan(JAN_10.getTime());
+    expect(next.startDate.getTime()).toBeGreaterThan(JAN_20.getTime());
   });
 
   it('Save with both start and end selected applies the confirmed range', () => {
