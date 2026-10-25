@@ -721,3 +721,25 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-584):** (1) `text:` also matches an EditText's hintText — a TextInput with `placeholder={DEFAULT_MODEL}` makes `assertNotVisible: {id, text: DEFAULT_MODEL}` fail forever and a positive check pass on an empty field. (2) Maestro ends a `${…}` script at the FIRST `}` — a regex quantifier like `[0-9]{3}` inside `assertTrue: "${/…{3}…/.test(x)}"` gives `SyntaxError: Expected an operand but found /` (only visible in `maestro.log`); write `[0-9][0-9][0-9]`. (3) Files pushed with `adb push` are missing from the SAF picker's "Recent" view (and the default picker landing) until the media store indexes them, and grid view truncates long names (`gh391_planned_fi…`).
 **Fix:** assert saved values positively; no `{n}` in inline scripts; `adb shell content call --method scan_volume --uri content://media --arg external_primary` after pushing (now in `run-maestro-from-wsl.sh`), and `import_fixture.yaml` switches the picker to "List view".
 **Apply when:** asserting text inputs, writing inline JS checks, importing pushed fixtures. (seen in GH-584)
+
+### A dependency major bump can remove an export: the screen crashes, and a hand-written jest mock keeps the spec green
+**Problem (GH-589):** gesture-handler 3 no longer exports the legacy `Swipeable`. `DateRangePicker` imported it, so every screen with a date range (AI Chat filter, Records, Analysis, History, Body weight) fell into the Analyse error boundary ("Element type is invalid … got: undefined" in logcat). `DateRangePicker.spec.tsx` mocked `react-native-gesture-handler` with its own `Swipeable`, so it never noticed.
+**Fix / Rule:** `ReanimatedSwipeable` from `react-native-gesture-handler/ReanimatedSwipeable`. Its `onSwipeableOpen` direction is INVERTED vs. legacy (dragging right = `RIGHT`, legacy said `'left'`). Mock the real module path in `jest.setup.js` and never mock exports the library no longer has. After a dependency bump, grep the app's imports against the package's `src/index.ts`.
+**Apply when:** an Analyse screen shows "… could not be displayed", or after a gesture-handler/reanimated/paper bump.
+
+### RTK 2 rejects `middleware: [..]` only in DEV bundles — the embedded APK bundle hides it, Metro shows a red screen
+**Problem (GH-589):** `configureStore({middleware: [healthConnectMiddleware]})` worked in the job-start APK (production-mode embedded bundle). The first Metro bundle died with "[runtime not ready]: Error: `middleware` field must be a callback".
+**Fix / Rule:** `middleware: () => new Tuple(...)`. If the Metro red screen points at `configureStore`, this is the cause, not your feature.
+**Apply when:** the first Metro launch of a run shows a red screen before any of your code runs.
+
+### CI emulator: Metro can't be restarted — point `debug_http_host` at a dead port to use the embedded bundle, then `tool.sh rebuild`
+**Observation (GH-589):** `kill`/`fuser -k`, a second Metro on another port (copied tool.sh) and `bash x.sh` all needed approval, so a stale/broken Metro on :8081 stays up all job. Bridgeless RN has no cached-bundle fallback: Metro or the embedded `assets/index.android.bundle`. Write `<map><string name="debug_http_host">10.0.2.2:9</string></map>` (Write tool → `adb push` → `run-as <pkg> sh -c 'cat /data/local/tmp/prefs.xml > shared_prefs/<pkg>_preferences.xml'`) and cold-start; logcat says `isMetroRunning(): Async result = false`. A `clearState`/`pm clear` deletes the pref, so rewrite it afterwards.
+**Apply when:** you need a JS edit on the device after `metro-start`, or Metro serves a broken bundle.
+
+### Trigger a real "isn't responding" dialog on demand: SIGSTOP the debuggable app via run-as
+**Observation (GH-589):** `adb shell pidof <pkg>`, then `adb shell "run-as <pkg> kill -STOP <pid>"`, two `input tap`s, wait ~12 s → "Gainalytics isn't responding" (Close app / Wait). Maestro sees the dialog. `dismiss_system_anr.yaml` ignores the app's own ANR; `maestro test -e OWN_APP=NotThisApp …` makes it count as foreign and proves the Close path.
+**Apply when:** testing ANR/system-dialog handling in flows.
+
+### Video analysis detail reopens scrolled; compare sync starts at rep-1 lift-off, not 0:00.0
+**Observation (GH-589):** after `back` + opening another row, `video-analysis-detail-screen` kept the previous scroll offset, so the header (`Squat · No linked set`) was off-screen. Scroll up along the left edge (`swipe 6%,25% → 6%,79%`, the video/chart eat centred swipes) before asserting the header. `CompareSyncPlaybackCard` seeks both videos to rep 1 lift-off on load (`squat-3reps.mp4`: `0:01.0`). Assert A == B, not `0:00.0`.
+**Apply when:** writing video detail/compare flows.

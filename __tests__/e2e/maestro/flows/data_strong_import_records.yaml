@@ -133,8 +133,35 @@ appId: com.powerliftingworkoutplanner
     timeout: 15000
 - tapOn:
     id: 'date-range-start-input'
-- eraseText: 12
-- inputText: '03/01/2026'
+# The keyboard must be up before typing, or the first digit is lost.
+- waitForAnimationToEnd:
+    timeout: 5000
+# The masked MM/DD/YYYY input re-formats on every change: the id tap puts the
+# cursor mid-text and a fast multi-character inputText is scrambled ("06/2").
+# Tap the right end of the start field (cursor after the text), then single
+# Backspace presses and one digit per command -> 03/01/2026 (the mask adds the
+# slashes). The testID sits on a wrapper, so the typed value is matched by text
+# (the end input shows another date).
+- repeat:
+    times: 3
+    while:
+      notVisible: '03/01/2026'
+    commands:
+      - tapOn:
+          point: '31%, 16%'
+      - repeat:
+          times: 12
+          commands:
+            - pressKey: Backspace
+      - inputText: '0'
+      - inputText: '3'
+      - inputText: '0'
+      - inputText: '1'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '2'
+      - inputText: '6'
+- assertVisible: '03/01/2026'
 - tapOn: '^Save$'
 - extendedWaitUntil:
     notVisible: '^Save$'
