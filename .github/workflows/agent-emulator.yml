@@ -374,8 +374,11 @@ jobs:
           if [[ -n "${PR}" ]]; then
             echo "" >> "$f"
             .github/agent-emulator/fetch-issue.sh "${PR}" "$f" PR
-            # Only reviewers with write access (and the Codex bot) are forwarded, see fetch-issue.sh.
-            TRUSTED='((.author_association // "") as $a | ["OWNER","MEMBER","COLLABORATOR"] | index($a) != null) or ((.user.login // "") == "chatgpt-codex-connector[bot]")'
+            # Only reviewers with write access (real repo permission) and the Codex bot are forwarded, see trusted-logins.sh.
+            TRUSTED_LOGINS="$( { gh api --paginate "repos/${REPO}/pulls/${PR}/comments" --jq '.[].user.login // empty'
+                                 gh api --paginate "repos/${REPO}/pulls/${PR}/reviews" --jq '.[].user.login // empty'; } \
+              | .github/agent-emulator/trusted-logins.sh)"
+            TRUSTED="((.user.login // \"\") as \$l | ${TRUSTED_LOGINS} | index(\$l) != null)"
             review="$(gh api --paginate "repos/${REPO}/pulls/${PR}/comments" \
               --jq ".[] | select(${TRUSTED})"' | "### Review comment by \(.user.login) (\(.created_at[:10])) on `\(.path)`\(if .line then ":\(.line)" else "" end)\(if .in_reply_to_id then " (reply)" else "" end)\n\n\(.body)\n"')"
             reviews="$(gh api --paginate "repos/${REPO}/pulls/${PR}/reviews" \

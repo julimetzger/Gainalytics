@@ -21,8 +21,12 @@ mkdir -p "${OUT}"
 # Only text written by people with write access (and the Codex review bot) reaches the agent: in a
 # public repo anyone can comment, and a comment is a prompt-injection vector into a run that holds
 # the Claude token. Untrusted bodies/comments are left out (counted in the log, never forwarded).
-TRUSTED='((.author_association // "") as $a | ["OWNER","MEMBER","COLLABORATOR"] | index($a) != null)
-         or ((.user.login // "") == "chatgpt-codex-connector[bot]")'
+# Trust is the author's real repository permission (trusted-logins.sh), not author_association.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+logins="$( { gh api "repos/${REPO}/issues/${ISSUE}" --jq '.user.login // empty'
+             gh api --paginate "repos/${REPO}/issues/${ISSUE}/comments" --jq '.[].user.login // empty'; } )"
+TRUSTED_LOGINS="$(printf '%s\n' "${logins}" | "${HERE}/trusted-logins.sh")"
+TRUSTED="((.user.login // \"\") as \$l | ${TRUSTED_LOGINS} | index(\$l) != null)"
 
 # LABEL is "Issue" or "PR" (set by the workflow), so it can go into the jq string as is.
 gh api "repos/${REPO}/issues/${ISSUE}" --jq "if (${TRUSTED}) then
