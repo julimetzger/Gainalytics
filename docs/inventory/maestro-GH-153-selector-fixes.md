@@ -97,7 +97,7 @@ All five occurrences of exact-match string assertions on dynamic toast content w
 
 ## E. Infrastructure Notes
 
-- Maestro via WSL (`maestro --host 172.18.240.1`) fails with gRPC DEADLINE_EXCEEDED on consecutive runs; root cause: Maestro Android driver does not recover between sessions within 5s.
+- Maestro via WSL (`maestro --host <wsl-gateway-ip>`) fails with gRPC DEADLINE_EXCEEDED on consecutive runs; root cause: Maestro Android driver does not recover between sessions within 5s.
 - Workaround: Run via `cmd.exe /c "maestro.bat ..."` with UNC path (`\\wsl.localhost\Ubuntu-22.04\...`).
 - `takeScreenshot` commands fail in cmd.exe/UNC mode if no writable Windows directory is set; run with `cd C:\Users\...\AppData\Local\Temp` first.
 - Dashboard (`DashboardTab`) crashes with `calculateMetricValue: workoutsCount is required for Metric.FREQUENCY` in the current emulator APK (pre-existing bug, GH-119 not yet deployed to this emulator).

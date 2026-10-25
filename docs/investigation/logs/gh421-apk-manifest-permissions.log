@@ -1,7 +1,7 @@
 === GH-421: permissions in the BUILT artifact ===
 UTC 2026-08-31 12:02:11
 APK: android/app/build/outputs/apk/debug/app-debug.apk
--rw-r--r-- 1 jmetzger jmetzger 132980421 Aug 31 14:01 android/app/build/outputs/apk/debug/app-debug.apk
+-rw-r--r-- 1 user user 132980421 Aug 31 14:01 android/app/build/outputs/apk/debug/app-debug.apk
 sha256: 84a35521db09cbe89adc748d092b49f1afcf6b0a9a5c01ceef7671a7d8b3a33b
 
 --- aapt dump permissions ---

@@ -36,7 +36,7 @@ description: |
   Messmethode und Skripte aus PERF-001 liegen auf dem Branch feature/PERF-001 (PR #463) unter
   docs/perf/ (Report device-measurement.md, Skripte in docs/perf/raw/tools/) und können übernommen werden.
 acceptanceCriteria:
-  - "Messung vorher/nachher im Release-Build auf R5CN30HWZFN mit der Methode aus PERF-001 Szenario 3 (je Reiter Train/Plan/Analysis, mind. 20 Wischer Micro 3 ↔ 4): Beschäftigt-Dauer pro Wisch und längster Frame, Median + min/max"
+  - "Messung vorher/nachher im Release-Build auf <phone-serial> mit der Methode aus PERF-001 Szenario 3 (je Reiter Train/Plan/Analysis, mind. 20 Wischer Micro 3 ↔ 4): Beschäftigt-Dauer pro Wisch und längster Frame, Median + min/max"
   - "Nachher: kein Frame > 33 ms beim Wechsel im Median, Beschäftigt-Dauer pro Wisch mindestens halbiert gegenüber PERF-001"
   - "Nachher: Speicher (PSS) und Anzahl Views nach 'Plan öffnen + auf anderes Micro wechseln' gemessen und dem PERF-001-Wert (+138 MB / ~1 000 Views) gegenübergestellt"
   - "Maestro-Flow mit Screenshots: Micro 3 → wischen → Micro 4 → zurück, jeweils in Train, Plan und Analysis; Inhalt nach dem Wechsel stimmt mit dem Verhalten vor dem Umbau überein"
@@ -52,5 +52,5 @@ constraints:
     installiert; neue Builds mit demselben Key signieren und per `adb install -r` darüberlegen.
     Vor jeder Installation Daten per In-App-Export sichern. Scheitert die Installation wegen der
     Signatur: STOPPEN und needs_input melden, nicht deinstallieren.
-  - "Nur das echte Gerät R5CN30HWZFN verwenden (Messungen im Release-Build). Keine Emulatoren — die sind von anderen Workern belegt."
+  - "Nur das echte Gerät <phone-serial> verwenden (Messungen im Release-Build). Keine Emulatoren — die sind von anderen Workern belegt."
   - "Alle zu Messzwecken angelegten Trainings/Sätze am Ende rückstandslos entfernen und per Export-Vergleich vorher/nachher belegen. Am Ende bleibt ein normaler Release-Build mit den Änderungen installiert."

@@ -24,7 +24,7 @@ description: |
   Für die Messung darf vorübergehend Zeitmess-Code eingebaut werden; er muss entweder hinter einem
   Schalter liegen, der im normalen Release-Build nichts tut, oder vor dem PR wieder entfernt werden.
 acceptanceCriteria:
-  - "Messung im Release-Build (nicht debuggable, Hermes) auf R5CN30HWZFN mit den echten Nutzerdaten, mindestens 12 Sätze in einem Mess-Training"
+  - "Messung im Release-Build (nicht debuggable, Hermes) auf <phone-serial> mit den echten Nutzerdaten, mindestens 12 Sätze in einem Mess-Training"
   - "Report docs/perf/set-save-breakdown.md: Tabelle je Satz mit Gesamtdauer nach 'Add' und den Anteilen (a) Rendern, (b) Datenspeicherung, (c) sonstiges — Median, min/max; Anteil, der keiner Kategorie zugeordnet werden kann, wird ausgewiesen"
   - "Report sagt, wie die Gesamtdauer mit der Anzahl der Sätze der Übung wächst und welcher Anteil dafür verantwortlich ist"
   - "Report nennt klar: lohnt sich ein Umbau der Datenspeicherung (ja/nein, erwartete Ersparnis in ms) und welcher Fix an der Satzliste/Eingabezeile am meisten bringen würde — mit Begründung aus den Zahlen"
@@ -41,4 +41,4 @@ constraints:
     Installation wegen der Signatur: STOPPEN und needs_input melden, nicht deinstallieren.
   - "Das Mess-Training und alle eingetragenen Sätze am Ende rückstandslos entfernen (Gewicht deutlich unter dem Rekord, damit kein Rekord geschrieben wird) und per Export-Vergleich vorher/nachher belegen."
   - "Nach der Messung bleibt ein normaler Release-Build ohne aktive Zeitmessung installiert."
-  - "Nur echtes Gerät R5CN30HWZFN verwenden, keine Emulatoren."
+  - "Nur echtes Gerät <phone-serial> verwenden, keine Emulatoren."
