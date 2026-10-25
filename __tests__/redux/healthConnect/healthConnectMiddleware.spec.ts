@@ -244,6 +244,74 @@ describe('GH-528 healthConnectMiddleware', () => {
       expect(store.getState().healthConnect).toEqual({writeEnabled: true, everConnected: true, written: {}, recordNamespace: 'ns2'});
     });
 
+    it('ignores the result of a write still running when a backup is restored, so the imported training is not exported', async () => {
+      const hc = fakeHealthConnect();
+      const finishWrite = slowWrite(hc);
+      const {store} = setup({}, hc);
+      store.dispatch(finishTraining);
+      await flush();
+      expect(hc.writeStrengthSession).toHaveBeenCalledTimes(1);
+
+      // The backup holds a finished training with the same id 1.
+      const backup: Partial<GlobalState> = {...store.getState()};
+      delete backup.healthConnect;
+      store.dispatch({type: 'FULL_IMPORT', state: backup});
+      finishWrite();
+      await flush();
+
+      expect(store.getState().healthConnect).toEqual({writeEnabled: true, everConnected: true, written: {}, recordNamespace: 'ns1'});
+
+      // Changing the imported training must not export it.
+      store.dispatch({type: 'ADD_OR_UPDATE_SET_IN_WORKOUT', workoutId: 10, set: {index: 1, reps: 5, weight: 110, rir: 2}});
+      await flush();
+
+      expect(hc.writeStrengthSession).toHaveBeenCalledTimes(1);
+      expect(hc.deleteStrengthSession.mock.calls).toEqual([]);
+      expect(store.getState().healthConnect).toEqual({writeEnabled: true, everConnected: true, written: {}, recordNamespace: 'ns1'});
+    });
+
+    it('drops a write of the old dataset still queued when a backup is restored', async () => {
+      const hc = fakeHealthConnect();
+      const {store, notify} = setup({}, hc);
+      store.dispatch({type: HEALTH_CONNECT_ACTIONS.LOAD_WEIGHTS});
+      store.dispatch(finishTraining);
+      const backup: Partial<GlobalState> = {...store.getState()};
+      delete backup.healthConnect;
+      store.dispatch({type: 'FULL_IMPORT', state: backup});
+      await flush();
+
+      expect(hc.writeStrengthSession.mock.calls).toEqual([]);
+      expect(notify.mock.calls).toEqual([]);
+      expect(store.getState().healthConnect?.written).toEqual({});
+      expect(store.getState().healthConnect?.lastSync).toBeUndefined();
+    });
+
+    it('still writes trainings finished after the restore, under the new namespace', async () => {
+      const hc = fakeHealthConnect();
+      const finishWrite = slowWrite(hc);
+      const {store} = setup({}, hc);
+      store.dispatch(finishTraining);
+      await flush();
+      const backup: Partial<GlobalState> = {...store.getState(), trainings: {byId: {1: startedTraining}, allIds: [1]}};
+      delete backup.healthConnect;
+      store.dispatch({type: 'FULL_IMPORT', state: backup});
+      store.dispatch(finishTraining);
+      finishWrite();
+      await flush();
+
+      const state = store.getState();
+      const session = mapTrainingToHealthConnectSession(state.trainings.byId[1], state.workouts.byId, state.exercises.byId, NOW, 'ns1')!;
+      expect(hc.writeStrengthSession.mock.calls[1]).toEqual([session]);
+      expect(session.clientRecordId).toBe('gainalytics-ns1-training-1');
+      expect(state.healthConnect).toEqual({
+        writeEnabled: true,
+        everConnected: true,
+        written: {1: healthConnectFingerprint(session)},
+        recordNamespace: 'ns1',
+        lastSync: {kind: 'written', trainingId: 1, title: 'Gainalytics: Squat', at: NOW},
+      });
+    });
+
     it('keeps the old id format for entries written before namespaces existed', async () => {
       const hc = fakeHealthConnect();
       const {store} = setup({written: {7: 'old'}}, hc);

@@ -3,6 +3,11 @@
  * - executes the HEALTH_CONNECT_* commands (refresh status, connect, load body weights),
  * - writes/deletes trainings as planned by planHealthConnectSync after each action.
  *
+ * Sync ops belong to the dataset generation they were planned in. A FULL_IMPORT replaces the
+ * dataset (and the record namespace): ops of the old generation still queued are dropped, and
+ * results of ops already running are discarded — otherwise an old training id would be marked
+ * as written in the imported dataset and its imported training exported on the next change.
+ *
  * Every native call checks availability and permissions first and never throws into the
  * dispatch: a failed Health Connect write must never lose or block a Gainalytics training.
  */
@@ -61,8 +66,11 @@ const requireUsable = async (hc: HealthConnectModule | undefined, permission: st
 export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps = defaultDeps): Middleware<{}, GlobalState> => {
   // Ops run one after another, so a write and a later delete of the same training keep their order.
   let queue: Promise<void> = Promise.resolve();
-  // Ops queued but not done yet: repeated actions meanwhile must not queue the same op again.
-  const pending = new Map<number, string>();
+  // Bumped by every FULL_IMPORT; ops and their results only count for the generation they were planned in.
+  let generation = 0;
+  // Ops of the current generation queued but not done yet: repeated actions meanwhile must not
+  // queue the same op again. Replaced (not cleared) on FULL_IMPORT, see runOp.
+  let pending = new Map<number, string>();
   const pendingKey = (op: HealthConnectSyncOp) => (op.kind === 'write' ? op.fingerprint : 'delete');
   // One hint per training and kind per app session is enough; the settings show the last failure.
   const notified = new Set<string>();
@@ -102,10 +110,19 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
     }
   };
 
-  const runOp = async (op: HealthConnectSyncOp, dispatch: Dispatch, getState: () => GlobalState) => {
+  // opPending: the pending map of the generation the op was planned in (a FULL_IMPORT starts a new one).
+  const runOp = async (op: HealthConnectSyncOp, opGeneration: number, opPending: Map<number, string>, dispatch: Dispatch, getState: () => GlobalState) => {
+    const release = () => {
+      if (opPending.get(op.trainingId) === pendingKey(op)) opPending.delete(op.trainingId);
+    };
+    // A backup restored meanwhile replaced the dataset this op belongs to.
+    if (opGeneration !== generation) {
+      release();
+      return;
+    }
     // The opt-in may have been switched off while this op waited in the queue.
     if (!getState().healthConnect?.writeEnabled) {
-      if (pending.get(op.trainingId) === pendingKey(op)) pending.delete(op.trainingId);
+      release();
       return;
     }
     const at = deps.now();
@@ -126,7 +143,7 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
     } catch (error) {
       event = {kind: 'failed', trainingId: op.trainingId, message: errorMessage(error), at};
       const key = `${op.kind}-${op.trainingId}`;
-      if (!notified.has(key)) {
+      if (opGeneration === generation && !notified.has(key)) {
         notified.add(key);
         deps.notify(
           op.kind === 'write' ? 'Not written to Health Connect' : 'Not removed from Health Connect',
@@ -134,8 +151,10 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
         );
       }
     } finally {
-      if (pending.get(op.trainingId) === pendingKey(op)) pending.delete(op.trainingId);
+      release();
     }
+    // Restored while the native call was running: the result belongs to the replaced dataset.
+    if (opGeneration !== generation) return;
     dispatch({type: HEALTH_CONNECT_ACTIONS.SYNC_RESULT, event, fingerprint: op.kind === 'write' ? op.fingerprint : undefined});
   };
 
@@ -164,6 +183,11 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
         return result;
     }
 
+    if (action.type === 'FULL_IMPORT') {
+      generation += 1;
+      pending = new Map();
+    }
+
     const hcState = state.healthConnect;
     if (
       (action.type === HEALTH_CONNECT_ACTIONS.SET_WRITE_ENABLED || action.type === 'FULL_IMPORT') &&
@@ -182,7 +206,9 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
         const key = pendingKey(op);
         if (pending.get(op.trainingId) === key) return;
         pending.set(op.trainingId, key);
-        enqueue(() => runOp(op, api.dispatch, api.getState));
+        const opGeneration = generation;
+        const opPending = pending;
+        enqueue(() => runOp(op, opGeneration, opPending, api.dispatch, api.getState));
       });
     }
     return result;

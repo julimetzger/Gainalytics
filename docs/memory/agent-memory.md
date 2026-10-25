@@ -689,3 +689,8 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### CI emulator: the job-start APK is a free "before" build — run the new flow on it before `metro-start`
 **Observation:** right after `wait-ready` the installed APK still runs the PR's previous JS. Capturing the before screenshot and running the updated Maestro flow there (it must FAIL at the changed assertion) before `tool.sh metro-start` + `tool.sh launch` proves the flow is not vacuous, without any rebuild. (seen in GH-543)
 
+
+### CI tsc baseline: typed store fixtures without `as`, and jest-native matcher types
+**Observation (GH-528 merge):** the CI typecheck (`npm run typecheck`, root tsconfig) does not load `@testing-library/jest-native` types (only `__tests__/tsconfig.json` does), so every `toHaveTextContent`/`toContainElement` was a TS2339. Merging parallel PRs also leaves test `GlobalState` fixtures without newly added slices (TS2741 for e.g. `bodyWeight`), and master itself can be red against `scripts/ci/*-baseline.json`.
+**Fix / Rule:** start specs that use jest-native matchers with `/// <reference types="@testing-library/jest-native" />`; `rootReducer` is a typed redux `Reducer<GlobalState, AnyAction>`, so `createStore(rootReducer)` and `rootReducer(undefined, {type: '@@INIT'})` type-check without casts. After a master merge run both `check-baseline.js` checks locally and compare with a pristine master worktree to tell your errors from master's.
+**Apply when:** merging master into a long-running PR or adding a slice to `GlobalState`. (seen in GH-528)
