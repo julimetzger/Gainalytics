@@ -9,6 +9,7 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
+import com.powerliftingworkoutplanner.healthconnect.HealthConnectPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -19,6 +20,9 @@ class MainApplication : Application(), ReactApplication {
               add(AppInfoPackage())
               add(ExactAlarmPackage())
               add(VideoAnalysisPackage())
+              add(ChatGptLoopbackPackage())
+              add(FileSharePackage())
+              add(HealthConnectPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

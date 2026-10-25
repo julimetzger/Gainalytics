@@ -30,9 +30,9 @@ Working solution:
 - Use the monitor script for periodic summaries and stale-state healing.
 
 Relevant files:
-- [read_run_status.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/read_run_status.py)
-- [monitor_feedback.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/monitor_feedback.py)
-- [runtime_state.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/runtime_state.py)
+- [read_run_status.py](../../orchestrator/codex-skills/orchestrator/scripts/read_run_status.py)
+- [monitor_feedback.py](../../orchestrator/codex-skills/orchestrator/scripts/monitor_feedback.py)
+- [runtime_state.py](../../orchestrator/codex-skills/orchestrator/scripts/runtime_state.py)
 
 ### 8. Review gating should not confuse repo-wide health with ticket quality
 
@@ -51,9 +51,9 @@ Working solution:
 - Keep `typecheck` and `lint` as optional health checks that can still be logged.
 
 Relevant files:
-- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
-- [validate_review_bundle.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
-- [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
+- [launch_feature_job.py](../../orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+- [validate_review_bundle.py](../../orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
+- [feature/SKILL.md](../../orchestrator/codex-skills/feature/SKILL.md)
 
 ### 9. Acceptance criteria must be normalized before validation
 
@@ -67,7 +67,7 @@ Working solution:
 - Normalize criteria strings with `.strip()` before matching them in the validator.
 
 Relevant files:
-- [validate_review_bundle.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
+- [validate_review_bundle.py](../../orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
 
 ### 10. Evidence paths in acceptance_evidence must be bare file paths
 
@@ -82,8 +82,8 @@ Working solution:
 - Updated feature/SKILL.md to explicitly require bare paths in evidence entries.
 
 Relevant files:
-- [validate_review_bundle.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
-- [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
+- [validate_review_bundle.py](../../orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
+- [feature/SKILL.md](../../orchestrator/codex-skills/feature/SKILL.md)
 
 ### 11. SKILL.md frontmatter breaks claude CLI option parsing
 
@@ -100,7 +100,7 @@ Working solution:
 - Pattern: if content starts with ---, find the closing --- and take everything after it.
 
 Relevant files:
-- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+- [launch_feature_job.py](../../orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
 
 ### 12. Rate-limited workers die silently without writing status.json
 
@@ -117,7 +117,7 @@ Working solution:
 - When this is detected, wait for the limit to reset and relaunch with the same worktree (resume mode).
 
 Relevant files:
-- [read_run_status.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/read_run_status.py)
+- [read_run_status.py](../../orchestrator/codex-skills/orchestrator/scripts/read_run_status.py)
 
 ### 13. Restarted runs can have a live worker and a stale terminal status.json at the same time
 
@@ -139,8 +139,8 @@ Working solution:
 - Operationally, report this as "old terminal status is stale; new round is live".
 
 Relevant files:
-- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
-- [read_run_status.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/read_run_status.py)
+- [launch_feature_job.py](../../orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+- [read_run_status.py](../../orchestrator/codex-skills/orchestrator/scripts/read_run_status.py)
 
 ### 14. Review feedback written into state.json is not delivered live to an already-running worker
 
@@ -157,8 +157,8 @@ Working solution:
 - If the user needs the worker to react to that feedback immediately, restart the ticket in the same worktree and on the same device.
 
 Relevant files:
-- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
-- [runtime_state.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/runtime_state.py)
+- [launch_feature_job.py](../../orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+- [runtime_state.py](../../orchestrator/codex-skills/orchestrator/scripts/runtime_state.py)
 
 ### 15. Restarting a worker does not resume the old Codex conversation
 
@@ -179,7 +179,7 @@ Working solution:
 - Do not promise live session continuity to the user.
 
 Relevant files:
-- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+- [launch_feature_job.py](../../orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
 
 ### 16. Validator requires exact backtick-matching in acceptance criteria text
 
@@ -195,7 +195,7 @@ Working solution:
 - Long-term: normalize both sides (strip backticks) before matching in the validator.
 
 Relevant files:
-- [validate_review_bundle.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
+- [validate_review_bundle.py](../../orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
 
 ### 17. Validator requires specific check names: `test` and a name containing `maestro`/`e2e`/`smoke`
 
@@ -210,7 +210,7 @@ Working solution:
 - Workers should be instructed to use `test` for Jest and include `maestro`/`e2e` in e2e check names.
 
 Relevant files:
-- [validate_review_bundle.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
+- [validate_review_bundle.py](../../orchestrator/codex-skills/orchestrator/scripts/validate_review_bundle.py)
 
 ### 18. Workers crash from `pkill -f maestro` killing their own process
 
@@ -226,7 +226,7 @@ Working solution:
 - Never use `pkill -f maestro` in worker feedback. Use a more specific pattern: `ps aux | grep maestro | grep java | grep -v grep | awk '{print $2}' | xargs kill 2>/dev/null || true`
 
 Relevant files:
-- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+- [launch_feature_job.py](../../orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
 
 ### 19. Workers crash from screenshot dimension limit (>2000px)
 
@@ -255,7 +255,7 @@ Working solution:
 - Replaced `$memory` skill reference with direct instructions to read and append to `docs/memory/agent-memory.md` in the feature SKILL.md.
 
 Relevant files:
-- [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
+- [feature/SKILL.md](../../orchestrator/codex-skills/feature/SKILL.md)
 
 ### 21. Fix-Tickets für PRs müssen auf dem PR-Branch arbeiten, nicht auf master
 
@@ -315,7 +315,7 @@ Working solution:
 ### 25. Echte Devices haben deutlich weniger Infra-Probleme als Emulatoren
 
 Observation:
-- ANA-003-fix auf dem echten Device (R5CN30HWZFN) hatte 0 gRPC Crashes, 0 Red Screens, 0 Metro-Probleme
+- ANA-003-fix auf dem echten Device (<phone-serial>) hatte 0 gRPC Crashes, 0 Red Screens, 0 Metro-Probleme
 - Alle Emulator-Worker hatten signifikante Infra-Overhead (gRPC, Red Screen, adb reverse)
 
 Apply when:
@@ -363,7 +363,7 @@ Working solution:
 - Build und Install getrennt, Install immer mit explizitem `-s`
 
 Relevant files:
-- [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
+- [feature/SKILL.md](../../orchestrator/codex-skills/feature/SKILL.md)
 
 ### 29. GitHub Issues als Ticket-Source: deutsche Section-Header mappen
 
@@ -377,7 +377,7 @@ Working solution:
 - `parse_github_issue_body()` mappt deutsche Varianten: Beschreibung, Zusammenfassung, Überblick → description
 
 Relevant files:
-- [launch_feature_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
+- [launch_feature_job.py](../../orchestrator/codex-skills/orchestrator/scripts/launch_feature_job.py)
 
 ### 30. feedback_round Status verhindert Verwirrung mit altem ready_for_review
 
@@ -393,7 +393,7 @@ Working solution:
 - Klärt sofort dass der alte Status stale ist
 
 Relevant files:
-- [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
+- [feature/SKILL.md](../../orchestrator/codex-skills/feature/SKILL.md)
 
 ### 31. ffmpeg statt ImageMagick für Screenshot-Resize
 
@@ -405,7 +405,7 @@ Working solution:
 - Feature SKILL schreibt vor: nach jedem `screencap` sofort resizen, raw löschen
 
 Relevant files:
-- [feature/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/feature/SKILL.md)
+- [feature/SKILL.md](../../orchestrator/codex-skills/feature/SKILL.md)
 
 ### 32. Cross-Runner Review Pattern: Implementierer ≠ Reviewer
 
@@ -419,8 +419,8 @@ Apply when:
 - Review-Worker brauchen kein Device/Emulator (read-only)
 
 Relevant files:
-- [launch_review_job.py](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/orchestrator/scripts/launch_review_job.py)
-- [review/SKILL.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/orchestrator/codex-skills/review/SKILL.md)
+- [launch_review_job.py](../../orchestrator/codex-skills/orchestrator/scripts/launch_review_job.py)
+- [review/SKILL.md](../../orchestrator/codex-skills/review/SKILL.md)
 
 ### 33. Codex-Sandbox blockiert gradlew und native Builds
 
@@ -491,7 +491,7 @@ Working solution:
 - create_worktree.py basiert neue Branches auf lokalem HEAD — wenn dort ungepushte "release ... bundle and apk"-Commits liegen, vor dem Worker-Start `git reset --hard origin/master` im Worktree ausführen (sonst Push-Reject >100 MB, vgl. agent-memory #187 (nach GH-307-Merge renummeriert)).
 - Windows-Emulatoren aus WSL steuern: Start nur über `powershell.exe Start-Process` (cmd.exe `start` → "Zugriff verweigert"); `adb emu kill` scheitert am unerreichbaren Konsolen-Port — Beenden per PowerShell-Kill der qemu/emulator-Prozesse.
 - reserve_emulators.py listet nur `emulator-*`-Serials als frei — Reservierungen für echte Geräte direkt über `runtime_state.reserve_emulator()` setzen.
-- `review_feedback` akkumuliert über Runden: alte Device-Serials und überholte Repro-Hinweise (z.B. „Dark Theme") wandern in den nächsten Prompt und machen den Worker betriebsblind. Vor Relaunch auf einem ANDEREN Gerät die Liste säubern — fremde `emulator-*`-Serials in Akzeptanz/Umgebung ersetzen, widerlegte Hypothesen streichen. (Beispiele der Standard-SKILL-Boilerplate mit R5CN30HWZFN/emulator-5554 sind harmlos, die zeigen nur „nutze dein zugewiesenes Gerät".)
+- `review_feedback` akkumuliert über Runden: alte Device-Serials und überholte Repro-Hinweise (z.B. „Dark Theme") wandern in den nächsten Prompt und machen den Worker betriebsblind. Vor Relaunch auf einem ANDEREN Gerät die Liste säubern — fremde `emulator-*`-Serials in Akzeptanz/Umgebung ersetzen, widerlegte Hypothesen streichen. (Beispiele der Standard-SKILL-Boilerplate mit <phone-serial>/emulator-5554 sind harmlos, die zeigen nur „nutze dein zugewiesenes Gerät".)
 - `update_state.py` macht stumpf `run.update(payload)` — es gibt KEIN Sonder-Handling für z.B. `review_feedback_append`; so ein erfundener Key landet nur als Müll-Feld im Run. Feedback anhängen heißt: die Liste `review_feedback` direkt per json editieren.
 - Nach `create_worktree.py --worktree-mode fresh --base-ref origin/master` sitzt der Worktree sauber auf origin/master; das ist der zuverlässige Weg, den ungepushten lokalen „release … bundle and apk"-HEAD zu umgehen (statt nachträglichem `git reset`).
 - GH-356 (dead space über Navbar): NICHT auf Emulator API 36 reproduzierbar — 0px bei jedem Inset auf allen Top-Level-Screens UND Analyse. Braucht das echte Android-13-Gerät (SM-G986B). Theme ist irrelevant, es ist die Android-Version/Inset-Behandlung.

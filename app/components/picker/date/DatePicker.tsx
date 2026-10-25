@@ -1,7 +1,7 @@
 import * as React from 'react';
 import {Button, HelperText, Modal, Portal, Text, TextInput} from 'react-native-paper';
 import {DatePickerInput} from 'react-native-paper-dates';
-import {ScrollView, StyleProp, StyleSheet, View, ViewStyle} from 'react-native';
+import {StyleProp, StyleSheet, View, ViewStyle} from 'react-native';
 import {getDateStringFromDate} from '../../../utils/DateHelper';
 import {formatTrainingTimeInput, getTrainingTimeInputError, parseTrainingTimeInput} from '../../../utils/training-times';
 import DatePickerModal from './DatePickerModal';
@@ -148,9 +148,10 @@ const DatePicker = ({date, setDate, style, mode = 'date', label, testID, onError
                 </Button>
               </View>
             </View>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            {/* CalendarList scrolls itself; nested in a vertical ScrollView it rendered no months at all. */}
+            <View style={styles.calendar}>
               <DatePickerModal date={draftDate} onChange={handleDateChange} />
-            </ScrollView>
+            </View>
           </View>
         </Modal>
       </Portal>
@@ -186,7 +187,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  scrollContent: {
+  calendar: {
+    flex: 1,
     paddingBottom: 32,
   },
 });

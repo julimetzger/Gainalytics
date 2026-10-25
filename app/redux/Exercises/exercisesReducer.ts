@@ -171,6 +171,9 @@ const initialState = {
   allIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
 } as NormalizedState<Exercise>;
 
+/** The exercises a fresh install starts with — program templates (GH-497) reuse their muscle mapping. */
+export const DEFAULT_EXERCISES: Exercise[] = initialState.allIds.map((id) => initialState.byId[id]);
+
 function sanitizeAlternativeIds(exercises: NormalizedState<Exercise>, exerciseId: number, alternativeIds?: number[]) {
   const seen = new Set<number>();
   return (alternativeIds ?? []).filter((alternativeId) => {
@@ -315,6 +318,7 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
             isFocus: action.isFocus ?? false,
             muscles: action.muscles,
             alternativeIds: normalizeAlternativeIds(action.alternativeIds),
+            ...(action.healthConnectType ? {healthConnectType: action.healthConnectType} : {}),
           } as Exercise,
         },
         allIds: [...exercises.allIds, newId],
@@ -324,16 +328,30 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
     case 'DELETE_EXERCISE': {
       return removeExerciseFromAlternatives(exercises, action.exerciseId);
     }
+    case 'REMOVE_MUSCLE': {
+      // GH-523: a removed muscle disappears from every exercise's involvement too.
+      const usingIds = exercises.allIds.filter((id) => exercises.byId[id]?.muscles?.some((pair) => pair.muscle === action.muscle));
+      if (usingIds.length === 0) return exercises;
+      const byId = {...exercises.byId};
+      for (const id of usingIds) {
+        byId[id] = {...byId[id], muscles: byId[id].muscles?.filter((pair) => pair.muscle !== action.muscle)};
+      }
+      return {...exercises, byId};
+    }
     case 'EDIT_EXERCISE': {
+      const {healthConnectType: previousType, ...existing} = exercises.byId[action.exerciseId] ?? {};
+      // GH-528: callers that don't pass a Health Connect type keep the current one; null resets it to automatic.
+      const healthConnectType = action.healthConnectType === undefined ? previousType : action.healthConnectType ?? undefined;
       const nextState = {
         byId: {
           ...exercises.byId,
           [action.exerciseId]: {
-            ...exercises.byId[action.exerciseId],
+            ...existing,
             name: action.nameOfExercise,
             isFocus: action.isFocus ?? exercises.byId[action.exerciseId]?.isFocus ?? false,
             muscles: action.muscles,
             alternativeIds: normalizeAlternativeIds(action.alternativeIds),
+            ...(healthConnectType !== undefined ? {healthConnectType} : {}),
           },
         },
         allIds: [...exercises.allIds],

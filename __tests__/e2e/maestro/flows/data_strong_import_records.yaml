@@ -1,0 +1,215 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F9 Import/Export - T9.2 Strong CSV import on top of existing data:
+# new records and a real Strong file.
+#
+# Purpose (GH-496):
+#   1. gh496_new_record.csv on the baseline: Squat 200 kg x 5 @ RPE 9 on
+#      2026-10-05 (1RM 200 x (1 + 6/30) = 240, baseline Squat record 225) plus a
+#      failed 260 kg x 0 attempt. The failed attempt is skipped, the existing
+#      Squat is reused, and Analyse -> Records lists exactly ONE record:
+#      240.0 kg, +15.0 kg to the previous record. The Dashboard's last training
+#      becomes Mon 05/10/26.
+#   2. A REAL Strong 6.x export (strong_sample_export.csv): 52 trainings in 27
+#      weeks, 1153 sets, 18 exercises of which 17 are new (only "Bulgarian Split
+#      Squat" already exists in the baseline), plan named by the file's workout
+#      names, 900 rest timer/note rows skipped. The imported plan opens.
+#
+# Data basis: MUTATES the store - starts with 00_import_baseline.yaml (baseline
+#   plan ids 1, 3, 4, 5 -> the two imports create plan 6 "Strong Import" and
+#   plan 7 "Strong Import 2").
+#   Push to /sdcard/Download BEFORE the run:
+#     - __tests__/e2e/maestro/fixtures/baseline.gains
+#     - __tests__/e2e/maestro/fixtures/gh496/gh496_new_record.csv
+#     - __tests__/e2e/maestro/fixtures/gh496/strong_sample_export.csv
+#   Order matters: the record check runs BEFORE the real file, whose 2026
+#   workouts would otherwise also be records in the Records range.
+#   TIME LIMIT of the fixture: "1 shown" needs 2026-10-05 inside the Records
+#   default range (last 3 months up to this week), i.e. this assertion holds
+#   until about early January 2027; after that the fixture date must move.
+#
+# Merged from: gh496_strong_new_record, gh496_strong_real_file,
+#   gh496_imported_training_and_analyse
+- runFlow: 00_import_baseline.yaml
+
+# ---------------------------------------------------------------- PRECONDITION
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+
+# ------------------------------------------ 1. a new record for an old exercise
+- tapOn: 'tab-settings'
+- runFlow:
+    file: pick_file.yaml
+    env:
+      FILE: gh496_new_record.csv
+- extendedWaitUntil:
+    visible:
+      id: 'strong-import-summary-trainings'
+      text: '1 training in 1 week'
+    timeout: 60000
+- assertVisible:
+    id: 'strong-import-summary-file'
+    text: 'File: gh496_new_record\.csv'
+- assertVisible:
+    id: 'strong-import-summary-sets'
+    text: '1 set · 1 exercise \(0 new\)'
+- assertVisible:
+    id: 'strong-import-summary-failed'
+    text: 'Skipped 1 failed attempt \(0 reps\), so it does not count as a record'
+- assertVisible:
+    id: 'strong-import-summary-plan'
+    text: 'New plan "Strong Import", .*'
+- tapOn:
+    id: 'strong-import-confirm-button'
+- extendedWaitUntil:
+    notVisible:
+      id: 'strong-import-confirm-button'
+    timeout: 60000
+
+# The Dashboard's newest training is now the imported 05/10/26 session.
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'dashboard-scroll'
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'analyse-drawer-toggle'
+          timeout: 30000
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - runFlow:
+          when:
+            notVisible: 'Close drawer'
+          commands:
+            - tapOn:
+                id: 'analyse-drawer-toggle'
+      - extendedWaitUntil:
+          visible: 'Close drawer'
+          timeout: 15000
+      - tapOn:
+          text: '^Dashboard$'
+          below:
+            id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-stale-range-banner-text'
+      text: 'No trainings in this period\. Your last training was on Mon, 05/10/26\.'
+    timeout: 120000
+
+# Analyse -> Records: the 240 kg set is a new Squat record; 260 kg x 0 is not.
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    text: '^Records$'
+    below:
+      id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'records-kpi-total'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+- assertVisible:
+    id: 'records-kpi-total'
+    text: '1'
+- assertVisible:
+    id: 'records-kpi-best'
+    text: '1'
+- scrollUntilVisible:
+    element:
+      text: '\+15\.0 kg'
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 30000
+- assertVisible:
+    id: 'records-shown-count'
+    text: '1 shown'
+- assertVisible:
+    id: 'record-card-top-label'
+    text: '.*TOP PR THIS PERIOD'
+- assertVisible: 'Squat'
+- assertVisible: '200 kg × 5 @ 1 RIR'
+- assertVisible: '240\.0 kg'
+- assertVisible: '\+15\.0 kg'
+- assertNotVisible: '260.*'
+- assertNotVisible:
+    id: 'record-card-1'
+
+# --------------------------------------------- 2. a real Strong 6.x export
+- tapOn: 'tab-settings'
+- runFlow:
+    file: pick_file.yaml
+    env:
+      FILE: strong_sample_export.csv
+- extendedWaitUntil:
+    visible:
+      id: 'strong-import-summary-trainings'
+      text: '52 trainings in 27 weeks'
+    timeout: 60000
+- assertVisible:
+    id: 'strong-import-summary-file'
+    text: 'File: strong_sample_export\.csv'
+- assertVisible:
+    id: 'strong-import-summary-sets'
+    text: '1153 sets · 18 exercises \(17 new\)'
+- assertVisible:
+    id: 'strong-import-summary-plan'
+    text: 'New plan "Strong Import 2", trainings named by workout name: Full body B, Full body A, Upper body A, Upper body B'
+- assertVisible:
+    id: 'strong-import-summary-skipped'
+    text: 'Skipped: 0 already imported workouts, 0 cardio rows, 900 rest timer/note rows'
+- assertVisible:
+    id: 'strong-import-summary-unit'
+    text: 'Weights: kg \(from file\)'
+- tapOn:
+    id: 'strong-import-confirm-button'
+- extendedWaitUntil:
+    notVisible:
+      id: 'strong-import-confirm-button'
+    timeout: 60000
+
+# The imported plan is listed and opens (plan id 7, see header).
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+# The home only scrolls along the right edge (the hero chart eats centred drags).
+- swipe:
+    start: '83%, 80%'
+    end: '83%, 25%'
+    duration: 500
+- scrollUntilVisible:
+    element:
+      id: 'plan-meta-7'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: 'plan-name-7'
+    text: 'Strong Import 2'
+- assertVisible:
+    id: 'plan-name-6'
+    text: 'Strong Import'
+- tapOn:
+    id: 'plan-meta-7'
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-menu-button'
+    timeout: 60000
+# The plan's trainings carry the file's workout names.
+- assertVisible: ' ?(Full body|Upper body) [AB] ?'

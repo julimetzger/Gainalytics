@@ -52,7 +52,6 @@ jest.mock('../../../../app/redux/Workout/dispatch/dispatchReplaceWorkoutSets', (
 
 jest.mock('../../../../app/components/picker/elements/TrainingElementPicker', () => () => null);
 
-jest.mock('../../../../app/components/Training/plan/MuscleInvolvementCard', () => () => null);
 
 jest.mock('../../../../app/components/Training/DraggableExercise', () => () => null);
 

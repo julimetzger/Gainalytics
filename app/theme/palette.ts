@@ -39,7 +39,7 @@ export function paletteLabel(palette?: string): string {
 }
 
 /**
- * The three segments of the Settings "Custom Color" row (GH-478). Blue and
+ * The three segments of the Settings "Color" row (GH-478). Blue and
  * Purple apply their built-in palette; Custom stands for every other stored
  * value — a picked colour, or the retired Green preset, which keeps rendering
  * exactly as before.

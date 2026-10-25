@@ -74,9 +74,9 @@ describe('TrainingOverflowMenu', () => {
     expect(getByText('Delete')).toBeTruthy();
   });
 
-  it('labels the delete menu item "Delete this training" in the plan-mode menu', () => {
+  it('labels the delete menu item "Delete this Training" in the plan-mode menu', () => {
     const {getByText} = render(<TrainingOverflowMenu {...BASE} activeSubTab="plan" trainingState={TrainingsState.PLANNED} />);
-    expect(getByText('Delete this training')).toBeTruthy();
+    expect(getByText('Delete this Training')).toBeTruthy();
   });
 
   it('does not show Finish for FINISHED state', () => {
@@ -160,9 +160,9 @@ describe('TrainingOverflowMenu', () => {
       );
       expect(getByTestId('overflow-clear-plan')).toBeTruthy();
       expect(getByText('Clear planned training')).toBeTruthy();
-      // Edit plan and Delete this training stay unchanged next to it.
+      // Edit plan and Delete this Training stay unchanged next to it.
       expect(getByTestId('overflow-edit-plan')).toBeTruthy();
-      expect(getByText('Delete this training')).toBeTruthy();
+      expect(getByText('Delete this Training')).toBeTruthy();
     });
 
     it('is not offered for an older (not most recently planned) training', () => {

@@ -2,14 +2,18 @@ import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {Exercise} from '../../../models/entities/Exercise';
 import {PlanRangeMaxField} from '../../../utils/planRange';
 
-export type PlanMode = 'read' | 'quickEdit' | 'fullEdit';
+// GH-418: the former 'quickEdit' mode (one cell editable inside the read view) is
+// gone — every edit opens the full edit mode, so the user is never left in a
+// half-read, half-edit view.
+export type PlanMode = 'read' | 'fullEdit';
 
 export type PlanField = 'reps' | 'rir' | 'weight';
 
 // GH-63: the full-edit rows also drive the optional upper bound of each field.
 export type PlanDraftField = PlanField | PlanRangeMaxField;
 
-export interface QuickEditTarget {
+/** GH-418: the read-view cell the user tapped — focused when full edit opens. */
+export interface PlanCellTarget {
   exerciseId: number;
   setIndex: number;
   field: PlanField;

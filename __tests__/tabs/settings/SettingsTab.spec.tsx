@@ -1,3 +1,5 @@
+/// <reference types="@testing-library/jest-native" />
+// The CI typecheck uses the root tsconfig, which does not load the jest-native matcher types.
 import React from 'react';
 import {Alert, NativeModules, Platform} from 'react-native';
 import {act, fireEvent, render, waitFor} from '@testing-library/react-native';
@@ -18,6 +20,41 @@ import {canScheduleExactAlarms, openExactAlarmSettings} from '../../../app/utils
 import {dispatchSetAnthropicModel} from '../../../app/redux/settings/dispatch/dispatchSetAnthropicModel';
 import {useAnthropicModel} from '../../../app/redux/settings/use/useAnthropicModel';
 import {DEFAULT_ANTHROPIC_MODEL} from '../../../app/utils/llmApi';
+import rootReducer from '../../../app/redux/rootReducer';
+import {buildStrongImport, parseStrongCsv} from '../../../app/utils/strongCsv/strongImport';
+import type {Props as SettingsTabProps} from '../../../app/tabs/settings/SettingsTab';
+
+// Screen-prop fixtures: a complete navigation mock (checked against the screen's navigation prop,
+// fresh jest.fn()s per call) and a complete RouteProp so the typecheck also covers the params.
+const createNavigation = () =>
+  ({
+    dispatch: jest.fn(),
+    navigate: jest.fn(),
+    navigateDeprecated: jest.fn(),
+    preload: jest.fn(),
+    reset: jest.fn(),
+    goBack: jest.fn(),
+    isFocused: jest.fn(() => true),
+    canGoBack: jest.fn(() => false),
+    getId: jest.fn(() => undefined),
+    getParent: jest.fn(),
+    getState: jest.fn(),
+    addListener: jest.fn(() => () => undefined),
+    removeListener: jest.fn(),
+    setParams: jest.fn(),
+    replaceParams: jest.fn(),
+    setOptions: jest.fn(),
+    replace: jest.fn(),
+    push: jest.fn(),
+    pop: jest.fn(),
+    popTo: jest.fn(),
+    popToTop: jest.fn(),
+  }) satisfies SettingsTabProps['navigation'];
+const settingsRoute = (params: SettingsTabProps['route']['params']): SettingsTabProps['route'] => ({
+  key: 'Settings-test',
+  name: 'Settings',
+  params,
+});
 
 const mockSetAnthropicModel = jest.fn();
 const mockToggleDisable1RM = jest.fn();
@@ -29,10 +66,41 @@ const mockFullImport = jest.fn();
 const mockSetPauseTimer = jest.fn();
 const mockSetFinishTrainingTimer = jest.fn();
 const mockStoreGetState = jest.fn();
+const mockShowOnboarding = jest.fn();
+const mockStrongImport = jest.fn();
+const mockStrongCsvState = jest.fn();
 
 jest.mock('react-redux', () => ({
   useStore: jest.fn(),
 }));
+
+// GH-504: provider choice. Unset in every existing test → Claude, exactly as before.
+const mockUseAiProvider = jest.fn(() => 'claude');
+jest.mock('../../../app/redux/settings/use/useAiProvider', () => ({
+  useAiProvider: () => mockUseAiProvider(),
+}));
+jest.mock('../../../app/components/settings/AiProviderSelector', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return {__esModule: true, default: () => <View testID="settings-ai-provider" />};
+});
+jest.mock('../../../app/components/settings/MuscleListSettings', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return {__esModule: true, default: () => <View testID="settings-muscle-list" />};
+});
+jest.mock('../../../app/components/settings/ChatGptAccountSection', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return {__esModule: true, default: () => <View testID="settings-chatgpt-section" />};
+});
+
+// GH-528: covered by HealthConnectSection.spec; it needs a real store.
+jest.mock('../../../app/components/settings/HealthConnectSection', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return {__esModule: true, default: () => <View testID="settings-health-connect-section-mock" />};
+});
 
 jest.mock('react-native-document-picker', () => ({
   __esModule: true,
@@ -56,6 +124,19 @@ jest.mock('../../../app/redux/fullstateactions/dispatchFullImport', () => ({
   dispatchFullImport: jest.fn(() => mockFullImport),
 }));
 
+jest.mock('../../../app/redux/fullstateactions/dispatchStrongImport', () => ({
+  dispatchStrongImport: () => mockStrongImport,
+}));
+
+// GH-496: the Strong CSV preview/export read their data through selectors, not the store.
+jest.mock('../../../app/redux/fullstateactions/use/useStrongCsvState', () => ({
+  useStrongCsvState: () => mockStrongCsvState(),
+}));
+
+jest.mock('../../../app/redux/settings/dispatch/dispatchOnboarding', () => ({
+  dispatchShowOnboarding: () => mockShowOnboarding,
+  dispatchCompleteOnboarding: () => jest.fn(),
+}));
 jest.mock('../../../app/redux/settings/dispatch/dispatchSetPauseTimer', () => ({
   dispatchSetPauseTimer: jest.fn(() => mockSetPauseTimer),
 }));
@@ -103,7 +184,7 @@ jest.mock('../../../app/components/settings/ThemeColorSelector', () => {
     __esModule: true,
     default: () => (
       <View testID="settings-theme-palette-row">
-        <Text>Custom Color</Text>
+        <Text>Color</Text>
       </View>
     ),
   };
@@ -269,6 +350,15 @@ jest.mock('react-native-paper', () => {
       </TouchableOpacity>
     ),
     Dialog,
+    SegmentedButtons: ({buttons, onValueChange}: {buttons: {value: string; testID: string}[]; onValueChange: (value: string) => void}) => (
+      <View>
+        {buttons.map((b) => (
+          <TouchableOpacity key={b.value} testID={b.testID} onPress={() => onValueChange(b.value)}>
+            <Text>{b.value}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    ),
     Divider: () => <View testID="divider" />,
     Portal: ({children}: {children: React.ReactNode}) => <View>{children}</View>,
     RadioButton,
@@ -285,7 +375,7 @@ jest.mock('react-native-paper', () => {
       </TouchableOpacity>
     ),
     Text: ({children, testID}: {children: React.ReactNode; testID?: string}) => <Text testID={testID}>{children}</Text>,
-    HelperText: ({children}: {children: React.ReactNode}) => <Text>{children}</Text>,
+    HelperText: ({children, testID}: {children: React.ReactNode; testID?: string}) => <Text testID={testID}>{children}</Text>,
     ActivityIndicator: () => <View testID="activity-indicator" />,
     List: {
       Accordion: ({children, title, expanded, onPress, testID}: {children: React.ReactNode; title: string; expanded?: boolean; onPress?: () => void; testID?: string}) => (
@@ -394,8 +484,8 @@ describe('SettingsTab', () => {
   });
 
   it('dispatches switch toggles', async () => {
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
+    const navigation = createNavigation();
+    const route = settingsRoute({});
 
     const {getAllByTestId, getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
 
@@ -416,15 +506,17 @@ describe('SettingsTab', () => {
   });
 
   it('groups the settings into titled sections, theme first', () => {
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
+    const navigation = createNavigation();
+    const route = settingsRoute({});
 
     const {getAllByTestId, getByTestId, queryByText} = render(<SettingsTab navigation={navigation} route={route} />);
 
     const titles = getAllByTestId(/^settings-section-[a-z-]+-title$/).map((node) => node.props.children);
-    expect(titles).toEqual(['Appearance', 'General', 'Timers & Notifications', 'AI Coach', 'Data']);
+    expect(titles).toEqual(['Appearance', 'General', 'Muscles', 'Timers & Notifications', 'AI Coach', 'Help', 'Data']);
+    // GH-523: the muscle list lives in its own section.
+    expect(getByTestId('settings-section-muscles')).toContainElement(getByTestId('settings-muscle-list'));
 
-    // GH-478: the Theme row and the single "Custom Color" row share one section.
+    // GH-478: the Theme row and the single "Color" row share one section.
     expect(getByTestId('settings-section-theme')).toContainElement(getByTestId('settings-theme-mode-row'));
     expect(getByTestId('settings-section-theme')).toContainElement(getByTestId('settings-theme-palette-row'));
     expect(queryByText('Color Palette')).toBeNull();
@@ -433,8 +525,8 @@ describe('SettingsTab', () => {
   });
 
   it('imports data through the dialog and dispatches full import', async () => {
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
+    const navigation = createNavigation();
+    const route = settingsRoute({});
 
     const {getByTestId, getByText, queryByText} = render(<SettingsTab navigation={navigation} route={route} />);
 
@@ -464,19 +556,61 @@ describe('SettingsTab', () => {
     });
   });
 
+  it('reopens the onboarding from the Help section (GH-497)', () => {
+    const navigation = createNavigation();
+    const route = settingsRoute({});
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+    fireEvent.press(getByTestId('button-Show-Introduction'));
+
+    expect(mockShowOnboarding).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the import confirmation when the onboarding asks for it (GH-497)', () => {
+    const navigation = createNavigation();
+    const route = settingsRoute({openImport: true});
+
+    const {getByText} = render(<SettingsTab navigation={navigation} route={route} />);
+
+    expect(getByText('Import full data from backup file?')).toBeTruthy();
+    expect(navigation.setParams).toHaveBeenCalledWith({openImport: undefined});
+  });
+
   it('renders the app version supplied by the native build', () => {
     nativeModulesWithAppInfo.AppInfo = {versionName: '9.8.7'};
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
+    const navigation = createNavigation();
+    const route = settingsRoute({});
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
 
     expect(getByTestId('settings-app-version')).toHaveTextContent('Version 9.8.7');
   });
 
+  it('GH-528: the hidden PoC entry is gone — long-pressing the version navigates nowhere, Health Connect is a regular section', () => {
+    const navigation = createNavigation();
+    const route = settingsRoute({});
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+    fireEvent(getByTestId('settings-app-version'), 'longPress');
+
+    expect(navigation.navigate).not.toHaveBeenCalled();
+    expect(getByTestId('settings-health-connect-section-mock')).toBeTruthy();
+  });
+
+  it('GH-528: the data export leaves Health Connect state (body weights) out of the backup', () => {
+    mockStoreGetState.mockReturnValue({training: 'state', healthConnect: {bodyWeights: {weights: [{kg: 80}]}}});
+    const navigation = createNavigation();
+    const route = settingsRoute({});
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+    fireEvent.press(getByTestId('button-Export-Data'));
+
+    expect(fileSaver.writeFile).toHaveBeenCalledWith('/mock/path/1234.gains', '{"training":"state"}');
+  });
+
   it('exports data into file system and shows exported path', () => {
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
+    const navigation = createNavigation();
+    const route = settingsRoute({});
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
 
@@ -486,9 +620,139 @@ describe('SettingsTab', () => {
     expect(Alert.alert).toHaveBeenCalledWith('exported to /mock/path/1234.gains');
   });
 
+  describe('Strong CSV (GH-496)', () => {
+    const navigation = createNavigation();
+    const route = settingsRoute({});
+    const emptyState = () => rootReducer(undefined as any, {type: '@@INIT'});
+    const stateWithOneSet = () => {
+      const state: any = emptyState();
+      state.workouts = {
+        ...state.workouts,
+        byId: {1: {id: 1, exerciseId: 2, start: '2024-01-01T17:00:00.000Z', end: '2024-01-01T18:00:00.000Z', sets: [{index: 1, weight: 100, reps: 5, rir: 2}]}},
+        allIds: [1],
+        byExerciseId: {2: [1]},
+      };
+      return state;
+    };
+    const nativeModulesWithShare: {FileShare?: {shareFile: jest.Mock}} = NativeModules;
+    const strongCsv =
+      '"Workout #";"Date";"Workout Name";"Duration (sec)";"Exercise Name";"Set Order";"Weight (kg)";"Reps";"RPE";"Distance (meters)";"Seconds";"Notes";"Workout Notes"\n' +
+      '"1";"2024-01-01 18:00:00";"Push";"3600";"Bench Press";"1";"100.0";"5";"8";"";"";"";""\n' +
+      '"2";"2024-01-03 18:00:00";"Pull";"3600";"Deadlift";"1";"180.0";"3";"";"";"";"";""\n';
+
+    beforeEach(() => {
+      nativeModulesWithShare.FileShare = {shareFile: jest.fn().mockResolvedValue(true)};
+      mockStrongCsvState.mockReturnValue(emptyState());
+    });
+
+    afterEach(() => {
+      delete nativeModulesWithShare.FileShare;
+    });
+
+    it('shows both entries next to the .gains buttons', () => {
+      const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+      expect(getByTestId('button-Export-as-CSV-(Strong-format)')).toBeTruthy();
+      expect(getByTestId('button-Import-from-Strong-CSV')).toBeTruthy();
+      expect(getByTestId('button-Import-Data')).toBeTruthy();
+      expect(getByTestId('button-Export-Data')).toBeTruthy();
+    });
+
+    it('shows a hint instead of a file when there are no logged sets', async () => {
+      mockStrongCsvState.mockReturnValue(emptyState());
+      const {getByTestId, findByText} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent.press(getByTestId('button-Export-as-CSV-(Strong-format)'));
+      expect(await findByText('Nothing to export')).toBeTruthy();
+      expect(fileSaver.writeFile).not.toHaveBeenCalled();
+      expect(nativeModulesWithShare.FileShare.shareFile).not.toHaveBeenCalled();
+    });
+
+    it('writes the CSV and opens the share sheet', async () => {
+      mockStrongCsvState.mockReturnValue(stateWithOneSet());
+      const {getByTestId, findByText} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent.press(getByTestId('button-Export-as-CSV-(Strong-format)'));
+      expect(await findByText('Exported 1 set from 1 workout')).toBeTruthy();
+      const [path, csv] = fileSaver.writeFile.mock.calls[0];
+      expect(path).toMatch(/\/exports\/gainalytics_strong_\d{4}-\d{2}-\d{2}\.csv$/);
+      expect(csv.split('\n')[1]).toContain('"Squat";"1";"100.0";"5";"8"');
+      expect(nativeModulesWithShare.FileShare.shareFile).toHaveBeenCalledWith(path, 'text/csv', 'Export as CSV (Strong format)');
+    });
+
+    it('rejects an invalid file without importing anything', async () => {
+      mockStrongCsvState.mockReturnValue(emptyState());
+      mockedPickSingle.mockResolvedValue({uri: '/tmp/bad.csv', name: 'bad.csv', type: null, fileCopyUri: null, size: null});
+      fileSaver.readFile.mockResolvedValue('name,value\nfoo,1\n');
+      const {getByTestId, findByText, getByText} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent.press(getByTestId('button-Import-from-Strong-CSV'));
+      expect(await findByText('Import failed')).toBeTruthy();
+      expect(getByText(/bad\.csv: This is not a Strong CSV export .*Nothing was imported\./)).toBeTruthy();
+      expect(mockStrongImport).not.toHaveBeenCalled();
+    });
+
+    it('shows a summary and imports on confirm', async () => {
+      mockStrongCsvState.mockReturnValue(emptyState());
+      mockedPickSingle.mockResolvedValue({uri: '/tmp/strong.csv', name: 'strong.csv', type: null, fileCopyUri: null, size: null});
+      fileSaver.readFile.mockResolvedValue(strongCsv);
+      const {getByTestId, findByText, getByText} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent.press(getByTestId('button-Import-from-Strong-CSV'));
+      expect(await findByText('2 trainings in 1 week')).toBeTruthy();
+      expect(getByText(/New plan "Strong Import", trainings named by workout name: Push, Pull/)).toBeTruthy();
+      expect(mockStrongImport).not.toHaveBeenCalled();
+      fireEvent.press(getByTestId('button-Import'));
+      expect(mockStrongImport).toHaveBeenCalledWith(expect.objectContaining({setCount: 2}), {assumedWeightUnit: 'kg'});
+      expect(Toast.show).toHaveBeenCalledWith(expect.objectContaining({text1: 'Strong import finished', text2: 'Plan "Strong Import": 2 trainings, 2 sets'}));
+    });
+
+    it('reports skipped failed attempts in the summary', async () => {
+      mockStrongCsvState.mockReturnValue(emptyState());
+      mockedPickSingle.mockResolvedValue({uri: '/tmp/strong.csv', name: 'strong.csv', type: null, fileCopyUri: null, size: null});
+      fileSaver.readFile.mockResolvedValue(strongCsv + '"2";"2024-01-03 18:00:00";"Pull";"3600";"Deadlift";"2";"250.0";"0";"";"";"";"";""\n');
+      const {findByText, getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent.press(getByTestId('button-Import-from-Strong-CSV'));
+      expect(await findByText('Skipped 1 failed attempt (0 reps), so it does not count as a record')).toBeTruthy();
+      fireEvent.press(getByTestId('button-Import'));
+      expect(mockStrongImport).toHaveBeenCalledWith(expect.objectContaining({setCount: 2, skippedFailedSets: 1}), {assumedWeightUnit: 'kg'});
+    });
+
+    it('keeps the import preview in sync with the data it will be imported into', async () => {
+      mockedPickSingle.mockResolvedValue({uri: '/tmp/strong.csv', name: 'strong.csv', type: null, fileCopyUri: null, size: null});
+      fileSaver.readFile.mockResolvedValue(strongCsv);
+      const {getByTestId, findByText, getByText, rerender} = render(<SettingsTab navigation={navigation} route={route} />);
+      fireEvent.press(getByTestId('button-Import-from-Strong-CSV'));
+      expect(await findByText(/New plan "Strong Import",/)).toBeTruthy();
+
+      // While the dialog is open, the data changes: the same file was imported meanwhile.
+      const imported = rootReducer(emptyState() as any, {type: 'STRONG_IMPORT', parsed: parseStrongCsv(strongCsv), options: {}} as any);
+      mockStrongCsvState.mockReturnValue(imported);
+      rerender(<SettingsTab navigation={navigation} route={route} />);
+      expect(getByText('Nothing new to import: all 2 workouts of this file are already in Gainalytics.')).toBeTruthy();
+
+      // Another plan named "Strong Import" appears instead: the preview names the plan the reducer will create.
+      const otherPlan = {...emptyState()} as any;
+      otherPlan.trainingsPlan = {...otherPlan.trainingsPlan, byId: {7: {id: 7, name: 'Strong Import', trainings: {}, mesos: []}}, allIds: [7]};
+      mockStrongCsvState.mockReturnValue(otherPlan);
+      rerender(<SettingsTab navigation={navigation} route={route} />);
+      expect(getByText(/New plan "Strong Import 2",/)).toBeTruthy();
+      fireEvent.press(getByTestId('button-Import'));
+      expect(Toast.show).toHaveBeenCalledWith(expect.objectContaining({text2: 'Plan "Strong Import 2": 2 trainings, 2 sets'}));
+      expect(buildStrongImport(otherPlan, parseStrongCsv(strongCsv)).summary.planName).toBe('Strong Import 2');
+    });
+
+    it('disables the CSV export with a hint where no share sheet exists (iOS)', () => {
+      delete nativeModulesWithShare.FileShare;
+      mockStrongCsvState.mockReturnValue(stateWithOneSet());
+      const {getByTestId, getByText} = render(<SettingsTab navigation={navigation} route={route} />);
+      expect(getByText('Export as CSV is only available on Android for now.')).toBeTruthy();
+      fireEvent.press(getByTestId('button-Export-as-CSV-(Strong-format)'));
+      expect(fileSaver.writeFile).not.toHaveBeenCalled();
+      expect(Alert.alert).not.toHaveBeenCalled();
+      // Import stays available.
+      expect(getByTestId('button-Import-from-Strong-CSV')).toBeTruthy();
+    });
+  });
+
   it('renders model input with correct testID', async () => {
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
+    const navigation = createNavigation();
+    const route = settingsRoute({});
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
 
@@ -500,9 +764,37 @@ describe('SettingsTab', () => {
     });
   });
 
+  it('GH-504: without a provider choice shows the provider selector and the unchanged Claude key fields', () => {
+    const navigation = createNavigation();
+    const route = settingsRoute({});
+
+    const {getByTestId, queryByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+    fireEvent.press(getByTestId('settings-ai-config-accordion'));
+
+    expect(getByTestId('settings-ai-provider')).toBeTruthy();
+    expect(getByTestId('settings-anthropic-api-key-input')).toBeTruthy();
+    expect(getByTestId('settings-anthropic-model-input')).toBeTruthy();
+    expect(queryByTestId('settings-chatgpt-section')).toBeNull();
+  });
+
+  it('GH-504: with ChatGPT selected shows the sign-in section instead of the API key, prompts stay', () => {
+    mockUseAiProvider.mockReturnValue('chatgpt');
+    const navigation = createNavigation();
+    const route = settingsRoute({});
+
+    const {getByTestId, queryByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
+    fireEvent.press(getByTestId('settings-ai-config-accordion'));
+
+    expect(getByTestId('settings-chatgpt-section')).toBeTruthy();
+    expect(queryByTestId('settings-anthropic-api-key-input')).toBeNull();
+    expect(queryByTestId('settings-anthropic-model-input')).toBeNull();
+    expect(getByTestId('settings-ai-chat-prompt-input')).toBeTruthy();
+    mockUseAiProvider.mockReturnValue('claude');
+  });
+
   it('saves custom model and shows success toast', async () => {
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
+    const navigation = createNavigation();
+    const route = settingsRoute({});
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
 
@@ -524,8 +816,8 @@ describe('SettingsTab', () => {
   });
 
   it('resets to default and shows reset toast when model input is empty on save', async () => {
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
+    const navigation = createNavigation();
+    const route = settingsRoute({});
 
     const {getByTestId} = render(<SettingsTab navigation={navigation} route={route} />);
 
@@ -550,8 +842,8 @@ describe('SettingsTab', () => {
   it('renders exact alarm section and opens platform settings', async () => {
     mockedCanScheduleExactAlarms.mockResolvedValue(false);
 
-    const navigation = {setOptions: jest.fn(), navigate: jest.fn()};
-    const route = {params: {}};
+    const navigation = createNavigation();
+    const route = settingsRoute({});
 
     const {getAllByTestId, getByText} = render(<SettingsTab navigation={navigation} route={route} />);
 

@@ -39,9 +39,24 @@ jest.mock('@react-navigation/native', () => {
   return {
     useFocusEffect: (cb: any) => React.useEffect(cb, []),
     useIsFocused: () => true,
-    useNavigation: () => ({navigate: jest.fn()}),
+    // GH-508: the screen hands its history/filter/clear buttons to the navigation
+    // header. The harness below renders whatever headerRight the screen sets.
+    useNavigation: () => ({navigate: jest.fn(), setOptions: (o: any) => mockHeader.set(o.headerRight)}),
   };
 });
+
+const mockHeader: {set: (h: any) => void} = {set: () => {}};
+
+function HeaderHarness({children}: {children: React.ReactNode}) {
+  const [headerRight, setHeaderRight] = React.useState<any>(undefined);
+  mockHeader.set = (h: any) => setHeaderRight(() => h);
+  return (
+    <>
+      {headerRight ? headerRight() : null}
+      {children}
+    </>
+  );
+}
 
 jest.mock('react-native-markdown-display', () => {
   const {Text} = require('react-native');
@@ -73,6 +88,12 @@ const set = (reps: number, weight: number, rir: number, extra: Partial<WorkoutSe
   ...extra,
 });
 
+// The screen's default context period is the last 28 days, so the finished
+// training has to stay inside it — a fixed date silently drops out of the
+// context a few weeks after the test was written.
+const FINISHED_START = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+const FINISHED_END = new Date(FINISHED_START.getTime() + 60 * 60 * 1000);
+
 const exercises: Record<number, Exercise> = {
   10: {id: 10, name: 'Squat'},
   11: {id: 11, name: 'Bench Press'},
@@ -94,8 +115,8 @@ function buildState(over: {trainings?: Record<number, Training>; plans?: Trainin
     1: {
       id: 1,
       state: TrainingsState.FINISHED,
-      start: new Date('2026-09-01T17:00:00.000Z'),
-      end: new Date('2026-09-01T18:00:00.000Z'),
+      start: FINISHED_START,
+      end: FINISHED_END,
       exercises: [10],
       doneWorkoutIds: {10: 100},
       plannedWorkouts: {10: 101},
@@ -150,7 +171,9 @@ function renderTab(preloadedState: GlobalState) {
   render(
     <ReduxProvider store={store}>
       <PaperProvider>
-        <AIChatTab />
+        <HeaderHarness>
+          <AIChatTab />
+        </HeaderHarness>
       </PaperProvider>
     </ReduxProvider>,
   );
@@ -219,8 +242,8 @@ describe('GH-391 planned trainings reach the chat context', () => {
         1: {
           id: 1,
           state: TrainingsState.FINISHED,
-          start: new Date('2026-09-01T17:00:00.000Z'),
-          end: new Date('2026-09-01T18:00:00.000Z'),
+          start: FINISHED_START,
+          end: FINISHED_END,
           exercises: [10],
           doneWorkoutIds: {10: 100},
           plannedWorkouts: {},
@@ -296,8 +319,8 @@ describe('GH-391 a newly created plan reaches the chat before it is trained', ()
         1: {
           id: 1,
           state: TrainingsState.FINISHED,
-          start: new Date('2026-09-01T17:00:00.000Z'),
-          end: new Date('2026-09-01T18:00:00.000Z'),
+          start: FINISHED_START,
+          end: FINISHED_END,
           exercises: [10],
           doneWorkoutIds: {10: 100},
           plannedWorkouts: {10: 101},
@@ -421,5 +444,31 @@ describe('GH-391 does not disturb what already worked', () => {
 
     fireEvent.press(screen.getByTestId('chat-preset-7d'));
     expect(screen.getByTestId('chat-context-info')).toHaveTextContent('AI has access to');
+  });
+});
+
+describe('GH-508 more room for the chat', () => {
+  it('does not repeat the "AI Chat" title inside the screen', () => {
+    renderTab(buildState());
+    // The navigation header owns the title; the screen itself must not render it.
+    expect(screen.queryByText('AI Chat')).toBeNull();
+  });
+
+  it('opens and closes the range filter from the context-period chip as well', () => {
+    renderTab(buildState());
+    expect(screen.queryByTestId('chat-preset-7d')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('chat-context-badge'));
+    expect(screen.getByTestId('chat-preset-7d')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('chat-preset-7d'));
+    expect(screen.getByTestId('chat-context-badge')).toHaveTextContent('Context: 7d');
+
+    fireEvent.press(screen.getByTestId('chat-context-badge'));
+    expect(screen.queryByTestId('chat-preset-7d')).toBeNull();
+  });
+
+  it('keeps clear disabled in the header until there is something to clear', () => {
+    renderTab(buildState());
+    expect(screen.getByTestId('chat-clear-button')).toBeDisabled();
   });
 });

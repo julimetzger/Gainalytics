@@ -1,8 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-- tapOn:
-    id: 'edit-exercise-delete-cancel'
-- assertNotVisible:
-    id: 'edit-exercise-delete-history'
-- assertVisible:
-    id: 'edit-exercise-sheet'

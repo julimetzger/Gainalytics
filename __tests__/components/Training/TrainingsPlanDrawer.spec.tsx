@@ -1,5 +1,5 @@
 import React from 'react';
-import {render} from '@testing-library/react-native';
+import {fireEvent, render} from '@testing-library/react-native';
 
 const TrainingsPlanDrawer = require('../../../app/components/Training/TrainingsPlanDrawer').default;
 
@@ -10,7 +10,11 @@ jest.mock('react-native-paper', () => {
   const MockTextInput = (props: Record<string, unknown>) => <RNTextInput {...props} />;
 
   return {
-    Button: ({children}: {children: React.ReactNode}) => <Text>{children}</Text>,
+    Button: ({children, onPress, testID, mode}: {children: React.ReactNode; onPress?: () => void; testID?: string; mode?: string}) => (
+      <TouchableOpacity testID={testID} onPress={onPress} accessibilityHint={mode}>
+        <Text>{children}</Text>
+      </TouchableOpacity>
+    ),
     Divider: () => <View />,
     IconButton: ({icon, onPress}: {icon: string; onPress?: () => void}) => (
       <TouchableOpacity onPress={onPress}>
@@ -32,6 +36,7 @@ jest.mock('react-native-paper', () => {
         {children}
       </TouchableOpacity>
     ),
+    useTheme: () => ({colors: {outline: '#888', onSurfaceVariant: '#444'}}),
   };
 });
 
@@ -48,7 +53,7 @@ const theme = {
   },
 };
 
-const renderDrawer = () =>
+const renderDrawer = (overrides: Record<string, unknown> = {}) =>
   render(
     <TrainingsPlanDrawer
       theme={theme}
@@ -74,6 +79,7 @@ const renderDrawer = () =>
       onAddMeso={jest.fn()}
       onEditMeso={jest.fn()}
       onDeleteMeso={jest.fn()}
+      {...overrides}
     />,
   );
 
@@ -104,5 +110,34 @@ describe('TrainingsPlanDrawer', () => {
     expect(getByText('Trainings:')).toBeTruthy();
     expect(getByText('Overview')).toBeTruthy();
     expect(getByText('History')).toBeTruthy();
+  });
+
+  // GH-509: the lone "+" icons became labelled dashed buttons in the "Add Set" style.
+  it('renders labelled dashed add buttons instead of plus icons', () => {
+    const {getByTestId, getByText, queryByText} = renderDrawer();
+
+    expect(getByText('Add Meso')).toBeTruthy();
+    expect(getByText('Add Training')).toBeTruthy();
+    expect(getByTestId('icon-plus-circle').props.accessibilityHint).toBe('outlined');
+    expect(getByTestId('drawer-add-training-button').props.accessibilityHint).toBe('outlined');
+    expect(queryByText('plus-circle')).toBeNull();
+  });
+
+  it('Add Meso still triggers onAddMeso', () => {
+    const onAddMeso = jest.fn();
+    const {getByText} = renderDrawer({onAddMeso});
+
+    fireEvent.press(getByText('Add Meso'));
+
+    expect(onAddMeso).toHaveBeenCalledTimes(1);
+  });
+
+  it('Add Training still appends the next numbered training', () => {
+    const changeTrainingsName = jest.fn();
+    const {getByText} = renderDrawer({changeTrainingsName});
+
+    fireEvent.press(getByText('Add Training'));
+
+    expect(changeTrainingsName).toHaveBeenCalledWith(7, 'Training 2', 2);
   });
 });

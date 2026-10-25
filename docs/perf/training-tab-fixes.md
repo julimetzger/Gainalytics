@@ -41,7 +41,7 @@ nur die Leiste selbst rendert), der Inhalt folgt direkt dahinter – bei den sch
 
 | | |
 |---|---|
-| Gerät | Samsung SM-G986B (Galaxy S20+ 5G), Android 13, R5CN30HWZFN, Override 720×1600, 60 Hz, USB |
+| Gerät | Samsung SM-G986B (Galaxy S20+ 5G), Android 13, <phone-serial>, Override 720×1600, 60 Hz, USB |
 | Build vorher | die ursprünglich installierte App = `assembleRelease` von master `0ef9ef2e` (versionName 0.172 / versionCode 7), SHA-256 der `base.apk` `d08b2db4…` (identisch zu PERF-001). Die PERF-001-Werte ließen sich reproduzieren (Train 183 ms, Plan 278 ms, Analysis 276 ms beschäftigt; Speicher 214 → 358 MiB, Views 273 → 1275). |
 | Build nachher | `assembleRelease -PreactNativeArchitectures=arm64-v8a` (nur arm64, das Gerät ist arm64) der Änderungen auf master `0ef9ef2e`, gleicher Debug-Key, per `adb install -r` über die App gelegt. Release-Nachweis: `pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]` (nicht `DEBUGGABLE`), SHA-256 der `base.apk` auf dem Gerät = lokale `app-release.apk` (`checks/dumpsys-package-final.txt`). Der Release-Key liegt nicht im Worktree; für den Build wurde – wie in `docs/memory/agent-memory.md` beschrieben – lokal `signingConfig` von `release` auf `debug` gestellt und **nicht committet**. |
 | Methode | PERF-001: `dumpsys gfxinfo reset` → Perfetto (ftrace sched + atrace view/gfx/input/am/wm/res + Frame-Timeline) → scripted `adb shell input` mit festen Pausen → Auswertung pro Geste (`gestures.py`). Kein Metro, kein Dev-Modus. |
@@ -128,7 +128,9 @@ Ohne das Behalten des eben verlassenen Micros wäre der Speicher niedriger, daf�
 
 ### 3.5 Verhalten nach dem Umbau – Maestro-Flow mit Screenshots
 
-`__tests__/e2e/maestro/flows/perf003_micro_swipe.yaml` – **rein lesend** (kein `clearState`, kein Import): Training Home → „Next Training“ → auf Micro 4 zurückwischen → je Reiter (Analysis, Train, Plan):
+> Historisch: Der Flow `perf003_micro_swipe.yaml` wurde mit GH-584 ohne Ersatz gelöscht (Perf-Evidence). Dass ein Micro-Swipe den Reiter beibehält, prüft heute `__tests__/e2e/maestro/flows/micro_overview_compare.yaml`.
+
+`perf003_micro_swipe.yaml` (gelöscht) – **rein lesend** (kein `clearState`, kein Import): Training Home → „Next Training“ → auf Micro 4 zurückwischen → je Reiter (Analysis, Train, Plan):
 Micro 4 → wischen → **Micro 3** → wischen → **Micro 4** zurück. Nach jedem Wisch wird der Inhalt des angekommenen Micros **über Werte** geprüft
 (Analysis: `Total Sets: 15 (done)` / `16 (done)`; Train: Datum `16/02/26` / `02/02/26`; Plan: Beinbeuger `95, kg` / `90, kg`) und mit `assertNotVisible` gegen den Wert des anderen Micros abgesichert.
 Der Flow lief **vor und nach dem Umbau** grün (`checks/maestro-swipe-before.log`, `checks/maestro-swipe-after.log`), je 16 Screenshots (`screenshots/maestro-before/`, `screenshots/maestro-after/`).

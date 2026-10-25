@@ -1,3 +1,5 @@
+/// <reference types="@testing-library/jest-native" />
+// The CI typecheck uses the root tsconfig, which does not load the jest-native matcher types.
 import React from 'react';
 import {act, fireEvent, render} from '@testing-library/react-native';
 import {ScrollView} from 'react-native';
@@ -34,6 +36,18 @@ const mockUseExerciseUsage = jest.fn(() => NO_USAGE);
 jest.mock('../../../app/redux/Exercises/use/useExerciseUsage', () => ({
   useExerciseUsage: () => mockUseExerciseUsage(),
 }));
+
+const mockHealthConnectState = jest.fn(() => ({writeEnabled: false}));
+jest.mock('../../../app/redux/HealthConnect/use/useHealthConnect', () => ({
+  useHealthConnectState: () => mockHealthConnectState(),
+}));
+
+let mockTypeFieldProps: any;
+jest.mock('../../../app/components/exercise/add/HealthConnectTypeField', () => (props: any) => {
+  const {Text} = require('react-native');
+  mockTypeFieldProps = props;
+  return <Text testID="health-connect-type-field-mock">{`${props.name}:${props.value ?? 'automatic'}`}</Text>;
+});
 
 let mockAlternativesProps: any;
 jest.mock('../../../app/components/exercise/add/ExerciseAlternativesField', () => (props: any) => {
@@ -114,6 +128,7 @@ describe('EditExerciseSheet', () => {
     jest.clearAllMocks();
     mockUseExerciseFn.mockReturnValue(undefined as any);
     mockUseExerciseUsage.mockReturnValue(NO_USAGE);
+    mockHealthConnectState.mockReturnValue({writeEnabled: false});
   });
 
   const lastHeaderRight = (setOptionsMock: jest.Mock) => {
@@ -137,8 +152,33 @@ describe('EditExerciseSheet', () => {
     expect(headerRight.props.disabled).toBe(false);
     headerRight.props.onPress();
 
-    expect(mockDispatchAdd).toHaveBeenCalledWith('Front squat', [], [], false);
+    expect(mockDispatchAdd).toHaveBeenCalledWith('Front squat', [], [], false, null);
     expect(goBackMock).toHaveBeenCalled();
+  });
+
+  it('GH-528: hides the Health Connect type while trainings are not written to Health Connect', () => {
+    const {nav} = makeNavigation();
+    const {queryByTestId} = render(<EditExerciseSheet navigation={nav as any} route={{params: {}} as any} />);
+
+    expect(queryByTestId('health-connect-type-field-mock')).toBeNull();
+  });
+
+  it('GH-528: saves the Health Connect type chosen for the exercise, and null to go back to automatic', () => {
+    mockHealthConnectState.mockReturnValue({writeEnabled: true});
+    mockUseExerciseFn.mockReturnValue({id: 7, name: 'Barbell row', muscles: [], alternativeIds: [], isFocus: false} as any);
+    const {nav, setOptionsMock} = makeNavigation();
+    const {getByTestId} = render(<EditExerciseSheet navigation={nav as any} route={{params: {exerciseId: 7}} as any} />);
+
+    expect(getByTestId('health-connect-type-field-mock')).toHaveTextContent('Barbell row:automatic');
+    act(() => mockTypeFieldProps.onChange('DUMBBELL_ROW'));
+    lastHeaderRight(setOptionsMock).props.onPress();
+    act(() => mockTypeFieldProps.onChange(undefined));
+    lastHeaderRight(setOptionsMock).props.onPress();
+
+    expect(mockDispatchEdit.mock.calls).toEqual([
+      [7, 'Barbell row', [], [], false, 'DUMBBELL_ROW'],
+      [7, 'Barbell row', [], [], false, null],
+    ]);
   });
 
   it('renders the MuscleInvolvementEditor inline (no popup) and accepts arbitrary percentages', () => {

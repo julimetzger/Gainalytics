@@ -5,15 +5,15 @@ import {useSettings} from '../../redux/settings/use/useSettings';
 import {useThemeMode} from '../../redux/settings/use/useThemeMode';
 import {dispatchSetPalette} from '../../redux/settings/dispatch/dispatchSetPalette';
 import {customChoicePalette, customPaletteHex, paletteLabel, PaletteSelection, themeColorChoice} from '../../theme/palette';
-import {palettePreviewColors, THEME_COLOR_CHOICE_OPTIONS} from '../../theme/palettePreview';
+import {palettePreviewColor, THEME_COLOR_CHOICE_OPTIONS} from '../../theme/palettePreview';
 import {normalizeHex} from '../../theme/colorScience';
 import PaletteSwatch from './PaletteSwatch';
 import SettingsSegmentRow from './SettingsSegmentRow';
 import ThemeColorPickerDialog from './ThemeColorPickerDialog';
 
 /**
- * The "Custom Color" settings row: Blue / Purple / Custom as the app's standard
- * segmented buttons, each previewing its colours.
+ * The "Color" settings row: Blue / Purple / Custom as the app's standard
+ * segmented buttons, each previewing its primary colour.
  *
  * Blue and Purple apply their palette with one tap. Custom opens the colour
  * wheel and previews the custom colour — the active one, or the one picked
@@ -41,10 +41,10 @@ const ThemeColorSelector = () => {
         </View>
       );
     }
-    const colors = palettePreviewColors(palette, scheme);
+    const color = palettePreviewColor(palette, scheme);
     return ({size}: {size: number}) => (
       <View style={styles.preview}>
-        <PaletteSwatch colors={colors} size={size} testID={`${testID}-preview`} />
+        <PaletteSwatch color={color} size={size} testID={`${testID}-preview`} />
       </View>
     );
   };
@@ -64,7 +64,7 @@ const ThemeColorSelector = () => {
   });
 
   return (
-    <SettingsSegmentRow label="Custom Color" testID="settings-theme-palette-row">
+    <SettingsSegmentRow label="Color" testID="settings-theme-palette-row">
       <SegmentedButtons
         value={choice}
         onValueChange={(value: string) => {

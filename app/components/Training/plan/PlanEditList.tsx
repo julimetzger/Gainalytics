@@ -1,7 +1,6 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {Animated as RNAnimated, Pressable, StyleSheet, View} from 'react-native';
-import {useNestableScrollContainerContext} from 'react-native-draggable-flatlist';
-import {Gesture, GestureDetector} from 'react-native-gesture-handler';
+import {GestureDetector} from 'react-native-gesture-handler';
 import type {PanGesture} from 'react-native-gesture-handler';
 import {Chip, HelperText, Icon, IconButton, Menu, Text, TextInput, ToggleButton, useTheme} from 'react-native-paper';
 import {Exercise} from '../../../models/entities/Exercise';
@@ -12,8 +11,9 @@ import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
 import {hasAnyPlanRange} from '../../../utils/planRange';
 import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMax';
 import DashedAddButton from '../../shared/DashedAddButton';
-import {PendingPlanSet, PendingPlanSetByExerciseId, PlanDraftField, PlanField, PlanSetDraft} from './planTypes';
-import {buildWorkoutSetFromDraft, getPlanDraftRangeError, getPlanRangeError, getPlanSetDraft, planSetsEqual} from './planUtils';
+import {PendingPlanSet, PendingPlanSetByExerciseId, PlanCellTarget, PlanDraftField, PlanField, PlanSetDraft} from './planTypes';
+import {buildWorkoutSetFromDraft, getPlanDraftRangeError, getPlanRangeError, getPlanSetDraft, getQuickEditError, planSetsEqual} from './planUtils';
+import {DragItemBinding, DragPlaceholder, resolveSectionTargetIndex, useDragReorder} from './useDragReorder';
 
 interface PlanEditListProps {
   exercises: Exercise[];
@@ -30,6 +30,8 @@ interface PlanEditListProps {
   onReorderSets: (exerciseId: number, sets: WorkoutSet[]) => void;
   onReorderExercises: (exercises: Exercise[]) => void;
   onRemoveExercise: (exercise: Exercise) => void;
+  /** GH-418: the read-view cell that opened full edit — its input gets the focus. */
+  focusTarget?: PlanCellTarget | null;
 }
 
 type RowItem = {
@@ -41,6 +43,11 @@ type SectionItem = {
   key: string;
   exercise: Exercise;
 };
+
+const PLAN_VALUE_FIELDS: PlanField[] = ['reps', 'rir', 'weight'];
+
+/** Outer margin of an exercise section card. */
+const SECTION_MARGIN = 12;
 
 const sortSets = (sets: WorkoutSet[]) => [...sets].sort((left, right) => (left.index ?? 0) - (right.index ?? 0));
 
@@ -64,6 +71,8 @@ interface PlanFieldColumnProps {
   onBlur?: () => void;
   /** Select the whole value on focus so typing replaces it (GH-436: suggested weights). */
   selectTextOnFocus?: boolean;
+  /** GH-418: the field the user tapped in the read view. */
+  autoFocus?: boolean;
 }
 
 // GH-63: one planned field. Without a range this renders exactly the single
@@ -84,6 +93,7 @@ const PlanFieldColumn = ({
   onChangeMaxValue,
   onBlur,
   selectTextOnFocus,
+  autoFocus,
 }: PlanFieldColumnProps) => (
   <View style={styles.fieldColumn}>
     <TextInput
@@ -98,7 +108,11 @@ const PlanFieldColumn = ({
       onBlur={onBlur}
       textColor={textColor}
       outlineColor={outlineColor}
-      selectTextOnFocus={selectTextOnFocus}
+      // GH-418: the row mounts together with full edit, so the focus has to be the
+      // native autoFocus — a focus() call from an effect never opens the keyboard.
+      // Selecting the value makes the first keystroke replace it.
+      autoFocus={autoFocus}
+      selectTextOnFocus={autoFocus === true ? true : selectTextOnFocus}
     />
     {showRange && (
       <TextInput
@@ -118,83 +132,58 @@ const PlanFieldColumn = ({
   </View>
 );
 
-// GH-324: given the drop displacement of a dragged section, find the index it
-// should land on. Walks neighbouring section heights until less than half of
-// the next section remains — the drop then "belongs" to that slot.
-export function resolveSectionTargetIndex(index: number, translationY: number, heights: Record<number, number>, count: number): number {
-  let target = index;
-  let remaining = translationY;
-  if (translationY > 0) {
-    while (target < count - 1) {
-      const nextHeight = heights[target + 1] ?? 0;
-      if (nextHeight <= 0 || remaining < nextHeight / 2) {
-        break;
-      }
-      remaining -= nextHeight;
-      target += 1;
-    }
-  } else {
-    while (target > 0) {
-      const prevHeight = heights[target - 1] ?? 0;
-      if (prevHeight <= 0 || -remaining < prevHeight / 2) {
-        break;
-      }
-      remaining += prevHeight;
-      target -= 1;
-    }
+// GH-324: re-exported for the existing drop-target tests; the drag lives in useDragReorder now.
+export {resolveSectionTargetIndex};
+
+interface DragItemViewProps {
+  binding: DragItemBinding;
+  active: boolean;
+  testID: string;
+  children: React.ReactNode;
+}
+
+// GH-324 / GH-418: one draggable item — exercise section or set row. The pan
+// gesture itself sits on the item's drag handle (passed down via `binding`), so
+// the rest of the item keeps its taps and inputs.
+const DragItemView = ({binding, active, testID, children}: DragItemViewProps) => (
+  <RNAnimated.View testID={testID} style={[{transform: [{translateY: binding.translateY}]}, active && styles.activeItem]} onLayout={binding.onLayout}>
+    {children}
+  </RNAnimated.View>
+);
+
+interface DropPlaceholderProps {
+  placeholder: DragPlaceholder | null;
+  /** The item's own margins, so the outline matches the card rather than the slot. */
+  inset: {left: number; right: number; bottom: number};
+  borderRadius: number;
+  testID: string;
+}
+
+// GH-418: outlines the slot the dragged item drops into. It moves with the gap
+// the other items open up, underneath the dragged item.
+const DropPlaceholder = ({placeholder, inset, borderRadius, testID}: DropPlaceholderProps) => {
+  const theme = useTheme();
+  if (placeholder === null) {
+    return null;
   }
-  return target;
-}
-
-interface DraggableItemWrapperProps {
-  index: number;
-  activeIndex: number | null;
-  onDragStart: (index: number) => void;
-  onDragEnd: (index: number, translationY: number) => void;
-  onItemHeight: (index: number, height: number) => void;
-  renderItem: (dragGesture: PanGesture) => React.ReactNode;
-}
-
-// GH-324: shared pan-drag wrapper for exercise sections AND set rows, replacing
-// NestableDraggableFlatList in this screen. The library list broke Fabric
-// drawing here twice over: nested inside another draggable list only the first
-// cell rendered, and even plain-mapped a section containing one stopped every
-// following sibling from being drawn. Mirrors the library's outer-scroll
-// pattern: freeze the NestableScrollContainer while a drag is in flight.
-//
-// Deliberately uses the core react-native Animated API and gestures on the JS
-// thread (.runOnJS(true)): a reanimated Animated.View with a useAnimatedStyle
-// transform in this position also stopped Fabric from drawing the following
-// siblings.
-const DraggableItemWrapper = ({index, activeIndex, onDragStart, onDragEnd, onItemHeight, renderItem}: DraggableItemWrapperProps) => {
-  const isActive = activeIndex === index;
-  const translateYRef = useRef(new RNAnimated.Value(0));
-
-  const dragGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .runOnJS(true)
-        .activeOffsetY([-4, 4])
-        .onBegin(() => {
-          onDragStart(index);
-        })
-        .onUpdate((event) => {
-          translateYRef.current.setValue(event.translationY);
-        })
-        .onFinalize((event, success) => {
-          translateYRef.current.setValue(0);
-          onDragEnd(index, success ? event.translationY : 0);
-        }),
-    [index, onDragStart, onDragEnd],
-  );
-
   return (
     <RNAnimated.View
-      style={[{transform: [{translateY: translateYRef.current}]}, isActive && styles.activeSection]}
-      onLayout={(event) => onItemHeight(index, event.nativeEvent.layout.height)}
-    >
-      {renderItem(dragGesture)}
-    </RNAnimated.View>
+      pointerEvents="none"
+      testID={testID}
+      style={[
+        styles.placeholder,
+        {
+          top: 0,
+          transform: [{translateY: placeholder.translateY}],
+          height: Math.max(0, placeholder.height - inset.bottom),
+          left: inset.left,
+          right: inset.right,
+          borderRadius,
+          borderColor: theme.colors.primary,
+          backgroundColor: withAlpha(theme.colors.primary, 0.08),
+        },
+      ]}
+    />
   );
 };
 
@@ -213,6 +202,7 @@ const PlanEditList = ({
   onReorderSets,
   onReorderExercises,
   onRemoveExercise,
+  focusTarget = null,
 }: PlanEditListProps) => {
   const theme = useTheme();
 
@@ -228,65 +218,42 @@ const PlanEditList = ({
   );
 
   // GH-324: exercise sections are draggable via the two-stripe handle in the
-  // section header, mirroring the set rows inside each section. The outer
-  // scroll container is frozen while a section drag is in flight (same pattern
-  // NestableDraggableFlatList uses internally).
-  const nestableScrollContext = useNestableScrollContainerContext();
-  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(null);
-  const sectionHeightsRef = useRef<Record<number, number>>({});
+  // section header, mirroring the set rows inside each section. GH-418: the drag
+  // scrolls the plan along at the edges and shows where the section will land.
   const sectionDataRef = useRef(sectionData);
   sectionDataRef.current = sectionData;
-
-  const handleSectionHeight = useCallback((index: number, height: number) => {
-    sectionHeightsRef.current[index] = height;
-  }, []);
-
-  const handleSectionDragStart = useCallback(
-    (index: number) => {
-      setActiveSectionIndex(index);
-      nestableScrollContext?.setOuterScrollEnabled(false);
-    },
-    [nestableScrollContext],
-  );
-
-  const handleSectionDragEnd = useCallback(
-    (index: number, translationY: number) => {
-      setActiveSectionIndex(null);
-      nestableScrollContext?.setOuterScrollEnabled(true);
-      const sections = sectionDataRef.current;
-      const targetIndex = resolveSectionTargetIndex(index, translationY, sectionHeightsRef.current, sections.length);
-      if (targetIndex === index) {
-        return;
-      }
-      const reordered = sections.map((section) => section.exercise);
-      const [moved] = reordered.splice(index, 1);
-      reordered.splice(targetIndex, 0, moved);
+  const handleSectionReorder = useCallback(
+    (from: number, to: number) => {
+      const reordered = sectionDataRef.current.map((section) => section.exercise);
+      const [moved] = reordered.splice(from, 1);
+      reordered.splice(to, 0, moved);
       onReorderExercises(reordered);
     },
-    [nestableScrollContext, onReorderExercises],
+    [onReorderExercises],
   );
+  const sectionDrag = useDragReorder({count: sectionData.length, items: sectionData, onReorder: handleSectionReorder});
 
   return (
     <View style={styles.list}>
+      <DropPlaceholder
+        placeholder={sectionDrag.placeholder}
+        inset={{left: SECTION_MARGIN, right: SECTION_MARGIN, bottom: SECTION_MARGIN}}
+        borderRadius={20}
+        testID="plan-edit-section-drop-placeholder"
+      />
       {sectionData.map((item, index) => {
         const exerciseId = item.exercise.id as number;
+        const binding = sectionDrag.bind(index);
         return (
-          <DraggableItemWrapper
-            key={item.key}
-            index={index}
-            activeIndex={activeSectionIndex}
-            onDragStart={handleSectionDragStart}
-            onDragEnd={handleSectionDragEnd}
-            onItemHeight={handleSectionHeight}
-            renderItem={(dragGesture) => (
+          <DragItemView key={item.key} testID={`plan-edit-section-drag-item-${exerciseId}`} binding={binding} active={index === sectionDrag.activeIndex}>
               <PlanEditExerciseSection
                 exercise={item.exercise}
                 selected={exerciseId === selectedExerciseId}
-                active={index === activeSectionIndex}
+                active={index === sectionDrag.activeIndex}
                 sets={sortSets(plannedWorkoutsByExerciseId[exerciseId]?.sets ?? [])}
                 pendingSet={pendingSetByExerciseId[exerciseId] ?? null}
                 onSelect={() => onSelectExercise(item.exercise)}
-                dragGesture={dragGesture}
+                dragGesture={binding.gesture}
                 commitRowDraftsOnUnmountRef={commitRowDraftsOnUnmountRef}
                 onAddSet={() => onAddSet(exerciseId)}
                 onPendingSetChange={(field, value) => onPendingSetChange(exerciseId, field, value)}
@@ -295,11 +262,11 @@ const PlanEditList = ({
                 onUpsertSet={(workoutSet) => onUpsertSet(exerciseId, workoutSet)}
                 onReorderSets={(reorderedSets) => onReorderSets(exerciseId, reorderedSets)}
                 onRemoveExercise={() => onRemoveExercise(item.exercise)}
+                focusTarget={focusTarget !== null && focusTarget.exerciseId === exerciseId ? focusTarget : null}
                 outlineColor={withAlpha(theme.colors.primary, 0.18)}
                 primaryColor={theme.colors.primary}
               />
-            )}
-          />
+          </DragItemView>
         );
       })}
     </View>
@@ -322,6 +289,7 @@ interface SectionProps {
   onUpsertSet: (workoutSet: WorkoutSet) => void;
   onReorderSets: (sets: WorkoutSet[]) => void;
   onRemoveExercise: () => void;
+  focusTarget: PlanCellTarget | null;
   outlineColor: string;
   primaryColor: string;
 }
@@ -342,6 +310,7 @@ const PlanEditExerciseSection = ({
   onUpsertSet,
   onReorderSets,
   onRemoveExercise,
+  focusTarget,
   outlineColor,
   primaryColor,
 }: SectionProps) => {
@@ -371,42 +340,20 @@ const PlanEditExerciseSection = ({
 
   const visibleCount = sets.length + (pendingSet ? 1 : 0);
 
-  // GH-324: pan-drag reorder state for the set rows (same pattern as the
-  // exercise sections in PlanEditList above).
-  const nestableScrollContext = useNestableScrollContainerContext();
-  const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
-  const rowHeightsRef = useRef<Record<number, number>>({});
+  // GH-324: pan-drag reorder for the set rows (same hook as the exercise
+  // sections in PlanEditList above). The rows are renumbered in their new order.
   const dataRef = useRef(data);
   dataRef.current = data;
-
-  const handleRowHeight = useCallback((rowIndex: number, height: number) => {
-    rowHeightsRef.current[rowIndex] = height;
-  }, []);
-
-  const handleRowDragStart = useCallback(
-    (rowIndex: number) => {
-      setActiveRowIndex(rowIndex);
-      nestableScrollContext?.setOuterScrollEnabled(false);
-    },
-    [nestableScrollContext],
-  );
-
-  const handleRowDragEnd = useCallback(
-    (rowIndex: number, translationY: number) => {
-      setActiveRowIndex(null);
-      nestableScrollContext?.setOuterScrollEnabled(true);
-      const rows = dataRef.current;
-      const targetIndex = resolveSectionTargetIndex(rowIndex, translationY, rowHeightsRef.current, rows.length);
-      if (targetIndex === rowIndex) {
-        return;
-      }
-      const reordered = rows.map((row) => row.workoutSet);
-      const [moved] = reordered.splice(rowIndex, 1);
-      reordered.splice(targetIndex, 0, moved);
+  const handleRowReorder = useCallback(
+    (from: number, to: number) => {
+      const reordered = dataRef.current.map((row) => row.workoutSet);
+      const [moved] = reordered.splice(from, 1);
+      reordered.splice(to, 0, moved);
       onReorderSets(reordered.map((workoutSet, position) => ({...workoutSet, index: position + 1})));
     },
-    [nestableScrollContext, onReorderSets],
+    [onReorderSets],
   );
+  const rowDrag = useDragReorder({count: data.length, items: data, onReorder: handleRowReorder});
 
   return (
     <View
@@ -482,28 +429,25 @@ const PlanEditExerciseSection = ({
           sections. A NestableDraggableFlatList here breaks Fabric drawing of
           every sibling that follows its section (the "only the first exercise
           section is visible" bug). */}
-      {data.map((item, rowIndex) => (
-        <DraggableItemWrapper
-          key={item.key}
-          index={rowIndex}
-          activeIndex={activeRowIndex}
-          onDragStart={handleRowDragStart}
-          onDragEnd={handleRowDragEnd}
-          onItemHeight={handleRowHeight}
-          renderItem={(rowDragGesture) => (
+      <DropPlaceholder placeholder={rowDrag.placeholder} inset={{left: 8, right: 8, bottom: 0}} borderRadius={12} testID={`plan-edit-set-drop-placeholder-${exercise.id}`} />
+      {data.map((item, rowIndex) => {
+        const binding = rowDrag.bind(rowIndex);
+        return (
+          <DragItemView key={item.key} testID={`plan-edit-set-drag-item-${exercise.id}-${rowIndex}`} binding={binding} active={rowIndex === rowDrag.activeIndex}>
             <PlanEditSetRow
               workoutSet={item.workoutSet}
               oneRepMax={oneRepMax > 0 ? oneRepMax : undefined}
               showRanges={showRanges}
               onDelete={() => onDeleteSet(item.workoutSet)}
-              dragGesture={rowDragGesture}
+              dragGesture={binding.gesture}
               commitRowDraftsOnUnmountRef={commitRowDraftsOnUnmountRef}
               onUpsert={onUpsertSet}
-              active={rowIndex === activeRowIndex}
+              active={rowIndex === rowDrag.activeIndex}
+              autoFocusField={focusTarget !== null && focusTarget.setIndex === item.workoutSet.index ? focusTarget.field : undefined}
             />
-          )}
-        />
-      ))}
+          </DragItemView>
+        );
+      })}
       {pendingSet !== null && (
         <PendingPlanEditSetRow
           // GH-406: each pending row is its own instance, so the 1RM suggestion
@@ -518,7 +462,7 @@ const PlanEditExerciseSection = ({
         />
       )}
       <DashedAddButton
-        label="Add set"
+        label="Add Set"
         testID={`plan-add-set-button-${exercise.id}`}
         onPress={onAddSet}
         style={styles.addButton}
@@ -566,6 +510,7 @@ interface PlanEditSetRowProps {
   commitRowDraftsOnUnmountRef: React.MutableRefObject<boolean>;
   onUpsert: (workoutSet: WorkoutSet) => void;
   active: boolean;
+  autoFocusField?: PlanField;
 }
 
 const PlanEditSetRow = ({
@@ -577,6 +522,7 @@ const PlanEditSetRow = ({
   commitRowDraftsOnUnmountRef,
   onUpsert,
   active,
+  autoFocusField,
 }: PlanEditSetRowProps) => {
   const theme = useTheme();
   const [draft, setDraft] = useState(() => getPlanSetDraft(workoutSet));
@@ -593,7 +539,10 @@ const PlanEditSetRow = ({
   // render later — see the effect below.
   const lastCommittedRef = useRef<WorkoutSet | null>(null);
 
-  useEffect(() => {
+  // GH-418: a layout effect, so a reordered row shows its new values in the same
+  // frame as the drop (rows are keyed by position, so a reorder hands each row
+  // another set) instead of flashing the old numbers for one frame.
+  useLayoutEffect(() => {
     // GH-63: leaving a field commits it, and the store echoes the new set back
     // into this prop. Re-deriving the draft from that echo would throw away
     // whatever the user has typed into the NEXT field in the meantime — the
@@ -703,6 +652,12 @@ const PlanEditSetRow = ({
   // value. A broken range is reported by its own "to" input plus the message
   // below the row, so it never turns the untouched value inputs red.
   const valueInvalid = buildWorkoutSetFromDraft({...draft, repsMax: '', rirMax: '', weightMax: ''}, workoutSet) === null;
+  // GH-418: values are edited here only (the read view's one-cell quick edit is
+  // gone), so this row also says WHY a value is refused — the quick edit did, and
+  // a red outline alone does not explain e.g. that RIR allows decimals.
+  const valueError = PLAN_VALUE_FIELDS.map((field) => (draft[field].length > 0 ? getQuickEditError(undefined, field, draft[field]) : undefined)).find(
+    (error) => error !== undefined,
+  );
 
   return (
     <View>
@@ -722,6 +677,7 @@ const PlanEditSetRow = ({
           showRange={showRange}
           invalid={draft.reps.length > 0 && valueInvalid}
           rangeInvalid={getPlanRangeError('reps', draft.reps, draft.repsMax) !== undefined}
+          autoFocus={autoFocusField === 'reps'}
           onChangeValue={(value) => updateField('reps', value)}
           onChangeMaxValue={(value) => updateField('repsMax', value)}
           onBlur={commitDraft}
@@ -735,6 +691,7 @@ const PlanEditSetRow = ({
           showRange={showRange}
           invalid={draft.rir.length > 0 && valueInvalid}
           rangeInvalid={getPlanRangeError('rir', draft.rir, draft.rirMax) !== undefined}
+          autoFocus={autoFocusField === 'rir'}
           onChangeValue={(value) => updateField('rir', value)}
           onChangeMaxValue={(value) => updateField('rirMax', value)}
           onBlur={commitDraft}
@@ -750,6 +707,7 @@ const PlanEditSetRow = ({
           rangeInvalid={getPlanRangeError('weight', draft.weight, draft.weightMax) !== undefined}
           textColor={highlightColor}
           outlineColor={highlightColor}
+          autoFocus={autoFocusField === 'weight'}
           onChangeValue={(value) => updateField('weight', value)}
           onChangeMaxValue={(value) => updateField('weightMax', value)}
           onBlur={commitDraft}
@@ -767,6 +725,11 @@ const PlanEditSetRow = ({
           {rangeError}
         </HelperText>
       )}
+      {rangeError === undefined && valueError !== undefined && (
+        <HelperText type="error" visible testID={`${testIDPrefix}-value-error`} style={styles.rangeError}>
+          {valueError}
+        </HelperText>
+      )}
     </View>
   );
 };
@@ -781,7 +744,7 @@ interface PendingPlanEditSetRowProps {
 
 // GH-263 Item 2: inline weight-suggestion pattern ported from AddWorkoutSet.tsx.
 // GH-324: the pending row no longer auto-commits while the user types. The draft
-// stays pending until the user leaves the edit flow ("Add set" again or Done),
+// stays pending until the user leaves the edit flow ("Add Set" again or Done),
 // so typing never converts the row under the user's finger. The 1RM toggle is
 // always rendered (disabled when the exercise has no recorded 1RM).
 const PendingPlanEditSetRow = ({pendingSet, oneRepMax, showRanges, onChange, onDelete}: PendingPlanEditSetRowProps) => {
@@ -924,16 +887,21 @@ const styles = StyleSheet.create({
   list: {
     paddingTop: 4,
   },
-  activeSection: {
+  activeItem: {
     zIndex: 100,
     elevation: 4,
+  },
+  placeholder: {
+    position: 'absolute',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
   },
   section: {
     borderRadius: 20,
     borderWidth: 1,
     paddingVertical: 12,
-    marginHorizontal: 12,
-    marginBottom: 12,
+    marginHorizontal: SECTION_MARGIN,
+    marginBottom: SECTION_MARGIN,
   },
   headerRow: {
     flexDirection: 'row',

@@ -43,6 +43,15 @@ export function bestOneRm(exercise: Exercise | undefined): number | undefined {
   return Math.max(...values);
 }
 
+/** GH-528: the record behind `bestOneRm` (first one on ties), to know when it was set. */
+export function bestOneRmRecord(exercise: Exercise | undefined): {value: number; workoutId: number} | undefined {
+  const list = exercise?.records?.[Record.ONE_RM] ?? [];
+  return list.reduce<{value: number; workoutId: number} | undefined>((best, record) => {
+    const value = toFiniteNumber(record?.value);
+    return value !== undefined && (best === undefined || value > best.value) ? {value, workoutId: record.workoutId} : best;
+  }, undefined);
+}
+
 export function avgOneRm(exercise: Exercise | undefined): number | undefined {
   const values = oneRmHistoryValues(exercise, Number.MAX_SAFE_INTEGER);
   if (values.length === 0) return undefined;

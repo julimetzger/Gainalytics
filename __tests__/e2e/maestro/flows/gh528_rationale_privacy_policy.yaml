@@ -1,0 +1,45 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 (T1): Health Connect's dialog links the app's privacy policy (rationale activity), which now has
+# a health data section. Precondition: connected, then only READ_WEIGHT revoked:
+#   adb shell pm revoke com.powerliftingworkoutplanner android.permission.health.READ_WEIGHT
+- runFlow: gh528_open_health_connect_settings.yaml
+- assertVisible:
+    id: 'health-connect-permissions'
+    text: 'Allowed: Read trainings, Write trainings'
+- assertVisible:
+    id: 'health-connect-connect'
+    text: 'Allow missing permissions'
+- tapOn:
+    id: 'health-connect-connect'
+- extendedWaitUntil:
+    visible: '.*the developer.s privacy policy'
+    timeout: 20000
+# The link is a span inside that text node: tap its position (measured on a 1080x2400 emulator).
+- tapOn:
+    point: '67%,41%'
+# HealthConnectRationaleActivity renders assets/privacy-policy.html (= index.html).
+- extendedWaitUntil:
+    visible: 'Datenschutzerklärung'
+    timeout: 20000
+- scrollUntilVisible:
+    element: '4. Gesundheitsdaten \(Health Connect\)'
+    direction: DOWN
+- swipe:
+    start: '50%,80%'
+    end: '50%,30%'
+    duration: 800
+- waitForAnimationToEnd
+- assertVisible: '.*Körpergewicht lesen:.*'
+- takeScreenshot: gh528_rationale_01_privacy_policy
+- back
+- extendedWaitUntil:
+    visible: 'Allow all'
+    timeout: 20000
+- tapOn: 'Allow all'
+- tapOn: '^Allow$'
+- extendedWaitUntil:
+    visible:
+      id: 'health-connect-permissions'
+      text: 'Allowed: Read trainings, Write trainings, Read body weight'
+    timeout: 20000

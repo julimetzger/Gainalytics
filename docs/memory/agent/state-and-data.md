@@ -51,7 +51,7 @@ Persisted records (`state.exercises.byId[*].records[*][i].value`) can be `null`,
 - `adb exec-out run-as com.powerliftingworkoutplanner cat files/mmkv/mmkv.default > copy.bin` (read-only; ~16 MB). Key `persist:root` → varint length → varint length → JSON whose slices are JSON strings again; parse in Python.
 - MMKV APPENDS: superseded values stay in the file until compaction — a grep hit proves a value EXISTED, not that it is current. Make assertions count a value unique to the current run (e.g. reps 14) or verify via the UI.
 - Used to verify things invisible on screen (committed plan values, `restTimer.active` → `null`, stored analysis versions). Writing back: emulators allow `run-as … cp` from `/data/local/tmp` (chmod 666 first); the Samsung phone blocks writes.
-- Scripts: `__tests__/e2e/scripts/assert-gh358-committed-reps.py`.
+- Example scripts (`assert-gh358-committed-reps.py`, `assert-gh443-rest-timer.py`) were removed with their flows in GH-584; recover them from git history if needed.
 (seen in GH-293, GH-358, GH-364, GH-404, GH-468)
 
 ### Gains fixture quirks

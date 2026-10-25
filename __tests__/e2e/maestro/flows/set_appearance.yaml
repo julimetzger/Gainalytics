@@ -1,0 +1,49 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-509 helper: set theme mode (env MODE = light | dark)
+# and the colour (env PALETTE = blue | purple | custom; HEX only for custom).
+- launchApp:
+    clearState: false
+    stopApp: false
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-theme-mode-${MODE}'
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: 'settings-theme-mode-${MODE}'
+- assertVisible:
+    id: '^settings-theme-mode-${MODE}$'
+    checked: true
+- runFlow:
+    when:
+      true: ${PALETTE != 'custom'}
+    commands:
+      - tapOn:
+          id: '^settings-palette-${PALETTE}$'
+      - assertVisible:
+          id: '^settings-palette-${PALETTE}$'
+          checked: true
+- runFlow:
+    when:
+      true: ${PALETTE == 'custom'}
+    commands:
+      - tapOn:
+          id: '^settings-palette-custom$'
+      - extendedWaitUntil:
+          visible: 'Pick a theme colour'
+          timeout: 15000
+      - tapOn:
+          id: 'theme-color-hex-input'
+      - eraseText
+      - inputText: '${HEX}'
+      - hideKeyboard
+      - assertVisible:
+          id: 'theme-color-preview-hex'
+          text: '${HEX}'
+      - tapOn:
+          id: 'theme-color-apply-button'
+      - assertVisible:
+          id: '^settings-palette-custom$'
+          text: 'Custom ${HEX}'

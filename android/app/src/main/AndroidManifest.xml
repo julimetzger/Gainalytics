@@ -14,6 +14,20 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!--
+      GH-528 Health Connect (opt-in, see Settings → Health Connect). Only what a visible feature uses:
+      exercise read/write (finished trainings), weight read (body weight + relative strength in the
+      analysis) and history read (body weight older than 30 days). No WRITE_WEIGHT in release.
+    -->
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
+
+    <!-- Up to Android 13 Health Connect is a separate app. -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
 
     <application
       android:name=".MainApplication"
@@ -33,12 +47,57 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- GH-504: "Back to Gainalytics" link on the ChatGPT sign-in callback page -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="gainalytics" android:host="chatgpt-signin" />
+        </intent-filter>
       </activity>
       <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" />
+      <!-- GH-528: Android 13 and lower: Health Connect opens this to show the privacy policy. -->
+      <activity
+        android:name=".healthconnect.HealthConnectRationaleActivity"
+        android:exported="true"
+        android:label="@string/app_name">
+        <intent-filter>
+          <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+        </intent-filter>
+      </activity>
+      <!-- GH-528: Android 14+: Health Connect is part of the system and uses this alias instead. -->
+      <activity-alias
+        android:name=".healthconnect.ViewPermissionUsageActivity"
+        android:exported="true"
+        android:targetActivity=".healthconnect.HealthConnectRationaleActivity"
+        android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+        <intent-filter>
+          <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+          <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+        </intent-filter>
+      </activity-alias>
       <service
         android:name=".VideoAnalysisForegroundService"
         android:exported="false"
         android:foregroundServiceType="dataSync" />
+      <!-- GH-504: keeps the process unfrozen while "Sign in with ChatGPT" waits for the browser redirect -->
+      <service
+        android:name=".ChatGptSignInService"
+        android:exported="false"
+        android:foregroundServiceType="dataSync" />
+      <!-- GH-496: Strong CSV export → share sheet (+ "Save to Downloads" chooser action) -->
+      <provider
+        android:name="androidx.core.content.FileProvider"
+        android:authorities="${applicationId}.fileshare"
+        android:exported="false"
+        android:grantUriPermissions="true">
+        <meta-data
+          android:name="android.support.FILE_PROVIDER_PATHS"
+          android:resource="@xml/file_share_paths" />
+      </provider>
+      <receiver
+        android:name=".SaveToDownloadsReceiver"
+        android:exported="false" />
     </application>
 
 </manifest>
