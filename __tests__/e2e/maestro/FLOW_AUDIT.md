@@ -78,7 +78,10 @@ instead of a flow with generated fixtures.
 
 ## Entry points
 
-- `smoke.yaml` — self-contained smoke (CI `.github/agent-emulator/smoke.sh`, `npm run e2e:android:smoke`, orchestrator).
+- `smoke.yaml` — PR smoke (GH-588): imports the baseline itself, then `home_dashboard.yaml`,
+  `analyse_dashboard_drilldown.yaml`, `train_start_log_finish.yaml` (last, changes data). Needs only
+  `baseline.gains` in Downloads. Run by the PR check `.github/workflows/maestro-smoke.yml` and the
+  agent workflow's smoke mode (both via `.github/agent-emulator/smoke.sh`), `npm run e2e:android:smoke`, orchestrator.
 - `suite.yaml` — the suite run by `npm run e2e:android` / `run-maestro-from-wsl.sh` (default `SUITE_PATH`).
 
 ## Manual flows

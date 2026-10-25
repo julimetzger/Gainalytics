@@ -88,3 +88,28 @@ npx tsc -p tsconfig.json --noEmit --pretty false > /tmp/tsc.txt; node scripts/ci
 ```
 
 Node version for CI and local work: `.nvmrc`. JDK 17.
+
+### Maestro smoke on an emulator
+
+`.github/workflows/maestro-smoke.yml` (check name **`Maestro smoke`**, the one to add as required
+status check in the `master` ruleset) runs on pull requests and pushes to `master`, except for
+changes that only touch `**/*.md`, `docs/**`, `screenshots/**` or `tickets/**`. It builds the debug
+APK (x86_64, embedded JS bundle), boots an API 34 emulator, pushes `baseline.gains` and runs
+`__tests__/e2e/maestro/flows/smoke.yaml`: baseline import, Training home values
+(`home_dashboard.yaml`), Analyse drill-down (`analyse_dashboard_drilldown.yaml`) and start / log /
+finish a training (`train_start_log_finish.yaml`, last because it changes data).
+
+- Safe for fork PRs: `permissions: contents: read`, no secrets, no environment.
+- Shares the Gradle and AVD caches with `agent-emulator.yml` (same keys). A failed emulator
+  *boot* is retried once with a cold boot; a failing flow is not retried.
+- On failure the **Smoke result** step fails with an annotation naming the failing flow and step;
+  the job summary shows the same plus the Maestro console tail and timings. Artifact
+  `maestro-smoke-evidence` (14 days): JUnit `maestro/smoke/report.xml`, Maestro debug output
+  (failure screenshot, commands JSON), screenshots, logcat, `timings.txt`.
+- Runtime (public 4-vCPU runner): goal < 30 min with warm caches; the Gradle build dominates, the
+  flows take ~6–8 min (`timings.txt` / job summary list each phase).
+- Docs-only changes skip the workflow (`paths-ignore`). A required check whose workflow is skipped
+  by a path filter stays *pending*, so docs-only PRs then need an admin bypass of the ruleset (or
+  drop the `paths-ignore` before making the check required).
+
+Locally: `ANDROID_SERIAL=<serial> npm run e2e:android:smoke` (see `__tests__/e2e/README.md`).

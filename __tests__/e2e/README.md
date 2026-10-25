@@ -64,6 +64,18 @@ The bootstrap of `run-maestro-from-wsl.sh` (modes `bootstrap`, `smoke`, `full`) 
 
 It never imports — the flows import with `00_import_baseline.yaml` / `import_fixture.yaml`.
 
+## Smoke flow and the PR check
+
+`smoke.yaml` imports `baseline.gains` itself (`00_import_baseline.yaml`), then runs
+`home_dashboard.yaml`, `analyse_dashboard_drilldown.yaml` and `train_start_log_finish.yaml`
+(last, it changes data). It only needs the file in `/sdcard/Download` — do not import before it.
+It **replaces the app data on the device**. Takes ~6–8 min on the CI emulator.
+
+The same flow runs as the required PR check **`Maestro smoke`**
+(`.github/workflows/maestro-smoke.yml`, see `docs/release.md` › Continuous integration) and in
+the agent workflow's `smoke_only` mode; both use `.github/agent-emulator/smoke.sh`
+(`tool.sh push-baseline`, then `tool.sh flow smoke.yaml`).
+
 Notes:
 - `run-maestro-from-wsl.sh` auto-detects the WSL host IP from `/etc/resolv.conf` when `E2E_MAESTRO_HOST` is not set.
 - `run-maestro-from-wsl.sh` configures `adb reverse tcp:8081 tcp:8081` (or `E2E_METRO_PORT`) before running flows.
