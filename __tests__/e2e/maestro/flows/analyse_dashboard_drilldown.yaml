@@ -28,11 +28,26 @@ appId: com.powerliftingworkoutplanner
 #
 # Merged from: gh458_muscle_drilldown_and_units, gh458_round2_review_fixes,
 #   gh458_round3_metrics_units, gh532_empty_week, gh532_open_dashboard
-# stopApp: false resumes the running app instead of a cold start plus the ~7 s
-# "Dismiss" overlay check that only a force-stop needs (GH-588 smoke runtime).
-- launchApp:
-    clearState: false
-    stopApp: false
+# Standalone / full suite: a COLD start. A resumed app keeps the Dashboard's
+# scroll position and radar selection from an earlier visit (banner scrolled
+# away, Quads already selected - tapping it again deselects it), seen when this
+# flow ran twice in a row (GH-588).
+# smoke.yaml passes ANALYSE_RESUME: 'true': there the Analyse tab was never
+# opened since the import, so resuming is safe and skips the cold start.
+# No header `env:` default here: it would override the caller's value.
+- runFlow:
+    when:
+      true: ${typeof ANALYSE_RESUME === 'undefined' || ANALYSE_RESUME !== 'true'}
+    commands:
+      - launchApp:
+          clearState: false
+- runFlow:
+    when:
+      true: ${typeof ANALYSE_RESUME !== 'undefined' && ANALYSE_RESUME === 'true'}
+    commands:
+      - launchApp:
+          clearState: false
+          stopApp: false
 - extendedWaitUntil:
     visible: 'tab-training'
     timeout: 120000
@@ -188,7 +203,11 @@ appId: com.powerliftingworkoutplanner
     start: 90%, 45%
     end: 15%, 45%
 - waitForAnimationToEnd
-- assertVisible: '1 selected'
+# Wait instead of asserting right after the gesture: the pane re-renders after
+# the snap animation (SWIPE_SETTLE_MS) on a slow runner.
+- extendedWaitUntil:
+    visible: '1 selected'
+    timeout: 15000
 - assertVisible: 'Quads'
 - assertNotVisible: 'Showing.*'
 
