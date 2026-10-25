@@ -43,19 +43,26 @@ Run commands:
 - `npm run e2e:android:bootstrap`
 - `ANDROID_SERIAL=<serial> npm run e2e:android`
 - `ANDROID_SERIAL=<serial> npm run e2e:android:smoke`
-- `maestro --host "${WSL_GATEWAY}" --device <serial> test flow.yaml`
+- `maestro --host "${WSL_GATEWAY}" --device <serial> test __tests__/e2e/maestro/flows/<flow>.yaml`
 
-Default fixture source:
+Flows live in `__tests__/e2e/maestro/flows/`: 2–3 target flows per feature, 10 shared helpers and
+the entry points `smoke.yaml` / `suite.yaml`. See `maestro/FLOW_AUDIT.md` for the overview and the
+rules for new flows; `maestro/flows/manual/` holds flows that need a real key/account/device.
 
-- `__tests__/testdata/1772318214222.gains`
+Default fixture source (`--fixture` overrides it):
 
-The fixture is pushed to the device as:
+- `__tests__/e2e/maestro/fixtures/baseline.gains`
 
-- `/sdcard/Download/baseline.gains`
+The bootstrap of `run-maestro-from-wsl.sh` (modes `bootstrap`, `smoke`, `full`) pushes to
+`/sdcard/Download/`:
 
-Video analysis flow prerequisite:
+- `baseline.gains` (the fixture above), `squat-3reps.mp4`, `squat-1rep.mp4`
+- `maestro/fixtures/gh496/*.csv`, `maestro/fixtures/gh393-compare-labels.gains`,
+  `maestro/fixtures/gh415-workout-linked-analysis.gains`
+- `__tests__/testdata/gh391_planned_fixture.gains`, `gh391_newplan_fixture.gains`,
+  `gh508_chat_fixture.gains` (AI chat flows)
 
-- Place a video at `/storage/emulated/0/Pictures/PXL_20250917_171414039~2.mp4` on the device.
+It never imports — the flows import with `00_import_baseline.yaml` / `import_fixture.yaml`.
 
 Notes:
 - `run-maestro-from-wsl.sh` auto-detects the WSL host IP from `/etc/resolv.conf` when `E2E_MAESTRO_HOST` is not set.

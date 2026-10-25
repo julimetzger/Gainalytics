@@ -1,0 +1,401 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F8 Video analysis - T8.2 list, search, filters and the VL reference.
+#
+# Purpose:
+#   * GH-200 / GH-152: the Video Analysis list with lift counter and Filters
+#     (RANGE / EXERCISE / VL% / RIR); RIR, VL and exercise chips narrow the list
+#     to concrete counts, deselecting restores it.
+#   * GH-206: free-text search by exercise name and by set RIR ("N lifts").
+#   * GH-316 / GH-415: VL reference calibration on a WORKOUT-linked analysis:
+#     14.3% VL reads RIR 3-4 on the global curve, RIR 1-2 after anchoring at
+#     RIR 1 (card, playback overlay and list row agree); another exercise keeps
+#     the global curve; removing the reference restores RIR 3-4.
+#
+# Data basis: MUTATES the store -> imports the fixture first.
+#   fixtures/gh415-workout-linked-analysis.gains holds two DONE analyses:
+#     #1 Squat (exerciseId 2), no workout link, VL 14.29%, no RIR estimate
+#     #2 no exerciseId, linked to workout 2 set 1 = Bankdrücken 115 kg x 6 @ RIR 1,
+#        VL 14.29%, rirEstimate "3-4", resultPath -> files/gh415-result.json
+#   Push beforehand:
+#     fixtures/gh415-workout-linked-analysis.gains
+#         -> /sdcard/Download/gh415-workout-linked-analysis.gains
+#     fixtures/gh415-result.json -> app-private files dir (RNFS cannot read
+#         /sdcard/Download), e.g. push to /data/local/tmp/gh415-result.json, then
+#         `run-as com.powerliftingworkoutplanner sh -c 'cat /data/local/tmp/gh415-result.json
+#          > /data/data/com.powerliftingworkoutplanner/files/gh415-result.json'`
+#     Without the JSON the playback overlay ("RIR=…" block) is not rendered.
+#
+# Merged from: gh415_vl_reference_workout_link (base), gh316_vl_reference,
+#   gh200_video_analysis_screen_warm, video_analysis_filter, gh206_video_search
+- runFlow:
+    file: import_fixture.yaml
+    env:
+      FIXTURE: 'gh415-workout-linked-analysis.gains'
+
+# ---------------------------------------------------------------- PRECONDITION
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+
+# ------------------------------------------------ open the Video Analysis list
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 60000
+- runFlow:
+    when:
+      notVisible:
+        id: 'video-analysis-import-button'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      # The first toggle tap after a FULL_IMPORT is often swallowed; on some
+      # emulators the id tap never opens the drawer -> documented pixel fallback
+      # on the hamburger (top-left header).
+      - runFlow:
+          when:
+            notVisible: 'Close drawer'
+          commands:
+            - tapOn:
+                point: '6%,9%'
+      - extendedWaitUntil:
+          visible: 'Close drawer'
+          timeout: 15000
+      - tapOn:
+          text: '^Video Analysis$'
+          below:
+            id: 'analyse-drawer-toggle'
+# The drawer can linger over the list; wait for the row itself.
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-2'
+    timeout: 60000
+
+# --------------------------------------------- list: counter + row values
+- assertVisible:
+    id: 'video-analysis-lift-count'
+    text: '2 lifts'
+- assertVisible:
+    id: 'video-analysis-filters-summary'
+    text: '.* · all exercises · all VL · all RIR'
+# Row #2 resolves its exercise through the workout (GH-415).
+- assertVisible: 'Bankdrücken'
+- assertVisible: '115 kg × 6'
+- assertVisible: 'VL 14\.3% · RIR 3-4'
+# Row #1 (Squat) has no RIR estimate -> bare VL.
+- assertVisible: '^VL 14\.3%$'
+
+# ------------------------------------------------------- GH-206 search
+- tapOn:
+    id: '^video-analysis-search-bar$'
+- inputText: 'Bank'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-lift-count'
+      text: '1 lift'
+    timeout: 10000
+- assertVisible: 'VL 14\.3% · RIR 3-4'
+- assertNotVisible: '^VL 14\.3%$'
+- eraseText: 4
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-lift-count'
+      text: '2 lifts'
+    timeout: 10000
+# A number is matched against the linked set's RIR: only #2 (RIR 1) has a set.
+- inputText: '1'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-lift-count'
+      text: '1 lift'
+    timeout: 10000
+- assertVisible: 'Bankdrücken'
+- eraseText: 1
+- inputText: 'Squat 1'
+# AND semantics: Squat (#1) has no linked set -> nothing matches.
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-lift-count'
+      text: '0 lifts'
+    timeout: 10000
+- assertVisible:
+    id: 'video-analysis-empty-card'
+- assertVisible: 'No analyses match the active filters\.'
+- eraseText: 7
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-lift-count'
+      text: '2 lifts'
+    timeout: 10000
+
+# ------------------------------------------------- GH-200 / GH-152 filters
+- tapOn:
+    id: 'video-analysis-filters-toggle'
+- extendedWaitUntil:
+    visible: 'RANGE'
+    timeout: 10000
+- assertVisible: 'EXERCISE'
+- assertVisible: 'VL%'
+- assertVisible: '^RIR$'
+# RIR 0: no set with RIR 0 -> empty list
+- tapOn:
+    id: 'video-analysis-rir-chip-0'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-lift-count'
+      text: '0 lifts'
+    timeout: 10000
+- assertVisible:
+    id: 'video-analysis-filters-summary'
+    text: '.* · all exercises · all VL · RIR 0'
+- assertVisible: 'No analyses match the active filters\.'
+- tapOn:
+    id: 'video-analysis-rir-chip-0'
+# RIR 1: only the workout-linked #2
+- tapOn:
+    id: 'video-analysis-rir-chip-1'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-lift-count'
+      text: '1 lift'
+    timeout: 10000
+- assertVisible:
+    id: 'video-analysis-filters-summary'
+    text: '.* · all exercises · all VL · RIR 1'
+- tapOn:
+    id: 'video-analysis-rir-chip-1'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-lift-count'
+      text: '2 lifts'
+    timeout: 10000
+# VL 20-30%: both are 14.29% -> none; VL 10-20% -> both
+- tapOn:
+    id: 'video-analysis-vl-chip-20-30%'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-lift-count'
+      text: '0 lifts'
+    timeout: 10000
+- tapOn:
+    id: 'video-analysis-vl-chip-20-30%'
+- tapOn:
+    id: 'video-analysis-vl-chip-10-20%'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-filters-summary'
+      text: '.* · all exercises · 10-20% · all RIR'
+    timeout: 10000
+- assertVisible:
+    id: 'video-analysis-lift-count'
+    text: '2 lifts'
+- tapOn:
+    id: 'video-analysis-vl-chip-10-20%'
+# Exercise chip Squat (id 2) filters on the analysis' own exerciseId -> #1 only
+- tapOn:
+    id: 'video-analysis-exercise-chip-2'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-lift-count'
+      text: '1 lift'
+    timeout: 10000
+- assertVisible:
+    id: 'video-analysis-filters-summary'
+    text: '.* · Squat · all VL · all RIR'
+- tapOn:
+    id: 'video-analysis-exercise-chip-2'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-lift-count'
+      text: '2 lifts'
+    timeout: 10000
+- tapOn:
+    id: 'video-analysis-filters-toggle'
+- extendedWaitUntil:
+    notVisible: 'RANGE'
+    timeout: 10000
+
+# ------------------------- GH-415 / GH-316: before - global curve, RIR 3-4
+- tapOn:
+    id: 'video-analysis-row-2'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-detail-screen'
+    timeout: 30000
+- assertVisible: 'Bankdrücken · Set 1 · 115 kg @ 1 RIR'
+- scrollUntilVisible:
+    element:
+      id: 'vl-reference-set-button'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: 'vl-reference-vl-percent'
+    text: '14\.3% VL'
+- assertVisible:
+    id: 'vl-reference-rir-estimate'
+    text: 'RIR 3-4'
+- assertVisible:
+    id: 'vl-reference-global-hint'
+    text: 'Bankdrücken uses the global VL curve\.'
+- assertNotVisible:
+    id: 'vl-reference-badge'
+# Playback overlay (needs gh415-result.json): same global value.
+- repeat:
+    times: 6
+    while:
+      notVisible:
+        id: 'video-analysis-rir-estimate'
+    commands:
+      - swipe:
+          start: '6%, 79%'
+          end: '6%, 25%'
+- assertVisible:
+    id: 'video-analysis-rir-estimate'
+    text: 'RIR=3-4'
+- assertNotVisible:
+    id: 'video-analysis-vl-reference-label'
+
+# ------------------------------------------ anchor this set at RIR 1
+- repeat:
+    times: 6
+    while:
+      notVisible:
+        id: 'vl-reference-set-button'
+    commands:
+      - swipe:
+          start: '6%, 25%'
+          end: '6%, 79%'
+- assertVisible:
+    id: 'vl-reference-set-button'
+    text: 'Set as VL reference'
+- tapOn:
+    id: 'vl-reference-set-button'
+- extendedWaitUntil:
+    visible:
+      id: 'vl-reference-dialog-confirm'
+    timeout: 15000
+- assertVisible:
+    id: 'vl-reference-dialog-summary'
+    text: 'Bankdrücken · 14\.3% VL'
+# Only RIR 0-3 can anchor the curve (GH-316).
+- assertVisible:
+    id: 'vl-reference-rir-option-0'
+- assertVisible:
+    id: 'vl-reference-rir-option-3'
+- assertNotVisible:
+    id: 'vl-reference-rir-option-4'
+- tapOn:
+    id: 'vl-reference-rir-option-1'
+- assertVisible:
+    id: 'vl-reference-dialog-confirm'
+    text: 'Anchor at RIR 1'
+- tapOn:
+    id: 'vl-reference-dialog-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'vl-reference-badge'
+    timeout: 15000
+
+# ------------------------------------------ after: RIR 1-2 everywhere
+- assertVisible:
+    id: 'vl-reference-vl-percent'
+    text: '14\.3% VL'
+- assertVisible:
+    id: 'vl-reference-rir-estimate'
+    text: 'RIR 1-2'
+- assertVisible:
+    id: 'vl-reference-badge'
+    text: 'VL reference · RIR 1 · .*'
+- assertNotVisible:
+    id: 'vl-reference-global-hint'
+- assertVisible:
+    id: 'vl-reference-set-button'
+    text: 'Replace reference'
+- repeat:
+    times: 6
+    while:
+      notVisible:
+        id: 'video-analysis-vl-reference-label'
+    commands:
+      - swipe:
+          start: '6%, 79%'
+          end: '6%, 25%'
+- assertVisible:
+    id: 'video-analysis-rir-estimate'
+    text: 'RIR=1-2'
+- assertVisible:
+    id: 'video-analysis-vl-reference-label'
+    text: 'VL reference · RIR 1 · .*'
+
+# --------------------------------------- list row shows the calibrated value
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-2'
+    timeout: 30000
+- assertVisible: 'VL 14\.3% · RIR 1-2'
+- assertNotVisible: 'VL 14\.3% · RIR 3-4'
+# Squat (#1) is another exercise and is untouched.
+- assertVisible: '^VL 14\.3%$'
+
+# -------------------------------- another exercise keeps the global curve
+- tapOn:
+    id: 'video-analysis-row-1'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-detail-screen'
+    timeout: 30000
+- assertVisible: 'Squat · No linked set'
+- scrollUntilVisible:
+    element:
+      id: 'vl-reference-set-button'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: 'vl-reference-global-hint'
+    text: 'Squat uses the global VL curve\.'
+- assertVisible:
+    id: 'vl-reference-rir-estimate'
+    text: 'RIR 3-4'
+- assertNotVisible:
+    id: 'vl-reference-badge'
+
+# ------------------------------------ remove the reference -> RIR 3-4 again
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-2'
+    timeout: 30000
+- tapOn:
+    id: 'video-analysis-row-2'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-detail-screen'
+    timeout: 30000
+- assertVisible: 'Bankdrücken · Set 1 · 115 kg @ 1 RIR'
+- repeat:
+    times: 6
+    while:
+      notVisible:
+        id: 'vl-reference-remove-button'
+    commands:
+      - swipe:
+          start: '6%, 25%'
+          end: '6%, 79%'
+- tapOn:
+    id: 'vl-reference-remove-button'
+- extendedWaitUntil:
+    visible:
+      id: 'vl-reference-global-hint'
+    timeout: 15000
+- assertVisible:
+    id: 'vl-reference-global-hint'
+    text: 'Bankdrücken uses the global VL curve\.'
+- assertVisible:
+    id: 'vl-reference-rir-estimate'
+    text: 'RIR 3-4'
+- assertNotVisible:
+    id: 'vl-reference-badge'

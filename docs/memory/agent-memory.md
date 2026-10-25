@@ -240,7 +240,7 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Apply when:** any cleanup or migration has a "skip if no data" guard.
 
 ### Edge-case device states: derive a small fixture with a node script + a parametrized import subflow
-**Observation (GH-486 round 2):** a one-exercise store was needed. `__tests__/testdata/scripts/make_gh486_fixture.js` strips `baseline.gains` to one exercise (≈85 KB instead of 1.7 MB) and keeps all references consistent. `gh486_import_fixture.yaml` is `00_import_baseline` with `tapOn: '${FIXTURE}'`, called via `runFlow: {file: …, env: {FIXTURE: x.gains}}` after `adb push x.gains /sdcard/Download/`. The SAF picker listed the pushed files without a media scan.
+**Observation (GH-486 round 2):** a one-exercise store was needed. `__tests__/testdata/scripts/make_gh486_fixture.js` strips `baseline.gains` to one exercise (≈85 KB instead of 1.7 MB) and keeps all references consistent. The helper `import_fixture.yaml` is `00_import_baseline` with `tapOn: '${FIXTURE}'`, called via `runFlow: {file: …, env: {FIXTURE: x.gains}}` after `adb push x.gains /sdcard/Download/`. The SAF picker listed the pushed files without a media scan.
 **Apply when:** a ticket needs a store state that is tedious to click together.
 
 ### Maestro's console log can end after the first step even on a green run — read `commands-(<flow>).json` in `--debug-output`
@@ -464,7 +464,7 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Apply when:** asserting that a label exists only once or sits in a particular row.
 
 ### Since GH-447 a dummy API key can't build a chat — seed one through the `.gains` import
-**Observation (GH-508):** a failed send now rolls the user message back, so "type + send with a dummy key" leaves the chat empty (older flows like gh293 relied on it). `FULL_IMPORT` takes `aiChat` verbatim without migrations: add `aiChat: {messages: [...], isLoading: false, error: null, seedContextJson: null, contextRange: null, includePlannedTrainings: true, selectedTrainingId: null, history: [], pendingLegacyArchive: false}` to the baseline JSON (see `__tests__/testdata/gh508_chat_fixture.gains`). Keep `pendingLegacyArchive: false` or the chat is archived on first open.
+**Observation (GH-508):** a failed send now rolls the user message back, so "type + send with a dummy key" leaves the chat empty (older, since removed flows relied on it). `FULL_IMPORT` takes `aiChat` verbatim without migrations: add `aiChat: {messages: [...], isLoading: false, error: null, seedContextJson: null, contextRange: null, includePlannedTrainings: true, selectedTrainingId: null, history: [], pendingLegacyArchive: false}` to the baseline JSON (see `__tests__/testdata/gh508_chat_fixture.gains`). Keep `pendingLegacyArchive: false` or the chat is archived on first open.
 **Apply when:** a flow or screenshot needs an AI chat with messages.
 
 ### Changing font scale or density while the app runs crashes it ("Screen fragments should never be restored")
@@ -477,11 +477,11 @@ Workers append NEW learnings here (and only here), after checking the table of c
 
 ### Kebab "Edit plan" (`overflow-edit-plan`) only exists on the Plan sub-tab; the landing sub-tab varies
 **Problem (GH-509):** the gh340 recipe (Micro 69 → Push → kebab → `overflow-edit-plan`) now lands on Train or Analysis, and there the kebab only offers "Edit training" (`overflow-edit`) / "Delete". On the 720x1600 phone the sub-tab strip sits at y≈11 % (`point: '17%,11%'`), not the 14 % from the gh401 emulator flow. At 14 % you hit the Analysis "Show Plan/Train" toggle instead.
-**Fix / Rule:** `repeat while notVisible overflow-edit-plan: [tap 17%,11%; tap header-overflow-icon; when notVisible overflow-edit-plan → tap 50%,60% (dismisses the menu)]` (see `gh509_drawer_in_plan_edit.yaml`). Prove the mode with `header-plan-editing-kicker`.
+**Fix / Rule:** `repeat while notVisible overflow-edit-plan: [tap 17%,11%; tap header-overflow-icon; when notVisible overflow-edit-plan → tap 50%,60% (dismisses the menu)]` (the helper `goto_micro69_push.yaml` with env `MODE=edit` does this). Prove the mode with `header-plan-editing-kicker`.
 **Apply when:** a flow needs "EDITING PLAN" mode.
 
-### `settings-theme-active-mode` is gone, so `gh482_set_theme.yaml` fails at its assertion
-**Fix / Rule:** assert the segment itself: `assertVisible: {id: '^settings-theme-mode-${MODE}$', checked: true}`. For palette + custom HEX in one helper, use `gh509_set_appearance.yaml` (env MODE / PALETTE / HEX). (seen in GH-509)
+### `settings-theme-active-mode` is gone — assert the theme segment instead
+**Fix / Rule:** assert the segment itself: `assertVisible: {id: '^settings-theme-mode-${MODE}$', checked: true}`. For mode + palette + custom HEX in one helper, use `set_appearance.yaml` (env MODE / PALETTE / HEX). (seen in GH-509)
 
 ### Two PRs that rename and use the same variable merge cleanly into a ReferenceError — grep tsc for the touched files
 **Problem (GH-514):** GH-504 renamed `hasApiKey`→`hasCredentials` in `AIChatTab.tsx`, and GH-508 added new lines using `hasApiKey`. Git merged both without a conflict, so 0.180 threw on every render ("AI Chat could not be displayed"). `tsc` reported `TS2304 Cannot find name 'hasApiKey'`, but nobody saw it among ~229 existing errors. The 30 red AIChat jest tests got dismissed as "pre-existing failures" by later workers.
@@ -500,7 +500,7 @@ Workers append NEW learnings here (and only here), after checking the table of c
 
 ### AI chat context bar on the 720dp phone: last chips off-screen, subject + period persist across runs
 **Observation (GH-514):** `chat-context-bar` scrolls horizontally. On R5CN-width screens, `chat-context-inspect` ("View context (N)") and the subject chip's close icon ("Clear selected training") are not in the hierarchy until you `swipe: {from: {id: 'chat-context-bar'}, direction: LEFT}`. The chosen subject and period (Meso/28d) survive `chat-clear-button` and new runs, so reset them at the start of the flow (`chat-filter-toggle` → `chat-preset-28d`; `when notVisible 'Training: none'` → clear).
-**Apply when:** writing/reusing AI chat flows (`gh515_chat_device.yaml`).
+**Apply when:** writing/reusing AI chat flows (`ai_chat_context.yaml`, `ai_chat_errors_history.yaml`, `manual/gh515_chat_device.yaml`).
 
 ### Any `settings` dispatch remounted the whole Training stack — navigator was created inside `TrainingRouter`
 **Problem (GH-518):** starring a plan (a settings write) jumped TrainingHome to the top and swallowed its snackbar. App rebuilds the Paper theme from `settings` on every settings change → the tab tree re-renders → `TrainingRouter` called `createNativeStackNavigator()` in its body → new navigator type → full remount (all local state lost).
@@ -508,7 +508,7 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Apply when:** storing UI state in `settings` that a Training screen reacts to, or debugging state loss after theme/settings changes.
 
 ### FAB-overlap ACs: prove "never over content" with uiautomator bounds, not Maestro
-**Observation (GH-518):** Maestro can't read bounds on this build. `__tests__/e2e/scripts/gh518_check_fab_bounds.py <dump>` checks list bottom ≤ FAB top and no card control (`plan-select-*`, `edit-trainings-plan-*`, `next-training-start-button`) intersecting `add-trainings-plan`; `--expect collapsed` checks width≈height; `--tap-out` writes a tap point at the button's lower-right corner, passed to a flow via `-e TAP=x,y` (`tapOn: point: '${TAP}'`). Run it against an old-code dump once — it must fail there. Driver pattern: `checks/e2e.sh` in the GH-518 run dir.
+**Observation (GH-518):** Maestro can't read bounds on this build. A GH-518 bounds script (no longer in the repo) checked list bottom ≤ FAB top and no card control (`plan-select-*`, `edit-trainings-plan-*`, `next-training-start-button`) intersecting `add-trainings-plan`; `--expect collapsed` checks width≈height; `--tap-out` writes a tap point at the button's lower-right corner, passed to a flow via `-e TAP=x,y` (`tapOn: point: '${TAP}'`). Run it against an old-code dump once — it must fail there. Driver pattern: `checks/e2e.sh` in the GH-518 run dir.
 **Apply when:** any "X never covers Y" / layout-overlap acceptance criterion.
 
 ### Training home snackbar can render ~8 s after the tap on a loaded emulator — adb burst captures miss it
@@ -525,12 +525,12 @@ Workers append NEW learnings here (and only here), after checking the table of c
 
 ### Owner-phone layout overflow: reproduce with `font_scale 1.3` on the emulator
 **Observation (GH-522):** the owner's Samsung showed the Finish Training Timer delete button pushed right of the Pause one; at font_scale 1.0 the emulator looked fine. `adb -s $S shell settings put system font_scale 1.3` (then cold-start — see the crash entry below) reproduced it: the row overflowed and the icon sat past the card edge.
-**Fix / Rule:** in a `space-between` row, give the text button `flexShrink: 1`. Paper `Button` labels are `numberOfLines={1}`, so very long labels end in an ellipsis. Paper `Surface` moves `flexShrink` onto an unnamed outer layer, so a jest test cannot read it from `<testID>-container`; use `UNSAFE_getByType(Button).props.style`. Prove the alignment from uiautomator bounds (`__tests__/e2e/scripts/gh522_check_timer_delete_alignment.py`).
+**Fix / Rule:** in a `space-between` row, give the text button `flexShrink: 1`. Paper `Button` labels are `numberOfLines={1}`, so very long labels end in an ellipsis. Paper `Surface` moves `flexShrink` onto an unnamed outer layer, so a jest test cannot read it from `<testID>-container`; use `UNSAFE_getByType(Button).props.style`. Prove the alignment from uiautomator bounds (the GH-522 checker script was removed in GH-584 — see git history).
 **Apply when:** a layout bug from a real phone doesn't reproduce on the emulator.
 
 ### Bounds checks for in-list header controls via uiautomator
-**Observation:** a `testID` on a plain RN `View` (e.g. `plans-header`) shows up in `uiautomator dump` as `android.view.ViewGroup` with that resource-id, and a Paper `Button` with `testID="x"` exposes its label as `x-text` — enough to prove "inside the header", "header height unchanged" (px / (density/160)) and "label not clipped" from bounds. A control moved from a floating FAB into the scroll content needs `scrollUntilVisible` before every `tapOn` in older flows (smoke, trn004, gh497), or they fail on tall dashboards.
-**Apply when:** replacing a FAB/overlay with an in-flow control, or proving layout claims Maestro can't read. Checker: `__tests__/e2e/scripts/gh518_check_new_training_bounds.py`. (seen in GH-518)
+**Observation:** a `testID` on a plain RN `View` (e.g. `plans-header`) shows up in `uiautomator dump` as `android.view.ViewGroup` with that resource-id, and a Paper `Button` with `testID="x"` exposes its label as `x-text` — enough to prove "inside the header", "header height unchanged" (px / (density/160)) and "label not clipped" from bounds. A control moved from a floating FAB into the scroll content needs `scrollUntilVisible` before every `tapOn` in existing flows (smoke and the target flows), or they fail on tall dashboards.
+**Apply when:** replacing a FAB/overlay with an in-flow control, or proving layout claims Maestro can't read. (The GH-518 bounds checker script was removed in GH-584 — see git history.) (seen in GH-518)
 ### Edge-to-edge (GH-356) means `adjustResize` no longer resizes — and the Paper bottom nav hiding on `keyboardDidShow` clamps the scroll
 **Problem (GH-418):** with `edgeToEdgeEnabled=true` the keyboard only draws over the window. A short plan has no scroll range for the focused field, and a list scrolled to its END jumps DOWN on focus: Paper's `BottomNavigationBar` sets `keyboardVisible` (position absolute) in its own `keyboardDidShow` listener, the scroller grows by the tab-bar height and Android clamps the offset (field 1133 → 1357 px on the phone).
 **Fix / Rule:** set keyboard-height `paddingBottom` on the ScrollView's `contentContainerStyle` synchronously inside your own `keyboardDidShow` listener — React batches it into the same commit as the nav bar, so content grows before the viewport. On hide, scroll back out of the padding (animated) before removing it. See `KeyboardAwareScrollView`.
@@ -545,14 +545,14 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation:** `useProgressiveLimit(2)` stopped at 2 + 4×2 = 10 items, so the plan read view never showed an 11th exercise (baseline Micro 69 "Push" has 11) and `MicroExerciseOverview` stopped at 5 cards. The last stage now provides `Infinity`. If a list "loses" its last items only inside a sub-tab, check stage caps first.
 
 ### Keyboard/position checks on a RUNNING training: read `maestro hierarchy`, not uiautomator
-**Observation (GH-418):** `HOME=$E2E_MAESTRO_HOME … maestro --host <proxy> --device $S --driver-host-port <port> hierarchy > h.json` works while `uiautomator dump` fails ("could not get idle state"); JSON nodes carry `resource-id`, `text`, `focused`, `bounds` in input coordinates (~19 s per call). Keyboard top = IME window `frame` top + `mGivenContentInsets` top from `dumpsys window windows`. Script: `__tests__/e2e/scripts/check-gh418-focused-field-above-keyboard.sh --maestro-hierarchy`.
+**Observation (GH-418):** `HOME=$E2E_MAESTRO_HOME … maestro --host <proxy> --device $S --driver-host-port <port> hierarchy > h.json` works while `uiautomator dump` fails ("could not get idle state"); JSON nodes carry `resource-id`, `text`, `focused`, `bounds` in input coordinates (~19 s per call). Keyboard top = IME window `frame` top + `mGivenContentInsets` top from `dumpsys window windows`. (The GH-418 keyboard check script was removed with its flows in GH-584 — see git history.)
 **Apply when:** asserting positions (field vs keyboard, element moved) on screens with a ticking timer.
 
 ### Debug JS on the phone: LogBox is muted (`LogBox.ignoreAllLogs`) and Metro shows no logs — render an on-screen overlay
 **Observation (GH-418):** `console.warn` never appears; Metro 0.84 says "JavaScript logs have moved" (DevTools). A temporary absolutely positioned `<Text>` fed from `globalThis.__dbg` (re-rendered by a 300 ms interval) showed the measurements in a screenshot. Remove it before measuring performance — the interval re-render alone starved `requestAnimationFrame` to ~2 fps. Fast Refresh after such edits twice left a white screen: force-stop + cold start.
 
 ### Drag on the phone: `input motionevent` costs ~150 ms per event, and a busy JS thread delivers few rAF frames
-**Observation (GH-418):** a 16-step drag plus 110 hold steps takes ~25 s; the gesture's rAF loop got only a few frames per second on the 11-exercise plan editor. Make per-frame work time-based (dp/s × elapsed), run timed animations with `useNativeDriver: true`, and verify with `screenrecord` + `ffmpeg -vf fps=2,tile=…` rather than single screenshots. Script: `__tests__/e2e/scripts/drag-gh418-plan-item.sh`.
+**Observation (GH-418):** a 16-step drag plus 110 hold steps takes ~25 s; the gesture's rAF loop got only a few frames per second on the 11-exercise plan editor. Make per-frame work time-based (dp/s × elapsed), run timed animations with `useNativeDriver: true`, and verify with `screenrecord` + `ffmpeg -vf fps=2,tile=…` rather than single screenshots. (The GH-418 `input motionevent` drag script was removed in GH-584 — see git history.)
 
 ### Jest: Animated timing finishes in one frame, and the native driver fails on its second use
 **Problem / Symptom:** In jest, an `Animated.timing` with `duration: 180` called its `start` callback after about 16 ms of fake time. Advancing 50 ms to land "inside" the animation therefore landed after it, and the race test passed on the buggy code. A value animated twice with `useNativeDriver: true` threw `Unable to find node on an unmounted component` (also on the old code).
@@ -582,7 +582,7 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Apply when:** asserting the Training home hero or next-training card on a baseline-derived fixture (seen in GH-533).
 
 ### Week-relative dashboard scenarios: generate fixtures in UTC for the current week
-**Observation:** "This week"/"new week" states (day strip, GH-533 micro switch) can't be reached with `adb shell date`. `__tests__/testdata/scripts/make_gh533_micro_fixtures.js <baseline> <outDir>` writes four stores whose plan-5 sessions are dated relative to the current Monday (UTC — the emulators run GMT), incl. a STARTED training. A running training's ticking timer on the home card did NOT block Maestro assertions here.
+**Observation:** "This week"/"new week" states (day strip, GH-533 micro switch) can't be reached with `adb shell date`. GH-533 generated four stores whose plan-5 sessions were dated relative to the current Monday (UTC — the emulators run GMT), incl. a STARTED training (generator removed in GH-584; the current-micro logic is now covered by `__tests__/utils/currentMicro.spec.ts`, and the owner decided against date-shifted fixtures for flows). A running training's ticking timer on the home card did NOT block Maestro assertions here.
 **Apply when:** you need trainings "this week" vs "last week"; regenerate on the day of the run (seen in GH-533).
 
 ### Run-maestro wrapper `--report` wants a FILE path — a directory crashes Maestro after a passing flow
@@ -591,7 +591,7 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Apply when:** using `--report` with `run-maestro-from-wsl.sh`.
 
 ### "This week vs last week" dashboard evidence: shift the baseline, anchor to Monday, not to now
-**Observation (GH-532):** `__tests__/testdata/scripts/make_gh532_radar_fixtures.js <baseline> <outDir>` shifts every date so the last logged workout ends on this week's Wednesday 20:00 (Europe/Berlin), plus a `last_week_only` variant (empty current week). Anchoring to Monday keeps per-muscle values identical on every weekday, so Maestro can assert exact numbers (`Back, 9 sets`; strip `9 sets · 5.7t · -2 sets vs last week`). A node preview of per-muscle sets (percent-weighted) matched the app exactly.
+**Observation (GH-532, generator removed in GH-584 — flows now stay on the fixed baseline):** a GH-532 generator shifted every date so the last logged workout ends on this week's Wednesday 20:00 (Europe/Berlin), plus a `last_week_only` variant (empty current week). Anchoring to Monday keeps per-muscle values identical on every weekday, so Maestro can assert exact numbers (`Back, 9 sets`; strip `9 sets · 5.7t · -2 sets vs last week`). A node preview of per-muscle sets (percent-weighted) matched the app exactly.
 **Apply when:** any Dashboard/weekly comparison needs non-empty current and previous weeks.
 
 ### Dashboard muscle radar: tapping `muscle-chip-<Muscle>` only SELECTS since GH-532
@@ -621,7 +621,7 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-542 r2):** `maestro --device <serial> hierarchy` listed `add-workout-finalize-button`, `add-workout-set-number` and `training-exercise-N` (with the exercise name as text) on the edit pane; `tapOn: {id: 'add-workout-finalize-button'}` works. The gh323 flow comment saying it is not exposed is outdated.
 **Apply when:** finalizing a workout or moving to the next exercise in a flow.
 ### First Metro bundle after `tool.sh launch` takes ~1.5 min — flows fail with "id: tab-analyse is visible"
-**Problem (GH-546):** a flow started right after `metro-start` + `launch` runs against a white "Bundling 75%" screen. `extendedWaitUntil: visible: {id: "tab-analyse"}` also never matched on a loaded app; the string form `visible: "tab-analyse"` (as in `08_training_length.yaml`) did.
+**Problem (GH-546):** a flow started right after `metro-start` + `launch` runs against a white "Bundling 75%" screen. `extendedWaitUntil: visible: {id: "tab-analyse"}` also never matched on a loaded app; the string form `visible: "tab-analyse"` did.
 **Fix / Rule:** take a `tool.sh screenshot` after ~90 s and wait for the Training screen before the first flow; use the string form for tab ids.
 **Apply when:** first Maestro run after starting Metro in the CI emulator.
 
@@ -670,11 +670,11 @@ Workers append NEW learnings here (and only here), after checking the table of c
 
 ### Maestro `text:` selectors ignore case — prefix `(?-i)` for wording/casing tickets
 **Problem:** `assertVisible: 'Skip Rest'` also matches the old `Skip rest`, so a casing-fix flow passes on the unfixed app.
-**Fix / Rule:** prefix the regex with `(?-i)` (`assertVisible: '(?-i)Skip Rest'`, `assertNotVisible: '(?-i)Skip rest'`). Confirmed: the old bundle failed exactly at the `(?-i)` assertion and the fixed one passed (`gh543_rest_menu_labels.yaml`).
+**Fix / Rule:** prefix the regex with `(?-i)` (`assertVisible: '(?-i)Skip Rest'`, `assertNotVisible: '(?-i)Skip rest'`). Confirmed: the old bundle failed exactly at the `(?-i)` assertion and the fixed one passed (GH-543; now part of `train_rest_timer_1rm.yaml`).
 **Apply when:** asserting labels whose capitalization is the point of the change. (seen in GH-543)
 
 ### Rest timer overflow menu: tap the `rest-timer-overflow` id, detect the open menu by text, never by point
-**Observation:** on a running training Maestro resolves `rest-timer-overflow` (while the rest card exists), but NOT the Paper `Menu.Item` testIDs (`rest-timer-skip` stays "not visible" with the menu open). A point-tap fallback on the icon then lands on "Skip rest" in the open menu and silently stops the timer. Route: Home `next-training-start-button` → "Plan this Training" → `^Suggest based on last Training$` → `subtab-train` → `train-tab-start-button` → log one set → `tapOn: {id: rest-timer-overflow}` → `extendedWaitUntil: visible: 'Skip rest'` (see `gh543_open_rest_menu.yaml`).
+**Observation:** on a running training Maestro resolves `rest-timer-overflow` (while the rest card exists), but NOT the Paper `Menu.Item` testIDs (`rest-timer-skip` stays "not visible" with the menu open). A point-tap fallback on the icon then lands on "Skip rest" in the open menu and silently stops the timer. Route: Home `next-training-start-button` → "Plan this Training" → `^Suggest based on last Training$` → `subtab-train` → `train-tab-start-button` → log one set → `tapOn: {id: rest-timer-overflow}` → `extendedWaitUntil: visible: 'Skip rest'` (see the helper `open_rest_menu.yaml`).
 **Apply when:** flows touching the rest timer menu/dialogs. (seen in GH-543)
 
 ### CI emulator: cold start under Maestro SIGSEGVs in Fabric (`MountingCoordinator::pullTransaction`) — start via adb, then `launchApp: {stopApp: false}`
@@ -694,3 +694,30 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-528 merge):** the CI typecheck (`npm run typecheck`, root tsconfig) does not load `@testing-library/jest-native` types (only `__tests__/tsconfig.json` does), so every `toHaveTextContent`/`toContainElement` was a TS2339. Merging parallel PRs also leaves test `GlobalState` fixtures without newly added slices (TS2741 for e.g. `bodyWeight`), and master itself can be red against `scripts/ci/*-baseline.json`.
 **Fix / Rule:** start specs that use jest-native matchers with `/// <reference types="@testing-library/jest-native" />`; `rootReducer` is a typed redux `Reducer<GlobalState, AnyAction>`, so `createStore(rootReducer)` and `rootReducer(undefined, {type: '@@INIT'})` type-check without casts. After a master merge run both `check-baseline.js` checks locally and compare with a pristine master worktree to tell your errors from master's.
 **Apply when:** merging master into a long-running PR or adding a slice to `GlobalState`. (seen in GH-528)
+
+### Since GH-584 there are target flows per feature — extend them, don't add `ghNNN_*.yaml`
+**Observation (GH-584):** the 236 per-ticket flows were merged into ~31 target flows + 10 helpers; the list, data basis and rules are in `__tests__/e2e/maestro/FLOW_AUDIT.md`. Old flow names in older memory entries/run logs point to git history. Helpers: `goto_micro69_push.yaml` (env `MODE=planned|running|edit`, replaces gh466_goto_push/gh443_goto_running_push/gh418_open_plan_edit), `goto_micro2_push.yaml`, `open_rest_menu.yaml`, `import_fixture.yaml` (`FIXTURE`), `pick_file.yaml` (`FILE`), `set_appearance.yaml`, `set_dummy_api_key.yaml`, `open_ai_chat.yaml`. Manual flows (real key/device) are in `flows/manual/`.
+**Apply when:** a ticket needs e2e coverage — add a section to the feature's target flow and run it once standalone.
+
+### The baseline's current micro is M6 (not M7) since GH-533 — "Next Training" is `Meso 1 · M6 · D1 · 0 exercises`
+**Problem (GH-584):** many old flows and memory entries assert `Meso 1 · M7 · D1`; since GH-533 an incomplete micro stays current, and in `baseline.gains` only M6 D4 is done → hero `Meso 1 · M6`, `1/4`, next `Push squat` with an empty slot. "Suggest based on last Training" fills it with 10 exercises; the first logged Adductor set gets row `add-workout-set-logged-2` (the copied plan has sets 2 and 3).
+**Apply when:** asserting home/next-training values on the baseline.
+
+### Edge swipe in the SAF picker = system BACK; steer to Downloads via "Show roots"
+**Problem (GH-584):** a `swipe` from `2%,50%` to open the picker's roots drawer closed the whole picker (gesture navigation BACK) and the import flow failed on "Downloads". Also a `when: notVisible: 'baseline.gains'` check right after opening runs before the picker has listed anything.
+**Fix:** `extendedWaitUntil: {visible: '<file>', timeout: 20000, optional: true}`, then only if still missing `tapOn: 'Show roots'` → `tapOn: 'Downloads'` (now in `00_import_baseline.yaml` and `import_fixture.yaml`).
+**Apply when:** any flow that picks a file in the system picker.
+
+### Analysis picker (sharingan) rows: a text tap does not select; `childOf` a section id does not resolve
+**Problem (GH-584):** in Analyse › Analysis "Select Exercises, Muscles, Metrics…", `tapOn: {text: 'Mmkv', below: {id: 'search-bar'}}` left the row unselected (no chip), also for Volume/Frequency/Week. In the plan editor `assertVisible: {id: '^plan-set-1-reps-input$', childOf: {id: 'plan-edit-exercise-section-32'}}` never matched although the row was on screen.
+**Fix:** after filtering to one result, tap the row by position (`point: '30%, 26%'`, `retryTapIfNoChange: false`) and assert the `chip` with its text; for repeated per-section ids rely on the first match (first section) plus a value in the assertion.
+**Apply when:** selecting in the Analysis picker or scoping repeated plan-set ids.
+
+### Several Bash forms are blocked in the agent-emulator job — use tool.sh/adb/ffmpeg + Edit
+**Observation (GH-584):** `python3 -c`, `node -e`, `bash script.sh`, shell loops/variables (`for f in …; $(…)`), `sed -i` and `git mv` all needed approval; `tool.sh <cmd>` (also several chained with `;`), `adb -s … push/shell`, `ffmpeg`, `git add/commit/rm`, `mv`, `grep` worked. YAML validation therefore happens on the first Maestro run. Subagents have the same limits.
+**Apply when:** planning a CI emulator run — rename with `mv` + `git add -A`, delegate failure analysis of one flow to a no-device subagent (debug folder `commands.json` + resized screenshots) while the next flow runs, edit with the Edit tool, run flows one `tool.sh flow` per call (≤ 10 min per Bash call; a longer chain is moved to the background).
+
+### Three Maestro traps found while consolidating (placeholder text, `}` in scripts, unscanned Downloads)
+**Problem (GH-584):** (1) `text:` also matches an EditText's hintText — a TextInput with `placeholder={DEFAULT_MODEL}` makes `assertNotVisible: {id, text: DEFAULT_MODEL}` fail forever and a positive check pass on an empty field. (2) Maestro ends a `${…}` script at the FIRST `}` — a regex quantifier like `[0-9]{3}` inside `assertTrue: "${/…{3}…/.test(x)}"` gives `SyntaxError: Expected an operand but found /` (only visible in `maestro.log`); write `[0-9][0-9][0-9]`. (3) Files pushed with `adb push` are missing from the SAF picker's "Recent" view (and the default picker landing) until the media store indexes them, and grid view truncates long names (`gh391_planned_fi…`).
+**Fix:** assert saved values positively; no `{n}` in inline scripts; `adb shell content call --method scan_volume --uri content://media --arg external_primary` after pushing (now in `run-maestro-from-wsl.sh`), and `import_fixture.yaml` switches the picker to "List view".
+**Apply when:** asserting text inputs, writing inline JS checks, importing pushed fixtures. (seen in GH-584)

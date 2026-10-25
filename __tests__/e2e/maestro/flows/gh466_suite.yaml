@@ -1,5 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-- runFlow: gh443_import_baseline.yaml
-- runFlow: gh466_plan_fractional_rir.yaml
-- runFlow: gh466_train_fractional_rir.yaml

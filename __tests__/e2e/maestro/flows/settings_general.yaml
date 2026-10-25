@@ -1,0 +1,75 @@
+appId: com.powerliftingworkoutplanner
+---
+# F10 Settings — T10.2: General switches, timers and the app version.
+# Purpose: the General section lists its four switches and NOT the removed
+# "Show Plus-Button on the left" (GH-327); both timer rows show the baseline's values with
+# their own delete button (GH-522); the footer shows the real app version (GH-366) —
+# checked as a pattern, never a fixed number, and never the "Unknown" fallback.
+# Data basis: READ-ONLY on the baseline (baseline.gains already imported; fixture settings
+# pauseTimerInSeconds 180, finishTrainingTimerInSeconds 1200).
+# Merged from: gh522_settings_refinement (base), gh366_settings_app_version,
+#              gh327_no_plus_button_left. Theme switching of gh522 lives in settings_appearance.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'tab-settings'
+    timeout: 180000
+- tapOn: 'tab-settings'
+# Settings keeps its scroll position — start from the top.
+- scrollUntilVisible:
+    element:
+      id: '^settings-section-theme-title$'
+    direction: UP
+    timeout: 30000
+- assertVisible:
+    id: '^settings-section-theme-title$'
+    text: 'Appearance'
+
+# --- General: four switches, the removed setting is gone (GH-327) -------------------
+- scrollUntilVisible:
+    element: 'Show Toasts'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: '^settings-section-general-title$'
+    text: 'General'
+- assertVisible: 'Preselect 1RM Button'
+- assertVisible: 'Use Imperial Units'
+- assertVisible: 'Show Training Timer'
+- assertVisible: 'Show Toasts'
+- assertNotVisible: 'Show Plus-Button on the left'
+- assertNotVisible: 'Enable Dark Mode'
+
+# --- Timers: values pinned to the baseline + own delete buttons (GH-522) -------------
+- scrollUntilVisible:
+    element:
+      id: '^settings-finish-training-timer-delete$'
+    direction: DOWN
+    timeout: 30000
+# PRECONDITION (baseline imported): the fixture's timer values.
+- assertVisible:
+    id: '^settings-pause-timer-text$'
+    text: 'Pause Timer: 0h 3m 0s'
+- assertVisible:
+    id: '^settings-finish-training-timer-text$'
+    text: 'Finish Training Timer: 0h 20m 0s'
+- assertVisible:
+    id: '^settings-pause-timer-delete$'
+- assertVisible:
+    id: '^settings-finish-training-timer-delete$'
+
+# --- App version (GH-366): "Version <major>.<minor>[.<patch>]" from the native build -----
+- scrollUntilVisible:
+    element:
+      id: '^settings-app-version$'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: '^settings-app-version$'
+    text: 'Version \d+\.\d+(\.\d+)?'
+- assertNotVisible: 'Version Unknown'

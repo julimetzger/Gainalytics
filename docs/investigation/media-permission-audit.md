@@ -193,6 +193,10 @@ build. The resume flow is the one that asserts a resulting value rather than mer
 navigation: the progress bar must be gone, `Done` must be visible, and `Failed` /
 `App was closed while import or analysis was running` must not be.
 
+> Historical note (GH-584): both flows were merged into the target flow
+> `__tests__/e2e/maestro/flows/video_import_playback.yaml` (import through the picker, analysis,
+> resume, Rep Summary); the file names above refer to the run documented here.
+
 Maestro was pinned to the assigned device with the `adb_filter_proxy`, and the routing was
 verified from the run's own debug output (`Width: 720`, `Height: 1600` = <phone-serial>;
 the emulator would report 1080×2400). Logs: `checks/maestro-video-import.log`,
