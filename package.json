@@ -77,7 +77,7 @@
     "sharingan-rn-modal-dropdown": "github:julianMMetzger/sharingan-rn-modal-dropdown"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2",
+    "@babel/core": "^8.0.7",
     "@babel/preset-env": "^7.25.3",
     "@babel/preset-react": "^7.25.0",
     "@babel/runtime": "^7.25.0",
