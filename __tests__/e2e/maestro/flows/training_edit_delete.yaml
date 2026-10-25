@@ -172,6 +172,13 @@ appId: com.powerliftingworkoutplanner
     timeout: 30000
 
 # ===== B) finish a throwaway training, then delete it =====
+# The home keeps its scroll position from before part A's detours and can sit
+# BELOW the Next Training card (GH-589), so look upwards first.
+- scrollUntilVisible:
+    element:
+      id: 'next-training-name'
+    direction: UP
+    timeout: 30000
 - scrollUntilVisible:
     element:
       id: 'next-training-start-button'
