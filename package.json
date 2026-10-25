@@ -102,7 +102,7 @@
     "jest-expo": "^49.0.0",
     "metro-config": "^0.87.1",
     "patch-package": "^8.0.1",
-    "prettier": "^2.4.1",
+    "prettier": "^3.9.10",
     "react-test-renderer": "19.3.1",
     "redux-logger": "^3.0.6",
     "typescript": "^5.3.2"
