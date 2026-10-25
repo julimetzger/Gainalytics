@@ -13,7 +13,7 @@ project-specific infrastructure: a standard React Native Android setup is enough
 | Android NDK | 27.1.12297006 | The app has native C++ code (`android/app/src/main/cpp`). |
 | CMake | 3.22.1 | From the SDK Manager ("SDK Tools" tab). |
 | Gradle | 8.14.1 | Downloaded automatically by `./gradlew`. Do not install it yourself. |
-| Device | Android 7.0+ (API 24) | Emulator or USB device with USB debugging. |
+| Device | Android 8.0+ (API 26) | Emulator or USB device with USB debugging. |
 
 Set the SDK location, for example in your shell profile:
 
