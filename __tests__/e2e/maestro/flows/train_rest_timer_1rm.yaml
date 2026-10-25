@@ -108,15 +108,28 @@ appId: com.powerliftingworkoutplanner
 - inputText: '7'
 - tapOn:
     id: '^add-workout-set-confirm-1$'
-# The keyboard covers the rest card (copyTextFrom would read "").
-- hideKeyboard
+# The confirm button calls Keyboard.dismiss(); an unconditional hideKeyboard is
+# then a BACK that leaves the training (seen: landed on training home). Only hide
+# a keyboard that still covers the rest card (copyTextFrom would read "").
 - waitForAnimationToEnd:
     timeout: 5000
+- runFlow:
+    when:
+      notVisible:
+        id: 'rest-progress-ring-text'
+        text: '\+?\d\d:\d\d'
+    commands:
+      - hideKeyboard
+      - waitForAnimationToEnd:
+          timeout: 5000
 - extendedWaitUntil:
     visible:
       id: '^add-workout-set-reps-input-1$'
       text: '7'
     timeout: 20000
+# The correction is committed (row back to the logged check, not a pending draft).
+- assertVisible:
+    id: '^add-workout-set-logged-1$'
 
 # ===== 4. the rest did NOT restart =====
 - copyTextFrom:

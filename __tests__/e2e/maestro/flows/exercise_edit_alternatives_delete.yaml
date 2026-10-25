@@ -163,6 +163,14 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: {id: '^exercise-alternative-row-27$', checked: true}
 - assertVisible: {id: '^exercise-alternative-row-56$', checked: true}
 # Chips wrapped above the search; the search kept its query (GH-487 round 2).
+# The focused search is pinned to the top of the sheet (EditExerciseSheet scrollTo), so the
+# chip rows above it are scrolled off-screen (missing from the hierarchy). Drag the sheet down
+# a bit on the left label column (a drag never toggles a row; it does not blur the search).
+- swipe:
+    start: '8%, 30%'
+    end: '8%, 55%'
+    duration: 800
+- waitForAnimationToEnd
 - assertVisible: {id: '^exercise-alternative-chip-35$'}
 - assertVisible: {id: '^exercise-alternative-chip-56$'}
 - assertVisible:
@@ -189,9 +197,18 @@ appId: com.powerliftingworkoutplanner
     commands:
       - tapOn: {id: '^exercise-alternative-row-83$'}
 - assertVisible: {id: '^exercise-alternative-row-83$', checked: true}
+# The new chip changed the content size → the sheet re-pinned the search to the top; the chips
+# are off-screen again. Same drag as above.
+- swipe:
+    start: '8%, 30%'
+    end: '8%, 55%'
+    duration: 800
+- waitForAnimationToEnd
 - assertVisible: {id: '^exercise-alternative-chip-83$'}
 - assertVisible: {id: '^exercise-alternative-chip-35$'}
 # Back to a cable filter: the earlier pick is still checked.
+- tapOn:
+    id: '^exercise-alternatives-search$'   # keep focus explicit after the drag
 - eraseText: 30
 - inputText: 'biceps cable'
 - assertVisible: {id: '^exercise-alternative-row-35$', checked: true}

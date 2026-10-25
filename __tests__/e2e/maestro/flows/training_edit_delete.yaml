@@ -95,6 +95,18 @@ appId: com.powerliftingworkoutplanner
     id: '^edit-training-times-end$'
 - eraseText: 20
 - inputText: '19:57'
+# The duration line sits BELOW the End field; with the IME up it is clipped out
+# of the hierarchy (the typed "19:57" is in the field and the card behind
+# already shows 19:57). Close the IME only while it hides the line: an
+# unconditional hideKeyboard is a BACK that would close the dialog.
+- runFlow:
+    when:
+      notVisible:
+        id: 'edit-training-times-duration'
+    commands:
+      - hideKeyboard
+      - waitForAnimationToEnd:
+          timeout: 3000
 - extendedWaitUntil:
     visible:
       id: 'edit-training-times-duration'
@@ -185,22 +197,26 @@ appId: com.powerliftingworkoutplanner
     timeout: 20000
 - tapOn:
     id: 'training-suggest-last-training-button'
+# subtab-train is visible before the suggestion too: wait until the slot is
+# planned (the empty-slot entry point disappears; 10 exercises are copied).
 - extendedWaitUntil:
-    visible:
-      id: 'subtab-train'
-    timeout: 20000
+    notVisible:
+      id: 'training-suggest-last-training-button'
+    timeout: 30000
 - tapOn:
     id: 'subtab-train'
 - extendedWaitUntil:
     visible:
       id: 'train-tab-start-button'
-    timeout: 20000
+    timeout: 30000
 - tapOn:
     id: 'train-tab-start-button'
-- extendedWaitUntil:
-    visible:
+# "Finish Training" sits below the first exercise's set list.
+- scrollUntilVisible:
+    element:
       id: 'train-tab-finish-button'
-    timeout: 20000
+    direction: DOWN
+    timeout: 30000
 - tapOn:
     id: 'train-tab-finish-button'
 # Finishing pre-selects Analysis: 0 sets done.

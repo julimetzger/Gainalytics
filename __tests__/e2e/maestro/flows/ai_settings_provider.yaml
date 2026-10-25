@@ -209,6 +209,12 @@ appId: com.powerliftingworkoutplanner
     timeout: 5000
 
 # Restart: the field is re-initialised from the store, so this proves the save.
+# Give redux-persist time to flush first (a force-stop right after Save lost
+# the value on the emulator). Waiting for a text that never appears = sleep.
+- extendedWaitUntil:
+    visible: 'gh584-wait-for-persist'
+    timeout: 6000
+    optional: true
 - launchApp:
     clearState: false
 - extendedWaitUntil:
@@ -239,12 +245,13 @@ appId: com.powerliftingworkoutplanner
       id: 'settings-save-model-button'
     direction: DOWN
     timeout: 30000
+# Positive check only: the field's placeholder (Android hintText) is always the
+# default model and Maestro's text matcher also matches hintText, so an
+# assertNotVisible on 'claude-haiku-4-5-20251001' can never pass. The saved
+# value 'claude-sonnet-4-5' can only match the field's actual text.
 - assertVisible:
     id: 'settings-anthropic-model-input'
     text: 'claude-sonnet-4-5'
-- assertNotVisible:
-    id: 'settings-anthropic-model-input'
-    text: 'claude-haiku-4-5-20251001'
 
 # Saving an empty field resets to the default model.
 - tapOn:
