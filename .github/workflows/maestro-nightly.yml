@@ -322,8 +322,9 @@ jobs:
             echo "::notice title=nightly report::PR test run: issue handling skipped (dry run), ${bad} failing"
             [[ "${bad}" -gt 0 ]] && exit 1 || exit 0
           fi
-          number=$(gh api "repos/${GITHUB_REPOSITORY}/issues?state=open&per_page=100" \
-            --jq "[.[] | select(.pull_request == null and .title == \"${ISSUE_TITLE}\")][0].number // empty")
+          # All pages: the issue must be found even with more than 100 open issues/PRs.
+          number=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues?state=open&per_page=100" \
+            --jq ".[] | select(.pull_request == null and .title == \"${ISSUE_TITLE}\") | .number" | sed -n 1p)
           if [[ "${bad}" -gt 0 ]]; then
             {
               echo "The nightly Maestro run on \`master\` (${GITHUB_SHA::8}) has failing flows. Evidence (screenshots, logcat, Maestro reports) is in the run's \`nightly-evidence-<shard>\` artifacts."
