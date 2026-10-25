@@ -620,4 +620,41 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Shared `DatePicker` (date mode) showed a blank calendar: CalendarList nested in a vertical ScrollView
 **Observation (GH-546 r2):** Exercise → Log date button and any `<DatePicker>` modal rendered only the MM/DD/YYYY input; no months were drawn. `uiautomator` showed two nested ScrollViews and no day nodes. `DateRangePicker` renders `DatePickerModal` without a wrapper and works. Fix committed in GH-546 r2 but not yet confirmed on a device: replace the ScrollView with a `flex: 1` View. Calendar days carry accessibility labels like `Monday 5 October 2026` (prefixed `today` for today), which Maestro can target.
 **Apply when:** using the single-date picker in a new screen or flow.
+### Health Connect on Android 13 (Play-Store provider): what bites a PoC
+**Observation (GH-502):** Health Connect is not preinstalled on Android 13; `market://details?id=com.google.android.apps.healthdata` + tap "Installieren" works with the existing Google account. The first permission request shows a one-time onboarding ("Jetzt starten") before the dialog. `createRequestPermissionResultContract()` returns ONLY the permissions granted in that dialog, so re-read `getGrantedPermissions()` afterwards. Reading the app's OWN records older than 30 days before the first grant silently returns an empty list (no error) until `READ_HEALTH_DATA_HISTORY` is granted (separate dialog; check `FEATURE_READ_HEALTH_DATA_HISTORY`). In connect-client 1.1.0 the constants are `ExerciseSegment.EXERCISE_SEGMENT_TYPE_*` and `HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS`.
+**Apply when:** touching Health Connect on the test phone or in code.
+
+### Debug-only native feature: put it in `android/app/src/debug` and register it by reflection
+**Observation (GH-502):** `debugImplementation` deps + `src/debug/java/...` classes + debug `AndroidManifest.xml` (permissions, activities) never reach release. `MainApplication` adds the package only via `if (BuildConfig.DEBUG) Class.forName(...)`, and JS registers the route only when `NativeModules.X` exists. Verify with `./gradlew :app:compileReleaseKotlin :app:processReleaseMainManifest` (~1.5 min) and grep the merged release manifest.
+**Apply when:** a ticket asks for a hidden PoC/debug-only feature with native code.
+
+### Is a third-party app Health-Connect-capable on this Android version? Ask the package manager
+**Observation (GH-502):** `dumpsys package <pkg> | grep -o "android.permission.health\.[A-Z_]*"` lists its declared HC types (Garmin Connect 5.30.1: only `WRITE_*`). `cmd package query-activities --brief -a androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE <pkg>` — "No activities found" means the HC app on Android ≤13 will not list it at all (Garmin only has the Android-14 `VIEW_PERMISSION_USAGE` alias).
+**Apply when:** checking whether a vendor app can feed data through Health Connect without logging into it.
+
+### `am start` of the Health Connect settings brings the OLD task screen to the front — never tap blind
+**Problem (GH-502):** after earlier navigation, `am start -a androidx.health.ACTION_HEALTH_CONNECT_SETTINGS` returned "brought to the front" on the App-Berechtigungen page; a tap computed for the home screen hit "Zugriff für alle Apps entfernen" (dialog cancelled in time). Health Connect's own data browser is Daten und Zugriff → Aktivität → Sport → Alle Einträge ansehen → date picker (8× "previous month" taps for 7 months back).
+**Fix / Rule:** `uiautomator dump` + grep bounds before every tap in system/third-party apps.
+**Apply when:** driving Health Connect or other system settings with adb.
+
+### Maestro `text:` selectors ignore case — prefix `(?-i)` for wording/casing tickets
+**Problem:** `assertVisible: 'Skip Rest'` also matches the old `Skip rest`, so a casing-fix flow passes on the unfixed app.
+**Fix / Rule:** prefix the regex with `(?-i)` (`assertVisible: '(?-i)Skip Rest'`, `assertNotVisible: '(?-i)Skip rest'`). Confirmed: the old bundle failed exactly at the `(?-i)` assertion and the fixed one passed (`gh543_rest_menu_labels.yaml`).
+**Apply when:** asserting labels whose capitalization is the point of the change. (seen in GH-543)
+
+### Rest timer overflow menu: tap the `rest-timer-overflow` id, detect the open menu by text, never by point
+**Observation:** on a running training Maestro resolves `rest-timer-overflow` (while the rest card exists), but NOT the Paper `Menu.Item` testIDs (`rest-timer-skip` stays "not visible" with the menu open). A point-tap fallback on the icon then lands on "Skip rest" in the open menu and silently stops the timer. Route: Home `next-training-start-button` → "Plan this Training" → `^Suggest based on last Training$` → `subtab-train` → `train-tab-start-button` → log one set → `tapOn: {id: rest-timer-overflow}` → `extendedWaitUntil: visible: 'Skip rest'` (see `gh543_open_rest_menu.yaml`).
+**Apply when:** flows touching the rest timer menu/dialogs. (seen in GH-543)
+
+### CI emulator: cold start under Maestro SIGSEGVs in Fabric (`MountingCoordinator::pullTransaction`) — start via adb, then `launchApp: {stopApp: false}`
+**Problem:** with a large imported store, `launchApp` (cold start) in `00_import_baseline.yaml` crashed the app twice (`F libc: Fatal signal 11 … (mqt_v_js)`, frames in `ShadowTree::commit` → `pullTransaction`) while Maestro polled ("Could not detect idle state"); the flow then failed on the launcher.
+**Fix / Rule:** `adb shell am start -n com.powerliftingworkoutplanner/.MainActivity`, let it settle ~45 s, then run an import flow that starts with `launchApp: {stopApp: false}`. The SAF picker also opened on "Recent / No items" — `tapOn: 'Show roots'` → `tapOn: 'Downloads'` → `baseline.gains`.
+**Apply when:** `tool.sh import-baseline` fails with "Training is visible" false and the screenshot shows the launcher. (seen in GH-543)
+
+### Maestro text selectors match the FULL string — a label without "…" cannot pass on the "…" build
+**Observation:** `assertVisible: '(?-i)Edit Rest Target'` failed on the old bundle that showed `Edit Rest Target…` (no substring match), and passed after the fix. To assert an ellipsis is gone use `assertNotVisible: '(?-i)Edit Rest Target(…|\.\.\.)'` (escape the dots). In Jest, `queryByText(/…|\.\.\./)` is a substring regex and catches any leftover ellipsis in the open menu.
+**Apply when:** tickets that remove a suffix/prefix from a label (ellipsis, colon, counter). (seen in GH-543)
+
+### CI emulator: the job-start APK is a free "before" build — run the new flow on it before `metro-start`
+**Observation:** right after `wait-ready` the installed APK still runs the PR's previous JS. Capturing the before screenshot and running the updated Maestro flow there (it must FAIL at the changed assertion) before `tool.sh metro-start` + `tool.sh launch` proves the flow is not vacuous, without any rebuild. (seen in GH-543)
 
