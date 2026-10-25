@@ -148,9 +148,19 @@ on Windows use WSL) and the release keystore.
    | Secret (bunker only) | `ZAPSTORE_BUNKER_CLIENT_KEY` | the 64-hex client key printed in step 3 |
 
    Then delete the temporary `$XDG_CONFIG_HOME` directory. Never commit or echo either value.
-5. **Test:** Actions → Release → *Run workflow*, *Use workflow from* → **Tags** → the latest version,
-   check **`zapstore_only`**. The run skips the build and only publishes that existing release. The
-   app then appears at `https://zapstore.dev/apps/com.powerliftingworkoutplanner`.
+5. **First publish / test:** cut the next release as usual; its run ends with *Publish to Zapstore*.
+   The app then appears at `https://zapstore.dev/apps/com.powerliftingworkoutplanner`.
+   `zapstore_only` (below) does not work for tags created before the Zapstore job existed: a
+   dispatch runs the workflow file *of the selected tag*, and the `release` environment only admits
+   tag runs, so there is no CI path for them. To publish such an older release, run `zsp` locally
+   (same shell as step 3, approve in the signer; replace `0\.186` with the version):
+
+   ```bash
+   cp zapstore.yaml .zapstore-release.yaml
+   printf "\nrelease_filter: '^0\\.186$'\n" >> .zapstore-release.yaml
+   zsp publish .zapstore-release.yaml   # shows a preview and asks before publishing
+   rm .zapstore-release.yaml
+   ```
 
 ### On each release
 
@@ -161,8 +171,10 @@ verifies on install that the APK's certificate matches the published one; that i
 release key must never change.
 
 To publish a release later (for example after the secret was added, or when the job failed): re-run
-the failed `Publish to Zapstore` job, or start *Run workflow* on the tag with `zapstore_only`. `zsp`
-only looks at the 10 newest GitHub Releases. Zapstore always uses `zapstore.yaml` from `master`.
+the failed `Publish to Zapstore` job, or start *Run workflow* with *Use workflow from* → **Tags** →
+the version and check **`zapstore_only`** (no build; only for tags that contain the Zapstore job,
+older ones see step 5 above). `zsp` only looks at the 10 newest GitHub Releases. The job always uses
+`zapstore.yaml` from `master`.
 
 ## Dry run (test keystore)
 

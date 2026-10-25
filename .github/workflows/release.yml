@@ -30,7 +30,8 @@ name: Release
 # with zsp and zapstore.yaml. It needs the secret ZAPSTORE_SIGN_WITH (NIP-46 bunker URL, or the nsec
 # of a dedicated publisher key) and, for a bunker, ZAPSTORE_BUNKER_CLIENT_KEY in the environment
 # `release`; without ZAPSTORE_SIGN_WITH it is skipped with a notice. To publish an existing release
-# again (or for the first time), Run workflow on the tag with `zapstore_only` checked.
+# again, Run workflow on the tag with `zapstore_only` checked (dispatch runs the workflow file of
+# that tag, so this works only for tags that contain this job; older ones: see docs/release.md).
 # See docs/release.md.
 
 on:
@@ -45,7 +46,7 @@ on:
         type: string
         default: ''
       zapstore_only:
-        description: 'Only publish the existing GitHub Release of the selected tag to Zapstore (Use workflow from -> Tags -> the version; no build). Already published versions are skipped.'
+        description: 'Only publish the existing GitHub Release of the selected tag to Zapstore (Use workflow from -> Tags -> the version; no build). Needs a tag that already contains this job. Already published versions are skipped.'
         type: boolean
         default: false
 
@@ -432,7 +433,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -uo pipefail
+          # Non-fatal by design: the default shell runs with -e, switch it off for this step.
+          set +e -uo pipefail
           npub=$(sed -nE 's/^pubkey:[[:space:]]*["'"'"']?(npub1[0-9a-z]+).*/\1/p' zapstore.yaml | head -n1)
           if [ -z "$npub" ]; then
             echo "No pubkey in zapstore.yaml, nothing to verify."
