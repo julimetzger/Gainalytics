@@ -6,20 +6,30 @@ picks the APK up from there.
 
 ## Cutting a release
 
-```bash
-./releaseNewAndroidVersion.sh          # Linux/macOS/WSL
-.\releaseNewAndroidVersion.ps1         # Windows PowerShell
-```
+The tag is the version. No version commit or PR is needed; CI builds with
+`versionName` = tag name (`versionCode` stays as in `android/app/build.gradle`). Either
 
-The script bumps `versionName` in `android/app/build.gradle`, commits
-`release android version <x.y>`, tags `<x.y>` and pushes `master` plus the tag. The tag push
-starts `release.yml`, which
+- **Run workflow:** Actions → Release → *Run workflow* on `master`, enter `version` (e.g. `0.183`).
+  The `tag` job creates the tag on the current `master` commit and starts the release run on it, or
+- **push a tag:** `git tag 0.183 && git push origin 0.183`.
 
-1. checks that the tag equals `versionName`,
+The release run on the tag
+
+1. sets `versionName` to the tag name for this build,
 2. runs `npm ci`, decodes the keystore from the secrets and runs
    `./gradlew assembleRelease bundleRelease`,
 3. verifies the APK/AAB signature (and, if configured, the certificate fingerprint),
 4. creates the GitHub Release with the three files attached.
+
+To rebuild an existing tag (e.g. after a failed run), start *Run workflow* with
+*Use workflow from* → **Tags** → the version; leave `version` empty.
+
+The old scripts still work and additionally commit the bumped `versionName` to `master`:
+
+```bash
+./releaseNewAndroidVersion.sh          # Linux/macOS/WSL
+.\releaseNewAndroidVersion.ps1         # Windows PowerShell
+```
 
 `--local-build` (`-LocalBuild` in PowerShell) keeps the old behavior of also building and signing
 locally before tagging. It needs the local keystore at `android/app/<store file>` and
@@ -55,15 +65,14 @@ Settings → Secrets and variables → Actions:
 Put the secrets (and the variable) into the GitHub **environment `release`**
 (Settings → Environments → release) and restrict it under *Deployment branches and tags* to
 **selected tags** with the rule `[0-9]*` (the version tags look like `0.183`, not `v…`). The release
-job only enters this environment for tag pushes, so no other workflow, manual run or agent can read
-the signing key. Do not keep a second copy as repository secret.
+job only enters this environment for runs on a tag ref, so no branch run, PR, other workflow or agent
+can read the signing key. Do not keep a second copy as repository secret.
 
 ## Dry run (test keystore)
 
-Actions → Release → *Run workflow* with **test_keystore** checked (default) builds and signs with a
+Actions → Release → *Run workflow* on a branch with an **empty** `version` builds and signs with a
 throw-away keystore generated inside the job, verifies the signature and uploads the files as a
-workflow artifact (3 days). No release is created and no secret is used. Manual runs never get the
-`release` environment, so unchecking **test_keystore** fails at the keystore step (by design).
+workflow artifact (3 days). No tag or release is created and no secret is used.
 
 ## Continuous integration
 
