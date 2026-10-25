@@ -36,7 +36,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at <!-- TODO(owner): add a conduct contact e-mail before publishing --> the e-mail address listed on the GitHub profile of the repository owner ([@julimetzger](https://github.com/julimetzger)). All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement through GitHub: contact the repository owner ([@julimetzger](https://github.com/julimetzger)), for example by mentioning them in an issue or via the contact options on their GitHub profile. Comments or content that also break GitHub's rules can additionally be reported to GitHub with the "Report content" function. All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 
