@@ -53,6 +53,12 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'training-home-screen'
     timeout: 60000
+# A resumed app keeps the home screen's last scroll position.
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 30000
 - assertVisible:
     id: 'micro-hero-plan-name'
     text: 'Push pull'

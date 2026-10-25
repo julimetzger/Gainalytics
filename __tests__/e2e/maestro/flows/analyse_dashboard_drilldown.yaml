@@ -44,6 +44,13 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'training-home-screen'
     timeout: 60000
+# The resumed app keeps the previous flow's scroll position (home_dashboard ends
+# at the plan list), so scroll back up to the hero first.
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 30000
 - assertVisible:
     id: 'micro-hero-plan-name'
     text: 'Push pull'
