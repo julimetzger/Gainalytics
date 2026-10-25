@@ -106,8 +106,14 @@ finish a training (`train_start_log_finish.yaml`, last because it changes data).
   the job summary shows the same plus the Maestro console tail and timings. Artifact
   `maestro-smoke-evidence` (14 days): JUnit `maestro/smoke/report.xml`, Maestro debug output
   (failure screenshot, commands JSON), screenshots, logcat, `timings.txt`.
-- Runtime (public 4-vCPU runner): goal < 30 min with warm caches; the Gradle build dominates, the
-  flows take ~6–8 min (`timings.txt` / job summary list each phase).
+- Runtime (public 4-vCPU runner): goal < 30 min with warm caches; the Gradle build dominates.
+  The flows took 17 min in the first PR run; after the GH-588 speed-up they take 5.5–6 min on the
+  agent emulator (was 10 min there), so expect well under 17 min on the PR runner too
+  (`timings.txt` / job summary list each phase).
+- Keep the smoke fast: on a running training the rest-timer ring animates nonstop and every Maestro
+  tap/erase/input then waits 11–23 s for the screen to settle — `train_start_log_finish.yaml` skips
+  the rest right after logging the set. `smoke.yaml` passes `BASELINE_IMPORTED: 'true'` so that flow
+  skips its own import.
 - Docs-only changes skip the workflow (`paths-ignore`). A required check whose workflow is skipped
   by a path filter stays *pending*, so docs-only PRs then need an admin bypass of the ruleset (or
   drop the `paths-ignore` before making the check required).

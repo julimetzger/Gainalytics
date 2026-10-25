@@ -721,3 +721,21 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-584):** (1) `text:` also matches an EditText's hintText — a TextInput with `placeholder={DEFAULT_MODEL}` makes `assertNotVisible: {id, text: DEFAULT_MODEL}` fail forever and a positive check pass on an empty field. (2) Maestro ends a `${…}` script at the FIRST `}` — a regex quantifier like `[0-9]{3}` inside `assertTrue: "${/…{3}…/.test(x)}"` gives `SyntaxError: Expected an operand but found /` (only visible in `maestro.log`); write `[0-9][0-9][0-9]`. (3) Files pushed with `adb push` are missing from the SAF picker's "Recent" view (and the default picker landing) until the media store indexes them, and grid view truncates long names (`gh391_planned_fi…`).
 **Fix:** assert saved values positively; no `{n}` in inline scripts; `adb shell content call --method scan_volume --uri content://media --arg external_primary` after pushing (now in `run-maestro-from-wsl.sh`), and `import_fixture.yaml` switches the picker to "List view".
 **Apply when:** asserting text inputs, writing inline JS checks, importing pushed fixtures. (seen in GH-584)
+
+### A clipped node counts as "100 % visible": scrollUntilVisible stops on a sliver
+**Problem (GH-588):** uiautomator reports a node clipped by the ScrollView with its VISIBLE bounds only (a card at the tab-bar edge dumps as `[2124][2127]`, 3 px). `visibilityPercentage: 100` is therefore met by a button whose top edge just peeks out; its label child below the edge is not in the hierarchy. CI failed on `assertVisible {id: next-training-start-button-text, text: 'Continue Training'}` right after `'Training running'` passed (the running card is taller: it lists two exercises). It depends on where the swipe ends, so it fails on slow runners only.
+**Fix:** `centerElement: true` on `scrollUntilVisible` before asserting or tapping children of a card.
+**Apply when:** asserting a child of the scroll target, especially near the bottom tab bar. (seen in GH-588)
+
+### The running rest timer makes every Maestro interaction take 11–23 s
+**Observation (GH-588):** after a set is logged on a running training, the RestTimerCard's animated ring never lets the screen settle. Each `tapOn` took ~22 s and each `eraseText`/`inputText` ~11 s, about 3 min per smoke run (17 min in CI). Skipping the rest (`rest-timer-overflow` → `Skip rest`, both taps with `waitToSettleTimeoutMs: 500`) brings them back to 1–4 s. Correcting a logged row does not restart the rest (GH-443); a NEW logged set does.
+**Apply when:** a flow keeps interacting after logging a set, unless the flow tests the timer itself.
+
+### `launchApp: {stopApp: false}` keeps the previous flow's scroll position
+**Problem (GH-588):** after switching chained flows to `stopApp: false` (saves the cold start and the ~7 s `when: visible: 'Dismiss'` check), `analyse_dashboard_drilldown` failed on `micro-hero-plan-name` 1 run in 2: home_dashboard had left the Training home scrolled to the plan list, and tapping the focused tab did not reliably scroll it back up.
+**Fix:** `scrollUntilVisible … direction: UP` to the hero before the precondition assert. Also: every `when: visible/notVisible` whose answer is "no" costs ~7 s.
+**Apply when:** chaining flows without app restarts. (seen in GH-588)
+
+### Intermittent native crash on cold start (Fabric MountingCoordinator::pull SIGSEGV)
+**Observation (GH-588):** in 1 of ~12 cold launches on the CI emulator the app died 2 s after start with `SIGSEGV (SEGV_ACCERR)` in `facebook::react::MountingCoordinator::pull` on `mqt_v_js`. `00_import_baseline` then fails with `"Training" is visible` while the launcher is on screen. Another launch worked. This is not caused by the flows. Find it in logcat with `grep "Fatal signal"`.
+**Apply when:** an import/launch step fails with the launcher on screen and there is no Java `FATAL EXCEPTION`.

@@ -69,7 +69,8 @@ It never imports — the flows import with `00_import_baseline.yaml` / `import_f
 `smoke.yaml` imports `baseline.gains` itself (`00_import_baseline.yaml`), then runs
 `home_dashboard.yaml`, `analyse_dashboard_drilldown.yaml` and `train_start_log_finish.yaml`
 (last, it changes data). It only needs the file in `/sdcard/Download` — do not import before it.
-It **replaces the app data on the device**. Takes ~6–8 min on the CI emulator.
+It **replaces the app data on the device**. Takes ~5.5–6 min on the agent emulator (one import;
+`train_start_log_finish.yaml` skips its own import via `BASELINE_IMPORTED: 'true'`).
 
 The same flow runs as the required PR check **`Maestro smoke`**
 (`.github/workflows/maestro-smoke.yml`, see `docs/release.md` › Continuous integration) and in
