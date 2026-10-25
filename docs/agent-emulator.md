@@ -6,7 +6,10 @@ runs a Maestro smoke flow and then lets Claude Code work on a ticket inside that
 
 ## Triggering
 
-Only users with write access (owner/collaborators) can start it; forks never run it.
+Only users with write access (owner/collaborators) can start it; forks never run it. The agent only sees text
+written by people with write access (plus the Codex review bot): issue/PR descriptions, comments, reviews and their
+images from anyone else are left out (logged as an `untrusted comments` notice), so in a public repo outsiders cannot
+smuggle instructions into a run that holds the Claude token.
 
 - **Label:** add the label `agent:emulator` to an issue. The issue author must be owner/member/collaborator.
 - **Manually:** Actions → *Agent emulator* → *Run workflow* (only works once the workflow is on `master`), or via REST:

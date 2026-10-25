@@ -374,10 +374,12 @@ jobs:
           if [[ -n "${PR}" ]]; then
             echo "" >> "$f"
             .github/agent-emulator/fetch-issue.sh "${PR}" "$f" PR
+            # Only reviewers with write access (and the Codex bot) are forwarded, see fetch-issue.sh.
+            TRUSTED='((.author_association // "") as $a | ["OWNER","MEMBER","COLLABORATOR"] | index($a) != null) or ((.user.login // "") == "chatgpt-codex-connector[bot]")'
             review="$(gh api --paginate "repos/${REPO}/pulls/${PR}/comments" \
-              --jq '.[] | "### Review comment by \(.user.login) (\(.created_at[:10])) on `\(.path)`\(if .line then ":\(.line)" else "" end)\(if .in_reply_to_id then " (reply)" else "" end)\n\n\(.body)\n"')"
+              --jq ".[] | select(${TRUSTED})"' | "### Review comment by \(.user.login) (\(.created_at[:10])) on `\(.path)`\(if .line then ":\(.line)" else "" end)\(if .in_reply_to_id then " (reply)" else "" end)\n\n\(.body)\n"')"
             reviews="$(gh api --paginate "repos/${REPO}/pulls/${PR}/reviews" \
-              --jq '.[] | select((.body // "") != "") | select(.body | contains("codex-review-receipt") | not) | "### Review by \(.user.login) (\(.state), \(.submitted_at[:10]))\n\n\(.body)\n"')"
+              --jq ".[] | select(${TRUSTED})"' | select((.body // "") != "") | select(.body | contains("codex-review-receipt") | not) | "### Review by \(.user.login) (\(.state), \(.submitted_at[:10]))\n\n\(.body)\n"')"
             [[ -z "${reviews}" ]] || printf '\n## Reviews on PR #%s\n\n%s\n' "${PR}" "${reviews}" >> "$f"
             [[ -z "${review}" ]] || printf '\n## Review comments on PR #%s\n\n%s\n' "${PR}" "${review}" >> "$f"
           fi
