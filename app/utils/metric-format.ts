@@ -41,8 +41,8 @@ export const getMetricHeaderLabel = (metric: Metric, section: MetricOverviewSect
 };
 
 /** Formats a metric value in the unit its header announces. */
-export const formatMetricValue = (metric: Metric, value: number, section: MetricOverviewSection = 'exercises'): string => {
-  if (!Number.isFinite(value)) {
+export const formatMetricValue = (metric: Metric, value: number | undefined, section: MetricOverviewSection = 'exercises'): string => {
+  if (value === undefined || !Number.isFinite(value)) {
     return '–';
   }
 
