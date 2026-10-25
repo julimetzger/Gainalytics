@@ -52,15 +52,18 @@ Settings → Secrets and variables → Actions:
 | Secret (optional) | `ANDROID_RELEASE_KEY_PASSWORD` | only if the key password differs from the store password |
 | Variable (recommended) | `ANDROID_RELEASE_CERT_SHA256` | SHA-256 of the signing certificate, e.g. from `keytool -list -v -keystore <file>` or `apksigner verify --print-certs app-release.apk`; the workflow fails if a build is signed with any other certificate |
 
-Recommended: put the secrets into a `release` environment restricted to tags, so pull-request
-workflows can never read them.
+Put the secrets (and the variable) into the GitHub **environment `release`**
+(Settings → Environments → release) and restrict it under *Deployment branches and tags* to
+**selected tags** with the rule `[0-9]*` (the version tags look like `0.183`, not `v…`). The release
+job only enters this environment for tag pushes, so no other workflow, manual run or agent can read
+the signing key. Do not keep a second copy as repository secret.
 
 ## Dry run (test keystore)
 
 Actions → Release → *Run workflow* with **test_keystore** checked (default) builds and signs with a
 throw-away keystore generated inside the job, verifies the signature and uploads the files as a
-workflow artifact (3 days). No release is created and no secret is used. Unchecking
-**test_keystore** builds with the real key but still does not publish (only tag pushes publish).
+workflow artifact (3 days). No release is created and no secret is used. Manual runs never get the
+`release` environment, so unchecking **test_keystore** fails at the keystore step (by design).
 
 ## Continuous integration
 
