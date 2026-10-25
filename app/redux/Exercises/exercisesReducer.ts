@@ -327,6 +327,16 @@ const exerciseReducer = (exercises: NormalizedState<Exercise> = initialState, ac
     case 'DELETE_EXERCISE': {
       return removeExerciseFromAlternatives(exercises, action.exerciseId);
     }
+    case 'REMOVE_MUSCLE': {
+      // GH-523: a removed muscle disappears from every exercise's involvement too.
+      const usingIds = exercises.allIds.filter((id) => exercises.byId[id]?.muscles?.some((pair) => pair.muscle === action.muscle));
+      if (usingIds.length === 0) return exercises;
+      const byId = {...exercises.byId};
+      for (const id of usingIds) {
+        byId[id] = {...byId[id], muscles: byId[id].muscles?.filter((pair) => pair.muscle !== action.muscle)};
+      }
+      return {...exercises, byId};
+    }
     case 'EDIT_EXERCISE': {
       const nextState = {
         byId: {

@@ -1,0 +1,71 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-523: add a muscle, hide one from the overviews, remove one.
+# Needs the baseline store (00_import_baseline.yaml), with no muscle changes yet:
+# 9 built-in muscles; Core is used by 9 baseline exercises.
+- runFlow: gh523_open_muscle_settings.yaml
+- assertVisible: '9 muscles · 9 shown in overviews'
+- assertVisible:
+    id: 'settings-muscle-overview-Biceps'
+    checked: true
+
+# Add "Calves"
+- scrollUntilVisible:
+    element:
+      id: 'settings-muscle-name-input'
+    direction: DOWN
+- tapOn:
+    id: 'settings-muscle-name-input'
+- inputText: 'Calves'
+- hideKeyboard
+- tapOn:
+    id: 'settings-muscle-add-button'
+- runFlow:
+    # The first tap after typing can be swallowed while the keyboard closes.
+    when:
+      notVisible:
+        id: 'settings-muscle-row-Calves'
+    commands:
+      - tapOn:
+          id: 'settings-muscle-add-button'
+- assertVisible:
+    id: 'settings-muscle-row-Calves'
+# A duplicate is rejected with a message
+- tapOn:
+    id: 'settings-muscle-name-input'
+- inputText: 'chest'
+- hideKeyboard
+- tapOn:
+    id: 'settings-muscle-add-button'
+- runFlow:
+    when:
+      notVisible: 'Chest already exists\.'
+    commands:
+      - tapOn:
+          id: 'settings-muscle-add-button'
+- assertVisible: 'Chest already exists\.'
+
+# Hide Biceps from the overviews
+- scrollUntilVisible:
+    element:
+      id: 'settings-muscles-accordion'
+    direction: UP
+- assertVisible: '10 muscles · 10 shown in overviews'
+- tapOn:
+    id: 'settings-muscle-overview-Biceps'
+- assertVisible:
+    id: 'settings-muscle-overview-Biceps'
+    checked: false
+- assertVisible: '10 muscles · 9 shown in overviews'
+
+# Remove Core (asks first, names the affected exercises)
+- tapOn:
+    id: 'settings-muscle-remove-Core'
+- assertVisible: 'Remove Core\?'
+- assertVisible: 'Core is assigned to 9 exercises\. Removing it also removes it from those exercises\.'
+- tapOn:
+    id: 'settings-muscle-remove-confirm'
+- assertNotVisible:
+    id: 'settings-muscle-row-Core'
+- assertVisible: '9 muscles · 8 shown in overviews'
+- takeScreenshot: gh523_settings_after

@@ -5,6 +5,7 @@ import {useSelector} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
 import {Workout} from '../../models/entities/Workout';
 import {useSettings} from '../../redux/settings/use/useSettings';
+import {useOverviewMuscles} from '../../redux/settings/use/useMuscles';
 import {dispatchSetPlanMuscleMapMetric} from '../../redux/settings/dispatch/dispatchSetPlanMuscleMap';
 import {MuscleMapMetric, aggregateWorkouts, buildCompareRows} from '../../utils/MuscleInvolvementUtils';
 import MuscleMapBarList, {MuscleMapDetailLabels, MuscleMapDisplay} from './MuscleMapBarList';
@@ -85,11 +86,16 @@ const MuscleMapCard = ({subject, reference, share = false, subjectLabel, referen
   const hasReference = reference !== undefined;
   const display: MuscleMapDisplay = view === 'total' ? 'total' : share ? 'share' : 'diff';
 
+  const overviewMuscles = useOverviewMuscles();
+
   const rows = useMemo(() => {
     const totals = (workouts?: Workout[]) => (workouts ? aggregateWorkouts(workouts, exercisesById, metric) : undefined);
     const [w0, w1, w2, w3] = details.workouts;
-    return buildCompareRows(totals(subject)!, totals(reference), {planPrev: totals(w0), planCur: totals(w1), donePrev: totals(w2), doneCur: totals(w3)}, share);
-  }, [subject, reference, details.workouts, exercisesById, metric, share]);
+    const all = buildCompareRows(totals(subject)!, totals(reference), {planPrev: totals(w0), planCur: totals(w1), donePrev: totals(w2), doneCur: totals(w3)}, share);
+    // GH-523: only the muscles the user shows in overviews.
+    const shown = new Set(overviewMuscles);
+    return all.filter((row) => shown.has(row.muscleGroupId));
+  }, [subject, reference, details.workouts, exercisesById, metric, share, overviewMuscles]);
 
   const surfaceContainer = (theme.colors as unknown as {surfaceContainer?: string}).surfaceContainer ?? theme.colors.elevation?.level1 ?? theme.colors.surfaceVariant;
   const muted = theme.colors.onSurfaceVariant;

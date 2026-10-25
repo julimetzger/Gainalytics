@@ -6,6 +6,7 @@ import {Button, Dialog, Divider, HelperText, List, Portal, SegmentedButtons, Swi
 import SettingsSection from '../../components/settings/SettingsSection';
 import ThemeModeSelector from '../../components/settings/ThemeModeSelector';
 import ThemeColorSelector from '../../components/settings/ThemeColorSelector';
+import MuscleListSettings from '../../components/settings/MuscleListSettings';
 import {secureStorage} from '../../utils/secureStorage';
 import {validateAnthropicApiKey} from '../../utils/llmApi';
 import {useSettings} from '../../redux/settings/use/useSettings';
@@ -378,6 +379,10 @@ const SettingsTab = ({navigation, route}: Props) => {
             value={!settings.toggles?.disableToasts}
           />
         </View>
+      </SettingsSection>
+
+      <SettingsSection title="Muscles" testID="settings-section-muscles">
+        <MuscleListSettings />
       </SettingsSection>
 
       <SettingsSection title="Timers & Notifications" testID="settings-section-timers">
