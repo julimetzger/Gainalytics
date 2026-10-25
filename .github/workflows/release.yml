@@ -2,24 +2,29 @@ name: Release
 
 # Builds the signed release APK + AAB and publishes them as a GitHub Release.
 #
-# Trigger: pushing a version tag such as `0.183` (the tags created by
-# releaseNewAndroidVersion.sh/.ps1). The tag must match versionName in android/app/build.gradle.
+# Two ways to release version x.y (no version commit needed; the version comes from the tag):
+#   1. Push a tag such as `0.183` (`git tag 0.183 && git push origin 0.183`).
+#   2. Actions -> Release -> Run workflow on `master` with `version: 0.183`. The `tag` job creates
+#      the tag on the selected commit and starts this workflow again on that tag.
+# A run on a tag builds with versionName = tag name (versionCode stays as in build.gradle) and
+# publishes the release.
 #
-# Required repository secrets (Settings -> Secrets and variables -> Actions):
+# Required secrets in the GitHub environment `release` (Settings -> Environments -> release), which
+# should only allow version tags (deployment tag rule `[0-9]*`). Only runs on a tag ref use that
+# environment, so no branch run, PR or other workflow can read the signing key:
 #   ANDROID_RELEASE_KEYSTORE_BASE64  base64 of the existing release keystore (`base64 -w0 <file>`)
 #   ANDROID_RELEASE_PASSWORD         keystore (store) password
 # Optional:
 #   ANDROID_RELEASE_KEY_ALIAS        key alias (default: the alias used locally, see build.gradle)
 #   ANDROID_RELEASE_KEY_PASSWORD     key password (default: ANDROID_RELEASE_PASSWORD)
-# Optional repository variable:
+# Optional repository/environment variable:
 #   ANDROID_RELEASE_CERT_SHA256      expected SHA-256 digest of the signing certificate
 #                                    (`apksigner verify --print-certs`). If set, the job fails when
 #                                    the APK is signed with any other key. Zapstore pins that
 #                                    certificate, so the key must never change.
 #
-# Dry run: `workflow_dispatch` with `test_keystore: true` builds and signs with a throw-away
-# keystore generated inside the job and never creates a release. Without that switch a manual
-# run uses the real secrets but still does not publish (only tag pushes publish).
+# Dry run: Run workflow on a branch with an empty `version` builds and signs with a throw-away
+# keystore generated inside the job and never creates a release.
 # See docs/release.md.
 
 on:
@@ -29,10 +34,10 @@ on:
       - '[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
     inputs:
-      test_keystore:
-        description: 'Sign with a throw-away keystore generated in the job (no release is created)'
-        type: boolean
-        default: true
+      version:
+        description: 'Version to release, e.g. 0.183 (creates the tag on the selected branch and publishes the release). Empty = dry run with a throw-away keystore.'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -42,13 +47,51 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  tag:
+    name: Create tag and start release
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'branch' && inputs.version != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # create the tag
+      actions: write # start this workflow on the new tag
+    steps:
+      - name: Create tag ${{ inputs.version }} and dispatch the release run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "::error::version must look like 0.183 or 1.2.3 (got '$VERSION')"
+            exit 1
+          fi
+          if [ "$GITHUB_REF_NAME" != "$DEFAULT_BRANCH" ]; then
+            echo "::error::Releases are only cut from $DEFAULT_BRANCH (selected: $GITHUB_REF_NAME)"
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" --silent 2>/dev/null; then
+            echo "::error::Tag $VERSION already exists. To rebuild it, run this workflow on the tag itself (Use workflow from -> Tags -> $VERSION)."
+            exit 1
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$VERSION" -f sha="$GITHUB_SHA" --silent
+          echo "Created tag $VERSION at $GITHUB_SHA"
+          # Tags created with GITHUB_TOKEN do not trigger the push event, so start the release run explicitly.
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$VERSION"
+          echo "::notice::Release run for $VERSION started: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/release.yml"
+
   build:
     name: Build signed APK + AAB
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    # A dispatch with a version on a branch only creates the tag (job `tag`); the build runs on the tag.
+    if: github.ref_type == 'tag' || inputs.version == ''
+    # The real signing secrets live in the `release` environment; only runs on a tag ref enter it.
+    environment: ${{ github.ref_type == 'tag' && 'release' || '' }}
     env:
-      # Throw-away key for manual dry runs; tags always use the real key from the secrets.
-      USE_TEST_KEYSTORE: ${{ github.event_name == 'workflow_dispatch' && inputs.test_keystore }}
+      # Throw-away key for dry runs on a branch; tags always use the real key from the secrets.
+      USE_TEST_KEYSTORE: ${{ github.ref_type != 'tag' }}
     outputs:
       publish: ${{ steps.mode.outputs.publish }}
     steps:
@@ -56,20 +99,42 @@ jobs:
         with:
           persist-credentials: false
 
+      # A release build compiles native code for all four ABIs (reactNativeArchitectures in
+      # gradle.properties) and runs lint on the library AARs; that overflows the runner's default
+      # free space ("No space left on device" in :react-native-reanimated:bundleReleaseLocalLintAar).
+      - name: Free disk space
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/node_modules/@angular \
+            /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/share/swift \
+            /usr/local/share/powershell /usr/share/miniconda /opt/az /opt/microsoft || true
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          df -h / | tail -1
+
       - name: Determine mode
         id: mode
         run: |
-          version_name=$(sed -nE 's/^\s*versionName "([^"]+)".*/\1/p' android/app/build.gradle)
-          echo "versionName=$version_name"
-          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$USE_TEST_KEYSTORE" != "true" ]; then
-            if [ "$GITHUB_REF_NAME" != "$version_name" ]; then
-              echo "::error::Tag $GITHUB_REF_NAME does not match versionName $version_name in android/app/build.gradle"
+          set -euo pipefail
+          gradle_file=android/app/build.gradle
+          repo_version=$(sed -nE 's/^\s*versionName "([^"]+)".*/\1/p' "$gradle_file")
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            version="$GITHUB_REF_NAME"
+            if ! [[ "$version" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+              echo "::error::Tag $version is not a version tag (expected e.g. 0.183)"
               exit 1
+            fi
+            # The tag is the version: build with it without needing a version commit.
+            sed -i -E "s/^(\s*versionName )\"[^\"]+\"/\1\"$version\"/" "$gradle_file"
+            grep -qE "^\s*versionName \"$version\"" "$gradle_file"
+            if [ "$repo_version" != "$version" ]; then
+              echo "::notice::Building $version (build.gradle on this commit says $repo_version)"
             fi
             echo "publish=true" >> "$GITHUB_OUTPUT"
           else
+            echo "Dry run, versionName=$repo_version"
             echo "publish=false" >> "$GITHUB_OUTPUT"
           fi
+          grep -nE '^\s*version(Code|Name) ' "$gradle_file"
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:

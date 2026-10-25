@@ -8,7 +8,7 @@ appId: com.powerliftingworkoutplanner
 # the most recent finished training via "Last Training" and views it in edit
 # mode (pure UI state) — no set is typed, logged or deleted.
 #
-# Data prerequisite (R5CN30HWZFN, 2026-10-01): last training is
+# Data prerequisite (<phone-serial>, 2026-10-01): last training is
 # "Push pull › Meso 1 · Micro 6 Pull" with
 #   Hyperextension      session 64.5 / last 63.0 / PR 64.5  -> +1.5 kg
 #   Chest supported row session 76.0 / last 76.7 / PR 86.7  -> -0.7 kg

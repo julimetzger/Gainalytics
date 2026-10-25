@@ -4,7 +4,7 @@ appId: com.powerliftingworkoutplanner
 #
 # IMPORTANT — why this flow does not `assertVisible` the tab labels:
 # TrainingModeTabs renders inside TrainingsPlanNode's `NestableScrollContainer`
-# (react-native-draggable-flatlist). On R5CN30HWZFN that whole subtree is absent from the
+# (react-native-draggable-flatlist). On <phone-serial> that whole subtree is absent from the
 # Android accessibility hierarchy: neither `uiautomator dump` nor Maestro can see
 # `subtab-plan` / `subtab-train` / `subtab-analysis`, nor any pane text ("Plan new
 # Training", "Linear progression"). Verified with two Maestro runs and three UI dumps —

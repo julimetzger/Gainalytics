@@ -10,7 +10,7 @@
 
 ## Method
 
-- **Device**: Samsung Galaxy `R5CN30HWZFN`, physical (real) device.
+- **Device**: Samsung Galaxy `<phone-serial>`, physical (real) device.
 - **Build**: feature/GH-288 branch tip, sitting on master commits
   `4587760f` (GH-283) and `07a6b7c5` (GH-284). Verified with
   `git log origin/master | grep -E "GH-283|GH-284"`.
@@ -233,7 +233,7 @@ once per second for a screen that is supposed to be idle between sets.
   outside-cascade commits exist at all; it would also be cleaned up by
   the follow-up (fewer wrapper re-renders → fewer fresh `info` props).
 
-## Update post GH-291 (verified on R5CN30HWZFN)
+## Update post GH-291 (verified on <phone-serial>)
 
 Re-measured on `feature/GH-291` (commits `3f5d65f8` + `c57a09fc`), same
 device, same baseline `.gains`, live training on Push pull › M7 › Push

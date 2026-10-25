@@ -10,7 +10,7 @@
 
 | Item | Value |
 |---|---|
-| Device | Samsung SM-G986B (Galaxy S20+), serial `R5CN30HWZFN` — physical device, not an emulator |
+| Device | Samsung SM-G986B (Galaxy S20+), serial `<phone-serial>` — physical device, not an emulator |
 | Android version | 13 (API 33) — the first version the Play policy applies to |
 | App `targetSdkVersion` | 36 · `minSdkVersion` 24 (`android/build.gradle`) |
 | Build under test | `versionCode 7`, `versionName 0.172` |
@@ -110,7 +110,7 @@ Removal only — no picker, playback or analysis logic was touched.
 After the change `grep -rn "READ_MEDIA" android/app/src/` matches nothing but the explanatory
 comment, and `PermissionsAndroid` no longer appears anywhere in `app/`.
 
-## 5. Device verification (R5CN30HWZFN, Android 13 / API 33)
+## 5. Device verification (<phone-serial>, Android 13 / API 33)
 
 All runs on the physical Galaxy S20+, not an emulator. Screenshots referenced by their
 file name live in `screenshots/GH-421/`.
@@ -188,7 +188,7 @@ flows contains zero matches for `permission deni`, `SecurityException`, `EACCES`
 ### 5.5 Automated e2e
 
 `gh396_api36_video_import.yaml` (import through the system picker) and
-`gh396_api36_video_resume.yaml` both passed against R5CN30HWZFN on the permission-free
+`gh396_api36_video_resume.yaml` both passed against <phone-serial> on the permission-free
 build. The resume flow is the one that asserts a resulting value rather than mere
 navigation: the progress bar must be gone, `Done` must be visible, and `Failed` /
 `App was closed while import or analysis was running` must not be.
@@ -198,7 +198,7 @@ navigation: the progress bar must be gone, `Done` must be visible, and `Failed` 
 > resume, Rep Summary); the file names above refer to the run documented here.
 
 Maestro was pinned to the assigned device with the `adb_filter_proxy`, and the routing was
-verified from the run's own debug output (`Width: 720`, `Height: 1600` = R5CN30HWZFN;
+verified from the run's own debug output (`Width: 720`, `Height: 1600` = <phone-serial>;
 the emulator would report 1080×2400). Logs: `checks/maestro-video-import.log`,
 `checks/maestro-video-resume.log`, JUnit reports alongside them.
 

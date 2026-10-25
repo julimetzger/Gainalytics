@@ -401,7 +401,7 @@ Workers append NEW learnings here (and only here), after checking the table of c
 
 
 ### Resumed round: the previous round's adb filter proxy is gone, so its helper scripts drive the phone
-**Problem / Symptom:** In a feedback round the run-dir helper script still hardcoded the round-1 proxy (`--host 127.0.0.88`), which was no longer running. Switching it to the gateway (`--host 172.18.240.1 --device emulator-5556`) made Maestro log "Selected device emulator-5556" while `launchApp` force-stopped and relaunched the app on R5CN30HWZFN (`Got device info … widthPixels=720`). Every assertion failed even though uiautomator on the emulator showed the element.
+**Problem / Symptom:** In a feedback round the run-dir helper script still hardcoded the round-1 proxy (`--host 127.0.0.88`), which was no longer running. Switching it to the gateway (`--host <wsl-gateway-ip> --device emulator-5556`) made Maestro log "Selected device emulator-5556" while `launchApp` force-stopped and relaunched the app on <phone-serial> (`Got device info … widthPixels=720`). Every assertion failed even though uiautomator on the emulator showed the element.
 **Fix / Rule:** At the start of every round, run `ss -tlnp | grep :5037` and restart your own proxy (`python3 .codex-orchestrator/proxies/adb_filter_proxy.py --serial $ANDROID_SERIAL --listen 127.0.0.<n>:5037 --upstream <gateway>:5037`), then verify with `adb -H 127.0.0.<n> -P 5037 devices`. Put a `widthPixels` check from `maestro.log` into the helper so a wrong device fails loudly.
 **Apply when:** resuming a ticket in a new round, or reusing run-dir scripts. (seen in GH-497)
 
@@ -564,7 +564,7 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Apply when:** writing Maestro assertions on fixture values, or when the device is unavailable and flows still have to be written Durations: the app sums SECONDS and floors (`7h 28min`), so summing per-training rounded minutes (`7h 29min`) is off by one — compute from the raw timestamps.
 
 ### Fixed-width numeric readouts get ellipsized on the Samsung phone — use `minWidth`
-**Problem / Symptom:** the muscle map readout column (`width: 64`, monospace 12sp) showed `10.4/10…` on R5CN30HWZFN. Jest and the design looked fine, and the Maestro `copyTextFrom` still read the full text, so only a screenshot revealed it.
+**Problem / Symptom:** the muscle map readout column (`width: 64`, monospace 12sp) showed `10.4/10…` on <phone-serial>. Jest and the design looked fine, and the Maestro `copyTextFrom` still read the full text, so only a screenshot revealed it.
 **Fix / Rule:** give value columns next to a `flex: 1` bar `minWidth`, not `width`, so the bar yields. Always eyeball a screenshot of every new numeric column on the phone (larger font scale than the emulators).
 **Apply when:** row layouts of label | flex bar | numeric readout (seen in GH-526).
 

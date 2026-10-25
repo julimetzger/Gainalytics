@@ -2,7 +2,7 @@ appId: com.powerliftingworkoutplanner
 ---
 # GH-439 — rep speed must follow continuous video playback.
 #
-# Runs on R5CN30HWZFN against the user's existing store (no clearState, no import).
+# Runs on <phone-serial> against the user's existing store (no clearState, no import).
 # Analysis 2 on that device is the 80 s squat clip (8 x __tests__/e2e/maestro/fixtures/
 # squat-3reps.mp4) analysed on the device; at t=0 its readout is "-" / "0.372 m/s".
 #
