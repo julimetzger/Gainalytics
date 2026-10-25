@@ -205,14 +205,30 @@ jobs:
           apk=android/app/build/outputs/apk/release/app-release.apk
           aab=android/app/build/outputs/bundle/release/app-release.aab
           apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
-          "$apksigner" verify --verbose --print-certs "$apk" | tee "$RUNNER_TEMP/apk-certs.txt"
+          "$apksigner" verify --verbose --print-certs "$apk" 2>&1 | tee "$RUNNER_TEMP/apk-certs.txt"
           jarsigner -verify "$aab" > /dev/null && echo "AAB signature OK"
-          actual=$(sed -nE 's/^Signer #1 certificate SHA-256 digest: ([0-9a-f]+)$/\1/p' "$RUNNER_TEMP/apk-certs.txt")
-          echo "Signing certificate SHA-256: $actual"
+          norm() { tr -d ': \r' | tr 'A-F' 'a-f'; }
+          # apksigner labels signers differently depending on scheme/version ("Signer #1 ...",
+          # "Signer (minSdkVersion=...) ..."), so take every certificate digest it prints.
+          apk_digests=$(grep -oiE 'certificate SHA-256 digest: [0-9a-f:]+' "$RUNNER_TEMP/apk-certs.txt" \
+            | sed -E 's/.*digest: //' | norm | sort -u || true)
+          # The AAB is JAR-signed with the same key; keytool reads that certificate directly.
+          aab_digest=$(keytool -printcert -jarfile "$aab" 2>/dev/null \
+            | sed -nE 's/^[[:space:]]*SHA256: ([0-9A-Fa-f:]+).*/\1/p' | head -n1 | norm || true)
+          echo "APK signing certificate SHA-256: ${apk_digests:-<none found>}"
+          echo "AAB signing certificate SHA-256: ${aab_digest:-<none found>}"
+          if [ -z "$apk_digests" ] || [ -z "$aab_digest" ]; then
+            echo "::error::Could not read the signing certificate digest (apksigner output: $(head -c 600 "$RUNNER_TEMP/apk-certs.txt" | tr '\n' ' '))"
+            exit 1
+          fi
+          if [ "$(printf '%s\n' "$apk_digests" | wc -l)" -ne 1 ] || [ "$apk_digests" != "$aab_digest" ]; then
+            echo "::error::APK and AAB are not signed with exactly one, identical certificate (APK: $(echo $apk_digests), AAB: $aab_digest)."
+            exit 1
+          fi
           if [ "$USE_TEST_KEYSTORE" != "true" ] && [ -n "$EXPECTED_CERT_SHA256" ]; then
-            expected=$(echo "$EXPECTED_CERT_SHA256" | tr -d ': ' | tr 'A-F' 'a-f')
-            if [ "$actual" != "$expected" ]; then
-              echo "::error::APK is signed with an unexpected certificate ($actual). The release key must never change."
+            expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | norm)
+            if [ "$apk_digests" != "$expected" ]; then
+              echo "::error::Signed with an unexpected certificate ($apk_digests, expected $expected). The release key must never change."
               exit 1
             fi
             echo "Certificate matches ANDROID_RELEASE_CERT_SHA256."
