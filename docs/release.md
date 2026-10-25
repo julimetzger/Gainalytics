@@ -6,20 +6,31 @@ picks the APK up from there.
 
 ## Cutting a release
 
-```bash
-./releaseNewAndroidVersion.sh          # Linux/macOS/WSL
-.\releaseNewAndroidVersion.ps1         # Windows PowerShell
-```
+The tag is the version. No version commit or PR is needed; CI builds with
+`versionName` = tag name (`versionCode` stays as in `android/app/build.gradle`). Either
 
-The script bumps `versionName` in `android/app/build.gradle`, commits
-`release android version <x.y>`, tags `<x.y>` and pushes `master` plus the tag. The tag push
-starts `release.yml`, which
+- **Run workflow:** Actions → Release → *Run workflow* on `master`, enter `version` (e.g. `0.183`).
+  The `tag` job creates the tag on the current `master` commit and starts the release run on it, or
+- **push a tag:** `git tag 0.183 && git push origin 0.183`.
 
-1. checks that the tag equals `versionName`,
+The release run on the tag
+
+1. sets `versionName` to the tag name for this build,
 2. runs `npm ci`, decodes the keystore from the secrets and runs
    `./gradlew assembleRelease bundleRelease`,
 3. verifies the APK/AAB signature (and, if configured, the certificate fingerprint),
 4. creates the GitHub Release with the three files attached.
+
+To rebuild an existing tag (e.g. after a failed run), start *Run workflow* with
+*Use workflow from* → **Tags** → the version; leave `version` empty.
+
+The old scripts still work: they continue from the higher of `versionName` and the latest version tag
+and additionally commit the bumped `versionName` to `master`:
+
+```bash
+./releaseNewAndroidVersion.sh          # Linux/macOS/WSL
+.\releaseNewAndroidVersion.ps1         # Windows PowerShell
+```
 
 `--local-build` (`-LocalBuild` in PowerShell) keeps the old behavior of also building and signing
 locally before tagging. It needs the local keystore at `android/app/<store file>` and
@@ -52,15 +63,17 @@ Settings → Secrets and variables → Actions:
 | Secret (optional) | `ANDROID_RELEASE_KEY_PASSWORD` | only if the key password differs from the store password |
 | Variable (recommended) | `ANDROID_RELEASE_CERT_SHA256` | SHA-256 of the signing certificate, e.g. from `keytool -list -v -keystore <file>` or `apksigner verify --print-certs app-release.apk`; the workflow fails if a build is signed with any other certificate |
 
-Recommended: put the secrets into a `release` environment restricted to tags, so pull-request
-workflows can never read them.
+Put the secrets (and the variable) into the GitHub **environment `release`**
+(Settings → Environments → release) and restrict it under *Deployment branches and tags* to
+**selected tags** with the rule `[0-9]*` (the version tags look like `0.183`, not `v…`). The release
+job only enters this environment for runs on a tag ref, so no branch run, PR, other workflow or agent
+can read the signing key. Do not keep a second copy as repository secret.
 
 ## Dry run (test keystore)
 
-Actions → Release → *Run workflow* with **test_keystore** checked (default) builds and signs with a
+Actions → Release → *Run workflow* on a branch with an **empty** `version` builds and signs with a
 throw-away keystore generated inside the job, verifies the signature and uploads the files as a
-workflow artifact (3 days). No release is created and no secret is used. Unchecking
-**test_keystore** builds with the real key but still does not publish (only tag pushes publish).
+workflow artifact (3 days). No tag or release is created and no secret is used.
 
 ## Continuous integration
 
@@ -75,3 +88,39 @@ npx tsc -p tsconfig.json --noEmit --pretty false > /tmp/tsc.txt; node scripts/ci
 ```
 
 Node version for CI and local work: `.nvmrc`. JDK 17.
+
+### Maestro smoke on an emulator
+
+`.github/workflows/maestro-smoke.yml` (check name **`Maestro smoke`**, the one to add as required
+status check in the `master` ruleset) runs on pull requests and pushes to `master`, except for
+changes that only touch `**/*.md`, `docs/**`, `screenshots/**` or `tickets/**`. It builds the debug
+APK (x86_64, embedded JS bundle), boots an API 34 emulator, pushes `baseline.gains` and runs
+`__tests__/e2e/maestro/flows/smoke.yaml`: baseline import, Training home values
+(`home_dashboard.yaml`), Analyse drill-down (`analyse_dashboard_drilldown.yaml`) and start / log /
+finish a training (`train_start_log_finish.yaml`, last because it changes data).
+
+- Safe for fork PRs: `permissions: contents: read`, no secrets, no environment.
+- Shares the Gradle and AVD caches with `agent-emulator.yml` (same keys). A failed emulator
+  *boot* is retried once with a cold boot; a failing flow is not retried.
+- On failure the **Smoke result** step fails with an annotation naming the failing flow and step;
+  the job summary shows the same plus the Maestro console tail and timings. Artifact
+  `maestro-smoke-evidence` (14 days): JUnit `maestro/smoke/report.xml`, Maestro debug output
+  (failure screenshot, commands JSON), screenshots, logcat, `timings.txt`.
+- Runtime (public 4-vCPU runner): goal < 30 min with warm caches; the Gradle build dominates.
+  The flows took 17 min in the first PR run; after the GH-588 speed-up they take 5.5–6 min on the
+  agent emulator (was 10 min there), so expect well under 17 min on the PR runner too
+  (`timings.txt` / job summary list each phase).
+- Keep the smoke fast: on a running training the rest-timer ring animates nonstop and every Maestro
+  tap/erase/input then waits 11–23 s for the screen to settle — `train_start_log_finish.yaml` skips
+  the rest right after logging the set. `smoke.yaml` passes `BASELINE_IMPORTED: 'true'` so that flow
+  skips its own import, and `ANALYSE_RESUME: 'true'` so the analyse flow resumes the app instead of
+  cold-starting it (standalone it cold-starts: a resumed Dashboard keeps its scroll and radar selection).
+- A smoke failure inside a flow is usually a real app bug: check the failure screenshot first. The
+  first GH-588 "flake" (`"1 selected" is visible`) was the Analyse error boundary — a master
+  dependency bump (react-native-gesture-handler 3) had removed the `Swipeable` that `DateRangePicker`
+  imported, and `npm run typecheck` reported it (`has no exported member 'Swipeable'`).
+- Docs-only changes skip the workflow (`paths-ignore`). A required check whose workflow is skipped
+  by a path filter stays *pending*, so docs-only PRs then need an admin bypass of the ruleset (or
+  drop the `paths-ignore` before making the check required).
+
+Locally: `ANDROID_SERIAL=<serial> npm run e2e:android:smoke` (see `__tests__/e2e/README.md`).

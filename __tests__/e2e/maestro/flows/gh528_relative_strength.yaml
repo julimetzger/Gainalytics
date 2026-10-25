@@ -1,0 +1,45 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 (T3): relative strength (1RM / body weight at that date) next to the 1RM of an exercise.
+# Preconditions: gh528_edit_training.yaml (Adductor 1RM 175.0 kg today) and the seeded weights
+# (82.5 kg yesterday is the latest value on or before today) → 175.0 / 82.5 = 2.12 × BW.
+# Older records (2025) have no body weight in the readable window and stay without a ratio.
+- launchApp:
+    clearState: false
+    permissions:
+      notifications: allow
+- tapOn: 'tab-exercises'
+- tapOn:
+    id: 'exercise-searchbar'
+- inputText: 'Adductor'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-row-\d+'
+    timeout: 10000
+- tapOn:
+    id: 'exercise-row-\d+'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'header-card-one-rm'
+    timeout: 20000
+- assertVisible: '175.0 kg'
+- assertVisible:
+    id: 'header-card-one-rm-relative'
+    text: '2.12 × BW'
+- tapOn:
+    id: 'exercise-tab-stats'
+- scrollUntilVisible:
+    element:
+      id: 'one-rm-record-value-1'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'one-rm-record-value-0'
+    text: '175.0 kg'
+- assertVisible:
+    id: 'one-rm-record-relative-0'
+    text: '2.12 × BW'
+- assertNotVisible:
+    id: 'one-rm-record-relative-1'
+- takeScreenshot: gh528_relative_01_stats

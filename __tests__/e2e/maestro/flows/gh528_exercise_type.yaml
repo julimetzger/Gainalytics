@@ -1,0 +1,69 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 (T2): the exercise editor offers an optional Health Connect type (only while writing to Health
+# Connect is on). Sets Adductor (no name rule → "Weightlifting (generic)") to "Hip thrust" and checks the
+# saved value. A training with Adductor that was written before is rewritten with the new segment type
+# (checked out-of-band in Health Connect, see the PR).
+- launchApp:
+    clearState: false
+    permissions:
+      notifications: allow
+- tapOn: 'tab-exercises'
+- tapOn:
+    id: 'exercise-searchbar'
+- inputText: 'Adductor'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-row-\d+'
+    timeout: 10000
+- tapOn:
+    id: 'exercise-row-\d+'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-edit-button'
+    timeout: 20000
+- tapOn:
+    id: 'exercise-detail-edit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-exercise-sheet'
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: 'edit-exercise-health-connect-type'
+    direction: DOWN
+    centerElement: true
+- assertVisible: 'Automatic \(Weightlifting \(generic\)\)'
+- tapOn:
+    id: 'edit-exercise-health-connect-type'
+- scrollUntilVisible:
+    element:
+      id: 'health-connect-type-HIP_THRUST'
+    direction: DOWN
+- tapOn:
+    id: 'health-connect-type-HIP_THRUST'
+- assertVisible: 'Hip thrust'
+- assertNotVisible: 'Automatic \(Weightlifting \(generic\)\)'
+- takeScreenshot: gh528_type_01_editor
+- tapOn:
+    id: 'edit-exercise-save'
+# Reopen: the choice was saved on the exercise.
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-edit-button'
+    timeout: 20000
+- tapOn:
+    id: 'exercise-detail-edit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-exercise-sheet'
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: 'edit-exercise-health-connect-type'
+    direction: DOWN
+    centerElement: true
+- assertVisible: 'Hip thrust'
+- tapOn:
+    id: 'edit-exercise-cancel'

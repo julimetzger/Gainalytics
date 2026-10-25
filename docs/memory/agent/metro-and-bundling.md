@@ -33,7 +33,7 @@ See also: [Emulator Metro host](#emulator-resolves-metro-at-10022-which-bypasses
 
 ### Dev Menu Change Bundle Location
 **Use when:** you need a one-off switch of the running process. `adb shell input keyevent 82` → "Change Bundle Location" → clear the field (`KEYCODE_MOVE_END` then ~30× `KEYCODE_DEL`, otherwise you get `80810.0.2.2:PORT` and a port crash) → `adb shell input text "localhost:8081"` → APPLY CHANGES. Confirm the field via `uiautomator dump` before applying.
-**Limits:** on this RN version the value does not reliably survive process death; the APPLY tap is flaky from adb; Maestro cannot open the dev menu (`pressKey: Menu` is not a valid key — drive it from a wrapper script before `maestro test`, e.g. `__tests__/e2e/scripts/gh204-r2-evidence.sh`).
+**Limits:** on this RN version the value does not reliably survive process death; the APPLY tap is flaky from adb; Maestro cannot open the dev menu (`pressKey: Menu` is not a valid key — drive it from a wrapper script before `maestro test`, e.g. the former `gh204-r2-evidence.sh`, removed in GH-584 — see git history).
 
 ### App stuck on splash because of a corrupted debug_http_host
 **Symptom:** splash hangs forever after relaunch; logcat `Failed to connect to /127.0.0.1:1` (port 1) while Metro `/status` answers.

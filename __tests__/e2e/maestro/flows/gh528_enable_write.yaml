@@ -1,0 +1,15 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 (T2): turn on "Write trainings to Health Connect" (needs the write permission, see gh528_connect.yaml).
+- runFlow: gh528_open_health_connect_settings.yaml
+- assertVisible:
+    id: 'health-connect-write-switch'
+    checked: false
+- assertVisible:
+    id: 'health-connect-status'
+    text: 'Connected'
+- tapOn:
+    id: 'health-connect-write-switch'
+- assertVisible:
+    id: 'health-connect-write-switch'
+    checked: true

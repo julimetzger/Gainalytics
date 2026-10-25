@@ -200,7 +200,7 @@ Gesamt nach Freigabe: grob **8–11 Personentage**.
 
 | # | Schritt | Ergebnis | Beleg |
 |---|---|---|---|
-| 1 | Settings ohne sichtbaren Unterschied, Claude-Key-Feld unverändert | ✅ | Screenshot `01_settings_no_chatgpt_entry.png`, Maestro `gh504_chatgpt_poc_entry.yaml` |
+| 1 | Settings ohne sichtbaren Unterschied, Claude-Key-Feld unverändert | ✅ | Screenshot `01_settings_no_chatgpt_entry.png`, Maestro (PoC-Flow, inzwischen entfernt) |
 | 2 | Long-Press auf Version öffnet den PoC-Screen („Not connected“) | ✅ | `02_poc_screen_not_connected.png`, Maestro |
 | 3 | „Continue with ChatGPT“ startet den Listener (`127.0.0.1:1455 LISTEN`) und öffnet den Authorize-Request; **OpenAI akzeptiert `dynamic_agent_client` und zeigt den Login-Dialog** | ✅ | `03_openai_login_dialog.png` (auth.openai.com/log-in, „Welcome back“), Maestro (Status „Waiting for sign-in in the browser…“) |
 | 4 | Redirect auf `http://127.0.0.1:1455/auth/callback` wird vom Browser an die App zugestellt | ✅ (simuliert: der Callback wurde mit dem echten `state` per Chrome-VIEW-Intent geöffnet) | `05_loopback_callback_page.png` |
@@ -259,10 +259,10 @@ Die dynamische Registrierung wurde für die App akzeptiert, der Consent-Dialog z
 | # | Prüfung | Ergebnis |
 |---|---|---|
 | 1 | Update über die PoC-Debug-App (`adb install -r`, gleiche Signatur): Daten und **ChatGPT-Anmeldung des Owners bleiben erhalten**, Anbieter steht weiter auf Claude | ✅ `11_settings_default_claude.png`, `12_settings_chatgpt_connected.png` |
-| 2 | ChatGPT gewählt: „Connected as …“, 7 Modelle des Abos | ✅ Maestro `gh504_chatgpt_provider.yaml` |
+| 2 | ChatGPT gewählt: „Connected as …“, 7 Modelle des Abos | ✅ Maestro `__tests__/e2e/maestro/flows/manual/gh504_chatgpt_provider.yaml` |
 | 3 | Login im Release-Build über „Reconnect“: <ul><li>Consent „Connect Gainalytics to ChatGPT – Use your ChatGPT plan“</li><li>„Sign-in received“ kommt, während Chrome vorne ist (Foreground-Service aktiv)</li><li>„Back to Gainalytics“ → verbunden, Service beendet</li></ul> | ✅ `13_release_consent_dialog.png` |
 | 4 | AI-Chat mit Meso-Kontext: zwei Nachrichten, die zweite nur mit Verlauf lösbar („REST=5 min“ → „BENCH=4 min“); kein „No context“-Hinweis; Stop bricht ab und stellt die Frage wieder her | ✅ `14_release_chat_two_answers_stop.png`, Maestro |
-| 5 | Coach Insight mit echter ChatGPT-Antwort, kurz und vollständig (kein Kürzungshinweis) | ✅ `15_release_coach_insight_chatgpt.png`, Maestro `gh504_chatgpt_coach_insight.yaml` |
+| 5 | Coach Insight mit echter ChatGPT-Antwort, kurz und vollständig (kein Kürzungshinweis) | ✅ `15_release_coach_insight_chatgpt.png`, Maestro `__tests__/e2e/maestro/flows/manual/gh504_chatgpt_coach_insight.yaml` |
 | 6 | App-Neustart (Maestro `launchApp` stoppt die App) und Neuinstallation: Anmeldung bleibt | ✅ |
 | 7 | Abmelden, abgelaufene Sitzung, Refresh-Fehler, Limit, ungültige Anmeldung, kein Anbieter, Netzwerk | ✅ Unit-Tests (`chatgptSession.spec.ts`, `chatgptChat.spec.ts`, `ChatGptAccountSection.spec.tsx`). Auf dem Gerät **bewusst nicht** abgemeldet, um die Anmeldung des Owners zu erhalten |
 

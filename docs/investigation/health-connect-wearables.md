@@ -282,6 +282,10 @@ Aufwand: S ≈ 1–2 Tage, M ≈ 3–5 Tage, L ≈ 1–2 Wochen, XL > 2 Wochen (
 
 ## 7. Proof of Concept
 
+> **Stand GH-528:** Der PoC ist durch das Feature ersetzt (T1–T3). Das Modul heißt jetzt `HealthConnect` und liegt in
+> `android/app/src/main/java/com/powerliftingworkoutplanner/healthconnect/`, minSdk ist 26, der versteckte Einstieg und der
+> PoC-Screen sind entfernt. Einstieg: Einstellungen → „Health Connect“. Die Tabellen unten beschreiben den historischen PoC-Stand.
+
 ### 7.1 Was gebaut wurde
 
 | Datei | Zweck |

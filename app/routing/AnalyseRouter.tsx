@@ -11,6 +11,7 @@ import VideoAnalysisTab from '../tabs/Analyse/VideoAnalysisTab';
 import VideoAnalysisDetailTab from '../tabs/Analyse/VideoAnalysisDetailTab';
 import VideoAnalysisCompareTab from '../tabs/Analyse/VideoAnalysisCompareTab';
 import TrainingLengthTab from '../tabs/Analyse/TrainingLengthTab';
+import BodyWeightTab from '../tabs/Analyse/BodyWeightTab';
 import DashboardTab from '../tabs/Analyse/DashboardTab';
 import AIChatTab from '../tabs/Analyse/AIChatTab';
 import ChatHistoryTab from '../tabs/Analyse/ChatHistoryTab';
@@ -27,6 +28,7 @@ export type RootStackParamList = {
   // serializable, so the range is passed as two epoch-millisecond numbers.
   Metrics: {muscle?: Muscles; rangeStartMs?: number; rangeEndMs?: number; drilldownNonce?: number} | undefined;
   TrainingLength: undefined;
+  BodyWeight: undefined;
   VideoAnalyses: undefined;
   VideoAnalysisDetail: {analysisId: number};
   VideoAnalysisCompare: {analysisId: number; compareAnalysisId: number};
@@ -41,6 +43,7 @@ export type RootStackParamList = {
 const DashboardScreen = withAnalyseErrorBoundary(DashboardTab, 'Dashboard');
 const AnalyseGraphicsScreen = withAnalyseErrorBoundary(AnalyseGraphics, 'Analyse');
 const TrainingLengthScreen = withAnalyseErrorBoundary(TrainingLengthTab, 'Training Length');
+const BodyWeightScreen = withAnalyseErrorBoundary(BodyWeightTab, 'Body Weight');
 const HistoryScreen = withAnalyseErrorBoundary(History, 'History');
 const MetricsScreen = withAnalyseErrorBoundary(MetricsTab, 'Metrics Overview');
 const RecordsScreen = withAnalyseErrorBoundary(RecordsTab, 'Records');
@@ -128,6 +131,13 @@ const AnalyseRouter = () => {
         component={TrainingLengthScreen}
         options={() => ({
           title: 'Training Length',
+        })}
+      />
+      <Stack.Screen
+        name="BodyWeight"
+        component={BodyWeightScreen}
+        options={() => ({
+          title: 'Body Weight',
         })}
       />
       <Stack.Screen

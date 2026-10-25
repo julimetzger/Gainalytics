@@ -1,7 +1,7 @@
 {
   "ticket": "GH-307",
   "source": {
-    "deviceSerial": "R5CN30HWZFN",
+    "deviceSerial": "<phone-serial>",
     "reduxPersistPath": "/data/data/com.powerliftingworkoutplanner/files/mmkv/mmkv.default",
     "resultPath": "/data/user/0/com.powerliftingworkoutplanner/files/video-analysis/results/analysis-2.json",
     "extractedAt": "2026-05-18T09:40:00.000Z",
@@ -24,7 +24,7 @@
     "resultPath": "/data/user/0/com.powerliftingworkoutplanner/files/video-analysis/results/analysis-2.json"
   },
   "groundTruth": {
-    "note": "User-confirmed ground truth (round 5): for this deadlift recording every rep is concentric-first. The bar starts on the floor (high tracking-Y), rises to lockout at the turnaround (low tracking-Y), then drops back to the floor. The user verified this on R5CN30HWZFN in the playback overlay: the FIRST peak in each rep must be labeled CONCENTRIC, and the concentric duration must exceed the eccentric duration.",
+    "note": "User-confirmed ground truth (round 5): for this deadlift recording every rep is concentric-first. The bar starts on the floor (high tracking-Y), rises to lockout at the turnaround (low tracking-Y), then drops back to the floor. The user verified this on the physical test phone in the playback overlay: the FIRST peak in each rep must be labeled CONCENTRIC, and the concentric duration must exceed the eccentric duration.",
     "expectedConcentricFirstByRep": [
       {
         "repIndex": 0,

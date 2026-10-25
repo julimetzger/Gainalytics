@@ -1,0 +1,149 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F13 Editable muscles (GH-523): the exercise editor offers the USER's muscle list.
+# Purpose: after Settings › Muscles adds Calves, hides Biceps and removes Core, the Squat
+#   editor lists Calves and the hidden Biceps (still assignable), no longer lists Core (its
+#   30 % is gone), keeps Hamstrings 50, and saves a Calves involvement of 40 %.
+# Data basis: baseline import (00_import_baseline.yaml); Squat = exercise id 2 with
+#   Quads 100 / Glutes 100 / Hamstrings 50 / Core 30. MUTATES settings and Squat -> imports
+#   first and sets up the muscle list itself (no dependency on muscles_manage.yaml).
+# Merged from: gh523_exercise_editor.yaml, gh523_open_muscle_settings.yaml (inlined)
+- runFlow: 00_import_baseline.yaml
+
+# --- Setup in Settings › Muscles: add Calves, hide Biceps, remove Core ---
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-section-theme'
+    direction: UP
+- scrollUntilVisible:
+    element:
+      id: 'settings-muscles-accordion'
+    direction: DOWN
+    centerElement: true
+- waitForAnimationToEnd
+# PRECONDITION: default muscle list of the baseline
+- assertVisible: '9 muscles · 9 shown in overviews'
+- runFlow:
+    when:
+      notVisible:
+        id: 'settings-muscle-row-Back'
+    commands:
+      - tapOn:
+          id: 'settings-muscles-accordion'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'settings-muscle-overview-Biceps'
+- assertVisible:
+    id: 'settings-muscle-overview-Biceps'
+    checked: false
+- tapOn:
+    id: 'settings-muscle-remove-Core'
+- extendedWaitUntil:
+    visible: 'Remove Core\?'
+    timeout: 10000
+- tapOn:
+    id: 'settings-muscle-remove-confirm'
+- assertNotVisible:
+    id: 'settings-muscle-row-Core'
+- scrollUntilVisible:
+    element:
+      id: 'settings-muscle-add-button'
+    direction: DOWN
+- tapOn:
+    id: 'settings-muscle-name-input'
+- inputText: 'Calves'
+- hideKeyboard
+- tapOn:
+    id: 'settings-muscle-add-button'
+- runFlow:
+    # The first tap after typing can be swallowed while the keyboard closes.
+    when:
+      notVisible:
+        id: 'settings-muscle-row-Calves'
+    commands:
+      - tapOn:
+          id: 'settings-muscle-add-button'
+- assertVisible:
+    id: 'settings-muscle-row-Calves'
+- scrollUntilVisible:
+    element:
+      id: 'settings-muscles-accordion'
+    direction: UP
+- assertVisible: '9 muscles · 8 shown in overviews'
+
+# --- Squat editor ---
+- tapOn: 'tab-exercises'
+- extendedWaitUntil:
+    visible:
+      id: '^exercise-searchbar$'
+    timeout: 30000
+- tapOn:
+    id: '^exercise-searchbar$'
+- inputText: 'Squat'
+- hideKeyboard
+- tapOn:
+    id: '^exercise-row-2$'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-edit-button'
+    timeout: 15000
+- tapOn:
+    id: 'exercise-detail-edit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-exercise-sheet'
+    timeout: 15000
+# Alphabetical list: Back, Biceps, Calves, Chest, Glutes, Hamstrings, Quads, Shoulders, Triceps
+- scrollUntilVisible:
+    element:
+      id: 'muscle-row-Triceps'
+    direction: DOWN
+- assertVisible:
+    id: 'muscle-row-Calves'
+- assertVisible:
+    id: 'muscle-row-Biceps'
+- assertNotVisible:
+    id: 'muscle-row-Core'
+- assertVisible:
+    id: 'muscle-input-Hamstrings'
+    text: '50'
+
+# Assign Calves 40 % and save
+- tapOn:
+    id: 'muscle-input-Calves'
+- inputText: '40'
+- hideKeyboard
+- assertVisible:
+    id: 'muscle-input-Calves'
+    text: '40'
+- scrollUntilVisible:
+    element:
+      id: 'edit-exercise-save'
+    direction: UP
+- tapOn:
+    id: 'edit-exercise-save'
+
+# Reopen: the saved involvement keeps Calves 40, Core stays gone
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-edit-button'
+    timeout: 15000
+- tapOn:
+    id: 'exercise-detail-edit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-exercise-sheet'
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: 'muscle-input-Calves'
+    direction: DOWN
+- assertVisible:
+    id: 'muscle-input-Calves'
+    text: '40'
+- assertVisible:
+    id: 'muscle-input-Hamstrings'
+    text: '50'
+- assertNotVisible:
+    id: 'muscle-row-Core'

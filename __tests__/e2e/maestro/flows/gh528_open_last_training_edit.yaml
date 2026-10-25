@@ -1,0 +1,28 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 sub-flow: opens the last finished training (the one gh528_write_training.yaml finished) in edit mode.
+- launchApp:
+    clearState: false
+    permissions:
+      notifications: allow
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'last-training-card-pressable'
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: 'last-training-card-pressable'
+- extendedWaitUntil:
+    visible:
+      id: 'header-overflow-button'
+    timeout: 20000
+- tapOn:
+    id: 'header-overflow-button'
+- tapOn:
+    id: 'overflow-edit'
+- waitForAnimationToEnd

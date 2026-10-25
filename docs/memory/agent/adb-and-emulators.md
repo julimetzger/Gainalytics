@@ -4,7 +4,7 @@ The shared Windows adb server, WSL access to it, per-worker device isolation, in
 Back to the [index](../agent-memory.md). Device serials named here are examples — always use your assigned `$ANDROID_SERIAL`.
 
 ### WSL talks to the shared Windows adb server
-**Setup:** emulators and the USB phone hang off ONE adb server on Windows. WSL reaches it via the gateway: `ADB_SERVER_SOCKET=tcp:<gateway>:5037` (gateway = `awk '/^nameserver/{print $2; exit}' /etc/resolv.conf`, e.g. `172.18.240.1`) or `adb -H <gateway> -P 5037`. The server must be started with `-a` to be reachable from WSL.
+**Setup:** emulators and the USB phone hang off ONE adb server on Windows. WSL reaches it via the gateway: `ADB_SERVER_SOCKET=tcp:<gateway>:5037` (gateway = `awk '/^nameserver/{print $2; exit}' /etc/resolv.conf`, e.g. `<wsl-gateway-ip>`) or `adb -H <gateway> -P 5037`. The server must be started with `-a` to be reachable from WSL.
 **Rules:**
 - NEVER `adb kill-server` from WSL — it kills the shared server for every worker (and `start-server` then fails "cannot start server on remote host").
 - If WSL gets `Connection refused` but you suspect the server is fine, call Windows adb directly: `/mnt/c/Users/<user>/AppData/Local/Android/Sdk/platform-tools/adb.exe -s <serial> <cmd>` — no restart, no disruption of siblings.

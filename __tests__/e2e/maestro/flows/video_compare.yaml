@@ -1,0 +1,294 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F8 Video analysis - T8.3 compare two analyses.
+#
+# Purpose:
+#   * GH-393: the detail header and the compare picker identify an analysis by
+#     the set it was filmed on (no "Analysis #NN"); the fallback row stays
+#     meaningful; the "N reps | VL x%" line survives; the selected row is the
+#     one compared (KPI header load A/B).
+#   * GH-360: synchronised playback of two real analyses - rep sync subtitle,
+#     shared speed chips, both videos advance together and stay aligned.
+#
+# Data basis: MUTATES the store -> imports the fixture first.
+#   fixtures/gh393-compare-labels.gains = baseline + three DONE squat analyses
+#   without result files (labels only):
+#     #1 no workout/set link              -> "Squat · No linked set", 2 reps | VL 14.29%
+#     #2 workout 5565 set 1 (175 kg x 5 @ RIR 2), VL 21.5%
+#     #3 workout 5565 set 2 (155 kg x 9 @ RIR 2), VL 32%
+#   For the sync part the same clip is imported twice (-> #4 and #5, both with
+#   result files and videos); identical clips => auto rep-sync offset 0.
+#   Push beforehand:
+#     fixtures/gh393-compare-labels.gains -> /sdcard/Download/gh393-compare-labels.gains
+#     fixtures/squat-3reps.mp4            -> /sdcard/Download/squat-3reps.mp4
+#   Runtime: two real analyses (each up to ~10 min on a slow emulator).
+#
+# Merged from: gh393_compare_labels (base), gh360_compare_sync
+- runFlow:
+    file: import_fixture.yaml
+    env:
+      FIXTURE: 'gh393-compare-labels.gains'
+
+# ---------------------------------------------------------------- PRECONDITION
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+
+# ------------------------------------------------ open the Video Analysis list
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 60000
+- runFlow:
+    when:
+      notVisible:
+        id: 'video-analysis-import-button'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      # The first toggle tap after a FULL_IMPORT is often swallowed; on some
+      # emulators the id tap never opens the drawer -> documented pixel fallback
+      # on the hamburger (top-left header).
+      - runFlow:
+          when:
+            notVisible: 'Close drawer'
+          commands:
+            - tapOn:
+                point: '6%,9%'
+      - extendedWaitUntil:
+          visible: 'Close drawer'
+          timeout: 15000
+      - tapOn:
+          text: '^Video Analysis$'
+          below:
+            id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-2'
+    timeout: 60000
+- assertVisible:
+    id: 'video-analysis-lift-count'
+    text: '3 lifts'
+
+# ---------------------------------- GH-393 1. detail header = set identity
+- tapOn:
+    id: 'video-analysis-row-2'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-compare-button'
+    timeout: 30000
+- assertVisible: 'Squat · Set 1 · 175 kg @ 2 RIR'
+- assertNotVisible: '.*Analysis #[0-9]+.*'
+
+# ------------------------------- GH-393 2.-4. compare picker row titles
+- tapOn:
+    id: 'video-analysis-compare-button'
+- extendedWaitUntil:
+    visible: 'Select analysis to compare'
+    timeout: 15000
+- assertVisible:
+    id: 'compare-picker-item-title-3'
+    text: 'Squat · Set 2 · 155 kg @ 2 RIR'
+- assertVisible:
+    id: 'compare-picker-item-title-1'
+    text: 'Squat · No linked set'
+# The fallback row never renders undefined / NaN / an empty title.
+- copyTextFrom:
+    id: 'compare-picker-item-title-1'
+- assertTrue: "${!/undefined|NaN|Analysis #/.test(maestro.copiedText) && maestro.copiedText.trim().length > 0}"
+- assertNotVisible:
+    id: 'compare-picker-item-2'
+- assertNotVisible: '.*Analysis #[0-9]+.*'
+- assertVisible: '2 reps \| VL 32%'
+- assertVisible: '2 reps \| VL 14\.29%'
+
+# ---------------------------- GH-393 5. the tapped row is compared (B side)
+- tapOn:
+    id: 'compare-picker-item-3'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-compare-screen'
+    timeout: 60000
+- assertVisible:
+    id: 'compare-header-load-a'
+    text: '175 kg × 5'
+- assertVisible:
+    id: 'compare-header-load-b'
+    text: '155 kg × 9'
+# No result files in the fixture -> no sync card, a readable placeholder instead.
+- assertVisible:
+    id: 'compare-no-results-text'
+    text: 'Loading analysis results\.\.\.'
+- assertNotVisible: 'Synchronized Playback'
+
+# ---------------------- GH-393 6. header fallback for an analysis w/o set
+- back
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-1'
+    timeout: 60000
+- tapOn:
+    id: 'video-analysis-row-1'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-compare-button'
+    timeout: 30000
+- assertVisible: 'Squat · No linked set'
+- assertNotVisible: '.*Analysis #[0-9]+.*'
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-import-button'
+    timeout: 30000
+
+# ------------------------- GH-360: two real analyses of the same clip (#4, #5)
+- tapOn:
+    id: 'video-analysis-import-button'
+- runFlow:
+    when:
+      visible: 'Use without an account'
+    commands:
+      - tapOn: 'Use without an account'
+- runFlow:
+    when:
+      visible: 'No thanks'
+    commands:
+      - tapOn: 'No thanks'
+- waitForAnimationToEnd:
+    timeout: 8000
+# The SAF picker remembers its last folder -> steer it to Downloads if needed
+# (via "Show roots": an edge swipe is the system BACK gesture).
+- extendedWaitUntil:
+    visible: 'squat-3reps.mp4'
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      notVisible: 'squat-3reps.mp4'
+    commands:
+      - tapOn: 'Show roots'
+      - extendedWaitUntil:
+          visible: 'Downloads'
+          timeout: 15000
+      - tapOn: 'Downloads'
+      - waitForAnimationToEnd:
+          timeout: 8000
+# Downloads holds many fixtures (grid view): scroll to the clip.
+- scrollUntilVisible:
+    element:
+      text: 'squat-3reps.mp4'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'squat-3reps.mp4'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-4'
+    timeout: 60000
+- tapOn:
+    id: 'video-analysis-import-button'
+- waitForAnimationToEnd:
+    timeout: 8000
+- waitForAnimationToEnd:
+    timeout: 8000
+- scrollUntilVisible:
+    element:
+      text: 'squat-3reps.mp4'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'squat-3reps.mp4'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-5'
+    timeout: 60000
+- assertVisible:
+    id: 'video-analysis-lift-count'
+    text: '5 lifts'
+# Wait for both analyses (the detail status is live).
+- tapOn:
+    id: 'video-analysis-row-5'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-detail-status'
+      text: 'Status: done'
+    timeout: 600000
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-4'
+    timeout: 30000
+- tapOn:
+    id: 'video-analysis-row-4'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-detail-status'
+      text: 'Status: done'
+    timeout: 600000
+- assertVisible: 'Unlinked analysis'
+- tapOn:
+    id: 'video-analysis-compare-button'
+- extendedWaitUntil:
+    visible:
+      id: 'compare-picker-item-5'
+    timeout: 15000
+- assertVisible:
+    id: 'compare-picker-item-title-5'
+    text: 'Unlinked analysis'
+- tapOn:
+    id: 'compare-picker-item-5'
+- extendedWaitUntil:
+    visible: 'Synchronized Playback'
+    timeout: 30000
+
+# GH-360 1. rep sync: Auto mode, identical clips are aligned without offset
+- assertVisible: 'Rep Sync'
+- assertVisible:
+    id: 'compare-rep-sync-auto'
+- assertVisible:
+    id: 'compare-rep-sync-subtitle'
+    text: 'Aligned on rep 1 lift-off'
+- assertVisible:
+    id: 'compare-video-a-time'
+    text: '0:00\.0'
+- assertVisible:
+    id: 'compare-video-b-time'
+    text: '0:00\.0'
+
+# GH-360 3. the speed chip acts on the shared playback
+- scrollUntilVisible:
+    element:
+      id: 'compare-speed-label'
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: 'compare-speed-label'
+    text: 'Speed: 1\.0x'
+- tapOn:
+    id: 'compare-speed-btn-0.5'
+- assertVisible:
+    id: 'compare-speed-label'
+    text: 'Speed: 0\.5x'
+
+# GH-360 4. play, then pause: both videos advanced and stayed aligned
+- tapOn:
+    id: 'compare-play-pause-button'
+    waitToSettleTimeoutMs: 500
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: 'compare-play-pause-button'
+    waitToSettleTimeoutMs: 500
+- scrollUntilVisible:
+    element:
+      id: 'compare-video-a-time'
+    direction: UP
+    timeout: 15000
+- copyTextFrom:
+    id: 'compare-video-a-time'
+- evalScript: "${output.a1 = maestro.copiedText}"
+- copyTextFrom:
+    id: 'compare-video-b-time'
+- evalScript: "${output.b1 = maestro.copiedText}"
+- assertTrue: "${/^0:[0-9][0-9][.][0-9]$/.test(output.a1) && output.a1 != '0:00.0' && output.a1 == output.b1}"

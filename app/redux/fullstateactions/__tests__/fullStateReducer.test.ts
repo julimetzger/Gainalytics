@@ -323,9 +323,10 @@ describe('fullStateReducer - FULL_IMPORT', () => {
         },
         allIds: [1],
       },
+      bodyWeight: {byId: {}, allIds: []},
       settings: {mode: 'dark'},
       effects: {},
-    } satisfies GlobalState;
+    } satisfies Partial<GlobalState>;
 
     expect(newState).toEqual(expectedState);
   });

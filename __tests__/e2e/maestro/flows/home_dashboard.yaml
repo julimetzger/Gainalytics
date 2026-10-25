@@ -1,0 +1,289 @@
+appId: com.powerliftingworkoutplanner
+---
+# F2 Training home — T2.1: dashboard values, plan list + search, cards open trainings.
+# Purpose: the Training home of the baseline shows the current plan's micro hero
+# (micro label, completion, Volume/Sets/Time headline, delta and every bar of the chart),
+# the Next Training card (name + slot), the Last Training card, the plan list with its
+# current-plan marker, a working plan search ("upper" hits two plans, "zzzz" none), and
+# both cards open their training — never the "Add New Training Plan" dialog (GH-518 F2).
+# Data basis: READ-ONLY on the baseline (baseline.gains already imported, no store changes).
+# Owner decision: nothing is asserted about the content of the "current week" (DayStrip
+# pills), which is always empty with the old baseline.
+#
+# Expected values, computed from baseline.gains plan 5 "Push pull" (no mesos -> default
+# "Meso 1"; trainingNames 1 Push squat, 2 Pull dl, 3 Push, 4 Pull; micro 6 holds only
+# day 4, finished 28/02/2026). GH-533: M6 is incomplete, so it stays the current micro
+# (1/4) and Next Training stays in it (M6 · D1 Push squat, slot 6,1 has no training).
+#   micro  1      2      3      4      5      6
+#   volume 42552  46398  35105  36048  45575  7497   (kg, sum weight*reps)
+#   sets   58     61     45     44     59     15
+#   time   558    448    344    2756   394    106    (minutes, sum end-start)
+# Volume is formatted with toLocaleString() -> the thousands separator is matched as ',?'.
+#
+# Merged from: gh204_training_home_dashboard (base), gh342_micro_hero_bar_values,
+#   gh482_micro_hero_labels, gh412_plans_search_filters, gh518_tap_card_corner,
+#   gh299_last_training_tap, gh221_smoke, gh221_this_week_checkmark, 01_training_smoke,
+#   gh77_dashboard_smoke, trn004_meso_verify, gh518_card_button_in_view,
+#   gh518_plans_header_in_view, gh518_scroll_to_end (helpers inlined).
+# stopApp: false resumes the running app (smoke.yaml: right after the import) instead of
+# a cold start plus the ~7 s "Dismiss" overlay check that only a force-stop needs.
+- launchApp:
+    clearState: false
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'tab-training'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 30000
+# PRECONDITION: baseline imported, its current plan drives the dashboard.
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+
+# --- Micro hero: current micro, completion, metrics -----------------------------
+- assertVisible: 'Current micro'
+- assertVisible:
+    id: 'micro-hero-micro-label'
+    text: 'Meso 1 · M6'
+- assertVisible:
+    id: 'micro-hero-completion-label'
+    text: '1/4'
+- assertVisible:
+    id: 'day-strip'
+
+# Volume (index 0 = the segmented button; the Last Training card repeats the label)
+- tapOn:
+    text: '^Volume$'
+    index: 0
+- assertVisible:
+    id: 'micro-hero-value'
+    text: '7,?497 kg'
+- assertVisible: '-84%'
+- assertVisible: '-38078 vs M5'
+- assertVisible:
+    id: 'micro-hero-chart'
+    text: 'M1 42,?552, M2 46,?398, M3 35,?105, M4 36,?048, M5 45,?575, M6 7,?497'
+
+# Sets (index 0 = the segmented button; the KPI row below repeats Sets/Time)
+- tapOn:
+    text: '^Sets$'
+    index: 0
+- assertVisible:
+    id: 'micro-hero-value'
+    text: '15'
+- assertVisible: '-44 vs M5'
+- assertVisible:
+    id: 'micro-hero-chart'
+    text: 'M1 58, M2 61, M3 45, M4 44, M5 59, M6 15'
+
+# Time
+- tapOn:
+    text: '^Time$'
+    index: 0
+- assertVisible:
+    id: 'micro-hero-value'
+    text: '1h 46m'
+- assertVisible: '-288 vs M5'
+- assertVisible:
+    id: 'micro-hero-chart'
+    text: 'M1 9h 18m, M2 7h 28m, M3 5h 44m, M4 45h 56m, M5 6h 34m, M6 1h 46m'
+
+# Leave the default metric selected again.
+- tapOn:
+    text: '^Volume$'
+    index: 0
+- assertVisible:
+    id: 'micro-hero-value'
+    text: '7,?497 kg'
+
+# --- Next Training card -----------------------------------------------------------
+- scrollUntilVisible:
+    element:
+      id: 'next-training-slot'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- assertVisible:
+    id: 'next-training-status-label'
+    text: 'Next Training'
+- assertVisible:
+    id: 'next-training-name'
+    text: 'Push squat'
+- assertVisible:
+    id: 'next-training-slot'
+    text: 'Meso 1 · M6 · D1 · 0 exercises'
+
+# --- Last Training card (the Pressable's content-desc aggregates its texts) --------
+- scrollUntilVisible:
+    element:
+      id: 'last-training-card-pressable'
+    direction: DOWN
+    timeout: 20000
+- assertVisible: 'Last Training, Pull, Meso 1 · M6 · D4 · \d+d ago.*'
+
+# --- Plan list --------------------------------------------------------------------
+- scrollUntilVisible:
+    element:
+      id: '^plans-search-field$'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: 'add-trainings-plan'
+    text: 'New Training'
+# Rows are sorted by name; the last one is "Upper lower" (plan 4).
+- scrollUntilVisible:
+    element:
+      id: '^plan-name-4$'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: '^plans-search-field$'
+- assertVisible:
+    id: '^plan-name-5$'
+    text: 'Push pull'
+- assertVisible:
+    id: '^plan-current-label-5$'
+    text: 'Current plan'
+- assertVisible:
+    id: '^plan-meta-5$'
+    text: 'Paused · last done \d+d ago'
+- assertVisible:
+    id: '^plan-name-1$'
+    text: 'Push pull upper lower'
+- assertVisible:
+    id: '^plan-name-3$'
+    text: 'Test'
+- assertVisible:
+    id: '^plan-name-4$'
+    text: 'Upper lower'
+
+# --- Plan search: hits ("upper" -> plans 1 and 4) -----------------------------------
+# The id is anchored: the Searchbar's leading icon (plans-search-field-icon) is a disabled
+# Button and would swallow the tap. hideKeyboard drops the focus -> re-tap before typing.
+- tapOn:
+    id: '^plans-search-field$'
+- waitForAnimationToEnd
+- inputText: 'upper'
+- hideKeyboard
+- waitForAnimationToEnd
+- assertVisible:
+    id: '^plans-search-field$'
+    text: 'upper'
+- assertVisible:
+    id: '^plan-name-1$'
+    text: 'Push pull upper lower'
+- assertVisible:
+    id: '^plan-name-4$'
+    text: 'Upper lower'
+- assertNotVisible:
+    id: '^plan-name-3$'
+- assertNotVisible:
+    id: '^plan-name-5$'
+
+# --- Plan search: no hits ("zzzz") ---------------------------------------------------
+# Bounded erases: a bare eraseText sends 50 key events (~5 s); the asserts below
+# prove the field really holds only the new text.
+- tapOn:
+    id: '^plans-search-field$'
+- waitForAnimationToEnd
+- eraseText: 5
+- inputText: 'zzzz'
+- hideKeyboard
+- waitForAnimationToEnd
+- assertVisible:
+    id: '^plans-search-field$'
+    text: 'zzzz'
+- assertNotVisible:
+    id: '^plan-name-1$'
+- assertNotVisible:
+    id: '^plan-name-3$'
+- assertNotVisible:
+    id: '^plan-name-4$'
+- assertNotVisible:
+    id: '^plan-name-5$'
+
+# --- Clearing restores the full list (erase in the field: the clear icon can sit
+#     under other content at the bottom edge) ------------------------------------------
+- tapOn:
+    id: '^plans-search-field$'
+- waitForAnimationToEnd
+- eraseText: 4
+- hideKeyboard
+- waitForAnimationToEnd
+- assertVisible:
+    id: '^plans-search-field$'
+    text: 'Search plans'
+- scrollUntilVisible:
+    element:
+      id: '^plan-name-4$'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: '^plan-name-3$'
+    text: 'Test'
+- assertVisible:
+    id: '^plan-name-5$'
+    text: 'Push pull'
+
+# --- Last Training card opens the finished training (GH-299) ------------------------
+- scrollUntilVisible:
+    element:
+      id: 'last-training-card-pressable'
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: 'last-training-card-pressable'
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-meso-name'
+    timeout: 30000
+- assertVisible:
+    id: 'header-plan-meso-name'
+    text: 'Push pull( › Meso 1)?'
+- assertVisible: 'Micro 6'
+- assertVisible: ' Pull'
+- assertVisible:
+    id: 'header-date'
+    text: 'Sat 28/02/2026'
+# Tapping the focused Training tab pops the stack back to the home screen.
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+
+# --- Next Training button opens the training, not the add-plan dialog (GH-518 F2) ---
+# Before GH-518 a floating add-plan FAB covered the lower-right corner of this button;
+# the FAB is gone, so the button is tapped by id instead of a measured corner point.
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: UP
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'header-plan-meso-name'
+    timeout: 30000
+- assertNotVisible: 'Add New Training Plan'
+- assertVisible:
+    id: 'header-plan-meso-name'
+    text: 'Push pull( › Meso 1)?'
+- assertVisible: 'Micro 6'
+- assertVisible: ' Push squat'
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000

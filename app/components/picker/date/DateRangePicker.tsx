@@ -3,9 +3,24 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Button, Icon, Modal, Portal} from 'react-native-paper';
 import {getDateStringFromDate} from '../../../utils/DateHelper';
 import {StyleSheet, View} from 'react-native';
-import {Swipeable} from 'react-native-gesture-handler';
+// GH-588: react-native-gesture-handler 3 removed the legacy `Swipeable` export; importing it
+// yielded `undefined` and crashed every screen with a range picker (Metrics Overview, History,
+// Records, ...) into the Analyse error boundary.
+import ReanimatedSwipeable, {SwipeableMethods, SwipeDirection} from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Animated, {SharedValue, useAnimatedStyle} from 'react-native-reanimated';
 import {DatePickerModal} from './DatePickerModal';
 import {NullableRange} from './NullableRange';
+
+// The legacy Swipeable hid its actions while closed; ReanimatedSwipeable always draws them
+// behind the row, and the outlined (transparent) button would show both chevrons at rest.
+const SwipeAction = ({progress, source}: {progress: SharedValue<number>; source: string}) => {
+  const style = useAnimatedStyle(() => ({opacity: progress.value > 0 ? 1 : 0}));
+  return (
+    <Animated.View style={style}>
+      <Icon size={50} source={source} />
+    </Animated.View>
+  );
+};
 
 const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
   const [open, setOpen] = useState(false);
@@ -28,7 +43,7 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
     setUncompleteRange(newRange);
   }, []);
 
-  let swipeableRef = useRef(null);
+  let swipeableRef = useRef<SwipeableMethods>(null);
   let close = () => {
     setTimeout(() => {
       swipeableRef?.current?.close();
@@ -54,20 +69,22 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
           justifyContent: 'center',
         }}
       >
-        <Swipeable
+        <ReanimatedSwipeable
           ref={swipeableRef}
           onSwipeableOpen={(direction) => {
-            if (direction === 'left') setRange(range.minusRange());
-            if (direction === 'right') setRange(range.plusOneRange());
+            // ReanimatedSwipeable names the drag direction: RIGHT reveals the left
+            // actions (chevron-left, previous period) — the legacy 'left'.
+            if (direction === SwipeDirection.RIGHT) setRange(range.minusRange());
+            if (direction === SwipeDirection.LEFT) setRange(range.plusOneRange());
             close();
           }}
-          dragOffsetFromLeftEdge={2}
-          dragOffsetFromRightEdge={2}
-          renderLeftActions={() => {
-            return <Icon size={50} source={'chevron-left'} />;
+          dragOffsetFromLeft={2}
+          dragOffsetFromRight={-2}
+          renderLeftActions={(progress) => {
+            return <SwipeAction progress={progress} source={'chevron-left'} />;
           }}
-          renderRightActions={() => {
-            return <Icon size={50} source={'chevron-right'} />;
+          renderRightActions={(progress) => {
+            return <SwipeAction progress={progress} source={'chevron-right'} />;
           }}
           overshootRight={false}
           overshootLeft={false}
@@ -75,7 +92,7 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
           <Button testID="date-range-picker-button" onPress={() => setOpen(true)} uppercase={false} mode="outlined" style={{display: 'flex', alignSelf: 'center'}}>
             {getDateStringFromDate(range.startDate) + ' to ' + getDateStringFromDate(range.endDate)}
           </Button>
-        </Swipeable>
+        </ReanimatedSwipeable>
       </View>
       <Portal>
         <Modal visible={open} onDismiss={() => setOpen(false)} contentContainerStyle={styles.modal}>

@@ -6,7 +6,10 @@ runs a Maestro smoke flow and then lets Claude Code work on a ticket inside that
 
 ## Triggering
 
-Only users with write access (owner/collaborators) can start it; forks never run it.
+Only users with write access (owner/collaborators) can start it; forks never run it. The agent only sees text
+written by people with write access (plus the Codex review bot): issue/PR descriptions, comments, reviews and their
+images from anyone else are left out (logged as an `untrusted comments` notice), so in a public repo outsiders cannot
+smuggle instructions into a run that holds the Claude token.
 
 - **Label:** add the label `agent:emulator` to an issue. The issue author must be owner/member/collaborator.
 - **Manually:** Actions → *Agent emulator* → *Run workflow* (only works once the workflow is on `master`), or via REST:
@@ -27,6 +30,27 @@ Only users with write access (owner/collaborators) can start it; forks never run
 
 During development of GH-545 a temporary `push` trigger on `feature/GH-545` was used (dispatch only works
 from the default branch); it has been removed.
+
+## Feedback rounds (update the existing PR)
+
+To let the agent address review feedback on an open PR, run the workflow **on that PR's head branch**
+(Actions → *Agent emulator* → *Run workflow* → branch = the PR branch, issue number as usual, `task` optional):
+
+```bash
+gh api -X POST repos/julimetzger/gainalytics/actions/workflows/agent-emulator.yml/dispatches \
+  -f ref=<pr-branch> -f 'inputs[issue_number]=123'
+```
+
+- The `emulator` job finds the open PR whose head is the branch the run started on and adds to the task: the
+  PR description, its conversation comments and images, the review bodies and the inline review comments
+  (Codex summary comments and the workflow's own comments are left out).
+- The `publish` job pushes the agent's commits onto that same branch (plain push, never force), replaces the PR
+  description with the agent's `pr-body.md` and comments on the PR. **No second PR is opened.** An open
+  question without commits is posted on the PR, not on the issue.
+- If the PR was closed or someone pushed to the branch while the agent ran, the push is refused and the job
+  falls back to a separate draft PR (with a warning in the run).
+- The run uses the workflow file **of the PR branch**: a branch created before this feature existed needs
+  master merged in first (GitHub's "Update branch" button), otherwise it still opens a second PR.
 
 ## Secret and environment
 
@@ -77,7 +101,8 @@ The agent therefore never holds a token with write access; only the small publis
 
 ## Data
 
-The emulator starts with an empty store; the smoke phase runs against that empty store. The agent follows
+The emulator starts with an empty store. The smoke phase pushes `baseline.gains` and `smoke.yaml` imports it
+(GH-588; the same phase runs as the PR check `.github/workflows/maestro-smoke.yml`). The agent follows
 the feature skill (`orchestrator/codex-skills/feature/SKILL.md`) and imports the baseline fixture with
 `tool.sh import-baseline` before any evidence screenshot. The current fixtures contain real training data
 (owner-approved while the repo is private), so evidence screenshots in agent PRs and run artifacts show

@@ -7,8 +7,8 @@ Agents MUST follow these conventions when creating or modifying code.
 For orchestrator, emulator, Metro, adb, and Maestro operational lessons, agents SHOULD
 also read the appropriate memory file before changing worker infrastructure or re-debugging
 local automation failures:
-- Orchestrator sessions: [docs/memory/orchestrator-memory.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/docs/memory/orchestrator-memory.md)
-- Feature worker sessions: [docs/memory/agent-memory.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/docs/memory/agent-memory.md)
+- Orchestrator sessions: [docs/memory/orchestrator-memory.md](docs/memory/orchestrator-memory.md)
+- Feature worker sessions: [docs/memory/agent-memory.md](docs/memory/agent-memory.md)
 
 ---
 
@@ -225,4 +225,4 @@ Code is complete when:
 - tests are green and code is covered
 
 Operational note:
-- For orchestrated local worker runs, current review-gate behavior and known environment exceptions are documented in [docs/memory/orchestrator-memory.md](/home/jmetzger/projects/PowerliftingWorkoutPlanner/docs/memory/orchestrator-memory.md).
+- For orchestrated local worker runs, current review-gate behavior and known environment exceptions are documented in [docs/memory/orchestrator-memory.md](docs/memory/orchestrator-memory.md).

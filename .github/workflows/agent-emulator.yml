@@ -10,6 +10,10 @@
 #             Read-only token; the agent cannot push anything.
 #   publish   takes the agent's commits (git bundle artifact), checks them, pushes them
 #             to agent/emulator-* and opens a draft PR. Never pushes to master.
+#
+# Feedback rounds: run the workflow on the head branch of an open PR (dispatch with that ref).
+# The agent then also gets the PR description, comments and review comments, and the publish
+# job pushes its commits onto that same branch and updates the PR instead of opening a new one.
 name: Agent emulator
 
 on:
@@ -67,8 +71,10 @@ jobs:
     permissions:
       contents: read
       issues: read
+      pull-requests: read
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
+      pr_number: ${{ steps.mode.outputs.pr_number }}
       base_sha: ${{ steps.mode.outputs.base_sha }}
       has_commits: ${{ steps.collect.outputs.has_commits }}
       has_question: ${{ steps.collect.outputs.has_question }}
@@ -90,6 +96,8 @@ jobs:
           ISSUE_AUTHOR_ASSOC: ${{ github.event.issue.author_association }}
           SHA: ${{ github.sha }}
           REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           # The agent's PR targets the triggering ref, so it must be a branch (a dispatch may pick a tag).
@@ -124,13 +132,21 @@ jobs:
           if [[ -n "${issue}" && ! "${issue}" =~ ^[0-9]+$ ]]; then echo "::error::Invalid issue number"; exit 1; fi
           ticket="AGENT-RUN"
           if [[ -n "${issue}" ]]; then ticket="GH-${issue}"; fi
+          # Feedback round: an open PR of this repo whose head is the branch the run started on.
+          pr=""
+          if [[ "${REF_NAME}" != "${DEFAULT_BRANCH}" ]]; then
+            pr="$(gh api "repos/${REPO}/pulls?state=open&head=${OWNER}:${REF_NAME}" \
+              --jq "[.[] | select((.head.repo.full_name | ascii_downcase) == (\"${REPO}\" | ascii_downcase))][0].number // empty")"
+          fi
           {
             echo "mode=${mode}"
             echo "issue_number=${issue}"
             echo "ticket=${ticket}"
             echo "base_sha=${SHA}"
+            echo "pr_number=${pr}"
           } >> "$GITHUB_OUTPUT"
-          echo "mode=${mode} ticket=${ticket}"
+          echo "mode=${mode} ticket=${ticket} pr=${pr:-none}"
+          [[ -z "${pr}" ]] || echo "::notice title=feedback round::updates PR #${pr} on ${REF_NAME}"
 
       - name: Check Claude token secret (presence only)
         env:
@@ -328,10 +344,25 @@ jobs:
           ISSUE: ${{ steps.mode.outputs.issue_number }}
           TICKET: ${{ steps.mode.outputs.ticket }}
           IN_TASK: ${{ inputs.task }}
+          PR: ${{ steps.mode.outputs.pr_number }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           f=.agent-run/task.md
           echo "# Task ${TICKET}" > "$f"
+          if [[ -n "${PR}" ]]; then
+            cat >> "$f" <<EOF
+
+          ## Feedback round on PR #${PR}
+
+          This checkout is the head branch of the open PR #${PR} (\`${REF_NAME}\`). Work on top of it: address
+          the feedback in the PR comments and review comments below (the newest ones matter most; earlier
+          rounds may already be done), do not start over. Your commits are pushed onto this branch, and
+          \`.agent-run/pr-body.md\` REPLACES the PR description: write it complete (the whole change, not only
+          this round), with a short "Feedback round" note on what changed now.
+
+          EOF
+          fi
           if [[ "${MODE}" == "agent-test" ]]; then
             cat .github/agent-emulator/test-task.md >> "$f"
           fi
@@ -339,6 +370,21 @@ jobs:
             # Body, comments and the issue images (downloaded via signed URLs; the agent has no GitHub access).
             .github/agent-emulator/fetch-issue.sh "${ISSUE}" "$f"
             echo -e "\nAdd \`Closes #${ISSUE}\` to the PR body if the issue is fully done." >> "$f"
+          fi
+          if [[ -n "${PR}" ]]; then
+            echo "" >> "$f"
+            .github/agent-emulator/fetch-issue.sh "${PR}" "$f" PR
+            # Only reviewers with write access (real repo permission) and the Codex bot are forwarded, see trusted-logins.sh.
+            TRUSTED_LOGINS="$( { gh api --paginate "repos/${REPO}/pulls/${PR}/comments" --jq '.[].user.login // empty'
+                                 gh api --paginate "repos/${REPO}/pulls/${PR}/reviews" --jq '.[].user.login // empty'; } \
+              | .github/agent-emulator/trusted-logins.sh)"
+            TRUSTED="((.user.login // \"\") as \$l | ${TRUSTED_LOGINS} | index(\$l) != null)"
+            review="$(gh api --paginate "repos/${REPO}/pulls/${PR}/comments" \
+              --jq ".[] | select(${TRUSTED})"' | "### Review comment by \(.user.login) (\(.created_at[:10])) on `\(.path)`\(if .line then ":\(.line)" else "" end)\(if .in_reply_to_id then " (reply)" else "" end)\n\n\(.body)\n"')"
+            reviews="$(gh api --paginate "repos/${REPO}/pulls/${PR}/reviews" \
+              --jq ".[] | select(${TRUSTED})"' | select((.body // "") != "") | select(.body | contains("codex-review-receipt") | not) | "### Review by \(.user.login) (\(.state), \(.submitted_at[:10]))\n\n\(.body)\n"')"
+            [[ -z "${reviews}" ]] || printf '\n## Reviews on PR #%s\n\n%s\n' "${PR}" "${reviews}" >> "$f"
+            [[ -z "${review}" ]] || printf '\n## Review comments on PR #%s\n\n%s\n' "${PR}" "${review}" >> "$f"
           fi
           if [[ -n "${IN_TASK}" && "${MODE}" != "agent-test" ]]; then
             printf '\n## Additional instructions\n\n%s\n' "${IN_TASK}" >> "$f"
@@ -485,13 +531,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ needs.emulator.outputs.issue_number }}
+          PR: ${{ needs.emulator.outputs.pr_number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
           body="$(printf '%s\n\n---\nEmulator agent stopped without changes ([run](%s)). Evidence artifact: `agent-emulator-evidence`.\n' \
             "$(cat "$RUNNER_TEMP/agent-result/pr-body.md")" "${RUN_URL}")"
           echo "${body}" >> "$GITHUB_STEP_SUMMARY"
-          if [[ -n "${ISSUE}" ]]; then
+          if [[ -n "${PR}" ]]; then
+            # Feedback round: the question belongs where the feedback was given.
+            gh api "repos/${REPO}/issues/${PR}/comments" -f body="${body}" --jq .html_url
+          elif [[ -n "${ISSUE}" ]]; then
             gh api "repos/${REPO}/issues/${ISSUE}/comments" -f body="${body}" --jq .html_url
           else
             echo "::warning title=agent open question::No issue to comment on; see the run summary."
@@ -506,6 +556,8 @@ jobs:
           BASE_REF: ${{ github.ref_name }}
           TICKET: ${{ needs.emulator.outputs.ticket }}
           ISSUE: ${{ needs.emulator.outputs.issue_number }}
+          PR: ${{ needs.emulator.outputs.pr_number }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -516,6 +568,28 @@ jobs:
           echo "${changed}"
           if echo "${changed}" | grep -E '^\.github/|\.gains$|\.keystore$|\.jks$|(^|/)\.env'; then
             echo "::error::Agent commits touch forbidden paths, not publishing"; exit 1
+          fi
+          n="$(git rev-list --count "${BASE_SHA}..agent-tmp")"
+
+          # Feedback round: push onto the PR's own branch and update that PR, no second PR.
+          if [[ -n "${PR}" && "${BASE_REF}" != "${DEFAULT_BRANCH}" ]]; then
+            pr_head="$(gh api "repos/${REPO}/pulls/${PR}" --jq 'select(.state == "open") | .head.ref')"
+            # Plain push (no force): fails if someone pushed to the branch since the run started.
+            if [[ "${pr_head}" == "${BASE_REF}" ]] && git push origin "agent-tmp:refs/heads/${BASE_REF}"; then
+              body="$(cat "$R/pr-body.md" 2>/dev/null || true)"
+              if [[ -n "${body}" ]]; then
+                body="${body//\{\{REPO\}\}/${REPO}}"
+                body="${body//\{\{BRANCH\}\}/${BASE_REF}}"
+                body="$(printf '%s\n\n---\nLast updated by the emulator agent workflow ([run](%s)). Evidence artifact: `agent-emulator-evidence`.\n' "${body}" "${RUN_URL}")"
+                jq -n --arg body "${body}" '{body:$body}' | gh api -X PATCH "repos/${REPO}/pulls/${PR}" --input - --jq .html_url
+              fi
+              gh api "repos/${REPO}/issues/${PR}/comments" \
+                -f body="Feedback round: emulator agent pushed ${n} commit(s) to \`${BASE_REF}\` and updated the description ([run](${RUN_URL}))." >/dev/null
+              echo "::notice title=feedback round::PR #${PR} updated (${n} commits on ${BASE_REF})"
+              echo "PR #${PR} updated: ${n} commit(s) pushed to ${BASE_REF}" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "::warning title=feedback round::could not update PR #${PR} on ${BASE_REF} (closed, or the branch moved since the run started) -- opening a separate draft PR instead"
           fi
           # Run ID stays the same on re-runs; the attempt number keeps each attempt's branch unique.
           branch="agent/emulator-$(echo "${TICKET}" | tr '[:upper:]' '[:lower:]')-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"

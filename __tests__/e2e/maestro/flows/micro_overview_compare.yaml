@@ -1,0 +1,181 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F5 — Training analysis & edit · T5.2 micro_overview_compare
+#
+# Purpose:
+#   1. GH-467: swiping to the next / previous micro keeps the active sub-tab
+#      (Analysis stays Analysis, Train stays Train).
+#   2. GH-526 Micro 2 Overview · Total (English label "Total", GH-450): header date
+#      span 25/01 – 31/01/2026; "vs Micro 1": Micro 2 (done) vs Micro 1 (done),
+#      sets +3 (+5%), duration 7h 28min, Core 6.5/4.2; "vs Plan": trainings 4 / 4,
+#      no Duration card, Biceps 10.4/11, Diff −0.6.
+#   3. GH-526/GH-241 Micro 2 Overview · Plan: Plan M2 vs Plan M1 without compare
+#      chips, sets +13 (+29%), Quads 9.6/5.6.
+#
+# Data basis: baseline import (fixtures/baseline.gains), READ-ONLY — assumes the
+# baseline is already imported. Only sub-tab / chip / toggle taps.
+#
+# Merged from: gh526_micro_total, gh526_micro_plan, gh450_english_labels,
+# gh467_swipe_keeps_tab, gh241_per_micro_insight.
+
+# --- precondition: baseline imported, "Push pull" is the current plan ---------
+- launchApp:
+    clearState: false
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+
+# --- open Micro 2 · Push squat (FINISHED) on Analysis ---------------------------
+- runFlow: goto_micro2_push.yaml
+- assertVisible:
+    id: 'analysis-tab'
+
+# --- GH-467: a micro swipe keeps the sub-tab ------------------------------------
+# Leftward swipe = next micro. Swipes run across the muscle map (no gesture child).
+- swipe: {start: '85%, 60%', end: '15%, 60%', duration: 400}
+- extendedWaitUntil:
+    visible: 'Micro 3'
+    timeout: 10000
+- assertVisible: ' Push squat'
+- extendedWaitUntil:
+    visible:
+      id: 'analysis-tab'
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: 'trainings-overview'
+    timeout: 30000
+# switch to Train on Micro 3, swipe back to Micro 2: Train stays active
+- tapOn:
+    id: 'subtab-train'
+- extendedWaitUntil:
+    notVisible:
+      id: 'analysis-tab'
+    timeout: 10000
+- swipe: {start: '15%, 60%', end: '85%, 60%', duration: 400}
+- extendedWaitUntil:
+    visible: 'Micro 2'
+    timeout: 10000
+- assertVisible: ' Push squat'
+- assertNotVisible:
+    id: 'analysis-tab'
+- assertNotVisible:
+    id: 'trainings-overview'
+# a FINISHED training's Train tab has no start button
+- assertNotVisible:
+    id: 'train-tab-start-button'
+
+# --- Micro 2 Overview · Total -----------------------------------------------------
+- tapOn:
+    id: 'drawer-menu-button'
+- extendedWaitUntil:
+    visible: 'Mesos:'
+    timeout: 20000
+- tapOn: 'Overview'
+- extendedWaitUntil:
+    visible:
+      id: 'overview-view-gesamt'
+    timeout: 30000
+# GH-450: the toggle reads "Total", never the German "Gesamt"
+- assertVisible:
+    id: 'overview-view-gesamt-label'
+    text: 'Total'
+- assertNotVisible: 'Gesamt'
+- tapOn:
+    id: 'overview-view-gesamt'
+- extendedWaitUntil:
+    visible:
+      id: 'micro-total-overview'
+    timeout: 30000
+- assertVisible:
+    id: 'header-date-range'
+    text: '25/01 – 31/01/2026'
+- tapOn:
+    id: 'micro-compare-previous'
+- assertVisible:
+    id: 'micro-comparison-line'
+    text: 'Micro 2 \(done\) vs Micro 1 \(done\)'
+- assertVisible:
+    id: 'micro-total-sets-delta'
+    text: '\+3 \(\+5%\)'
+- assertVisible:
+    id: 'micro-total-duration-value'
+    text: '7h 28min'
+- scrollUntilVisible:
+    element:
+      id: 'micro-muscle-map-row-Core-readout'
+    direction: DOWN
+- tapOn:
+    id: 'micro-muscle-map-view-total'
+- tapOn:
+    id: 'micro-muscle-map-metric-sets'
+- copyTextFrom:
+    id: 'micro-muscle-map-row-Core-readout'
+- assertTrue: "${maestro.copiedText === '6.5/4.2'}"
+
+# --- Total · vs Plan ---------------------------------------------------------------
+- scrollUntilVisible:
+    element:
+      id: 'micro-compare-plan'
+    direction: UP
+- tapOn:
+    id: 'micro-compare-plan'
+- assertVisible:
+    id: 'micro-comparison-line'
+    text: 'Micro 2 done vs Micro 2 plan'
+- assertVisible:
+    id: 'micro-total-trainings-value'
+    text: '4'
+- assertVisible:
+    id: 'micro-total-trainings-reference'
+    text: ' / 4'
+- assertNotVisible:
+    id: 'micro-total-duration'
+- scrollUntilVisible:
+    element:
+      id: 'micro-muscle-map-row-Biceps-readout'
+    direction: DOWN
+- copyTextFrom:
+    id: 'micro-muscle-map-row-Biceps-readout'
+- assertTrue: "${maestro.copiedText === '10.4/11'}"
+- tapOn:
+    id: 'micro-muscle-map-view-diff'
+- copyTextFrom:
+    id: 'micro-muscle-map-row-Biceps-readout'
+- assertTrue: "${maestro.copiedText === '−0.6'}"
+
+# --- Plan tab: one fixed comparison, Plan M2 vs Plan M1 --------------------------
+- scrollUntilVisible:
+    element:
+      id: 'overview-view-plan'
+    direction: UP
+- tapOn:
+    id: 'overview-view-plan'
+- extendedWaitUntil:
+    visible:
+      id: 'micro-plan-overview'
+    timeout: 30000
+- assertVisible:
+    id: 'micro-plan-comparison-line'
+    text: 'Plan M2 vs Plan M1'
+- assertNotVisible:
+    id: 'micro-compare-previous'
+- assertNotVisible:
+    id: 'micro-compare-plan'
+- assertVisible:
+    id: 'micro-plan-sets-delta'
+    text: '\+13 \(\+29%\)'
+- scrollUntilVisible:
+    element:
+      id: 'micro-plan-muscle-map-row-Quads-readout'
+    direction: DOWN
+- tapOn:
+    id: 'micro-plan-muscle-map-view-total'
+- copyTextFrom:
+    id: 'micro-plan-muscle-map-row-Quads-readout'
+- assertTrue: "${maestro.copiedText === '9.6/5.6'}"

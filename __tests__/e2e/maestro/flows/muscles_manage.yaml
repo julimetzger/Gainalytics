@@ -1,0 +1,146 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F13 Editable muscles (Settings › Muscles › Manage muscles, GH-523).
+# Purpose: add a muscle, reject a duplicate, hide one from the overviews, remove one (the
+#   confirm names the affected exercises) and see the result as the Dashboard radar axes.
+# Data basis: baseline import (00_import_baseline.yaml): 9 built-in muscles, all shown;
+#   Core is assigned to 9 baseline exercises. MUTATES settings.muscles -> imports first
+#   (the import replaces the settings, so the muscle list is back to the defaults).
+# The baseline is months old, so this/last week radar VALUES are always 0 - only the axis
+#   list is asserted (no current-week values).
+# Merged from: gh523_manage_muscles.yaml, gh523_open_muscle_settings.yaml (inlined),
+#   gh523_dashboard_radar.yaml
+- runFlow: 00_import_baseline.yaml
+- tapOn: 'tab-settings'
+# Settings keeps its scroll position (after an import it sits at "Import Data", below the
+# Muscles section): go to the top first, then down to the accordion.
+- scrollUntilVisible:
+    element:
+      id: 'settings-section-theme'
+    direction: UP
+- scrollUntilVisible:
+    element:
+      id: 'settings-muscles-accordion'
+    direction: DOWN
+    centerElement: true
+- waitForAnimationToEnd
+# PRECONDITION: default muscle list
+- assertVisible: '9 muscles · 9 shown in overviews'
+- runFlow:
+    when:
+      notVisible:
+        id: 'settings-muscle-row-Back'
+    commands:
+      - tapOn:
+          id: 'settings-muscles-accordion'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'settings-muscle-overview-Biceps'
+    checked: true
+- assertVisible:
+    id: 'settings-muscle-row-Core'
+- assertNotVisible:
+    id: 'settings-muscle-row-Calves'
+
+# Add "Calves"
+- scrollUntilVisible:
+    element:
+      id: 'settings-muscle-add-button'
+    direction: DOWN
+- tapOn:
+    id: 'settings-muscle-name-input'
+- inputText: 'Calves'
+- hideKeyboard
+- tapOn:
+    id: 'settings-muscle-add-button'
+- runFlow:
+    # The first tap after typing can be swallowed while the keyboard closes.
+    when:
+      notVisible:
+        id: 'settings-muscle-row-Calves'
+    commands:
+      - tapOn:
+          id: 'settings-muscle-add-button'
+- assertVisible:
+    id: 'settings-muscle-row-Calves'
+
+# A duplicate (case-insensitive) is rejected with a message and not added
+- tapOn:
+    id: 'settings-muscle-name-input'
+- inputText: 'chest'
+- hideKeyboard
+- tapOn:
+    id: 'settings-muscle-add-button'
+- runFlow:
+    when:
+      notVisible:
+        id: 'settings-muscle-error'
+        text: 'Chest already exists\.'
+    commands:
+      - tapOn:
+          id: 'settings-muscle-add-button'
+- assertVisible:
+    id: 'settings-muscle-error'
+    text: 'Chest already exists\.'
+
+# Hide Biceps from the overviews
+- scrollUntilVisible:
+    element:
+      id: 'settings-muscles-accordion'
+    direction: UP
+- assertVisible: '10 muscles · 10 shown in overviews'
+- tapOn:
+    id: 'settings-muscle-overview-Biceps'
+- assertVisible:
+    id: 'settings-muscle-overview-Biceps'
+    checked: false
+- assertVisible: '10 muscles · 9 shown in overviews'
+
+# Remove Core: the confirm names the number of affected exercises
+- tapOn:
+    id: 'settings-muscle-remove-Core'
+- extendedWaitUntil:
+    visible: 'Remove Core\?'
+    timeout: 10000
+- assertVisible: 'Core is assigned to 9 exercises\. Removing it also removes it from those exercises\.'
+- tapOn:
+    id: 'settings-muscle-remove-confirm'
+- assertNotVisible:
+    id: 'settings-muscle-row-Core'
+- assertVisible:
+    id: 'settings-muscle-row-Chest'
+- assertVisible: '9 muscles · 8 shown in overviews'
+
+# Dashboard radar: one axis per overview muscle, built-ins in canonical order, Calves last,
+# no Biceps (hidden) and no Core (removed). After the import's cold launch Analyse opens on
+# the Dashboard; otherwise go there via the drawer.
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'muscle-radar-svg'
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'analyse-drawer-toggle'
+          timeout: 30000
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - extendedWaitUntil:
+          visible: 'Dashboard'
+          timeout: 15000
+      - tapOn: 'Dashboard'
+- extendedWaitUntil:
+    visible:
+      id: 'muscle-chip-Back'
+    timeout: 30000
+- assertVisible:
+    id: 'muscle-radar-svg'
+    text: 'Radar chart of sets per muscle group, this week vs last week\. Back [^,]*, Chest [^,]*, Glutes [^,]*, Hamstrings [^,]*, Quads [^,]*, Shoulders [^,]*, Triceps [^,]*, Calves [^,]*'
+- assertVisible:
+    id: 'muscle-chip-Calves'
+- assertNotVisible:
+    id: 'muscle-chip-Biceps'
+- assertNotVisible:
+    id: 'muscle-chip-Core'

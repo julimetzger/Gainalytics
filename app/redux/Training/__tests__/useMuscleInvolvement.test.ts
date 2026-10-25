@@ -9,6 +9,7 @@ const makeState = (overrides: Partial<GlobalState> = {}): GlobalState => ({
   trainingsPlan: {byId: {}, allIds: []},
   trainings: {byId: {}, allIds: []},
   videoAnalyses: {byId: {}, allIds: []},
+  bodyWeight: {byId: {}, allIds: []},
   settings: {mode: 'dark'},
   effects: {} as any,
   aiChat: {} as any,
