@@ -9,7 +9,7 @@ interface RestTargetEditDialogProps {
   onCancel: () => void;
   onSave: (seconds: number, saveAsDefault: boolean) => void;
   // 'adhoc' (default) shows the "Save as default" checkbox.
-  // 'exerciseDefault' is the entry mode for "Adjust default for this exercise"
+  // 'exerciseDefault' is the entry mode for "Adjust Default Rest"
   // — the per-exercise default is always persisted (checkbox hidden).
   mode?: 'adhoc' | 'exerciseDefault';
 }

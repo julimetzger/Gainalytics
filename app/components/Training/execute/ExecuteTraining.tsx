@@ -86,11 +86,19 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
     [doneWorkout, unfinishedWorkout],
   );
 
+  // GH-542: edit mode has no date pill, so an exercise without a workout yet
+  // must not fall back to "now" — it takes the training's date and follows
+  // later "Training Times" edits. Existing workouts keep their own start.
+  const editTrainingStart = editMode ? training.start ?? training.end : undefined;
+  const editTrainingStartMs = editTrainingStart != null ? new Date(editTrainingStart).getTime() : undefined;
+
   useEffect(() => {
     if (doneWorkout?.start) {
       setDate(new Date(doneWorkout.start));
+    } else if (editTrainingStartMs !== undefined && !Number.isNaN(editTrainingStartMs)) {
+      setDate(new Date(editTrainingStartMs));
     }
-  }, [doneWorkout?.id, chosenExercise]);
+  }, [doneWorkout?.id, chosenExercise, editTrainingStartMs]);
 
   useEffect(() => {
     setLastTrainingOneRm(undefined);
@@ -160,10 +168,10 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
   );
 
   // GH-195 r6: hide redundant date pill while training is STARTED — the app
-  // header already shows today's date during an active session. The pill stays
-  // for FINISHED-and-editing flows (EditTraining) where doneWorkout.start can
-  // be historical and the user may still need to change it.
-  const showDatePicker = training.state !== TrainingsState.STARTED;
+  // header already shows today's date during an active session.
+  // GH-542: in edit mode the "Training Times" card (EditTraining) already offers
+  // a date+time picker, so a second date pill would be a duplicate.
+  const showDatePicker = training.state !== TrainingsState.STARTED && !editMode;
 
   // GH-63: what the user has ACTUALLY logged. Deliberately NOT
   // `useUnfinishedWorkout` — that one merges in the suggested workout, i.e. the

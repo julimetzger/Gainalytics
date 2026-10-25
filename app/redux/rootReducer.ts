@@ -16,6 +16,8 @@ import reduceReducers from 'reduce-reducers';
 import fullStateReducer from './fullstateactions/fullStateReducer';
 import videoAnalysisReducer from './VideoAnalysis/videoAnalysisReducer';
 import aiChatReducer, {AIChatState} from './AIChat/aiChatSlice';
+import bodyWeightReducer from './BodyWeight/bodyWeightReducer';
+import {BodyWeightEntry} from '../models/entities/BodyWeightEntry';
 
 export interface GlobalState {
   exercises: NormalizedState<Exercise>;
@@ -23,6 +25,7 @@ export interface GlobalState {
   trainingsPlan: NormalizedState<TrainingsPlan>;
   trainings: NormalizedState<Training>;
   videoAnalyses: NormalizedState<VideoAnalysis>;
+  bodyWeight: NormalizedState<BodyWeightEntry>;
   settings: AppSettings;
   effects: Effects;
   aiChat: AIChatState;
@@ -35,6 +38,7 @@ export default reduceReducers(
     trainingsPlan: trainingsPlanReducer,
     trainings: trainingsReducer,
     videoAnalyses: videoAnalysisReducer,
+    bodyWeight: bodyWeightReducer,
     settings: settingsReducer,
     effects: effectsReducer,
     aiChat: aiChatReducer,

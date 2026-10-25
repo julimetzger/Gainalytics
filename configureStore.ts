@@ -167,6 +167,11 @@ export const migrations = {
       },
     };
   },
+  14: (state: any) => ({
+    // GH-546: manually entered body weight.
+    ...state,
+    bodyWeight: state?.bodyWeight ?? {byId: {}, allIds: []},
+  }),
 };
 
 const storage = new MMKV();
@@ -190,9 +195,9 @@ const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseI
 
 const persistConfig = {
   key: 'root',
-  version: 13,
+  version: 14,
   storage: reduxStorage,
-  whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'settings', 'aiChat'],
+  whitelist: ['exercises', 'workouts', 'trainingsPlan', 'trainings', 'videoAnalyses', 'bodyWeight', 'settings', 'aiChat'],
   stateReconciler: hardSet,
   transforms: [saveUserLoginSubsetFilter],
   migrate: createMigrate(migrations, {debug: true}),

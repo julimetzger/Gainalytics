@@ -43,6 +43,7 @@ import {buildStrongExport, countLoggedSets, strongExportFileName} from '../../ut
 import {isStrongCsvShareAvailable} from '../../utils/strongCsv/strongCsvShare';
 import {useStrongCsvState} from '../../redux/fullstateactions/use/useStrongCsvState';
 import {buildStrongImport, ParsedStrongFile, parseStrongCsv, StrongCsvError, WeightUnit} from '../../utils/strongCsv/strongImport';
+import {isHealthConnectPocAvailable} from '../../debug/healthConnectPoc/healthConnectPocNative';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
@@ -604,7 +605,12 @@ const SettingsTab = ({navigation, route}: Props) => {
         )}
       </SettingsSection>
       <View style={styles.versionFooter}>
-        <Text variant="bodySmall" testID="settings-app-version">
+        <Text
+          variant="bodySmall"
+          testID="settings-app-version"
+          // GH-502: hidden developer entry; the route only exists in debug builds with the PoC module.
+          onLongPress={isHealthConnectPocAvailable() ? () => navigation.navigate('HealthConnectPoc' as never) : undefined}
+        >
           Version {appVersion}
         </Text>
       </View>
