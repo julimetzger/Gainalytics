@@ -29,7 +29,7 @@
     "@react-navigation/native-stack": "^7.14.11",
     "@react-navigation/stack": "^7.8.10",
     "@reduxjs/toolkit": "^2.13.0",
-    "@shopify/flash-list": "^1.6.3",
+    "@shopify/flash-list": "^2.3.3",
     "@types/lodash": "^4.14.182",
     "@types/node": "^17.0.21",
     "@types/react-dom": "^19.1.1",
