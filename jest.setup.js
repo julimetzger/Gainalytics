@@ -94,13 +94,13 @@ jest.mock('react-native-gesture-handler', () => {
     },
   };
 });
+// The real ReanimatedSwipeable loads the native gesture-handler TurboModule (DateRangePicker, GH-588).
 jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
-  const React = require('react');
   const View = require('react-native').View;
   return {
     __esModule: true,
+    default: View,
     SwipeDirection: {LEFT: 'left', RIGHT: 'right'},
-    default: React.forwardRef(({children}, _ref) => React.createElement(View, null, children)),
   };
 });
 

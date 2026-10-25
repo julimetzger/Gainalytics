@@ -25,13 +25,11 @@ appId: com.powerliftingworkoutplanner
 #   gh299_last_training_tap, gh221_smoke, gh221_this_week_checkmark, 01_training_smoke,
 #   gh77_dashboard_smoke, trn004_meso_verify, gh518_card_button_in_view,
 #   gh518_plans_header_in_view, gh518_scroll_to_end (helpers inlined).
+# stopApp: false resumes the running app (smoke.yaml: right after the import) instead of
+# a cold start plus the ~7 s "Dismiss" overlay check that only a force-stop needs.
 - launchApp:
     clearState: false
-- runFlow:
-    when:
-      visible: 'Dismiss'
-    commands:
-      - tapOn: 'Dismiss'
+    stopApp: false
 - extendedWaitUntil:
     visible: 'tab-training'
     timeout: 120000
@@ -111,6 +109,7 @@ appId: com.powerliftingworkoutplanner
     element:
       id: 'next-training-slot'
     direction: DOWN
+    centerElement: true
     timeout: 20000
 - assertVisible:
     id: 'next-training-status-label'
@@ -190,10 +189,12 @@ appId: com.powerliftingworkoutplanner
     id: '^plan-name-5$'
 
 # --- Plan search: no hits ("zzzz") ---------------------------------------------------
+# Bounded erases: a bare eraseText sends 50 key events (~5 s); the asserts below
+# prove the field really holds only the new text.
 - tapOn:
     id: '^plans-search-field$'
 - waitForAnimationToEnd
-- eraseText
+- eraseText: 5
 - inputText: 'zzzz'
 - hideKeyboard
 - waitForAnimationToEnd
@@ -214,7 +215,7 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: '^plans-search-field$'
 - waitForAnimationToEnd
-- eraseText
+- eraseText: 4
 - hideKeyboard
 - waitForAnimationToEnd
 - assertVisible:
@@ -266,7 +267,7 @@ appId: com.powerliftingworkoutplanner
     element:
       id: 'next-training-start-button'
     direction: UP
-    visibilityPercentage: 100
+    centerElement: true
     timeout: 30000
 - waitForAnimationToEnd
 - tapOn:

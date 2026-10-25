@@ -32,20 +32,20 @@ jest.mock('react-native-paper-dates', () => ({
   },
 }));
 
-const mockSwipeableRef: {current: {onSwipeableOpen: (direction: 'left' | 'right') => void} | undefined} = {current: undefined};
+const mockSwipeablePropsRef: {current: {onSwipeableOpen?: (direction: string) => void} | undefined} = {current: undefined};
 
-// Mock the module path the component really imports (GH-589: the old mock provided a
-// `Swipeable` export that gesture-handler 3 no longer has, so the crash never showed here).
+// GH-588: the picker must use ReanimatedSwipeable — react-native-gesture-handler 3 no longer
+// exports the legacy `Swipeable`, which rendered as `undefined` and crashed the screen.
 jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   const React = require('react');
   const {View} = require('react-native');
   return {
     __esModule: true,
-    SwipeDirection: {LEFT: 'left', RIGHT: 'right'},
-    default: React.forwardRef((props: {children: React.ReactNode; onSwipeableOpen: (direction: 'left' | 'right') => void}, _ref: unknown) => {
-      mockSwipeableRef.current = props;
+    default: React.forwardRef((props: {children: React.ReactNode; onSwipeableOpen?: (direction: string) => void}, _ref: unknown) => {
+      mockSwipeablePropsRef.current = props;
       return <View>{props.children}</View>;
     }),
+    SwipeDirection: {LEFT: 'left', RIGHT: 'right'},
   };
 });
 
@@ -205,28 +205,6 @@ describe('DateRangePicker', () => {
     expect(mockDatePickerModalRef.current?.date).toBeInstanceOf(NullableRange);
   });
 
-  it('imports the swipeable from a module path gesture-handler still ships', () => {
-    expect(() => require.resolve('react-native-gesture-handler/ReanimatedSwipeable')).not.toThrow();
-  });
-
-  it('swiping right shows the previous range, swiping left the next one', () => {
-    const setRange = jest.fn();
-    setup(setRange);
-
-    act(() => {
-      mockSwipeableRef.current?.onSwipeableOpen('right');
-    });
-    act(() => {
-      mockSwipeableRef.current?.onSwipeableOpen('left');
-    });
-
-    expect(setRange).toHaveBeenCalledTimes(2);
-    const previous: Range = setRange.mock.calls[0][0];
-    const next: Range = setRange.mock.calls[1][0];
-    expect(previous.endDate.getTime()).toBeLessThan(JAN_10.getTime());
-    expect(next.startDate.getTime()).toBeGreaterThan(JAN_20.getTime());
-  });
-
   it('Save with both start and end selected applies the confirmed range', () => {
     const setRange = jest.fn();
     const {result} = setup(setRange);
@@ -241,5 +219,22 @@ describe('DateRangePicker', () => {
     const calledWith: Range = setRange.mock.calls[0][0];
     expect(calledWith.startDate).toEqual(JAN_5);
     expect(calledWith.endDate).toEqual(JAN_25);
+  });
+
+  it('swiping the range button right shows the previous period, left the next one', () => {
+    jest.useFakeTimers();
+    const setRange = jest.fn();
+    const initialRange = new Range(JAN_10, JAN_20);
+    render(<DateRangePicker range={initialRange} setRange={setRange} />);
+    expect(mockSwipeablePropsRef.current?.onSwipeableOpen).toBeDefined();
+
+    // ReanimatedSwipeable reports the drag direction: RIGHT reveals the left (chevron-left) action.
+    act(() => mockSwipeablePropsRef.current?.onSwipeableOpen?.('right'));
+    act(() => mockSwipeablePropsRef.current?.onSwipeableOpen?.('left'));
+
+    expect(setRange).toHaveBeenCalledTimes(2);
+    expect(setRange.mock.calls[0][0]).toEqual(initialRange.minusRange());
+    expect(setRange.mock.calls[1][0]).toEqual(initialRange.plusOneRange());
+    jest.useRealTimers();
   });
 });

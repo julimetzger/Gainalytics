@@ -16,7 +16,10 @@
 #   tool.sh wait-ready [timeout_s] block until the background setup is ready (APK built, emulator
 #                                  booted, app installed); exit 1 + log tail if it failed, exit 3 if
 #                                  still running after timeout_s (default 540) -> call again
-#   tool.sh import-baseline [file] push a .gains fixture as /sdcard/Download/baseline.gains, import it
+#   tool.sh push-baseline [file]   only push a .gains fixture as /sdcard/Download/baseline.gains (and
+#                                  index it for the file picker) without importing it; for flows that
+#                                  import it themselves (smoke.yaml)
+#   tool.sh import-baseline [file] push-baseline, then import it
 #                                  via 00_import_baseline.yaml and check that "Push pull" is visible
 #                                  (default: __tests__/e2e/maestro/fixtures/baseline.gains). The import
 #                                  flow waits for "Push pull", so another fixture only works if it
@@ -102,10 +105,13 @@ case "${cmd}" in
     mkdir -p "${dir}"
     # takeScreenshot writes relative to the Maestro CWD, so run inside the report dir.
     cd "${dir}"
+    # The console output is kept too: its per-command COMPLETED/FAILED lines name the failing step
+    # (maestro-summary.py reads it). pipefail keeps Maestro's exit code.
     MAESTRO_CLI_NO_ANALYTICS=1 \
       MAESTRO_DRIVER_STARTUP_TIMEOUT="${MAESTRO_DRIVER_STARTUP_TIMEOUT:-180000}" \
       maestro --device "${S}" test "${flow}" \
-        --format junit --output "${dir}/report.xml" --debug-output "${dir}/debug"
+        --format junit --output "${dir}/report.xml" --debug-output "${dir}/debug" 2>&1 \
+      | tee "${dir}/console.txt"
     ;;
   logcat)
     label="${1:-logcat-$(date +%H%M%S)}"
@@ -160,12 +166,20 @@ case "${cmd}" in
     (cd "${ROOT}/android" && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain && ./gradlew --stop)
     "$0" install
     ;;
-  import-baseline)
+  push-baseline)
     fixture="$(realpath "${1:-${ROOT}/__tests__/e2e/maestro/fixtures/baseline.gains}")"
     S="$(serial)"
     # 00_import_baseline.yaml picks the file named baseline.gains in Downloads.
     adb -s "${S}" shell rm -f /sdcard/Download/baseline.gains >/dev/null 2>&1 || true
     adb -s "${S}" push "${fixture}" /sdcard/Download/baseline.gains
+    # Index it: the picker's "Recent" view only lists files the media store knows about.
+    adb -s "${S}" shell content call --method scan_volume --uri content://media \
+      --arg external_primary >/dev/null 2>&1 || true
+    ;;
+  import-baseline)
+    fixture="$(realpath "${1:-${ROOT}/__tests__/e2e/maestro/fixtures/baseline.gains}")"
+    S="$(serial)"
+    "$0" push-baseline "${fixture}"
     "$0" flow "${ROOT}/__tests__/e2e/maestro/flows/00_import_baseline.yaml"
     adb -s "${S}" shell uiautomator dump /sdcard/ui-after-import.xml >/dev/null
     mkdir -p "${OUT}/checks"
@@ -178,7 +192,7 @@ case "${cmd}" in
     echo "Imported $(basename "${fixture}")"
     ;;
   *)
-    sed -n '2,21p' "$0"
+    sed -n '2,26p' "$0"
     exit 2
     ;;
 esac
