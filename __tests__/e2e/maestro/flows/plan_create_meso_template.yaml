@@ -19,7 +19,7 @@ appId: com.powerliftingworkoutplanner
 # 00_import_baseline.yaml. Baseline plan ids are 1, 3, 4, 5 (new id = max + 1):
 #   empty plan "TRN004 Test Plan" = 6, "Strength Block" = 7, "Strength Block 2" = 8.
 #   A new plan becomes the CURRENT plan (GH-518), so part A runs first, while the
-#   Next Training card still points at "Push pull" Meso 1 · M7 · D1 "Push squat"
+#   Next Training card still points at "Push pull" Meso 1 · M6 · D1 "Push squat"
 #   (no training object yet).
 #   Template exercises: Squat is reused (id 2, 1RM 225 -> 4 x 6 @ RIR 3 =
 #   172.5 kg); Bench Press / Leg Curls / Row are created once as 85 / 86 / 87
@@ -51,7 +51,7 @@ appId: com.powerliftingworkoutplanner
     timeout: 60000
 - assertVisible:
     id: 'next-training-slot'
-    text: 'Meso 1 · M7 · D1 · 0 exercises'
+    text: 'Meso 1 · M6 · D1 · 0 exercises'
 
 # ===== A) "Plan new Training" enters full edit directly (GH-240 / GH-303) =====
 - tapOn:

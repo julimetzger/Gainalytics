@@ -21,7 +21,7 @@ appId: com.powerliftingworkoutplanner
 #
 # Data basis: baseline import (mutates: plans, starts, logs and finishes a
 # training) -> starts with 00_import_baseline.yaml. Current plan "Push pull",
-# next slot Meso 1 · M7 · D1 "Push squat" without a training object;
+# next slot Meso 1 · M6 · D1 "Push squat" without a training object;
 # "Suggest based on last Training" copies the last D1 (training 378): 10
 # exercises, first Adductor (32), second Stationary lunges (73).
 #
@@ -63,7 +63,7 @@ appId: com.powerliftingworkoutplanner
     text: 'Push squat'
 - assertVisible:
     id: 'next-training-slot'
-    text: 'Meso 1 · M7 · D1 · 0 exercises'
+    text: 'Meso 1 · M6 · D1 · 0 exercises'
 - assertNotVisible:
     id: 'next-training-elapsed'
 
@@ -147,7 +147,7 @@ appId: com.powerliftingworkoutplanner
     text: 'Continue Training'
 - assertVisible:
     id: 'next-training-slot'
-    text: 'Meso 1 · M7 · D1 · 10 exercises'
+    text: 'Meso 1 · M6 · D1 · 10 exercises'
 - copyTextFrom:
     id: 'next-training-elapsed'
 - assertTrue: "${/^(\\d+:)?\\d\\d?:\\d\\d$/.test(maestro.copiedText)}"
@@ -162,11 +162,16 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'header-session-timer'
 - assertNotVisible:
-    id: 'add-workout-set-logged-1'
+    id: '^add-workout-set-logged-2$'
+# The copied Adductor plan has sets 2 and 3 (no set 1), so the first log is
+# announced and stored as set 2 (verified on device).
+- assertVisible:
+    id: 'add-workout-set-number'
+    text: '.*Set 2'
 
 # ===== log a set on Adductor: 5 reps, RIR "0,5", 100 kg =====
 # Rows carry their set number; the planned rows exist before anything is
-# logged, so the proof of the LOGGED set is `add-workout-set-logged-1` + RIR
+# logged, so the proof of the LOGGED set is `add-workout-set-logged-2` + RIR
 # 0.5 (no planned set in the fixture has a fractional RIR).
 - tapOn:
     id: '^add-workout-set-reps-input$'
@@ -185,44 +190,44 @@ appId: com.powerliftingworkoutplanner
     id: 'add-workout-set-submit-button'
 - extendedWaitUntil:
     visible:
-      id: '^add-workout-set-logged-1$'
+      id: '^add-workout-set-logged-2$'
     timeout: 20000
 - assertVisible:
-    id: '^add-workout-set-reps-input-1$'
+    id: '^add-workout-set-reps-input-2$'
     text: '5'
 - assertVisible:
-    id: '^add-workout-set-rir-input-1$'
+    id: '^add-workout-set-rir-input-2$'
     text: '0\.5'
 - assertVisible:
-    id: '^add-workout-set-weight-input-1$'
+    id: '^add-workout-set-weight-input-2$'
     text: '100'
 
 # Correct the logged row: 125 kg, RIR 1.5. The row's confirm icon commits and
 # dismisses the keyboard itself (a trailing hideKeyboard would be BACK).
 - tapOn:
-    id: '^add-workout-set-weight-input-1$'
+    id: '^add-workout-set-weight-input-2$'
 - eraseText: 6
 - inputText: '125'
 - tapOn:
-    id: '^add-workout-set-rir-input-1$'
+    id: '^add-workout-set-rir-input-2$'
 - eraseText: 4
 - inputText: '1.5'
 - tapOn:
-    id: '^add-workout-set-confirm-1$'
+    id: '^add-workout-set-confirm-2$'
 - waitForAnimationToEnd:
     timeout: 5000
 - extendedWaitUntil:
     visible:
-      id: '^add-workout-set-logged-1$'
+      id: '^add-workout-set-logged-2$'
     timeout: 20000
 - assertVisible:
-    id: '^add-workout-set-weight-input-1$'
+    id: '^add-workout-set-weight-input-2$'
     text: '125'
 - assertVisible:
-    id: '^add-workout-set-rir-input-1$'
+    id: '^add-workout-set-rir-input-2$'
     text: '1\.5'
 - assertVisible:
-    id: '^add-workout-set-reps-input-1$'
+    id: '^add-workout-set-reps-input-2$'
     text: '5'
 
 # ===== switching the exercise clears the input row (GH-428 H4) =====
@@ -249,7 +254,7 @@ appId: com.powerliftingworkoutplanner
 - assertNotVisible: '63'
 # Adductor's logged row (125 kg) went with the exercise switch.
 - assertNotVisible:
-    id: '^add-workout-set-weight-input-1$'
+    id: '^add-workout-set-weight-input-2$'
     text: '125'
 
 # ===== Finish Training (GH-401 AC6 / GH-437) =====
@@ -298,4 +303,4 @@ appId: com.powerliftingworkoutplanner
     timeout: 60000
 - assertVisible:
     id: 'last-training-card-pressable'
-    text: 'Last Training, Push squat, Meso 1 · M7 · D1 · today.*'
+    text: 'Last Training, Push squat, Meso 1 · M6 · D1 · today.*'

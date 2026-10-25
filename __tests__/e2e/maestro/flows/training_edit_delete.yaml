@@ -21,7 +21,7 @@ appId: com.powerliftingworkoutplanner
 #      Deadlift 1RM records in the fixture: 240, 240, 246, 252, 252.83 -> top row
 #      "252.8 kg".
 #   B) Next Training of the current plan "Push pull" = "Push squat",
-#      Meso 1 · M7 · D1, still empty on the baseline -> planned via
+#      Meso 1 · M6 · D1, still empty on the baseline -> planned via
 #      "Suggest based on last Training", started, finished with 0 sets, deleted.
 #
 # Merged from: gh467_delete_lands_on_plan, gh467_finish_throwaway_training,
@@ -226,7 +226,7 @@ appId: com.powerliftingworkoutplanner
 # Guard: only ever delete the training this flow just finished.
 - assertVisible:
     id: 'last-training-card-pressable'
-    text: 'Last Training, Push squat, Meso 1 · M7 · D1 · today.*'
+    text: 'Last Training, Push squat, Meso 1 · M6 · D1 · today.*'
 - tapOn:
     id: 'last-training-card-pressable'
 - extendedWaitUntil:

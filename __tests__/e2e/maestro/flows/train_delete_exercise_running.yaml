@@ -8,7 +8,7 @@ appId: com.powerliftingworkoutplanner
 #
 # Data basis: baseline import (mutates: creates/deletes exercises, starts and
 # finishes a training) -> starts with 00_import_baseline.yaml. Current plan
-# "Push pull", next slot Meso 1 · M7 · D1 "Push squat" planned via
+# "Push pull", next slot Meso 1 · M6 · D1 "Push squat" planned via
 # "Suggest based on last Training" (10 exercises). Highest baseline exercise id
 # is 84, so the two exercises created here are 85 ("GH486 With sets") and
 # 86 ("GH486 No sets").
@@ -39,7 +39,7 @@ appId: com.powerliftingworkoutplanner
     text: 'Push squat'
 - assertVisible:
     id: 'next-training-slot'
-    text: 'Meso 1 · M7 · D1 · 0 exercises'
+    text: 'Meso 1 · M6 · D1 · 0 exercises'
 
 # ---- plan from the last D1 and start ----
 - tapOn:
@@ -87,7 +87,7 @@ appId: com.powerliftingworkoutplanner
     text: 'Training running'
 - assertVisible:
     id: 'next-training-slot'
-    text: 'Meso 1 · M7 · D1 · 10 exercises'
+    text: 'Meso 1 · M6 · D1 · 10 exercises'
 
 # ---- 1. create two exercises ----
 - tapOn: 'tab-exercises'
@@ -268,7 +268,7 @@ appId: com.powerliftingworkoutplanner
     timeout: 60000
 - assertVisible:
     id: 'next-training-slot'
-    text: 'Meso 1 · M7 · D1 · 12 exercises'
+    text: 'Meso 1 · M6 · D1 · 12 exercises'
 
 # ---- 4. delete "GH486 No sets" (in the running training, no sets) ----
 - tapOn: 'tab-exercises'
@@ -372,7 +372,7 @@ appId: com.powerliftingworkoutplanner
     text: 'Training running'
 - assertVisible:
     id: 'next-training-slot'
-    text: 'Meso 1 · M7 · D1 · 10 exercises'
+    text: 'Meso 1 · M6 · D1 · 10 exercises'
 - tapOn:
     id: 'next-training-start-button'
 - extendedWaitUntil:
@@ -410,7 +410,7 @@ appId: com.powerliftingworkoutplanner
     timeout: 60000
 - assertVisible:
     id: 'last-training-card-pressable'
-    text: 'Last Training, Push squat, Meso 1 · M7 · D1 · today.*'
+    text: 'Last Training, Push squat, Meso 1 · M6 · D1 · today.*'
 
 # ---- 7. other views that reference the exercise still render ----
 # The finished training opens on its Analysis.

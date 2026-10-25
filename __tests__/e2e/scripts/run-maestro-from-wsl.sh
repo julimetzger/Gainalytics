@@ -197,6 +197,13 @@ if [[ "${MODE}" == "bootstrap" || "${MODE}" == "full" || "${MODE}" == "smoke" ]]
       adb_cmd push "${extra_file}" "/sdcard/Download/$(basename "${extra_file}")"
     fi
   done
+  # video_list_filters_vl.yaml reads the analysis result from the app's private
+  # files dir (RNFS cannot read /sdcard/Download); debug builds allow run-as.
+  GH415_RESULT="${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh415-result.json"
+  if [[ -f "${GH415_RESULT}" ]]; then
+    adb_cmd push "${GH415_RESULT}" "/data/local/tmp/gh415-result.json"
+    adb_cmd shell "run-as ${APP_ID} sh -c 'mkdir -p files; cat /data/local/tmp/gh415-result.json > files/gh415-result.json'" || true
+  fi
   adb_cmd reverse "tcp:${DEVICE_METRO_PORT}" "tcp:${METRO_PORT}" >/dev/null 2>&1 || true
   adb_cmd shell am force-stop "${APP_ID}" >/dev/null 2>&1 || true
 fi

@@ -694,3 +694,25 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-528 merge):** the CI typecheck (`npm run typecheck`, root tsconfig) does not load `@testing-library/jest-native` types (only `__tests__/tsconfig.json` does), so every `toHaveTextContent`/`toContainElement` was a TS2339. Merging parallel PRs also leaves test `GlobalState` fixtures without newly added slices (TS2741 for e.g. `bodyWeight`), and master itself can be red against `scripts/ci/*-baseline.json`.
 **Fix / Rule:** start specs that use jest-native matchers with `/// <reference types="@testing-library/jest-native" />`; `rootReducer` is a typed redux `Reducer<GlobalState, AnyAction>`, so `createStore(rootReducer)` and `rootReducer(undefined, {type: '@@INIT'})` type-check without casts. After a master merge run both `check-baseline.js` checks locally and compare with a pristine master worktree to tell your errors from master's.
 **Apply when:** merging master into a long-running PR or adding a slice to `GlobalState`. (seen in GH-528)
+
+### Since GH-584 there are target flows per feature — extend them, don't add `ghNNN_*.yaml`
+**Observation (GH-584):** the 236 per-ticket flows were merged into ~31 target flows + 10 helpers; the list, data basis and rules are in `__tests__/e2e/maestro/FLOW_AUDIT.md`. Old flow names in older memory entries/run logs point to git history. Helpers: `goto_micro69_push.yaml` (env `MODE=planned|running|edit`, replaces gh466_goto_push/gh443_goto_running_push/gh418_open_plan_edit), `goto_micro2_push.yaml`, `open_rest_menu.yaml`, `import_fixture.yaml` (`FIXTURE`), `pick_file.yaml` (`FILE`), `set_appearance.yaml`, `set_dummy_api_key.yaml`, `open_ai_chat.yaml`. Manual flows (real key/device) are in `flows/manual/`.
+**Apply when:** a ticket needs e2e coverage — add a section to the feature's target flow and run it once standalone.
+
+### The baseline's current micro is M6 (not M7) since GH-533 — "Next Training" is `Meso 1 · M6 · D1 · 0 exercises`
+**Problem (GH-584):** many old flows and memory entries assert `Meso 1 · M7 · D1`; since GH-533 an incomplete micro stays current, and in `baseline.gains` only M6 D4 is done → hero `Meso 1 · M6`, `1/4`, next `Push squat` with an empty slot. "Suggest based on last Training" fills it with 10 exercises; the first logged Adductor set gets row `add-workout-set-logged-2` (the copied plan has sets 2 and 3).
+**Apply when:** asserting home/next-training values on the baseline.
+
+### Edge swipe in the SAF picker = system BACK; steer to Downloads via "Show roots"
+**Problem (GH-584):** a `swipe` from `2%,50%` to open the picker's roots drawer closed the whole picker (gesture navigation BACK) and the import flow failed on "Downloads". Also a `when: notVisible: 'baseline.gains'` check right after opening runs before the picker has listed anything.
+**Fix:** `extendedWaitUntil: {visible: '<file>', timeout: 20000, optional: true}`, then only if still missing `tapOn: 'Show roots'` → `tapOn: 'Downloads'` (now in `00_import_baseline.yaml` and `import_fixture.yaml`).
+**Apply when:** any flow that picks a file in the system picker.
+
+### Analysis picker (sharingan) rows: a text tap does not select; `childOf` a section id does not resolve
+**Problem (GH-584):** in Analyse › Analysis "Select Exercises, Muscles, Metrics…", `tapOn: {text: 'Mmkv', below: {id: 'search-bar'}}` left the row unselected (no chip), also for Volume/Frequency/Week. In the plan editor `assertVisible: {id: '^plan-set-1-reps-input$', childOf: {id: 'plan-edit-exercise-section-32'}}` never matched although the row was on screen.
+**Fix:** after filtering to one result, tap the row by position (`point: '30%, 26%'`, `retryTapIfNoChange: false`) and assert the `chip` with its text; for repeated per-section ids rely on the first match (first section) plus a value in the assertion.
+**Apply when:** selecting in the Analysis picker or scoping repeated plan-set ids.
+
+### Several Bash forms are blocked in the agent-emulator job — use tool.sh/adb/ffmpeg + Edit
+**Observation (GH-584):** `python3 -c`, `node -e`, `bash script.sh`, shell loops/variables (`for f in …; $(…)`), `sed -i` and `git mv` all needed approval; `tool.sh <cmd>` (also several chained with `;`), `adb -s … push/shell`, `ffmpeg`, `git add/commit/rm`, `mv`, `grep` worked. YAML validation therefore happens on the first Maestro run. Subagents have the same limits.
+**Apply when:** planning a CI emulator run — rename with `mv` + `git add -A`, edit with the Edit tool, run flows one `tool.sh flow` per call (≤ 10 min per Bash call; a longer chain is moved to the background).
