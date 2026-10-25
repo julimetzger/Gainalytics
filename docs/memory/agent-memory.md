@@ -722,6 +722,38 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Fix:** assert saved values positively; no `{n}` in inline scripts; `adb shell content call --method scan_volume --uri content://media --arg external_primary` after pushing (now in `run-maestro-from-wsl.sh`), and `import_fixture.yaml` switches the picker to "List view".
 **Apply when:** asserting text inputs, writing inline JS checks, importing pushed fixtures. (seen in GH-584)
 
+### A clipped node counts as "100 % visible": scrollUntilVisible stops on a sliver
+**Problem (GH-588):** uiautomator reports a node clipped by the ScrollView with its VISIBLE bounds only (a card at the tab-bar edge dumps as `[2124][2127]`, 3 px). `visibilityPercentage: 100` is therefore met by a button whose top edge just peeks out; its label child below the edge is not in the hierarchy. CI failed on `assertVisible {id: next-training-start-button-text, text: 'Continue Training'}` right after `'Training running'` passed (the running card is taller: it lists two exercises). It depends on where the swipe ends, so it fails on slow runners only.
+**Fix:** `centerElement: true` on `scrollUntilVisible` before asserting or tapping children of a card.
+**Apply when:** asserting a child of the scroll target, especially near the bottom tab bar. (seen in GH-588)
+
+### The running rest timer makes every Maestro interaction take 11–23 s
+**Observation (GH-588):** after a set is logged on a running training, the RestTimerCard's animated ring never lets the screen settle. Each `tapOn` took ~22 s and each `eraseText`/`inputText` ~11 s, about 3 min per smoke run (17 min in CI). Skipping the rest (`rest-timer-overflow` → `Skip rest`, both taps with `waitToSettleTimeoutMs: 500`) brings them back to 1–4 s. Correcting a logged row does not restart the rest (GH-443); a NEW logged set does.
+**Apply when:** a flow keeps interacting after logging a set, unless the flow tests the timer itself.
+
+### `launchApp: {stopApp: false}` keeps the previous flow's scroll position
+**Problem (GH-588):** after switching chained flows to `stopApp: false` (saves the cold start and the ~7 s `when: visible: 'Dismiss'` check), `analyse_dashboard_drilldown` failed on `micro-hero-plan-name` 1 run in 2: home_dashboard had left the Training home scrolled to the plan list, and tapping the focused tab did not reliably scroll it back up.
+**Fix:** `scrollUntilVisible … direction: UP` to the hero before the precondition assert. Also: every `when: visible/notVisible` whose answer is "no" costs ~7 s.
+**Apply when:** chaining flows without app restarts. (seen in GH-588)
+
+### Intermittent native crash on cold start (Fabric MountingCoordinator::pull SIGSEGV)
+**Observation (GH-588):** in 1 of ~12 cold launches on the CI emulator the app died 2 s after start with `SIGSEGV (SEGV_ACCERR)` in `facebook::react::MountingCoordinator::pull` on `mqt_v_js`. `00_import_baseline` then fails with `"Training" is visible` while the launcher is on screen. Another launch worked. This is not caused by the flows. Find it in logcat with `grep "Fatal signal"`.
+**Apply when:** an import/launch step fails with the launcher on screen and there is no Java `FATAL EXCEPTION`.
+
+### A "flaky" assertion on an Analyse screen can be the error boundary — look at the failure screenshot first
+**Problem (GH-588 round 2):** smoke failed on `"1 selected" is visible` after the Details tap; it looked like gesture timing. The Maestro debug screenshot showed "Metrics Overview could not be displayed": RNGH 3 (master bump) removed `Swipeable`, `DateRangePicker` imported `undefined` → `Element type is invalid … got: undefined` (logcat `ReactNativeJS`, stack ends at `DateRangePicker`). Deterministic, every screen with a range picker.
+**Rule:** open `debug/…/screenshots/*.png` and grep logcat for `Element type is invalid|failed to render` before hardening a flow. `npm run typecheck` had flagged it (`TS2305 has no exported member 'Swipeable'`); the global RNGH mock in `jest.setup.js` hides missing exports. Migration: `react-native-gesture-handler/ReanimatedSwipeable`; directions are flipped (legacy `'left'` = new `SwipeDirection.RIGHT`), actions are no longer hidden at rest (fade them with the `progress` shared value), `dragOffsetFromRight` must be ≤ 0.
+**Apply when:** a smoke/flow fails on an Analyse screen, or after a gesture-handler bump. (seen in GH-588)
+
+### Metro dev bundles crash at startup since RTK 2 (`middleware` field must be a callback) — rebuild instead
+**Problem (GH-588 round 2):** after `tool.sh metro-start` + `launch` the app showed a red screen `[runtime not ready]: Error: 'middleware' field must be a callback` in `configureStore`: RTK 2 only checks the array form in dev; the embedded (non-dev) bundle runs fine. Killing Metro (`kill <pid>`) needs approval in the CI job.
+**Fix:** `tool.sh rebuild` (incremental ~1–7 min) and point the app away from Metro: `adb -s <serial> shell "run-as com.powerliftingworkoutplanner sh -c 'echo \"<map><string name=\\\"debug_http_host\\\">localhost:8099</string></map>\" > /data/data/com.powerliftingworkoutplanner/shared_prefs/com.powerliftingworkoutplanner_preferences.xml'"` (survives `install -r`, no flow clears state). Real fix: `middleware: () => new Tuple(...)` in `configureStore.ts` (not done yet).
+**Apply when:** JS changes must reach the CI emulator while `configureStore.ts` still passes an array. (seen in GH-588)
+
+### `stopApp: false` also keeps component state — a resumed Dashboard deselects on the next chip tap
+**Problem (GH-588 round 2):** `analyse_dashboard_drilldown` run twice in a row failed on the stale banner: the resumed Dashboard was still scrolled to the radar with Quads selected (MuscleHeatmap chips TOGGLE, so the next tap would deselect).
+**Fix:** cold start standalone; callers that know the screen is fresh pass an env switch (`ANALYSE_RESUME: 'true'` from `smoke.yaml`; `when: true: ${typeof X === 'undefined' || X !== 'true'}`, no header `env:` default).
+**Apply when:** a flow resumes the app and asserts initial screen state or taps toggles. (seen in GH-588)
 ### Dependabot npm groups: check three hard pins before taking a bump
 **Problem (AGENT-RUN, #574):** a grouped bump broke Jest and assembleDebug at once. (1) `react`/`react-dom` must equal the React version bundled in `node_modules/react-native/Libraries/Renderer/implementations/ReactFabric-dev.js` (RN 0.84.1 → 19.2.3); a patch bump fails Jest with `Incompatible React versions: … react-native-renderer: 19.2.3`. (2) reanimated/worklets: read `node_modules/react-native-{reanimated,worklets}/compatibility.json` + peer `react-native` range; Gradle `preBuild` runs `scripts/validate-react-native-version.js` and throws for an unlisted RN minor (4.7.x/0.13.x need RN ≥ 0.86). Jest does NOT catch this — reanimated is mocked. (3) `react-native-paper-dates` ≥ 0.24 nests ESM-only `color` v5 → add `color|color-string|color-convert|color-name` to `transformIgnorePatterns` (done in `jest.config.cjs`).
 **Rule:** `npm view`, `node <script>` and `./gradlew` need approval in the CI emulator job; read peer ranges from installed `package.json` with Grep and wait for Gradle with `adb -s <serial> shell sleep 300` (host `sleep`/`perl` are blocked). The calendar grid in `DatePickerModal` is `react-native-calendars`, not paper-dates (paper-dates only provides the MM/DD/YYYY inputs).

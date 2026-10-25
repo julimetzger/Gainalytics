@@ -1,0 +1,247 @@
+# GH-588: Maestro smoke flow on an Android emulator for every pull request and push to master.
+#
+# Builds the debug APK (x86_64, embedded JS bundle, no Metro), boots the emulator, installs the
+# app and runs __tests__/e2e/maestro/flows/smoke.yaml: baseline import, Training home values,
+# Analyse drill-down, start/log/finish a training. Same setup as the agent workflow's smoke_only
+# mode (.github/workflows/agent-emulator.yml) and the same scripts (.github/agent-emulator/).
+#
+# Safe for fork PRs: no secrets, no environment, read-only token, untrusted code only builds and
+# runs inside the job. Check name for the master ruleset: "Maestro smoke".
+name: Maestro smoke
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "screenshots/**"
+      - "tickets/**"
+  push:
+    branches: [master]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "screenshots/**"
+      - "tickets/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maestro-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Keep in sync with agent-emulator.yml: same AVD cache key and Maestro build.
+env:
+  API_LEVEL: "34"
+  AVD_TARGET: google_apis
+  AVD_ARCH: x86_64
+  MAESTRO_VERSION: "2.11.0"
+  MAESTRO_SHA256: "5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a"
+
+jobs:
+  smoke:
+    name: Maestro smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prepare run directory
+        run: |
+          echo "AGENT_RUN_DIR=$RUNNER_TEMP/maestro-smoke" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/maestro-smoke"
+          echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+          chmod +x .github/agent-emulator/*.sh
+
+      - name: Free disk space
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/node_modules/@angular \
+            /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/share/swift \
+            /usr/local/share/powershell /usr/share/miniconda /opt/az /opt/microsoft || true
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          df -h / /mnt 2>/dev/null || df -h /
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+          nproc; free -h | head -2
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: npm ci
+        run: npm ci --no-audit --no-fund
+
+      # Same key as agent-emulator.yml (same x86_64 debug build), so both share one cache.
+      - name: Gradle cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-agent-emu-${{ runner.os }}-${{ hashFiles('android/**/*.gradle', 'android/gradle.properties', 'android/gradle/wrapper/gradle-wrapper.properties', 'package-lock.json') }}
+          restore-keys: gradle-agent-emu-${{ runner.os }}-
+
+      - name: Build debug APK (x86_64, embedded JS bundle)
+        timeout-minutes: 30
+        working-directory: android
+        run: |
+          start=$(date +%s)
+          echo "setup_s=$(( start - JOB_START ))" | tee -a "$AGENT_RUN_DIR/timings.txt"
+          ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain --no-daemon
+          echo "gradle_build_s=$(( $(date +%s) - start ))" | tee -a "$AGENT_RUN_DIR/timings.txt"
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E "assets/index.android.bundle|lib/x86_64/libappmodules.so"
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/maestro.zip" \
+            "https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
+          echo "${MAESTRO_SHA256}  $RUNNER_TEMP/maestro.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/maestro.zip" -d "$HOME"
+          echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/maestro/bin/maestro" --version
+
+      - name: AVD cache
+        id: avd-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.API_LEVEL }}-${{ env.AVD_TARGET }}-${{ env.AVD_ARCH }}-v2
+
+      - name: Create AVD and snapshot (cache miss only)
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          target: ${{ env.AVD_TARGET }}
+          arch: ${{ env.AVD_ARCH }}
+          profile: pixel_6
+          ram-size: 3072M
+          disk-size: 6G
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Save AVD cache
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.API_LEVEL }}-${{ env.AVD_TARGET }}-${{ env.AVD_ARCH }}-v2
+
+      - name: Mark emulator start
+        run: echo "EMULATOR_STEP_START=$(date +%s)" >> "$GITHUB_ENV"
+
+      # smoke.sh: install, push baseline.gains, cold start, smoke.yaml, screenshots, logcat.
+      # It writes smoke.started once the emulator is up; only a failure before that is retried.
+      - name: Emulator + Maestro smoke
+        id: run1
+        continue-on-error: true
+        timeout-minutes: 25
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          target: ${{ env.AVD_TARGET }}
+          arch: ${{ env.AVD_ARCH }}
+          profile: pixel_6
+          ram-size: 3072M
+          disk-size: 6G
+          force-avd-creation: false
+          emulator-boot-timeout: 420
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: .github/agent-emulator/smoke.sh
+
+      - name: Check emulator boot
+        id: boot
+        if: always()
+        env:
+          RUN1: ${{ steps.run1.outcome }}
+        run: |
+          if [[ -f "$AGENT_RUN_DIR/smoke.started" ]]; then
+            echo "booted=yes" >> "$GITHUB_OUTPUT"
+          elif [[ "${RUN1}" == "failure" ]]; then
+            echo "::warning title=emulator boot::first emulator start failed, retrying once with a cold boot"
+            echo "retry=true" >> "$GITHUB_OUTPUT"
+            pkill -f qemu-system || true
+            adb kill-server 2>/dev/null || "$ANDROID_HOME/platform-tools/adb" kill-server 2>/dev/null || true
+            sleep 5
+          fi
+
+      - name: Emulator + Maestro smoke (retry after failed boot)
+        id: run2
+        if: steps.boot.outputs.retry == 'true'
+        continue-on-error: true
+        timeout-minutes: 25
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          target: ${{ env.AVD_TARGET }}
+          arch: ${{ env.AVD_ARCH }}
+          profile: pixel_6
+          ram-size: 3072M
+          disk-size: 6G
+          force-avd-creation: false
+          emulator-boot-timeout: 420
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: .github/agent-emulator/smoke.sh
+
+      - name: Smoke result
+        if: always()
+        env:
+          RUN1: ${{ steps.run1.outcome }}
+          RUN2: ${{ steps.run2.outcome }}
+        run: |
+          attempts=1; [[ -n "${RUN2}" && "${RUN2}" != "skipped" ]] && attempts=2
+          booted=no; [[ -f "$AGENT_RUN_DIR/smoke.started" ]] && booted=yes
+          if [[ -n "${EMULATOR_STEP_START:-}" ]]; then
+            echo "emulator_and_flows_s=$(( $(date +%s) - EMULATOR_STEP_START ))" >> "$AGENT_RUN_DIR/timings.txt"
+          fi
+          echo "job_total_s=$(( $(date +%s) - JOB_START ))" >> "$AGENT_RUN_DIR/timings.txt"
+          echo "attempts=${attempts}" >> "$AGENT_RUN_DIR/timings.txt"
+          status=0
+          python3 .github/agent-emulator/maestro-summary.py "$AGENT_RUN_DIR" \
+            --attempts "${attempts}" --booted "${booted}" >> "$GITHUB_STEP_SUMMARY" || status=$?
+          # The emulator step itself can fail after a green flow (e.g. smoke.sh's own checks).
+          last="${RUN2:-}"; [[ -z "${last}" || "${last}" == "skipped" ]] && last="${RUN1:-}"
+          if [[ "${status}" -eq 0 && "${last}" != "success" ]]; then
+            echo "::error title=Maestro smoke::emulator step ended with '${last}' although the flow report passed (see that step)"
+            status=1
+          fi
+          if [[ -f "$AGENT_RUN_DIR/logcat/smoke.txt" ]] && grep -q "FATAL EXCEPTION" "$AGENT_RUN_DIR/logcat/smoke.txt"; then
+            line="$(grep -m1 -A2 "FATAL EXCEPTION" "$AGENT_RUN_DIR/logcat/smoke.txt" | tr '\n' ' ' | cut -c1-400)"
+            echo "::warning title=logcat::${line}"
+          fi
+          exit "${status}"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: maestro-smoke-evidence
+          path: ${{ runner.temp }}/maestro-smoke/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
