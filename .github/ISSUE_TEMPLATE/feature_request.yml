@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest an idea or improvement for Gainalytics
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what makes it hard today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should it work from the athlete's point of view?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, mockups, example training plans, links.
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Fit with the project
+      options:
+        - label: The idea works offline and keeps training data on the device (offline-first, privacy-first).

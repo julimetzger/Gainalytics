@@ -69,6 +69,10 @@ const buildState = (): GlobalState =>
       byId: {},
       allIds: [],
     },
+    bodyWeight: {
+      byId: {},
+      allIds: [],
+    },
     effects: {},
     settings: {
       mode: 'dark',

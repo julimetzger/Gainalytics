@@ -1,4 +1,4 @@
-# GH-177 r10 — per-frame scrubber thumb x position on R5CN30HWZFN
+# GH-177 r10 — per-frame scrubber thumb x position on <phone-serial>
 # Source: screenrec @60fps re-extracted to 30fps (33.33ms per frame)
 # Strip crop: y=1230-1270, x=40-680 (width 640px); strip x=0 corresponds to scrubber bar left edge
 # Bar usable width inside strip: ~625px

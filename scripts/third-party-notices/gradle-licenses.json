@@ -1,0 +1,28 @@
+{
+  "$comment": "License lookup for Android (Maven) coordinates, used by generate.js. Keys are either an exact \"group:artifact\" or a group prefix ending in \"*\". The most specific match wins. Add an entry when generate.js reports an UNKNOWN license.",
+  "licenses": {
+    "androidx.*": {"license": "Apache-2.0", "copyright": "Copyright The Android Open Source Project"},
+    "com.google.android.material:*": {"license": "Apache-2.0", "copyright": "Copyright The Android Open Source Project"},
+    "com.google.android.gms:play-services-tasks": {"license": "LicenseRef-Android-SDK", "copyright": "Copyright Google LLC"},
+    "com.google.android.gms:play-services-basement": {"license": "LicenseRef-Android-SDK", "copyright": "Copyright Google LLC"},
+    "com.google.code.findbugs:jsr305": {"license": "Apache-2.0", "copyright": "JSR-305 expert group"},
+    "com.google.guava:*": {"license": "Apache-2.0", "copyright": "Copyright The Guava Authors"},
+    "com.facebook.react:*": {"license": "MIT", "copyright": "Copyright (c) Meta Platforms, Inc. and affiliates."},
+    "com.facebook.fresco:*": {"license": "MIT", "copyright": "Copyright (c) Meta Platforms, Inc. and affiliates."},
+    "com.facebook.yoga:*": {"license": "MIT", "copyright": "Copyright (c) Meta Platforms, Inc. and affiliates."},
+    "com.facebook.infer.annotation:*": {"license": "MIT", "copyright": "Copyright (c) Meta Platforms, Inc. and affiliates."},
+    "com.facebook.fbjni:*": {"license": "Apache-2.0", "copyright": "Copyright (c) Meta Platforms, Inc. and affiliates."},
+    "com.facebook.soloader:*": {"license": "Apache-2.0", "copyright": "Copyright (c) Meta Platforms, Inc. and affiliates."},
+    "com.github.PhilJay:MPAndroidChart": {"license": "Apache-2.0", "copyright": "Copyright 2020 Philipp Jahoda"},
+    "org.tensorflow:*": {"license": "Apache-2.0", "copyright": "Copyright The TensorFlow Authors"},
+    "org.jetbrains.kotlin:*": {"license": "Apache-2.0", "copyright": "Copyright JetBrains s.r.o. and Kotlin Programming Language contributors"},
+    "org.jetbrains.kotlinx:*": {"license": "Apache-2.0", "copyright": "Copyright JetBrains s.r.o. and Kotlin Programming Language contributors"},
+    "org.jetbrains:annotations": {"license": "Apache-2.0", "copyright": "Copyright JetBrains s.r.o."},
+    "org.greenrobot:eventbus": {"license": "Apache-2.0", "copyright": "Copyright (C) 2012-2020 Markus Junginger, greenrobot"},
+    "app.notifee:core": {"license": "Apache-2.0", "copyright": "Copyright (c) 2016-present Invertase Limited"},
+    "com.squareup.okhttp3:*": {"license": "Apache-2.0", "copyright": "Copyright Square, Inc."},
+    "com.squareup.okio:*": {"license": "Apache-2.0", "copyright": "Copyright Square, Inc."},
+    "javax.inject:javax.inject": {"license": "Apache-2.0", "copyright": "Copyright The JSR-330 Expert Group"},
+    "io.github.react-native-community:jsc-android*": {"license": "BSD-2-Clause AND LGPL-2.0-or-later", "copyright": "Copyright Apple Inc. and WebKit contributors"}
+  }
+}

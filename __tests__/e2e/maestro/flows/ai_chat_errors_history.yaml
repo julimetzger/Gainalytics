@@ -1,0 +1,335 @@
+appId: com.powerliftingworkoutplanner
+# Never leave the device offline, even when an assertion in between fails.
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+# Feature F11 AI coach / chat - T11.2: a failed send leaves the chat usable,
+# the header actions work, chats are archived/searchable/resumable/deletable,
+# and the key can be removed again.
+#
+# Purpose:
+#   - GH-515 / AI-447: with the dummy key and NO network, a send ends in a
+#     readable error. The chat is not stuck in "AI is thinking…", there is no
+#     Stop button left, the unanswered message is rolled back out of the
+#     conversation and its text is back in the input box.
+#   - GH-508: one "AI Chat" title with the actions (history, filter, clear) in
+#     the header; the context period is a chip that opens the same filter.
+#   - GH-293: Clear archives instead of discarding; the history shows title,
+#     message count and snippet; search hits a message in the MIDDLE of a chat;
+#     a chat can be resumed; history survives an app restart; delete works.
+#   - GH-515: saving an empty key removes it -> the chat shows the add-key hint.
+#
+# Offline: the only send happens in airplane mode, so no request reaches any
+# server. The dummy key comes from set_dummy_api_key.yaml.
+#
+# Data basis: __tests__/testdata/gh508_chat_fixture.gains (= the baseline store
+# plus an active five-message conversation: first user message
+# "GH508 how did my squat develop over the last block?", middle user message
+# "Should I add a back-off set?", last message "GH508 last message marker").
+# Push it to /sdcard/Download/gh508_chat_fixture.gains before the run. It
+# contains "Push pull" (import_fixture.yaml waits for it).
+# Why not re-pinned to the bare baseline: since GH-447 a failed send rolls its
+# message back, so a conversation can no longer be built offline with a dummy
+# key - the conversation has to come from the fixture.
+#
+# Merged from: gh515_error_and_key_removal (base), ai447_chat_cancel,
+# ai447_chat_failure_recovers, gh293_chat_history, gh508_chat_header_actions,
+# gh508_suite.
+
+- runFlow:
+    file: import_fixture.yaml
+    env:
+      FIXTURE: gh508_chat_fixture.gains
+# set_dummy_api_key.yaml relaunches the app, so the chat mounts fresh on the
+# imported aiChat state (contextRange null -> "Context: 28d").
+- runFlow: set_dummy_api_key.yaml
+- runFlow: open_ai_chat.yaml
+
+# PRECONDITION: the fixture conversation is the active chat.
+- assertVisible:
+    id: 'chat-bubble-user-text'
+    text: 'GH508 last message marker'
+
+# ── GH-508: title + header actions, period chip ──────────────────────────────
+- assertVisible:
+    text: 'AI Chat'
+    leftOf:
+      id: 'chat-history-button'
+- assertVisible:
+    id: 'chat-header-actions'
+- assertVisible: 'Context: 28d'
+# Baseline-based store: "Push pull" has nothing planned in micro 7, so no plan
+# is attached (see the data note in ai_chat_context.yaml).
+- assertVisible: 'Plan: 0 sessions'
+
+# The header filter icon opens the presets; a preset changes the chip.
+- tapOn:
+    id: 'chat-filter-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-preset-7d'
+    timeout: 15000
+- tapOn:
+    id: 'chat-preset-7d'
+- waitForAnimationToEnd
+- assertVisible: 'Context: 7d'
+- assertNotVisible: 'Context: 28d'
+# The fixture's last training (28/02/2026) is outside every 7-day window now.
+- copyTextFrom:
+    id: 'chat-context-info'
+- assertTrue: "${maestro.copiedText.indexOf('AI has access to 0 trainings (') === 0}"
+- copyTextFrom:
+    id: 'chat-planned-info'
+- assertTrue: "${maestro.copiedText === 'Plan attached: nothing planned'}"
+- tapOn:
+    id: 'chat-filter-toggle'
+- waitForAnimationToEnd
+- assertNotVisible:
+    id: 'chat-preset-7d'
+
+# The period chip opens the same filter section.
+- tapOn: 'Context: 7d'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-preset-28d'
+    timeout: 15000
+- tapOn:
+    id: 'chat-preset-28d'
+- waitForAnimationToEnd
+- assertVisible: 'Context: 28d'
+- tapOn: 'Context: 28d'
+- waitForAnimationToEnd
+- assertNotVisible:
+    id: 'chat-preset-28d'
+
+# History from the header, and back to the same conversation.
+- tapOn:
+    id: 'chat-history-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-history-search'
+    timeout: 15000
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 15000
+- assertVisible:
+    id: 'chat-bubble-user-text'
+    text: 'GH508 last message marker'
+
+# ── GH-515 / AI-447: offline send with the dummy key ─────────────────────────
+- setAirplaneMode: enabled
+- tapOn:
+    id: 'chat-input'
+- inputText: 'Offline check 4711'
+- hideKeyboard
+- tapOn:
+    id: 'chat-send-button'
+# Must end in a readable message, never an endless spinner.
+- extendedWaitUntil:
+    visible:
+      id: 'chat-error'
+    timeout: 90000
+- assertVisible: 'Network error: .*|The model did not answer within .*'
+- assertNotVisible:
+    id: 'chat-loading'
+- assertNotVisible: 'AI is thinking… .*'
+- assertNotVisible:
+    id: 'chat-stop-button'
+# The unanswered message is NOT left behind as a sent bubble …
+- assertNotVisible:
+    id: 'chat-bubble-user-text'
+    text: 'Offline check 4711'
+# … its text is back in the input box, ready to resend …
+- assertVisible:
+    id: 'chat-input'
+    text: 'Offline check 4711'
+# … and the existing conversation is untouched.
+- assertVisible:
+    id: 'chat-bubble-user-text'
+    text: 'GH508 last message marker'
+- setAirplaneMode: disabled
+
+# ── GH-293 / GH-508: Clear archives the conversation ────────────────────────
+# Clear also empties the input box and the error.
+- tapOn:
+    id: 'chat-clear-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-empty-state'
+    timeout: 15000
+- assertNotVisible: 'GH508 last message marker'
+- assertNotVisible:
+    id: 'chat-error'
+- assertNotVisible:
+    id: 'chat-input'
+    text: 'Offline check 4711'
+- assertVisible: 'Context: 28d'
+
+# The archived chat is in the history: title = first user message,
+# snippet = last message, 5 messages.
+- tapOn:
+    id: 'chat-history-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-history-entry-title'
+    timeout: 15000
+- assertVisible:
+    id: 'chat-history-entry-title'
+    text: 'GH508 how did my squat develop over the last block\?'
+- assertVisible:
+    id: 'chat-history-entry-snippet'
+    text: 'GH508 last message marker'
+- assertVisible:
+    id: 'chat-history-entry-date'
+    text: '.* · 5 messages'
+
+# Full-content search: "back-off" is only in the middle of the chat
+# (message 3/4) - not in the title, not in the snippet.
+- tapOn:
+    id: '^chat-history-search$'
+- inputText: 'back-off'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-history-entry-title'
+      text: 'GH508 how did my squat develop over the last block\?'
+    timeout: 10000
+- eraseText: 20
+- inputText: 'zzznomatchzzz'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-history-empty'
+      text: 'No chats match your search\.'
+    timeout: 10000
+- assertNotVisible:
+    id: 'chat-history-entry-title'
+- eraseText: 20
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: 'chat-history-entry-title'
+    timeout: 10000
+
+# Resume: the conversation becomes the active chat again and leaves the history.
+- tapOn:
+    id: 'chat-history-entry-title'
+    text: 'GH508 how did my squat develop over the last block\?'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 15000
+- assertVisible:
+    id: 'chat-bubble-user-text'
+    text: 'GH508 last message marker'
+- assertVisible:
+    id: 'chat-header-actions'
+- tapOn:
+    id: 'chat-history-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-history-empty'
+    timeout: 15000
+- assertVisible:
+    id: 'chat-history-empty'
+    text: 'No archived chats yet\..*'
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 15000
+
+# ── GH-293: the history survives an app restart; an entry can be deleted ─────
+- tapOn:
+    id: 'chat-clear-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-empty-state'
+    timeout: 15000
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 60000
+- runFlow: open_ai_chat.yaml
+- assertVisible:
+    id: 'chat-empty-state'
+- tapOn:
+    id: 'chat-history-button'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-history-entry-title'
+    timeout: 15000
+- assertVisible:
+    id: 'chat-history-entry-title'
+    text: 'GH508 how did my squat develop over the last block\?'
+- tapOn:
+    id: 'chat-history-delete-.*'
+- extendedWaitUntil:
+    notVisible:
+      id: 'chat-history-entry-title'
+    timeout: 10000
+- assertVisible:
+    id: 'chat-history-empty'
+    text: 'No archived chats yet\..*'
+
+# ── GH-515: saving an empty key removes it ───────────────────────────────────
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-ai-config-accordion'
+    direction: UP
+    timeout: 20000
+    optional: true
+- scrollUntilVisible:
+    element:
+      id: 'settings-ai-config-accordion'
+    direction: DOWN
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible:
+        id: 'settings-ai-provider'
+    commands:
+      - tapOn:
+          id: 'settings-ai-config-accordion'
+- scrollUntilVisible:
+    element:
+      id: 'settings-anthropic-api-key-input'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- eraseText: 200
+# A tap can drop the cursor mid-text; the second tap lands past the shorter
+# remainder, so this erase empties the field. With the keyboard up the field
+# can scroll out of the hierarchy; it keeps focus, so the re-tap is optional.
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+    optional: true
+- eraseText: 200
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-api-key-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-save-api-key-button'
+# The toast can be gone before Maestro polls (agent memory); the effect — the
+# chat asking for a key — is asserted below.
+- extendedWaitUntil:
+    visible: 'API key removed'
+    timeout: 5000
+    optional: true
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-no-key-message'
+    timeout: 15000
+- assertVisible:
+    id: 'chat-no-key-message'
+    text: 'Please add your Anthropic API key in Settings to use AI Chat\.'
+- assertNotVisible:
+    id: 'chat-input'

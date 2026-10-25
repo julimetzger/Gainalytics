@@ -18,7 +18,7 @@ setup the skill describes; where they conflict, this file wins.
 | `device_serial`, WSL, `run-maestro-from-wsl.sh`, `npx react-native run-android` | One emulator is booted and the debug APK of this checkout installed by the background setup — call `tool.sh wait-ready` first. Use the helper `.github/agent-emulator/tool.sh` (below) and pass the serial explicitly to every direct `adb -s` / `maestro --device` call. |
 | Baseline import via `run-maestro-from-wsl.sh --mode bootstrap` | `.github/agent-emulator/tool.sh import-baseline` (pushes `__tests__/e2e/maestro/fixtures/baseline.gains`, runs `00_import_baseline.yaml`, checks for "Push pull"). The store starts empty; import before any evidence screenshot, as the skill requires. Other fixtures under `__tests__/` may be pushed with `adb push` when a ticket needs them. |
 | Metro provided by the orchestrator | The APK contains an embedded JS bundle of the checkout as it was at job start. After a JS change run `tool.sh metro-start`, then `tool.sh launch` (the emulator reaches Metro via `10.0.2.2:8081`), and prove which JS runs (see `docs/memory/agent/metro-and-bundling.md`). Native changes: `tool.sh rebuild` (~15–20 min). |
-| `git push`, `gh pr create`, `gh pr edit` | Not available. Only commit locally; the workflow pushes your commits to `agent/emulator-*` and opens a draft PR from the files below. |
+| `git push`, `gh pr create`, `gh pr edit` | Not available. Only commit locally; the workflow pushes your commits to `agent/emulator-*` and opens a draft PR from the files below. **Feedback round** (`task.md` starts with "Feedback round on PR #n"): the checkout is that PR's branch; commit on top of it, the workflow pushes onto the same branch and `pr-body.md` replaces the PR description — so write the complete description, plus a short note on what this round changed. |
 | Screenshot resize to 800 px | `tool.sh screenshot <name>` already writes a 540 px copy to `.agent-run/screenshots/small/`. Only read the small copy back. |
 | `npm test`, typecheck, lint | Allowed as in the skill. The runner is small (2 vCPU / 7 GB): never run Gradle or the full Jest suite while Maestro is driving the emulator. |
 
@@ -60,7 +60,9 @@ the APK installed and the app was just launched. Before working on the device:
    name, logcat lines) under `## Open question` in `.agent-run/pr-body.md` and stop. Also stop this way
    if `tool.sh import-baseline` fails twice.
 
-`__tests__/e2e/maestro/flows/smoke.yaml` is a quick known-good flow if you want a reference run.
+`__tests__/e2e/maestro/flows/smoke.yaml` is the known-good reference run (the PR check runs it): it
+imports the baseline itself (needs `tool.sh push-baseline` first, replaces the app data) and takes
+~6–8 min.
 
 ## Helper `.github/agent-emulator/tool.sh`
 
@@ -68,6 +70,7 @@ the APK installed and the app was just launched. Before working on the device:
 - `serial` — emulator serial
 - `launch` — force-stop + cold start the app
 - `import-baseline [file.gains]` — import baseline test data (see above)
+- `push-baseline [file.gains]` — only push it to Downloads (for flows that import it themselves, e.g. `smoke.yaml`)
 - `screenshot <name>` — `.agent-run/screenshots/<name>.png` + small copy
 - `flow <path/to/flow.yaml>` — run one Maestro flow, report under `.agent-run/maestro/<flow>/`
 - `logcat <label>` — dump logcat to `.agent-run/logcat/<label>.txt`

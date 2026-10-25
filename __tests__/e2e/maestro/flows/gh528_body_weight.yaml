@@ -1,0 +1,35 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 (T3): Analyse → Body Weight shows the current body weight from Health Connect, where it came
+# from and the history. Preconditions: connected with "Read body weight" and weights seeded with
+#   adb shell am start -n com.powerliftingworkoutplanner/.healthconnect.HealthConnectTestDataActivity \
+#     --es weights "82.5@1,83.4@20,84.0@60,86.0@420"
+# Without the history permission only the two values of the last 30 days are visible. Since GH-546 the
+# screen first shows the manual entries; the Health Connect values follow below (scrollUntilVisible).
+- launchApp:
+    clearState: false
+    permissions:
+      notifications: allow
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Body Weight'
+    timeout: 10000
+- tapOn: 'Body Weight'
+- scrollUntilVisible:
+    element:
+      id: 'body-weight-hc-current'
+      text: '82.5 kg'
+    timeout: 20000
+- assertVisible:
+    id: 'body-weight-current-origin'
+    text: '.* · from Gainalytics'
+- assertVisible: 'History \(2\)'
+- assertVisible:
+    id: 'body-weight-history-card'
+- takeScreenshot: gh528_weight_01_last_30_days

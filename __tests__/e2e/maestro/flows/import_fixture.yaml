@@ -1,0 +1,71 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-486 helper: full import of ${FIXTURE} from /sdcard/Download (push it first).
+# Same steps as 00_import_baseline.yaml, but for a named fixture.
+- launchApp
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-import-data-button'
+    direction: DOWN
+- tapOn:
+    id: 'settings-import-data-button'
+- extendedWaitUntil:
+    visible: 'Import full data from backup file?'
+    timeout: 10000
+- tapOn: 'Import'
+- runFlow:
+    when:
+      visible: 'Use without an account'
+    commands:
+      - tapOn: 'Use without an account'
+- runFlow:
+    when:
+      visible: 'No thanks'
+    commands:
+      - tapOn: 'No thanks'
+# The SAF picker reopens in its last folder; steer it to Downloads if the file
+# is not listed (same step as 00_import_baseline.yaml).
+- extendedWaitUntil:
+    visible: '${FIXTURE}'
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      notVisible: '${FIXTURE}'
+    commands:
+      - tapOn: 'Show roots'
+      - extendedWaitUntil:
+          visible: 'Downloads'
+          timeout: 15000
+      - tapOn: 'Downloads'
+      - waitForAnimationToEnd:
+          timeout: 8000
+# Grid view truncates longer names ("gh391_planned_fi…"), so the full-name
+# match below never hits — switch to list view when the toggle is offered.
+- tapOn:
+    text: 'List view'
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      text: '${FIXTURE}'
+    direction: DOWN
+    timeout: 30000
+- tapOn: '${FIXTURE}'
+- extendedWaitUntil:
+    visible: 'Import Data'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible: 'Push pull'
+    timeout: 120000

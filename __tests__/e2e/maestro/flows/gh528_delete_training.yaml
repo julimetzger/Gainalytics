@@ -1,0 +1,42 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 (T2): deleting a training that was written to Health Connect deletes it there too.
+# Precondition: gh528_write_training.yaml (+ gh528_edit_training.yaml) ran; the last finished training is
+# the one written to Health Connect. Health Connect being empty afterwards is checked out-of-band (PR).
+- launchApp:
+    clearState: false
+    permissions:
+      notifications: allow
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'last-training-card-pressable'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'last-training-card-pressable'
+    text: '.*Push squat.*'
+- tapOn:
+    id: 'last-training-card-pressable'
+- extendedWaitUntil:
+    visible:
+      id: 'header-overflow-button'
+    timeout: 20000
+- tapOn:
+    id: 'header-overflow-button'
+- tapOn:
+    id: 'overflow-discard'
+- tapOn:
+    id: 'training-delete-confirm'
+- waitForAnimationToEnd
+- runFlow: gh528_open_health_connect_settings.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'health-connect-last-sync'
+      text: 'Last removed from Health Connect .*'
+    timeout: 20000
+- takeScreenshot: gh528_delete_01_settings_last_removed

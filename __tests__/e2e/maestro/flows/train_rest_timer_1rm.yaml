@@ -1,0 +1,201 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F4 Training execution — T4.2 train_rest_timer_1rm
+#
+# Purpose: rest timer and estimated-1RM card on a running training.
+#   - Logging a set starts the rest from the target: caption exactly
+#     "target 01:30" — the running time is shown ONCE, in the ring, not repeated
+#     in the caption (GH-394, GH-195).
+#   - The 1RM card shows ESTIMATED 1RM, the session value 127 kg and its
+#     "vs last training" caption (GH-195).
+#   - Correcting an ALREADY LOGGED set does not restart the rest (GH-443): the
+#     elapsed rest read off the ring before/after the correction must not drop.
+#   - The rest overflow menu uses Title Case labels without "…"; each item opens
+#     the dialog it names (GH-543, via open_rest_menu.yaml).
+#   - Reset puts the ring back at the target (GH-443, GH-195).
+#
+# Data basis: baseline import (mutates: starts training 282 and logs sets) ->
+# starts with 00_import_baseline.yaml. Plan 1 "Push pull upper lower", micro 69
+# "Push" (training 282, PLANNED); first exercise Adductor, planned set 1 =
+# 13 x 100, nothing logged; default rest target 90 s. The first logged set is
+# stamped set 1 (PlannedSetTarget renders, see gh443 notes).
+# 1RM: 95 kg x 8 reps @ RIR 2 -> 95 * (1 + 10/30) = 126.7 -> "127 kg".
+#
+# Merged from: gh443_rest_timer_no_restart (base), gh394_rest_timer_caption,
+#   gh543_rest_menu_labels, gh195_rest_timer_and_1rm, gh195_r4_evidence.
+#   Dropped: gh443 sections 5-7 (new set restarts / correcting an earlier set /
+#   deleting a set — same verdict logic as section 3, ~3 extra minutes of real
+#   rest time); gh394 leave-and-re-enter screenshots (evidence only, coordinate
+#   taps); gh195_r4 5 s target overrun screenshots (evidence only, coordinates).
+
+- runFlow: 00_import_baseline.yaml
+- runFlow:
+    file: goto_micro69_push.yaml
+    env:
+      MODE: running
+
+# PRECONDITION: micro 69 "Push" running, Adductor's planned set 1 untouched.
+- assertVisible: 'Micro 69'
+- assertVisible:
+    id: 'header-session-timer'
+- assertVisible:
+    id: '^add-workout-set-reps-input-1$'
+    text: '13'
+- assertNotVisible:
+    id: 'rest-timer-card'
+
+# ===== 1. a new set: rest starts at the target, 1RM 127 kg =====
+- tapOn:
+    id: '^add-workout-set-reps-input$'
+- eraseText: 4
+- inputText: '8'
+- tapOn:
+    id: '^add-workout-set-rir-input$'
+- eraseText: 4
+- inputText: '2'
+- tapOn:
+    id: '^add-workout-set-weight-input$'
+- eraseText: 6
+- inputText: '95'
+- hideKeyboard
+- tapOn:
+    id: 'add-workout-set-submit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'rest-timer-card'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: '^add-workout-set-reps-input-1$'
+      text: '8'
+    timeout: 20000
+# Caption carries ONLY the target (full-string match: no "· elapsed …" tail).
+- assertVisible:
+    id: 'rest-timer-target'
+    text: 'target 01:30'
+# The fresh rest is near the target (01:05–01:30; the asserts above cost time).
+- extendedWaitUntil:
+    visible:
+      id: 'rest-progress-ring-text'
+      text: '01:(0[5-9]|[1-2][0-9]|30)'
+    timeout: 20000
+- assertVisible:
+    id: 'estimated-1rm-header'
+    text: 'ESTIMATED 1RM'
+- assertVisible:
+    id: 'estimated-1rm-value'
+    text: '127 kg'
+- assertVisible:
+    id: 'estimated-1rm-vs-caption'
+    text: 'vs last training'
+- assertVisible:
+    id: 'rest-progress-ring'
+
+# ===== 2. let the rest run down to ~01:10, remember the elapsed seconds =====
+- extendedWaitUntil:
+    visible:
+      id: 'rest-progress-ring-text'
+      text: '01:1[0-2]'
+    timeout: 60000
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); output.beforeShown = shown; output.beforeElapsed = over ? 90 + value : 90 - value}"
+
+# ===== 3. correct the logged set 1 (8 -> 7 reps) =====
+- tapOn:
+    id: '^add-workout-set-reps-input-1$'
+- eraseText: 4
+- inputText: '7'
+- tapOn:
+    id: '^add-workout-set-confirm-1$'
+# The confirm button calls Keyboard.dismiss(); an unconditional hideKeyboard is
+# then a BACK that leaves the training (seen: landed on training home). Only hide
+# a keyboard that still covers the rest card (copyTextFrom would read "").
+- waitForAnimationToEnd:
+    timeout: 5000
+- runFlow:
+    when:
+      notVisible:
+        id: 'rest-progress-ring-text'
+        text: '\+?\d\d:\d\d'
+    commands:
+      - hideKeyboard
+      - waitForAnimationToEnd:
+          timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: '^add-workout-set-reps-input-1$'
+      text: '7'
+    timeout: 20000
+# The correction is committed (row back to the logged check, not a pending draft).
+- assertVisible:
+    id: '^add-workout-set-logged-1$'
+
+# ===== 4. the rest did NOT restart =====
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); output.afterShown = shown; output.afterElapsed = over ? 90 + value : 90 - value; output.verdict = output.afterElapsed >= output.beforeElapsed && output.afterElapsed >= 18 ? 'PASS' : 'FAIL before=' + output.beforeShown + ' after=' + output.afterShown}"
+- assertTrue: "${output.verdict == 'PASS'}"
+- assertNotVisible:
+    id: 'rest-progress-ring-text'
+    text: '01:(2[0-9]|30)'
+- assertVisible:
+    id: 'rest-timer-target'
+    text: 'target 01:30'
+
+# ===== 5. rest menu labels (GH-543) =====
+# The helper sees the input row and only opens the overflow menu.
+- runFlow: open_rest_menu.yaml
+- waitForAnimationToEnd
+# "(?-i)" makes the match case-sensitive; full-string matching rejects a
+# trailing "…" / "...".
+- assertVisible: '(?-i)Skip Rest'
+- assertVisible: '(?-i)Edit Rest Target'
+- assertVisible: '(?-i)Adjust Default Rest'
+- assertNotVisible: '(?-i)Skip rest'
+- assertNotVisible: '(?-i)Edit target…'
+- assertNotVisible: '(?-i)Adjust default for this exercise'
+- assertNotVisible: '(?-i)(Skip Rest|Edit Rest Target|Adjust Default Rest)(…|\.\.\.)'
+- tapOn: '(?-i)Edit Rest Target'
+- extendedWaitUntil:
+    visible:
+      id: 'rest-target-edit-dialog'
+    timeout: 5000
+- assertVisible: '(?-i)Edit Rest Target'
+- tapOn:
+    id: 'rest-target-cancel'
+- extendedWaitUntil:
+    notVisible:
+      id: 'rest-target-edit-dialog'
+    timeout: 5000
+- tapOn:
+    id: 'rest-timer-overflow'
+- extendedWaitUntil:
+    visible: '(?-i)Adjust Default Rest'
+    timeout: 5000
+- waitForAnimationToEnd
+- tapOn: '(?-i)Adjust Default Rest'
+- extendedWaitUntil:
+    visible:
+      id: 'rest-target-edit-dialog'
+    timeout: 5000
+- assertVisible: '(?-i)Adjust Default Rest'
+- tapOn:
+    id: 'rest-target-cancel'
+- extendedWaitUntil:
+    notVisible:
+      id: 'rest-target-edit-dialog'
+    timeout: 5000
+
+# ===== 6. Reset restarts the ring at the target, target unchanged =====
+# The rest is well over 20 s old here, so 01:20–01:30 proves the restart.
+- tapOn:
+    id: 'rest-timer-reset'
+- extendedWaitUntil:
+    visible:
+      id: 'rest-progress-ring-text'
+      text: '01:(2[0-9]|30)'
+    timeout: 20000
+- assertVisible:
+    id: 'rest-timer-target'
+    text: 'target 01:30'

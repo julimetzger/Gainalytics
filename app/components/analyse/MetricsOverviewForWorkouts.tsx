@@ -13,6 +13,7 @@ import ExerciseMetricOverview from '../exercise/show/ExerciseMetricOverview';
 import {Metric, MetricOverviewSection} from '../../models/Metric';
 import {useMetricOverviewSlots} from '../../redux/settings/use/useMetricOverviewSlots';
 import {dispatchSetMetricOverviewSlot} from '../../redux/settings/dispatch/dispatchSetMetricOverviewSlot';
+import {useOverviewMuscles} from '../../redux/settings/use/useMuscles';
 import MetricSelectionDialog from './MetricSelectionDialog';
 import {describeComparisonPeriod, formatMetricValue, getMetricHeaderLabel} from '../../utils/metric-format';
 
@@ -77,6 +78,7 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
   const muscleMetrics = useMetricOverviewSlots('muscles');
   const exerciseMetrics = useMetricOverviewSlots('exercises');
   const setMetricOverviewSlot = dispatchSetMetricOverviewSlot();
+  const overviewMuscles = useOverviewMuscles();
 
   const exerciseWorkoutMap = useMemo(() => {
     return new Map(
@@ -111,14 +113,16 @@ const MetricsOverviewForWorkouts = ({trainingsWorkouts, previousWorkouts = [], s
   }, [exerciseWorkoutMap, share]);
 
   const muscleMetricMap = useMemo(() => {
-    const comparisons = calculateMetricComparisonsForMuscle(exerciseWorkoutMap);
-    if (!share) return comparisons;
+    // GH-523: only the muscles the user shows in overviews.
+    const shown = new Set(overviewMuscles);
+    const comparisons = Array.from(calculateMetricComparisonsForMuscle(exerciseWorkoutMap)).filter(([muscle]) => shown.has(muscle));
+    if (!share) return new Map(comparisons);
     return new Map(
-      Array.from(comparisons)
+      comparisons
         .filter(([, byMetric]) => (byMetric.get(Metric.SETS)?.value ?? 0) > 0)
         .map(([muscle, byMetric]) => [muscle, toShares(byMetric)]),
     );
-  }, [exerciseWorkoutMap, share]);
+  }, [exerciseWorkoutMap, share, overviewMuscles]);
 
   const activeMetricSlots = metricSelector?.section === 'muscles' ? muscleMetrics : exerciseMetrics;
   const selectedMetric = metricSelector ? activeMetricSlots[metricSelector.slotIndex] : undefined;

@@ -1,0 +1,20 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-528 sub-flow: Settings → Health Connect section, centred on screen.
+# launchApp grants ALL permissions by default — health permissions included, which would fake a
+# "Connected" state. Only notifications are set here; Health Connect permissions stay as they are.
+- launchApp:
+    clearState: false
+    permissions:
+      notifications: allow
+- extendedWaitUntil:
+    visible: 'tab-settings'
+    timeout: 60000
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'health-connect-write-switch'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd

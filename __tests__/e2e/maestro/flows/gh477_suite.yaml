@@ -1,5 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-# GH-477: import the baseline, then check the per-session e1RM sparklines.
-- runFlow: 00_import_baseline.yaml
-- runFlow: gh477_sparkline_session_e1rm.yaml

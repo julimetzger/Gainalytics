@@ -1,0 +1,575 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F7 Analyse tab - T7.3 drawer and its screens.
+#
+# Purpose:
+#   * GH-458 H1/H2 (crash fix): every Analyse drawer entry opens with no prior
+#     selection and without the error boundary; "Video Analysis Detail" and
+#     "Compare Analyses" are no drawer entries any more.
+#   * GH-484: drawer labels ("Video Analysis", not "Video Analyses"; AI Chat,
+#     Chat History).
+#   * GH-420: the drawer closes via the menu icon, a tap on the dimmed area and a
+#     swipe - also after a bottom-tab switch with the drawer open. "Closed" is
+#     proven by a control of the screen behind that lies inside the drawer area.
+#   * GH-452: History's picker reads "Select Exercises, Muscles"; selecting still
+#     counts; the Analysis picker keeps its own (longer) label.
+#   * GH-341: Records KPIs re-pinned to the baseline (see below).
+#   * GH-458 H6 + 08_training_length: Training Length names its outliers
+#     ("2 trainings over 4 h hidden/included"), month view, bar detail, editor.
+#
+# Data basis: READ-ONLY on the baseline import (fixtures/baseline.gains, last
+#   training Sat 28/02/26). Run 00_import_baseline.yaml once before.
+#   Records KPIs: the Records screen starts on "last 3 months up to this week",
+#   which never contains a baseline workout from now on, so the baseline values
+#   are 0 records / best week 0 / 0 this week / "0 shown". The old device values
+#   (56 / 9 / 18 / 4 / 7) needed a range typed via adb into masked date inputs
+#   and are not reachable from a pure Maestro flow.
+#
+# Merged from: gh458_drawer_no_dead_ends, gh420_analyse_drawer_close,
+#   gh484_analysis_drawer, gh458_training_length_outliers, 08_training_length,
+#   gh452_history_picker_label, gh341_records_micro, gh341_records_redesign
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'tab-training'
+    timeout: 120000
+
+# ---------------------------------------------------------------- PRECONDITION
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+
+# ------------------------------------------------------- the drawer entries
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 60000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- extendedWaitUntil:
+    visible: '^Training Length$'
+    timeout: 15000
+- assertVisible: '^Body Weight$'
+- assertVisible: '^History$'
+- assertVisible: '^Video Analysis$'
+- assertVisible: '^AI Chat$'
+- assertVisible: '^Chat History$'
+# The two entries that led into the crash / dead end are gone; old plural too.
+- assertNotVisible: 'Video Analysis Detail'
+- assertNotVisible: 'Compare Analyses'
+- assertNotVisible: 'Video Analyses'
+
+# ---------------------------------------------------------------- Analysis
+- tapOn:
+    text: '^Analysis$'
+    below:
+      id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+    timeout: 60000
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+- assertVisible: '^Analysis$'
+- assertNotVisible:
+    id: 'analyse-error-boundary'
+
+# -------------------------------------------------------- Metrics Overview
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    text: '^Metrics Overview$'
+    below:
+      id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Select Exercises, Metrics, Accumulation Mode'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+# Opened from the drawer = no drill-down: nothing preselected.
+- assertVisible: '0 selected'
+- assertNotVisible:
+    id: 'analyse-error-boundary'
+
+# ----------------------------------------------------- History (GH-452)
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    text: '^History$'
+    below:
+      id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'history-list-container'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+# newest-first list: the baseline's last workout day on top
+- assertVisible:
+    id: 'history-date-header'
+    text: 'Sat, 28/02/26'
+- assertNotVisible:
+    id: 'analyse-error-boundary'
+- tapOn:
+    id: 'history-picker-toggle'
+- waitForAnimationToEnd
+- assertVisible: 'Select Exercises, Muscles'
+- assertNotVisible: 'Select Exercises, Metrics, Accumulation Mode'
+- assertVisible: '0 selected'
+- tapOn: 'Select Exercises, Muscles'
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: 'Chest'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Chest'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible:
+        id: 'search-bar'
+    commands:
+      - back
+- waitForAnimationToEnd
+- assertVisible: '1 selected'
+- assertVisible: 'Select Exercises, Muscles'
+- assertNotVisible: '0 selected'
+
+# ------------------------------- Records: KPIs re-pinned + GH-420 close paths
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    text: '^Records$'
+    below:
+      id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'records-view-heatmap'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+- assertVisible: 'Records over time'
+- assertVisible:
+    id: 'records-mode-caption'
+    text: 'by week'
+- assertVisible:
+    id: 'records-status-line'
+    text: 'No PRs this week yet'
+# Baseline + default range (last 3 months): no record in range.
+- assertVisible:
+    id: 'records-kpi-total'
+    text: '0'
+- assertVisible:
+    id: 'records-kpi-best'
+    text: '0'
+- assertVisible:
+    id: 'records-kpi-week'
+    text: '0'
+- assertVisible: 'best week'
+- assertNotVisible:
+    id: 'analyse-error-boundary'
+- tapOn:
+    id: 'records-view-heatmap'
+- assertVisible:
+    id: '^records-heatmap$'
+- scrollUntilVisible:
+    element:
+      id: 'records-shown-count'
+    direction: DOWN
+- assertVisible:
+    id: 'records-shown-count'
+    text: '0 shown'
+- assertVisible:
+    id: 'records-list-empty'
+    text: 'No records in this range yet\.'
+- scrollUntilVisible:
+    element:
+      id: 'records-view-heatmap'
+    direction: UP
+
+# Close path 1: the menu icon (before GH-420 it selected "Dashboard").
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+- assertVisible: '^Records$'
+- assertVisible: 'Records over time'
+# The screen behind reacts: "By muscle" lies inside the drawer's area.
+- tapOn:
+    id: 'records-view-muscle'
+- assertVisible:
+    id: 'records-muscle-lanes-empty'
+    text: 'No records in this range\.'
+- assertNotVisible:
+    id: '^records-heatmap$'
+
+# Close path 2: tap on the dimmed area. The overlay ("Close drawer") spans the
+# whole screen and its centre lies under the drawer panel, so the tap needs a
+# point right of the panel.
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    point: '94%,55%'
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    id: 'records-view-heatmap'
+- assertVisible:
+    id: '^records-heatmap$'
+- assertNotVisible:
+    id: 'records-muscle-lanes-empty'
+
+# Close path 3: swipe left.
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- swipe:
+    start: '70%,55%'
+    end: '5%,55%'
+    duration: 300
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    id: 'records-view-muscle'
+- assertVisible:
+    id: 'records-muscle-lanes-empty'
+    text: 'No records in this range\.'
+
+# Bottom-tab switch with the drawer open, then the menu icon still closes it.
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+- assertVisible: '^Records$'
+- tapOn:
+    id: 'records-view-heatmap'
+- assertVisible:
+    id: '^records-heatmap$'
+
+# ------------------------------------------------------- Video Analysis
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    text: '^Video Analysis$'
+    below:
+      id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-screen'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+- assertVisible:
+    id: 'video-analysis-import-button'
+    text: 'Import Video'
+- assertVisible:
+    id: 'video-analysis-lift-count'
+    text: '[0-9]+ lifts?'
+- assertVisible: '^Video Analysis$'
+- assertNotVisible: 'Video Analyses'
+- assertNotVisible:
+    id: 'analyse-error-boundary'
+
+# ------------------------------------------------------------ Body Weight
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    text: '^Body Weight$'
+    below:
+      id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'body-weight-screen'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+- assertVisible: '^Body Weight$'
+- assertNotVisible:
+    id: 'analyse-error-boundary'
+
+# ---------------------------------------------------------------- AI Chat
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    text: '^AI Chat$'
+    below:
+      id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+# With or without a saved key: the screen renders (no boundary) under its title.
+- extendedWaitUntil:
+    visible: '^AI Chat$'
+    timeout: 30000
+- assertNotVisible:
+    id: 'analyse-error-boundary'
+
+# ----------------------------------------------------------- Chat History
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    text: '^Chat History$'
+    below:
+      id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-history-search'
+    timeout: 30000
+- assertVisible: '^Chat History$'
+- assertNotVisible:
+    id: 'analyse-error-boundary'
+
+# ------------------------------------------- full cycle back to Dashboard
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    text: '^Dashboard$'
+    below:
+      id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'dashboard-scroll'
+    timeout: 30000
+- assertVisible:
+    id: 'analyse-stale-range-banner-text'
+    text: 'No trainings in this period\. Your last training was on Sat, 28/02/26\.'
+- assertNotVisible:
+    id: 'analyse-error-boundary'
+
+# ------------------------------------------- Training Length (GH-458 H6)
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    text: '^Training Length$'
+    below:
+      id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'training-length-screen'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: 'Close drawer'
+    timeout: 15000
+# The default range is empty; the banner names the real last training.
+- assertVisible:
+    id: 'training-length-stale-range-banner-text'
+    text: 'No trainings in this period\. Your last training was on Sat, 28/02/26\.'
+- tapOn:
+    id: 'training-length-stale-range-banner-action'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'training-length-outlier-count'
+    timeout: 30000
+# Two never-finished sessions (12/01 and 19/02/2026) are named and HIDDEN.
+- assertVisible:
+    id: 'training-length-outlier-count'
+    text: '2 trainings over 4 h hidden'
+- assertVisible:
+    id: 'training-length-mode-label'
+    text: 'Grouped by Day'
+- assertVisible: 'Correct 12 Jan 2026 \(44 h 27 min\)'
+- assertVisible: 'Correct 19 Feb 2026 \(42 h 26 min\)'
+- tapOn:
+    id: 'training-length-outlier-toggle'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'training-length-outlier-count'
+    text: '2 trainings over 4 h included'
+- tapOn:
+    id: 'training-length-outlier-toggle'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'training-length-outlier-count'
+    text: '2 trainings over 4 h hidden'
+
+# month view: the outliers stay named there too
+- tapOn:
+    id: 'training-length-accumulation-month'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'training-length-mode-label'
+    text: 'Grouped by Month'
+- assertVisible:
+    id: 'training-length-outlier-count'
+    text: '2 trainings over 4 h hidden'
+
+# bar detail: a tap on the chart opens the bucket, a mode switch clears it
+- scrollUntilVisible:
+    element:
+      id: 'training-length-chart'
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: 'training-length-chart'
+- extendedWaitUntil:
+    visible:
+      id: 'training-length-selected-bucket'
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: 'training-length-selected-trainings'
+    direction: DOWN
+- assertVisible: 'Average duration'
+- scrollUntilVisible:
+    element:
+      id: 'training-length-accumulation-week'
+    direction: UP
+- tapOn:
+    id: 'training-length-accumulation-week'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'training-length-mode-label'
+    text: 'Grouped by Week'
+- assertNotVisible:
+    id: 'training-length-selected-bucket'
+
+# the visible "Correct ..." button reaches the editor (opened, not saved)
+- scrollUntilVisible:
+    element:
+      id: 'training-length-outlier-correct-360'
+    direction: DOWN
+- tapOn:
+    id: 'training-length-outlier-correct-360'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'training-length-edit-dialog'
+    timeout: 15000
+- assertVisible:
+    id: 'training-length-edit-average-duration'

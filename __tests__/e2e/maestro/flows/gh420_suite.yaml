@@ -1,6 +1,0 @@
-appId: com.powerliftingworkoutplanner
----
-# GH-420 evidence suite: import the baseline .gains fixture first, then drive
-# the Analyse drawer through every close path.
-- runFlow: 00_import_baseline.yaml
-- runFlow: gh420_analyse_drawer_close.yaml

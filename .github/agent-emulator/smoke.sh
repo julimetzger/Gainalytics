@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# GH-545: smoke phase of the agent-emulator workflow. Runs inside the
-# android-emulator-runner script (emulator already booted, ANDROID_SERIAL set).
-# Fresh install, empty store: no .gains fixtures are pushed (they contain real
-# training data), so every screenshot shows the empty state only.
+# GH-545: smoke phase of the agent-emulator workflow (smoke_only mode) and of the
+# PR check .github/workflows/maestro-smoke.yml (GH-588). Runs inside the
+# android-emulator-runner script (emulator already booted).
+# Fresh install; baseline.gains is pushed to Downloads and smoke.yaml imports it
+# itself (00_import_baseline.yaml), then checks home, analysis and a training run.
 set -euo pipefail
 
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
@@ -14,6 +15,9 @@ S="$("${TOOL}" serial)"
 
 now() { date +%s; }
 t0=$(now)
+# Marker for the workflow: the emulator booted (a failure after this point is not a boot failure,
+# so maestro-smoke.yml does not retry it).
+date +%s > "${OUT}/smoke.started"
 uptime_s="$(adb -s "${S}" shell cat /proc/uptime | awk '{printf "%d", $1}')"
 {
   echo "emulator_uptime_at_ready_s=${uptime_s}"
@@ -27,6 +31,7 @@ adb -s "${S}" shell df -h /data | tail -1 || true
 "${TOOL}" install
 t_install=$(now)
 echo "install_s=$(( t_install - t0 ))" | tee -a "${OUT}/timings.txt"
+"${TOOL}" push-baseline
 
 adb -s "${S}" logcat -c || true
 "${TOOL}" launch
@@ -41,7 +46,7 @@ echo "maestro_flow_s=$(( t_flow - t_install ))" | tee -a "${OUT}/timings.txt"
 echo "maestro_flow_exit=${status}" | tee -a "${OUT}/timings.txt"
 
 "${TOOL}" screenshot smoke-02-after-flow
-# Relaunch for a reference screenshot of the start screen (empty state).
+# Relaunch for a reference screenshot of the start screen (baseline data after the flow).
 "${TOOL}" launch
 sleep 10
 "${TOOL}" screenshot smoke-03-relaunch

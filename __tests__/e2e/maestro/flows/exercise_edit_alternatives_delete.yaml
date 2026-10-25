@@ -1,0 +1,282 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F6 Exercises — T6.2: Squat › Edit: alternatives picker and the delete hint.
+#
+# Purpose:
+#   1. GH-487: the alternatives picker lists all other exercises sorted by name (Squat itself
+#      is never offered), shows >= 10 rows, filters live and case-insensitively, keeps picks
+#      while the filter changes, keeps the focused search in place while picked chips wrap
+#      above it, and SAVES the picks (chips after reopening the sheet).
+#   2. GH-486: "Delete Exercise" shows the history hint with counters; Cancel deletes nothing.
+#
+# Data basis: baseline.gains (imported here — the flow saves alternatives on Squat).
+#   Exercise ids/names in the fixture (sorted head of the picker):
+#     52 "45 degree crunch machine free", 32 "Adductor", 79 "B stance rdl", 1 "Bankdrücken",
+#     35 "Biceps cable curl", 13 "Bulgarian split squat", 74 "Butterfly ", 81 "Cable crunches",
+#     27 "Cable lateral raise", 56 "Cable row close pronated "; 83 "Front squat"; Squat = 2.
+#   Squat has no alternatives in the fixture ("No alternatives selected").
+#
+# Selector notes: ids are unanchored regexes (`exercise-alternative-row-1` would also hit
+# row-13, row-1x …) → every row id is anchored with ^…$. Picks use a guarded re-tap
+# (never a blind double tap, which would toggle back).
+#
+# Merged from: gh487/gh487_alternatives_search.yaml, gh487/open_squat_edit.yaml,
+#   gh487/gh487_chip_wrap_focus.yaml, gh487/gh487_chip_wrap_pick.yaml,
+#   gh487/gh486_delete_hint_check.yaml, gh487/gh486_delete_hint_cancel.yaml,
+#   gh487/before.yaml, gh487/gh487_suite.yaml
+
+- runFlow: 00_import_baseline.yaml
+
+# PRECONDITION: baseline imported, current plan on the dashboard.
+- assertVisible:
+    id: 'micro-hero-plan-name'
+    text: 'Push pull'
+
+# ── Open Squat › Edit ─────────────────────────────────────────────────────────
+- tapOn: 'tab-exercises'
+- extendedWaitUntil:
+    visible:
+      id: '^exercise-searchbar$'
+    timeout: 30000
+- tapOn:
+    id: '^exercise-searchbar$'
+- eraseText: 30
+- inputText: 'Squat'
+- hideKeyboard
+- tapOn:
+    id: '^exercise-row-2$'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-edit-button'
+    timeout: 30000
+- tapOn:
+    id: 'exercise-detail-edit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-exercise-sheet'
+    timeout: 20000
+- assertVisible: 'Edit Squat'
+- scrollUntilVisible:
+    element:
+      id: 'exercise-alternatives-open-button'
+    direction: DOWN
+    centerElement: true
+# Start state: no alternatives on Squat.
+- assertVisible: 'No alternatives selected'
+- tapOn:
+    id: 'exercise-alternatives-open-button'
+- extendedWaitUntil:
+    visible:
+      id: '^exercise-alternatives-search$'
+    timeout: 10000
+
+# ── Sorted list, >= 10 rows at once, Squat excluded ───────────────────────────
+# Scroll the sheet on the left label column (the muscle sliders react to touches).
+- swipe:
+    start: '8%, 44%'
+    end: '8%, 8%'
+    duration: 800
+- assertVisible:
+    id: '^exercise-alternative-row-52$'   # 45 degree crunch machine free
+- assertVisible:
+    id: '^exercise-alternative-row-32$'   # Adductor
+    below:
+      id: '^exercise-alternative-row-52$'
+- assertVisible:
+    id: '^exercise-alternative-row-79$'   # B stance rdl
+    below:
+      id: '^exercise-alternative-row-32$'
+- assertVisible:
+    id: '^exercise-alternative-row-1$'    # Bankdrücken
+    below:
+      id: '^exercise-alternative-row-79$'
+- assertVisible:
+    id: '^exercise-alternative-row-35$'   # Biceps cable curl
+    below:
+      id: '^exercise-alternative-row-1$'
+- assertVisible:
+    id: '^exercise-alternative-row-13$'   # Bulgarian split squat
+    below:
+      id: '^exercise-alternative-row-35$'
+- assertVisible:
+    id: '^exercise-alternative-row-74$'   # Butterfly
+    below:
+      id: '^exercise-alternative-row-13$'
+- assertVisible:
+    id: '^exercise-alternative-row-81$'   # Cable crunches
+    below:
+      id: '^exercise-alternative-row-74$'
+- assertVisible:
+    id: '^exercise-alternative-row-27$'   # Cable lateral raise
+    below:
+      id: '^exercise-alternative-row-81$'
+- assertVisible:
+    id: '^exercise-alternative-row-56$'   # Cable row close pronated (10th row)
+    below:
+      id: '^exercise-alternative-row-27$'
+- assertNotVisible:
+    id: '^exercise-alternative-row-2$'    # Squat itself is never offered
+
+# ── Search "CABLE" (case-insensitive) and pick four hits with the search focused ─
+- tapOn:
+    id: '^exercise-alternatives-search$'
+- eraseText: 30
+- inputText: 'CABLE'
+- assertVisible:
+    id: '^exercise-alternative-row-56$'   # Cable row close pronated
+- assertNotVisible:
+    id: '^exercise-alternative-row-83$'   # Front squat filtered out
+- assertNotVisible:
+    id: '^exercise-alternative-row-1$'    # Bankdrücken filtered out
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: {id: '^exercise-alternative-row-35$', checked: true}
+    commands:
+      - tapOn: {id: '^exercise-alternative-row-35$'}   # Biceps cable curl
+- runFlow:
+    when:
+      notVisible: {id: '^exercise-alternative-row-35$', checked: true}
+    commands:
+      - tapOn: {id: '^exercise-alternative-row-35$'}
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: {id: '^exercise-alternative-row-81$', checked: true}
+    commands:
+      - tapOn: {id: '^exercise-alternative-row-81$'}   # Cable crunches
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: {id: '^exercise-alternative-row-27$', checked: true}
+    commands:
+      - tapOn: {id: '^exercise-alternative-row-27$'}   # Cable lateral raise
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: {id: '^exercise-alternative-row-56$', checked: true}
+    commands:
+      - tapOn: {id: '^exercise-alternative-row-56$'}   # Cable row close pronated
+- waitForAnimationToEnd
+- assertVisible: {id: '^exercise-alternative-row-35$', checked: true}
+- assertVisible: {id: '^exercise-alternative-row-81$', checked: true}
+- assertVisible: {id: '^exercise-alternative-row-27$', checked: true}
+- assertVisible: {id: '^exercise-alternative-row-56$', checked: true}
+# Chips wrapped above the search; the search kept its query (GH-487 round 2).
+# The focused search is pinned to the top of the sheet (EditExerciseSheet scrollTo), so the
+# chip rows above it are scrolled off-screen (missing from the hierarchy). Drag the sheet down
+# a bit on the left label column (a drag never toggles a row; it does not blur the search).
+- swipe:
+    start: '8%, 30%'
+    end: '8%, 55%'
+    duration: 800
+- waitForAnimationToEnd
+- assertVisible: {id: '^exercise-alternative-chip-35$'}
+- assertVisible: {id: '^exercise-alternative-chip-56$'}
+- assertVisible:
+    id: '^exercise-alternatives-search$'
+    text: 'CABLE'
+
+# ── Change the filter, pick a fifth one: earlier picks are kept ────────────────
+- tapOn:
+    id: '^exercise-alternatives-search$'
+- eraseText: 30
+- inputText: 'front'
+- assertVisible:
+    id: '^exercise-alternative-row-83$'   # Front squat
+- assertNotVisible:
+    id: '^exercise-alternative-row-35$'   # cable rows filtered out now
+- runFlow:
+    when:
+      notVisible: {id: '^exercise-alternative-row-83$', checked: true}
+    commands:
+      - tapOn: {id: '^exercise-alternative-row-83$'}
+- runFlow:
+    when:
+      notVisible: {id: '^exercise-alternative-row-83$', checked: true}
+    commands:
+      - tapOn: {id: '^exercise-alternative-row-83$'}
+- assertVisible: {id: '^exercise-alternative-row-83$', checked: true}
+# The new chip changed the content size → the sheet re-pinned the search to the top; the chips
+# are off-screen again. Same drag as above.
+- swipe:
+    start: '8%, 30%'
+    end: '8%, 55%'
+    duration: 800
+- waitForAnimationToEnd
+- assertVisible: {id: '^exercise-alternative-chip-83$'}
+- assertVisible: {id: '^exercise-alternative-chip-35$'}
+# Back to a cable filter: the earlier pick is still checked.
+- tapOn:
+    id: '^exercise-alternatives-search$'   # keep focus explicit after the drag
+- eraseText: 30
+- inputText: 'biceps cable'
+- assertVisible: {id: '^exercise-alternative-row-35$', checked: true}
+- eraseText: 30
+- assertVisible:
+    id: '^exercise-alternative-row-52$'   # unfiltered list is back
+
+# ── Save and reopen: the five picks persist as chips ───────────────────────────
+# No hideKeyboard here: it is a BACK press and could leave the sheet unsaved.
+- tapOn:
+    id: 'edit-exercise-save'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-edit-button'
+    timeout: 20000
+- tapOn:
+    id: 'exercise-detail-edit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-exercise-sheet'
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: 'exercise-alternatives-open-button'
+    direction: DOWN
+    centerElement: true
+- assertNotVisible: 'No alternatives selected'
+- assertVisible: {id: '^exercise-alternative-chip-35$'}
+- assertVisible: {id: '^exercise-alternative-chip-81$'}
+- assertVisible: {id: '^exercise-alternative-chip-27$'}
+- assertVisible: {id: '^exercise-alternative-chip-56$'}
+- assertVisible: {id: '^exercise-alternative-chip-83$'}
+# Chip labels sit on an unlabelled child Text → bare text assertions.
+- assertVisible: 'Front squat'
+- assertVisible: 'Biceps cable curl'
+- assertVisible: 'Cable crunches'
+
+# ── Delete hint (GH-486) and Cancel ────────────────────────────────────────────
+- scrollUntilVisible:
+    element:
+      id: 'edit-exercise-delete'
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: 'edit-exercise-delete'
+- extendedWaitUntil:
+    visible: 'Delete Squat\?'
+    timeout: 10000
+- assertVisible:
+    id: 'edit-exercise-delete-history'
+    text: 'This will also delete \d+ workouts \(\d+ sets\) from your history\. This action cannot be undone\.'
+- tapOn:
+    id: 'edit-exercise-delete-cancel'
+- assertNotVisible:
+    id: 'edit-exercise-delete-history'
+- assertVisible:
+    id: 'edit-exercise-sheet'
+# Nothing was deleted: leave the sheet, Squat's detail screen is still there.
+- tapOn:
+    id: 'edit-exercise-cancel'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-detail-edit-button'
+    timeout: 20000
+- assertNotVisible:
+    id: 'exercise-detail-deleted'
+- back
+- extendedWaitUntil:
+    visible:
+      id: '^exercise-row-2$'
+    timeout: 20000

@@ -1,0 +1,381 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F11 AI coach / chat - T11.3: the AI Configuration in Settings.
+#
+# Purpose:
+#   - GH-504/GH-515: both providers are offered, Claude is the default on a store
+#     without a provider; switching to ChatGPT swaps the key section for the
+#     sign-in section, and the chat follows the provider.
+#   - GH-95/GH-515: the Anthropic key can be saved (chat input appears) and
+#     removed again by saving an empty field (add-key hint appears).
+#   - GH-159: the Claude model field shows the default model, a saved model
+#     survives an app restart, an empty save resets it to the default.
+#
+# Offline: no request is sent. "Test Key" is only pressed with an EMPTY field,
+# which is rejected locally ("Enter a key first"); the stored key is the dummy
+# `sk-ant-dummy-not-a-real-key`. No ChatGPT sign-in is started.
+#
+# Data basis: baseline import (00_import_baseline.yaml; push
+# fixtures/baseline.gains as /sdcard/Download/baseline.gains). The baseline has
+# no `aiProvider` and no `anthropicModel` in its settings, and FULL_IMPORT
+# replaces the settings slice, so provider = Claude and model = the default
+# `claude-haiku-4-5-20251001` (DEFAULT_ANTHROPIC_MODEL in app/utils/llmApi.ts).
+# The API key lives in secure storage and survives the import, so the flow
+# removes it first.
+#
+# Merged from: gh515_settings_provider (base), gh515_save_api_key,
+# gh95_ai_coach_settings, gh159_settings_model_input.
+
+- runFlow: 00_import_baseline.yaml
+- tapOn: 'tab-settings'
+# Settings keeps its scroll position (it sits at "Import Data", below the AI
+# section, after an import) - look upwards first.
+- scrollUntilVisible:
+    element:
+      id: 'settings-section-ai-title'
+    direction: UP
+    timeout: 20000
+    optional: true
+- scrollUntilVisible:
+    element:
+      id: 'settings-ai-config-accordion'
+    direction: DOWN
+    timeout: 30000
+# PRECONDITION: the AI Coach section of Settings.
+- assertVisible:
+    id: 'settings-section-ai-title'
+    text: 'AI Coach'
+- runFlow:
+    when:
+      notVisible:
+        id: 'settings-ai-provider'
+    commands:
+      - tapOn:
+          id: 'settings-ai-config-accordion'
+      - waitForAnimationToEnd
+
+# ── Provider: Claude is the default ──────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: '^settings-ai-provider-claude$'
+    timeout: 10000
+- assertVisible:
+    id: '^settings-ai-provider-claude$'
+    checked: true
+- assertVisible:
+    id: '^settings-ai-provider-chatgpt$'
+    checked: false
+    enabled: true
+- assertVisible: 'Claude \(API key\)'
+- assertVisible: 'ChatGPT \(Sign in\)'
+- assertNotVisible:
+    id: 'settings-ai-provider-chatgpt-unavailable'
+# The Claude branch (key input) is shown, not the ChatGPT account section.
+- assertNotVisible:
+    id: 'settings-chatgpt-section'
+- scrollUntilVisible:
+    element:
+      id: 'settings-test-api-key-button'
+    direction: DOWN
+    timeout: 30000
+- assertVisible: 'Anthropic API Key'
+- assertVisible: 'Get your key at console\.anthropic\.com'
+- assertVisible:
+    id: 'settings-save-api-key-button'
+    text: 'Save Key'
+- assertVisible:
+    id: 'settings-test-api-key-button'
+    text: 'Test Key'
+
+# ── Key: start without one ───────────────────────────────────────────────────
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- eraseText: 200
+# A tap can drop the cursor mid-text; the second tap lands past the shorter
+# remainder, so this erase empties the field.
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- eraseText: 200
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'settings-test-api-key-button'
+    direction: DOWN
+    timeout: 30000
+# An empty field is rejected locally - no network request.
+- tapOn:
+    id: 'settings-test-api-key-button'
+- extendedWaitUntil:
+    visible: 'Enter a key first'
+    timeout: 5000
+- tapOn:
+    id: 'settings-save-api-key-button'
+- extendedWaitUntil:
+    visible: 'API key removed'
+    timeout: 5000
+
+# Without a key the chat shows the add-key hint instead of the input.
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible:
+        id: 'chat-input|chat-no-key-message'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - extendedWaitUntil:
+          visible: 'Chat History'
+          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 10000
+      - tapOn:
+          text: 'AI Chat'
+          below:
+            text: 'Video Analysis'
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'chat-no-key-message'
+    timeout: 30000
+- assertVisible:
+    id: 'chat-no-key-message'
+    text: 'Please add your Anthropic API key in Settings to use AI Chat\.'
+- assertNotVisible:
+    id: 'chat-input'
+
+# ── Key: save the dummy key -> the chat input appears ────────────────────────
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-anthropic-api-key-input'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- inputText: 'sk-ant-dummy-not-a-real-key'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-api-key-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-save-api-key-button'
+- extendedWaitUntil:
+    visible: 'API key saved'
+    timeout: 5000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 30000
+- assertNotVisible:
+    id: 'chat-no-key-message'
+- assertVisible:
+    id: 'chat-header-actions'
+
+# ── Model field: default, save, survives a restart, empty resets ────────────
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-model-button'
+    direction: DOWN
+    timeout: 30000
+- assertVisible: 'Claude Model'
+- assertVisible:
+    id: 'settings-anthropic-model-input'
+    text: 'claude-haiku-4-5-20251001'
+- tapOn:
+    id: 'settings-anthropic-model-input'
+- eraseText: 40
+- tapOn:
+    id: 'settings-anthropic-model-input'
+- eraseText: 40
+- inputText: 'claude-sonnet-4-5'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-model-button'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: 'settings-anthropic-model-input'
+    text: 'claude-sonnet-4-5'
+- tapOn:
+    id: 'settings-save-model-button'
+- extendedWaitUntil:
+    visible: 'Model saved'
+    timeout: 5000
+
+# Restart: the field is re-initialised from the store, so this proves the save.
+# Give redux-persist time to flush first (a force-stop right after Save lost
+# the value on the emulator). Waiting for a text that never appears = sleep.
+- extendedWaitUntil:
+    visible: 'gh584-wait-for-persist'
+    timeout: 6000
+    optional: true
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'tab-settings'
+    timeout: 60000
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-ai-config-accordion'
+    direction: UP
+    timeout: 20000
+    optional: true
+- scrollUntilVisible:
+    element:
+      id: 'settings-ai-config-accordion'
+    direction: DOWN
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible:
+        id: 'settings-ai-provider'
+    commands:
+      - tapOn:
+          id: 'settings-ai-config-accordion'
+      - waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-model-button'
+    direction: DOWN
+    timeout: 30000
+# Positive check only: the field's placeholder (Android hintText) is always the
+# default model and Maestro's text matcher also matches hintText, so an
+# assertNotVisible on 'claude-haiku-4-5-20251001' can never pass. The saved
+# value 'claude-sonnet-4-5' can only match the field's actual text.
+- assertVisible:
+    id: 'settings-anthropic-model-input'
+    text: 'claude-sonnet-4-5'
+
+# Saving an empty field resets to the default model.
+- tapOn:
+    id: 'settings-anthropic-model-input'
+- eraseText: 40
+- tapOn:
+    id: 'settings-anthropic-model-input'
+- eraseText: 40
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-model-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-save-model-button'
+- extendedWaitUntil:
+    visible: 'Reset to default model'
+    timeout: 5000
+- assertVisible:
+    id: 'settings-anthropic-model-input'
+    text: 'claude-haiku-4-5-20251001'
+
+# ── Provider: ChatGPT swaps the section, the chat follows ────────────────────
+- scrollUntilVisible:
+    element:
+      id: '^settings-ai-provider-chatgpt$'
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: '^settings-ai-provider-chatgpt$'
+- waitForAnimationToEnd
+- assertVisible:
+    id: '^settings-ai-provider-chatgpt$'
+    checked: true
+- assertVisible:
+    id: '^settings-ai-provider-claude$'
+    checked: false
+- assertNotVisible:
+    id: 'settings-anthropic-api-key-input'
+- assertVisible:
+    id: 'settings-chatgpt-status'
+    text: 'Not signed in'
+- assertVisible:
+    id: 'settings-chatgpt-signin-button'
+    text: 'Continue with ChatGPT'
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+# After the restart the Analyse tab is back on its Dashboard - go through the drawer.
+- runFlow:
+    when:
+      notVisible:
+        id: 'chat-input|chat-no-key-message'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - extendedWaitUntil:
+          visible: 'Chat History'
+          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 10000
+      - tapOn:
+          text: 'AI Chat'
+          below:
+            text: 'Video Analysis'
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'chat-no-key-message'
+    timeout: 30000
+- assertVisible:
+    id: 'chat-no-key-message'
+    text: 'Please sign in with ChatGPT in Settings to use AI Chat\.'
+
+# Back to Claude: the stored key is still there, the chat input returns.
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: '^settings-ai-provider-claude$'
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: '^settings-ai-provider-claude$'
+- waitForAnimationToEnd
+- assertVisible:
+    id: '^settings-ai-provider-claude$'
+    checked: true
+- assertNotVisible:
+    id: 'settings-chatgpt-section'
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-input'
+    timeout: 30000
+
+# ── Clean up: remove the key again ───────────────────────────────────────────
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-anthropic-api-key-input'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- eraseText: 200
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- eraseText: 200
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-api-key-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-save-api-key-button'
+- extendedWaitUntil:
+    visible: 'API key removed'
+    timeout: 5000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-no-key-message'
+    timeout: 30000
+- assertVisible:
+    id: 'chat-no-key-message'
+    text: 'Please add your Anthropic API key in Settings to use AI Chat\.'

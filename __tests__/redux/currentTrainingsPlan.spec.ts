@@ -6,9 +6,11 @@ import workoutReducer from '../../app/redux/Workout/workoutReducer';
 import trainingsPlanReducer from '../../app/redux/Training/trainingsPlanReducer';
 import trainingsReducer from '../../app/redux/Training/trainingsReducer';
 import videoAnalysisReducer from '../../app/redux/VideoAnalysis/videoAnalysisReducer';
+import bodyWeightReducer from '../../app/redux/BodyWeight/bodyWeightReducer';
 import settingsReducer from '../../app/redux/settings/settingsReducer';
 import effectsReducer from '../../app/redux/Effects/effectsReducer';
 import aiChatReducer from '../../app/redux/AIChat/aiChatSlice';
+import healthConnectReducer from '../../app/redux/HealthConnect/healthConnectReducer';
 import {PROGRAM_TEMPLATES} from '../../app/constants/programTemplates';
 import {buildTemplatePlanPayload} from '../../app/utils/program-templates';
 import {TrainingsPlanExportPayload} from '../../app/utils/exportTrainingsPlan';
@@ -36,9 +38,11 @@ const freshInstall = (): GlobalState => ({
   trainingsPlan: trainingsPlanReducer(undefined, init),
   trainings: trainingsReducer(undefined, init),
   videoAnalyses: videoAnalysisReducer(undefined, init),
+  bodyWeight: bodyWeightReducer(undefined, init),
   settings: settingsReducer(undefined, init),
   effects: effectsReducer(undefined, init),
   aiChat: aiChatReducer(undefined, init),
+  healthConnect: healthConnectReducer(undefined, init),
 });
 
 const baseline = (): GlobalState => {

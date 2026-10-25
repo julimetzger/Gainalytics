@@ -1,11 +1,11 @@
-import {Muscles} from '../../../models/Muscles';
+import {BUILT_IN_MUSCLES, Muscles} from '../../../models/Muscles';
 import {Metric} from '../../../models/Metric';
 import {Comparison} from '../../../components/analyse/MetricsOverviewForWorkouts';
 
 export type RadarMetric = Metric.SETS | Metric.VOLUME;
 
-/** Axis order of the radar: `Muscles` enum order, starting at 12 o'clock, clockwise. */
-export const RADAR_MUSCLES = Object.values(Muscles);
+/** Default axis order of the radar: built-in muscle order, starting at 12 o'clock, clockwise. */
+export const RADAR_MUSCLES = BUILT_IN_MUSCLES;
 
 const PUSH_MUSCLES = [Muscles.CHEST, Muscles.SHOULDERS, Muscles.TRICEPS];
 const PULL_MUSCLES = [Muscles.BACK, Muscles.BICEPS];
@@ -45,9 +45,12 @@ const lastWeekValue = (comparison: Comparison | undefined): number => {
   return Math.max(0, comparison.value - comparison.difference);
 };
 
-/** This-week and last-week sets/volume per muscle; muscles missing in the map count as 0. */
-export const buildMuscleWeekValues = (muscleMetricMap: Map<Muscles, Map<Metric, Comparison>>): MuscleWeekValues[] =>
-  RADAR_MUSCLES.map((muscle) => {
+/**
+ * This-week and last-week sets/volume per muscle, one entry per axis in `muscles`
+ * (GH-523: the user's overview muscles); muscles missing in the map count as 0.
+ */
+export const buildMuscleWeekValues = (muscleMetricMap: Map<Muscles, Map<Metric, Comparison>>, muscles: Muscles[] = RADAR_MUSCLES): MuscleWeekValues[] =>
+  muscles.map((muscle) => {
     const metrics = muscleMetricMap.get(muscle);
     const sets = metrics?.get(Metric.SETS);
     const volume = metrics?.get(Metric.VOLUME);

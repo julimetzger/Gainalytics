@@ -1,0 +1,211 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F12 Body weight (Analyse › Body Weight, GH-546).
+# Purpose: manual body weight entries: empty state, validation, "," input shown as ".",
+#   KPIs "Current" / "Change in period", entry list, edit and delete.
+# Data basis: baseline import (00_import_baseline.yaml). A FULL_IMPORT resets the body
+#   weight slice (baseline.gains has none), so entry ids start at 1 on every run.
+#   MUTATES the store (adds/edits/deletes entries) -> imports first.
+# All entries use the prefilled date (today), so no calendar picking and no relative dates
+#   are needed: same-day entries sort by id, "Current" = newest id, "Change in period" =
+#   newest - first entry. Only the prefilled date itself is compared against today, computed
+#   at run time (never a fixed date).
+# Merged from: gh546_body_weight.yaml
+- runFlow: 00_import_baseline.yaml
+# today in the app's format (getDateStringFromDate, en-GB short: "Sun, 25/10/26")
+- evalScript: "${var D = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; var d = new Date(); output.today = D[d.getDay()] + ', ' + ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + String(d.getFullYear()).slice(-2)}"
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn:
+    id: 'analyse-drawer-toggle'
+# The first drawer tap after a FULL_IMPORT can be swallowed - one guarded retry.
+- runFlow:
+    when:
+      notVisible: 'Body Weight'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Body Weight'
+    timeout: 15000
+- tapOn: 'Body Weight'
+- extendedWaitUntil:
+    visible:
+      id: 'body-weight-screen'
+    timeout: 20000
+
+# PRECONDITION: no body weight entries after the import
+- assertVisible:
+    id: 'body-weight-empty-state'
+- assertVisible: 'No body weight yet'
+- assertNotVisible:
+    id: '^body-weight-current$'
+
+# Add dialog from the empty state; the date is prefilled with today
+- tapOn:
+    id: 'body-weight-empty-add'
+- extendedWaitUntil:
+    visible: 'Close Add weight'
+    timeout: 10000
+- copyTextFrom:
+    id: 'body-weight-date-button-text'
+- assertTrue: "${maestro.copiedText === output.today}"
+
+# Validation: an implausible value is rejected and the dialog stays open
+- tapOn:
+    id: 'body-weight-weight-input'
+- inputText: '5'
+- tapOn:
+    id: 'body-weight-save'
+- assertVisible:
+    id: 'body-weight-weight-error'
+    text: 'Weight must be between 20 and 500 kg'
+- assertVisible: 'Close Add weight'
+
+# Entry 1: 82,5 typed with a comma is shown with a dot; with a note
+- tapOn:
+    id: 'body-weight-weight-input'
+- eraseText: 6
+- inputText: '82,5'
+- assertVisible:
+    id: 'body-weight-weight-input'
+    text: '82.5'
+- tapOn:
+    id: 'body-weight-note-input'
+- inputText: 'synthetic'
+- hideKeyboard
+- tapOn:
+    id: 'body-weight-save'
+- extendedWaitUntil:
+    visible:
+      id: '^body-weight-current$'
+    timeout: 10000
+- assertNotVisible: 'Close Add weight'
+- assertVisible:
+    id: '^body-weight-current$'
+    text: '82.5 kg'
+# a single entry has no change yet
+- assertVisible:
+    id: 'body-weight-change'
+    text: '–'
+
+# Entry 2: a whole number is shown without trailing zero
+- tapOn:
+    id: '^body-weight-add$'
+- extendedWaitUntil:
+    visible: 'Close Add weight'
+    timeout: 10000
+- tapOn:
+    id: 'body-weight-weight-input'
+- inputText: '81'
+- hideKeyboard
+- tapOn:
+    id: 'body-weight-save'
+- assertVisible:
+    id: '^body-weight-current$'
+    text: '81 kg'
+- assertVisible:
+    id: 'body-weight-change'
+    text: '-1.5 kg'
+
+# Entry 3: 80,6 -> change 80.6 - 82.5
+- tapOn:
+    id: '^body-weight-add$'
+- extendedWaitUntil:
+    visible: 'Close Add weight'
+    timeout: 10000
+- tapOn:
+    id: 'body-weight-weight-input'
+- inputText: '80,6'
+- hideKeyboard
+- tapOn:
+    id: 'body-weight-save'
+- assertVisible:
+    id: '^body-weight-current$'
+    text: '80.6 kg'
+- assertVisible:
+    id: 'body-weight-change'
+    text: '-1.9 kg'
+- assertVisible:
+    id: 'body-weight-chart'
+
+# Entry list (newest first): "<date>  ·  <weight>"
+- scrollUntilVisible:
+    element:
+      id: 'body-weight-entry-text-1'
+    direction: DOWN
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'body-weight-entry-text-3'
+    text: '.*  ·  80\.6 kg'
+- assertVisible:
+    id: 'body-weight-entry-text-2'
+    text: '.*  ·  81 kg'
+- copyTextFrom:
+    id: 'body-weight-entry-text-1'
+- assertTrue: "${maestro.copiedText === output.today + '  ·  82.5 kg'}"
+- assertVisible: 'synthetic'
+
+# Edit entry 3: the dialog is prefilled, 80,8 replaces 80.6
+- tapOn:
+    id: 'body-weight-edit-3'
+- extendedWaitUntil:
+    visible: 'Close Edit weight'
+    timeout: 10000
+- assertVisible:
+    id: 'body-weight-weight-input'
+    text: '80.6'
+- tapOn:
+    id: 'body-weight-weight-input'
+- eraseText: 6
+- inputText: '80,8'
+- hideKeyboard
+- tapOn:
+    id: 'body-weight-save'
+- assertVisible:
+    id: 'body-weight-entry-text-3'
+    text: '.*  ·  80\.8 kg'
+- scrollUntilVisible:
+    element:
+      id: '^body-weight-current$'
+    direction: UP
+- assertVisible:
+    id: '^body-weight-current$'
+    text: '80.8 kg'
+- assertVisible:
+    id: 'body-weight-change'
+    text: '-1.7 kg'
+
+# Delete entry 3 (asks first): back to 81 kg / -1.5 kg
+- scrollUntilVisible:
+    element:
+      id: 'body-weight-edit-3'
+    direction: DOWN
+- tapOn:
+    id: 'body-weight-edit-3'
+- extendedWaitUntil:
+    visible: 'Close Edit weight'
+    timeout: 10000
+- tapOn:
+    id: 'body-weight-delete'
+- extendedWaitUntil:
+    visible: 'Delete weight entry\?'
+    timeout: 10000
+- tapOn:
+    id: 'body-weight-delete-confirm'
+- assertNotVisible:
+    id: 'body-weight-entry-text-3'
+- scrollUntilVisible:
+    element:
+      id: '^body-weight-current$'
+    direction: UP
+- assertVisible:
+    id: '^body-weight-current$'
+    text: '81 kg'
+- assertVisible:
+    id: 'body-weight-change'
+    text: '-1.5 kg'

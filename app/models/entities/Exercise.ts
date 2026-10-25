@@ -1,4 +1,5 @@
 import {Muscles} from '../Muscles';
+import {HealthConnectSegmentKey} from '../HealthConnectSegmentType';
 
 export type Exercise = {
   id?: number;
@@ -17,6 +18,11 @@ export type Exercise = {
    * confirmed the detected reps of that set.
    */
   vlReference?: VelocityLossReference;
+  /**
+   * GH-528: Health Connect segment type chosen by the user. Overrides the name-based rule
+   * (healthConnectMapping.segmentTypeForExercise); `undefined` means "automatic".
+   */
+  healthConnectType?: HealthConnectSegmentKey;
 };
 
 /**
