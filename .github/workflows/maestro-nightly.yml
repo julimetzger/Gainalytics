@@ -232,10 +232,13 @@ jobs:
           SHARD: ${{ matrix.shard }}
         run: |
           res="$AGENT_RUN_DIR/results.tsv"
-          if [[ ! -s "$res" ]]; then
-            for f in ${NIGHTLY_FLOWS}; do printf '%s\tnot-run\t0\t0\n' "$f"; done > "$res"
-            echo "::error title=nightly shard ${SHARD}::no flow ran (emulator or install failed)"
-          fi
+          touch "$res"
+          [[ -s "$res" ]] || echo "::error title=nightly shard ${SHARD}::no flow ran (emulator or install failed)"
+          # Every expected flow gets a row: a shard that stopped early (step timeout, crash) must not
+          # look green just because the flows it reached passed.
+          for f in ${NIGHTLY_FLOWS}; do
+            cut -f1 "$res" | grep -qx "$f" || printf '%s\tnot-run\t0\t0\n' "$f" >> "$res"
+          done
           # Failing-step annotations from the Maestro reports (if any flow ran).
           [[ -d "$AGENT_RUN_DIR/maestro" ]] && { python3 .github/agent-emulator/maestro-summary.py "$AGENT_RUN_DIR" >/dev/null || true; }
           while IFS=$'\t' read -r flow result secs retried; do
@@ -286,6 +289,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SHARD_RESULT: ${{ needs.shard.result }}
+          EXPECTED_SHARDS: "4" # keep in sync with the shard matrix
         run: |
           set -euo pipefail
           cat results/*.tsv 2>/dev/null | sort -n -k1,1 -s > all.tsv || true
@@ -305,8 +309,13 @@ jobs:
             done < all.tsv
           } > summary.md
           cat summary.md >> "$GITHUB_STEP_SUMMARY"
-          if [[ "${total}" -eq 0 ]]; then
-            echo "::error title=nightly::no results at all (shards: ${SHARD_RESULT})"; bad=1
+          shards_with_results=$(cut -f1 all.tsv | sort -u | wc -l)
+          if [[ "${shards_with_results}" -lt "${EXPECTED_SHARDS}" ]]; then
+            echo "::error title=nightly::results from only ${shards_with_results} of ${EXPECTED_SHARDS} shards (shard jobs: ${SHARD_RESULT})"
+            bad=$(( bad + EXPECTED_SHARDS - shards_with_results ))
+          elif [[ "${SHARD_RESULT}" != "success" && "${bad}" -eq 0 ]]; then
+            echo "::error title=nightly::shard jobs ended with '${SHARD_RESULT}' although every reported flow passed"
+            bad=1
           fi
 
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
