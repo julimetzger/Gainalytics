@@ -27,6 +27,7 @@ const TrainingElementPicker = ({
   onToggle,
   hideIconButton = false,
   openListOnShow = false,
+  collapseToSummary = false,
 }: ExercisePickerProps) => {
   const [show, setShow] = useState(visible);
   let allExercises = useAlleExercises();
@@ -142,9 +143,9 @@ const TrainingElementPicker = ({
           GH-324: `open` (patched-in prop) force-closes the internal modal when the picker is
           hidden — without it the modal stayed stuck open over the screen with no way to
           dismiss it after the anchor went display:none. */}
-      <View style={show ? null : {display: 'none'}}>
+      <View style={show || collapseToSummary ? null : {display: 'none'}}>
         <MultiselectDropdown
-          open={show}
+          open={show || collapseToSummary}
           {...(openListOnShow ? {autoOpen: show, selectionHeader: true, onBlur: closeList} : {})}
           label={dropdownLabel}
           enableSearch
@@ -158,11 +159,12 @@ const TrainingElementPicker = ({
           primaryColor={theme.colors.primaryContainer}
           enableAvatar
           multiline={true}
-          hideChip={hideChip}
+          hideChip={hideChip || (collapseToSummary && !show)}
         />
       </View>
       {!hideIconButton && (
         <IconButton
+          testID="element-picker-toggle"
           style={{position: 'absolute', right: 0, zIndex: 2}}
           icon={!show ? 'chevron-down' : 'chevron-up'}
           onPress={() => {
@@ -266,6 +268,12 @@ interface ExercisePickerProps {
    * picker visible and must keep the tap-to-open anchor.
    */
   openListOnShow?: boolean;
+  /**
+   * GH-617: collapsed (`show` false) keeps the dropdown anchor with its
+   * "N selected" summary and only hides the selected chips, instead of hiding
+   * the whole picker. Records mounts it collapsed (`visible={false}`).
+   */
+  collapseToSummary?: boolean;
 }
 
 export default TrainingElementPicker;

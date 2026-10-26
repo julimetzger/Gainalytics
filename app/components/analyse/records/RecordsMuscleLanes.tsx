@@ -1,16 +1,19 @@
 import React from 'react';
-import {StyleSheet, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
-import {MuscleLaneModel} from '../../../utils/RecordsAnalysis';
+import {laneSelection, MuscleLaneModel, RecordsSelection} from '../../../utils/RecordsAnalysis';
 
 const LANE_HEIGHT = 34;
 const BAR_MAX_HEIGHT = 28;
 
 interface Props {
   model: MuscleLaneModel;
+  /** Key of the bar whose records the list shows (GH-617). */
+  selectedKey?: string;
+  onSelect: (selection: RecordsSelection) => void;
 }
 
-const RecordsMuscleLanes = ({model}: Props) => {
+const RecordsMuscleLanes = ({model, selectedKey, onSelect}: Props) => {
   const theme = useTheme();
 
   if (model.lanes.length === 0) {
@@ -34,15 +37,34 @@ const RecordsMuscleLanes = ({model}: Props) => {
               </Text>
             </View>
             <View style={styles.bars}>
-              {lane.counts.map((count, index) => (
-                <View key={index} style={styles.barSlot}>
-                  {count > 0 ? (
-                    <View style={[styles.bar, {height: Math.max(4, (count / laneMax) * BAR_MAX_HEIGHT), backgroundColor: lane.color}]} />
-                  ) : (
+              {lane.counts.map((count, index) => {
+                const selection = laneSelection(model, lane, index);
+                const selected = selection.key === selectedKey;
+                return count > 0 ? (
+                  <Pressable
+                    key={index}
+                    testID={`records-bar-${lane.group}-${index}`}
+                    onPress={() => onSelect(selection)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${selection.title}: ${count} record${count === 1 ? '' : 's'}`}
+                    accessibilityState={{selected}}
+                    hitSlop={{top: 6, bottom: 4}}
+                    style={[styles.barSlot, selectedKey !== undefined && !selected && styles.dimmed]}
+                  >
+                    <View
+                      style={[
+                        styles.bar,
+                        {height: Math.max(4, (count / laneMax) * BAR_MAX_HEIGHT), backgroundColor: lane.color},
+                        selected && [styles.selectedBar, {borderColor: theme.colors.tertiary}],
+                      ]}
+                    />
+                  </Pressable>
+                ) : (
+                  <View key={index} style={styles.barSlot}>
                     <View style={[styles.emptyTick, {backgroundColor: theme.colors.outlineVariant}]} />
-                  )}
-                </View>
-              ))}
+                  </View>
+                );
+              })}
             </View>
           </View>
         );
@@ -98,6 +120,12 @@ const styles = StyleSheet.create({
   bar: {
     alignSelf: 'stretch',
     borderRadius: 3,
+  },
+  selectedBar: {
+    borderWidth: 2,
+  },
+  dimmed: {
+    opacity: 0.45,
   },
   emptyTick: {
     alignSelf: 'stretch',

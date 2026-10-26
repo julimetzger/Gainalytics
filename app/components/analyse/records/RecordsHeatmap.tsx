@@ -1,5 +1,5 @@
 import React from 'react';
-import {Platform, StyleSheet, useWindowDimensions, View} from 'react-native';
+import {Platform, Pressable, StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
 import {HeatCell, HeatmapModel} from '../../../utils/RecordsAnalysis';
 import {rgba, tileAlpha, tileTextColor} from './heatmapColors';
@@ -13,9 +13,12 @@ const HORIZONTAL_CHROME = 2 * 8 + 2 * 14;
 
 interface Props {
   model: HeatmapModel;
+  /** Key of the tile whose records the list shows (GH-617). */
+  selectedKey?: string;
+  onSelect: (cell: HeatCell) => void;
 }
 
-const RecordsHeatmap = ({model}: Props) => {
+const RecordsHeatmap = ({model, selectedKey, onSelect}: Props) => {
   const theme = useTheme();
   const {width} = useWindowDimensions();
   const surface = (theme.colors as unknown as {surfaceContainer?: string}).surfaceContainer ?? theme.colors.surface;
@@ -41,9 +44,17 @@ const RecordsHeatmap = ({model}: Props) => {
     const alpha = tileAlpha(cell.count, model.maxCount);
     const isBest = model.bestKey !== undefined && cell.key === model.bestKey;
     const filled = cell.count > 0;
+    const selected = cell.key === selectedKey;
     return (
       <View key={cell.key} style={{alignItems: 'center'}}>
-        <View
+        {/* Empty tiles are disabled: there are no records to filter to. */}
+        <Pressable
+          testID={`records-tile-${cell.key}`}
+          disabled={!filled}
+          onPress={() => onSelect(cell)}
+          accessibilityRole="button"
+          accessibilityLabel={`${cell.title}: ${cell.count} record${cell.count === 1 ? '' : 's'}`}
+          accessibilityState={{selected, disabled: !filled}}
           style={[
             styles.tile,
             {
@@ -53,12 +64,14 @@ const RecordsHeatmap = ({model}: Props) => {
             },
             !filled && {borderWidth: 1, borderStyle: 'dashed', borderColor: theme.colors.outline},
             isBest && {borderWidth: 2, borderStyle: 'solid', borderColor: theme.colors.onSurface},
+            selected && [styles.selectedTile, {borderColor: theme.colors.tertiary}],
+            selectedKey !== undefined && !selected && styles.dimmed,
           ]}
         >
           {filled && tileSize >= 12 ? (
             <Text style={{fontFamily: mono, fontWeight: '700', fontSize: countFontSize, color: tileTextColor(theme.colors.primary, surface, alpha, theme.colors.onSurface)}}>{cell.count}</Text>
           ) : null}
-        </View>
+        </Pressable>
         {cell.sublabel ? <Text style={[styles.sublabel, {color: theme.colors.onSurfaceVariant}]}>{cell.sublabel}</Text> : null}
       </View>
     );
@@ -106,6 +119,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  selectedTile: {
+    borderWidth: 3,
+    borderStyle: 'solid',
+  },
+  dimmed: {
+    opacity: 0.45,
   },
   sublabel: {
     fontSize: 10,

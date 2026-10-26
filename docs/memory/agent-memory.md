@@ -842,3 +842,15 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Maestro can hang host-side inside `launchApp` (stopApp: false) — only the per-flow timeout ends it
 **Observation (GH-589):** in a fresh shard-2 run, `plan_overflow_actions` stopped logging at `Launch app … without stopping app` (inside `goto_micro69_push.yaml`). The app stayed RESUMED, logcat had no FATAL/ANR and no `START` for the app. It did not recover in 10+ min. The nightly's 900 s `timeout` + one retry covers this. When running by hand, wrap every `tool.sh flow` in `timeout 900`.
 **Apply when:** a flow is silent for minutes. Check `debug/.maestro/tests/<ts>/maestro.log` for the last RUNNING command before you suspect the app.
+
+### Records: pin BOTH range ends for date-independent values; the end input is at `64%, 16%`
+**Observation (GH-617):** the start-input recipe (`31%, 16%`, 12× Backspace, one digit per `inputText`) works the same for the end input at `point: '64%, 16%'`. Range 12/01/2025–03/01/2026 holds all 40 baseline records, button `Mon, 01/12/25 to Sun, 01/03/26`, 13 weeks (no lane bundling), so counts never drift with today's date. Week tiles (UTC): 12/01 = 9, 12/08 = 2, 12/15 = 5, 12/22 = 2, 01/12 = 1, 01/19 = 5, 01/26 = 7, 02/02 = 4, 02/16 = 1, 02/23 = 4. Tiles have testIDs `records-tile-week-YYYY-MM-DD`; bars `records-bar-<Group>-<index>`.
+**Apply when:** asserting Records/heatmap values on the baseline.
+
+### Accessible Pressable with `accessibilityLabel` + `accessibilityState` is fully assertable in Maestro
+**Observation (GH-617):** a `Pressable testID=… accessibilityLabel="week of 01/26/26: 7 records" accessibilityState={{selected, disabled}}` gives `assertVisible: {id, text: '<label>'}`, `{id, selected: true}`, `enabled: false` for disabled tiles, and `copyTextFrom: {id}` returns the label. Good pattern for chart tiles/bars without visible text nodes.
+**Apply when:** making tappable chart cells testable.
+
+### CI emulator: run one section of a long target flow inside the 10-min tool cap
+**Observation (GH-617):** `analyse_drawer_screens.yaml` runs >10 min. `cp` the flow into `.agent-run/flows/`, add `- assertVisible: 'TEMP-END-MARKER'` right after the section under test, and run that copy: the run fails exactly at the marker, which proves every step before it passed (7m44s here). `tool.sh flow` does not forward `-e KEY=VAL`, so temp flows hardcode env values or wrap helpers with `runFlow: {file, env}` (relative path from `.agent-run/flows/`: `../../__tests__/e2e/maestro/flows/<helper>.yaml`).
+**Apply when:** a target flow is too long for a single foreground Bash call.

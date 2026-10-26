@@ -3,9 +3,12 @@ import {
   buildMuscleLaneModel,
   buildRecordCards,
   bundleCounts,
+  bundleGroups,
   countRecordsThisWeek,
   deltaToPreviousRecord,
   findProducingSet,
+  laneSelection,
+  shortDate,
   MAX_DAY_GRID_COLUMNS,
   MAX_LANE_BUCKETS,
   muscleGroupOf,
@@ -362,5 +365,108 @@ describe('countRecordsThisWeek / statusLine', () => {
     expect(statusLine(6)).toBe('Still climbing — 6 PRs this week');
     expect(statusLine(1)).toBe('Still climbing — 1 PR this week');
     expect(statusLine(0)).toBe('No PRs this week yet');
+  });
+});
+
+// GH-617: a tapped tile/bar filters the record list to the workouts behind it.
+// The tile filter must use the very same buckets as the tile counts.
+describe('record-to-tile mapping (GH-617)', () => {
+  const ids = (workouts: Workout[]) => workouts.map((workout) => workout.id);
+
+  it('builds week cells with the records of that week, a stable key and a title', () => {
+    const w1 = recordWorkout(1, 1, new Date(2026, 2, 24), 100);
+    const w2 = recordWorkout(2, 1, new Date(2026, 2, 26), 101);
+    const model = buildHeatmapModel([w1, w2], new Date(2026, 2, 23), new Date(2026, 2, 31, 23, 59, 59), new Accumulation(AccumulationMode.WEEK));
+    // The March row holds every week starting in March: 2, 9, 16, 23, 30.
+    expect(model.rows[0].cells.map((cell) => cell.key)).toEqual(['week-2026-03-02', 'week-2026-03-09', 'week-2026-03-16', 'week-2026-03-23', 'week-2026-03-30']);
+    expect(model.rows[0].cells[3]).toEqual({key: 'week-2026-03-23', title: 'week of 03/23/26', count: 2, workouts: [w1, w2]});
+    expect(model.rows[0].cells[4]).toEqual({key: 'week-2026-03-30', title: 'week of 03/30/26', count: 0, workouts: []});
+  });
+
+  it('uses Monday as first day of week, like the heatmap counts: Sunday belongs to the week before', () => {
+    const sundayLate = recordWorkout(1, 1, new Date(2026, 2, 29, 23, 30), 100); // Sun Mar 29
+    const mondayEarly = recordWorkout(2, 1, new Date(2026, 2, 30, 0, 15), 101); // Mon Mar 30
+    const model = buildHeatmapModel([sundayLate, mondayEarly], new Date(2026, 2, 23), new Date(2026, 3, 5, 23, 59, 59), new Accumulation(AccumulationMode.WEEK));
+    const cells = model.rows.flatMap((row) => row.cells);
+    expect(cells.find((cell) => cell.key === 'week-2026-03-23')).toEqual({key: 'week-2026-03-23', title: 'week of 03/23/26', count: 1, workouts: [sundayLate]});
+    expect(cells.find((cell) => cell.key === 'week-2026-03-30')).toEqual({key: 'week-2026-03-30', title: 'week of 03/30/26', count: 1, workouts: [mondayEarly]});
+  });
+
+  it('every cell count equals its records, and each record is in exactly one cell (all modes)', () => {
+    const workouts = [
+      recordWorkout(1, 1, new Date(2026, 2, 24, 18), 100),
+      recordWorkout(2, 2, new Date(2026, 2, 24, 19), 101),
+      recordWorkout(3, 1, new Date(2026, 3, 5, 10), 102),
+      recordWorkout(4, 2, new Date(2026, 4, 17, 9), 103),
+      recordWorkout(5, 1, new Date(2026, 5, 1, 7), 104),
+    ];
+    [AccumulationMode.WEEK, AccumulationMode.MONTH, AccumulationMode.SINGLE_DAY].forEach((mode) => {
+      const model = buildHeatmapModel(workouts, new Date(2026, 2, 23), new Date(2026, 5, 28, 23, 59, 59), new Accumulation(mode));
+      const cells = model.rows.flatMap((row) => row.cells);
+      cells.forEach((cell) => expect(cell.count).toBe(cell.workouts.length));
+      expect(ids(cells.flatMap((cell) => cell.workouts)).sort()).toEqual([1, 2, 3, 4, 5]);
+    });
+  });
+
+  it('builds month cells with month keys and titles', () => {
+    const w1 = recordWorkout(1, 1, new Date(2026, 2, 24), 100);
+    const model = buildHeatmapModel([w1], new Date(2026, 2, 1), new Date(2026, 3, 30), new Accumulation(AccumulationMode.MONTH));
+    expect(model.rows[0].cells).toEqual([
+      {key: 'month-2026-03', title: 'Mar 2026', count: 1, workouts: [w1], sublabel: 'Mar'},
+      {key: 'month-2026-04', title: 'Apr 2026', count: 0, workouts: [], sublabel: 'Apr'},
+    ]);
+  });
+
+  it('keeps the records of bundled day cells together and names the bundled span', () => {
+    const w1 = recordWorkout(1, 1, new Date(2026, 0, 5, 10), 100); // Mon Jan 5
+    const w2 = recordWorkout(2, 1, new Date(2026, 0, 12, 10), 101); // Mon Jan 12
+    const model = buildHeatmapModel([w1, w2], new Date(2025, 9, 1), new Date(2026, 1, 28), new Accumulation(AccumulationMode.SINGLE_DAY));
+    const bundled = model.rows[0].cells.find((cell) => cell.count > 0);
+    expect(bundled).toEqual({key: bundled?.key, title: 'Mons 01/05/26 – 01/12/26', count: 2, workouts: [w1, w2]});
+  });
+
+  it('names unbundled day cells by weekday and date', () => {
+    const w1 = recordWorkout(1, 1, new Date(2026, 5, 10, 9), 100); // Wed Jun 10
+    const model = buildHeatmapModel([w1], new Date(2026, 5, 1), new Date(2026, 5, 14, 23, 59, 59), new Accumulation(AccumulationMode.SINGLE_DAY));
+    expect(model.rows[2].cells[1]).toEqual({key: 'day-2-1', title: 'Wed 06/10/26', count: 1, workouts: [w1]});
+  });
+
+  it('names micro cells by meso and micro', () => {
+    const plan: TrainingsPlan = {id: 7, name: 'Block', trainings: {'1,1': 100, '2,1': 101}, trainingNames: {}, mesos: [{id: 1, name: 'Meso 1', order: 1, startMicro: 1}]};
+    const w1 = recordWorkout(1, 1, new Date(2026, 2, 24), 100, {trainingsId: 101});
+    const model = buildHeatmapModel([w1], new Date(2026, 2, 1), new Date(2026, 5, 28), Accumulation.fromTrainingsPlan(plan));
+    expect(model.rows[0].cells).toEqual([
+      {key: 'micro-1', title: 'Meso 1 · M1', count: 0, workouts: []},
+      {key: 'micro-2', title: 'Meso 1 · M2', count: 1, workouts: [w1]},
+    ]);
+  });
+
+  it('maps muscle lane bars to their records and builds a list selection', () => {
+    const legs1 = recordWorkout(10, 1, new Date(2026, 2, 24), 175);
+    const legs2 = recordWorkout(11, 1, new Date(2026, 3, 8), 182.5);
+    const chest = recordWorkout(20, 2, new Date(2026, 3, 8), 128);
+    const model = buildMuscleLaneModel([legs1, legs2, chest], [squat, bench], new Date(2026, 2, 23), new Date(2026, 3, 19, 23, 59, 59), new Accumulation(AccumulationMode.WEEK));
+    expect(model.bucketTitles).toEqual(['week of 03/23/26', 'week of 03/30/26', 'week of 04/06/26', 'week of 04/13/26']);
+    expect(model.lanes[0]).toEqual({group: 'Legs', color: '#B1D18A', counts: [1, 0, 1, 0], workouts: [[legs1], [], [legs2], []], total: 2});
+    expect(laneSelection(model, model.lanes[1], 2)).toEqual({key: 'lane-Chest-2', title: 'Chest · week of 04/06/26', workouts: [chest]});
+  });
+
+  it('bundles lane records and titles the bundled span by its first and last day', () => {
+    const legs1 = recordWorkout(10, 1, new Date(2026, 2, 24), 175);
+    const model = buildMuscleLaneModel([legs1], [squat], new Date(2026, 2, 23), new Date(2026, 5, 28, 23, 59, 59), new Accumulation(AccumulationMode.SINGLE_DAY));
+    expect(model.bucketTitles.length).toBe(model.lanes[0].workouts.length);
+    expect(model.lanes[0].counts).toEqual(model.lanes[0].workouts.map((bucket) => bucket.length));
+    // 98 days → bundles of 6 days: Mar 23 – Mar 28 holds the Mar 24 record.
+    expect(model.bucketTitles[0]).toBe('03/23/26 – 03/28/26');
+    expect(laneSelection(model, model.lanes[0], 0)).toEqual({key: 'lane-Legs-0', title: 'Legs · 03/23/26 – 03/28/26', workouts: [legs1]});
+  });
+
+  it('bundleGroups merges adjacent groups like bundleCounts', () => {
+    expect(bundleGroups([[1], [2, 3], [], [4], [5], [6]], 3)).toEqual([[1, 2, 3], [4], [5, 6]]);
+    expect(bundleGroups([[1], [2]], 3)).toEqual([[1], [2]]);
+  });
+
+  it('formats short dates as MM/DD/YY', () => {
+    expect(shortDate(new Date(2026, 6, 9))).toBe('07/09/26');
   });
 });

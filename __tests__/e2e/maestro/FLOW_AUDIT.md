@@ -32,7 +32,7 @@ themselves. Every file named below must be in `/sdcard/Download` —
 | | `exercise_edit_alternatives_delete.yaml` | Alternatives picker sorted/searchable/keeps picks/saves; delete hint with counters, Cancel deletes nothing | imports baseline |
 | F7 Analyse tab | `analyse_dashboard_drilldown.yaml` | Stale-week banner, radar of an empty week, muscle drill-down into Metrics Overview | baseline, read-only |
 | | `analyse_graphics_metrics.yaml` | Chart empty states, Frequency + exercise without crash (GH-169), multi-metric/point tap, date range picker, Metrics Overview | baseline, read-only |
-| | `analyse_drawer_screens.yaml` | Crash fix GH-458 H1: every drawer entry opens; drawer closes; labels; Records KPIs; Training Length outliers; History picker label | baseline, read-only |
+| | `analyse_drawer_screens.yaml` | Crash fix GH-458 H1: every drawer entry opens; drawer closes; labels; Records KPIs; Records tile filter + collapsed filter header (GH-617); Training Length outliers; History picker label | baseline, read-only |
 | F8 Video analysis | `video_import_playback.yaml` | Import via picker, analysis survives resume, Rep Summary (3 reps), secure video, readout follows playback, chart seek | imports baseline; `squat-3reps.mp4` |
 | | `video_list_filters_vl.yaml` | List, filters (RIR/VL/exercise), search, VL reference calibration (14.3% VL, RIR 3-4 → 1-2) | imports `gh415-workout-linked-analysis.gains`; `gh415-result.json` copied into the app's files dir (see flow header) |
 | | `video_compare.yaml` | Set-based labels in header/picker, "N reps \| VL x%", synchronised playback | imports `gh393-compare-labels.gains`; `squat-3reps.mp4` |
