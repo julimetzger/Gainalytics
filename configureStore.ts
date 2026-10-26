@@ -214,8 +214,9 @@ export default () => {
   const store = configureStore({
     reducer: persistedReducer,
     devTools: process?.env?.NODE_ENV === 'development',
-    // RTK 2 throws on a plain array in dev builds ("`middleware` field must be a callback"),
-    // so every Metro bundle died at startup (GH-589). Same list as before, no default middleware.
+    // RTK 2: `middleware` must be a callback. A plain array throws in development and is
+    // silently replaced by the default middleware in production, which dropped the Health
+    // Connect middleware. The Tuple keeps the previous set: no default thunk/check middleware.
     middleware: () => (process?.env?.NODE_ENV === 'development' ? new Tuple(healthConnectMiddleware, logger) : new Tuple(healthConnectMiddleware)),
   });
   let persistor = persistStore(store);

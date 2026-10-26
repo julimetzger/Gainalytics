@@ -1,4 +1,4 @@
-import {AnyAction, combineReducers, Reducer} from 'redux';
+import {AnyAction, combineReducers, Reducer, ReducersMapObject} from 'redux';
 import exerciseReducer from './Exercises/exercisesReducer';
 import {NormalizedState} from './normalizedState';
 import workoutReducer from './Workout/workoutReducer';
@@ -33,7 +33,9 @@ export interface GlobalState {
   healthConnect?: HealthConnectState;
 }
 
-const combinedReducer = combineReducers<GlobalState>({
+// Redux 5: combineReducers infers the state from the reducer map (its type parameter is the map,
+// not the state); `satisfies` keeps the map checked against GlobalState.
+const combinedReducer = combineReducers({
   exercises: exerciseReducer,
   workouts: workoutReducer,
   trainingsPlan: trainingsPlanReducer,
@@ -44,7 +46,7 @@ const combinedReducer = combineReducers<GlobalState>({
   effects: effectsReducer,
   aiChat: aiChatReducer,
   healthConnect: healthConnectReducer,
-});
+} satisfies ReducersMapObject<GlobalState, AnyAction>);
 
 // Same as reduceReducers(combinedReducer, fullStateReducer): the slice reducers first, then the
 // cross-cutting full-state actions. Written out so the result is a redux Reducer that accepts the

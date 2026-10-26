@@ -276,7 +276,7 @@ jest.mock('../../../app/components/picker/date/DateRangePicker', () => {
 
 
 describe('AIChatTab Markdown rendering (GH-186)', () => {
-  const mockUseSelector = useSelector as jest.Mock;
+  const mockUseSelector = jest.mocked(useSelector);
 
   beforeEach(() => {
     mockUseSelector.mockImplementation((selector: (state: any) => any) => {

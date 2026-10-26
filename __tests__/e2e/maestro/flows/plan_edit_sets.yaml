@@ -59,6 +59,44 @@ appId: com.powerliftingworkoutplanner
 - assertNotVisible:
     id: 'plan-pending-set-reps-input'
 
+# ===== drag & drop of a set row (GH-324/GH-418, gesture-handler 3 hook API) =====
+# Pan on Adductor set 1's handle (`plan-set-1-drag`, left edge of the first row)
+# below set 2: the rows swap and are renumbered, so set 1 now holds the 12 reps.
+# Dragging the new set 1 down again restores the planned order, so the steps
+# below still start from 13 / 12. Positions are those of the screen right after
+# goto_micro69_push (1080x2400 emulator); the reps assertions pin the result.
+# The section below (Single leg b stance legpress) plans 12 / 13 reps, so only
+# "set 1 = 13" and "set 2 = 12" are unique to Adductor's planned order. A drop
+# re-renders after several seconds on a dev bundle (redux-logger prints the whole
+# store), and a drag started before that is ignored — hence the waits.
+- swipe:
+    start: '10%,35%'
+    end: '10%,43%'
+    duration: 1500
+- extendedWaitUntil:
+    notVisible:
+      id: '^plan-set-1-reps-input$'
+      text: '13'
+    timeout: 20000
+- assertNotVisible:
+    id: '^plan-set-2-reps-input$'
+    text: '12'
+- assertVisible:
+    id: '^plan-set-1-reps-input$'
+    text: '12'
+- swipe:
+    start: '10%,35%'
+    end: '10%,43%'
+    duration: 1500
+- extendedWaitUntil:
+    visible:
+      id: '^plan-set-1-reps-input$'
+      text: '13'
+    timeout: 20000
+- assertVisible:
+    id: '^plan-set-2-reps-input$'
+    text: '12'
+
 # ===== Add Set copies the previous set (GH-406) =====
 - tapOn:
     id: 'plan-add-set-button-32'
