@@ -14,6 +14,10 @@ appId: com.powerliftingworkoutplanner
 #   * GH-452: History's picker reads "Select Exercises, Muscles"; selecting still
 #     counts; the Analysis picker keeps its own (longer) label.
 #   * GH-341: Records KPIs re-pinned to the baseline (see below).
+#   * GH-617: Records filter header starts collapsed ("1 selected", no chips);
+#     a heatmap tile / muscle bar filters the record list to exactly its records
+#     (fixed range 12/01/2025 - 03/01/2026), tap again / "Show all" / a new range
+#     restore the full list, empty tiles do nothing.
 #   * GH-458 H6 + 08_training_length: Training Length names its outliers
 #     ("2 trainings over 4 h hidden/included"), month view, bar detail, editor.
 #
