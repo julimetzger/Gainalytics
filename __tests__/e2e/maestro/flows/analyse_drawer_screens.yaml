@@ -437,6 +437,10 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: '^records-tile-week-2026-01-26$'
     selected: true
+# The header count must equal the tile's number: read both back from the screen.
+- copyTextFrom:
+    id: '^records-tile-week-2026-01-26$'
+- evalScript: "${output.tileCount = maestro.copiedText.replace(/^.*: /, '').split(' ')[0]}"
 - scrollUntilVisible:
     element:
       id: 'records-show-all'
@@ -445,10 +449,6 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'records-shown-count'
     text: '7 records · week of 01/26/26'
-# The header count equals the tile's number (read both back from the screen).
-- copyTextFrom:
-    id: '^records-tile-week-2026-01-26$'
-- evalScript: "${output.tileCount = maestro.copiedText.replace(/^.*: /, '').split(' ')[0]}"
 - copyTextFrom:
     id: 'records-shown-count'
 - assertTrue: "${maestro.copiedText.split(' ')[0] === output.tileCount && output.tileCount === '7'}"
@@ -560,6 +560,14 @@ appId: com.powerliftingworkoutplanner
     centerElement: true
 - tapOn:
     id: 'records-view-muscle'
+- scrollUntilVisible:
+    element:
+      id: '^records-bar-Back-8$'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: '^records-bar-Back-8$'
+    text: 'Back · week of 01/26/26: 4 records'
 - tapOn:
     id: '^records-bar-Back-8$'
 - scrollUntilVisible:
