@@ -223,6 +223,13 @@ appId: com.powerliftingworkoutplanner
     element: 'Set Kraftblock as current plan'
     direction: DOWN
     timeout: 30000
+# GH-589: the star can be on screen while the meta line below it is still under the
+# bottom bar (failed once on a fresh emulator) — scroll to the asserted row line itself.
+- scrollUntilVisible:
+    element:
+      id: '^plan-meta-6$'
+    direction: DOWN
+    timeout: 20000
 - assertVisible:
     id: '^plan-name-6$'
     text: 'Kraftblock'

@@ -81,6 +81,26 @@ Notes:
 - `run-maestro-from-wsl.sh` auto-detects the WSL host IP from `/etc/resolv.conf` when `E2E_MAESTRO_HOST` is not set.
 - `run-maestro-from-wsl.sh` configures `adb reverse tcp:8081 tcp:8081` (or `E2E_METRO_PORT`) before running flows.
 
+## Nightly run (all target flows)
+
+`.github/workflows/maestro-nightly.yml` runs every automated target flow on emulators, nightly at
+01:00 UTC (02:00 Berlin in winter), but only if `master` changed since the last successful nightly
+run. Start it manually under **Actions → Maestro nightly → Run workflow** (always runs).
+
+- The debug APK is built once, then **4 shards** run in parallel, each on a fresh emulator. The
+  sharding table is in `maestro/FLOW_AUDIT.md`; `.github/agent-emulator/nightly-shard.sh` pushes
+  all fixtures, then runs the shard's flows in order with a 15-minute timeout per flow.
+- A failed flow is **retried once**; "passed on retry" is shown as a warning, not hidden.
+- Results: the run's job summary (table per flow: result, duration, retried), annotations on each
+  shard, and artifacts `nightly-evidence-<shard>` (Maestro reports incl. the failed attempt,
+  screenshots and logcat of failing flows).
+- Failures create or update **one** issue "Nightly Maestro: failing flows"; it is closed
+  automatically once every flow passes again.
+- Typical runtime: about 10 min build + about 30 min per shard (shards in parallel), roughly
+  45 min in total.
+- Not run: `flows/manual/`, helper flows and the Health Connect flows `gh528_*` (they need the
+  Health Connect app on the device).
+
 ## Environment variables
 
 This is the single reference for the variables used by the E2E scripts in

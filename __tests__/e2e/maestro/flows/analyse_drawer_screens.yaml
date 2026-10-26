@@ -223,9 +223,11 @@ appId: com.powerliftingworkoutplanner
     id: 'records-view-heatmap'
 - assertVisible:
     id: '^records-heatmap$'
+# GH-589: scroll to the LAST asserted element — stopping at the count left the empty
+# text below the fold (the count is the section header's last line on screen).
 - scrollUntilVisible:
     element:
-      id: 'records-shown-count'
+      id: 'records-list-empty'
     direction: DOWN
 - assertVisible:
     id: 'records-shown-count'
@@ -546,10 +548,13 @@ appId: com.powerliftingworkoutplanner
       id: 'training-length-selected-trainings'
     direction: DOWN
 - assertVisible: 'Average duration'
+# GH-589: scrolling UP stops at the top edge — target the mode label (it sits ABOVE
+# the Day/Week/Month buttons); stopping at the button left the label off screen.
 - scrollUntilVisible:
     element:
-      id: 'training-length-accumulation-week'
+      id: 'training-length-mode-label'
     direction: UP
+- waitForAnimationToEnd
 - tapOn:
     id: 'training-length-accumulation-week'
 - waitForAnimationToEnd

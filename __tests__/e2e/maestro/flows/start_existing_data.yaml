@@ -170,8 +170,13 @@ appId: com.powerliftingworkoutplanner
     direction: DOWN
     timeout: 30000
 - tapOn: 'baseline.gains'
+# GH-589: do NOT wait for the "Import Data" button here. Settings keeps the scroll
+# position of the "Show Introduction" tap, so the Data buttons sit just below the fold
+# whenever a section above is taller (Health Connect "Connected" card on a fresh
+# nightly emulator) — that wait failed on every attempt. The bottom bar is back once
+# the picker closed; the imported plan name below proves the import itself.
 - extendedWaitUntil:
-    visible: 'Import Data'
+    visible: 'tab-training'
     timeout: 120000
 - tapOn: 'tab-training'
 - extendedWaitUntil:
@@ -186,9 +191,12 @@ appId: com.powerliftingworkoutplanner
     timeout: 60000
 # The import replaced the whole store: "My own plan" (current before) is gone and the
 # automatic choice is the baseline's Push pull again; the onboarding stays closed.
-- assertVisible:
-    id: 'micro-hero-plan-name'
-    text: 'Push pull'
+# Wait for the value (a large import can still be running when the home shows).
+- extendedWaitUntil:
+    visible:
+      id: 'micro-hero-plan-name'
+      text: 'Push pull'
+    timeout: 120000
 - assertVisible:
     id: 'next-training-name'
     text: 'Push squat'
