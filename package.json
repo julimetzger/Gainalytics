@@ -57,7 +57,7 @@
     "react-native-outside-press": "^1.2.2",
     "react-native-paper": "^5.15.3",
     "react-native-paper-dates": "^0.24.1",
-    "react-native-paper-dropdown": "^1.0.7",
+    "react-native-paper-dropdown": "^2.3.1",
     "react-native-reanimated": "~4.3.0",
     "react-native-safe-area-context": "^5.10.1",
     "react-native-screens": "^4.30.0",
