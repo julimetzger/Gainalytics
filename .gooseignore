@@ -9,7 +9,6 @@ coverage/
 .expo/
 .expo-shared/
 *.log
-agent/
 
 # große assets
 assets/videos/
