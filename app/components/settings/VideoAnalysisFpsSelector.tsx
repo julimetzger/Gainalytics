@@ -3,7 +3,7 @@ import {StyleSheet, View} from 'react-native';
 import {SegmentedButtons, Text, useTheme} from 'react-native-paper';
 import {resolveVideoAnalysisFps, VIDEO_ANALYSIS_FPS_OPTIONS} from '../../models/VideoAnalysisFps';
 import {useVideoAnalysisFps} from '../../redux/settings/use/useVideoAnalysisFps';
-import {dispatchSetVideoAnalysisFps} from '../../redux/settings/dispatch/dispatchSetVideoAnalysisFps';
+import {useSetVideoAnalysisFps} from '../../redux/settings/dispatch/dispatchSetVideoAnalysisFps';
 
 const BUTTONS = VIDEO_ANALYSIS_FPS_OPTIONS.map((fps) => ({
   value: String(fps),
@@ -15,7 +15,7 @@ const BUTTONS = VIDEO_ANALYSIS_FPS_OPTIONS.map((fps) => ({
 const VideoAnalysisFpsSelector = () => {
   const theme = useTheme();
   const fps = useVideoAnalysisFps();
-  const setFps = dispatchSetVideoAnalysisFps();
+  const setFps = useSetVideoAnalysisFps();
 
   return (
     <View style={styles.container} testID="settings-video-analysis-fps">
